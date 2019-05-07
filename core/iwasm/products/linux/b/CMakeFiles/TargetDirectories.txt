@@ -1,0 +1,5 @@
+/home/xin/wasm/ssg_micro_runtime-dynamic-apps-projects/core/iwasm/products/linux/b/CMakeFiles/edit_cache.dir
+/home/xin/wasm/ssg_micro_runtime-dynamic-apps-projects/core/iwasm/products/linux/b/CMakeFiles/vmlib.dir
+/home/xin/wasm/ssg_micro_runtime-dynamic-apps-projects/core/iwasm/products/linux/b/CMakeFiles/iwasm.dir
+/home/xin/wasm/ssg_micro_runtime-dynamic-apps-projects/core/iwasm/products/linux/b/CMakeFiles/libiwasm.dir
+/home/xin/wasm/ssg_micro_runtime-dynamic-apps-projects/core/iwasm/products/linux/b/CMakeFiles/rebuild_cache.dir

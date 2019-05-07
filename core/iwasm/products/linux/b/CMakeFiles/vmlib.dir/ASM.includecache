@@ -1,0 +1,10 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/xin/wasm/ssg_micro_runtime-dynamic-apps-projects/core/iwasm/runtime/vmcore_wasm/invokeNative_ia32.s
+
