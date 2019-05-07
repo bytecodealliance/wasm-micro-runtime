@@ -19,7 +19,7 @@ Architecture
 =========================
 WAMR is basically consist of three portions, WASM runtime engine, memory management, messaging and micro service support module.
 
-<img src="./pics/architecture.PNG" width="80%" height="80%">
+<img src="./doc/pics/architecture.PNG" width="80%" height="80%">
  
   
 The core function of WAMR is loading and running WASM application binary from local, and WASM applicaiton execution starts from the main entry. Belowing sections are about how to build WAMR core and WASM app, as well as run the WASM app by loading into WASM core.
@@ -129,7 +129,7 @@ Embed WAMR into software production
 =====================================
 WAMR provided methodology to embed WAMR into your own software product, and defines APIs to enable software code (native) to invoke embedded WASM code.
 
-<img src="./pics/embed.PNG" width="60%" height="60%">
+<img src="./doc/pics/embed.PNG" width="60%" height="60%">
 
 The native code and WASM code execution flows are connected, but the stacks are seperated. WAMR enables the native code to invoke WASM code as invoking own native code transparently. Meanwhile WAMR guarantees the WASM code running inside sandbox.
 
@@ -163,7 +163,7 @@ In general, WAMR provides 3 levels of APIs for programming the WASM application:
 - 3rd party APIs: Programmer can download include any 3rd party C source code, and added into their own WASM app source tree.
 - Platform native APIs: The board vendors define these APIs during their making board firmware. They are provided WASM application to invoke like built-in and 3rd party APIs. In this way board vendors extend APIs which can make programmers develop more complicated WASM apps.
 
-<img src="./pics/extend_library.PNG" width="60%" height="60%">
+<img src="./doc/pics/extend_library.PNG" width="60%" height="60%">
 
 Built-in application library
 ---------------
@@ -242,7 +242,7 @@ There are several limitations during library extending for safe consideration:
 
 Below is a sample of library extension. All invoke across WASM world and native world must be serialized and de-serialized, and native world must do boundary check for every incoming address from WASM world.
 
-<img src="./pics/safe.PNG" width="100%" height="100%">
+<img src="./doc/pics/safe.PNG" width="100%" height="100%">
 
 WAMR implements a base API for timer and messaging by using `EXPORT_WASM_API`. They are good reference of extending library.
 ``` C
