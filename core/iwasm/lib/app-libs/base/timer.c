@@ -35,7 +35,7 @@ struct user_timer {
 struct user_timer * g_timers = NULL;
 
 user_timer_t api_timer_create(int interval, bool is_period, bool auto_start,
-        void (*on_timer_update)(user_timer_t))
+        on_user_timer_update_f on_timer_update)
 {
 
     int timer_id = wasm_create_timer(interval, is_period, auto_start);
