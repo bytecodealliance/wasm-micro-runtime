@@ -5,6 +5,13 @@ WebAssembly Micro Runtime (WAMR) is standalone WebAssembly (WASM) runtime with s
 - WASM application programming API (code available, but compilation is depending on the app manager component)
 - Dynamic WASM application management (Not available in github yet. It will be released soon)
 
+Why should we create WASM runtime out of browser? there are a few points which might be meaningful:
+1.	WASM is already the LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage comparing to those language bound runtimes like JS, Lua.
+2.	WASM is an open standard and the growing trend is so fast as it is supported by the whole web ecosystem
+3.	WASM is designed to be very friendly for compiling to native binary and gaining the native speed.
+4.	Potentially change the development practices. Imaging we can do both the WASM application development and validation in a browser, then just download the wasm binary code into the target device.
+5.	WASM can work without garbage collection. It can be designed to support execution determinics for the time sensitive requirement.
+
 
 Features
 =========================
@@ -21,7 +28,7 @@ Features
 
 Architecture
 =========================
-The application manager component handles the packets that the platform recieved from external through any communication buses such as socket, serial port, PSI. The packets are either request, response or event. It will service the resource request with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application from runtime. For other URIs, it will filter the resource registeration table and router the request to internal queue of responsible application.
+The application manager component handles the packets that the platform recieved from external through any communication buses such as socket, serial port, PSI. A packet type can be either request, response or event. It will service the request with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URIs, it will filter the resource registeration table and router the request to internal queue of responsible application.
 
 The WebAssembly runtime is the execution environment for WASM applications. 
 
