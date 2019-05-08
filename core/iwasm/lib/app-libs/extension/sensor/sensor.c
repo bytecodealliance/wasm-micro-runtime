@@ -28,7 +28,7 @@ typedef struct _sensor {
 static sensor_t g_sensors = NULL;
 
 sensor_t sensor_open(const char* name, int index,
-        void (*sensor_event_handler)(sensor_t, attr_container_t *, void *),
+        sensor_event_handler_f sensor_event_handler,
         void *user_data)
 {
     uint32 id = wasm_sensor_open(name, index);
@@ -63,12 +63,10 @@ sensor_t sensor_open(const char* name, int index,
 
 bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg)
 {
-    char * buffer;
-    int len;
+    char *buffer = (char *)cfg;
+    int len = attr_container_get_serialize_length(cfg);
 
-    bool ret = wasm_sensor_config_with_attr_container(sensor->handle, buffer,
-            len);
-    return ret;
+    return wasm_sensor_config_with_attr_container(sensor->handle, buffer, len);
 }
 
 bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay)
@@ -79,7 +77,6 @@ bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay)
 
 bool sensor_close(sensor_t sensor)
 {
-
     wasm_sensor_close(sensor->handle);
 
     // remove local node
@@ -113,8 +110,6 @@ bool sensor_close(sensor_t sensor)
 void on_sensor_event(uint32 sensor_id, char * buffer, int len)
 {
     attr_container_t * sensor_data = (attr_container_t *) buffer;
-
-    // ??? use buffer or the attributs struct?
 
     // lookup the sensor and call the handlers
     sensor_t s = g_sensors;
