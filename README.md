@@ -5,7 +5,7 @@ WebAssembly Micro Runtime (WAMR) is standalone WebAssembly (WASM) runtime with s
 - WASM application programming API (code available, but compilation is depending on the app manager component)
 - Dynamic WASM application management (Not available in github yet. It will be released soon)
 
-Why should we create WASM runtime out of browser? there are a few points which might be meaningful:
+Why should we use a WASM runtime out of browser? There are a few points which might be meaningful:
 1.	WASM is already the LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage comparing to those language bound runtimes like JS, Lua.
 2.	WASM is an open standard and the growing trend is so fast as it is supported by the whole web ecosystem
 3.	WASM is designed to be very friendly for compiling to native binary and gaining the native speed.
