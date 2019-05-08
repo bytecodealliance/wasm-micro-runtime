@@ -197,8 +197,7 @@ bool wasm_sensor_config_with_attr_container(uint32 sensor, int32 buffer_offset,
     buffer = addr_app_to_native(buffer_offset);
 
     if (buffer != NULL) {
-        attr_container_t * cfg;
-
+        attr_container_t *cfg = (attr_container_t *)buffer;
         sensor_obj_t s = find_sys_sensor_id(sensor);
         if (s == NULL)
             return false;
