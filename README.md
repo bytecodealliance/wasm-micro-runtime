@@ -9,7 +9,7 @@ WebAssembly Micro Runtime (WAMR) is standalone WebAssembly (WASM) runtime with s
 Features
 =========================
 - WASM interpreter (AOT is planned)
-- Provide built-in Libc subset, support side_module=1 EMCC compilation option only
+- Provide built-in Libc subset, support "side_module=1" EMCC compilation option
 - Provide APIs for embedding runtime into production software
 - Provide mechanism for exporting native APIs to WASM applications
 - Support programming firmware apps in multi languages (C/C++/Java/Rust/Go/TypeScript etc.)
@@ -21,12 +21,17 @@ Features
 
 Architecture
 =========================
-WAMR is basically consist of three portions, WASM runtime engine, memory management, messaging and micro service support module.
+The application manager component handles the packets that the platform recieved from external through any communication buses such as socket, serial port, PSI. The packets are either request, response or event. It will service the resource request with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application from runtime. For other URIs, it will filter the resource registeration table and router the request to internal queue of responsible application.
+
+The WebAssembly runtime is the execution environment for WASM applications. 
+
+The messaging layer can suppor the API for WASM applications communicate to each other and also the host environment.
+
+When Ahead of Time compilation is enabled, the WASM application can be either bytecode or compiled native binary. 
 
 <img src="./doc/pics/architecture.PNG" width="80%" height="80%">
- 
+
   
-The core function of WAMR is loading and running WASM application binary from local, and WASM applicaiton execution starts from the main entry. Belowing sections are about how to build WAMR core and WASM app, as well as run the WASM app by loading into WASM core.
 
 Build WAMR Core
 =========================
@@ -131,11 +136,10 @@ ninja run
 
 Embed WAMR into software production
 =====================================
-WAMR provided methodology to embed WAMR into your own software product, and defines APIs to enable software code (native) to invoke embedded WASM code.
+WAMR can be built into a standalone executable which takes WASM application file name as input, and then execute it. To use it in the embedded environment, you should embed WAMR into your own software product. WASM provides a set of APIs for embedders code to load WASM module, instansiate module and invoke WASM function from native call.
 
 <img src="./doc/pics/embed.PNG" width="60%" height="60%">
 
-The native code and WASM code execution flows are connected, but the stacks are seperated. WAMR enables the native code to invoke WASM code as invoking own native code transparently. Meanwhile WAMR guarantees the WASM code running inside sandbox.
 
 A typical WAMR APIs usage is as below:
 ``` C
@@ -162,7 +166,7 @@ A typical WAMR APIs usage is as below:
 
 WASM application library 
 ========================
-In general, WAMR provides 3 levels of APIs for programming the WASM application:
+In general, there are 3 kinds of APIs for programming the WASM application:
 - Built-in APIs: WAMR has already provided a minimal API set for developers. 
 - 3rd party APIs: Programmer can download include any 3rd party C source code, and added into their own WASM app source tree.
 - Platform native APIs: The board vendors define these APIs during their making board firmware. They are provided WASM application to invoke like built-in and 3rd party APIs. In this way board vendors extend APIs which can make programmers develop more complicated WASM apps.
@@ -195,7 +199,7 @@ char *strncpy(char *dest, const char *src, unsigned long n);
 ```
 
 **Base library**<br/>
-the basic support like communication, timers etc. The header files is ```lib/app-libs/base/wasm-app.h```, it includes request and response APIs, event pub/sub APIs and timer APIs. Please be noted that they may not work if you have no corresponding framework to work with them.
+The basic support like communication, timers etc is already available. The header files is ```lib/app-libs/base/wasm-app.h```, it includes request and response APIs, event pub/sub APIs and timer APIs. Please be noted that they may not work if you have no corresponding framework to work with them.
 The API set is listed as below:
 ``` C
 typedef void(*request_handler_f)(request_t *) ;
@@ -231,8 +235,8 @@ bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
 bool sensor_close(sensor_t sensor);
 ```
 
-Exporting Native API mechanism
-==============================
+The mechanism of exporting Native API to WASM application
+=======================================================
 
 The basic working flow for WASM application calling into the native API is described as following diagram.
 <img src="./doc/pics/extend_library.PNG" width="60%" height="60%">
