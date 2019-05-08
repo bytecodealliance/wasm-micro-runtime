@@ -1,6 +1,10 @@
 WebAssembly Micro Runtime
 =========================
-WebAssembly Micro Runtime (WAMR) is a small footprint and standalone WebAssembly (WASM) runtime. It provides a framework for dynamic WASM application management.
+WebAssembly Micro Runtime (WAMR) is standalone WebAssembly (WASM) runtime with small footprint. It includes a few components:
+- WebAssembly VM core
+- WASM application programming API (code available, but compilation is depending on the app manager component)
+- Dynamic WASM application management (Not available in github yet. It will be released soon)
+
 
 Features
 =========================
@@ -156,14 +160,13 @@ A typical WAMR APIs usage is as below:
 ```
 
 
-WASM application library and extension
-========================================
+WASM application library 
+========================
 In general, WAMR provides 3 levels of APIs for programming the WASM application:
 - Built-in APIs: WAMR has already provided a minimal API set for developers. 
 - 3rd party APIs: Programmer can download include any 3rd party C source code, and added into their own WASM app source tree.
 - Platform native APIs: The board vendors define these APIs during their making board firmware. They are provided WASM application to invoke like built-in and 3rd party APIs. In this way board vendors extend APIs which can make programmers develop more complicated WASM apps.
 
-<img src="./doc/pics/extend_library.PNG" width="60%" height="60%">
 
 Built-in application library
 ---------------
@@ -199,8 +202,6 @@ typedef void(*request_handler_f)(request_t *) ;
 typedef void(*response_handler_f)(response_t *, void *) ;
 
 // Request APIs
-void init_resource_register();
-
 bool api_register_resource_handler(const char *url, request_handler_f);
 void api_send_request(request_t * request, response_handler_f response_handler, void * user_data);
 void api_response_send(response_t *response);
@@ -220,7 +221,7 @@ void api_timer_restart(user_timer_t timer, int interval);
 ```
 
 **Library extension reference**<br/>
-It is reference code of library extension for board vendors. Currently we provide an example of extending library to support sensors. The header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is listed as below:
+Currently we provide the sensor APIs as one library extension sample. The header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is listed as below:
 ``` C
 sensor_t sensor_open(const char* name, int index,
                                      void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
@@ -230,21 +231,14 @@ bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
 bool sensor_close(sensor_t sensor);
 ```
 
-Library extension
----------------------
-Library extension means to import new “Platform API” into to WASM apps, to develop more complicated WASM application for this platform. “Platform API” can be any function defined by the platform OS or the board firmware code. WAMR provides the macro `EXPORT_WASM_API` to enable users to import native API to WASM application. 
+Exporting Native API mechanism
+==============================
 
-There are several limitations during library extending for safe consideration:
-- Only use 32 bits number for parameters
-- Don’t passing data structure pointer (do data serialization instead)
-- Do the pointer address conversion in native API
-- Don’t passing function pointer as callback
+The basic working flow for WASM application calling into the native API is described as following diagram.
+<img src="./doc/pics/extend_library.PNG" width="60%" height="60%">
 
-Below is a sample of library extension. All invoke across WASM world and native world must be serialized and de-serialized, and native world must do boundary check for every incoming address from WASM world.
 
-<img src="./doc/pics/safe.PNG" width="100%" height="100%">
-
-WAMR implements a base API for timer and messaging by using `EXPORT_WASM_API`. They are good reference of extending library.
+WAMR provides the macro `EXPORT_WASM_API` to enable users to export native API to WASM application. WAMR implemented a base API for timer and messaging by using `EXPORT_WASM_API`. They can be reference point of extending your own library.
 ``` C
 static NativeSymbol extended_native_symbol_defs[] = {
   EXPORT_WASM_API(wasm_register_resource),
@@ -257,7 +251,20 @@ static NativeSymbol extended_native_symbol_defs[] = {
   EXPORT_WASM_API(wasm_timer_restart)
 };
 ```
-![#f03c15](https://placehold.it/15/f03c15/000000?text=+) **Security attention:** The WebAssembly application is supposed to access its own memory space. If the exposed platform API includes the pointers to system memory space which out of the app memory space, the integrator should carefully design some wrapper function to ensure the memory boundary is not broken.
+
+
+![#f03c15](https://placehold.it/15/f03c15/000000?text=+) **Security attention:** The WebAssembly application is supposed to access its own memory space, the integrator should carefully design the native function to ensure the memory safe. The native API to be exporte to WASM application must follow the rules:
+- Only use 32 bits number for parameters
+- Don’t passing data structure pointer (do data serialization instead)
+- Do the pointer address conversion in native API
+- Don’t passing function pointer as callback
+
+Below is a sample of library extension. All invoke across WASM world and native world must be serialized and de-serialized, and native world must do boundary check for every incoming address from WASM world.
+
+<img src="./doc/pics/safe.PNG" width="100%" height="100%">
+
+Exporting native API steps
+==========================
 
 WAMR implemented a framework for developers to export APIs. The procedure to expose the platform APIs in three steps:
 
@@ -334,6 +341,7 @@ int main(int argc, char **argv)
   return i;
 }
 ```
+
 Comming soon...
 ========================
 We are preparing the open source for application manager and related cool samples like inter-application communication, application life cycle management, 2D graphic demo and more. You will get updated soon.
