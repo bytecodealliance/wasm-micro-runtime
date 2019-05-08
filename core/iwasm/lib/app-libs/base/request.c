@@ -101,7 +101,7 @@ static void transaction_remove(transaction_t *trans)
     }
 }
 
-bool is_event_type(request_t * req)
+static bool is_event_type(request_t * req)
 {
     return req->action == COAP_EVENT;
 }
