@@ -98,10 +98,10 @@ extern void hmu_verify(hmu_t *hmu);
 #define GETBIT(v, offset) ((v) & (1 << (offset)) ? 1 : 0)
 #define CLRBIT(v, offset) (v) &= ~(1 << (offset))
 
-#define SETBITS(v, offset, size, value) do {		\
-		(v) &= ~(((1 << size) - 1) << offset);	\
-		(v) |= value << offset;			\
-	} while(0)
+#define SETBITS(v, offset, size, value) do {        \
+        (v) &= ~(((1 << size) - 1) << offset);      \
+        (v) |= value << offset;                     \
+    } while(0)
 #define CLRBITS(v, offset, size) (v) &= ~(((1 << size) - 1) << offset)
 #define GETBITS(v, offset, size) (((v) & (((1 << size) - 1) << offset)) >> offset)
 
@@ -112,8 +112,8 @@ extern void hmu_verify(hmu_t *hmu);
 #define hmu_to_obj(hmu) (gc_object_t)(SKIP_OBJ_PREFIX((hmu_t*) (hmu) + 1))
 #define obj_to_hmu(obj) ((hmu_t *)((gc_uint8*)(obj) - OBJ_PREFIX_SIZE) - 1)
 
-#define HMU_UT_SIZE     2
-#define HMU_UT_OFFSET	30
+#define HMU_UT_SIZE      2
+#define HMU_UT_OFFSET    30
 
 #define hmu_get_ut(hmu) GETBITS ((hmu)->header, HMU_UT_OFFSET, HMU_UT_SIZE)
 #define hmu_set_ut(hmu, type) SETBITS ((hmu)->header, HMU_UT_OFFSET, HMU_UT_SIZE, type)
@@ -126,7 +126,7 @@ extern void hmu_verify(hmu_t *hmu);
 #define hmu_unmark_pinuse(hmu) CLRBIT ((hmu)->header, HMU_P_OFFSET)
 #define hmu_get_pinuse(hmu) GETBIT ((hmu)->header, HMU_P_OFFSET)
 
-#define HMU_JO_VT_SIZE	27
+#define HMU_JO_VT_SIZE   27
 #define HMU_JO_VT_OFFSET 0
 #define HMU_JO_MB_OFFSET 28
 
@@ -151,7 +151,7 @@ extern void hmu_verify(hmu_t *hmu);
 #define HMU_FC_NORMAL_MAX_SIZE ((HMU_NORMAL_NODE_CNT - 1) << 3)
 #define HMU_IS_FC_NORMAL(size) ((size) < HMU_FC_NORMAL_MAX_SIZE)
 #if HMU_FC_NORMAL_MAX_SIZE >= GC_MAX_HEAP_SIZE
-#	error "Too small GC_MAX_HEAP_SIZE"
+#error "Too small GC_MAX_HEAP_SIZE"
 #endif
 
 typedef struct _hmu_normal_node
@@ -264,14 +264,14 @@ extern gc_handle_t (*gct_vm_get_gc_handle_for_current_instance)(void);
 extern int (*gct_vm_begin_rootset_enumeration)(void* heap);
 extern int (*gct_vm_gc_finished)(void);
 #else
-#define gct_vm_get_java_object_ref_list		bh_get_java_object_ref_list
-#define gct_vm_mutex_init					vm_mutex_init
-#define gct_vm_mutex_destroy				vm_mutex_destroy
-#define gct_vm_mutex_lock					vm_mutex_lock
-#define gct_vm_mutex_unlock					vm_mutex_unlock
-#define gct_vm_get_gc_handle_for_current_instance	app_manager_get_cur_applet_heap
-#define gct_vm_begin_rootset_enumeration			vm_begin_rootset_enumeration
-#define gct_vm_gc_finished			jeff_runtime_gc_finished
+#define gct_vm_get_java_object_ref_list             bh_get_java_object_ref_list
+#define gct_vm_mutex_init                           vm_mutex_init
+#define gct_vm_mutex_destroy                        vm_mutex_destroy
+#define gct_vm_mutex_lock                           vm_mutex_lock
+#define gct_vm_mutex_unlock                         vm_mutex_unlock
+#define gct_vm_get_gc_handle_for_current_instance   app_manager_get_cur_applet_heap
+#define gct_vm_begin_rootset_enumeration            vm_begin_rootset_enumeration
+#define gct_vm_gc_finished                          jeff_runtime_gc_finished
 #endif
 
 #ifdef __cplusplus

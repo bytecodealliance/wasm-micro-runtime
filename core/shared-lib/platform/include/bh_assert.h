@@ -21,16 +21,16 @@
 #include "bh_platform.h"
 
 #ifdef BH_TEST
-#	ifndef BH_DEBUG
-#		error "BH_TEST should be defined under BH_DEBUG"
-#	endif
+#    ifndef BH_DEBUG
+#        error "BH_TEST should be defined under BH_DEBUG"
+#    endif
 #endif
 
 #ifdef BH_TEST
-#	if defined(WIN32) || defined(__linux__)
-#	else
-#		error "Test case can not run on the current platform"
-#	endif
+#    if defined(WIN32) || defined(__linux__)
+#    else
+#        error "Test case can not run on the current platform"
+#    endif
 #endif
 
 #ifdef __cplusplus
@@ -44,14 +44,14 @@ extern void bh_assert_internal(int v, const char *file_name, int line_number, co
 extern void bh_debug_internal(const char *file_name, int line_number, const char *fmt, ...);
 
 #if defined(WIN32) || defined(EMU)
-#	define bh_debug(fmt, ...) bh_debug_internal(__FILE__, __LINE__, fmt, __VA_ARGS__)
+#    define bh_debug(fmt, ...) bh_debug_internal(__FILE__, __LINE__, fmt, __VA_ARGS__)
 #elif defined(__linux__)
-/*#	define bh_debug(...) bh_debug_internal(__FILE__, __LINE__, ## __VA_ARGS__)*/
+/*#    define bh_debug(...) bh_debug_internal(__FILE__, __LINE__, ## __VA_ARGS__)*/
 # define bh_debug bh_debug_internal(__FILE__, __LINE__, "");printf
 #elif defined(PLATFORM_SEC)
-#	define bh_debug(fmt, ...) bh_debug_internal(__FILE__, __LINE__, fmt, __VA_ARGS__)
+#    define bh_debug(fmt, ...) bh_debug_internal(__FILE__, __LINE__, fmt, __VA_ARGS__)
 #else
-#	error "Unsupported platform"
+#    error "Unsupported platform"
 #endif
 
 #else
@@ -63,12 +63,12 @@ extern void bh_debug_internal(const char *file_name, int line_number, const char
 #define bh_assert_abort(x) do {                 \
         if (!x)                                 \
             abort();                            \
-	} while (0)
+    } while (0)
 
 #ifdef BH_TEST
-#	define BH_STATIC
+#    define BH_STATIC
 #else
-#	define BH_STATIC static
+#    define BH_STATIC static
 #endif
 
 #ifdef __cplusplus
