@@ -46,30 +46,30 @@ extern "C" {
 
 /* Standalone GC is used for testing.*/
 #ifndef GC_EMBEDDED
-#	ifndef GC_STANDALONE
-#		define GC_STANDALONE
-#	endif
+#    ifndef GC_STANDALONE
+#        define GC_STANDALONE
+#    endif
 #endif
 
 #if defined(GC_EMBEDDED) && defined(GC_STANDALONE)
-#	error "Can not define GC_EMBEDDED and GC_STANDALONE at the same time"
+#    error "Can not define GC_EMBEDDED and GC_STANDALONE at the same time"
 #endif
 
 #ifdef BH_TEST
-#	ifndef GC_TEST
-#		define GC_TEST
-#	endif
+#    ifndef GC_TEST
+#        define GC_TEST
+#    endif
 #endif
 
 #ifdef BH_DEBUG
 /*instrument mode ignore GC_DEBUG feature, for instrument testing gc_alloc_vo_i_heap only has func_name parameter*/
 #if !defined INSTRUMENT_TEST_ENABLED && !defined GC_DEBUG
-#		define GC_DEBUG
+#        define GC_DEBUG
 #endif
 #endif
 
 #if defined(GC_EMBEDDED) && defined(GC_TEST)
-#	error "Can not defined GC_EMBEDDED and GC_TEST at the same time"
+#    error "Can not defined GC_EMBEDDED and GC_TEST at the same time"
 #endif
 
 typedef void *gc_handle_t;
@@ -200,17 +200,17 @@ extern int gc_set_threshold_factor(void *heap, unsigned int factor);
 /*  internally. Functions without _i suffix are just wrappers with the corresponded functions with*/
 /*  _i suffix. Allocation operation code position are record under DEBUG model for debugging.*/
 #ifdef GC_DEBUG
-#	define ALLOC_EXTRA_PARAMETERS ,const char*file_name,int line_number
-#	define ALLOC_EXTRA_ARGUMENTS , __FILE__, __LINE__
-#	define ALLOC_PASSDOWN_EXTRA_ARGUMENTS , file_name, line_number
-#	define gc_alloc_vo_h(heap, size) gc_alloc_vo_i_heap(heap, size, __FILE__, __LINE__)
-#	define gc_free_h(heap, obj) gc_free_i_heap(heap, obj, __FILE__, __LINE__)
+#    define ALLOC_EXTRA_PARAMETERS ,const char*file_name,int line_number
+#    define ALLOC_EXTRA_ARGUMENTS , __FILE__, __LINE__
+#    define ALLOC_PASSDOWN_EXTRA_ARGUMENTS , file_name, line_number
+#    define gc_alloc_vo_h(heap, size) gc_alloc_vo_i_heap(heap, size, __FILE__, __LINE__)
+#    define gc_free_h(heap, obj) gc_free_i_heap(heap, obj, __FILE__, __LINE__)
 #else
-#	define ALLOC_EXTRA_PARAMETERS
-#	define ALLOC_EXTRA_ARGUMENTS
-#	define ALLOC_PASSDOWN_EXTRA_ARGUMENTS
-#	define gc_alloc_vo_h                    gc_alloc_vo_i_heap
-#	define gc_free_h                        gc_free_i_heap
+#    define ALLOC_EXTRA_PARAMETERS
+#    define ALLOC_EXTRA_ARGUMENTS
+#    define ALLOC_PASSDOWN_EXTRA_ARGUMENTS
+#    define gc_alloc_vo_h                    gc_alloc_vo_i_heap
+#    define gc_free_h                        gc_free_i_heap
 #endif
 
 /**
