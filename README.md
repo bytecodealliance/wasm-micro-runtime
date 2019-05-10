@@ -6,7 +6,7 @@ WebAssembly Micro Runtime (WAMR) is standalone WebAssembly (WASM) runtime with s
 - Dynamic WASM application management (Not available in github yet. It will be released soon)
 
 Why should we use a WASM runtime out of browser? There are a few points which might be meaningful:
-1.	WASM is already the LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage comparing to those language bound runtimes like JS, Lua.
+1.	WASM is already a LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage comparing to those language bound runtimes like JS, Lua.
 2.	WASM is an open standard and the growing trend is so fast as it is supported by the whole web ecosystem
 3.	WASM is designed to be very friendly for compiling to native binary and gaining the native speed.
 4.	Potentially change the development practices. Imaging we can do both the WASM application development and validation in a browser, then just download the wasm binary code into the target device.
@@ -28,7 +28,7 @@ Features
 
 Architecture
 =========================
-The application manager component handles the packets that the platform received from external through any communication buses such as socket, serial port, PSI. A packet type can be either request, response or event. It will service the request with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URIs, it will filter the resource registration table and router the request to internal queue of responsible application.
+The application manager component handles the packets that the platform received from external through any communication buses such as socket, serial port, PSI. A packet type can be either request, response or event. The app manager will serve the requests with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URIs, it will filter the resource registration table and router the request to internal queue of responsible application.
 
 The WebAssembly runtime is the execution environment for WASM applications. 
 
@@ -176,7 +176,7 @@ WASM application library
 In general, there are 3 kinds of APIs for programming the WASM application:
 - Built-in APIs: WAMR has already provided a minimal API set for developers. 
 - 3rd party APIs: Programmer can download include any 3rd party C source code, and added into their own WASM app source tree.
-- Platform native APIs: The board vendors define these APIs during their making board firmware. They are provided WASM application to invoke like built-in and 3rd party APIs. In this way board vendors extend APIs which can make programmers develop more complicated WASM apps.
+- Platform native APIs: WAMR provides a mechanism to export the native API to the WASM applications.
 
 
 Built-in application library
@@ -206,7 +206,7 @@ char *strncpy(char *dest, const char *src, unsigned long n);
 ```
 
 **Base library**<br/>
-The basic support like communication, timers etc is already available. The header files is ```lib/app-libs/base/wasm-app.h```, it includes request and response APIs, event pub/sub APIs and timer APIs. Please be noted that they may not work if you have no corresponding framework to work with them.
+The basic support for communication, timers etc is already available. You can refer to the header files ```lib/app-libs/base/wasm-app.h``` which contains the definitions for request and response APIs, event pub/sub APIs and timer APIs. Please be noted that these APIs require the native implementations.
 The API set is listed as below:
 ``` C
 typedef void(*request_handler_f)(request_t *) ;
@@ -232,7 +232,7 @@ void api_timer_restart(user_timer_t timer, int interval);
 ```
 
 **Library extension reference**<br/>
-Currently we provide the sensor APIs as one library extension sample. The header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is listed as below:
+Currently we provide the sensor APIs as one library extension sample. In the header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is defined as below:
 ``` C
 sensor_t sensor_open(const char* name, int index,
                                      void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
