@@ -32,7 +32,7 @@ The application manager component handles the packets that the platform recieved
 
 The WebAssembly runtime is the execution environment for WASM applications. 
 
-The messaging layer can suppor the API for WASM applications communicate to each other and also the host environment.
+The messaging layer can support the API for WASM applications communicate to each other and also the host environment.
 
 When Ahead of Time compilation is enabled, the WASM application can be either bytecode or compiled native binary. 
 
