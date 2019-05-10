@@ -28,7 +28,7 @@ Features
 
 Architecture
 =========================
-The application manager component handles the packets that the platform recieved from external through any communication buses such as socket, serial port, PSI. A packet type can be either request, response or event. It will service the request with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URIs, it will filter the resource registeration table and router the request to internal queue of responsible application.
+The application manager component handles the packets that the platform received from external through any communication buses such as socket, serial port, PSI. A packet type can be either request, response or event. It will service the request with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URIs, it will filter the resource registration table and router the request to internal queue of responsible application.
 
 The WebAssembly runtime is the execution environment for WASM applications. 
 
@@ -62,7 +62,7 @@ make
 ```
 Zephyr
 -------------------------
-You need download Zephyr source code first and embeded WAMR into it.
+You need download Zephyr source code first and embedded WAMR into it.
 ``` Bash
 git clone https://github.com/zephyrproject-rtos/zephyr.git
 cd zephyr/samples/
@@ -301,7 +301,7 @@ The pre-defined MACRO `EXPORT_WASM_API` should be used to declare a function exp
 #define EXPORT_WASM_API(symbol)  {#symbol, symbol}
 ```
 
-Below code example shows how to extend the library to support `customeized()`:
+Below code example shows how to extend the library to support `customized()`:
 ``` C
 //lib-export-impl.c
 void customized()
