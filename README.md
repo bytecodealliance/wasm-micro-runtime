@@ -353,7 +353,7 @@ int main(int argc, char **argv)
 }
 ```
 
-Comming soon...
+Coming soon...
 ========================
 We are preparing the open source for application manager and related cool samples like inter-application communication, application life cycle management, 2D graphic demo and more. You will get updated soon.
 
