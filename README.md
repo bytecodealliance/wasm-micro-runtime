@@ -54,7 +54,7 @@ sudo apt-get install g++-multilib
 ```
 After installing dependencies, build the source code:
 ``` Bash
-cd products/linux/
+cd core/iwasm/products/linux/
 mkdir build
 cd build
 cmake ..
