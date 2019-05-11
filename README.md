@@ -85,8 +85,9 @@ git clone https://github.com/emscripten-core/emsdk.git
 emsdk install latest
 emsdk activate latest
 ```
-Add ```./emsdk_env.sh``` into the path to ease future use, or source it everytime.
-The Emscripten website provides other installtion methods beyond Linux.
+
+add ```./emsdk_env.sh``` into the path to ease future use, or source it everytime.
+The Emscripten website provides other installation methods beyond Linux.
 
 (TODO) The user should copy the app-libs folder into project and include and build.
 
@@ -116,7 +117,7 @@ int main(int argc, char **argv)
   return 0;
 }
 ```
-Use the emcc commmand below to build the WASM C source code into the WASM binary.
+Use the emcc command below to build the WASM C source code into the WASM binary.
 ``` Bash
 emcc -g -O3 *.c -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 \
                 -s TOTAL_MEMORY=65536 -s TOTAL_STACK=4096 -o test.wasm
