@@ -1,22 +1,25 @@
 WebAssembly Micro Runtime
 =========================
 WebAssembly Micro Runtime (WAMR) is standalone WebAssembly (WASM) runtime designed for a small footprint. It includes:
-- A WebAssembly (WASM) VM core component (the VM runtime and supporting APIs for the guest application).
+- A WebAssembly (WASM) VM core
+- The supporting APIs for the WASM applications (code is available but compilation depends on the app manager component)
 - A mechanism for dynamic management of the WASM application (Not available on Github yet. To be released soon)
 
+Why should you use a WASM runtime out of your browser? There are a few points where this might be meaningful:	
+1.	WASM is already a LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage compared to language bound runtimes like JS or Lua.	
+2.	WASM is an open standard and it is fast becoming supported by the whole web ecosystem.	
+3.	WASM is designed to be very friendly for compiling to native binaries and gaining the native speed.	
+4.	It can potentially change the development practices. Imagine we can do both the WASM application development and validation in a browser, then just download the WASM binary code onto the target device.	
+5.	WASM can work without garbage collection. It is designed to support execution determinics for the time sensitive requirement.
+6.  Maintain the safety goals WASM has of providing a sandboxed execution enviornment for untrusted code. In addition, because WASM is a compilation target, this implies a benefit of being able to target both an execution and security profile that is consistent across popular high-level programming languages.
 
-Some benefits of WASM with out of browser (standalone) support:
-
-1. Keep the benefit of supporting the WASM binary format (fast, efficient, and portable) but without dependency on the browser or JavaScript. This opens the door to applying WASM usage in a much broader class of scenarios.
-2. Maintain the safety goals WASM has of providing a sandboxed execution enviornment for untrusted code. In addition, because WASM is a compilation target, this implies a benefit of being able to target both an execution and security profile that is consistent across popular high-level programming languages.
-3. WASM is an open W3C standard already with broad and entrenched support in web application. Support for the off-browser scenario is fast growing with definite and growing momentum.
 
 
 Current Features of WAMR
 =========================
 - WASM interpreter (AOT is planned)
 - Provides support for a subset of Lib.
-- Supports "side_module=1" EMCC compilation option
+- Supports "side_module=1" EMCC compilation option 
 - Provides API's for embedding runtime into production software
 - Provides a mechanism for exporting native API's to WASM applications
 - Supports the programming of firmware apps in a large range of languages (C/C++/Java/Rust/Go/TypeScript etc.)
