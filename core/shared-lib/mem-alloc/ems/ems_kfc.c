@@ -44,7 +44,7 @@ int gci_check_platform()
     CHECK(1, sizeof(gc_int8));
     CHECK(1, sizeof(gc_uint8));
     CHECK(4, sizeof(gc_size_t));
-    CHECK(4, sizeof(void *));
+    /*CHECK(4, sizeof(void *));*/
 
     return GC_SUCCESS;
 }
