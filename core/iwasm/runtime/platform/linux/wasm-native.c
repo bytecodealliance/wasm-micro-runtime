@@ -109,31 +109,44 @@ __syscall3_wrapper(int32 arg0, int32 arg1, int32 arg2, int32 arg3)
             return syscall(54, arg1, arg2, wsz);
         }
 
-        case 145: /* readv */
         case 146: /* writev */
         {
             /* Implement syscall 54 and syscall 146 to support printf()
                for non SIDE_MODULE=1 mode */
-            uint32 iovcnt = arg3, i;
-            struct iovec *vec_begin, *vec;
+            struct iovec_app {
+                int32 iov_base_offset;
+                uint32 iov_len;
+            } *vec;
+            int32 vec_offset = arg2, str_offset;
+            uint32 iov_count = arg3, i;
+            int32 count = 0;
+            char *iov_base, *str;
 
-            if (!validate_app_addr(arg2, sizeof(struct iovec)))
+            if (!validate_app_addr(vec_offset, sizeof(struct iovec_app)))
                 return 0;
 
-            vec_begin = vec = (struct iovec*)addr_app_to_native(arg2);
-            for (i = 0; i < iovcnt; i++, vec++) {
+            vec = (struct iovec_app *)addr_app_to_native(vec_offset);
+            for (i = 0; i < iov_count; i++, vec++) {
                 if (vec->iov_len > 0) {
-                    if (!validate_app_addr((int32)vec->iov_base, 1))
+                    if (!validate_app_addr(vec->iov_base_offset, 1))
                         return 0;
-                    vec->iov_base = addr_app_to_native((int32)vec->iov_base);
+                    iov_base = (char*)addr_app_to_native(vec->iov_base_offset);
+
+                    if (!(str_offset = module_malloc(vec->iov_len + 1)))
+                        return 0;
+
+                    str = addr_app_to_native(str_offset);
+
+                    memcpy(str, iov_base, vec->iov_len);
+                    str[vec->iov_len] = '\0';
+                    count += wasm_printf("%s", str);
+
+                    module_free(str_offset);
                 }
             }
-          if (arg0 == 145)
-              return syscall(145, arg1, vec_begin, arg3);
-          else
-              return syscall(146, arg1, vec_begin, arg3);
+            return count;
         }
-
+        case 145: /* readv */
         case 3: /* read*/
         case 5: /* open */
         case 221: /* fcntl */
