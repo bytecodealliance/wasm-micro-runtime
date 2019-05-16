@@ -1,14 +1,14 @@
-Introduction
-==============
+#User Guide
+
+##Introduction
+
 This project aims to demonstrate wasm app management and programming model of WAMR.
 
-Build all binaries
-==============
+##Build all binaries
 Execute the build.sh script then all binaries including wasm application files would be generated in 'out' directory.
 `./build.sh`
 
-Out directory structure
-------------------------------
+###Out directory structure
  <pre>
 out/
 ├── host_tool
@@ -47,8 +47,7 @@ out/
     + timer.wasm
     This application shows the timer programming model. It creates a periodic timer that prints the current expiry number in every second.
 
-Run
-==========================
+##Run
 - Enter the out directory
   `cd ./out/`
 
@@ -86,10 +85,9 @@ Run
 
   >Note: You have to manually kill the simple process by Ctrl+C after use.
 
-Output example
----------------------------------
+###Output example
 
-**Output of simple**
+####Output of simple
 ```
 $ ./simple -s
 App Manager started.
@@ -248,7 +246,7 @@ connection lost, and waiting for client to reconnect...
 
 ```
 
-**Output of host_tool**
+####Output of host_tool
 ```
 $ ./host_tool -q
 
