@@ -28,15 +28,15 @@ simple/
         └── timer.c
 </pre>
 
-- build.sh
+- build.sh<br/>
   The script to build all binaries.
-- CMakeLists.txt
+- CMakeLists.txt<br/>
   CMake file used to build the simple application.
-- README.md
+- README.md<br/>
   The file you are reading currently.
-- src/ext-lib-export.c
+- src/ext-lib-export.c<br/>
   This file is used to export native APIs. See README.md in WAMR root directory for detail.
-- src/iwam_main.c
+- src/iwam_main.c<br/>
   This file should be implemented by platform integrator in which a host interface is provided to interact with WAMR app-manager. See `{WAMR_ROOT}/core/app-mgr/app-mgr-shared/app-manager-export.h` for the definition of the host interface.
 ```
   /* Interfaces of host communication */
@@ -61,9 +61,9 @@ app_manager_startup(&interface);
 The `host_init_func` is automatically called when app-manager startup. And `host_send_fun` will be called by app-manager to send data to host anytime.
 >Note: Currently since app-manager will keep running and never exit, `host_destroy_fun` has no chance to get executed. So you can leave this API implementation empty.
 
-- src/main.c
+- src/main.c<br/>
   The main file.
-- wasm-apps
+- wasm-apps<br/>
   Source files of sample wasm applications.
 
 Build all binaries
