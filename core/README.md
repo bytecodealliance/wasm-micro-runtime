@@ -34,17 +34,17 @@ out/
 
 - wasm-apps:
   Sample wasm applications that demonstrate all APIs of the WAMR programming model. The source codes are in the wasm-apps directory under the root of this project.
-    + event_publisher.wasm
+    + event_publisher.wasm<br/>
     This application shows the sub/sub programming model. The pub application publishes the event "alert/overheat" by calling api_publish_event() API. The subscriber could be host_tool or other wasm application.
-    + event_subscriber.wasm
+    + event_subscriber.wasm<br/>
     This application shows the sub/pub programming model. The sub application subscribes the "alert/overheat" event by calling api_subscribe_event() API so that it is able to receive the event once generated and published by the pub application. To make the process clear to interpret, the sub application dumps the event when receiving it.
-    + request_handler.wasm
+    + request_handler.wasm<br/>
     This application shows the request/response programming model. The request handler application registers 2 resources(/url1 and /url2) by calling api_register_resource_handler() API. The request sender could be host_tool or other wasm application.
-    + request_sender.wasm
+    + request_sender.wasm<br/>
     This application shows the request/response programming model. The sender application sends 2 requests, one is "/app/request_handler/url1" and the other is "url1". The former is an accurate request which explicitly specifies the name of request handler application in the middle of the URL and the later is a general request.
-    + sensor.wasm
+    + sensor.wasm<br/>
     This application shows the sensor programming model. It opens a test sensor and configures the sensor event generating interval to 1 second. To make the process clear to interpret, the application dumps the sensor event when receiving it.
-    + timer.wasm
+    + timer.wasm<br/>
     This application shows the timer programming model. It creates a periodic timer that prints the current expiry number in every second.
 
 Run
