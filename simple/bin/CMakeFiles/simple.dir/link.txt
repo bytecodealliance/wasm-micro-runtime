@@ -1,0 +1,1 @@
+/usr/bin/cc  -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic -g   -m32 -Wl,--gc-sections CMakeFiles/simple.dir/src/main.c.o CMakeFiles/simple.dir/src/iwasm_main.c.o CMakeFiles/simple.dir/src/ext-lib-export.c.o  -o simple libvmlib.a -lm -ldl -lpthread 

@@ -1,0 +1,4 @@
+/home/shaka/work/ssg_micro_runtime-dynamic-apps-projects/wamr/samples/simple/cmake_build/CMakeFiles/rebuild_cache.dir
+/home/shaka/work/ssg_micro_runtime-dynamic-apps-projects/wamr/samples/simple/cmake_build/CMakeFiles/edit_cache.dir
+/home/shaka/work/ssg_micro_runtime-dynamic-apps-projects/wamr/samples/simple/cmake_build/CMakeFiles/vmlib.dir
+/home/shaka/work/ssg_micro_runtime-dynamic-apps-projects/wamr/samples/simple/cmake_build/CMakeFiles/simple.dir
