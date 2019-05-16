@@ -1,311 +1,363 @@
-#User Guide
+WebAssembly Micro Runtime
+=========================
+WebAssembly Micro Runtime (WAMR) is standalone WebAssembly (WASM) runtime with small footprint. It includes a few components:
+- WebAssembly VM core
+- WASM application programming API (code available, but compilation is depending on the app manager component)
+- Dynamic WASM application management (Not available in github yet. It will be released soon)
 
-##Introduction
+Why should we use a WASM runtime out of browser? There are a few points which might be meaningful:
+1.	WASM is already the LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage comparing to those language bound runtimes like JS, Lua.
+2.	WASM is an open standard and the growing trend is so fast as it is supported by the whole web ecosystem
+3.	WASM is designed to be very friendly for compiling to native binary and gaining the native speed.
+4.	Potentially change the development practices. Imaging we can do both the WASM application development and validation in a browser, then just download the wasm binary code into the target device.
+5.	WASM can work without garbage collection. It can be designed to support execution determinics for the time sensitive requirement.
 
-This project aims to demonstrate wasm app management and programming model of WAMR.
 
-##Build all binaries
-Execute the build.sh script then all binaries including wasm application files would be generated in 'out' directory.
-`./build.sh`
+Features
+=========================
+- WASM interpreter (AOT is planned)
+- Provide built-in Libc subset, support "side_module=1" EMCC compilation option
+- Provide APIs for embedding runtime into production software
+- Provide mechanism for exporting native APIs to WASM applications
+- Support programming firmware apps in multi languages (C/C++/Java/Rust/Go/TypeScript etc.)
+- App sandbox execution environment on embedded OS
+- Pure asynchronized programming model
+- Menu configuration for easy platform integration
+- Support micro service and pub-sub event inter-app communication models
+- Easy to extend to support remote FW application management from host or cloud
 
-###Out directory structure
- <pre>
-out/
-├── host_tool
-├── simple
-└── wasm-apps
-    ├── event_publisher.wasm
-    ├── event_subscriber.wasm
-    ├── request_handler.wasm
-    ├── request_sender.wasm
-    ├── sensor.wasm
-    └── timer.wasm
- </pre>
+Architecture
+=========================
+The application manager component handles the packets that the platform recieved from external through any communication buses such as socket, serial port, PSI. A packet type can be either request, response or event. It will service the request with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URIs, it will filter the resource registeration table and router the request to internal queue of responsible application.
 
-- host_tool:
-  A small testing tool to interact with WAMR. See the usage of this tool by executing "./host_tool -h".
-  `./host_tool -h`
+The WebAssembly runtime is the execution environment for WASM applications. 
 
-- simple:
-  The simple application with WAMR runtime built in. See the usage of this application by executing "./simple -h".
-  `./simple -h`
->Note: The connection between simple and host_tool is TCP by default and this guide uses default connection. You can also use the UART mode. To achieve this you have to uncomment the below line in CMakeLists.txt and rebuild. You have to set up a UART hardware connection between 2 machines one of which runs the host_tool and the other runs the simple application. See the help of host_tool and the simple application to know how to specify UART device parameters.
-`#add_definitions (-DCONNECTION_UART)`
+The messaging layer can suppor the API for WASM applications communicate to each other and also the host environment.
 
-- wasm-apps:
-  Sample wasm applications that demonstrate all APIs of the WAMR programming model. The source codes are in the wasm-apps directory under the root of this project.
-    + event_publisher.wasm
-    This application shows the sub/sub programming model. The pub application publishes the event "alert/overheat" by calling api_publish_event() API. The subscriber could be host_tool or other wasm application.
-    + event_subscriber.wasm
-    This application shows the sub/pub programming model. The sub application subscribes the "alert/overheat" event by calling api_subscribe_event() API so that it is able to receive the event once generated and published by the pub application. To make the process clear to interpret, the sub application dumps the event when receiving it.
-    + request_handler.wasm
-    This application shows the request/response programming model. The request handler application registers 2 resources(/url1 and /url2) by calling api_register_resource_handler() API. The request sender could be host_tool or other wasm application.
-    + request_sender.wasm
-    This application shows the request/response programming model. The sender application sends 2 requests, one is "/app/request_handler/url1" and the other is "url1". The former is an accurate request which explicitly specifies the name of request handler application in the middle of the URL and the later is a general request.
-    + sensor.wasm
-    This application shows the sensor programming model. It opens a test sensor and configures the sensor event generating interval to 1 second. To make the process clear to interpret, the application dumps the sensor event when receiving it.
-    + timer.wasm
-    This application shows the timer programming model. It creates a periodic timer that prints the current expiry number in every second.
+When Ahead of Time compilation is enabled, the WASM application can be either bytecode or compiled native binary. 
 
-##Run
-- Enter the out directory
-  `cd ./out/`
+<img src="./doc/pics/architecture.PNG" width="80%" height="80%">
 
-- Startup the 'simple' process works in TCP server mode
-  `./simple -s`
+  
 
-  You would see "App Manager started." is printed.
-  `App Manager started.`
+Build WAMR Core
+=========================
+Please follow below instructions to build WAMR core on different platforms.
 
-- Query all installed applications
-  `./host_tool -q`
-
-- Install the request handler wasm application
-  `./host_tool -i request_handler -f ./wasm-apps/request_handler.wasm`
-
-- Send request to specific wasm application
-  `./host_tool -r /app/request_handler/url1 -A GET`
-
-- Send a general request (not specify target application name)
-  `./host_tool -r /url1 -A GET`
-
-- Install the event publisher wasm application
-  `./host_tool -i pub -f ./wasm-apps/event_publisher.wasm`
-
-- Subscribe event by host_tool
-  `./host_tool -s /alert/overheat -a 3000`
-
-- Install the event subscriber wasm application
-  `./host_tool -i sub -f ./wasm-apps/event_subscriber.wasm`
-
-- Uninstall the wasm app
-  `./host_tool -u request_handler`
-  `./host_tool -u pub`
-  `./host_tool -u sub`
-
-  >Note: You have to manually kill the simple process by Ctrl+C after use.
-
-###Output example
-
-####Output of simple
+Linux
+-------------------------
+Firstly please install library dependencies of lib gcc.
+Use below installation commands for Ubuntu Linux: 
+``` Bash
+sudo apt install lib32gcc-5-dev
+sudo apt-get install g++-multilib
 ```
-$ ./simple -s
-App Manager started.
-connection established!
-sent 137 bytes to host
-Query Applets success!
-Attribute container dump:
-Tag: Applets Info
-Attribute list:
-  key: num, type: int, value: 0x0
-
-connection lost, and waiting for client to reconnect...
-connection established!
-Install WASM app success!
-sent 16 bytes to host
-WASM app 'request_handler' started
-connection lost, and waiting for client to reconnect...
-connection established!
-Send request to applet: request_handler
-Send request to app request_handler success.
-App request_handler got request, url url1, action 1
-[resp] ### user resource 1 handler called
-sent 150 bytes to host
-Wasm app process request success.
-connection lost, and waiting for client to reconnect...
-connection established!
-Send request to app request_handler success.
-App request_handler got request, url /url1, action 1
-[resp] ### user resource 1 handler called
-sent 150 bytes to host
-Wasm app process request success.
-connection lost, and waiting for client to reconnect...
-connection established!
-sent 137 bytes to host
-Query Applets success!
-Attribute container dump:
-Tag: Applets Info
-Attribute list:
-  key: num, type: int, value: 0x1
-  key: applet1, type: string, value: request_handler
-  key: heap1, type: int, value: 0xc000
-
-connection lost, and waiting for client to reconnect...
-connection established!
-Install WASM app success!
-sent 16 bytes to host
-WASM app 'pub' started
-connection lost, and waiting for client to reconnect...
-connection established!
-Install WASM app success!
-sent 16 bytes to host
-WASM app 'sub' started
-am_register_event adding url:(alert/overheat)
-client: 3 registered event (alert/overheat)
-connection lost, and waiting for client to reconnect...
-Send request to app sub success.
-App sub got request, url alert/overheat, action 6
-### user over heat event handler called
-Attribute container dump:
-Tag: 
-Attribute list:
-  key: warning, type: string, value: temperature is over high
-
-Wasm app process request success.
-Send request to app sub success.
-App sub got request, url alert/overheat, action 6
-### user over heat event handler called
-Attribute container dump:
-Tag: 
-Attribute list:
-  key: warning, type: string, value: temperature is over high
-
-Wasm app process request success.
-connection established!
-am_register_event adding url:(alert/overheat)
-client: -3 registered event (alert/overheat)
-sent 16 bytes to host
-sent 142 bytes to host
-Send request to app sub success.
-App sub got request, url alert/overheat, action 6
-### user over heat event handler called
-Attribute container dump:
-Tag: 
-Attribute list:
-  key: warning, type: string, value: temperature is over high
-
-Wasm app process request success.
-Send request to app sub success.
-App sub got request, url alert/overheat, action 6
-### user over heat event handler called
-Attribute container dump:
-Tag: 
-Attribute list:
-  key: warning, type: string, value: temperature is over high
-
-Wasm app process request success.
-connection established!
-sent 266 bytes to host
-Query Applets success!
-Attribute container dump:
-Tag: Applets Info
-Attribute list:
-  key: num, type: int, value: 0x3
-  key: applet1, type: string, value: sub
-  key: heap1, type: int, value: 0xc000
-  key: applet2, type: string, value: pub
-  key: heap2, type: int, value: 0xc000
-  key: applet3, type: string, value: request_handler
-  key: heap3, type: int, value: 0xc000
-
-connection lost, and waiting for client to reconnect...
-Send request to app sub success.
-App sub got request, url alert/overheat, action 6
-### user over heat event handler called
-Attribute container dump:
-Tag: 
-Attribute list:
-  key: warning, type: string, value: temperature is over high
-
-Wasm app process request success.
-Send request to app sub success.
-App sub got request, url alert/overheat, action 6
-### user over heat event handler called
-Attribute container dump:
-Tag: 
-Attribute list:
-  key: warning, type: string, value: temperature is over high
-
-Wasm app process request success.
-connection established!
-App instance main thread exit.
-client: 3 deregistered event (alert/overheat)
-Uninstall WASM app successful!
-sent 16 bytes to host
-connection lost, and waiting for client to reconnect...
-connection established!
-App instance main thread exit.
-Uninstall WASM app successful!
-sent 16 bytes to host
-connection lost, and waiting for client to reconnect...
-connection established!
-App instance main thread exit.
-Uninstall WASM app successful!
-sent 16 bytes to host
-connection lost, and waiting for client to reconnect...
-connection established!
-sent 137 bytes to host
-Query Applets success!
-Attribute container dump:
-Tag: Applets Info
-Attribute list:
-  key: num, type: int, value: 0x0
-
-connection lost, and waiting for client to reconnect...
-^C
-
+After installing dependencies, build the source code:
+``` Bash
+cd products/linux/
+mkdir build
+cd build
+cmake ..
+make
+```
+Zephyr
+-------------------------
+You need download Zephyr source code first and embeded WAMR into it.
+``` Bash
+git clone https://github.com/zephyrproject-rtos/zephyr.git
+cd zephyr/samples/
+cp -a <iwasm_dir>/products/zephyr/simple .
+cd simple
+ln -s <iwam_dir> iwasm
+ln -s <shared_lib_dir> shared-lib
+mkdir build && cd build
+source ../../../zephyr-env.sh
+cmake -GNinja -DBOARD=qemu_x86 ..
+ninja
 ```
 
-####Output of host_tool
+Build WASM app
+=========================
+A popular method to build out WASM binary is to use ```emcc```. 
+Assuming you are using Linux. Please install emcc from Emscripten EMSDK following below steps:
 ```
-$ ./host_tool -q
-
-response status 69
-{
-	"num":	1,
-	"applet1":	"request_handler",
-	"heap1":	49152
-}
-$ ./host_tool -i pub -f ./wasm-apps/event_publisher.wasm
-
-response status 65
-$ ./host_tool -i sub -f ./wasm-apps/event_subscriber.wasm
-
-response status 65
-$ ./host_tool -s /alert/overheat -a 3000
-
-response status 69
-
-received an event alert/overheat
-{
-	"warning":	"temperature is over high"
-}
-received an event alert/overheat
-{
-	"warning":	"temperature is over high"
-}
-received an event alert/overheat
-{
-	"warning":	"temperature is over high"
-}
-received an event alert/overheat
-{
-	"warning":	"temperature is over high"
-$ ./host_tool -q
-
-response status 69
-{
-	"num":	3,
-	"applet1":	"sub",
-	"heap1":	49152,
-	"applet2":	"pub",
-	"heap2":	49152,
-	"applet3":	"request_handler",
-	"heap3":	49152
-$ ./host_tool -u sub
-
-response status 66
-$ ./host_tool -u pub
-
-response status 66
-$ ./host_tool -u request_handler
-
-response status 66
-$ ./host_tool -q
-
-response status 69
-{
-	"num":	0
-}
-
+git clone https://github.com/emscripten-core/emsdk.git
+emsdk install latest
+emsdk activate latest
 ```
+add ```./emsdk_env.sh``` into path to ease future use, or source it everytime.
+Emscripten website provides other installtion method beyond Linux.
+
+todo: user should copy the app-libs folder into project and include and build.
+
+You can write a simple ```test.c```as the first sample.
+``` C
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char **argv)
+{
+  char *buf;
+
+  printf("Hello world!\n");
+
+  buf = malloc(1024);
+  if (!buf) {
+    printf("malloc buf failed\n");
+    return -1;
+  }
+
+  printf("buf ptr: %p\n", buf);
+
+  sprintf(buf, "%s", "1234\n");
+  printf("buf: %s", buf);
+
+  free(buf);
+  return 0;
+}
+```
+Use below emcc commmand to build the WASM C source code into WASM binary.
+``` Bash
+emcc -g -O3 *.c -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 \
+                -s TOTAL_MEMORY=65536 -s TOTAL_STACK=4096 -o test.wasm
+```
+You will get ```test.wasm``` which is the WASM app binary.
+
+Run WASM app
+========================
+Assume you are using Linux, the command to run the test.wasm is 
+``` Bash
+cd iwasm/products/linux/bin
+./iwasm test.wasm
+```
+You will get output:
+```
+Hello world!
+buf ptr: 0x000101ac
+buf: 1234
+```
+If you would like to run test app on Zephyr, we have embedded test sample into its OS image. You need to execute 
+```
+ninja run
+```
+
+Embed WAMR into software production
+=====================================
+WAMR can be built into a standalone executable which takes WASM application file name as input, and then execute it. To use it in the embedded environment, you should embed WAMR into your own software product. WASM provides a set of APIs for embedders code to load WASM module, instansiate module and invoke WASM function from native call.
+
+<img src="./doc/pics/embed.PNG" width="60%" height="60%">
+
+
+A typical WAMR APIs usage is as below:
+``` C
+  wasm_module_t module;
+  wasm_module_inst_t inst;
+  wasm_function_inst_t func;
+  wasm_exec_env_t env;
+  wasm_runtime_init();
+  module = wasm_runtime_load(buffer, size, err, err_size);
+  inst = wasm_runtime_instantiate(module, 0, err, err_size);
+  func = wasm_runtime_lookup_function(inst, "fib", "(i32i32");
+  env = wasm_runtime_create_exec_env(stack_size);
+
+  if (!wasm_runtime_call_wasm(inst, env, func, 1, argv_buf) ) {
+          wasm_runtime_clear_exception(inst);
+    }
+
+  wasm_runtime_destory_exec_env(env);
+  wasm_runtime_deinstantiate(inst);
+  wasm_runtime_unload(module);
+  wasm_runtime_destroy();
+```
+
+
+WASM application library 
+========================
+In general, there are 3 kinds of APIs for programming the WASM application:
+- Built-in APIs: WAMR has already provided a minimal API set for developers. 
+- 3rd party APIs: Programmer can download include any 3rd party C source code, and added into their own WASM app source tree.
+- Platform native APIs: The board vendors define these APIs during their making board firmware. They are provided WASM application to invoke like built-in and 3rd party APIs. In this way board vendors extend APIs which can make programmers develop more complicated WASM apps.
+
+
+Built-in application library
+---------------
+Built-in APIs include Libc APIs, Base library, Extension library reference.
+
+**Libc APIs**<br/>
+It is the minimal Libc APIs like memory allocation and string copy etc.
+The header files is ```lib/app-libs/libc/lib-base.h```. The API set is listed as below:
+``` C
+void *malloc(size_t size);
+void *calloc(size_t n, size_t size);
+void free(void *ptr);
+int memcmp(const void *s1, const void *s2, size_t n);
+void *memcpy(void *dest, const void *src, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
+void *memset(void *s, int c, size_t n);
+int putchar(int c);
+int snprintf(char *str, size_t size, const char *format, ...);
+int sprintf(char *str, const char *format, ...);
+char *strchr(const char *s, int c);
+int strcmp(const char *s1, const char *s2);
+char *strcpy(char *dest, const char *src);
+size_t strlen(const char *s);
+int strncmp(const char * str1, const char * str2, size_t n);
+char *strncpy(char *dest, const char *src, unsigned long n);
+```
+
+**Base library**<br/>
+The basic support like communication, timers etc is already available. The header files is ```lib/app-libs/base/wasm-app.h```, it includes request and response APIs, event pub/sub APIs and timer APIs. Please be noted that they may not work if you have no corresponding framework to work with them.
+The API set is listed as below:
+``` C
+typedef void(*request_handler_f)(request_t *) ;
+typedef void(*response_handler_f)(response_t *, void *) ;
+
+// Request APIs
+bool api_register_resource_handler(const char *url, request_handler_f);
+void api_send_request(request_t * request, response_handler_f response_handler, void * user_data);
+void api_response_send(response_t *response);
+
+// event AP
+bool api_publish_event(const char *url,  int fmt, void *payload,  int payload_len);
+bool api_subscribe_event(const char * url, request_handler_f handler);
+
+struct user_timer;
+typedef struct user_timer * user_timer_t;
+
+// Timer APIs
+user_timer_t api_timer_create(int interval, bool is_period, bool auto_start, void(*on_user_timer_update)(user_timer_t
+));
+void api_timer_cancel(user_timer_t timer);
+void api_timer_restart(user_timer_t timer, int interval);
+```
+
+**Library extension reference**<br/>
+Currently we provide the sensor APIs as one library extension sample. The header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is listed as below:
+``` C
+sensor_t sensor_open(const char* name, int index,
+                                     void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
+                                     void *user_data);
+bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
+bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
+bool sensor_close(sensor_t sensor);
+```
+
+The mechanism of exporting Native API to WASM application
+=======================================================
+
+The basic working flow for WASM application calling into the native API is described as following diagram.
+<img src="./doc/pics/extend_library.PNG" width="60%" height="60%">
+
+
+WAMR provides the macro `EXPORT_WASM_API` to enable users to export native API to WASM application. WAMR implemented a base API for timer and messaging by using `EXPORT_WASM_API`. They can be reference point of extending your own library.
+``` C
+static NativeSymbol extended_native_symbol_defs[] = {
+  EXPORT_WASM_API(wasm_register_resource),
+  EXPORT_WASM_API(wasm_response_send),
+  EXPORT_WASM_API(wasm_post_request),
+  EXPORT_WASM_API(wasm_sub_event),
+  EXPORT_WASM_API(wasm_create_timer),
+  EXPORT_WASM_API(wasm_timer_set_interval),
+  EXPORT_WASM_API(wasm_timer_cancel),
+  EXPORT_WASM_API(wasm_timer_restart)
+};
+```
+
+
+![#f03c15](https://placehold.it/15/f03c15/000000?text=+) **Security attention:** The WebAssembly application is supposed to access its own memory space, the integrator should carefully design the native function to ensure the memory safe. The native API to be exporte to WASM application must follow the rules:
+- Only use 32 bits number for parameters
+- Don’t passing data structure pointer (do data serialization instead)
+- Do the pointer address conversion in native API
+- Don’t passing function pointer as callback
+
+Below is a sample of library extension. All invoke across WASM world and native world must be serialized and de-serialized, and native world must do boundary check for every incoming address from WASM world.
+
+<img src="./doc/pics/safe.PNG" width="100%" height="100%">
+
+Exporting native API steps
+==========================
+
+WAMR implemented a framework for developers to export APIs. The procedure to expose the platform APIs in three steps:
+
+**Step 1. Create a header file**<br/>
+Declare the APIs for WASM application source project to include.
+
+**Step 2. Create a source file**<br/>
+Export the platform APIs, for example in ``` products/linux/ext-lib-export.c ```
+``` C
+#include "lib-export.h"
+
+static NativeSymbol extended_native_symbol_defs[] =
+{
+};
+
+#include "ext-lib-export.h"
+```
+
+**Step 3. Register new APIs**<br/>
+Use macro EXPORT_WASM_API and EXPORT_WASM_API2 to add exported APIs into the array of ```extended_native_symbol_defs```.
+The pre-defined MACRO `EXPORT_WASM_API` should be used to declare a function export:
+``` c
+#define EXPORT_WASM_API(symbol)  {#symbol, symbol}
+```
+
+Below code example shows how to extend the library to support `customeized()`:
+``` C
+//lib-export-impl.c
+void customized()
+{
+   // your code
+}
+
+
+// lib-export-dec.h
+#ifndef _LIB_EXPORT_DEC_H_
+#define _LIB_EXPORT_DEC_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void customized();
+
+#ifdef __cplusplus
+}
+#endif
+#endif
+
+
+// ext-lib-export.c
+#include "lib-export.h"
+#include "lib-export-dec.h"
+
+static NativeSymbol extended_native_symbol_defs[] =
+{
+  EXPORT_WASM_API(customized)
+};
+
+#include "ext-lib-export.h"
+```
+Use extended library
+------------------------
+In the application source project, it includes the WAMR built-in APIs header file and platform extension header files.
+Assume the board vendor extend the library which added a API called customized(). The WASM application would be like this:
+``` C
+#include <stdio.h>
+#include "lib-export-dec.h" // provided by platform vendor
+
+int main(int argc, char **argv)
+{
+  int I;
+  char *buf = “abcd”;
+  customized();                   // customized API provided by platform vendor
+  return i;
+}
+```
+
+Comming soon...
+========================
+We are preparing the open source for application manager and related cool samples like inter-application communication, application life cycle management, 2D graphic demo and more. You will get updated soon.
+
+Submit issues and request
+=========================
+[Click here to submit. Your feedback is always welcome!](https://github.com/intel/wasm-micro-runtime/issues/new)
+
