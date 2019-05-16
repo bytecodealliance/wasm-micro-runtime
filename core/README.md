@@ -29,7 +29,7 @@ out/
 - simple:
   The simple application with WAMR runtime built in. See the usage of this application by executing "./simple -h".
   `./simple -h`
->Note: The connection between simple and host_tool is TCP by default and this guide uses default connection. You can also use the UART mode. To achieve this you have to uncomment the below line in CMakeLists.txt and rebuild. You have to set up a UART hardware connection between 2 machines one of which runs the host_tool and the other runs the simple application. See the help of host_tool and the simple application to know how to specify UART device parameters.<br/>
+>Note: The connection between simple and host_tool is TCP by default and this guide uses default connection. You can also use the UART mode. To achieve this you have to uncomment the below line in CMakeLists.txt and rebuild. You have to set up a UART hardware connection between 2 machines one of which runs the host_tool and the other runs the simple application. See the help of host_tool and the simple application to know how to specify UART device parameters.
 `#add_definitions (-DCONNECTION_UART)`
 
 - wasm-apps:
@@ -49,37 +49,37 @@ out/
 
 Run
 ==========================
-- Enter the out directory<br/>
+- Enter the out directory
   `cd ./out/`
 
-- Startup the 'simple' process works in TCP server mode<br/>
+- Startup the 'simple' process works in TCP server mode
   `./simple -s`
 
-  You would see "App Manager started." is printed.<br/>
+  You would see "App Manager started." is printed.
   `App Manager started.`
 
-- Query all installed applications<br/>
+- Query all installed applications
   `./host_tool -q`
 
-- Install the request handler wasm application<br/>
+- Install the request handler wasm application
   `./host_tool -i request_handler -f ./wasm-apps/request_handler.wasm`
 
-- Send request to specific wasm application<br/>
+- Send request to specific wasm application
   `./host_tool -r /app/request_handler/url1 -A GET`
 
-- Send a general request (not specify target application name)<br/>
+- Send a general request (not specify target application name)
   `./host_tool -r /url1 -A GET`
 
 - Install the event publisher wasm application
-  `./host_tool -i pub -f ./wasm-apps/event_publisher.wasm`<br/>
+  `./host_tool -i pub -f ./wasm-apps/event_publisher.wasm`
 
-- Subscribe event by host_tool<br/>
+- Subscribe event by host_tool
   `./host_tool -s /alert/overheat -a 3000`
 
-- Install the event subscriber wasm application<br/>
+- Install the event subscriber wasm application
   `./host_tool -i sub -f ./wasm-apps/event_subscriber.wasm`
 
-- Uninstall the wasm app<br/>
+- Uninstall the wasm app
   `./host_tool -u request_handler`
   `./host_tool -u pub`
   `./host_tool -u sub`
