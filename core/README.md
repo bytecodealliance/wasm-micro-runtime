@@ -39,7 +39,7 @@ simple/
 - src/iwam_main.c<br/>
   This file should be implemented by platform integrator in which a host interface is provided to interact with WAMR app-manager. See `{WAMR_ROOT}/core/app-mgr/app-mgr-shared/app-manager-export.h` for the definition of the host interface.
 ```
-  /* Interfaces of host communication */
+/* Interfaces of host communication */
 typedef struct host_interface {
     host_init_func init;
     host_send_fun send;
