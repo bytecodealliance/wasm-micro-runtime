@@ -3,7 +3,7 @@ WebAssembly Micro Runtime
 WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime designed for a small footprint. It includes:
 - A WebAssembly (WASM) VM core
 - The supporting APIs for the WASM applications (code is available but compilation depends on the app manager component)
-- A mechanism for dynamic management of the WASM application (Not available on Github yet. To be released soon)
+- A mechanism for dynamic management of the WASM application
 
 Why should you use a WASM runtime out of your browser? There are a few points where this might be meaningful:   
 1.  WASM is already an LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage compared to language bound runtimes like JS or Lua. 
@@ -11,7 +11,7 @@ Why should you use a WASM runtime out of your browser? There are a few points wh
 3.  WASM is designed to be very friendly for compiling to native binaries and gaining the native speed. 
 4.  It can potentially change the development practices. Imagine we can do both the WASM application development and validation in a browser, then just download the WASM binary code onto the target device.   
 5.  WASM can work without garbage collection. It is designed to support execution determinics for the time sensitive requirement.
-6.  Maintain the safety goals WASM has of providing a sandboxed execution environment for untrusted code. In addition, because WASM is a compilation target, this implies a benefit of being able to target both an execution and security profile that is consistent across popular high-level programming languages.
+6.  Maintain the safety goals WASM has of providing a sandboxed execution environment for untrusted code. In addition, because WASM is a compilation target, this implies the benefit of being able to target both an execution and security profile that is consistent across popular high-level programming languages.
 
 
 
@@ -484,7 +484,7 @@ In this sample, the LittlevGL source code is built into the WebAssembly code wit
         EXPORT_WASM_API(display_map),
         EXPORT_WASM_API(time_get_ms), };
 
-The runtime component supports building target for Linux and Zephyr/STM Nucleo board respectively. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do majority of application validation from desktop environment then load it to the target device as long as two runtime distributions support the same set of application interface.
+The runtime component supports building target for Linux and Zephyr/STM Nucleo board respectively. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do the majority of application validation from the desktop environment then load it to the target device as long as two runtime distributions support the same set of the application interface.
 
 
 Below pictures show the WASM application is running on an STM board with an LCD touch panel. When users click the blue button, the WASM application increases the counter, and the latest counter value is displayed on the top banner of the touch panel. 
