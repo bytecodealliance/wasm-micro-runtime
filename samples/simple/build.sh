@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CURR_DIR=$PWD
-ROOT_DIR=${PWD}/../../..
+WAMR_DIR=${PWD}/../..
 OUT_DIR=${PWD}/out
 BUILD_DIR=${PWD}/build
 
@@ -15,7 +15,7 @@ rm -rf ${OUT_DIR}
 mkdir ${OUT_DIR}
 mkdir ${OUT_DIR}/wasm-apps
 
-cd ${ROOT_DIR}/wamr/core/shared-lib/mem-alloc
+cd ${WAMR_DIR}/core/shared-lib/mem-alloc
 if [ ! -d "tlsf" ]; then
     git clone https://github.com/mattconte/tlsf
 fi
@@ -34,7 +34,7 @@ cp -a simple ${OUT_DIR}
 echo "#####################build simple project success"
 
 echo "#####################build host-tool"
-cd ${ROOT_DIR}/wamr/test-tools/host-tool
+cd ${WAMR_DIR}/test-tools/host-tool
 mkdir -p bin
 cd bin
 cmake ..
