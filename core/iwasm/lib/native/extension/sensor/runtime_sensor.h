@@ -18,7 +18,7 @@
 #define LIB_EXTENSION_RUNTIME_SENSOR_H_
 
 #include "bh_platform.h"
-#include "attr-container.h"
+#include "attr_container.h"
 struct _sys_sensor;
 typedef struct _sys_sensor* sensor_obj_t;
 

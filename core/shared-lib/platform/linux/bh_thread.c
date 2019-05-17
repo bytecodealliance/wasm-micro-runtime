@@ -75,7 +75,7 @@ static void *vm_thread_wrapper(void *arg)
 {
     thread_wrapper_arg * targ = arg;
     LOG_VERBOSE("THREAD CREATE 0x%08x\n", &targ);
-    targ->stack = (void *) ((uintptr_t)(&arg) & ~0xfff);
+    targ->stack = (void *) ((unsigned int) (&arg) & ~0xfff);
     _vm_tls_put(1, targ);
     targ->start(targ->arg);
     bh_free(targ);

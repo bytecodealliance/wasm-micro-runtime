@@ -18,9 +18,9 @@
 #include "bh_queue.h"
 #include "bh_thread.h"
 #include "runtime_sensor.h"
-#include "attr-container.h"
+#include "attr_container.h"
 #include "module_wasm_app.h"
-#include "wasm-export.h"
+#include "wasm_export.h"
 
 /*
  *
@@ -99,11 +99,10 @@ static attr_container_t * read_test_sensor(void * sensor)
 
 static bool config_test_sensor(void * s, void * config)
 {
-
     return false;
 }
 
-static void * thread_sensor_check(void * arg)
+static void thread_sensor_check(void * arg)
 {
     while (1) {
         int ms_to_expiry = check_sensor_timers();
@@ -119,6 +118,8 @@ static void cb_wakeup_thread()
 {
     vm_cond_signal(&cond);
 }
+
+void set_sensor_reshceduler(void (*callback)());
 
 void init_sensor_framework()
 {
@@ -138,7 +139,7 @@ void init_sensor_framework()
 
     wasm_register_cleanup_callback(sensor_cleanup_callback);
 
-    vm_thread_create(&tid, thread_sensor_check, NULL,
+    vm_thread_create(&tid, (void *)thread_sensor_check, NULL,
     BH_APPLET_PRESERVED_STACK_SIZE);
 
 }
