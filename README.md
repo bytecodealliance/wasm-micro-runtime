@@ -488,11 +488,12 @@ The runtime component supports building target for Linux and Zephyr/STM Nucleo b
 
 
 Below pictures show the WASM application is running on an STM board with an LCD touch panel. When users click the blue button, the WASM application increases the counter, and the latest counter value is displayed on the top banner of the touch panel. 
+
 <img src="./doc/pics/vgl.PNG" width="60%" height="60%">
 <img src="./doc/pics/vgl2.PNG" width="60%" height="60%">
 
 The sample also provides the native Linux version of application without the runtime under folder "vgl-native-ui-app". It can help to check differences between the implementations in native and WebAssembly.
-<img src="./samples/littlevgl/UI.JPG">
+<img src="./doc/pics/vgl_linux.PNG">
 
 
 Submit issues and request
