@@ -34,7 +34,7 @@ target_include_directories(app PRIVATE ${IWASM_ROOT}/runtime/include
     ${IWASM_ROOT}/runtime/platform/zephyr
     ${IWASM_ROOT}/runtime/platform/include
     ${IWASM_ROOT}/runtime/utils
-    ${IWASM_ROOT}/runtime/vmcore_wasm
+    ${IWASM_ROOT}/runtime/vmcore-wasm
     ${IWASM_ROOT}/lib/native/base
     ${IWASM_ROOT}/lib/native/libc
     ${IWASM_ROOT}/lib/native/extension/sensor

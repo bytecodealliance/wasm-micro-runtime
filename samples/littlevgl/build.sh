@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PROJECT_DIR=$PWD
-ROOT_DIR=${PWD}/../../..
+WAMR_DIR=${PWD}/../..
 OUT_DIR=${PWD}/out
 BUILD_DIR=${PWD}/build
 
@@ -13,7 +13,7 @@ rm -rf ${OUT_DIR}
 mkdir ${OUT_DIR}
 
 
-cd ${ROOT_DIR}/wamr/core/shared-lib/mem-alloc
+cd ${WAMR_DIR}/core/shared-lib/mem-alloc
 if [ ! -d "tlsf" ]; then
     git clone https://github.com/mattconte/tlsf
 fi
@@ -36,7 +36,7 @@ echo "#####################build host-tool"
 cd $BUILD_DIR
 mkdir -p host-tool
 cd host-tool
-cmake ${ROOT_DIR}/wamr/test-tools/host-tool
+cmake ${WAMR_DIR}/test-tools/host-tool
 make
 if [ $? != 0 ];then
         echo "BUILD_FAIL host tool exit as $?\n"

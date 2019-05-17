@@ -60,10 +60,10 @@ WASM VM and native extension method can be built into Zephyr, Then we can instal
 `git clone https://github.com/zephyrproject-rtos/zephyr.git`</br>
  b. copy samples</br>
     `cd zephyr/samples/`</br>
-    `cp -a <iwasm_root_dir>samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime`</br>
+    `cp -a <wamr_root>samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime`</br>
     `cd vgl-wasm-runtime/zephyr_build`</br>
  c. create a link to wamr core</br>
-   ` ln -s <iwasm_root_dir>/core core`</br>
+   ` ln -s <wamr_root>/core core`</br>
  d. build source code</br>
     Since ui_app incorporated LittlevGL source code, so it needs more RAM on the device to install the application.
     It is recommended that RAM SIZE greater than 512KB.
@@ -82,27 +82,27 @@ Hardware Connections
 
 ```
 +-------------------+-+------------------+
-|NUCLEO-F767ZI || ILI9341  Display |
+|NUCLEO-F767ZI       | ILI9341  Display  |
 +-------------------+-+------------------+
-| CN7.10               |         CLK     |
+| CN7.10             |         CLK       |
 +-------------------+-+------------------+
-| CN7.12               |         MISO    |
+| CN7.12             |         MISO      |
 +-------------------+-+------------------+
-| CN7.14               |         MOSI    |
+| CN7.14             |         MOSI      |
 +-------------------+-+------------------+
-| CN11.1               | CS1 for ILI9341 |
+| CN11.1             | CS1 for ILI9341   |
 +-------------------+-+------------------+
-| CN11.2               |         D/C     |
+| CN11.2             |         D/C       |
 +-------------------+-+------------------+
-| CN11.3               |         RESET   |
+| CN11.3             |         RESET     |
 +-------------------+-+------------------+
-| CN9.25               |    PEN interrupt|
+| CN9.25             |    PEN interrupt  |
 +-------------------+-+------------------+
-| CN9.27               | CS2 for XPT2046 |
+| CN9.27             |  CS2 for XPT2046  |
 +-------------------+-+------------------+
-| CN10.14             | PC UART RX       |
+| CN10.14            |    PC UART RX     |
 +-------------------+-+------------------+
-| CN11.16             | PC UART RX       |
+| CN11.16            |    PC UART RX     |
 +-------------------+-+------------------+
 ```
 

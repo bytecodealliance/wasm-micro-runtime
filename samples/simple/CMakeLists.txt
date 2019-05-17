@@ -43,10 +43,10 @@ message ("PLATFORM = " ${PLATFORM})
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic")
 
-set(REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
-set(WASM_DIR  ${REPO_ROOT_DIR}/wamr/core/iwasm)
-set(APP_MGR_DIR ${REPO_ROOT_DIR}/wamr/core/app-mgr)
-set(SHARED_DIR ${REPO_ROOT_DIR}/wamr/core/shared-lib)
+set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
+set(WASM_DIR  ${WAMR_ROOT_DIR}/core/iwasm)
+set(APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
+set(SHARED_DIR ${WAMR_ROOT_DIR}/core/shared-lib)
 
 
 enable_language (ASM)
