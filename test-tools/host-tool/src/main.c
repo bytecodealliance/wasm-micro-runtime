@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include "host_tool_utils.h"
 #include "shared_utils.h"
