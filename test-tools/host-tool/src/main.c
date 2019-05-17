@@ -29,7 +29,6 @@
 #include "app_manager_export.h" /* for Module_WASM_App */
 #include "host_link.h" /* for REQUEST_PACKET */
 #include "transport.h"
-#include "iagent_bsp.h" /* for bh_get_elpased_ms */
 
 #define BUF_SIZE 1024
 #define TIMEOUT_EXIT_CODE 2
