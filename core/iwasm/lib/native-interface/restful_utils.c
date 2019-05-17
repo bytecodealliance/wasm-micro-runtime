@@ -109,7 +109,10 @@ request_t * unpack_request(char * packet, int size, request_t * request)
     request->sender = ntohl(*((uint32*) (packet + 8)));
     request->payload_len = payload_len;
     request->url = REQUEST_PACKET_URL(packet);
-    request->payload = packet + REQUEST_PACKET_URL_OFFSET + url_len;
+    if (payload_len > 0)
+        request->payload = packet + REQUEST_PACKET_URL_OFFSET + url_len;
+    else
+        request->payload = NULL;
 
     return request;
 }
@@ -150,7 +153,10 @@ response_t * unpack_response(char * packet, int size, response_t * response)
     response->mid = ntohl(*((uint32*) (packet + 4)));
     response->reciever = ntohl(*((uint32*) (packet + 8)));
     response->payload_len = payload_len;
-    response->payload = packet + RESPONSE_PACKET_FIX_PART_LEN;
+    if (payload_len > 0)
+        response->payload = packet + RESPONSE_PACKET_FIX_PART_LEN;
+    else
+        response->payload = NULL;
 
     return response;
 }
@@ -238,7 +244,7 @@ response_t * clone_response(response_t * response)
 response_t * set_response(response_t * response, int status, int fmt,
         const char *payload, int payload_len)
 {
-    response->payload = payload;
+    response->payload = (void *)payload;
     response->payload_len = payload_len;
     response->status = status;
     response->fmt = fmt;
@@ -384,11 +390,9 @@ char * find_key_value(char * buffer, int buffer_len, char * key, char * value,
         int value_len, char delimiter)
 {
     char * p = buffer;
-    int i = 0;
     int remaining = buffer_len;
     int key_len = strlen(key);
 
-    char * item_start = p;
     while (*p != 0 && remaining > 0) {
         while (*p == ' ' || *p == delimiter) {
             p++;

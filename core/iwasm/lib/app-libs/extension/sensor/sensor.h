@@ -17,7 +17,7 @@
 #ifndef _AEE_SENSOR_H_
 #define _AEE_SENSOR_H_
 
-#include "attr-container.h"
+#include "attr_container.h"
 
 #ifdef __cplusplus
 extern "C" {
