@@ -2,7 +2,7 @@ WebAssembly Micro Runtime
 =========================
 WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime designed for a small footprint. It includes:
 - A WebAssembly (WASM) VM core
-- The supporting APIs for the WASM applications (code is available but compilation depends on the app manager component)
+- The supporting APIs for the WASM applications
 - A mechanism for dynamic management of the WASM application
 
 Why should you use a WASM runtime out of your browser? There are a few points where this might be meaningful:   
@@ -65,7 +65,7 @@ make
 ```
 Zephyr
 -------------------------
-You need to download the Zephyr source code first and embedded WAMR into it.
+You need to download the Zephyr source code first and embed WAMR into it.
 ``` Bash
 git clone https://github.com/zephyrproject-rtos/zephyr.git
 cd zephyr/samples/
@@ -88,7 +88,7 @@ git clone https://github.com/emscripten-core/emsdk.git
 emsdk install latest
 emsdk activate latest
 ```
-add ```./emsdk_env.sh``` into the path to ease future use, or source it every time.
+source ```./emsdk_env.sh```.
 The Emscripten website provides other installation methods beyond Linux.
 
 You can write a simple ```test.c``` as the first sample.
