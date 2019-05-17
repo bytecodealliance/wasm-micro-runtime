@@ -41,7 +41,6 @@ include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${CJSON_DIR}/cjson.cmake)
 include (${SHARED_DIR}/coap/lib_coap.cmake)
-include (${SSG_LIB_DIR}/host_agent_lib.cmake)
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
