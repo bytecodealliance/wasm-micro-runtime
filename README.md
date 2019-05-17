@@ -149,7 +149,7 @@ WAMR can be built into a standalone executable which takes the WASM application 
 <img src="./doc/pics/embed.PNG" width="60%" height="60%">
 
 
-A typical WAMR API usage is shown below (some return values checking are ignored):
+A typical WAMR API usage is shown below (some return value checks are ignored):
 ``` C
   static char global_heap_buf[512 * 1024];
 
