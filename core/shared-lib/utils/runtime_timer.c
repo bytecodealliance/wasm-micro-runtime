@@ -417,7 +417,6 @@ int check_app_timers(timer_ctx_t ctx)
     vm_mutex_lock(&ctx->mutex);
 
     app_timer_t * t = ctx->g_app_timers;
-    app_timer_t * prev = NULL;
     app_timer_t * expired = NULL;
 
     uint64 now = bh_get_tick_ms();
@@ -443,8 +442,6 @@ int check_app_timers(timer_ctx_t ctx)
 
 void cleanup_app_timers(timer_ctx_t ctx)
 {
-    app_timer_t *t;
-
     vm_mutex_lock(&ctx->mutex);
 
     release_timer_list(&ctx->g_app_timers);

@@ -27,7 +27,7 @@ set (SHARED_LIB_ROOT ${IWASM_ROOT}/../shared-lib)
 include_directories (${IWASM_ROOT}/runtime/include
                      ${IWASM_ROOT}/runtime/platform/include
                      ${IWASM_ROOT}/runtime/platform/zephyr
-                     ${IWASM_ROOT}/runtime/vmcore_wasm
+                     ${IWASM_ROOT}/runtime/vmcore-wasm
                      ${SHARED_LIB_ROOT}/include
                      ${SHARED_LIB_ROOT}/platform/include
                      ${SHARED_LIB_ROOT}/platform/zephyr)
@@ -37,14 +37,14 @@ set (IWASM_SRCS ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c
                 ${IWASM_ROOT}/runtime/utils/wasm_dlfcn.c
                 ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
                 ${IWASM_ROOT}/runtime/platform/zephyr/wasm_platform.c
-                ${IWASM_ROOT}/runtime/platform/zephyr/wasm-native.c
-                ${IWASM_ROOT}/runtime/vmcore_wasm/wasm-application.c
-                ${IWASM_ROOT}/runtime/vmcore_wasm/wasm-interp.c
-                ${IWASM_ROOT}/runtime/vmcore_wasm/wasm-loader.c
-                ${IWASM_ROOT}/runtime/vmcore_wasm/wasm-runtime.c
-                ${IWASM_ROOT}/runtime/vmcore_wasm/invokeNative_general.c
+                ${IWASM_ROOT}/runtime/platform/zephyr/wasm_native.c
+                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_application.c
+                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_interp.c
+                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_loader.c
+                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_runtime.c
+                ${IWASM_ROOT}/runtime/vmcore-wasm/invokeNative_general.c
                 ${IWASM_ROOT}/lib/native/libc/libc_wrapper.c
-                ${IWASM_ROOT}/lib/native/base/base-lib-export.c
+                ${IWASM_ROOT}/lib/native/base/base_lib_export.c
                 ${SHARED_LIB_ROOT}/platform/zephyr/bh_platform.c
                 ${SHARED_LIB_ROOT}/platform/zephyr/bh_assert.c
                 ${SHARED_LIB_ROOT}/platform/zephyr/bh_thread.c
@@ -54,4 +54,4 @@ set (IWASM_SRCS ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c
                 ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_alloc.c
                 ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_hmu.c)
 
-target_sources(app PRIVATE ${IWASM_SRCS} src/main.c src/ext-lib-export.c)
+target_sources(app PRIVATE ${IWASM_SRCS} src/main.c src/ext_lib_export.c)

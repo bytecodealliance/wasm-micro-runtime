@@ -21,7 +21,7 @@
 #include "wasm_platform.h"
 #include "wasm_platform_log.h"
 #include "wasm_thread.h"
-#include "wasm-export.h"
+#include "wasm_export.h"
 #include "wasm_memory.h"
 #include "bh_memory.h"
 #include "test_wasm.h"
