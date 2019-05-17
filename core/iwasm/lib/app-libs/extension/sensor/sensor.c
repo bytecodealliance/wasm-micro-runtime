@@ -31,7 +31,7 @@ sensor_t sensor_open(const char* name, int index,
         sensor_event_handler_f sensor_event_handler,
         void *user_data)
 {
-    uint32 id = wasm_sensor_open(name, index);
+    uint32 id = wasm_sensor_open((int32)name, index);
     if (id == -1)
         return NULL;
 
@@ -66,7 +66,7 @@ bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg)
     char *buffer = (char *)cfg;
     int len = attr_container_get_serialize_length(cfg);
 
-    return wasm_sensor_config_with_attr_container(sensor->handle, buffer, len);
+    return wasm_sensor_config_with_attr_container(sensor->handle, (int32)buffer, len);
 }
 
 bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay)

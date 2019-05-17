@@ -71,7 +71,7 @@ uint16 htons(uint16 value)
     uint16 ret;
     if (is_little_endian()) {
         ret = value;
-        swap16(&ret);
+        swap16((uint8 *)&ret);
         return ret;
     }
 
