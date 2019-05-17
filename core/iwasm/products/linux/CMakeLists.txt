@@ -58,7 +58,7 @@ enable_language (ASM)
 
 include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)
-include (../../runtime/vmcore_wasm/vmcore.cmake)
+include (../../runtime/vmcore-wasm/vmcore.cmake)
 include (../../lib/native/base/wasm_lib_base.cmake)
 include (../../lib/native/libc/wasm_libc.cmake)
 include (${SHARED_LIB_DIR}/platform/${PLATFORM}/shared_platform.cmake)
@@ -68,12 +68,14 @@ add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
              ${WASM_UTILS_LIB_SOURCE}
              ${VMCORE_LIB_SOURCE}
-             ${WASM_LIB_BASE_DIR}/base-lib-export.c
+             ${WASM_LIB_BASE_DIR}/base_lib_export.c
              ${WASM_LIBC_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
              ${MEM_ALLOC_SHARED_SOURCE})
 
-add_executable (iwasm main.c ext-lib-export.c)
+add_executable (iwasm main.c ext_lib_export.c)
+
+install (TARGETS iwasm DESTINATION bin)
 
 target_link_libraries (iwasm vmlib -lm -ldl -lpthread)
 
@@ -81,10 +83,12 @@ add_library (libiwasm SHARED
              ${WASM_PLATFORM_LIB_SOURCE}
              ${WASM_UTILS_LIB_SOURCE}
              ${VMCORE_LIB_SOURCE}
-             ${WASM_LIB_BASE_DIR}/base-lib-export.c
+             ${WASM_LIB_BASE_DIR}/base_lib_export.c
              ${WASM_LIBC_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
              ${MEM_ALLOC_SHARED_SOURCE})
+
+install (TARGETS libiwasm DESTINATION lib)
 
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
