@@ -496,6 +496,9 @@ The sample also provides the native Linux version of application without the run
 <img src="./doc/pics/vgl_linux.PNG">
 
 
-Submit issues and request
-=========================
+Submit issues and contact the maintainers
+=========================================
 [Click here to submit. Your feedback is always welcome!](https://github.com/intel/wasm-micro-runtime/issues/new)
+
+
+Contact the maintainers: imrt-public@intel.com
