@@ -1,4 +1,4 @@
-WebAssembly Micro Runtimeaaaaaaaaaaaaaaaaaaaaaaaaaaabbbb
+WebAssembly Micro Runtimeaaaaaaaaaaaaaaaaaaaa
 =========================
 WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime designed for a small footprint. It includes:
 - A WebAssembly (WASM) VM core
