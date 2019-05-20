@@ -2,14 +2,14 @@ WebAssembly Micro Runtime
 =========================
 WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime designed for a small footprint. It includes:
 - A WebAssembly (WASM) VM core
-- The supporting APIs for the WASM applications
+- The supporting API's for the WASM applications
 - A mechanism for dynamic management of the WASM application
 
-Why should you use a WASM runtime out of your browser? There are a few points where this might be meaningful:   
+Why should you use a WASM runtime out of your browser? There are a few points where this might be meaningful:
 1.  WASM is already an LLVM official backend target. That means WASM can run any programming languages which can be compiled to LLVM IR. It is a huge advantage compared to language bound runtimes like JS or Lua. 
-2.  WASM is an open standard and it is fast becoming supported by the whole web ecosystem.  
+2.  WASM is an open standard and it is fast becoming supported by the whole web ecosystem.
 3.  WASM is designed to be very friendly for compiling to native binaries and gaining the native speed. 
-4.  It can potentially change the development practices. Imagine we can do both the WASM application development and validation in a browser, then just download the WASM binary code onto the target device.   
+4.  It can potentially change the development practices. Imagine we can do both the WASM application development and validation in a browser, then just download the WASM binary code onto the target device.
 5.  WASM can work without garbage collection. It is designed to support execution determinics for the time sensitive requirement.
 6.  Maintain the safety goals WASM has of providing a sandboxed execution environment for untrusted code. In addition, because WASM is a compilation target, this implies the benefit of being able to target both an execution and security profile that is consistent across popular high-level programming languages.
 
@@ -18,8 +18,8 @@ Why should you use a WASM runtime out of your browser? There are a few points wh
 Current Features of WAMR
 =========================
 - WASM interpreter (AOT is planned)
-- Provides support for a subset of Lib.
-- Supports "side_module=1" EMCC compilation option 
+- Provides support for a subset of Libc.
+- Supports "SIDE_MODULE=1" EMCC compilation option
 - Provides API's for embedding runtime into production software
 - Provides a mechanism for exporting native API's to WASM applications
 - Supports the programming of firmware apps in a large range of languages (C/C++/Java/Rust/Go/TypeScript etc.)
@@ -31,7 +31,7 @@ Current Features of WAMR
 
 Architecture
 =========================
-The application manager component handles the packets that the platform receives from external sources through any communication buses such as a socket, serial port or PSI. A packet type can be either a request, response or an event. The app manager will serve the requests with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URI's, it will filter the resource registration table and route the request to the internal queue of the responsible application.
+The application manager component handles the packets that the platform receives from external sources through any communication buses such as a socket, serial port or SPI. A packet type can be either a request, response or an event. The application manager will serve the requests with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URI's, it will filter the resource registration table and route the request to the internal queue of the responsible application.
 
 - The WebAssembly runtime provides the execution environment for WASM applications.
 
@@ -144,7 +144,7 @@ ninja run
 
 Embed WAMR into software production
 =====================================
-WAMR can be built into a standalone executable which takes the WASM application file name as input, and then executes it. To use it in the embedded environment you should embed WAMR into your own software product. WASM provides a set of APIs for embedded code to load the WASM module, instantiate the module and invoke a WASM  function from a native call.
+WAMR can be built into a standalone executable which takes the WASM application file name as input, and then executes it. To use it in the embedded environment you should embed WAMR into your own software product. WASM provides a set of API's for embedded code to load the WASM module, instantiate the module and invoke a WASM  function from a native call.
 
 <img src="./doc/pics/embed.PNG" width="60%" height="60%">
 
@@ -174,7 +174,7 @@ A typical WAMR API usage is shown below (some return value checks are ignored):
       wasm_runtime_clear_exception(inst);
   }
   /* the return value is stored in argv[0] */
-  printf(“fib function return: %d\n”, argv[0]);
+  printf("fib function return: %d\n", argv[0]);
 
   wasm_runtime_destory_exec_env(env);
   wasm_runtime_deinstantiate(inst);
@@ -194,10 +194,10 @@ In general, there are 3 classes of API's important for the WASM application:
 
 Built-in application library
 ---------------
-Built-in API's include Libc APIs, Base library and Extension library reference.
+Built-in API's include Libc API's, Base library and Extension library reference.
 
-**Libc APIs**<br/>
-This is a minimal set of Libc APIs for memory allocation, string manipulation and printing. The header file is located at ```lib/app-libs/libc/lib_base.h```. The current supported API set is listed here:
+**Libc API's**<br/>
+This is a minimal set of Libc API's for memory allocation, string manipulation and printing. The header file is located at ```lib/app-libs/libc/lib_base.h```. The current supported API set is listed here:
 ``` C
 void *malloc(size_t size);
 void *calloc(size_t n, size_t size);
@@ -218,25 +218,25 @@ char *strncpy(char *dest, const char *src, unsigned long n);
 ```
 
 **Base library**<br/>
-Basic support for communication, timers, etc is available. You can refer to the header file ```lib/app-libs/base/wasm_app.h``` which contains the definitions for request and response API's, event pub/sub APIs and timer APIs. Please note that these API's require the native implementations.
+Basic support for communication, timers, etc is available. You can refer to the header file ```lib/app-libs/base/wasm_app.h``` which contains the definitions for request and response API's, event pub/sub API's and timer API's. Please note that these API's require the native implementations.
 The API set is listed below:
 ``` C
 typedef void(*request_handler_f)(request_t *) ;
 typedef void(*response_handler_f)(response_t *, void *) ;
 
-// Request APIs
+// Request API's
 bool api_register_resource_handler(const char *url, request_handler_f);
 void api_send_request(request_t * request, response_handler_f response_handler, void * user_data);
 void api_response_send(response_t *response);
 
-// event AP
+// Event API's
 bool api_publish_event(const char *url,  int fmt, void *payload,  int payload_len);
 bool api_subscribe_event(const char * url, request_handler_f handler);
 
 struct user_timer;
 typedef struct user_timer * user_timer_t;
 
-// Timer APIs
+// Timer API's
 user_timer_t api_timer_create(int interval, bool is_period, bool auto_start, void(*on_user_timer_update)(user_timer_t
 ));
 void api_timer_cancel(user_timer_t timer);
@@ -286,10 +286,10 @@ Below is a sample of a library extension. All code invoked across WASM and nativ
 
 <img src="./doc/pics/safe.PNG" width="100%" height="100%">
 
-Exporting native API steps
+Steps for exporting native API
 ==========================
 
-WAMR implemented a framework for developers to export API's. Below is the procedure to expose the platform APIs in three steps:
+WAMR implemented a framework for developers to export API's. Below is the procedure to expose the platform API's in three steps:
 
 **Step 1. Create a header file**<br/>
 Declare the API's for your WASM application source project to include.
@@ -306,7 +306,7 @@ static NativeSymbol extended_native_symbol_defs[] =
 #include "ext_lib_export.h"
 ```
 
-**Step 3. Register new APIs**<br/>
+**Step 3. Register new API's**<br/>
 Use the macro `EXPORT_WASM_API` and `EXPORT_WASM_API2` to add exported API's into the array of ```extended_native_symbol_defs```.
 The pre-defined MACRO `EXPORT_WASM_API` should be used to declare a function export:
 ``` c
@@ -352,7 +352,7 @@ static NativeSymbol extended_native_symbol_defs[] =
 
 Use extended library
 ------------------------
-In the application source project, it will include the WAMR built-in APIs header file and platform extension header files. Assuming the board vendor extends the library which added an API called customized(), the WASM application would be like this:
+In the application source project, it will include the WAMR built-in API's header file and platform extension header files. Assuming the board vendor extends the library which added an API called customized(), the WASM application would be like this:
 ``` C
 #include <stdio.h>
 #include "lib_export_dec.h" // provided by the platform vendor
@@ -382,8 +382,6 @@ Below is the reference implementation of the server application. It provides roo
 ``` C
 void on_init()
 {
-    /* register resource uri */
-    init_resource_register();
     api_register_resource_handler("/room_temp", room_temp_handler);
 }
 
@@ -424,35 +422,20 @@ One WASM application acts as the event publisher. It publishes events to notify 
 Below is the reference implementation of the pub application. It utilizes a timer to repeatedly publish an overheat alert event to the subscriber applications. Then the subscriber applications receive the events immediately.
 
 ``` C
-void on_init(
-{
-    api_subscribe_event ("alert/overheat", overheat_handler);
-}
-
-void on_destroy()
-{
-}
-
-void overheat_handler(request_t *event
-{
-    printf(“Event: %s\n", event->url);
-}
-
 /* Timer callback */
 void timer_update(user_timer_t timer
 {
     attr_container_t *event;
-    printf("Timer update %d\n", num++);
 
     event = attr_container_create("event");
     attr_container_set_string(&event,
-                             "warning",
-                             "temperature is over high");
+                              "warning",
+                              "temperature is over high");
 
     api_publish_event("alert/overheat",
-                     FMT_ATTR_CONTAINER,
-                     event,
-                     attr_container_get_serialize_length(event));
+                      FMT_ATTR_CONTAINER,
+                      event,
+                      attr_container_get_serialize_length(event));
 
     attr_container_destroy(event);
 }
@@ -462,7 +445,32 @@ void on_init()
     user_timer_t timer;
     timer = api_timer_create(1000, true, true, timer_update);
 }
+
+void on_destroy()
+{
+}
 ```
+
+Below is the reference implementation of the sub application.
+``` C
+void overheat_handler(request_t *event)
+{
+    printf("Event: %s\n", event->url);
+
+    if (event->payload != NULL && event->fmt == FMT_ATTR_CONTAINER)
+       attr_container_dump((attr_container_t *) event->payload);
+}
+
+void on_init(
+{
+    api_subscribe_event ("alert/overheat", overheat_handler);
+}
+
+void on_destroy()
+{
+}
+```
+**Note:** You can also subscribe this event from host side by using host tool. Please refer `samples/simple` project for deail usage.
 
 Samples and demos
 =========================

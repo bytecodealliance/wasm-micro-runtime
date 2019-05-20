@@ -1,6 +1,6 @@
 Introduction
 ==============
-This project builds out both host tools running on the host side, an application running on the device side. The device application consists of iwasm, application library, application manager, timers and sensors support. The device runs on Linux OS and interacts with host tools.
+This project builds out both host tools running on the host side, and an application running on the device side. The device application consists of iwasm, application library, application manager, timers and sensors support. The device runs on Linux OS and interacts with host tools.
 
 It demonstrates an end to end scenario, the wasm applications life cycle management and communication programming models.
 
