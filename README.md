@@ -31,7 +31,7 @@ Current Features of WAMR
 
 Architecture
 =========================
-The application manager component handles the packets that the platform receives from external sources through any communication buses such as a socket, serial port or SPI. A packet type can be either a request, response or an event. The application manager will serve the requests with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URI's, it will filter the resource registration table and route the request to the internal queue of the responsible application.
+The application manager component handles the packets that the platform receives from external sources through any communication buses such as a socket, serial port or SPI. A packet type can be either a request, a response or an event. The application manager will serve the requests with URI "/applet" and call the runtime glue layer interfaces for installing/uninstalling the application. For other URI's, it will filter the resource registration table and route the request to the internal queue of the responsible application.
 
 - The WebAssembly runtime provides the execution environment for WASM applications.
 
