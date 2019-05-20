@@ -57,7 +57,11 @@ Zephyr
 WASM VM and native extension method can be built into Zephyr, Then we can install wasm app into STM32.</br>
 - Build WASM VM into Zephyr system</br>
  a. clone zephyr source code</br>
-`git clone https://github.com/zephyrproject-rtos/zephyr.git`</br>
+Refer to Zephyr getting started.</br>
+https://docs.zephyrproject.org/latest/getting_started/index.html</br>
+`west init zephyrproject`</br>
+`cd zephyrproject`</br>
+`west update`</br>
  b. copy samples</br>
     `cd zephyr/samples/`</br>
     `cp -a <wamr_root>samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime`</br>
