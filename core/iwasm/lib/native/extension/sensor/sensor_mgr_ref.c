@@ -40,13 +40,13 @@ void app_mgr_sensor_event_callback(module_data *m_data, bh_message_t msg)
     wasm_data *wasm_app_data = (wasm_data*) m_data->internal_data;
     wasm_module_inst_t inst = wasm_app_data->wasm_module_inst;
 
-    sensor_event_data_t *payload = (sensor_event_data_t*) bh_message_payload(
-            msg);
+    sensor_event_data_t *payload = (sensor_event_data_t*)
+                                   bh_message_payload(msg);
     if (payload == NULL)
         return;
 
     func_onSensorEvent = wasm_runtime_lookup_function(inst, "_on_sensor_event",
-            "(i32i32i32)");
+                                                      "(i32i32i32)");
     if (!func_onSensorEvent) {
         printf("Cannot find function onRequest\n");
     } else {
@@ -54,18 +54,17 @@ void app_mgr_sensor_event_callback(module_data *m_data, bh_message_t msg)
         uint32 sensor_data_len;
 
         if (payload->data_fmt == FMT_ATTR_CONTAINER) {
-            sensor_data_len = attr_container_get_serialize_length(
-                    payload->data);
+            sensor_data_len = attr_container_get_serialize_length(payload->data);
         } else {
             printf("Unsupported sensor data format: %d\n", payload->data_fmt);
             return;
         }
 
         sensor_data_offset = wasm_runtime_module_dup_data(inst, payload->data,
-                sensor_data_len);
+                                                          sensor_data_len);
         if (sensor_data_offset == 0) {
             printf("Got exception running wasm code: %s\n",
-                    wasm_runtime_get_exception(inst));
+                   wasm_runtime_get_exception(inst));
             wasm_runtime_clear_exception(inst);
             return;
         }
@@ -76,7 +75,7 @@ void app_mgr_sensor_event_callback(module_data *m_data, bh_message_t msg)
 
         if (!wasm_runtime_call_wasm(inst, NULL, func_onSensorEvent, 3, argv)) {
             printf(":Got exception running wasm code: %s\n",
-                    wasm_runtime_get_exception(inst));
+                   wasm_runtime_get_exception(inst));
             wasm_runtime_clear_exception(inst);
             wasm_runtime_module_free(inst, sensor_data_offset);
             return;
@@ -130,17 +129,16 @@ void init_sensor_framework()
 
     // add the sys sensor objects
     add_sys_sensor("sensor_test", "This is a sensor for test", 0, 1000,
-            read_test_sensor, config_test_sensor);
+                   read_test_sensor, config_test_sensor);
 
     set_sensor_reshceduler(cb_wakeup_thread);
 
     wasm_register_msg_callback(SENSOR_EVENT_WASM,
-            app_mgr_sensor_event_callback);
+                               app_mgr_sensor_event_callback);
 
     wasm_register_cleanup_callback(sensor_cleanup_callback);
 
     vm_thread_create(&tid, (void *)thread_sensor_check, NULL,
-    BH_APPLET_PRESERVED_STACK_SIZE);
-
+                     BH_APPLET_PRESERVED_STACK_SIZE);
 }
 

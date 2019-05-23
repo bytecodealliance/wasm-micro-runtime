@@ -152,7 +152,7 @@ void xpt2046_init(void)
         return;
     }
     gpio_pin_configure(xpt2046_cs_ctrl.gpio_dev, XPT2046_CS_GPIO_PIN,
-            GPIO_DIR_OUT);
+                       GPIO_DIR_OUT);
     gpio_pin_write(xpt2046_cs_ctrl.gpio_dev, XPT2046_CS_GPIO_PIN, 1);
     xpt2046_cs_ctrl.gpio_pin = XPT2046_CS_GPIO_PIN;
     xpt2046_cs_ctrl.delay = 0;
@@ -169,14 +169,15 @@ void xpt2046_init(void)
     }
     /* Setup GPIO input */
     ret = gpio_pin_configure(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN,
-            (GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE | GPIO_INT_ACTIVE_LOW
-                    | GPIO_INT_DEBOUNCE));
+                             (GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE
+                              | GPIO_INT_ACTIVE_LOW | GPIO_INT_DEBOUNCE)
+                            );
     if (ret) {
         printk("Error configuring pin %d!\n", XPT2046_PEN_GPIO_PIN);
     }
 
     gpio_init_callback(&gpio_cb, xpt2046_pen_gpio_callback,
-            BIT(XPT2046_PEN_GPIO_PIN));
+                       BIT(XPT2046_PEN_GPIO_PIN));
 
     ret = gpio_add_callback(xpt2046_pen_gpio_dev, &gpio_cb);
     if (ret) {
@@ -191,10 +192,10 @@ void xpt2046_init(void)
     k_sem_init(&sem_touch_read, 0, 1);
 
     k_thread_create(&touch_thread_data, touch_read_thread_stack,
-    TOUCH_READ_THREAD_STACK_SIZE, touch_screen_read_thread, NULL, NULL, NULL, 5,
-            0, K_NO_WAIT);
+                    TOUCH_READ_THREAD_STACK_SIZE, touch_screen_read_thread,
+                    NULL, NULL, NULL, 5,
+                    0, K_NO_WAIT);
     printf("xpt2046_init ok \n");
-
 }
 
 /**

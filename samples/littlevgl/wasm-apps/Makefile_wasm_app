@@ -50,6 +50,6 @@ SRCS += ../../../core/iwasm/lib/app-libs/base/timer.c
 all: 
 	@$(CC) $(CFLAGS) $(SRCS) \
     -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 \
-    -s TOTAL_MEMORY=131072 -s TOTAL_STACK=8096 \
+    -s TOTAL_MEMORY=65536 -s TOTAL_STACK=2048\
     -s "EXPORTED_FUNCTIONS=['_on_init', '_on_request', '_on_sensor_event', '_on_timer_callback']" \
     -o ui_app.wasm
