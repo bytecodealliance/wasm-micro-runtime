@@ -81,30 +81,43 @@ ninja
 AliOS-Things
 1. a developerkit board id needed for testing
 2. download the AliOS-Things code
+   ``` Bash
    git clone https://github.com/alibaba/AliOS-Things.git
+   ```
 3. copy <iwasm_root_dir>/products/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
+   ``` Bash
    cp -a <iwasm_root_dir>/products/alios-things middleware/iwasm
+   ```
 4. create a link to <iwasm_root_dir> in middleware/iwasm/ and rename it to iwasm
+   ``` Bash
    ln -s <iwasm_root_dir> middleware/iwasm/iwasm
+   ```
 5. create a link to <shared-lib_root_dir> in middleware/iwasm/ and rename it to shared-lib
+   ``` Bash
    ln -s <shared-lib_root_dir> middle/iwasm/shared-lib
+   ```
 6. modify file app/example/helloworld/helloworld.c, patch as:
-   + #include <stdbool.h>
+   ``` C
+   #include <stdbool.h>
    #include <aos/kernel.h>
-   + extern bool iwasm_init();
+   extern bool iwasm_init();
    int application_start(int argc, char *argv[])
    {
         int count = 0;
-      + iwasm_init();
+        iwasm_init();
        ...
    }
+   ```
 7. modify file app/example/helloworld/aos.mk
-   -  $(NAME)_COMPONENTS := osal_aos
-   +  $(NAME)_COMPONENTS := osal_aos iwasm
+   ``` C
+      $(NAME)_COMPONENTS := osal_aos iwasm
+   ```
 8. build source code
+   ``` Bash
    aos make helloworld@developerkit -c config
    aos make
-9. download the binary to developerkit board ,check the output from serial port
+   ```
+9. download the binary to developerkit board, check the output from serial port
 
 Build WASM app
 =========================
