@@ -47,7 +47,7 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_bu
  */
 WASMModule*
 wasm_loader_load_from_sections(WASMSection *section_list,
-                               char *error_buf, uint32_t error_buf_size);
+                               char *error_buf, uint32 error_buf_size);
 
 /**
  * Unload a WASM module.
