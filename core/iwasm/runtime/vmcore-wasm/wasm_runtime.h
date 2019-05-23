@@ -293,30 +293,30 @@ WASMModuleInstance *
 wasm_runtime_get_current_module_inst();
 
 /* See wasm-export.h for description */
-int32_t
-wasm_runtime_module_malloc(WASMModuleInstance *module_inst, uint32_t size);
+int32
+wasm_runtime_module_malloc(WASMModuleInstance *module_inst, uint32 size);
 
 /* See wasm-export.h for description */
 void
-wasm_runtime_module_free(WASMModuleInstance *module_inst, int32_t ptr);
+wasm_runtime_module_free(WASMModuleInstance *module_inst, int32 ptr);
 
 /* See wasm-export.h for description */
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstance *module_inst,
-                               int32_t app_offset, uint32_t size);
+                               int32 app_offset, uint32 size);
 
 /* See wasm-export.h for description */
 bool
 wasm_runtime_validate_native_addr(WASMModuleInstance *module_inst,
-                                  void *native_ptr, uint32_t size);
+                                  void *native_ptr, uint32 size);
 
 /* See wasm-export.h for description */
 void *
 wasm_runtime_addr_app_to_native(WASMModuleInstance *module_inst,
-                                int32_t app_offset);
+                                int32 app_offset);
 
 /* See wasm-export.h for description */
-int32_t
+int32
 wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
                                 void *native_ptr);
 
