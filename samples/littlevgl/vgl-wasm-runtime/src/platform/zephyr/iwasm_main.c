@@ -43,7 +43,6 @@ static void uart_irq_callback(struct device *dev)
     int size = 0;
 
     while (uart_poll_in(dev, &ch) == 0) {
-
         uart_char_cnt++;
         aee_host_msg_callback(&ch, 1);
     }
@@ -66,24 +65,27 @@ static bool host_init()
 int host_send(void * ctx, const char *buf, int size)
 {
     for (int i = 0; i < size; i++)
-    uart_poll_out(uart_dev, buf[i]);
+        uart_poll_out(uart_dev, buf[i]);
 
     return size;
 }
 
 void host_destroy()
 {
-
 }
 
+host_interface interface = {
+    .init = host_init,
+    .send = host_send,
+    .destroy = host_destroy
+};
 
-#define DEFAULT_THREAD_STACKSIZE (8 * 1024)
-
-host_interface interface = { .init = host_init, .send =
-        host_send, .destroy = host_destroy };
 timer_ctx_t timer_ctx;
-static char global_heap_buf[ 498*1024] = { 0 };
+
+static char global_heap_buf[270 * 1024] = { 0 };
+
 extern void display_init(void);
+
 int iwasm_main()
 {
     korp_thread tid, tm_tid;
@@ -108,6 +110,7 @@ int iwasm_main()
     // TODO:
     app_manager_startup(&interface);
 
-    fail1: bh_memory_destroy();
+fail1:
+    bh_memory_destroy();
     return -1;
 }

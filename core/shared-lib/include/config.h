@@ -48,6 +48,9 @@
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
 
+/* WASM Branch Block address hashmap */
+#define WASM_ENABLE_HASH_BLOCK_ADDR 0
+
 /* Heap and stack profiling */
 #define BEIHAI_ENABLE_MEMORY_PROFILING 0
 
@@ -77,14 +80,22 @@
 #define WORKING_FLOW_HEAP_SIZE 0
 */
 
-/* Default/min/max heap size of each app */
-#define APP_HEAP_SIZE_DEFAULT (48 * 1024)
+/* Default min/max heap size of each app */
+#define APP_HEAP_SIZE_DEFAULT (8 * 1024)
 #define APP_HEAP_SIZE_MIN (2 * 1024)
 #define APP_HEAP_SIZE_MAX (1024 * 1024)
 
+/* Default wasm stack size of each app */
+#define DEFAULT_WASM_STACK_SIZE (8 * 1024)
+
 /* Default/min/max stack size of each app thread */
+#ifndef __ZEPHYR__
 #define APP_THREAD_STACK_SIZE_DEFAULT (20 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (16 * 1024)
 #define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
-
+#else
+#define APP_THREAD_STACK_SIZE_DEFAULT (4 * 1024)
+#define APP_THREAD_STACK_SIZE_MIN (2 * 1024)
+#define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
+#endif
 #endif

@@ -342,7 +342,7 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 
 #endif
 
-static char global_heap_buf[1024 * 1024] = { 0 };
+static char global_heap_buf[270 * 1024] = { 0 };
 
 static void showUsage()
 {
