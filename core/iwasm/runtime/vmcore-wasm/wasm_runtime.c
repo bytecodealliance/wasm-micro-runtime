@@ -706,7 +706,7 @@ execute_start_function(WASMModuleInstance *module_inst)
  * Instantiate module
  */
 WASMModuleInstance*
-wasm_runtime_instantiate(const WASMModule *module,
+wasm_runtime_instantiate(WASMModule *module,
                          uint32 stack_size, uint32 heap_size,
                          char *error_buf, uint32 error_buf_size)
 {
@@ -726,9 +726,11 @@ wasm_runtime_instantiate(const WASMModule *module,
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
     if (heap_size == 0)
-        heap_size = DEFAULT_WASM_HEAP_SIZE;
-    if (heap_size < MIN_WASM_HEAP_SIZE)
-        heap_size = MIN_WASM_HEAP_SIZE;
+        heap_size = APP_HEAP_SIZE_DEFAULT;
+    if (heap_size < APP_HEAP_SIZE_MIN)
+        heap_size = APP_HEAP_SIZE_MIN;
+    if (heap_size > APP_HEAP_SIZE_MAX)
+        heap_size = APP_HEAP_SIZE_MAX;
 
     /* Instantiate global firstly to get the mutable data size */
     global_count = module->import_global_count + module->global_count;
@@ -909,7 +911,6 @@ wasm_runtime_instantiate(const WASMModule *module,
             &module_inst->functions[module->start_function];
     }
 
-    module_inst->branch_set = module->branch_set;
     module_inst->module = module;
 
     /* module instance type */

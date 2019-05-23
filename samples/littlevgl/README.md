@@ -75,7 +75,7 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
     However, nucleo_f767zi is almost the same as nucleo_f746zg, except FLASH and SRAM size.
     So we changed the DTS setting of nucleo_f746zg boards for a workaround.</br>
 
-    `Modify zephyr/dts/arm/st/f7/stm32f746xg.dtsi, change DT_SIZE_K(320) to DT_SIZE_K(512)`</br>
+    `Modify zephyr/dts/arm/st/f7/stm32f746Xg.dtsi, change DT_SIZE_K(320) to DT_SIZE_K(512)`</br>
     `mkdir build && cd build`</br>
     `source ../../../../zephyr-env.sh`</br>
     `cmake -GNinja -DBOARD=nucleo_f746zg ..`</br>

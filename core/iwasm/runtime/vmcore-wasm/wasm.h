@@ -219,6 +219,15 @@ typedef struct WASMDataSeg {
     uint8 *data;
 } WASMDataSeg;
 
+typedef struct BlockAddr {
+    const uint8 *start_addr;
+    uint8 *else_addr;
+    uint8 *end_addr;
+} BlockAddr;
+
+#define BLOCK_ADDR_CACHE_SIZE 64
+#define BLOCK_ADDR_CONFLICT_SIZE 4
+
 typedef struct WASMModule {
     uint32 type_count;
     uint32 import_count;
@@ -252,7 +261,11 @@ typedef struct WASMModule {
     uint32 start_function;
 
     HashMap *const_str_set;
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
     HashMap *branch_set;
+#else
+    BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
+#endif
 } WASMModule;
 
 typedef struct WASMBranchBlock {

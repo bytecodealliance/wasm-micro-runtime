@@ -1180,10 +1180,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     return true;
 }
 
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
 static uint32
 branch_set_hash(const void *key)
 {
-    return ((uintptr_t)key >> 4) ^ ((uintptr_t)key >> 14);
+    return ((uintptr_t)key) ^ ((uintptr_t)key >> 16);
 }
 
 static bool
@@ -1197,6 +1198,16 @@ branch_set_value_destroy(void *value)
 {
     wasm_free(value);
 }
+#endif
+
+#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+static void wasm_loader_free(void *ptr)
+{
+    wasm_free(ptr);
+}
+#else
+#define wasm_loader_free wasm_free
+#endif
 
 static WASMModule*
 create_module(char *error_buf, uint32 error_buf_size)
@@ -1218,15 +1229,17 @@ create_module(char *error_buf, uint32 error_buf_size)
                     (HashFunc)wasm_string_hash,
                     (KeyEqualFunc)wasm_string_equal,
                     NULL,
-                    wasm_free)))
+                    wasm_loader_free)))
         goto fail;
 
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
     if (!(module->branch_set = wasm_hash_map_create(64, true,
                     branch_set_hash,
                     branch_set_key_equal,
                     NULL,
                     branch_set_value_destroy)))
         goto fail;
+#endif
 
     return module;
 
@@ -1361,15 +1374,17 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_bu
                                         (HashFunc)wasm_string_hash,
                                         (KeyEqualFunc)wasm_string_equal,
                                         NULL,
-                                        wasm_free)))
+                                        wasm_loader_free)))
         goto fail;
 
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
     if (!(module->branch_set = wasm_hash_map_create(64, true,
                                         branch_set_hash,
                                         branch_set_key_equal,
                                         NULL,
                                         branch_set_value_destroy)))
         goto fail;
+#endif
 
     if (!load(buf, size, module, error_buf, error_buf_size))
         goto fail;
@@ -1440,20 +1455,24 @@ wasm_loader_unload(WASMModule *module)
     if (module->const_str_set)
         wasm_hash_map_destroy(module->const_str_set);
 
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
     if (module->branch_set)
         wasm_hash_map_destroy(module->branch_set);
+#endif
 
     wasm_free(module);
 }
 
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
 typedef struct block_addr {
     uint8 block_type;
-    uint8 *else_addr;
     uint8 *end_addr;
+    uint8 *else_addr;
 } block_addr;
+#endif
 
 bool
-wasm_loader_find_block_addr(HashMap *branch_set,
+wasm_loader_find_block_addr(WASMModule *module,
                             const uint8 *start_addr,
                             const uint8 *code_end_addr,
                             uint8 block_type,
@@ -1466,8 +1485,10 @@ wasm_loader_find_block_addr(HashMap *branch_set,
     uint8 *else_addr = NULL;
     uint32 block_nested_depth = 1, count, i, u32, u64;
     uint8 opcode, u8;
-    block_addr *block;
 
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
+    HashMap *branch_set = module->branch_set;
+    block_addr *block;
     if ((block = wasm_hash_map_find(branch_set, (void*)start_addr))) {
         if (block->block_type != block_type)
             return false;
@@ -1476,6 +1497,25 @@ wasm_loader_find_block_addr(HashMap *branch_set,
         *p_end_addr = block->end_addr;
         return true;
     }
+#else
+    BlockAddr block_stack[16] = { 0 }, *block;
+    uint32 j, t;
+
+    i = ((uintptr_t)start_addr) ^ ((uintptr_t)start_addr >> 16);
+    i = i % BLOCK_ADDR_CACHE_SIZE;
+    block = module->block_addr_cache[i];
+    for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++) {
+        if (block[j].start_addr == start_addr) {
+            /* Cache hit */
+            *p_else_addr = block[j].else_addr;
+            *p_end_addr = block[j].end_addr;
+            return true;
+        }
+    }
+
+    /* Cache unhit */
+    block_stack[0].start_addr = start_addr;
+#endif
 
     while (p < code_end_addr) {
         opcode = *p++;
@@ -1489,12 +1529,22 @@ wasm_loader_find_block_addr(HashMap *branch_set,
             case WASM_OP_LOOP:
             case WASM_OP_IF:
                 read_leb_uint32(p, p_end, u32); /* blocktype */
+#if WASM_ENABLE_HASH_BLOCK_ADDR == 0
+                if (block_nested_depth < sizeof(block_stack)/sizeof(BlockAddr)) {
+                    block_stack[block_nested_depth].start_addr = p;
+                    block_stack[block_nested_depth].else_addr = NULL;
+                }
+#endif
                 block_nested_depth++;
                 break;
 
             case WASM_OP_ELSE:
                 if (block_type == BLOCK_TYPE_IF && block_nested_depth == 1)
                     else_addr = (uint8*)(p - 1);
+#if WASM_ENABLE_HASH_BLOCK_ADDR == 0
+                if (block_nested_depth - 1 < sizeof(block_stack)/sizeof(BlockAddr))
+                    block_stack[block_nested_depth - 1].else_addr = (uint8*)(p - 1);
+#endif
                 break;
 
             case WASM_OP_END:
@@ -1503,7 +1553,13 @@ wasm_loader_find_block_addr(HashMap *branch_set,
                         *p_else_addr = else_addr;
                     *p_end_addr = (uint8*)(p - 1);
 
-                    if ((block = wasm_malloc(sizeof(block_addr)))) {
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
+                    if (block_type == BLOCK_TYPE_IF)
+                        block = wasm_malloc(sizeof(block_addr));
+                    else
+                        block = wasm_malloc(offsetof(block_addr, else_addr));
+
+                    if (block) {
                         block->block_type = block_type;
                         if (block_type == BLOCK_TYPE_IF)
                             block->else_addr = else_addr;
@@ -1512,11 +1568,41 @@ wasm_loader_find_block_addr(HashMap *branch_set,
                         if (!wasm_hash_map_insert(branch_set, (void*)start_addr, block))
                             wasm_free(block);
                     }
+#else
+                    block_stack[0].end_addr = (uint8*)(p - 1);
+                    for (t = 0; t < sizeof(block_stack)/sizeof(BlockAddr); t++) {
+                        start_addr = block_stack[t].start_addr;
+                        if (start_addr) {
+                            i = ((uintptr_t)start_addr) ^ ((uintptr_t)start_addr >> 16);
+                            i = i % BLOCK_ADDR_CACHE_SIZE;
+                            block = module->block_addr_cache[i];
+                            for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++)
+                                if (!block[j].start_addr)
+                                    break;
 
+                            if (j == BLOCK_ADDR_CONFLICT_SIZE) {
+                                memmove(block + 1, block, (BLOCK_ADDR_CONFLICT_SIZE - 1) *
+                                                          sizeof(BlockAddr));
+                                j = 0;
+
+                            }
+                            block[j].start_addr = block_stack[t].start_addr;
+                            block[j].else_addr = block_stack[t].else_addr;
+                            block[j].end_addr = block_stack[t].end_addr;
+                        }
+                        else
+                            break;
+                    }
+#endif
                     return true;
                 }
-                else
+                else {
                     block_nested_depth--;
+#if WASM_ENABLE_HASH_BLOCK_ADDR == 0
+                    if (block_nested_depth < sizeof(block_stack)/sizeof(BlockAddr))
+                        block_stack[block_nested_depth].end_addr = (uint8*)(p - 1);
+#endif
+                }
                 break;
 
             case WASM_OP_BR:
@@ -2079,14 +2165,13 @@ static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              char *error_buf, uint32 error_buf_size)
 {
-    HashMap *branch_set = module->branch_set;
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
     block_addr *block;
+#endif
     uint8 *p = func->code, *p_end = func->code + func->code_size;
-    uint8 *frame_lp_ref_bottom = NULL;
     uint8 *frame_ref_bottom = NULL, *frame_ref_boundary, *frame_ref;
     BranchBlock *frame_csp_bottom = NULL, *frame_csp_boundary, *frame_csp;
     uint32 param_count, local_count, global_count;
-    uint32 param_cell_num, local_cell_num;
     uint32 max_stack_cell_num = 0, max_csp_num = 0;
     uint32 stack_cell_num = 0, csp_num = 0;
     uint32 frame_ref_size, frame_csp_size;
@@ -2106,16 +2191,6 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
     local_count = func->local_count;
     local_types = func->local_types;
-
-    param_cell_num = wasm_get_cell_num(param_types, param_count);
-    local_cell_num = wasm_get_cell_num(local_types, local_count);
-
-    if (!(frame_lp_ref_bottom = wasm_malloc(param_cell_num + local_cell_num))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "WASM loader prepare bytecode failed: alloc memory failed");
-        goto fail;
-    }
-    memset(frame_lp_ref_bottom, 0, param_cell_num + local_cell_num);
 
     frame_ref_size = 32;
     if (!(frame_ref_bottom = frame_ref = wasm_malloc(frame_ref_size))) {
@@ -2167,7 +2242,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                     (frame_csp - 1)->jumped_by_br = true;
                 else {
                     if (!i32_const) {
-                        if(!wasm_loader_find_block_addr(branch_set,
+                        if(!wasm_loader_find_block_addr(module,
                                                         (frame_csp - 1)->start_addr,
                                                         p_end,
                                                         (frame_csp - 1)->block_type,
@@ -2210,10 +2285,16 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                 if (csp_num > 0) {
                     frame_csp->end_addr = p - 1;
 
-                    if (wasm_hash_map_find(branch_set, (void*)frame_csp->start_addr))
+#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
+                    if (wasm_hash_map_find(module->branch_set, (void*)frame_csp->start_addr))
                         break;
 
-                    if (!(block = wasm_malloc(sizeof(block_addr)))) {
+                    if (frame_csp->block_type == BLOCK_TYPE_IF)
+                        block = wasm_malloc(sizeof(block_addr));
+                    else
+                        block = wasm_malloc(offsetof(block_addr, else_addr));
+
+                    if (!block) {
                         set_error_buf(error_buf, error_buf_size,
                                       "WASM loader prepare bytecode failed: "
                                       "alloc memory failed");
@@ -2221,10 +2302,11 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                     }
 
                     block->block_type = frame_csp->block_type;
-                    block->else_addr = (void*)frame_csp->else_addr;
+                    if (frame_csp->block_type == BLOCK_TYPE_IF)
+                        block->else_addr = (void*)frame_csp->else_addr;
                     block->end_addr = (void*)frame_csp->end_addr;
 
-                    if (!wasm_hash_map_insert(branch_set, (void*)frame_csp->start_addr,
+                    if (!wasm_hash_map_insert(module->branch_set, (void*)frame_csp->start_addr,
                                               block)) {
                         set_error_buf(error_buf, error_buf_size,
                                       "WASM loader prepare bytecode failed: "
@@ -2232,6 +2314,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                         wasm_free(block);
                         goto fail;
                     }
+#endif
                 }
                 break;
             }
@@ -2248,7 +2331,7 @@ handle_op_br:
 
                 block_return_type = (frame_csp - i)->return_type;
 
-                if(!wasm_loader_find_block_addr(branch_set,
+                if(!wasm_loader_find_block_addr(module,
                                                 (frame_csp - i)->start_addr,
                                                 p_end,
                                                 (frame_csp - i)->block_type,
@@ -2304,7 +2387,7 @@ handle_op_br:
                 POP_TYPE(ret_type);
                 PUSH_TYPE(ret_type);
 
-                if(!wasm_loader_find_block_addr(branch_set,
+                if(!wasm_loader_find_block_addr(module,
                                                 (frame_csp - 1)->start_addr,
                                                 p_end,
                                                 (frame_csp - 1)->block_type,
@@ -2862,8 +2945,6 @@ handle_op_br:
     return_value = true;
 
 fail:
-    if (frame_lp_ref_bottom)
-        wasm_free(frame_lp_ref_bottom);
     if (frame_ref_bottom)
         wasm_free(frame_ref_bottom);
     if (frame_csp_bottom)

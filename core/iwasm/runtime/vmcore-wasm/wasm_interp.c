@@ -760,11 +760,12 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_BLOCK):
         read_leb_uint32(frame_ip, frame_ip_end, block_ret_type);
 
-        if (!wasm_loader_find_block_addr(module->branch_set, frame_ip,
-                                         frame_ip_end, BLOCK_TYPE_BLOCK,
+        if (!wasm_loader_find_block_addr(module->module,
+                                         frame_ip, frame_ip_end,
+                                         BLOCK_TYPE_BLOCK,
                                          &else_addr, &end_addr,
                                          NULL, 0)) {
-          wasm_runtime_set_exception(module, "wasm loader find block addr failed");
+          wasm_runtime_set_exception(module, "find block addr failed");
           goto got_exception;
         }
 
@@ -774,11 +775,12 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_LOOP):
         read_leb_uint32(frame_ip, frame_ip_end, block_ret_type);
 
-        if (!wasm_loader_find_block_addr(module->branch_set, frame_ip,
-                                         frame_ip_end, BLOCK_TYPE_LOOP,
+        if (!wasm_loader_find_block_addr(module->module,
+                                         frame_ip, frame_ip_end,
+                                         BLOCK_TYPE_LOOP,
                                          &else_addr, &end_addr,
                                          NULL, 0)) {
-          wasm_runtime_set_exception(module, "wasm loader find block addr failed");
+          wasm_runtime_set_exception(module, "find block addr failed");
           goto got_exception;
         }
 
@@ -788,11 +790,12 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_IF):
         read_leb_uint32(frame_ip, frame_ip_end, block_ret_type);
 
-        if (!wasm_loader_find_block_addr(module->branch_set, frame_ip,
-                                         frame_ip_end, BLOCK_TYPE_IF,
+        if (!wasm_loader_find_block_addr(module->module,
+                                         frame_ip, frame_ip_end,
+                                         BLOCK_TYPE_IF,
                                          &else_addr, &end_addr,
                                          NULL, 0)) {
-          wasm_runtime_set_exception(module, "wasm loader find block addr failed");
+          wasm_runtime_set_exception(module, "find block addr failed");
           goto got_exception;
         }
 

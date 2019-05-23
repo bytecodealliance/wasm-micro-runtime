@@ -128,7 +128,7 @@ int _vm_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
         unsigned int stack_size)
 {
     return _vm_thread_create_with_prio(tid, start, arg, stack_size,
-    BH_THREAD_DEFAULT_PRIORITY);
+                                       BH_THREAD_DEFAULT_PRIORITY);
 }
 
 korp_tid _vm_self_thread()
