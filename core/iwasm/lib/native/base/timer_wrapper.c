@@ -55,8 +55,8 @@ void * thread_modulers_timer_check(void * arg)
     while (1) {
         ms_to_expiry = -1;
         vm_mutex_lock(&g_timer_ctx_list_mutex);
-        timer_ctx_node_t* elem = (timer_ctx_node_t*) bh_list_first_elem(
-                &g_timer_ctx_list);
+        timer_ctx_node_t* elem = (timer_ctx_node_t*)
+                                 bh_list_first_elem(&g_timer_ctx_list);
         while (elem) {
             int next = check_app_timers(elem->timer_ctx);
             if (next != -1) {
@@ -72,7 +72,7 @@ void * thread_modulers_timer_check(void * arg)
             ms_to_expiry = 60 * 1000;
         vm_mutex_lock(&g_timer_ctx_list_mutex);
         vm_cond_reltimedwait(&g_timer_ctx_list_cond, &g_timer_ctx_list_mutex,
-                ms_to_expiry);
+                             ms_to_expiry);
         vm_mutex_unlock(&g_timer_ctx_list_mutex);
     }
 }
@@ -94,20 +94,21 @@ void init_wasm_timer()
     vm_recursive_mutex_init(&g_timer_ctx_list_mutex);
 
     vm_thread_create(&tm_tid, thread_modulers_timer_check,
-    NULL,
-    BH_APPLET_PRESERVED_STACK_SIZE);
+                     NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 }
 
 timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
 {
     timer_ctx_t ctx = create_timer_ctx(wasm_timer_callback,
-            wakeup_modules_timer_thread, prealloc_num, module_id);
+                                       wakeup_modules_timer_thread,
+                                       prealloc_num,
+                                       module_id);
 
     if (ctx == NULL)
         return NULL;
 
-    timer_ctx_node_t * node = (timer_ctx_node_t*) bh_malloc(
-            sizeof(timer_ctx_node_t));
+    timer_ctx_node_t * node = (timer_ctx_node_t*)
+                              bh_malloc(sizeof(timer_ctx_node_t));
     if (node == NULL) {
         destroy_timer_ctx(ctx);
         return NULL;
@@ -125,8 +126,8 @@ timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
 void destory_module_timer_ctx(unsigned int module_id)
 {
     vm_mutex_lock(&g_timer_ctx_list_mutex);
-    timer_ctx_node_t* elem = (timer_ctx_node_t*) bh_list_first_elem(
-            &g_timer_ctx_list);
+    timer_ctx_node_t* elem = (timer_ctx_node_t*)
+                             bh_list_first_elem(&g_timer_ctx_list);
     while (elem) {
         if (timer_ctx_get_owner(elem->timer_ctx) == module_id) {
             bh_list_remove(&g_timer_ctx_list, elem);
@@ -151,7 +152,7 @@ timer_ctx_t get_wasm_timer_ctx()
 timer_id_t wasm_create_timer(int interval, bool is_period, bool auto_start)
 {
     return sys_create_timer(get_wasm_timer_ctx(), interval, is_period,
-            auto_start);
+                            auto_start);
 }
 
 void wasm_timer_destory(timer_id_t timer_id)
