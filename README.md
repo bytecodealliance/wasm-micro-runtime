@@ -78,6 +78,47 @@ source ../../../zephyr-env.sh
 cmake -GNinja -DBOARD=qemu_x86 ..
 ninja
 ```
+AliOS-Things
+-------------------------
+1. a developerkit board id needed for testing
+2. download the AliOS-Things code
+   ``` Bash
+   git clone https://github.com/alibaba/AliOS-Things.git
+   ```
+3. copy <iwasm_root_dir>/products/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
+   ``` Bash
+   cp -a <iwasm_root_dir>/products/alios-things middleware/iwasm
+   ```
+4. create a link to <iwasm_root_dir> in middleware/iwasm/ and rename it to iwasm
+   ``` Bash
+   ln -s <iwasm_root_dir> middleware/iwasm/iwasm
+   ```
+5. create a link to <shared-lib_root_dir> in middleware/iwasm/ and rename it to shared-lib
+   ``` Bash
+   ln -s <shared-lib_root_dir> middle/iwasm/shared-lib
+   ```
+6. modify file app/example/helloworld/helloworld.c, patch as:
+   ``` C
+   #include <stdbool.h>
+   #include <aos/kernel.h>
+   extern bool iwasm_init();
+   int application_start(int argc, char *argv[])
+   {
+        int count = 0;
+        iwasm_init();
+       ...
+   }
+   ```
+7. modify file app/example/helloworld/aos.mk
+   ``` C
+      $(NAME)_COMPONENTS := osal_aos iwasm
+   ```
+8. build source code
+   ``` Bash
+   aos make helloworld@developerkit -c config
+   aos make
+   ```
+9. download the binary to developerkit board, check the output from serial port
 
 Build WASM app
 =========================
@@ -492,7 +533,7 @@ In this sample, the LittlevGL source code is built into the WebAssembly code wit
         EXPORT_WASM_API(display_map),
         EXPORT_WASM_API(time_get_ms), };
 
-The runtime component supports building target for Linux and Zephyr/STM Nucleo board respectively. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do the majority of application validation from the desktop environment then load it to the target device as long as two runtime distributions support the same set of the application interface.
+The runtime component supports building target for Linux and AliOS-Things, Zephyr/STM Nucleo board respectively. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do the majority of application validation from the desktop environment then load it to the target device as long as two runtime distributions support the same set of the application interface.
 
 
 Below pictures show the WASM application is running on an STM board with an LCD touch panel. When users click the blue button, the WASM application increases the counter, and the latest counter value is displayed on the top banner of the touch panel. 
