@@ -79,16 +79,16 @@ cmake -GNinja -DBOARD=qemu_x86 ..
 ninja
 ```
 AliOS-Things
-a developerkit board id needed for testing
-download the AliOS-Things code
+1. a developerkit board id needed for testing
+2. download the AliOS-Things code
    git clone https://github.com/alibaba/AliOS-Things.git
-copy <iwasm_root_dir>/products/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
+3. copy <iwasm_root_dir>/products/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
    cp -a <iwasm_root_dir>/products/alios-things middleware/iwasm
-create a link to <iwasm_root_dir> in middleware/iwasm/ and rename it to iwasm
+4. create a link to <iwasm_root_dir> in middleware/iwasm/ and rename it to iwasm
    ln -s <iwasm_root_dir> middleware/iwasm/iwasm
-create a link to <shared-lib_root_dir> in middleware/iwasm/ and rename it to shared-lib
+5. create a link to <shared-lib_root_dir> in middleware/iwasm/ and rename it to shared-lib
    ln -s <shared-lib_root_dir> middle/iwasm/shared-lib
-modify file app/example/helloworld/helloworld.c,  patch as:
+6. modify file app/example/helloworld/helloworld.c, patch as:
    + #include <stdbool.h>
    #include <aos/kernel.h>
    + extern bool iwasm_init();
@@ -98,13 +98,13 @@ modify file app/example/helloworld/helloworld.c,  patch as:
       + iwasm_init();
        ...
    }
-modify file app/example/helloworld/aos.mk
+7. modify file app/example/helloworld/aos.mk
    -  $(NAME)_COMPONENTS := osal_aos
    +  $(NAME)_COMPONENTS := osal_aos iwasm
-build source code
+8. build source code
    aos make helloworld@developerkit -c config
    aos make
-download the binary to developerkit board ,check the output from serial port
+9. download the binary to developerkit board ,check the output from serial port
 
 Build WASM app
 =========================
