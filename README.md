@@ -79,6 +79,7 @@ cmake -GNinja -DBOARD=qemu_x86 ..
 ninja
 ```
 AliOS-Things
+-------------------------
 1. a developerkit board id needed for testing
 2. download the AliOS-Things code
    ``` Bash
