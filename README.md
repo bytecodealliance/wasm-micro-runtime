@@ -175,7 +175,7 @@ cd iwasm/products/linux/bin
 You will get the following output:
 ```
 Hello world!
-buf ptr: 0x000101ac
+buf ptr: 0x400002b0
 buf: 1234
 ```
 If you would like to run the test app on Zephyr, we have embedded a test sample into its OS image. You will need to execute:

@@ -35,15 +35,14 @@ static int print_help()
 {
     wasm_printf("Usage: iwasm [-options] wasm_file [args...]\n");
     wasm_printf("options:\n");
-    wasm_printf("  -f|--function name     Specify function name to run "
-            "in module rather than main\n");
+    wasm_printf("  -f|--function name     Specify function name to run in module\n"
+                "                         rather than main\n");
 #if WASM_ENABLE_LOG != 0
-    wasm_printf(
-            "  -v=X                   Set log verbose level (0 to 2, default is 1), larger level with more log\n");
+    wasm_printf("  -v=X                   Set log verbose level (0 to 2, default is 1),\n"
+                "                         larger level with more log\n");
 #endif
-    wasm_printf(
-            "  --repl                 Start a very simple REPL (read-eval-print-loop) mode \n"
-                    "                         that runs commands in the form of `FUNC ARG...`\n");
+    wasm_printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
+                "                         that runs commands in the form of `FUNC ARG...`\n");
     return 1;
 }
 
@@ -64,7 +63,7 @@ app_instance_func(wasm_module_inst_t module_inst, const char *func_name)
     const char *exception;
 
     wasm_application_execute_func(module_inst, func_name, app_argc - 1,
-            app_argv + 1);
+                                  app_argv + 1);
     if ((exception = wasm_runtime_get_exception(module_inst)))
         wasm_printf("%s\n", exception);
     return NULL;
@@ -122,7 +121,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
         }
         if (app_argc != 0) {
             wasm_application_execute_func(module_inst, app_argv[0],
-                    app_argc - 1, app_argv + 1);
+                                          app_argc - 1, app_argv + 1);
         }
         free(app_argv);
     }
@@ -177,7 +176,7 @@ int main(int argc, char *argv[])
     app_argv = argv;
 
     if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
+        != 0) {
         wasm_printf("Init global heap failed.\n");
         return -1;
     }
@@ -190,19 +189,22 @@ int main(int argc, char *argv[])
 
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf = (uint8*) wasm_read_file_to_buffer(wasm_file,
-            &wasm_file_size)))
+                                                            &wasm_file_size)))
         goto fail2;
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
-            error_buf, sizeof(error_buf)))) {
+                                          error_buf, sizeof(error_buf)))) {
         wasm_printf("%s\n", error_buf);
         goto fail3;
     }
 
     /* instantiate the module */
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module, 8 * 1024,
-            8 * 1024, error_buf, sizeof(error_buf)))) {
+    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
+                                                      16 * 1024, /* stack size */
+                                                      8 * 1024,  /* heap size */
+                                                      error_buf,
+                                                      sizeof(error_buf)))) {
         wasm_printf("%s\n", error_buf);
         goto fail4;
     }
@@ -217,21 +219,20 @@ int main(int argc, char *argv[])
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
-    fail4:
+fail4:
     /* unload the module */
     wasm_runtime_unload(wasm_module);
 
-    fail3:
+fail3:
     /* free the file buffer */
     wasm_free(wasm_file_buf);
 
-    fail2:
+fail2:
     /* destroy runtime environment */
     wasm_runtime_destroy();
 
-    fail1: bh_memory_destroy();
-
-    (void) func_name;
+fail1:
+    bh_memory_destroy();
     return 0;
 }
 
