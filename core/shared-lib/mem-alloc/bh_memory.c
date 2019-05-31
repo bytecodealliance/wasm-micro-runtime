@@ -49,7 +49,9 @@ static korp_mutex profile_lock;
 #ifndef MALLOC_MEMORY_FROM_SYSTEM
 
 typedef enum Memory_Mode {
-    MEMORY_MODE_UNKNOWN = 0, MEMORY_MODE_POOL, MEMORY_MODE_ALLOCATOR
+    MEMORY_MODE_UNKNOWN = 0,
+    MEMORY_MODE_POOL,
+    MEMORY_MODE_ALLOCATOR
 } Memory_Mode;
 
 static Memory_Mode memory_mode = MEMORY_MODE_UNKNOWN;
@@ -58,6 +60,8 @@ static mem_allocator_t pool_allocator = NULL;
 
 static void *(*malloc_func)(unsigned int size) = NULL;
 static void (*free_func)(void *ptr) = NULL;
+
+static unsigned int global_pool_size;
 
 int bh_memory_init_with_pool(void *mem, unsigned int bytes)
 {
@@ -69,6 +73,7 @@ int bh_memory_init_with_pool(void *mem, unsigned int bytes)
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
         vm_mutex_init(&profile_lock);
 #endif
+        global_pool_size = bytes;
         return 0;
     }
     printf("Init memory with pool (%p, %u) failed.\n", mem, bytes);
@@ -99,6 +104,14 @@ void bh_memory_destroy()
     if (memory_mode == MEMORY_MODE_POOL)
         mem_allocator_destroy(pool_allocator);
     memory_mode = MEMORY_MODE_UNKNOWN;
+}
+
+int bh_memory_pool_size()
+{
+    if (memory_mode == MEMORY_MODE_POOL)
+        return global_pool_size;
+    else
+        return 1 * BH_GB;
 }
 
 void* bh_malloc_internal(unsigned int size)

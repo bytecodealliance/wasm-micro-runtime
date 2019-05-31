@@ -314,14 +314,20 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
+    uint32 pool_size = bh_memory_pool_size();
+    uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
+                            / NumBytesPerPage;
 
     read_leb_uint32(p, p_end, memory->flags);
     read_leb_uint32(p, p_end, memory->init_page_count);
-    if (memory->flags & 1)
+    if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
+        if (memory->max_page_count > max_page_count)
+            memory->max_page_count = max_page_count;
+    }
     else
-        /* Limit the maximum memory size to 4GB */
-        memory->max_page_count = 0x10000;
+        /* Limit the maximum memory size to max_page_count */
+        memory->max_page_count = max_page_count;
 
     *p_buf = p;
     return true;
@@ -351,14 +357,20 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
             char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
+    uint32 pool_size = bh_memory_pool_size();
+    uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
+                            / NumBytesPerPage;
 
     read_leb_uint32(p, p_end, memory->flags);
     read_leb_uint32(p, p_end, memory->init_page_count);
-    if (memory->flags & 1)
+    if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
+        if (memory->max_page_count > max_page_count)
+            memory->max_page_count = max_page_count;
+    }
     else
-        /* Limit the maximum memory size to 4GB */
-        memory->max_page_count = 0x10000;
+        /* Limit the maximum memory size to max_page_count */
+        memory->max_page_count = max_page_count;
 
     *p_buf = p;
     return true;

@@ -80,6 +80,15 @@
 #define WORKING_FLOW_HEAP_SIZE 0
 */
 
+/* Support memory.grow opcode and enlargeMemory function */
+#define WASM_ENABLE_MEMORY_GROW 1
+
+/* The max percentage of global heap that app memory space can grow */
+#define APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT 1 / 3
+
+/* Default base offset of app heap space */
+#define DEFAULT_APP_HEAP_BASE_OFFSET (1 * BH_GB)
+
 /* Default min/max heap size of each app */
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
 #define APP_HEAP_SIZE_MIN (2 * 1024)
