@@ -29,8 +29,8 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
   add_definitions(-DNVALGRIND)
 endif ()
 
-# Currently build as 32-bit by default.
-set (BUILD_AS_64BIT_SUPPORT "NO")
+# Currently build as 64-bit by default.
+set (BUILD_AS_64BIT_SUPPORT "YES")
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")
@@ -43,6 +43,11 @@ else ()
   set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
 endif ()
 endif ()
+
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif (NOT CMAKE_BUILD_TYPE)
+message ("CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic")

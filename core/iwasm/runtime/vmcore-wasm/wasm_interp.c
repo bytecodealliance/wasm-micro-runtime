@@ -74,26 +74,28 @@ GET_F64_FROM_ADDR (uint32 *addr)
 }
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
-#define is_valid_addr(memory, heap, addr)                                       \
-    (memory->base_addr <= addr && addr <= memory->end_addr)                     \
-
 #define CHECK_MEMORY_OVERFLOW() do {                                            \
+    uint32 offset1 = offset + addr;                                             \
     uint8 *maddr1;                                                              \
     if (flags != 2)                                                             \
       LOG_VERBOSE("unaligned load/store in wasm interp, flag is: %d.\n", flags);\
-    if (offset + addr < addr) {                                                 \
-      wasm_runtime_set_exception(module, "out of bounds memory access");        \
-      goto got_exception;                                                       \
+    if (offset1 < offset)                                                       \
+      goto out_of_bounds;                                                       \
+    if (offset1 < heap_base_offset) {                                           \
+      maddr = memory->memory_data + offset1;                                    \
+      if (maddr < memory->base_addr)                                            \
+        goto out_of_bounds;                                                     \
+      maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                    \
+      if (maddr1 > memory->end_addr)                                            \
+        goto out_of_bounds;                                                     \
     }                                                                           \
-    maddr = memory->memory_data + (offset + addr);                              \
-    if (!is_valid_addr(memory, NULL, maddr)) {                                  \
-      wasm_runtime_set_exception(module, "out of bounds memory access");        \
-      goto got_exception;                                                       \
-    }                                                                           \
-    maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                      \
-    if (!is_valid_addr(memory, NULL, maddr1)) {                                 \
-      wasm_runtime_set_exception(module, "out of bounds memory access");        \
-      goto got_exception;                                                       \
+    else {                                                                      \
+      maddr = memory->heap_data + offset1 - memory->heap_base_offset;           \
+      if (maddr < memory->heap_data)                                            \
+        goto out_of_bounds;                                                     \
+      maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                    \
+      if (maddr1 > memory->heap_data_end)                                       \
+        goto out_of_bounds;                                                     \
     }                                                                           \
   } while (0)
 
@@ -712,6 +714,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 {
   WASMModuleInstance *module = self->module_inst;
   WASMMemoryInstance *memory = module->default_memory;
+  int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
   WASMTableInstance *table = module->default_table;
   uint8 opcode_IMPDEP2 = WASM_OP_IMPDEP2;
   WASMInterpFrame *frame = NULL;
@@ -1247,26 +1250,25 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
       HANDLE_OP (WASM_OP_MEMORY_GROW):
       {
-        uint32 reserved, prev_page_count, delta, tmp;
+        uint32 reserved, delta, prev_page_count = memory->cur_page_count;
 
         read_leb_uint32(frame_ip, frame_ip_end, reserved);
-        prev_page_count = memory->cur_page_count;
         delta = POP_I32();
-        PUSH_I32(prev_page_count);
-        if (delta == 0)
-          HANDLE_OP_END ();
-        else if (delta + prev_page_count > memory->max_page_count ||
-                 delta + prev_page_count < prev_page_count) {
-          tmp = POP_I32();
+
+        if (!wasm_runtime_enlarge_memory(module, delta)) {
+          /* fail to memory.grow, return -1 */
           PUSH_I32(-1);
-          (void)tmp;
-          HANDLE_OP_END ();
+          if (wasm_runtime_get_exception(module)) {
+            printf("%s\n", wasm_runtime_get_exception(module));
+            wasm_runtime_set_exception(module, NULL);
+          }
         }
-
-        if (!wasm_runtime_enlarge_memory(module, delta))
-          goto got_exception;
-
-        memory = module->default_memory;
+        else {
+          /* success, return previous page count */
+          PUSH_I32(prev_page_count);
+          /* update the memory instance ptr */
+          memory = module->default_memory;
+        }
 
         (void)reserved;
         HANDLE_OP_END ();
@@ -2092,6 +2094,9 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       RECOVER_CONTEXT(prev_frame);
       HANDLE_OP_END ();
     }
+
+  out_of_bounds:
+    wasm_runtime_set_exception(module, "out of bounds memory access");
 
   got_exception:
     if (depths && depths != depth_buf) {
