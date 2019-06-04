@@ -34,7 +34,7 @@
 
 #include "native_interface.h"
 #include "shared_utils.h"
-#include "attr-container.h"
+#include "attr_container.h"
 #include "request.h"
 #include "sensor.h"
 #include "timer_wasm_app.h"

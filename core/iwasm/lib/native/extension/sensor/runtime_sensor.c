@@ -15,7 +15,7 @@
  */
 
 #include "runtime_sensor.h"
-#include "app-manager-export.h"
+#include "app_manager_export.h"
 #include "module_wasm_app.h"
 #include "bh_thread.h"
 #include "bh_time.h"
@@ -168,7 +168,7 @@ uint32 wasm_sensor_open(int32 name_offset, int instance)
 
         memset(client, 0, sizeof(sensor_client_t));
         client->client_id = mod_id;
-        client->client_callback = wasm_sensor_callback;
+        client->client_callback = (void *)wasm_sensor_callback;
         client->interval = s->default_interval;
         client->next = s->clients;
         s->clients = client;

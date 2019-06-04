@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "attr-container.h"
+#include "attr_container.h"
 #include "request.h"
 #include "shared_utils.h"
 #include "wasm_app.h"
@@ -138,9 +138,9 @@ static bool register_url_handler(const char *url,
 
     // tell app mgr to route this url to me
     if (reg_type == Reg_Request)
-        wasm_register_resource(url);
+        wasm_register_resource((int32)url);
     else
-        wasm_sub_event(url);
+        wasm_sub_event((int32)url);
 
     return true;
 }
@@ -242,7 +242,7 @@ void api_send_request(request_t * request, response_handler_f response_handler,
         }
     }
 
-    wasm_post_request(buffer, size);
+    wasm_post_request((int32)buffer, size);
 
     free_req_resp_packet(buffer);
 }
@@ -329,7 +329,7 @@ void api_response_send(response_t *response)
     if (buffer == NULL)
         return;
 
-    wasm_response_send(buffer, size);
+    wasm_response_send((int32)buffer, size);
     free_req_resp_packet(buffer);
 }
 
@@ -339,11 +339,11 @@ bool api_publish_event(const char *url, int fmt, void *payload, int payload_len)
 {
     int size;
     request_t request[1];
-    init_request(request, url, COAP_EVENT, fmt, payload, payload_len);
+    init_request(request, (char *)url, COAP_EVENT, fmt, payload, payload_len);
     char * buffer = pack_request(request, &size);
     if (buffer == NULL)
         return false;
-    wasm_post_request(buffer, size);
+    wasm_post_request((int32)buffer, size);
 
     free_req_resp_packet(buffer);
 

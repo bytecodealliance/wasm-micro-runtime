@@ -15,11 +15,11 @@
  */
 
 #include "native_interface.h"
-#include "app-manager-export.h"
+#include "app_manager_export.h"
 #include "coap_ext.h"
-#include "wasm-export.h"
+#include "wasm_export.h"
 
-extern void module_request_handler(request_t *request, uint32 register_id);
+extern void module_request_handler(request_t *request, void *user_data);
 
 bool wasm_response_send(int32 buffer_offset, int size)
 {
