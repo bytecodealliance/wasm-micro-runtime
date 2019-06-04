@@ -122,18 +122,9 @@ AliOS-Things
 
 Build WASM app
 =========================
-A popular method to build a WASM binary is to use ```emcc```.
-Assuming you are using Linux, you may install emcc from Emscripten EMSDK following the steps below:
-```
-git clone https://github.com/emscripten-core/emsdk.git
-emsdk install latest
-emsdk activate latest
-```
-source ```./emsdk_env.sh```.
-The Emscripten website provides other installation methods beyond Linux.
-
 You can write a simple ```test.c``` as the first sample.
-``` C
+
+```C
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -158,6 +149,22 @@ int main(int argc, char **argv)
     return 0;
 }
 ```
+
+There are two methods to build a WASM binary. One is using Emscripten tool, another is using clang compiler.
+
+##  Use Emscripten tool
+
+A method to build a WASM binary is to use Emscripten tool ```emcc```.
+Assuming you are using Linux, you may install emcc from Emscripten EMSDK following the steps below:
+
+```
+git clone https://github.com/emscripten-core/emsdk.git
+emsdk install latest
+emsdk activate latest
+```
+source ```./emsdk_env.sh```.
+The Emscripten website provides other installation methods beyond Linux.
+
 Use the emcc command below to build the WASM C source code into the WASM binary.
 ``` Bash
 emcc -g -O3 *.c -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 \
@@ -165,8 +172,48 @@ emcc -g -O3 *.c -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHE
 ```
 You will get ```test.wasm``` which is the WASM app binary.
 
+## Use clang compiler
+
+Another method to build a WASM binary is to use clang compiler```clang-8```.
+
+Add source to your system source list from llvm website, for ubuntu16.04, add following lines to /etc/apt/sources.list:
+
+```Bash
+deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main
+deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial main # 7
+deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main
+deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main # 8
+deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main
+deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main
+```
+
+Download and install clang-8 tool-chain using following commands:
+
+```Bash
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install llvm-8 lld-8 clang-8
+```
+
+Create a soft link under /usr/bin:
+
+```Bash
+cd /usr/bin
+sudo ln -s wasm-ld-8 wasm-ld
+```
+
+Use the clang-8 command below to build the WASM C source code into the WASM binary.
+
+```Bash
+clang-8 --target=wasm32 -O3 -Wl,--initial-memory=131072,--allow-undefined,--export=main,
+--no-threads,--strip-all,--no-entry -nostdlib -o test.wasm test.c
+```
+
+You will get ```test.wasm``` which is the WASM app binary.
+
 Run WASM app
 ========================
+
 Assume you are using Linux, the command to run the test.wasm is:
 ``` Bash
 cd iwasm/products/linux/bin
