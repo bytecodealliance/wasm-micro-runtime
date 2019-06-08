@@ -52,9 +52,13 @@ Linux
 First of all please install library dependencies of lib gcc.
 Use installation commands below for Ubuntu Linux:
 ``` Bash
-sudo apt install lib32gcc-5-dev
-sudo apt-get install g++-multilib
+sudo apt install lib32gcc-5-dev g++-multilib
 ```
+Or in Fedora:
+``` Bash
+sudo dnf install glibc-devel.i686 
+```
+
 After installing dependencies, build the source code:
 ``` Bash
 cd core/iwasm/products/linux/
