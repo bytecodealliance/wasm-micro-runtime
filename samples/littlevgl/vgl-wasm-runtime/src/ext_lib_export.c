@@ -1,8 +1,11 @@
 #include "lib_export.h"
 #include "native_interface.h"
+#include "connection_api.h"
 #include "display_indev.h"
+
 static NativeSymbol extended_native_symbol_defs[] = {
 #include "runtime_sensor.inl"
+#include "connection.inl"
         EXPORT_WASM_API(display_init),
         EXPORT_WASM_API(display_input_read),
         EXPORT_WASM_API(display_flush),
