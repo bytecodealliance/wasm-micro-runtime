@@ -339,11 +339,34 @@ void api_timer_restart(user_timer_t timer, int interval);
 Currently we provide the sensor API's as one library extension sample. In the header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is defined as below:
 ``` C
 sensor_t sensor_open(const char* name, int index,
-                                     void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
-                                     void *user_data);
+                     void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
+                     void *user_data);
 bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
 bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
 bool sensor_close(sensor_t sensor);
+```
+We provide the connection API's as another sample. In the header file `lib/app-libs/extension/connection/connection.h.`, the API set is defined as below:
+``` C
+/* Connection event type */
+typedef enum {
+    /* Data is received */
+    CONN_EVENT_TYPE_DATA = 1,
+    /* Connection is disconnected */
+    CONN_EVENT_TYPE_DISCONNECT
+} conn_event_type_t;
+
+typedef void (*on_connection_event_f)(connection_t *conn,
+                                      conn_event_type_t type,
+                                      const char *data,
+                                      uint32 len,
+                                      void *user_data);
+connection_t *api_open_connection(const char *name,
+                                  attr_container_t *args,
+                                  on_connection_event_f on_event,
+                                  void *user_data);
+void api_close_connection(connection_t *conn);
+int api_send_on_connection(connection_t *conn, const char *data, uint32 len);
+bool api_config_connection(connection_t *conn, attr_container_t *cfg);
 ```
 
 The mechanism of exporting native API to WASM application

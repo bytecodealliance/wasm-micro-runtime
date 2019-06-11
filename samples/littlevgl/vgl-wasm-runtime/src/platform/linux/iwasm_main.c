@@ -46,6 +46,7 @@ static int baudrate = B115200;
 extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
+extern bool init_connection_framework();
 
 #ifndef CONNECTION_UART
 int listenfd = -1;
@@ -441,6 +442,12 @@ int iwasm_main(int argc, char *argv[])
     if (vm_thread_sys_init() != 0) {
         goto fail1;
     }
+
+    if (!init_connection_framework()) {
+        vm_thread_sys_destroy();
+        goto fail1;
+    }
+
     extern void display_SDL_init();
     display_SDL_init();
 

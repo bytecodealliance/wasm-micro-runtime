@@ -38,6 +38,7 @@ target_include_directories(app PRIVATE ${IWASM_ROOT}/runtime/include
     ${IWASM_ROOT}/lib/native/base
     ${IWASM_ROOT}/lib/native/libc
     ${IWASM_ROOT}/lib/native/extension/sensor
+    ${IWASM_ROOT}/lib/native/extension/connection
     ${IWASM_ROOT}/lib/native-interface
     ${APP_MGR_ROOT}/app-manager
     ${APP_MGR_ROOT}/app-mgr-shared
@@ -69,6 +70,8 @@ set (IWASM_SRCS ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
     ${IWASM_ROOT}/lib/native/base/timer_wrapper.c
     ${IWASM_ROOT}/lib/native/libc/libc_wrapper.c
     ${IWASM_ROOT}/lib/native/extension/sensor/runtime_sensor.c
+    ${IWASM_ROOT}/lib/native/extension/connection/connection_wrapper.c
+    ${IWASM_ROOT}/lib/native/extension/connection/zephyr/connection_lib_impl.c
     ${IWASM_ROOT}/lib/native-interface/attr_container.c
     ${IWASM_ROOT}/lib/native-interface/restful_utils.c
     ${APP_MGR_ROOT}/app-manager/app_manager.c
