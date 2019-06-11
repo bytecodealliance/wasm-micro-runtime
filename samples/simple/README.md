@@ -16,18 +16,13 @@ simple/
 │   ├── iwasm_main.c
 │   └── main.c
 └── wasm-apps
-    ├── event_publisher
-    │   └── event_publisher.c
-    ├── event_subscriber
-    │   └── event_subscriber.c
-    ├── request_handler
-    │   └── request_handler.c
-    ├── request_sender
-    │   └── request_sender.c
-    ├── sensor
-    │   └── sensor.c
-    └── timer
-        └── timer.c
+    ├── connection.c
+    ├── event_publisher.c
+    ├── event_subscriber.c
+    ├── request_handler.c
+    ├── request_sender.c
+    ├── sensor.c
+    └── timer.c
 ```
 
 - build.sh<br/>
@@ -75,18 +70,19 @@ Execute the build.sh script then all binaries including wasm application files w
 
 Out directory structure
 ------------------------------
- ```
+```
 out/
 ├── host_tool
 ├── simple
 └── wasm-apps
+    ├── connection.wasm
     ├── event_publisher.wasm
     ├── event_subscriber.wasm
     ├── request_handler.wasm
     ├── request_sender.wasm
     ├── sensor.wasm
     └── timer.wasm
- ```
+```
 
 - host_tool:
   A small testing tool to interact with WAMR. See the usage of this tool by executing "./host_tool -h".
@@ -100,6 +96,8 @@ out/
 
 - wasm-apps:
   Sample wasm applications that demonstrate all APIs of the WAMR programming model. The source codes are in the wasm-apps directory under the root of this project.
+    + connection.wasm<br/>
+    This application shows the connection programming model. It connects to a TCP server on 127.0.0.1:7777 and periodically sends message to it.
     + event_publisher.wasm<br/>
     This application shows the sub/pub programming model. The pub application publishes the event "alert/overheat" by calling api_publish_event() API. The subscriber could be host_tool or other wasm application.
     + event_subscriber.wasm<br/>

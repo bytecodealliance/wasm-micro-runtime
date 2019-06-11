@@ -37,6 +37,7 @@
 #include "attr_container.h"
 #include "request.h"
 #include "sensor.h"
+#include "connection.h"
 #include "timer_wasm_app.h"
 
 #ifdef __cplusplus

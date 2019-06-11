@@ -57,6 +57,8 @@ include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
 include (${WASM_DIR}/lib/native/libc/wasm_libc.cmake)
 include (${WASM_DIR}/lib/native/extension/sensor/wasm_lib_sensor.cmake)
+include (${WASM_DIR}/lib/native/extension/connection/wasm_lib_conn.cmake)
+include (${WASM_DIR}/lib/native/extension/connection/${TARGET_PLATFORM}/connection_mgr.cmake)
 include (${WASM_DIR}/lib/native-interface/native_interface.cmake)
 include (${APP_MGR_DIR}/app-manager/app_mgr.cmake)
 include (${APP_MGR_DIR}/app-mgr-shared/app_mgr_shared.cmake)
@@ -81,6 +83,8 @@ add_library (vmlib
              ${WASM_LIB_BASE_SOURCE}
              ${WASM_LIB_EXT_SOURCE}
              ${WASM_LIB_SENSOR_SOURCE}
+             ${WASM_LIB_CONN_SOURCE}
+             ${WASM_LIB_CONN_MGR_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
              ${UTILS_SHARED_SOURCE}
              ${MEM_ALLOC_SHARED_SOURCE}
