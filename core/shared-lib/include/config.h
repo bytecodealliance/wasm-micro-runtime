@@ -63,6 +63,9 @@
 /* Max timer number in one app */
 #define MAX_TIMERS_PER_APP 30
 
+/* Max connection number in one app */
+#define MAX_CONNECTION_PER_APP 20
+
 /* Max resource registration number in one app */
 #define RESOURCE_REGISTRATION_NUM_MAX 16
 
