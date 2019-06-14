@@ -1335,6 +1335,18 @@ create_sections(const uint8 *buf, uint32 size,
     return true;
 }
 
+static void
+exchange32(uint8* p_data)
+{
+    uint8 value = *p_data;
+    *p_data = *(p_data + 3);
+    *(p_data + 3) = value;
+
+    value = *(p_data + 1);
+    *(p_data + 1) = *(p_data + 2);
+    *(p_data + 2) = value;
+}
+
 static bool
 load(const uint8 *buf, uint32 size, WASMModule *module,
      char *error_buf, uint32 error_buf_size)
@@ -1345,13 +1357,21 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
     WASMSection *section_list = NULL;
 
     CHECK_BUF(p, p_end, sizeof(uint32));
-    if ((magic_number = read_uint32(p)) != WASM_MAGIC_NUMBER) {
+    magic_number = read_uint32(p);
+    if (!is_little_endian)
+        exchange32((uint8*)&magic_number);
+
+    if (magic_number != WASM_MAGIC_NUMBER) {
         set_error_buf(error_buf, error_buf_size, "magic header not detected");
         return false;
     }
 
     CHECK_BUF(p, p_end, sizeof(uint32));
-    if ((version = read_uint32(p)) != WASM_CURRENT_VERSION) {
+    version = read_uint32(p);
+    if (!is_little_endian)
+        exchange32((uint8*)&version);
+
+    if (version != WASM_CURRENT_VERSION) {
         set_error_buf(error_buf, error_buf_size, "unknown binary version");
         return false;
     }
