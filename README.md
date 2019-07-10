@@ -67,6 +67,33 @@ cd build
 cmake ..
 make
 ```
+VxWorks
+-------------------------
+VxWorks 7 SR0620 release is validated.
+
+First you need to build a VSB. Make sure *UTILS_UNIX* layer is added in the VSB.
+After the VSB is built, export the VxWorks toolchain path by:
+```
+export <vsb_dir_path>/host/vx-compiler/bin:$PATH
+```
+Now switch to iwasm source tree to build the source code:
+```
+cd core/iwasm/products/vxworks/
+mkdir build
+cd build
+cmake ..
+make
+```
+Create a VIP based on the VSB. Make sure the following components are added:
+* INCLUDE_POSIX_PTHREADS
+* INCLUDE_POSIX_PTHREAD_SCHEDULER
+* INCLUDE_SHARED_DATA
+* INCLUDE_SHL
+
+Copy the generated iwasm executable, the test WASM binary as well as the needed
+shared libraries (libc.so.1, libllvm.so.1 or libgnu.so.1 depending on the VSB,
+libunix.so.1) to a supported file system (eg: romfs).
+
 Zephyr
 -------------------------
 You need to download the Zephyr source code first and embed WAMR into it.
