@@ -17,7 +17,7 @@
 #ifndef _WASM_H_
 #define _WASM_H_
 
-#include "wasm_platform.h"
+#include "bh_platform.h"
 #include "wasm_hashmap.h"
 #include "wasm_assert.h"
 

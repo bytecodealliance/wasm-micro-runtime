@@ -21,6 +21,7 @@
 #include "wasm_runtime.h"
 #include "wasm_log.h"
 #include "wasm_memory.h"
+#include "wasm_dlfcn.h"
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -1347,6 +1348,13 @@ exchange32(uint8* p_data)
     *(p_data + 2) = value;
 }
 
+static union {
+    int a;
+    char b;
+} __ue = { .a = 1 };
+
+#define is_little_endian() (__ue.b == 1)
+
 static bool
 load(const uint8 *buf, uint32 size, WASMModule *module,
      char *error_buf, uint32 error_buf_size)
@@ -1358,7 +1366,7 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
 
     CHECK_BUF(p, p_end, sizeof(uint32));
     magic_number = read_uint32(p);
-    if (!is_little_endian)
+    if (!is_little_endian())
         exchange32((uint8*)&magic_number);
 
     if (magic_number != WASM_MAGIC_NUMBER) {
@@ -1368,7 +1376,7 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
 
     CHECK_BUF(p, p_end, sizeof(uint32));
     version = read_uint32(p);
-    if (!is_little_endian)
+    if (!is_little_endian())
         exchange32((uint8*)&version);
 
     if (version != WASM_CURRENT_VERSION) {

@@ -35,7 +35,7 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 bool
 wasm_runtime_init()
 {
-    if (wasm_platform_init() != 0)
+    if (bh_platform_init() != 0)
         return false;
 
     if (wasm_log_init() != 0)

@@ -188,8 +188,8 @@ int main(int argc, char *argv[])
     wasm_log_set_verbose_level(log_verbose_level);
 
     /* load WASM byte buffer from WASM bin file */
-    if (!(wasm_file_buf = (uint8*) wasm_read_file_to_buffer(wasm_file,
-                                                            &wasm_file_size)))
+    if (!(wasm_file_buf = (uint8*) bh_read_file_to_buffer(wasm_file,
+                                                          &wasm_file_size)))
         goto fail2;
 
     /* load WASM module */
