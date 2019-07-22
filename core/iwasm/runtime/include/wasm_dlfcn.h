@@ -14,43 +14,19 @@
  * limitations under the License.
  */
 
-#include "wasm_platform.h"
+#ifndef _WASM_DLFCN_H
+#define _WASM_DLFCN_H
 
-#ifndef CONFIG_AEE_ENABLE
-static int
-_stdout_hook_iwasm(int c)
-{
-    printk("%c", (char)c);
-    return 1;
-}
-
-extern void __stdout_hook_install(int (*hook)(int));
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-bool is_little_endian = false;
+void *
+wasm_dlsym(void *handle, const char *symbol);
 
-bool __is_little_endian()
-{
-    union w
-    {
-        int a;
-        char b;
-    }c;
-
-    c.a = 1;
-    return (c.b == 1);
+#ifdef __cplusplus
 }
-
-int wasm_platform_init()
-{
-    if (__is_little_endian())
-        is_little_endian = true;
-
-#ifndef CONFIG_AEE_ENABLE
-    /* Enable printf() in Zephyr */
-    __stdout_hook_install(_stdout_hook_iwasm);
 #endif
 
-    return 0;
-}
+#endif /* end of _WASM_DLFCN_H */
 

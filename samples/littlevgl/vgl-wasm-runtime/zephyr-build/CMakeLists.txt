@@ -53,9 +53,8 @@ target_include_directories(app PRIVATE ${IWASM_ROOT}/runtime/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr
     )
 
-set (IWASM_SRCS ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
+set (IWASM_SRCS
     ${IWASM_ROOT}/runtime/platform/zephyr/wasm_native.c
-    ${IWASM_ROOT}/runtime/platform/zephyr/wasm_platform.c
     ${IWASM_ROOT}/runtime/utils/wasm_dlfcn.c
     ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c
     ${IWASM_ROOT}/runtime/utils/wasm_log.c
@@ -92,6 +91,7 @@ set (IWASM_SRCS ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
     ${SHARED_LIB_ROOT}/platform/zephyr/bh_platform_log.c
     ${SHARED_LIB_ROOT}/platform/zephyr/bh_thread.c
     ${SHARED_LIB_ROOT}/platform/zephyr/bh_time.c
+    ${SHARED_LIB_ROOT}/platform/zephyr/bh_math.c
     ${SHARED_LIB_ROOT}/mem-alloc/bh_memory.c
     ${SHARED_LIB_ROOT}/mem-alloc/mem_alloc.c
     ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_alloc.c
