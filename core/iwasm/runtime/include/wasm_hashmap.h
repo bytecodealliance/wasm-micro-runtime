@@ -17,7 +17,7 @@
 #ifndef WASM_HASHMAP_H
 #define WASM_HASHMAP_H
 
-#include "wasm_platform.h"
+#include "bh_platform.h"
 
 
 #ifdef __cplusplus

@@ -28,10 +28,7 @@
  * $FreeBSD$
  */
 
-#include "wasm_log.h"
-#include "wasm_platform.h"
-#include "wasm_platform_log.h"
-#include "wasm_memory.h"
+#include "bh_platform.h"
 
 #define __FDLIBM_STDC__
 
@@ -98,6 +95,13 @@ typedef union {
         unsigned int	manl	:32;
     } bits;
 } IEEEd2bits_B;
+
+static union {
+    int a;
+    char b;
+} __ue = { .a = 1 };
+
+#define is_little_endian() (__ue.b == 1)
 
 #define __HIL(x) *(1+pdouble2pint(&x))
 #define __LOL(x) *(pdouble2pint(&x))
@@ -179,39 +183,39 @@ typedef union {
         } while (0)
 
 /* Macro wrappers.  */
-#define EXTRACT_WORDS(ix0,ix1,d) do { \
-        if (is_little_endian)               \
-        EXTRACT_WORDS_L(ix0,ix1,d);       \
-        else                                \
-        EXTRACT_WORDS_B(ix0,ix1,d);       \
+#define EXTRACT_WORDS(ix0,ix1,d) do {   \
+    if (is_little_endian())             \
+        EXTRACT_WORDS_L(ix0,ix1,d);     \
+    else                                \
+        EXTRACT_WORDS_B(ix0,ix1,d);     \
 } while (0)
 
-#define INSERT_WORDS(d,ix0,ix1) do {  \
-        if (is_little_endian)               \
-        INSERT_WORDS_L(d,ix0,ix1);        \
-        else                                \
-        INSERT_WORDS_B(d,ix0,ix1);        \
+#define INSERT_WORDS(d,ix0,ix1) do {    \
+    if (is_little_endian())             \
+       INSERT_WORDS_L(d,ix0,ix1);       \
+    else                                \
+        INSERT_WORDS_B(d,ix0,ix1);      \
 } while (0)
 
-#define GET_HIGH_WORD(i,d)					\
-        do {								\
-            if (is_little_endian)                                         \
-            GET_HIGH_WORD_L(i,d);              			        \
-            else                                                          \
-            GET_HIGH_WORD_B(i,d);                                       \
-        } while (0)
+#define GET_HIGH_WORD(i,d)              \
+    do {                                \
+        if (is_little_endian())         \
+        GET_HIGH_WORD_L(i,d);           \
+        else                            \
+        GET_HIGH_WORD_B(i,d);           \
+    } while (0)
 
-#define SET_HIGH_WORD(d,v)					\
-        do {								\
-            if (is_little_endian)                                         \
-            SET_HIGH_WORD_L(d,v);        				\
-            else                                                          \
-            SET_HIGH_WORD_B(d,v);                                       \
-        } while (0)
+#define SET_HIGH_WORD(d,v)              \
+    do {                                \
+        if (is_little_endian())         \
+        SET_HIGH_WORD_L(d,v);           \
+        else                            \
+        SET_HIGH_WORD_B(d,v);           \
+    } while (0)
 
-#define __HI(x) (is_little_endian ? __HIL(x) : __HIB(x))
+#define __HI(x) (is_little_endian() ? __HIL(x) : __HIB(x))
 
-#define __LO(x) (is_little_endian ? __LOL(x) : __LOB(x))
+#define __LO(x) (is_little_endian() ? __LOL(x) : __LOB(x))
 
 /*
  * Attempt to get strict C99 semantics for assignment with non-C99 compilers.
@@ -509,7 +513,7 @@ static double freebsd_rint(double x)
 
 static int freebsd_isnan(double d)
 {
-    if (is_little_endian) {
+    if (is_little_endian()) {
         IEEEd2bits_L u;
         u.d = d;
         return (u.bits.exp == 2047 && (u.bits.manl != 0 || u.bits.manh != 0));

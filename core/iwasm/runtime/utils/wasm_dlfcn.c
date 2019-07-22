@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "wasm_platform.h"
+#include "bh_platform.h"
 
 
 static bool sort_flag = false;
