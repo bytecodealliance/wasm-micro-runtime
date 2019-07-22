@@ -30,7 +30,7 @@
 #ifndef _WASM_LOG_H
 #define _WASM_LOG_H
 
-#include "wasm_platform.h"
+#include "bh_platform.h"
 
 
 #ifdef __cplusplus

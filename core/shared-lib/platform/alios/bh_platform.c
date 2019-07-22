@@ -25,3 +25,9 @@ char *bh_strdup(const char *s)
         memcpy(s1, s, strlen(s) + 1);
     return s1;
 }
+
+int bh_platform_init()
+{
+    return 0;
+}
+

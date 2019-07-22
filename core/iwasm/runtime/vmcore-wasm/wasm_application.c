@@ -160,6 +160,13 @@ union ieee754_double {
     } ieee;
 };
 
+static union {
+    int a;
+    char b;
+} __ue = { .a = 1 };
+
+#define is_little_endian() (__ue.b == 1)
+
 bool
 wasm_application_execute_func(WASMModuleInstance *module_inst,
                               char *name, int argc, char *argv[])
@@ -222,7 +229,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                         union ieee754_float u;
                         sig = strtoul(endptr + 1, &endptr, 0);
                         u.f = f32;
-                        if (is_little_endian)
+                        if (is_little_endian())
                             u.ieee.ieee_little_endian.mantissa = sig;
                         else
                             u.ieee.ieee_big_endian.mantissa = sig;
@@ -245,7 +252,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                         union ieee754_double ud;
                         sig = strtoull(endptr + 1, &endptr, 0);
                         ud.d = u.val;
-                        if (is_little_endian) {
+                        if (is_little_endian()) {
                             ud.ieee.ieee_little_endian.mantissa0 = sig >> 32;
                             ud.ieee.ieee_little_endian.mantissa1 = sig;
                         }

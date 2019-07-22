@@ -52,7 +52,6 @@
 /* Invalid thread tid */
 #define INVALID_THREAD_ID NULL
 
-#define INVALID_SEM_ID SEM_FAILED
 #define BH_WAIT_FOREVER K_FOREVER
 
 typedef uint64_t uint64;
@@ -89,6 +88,18 @@ int snprintf(char *buffer, size_t count, const char *format, ...);
 #define NULL ((void*)0)
 #endif
 
+/**
+ * Return the offset of the given field in the given type.
+ *
+ * @param Type the type containing the filed
+ * @param field the field in the type
+ *
+ * @return the offset of field in Type
+ */
+#ifndef offsetof
+#define offsetof(Type, field) ((size_t)(&((Type *)0)->field))
+#endif
+
 #define bh_assert(x) \
     do { \
         if (!(x)) { \
@@ -96,9 +107,23 @@ int snprintf(char *buffer, size_t count, const char *format, ...);
         } \
     } while (0)
 
-extern int b_memcpy_s(void * s1, unsigned int s1max, const void * s2,
-        unsigned int n);
-extern int b_strcat_s(char * s1, size_t s1max, const char * s2);
-extern int b_strcpy_s(char * s1, size_t s1max, const char * s2);
+int b_memcpy_s(void * s1, unsigned int s1max, const void * s2,
+               unsigned int n);
+int b_strcat_s(char * s1, size_t s1max, const char * s2);
+int b_strcpy_s(char * s1, size_t s1max, const char * s2);
+
+/* math functions */
+double sqrt(double x);
+double floor(double x);
+double ceil(double x);
+double fmin(double x, double y);
+double fmax(double x, double y);
+double rint(double x);
+double fabs(double x);
+double trunc(double x);
+int signbit(double x);
+int isnan(double x);
+
+int bh_platform_init();
 
 #endif
