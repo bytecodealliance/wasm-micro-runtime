@@ -29,7 +29,7 @@ lv_obj_t *hello_world_label;
 lv_obj_t *count_label;
 lv_obj_t *btn1;
 lv_obj_t *label_count1;
-int label_count1_value = 0;
+int label_count1_value = 100;
 char label_count1_str[11] = { 0 };
 
 void timer1_update(user_timer_t timer1)
@@ -60,10 +60,10 @@ void on_init()
 
     /*Create a label on the button*/
     lv_obj_t *btn_label = lv_label_create(btn1, NULL);
-    lv_label_set_text(btn_label, "Click ++");
+    lv_label_set_text(btn_label, "Click --");
 
     label_count1 = lv_label_create(NULL, NULL);
-    lv_label_set_text(label_count1, "0");
+    lv_label_set_text(label_count1, "100");
     lv_obj_align(label_count1, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
 
     /* set up a timer */
@@ -75,8 +75,10 @@ void on_init()
 static void btn_event_cb(lv_obj_t *btn, lv_event_t event)
 {
     if(event == LV_EVENT_RELEASED) {
-        label_count1_value++;
+        label_count1_value--;
         sprintf(label_count1_str, "%d", label_count1_value);
         lv_label_set_text(label_count1, label_count1_str);
+        if (label_count1_value == 0)
+            label_count1_value = 100;
     }
 }
