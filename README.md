@@ -247,7 +247,7 @@ Run WASM app
 
 Assume you are using Linux, the command to run the test.wasm is:
 ``` Bash
-cd iwasm/products/linux/bin
+cd iwasm/products/linux/build
 ./iwasm test.wasm
 ```
 You will get the following output:
@@ -363,7 +363,9 @@ void api_timer_restart(user_timer_t timer, int interval);
 ```
 
 **Library extension reference**<br/>
-Currently we provide the sensor API's as one library extension sample. In the header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is defined as below:
+Currently we provide several kinds of extension library for reference including sensor, connection and GUI.
+
+Sensor API: In the header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is defined as below:
 ``` C
 sensor_t sensor_open(const char* name, int index,
                      void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
@@ -372,7 +374,7 @@ bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
 bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
 bool sensor_close(sensor_t sensor);
 ```
-We provide the connection API's as another sample. In the header file `lib/app-libs/extension/connection/connection.h.`, the API set is defined as below:
+Connection API: In the header file `lib/app-libs/extension/connection/connection.h.`, the API set is defined as below:
 ``` C
 /* Connection event type */
 typedef enum {
@@ -395,6 +397,8 @@ void api_close_connection(connection_t *conn);
 int api_send_on_connection(connection_t *conn, const char *data, uint32 len);
 bool api_config_connection(connection_t *conn, attr_container_t *cfg);
 ```
+GUI API: The API's is list in header file ```lib/app-libs/extension/gui/wgl.h``` which is implemented based open soure 2D graphic library [LittlevGL](https://docs.littlevgl.com/en/html/index.html). Currently supported widgets include button, label, list and check box and more wigdet would be provided in future.
+
 
 The mechanism of exporting native API to WASM application
 =======================================================
@@ -622,7 +626,9 @@ Please refer to the ```samples/simple``` folder for samples of WASM application 
 
 2D graphic user interface with LittlevGL
 ------------------------------------------------
-This sample demonstrates that a graphic user interface application in WebAssembly  integrates  the LittlevGL, an open-source embedded 2d graphic library. The sample source code is under ```samples/littlevgl``` 
+We have 2 samples for 2D graphic user interface.
+
+One of them demonstrates that a graphic user interface application in WebAssembly  integrates  the LittlevGL, an open-source embedded 2d graphic library. The sample source code is under ```samples/littlevgl``` 
 
 In this sample, the LittlevGL source code is built into the WebAssembly code with the user application source files. The platform interfaces defined by LittlevGL is implemented in the runtime and exported to the application through the declarations from source "ext_lib_export.c" as below:
 
@@ -644,6 +650,10 @@ Below pictures show the WASM application is running on an STM board with an LCD 
 
 The sample also provides the native Linux version of application without the runtime under folder "vgl-native-ui-app". It can help to check differences between the implementations in native and WebAssembly.
 <img src="./doc/pics/vgl_linux.PNG">
+
+The other sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL), which is implemented based on LittlevGL, an open-source embedded 2d graphic library. The sample source code is under ```samples/gui```
+
+Unlike `sample/littlevgl/val-wasm-runtime`, in this sample, the  LittlevGL source code is built into the WAMR runtime and exported to Webassembly applicaton but not directly built into Webassembly application. And WGL provides a group of WebAssembly wrapper API's for user to write graphic application. These API's are listed in: `<wamr_root>/core/iwasm/lib/app-libs/extension/gui/wgl.h`. Currently only a few API's are provided and there will be more.
 
 
 Submit issues and contact the maintainers
