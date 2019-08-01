@@ -32,6 +32,10 @@
 #include "attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
+
+#include "lv_drivers/display/monitor.h"
+#include "lv_drivers/indev/mouse.h"
+
 #define MAX 2048
 
 #ifndef CONNECTION_UART
@@ -47,6 +51,7 @@ extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 extern bool init_connection_framework();
+extern void wgl_init();
 
 #ifndef CONNECTION_UART
 int listenfd = -1;
@@ -425,6 +430,37 @@ static bool parse_args(int argc, char *argv[])
     return true;
 }
 
+/**
+ * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
+ */
+static void hal_init(void)
+{
+    /* Use the 'monitor' driver which creates window on PC's monitor to simulate a display*/
+    monitor_init();
+
+    /*Create a display buffer*/
+    static lv_disp_buf_t disp_buf1;
+    static lv_color_t buf1_1[480*10];
+    lv_disp_buf_init(&disp_buf1, buf1_1, NULL, 480*10);
+
+    /*Create a display*/
+    lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);            /*Basic initialization*/
+    disp_drv.buffer = &disp_buf1;
+    disp_drv.flush_cb = monitor_flush;
+    //    disp_drv.hor_res = 200;
+    //    disp_drv.ver_res = 100;
+    lv_disp_drv_register(&disp_drv);
+
+    /* Add the mouse as input device
+    * Use the 'mouse' driver which reads the PC's mouse*/
+    mouse_init();
+    lv_indev_drv_t indev_drv;
+    lv_indev_drv_init(&indev_drv);          /*Basic initialization*/
+    indev_drv.type = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = mouse_read;         /*This function will be called periodically (by the library) to get the mouse position and state*/
+    lv_indev_drv_register(&indev_drv);
+}
 // Driver function
 int iwasm_main(int argc, char *argv[])
 {
@@ -448,6 +484,8 @@ int iwasm_main(int argc, char *argv[])
         goto fail1;
     }
 
+    wgl_init();
+    hal_init();
     init_sensor_framework();
 
     // timer manager

@@ -43,6 +43,7 @@ enum {
     TIMER_EVENT_WASM,
     SENSOR_EVENT_WASM,
     CONNECTION_EVENT_WASM,
+    WIDGET_EVENT_WASM,
     WASM_Msg_End = WASM_Msg_Start + 100
 };
 
