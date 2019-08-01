@@ -1225,7 +1225,8 @@ wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
                                 void *native_ptr)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
-    if ((uint8*)native_ptr < memory->heap_data)
+    if (memory->base_addr <= (uint8*)native_ptr
+        && (uint8*)native_ptr < memory->end_addr)
         return (uint8*)native_ptr - memory->memory_data;
     else
         return memory->heap_base_offset

@@ -24,6 +24,7 @@ CFLAGS += -O3 \
 	  -I$(IWASM_DIR)/lib/app-libs/base/ \
 	  -I$(IWASM_DIR)/lib/native-interface/ \
 	  -I$(IWASM_DIR)/lib/app-libs/extension/sensor \
+	  -I$(IWASM_DIR)/lib/app-libs/extension/gui \
 	  -I$(IWASM_DIR)/lib/app-libs/extension/connection
 
 SRCS += lvgl/lv_draw/lv_draw_line.c lvgl/lv_draw/lv_draw_rbasic.c
