@@ -18,8 +18,6 @@
 #include "native_interface.h"
 
 
-
-
 #define ARGC sizeof(argv)/sizeof(uint32)
 #define CALL_BTN_NATIVE_FUNC(id) wasm_btn_native_call(id, (int32)argv, ARGC)
 
