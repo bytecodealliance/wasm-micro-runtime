@@ -44,9 +44,8 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
   add_definitions(-DNVALGRIND)
 endif ()
 
-# Currently build as 32-bit by default.
-set (BUILD_AS_64BIT_SUPPORT "NO")
-#set (BUILD_AS_64BIT_SUPPORT "YES")
+# Currently build as 64-bit by default.
+set (BUILD_AS_64BIT_SUPPORT "YES")
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")

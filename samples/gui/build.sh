@@ -32,6 +32,17 @@ echo $PWD
 cp  lvgl_native_ui_app ${OUT_DIR}
 echo "#####################build native-ui-app success"
 
+
+echo "##################### 2. build littlevgl wasm runtime start#####################"
+cd $BUILD_DIR
+mkdir -p wasm-runtime-wgl
+cd wasm-runtime-wgl
+cmake ${PROJECT_DIR}/wasm-runtime-wgl/linux-build
+make
+cp wasm_runtime_wgl ${OUT_DIR}/
+
+echo "##################### build littlevgl wasm runtime end#####################"
+
 echo "#####################build host-tool"
 cd $BUILD_DIR
 mkdir -p host-tool
@@ -44,17 +55,6 @@ if [ $? != 0 ];then
 fi
 cp host_tool ${OUT_DIR}
 echo "#####################build host-tool success"
-
-
-echo "##################### 2. build littlevgl wasm runtime start#####################"
-cd $BUILD_DIR
-mkdir -p wasm-runtime-wgl
-cd wasm-runtime-wgl
-cmake ${PROJECT_DIR}/wasm-runtime-wgl/linux-build
-make
-cp wasm_runtime_wgl ${OUT_DIR}/
-
-echo "##################### build littlevgl wasm runtime end#####################"
 
 
 echo "##################### 3. build wasm ui app start#####################"
