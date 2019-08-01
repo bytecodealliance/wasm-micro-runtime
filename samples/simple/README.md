@@ -19,6 +19,7 @@ simple/
     ├── connection.c
     ├── event_publisher.c
     ├── event_subscriber.c
+    ├── gui.c
     ├── request_handler.c
     ├── request_sender.c
     ├── sensor.c
@@ -63,6 +64,20 @@ The `host_init_func` is called when the application manager starts up. And `host
 - wasm-apps<br/>
   Source files of sample wasm applications.
 
+Install required SDK and libraries
+==============
+- 32 bit SDL(simple directmedia layer)
+Use apt-get</br>
+    `sudo apt-get install libsdl2-dev:i386`</br>
+Or download source from www.libsdl.org</br>
+    `./configure C_FLAGS=-m32 CXX_FLAGS=-m32 LD_FLAGS=-m32`</br>
+    `make`</br>
+    `sudo make install`</br>
+- Install EMSDK
+<pre>
+    https://emscripten.org/docs/tools_reference/emsdk.html
+</pre>
+
 Build all binaries
 ==============
 Execute the build.sh script then all binaries including wasm application files would be generated in 'out' directory.
@@ -78,6 +93,7 @@ out/
     ├── connection.wasm
     ├── event_publisher.wasm
     ├── event_subscriber.wasm
+    ├── gui.wasm
     ├── request_handler.wasm
     ├── request_sender.wasm
     ├── sensor.wasm
@@ -102,6 +118,8 @@ out/
     This application shows the sub/pub programming model. The pub application publishes the event "alert/overheat" by calling api_publish_event() API. The subscriber could be host_tool or other wasm application.
     + event_subscriber.wasm<br/>
     This application shows the sub/pub programming model. The sub application subscribes the "alert/overheat" event by calling api_subscribe_event() API so that it is able to receive the event once generated and published by the pub application. To make the process clear to interpret, the sub application dumps the event when receiving it.
+    + gui.wasm<br/>
+    This application shows the built-in 2D graphical user interface API with which various widgets could be created.
     + request_handler.wasm<br/>
     This application shows the request/response programming model. The request handler application registers 2 resources(/url1 and /url2) by calling api_register_resource_handler() API. The request sender could be host_tool or other wasm application.
     + request_sender.wasm<br/>

@@ -42,7 +42,7 @@ Linux
 --------------------------------
 - Build</br>
 `./build.sh`</br>
-    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "TestApplet1.wasm" and "vgl_wasm_runtime".
+    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "ui_app.wasm" and "vgl_wasm_runtime".
 - Run native Linux application</br>
 `./vgl_native_ui_app`</br>
 

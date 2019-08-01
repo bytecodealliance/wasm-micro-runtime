@@ -48,6 +48,29 @@ set(WASM_DIR  ${WAMR_ROOT_DIR}/core/iwasm)
 set(APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
 set(SHARED_DIR ${WAMR_ROOT_DIR}/core/shared-lib)
 
+set (lv_drivers_name lv_drivers)
+set (lv_name lvgl)
+set (LV_DRIVERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/${lv_drivers_name})
+set (LVGL_DIR ${WASM_DIR}/lib/3rdparty/${lv_name})
+
+if ((NOT EXISTS ${LVGL_DIR}) OR (NOT EXISTS ${LV_DRIVERS_DIR}))
+        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.in ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl_drivers/CMakeLists.txt)
+
+        execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+                RESULT_VARIABLE result
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl_drivers )
+        if(result)
+                message(FATAL_ERROR "CMake step for lvgl drivers failed: ${result}")
+        endif()
+        execute_process(COMMAND ${CMAKE_COMMAND} --build .
+                RESULT_VARIABLE result
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl_drivers )
+        if(result)
+                message(FATAL_ERROR "Build step for lvgl drivers failed: ${result}")
+        endif()
+endif()
+
+file(GLOB_RECURSE LV_DRIVERS_SOURCES "${LV_DRIVERS_DIR}/*.c" )
 
 enable_language (ASM)
 
@@ -57,6 +80,7 @@ include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
 include (${WASM_DIR}/lib/native/libc/wasm_libc.cmake)
 include (${WASM_DIR}/lib/native/extension/sensor/wasm_lib_sensor.cmake)
+include (${WASM_DIR}/lib/native/extension/gui/wasm_lib_gui.cmake)
 include (${WASM_DIR}/lib/native/extension/connection/wasm_lib_conn.cmake)
 include (${WASM_DIR}/lib/native/extension/connection/${TARGET_PLATFORM}/connection_mgr.cmake)
 include (${WASM_DIR}/lib/native-interface/native_interface.cmake)
@@ -85,6 +109,7 @@ add_library (vmlib
              ${WASM_LIB_BASE_SOURCE}
              ${WASM_LIB_EXT_SOURCE}
              ${WASM_LIB_SENSOR_SOURCE}
+             ${WASM_LIB_GUI_SOURCE}
              ${WASM_LIB_CONN_SOURCE}
              ${WASM_LIB_CONN_MGR_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
@@ -93,7 +118,7 @@ add_library (vmlib
              ${NATIVE_INTERFACE_SOURCE}
             )
 
-add_executable (simple src/main.c src/iwasm_main.c src/ext_lib_export.c)
+    add_executable (simple src/main.c src/iwasm_main.c src/ext_lib_export.c ${LV_DRIVERS_SOURCES})
 
-target_link_libraries (simple vmlib -lm -ldl -lpthread)
+target_link_libraries (simple vmlib -lm -ldl -lpthread -lSDL2)
 
