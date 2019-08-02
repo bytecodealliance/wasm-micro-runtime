@@ -20,6 +20,14 @@ if [ ! -d "tlsf" ]; then
     git clone https://github.com/mattconte/tlsf
 fi
 
+cd ${WAMR_DIR}/core/iwasm/lib/3rdparty
+if [ ! -d "lvgl" ]; then
+    git clone https://github.com/littlevgl/lvgl.git --branch v6.0.1
+fi
+if [ ! -d "lv_drivers" ]; then
+        git clone https://github.com/littlevgl/lv_drivers.git
+fi
+
 echo "#####################build simple project"
 cd ${CURR_DIR}
 mkdir -p cmake_build
