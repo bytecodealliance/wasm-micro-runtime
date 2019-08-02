@@ -17,16 +17,27 @@ message ("lvgl_native_ui_app...")
 project (lvgl_native_ui_app)
 
 #################################################################
-#SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -g)
+
+# Currently build as 64-bit by default. Set to "NO" to build 32-bit binaries.
+set (BUILD_AS_64BIT_SUPPORT "YES")
+
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")
+                # Add -fPIC flag if build as 64-bit
+                set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+                set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
+        else ()
+                add_definitions (-m32)
+                set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
+                set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
+        endif ()
+endif ()
 
 set(THIRDPARTY_DIR ../../../core/iwasm/lib/3rdparty)
 set(LVGL_SOURCE_DIR ${THIRDPARTY_DIR}/lvgl)
 set(LVGL_DRIVER_DIR ${THIRDPARTY_DIR}/lv_drivers)
 
 #################################
-set(CMAKE_C_STANDARD 11)#C11
-set(CMAKE_CXX_STANDARD 17)#C17
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR})
 INCLUDE_DIRECTORIES(${THIRDPARTY_DIR})
