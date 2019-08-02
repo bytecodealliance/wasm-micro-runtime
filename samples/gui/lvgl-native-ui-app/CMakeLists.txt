@@ -19,27 +19,9 @@ project (lvgl_native_ui_app)
 #################################################################
 #SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -g)
 
-set(lv_name lvgl)
-set(lv_drivers_name lv_drivers)
-set(LVGL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${lv_name})
-set(LVGL_DRIVER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${lv_drivers_name})
-
-if ((NOT EXISTS ${LVGL_SOURCE_DIR}) OR (NOT EXISTS ${LVGL_DRIVER_DIR}))
-        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.in ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl/CMakeLists.txt)
-
-        execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-                RESULT_VARIABLE result
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl )
-        if(result)
-                message(FATAL_ERROR "CMake step for lvgl failed: ${result}")
-        endif()
-        execute_process(COMMAND ${CMAKE_COMMAND} --build .
-                RESULT_VARIABLE result
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl )
-        if(result)
-                message(FATAL_ERROR "Build step for lvgl failed: ${result}")
-        endif()
-endif()
+set(THIRDPARTY_DIR ../../../core/iwasm/lib/3rdparty)
+set(LVGL_SOURCE_DIR ${THIRDPARTY_DIR}/lvgl)
+set(LVGL_DRIVER_DIR ${THIRDPARTY_DIR}/lv_drivers)
 
 #################################
 set(CMAKE_C_STANDARD 11)#C11
@@ -47,6 +29,9 @@ set(CMAKE_CXX_STANDARD 17)#C17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR})
+INCLUDE_DIRECTORIES(${THIRDPARTY_DIR})
+
+add_definitions (-DLV_CONF_INCLUDE_SIMPLE)
 
 file(GLOB_RECURSE INCLUDES "${LVGL_DRIVER_DIR}/*.h" "${LVGL_SOURCE_DIR}/*.h"  "./*.h" )
 file(GLOB_RECURSE SOURCES  "${LVGL_DRIVER_DIR}/*.c" "${LVGL_SOURCE_DIR}/*.c" )
