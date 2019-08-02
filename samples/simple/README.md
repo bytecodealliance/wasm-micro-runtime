@@ -64,19 +64,37 @@ The `host_init_func` is called when the application manager starts up. And `host
 - wasm-apps<br/>
   Source files of sample wasm applications.
 
+Configure 32 bit or 64 bit build
+==============
+On 64 bit operating system, there is an option to build 32 bit or 64 bit binaries. In file `CMakeLists.txt`, modify the line:
+`set (BUILD_AS_64BIT_SUPPORT "YES")`
+ where `YES` means 64 bit build while `NO` means 32 bit build.
+
 Install required SDK and libraries
 ==============
-- 32 bit SDL(simple directmedia layer)
-Use apt-get</br>
-    `sudo apt-get install libsdl2-dev:i386`</br>
-Or download source from www.libsdl.org</br>
-    `./configure C_FLAGS=-m32 CXX_FLAGS=-m32 LD_FLAGS=-m32`</br>
-    `make`</br>
-    `sudo make install`</br>
+- 32 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `NO`)
+Use apt-get:
+    `sudo apt-get install libsdl2-dev:i386`
+Or download source from www.libsdl.org:
+```
+./configure C_FLAGS=-m32 CXX_FLAGS=-m32 LD_FLAGS=-m32
+make
+sudo make install
+```
+- 64 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `YES`)
+Use apt-get:
+    `sudo apt-get install libsdl2-dev`
+Or download source from www.libsdl.org:
+```
+./configure
+make
+sudo make install
+```
+
 - Install EMSDK
-<pre>
+```
     https://emscripten.org/docs/tools_reference/emsdk.html
-</pre>
+```
 
 Build all binaries
 ==============

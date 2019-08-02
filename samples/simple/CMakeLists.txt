@@ -48,27 +48,8 @@ set(WASM_DIR  ${WAMR_ROOT_DIR}/core/iwasm)
 set(APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
 set(SHARED_DIR ${WAMR_ROOT_DIR}/core/shared-lib)
 
-set (lv_drivers_name lv_drivers)
-set (lv_name lvgl)
-set (LV_DRIVERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/${lv_drivers_name})
-set (LVGL_DIR ${WASM_DIR}/lib/3rdparty/${lv_name})
-
-if ((NOT EXISTS ${LVGL_DIR}) OR (NOT EXISTS ${LV_DRIVERS_DIR}))
-        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.in ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl_drivers/CMakeLists.txt)
-
-        execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-                RESULT_VARIABLE result
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl_drivers )
-        if(result)
-                message(FATAL_ERROR "CMake step for lvgl drivers failed: ${result}")
-        endif()
-        execute_process(COMMAND ${CMAKE_COMMAND} --build .
-                RESULT_VARIABLE result
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl_drivers )
-        if(result)
-                message(FATAL_ERROR "Build step for lvgl drivers failed: ${result}")
-        endif()
-endif()
+set (LV_DRIVERS_DIR ${WASM_DIR}/lib/3rdparty/lv_drivers)
+set (LVGL_DIR ${WASM_DIR}/lib/3rdparty/lvgl)
 
 file(GLOB_RECURSE LV_DRIVERS_SOURCES "${LV_DRIVERS_DIR}/*.c" )
 
@@ -93,12 +74,14 @@ include (${SHARED_DIR}/coap/lib_coap.cmake)
 
 
 include_directories(${SHARED_DIR}/include)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 #Note: uncomment below line to use UART mode
 #add_definitions (-DCONNECTION_UART)
 add_definitions (-DWASM_ENABLE_BASE_LIB)
 add_definitions (-Dattr_container_malloc=bh_malloc)
 add_definitions (-Dattr_container_free=bh_free)
+add_definitions (-DLV_CONF_INCLUDE_SIMPLE)
 
 add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
