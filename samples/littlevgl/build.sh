@@ -18,6 +18,12 @@ if [ ! -d "tlsf" ]; then
     git clone https://github.com/mattconte/tlsf
 fi
 
+cd ${WAMR_DIR}/core/iwasm/lib/3rdparty
+if [ ! -d "lvgl" ]; then
+        git clone https://github.com/littlevgl/lvgl.git --branch v6.0.1
+fi
+
+
 echo "##################### 1. build native-ui-app start#####################"
 cd $BUILD_DIR
 mkdir -p vgl-native-ui-app

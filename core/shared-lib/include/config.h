@@ -98,7 +98,11 @@
 #define APP_HEAP_SIZE_MAX (1024 * 1024)
 
 /* Default wasm stack size of each app */
+#ifdef __x86_64__
+#define DEFAULT_WASM_STACK_SIZE (12 * 1024)
+#else
 #define DEFAULT_WASM_STACK_SIZE (8 * 1024)
+#endif
 
 /* Default/min/max stack size of each app thread */
 #ifndef __ZEPHYR__

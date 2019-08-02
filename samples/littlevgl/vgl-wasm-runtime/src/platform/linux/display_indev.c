@@ -186,12 +186,29 @@ void display_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
 bool display_input_read(int32 data_p_offset)
 {
+    bool ret;
     wasm_module_inst_t module_inst = wasm_runtime_get_current_module_inst();
     if (!wasm_runtime_validate_app_addr(module_inst, data_p_offset, 1))
         return false;
-    lv_indev_data_t * data = wasm_runtime_addr_app_to_native(module_inst,
-            data_p_offset);
-    return mouse_read(data);
+
+    struct {
+        lv_point_t point;
+        int32 user_data_offset;
+        uint8 state;
+    } *data_app;
+
+    lv_indev_data_t data;
+
+    ret = mouse_read(&data);
+
+    data_app = wasm_runtime_addr_app_to_native(module_inst,
+                                               data_p_offset);
+
+    data_app->point = data.point;
+    data_app->user_data_offset = (int32_t)data.user_data;
+    data_app->state = data.state;
+
+    return ret;
 }
 
 void display_deinit(void)
