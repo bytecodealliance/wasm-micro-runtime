@@ -19,15 +19,13 @@
 #include <string.h>
 #include "lib_export.h"
 
-#ifdef WASM_ENABLE_BASE_LIB
+#if WASM_ENABLE_BASE_LIB
 #include "base_lib_export.h"
-#endif
 
 static NativeSymbol extended_native_symbol_defs[] = {
 /* TODO: use macro EXPORT_WASM_API() or EXPORT_WASM_API2() to
  add functions to register. */
 
-#ifdef WASM_ENABLE_BASE_LIB
         EXPORT_WASM_API(wasm_register_resource),
         EXPORT_WASM_API(wasm_response_send),
         EXPORT_WASM_API(wasm_post_request),
@@ -37,7 +35,6 @@ static NativeSymbol extended_native_symbol_defs[] = {
         EXPORT_WASM_API(wasm_timer_cancel),
         EXPORT_WASM_API(wasm_timer_restart),
         EXPORT_WASM_API(wasm_get_sys_tick_ms),
-#endif
     };
 
 int get_base_lib_export_apis(NativeSymbol **p_base_lib_apis)
@@ -46,3 +43,4 @@ int get_base_lib_export_apis(NativeSymbol **p_base_lib_apis)
     return sizeof(extended_native_symbol_defs) / sizeof(NativeSymbol);
 }
 
+#endif

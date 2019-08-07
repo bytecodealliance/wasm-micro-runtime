@@ -64,15 +64,14 @@ lookup_symbol(NativeSymbol *ptr, int len, const char *symbol)
     return NULL;
 }
 
-int
-get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
-
-int
-get_ext_lib_export_apis(NativeSymbol **p_ext_lib_apis);
-
-static NativeSymbol *base_native_symbol_defs;
-static NativeSymbol *ext_native_symbol_defs;
+#if WASM_ENABLE_BASE_LIB
+int get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
 static int base_native_symbol_len;
+static NativeSymbol *base_native_symbol_defs;
+#endif
+
+int get_ext_lib_export_apis(NativeSymbol **p_ext_lib_apis);
+static NativeSymbol *ext_native_symbol_defs;
 static int ext_native_symbol_len;
 
 void *
@@ -81,11 +80,14 @@ wasm_dlsym(void *handle, const char *symbol)
     void *ret;
 
     if (!sort_flag) {
+#if WASM_ENABLE_BASE_LIB
         base_native_symbol_len = get_base_lib_export_apis(&base_native_symbol_defs);
-        ext_native_symbol_len = get_ext_lib_export_apis(&ext_native_symbol_defs);
 
         if (base_native_symbol_len > 0)
             sort_symbol_ptr(base_native_symbol_defs, base_native_symbol_len);
+#endif
+
+        ext_native_symbol_len = get_ext_lib_export_apis(&ext_native_symbol_defs);
 
         if (ext_native_symbol_len > 0)
             sort_symbol_ptr(ext_native_symbol_defs, ext_native_symbol_len);
@@ -96,12 +98,13 @@ wasm_dlsym(void *handle, const char *symbol)
     if (!symbol)
         return NULL;
 
-    if ((ret = lookup_symbol(base_native_symbol_defs, base_native_symbol_len,
-                             symbol))
-        || (ret = lookup_symbol(ext_native_symbol_defs, ext_native_symbol_len,
+    if (
+#if WASM_ENABLE_BASE_LIB
+        (ret = lookup_symbol(base_native_symbol_defs, base_native_symbol_len, symbol)) ||
+#endif
+        (ret = lookup_symbol(ext_native_symbol_defs, ext_native_symbol_len,
                                 symbol)))
         return ret;
 
     return NULL;
 }
-
