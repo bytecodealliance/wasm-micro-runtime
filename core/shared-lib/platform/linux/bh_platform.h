@@ -41,6 +41,8 @@
 extern "C" {
 #endif
 
+#define bh_printf printf
+
 typedef uint64_t uint64;
 typedef int64_t int64;
 

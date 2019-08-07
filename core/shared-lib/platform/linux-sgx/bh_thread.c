@@ -156,21 +156,6 @@ int _vm_cond_wait(korp_cond *cond, korp_mutex *mutex)
     //return BHT_ERROR;
 }
 
-static void msec_nsec_to_abstime(struct timespec *ts, int64 msec, int32 nsec)
-{
-    struct timeval tv;
-
-    // gettimeofday(&tv, NULL);
-
-    ts->tv_sec = tv.tv_sec + msec / 1000;
-    ts->tv_nsec = tv.tv_usec * 1000 + (msec % 1000) * 1000000 + nsec;
-
-    if (ts->tv_nsec >= 1000000000L) {
-        ts->tv_sec++;
-        ts->tv_nsec -= 1000000000L;
-    }
-}
-
 int _vm_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int mills)
 {
     return BHT_OK;

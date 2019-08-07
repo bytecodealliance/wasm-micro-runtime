@@ -79,4 +79,3 @@ bh_read_file_to_buffer(const char *filename, int *ret_size)
     *ret_size = file_size;
     return buffer;
 }
-

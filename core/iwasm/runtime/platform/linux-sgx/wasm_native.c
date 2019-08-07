@@ -61,7 +61,7 @@ __syscall0_wrapper(int32 arg0)
         case 199: /* getuid */
             /* TODO */
         default:
-            printf("##_syscall0 called, syscall id: %d\n", arg0);
+            bh_printf("##_syscall0 called, syscall id: %d\n", arg0);
     }
     return 0;
 }
@@ -73,7 +73,7 @@ __syscall1_wrapper(int32 arg0, int32 arg1)
         case 6: /* close */
             /* TODO */
         default:
-            printf("##_syscall1 called, syscall id: %d\n", arg0);
+            bh_printf("##_syscall1 called, syscall id: %d\n", arg0);
     }
     return 0;
 }
@@ -85,7 +85,7 @@ __syscall2_wrapper(int32 arg0, int32 arg1, int32 arg2)
         case 183: /* getcwd */
             /* TODO */
         default:
-            printf("##_syscall2 called, syscall id: %d\n", arg0);
+            bh_printf("##_syscall2 called, syscall id: %d\n", arg0);
     }
     return 0;
 }
@@ -139,7 +139,7 @@ __syscall3_wrapper(int32 arg0, int32 arg1, int32 arg2, int32 arg3)
         case 221: /* fcntl */
         /* TODO */
         default:
-        printf("##_syscall3 called, syscall id: %d\n", arg0);
+            bh_printf("##_syscall3 called, syscall id: %d\n", arg0);
     }
     return 0;
 }
@@ -148,7 +148,7 @@ static int32
 __syscall4_wrapper(int32 arg0, int32 arg1, int32 arg2,
                    int32 arg3, int32 arg4)
 {
-    printf("##_syscall4 called, syscall id: %d\n", arg0);
+    bh_printf("##_syscall4 called, syscall id: %d\n", arg0);
     return 0;
 }
 
@@ -160,7 +160,7 @@ __syscall5_wrapper(int32 arg0, int32 arg1, int32 arg2,
         case 140: /* llseek */
             /* TODO */
         default:
-            printf("##_syscall5 called, args[0]: %d\n", arg0);
+            bh_printf("##_syscall5 called, args[0]: %d\n", arg0);
     }
     return 0;
 }

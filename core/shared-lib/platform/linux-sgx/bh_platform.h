@@ -32,23 +32,20 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <limits.h>
-#include <semaphore.h>
 #include <errno.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+extern int bh_printf(const char *message, ...);
+
 typedef uint64_t uint64;
 typedef int64_t int64;
 
-extern void DEBUGME(void);
-
 #define DIE do{bh_debug("Die here\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); DEBUGME(void); while(1);}while(0)
 
-#define BH_PLATFORM "Linux"
+#define BH_PLATFORM "Linux-SGX"
 
 /* NEED qsort */
 
@@ -66,11 +63,11 @@ extern void DEBUGME(void);
 
 #define INVALID_THREAD_ID 0xFFffFFff
 
-typedef pthread_t korp_tid;
-typedef pthread_mutex_t korp_mutex;
-typedef sem_t korp_sem;
-typedef pthread_cond_t korp_cond;
-typedef pthread_t korp_thread;
+typedef int korp_tid;
+typedef int korp_mutex;
+typedef int korp_sem;
+typedef int korp_cond;
+typedef int korp_thread;
 typedef void* (*thread_start_routine_t)(void*);
 
 #define wa_malloc bh_malloc

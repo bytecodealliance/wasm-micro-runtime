@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "bh_common.h"
 #include "bh_platform.h"
 
 #include <sys/stat.h>
@@ -51,7 +52,7 @@ void bh_set_print_function(bh_print_function_t pf)
     print_function = pf;
 }
 
-int printf(const char *message, ...)
+int bh_printf(const char *message, ...)
 {
     if (print_function != NULL) {
         char msg[FIXED_BUFFER_SIZE] = { '\0' };
@@ -62,10 +63,5 @@ int printf(const char *message, ...)
         print_function(msg);
     }
 
-    return 0;
-}
-
-int __printf_chk(int flag, const char * format, ...)
-{
     return 0;
 }
