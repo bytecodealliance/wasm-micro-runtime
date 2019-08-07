@@ -67,6 +67,7 @@ typedef char *_va_list;
 #define _va_arg(ap,t)       \
     (*(t*)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
 
+#if OPS_INPUT_OUTPUT
 /**
  * @brief Output an unsigned int in hex format
  *
@@ -498,32 +499,7 @@ _putchar_wrapper(int c)
     printf("%c", c);
     return 1;
 }
-
-static int32
-_strdup_wrapper(int32 str_offset)
-{
-    wasm_module_inst_t module_inst = get_module_inst();
-    char *str, *str_ret;
-    uint32 len;
-    int32 str_ret_offset = 0;
-
-    if (!validate_app_addr(str_offset, 1))
-        return 0;
-
-    str = addr_app_to_native(str_offset);
-
-    if (str) {
-        len = strlen(str) + 1;
-
-        str_ret_offset = module_malloc(len);
-        if (str_ret_offset) {
-            str_ret = addr_app_to_native(str_ret_offset);
-            memcpy(str_ret, str, len);
-        }
-    }
-
-    return str_ret_offset;
-}
+#endif /* OPS_INPUT_OUTPUT */
 
 static int32
 _memcmp_wrapper(int32 s1_offset, int32 s2_offset, int32 size)
@@ -587,6 +563,34 @@ _memset_wrapper(int32 s_offset, int32 c, int32 size)
     s = addr_app_to_native(s_offset);
     memset(s, c, size);
     return s_offset;
+}
+
+#if OPS_UNSAFE_BUFFERS
+
+static int32
+_strdup_wrapper(int32 str_offset)
+{
+    wasm_module_inst_t module_inst = get_module_inst();
+    char *str, *str_ret;
+    uint32 len;
+    int32 str_ret_offset = 0;
+
+    if (!validate_app_addr(str_offset, 1))
+        return 0;
+
+    str = addr_app_to_native(str_offset);
+
+    if (str) {
+        len = strlen(str) + 1;
+
+        str_ret_offset = module_malloc(len);
+        if (str_ret_offset) {
+            str_ret = addr_app_to_native(str_ret_offset);
+            memcpy(str_ret, str, len);
+        }
+    }
+
+    return str_ret_offset;
 }
 
 static int32
@@ -678,6 +682,8 @@ _strlen_wrapper(int32 s_offset)
     s = addr_app_to_native(s_offset);
     return strlen(s);
 }
+
+#endif /* OPS_UNSAFE_BUFFERS */
 
 static int32
 _malloc_wrapper(uint32 size)
@@ -873,28 +879,34 @@ typedef struct WASMNativeFuncDef {
 } WASMNativeFuncDef;
 
 static WASMNativeFuncDef native_func_defs[] = {
+
 #ifdef ENABLE_SPEC_TEST
     REG_NATIVE_FUNC(spectest, print_i32),
     REG_NATIVE_FUNC(spectest, print),
 #endif
+
+#if OPS_INPUT_OUTPUT
     REG_NATIVE_FUNC(env, _printf),
     REG_NATIVE_FUNC(env, _sprintf),
     REG_NATIVE_FUNC(env, _snprintf),
     REG_NATIVE_FUNC(env, _puts),
     REG_NATIVE_FUNC(env, _putchar),
+#endif
     REG_NATIVE_FUNC(env, _memcmp),
     REG_NATIVE_FUNC(env, _memcpy),
     REG_NATIVE_FUNC(env, _memmove),
     REG_NATIVE_FUNC(env, _memset),
+#if OPS_UNSAFE_BUFFERS
     REG_NATIVE_FUNC(env, _strchr),
     REG_NATIVE_FUNC(env, _strcmp),
     REG_NATIVE_FUNC(env, _strcpy),
     REG_NATIVE_FUNC(env, _strlen),
     REG_NATIVE_FUNC(env, _strncmp),
     REG_NATIVE_FUNC(env, _strncpy),
+    REG_NATIVE_FUNC(env, _strdup),
+#endif
     REG_NATIVE_FUNC(env, _malloc),
     REG_NATIVE_FUNC(env, _calloc),
-    REG_NATIVE_FUNC(env, _strdup),
     REG_NATIVE_FUNC(env, _free),
     REG_NATIVE_FUNC(env, setTempRet0),
     REG_NATIVE_FUNC(env, getTempRet0),
@@ -986,6 +998,7 @@ wasm_native_global_lookup(const char *module_name, const char *global_name,
 
     /* Lookup non-constant globals which cannot be defined by table */
     if (!strcmp(module_name, "env")) {
+#if OPS_INPUT_OUTPUT
         if (!strcmp(global_name, "_stdin")) {
             global->global_data_linked.addr = (uintptr_t)stdin;
             global->is_addr = true;
@@ -999,6 +1012,7 @@ wasm_native_global_lookup(const char *module_name, const char *global_name,
             global->is_addr = true;
             return true;
         }
+#endif  /* OPS_INPUT_OUTPUT */
     }
 
     return false;
@@ -1010,4 +1024,3 @@ wasm_native_init()
     /* TODO: qsort the function defs and global defs. */
     return true;
 }
-

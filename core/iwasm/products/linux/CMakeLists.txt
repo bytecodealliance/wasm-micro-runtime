@@ -29,6 +29,9 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
   add_definitions(-DNVALGRIND)
 endif ()
 
+add_definitions(-DOPS_INPUT_OUTPUT=1)
+add_definitions(-DOPS_UNSAFE_BUFFERS=1)
+
 # Currently build as 64-bit by default.
 set (BUILD_AS_64BIT_SUPPORT "YES")
 
@@ -98,4 +101,3 @@ install (TARGETS libiwasm DESTINATION lib)
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
 target_link_libraries (libiwasm -lm -ldl -lpthread)
-
