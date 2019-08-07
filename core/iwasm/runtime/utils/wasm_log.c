@@ -20,6 +20,8 @@
 #include "wasm_thread.h"
 
 
+#if WASM_ENABLE_LOG != 0
+
 /**
  * The verbose level of the log system.  Only those verbose logs whose
  * levels are less than or equal to this value are outputed.
@@ -100,3 +102,5 @@ _wasm_log (int level, const char *file, int line,
     _wasm_log_end ();
   }
 }
+
+#endif  /* WASM_ENABLE_LOG */

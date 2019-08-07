@@ -20,6 +20,8 @@
  * @brief Implementation of Beihai's log system.
  */
 
+#if BEIHAI_ENABLE_LOG != 0
+
 #include "bh_assert.h"
 #include "bh_time.h"
 #include "bh_thread.h"
@@ -211,3 +213,4 @@ int bh_log_dcom_is_enabled(int component)
 
 #endif /* defined(BH_DEBUG) */
 
+#endif /* */

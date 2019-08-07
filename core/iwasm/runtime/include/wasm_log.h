@@ -46,6 +46,7 @@ extern "C" {
  * The wasm_log and macros LOG_ERROR etc. can be used to output log messages
  * by one log calling.
  */
+#if WASM_ENABLE_LOG != 0
 int  _wasm_log_init (void);
 void _wasm_log_set_verbose_level (int level);
 bool _wasm_log_begin (int level);
@@ -55,7 +56,6 @@ void _wasm_log_end (void);
 void _wasm_log (int level, const char *file, int line,
                 const char *fmt, ...);
 
-#if WASM_ENABLE_LOG != 0
 # define wasm_log_init()               _wasm_log_init ()
 # define wasm_log_set_verbose_level(l) _wasm_log_set_verbose_level (l)
 # define wasm_log_begin(l)             _wasm_log_begin (l)

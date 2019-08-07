@@ -48,13 +48,13 @@ extern "C" {
  * bh_log and macros LOG_ERROR etc. can be used to output log messages
  * that can be wrapped into one log calling.
  */
+#if BEIHAI_ENABLE_LOG != 0
 int _bh_log_init(void);
 void _bh_log_set_verbose_level(int level);
 void _bh_log_printf(const char *fmt, ...);
 void _bh_log_vprintf(const char *fmt, va_list ap);
 void _bh_log_commit(void);
 
-#if BEIHAI_ENABLE_LOG != 0
 # define bh_log_init()               _bh_log_init ()
 # define bh_log_set_verbose_level(l) _bh_log_set_verbose_level (l)
 # define bh_log_printf(...)          _bh_log_printf (__VA_ARGS__)
@@ -68,12 +68,10 @@ void _bh_log_commit(void);
 # define bh_log_commit()             (void)0
 #endif  /* BEIHAI_ENABLE_LOG != 0 */
 
+#if BEIHAI_ENABLE_LOG != 0
 void _bh_log(const char *tag, const char *file, int line, const char *fmt, ...);
 
-/* Always print fatal message */
 # define LOG_FATAL(...)         _bh_log ("V0.", NULL, 0, __VA_ARGS__)
-
-#if BEIHAI_ENABLE_LOG != 0
 # define LOG_ERROR(...)         _bh_log ("V1.", NULL, 0, __VA_ARGS__)
 # define LOG_WARNING(...)       _bh_log ("V2.", NULL, 0, __VA_ARGS__)
 # define LOG_INFO_RELEASE(...)  _bh_log ("V3.", NULL, 0, __VA_ARGS__)
