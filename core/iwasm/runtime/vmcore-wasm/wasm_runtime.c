@@ -877,8 +877,9 @@ wasm_runtime_instantiate(WASMModule *module,
                 length = data_seg->data_length;
                 memory_size = NumBytesPerPage * module_inst->default_memory->cur_page_count;
 
-                if (base_offset >= memory_size
-                    || base_offset + length > memory_size) {
+                if (length > 0
+                    && (base_offset >= memory_size
+                        || base_offset + length > memory_size)) {
                     set_error_buf(error_buf, error_buf_size,
                             "Instantiate module failed: data segment out of range.");
                     wasm_runtime_deinstantiate(module_inst);
