@@ -846,6 +846,22 @@ nullFunc_X_wrapper(int32 code)
     wasm_runtime_set_exception(module_inst, buf);
 }
 
+/*#define ENABLE_SPEC_TEST 1*/
+
+#ifdef ENABLE_SPEC_TEST
+static void
+print_i32_wrapper(int i32)
+{
+    printf("%d\n", i32);
+}
+
+static void
+print_wrapper(int i32)
+{
+    printf("%d\n", i32);
+}
+#endif
+
 /* TODO: add function parameter/result types check */
 #define REG_NATIVE_FUNC(module_name, func_name)     \
     { #module_name, #func_name, func_name##_wrapper }
@@ -857,6 +873,10 @@ typedef struct WASMNativeFuncDef {
 } WASMNativeFuncDef;
 
 static WASMNativeFuncDef native_func_defs[] = {
+#ifdef ENABLE_SPEC_TEST
+    REG_NATIVE_FUNC(spectest, print_i32),
+    REG_NATIVE_FUNC(spectest, print),
+#endif
     REG_NATIVE_FUNC(env, _printf),
     REG_NATIVE_FUNC(env, _sprintf),
     REG_NATIVE_FUNC(env, _snprintf),
@@ -927,6 +947,9 @@ typedef struct WASMNativeGlobalDef {
 } WASMNativeGlobalDef;
 
 static WASMNativeGlobalDef native_global_defs[] = {
+#ifdef ENABLE_SPEC_TEST
+    { "spectest", "global_i32", .global_data.u32 = 0 },
+#endif
     { "env", "STACKTOP", .global_data.u32 = 0 },
     { "env", "STACK_MAX", .global_data.u32 = 0 },
     { "env", "ABORT", .global_data.u32 = 0 },
