@@ -129,7 +129,11 @@ app_instance_repl(wasm_module_inst_t module_inst)
     return NULL;
 }
 
-static char global_heap_buf[512 * 1024] = { 0 };
+#define USE_GLOBAL_HEAP_BUF 0
+
+#if USE_GLOBAL_HEAP_BUF != 0
+static char global_heap_buf[10 * 1024 * 1024] = { 0 };
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -175,11 +179,18 @@ int main(int argc, char *argv[])
     app_argc = argc;
     app_argv = argv;
 
+#if USE_GLOBAL_HEAP_BUF != 0
     if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
         != 0) {
-        wasm_printf("Init global heap failed.\n");
+        wasm_printf("Init memory with global heap buffer failed.\n");
         return -1;
     }
+#else
+    if (bh_memory_init_with_allocator(malloc, free)) {
+        wasm_printf("Init memory with memory allocator failed.\n");
+        return -1;
+    }
+#endif
 
     /* initialize runtime environment */
     if (!wasm_runtime_init())
@@ -201,8 +212,8 @@ int main(int argc, char *argv[])
 
     /* instantiate the module */
     if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      16 * 1024, /* stack size */
-                                                      8 * 1024,  /* heap size */
+                                                      64 * 1024, /* stack size */
+                                                      64 * 1024, /* heap size */
                                                       error_buf,
                                                       sizeof(error_buf)))) {
         wasm_printf("%s\n", error_buf);

@@ -588,7 +588,7 @@ ALLOC_FRAME(WASMThread *self, uint32 size, WASMInterpFrame *prev_frame)
         frame->prev_frame = prev_frame;
     else {
         wasm_runtime_set_exception(self->module_inst,
-                                   "WASM interp failed, alloc frame failed.");
+                                   "WASM interp failed: stack overflow.");
     }
 
     return frame;
@@ -641,7 +641,7 @@ wasm_interp_call_func_native(WASMThread *self,
     else {
         if (!(argv = wasm_malloc(sizeof(uint32) * argc))) {
             wasm_runtime_set_exception(self->module_inst,
-                    "WASM call native failed: alloc memory for argv failed.");
+                    "WASM call native failed: allocate memory failed.");
             return;
         }
     }
@@ -768,7 +768,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
                                          BLOCK_TYPE_BLOCK,
                                          &else_addr, &end_addr,
                                          NULL, 0)) {
-          wasm_runtime_set_exception(module, "find block addr failed");
+          wasm_runtime_set_exception(module, "find block address failed");
           goto got_exception;
         }
 
@@ -783,7 +783,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
                                          BLOCK_TYPE_LOOP,
                                          &else_addr, &end_addr,
                                          NULL, 0)) {
-          wasm_runtime_set_exception(module, "find block addr failed");
+          wasm_runtime_set_exception(module, "find block address failed");
           goto got_exception;
         }
 
@@ -798,7 +798,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
                                          BLOCK_TYPE_IF,
                                          &else_addr, &end_addr,
                                          NULL, 0)) {
-          wasm_runtime_set_exception(module, "find block addr failed");
+          wasm_runtime_set_exception(module, "find block address failed");
           goto got_exception;
         }
 
@@ -855,8 +855,9 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           depths = depth_buf;
         else {
           if (!(depths = wasm_malloc(sizeof(uint32) * count))) {
-            wasm_runtime_set_exception(module, "WASM interp failed, "
-                                       "alloc block memory for br_table failed.");
+            wasm_runtime_set_exception(module,
+                                       "WASM interp failed: "
+                                       "allocate memory failed.");
             goto got_exception;
           }
         }
@@ -931,7 +932,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_DROP):
         {
           wasm_runtime_set_exception(module,
-              "wasm interp failed: unsupported opcode");
+                                     "WASM interp failed: unsupported opcode.");
           goto got_exception;
         }
 
@@ -950,7 +951,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_SELECT):
         {
           wasm_runtime_set_exception(module,
-              "wasm interp failed: unsupported opcode");
+                                     "WASM interp failed: unsupported opcode.");
           goto got_exception;
         }
 
@@ -997,7 +998,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
               break;
             default:
               wasm_runtime_set_exception(module,
-                  "get local type is invalid");
+                                         "invalid local type");
               goto got_exception;
           }
           (void)local_count;
@@ -1026,7 +1027,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
               break;
             default:
               wasm_runtime_set_exception(module,
-                  "set local type is invalid");
+                                         "invalid local type");
               goto got_exception;
           }
           (void)local_count;
@@ -1054,7 +1055,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
               SET_LOCAL_F64(local_idx, GET_F64_FROM_ADDR(frame_sp - 2));
               break;
             default:
-              wasm_runtime_set_exception(module, "tee local type is invalid");
+              wasm_runtime_set_exception(module, "invalid local type");
               goto got_exception;
           }
           (void)local_count;
@@ -1085,7 +1086,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
               PUSH_F64(*(float64*)get_global_addr(memory, global));
               break;
             default:
-              wasm_runtime_set_exception(module, "get global type is invalid");
+              wasm_runtime_set_exception(module, "invalid global type");
               goto got_exception;
           }
           HANDLE_OP_END ();
@@ -1117,7 +1118,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
               PUT_F64_TO_ADDR((uint32*)global_addr, POP_F64());
               break;
             default:
-              wasm_runtime_set_exception(module, "set global index is overflow");
+              wasm_runtime_set_exception(module, "invalid global type");
               goto got_exception;
           }
           HANDLE_OP_END ();
@@ -1977,7 +1978,8 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
       default:
-        wasm_runtime_set_exception(module, "wasm interp failed: unsupported opcode");
+        wasm_runtime_set_exception(module,
+                                   "WASM interp failed: unsupported opcode.");
         goto got_exception;
     }
 #endif
@@ -2005,7 +2007,8 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_UNUSED_0x26):
       HANDLE_OP (WASM_OP_UNUSED_0x27):
       {
-        wasm_runtime_set_exception(module, "wasm interp failed: unsupported opcode");
+        wasm_runtime_set_exception(module,
+                                   "WASM interp failed: unsupported opcode.");
         goto got_exception;
       }
 #endif
