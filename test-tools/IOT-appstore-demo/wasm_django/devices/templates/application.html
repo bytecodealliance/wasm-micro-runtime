@@ -1,0 +1,355 @@
+<!-- /* Copyright (C) 2019 Intel Corporation.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/ -->
+{% load static %}
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,shrink-to-fit=no">
+    <title> Wasm-Micro-Runtime </title>
+    <link rel="stylesheet" type="text/css" href="{%static 'css/application.css'%}"/> 
+    
+<link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/4.1.0/css/bootstrap.min.css">
+<script src="https://cdn.staticfile.org/jquery/3.2.1/jquery.min.js"></script>
+<script src="https://cdn.staticfile.org/popper.js/1.12.5/umd/popper.min.js"></script>
+<script src="https://cdn.staticfile.org/twitter-bootstrap/4.1.0/js/bootstrap.min.js"></script>
+</head>
+
+<body  style="background-image: linear-gradient(to right, rgb(248, 248, 248) , rgb(194, 194, 190))">
+                				
+<div id="container" style="background-image: url('{%static 'photo/bg5.jpg'%}')">
+    <div id="content">
+        <div id= "mainnav">
+            <ul>
+                <li ><a href="https://github.com/intel/wasm-micro-runtime">GitHub</a></li>
+                <li ><a href="/">Devices</a></li>
+                <li ><a href="/appstore/">App Store</a></li>
+                <li ><a href="/help/">Help</a></li>
+            </ul>  
+        </div>
+    </div>
+    <div class="headers" style="background-image: url('{%static 'photo/milky-way-2695569_1280.jpg'%}')">
+        <h1 id="maintitle">WebAssembly Micro Runtime - APP Store Demo</h1>
+    </div>
+</div>
+					
+
+    
+<div class="row">
+        <div class="col-sm-2 col-md-2 col-lg-2 col-xl-2"></div>
+        <div class="col-sm-8 col-md-8 col-lg-8 col-xl-8" id="section">
+            <div id="photo"> 
+            <p>
+                <img src="{%static 'photo/net_device.png'%}" ;height="65" width="65" />
+            </p>
+            </div>
+            <div id="IPs">IP : </div>
+            <div id="ports">Port : </div>
+            <div id="installs">Installed apps : </div>
+        </div>
+        <div class="col-sm-2 col-md-2 col-lg-2 col-xl-2"></div>
+</div>
+
+    <div class="middlebox" style="display:none;">
+        <div class="warning">Dialog Box</div>
+        <div class="findapp"> APP </div>
+        <button class="surebtn" type="button" value="sure">OK</button>
+    </div>
+
+    <div class="deletebox" style="display:none;">
+            <div class="warning2">Dialog Box</div>
+            <div class="findapp"> APP </div>
+            <button class="suresbtn" type="button" value="sure">OK</button>
+            <button class="cancelsbtn" type="button" value="Cancel">Cancel</button>
+    </div>
+
+    <div id="loading">
+        <p class="loadapp"> app is downloading now </p>
+        <div id="preloader">
+            <div id="loader"></div>
+        </div>
+    </div>
+
+    
+<div class="main">
+    <div class="mainbox">
+        <div class= "close"> × </div>
+        <div class="hotapps">HOT Applications</div>
+        <div class="col-sm-6" id="searchbar">
+                <form method="post" action="/apps/" id="form_addServiceInfoAll">
+                    {% csrf_token %}
+                    <div class="input-group">
+                        <input type="text" name="mykey" class="form-control" placeholder="Input the product name" required />
+                        <input type="hidden" name="voip" id="aa" value="">
+                        <input type="hidden" name="voport" id="bb" value="">
+                        <span class="input-group-btn">
+                            <input type="submit" class="btn btn-default" value="Search" />
+                        </span>
+                    </div>
+                </form>
+        </div>
+        <div id="scrollba">
+            <div id="Dapplications">
+                <div id="appslogo" style="width:45px; height:25px; float:left; "><img src="{%static 'photo/application.png'%}" ;height="35" width="35" /></div> 
+                <p id="appsinfo1" style="font-size:15px;font-family:'sansationlight';width:310px; height:25px; float:left; ">    Product Name:   </p>
+                <p id="appsinfo2" style="font-size:15px;font-family:'sansationlight';width:120px; height:25px; float:left; ">    Current Version:   </p>
+                <button class="mybtn2" type="button" onclick="getthis(this)" value="downloadit"> ↓ Install</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+    <div class="col-sm-8 col-md-8 col-lg-8 col-xl-8" id="download">
+            <p class = "explain pull-left" >List of Installed Apps:</p>
+            <button id="btn" class="btn btn-outline-primary pull-right" style="float:right" type="button" value="add">Install Application</button>
+    </div>
+
+
+    <div id="APPS" class="sourceapp">
+        <div id="applications">
+            <div id="applogo"><img src="{%static 'photo/app(1).png'%}" ;height="35" width="35" /></div>
+            <div id="appinfo1"> Product Name: </div>
+            <div id="appinfo2"> Staus: </div>
+            <div id="appinfo3"> Current Version: </div>
+        </div>
+        <div id="delete" ><img class="mybtn" style="cursor:pointer" src="{%static 'photo/delete.png'%}" ;height="35" width="35" /></div> 
+    </div>
+
+<footer class="footer">  Copyright&copy; intel.com</footer>
+                    
+
+
+<script src="http://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script>
+var alist = {{alist|safe}}; /*alist is a list of downloaded apps under the current device*/
+var dlist = {{dlist|safe}}; /*dlist saves the device info that includes its IP, Port and number of apps*/
+var llist = {{llist|safe}}; /*llist is a list of apps avaliable for installing that are synchronously updated with appstore*/
+var open_status ={{open_status|safe}};/*check is the search bar working&searching,otherwise, close window and return to the main page*/
+var search_node ={{search_node|safe}};/*THe queried app node*/
+</script>
+<script type="text/javascript" src="{%static 'js/application.js'%}"></script>
+
+</body>				
+
+</html>
+
+
+    <script src="http://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript">var $$ = $.noConflict();
+
+
+        /*
+         * download apps
+         *
+         */
+
+        function setDivCenter(divname) {
+            var Top = ($(window).height() - $(divname).height()) / 2;
+            var Left = ($(window).width() - $(divname).width()) / 2;
+            var scrollTop = $(document).scrollTop();
+            var scrollLeft = $(document).scrollLeft();
+            $(divname).css({ posisiton: 'absolute', 'top': Top + scrollTop, 'left': Left + scrollLeft });
+        };
+
+        setDivCenter(".middlebox");
+        setDivCenter(".deletebox");
+
+        function setmain(divname) {
+            var x = $('#btn').offset().top;
+            var Top = x + $('#btn').height() + 15;
+            var y = $('#btn').offset().left;
+            var Left = y + ($('#btn').width() / 2) - ($(divname).width() / 2);
+            console.log(Top, Left)
+            $(divname).css({ 'top': Top, 'left': Left });
+        }
+        setmain(".main")
+
+        var alist = {{ alist| safe}};
+        var dlist = {{ dlist| safe}};
+        var llist = {{ llist| safe}};
+
+        function download(val) {
+            var ip, port;
+            var ipArr = $("#IPs").text().split(":");
+            ip = ipArr[1];
+            var portArr = $("#ports").text().split(":");
+            port = portArr[1];
+            $.get("/appDownload/", { 'ip': ip.trim(), 'port': port.trim(), "name": val }, function (ret) {
+                console.log(ret);
+            })
+        }
+
+        function getthis(val) {
+            var ip, port, name;
+            var ipArr = $("#IPs").text().split(":");
+            ip = ipArr[1];
+            var portArr = $("#ports").text().split(":");
+            port = portArr[1];
+            // parentname = $(val).parent().attr('class');
+            // var indexd = parentname.match(/\d+\b/);
+            name = $(val).parent().find("#appsinfo1").text().split(":")[1];
+            v = $(val).parent().find("#appsinfo2").text().split(":")[1];
+            $(".main").fadeOut();
+
+            for (num in alist) {
+                if (alist[num]['pname'].trim() == name.trim()) {
+                    alert("This app has been downloaded.");
+                    return;
+                }
+            };
+            $("#loading").fadeIn();
+            var sNode = document.getElementById("APPS");
+            var tempNode = sNode.cloneNode(true);
+            sNode.parentNode.appendChild(tempNode);
+            $("#appinfo1").html("Product Name : " + name);
+            $("#appinfo2").html("Status : " + "Installing");
+            $("#appinfo3").html("Current_Version : " + v);
+
+            $.get("/appDownload/", { 'ip': ip.trim(), 'port': port.trim(), 'name': name.trim(), }, function (ret) {
+                var status = $.trim(ret.split(":")[1].split("}")[0]);
+                $(".loadapp").html(name + " is downloading now");
+                var msg = JSON.parse(status)
+                console.log(msg)
+                if (JSON.parse(status) == "ok") {
+                    $(".middlebox").fadeIn();
+                    $(".sourceapp").fadeOut();
+                    $("#loading").fadeOut();
+                    $(".findapp").html("Download " + name + " successfully");
+                    // alert("download succesfully!");
+                    $(".surebtn").click(function () {
+                        $(".middlebox").fadeOut();
+                        window.location.reload();
+                    })
+                }
+                else if (JSON.parse(status) == "Fail!") {
+                    alert("Download failed!");
+                    $("#loading").fadeOut();
+                    sNode.remove();
+                }
+                else {
+                    alert("Install app failed:" + msg)
+                    $("#loading").fadeOut();
+                    sNode.remove();
+                }
+            })
+            var newurl = "apps/?" + "ip=" + ip + "&port=" + port;
+        };
+
+
+
+        window.onload = function () {
+            $("#connection").click(function () {
+                $("#box").toggle();
+            });
+        };
+
+        window.onload = function clone() {
+            var sourceNode = document.getElementById("APPS");
+            if (alist.length != 0) {
+                $("#appinfo1").html("Product Name : " + alist[0]['pname']);
+                $("#appinfo2").html("Status : " + alist[0]['status']);
+                $("#appinfo3").html("Current_Version : " + alist[0]['current_version']);
+                $("#delete").attr('class', 'delet0');
+                $("#APPS").attr('class', 'app0');
+
+                for (var i = 1; i < alist.length; i++) {
+                    var cloneNode = sourceNode.cloneNode(true);
+                    sourceNode.parentNode.appendChild(cloneNode);
+                    $("#appinfo1").html("Product Name : " + alist[i]['pname']);
+                    $("#appinfo2").html("Status : " + alist[i]['status']);
+                    $("#appinfo3").html("Current_Version : " + alist[i]['current_version']);
+                    $("#delete").attr('class', 'delet' + i);
+                    $("#APPS").attr('class', 'app' + i);
+                }
+            }
+            $("#IPs").html("IP : " + dlist[0]['IP']);
+            $("#ports").html("Port : " + dlist[0]['Port']);
+            $("#installs").html("Installed Apps : " + dlist[0]['apps']);
+
+            $(".mybtn").click(function () {
+                var thisitem = $(this).parent().attr('class');
+                var indexa = thisitem.match(/\d+\b/);
+                var pname = $(".app" + indexa).find('#appinfo1').text();
+                var pversion = $(".app" + indexa).find('#appinfo3').text();
+
+                var ip, port;
+                var ipArr = $("#IPs").text().split(":");
+                ip = ipArr[1];
+                var portArr = $("#ports").text().split(":");
+                port = portArr[1];
+                // $.get("/appDelete/",{'ip':ip.trim(),'port':port.trim(),"name":pname.split(':')[1].trim()},function (ret) {
+                //     console.log(ret);
+                // window.location.reload();
+
+                var name = pname.split(':')[1].trim();
+                $(".deletebox").fadeIn();
+                $(".findapp").html("Are you sure to delete " + name);
+                $(".suresbtn").click(function () {
+                    $(".app" + indexa).remove();
+                    $.get("/appDelete/", { 'ip': ip.trim(), 'port': port.trim(), "name": pname.split(':')[1].trim() }, function (ret) {
+                        console.log(ret);
+                    });
+                    $(".deletebox").fadeOut();
+                    window.location.reload();
+                })
+                $(".delsbtn").click(function () {
+                    $(".deletebox").fadeOut();
+                })
+            });
+
+        };
+
+        function getdownloadapps() {
+            var sourceNode = document.getElementById("Dapplications");
+            if (llist.length != 0) {
+                $("#appsinfo1").html("Product Name : " + llist[0]['ID']);
+                $("#appsinfo2").html("Version : " + llist[0]['Version']);
+                $("#Dapplications").attr('class', 'dapp0');
+
+                for (var i = 1; i < llist.length; i++) {
+                    var cloneNode = sourceNode.cloneNode(true);
+                    sourceNode.parentNode.appendChild(cloneNode);
+                    $("#appsinfo1").html("Product Name : " + llist[i]['ID']);
+                    $("#appsinfo2").html("Version : " + llist[i]['Version']);
+                    $("#Dapplications").attr('class', 'dapp' + i);
+                }
+            }
+        };
+
+        getdownloadapps();
+
+        function appClick(obj) {
+
+            var ip = $("#IPs").find('h3').html().split(":")[1];
+            var port = $('#ports').find('h3').html();
+            var apps = $('#installs').find('h3').html();
+        };
+
+        function popbox() {
+            $(".btn").click(function () {
+                $(".main").fadeIn();
+            });
+            $(".close").click(function () {
+                $(".main").fadeOut();
+            });
+        };
+        popbox();
+
+    </script>
+</body>
+
+</html>
