@@ -55,7 +55,7 @@ static bool host_init()
     uart_dev = device_get_binding(HOST_DEVICE_COMM_UART_NAME);
     if (!uart_dev) {
         printf("UART: Device driver not found.\n");
-        return;
+        return false;
     }
     uart_irq_rx_enable(uart_dev);
     uart_irq_callback_set(uart_dev, uart_irq_callback);
@@ -64,6 +64,9 @@ static bool host_init()
 
 int host_send(void * ctx, const char *buf, int size)
 {
+    if (!uart_dev)
+        return 0;
+
     for (int i = 0; i < size; i++)
         uart_poll_out(uart_dev, buf[i]);
 
