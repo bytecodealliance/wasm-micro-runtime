@@ -69,6 +69,9 @@ static bool host_init()
 
 int host_send(void * ctx, const char *buf, int size)
 {
+    if (!uart_dev)
+        return 0;
+
     for (int i = 0; i < size; i++)
         uart_poll_out(uart_dev, buf[i]);
 
