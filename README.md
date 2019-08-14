@@ -151,6 +151,23 @@ AliOS-Things
    ```
 9. download the binary to developerkit board, check the output from serial port
 
+Docker
+-------------------------
+[Docker](https://www.docker.com/) will download all the dependencies and build WAMR Core on your behalf.
+
+Make sure you have Docker installed on your machine: [macOS](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/) or [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
+
+Build the Docker image:
+
+``` Bash
+docker build --rm -f "Dockerfile" -t wamr:latest .
+```
+Run the image in interactive mode:
+``` Bash
+docker run --rm -it wamr:latest
+```
+You'll now enter the container at `/root`.
+
 Build WASM app
 =========================
 You can write a simple ```test.c``` as the first sample.
@@ -181,7 +198,7 @@ int main(int argc, char **argv)
 }
 ```
 
-There are two methods to build a WASM binary. One is using Emscripten tool, another is using clang compiler.
+There are three methods to build a WASM binary. They are Emscripten, the clang compiler and Docker.
 
 ##  Use Emscripten tool
 
@@ -232,6 +249,19 @@ Create a soft link under /usr/bin:
 cd /usr/bin
 sudo ln -s wasm-ld-8 wasm-ld
 ```
+
+Use the clang-8 command below to build the WASM C source code into the WASM binary.
+
+```Bash
+clang-8 --target=wasm32 -O3 -Wl,--initial-memory=131072,--allow-undefined,--export=main,
+--no-threads,--strip-all,--no-entry -nostdlib -o test.wasm test.c
+```
+
+You will get ```test.wasm``` which is the WASM app binary.
+
+## Using Docker
+
+The last method availble is using [Docker](https://www.docker.com/). We assume you've already configured Docker (see Platform section above) and have a running interactive shell. Currently the Dockerfile only supports compiling apps with clang, with Emscripten planned for the future.
 
 Use the clang-8 command below to build the WASM C source code into the WASM binary.
 
