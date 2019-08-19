@@ -15,9 +15,9 @@
  */
 
 #include "bh_config.h"
+#include "bh_platform.h"
 #include "bh_memory.h"
 #include "mem_alloc.h"
-#include <stdio.h>
 #include <stdlib.h>
 
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
@@ -76,7 +76,7 @@ int bh_memory_init_with_pool(void *mem, unsigned int bytes)
         global_pool_size = bytes;
         return 0;
     }
-    printf("Init memory with pool (%p, %u) failed.\n", mem, bytes);
+    bh_printf("Init memory with pool (%p, %u) failed.\n", mem, bytes);
     return -1;
 }
 
@@ -91,7 +91,7 @@ int bh_memory_init_with_allocator(void *_malloc_func, void *_free_func)
 #endif
         return 0;
     }
-    printf("Init memory with allocator (%p, %p) failed.\n", _malloc_func,
+    bh_printf("Init memory with allocator (%p, %p) failed.\n", _malloc_func,
             _free_func);
     return -1;
 }
@@ -117,7 +117,7 @@ int bh_memory_pool_size()
 void* bh_malloc_internal(unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
-        printf("bh_malloc failed: memory hasn't been initialize.\n");
+        bh_printf("bh_malloc failed: memory hasn't been initialize.\n");
         return NULL;
     } else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_malloc(pool_allocator, size);
@@ -129,7 +129,7 @@ void* bh_malloc_internal(unsigned int size)
 void bh_free_internal(void *ptr)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
-        printf("bh_free failed: memory hasn't been initialize.\n");
+        bh_printf("bh_free failed: memory hasn't been initialize.\n");
     } else if (memory_mode == MEMORY_MODE_POOL) {
         mem_allocator_free(pool_allocator, ptr);
     } else {
@@ -250,7 +250,7 @@ void memory_usage_summarize()
 
     profile = memory_profiles_list;
     while (profile) {
-        printf("malloc:%d:malloc_num:%d:free:%d:free_num:%d:%s\n",
+        bh_printf("malloc:%d:malloc_num:%d:free:%d:free_num:%d:%s\n",
             profile->total_malloc,
             profile->malloc_num,
             profile->total_free,
@@ -267,7 +267,7 @@ void memory_profile_print(const char *file,
                           const char *func,
                           int alloc)
 {
-    printf("location:%s@%d:used:%d:contribution:%d\n",
+    bh_printf("location:%s@%d:used:%d:contribution:%d\n",
            func, line, memory_in_use, alloc);
 }
 
@@ -328,4 +328,3 @@ void bh_free_profile(const char *file, int line, const char *func, void *ptr)
 }
 #endif /* end of BEIHAI_ENABLE_MEMORY_PROFILING */
 #endif /* end of MALLOC_MEMORY_FROM_SYSTEM*/
-
