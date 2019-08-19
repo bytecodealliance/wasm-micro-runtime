@@ -14,13 +14,28 @@
  * limitations under the License.
  */
 
-#ifndef _WASM_PLATFORM_LOG
-#define _WASM_PLATFORM_LOG
-
 #include "bh_platform.h"
+#include <stdio.h>
 
-#define wasm_printf bh_printf
+void bh_log_emit(const char *fmt, va_list ap)
+{
+    vprintf(fmt, ap);
+    fflush(stdout);
+}
 
-#define wasm_vprintf vprintf
+int bh_fprintf(FILE *stream, const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
 
-#endif /* _WASM_PLATFORM_LOG */
+    va_start(ap, fmt);
+    ret = vfprintf(stream ? stream : stdout, fmt, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+int bh_fflush(void *stream)
+{
+    return fflush(stream ? stream : stdout);
+}
