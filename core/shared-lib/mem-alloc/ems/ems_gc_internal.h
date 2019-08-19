@@ -21,6 +21,7 @@
 extern "C" {
 #endif
 
+#include "bh_platform.h"
 #include "bh_thread.h"
 #include "bh_memory.h"
 #include "bh_assert.h"
@@ -279,4 +280,3 @@ extern int (*gct_vm_gc_finished)(void);
 #endif
 
 #endif
-
