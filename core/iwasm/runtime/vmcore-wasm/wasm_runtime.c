@@ -992,6 +992,37 @@ wasm_runtime_deinstantiate(WASMModuleInstance *module_inst)
     wasm_free(module_inst);
 }
 
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+bool
+wasm_runtime_set_ext_memory(WASMModuleInstance *module_inst,
+                            uint8 *ext_mem_data, uint32 ext_mem_size,
+                            char *error_buf, uint32 error_buf_size)
+{
+    if (module_inst->ext_mem_data) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Set external memory failed: "
+                      "an external memory has been set.");
+        return false;
+    }
+
+    if (!ext_mem_data
+        || ext_mem_size > 1 * BH_GB
+        || ext_mem_data + ext_mem_size < ext_mem_data) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Set external memory failed: "
+                      "invalid input.");
+        return false;
+    }
+
+    module_inst->ext_mem_data = ext_mem_data;
+    module_inst->ext_mem_data_end = ext_mem_data + ext_mem_size;
+    module_inst->ext_mem_size = ext_mem_size;
+    module_inst->ext_mem_base_offset = DEFAULT_EXT_MEM_BASE_OFFSET;
+
+    return true;
+}
+#endif
+
 bool
 wasm_runtime_enlarge_memory(WASMModuleInstance *module, int inc_page_count)
 {
@@ -1166,24 +1197,40 @@ wasm_runtime_validate_app_addr(WASMModuleInstance *module_inst,
     uint8 *addr;
 
     /* integer overflow check */
-    if(app_offset < 0 ||
-       app_offset + size < app_offset) {
+    if(app_offset + size < app_offset) {
         goto fail;
     }
 
     memory = module_inst->default_memory;
-    if (app_offset < memory->heap_base_offset) {
+    if (0 <= app_offset
+        && app_offset < memory->heap_base_offset) {
         addr = memory->memory_data + app_offset;
         if (!(memory->base_addr <= addr && addr + size <= memory->end_addr))
             goto fail;
         return true;
     }
-    else {
+    else if (memory->heap_base_offset < app_offset
+             && app_offset < memory->heap_base_offset
+                             + (memory->heap_data_end - memory->heap_data)) {
         addr = memory->heap_data + (app_offset - memory->heap_base_offset);
         if (!(memory->heap_data <= addr && addr + size <= memory->heap_data_end))
             goto fail;
         return true;
     }
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_base_offset <= app_offset
+             && app_offset < module_inst->ext_mem_base_offset
+                             + module_inst->ext_mem_size) {
+        addr = module_inst->ext_mem_data
+               + (app_offset - module_inst->ext_mem_base_offset);
+        if (!(module_inst->ext_mem_data <= addr
+              && addr + size <= module_inst->ext_mem_data_end))
+            goto fail;
+
+        return true;
+    }
+#endif
 
 fail:
     wasm_runtime_set_exception(module_inst, "out of bounds memory access");
@@ -1202,7 +1249,13 @@ wasm_runtime_validate_native_addr(WASMModuleInstance *module_inst,
     }
 
     if ((memory->base_addr <= addr && addr + size <= memory->end_addr)
-        || (memory->heap_data <= addr && addr + size <= memory->heap_data_end))
+        || (memory->heap_data <= addr && addr + size <= memory->heap_data_end)
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+        || (module_inst->ext_mem_data
+            && module_inst->ext_mem_data <= addr
+            && addr + size <= module_inst->ext_mem_data_end)
+#endif
+       )
         return true;
 
 fail:
@@ -1215,10 +1268,22 @@ wasm_runtime_addr_app_to_native(WASMModuleInstance *module_inst,
                                 int32 app_offset)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
-    if (app_offset < memory->heap_base_offset)
+    if (0 <= app_offset && app_offset < memory->heap_base_offset)
         return memory->memory_data + app_offset;
-    else
+    else if (memory->heap_base_offset < app_offset
+             && app_offset < memory->heap_base_offset
+                             + (memory->heap_data_end - memory->heap_data))
         return memory->heap_data + (app_offset - memory->heap_base_offset);
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_base_offset <= app_offset
+             && app_offset < module_inst->ext_mem_base_offset
+                             + module_inst->ext_mem_size)
+        return module_inst->ext_mem_data
+               + (app_offset - module_inst->ext_mem_base_offset);
+#endif
+    else
+        return NULL;
 }
 
 int32
@@ -1229,9 +1294,19 @@ wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
     if (memory->base_addr <= (uint8*)native_ptr
         && (uint8*)native_ptr < memory->end_addr)
         return (uint8*)native_ptr - memory->memory_data;
-    else
+    else if (memory->heap_data <= (uint8*)native_ptr
+             && (uint8*)native_ptr < memory->heap_data_end)
         return memory->heap_base_offset
                + ((uint8*)native_ptr - memory->heap_data);
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_data <= (uint8*)native_ptr
+             && (uint8*)native_ptr < module_inst->ext_mem_data_end)
+        return module_inst->ext_mem_base_offset
+               + ((uint8*)native_ptr - module_inst->ext_mem_data);
+#endif
+    else
+        return 0;
 }
 
 uint32

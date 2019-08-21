@@ -152,6 +152,13 @@ wasm_runtime_instantiate(const wasm_module_t module,
 void
 wasm_runtime_deinstantiate(wasm_module_inst_t module_inst);
 
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+bool
+wasm_runtime_set_ext_memory(wasm_module_inst_t module_inst,
+                            uint8_t *ext_mem_data, uint32_t ext_mem_size,
+                            char *error_buf, uint32_t error_buf_size);
+#endif
+
 /**
  * Load WASM module instance from AOT file.
  *
@@ -383,36 +390,6 @@ wasm_runtime_addr_app_to_native(wasm_module_inst_t module_inst,
 int32_t
 wasm_runtime_addr_native_to_app(wasm_module_inst_t module_inst,
                                 void *native_ptr);
-
-/**
- * Find the unique main function from a WASM module instance
- * and execute that function.
- *
- * @param module_inst the WASM module instance
- * @param argc the number of arguments
- * @param argv the arguments array
- *
- * @return true if the main function is called, false otherwise.
- */
-bool
-wasm_application_execute_main(wasm_module_inst_t module_inst,
-                              int argc, char *argv[]);
-
-/**
- * Find the specified function in argv[0] from WASM module of current instance
- * and execute that function.
- *
- * @param module_inst the WASM module instance
- * @param name the name of the function to execute
- * @param argc the number of arguments
- * @param argv the arguments array
- *
- * @return true if the specified function is called, false otherwise.
- */
-bool
-wasm_application_execute_func(wasm_module_inst_t module_inst,
-                              const char *name, int argc, char *argv[]);
-
 
 #ifdef __cplusplus
 }
