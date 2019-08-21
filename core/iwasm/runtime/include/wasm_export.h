@@ -152,6 +152,13 @@ wasm_runtime_instantiate(const wasm_module_t module,
 void
 wasm_runtime_deinstantiate(wasm_module_inst_t module_inst);
 
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+bool
+wasm_runtime_set_ext_memory(wasm_module_inst_t module_inst,
+                            uint8_t *ext_mem_data, uint32_t ext_mem_size,
+                            char *error_buf, uint32_t error_buf_size);
+#endif
+
 /**
  * Load WASM module instance from AOT file.
  *
