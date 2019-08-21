@@ -74,6 +74,24 @@ GET_F64_FROM_ADDR (uint32 *addr)
 }
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+#define CHECK_EXT_MEMORY_SPACE() \
+    else if (module->ext_mem_data                                               \
+             && module->ext_mem_base_offset <= offset1                          \
+             && offset1 < module->ext_mem_base_offset                           \
+                          + module->ext_mem_size) {                             \
+        maddr = module->ext_mem_data                                            \
+                + (offset1 - module->ext_mem_base_offset);                      \
+        if (maddr < module->ext_mem_data)                                       \
+          goto out_of_bounds;                                                   \
+        maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                  \
+        if (maddr1 > module->ext_mem_data_end)                                  \
+          goto out_of_bounds;                                                   \
+    }
+#else
+#define CHECK_EXT_MEMORY_SPACE()
+#endif
+
 #define CHECK_MEMORY_OVERFLOW() do {                                            \
     uint32 offset1 = offset + addr;                                             \
     uint8 *maddr1;                                                              \
@@ -89,7 +107,8 @@ GET_F64_FROM_ADDR (uint32 *addr)
       if (maddr1 > memory->end_addr)                                            \
         goto out_of_bounds;                                                     \
     }                                                                           \
-    else {                                                                      \
+    else if (offset1 < memory->heap_base_offset                                 \
+                       + (memory->heap_data_end - memory->heap_data)) {         \
       maddr = memory->heap_data + offset1 - memory->heap_base_offset;           \
       if (maddr < memory->heap_data)                                            \
         goto out_of_bounds;                                                     \
@@ -97,6 +116,9 @@ GET_F64_FROM_ADDR (uint32 *addr)
       if (maddr1 > memory->heap_data_end)                                       \
         goto out_of_bounds;                                                     \
     }                                                                           \
+    CHECK_EXT_MEMORY_SPACE()                                                    \
+    else                                                                        \
+      goto out_of_bounds;                                                       \
   } while (0)
 
 static inline uint32

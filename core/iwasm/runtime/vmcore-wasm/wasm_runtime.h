@@ -148,6 +148,13 @@ typedef struct WASMModuleInstance {
     uint32 temp_ret;
     uint32 llvm_stack;
 
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    int32 ext_mem_base_offset;
+    uint8 *ext_mem_data;
+    uint8 *ext_mem_data_end;
+    uint32 ext_mem_size;
+#endif
+
     /* Default WASM stack size of threads of this Module instance. */
     uint32 wasm_stack_size;
 
