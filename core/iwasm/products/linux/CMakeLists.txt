@@ -68,6 +68,7 @@ include (../../lib/native/base/wasm_lib_base.cmake)
 include (../../lib/native/libc/wasm_libc.cmake)
 include (${SHARED_LIB_DIR}/platform/${PLATFORM}/shared_platform.cmake)
 include (${SHARED_LIB_DIR}/mem-alloc/mem_alloc.cmake)
+include (${SHARED_LIB_DIR}/utils/shared_utils.cmake)
 
 add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
@@ -76,7 +77,8 @@ add_library (vmlib
              ${WASM_LIB_BASE_DIR}/base_lib_export.c
              ${WASM_LIBC_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
-             ${MEM_ALLOC_SHARED_SOURCE})
+             ${MEM_ALLOC_SHARED_SOURCE}
+             ${UTILS_SHARED_SOURCE})
 
 add_executable (iwasm main.c ext_lib_export.c)
 
@@ -91,7 +93,8 @@ add_library (libiwasm SHARED
              ${WASM_LIB_BASE_DIR}/base_lib_export.c
              ${WASM_LIBC_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
-             ${MEM_ALLOC_SHARED_SOURCE})
+             ${MEM_ALLOC_SHARED_SOURCE}
+             ${UTILS_SHARED_SOURCE})
 
 install (TARGETS libiwasm DESTINATION lib)
 
