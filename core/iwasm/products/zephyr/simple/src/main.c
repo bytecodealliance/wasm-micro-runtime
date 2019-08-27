@@ -26,6 +26,11 @@
 #include "bh_memory.h"
 #include "test_wasm.h"
 
+#define CONFIG_GLOBAL_HEAP_BUF_SIZE 131072
+#define CONFIG_APP_STACK_SIZE 8192
+#define CONFIG_APP_HEAP_SIZE 8192
+#define CONFIG_MAIN_THREAD_STACK_SIZE 4096
+
 static int app_argc;
 static char **app_argv;
 
@@ -54,7 +59,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     return NULL;
 }
 
-static char global_heap_buf[512 * 1024] = { 0 };
+static char global_heap_buf[CONFIG_GLOBAL_HEAP_BUF_SIZE] = { 0 };
 
 void iwasm_main(void *arg1, void *arg2, void *arg3)
 {
@@ -72,7 +77,7 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
     (void) arg3;
 
     if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
+        != 0) {
         wasm_printf("Init global heap failed.\n");
         return;
     }
@@ -91,14 +96,17 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
-            error_buf, sizeof(error_buf)))) {
+                                          error_buf, sizeof(error_buf)))) {
         wasm_printf("%s\n", error_buf);
         goto fail2;
     }
 
     /* instantiate the module */
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module, 8 * 1024,
-            8 * 1024, error_buf, sizeof(error_buf)))) {
+    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
+                                                      CONFIG_APP_STACK_SIZE,
+                                                      CONFIG_APP_HEAP_SIZE,
+                                                      error_buf,
+                                                      sizeof(error_buf)))) {
         wasm_printf("%s\n", error_buf);
         goto fail3;
     }
@@ -119,24 +127,23 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
     fail1: bh_memory_destroy();
 }
 
-#define DEFAULT_THREAD_STACKSIZE (6 * 1024)
-#define DEFAULT_THREAD_PRIORITY 5
+#define MAIN_THREAD_STACK_SIZE (CONFIG_MAIN_THREAD_STACK_SIZE)
+#define MAIN_THREAD_PRIORITY 5
 
-K_THREAD_STACK_DEFINE(iwasm_main_thread_stack, DEFAULT_THREAD_STACKSIZE);
+K_THREAD_STACK_DEFINE(iwasm_main_thread_stack, MAIN_THREAD_STACK_SIZE);
 static struct k_thread iwasm_main_thread;
 
 bool iwasm_init(void)
 {
     k_tid_t tid = k_thread_create(&iwasm_main_thread, iwasm_main_thread_stack,
-    DEFAULT_THREAD_STACKSIZE, iwasm_main, NULL, NULL, NULL,
-    DEFAULT_THREAD_PRIORITY, 0, K_NO_WAIT);
+                                  MAIN_THREAD_STACK_SIZE,
+                                  iwasm_main, NULL, NULL, NULL,
+                                  MAIN_THREAD_PRIORITY, 0, K_NO_WAIT);
     return tid ? true : false;
 }
 
-#ifndef CONFIG_AEE_ENABLE
 void main(void)
 {
     iwasm_init();
 }
-#endif
 

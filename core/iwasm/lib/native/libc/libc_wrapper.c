@@ -984,23 +984,6 @@ wasm_native_global_lookup(const char *module_name, const char *global_name,
         global_def++;
     }
 
-    /* Lookup non-constant globals which cannot be defined by table */
-    if (!strcmp(module_name, "env")) {
-        if (!strcmp(global_name, "_stdin")) {
-            global->global_data_linked.addr = (uintptr_t)stdin;
-            global->is_addr = true;
-            return true;
-        } else if (!strcmp(global_name, "_stdout")) {
-            global->global_data_linked.addr = (uintptr_t)stdout;
-            global->is_addr = true;
-            return true;
-        } else if (!strcmp(global_name, "_stderr")) {
-            global->global_data_linked.addr = (uintptr_t)stderr;
-            global->is_addr = true;
-            return true;
-        }
-    }
-
     return false;
 }
 
