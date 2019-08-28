@@ -26,7 +26,9 @@
 #define DEFAULT_MEM_ALLOCATOR MEM_ALLOCATOR_EMS
 
 /* Beihai log system */
+#ifndef BEIHAI_ENABLE_LOG
 #define BEIHAI_ENABLE_LOG 1
+#endif
 
 /* Beihai debugger support */
 #define BEIHAI_ENABLE_TOOL_AGENT 1
@@ -43,7 +45,9 @@
 #endif
 
 /* WASM VM log system */
+#ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1
+#endif
 
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1

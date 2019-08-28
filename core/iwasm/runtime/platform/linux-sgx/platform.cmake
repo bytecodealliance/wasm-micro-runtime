@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set (WASM_LIBC_DIR ${CMAKE_CURRENT_LIST_DIR})
+add_definitions (-D__POSIX__ -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=199309L)
 
-include_directories(${WASM_LIBC_DIR})
+set (PLATFORM_LIB_DIR ${CMAKE_CURRENT_LIST_DIR})
 
+include_directories(${PLATFORM_LIB_DIR})
+include_directories(${PLATFORM_LIB_DIR}/../include)
 
-file (GLOB_RECURSE source_all ${WASM_LIBC_DIR}/libc_wrapper.c)
+file (GLOB_RECURSE source_all ${PLATFORM_LIB_DIR}/*.c)
 
-set (WASM_LIBC_SOURCE ${source_all})
+set (WASM_PLATFORM_LIB_SOURCE ${source_all})
 
