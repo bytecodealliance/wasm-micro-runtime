@@ -30,7 +30,7 @@ int gci_check_platform()
 {
 #define CHECK(x, y)  do {                                       \
   if((x) != (y)) {                                              \
-    bh_printf("Platform checking failed on LINE %d at FILE %s.",   \
+    bh_printf("Platform checking failed on LINE %d at FILE %s.",\
            __LINE__, __FILE__);                                 \
     return GC_ERROR;                                            \
   }                                                             \

@@ -52,8 +52,6 @@ typedef int64_t int64;
 #define wa_free bh_free
 #define wa_strdup bh_strdup
 
-#define bh_printf printf
-
 typedef aos_task_t korp_thread;
 typedef korp_thread *korp_tid;
 typedef aos_task_t *aos_tid_t;

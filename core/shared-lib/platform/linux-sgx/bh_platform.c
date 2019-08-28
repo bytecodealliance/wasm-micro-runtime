@@ -52,7 +52,7 @@ void bh_set_print_function(bh_print_function_t pf)
     print_function = pf;
 }
 
-int bh_printf(const char *message, ...)
+int bh_printf_sgx(const char *message, ...)
 {
     if (print_function != NULL) {
         char msg[FIXED_BUFFER_SIZE] = { '\0' };
