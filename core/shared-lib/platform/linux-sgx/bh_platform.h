@@ -38,7 +38,7 @@
 extern "C" {
 #endif
 
-extern int bh_printf(const char *message, ...);
+extern int bh_printf_sgx(const char *message, ...);
 
 typedef uint64_t uint64;
 typedef int64_t int64;
