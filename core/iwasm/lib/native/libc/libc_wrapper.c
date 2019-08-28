@@ -414,7 +414,7 @@ sprintf_out(int c, struct str_context *ctx)
 static int
 printf_out(int c, struct str_context *ctx)
 {
-    printf("%c", c);
+    bh_printf("%c", c);
     ctx->count++;
     return c;
 }
@@ -542,13 +542,13 @@ _puts_wrapper(int32 str_offset)
         return 0;
 
     str = addr_app_to_native(str_offset);
-    return printf("%s\n", str);
+    return bh_printf("%s\n", str);
 }
 
 static int
 _putchar_wrapper(int c)
 {
-    printf("%c", c);
+    bh_printf("%c", c);
     return 1;
 }
 
@@ -699,7 +699,10 @@ _strcpy_wrapper(int32 dst_offset, int32 src_offset)
 
     dst = addr_app_to_native(dst_offset);
     src = addr_app_to_native(src_offset);
-    strcpy(dst, src);
+    while (*src != '\0')
+        *dst++ = *src++;
+    *dst = '\0';
+
     return dst_offset;
 }
 
@@ -842,7 +845,7 @@ static void
 _llvm_stackrestore_wrapper(uint32 llvm_stack)
 {
     wasm_module_inst_t module_inst = get_module_inst();
-    printf("_llvm_stackrestore called!\n");
+    bh_printf("_llvm_stackrestore called!\n");
     wasm_runtime_set_llvm_stack(module_inst, llvm_stack);
 }
 
@@ -850,7 +853,7 @@ static uint32
 _llvm_stacksave_wrapper()
 {
     wasm_module_inst_t module_inst = get_module_inst();
-    printf("_llvm_stacksave called!\n");
+    bh_printf("_llvm_stacksave called!\n");
     return wasm_runtime_get_llvm_stack(module_inst);
 }
 
@@ -905,13 +908,13 @@ nullFunc_X_wrapper(int32 code)
 static void
 print_i32_wrapper(int i32)
 {
-    printf("%d\n", i32);
+    bh_printf("%d\n", i32);
 }
 
 static void
 print_wrapper(int i32)
 {
-    printf("%d\n", i32);
+    bh_printf("%d\n", i32);
 }
 #endif
 
