@@ -391,6 +391,38 @@ int32_t
 wasm_runtime_addr_native_to_app(wasm_module_inst_t module_inst,
                                 void *native_ptr);
 
+/**
+ * Get the app address range (relative address) that a app address belongs to
+ *
+ * @param module_inst the WASM module instance
+ * @param app_offset the app address to retrieve
+ * @param p_app_start_offset buffer to output the app start offset if not NULL
+ * @param p_app_end_offset buffer to output the app end offset if not NULL
+ *
+ * @return true if success, false otherwise.
+ */
+bool
+wasm_runtime_get_app_addr_range(wasm_module_inst_t module_inst,
+                                int32_t app_offset,
+                                int32_t *p_app_start_offset,
+                                int32_t *p_app_end_offset);
+
+/**
+ * Get the native address range (absolute address) that a native address belongs to
+ *
+ * @param module_inst the WASM module instance
+ * @param native_ptr the native address to retrieve
+ * @param p_native_start_addr buffer to output the native start address if not NULL
+ * @param p_native_end_addr buffer to output the native end address if not NULL
+ *
+ * @return true if success, false otherwise.
+ */
+bool
+wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
+                                   uint8_t *native_ptr,
+                                   uint8_t **p_native_start_addr,
+                                   uint8_t **p_native_end_addr);
+
 #ifdef __cplusplus
 }
 #endif
