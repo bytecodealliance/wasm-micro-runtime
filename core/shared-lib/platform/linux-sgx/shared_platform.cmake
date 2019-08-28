@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set (WASM_LIBC_DIR ${CMAKE_CURRENT_LIST_DIR})
+set (PLATFORM_SHARED_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-include_directories(${WASM_LIBC_DIR})
+include_directories(${PLATFORM_SHARED_DIR})
+include_directories(${PLATFORM_SHARED_DIR}/../include)
 
 
-file (GLOB_RECURSE source_all ${WASM_LIBC_DIR}/libc_wrapper.c)
+file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 
-set (WASM_LIBC_SOURCE ${source_all})
+set (PLATFORM_SHARED_SOURCE ${source_all})
 
