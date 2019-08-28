@@ -26,6 +26,7 @@ add_definitions(-DUSE_SGX=1)
 add_definitions(-DOPS_INPUT_OUTPUT=1)
 add_definitions(-DOPS_UNSAFE_BUFFERS=0)
 add_definitions(-DWASM_ENABLE_LOG=0)
+add_definitions(-Dbh_printf=bh_printf_sgx)
 
 # Enable repl mode if want to test spec cases
 # add_definitions(-DWASM_ENABLE_REPL)
@@ -71,19 +72,19 @@ include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)
 include (../../runtime/vmcore-wasm/vmcore.cmake)
 include (../../lib/native/base/wasm_lib_base.cmake)
-include (../../lib/native/libc/wasm_libc_sgx.cmake)
+include (../../lib/native/libc/wasm_libc.cmake)
 include (${SHARED_LIB_DIR}/platform/${PLATFORM}/shared_platform.cmake)
 include (${SHARED_LIB_DIR}/mem-alloc/mem_alloc.cmake)
-
-#add_executable (iwasm main.c ext_lib_export.c)
-
+include (${SHARED_LIB_DIR}/utils/shared_utils.cmake)
 
 add_library (vmlib
-             ext_lib_export.c
              ${WASM_PLATFORM_LIB_SOURCE}
              ${WASM_UTILS_LIB_SOURCE}
              ${VMCORE_LIB_SOURCE}
              ${WASM_LIB_BASE_DIR}/base_lib_export.c
              ${WASM_LIBC_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
-             ${MEM_ALLOC_SHARED_SOURCE})
+             ${MEM_ALLOC_SHARED_SOURCE}
+             ${UTILS_SHARED_SOURCE})
+
+add_library (extlib ext_lib_export.c)

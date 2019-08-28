@@ -26,9 +26,7 @@
 #define DEFAULT_MEM_ALLOCATOR MEM_ALLOCATOR_EMS
 
 /* Beihai log system */
-#ifndef BEIHAI_ENABLE_LOG
 #define BEIHAI_ENABLE_LOG 1
-#endif
 
 /* Beihai debugger support */
 #define BEIHAI_ENABLE_TOOL_AGENT 1
@@ -128,4 +126,8 @@
 
 /* Default base offset of external memory space */
 #define DEFAULT_EXT_MEM_BASE_OFFSET (-2 * BH_GB)
+
+#ifndef bh_printf
+#define bh_printf printf
+#endif
 
