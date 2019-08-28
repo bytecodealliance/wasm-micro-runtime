@@ -118,7 +118,7 @@ static void unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
         }
 
         if (!node) {
-            printf("[GC_ERROR]couldn't find the node in the normal list");
+            bh_printf("[GC_ERROR]couldn't find the node in the normal list");
         }
     } else {
         remove_tree_node((hmu_tree_node_t *) hmu);
@@ -392,7 +392,7 @@ gc_object_t _gc_alloc_vo_i_heap(void *vheap,
     ret = hmu_to_obj(hmu);
 
 #if BH_ENABLE_MEMORY_PROFILING != 0
-    printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
+    bh_printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
 #endif
 
     FINISH:
@@ -434,7 +434,7 @@ gc_object_t _gc_alloc_jo_i_heap(void *vheap,
     ret = hmu_to_obj(hmu);
 
 #if BH_ENABLE_MEMORY_PROFILING != 0
-    printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
+    bh_printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
 #endif
 
     FINISH:
@@ -495,7 +495,7 @@ int gc_free_i_heap(void *vheap, gc_object_t obj ALLOC_EXTRA_PARAMETERS)
             heap->total_free_size += size;
 #endif
 #if BH_ENABLE_MEMORY_PROFILING != 0
-            printf("HEAP.FREE, heap: %p, size: %u\n",heap, size);
+            bh_printf("HEAP.FREE, heap: %p, size: %u\n",heap, size);
 #endif
 
             if (!hmu_get_pinuse(hmu)) {
@@ -538,12 +538,12 @@ int gc_free_i_heap(void *vheap, gc_object_t obj ALLOC_EXTRA_PARAMETERS)
 
 void gc_dump_heap_stats(gc_heap_t *heap)
 {
-    printf("heap: %p, heap start: %p\n", heap, heap->base_addr);
-    printf(
+    bh_printf("heap: %p, heap start: %p\n", heap, heap->base_addr);
+    bh_printf(
             "total malloc: totalfree: %u, current: %u, highmark: %u, gc cnt: %u\n",
             heap->total_free_size, heap->current_size, heap->highmark_size,
             heap->total_gc_count);
-    printf("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
+    bh_printf("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
             g_total_malloc, g_total_free, g_total_malloc - g_total_free);
 }
 

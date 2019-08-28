@@ -14,13 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef _WASM_PLATFORM_LOG
-#define _WASM_PLATFORM_LOG
+#include "lib_export.h"
 
-#include "bh_platform.h"
+static NativeSymbol extended_native_symbol_defs[] = { };
 
-#define wasm_printf bh_printf
-
-#define wasm_vprintf vprintf
-
-#endif /* _WASM_PLATFORM_LOG */
+#include "ext_lib_export.h"

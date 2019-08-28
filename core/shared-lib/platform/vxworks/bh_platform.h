@@ -75,6 +75,8 @@ typedef void* (*thread_start_routine_t)(void*);
 #define wa_free bh_free
 #define wa_strdup bh_strdup
 
+#define bh_printf printf
+
 int snprintf(char *buffer, size_t count, const char *format, ...);
 double fmod(double x, double y);
 float fmodf(float x, float y);
