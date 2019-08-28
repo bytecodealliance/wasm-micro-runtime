@@ -23,6 +23,9 @@
 #include "bh_log.h"
 #include "bh_list.h"
 
+typedef void (*bh_print_function_t)(const char* message);
+void bh_set_print_function(bh_print_function_t pf);
+
 #define bh_memcpy_s(dest, dlen, src, slen) do {                         \
     int _ret = slen == 0 ? 0 : b_memcpy_s (dest, dlen, src, slen);      \
     (void)_ret;                                                         \
