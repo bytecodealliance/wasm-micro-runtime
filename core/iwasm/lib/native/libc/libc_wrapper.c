@@ -473,13 +473,17 @@ static int
 _sprintf_wrapper(int32 str_offset, int32 fmt_offset, int32 va_list_offset)
 {
     wasm_module_inst_t module_inst = get_module_inst();
+    int32 app_end_offset;
     struct str_context ctx;
     char *str;
     const char *fmt;
     _va_list va_args;
 
-    if (!validate_str_addr(module_inst, str_offset))
-        return 0;
+    if (!wasm_runtime_get_app_addr_range(module_inst, str_offset,
+                                         NULL, &app_end_offset)) {
+        wasm_runtime_set_exception(module_inst, "out of bounds memory access");
+        return false;
+    }
 
     str = addr_app_to_native(str_offset);
 
@@ -487,7 +491,7 @@ _sprintf_wrapper(int32 str_offset, int32 fmt_offset, int32 va_list_offset)
         return 0;
 
     ctx.str = str;
-    ctx.max = INT_MAX;
+    ctx.max = app_end_offset - str_offset;
     ctx.count = 0;
 
     if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, fmt, va_args, module_inst))
@@ -692,17 +696,19 @@ _strcpy_wrapper(int32 dst_offset, int32 src_offset)
 {
     wasm_module_inst_t module_inst = get_module_inst();
     char *dst, *src;
+    uint32 len;
 
-    if (!validate_str_addr(module_inst, dst_offset)
-        || !validate_str_addr(module_inst, src_offset))
+    if (!validate_str_addr(module_inst, src_offset))
+        return 0;
+
+    src = addr_app_to_native(src_offset);
+    len = strlen(src);
+
+    if (!validate_app_addr(dst_offset, len + 1))
         return 0;
 
     dst = addr_app_to_native(dst_offset);
-    src = addr_app_to_native(src_offset);
-    while (*src != '\0')
-        *dst++ = *src++;
-    *dst = '\0';
-
+    strncpy(dst, src, len + 1);
     return dst_offset;
 }
 
