@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2019 Taobao (China) Inc.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,34 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef _LIB_EXPORT_H_
-#define _LIB_EXPORT_H_
+#ifndef _WASM_APPLICATION_H
+#define _WASM_APPLICATION_H
+
+//#include "wasm_runtime.h"
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct NativeSymbol {
-    const char *symbol;
-    void *func_ptr;
-} NativeSymbol;
+struct WASMModuleInstance;
 
-#define EXPORT_WASM_API(symbol)  {#symbol, symbol}
-#define EXPORT_WASM_API2(symbol) {#symbol, symbol##_wrapper}
+bool
+wasm_application_execute_main(struct WASMModuleInstance *module_inst,
+                              int argc, char *argv[]);
 
-/**
- * Get the exported APIs of base lib
- *
- * @param p_base_lib_apis return the exported API array of base lib
- *
- * @return the number of the exported API
- */
-int
-get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
+bool
+wasm_application_execute_func(struct WASMModuleInstance *module_inst,
+                              char *name, int argc, char *argv[]);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* end of _WASM_APPLICATION_H */
 

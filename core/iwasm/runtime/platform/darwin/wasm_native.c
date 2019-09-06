@@ -14,34 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef _LIB_EXPORT_H_
-#define _LIB_EXPORT_H_
+#include "wasm_native.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct NativeSymbol {
-    const char *symbol;
-    void *func_ptr;
-} NativeSymbol;
-
-#define EXPORT_WASM_API(symbol)  {#symbol, symbol}
-#define EXPORT_WASM_API2(symbol) {#symbol, symbol##_wrapper}
-
-/**
- * Get the exported APIs of base lib
- *
- * @param p_base_lib_apis return the exported API array of base lib
- *
- * @return the number of the exported API
- */
-int
-get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
-
-#ifdef __cplusplus
+void*
+wasm_platform_native_func_lookup(const char *module_name,
+                                 const char *func_name)
+{
+    return NULL;
 }
-#endif
-
-#endif
 

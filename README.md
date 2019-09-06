@@ -67,6 +67,25 @@ cd build
 cmake ..
 make
 ```
+
+Mac
+-------------------------
+Make sure to install Xcode from App Store firstly, and install cmake.
+
+If you use Homebrew, install cmake from the command line:
+``` Bash
+brew install cmake
+```
+
+Then build the source codes:
+```
+cd core/iwasm/products/darwin/
+mkdir build
+cd build
+cmake ..
+make
+```
+
 VxWorks
 -------------------------
 VxWorks 7 SR0620 release is validated.
