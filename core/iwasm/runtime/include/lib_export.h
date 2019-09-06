@@ -40,7 +40,13 @@ int
 get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
 
 /**
- * Get the exported APIs of extend lib
+ * Get the exported APIs of extended lib, this API isn't provided by WASM VM,
+ * it must be provided by developer to register the extended native APIs,
+ * for example, developer can register his native APIs to extended_native_symbol_defs,
+ * array, and include file ext_lib_export.h which implements this API.
+ * And if developer hasn't any native API to register, he can define an empty
+ * extended_native_symbol_defs array, and then include file ext_lib_export.h to
+ * implements this API.
  *
  * @param p_base_lib_apis return the exported API array of extend lib
  *
