@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "wasm.h"
+#include "wasm_application.h"
 #include "wasm_interp.h"
 #include "wasm_runtime.h"
 #include "wasm_thread.h"
