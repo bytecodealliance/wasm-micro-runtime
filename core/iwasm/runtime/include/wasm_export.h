@@ -152,6 +152,13 @@ wasm_runtime_instantiate(const wasm_module_t module,
 void
 wasm_runtime_deinstantiate(wasm_module_inst_t module_inst);
 
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+bool
+wasm_runtime_set_ext_memory(wasm_module_inst_t module_inst,
+                            uint8_t *ext_mem_data, uint32_t ext_mem_size,
+                            char *error_buf, uint32_t error_buf_size);
+#endif
+
 /**
  * Load WASM module instance from AOT file.
  *
@@ -385,34 +392,36 @@ wasm_runtime_addr_native_to_app(wasm_module_inst_t module_inst,
                                 void *native_ptr);
 
 /**
- * Find the unique main function from a WASM module instance
- * and execute that function.
+ * Get the app address range (relative address) that a app address belongs to
  *
  * @param module_inst the WASM module instance
- * @param argc the number of arguments
- * @param argv the arguments array
+ * @param app_offset the app address to retrieve
+ * @param p_app_start_offset buffer to output the app start offset if not NULL
+ * @param p_app_end_offset buffer to output the app end offset if not NULL
  *
- * @return true if the main function is called, false otherwise.
+ * @return true if success, false otherwise.
  */
 bool
-wasm_application_execute_main(wasm_module_inst_t module_inst,
-                              int argc, char *argv[]);
+wasm_runtime_get_app_addr_range(wasm_module_inst_t module_inst,
+                                int32_t app_offset,
+                                int32_t *p_app_start_offset,
+                                int32_t *p_app_end_offset);
 
 /**
- * Find the specified function in argv[0] from WASM module of current instance
- * and execute that function.
+ * Get the native address range (absolute address) that a native address belongs to
  *
  * @param module_inst the WASM module instance
- * @param name the name of the function to execute
- * @param argc the number of arguments
- * @param argv the arguments array
+ * @param native_ptr the native address to retrieve
+ * @param p_native_start_addr buffer to output the native start address if not NULL
+ * @param p_native_end_addr buffer to output the native end address if not NULL
  *
- * @return true if the specified function is called, false otherwise.
+ * @return true if success, false otherwise.
  */
 bool
-wasm_application_execute_func(wasm_module_inst_t module_inst,
-                              const char *name, int argc, char *argv[]);
-
+wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
+                                   uint8_t *native_ptr,
+                                   uint8_t **p_native_start_addr,
+                                   uint8_t **p_native_end_addr);
 
 #ifdef __cplusplus
 }

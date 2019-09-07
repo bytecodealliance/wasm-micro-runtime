@@ -43,7 +43,9 @@
 #endif
 
 /* WASM VM log system */
+#ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1
+#endif
 
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
@@ -62,6 +64,9 @@
 
 /* Max timer number in one app */
 #define MAX_TIMERS_PER_APP 30
+
+/* Max connection number in one app */
+#define MAX_CONNECTION_PER_APP 20
 
 /* Max resource registration number in one app */
 #define RESOURCE_REGISTRATION_NUM_MAX 16
@@ -95,7 +100,11 @@
 #define APP_HEAP_SIZE_MAX (1024 * 1024)
 
 /* Default wasm stack size of each app */
+#ifdef __x86_64__
+#define DEFAULT_WASM_STACK_SIZE (12 * 1024)
+#else
 #define DEFAULT_WASM_STACK_SIZE (8 * 1024)
+#endif
 
 /* Default/min/max stack size of each app thread */
 #ifndef __ZEPHYR__
@@ -108,3 +117,17 @@
 #define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
 #endif
 #endif
+
+/* External memory space provided by user,
+   but not wasm memory space and app heap space */
+#ifndef WASM_ENABLE_EXT_MEMORY_SPACE
+#define WASM_ENABLE_EXT_MEMORY_SPACE 0
+#endif
+
+/* Default base offset of external memory space */
+#define DEFAULT_EXT_MEM_BASE_OFFSET (-2 * BH_GB)
+
+#ifndef bh_printf
+#define bh_printf printf
+#endif
+

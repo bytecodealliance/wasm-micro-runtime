@@ -38,6 +38,7 @@ target_include_directories(app PRIVATE ${IWASM_ROOT}/runtime/include
     ${IWASM_ROOT}/lib/native/base
     ${IWASM_ROOT}/lib/native/libc
     ${IWASM_ROOT}/lib/native/extension/sensor
+    ${IWASM_ROOT}/lib/native/extension/connection
     ${IWASM_ROOT}/lib/native-interface
     ${APP_MGR_ROOT}/app-manager
     ${APP_MGR_ROOT}/app-mgr-shared
@@ -52,9 +53,8 @@ target_include_directories(app PRIVATE ${IWASM_ROOT}/runtime/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr
     )
 
-set (IWASM_SRCS ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
+set (IWASM_SRCS
     ${IWASM_ROOT}/runtime/platform/zephyr/wasm_native.c
-    ${IWASM_ROOT}/runtime/platform/zephyr/wasm_platform.c
     ${IWASM_ROOT}/runtime/utils/wasm_dlfcn.c
     ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c
     ${IWASM_ROOT}/runtime/utils/wasm_log.c
@@ -69,6 +69,8 @@ set (IWASM_SRCS ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
     ${IWASM_ROOT}/lib/native/base/timer_wrapper.c
     ${IWASM_ROOT}/lib/native/libc/libc_wrapper.c
     ${IWASM_ROOT}/lib/native/extension/sensor/runtime_sensor.c
+    ${IWASM_ROOT}/lib/native/extension/connection/connection_wrapper.c
+    ${IWASM_ROOT}/lib/native/extension/connection/zephyr/connection_lib_impl.c
     ${IWASM_ROOT}/lib/native-interface/attr_container.c
     ${IWASM_ROOT}/lib/native-interface/restful_utils.c
     ${APP_MGR_ROOT}/app-manager/app_manager.c
@@ -89,6 +91,7 @@ set (IWASM_SRCS ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
     ${SHARED_LIB_ROOT}/platform/zephyr/bh_platform_log.c
     ${SHARED_LIB_ROOT}/platform/zephyr/bh_thread.c
     ${SHARED_LIB_ROOT}/platform/zephyr/bh_time.c
+    ${SHARED_LIB_ROOT}/platform/zephyr/bh_math.c
     ${SHARED_LIB_ROOT}/mem-alloc/bh_memory.c
     ${SHARED_LIB_ROOT}/mem-alloc/mem_alloc.c
     ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_alloc.c

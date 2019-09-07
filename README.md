@@ -67,6 +67,52 @@ cd build
 cmake ..
 make
 ```
+
+Mac
+-------------------------
+Make sure to install Xcode from App Store firstly, and install cmake.
+
+If you use Homebrew, install cmake from the command line:
+``` Bash
+brew install cmake
+```
+
+Then build the source codes:
+```
+cd core/iwasm/products/darwin/
+mkdir build
+cd build
+cmake ..
+make
+```
+
+VxWorks
+-------------------------
+VxWorks 7 SR0620 release is validated.
+
+First you need to build a VSB. Make sure *UTILS_UNIX* layer is added in the VSB.
+After the VSB is built, export the VxWorks toolchain path by:
+```
+export <vsb_dir_path>/host/vx-compiler/bin:$PATH
+```
+Now switch to iwasm source tree to build the source code:
+```
+cd core/iwasm/products/vxworks/
+mkdir build
+cd build
+cmake ..
+make
+```
+Create a VIP based on the VSB. Make sure the following components are added:
+* INCLUDE_POSIX_PTHREADS
+* INCLUDE_POSIX_PTHREAD_SCHEDULER
+* INCLUDE_SHARED_DATA
+* INCLUDE_SHL
+
+Copy the generated iwasm executable, the test WASM binary as well as the needed
+shared libraries (libc.so.1, libllvm.so.1 or libgnu.so.1 depending on the VSB,
+libunix.so.1) to a supported file system (eg: romfs).
+
 Zephyr
 -------------------------
 You need to download the Zephyr source code first and embed WAMR into it.
@@ -124,6 +170,23 @@ AliOS-Things
    ```
 9. download the binary to developerkit board, check the output from serial port
 
+Docker
+-------------------------
+[Docker](https://www.docker.com/) will download all the dependencies and build WAMR Core on your behalf.
+
+Make sure you have Docker installed on your machine: [macOS](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/) or [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
+
+Build the Docker image:
+
+``` Bash
+docker build --rm -f "Dockerfile" -t wamr:latest .
+```
+Run the image in interactive mode:
+``` Bash
+docker run --rm -it wamr:latest
+```
+You'll now enter the container at `/root`.
+
 Build WASM app
 =========================
 You can write a simple ```test.c``` as the first sample.
@@ -154,7 +217,7 @@ int main(int argc, char **argv)
 }
 ```
 
-There are two methods to build a WASM binary. One is using Emscripten tool, another is using clang compiler.
+There are three methods to build a WASM binary. They are Emscripten, the clang compiler and Docker.
 
 ##  Use Emscripten tool
 
@@ -215,12 +278,25 @@ clang-8 --target=wasm32 -O3 -Wl,--initial-memory=131072,--allow-undefined,--expo
 
 You will get ```test.wasm``` which is the WASM app binary.
 
+## Using Docker
+
+The last method availble is using [Docker](https://www.docker.com/). We assume you've already configured Docker (see Platform section above) and have a running interactive shell. Currently the Dockerfile only supports compiling apps with clang, with Emscripten planned for the future.
+
+Use the clang-8 command below to build the WASM C source code into the WASM binary.
+
+```Bash
+clang-8 --target=wasm32 -O3 -Wl,--initial-memory=131072,--allow-undefined,--export=main,
+--no-threads,--strip-all,--no-entry -nostdlib -o test.wasm test.c
+```
+
+You will get ```test.wasm``` which is the WASM app binary.
+
 Run WASM app
 ========================
 
 Assume you are using Linux, the command to run the test.wasm is:
 ``` Bash
-cd iwasm/products/linux/bin
+cd iwasm/products/linux/build
 ./iwasm test.wasm
 ```
 You will get the following output:
@@ -336,15 +412,42 @@ void api_timer_restart(user_timer_t timer, int interval);
 ```
 
 **Library extension reference**<br/>
-Currently we provide the sensor API's as one library extension sample. In the header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is defined as below:
+Currently we provide several kinds of extension library for reference including sensor, connection and GUI.
+
+Sensor API: In the header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is defined as below:
 ``` C
 sensor_t sensor_open(const char* name, int index,
-                                     void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
-                                     void *user_data);
+                     void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
+                     void *user_data);
 bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
 bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
 bool sensor_close(sensor_t sensor);
 ```
+Connection API: In the header file `lib/app-libs/extension/connection/connection.h.`, the API set is defined as below:
+``` C
+/* Connection event type */
+typedef enum {
+    /* Data is received */
+    CONN_EVENT_TYPE_DATA = 1,
+    /* Connection is disconnected */
+    CONN_EVENT_TYPE_DISCONNECT
+} conn_event_type_t;
+
+typedef void (*on_connection_event_f)(connection_t *conn,
+                                      conn_event_type_t type,
+                                      const char *data,
+                                      uint32 len,
+                                      void *user_data);
+connection_t *api_open_connection(const char *name,
+                                  attr_container_t *args,
+                                  on_connection_event_f on_event,
+                                  void *user_data);
+void api_close_connection(connection_t *conn);
+int api_send_on_connection(connection_t *conn, const char *data, uint32 len);
+bool api_config_connection(connection_t *conn, attr_container_t *cfg);
+```
+GUI API: The API's is list in header file ```lib/app-libs/extension/gui/wgl.h``` which is implemented based open soure 2D graphic library [LittlevGL](https://docs.littlevgl.com/en/html/index.html). Currently supported widgets include button, label, list and check box and more wigdet would be provided in future.
+
 
 The mechanism of exporting native API to WASM application
 =======================================================
@@ -572,7 +675,9 @@ Please refer to the ```samples/simple``` folder for samples of WASM application 
 
 2D graphic user interface with LittlevGL
 ------------------------------------------------
-This sample demonstrates that a graphic user interface application in WebAssembly  integrates  the LittlevGL, an open-source embedded 2d graphic library. The sample source code is under ```samples/littlevgl``` 
+We have 2 samples for 2D graphic user interface.
+
+One of them demonstrates that a graphic user interface application in WebAssembly  integrates  the LittlevGL, an open-source embedded 2d graphic library. The sample source code is under ```samples/littlevgl``` 
 
 In this sample, the LittlevGL source code is built into the WebAssembly code with the user application source files. The platform interfaces defined by LittlevGL is implemented in the runtime and exported to the application through the declarations from source "ext_lib_export.c" as below:
 
@@ -594,6 +699,10 @@ Below pictures show the WASM application is running on an STM board with an LCD 
 
 The sample also provides the native Linux version of application without the runtime under folder "vgl-native-ui-app". It can help to check differences between the implementations in native and WebAssembly.
 <img src="./doc/pics/vgl_linux.PNG">
+
+The other sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL), which is implemented based on LittlevGL, an open-source embedded 2d graphic library. The sample source code is under ```samples/gui```
+
+Unlike `sample/littlevgl/val-wasm-runtime`, in this sample, the  LittlevGL source code is built into the WAMR runtime and exported to Webassembly applicaton but not directly built into Webassembly application. And WGL provides a group of WebAssembly wrapper API's for user to write graphic application. These API's are listed in: `<wamr_root>/core/iwasm/lib/app-libs/extension/gui/wgl.h`. Currently only a few API's are provided and there will be more.
 
 
 Submit issues and contact the maintainers

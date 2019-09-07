@@ -15,8 +15,8 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
   add_definitions(-DNVALGRIND)
 endif ()
 
-# Currently build as 32-bit by default.
-set (BUILD_AS_64BIT_SUPPORT "NO")
+# Currently build as 64-bit by default.
+set (BUILD_AS_64BIT_SUPPORT "YES")
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")
@@ -48,6 +48,10 @@ set(WASM_DIR  ${WAMR_ROOT_DIR}/core/iwasm)
 set(APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
 set(SHARED_DIR ${WAMR_ROOT_DIR}/core/shared-lib)
 
+set (LV_DRIVERS_DIR ${WASM_DIR}/lib/3rdparty/lv_drivers)
+set (LVGL_DIR ${WASM_DIR}/lib/3rdparty/lvgl)
+
+file(GLOB_RECURSE LV_DRIVERS_SOURCES "${LV_DRIVERS_DIR}/*.c" )
 
 enable_language (ASM)
 
@@ -57,6 +61,9 @@ include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
 include (${WASM_DIR}/lib/native/libc/wasm_libc.cmake)
 include (${WASM_DIR}/lib/native/extension/sensor/wasm_lib_sensor.cmake)
+include (${WASM_DIR}/lib/native/extension/gui/wasm_lib_gui.cmake)
+include (${WASM_DIR}/lib/native/extension/connection/wasm_lib_conn.cmake)
+include (${WASM_DIR}/lib/native/extension/connection/${TARGET_PLATFORM}/connection_mgr.cmake)
 include (${WASM_DIR}/lib/native-interface/native_interface.cmake)
 include (${APP_MGR_DIR}/app-manager/app_mgr.cmake)
 include (${APP_MGR_DIR}/app-mgr-shared/app_mgr_shared.cmake)
@@ -67,12 +74,14 @@ include (${SHARED_DIR}/coap/lib_coap.cmake)
 
 
 include_directories(${SHARED_DIR}/include)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 #Note: uncomment below line to use UART mode
 #add_definitions (-DCONNECTION_UART)
 add_definitions (-DWASM_ENABLE_BASE_LIB)
 add_definitions (-Dattr_container_malloc=bh_malloc)
 add_definitions (-Dattr_container_free=bh_free)
+add_definitions (-DLV_CONF_INCLUDE_SIMPLE)
 
 add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
@@ -83,13 +92,16 @@ add_library (vmlib
              ${WASM_LIB_BASE_SOURCE}
              ${WASM_LIB_EXT_SOURCE}
              ${WASM_LIB_SENSOR_SOURCE}
+             ${WASM_LIB_GUI_SOURCE}
+             ${WASM_LIB_CONN_SOURCE}
+             ${WASM_LIB_CONN_MGR_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
              ${UTILS_SHARED_SOURCE}
              ${MEM_ALLOC_SHARED_SOURCE}
              ${NATIVE_INTERFACE_SOURCE}
             )
 
-add_executable (simple src/main.c src/iwasm_main.c src/ext_lib_export.c)
+    add_executable (simple src/main.c src/iwasm_main.c src/ext_lib_export.c ${LV_DRIVERS_SOURCES})
 
-target_link_libraries (simple vmlib -lm -ldl -lpthread)
+target_link_libraries (simple vmlib -lm -ldl -lpthread -lSDL2)
 

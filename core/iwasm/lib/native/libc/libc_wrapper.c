@@ -52,6 +52,29 @@ wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
 
+static bool
+validate_str_addr(wasm_module_inst_t module_inst, int32 str_offset)
+{
+    int32 app_end_offset;
+    char *str, *str_end;
+
+    if (!wasm_runtime_get_app_addr_range(module_inst, str_offset,
+                                         NULL, &app_end_offset))
+        goto fail;
+
+    str = addr_app_to_native(str_offset);
+    str_end = str + (app_end_offset - str_offset);
+    while (str < str_end && *str != '\0')
+        str++;
+    if (str == str_end)
+        goto fail;
+    return true;
+
+fail:
+    wasm_runtime_set_exception(module_inst, "out of bounds memory access");
+    return false;
+}
+
 typedef int (*out_func_t)(int c, void *ctx);
 
 enum pad_type {
@@ -64,8 +87,13 @@ enum pad_type {
 typedef char *_va_list;
 #define _INTSIZEOF(n)       \
     ((sizeof(n) +  3) & ~3)
-#define _va_arg(ap,t)       \
+#define _va_arg(ap, t)      \
     (*(t*)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
+
+#define CHECK_VA_ARG(ap, t) do {                        \
+    if ((uint8*)ap + _INTSIZEOF(t) > native_end_addr)   \
+        goto fail;                                      \
+} while (0)
 
 /**
  * @brief Output an unsigned int in hex format
@@ -172,14 +200,19 @@ print_err(out_func_t out, void *ctx)
     out('R', ctx);
 }
 
-static void
-_vprintf(out_func_t out, void *ctx, const char *fmt, _va_list ap,
-         wasm_module_inst_t module_inst)
+static bool
+_vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
+            wasm_module_inst_t module_inst)
 {
     int might_format = 0; /* 1 if encountered a '%' */
     enum pad_type padding = PAD_NONE;
     int min_width = -1;
     int long_ctr = 0;
+    uint8 *native_end_addr;
+
+    if (!wasm_runtime_get_native_addr_range(module_inst, (uint8*)ap,
+                                            NULL, &native_end_addr))
+        goto fail;
 
     /* fmt has already been adjusted if needed */
 
@@ -232,10 +265,13 @@ _vprintf(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 int32 d;
 
                 if (long_ctr < 2) {
+                    CHECK_VA_ARG(ap, int32);
                     d = _va_arg(ap, int32);
                 }
                 else {
-                    int64 lld = _va_arg(ap, int64);
+                    int64 lld;
+                    CHECK_VA_ARG(ap, int64);
+                    lld = _va_arg(ap, int64);
                     if (lld > INT32_MAX || lld < INT32_MIN) {
                         print_err(out, ctx);
                         break;
@@ -255,10 +291,13 @@ _vprintf(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 uint32 u;
 
                 if (long_ctr < 2) {
+                    CHECK_VA_ARG(ap, uint32);
                     u = _va_arg(ap, uint32);
                 }
                 else {
-                    uint64 llu = _va_arg(ap, uint64);
+                    uint64 llu;
+                    CHECK_VA_ARG(ap, uint64);
+                    llu = _va_arg(ap, uint64);
                     if (llu > INT32_MAX) {
                         print_err(out, ctx);
                         break;
@@ -281,8 +320,10 @@ _vprintf(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 bool is_ptr = (*fmt == 'p') ? true : false;
 
                 if (long_ctr < 2) {
+                    CHECK_VA_ARG(ap, uint32);
                     x = _va_arg(ap, uint32);
                 } else {
+                    CHECK_VA_ARG(ap, uint64);
                     x = _va_arg(ap, uint64);
                 }
                 _printf_hex_uint(out, ctx, x, !is_ptr, padding, min_width);
@@ -292,11 +333,13 @@ _vprintf(out_func_t out, void *ctx, const char *fmt, _va_list ap,
             case 's': {
                 char *s;
                 char *start;
-                int32 s_offset = _va_arg(ap, uint32);
+                int32 s_offset;
 
-                if (!validate_app_addr(s_offset, 1)) {
-                    wasm_runtime_set_exception(module_inst, "out of bounds memory access");
-                    return;
+                CHECK_VA_ARG(ap, uint32);
+                s_offset = _va_arg(ap, uint32);
+
+                if (!validate_str_addr(module_inst, s_offset)) {
+                    return false;
                 }
 
                 s = start = addr_app_to_native(s_offset);
@@ -314,7 +357,9 @@ _vprintf(out_func_t out, void *ctx, const char *fmt, _va_list ap,
             }
 
             case 'c': {
-                int c = _va_arg(ap, int);
+                int c;
+                CHECK_VA_ARG(ap, int);
+                c = _va_arg(ap, int);
                 out(c, ctx);
                 break;
             }
@@ -336,6 +381,11 @@ _vprintf(out_func_t out, void *ctx, const char *fmt, _va_list ap,
 still_might_format:
         ++fmt;
     }
+    return true;
+
+fail:
+    wasm_runtime_set_exception(module_inst, "out of bounds memory access");
+    return false;
 }
 
 struct str_context {
@@ -364,7 +414,7 @@ sprintf_out(int c, struct str_context *ctx)
 static int
 printf_out(int c, struct str_context *ctx)
 {
-    printf("%c", c);
+    bh_printf("%c", c);
     ctx->count++;
     return c;
 }
@@ -391,7 +441,7 @@ parse_printf_args(wasm_module_inst_t module_inst, int32 fmt_offset,
         _va_list v;
     } u;
 
-    if (!validate_app_addr(fmt_offset, 1)
+    if (!validate_str_addr(module_inst, fmt_offset)
         || !validate_app_addr(va_list_offset, sizeof(int32)))
         return false;
 
@@ -414,7 +464,8 @@ _printf_wrapper(int32 fmt_offset, int32 va_list_offset)
     if (!parse_printf_args(module_inst, fmt_offset, va_list_offset, &fmt, &va_args))
         return 0;
 
-    _vprintf((out_func_t) printf_out, &ctx, fmt, va_args, module_inst);
+    if (!_vprintf_wa((out_func_t)printf_out, &ctx, fmt, va_args, module_inst))
+        return 0;
     return ctx.count;
 }
 
@@ -422,13 +473,17 @@ static int
 _sprintf_wrapper(int32 str_offset, int32 fmt_offset, int32 va_list_offset)
 {
     wasm_module_inst_t module_inst = get_module_inst();
+    int32 app_end_offset;
     struct str_context ctx;
     char *str;
     const char *fmt;
     _va_list va_args;
 
-    if (!validate_app_addr(str_offset, 1))
-        return 0;
+    if (!wasm_runtime_get_app_addr_range(module_inst, str_offset,
+                                         NULL, &app_end_offset)) {
+        wasm_runtime_set_exception(module_inst, "out of bounds memory access");
+        return false;
+    }
 
     str = addr_app_to_native(str_offset);
 
@@ -436,10 +491,11 @@ _sprintf_wrapper(int32 str_offset, int32 fmt_offset, int32 va_list_offset)
         return 0;
 
     ctx.str = str;
-    ctx.max = INT_MAX;
+    ctx.max = app_end_offset - str_offset;
     ctx.count = 0;
 
-    _vprintf((out_func_t) sprintf_out, &ctx, fmt, va_args, module_inst);
+    if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, fmt, va_args, module_inst))
+        return 0;
 
     if (ctx.count < ctx.max) {
         str[ctx.count] = '\0';
@@ -470,7 +526,8 @@ _snprintf_wrapper(int32 str_offset, int32 size, int32 fmt_offset,
     ctx.max = size;
     ctx.count = 0;
 
-    _vprintf((out_func_t) sprintf_out, &ctx, fmt, va_args, module_inst);
+    if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, fmt, va_args, module_inst))
+        return 0;
 
     if (ctx.count < ctx.max) {
         str[ctx.count] = '\0';
@@ -485,17 +542,17 @@ _puts_wrapper(int32 str_offset)
     wasm_module_inst_t module_inst = get_module_inst();
     const char *str;
 
-    if (!validate_app_addr(str_offset, 1))
+    if (!validate_str_addr(module_inst, str_offset))
         return 0;
 
     str = addr_app_to_native(str_offset);
-    return printf("%s\n", str);
+    return bh_printf("%s\n", str);
 }
 
 static int
 _putchar_wrapper(int c)
 {
-    printf("%c", c);
+    bh_printf("%c", c);
     return 1;
 }
 
@@ -507,7 +564,7 @@ _strdup_wrapper(int32 str_offset)
     uint32 len;
     int32 str_ret_offset = 0;
 
-    if (!validate_app_addr(str_offset, 1))
+    if (!validate_str_addr(module_inst, str_offset))
         return 0;
 
     str = addr_app_to_native(str_offset);
@@ -596,7 +653,7 @@ _strchr_wrapper(int32 s_offset, int32 c)
     const char *s;
     char *ret;
 
-    if (!validate_app_addr(s_offset, 1))
+    if (!validate_str_addr(module_inst, s_offset))
         return s_offset;
 
     s = addr_app_to_native(s_offset);
@@ -610,8 +667,8 @@ _strcmp_wrapper(int32 s1_offset, int32 s2_offset)
     wasm_module_inst_t module_inst = get_module_inst();
     void *s1, *s2;
 
-    if (!validate_app_addr(s1_offset, 1)
-        || !validate_app_addr(s2_offset, 1))
+    if (!validate_str_addr(module_inst, s1_offset)
+        || !validate_str_addr(module_inst, s2_offset))
         return 0;
 
     s1 = addr_app_to_native(s1_offset);
@@ -639,14 +696,19 @@ _strcpy_wrapper(int32 dst_offset, int32 src_offset)
 {
     wasm_module_inst_t module_inst = get_module_inst();
     char *dst, *src;
+    uint32 len;
 
-    if (!validate_app_addr(dst_offset, 1)
-        || !validate_app_addr(src_offset, 1))
+    if (!validate_str_addr(module_inst, src_offset))
+        return 0;
+
+    src = addr_app_to_native(src_offset);
+    len = strlen(src);
+
+    if (!validate_app_addr(dst_offset, len + 1))
         return 0;
 
     dst = addr_app_to_native(dst_offset);
-    src = addr_app_to_native(src_offset);
-    strcpy(dst, src);
+    strncpy(dst, src, len + 1);
     return dst_offset;
 }
 
@@ -672,7 +734,7 @@ _strlen_wrapper(int32 s_offset)
     wasm_module_inst_t module_inst = get_module_inst();
     char *s;
 
-    if (!validate_app_addr(s_offset, 1))
+    if (!validate_str_addr(module_inst, s_offset))
         return 0;
 
     s = addr_app_to_native(s_offset);
@@ -789,7 +851,7 @@ static void
 _llvm_stackrestore_wrapper(uint32 llvm_stack)
 {
     wasm_module_inst_t module_inst = get_module_inst();
-    printf("_llvm_stackrestore called!\n");
+    bh_printf("_llvm_stackrestore called!\n");
     wasm_runtime_set_llvm_stack(module_inst, llvm_stack);
 }
 
@@ -797,7 +859,7 @@ static uint32
 _llvm_stacksave_wrapper()
 {
     wasm_module_inst_t module_inst = get_module_inst();
-    printf("_llvm_stacksave called!\n");
+    bh_printf("_llvm_stacksave called!\n");
     return wasm_runtime_get_llvm_stack(module_inst);
 }
 
@@ -846,6 +908,22 @@ nullFunc_X_wrapper(int32 code)
     wasm_runtime_set_exception(module_inst, buf);
 }
 
+/*#define ENABLE_SPEC_TEST 1*/
+
+#ifdef ENABLE_SPEC_TEST
+static void
+print_i32_wrapper(int i32)
+{
+    bh_printf("%d\n", i32);
+}
+
+static void
+print_wrapper(int i32)
+{
+    bh_printf("%d\n", i32);
+}
+#endif
+
 /* TODO: add function parameter/result types check */
 #define REG_NATIVE_FUNC(module_name, func_name)     \
     { #module_name, #func_name, func_name##_wrapper }
@@ -857,6 +935,10 @@ typedef struct WASMNativeFuncDef {
 } WASMNativeFuncDef;
 
 static WASMNativeFuncDef native_func_defs[] = {
+#ifdef ENABLE_SPEC_TEST
+    REG_NATIVE_FUNC(spectest, print_i32),
+    REG_NATIVE_FUNC(spectest, print),
+#endif
     REG_NATIVE_FUNC(env, _printf),
     REG_NATIVE_FUNC(env, _sprintf),
     REG_NATIVE_FUNC(env, _snprintf),
@@ -927,6 +1009,9 @@ typedef struct WASMNativeGlobalDef {
 } WASMNativeGlobalDef;
 
 static WASMNativeGlobalDef native_global_defs[] = {
+#ifdef ENABLE_SPEC_TEST
+    { "spectest", "global_i32", .global_data.u32 = 0 },
+#endif
     { "env", "STACKTOP", .global_data.u32 = 0 },
     { "env", "STACK_MAX", .global_data.u32 = 0 },
     { "env", "ABORT", .global_data.u32 = 0 },
@@ -959,23 +1044,6 @@ wasm_native_global_lookup(const char *module_name, const char *global_name,
             return true;
         }
         global_def++;
-    }
-
-    /* Lookup non-constant globals which cannot be defined by table */
-    if (!strcmp(module_name, "env")) {
-        if (!strcmp(global_name, "_stdin")) {
-            global->global_data_linked.addr = (uintptr_t)stdin;
-            global->is_addr = true;
-            return true;
-        } else if (!strcmp(global_name, "_stdout")) {
-            global->global_data_linked.addr = (uintptr_t)stdout;
-            global->is_addr = true;
-            return true;
-        } else if (!strcmp(global_name, "_stderr")) {
-            global->global_data_linked.addr = (uintptr_t)stderr;
-            global->is_addr = true;
-            return true;
-        }
     }
 
     return false;
