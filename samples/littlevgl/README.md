@@ -1,6 +1,6 @@
 Introduction
 ==============
-This sample demonstrates that a graphic user interface application in WebAssembly  integrates  the LittlevGL, an open-source embedded 2d graphic library.
+This sample demonstrates that a graphic user interface application in WebAssembly by compiling the LittlevGL, an open-source embedded 2d graphic library into the WASM bytecode.
 
 In this sample, the whole LittlevGL source code is built into the WebAssembly code with the user application. The platform interfaces defined by LittlevGL is implemented in the runtime and exported to the application through the declarations from source "ext_lib_export.c" as below:
 
@@ -14,12 +14,20 @@ In this sample, the whole LittlevGL source code is built into the WebAssembly co
 
 The runtime component supports building target for Linux and Zephyr/STM Nucleo board. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do majority of application validation from desktop environment as long as two runtime distributions support the same set of application interface.
 
+
+Below pictures show the WASM application is running on an STM board with an LCD touch panel. 
+
+![WAMR UI SAMPLE](../../doc/pics/vgl_demo2.png "WAMR UI DEMO STM32")
+
+![WAMR UI SAMPLE](../../doc/pics/vgl_demo_linux.png "WAMR UI DEMO LINUX")
+
+
+The number on top will plus one each second, and the number on the bottom will plus one when clicked. When users click the blue button, the WASM application increases the counter, and the latest counter value is displayed on the top banner of the touch panel. 
+
 The sample also provides the native Linux version of application without the runtime under folder "vgl-native-ui-app". It can help to check differences between the implementations in native and WebAssembly.
 
- 
-<img src="../../doc/pics/vgl_linux.PNG">
 
-The number on top will plus one each second, and the number on the bottom will plus one when clicked.
+
 
 Configure 32 bit or 64 bit build
 ==============
