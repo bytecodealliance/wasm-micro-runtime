@@ -1,15 +1,17 @@
 Introduction
 ==============
-This sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL) extension. WGL is implemented based on LittlevGL, an open-source embedded 2d graphic library. LittlevGL source code is built into the WAMR runtime and exported to Webassembly application with WGL extension. These extension API's are listed in: `<wamr_root>/core/iwasm/lib/app-libs/extension/gui/wgl.h`. Currently only a small set of API's  are provided and that would be extended in future.
+This sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL) extension. WGL defined a WASM application API set for programming the UI applications. 
+
+WGL implemention is based on [LittlevGL](https://github.com/littlevgl/), an open-source embedded 2d graphic library. Comparing the building the LittlevGL into WASM bytecode in the [littlevgl](../littlevgl) sample, WGL compiled LittlevGL source code into the WAMR runtime and defined a wrapper API for exporting to Webassembly application. These extension API's are listed in: `<wamr_root>/core/iwasm/lib/app-libs/extension/gui/wgl.h`. Currently only a small set of API's  are provided and that would be extended in future.
+
 
 The runtime component supports building target for Linux and Zephyr/STM Nucleo board. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do majority of application validation from desktop environment as long as two runtime distributions support the same set of application interface.
 
-The sample also provides the native Linux version of application without the runtime under folder "lvgl-native-ui-app". It can help to check differences between the implementations in native and WebAssembly.
 
- 
-<img src="../../doc/pics/vgl_linux.PNG">
+Below pictures show the WASM application is running on an STM board with an LCD touch panel. When users click the blue button, the WASM application increases the counter, and the latest counter value is displayed on the top banner of the touch panel. The number on top will plus one each second, and the number on the bottom will plus one when clicked.
 
-The number on top will plus one each second, and the number on the bottom will plus one when clicked.
+
+![WAMR UI SAMPLE](../../doc/pics/vgl_demo2.png "WAMR UI DEMO")
 
 Configure 32 bit or 64 bit build
 ==============
