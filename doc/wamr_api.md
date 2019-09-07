@@ -1,15 +1,9 @@
 
 WASM application library
 ========================
-In general, there are 3 classes of API's important for the WASM application:
-- Built-in API's: WAMR provides a minimal API set for developers.
-- 3rd party API's: Programmer can download and include any 3rd party C source code and add it into their own WASM app source tree.
-- Platform native API's: WAMR provides a mechanism to export a native API to the WASM application.
 
+WAMR APP API includes built-in Libc API's, Base library and Extension library reference.
 
-Built-in application library
----------------
-Built-in API's include Libc API's, Base library and Extension library reference.
 
 **Libc API's**<br/>
 This is a minimal set of Libc API's for memory allocation, string manipulation and printing. The header file is located at ```lib/app-libs/libc/lib_base.h```. The current supported API set is listed here:
