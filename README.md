@@ -57,7 +57,7 @@ Embed WAMR
 
 WAMR can be built into a standalone executable which takes the WASM application file name as input, and then executes it. In some other situations, the WAMR source code is embedded the product code and built into the final product. 
 
-WAMR provides a set of C API for embedding WAMR code to load the WASM module, instantiate the module and invoke a WASM  function from a native call. 
+WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM  function from a native call. 
 
 See the [doc/embed_wamr.md](./doc/embed_wamr.md) for the details.
 
