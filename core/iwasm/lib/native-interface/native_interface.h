@@ -75,4 +75,16 @@ void wasm_timer_destory(timer_id_t timer_id);
 void wasm_timer_cancel(timer_id_t timer_id);
 void wasm_timer_restart(timer_id_t timer_id, int interval);
 uint32 wasm_get_sys_tick_ms(void);
-#endif /* DEPS_SSG_MICRO_RUNTIME_WASM_POC_APP_LIBS_NATIVE_INTERFACE_NATIVE_INTERFACE_H_ */
+
+/*
+ *   *** connection interface ***
+ */
+uint32 wasm_open_connection(int32 name_offset, int32 args_offset, uint32 len);
+void wasm_close_connection(uint32 handle);
+int wasm_send_on_connection(uint32 handle, int32 data_offset, uint32 len);
+bool wasm_config_connection(uint32 handle, int32 cfg_offset, uint32 len);
+
+#include "gui_api.h"
+
+#endif /* DEPS_SSG_MICRO_RUNTIME_WASM_PO
+C_APP_LIBS_NATIVE_INTERFACE_NATIVE_INTERFACE_H_ */

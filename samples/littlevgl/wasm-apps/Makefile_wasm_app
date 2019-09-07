@@ -14,7 +14,18 @@
 
 CC = emcc
 LVGL_DIR = ${shell pwd}
-CFLAGS += -O3 -DLV_CONF_INCLUDE_SIMPLE=1 -I$(LVGL_DIR)/ -I$(LVGL_DIR)/lvgl/ -I$(LVGL_DIR)/lv_drivers/ -I$(LVGL_DIR)/src/ -I../../../core/iwasm/lib/app-libs/base/ -I../../../core/iwasm/lib/native-interface/  -I../../../core/iwasm/lib/app-libs/extension/sensor
+IWASM_DIR=../../../core/iwasm
+CFLAGS += -O3 \
+	  -DLV_CONF_INCLUDE_SIMPLE=1 \
+	  -I$(LVGL_DIR)/ \
+	  -I$(LVGL_DIR)/lvgl/ \
+	  -I$(LVGL_DIR)/lv_drivers/ \
+	  -I$(LVGL_DIR)/src/ \
+	  -I$(IWASM_DIR)/lib/app-libs/base/ \
+	  -I$(IWASM_DIR)/lib/native-interface/ \
+	  -I$(IWASM_DIR)/lib/app-libs/extension/sensor \
+	  -I$(IWASM_DIR)/lib/app-libs/extension/gui \
+	  -I$(IWASM_DIR)/lib/app-libs/extension/connection
 
 SRCS += lvgl/lv_draw/lv_draw_line.c lvgl/lv_draw/lv_draw_rbasic.c
 SRCS += lvgl/lv_draw/lv_draw_img.c lvgl/lv_draw/lv_draw_arc.c
@@ -46,10 +57,11 @@ SRCS += lvgl/lv_core/lv_group.c lvgl/lv_core/lv_style.c lvgl/lv_core/lv_indev.c
 SRCS += lvgl/lv_core/lv_vdb.c lvgl/lv_core/lv_obj.c lvgl/lv_core/lv_refr.c
 SRCS += $(LVGL_DIR)/src/main.c
 
-SRCS += ../../../core/iwasm/lib/app-libs/base/timer.c
+# For app size consideration, not all but necessary app libs are included
+SRCS += $(IWASM_DIR)/lib/app-libs/base/timer.c
 all: 
 	@$(CC) $(CFLAGS) $(SRCS) \
     -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 \
     -s TOTAL_MEMORY=65536 -s TOTAL_STACK=2048\
-    -s "EXPORTED_FUNCTIONS=['_on_init', '_on_request', '_on_sensor_event', '_on_timer_callback']" \
+    -s "EXPORTED_FUNCTIONS=['_on_init', '_on_timer_callback']" \
     -o ui_app.wasm

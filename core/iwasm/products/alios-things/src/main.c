@@ -16,9 +16,9 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "bh_platform.h"
 #include "wasm_assert.h"
 #include "wasm_log.h"
-#include "wasm_platform.h"
 #include "wasm_platform_log.h"
 #include "wasm_thread.h"
 #include "wasm_export.h"
@@ -28,6 +28,20 @@
 
 static int app_argc;
 static char **app_argv;
+
+/**
+ * Find the unique main function from a WASM module instance
+ * and execute that function.
+ *
+ * @param module_inst the WASM module instance
+ * @param argc the number of arguments
+ * @param argv the arguments array
+ *
+ * @return true if the main function is called, false otherwise.
+ */
+bool
+wasm_application_execute_main(wasm_module_inst_t module_inst,
+                              int argc, char *argv[]);
 
 static void*
 app_instance_main(wasm_module_inst_t module_inst)

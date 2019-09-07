@@ -17,7 +17,7 @@
 #ifndef _WASM_VECTOR_H
 #define _WASM_VECTOR_H
 
-#include "wasm_platform.h"
+#include "bh_platform.h"
 
 
 #ifdef __cplusplus

@@ -21,19 +21,38 @@ The sample also provides the native Linux version of application without the run
 
 The number on top will plus one each second, and the number on the bottom will plus one when clicked.
 
+Configure 32 bit or 64 bit build
+==============
+On 64 bit operating system, there is an option to build 32 bit or 64 bit binaries. In file `./vgl-native-ui-app/CMakeLists.txt` and/or `./vgl-wasm-runtime/CMakeLists.txt` , modify the line:
+`set (BUILD_AS_64BIT_SUPPORT "YES")`
+ where `YES` means 64 bit build while `NO` means 32 bit build.
+
 Install required SDK and libraries
 ==============
-- 32 bit SDL(simple directmedia layer)
-Use apt-get</br>
-    `sudo apt-get install libsdl2-dev:i386`</br>
-Or download source from www.libsdl.org</br>
-    `./configure C_FLAGS=-m32 CXX_FLAGS=-m32 LD_FLAGS=-m32`</br>
-    `make`</br>
-    `sudo make install`</br>
+- 32 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `NO`)
+Use apt-get:
+    `sudo apt-get install libsdl2-dev:i386`
+Or download source from www.libsdl.org:
+```
+./configure C_FLAGS=-m32 CXX_FLAGS=-m32 LD_FLAGS=-m32
+make
+sudo make install
+```
+- 64 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `YES`)
+Use apt-get:
+    `sudo apt-get install libsdl2-dev`
+Or download source from www.libsdl.org:
+```
+./configure
+make
+sudo make install
+```
+
 - Install EMSDK
-<pre>
+```
     https://emscripten.org/docs/tools_reference/emsdk.html
-</pre>
+```
+
 
 Build and Run
 ==============
@@ -42,7 +61,7 @@ Linux
 --------------------------------
 - Build</br>
 `./build.sh`</br>
-    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "TestApplet1.wasm" and "vgl_wasm_runtime".
+    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "ui_app.wasm" and "vgl_wasm_runtime".
 - Run native Linux application</br>
 `./vgl_native_ui_app`</br>
 

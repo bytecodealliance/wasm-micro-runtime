@@ -35,8 +35,6 @@ include_directories (${IWASM_ROOT}/runtime/include
 set (IWASM_SRCS ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c
                 ${IWASM_ROOT}/runtime/utils/wasm_log.c
                 ${IWASM_ROOT}/runtime/utils/wasm_dlfcn.c
-                ${IWASM_ROOT}/runtime/platform/zephyr/wasm_math.c
-                ${IWASM_ROOT}/runtime/platform/zephyr/wasm_platform.c
                 ${IWASM_ROOT}/runtime/platform/zephyr/wasm_native.c
                 ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_application.c
                 ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_interp.c
@@ -48,6 +46,7 @@ set (IWASM_SRCS ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c
                 ${SHARED_LIB_ROOT}/platform/zephyr/bh_platform.c
                 ${SHARED_LIB_ROOT}/platform/zephyr/bh_assert.c
                 ${SHARED_LIB_ROOT}/platform/zephyr/bh_thread.c
+                ${SHARED_LIB_ROOT}/platform/zephyr/bh_math.c
                 ${SHARED_LIB_ROOT}/mem-alloc/bh_memory.c
                 ${SHARED_LIB_ROOT}/mem-alloc/mem_alloc.c
                 ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_kfc.c

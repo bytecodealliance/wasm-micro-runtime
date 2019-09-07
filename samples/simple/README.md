@@ -16,18 +16,14 @@ simple/
 │   ├── iwasm_main.c
 │   └── main.c
 └── wasm-apps
-    ├── event_publisher
-    │   └── event_publisher.c
-    ├── event_subscriber
-    │   └── event_subscriber.c
-    ├── request_handler
-    │   └── request_handler.c
-    ├── request_sender
-    │   └── request_sender.c
-    ├── sensor
-    │   └── sensor.c
-    └── timer
-        └── timer.c
+    ├── connection.c
+    ├── event_publisher.c
+    ├── event_subscriber.c
+    ├── gui.c
+    ├── request_handler.c
+    ├── request_sender.c
+    ├── sensor.c
+    └── timer.c
 ```
 
 - build.sh<br/>
@@ -68,6 +64,38 @@ The `host_init_func` is called when the application manager starts up. And `host
 - wasm-apps<br/>
   Source files of sample wasm applications.
 
+Configure 32 bit or 64 bit build
+==============
+On 64 bit operating system, there is an option to build 32 bit or 64 bit binaries. In file `CMakeLists.txt`, modify the line:
+`set (BUILD_AS_64BIT_SUPPORT "YES")`
+ where `YES` means 64 bit build while `NO` means 32 bit build.
+
+Install required SDK and libraries
+==============
+- 32 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `NO`)
+Use apt-get:
+    `sudo apt-get install libsdl2-dev:i386`
+Or download source from www.libsdl.org:
+```
+./configure C_FLAGS=-m32 CXX_FLAGS=-m32 LD_FLAGS=-m32
+make
+sudo make install
+```
+- 64 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `YES`)
+Use apt-get:
+    `sudo apt-get install libsdl2-dev`
+Or download source from www.libsdl.org:
+```
+./configure
+make
+sudo make install
+```
+
+- Install EMSDK
+```
+    https://emscripten.org/docs/tools_reference/emsdk.html
+```
+
 Build all binaries
 ==============
 Execute the build.sh script then all binaries including wasm application files would be generated in 'out' directory.
@@ -75,18 +103,20 @@ Execute the build.sh script then all binaries including wasm application files w
 
 Out directory structure
 ------------------------------
- ```
+```
 out/
 ├── host_tool
 ├── simple
 └── wasm-apps
+    ├── connection.wasm
     ├── event_publisher.wasm
     ├── event_subscriber.wasm
+    ├── gui.wasm
     ├── request_handler.wasm
     ├── request_sender.wasm
     ├── sensor.wasm
     └── timer.wasm
- ```
+```
 
 - host_tool:
   A small testing tool to interact with WAMR. See the usage of this tool by executing "./host_tool -h".
@@ -100,10 +130,14 @@ out/
 
 - wasm-apps:
   Sample wasm applications that demonstrate all APIs of the WAMR programming model. The source codes are in the wasm-apps directory under the root of this project.
+    + connection.wasm<br/>
+    This application shows the connection programming model. It connects to a TCP server on 127.0.0.1:7777 and periodically sends message to it.
     + event_publisher.wasm<br/>
     This application shows the sub/pub programming model. The pub application publishes the event "alert/overheat" by calling api_publish_event() API. The subscriber could be host_tool or other wasm application.
     + event_subscriber.wasm<br/>
     This application shows the sub/pub programming model. The sub application subscribes the "alert/overheat" event by calling api_subscribe_event() API so that it is able to receive the event once generated and published by the pub application. To make the process clear to interpret, the sub application dumps the event when receiving it.
+    + gui.wasm<br/>
+    This application shows the built-in 2D graphical user interface API with which various widgets could be created.
     + request_handler.wasm<br/>
     This application shows the request/response programming model. The request handler application registers 2 resources(/url1 and /url2) by calling api_register_resource_handler() API. The request sender could be host_tool or other wasm application.
     + request_sender.wasm<br/>

@@ -17,7 +17,9 @@
 #ifndef _WASM_PLATFORM_LOG
 #define _WASM_PLATFORM_LOG
 
-#define wasm_printf printf
+#include "bh_platform.h"
+
+#define wasm_printf bh_printf
 
 #define wasm_vprintf vprintf
 
