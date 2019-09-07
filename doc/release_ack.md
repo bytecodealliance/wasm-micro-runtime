@@ -12,14 +12,15 @@ Major feature releases and contributors
 
 **May 23, 2019: Support AliOS Things**
 
-- Contributor: JinZhong Zhu (Alibaba)
+- Contributor: JinZhou Zhu (Alibaba)
 
 
 **May 24, 2019: Support memory usage profiler**
 
 - Contributors Wenyong Huang (Intel)
 
-**Jun 11, 2019: Add WASM APP API: connection **
+
+**Jun 11, 2019: Add WASM APP API connection**
 
 - Contributor: Weining Lu (Intel)
 
@@ -27,26 +28,26 @@ Major feature releases and contributors
 
 - Contributor: Yiting Wang (WindRiver)
 
-**Aug 1, 2019: Add WGL graphic user interface API **
+**Aug 1, 2019: Add WGL graphic user interface API**
 
 - Contributor: Weining Lu
 
-**Aug 14, 2019: Add Docker support **
+**Aug 14, 2019: Add Docker support**
 
 - Contributor: beriberikix
 
 
-**Aug 14, 2019: WASM IoT app store demo **
+**Aug 14, 2019: WASM IoT app store demo**
 
 - Contributor: Luhanzhi Li, Jun Xu (Intel)
 
 
-**Aug 28, 2019: SGX support **
+**Aug 28, 2019: SGX support**
 
 - Contributor: Mic Bowman (Intel)
 
 
-**Sep 6, 2019: Mac platform support **
+**Sep 6, 2019: Mac platform support**
 
 - Contributor: Jonathan Dong (Alibaba)
 
