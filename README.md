@@ -88,9 +88,9 @@ Samples and demos
 =================
 
 The WAMR samples are located in folder [./samples](./samples). A sample usually contains the WAMR runtime build, WASM applications and test tools. The WARM provides following samples:
-- [Simple](./samples/simple/README.md): The runtime integrated most of the WAMR APP libaries and multiple WASM applications are provided for using different WASM API set.
-- [littlevgl](./samples/littlevgl/README.md): Demostrating the graphic user interface application usage on WAMR. The whole littlevgl 2D user graphic library and the UI application is built into WASM application.  
-- [gui](./samples/gui/README.md): Moved the littlevgl library into the runtime and defined a WASM application interface by wrapping the littlevgl API.
+- [Simple](./samples/simple/README.md): The runtime is integrated with most of the WAMR APP libaries and multiple WASM applications are provided for using different WASM API set.
+- [littlevgl](./samples/littlevgl/README.md): Demostrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/littlevgl/) 2D user graphic library and the UI application is built into WASM application.  
+- [gui](./samples/gui/README.md): Moved the [LittlevGL](https://github.com/littlevgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API.
 - [IoT-APP-Store-Demo](./test-tools/IoT-APP-Store-Demo/README.md): A web site for demostrating a WASM APP store usage where we can remotely install and uninstall WASM application on remote devices.
 
 
@@ -101,10 +101,10 @@ The graphic user interface demo photo:
 
 
 
-Releases and acknowledgment
-===========================
+Releases and acknowledgments
+============================
 
-WAMR is a community efforts. Since Intel Corp contributed the first release of this project, this project received many good contributions from the community. 
+WAMR is a community efforts. Since Intel Corp contributed the first release of this open source project, this project has received many good contributions from the community. 
 
 See the [major features releasing history and contributor names](./doc/release_ack.md)   
 
@@ -116,7 +116,9 @@ See the [roadmap](./doc/roadmap.md) to understand what major features are planed
 
 Please submit issues for any new feature request, or your plan for contributing new features.
 
- 
+
+
+
 
 Submit issues and contact the maintainers
 =========================================
