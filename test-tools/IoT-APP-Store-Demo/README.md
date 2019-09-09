@@ -32,3 +32,5 @@ pip3 install django
     ./simple -a [your.server.ip.address]
     ```
 
+# Online demo
+    http://39.106.110.7/
