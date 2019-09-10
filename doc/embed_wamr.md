@@ -31,7 +31,7 @@ A typical WAMR API usage is shown below (some return value checks are ignored):
   /* the return value is stored in argv[0] */
   printf("fib function return: %d\n", argv[0]);
 
-  wasm_runtime_destory_exec_env(env);
+  wasm_runtime_destroy_exec_env(env);
   wasm_runtime_deinstantiate(inst);
   wasm_runtime_unload(module);
   wasm_runtime_destroy();

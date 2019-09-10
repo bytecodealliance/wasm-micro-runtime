@@ -1116,7 +1116,7 @@ wasm_runtime_create_exec_env(uint32 stack_size)
 }
 
 void
-wasm_runtime_destory_exec_env(WASMExecEnv *env)
+wasm_runtime_destroy_exec_env(WASMExecEnv *env)
 {
     if (env) {
         wasm_free(env->stack);

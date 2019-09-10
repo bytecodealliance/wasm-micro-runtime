@@ -133,7 +133,7 @@ static NativeSymbol extended_native_symbol_defs[] = {
         EXPORT_WASM_API(wasm_post_request),
         EXPORT_WASM_API(wasm_sub_event),
         EXPORT_WASM_API(wasm_create_timer),
-        EXPORT_WASM_API(wasm_timer_destory),
+        EXPORT_WASM_API(wasm_timer_destroy),
         EXPORT_WASM_API(wasm_timer_cancel),
         EXPORT_WASM_API(wasm_timer_restart),
         EXPORT_WASM_API(wasm_get_sys_tick_ms),
