@@ -164,7 +164,7 @@ extern gc_handle_t gc_init_with_pool(char *buf, gc_size_t buf_size);
 /**
  * Destroy heap which is initilized from a buffer
  *
- * @param handle handle to heap needed destory
+ * @param handle handle to heap needed destroy
  *
  * @return GC_SUCCESS if success
  *         GC_ERROR for bad parameters or failed system resource freeing.

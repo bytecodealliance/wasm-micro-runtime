@@ -123,7 +123,7 @@ timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
     return ctx;
 }
 
-void destory_module_timer_ctx(unsigned int module_id)
+void destroy_module_timer_ctx(unsigned int module_id)
 {
     vm_mutex_lock(&g_timer_ctx_list_mutex);
     timer_ctx_node_t* elem = (timer_ctx_node_t*)
@@ -158,9 +158,9 @@ wasm_create_timer(wasm_module_inst_t module_inst,
 }
 
 void
-wasm_timer_destory(wasm_module_inst_t module_inst, timer_id_t timer_id)
+wasm_timer_destroy(wasm_module_inst_t module_inst, timer_id_t timer_id)
 {
-    sys_timer_destory(get_wasm_timer_ctx(), timer_id);
+    sys_timer_destroy(get_wasm_timer_ctx(), timer_id);
 }
 
 void

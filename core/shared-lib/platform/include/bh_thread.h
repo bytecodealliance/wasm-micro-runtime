@@ -173,9 +173,9 @@ int vm_recursive_mutex_init_instr(korp_mutex *mutex, const char*func_name);
 #endif
 
 /**
- * This function destorys a mutex
+ * This function destroys a mutex
  *
- * @param mutex  pointer to mutex need destory
+ * @param mutex  pointer to mutex need destroy
  *
  * @return BH_SUCCESS if success
  */
@@ -308,7 +308,7 @@ int vm_cond_init_instr(korp_cond *cond, const char*func_name);
 #endif
 
 /**
- * This function destorys condition variable
+ * This function destroys condition variable
  *
  * @param cond  pointer to condition variable
  *

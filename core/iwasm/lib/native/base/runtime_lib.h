@@ -23,6 +23,6 @@
 void init_wasm_timer();
 timer_ctx_t get_wasm_timer_ctx();
 timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num);
-void destory_module_timer_ctx(unsigned int module_id);
+void destroy_module_timer_ctx(unsigned int module_id);
 
 #endif /* LIB_BASE_RUNTIME_LIB_H_ */

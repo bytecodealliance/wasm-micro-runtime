@@ -338,7 +338,7 @@ bool sys_timer_cancel(timer_ctx_t ctx, uint32 timer_id)
     return from_active;
 }
 
-bool sys_timer_destory(timer_ctx_t ctx, uint32 timer_id)
+bool sys_timer_destroy(timer_ctx_t ctx, uint32 timer_id)
 {
     bool from_active;
     app_timer_t * t = remove_timer(ctx, timer_id, &from_active);
@@ -347,7 +347,7 @@ bool sys_timer_destory(timer_ctx_t ctx, uint32 timer_id)
 
     release_timer(ctx, t);
 
-    PRINT("sys_timer_destory called\n");
+    PRINT("sys_timer_destroy called\n");
     return true;
 }
 
