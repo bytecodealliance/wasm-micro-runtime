@@ -87,7 +87,7 @@ timer_id_t
 wasm_create_timer(wasm_module_inst_t module_inst,
                   int interval, bool is_period, bool auto_start);
 void
-wasm_timer_destory(wasm_module_inst_t module_inst, timer_id_t timer_id);
+wasm_timer_destroy(wasm_module_inst_t module_inst, timer_id_t timer_id);
 void
 wasm_timer_cancel(wasm_module_inst_t module_inst, timer_id_t timer_id);
 void

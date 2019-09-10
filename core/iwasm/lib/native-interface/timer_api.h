@@ -29,7 +29,7 @@ timer_id_t
 wasm_create_timer(int interval, bool is_period, bool auto_start);
 
 void
-wasm_timer_destory(timer_id_t timer_id);
+wasm_timer_destroy(timer_id_t timer_id);
 
 void
 wasm_timer_cancel(timer_id_t timer_id);
