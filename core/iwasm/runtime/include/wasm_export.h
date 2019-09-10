@@ -209,7 +209,7 @@ wasm_runtime_create_exec_env(uint32_t stack_size);
  * @param env the execution environment to destroy
  */
 void
-wasm_runtime_destory_exec_env(wasm_exec_env_t env);
+wasm_runtime_destroy_exec_env(wasm_exec_env_t env);
 
 /**
  * Call the given WASM function of a WASM module instance with

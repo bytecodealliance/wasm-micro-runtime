@@ -39,7 +39,7 @@ unsigned int timer_ctx_get_owner(timer_ctx_t ctx);
 
 uint32 sys_create_timer(timer_ctx_t ctx, int interval, bool is_period,
         bool auto_start);
-bool sys_timer_destory(timer_ctx_t ctx, uint32 timer_id);
+bool sys_timer_destroy(timer_ctx_t ctx, uint32 timer_id);
 bool sys_timer_cancel(timer_ctx_t ctx, uint32 timer_id);
 bool sys_timer_restart(timer_ctx_t ctx, uint32 timer_id, int interval);
 void cleanup_app_timers(timer_ctx_t ctx);
