@@ -15,12 +15,12 @@
  */
 
 #include "wgl.h"
-#include "native_interface.h"
+#include "gui_api.h"
 
 #include <string.h>
 
 #define ARGC sizeof(argv)/sizeof(uint32)
-#define CALL_CB_NATIVE_FUNC(id) wasm_cb_native_call(id, (uint32)argv, ARGC)
+#define CALL_CB_NATIVE_FUNC(id) wasm_cb_native_call(id, argv, ARGC)
 
 wgl_obj_t wgl_cb_create(wgl_obj_t par, const wgl_obj_t copy)
 {

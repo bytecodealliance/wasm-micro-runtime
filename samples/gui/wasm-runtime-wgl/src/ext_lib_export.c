@@ -1,5 +1,5 @@
 #include "lib_export.h"
-#include "native_interface.h"
+#include "sensor_api.h"
 #include "connection_api.h"
 #include "gui_api.h"
 

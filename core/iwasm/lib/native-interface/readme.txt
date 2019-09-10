@@ -1,6 +1,6 @@
 Attention: 
 =======
-Only add files are shared by both wasm application and native runtime into this directory!
+Only add files which are shared by both wasm application and native runtime into this directory!
 
 The c files are both compiled into the the WASM APP and native runtime.
 

@@ -35,7 +35,8 @@ static uint32_t tft_fb[MONITOR_HOR_RES * MONITOR_VER_RES];
 
 
 
-int time_get_ms()
+int
+time_get_ms(wasm_module_inst_t module_inst)
 {
     static struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -157,15 +158,16 @@ void monitor_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 }
 
 
-void display_init(void)
+void
+display_init(wasm_module_inst_t module_inst)
 {
 }
 
-void display_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        int32 color_p_offset)
+void
+display_flush(wasm_module_inst_t module_inst,
+              int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+              int32 color_p_offset)
 {
-
-    wasm_module_inst_t module_inst = wasm_runtime_get_current_module_inst();
     if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
         return;
     lv_color_t * color_p = wasm_runtime_addr_app_to_native(module_inst,
@@ -173,21 +175,28 @@ void display_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
     monitor_flush(x1, y1, x2, y2, color_p);
 }
-void display_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        lv_color_t color_p)
+
+void
+display_fill(wasm_module_inst_t module_inst,
+             int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+             lv_color_t color_p)
 {
     monitor_fill(x1, y1, x2, y2, color_p);
 }
-void display_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+
+void
+display_map(wasm_module_inst_t module_inst,
+            int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+            const lv_color_t * color_p)
 {
     monitor_map(x1, y1, x2, y2, color_p);
 }
 
-bool display_input_read(int32 data_p_offset)
+bool
+display_input_read(wasm_module_inst_t module_inst,
+                   int32 data_p_offset)
 {
     bool ret;
-    wasm_module_inst_t module_inst = wasm_runtime_get_current_module_inst();
     if (!wasm_runtime_validate_app_addr(module_inst, data_p_offset, 1))
         return false;
 
@@ -205,21 +214,23 @@ bool display_input_read(int32 data_p_offset)
                                                data_p_offset);
 
     data_app->point = data.point;
-    data_app->user_data_offset = (int32_t)data.user_data;
+    data_app->user_data_offset =
+        wasm_runtime_addr_native_to_app(module_inst, data.user_data);
     data_app->state = data.state;
 
     return ret;
 }
 
-void display_deinit(void)
+void
+display_deinit(wasm_module_inst_t module_inst)
 {
-
 }
 
-void display_vdb_write(int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
-        lv_coord_t y, int32 color_p_offset, lv_opa_t opa)
+void
+display_vdb_write(wasm_module_inst_t module_inst,
+                  int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
+                  lv_coord_t y, int32 color_p_offset, lv_opa_t opa)
 {
-    wasm_module_inst_t module_inst = wasm_runtime_get_current_module_inst();
     if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
         return;
     lv_color_t *color = wasm_runtime_addr_app_to_native(module_inst,

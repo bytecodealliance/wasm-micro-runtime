@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#ifndef DEPS_IWASM_APP_LIBS_NATIVE_INTERFACE_SENSOR_API_H_
-#define DEPS_IWASM_APP_LIBS_NATIVE_INTERFACE_SENSOR_API_H_
+#ifndef _SENSOR_API_H_
+#define _SENSOR_API_H_
+
 #include "bh_platform.h"
 
 #ifdef __cplusplus
@@ -29,7 +30,7 @@ bool
 wasm_sensor_config(uint32 sensor, int interval, int bit_cfg, int delay);
 
 bool
-wasm_sensor_config_with_attr_container(uint32 sensor, char * buffer, int len);
+wasm_sensor_config_with_attr_container(uint32 sensor, char *buffer, int len);
 
 bool
 wasm_sensor_close(uint32 sensor);
@@ -38,4 +39,5 @@ wasm_sensor_close(uint32 sensor);
 }
 #endif
 
-#endif /* DEPS_IWASM_APP_LIBS_NATIVE_INTERFACE_SENSOR_API_H_ */
+#endif /* end of _SENSOR_API_H_ */
+

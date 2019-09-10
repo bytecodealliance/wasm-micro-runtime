@@ -24,8 +24,11 @@
 #ifndef MONITOR_ZOOM
 #define MONITOR_ZOOM        1
 #endif
-int lcd_initialized = 0;
-void display_init(void)
+
+static int lcd_initialized = 0;
+
+void
+display_init(wasm_module_inst_t module_inst)
 {
     if (lcd_initialized != 0) {
         return;
@@ -36,10 +39,11 @@ void display_init(void)
     display_blanking_off(NULL);
 }
 
-void display_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        int32 color_p_offset)
+void
+display_flush(wasm_module_inst_t module_inst,
+              int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+              int32 color_p_offset)
 {
-    wasm_module_inst_t module_inst = wasm_runtime_get_current_module_inst();
     if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
         return;
     lv_color_t * color_p = wasm_runtime_addr_app_to_native(module_inst,
@@ -57,20 +61,24 @@ void display_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
     /*lv_flush_ready();*/
 }
-void display_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        lv_color_t color_p)
-{
 
-}
-void display_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+void
+display_fill(wasm_module_inst_t module_inst,
+             int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+             lv_color_t color_p)
 {
-
 }
 
-bool display_input_read(int32 data_p_offset)
+void
+display_map(wasm_module_inst_t module_inst,
+            int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+            const lv_color_t * color_p)
 {
-    wasm_module_inst_t module_inst = wasm_runtime_get_current_module_inst();
+}
+
+bool
+display_input_read(wasm_module_inst_t module_inst, int32 data_p_offset)
+{
     if (!wasm_runtime_validate_app_addr(module_inst, data_p_offset, 1))
         return false;
     lv_indev_data_t * data = wasm_runtime_addr_app_to_native(module_inst,
@@ -80,15 +88,17 @@ bool display_input_read(int32 data_p_offset)
 
 }
 
-void display_deinit(void)
+void
+display_deinit(wasm_module_inst_t module_inst)
 {
 
 }
 
-void display_vdb_write(int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
-        lv_coord_t y, int32 color_p_offset, lv_opa_t opa)
+void
+display_vdb_write(wasm_module_inst_t module_inst,
+                  int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
+                  lv_coord_t y, int32 color_p_offset, lv_opa_t opa)
 {
-    wasm_module_inst_t module_inst = wasm_runtime_get_current_module_inst();
     if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
         return;
     lv_color_t *color = wasm_runtime_addr_app_to_native(module_inst,
@@ -112,7 +122,8 @@ void display_vdb_write(int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
     *(buf_xy + 2) = color->blue;
 }
 
-int time_get_ms()
+int
+time_get_ms(wasm_module_inst_t module_inst)
 {
     return k_uptime_get_32();
 }

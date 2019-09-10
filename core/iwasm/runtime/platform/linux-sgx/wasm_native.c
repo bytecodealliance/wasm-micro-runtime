@@ -35,9 +35,6 @@
 #include <errno.h>
 
 
-#define get_module_inst() \
-    wasm_runtime_get_current_module_inst()
-
 #define validate_app_addr(offset, size) \
     wasm_runtime_validate_app_addr(module_inst, offset, size)
 
@@ -55,7 +52,7 @@
 
 
 static int32
-__syscall0_wrapper(int32 arg0)
+__syscall0_wrapper(WASMModuleInstance *module_inst, int32 arg0)
 {
     switch (arg0) {
         case 199: /* getuid */
@@ -67,7 +64,7 @@ __syscall0_wrapper(int32 arg0)
 }
 
 static int32
-__syscall1_wrapper(int32 arg0, int32 arg1)
+__syscall1_wrapper(WASMModuleInstance *module_inst, int32 arg0, int32 arg1)
 {
     switch (arg0) {
         case 6: /* close */
@@ -79,7 +76,8 @@ __syscall1_wrapper(int32 arg0, int32 arg1)
 }
 
 static int32
-__syscall2_wrapper(int32 arg0, int32 arg1, int32 arg2)
+__syscall2_wrapper(WASMModuleInstance *module_inst,
+                   int32 arg0, int32 arg1, int32 arg2)
 {
     switch (arg0) {
         case 183: /* getcwd */
@@ -91,10 +89,9 @@ __syscall2_wrapper(int32 arg0, int32 arg1, int32 arg2)
 }
 
 static int32
-__syscall3_wrapper(int32 arg0, int32 arg1, int32 arg2, int32 arg3)
+__syscall3_wrapper(WASMModuleInstance *module_inst,
+                   int32 arg0, int32 arg1, int32 arg2, int32 arg3)
 {
-    WASMModuleInstance *module_inst = get_module_inst();
-
     switch (arg0) {
         case 146: /* writev */
         {
@@ -145,7 +142,8 @@ __syscall3_wrapper(int32 arg0, int32 arg1, int32 arg2, int32 arg3)
 }
 
 static int32
-__syscall4_wrapper(int32 arg0, int32 arg1, int32 arg2,
+__syscall4_wrapper(WASMModuleInstance *module_inst,
+                   int32 arg0, int32 arg1, int32 arg2,
                    int32 arg3, int32 arg4)
 {
     bh_printf("##_syscall4 called, syscall id: %d\n", arg0);
@@ -153,7 +151,8 @@ __syscall4_wrapper(int32 arg0, int32 arg1, int32 arg2,
 }
 
 static int32
-__syscall5_wrapper(int32 arg0, int32 arg1, int32 arg2,
+__syscall5_wrapper(WASMModuleInstance *module_inst,
+                   int32 arg0, int32 arg1, int32 arg2,
                    int32 arg3, int32 arg4, int32 arg5)
 {
     switch (arg0) {
@@ -166,46 +165,54 @@ __syscall5_wrapper(int32 arg0, int32 arg1, int32 arg2,
 }
 
 #define GET_EMCC_SYSCALL_ARGS()                                     \
-  WASMModuleInstance *module_inst = get_module_inst();              \
   int32 *args;                                                      \
   if (!validate_app_addr(args_off, 1))                              \
     return 0;                                                       \
   args = addr_app_to_native(args_off)                               \
 
-#define EMCC_SYSCALL_WRAPPER0(id)                                   \
-  static int32 ___syscall##id##_wrapper(int32 _id) {                \
-    return __syscall0_wrapper(id);                                  \
+#define EMCC_SYSCALL_WRAPPER0(id)                                       \
+  static int32 ___syscall##id##_wrapper(WASMModuleInstance *module_inst,\
+                                        int32 _id) {                    \
+    return __syscall0_wrapper(module_inst, id);                         \
   }
 
-#define EMCC_SYSCALL_WRAPPER1(id)                                   \
-  static int32 ___syscall##id##_wrapper(int32 _id, int32 args_off) {\
-    GET_EMCC_SYSCALL_ARGS();                                        \
-    return __syscall1_wrapper(id, args[0]);                         \
+#define EMCC_SYSCALL_WRAPPER1(id)                                       \
+  static int32 ___syscall##id##_wrapper(WASMModuleInstance *module_inst,\
+                                        int32 _id, int32 args_off) {    \
+    GET_EMCC_SYSCALL_ARGS();                                            \
+    return __syscall1_wrapper(module_inst, id, args[0]);                \
   }
 
-#define EMCC_SYSCALL_WRAPPER2(id)                                   \
-  static int32 ___syscall##id##_wrapper(int32 _id, int32 args_off) {\
-    GET_EMCC_SYSCALL_ARGS();                                        \
-    return __syscall2_wrapper(id, args[0], args[1]);                \
+#define EMCC_SYSCALL_WRAPPER2(id)                                       \
+  static int32 ___syscall##id##_wrapper(WASMModuleInstance *module_inst,\
+                                        int32 _id, int32 args_off){     \
+    GET_EMCC_SYSCALL_ARGS();                                            \
+    return __syscall2_wrapper(module_inst, id, args[0], args[1]);       \
   }
 
-#define EMCC_SYSCALL_WRAPPER3(id)                                   \
-  static int32 ___syscall##id##_wrapper(int32 _id, int32 args_off) {\
-    GET_EMCC_SYSCALL_ARGS();                                        \
-    return __syscall3_wrapper(id, args[0], args[1], args[2]);       \
+#define EMCC_SYSCALL_WRAPPER3(id)                                       \
+  static int32 ___syscall##id##_wrapper(WASMModuleInstance *module_inst,\
+                                        int32 _id, int32 args_off) {    \
+    GET_EMCC_SYSCALL_ARGS();                                            \
+    return __syscall3_wrapper(module_inst, id,                          \
+                              args[0], args[1], args[2]);               \
   }
 
-#define EMCC_SYSCALL_WRAPPER4(id)                                   \
-  static int32 ___syscall##id##_wrapper(int32 _id, int32 args_off) {\
-    GET_EMCC_SYSCALL_ARGS();                                        \
-    return __syscall4_wrapper(id, args[0], args[1], args[2], args[3]);\
+#define EMCC_SYSCALL_WRAPPER4(id)                                       \
+  static int32 ___syscall##id##_wrapper(WASMModuleInstance *module_inst,\
+                                        int32 _id, int32 args_off) {    \
+    GET_EMCC_SYSCALL_ARGS();                                            \
+    return __syscall4_wrapper(module_inst, id,                          \
+                              args[0], args[1], args[2], args[3]);      \
   }
 
-#define EMCC_SYSCALL_WRAPPER5(id)                                   \
-  static int32 ___syscall##id##_wrapper(int32 _id, int32 args_off) {\
-    GET_EMCC_SYSCALL_ARGS();                                        \
-    return __syscall5_wrapper(id, args[0], args[1], args[2],        \
-                              args[3], args[4]);                    \
+#define EMCC_SYSCALL_WRAPPER5(id)                                       \
+  static int32 ___syscall##id##_wrapper(WASMModuleInstance *module_inst,\
+                                        int32 _id, int32 args_off) {    \
+    GET_EMCC_SYSCALL_ARGS();                                            \
+    return __syscall5_wrapper(module_inst, id,                          \
+                              args[0], args[1], args[2],                \
+                              args[3], args[4]);                        \
   }
 
 EMCC_SYSCALL_WRAPPER0(199)
@@ -224,18 +231,16 @@ EMCC_SYSCALL_WRAPPER3(221)
 EMCC_SYSCALL_WRAPPER5(140)
 
 static int32
-getTotalMemory_wrapper()
+getTotalMemory_wrapper(WASMModuleInstance *module_inst)
 {
-    WASMModuleInstance *module_inst = wasm_runtime_get_current_module_inst();
     WASMMemoryInstance *memory = module_inst->default_memory;
     return NumBytesPerPage * memory->cur_page_count;
 }
 
 static int32
-enlargeMemory_wrapper()
+enlargeMemory_wrapper(WASMModuleInstance *module_inst)
 {
     bool ret;
-    WASMModuleInstance *module_inst = wasm_runtime_get_current_module_inst();
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint32 DYNAMICTOP_PTR_offset = module_inst->DYNAMICTOP_PTR_offset;
     uint32 addr_data_offset = *(uint32*)(memory->global_data + DYNAMICTOP_PTR_offset);
@@ -254,9 +259,8 @@ enlargeMemory_wrapper()
 }
 
 static void
-_abort_wrapper(int32 code)
+_abort_wrapper(WASMModuleInstance *module_inst, int32 code)
 {
-    WASMModuleInstance *module_inst = wasm_runtime_get_current_module_inst();
     char buf[32];
 
     snprintf(buf, sizeof(buf), "env.abort(%i)", code);
@@ -264,14 +268,13 @@ _abort_wrapper(int32 code)
 }
 
 static void
-abortOnCannotGrowMemory_wrapper()
+abortOnCannotGrowMemory_wrapper(WASMModuleInstance *module_inst)
 {
-    WASMModuleInstance *module_inst = wasm_runtime_get_current_module_inst();
     wasm_runtime_set_exception(module_inst, "abort on cannot grow memory");
 }
 
 static void
-___setErrNo_wrapper(int32 error_no)
+___setErrNo_wrapper(WASMModuleInstance *module_inst, int32 error_no)
 {
     errno = error_no;
 }
@@ -330,3 +333,4 @@ wasm_platform_native_func_lookup(const char *module_name,
 
     return NULL;
 }
+

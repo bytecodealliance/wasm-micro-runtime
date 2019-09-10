@@ -18,6 +18,8 @@
 #include "request.h"
 #include "shared_utils.h"
 #include "wasm_app.h"
+#include "req_resp_api.h"
+#include "timer_api.h"
 
 #define TRANSACTION_TIMEOUT_MS 5000
 
@@ -138,15 +140,15 @@ static bool register_url_handler(const char *url,
 
     // tell app mgr to route this url to me
     if (reg_type == Reg_Request)
-        wasm_register_resource((int32)url);
+        wasm_register_resource(url);
     else
-        wasm_sub_event((int32)url);
+        wasm_sub_event(url);
 
     return true;
 }
 
 bool api_register_resource_handler(const char *url,
-        request_handler_f request_handler)
+                                   request_handler_f request_handler)
 {
     return register_url_handler(url, request_handler, Reg_Request);
 }
@@ -242,7 +244,7 @@ void api_send_request(request_t * request, response_handler_f response_handler,
         }
     }
 
-    wasm_post_request((int32)buffer, size);
+    wasm_post_request(buffer, size);
 
     free_req_resp_packet(buffer);
 }
@@ -329,7 +331,7 @@ void api_response_send(response_t *response)
     if (buffer == NULL)
         return;
 
-    wasm_response_send((int32)buffer, size);
+    wasm_response_send(buffer, size);
     free_req_resp_packet(buffer);
 }
 
@@ -343,7 +345,7 @@ bool api_publish_event(const char *url, int fmt, void *payload, int payload_len)
     char * buffer = pack_request(request, &size);
     if (buffer == NULL)
         return false;
-    wasm_post_request((int32)buffer, size);
+    wasm_post_request(buffer, size);
 
     free_req_resp_packet(buffer);
 

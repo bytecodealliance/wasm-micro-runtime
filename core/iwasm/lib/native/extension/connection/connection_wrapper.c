@@ -23,10 +23,10 @@
  * This file is the consumer of connection lib which is implemented by different platforms
  */
 
-
-uint32 wasm_open_connection(int32 name_offset, int32 args_offset, uint32 len)
+uint32
+wasm_open_connection(wasm_module_inst_t module_inst,
+                     int32 name_offset, int32 args_offset, uint32 len)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     attr_container_t *args;
     char *name, *args_buf;
 
@@ -44,15 +44,17 @@ uint32 wasm_open_connection(int32 name_offset, int32 args_offset, uint32 len)
     return -1;
 }
 
-void wasm_close_connection(uint32 handle)
+void
+wasm_close_connection(wasm_module_inst_t module_inst, uint32 handle)
 {
     if (connection_impl._close != NULL)
         connection_impl._close(handle);
 }
 
-int wasm_send_on_connection(uint32 handle, int32 data_offset, uint32 len)
+int
+wasm_send_on_connection(wasm_module_inst_t module_inst,
+                        uint32 handle, int32 data_offset, uint32 len)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *data;
 
     if (!validate_app_addr(data_offset, len) ||
@@ -65,9 +67,10 @@ int wasm_send_on_connection(uint32 handle, int32 data_offset, uint32 len)
     return -1;
 }
 
-bool wasm_config_connection(uint32 handle, int32 cfg_offset, uint32 len)
+bool
+wasm_config_connection(wasm_module_inst_t module_inst,
+                       uint32 handle, int32 cfg_offset, uint32 len)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *cfg_buf;
     attr_container_t *cfg;
 

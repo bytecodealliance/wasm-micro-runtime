@@ -17,7 +17,6 @@
 #ifndef _AEE_REQUEST_H_
 #define _AEE_REQUEST_H_
 
-#include "native_interface.h"
 #include "shared_utils.h"
 
 #ifdef __cplusplus

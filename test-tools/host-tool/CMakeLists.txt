@@ -51,6 +51,7 @@ add_definitions(-Wall -Wno-pointer-sign -DMALLOC_MEMORY_FROM_SYSTEM)
 
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/src
+    ${WASM_DIR}/runtime/include
 )
 
 file (GLOB_RECURSE HOST_TOOL_SRC src/*.c)
