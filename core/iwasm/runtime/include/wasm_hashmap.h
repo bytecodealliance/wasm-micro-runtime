@@ -99,7 +99,7 @@ wasm_hash_map_find(HashMap *map, void *key);
  * @p_old_value if not NULL, copies the old value to it
  *
  * @return true if success, false otherwise
- * Note: the old value won't be destroyed by value destory function,
+ * Note: the old value won't be destroyed by value destroy function,
  *       it will be copied to p_old_value for user to process.
  */
 bool
