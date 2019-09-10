@@ -15,11 +15,11 @@
  */
 
 #include "wgl.h"
-#include "native_interface.h"
-
+#include "bh_platform.h"
+#include "gui_api.h"
 
 #define ARGC sizeof(argv)/sizeof(uint32)
-#define CALL_BTN_NATIVE_FUNC(id) wasm_btn_native_call(id, (int32)argv, ARGC)
+#define CALL_BTN_NATIVE_FUNC(id) wasm_btn_native_call(id, argv, ARGC)
 
 wgl_obj_t wgl_btn_create(wgl_obj_t par, wgl_obj_t copy)
 {

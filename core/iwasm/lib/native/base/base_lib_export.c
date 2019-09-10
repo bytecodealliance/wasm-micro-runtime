@@ -26,19 +26,17 @@
 #endif
 
 static uint64
-wasm_runtime_get_current_module_inst_wrapper()
+wasm_runtime_get_current_module_inst_wrapper(wasm_module_inst_t module_inst)
 {
-    return (uint64)(uintptr_t)
-        wasm_runtime_get_current_module_inst();
+    return (uint64)(uintptr_t)module_inst;
 }
 
 static bool
-wasm_runtime_validate_app_addr_wrapper(uint32 inst_part0, uint32 inst_part1,
+wasm_runtime_validate_app_addr_wrapper(wasm_module_inst_t module_inst,
+                                       uint32 inst_part0, uint32 inst_part1,
                                        int32 app_offset, uint32 size)
 {
     bool ret;
-    wasm_module_inst_t module_inst =
-        wasm_runtime_get_current_module_inst();
     union { uint64 u64; uint32 parts[2]; } inst;
 
     inst.parts[0] = inst_part0;
@@ -56,14 +54,13 @@ wasm_runtime_validate_app_addr_wrapper(uint32 inst_part0, uint32 inst_part1,
 }
 
 static bool
-wasm_runtime_validate_native_addr_wrapper(uint32 inst_part0, uint32 inst_part1,
+wasm_runtime_validate_native_addr_wrapper(wasm_module_inst_t module_inst,
+                                          uint32 inst_part0, uint32 inst_part1,
                                           uint32 native_ptr_part0,
                                           uint32 native_ptr_part1,
                                           uint32 size)
 {
     bool ret;
-    wasm_module_inst_t module_inst =
-        wasm_runtime_get_current_module_inst();
     union { uint64 u64; uint32 parts[2]; } inst;
     union { uint64 u64; uint32 parts[2]; } native_ptr;
 
@@ -86,11 +83,10 @@ wasm_runtime_validate_native_addr_wrapper(uint32 inst_part0, uint32 inst_part1,
 }
 
 static uint64
-wasm_runtime_addr_app_to_native_wrapper(uint32 inst_part0, uint32 inst_part1,
+wasm_runtime_addr_app_to_native_wrapper(wasm_module_inst_t module_inst,
+                                        uint32 inst_part0, uint32 inst_part1,
                                         int32 app_offset)
 {
-    wasm_module_inst_t module_inst =
-        wasm_runtime_get_current_module_inst();
     union { uint64 u64; uint32 parts[2]; } inst;
 
     inst.parts[0] = inst_part0;
@@ -105,12 +101,11 @@ wasm_runtime_addr_app_to_native_wrapper(uint32 inst_part0, uint32 inst_part1,
 }
 
 static int32
-wasm_runtime_addr_native_to_app_wrapper(uint32 inst_part0, uint32 inst_part1,
+wasm_runtime_addr_native_to_app_wrapper(wasm_module_inst_t module_inst,
+                                        uint32 inst_part0, uint32 inst_part1,
                                         uint32 native_ptr_part0,
                                         uint32 native_ptr_part1)
 {
-    wasm_module_inst_t module_inst =
-        wasm_runtime_get_current_module_inst();
     union { uint64 u64; uint32 parts[2]; } inst;
     union { uint64 u64; uint32 parts[2]; } native_ptr;
 

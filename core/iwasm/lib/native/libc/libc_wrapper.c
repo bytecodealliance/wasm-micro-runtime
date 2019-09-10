@@ -34,9 +34,6 @@ wasm_runtime_get_llvm_stack(wasm_module_inst_t module);
 void
 wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 
-#define get_module_inst() \
-    wasm_runtime_get_current_module_inst()
-
 #define validate_app_addr(offset, size) \
     wasm_runtime_validate_app_addr(module_inst, offset, size)
 
@@ -454,9 +451,9 @@ parse_printf_args(wasm_module_inst_t module_inst, int32 fmt_offset,
 }
 
 static int
-_printf_wrapper(int32 fmt_offset, int32 va_list_offset)
+_printf_wrapper(wasm_module_inst_t module_inst,
+                int32 fmt_offset, int32 va_list_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     struct str_context ctx = { NULL, 0, 0 };
     const char *fmt;
     _va_list va_args;
@@ -470,9 +467,9 @@ _printf_wrapper(int32 fmt_offset, int32 va_list_offset)
 }
 
 static int
-_sprintf_wrapper(int32 str_offset, int32 fmt_offset, int32 va_list_offset)
+_sprintf_wrapper(wasm_module_inst_t module_inst,
+                 int32 str_offset, int32 fmt_offset, int32 va_list_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     int32 app_end_offset;
     struct str_context ctx;
     char *str;
@@ -505,10 +502,10 @@ _sprintf_wrapper(int32 str_offset, int32 fmt_offset, int32 va_list_offset)
 }
 
 static int
-_snprintf_wrapper(int32 str_offset, int32 size, int32 fmt_offset,
+_snprintf_wrapper(wasm_module_inst_t module_inst,
+                  int32 str_offset, int32 size, int32 fmt_offset,
                   int32 va_list_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     struct str_context ctx;
     char *str;
     const char *fmt;
@@ -537,9 +534,9 @@ _snprintf_wrapper(int32 str_offset, int32 size, int32 fmt_offset,
 }
 
 static int
-_puts_wrapper(int32 str_offset)
+_puts_wrapper(wasm_module_inst_t module_inst,
+              int32 str_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     const char *str;
 
     if (!validate_str_addr(module_inst, str_offset))
@@ -550,16 +547,16 @@ _puts_wrapper(int32 str_offset)
 }
 
 static int
-_putchar_wrapper(int c)
+_putchar_wrapper(wasm_module_inst_t module_inst, int c)
 {
     bh_printf("%c", c);
     return 1;
 }
 
 static int32
-_strdup_wrapper(int32 str_offset)
+_strdup_wrapper(wasm_module_inst_t module_inst,
+                int32 str_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *str, *str_ret;
     uint32 len;
     int32 str_ret_offset = 0;
@@ -583,9 +580,9 @@ _strdup_wrapper(int32 str_offset)
 }
 
 static int32
-_memcmp_wrapper(int32 s1_offset, int32 s2_offset, int32 size)
+_memcmp_wrapper(wasm_module_inst_t module_inst,
+                int32 s1_offset, int32 s2_offset, int32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     void *s1, *s2;
 
     if (!validate_app_addr(s1_offset, size)
@@ -598,9 +595,9 @@ _memcmp_wrapper(int32 s1_offset, int32 s2_offset, int32 size)
 }
 
 static int32
-_memcpy_wrapper(int32 dst_offset, int32 src_offset, int32 size)
+_memcpy_wrapper(wasm_module_inst_t module_inst,
+                int32 dst_offset, int32 src_offset, int32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     void *dst, *src;
 
     if (size == 0)
@@ -617,9 +614,9 @@ _memcpy_wrapper(int32 dst_offset, int32 src_offset, int32 size)
 }
 
 static int32
-_memmove_wrapper(int32 dst_offset, int32 src_offset, int32 size)
+_memmove_wrapper(wasm_module_inst_t module_inst,
+                 int32 dst_offset, int32 src_offset, int32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     void *dst, *src;
 
     if (!validate_app_addr(dst_offset, size)
@@ -633,9 +630,9 @@ _memmove_wrapper(int32 dst_offset, int32 src_offset, int32 size)
 }
 
 static int32
-_memset_wrapper(int32 s_offset, int32 c, int32 size)
+_memset_wrapper(wasm_module_inst_t module_inst,
+                int32 s_offset, int32 c, int32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     void *s;
 
     if (!validate_app_addr(s_offset, size))
@@ -647,9 +644,9 @@ _memset_wrapper(int32 s_offset, int32 c, int32 size)
 }
 
 static int32
-_strchr_wrapper(int32 s_offset, int32 c)
+_strchr_wrapper(wasm_module_inst_t module_inst,
+                int32 s_offset, int32 c)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     const char *s;
     char *ret;
 
@@ -662,9 +659,9 @@ _strchr_wrapper(int32 s_offset, int32 c)
 }
 
 static int32
-_strcmp_wrapper(int32 s1_offset, int32 s2_offset)
+_strcmp_wrapper(wasm_module_inst_t module_inst,
+                int32 s1_offset, int32 s2_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     void *s1, *s2;
 
     if (!validate_str_addr(module_inst, s1_offset)
@@ -677,9 +674,9 @@ _strcmp_wrapper(int32 s1_offset, int32 s2_offset)
 }
 
 static int32
-_strncmp_wrapper(int32 s1_offset, int32 s2_offset, uint32 size)
+_strncmp_wrapper(wasm_module_inst_t module_inst,
+                 int32 s1_offset, int32 s2_offset, uint32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     void *s1, *s2;
 
     if (!validate_app_addr(s1_offset, size)
@@ -692,9 +689,9 @@ _strncmp_wrapper(int32 s1_offset, int32 s2_offset, uint32 size)
 }
 
 static int32
-_strcpy_wrapper(int32 dst_offset, int32 src_offset)
+_strcpy_wrapper(wasm_module_inst_t module_inst,
+                int32 dst_offset, int32 src_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *dst, *src;
     uint32 len;
 
@@ -713,9 +710,9 @@ _strcpy_wrapper(int32 dst_offset, int32 src_offset)
 }
 
 static int32
-_strncpy_wrapper(int32 dst_offset, int32 src_offset, uint32 size)
+_strncpy_wrapper(wasm_module_inst_t module_inst,
+                 int32 dst_offset, int32 src_offset, uint32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *dst, *src;
 
     if (!validate_app_addr(dst_offset, size)
@@ -729,9 +726,9 @@ _strncpy_wrapper(int32 dst_offset, int32 src_offset, uint32 size)
 }
 
 static uint32
-_strlen_wrapper(int32 s_offset)
+_strlen_wrapper(wasm_module_inst_t module_inst,
+                int32 s_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *s;
 
     if (!validate_str_addr(module_inst, s_offset))
@@ -742,17 +739,17 @@ _strlen_wrapper(int32 s_offset)
 }
 
 static int32
-_malloc_wrapper(uint32 size)
+_malloc_wrapper(wasm_module_inst_t module_inst,
+                uint32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     return module_malloc(size);
 }
 
 static int32
-_calloc_wrapper(uint32 nmemb, uint32 size)
+_calloc_wrapper(wasm_module_inst_t module_inst,
+                uint32 nmemb, uint32 size)
 {
     uint64 total_size = (uint64) nmemb * (uint64) size;
-    wasm_module_inst_t module_inst = get_module_inst();
     uint32 ret_offset = 0;
     uint8 *ret_ptr;
 
@@ -769,31 +766,30 @@ _calloc_wrapper(uint32 nmemb, uint32 size)
 }
 
 static void
-_free_wrapper(int32 ptr_offset)
+_free_wrapper(wasm_module_inst_t module_inst,
+              int32 ptr_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
-
     if (!validate_app_addr(ptr_offset, 4))
         return;
     return module_free(ptr_offset);
 }
 
 static void
-setTempRet0_wrapper(uint32 temp_ret)
+setTempRet0_wrapper(wasm_module_inst_t module_inst,
+                    uint32 temp_ret)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     wasm_runtime_set_temp_ret(module_inst, temp_ret);
 }
 
 static uint32
-getTempRet0_wrapper()
+getTempRet0_wrapper(wasm_module_inst_t module_inst)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     return wasm_runtime_get_temp_ret(module_inst);
 }
 
 static uint32
-_llvm_bswap_i16_wrapper(uint32 data)
+_llvm_bswap_i16_wrapper(wasm_module_inst_t module_inst,
+                        uint32 data)
 {
     return (data & 0xFFFF0000)
            | ((data & 0xFF) << 8)
@@ -801,7 +797,8 @@ _llvm_bswap_i16_wrapper(uint32 data)
 }
 
 static uint32
-_llvm_bswap_i32_wrapper(uint32 data)
+_llvm_bswap_i32_wrapper(wasm_module_inst_t module_inst,
+                        uint32 data)
 {
     return ((data & 0xFF) << 24)
            | ((data & 0xFF00) << 8)
@@ -810,10 +807,10 @@ _llvm_bswap_i32_wrapper(uint32 data)
 }
 
 static uint32
-_bitshift64Lshr_wrapper(uint32 uint64_part0, uint32 uint64_part1,
+_bitshift64Lshr_wrapper(wasm_module_inst_t module_inst,
+                        uint32 uint64_part0, uint32 uint64_part1,
                         uint32 bits)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     union {
         uint64 value;
         uint32 parts[2];
@@ -829,10 +826,10 @@ _bitshift64Lshr_wrapper(uint32 uint64_part0, uint32 uint64_part1,
 }
 
 static uint32
-_bitshift64Shl_wrapper(uint32 int64_part0, uint32 int64_part1,
+_bitshift64Shl_wrapper(wasm_module_inst_t module_inst,
+                       uint32 int64_part0, uint32 int64_part1,
                        uint32 bits)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     union {
         int64 value;
         uint32 parts[2];
@@ -848,26 +845,25 @@ _bitshift64Shl_wrapper(uint32 int64_part0, uint32 int64_part1,
 }
 
 static void
-_llvm_stackrestore_wrapper(uint32 llvm_stack)
+_llvm_stackrestore_wrapper(wasm_module_inst_t module_inst,
+                           uint32 llvm_stack)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     bh_printf("_llvm_stackrestore called!\n");
     wasm_runtime_set_llvm_stack(module_inst, llvm_stack);
 }
 
 static uint32
-_llvm_stacksave_wrapper()
+_llvm_stacksave_wrapper(wasm_module_inst_t module_inst)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     bh_printf("_llvm_stacksave called!\n");
     return wasm_runtime_get_llvm_stack(module_inst);
 }
 
 static int32
-_emscripten_memcpy_big_wrapper(int32 dst_offset, int32 src_offset,
+_emscripten_memcpy_big_wrapper(wasm_module_inst_t module_inst,
+                               int32 dst_offset, int32 src_offset,
                                uint32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     void *dst, *src;
 
     if (!validate_app_addr(dst_offset, size)
@@ -882,27 +878,27 @@ _emscripten_memcpy_big_wrapper(int32 dst_offset, int32 src_offset,
 }
 
 static void
-abort_wrapper(int32 code)
+abort_wrapper(wasm_module_inst_t module_inst,
+              int32 code)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char buf[32];
     snprintf(buf, sizeof(buf), "env.abort(%i)", code);
     wasm_runtime_set_exception(module_inst, buf);
 }
 
 static void
-abortStackOverflow_wrapper(int32 code)
+abortStackOverflow_wrapper(wasm_module_inst_t module_inst,
+                           int32 code)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char buf[32];
     snprintf(buf, sizeof(buf), "env.abortStackOverflow(%i)", code);
     wasm_runtime_set_exception(module_inst, buf);
 }
 
 static void
-nullFunc_X_wrapper(int32 code)
+nullFunc_X_wrapper(wasm_module_inst_t module_inst,
+                   int32 code)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char buf[32];
     snprintf(buf, sizeof(buf), "env.nullFunc_X(%i)", code);
     wasm_runtime_set_exception(module_inst, buf);
@@ -912,13 +908,13 @@ nullFunc_X_wrapper(int32 code)
 
 #ifdef ENABLE_SPEC_TEST
 static void
-print_i32_wrapper(int i32)
+print_i32_wrapper(wasm_module_inst_t module_inst, int i32)
 {
     bh_printf("%d\n", i32);
 }
 
 static void
-print_wrapper(int i32)
+print_wrapper(wasm_module_inst_t module_inst, int i32)
 {
     bh_printf("%d\n", i32);
 }

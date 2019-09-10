@@ -1,9 +1,10 @@
 #ifndef DISPLAY_INDEV_H_
 #define DISPLAY_INDEV_H_
 #include <stdio.h>
-#include "bh_platform.h"
 #include <stdbool.h>
 #include <inttypes.h>
+#include "bh_platform.h"
+#include "wasm_export.h"
 
 #define USE_MOUSE 1
 typedef union {
@@ -54,21 +55,37 @@ enum {
     LV_OPA_100 = 255,
     LV_OPA_COVER = 255,
 };
-extern void display_init(void);
-extern void display_deinit(void);
-extern int time_get_ms();
-extern bool touchscreen_read(lv_indev_data_t * data);
 
 extern void xpt2046_init(void);
-extern void display_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        int32 color_p_offset);
-extern void display_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        lv_color_t color_p);
-extern void display_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p);
-extern bool display_input_read(int32 data_offset);
-void display_vdb_write(int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
-        lv_coord_t y, int32 color_p_offset, lv_opa_t opa);
+
+extern bool touchscreen_read(lv_indev_data_t * data);
+
 extern bool mouse_read(lv_indev_data_t * data);
+
+extern void display_init(wasm_module_inst_t module_inst);
+
+extern void display_deinit(wasm_module_inst_t module_inst);
+
+extern int time_get_ms(wasm_module_inst_t module_inst);
+
+extern void display_flush(wasm_module_inst_t module_inst,
+                          int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+                          int32 color_p_offset);
+
+extern void display_fill(wasm_module_inst_t module_inst,
+                         int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+                         lv_color_t color_p);
+
+extern void display_map(wasm_module_inst_t module_inst,
+                        int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+                        const lv_color_t * color_p);
+
+extern bool display_input_read(wasm_module_inst_t module_inst,
+                               int32 data_offset);
+
+void display_vdb_write(wasm_module_inst_t module_inst,
+                       int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
+                       lv_coord_t y, int32 color_p_offset, lv_opa_t opa);
+
 #endif
 

@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef DEPS_SSG_MICRO_RUNTIME_WASM_POC_APP_LIBS_NATIVE_INTERFACE_NATIVE_INTERFACE_H_
-#define DEPS_SSG_MICRO_RUNTIME_WASM_POC_APP_LIBS_NATIVE_INTERFACE_NATIVE_INTERFACE_H_
+#ifndef _NATIVE_INTERFACE_H_
+#define _NATIVE_INTERFACE_H_
 
-// note: the bh_plaform.h is the only head file separately
-//       implemented by both [app] and [native] worlds
+/* Note: the bh_plaform.h is the only head file separately
+         implemented by both [app] and [native] worlds */
 #include "bh_platform.h"
+#include "wasm_export.h"
 
 #define get_module_inst() \
     wasm_runtime_get_current_module_inst()
@@ -39,52 +40,102 @@
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
 
-char *wa_strdup(const char *);
-
-bool
-wasm_response_send(int32 buffer_offset, int size);
-
-void wasm_register_resource(int32 url_offset);
-
-void wasm_post_request(int32 buffer_offset, int size);
-
-void wasm_sub_event(int32 url_offset);
+/*char *wa_strdup(const char *);*/
 
 /*
- *   *************  sensor interfaces  *************
+ * request/response interfaces
  */
 
 bool
-wasm_sensor_config(uint32 sensor, int interval, int bit_cfg, int delay);
-uint32
-wasm_sensor_open(int32 name_offset, int instance);
-bool
-wasm_sensor_config_with_attr_container(uint32 sensor, int32 buffer_offset,
-        int len);
-
-bool
-wasm_sensor_close(uint32 sensor);
+wasm_response_send(wasm_module_inst_t module_inst,
+                   int32 buffer_offset, int size);
+void
+wasm_register_resource(wasm_module_inst_t module_inst,
+                       int32 url_offset);
+void
+wasm_post_request(wasm_module_inst_t module_inst,
+                  int32 buffer_offset, int size);
+void
+wasm_sub_event(wasm_module_inst_t module_inst,
+               int32 url_offset);
 
 /*
- *   *** timer interface ***
+ * sensor interfaces
+ */
+
+bool
+wasm_sensor_config(wasm_module_inst_t module_inst,
+                   uint32 sensor, int interval, int bit_cfg, int delay);
+uint32
+wasm_sensor_open(wasm_module_inst_t module_inst,
+                 int32 name_offset, int instance);
+bool
+wasm_sensor_config_with_attr_container(wasm_module_inst_t module_inst,
+                                       uint32 sensor,
+                                       int32 buffer_offset, int len);
+bool
+wasm_sensor_close(wasm_module_inst_t module_inst,
+                  uint32 sensor);
+
+/*
+ * timer interfaces
  */
 
 typedef unsigned int timer_id_t;
-timer_id_t wasm_create_timer(int interval, bool is_period, bool auto_start);
-void wasm_timer_destory(timer_id_t timer_id);
-void wasm_timer_cancel(timer_id_t timer_id);
-void wasm_timer_restart(timer_id_t timer_id, int interval);
-uint32 wasm_get_sys_tick_ms(void);
+
+timer_id_t
+wasm_create_timer(wasm_module_inst_t module_inst,
+                  int interval, bool is_period, bool auto_start);
+void
+wasm_timer_destory(wasm_module_inst_t module_inst, timer_id_t timer_id);
+void
+wasm_timer_cancel(wasm_module_inst_t module_inst, timer_id_t timer_id);
+void
+wasm_timer_restart(wasm_module_inst_t module_inst,
+                   timer_id_t timer_id, int interval);
+uint32
+wasm_get_sys_tick_ms(wasm_module_inst_t module_inst);
 
 /*
- *   *** connection interface ***
+ * connection interfaces
  */
-uint32 wasm_open_connection(int32 name_offset, int32 args_offset, uint32 len);
-void wasm_close_connection(uint32 handle);
-int wasm_send_on_connection(uint32 handle, int32 data_offset, uint32 len);
-bool wasm_config_connection(uint32 handle, int32 cfg_offset, uint32 len);
 
-#include "gui_api.h"
+uint32
+wasm_open_connection(wasm_module_inst_t module_inst,
+                     int32 name_offset, int32 args_offset, uint32 len);
+void
+wasm_close_connection(wasm_module_inst_t module_inst,
+                      uint32 handle);
+int
+wasm_send_on_connection(wasm_module_inst_t module_inst,
+                        uint32 handle, int32 data_offset, uint32 len);
+bool
+wasm_config_connection(wasm_module_inst_t module_inst,
+                       uint32 handle, int32 cfg_offset, uint32 len);
 
-#endif /* DEPS_SSG_MICRO_RUNTIME_WASM_PO
-C_APP_LIBS_NATIVE_INTERFACE_NATIVE_INTERFACE_H_ */
+/**
+ * gui interfaces
+ */
+
+void
+wasm_obj_native_call(wasm_module_inst_t module_inst,
+                     int32 func_id, uint32 argv_offset, uint32 argc);
+
+void
+wasm_btn_native_call(wasm_module_inst_t module_inst,
+                     int32 func_id, uint32 argv_offset, uint32 argc);
+
+void
+wasm_label_native_call(wasm_module_inst_t module_inst,
+                       int32 func_id, uint32 argv_offset, uint32 argc);
+
+void
+wasm_cb_native_call(wasm_module_inst_t module_inst,
+                    int32 func_id, uint32 argv_offset, uint32 argc);
+
+void
+wasm_list_native_call(wasm_module_inst_t module_inst,
+                      int32 func_id, uint32 argv_offset, uint32 argc);
+
+#endif /* end of _NATIVE_INTERFACE_H */
+

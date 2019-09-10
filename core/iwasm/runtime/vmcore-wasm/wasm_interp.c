@@ -284,7 +284,7 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
     }
     if (sign && (shift < maxbits) && (byte & 0x40)) {
         /* Sign extend */
-        result |= - (1 << shift);
+        result |= - ((uint64)1 << shift);
     }
     return result;
 }
@@ -622,21 +622,6 @@ FREE_FRAME(WASMThread *self, WASMInterpFrame *frame)
     wasm_thread_free_wasm_frame(self, frame);
 }
 
-typedef void (*GenericFunctionPointer)();
-int64 invokeNative(uint32 *args, uint32 sz, GenericFunctionPointer f);
-
-typedef float64 (*Float64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef float32 (*Float32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef int64 (*Int64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef int32 (*Int32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef void (*VoidFuncPtr)(uint32*, uint32, GenericFunctionPointer);
-
-static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
-static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
-
 static void
 wasm_interp_call_func_native(WASMThread *self,
                              WASMFunctionInstance *cur_func,
@@ -644,9 +629,8 @@ wasm_interp_call_func_native(WASMThread *self,
 {
     unsigned local_cell_num = 2;
     WASMInterpFrame *frame;
-    typedef void (*F)(WASMThread*, uint32 *argv);
-    union { F f; void *v; } u;
-    uint32 argv_buf[32], *argv, argc = cur_func->param_cell_num;
+    uint32 argv_ret[2];
+    bool ret;
 
     if (!(frame = ALLOC_FRAME
                 (self, wasm_interp_interp_frame_size(local_cell_num), prev_frame)))
@@ -658,59 +642,23 @@ wasm_interp_call_func_native(WASMThread *self,
 
     wasm_thread_set_cur_frame (self, frame);
 
-    if (argc <= 32)
-        argv = argv_buf;
-    else {
-        if (!(argv = wasm_malloc(sizeof(uint32) * argc))) {
-            wasm_runtime_set_exception(self->module_inst,
-                    "WASM call native failed: allocate memory failed.");
-            return;
-        }
-    }
+    ret = wasm_runtime_invoke_native(cur_func->u.func_import->func_ptr_linked,
+                                     cur_func->u.func_import->func_type,
+                                     self->module_inst,
+                                     frame->lp, cur_func->param_cell_num, argv_ret);
 
-    word_copy(argv, frame->lp, argc);
-
-    u.v = cur_func->u.func_import->func_ptr_linked;
-    {
-        WASMType *func_type = cur_func->u.func_import->func_type;
-        uint8 ret_type = func_type->result_count
-                         ? func_type->types[func_type->param_count]
-                         : VALUE_TYPE_VOID;
-        GenericFunctionPointer f = (GenericFunctionPointer)(uintptr_t)u.v;
-
-        if (func_type->result_count == 0) {
-            invokeNative_Void(argv, argc, f);
-        }
-        else {
-            switch (ret_type) {
-                case VALUE_TYPE_I32:
-                    argv[0] = invokeNative_Int32(argv, argc, f);
-                    break;
-                case VALUE_TYPE_I64:
-                    PUT_I64_TO_ADDR(argv, invokeNative_Int64(argv, argc, f));
-                    break;
-                case VALUE_TYPE_F32:
-                    *(float32*)argv = invokeNative_Float32(argv, argc, f);
-                    break;
-                case VALUE_TYPE_F64:
-                    PUT_F64_TO_ADDR(argv, invokeNative_Float64(argv, argc, f));
-                    break;
-            }
-        }
-    }
+    if (!ret)
+        return;
 
     if (cur_func->ret_cell_num == 1) {
-        prev_frame->sp[0] = argv[0];
+        prev_frame->sp[0] = argv_ret[0];
         prev_frame->sp++;
     }
     else if (cur_func->ret_cell_num == 2) {
-        prev_frame->sp[0] = argv[0];
-        prev_frame->sp[1] = argv[1];
+        prev_frame->sp[0] = argv_ret[0];
+        prev_frame->sp[1] = argv_ret[1];
         prev_frame->sp += 2;
     }
-
-    if (argc > 32)
-        wasm_free(argv);
 
     FREE_FRAME(self, frame);
     wasm_thread_set_cur_frame(self, prev_frame);

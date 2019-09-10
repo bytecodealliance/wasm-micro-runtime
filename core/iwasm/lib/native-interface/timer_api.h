@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef _GUI_API_H_
-#define _GUI_API_H_
+#ifndef _TIMER_API_H_
+#define _TIMER_API_H_
 
 #include "bh_platform.h"
 
@@ -23,25 +23,26 @@
 extern "C" {
 #endif
 
-void
-wasm_obj_native_call(int32 func_id, uint32 *argv, uint32 argc);
+typedef unsigned int timer_id_t;
+
+timer_id_t
+wasm_create_timer(int interval, bool is_period, bool auto_start);
 
 void
-wasm_btn_native_call(int32 func_id, uint32 *argv, uint32 argc);
+wasm_timer_destory(timer_id_t timer_id);
 
 void
-wasm_label_native_call(int32 func_id, uint32 *argv, uint32 argc);
+wasm_timer_cancel(timer_id_t timer_id);
 
 void
-wasm_cb_native_call(int32 func_id, uint32 *argv, uint32 argc);
+wasm_timer_restart(timer_id_t timer_id, int interval);
 
-void
-wasm_list_native_call(int32 func_id, uint32 *argv, uint32 argc);
-
+uint32
+wasm_get_sys_tick_ms(void);
 
 #ifdef __cplusplus
 }
 #endif
 
+#endif /* end of _TIMER_API_H_ */
 
-#endif /* end of _GUI_API_H_ */

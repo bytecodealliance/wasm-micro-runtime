@@ -224,8 +224,8 @@ static void app_instance_queue_callback(void *queue_msg)
                 app_manager_printf("Cannot find function _on_timer_callback\n");
                 break;
             }
-            unsigned int timer_id = (unsigned int) bh_message_payload(
-                    queue_msg);
+            unsigned int timer_id = (unsigned int)(uintptr_t)
+                                    bh_message_payload(queue_msg);
             argv[0] = timer_id;
             if (!wasm_runtime_call_wasm(inst, NULL, func_onTimer, 1, argv)) {
                 app_manager_printf("Got exception running wasm code: %s\n",
@@ -642,7 +642,8 @@ static bool wasm_app_module_uninstall(request_t *msg)
 static bool wasm_app_module_handle_host_url(void *queue_msg)
 {
     //todo: implement in future
-    app_manager_printf("App handles host url address %d\n", (int) queue_msg);
+    app_manager_printf("App handles host url address %d\n",
+                       (int)(uintptr_t)queue_msg);
     return false;
 }
 

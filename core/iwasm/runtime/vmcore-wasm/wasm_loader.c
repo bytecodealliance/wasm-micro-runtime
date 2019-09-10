@@ -72,7 +72,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
     }
     if (sign && (shift < maxbits) && (byte & 0x40)) {
         /* Sign extend */
-        result |= - (1 << shift);
+        result |= - ((uint64)1 << shift);
     }
     *p_result = result;
     return true;
