@@ -152,7 +152,7 @@ void gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
     bh_assert(
             hmu && (gc_uint8*) hmu >= heap->base_addr
                     && (gc_uint8*) hmu < heap->base_addr + heap->current_size);
-    bh_assert(((gc_uint32) hmu_to_obj(hmu) & 7) == 0);
+    bh_assert(((gc_uint32)(uintptr_t)hmu_to_obj(hmu) & 7) == 0);
     bh_assert(
             size > 0
                     && ((gc_uint8*) hmu) + size
@@ -242,7 +242,7 @@ BH_STATIC hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
 
             p = node->next;
             node->next = p->next;
-            bh_assert(((gc_int32) hmu_to_obj(p) & 7) == 0);
+            bh_assert(((gc_int32)(uintptr_t)hmu_to_obj(p) & 7) == 0);
 
             if ((gc_size_t) node_idx
                     != init_node_idx&& ((gc_size_t)node_idx << 3) >= size + GC_SMALLEST_SIZE) { /* with bigger size*/

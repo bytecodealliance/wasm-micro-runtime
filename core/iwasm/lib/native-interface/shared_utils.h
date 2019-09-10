@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef DEPS_SSG_MICRO_RUNTIME_WASM_POC_APP_LIBS_NATIVE_INTERFACE_SHARED_UTILS_H_
-#define DEPS_SSG_MICRO_RUNTIME_WASM_POC_APP_LIBS_NATIVE_INTERFACE_SHARED_UTILS_H_
+#ifndef _SHARED_UTILS_H_
+#define _SHARED_UTILS_H_
 
-#include "native_interface.h"
+#include "bh_platform.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,16 +71,27 @@ typedef struct response {
     unsigned long reciever;
 } response_t;
 
-int check_url_start(const char* url, int url_len, const char * leading_str);
-bool match_url(char * pattern, char * matched);
-char * find_key_value(char * buffer, int buffer_len, char * key, char * value,
-        int value_len, char delimiter);
+int
+check_url_start(const char* url, int url_len, const char * leading_str);
 
-request_t *clone_request(request_t *request);
-void request_cleaner(request_t *request);
+bool
+match_url(char * pattern, char * matched);
 
-response_t * clone_response(response_t * response);
-void response_cleaner(response_t * response);
+char *
+find_key_value(char * buffer, int buffer_len, char * key, char * value,
+               int value_len, char delimiter);
+
+request_t *
+clone_request(request_t *request);
+
+void
+request_cleaner(request_t *request);
+
+response_t *
+clone_response(response_t * response);
+
+void
+response_cleaner(response_t * response);
 
 /**
  * @brief Set fields of response.
@@ -95,8 +106,9 @@ void response_cleaner(response_t * response);
  *
  * @warning the response pointer MUST NOT be NULL
  */
-response_t * set_response(response_t * response, int status, int fmt,
-        const char *payload, int payload_len);
+response_t *
+set_response(response_t * response, int status, int fmt,
+             const char *payload, int payload_len);
 
 /**
  * @brief Make a response for a request.
@@ -108,8 +120,8 @@ response_t * set_response(response_t * response, int status, int fmt,
  *
  * @warning the request and response pointers MUST NOT be NULL
  */
-response_t * make_response_for_request(request_t * request,
-        response_t * response);
+response_t *
+make_response_for_request(request_t * request, response_t * response);
 
 /**
  * @brief Initialize a request.
@@ -125,14 +137,24 @@ response_t * make_response_for_request(request_t * request,
  *
  * @warning the request pointer MUST NOT be NULL
  */
-request_t * init_request(request_t * request, char *url, int action, int fmt,
-        void *payload, int payload_len);
+request_t *
+init_request(request_t * request, char *url, int action, int fmt,
+             void *payload, int payload_len);
 
-char * pack_request(request_t *request, int * size);
-request_t * unpack_request(char * packet, int size, request_t * request);
-char * pack_response(response_t *response, int * size);
-response_t * unpack_response(char * packet, int size, response_t * response);
-void free_req_resp_packet(char * packet);
+char *
+pack_request(request_t *request, int * size);
+
+request_t *
+unpack_request(char * packet, int size, request_t * request);
+
+char *
+pack_response(response_t *response, int * size);
+
+response_t *
+unpack_response(char * packet, int size, response_t * response);
+
+void
+free_req_resp_packet(char * packet);
 
 #include "wgl_shared_utils.h"
 
@@ -140,4 +162,4 @@ void free_req_resp_packet(char * packet);
 }
 #endif
 
-#endif /* DEPS_SSG_MICRO_RUNTIME_WASM_POC_APP_LIBS_NATIVE_INTERFACE_SHARED_UTILS_H_ */
+#endif /* end of _SHARED_UTILS_H_ */

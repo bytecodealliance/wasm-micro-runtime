@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "native_interface.h"
 #include "app_manager_export.h"
 #include "coap_ext.h"
 #include "wasm_export.h"
 
 extern void module_request_handler(request_t *request, void *user_data);
 
-bool wasm_response_send(int32 buffer_offset, int size)
+bool
+wasm_response_send(wasm_module_inst_t module_inst,
+                   int32 buffer_offset, int size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *buffer = NULL;
 
     if (!validate_app_addr(buffer_offset, size))
@@ -45,9 +45,9 @@ bool wasm_response_send(int32 buffer_offset, int size)
     return false;
 }
 
-void wasm_register_resource(int32 url_offset)
+void
+wasm_register_resource(wasm_module_inst_t module_inst, int32 url_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *url = NULL;
 
     if (!validate_app_addr(url_offset, 1))
@@ -61,9 +61,10 @@ void wasm_register_resource(int32 url_offset)
     }
 }
 
-void wasm_post_request(int32 buffer_offset, int size)
+void
+wasm_post_request(wasm_module_inst_t module_inst,
+                  int32 buffer_offset, int size)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *buffer = NULL;
 
     if (!validate_app_addr(buffer_offset, size))
@@ -92,9 +93,9 @@ void wasm_post_request(int32 buffer_offset, int size)
     }
 }
 
-void wasm_sub_event(int32 url_offset)
+void
+wasm_sub_event(wasm_module_inst_t module_inst, int32 url_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *url = NULL;
 
     if (!validate_app_addr(url_offset, 1))

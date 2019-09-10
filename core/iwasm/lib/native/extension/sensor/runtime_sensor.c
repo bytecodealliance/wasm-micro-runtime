@@ -22,8 +22,10 @@
 
 static sys_sensor_t * g_sys_sensors = NULL;
 static int g_sensor_id_max = 0;
-static sensor_client_t *find_sensor_client(sys_sensor_t * sensor,
-        unsigned int client_id, bool remove_if_found);
+
+static sensor_client_t *
+find_sensor_client(sys_sensor_t * sensor,
+                   unsigned int client_id, bool remove_if_found);
 
 void (*rechedule_sensor_callback)() = NULL;
 
@@ -32,7 +34,8 @@ void (*rechedule_sensor_callback)() = NULL;
  *
  */
 
-static void sensor_event_cleaner(sensor_event_data_t *sensor_event)
+static void
+sensor_event_cleaner(sensor_event_data_t *sensor_event)
 {
     if (sensor_event->data != NULL) {
         if (sensor_event->data_fmt == FMT_ATTR_CONTAINER)
@@ -44,8 +47,8 @@ static void sensor_event_cleaner(sensor_event_data_t *sensor_event)
     bh_free(sensor_event);
 }
 
-static void wasm_sensor_callback(void *client, uint32 sensor_id,
-                                 void *user_data)
+static void
+wasm_sensor_callback(void *client, uint32 sensor_id, void *user_data)
 {
     attr_container_t *sensor_data = (attr_container_t *) user_data;
     attr_container_t *sensor_data_clone;
@@ -92,7 +95,10 @@ static void wasm_sensor_callback(void *client, uint32 sensor_id,
     bh_post_msg2(module->queue, msg);
 }
 
-bool wasm_sensor_config(uint32 sensor, int interval, int bit_cfg, int delay)
+bool
+wasm_sensor_config(wasm_module_inst_t module_inst,
+                   uint32 sensor, int interval,
+                   int bit_cfg, int delay)
 {
     attr_container_t * attr_cont;
     sensor_client_t * c;
@@ -132,9 +138,10 @@ bool wasm_sensor_config(uint32 sensor, int interval, int bit_cfg, int delay)
     return true;
 }
 
-uint32 wasm_sensor_open(int32 name_offset, int instance)
+uint32
+wasm_sensor_open(wasm_module_inst_t module_inst,
+                 int32 name_offset, int instance)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *name = NULL;
 
     if (!validate_app_addr(name_offset, 1))
@@ -185,10 +192,11 @@ uint32 wasm_sensor_open(int32 name_offset, int instance)
     return -1;
 }
 
-bool wasm_sensor_config_with_attr_container(uint32 sensor, int32 buffer_offset,
-        int len)
+bool
+wasm_sensor_config_with_attr_container(wasm_module_inst_t module_inst,
+                                       uint32 sensor, int32 buffer_offset,
+                                       int len)
 {
-    wasm_module_inst_t module_inst = get_module_inst();
     char *buffer = NULL;
 
     if (!validate_app_addr(buffer_offset, len))
@@ -211,7 +219,8 @@ bool wasm_sensor_config_with_attr_container(uint32 sensor, int32 buffer_offset,
     return false;
 }
 
-bool wasm_sensor_close(uint32 sensor)
+bool
+wasm_sensor_close(wasm_module_inst_t module_inst, uint32 sensor)
 {
     unsigned int mod_id = app_manager_get_module_id(Module_WASM_App);
     unsigned int client_id = mod_id;
@@ -271,8 +280,9 @@ void refresh_read_interval(sensor_obj_t sensor)
     sensor->read_interval = interval;
 }
 
-sensor_obj_t add_sys_sensor(char * name, char * description, int instance,
-        uint32 default_interval, void * read_func, void * config_func)
+sensor_obj_t
+add_sys_sensor(char * name, char * description, int instance,
+               uint32 default_interval, void * read_func, void * config_func)
 {
     sys_sensor_t * s = (sys_sensor_t *) bh_malloc(sizeof(sys_sensor_t));
     if (s == NULL)

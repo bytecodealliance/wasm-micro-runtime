@@ -315,6 +315,11 @@ int32
 wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
                                 void *native_ptr);
 
+bool
+wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
+                           WASMModuleInstance *module_inst,
+                           uint32 *argv, uint32 argc, uint32 *ret);
+
 #ifdef __cplusplus
 }
 #endif

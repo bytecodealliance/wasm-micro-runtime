@@ -95,11 +95,6 @@ typedef enum REPLY_PACKET_TYPE {
     REPLY_TYPE_EVENT = 0, REPLY_TYPE_RESPONSE = 1
 } REPLY_PACKET_TYPE;
 
-/* Package Type */
-typedef enum {
-    Wasm_Module_Bytecode = 0, Wasm_Module_AoT, Package_Type_Unknown = 0xFFFF
-} PackageType;
-
 static uint32_t g_timeout_ms = DEFAULT_TIMEOUT_MS;
 static uint32_t g_alive_time_ms = DEFAULT_ALIVE_TIME_MS;
 static char *g_redirect_file_name = NULL;
@@ -153,7 +148,7 @@ static int send_request(request_t *request, bool is_install_wasm_bytecode_app)
     return ret;
 }
 
-static PackageType get_package_type(const char *buf, int size)
+static package_type_t get_app_package_type(const char *buf, int size)
 {
     if (buf && size > 4) {
         if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
@@ -205,7 +200,7 @@ static int install(inst_info *info)
     request->mid = gen_random_id();
 
     if ((info->module_type == NULL || strcmp(info->module_type, "wasm") == 0)
-            && get_package_type(app_file_buf, app_size) == Wasm_Module_Bytecode)
+            && get_app_package_type(app_file_buf, app_size) == Wasm_Module_Bytecode)
         is_wasm_bytecode_app = true;
     else
         is_wasm_bytecode_app = false;

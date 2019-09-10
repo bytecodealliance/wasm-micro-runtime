@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "timer_wasm_app.h"
-#include "native_interface.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "timer_wasm_app.h"
+#include "timer_api.h"
 
 #if 1
 #include <stdio.h>

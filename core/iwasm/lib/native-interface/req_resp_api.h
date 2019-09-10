@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef _GUI_API_H_
-#define _GUI_API_H_
+#ifndef _REQ_RESP_API_H_
+#define _REQ_RESP_API_H_
 
 #include "bh_platform.h"
 
@@ -23,25 +23,21 @@
 extern "C" {
 #endif
 
-void
-wasm_obj_native_call(int32 func_id, uint32 *argv, uint32 argc);
+bool
+wasm_response_send(const char *buf, int size);
 
 void
-wasm_btn_native_call(int32 func_id, uint32 *argv, uint32 argc);
+wasm_register_resource(const char *url);
 
 void
-wasm_label_native_call(int32 func_id, uint32 *argv, uint32 argc);
+wasm_post_request(const char *buf, int size);
 
 void
-wasm_cb_native_call(int32 func_id, uint32 *argv, uint32 argc);
-
-void
-wasm_list_native_call(int32 func_id, uint32 *argv, uint32 argc);
-
+wasm_sub_event(const char *url);
 
 #ifdef __cplusplus
 }
 #endif
 
+#endif /* end of _REQ_RESP_API_H_ */
 
-#endif /* end of _GUI_API_H_ */
