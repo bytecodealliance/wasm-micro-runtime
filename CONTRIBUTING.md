@@ -30,3 +30,9 @@ We suggest use Eclipse like IDE or stable coding format tools to make your code 
 Report bugs
 ===================
 We use GitHub issues to track public bugs. Report a bug by [open a new issue](https://github.com/intel/wasm-micro-runtime/issues/new).
+
+Code of Conduct
+===============
+
+This project is governed by the [Contributor Covenant](CODE_OF_CONDUCT.md).
+All contributors and participants agree to abide by its terms.
