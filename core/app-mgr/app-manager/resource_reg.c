@@ -33,7 +33,7 @@ static app_res_register_t * g_resources = NULL;
 
 void module_request_handler(request_t *request, void *user_data)
 {
-    unsigned int mod_id = (unsigned int) user_data;
+    unsigned int mod_id = (unsigned int)(uintptr_t)user_data;
     bh_message_t msg;
     module_data *m_data;
     request_t *req;
@@ -99,7 +99,7 @@ void targeted_app_request_handler(request_t *request, void *unused)
         goto end;
     }
 
-    module_request_handler(request, (void *)m_data->id);
+    module_request_handler(request, (void *)(uintptr_t)m_data->id);
     end: request->url = url;
 
 }
@@ -138,7 +138,7 @@ void * am_dispatch_request(request_t *request)
 
     while (r) {
         if (check_url_start(request->url, strlen(request->url), r->url) > 0) {
-            r->request_handler(request, (void *)r->register_id);
+            r->request_handler(request, (void *)(uintptr_t)r->register_id);
             return r;
         }
         r = r->next;

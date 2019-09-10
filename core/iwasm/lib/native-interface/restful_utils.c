@@ -19,7 +19,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "native_interface.h"
 #include "shared_utils.h"
 
 /* Serialization of request and response message

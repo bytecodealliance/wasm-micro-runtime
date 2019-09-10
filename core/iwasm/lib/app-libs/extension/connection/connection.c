@@ -15,7 +15,7 @@
  */
 
 #include "connection.h"
-#include "native_interface.h"
+#include "connection_api.h"
 
 /* Raw connection structure */
 typedef struct _connection {
@@ -44,7 +44,7 @@ connection_t *api_open_connection(const char *name,
     char *args_buffer = (char *)args;
     uint32 handle, args_len = attr_container_get_serialize_length(args);
 
-    handle = wasm_open_connection((int32)name, (int32)args_buffer, args_len);
+    handle = wasm_open_connection(name, args_buffer, args_len);
     if (handle == -1)
         return NULL;
 
@@ -91,7 +91,7 @@ void api_close_connection(connection_t *c)
 
 int api_send_on_connection(connection_t *conn, const char *data, uint32 len)
 {
-    return wasm_send_on_connection(conn->handle, (int32)data, len);
+    return wasm_send_on_connection(conn->handle, data, len);
 }
 
 bool api_config_connection(connection_t *conn, attr_container_t *cfg)
@@ -99,7 +99,7 @@ bool api_config_connection(connection_t *conn, attr_container_t *cfg)
     char *cfg_buffer = (char *)cfg;
     uint32 cfg_len = attr_container_get_serialize_length(cfg);
 
-    return wasm_config_connection(conn->handle, (int32)cfg_buffer, cfg_len);
+    return wasm_config_connection(conn->handle, cfg_buffer, cfg_len);
 }
 
 void on_connection_data(uint32 handle, char *buffer, uint32 len)

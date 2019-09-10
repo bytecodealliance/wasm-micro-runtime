@@ -70,33 +70,41 @@ wasm_runtime_call_wasm(WASMModuleInstance *module_inst,
                        WASMFunctionInstance *function,
                        unsigned argc, uint32 argv[])
 {
-    if (!exec_env) {
-        if (!module_inst->wasm_stack) {
-            if (!(module_inst->wasm_stack =
-                        wasm_malloc(module_inst->wasm_stack_size))) {
-                wasm_runtime_set_exception(module_inst, "allocate memory failed.");
-                return false;
+    /* Only init stack when no application is running. */
+    if (!wasm_runtime_get_self()->cur_frame) {
+       if (!exec_env) {
+            if (!module_inst->wasm_stack) {
+                if (!(module_inst->wasm_stack =
+                            wasm_malloc(module_inst->wasm_stack_size))) {
+                    wasm_runtime_set_exception(module_inst,
+                                               "allocate memory failed.");
+                    return false;
+                }
+
+                init_wasm_stack(&module_inst->main_tlr.wasm_stack,
+                                module_inst->wasm_stack,
+                                module_inst->wasm_stack_size);
             }
-        }
+       }
+       else {
+           uintptr_t stack = (uintptr_t)exec_env->stack;
+           uint32 stack_size;
 
-        init_wasm_stack(&module_inst->main_tlr.wasm_stack,
-                        module_inst->wasm_stack, module_inst->wasm_stack_size);
-    }
-    else {
-        uintptr_t stack = (uintptr_t)exec_env->stack;
-        uint32 stack_size;
+           /* Set to 8 bytes align */
+           stack = (stack + 7) & ~7;
+           stack_size = exec_env->stack_size
+                        - (stack - (uintptr_t)exec_env->stack);
 
-        /* Set to 8 bytes align */
-        stack = (stack + 7) & ~7;
-        stack_size = exec_env->stack_size - (stack - (uintptr_t)exec_env->stack);
+           if (!exec_env->stack || exec_env->stack_size <= 0
+               || exec_env->stack_size < stack - (uintptr_t)exec_env->stack) {
+               wasm_runtime_set_exception(module_inst,
+                                          "Invalid execution stack info.");
+               return false;
+            }
 
-        if (!exec_env->stack || exec_env->stack_size <= 0
-            || exec_env->stack_size < stack - (uintptr_t)exec_env->stack) {
-            wasm_runtime_set_exception(module_inst, "Invalid execution stack info.");
-            return false;
-        }
-
-        init_wasm_stack(&module_inst->main_tlr.wasm_stack, (uint8*)stack, stack_size);
+            init_wasm_stack(&module_inst->main_tlr.wasm_stack,
+                            (uint8*)stack, stack_size);
+       }
     }
 
     wasm_interp_call_wasm(function, argc, argv);
@@ -1418,4 +1426,249 @@ wasm_runtime_load_aot(uint8 *aot_file, uint32 aot_file_size,
     (void)error_buf_size;
     return NULL;
 }
+
+static inline void
+word_copy(uint32 *dest, uint32 *src, unsigned num)
+{
+    for (; num > 0; num--)
+        *dest++ = *src++;
+}
+
+#define PUT_I64_TO_ADDR(addr, value) do {       \
+    union { int64 val; uint32 parts[2]; } u;    \
+    u.val = (value);                            \
+    (addr)[0] = u.parts[0];                     \
+    (addr)[1] = u.parts[1];                     \
+  } while (0)
+
+#define PUT_F64_TO_ADDR(addr, value) do {       \
+    union { float64 val; uint32 parts[2]; } u;  \
+    u.val = (value);                            \
+    (addr)[0] = u.parts[0];                     \
+    (addr)[1] = u.parts[1];                     \
+  } while (0)
+
+#if !defined(__x86_64__) && !defined(__amd_64__)
+
+typedef void (*GenericFunctionPointer)();
+int64 invokeNative(uint32 *args, uint32 sz, GenericFunctionPointer f);
+
+typedef float64 (*Float64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef float32 (*Float32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef int64 (*Int64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef int32 (*Int32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef void (*VoidFuncPtr)(uint32*, uint32, GenericFunctionPointer);
+
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+
+/* As JavaScript can't represent int64s, emcc compiles C int64 argument
+   into two WASM i32 arguments, see:
+        https://github.com/emscripten-core/emscripten/issues/7199
+   And also JavaScript float point is always 64-bit, emcc compiles
+   float32 argument into WASM f64 argument.
+   But clang compiles C int64 argument into WASM i64 argument, and
+   compiles C float32 argument into WASM f32 argument.
+   So for the compatability of emcc and clang, we treat i64 as two i32s,
+   treat f32 as f64 while passing arguments to the native function, and
+   require the native function uses two i32 arguments instead one i64
+   argument, and uses double argument instead of float argment. */
+
+bool
+wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
+                           WASMModuleInstance *module_inst,
+                           uint32 *argv, uint32 argc, uint32 *ret)
+{
+    union { float64 val; int32 parts[2]; } u;
+    uint32 argv_buf[32], *argv1 = argv_buf, argc1, i, j = 0;
+    uint64 size;
+
+    argc1 = func_type->param_count * 2 + 2;
+
+    if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
+        size = ((uint64)sizeof(uint32)) * argc1;
+        if (size >= UINT_MAX
+            || !(argv1 = wasm_malloc((uint32)size))) {
+            wasm_runtime_set_exception(module_inst, "allocate memory failed.");
+            return false;
+        }
+    }
+
+    for (i = 0; i < sizeof(WASMModuleInstance*) / sizeof(uint32); i++)
+        argv1[j++] = ((uint32*)&module_inst)[i];
+
+    for (i = 0; i < func_type->param_count; i++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+                argv1[j++] = *argv++;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                argv1[j++] = *argv++;
+                argv1[j++] = *argv++;
+                break;
+            case VALUE_TYPE_F32:
+                u.val = *(float32*)argv++;
+#if defined(__arm__) || defined(__mips__)
+                /* 64-bit data must be 8 bytes alined in arm and mips */
+                if (j & 1)
+                    j++;
+#endif
+                argv1[j++] = u.parts[0];
+                argv1[j++] = u.parts[1];
+                break;
+            default:
+                wasm_assert(0);
+                break;
+        }
+    }
+
+    if (func_type->result_count == 0) {
+        invokeNative_Void(argv1, argc1, func_ptr);
+    }
+    else {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                ret[0] = invokeNative_Int32(argv1, argc1, func_ptr);
+                break;
+            case VALUE_TYPE_I64:
+                PUT_I64_TO_ADDR(ret, invokeNative_Int64(argv1, argc1, func_ptr));
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)ret = invokeNative_Float32(argv1, argc1, func_ptr);
+                break;
+            case VALUE_TYPE_F64:
+                PUT_F64_TO_ADDR(ret, invokeNative_Float64(argv1, argc1, func_ptr));
+                break;
+        }
+    }
+
+    if (argv1 != argv_buf)
+        wasm_free(argv1);
+    return true;
+}
+
+#else /* else of !defined(__x86_64__) && !defined(__amd_64__) */
+
+typedef void (*GenericFunctionPointer)();
+int64 invokeNative(uint64 *args, uint64 n_fps, uint64 n_stacks, GenericFunctionPointer f);
+
+typedef float64 (*Float64FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+typedef float32 (*Float32FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+typedef int64 (*Int64FuncPtr)(uint64*,uint64, uint64, GenericFunctionPointer);
+typedef int32 (*Int32FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+typedef void (*VoidFuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+
+#if defined(_WIN32) || defined(_WIN32_)
+#define MAX_REG_FLOATS  4
+#define MAX_REG_INTS  4
+#else
+#define MAX_REG_FLOATS  8
+#define MAX_REG_INTS  6
+#endif
+
+bool
+wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
+                           WASMModuleInstance *module_inst,
+                           uint32 *argv, uint32 argc, uint32 *ret)
+{
+    uint64 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size;
+    uint32 *argv_src = argv, i, j, argc1, n_ints = 0, n_stacks = 0;
+#if defined(_WIN32) || defined(_WIN32_)
+    /* important difference in calling conventions */
+#define n_fps n_ints
+#else
+    int n_fps = 0;
+#endif
+
+    argc1 = 1 + MAX_REG_FLOATS + func_type->param_count + 2;
+    if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
+        size = sizeof(uint64) * argc1;
+        if (size >= UINT32_MAX
+            || !(argv1 = wasm_malloc(size))) {
+            wasm_runtime_set_exception(module_inst, "allocate memory failed.");
+            return false;
+        }
+    }
+
+    fps = argv1 + 1;
+    ints = fps + MAX_REG_FLOATS;
+    stacks = ints + MAX_REG_INTS;
+
+    ints[n_ints++] = (uint64)(uintptr_t)module_inst;
+
+    for (i = 0; i < func_type->param_count; i++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+                if (n_ints < MAX_REG_INTS)
+                    ints[n_ints++] = *argv_src++;
+                else
+                    stacks[n_stacks++] = *argv_src++;
+                break;
+            case VALUE_TYPE_I64:
+                for (j = 0; j < 2; j++) {
+                    if (n_ints < MAX_REG_INTS)
+                        ints[n_ints++] = *argv_src++;
+                    else
+                        stacks[n_stacks++] = *argv_src++;
+                }
+                break;
+            case VALUE_TYPE_F32:
+                if (n_fps < MAX_REG_FLOATS)
+                    *(float64*)&fps[n_fps++] = *(float32*)argv_src++;
+                else
+                    *(float64*)&stacks[n_stacks++] = *(float32*)argv_src++;
+                break;
+            case VALUE_TYPE_F64:
+                if (n_fps < MAX_REG_FLOATS)
+                    *(float64*)&fps[n_fps++] = *(float64*)argv_src;
+                else
+                    *(float64*)&stacks[n_stacks++] = *(float64*)argv_src;
+                argv_src += 2;
+                break;
+            default:
+                wasm_assert(0);
+                break;
+        }
+    }
+
+    if (func_type->result_count == 0) {
+        invokeNative_Void(argv1, n_fps, n_stacks, func_ptr);
+    }
+    else {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                ret[0] = invokeNative_Int32(argv1, n_fps, n_stacks, func_ptr);
+                break;
+            case VALUE_TYPE_I64:
+                PUT_I64_TO_ADDR(ret, invokeNative_Int64(argv1, n_fps, n_stacks, func_ptr));
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)ret = invokeNative_Float32(argv1, n_fps, n_stacks, func_ptr);
+                break;
+            case VALUE_TYPE_F64:
+                PUT_F64_TO_ADDR(ret, invokeNative_Float64(argv1, n_fps, n_stacks, func_ptr));
+                break;
+            default:
+                wasm_assert(0);
+                break;
+        }
+    }
+
+    if (argv1 != argv_buf)
+        wasm_free(argv1);
+
+    return true;
+}
+
+#endif /* end of !defined(__x86_64__) && !defined(__amd_64__) */
 

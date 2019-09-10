@@ -176,7 +176,8 @@ void am_publish_event(request_t * event)
                 if (c->subscriber_id == ID_HOST) {
                     send_request_to_host(event);
                 } else {
-                    module_request_handler(event, (void *)c->subscriber_id);
+                    module_request_handler
+                        (event, (void *)(uintptr_t)c->subscriber_id);
                 }
                 c = c->next;
             }

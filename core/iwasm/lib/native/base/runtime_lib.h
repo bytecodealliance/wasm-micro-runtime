@@ -17,7 +17,6 @@
 #ifndef LIB_BASE_RUNTIME_LIB_H_
 #define LIB_BASE_RUNTIME_LIB_H_
 
-#include "native_interface.h"
 
 #include "runtime_timer.h"
 

@@ -17,11 +17,13 @@ set (VMCORE_LIB_DIR ${CMAKE_CURRENT_LIST_DIR})
 include_directories(${VMCORE_LIB_DIR})
 include_directories(${VMCORE_LIB_DIR}/../include)
 
+file (GLOB_RECURSE c_source_all ${VMCORE_LIB_DIR}/*.c)
+list (REMOVE_ITEM c_source_all ${VMCORE_LIB_DIR}/invokeNative_general.c)
+
 if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")
-file (GLOB_RECURSE source_all ${VMCORE_LIB_DIR}/*.c)
+set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_em64.s)
 else ()
-file (GLOB_RECURSE source_all ${VMCORE_LIB_DIR}/*.c ${VMCORE_LIB_DIR}/*.s)
-list (REMOVE_ITEM source_all ${VMCORE_LIB_DIR}/invokeNative_general.c)
+set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_ia32.s)
 endif ()
 
 set (VMCORE_LIB_SOURCE ${source_all})
