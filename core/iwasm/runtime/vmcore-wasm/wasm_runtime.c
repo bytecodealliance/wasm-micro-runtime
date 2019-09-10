@@ -70,33 +70,41 @@ wasm_runtime_call_wasm(WASMModuleInstance *module_inst,
                        WASMFunctionInstance *function,
                        unsigned argc, uint32 argv[])
 {
-    if (!exec_env) {
-        if (!module_inst->wasm_stack) {
-            if (!(module_inst->wasm_stack =
-                        wasm_malloc(module_inst->wasm_stack_size))) {
-                wasm_runtime_set_exception(module_inst, "allocate memory failed.");
-                return false;
+    /* Only init stack when no application is running. */
+    if (!wasm_runtime_get_self()->cur_frame) {
+       if (!exec_env) {
+            if (!module_inst->wasm_stack) {
+                if (!(module_inst->wasm_stack =
+                            wasm_malloc(module_inst->wasm_stack_size))) {
+                    wasm_runtime_set_exception(module_inst,
+                                               "allocate memory failed.");
+                    return false;
+                }
+
+                init_wasm_stack(&module_inst->main_tlr.wasm_stack,
+                                module_inst->wasm_stack,
+                                module_inst->wasm_stack_size);
             }
-        }
+       }
+       else {
+           uintptr_t stack = (uintptr_t)exec_env->stack;
+           uint32 stack_size;
 
-        init_wasm_stack(&module_inst->main_tlr.wasm_stack,
-                        module_inst->wasm_stack, module_inst->wasm_stack_size);
-    }
-    else {
-        uintptr_t stack = (uintptr_t)exec_env->stack;
-        uint32 stack_size;
+           /* Set to 8 bytes align */
+           stack = (stack + 7) & ~7;
+           stack_size = exec_env->stack_size
+                        - (stack - (uintptr_t)exec_env->stack);
 
-        /* Set to 8 bytes align */
-        stack = (stack + 7) & ~7;
-        stack_size = exec_env->stack_size - (stack - (uintptr_t)exec_env->stack);
+           if (!exec_env->stack || exec_env->stack_size <= 0
+               || exec_env->stack_size < stack - (uintptr_t)exec_env->stack) {
+               wasm_runtime_set_exception(module_inst,
+                                          "Invalid execution stack info.");
+               return false;
+            }
 
-        if (!exec_env->stack || exec_env->stack_size <= 0
-            || exec_env->stack_size < stack - (uintptr_t)exec_env->stack) {
-            wasm_runtime_set_exception(module_inst, "Invalid execution stack info.");
-            return false;
-        }
-
-        init_wasm_stack(&module_inst->main_tlr.wasm_stack, (uint8*)stack, stack_size);
+            init_wasm_stack(&module_inst->main_tlr.wasm_stack,
+                            (uint8*)stack, stack_size);
+       }
     }
 
     wasm_interp_call_wasm(function, argc, argv);
@@ -877,8 +885,9 @@ wasm_runtime_instantiate(WASMModule *module,
                 length = data_seg->data_length;
                 memory_size = NumBytesPerPage * module_inst->default_memory->cur_page_count;
 
-                if (base_offset >= memory_size
-                    || base_offset + length > memory_size) {
+                if (length > 0
+                    && (base_offset >= memory_size
+                        || base_offset + length > memory_size)) {
                     set_error_buf(error_buf, error_buf_size,
                             "Instantiate module failed: data segment out of range.");
                     wasm_runtime_deinstantiate(module_inst);
@@ -946,18 +955,11 @@ wasm_runtime_instantiate(WASMModule *module,
     wasm_runtime_set_tlr(&module_inst->main_tlr);
     module_inst->main_tlr.handle = ws_self_thread();
 
-    /* Execute __post_instantiate function */
-    if (!execute_post_inst_function(module_inst)) {
-        const char *exception = wasm_runtime_get_exception(module_inst);
-        wasm_printf("%s\n", exception);
-        wasm_runtime_deinstantiate(module_inst);
-        return NULL;
-    }
-
-    /* Execute start function */
-    if (!execute_start_function(module_inst)) {
-        const char *exception = wasm_runtime_get_exception(module_inst);
-        wasm_printf("%s\n", exception);
+    /* Execute __post_instantiate and start function */
+    if (!execute_post_inst_function(module_inst)
+        || !execute_start_function(module_inst)) {
+        set_error_buf(error_buf, error_buf_size,
+                      module_inst->cur_exception);
         wasm_runtime_deinstantiate(module_inst);
         return NULL;
     }
@@ -990,6 +992,37 @@ wasm_runtime_deinstantiate(WASMModuleInstance *module_inst)
 
     wasm_free(module_inst);
 }
+
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+bool
+wasm_runtime_set_ext_memory(WASMModuleInstance *module_inst,
+                            uint8 *ext_mem_data, uint32 ext_mem_size,
+                            char *error_buf, uint32 error_buf_size)
+{
+    if (module_inst->ext_mem_data) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Set external memory failed: "
+                      "an external memory has been set.");
+        return false;
+    }
+
+    if (!ext_mem_data
+        || ext_mem_size > 1 * BH_GB
+        || ext_mem_data + ext_mem_size < ext_mem_data) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Set external memory failed: "
+                      "invalid input.");
+        return false;
+    }
+
+    module_inst->ext_mem_data = ext_mem_data;
+    module_inst->ext_mem_data_end = ext_mem_data + ext_mem_size;
+    module_inst->ext_mem_size = ext_mem_size;
+    module_inst->ext_mem_base_offset = DEFAULT_EXT_MEM_BASE_OFFSET;
+
+    return true;
+}
+#endif
 
 bool
 wasm_runtime_enlarge_memory(WASMModuleInstance *module, int inc_page_count)
@@ -1165,24 +1198,40 @@ wasm_runtime_validate_app_addr(WASMModuleInstance *module_inst,
     uint8 *addr;
 
     /* integer overflow check */
-    if(app_offset < 0 ||
-       app_offset + size < app_offset) {
+    if(app_offset + size < app_offset) {
         goto fail;
     }
 
     memory = module_inst->default_memory;
-    if (app_offset < memory->heap_base_offset) {
+    if (0 <= app_offset
+        && app_offset < memory->heap_base_offset) {
         addr = memory->memory_data + app_offset;
         if (!(memory->base_addr <= addr && addr + size <= memory->end_addr))
             goto fail;
         return true;
     }
-    else {
+    else if (memory->heap_base_offset < app_offset
+             && app_offset < memory->heap_base_offset
+                             + (memory->heap_data_end - memory->heap_data)) {
         addr = memory->heap_data + (app_offset - memory->heap_base_offset);
         if (!(memory->heap_data <= addr && addr + size <= memory->heap_data_end))
             goto fail;
         return true;
     }
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_base_offset <= app_offset
+             && app_offset < module_inst->ext_mem_base_offset
+                             + module_inst->ext_mem_size) {
+        addr = module_inst->ext_mem_data
+               + (app_offset - module_inst->ext_mem_base_offset);
+        if (!(module_inst->ext_mem_data <= addr
+              && addr + size <= module_inst->ext_mem_data_end))
+            goto fail;
+
+        return true;
+    }
+#endif
 
 fail:
     wasm_runtime_set_exception(module_inst, "out of bounds memory access");
@@ -1201,7 +1250,13 @@ wasm_runtime_validate_native_addr(WASMModuleInstance *module_inst,
     }
 
     if ((memory->base_addr <= addr && addr + size <= memory->end_addr)
-        || (memory->heap_data <= addr && addr + size <= memory->heap_data_end))
+        || (memory->heap_data <= addr && addr + size <= memory->heap_data_end)
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+        || (module_inst->ext_mem_data
+            && module_inst->ext_mem_data <= addr
+            && addr + size <= module_inst->ext_mem_data_end)
+#endif
+       )
         return true;
 
 fail:
@@ -1214,10 +1269,22 @@ wasm_runtime_addr_app_to_native(WASMModuleInstance *module_inst,
                                 int32 app_offset)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
-    if (app_offset < memory->heap_base_offset)
+    if (0 <= app_offset && app_offset < memory->heap_base_offset)
         return memory->memory_data + app_offset;
-    else
+    else if (memory->heap_base_offset < app_offset
+             && app_offset < memory->heap_base_offset
+                             + (memory->heap_data_end - memory->heap_data))
         return memory->heap_data + (app_offset - memory->heap_base_offset);
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_base_offset <= app_offset
+             && app_offset < module_inst->ext_mem_base_offset
+                             + module_inst->ext_mem_size)
+        return module_inst->ext_mem_data
+               + (app_offset - module_inst->ext_mem_base_offset);
+#endif
+    else
+        return NULL;
 }
 
 int32
@@ -1228,10 +1295,98 @@ wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
     if (memory->base_addr <= (uint8*)native_ptr
         && (uint8*)native_ptr < memory->end_addr)
         return (uint8*)native_ptr - memory->memory_data;
-    else
+    else if (memory->heap_data <= (uint8*)native_ptr
+             && (uint8*)native_ptr < memory->heap_data_end)
         return memory->heap_base_offset
                + ((uint8*)native_ptr - memory->heap_data);
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_data <= (uint8*)native_ptr
+             && (uint8*)native_ptr < module_inst->ext_mem_data_end)
+        return module_inst->ext_mem_base_offset
+               + ((uint8*)native_ptr - module_inst->ext_mem_data);
+#endif
+    else
+        return 0;
 }
+
+bool
+wasm_runtime_get_app_addr_range(WASMModuleInstance *module_inst,
+                                int32 app_offset,
+                                int32 *p_app_start_offset,
+                                int32 *p_app_end_offset)
+{
+    int32 app_start_offset, app_end_offset;
+    WASMMemoryInstance *memory = module_inst->default_memory;
+
+    if (0 <= app_offset && app_offset < memory->heap_base_offset) {
+        app_start_offset = 0;
+        app_end_offset = NumBytesPerPage * memory->cur_page_count;
+    }
+    else if (memory->heap_base_offset < app_offset
+             && app_offset < memory->heap_base_offset
+                             + (memory->heap_data_end - memory->heap_data)) {
+        app_start_offset = memory->heap_base_offset;
+        app_end_offset = memory->heap_base_offset
+                         + (memory->heap_data_end - memory->heap_data);
+    }
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_base_offset <= app_offset
+             && app_offset < module_inst->ext_mem_base_offset
+                             + module_inst->ext_mem_size) {
+        app_start_offset = module_inst->ext_mem_base_offset;
+        app_end_offset = app_start_offset + module_inst->ext_mem_size;
+    }
+#endif
+    else
+        return false;
+
+    if (p_app_start_offset)
+        *p_app_start_offset = app_start_offset;
+    if (p_app_end_offset)
+        *p_app_end_offset = app_end_offset;
+    return true;
+}
+
+bool
+wasm_runtime_get_native_addr_range(WASMModuleInstance *module_inst,
+                                   uint8 *native_ptr,
+                                   uint8 **p_native_start_addr,
+                                   uint8 **p_native_end_addr)
+{
+    uint8 *native_start_addr, *native_end_addr;
+    WASMMemoryInstance *memory = module_inst->default_memory;
+
+    if (memory->base_addr <= (uint8*)native_ptr
+        && (uint8*)native_ptr < memory->end_addr) {
+        native_start_addr = memory->memory_data;
+        native_end_addr = memory->memory_data
+                          + NumBytesPerPage * memory->cur_page_count;
+    }
+    else if (memory->heap_data <= (uint8*)native_ptr
+             && (uint8*)native_ptr < memory->heap_data_end) {
+        native_start_addr = memory->heap_data;
+        native_end_addr = memory->heap_data_end;
+    }
+#if WASM_ENABLE_EXT_MEMORY_SPACE != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_data <= (uint8*)native_ptr
+             && (uint8*)native_ptr < module_inst->ext_mem_data_end) {
+        native_start_addr = module_inst->ext_mem_data;
+        native_end_addr = module_inst->ext_mem_data_end;
+    }
+#endif
+    else
+        return false;
+
+    if (p_native_start_addr)
+        *p_native_start_addr = native_start_addr;
+    if (p_native_end_addr)
+        *p_native_end_addr = native_end_addr;
+    return true;
+}
+
 
 uint32
 wasm_runtime_get_temp_ret(WASMModuleInstance *module_inst)
@@ -1271,4 +1426,249 @@ wasm_runtime_load_aot(uint8 *aot_file, uint32 aot_file_size,
     (void)error_buf_size;
     return NULL;
 }
+
+static inline void
+word_copy(uint32 *dest, uint32 *src, unsigned num)
+{
+    for (; num > 0; num--)
+        *dest++ = *src++;
+}
+
+#define PUT_I64_TO_ADDR(addr, value) do {       \
+    union { int64 val; uint32 parts[2]; } u;    \
+    u.val = (value);                            \
+    (addr)[0] = u.parts[0];                     \
+    (addr)[1] = u.parts[1];                     \
+  } while (0)
+
+#define PUT_F64_TO_ADDR(addr, value) do {       \
+    union { float64 val; uint32 parts[2]; } u;  \
+    u.val = (value);                            \
+    (addr)[0] = u.parts[0];                     \
+    (addr)[1] = u.parts[1];                     \
+  } while (0)
+
+#if !defined(__x86_64__) && !defined(__amd_64__)
+
+typedef void (*GenericFunctionPointer)();
+int64 invokeNative(uint32 *args, uint32 sz, GenericFunctionPointer f);
+
+typedef float64 (*Float64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef float32 (*Float32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef int64 (*Int64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef int32 (*Int32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef void (*VoidFuncPtr)(uint32*, uint32, GenericFunctionPointer);
+
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+
+/* As JavaScript can't represent int64s, emcc compiles C int64 argument
+   into two WASM i32 arguments, see:
+        https://github.com/emscripten-core/emscripten/issues/7199
+   And also JavaScript float point is always 64-bit, emcc compiles
+   float32 argument into WASM f64 argument.
+   But clang compiles C int64 argument into WASM i64 argument, and
+   compiles C float32 argument into WASM f32 argument.
+   So for the compatability of emcc and clang, we treat i64 as two i32s,
+   treat f32 as f64 while passing arguments to the native function, and
+   require the native function uses two i32 arguments instead one i64
+   argument, and uses double argument instead of float argment. */
+
+bool
+wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
+                           WASMModuleInstance *module_inst,
+                           uint32 *argv, uint32 argc, uint32 *ret)
+{
+    union { float64 val; int32 parts[2]; } u;
+    uint32 argv_buf[32], *argv1 = argv_buf, argc1, i, j = 0;
+    uint64 size;
+
+    argc1 = func_type->param_count * 2 + 2;
+
+    if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
+        size = ((uint64)sizeof(uint32)) * argc1;
+        if (size >= UINT_MAX
+            || !(argv1 = wasm_malloc((uint32)size))) {
+            wasm_runtime_set_exception(module_inst, "allocate memory failed.");
+            return false;
+        }
+    }
+
+    for (i = 0; i < sizeof(WASMModuleInstance*) / sizeof(uint32); i++)
+        argv1[j++] = ((uint32*)&module_inst)[i];
+
+    for (i = 0; i < func_type->param_count; i++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+                argv1[j++] = *argv++;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                argv1[j++] = *argv++;
+                argv1[j++] = *argv++;
+                break;
+            case VALUE_TYPE_F32:
+                u.val = *(float32*)argv++;
+#if defined(__arm__) || defined(__mips__)
+                /* 64-bit data must be 8 bytes alined in arm and mips */
+                if (j & 1)
+                    j++;
+#endif
+                argv1[j++] = u.parts[0];
+                argv1[j++] = u.parts[1];
+                break;
+            default:
+                wasm_assert(0);
+                break;
+        }
+    }
+
+    if (func_type->result_count == 0) {
+        invokeNative_Void(argv1, argc1, func_ptr);
+    }
+    else {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                ret[0] = invokeNative_Int32(argv1, argc1, func_ptr);
+                break;
+            case VALUE_TYPE_I64:
+                PUT_I64_TO_ADDR(ret, invokeNative_Int64(argv1, argc1, func_ptr));
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)ret = invokeNative_Float32(argv1, argc1, func_ptr);
+                break;
+            case VALUE_TYPE_F64:
+                PUT_F64_TO_ADDR(ret, invokeNative_Float64(argv1, argc1, func_ptr));
+                break;
+        }
+    }
+
+    if (argv1 != argv_buf)
+        wasm_free(argv1);
+    return true;
+}
+
+#else /* else of !defined(__x86_64__) && !defined(__amd_64__) */
+
+typedef void (*GenericFunctionPointer)();
+int64 invokeNative(uint64 *args, uint64 n_fps, uint64 n_stacks, GenericFunctionPointer f);
+
+typedef float64 (*Float64FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+typedef float32 (*Float32FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+typedef int64 (*Int64FuncPtr)(uint64*,uint64, uint64, GenericFunctionPointer);
+typedef int32 (*Int32FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+typedef void (*VoidFuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+
+#if defined(_WIN32) || defined(_WIN32_)
+#define MAX_REG_FLOATS  4
+#define MAX_REG_INTS  4
+#else
+#define MAX_REG_FLOATS  8
+#define MAX_REG_INTS  6
+#endif
+
+bool
+wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
+                           WASMModuleInstance *module_inst,
+                           uint32 *argv, uint32 argc, uint32 *ret)
+{
+    uint64 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size;
+    uint32 *argv_src = argv, i, j, argc1, n_ints = 0, n_stacks = 0;
+#if defined(_WIN32) || defined(_WIN32_)
+    /* important difference in calling conventions */
+#define n_fps n_ints
+#else
+    int n_fps = 0;
+#endif
+
+    argc1 = 1 + MAX_REG_FLOATS + func_type->param_count + 2;
+    if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
+        size = sizeof(uint64) * argc1;
+        if (size >= UINT32_MAX
+            || !(argv1 = wasm_malloc(size))) {
+            wasm_runtime_set_exception(module_inst, "allocate memory failed.");
+            return false;
+        }
+    }
+
+    fps = argv1 + 1;
+    ints = fps + MAX_REG_FLOATS;
+    stacks = ints + MAX_REG_INTS;
+
+    ints[n_ints++] = (uint64)(uintptr_t)module_inst;
+
+    for (i = 0; i < func_type->param_count; i++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+                if (n_ints < MAX_REG_INTS)
+                    ints[n_ints++] = *argv_src++;
+                else
+                    stacks[n_stacks++] = *argv_src++;
+                break;
+            case VALUE_TYPE_I64:
+                for (j = 0; j < 2; j++) {
+                    if (n_ints < MAX_REG_INTS)
+                        ints[n_ints++] = *argv_src++;
+                    else
+                        stacks[n_stacks++] = *argv_src++;
+                }
+                break;
+            case VALUE_TYPE_F32:
+                if (n_fps < MAX_REG_FLOATS)
+                    *(float64*)&fps[n_fps++] = *(float32*)argv_src++;
+                else
+                    *(float64*)&stacks[n_stacks++] = *(float32*)argv_src++;
+                break;
+            case VALUE_TYPE_F64:
+                if (n_fps < MAX_REG_FLOATS)
+                    *(float64*)&fps[n_fps++] = *(float64*)argv_src;
+                else
+                    *(float64*)&stacks[n_stacks++] = *(float64*)argv_src;
+                argv_src += 2;
+                break;
+            default:
+                wasm_assert(0);
+                break;
+        }
+    }
+
+    if (func_type->result_count == 0) {
+        invokeNative_Void(argv1, n_fps, n_stacks, func_ptr);
+    }
+    else {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                ret[0] = invokeNative_Int32(argv1, n_fps, n_stacks, func_ptr);
+                break;
+            case VALUE_TYPE_I64:
+                PUT_I64_TO_ADDR(ret, invokeNative_Int64(argv1, n_fps, n_stacks, func_ptr));
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)ret = invokeNative_Float32(argv1, n_fps, n_stacks, func_ptr);
+                break;
+            case VALUE_TYPE_F64:
+                PUT_F64_TO_ADDR(ret, invokeNative_Float64(argv1, n_fps, n_stacks, func_ptr));
+                break;
+            default:
+                wasm_assert(0);
+                break;
+        }
+    }
+
+    if (argv1 != argv_buf)
+        wasm_free(argv1);
+
+    return true;
+}
+
+#endif /* end of !defined(__x86_64__) && !defined(__amd_64__) */
 

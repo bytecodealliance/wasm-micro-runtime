@@ -61,7 +61,9 @@ static WGLNativeFuncDef cb_native_func_defs[] = {
 };
 
 /*************** Native Interface to Wasm App ***********/
-void wasm_cb_native_call(int32 func_id, uint32 argv_offset, uint32 argc)
+void
+wasm_cb_native_call(wasm_module_inst_t module_inst,
+                    int32 func_id, uint32 argv_offset, uint32 argc)
 {
     uint32 size = sizeof(cb_native_func_defs) / sizeof(WGLNativeFuncDef);
 

@@ -37,7 +37,7 @@ void wasm_timer_callback(timer_id_t id, unsigned int mod_id)
 
     // !!! the length parameter must be 0, so the receiver will
     //     not free the payload pointer.
-    bh_post_msg(module->queue, TIMER_EVENT_WASM, (char *) id, 0);
+    bh_post_msg(module->queue, TIMER_EVENT_WASM, (char *)(uintptr_t)id, 0);
 }
 
 ///
@@ -149,30 +149,37 @@ timer_ctx_t get_wasm_timer_ctx()
     return m->timer_ctx;
 }
 
-timer_id_t wasm_create_timer(int interval, bool is_period, bool auto_start)
+timer_id_t
+wasm_create_timer(wasm_module_inst_t module_inst,
+                  int interval, bool is_period, bool auto_start)
 {
     return sys_create_timer(get_wasm_timer_ctx(), interval, is_period,
                             auto_start);
 }
 
-void wasm_timer_destory(timer_id_t timer_id)
+void
+wasm_timer_destory(wasm_module_inst_t module_inst, timer_id_t timer_id)
 {
     sys_timer_destory(get_wasm_timer_ctx(), timer_id);
 }
 
-void wasm_timer_cancel(timer_id_t timer_id)
+void
+wasm_timer_cancel(wasm_module_inst_t module_inst, timer_id_t timer_id)
 {
     sys_timer_cancel(get_wasm_timer_ctx(), timer_id);
 }
 
-void wasm_timer_restart(timer_id_t timer_id, int interval)
+void
+wasm_timer_restart(wasm_module_inst_t module_inst,
+                   timer_id_t timer_id, int interval)
 {
     sys_timer_restart(get_wasm_timer_ctx(), timer_id, interval);
 }
 
 extern uint32 get_sys_tick_ms();
 
-uint32 wasm_get_sys_tick_ms(void)
+uint32
+wasm_get_sys_tick_ms(wasm_module_inst_t module_inst)
 {
     return (uint32) bh_get_tick_ms();
 }

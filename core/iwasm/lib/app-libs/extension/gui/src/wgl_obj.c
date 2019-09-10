@@ -15,12 +15,12 @@
  */
 
 #include "wgl.h"
-#include "native_interface.h"
+#include "gui_api.h"
 #include <stdlib.h>
 #include <string.h>
 
 #define ARGC sizeof(argv)/sizeof(uint32)
-#define CALL_OBJ_NATIVE_FUNC(id) wasm_obj_native_call(id, (int32)argv, ARGC)
+#define CALL_OBJ_NATIVE_FUNC(id) wasm_obj_native_call(id, argv, ARGC)
 
 typedef struct _obj_evt_cb {
     struct _obj_evt_cb *next;

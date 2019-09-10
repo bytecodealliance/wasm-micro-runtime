@@ -14,19 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef GUI_API_H_
-#define GUI_API_H_
+#ifndef _GUI_API_H_
+#define _GUI_API_H_
+
 #include "bh_platform.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void wasm_obj_native_call(int32 func_id, uint32 argv_offset, uint32 argc);
-void wasm_btn_native_call(int32 func_id, uint32 argv_offset, uint32 argc);
-void wasm_label_native_call(int32 func_id, uint32 argv_offset, uint32 argc);
-void wasm_cb_native_call(int32 func_id, uint32 argv_offset, uint32 argc);
-void wasm_list_native_call(int32 func_id, uint32 argv_offset, uint32 argc);
+void
+wasm_obj_native_call(int32 func_id, uint32 *argv, uint32 argc);
+
+void
+wasm_btn_native_call(int32 func_id, uint32 *argv, uint32 argc);
+
+void
+wasm_label_native_call(int32 func_id, uint32 *argv, uint32 argc);
+
+void
+wasm_cb_native_call(int32 func_id, uint32 *argv, uint32 argc);
+
+void
+wasm_list_native_call(int32 func_id, uint32 *argv, uint32 argc);
 
 
 #ifdef __cplusplus
@@ -34,4 +44,4 @@ void wasm_list_native_call(int32 func_id, uint32 argv_offset, uint32 argc);
 #endif
 
 
-#endif /* GUI_API_H_ */
+#endif /* end of _GUI_API_H_ */

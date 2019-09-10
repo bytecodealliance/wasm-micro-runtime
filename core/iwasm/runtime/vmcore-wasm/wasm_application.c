@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "wasm.h"
+#include "wasm_application.h"
 #include "wasm_interp.h"
 #include "wasm_runtime.h"
 #include "wasm_thread.h"
@@ -293,10 +294,15 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
             break;
         case VALUE_TYPE_I64:
         {
+            char buf[16];
             union { uint64 val; uint32 parts[2]; } u;
             u.parts[0] = argv1[0];
             u.parts[1] = argv1[1];
-            wasm_printf("0x%llx:i64", u.val);
+            if (sizeof(long) == 4)
+                snprintf(buf, sizeof(buf), "%s", "0x%llx:i64");
+            else
+                snprintf(buf, sizeof(buf), "%s", "0x%lx:i64");
+            wasm_printf(buf, u.val);
             break;
         }
         case VALUE_TYPE_F32:

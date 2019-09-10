@@ -43,7 +43,9 @@
 #endif
 
 /* WASM VM log system */
+#ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1
+#endif
 
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
@@ -115,3 +117,17 @@
 #define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
 #endif
 #endif
+
+/* External memory space provided by user,
+   but not wasm memory space and app heap space */
+#ifndef WASM_ENABLE_EXT_MEMORY_SPACE
+#define WASM_ENABLE_EXT_MEMORY_SPACE 0
+#endif
+
+/* Default base offset of external memory space */
+#define DEFAULT_EXT_MEM_BASE_OFFSET (-2 * BH_GB)
+
+#ifndef bh_printf
+#define bh_printf printf
+#endif
+

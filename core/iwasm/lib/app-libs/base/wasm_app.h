@@ -32,7 +32,6 @@
 #ifndef _LIB_AEE_H_
 #define _LIB_AEE_H_
 
-#include "native_interface.h"
 #include "shared_utils.h"
 #include "attr_container.h"
 #include "request.h"
