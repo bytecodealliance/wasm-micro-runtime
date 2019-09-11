@@ -9,6 +9,7 @@ extern "C" {
 
 #include "bh_platform.h"
 #include "lvgl.h"
+#include "wasm_export.h"
 
 #define OBJ_ARG_NUM_MAX 4
 #define PTR_ARG_NUM_MAX 4
@@ -65,6 +66,9 @@ void wgl_native_func_call(WGLNativeFuncDef *funcs,
                           int32 func_id,
                           uint32 argv_offset,
                           uint32 argc);
+
+wasm_module_inst_t wasm_runtime_get_current_module_inst();
+#define get_module_inst() wasm_runtime_get_current_module_inst()
 
 #ifdef __cplusplus
 }
