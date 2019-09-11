@@ -1387,7 +1387,6 @@ wasm_runtime_get_native_addr_range(WASMModuleInstance *module_inst,
     return true;
 }
 
-
 uint32
 wasm_runtime_get_temp_ret(WASMModuleInstance *module_inst)
 {
@@ -1465,28 +1464,19 @@ static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
 static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
 static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 
-/* As JavaScript can't represent int64s, emcc compiles C int64 argument
-   into two WASM i32 arguments, see:
-        https://github.com/emscripten-core/emscripten/issues/7199
-   And also JavaScript float point is always 64-bit, emcc compiles
-   float32 argument into WASM f64 argument.
-   But clang compiles C int64 argument into WASM i64 argument, and
-   compiles C float32 argument into WASM f32 argument.
-   So for the compatability of emcc and clang, we treat i64 as two i32s,
-   treat f32 as f64 while passing arguments to the native function, and
-   require the native function uses two i32 arguments instead one i64
-   argument, and uses double argument instead of float argment. */
-
 bool
 wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                            WASMModuleInstance *module_inst,
                            uint32 *argv, uint32 argc, uint32 *ret)
 {
-    union { float64 val; int32 parts[2]; } u;
     uint32 argv_buf[32], *argv1 = argv_buf, argc1, i, j = 0;
     uint64 size;
 
+#if !defined(__arm__) && !defined(__mips__)
+    argc1 = argc + 2;
+#else
     argc1 = func_type->param_count * 2 + 2;
+#endif
 
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
         size = ((uint64)sizeof(uint32)) * argc1;
@@ -1500,6 +1490,10 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     for (i = 0; i < sizeof(WASMModuleInstance*) / sizeof(uint32); i++)
         argv1[j++] = ((uint32*)&module_inst)[i];
 
+#if !defined(__arm__) && !defined(__mips__)
+    word_copy(argv1 + j, argv, argc);
+    j += argc;
+#else
     for (i = 0; i < func_type->param_count; i++) {
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
@@ -1507,25 +1501,23 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                 break;
             case VALUE_TYPE_I64:
             case VALUE_TYPE_F64:
+                /* 64-bit data must be 8 bytes alined in arm and mips */
+                if (j & 1)
+                    j++;
                 argv1[j++] = *argv++;
                 argv1[j++] = *argv++;
                 break;
             case VALUE_TYPE_F32:
-                u.val = *(float32*)argv++;
-#if defined(__arm__) || defined(__mips__)
-                /* 64-bit data must be 8 bytes alined in arm and mips */
-                if (j & 1)
-                    j++;
-#endif
-                argv1[j++] = u.parts[0];
-                argv1[j++] = u.parts[1];
+                argv1[j++] = *argv++;
                 break;
             default:
                 wasm_assert(0);
                 break;
         }
     }
+#endif
 
+    argc1 = j;
     if (func_type->result_count == 0) {
         invokeNative_Void(argv1, argc1, func_ptr);
     }
@@ -1542,6 +1534,9 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                 break;
             case VALUE_TYPE_F64:
                 PUT_F64_TO_ADDR(ret, invokeNative_Float64(argv1, argc1, func_ptr));
+                break;
+            default:
+                wasm_assert(0);
                 break;
         }
     }
@@ -1582,7 +1577,7 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                            uint32 *argv, uint32 argc, uint32 *ret)
 {
     uint64 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size;
-    uint32 *argv_src = argv, i, j, argc1, n_ints = 0, n_stacks = 0;
+    uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
 #if defined(_WIN32) || defined(_WIN32_)
     /* important difference in calling conventions */
 #define n_fps n_ints
@@ -1615,12 +1610,11 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                     stacks[n_stacks++] = *argv_src++;
                 break;
             case VALUE_TYPE_I64:
-                for (j = 0; j < 2; j++) {
-                    if (n_ints < MAX_REG_INTS)
-                        ints[n_ints++] = *argv_src++;
-                    else
-                        stacks[n_stacks++] = *argv_src++;
-                }
+                if (n_ints < MAX_REG_INTS)
+                    ints[n_ints++] = *(uint64*)argv_src;
+                else
+                    stacks[n_stacks++] = *(uint64*)argv_src;
+                argv_src += 2;
                 break;
             case VALUE_TYPE_F32:
                 if (n_fps < MAX_REG_FLOATS)
