@@ -22,9 +22,6 @@
 #include "bh_platform.h"
 #include "wasm_export.h"
 
-#define get_module_inst() \
-    wasm_runtime_get_current_module_inst()
-
 #define validate_app_addr(offset, size) \
     wasm_runtime_validate_app_addr(module_inst, offset, size)
 

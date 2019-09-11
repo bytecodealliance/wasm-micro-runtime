@@ -288,15 +288,6 @@ void*
 wasm_runtime_get_current_thread_data();
 
 /**
- * Get current WASM module instance of the current native thread
- *
- * @return current WASM module instance of the current native thread, NULL
- *         if not found
- */
-wasm_module_inst_t
-wasm_runtime_get_current_module_inst();
-
-/**
  * Allocate memory from the heap of WASM module instance
  *
  * @param module_inst the WASM module instance which contains heap
