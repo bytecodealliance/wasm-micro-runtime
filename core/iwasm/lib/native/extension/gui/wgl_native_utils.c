@@ -7,7 +7,7 @@
 
 #include <stdint.h>
 
-#define THROW_EXC(msg) wasm_runtime_set_exception(get_module_inst(), msg);
+#define THROW_EXC(msg) wasm_runtime_set_exception(module_inst, msg);
 
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
@@ -44,7 +44,8 @@ uint32 wgl_native_wigdet_create(int8 widget_type, lv_obj_t *par, lv_obj_t *copy)
     return 0;
 }
 
-static void invokeNative(intptr_t argv[], uint32 argc, void (*native_code)())
+static void invokeNative(wasm_module_inst_t module_inst,
+                         intptr_t argv[], uint32 argc, void (*native_code)())
 {
     switch(argc) {
         case 0:
@@ -87,20 +88,20 @@ static void invokeNative(intptr_t argv[], uint32 argc, void (*native_code)())
 
         default:
             /* FIXME: If this happen, add more cases. */
-            wasm_runtime_set_exception(get_module_inst(),
-                    "the argument number of native function exceeds maximum");
+            THROW_EXC("the argument number of native function exceeds maximum");
             return;
     }
 }
 
 typedef void (*GenericFunctionPointer)();
-typedef int32 (*Int32FuncPtr)(intptr_t *, uint32, GenericFunctionPointer);
-typedef void (*VoidFuncPtr)(intptr_t *, uint32, GenericFunctionPointer);
+typedef int32 (*Int32FuncPtr)(wasm_module_inst_t, intptr_t *, uint32, GenericFunctionPointer);
+typedef void (*VoidFuncPtr)(wasm_module_inst_t, intptr_t *, uint32, GenericFunctionPointer);
 
 static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
 static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 
-void wgl_native_func_call(WGLNativeFuncDef *funcs,
+void wgl_native_func_call(wasm_module_inst_t module_inst,
+                          WGLNativeFuncDef *funcs,
                           uint32 size,
                           int32 func_id,
                           uint32 argv_offset,
@@ -109,7 +110,6 @@ void wgl_native_func_call(WGLNativeFuncDef *funcs,
     WGLNativeFuncDef *func_def = funcs;
     WGLNativeFuncDef *func_def_end = func_def + size;
     uint32 *argv;
-    wasm_module_inst_t module_inst = get_module_inst();
 
     if (!validate_app_addr(argv_offset, argc * sizeof(uint32)))
         return;
@@ -173,13 +173,20 @@ void wgl_native_func_call(WGLNativeFuncDef *funcs,
             }
 
             if (func_def->has_ret == NO_RET)
-                invokeNative_Void(argv_copy,
+                invokeNative_Void(module_inst,
+                                  argv_copy,
                                   func_def->arg_num,
                                   func_def->func_ptr);
-            else
-                argv[0] = invokeNative_Int32(argv_copy,
+            else {
+                argv[0] = invokeNative_Int32(module_inst,
+                                             argv_copy,
                                              func_def->arg_num,
                                              func_def->func_ptr);
+                /* Convert to app memory offset if return value is a
+                 * native address pointer */
+                if (func_def->has_ret == RET_PTR)
+                    argv[0] = addr_native_to_app((char *)(intptr_t)argv[0]);
+            }
 
             if (argv_copy != argv_copy_buf)
                 bh_free(argv_copy);
