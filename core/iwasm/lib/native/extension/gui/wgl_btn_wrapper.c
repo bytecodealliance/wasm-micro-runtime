@@ -51,7 +51,8 @@ wasm_btn_native_call(wasm_module_inst_t module_inst,
 {
     uint32 size = sizeof(btn_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(btn_native_func_defs,
+    wgl_native_func_call(module_inst,
+                         btn_native_func_defs,
                          size,
                          func_id,
                          argv_offset,

@@ -880,11 +880,8 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           }
 
           fidx = ((uint32*)table->base_addr)[val];
-          if (fidx >= module->function_count) {
-            wasm_runtime_set_exception(module, "function index is overflow");
-            goto got_exception;
-          }
-
+          /* Skip function index check, it has been checked
+             in wasm module instantiate */
           cur_func = module->functions + fidx;
 
           if (cur_func->is_import_func)
