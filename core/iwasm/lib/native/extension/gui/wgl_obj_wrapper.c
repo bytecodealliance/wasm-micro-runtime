@@ -347,7 +347,8 @@ wasm_obj_native_call(wasm_module_inst_t module_inst,
 {
     uint32 size = sizeof(obj_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(obj_native_func_defs,
+    wgl_native_func_call(module_inst,
+                         obj_native_func_defs,
                          size,
                          func_id,
                          argv_offset,

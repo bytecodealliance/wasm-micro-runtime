@@ -741,7 +741,7 @@ wasm_runtime_instantiate(WASMModule *module,
     WASMTableSeg *table_seg;
     WASMDataSeg *data_seg;
     WASMGlobalInstance *globals = NULL, *global;
-    uint32 global_count, addr_data_size = 0, global_data_size = 0, i;
+    uint32 global_count, addr_data_size = 0, global_data_size = 0, i, j;
     uint32 base_offset, length, memory_size;
     uint8 *global_data, *global_data_end, *addr_data, *addr_data_end;
     uint8 *memory_data;
@@ -927,6 +927,15 @@ wasm_runtime_instantiate(WASMModule *module,
                         module_inst->default_table->cur_size)
                     length = module_inst->default_table->cur_size
                              - table_seg->base_offset.u.i32;
+                /* Check function index */
+                for (j = 0; j < length; j++) {
+                    if (table_seg->func_indexes[j] >= module_inst->function_count) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "function index is overflow");
+                        wasm_runtime_deinstantiate(module_inst);
+                        return NULL;
+                    }
+                }
                 memcpy(table_data + table_seg->base_offset.u.i32,
                        table_seg->func_indexes, length * sizeof(uint32));
             }
@@ -1618,9 +1627,9 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                 break;
             case VALUE_TYPE_F32:
                 if (n_fps < MAX_REG_FLOATS)
-                    *(float64*)&fps[n_fps++] = *(float32*)argv_src++;
+                    *(float32*)&fps[n_fps++] = *(float32*)argv_src++;
                 else
-                    *(float64*)&stacks[n_stacks++] = *(float32*)argv_src++;
+                    *(float32*)&stacks[n_stacks++] = *(float32*)argv_src++;
                 break;
             case VALUE_TYPE_F64:
                 if (n_fps < MAX_REG_FLOATS)

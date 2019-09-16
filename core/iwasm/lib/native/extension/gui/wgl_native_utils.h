@@ -17,8 +17,12 @@ extern "C" {
 #define NULL_OK  0x80
 
 enum {
+    /* The function has a normal return value (not a pointer) */
     HAS_RET,
-    NO_RET
+    /* The function doesn't have return value */
+    NO_RET,
+    /* The function's return value is a native address pointer */
+    RET_PTR
 };
 
 enum {
@@ -61,14 +65,12 @@ uint32 wgl_native_wigdet_create(int8 widget_type,
                                 lv_obj_t *par,
                                 lv_obj_t *copy);
 
-void wgl_native_func_call(WGLNativeFuncDef *funcs,
+void wgl_native_func_call(wasm_module_inst_t module_inst,
+                          WGLNativeFuncDef *funcs,
                           uint32 size,
                           int32 func_id,
                           uint32 argv_offset,
                           uint32 argc);
-
-wasm_module_inst_t wasm_runtime_get_current_module_inst();
-#define get_module_inst() wasm_runtime_get_current_module_inst()
 
 #ifdef __cplusplus
 }
