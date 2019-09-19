@@ -75,17 +75,17 @@ GET_F64_FROM_ADDR (uint32 *addr)
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
 #if WASM_ENABLE_EXT_MEMORY_SPACE != 0
-#define CHECK_EXT_MEMORY_SPACE() \
+#define CHECK_EXT_MEMORY_SPACE()                                                \
     else if (module->ext_mem_data                                               \
              && module->ext_mem_base_offset <= offset1                          \
              && offset1 < module->ext_mem_base_offset                           \
                           + module->ext_mem_size) {                             \
+        /* If offset1 is in valid range, maddr must also be in valid range,     \
+           no need to check it again. */                                        \
         maddr = module->ext_mem_data                                            \
                 + (offset1 - module->ext_mem_base_offset);                      \
-        if (maddr < module->ext_mem_data)                                       \
-          goto out_of_bounds;                                                   \
-        maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                  \
-        if (maddr1 > module->ext_mem_data_end)                                  \
+        if (maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] >                      \
+                module->ext_mem_data_end)                                       \
           goto out_of_bounds;                                                   \
     }
 #else
@@ -94,26 +94,25 @@ GET_F64_FROM_ADDR (uint32 *addr)
 
 #define CHECK_MEMORY_OVERFLOW() do {                                            \
     uint32 offset1 = offset + addr;                                             \
-    uint8 *maddr1;                                                              \
-    if (flags != 2)                                                             \
-      LOG_VERBOSE("unaligned load/store in wasm interp, flag is: %d.\n", flags);\
-    if (offset1 < offset)                                                       \
-      goto out_of_bounds;                                                       \
-    if (offset1 < heap_base_offset) {                                           \
+    /* if (flags != 2)                                                          \
+      LOG_VERBOSE("unaligned load/store in wasm interp, flag: %d.\n", flags); */\
+    /* The WASM spec doesn't require that the dynamic address operand must be   \
+       unsigned, so we don't check whether integer overflow or not here. */     \
+    /* if (offset1 < offset)                                                    \
+      goto out_of_bounds; */                                                    \
+    if (offset1 < memory_data_size) {                                           \
+      /* If offset1 is in valid range, maddr must also be in valid range,       \
+         no need to check it again. */                                          \
       maddr = memory->memory_data + offset1;                                    \
-      if (maddr < memory->base_addr)                                            \
-        goto out_of_bounds;                                                     \
-      maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                    \
-      if (maddr1 > memory->end_addr)                                            \
+      if (maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] > memory->end_addr)      \
         goto out_of_bounds;                                                     \
     }                                                                           \
-    else if (offset1 < memory->heap_base_offset                                 \
-                       + (memory->heap_data_end - memory->heap_data)) {         \
+    else if (offset1 > heap_base_offset                                         \
+             && offset1 < heap_base_offset + heap_data_size) {                  \
+      /* If offset1 is in valid range, maddr must also be in valid range,       \
+         no need to check it again. */                                          \
       maddr = memory->heap_data + offset1 - memory->heap_base_offset;           \
-      if (maddr < memory->heap_data)                                            \
-        goto out_of_bounds;                                                     \
-      maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                    \
-      if (maddr1 > memory->heap_data_end)                                       \
+      if (maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] > memory->heap_data_end) \
         goto out_of_bounds;                                                     \
     }                                                                           \
     CHECK_EXT_MEMORY_SPACE()                                                    \
@@ -684,7 +683,11 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 {
   WASMModuleInstance *module = self->module_inst;
   WASMMemoryInstance *memory = module->default_memory;
-  int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
+  uint32 memory_data_size = memory
+                            ? NumBytesPerPage * memory->cur_page_count : 0;
+  uint32 heap_base_offset = memory ? memory->heap_base_offset : 0;
+  uint32 heap_data_size = memory
+                          ? memory->heap_data_end - memory->heap_data : 0;
   WASMTableInstance *table = module->default_table;
   uint8 opcode_IMPDEP2 = WASM_OP_IMPDEP2;
   WASMInterpFrame *frame = NULL;
@@ -1302,6 +1305,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           PUSH_I32(prev_page_count);
           /* update the memory instance ptr */
           memory = module->default_memory;
+          memory_data_size = NumBytesPerPage * memory->cur_page_count;
         }
 
         (void)reserved;

@@ -1459,13 +1459,13 @@ word_copy(uint32 *dest, uint32 *src, unsigned num)
 #if !defined(__x86_64__) && !defined(__amd_64__)
 
 typedef void (*GenericFunctionPointer)();
-int64 invokeNative(uint32 *args, uint32 sz, GenericFunctionPointer f);
+int64 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 sz);
 
-typedef float64 (*Float64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef float32 (*Float32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef int64 (*Int64FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef int32 (*Int32FuncPtr)(uint32*, uint32, GenericFunctionPointer);
-typedef void (*VoidFuncPtr)(uint32*, uint32, GenericFunctionPointer);
+typedef float64 (*Float64FuncPtr)(GenericFunctionPointer f, uint32*, uint32);
+typedef float32 (*Float32FuncPtr)(GenericFunctionPointer f, uint32*, uint32);
+typedef int64 (*Int64FuncPtr)(GenericFunctionPointer f, uint32*, uint32);
+typedef int32 (*Int32FuncPtr)(GenericFunctionPointer f, uint32*, uint32);
+typedef void (*VoidFuncPtr)(GenericFunctionPointer f, uint32*, uint32);
 
 static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
 static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
@@ -1528,21 +1528,21 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
 
     argc1 = j;
     if (func_type->result_count == 0) {
-        invokeNative_Void(argv1, argc1, func_ptr);
+        invokeNative_Void(func_ptr, argv1, argc1);
     }
     else {
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
-                ret[0] = invokeNative_Int32(argv1, argc1, func_ptr);
+                ret[0] = invokeNative_Int32(func_ptr, argv1, argc1);
                 break;
             case VALUE_TYPE_I64:
-                PUT_I64_TO_ADDR(ret, invokeNative_Int64(argv1, argc1, func_ptr));
+                PUT_I64_TO_ADDR(ret, invokeNative_Int64(func_ptr, argv1, argc1));
                 break;
             case VALUE_TYPE_F32:
-                *(float32*)ret = invokeNative_Float32(argv1, argc1, func_ptr);
+                *(float32*)ret = invokeNative_Float32(func_ptr, argv1, argc1);
                 break;
             case VALUE_TYPE_F64:
-                PUT_F64_TO_ADDR(ret, invokeNative_Float64(argv1, argc1, func_ptr));
+                PUT_F64_TO_ADDR(ret, invokeNative_Float64(func_ptr, argv1, argc1));
                 break;
             default:
                 wasm_assert(0);
@@ -1558,13 +1558,13 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
 #else /* else of !defined(__x86_64__) && !defined(__amd_64__) */
 
 typedef void (*GenericFunctionPointer)();
-int64 invokeNative(uint64 *args, uint64 n_fps, uint64 n_stacks, GenericFunctionPointer f);
+int64 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
-typedef float64 (*Float64FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
-typedef float32 (*Float32FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
-typedef int64 (*Int64FuncPtr)(uint64*,uint64, uint64, GenericFunctionPointer);
-typedef int32 (*Int32FuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
-typedef void (*VoidFuncPtr)(uint64*, uint64, uint64, GenericFunctionPointer);
+typedef float64 (*Float64FuncPtr)(GenericFunctionPointer, uint64*, uint64);
+typedef float32 (*Float32FuncPtr)(GenericFunctionPointer, uint64*, uint64);
+typedef int64 (*Int64FuncPtr)(GenericFunctionPointer, uint64*,uint64);
+typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint64*, uint64);
+typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint64*, uint64);
 
 static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
 static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
@@ -1604,7 +1604,7 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
         }
     }
 
-    fps = argv1 + 1;
+    fps = argv1;
     ints = fps + MAX_REG_FLOATS;
     stacks = ints + MAX_REG_INTS;
 
@@ -1645,21 +1645,21 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     }
 
     if (func_type->result_count == 0) {
-        invokeNative_Void(argv1, n_fps, n_stacks, func_ptr);
+        invokeNative_Void(func_ptr, argv1, n_stacks);
     }
     else {
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
-                ret[0] = invokeNative_Int32(argv1, n_fps, n_stacks, func_ptr);
+                ret[0] = invokeNative_Int32(func_ptr, argv1, n_stacks);
                 break;
             case VALUE_TYPE_I64:
-                PUT_I64_TO_ADDR(ret, invokeNative_Int64(argv1, n_fps, n_stacks, func_ptr));
+                PUT_I64_TO_ADDR(ret, invokeNative_Int64(func_ptr, argv1, n_stacks));
                 break;
             case VALUE_TYPE_F32:
-                *(float32*)ret = invokeNative_Float32(argv1, n_fps, n_stacks, func_ptr);
+                *(float32*)ret = invokeNative_Float32(func_ptr, argv1, n_stacks);
                 break;
             case VALUE_TYPE_F64:
-                PUT_F64_TO_ADDR(ret, invokeNative_Float64(argv1, n_fps, n_stacks, func_ptr));
+                PUT_F64_TO_ADDR(ret, invokeNative_Float64(func_ptr, argv1, n_stacks));
                 break;
             default:
                 wasm_assert(0);
