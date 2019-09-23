@@ -21,16 +21,16 @@
 /*
  * Arguments passed in:
  *
- * r0 argv
- * r1 argc
- * r2 function pntr
+ * r0 function pntr
+ * r1 argv
+ * r2 argc
  */
 
 invokeNative:
         stmfd   sp!, {r4, r5, r6, r7, lr}
-        mov     r4, r0           /* get argv */
-        mov     r5, r1           /* get argc */
-        mov     ip, r2           /* get function ptr */
+        mov     ip, r0           /* get function ptr */
+        mov     r4, r1           /* get argv */
+        mov     r5, r2           /* get argc */
 
         cmp     r5, #2           /* is argc < 2 ? */
         blt     return

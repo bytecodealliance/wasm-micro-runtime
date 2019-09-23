@@ -52,7 +52,7 @@ Linux
 --------------------------------
 - Build</br>
 `./build.sh`</br>
-    All binaries are in "out", which contains "host_tool", "lvgl_native_ui_app", "ui_app.wasm", "ui_app_lvgl_compatible" and "wasm_runtime_wgl".
+    All binaries are in "out", which contains "host_tool", "lvgl_native_ui_app", "ui_app.wasm", "ui_app_lvgl_compatible.wasm" and "wasm_runtime_wgl".
 - Run native Linux application</br>
 `./lvgl_native_ui_app`</br>
 
@@ -61,7 +61,7 @@ Linux
 `./wasm_runtime_wgl -s`</br>
  Then install wasm APP use host tool.</br>
 `./host_tool -i ui_app -f ui_app.wasm`</br>
-`./host_tool -i ui_app -f ui_app_compatible.wasm`</br>
+`./host_tool -i ui_app -f ui_app_lvgl_compatible.wasm`</br>
 
 Zephyr
 --------------------------------
