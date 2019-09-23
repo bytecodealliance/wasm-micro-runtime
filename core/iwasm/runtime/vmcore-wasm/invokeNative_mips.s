@@ -22,9 +22,9 @@
 
 /**
  * On function entry parameters:
- * $4 = args
- * $5 = arg_num
- * $6 = func_ptr
+ * $4 = func_ptr
+ * $5 = args
+ * $6 = arg_num
  */
 
 invokeNative:
@@ -43,22 +43,22 @@ invokeNative:
     move $fp, $sp
 
     /* allocate enough stack space */
-    sll $11, $5, 2
+    sll $11, $6, 2  /* $11 == arg_num * 4 */
     subu $sp, $11
 
     /* make 8-byte aligned */
-    and $sp, ~7 
+    and $sp, ~7
 
     move $9, $sp
-    move $25, $6    /* $25 = func_ptr */
+    move $25, $4    /* $25 = func_ptr */
 
 push_args:
-    beq $5, 0, done /* arg_num == 0 ? */
-    lw $8, 0($4)
-    sw $8, 0($9)
-    addu $4, 4
-    addu $9, 4
-    subu $5, 1      /* arg_index-- */
+    beq $6, 0, done /* arg_num == 0 ? */
+    lw $8, 0($5)    /* $8 = *args */
+    sw $8, 0($9)    /* store $8 to stack */
+    addu $5, 4      /* args++ */
+    addu $9, 4      /* sp++ */
+    subu $6, 1      /* arg_num-- */
     j push_args
 
 done:
