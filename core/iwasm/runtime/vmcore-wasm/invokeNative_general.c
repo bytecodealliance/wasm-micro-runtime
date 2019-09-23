@@ -16,7 +16,7 @@
 
 #include "wasm_runtime.h"
 
-void invokeNative(uint32 argv[], uint32 argc, void (*native_code)())
+void invokeNative(void (*native_code)(), uint32 argv[], uint32 argc)
 {
     WASMThread *self;
     switch(argc) {
