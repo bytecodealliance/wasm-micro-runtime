@@ -1795,7 +1795,13 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
         b = POP_F32();
         a = POP_F32();
-        PUSH_F32(wa_fmin(a, b));
+
+        if (isnan(a))
+            PUSH_F32(a);
+        else if (isnan(b))
+            PUSH_F32(b);
+        else
+            PUSH_F32(wa_fmin(a, b));
         HANDLE_OP_END ();
       }
 
@@ -1805,7 +1811,13 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
         b = POP_F32();
         a = POP_F32();
-        PUSH_F32(wa_fmax(a, b));
+
+        if (isnan(a))
+            PUSH_F32(a);
+        else if (isnan(b))
+            PUSH_F32(b);
+        else
+            PUSH_F32(wa_fmax(a, b));
         HANDLE_OP_END ();
       }
 
@@ -1870,7 +1882,13 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
         b = POP_F64();
         a = POP_F64();
-        PUSH_F64(wa_fmin(a, b));
+
+        if (isnan(a))
+            PUSH_F64(a);
+        else if (isnan(b))
+            PUSH_F64(b);
+        else
+            PUSH_F64(wa_fmin(a, b));
         HANDLE_OP_END ();
       }
 
@@ -1880,7 +1898,13 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
         b = POP_F64();
         a = POP_F64();
-        PUSH_F64(wa_fmax(a, b));
+
+        if (isnan(a))
+            PUSH_F64(a);
+        else if (isnan(b))
+            PUSH_F64(b);
+        else
+            PUSH_F64(wa_fmax(a, b));
         HANDLE_OP_END ();
       }
 

@@ -24,7 +24,8 @@ zephyr_compile_definitions (-DNVALGRIND
     -D__ZEPHYR__
     -DWASM_ENABLE_BASE_LIB
     -Dattr_container_malloc=bh_malloc
-    -Dattr_container_free=bh_free)
+    -Dattr_container_free=bh_free
+    -DWASM_ENABLE_GUI=1)
 
 set (IWASM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/core/iwasm)
 set (APP_MGR_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/core/app-mgr)
