@@ -131,3 +131,6 @@
 #define bh_printf printf
 #endif
 
+#ifndef WASM_ENABLE_GUI
+#define WASM_ENABLE_GUI 0
+#endif

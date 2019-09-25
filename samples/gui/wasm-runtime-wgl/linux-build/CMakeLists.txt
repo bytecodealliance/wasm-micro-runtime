@@ -82,6 +82,7 @@ add_definitions (-DWASM_ENABLE_BASE_LIB)
 add_definitions (-Dattr_container_malloc=bh_malloc)
 add_definitions (-Dattr_container_free=bh_free)
 add_definitions (-DLV_CONF_INCLUDE_SIMPLE)
+add_definitions (-DWASM_ENABLE_GUI=1)
 
 add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
