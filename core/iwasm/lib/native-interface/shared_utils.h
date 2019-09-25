@@ -156,7 +156,9 @@ unpack_response(char * packet, int size, response_t * response);
 void
 free_req_resp_packet(char * packet);
 
+#if WASM_ENABLE_GUI != 0
 #include "wgl_shared_utils.h"
+#endif
 
 #ifdef __cplusplus
 }

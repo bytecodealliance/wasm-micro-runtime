@@ -33,8 +33,10 @@
 #include "module_wasm_app.h"
 #include "wasm_export.h"
 
+#if WASM_ENABLE_GUI != 0
 #include "lv_drivers/display/monitor.h"
 #include "lv_drivers/indev/mouse.h"
+#endif
 
 #define MAX 2048
 
@@ -430,6 +432,7 @@ static bool parse_args(int argc, char *argv[])
     return true;
 }
 
+#if WASM_ENABLE_GUI != 0
 /**
  * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
  */
@@ -461,6 +464,8 @@ static void hal_init(void)
     indev_drv.read_cb = mouse_read;         /*This function will be called periodically (by the library) to get the mouse position and state*/
     lv_indev_drv_register(&indev_drv);
 }
+#endif
+
 // Driver function
 int iwasm_main(int argc, char *argv[])
 {
@@ -484,8 +489,11 @@ int iwasm_main(int argc, char *argv[])
         goto fail1;
     }
 
+#if WASM_ENABLE_GUI != 0
     wgl_init();
     hal_init();
+#endif
+
     init_sensor_framework();
 
     // timer manager
