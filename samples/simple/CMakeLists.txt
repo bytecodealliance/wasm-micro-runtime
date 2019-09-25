@@ -48,10 +48,11 @@ set(WASM_DIR  ${WAMR_ROOT_DIR}/core/iwasm)
 set(APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
 set(SHARED_DIR ${WAMR_ROOT_DIR}/core/shared-lib)
 
-set (LV_DRIVERS_DIR ${WASM_DIR}/lib/3rdparty/lv_drivers)
-set (LVGL_DIR ${WASM_DIR}/lib/3rdparty/lvgl)
-
-file(GLOB_RECURSE LV_DRIVERS_SOURCES "${LV_DRIVERS_DIR}/*.c" )
+if ("${ENABLE_GUI}" STREQUAL "YES")
+    set (LV_DRIVERS_DIR ${WASM_DIR}/lib/3rdparty/lv_drivers)
+    set (LVGL_DIR ${WASM_DIR}/lib/3rdparty/lvgl)
+    file(GLOB_RECURSE LV_DRIVERS_SOURCES "${LV_DRIVERS_DIR}/*.c" )
+endif()
 
 enable_language (ASM)
 
@@ -61,7 +62,9 @@ include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
 include (${WASM_DIR}/lib/native/libc/wasm_libc.cmake)
 include (${WASM_DIR}/lib/native/extension/sensor/wasm_lib_sensor.cmake)
-include (${WASM_DIR}/lib/native/extension/gui/wasm_lib_gui.cmake)
+if ("${ENABLE_GUI}" STREQUAL "YES")
+    include (${WASM_DIR}/lib/native/extension/gui/wasm_lib_gui.cmake)
+endif()
 include (${WASM_DIR}/lib/native/extension/connection/wasm_lib_conn.cmake)
 include (${WASM_DIR}/lib/native/extension/connection/${TARGET_PLATFORM}/connection_mgr.cmake)
 include (${WASM_DIR}/lib/native-interface/native_interface.cmake)
@@ -83,6 +86,10 @@ add_definitions (-Dattr_container_malloc=bh_malloc)
 add_definitions (-Dattr_container_free=bh_free)
 add_definitions (-DLV_CONF_INCLUDE_SIMPLE)
 
+if ("${ENABLE_GUI}" STREQUAL "YES")
+    add_definitions (-DWASM_ENABLE_GUI=1)
+endif()
+
 add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
              ${WASM_UTILS_LIB_SOURCE}
@@ -101,7 +108,12 @@ add_library (vmlib
              ${NATIVE_INTERFACE_SOURCE}
             )
 
+if ("${ENABLE_GUI}" STREQUAL "YES")
     add_executable (simple src/main.c src/iwasm_main.c src/ext_lib_export.c ${LV_DRIVERS_SOURCES})
+    target_link_libraries (simple vmlib -lm -ldl -lpthread -lSDL2)
+else ()
+    add_executable (simple src/main.c src/iwasm_main.c src/ext_lib_export.c)
+    target_link_libraries (simple vmlib -lm -ldl -lpthread)
+endif ()
 
-target_link_libraries (simple vmlib -lm -ldl -lpthread -lSDL2)
 

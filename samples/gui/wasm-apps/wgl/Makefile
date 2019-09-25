@@ -18,6 +18,7 @@ IWASM_DIR=../../../../core/iwasm
 CFLAGS += -O3 \
 	  -Wno-int-conversion \
 	  -DLV_CONF_INCLUDE_SIMPLE \
+	  -DENABLE_WGL=1 \
 	  -I$(APP_DIR)/src/ \
 	  -I$(IWASM_DIR)/lib/app-libs/base/ \
 	  -I$(IWASM_DIR)/lib/native-interface/ \

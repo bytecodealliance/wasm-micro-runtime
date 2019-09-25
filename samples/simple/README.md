@@ -28,6 +28,8 @@ simple/
 
 - build.sh<br/>
   The script to build all binaries.
+- build_no_gui.sh<br/>
+  The script to build all binaries without gui library support.
 - CMakeLists.txt<br/>
   CMake file used to build the simple application.
 - README.md<br/>
@@ -100,6 +102,9 @@ Build all binaries
 ==============
 Execute the build.sh script then all binaries including wasm application files would be generated in 'out' directory.
 `./build.sh`
+
+Or execute the build_no_gui.sh script to build all binaries without gui library support.
+`./build_no_gui.sh`
 
 Out directory structure
 ------------------------------

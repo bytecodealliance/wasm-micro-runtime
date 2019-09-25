@@ -38,7 +38,10 @@
 #include "sensor.h"
 #include "connection.h"
 #include "timer_wasm_app.h"
+
+#if ENABLE_WGL != 0
 #include "wgl.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
