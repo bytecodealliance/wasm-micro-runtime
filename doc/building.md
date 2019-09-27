@@ -235,6 +235,26 @@ clang-8 --target=wasm32 -O3 -Wl,--initial-memory=131072,--allow-undefined,--expo
 
 You will get ```test.wasm``` which is the WASM app binary.
 
+## Use cmake
+
+If you have a cmake project, you can cross compile your project by using the toolchain provided by WAMR, the compiler used by WAMR toolchain is `clang-8`.
+
+We can generate a `CMakeLists.txt` file for `test.c`:
+```cmake
+cmake_minimum_required (VERSION 3.5)
+project(hello_world)
+add_executable(hello_world test.c)
+```
+It is quite simple to build this project by cmake:
+```Bash
+mkdir build && cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=$WAMR_ROOT/test-tools/toolchain/wamr_toolchain.cmake
+make
+```
+You will get ```hello_world``` which is the WASM app binary.
+
+For more details about wamr toolchain, please refer to [test-tools/toolchain](../test-tools/toolchain/README.md).
+
 ## Using Docker
 
 The last method availble is using [Docker](https://www.docker.com/). We assume you've already configured Docker (see Platform section above) and have a running interactive shell. Currently the Dockerfile only supports compiling apps with clang, with Emscripten planned for the future.
