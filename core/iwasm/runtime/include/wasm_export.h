@@ -255,6 +255,19 @@ void
 wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Save data with the module instance
+ */
+bool
+wasm_runtime_set_instance_data(wasm_module_inst_t module_inst,
+                               void *thread_data);
+
+/**
+ * Retrieve saved instance data
+ */
+void*
+wasm_runtime_get_instance_data(wasm_module_inst_t module_inst);
+
+/**
  * Attach the current native thread to a WASM module instance.
  * A native thread cannot be attached simultaneously to two WASM module
  * instances. The WASM module instance will be attached to the native

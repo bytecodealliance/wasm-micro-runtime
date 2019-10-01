@@ -1134,6 +1134,20 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *env)
 }
 
 bool
+wasm_runtime_set_instance_data(WASMModuleInstance *module_inst,
+                                     void *thread_data)
+{
+    module_inst->thread_data = thread_data;
+    return true;
+}
+
+void*
+wasm_runtime_get_instance_data(WASMModuleInstance *module_inst)
+{
+    return module_inst->thread_data;
+}
+
+bool
 wasm_runtime_attach_current_thread(WASMModuleInstance *module_inst,
                                    void *thread_data)
 {
@@ -1674,4 +1688,3 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
 }
 
 #endif /* end of !defined(__x86_64__) && !defined(__amd_64__) */
-
