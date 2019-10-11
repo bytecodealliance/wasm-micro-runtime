@@ -44,8 +44,6 @@ wasm_runtime_init()
     if (ws_thread_sys_init() != 0)
         return false;
 
-    wasm_runtime_set_tlr(NULL);
-
     wasm_native_init();
     return true;
 }
@@ -53,7 +51,6 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
-    wasm_runtime_set_tlr(NULL);
     ws_thread_sys_destroy();
 }
 
@@ -71,7 +68,7 @@ wasm_runtime_call_wasm(WASMModuleInstance *module_inst,
                        unsigned argc, uint32 argv[])
 {
     /* Only init stack when no application is running. */
-    if (!wasm_runtime_get_self()->cur_frame) {
+    if (!module_inst->main_tlr.cur_frame) {
        if (!exec_env) {
             if (!module_inst->wasm_stack) {
                 if (!(module_inst->wasm_stack =
@@ -107,7 +104,7 @@ wasm_runtime_call_wasm(WASMModuleInstance *module_inst,
        }
     }
 
-    wasm_interp_call_wasm(function, argc, argv);
+    wasm_interp_call_wasm(module_inst, function, argc, argv);
     return !wasm_runtime_get_exception(module_inst) ? true : false;
 }
 
@@ -959,9 +956,7 @@ wasm_runtime_instantiate(WASMModule *module,
     module_inst->wasm_stack_size = stack_size;
     module_inst->main_tlr.module_inst = module_inst;
 
-    /* Bind thread data with current native thread:
-       set thread local root to current thread. */
-    wasm_runtime_set_tlr(&module_inst->main_tlr);
+    /* The native thread handle may be used in future, e.g multiple threads. */
     module_inst->main_tlr.handle = ws_self_thread();
 
     /* Execute __post_instantiate and start function */
@@ -1133,34 +1128,17 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *env)
     }
 }
 
-bool
-wasm_runtime_attach_current_thread(WASMModuleInstance *module_inst,
-                                   void *thread_data)
-{
-    wasm_runtime_set_tlr(&module_inst->main_tlr);
-    module_inst->main_tlr.handle = ws_self_thread();
-    module_inst->thread_data = thread_data;
-    return true;
-}
-
 void
-wasm_runtime_detach_current_thread(WASMModuleInstance *module_inst)
+wasm_runtime_set_custom_data(WASMModuleInstance *module_inst,
+                             void *custom_data)
 {
-    module_inst->thread_data = NULL;
+    module_inst->custom_data = custom_data;
 }
 
 void*
-wasm_runtime_get_current_thread_data()
+wasm_runtime_get_custom_data(WASMModuleInstance *module_inst)
 {
-    WASMThread *tlr = wasm_runtime_get_self();
-    return (tlr && tlr->module_inst) ? tlr->module_inst->thread_data : NULL;
-}
-
-WASMModuleInstance *
-wasm_runtime_get_current_module_inst()
-{
-    WASMThread *tlr = wasm_runtime_get_self();
-    return tlr ? tlr->module_inst : NULL;
+    return module_inst->custom_data;
 }
 
 int32
@@ -1241,6 +1219,30 @@ wasm_runtime_validate_app_addr(WASMModuleInstance *module_inst,
         return true;
     }
 #endif
+
+fail:
+    wasm_runtime_set_exception(module_inst, "out of bounds memory access");
+    return false;
+}
+
+bool
+wasm_runtime_validate_app_str_addr(WASMModuleInstance *module_inst,
+                                   int32 app_str_offset)
+{
+    int32 app_end_offset;
+    char *str, *str_end;
+
+    if (!wasm_runtime_get_app_addr_range(module_inst, app_str_offset,
+                                         NULL, &app_end_offset))
+        goto fail;
+
+    str = wasm_runtime_addr_app_to_native(module_inst, app_str_offset);
+    str_end = str + (app_end_offset - app_str_offset);
+    while (str < str_end && *str != '\0')
+        str++;
+    if (str == str_end)
+        goto fail;
+    return true;
 
 fail:
     wasm_runtime_set_exception(module_inst, "out of bounds memory access");

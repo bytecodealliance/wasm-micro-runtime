@@ -65,7 +65,7 @@ void
 module_data_list_destroy();
 
 bool
-app_manager_is_interrupting_module(uint32 module_type);
+app_manager_is_interrupting_module(uint32 module_type, void *module_inst);
 
 void release_module(module_data *m_data);
 

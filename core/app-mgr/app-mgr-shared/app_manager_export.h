@@ -105,7 +105,7 @@ typedef bool (*module_install_func)(request_t *msg);
 typedef bool (*module_uninstall_func)(request_t *msg);
 typedef void (*module_watchdog_kill_func)(module_data *module_data);
 typedef bool (*module_handle_host_url_func)(void *queue_msg);
-typedef module_data *(*module_get_module_data_func)(void);
+typedef module_data *(*module_get_module_data_func)(void *inst);
 
 /**
  * @typedef module_on_install_request_byte_arrive_func
@@ -194,24 +194,24 @@ app_manager_startup(host_interface *interface);
 
 /* Get queue of current applet */
 void *
-app_manager_get_module_queue(uint32 module_type);
+app_manager_get_module_queue(uint32 module_type, void *module_inst);
 
 /* Get applet name of current applet */
 const char *
-app_manager_get_module_name(uint32 module_type);
+app_manager_get_module_name(uint32 module_type, void *module_inst);
 
 /* Get heap of current applet */
 void *
-app_manager_get_module_heap(uint32 module_type);
+app_manager_get_module_heap(uint32 module_type, void *module_inst);
 
 void*
 get_app_manager_queue();
 
 module_data*
-app_manager_get_module_data(uint32 module_type);
+app_manager_get_module_data(uint32 module_type, void *module_inst);
 
 unsigned int
-app_manager_get_module_id(uint32 module_type);
+app_manager_get_module_id(uint32 module_type, void *module_inst);
 
 module_data*
 app_manager_lookup_module_data(const char *name);

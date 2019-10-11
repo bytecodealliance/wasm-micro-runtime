@@ -164,8 +164,9 @@ typedef struct WASMModuleInstance {
     /* The exception buffer of wasm interpreter for current thread. */
     char cur_exception[128];
 
-    /* The thread data of the attaching thread */
-    void *thread_data;
+    /* The custom data that can be set/get by
+     * wasm_runtime_set_custom_data/wasm_runtime_get_custom_data */
+    void *custom_data;
 
     /* Main Thread */
     WASMThread main_tlr;
@@ -283,37 +284,56 @@ wasm_runtime_get_exception(WASMModuleInstance *module);
 bool
 wasm_runtime_enlarge_memory(WASMModuleInstance *module, int inc_page_count);
 
-/* See wasm-export.h for description */
+/* See wasm_export.h for description */
 WASMModuleInstance *
 wasm_runtime_get_current_module_inst();
 
-/* See wasm-export.h for description */
+/* See wasm_export.h for description */
 int32
 wasm_runtime_module_malloc(WASMModuleInstance *module_inst, uint32 size);
 
-/* See wasm-export.h for description */
+/* See wasm_export.h for description */
 void
 wasm_runtime_module_free(WASMModuleInstance *module_inst, int32 ptr);
 
-/* See wasm-export.h for description */
+/* See wasm_export.h for description */
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstance *module_inst,
                                int32 app_offset, uint32 size);
 
-/* See wasm-export.h for description */
+/* See wasm_export.h for description */
+bool
+wasm_runtime_validate_app_str_addr(WASMModuleInstance *module_inst,
+                                   int32 app_offset);
+
+/* See wasm_export.h for description */
 bool
 wasm_runtime_validate_native_addr(WASMModuleInstance *module_inst,
                                   void *native_ptr, uint32 size);
 
-/* See wasm-export.h for description */
+/* See wasm_export.h for description */
 void *
 wasm_runtime_addr_app_to_native(WASMModuleInstance *module_inst,
                                 int32 app_offset);
 
-/* See wasm-export.h for description */
+/* See wasm_export.h for description */
 int32
 wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
                                 void *native_ptr);
+
+/* See wasm_export.h for description */
+bool
+wasm_runtime_get_app_addr_range(WASMModuleInstance *module_inst,
+                                int32_t app_offset,
+                                int32_t *p_app_start_offset,
+                                int32_t *p_app_end_offset);
+
+/* See wasm_export.h for description */
+bool
+wasm_runtime_get_native_addr_range(WASMModuleInstance *module_inst,
+                                   uint8_t *native_ptr,
+                                   uint8_t **p_native_start_addr,
+                                   uint8_t **p_native_end_addr);
 
 bool
 wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
