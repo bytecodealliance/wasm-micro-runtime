@@ -2178,10 +2178,11 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 }
 
 void
-wasm_interp_call_wasm(WASMFunctionInstance *function,
+wasm_interp_call_wasm(WASMModuleInstance *module_inst,
+                      WASMFunctionInstance *function,
                       uint32 argc, uint32 argv[])
 {
-    WASMThread *self = wasm_runtime_get_self();
+    WASMThread *self = &module_inst->main_tlr;
     WASMRuntimeFrame *prev_frame = wasm_thread_get_cur_frame(self);
     WASMInterpFrame *frame, *outs_area;
 

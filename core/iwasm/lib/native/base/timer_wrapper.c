@@ -141,9 +141,10 @@ void destroy_module_timer_ctx(unsigned int module_id)
     vm_mutex_unlock(&g_timer_ctx_list_mutex);
 }
 
-timer_ctx_t get_wasm_timer_ctx()
+timer_ctx_t get_wasm_timer_ctx(wasm_module_inst_t module_inst)
 {
-    module_data * m = app_manager_get_module_data(Module_WASM_App);
+    module_data * m = app_manager_get_module_data(Module_WASM_App,
+                                                  module_inst);
     if (m == NULL)
         return NULL;
     return m->timer_ctx;
@@ -153,27 +154,27 @@ timer_id_t
 wasm_create_timer(wasm_module_inst_t module_inst,
                   int interval, bool is_period, bool auto_start)
 {
-    return sys_create_timer(get_wasm_timer_ctx(), interval, is_period,
+    return sys_create_timer(get_wasm_timer_ctx(module_inst), interval, is_period,
                             auto_start);
 }
 
 void
 wasm_timer_destroy(wasm_module_inst_t module_inst, timer_id_t timer_id)
 {
-    sys_timer_destroy(get_wasm_timer_ctx(), timer_id);
+    sys_timer_destroy(get_wasm_timer_ctx(module_inst), timer_id);
 }
 
 void
 wasm_timer_cancel(wasm_module_inst_t module_inst, timer_id_t timer_id)
 {
-    sys_timer_cancel(get_wasm_timer_ctx(), timer_id);
+    sys_timer_cancel(get_wasm_timer_ctx(module_inst), timer_id);
 }
 
 void
 wasm_timer_restart(wasm_module_inst_t module_inst,
                    timer_id_t timer_id, int interval)
 {
-    sys_timer_restart(get_wasm_timer_ctx(), timer_id, interval);
+    sys_timer_restart(get_wasm_timer_ctx(module_inst), timer_id, interval);
 }
 
 extern uint32 get_sys_tick_ms();

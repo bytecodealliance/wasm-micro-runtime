@@ -25,6 +25,9 @@
 #define validate_app_addr(offset, size) \
     wasm_runtime_validate_app_addr(module_inst, offset, size)
 
+#define validate_app_str_addr(offset) \
+    wasm_runtime_validate_app_str_addr(module_inst, offset)
+
 #define addr_app_to_native(offset) \
     wasm_runtime_addr_app_to_native(module_inst, offset)
 

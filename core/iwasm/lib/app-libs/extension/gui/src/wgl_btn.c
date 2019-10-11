@@ -24,6 +24,7 @@
 wgl_obj_t wgl_btn_create(wgl_obj_t par, wgl_obj_t copy)
 {
     uint32 argv[2] = {0};
+
     argv[0] = (uint32)par;
     argv[1] = (uint32)copy;
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_CREATE);

@@ -81,7 +81,7 @@ static bool wasm_app_module_install(request_t *msg);
 static bool wasm_app_module_uninstall(request_t *msg);
 static void wasm_app_module_watchdog_kill(module_data *module_data);
 static bool wasm_app_module_handle_host_url(void *queue_msg);
-static module_data *wasm_app_module_get_module_data(void);
+static module_data *wasm_app_module_get_module_data(void *inst);
 static bool
 wasm_app_module_on_install_request_byte_arrive(uint8 ch, int request_total_size,
         int *received_size);
@@ -110,14 +110,13 @@ static unsigned align_uint(unsigned v, unsigned b)
     return (v + m) & ~m;
 }
 
-static void app_instance_queue_callback(void *queue_msg)
+static void app_instance_queue_callback(void *queue_msg, void *arg)
 {
     uint32 argv[2];
     wasm_function_inst_t func_onRequest, func_onTimer;
 
-    module_data *m_data = app_manager_get_module_data(Module_WASM_App);
-    wasm_data *wasm_app_data = (wasm_data*) m_data->internal_data;
-    wasm_module_inst_t inst = wasm_app_data->wasm_module_inst;
+    wasm_module_inst_t inst = (wasm_module_inst_t)arg;
+    module_data *m_data = app_manager_get_module_data(Module_WASM_App, inst);
     int message_type = bh_message_type(queue_msg);
 
     switch (message_type) {
@@ -262,17 +261,16 @@ wasm_app_routine(void *arg)
     wasm_module_inst_t inst = wasm_app_data->wasm_module_inst;
     korp_tid thread = wasm_app_data->thread_id;
 
-    /* attach newly created thread to the VM managed instance */
-    if (!wasm_runtime_attach_current_thread(inst, m_data)) {
-        goto fail1;
-    }
+    /* Set m_data to the VM managed instance's custom data */
+    wasm_runtime_set_custom_data(inst, m_data);
+
     app_manager_printf("WASM app '%s' started\n", m_data->module_name);
 
     /* Call app's onInit() method */
     func_onInit = wasm_runtime_lookup_function(inst, "_on_init", "()");
     if (!func_onInit) {
         app_manager_printf("Cannot find function on_init().\n");
-        goto fail2;
+        goto fail1;
     }
 
     if (!wasm_runtime_call_wasm(inst, NULL, func_onInit, 0, NULL)) {
@@ -281,23 +279,21 @@ wasm_app_routine(void *arg)
         wasm_runtime_clear_exception(inst);
         /* call on_destroy() in case some resources are opened in on_init()
          * and then exception thrown */
-        goto fail3;
+        goto fail2;
     }
 
     /* Enter queue loop run to receive and process applet queue message */
-    bh_queue_enter_loop_run(m_data->queue, app_instance_queue_callback);
+    bh_queue_enter_loop_run(m_data->queue, app_instance_queue_callback, inst);
 
     app_manager_printf("App instance main thread exit.\n");
 
-    fail3:
+fail2:
     /* Call WASM app onDestroy() method if there is */
     func_onDestroy = wasm_runtime_lookup_function(inst, "_on_destroy", "()");
     if (func_onDestroy)
         wasm_runtime_call_wasm(inst, NULL, func_onDestroy, 0, NULL);
 
-    fail2: wasm_runtime_detach_current_thread(inst);
-
-    fail1:
+fail1:
     vm_thread_detach(thread);
     vm_thread_exit(NULL);
 
@@ -548,8 +544,7 @@ static bool wasm_app_module_install(request_t * msg)
         goto fail;
     }
 
-    /* create a thread. This thread may not dedicate for this WASM app.
-     WASM app instance needs to attach to one thread */
+    /* Create WASM app thread. */
     if (vm_thread_create(&wasm_app_data->thread_id, wasm_app_routine,
             (void*) m_data, APP_THREAD_STACK_SIZE_DEFAULT) != 0) {
         module_data_list_remove(m_data);
@@ -648,9 +643,10 @@ static bool wasm_app_module_handle_host_url(void *queue_msg)
 }
 
 static module_data*
-wasm_app_module_get_module_data(void)
+wasm_app_module_get_module_data(void *inst)
 {
-    return wasm_runtime_get_current_thread_data();
+    wasm_module_inst_t module_inst = (wasm_module_inst_t)inst;
+    return (module_data *)wasm_runtime_get_custom_data(module_inst);
 }
 
 static void wasm_app_module_watchdog_kill(module_data *m_data)

@@ -60,14 +60,14 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
         *p_offset += 1;
         result |= ((byte & 0x7f) << shift);
         shift += 7;
+        bcnt += 1;
         if ((byte & 0x80) == 0) {
             break;
         }
-        bcnt += 1;
     }
     if (bcnt > (maxbits + 7 - 1) / 7) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: unsigned LEB overflow.");
+                      "integer representation too long");
         return false;
     }
     if (sign && (shift < maxbits) && (byte & 0x40)) {
@@ -625,17 +625,19 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     const uint8 *p = buf, *p_end = buf_end;
     const uint8 *p_code = buf_code, *p_code_end, *p_code_save;
     uint32 func_count, total_size;
-    uint32 code_count, code_size, type_index, i, j, k, local_type_index;
+    uint32 code_count = 0, code_size, type_index, i, j, k, local_type_index;
     uint32 local_count, local_set_count, sub_local_count;
     uint8 type;
     WASMFunction *func;
 
     read_leb_uint32(p, p_end, func_count);
 
-    read_leb_uint32(p_code, buf_code_end, code_count);
+    if (buf_code)
+        read_leb_uint32(p_code, buf_code_end, code_count);
+
     if (func_count != code_count) {
         set_error_buf(error_buf, error_buf_size,
-                      "Load function section failed: invalid function count.");
+                      "function and code section have inconsistent lengths");
         return false;
     }
 
@@ -677,6 +679,11 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             /* Calculate total local count */
             for (j = 0; j < local_set_count; j++) {
                 read_leb_uint32(p_code, buf_code_end, sub_local_count);
+                if (sub_local_count > UINT32_MAX - local_count) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "too many locals");
+                    return false;
+                }
                 read_leb_uint8(p_code, buf_code_end, type);
                 local_count += sub_local_count;
             }
@@ -1084,11 +1091,29 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 }
 
 static bool
-load_code_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
+load_code_section(const uint8 *buf, const uint8 *buf_end,
+                  const uint8 *buf_func,
+                  const uint8 *buf_func_end,
+                  WASMModule *module,
                   char *error_buf, uint32 error_buf_size)
 {
-    /* code has been loaded in function section, so pass it here */
-    /* TODO: should check if there really have section_size code bytes */
+    const uint8 *p = buf, *p_end = buf_end;
+    const uint8 *p_func = buf_func;
+    uint32 func_count = 0, code_count;
+
+    /* code has been loaded in function section, so pass it here, just check
+     * whether function and code section have inconsistent lengths */
+    read_leb_uint32(p, p_end, code_count);
+
+    if (buf_func)
+        read_leb_uint32(p_func, buf_func_end, func_count);
+
+    if (func_count != code_count) {
+        set_error_buf(error_buf, error_buf_size,
+                      "function and code section have inconsistent lengths");
+        return false;
+    }
+
     LOG_VERBOSE("Load code segment section success.\n");
     return true;
 }
@@ -1132,14 +1157,19 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMSection *section = sections;
-    const uint8 *buf, *buf_end, *buf_code = NULL, *buf_code_end = NULL;
+    const uint8 *buf, *buf_end, *buf_code = NULL, *buf_code_end = NULL,
+                *buf_func = NULL, *buf_func_end = NULL;
     uint32 i;
 
+    /* Find code and function sections if have */
     while (section) {
         if (section->section_type == SECTION_TYPE_CODE) {
             buf_code = section->section_body;
             buf_code_end = buf_code + section->section_body_size;
-            break;
+        }
+        else if (section->section_type == SECTION_TYPE_FUNC) {
+            buf_func = section->section_body;
+            buf_func_end = buf_func + section->section_body_size;
         }
         section = section->next;
     }
@@ -1151,6 +1181,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         switch (section->section_type) {
             case SECTION_TYPE_USER:
                 /* unsupported user section, ignore it. */
+                /* add a check to pass spec test case */
+                CHECK_BUF(buf, buf_end, 1);
                 break;
             case SECTION_TYPE_TYPE:
                 if (!load_type_section(buf, buf_end, module, error_buf, error_buf_size))
@@ -1161,11 +1193,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     return false;
                 break;
             case SECTION_TYPE_FUNC:
-                if (!buf_code) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "WASM module load failed: find code section failed.");
-                    return false;
-                }
                 if (!load_function_section(buf, buf_end, buf_code, buf_code_end,
                             module, error_buf, error_buf_size))
                     return false;
@@ -1195,7 +1222,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     return false;
                 break;
             case SECTION_TYPE_CODE:
-                if (!load_code_section(buf, buf_end, module, error_buf, error_buf_size))
+                if (!load_code_section(buf, buf_end, buf_func, buf_func_end,
+                                       module, error_buf, error_buf_size))
                     return false;
                 break;
             case SECTION_TYPE_DATA:
@@ -1356,7 +1384,7 @@ create_sections(const uint8 *buf, uint32 size,
             p += section_size;
         }
         else {
-            set_error_buf(error_buf, error_buf_size, "invalid section type");
+            set_error_buf(error_buf, error_buf_size, "invalid section id");
             return false;
         }
     }
@@ -2540,7 +2568,14 @@ handle_op_br:
                 }
 
                 read_leb_uint32(p, p_end, type_idx);
-                read_leb_uint8(p, p_end, u8); /* 0x00 */
+
+                /* reserved byte 0x00 */
+                if (*p++ != 0x00) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "zero flag expected");
+                    goto fail;
+                }
+
                 POP_I32();
 
                 if (type_idx >= module->type_count) {
@@ -2752,13 +2787,23 @@ handle_op_br:
 
             case WASM_OP_MEMORY_SIZE:
                 CHECK_MEMORY();
-                read_leb_uint32(p, p_end, u32); /* 0x00 */
+                /* reserved byte 0x00 */
+                if (*p++ != 0x00) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "zero flag expected");
+                    goto fail;
+                }
                 PUSH_I32();
                 break;
 
             case WASM_OP_MEMORY_GROW:
                 CHECK_MEMORY();
-                read_leb_uint32(p, p_end, u32); /* 0x00 */
+                /* reserved byte 0x00 */
+                if (*p++ != 0x00) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "zero flag expected");
+                    goto fail;
+                }
                 POP_I32();
                 PUSH_I32();
                 break;

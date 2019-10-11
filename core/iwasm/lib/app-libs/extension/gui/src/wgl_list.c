@@ -26,8 +26,10 @@
 wgl_obj_t wgl_list_create(wgl_obj_t par, const wgl_obj_t copy)
 {
     uint32 argv[2] = {0};
+
     argv[0] = (uint32)par;
     argv[1] = (uint32)copy;
+
     CALL_LIST_NATIVE_FUNC(LIST_FUNC_ID_CREATE);
     return (wgl_obj_t)argv[0];
 }
@@ -41,9 +43,10 @@ wgl_obj_t wgl_list_create(wgl_obj_t par, const wgl_obj_t copy)
 
 wgl_obj_t wgl_list_add_btn(wgl_obj_t list, const void * img_src, const char * txt)
 {
+    uint32 argv[3] = {0};
+
     (void)img_src; /* doesn't support img src currently */
 
-    uint32 argv[3] = {0};
     argv[0] = (uint32)list;
     argv[1] = (uint32)txt;
     argv[2] = strlen(txt) + 1;

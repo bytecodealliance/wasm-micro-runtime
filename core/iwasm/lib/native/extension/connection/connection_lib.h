@@ -18,6 +18,7 @@
 #define CONNECTION_LIB_H_
 
 #include "attr_container.h"
+#include "wasm_export.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,7 +38,8 @@ extern "C" {
  *
  * @return 0~0xFFFFFFFE means id of the connection, otherwise(-1) means fail
  */
-typedef uint32 (*connection_open_f)(const char *name, attr_container_t *args);
+typedef uint32 (*connection_open_f)(wasm_module_inst_t module_inst,
+                                    const char *name, attr_container_t *args);
 
 /*
  * @brief Close a connection.
