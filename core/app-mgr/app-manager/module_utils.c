@@ -130,35 +130,35 @@ module_data_list_lookup_id(unsigned int module_id)
 }
 
 module_data *
-app_manager_get_module_data(uint32 module_type)
+app_manager_get_module_data(uint32 module_type, void *module_inst)
 {
     if (g_module_interfaces[module_type]
             && g_module_interfaces[module_type]->module_get_module_data)
-        return g_module_interfaces[module_type]->module_get_module_data();
+        return g_module_interfaces[module_type]->module_get_module_data(module_inst);
     return NULL;
 }
 
 void*
-app_manager_get_module_queue(uint32 module_type)
+app_manager_get_module_queue(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type)->queue;
+    return app_manager_get_module_data(module_type, module_inst)->queue;
 }
 
 const char*
-app_manager_get_module_name(uint32 module_type)
+app_manager_get_module_name(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type)->module_name;
+    return app_manager_get_module_data(module_type, module_inst)->module_name;
 }
 
-unsigned int app_manager_get_module_id(uint32 module_type)
+unsigned int app_manager_get_module_id(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type)->id;
+    return app_manager_get_module_data(module_type, module_inst)->id;
 }
 
 void*
-app_manager_get_module_heap(uint32 module_type)
+app_manager_get_module_heap(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type)->heap;
+    return app_manager_get_module_data(module_type, module_inst)->heap;
 }
 
 module_data*
@@ -179,9 +179,9 @@ void app_manager_del_module_data(module_data *m_data)
     release_module(m_data);
 }
 
-bool app_manager_is_interrupting_module(uint32 module_type)
+bool app_manager_is_interrupting_module(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type)->wd_timer.is_interrupting;
+    return app_manager_get_module_data(module_type, module_inst)->wd_timer.is_interrupting;
 }
 
 extern void destroy_module_timer_ctx(unsigned int module_id);

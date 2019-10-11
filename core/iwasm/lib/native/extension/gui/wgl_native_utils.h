@@ -63,7 +63,8 @@ bool wgl_native_add_object(lv_obj_t *obj, uint32 module_id, uint32 *obj_id);
 
 uint32 wgl_native_wigdet_create(int8 widget_type,
                                 lv_obj_t *par,
-                                lv_obj_t *copy);
+                                lv_obj_t *copy,
+                                wasm_module_inst_t module_inst);
 
 void wgl_native_func_call(wasm_module_inst_t module_inst,
                           WGLNativeFuncDef *funcs,

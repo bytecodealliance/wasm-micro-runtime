@@ -26,6 +26,7 @@
 wgl_obj_t wgl_label_create(wgl_obj_t par, wgl_obj_t copy)
 {
     uint32 argv[2] = {0};
+
     argv[0] = (uint32)par;
     argv[1] = (uint32)copy;
     CALL_LABEL_NATIVE_FUNC(LABEL_FUNC_ID_CREATE);

@@ -246,10 +246,12 @@ static int get_module_type(char *kv_str)
 
 /* Queue callback of App Manager */
 
-static void app_manager_queue_callback(void *message)
+static void app_manager_queue_callback(void *message, void *arg)
 {
     request_t *request = (request_t *) bh_message_payload((bh_message_t)message);
     int mid = request->mid, module_type, offset;
+
+    (void)arg;
 
     if ((offset = check_url_start(request->url, strlen(request->url), "/applet"))
             > 0) {
@@ -376,7 +378,7 @@ void app_manager_startup(host_interface *interface)
     app_manager_printf("App Manager started.\n");
 
     /* Enter loop run */
-    bh_queue_enter_loop_run(g_app_mgr_queue, app_manager_queue_callback);
+    bh_queue_enter_loop_run(g_app_mgr_queue, app_manager_queue_callback, NULL);
 
     fail2: module_data_list_destroy();
 

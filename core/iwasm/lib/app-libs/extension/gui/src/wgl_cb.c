@@ -25,6 +25,7 @@
 wgl_obj_t wgl_cb_create(wgl_obj_t par, const wgl_obj_t copy)
 {
     uint32 argv[2] = {0};
+
     argv[0] = (uint32)par;
     argv[1] = (uint32)copy;
     CALL_CB_NATIVE_FUNC(CB_FUNC_ID_CREATE);

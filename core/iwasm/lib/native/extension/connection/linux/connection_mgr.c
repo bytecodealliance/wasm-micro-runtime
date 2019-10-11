@@ -86,7 +86,8 @@ static struct epoll_event epoll_events[MAX_EVENTS];
 /* Buffer to receive data */
 static char io_buf[IO_BUF_SIZE];
 
-static uint32 _conn_open(const char *name, attr_container_t *args);
+static uint32 _conn_open(wasm_module_inst_t module_inst,
+                         const char *name, attr_container_t *args);
 static void _conn_close(uint32 handle);
 static int _conn_send(uint32 handle, const char *data, int len);
 static bool _conn_config(uint32 handle, attr_container_t *cfg);
@@ -217,12 +218,14 @@ static conn_type_t get_conn_type(const char *name)
 }
 
 /* --- connection lib function --- */
-static uint32 _conn_open(const char *name, attr_container_t *args)
+static uint32 _conn_open(wasm_module_inst_t module_inst,
+                         const char *name, attr_container_t *args)
 {
     int fd;
     sys_connection_t *conn;
     struct epoll_event ev;
-    uint32 module_id = app_manager_get_module_id(Module_WASM_App);
+    uint32 module_id = app_manager_get_module_id(Module_WASM_App,
+                                                 module_inst);
 
     if (get_app_conns_num(module_id) >= MAX_CONNECTION_PER_APP)
         return -1;

@@ -24,13 +24,23 @@
  * Label widget native function wrappers
  * -------------------------------------------------------------------------*/
 static int32
-_label_create(lv_obj_t *par, lv_obj_t *copy)
+lv_label_create_wrapper(wasm_module_inst_t module_inst,
+                        lv_obj_t *par, lv_obj_t *copy)
 {
-    return wgl_native_wigdet_create(WIDGET_TYPE_LABEL, par, copy);
+    return wgl_native_wigdet_create(WIDGET_TYPE_LABEL, par, copy, module_inst);
+}
+
+static void
+lv_label_set_text_wrapper(wasm_module_inst_t module_inst,
+                          lv_obj_t * label, const char * text)
+{
+    (void)module_inst;
+    lv_label_set_text(label, text);
 }
 
 static int32
-_label_get_text_length(lv_obj_t *label)
+lv_label_get_text_length_wrapper(wasm_module_inst_t module_inst,
+                                 lv_obj_t *label)
 {
     char *text = lv_label_get_text(label);
 
@@ -41,7 +51,8 @@ _label_get_text_length(lv_obj_t *label)
 }
 
 static char *
-_label_get_text(lv_obj_t *label, char *buffer, int buffer_len)
+lv_label_get_text_wrapper(wasm_module_inst_t module_inst,
+                          lv_obj_t *label, char *buffer, int buffer_len)
 {
     char *text = lv_label_get_text(label);
 
@@ -55,10 +66,10 @@ _label_get_text(lv_obj_t *label, char *buffer, int buffer_len)
 }
 
 static WGLNativeFuncDef label_native_func_defs[] = {
-        { LABEL_FUNC_ID_CREATE, _label_create, HAS_RET, 2, {0 | NULL_OK, 1 | NULL_OK, -1}, {-1} },
-        { LABEL_FUNC_ID_SET_TEXT, lv_label_set_text, NO_RET, 2, {0, -1}, {1, -1} },
-        { LABEL_FUNC_ID_GET_TEXT_LENGTH, _label_get_text_length, HAS_RET, 1, {0, -1}, {-1} },
-        { LABEL_FUNC_ID_GET_TEXT, _label_get_text, RET_PTR, 3, {0, -1}, {1, -1} },
+        { LABEL_FUNC_ID_CREATE, lv_label_create_wrapper, HAS_RET, 3, {1 | NULL_OK, 2 | NULL_OK, -1}, {-1} },
+        { LABEL_FUNC_ID_SET_TEXT, lv_label_set_text_wrapper, NO_RET, 3, {1, -1}, {2, -1} },
+        { LABEL_FUNC_ID_GET_TEXT_LENGTH, lv_label_get_text_length_wrapper, HAS_RET, 2, {1, -1}, {-1} },
+        { LABEL_FUNC_ID_GET_TEXT, lv_label_get_text_wrapper, RET_PTR, 4, {1, -1}, {2, -1} },
 };
 
 /*************** Native Interface to Wasm App ***********/

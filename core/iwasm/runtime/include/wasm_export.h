@@ -255,37 +255,23 @@ void
 wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
- * Attach the current native thread to a WASM module instance.
- * A native thread cannot be attached simultaneously to two WASM module
- * instances. The WASM module instance will be attached to the native
- * thread which it is instantiated in by default.
+ * Set custom data to WASM module instance.
  *
- * @param module_inst the WASM module instance to attach
- * @param thread_data the thread data that current native thread requires
- *        the WASM module instance to store
- *
- * @return true if SUCCESS, false otherwise
- */
-bool
-wasm_runtime_attach_current_thread(wasm_module_inst_t module_inst,
-                                   void *thread_data);
-
-/**
- * Detach the current native thread from a WASM module instance.
- *
- * @param module_inst the WASM module instance to detach
+ * @param module_inst the WASM module instance
+ * @param custom_data the custom data to be set
  */
 void
-wasm_runtime_detach_current_thread(wasm_module_inst_t module_inst);
-
+wasm_runtime_set_custom_data(wasm_module_inst_t module_inst,
+                             void *custom_data);
 /**
- * Get the thread data that the current native thread requires the WASM
- * module instance to store when attaching.
+ * Get the custom data within a WASM module instance.
  *
- * @return the thread data stored when attaching
+ * @param module_inst the WASM module instance
+ *
+ * @return the custom data (NULL if not set yet)
  */
 void*
-wasm_runtime_get_current_thread_data();
+wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
 
 /**
  * Allocate memory from the heap of WASM module instance
@@ -341,6 +327,23 @@ wasm_runtime_module_dup_data(wasm_module_inst_t module_inst,
 bool
 wasm_runtime_validate_app_addr(wasm_module_inst_t module_inst,
                                int32_t app_offset, uint32_t size);
+
+/**
+ * Similar to wasm_runtime_validate_app_addr(), except that the size parameter
+ * is not provided. This function validates the app string address, check whether it
+ * belongs to WASM module instance's address space, or in its heap space or
+ * memory space. Moreover, it checks whether it is the offset of a string that
+ * is end with '\0'.
+ * @param module_inst the WASM module instance
+ * @param app_str_offset the app address of the string to validate, which is a
+ *        relative address
+ *
+ * @return true if success, false otherwise. If failed, an exception will
+ *         be thrown.
+ */
+bool
+wasm_runtime_validate_app_str_addr(wasm_module_inst_t module_inst,
+                                   int32_t app_str_offset);
 
 /**
  * Validate the native address, check whether it belongs to WASM module

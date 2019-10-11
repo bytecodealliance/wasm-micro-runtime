@@ -234,7 +234,8 @@ unsigned bh_queue_get_message_count(bh_queue *queue)
 }
 
 void bh_queue_enter_loop_run(bh_queue *queue,
-        bh_queue_handle_msg_callback handle_cb)
+        bh_queue_handle_msg_callback handle_cb,
+        void *arg)
 {
     if (!queue)
         return;
@@ -243,7 +244,7 @@ void bh_queue_enter_loop_run(bh_queue *queue,
         bh_queue_node * message = bh_get_msg(queue, BH_WAIT_FOREVER);
 
         if (message) {
-            handle_cb(message);
+            handle_cb(message, arg);
             bh_free_msg(message);
         }
     }
