@@ -24,13 +24,31 @@
  * Label widget native function wrappers
  * -------------------------------------------------------------------------*/
 static int32
-_cb_create(lv_obj_t *par, lv_obj_t *copy)
+lv_cb_create_wrapper(wasm_module_inst_t module_inst,
+                     lv_obj_t *par, lv_obj_t *copy)
 {
-    return wgl_native_wigdet_create(WIDGET_TYPE_CB, par, copy);
+    return wgl_native_wigdet_create(WIDGET_TYPE_CB, par, copy, module_inst);
+}
+
+static void
+lv_cb_set_text_wrapper(wasm_module_inst_t module_inst,
+                       lv_obj_t * cb, const char * txt)
+{
+    (void)module_inst;
+    lv_cb_set_text(cb, txt);
+}
+
+static void
+lv_cb_set_static_text_wrapper(wasm_module_inst_t module_inst,
+                              lv_obj_t * cb, const char * txt)
+{
+    (void)module_inst;
+    lv_cb_set_static_text(cb, txt);
 }
 
 static int32
-_cb_get_text_length(lv_obj_t *cb)
+lv_cb_get_text_length_wrapper(wasm_module_inst_t module_inst,
+                              lv_obj_t *cb)
 {
     const char *text = lv_cb_get_text(cb);
 
@@ -41,7 +59,8 @@ _cb_get_text_length(lv_obj_t *cb)
 }
 
 static char *
-_cb_get_text(lv_obj_t *cb, char *buffer, int buffer_len)
+lv_cb_get_text_wrapper(wasm_module_inst_t module_inst,
+                       lv_obj_t *cb, char *buffer, int buffer_len)
 {
     const char *text = lv_cb_get_text(cb);
 
@@ -55,11 +74,11 @@ _cb_get_text(lv_obj_t *cb, char *buffer, int buffer_len)
 }
 
 static WGLNativeFuncDef cb_native_func_defs[] = {
-        { CB_FUNC_ID_CREATE, _cb_create, HAS_RET, 2, {0 | NULL_OK, 1 | NULL_OK, -1}, {-1} },
-        { CB_FUNC_ID_SET_TEXT, lv_cb_set_text, NO_RET, 2, {0, -1}, {1, -1} },
-        { CB_FUNC_ID_SET_STATIC_TEXT, lv_cb_set_static_text, NO_RET, 2, {0, -1}, {1, -1} },
-        { CB_FUNC_ID_GET_TEXT_LENGTH, _cb_get_text_length, HAS_RET, 1, {0, -1}, {-1} },
-        { CB_FUNC_ID_GET_TEXT, _cb_get_text, RET_PTR, 3, {0, -1}, {1, -1} },
+        { CB_FUNC_ID_CREATE, lv_cb_create_wrapper, HAS_RET, 3, {1 | NULL_OK, 2 | NULL_OK, -1}, {-1} },
+        { CB_FUNC_ID_SET_TEXT, lv_cb_set_text_wrapper, NO_RET, 3, {1, -1}, {2, -1} },
+        { CB_FUNC_ID_SET_STATIC_TEXT, lv_cb_set_static_text_wrapper, NO_RET, 3, {1, -1}, {2, -1} },
+        { CB_FUNC_ID_GET_TEXT_LENGTH, lv_cb_get_text_length_wrapper, HAS_RET, 2, {1, -1}, {-1} },
+        { CB_FUNC_ID_GET_TEXT, lv_cb_get_text_wrapper, RET_PTR, 4, {1, -1}, {2, -1} },
 };
 
 /*************** Native Interface to Wasm App ***********/

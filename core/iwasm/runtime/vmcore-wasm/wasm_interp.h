@@ -23,6 +23,7 @@
 extern "C" {
 #endif
 
+struct WASMModuleInstance;
 struct WASMFunctionInstance;
 
 typedef struct WASMInterpFrame {
@@ -69,7 +70,8 @@ wasm_interp_interp_frame_size(unsigned all_cell_num)
 }
 
 void
-wasm_interp_call_wasm(struct WASMFunctionInstance *function,
+wasm_interp_call_wasm(struct WASMModuleInstance *module_inst,
+                      struct WASMFunctionInstance *function,
                       uint32 argc, uint32 argv[]);
 
 #ifdef __cplusplus

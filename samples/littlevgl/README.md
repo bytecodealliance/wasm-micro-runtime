@@ -97,12 +97,12 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
    ` ln -s <wamr_root>/core core`</br>
  d. build source code</br>
     Since ui_app incorporated LittlevGL source code, so it needs more RAM on the device to install the application.
-    It is recommended that RAM SIZE greater than 512KB.
+    It is recommended that RAM SIZE not less than 320KB.
     In our test use nucleo_f767zi, which is not supported by Zephyr.
     However, nucleo_f767zi is almost the same as nucleo_f746zg, except FLASH and SRAM size.
     So we changed the DTS setting of nucleo_f746zg boards for a workaround.</br>
 
-    `Modify zephyr/dts/arm/st/f7/stm32f746Xg.dtsi, change DT_SIZE_K(320) to DT_SIZE_K(512)`</br>
+    `Modify zephyr/dts/arm/st/f7/stm32f746.dtsi, change DT_SIZE_K(256) to DT_SIZE_K(320) in 'sram0' definition.`</br>
     `mkdir build && cd build`</br>
     `source ../../../../zephyr-env.sh`</br>
     `cmake -GNinja -DBOARD=nucleo_f746zg ..`</br>

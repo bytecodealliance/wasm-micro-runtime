@@ -29,7 +29,7 @@ typedef struct _bh_queue_node * bh_message_t;
 struct bh_queue;
 typedef struct bh_queue bh_queue;
 
-typedef void (*bh_queue_handle_msg_callback)(void *message);
+typedef void (*bh_queue_handle_msg_callback)(void *message, void *arg);
 
 #define bh_queue_malloc bh_malloc
 #define bh_queue_free bh_free
@@ -82,12 +82,8 @@ bh_queue_get_message_count(bh_queue *queue);
 
 void
 bh_queue_enter_loop_run(bh_queue *queue,
-        bh_queue_handle_msg_callback handle_cb);
-
-void
-bh_queue_enter_loop_run1(bh_queue *queue,
-        bh_queue_handle_msg_callback handle_cb);
-
+                        bh_queue_handle_msg_callback handle_cb,
+                        void *arg);
 void
 bh_queue_exit_loop_run(bh_queue *queue);
 

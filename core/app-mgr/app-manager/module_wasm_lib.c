@@ -46,8 +46,9 @@ static bool wasm_lib_module_handle_host_url(void *queue_msg)
 }
 
 static module_data*
-wasm_lib_module_get_module_data(void)
+wasm_lib_module_get_module_data(void *inst)
 {
+    (void) inst;
     return NULL;
 }
 
