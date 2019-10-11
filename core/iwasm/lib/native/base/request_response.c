@@ -50,13 +50,14 @@ wasm_register_resource(wasm_module_inst_t module_inst, int32 url_offset)
 {
     char *url = NULL;
 
-    if (!validate_app_addr(url_offset, 1))
+    if (!validate_app_str_addr(url_offset))
         return;
 
     url = addr_app_to_native(url_offset);
 
     if (url != NULL) {
-        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App);
+        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
+                                                        module_inst);
         am_register_resource(url, module_request_handler, mod_id);
     }
 }
@@ -81,7 +82,8 @@ wasm_post_request(wasm_module_inst_t module_inst,
         // TODO: add permission check, ensure app can't do harm
 
         // set sender to help dispatch the response to the sender ap
-        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App);
+        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
+                                                        module_inst);
         req->sender = mod_id;
 
         if (req->action == COAP_EVENT) {
@@ -98,13 +100,14 @@ wasm_sub_event(wasm_module_inst_t module_inst, int32 url_offset)
 {
     char *url = NULL;
 
-    if (!validate_app_addr(url_offset, 1))
+    if (!validate_app_str_addr(url_offset))
         return;
 
     url = addr_app_to_native(url_offset);
 
     if (url != NULL) {
-        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App);
+        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
+                                                        module_inst);
 
         am_register_event(url, mod_id);
     }

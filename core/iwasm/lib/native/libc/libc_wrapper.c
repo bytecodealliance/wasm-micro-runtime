@@ -37,6 +37,9 @@ wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 #define validate_app_addr(offset, size) \
     wasm_runtime_validate_app_addr(module_inst, offset, size)
 
+#define validate_app_str_addr(offset) \
+    wasm_runtime_validate_app_str_addr(module_inst, offset)
+
 #define addr_app_to_native(offset) \
     wasm_runtime_addr_app_to_native(module_inst, offset)
 
@@ -48,29 +51,6 @@ wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
-
-static bool
-validate_str_addr(wasm_module_inst_t module_inst, int32 str_offset)
-{
-    int32 app_end_offset;
-    char *str, *str_end;
-
-    if (!wasm_runtime_get_app_addr_range(module_inst, str_offset,
-                                         NULL, &app_end_offset))
-        goto fail;
-
-    str = addr_app_to_native(str_offset);
-    str_end = str + (app_end_offset - str_offset);
-    while (str < str_end && *str != '\0')
-        str++;
-    if (str == str_end)
-        goto fail;
-    return true;
-
-fail:
-    wasm_runtime_set_exception(module_inst, "out of bounds memory access");
-    return false;
-}
 
 typedef int (*out_func_t)(int c, void *ctx);
 
@@ -335,7 +315,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 CHECK_VA_ARG(ap, uint32);
                 s_offset = _va_arg(ap, uint32);
 
-                if (!validate_str_addr(module_inst, s_offset)) {
+                if (!validate_app_str_addr(s_offset)) {
                     return false;
                 }
 
@@ -438,7 +418,7 @@ parse_printf_args(wasm_module_inst_t module_inst, int32 fmt_offset,
         _va_list v;
     } u;
 
-    if (!validate_str_addr(module_inst, fmt_offset)
+    if (!validate_app_str_addr(fmt_offset)
         || !validate_app_addr(va_list_offset, sizeof(int32)))
         return false;
 
@@ -539,7 +519,7 @@ _puts_wrapper(wasm_module_inst_t module_inst,
 {
     const char *str;
 
-    if (!validate_str_addr(module_inst, str_offset))
+    if (!validate_app_str_addr(str_offset))
         return 0;
 
     str = addr_app_to_native(str_offset);
@@ -561,7 +541,7 @@ _strdup_wrapper(wasm_module_inst_t module_inst,
     uint32 len;
     int32 str_ret_offset = 0;
 
-    if (!validate_str_addr(module_inst, str_offset))
+    if (!validate_app_str_addr(str_offset))
         return 0;
 
     str = addr_app_to_native(str_offset);
@@ -650,7 +630,7 @@ _strchr_wrapper(wasm_module_inst_t module_inst,
     const char *s;
     char *ret;
 
-    if (!validate_str_addr(module_inst, s_offset))
+    if (!validate_app_str_addr(s_offset))
         return s_offset;
 
     s = addr_app_to_native(s_offset);
@@ -664,8 +644,8 @@ _strcmp_wrapper(wasm_module_inst_t module_inst,
 {
     void *s1, *s2;
 
-    if (!validate_str_addr(module_inst, s1_offset)
-        || !validate_str_addr(module_inst, s2_offset))
+    if (!validate_app_str_addr(s1_offset)
+        || !validate_app_str_addr(s2_offset))
         return 0;
 
     s1 = addr_app_to_native(s1_offset);
@@ -695,7 +675,7 @@ _strcpy_wrapper(wasm_module_inst_t module_inst,
     char *dst, *src;
     uint32 len;
 
-    if (!validate_str_addr(module_inst, src_offset))
+    if (!validate_app_str_addr(src_offset))
         return 0;
 
     src = addr_app_to_native(src_offset);
@@ -731,7 +711,7 @@ _strlen_wrapper(wasm_module_inst_t module_inst,
 {
     char *s;
 
-    if (!validate_str_addr(module_inst, s_offset))
+    if (!validate_app_str_addr(s_offset))
         return 0;
 
     s = addr_app_to_native(s_offset);
