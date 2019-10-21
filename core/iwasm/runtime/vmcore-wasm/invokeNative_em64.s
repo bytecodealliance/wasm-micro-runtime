@@ -15,9 +15,9 @@
  */
     .text
     .align 2
-.globl invokeNative
-    .type    invokeNative, @function
-invokeNative:
+.globl _invokeNative
+    //.type    invokeNative, @function
+_invokeNative:
     /*  rdi - function ptr */
     /*  rsi - argv */
     /*  rdx - n_stacks */
