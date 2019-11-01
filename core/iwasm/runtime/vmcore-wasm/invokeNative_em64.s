@@ -15,9 +15,14 @@
  */
     .text
     .align 2
+#ifndef OS_MACOSX
 .globl invokeNative
     .type    invokeNative, @function
 invokeNative:
+#else
+.globl _invokeNative
+_invokeNative:
+#endif /* end of OS_MACOSX */
     /*  rdi - function ptr */
     /*  rsi - argv */
     /*  rdx - n_stacks */

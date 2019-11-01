@@ -21,6 +21,28 @@ enable_language (ASM)
 
 add_definitions (-DNVALGRIND)
 
+# Build as X86_32 by default, change to "ARM_32", "MIPS_32" or "XTENSA_32"
+# if we want to support arm, mips or xtensa
+if (NOT BUILD_TARGET)
+  set (BUILD_TARGET "X86_32")
+endif ()
+
+string(TOUPPER ${BUILD_TARGET} BUILD_TARGET)
+
+if (BUILD_TARGET STREQUAL "X86_32")
+  add_definitions(-DBUILD_TARGET_X86_32)
+elseif (BUILD_TARGET STREQUAL "ARM_32")
+  add_definitions(-DBUILD_TARGET_ARM_32)
+elseif (BUILD_TARGET STREQUAL "MIPS_32")
+  add_definitions(-DBUILD_TARGET_MIPS_32)
+elseif (BUILD_TARGET STREQUAL "XTENSA_32")
+  add_definitions(-DBUILD_TARGET_XTENSA_32)
+else ()
+  message (FATAL_ERROR "-- Build target isn't set")
+endif ()
+
+message ("-- Build as target ${BUILD_TARGET}")
+
 set (IWASM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/iwasm)
 set (SHARED_LIB_ROOT ${IWASM_ROOT}/../shared-lib)
 
