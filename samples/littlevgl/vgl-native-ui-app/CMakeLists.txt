@@ -23,15 +23,15 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLV_CONF_INCLUDE_SIMPLE -DPLATFORM_NATIVE_L
 set (BUILD_AS_64BIT_SUPPORT "YES")
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")
-                # Add -fPIC flag if build as 64-bit
-                set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-                set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
-        else ()
-                add_definitions (-m32)
-                set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
-                set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
-        endif ()
+  if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")
+    # Add -fPIC flag if build as 64-bit
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+    set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
+  else ()
+    add_definitions (-m32)
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
+    set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
+  endif ()
 endif ()
 
 set(lv_name lvgl)

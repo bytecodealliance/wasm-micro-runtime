@@ -16,6 +16,29 @@
 
 #ifndef _CONFIG_H_
 
+#if !defined(BUILD_TARGET_X86_64) \
+    && !defined(BUILD_TARGET_AMD_64) \
+    && !defined(BUILD_TARGET_X86_32) \
+    && !defined(BUILD_TARGET_ARM_32) \
+    && !defined(BUILD_TARGET_MIPS_32) \
+    && !defined(BUILD_TARGET_XTENSA_32)
+#if defined(__x86_64__) || defined(__x86_64)
+#define BUILD_TARGET_X86_64
+#elif defined(__amd64__) || defined(__amd64)
+#define BUILD_TARGET_AMD_64
+#elif defined(__i386__) || defined(__i386) || defined(i386)
+#define BUILD_TARGET_X86_32
+#elif defined(__arm__)
+#define BUILD_TARGET_ARM_32
+#elif defined(__mips__) || defined(__mips) || defined(mips)
+#define BUILD_TARGET_MIPS_32
+#elif defined(__XTENSA__)
+#define BUILD_TARGET_XTENSA
+#else
+#error "Build target isn't set"
+#endif
+#endif
+
 /* Memory allocator ems */
 #define MEM_ALLOCATOR_EMS 0
 
@@ -100,7 +123,7 @@
 #define APP_HEAP_SIZE_MAX (1024 * 1024)
 
 /* Default wasm stack size of each app */
-#ifdef __x86_64__
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 #define DEFAULT_WASM_STACK_SIZE (12 * 1024)
 #else
 #define DEFAULT_WASM_STACK_SIZE (8 * 1024)
@@ -115,7 +138,6 @@
 #define APP_THREAD_STACK_SIZE_DEFAULT (4 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (2 * 1024)
 #define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
-#endif
 #endif
 
 /* External memory space provided by user,
@@ -134,3 +156,6 @@
 #ifndef WASM_ENABLE_GUI
 #define WASM_ENABLE_GUI 0
 #endif
+
+#endif /* end of _CONFIG_H_ */
+

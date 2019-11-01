@@ -16,9 +16,14 @@
 
     .text
     .align 2
+#ifndef OS_MACOSX
 .globl invokeNative
     .type   invokeNative, @function
 invokeNative:
+#else
+.globl _invokeNative
+_invokeNative:
+#endif /* end of OS_MACOSX */
     push    %ebp
     movl    %esp, %ebp
     movl    16(%ebp), %ecx          /* ecx = argc */
