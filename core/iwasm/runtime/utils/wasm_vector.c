@@ -52,7 +52,7 @@ extend_vector(Vector *vector, uint32 length)
     }
 
     memcpy(data, vector->data, vector->size_elem * vector->max_elements);
-    free(vector->data);
+    wasm_free(vector->data);
     vector->data = data;
     vector->max_elements = length;
     return true;
