@@ -52,8 +52,8 @@ bool watchdog_timer_init(module_data *m_data)
 #ifdef WATCHDOG_ENABLED /* TODO */
     watchdog_timer *wd_timer = &m_data->wd_timer;
 
-    if (BH_SUCCESS != vm_mutex_init(&wd_timer->lock))
-    return false;
+    if (0 != vm_mutex_init(&wd_timer->lock))
+        return false;
 
     if (!(wd_timer->timer_handle =
                     app_manager_timer_create(watchdog_timer_callback, wd_timer))) {

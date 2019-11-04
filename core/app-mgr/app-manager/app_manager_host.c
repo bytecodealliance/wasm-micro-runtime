@@ -15,7 +15,7 @@
  */
 
 #include "bh_common.h"
-#include "korp_types.h"
+#include "bh_types.h"
 #include "app_manager_host.h"
 #include "app_manager.h"
 #include "app_manager_export.h"

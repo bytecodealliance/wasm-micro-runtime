@@ -14,15 +14,10 @@
  * limitations under the License.
  */
 
-#include "bh_definition.h"
 #include "bh_platform.h"
 
-int bh_return(int ret)
-{
-    return ret;
-}
-
 #define RSIZE_MAX 0x7FFFFFFF
+
 int b_memcpy_s(void * s1, unsigned int s1max, const void * s2, unsigned int n)
 {
     char *dest = (char*) s1;
@@ -44,8 +39,9 @@ int b_memcpy_s(void * s1, unsigned int s1max, const void * s2, unsigned int n)
 
 int b_strcat_s(char * s1, size_t s1max, const char * s2)
 {
-    if (NULL
-            == s1|| NULL == s2 || s1max < (strlen(s1) + strlen(s2) + 1) || s1max > RSIZE_MAX) {
+    if (NULL == s1 || NULL == s2
+        || s1max < (strlen(s1) + strlen(s2) + 1)
+        || s1max > RSIZE_MAX) {
         return -1;
     }
 
@@ -56,8 +52,8 @@ int b_strcat_s(char * s1, size_t s1max, const char * s2)
 
 int b_strcpy_s(char * s1, size_t s1max, const char * s2)
 {
-    if (NULL
-            == s1|| NULL == s2 || s1max < (strlen(s2) + 1) || s1max > RSIZE_MAX) {
+    if (NULL == s1|| NULL == s2
+        || s1max < (strlen(s2) + 1) || s1max > RSIZE_MAX) {
         return -1;
     }
 

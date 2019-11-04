@@ -28,25 +28,16 @@ typedef int int32;
 typedef float float32;
 typedef double float64;
 
-#define BYTES_OF_UINT8  1
-#define BYTES_OF_UINT16 2
-#define BYTES_OF_UINT32 4
-#define BYTES_OF_UINT64 8
-
-#define BYTES_OF_BOOLEAN 1
-#define BYTES_OF_BYTE    1
-#define BYTES_OF_CHAR    2
-#define BYTES_OF_SHORT   2
-#define BYTES_OF_INT     4
-#define BYTES_OF_FLOAT   4
-#define BYTES_OF_LONG    8
-#define BYTES_OF_DOUBLE  8
-
 #include "bh_platform.h"
+
+#ifndef NULL
+#define NULL (void*)0
+#endif
 
 #ifndef __cplusplus
 #define true 1
 #define false 0
+#define inline __inline
 #endif
 
 #endif

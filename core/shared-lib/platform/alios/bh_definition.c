@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-#include "bh_definition.h"
 #include "bh_platform.h"
-
-int bh_return(int ret)
-{
-  return ret;
-}
 
 #define RSIZE_MAX 0x7FFFFFFF
 
