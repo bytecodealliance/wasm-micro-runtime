@@ -38,7 +38,7 @@ extern "C" {
  * vm_thread_sys_init
  *    initiation function for beihai thread system. Invoked at the beginning of beihai intiation.
  *
- * @return BH_SUCCESS if succuess.
+ * @return 0 if succuess.
  */
 int _vm_thread_sys_init(void);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -58,7 +58,7 @@ void vm_thread_sys_destroy(void);
  * @param arg  argument passed to main routine
  * @param stack_size  bytes of stack size
  *
- * @return BH_SUCCESS if success.
+ * @return 0 if success.
  */
 int _vm_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
         unsigned int stack_size);
@@ -78,7 +78,7 @@ int vm_thread_create_instr(korp_tid *p_tid, thread_start_routine_t start, void *
  * @param stack_size  bytes of stack size
  * @param prio the priority
  *
- * @return BH_SUCCESS if success.
+ * @return 0 if success.
  */
 int _vm_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
         void *arg, unsigned int stack_size, int prio);
@@ -115,7 +115,7 @@ korp_tid vm_self_thread_instr(const char*func_name);
  * @param idx  tls array index
  * @param ptr  pointer need save as TLS
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_tls_put(unsigned idx, void *ptr);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -147,7 +147,7 @@ void *vm_tls_get_instr(unsigned idx, const char*func_name);
  *
  * @param mutex [OUTPUT] pointer to mutex initialized.
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_mutex_init(korp_mutex *mutex);
 #ifdef INSTRUMENT_TEST_ENABLED
@@ -162,7 +162,7 @@ int vm_mutex_init_instr(korp_mutex *mutex, const char*func_name);
  *
  * @param mutex [OUTPUT] pointer to mutex initialized.
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_recursive_mutex_init(korp_mutex *mutex);
 #ifdef INSTRUMENT_TEST_ENABLED
@@ -177,7 +177,7 @@ int vm_recursive_mutex_init_instr(korp_mutex *mutex, const char*func_name);
  *
  * @param mutex  pointer to mutex need destroy
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_mutex_destroy(korp_mutex *mutex);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -201,7 +201,7 @@ void vm_mutex_lock(korp_mutex *mutex);
  *
  * @param mutex  pointer to mutex need lock
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int vm_mutex_trylock(korp_mutex *mutex);
 
@@ -220,7 +220,7 @@ void vm_mutex_unlock(korp_mutex *mutex);
  * @param sem [OUTPUT] pointer to semaphone
  * @param c counter of semaphone
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_sem_init(korp_sem *sem, unsigned int c);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -235,7 +235,7 @@ int vm_sem_init_instr(korp_sem *sem, unsigned int c, const char*func_name);
  *
  * @param sem pointer to semaphone need destroy
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_sem_destroy(korp_sem *sem);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -250,7 +250,7 @@ int vm_sem_destroy_instr(korp_sem *sem, const char*func_name);
  *
  * @param sem pointer to semaphone need perform wait operation
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_sem_wait(korp_sem *sem);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -266,7 +266,7 @@ int vm_sem_wait_instr(korp_sem *sem, const char*func_name);
  * @param sem  pointer to semaphone need perform wait operation
  * @param mills  wait milliseconds to return
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  * @return BH_TIMEOUT if time out
  */
 int _vm_sem_reltimedwait(korp_sem *sem, int mills);
@@ -282,7 +282,7 @@ int vm_sem_reltimedwait_instr(korp_sem *sem, int mills, const char*func_name);
  *
  * @param sem  pointer to semaphone need perform post operation
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_sem_post(korp_sem *sem);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -297,7 +297,7 @@ int vm_sem_post_instr(korp_sem *sem, const char*func_name);
  *
  * @param cond  [OUTPUT] pointer to condition variable
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_cond_init(korp_cond *cond);
 #ifdef INSTRUMENT_TEST_ENABLED
@@ -312,7 +312,7 @@ int vm_cond_init_instr(korp_cond *cond, const char*func_name);
  *
  * @param cond  pointer to condition variable
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_cond_destroy(korp_cond *cond);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -328,7 +328,7 @@ int vm_cond_destroy_instr(korp_cond *cond, const char*func_name);
  * @param cond  pointer to condition variable
  * @param mutex  pointer to mutex to protect the condition variable
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_cond_wait(korp_cond *cond, korp_mutex *mutex);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -345,7 +345,7 @@ int vm_cond_wait_instr(korp_cond *cond, korp_mutex *mutex, const char*func_name)
  * @param mutex  pointer to mutex to protect the condition variable
  * @param mills  milliseconds to wait
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int mills);
 #ifdef _INSTRUMENT_TEST_ENABLED
@@ -360,7 +360,7 @@ int vm_cond_reltimedwait_instr(korp_cond *cond, korp_mutex *mutex, int mills, co
  *
  * @param cond  condition variable
  *
- * @return BH_SUCCESS if success
+ * @return 0 if success
  */
 int _vm_cond_signal(korp_cond *cond);
 #ifdef _INSTRUMENT_TEST_ENABLED

@@ -91,6 +91,8 @@ include_directories (.
                      ../../runtime/platform/include
                      ${SHARED_LIB_DIR}/include)
 
+enable_language (ASM)
+
 include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)
 include (../../runtime/vmcore-wasm/vmcore.cmake)

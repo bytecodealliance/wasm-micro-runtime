@@ -20,7 +20,7 @@
 #include "bh_platform.h"
 #include "bh_common.h"
 #include "bh_queue.h"
-#include "korp_types.h"
+#include "bh_types.h"
 #include "app_manager_export.h"
 #include "native_interface.h"
 #include "shared_utils.h"
