@@ -26,6 +26,8 @@
 #include <time.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <ctype.h>

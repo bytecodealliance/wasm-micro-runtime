@@ -26,7 +26,7 @@
 #define JEFF_EXPORT_H
 
 #include "bni.h"
-#include "korp_types.h"
+#include "bh_types.h"
 
 /********************************************************************
  *                  Exported internal types

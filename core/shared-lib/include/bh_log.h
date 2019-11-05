@@ -34,7 +34,7 @@
 
 #include <stdarg.h>
 
-#include "korp_types.h"
+#include "bh_types.h"
 
 #ifdef __cplusplus
 extern "C" {

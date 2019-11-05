@@ -28,7 +28,6 @@
 #include "conn_tcp.h"
 #include "conn_udp.h"
 #include "conn_uart.h"
-#include "bh_definition.h"
 
 #include <unistd.h>
 #include <sys/epoll.h>
@@ -545,7 +544,7 @@ bool init_connection_framework()
     if (epollfd == -1)
         return false;
 
-    if (vm_mutex_init(&g_lock) != BH_SUCCESS) {
+    if (vm_mutex_init(&g_lock) != 0) {
         close(epollfd);
         return false;
     }
@@ -562,7 +561,7 @@ bool init_connection_framework()
     if (vm_thread_create(&tid,
                          polling_thread_routine,
                          NULL,
-                         BH_APPLET_PRESERVED_STACK_SIZE) != BH_SUCCESS) {
+                         BH_APPLET_PRESERVED_STACK_SIZE) != 0) {
         goto fail;
     }
 

@@ -19,9 +19,9 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include "bh_platform.h"
 #include "wasm_assert.h"
 #include "wasm_log.h"
-#include "wasm_platform.h"
 #include "wasm_platform_log.h"
 #include "wasm_thread.h"
 #include "wasm_export.h"

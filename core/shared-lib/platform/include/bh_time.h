@@ -22,7 +22,6 @@ extern "C" {
 #endif
 
 #include "bh_config.h"
-#include "bh_definition.h"
 #include "bh_types.h"
 #include "bh_platform.h"
 
