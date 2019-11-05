@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#include "korp_types.h" /*For bool type*/
+#include "bh_types.h" /*For bool type*/
 #include "bh_platform.h"
 
 struct _bh_queue_node;

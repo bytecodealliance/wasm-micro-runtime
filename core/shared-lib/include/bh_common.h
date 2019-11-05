@@ -18,7 +18,6 @@
 #define _BH_COMMON_H
 
 #include "bh_assert.h"
-#include "bh_definition.h"
 #include "bh_platform.h"
 #include "bh_log.h"
 #include "bh_list.h"

@@ -32,13 +32,17 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
 endif ()
 
 # Set BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
+# "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32", "GENERAL"
+#set (BUILD_TARGET "X86_64")
+
 if (NOT BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
+    # if BUILD_TARGET isn't set
     set (BUILD_TARGET "X86_64")
   else ()
     # Build as X86_32 by default in 32-bit platform
+    # if BUILD_TARGET isn't set
     set (BUILD_TARGET "X86_32")
   endif ()
 endif ()
@@ -58,6 +62,14 @@ elseif (BUILD_TARGET STREQUAL "MIPS_32")
   add_definitions(-DBUILD_TARGET_MIPS_32)
 elseif (BUILD_TARGET STREQUAL "XTENSA_32")
   add_definitions(-DBUILD_TARGET_XTENSA_32)
+elseif (BUILD_TARGET STREQUAL "GENERAL")
+  # Will use invokeNative_general.c instead of assembly code,
+  # but the maximum number of native arguments is limited to 20,
+  # and there are possible issues when passing arguments to
+  # native function for some cpus, e.g. int64 and double arguments
+  # in arm and mips need to be 8-bytes aligned, and some arguments
+  # of x86_64 are passed by registers but not stack
+  add_definitions(-DBUILD_TARGET_GENERAL)
 else ()
   message (FATAL_ERROR "-- Build target isn't set")
 endif ()
@@ -90,6 +102,8 @@ include_directories (.
                      ../../runtime/include
                      ../../runtime/platform/include
                      ${SHARED_LIB_DIR}/include)
+
+enable_language (ASM)
 
 include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)

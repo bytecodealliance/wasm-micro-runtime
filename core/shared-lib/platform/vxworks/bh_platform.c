@@ -65,7 +65,7 @@ bh_read_file_to_buffer(const char *filename, int *ret_size)
 
     file_size = stat_buf.st_size;
 
-    if (!(buffer = wasm_malloc(file_size))) {
+    if (!(buffer = bh_malloc(file_size))) {
         printf("Read file to buffer failed: alloc memory failed.\n");
         close(file);
         return NULL;
@@ -76,7 +76,7 @@ bh_read_file_to_buffer(const char *filename, int *ret_size)
 
     if (read_size < file_size) {
         printf("Read file to buffer failed: read file content failed.\n");
-        wasm_free(buffer);
+        bh_free(buffer);
         return NULL;
     }
 
