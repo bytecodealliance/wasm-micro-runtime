@@ -8,9 +8,11 @@ We want to make contributing to this project as easy and transparent as possible
 - Proposing new features
 
 License
-=====================
-WAMR uses the permissive open source `Apache 2.0 license`_ that allows you to freely use, modify, distribute and sell your own products that include Apache 2.0 licensed software. 
-Any contributions you make will be under the same license. Feel free to contact the maintainers if that's a concern.
+=======
+WAMR uses the same license as LLVM: the `Apache 2.0 license` with the LLVM
+exception. See the LICENSE file for details. This license allows you to freely
+use, modify, distribute and sell your own products based on WAMR.
+Any contributions you make will be under the same license.
 
 Code changes
 ===================
