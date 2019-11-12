@@ -117,7 +117,12 @@ See the [roadmap](./doc/roadmap.md) to understand what major features are planed
 Please submit issues for any new feature request, or your plan for contributing new features.
 
 
-
+License
+=======
+WAMR uses the same license as LLVM: the `Apache 2.0 license` with the LLVM
+exception. See the LICENSE file for details. This license allows you to freely
+use, modify, distribute and sell your own products based on WAMR.
+Any contributions you make will be under the same license.
 
 
 Submit issues and contact the maintainers
