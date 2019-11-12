@@ -62,7 +62,7 @@ Embed WAMR
 
 WAMR can be built into a standalone executable which takes the WASM application file name as input, and then executes it. In some other situations, the WAMR source code is embedded the product code and built into the final product. 
 
-WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM  function from a native call. 
+WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM function from a native call. 
 
 See the [doc/embed_wamr.md](./doc/embed_wamr.md) for the details.
 
@@ -71,7 +71,7 @@ WAMR application programming library
 
 WAMR defined event driven programming model:
 - Single thread per WASM app instance
-- App must implement system callbacks: on_init, on_destrory
+- App must implement system callbacks: on_init, on_destroy
 
 
 In general there are a few API classes for the WASM application programming:
@@ -117,7 +117,7 @@ See the [major features releasing history and contributor names](./doc/release_a
 Roadmap
 =======
 
-See the [roadmap](./doc/roadmap.md) to understand what major features are planed or under development.
+See the [roadmap](./doc/roadmap.md) to understand what major features are planned or under development.
 
 Please submit issues for any new feature request, or your plan for contributing new features.
 
