@@ -1,5 +1,10 @@
 WebAssembly Micro Runtime
 =========================
+
+**A [Bytecode Alliance][BA] project**
+
+[BA]: https://bytecodealliance.org/
+
 WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with small footprint. It includes a few parts as below:
 - A WebAssembly VM core (namely iwasm)
 - The supporting API's for the WASM applications
