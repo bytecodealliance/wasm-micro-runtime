@@ -26,8 +26,10 @@ int udp_open(uint16 port)
     addr.sin_port = htons(port);
 
     ret = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
-    if (ret == -1)
+    if (ret == -1) {
+        close(sock);
         return -1;
+    }
 
     /* Put the socket in non-blocking mode */
     if (fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK) < 0) {

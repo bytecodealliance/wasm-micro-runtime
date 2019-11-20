@@ -15,7 +15,7 @@
  */
 uint64 _bh_time_get_tick_millisecond()
 {
-    return sysconf(_SC_CLK_TCK);
+    return (uint64)sysconf(_SC_CLK_TCK);
 }
 
 /*
@@ -29,12 +29,12 @@ uint64 _bh_time_get_boot_millisecond()
         return 0;
     }
 
-    return ((uint64) ts.tv_sec) * 1000 + ts.tv_nsec / (1000 * 1000);
+    return ((uint64) ts.tv_sec) * 1000 + ((uint64)ts.tv_nsec) / (1000 * 1000);
 }
 
 uint32 bh_get_tick_sec()
 {
-    return _bh_time_get_boot_millisecond() / 1000;
+    return (uint32)(_bh_time_get_boot_millisecond() / 1000);
 }
 
 /*
@@ -49,12 +49,12 @@ uint64 _bh_time_get_millisecond_from_1970()
         return 0;
     }
 
-    return ((uint64) ts.tv_sec) * 1000 + ts.tv_nsec / (1000 * 1000);
+    return ((uint64) ts.tv_sec) * 1000 + ((uint64)ts.tv_nsec) / (1000 * 1000);
 }
 
 size_t _bh_time_strftime(char *s, size_t max, const char *format, int64 time)
 {
-    time_t time_sec = time / 1000;
+    time_t time_sec = (time_t)(time / 1000);
     struct tm *ltp;
 
     ltp = localtime(&time_sec);

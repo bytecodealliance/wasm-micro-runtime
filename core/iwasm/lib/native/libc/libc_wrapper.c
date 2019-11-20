@@ -7,6 +7,10 @@
 #include "wasm_export.h"
 #include "wasm_log.h"
 #include "wasm_platform_log.h"
+#include "bh_common.h"
+#if WASM_ENABLE_WASI != 0
+#include "wasi_wrapper.h"
+#endif
 
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
@@ -52,7 +56,7 @@ enum pad_type {
 
 typedef char *_va_list;
 #define _INTSIZEOF(n)       \
-    ((sizeof(n) +  3) & ~3)
+    (((uint32)sizeof(n) +  3) & (uint32)~3)
 #define _va_arg(ap, t)      \
     (*(t*)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
 
@@ -86,7 +90,7 @@ _printf_hex_uint(out_func_t out, void *ctx,
 
         if (nibble || found_largest_digit || size == 1) {
             found_largest_digit = 1;
-            nibble += nibble > 9 ? 87 : 48;
+            nibble = (char)(nibble + (nibble > 9 ? 87 : 48));
             out((int) nibble, ctx);
             digits++;
             continue;
@@ -250,7 +254,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     d = -d;
                     min_width--;
                 }
-                _printf_dec_uint(out, ctx, d, padding, min_width);
+                _printf_dec_uint(out, ctx, (uint32)d, padding, min_width);
                 break;
             }
             case 'u': {
@@ -301,8 +305,8 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 char *start;
                 int32 s_offset;
 
-                CHECK_VA_ARG(ap, uint32);
-                s_offset = _va_arg(ap, uint32);
+                CHECK_VA_ARG(ap, int32);
+                s_offset = _va_arg(ap, int32);
 
                 if (!validate_app_str_addr(s_offset)) {
                     return false;
@@ -314,7 +318,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     out((int) (*s++), ctx);
 
                 if (padding == PAD_SPACE_AFTER) {
-                    int remaining = min_width - (s - start);
+                    int remaining = min_width - (int32)(s - start);
                     while (remaining-- > 0) {
                         out(' ', ctx);
                     }
@@ -356,8 +360,8 @@ fail:
 
 struct str_context {
     char *str;
-    int max;
-    int count;
+    uint32 max;
+    uint32 count;
 };
 
 static int
@@ -371,7 +375,7 @@ sprintf_out(int c, struct str_context *ctx)
     if (ctx->count == ctx->max - 1) {
         ctx->str[ctx->count++] = '\0';
     } else {
-        ctx->str[ctx->count++] = c;
+        ctx->str[ctx->count++] = (char)c;
     }
 
     return c;
@@ -432,7 +436,7 @@ _printf_wrapper(wasm_module_inst_t module_inst,
 
     if (!_vprintf_wa((out_func_t)printf_out, &ctx, fmt, va_args, module_inst))
         return 0;
-    return ctx.count;
+    return (int)ctx.count;
 }
 
 static int
@@ -457,7 +461,7 @@ _sprintf_wrapper(wasm_module_inst_t module_inst,
         return 0;
 
     ctx.str = str;
-    ctx.max = app_end_offset - str_offset;
+    ctx.max = (uint32)(app_end_offset - str_offset);
     ctx.count = 0;
 
     if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, fmt, va_args, module_inst))
@@ -467,12 +471,12 @@ _sprintf_wrapper(wasm_module_inst_t module_inst,
         str[ctx.count] = '\0';
     }
 
-    return ctx.count;
+    return (int)ctx.count;
 }
 
 static int
 _snprintf_wrapper(wasm_module_inst_t module_inst,
-                  int32 str_offset, int32 size, int32 fmt_offset,
+                  int32 str_offset, uint32 size, int32 fmt_offset,
                   int32 va_list_offset)
 {
     struct str_context ctx;
@@ -499,7 +503,7 @@ _snprintf_wrapper(wasm_module_inst_t module_inst,
         str[ctx.count] = '\0';
     }
 
-    return ctx.count;
+    return (int)ctx.count;
 }
 
 static int
@@ -536,12 +540,12 @@ _strdup_wrapper(wasm_module_inst_t module_inst,
     str = addr_app_to_native(str_offset);
 
     if (str) {
-        len = strlen(str) + 1;
+        len = (uint32)strlen(str) + 1;
 
         str_ret_offset = module_malloc(len);
         if (str_ret_offset) {
             str_ret = addr_app_to_native(str_ret_offset);
-            memcpy(str_ret, str, len);
+            bh_memcpy_s(str_ret, len, str, len);
         }
     }
 
@@ -549,8 +553,15 @@ _strdup_wrapper(wasm_module_inst_t module_inst,
 }
 
 static int32
+__strdup_wrapper(wasm_module_inst_t module_inst,
+                int32 str_offset)
+{
+    return _strdup_wrapper(module_inst, str_offset);
+}
+
+static int32
 _memcmp_wrapper(wasm_module_inst_t module_inst,
-                int32 s1_offset, int32 s2_offset, int32 size)
+                int32 s1_offset, int32 s2_offset, uint32 size)
 {
     void *s1, *s2;
 
@@ -565,7 +576,7 @@ _memcmp_wrapper(wasm_module_inst_t module_inst,
 
 static int32
 _memcpy_wrapper(wasm_module_inst_t module_inst,
-                int32 dst_offset, int32 src_offset, int32 size)
+                int32 dst_offset, int32 src_offset, uint32 size)
 {
     void *dst, *src;
 
@@ -578,13 +589,13 @@ _memcpy_wrapper(wasm_module_inst_t module_inst,
 
     dst = addr_app_to_native(dst_offset);
     src = addr_app_to_native(src_offset);
-    memcpy(dst, src, size);
+    bh_memcpy_s(dst, size, src, size);
     return dst_offset;
 }
 
 static int32
 _memmove_wrapper(wasm_module_inst_t module_inst,
-                 int32 dst_offset, int32 src_offset, int32 size)
+                 int32 dst_offset, int32 src_offset, uint32 size)
 {
     void *dst, *src;
 
@@ -600,7 +611,7 @@ _memmove_wrapper(wasm_module_inst_t module_inst,
 
 static int32
 _memset_wrapper(wasm_module_inst_t module_inst,
-                int32 s_offset, int32 c, int32 size)
+                int32 s_offset, int32 c, uint32 size)
 {
     void *s;
 
@@ -668,7 +679,7 @@ _strcpy_wrapper(wasm_module_inst_t module_inst,
         return 0;
 
     src = addr_app_to_native(src_offset);
-    len = strlen(src);
+    len = (uint32)strlen(src);
 
     if (!validate_app_addr(dst_offset, len + 1))
         return 0;
@@ -704,7 +715,7 @@ _strlen_wrapper(wasm_module_inst_t module_inst,
         return 0;
 
     s = addr_app_to_native(s_offset);
-    return strlen(s);
+    return (uint32)strlen(s);
 }
 
 static int32
@@ -719,13 +730,13 @@ _calloc_wrapper(wasm_module_inst_t module_inst,
                 uint32 nmemb, uint32 size)
 {
     uint64 total_size = (uint64) nmemb * (uint64) size;
-    uint32 ret_offset = 0;
+    int32 ret_offset = 0;
     uint8 *ret_ptr;
 
-    if (total_size > UINT32_MAX)
-        total_size = UINT32_MAX;
+    if (total_size >= UINT32_MAX)
+        return 0;
 
-    ret_offset = module_malloc((uint32 )total_size);
+    ret_offset = module_malloc((uint32)total_size);
     if (ret_offset) {
         ret_ptr = addr_app_to_native(ret_offset);
         memset(ret_ptr, 0, (uint32) total_size);
@@ -741,6 +752,245 @@ _free_wrapper(wasm_module_inst_t module_inst,
     if (!validate_app_addr(ptr_offset, 4))
         return;
     return module_free(ptr_offset);
+}
+
+static int32
+_atoi_wrapper(wasm_module_inst_t module_inst,
+              int32 s_offset)
+{
+    char *str;
+
+    if (!validate_app_str_addr(s_offset))
+        return 0;
+
+    str = addr_app_to_native(s_offset);
+
+    return atoi(str);
+}
+
+static int32
+_bsearch_wrapper(wasm_module_inst_t module_inst,
+                 int32 key_offset,     /* const void * */
+                 int32 array_offset,   /* const void * */
+                 uint32 count,
+                 uint32 size,
+                 int32 cmp_index)
+{
+    wasm_runtime_set_exception(module_inst, "bsearch not implemented.");
+
+    return 0;
+}
+
+static void
+_exit_wrapper(wasm_module_inst_t module_inst,
+              int32 status)
+{
+    char buf[32];
+    snprintf(buf, sizeof(buf), "env.exit(%i)", status);
+    wasm_runtime_set_exception(module_inst, buf);
+}
+
+static int32
+_strtol_wrapper(wasm_module_inst_t module_inst,
+                int32 nptr_offset,      /* const char * */
+                int32 endptr_offset,    /* char ** */
+                int32 base)
+{
+    char *nptr, **endptr;
+    int32 num = 0;
+
+    if (!validate_app_str_addr(nptr_offset)
+        || !validate_app_addr(endptr_offset, sizeof(int32)))
+        return 0;
+
+    nptr = addr_app_to_native(nptr_offset);
+    endptr = addr_app_to_native(endptr_offset);
+
+    num = (int32)strtol(nptr, endptr, base);
+    *(int32 *)endptr = addr_native_to_app(*endptr);
+
+    return num;
+}
+
+static uint32
+_strtoul_wrapper(wasm_module_inst_t module_inst,
+                 int32 nptr_offset,      /* const char * */
+                 int32 endptr_offset,    /* char ** */
+                 int32 base)
+{
+    char *nptr, **endptr;
+    uint32 num = 0;
+
+    if (!validate_app_str_addr(nptr_offset)
+        || !validate_app_addr(endptr_offset, sizeof(int32)))
+        return 0;
+
+    nptr = addr_app_to_native(nptr_offset);
+    endptr = addr_app_to_native(endptr_offset);
+
+    num = (uint32)strtoul(nptr, endptr, base);
+    *(int32 *)endptr = addr_native_to_app(*endptr);
+
+    return num;
+}
+
+static int32
+_memchr_wrapper(wasm_module_inst_t module_inst,
+                int32 s_offset,     /* const void * */
+                int32 c,
+                uint32 n)
+{
+    void *s, *res;
+
+    if (!validate_app_addr(s_offset, n))
+        return 0;
+
+    s = (void*)addr_app_to_native(s_offset);
+
+    res = memchr(s, c, n);
+
+    return addr_native_to_app(res);
+}
+
+static int32
+_strncasecmp_wrapper(wasm_module_inst_t module_inst,
+                     int32 s1_offset,   /* const char * */
+                     int32 s2_offset,   /* const char * */
+                     uint32 n)
+{
+    char *s1, *s2;
+
+    if (!validate_app_str_addr(s1_offset)
+        || !validate_app_str_addr(s2_offset))
+        return 0;
+
+    s1 = addr_app_to_native(s1_offset);
+    s2 = addr_app_to_native(s2_offset);
+
+    return strncasecmp(s1, s2, n);
+}
+
+static uint32
+_strspn_wrapper(wasm_module_inst_t module_inst,
+                int32 s_offset,         /* const char * */
+                int32 accept_offset)    /* const char * */
+{
+    char *s, *accept;
+
+    if (!validate_app_str_addr(s_offset)
+        || !validate_app_str_addr(accept_offset))
+        return 0;
+
+    s = addr_app_to_native(s_offset);
+    accept = addr_app_to_native(accept_offset);
+
+    return (uint32)strspn(s, accept);
+}
+
+static uint32
+_strcspn_wrapper(wasm_module_inst_t module_inst,
+                 int32 s_offset,        /* const char * */
+                 int32 reject_offset)   /* const char * */
+{
+    char *s, *reject;
+
+    if (!validate_app_str_addr(s_offset)
+        || !validate_app_str_addr(reject_offset))
+        return 0;
+
+    s = addr_app_to_native(s_offset);
+    reject = addr_app_to_native(reject_offset);
+
+    return (uint32)strcspn(s, reject);
+}
+
+static int32
+_strstr_wrapper(wasm_module_inst_t module_inst,
+                int32 s_offset,     /* const char * */
+                int32 find_offset)  /* const char * */
+{
+    char *s, *find, *res;
+
+    if (!validate_app_str_addr(s_offset)
+        || !validate_app_str_addr(find_offset))
+        return 0;
+
+    s = addr_app_to_native(s_offset);
+    find = addr_app_to_native(find_offset);
+
+    res = strstr(s, find);
+
+    return addr_native_to_app(res);
+}
+
+static int32
+_isupper_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return isupper(c);
+}
+
+static int32
+_isalpha_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return isalpha(c);
+}
+
+static int32
+_isspace_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return isspace(c);
+}
+
+static int32
+_isgraph_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return isgraph(c);
+}
+
+static int32
+_isprint_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return isprint(c);
+}
+
+static int32
+_isdigit_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return isdigit(c);
+}
+
+static int32
+_isxdigit_wrapper(wasm_module_inst_t module_inst,
+                  int32 c)
+{
+    return isxdigit(c);
+}
+
+static int32
+_tolower_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return tolower(c);
+}
+
+static int32
+_toupper_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return toupper(c);
+}
+
+static int32
+_isalnum_wrapper(wasm_module_inst_t module_inst,
+                 int32 c)
+{
+    return isalnum(c);
 }
 
 static void
@@ -842,7 +1092,7 @@ _emscripten_memcpy_big_wrapper(wasm_module_inst_t module_inst,
     dst = addr_app_to_native(dst_offset);
     src = addr_app_to_native(src_offset);
 
-    memcpy(dst, src, size);
+    bh_memcpy_s(dst, size, src, size);
     return dst_offset;
 }
 
@@ -870,6 +1120,36 @@ nullFunc_X_wrapper(wasm_module_inst_t module_inst,
 {
     char buf[32];
     snprintf(buf, sizeof(buf), "env.nullFunc_X(%i)", code);
+    wasm_runtime_set_exception(module_inst, buf);
+}
+
+static int32
+__cxa_allocate_exception_wrapper(wasm_module_inst_t module_inst,
+                                 uint32 thrown_size)
+{
+    int32 exception = module_malloc(thrown_size);
+    if (!exception)
+        return 0;
+
+    return exception;
+}
+
+static void
+__cxa_begin_catch_wrapper(wasm_module_inst_t module_inst,
+                          int32 exception_object_offset)
+{
+
+}
+
+static void
+__cxa_throw_wrapper(wasm_module_inst_t module_inst,
+                    int32 thrown_exception_offset,
+                    int32 tinfo_offset,
+                    uint32 table_elem_idx)
+{
+    char buf[32];
+
+    snprintf(buf, sizeof(buf), "%s", "exception thrown by stdc++");
     wasm_runtime_set_exception(module_inst, buf);
 }
 
@@ -922,7 +1202,29 @@ static WASMNativeFuncDef native_func_defs[] = {
     REG_NATIVE_FUNC(env, _malloc),
     REG_NATIVE_FUNC(env, _calloc),
     REG_NATIVE_FUNC(env, _strdup),
+    /* clang may introduce __strdup */
+    REG_NATIVE_FUNC(env, __strdup),
     REG_NATIVE_FUNC(env, _free),
+    REG_NATIVE_FUNC(env, _atoi),
+    REG_NATIVE_FUNC(env, _bsearch),
+    REG_NATIVE_FUNC(env, _exit),
+    REG_NATIVE_FUNC(env, _strtol),
+    REG_NATIVE_FUNC(env, _strtoul),
+    REG_NATIVE_FUNC(env, _memchr),
+    REG_NATIVE_FUNC(env, _strncasecmp),
+    REG_NATIVE_FUNC(env, _strspn),
+    REG_NATIVE_FUNC(env, _strcspn),
+    REG_NATIVE_FUNC(env, _strstr),
+    REG_NATIVE_FUNC(env, _isupper),
+    REG_NATIVE_FUNC(env, _isalpha),
+    REG_NATIVE_FUNC(env, _isspace),
+    REG_NATIVE_FUNC(env, _isgraph),
+    REG_NATIVE_FUNC(env, _isprint),
+    REG_NATIVE_FUNC(env, _isdigit),
+    REG_NATIVE_FUNC(env, _isxdigit),
+    REG_NATIVE_FUNC(env, _tolower),
+    REG_NATIVE_FUNC(env, _toupper),
+    REG_NATIVE_FUNC(env, _isalnum),
     REG_NATIVE_FUNC(env, setTempRet0),
     REG_NATIVE_FUNC(env, getTempRet0),
     REG_NATIVE_FUNC(env, _llvm_bswap_i16),
@@ -934,7 +1236,10 @@ static WASMNativeFuncDef native_func_defs[] = {
     REG_NATIVE_FUNC(env, _emscripten_memcpy_big),
     REG_NATIVE_FUNC(env, abort),
     REG_NATIVE_FUNC(env, abortStackOverflow),
-    REG_NATIVE_FUNC(env, nullFunc_X)
+    REG_NATIVE_FUNC(env, nullFunc_X),
+    REG_NATIVE_FUNC(env, __cxa_allocate_exception),
+    REG_NATIVE_FUNC(env, __cxa_begin_catch),
+    REG_NATIVE_FUNC(env, __cxa_throw)
 };
 
 void*
@@ -959,6 +1264,11 @@ wasm_native_func_lookup(const char *module_name, const char *func_name)
 
     if ((ret = wasm_platform_native_func_lookup(module_name, func_name)))
         return ret;
+
+#if WASM_ENABLE_WASI != 0
+    if ((ret = wasi_native_func_lookup(module_name, func_name)))
+        return ret;
+#endif
 
     return NULL;
 }

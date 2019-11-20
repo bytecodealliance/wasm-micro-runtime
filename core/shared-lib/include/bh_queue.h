@@ -54,7 +54,7 @@ void
 bh_queue_destroy(bh_queue *queue);
 
 char * bh_message_payload(bh_message_t message);
-int bh_message_payload_len(bh_message_t message);
+uint32 bh_message_payload_len(bh_message_t message);
 int bh_message_type(bh_message_t message);
 
 bh_message_t bh_new_msg(unsigned short tag, void *body, unsigned int len,

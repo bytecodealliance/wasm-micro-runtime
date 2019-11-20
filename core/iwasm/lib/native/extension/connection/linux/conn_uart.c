@@ -60,7 +60,7 @@ int uart_open(char* device, int baudrate)
 
     uart_fd = open(device, O_RDWR | O_NOCTTY);
 
-    if (uart_fd <= 0)
+    if (uart_fd < 0)
         return -1;
 
     memset(&uart_term, 0, sizeof(uart_term));

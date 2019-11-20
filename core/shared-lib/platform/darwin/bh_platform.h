@@ -21,6 +21,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <limits.h>
+#include <fcntl.h>
 #include <semaphore.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -98,7 +99,7 @@ int b_strcpy_s(char * s1, size_t s1max, const char * s2);
 
 int fopen_s(FILE ** pFile, const char *filename, const char *mode);
 
-char *bh_read_file_to_buffer(const char *filename, int *ret_size);
+char *bh_read_file_to_buffer(const char *filename, uint32 *ret_size);
 
 char *bh_strdup(const char *s);
 

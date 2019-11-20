@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-CC = emcc
+CC = clang-8
 APP_DIR = ${shell pwd}
 IWASM_DIR=../../../../core/iwasm
 CFLAGS += -O3 \
@@ -23,7 +23,9 @@ SRCS += $(IWASM_DIR)/lib/app-libs/extension/gui/src/*.c
 
 all: 
 	@$(CC) $(CFLAGS) $(SRCS) \
-    -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 \
-    -s TOTAL_MEMORY=65536 -s TOTAL_STACK=2048\
-    -s "EXPORTED_FUNCTIONS=['_on_init', '_on_timer_callback', '_on_widget_event']" \
+    --target=wasm32 -O3 -z stack-size=2048 -Wl,--initial-memory=65536 \
+    -Wl,--allow-undefined \
+    -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
+    -Wl,--export=on_init -Wl,--export=on_timer_callback \
+    -Wl,--export=on_widget_event \
     -o ui_app_lvgl_compatible.wasm

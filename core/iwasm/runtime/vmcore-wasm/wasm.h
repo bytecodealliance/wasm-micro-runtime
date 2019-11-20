@@ -217,6 +217,19 @@ typedef struct BlockAddr {
 #define BLOCK_ADDR_CACHE_SIZE 64
 #define BLOCK_ADDR_CONFLICT_SIZE 4
 
+#if WASM_ENABLE_WASI != 0
+typedef struct WASIArguments {
+    const char **dir_list;
+    uint32 dir_count;
+    const char **map_dir_list;
+    uint32 map_dir_count;
+    const char **env;
+    uint32 env_count;
+    const char **argv;
+    uint32 argc;
+} WASIArguments;
+#endif
+
 typedef struct WASMModule {
     uint32 type_count;
     uint32 import_count;
@@ -255,16 +268,19 @@ typedef struct WASMModule {
 #else
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
 #endif
+
+#if WASM_ENABLE_WASI != 0
+    WASIArguments wasi_args;
+    bool is_wasi_module;
+#endif
 } WASMModule;
 
 typedef struct WASMBranchBlock {
     uint8 block_type;
     uint8 return_type;
     uint8 *start_addr;
-    uint8 *else_addr;
     uint8 *end_addr;
     uint32 *frame_sp;
-    uint8 *frame_ref;
 } WASMBranchBlock;
 
 typedef struct WASMSection {
@@ -299,7 +315,7 @@ align_uint (unsigned v, unsigned b)
 inline static uint32
 wasm_string_hash(const char *str)
 {
-    unsigned h = strlen(str);
+    unsigned h = (unsigned)strlen(str);
     const uint8 *p = (uint8*)str;
     const uint8 *end = p + h;
 
@@ -356,11 +372,11 @@ wasm_value_type_cell_num(uint8 value_type)
 inline static uint16
 wasm_get_cell_num(const uint8 *types, uint32 type_count)
 {
-    uint16 cell_num = 0;
+    uint32 cell_num = 0;
     uint32 i;
     for (i = 0; i < type_count; i++)
         cell_num += wasm_value_type_cell_num(types[i]);
-    return cell_num;
+    return (uint16)cell_num;
 }
 
 inline static uint16

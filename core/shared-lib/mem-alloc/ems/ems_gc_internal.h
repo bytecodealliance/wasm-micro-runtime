@@ -77,7 +77,7 @@ extern void hmu_verify(hmu_t *hmu);
 
 #define hmu_obj_size(s) ((s)-OBJ_EXTRA_SIZE)
 
-#define GC_ALIGN_8(s) (((int)(s) + 7) & ~7)
+#define GC_ALIGN_8(s) (((uint32)(s) + 7) & (uint32)~7)
 
 #define GC_SMALLEST_SIZE GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE + 8)
 #define GC_GET_REAL_SIZE(x) GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE + (((x) > 8) ? (x): 8))
@@ -86,14 +86,14 @@ extern void hmu_verify(hmu_t *hmu);
 
 #define SETBIT(v, offset) (v) |= (1 << (offset))
 #define GETBIT(v, offset) ((v) & (1 << (offset)) ? 1 : 0)
-#define CLRBIT(v, offset) (v) &= ~(1 << (offset))
+#define CLRBIT(v, offset) (v) &= (uint32)(~(1 << (offset)))
 
 #define SETBITS(v, offset, size, value) do {        \
-        (v) &= ~(((1 << size) - 1) << offset);      \
-        (v) |= value << offset;                     \
-    } while(0)
+    (v) &= (uint32)(~(((1 << size) - 1) << offset));\
+    (v) |= (uint32)(value << offset);               \
+  } while(0)
 #define CLRBITS(v, offset, size) (v) &= ~(((1 << size) - 1) << offset)
-#define GETBITS(v, offset, size) (((v) & (((1 << size) - 1) << offset)) >> offset)
+#define GETBITS(v, offset, size) (((v) & ((uint32)(((1 << size) - 1) << offset))) >> offset)
 
 /*////// gc object layout definition*/
 

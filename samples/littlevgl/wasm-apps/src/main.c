@@ -56,7 +56,7 @@ char label_count1_str[11] = { 0 };
 void timer1_update(user_timer_t timer1)
 {
     if ((count % 100) == 0) {
-        sprintf(count_str, "%d", count / 100);
+        snprintf(count_str, sizeof(count_str), "%d", count / 100);
         lv_label_set_text(count_label, count_str);
     }
     lv_task_handler();
@@ -67,7 +67,8 @@ void timer1_update(user_timer_t timer1)
 static lv_res_t btn_rel_action(lv_obj_t * btn)
 {
     label_count1_value++;
-    sprintf(label_count1_str, "%d", label_count1_value);
+    snprintf(label_count1_str, sizeof(label_count1_str),
+             "%d", label_count1_value);
     lv_label_set_text(label_count1, label_count1_str);
     return LV_RES_OK;
 }

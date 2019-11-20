@@ -17,7 +17,7 @@ endif ()
 
 # Set BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
-if (NOT BUILD_TARGET)
+if (NOT DEFINED BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (BUILD_TARGET "X86_64")
@@ -60,6 +60,19 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
   endif ()
 endif ()
 
+if (NOT DEFINED WASM_ENABLE_WASI)
+  # Enable wasi support by default
+  set (WASM_ENABLE_WASI 1)
+endif ()
+
+if (WASM_ENABLE_WASI EQUAL 1)
+  add_definitions(-DWASM_ENABLE_WASI=1)
+  add_definitions(-D_GNU_SOURCE)
+  message ("-- WASI enabled")
+else ()
+  message ("-- WASI disabled")
+endif ()
+
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif (NOT CMAKE_BUILD_TYPE)
@@ -82,6 +95,7 @@ enable_language (ASM)
 include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)
 include (../../runtime/vmcore-wasm/vmcore.cmake)
+include (../../runtime/wasmtime-wasi-c/wasi.cmake)
 include (../../lib/native/base/wasm_lib_base.cmake)
 include (../../lib/native/libc/wasm_libc.cmake)
 include (${SHARED_LIB_DIR}/platform/${PLATFORM}/shared_platform.cmake)
@@ -92,6 +106,7 @@ add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
              ${WASM_UTILS_LIB_SOURCE}
              ${VMCORE_LIB_SOURCE}
+             ${WASI_LIB_SOURCE}
              ${WASM_LIB_BASE_DIR}/base_lib_export.c
              ${WASM_LIBC_SOURCE}
              ${PLATFORM_SHARED_SOURCE}

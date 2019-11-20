@@ -26,6 +26,7 @@ $(NAME)_SOURCES := ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c \
                    ${IWASM_ROOT}/lib/native/libc/libc_wrapper.c \
                    ${IWASM_ROOT}/lib/native/base/base_lib_export.c \
                    ${SHARED_LIB_ROOT}/platform/alios/bh_platform.c \
+                   ${SHARED_LIB_ROOT}/platform/alios/bh_definition.c \
                    ${SHARED_LIB_ROOT}/platform/alios/bh_assert.c \
                    ${SHARED_LIB_ROOT}/platform/alios/bh_thread.c \
                    ${SHARED_LIB_ROOT}/platform/alios/bh_math.c \

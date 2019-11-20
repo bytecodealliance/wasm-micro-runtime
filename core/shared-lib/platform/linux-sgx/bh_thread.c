@@ -20,14 +20,14 @@ void vm_thread_sys_destroy(void)
 }
 
 int _vm_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
-        void *arg, unsigned int stack_size, int prio)
+                                void *arg, unsigned int stack_size, int prio)
 {
     return BHT_ERROR;
     // return BHT_OK;
 }
 
 int _vm_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
-        unsigned int stack_size)
+                      unsigned int stack_size)
 {
     return _vm_thread_create_with_prio(tid, start, arg, stack_size,
                                        BH_THREAD_DEFAULT_PRIORITY);

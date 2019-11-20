@@ -22,7 +22,7 @@ char label_count1_str[11] = { 0 };
 void timer1_update(user_timer_t timer1)
 {
     if ((count % 100) == 0) {
-        sprintf(count_str, "%d", count / 100);
+        snprintf(count_str, sizeof(count_str), "%d", count / 100);
         wgl_label_set_text(count_label, count_str);
     }
     ++count;
@@ -63,7 +63,8 @@ static void btn_event_cb(wgl_obj_t btn, wgl_event_t event)
 {
     if(event == WGL_EVENT_RELEASED) {
         label_count1_value++;
-        sprintf(label_count1_str, "%d", label_count1_value);
+        snprintf(label_count1_str, sizeof(label_count1_str),
+                 "%d", label_count1_value);
         wgl_label_set_text(label_count1, label_count1_str);
     }
 }
