@@ -16,6 +16,12 @@
 extern "C" {
 #endif
 
+/* Special module IDs */
+#define ID_HOST -3
+#define ID_APP_MGR -2
+/* Invalid module ID */
+#define ID_NONE (uint32)-1
+
 struct attr_container_t;
 
 /* Queue message type */
@@ -56,6 +62,7 @@ typedef struct watchdog_timer {
 typedef struct module_data {
     struct module_data *next;
 
+    /* ID of the module */
     uint32 id;
 
     /* Type of the module */

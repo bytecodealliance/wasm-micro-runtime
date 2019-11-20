@@ -55,7 +55,7 @@ uint32 bh_get_elpased_ms(uint32 * last_system_clock)
 }
 
 static app_timer_t * remove_timer_from(timer_ctx_t ctx, uint32 timer_id,
-        bool active_list)
+                                       bool active_list)
 {
     vm_mutex_lock(&ctx->mutex);
     app_timer_t ** head;
@@ -94,7 +94,7 @@ static app_timer_t * remove_timer_from(timer_ctx_t ctx, uint32 timer_id,
 }
 
 static app_timer_t * remove_timer(timer_ctx_t ctx, uint32 timer_id,
-        bool * active)
+                                  bool * active)
 {
     app_timer_t* t = remove_timer_from(ctx, timer_id, true);
     if (t) {
@@ -196,8 +196,8 @@ void release_timer_list(app_timer_t ** p_list)
  */
 
 timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,
-        check_timer_expiry_f expiery_checker, int prealloc_num,
-        unsigned int owner)
+                             check_timer_expiry_f expiery_checker, int prealloc_num,
+                             unsigned int owner)
 {
     timer_ctx_t ctx = (timer_ctx_t) bh_malloc(sizeof(struct _timer_ctx));
     if (ctx == NULL)
@@ -252,19 +252,6 @@ void destroy_timer_ctx(timer_ctx_t ctx)
     bh_free(ctx);
 }
 
-void timer_ctx_set_lock(timer_ctx_t ctx, bool lock)
-{
-    if (lock)
-        vm_mutex_lock(&ctx->mutex);
-    else
-        vm_mutex_unlock(&ctx->mutex);
-}
-
-void * timer_ctx_get_lock(timer_ctx_t ctx)
-{
-    return &ctx->mutex;
-}
-
 unsigned int timer_ctx_get_owner(timer_ctx_t ctx)
 {
     return ctx->owner;
@@ -279,14 +266,14 @@ void add_idle_timer(timer_ctx_t ctx, app_timer_t * timer)
 }
 
 uint32 sys_create_timer(timer_ctx_t ctx, int interval, bool is_period,
-        bool auto_start)
+                        bool auto_start)
 {
 
     app_timer_t *timer;
 
     if (ctx->pre_allocated) {
         if (ctx->free_timers == NULL)
-            return -1;
+            return (uint32)-1;
         else {
             timer = ctx->free_timers;
             ctx->free_timers = timer->next;
@@ -294,16 +281,16 @@ uint32 sys_create_timer(timer_ctx_t ctx, int interval, bool is_period,
     } else {
         timer = (app_timer_t*) bh_malloc(sizeof(app_timer_t));
         if (timer == NULL)
-            return -1;
+            return (uint32)-1;
     }
 
     memset(timer, 0, sizeof(*timer));
 
     ctx->g_max_id++;
-    if (ctx->g_max_id == -1)
+    if (ctx->g_max_id == (uint32)-1)
         ctx->g_max_id++;
     timer->id = ctx->g_max_id;
-    timer->interval = interval;
+    timer->interval = (uint32)interval;
     timer->is_periodic = is_period;
 
     if (auto_start)
@@ -347,7 +334,7 @@ bool sys_timer_restart(timer_ctx_t ctx, uint32 timer_id, int interval)
         return false;
 
     if (interval > 0)
-        t->interval = interval;
+        t->interval = (uint32)interval;
 
     reschedule_timer(ctx, t);
 
@@ -393,7 +380,7 @@ int get_expiry_ms(timer_ctx_t ctx)
     if (ctx->g_app_timers == NULL)
         ms_to_next_expiry = 7 * 24 * 60 * 60 * 1000; // 1 week
     else if (ctx->g_app_timers->expiry >= now)
-        ms_to_next_expiry = ctx->g_app_timers->expiry - now;
+        ms_to_next_expiry = (int)(ctx->g_app_timers->expiry - now);
     else
         ms_to_next_expiry = 0;
     vm_mutex_unlock(&ctx->mutex);

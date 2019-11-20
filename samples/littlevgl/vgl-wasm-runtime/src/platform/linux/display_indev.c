@@ -22,8 +22,6 @@ void monitor_sdl_clean_up(void);
 
 static uint32_t tft_fb[MONITOR_HOR_RES * MONITOR_VER_RES];
 
-
-
 int
 time_get_ms(wasm_module_inst_t module_inst)
 {
@@ -42,7 +40,7 @@ static volatile bool sdl_refr_qry = false;
 static volatile bool sdl_quit_qry = false;
 
 void monitor_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+                   const lv_color_t * color_p)
 {
     /*Return if the area is out the screen*/
     if (x2 < 0 || y2 < 0 || x1 > MONITOR_HOR_RES - 1
@@ -52,16 +50,16 @@ void monitor_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
     int32_t y;
     uint32_t w = x2 - x1 + 1;
+
     for (y = y1; y <= y2; y++) {
         memcpy(&tft_fb[y * MONITOR_HOR_RES + x1], color_p,
-                w * sizeof(lv_color_t));
+               w * sizeof(lv_color_t));
 
         color_p += w;
     }
     sdl_refr_qry = true;
 
     /*IMPORTANT! It must be called to tell the system the flush is ready*/
-
 }
 
 /**
@@ -73,7 +71,7 @@ void monitor_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
  * @param color fill color
  */
 void monitor_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        lv_color_t color)
+                  lv_color_t color)
 {
     /*Return if the area is out the screen*/
     if (x2 < 0)
@@ -113,7 +111,7 @@ void monitor_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
  * @param color_p an array of colors
  */
 void monitor_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+                 const lv_color_t * color_p)
 {
     /*Return if the area is out the screen*/
     if (x2 < 0)

@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <time.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -21,6 +22,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <limits.h>
+#include <fcntl.h>
 #include <errno.h>
 
 #ifdef __cplusplus

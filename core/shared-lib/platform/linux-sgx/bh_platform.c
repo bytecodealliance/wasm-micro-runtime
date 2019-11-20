@@ -15,10 +15,33 @@ static bh_print_function_t print_function = NULL;
 
 char *bh_strdup(const char *s)
 {
+    uint32 size;
     char *s1 = NULL;
-    if (s && (s1 = bh_malloc(strlen(s) + 1)))
-        memcpy(s1, s, strlen(s) + 1);
+
+    if (s) {
+        size = (uint32)(strlen(s) + 1);
+        if ((s1 = bh_malloc(size)))
+            bh_memcpy_s(s1, size, s, size);
+    }
     return s1;
+}
+
+const unsigned short ** __ctype_b_loc(void)
+{
+    /* TODO */
+    return NULL;
+}
+
+const int32_t ** __ctype_toupper_loc(void)
+{
+    /* TODO */
+    return NULL;
+}
+
+const int32_t ** __ctype_tolower_loc(void)
+{
+    /* TODO */
+    return NULL;
 }
 
 int bh_platform_init()

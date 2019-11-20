@@ -9,6 +9,10 @@
 #include "wasm.h"
 #include "wasm_thread.h"
 #include "wasm_hashmap.h"
+#if WASM_ENABLE_WASI != 0
+#include "wasmtime_ssp.h"
+#include "posix.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,6 +85,10 @@ typedef struct WASMGlobalInstance {
 typedef struct WASMFunctionInstance {
     /* whether it is import function or WASM function */
     bool is_import_func;
+    /* parameter count */
+    uint16 param_count;
+    /* local variable count, 0 for import function */
+    uint16 local_count;
     /* cell num of parameters */
     uint16 param_cell_num;
     /* cell num of return type */
@@ -88,6 +96,10 @@ typedef struct WASMFunctionInstance {
     /* cell num of local variables, 0 for import function */
     uint16 local_cell_num;
     uint16 *local_offsets;
+    /* parameter types */
+    uint8 *param_types;
+    /* local types, NULL for import function */
+    uint8 *local_types;
     union {
         WASMFunctionImport *func_import;
         WASMFunction *func;
@@ -105,6 +117,14 @@ typedef enum {
     Wasm_Module_AoT,
     Package_Type_Unknown = 0xFFFF
 } PackageType;
+
+#if WASM_ENABLE_WASI != 0
+typedef struct WASIContext {
+    struct fd_table *curfds;
+    struct fd_prestats *prestats;
+    struct argv_environ_values *argv_environ;
+} WASIContext;
+#endif
 
 typedef struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
@@ -132,6 +152,10 @@ typedef struct WASMModuleInstance {
     WASMFunctionInstance *start_function;
 
     WASMModule *module;
+
+#if WASM_ENABLE_WASI != 0
+    WASIContext wasi_ctx;
+#endif
 
     uint32 DYNAMICTOP_PTR_offset;
     uint32 temp_ret;
@@ -271,7 +295,7 @@ wasm_runtime_get_exception(WASMModuleInstance *module);
  * @return return true if enlarge successfully, false otherwise
  */
 bool
-wasm_runtime_enlarge_memory(WASMModuleInstance *module, int inc_page_count);
+wasm_runtime_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
 
 /* See wasm_export.h for description */
 WASMModuleInstance *

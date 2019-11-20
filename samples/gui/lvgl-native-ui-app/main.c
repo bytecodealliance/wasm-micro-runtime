@@ -96,7 +96,7 @@ int main(int argc, char ** argv)
         /* Periodically call the lv_task handler.
          * It could be done in a timer interrupt or an OS task too.*/
         if ((count % 100) == 0) {
-            sprintf(count_str, "%d", count/ 100);
+            snprintf(count_str, sizeof(count_str), "%d", count/ 100);
             lv_label_set_text(count_label, count_str);
         }
         lv_task_handler();
@@ -146,7 +146,8 @@ static void btn_event_cb(lv_obj_t * btn, lv_event_t event)
 {
     if(event == LV_EVENT_RELEASED) {
         label_count1_value++;
-        sprintf(label_count1_str, "%d", label_count1_value);
+        snprintf(label_count1_str, sizeof(label_count1_str),
+                 "%d", label_count1_value);
         lv_label_set_text(label_count1, label_count1_str);
     }
 }

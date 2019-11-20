@@ -8,11 +8,13 @@ project(NONE)
 
 enable_language (ASM)
 
+set (PLATFORM "zephyr")
+
 add_definitions (-DNVALGRIND)
 
 # Build as X86_32 by default, change to "ARM_32", "MIPS_32" or "XTENSA_32"
 # if we want to support arm, mips or xtensa
-if (NOT BUILD_TARGET)
+if (NOT DEFINED BUILD_TARGET)
   set (BUILD_TARGET "X86_32")
 endif ()
 
@@ -35,33 +37,29 @@ message ("-- Build as target ${BUILD_TARGET}")
 set (IWASM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/iwasm)
 set (SHARED_LIB_ROOT ${IWASM_ROOT}/../shared-lib)
 
-include_directories (${IWASM_ROOT}/runtime/include
-                     ${IWASM_ROOT}/runtime/platform/include
-                     ${IWASM_ROOT}/runtime/platform/zephyr
-                     ${IWASM_ROOT}/runtime/vmcore-wasm
-                     ${SHARED_LIB_ROOT}/include
-                     ${SHARED_LIB_ROOT}/platform/include
-                     ${SHARED_LIB_ROOT}/platform/zephyr)
+include (${IWASM_ROOT}/runtime/platform/${PLATFORM}/platform.cmake)
+include (${IWASM_ROOT}/runtime/utils/utils.cmake)
+include (${IWASM_ROOT}/runtime/vmcore-wasm/vmcore.cmake)
+include (${IWASM_ROOT}/runtime/wasmtime-wasi-c/wasi.cmake)
+include (${IWASM_ROOT}/lib/native/base/wasm_lib_base.cmake)
+include (${IWASM_ROOT}/lib/native/libc/wasm_libc.cmake)
+include (${SHARED_LIB_ROOT}/platform/${PLATFORM}/shared_platform.cmake)
+include (${SHARED_LIB_ROOT}/mem-alloc/mem_alloc.cmake)
+include (${SHARED_LIB_ROOT}/utils/shared_utils.cmake)
 
-set (IWASM_SRCS ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c
-                ${IWASM_ROOT}/runtime/utils/wasm_log.c
-                ${IWASM_ROOT}/runtime/utils/wasm_dlfcn.c
-                ${IWASM_ROOT}/runtime/platform/zephyr/wasm_native.c
-                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_application.c
-                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_interp.c
-                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_loader.c
-                ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_runtime.c
-                ${IWASM_ROOT}/runtime/vmcore-wasm/invokeNative_general.c
-                ${IWASM_ROOT}/lib/native/libc/libc_wrapper.c
-                ${IWASM_ROOT}/lib/native/base/base_lib_export.c
-                ${SHARED_LIB_ROOT}/platform/zephyr/bh_platform.c
-                ${SHARED_LIB_ROOT}/platform/zephyr/bh_assert.c
-                ${SHARED_LIB_ROOT}/platform/zephyr/bh_thread.c
-                ${SHARED_LIB_ROOT}/platform/zephyr/bh_math.c
-                ${SHARED_LIB_ROOT}/mem-alloc/bh_memory.c
-                ${SHARED_LIB_ROOT}/mem-alloc/mem_alloc.c
-                ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_kfc.c
-                ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_alloc.c
-                ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_hmu.c)
+set (VM_LIB_SRCS
+     ${WASM_PLATFORM_LIB_SOURCE}
+     ${WASM_UTILS_LIB_SOURCE}
+     ${VMCORE_LIB_SOURCE}
+     ${WASI_LIB_SOURCE}
+     ${WASM_LIB_BASE_DIR}/base_lib_export.c
+     ${WASM_LIBC_SOURCE}
+     ${PLATFORM_SHARED_SOURCE}
+     ${MEM_ALLOC_SHARED_SOURCE}
+     ${UTILS_SHARED_SOURCE})
 
-target_sources(app PRIVATE ${IWASM_SRCS} src/main.c src/ext_lib_export.c)
+target_sources(app PRIVATE
+               ${VM_LIB_SRCS}
+               src/main.c
+               src/ext_lib_export.c)
+

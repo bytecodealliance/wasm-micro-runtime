@@ -15,6 +15,7 @@
 #include "wasm_log.h"
 #include "wasm_memory.h"
 #include "wasm_platform_log.h"
+#include "bh_common.h"
 
 
 static WASMFunctionInstance*
@@ -55,17 +56,55 @@ check_main_func_type(const WASMType *type)
     return true;
 }
 
+#if WASM_ENABLE_WASI != 0
+static WASMFunctionInstance *
+lookup_wasi_start_function(WASMModuleInstance *module_inst)
+{
+    WASMFunctionInstance *func = NULL;
+    uint32 i;
+    for (i = 0; i < module_inst->export_func_count; i++) {
+        if (!strcmp(module_inst->export_functions[i].name, "_start")) {
+            func = module_inst->export_functions[i].function;
+            if (func->u.func->func_type->param_count != 0
+                || func->u.func->func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
+            }
+            return func;
+        }
+    }
+    return NULL;
+}
+#endif
+
 bool
 wasm_application_execute_main(WASMModuleInstance *module_inst,
                               int argc, char *argv[])
 {
-    WASMFunctionInstance *func = resolve_main_function(module_inst);
+    WASMFunctionInstance *func;
     uint32 argc1 = 0, argv1[2] = { 0 };
-    uint32 total_argv_size = 0, total_size;
+    uint32 total_argv_size = 0;
+    uint64 total_size;
     int32 argv_buf_offset, i;
-    char *argv_buf, *p;
+    char *argv_buf, *p, *p_end;
     int32 *argv_offsets;
 
+#if WASM_ENABLE_WASI != 0
+    if (module_inst->module->is_wasi_module) {
+        /* In wasi mode, we should call function named "_start"
+           which initializes the wasi envrionment and then calls
+           the actual main function. Directly call main function
+           may cause exception thrown. */
+        if ((func = lookup_wasi_start_function(module_inst)))
+            return wasm_runtime_call_wasm(module_inst, NULL,
+                                          func, 0, NULL);
+        /* if no start function is found, we execute
+           the main function as normal */
+    }
+#endif
+
+    func = resolve_main_function(module_inst);
     if (!func || func->is_import_func)
         return false;
 
@@ -74,25 +113,28 @@ wasm_application_execute_main(WASMModuleInstance *module_inst,
 
     if (func->u.func->func_type->param_count) {
         for (i = 0; i < argc; i++)
-            total_argv_size += strlen(argv[i]) + 1;
+            total_argv_size += (uint32)(strlen(argv[i]) + 1);
         total_argv_size = align_uint(total_argv_size, 4);
 
-        total_size = total_argv_size + sizeof(int32) * argc;
+        total_size = (uint64)total_argv_size + sizeof(int32) * (uint64)argc;
 
-        if (!(argv_buf_offset = wasm_runtime_module_malloc(module_inst, total_size)))
+        if (total_size >= UINT32_MAX
+            || !(argv_buf_offset =
+                    wasm_runtime_module_malloc(module_inst, (uint32)total_size)))
             return false;
 
         argv_buf = p = wasm_runtime_addr_app_to_native(module_inst, argv_buf_offset);
         argv_offsets = (int32*)(p + total_argv_size);
+        p_end = p + total_size;
 
         for (i = 0; i < argc; i++) {
-            memcpy(p, argv[i], strlen(argv[i]) + 1);
-            argv_offsets[i] = argv_buf_offset + (p - argv_buf);
+            bh_memcpy_s(p, (uint32)(p_end - p), argv[i], (uint32)(strlen(argv[i]) + 1));
+            argv_offsets[i] = argv_buf_offset + (int32)(p - argv_buf);
             p += strlen(argv[i]) + 1;
         }
 
         argc1 = 2;
-        argv1[0] = argc;
+        argv1[0] = (uint32)argc;
         argv1[1] = (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
     }
 
@@ -165,6 +207,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     WASMType *type;
     uint32 argc1, *argv1;
     int32 i, p;
+    uint64 total_size;
     const char *exception;
 
     wasm_assert(argc >= 0);
@@ -181,15 +224,16 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     }
 
     argc1 = func->param_cell_num;
-    argv1 = wasm_malloc(sizeof(uint32) * (argc1 > 2 ? argc1 : 2));
-    if (argv1 == NULL) {
+    total_size = sizeof(uint32) * (uint64)(argc1 > 2 ? argc1 : 2);
+    if (total_size >= UINT32_MAX
+        || (!(argv1 = wasm_malloc((uint32)total_size)))) {
         LOG_ERROR("Wasm prepare param failed: malloc failed.\n");
         return false;
     }
 
     /* Parse arguments */
     for (i = 0, p = 0; i < argc; i++) {
-        char *endptr;
+        char *endptr = NULL;
         wasm_assert(argv[i] != NULL);
         if (argv[i][0] == '\0') {
             LOG_ERROR("Wasm prepare param failed: invalid num (%s).\n", argv[i]);
@@ -197,7 +241,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
         }
         switch (type->types[i]) {
             case VALUE_TYPE_I32:
-                argv1[p++] = strtoul(argv[i], &endptr, 0);
+                argv1[p++] = (uint32)strtoul(argv[i], &endptr, 0);
                 break;
             case VALUE_TYPE_I64:
             {
@@ -217,7 +261,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                     if (endptr[0] == ':') {
                         uint32 sig;
                         union ieee754_float u;
-                        sig = strtoul(endptr + 1, &endptr, 0);
+                        sig = (uint32)strtoul(endptr + 1, &endptr, 0);
                         u.f = f32;
                         if (is_little_endian())
                             u.ieee.ieee_little_endian.mantissa = sig;
@@ -244,11 +288,11 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                         ud.d = u.val;
                         if (is_little_endian()) {
                             ud.ieee.ieee_little_endian.mantissa0 = sig >> 32;
-                            ud.ieee.ieee_little_endian.mantissa1 = sig;
+                            ud.ieee.ieee_little_endian.mantissa1 = (uint32)sig;
                         }
                         else {
                             ud.ieee.ieee_big_endian.mantissa0 = sig >> 32;
-                            ud.ieee.ieee_big_endian.mantissa1 = sig;
+                            ud.ieee.ieee_big_endian.mantissa1 = (uint32)sig;
                         }
                         u.val = ud.d;
                     }
@@ -258,7 +302,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                 break;
             }
         }
-        if (*endptr != '\0' && *endptr != '_') {
+        if (endptr && *endptr != '\0' && *endptr != '_') {
             LOG_ERROR("Wasm prepare param failed: invalid num (%s).\n", argv[i]);
             goto fail;
         }

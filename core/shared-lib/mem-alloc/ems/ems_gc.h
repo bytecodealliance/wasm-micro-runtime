@@ -169,7 +169,7 @@ extern int gc_destroy_with_pool(gc_handle_t handle);
  * @param size [in] the size of stats
  * @param mmt [in] type of heap, MMT_SHARED or MMT_INSTANCE
  */
-extern void* gc_heap_stats(void *heap, int* stats, int size, gc_mm_t mmt);
+extern void* gc_heap_stats(void *heap, uint32* stats, int size, gc_mm_t mmt);
 
 /**
  * Set GC threshold factor

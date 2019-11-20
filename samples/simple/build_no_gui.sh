@@ -55,13 +55,16 @@ for i in `ls *.c | grep -v gui`
 do
 APP_SRC="$i ${APP_LIB_SRC}"
 OUT_FILE=${i%.*}.wasm
-emcc -O3 -I${APP_LIBS}/base -I${APP_LIBS}/extension/sensor -I${NATIVE_LIBS} \
-     -I${APP_LIBS}/extension/connection \
-     -s WASM=1 -s SIDE_MODULE=1 -s ASSERTIONS=1 -s STACK_OVERFLOW_CHECK=2 \
-     -s TOTAL_MEMORY=65536 -s TOTAL_STACK=4096 \
-     -s "EXPORTED_FUNCTIONS=['_on_init', '_on_destroy', '_on_request', '_on_response', \
-                             '_on_sensor_event', '_on_timer_callback', '_on_connection_data']" \
-     -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
+clang-8 -I${APP_LIBS}/base -I${APP_LIBS}/extension/sensor -I${NATIVE_LIBS} \
+        -I${APP_LIBS}/extension/connection \
+        --target=wasm32 -O3 -z stack-size=4096 -Wl,--initial-memory=65536 \
+        -Wl,--allow-undefined \
+        -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
+        -Wl,--export=on_init -Wl,--export=on_destroy \
+        -Wl,--export=on_request -Wl,--export=on_response \
+        -Wl,--export=on_sensor_event -Wl,--export=on_timer_callback \
+        -Wl,--export=on_connection_data \
+        -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
 if [ -f ${OUT_DIR}/wasm-apps/${OUT_FILE} ]; then
         echo "build ${OUT_FILE} success"
 else

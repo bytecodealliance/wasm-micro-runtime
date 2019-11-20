@@ -12,6 +12,7 @@
 #include "wasm_log.h"
 #include "wasm_memory.h"
 #include "wasm_platform_log.h"
+#include "bh_common.h"
 
 #include <sys/ioctl.h>
 #include <sys/uio.h>
@@ -91,7 +92,7 @@ __syscall3_wrapper(WASMModuleInstance *module_inst,
                 uint32 iov_len;
             } *vec;
             int32 vec_offset = arg2, str_offset;
-            uint32 iov_count = arg3, i;
+            uint32 iov_count = (uint32)arg3, i;
             int32 count = 0;
             char *iov_base, *str;
 
@@ -110,7 +111,7 @@ __syscall3_wrapper(WASMModuleInstance *module_inst,
 
                     str = addr_app_to_native(str_offset);
 
-                    memcpy(str, iov_base, vec->iov_len);
+                    bh_memcpy_s(str, vec->iov_len + 1, iov_base, vec->iov_len);
                     str[vec->iov_len] = '\0';
                     count += wasm_printf("%s", str);
 
@@ -219,7 +220,7 @@ EMCC_SYSCALL_WRAPPER3(221)
 
 EMCC_SYSCALL_WRAPPER5(140)
 
-static int32
+static uint32
 getTotalMemory_wrapper(WASMModuleInstance *module_inst)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;

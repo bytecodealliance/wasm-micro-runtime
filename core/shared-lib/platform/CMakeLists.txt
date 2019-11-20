@@ -3,7 +3,7 @@
 
 include_directories (./include ../include ./${PLATFORM})
 
-add_definitions (-D__POSIX__ -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE)
+add_definitions (-D__POSIX__ -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200809L -D_BSD_SOURCE)
 
 file (GLOB_RECURSE source_all ${PLATFORM}/*.c)
 add_library (supportlib ${source_all})

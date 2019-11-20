@@ -14,7 +14,7 @@ endif ()
 
 # Set BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
-if (NOT BUILD_TARGET)
+if (NOT DEFINED BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (BUILD_TARGET "X86_64")
