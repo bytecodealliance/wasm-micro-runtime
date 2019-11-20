@@ -8,37 +8,64 @@ set (TARGET_PLATFORM "linux")
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
-# Enable repl mode if want to test spec cases
-# add_definitions(-DWASM_ENABLE_REPL)
-
 if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
   add_definitions(-DNVALGRIND)
 endif ()
 
-# Currently build as 64-bit by default.
-set (BUILD_AS_64BIT_SUPPORT "YES")
+# Set BUILD_TARGET, currently values supported:
+# "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
+if (NOT BUILD_TARGET)
+  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Build as X86_64 by default in 64-bit platform
+    set (BUILD_TARGET "X86_64")
+  else ()
+    # Build as X86_32 by default in 32-bit platform
+    set (BUILD_TARGET "X86_32")
+  endif ()
+endif ()
+
+string(TOUPPER ${BUILD_TARGET} BUILD_TARGET)
+
+# Add definitions for the build target
+if (BUILD_TARGET STREQUAL "X86_64")
+  add_definitions(-DBUILD_TARGET_X86_64)
+elseif (BUILD_TARGET STREQUAL "AMD_64")
+  add_definitions(-DBUILD_TARGET_AMD_64)
+elseif (BUILD_TARGET STREQUAL "X86_32")
+  add_definitions(-DBUILD_TARGET_X86_32)
+elseif (BUILD_TARGET STREQUAL "ARM_32")
+  add_definitions(-DBUILD_TARGET_ARM_32)
+elseif (BUILD_TARGET STREQUAL "MIPS_32")
+  add_definitions(-DBUILD_TARGET_MIPS_32)
+elseif (BUILD_TARGET STREQUAL "XTENSA_32")
+  add_definitions(-DBUILD_TARGET_XTENSA_32)
+else ()
+  message (FATAL_ERROR "-- Build target isn't set")
+endif ()
+
+message ("-- Build as target ${BUILD_TARGET}")
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-if (${BUILD_AS_64BIT_SUPPORT} STREQUAL "YES")
-  # Add -fPIC flag if build as 64-bit
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-  set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
-else ()
-  add_definitions (-m32)
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
-  set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
-endif ()
+  if (BUILD_TARGET STREQUAL "X86_64" OR BUILD_TARGET STREQUAL "AMD_64")
+    # Add -fPIC flag if build as 64-bit
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+    set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
+  else ()
+    add_definitions (-m32)
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
+    set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
+  endif ()
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE)
 SET(CMAKE_BUILD_TYPE Debug)
 endif (NOT CMAKE_BUILD_TYPE)
-message ("CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
+message ("-- CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 
 if (NOT PLATFORM)
 SET(PLATFORM linux)
 endif (NOT PLATFORM)
-message ("PLATFORM = " ${PLATFORM})
+message ("-- PLATFORM = " ${PLATFORM})
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic")

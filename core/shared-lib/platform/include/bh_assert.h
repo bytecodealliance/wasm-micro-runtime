@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #ifndef _BH_ASSERT_H
@@ -39,37 +28,31 @@ extern "C" {
 
 #ifdef BH_DEBUG
 
-extern void bh_assert_internal(int v, const char *file_name, int line_number, const char *expr_string);
-#define bh_assert(expr) bh_assert_internal((int)(expr), __FILE__, __LINE__, # expr)
-extern void bh_debug_internal(const char *file_name, int line_number, const char *fmt, ...);
+void bh_assert_internal(int v, const char *file_name, int line_number,
+                        const char *expr_string);
+#define bh_assert(expr) bh_assert_internal((int)(expr), __FILE__, __LINE__, #expr)
 
-#if defined(WIN32) || defined(EMU)
-#    define bh_debug(fmt, ...) bh_debug_internal(__FILE__, __LINE__, fmt, __VA_ARGS__)
+void bh_debug_internal(const char *file_name, int line_number,
+                       const char *fmt, ...);
+#if defined(WIN32)
+  #define bh_debug(fmt, ...) bh_debug_internal(__FILE__, __LINE__, fmt, __VA_ARGS__)
 #elif defined(__linux__)
-/*#    define bh_debug(...) bh_debug_internal(__FILE__, __LINE__, ## __VA_ARGS__)*/
-# define bh_debug bh_debug_internal(__FILE__, __LINE__, "");printf
-#elif defined(PLATFORM_SEC)
-#    define bh_debug(fmt, ...) bh_debug_internal(__FILE__, __LINE__, fmt, __VA_ARGS__)
+  #define bh_debug bh_debug_internal(__FILE__, __LINE__, "");printf
 #else
-#    error "Unsupported platform"
+  #error "Unsupported platform"
 #endif
 
-#else
+#else /* else of BH_DEBUG */
 
 #define bh_debug if(0)printf
 
-#endif
-
-#define bh_assert_abort(x) do {                 \
-        if (!x)                                 \
-            abort();                            \
-    } while (0)
+#endif /* end of BH_DEBUG */
 
 #ifdef BH_TEST
-#    define BH_STATIC
+  #define BH_STATIC
 #else
-#    define BH_STATIC static
-#endif
+  #define BH_STATIC static
+#endif /* end of BH_TEST */
 
 #ifdef __cplusplus
 }
@@ -77,8 +60,3 @@ extern void bh_debug_internal(const char *file_name, int line_number, const char
 
 #endif
 
-/* Local Variables: */
-/* mode:c           */
-/* c-basic-offset: 4 */
-/* indent-tabs-mode: nil */
-/* End:             */

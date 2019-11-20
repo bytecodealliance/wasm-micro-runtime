@@ -1,16 +1,5 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required(VERSION 3.8.2)
 
@@ -26,6 +15,28 @@ zephyr_compile_definitions (-DNVALGRIND
     -Dattr_container_malloc=bh_malloc
     -Dattr_container_free=bh_free
     -DWASM_ENABLE_GUI=1)
+
+# Build as ARM_32 by default, change to "X86_32", "MIPS_32" or "XTENSA_32"
+# if we want to support x86, mips or xtensa
+if (NOT BUILD_TARGET)
+  set (BUILD_TARGET "ARM_32")
+endif ()
+
+string(TOUPPER ${BUILD_TARGET} BUILD_TARGET)
+
+if (BUILD_TARGET STREQUAL "X86_32")
+  add_definitions(-DBUILD_TARGET_X86_32)
+elseif (BUILD_TARGET STREQUAL "ARM_32")
+  add_definitions(-DBUILD_TARGET_ARM_32)
+elseif (BUILD_TARGET STREQUAL "MIPS_32")
+  add_definitions(-DBUILD_TARGET_MIPS_32)
+elseif (BUILD_TARGET STREQUAL "XTENSA_32")
+  add_definitions(-DBUILD_TARGET_XTENSA_32)
+else ()
+  message (FATAL_ERROR "-- Build target isn't set")
+endif ()
+
+message ("-- Build as target ${BUILD_TARGET}")
 
 set (IWASM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/core/iwasm)
 set (APP_MGR_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/core/app-mgr)

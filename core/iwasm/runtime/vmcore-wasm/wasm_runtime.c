@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "wasm_runtime.h"
@@ -1458,7 +1447,7 @@ word_copy(uint32 *dest, uint32 *src, unsigned num)
     (addr)[1] = u.parts[1];                     \
   } while (0)
 
-#if !defined(__x86_64__) && !defined(__amd_64__)
+#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64)
 
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 sz);
@@ -1483,7 +1472,7 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     uint32 argv_buf[32], *argv1 = argv_buf, argc1, i, j = 0;
     uint64 size;
 
-#if !defined(__arm__) && !defined(__mips__)
+#if !defined(BUILD_TARGET_ARM_32) && !defined(BUILD_TARGET_MIPS_32)
     argc1 = argc + 2;
 #else
     argc1 = func_type->param_count * 2 + 2;
@@ -1501,7 +1490,7 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     for (i = 0; i < sizeof(WASMModuleInstance*) / sizeof(uint32); i++)
         argv1[j++] = ((uint32*)&module_inst)[i];
 
-#if !defined(__arm__) && !defined(__mips__)
+#if !defined(BUILD_TARGET_ARM_32) && !defined(BUILD_TARGET_MIPS_32)
     word_copy(argv1 + j, argv, argc);
     j += argc;
 #else
@@ -1526,7 +1515,7 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                 break;
         }
     }
-#endif
+#endif /* end of !defined(BUILD_TARGET_ARM_32) && !defined(BUILD_TARGET_MIPS_32) */
 
     argc1 = j;
     if (func_type->result_count == 0) {
@@ -1557,7 +1546,7 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     return true;
 }
 
-#else /* else of !defined(__x86_64__) && !defined(__amd_64__) */
+#else /* else of !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64) */
 
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
@@ -1675,5 +1664,5 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     return true;
 }
 
-#endif /* end of !defined(__x86_64__) && !defined(__amd_64__) */
+#endif /* end of !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_AMD_64) */
 
