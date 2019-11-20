@@ -48,7 +48,7 @@ static char global_heap_buf[256 * 1024] = { 0 };
 void iwasm_main(void *arg1)
 {
     uint8 *wasm_file_buf = NULL;
-    int wasm_file_size;
+    uint32 wasm_file_size;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     char error_buf[128];

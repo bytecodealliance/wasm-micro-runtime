@@ -17,6 +17,8 @@
 #include "conn_tcp.h"
 #include "conn_udp.h"
 #include "conn_uart.h"
+#include "bh_common.h"
+#include "bh_assert.h"
 
 #include <unistd.h>
 #include <sys/epoll.h>
@@ -214,6 +216,7 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
     struct epoll_event ev;
     uint32 module_id = app_manager_get_module_id(Module_WASM_App,
                                                  module_inst);
+    bh_assert(module_id != ID_NONE);
 
     if (get_app_conns_num(module_id) >= MAX_CONNECTION_PER_APP)
         return -1;
@@ -242,7 +245,7 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
         port = attr_container_get_as_uint16(args, "port");
 
         /* Connect to TCP server */
-        if ((fd = tcp_open(address, port)) == -1)
+        if (!address || (fd = tcp_open(address, port)) == -1)
             goto fail;
 
     } else if (conn->type == CONN_TYPE_UDP) {
@@ -269,9 +272,10 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
         baud = attr_container_get_as_int(args, "baudrate");
 
         /* Open device */
-        if ((fd = uart_open(device, baud)) == -1)
+        if (!device || (fd = uart_open(device, baud)) == -1)
             goto fail;
-
+    } else {
+        goto fail;
     }
 
     conn->fd = fd;
@@ -345,7 +349,8 @@ static bool _conn_config(uint32 handle, attr_container_t *cfg)
         if (!attr_container_contain_key(cfg, "address") ||
             !attr_container_contain_key(cfg, "port"))
             return false;
-        address = attr_container_get_as_string(cfg, "address");
+        if (!(address = attr_container_get_as_string(cfg, "address")))
+            return false;
         port = attr_container_get_as_uint16(cfg, "port");
 
         if (conn->arg == NULL) {
@@ -409,7 +414,7 @@ static void post_msg_to_module(sys_connection_t *conn,
             bh_free(conn_data_event);
             return;
         }
-        memcpy(data_copy, data, len);
+        bh_memcpy_s(data_copy, len, data, len);
     }
 
     memset(conn_data_event, 0, sizeof(*conn_data_event));

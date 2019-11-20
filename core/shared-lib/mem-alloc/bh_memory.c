@@ -95,7 +95,7 @@ void bh_memory_destroy()
     memory_mode = MEMORY_MODE_UNKNOWN;
 }
 
-int bh_memory_pool_size()
+unsigned bh_memory_pool_size()
 {
     if (memory_mode == MEMORY_MODE_POOL)
         return global_pool_size;
@@ -155,7 +155,7 @@ void* bh_malloc_profile(const char *file,
             profile = bh_malloc_internal(sizeof(memory_profile_t));
             if (!profile) {
               vm_mutex_unlock(&profile_lock);
-              memcpy(p, &size, sizeof(size));
+              bh_memcpy_s(p, size + 8, &size, sizeof(size));
               return (char *)p + 8;
             }
 
@@ -171,7 +171,7 @@ void* bh_malloc_profile(const char *file,
 
         vm_mutex_unlock(&profile_lock);
 
-        memcpy(p, &size, sizeof(size));
+        bh_memcpy_s(p, size + 8, &size, sizeof(size));
         memory_in_use += size;
 
         memory_profile_print(file, line, func, size);

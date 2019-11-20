@@ -4,7 +4,7 @@
 #include "lvgl.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
-#include "wasm_assert.h"
+#include "bh_assert.h"
 
 #include <stdint.h>
 
@@ -17,7 +17,8 @@ uint32 wgl_native_wigdet_create(int8 widget_type, lv_obj_t *par, lv_obj_t *copy,
                                 wasm_module_inst_t module_inst)
 {
     uint32 obj_id;
-    lv_obj_t *wigdet;
+    lv_obj_t *wigdet = NULL;
+    uint32 mod_id;
 
     //TODO: limit total widget number
 
@@ -38,10 +39,10 @@ uint32 wgl_native_wigdet_create(int8 widget_type, lv_obj_t *par, lv_obj_t *copy,
     if (wigdet == NULL)
         return 0;
 
-    if (wgl_native_add_object(wigdet,
-                              app_manager_get_module_id(Module_WASM_App,
-                                                        module_inst),
-                              &obj_id))
+    mod_id = app_manager_get_module_id(Module_WASM_App, module_inst);
+    bh_assert(mod_id != ID_NONE);
+
+    if (wgl_native_add_object(wigdet, mod_id, &obj_id))
         return obj_id; /* success return */
 
     return 0;
@@ -49,7 +50,7 @@ uint32 wgl_native_wigdet_create(int8 widget_type, lv_obj_t *par, lv_obj_t *copy,
 
 static void invokeNative(intptr_t argv[], uint32 argc, void (*native_code)())
 {
-    wasm_assert(argc >= 1);
+    bh_assert(argc >= 1);
 
     switch(argc) {
         case 1:

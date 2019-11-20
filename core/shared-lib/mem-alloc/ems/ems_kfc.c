@@ -41,7 +41,7 @@ int gci_check_platform()
 gc_handle_t gc_init_with_pool(char *buf, gc_size_t buf_size)
 {
     char *buf_end = buf + buf_size;
-    char *buf_aligned = (char*) (((uintptr_t) buf + 7) & ~7);
+    char *buf_aligned = (char*) (((uintptr_t) buf + 7) & (uintptr_t)~7);
     char *base_addr = buf_aligned + sizeof(gc_heap_t);
     gc_heap_t *heap = (gc_heap_t*) buf_aligned;
     gc_size_t heap_max_size;
@@ -60,8 +60,8 @@ gc_handle_t gc_init_with_pool(char *buf, gc_size_t buf_size)
         return NULL;
     }
 
-    base_addr = (char*) (((uintptr_t) base_addr + 7) & ~7) + GC_HEAD_PADDING;
-    heap_max_size = (buf_end - base_addr) & ~7;
+    base_addr = (char*) (((uintptr_t) base_addr + 7) & (uintptr_t)~7) + GC_HEAD_PADDING;
+    heap_max_size = (uint32)(buf_end - base_addr) & (uint32)~7;
 
     memset(heap, 0, sizeof *heap);
     memset(base_addr, 0, heap_max_size);
@@ -154,7 +154,7 @@ void gci_verify_heap(gc_heap_t *heap)
 }
 #endif
 
-void* gc_heap_stats(void *heap_arg, int* stats, int size, gc_mm_t mmt)
+void* gc_heap_stats(void *heap_arg, uint32* stats, int size, gc_mm_t mmt)
 {
     (void) mmt;
     int i;
@@ -175,7 +175,7 @@ void* gc_heap_stats(void *heap_arg, int* stats, int size, gc_mm_t mmt)
             stats[i] = heap->total_gc_count;
             break;
         case GC_STAT_TIME:
-            stats[i] = (int) heap->total_gc_time;
+            stats[i] = (uint32)heap->total_gc_time;
             break;
         default:
             break;

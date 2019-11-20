@@ -4,6 +4,7 @@
  */
 
 #include "bh_platform.h"
+#include "bh_common.h"
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -11,9 +12,14 @@
 
 char *bh_strdup(const char *s)
 {
+    uint32 size;
     char *s1 = NULL;
-    if (s && (s1 = bh_malloc(strlen(s) + 1)))
-        memcpy(s1, s, strlen(s) + 1);
+
+    if (s) {
+        size = (uint32)(strlen(s) + 1);
+        if ((s1 = bh_malloc(size)))
+            bh_memcpy_s(s1, size, s, size);
+    }
     return s1;
 }
 
@@ -23,11 +29,11 @@ int bh_platform_init()
 }
 
 char*
-bh_read_file_to_buffer(const char *filename, int *ret_size)
+bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
     char *buffer;
     int file;
-    int file_size, read_size;
+    uint32 file_size, read_size;
     struct stat stat_buf;
 
     if (!filename || !ret_size) {
@@ -48,7 +54,7 @@ bh_read_file_to_buffer(const char *filename, int *ret_size)
         return NULL;
     }
 
-    file_size = stat_buf.st_size;
+    file_size = (uint32)stat_buf.st_size;
 
     if (!(buffer = bh_malloc(file_size))) {
         printf("Read file to buffer failed: alloc memory failed.\n");
@@ -56,7 +62,7 @@ bh_read_file_to_buffer(const char *filename, int *ret_size)
         return NULL;
     }
 
-    read_size = read(file, buffer, file_size);
+    read_size = (uint32)read(file, buffer, file_size);
     close(file);
 
     if (read_size < file_size) {

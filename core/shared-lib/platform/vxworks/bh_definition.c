@@ -41,8 +41,9 @@ int b_strcat_s(char * s1, size_t s1max, const char * s2)
 
 int b_strcpy_s(char * s1, size_t s1max, const char * s2)
 {
-    if (NULL == s1|| NULL == s2
-        || s1max < (strlen(s2) + 1) || s1max > RSIZE_MAX) {
+    if (NULL == s1 || NULL == s2
+        || s1max < (strlen(s2) + 1)
+        || s1max > RSIZE_MAX) {
         return -1;
     }
 

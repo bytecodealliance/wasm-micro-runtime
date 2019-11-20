@@ -22,8 +22,6 @@ typedef void (*check_timer_expiry_f)(timer_ctx_t ctx);
 timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,
         check_timer_expiry_f, int prealloc_num, unsigned int owner);
 void destroy_timer_ctx(timer_ctx_t);
-void timer_ctx_set_lock(timer_ctx_t ctx, bool lock);
-void * timer_ctx_get_lock(timer_ctx_t ctx);
 unsigned int timer_ctx_get_owner(timer_ctx_t ctx);
 
 uint32 sys_create_timer(timer_ctx_t ctx, int interval, bool is_period,

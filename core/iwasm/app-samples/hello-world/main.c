@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 
     printf("buf ptr: %p\n", buf);
 
-    sprintf(buf, "%s", "1234\n");
+    snprintf(buf, 1024, "%s", "1234\n");
     printf("buf: %s", buf);
 
     free(buf);
