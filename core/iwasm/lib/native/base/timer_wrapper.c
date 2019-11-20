@@ -143,27 +143,34 @@ timer_id_t
 wasm_create_timer(wasm_module_inst_t module_inst,
                   int interval, bool is_period, bool auto_start)
 {
-    return sys_create_timer(get_wasm_timer_ctx(module_inst), interval, is_period,
-                            auto_start);
+    timer_ctx_t timer_ctx = get_wasm_timer_ctx(module_inst);
+    bh_assert(timer_ctx);
+    return sys_create_timer(timer_ctx, interval, is_period, auto_start);
 }
 
 void
 wasm_timer_destroy(wasm_module_inst_t module_inst, timer_id_t timer_id)
 {
-    sys_timer_destroy(get_wasm_timer_ctx(module_inst), timer_id);
+    timer_ctx_t timer_ctx = get_wasm_timer_ctx(module_inst);
+    bh_assert(timer_ctx);
+    sys_timer_destroy(timer_ctx, timer_id);
 }
 
 void
 wasm_timer_cancel(wasm_module_inst_t module_inst, timer_id_t timer_id)
 {
-    sys_timer_cancel(get_wasm_timer_ctx(module_inst), timer_id);
+    timer_ctx_t timer_ctx = get_wasm_timer_ctx(module_inst);
+    bh_assert(timer_ctx);
+    sys_timer_cancel(timer_ctx, timer_id);
 }
 
 void
 wasm_timer_restart(wasm_module_inst_t module_inst,
                    timer_id_t timer_id, int interval)
 {
-    sys_timer_restart(get_wasm_timer_ctx(module_inst), timer_id, interval);
+    timer_ctx_t timer_ctx = get_wasm_timer_ctx(module_inst);
+    bh_assert(timer_ctx);
+    sys_timer_restart(timer_ctx, timer_id, interval);
 }
 
 extern uint32 get_sys_tick_ms();

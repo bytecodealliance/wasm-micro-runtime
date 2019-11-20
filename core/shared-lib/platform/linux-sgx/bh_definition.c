@@ -52,16 +52,3 @@ int b_strcpy_s(char * s1, size_t s1max, const char * s2)
     return 0;
 }
 
-int fopen_s(FILE ** pFile, const char *filename, const char *mode)
-{
-    if (NULL == pFile || NULL == filename || NULL == mode) {
-        return -1;
-    }
-
-    *pFile = fopen(filename, mode);
-
-    if (NULL == *pFile)
-        return -1;
-
-    return 0;
-}

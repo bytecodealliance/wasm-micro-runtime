@@ -6,6 +6,7 @@
 #include "app_manager_export.h"
 #include "coap_ext.h"
 #include "wasm_export.h"
+#include "bh_assert.h"
 
 extern void module_request_handler(request_t *request, void *user_data);
 
@@ -47,6 +48,7 @@ wasm_register_resource(wasm_module_inst_t module_inst, int32 url_offset)
     if (url != NULL) {
         unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
                                                         module_inst);
+        bh_assert(mod_id != ID_NONE);
         am_register_resource(url, module_request_handler, mod_id);
     }
 }
@@ -73,6 +75,7 @@ wasm_post_request(wasm_module_inst_t module_inst,
         // set sender to help dispatch the response to the sender ap
         unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
                                                         module_inst);
+        bh_assert(mod_id != ID_NONE);
         req->sender = mod_id;
 
         if (req->action == COAP_EVENT) {
@@ -98,6 +101,7 @@ wasm_sub_event(wasm_module_inst_t module_inst, int32 url_offset)
         unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
                                                         module_inst);
 
+        bh_assert(mod_id != ID_NONE);
         am_register_event(url, mod_id);
     }
 }

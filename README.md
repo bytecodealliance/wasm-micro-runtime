@@ -1,10 +1,5 @@
 WebAssembly Micro Runtime
 =========================
-
-**A [Bytecode Alliance][BA] project**
-
-[BA]: https://bytecodealliance.org/
-
 WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with small footprint. It includes a few parts as below:
 - A WebAssembly VM core (namely iwasm)
 - The supporting API's for the WASM applications
@@ -14,8 +9,8 @@ WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with
 Current Features of WAMR
 =========================
 - WASM interpreter (AOT is planned)
-- Supports for a subset of Libc.
-- Supports "SIDE_MODULE=1" EMCC compilation option
+- Supports for a subset of Libc API.
+- Supports for [WASI API](https://github.com/WebAssembly/WASI)
 - Provides embedding C API
 - Provides a mechanism for exporting native API's to WASM applications
 - Supports the programming of firmware apps in a large range of languages (C/C++/Java/Rust/Go/TypeScript etc.)
@@ -62,7 +57,7 @@ Embed WAMR
 
 WAMR can be built into a standalone executable which takes the WASM application file name as input, and then executes it. In some other situations, the WAMR source code is embedded the product code and built into the final product. 
 
-WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM function from a native call. 
+WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM  function from a native call. 
 
 See the [doc/embed_wamr.md](./doc/embed_wamr.md) for the details.
 
@@ -71,7 +66,7 @@ WAMR application programming library
 
 WAMR defined event driven programming model:
 - Single thread per WASM app instance
-- App must implement system callbacks: on_init, on_destroy
+- App must implement system callbacks: on_init, on_destrory
 
 
 In general there are a few API classes for the WASM application programming:
@@ -117,7 +112,7 @@ See the [major features releasing history and contributor names](./doc/release_a
 Roadmap
 =======
 
-See the [roadmap](./doc/roadmap.md) to understand what major features are planned or under development.
+See the [roadmap](./doc/roadmap.md) to understand what major features are planed or under development.
 
 Please submit issues for any new feature request, or your plan for contributing new features.
 

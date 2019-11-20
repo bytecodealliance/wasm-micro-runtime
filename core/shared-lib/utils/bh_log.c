@@ -94,7 +94,7 @@ void _bh_log_vprintf(const char *fmt, va_list ap)
         if (fmt && (cur_log_enabled = is_log_enabled(fmt))) {
             char buf[32];
             bh_time_strftime(buf, 32, "%Y-%m-%d %H:%M:%S",
-            bh_time_get_millisecond_from_1970());
+                             (int64)bh_time_get_millisecond_from_1970());
             bh_log_emit_helper("\n[%s - %X]: ", buf, (int) self);
 
             /* Strip the "Vn." prefix.  */

@@ -32,6 +32,15 @@ static int print_help()
 #endif
     wasm_printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
                 "                         that runs commands in the form of `FUNC ARG...`\n");
+#if WASM_ENABLE_WASI != 0
+    wasm_printf("  --env=<env>            Pass wasi environment variables with \"key=value\"\n");
+    wasm_printf("                         to the program, for example:\n");
+    wasm_printf("                           --env=\"key1=value1\" --env=\"key2=value2\"\n");
+    wasm_printf("  --dir=<dir>            Grant wasi access to the given host directories\n");
+    wasm_printf("                         to the program, for example:\n");
+    wasm_printf("                           --dir=<dir1> --dir=<dir2>\n");
+#endif
+
     return 1;
 }
 
@@ -104,7 +113,7 @@ split_string(char *str, int *count)
     do {
         p = strtok(str, " ");
         str = NULL;
-        res = (char**) realloc(res, sizeof(char*) * (idx + 1));
+        res = (char**) realloc(res, sizeof(char*) * (uint32)(idx + 1));
         if (res == NULL) {
             return NULL;
         }
@@ -147,6 +156,23 @@ app_instance_repl(wasm_module_inst_t module_inst)
     return NULL;
 }
 
+static bool
+validate_env_str(char *env)
+{
+    char *p = env;
+    int key_len = 0;
+
+    while (*p != '\0' && *p != '=') {
+        key_len++;
+        p++;
+    }
+
+    if (*p != '=' || key_len == 0)
+        return false;
+
+    return true;
+}
+
 static char global_heap_buf[512 * 1024] = { 0 };
 
 int main(int argc, char *argv[])
@@ -154,7 +180,7 @@ int main(int argc, char *argv[])
     char *wasm_file = NULL;
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
-    int wasm_file_size;
+    uint32 wasm_file_size;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     char error_buf[128];
@@ -162,6 +188,12 @@ int main(int argc, char *argv[])
     int log_verbose_level = 1;
 #endif
     bool is_repl_mode = false;
+#if WASM_ENABLE_WASI != 0
+    const char *dir_list[8] = { NULL };
+    uint32 dir_list_size = 0;
+    const char *env_list[8] = { NULL };
+    uint32 env_list_size = 0;
+#endif
 
     /* Process options.  */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -182,6 +214,37 @@ int main(int argc, char *argv[])
 #endif
         else if (!strcmp(argv[0], "--repl"))
             is_repl_mode = true;
+#if WASM_ENABLE_WASI != 0
+        else if (!strncmp(argv[0], "--dir=", 6)) {
+            if (argv[0][6] == '\0')
+                return print_help();
+            if (dir_list_size >= sizeof(dir_list) / sizeof(char*)) {
+                wasm_printf("Only allow max dir number %d\n",
+                            (int)(sizeof(dir_list) / sizeof(char*)));
+                return -1;
+            }
+            dir_list[dir_list_size++] = argv[0] + 6;
+        }
+        else if (!strncmp(argv[0], "--env=", 6)) {
+            char *tmp_env;
+
+            if (argv[0][6] == '\0')
+                return print_help();
+            if (env_list_size >= sizeof(env_list) / sizeof(char*)) {
+                wasm_printf("Only allow max env number %d\n",
+                            (int)(sizeof(env_list) / sizeof(char*)));
+                return -1;
+            }
+            tmp_env = argv[0] + 6;
+            if (validate_env_str(tmp_env))
+                env_list[env_list_size++] = tmp_env;
+            else {
+                wasm_printf("Wasm parse env string failed: expect \"key=value\", got \"%s\"\n",
+                            tmp_env);
+                return print_help();
+            }
+        }
+#endif
         else
             return print_help();
     }
@@ -216,6 +279,14 @@ int main(int argc, char *argv[])
         wasm_printf("%s\n", error_buf);
         goto fail3;
     }
+
+#if WASM_ENABLE_WASI != 0
+    wasm_runtime_set_wasi_args(wasm_module,
+                               dir_list, dir_list_size,
+                               NULL, 0,
+                               env_list, env_list_size,
+                               argv, argc);
+#endif
 
     /* instantiate the module */
     if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,

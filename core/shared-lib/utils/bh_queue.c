@@ -13,7 +13,7 @@ typedef struct _bh_queue_node {
     struct _bh_queue_node * next;
     struct _bh_queue_node * prev;
     unsigned short tag;
-    unsigned long len;
+    unsigned int len;
     void * body;
     bh_msg_cleaner msg_cleaner;
 } bh_queue_node;
@@ -35,7 +35,7 @@ char * bh_message_payload(bh_message_t message)
     return message->body;
 }
 
-int bh_message_payload_len(bh_message_t message)
+uint32 bh_message_payload_len(bh_message_t message)
 {
     return message->len;
 }
@@ -230,7 +230,7 @@ void bh_queue_enter_loop_run(bh_queue *queue,
         return;
 
     while (!queue->exit_loop_run) {
-        bh_queue_node * message = bh_get_msg(queue, BH_WAIT_FOREVER);
+        bh_queue_node * message = bh_get_msg(queue, (int)BH_WAIT_FOREVER);
 
         if (message) {
             handle_cb(message, arg);

@@ -7,6 +7,7 @@
 #include "lvgl.h"
 #include "module_wasm_app.h"
 #include "wgl_native_utils.h"
+#include "bh_assert.h"
 
 /* -------------------------------------------------------------------------
  * List widget native function wrappers
@@ -24,16 +25,17 @@ lv_list_add_btn_wrapper(wasm_module_inst_t module_inst,
 {
     uint32 btn_obj_id;
     lv_obj_t *btn;
+    uint32 mod_id;
 
     btn = lv_list_add_btn(list, NULL, text);
 
     if (btn == NULL)
         return 0;
 
-    if (wgl_native_add_object(btn,
-                              app_manager_get_module_id(Module_WASM_App,
-                                                        module_inst),
-                              &btn_obj_id))
+    mod_id = app_manager_get_module_id(Module_WASM_App, module_inst);
+    bh_assert(mod_id != ID_NONE);
+
+    if (wgl_native_add_object(btn, mod_id, &btn_obj_id))
         return btn_obj_id; /* success return */
 
     return 0;

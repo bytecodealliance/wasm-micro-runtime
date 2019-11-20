@@ -12,6 +12,10 @@ extern "C" {
 
 typedef unsigned int size_t;
 
+int atoi(const char *s);
+void exit(int status);
+long strtol(const char *nptr, char **endptr, register int base);
+unsigned long strtoul(const char *nptr, char **endptr, register int base)
 void *malloc(size_t size);
 void *calloc(size_t n, size_t size);
 void free(void *ptr);

@@ -5,7 +5,10 @@ set (WASM_LIB_GUI_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 set (THIRD_PARTY_DIR ${WASM_LIB_GUI_DIR}/../../../3rdparty)
 
-include_directories(${WASM_LIB_GUI_DIR} ${THIRD_PARTY_DIR} ${THIRD_PARTY_DIR}/lvgl)
+include_directories(${WASM_LIB_GUI_DIR}
+                    ${THIRD_PARTY_DIR}
+                    ${THIRD_PARTY_DIR}/lvgl
+                    ${THIRD_PARTY_DIR}/lvgl/src)
 
 file (GLOB_RECURSE lvgl_source ${THIRD_PARTY_DIR}/lvgl/*.c)
 file (GLOB_RECURSE wrapper_source ${WASM_LIB_GUI_DIR}/*.c)

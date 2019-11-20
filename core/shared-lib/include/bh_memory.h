@@ -45,7 +45,7 @@ void bh_memory_destroy();
  * Get the pool size of memory, if memory is initialized with allocator,
  * return 1GB by default.
  */
-int bh_memory_pool_size();
+unsigned bh_memory_pool_size();
 
 #if BEIHAI_ENABLE_MEMORY_PROFILING == 0
 

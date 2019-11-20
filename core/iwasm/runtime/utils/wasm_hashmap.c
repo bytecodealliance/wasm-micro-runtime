@@ -37,7 +37,7 @@ wasm_hash_map_create(uint32 size, bool use_lock,
                      ValueDestroyFunc value_destroy_func)
 {
     HashMap *map;
-    uint32 total_size;
+    uint64 total_size;
 
     if (size > HASH_MAP_MAX_SIZE) {
         LOG_ERROR("HashMap create failed: size is too large.\n");
@@ -51,19 +51,21 @@ wasm_hash_map_create(uint32 size, bool use_lock,
     }
 
     total_size = offsetof(HashMap, elements) +
-                 sizeof(HashMapElem) * size +
+                 sizeof(HashMapElem) * (uint64)size +
                  (use_lock ? sizeof(korp_mutex) : 0);
 
-    if (!(map = wasm_malloc(total_size))) {
+    if (total_size >= UINT32_MAX
+        || !(map = wasm_malloc((uint32)total_size))) {
         LOG_ERROR("HashMap create failed: alloc memory failed.\n");
         return NULL;
     }
 
-    memset(map, 0, total_size);
+    memset(map, 0, (uint32)total_size);
 
     if (use_lock) {
         map->lock = (korp_mutex*)
-                    ((uint8*)map + offsetof(HashMap, elements) + sizeof(HashMapElem) * size);
+                    ((uint8*)map + offsetof(HashMap, elements)
+                     + sizeof(HashMapElem) * size);
         if (ws_mutex_init(map->lock, false)) {
             LOG_ERROR("HashMap create failed: init map lock failed.\n");
             wasm_free(map);
