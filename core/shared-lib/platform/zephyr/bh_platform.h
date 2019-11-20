@@ -19,7 +19,9 @@
 #include <limits.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #ifndef CONFIG_NET_BUF_USER_DATA_SIZE
 #define CONFIG_NET_BUF_USER_DATA_SIZE 0
 #endif

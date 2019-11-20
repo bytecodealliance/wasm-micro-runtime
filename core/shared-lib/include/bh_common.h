@@ -8,7 +8,6 @@
 
 #include "bh_assert.h"
 #include "bh_platform.h"
-#include "bh_log.h"
 #include "bh_list.h"
 
 typedef void (*bh_print_function_t)(const char* message);

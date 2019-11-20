@@ -94,7 +94,7 @@ static void unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
     size = hmu_get_size(hmu);
 
     if (HMU_IS_FC_NORMAL(size)) {
-        int node_idx = size >> 3;
+        uint32 node_idx = size >> 3;
         hmu_normal_node_t* node = heap->kfc_normal_list[node_idx].next;
         hmu_normal_node_t** p = &(heap->kfc_normal_list[node_idx].next);
         while (node) {
@@ -120,7 +120,7 @@ static void hmu_set_free_size(hmu_t *hmu)
     bh_assert(hmu && hmu_get_ut(hmu) == HMU_FC);
 
     size = hmu_get_size(hmu);
-    *((int*) ((char*) hmu + size) - 1) = size;
+    *((uint32*) ((char*) hmu + size) - 1) = size;
 }
 
 /* Add free chunk back to KFC*/
@@ -135,7 +135,7 @@ void gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
 {
     hmu_normal_node_t *np = NULL;
     hmu_tree_node_t *root = NULL, *tp = NULL, *node = NULL;
-    int node_idx;
+    uint32 node_idx;
 
     bh_assert(gci_is_heap_valid(heap));
     bh_assert(
@@ -203,7 +203,7 @@ void gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
 BH_STATIC hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
 {
     hmu_normal_node_t *node = NULL, *p = NULL;
-    int node_idx = 0, init_node_idx = 0;
+    uint32 node_idx = 0, init_node_idx = 0;
     hmu_tree_node_t *root = NULL, *tp = NULL, *last_tp = NULL;
     hmu_t *next, *rest;
 
@@ -216,7 +216,7 @@ BH_STATIC hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
     /* check normal list at first*/
     if (HMU_IS_FC_NORMAL(size)) {
         /* find a non-empty slot in normal_node_list with good size*/
-        init_node_idx = (int) (size >> 3);
+        init_node_idx = (size >> 3);
         for (node_idx = init_node_idx; node_idx < HMU_NORMAL_NODE_CNT;
                 node_idx++) {
             node = heap->kfc_normal_list + node_idx;
@@ -233,8 +233,8 @@ BH_STATIC hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
             node->next = p->next;
             bh_assert(((gc_int32)(uintptr_t)hmu_to_obj(p) & 7) == 0);
 
-            if ((gc_size_t) node_idx
-                    != init_node_idx&& ((gc_size_t)node_idx << 3) >= size + GC_SMALLEST_SIZE) { /* with bigger size*/
+            if ((gc_size_t)node_idx != (uint32)init_node_idx
+                && ((gc_size_t)node_idx << 3) >= size + GC_SMALLEST_SIZE) { /* with bigger size*/
                 rest = (hmu_t*) (((char *) p) + size);
                 gci_add_fc(heap, rest, (node_idx << 3) - size);
                 hmu_mark_pinuse(rest);

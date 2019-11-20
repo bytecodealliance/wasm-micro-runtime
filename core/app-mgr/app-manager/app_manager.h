@@ -24,10 +24,6 @@ extern "C" {
 #define app_manager_printf printk
 #endif
 
-#define ID_HOST -3
-#define ID_APP_MGR -2
-#define ID_NONE (uint32)-1
-
 #define SEND_ERR_RESPONSE(mid, err_msg) do {                            \
   app_manager_printf("%s\n", err_msg);                                  \
   send_error_response_to_host(mid, INTERNAL_SERVER_ERROR_5_00, err_msg);  \

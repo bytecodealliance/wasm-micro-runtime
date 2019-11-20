@@ -22,7 +22,7 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
 endif ()
 
 # Set BUILD_TARGET, currently values supported:
-if (NOT BUILD_TARGET)
+if (NOT DEFINED BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (BUILD_TARGET "X86_64")
@@ -62,6 +62,19 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
   endif ()
 endif ()
 
+if (NOT DEFINED WASM_ENABLE_WASI)
+  # Disable wasi support by default
+  set (WASM_ENABLE_WASI 0)
+endif ()
+
+if (WASM_ENABLE_WASI EQUAL 1)
+  add_definitions(-DWASM_ENABLE_WASI=1)
+  add_definitions(-D_GNU_SOURCE)
+  message ("-- WASI enabled")
+else ()
+  message ("-- WASI disabled")
+endif ()
+
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic")
 
@@ -78,6 +91,7 @@ enable_language (ASM)
 include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)
 include (../../runtime/vmcore-wasm/vmcore.cmake)
+include (../../runtime/wasmtime-wasi-c/wasi.cmake)
 include (../../lib/native/base/wasm_lib_base.cmake)
 include (../../lib/native/libc/wasm_libc.cmake)
 include (${SHARED_LIB_DIR}/platform/${PLATFORM}/shared_platform.cmake)
@@ -88,6 +102,7 @@ add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
              ${WASM_UTILS_LIB_SOURCE}
              ${VMCORE_LIB_SOURCE}
+             ${WASI_LIB_SOURCE}
              ${WASM_LIB_BASE_DIR}/base_lib_export.c
              ${WASM_LIBC_SOURCE}
              ${PLATFORM_SHARED_SOURCE}
@@ -95,3 +110,7 @@ add_library (vmlib
              ${UTILS_SHARED_SOURCE})
 
 add_library (extlib ext_lib_export.c)
+
+set (copy_libs_cmd cp -a libvmlib.a libextlib.a ../enclave-sample/)
+add_custom_target (copy_libs_to_enclave ALL COMMAND ${copy_libs_cmd} DEPENDS vmlib extlib)
+

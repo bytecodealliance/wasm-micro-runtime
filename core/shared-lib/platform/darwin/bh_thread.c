@@ -56,7 +56,7 @@ void vm_thread_sys_destroy(void)
 typedef struct {
     thread_start_routine_t start;
     void* stack;
-    int stack_size;
+    uint32 stack_size;
     void* arg;
 } thread_wrapper_arg;
 
@@ -64,7 +64,7 @@ static void *vm_thread_wrapper(void *arg)
 {
     thread_wrapper_arg * targ = arg;
     LOG_VERBOSE("THREAD CREATE 0x%08x\n", &targ);
-    targ->stack = (void *)((uintptr_t)(&arg) & ~0xfff);
+    targ->stack = (void *)((uintptr_t)(&arg) & (uintptr_t)~0xfff);
     _vm_tls_put(1, targ);
     targ->start(targ->arg);
     bh_free(targ);
@@ -73,7 +73,7 @@ static void *vm_thread_wrapper(void *arg)
 }
 
 int _vm_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
-        void *arg, unsigned int stack_size, int prio)
+                                void *arg, unsigned int stack_size, int prio)
 {
     pthread_attr_t tattr;
     thread_wrapper_arg *targ;
@@ -114,7 +114,7 @@ int _vm_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
 }
 
 int _vm_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
-        unsigned int stack_size)
+                      unsigned int stack_size)
 {
     return _vm_thread_create_with_prio(tid, start, arg, stack_size,
                                        BH_THREAD_DEFAULT_PRIORITY);
@@ -261,7 +261,7 @@ int _vm_sem_wait(korp_sem *sem)
 
     bh_assert(sem);
 
-    if (mills == BHT_WAIT_FOREVER) {
+    if (mills == (int)BHT_WAIT_FOREVER) {
         ret = sem_wait(sem);
     } else {
 
@@ -330,8 +330,8 @@ static void msec_nsec_to_abstime(struct timespec *ts, int64 msec, int32 nsec)
 
     gettimeofday(&tv, NULL);
 
-    ts->tv_sec = tv.tv_sec + msec / 1000;
-    ts->tv_nsec = tv.tv_usec * 1000 + (msec % 1000) * 1000000 + nsec;
+    ts->tv_sec = (long int)(tv.tv_sec + msec / 1000);
+    ts->tv_nsec = (long int)(tv.tv_usec * 1000 + (msec % 1000) * 1000000 + nsec);
 
     if (ts->tv_nsec >= 1000000000L) {
         ts->tv_sec++;
@@ -344,7 +344,7 @@ int _vm_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int mills)
     int ret;
     struct timespec abstime;
 
-    if (mills == BHT_WAIT_FOREVER)
+    if (mills == (int)BHT_WAIT_FOREVER)
         ret = pthread_cond_wait(cond, mutex);
     else {
         msec_nsec_to_abstime(&abstime, mills, 0);

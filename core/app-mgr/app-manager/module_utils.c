@@ -121,8 +121,9 @@ module_data_list_lookup_id(unsigned int module_id)
 module_data *
 app_manager_get_module_data(uint32 module_type, void *module_inst)
 {
-    if (g_module_interfaces[module_type]
-            && g_module_interfaces[module_type]->module_get_module_data)
+    if (module_type < Module_Max
+        && g_module_interfaces[module_type]
+        && g_module_interfaces[module_type]->module_get_module_data)
         return g_module_interfaces[module_type]->module_get_module_data(module_inst);
     return NULL;
 }
@@ -130,24 +131,28 @@ app_manager_get_module_data(uint32 module_type, void *module_inst)
 void*
 app_manager_get_module_queue(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->queue;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->queue : NULL;
 }
 
 const char*
 app_manager_get_module_name(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->module_name;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->module_name : NULL;
 }
 
 unsigned int app_manager_get_module_id(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->id;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->id : ID_NONE;
 }
 
 void*
 app_manager_get_module_heap(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->heap;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->heap : NULL;
 }
 
 module_data*
@@ -170,7 +175,8 @@ void app_manager_del_module_data(module_data *m_data)
 
 bool app_manager_is_interrupting_module(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->wd_timer.is_interrupting;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->wd_timer.is_interrupting : false;
 }
 
 extern void destroy_module_timer_ctx(unsigned int module_id);

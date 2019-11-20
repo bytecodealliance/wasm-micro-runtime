@@ -36,4 +36,5 @@ We use GitHub issues to track public bugs. Report a bug by [open a new issue](ht
 Code of Conduct
 ===============
 
-WAMR is a [Bytecode Alliance](https://bytecodealliance.org/) project, and follows the Bytecode Alliance's [Code of Conduct](CODE_OF_CONDUCT.md) and [Organizational Code of Conduct](ORG_CODE_OF_CONDUCT.md).
+This project is governed by the [Contributor Covenant](CODE_OF_CONDUCT.md).
+All contributors and participants agree to abide by its terms.

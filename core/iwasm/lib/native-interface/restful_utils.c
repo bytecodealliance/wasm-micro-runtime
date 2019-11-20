@@ -180,7 +180,8 @@ request_t *clone_request(request_t *request)
 
     return req;
 
-    fail: request_cleaner(req);
+fail:
+    request_cleaner(req);
     return NULL;
 }
 
@@ -225,7 +226,8 @@ response_t * clone_response(response_t * response)
     }
     return clone;
 
-    fail: response_cleaner(clone);
+fail:
+    response_cleaner(clone);
     return NULL;
 }
 

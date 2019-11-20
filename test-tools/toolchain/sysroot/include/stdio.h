@@ -10,6 +10,10 @@
 extern "C" {
 #endif
 
+#ifndef NULL
+#  define NULL ((void*) 0)
+#endif
+
 typedef unsigned int size_t;
 
 int printf(const char *format, ...);

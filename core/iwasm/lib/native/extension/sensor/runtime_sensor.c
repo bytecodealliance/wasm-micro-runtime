@@ -8,6 +8,8 @@
 #include "module_wasm_app.h"
 #include "bh_thread.h"
 #include "bh_time.h"
+#include "bh_common.h"
+#include "bh_assert.h"
 
 static sys_sensor_t * g_sys_sensors = NULL;
 static int g_sensor_id_max = 0;
@@ -59,7 +61,8 @@ wasm_sensor_callback(void *client, uint32 sensor_id, void *user_data)
         return;
 
     /* multiple sensor clients may use/free the sensor data, so make a copy */
-    memcpy(sensor_data_clone, sensor_data, sensor_data_len);
+    bh_memcpy_s(sensor_data_clone, sensor_data_len,
+                sensor_data, sensor_data_len);
 
     sensor_event = (sensor_event_data_t *)bh_malloc(sizeof(*sensor_event));
     if (sensor_event == NULL) {
@@ -97,6 +100,7 @@ wasm_sensor_config(wasm_module_inst_t module_inst,
 
     unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
                                                     module_inst);
+    bh_assert(mod_id != ID_NONE);
 
     vm_mutex_lock(&s->lock);
 
@@ -147,6 +151,7 @@ wasm_sensor_open(wasm_module_inst_t module_inst,
 
         unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
                                                         module_inst);
+        bh_assert(mod_id != ID_NONE);
 
         vm_mutex_lock(&s->lock);
 
@@ -218,6 +223,8 @@ wasm_sensor_close(wasm_module_inst_t module_inst, uint32 sensor)
     unsigned int client_id = mod_id;
     sensor_obj_t s = find_sys_sensor_id(sensor);
     sensor_client_t *c;
+
+    bh_assert(mod_id != ID_NONE);
 
     if (s == NULL)
         return false;
