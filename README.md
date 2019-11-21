@@ -1,6 +1,6 @@
 WebAssembly Micro Runtime
 =========================
-aa
+
 **A [Bytecode Alliance][BA] project**
 
 [BA]: https://bytecodealliance.org/
