@@ -14,7 +14,6 @@
 #include <assert.h>
 #include <time.h>
 #include <string.h>
-#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -66,6 +65,7 @@ typedef void* (*thread_start_routine_t)(void*);
 #define wa_strdup bh_strdup
 
 int snprintf(char *buffer, size_t count, const char *format, ...);
+int strncasecmp(const char *s1, const char *s2, size_t n);
 double fmod(double x, double y);
 float fmodf(float x, float y);
 double sqrt(double x);
