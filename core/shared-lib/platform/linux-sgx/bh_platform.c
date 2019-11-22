@@ -60,8 +60,11 @@ int bh_printf_sgx(const char *message, ...)
 
 int bh_vprintf_sgx(const char * format, va_list arg)
 {
-    char msg[FIXED_BUFFER_SIZE] = { '\0' };
-    vsnprintf(msg, FIXED_BUFFER_SIZE, format, arg);
-    print_function(msg);
+    if (print_function != NULL) {
+        char msg[FIXED_BUFFER_SIZE] = { '\0' };
+        vsnprintf(msg, FIXED_BUFFER_SIZE, format, arg);
+        print_function(msg);
+    }
+
     return 0;
 }
