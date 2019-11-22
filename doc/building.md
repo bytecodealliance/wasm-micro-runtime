@@ -45,6 +45,7 @@ And then install the [Intel SGX SDK](https://software.intel.com/en-us/sgx/sdk).
 
 After installing dependencies, build the source code:
 ``` Bash
+source <SGX_SDK dir>/environment
 cd core/iwasm/products/linux-sgx/
 mkdir build
 cd build
@@ -55,6 +56,7 @@ This builds the libraries used by SGX enclave sample, the generated file libvmli
 
 Then build the enclave sample:
 ``` Bash
+source <SGX_SDK dir>/environment
 cd enclave-sample
 make
 ```
