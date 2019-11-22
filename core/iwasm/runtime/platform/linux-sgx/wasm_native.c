@@ -14,14 +14,8 @@
 #include "wasm_platform_log.h"
 #include "bh_common.h"
 
-#include <sys/ioctl.h>
-#include <sys/uio.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
-#include <pwd.h>
-#include <fcntl.h>
 #include <errno.h>
 
 

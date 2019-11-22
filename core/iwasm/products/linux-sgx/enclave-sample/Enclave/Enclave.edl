@@ -4,6 +4,8 @@
  */
 
 enclave {
+    from "sgx_tstdc.edl" import *;
+
     trusted {
         /* define ECALLs here. */
         public void ecall_iwasm_main(void);
