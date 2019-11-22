@@ -6,11 +6,9 @@
 #include "bh_common.h"
 #include "bh_platform.h"
 
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 
-#define FIXED_BUFFER_SIZE (1<<14)
+#define FIXED_BUFFER_SIZE (1<<9)
 static bh_print_function_t print_function = NULL;
 
 char *bh_strdup(const char *s)
@@ -24,24 +22,6 @@ char *bh_strdup(const char *s)
             bh_memcpy_s(s1, size, s, size);
     }
     return s1;
-}
-
-const unsigned short ** __ctype_b_loc(void)
-{
-    /* TODO */
-    return NULL;
-}
-
-const int32_t ** __ctype_toupper_loc(void)
-{
-    /* TODO */
-    return NULL;
-}
-
-const int32_t ** __ctype_tolower_loc(void)
-{
-    /* TODO */
-    return NULL;
 }
 
 int bh_platform_init()
@@ -75,5 +55,13 @@ int bh_printf_sgx(const char *message, ...)
         print_function(msg);
     }
 
+    return 0;
+}
+
+int bh_vprintf_sgx(const char * format, va_list arg)
+{
+    char msg[FIXED_BUFFER_SIZE] = { '\0' };
+    vsnprintf(msg, FIXED_BUFFER_SIZE, format, arg);
+    print_function(msg);
     return 0;
 }

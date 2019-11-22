@@ -17,6 +17,7 @@
 /* for exception throwing */
 jmp_buf bh_test_jb;
 #endif
+#define FIXED_BUFFER_SIZE (1<<9)
 
 void bh_assert_internal(int v, const char *file_name, int line_number,
         const char *expr_string)
@@ -29,7 +30,7 @@ void bh_assert_internal(int v, const char *file_name, int line_number,
     if (!expr_string)
         expr_string = "NULL EXPR_STRING";
 
-    printf("\nASSERTION FAILED: %s, at FILE=%s, LINE=%d\n", expr_string,
+    bh_printf_sgx("\nASSERTION FAILED: %s, at FILE=%s, LINE=%d\n", expr_string,
             file_name, line_number);
 
 #ifdef BH_TEST
@@ -44,15 +45,14 @@ void bh_debug_internal(const char *file_name, int line_number, const char *fmt,
 {
 #ifndef JEFF_TEST_VERIFIER
     va_list args;
+    char msg[FIXED_BUFFER_SIZE] = { '\0' };
 
     va_start(args, fmt);
-    bh_assert(file_name);
-
-    printf("\nDebug info FILE=%s, LINE=%d: ", file_name, line_number);
-    vprintf(fmt, args);
-
+    vsnprintf(msg, FIXED_BUFFER_SIZE, fmt, args);
     va_end(args);
-    printf("\n");
+    bh_printf_sgx("\nDebug info FILE=%s, LINE=%d: ", file_name, line_number);
+    bh_printf_sgx(msg);
+    bh_printf_sgx("\n");
 #endif
 }
 

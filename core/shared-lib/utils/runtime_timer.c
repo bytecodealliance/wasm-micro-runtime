@@ -233,7 +233,7 @@ timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,
         release_timer_list(&ctx->free_timers);
         bh_free(ctx);
     }
-    printf("timer ctx create failed\n");
+    PRINT("timer ctx create failed\n");
     return NULL;
 }
 
