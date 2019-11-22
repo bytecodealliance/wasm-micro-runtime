@@ -16,6 +16,7 @@ add_definitions(-DOPS_INPUT_OUTPUT=1)
 add_definitions(-DOPS_UNSAFE_BUFFERS=0)
 add_definitions(-DWASM_ENABLE_LOG=0)
 add_definitions(-Dbh_printf=bh_printf_sgx)
+add_definitions(-Dvprintf=bh_vprintf_sgx)
 
 if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
   add_definitions(-DNVALGRIND)
@@ -78,13 +79,17 @@ endif ()
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter -Wno-pedantic")
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdinc -fvisibility=hidden -fpie -ffunction-sections -fdata-sections")
+
 set (SHARED_LIB_DIR ../../../shared-lib)
 
 include_directories (.
                      ../../runtime/include
                      ../../runtime/platform/include
                      ${SHARED_LIB_DIR}/include
-                     $ENV{SGX_SDK}/include)
+                     $ENV{SGX_SDK}/include
+                     $ENV{SGX_SDK}/include/tlibc
+                     $ENV{SGX_SDK}/include/libcxx)
 
 enable_language (ASM)
 

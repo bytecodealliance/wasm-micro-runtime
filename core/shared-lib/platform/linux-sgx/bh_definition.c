@@ -34,7 +34,7 @@ int b_strcat_s(char * s1, size_t s1max, const char * s2)
         return -1;
     }
 
-    strcat(s1, s2);
+    strncat(s1, s2, strlen(s2));
 
     return 0;
 }

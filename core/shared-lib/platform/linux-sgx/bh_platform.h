@@ -19,16 +19,16 @@
 #include <math.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include <pthread.h>
 #include <limits.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <sgx_thread.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 extern int bh_printf_sgx(const char *message, ...);
+extern int bh_vprintf_sgx(const char * format, va_list arg);
 
 typedef uint64_t uint64;
 typedef int64_t int64;
@@ -53,12 +53,12 @@ typedef int64_t int64;
 
 #define INVALID_THREAD_ID 0xFFffFFff
 
-typedef int korp_tid;
-typedef int korp_mutex;
 typedef int korp_sem;
-typedef int korp_cond;
-typedef int korp_thread;
 typedef void* (*thread_start_routine_t)(void*);
+typedef sgx_thread_mutex_t korp_mutex;
+typedef sgx_thread_t korp_tid;
+typedef sgx_thread_t korp_thread;
+typedef sgx_thread_cond_t korp_cond;
 
 #define wa_malloc bh_malloc
 #define wa_free bh_free
