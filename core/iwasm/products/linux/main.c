@@ -156,6 +156,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
     return NULL;
 }
 
+#if WASM_ENABLE_WASI != 0
 static bool
 validate_env_str(char *env)
 {
@@ -172,6 +173,7 @@ validate_env_str(char *env)
 
     return true;
 }
+#endif
 
 #define USE_GLOBAL_HEAP_BUF 0
 

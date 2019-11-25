@@ -105,11 +105,17 @@ wasm_application_execute_main(WASMModuleInstance *module_inst,
 #endif
 
     func = resolve_main_function(module_inst);
-    if (!func || func->is_import_func)
+    if (!func || func->is_import_func) {
+        wasm_runtime_set_exception(module_inst,
+                                   "lookup main function failed.");
         return false;
+    }
 
-    if (!check_main_func_type(func->u.func->func_type))
+    if (!check_main_func_type(func->u.func->func_type)) {
+        wasm_runtime_set_exception(module_inst,
+                                   "invalid function type of main function.");
         return false;
+    }
 
     if (func->u.func->func_type->param_count) {
         for (i = 0; i < argc; i++)
@@ -120,8 +126,11 @@ wasm_application_execute_main(WASMModuleInstance *module_inst,
 
         if (total_size >= UINT32_MAX
             || !(argv_buf_offset =
-                    wasm_runtime_module_malloc(module_inst, (uint32)total_size)))
+                    wasm_runtime_module_malloc(module_inst, (uint32)total_size))) {
+            wasm_runtime_set_exception(module_inst,
+                                       "allocate memory failed.");
             return false;
+        }
 
         argv_buf = p = wasm_runtime_addr_app_to_native(module_inst, argv_buf_offset);
         argv_offsets = (int32*)(p + total_argv_size);
@@ -209,17 +218,20 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     int32 i, p;
     uint64 total_size;
     const char *exception;
+    char buf[128];
 
     wasm_assert(argc >= 0);
     func = resolve_function(module_inst, name);
     if (!func || func->is_import_func) {
-        LOG_ERROR("Wasm lookup function %s failed.\n", name);
+        snprintf(buf, sizeof(buf), "lookup function %s failed.", name);
+        wasm_runtime_set_exception(module_inst, buf);
         return false;
     }
 
     type = func->u.func->func_type;
     if (type->param_count != (uint32)argc) {
-        LOG_ERROR("Wasm prepare param failed: invalid param count.\n");
+        wasm_runtime_set_exception(module_inst,
+                                   "invalid input argument count.");
         return false;
     }
 
@@ -227,7 +239,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     total_size = sizeof(uint32) * (uint64)(argc1 > 2 ? argc1 : 2);
     if (total_size >= UINT32_MAX
         || (!(argv1 = wasm_malloc((uint32)total_size)))) {
-        LOG_ERROR("Wasm prepare param failed: malloc failed.\n");
+        wasm_runtime_set_exception(module_inst, "allocate memory failed.");
         return false;
     }
 
@@ -236,7 +248,8 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
         char *endptr = NULL;
         wasm_assert(argv[i] != NULL);
         if (argv[i][0] == '\0') {
-            LOG_ERROR("Wasm prepare param failed: invalid num (%s).\n", argv[i]);
+            snprintf(buf, sizeof(buf), "invalid input argument %d.", i);
+            wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
         switch (type->types[i]) {
@@ -303,11 +316,15 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
             }
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
-            LOG_ERROR("Wasm prepare param failed: invalid num (%s).\n", argv[i]);
+            snprintf(buf, sizeof(buf), "invalid input argument %d: %s.",
+                     i, argv[i]);
+            wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
         if (errno != 0) {
-            LOG_ERROR("Wasm prepare param failed: errno %d.\n", errno);
+            snprintf(buf, sizeof(buf),
+                     "prepare function argument error, errno: %d.", errno);
+            wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
     }
