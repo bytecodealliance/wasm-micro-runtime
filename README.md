@@ -88,13 +88,13 @@ Application programming API sets are available as below:
 
 See [WAMR application library](./doc/wamr_api.md) for the details.
 
-One WAMR runtime version can also select a subsets from the WAMR application library. Refer to the sample "simple" for how to integrate API sets into WAMR building.
+One WAMR build can select a subset from the WAMR application library. Refer to the sample "simple" for how to integrate API sets into WAMR building.
 
 
 
 ## Build WAMR with customized application library
 
-In general when you build a WAMR version for a specific project, you probably will create additional API's for the applications. The API's can be expansion or modification to the standard WAMR application library.
+When WAMR is integrated into a specific project, it probably includes additional project specific applications APIs which can be either expansion or modification to the standard WAMR application library.
 
 The extended application library should be created in the folder [core/iwasm/lib/app-libs](./core/iwasm/lib/app-libs/). See the [doc/export_native_api.md](./doc/export_native_api.md) for the details.
 
@@ -102,11 +102,10 @@ The extended application library should be created in the folder [core/iwasm/lib
 
 # Create WASM application SDK
 
-When you ship your WAMR runtime with the products, you will need to distribute the associated WASM application SDK for the application developers to develop WASM applications for your products. At the most time, the WASM application SDK should have a version match with the runtime distribution.
+When a customized WAMR runtime is shipped with the products, an associated WASM application SDK should be distributed to the application developers in order to develop WASM applications for the product. At the most time, the WASM application SDK should match the version of the runtime distribution.
 
 
-
-Typically there are a few components in a WASM APP SDK package:
+Typically a WASM APP SDK package contains following components:
 
 * **WASI-SDK**: only needed when WASI is enabled in the runtime. It can be a link to the WASI-SDK GitHub or the full offline copy.
 * **sysroot** folder: only needed when WASI is not enabled in the runtime. copied from [test-tools/toolchain/sysroot](./test-tools/toolchain/sysroot)
