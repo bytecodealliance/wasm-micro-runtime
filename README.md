@@ -68,7 +68,7 @@ WAMR can be built into a standalone executable which takes the WASM application 
 
 WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM function from a native call.  See [Embed WAMR VM core](./doc/embed_wamr.md) for the details.
 
-The WAMR application framework supports dynamically installing WASM application remotely by embedding the WAMR VM core. It can be used as reference for how to use the embedding APIs.
+The WAMR application framework supports dynamically installing WASM application remotely by embedding the WAMR VM core. It can be used as reference for how to use the embedding API's.
 
 
 ## Integrate  WAMR application library
@@ -94,9 +94,9 @@ One WAMR runtime version can also select a subsets from the WAMR application lib
 
 ## Build WAMR with customized application library
 
-In general when you build a WAMR version for a specific project, you probably will create additional APIs for the applications. The APIs can be expansion or modification to the standard WAMR application library.
+In general when you build a WAMR version for a specific project, you probably will create additional API's for the applications. The API's can be expansion or modification to the standard WAMR application library.
 
-The extended application library should be created in the folder {repo-root}/core/iwasm/lib/app-lib. See the [doc/export_native_api.md](./doc/export_native_api.md) for the details.
+The extended application library should be created in the folder [core/iwasm/lib/app-libs](./core/iwasm/lib/app-libs/). See the [doc/export_native_api.md](./doc/export_native_api.md) for the details.
 
 
 
@@ -109,9 +109,9 @@ When you ship your WAMR runtime with the products, you will need to distribute t
 Typically there are a few components in a WASM APP SDK package:
 
 * **WASI-SDK**: only needed when WASI is enabled in the runtime. It can be a link to the WASI-SDK GitHub or the full offline copy.
-* **sysroot** folder: only needed when WASI is not enabled in the runtime. copied from `{repo-root}/test-tools/toolchain/sysroot`
-* **app-lib** folder: copied from `{repo-root}/core/iwasm/lib/app-lib`
-* **cmake toolchain** file: copied from `{repo-root}/test-tools/toolchain/wamr_toolchain.cmake`
+* **sysroot** folder: only needed when WASI is not enabled in the runtime. copied from [test-tools/toolchain/sysroot](./test-tools/toolchain/sysroot)
+* **app-lib** folder: copied from [core/iwasm/lib/app-libs](./core/iwasm/lib/app-libs/)
+* **cmake toolchain** file: copied from [test-tools/toolchain/wamr_toolchain.cmake](./test-tools/toolchain/wamr_toolchain.cmake)
 * optionally with some guide documents and samples
 
 
