@@ -78,8 +78,8 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
 if (NOT DEFINED WASM_ENABLE_WASI)
-  # Enable wasi support by default
-  set (WASM_ENABLE_WASI 1)
+  # Disable wasi support by default
+  set (WASM_ENABLE_WASI 0)
 endif ()
 
 if (WASM_ENABLE_WASI EQUAL 1)
@@ -110,7 +110,7 @@ enable_language (ASM)
 include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)
 include (../../runtime/vmcore-wasm/vmcore.cmake)
-include (../../runtime/wasmtime-wasi-c/wasi.cmake)
+include (../../lib/native/libc/wasmtime-wasi-c/wasi.cmake)
 include (../../lib/native/base/wasm_lib_base.cmake)
 include (../../lib/native/libc/wasm_libc.cmake)
 include (${SHARED_LIB_DIR}/platform/${PLATFORM}/shared_platform.cmake)
