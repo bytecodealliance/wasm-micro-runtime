@@ -6,7 +6,7 @@ set (WASM_LIBC_DIR ${CMAKE_CURRENT_LIST_DIR})
 include_directories(${WASM_LIBC_DIR})
 
 
-file (GLOB_RECURSE source_all ${WASM_LIBC_DIR}/*.c)
+file (GLOB source_all ${WASM_LIBC_DIR}/*.c)
 
 set (WASM_LIBC_SOURCE ${source_all})
 
