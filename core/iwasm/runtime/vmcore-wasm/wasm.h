@@ -68,9 +68,6 @@ extern "C" {
 #define BLOCK_TYPE_IF 2
 #define BLOCK_TYPE_FUNCTION 3
 
-#define CALL_TYPE_WRAPPER 0
-#define CALL_TYPE_C_INTRINSIC 1
-
 typedef union WASMValue {
     int32 i32;
     uint32 u32;
@@ -140,8 +137,6 @@ typedef struct WASMFunctionImport {
     char *field_name;
     /* function type */
     WASMType *func_type;
-    /* c intrinsic function or wrapper function */
-    uint32 call_type;
     /* function pointer after linked */
     void *func_ptr_linked;
 } WASMFunctionImport;

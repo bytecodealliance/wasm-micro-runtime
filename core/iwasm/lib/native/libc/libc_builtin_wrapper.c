@@ -80,15 +80,17 @@ _printf_hex_uint(out_func_t out, void *ctx,
                  enum pad_type padding,
                  int min_width)
 {
-    int size = sizeof(num) * (is_u64 ? 2 : 1);
+    int shift = sizeof(num) * 8;
     int found_largest_digit = 0;
-    int remaining = 8; /* 8 digits max */
+    int remaining = 16; /* 16 digits max */
     int digits = 0;
+    char nibble;
 
-    for (; size; size--) {
-        char nibble = (num >> ((size - 1) << 2) & 0xf);
+     while (shift >= 4) {
+         shift -= 4;
+         nibble = (num >> shift) & 0xf;
 
-        if (nibble || found_largest_digit || size == 1) {
+        if (nibble || found_largest_digit || shift == 0) {
             found_largest_digit = 1;
             nibble = (char)(nibble + (nibble > 9 ? 87 : 48));
             out((int) nibble, ctx);
@@ -1153,17 +1155,13 @@ __cxa_throw_wrapper(wasm_module_inst_t module_inst,
     wasm_runtime_set_exception(module_inst, buf);
 }
 
-/*#define ENABLE_SPEC_TEST 1*/
+#ifndef ENABLE_SPEC_TEST
+#define ENABLE_SPEC_TEST 0
+#endif
 
-#ifdef ENABLE_SPEC_TEST
+#if ENABLE_SPEC_TEST != 0
 static void
-print_i32_wrapper(wasm_module_inst_t module_inst, int i32)
-{
-    bh_printf("%d\n", i32);
-}
-
-static void
-print_wrapper(wasm_module_inst_t module_inst, int i32)
+print_i32_wrapper(wasm_module_inst_t module_inst, int32 i32)
 {
     bh_printf("%d\n", i32);
 }
@@ -1180,9 +1178,8 @@ typedef struct WASMNativeFuncDef {
 } WASMNativeFuncDef;
 
 static WASMNativeFuncDef native_func_defs[] = {
-#ifdef ENABLE_SPEC_TEST
+#if ENABLE_SPEC_TEST != 0
     REG_NATIVE_FUNC(spectest, print_i32),
-    REG_NATIVE_FUNC(spectest, print),
 #endif
     REG_NATIVE_FUNC(env, _printf),
     REG_NATIVE_FUNC(env, _sprintf),
@@ -1284,8 +1281,12 @@ typedef struct WASMNativeGlobalDef {
 } WASMNativeGlobalDef;
 
 static WASMNativeGlobalDef native_global_defs[] = {
-#ifdef ENABLE_SPEC_TEST
-    { "spectest", "global_i32", .global_data.u32 = 0 },
+#if ENABLE_SPEC_TEST != 0
+    { "spectest", "global_i32", .global_data.i32 = 666 },
+    { "spectest", "global_f32", .global_data.f32 = 0 },
+    { "spectest", "global_f64", .global_data.f64 = 0 },
+    { "test", "global-i32", .global_data.i32 = 0 },
+    { "test", "global-f32", .global_data.f32 = 0 },
 #endif
     { "env", "STACKTOP", .global_data.u32 = 0 },
     { "env", "STACK_MAX", .global_data.u32 = 0 },

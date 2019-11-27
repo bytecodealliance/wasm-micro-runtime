@@ -612,6 +612,16 @@ wasm_interp_call_func_native(WASMThread *self,
 
     wasm_thread_set_cur_frame (self, frame);
 
+    if (!cur_func->u.func_import->func_ptr_linked) {
+        char buf[128];
+        snprintf(buf,
+                 sizeof(buf), "fail to call unlinked import function (%s, %s)",
+                 cur_func->u.func_import->module_name,
+                 cur_func->u.func_import->field_name);
+        wasm_runtime_set_exception(self->module_inst, buf);
+        return;
+    }
+
     ret = wasm_runtime_invoke_native(cur_func->u.func_import->func_ptr_linked,
                                      cur_func->u.func_import->func_type,
                                      self->module_inst,
@@ -840,7 +850,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_CALL_INDIRECT):
         {
           WASMType *cur_type, *cur_func_type;
-          /* TODO: test */
+
           read_leb_uint32(frame_ip, frame_ip_end, tidx);
           if (tidx >= module->module->type_count) {
             wasm_runtime_set_exception(module, "type index is overflow");
@@ -858,8 +868,11 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           }
 
           fidx = ((uint32*)table->base_addr)[val];
-          /* Skip function index check, it has been checked
-             in wasm module instantiate */
+          if (fidx == (uint32)-1) {
+            wasm_runtime_set_exception(module, "uninitialized element");
+            goto got_exception;
+          }
+
           cur_func = module->functions + fidx;
 
           if (cur_func->is_import_func)
