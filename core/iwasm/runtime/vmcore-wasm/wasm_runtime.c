@@ -358,7 +358,9 @@ tables_instantiate(const WASMModule *module,
             return NULL;
         }
 
-        memset(table, 0, (uint32)total_size);
+        /* Set all elements to -1 to mark them as uninitialized elements */
+        memset(table, -1, (uint32)total_size);
+        table->elem_type = import->u.table.elem_type;
         table->cur_size = import->u.table.init_size;
         table->max_size = import->u.table.max_size;
     }
@@ -376,7 +378,9 @@ tables_instantiate(const WASMModule *module,
             return NULL;
         }
 
-        memset(table, 0, (uint32)total_size);
+        /* Set all elements to -1 to mark them as uninitialized elements */
+        memset(table, -1, (uint32)total_size);
+        table->elem_type = module->tables[i].elem_type;
         table->cur_size = module->tables[i].init_size;
         table->max_size = module->tables[i].max_size;
     }
@@ -683,9 +687,6 @@ export_functions_instantiate(const WASMModule *module,
 
     for (i = 0; i < module->export_count; i++, export++)
         if (export->kind == EXPORT_KIND_FUNC) {
-            wasm_assert(export->index >= module->import_function_count
-                        && export->index < module->import_function_count
-                           + module->function_count);
             export_func->name = export->name;
             export_func->function = &module_inst->functions[export->index];
             export_func++;
