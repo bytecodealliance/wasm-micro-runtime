@@ -846,7 +846,7 @@ __wasi_errno_t wasmtime_ssp_fd_pread(
 
   struct fd_object *fo;
   __wasi_errno_t error = fd_object_get(curfds,
-      &fo, fd, __WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_SEEK, 0);
+      &fo, fd, __WASI_RIGHT_FD_READ, 0);
   if (error != 0)
     return error;
 
@@ -918,7 +918,7 @@ __wasi_errno_t wasmtime_ssp_fd_pwrite(
 
   struct fd_object *fo;
   __wasi_errno_t error = fd_object_get(curfds,
-      &fo, fd, __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_SEEK, 0);
+      &fo, fd, __WASI_RIGHT_FD_WRITE, 0);
   if (error != 0)
     return error;
 
