@@ -36,10 +36,6 @@ Use installation commands below for Ubuntu Linux:
 ``` Bash
 sudo apt install lib32gcc-5-dev g++-multilib
 ```
-Or in Fedora:
-``` Bash
-sudo dnf install glibc-devel.i686
-```
 
 And then install the [Intel SGX SDK](https://software.intel.com/en-us/sgx/sdk).
 

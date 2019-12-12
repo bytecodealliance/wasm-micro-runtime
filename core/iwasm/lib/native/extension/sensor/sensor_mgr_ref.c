@@ -19,6 +19,7 @@
  */
 static korp_cond cond;
 static korp_mutex mutex;
+static bool sensor_check_thread_run = true;
 
 void app_mgr_sensor_event_callback(module_data *m_data, bh_message_t msg)
 {
@@ -52,9 +53,12 @@ void app_mgr_sensor_event_callback(module_data *m_data, bh_message_t msg)
         sensor_data_offset = wasm_runtime_module_dup_data(inst, payload->data,
                                                           sensor_data_len);
         if (sensor_data_offset == 0) {
-            printf("Got exception running wasm code: %s\n",
-                   wasm_runtime_get_exception(inst));
-            wasm_runtime_clear_exception(inst);
+            const char *exception = wasm_runtime_get_exception(inst);
+            if (exception) {
+                printf("Got exception running wasm code: %s\n",
+                       exception);
+                wasm_runtime_clear_exception(inst);
+            }
             return;
         }
 
@@ -63,8 +67,10 @@ void app_mgr_sensor_event_callback(module_data *m_data, bh_message_t msg)
         argv[2] = sensor_data_len;
 
         if (!wasm_runtime_call_wasm(inst, NULL, func_onSensorEvent, 3, argv)) {
+            const char *exception = wasm_runtime_get_exception(inst);
+            bh_assert(exception);
             printf(":Got exception running wasm code: %s\n",
-                   wasm_runtime_get_exception(inst));
+                   exception);
             wasm_runtime_clear_exception(inst);
             wasm_runtime_module_free(inst, sensor_data_offset);
             return;
@@ -92,7 +98,7 @@ static bool config_test_sensor(void * s, void * config)
 
 static void thread_sensor_check(void * arg)
 {
-    while (1) {
+    while (sensor_check_thread_run) {
         int ms_to_expiry = check_sensor_timers();
         if (ms_to_expiry == -1)
             ms_to_expiry = 5000;
@@ -129,5 +135,10 @@ void init_sensor_framework()
 
     vm_thread_create(&tid, (void *)thread_sensor_check, NULL,
                      BH_APPLET_PRESERVED_STACK_SIZE);
+}
+
+void exit_sensor_framework()
+{
+    sensor_check_thread_run = false;
 }
 

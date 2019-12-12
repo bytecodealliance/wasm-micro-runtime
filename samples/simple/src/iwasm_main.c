@@ -32,6 +32,9 @@
 #include "attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
+#if WASM_ENABLE_GUI != 0
+#include "wgl.h"
+#endif
 
 #if WASM_ENABLE_GUI != 0
 #include "lv_drivers/display/monitor.h"
@@ -49,11 +52,11 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
+extern void exit_sensor_framework();
+extern void exit_connection_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 extern bool init_connection_framework();
-extern void wgl_init();
 
 #ifndef CONNECTION_UART
 int listenfd = -1;
@@ -159,6 +162,9 @@ host_interface interface = {
     .destroy = host_destroy
 };
 
+/* Change it to 1 when fuzzing test */
+#define WASM_ENABLE_FUZZ_TEST 0
+
 void* func_server_mode(void* arg)
 {
     int clilent;
@@ -227,6 +233,12 @@ void* func_server_mode(void* arg)
 
             aee_host_msg_callback(buff, n);
         }
+#if WASM_ENABLE_FUZZ_TEST != 0
+        /* Exit the process when host disconnect.
+         * This is helpful for reproducing failure case. */
+        close(sockfd);
+        exit(1);
+#endif
     }
 }
 
@@ -509,9 +521,17 @@ int iwasm_main(int argc, char *argv[])
     vm_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #endif
 
-    // TODO:
     app_manager_startup(&interface);
 
-    fail1: bh_memory_destroy();
+    exit_wasm_timer();
+    exit_sensor_framework();
+#if WASM_ENABLE_GUI != 0
+    wgl_exit();
+#endif
+    exit_connection_framework();
+
+fail1:
+    bh_memory_destroy();
+
     return -1;
 }

@@ -5,6 +5,16 @@ WAMR_DIR=${PWD}/../..
 OUT_DIR=${PWD}/out
 BUILD_DIR=${PWD}/build
 
+if [ -z $KW_BUILD ] || [ -z $KW_OUT_FILE ];then
+    echo "Local Build Env"
+    cmakewrap="cmake"
+    makewrap="make"
+else
+    echo "Klocwork Build Env"
+    cmakewrap="cmake -DCMAKE_BUILD_TYPE=Debug"
+    makewrap="kwinject -o $KW_OUT_FILE make"
+fi
+
 if [ ! -d $BUILD_DIR ]; then
     mkdir ${BUILD_DIR}
 fi
@@ -28,8 +38,8 @@ echo "##################### 1. build native-ui-app start#####################"
 cd $BUILD_DIR
 mkdir -p vgl-native-ui-app
 cd vgl-native-ui-app
-cmake ${PROJECT_DIR}/vgl-native-ui-app
-make
+$cmakewrap ${PROJECT_DIR}/vgl-native-ui-app
+$makewrap
 if [ $? != 0 ];then
     echo "BUILD_FAIL native-ui-app $?\n"
     exit 2
@@ -43,8 +53,8 @@ echo "##################### 2. build littlevgl wasm runtime start###############
 cd $BUILD_DIR
 mkdir -p vgl-wasm-runtime
 cd vgl-wasm-runtime
-cmake ${PROJECT_DIR}/vgl-wasm-runtime
-make
+$cmakewrap ${PROJECT_DIR}/vgl-wasm-runtime
+$makewrap
 cp vgl_wasm_runtime ${OUT_DIR}/
 
 echo "##################### build littlevgl wasm runtime end#####################"
@@ -53,8 +63,8 @@ echo "#####################build host-tool"
 cd $BUILD_DIR
 mkdir -p host-tool
 cd host-tool
-cmake ${WAMR_DIR}/test-tools/host-tool
-make
+$cmakewrap ${WAMR_DIR}/test-tools/host-tool
+$makewrap
 if [ $? != 0 ];then
         echo "BUILD_FAIL host tool exit as $?\n"
         exit 2

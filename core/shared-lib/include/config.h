@@ -62,9 +62,6 @@
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
 
-/* WASM Branch Block address hashmap */
-#define WASM_ENABLE_HASH_BLOCK_ADDR 0
-
 /* Heap and stack profiling */
 #define BEIHAI_ENABLE_MEMORY_PROFILING 0
 
