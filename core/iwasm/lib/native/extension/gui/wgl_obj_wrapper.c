@@ -9,6 +9,7 @@
 #include "bh_list.h"
 #include "bh_thread.h"
 #include "wgl_native_utils.h"
+#include "wgl.h"
 
 
 typedef struct {
@@ -36,6 +37,8 @@ static bh_list g_object_list;
 
 static korp_mutex g_object_list_mutex;
 
+static bool lv_task_handler_thread_run = true;
+
 static void app_mgr_object_event_callback(module_data *m_data, bh_message_t msg)
 {
     uint32 argv[2];
@@ -62,8 +65,10 @@ static void app_mgr_object_event_callback(module_data *m_data, bh_message_t msg)
     argv[0] = object_event->obj_id;
     argv[1] = object_event->event;
     if (!wasm_runtime_call_wasm(inst, NULL, func_on_object_event, 2, argv)) {
+        const char *exception = wasm_runtime_get_exception(inst);
+        bh_assert(exception);
         printf(":Got exception running wasm code: %s\n",
-                wasm_runtime_get_exception(inst));
+                exception);
         wasm_runtime_clear_exception(inst);
         return;
     }
@@ -270,10 +275,12 @@ static void* lv_task_handler_thread_routine (void *arg)
 
     vm_sem_init(&sem, 0);
 
-    while (true) {
+    while (lv_task_handler_thread_run) {
         vm_sem_reltimedwait(&sem, 100);
         lv_task_handler();
     }
+
+    vm_sem_destroy(&sem);
 
     return NULL;
 }
@@ -293,6 +300,11 @@ void wgl_init(void)
                      lv_task_handler_thread_routine,
                      NULL,
                      BH_APPLET_PRESERVED_STACK_SIZE);
+}
+
+void wgl_exit(void)
+{
+    lv_task_handler_thread_run = false;
 }
 
 /* -------------------------------------------------------------------------

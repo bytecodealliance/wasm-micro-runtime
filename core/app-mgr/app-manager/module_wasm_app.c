@@ -162,9 +162,12 @@ static void app_instance_queue_callback(void *queue_msg, void *arg)
 
                  buffer_offset = wasm_runtime_module_dup_data(inst, buffer, size);
                  if (buffer_offset == 0) {
-                     app_manager_printf("Got exception running wasm code: %s\n",
-                                        wasm_runtime_get_exception(inst));
-                     wasm_runtime_clear_exception(inst);
+                     const char *exception = wasm_runtime_get_exception(inst);
+                     if (exception) {
+                         app_manager_printf("Got exception running wasm code: %s\n",
+                                            exception);
+                         wasm_runtime_clear_exception(inst);
+                     }
                      free_req_resp_packet(buffer);
                      break;
                  }
@@ -175,8 +178,10 @@ static void app_instance_queue_callback(void *queue_msg, void *arg)
                  argv[1] = (uint32) size;
 
                  if (!wasm_runtime_call_wasm(inst, NULL, func_onRequest, 2, argv)) {
+                     const char *exception = wasm_runtime_get_exception(inst);
+                     bh_assert(exception);
                      app_manager_printf("Got exception running wasm code: %s\n",
-                                        wasm_runtime_get_exception(inst));
+                                        exception);
                      wasm_runtime_clear_exception(inst);
                      wasm_runtime_module_free(inst, buffer_offset);
                      break;
@@ -209,9 +214,12 @@ static void app_instance_queue_callback(void *queue_msg, void *arg)
 
                  buffer_offset = wasm_runtime_module_dup_data(inst, buffer, size);
                  if (buffer_offset == 0) {
-                     app_manager_printf("Got exception running wasm code: %s\n",
-                                        wasm_runtime_get_exception(inst));
-                     wasm_runtime_clear_exception(inst);
+                     const char *exception = wasm_runtime_get_exception(inst);
+                     if (exception) {
+                         app_manager_printf("Got exception running wasm code: %s\n",
+                                            exception);
+                         wasm_runtime_clear_exception(inst);
+                     }
                      free_req_resp_packet(buffer);
                      break;
                  }
@@ -222,8 +230,10 @@ static void app_instance_queue_callback(void *queue_msg, void *arg)
                  argv[1] = (uint32) size;
 
                  if (!wasm_runtime_call_wasm(inst, NULL, func_onResponse, 2, argv)) {
+                     const char *exception = wasm_runtime_get_exception(inst);
+                     bh_assert(exception);
                      app_manager_printf("Got exception running wasm code: %s\n",
-                                        wasm_runtime_get_exception(inst));
+                                        exception);
                      wasm_runtime_clear_exception(inst);
                      wasm_runtime_module_free(inst, buffer_offset);
                      break;
@@ -265,8 +275,10 @@ static void app_instance_queue_callback(void *queue_msg, void *arg)
                          (unsigned int)(uintptr_t)bh_message_payload(queue_msg);
                      argv[0] = timer_id;
                      if (!wasm_runtime_call_wasm(inst, NULL, func_onTimer, 1, argv)) {
+                         const char *exception = wasm_runtime_get_exception(inst);
+                         bh_assert(exception);
                          app_manager_printf("Got exception running wasm code: %s\n",
-                                            wasm_runtime_get_exception(inst));
+                                            exception);
                          wasm_runtime_clear_exception(inst);
                      }
                  }
@@ -312,8 +324,10 @@ wasm_app_routine(void *arg)
     }
 
     if (!wasm_runtime_call_wasm(inst, NULL, func_onInit, 0, NULL)) {
+        const char *exception = wasm_runtime_get_exception(inst);
+        bh_assert(exception);
         printf("Got exception running WASM code: %s\n",
-               wasm_runtime_get_exception(inst));
+               exception);
         wasm_runtime_clear_exception(inst);
         /* call on_destroy() in case some resources are opened in on_init()
          * and then exception thrown */

@@ -32,6 +32,7 @@
 #include "attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
+#include "wgl.h"
 
 #include "lv_drivers/display/monitor.h"
 #include "lv_drivers/indev/mouse.h"
@@ -47,11 +48,11 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
+extern void exit_sensor_framework();
+extern void exit_connection_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 extern bool init_connection_framework();
-extern void wgl_init();
 
 #ifndef CONNECTION_UART
 int listenfd = -1;
@@ -504,9 +505,15 @@ int iwasm_main(int argc, char *argv[])
     vm_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #endif
 
-    // TODO:
     app_manager_startup(&interface);
 
-    fail1: bh_memory_destroy();
+    exit_wasm_timer();
+    exit_sensor_framework();
+    wgl_exit();
+    exit_connection_framework();
+
+fail1:
+    bh_memory_destroy();
+
     return -1;
 }

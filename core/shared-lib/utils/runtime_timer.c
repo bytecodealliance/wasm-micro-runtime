@@ -426,26 +426,3 @@ void cleanup_app_timers(timer_ctx_t ctx)
     vm_mutex_unlock(&ctx->mutex);
 }
 
-/*
- *
- *   One reference implementation for timer manager
- *
- *
- */
-
-void * thread_timer_check(void * arg)
-{
-    timer_ctx_t ctx = (timer_ctx_t) arg;
-    while (1) {
-        int ms_to_expiry = check_app_timers(ctx);
-        vm_mutex_lock(&ctx->mutex);
-        vm_cond_reltimedwait(&ctx->cond, &ctx->mutex, ms_to_expiry);
-        vm_mutex_unlock(&ctx->mutex);
-    }
-}
-
-void wakeup_timer_thread(timer_ctx_t ctx)
-{
-    vm_cond_signal(&ctx->cond);
-}
-

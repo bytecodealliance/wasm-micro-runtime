@@ -29,6 +29,8 @@
 #define MAX_EVENTS 10
 #define IO_BUF_SIZE 256
 
+static bool polling_thread_run = true;
+
 /* Connection type */
 typedef enum conn_type {
     CONN_TYPE_TCP,
@@ -436,7 +438,7 @@ static void post_msg_to_module(sys_connection_t *conn,
 
 static void* polling_thread_routine (void *arg)
 {
-    while (true) {
+    while (polling_thread_run) {
         int i, n;
 
         n = epoll_wait(epollfd, epoll_events, MAX_EVENTS, -1);
@@ -500,8 +502,10 @@ void app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
         argv[1] = 0;
         argv[2] = 0;
         if (!wasm_runtime_call_wasm(inst, NULL, func_on_conn_data, 3, argv)) {
+            const char *exception = wasm_runtime_get_exception(inst);
+            bh_assert(exception);
             printf(":Got exception running wasm code: %s\n",
-                    wasm_runtime_get_exception(inst));
+                   exception);
             wasm_runtime_clear_exception(inst);
             return;
         }
@@ -510,9 +514,12 @@ void app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
                                                    conn_event->data,
                                                    conn_event->len);
         if (data_offset == 0) {
-            printf("Got exception running wasm code: %s\n",
-                    wasm_runtime_get_exception(inst));
-            wasm_runtime_clear_exception(inst);
+            const char *exception = wasm_runtime_get_exception(inst);
+            if (exception) {
+                printf("Got exception running wasm code: %s\n",
+                       exception);
+                wasm_runtime_clear_exception(inst);
+            }
             return;
         }
 
@@ -520,8 +527,10 @@ void app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
         argv[1] = (uint32) data_offset;
         argv[2] = conn_event->len;
         if (!wasm_runtime_call_wasm(inst, NULL, func_on_conn_data, 3, argv)) {
+            const char *exception = wasm_runtime_get_exception(inst);
+            bh_assert(exception);
             printf(":Got exception running wasm code: %s\n",
-                    wasm_runtime_get_exception(inst));
+                   exception);
             wasm_runtime_clear_exception(inst);
             wasm_runtime_module_free(inst, data_offset);
             return;
@@ -565,4 +574,9 @@ fail:
     vm_mutex_destroy(&g_lock);
     close(epollfd);
     return false;
+}
+
+void exit_connection_framework()
+{
+    polling_thread_run = false;
 }

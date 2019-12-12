@@ -193,7 +193,7 @@ display_input_read(wasm_module_inst_t module_inst,
         uint8 state;
     } *data_app;
 
-    lv_indev_data_t data;
+    lv_indev_data_t data = {0};
 
     ret = mouse_read(&data);
 

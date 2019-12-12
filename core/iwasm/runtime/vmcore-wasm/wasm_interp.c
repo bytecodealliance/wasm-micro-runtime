@@ -943,16 +943,12 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
           switch (local_type) {
             case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
               PUSH_I32(LOCAL_I32(local_idx));
               break;
-            case VALUE_TYPE_F32:
-              PUSH_F32(LOCAL_F32(local_idx));
-              break;
             case VALUE_TYPE_I64:
-              PUSH_I64(LOCAL_I64(local_idx));
-              break;
             case VALUE_TYPE_F64:
-              PUSH_F64(LOCAL_F64(local_idx));
+              PUSH_I64(LOCAL_I64(local_idx));
               break;
             default:
               wasm_runtime_set_exception(module,
@@ -1738,8 +1734,15 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F32_NEG):
-        DEF_OP_MATH(float32, F32, -);
-        HANDLE_OP_END ();
+      {
+          int32 i32 = frame_sp[-1];
+          int32 sign_bit = i32 & (1 << 31);
+          if (sign_bit)
+              frame_sp[-1] = i32 & ~(1 << 31);
+          else
+              frame_sp[-1] = i32 | (1 << 31);
+          HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_F32_CEIL):
         DEF_OP_MATH(float32, F32, ceil);
@@ -1825,8 +1828,15 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F64_NEG):
-        DEF_OP_MATH(float64, F64, -);
-        HANDLE_OP_END ();
+      {
+          int64 i64 = GET_I64_FROM_ADDR(frame_sp - 2);
+          int64 sign_bit = i64 & (((uint64)1) << 63);
+          if (sign_bit)
+              PUT_I64_TO_ADDR(frame_sp - 2, (i64 & ~(((uint64)1) << 63)));
+          else
+              PUT_I64_TO_ADDR(frame_sp - 2, (i64 | (((uint64)1) << 63)));
+          HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_F64_CEIL):
         DEF_OP_MATH(float64, F64, ceil);

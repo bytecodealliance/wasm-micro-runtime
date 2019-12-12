@@ -23,7 +23,7 @@ $(NAME)_SOURCES := ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c \
                    ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_loader.c \
                    ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_runtime.c \
                    ${IWASM_ROOT}/runtime/vmcore-wasm/invokeNative_general.c \
-                   ${IWASM_ROOT}/lib/native/libc/libc_wrapper.c \
+                   ${IWASM_ROOT}/lib/native/libc/libc_builtin_wrapper.c \
                    ${IWASM_ROOT}/lib/native/base/base_lib_export.c \
                    ${SHARED_LIB_ROOT}/platform/alios/bh_platform.c \
                    ${SHARED_LIB_ROOT}/platform/alios/bh_definition.c \
