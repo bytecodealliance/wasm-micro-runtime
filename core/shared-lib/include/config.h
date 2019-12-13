@@ -59,6 +59,12 @@
 #define WASM_ENABLE_LOG 1
 #endif
 
+#if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64)
+#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 1
+#else
+#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 0
+#endif
+
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
 

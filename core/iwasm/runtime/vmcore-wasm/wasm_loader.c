@@ -65,18 +65,58 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
             break;
         }
     }
-    if (bcnt > (maxbits + 7 - 1) / 7) {
+
+    if (bcnt > (maxbits + 6) / 7) {
         set_error_buf(error_buf, error_buf_size,
                       "WASM module load failed: "
                       "integer representation too long");
         return false;
     }
-    if (sign && (shift < maxbits) && (byte & 0x40)) {
-        /* Sign extend */
-        result |= - ((uint64)1 << shift);
+
+    if (!sign && maxbits == 32 && shift >= maxbits) {
+        /* The top bits set represent values > 32 bits */
+        if (((uint8)byte) & 0xf0)
+            goto fail_integer_too_large;
     }
+    else if (sign && maxbits == 32) {
+        if (shift < maxbits) {
+            /* Sign extend */
+            result = (((int32)result) << (maxbits - shift))
+                     >> (maxbits - shift);
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x8;
+            int top_bits = ((uint8)byte) & 0xf0;
+            if ((sign_bit_set && top_bits != 0x70)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+    else if (sign && maxbits == 64) {
+        if (shift < maxbits) {
+            /* Sign extend */
+            result = (((int64)result) << (maxbits - shift))
+                     >> (maxbits - shift);
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x1;
+            int top_bits = ((uint8)byte) & 0xfe;
+
+            if ((sign_bit_set && top_bits != 0x7e)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+
     *p_result = result;
     return true;
+
+fail_integer_too_large:
+    set_error_buf(error_buf, error_buf_size,
+                  "WASM module load failed: integer too large");
+    return false;
 }
 
 #define read_uint8(p)  TEMPLATE_READ_VALUE(uint8, p)
@@ -121,16 +161,6 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
     return false;                                   \
   p += off;                                         \
   res = (int32)res64;                               \
-} while (0)
-
-#define read_leb_uint8(p, p_end, res) do {          \
-  uint32 off = 0;                                   \
-  uint64 res64;                                     \
-  if (!read_leb(p, p_end, &off, 7, false, &res64,   \
-                error_buf, error_buf_size))         \
-    return false;                                   \
-  p += off;                                         \
-  res = (uint8)res64;                               \
 } while (0)
 
 static bool
@@ -355,7 +385,9 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
 
-    read_leb_uint8(p, p_end, table->elem_type);
+    CHECK_BUF(p, p_end, 1);
+    /* 0x70 */
+    table->elem_type = read_uint8(p);
     wasm_assert(table->elem_type == TABLE_ELEM_TYPE_ANY_FUNC);
     read_leb_uint32(p, p_end, table->flags);
     read_leb_uint32(p, p_end, table->init_size);
@@ -399,7 +431,9 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
 
-    read_leb_uint8(p, p_end, table->elem_type);
+    CHECK_BUF(p, p_end, 1);
+    /* 0x70 */
+    table->elem_type = read_uint8(p);
     wasm_assert(table->elem_type == TABLE_ELEM_TYPE_ANY_FUNC);
     read_leb_uint32(p, p_end, table->flags);
     read_leb_uint32(p, p_end, table->init_size);
@@ -495,7 +529,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             CHECK_BUF(p, p_end, name_len);
             p += name_len;
 
-            read_leb_uint8(p, p_end, kind);
+            CHECK_BUF(p, p_end, 1);
+            /* 0x00/0x01/0x02/0x03 */
+            kind = read_uint8(p);
 
             switch (kind) {
                 case IMPORT_KIND_FUNC: /* import function */
@@ -504,7 +540,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     break;
 
                 case IMPORT_KIND_TABLE: /* import table */
-                    read_leb_uint8(p, p_end, u8);
+                    CHECK_BUF(p, p_end, 1);
+                    /* 0x70 */
+                    u8 = read_uint8(p);
                     read_leb_uint32(p, p_end, flags);
                     read_leb_uint32(p, p_end, u32);
                     if (flags & 1)
@@ -578,7 +616,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
             p += name_len;
 
-            read_leb_uint8(p, p_end, kind);
+            CHECK_BUF(p, p_end, 1);
+            /* 0x00/0x01/0x02/0x03 */
+            kind = read_uint8(p);
             switch (kind) {
                 case IMPORT_KIND_FUNC: /* import function */
                     wasm_assert(import_functions);
@@ -757,7 +797,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                                   "too many locals");
                     return false;
                 }
-                read_leb_uint8(p_code, buf_code_end, type);
+                CHECK_BUF(p_code, buf_code_end, 1);
+                /* 0x7F/0x7E/0x7D/0x7C */
+                type = read_uint8(p_code);
                 local_count += sub_local_count;
             }
 
@@ -794,7 +836,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                                   "invalid local count.");
                     return false;
                 }
-                read_leb_uint8(p_code, buf_code_end, type);
+                CHECK_BUF(p_code, buf_code_end, 1);
+                /* 0x7F/0x7E/0x7D/0x7C */
+                type = read_uint8(p_code);
                 if (type < VALUE_TYPE_F64 || type > VALUE_TYPE_I32) {
                     set_error_buf(error_buf, error_buf_size,
                                   "Load function section failed: "
@@ -1736,7 +1780,9 @@ wasm_loader_find_block_addr(WASMModule *module,
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
             case WASM_OP_IF:
-                read_leb_uint8(p, p_end, u8); /* blocktype */
+                CHECK_BUF(p, p_end, 1);
+                /* block result type: 0x40/0x7F/0x7E/0x7D/0x7C */
+                u8 = read_uint8(p);
                 if (block_nested_depth < sizeof(block_stack)/sizeof(BlockAddr)) {
                     block_stack[block_nested_depth].start_addr = p;
                     block_stack[block_nested_depth].else_addr = NULL;
@@ -1810,7 +1856,8 @@ wasm_loader_find_block_addr(WASMModule *module,
 
             case WASM_OP_CALL_INDIRECT:
                 read_leb_uint32(p, p_end, u32); /* typeidx */
-                read_leb_uint8(p, p_end, u8); /* 0x00 */
+                CHECK_BUF(p, p_end, 1);
+                u8 = read_uint8(p); /* 0x00 */
                 break;
 
             case WASM_OP_DROP:
@@ -1862,10 +1909,10 @@ wasm_loader_find_block_addr(WASMModule *module,
                 break;
 
             case WASM_OP_I32_CONST:
-                read_leb_uint32(p, p_end, u32);
+                read_leb_int32(p, p_end, u32);
                 break;
             case WASM_OP_I64_CONST:
-                read_leb_uint64(p, p_end, u64);
+                read_leb_int64(p, p_end, u64);
                 break;
             case WASM_OP_F32_CONST:
                 p += sizeof(float32);
@@ -2437,18 +2484,21 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                 break;
 
             case WASM_OP_BLOCK:
-                read_leb_uint8(p, p_end, block_return_type);
+                /* 0x40/0x7F/0x7E/0x7D/0x7C */
+                block_return_type = read_uint8(p);
                 PUSH_CSP(BLOCK_TYPE_BLOCK, block_return_type, p);
                 break;
 
             case WASM_OP_LOOP:
-                read_leb_uint8(p, p_end, block_return_type);
+                /* 0x40/0x7F/0x7E/0x7D/0x7C */
+                block_return_type = read_uint8(p);
                 PUSH_CSP(BLOCK_TYPE_LOOP, block_return_type, p);
                 break;
 
             case WASM_OP_IF:
                 POP_I32();
-                read_leb_uint8(p, p_end, block_return_type);
+                /* 0x40/0x7F/0x7E/0x7D/0x7C */
+                block_return_type = read_uint8(p);
                 PUSH_CSP(BLOCK_TYPE_IF, block_return_type, p);
                 if (!is_i32_const)
                     (frame_csp - 1)->is_block_reachable = true;
