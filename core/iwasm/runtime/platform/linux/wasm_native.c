@@ -3,6 +3,30 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+/**
+ * Currently WAMR supports libc for WASM applications in two modes:
+ *   (1) the built-in libc subset for embedded environment and
+ *   (2) WASI for standard libc
+ * so here the libc syscall mode is disabled by default, if developer
+ * wants to enable the libc syscall mode, please set the following
+ * macro to 1, and implements the related syscall wrappers. Here some
+ * syscall wrapper examples are given.
+ */
+#define WASM_TEST_SYSCALL_WRAPPER 0
+
+#if WASM_TEST_SYSCALL_WRAPPER == 0
+
+#include "wasm_native.h"
+
+void*
+wasm_platform_native_func_lookup(const char *module_name,
+                                 const char *func_name)
+{
+    return NULL;
+}
+
+#else
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE /* for O_DIRECT */
 #endif
@@ -336,4 +360,6 @@ wasm_platform_native_func_lookup(const char *module_name,
 
     return NULL;
 }
+
+#endif /* end of WASM_TEST_SYSCALL_WRAPPER */
 

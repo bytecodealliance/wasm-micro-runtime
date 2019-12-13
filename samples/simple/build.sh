@@ -11,6 +11,16 @@ NATIVE_LIBS=${IWASM_ROOT}/lib/native-interface
 APP_LIB_SRC="${APP_LIBS}/base/*.c ${APP_LIBS}/extension/sensor/*.c ${APP_LIBS}/extension/connection/*.c ${APP_LIBS}/extension/gui/src/*.c ${NATIVE_LIBS}/*.c"
 WASM_APPS=${PWD}/wasm-apps
 
+if [ -z $KW_BUILD ] || [ -z $KW_OUT_FILE ];then
+    echo "Local Build Env"
+    cmakewrap="cmake"
+    makewrap="make"
+else
+    echo "Klocwork Build Env"
+    cmakewrap="cmake -DCMAKE_BUILD_TYPE=Debug"
+    makewrap="kwinject -o $KW_OUT_FILE make"
+fi
+
 rm -rf ${OUT_DIR}
 mkdir ${OUT_DIR}
 mkdir ${OUT_DIR}/wasm-apps
@@ -32,8 +42,8 @@ echo "#####################build simple project"
 cd ${CURR_DIR}
 mkdir -p cmake_build
 cd cmake_build
-cmake -DENABLE_GUI=YES ..
-make
+$cmakewrap -DENABLE_GUI=YES ..
+$makewrap
 if [ $? != 0 ];then
     echo "BUILD_FAIL simple exit as $?\n"
     exit 2
@@ -45,8 +55,8 @@ echo "#####################build host-tool"
 cd ${WAMR_DIR}/test-tools/host-tool
 mkdir -p bin
 cd bin
-cmake ..
-make
+$cmakewrap ..
+$makewrap
 if [ $? != 0 ];then
         echo "BUILD_FAIL host tool exit as $?\n"
         exit 2

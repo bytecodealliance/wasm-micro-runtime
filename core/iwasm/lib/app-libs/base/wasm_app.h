@@ -49,8 +49,11 @@ extern "C" {
 
 /* CoAP request method codes */
 typedef enum {
-    COAP_GET = 1, COAP_POST, COAP_PUT, COAP_DELETE, COAP_EVENT = (COAP_DELETE
-            + 2)
+    COAP_GET = 1,
+    COAP_POST,
+    COAP_PUT,
+    COAP_DELETE,
+    COAP_EVENT = (COAP_DELETE + 2)
 } coap_method_t;
 
 /* CoAP response codes */

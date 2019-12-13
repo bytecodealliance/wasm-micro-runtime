@@ -15,7 +15,7 @@
 #define LOG_WRN printf
 
 #include <gpio.h>
-#include <misc/byteorder.h>
+#include <sys/byteorder.h>
 #include <spi.h>
 #include <string.h>
 

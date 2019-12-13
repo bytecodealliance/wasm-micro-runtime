@@ -280,10 +280,10 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                             u.ieee.ieee_little_endian.mantissa = sig;
                         else
                             u.ieee.ieee_big_endian.mantissa = sig;
-                        f32 = u.f;
+                        memcpy(&f32, &u.f, sizeof(float));
                     }
                 }
-                *(float32*)&argv1[p++] = f32;
+                memcpy(&argv1[p++], &f32, sizeof(float));
                 break;
             }
             case VALUE_TYPE_F64:
@@ -307,7 +307,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                             ud.ieee.ieee_big_endian.mantissa0 = sig >> 32;
                             ud.ieee.ieee_big_endian.mantissa1 = (uint32)sig;
                         }
-                        u.val = ud.d;
+                        memcpy(&u.val, &ud.d, sizeof(double));
                     }
                 }
                 argv1[p++] = u.parts[0];
@@ -333,6 +333,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     wasm_runtime_set_exception(module_inst, NULL);
     if (!wasm_runtime_call_wasm(module_inst, NULL, func, argc1, argv1)) {
         exception = wasm_runtime_get_exception(module_inst);
+        wasm_assert(exception);
         wasm_printf("%s\n", exception);
         goto fail;
     }

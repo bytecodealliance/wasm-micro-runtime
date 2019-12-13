@@ -16,8 +16,8 @@
 #include "module_wasm_app.h"
 #include "wasm_export.h"
 
-extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
+extern void exit_sensor_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 
 #include <zephyr.h>

@@ -33,9 +33,6 @@ void cleanup_app_timers(timer_ctx_t ctx);
 int check_app_timers(timer_ctx_t ctx);
 int get_expiry_ms(timer_ctx_t ctx);
 
-void wakeup_timer_thread(timer_ctx_t ctx);
-void * thread_timer_check(void * arg);
-
 #ifdef __cplusplus
 }
 #endif

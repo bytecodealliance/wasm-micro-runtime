@@ -661,6 +661,7 @@ __wasi_errno_t wasmtime_ssp_path_create_directory(
 __wasi_errno_t wasmtime_ssp_path_link(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
+    struct fd_prestats *prestats,
 #endif
     __wasi_fd_t old_fd,
     __wasi_lookupflags_t old_flags,
@@ -774,6 +775,7 @@ __wasi_errno_t wasmtime_ssp_path_filestat_set_times(
 __wasi_errno_t wasmtime_ssp_path_symlink(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
+    struct fd_prestats *prestats,
 #endif
     const char *old_path,
     size_t old_path_len,

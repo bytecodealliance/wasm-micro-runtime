@@ -10,6 +10,8 @@
 #include "bh_thread.h"
 #include "bh_time.h"
 
+static bool timer_thread_run = true;
+
 bh_list g_timer_ctx_list;
 korp_cond g_timer_ctx_list_cond;
 korp_mutex g_timer_ctx_list_mutex;
@@ -39,9 +41,9 @@ void wasm_timer_callback(timer_id_t id, unsigned int mod_id)
 
 void * thread_modulers_timer_check(void * arg)
 {
-
     int ms_to_expiry;
-    while (1) {
+
+    while (timer_thread_run) {
         ms_to_expiry = -1;
         vm_mutex_lock(&g_timer_ctx_list_mutex);
         timer_ctx_node_t* elem = (timer_ctx_node_t*)
@@ -64,6 +66,8 @@ void * thread_modulers_timer_check(void * arg)
                              ms_to_expiry);
         vm_mutex_unlock(&g_timer_ctx_list_mutex);
     }
+
+    return NULL;
 }
 
 void wakeup_modules_timer_thread(timer_ctx_t ctx)
@@ -84,6 +88,11 @@ void init_wasm_timer()
 
     vm_thread_create(&tm_tid, thread_modulers_timer_check,
                      NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+}
+
+void exit_wasm_timer()
+{
+    timer_thread_run = false;
 }
 
 timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
