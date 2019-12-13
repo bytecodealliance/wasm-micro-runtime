@@ -65,18 +65,58 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
             break;
         }
     }
-    if (bcnt > (maxbits + 7 - 1) / 7) {
+
+    if (bcnt > (maxbits + 6) / 7) {
         set_error_buf(error_buf, error_buf_size,
                       "WASM module load failed: "
                       "integer representation too long");
         return false;
     }
-    if (sign && (shift < maxbits) && (byte & 0x40)) {
-        /* Sign extend */
-        result |= - ((uint64)1 << shift);
+
+    if (!sign && maxbits == 32 && shift >= maxbits) {
+        /* The top bits set represent values > 32 bits */
+        if (((uint8)byte) & 0xf0)
+            goto fail_integer_too_large;
     }
+    else if (sign && maxbits == 32) {
+        if (shift < maxbits) {
+            /* Sign extend */
+            result = (((int32)result) << (maxbits - shift))
+                     >> (maxbits - shift);
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x8;
+            int top_bits = ((uint8)byte) & 0xf0;
+            if ((sign_bit_set && top_bits != 0x70)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+    else if (sign && maxbits == 64) {
+        if (shift < maxbits) {
+            /* Sign extend */
+            result = (((int64)result) << (maxbits - shift))
+                     >> (maxbits - shift);
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x1;
+            int top_bits = ((uint8)byte) & 0xfe;
+
+            if ((sign_bit_set && top_bits != 0x7e)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+
     *p_result = result;
     return true;
+
+fail_integer_too_large:
+    set_error_buf(error_buf, error_buf_size,
+                  "WASM module load failed: integer too large");
+    return false;
 }
 
 #define read_uint8(p)  TEMPLATE_READ_VALUE(uint8, p)
@@ -121,16 +161,6 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
     return false;                                   \
   p += off;                                         \
   res = (int32)res64;                               \
-} while (0)
-
-#define read_leb_uint8(p, p_end, res) do {          \
-  uint32 off = 0;                                   \
-  uint64 res64;                                     \
-  if (!read_leb(p, p_end, &off, 7, false, &res64,   \
-                error_buf, error_buf_size))         \
-    return false;                                   \
-  p += off;                                         \
-  res = (uint8)res64;                               \
 } while (0)
 
 static bool
@@ -355,7 +385,9 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
 
-    read_leb_uint8(p, p_end, table->elem_type);
+    CHECK_BUF(p, p_end, 1);
+    /* 0x70 */
+    table->elem_type = read_uint8(p);
     wasm_assert(table->elem_type == TABLE_ELEM_TYPE_ANY_FUNC);
     read_leb_uint32(p, p_end, table->flags);
     read_leb_uint32(p, p_end, table->init_size);
@@ -399,7 +431,9 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
 
-    read_leb_uint8(p, p_end, table->elem_type);
+    CHECK_BUF(p, p_end, 1);
+    /* 0x70 */
+    table->elem_type = read_uint8(p);
     wasm_assert(table->elem_type == TABLE_ELEM_TYPE_ANY_FUNC);
     read_leb_uint32(p, p_end, table->flags);
     read_leb_uint32(p, p_end, table->init_size);
@@ -495,7 +529,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             CHECK_BUF(p, p_end, name_len);
             p += name_len;
 
-            read_leb_uint8(p, p_end, kind);
+            CHECK_BUF(p, p_end, 1);
+            /* 0x00/0x01/0x02/0x03 */
+            kind = read_uint8(p);
 
             switch (kind) {
                 case IMPORT_KIND_FUNC: /* import function */
@@ -504,7 +540,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     break;
 
                 case IMPORT_KIND_TABLE: /* import table */
-                    read_leb_uint8(p, p_end, u8);
+                    CHECK_BUF(p, p_end, 1);
+                    /* 0x70 */
+                    u8 = read_uint8(p);
                     read_leb_uint32(p, p_end, flags);
                     read_leb_uint32(p, p_end, u32);
                     if (flags & 1)
@@ -578,7 +616,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
             p += name_len;
 
-            read_leb_uint8(p, p_end, kind);
+            CHECK_BUF(p, p_end, 1);
+            /* 0x00/0x01/0x02/0x03 */
+            kind = read_uint8(p);
             switch (kind) {
                 case IMPORT_KIND_FUNC: /* import function */
                     wasm_assert(import_functions);
@@ -757,7 +797,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                                   "too many locals");
                     return false;
                 }
-                read_leb_uint8(p_code, buf_code_end, type);
+                CHECK_BUF(p_code, buf_code_end, 1);
+                /* 0x7F/0x7E/0x7D/0x7C */
+                type = read_uint8(p_code);
                 local_count += sub_local_count;
             }
 
@@ -794,7 +836,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                                   "invalid local count.");
                     return false;
                 }
-                read_leb_uint8(p_code, buf_code_end, type);
+                CHECK_BUF(p_code, buf_code_end, 1);
+                /* 0x7F/0x7E/0x7D/0x7C */
+                type = read_uint8(p_code);
                 if (type < VALUE_TYPE_F64 || type > VALUE_TYPE_I32) {
                     set_error_buf(error_buf, error_buf_size,
                                   "Load function section failed: "
@@ -1384,26 +1428,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     return true;
 }
 
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-static uint32
-branch_set_hash(const void *key)
-{
-    return ((uintptr_t)key) ^ ((uintptr_t)key >> 16);
-}
-
-static bool
-branch_set_key_equal(void *start_addr1, void *start_addr2)
-{
-    return start_addr1 == start_addr2 ? true : false;
-}
-
-static void
-branch_set_value_destroy(void *value)
-{
-    wasm_free(value);
-}
-#endif
-
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
 static void wasm_loader_free(void *ptr)
 {
@@ -1436,15 +1460,6 @@ create_module(char *error_buf, uint32 error_buf_size)
                     NULL,
                     wasm_loader_free)))
         goto fail;
-
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-    if (!(module->branch_set = wasm_hash_map_create(64, true,
-                    branch_set_hash,
-                    branch_set_key_equal,
-                    NULL,
-                    branch_set_value_destroy)))
-        goto fail;
-#endif
 
     return module;
 
@@ -1629,15 +1644,6 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_bu
                                         wasm_loader_free)))
         goto fail;
 
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-    if (!(module->branch_set = wasm_hash_map_create(64, true,
-                                        branch_set_hash,
-                                        branch_set_key_equal,
-                                        NULL,
-                                        branch_set_value_destroy)))
-        goto fail;
-#endif
-
     if (!load(buf, size, module, error_buf, error_buf_size))
         goto fail;
 
@@ -1707,11 +1713,6 @@ wasm_loader_unload(WASMModule *module)
     if (module->const_str_set)
         wasm_hash_map_destroy(module->const_str_set);
 
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-    if (module->branch_set)
-        wasm_hash_map_destroy(module->branch_set);
-#endif
-
     wasm_free(module);
 }
 
@@ -1734,14 +1735,6 @@ wasm_runtime_set_wasi_args(WASMModule *module,
 }
 #endif
 
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-typedef struct block_addr {
-    uint8 block_type;
-    uint8 *end_addr;
-    uint8 *else_addr;
-} block_addr;
-#endif
-
 bool
 wasm_loader_find_block_addr(WASMModule *module,
                             const uint8 *start_addr,
@@ -1758,18 +1751,6 @@ wasm_loader_find_block_addr(WASMModule *module,
     uint64 u64;
     uint8 opcode, u8;
 
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-    HashMap *branch_set = module->branch_set;
-    block_addr *block;
-    if ((block = wasm_hash_map_find(branch_set, (void*)start_addr))) {
-        if (block->block_type != block_type)
-            return false;
-        if (block_type == BLOCK_TYPE_IF) /* if block */
-            *p_else_addr = block->else_addr;
-        *p_end_addr = block->end_addr;
-        return true;
-    }
-#else
     BlockAddr block_stack[16] = { 0 }, *block;
     uint32 j, t;
 
@@ -1787,7 +1768,6 @@ wasm_loader_find_block_addr(WASMModule *module,
 
     /* Cache unhit */
     block_stack[0].start_addr = start_addr;
-#endif
 
     while (p < code_end_addr) {
         opcode = *p++;
@@ -1800,23 +1780,21 @@ wasm_loader_find_block_addr(WASMModule *module,
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
             case WASM_OP_IF:
-                read_leb_uint8(p, p_end, u8); /* blocktype */
-#if WASM_ENABLE_HASH_BLOCK_ADDR == 0
+                CHECK_BUF(p, p_end, 1);
+                /* block result type: 0x40/0x7F/0x7E/0x7D/0x7C */
+                u8 = read_uint8(p);
                 if (block_nested_depth < sizeof(block_stack)/sizeof(BlockAddr)) {
                     block_stack[block_nested_depth].start_addr = p;
                     block_stack[block_nested_depth].else_addr = NULL;
                 }
-#endif
                 block_nested_depth++;
                 break;
 
             case WASM_OP_ELSE:
                 if (block_type == BLOCK_TYPE_IF && block_nested_depth == 1)
                     else_addr = (uint8*)(p - 1);
-#if WASM_ENABLE_HASH_BLOCK_ADDR == 0
                 if (block_nested_depth - 1 < sizeof(block_stack)/sizeof(BlockAddr))
                     block_stack[block_nested_depth - 1].else_addr = (uint8*)(p - 1);
-#endif
                 break;
 
             case WASM_OP_END:
@@ -1825,22 +1803,6 @@ wasm_loader_find_block_addr(WASMModule *module,
                         *p_else_addr = else_addr;
                     *p_end_addr = (uint8*)(p - 1);
 
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-                    if (block_type == BLOCK_TYPE_IF)
-                        block = wasm_malloc(sizeof(block_addr));
-                    else
-                        block = wasm_malloc(offsetof(block_addr, else_addr));
-
-                    if (block) {
-                        block->block_type = block_type;
-                        if (block_type == BLOCK_TYPE_IF)
-                            block->else_addr = else_addr;
-                        block->end_addr = (uint8*)(p - 1);
-
-                        if (!wasm_hash_map_insert(branch_set, (void*)start_addr, block))
-                            wasm_free(block);
-                    }
-#else
                     block_stack[0].end_addr = (uint8*)(p - 1);
                     for (t = 0; t < sizeof(block_stack)/sizeof(BlockAddr); t++) {
                         start_addr = block_stack[t].start_addr;
@@ -1865,15 +1827,12 @@ wasm_loader_find_block_addr(WASMModule *module,
                         else
                             break;
                     }
-#endif
                     return true;
                 }
                 else {
                     block_nested_depth--;
-#if WASM_ENABLE_HASH_BLOCK_ADDR == 0
                     if (block_nested_depth < sizeof(block_stack)/sizeof(BlockAddr))
                         block_stack[block_nested_depth].end_addr = (uint8*)(p - 1);
-#endif
                 }
                 break;
 
@@ -1897,7 +1856,8 @@ wasm_loader_find_block_addr(WASMModule *module,
 
             case WASM_OP_CALL_INDIRECT:
                 read_leb_uint32(p, p_end, u32); /* typeidx */
-                read_leb_uint8(p, p_end, u8); /* 0x00 */
+                CHECK_BUF(p, p_end, 1);
+                u8 = read_uint8(p); /* 0x00 */
                 break;
 
             case WASM_OP_DROP:
@@ -1949,10 +1909,10 @@ wasm_loader_find_block_addr(WASMModule *module,
                 break;
 
             case WASM_OP_I32_CONST:
-                read_leb_uint32(p, p_end, u32);
+                read_leb_int32(p, p_end, u32);
                 break;
             case WASM_OP_I64_CONST:
-                read_leb_uint64(p, p_end, u64);
+                read_leb_int64(p, p_end, u64);
                 break;
             case WASM_OP_F32_CONST:
                 p += sizeof(float32);
@@ -2111,7 +2071,7 @@ wasm_loader_find_block_addr(WASMModule *module,
 typedef struct BranchBlock {
     uint8 block_type;
     uint8 return_type;
-    bool jumped_by_br;
+    bool is_block_reachable;
     uint8 *start_addr;
     uint8 *else_addr;
     uint8 *end_addr;
@@ -2381,7 +2341,7 @@ pop_type(uint8 type, uint8 **p_frame_ref, uint32 *p_stack_cell_num,
 #define PUSH_CSP(type, ret_type, _start_addr) do {  \
     CHECK_CSP_PUSH();                               \
     frame_csp->block_type = type;                   \
-    frame_csp->jumped_by_br = false;                \
+    frame_csp->is_block_reachable = false;          \
     frame_csp->return_type = ret_type;              \
     frame_csp->start_addr = _start_addr;            \
     frame_csp->else_addr = NULL;                    \
@@ -2438,7 +2398,7 @@ pop_type(uint8 type, uint8 **p_frame_ref, uint32 *p_stack_cell_num,
                 "expect data but stack was empty or other type");   \
         goto fail;                                                  \
       }                                                             \
-      (frame_csp - (depth + 1))->jumped_by_br = true;               \
+      (frame_csp - (depth + 1))->is_block_reachable = true;         \
     }                                                               \
   } while (0)
 
@@ -2465,9 +2425,6 @@ static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              char *error_buf, uint32 error_buf_size)
 {
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-    block_addr *block;
-#endif
     uint8 *p = func->code, *p_end = func->code + func->code_size;
     uint8 *frame_ref_bottom = NULL, *frame_ref_boundary, *frame_ref;
     BranchBlock *frame_csp_bottom = NULL, *frame_csp_boundary, *frame_csp;
@@ -2514,34 +2471,37 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     frame_csp_boundary = frame_csp_bottom + 8;
 
     PUSH_CSP(BLOCK_TYPE_FUNCTION, ret_type, p);
-    (frame_csp - 1)->jumped_by_br = true;
+    (frame_csp - 1)->is_block_reachable = true;
 
     while (p < p_end) {
         opcode = *p++;
 
         switch (opcode) {
             case WASM_OP_UNREACHABLE:
-                goto handle_op_br;
+                goto handle_next_reachable_block;
 
             case WASM_OP_NOP:
                 break;
 
             case WASM_OP_BLOCK:
-                read_leb_uint8(p, p_end, block_return_type);
+                /* 0x40/0x7F/0x7E/0x7D/0x7C */
+                block_return_type = read_uint8(p);
                 PUSH_CSP(BLOCK_TYPE_BLOCK, block_return_type, p);
                 break;
 
             case WASM_OP_LOOP:
-                read_leb_uint8(p, p_end, block_return_type);
+                /* 0x40/0x7F/0x7E/0x7D/0x7C */
+                block_return_type = read_uint8(p);
                 PUSH_CSP(BLOCK_TYPE_LOOP, block_return_type, p);
                 break;
 
             case WASM_OP_IF:
                 POP_I32();
-                read_leb_uint8(p, p_end, block_return_type);
+                /* 0x40/0x7F/0x7E/0x7D/0x7C */
+                block_return_type = read_uint8(p);
                 PUSH_CSP(BLOCK_TYPE_IF, block_return_type, p);
                 if (!is_i32_const)
-                    (frame_csp - 1)->jumped_by_br = true;
+                    (frame_csp - 1)->is_block_reachable = true;
                 else {
                     if (!i32_const) {
                         if(!wasm_loader_find_block_addr(module,
@@ -2584,37 +2544,11 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
                 if (csp_num > 0) {
                     frame_csp->end_addr = p - 1;
-
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-                    if (wasm_hash_map_find(module->branch_set, (void*)frame_csp->start_addr))
-                        break;
-
-                    if (frame_csp->block_type == BLOCK_TYPE_IF)
-                        block = wasm_malloc(sizeof(block_addr));
-                    else
-                        block = wasm_malloc(offsetof(block_addr, else_addr));
-
-                    if (!block) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "WASM loader prepare bytecode failed: "
-                                      "allocate memory failed.");
-                        goto fail;
-                    }
-
-                    block->block_type = frame_csp->block_type;
-                    if (frame_csp->block_type == BLOCK_TYPE_IF)
-                        block->else_addr = (void*)frame_csp->else_addr;
-                    block->end_addr = (void*)frame_csp->end_addr;
-
-                    if (!wasm_hash_map_insert(module->branch_set, (void*)frame_csp->start_addr,
-                                              block)) {
-                        set_error_buf(error_buf, error_buf_size,
-                                      "WASM loader prepare bytecode failed: "
-                                      "allocate memory failed.");
-                        wasm_free(block);
-                        goto fail;
-                    }
-#endif
+                }
+                else {
+                    /* end of function block, function will return,
+                       ignore the following bytecodes */
+                    p = p_end;
                 }
                 break;
             }
@@ -2624,9 +2558,9 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                 read_leb_uint32(p, p_end, depth);
                 CHECK_BR(depth);
 
-handle_op_br:
+handle_next_reachable_block:
                 for (i = 1; i <= csp_num; i++)
-                    if ((frame_csp - i)->jumped_by_br)
+                    if ((frame_csp - i)->is_block_reachable)
                         break;
 
                 block_return_type = (frame_csp - i)->return_type;
@@ -2662,10 +2596,10 @@ handle_op_br:
                 POP_I32();
                 CHECK_BR(depth);
                 if (!is_i32_const)
-                    (frame_csp - (depth + 1))->jumped_by_br = true;
+                    (frame_csp - (depth + 1))->is_block_reachable = true;
                 else {
                     if (i32_const)
-                        goto handle_op_br;
+                        goto handle_next_reachable_block;
                 }
                 break;
 
@@ -2679,7 +2613,7 @@ handle_op_br:
                     read_leb_uint32(p, p_end, depth);
                     CHECK_BR(depth);
                 }
-                goto handle_op_br;
+                goto handle_next_reachable_block;
             }
 
             case WASM_OP_RETURN:

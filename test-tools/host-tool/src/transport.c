@@ -35,8 +35,10 @@ bool tcp_init(const char *address, uint16_t port, int *fd)
     servaddr.sin_addr.s_addr = inet_addr(address);
     servaddr.sin_port = htons(port);
 
-    if (connect(sock, (SA*) &servaddr, sizeof(servaddr)) != 0)
+    if (connect(sock, (SA*) &servaddr, sizeof(servaddr)) != 0) {
+        close(sock);
         return false;
+    }
 
     *fd = sock;
     return true;
@@ -93,7 +95,7 @@ bool uart_init(const char *device, int baudrate, int *fd)
 
     uart_fd = open(device, O_RDWR | O_NOCTTY);
 
-    if (uart_fd <= 0)
+    if (uart_fd < 0)
         return false;
 
     memset(&uart_term, 0, sizeof(uart_term));

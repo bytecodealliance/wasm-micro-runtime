@@ -12,7 +12,7 @@
 #include <autoconf.h>
 #include <zephyr.h>
 #include <kernel.h>
-#include <misc/printk.h>
+#include <sys/printk.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <ctype.h>

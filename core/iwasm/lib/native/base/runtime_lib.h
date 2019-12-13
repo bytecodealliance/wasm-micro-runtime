@@ -10,6 +10,7 @@
 #include "runtime_timer.h"
 
 void init_wasm_timer();
+void exit_wasm_timer();
 timer_ctx_t get_wasm_timer_ctx();
 timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num);
 void destroy_module_timer_ctx(unsigned int module_id);

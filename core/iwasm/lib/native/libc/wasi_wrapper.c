@@ -712,8 +712,8 @@ wasi_path_link(wasm_module_inst_t module_inst,
     old_path = (char*)addr_app_to_native(old_path_offset);
     new_path = (char*)addr_app_to_native(new_path_offset);
 
-    return wasmtime_ssp_path_link(wasi_ctx->curfds, old_fd,
-                                  old_flags, old_path, old_path_len,
+    return wasmtime_ssp_path_link(wasi_ctx->curfds, wasi_ctx->prestats,
+                                  old_fd, old_flags, old_path, old_path_len,
                                   new_fd, new_path, new_path_len);
 }
 
@@ -961,8 +961,8 @@ wasi_path_symlink(wasm_module_inst_t module_inst,
     old_path = (char*)addr_app_to_native(old_path_offset);
     new_path = (char*)addr_app_to_native(new_path_offset);
 
-    return wasmtime_ssp_path_symlink(wasi_ctx->curfds, old_path,
-                                     old_path_len, fd, new_path,
+    return wasmtime_ssp_path_symlink(wasi_ctx->curfds, wasi_ctx->prestats,
+                                     old_path, old_path_len, fd, new_path,
                                      new_path_len);
 }
 

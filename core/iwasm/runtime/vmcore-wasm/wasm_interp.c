@@ -23,13 +23,30 @@ typedef float64 CellType_F64;
 #define PUT_I64_TO_ADDR(addr, value) do {       \
     *(int64*)(addr) = (int64)(value);           \
   } while (0)
-
 #define PUT_F64_TO_ADDR(addr, value) do {       \
     *(float64*)(addr) = (float64)(value);       \
   } while (0)
 
 #define GET_I64_FROM_ADDR(addr) (*(int64*)(addr))
 #define GET_F64_FROM_ADDR(addr) (*(float64*)(addr))
+
+/* For STORE opcodes */
+#define STORE_I64 PUT_I64_TO_ADDR
+#define STORE_U32(addr, value) do {             \
+    *(uint32*)(addr) = (uint32)(value);         \
+  } while (0)
+#define STORE_U16(addr, value) do {             \
+    *(uint16*)(addr) = (uint16)(value);         \
+  } while (0)
+
+/* For LOAD opcodes */
+#define LOAD_I64(addr) (*(int64*)(addr))
+#define LOAD_F64(addr) (*(float64*)(addr))
+#define LOAD_I32(addr) (*(int32*)(addr))
+#define LOAD_U32(addr) (*(uint32*)(addr))
+#define LOAD_I16(addr) (*(int16*)(addr))
+#define LOAD_U16(addr) (*(uint16*)(addr))
+
 #else  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 #define PUT_I64_TO_ADDR(addr, value) do {       \
     union { int64 val; uint32 parts[2]; } u;    \
@@ -61,6 +78,150 @@ GET_F64_FROM_ADDR (uint32 *addr)
     u.parts[1] = addr[1];
     return u.val;
 }
+
+/* For STORE opcodes */
+#define STORE_I64(addr, value) do {             \
+    uintptr_t addr1 = (uintptr_t)(addr);        \
+    union { int64 val; uint32 u32[2];           \
+            uint16 u16[4]; uint8 u8[8]; } u;    \
+    if (addr1 % 8 == 0)                         \
+      *(int64*)(addr) = (int64)(value);         \
+    else {                                      \
+        u.val = (int64)(value);                 \
+        if (addr1 % 4 == 0) {                   \
+            ((uint32*)(addr))[0] = u.u32[0];    \
+            ((uint32*)(addr))[1] = u.u32[1];    \
+        }                                       \
+        else if (addr1 % 2 == 0) {              \
+            ((uint16*)(addr))[0] = u.u16[0];    \
+            ((uint16*)(addr))[1] = u.u16[1];    \
+            ((uint16*)(addr))[2] = u.u16[2];    \
+            ((uint16*)(addr))[3] = u.u16[3];    \
+        }                                       \
+        else {                                  \
+            int32 t;                            \
+            for (t = 0; t < 8; t++)             \
+                ((uint8*)(addr))[t] = u.u8[t];  \
+        }                                       \
+    }                                           \
+  } while (0)
+
+#define STORE_U32(addr, value) do {             \
+    uintptr_t addr1 = (uintptr_t)(addr);        \
+    union { uint32 val;                         \
+            uint16 u16[2]; uint8 u8[4]; } u;    \
+    if (addr1 % 4 == 0)                         \
+      *(uint32*)(addr) = (uint32)(value);       \
+    else {                                      \
+        u.val = (uint32)(value);                \
+        if (addr1 % 2 == 0) {                   \
+            ((uint16*)(addr))[0] = u.u16[0];    \
+            ((uint16*)(addr))[1] = u.u16[1];    \
+        }                                       \
+        else {                                  \
+            ((uint8*)(addr))[0] = u.u8[0];      \
+            ((uint8*)(addr))[1] = u.u8[1];      \
+            ((uint8*)(addr))[2] = u.u8[2];      \
+            ((uint8*)(addr))[3] = u.u8[3];      \
+        }                                       \
+    }                                           \
+  } while (0)
+
+#define STORE_U16(addr, value) do {             \
+    union { uint16 val; uint8 u8[2]; } u;       \
+    u.val = (uint16)(value);                    \
+    ((uint8*)(addr))[0] = u.u8[0];              \
+    ((uint8*)(addr))[1] = u.u8[1];              \
+  } while (0)
+
+/* For LOAD opcodes */
+static inline int64
+LOAD_I64(void *addr)
+{
+    uintptr_t addr1 = (uintptr_t)addr;
+    union { int64 val; uint32 u32[2];
+            uint16 u16[4]; uint8 u8[8]; } u;
+    if (addr1 % 8 == 0)
+        return *(int64*)addr;
+
+    if (addr1 % 4 == 0) {
+        u.u32[0] = ((uint32*)addr)[0];
+        u.u32[1] = ((uint32*)addr)[1];
+    }
+    else if (addr1 % 2 == 0) {
+        u.u16[0] = ((uint16*)addr)[0];
+        u.u16[1] = ((uint16*)addr)[1];
+        u.u16[2] = ((uint16*)addr)[2];
+        u.u16[3] = ((uint16*)addr)[3];
+    }
+    else {
+        int32 t;
+        for (t = 0; t < 8; t++)
+            u.u8[t] = ((uint8*)addr)[t];
+    }
+    return u.val;
+}
+
+static inline float64
+LOAD_F64(void *addr)
+{
+    uintptr_t addr1 = (uintptr_t)addr;
+    union { float64 val; uint32 u32[2];
+            uint16 u16[4]; uint8 u8[8]; } u;
+    if (addr1 % 8 == 0)
+        return *(float64*)addr;
+
+    if (addr1 % 4 == 0) {
+        u.u32[0] = ((uint32*)addr)[0];
+        u.u32[1] = ((uint32*)addr)[1];
+    }
+    else if (addr1 % 2 == 0) {
+        u.u16[0] = ((uint16*)addr)[0];
+        u.u16[1] = ((uint16*)addr)[1];
+        u.u16[2] = ((uint16*)addr)[2];
+        u.u16[3] = ((uint16*)addr)[3];
+    }
+    else {
+        int32 t;
+        for (t = 0; t < 8; t++)
+            u.u8[t] = ((uint8*)addr)[t];
+    }
+    return u.val;
+}
+
+static inline int32
+LOAD_I32(void *addr)
+{
+    uintptr_t addr1 = (uintptr_t)addr;
+    union { int32 val; uint16 u16[2]; uint8 u8[4]; } u;
+    if (addr1 % 4 == 0)
+        return *(int32*)addr;
+
+    if (addr1 % 2 == 0) {
+        u.u16[0] = ((uint16*)addr)[0];
+        u.u16[1] = ((uint16*)addr)[1];
+    }
+    else {
+        u.u8[0] = ((uint8*)addr)[0];
+        u.u8[1] = ((uint8*)addr)[1];
+        u.u8[2] = ((uint8*)addr)[2];
+        u.u8[3] = ((uint8*)addr)[3];
+    }
+    return u.val;
+}
+
+static inline int16
+LOAD_I16(void *addr)
+{
+    union { int16 val; uint8 u8[2]; } u;
+    u.u8[0] = ((uint8*)addr)[0];
+    u.u8[1] = ((uint8*)addr)[1];
+    return u.val;
+}
+
+#define LOAD_U32(addr) ((uint32)LOAD_I32(addr))
+#define LOAD_U16(addr) ((uint16)LOAD_I16(addr))
+
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
 #if WASM_ENABLE_EXT_MEMORY_SPACE != 0
@@ -382,12 +543,6 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
     frame_csp = frame->csp;                     \
   } while (0)
 
-#define read_leb_uint64(p, p_end, res) do {     \
-  uint32 _off = 0;                              \
-  res = read_leb(p, &_off, 64, false);          \
-  p += _off;                                    \
-} while (0)
-
 #define read_leb_int64(p, p_end, res) do {      \
   uint32 _off = 0;                              \
   res = (int64)read_leb(p, &_off, 64, true);    \
@@ -403,12 +558,6 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 #define read_leb_int32(p, p_end, res) do {      \
   uint32 _off = 0;                              \
   res = (int32)read_leb(p, &_off, 32, true);    \
-  p += _off;                                    \
-} while (0)
-
-#define read_leb_uint8(p, p_end, res) do {      \
-  uint32 _off = 0;                              \
-  res = (uint8)read_leb(p, &_off, 7, false);    \
   p += _off;                                    \
 } while (0)
 
@@ -486,6 +635,20 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
     *(src_type1*)(frame_sp - sizeof(src_type1)/sizeof(uint32)) operation##= \
     *(src_type2*)(frame_sp);                                                \
   } while (0)
+
+#if WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0
+#define DEF_OP_NUMERIC_64 DEF_OP_NUMERIC
+#else
+#define DEF_OP_NUMERIC_64(src_type1, src_type2, src_op_type, operation) do {\
+    src_type1 val1;                                                         \
+    src_type2 val2;                                                         \
+    frame_sp -= 2;                                                          \
+    val1 = (src_type1)GET_##src_op_type##_FROM_ADDR(frame_sp - 2);          \
+    val2 = (src_type2)GET_##src_op_type##_FROM_ADDR(frame_sp);              \
+    val1 operation##= val2;                                                 \
+    PUT_##src_op_type##_TO_ADDR(frame_sp - 2, val1);                        \
+  } while (0)
+#endif
 
 #define DEF_OP_MATH(src_type, src_op_type, method) do {             \
     src_type val;                                                   \
@@ -717,7 +880,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BLOCK):
-        read_leb_uint8(frame_ip, frame_ip_end, block_ret_type);
+        block_ret_type = *frame_ip++;
 
         if (!wasm_loader_find_block_addr(module->module,
                                          frame_ip, frame_ip_end,
@@ -732,7 +895,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_LOOP):
-        read_leb_uint8(frame_ip, frame_ip_end, block_ret_type);
+        block_ret_type = *frame_ip++;
 
         if (!wasm_loader_find_block_addr(module->module,
                                          frame_ip, frame_ip_end,
@@ -747,7 +910,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_IF):
-        read_leb_uint8(frame_ip, frame_ip_end, block_ret_type);
+        block_ret_type = *frame_ip++;
 
         if (!wasm_loader_find_block_addr(module->module,
                                          frame_ip, frame_ip_end,
@@ -943,16 +1106,12 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
           switch (local_type) {
             case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
               PUSH_I32(LOCAL_I32(local_idx));
               break;
-            case VALUE_TYPE_F32:
-              PUSH_F32(LOCAL_F32(local_idx));
-              break;
             case VALUE_TYPE_I64:
-              PUSH_I64(LOCAL_I64(local_idx));
-              break;
             case VALUE_TYPE_F64:
-              PUSH_F64(LOCAL_F64(local_idx));
+              PUSH_I64(LOCAL_I64(local_idx));
               break;
             default:
               wasm_runtime_set_exception(module,
@@ -1128,16 +1287,16 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 #endif
           {
             HANDLE_OP_LOAD(WASM_OP_I32_LOAD):
-              PUSH_I32(*(int32*)maddr);
+              PUSH_I32(LOAD_I32(maddr));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I64_LOAD):
-              PUSH_I64(GET_I64_FROM_ADDR((uint32*)maddr));
+              PUSH_I64(LOAD_I64(maddr));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_F32_LOAD):
-              PUSH_F32(*(float32*)maddr);
+              PUSH_I32(LOAD_I32(maddr));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_F64_LOAD):
-              PUSH_F64(GET_F64_FROM_ADDR((uint32*)maddr));
+              PUSH_F64(LOAD_F64(maddr));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I32_LOAD8_S):
               PUSH_I32(sign_ext_8_32(*(int8*)maddr));
@@ -1146,10 +1305,10 @@ wasm_interp_call_func_bytecode(WASMThread *self,
               PUSH_I32((uint32)(*(uint8*)maddr));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I32_LOAD16_S):
-              PUSH_I32(sign_ext_16_32(*(int16*)maddr));
+              PUSH_I32(sign_ext_16_32(LOAD_I16(maddr)));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I32_LOAD16_U):
-              PUSH_I32((uint32)(*(uint16*)maddr));
+              PUSH_I32((uint32)(LOAD_U16(maddr)));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I64_LOAD8_S):
               PUSH_I64(sign_ext_8_64(*(int8*)maddr));
@@ -1158,16 +1317,16 @@ wasm_interp_call_func_bytecode(WASMThread *self,
               PUSH_I64((uint64)(*(uint8*)maddr));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I64_LOAD16_S):
-              PUSH_I64(sign_ext_16_64(*(int16*)maddr));
+              PUSH_I64(sign_ext_16_64(LOAD_I16(maddr)));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I64_LOAD16_U):
-              PUSH_I64((uint64)(*(uint16*)maddr));
+              PUSH_I64((uint64)(LOAD_U16(maddr)));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I64_LOAD32_S):
-              PUSH_I64(sign_ext_32_64(*(int32*)maddr));
+              PUSH_I64(sign_ext_32_64(LOAD_I32(maddr)));
               HANDLE_OP_END();
             HANDLE_OP_LOAD(WASM_OP_I64_LOAD32_U):
-              PUSH_I64((uint64)(*(uint32*)maddr));
+              PUSH_I64((uint64)(LOAD_U32(maddr)));
               HANDLE_OP_END();
           }
           (void)flags;
@@ -1184,7 +1343,7 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           frame_sp--;
           addr = (uint32)POP_I32();
           CHECK_MEMORY_OVERFLOW();
-          *(uint32*)maddr = frame_sp[1];
+          STORE_U32(maddr, frame_sp[1]);
           (void)flags;
           HANDLE_OP_END ();
         }
@@ -1198,8 +1357,8 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           frame_sp -= 2;
           addr = (uint32)POP_I32();
           CHECK_MEMORY_OVERFLOW();
-          *(uint32*)maddr = frame_sp[1];
-          *((uint32*)maddr + 1) = frame_sp[2];
+          STORE_U32(maddr, frame_sp[1]);
+          STORE_U32(maddr + 4, frame_sp[2]);
           (void)flags;
           HANDLE_OP_END ();
         }
@@ -1218,13 +1377,13 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           CHECK_MEMORY_OVERFLOW();
           switch (opcode) {
             case WASM_OP_I32_STORE:
-              *(uint32*)maddr = sval;
+              STORE_U32(maddr, sval);
               break;
             case WASM_OP_I32_STORE8:
               *(uint8*)maddr = (uint8)sval;
               break;
             case WASM_OP_I32_STORE16:
-              *(uint16*)maddr = (uint16)sval;
+              STORE_U16(maddr, (uint16)sval);
               break;
           }
           (void)flags;
@@ -1246,16 +1405,16 @@ wasm_interp_call_func_bytecode(WASMThread *self,
           CHECK_MEMORY_OVERFLOW();
           switch (opcode) {
             case WASM_OP_I64_STORE:
-              PUT_I64_TO_ADDR((uint32*)maddr, sval);
+              STORE_I64(maddr, sval);
               break;
             case WASM_OP_I64_STORE8:
               *(uint8*)maddr = (uint8)sval;
               break;
             case WASM_OP_I64_STORE16:
-              *(uint16*)maddr = (uint16)sval;
+              STORE_U16(maddr, (uint16)sval);
               break;
             case WASM_OP_I64_STORE32:
-              *(uint32*)maddr = (uint32)sval;
+              STORE_U32(maddr, (uint32)sval);
               break;
           }
           (void)flags;
@@ -1613,15 +1772,15 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_ADD):
-        DEF_OP_NUMERIC(uint64, uint64, I64, +);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, +);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_SUB):
-        DEF_OP_NUMERIC(uint64, uint64, I64, -);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, -);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_MUL):
-        DEF_OP_NUMERIC(uint64, uint64, I64, *);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, *);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_DIV_S):
@@ -1689,27 +1848,27 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       }
 
       HANDLE_OP (WASM_OP_I64_AND):
-        DEF_OP_NUMERIC(uint64, uint64, I64, &);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, &);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_OR):
-        DEF_OP_NUMERIC(uint64, uint64, I64, |);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, |);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_XOR):
-        DEF_OP_NUMERIC(uint64, uint64, I64, ^);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, ^);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_SHL):
-        DEF_OP_NUMERIC(uint64, uint64, I64, <<);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, <<);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_SHR_S):
-        DEF_OP_NUMERIC(int64, uint64, I64, >>);
+        DEF_OP_NUMERIC_64(int64, uint64, I64, >>);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_SHR_U):
-        DEF_OP_NUMERIC(uint64, uint64, I64, >>);
+        DEF_OP_NUMERIC_64(uint64, uint64, I64, >>);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_ROTL):
@@ -1738,8 +1897,15 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F32_NEG):
-        DEF_OP_MATH(float32, F32, -);
-        HANDLE_OP_END ();
+      {
+          int32 i32 = frame_sp[-1];
+          int32 sign_bit = i32 & (1 << 31);
+          if (sign_bit)
+              frame_sp[-1] = i32 & ~(1 << 31);
+          else
+              frame_sp[-1] = i32 | (1 << 31);
+          HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_F32_CEIL):
         DEF_OP_MATH(float32, F32, ceil);
@@ -1825,8 +1991,15 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F64_NEG):
-        DEF_OP_MATH(float64, F64, -);
-        HANDLE_OP_END ();
+      {
+          int64 i64 = GET_I64_FROM_ADDR(frame_sp - 2);
+          int64 sign_bit = i64 & (((uint64)1) << 63);
+          if (sign_bit)
+              PUT_I64_TO_ADDR(frame_sp - 2, (i64 & ~(((uint64)1) << 63)));
+          else
+              PUT_I64_TO_ADDR(frame_sp - 2, (i64 | (((uint64)1) << 63)));
+          HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_F64_CEIL):
         DEF_OP_MATH(float64, F64, ceil);
@@ -1849,19 +2022,19 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F64_ADD):
-        DEF_OP_NUMERIC(float64, float64, F64, +);
+        DEF_OP_NUMERIC_64(float64, float64, F64, +);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F64_SUB):
-        DEF_OP_NUMERIC(float64, float64, F64, -);
+        DEF_OP_NUMERIC_64(float64, float64, F64, -);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F64_MUL):
-        DEF_OP_NUMERIC(float64, float64, F64, *);
+        DEF_OP_NUMERIC_64(float64, float64, F64, *);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F64_DIV):
-        DEF_OP_NUMERIC(float64, float64, F64, /);
+        DEF_OP_NUMERIC_64(float64, float64, F64, /);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_F64_MIN):

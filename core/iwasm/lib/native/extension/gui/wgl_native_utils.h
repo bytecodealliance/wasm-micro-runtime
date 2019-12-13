@@ -1,4 +1,7 @@
-
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 
 #ifndef WAMR_GRAPHIC_LIBRARY_NATIVE_UTILS_H
 #define WAMR_GRAPHIC_LIBRARY_NATIVE_UTILS_H

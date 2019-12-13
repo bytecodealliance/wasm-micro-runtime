@@ -51,7 +51,10 @@ void on_init()
     /* set up a timer */
     user_timer_t timer;
     timer = api_timer_create(10, true, false, timer1_update);
-    api_timer_restart(timer, 10);
+    if (timer)
+        api_timer_restart(timer, 10);
+    else
+        printf("Fail to create timer.\n");
 }
 
 static void btn_event_cb(wgl_obj_t btn, wgl_event_t event)

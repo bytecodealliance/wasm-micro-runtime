@@ -258,11 +258,7 @@ typedef struct WASMModule {
     uint32 start_function;
 
     HashMap *const_str_set;
-#if WASM_ENABLE_HASH_BLOCK_ADDR != 0
-    HashMap *branch_set;
-#else
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
-#endif
 
 #if WASM_ENABLE_WASI != 0
     WASIArguments wasi_args;
