@@ -45,9 +45,9 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         map_flags |= MAP_FIXED;
 
 #if defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
-    /* As AOT relocation in RISCV64 might require that the code/data mapped
-     * is in range 0 to 2GB, we try to use mmap's first argument to allocate
-     * the memory which meets the requirement.
+    /* As AOT relocation in RISCV64 may require that the code/data mapped
+     * is in range 0 to 2GB, we try to map the memory with hint address
+     * (mmap's first argument) to meet the requirement.
      */
     if (!hint && !(flags & MMAP_MAP_FIXED) && (flags & MMAP_MAP_32BIT)) {
         uint8 *stack_addr = (uint8*)&map_prot;
@@ -59,7 +59,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
              && hint_addr - text_addr < 100 * BH_MB)
             || (text_addr - hint_addr >= 0
                 && text_addr - hint_addr < 100 * BH_MB)) {
-            /* hint address is possiblely in text section, skip it */
+            /* hint address is possibly in text section, skip it */
             hint_addr += 100 * BH_MB;
         }
 
@@ -67,7 +67,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
              && hint_addr - stack_addr < 8 * BH_MB)
             || (stack_addr - hint_addr >= 0
                 && stack_addr - hint_addr < 8 * BH_MB)) {
-            /* hint address is possible in native stack area, skip it */
+            /* hint address is possibly in native stack area, skip it */
             hint_addr += 8 * BH_MB;
         }
 
@@ -77,10 +77,11 @@ os_mmap(void *hint, size_t size, int prot, int flags)
              i++) {
             addr = mmap(hint_addr, request_size, map_prot, map_flags, -1, 0);
             if (addr != MAP_FAILED) {
-                if (addr > (uint8 *)(uintptr_t)(2ULL * BH_GB))
-                    /* unmap and try again the mapped address isn't
-                     * in range 0 to 2GB */
+                if (addr > (uint8 *)(uintptr_t)(2ULL * BH_GB)) {
+                    /* unmap and try again if the mapped address doesn't
+                     * meet the requirement */
                     os_munmap(addr, request_size);
+                }
                 else {
                     /* reset next hint address */
                     hint_addr += request_size;
