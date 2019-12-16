@@ -92,7 +92,6 @@ include_directories (.
 
 enable_language (ASM)
 
-include (../../runtime/platform/${PLATFORM}/platform.cmake)
 include (../../runtime/utils/utils.cmake)
 include (../../runtime/vmcore-wasm/vmcore.cmake)
 include (../../lib/native/libc/wasmtime-wasi-c/wasi.cmake)

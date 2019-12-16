@@ -256,25 +256,25 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
         case INIT_EXPR_TYPE_I32_CONST:
             read_leb_int32(p, p_end, init_expr->u.i32);
             break;
-            /* i64.const */
+        /* i64.const */
         case INIT_EXPR_TYPE_I64_CONST:
             read_leb_int64(p, p_end, init_expr->u.i64);
             break;
-            /* f32.const */
+        /* f32.const */
         case INIT_EXPR_TYPE_F32_CONST:
             CHECK_BUF(p, p_end, 4);
             p_float = (uint8*)&init_expr->u.f32;
             for (i = 0; i < sizeof(float32); i++)
                 *p_float++ = *p++;
             break;
-            /* f64.const */
+        /* f64.const */
         case INIT_EXPR_TYPE_F64_CONST:
             CHECK_BUF(p, p_end, 8);
             p_float = (uint8*)&init_expr->u.f64;
             for (i = 0; i < sizeof(float64); i++)
                 *p_float++ = *p++;
             break;
-            /* get_global */
+        /* get_global */
         case INIT_EXPR_TYPE_GET_GLOBAL:
             read_leb_uint32(p, p_end, init_expr->u.global_index);
             break;

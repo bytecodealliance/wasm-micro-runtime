@@ -78,7 +78,6 @@ set(SHARED_DIR ${REPO_ROOT_DIR}/core/shared-lib)
 
 enable_language (ASM)
 
-include (${WASM_DIR}/runtime/platform/${TARGET_PLATFORM}/platform.cmake)
 include (${WASM_DIR}/runtime/utils/utils.cmake)
 include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
@@ -94,8 +93,9 @@ include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/coap/lib_coap.cmake)
 
-
-include_directories(${SHARED_DIR}/include ${CMAKE_CURRENT_LIST_DIR}/src)
+include_directories(${SHARED_DIR}/include)
+include_directories(${WASM_DIR}/runtime/platform/include)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 add_definitions (-DWASM_ENABLE_BASE_LIB)
 add_definitions (-Dattr_container_malloc=bh_malloc)

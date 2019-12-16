@@ -27,7 +27,7 @@ static int char_out(int c, struct out_context *ctx)
 static int bh_vprintk(const char *fmt, va_list ap)
 {
     struct out_context ctx = { 0 };
-    _vprintk((out_func_t) char_out, &ctx, fmt, ap);
+    z_vprintk((out_func_t) char_out, &ctx, fmt, ap);
     return ctx.count;
 }
 

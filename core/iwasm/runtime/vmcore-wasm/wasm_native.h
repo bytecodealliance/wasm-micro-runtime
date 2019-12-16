@@ -45,9 +45,6 @@ bool
 wasm_native_global_lookup(const char *module_name, const char *global_name,
                           WASMGlobalImport *global);
 
-void* wasm_platform_native_func_lookup(const char *module_name,
-                                       const char *func_name);
-
 #ifdef __cplusplus
 }
 #endif
