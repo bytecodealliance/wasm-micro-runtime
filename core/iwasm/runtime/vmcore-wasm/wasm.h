@@ -146,7 +146,6 @@ typedef struct WASMGlobalImport {
     char *field_name;
     uint8 type;
     bool is_mutable;
-    bool is_addr;
     /* global data after linked */
     WASMValue global_data_linked;
 } WASMGlobalImport;
@@ -179,7 +178,6 @@ typedef struct WASMFunction {
 typedef struct WASMGlobal {
     uint8 type;
     bool is_mutable;
-    bool is_addr;
     InitializerExpression init_expr;
 } WASMGlobal;
 

@@ -167,14 +167,14 @@ memories_deinstantiate(WASMMemoryInstance **memories, uint32 count)
 
 static WASMMemoryInstance*
 memory_instantiate(uint32 init_page_count, uint32 max_page_count,
-                   uint32 addr_data_size, uint32 global_data_size,
+                   uint32 global_data_size,
                    uint32 heap_size,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMMemoryInstance *memory;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
                         NumBytesPerPage * (uint64)init_page_count +
-                        addr_data_size + global_data_size;
+                        global_data_size;
 
     /* Allocate memory space, addr data and global data */
     if (total_size >= UINT32_MAX
@@ -188,10 +188,7 @@ memory_instantiate(uint32 init_page_count, uint32 max_page_count,
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
 
-    memory->addr_data = memory->base_addr;
-    memory->addr_data_size = addr_data_size;
-
-    memory->memory_data = memory->addr_data + addr_data_size;
+    memory->memory_data = memory->base_addr;
 
     memory->global_data = memory->memory_data +
                           NumBytesPerPage * memory->cur_page_count;;
@@ -233,7 +230,7 @@ fail1:
  * Instantiate memories in a module.
  */
 static WASMMemoryInstance**
-memories_instantiate(const WASMModule *module, uint32 addr_data_size,
+memories_instantiate(const WASMModule *module,
                      uint32 global_data_size, uint32 heap_size,
                      char *error_buf, uint32 error_buf_size)
 {
@@ -264,7 +261,7 @@ memories_instantiate(const WASMModule *module, uint32 addr_data_size,
         if (!(memory = memories[mem_index++] =
                     memory_instantiate(import->u.memory.init_page_count,
                                        import->u.memory. max_page_count,
-                                       addr_data_size, global_data_size,
+                                       global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                          "Instantiate memory failed: "
@@ -279,7 +276,7 @@ memories_instantiate(const WASMModule *module, uint32 addr_data_size,
         if (!(memory = memories[mem_index++] =
                     memory_instantiate(module->memories[i].init_page_count,
                                        module->memories[i].max_page_count,
-                                       addr_data_size, global_data_size,
+                                       global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed: "
@@ -292,7 +289,7 @@ memories_instantiate(const WASMModule *module, uint32 addr_data_size,
     if (mem_index == 0) {
         /* no import memory and define memory, but has global variables */
         if (!(memory = memories[mem_index++] =
-                    memory_instantiate(0, 0, addr_data_size, global_data_size,
+                    memory_instantiate(0, 0, global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed: "
@@ -525,12 +522,11 @@ globals_deinstantiate(WASMGlobalInstance *globals)
  */
 static WASMGlobalInstance*
 globals_instantiate(const WASMModule *module,
-                    uint32 *p_addr_data_size,
                     uint32 *p_global_data_size,
                     char *error_buf, uint32 error_buf_size)
 {
     WASMImport *import;
-    uint32 addr_data_offset = 0, global_data_offset = 0;
+    uint32 global_data_offset = 0;
     uint32 i, global_count =
         module->import_global_count + module->global_count;
     uint64 total_size = sizeof(WASMGlobalInstance) * (uint64)global_count;
@@ -553,13 +549,9 @@ globals_instantiate(const WASMModule *module,
         WASMGlobalImport *global_import = &import->u.global;
         global->type = global_import->type;
         global->is_mutable = global_import->is_mutable;
-        global->is_addr = global_import->is_addr;
         global->initial_value = global_import->global_data_linked;
         global->data_offset = global_data_offset;
         global_data_offset += wasm_value_type_size(global->type);
-
-        if (global->is_addr)
-            addr_data_offset += (uint32)sizeof(uint32);
 
         global++;
     }
@@ -568,19 +560,14 @@ globals_instantiate(const WASMModule *module,
     for (i = 0; i < module->global_count; i++) {
         global->type = module->globals[i].type;
         global->is_mutable = module->globals[i].is_mutable;
-        global->is_addr = module->globals[i].is_addr;
 
         global->data_offset = global_data_offset;
         global_data_offset += wasm_value_type_size(global->type);
-
-        if (global->is_addr)
-            addr_data_offset += (uint32)sizeof(uint32);
 
         global++;
     }
 
     wasm_assert((uint32)(global - globals) == global_count);
-    *p_addr_data_size = addr_data_offset;
     *p_global_data_size = global_data_offset;
     return globals;
 }
@@ -949,9 +936,9 @@ wasm_runtime_instantiate(WASMModule *module,
     WASMTableSeg *table_seg;
     WASMDataSeg *data_seg;
     WASMGlobalInstance *globals = NULL, *global;
-    uint32 global_count, addr_data_size = 0, global_data_size = 0, i, j;
+    uint32 global_count, global_data_size = 0, i, j;
     uint32 base_offset, length, memory_size;
-    uint8 *global_data, *global_data_end, *addr_data, *addr_data_end;
+    uint8 *global_data, *global_data_end;
     uint8 *memory_data;
     uint32 *table_data;
 
@@ -970,7 +957,7 @@ wasm_runtime_instantiate(WASMModule *module,
     /* Instantiate global firstly to get the mutable data size */
     global_count = module->import_global_count + module->global_count;
     if (global_count &&
-        !(globals = globals_instantiate(module, &addr_data_size,
+        !(globals = globals_instantiate(module,
                                         &global_data_size,
                                         error_buf, error_buf_size)))
         return NULL;
@@ -998,7 +985,7 @@ wasm_runtime_instantiate(WASMModule *module,
     /* Instantiate memories/tables/functions */
     if (((module_inst->memory_count > 0 || global_count > 0)
          && !(module_inst->memories =
-             memories_instantiate(module, addr_data_size, global_data_size,
+             memories_instantiate(module, global_data_size,
                                   heap_size, error_buf, error_buf_size)))
         || (module_inst->table_count > 0
             && !(module_inst->tables = tables_instantiate(module,
@@ -1026,8 +1013,6 @@ wasm_runtime_instantiate(WASMModule *module,
         globals_instantiate_fix(globals, module, module_inst);
 
         /* Initialize the global data */
-        addr_data = memory->addr_data;
-        addr_data_end = addr_data + addr_data_size;
         global_data = memory->global_data;
         global_data_end = global_data + global_data_size;
         global = globals;
@@ -1035,19 +1020,11 @@ wasm_runtime_instantiate(WASMModule *module,
             switch (global->type) {
                 case VALUE_TYPE_I32:
                 case VALUE_TYPE_F32:
-                    if (!global->is_addr)
-                        *(int32*)global_data = global->initial_value.i32;
-                    else {
-                        *(int32*)addr_data = global->initial_value.i32;
-                        /* Store the offset to memory data for global of addr */
-                        *(int32*)global_data = (int32)(addr_data - memory_data);
-                        addr_data += sizeof(int32);
-                    }
+                    *(int32*)global_data = global->initial_value.i32;
                     global_data += sizeof(int32);
                     break;
                 case VALUE_TYPE_I64:
                 case VALUE_TYPE_F64:
-                    wasm_assert(!global->is_addr);
                     bh_memcpy_s(global_data, (uint32)(global_data_end - global_data),
                                 &global->initial_value.i64, sizeof(int64));
                     global_data += sizeof(int64);
@@ -1056,21 +1033,7 @@ wasm_runtime_instantiate(WASMModule *module,
                     wasm_assert(0);
             }
         }
-        wasm_assert(addr_data == addr_data_end);
         wasm_assert(global_data == global_data_end);
-
-        global = globals + module->import_global_count;
-        for (i = 0; i < module->global_count; i++, global++) {
-            InitializerExpression *init_expr = &module->globals[i].init_expr;
-
-            if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
-                && globals[init_expr->u.global_index].is_addr) {
-                uint8 *global_data_dst = memory->global_data + global->data_offset;
-                uint8 *global_data_src =
-                    memory->global_data + globals[init_expr->u.global_index].data_offset;
-                *(uintptr_t*)global_data_dst = *(uintptr_t*)global_data_src;
-            }
-        }
 
         /* Initialize the memory data with data segment section */
         if (module_inst->default_memory->cur_page_count > 0) {
@@ -1200,7 +1163,6 @@ wasm_runtime_instantiate(WASMModule *module,
         return NULL;
     }
 
-    (void)addr_data_end;
     (void)global_data_end;
     return module_inst;
 }
@@ -1272,7 +1234,6 @@ wasm_runtime_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     WASMMemoryInstance *new_memory;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
-                        memory->addr_data_size +
                         NumBytesPerPage * (uint64)total_page_count +
                         memory->global_data_size;
 
@@ -1295,10 +1256,7 @@ wasm_runtime_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     new_memory->cur_page_count = total_page_count;
     new_memory->max_page_count = memory->max_page_count;
 
-    new_memory->addr_data = new_memory->base_addr;
-    new_memory->addr_data_size = memory->addr_data_size;
-
-    new_memory->memory_data = new_memory->addr_data + new_memory->addr_data_size;
+    new_memory->memory_data = new_memory->base_addr;
 
     new_memory->global_data = new_memory->memory_data +
                               NumBytesPerPage * total_page_count;
@@ -1306,11 +1264,11 @@ wasm_runtime_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     new_memory->end_addr = new_memory->global_data + memory->global_data_size;
 
-    /* Copy addr data and memory data */
-    bh_memcpy_s(new_memory->addr_data,
-                (uint32)(memory->global_data - memory->addr_data),
-                memory->addr_data,
-                (uint32)(memory->global_data - memory->addr_data));
+    /* Copy memory data */
+    bh_memcpy_s(new_memory->memory_data,
+                (uint32)(memory->global_data - memory->memory_data),
+                memory->memory_data,
+                (uint32)(memory->global_data - memory->memory_data));
     /* Copy global data */
     bh_memcpy_s(new_memory->global_data, new_memory->global_data_size,
                 memory->global_data, memory->global_data_size);

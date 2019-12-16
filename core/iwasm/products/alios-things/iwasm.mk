@@ -17,7 +17,6 @@ GLOBAL_INCLUDES += ${IWASM_ROOT}/runtime/include \
 $(NAME)_SOURCES := ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c \
                    ${IWASM_ROOT}/runtime/utils/wasm_log.c \
                    ${IWASM_ROOT}/runtime/utils/wasm_dlfcn.c \
-                   ${IWASM_ROOT}/runtime/platform/alios/wasm_native.c \
                    ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_application.c \
                    ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_interp.c \
                    ${IWASM_ROOT}/runtime/vmcore-wasm/wasm_loader.c \

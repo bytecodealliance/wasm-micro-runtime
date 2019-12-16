@@ -37,7 +37,6 @@ message ("-- Build as target ${BUILD_TARGET}")
 set (IWASM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/iwasm)
 set (SHARED_LIB_ROOT ${IWASM_ROOT}/../shared-lib)
 
-include (${IWASM_ROOT}/runtime/platform/${PLATFORM}/platform.cmake)
 include (${IWASM_ROOT}/runtime/utils/utils.cmake)
 include (${IWASM_ROOT}/runtime/vmcore-wasm/vmcore.cmake)
 include (${IWASM_ROOT}/lib/native/libc/wasmtime-wasi-c/wasi.cmake)
@@ -46,6 +45,8 @@ include (${IWASM_ROOT}/lib/native/libc/wasm_libc.cmake)
 include (${SHARED_LIB_ROOT}/platform/${PLATFORM}/shared_platform.cmake)
 include (${SHARED_LIB_ROOT}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_LIB_ROOT}/utils/shared_utils.cmake)
+
+include_directories (${IWASM_ROOT}/runtime/platform/include)
 
 set (VM_LIB_SRCS
      ${WASM_PLATFORM_LIB_SOURCE}

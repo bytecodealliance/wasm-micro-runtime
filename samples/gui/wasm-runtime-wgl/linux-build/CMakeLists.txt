@@ -83,7 +83,6 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wall -
 
 enable_language (ASM)
 
-include (${WASM_DIR}/runtime/platform/${TARGET_PLATFORM}/platform.cmake)
 include (${WASM_DIR}/runtime/utils/utils.cmake)
 include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
@@ -103,6 +102,7 @@ include (${SHARED_DIR}/coap/lib_coap.cmake)
 set (PROJECT_SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/../src/platform/${TARGET_PLATFORM})
 
 include_directories(${SHARED_DIR}/include)
+include_directories(${WASM_DIR}/runtime/platform/include)
 include_directories(${PROJECT_SRC_DIR})
 
 add_definitions (-DWASM_ENABLE_BASE_LIB)

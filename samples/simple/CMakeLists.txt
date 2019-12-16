@@ -89,7 +89,6 @@ endif()
 
 enable_language (ASM)
 
-include (${WASM_DIR}/runtime/platform/${TARGET_PLATFORM}/platform.cmake)
 include (${WASM_DIR}/runtime/utils/utils.cmake)
 include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
@@ -110,6 +109,7 @@ include (${SHARED_DIR}/coap/lib_coap.cmake)
 
 
 include_directories(${SHARED_DIR}/include)
+include_directories(${WASM_DIR}/runtime/platform/include)
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 #Note: uncomment below line to use UART mode
