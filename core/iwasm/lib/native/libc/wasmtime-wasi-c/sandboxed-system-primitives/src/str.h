@@ -12,7 +12,7 @@
 #ifndef STR_H
 #define STR_H
 
-#include "config.h"
+#include "ssp_config.h"
 
 char *str_nullterminate(const char *, size_t);
 
