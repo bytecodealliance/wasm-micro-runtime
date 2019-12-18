@@ -84,15 +84,15 @@ GET_F64_FROM_ADDR (uint32 *addr)
     uintptr_t addr1 = (uintptr_t)(addr);        \
     union { int64 val; uint32 u32[2];           \
             uint16 u16[4]; uint8 u8[8]; } u;    \
-    if (addr1 % 8 == 0)                         \
+    if ((addr1 & (uintptr_t)7) == 0)            \
       *(int64*)(addr) = (int64)(value);         \
     else {                                      \
         u.val = (int64)(value);                 \
-        if (addr1 % 4 == 0) {                   \
+        if ((addr1 & (uintptr_t)3) == 0) {      \
             ((uint32*)(addr))[0] = u.u32[0];    \
             ((uint32*)(addr))[1] = u.u32[1];    \
         }                                       \
-        else if (addr1 % 2 == 0) {              \
+        else if ((addr1 & (uintptr_t)1) == 0) { \
             ((uint16*)(addr))[0] = u.u16[0];    \
             ((uint16*)(addr))[1] = u.u16[1];    \
             ((uint16*)(addr))[2] = u.u16[2];    \
@@ -110,11 +110,11 @@ GET_F64_FROM_ADDR (uint32 *addr)
     uintptr_t addr1 = (uintptr_t)(addr);        \
     union { uint32 val;                         \
             uint16 u16[2]; uint8 u8[4]; } u;    \
-    if (addr1 % 4 == 0)                         \
+    if ((addr1 & (uintptr_t)3) == 0)            \
       *(uint32*)(addr) = (uint32)(value);       \
     else {                                      \
         u.val = (uint32)(value);                \
-        if (addr1 % 2 == 0) {                   \
+        if ((addr1 & (uintptr_t)1) == 0) {      \
             ((uint16*)(addr))[0] = u.u16[0];    \
             ((uint16*)(addr))[1] = u.u16[1];    \
         }                                       \
@@ -141,14 +141,14 @@ LOAD_I64(void *addr)
     uintptr_t addr1 = (uintptr_t)addr;
     union { int64 val; uint32 u32[2];
             uint16 u16[4]; uint8 u8[8]; } u;
-    if (addr1 % 8 == 0)
+    if ((addr1 & (uintptr_t)7) == 0)
         return *(int64*)addr;
 
-    if (addr1 % 4 == 0) {
+    if ((addr1 & (uintptr_t)3) == 0) {
         u.u32[0] = ((uint32*)addr)[0];
         u.u32[1] = ((uint32*)addr)[1];
     }
-    else if (addr1 % 2 == 0) {
+    else if ((addr1 & (uintptr_t)1) == 0) {
         u.u16[0] = ((uint16*)addr)[0];
         u.u16[1] = ((uint16*)addr)[1];
         u.u16[2] = ((uint16*)addr)[2];
@@ -168,14 +168,14 @@ LOAD_F64(void *addr)
     uintptr_t addr1 = (uintptr_t)addr;
     union { float64 val; uint32 u32[2];
             uint16 u16[4]; uint8 u8[8]; } u;
-    if (addr1 % 8 == 0)
+    if ((addr1 & (uintptr_t)7) == 0)
         return *(float64*)addr;
 
-    if (addr1 % 4 == 0) {
+    if ((addr1 & (uintptr_t)3) == 0) {
         u.u32[0] = ((uint32*)addr)[0];
         u.u32[1] = ((uint32*)addr)[1];
     }
-    else if (addr1 % 2 == 0) {
+    else if ((addr1 & (uintptr_t)1) == 0) {
         u.u16[0] = ((uint16*)addr)[0];
         u.u16[1] = ((uint16*)addr)[1];
         u.u16[2] = ((uint16*)addr)[2];
@@ -194,10 +194,10 @@ LOAD_I32(void *addr)
 {
     uintptr_t addr1 = (uintptr_t)addr;
     union { int32 val; uint16 u16[2]; uint8 u8[4]; } u;
-    if (addr1 % 4 == 0)
+    if ((addr1 & (uintptr_t)3) == 0)
         return *(int32*)addr;
 
-    if (addr1 % 2 == 0) {
+    if ((addr1 & (uintptr_t)1) == 0) {
         u.u16[0] = ((uint16*)addr)[0];
         u.u16[1] = ((uint16*)addr)[1];
     }

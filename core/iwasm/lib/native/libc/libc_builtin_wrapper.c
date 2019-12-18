@@ -1245,7 +1245,9 @@ wasm_native_func_lookup(const char *module_name, const char *func_name)
     uint32 size = sizeof(native_func_defs) / sizeof(WASMNativeFuncDef);
     WASMNativeFuncDef *func_def = native_func_defs;
     WASMNativeFuncDef *func_def_end = func_def + size;
+#if WASM_ENABLE_WASI != 0
     void *ret;
+#endif
 
     if (!module_name || !func_name)
         return NULL;
@@ -1258,9 +1260,6 @@ wasm_native_func_lookup(const char *module_name, const char *func_name)
             return (void*) (uintptr_t) func_def->func_ptr;
         func_def++;
     }
-
-    if ((ret = wasm_platform_native_func_lookup(module_name, func_name)))
-        return ret;
 
 #if WASM_ENABLE_WASI != 0
     if ((ret = wasi_native_func_lookup(module_name, func_name)))

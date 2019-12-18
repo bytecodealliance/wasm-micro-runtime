@@ -51,7 +51,6 @@ set (SHARED_DIR ${WASM_DIR}/../shared-lib)
 
 set (TARGET_PLATFORM "zephyr")
 
-include (${WASM_DIR}/runtime/platform/${TARGET_PLATFORM}/platform.cmake)
 include (${WASM_DIR}/runtime/utils/utils.cmake)
 include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
@@ -68,6 +67,7 @@ include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/coap/lib_coap.cmake)
 
+include_directories(${WASM_DIR}/runtime/platform/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr)
 

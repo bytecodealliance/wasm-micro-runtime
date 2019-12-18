@@ -214,7 +214,7 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
 {
     WASMFunctionInstance *func;
     WASMType *type;
-    uint32 argc1, *argv1;
+    uint32 argc1, *argv1 = NULL;
     int32 i, p;
     uint64 total_size;
     const char *exception;
@@ -225,14 +225,14 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     if (!func || func->is_import_func) {
         snprintf(buf, sizeof(buf), "lookup function %s failed.", name);
         wasm_runtime_set_exception(module_inst, buf);
-        return false;
+        goto fail;
     }
 
     type = func->u.func->func_type;
     if (type->param_count != (uint32)argc) {
         wasm_runtime_set_exception(module_inst,
                                    "invalid input argument count.");
-        return false;
+        goto fail;
     }
 
     argc1 = func->param_cell_num;
@@ -240,8 +240,11 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     if (total_size >= UINT32_MAX
         || (!(argv1 = wasm_malloc((uint32)total_size)))) {
         wasm_runtime_set_exception(module_inst, "allocate memory failed.");
-        return false;
+        goto fail;
     }
+
+    /* Clear errno before parsing arguments */
+    errno = 0;
 
     /* Parse arguments */
     for (i = 0, p = 0; i < argc; i++) {
@@ -332,9 +335,6 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
 
     wasm_runtime_set_exception(module_inst, NULL);
     if (!wasm_runtime_call_wasm(module_inst, NULL, func, argc1, argv1)) {
-        exception = wasm_runtime_get_exception(module_inst);
-        wasm_assert(exception);
-        wasm_printf("%s\n", exception);
         goto fail;
     }
 
@@ -374,7 +374,12 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
     return true;
 
 fail:
-    wasm_free(argv1);
+    if (argv1)
+        wasm_free(argv1);
+
+    exception = wasm_runtime_get_exception(module_inst);
+    wasm_assert(exception);
+    wasm_printf("%s\n", exception);
     return false;
 }
 

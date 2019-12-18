@@ -9,8 +9,8 @@
 //
 // Copyright (c) 2016 Nuxi, https://nuxi.nl/
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef SSP_CONFIG_H
+#define SSP_CONFIG_H
 
 #include <stdlib.h>
 

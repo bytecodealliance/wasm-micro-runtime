@@ -9,7 +9,7 @@
 //
 // Copyright (c) 2016-2018 Nuxi, https://nuxi.nl/
 
-#include "config.h"
+#include "ssp_config.h"
 
 #include <sys/types.h>
 
