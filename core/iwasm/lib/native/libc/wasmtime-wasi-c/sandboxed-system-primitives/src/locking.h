@@ -12,7 +12,7 @@
 #ifndef LOCKING_H
 #define LOCKING_H
 
-#include "config.h"
+#include "ssp_config.h"
 
 #include <assert.h>
 #include <errno.h>

@@ -9,7 +9,7 @@
 //
 // Copyright (c) 2016 Nuxi, https://nuxi.nl/
 
-#include "config.h"
+#include "ssp_config.h"
 
 #include <errno.h>
 #include <stdlib.h>
