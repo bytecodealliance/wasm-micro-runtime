@@ -115,6 +115,11 @@ double trunc(double x);
 int signbit(double x);
 int isnan(double x);
 
+unsigned long long int strtoull(const char *nptr, char **endptr,
+                                int base);
+double strtod(const char *nptr, char **endptr);
+float strtof(const char *nptr, char **endptr);
+
 int bh_platform_init();
 
 #endif

@@ -60,12 +60,10 @@ app_instance_main(wasm_module_inst_t module_inst)
 static void*
 app_instance_func(wasm_module_inst_t module_inst, char *func_name)
 {
-    const char *exception;
-
     wasm_application_execute_func(module_inst, func_name, app_argc - 1,
                                   app_argv + 1);
-    if ((exception = wasm_runtime_get_exception(module_inst)))
-        wasm_printf("%s\n", exception);
+    /* The result of wasm function or exception info was output inside
+       wasm_application_execute_func(), here we don't output them again. */
     return NULL;
 }
 
