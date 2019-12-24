@@ -199,7 +199,7 @@ static void vm_thread_cleanup(void)
         while (head) {
             bh_thread_wait_list next = head->next;
             k_sem_give(&head->sem);
-            bh_free(head);
+            /* head will be freed by joining thread */
             head = next;
         }
         thread_data->thread_wait_list = NULL;
@@ -333,6 +333,8 @@ int _vm_thread_join(korp_tid thread, void **value_ptr, int mills)
     /* Wait some time for the thread to be actually terminated */
     k_sleep(100);
 
+    /* Destroy resource */
+    bh_free(node);
     return BHT_OK;
 }
 

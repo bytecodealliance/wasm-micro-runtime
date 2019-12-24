@@ -13,13 +13,21 @@ if (${BUILD_TARGET} STREQUAL "X86_64" OR ${BUILD_TARGET} STREQUAL "AMD_64")
   set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_em64.s)
 elseif (${BUILD_TARGET} STREQUAL "X86_32")
   set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_ia32.s)
-elseif (${BUILD_TARGET} STREQUAL "ARM_32")
+elseif (${BUILD_TARGET} MATCHES "ARM.*")
   set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_arm.s)
-elseif (${BUILD_TARGET} STREQUAL "MIPS_32")
+elseif (${BUILD_TARGET} MATCHES "THUMB.*")
+  set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_thumb.s)
+elseif (${BUILD_TARGET} STREQUAL "MIPS")
   set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_mips.s)
-elseif (${BUILD_TARGET} STREQUAL "XTENSA_32")
+elseif (${BUILD_TARGET} STREQUAL "XTENSA")
   set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_xtensa.s)
 elseif (${BUILD_TARGET} STREQUAL "GENERAL")
+  # Use invokeNative_general.c instead of assembly code,
+  # but the maximum number of native arguments is limited to 20,
+  # and there are possible issues when passing arguments to
+  # native function for some cpus, e.g. int64 and double arguments
+  # in arm and mips need to be 8-bytes aligned, and some arguments
+  # of x86_64 are passed by registers but not stack
   set (source_all ${c_source_all} ${VMCORE_LIB_DIR}/invokeNative_general.c)
 else ()
   message (FATAL_ERROR "Build target isn't set")

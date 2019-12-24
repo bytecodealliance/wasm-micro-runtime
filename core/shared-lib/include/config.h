@@ -9,19 +9,24 @@
 #if !defined(BUILD_TARGET_X86_64) \
     && !defined(BUILD_TARGET_AMD_64) \
     && !defined(BUILD_TARGET_X86_32) \
-    && !defined(BUILD_TARGET_ARM_32) \
-    && !defined(BUILD_TARGET_MIPS_32) \
-    && !defined(BUILD_TARGET_XTENSA_32)
+    && !defined(BUILD_TARGET_ARM) \
+    && !defined(BUILD_TARGET_THUMB) \
+    && !defined(BUILD_TARGET_MIPS) \
+    && !defined(BUILD_TARGET_XTENSA)
 #if defined(__x86_64__) || defined(__x86_64)
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
 #define BUILD_TARGET_AMD_64
 #elif defined(__i386__) || defined(__i386) || defined(i386)
 #define BUILD_TARGET_X86_32
+#elif defined(__thumb__)
+#define BUILD_TARGET_THUMB
+#define BUILD_TARGET "THUMBV4T"
 #elif defined(__arm__)
-#define BUILD_TARGET_ARM_32
+#define BUILD_TARGET_ARM
+#define BUILD_TARGET "ARMV4T"
 #elif defined(__mips__) || defined(__mips) || defined(mips)
-#define BUILD_TARGET_MIPS_32
+#define BUILD_TARGET_MIPS
 #elif defined(__XTENSA__)
 #define BUILD_TARGET_XTENSA
 #else

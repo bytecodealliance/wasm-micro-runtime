@@ -1680,7 +1680,8 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     uint32 argv_buf[32], *argv1 = argv_buf, argc1, i, j = 0;
     uint64 size;
 
-#if !defined(BUILD_TARGET_ARM_32) && !defined(BUILD_TARGET_MIPS_32)
+#if !defined(BUILD_TARGET_ARM) && !defined(BUILD_TARGET_MIPS) \
+    && !defined(BUILD_TARGET_THUMB) && !defined(BUILD_TARGET_XTENSA)
     argc1 = argc + 2;
 #else
     argc1 = func_type->param_count * 2 + 2;
@@ -1698,7 +1699,8 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
     for (i = 0; i < sizeof(WASMModuleInstance*) / sizeof(uint32); i++)
         argv1[j++] = ((uint32*)&module_inst)[i];
 
-#if !defined(BUILD_TARGET_ARM_32) && !defined(BUILD_TARGET_MIPS_32)
+#if !defined(BUILD_TARGET_ARM) && !defined(BUILD_TARGET_MIPS) \
+    && !defined(BUILD_TARGET_THUMB) && !defined(BUILD_TARGET_XTENSA)
     word_copy(argv1 + j, argv, argc);
     j += argc;
 #else
@@ -1723,7 +1725,7 @@ wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                 break;
         }
     }
-#endif /* end of !defined(BUILD_TARGET_ARM_32) && !defined(BUILD_TARGET_MIPS_32) */
+#endif /* end of !defined(BUILD_TARGET_ARM) && !defined(BUILD_TARGET_MIPS) */
 
     argc1 = j;
     if (func_type->result_count == 0) {
