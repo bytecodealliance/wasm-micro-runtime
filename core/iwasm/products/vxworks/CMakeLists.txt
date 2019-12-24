@@ -21,7 +21,7 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
 endif ()
 
 # Set BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32", "GENERAL"
+# "X86_64", "AMD_64", "X86_32", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 #set (BUILD_TARGET "X86_64")
 
 if (NOT DEFINED BUILD_TARGET)
@@ -45,20 +45,16 @@ elseif (BUILD_TARGET STREQUAL "AMD_64")
   add_definitions(-DBUILD_TARGET_AMD_64)
 elseif (BUILD_TARGET STREQUAL "X86_32")
   add_definitions(-DBUILD_TARGET_X86_32)
-elseif (BUILD_TARGET STREQUAL "ARM_32")
-  add_definitions(-DBUILD_TARGET_ARM_32)
-elseif (BUILD_TARGET STREQUAL "MIPS_32")
-  add_definitions(-DBUILD_TARGET_MIPS_32)
-elseif (BUILD_TARGET STREQUAL "XTENSA_32")
-  add_definitions(-DBUILD_TARGET_XTENSA_32)
-elseif (BUILD_TARGET STREQUAL "GENERAL")
-  # Will use invokeNative_general.c instead of assembly code,
-  # but the maximum number of native arguments is limited to 20,
-  # and there are possible issues when passing arguments to
-  # native function for some cpus, e.g. int64 and double arguments
-  # in arm and mips need to be 8-bytes aligned, and some arguments
-  # of x86_64 are passed by registers but not stack
-  add_definitions(-DBUILD_TARGET_GENERAL)
+elseif (BUILD_TARGET MATCHES "ARM.*")
+  add_definitions(-DBUILD_TARGET_ARM)
+  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
+elseif (BUILD_TARGET MATCHES "THUMB.*")
+  add_definitions(-DBUILD_TARGET_THUMB)
+  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
+elseif (BUILD_TARGET STREQUAL "MIPS")
+  add_definitions(-DBUILD_TARGET_MIPS)
+elseif (BUILD_TARGET STREQUAL "XTENSA")
+  add_definitions(-DBUILD_TARGET_XTENSA)
 else ()
   message (FATAL_ERROR "-- Build target isn't set")
 endif ()

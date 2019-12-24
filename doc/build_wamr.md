@@ -150,7 +150,7 @@ AliOS-Things
    ```
 5. create a link to <shared-lib_root_dir> in middleware/iwasm/ and rename it to shared-lib
    ``` Bash
-   ln -s <shared-lib_root_dir> middle/iwasm/shared-lib
+   ln -s <shared-lib_root_dir> middleware/iwasm/shared-lib
    ```
 6. modify file app/example/helloworld/helloworld.c, patch as:
    ``` C
@@ -168,12 +168,25 @@ AliOS-Things
    ``` C
       $(NAME)_COMPONENTS := osal_aos iwasm
    ```
-8. build source code
+8. build source code and run
+   For linuxhost:
+   ``` Bash
+   aos make helloworld@linuxhost -c config
+   aos make
+   ./out/helloworld@linuxhost/binary/helloworld@linuxhost.elf
+   ```
+
+   For developerkit:
+   Modify file middleware/iwasm/aos.mk, patch as:
+   ``` C
+   BUILD_TARGET := THUMBV7M
+   ```
+
    ``` Bash
    aos make helloworld@developerkit -c config
    aos make
    ```
-9. download the binary to developerkit board, check the output from serial port
+   download the binary to developerkit board, check the output from serial port
 
 Docker
 -------------------------

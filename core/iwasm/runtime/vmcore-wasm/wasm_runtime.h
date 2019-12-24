@@ -330,9 +330,9 @@ wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
 /* See wasm_export.h for description */
 bool
 wasm_runtime_get_app_addr_range(WASMModuleInstance *module_inst,
-                                int32_t app_offset,
-                                int32_t *p_app_start_offset,
-                                int32_t *p_app_end_offset);
+                                int32 app_offset,
+                                int32 *p_app_start_offset,
+                                int32 *p_app_end_offset);
 
 /* See wasm_export.h for description */
 bool

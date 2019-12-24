@@ -557,6 +557,11 @@ static int fd_number(
   return number;
 }
 
+#define CLOSE_NON_STD_FD(fd) do {  \
+    if (fd > 2)                    \
+      close(fd);                   \
+  } while (0)
+
 // Lowers the reference count on a file descriptor object. When the
 // reference count reaches zero, its resources are cleaned up.
 static void fd_object_release(
@@ -569,13 +574,13 @@ static void fd_object_release(
         // closedir() on it also closes the underlying file descriptor.
         mutex_destroy(&fo->directory.lock);
         if (fo->directory.handle == NULL) {
-          close(fd_number(fo));
+          CLOSE_NON_STD_FD(fd_number(fo));
         } else {
           closedir(fo->directory.handle);
         }
         break;
       default:
-        close(fd_number(fo));
+        CLOSE_NON_STD_FD(fd_number(fo));
         break;
     }
     bh_free(fo);
