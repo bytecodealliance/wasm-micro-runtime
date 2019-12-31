@@ -49,6 +49,7 @@
 #include "bh_common.h"
 #include "bh_memory.h"
 
+#if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
 static_assert(offsetof(struct iovec, iov_base) ==
                   offsetof(__wasi_iovec_t, buf),
@@ -80,6 +81,7 @@ static_assert(sizeof(((struct iovec *)0)->iov_len) ==
               "Size mismatch");
 static_assert(sizeof(struct iovec) == sizeof(__wasi_ciovec_t),
               "Size mismatch");
+#endif
 
 #if defined(WASMTIME_SSP_STATIC_CURFDS)
 static __thread struct fd_table *curfds;
@@ -727,7 +729,7 @@ __wasi_errno_t wasmtime_ssp_fd_prestat_dir_name(
     return EINVAL;
   }
 
-  bh_memcpy_s(path, path_len, prestat->dir, path_len);
+  bh_memcpy_s(path, (uint32)path_len, prestat->dir, (uint32)path_len);
 
   rwlock_unlock(&prestats->lock);
 
@@ -1922,7 +1924,7 @@ static void fd_readdir_put(
   size_t bufavail = bufsize - *bufused;
   if (elemsize > bufavail)
     elemsize = bufavail;
-  bh_memcpy_s((char *)buf + *bufused, bufavail, elem, elemsize);
+  bh_memcpy_s((char *)buf + *bufused, (uint32)bufavail, elem, (uint32)elemsize);
   *bufused += elemsize;
 }
 
@@ -2803,8 +2805,8 @@ __wasi_errno_t wasmtime_ssp_args_get(
     argv[i] = argv_buf + (argv_environ->argv[i] - argv_environ->argv_buf);
   }
   argv[argv_environ->argc] = NULL;
-  bh_memcpy_s(argv_buf, argv_environ->argv_buf_size,
-              argv_environ->argv_buf, argv_environ->argv_buf_size);
+  bh_memcpy_s(argv_buf, (uint32)argv_environ->argv_buf_size,
+              argv_environ->argv_buf, (uint32)argv_environ->argv_buf_size);
   return __WASI_ESUCCESS;
 }
 
@@ -2831,8 +2833,8 @@ __wasi_errno_t wasmtime_ssp_environ_get(
     environ[i] = environ_buf + (argv_environ->environ[i] - argv_environ->environ_buf);
   }
   environ[argv_environ->environ_count] = NULL;
-  bh_memcpy_s(environ_buf, argv_environ->environ_buf_size,
-              argv_environ->environ_buf, argv_environ->environ_buf_size);
+  bh_memcpy_s(environ_buf, (uint32)argv_environ->environ_buf_size,
+              argv_environ->environ_buf, (uint32)argv_environ->environ_buf_size);
   return __WASI_ESUCCESS;
 }
 

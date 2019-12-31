@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
     uint32 wasm_file_size;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
-    char error_buf[128];
+    char error_buf[128] = {0};
 #if WASM_ENABLE_LOG != 0
     int log_verbose_level = 1;
 #endif

@@ -362,7 +362,7 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 
 #endif
 
-static char global_heap_buf[512 * 1024] = { 0 };
+static char global_heap_buf[1024 * 1024] = { 0 };
 
 static void showUsage()
 {
@@ -486,7 +486,11 @@ int iwasm_main(int argc, char *argv[])
     if (!parse_args(argc, argv))
         return -1;
 
+#if 1
     if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
+#else
+    if (bh_memory_init_with_allocator(malloc, free)
+#endif
             != 0) {
         printf("Init global heap failed.\n");
         return -1;

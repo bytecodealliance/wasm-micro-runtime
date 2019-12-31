@@ -33,6 +33,21 @@ else
 endif
 
 GLOBAL_DEFINES += NVALGRIND
+
+# Enable Interpreter by default.
+WASM_ENABLE_INTERP = 1
+
+# Enable AOT by default.
+WASM_ENABLE_AOT = 1
+
+ifeq (${WASM_ENABLE_INTERP}, 1)
+GLOBAL_DEFINES += WASM_ENABLE_INTERP=1
+endif
+
+ifeq (${WASM_ENABLE_AOT}, 1)
+GLOBAL_DEFINES += WASM_ENABLE_AOT=1
+endif
+
 GLOBAL_INCLUDES += ${IWASM_ROOT}/runtime/include \
                    ${IWASM_ROOT}/runtime/platform/include \
                    ${IWASM_ROOT}/runtime/platform/alios \
@@ -63,3 +78,7 @@ $(NAME)_SOURCES := ${IWASM_ROOT}/runtime/utils/wasm_hashmap.c \
                    ${SHARED_LIB_ROOT}/mem-alloc/ems/ems_hmu.c \
                    src/main.c src/ext_lib_export.c
 
+ifeq (${WASM_ENABLE_AOT}, 1)
+$(NAME)_SOURCES += ${IWASM_ROOT}/runtime/aot/runtime/aot_loader.c \
+                   ${IWASM_ROOT}/runtime/aot/runtime/aot_runtime.c
+endif

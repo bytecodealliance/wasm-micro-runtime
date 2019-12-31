@@ -13,7 +13,9 @@
 #include "wasm_memory.h"
 #include "mem_alloc.h"
 #include "bh_common.h"
-
+#if WASM_ENABLE_AOT != 0
+#include "../aot/runtime/aot_runtime.h"
+#endif
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -44,12 +46,14 @@ wasm_runtime_destroy()
     ws_thread_sys_destroy();
 }
 
+#if WASM_ENABLE_INTERP != 0
 static void
 init_wasm_stack(WASMStack *wasm_stack, uint8 *stack, uint32 stack_size)
 {
     wasm_stack->top = wasm_stack->bottom = stack;
     wasm_stack->top_boundary = stack + stack_size;
 }
+#endif
 
 bool
 wasm_runtime_call_wasm(WASMModuleInstance *module_inst,
@@ -57,6 +61,14 @@ wasm_runtime_call_wasm(WASMModuleInstance *module_inst,
                        WASMFunctionInstance *function,
                        unsigned argc, uint32 argv[])
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return aot_call_wasm((AOTModuleInstance*)module_inst,
+                             (AOTFunctionInstance*)function,
+                             argc, argv);
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     /* Only init stack when no application is running. */
     if (!module_inst->main_tlr.cur_frame) {
        if (!exec_env) {
@@ -96,27 +108,49 @@ wasm_runtime_call_wasm(WASMModuleInstance *module_inst,
 
     wasm_interp_call_wasm(module_inst, function, argc, argv);
     return !wasm_runtime_get_exception(module_inst) ? true : false;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return false;
 }
 
 void
 wasm_runtime_set_exception(WASMModuleInstance *module_inst,
                            const char *exception)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_set_exception((AOTModuleInstance*)module_inst, exception);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     if (exception)
         snprintf(module_inst->cur_exception,
                  sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
     else
         module_inst->cur_exception[0] = '\0';
+#endif
 }
 
 const char*
 wasm_runtime_get_exception(WASMModuleInstance *module_inst)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_get_exception((AOTModuleInstance*)module_inst);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     if (module_inst->cur_exception[0] == '\0')
         return NULL;
     else
         return module_inst->cur_exception;
+#endif
+
+    return NULL;
 }
 
 void
@@ -125,11 +159,40 @@ wasm_runtime_clear_exception(WASMModuleInstance *module_inst)
     wasm_runtime_set_exception(module_inst, NULL);
 }
 
+PackageType
+get_package_type(const uint8 *buf, uint32 size);
+
 WASMModule*
 wasm_runtime_load(const uint8 *buf, uint32 size,
                   char *error_buf, uint32 error_buf_size)
 {
+#if WASM_ENABLE_AOT != 0
+    if (get_package_type(buf, size) == Wasm_Module_AoT)
+        return (WASMModule *)aot_load_from_aot_file(buf, size,
+                                                    error_buf, error_buf_size);
+#if WASM_ENABLE_JIT != 0
+    WASMModule *aot_module;
+    WASMModule *module = wasm_loader_load(buf, size, error_buf, error_buf_size);
+    if (!module)
+        return NULL;
+
+    aot_module = (WASMModule*)
+        aot_convert_wasm_module(module, error_buf, error_buf_size);
+    if (!aot_module) {
+        wasm_loader_unload(module);
+    }
+
+    return aot_module;
+#endif /* end of WASM_ENABLE_JIT */
+#endif /* end of WASM_ENABLE_AOT */
+
+#if WASM_ENABLE_INTERP != 0
     return wasm_loader_load(buf, size, error_buf, error_buf_size);
+#endif
+
+    set_error_buf(error_buf, error_buf_size,
+                  "WASM module load failed: magic header not detected");
+    return NULL;
 }
 
 WASMModule*
@@ -140,12 +203,32 @@ wasm_runtime_load_from_sections(WASMSection *section_list,
                                           error_buf, error_buf_size);
 }
 
+#if WASM_ENABLE_AOT != 0
+WASMModule*
+wasm_runtime_load_from_aot_sections(AOTSection *section_list,
+                                    char *error_buf, uint32_t error_buf_size)
+{
+    return (WASMModule *)aot_load_from_sections(section_list,
+                                                error_buf, error_buf_size);
+}
+#endif
+
 void
 wasm_runtime_unload(WASMModule *module)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_unload((AOTModule *)module);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     wasm_loader_unload(module);
+#endif
 }
 
+#if WASM_ENABLE_INTERP != 0
 /**
  * Destroy memory instances.
  */
@@ -682,10 +765,12 @@ export_functions_instantiate(const WASMModule *module,
     wasm_assert((uint32)(export_func - export_funcs) == export_func_count);
     return export_funcs;
 }
+#endif /* end of WASM_ENABLE_INTERP */
 
 void
 wasm_runtime_deinstantiate(WASMModuleInstance *module_inst);
 
+#if WASM_ENABLE_INTERP != 0
 static bool
 execute_post_inst_function(WASMModuleInstance *module_inst)
 {
@@ -725,9 +810,10 @@ execute_start_function(WASMModuleInstance *module_inst)
 
     return wasm_runtime_call_wasm(module_inst, NULL, func, 0, NULL);
 }
+#endif /* end of WASM_ENABLE_INTERP */
 
 #if WASM_ENABLE_WASI != 0
-static bool
+bool
 wasm_runtime_init_wasi(WASMModuleInstance *module_inst,
                        const char *dir_list[], uint32 dir_count,
                        const char *map_dir_list[], uint32 map_dir_count,
@@ -735,6 +821,7 @@ wasm_runtime_init_wasi(WASMModuleInstance *module_inst,
                        const char *argv[], uint32 argc,
                        char *error_buf, uint32 error_buf_size)
 {
+    WASIContext *wasi_ctx;
     size_t *argv_offsets = NULL;
     char *argv_buf = NULL;
     size_t *env_offsets = NULL;
@@ -755,13 +842,25 @@ wasm_runtime_init_wasi(WASMModuleInstance *module_inst,
     uint64 total_size;
     uint32 i;
 
-    if (!module_inst->default_memory) {
-        argv_environ = module_inst->wasi_ctx.argv_environ = NULL;
-        prestats = module_inst->wasi_ctx.prestats = NULL;
-        curfds = module_inst->wasi_ctx.curfds = NULL;
-
-        return true;
+    if (!(wasi_ctx = bh_malloc(sizeof(WASIContext)))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Init wasi environment failed: allocate memory failed.");
+        return false;
     }
+
+    memset(wasi_ctx, 0, sizeof(WASIContext));
+    wasm_runtime_set_wasi_ctx(module_inst, wasi_ctx);
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT
+        && !((AOTModuleInstance*)module_inst)->memory_data.ptr)
+        return true;
+#endif
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode
+        && !module_inst->default_memory)
+        return true;
+#endif
 
     /* process argv[0], trip the path and suffix, only keep the program name */
     for (i = 0; i < argc; i++)
@@ -829,11 +928,11 @@ wasm_runtime_init_wasi(WASMModuleInstance *module_inst,
         goto fail;
     }
 
-    curfds = module_inst->wasi_ctx.curfds = (struct fd_table*)
+    curfds = wasi_ctx->curfds = (struct fd_table*)
         wasm_runtime_addr_app_to_native(module_inst, offset_curfds);
-    prestats = module_inst->wasi_ctx.prestats = (struct fd_prestats*)
+    prestats = wasi_ctx->prestats = (struct fd_prestats*)
         wasm_runtime_addr_app_to_native(module_inst, offset_prestats);
-    argv_environ = module_inst->wasi_ctx.argv_environ =
+    argv_environ = wasi_ctx->argv_environ =
         (struct argv_environ_values*)wasm_runtime_addr_app_to_native
         (module_inst, offset_argv_environ);
 
@@ -904,25 +1003,108 @@ fail:
     return false;
 }
 
-static void
+bool
+wasm_runtime_is_wasi_mode(WASMModuleInstance *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode
+         && module_inst->module->is_wasi_module)
+        return true;
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT
+            && ((AOTModule*)((AOTModuleInstance*)module_inst)
+                             ->aot_module.ptr)->is_wasi_module)
+        return true;
+#endif
+    return false;
+}
+
+WASMFunctionInstance *
+wasm_runtime_lookup_wasi_start_function(WASMModuleInstance *module_inst)
+{
+    WASMFunctionInstance *func = NULL;
+    uint32 i;
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance*)module_inst;
+        AOTModule *module = (AOTModule*)aot_inst->aot_module.ptr;
+        for (i = 0; i < module->export_func_count; i++) {
+            if (!strcmp(module->export_funcs[i].func_name, "_start")) {
+                AOTFuncType *func_type = module->export_funcs[i].func_type;
+                if (func_type->param_count != 0
+                    || func_type->result_count != 0) {
+                    LOG_ERROR("Lookup wasi _start function failed: "
+                              "invalid function type.\n");
+                    return NULL;
+                }
+                return (WASMFunctionInstance*)&module->export_funcs[i];
+            }
+        }
+        return NULL;
+    }
+#endif /* end of WASM_ENABLE_AOT */
+
+#if WASM_ENABLE_INTERP != 0
+    for (i = 0; i < module_inst->export_func_count; i++) {
+        if (!strcmp(module_inst->export_functions[i].name, "_start")) {
+            func = module_inst->export_functions[i].function;
+            if (func->u.func->func_type->param_count != 0
+                || func->u.func->func_type->result_count != 0) {
+                LOG_ERROR("Lookup wasi _start function failed: "
+                          "invalid function type.\n");
+                return NULL;
+            }
+            return func;
+        }
+    }
+#endif
+    return NULL;
+}
+
+void
 wasm_runtime_destroy_wasi(WASMModuleInstance *module_inst)
 {
-    WASIContext *wasi_ctx = &module_inst->wasi_ctx;
+    WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
 
-    if (wasi_ctx->argv_environ)
-        argv_environ_destroy(wasi_ctx->argv_environ);
-    if (wasi_ctx->curfds)
-        fd_table_destroy(wasi_ctx->curfds);
-    if (wasi_ctx->prestats)
-        fd_prestats_destroy(wasi_ctx->prestats);
+    if (wasi_ctx) {
+        if (wasi_ctx->argv_environ)
+            argv_environ_destroy(wasi_ctx->argv_environ);
+        if (wasi_ctx->curfds)
+            fd_table_destroy(wasi_ctx->curfds);
+        if (wasi_ctx->prestats)
+            fd_prestats_destroy(wasi_ctx->prestats);
+        bh_free(wasi_ctx);
+    }
 }
 
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstance *module_inst)
 {
-    return &module_inst->wasi_ctx;
-}
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return ((AOTModuleInstance*)module_inst)->wasi_ctx.ptr;
 #endif
+#if WASM_ENABLE_INTERP != 0
+    return module_inst->wasi_ctx;
+#endif
+    return NULL;
+}
+
+void
+wasm_runtime_set_wasi_ctx(WASMModuleInstance *module_inst,
+                          WASIContext *wasi_ctx)
+{
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        ((AOTModuleInstance*)module_inst)->wasi_ctx.ptr = wasi_ctx;
+#endif
+#if WASM_ENABLE_INTERP != 0
+    module_inst->wasi_ctx = wasi_ctx;
+#endif
+}
+#endif /* end of WASM_ENABLE_WASI */
 
 /**
  * Instantiate module
@@ -932,6 +1114,7 @@ wasm_runtime_instantiate(WASMModule *module,
                          uint32 stack_size, uint32 heap_size,
                          char *error_buf, uint32 error_buf_size)
 {
+#if WASM_ENABLE_INTERP != 0
     WASMModuleInstance *module_inst;
     WASMTableSeg *table_seg;
     WASMDataSeg *data_seg;
@@ -941,10 +1124,18 @@ wasm_runtime_instantiate(WASMModule *module,
     uint8 *global_data, *global_data_end;
     uint8 *memory_data;
     uint32 *table_data;
+#endif
 
     if (!module)
         return NULL;
 
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        return (WASMModuleInstance*)aot_instantiate((AOTModule*)module, heap_size,
+                                                    error_buf, error_buf_size);
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
     if (heap_size == 0)
@@ -1154,7 +1345,7 @@ wasm_runtime_instantiate(WASMModule *module,
     /* The native thread handle may be used in future, e.g multiple threads. */
     module_inst->main_tlr.handle = ws_self_thread();
 
-    /* Execute __post_instantiate and start function */
+    /* Execute __post_instantiate function */
     if (!execute_post_inst_function(module_inst)
         || !execute_start_function(module_inst)) {
         set_error_buf(error_buf, error_buf_size,
@@ -1165,6 +1356,9 @@ wasm_runtime_instantiate(WASMModule *module,
 
     (void)global_data_end;
     return module_inst;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return NULL;
 }
 
 void
@@ -1173,7 +1367,19 @@ wasm_runtime_deinstantiate(WASMModuleInstance *module_inst)
     if (!module_inst)
         return;
 
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_deinstantiate((AOTModuleInstance*)module_inst);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
 #if WASM_ENABLE_WASI != 0
+    /* Destroy wasi resource before freeing app heap, since some fields of
+       wasi contex are allocated from app heap, and if app heap is freed,
+       these fields will be set to NULL, we cannot free their internal data
+       which may allocated from global heap. */
     wasm_runtime_destroy_wasi(module_inst);
 #endif
 
@@ -1193,6 +1399,7 @@ wasm_runtime_deinstantiate(WASMModuleInstance *module_inst)
         wasm_free(module_inst->wasm_stack);
 
     wasm_free(module_inst);
+#endif /* end of WASM_ENABLE_INTERP */
 }
 
 #if WASM_ENABLE_EXT_MEMORY_SPACE != 0
@@ -1201,6 +1408,15 @@ wasm_runtime_set_ext_memory(WASMModuleInstance *module_inst,
                             uint8 *ext_mem_data, uint32 ext_mem_size,
                             char *error_buf, uint32 error_buf_size)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_set_ext_memory((AOTModuleInstance*)module_inst,
+                                  ext_mem_data, ext_mem_size,
+                                  error_buf, error_buf_size);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     if (module_inst->ext_mem_data) {
         set_error_buf(error_buf, error_buf_size,
                       "Set external memory failed: "
@@ -1223,13 +1439,24 @@ wasm_runtime_set_ext_memory(WASMModuleInstance *module_inst,
     module_inst->ext_mem_base_offset = DEFAULT_EXT_MEM_BASE_OFFSET;
 
     return true;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return false;
 }
-#endif
+#endif /* end of WASM_ENABLE_EXT_MEMORY_SPACE */
 
 bool
 wasm_runtime_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
 #if WASM_ENABLE_MEMORY_GROW != 0
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        return aot_enlarge_memory((AOTModuleInstance*)module,
+                                  inc_page_count);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     WASMMemoryInstance *memory = module->default_memory;
     WASMMemoryInstance *new_memory;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
@@ -1284,10 +1511,13 @@ wasm_runtime_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     module->memories[0] = module->default_memory = new_memory;
     wasm_free(memory);
     return true;
-#else
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return false;
+#else /* else of WASM_ENABLE_MEMORY_GROW */
     wasm_runtime_set_exception(module, "unsupported operation: enlarge memory.");
     return false;
-#endif
+#endif /* end of WASM_ENABLE_MEMORY_GROW */
 }
 
 PackageType
@@ -1329,18 +1559,41 @@ void
 wasm_runtime_set_custom_data(WASMModuleInstance *module_inst,
                              void *custom_data)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        ((AOTModuleInstance*)module_inst)->custom_data.ptr = custom_data;
+        return;
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
     module_inst->custom_data = custom_data;
+#endif
 }
 
 void*
 wasm_runtime_get_custom_data(WASMModuleInstance *module_inst)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return ((AOTModuleInstance*)module_inst)->custom_data.ptr;
+    }
+#endif
+#if WASM_ENABLE_INTERP != 0
     return module_inst->custom_data;
+#endif
+    return NULL;
 }
 
 int32
 wasm_runtime_module_malloc(WASMModuleInstance *module_inst, uint32 size)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_module_malloc((AOTModuleInstance*)module_inst, size);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint8 *addr = mem_allocator_malloc(memory->heap_handle, size);
     if (!addr) {
@@ -1348,23 +1601,42 @@ wasm_runtime_module_malloc(WASMModuleInstance *module_inst, uint32 size)
         return 0;
     }
     return memory->heap_base_offset + (int32)(addr - memory->heap_data);
+#endif
+
+    return 0;
 }
 
 void
 wasm_runtime_module_free(WASMModuleInstance *module_inst, int32 ptr)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_module_free((AOTModuleInstance*)module_inst, ptr);
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     if (ptr) {
         WASMMemoryInstance *memory = module_inst->default_memory;
         uint8 *addr = memory->heap_data + (ptr - memory->heap_base_offset);
         if (memory->heap_data < addr && addr < memory->heap_data_end)
             mem_allocator_free(memory->heap_handle, addr);
     }
+#endif
 }
 
 int32
 wasm_runtime_module_dup_data(WASMModuleInstance *module_inst,
                              const char *src, uint32 size)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_module_dup_data((AOTModuleInstance*)module_inst, src, size);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     int32 buffer_offset = wasm_runtime_module_malloc(module_inst, size);
     if (buffer_offset != 0) {
         char *buffer;
@@ -1372,12 +1644,23 @@ wasm_runtime_module_dup_data(WASMModuleInstance *module_inst,
         bh_memcpy_s(buffer, size, src, size);
     }
     return buffer_offset;
+#endif
+
+    return 0;
 }
 
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstance *module_inst,
                                int32 app_offset, uint32 size)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_validate_app_addr((AOTModuleInstance*)module_inst,
+                                     app_offset, size);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     WASMMemoryInstance *memory;
     uint8 *addr;
 
@@ -1415,10 +1698,13 @@ wasm_runtime_validate_app_addr(WASMModuleInstance *module_inst,
 
         return true;
     }
-#endif
+#endif /* end of WASM_ENABLE_EXT_MEMORY_SPACE */
 
 fail:
     wasm_runtime_set_exception(module_inst, "out of bounds memory access");
+    return false;
+#endif /* end of WASM_ENABLE_INTERP */
+
     return false;
 }
 
@@ -1450,6 +1736,14 @@ bool
 wasm_runtime_validate_native_addr(WASMModuleInstance *module_inst,
                                   void *native_ptr, uint32 size)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_validate_native_addr((AOTModuleInstance*)module_inst,
+                                        native_ptr, size);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     uint8 *addr = native_ptr;
     WASMMemoryInstance *memory = module_inst->default_memory;
 
@@ -1470,12 +1764,23 @@ wasm_runtime_validate_native_addr(WASMModuleInstance *module_inst,
 fail:
     wasm_runtime_set_exception(module_inst, "out of bounds memory access");
     return false;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return false;
 }
 
 void *
 wasm_runtime_addr_app_to_native(WASMModuleInstance *module_inst,
                                 int32 app_offset)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_addr_app_to_native((AOTModuleInstance*)module_inst,
+                                      app_offset);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     WASMMemoryInstance *memory = module_inst->default_memory;
     if (0 <= app_offset && app_offset < memory->heap_base_offset)
         return memory->memory_data + app_offset;
@@ -1490,15 +1795,26 @@ wasm_runtime_addr_app_to_native(WASMModuleInstance *module_inst,
                              + module_inst->ext_mem_size)
         return module_inst->ext_mem_data
                + (app_offset - module_inst->ext_mem_base_offset);
-#endif
+#endif /* end of WASM_ENABLE_EXT_MEMORY_SPACE */
     else
         return NULL;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return NULL;
 }
 
 int32
 wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
                                 void *native_ptr)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_addr_native_to_app((AOTModuleInstance*)module_inst,
+                                      native_ptr);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     WASMMemoryInstance *memory = module_inst->default_memory;
     if (memory->base_addr <= (uint8*)native_ptr
         && (uint8*)native_ptr < memory->end_addr)
@@ -1516,6 +1832,9 @@ wasm_runtime_addr_native_to_app(WASMModuleInstance *module_inst,
 #endif
     else
         return 0;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return 0;
 }
 
 bool
@@ -1524,6 +1843,15 @@ wasm_runtime_get_app_addr_range(WASMModuleInstance *module_inst,
                                 int32 *p_app_start_offset,
                                 int32 *p_app_end_offset)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_get_app_addr_range((AOTModuleInstance*)module_inst,
+                                      app_offset, p_app_start_offset,
+                                      p_app_end_offset);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     int32 app_start_offset, app_end_offset;
     WASMMemoryInstance *memory = module_inst->default_memory;
 
@@ -1555,6 +1883,9 @@ wasm_runtime_get_app_addr_range(WASMModuleInstance *module_inst,
     if (p_app_end_offset)
         *p_app_end_offset = app_end_offset;
     return true;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return false;
 }
 
 bool
@@ -1563,6 +1894,15 @@ wasm_runtime_get_native_addr_range(WASMModuleInstance *module_inst,
                                    uint8 **p_native_start_addr,
                                    uint8 **p_native_end_addr)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_get_native_addr_range((AOTModuleInstance*)module_inst,
+                                         native_ptr, p_native_start_addr,
+                                         p_native_end_addr);
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     uint8 *native_start_addr, *native_end_addr;
     WASMMemoryInstance *memory = module_inst->default_memory;
 
@@ -1593,45 +1933,73 @@ wasm_runtime_get_native_addr_range(WASMModuleInstance *module_inst,
     if (p_native_end_addr)
         *p_native_end_addr = native_end_addr;
     return true;
+#endif /* end of WASM_ENABLE_INTERP */
+
+    return false;
 }
 
 uint32
 wasm_runtime_get_temp_ret(WASMModuleInstance *module_inst)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return (uint32)((AOTModuleInstance*)module_inst)->temp_ret;
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     return module_inst->temp_ret;
+#endif
+
+    return 0;
 }
 
 void
 wasm_runtime_set_temp_ret(WASMModuleInstance *module_inst,
                           uint32 temp_ret)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        ((AOTModuleInstance*)module_inst)->temp_ret = (int32)temp_ret;
+        return;
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     module_inst->temp_ret = temp_ret;
+#endif
 }
 
 uint32
 wasm_runtime_get_llvm_stack(WASMModuleInstance *module_inst)
 {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return ((AOTModuleInstance*)module_inst)->llvm_stack;
+    }
+#endif
+
+#if WASM_ENABLE_INTERP != 0
     return module_inst->llvm_stack;
+#endif
+
+    return 0;
 }
 
 void
 wasm_runtime_set_llvm_stack(WASMModuleInstance *module_inst,
                             uint32 llvm_stack)
 {
-    module_inst->llvm_stack = llvm_stack;
-}
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        ((AOTModuleInstance*)module_inst)->llvm_stack = llvm_stack;
+        return;
+    }
+#endif
 
-WASMModuleInstance*
-wasm_runtime_load_aot(uint8 *aot_file, uint32 aot_file_size,
-                      uint32 heap_size,
-                      char *error_buf, uint32 error_buf_size)
-{
-    (void)aot_file;
-    (void)aot_file_size;
-    (void)heap_size;
-    (void)error_buf;
-    (void)error_buf_size;
-    return NULL;
+#if WASM_ENABLE_INTERP != 0
+    module_inst->llvm_stack = llvm_stack;
+#endif
 }
 
 static inline void

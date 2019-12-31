@@ -68,3 +68,24 @@ int bh_vprintf_sgx(const char * format, va_list arg)
 
     return 0;
 }
+
+void *
+bh_mmap(void *hint, unsigned int size, int prot, int flags)
+{
+    /* TODO: implement bh_mmap in Linux SGX */
+    return NULL;
+}
+
+void
+bh_munmap(void *addr, uint32 size)
+{
+    /* TODO: implement bh_munmap in Linux SGX */
+}
+
+int
+bh_mprotect(void *addr, uint32 size, int prot)
+{
+    /* TODO: implement bh_mprotect in Linux SGX */
+    return -1;
+}
+

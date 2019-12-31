@@ -1727,16 +1727,37 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I32_SHL):
+      {
+#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_THUMB)
+        uint32 b;
+        b = (uint32)POP_I32();
+        PUSH_I32(b % 32);
+#endif
         DEF_OP_NUMERIC(uint32, uint32, I32, <<);
         HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_I32_SHR_S):
+      {
+#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_THUMB)
+        uint32 b;
+        b = (uint32)POP_I32();
+        PUSH_I32(b % 32);
+#endif
         DEF_OP_NUMERIC(int32, uint32, I32, >>);
         HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_I32_SHR_U):
+      {
+#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_THUMB)
+        uint32 b;
+        b = (uint32)POP_I32();
+        PUSH_I32(b % 32);
+#endif
         DEF_OP_NUMERIC(uint32, uint32, I32, >>);
         HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_I32_ROTL):
       {
@@ -1860,16 +1881,37 @@ wasm_interp_call_func_bytecode(WASMThread *self,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_I64_SHL):
+      {
+#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_THUMB)
+        uint64 b;
+        b = (uint64)POP_I64();
+        PUSH_I64(b % 64);
+#endif
         DEF_OP_NUMERIC_64(uint64, uint64, I64, <<);
         HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_I64_SHR_S):
+      {
+#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_THUMB)
+        uint64 b;
+        b = (uint64)POP_I64();
+        PUSH_I64(b % 64);
+#endif
         DEF_OP_NUMERIC_64(int64, uint64, I64, >>);
         HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_I64_SHR_U):
+      {
+#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_THUMB)
+        uint64 b;
+        b = (uint64)POP_I64();
+        PUSH_I64(b % 64);
+#endif
         DEF_OP_NUMERIC_64(uint64, uint64, I64, >>);
         HANDLE_OP_END ();
+      }
 
       HANDLE_OP (WASM_OP_I64_ROTL):
       {
@@ -1898,12 +1940,12 @@ wasm_interp_call_func_bytecode(WASMThread *self,
 
       HANDLE_OP (WASM_OP_F32_NEG):
       {
-          int32 i32 = frame_sp[-1];
+          int32 i32 = (int32)frame_sp[-1];
           int32 sign_bit = i32 & (1 << 31);
           if (sign_bit)
               frame_sp[-1] = i32 & ~(1 << 31);
           else
-              frame_sp[-1] = i32 | (1 << 31);
+              frame_sp[-1] = (uint32)(i32 | (1 << 31));
           HANDLE_OP_END ();
       }
 
@@ -1993,11 +2035,11 @@ wasm_interp_call_func_bytecode(WASMThread *self,
       HANDLE_OP (WASM_OP_F64_NEG):
       {
           int64 i64 = GET_I64_FROM_ADDR(frame_sp - 2);
-          int64 sign_bit = i64 & (((uint64)1) << 63);
+          int64 sign_bit = i64 & (((int64)1) << 63);
           if (sign_bit)
-              PUT_I64_TO_ADDR(frame_sp - 2, (i64 & ~(((uint64)1) << 63)));
+              PUT_I64_TO_ADDR(frame_sp - 2, ((uint64)i64 & ~(((uint64)1) << 63)));
           else
-              PUT_I64_TO_ADDR(frame_sp - 2, (i64 | (((uint64)1) << 63)));
+              PUT_I64_TO_ADDR(frame_sp - 2, ((uint64)i64 | (((uint64)1) << 63)));
           HANDLE_OP_END ();
       }
 

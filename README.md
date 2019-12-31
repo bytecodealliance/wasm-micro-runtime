@@ -1,5 +1,6 @@
 WebAssembly Micro Runtime
 =========================
+[Building WAMR VM core](./doc/build_wamr.md) | [Embedding WAMR VM core](./doc/embed_wamr.md) | [Building WASM applications](./doc/build_wasm_app.md) | [Samples and demos](https://github.com/bytecodealliance/wasm-micro-runtime#samples-and-demos)
 
 **A [Bytecode Alliance][BA] project**
 
@@ -10,13 +11,14 @@ WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with
 - The supporting API's for the WASM applications
 - A mechanism for dynamic management of the WASM application
 
-
 Current Features of WAMR
 =========================
-- WASM interpreter (AOT is planned)
+- WASM interpreter, AOT (Ahead of Time Compilation) and JIT (Just in Time Compilation)
 - Provides embedding C API
 - Provides a mechanism for exporting native API's to WASM applications
-- Supports libc for WASM applications in two modes: the built-in libc subset for embedded environment and [WASI](https://github.com/WebAssembly/WASI) for standard libc
+- Supports libc for WASM applications in two modes:
+    the built-in libc subset for embedded environment and
+    [WASI](https://github.com/WebAssembly/WASI) for standard libc
 - The WASM application framework and asynchronized app programming model
 - Supports for micro-service and pub-sub event inter-app communication models
 - Supports remote WASM application management from either host or cloud
@@ -44,12 +46,12 @@ Build WAMR
 
 
 WAMR VM core (iwasm) can support building for different target platforms:
-- Linux
-- Zephyr
-- MacOS
-- VxWorks
-- AliOS-Things
-- Intel Software Guard Extention (SGX)
+- [Linux](./doc/build_wamr.md#linux)
+- [Zephyr](./doc/build_wamr.md#zephyr)
+- [MacOS](./doc/build_wamr.md#mac)
+- [VxWorks](./doc/build_wamr.md#vxworks)
+- [AliOS-Things](./doc/build_wamr.md#alios-things)
+- [Intel Software Guard Extention (SGX)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention)
 
 See [Build WAMR VM core](./doc/build_wamr.md) for the detailed instructions.
 
@@ -59,7 +61,6 @@ WAMR supports WASI for standard libc library as well as a [built-in libc subset]
 
 WASI is supported for following platforms and enabled by default building:
 - Linux
-
 
 
 ## Embed WAMR VM core
@@ -91,13 +92,11 @@ See [WAMR application library](./doc/wamr_api.md) for the details.
 One WAMR build can select a subset from the WAMR application library. Refer to the sample "simple" for how to integrate API sets into WAMR building.
 
 
-
 ## Build WAMR with customized application library
 
 When WAMR is integrated into a specific project, it probably includes additional project specific applications APIs which can be either expansion or modification to the standard WAMR application library.
 
 The extended application library should be created in the folder [core/iwasm/lib/app-libs](./core/iwasm/lib/app-libs/). See the [doc/export_native_api.md](./doc/export_native_api.md) for the details.
-
 
 
 # Create WASM application SDK
@@ -112,7 +111,6 @@ Typically a WASM APP SDK package contains following components:
 * **app-lib** folder: copied from [core/iwasm/lib/app-libs](./core/iwasm/lib/app-libs/)
 * **cmake toolchain** file: copied from [test-tools/toolchain/wamr_toolchain.cmake](./test-tools/toolchain/wamr_toolchain.cmake)
 * optionally with some guide documents and samples
-
 
 
 Build WASM applications

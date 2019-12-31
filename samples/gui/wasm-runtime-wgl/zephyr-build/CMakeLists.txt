@@ -43,6 +43,16 @@ endif ()
 
 message ("-- Build as target ${BUILD_TARGET}")
 
+# Enable AOT by default.
+set (WASM_ENABLE_AOT 1)
+
+if (WASM_ENABLE_AOT EQUAL 1)
+  message ("-- WASM AOT enabled")
+  add_definitions("-DWASM_ENABLE_AOT=1")
+else ()
+  message ("-- WASM AOT disabled")
+endif ()
+
 set (WASM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core/iwasm)
 set (APP_MGR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core/app-mgr)
 set (SHARED_DIR ${WASM_DIR}/../shared-lib)
@@ -64,6 +74,10 @@ include (${SHARED_DIR}/platform/${TARGET_PLATFORM}/shared_platform.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/coap/lib_coap.cmake)
+if (WASM_ENABLE_AOT EQUAL 1)
+include (${WASM_DIR}/core/iwasm/runtime/aot/runtime/aot_runtime.cmake)
+endif ()
+
 
 include_directories(${WASM_DIR}/runtime/platform/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
@@ -79,6 +93,7 @@ set (IWASM_SRCS
      ${WASM_PLATFORM_LIB_SOURCE}
      ${WASM_UTILS_LIB_SOURCE}
      ${VMCORE_LIB_SOURCE}
+     ${AOT_RUNTIME_SOURCE}
      ${WASM_LIBC_SOURCE}
      ${APP_MGR_SOURCE}
      ${WASM_LIB_BASE_SOURCE}

@@ -1,6 +1,6 @@
 
 
-Build WASM app
+Build WASM applications
 =========================
 You can write a simple ```test.c``` as the first sample.
 
@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 }
 ```
 
-There are several methods to build a WASM binary. They are the clang compiler, Docker, Emscripten and so on.
+There are several methods to build a WASM binary, including the clang compiler, cmake, wasi-sdk, Docker, Emscripten and so on. And after building the WASM binary, we can use the WAMR AoT compiler tool (namely wamrc) to compile the WASM binary into the WAMR AoT binary. And we can use iwasm to run both the WASM binary and the WAMR AoT binary.
 
 ## Use clang compiler
 
@@ -92,6 +92,28 @@ clang-8 --target=wasm32 -O3 \
 ```
 
 You will get ```test.wasm``` which is the WASM app binary.
+
+## Use WAMR AoT compiler (wamrc)
+
+Firstly we should build the WAMR AoT compiler:
+```Bash
+cd <wamr_root_dir>/test-tools/aot-compiler
+./build_llvm.sh         (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
+mkdir build
+cd build
+cmake ..
+make
+```
+The binary file wamrc will be generated under build folder.
+
+Then we can use wamrc to compile WASM app binary to WAMR AoT binary, e.g.
+```Bash
+wamrc -o test.aot test.wasm
+```
+To specify the build target, please use --target=<target> option, e.g.
+```Bash
+wamrc --target=i386 test.aot test.wasm
+```
 
 ## Use cmake
 
@@ -166,10 +188,11 @@ You will get ```test.wasm``` which is the WASM app binary.
 Run WASM app
 ========================
 
-Assume you are using Linux, the command to run the test.wasm is:
+Assume you are using Linux, the command to run the test.wasm or test.aot is:
 ``` Bash
 cd iwasm/products/linux/build
-./iwasm test.wasm
+./iwasm test.wasm   or
+./iwasm test.aot
 ```
 You will get the following output:
 ```
