@@ -4,7 +4,7 @@ Build WASM applications
 =========================
 You can write a simple ```test.c``` as the first sample.
 
-```C
+``` C
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -30,7 +30,9 @@ int main(int argc, char **argv)
 }
 ```
 
-There are several methods to build a WASM binary, including the clang compiler, cmake, wasi-sdk, Docker, Emscripten and so on. And after building the WASM binary, we can use the WAMR AoT compiler tool (namely wamrc) to compile the WASM binary into the WAMR AoT binary. And we can use iwasm to run both the WASM binary and the WAMR AoT binary.
+There are several methods to build a WASM binary, including the clang compiler, cmake, wasi-sdk, Docker, Emscripten and so on.
+
+And after building the WASM binary, we can use the WAMR AoT compiler tool (namely wamrc) to compile the WASM binary into the WAMR AoT binary. And we can use iwasm to run both the WASM binary and the WAMR AoT binary.
 
 ## Use clang compiler
 
@@ -40,7 +42,7 @@ The recommended method to build a WASM binary is to use clang compiler ```clang-
 
 For Ubuntu 16.04, add the following lines to /etc/apt/sources.list:
 
-```Bash
+``` Bash
 deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main
 deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial main
 # 8
@@ -53,7 +55,7 @@ deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main
 
 For Ubuntu 18.04, add the following lines to /etc/apt/sources.list:
 
-```Bash
+``` Bash
 # i386 not available
 deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic main
 deb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic main
@@ -67,7 +69,7 @@ deb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main
 
 (2) Download and install clang-8 tool-chain using following commands:
 
-```Bash
+``` Bash
 sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
 # Fingerprint: 6084 F3CF 814B 57C1 CF12 EFD5 15CF 4D18 AF4F 7421
 sudo apt-get update
@@ -76,14 +78,14 @@ sudo apt-get install llvm-8 lld-8 clang-8
 
 (3) Create a soft link under /usr/bin:
 
-```Bash
+``` Bash
 cd /usr/bin
 sudo ln -s wasm-ld-8 wasm-ld
 ```
 
 (4) Use the clang-8 command below to build the WASM C source code into the WASM binary.
 
-```Bash
+``` Bash
 clang-8 --target=wasm32 -O3 \
         -z stack-size=4096 -Wl,--initial-memory=65536 \
         -Wl,--allow-undefined,--export=main \
@@ -96,7 +98,7 @@ You will get ```test.wasm``` which is the WASM app binary.
 ## Use WAMR AoT compiler (wamrc)
 
 Firstly we should build the WAMR AoT compiler:
-```Bash
+``` Bash
 cd <wamr_root_dir>/test-tools/aot-compiler
 ./build_llvm.sh         (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
 mkdir build
@@ -107,11 +109,11 @@ make
 The binary file wamrc will be generated under build folder.
 
 Then we can use wamrc to compile WASM app binary to WAMR AoT binary, e.g.
-```Bash
+``` Bash
 wamrc -o test.aot test.wasm
 ```
 To specify the build target, please use --target=<target> option, e.g.
-```Bash
+``` Bash
 wamrc --target=i386 test.aot test.wasm
 ```
 
@@ -126,7 +128,7 @@ project(hello_world)
 add_executable(hello_world test.c)
 ```
 It is quite simple to build this project by cmake:
-```Bash
+``` Bash
 mkdir build && cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE=$WAMR_ROOT/test-tools/toolchain/wamr_toolchain.cmake
 make
@@ -138,7 +140,7 @@ For more details about wamr toolchain, please refer to [test-tools/toolchain](..
 ## Use wasi-sdk
 
 To build a wasm application with wasi support, wasi-sdk is required. Download the [wasi-sdk](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive, then you can use it to build your application:
-```Bash
+``` Bash
 /path/to/wasi-sdk/bin/clang test.c -o test.wasm
 ```
 
@@ -150,7 +152,7 @@ Another method availble is using [Docker](https://www.docker.com/). We assume yo
 
 Use the clang-8 command below to build the WASM C source code into the WASM binary.
 
-```Bash
+``` Bash
 clang-8 --target=wasm32 -O3 \
         -z stack-size=4096 -Wl,--initial-memory=65536 \
         -Wl,--allow-undefined,--export=main \

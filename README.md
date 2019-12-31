@@ -48,7 +48,7 @@ Build WAMR
 WAMR VM core (iwasm) can support building for different target platforms:
 - [Linux](./doc/build_wamr.md#linux)
 - [Zephyr](./doc/build_wamr.md#zephyr)
-- [MacOS](./doc/build_wamr.md#mac)
+- [MacOS](./doc/build_wamr.md#macos)
 - [VxWorks](./doc/build_wamr.md#vxworks)
 - [AliOS-Things](./doc/build_wamr.md#alios-things)
 - [Intel Software Guard Extention (SGX)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention)
