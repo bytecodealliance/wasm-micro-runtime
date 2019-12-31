@@ -58,7 +58,7 @@ To enable WASM JIT, firstly we should build LLVM:
 cd core/iwasm/products/linux/
 ./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
 ```
-Then pass option -DWASM_ENABLE_JIT=1 to enable WASM JIT:
+Then pass option -DWASM_ENABLE_JIT=1 to cmake to enable WASM JIT:
 ``` Bash
 mkdir build
 cd build
