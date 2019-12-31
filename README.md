@@ -17,8 +17,8 @@ Current Features of WAMR
 - Provides embedding C API
 - Provides a mechanism for exporting native API's to WASM applications
 - Supports libc for WASM applications in two modes:
-    the built-in libc subset for embedded environment and
-    [WASI](https://github.com/WebAssembly/WASI) for standard libc
+    - the built-in libc subset for embedded environment and
+    - [WASI](https://github.com/WebAssembly/WASI) for standard libc
 - The WASM application framework and asynchronized app programming model
 - Supports for micro-service and pub-sub event inter-app communication models
 - Supports remote WASM application management from either host or cloud
@@ -72,7 +72,7 @@ WAMR provides a set of C API for loading the WASM module, instantiating the modu
 The WAMR application framework supports dynamically installing WASM application remotely by embedding the WAMR VM core. It can be used as reference for how to use the embedding API's.
 
 
-## Integrate  WAMR application library
+## Integrate WAMR application library
 
 The WAMR provides an application framework which supports event driven programming model as below:
 

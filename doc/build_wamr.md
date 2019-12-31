@@ -35,7 +35,7 @@ WAMR provides some features which can be easily configured by passing options to
 cmake -DWASM_ENABLE_INTERP=1/0 to enable or disable WASM intepreter
 cmake -DWASM_ENABLE_AOT=1/0 to enable or disable WASM AOT
 cmake -DWASM_ENABLE_JIT=1/0 to enable or disable WASM JIT
-cmake -DWASM_ENABLE_WASI=1/0 enable or disable WASM WASI
+cmake -DWASM_ENABLE_WASI=1/0 enable or disable WASI
 cmake -DBUILD_TARGET=<arch><sub> to set the building target, including:
     X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
     for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5, ARMV5T, THUMBV4T, THUMBV5T and so on.
