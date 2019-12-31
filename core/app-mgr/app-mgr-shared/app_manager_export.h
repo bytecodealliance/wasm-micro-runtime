@@ -115,8 +115,8 @@ typedef module_data *(*module_get_module_data_func)(void *inst);
  *
  * @return true if success, false otherwise
  */
-typedef bool (*module_on_install_request_byte_arrive_func)(uint8 ch,
-        int total_size, int *received_total_size);
+typedef bool (*module_on_install_request_byte_arrive_func) (
+        uint8 ch, int total_size, int *received_total_size);
 
 /* Interfaces of each module */
 typedef struct module_interface {

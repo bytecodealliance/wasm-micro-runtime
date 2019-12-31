@@ -37,6 +37,8 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
 add_definitions(-Wall -Wno-pointer-sign -DMALLOC_MEMORY_FROM_SYSTEM)
+# Add this to make compiler happy
+add_definitions(-DWASM_ENABLE_INTERP=1)
 
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/src

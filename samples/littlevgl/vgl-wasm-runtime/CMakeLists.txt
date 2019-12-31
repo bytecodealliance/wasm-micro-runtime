@@ -12,62 +12,50 @@ if (NOT ("$ENV{VALGRIND}" STREQUAL "YES"))
   add_definitions(-DNVALGRIND)
 endif ()
 
+set (BUILD_AS_64BIT_SUPPORT "YES")
+
 # Set BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 if (NOT DEFINED BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # Build as X86_64 by default in 64-bit platform
-    set (BUILD_TARGET "X86_64")
+    if (BUILD_AS_64BIT_SUPPORT STREQUAL "YES")
+      # Build as X86_64 by default in 64-bit platform
+      set (BUILD_TARGET "X86_64")
+    else ()
+      set (BUILD_TARGET "X86_32")
+    endif ()
   else ()
     # Build as X86_32 by default in 32-bit platform
     set (BUILD_TARGET "X86_32")
   endif ()
 endif ()
 
-string(TOUPPER ${BUILD_TARGET} BUILD_TARGET)
-
-# Add definitions for the build target
-if (BUILD_TARGET STREQUAL "X86_64")
-  add_definitions(-DBUILD_TARGET_X86_64)
-elseif (BUILD_TARGET STREQUAL "AMD_64")
-  add_definitions(-DBUILD_TARGET_AMD_64)
-elseif (BUILD_TARGET STREQUAL "X86_32")
-  add_definitions(-DBUILD_TARGET_X86_32)
-elseif (BUILD_TARGET MATCHES "ARM.*")
-  add_definitions(-DBUILD_TARGET_ARM)
-  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
-elseif (BUILD_TARGET MATCHES "THUMB.*")
-  add_definitions(-DBUILD_TARGET_THUMB)
-  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
-elseif (BUILD_TARGET STREQUAL "MIPS")
-  add_definitions(-DBUILD_TARGET_MIPS)
-elseif (BUILD_TARGET STREQUAL "XTENSA")
-  add_definitions(-DBUILD_TARGET_XTENSA)
-else ()
-  message (FATAL_ERROR "-- Build target isn't set")
-endif ()
-
-message ("-- Build as target ${BUILD_TARGET}")
-
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-  if (BUILD_TARGET STREQUAL "X86_64" OR BUILD_TARGET STREQUAL "AMD_64")
-    # Add -fPIC flag if build as 64-bit
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-    set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
-  else ()
-    add_definitions (-m32)
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
-    set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
-  endif ()
-endif ()
-
 if (NOT CMAKE_BUILD_TYPE)
-SET(CMAKE_BUILD_TYPE Debug)
-endif (NOT CMAKE_BUILD_TYPE)
-message ("-- CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
+  set(CMAKE_BUILD_TYPE Debug)
+endif ()
+
+if (NOT DEFINED WASM_ENABLE_INTERP)
+  # Enable Interpreter by default
+  set (WASM_ENABLE_INTERP 1)
+endif ()
+
+if (NOT DEFINED WASM_ENABLE_AOT)
+  # Enable AOT by default.
+  set (WASM_ENABLE_AOT 1)
+endif ()
+
+if (NOT DEFINED WASM_ENABLE_JIT)
+  # Disable JIT by default.
+  set (WASM_ENABLE_JIT 0)
+endif ()
+
+if (NOT DEFINED WASM_ENABLE_WASI)
+  # Disable WASI support by default
+  set (WASM_ENABLE_WASI 0)
+endif ()
 
 if (NOT PLATFORM)
-SET(PLATFORM linux)
+  set (PLATFORM linux)
 endif (NOT PLATFORM)
 message ("-- PLATFORM = " ${PLATFORM})
 
@@ -79,6 +67,8 @@ set(WASM_DIR  ${REPO_ROOT_DIR}/core/iwasm)
 set(APP_MGR_DIR ${REPO_ROOT_DIR}/core/app-mgr)
 set(SHARED_DIR ${REPO_ROOT_DIR}/core/shared-lib)
 
+# include the build config template file
+include (${REPO_ROOT_DIR}/cmake/config_common.cmake)
 
 enable_language (ASM)
 
@@ -86,6 +76,7 @@ include (${WASM_DIR}/runtime/utils/utils.cmake)
 include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
 include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
 include (${WASM_DIR}/lib/native/libc/wasm_libc.cmake)
+include (${WASM_DIR}/lib/native/libc/wasmtime-wasi-c/wasi.cmake)
 include (${WASM_DIR}/lib/native/extension/sensor/wasm_lib_sensor.cmake)
 include (${WASM_DIR}/lib/native/extension/connection/wasm_lib_conn.cmake)
 include (${WASM_DIR}/lib/native/extension/connection/${TARGET_PLATFORM}/connection_mgr.cmake)
@@ -96,6 +87,10 @@ include (${SHARED_DIR}/platform/${TARGET_PLATFORM}/shared_platform.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/coap/lib_coap.cmake)
+
+if (WASM_ENABLE_AOT EQUAL 1)
+include (${WASM_DIR}/runtime/aot/runtime/aot_runtime.cmake)
+endif ()
 
 include_directories(${SHARED_DIR}/include)
 include_directories(${WASM_DIR}/runtime/platform/include)
@@ -109,6 +104,7 @@ add_library (vmlib
              ${WASM_PLATFORM_LIB_SOURCE}
              ${WASM_UTILS_LIB_SOURCE}
              ${VMCORE_LIB_SOURCE}
+             ${WASI_LIB_SOURCE}
              ${WASM_LIBC_SOURCE}
              ${APP_MGR_SOURCE}
              ${WASM_LIB_BASE_SOURCE}
@@ -120,6 +116,7 @@ add_library (vmlib
              ${UTILS_SHARED_SOURCE}
              ${MEM_ALLOC_SHARED_SOURCE}
              ${NATIVE_INTERFACE_SOURCE}
+             ${AOT_RUNTIME_SOURCE}
             )
 
 add_executable (vgl_wasm_runtime src/platform/${TARGET_PLATFORM}/main.c src/platform/${TARGET_PLATFORM}/iwasm_main.c src/ext_lib_export.c src/platform/${TARGET_PLATFORM}/display_indev.c src/platform/${TARGET_PLATFORM}/mouse.c)

@@ -69,7 +69,7 @@ echo "#####################build wasm apps"
 
 cd ${WASM_APPS}
 
-for i in `ls *.c`
+for i in `ls *.c | grep -v wasi`
 do
 APP_SRC="$i ${APP_LIB_SRC}"
 OUT_FILE=${i%.*}.wasm
@@ -91,4 +91,21 @@ else
         echo "build ${OUT_FILE} fail"
 fi
 done
+
+#build wasi app
+WASI_APP_SRC="wasi.c ${APP_LIB_SRC}"
+/opt/wasi-sdk/bin/clang --target=wasm32-wasi -O3 \
+        -I${APP_LIBS}/base -I${APP_LIBS}/extension/sensor -I${NATIVE_LIBS} \
+        -I${APP_LIBS}/extension/connection \
+        -I${APP_LIBS}/extension/gui \
+        -DENABLE_WGL=1 \
+        -z stack-size=4096 -Wl,--initial-memory=65536 \
+        -Wl,--allow-undefined \
+        -Wl,--export=main \
+        -Wl,--export=on_init -Wl,--export=on_destroy \
+        -Wl,--export=on_request -Wl,--export=on_response \
+        -Wl,--export=on_sensor_event -Wl,--export=on_timer_callback \
+        -Wl,--export=on_connection_data -Wl,--export=on_widget_event \
+        -o ${OUT_DIR}/wasm-apps/wasi.wasm ${WASI_APP_SRC}
+        echo "build wasi.wasm success"
 echo "#####################build wasm apps done"

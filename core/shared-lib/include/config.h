@@ -60,6 +60,32 @@
 #define BEIHAI_ENABLE_NO_SIGNATURE 0
 #endif
 
+#ifndef WASM_ENABLE_INTERP
+#define WASM_ENABLE_INTERP 0
+#endif
+
+#ifndef WASM_ENABLE_AOT
+#define WASM_ENABLE_AOT 0
+#endif
+
+#if (WASM_ENABLE_INTERP == 0) && (WASM_ENABLE_AOT == 0)
+#error "WASM Interpreter and AOT must be enabled at least one"
+#endif
+
+#ifndef WASM_ENABLE_JIT
+#define WASM_ENABLE_JIT 0
+#endif
+
+#if (WASM_ENABLE_AOT == 0) && (WASM_ENABLE_JIT != 0)
+/* JIT can only be enabled when AOT is enabled */
+#undef WASM_ENABLE_JIT
+#define WASM_ENABLE_JIT 0
+#endif
+
+#ifndef WASM_ENABLE_WASI
+#define WASM_ENABLE_WASI 0
+#endif
+
 /* WASM VM log system */
 #ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1

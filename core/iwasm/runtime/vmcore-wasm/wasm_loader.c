@@ -12,6 +12,9 @@
 #include "wasm_memory.h"
 #include "wasm_dlfcn.h"
 #include "bh_common.h"
+#if WASM_ENABLE_AOT != 0
+#include "../aot/runtime/aot_runtime.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -177,7 +180,7 @@ check_utf8_str(const uint8* str, uint32 len)
                the count of leading '1' denotes the total byte count */
             n_bytes = 0;
             while ((chr & 0x80) != 0) {
-                chr <<= 1;
+                chr = (uint8)(chr << 1);
                 n_bytes++;
             }
 
@@ -632,12 +635,19 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                     import->u.function.func_type = module->types[type_index];
 
+                    if (!module->possible_memory_grow
+                        && !strcmp(module_name, "env")
+                        && !(strcmp(field_name, "enlargeMemory")))
+                        module->possible_memory_grow = true;
+
                     if (!(import->u.function.func_ptr_linked =
                                 wasm_native_func_lookup(module_name, field_name))
                         && !(import->u.function.func_ptr_linked =
                                 resolve_sym(module_name, field_name))) {
+#ifndef BUILD_AOT_COMPILER /* Output warning except running aot compiler */
                         LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                                     module_name, field_name);
+#endif
                     }
                     break;
 
@@ -1451,6 +1461,8 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     memset(module, 0, sizeof(WASMModule));
 
+    module->module_type = Wasm_Module_Bytecode;
+
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
 
@@ -1458,8 +1470,12 @@ create_module(char *error_buf, uint32 error_buf_size)
                     (HashFunc)wasm_string_hash,
                     (KeyEqualFunc)wasm_string_equal,
                     NULL,
-                    wasm_loader_free)))
+                    wasm_loader_free))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: "
+                      "create const string set failed.");
         goto fail;
+    }
 
     return module;
 
@@ -1634,6 +1650,8 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_bu
 
     memset(module, 0, sizeof(WASMModule));
 
+    module->module_type = Wasm_Module_Bytecode;
+
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
 
@@ -1724,14 +1742,25 @@ wasm_runtime_set_wasi_args(WASMModule *module,
                            const char *env_list[], uint32 env_count,
                            const char *argv[], uint32 argc)
 {
-    module->wasi_args.dir_list = dir_list;
-    module->wasi_args.dir_count = dir_count;
-    module->wasi_args.map_dir_list = map_dir_list;
-    module->wasi_args.map_dir_count = map_dir_count;
-    module->wasi_args.env = env_list;
-    module->wasi_args.env_count = env_count;
-    module->wasi_args.argv = argv;
-    module->wasi_args.argc = argc;
+    WASIArguments *wasi_args;
+
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        wasi_args = &((AOTModule*)module)->wasi_args;
+    else
+        wasi_args = &module->wasi_args;
+#else
+    wasi_args = &module->wasi_args;
+#endif
+
+    wasi_args->dir_list = dir_list;
+    wasi_args->dir_count = dir_count;
+    wasi_args->map_dir_list = map_dir_list;
+    wasi_args->map_dir_count = map_dir_count;
+    wasi_args->env = env_list;
+    wasi_args->env_count = env_count;
+    wasi_args->argv = argv;
+    wasi_args->argc = argc;
 }
 #endif
 
@@ -2251,6 +2280,8 @@ push_type(uint8 type, uint8 **p_frame_ref_bottom,
             stack_cell_num++;
             if (stack_cell_num > max_stack_cell_num)
                 max_stack_cell_num = stack_cell_num;
+            goto handle_i32_f32;
+handle_i32_f32:
         case VALUE_TYPE_I32:
         case VALUE_TYPE_F32:
             if (!check_stack_push(p_frame_ref_bottom, p_frame_ref_boundary,
@@ -2671,6 +2702,8 @@ handle_next_reachable_block:
 
                 if (func_type->result_count)
                     PUSH_TYPE(func_type->types[func_type->param_count]);
+
+                func->has_op_func_call = true;
                 break;
             }
 
@@ -2715,6 +2748,8 @@ handle_next_reachable_block:
                 }
 
                 PUSH_TYPE(func_type->types[func_type->param_count]);
+
+                func->has_op_func_call = true;
                 break;
             }
 
@@ -2938,6 +2973,9 @@ handle_next_reachable_block:
                 }
                 POP_I32();
                 PUSH_I32();
+
+                func->has_op_memory_grow = true;
+                module->possible_memory_grow = true;
                 break;
 
             case WASM_OP_I32_CONST:

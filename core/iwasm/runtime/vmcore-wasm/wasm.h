@@ -19,7 +19,9 @@ extern "C" {
 #define VALUE_TYPE_I64 0X7E
 #define VALUE_TYPE_F32 0x7D
 #define VALUE_TYPE_F64 0x7C
-#define VALUE_TYPE_VOID 0x00
+#define VALUE_TYPE_VOID 0x40
+/* Used by AOT */
+#define VALUE_TYPE_I1  0x41
 
 /* Table Element Type */
 #define TABLE_ELEM_TYPE_ANY_FUNC 0x70
@@ -171,6 +173,11 @@ typedef struct WASMFunction {
     uint8 *local_types;
     uint32 max_stack_cell_num;
     uint32 max_block_num;
+    /* Whether function has opcode memory.grow */
+    bool has_op_memory_grow;
+    /* Whether function has opcode call or
+       call_indirect */
+    bool has_op_func_call;
     uint32 code_size;
     uint8 *code;
 } WASMFunction;
@@ -224,6 +231,13 @@ typedef struct WASIArguments {
 #endif
 
 typedef struct WASMModule {
+    /* Module type, for module loaded from WASM bytecode binary,
+       this field is Wasm_Module_Bytecode;
+       for module loaded from AOT file, this field is
+       Wasm_Module_AoT, and this structure should be treated as
+       AOTModule structure. */
+    uint32 module_type;
+
     uint32 type_count;
     uint32 import_count;
     uint32 function_count;
@@ -254,6 +268,10 @@ typedef struct WASMModule {
     WASMTableSeg *table_segments;
     WASMDataSeg **data_segments;
     uint32 start_function;
+
+    /* Whether there is possible memory grow, e.g.
+       memory.grow opcode or call enlargeMemory */
+    bool possible_memory_grow;
 
     HashMap *const_str_set;
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];

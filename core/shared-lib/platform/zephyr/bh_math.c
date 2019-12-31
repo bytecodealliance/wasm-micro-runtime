@@ -96,6 +96,24 @@ typedef union {
     } bits;
 } IEEEd2bits_B;
 
+typedef union {
+    float   f;
+    struct {
+        unsigned int    man :23;
+        unsigned int    exp :8;
+        unsigned int    sign    :1;
+    } bits;
+} IEEEf2bits_L;
+
+typedef union {
+    float   f;
+    struct {
+        unsigned int    sign    :1;
+        unsigned int    exp :8;
+        unsigned int    man :23;
+    } bits;
+} IEEEf2bits_B;
+
 static union {
     int a;
     char b;
@@ -181,6 +199,33 @@ static union {
             sh_u.parts.msw = (v);						\
             (d) = sh_u.value;						\
         } while (0)
+
+/*
+ * A union which permits us to convert between a float and a 32 bit
+ * int.
+ */
+typedef union
+{
+    float value;
+    /* FIXME: Assumes 32 bit int.  */
+    unsigned int word;
+} ieee_float_shape_type;
+
+/* Get a 32 bit int from a float.  */
+#define GET_FLOAT_WORD(i,d)                 \
+    do {                                    \
+        ieee_float_shape_type gf_u;         \
+        gf_u.value = (d);                   \
+        (i) = gf_u.word;                    \
+    } while (0)
+
+/* Set a float from a 32 bit int.  */
+#define SET_FLOAT_WORD(d,i)                 \
+    do {                                    \
+        ieee_float_shape_type sf_u;         \
+        sf_u.word = (i);                    \
+        (d) = sf_u.value;                   \
+    } while (0)
 
 /* Macro wrappers.  */
 #define EXTRACT_WORDS(ix0,ix1,d) do {   \
@@ -533,6 +578,201 @@ static double freebsd_fabs(double x)
     return x;
 }
 
+static const float huge_f = 1.0e30F;
+
+static const float
+TWO23[2]={
+    8.3886080000e+06, /* 0x4b000000 */
+    -8.3886080000e+06, /* 0xcb000000 */
+};
+
+static float
+freebsd_truncf(float x)
+{
+    int32_t i0,j0;
+    u_int32_t i;
+    GET_FLOAT_WORD(i0,x);
+    j0 = ((i0>>23)&0xff)-0x7f;
+    if(j0<23) {
+        if(j0<0) {  /* raise inexact if x != 0 */
+            if(huge_f+x>0.0F)     /* |x|<1, so return 0*sign(x) */
+                i0 &= 0x80000000;
+        } else {
+            i = (0x007fffff)>>j0;
+            if((i0&i)==0) return x; /* x is integral */
+            if(huge_f+x>0.0F)     /* raise inexact flag */
+                i0 &= (~i);
+        }
+    } else {
+        if(j0==0x80) return x+x;    /* inf or NaN */
+        else return x;      /* x is integral */
+    }
+    SET_FLOAT_WORD(x,i0);
+    return x;
+}
+
+static float
+freebsd_rintf(float x)
+{
+    int32_t i0,j0,sx;
+    float w,t;
+    GET_FLOAT_WORD(i0,x);
+    sx = (i0>>31)&1;
+    j0 = ((i0>>23)&0xff)-0x7f;
+    if(j0<23) {
+        if(j0<0) {
+            if((i0&0x7fffffff)==0) return x;
+            STRICT_ASSIGN(float,w,TWO23[sx]+x);
+            t =  w-TWO23[sx];
+            GET_FLOAT_WORD(i0,t);
+            SET_FLOAT_WORD(t,(i0&0x7fffffff)|(sx<<31));
+            return t;
+        }
+        STRICT_ASSIGN(float,w,TWO23[sx]+x);
+        return w-TWO23[sx];
+    }
+    if(j0==0x80) return x+x;    /* inf or NaN */
+    else return x;          /* x is integral */
+}
+
+static float
+freebsd_ceilf(float x)
+{
+    int32_t i0,j0;
+    u_int32_t i;
+
+    GET_FLOAT_WORD(i0,x);
+    j0 = ((i0>>23)&0xff)-0x7f;
+    if(j0<23) {
+        if(j0<0) {  /* raise inexact if x != 0 */
+            if(huge_f+x>(float)0.0) {/* return 0*sign(x) if |x|<1 */
+                if(i0<0) {i0=0x80000000;}
+                else if(i0!=0) { i0=0x3f800000;}
+            }
+        } else {
+            i = (0x007fffff)>>j0;
+            if((i0&i)==0) return x; /* x is integral */
+            if(huge_f+x>(float)0.0) { /* raise inexact flag */
+                if(i0>0) i0 += (0x00800000)>>j0;
+                i0 &= (~i);
+            }
+        }
+    } else {
+        if(j0==0x80) return x+x;    /* inf or NaN */
+        else return x;      /* x is integral */
+    }
+    SET_FLOAT_WORD(x,i0);
+    return x;
+}
+
+static float
+freebsd_floorf(float x)
+{
+    int32_t i0,j0;
+    u_int32_t i;
+    GET_FLOAT_WORD(i0,x);
+    j0 = ((i0>>23)&0xff)-0x7f;
+    if(j0<23) {
+        if(j0<0) {  /* raise inexact if x != 0 */
+            if(huge_f+x>(float)0.0) {/* return 0*sign(x) if |x|<1 */
+                if(i0>=0) {i0=0;}
+                else if((i0&0x7fffffff)!=0)
+                { i0=0xbf800000;}
+            }
+        } else {
+            i = (0x007fffff)>>j0;
+            if((i0&i)==0) return x; /* x is integral */
+            if(huge_f+x>(float)0.0) { /* raise inexact flag */
+                if(i0<0) i0 += (0x00800000)>>j0;
+                i0 &= (~i);
+            }
+        }
+    } else {
+        if(j0==0x80) return x+x;    /* inf or NaN */
+        else return x;      /* x is integral */
+    }
+    SET_FLOAT_WORD(x,i0);
+    return x;
+}
+
+static float
+freebsd_fminf(float x, float y)
+{
+    if (is_little_endian()) {
+        IEEEf2bits_L u[2];
+
+        u[0].f = x;
+        u[1].f = y;
+
+        /* Check for NaNs to avoid raising spurious exceptions. */
+        if (u[0].bits.exp == 255 && u[0].bits.man != 0)
+            return (y);
+        if (u[1].bits.exp == 255 && u[1].bits.man != 0)
+            return (x);
+
+        /* Handle comparisons of signed zeroes. */
+        if (u[0].bits.sign != u[1].bits.sign)
+            return (u[u[1].bits.sign].f);
+    }
+    else {
+        IEEEf2bits_B u[2];
+
+        u[0].f = x;
+        u[1].f = y;
+
+        /* Check for NaNs to avoid raising spurious exceptions. */
+        if (u[0].bits.exp == 255 && u[0].bits.man != 0)
+            return (y);
+        if (u[1].bits.exp == 255 && u[1].bits.man != 0)
+            return (x);
+
+        /* Handle comparisons of signed zeroes. */
+        if (u[0].bits.sign != u[1].bits.sign)
+            return (u[u[1].bits.sign].f);
+    }
+
+    return (x < y ? x : y);
+}
+
+static float
+freebsd_fmaxf(float x, float y)
+{
+    if (is_little_endian()) {
+        IEEEf2bits_L u[2];
+
+        u[0].f = x;
+        u[1].f = y;
+
+        /* Check for NaNs to avoid raising spurious exceptions. */
+        if (u[0].bits.exp == 255 && u[0].bits.man != 0)
+            return (y);
+        if (u[1].bits.exp == 255 && u[1].bits.man != 0)
+            return (x);
+
+        /* Handle comparisons of signed zeroes. */
+        if (u[0].bits.sign != u[1].bits.sign)
+            return (u[u[0].bits.sign].f);
+    }
+    else {
+        IEEEf2bits_B u[2];
+
+        u[0].f = x;
+        u[1].f = y;
+
+        /* Check for NaNs to avoid raising spurious exceptions. */
+        if (u[0].bits.exp == 255 && u[0].bits.man != 0)
+            return (y);
+        if (u[1].bits.exp == 255 && u[1].bits.man != 0)
+            return (x);
+
+        /* Handle comparisons of signed zeroes. */
+        if (u[0].bits.sign != u[1].bits.sign)
+            return (u[u[0].bits.sign].f);
+    }
+
+    return (x > y ? x : y);
+}
+
 double sqrt(double x)
 {
     return freebsd_sqrt(x);
@@ -581,5 +821,41 @@ double trunc(double x)
 int signbit(double x)
 {
     return ((__HI(x) & 0x80000000) >> 31);
+}
+
+float
+truncf(float x)
+{
+    return freebsd_truncf(x);
+}
+
+float
+rintf(float x)
+{
+    return freebsd_rintf(x);
+}
+
+float
+ceilf(float x)
+{
+    return freebsd_ceilf(x);
+}
+
+float
+floorf(float x)
+{
+    return freebsd_floorf(x);
+}
+
+float
+fminf(float x, float y)
+{
+    return freebsd_fminf(x, y);
+}
+
+float
+fmaxf(float x, float y)
+{
+    return freebsd_fmaxf(x, y);
 }
 

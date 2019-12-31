@@ -16,12 +16,30 @@
 #include "wasm_memory.h"
 #include "wasm_platform_log.h"
 #include "bh_common.h"
+#if WASM_ENABLE_AOT != 0
+#include "../aot/runtime/aot_runtime.h"
+#endif
 
 
 static WASMFunctionInstance*
 resolve_main_function(const WASMModuleInstance *module_inst)
 {
     uint32 i;
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance*)module_inst;
+        AOTModule *module = (AOTModule*)aot_inst->aot_module.ptr;
+        for (i = 0; i < module->export_func_count; i++) {
+            if (!strcmp(module->export_funcs[i].func_name, "_main")
+                || !strcmp(module->export_funcs[i].func_name, "main"))
+                return (WASMFunctionInstance*)&module->export_funcs[i];
+        }
+        LOG_ERROR("WASM execute application failed: main function not found.\n");
+        return NULL;
+    }
+#endif
+
     for (i = 0; i < module_inst->export_func_count; i++)
         if (!strcmp(module_inst->export_functions[i].name, "_main")
             || !strcmp(module_inst->export_functions[i].name, "main"))
@@ -56,33 +74,12 @@ check_main_func_type(const WASMType *type)
     return true;
 }
 
-#if WASM_ENABLE_WASI != 0
-static WASMFunctionInstance *
-lookup_wasi_start_function(WASMModuleInstance *module_inst)
-{
-    WASMFunctionInstance *func = NULL;
-    uint32 i;
-    for (i = 0; i < module_inst->export_func_count; i++) {
-        if (!strcmp(module_inst->export_functions[i].name, "_start")) {
-            func = module_inst->export_functions[i].function;
-            if (func->u.func->func_type->param_count != 0
-                || func->u.func->func_type->result_count != 0) {
-                LOG_ERROR("Lookup wasi _start function failed: "
-                          "invalid function type.\n");
-                return NULL;
-            }
-            return func;
-        }
-    }
-    return NULL;
-}
-#endif
-
 bool
 wasm_application_execute_main(WASMModuleInstance *module_inst,
                               int argc, char *argv[])
 {
     WASMFunctionInstance *func;
+    WASMType *func_type;
     uint32 argc1 = 0, argv1[2] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
@@ -91,33 +88,47 @@ wasm_application_execute_main(WASMModuleInstance *module_inst,
     int32 *argv_offsets;
 
 #if WASM_ENABLE_WASI != 0
-    if (module_inst->module->is_wasi_module) {
+    if (wasm_runtime_is_wasi_mode(module_inst)) {
         /* In wasi mode, we should call function named "_start"
            which initializes the wasi envrionment and then calls
            the actual main function. Directly call main function
            may cause exception thrown. */
-        if ((func = lookup_wasi_start_function(module_inst)))
+        if ((func = wasm_runtime_lookup_wasi_start_function(module_inst)))
             return wasm_runtime_call_wasm(module_inst, NULL,
                                           func, 0, NULL);
         /* if no start function is found, we execute
            the main function as normal */
     }
-#endif
+#endif /* end of WASM_ENABLE_WASI */
 
     func = resolve_main_function(module_inst);
-    if (!func || func->is_import_func) {
+    if (!func) {
         wasm_runtime_set_exception(module_inst,
                                    "lookup main function failed.");
         return false;
     }
 
-    if (!check_main_func_type(func->u.func->func_type)) {
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        func_type = ((AOTFunctionInstance*)func)->func_type;
+    else
+#endif
+    {
+        if (func->is_import_func) {
+            wasm_runtime_set_exception(module_inst,
+                                       "lookup main function failed.");
+            return false;
+        }
+        func_type = func->u.func->func_type;
+    }
+
+    if (!check_main_func_type(func_type)) {
         wasm_runtime_set_exception(module_inst,
                                    "invalid function type of main function.");
         return false;
     }
 
-    if (func->u.func->func_type->param_count) {
+    if (func_type->param_count) {
         for (i = 0; i < argc; i++)
             total_argv_size += (uint32)(strlen(argv[i]) + 1);
         total_argv_size = align_uint(total_argv_size, 4);
@@ -154,6 +165,19 @@ static WASMFunctionInstance*
 resolve_function(const WASMModuleInstance *module_inst, char *name)
 {
     uint32 i;
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance*)module_inst;
+        AOTModule *module = (AOTModule*)aot_inst->aot_module.ptr;
+        for (i = 0; i < module->export_func_count; i++) {
+            if (!strcmp(module->export_funcs[i].func_name, name))
+                return (WASMFunctionInstance*)&module->export_funcs[i];
+        }
+        return NULL;
+    }
+#endif
+
     for (i = 0; i < module_inst->export_func_count; i++)
         if (!strcmp(module_inst->export_functions[i].name, name))
             return module_inst->export_functions[i].function;
@@ -222,20 +246,36 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
 
     wasm_assert(argc >= 0);
     func = resolve_function(module_inst, name);
-    if (!func || func->is_import_func) {
+
+    if (!func) {
         snprintf(buf, sizeof(buf), "lookup function %s failed.", name);
         wasm_runtime_set_exception(module_inst, buf);
         goto fail;
     }
 
-    type = func->u.func->func_type;
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        type = ((AOTFunctionInstance*)func)->func_type;
+        argc1 = wasm_type_param_cell_num(type);
+    }
+    else
+#endif
+    {
+        if (func->is_import_func) {
+            snprintf(buf, sizeof(buf), "lookup function %s failed.", name);
+            wasm_runtime_set_exception(module_inst, buf);
+            goto fail;
+        }
+        type = func->u.func->func_type;
+        argc1 = func->param_cell_num;
+    }
+
     if (type->param_count != (uint32)argc) {
         wasm_runtime_set_exception(module_inst,
                                    "invalid input argument count.");
         goto fail;
     }
 
-    argc1 = func->param_cell_num;
     total_size = sizeof(uint32) * (uint64)(argc1 > 2 ? argc1 : 2);
     if (total_size >= UINT32_MAX
         || (!(argv1 = wasm_malloc((uint32)total_size)))) {
@@ -272,7 +312,13 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                 float32 f32 = strtof(argv[i], &endptr);
                 if (isnan(f32)) {
                     if (argv[i][0] == '-') {
-                        f32 = -f32;
+                        union ieee754_float u;
+                        u.f = f32;
+                        if (is_little_endian())
+                            u.ieee.ieee_little_endian.negative = 1;
+                        else
+                            u.ieee.ieee_big_endian.negative = 1;
+                        memcpy(&f32, &u.f, sizeof(float));
                     }
                     if (endptr[0] == ':') {
                         uint32 sig;
@@ -295,7 +341,13 @@ wasm_application_execute_func(WASMModuleInstance *module_inst,
                 u.val = strtod(argv[i], &endptr);
                 if (isnan(u.val)) {
                     if (argv[i][0] == '-') {
-                        u.val = -u.val;
+                        union ieee754_double ud;
+                        ud.d = u.val;
+                        if (is_little_endian())
+                            ud.ieee.ieee_little_endian.negative = 1;
+                        else
+                            ud.ieee.ieee_big_endian.negative = 1;
+                        memcpy(&u.val, &ud.d, sizeof(double));
                     }
                     if (endptr[0] == ':') {
                         uint64 sig;
@@ -448,6 +500,14 @@ wasm_runtime_lookup_function(const WASMModuleInstance *module_inst,
                              const char *signature)
 {
     uint32 i;
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return (WASMFunctionInstance*)
+            aot_lookup_function((const AOTModuleInstance*)module_inst,
+                                name, signature);
+#endif
+
     for (i = 0; i < module_inst->export_func_count; i++)
         if (!strcmp(module_inst->export_functions[i].name, name)
             && check_function_type(

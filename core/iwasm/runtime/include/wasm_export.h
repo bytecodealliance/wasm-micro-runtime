@@ -37,6 +37,8 @@ typedef struct wasm_section {
     uint32_t section_body_size;
 } wasm_section_t, *wasm_section_list_t;
 
+typedef wasm_section_t aot_section_t, *aot_section_list_t;
+
 /* Execution environment, e.g. stack info */
 typedef struct WASMExecEnv {
     uint8_t *stack;
@@ -102,6 +104,21 @@ wasm_module_t
 wasm_runtime_load_from_sections(wasm_section_list_t section_list,
                                 char *error_buf, uint32_t error_buf_size);
 
+#if WASM_ENABLE_AOT != 0
+/**
+ * Load a WASM module from a specified WASM AOT section list.
+ *
+ * @param section_list the section list which contains each section data
+ * @param error_buf output of the exception info
+ * @param error_buf_size the size of the exception string
+ *
+ * @return return WASM module loaded, NULL if failed
+ */
+wasm_module_t
+wasm_runtime_load_from_aot_sections(aot_section_list_t section_list,
+                                    char *error_buf, uint32_t error_buf_size);
+#endif
+
 /**
  * Unload a WASM module.
  *
@@ -117,6 +134,11 @@ wasm_runtime_set_wasi_args(wasm_module_t module,
                            const char *map_dir_list[], uint32_t map_dir_count,
                            const char *env[], uint32_t env_count,
                            char *argv[], int argc);
+bool
+wasm_runtime_is_wasi_mode(wasm_module_inst_t module_inst);
+
+wasm_function_inst_t
+wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
 #endif
 
 /**
@@ -158,25 +180,6 @@ wasm_runtime_set_ext_memory(wasm_module_inst_t module_inst,
 #endif
 
 /**
- * Load WASM module instance from AOT file.
- *
- * @param aot_file the AOT file of a WASM module
- * @param aot_file_size the AOT file size
- * @param heap_size the default heap size of the module instance, a heap will
- *        be created besides the app memory space. Both wasm app and native
- *        function can allocate memory from the heap. If heap_size is 0, the
- *        default heap size will be used.
- * @param error_buf buffer to output the error info if failed
- * @param error_buf_size the size of the error buffer
- *
- * @return the instantiated WASM module instance, NULL if failed
- */
-wasm_module_inst_t
-wasm_runtime_load_aot(uint8_t *aot_file, uint32_t aot_file_size,
-                      uint32_t heap_size,
-                      char *error_buf, uint32_t error_buf_size);
-
-/**
  * Lookup an exported function in the WASM module instance.
  *
  * @param module_inst the module instance
@@ -184,8 +187,7 @@ wasm_runtime_load_aot(uint8_t *aot_file, uint32_t aot_file_size,
  * @param signature the signature of the function, use "i32"/"i64"/"f32"/"f64"
  *        to represent the type of i32/i64/f32/f64, e.g. "(i32i64)" "(i32)f32"
  *
- * @return the function instance found, if the module instance is loaded from
- *         the AOT file, the return value is the function pointer
+ * @return the function instance found
  */
 wasm_function_inst_t
 wasm_runtime_lookup_function(const wasm_module_inst_t module_inst,

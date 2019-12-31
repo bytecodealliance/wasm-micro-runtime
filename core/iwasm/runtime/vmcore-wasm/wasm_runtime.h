@@ -122,9 +122,9 @@ typedef struct WASIContext {
 typedef struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
        WASM bytecode binary, this field is Wasm_Module_Bytecode;
-       for module instance loaded from AOT package, this field is
+       for module instance loaded from AOT file, this field is
        Wasm_Module_AoT, and this structure should be treated as
-       WASMAOTContext structure. */
+       AOTModuleInstance structure. */
     uint32 module_type;
 
     uint32 memory_count;
@@ -147,7 +147,7 @@ typedef struct WASMModuleInstance {
     WASMModule *module;
 
 #if WASM_ENABLE_WASI != 0
-    WASIContext wasi_ctx;
+    WASIContext *wasi_ctx;
 #endif
 
     uint32 DYNAMICTOP_PTR_offset;
@@ -345,6 +345,32 @@ bool
 wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
                            WASMModuleInstance *module_inst,
                            uint32 *argv, uint32 argc, uint32 *ret);
+
+#if WASM_ENABLE_WASI != 0
+bool
+wasm_runtime_init_wasi(WASMModuleInstance *module_inst,
+                       const char *dir_list[], uint32 dir_count,
+                       const char *map_dir_list[], uint32 map_dir_count,
+                       const char *env[], uint32 env_count,
+                       const char *argv[], uint32 argc,
+                       char *error_buf, uint32 error_buf_size);
+
+void
+wasm_runtime_destroy_wasi(WASMModuleInstance *module_inst);
+
+WASIContext *
+wasm_runtime_get_wasi_ctx(WASMModuleInstance *module_inst);
+
+void
+wasm_runtime_set_wasi_ctx(WASMModuleInstance *module_inst,
+                          WASIContext *wasi_ctx);
+
+bool
+wasm_runtime_is_wasi_mode(WASMModuleInstance *module_inst);
+
+WASMFunctionInstance *
+wasm_runtime_lookup_wasi_start_function(WASMModuleInstance *module_inst);
+#endif /* end of WASM_ENABLE_WASI */
 
 #ifdef __cplusplus
 }

@@ -95,10 +95,38 @@ double fmax(double x, double y);
 double rint(double x);
 double fabs(double x);
 double trunc(double x);
+float floorf(float x);
+float ceilf(float x);
+float fminf(float x, float y);
+float fmaxf(float x, float y);
+float rintf(float x);
+float truncf(float x);
 int signbit(double x);
 int isnan(double x);
 
 int bh_platform_init();
+
+/* MMAP mode */
+enum {
+    MMAP_PROT_NONE = 0,
+    MMAP_PROT_READ = 1,
+    MMAP_PROT_WRITE = 2,
+    MMAP_PROT_EXEC = 4
+};
+
+/* MMAP flags */
+enum {
+    MMAP_MAP_NONE = 0,
+    /* Put the mapping into 0 to 2 G, supported only on x86_64 */
+    MMAP_MAP_32BIT = 1,
+    /* Don't interpret addr as a hint: place the mapping at exactly
+       that address. */
+    MMAP_MAP_FIXED = 2
+};
+
+void *bh_mmap(void *hint, unsigned int size, int prot, int flags);
+void bh_munmap(void *addr, uint32 size);
+int bh_mprotect(void *addr, uint32 size, int prot);
 
 #endif /* end of _BH_PLATFORM_H */
 
