@@ -5,8 +5,8 @@ Please follow the instructions below to build the WAMR VM core on different plat
 
 Linux
 -------------------------
-First of all please install library dependencies of lib gcc.
-Use installation commands below for Ubuntu-18.04:
+First of all please install the dependent packages.
+Run command below in Ubuntu-18.04:
 ``` Bash
 sudo apt install build-essential cmake g++-multilib libgcc-8-dev lib32gcc-8-dev
 ```
@@ -38,11 +38,16 @@ cmake -DWASM_ENABLE_JIT=1/0 to enable or disable WASM JIT
 cmake -DWASM_ENABLE_WASI=1/0 enable or disable WASM WASI
 cmake -DBUILD_TARGET=<arch><sub> to set the building target, including:
     X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
-    for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5T, ARMV5T, THUMBV4T, THUMBV5T
+    for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5, ARMV5T, THUMBV4T, THUMBV5T and so on.
+```
 
 For example, if we want to disable interpreter, enable AOT and WASI, we can:
 ``` Bash
 cmake .. -DWASM_ENABLE_INTERP=0 -DWASM_ENABLE_AOT=1 -DWASM_ENABLE_WASI=0
+```
+Or if we want to enable inerpreter, disable AOT and WASI, and build as X86_32, we can:
+``` Bash
+cmake .. -DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_AOT=0 -DWASM_ENABLE_WASI=0 -DBUILD_TARGET=X86_32
 ```
 
 By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
@@ -51,7 +56,7 @@ set to X86_64 or X86_32 depending on the platform's bitwidth.
 To enable WASM JIT, firstly we should build LLVM:
 ``` Bash
 cd core/iwasm/products/linux/
-./build_jit.sh
+./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
 ```
 Then pass option -DWASM_ENABLE_JIT=1 to enable WASM JIT:
 ``` Bash

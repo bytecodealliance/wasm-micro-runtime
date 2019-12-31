@@ -100,7 +100,7 @@ You will get ```test.wasm``` which is the WASM app binary.
 Firstly we should build the WAMR AoT compiler:
 ``` Bash
 cd <wamr_root_dir>/test-tools/aot-compiler
-./build_llvm.sh         (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
+./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
 mkdir build
 cd build
 cmake ..
@@ -112,7 +112,7 @@ Then we can use wamrc to compile WASM app binary to WAMR AoT binary, e.g.
 ``` Bash
 wamrc -o test.aot test.wasm
 ```
-To specify the build target, please use --target=<target> option, e.g.
+To specify the build target, please use --target=<arch-name> option, e.g.
 ``` Bash
 wamrc --target=i386 test.aot test.wasm
 ```
