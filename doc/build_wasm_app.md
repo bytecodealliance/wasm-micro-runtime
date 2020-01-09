@@ -95,12 +95,12 @@ clang-8 --target=wasm32 -O3 \
 
 You will get ```test.wasm``` which is the WASM app binary.
 
-## Use WAMR AoT compiler (wamrc)
+## Use WAMR compiler (wamrc)
 
 Firstly we should build the WAMR AoT compiler:
 ``` Bash
-cd <wamr_root_dir>/test-tools/aot-compiler
-./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
+cd <wamr_root_dir>/wamr-compiler
+./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
 mkdir build
 cd build
 cmake ..
@@ -192,7 +192,7 @@ Run WASM app
 
 Assume you are using Linux, the command to run the test.wasm or test.aot is:
 ``` Bash
-cd iwasm/products/linux/build
+cd iwasm/product-mini/platforms/linux/build
 ./iwasm test.wasm   or
 ./iwasm test.aot
 ```

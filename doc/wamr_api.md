@@ -6,7 +6,7 @@ WAMR APP API includes built-in Libc API's, Base library and Extension library re
 
 
 **Libc API's**<br/>
-This is a minimal set of Libc API's for memory allocation, string manipulation and printing. The header file is located at ```lib/app-libs/libc/lib_base.h```. The current supported API set is listed here:
+This is a minimal set of Libc API's for memory allocation, string manipulation and printing. The header files are located at ```test-tools/toolchain/sysroot```. The current supported API set is listed here:
 ``` C
 void *malloc(size_t size);
 void *calloc(size_t n, size_t size);
@@ -27,7 +27,7 @@ char *strncpy(char *dest, const char *src, unsigned long n);
 ```
 
 **Base library**<br/>
-Basic support for communication, timers, etc is available. You can refer to the header file ```lib/app-libs/base/wasm_app.h``` which contains the definitions for request and response API's, event pub/sub API's and timer API's. Please note that these API's require the native implementations.
+Basic support for communication, timers, etc is available. You can refer to the header files ```core/app-framework/base/app/wa-inc/request.h``` and ```core/app-framework/base/app/wa-inc/timer_wasm_app.h```, which contain the definitions for request and response API's, event pub/sub API's and timer API's. Please note that these API's require the native implementations.
 The API set is listed below:
 ``` C
 typedef void(*request_handler_f)(request_t *) ;
@@ -55,7 +55,7 @@ void api_timer_restart(user_timer_t timer, int interval);
 **Library extension reference**<br/>
 Currently we provide several kinds of extension library for reference including sensor, connection and GUI.
 
-Sensor API: In the header file ```lib/app-libs/extension/sensor/sensor.h```, the API set is defined as below:
+Sensor API: In the header file ```core/app-framework/sensor/app/wa-inc/sensor.h```, the API set is defined as below:
 ``` C
 sensor_t sensor_open(const char* name, int index,
                      void(*on_sensor_event)(sensor_t, attr_container_t *, void *),
@@ -64,7 +64,7 @@ bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
 bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
 bool sensor_close(sensor_t sensor);
 ```
-Connection API: In the header file `lib/app-libs/extension/connection/connection.h.`, the API set is defined as below:
+Connection API: In the header file `core/app-framework/connection/app/wa-inc/connection.h.`, the API set is defined as below:
 ``` C
 /* Connection event type */
 typedef enum {
@@ -87,7 +87,7 @@ void api_close_connection(connection_t *conn);
 int api_send_on_connection(connection_t *conn, const char *data, uint32 len);
 bool api_config_connection(connection_t *conn, attr_container_t *cfg);
 ```
-GUI API: The API's is list in header file ```lib/app-libs/extension/gui/wgl.h``` which is implemented based open soure 2D graphic library [LittlevGL](https://docs.littlevgl.com/en/html/index.html). Currently supported widgets include button, label, list and check box and more wigdet would be provided in future.
+GUI API: The API's is list in header file ```core/app-framework/wgl/app/wa-inc/wgl.h``` which is implemented based open soure 2D graphic library [LittlevGL](https://docs.littlevgl.com/en/html/index.html). Currently supported widgets include button, label, list and check box and more wigdet would be provided in future.
 
 
 Communication programming models
