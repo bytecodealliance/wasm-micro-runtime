@@ -14,7 +14,7 @@ WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with
 Current Features of WAMR
 =========================
 - WASM interpreter, AOT (Ahead of Time Compilation) and JIT (Just in Time Compilation)
-- Provides embedding C API
+- Provides embedding C API's
 - Provides a mechanism for exporting native API's to WASM applications
 - Supports libc for WASM applications in two modes:
     - the built-in libc subset for embedded environment and
@@ -96,7 +96,7 @@ One WAMR build can select a subset from the WAMR application library. Refer to t
 
 When WAMR is integrated into a specific project, it probably includes additional project specific applications APIs which can be either expansion or modification to the standard WAMR application library.
 
-The extended application library should be created in the folder [core/iwasm/lib/app-libs](./core/iwasm/lib/app-libs/). See the [doc/export_native_api.md](./doc/export_native_api.md) for the details.
+The extended application library should be created in the folder [core/app-framework](./core/app-framework). See the [doc/export_native_api.md](./doc/export_native_api.md) for the details.
 
 
 # Create WASM application SDK
@@ -108,7 +108,7 @@ Typically a WASM APP SDK package contains following components:
 
 * **WASI-SDK**: only needed when WASI is enabled in the runtime. It can be a link to the WASI-SDK GitHub or the full offline copy.
 * **sysroot** folder: only needed when WASI is not enabled in the runtime. copied from [test-tools/toolchain/sysroot](./test-tools/toolchain/sysroot)
-* **app-lib** folder: copied from [core/iwasm/lib/app-libs](./core/iwasm/lib/app-libs/)
+* **app-lib** folder: copied from app sub folders of [core/app-framework](./core/app-framework), e.g. [base/app](./core/app-framework/base/app), [sensor/app](./core/app-framework/sensor/app), [connection/app](./core/app-framework/connection/app), and [wgl/app](./core/app-framework/wgl/app)
 * **cmake toolchain** file: copied from [test-tools/toolchain/wamr_toolchain.cmake](./test-tools/toolchain/wamr_toolchain.cmake)
 * optionally with some guide documents and samples
 
@@ -118,7 +118,7 @@ Build WASM applications
 
 WebAssembly as a new binary instruction can be viewed as a virtual architecture. If the WASM application is developed in C/C++ language,  developers can use conventional cross-compilation procedure to build the WASM application.  cmake is the recommended building tool and Clang is the preferred compiler. While emcc may still work but it is not guaranteed.
 
-Refer to [Build WASM applications](doc/build_wasm_app.md) for details.
+Refer to [Build WASM applications](./doc/build_wasm_app.md) for details.
 
 
 Samples and demos

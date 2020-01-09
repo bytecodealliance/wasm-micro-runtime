@@ -21,7 +21,7 @@ sudo dnf install glibc-devel.i686
 
 After installing dependencies, build the source code:
 ``` Bash
-cd core/iwasm/products/linux/
+cd product-mini/platforms/linux/
 mkdir build
 cd build
 cmake ..
@@ -35,7 +35,8 @@ WAMR provides some features which can be easily configured by passing options to
 cmake -DWASM_ENABLE_INTERP=1/0 to enable or disable WASM intepreter
 cmake -DWASM_ENABLE_AOT=1/0 to enable or disable WASM AOT
 cmake -DWASM_ENABLE_JIT=1/0 to enable or disable WASM JIT
-cmake -DWASM_ENABLE_WASI=1/0 enable or disable WASI
+cmake -DWASM_ENABLE_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's
+cmake -DWASM_ENABLE_LIBC_WASI=1/0 enable or disable Libc WASI API's
 cmake -DBUILD_TARGET=<arch><sub> to set the building target, including:
     X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
     for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5, ARMV5T, THUMBV4T, THUMBV5T and so on.
@@ -43,11 +44,11 @@ cmake -DBUILD_TARGET=<arch><sub> to set the building target, including:
 
 For example, if we want to disable interpreter, enable AOT and WASI, we can:
 ``` Bash
-cmake .. -DWASM_ENABLE_INTERP=0 -DWASM_ENABLE_AOT=1 -DWASM_ENABLE_WASI=0
+cmake .. -DWASM_ENABLE_INTERP=0 -DWASM_ENABLE_AOT=1 -DWASM_ENABLE_LIBC_WASI=0
 ```
 Or if we want to enable inerpreter, disable AOT and WASI, and build as X86_32, we can:
 ``` Bash
-cmake .. -DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_AOT=0 -DWASM_ENABLE_WASI=0 -DBUILD_TARGET=X86_32
+cmake .. -DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_AOT=0 -DWASM_ENABLE_LIBC_WASI=0 -DBUILD_TARGET=X86_32
 ```
 
 By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
@@ -55,8 +56,8 @@ set to X86_64 or X86_32 depending on the platform's bitwidth.
 
 To enable WASM JIT, firstly we should build LLVM:
 ``` Bash
-cd core/iwasm/products/linux/
-./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/iwasm/lib/3rdparty/llvm and auto built)
+cd product-mini/platforms/linux/
+./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
 ```
 Then pass option -DWASM_ENABLE_JIT=1 to cmake to enable WASM JIT:
 ``` Bash
@@ -73,7 +74,7 @@ First of all please install the [Intel SGX SDK](https://software.intel.com/en-us
 After installing dependencies, build the source code:
 ``` Bash
 source <SGX_SDK dir>/environment
-cd core/iwasm/products/linux-sgx/
+cd product-mini/platforms/linux-sgx/
 mkdir build
 cd build
 cmake ..
@@ -106,7 +107,7 @@ brew install cmake
 
 Then build the source codes:
 ```
-cd core/iwasm/products/darwin/
+cd product-mini/platforms/darwin/
 mkdir build
 cd build
 cmake ..
@@ -124,7 +125,7 @@ export <vsb_dir_path>/host/vx-compiler/bin:$PATH
 ```
 Now switch to iwasm source tree to build the source code:
 ```
-cd core/iwasm/products/vxworks/
+cd product-mini/platforms/vxworks/
 mkdir build
 cd build
 cmake ..
@@ -144,7 +145,7 @@ WASI
 -------------------------
 On Linux, WASI is enabled by default. To build iwasm without wasi support, pass an option when you run cmake:
 ```
-cmake .. -DWASM_ENABLE_WASI=0
+cmake .. -DWASM_ENABLE_LIBC_WASI=0
 make
 ```
 
@@ -154,7 +155,7 @@ You need to download the Zephyr source code first and embed WAMR into it.
 ``` Bash
 git clone https://github.com/zephyrproject-rtos/zephyr.git
 cd zephyr/samples/
-cp -a <wamr_root_dir>/core/iwasm/products/zephyr/simple .
+cp -a <wamr_root_dir>/product-mini/platforms/zephyr/simple .
 cd simple
 ln -s <wamr_root_dir> wamr
 mkdir build && cd build
@@ -170,9 +171,9 @@ AliOS-Things
    ``` Bash
    git clone https://github.com/alibaba/AliOS-Things.git
    ```
-3. copy <wamr_root_dir>/core/iwasm/products/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
+3. copy <wamr_root_dir>/product-mini/platforms/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
    ``` Bash
-   cp -a <wamr_root_dir>/core/iwasm/products/alios-things middleware/iwasm
+   cp -a <wamr_root_dir>/product-mini/platforms/alios-things middleware/iwasm
    ```
 4. create a link to <wamr_root_dir> in middleware/iwasm/ and rename it to wamr
    ``` Bash
