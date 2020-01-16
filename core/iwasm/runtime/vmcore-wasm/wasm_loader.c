@@ -55,7 +55,7 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
     uint64 byte;
 
     while (true) {
-        CHECK_BUF(buf, buf_end, 1);
+        CHECK_BUF(buf, buf_end, *p_offset + 1);
         byte = buf[*p_offset];
         *p_offset += 1;
         result |= ((byte & 0x7f) << shift);
@@ -1526,7 +1526,7 @@ create_sections(const uint8 *buf, uint32 size,
                 }
                 last_section_type = section_type;
             }
-            CHECK_BUF1(p, p_end, 1);
+            CHECK_BUF1(p, p_end, sizeof(uint32));
             read_leb_uint32(p, p_end, section_size);
             CHECK_BUF1(p, p_end, section_size);
 
