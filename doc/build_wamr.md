@@ -32,14 +32,7 @@ The binary file iwasm will be generated under build folder.
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake:
 ``` Bash
-cmake -DWASM_ENABLE_INTERP=1/0 to enable or disable WASM intepreter
-cmake -DWASM_ENABLE_AOT=1/0 to enable or disable WASM AOT
-cmake -DWASM_ENABLE_JIT=1/0 to enable or disable WASM JIT
-cmake -DWASM_ENABLE_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's
-cmake -DWASM_ENABLE_LIBC_WASI=1/0 enable or disable Libc WASI API's
-cmake -DBUILD_TARGET=<arch><sub> to set the building target, including:
-    X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
-    for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5, ARMV5T, THUMBV4T, THUMBV5T and so on.
+cmake .. -DWASM_ENABLE_WASI=0
 ```
 
 For example, if we want to disable interpreter, enable AOT and WASI, we can:
