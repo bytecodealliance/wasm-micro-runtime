@@ -55,7 +55,15 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
     uint64 byte;
 
     while (true) {
-        CHECK_BUF(buf, buf_end, 1);
+        /* Check if the byte count exteeds the max byte count allowed */
+        if (bcnt + 1 > (maxbits + 6) / 7) {
+            set_error_buf(error_buf, error_buf_size,
+                          "WASM module load failed: "
+                          "integer representation too long");
+            return false;
+        }
+        /* Check buffer */
+        CHECK_BUF(buf, buf_end, *p_offset + 1);
         byte = buf[*p_offset];
         *p_offset += 1;
         result |= ((byte & 0x7f) << shift);
@@ -64,13 +72,6 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
         if ((byte & 0x80) == 0) {
             break;
         }
-    }
-
-    if (bcnt > (maxbits + 6) / 7) {
-        set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
-                      "integer representation too long");
-        return false;
     }
 
     if (!sign && maxbits == 32 && shift >= maxbits) {
