@@ -4,6 +4,7 @@
  */
 
 #include "wasm_app.h"
+#include "wa-inc/timer_wasm_app.h"
 
 /* User global variable */
 static int num = 0;

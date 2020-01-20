@@ -4,6 +4,8 @@
  */
 
 #include "wasm_app.h"
+#include "wa-inc/request.h"
+#include "wa-inc/timer_wasm_app.h"
 
 int num = 0;
 

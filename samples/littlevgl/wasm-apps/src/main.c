@@ -17,6 +17,7 @@
 #include "lvgl/lvgl.h"
 #include "display_indev.h"
 #include "wasm_app.h"
+#include "wa-inc/timer_wasm_app.h"
 /*********************
  *      DEFINES
  *********************/

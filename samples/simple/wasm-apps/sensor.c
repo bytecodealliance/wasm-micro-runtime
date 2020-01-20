@@ -4,6 +4,7 @@
  */
 
 #include "wasm_app.h"
+#include "wa-inc/sensor.h"
 
 static sensor_t sensor = NULL;
 

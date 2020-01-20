@@ -4,6 +4,7 @@
  */
 
 #include "wasm_app.h"
+#include "wa-inc/request.h"
 
 static void my_response_handler(response_t *response, void *user_data)
 {
