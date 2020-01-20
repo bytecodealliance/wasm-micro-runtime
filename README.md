@@ -7,79 +7,77 @@ WebAssembly Micro Runtime
 [BA]: https://bytecodealliance.org/
 
 WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with small footprint. It includes a few parts as below:
-- A WebAssembly VM core (namely iwasm)
-- The supporting API's for the WASM applications
-- A mechanism for dynamic management of the WASM application
+- The "iwasm" VM core, supporting WebAssembly interpreter, ahead of time compilation (AoT) and Just-in-Time compilation (JIT)
 
-Current Features of WAMR
+- The application framework and the supporting API's for the WASM applications
+
+- The dynamic management of the WASM applications
+
+
+
+iwasm VM core
 =========================
-- WASM interpreter, AOT (Ahead of Time Compilation) and JIT (Just in Time Compilation)
-- Provides embedding C API's
-- Provides a mechanism for exporting native API's to WASM applications
-- Supports libc for WASM applications in two modes:
-    - the built-in libc subset for embedded environment and
-    - [WASI](https://github.com/WebAssembly/WASI) for standard libc
-- The WASM application framework and asynchronized app programming model
-- Supports for micro-service and pub-sub event inter-app communication models
-- Supports remote WASM application management from either host or cloud
-- Menu configuration for easy integration of application libraries
 
-Application framework architecture
-===================================
+### key features
 
-By using the iwasm VM core, we are flexible to build different application frameworks for the specific domains.
+- Embeddable with the supporting C API's
+- Small runtime binary size (85K for interpreter and 50K for AoT) and low memory usage
+- Near to native speed by AoT
+- AoT module loader works for both embedded OS and Linux system
+- Choices of WASM application libc support: the built-in libc subset for embedded environment or [WASI](https://github.com/WebAssembly/WASI) for standard libc
+- The mechanism for exporting native API's to WASM applications
 
-The WAMR has offered a comprehensive application framework for device and IoT usages. The framework solves many common requirements for building a real project:
-- Modular design for more language runtimes support
-- Inter application communication
-- Remote application management
-- WASM APP programming model and API extension mechanism
+### Supported architectures and platforms
 
-<img src="./doc/pics/wamr-arch.JPG" width="80%">
+The iwasm supports following architectures:
 
+- X86-64, X86-32
+- ARM, THUMB (interpreter only)
+- MIPS (interpreter only)
+- XTENSA (interpreter only)
 
+Following platforms are supported:
 
-Build WAMR
-==========
-
-## Build WAMR VM core
-
-
-WAMR VM core (iwasm) can support building for different target platforms:
 - [Linux](./doc/build_wamr.md#linux)
 - [Zephyr](./doc/build_wamr.md#zephyr)
 - [MacOS](./doc/build_wamr.md#macos)
 - [VxWorks](./doc/build_wamr.md#vxworks)
 - [AliOS-Things](./doc/build_wamr.md#alios-things)
-- [Intel Software Guard Extention (SGX)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention)
+- [Intel Software Guard Extention (Linux)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention)
 
-See [Build WAMR VM core](./doc/build_wamr.md) for the detailed instructions.
+Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
-## Libc building options
+### Build wamrc AoT compiler
 
-WAMR supports WASI for standard libc library as well as a [built-in libc subset](./doc/wamr_api.md) for tiny footprint.
+Execute following commands to build wamrc compiler:
 
-WASI is supported for following platforms and enabled by default building:
-- Linux
+```shell
+cd wamr-compiler
+./build_llvm.sh
+mkdir build
+cd build
+cmake ..
+make
+```
+
+After build is completed, create a symbolic link **/usr/bin/wamrc** to the generated wamrc.
+
+### Build the mini product
+
+WAMR supports building the iwasm VM core only (no app framework) to the mini product. The WAMR mini product takes the WASM application file name as input, and then executes it. For the detailed procedure, see **[build WAMR VM core](./doc/build_wamr.md)** and **[build and run WASM application](./doc/build_wasm_app.md)**.
+
+### Embed WAMR VM core
+
+WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM function from a native call. For the details, see [embed WAMR VM core](./doc/embed_wamr.md).
 
 
-## Embed WAMR VM core
 
-WAMR can be built into a standalone executable which takes the WASM application file name as input, and then executes it. In some other situations, the WAMR source code is embedded the product code and built into the final product.
+Application framework
+===================================
 
-WAMR provides a set of C API for loading the WASM module, instantiating the module and invoking a WASM function from a native call.  See [Embed WAMR VM core](./doc/embed_wamr.md) for the details.
+By using the iwasm VM core, we are flexible to build different application frameworks for the specific domains, although it would take quite some efforts.
 
-The WAMR application framework supports dynamically installing WASM application remotely by embedding the WAMR VM core. It can be used as reference for how to use the embedding API's.
-
-
-## Integrate WAMR application library
-
-The WAMR provides an application framework which supports event driven programming model as below:
-
-- Single thread per WASM app instance
-- App must implement system callbacks: on_init, on_destroy
-
-Application programming API sets are available as below:
+The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, and the event driven based programming model. Here are the supporting API sets by the [WAMR application library](./doc/wamr_api.md) :
 
 - Timer
 - Micro service (Request/Response) and Pub/Sub inter-app communication
@@ -87,48 +85,61 @@ Application programming API sets are available as below:
 - Connectivity and data transmission
 - 2D graphic UI (based on littlevgl)
 
-See [WAMR application library](./doc/wamr_api.md) for the details.
-
-One WAMR build can select a subset from the WAMR application library. Refer to the sample "simple" for how to integrate API sets into WAMR building.
+Every subfolder under [WAMR application framework](./core/app-framework) folder is a compilation configurable component. The developers can copy the template folder to create new components to the application framework. If a component needs to export native functions to the WASM application, refer to the [export_native_api.md](./doc/export_native_api.md) .
 
 
-## Build WAMR with customized application library
 
-When WAMR is integrated into a specific project, it probably includes additional project specific applications APIs which can be either expansion or modification to the standard WAMR application library.
+# Remote application management
 
-The extended application library should be created in the folder [core/app-framework](./core/app-framework). See the [doc/export_native_api.md](./doc/export_native_api.md) for the details.
+- Remote application management
 
+-
 
-# Create WASM application SDK
-
-When a customized WAMR runtime is shipped with the products, an associated WASM application SDK should be distributed to the application developers in order to develop WASM applications for the product. At the most time, the WASM application SDK should match the version of the runtime distribution.
+<img src="./doc/pics/wamr-arch.JPG" width="80%">
 
 
-Typically a WASM APP SDK package contains following components:
-
-* **WASI-SDK**: only needed when WASI is enabled in the runtime. It can be a link to the WASI-SDK GitHub or the full offline copy.
-* **sysroot** folder: only needed when WASI is not enabled in the runtime. copied from [test-tools/toolchain/sysroot](./test-tools/toolchain/sysroot)
-* **app-lib** folder: copied from app sub folders of [core/app-framework](./core/app-framework), e.g. [base/app](./core/app-framework/base/app), [sensor/app](./core/app-framework/sensor/app), [connection/app](./core/app-framework/connection/app), and [wgl/app](./core/app-framework/wgl/app)
-* **cmake toolchain** file: copied from [test-tools/toolchain/wamr_toolchain.cmake](./test-tools/toolchain/wamr_toolchain.cmake)
-* optionally with some guide documents and samples
 
 
-Build WASM applications
-===================================
 
-WebAssembly as a new binary instruction can be viewed as a virtual architecture. If the WASM application is developed in C/C++ language,  developers can use conventional cross-compilation procedure to build the WASM application.  cmake is the recommended building tool and Clang is the preferred compiler. While emcc may still work but it is not guaranteed.
+WAMR SDK
+==========
 
-Refer to [Build WASM applications](./doc/build_wasm_app.md) for details.
+Note: [WASI-SDK](https://github.com/CraneStation/wasi-sdk/releases) version 7 and above should be installed before building the WAMR SDK.
+
+### Menu configuration for building SDK
+
+Menu configuration is supported for easy integration of runtime components and application libraries for target architecture and platform.
+
+```
+cd wamr-sdk
+./menuconfig.sh
+```
+
+![wamr build menu configuration](./doc/pics/wamr_menu_config.png)
+
+After the menu configuration is finished, the tools **build_sdk** will be invoked to build the WAMR into SDK packages which include both **runtime SDK** for embedding by your project software and **APP SDK** for developing WASM application. The header files of configured components are automatically copied into the final SDK package.
+
+The tool build_sdk can be also directly executed with predefined configuration arguments, which is how the WAMR sample projects build the SDK.
+
+### Use Runtime SDK
+
+
+
+### Build WASM applications with APP-SDK
+
+WebAssembly as a new binary instruction can be viewed as a virtual architecture. If the WASM application is developed in C/C++ language, developers can use conventional cross-compilation procedure to build the WASM application. Refer to [build WASM applications](./doc/build_wasm_app.md) for details.
+
+
 
 
 Samples and demos
 =================
 
-The WAMR samples are located in folder [./samples](./samples). A sample usually contains the WAMR runtime build, WASM applications and test tools. The WARM provides following samples:
-- [Simple](./samples/simple/README.md): The runtime is integrated with most of the WAMR APP libaries and multiple WASM applications are provided for using different WASM API set.
-- [littlevgl](./samples/littlevgl/README.md): Demostrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/littlevgl/) 2D user graphic library and the UI application is built into WASM application.
-- [gui](./samples/gui/README.md): Moved the [LittlevGL](https://github.com/littlevgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API.
-- [IoT-APP-Store-Demo](./test-tools/IoT-APP-Store-Demo/README.md): A web site for demostrating a WASM APP store usage where we can remotely install and uninstall WASM application on remote devices.
+The WAMR samples are located in folder [samples](./samples). :
+- **[Simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libaries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
+- **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/littlevgl/) 2D user graphic library and the UI application is built into WASM application. It uses **WASI libc** and executes apps in **AoT mode** by default.
+- **[gui](./samples/gui/README.md)**: Moved the [LittlevGL](https://github.com/littlevgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.
+- **[IoT-APP-Store-Demo](./test-tools/IoT-APP-Store-Demo/README.md)**: A web site for demostrating a WASM APP store usage where we can remotely install and uninstall WASM application on remote devices.
 
 
 The graphic user interface demo photo:
