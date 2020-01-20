@@ -113,6 +113,8 @@ cd build
 cmake ..
 make
 ```
+Note:
+WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in MacOS, interpreter, AoT, and builtin libc are enabled by default.
 
 VxWorks
 -------------------------
@@ -141,13 +143,8 @@ Copy the generated iwasm executable, the test WASM binary as well as the needed
 shared libraries (libc.so.1, libllvm.so.1 or libgnu.so.1 depending on the VSB,
 libunix.so.1) to a supported file system (eg: romfs).
 
-WASI
--------------------------
-On Linux, WASI is enabled by default. To build iwasm without wasi support, pass an option when you run cmake:
-```
-cmake .. -DWAMR_BUILD_LIBC_WASI=0
-make
-```
+Note:
+WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in VxWorks, interpreter and builtin libc are enabled by default.
 
 Zephyr
 -------------------------
@@ -163,6 +160,9 @@ source ../../../zephyr-env.sh
 cmake -GNinja -DBOARD=qemu_x86_nommu ..
 ninja
 ```
+Note:
+WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
+
 
 AliOS-Things
 -------------------------
