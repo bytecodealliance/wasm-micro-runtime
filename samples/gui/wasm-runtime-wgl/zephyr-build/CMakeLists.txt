@@ -6,80 +6,91 @@ cmake_minimum_required(VERSION 3.8.2)
 include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
 project(NONE)
 
+set (WAMR_BUILD_PLATFORM "zephyr")
+
 enable_language (ASM)
 
-zephyr_compile_definitions (-DNVALGRIND
-    -D__JLF__
-    -D__ZEPHYR__
-    -DWASM_ENABLE_BASE_LIB
-    -Dattr_container_malloc=bh_malloc
-    -Dattr_container_free=bh_free
-    -DWASM_ENABLE_GUI=1)
+zephyr_compile_definitions (-DWAMR_BUILD_GUI=1)
 
 # Build as THUMB by default
 # change to "ARM[sub]", "THUMB[sub]", "X86_32", "MIPS" or "XTENSA"
 # if we want to support arm_32, x86, mips or xtensa
-if (NOT DEFINED BUILD_TARGET)
-  set (BUILD_TARGET "THUMB")
+if (NOT DEFINED WAMR_BUILD_TARGET)
+  set (WAMR_BUILD_TARGET "THUMB")
 endif ()
 
-string(TOUPPER ${BUILD_TARGET} BUILD_TARGET)
 
-if (BUILD_TARGET STREQUAL "X86_32")
-  add_definitions(-DBUILD_TARGET_X86_32)
-elseif (BUILD_TARGET MATCHES "ARM.*")
-  add_definitions(-DBUILD_TARGET_ARM)
-  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
-elseif (BUILD_TARGET MATCHES "THUMB.*")
-  add_definitions(-DBUILD_TARGET_THUMB)
-  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
-elseif (BUILD_TARGET STREQUAL "MIPS")
-  add_definitions(-DBUILD_TARGET_MIPS)
-elseif (BUILD_TARGET STREQUAL "XTENSA")
-  add_definitions(-DBUILD_TARGET_XTENSA)
-else ()
-  message (FATAL_ERROR "-- Build target isn't set")
+if (NOT DEFINED WAMR_BUILD_INTERP)
+  # Enable Interpreter by default
+  set (WAMR_BUILD_INTERP 1)
 endif ()
 
-message ("-- Build as target ${BUILD_TARGET}")
-
-# Enable AOT by default.
-set (WASM_ENABLE_AOT 1)
-
-if (WASM_ENABLE_AOT EQUAL 1)
-  message ("-- WASM AOT enabled")
-  add_definitions("-DWASM_ENABLE_AOT=1")
-else ()
-  message ("-- WASM AOT disabled")
+if (NOT DEFINED WAMR_BUILD_AOT)
+  # Disable AOT by default.
+  set (WAMR_BUILD_AOT 0)
 endif ()
 
-set (WASM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core/iwasm)
-set (APP_MGR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core/app-mgr)
-set (SHARED_DIR ${WASM_DIR}/../shared-lib)
+if (NOT DEFINED WAMR_BUILD_JIT)
+  # Disable JIT by default.
+  set (WAMR_BUILD_JIT 0)
+endif ()
 
-set (TARGET_PLATFORM "zephyr")
+if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
+  # Enable libc builtin support by default
+  set (WAMR_BUILD_LIBC_BUILTIN 1)
+endif ()
 
-include (${WASM_DIR}/runtime/utils/utils.cmake)
-include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
-include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
-include (${WASM_DIR}/lib/native/libc/wasm_libc.cmake)
-include (${WASM_DIR}/lib/native/extension/sensor/wasm_lib_sensor.cmake)
-include (${WASM_DIR}/lib/native/extension/gui/wasm_lib_gui.cmake)
-include (${WASM_DIR}/lib/native/extension/connection/wasm_lib_conn.cmake)
-include (${WASM_DIR}/lib/native/extension/connection/${TARGET_PLATFORM}/connection_mgr.cmake)
-include (${WASM_DIR}/lib/native-interface/native_interface.cmake)
+if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
+  # Disable libc wasi support by default
+  set (WAMR_BUILD_LIBC_WASI 0)
+endif ()
+
+set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/wamr)
+set (IWASM_DIR  ${WAMR_ROOT_DIR}/core/iwasm)
+set (APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
+set (SHARED_DIR ${WAMR_ROOT_DIR}/core/shared)
+set (APP_FRAMEWORK_DIR ${WAMR_ROOT_DIR}/core/app-framework)
+
+# include the build config template file
+include (${WAMR_ROOT_DIR}/build-scripts/config_common.cmake)
+
+include_directories (${SHARED_DIR}/include
+                     ${IWASM_DIR}/include
+                     ${APP_FRAMEWORK_DIR}/app-native-shared/bi-inc/deps)
+
+include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
+include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
+include (${SHARED_DIR}/utils/shared_utils.cmake)
+if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
+  include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
+endif ()
+if (WAMR_BUILD_LIBC_WASI EQUAL 1)
+  include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
+endif ()
+include (${APP_FRAMEWORK_DIR}/base/native/wasm_lib_base.cmake)
+
+include (${IWASM_DIR}/common/iwasm_common.cmake)
+
+if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
+  include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
+endif ()
+
+if (WAMR_BUILD_AOT EQUAL 1)
+  include (${IWASM_DIR}/aot/iwasm_aot.cmake)
+  if (WAMR_BUILD_JIT EQUAL 1)
+    include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
+  endif ()
+endif ()
+
+include (${APP_FRAMEWORK_DIR}/sensor/native/wasm_lib_sensor.cmake)
+include (${APP_FRAMEWORK_DIR}/wgl/native/wasm_lib_gui.cmake)
+include (${APP_FRAMEWORK_DIR}/connection/native/wasm_lib_conn.cmake)
+include (${APP_FRAMEWORK_DIR}/connection/native/${WAMR_BUILD_PLATFORM}/connection_mgr.cmake)
+include (${APP_FRAMEWORK_DIR}/app-native-shared/native_interface.cmake)
 include (${APP_MGR_DIR}/app-manager/app_mgr.cmake)
 include (${APP_MGR_DIR}/app-mgr-shared/app_mgr_shared.cmake)
-include (${SHARED_DIR}/platform/${TARGET_PLATFORM}/shared_platform.cmake)
-include (${SHARED_DIR}/utils/shared_utils.cmake)
-include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/coap/lib_coap.cmake)
-if (WASM_ENABLE_AOT EQUAL 1)
-include (${WASM_DIR}/core/iwasm/runtime/aot/runtime/aot_runtime.cmake)
-endif ()
 
-
-include_directories(${WASM_DIR}/runtime/platform/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr)
 
@@ -90,22 +101,22 @@ set (LVGL_DRV_SRCS
     )
 
 set (IWASM_SRCS
-     ${WASM_PLATFORM_LIB_SOURCE}
-     ${WASM_UTILS_LIB_SOURCE}
-     ${VMCORE_LIB_SOURCE}
-     ${AOT_RUNTIME_SOURCE}
-     ${WASM_LIBC_SOURCE}
-     ${APP_MGR_SOURCE}
+     ${PLATFORM_SHARED_SOURCE}
+     ${MEM_ALLOC_SHARED_SOURCE}
+     ${UTILS_SHARED_SOURCE}
+     ${LIBC_BUILTIN_SOURCE}
+     ${LIBC_WASI_SOURCE}
+     ${IWASM_COMMON_SOURCE}
+     ${IWASM_INTERP_SOURCE}
+     ${IWASM_AOT_SOURCE}
+     ${IWASM_COMPL_SOURCE}
      ${WASM_LIB_BASE_SOURCE}
-     ${WASM_LIB_EXT_SOURCE}
      ${WASM_LIB_SENSOR_SOURCE}
      ${WASM_LIB_GUI_SOURCE}
      ${WASM_LIB_CONN_SOURCE}
      ${WASM_LIB_CONN_MGR_SOURCE}
-     ${PLATFORM_SHARED_SOURCE}
-     ${UTILS_SHARED_SOURCE}
-     ${MEM_ALLOC_SHARED_SOURCE}
      ${NATIVE_INTERFACE_SOURCE}
+     ${APP_MGR_SOURCE}
     )
 
 target_sources(app PRIVATE

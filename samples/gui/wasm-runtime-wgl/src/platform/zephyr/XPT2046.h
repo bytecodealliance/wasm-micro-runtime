@@ -7,9 +7,6 @@
 #define XPT2046_H
 
 #define USE_XPT2046 1
-#ifndef LV_CONF_INCLUDE_SIMPLE
-#define LV_CONF_INCLUDE_SIMPLE
-#endif
 
 #  define XPT2046_HOR_RES     320
 #  define XPT2046_VER_RES     240
@@ -30,11 +27,7 @@ extern "C" {
 /*********************
  *      INCLUDES
  *********************/
-#ifdef LV_CONF_INCLUDE_SIMPLE
-//#include "lv_drv_conf.h"
-#else
-//#include "../../lv_drv_conf.h"
-#endif
+
 
 #if USE_XPT2046
 #include <autoconf.h>

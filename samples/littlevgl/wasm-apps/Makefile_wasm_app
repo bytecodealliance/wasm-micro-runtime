@@ -1,20 +1,18 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-CC = clang-8
+CC = /opt/wasi-sdk/bin/clang
 LVGL_DIR = ${shell pwd}
-IWASM_DIR=../../../core/iwasm
+SDK_DIR = $(LVGL_DIR)/../../../wamr-sdk/out/littlevgl/app-sdk
+APP_FRAMEWORK_DIR = $(SDK_DIR)/wamr-app-framework
+
 CFLAGS += -O3 \
-	  -DLV_CONF_INCLUDE_SIMPLE=1 \
-	  -I$(LVGL_DIR)/ \
-	  -I$(LVGL_DIR)/lvgl/ \
-	  -I$(LVGL_DIR)/lv_drivers/ \
-	  -I$(LVGL_DIR)/src/ \
-	  -I$(IWASM_DIR)/lib/app-libs/base/ \
-	  -I$(IWASM_DIR)/lib/native-interface/ \
-	  -I$(IWASM_DIR)/lib/app-libs/extension/sensor \
-	  -I$(IWASM_DIR)/lib/app-libs/extension/gui \
-	  -I$(IWASM_DIR)/lib/app-libs/extension/connection
+        -I$(LVGL_DIR) \
+        -I$(LVGL_DIR)/lvgl \
+        -I$(LVGL_DIR)/lv_drivers \
+        -I$(LVGL_DIR)/src \
+        -I$(LVGL_DIR)/../lv_config \
+        -I$(APP_FRAMEWORK_DIR)/include
 
 SRCS += lvgl/lv_draw/lv_draw_line.c lvgl/lv_draw/lv_draw_rbasic.c
 SRCS += lvgl/lv_draw/lv_draw_img.c lvgl/lv_draw/lv_draw_arc.c
@@ -46,12 +44,12 @@ SRCS += lvgl/lv_core/lv_group.c lvgl/lv_core/lv_style.c lvgl/lv_core/lv_indev.c
 SRCS += lvgl/lv_core/lv_vdb.c lvgl/lv_core/lv_obj.c lvgl/lv_core/lv_refr.c
 SRCS += $(LVGL_DIR)/src/main.c
 
-# For app size consideration, not all but necessary app libs are included
-SRCS += $(IWASM_DIR)/lib/app-libs/base/timer.c
-all: 
+all:
 	@$(CC) $(CFLAGS) $(SRCS) \
-    --target=wasm32 -O3 -z stack-size=2048 -Wl,--initial-memory=65536 \
-    -Wl,--allow-undefined \
-    -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
+    -O3 -z stack-size=2048 -Wl,--initial-memory=65536 \
+    -DLV_CONF_INCLUDE_SIMPLE                        \
+    -L$(APP_FRAMEWORK_DIR)/lib -lapp_framework		\
+    -Wl,--allow-undefined                           \
+    -Wl,--no-threads,--strip-all,--no-entry          \
     -Wl,--export=on_init -Wl,--export=on_timer_callback \
     -o ui_app.wasm

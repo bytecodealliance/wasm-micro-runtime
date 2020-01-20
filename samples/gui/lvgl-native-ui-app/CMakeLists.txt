@@ -22,16 +22,18 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
    endif ()
 endif ()
 
-set(THIRDPARTY_DIR ../../../core/iwasm/lib/3rdparty)
-set(LVGL_SOURCE_DIR ${THIRDPARTY_DIR}/lvgl)
-set(LVGL_DRIVER_DIR ${THIRDPARTY_DIR}/lv_drivers)
+set(WAMR_DEPS_DIR ../../../core/deps)
+set(LVGL_SOURCE_DIR ${WAMR_DEPS_DIR}/lvgl)
+set(LVGL_DRIVER_DIR ${WAMR_DEPS_DIR}/lv_drivers)
 
 #################################
 
+add_definitions(-DLV_CONF_INCLUDE_SIMPLE)
+ 
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR})
-INCLUDE_DIRECTORIES(${THIRDPARTY_DIR})
+INCLUDE_DIRECTORIES(${WAMR_DEPS_DIR})
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/../lv_config)
 
-add_definitions (-DLV_CONF_INCLUDE_SIMPLE)
 
 file(GLOB_RECURSE INCLUDES "${LVGL_DRIVER_DIR}/*.h" "${LVGL_SOURCE_DIR}/*.h"  "./*.h" )
 file(GLOB_RECURSE SOURCES  "${LVGL_DRIVER_DIR}/*.c" "${LVGL_SOURCE_DIR}/*.c" )
