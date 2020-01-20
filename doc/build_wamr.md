@@ -32,16 +32,23 @@ The binary file iwasm will be generated under build folder.
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake:
 ``` Bash
-cmake .. -DWASM_ENABLE_WASI=0
+cmake -DWAMR_BUILD_INTERP=1/0 to enable or disable WASM intepreter
+cmake -DWAMR_BUILD_AOT=1/0 to enable or disable WASM AOT
+cmake -DWAMR_BUILD_JIT=1/0 to enable or disable WASM JIT
+cmake -DWAMR_BUILD_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's
+cmake -DWAMR_BUILD_LIBC_WASI=1/0 enable or disable Libc WASI API's
+cmake -DWAMR_BUILD_TARGET=<arch><sub> to set the building target, including:
+    X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
+    for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5, ARMV5T, THUMBV4T, THUMBV5T and so on.
 ```
 
 For example, if we want to disable interpreter, enable AOT and WASI, we can:
 ``` Bash
-cmake .. -DWASM_ENABLE_INTERP=0 -DWASM_ENABLE_AOT=1 -DWASM_ENABLE_LIBC_WASI=0
+cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0
 ```
 Or if we want to enable inerpreter, disable AOT and WASI, and build as X86_32, we can:
 ``` Bash
-cmake .. -DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_AOT=0 -DWASM_ENABLE_LIBC_WASI=0 -DBUILD_TARGET=X86_32
+cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
 ```
 
 By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
@@ -52,11 +59,11 @@ To enable WASM JIT, firstly we should build LLVM:
 cd product-mini/platforms/linux/
 ./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
 ```
-Then pass option -DWASM_ENABLE_JIT=1 to cmake to enable WASM JIT:
+Then pass option -DWAMR_BUILD_JIT=1 to cmake to enable WASM JIT:
 ``` Bash
 mkdir build
 cd build
-cmake .. -DWASM_ENABLE_JIT=1
+cmake .. -DWAMR_BUILD_JIT=1
 make
 ```
 
@@ -138,7 +145,7 @@ WASI
 -------------------------
 On Linux, WASI is enabled by default. To build iwasm without wasi support, pass an option when you run cmake:
 ```
-cmake .. -DWASM_ENABLE_LIBC_WASI=0
+cmake .. -DWAMR_BUILD_LIBC_WASI=0
 make
 ```
 
@@ -199,7 +206,7 @@ AliOS-Things
    For developerkit:
    Modify file middleware/iwasm/aos.mk, patch as:
    ``` C
-   BUILD_TARGET := THUMBV7M
+   WAMR_BUILD_TARGET := THUMBV7M
    ```
 
    ``` Bash

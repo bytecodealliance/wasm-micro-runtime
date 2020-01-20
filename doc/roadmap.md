@@ -3,14 +3,20 @@
 
 
 ## Ahead of time compilation
-Status: under development. The first release is targetted to the end of 2019.
+Completed.
+
+
 
 ## WASI support
-Evaluated solution.
+Completed.
+
+
 
 ## Data serialization
 Evauating using cbor as the default data serialization
 
+
+
 ## Threading
-Not started yet
+Plan: 2020 Q1
 
