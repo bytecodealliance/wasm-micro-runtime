@@ -23,17 +23,22 @@ rm -rf ${OUT_DIR}
 mkdir ${OUT_DIR}
 
 
-cd ${WAMR_DIR}/core/shared-lib/mem-alloc
+cd ${WAMR_DIR}/core/shared/mem-alloc
 if [ ! -d "tlsf" ]; then
     git clone https://github.com/mattconte/tlsf
 fi
 
-cd ${WAMR_DIR}/core/iwasm/lib/3rdparty
+cd ${WAMR_DIR}/core/deps
 if [ ! -d "lvgl" ]; then
         git clone https://github.com/littlevgl/lvgl.git --branch v6.0.1
 fi
 
+echo "##################### 0. build wamr-sdk littlevgl start#####################"
+cd ${WAMR_DIR}/wamr-sdk
+./build_sdk.sh -n littlevgl -x ${PROJECT_DIR}/wamr_config_littlevgl.cmake
+echo "#####################build wamr-sdk littlevgl success"
 
+echo -e "\n\n"
 echo "##################### 1. build native-ui-app start#####################"
 cd $BUILD_DIR
 mkdir -p vgl-native-ui-app
@@ -48,7 +53,7 @@ echo $PWD
 cp  vgl_native_ui_app ${OUT_DIR}
 echo "#####################build native-ui-app success"
 
-
+echo -e "\n\n"
 echo "##################### 2. build littlevgl wasm runtime start#####################"
 cd $BUILD_DIR
 mkdir -p vgl-wasm-runtime
@@ -59,6 +64,7 @@ cp vgl_wasm_runtime ${OUT_DIR}/
 
 echo "##################### build littlevgl wasm runtime end#####################"
 
+echo -e "\n\n"
 echo "#####################build host-tool"
 cd $BUILD_DIR
 mkdir -p host-tool
@@ -72,7 +78,7 @@ fi
 cp host_tool ${OUT_DIR}
 echo "#####################build host-tool success"
 
-
+echo -e "\n\n"
 echo "##################### 3. build wasm ui app start#####################"
 cd ${PROJECT_DIR}/wasm-apps
 if [ ! -d "${PROJECT_DIR}/wasm-apps/lvgl" ]; then
@@ -81,5 +87,7 @@ if [ ! -d "${PROJECT_DIR}/wasm-apps/lvgl" ]; then
     fi
 fi
 ./build_wasm_app.sh
-cp ui_app.wasm ${OUT_DIR}/
+mv ui_app.wasm ${OUT_DIR}/
+mv ui_app_no_wasi.wasm ${OUT_DIR}/
+rm -fr ${PROJECT_DIR}/wasm-apps/lvgl
 echo "#####################  build wasm ui app end#####################"

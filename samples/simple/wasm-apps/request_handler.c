@@ -4,6 +4,7 @@
  */
 
 #include "wasm_app.h"
+#include "wa-inc/request.h"
 
 static void url1_request_handler(request_t *request)
 {

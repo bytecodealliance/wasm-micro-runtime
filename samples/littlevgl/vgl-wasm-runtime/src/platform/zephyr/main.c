@@ -6,12 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bh_platform.h"
-#include "wasm_assert.h"
-#include "wasm_log.h"
-#include "wasm_platform_log.h"
-#include "wasm_thread.h"
+#include "bh_assert.h"
+#include "bh_log.h"
+#include "bh_platform_log.h"
 #include "wasm_export.h"
-#include "wasm_memory.h"
 #include "bh_memory.h"
 extern void display_init(void);
 extern int iwasm_main();

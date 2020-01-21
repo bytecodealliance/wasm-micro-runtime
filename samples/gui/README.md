@@ -1,27 +1,22 @@
-Introduction
+"gui" sample introduction
 ==============
-This sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL) extension. WGL defined a WASM application API set for programming the UI applications. 
+This sample demonstrates that a graphic user interface application in WebAssembly programming with WAMR graphic library(WGL)  which is part of WAMR app-framework. 
 
-WGL implemention is based on [LittlevGL](https://github.com/littlevgl/), an open-source embedded 2d graphic library. Comparing the building the LittlevGL into WASM bytecode in the [littlevgl](../littlevgl) sample, WGL compiled LittlevGL source code into the WAMR runtime and defined a wrapper API for exporting to Webassembly application. These extension API's are listed in: `<wamr_root>/core/iwasm/lib/app-libs/extension/gui/wgl.h`. Currently only a small set of API's  are provided and that would be extended in future.
-
-
-The runtime component supports building target for Linux and Zephyr/STM Nucleo board. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do majority of application validation from desktop environment as long as two runtime distributions support the same set of application interface.
+Compared with the [littlevgl](../littlevgl) sample, WGL compiles LittlevGL source code into the WAMR runtime and defines a set of wrapper API's for exporting to Webassembly application.
 
 
-Below pictures show the WASM application is running on an STM board with an LCD touch panel. When users click the blue button, the WASM application increases the counter, and the latest counter value is displayed on the top banner of the touch panel. The number on top will plus one each second, and the number on the bottom will plus one when clicked.
+Below picture shows the WASM application is running on an STM board with an LCD touch panel.
 
 
 ![WAMR UI SAMPLE](../../doc/pics/vgl_demo2.png "WAMR UI DEMO")
 
-Configure 32 bit or 64 bit build
-==============
-On 64 bit operating system, there is an option to build 32 bit or 64 bit binaries. In file `./lvgl-native-ui-app/CMakeLists.txt` and/or `./wasm-runtime-wgl/linux-build/CMakeLists.txt` , modify the line:
-`set (BUILD_AS_64BIT_SUPPORT "YES")`
- where `YES` means 64 bit build while `NO` means 32 bit build.
+ When users click the blue button, the WASM application increases the counter, and the latest counter value is displayed on the top banner of the touch panel. The number on top will plus one each second, and the number on the bottom will plus one when clicked.
+
+# Test on Linux
 
 Install required SDK and libraries
-==============
-- 32 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `NO`)
+--------------
+- 32 bit SDL(simple directmedia layer) (Note: only necessary when `WAMR_BUILD_TARGET` is set to `X86_32` when building WAMR runtime)
 Use apt-get:
     `sudo apt-get install libsdl2-dev:i386`
 Or download source from www.libsdl.org:
@@ -30,7 +25,7 @@ Or download source from www.libsdl.org:
 make
 sudo make install
 ```
-- 64 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `YES`)
+- 64 bit SDL(simple directmedia layer) (Note: only necessary when `WAMR_BUILD_TARGET` is set to `X86_64` when building WAMR runtime)
 Use apt-get:
     `sudo apt-get install libsdl2-dev`
 Or download source from www.libsdl.org:
@@ -40,16 +35,9 @@ make
 sudo make install
 ```
 
-- Install EMSDK
-```
-    https://emscripten.org/docs/tools_reference/emsdk.html
-```
-
 Build and Run
-==============
+--------------
 
-Linux
---------------------------------
 - Build</br>
 `./build.sh`</br>
     All binaries are in "out", which contains "host_tool", "lvgl_native_ui_app", "ui_app.wasm", "ui_app_lvgl_compatible.wasm" and "wasm_runtime_wgl".
@@ -63,9 +51,12 @@ Linux
 `./host_tool -i ui_app -f ui_app.wasm`</br>
 `./host_tool -i ui_app -f ui_app_lvgl_compatible.wasm`</br>
 
-Zephyr
---------------------------------
-WASM VM and native extension method can be built into Zephyr, Then we can install wasm app into STM32.</br>
+
+
+Test on Zephyr
+================================
+
+We can use a STM32 NUCLEO_F767ZI  board with ILI9341 display and XPT2046 touch screen to run the test. Then use host_tool to remotely install wasm app into STM32.
 - Build WASM VM into Zephyr system</br>
  a. clone zephyr source code</br>
 Refer to Zephyr getting started.</br>
@@ -77,16 +68,15 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
     `cd zephyr/samples/`</br>
     `cp -a <wamr_root>samples/gui/wasm-runtime-wgl wasm-runtime-wgl`</br>
     `cd wasm-runtime-wgl/zephyr_build`</br>
- c. create a link to wamr core</br>
-   ` ln -s <wamr_root>/core core`</br>
+ c. create a link to wamr root dir</br>
+   ` ln -s <wamr_root> wamr`</br>
  d. build source code</br>
     `mkdir build && cd build`</br>
     `source ../../../../zephyr-env.sh`</br>
     `cmake -GNinja -DBOARD=nucleo_f746zg ..`</br>
    ` ninja flash`</br>
 
-- Test on STM32 NUCLEO_F767ZI with ILI9341 Display with XPT2046 touch</br>
-Hardware Connections
+- Hardware Connections
 
 ```
 +-------------------+-+------------------+

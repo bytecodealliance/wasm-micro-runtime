@@ -8,7 +8,7 @@
 #include "bh_queue.h"
 #include "bh_memory.h"
 #include "bh_thread.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "event.h"
 #include "watchdog.h"
 #include "coap_ext.h"
@@ -186,7 +186,8 @@ void release_module(module_data *m_data)
     watchdog_timer_destroy(&m_data->wd_timer);
 
 #ifdef HEAP_ENABLED /* TODO */
-    if(m_data->heap) gc_destroy_for_instance(m_data->heap);
+    if(m_data->heap)
+        gc_destroy_for_instance(m_data->heap);
 #endif
 
     if (m_data->queue)

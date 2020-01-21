@@ -29,17 +29,9 @@
 #include "bh_thread.h"
 #include "bh_memory.h"
 #include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
-#if WASM_ENABLE_GUI != 0
-#include "wgl.h"
-#endif
-
-#if WASM_ENABLE_GUI != 0
-#include "lv_drivers/display/monitor.h"
-#include "lv_drivers/indev/mouse.h"
-#endif
 
 #define MAX 2048
 
@@ -362,7 +354,7 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 
 #endif
 
-static char global_heap_buf[512 * 1024] = { 0 };
+static char global_heap_buf[1024 * 1024] = { 0 };
 
 static void showUsage()
 {
@@ -392,7 +384,7 @@ static bool parse_args(int argc, char *argv[])
 
     while (1) {
         int optIndex = 0;
-        static struct option longOpts[] = { 
+        static struct option longOpts[] = {
 #ifndef CONNECTION_UART
             { "server_mode",    no_argument,       NULL, 's' },
             { "host_address",   required_argument, NULL, 'a' },
@@ -402,10 +394,10 @@ static bool parse_args(int argc, char *argv[])
             { "baudrate",       required_argument, NULL, 'b' },
 #endif
             { "help",           required_argument, NULL, 'h' },
-            { 0, 0, 0, 0 } 
+            { 0, 0, 0, 0 }
         };
 
-        c = getopt_long(argc, argv, "sa:p:u:b:h", longOpts, &optIndex);
+        c = getopt_long(argc, argv, "sa:p:u:b:w:h", longOpts, &optIndex);
         if (c == -1)
             break;
 
@@ -444,40 +436,6 @@ static bool parse_args(int argc, char *argv[])
     return true;
 }
 
-#if WASM_ENABLE_GUI != 0
-/**
- * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
- */
-static void hal_init(void)
-{
-    /* Use the 'monitor' driver which creates window on PC's monitor to simulate a display*/
-    monitor_init();
-
-    /*Create a display buffer*/
-    static lv_disp_buf_t disp_buf1;
-    static lv_color_t buf1_1[480*10];
-    lv_disp_buf_init(&disp_buf1, buf1_1, NULL, 480*10);
-
-    /*Create a display*/
-    lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);            /*Basic initialization*/
-    disp_drv.buffer = &disp_buf1;
-    disp_drv.flush_cb = monitor_flush;
-    //    disp_drv.hor_res = 200;
-    //    disp_drv.ver_res = 100;
-    lv_disp_drv_register(&disp_drv);
-
-    /* Add the mouse as input device
-    * Use the 'mouse' driver which reads the PC's mouse*/
-    mouse_init();
-    lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);          /*Basic initialization*/
-    indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = mouse_read;         /*This function will be called periodically (by the library) to get the mouse position and state*/
-    lv_indev_drv_register(&indev_drv);
-}
-#endif
-
 // Driver function
 int iwasm_main(int argc, char *argv[])
 {
@@ -486,7 +444,11 @@ int iwasm_main(int argc, char *argv[])
     if (!parse_args(argc, argv))
         return -1;
 
+#if 1
     if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
+#else
+    if (bh_memory_init_with_allocator(malloc, free)
+#endif
             != 0) {
         printf("Init global heap failed.\n");
         return -1;
@@ -500,11 +462,6 @@ int iwasm_main(int argc, char *argv[])
         vm_thread_sys_destroy();
         goto fail1;
     }
-
-#if WASM_ENABLE_GUI != 0
-    wgl_init();
-    hal_init();
-#endif
 
     init_sensor_framework();
 
@@ -525,9 +482,6 @@ int iwasm_main(int argc, char *argv[])
 
     exit_wasm_timer();
     exit_sensor_framework();
-#if WASM_ENABLE_GUI != 0
-    wgl_exit();
-#endif
     exit_connection_framework();
 
 fail1:

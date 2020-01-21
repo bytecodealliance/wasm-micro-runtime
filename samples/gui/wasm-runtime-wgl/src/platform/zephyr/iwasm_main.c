@@ -12,7 +12,7 @@
 #include "bh_thread.h"
 #include "bh_memory.h"
 #include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
 #include "display.h"

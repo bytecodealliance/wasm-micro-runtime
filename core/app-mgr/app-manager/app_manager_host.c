@@ -110,12 +110,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
         p[ctx->size_in_phase++] = ch;
 
         if (ctx->size_in_phase == sizeof(ctx->message.payload_size)) {
-#ifndef __ZEPHYR__
             ctx->message.payload_size = ntohl(ctx->message.payload_size);
-#else
-            if (is_little_endian())
-            exchange32((uint8*)&ctx->message.payload_size);
-#endif
             ctx->phase = Phase_Payload;
 
             if (enable_log)
@@ -140,9 +135,9 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
                 return 0;
             }
 
-            if (ctx->message.message_type != INSTALL_WASM_BYTECODE_APP) {
-                ctx->message.payload = (char *) bh_malloc(
-                        ctx->message.payload_size);
+            if (ctx->message.message_type != INSTALL_WASM_APP) {
+                ctx->message.payload =
+                    (char *) bh_malloc(ctx->message.payload_size);
                 if (!ctx->message.payload) {
                     ctx->phase = Phase_Non_Start;
                     return 0;
@@ -155,7 +150,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
 
         return 0;
     } else if (ctx->phase == Phase_Payload) {
-        if (ctx->message.message_type == INSTALL_WASM_BYTECODE_APP) {
+        if (ctx->message.message_type == INSTALL_WASM_APP) {
             int received_size;
             module_on_install_request_byte_arrive_func module_on_install =
                     g_module_interfaces[Module_WASM_App]->module_on_install;
@@ -164,7 +159,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
 
             if (module_on_install != NULL) {
                 if (module_on_install(ch, ctx->message.payload_size,
-                        &received_size)) {
+                                      &received_size)) {
                     if (received_size == ctx->message.payload_size) {
                         /* whole wasm app received */
                         ctx->phase = Phase_Non_Start;
@@ -173,11 +168,13 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
                 } else {
                     /* receive or handle fail */
                     ctx->phase = Phase_Non_Start;
+                    ctx->size_in_phase = 0;
                     return 0;
                 }
                 return 0;
             } else {
                 ctx->phase = Phase_Non_Start;
+                ctx->size_in_phase = 0;
                 return 0;
             }
         } else {
@@ -186,9 +183,8 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
             if (ctx->size_in_phase == ctx->message.payload_size) {
                 ctx->phase = Phase_Non_Start;
                 if (enable_log)
-                    app_manager_printf(
-                            "##On byte arrive: receive end, payload_size is %d.\n",
-                            ctx->message.payload_size);
+                    app_manager_printf("##On byte arrive: receive end, payload_size is %d.\n",
+                                       ctx->message.payload_size);
                 return 1;
             }
             return 0;

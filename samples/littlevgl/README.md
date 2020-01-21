@@ -1,4 +1,4 @@
-Introduction
+"littlevgl" sample introduction
 ==============
 This sample demonstrates that a graphic user interface application in WebAssembly by compiling the LittlevGL, an open-source embedded 2d graphic library into the WASM bytecode.
 
@@ -10,7 +10,7 @@ In this sample, the whole LittlevGL source code is built into the WebAssembly co
         EXPORT_WASM_API(display_fill),
         EXPORT_WASM_API(display_vdb_write),
         EXPORT_WASM_API(display_map),
-        EXPORT_WASM_API(time_get_ms), };
+        EXPORT_WASM_API(time_get_ms),
 
 The runtime component supports building target for Linux and Zephyr/STM Nucleo board. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do majority of application validation from desktop environment as long as two runtime distributions support the same set of application interface.
 
@@ -26,18 +26,12 @@ The number on top will plus one each second, and the number on the bottom will p
 
 The sample also provides the native Linux version of application without the runtime under folder "vgl-native-ui-app". It can help to check differences between the implementations in native and WebAssembly.
 
-
-
-
-Configure 32 bit or 64 bit build
-==============
-On 64 bit operating system, there is an option to build 32 bit or 64 bit binaries. In file `./vgl-native-ui-app/CMakeLists.txt` and/or `./vgl-wasm-runtime/CMakeLists.txt` , modify the line:
-`set (BUILD_AS_64BIT_SUPPORT "YES")`
- where `YES` means 64 bit build while `NO` means 32 bit build.
+Test on Linux
+================================
 
 Install required SDK and libraries
-==============
-- 32 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `NO`)
+--------------
+- 32 bit SDL(simple directmedia layer) (Note: only necessary when `WAMR_BUILD_TARGET` is set to `X86_32` when building WAMR runtime)
 Use apt-get:
     `sudo apt-get install libsdl2-dev:i386`
 Or download source from www.libsdl.org:
@@ -46,7 +40,7 @@ Or download source from www.libsdl.org:
 make
 sudo make install
 ```
-- 64 bit SDL(simple directmedia layer) (Note: only necessary when `BUILD_AS_64BIT_SUPPORT` is set to `YES`)
+- 64 bit SDL(simple directmedia layer) (Note: only necessary when `WAMR_BUILD_TARGET` is set to `X86_64` when building WAMR runtime)
 Use apt-get:
     `sudo apt-get install libsdl2-dev`
 Or download source from www.libsdl.org:
@@ -56,20 +50,13 @@ make
 sudo make install
 ```
 
-- Install EMSDK
-```
-    https://emscripten.org/docs/tools_reference/emsdk.html
-```
-
 
 Build and Run
-==============
+--------------
 
-Linux
---------------------------------
 - Build</br>
 `./build.sh`</br>
-    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "ui_app.wasm" and "vgl_wasm_runtime".
+    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "ui_app.wasm" "ui_app_no_wasi.wasm "and "vgl_wasm_runtime".
 - Run native Linux application</br>
 `./vgl_native_ui_app`</br>
 
@@ -79,9 +66,9 @@ Linux
  Then install wasm APP use host tool.</br>
 `./host_tool -i ui_app -f ui_app.wasm`</br>
 
-Zephyr
---------------------------------
-WASM VM and native extension method can be built into Zephyr, Then we can install wasm app into STM32.</br>
+Test on Zephyr
+================================
+We can use a STM32 NUCLEO_F767ZI  board with ILI9341 display and XPT2046 touch screen to run the test. Then use host_tool to remotely install wasm app into STM32.
 - Build WASM VM into Zephyr system</br>
  a. clone zephyr source code</br>
 Refer to Zephyr getting started.</br>
@@ -93,8 +80,8 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
     `cd zephyr/samples/`</br>
     `cp -a <wamr_root>samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime`</br>
     `cd vgl-wasm-runtime/zephyr_build`</br>
- c. create a link to wamr core</br>
-   ` ln -s <wamr_root>/core core`</br>
+ c. create a link to wamr root dir</br>
+   ` ln -s <wamr_root> wamr`</br>
  d. build source code</br>
     Since ui_app incorporated LittlevGL source code, so it needs more RAM on the device to install the application.
     It is recommended that RAM SIZE not less than 320KB.
@@ -108,8 +95,7 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
     `cmake -GNinja -DBOARD=nucleo_f746zg ..`</br>
    ` ninja flash`</br>
 
-- Test on STM32 NUCLEO_F767ZI with ILI9341 Display with XPT2046 touch</br>
-Hardware Connections
+- Hardware Connections
 
 ```
 +-------------------+-+------------------+
@@ -140,5 +126,6 @@ Hardware Connections
 
 - Install WASM application to Zephyr using host_tool</br>
 First, connect PC and STM32 with UART. Then install to use host_tool.</br>
-`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app.wasm`
+`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_no_wasi.wasm`
+**Note**: WASI is unavailable on zephyr currently, so you have to use the ui_app_no_wasi.wasm which doesn't depend on WASI.
 

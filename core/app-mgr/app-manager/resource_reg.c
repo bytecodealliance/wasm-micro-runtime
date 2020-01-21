@@ -5,10 +5,10 @@
 
 
 #include "native_interface.h"
-#include "shared_utils.h"
 #include "app_manager.h"
 #include "app_manager_export.h"
-#include "attr_container.h"
+#include "bi-inc/shared_utils.h"
+#include "bi-inc/attr_container.h"
 #include "coap_ext.h"
 
 typedef struct _app_res_register {

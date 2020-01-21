@@ -4,6 +4,7 @@
  */
 
 #include "wasm_app.h"
+#include "wa-inc/request.h"
 
 void over_heat_event_handler(request_t *request)
 {

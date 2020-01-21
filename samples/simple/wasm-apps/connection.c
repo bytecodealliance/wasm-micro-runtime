@@ -4,6 +4,9 @@
  */
 
 #include "wasm_app.h"
+#include "wa-inc/connection.h"
+#include "wa-inc/timer_wasm_app.h"
+#include "wa-inc/request.h"
 
 /* User global variable */
 static int num = 0;
@@ -44,7 +47,7 @@ void my_close_handler(request_t * request)
         api_timer_cancel(g_timer);
         api_close_connection(g_conn);
     }
-     
+
     make_response_for_request(request, response);
     set_response(response, DELETED_2_02, 0, NULL, 0);
     api_response_send(response);

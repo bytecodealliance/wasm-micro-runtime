@@ -9,23 +9,23 @@ if (NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Debug)
 endif (NOT CMAKE_BUILD_TYPE)
 
-if (NOT TARGET_PLATFORM)
-  set (TARGET_PLATFORM "linux")
-endif (NOT TARGET_PLATFORM)
+if (NOT WAMR_BUILD_PLATFORM)
+  set (WAMR_BUILD_PLATFORM "linux")
+endif (NOT WAMR_BUILD_PLATFORM)
 
-message ("TARGET_PLATFORM = " ${TARGET_PLATFORM})
+message ("WAMR_BUILD_PLATFORM = " ${WAMR_BUILD_PLATFORM})
 
-set(REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(WASM_DIR  ${REPO_ROOT_DIR}/core/iwasm)
-set(APP_MGR_DIR ${REPO_ROOT_DIR}/core/app-mgr)
-set(SHARED_DIR ${REPO_ROOT_DIR}/core/shared-lib)
+set (REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
+set (IWASM_DIR  ${REPO_ROOT_DIR}/core/iwasm)
+set (APP_MGR_DIR ${REPO_ROOT_DIR}/core/app-mgr)
+set (SHARED_DIR ${REPO_ROOT_DIR}/core/shared)
+set (APP_FRAMEWORK_DIR ${REPO_ROOT_DIR}/core/app-framework)
 #TODO: use soft-plc/tools/iec-runtime/external/cJSON instead
-set(CJSON_DIR ${CMAKE_CURRENT_LIST_DIR}/external/cJSON)
-set(SSG_LIB_DIR ${REPO_ROOT_DIR}/../host-agent/lib)
+set (CJSON_DIR ${CMAKE_CURRENT_LIST_DIR}/external/cJSON)
 
-include (${WASM_DIR}/lib/native-interface/native_interface.cmake)
+include (${APP_FRAMEWORK_DIR}/app-native-shared/native_interface.cmake)
 include (${APP_MGR_DIR}/app-mgr-shared/app_mgr_shared.cmake)
-include (${SHARED_DIR}/platform/${TARGET_PLATFORM}/shared_platform.cmake)
+include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${CJSON_DIR}/cjson.cmake)
@@ -40,7 +40,7 @@ add_definitions(-Wall -Wno-pointer-sign -DMALLOC_MEMORY_FROM_SYSTEM)
 
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/src
-    ${WASM_DIR}/runtime/include
+    ${IWASM_DIR}/include
 )
 
 file (GLOB_RECURSE HOST_TOOL_SRC src/*.c)

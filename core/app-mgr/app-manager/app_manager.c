@@ -8,7 +8,7 @@
 #include "bh_queue.h"
 #include "bh_memory.h"
 #include "bh_thread.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "event.h"
 #include "watchdog.h"
 #include "coap_ext.h"
@@ -214,7 +214,7 @@ void applet_mgt_reqeust_handler(request_t *request, void *unused)
 static int get_module_type(char *kv_str)
 {
     int module_type = -1;
-    char type_str[8] = { 0 };
+    char type_str[16] = { 0 };
 
     find_key_value(kv_str, strlen(kv_str), "type", type_str,
             sizeof(type_str) - 1, '&');
