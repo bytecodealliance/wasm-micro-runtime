@@ -75,7 +75,7 @@ app_manager_startup(&interface);
 #add_definitions (-DCONNECTION_UART)`
 ```
 
-To run the UART based test, uou have to set up a UART hardware connection between host_tool and the simple application. See the help of host_tool for how to specify UART device parameters.
+To run the UART based test, you have to set up a UART hardware connection between host_tool and the simple application. See the help of host_tool for how to specify UART device parameters.
 
 
 Build the sample

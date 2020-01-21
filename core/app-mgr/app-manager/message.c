@@ -6,7 +6,7 @@
 #include "app_manager.h"
 #include "app_manager_host.h"
 #include "event.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "bh_memory.h"
 #include "coap_ext.h"
 

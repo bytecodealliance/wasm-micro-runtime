@@ -56,7 +56,7 @@ Build and Run
 
 - Build</br>
 `./build.sh`</br>
-    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "ui_app.wasm" and "vgl_wasm_runtime".
+    All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "ui_app.wasm" "ui_app_no_wasi.wasm "and "vgl_wasm_runtime".
 - Run native Linux application</br>
 `./vgl_native_ui_app`</br>
 
@@ -126,5 +126,6 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
 
 - Install WASM application to Zephyr using host_tool</br>
 First, connect PC and STM32 with UART. Then install to use host_tool.</br>
-`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app.wasm`
+`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_no_wasi.wasm`
+**Note**: WASI is unavailable on zephyr currently, so you have to use the ui_app_no_wasi.wasm which doesn't depend on WASI.
 

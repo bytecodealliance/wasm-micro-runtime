@@ -9,7 +9,6 @@
 #include "bh_assert.h"
 #include "bh_log.h"
 #include "bh_platform_log.h"
-#include "wasm_thread.h"
 #include "wasm_export.h"
 #include "bh_memory.h"
 
@@ -23,3 +22,7 @@ void main(void)
     }
 }
 
+int time_get_ms()
+{
+    return k_uptime_get_32();
+}

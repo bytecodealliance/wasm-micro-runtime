@@ -59,7 +59,7 @@ fi
 
 echo "#####################build wamr sdk"
 cd ${WAMR_DIR}/wamr-sdk
-./build.sh -n simple -x ${CURR_DIR}/wamr_config_simple.cmake $*
+./build_sdk.sh -n simple -x ${CURR_DIR}/wamr_config_simple.cmake $*
 
 echo "#####################build simple project"
 cd ${CURR_DIR}

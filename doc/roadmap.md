@@ -2,21 +2,22 @@
 # WebAssembly Micro Runtime Roadmap
 
 
-## Ahead of time compilation
-Completed.
-
-
-
-## WASI support
-Completed.
-
-
 
 ## Data serialization
-Evauating using cbor as the default data serialization
+Evaluating using cbor as the default data serialization
+
+No plan yet.
 
 
 
 ## Threading
 Plan: 2020 Q1
+
+
+
+## AssemblyScript Support and API
+
+Currently under evaluation
+
+
 

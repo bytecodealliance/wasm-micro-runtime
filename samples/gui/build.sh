@@ -41,7 +41,7 @@ fi
 echo -e "\n\n"
 echo "##################### 0. build wamr-sdk gui start#####################"
 cd ${WAMR_DIR}/wamr-sdk
-./build.sh -n gui -x ${WAMR_RUNTIME_CFG} -e ${LV_CFG_PATH}
+./build_sdk.sh -n gui -x ${WAMR_RUNTIME_CFG} -e ${LV_CFG_PATH}
 [ $? -eq 0 ] || exit $?
 
 echo "#####################build wamr-sdk success"

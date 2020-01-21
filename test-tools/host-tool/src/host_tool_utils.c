@@ -4,7 +4,7 @@
  */
 
 #include "host_tool_utils.h"
-#include "shared_utils.h"
+#include "bi-inc/shared_utils.h"
 
 #include <time.h>
 #include <sys/stat.h>
