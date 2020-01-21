@@ -17,4 +17,5 @@ if [ ! -d "lvgl" ]; then
     git clone https://github.com/littlevgl/lvgl.git --branch v5.3
 fi
 $makewrap -f Makefile_wasm_app
+$makewrap -f Makefile_wasm_app_no_wasi
 

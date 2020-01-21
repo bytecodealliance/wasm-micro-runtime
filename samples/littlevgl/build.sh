@@ -35,7 +35,7 @@ fi
 
 echo "##################### 0. build wamr-sdk littlevgl start#####################"
 cd ${WAMR_DIR}/wamr-sdk
-./build.sh -n littlevgl -x ${PROJECT_DIR}/wamr_config_littlevgl.cmake
+./build_sdk.sh -n littlevgl -x ${PROJECT_DIR}/wamr_config_littlevgl.cmake
 echo "#####################build wamr-sdk littlevgl success"
 
 echo -e "\n\n"
@@ -88,5 +88,6 @@ if [ ! -d "${PROJECT_DIR}/wasm-apps/lvgl" ]; then
 fi
 ./build_wasm_app.sh
 mv ui_app.wasm ${OUT_DIR}/
+mv ui_app_no_wasi.wasm ${OUT_DIR}/
 rm -fr ${PROJECT_DIR}/wasm-apps/lvgl
 echo "#####################  build wasm ui app end#####################"

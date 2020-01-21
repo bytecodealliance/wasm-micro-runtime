@@ -1,0 +1,89 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+cmake_minimum_required (VERSION 2.8)
+
+project (iwasm)
+
+set (WAMR_BUILD_PLATFORM "linux")
+
+# Reset default linker flags
+set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
+set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
+
+# Set WAMR_BUILD_TARGET, currently values supported:
+# "X86_64", "AMD_64", "X86_32", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+if (NOT DEFINED WAMR_BUILD_TARGET)
+  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Build as X86_64 by default in 64-bit platform
+    set (WAMR_BUILD_TARGET "X86_64")
+  else ()
+    # Build as X86_32 by default in 32-bit platform
+    set (WAMR_BUILD_TARGET "X86_32")
+  endif ()
+endif ()
+
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_INTERP)
+  # Enable Interpreter by default
+  set (WAMR_BUILD_INTERP 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_AOT)
+  # Enable AOT by default.
+  set (WAMR_BUILD_AOT 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_JIT)
+  # Disable JIT by default.
+  set (WAMR_BUILD_JIT 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
+  # Enable libc builtin support by default
+  set (WAMR_BUILD_LIBC_BUILTIN 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
+  # Enable libc wasi support by default
+  set (WAMR_BUILD_LIBC_WASI 1)
+endif ()
+
+set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
+
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
+# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
+if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+endif ()
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
+
+# These flags will lead to about 0.1x ~ 0.25x slower in interpreter mode,
+# but we enable them by default to enhance security
+if (BUILD_TARGET MATCHES "X86_.*" OR BUILD_TARGET STREQUAL "AMD_64")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
+endif ()
+
+add_executable (iwasm main.c ext_lib_export.c)
+
+install (TARGETS iwasm DESTINATION bin)
+
+target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+
+add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+
+install (TARGETS libiwasm DESTINATION lib)
+
+set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
+
+target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+

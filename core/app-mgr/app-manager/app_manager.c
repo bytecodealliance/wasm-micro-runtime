@@ -8,7 +8,7 @@
 #include "bh_queue.h"
 #include "bh_memory.h"
 #include "bh_thread.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "event.h"
 #include "watchdog.h"
 #include "coap_ext.h"

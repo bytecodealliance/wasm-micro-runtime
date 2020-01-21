@@ -10,3 +10,7 @@ file (GLOB_RECURSE source_all ${APP_MGR_SHARED_DIR}/*.c)
 
 set (APP_MGR_SHARED_SOURCE ${source_all})
 
+file (GLOB header
+    ${APP_MGR_SHARED_DIR}/*.h
+)
+LIST (APPEND RUNTIME_LIB_HEADER_LIST ${header})

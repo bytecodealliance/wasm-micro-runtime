@@ -7,7 +7,7 @@
 #define _APP_MANAGER_EXPORT_H_
 
 #include "native_interface.h"
-#include "shared_utils.h"
+#include "bi-inc/shared_utils.h"
 #include "bh_queue.h"
 #include "host_link.h"
 #include "runtime_timer.h"
@@ -281,12 +281,11 @@ send_error_response_to_host(int mid, int code, const char *msg);
  *
  * @return true if success, false otherwise
  */
+bool
+bh_applet_check_permission(const char *perm);
 
 int
 app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size);
-
-bool
-bh_applet_check_permission(const char *perm);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

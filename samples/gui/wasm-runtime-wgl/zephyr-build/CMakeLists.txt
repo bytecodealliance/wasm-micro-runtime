@@ -10,8 +10,6 @@ set (WAMR_BUILD_PLATFORM "zephyr")
 
 enable_language (ASM)
 
-zephyr_compile_definitions (-DWAMR_BUILD_GUI=1)
-
 # Build as THUMB by default
 # change to "ARM[sub]", "THUMB[sub]", "X86_32", "MIPS" or "XTENSA"
 # if we want to support arm_32, x86, mips or xtensa
@@ -45,54 +43,25 @@ if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   set (WAMR_BUILD_LIBC_WASI 0)
 endif ()
 
-set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/wamr)
-set (IWASM_DIR  ${WAMR_ROOT_DIR}/core/iwasm)
-set (APP_MGR_DIR ${WAMR_ROOT_DIR}/core/app-mgr)
-set (SHARED_DIR ${WAMR_ROOT_DIR}/core/shared)
-set (APP_FRAMEWORK_DIR ${WAMR_ROOT_DIR}/core/app-framework)
-
-# include the build config template file
-include (${WAMR_ROOT_DIR}/build-scripts/config_common.cmake)
-
-include_directories (${SHARED_DIR}/include
-                     ${IWASM_DIR}/include
-                     ${APP_FRAMEWORK_DIR}/app-native-shared/bi-inc/deps)
-
-include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
-include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
-include (${SHARED_DIR}/utils/shared_utils.cmake)
-if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
-  include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
-endif ()
-if (WAMR_BUILD_LIBC_WASI EQUAL 1)
-  include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
-endif ()
-include (${APP_FRAMEWORK_DIR}/base/native/wasm_lib_base.cmake)
-
-include (${IWASM_DIR}/common/iwasm_common.cmake)
-
-if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
-  include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
+if (NOT DEFINED WAMR_BUILD_APP_FRAMEWORK)
+  set (WAMR_BUILD_APP_FRAMEWORK 1)
 endif ()
 
-if (WAMR_BUILD_AOT EQUAL 1)
-  include (${IWASM_DIR}/aot/iwasm_aot.cmake)
-  if (WAMR_BUILD_JIT EQUAL 1)
-    include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
-  endif ()
+if (NOT DEFINED WAMR_BUILD_APP_LIST)
+  set (WAMR_BUILD_APP_LIST WAMR_APP_BUILD_ALL)
 endif ()
 
-include (${APP_FRAMEWORK_DIR}/sensor/native/wasm_lib_sensor.cmake)
-include (${APP_FRAMEWORK_DIR}/wgl/native/wasm_lib_gui.cmake)
-include (${APP_FRAMEWORK_DIR}/connection/native/wasm_lib_conn.cmake)
-include (${APP_FRAMEWORK_DIR}/connection/native/${WAMR_BUILD_PLATFORM}/connection_mgr.cmake)
-include (${APP_FRAMEWORK_DIR}/app-native-shared/native_interface.cmake)
-include (${APP_MGR_DIR}/app-manager/app_mgr.cmake)
-include (${APP_MGR_DIR}/app-mgr-shared/app_mgr_shared.cmake)
-include (${SHARED_DIR}/coap/lib_coap.cmake)
+################  wamr runtime settings  ################
+set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wamr)
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+
+################  sample project related  ################
+add_definitions(-DLV_CONF_INCLUDE_SIMPLE)
+add_definitions(-DLV_MEM_CUSTOM=1)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr)
+include_directories(${WAMR_ROOT_DIR}/samples/gui/lv_config)
 
 set (LVGL_DRV_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/display_ili9340_adafruit_1480.c
@@ -100,27 +69,8 @@ set (LVGL_DRV_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/XPT2046.c
     )
 
-set (IWASM_SRCS
-     ${PLATFORM_SHARED_SOURCE}
-     ${MEM_ALLOC_SHARED_SOURCE}
-     ${UTILS_SHARED_SOURCE}
-     ${LIBC_BUILTIN_SOURCE}
-     ${LIBC_WASI_SOURCE}
-     ${IWASM_COMMON_SOURCE}
-     ${IWASM_INTERP_SOURCE}
-     ${IWASM_AOT_SOURCE}
-     ${IWASM_COMPL_SOURCE}
-     ${WASM_LIB_BASE_SOURCE}
-     ${WASM_LIB_SENSOR_SOURCE}
-     ${WASM_LIB_GUI_SOURCE}
-     ${WASM_LIB_CONN_SOURCE}
-     ${WASM_LIB_CONN_MGR_SOURCE}
-     ${NATIVE_INTERFACE_SOURCE}
-     ${APP_MGR_SOURCE}
-    )
-
 target_sources(app PRIVATE
-               ${IWASM_SRCS}
+               ${WAMR_RUNTIME_LIB_SOURCE}
                ${LVGL_DRV_SRCS}
                ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/main.c
                ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/iwasm_main.c

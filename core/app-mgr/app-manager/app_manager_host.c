@@ -110,12 +110,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
         p[ctx->size_in_phase++] = ch;
 
         if (ctx->size_in_phase == sizeof(ctx->message.payload_size)) {
-#ifndef __ZEPHYR__
             ctx->message.payload_size = ntohl(ctx->message.payload_size);
-#else
-            if (is_little_endian())
-            exchange32((uint8*)&ctx->message.payload_size);
-#endif
             ctx->phase = Phase_Payload;
 
             if (enable_log)
@@ -173,11 +168,13 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
                 } else {
                     /* receive or handle fail */
                     ctx->phase = Phase_Non_Start;
+                    ctx->size_in_phase = 0;
                     return 0;
                 }
                 return 0;
             } else {
                 ctx->phase = Phase_Non_Start;
+                ctx->size_in_phase = 0;
                 return 0;
             }
         } else {
@@ -186,9 +183,8 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
             if (ctx->size_in_phase == ctx->message.payload_size) {
                 ctx->phase = Phase_Non_Start;
                 if (enable_log)
-                    app_manager_printf(
-                            "##On byte arrive: receive end, payload_size is %d.\n",
-                            ctx->message.payload_size);
+                    app_manager_printf("##On byte arrive: receive end, payload_size is %d.\n",
+                                       ctx->message.payload_size);
                 return 1;
             }
             return 0;

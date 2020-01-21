@@ -44,7 +44,6 @@
         "iwasm/products/zephyr/sample/src/*.c"
     ],
     "compile_definitions": [
-        "NVALGRIND",
         "__JLF__",
         "__ZEPHYR__"
     ],
