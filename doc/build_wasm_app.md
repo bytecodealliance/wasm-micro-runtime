@@ -94,8 +94,10 @@ Usage: wamrc [options] -o output_file wasm_file
                               Default is host arch, e.g. x86_64
                             <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.
                             Use --target=help to list supported targets
+  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, etc. (default: gnu)
+                            Use --target-abi=help to list all the ABI supported
   --cpu=<cpu>               Set the target CPU (default: host CPU, e.g. skylake)
-                            Use --target=help to list all the CPU supported
+                            Use --cpu=help to list all the CPU supported
   --cpu-features=<features> Enable or disable the CPU features
                             Use +feature to enable a feature, or -feature to disable it
                             For example, --cpu-features=+feature1,-feature2
