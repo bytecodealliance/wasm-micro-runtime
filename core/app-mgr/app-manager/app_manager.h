@@ -12,17 +12,14 @@
 #include "bh_types.h"
 #include "app_manager_export.h"
 #include "native_interface.h"
-#include "shared_utils.h"
+#include "bi-inc/shared_utils.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef __ZEPHYR__
-#define app_manager_printf printf
-#else
-#define app_manager_printf printk
-#endif
+/* bh_printf is defined in each platform */
+#define app_manager_printf bh_printf
 
 #define SEND_ERR_RESPONSE(mid, err_msg) do {                            \
   app_manager_printf("%s\n", err_msg);                                  \
@@ -78,11 +75,6 @@ app_manager_signature_verify(const uint8_t *file, unsigned int file_len,
         const uint8_t *signature, unsigned int sig_size);
 
 void targeted_app_request_handler(request_t *request, void *unused);
-
-#if BEIHAI_ENABLE_TOOL_AGENT != 0
-void *
-app_manager_get_tool_agent_queue();
-#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */

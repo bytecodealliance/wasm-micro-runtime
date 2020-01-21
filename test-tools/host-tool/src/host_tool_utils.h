@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "cJSON.h"
 
 /**

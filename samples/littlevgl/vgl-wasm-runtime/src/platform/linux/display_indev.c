@@ -9,6 +9,7 @@
 #include "SDL2/SDL.h"
 #include "sys/time.h"
 #include "wasm_export.h"
+#include "app_manager_export.h"
 
 #define MONITOR_HOR_RES 320
 #define MONITOR_VER_RES 240
@@ -23,7 +24,7 @@ void monitor_sdl_clean_up(void);
 static uint32_t tft_fb[MONITOR_HOR_RES * MONITOR_VER_RES];
 
 int
-time_get_ms(wasm_module_inst_t module_inst)
+time_get_ms(wasm_exec_env_t exec_env)
 {
     static struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -146,15 +147,16 @@ void monitor_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
 
 void
-display_init(wasm_module_inst_t module_inst)
+display_init(wasm_exec_env_t exec_env)
 {
 }
 
 void
-display_flush(wasm_module_inst_t module_inst,
+display_flush(wasm_exec_env_t exec_env,
               int32_t x1, int32_t y1, int32_t x2, int32_t y2,
               int32 color_p_offset)
 {
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
         return;
     lv_color_t * color_p = wasm_runtime_addr_app_to_native(module_inst,
@@ -164,7 +166,7 @@ display_flush(wasm_module_inst_t module_inst,
 }
 
 void
-display_fill(wasm_module_inst_t module_inst,
+display_fill(wasm_exec_env_t exec_env,
              int32_t x1, int32_t y1, int32_t x2, int32_t y2,
              lv_color_t color_p)
 {
@@ -172,7 +174,7 @@ display_fill(wasm_module_inst_t module_inst,
 }
 
 void
-display_map(wasm_module_inst_t module_inst,
+display_map(wasm_exec_env_t exec_env,
             int32_t x1, int32_t y1, int32_t x2, int32_t y2,
             const lv_color_t * color_p)
 {
@@ -180,9 +182,10 @@ display_map(wasm_module_inst_t module_inst,
 }
 
 bool
-display_input_read(wasm_module_inst_t module_inst,
+display_input_read(wasm_exec_env_t exec_env,
                    int32 data_p_offset)
 {
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     bool ret;
     if (!wasm_runtime_validate_app_addr(module_inst, data_p_offset, 1))
         return false;
@@ -209,15 +212,16 @@ display_input_read(wasm_module_inst_t module_inst,
 }
 
 void
-display_deinit(wasm_module_inst_t module_inst)
+display_deinit(wasm_exec_env_t exec_env)
 {
 }
 
 void
-display_vdb_write(wasm_module_inst_t module_inst,
+display_vdb_write(wasm_exec_env_t exec_env,
                   int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
                   lv_coord_t y, int32 color_p_offset, lv_opa_t opa)
 {
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
         return;
     lv_color_t *color = wasm_runtime_addr_app_to_native(module_inst,

@@ -1,27 +1,29 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-CC = clang-8
+CC = /opt/wasi-sdk/bin/clang
 APP_DIR = ${shell pwd}
-IWASM_DIR=../../../../core/iwasm
+IWASM_DIR = ../../../../core/iwasm
+APP_FRAMEWORK_DIR = ../../../../core/app-framework
+DEPS_DIR = ../../../../core/deps
+
 CFLAGS += -O3 \
 	  -Wno-int-conversion \
-	  -DLV_CONF_INCLUDE_SIMPLE \
-	  -DENABLE_WGL=1 \
-	  -I$(APP_DIR)/src/ \
-	  -I$(IWASM_DIR)/lib/app-libs/base/ \
-	  -I$(IWASM_DIR)/lib/native-interface/ \
-	  -I$(IWASM_DIR)/lib/app-libs/extension/sensor \
-	  -I$(IWASM_DIR)/lib/app-libs/extension/gui \
-	  -I$(IWASM_DIR)/lib/app-libs/extension/connection
+	  -I$(APP_DIR)/src \
+	  -I$(APP_FRAMEWORK_DIR)/base/app \
+	  -I$(APP_FRAMEWORK_DIR)/app-native-shared \
+	  -I$(APP_FRAMEWORK_DIR)/sensor/app \
+	  -I$(APP_FRAMEWORK_DIR)/wgl/app \
+	  -I$(APP_FRAMEWORK_DIR)/connection/app \
+	  -I${DEPS_DIR}
 
 SRCS += $(APP_DIR)/src/main.c
 
 # For app size consideration, not all but necessary app libs are included
-SRCS += $(IWASM_DIR)/lib/app-libs/base/timer.c
-SRCS += $(IWASM_DIR)/lib/app-libs/extension/gui/src/*.c
+SRCS += $(APP_FRAMEWORK_DIR)/base/app/timer.c
+SRCS += $(APP_FRAMEWORK_DIR)/wgl/app/src/*.c
 
-all: 
+all:
 	@$(CC) $(CFLAGS) $(SRCS) \
     --target=wasm32 -O3 -z stack-size=2048 -Wl,--initial-memory=65536 \
     -Wl,--allow-undefined \

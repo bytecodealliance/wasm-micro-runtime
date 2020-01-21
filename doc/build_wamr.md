@@ -1,14 +1,18 @@
 
-Build WAMR Core
+Build WAMR core (iwasm)
 =========================
-Please follow the instructions below to build the WAMR core on different platforms.
+Please follow the instructions below to build the WAMR VM core on different platforms.
 
 Linux
 -------------------------
-First of all please install library dependencies of lib gcc.
-Use installation commands below for Ubuntu Linux:
+First of all please install the dependent packages.
+Run command below in Ubuntu-18.04:
 ``` Bash
-sudo apt install lib32gcc-5-dev g++-multilib
+sudo apt install build-essential cmake g++-multilib libgcc-8-dev lib32gcc-8-dev
+```
+Or in Ubuntu-16.04:
+``` Bash
+sudo apt install build-essential cmake g++-multilib libgcc-5-dev lib32gcc-5-dev
 ```
 Or in Fedora:
 ``` Bash
@@ -17,32 +21,60 @@ sudo dnf install glibc-devel.i686
 
 After installing dependencies, build the source code:
 ``` Bash
-cd core/iwasm/products/linux/
+cd product-mini/platforms/linux/
 mkdir build
 cd build
 cmake ..
 make
 ```
+The binary file iwasm will be generated under build folder.
+
 Note:
-The WASI feature is enabled by default, if we want to disable it, please run:
+WAMR provides some features which can be easily configured by passing options to cmake:
 ``` Bash
-cmake .. -DWASM_ENABLE_WASI=0
+cmake -DWAMR_BUILD_INTERP=1/0 to enable or disable WASM intepreter
+cmake -DWAMR_BUILD_AOT=1/0 to enable or disable WASM AOT
+cmake -DWAMR_BUILD_JIT=1/0 to enable or disable WASM JIT
+cmake -DWAMR_BUILD_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's
+cmake -DWAMR_BUILD_LIBC_WASI=1/0 enable or disable Libc WASI API's
+cmake -DWAMR_BUILD_TARGET=<arch><sub> to set the building target, including:
+    X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
+    for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5, ARMV5T, THUMBV4T, THUMBV5T and so on.
+```
+
+For example, if we want to disable interpreter, enable AOT and WASI, we can:
+``` Bash
+cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0
+```
+Or if we want to enable inerpreter, disable AOT and WASI, and build as X86_32, we can:
+``` Bash
+cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
+```
+
+By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
+set to X86_64 or X86_32 depending on the platform's bitwidth.
+
+To enable WASM JIT, firstly we should build LLVM:
+``` Bash
+cd product-mini/platforms/linux/
+./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
+```
+Then pass option -DWAMR_BUILD_JIT=1 to cmake to enable WASM JIT:
+``` Bash
+mkdir build
+cd build
+cmake .. -DWAMR_BUILD_JIT=1
+make
 ```
 
 Linux SGX (Intel Software Guard Extention)
 -------------------------
-First of all please install library dependencies of lib gcc.
-Use installation commands below for Ubuntu Linux:
-``` Bash
-sudo apt install lib32gcc-5-dev g++-multilib
-```
-
-And then install the [Intel SGX SDK](https://software.intel.com/en-us/sgx/sdk).
+First of all please install the [Intel SGX SDK](https://software.intel.com/en-us/sgx/sdk).
 
 After installing dependencies, build the source code:
 ``` Bash
 source <SGX_SDK dir>/environment
-cd core/iwasm/products/linux-sgx/
+cd product-mini/platforms/linux-sgx/
 mkdir build
 cd build
 cmake ..
@@ -64,7 +96,7 @@ source <SGX_SDK dir>/environment
 ./app
 ```
 
-Mac
+MacOS
 -------------------------
 Make sure to install Xcode from App Store firstly, and install cmake.
 
@@ -75,12 +107,14 @@ brew install cmake
 
 Then build the source codes:
 ```
-cd core/iwasm/products/darwin/
+cd product-mini/platforms/darwin/
 mkdir build
 cd build
 cmake ..
 make
 ```
+Note:
+WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in MacOS, interpreter, AoT, and builtin libc are enabled by default.
 
 VxWorks
 -------------------------
@@ -93,7 +127,7 @@ export <vsb_dir_path>/host/vx-compiler/bin:$PATH
 ```
 Now switch to iwasm source tree to build the source code:
 ```
-cd core/iwasm/products/vxworks/
+cd product-mini/platforms/vxworks/
 mkdir build
 cd build
 cmake ..
@@ -109,13 +143,8 @@ Copy the generated iwasm executable, the test WASM binary as well as the needed
 shared libraries (libc.so.1, libllvm.so.1 or libgnu.so.1 depending on the VSB,
 libunix.so.1) to a supported file system (eg: romfs).
 
-WASI
--------------------------
-On Linux, WASI is enabled by default. To build iwasm without wasi support, pass an option when you run cmake:
-```
-cmake .. -DWASM_ENABLE_WASI=0
-make
-```
+Note:
+WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in VxWorks, interpreter and builtin libc are enabled by default.
 
 Zephyr
 -------------------------
@@ -123,15 +152,17 @@ You need to download the Zephyr source code first and embed WAMR into it.
 ``` Bash
 git clone https://github.com/zephyrproject-rtos/zephyr.git
 cd zephyr/samples/
-cp -a <iwasm_dir>/products/zephyr/simple .
+cp -a <wamr_root_dir>/product-mini/platforms/zephyr/simple .
 cd simple
-ln -s <iwam_dir> iwasm
-ln -s <shared_lib_dir> shared-lib
+ln -s <wamr_root_dir> wamr
 mkdir build && cd build
 source ../../../zephyr-env.sh
-cmake -GNinja -DBOARD=qemu_x86 ..
+cmake -GNinja -DBOARD=qemu_x86_nommu ..
 ninja
 ```
+Note:
+WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
+
 
 AliOS-Things
 -------------------------
@@ -140,19 +171,15 @@ AliOS-Things
    ``` Bash
    git clone https://github.com/alibaba/AliOS-Things.git
    ```
-3. copy <iwasm_root_dir>/products/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
+3. copy <wamr_root_dir>/product-mini/platforms/alios-things directory to AliOS-Things/middleware, and rename it as iwasm
    ``` Bash
-   cp -a <iwasm_root_dir>/products/alios-things middleware/iwasm
+   cp -a <wamr_root_dir>/product-mini/platforms/alios-things middleware/iwasm
    ```
-4. create a link to <iwasm_root_dir> in middleware/iwasm/ and rename it to iwasm
+4. create a link to <wamr_root_dir> in middleware/iwasm/ and rename it to wamr
    ``` Bash
-   ln -s <iwasm_root_dir> middleware/iwasm/iwasm
+   ln -s <wamr_root_dir> middleware/iwasm/wamr
    ```
-5. create a link to <shared-lib_root_dir> in middleware/iwasm/ and rename it to shared-lib
-   ``` Bash
-   ln -s <shared-lib_root_dir> middleware/iwasm/shared-lib
-   ```
-6. modify file app/example/helloworld/helloworld.c, patch as:
+5. modify file app/example/helloworld/helloworld.c, patch as:
    ``` C
    #include <stdbool.h>
    #include <aos/kernel.h>
@@ -164,11 +191,11 @@ AliOS-Things
        ...
    }
    ```
-7. modify file app/example/helloworld/aos.mk
+6. modify file app/example/helloworld/aos.mk
    ``` C
       $(NAME)_COMPONENTS := osal_aos iwasm
    ```
-8. build source code and run
+7. build source code and run
    For linuxhost:
    ``` Bash
    aos make helloworld@linuxhost -c config
@@ -179,7 +206,7 @@ AliOS-Things
    For developerkit:
    Modify file middleware/iwasm/aos.mk, patch as:
    ``` C
-   BUILD_TARGET := THUMBV7M
+   WAMR_BUILD_TARGET := THUMBV7M
    ```
 
    ``` Bash

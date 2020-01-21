@@ -4,8 +4,9 @@
  */
 
 #include <stdlib.h>
-#include <unistd.h>
 #include "wasm_app.h"
+#include "wa-inc/wgl.h"
+#include "wa-inc/timer_wasm_app.h"
 
 static void btn_event_cb(wgl_obj_t btn, wgl_event_t event);
 

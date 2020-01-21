@@ -6,63 +6,51 @@ cmake_minimum_required(VERSION 3.8.2)
 include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
 project(NONE)
 
-enable_language (ASM)
+set (WAMR_BUILD_PLATFORM "zephyr")
 
-zephyr_compile_definitions (-DNVALGRIND
-    -D__JLF__
-    -D__ZEPHYR__
-    -DWASM_ENABLE_BASE_LIB
-    -Dattr_container_malloc=bh_malloc
-    -Dattr_container_free=bh_free)
+enable_language (ASM)
 
 # Build as THUMB by default
 # change to "ARM[sub]", "THUMB[sub]", "X86_32", "MIPS_32" or "XTENSA_32"
 # if we want to support arm_32, x86, mips or xtensa
-if (NOT DEFINED BUILD_TARGET)
-  set (BUILD_TARGET "THUMB")
+if (NOT DEFINED WAMR_BUILD_TARGET)
+  set (WAMR_BUILD_TARGET "THUMB")
 endif ()
 
-string(TOUPPER ${BUILD_TARGET} BUILD_TARGET)
-
-if (BUILD_TARGET STREQUAL "X86_32")
-  add_definitions(-DBUILD_TARGET_X86_32)
-elseif (BUILD_TARGET MATCHES "ARM.*")
-  add_definitions(-DBUILD_TARGET_ARM)
-  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
-elseif (BUILD_TARGET MATCHES "THUMB.*")
-  add_definitions(-DBUILD_TARGET_THUMB)
-  add_definitions(-DBUILD_TARGET="${BUILD_TARGET}")
-elseif (BUILD_TARGET STREQUAL "MIPS")
-  add_definitions(-DBUILD_TARGET_MIPS)
-elseif (BUILD_TARGET STREQUAL "XTENSA")
-  add_definitions(-DBUILD_TARGET_XTENSA)
-else ()
-  message (FATAL_ERROR "-- Build target isn't set")
+if (NOT DEFINED WAMR_BUILD_INTERP)
+  # Enable Interpreter by default
+  set (WAMR_BUILD_INTERP 1)
 endif ()
 
-message ("-- Build as target ${BUILD_TARGET}")
-set (WASM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core/iwasm)
-set (APP_MGR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core/app-mgr)
-set (SHARED_DIR ${WASM_DIR}/../shared-lib)
+if (NOT DEFINED WAMR_BUILD_AOT)
+  # Disable AOT by default.
+  set (WAMR_BUILD_AOT 0)
+endif ()
 
-set (TARGET_PLATFORM "zephyr")
+if (NOT DEFINED WAMR_BUILD_JIT)
+  # Disable JIT by default.
+  set (WAMR_BUILD_JIT 0)
+endif ()
 
-include (${WASM_DIR}/runtime/utils/utils.cmake)
-include (${WASM_DIR}/runtime/vmcore-wasm/vmcore.cmake)
-include (${WASM_DIR}/lib/native/base/wasm_lib_base.cmake)
-include (${WASM_DIR}/lib/native/libc/wasm_libc.cmake)
-include (${WASM_DIR}/lib/native/extension/sensor/wasm_lib_sensor.cmake)
-include (${WASM_DIR}/lib/native/extension/connection/wasm_lib_conn.cmake)
-include (${WASM_DIR}/lib/native/extension/connection/${TARGET_PLATFORM}/connection_mgr.cmake)
-include (${WASM_DIR}/lib/native-interface/native_interface.cmake)
-include (${APP_MGR_DIR}/app-manager/app_mgr.cmake)
-include (${APP_MGR_DIR}/app-mgr-shared/app_mgr_shared.cmake)
-include (${SHARED_DIR}/platform/${TARGET_PLATFORM}/shared_platform.cmake)
-include (${SHARED_DIR}/utils/shared_utils.cmake)
-include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
-include (${SHARED_DIR}/coap/lib_coap.cmake)
+if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
+  set (WAMR_BUILD_LIBC_BUILTIN 1)
+endif ()
 
-include_directories(${WASM_DIR}/runtime/platform/include)
+if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
+  set (WAMR_BUILD_LIBC_WASI 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_APP_FRAMEWORK)
+  set (WAMR_BUILD_APP_FRAMEWORK 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_APP_LIST)
+  set (WAMR_BUILD_APP_LIST WAMR_APP_BUILD_BASE WAMR_APP_BUILD_SENSOR WAMR_APP_BUILD_CONNECTION)
+endif ()
+
+set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wamr)
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr)
 
@@ -73,24 +61,8 @@ set (LVGL_DRV_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/XPT2046.c
     )
 
-set (IWASM_SRCS
-     ${WASM_PLATFORM_LIB_SOURCE}
-     ${WASM_UTILS_LIB_SOURCE}
-     ${VMCORE_LIB_SOURCE}
-     ${WASM_LIBC_SOURCE}
-     ${APP_MGR_SOURCE}
-     ${WASM_LIB_BASE_SOURCE}
-     ${WASM_LIB_EXT_SOURCE}
-     ${WASM_LIB_SENSOR_SOURCE}
-     ${WASM_LIB_CONN_SOURCE}
-     ${WASM_LIB_CONN_MGR_SOURCE}
-     ${PLATFORM_SHARED_SOURCE}
-     ${UTILS_SHARED_SOURCE}
-     ${MEM_ALLOC_SHARED_SOURCE}
-     ${NATIVE_INTERFACE_SOURCE}
-    )
 target_sources(app PRIVATE
-               ${IWASM_SRCS}
+               ${WAMR_RUNTIME_LIB_SOURCE}
                ${LVGL_DRV_SRCS}
                ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/main.c
                ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/iwasm_main.c

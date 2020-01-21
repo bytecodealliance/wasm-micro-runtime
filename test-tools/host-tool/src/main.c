@@ -12,8 +12,8 @@
 #include <unistd.h>
 
 #include "host_tool_utils.h"
-#include "shared_utils.h"
-#include "attr_container.h"
+#include "bi-inc/shared_utils.h"
+#include "bi-inc/attr_container.h"
 #include "coap_ext.h"
 #include "cJSON.h"
 #include "app_manager_export.h" /* for Module_WASM_App */
@@ -99,14 +99,10 @@ extern int g_mid;
 extern unsigned char leading[2];
 
 /* -1 fail, 0 success */
-static int send_request(request_t *request, bool is_install_wasm_bytecode_app)
+static int send_request(request_t *request, uint16_t msg_type)
 {
     char *req_p;
     int req_size, req_size_n, ret = -1;
-    uint16_t msg_type = REQUEST_PACKET;
-
-    if (is_install_wasm_bytecode_app)
-        msg_type = INSTALL_WASM_BYTECODE_APP;
 
     if ((req_p = pack_request(request, &req_size)) == NULL)
         return -1;
@@ -137,6 +133,7 @@ static int send_request(request_t *request, bool is_install_wasm_bytecode_app)
     return ret;
 }
 
+/*
 static package_type_t get_app_package_type(const char *buf, int size)
 {
     if (buf && size > 4) {
@@ -147,6 +144,7 @@ static package_type_t get_app_package_type(const char *buf, int size)
     }
     return Package_Type_Unknown;
 }
+*/
 
 #define url_remain_space (sizeof(url) - strlen(url))
 
@@ -159,7 +157,6 @@ static int install(inst_info *info)
     char *app_file_buf;
     char url[URL_MAX_LEN] = { 0 };
     int ret = -1, app_size;
-    bool is_wasm_bytecode_app;
 
     snprintf(url, sizeof(url) - 1, "/applet?name=%s", info->name);
 
@@ -188,13 +185,10 @@ static int install(inst_info *info)
     FMT_APP_RAW_BINARY, app_file_buf, app_size);
     request->mid = gen_random_id();
 
-    if ((info->module_type == NULL || strcmp(info->module_type, "wasm") == 0)
-            && get_app_package_type(app_file_buf, app_size) == Wasm_Module_Bytecode)
-        is_wasm_bytecode_app = true;
+    if (info->module_type == NULL || strcmp(info->module_type, "wasm") == 0)
+        ret = send_request(request, INSTALL_WASM_APP);
     else
-        is_wasm_bytecode_app = false;
-
-    ret = send_request(request, is_wasm_bytecode_app);
+        ret = send_request(request, REQUEST_PACKET);
 
     free(app_file_buf);
 
@@ -217,7 +211,7 @@ static int uninstall(uninst_info *info)
     NULL, 0);
     request->mid = gen_random_id();
 
-    return send_request(request, false);
+    return send_request(request, REQUEST_PACKET);
 }
 
 static int query(query_info *info)
@@ -236,7 +230,7 @@ static int query(query_info *info)
     NULL, 0);
     request->mid = gen_random_id();
 
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 
     return ret;
 }
@@ -276,7 +270,7 @@ static int request(req_info *info)
     FMT_ATTR_CONTAINER, payload, payload_len);
     request->mid = gen_random_id();
 
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 
     if (info->json_payload_file != NULL && payload != NULL)
         attr_container_destroy(payload);
@@ -317,7 +311,7 @@ static int subscribe(reg_info *info)
     FMT_ATTR_CONTAINER,
     NULL, 0);
     request->mid = gen_random_id();
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 #endif
     return ret;
 }
@@ -350,7 +344,7 @@ static int unsubscribe(unreg_info *info)
     FMT_ATTR_CONTAINER,
     NULL, 0);
     request->mid = gen_random_id();
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 #endif
     return ret;
 }

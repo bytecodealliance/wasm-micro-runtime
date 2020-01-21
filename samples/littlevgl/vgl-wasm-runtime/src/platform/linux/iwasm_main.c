@@ -29,7 +29,7 @@
 #include "bh_thread.h"
 #include "bh_memory.h"
 #include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
 #define MAX 2048
@@ -345,7 +345,7 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 #endif
 
 #ifdef __x86_64__
-static char global_heap_buf[300 * 1024] = { 0 };
+static char global_heap_buf[400 * 1024] = { 0 };
 #else
 static char global_heap_buf[270 * 1024] = { 0 };
 #endif
@@ -370,6 +370,8 @@ static void showUsage()
      printf("\t<Uart Device> represents the UART device name and the default is /dev/ttyS2\n");
      printf("\t<Baudrate> represents the UART device baudrate and the default is 115200\n");
 #endif
+     printf("\nNote:\n");
+     printf("\tUse -w|--wasi_root to specify the root dir (default to '.') of WASI wasm modules. \n");
 }
 
 static bool parse_args(int argc, char *argv[])
@@ -378,7 +380,7 @@ static bool parse_args(int argc, char *argv[])
 
     while (1) {
         int optIndex = 0;
-        static struct option longOpts[] = { 
+        static struct option longOpts[] = {
 #ifndef CONNECTION_UART
             { "server_mode",    no_argument,       NULL, 's' },
             { "host_address",   required_argument, NULL, 'a' },
@@ -387,11 +389,12 @@ static bool parse_args(int argc, char *argv[])
             { "uart",           required_argument, NULL, 'u' },
             { "baudrate",       required_argument, NULL, 'b' },
 #endif
+            { "wasi_root",      required_argument, NULL, 'w' },
             { "help",           required_argument, NULL, 'h' },
-            { 0, 0, 0, 0 } 
+            { 0, 0, 0, 0 }
         };
 
-        c = getopt_long(argc, argv, "sa:p:u:b:h", longOpts, &optIndex);
+        c = getopt_long(argc, argv, "sa:p:u:b:w:h", longOpts, &optIndex);
         if (c == -1)
             break;
 
@@ -418,6 +421,12 @@ static bool parse_args(int argc, char *argv[])
                 printf("uart baudrate: %s\n", optarg);
                 break;
 #endif
+            case 'w':
+                if (!wasm_set_wasi_root_dir(optarg)) {
+                    printf("Fail to set wasi root dir: %s\n", optarg);
+                    return false;
+                }
+                break;
             case 'h':
                 showUsage();
                 return false;

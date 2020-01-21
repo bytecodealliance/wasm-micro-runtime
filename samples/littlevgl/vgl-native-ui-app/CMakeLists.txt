@@ -6,7 +6,7 @@ message ("vgl_native_ui_app...")
 project (vgl_native_ui_app)
 
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLV_CONF_INCLUDE_SIMPLE -DPLATFORM_NATIVE_LINUX -DUSE_MONITOR -DUSE_MOUSE=1")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -DPLATFORM_NATIVE_LINUX -DUSE_MONITOR -DUSE_MOUSE=1")
 
 # Currently build as 64-bit by default. Set to "NO" to build 32-bit binaries.
 set (BUILD_AS_64BIT_SUPPORT "YES")
@@ -29,6 +29,9 @@ set(LVGL_DRIVER_DIR ${CMAKE_CURRENT_LIST_DIR}/lv-drivers)
 
 message(${LVGL_SOURCE_DIR})
 include( ExternalProject )
+
+add_definitions(-DLV_CONF_INCLUDE_SIMPLE)
+
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.in ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl/CMakeLists.txt)
 
@@ -142,6 +145,7 @@ include_directories(
     ${LVGL_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/../lv_config
 )
 add_executable(vgl_native_ui_app ${SOURCES} )
 target_link_libraries( vgl_native_ui_app -lSDL2)

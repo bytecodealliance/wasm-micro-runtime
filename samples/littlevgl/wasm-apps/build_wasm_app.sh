@@ -1,7 +1,7 @@
+#!/bin/sh
+
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
-#!/bin/sh
 
 WAMR_DIR=${PWD}/../../..
 
@@ -17,4 +17,5 @@ if [ ! -d "lvgl" ]; then
     git clone https://github.com/littlevgl/lvgl.git --branch v5.3
 fi
 $makewrap -f Makefile_wasm_app
+$makewrap -f Makefile_wasm_app_no_wasi
 

@@ -15,8 +15,6 @@ Major feature releases and contributors
 
 - Contributor: JinZhou Zhu (Alibaba)
 
-
-
 **May 24, 2019: Support memory usage profiler**
 
 - Contributors Wenyong Huang (Intel)
@@ -57,4 +55,7 @@ Major feature releases and contributors
 
 - Contributor: Jonathan Dong (Alibaba)
 
+**Nov 2019: WASI support** (Intel)
+
+**Jan 2020: Ahead of time and Just-in-Time compilation support** (Intel)
 
