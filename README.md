@@ -13,7 +13,7 @@ WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with
 
 - The dynamic management of the WASM applications
 
-  
+
 
 iwasm VM core
 =========================
@@ -22,7 +22,7 @@ iwasm VM core
 
 - Embeddable with the supporting C API's
 - Small runtime binary size (85K for interpreter and 50K for AoT) and low memory usage
-- Near to native speed by AoT 
+- Near to native speed by AoT
 - AoT module loader works for both embedded OS and Linux system
 - Choices of WASM application libc support: the built-in libc subset for embedded environment or [WASI](https://github.com/WebAssembly/WASI) for standard libc
 - The mechanism for exporting native API's to WASM applications
@@ -32,8 +32,8 @@ iwasm VM core
 The iwasm supports following architectures:
 
 - X86-64, X86-32
-- ARM, THUMB 
-- MIPS 
+- ARM, THUMB
+- MIPS
 - XTENSA
 
 Following platforms are supported:
@@ -75,7 +75,7 @@ WAMR provides a set of C API for loading the WASM module, instantiating the modu
 Application framework
 ===================================
 
-By using the iwasm VM core, we are flexible to build different application frameworks for the specific domains, although it would take quite some efforts. 
+By using the iwasm VM core, we are flexible to build different application frameworks for the specific domains, although it would take quite some efforts.
 
 The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, which are based on the event driven programming model. Here are the supporting API sets by the [WAMR application library](./doc/wamr_api.md) :
 
@@ -97,7 +97,7 @@ The WAMR application manager supports remote application management from host en
 
 <img src="./doc/pics/wamr-arch.JPG" width="80%">
 
-The tool [host_agent](./test-tools/host-tool) communicates to the WAMR app manager for installing/uninstalling the WASM applications on companion chip from host system. And the [IoT App Store Demo](./test-tools/IoT-APP-Store-Demo/) shows the conception of remotely managing the device applications from cloud.
+The tool [host_tool](./test-tools/host-tool) communicates to the WAMR app manager for installing/uninstalling the WASM applications on companion chip from host system. And the [IoT App Store Demo](./test-tools/IoT-APP-Store-Demo/) shows the conception of remotely managing the device applications from cloud.
 
 
 
@@ -110,7 +110,7 @@ The **wamr-sdk** tools build the WAMR to both **runtime SDK** for embedding by y
 
 ### Menu configuration for building SDK
 
-Menu configuration is supported for easy integration of runtime components and application libraries for  the target architecture and platform. 
+Menu configuration is supported for easy integration of runtime components and application libraries for  the target architecture and platform.
 
 ```
 cd wamr-sdk
