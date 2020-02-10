@@ -802,11 +802,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMInterpFrame *prev_frame)
 {
   WASMMemoryInstance *memory = module->default_memory;
-  uint32 memory_data_size = memory
-                            ? memory->num_bytes_per_page * memory->cur_page_count : 0;
+  uint32 memory_data_size = memory ? (module->module->possible_memory_grow
+                                      ? DEFAULT_NUM_BYTES_PER_PAGE * memory->cur_page_count
+                                      : memory->num_bytes_per_page * memory->cur_page_count)
+                                   : 0;
   uint32 heap_base_offset = memory ? (uint32)memory->heap_base_offset : 0;
-  uint32 heap_data_size = memory
-                          ? (uint32)(memory->heap_data_end - memory->heap_data) : 0;
+  uint32 heap_data_size = memory ? (uint32)(memory->heap_data_end - memory->heap_data) : 0;
   WASMTableInstance *table = module->default_table;
   WASMGlobalInstance *globals = module->globals;
   uint8 *global_data = memory ? memory->global_data : NULL;
@@ -862,7 +863,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_BLOCK):
         block_ret_type = *frame_ip++;
 
-        cache_index = ((uintptr_t)frame_ip) % block_addr_cache_size;
+        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(block_addr_cache_size - 1);
         if (block_addr_cache[cache_index].frame_ip == frame_ip) {
           end_addr = block_addr_cache[cache_index].end_addr;
         }
@@ -885,7 +886,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_LOOP):
         block_ret_type = *frame_ip++;
 
-        cache_index = ((uintptr_t)frame_ip) % block_addr_cache_size;
+        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(block_addr_cache_size - 1);
         if (block_addr_cache[cache_index].frame_ip == frame_ip) {
           end_addr = block_addr_cache[cache_index].end_addr;
         }
@@ -908,7 +909,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_IF):
         block_ret_type = *frame_ip++;
 
-        cache_index = ((uintptr_t)frame_ip) % block_addr_cache_size;
+        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(block_addr_cache_size - 1);
         if (block_addr_cache[cache_index].frame_ip == frame_ip) {
             else_addr = block_addr_cache[cache_index].else_addr;
             end_addr = block_addr_cache[cache_index].end_addr;
@@ -1542,7 +1543,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           PUSH_I32(prev_page_count);
           /* update the memory instance ptr */
           memory = module->default_memory;
-          memory_data_size = memory->num_bytes_per_page * memory->cur_page_count;
+          memory_data_size = module->module->possible_memory_grow
+                             ? DEFAULT_NUM_BYTES_PER_PAGE * memory->cur_page_count
+                             : memory->num_bytes_per_page * memory->cur_page_count;
           global_data = memory->global_data;
         }
 
