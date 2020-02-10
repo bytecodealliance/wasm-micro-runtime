@@ -10,7 +10,7 @@ include_directories(
 )
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS},-L${WAMR_ROOT_DIR}/wamr-sdk/out/gui/app-sdk/wamr-app-framework/lib")
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS},--export=on_init,--export=on_timer_callback,--export=on_widget_event")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS},--export=on_init,--export=on_timer_callback,--export=on_widget_event,--export=__heap_base,--export=__data_end")
 set (CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} -O3 -Wno-unused-command-line-argument")
 
 add_executable(ui_app.wasm

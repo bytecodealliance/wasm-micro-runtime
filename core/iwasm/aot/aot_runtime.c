@@ -111,7 +111,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 {
     uint32 i, global_index, global_data_offset, base_offset, length;
     AOTMemInitData *data_seg;
-    uint64 total_size = (uint64)NumBytesPerPage * module->mem_init_page_count;
+    uint64 total_size = (uint64)module->num_bytes_per_page * module->mem_init_page_count;
 
     /* Allocate memory */
     if (total_size >= UINT32_MAX
@@ -802,11 +802,13 @@ bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 {
     uint8 *mem_data_old = module_inst->memory_data.ptr, *mem_data_new;
+    uint32 num_bytes_per_page =
+        ((AOTModule*)module_inst->aot_module.ptr)->num_bytes_per_page;
     uint32 cur_page_count = module_inst->mem_cur_page_count;
     uint32 max_page_count = module_inst->mem_max_page_count;
     uint32 total_page_count = cur_page_count + inc_page_count;
-    uint32 old_size = NumBytesPerPage * cur_page_count;
-    uint64 total_size = (uint64)NumBytesPerPage * total_page_count;
+    uint32 old_size = num_bytes_per_page * cur_page_count;
+    uint64 total_size = (uint64)num_bytes_per_page * total_page_count;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */

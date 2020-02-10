@@ -25,4 +25,5 @@ all:
     -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
     -Wl,--export=on_init -Wl,--export=on_timer_callback \
     -Wl,--export=on_widget_event \
+    -Wl,--export=__heap_base,--export=__data_end \
     -o ui_app_lvgl_compatible.wasm
