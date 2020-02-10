@@ -242,9 +242,14 @@ typedef enum WASMOpcode {
     WASM_OP_DROP_64   = 0xc1,
     WASM_OP_SELECT_32 = 0xc2,
     WASM_OP_SELECT_64 = 0xc3,
+    WASM_OP_GET_LOCAL_FAST = 0xc4,
+    WASM_OP_SET_LOCAL_FAST = 0xc5,
+    WASM_OP_TEE_LOCAL_FAST = 0xc6,
+    WASM_OP_GET_GLOBAL_FAST = 0xc7,
+    WASM_OP_SET_GLOBAL_FAST = 0xc8,
 
-    WASM_OP_IMPDEP1       = WASM_OP_SELECT_64 + 1,
-    WASM_OP_IMPDEP2       = WASM_OP_IMPDEP1 + 1
+    WASM_OP_IMPDEP1       = 0xc9,
+    WASM_OP_IMPDEP2       = 0xca
 } WASMOpcode;
 
 #ifdef __cplusplus
@@ -454,8 +459,13 @@ static const void *_name[WASM_INSTRUCTION_NUM] = {           \
   HANDLE_OPCODE (WASM_OP_DROP_64),       /* 0xc1 */          \
   HANDLE_OPCODE (WASM_OP_SELECT_32),     /* 0xc2 */          \
   HANDLE_OPCODE (WASM_OP_SELECT_64),     /* 0xc3 */          \
-  HANDLE_OPCODE (WASM_OP_IMPDEP1),       /* 0xc4 */          \
-  HANDLE_OPCODE (WASM_OP_IMPDEP2),       /* 0xc5 */          \
+  HANDLE_OPCODE (WASM_OP_GET_LOCAL_FAST),/* 0xc4 */          \
+  HANDLE_OPCODE (WASM_OP_SET_LOCAL_FAST),/* 0xc5 */          \
+  HANDLE_OPCODE (WASM_OP_TEE_LOCAL_FAST),/* 0xc6 */          \
+  HANDLE_OPCODE (WASM_OP_GET_GLOBAL_FAST),/* 0xc7 */         \
+  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_FAST),/* 0xc8 */         \
+  HANDLE_OPCODE (WASM_OP_IMPDEP1),       /* 0xc9 */          \
+  HANDLE_OPCODE (WASM_OP_IMPDEP2),       /* 0xca */          \
 }
 
 #endif /* end of _WASM_OPCODE_H */

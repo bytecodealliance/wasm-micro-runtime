@@ -84,12 +84,12 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
    ` ln -s <wamr_root> wamr`</br>
  d. build source code</br>
     Since ui_app incorporated LittlevGL source code, so it needs more RAM on the device to install the application.
-    It is recommended that RAM SIZE not less than 320KB.
+    It is recommended that RAM SIZE not less than 420KB.
     In our test use nucleo_f767zi, which is not supported by Zephyr.
     However, nucleo_f767zi is almost the same as nucleo_f746zg, except FLASH and SRAM size.
     So we changed the DTS setting of nucleo_f746zg boards for a workaround.</br>
 
-    `Modify zephyr/dts/arm/st/f7/stm32f746.dtsi, change DT_SIZE_K(256) to DT_SIZE_K(320) in 'sram0' definition.`</br>
+    `Modify zephyr/dts/arm/st/f7/stm32f746.dtsi, change DT_SIZE_K(256) to DT_SIZE_K(512) in 'sram0' definition.`</br>
     `mkdir build && cd build`</br>
     `source ../../../../zephyr-env.sh`</br>
     `cmake -GNinja -DBOARD=nucleo_f746zg ..`</br>
@@ -129,3 +129,6 @@ First, connect PC and STM32 with UART. Then install to use host_tool.</br>
 `./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_no_wasi.wasm`
 **Note**: WASI is unavailable on zephyr currently, so you have to use the ui_app_no_wasi.wasm which doesn't depend on WASI.
 
+- Install AOT version WASM application
+`wamrc --target=thumbv7 --target-abi=eabi --cpu=cortex-m7 -o ui_app_no_wasi.aot ui_app_no_wasi.wasm`
+`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_no_wasi.aot`

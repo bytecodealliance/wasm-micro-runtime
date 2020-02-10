@@ -26,11 +26,7 @@ extern "C" {
 /* Table Element Type */
 #define TABLE_ELEM_TYPE_ANY_FUNC 0x70
 
-#define MaxMemoryPages 65536
-#define MaxTableElems UINT32_MAX
-#define NumBytesPerPage 65536
-#define NumBytesPerPageLog2 16
-#define MaxReturnValues 16
+#define DEFAULT_NUM_BYTES_PER_PAGE 65536
 
 #define INIT_EXPR_TYPE_I32_CONST 0x41
 #define INIT_EXPR_TYPE_I64_CONST 0x42
@@ -110,7 +106,7 @@ typedef struct WASMTable {
 
 typedef struct WASMMemory {
     uint32 flags;
-    /* 64 kbytes one page by default */
+    uint32 num_bytes_per_page;
     uint32 init_page_count;
     uint32 max_page_count;
 } WASMMemory;
@@ -129,7 +125,7 @@ typedef struct WASMMemoryImport {
     char *module_name;
     char *field_name;
     uint32 flags;
-    /* 64 kbytes one page by default */
+    uint32 num_bytes_per_page;
     uint32 init_page_count;
     uint32 max_page_count;
 } WASMMemoryImport;
@@ -268,6 +264,16 @@ typedef struct WASMModule {
     WASMTableSeg *table_segments;
     WASMDataSeg **data_segments;
     uint32 start_function;
+
+    /* __data_end global exported by llvm */
+    uint32 llvm_aux_data_end;
+    /* auxiliary stack bottom, or __heap_base global exported by llvm */
+    uint32 llvm_aux_stack_bottom;
+    /* auxiliary stack size */
+    uint32 llvm_aux_stack_size;
+    /* the index of a global exported by llvm, which is
+       auxiliary stack top pointer */
+    uint32 llvm_aux_stack_global_index;
 
     /* Whether there is possible memory grow, e.g.
        memory.grow opcode or call enlargeMemory */

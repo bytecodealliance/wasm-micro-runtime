@@ -141,8 +141,9 @@ get_mem_init_data_list_size(AOTMemInitData **mem_init_data_list,
 static uint32
 get_mem_info_size(AOTCompData *comp_data)
 {
-    /* init page count + max page count + init data count + init data list */
-    return (uint32)sizeof(uint32) * 3
+    /* num bytes per page + init page count + max page count
+       + init data count + init data list */
+    return (uint32)sizeof(uint32) * 4
            + get_mem_init_data_list_size(comp_data->mem_init_data_list,
                                          comp_data->mem_init_data_count);
 }
@@ -366,6 +367,10 @@ get_init_data_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
     /* func count + start func index */
     size = align_uint(size, 4);
     size += (uint32)sizeof(uint32) * 2;
+
+    /* llvm aux data end + llvm aux stack bottom
+       + llvm aux stack size + llvm stack global index */
+    size += sizeof(uint32) * 4;
 
     size += get_object_data_section_info_size(obj_data);
     return size;
@@ -837,7 +842,8 @@ aot_emit_target_info_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(AOT_SECTION_TYPE_TARGET_INFO);
     EMIT_U32(section_size);
 
-    EMIT_U32(target_info->bin_type);
+    EMIT_U16(target_info->bin_type);
+    EMIT_U16(target_info->abi_type);
     EMIT_U16(target_info->e_type);
     EMIT_U16(target_info->e_machine);
     EMIT_U32(target_info->e_version);
@@ -864,6 +870,7 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     *p_offset = offset = align_uint(offset, 4);
 
+    EMIT_U32(comp_data->num_bytes_per_page);
     EMIT_U32(comp_data->mem_init_page_count);
     EMIT_U32(comp_data->mem_max_page_count);
     EMIT_U32(comp_data->mem_init_data_count);
@@ -1086,6 +1093,11 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     offset = align_uint(offset, 4);
     EMIT_U32(comp_data->func_count);
     EMIT_U32(comp_data->start_func_index);
+
+    EMIT_U32(comp_data->llvm_aux_data_end);
+    EMIT_U32(comp_data->llvm_aux_stack_bottom);
+    EMIT_U32(comp_data->llvm_aux_stack_size);
+    EMIT_U32(comp_data->llvm_aux_stack_global_index);
 
     if (!aot_emit_object_data_section_info(buf, buf_end, &offset, obj_data))
         return false;

@@ -59,14 +59,15 @@ memories_deinstantiate(WASMMemoryInstance **memories, uint32 count)
 }
 
 static WASMMemoryInstance*
-memory_instantiate(uint32 init_page_count, uint32 max_page_count,
+memory_instantiate(uint32 num_bytes_per_page,
+                   uint32 init_page_count, uint32 max_page_count,
                    uint32 global_data_size,
                    uint32 heap_size,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMMemoryInstance *memory;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
-                        NumBytesPerPage * (uint64)init_page_count +
+                        num_bytes_per_page * (uint64)init_page_count +
                         global_data_size;
 
     /* Allocate memory space, addr data and global data */
@@ -78,13 +79,14 @@ memory_instantiate(uint32 init_page_count, uint32 max_page_count,
     }
 
     memset(memory, 0, (uint32)total_size);
+    memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
 
     memory->memory_data = memory->base_addr;
 
     memory->global_data = memory->memory_data +
-                          NumBytesPerPage * memory->cur_page_count;;
+                          num_bytes_per_page * memory->cur_page_count;
     memory->global_data_size = global_data_size;
 
     memory->end_addr = memory->global_data + global_data_size;
@@ -152,7 +154,8 @@ memories_instantiate(const WASMModule *module,
     import = module->import_memories;
     for (i = 0; i < module->import_memory_count; i++, import++) {
         if (!(memory = memories[mem_index++] =
-                    memory_instantiate(import->u.memory.init_page_count,
+                    memory_instantiate(import->u.memory.num_bytes_per_page,
+                                       import->u.memory.init_page_count,
                                        import->u.memory. max_page_count,
                                        global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
@@ -167,7 +170,8 @@ memories_instantiate(const WASMModule *module,
     /* instantiate memories from memory section */
     for (i = 0; i < module->memory_count; i++) {
         if (!(memory = memories[mem_index++] =
-                    memory_instantiate(module->memories[i].init_page_count,
+                    memory_instantiate(module->memories[i].num_bytes_per_page,
+                                       module->memories[i].init_page_count,
                                        module->memories[i].max_page_count,
                                        global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
@@ -182,7 +186,7 @@ memories_instantiate(const WASMModule *module,
     if (mem_index == 0) {
         /* no import memory and define memory, but has global variables */
         if (!(memory = memories[mem_index++] =
-                    memory_instantiate(0, 0, global_data_size,
+                    memory_instantiate(0, 0, 0, global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed: "
@@ -486,8 +490,9 @@ globals_instantiate_fix(WASMGlobalInstance *globals,
                 global->initial_value.addr = 0;
             }
             else if (!strcmp(import->u.names.field_name, "DYNAMICTOP_PTR")) {
-                global->initial_value.i32 =
-                    (int32)(NumBytesPerPage * module_inst->default_memory->cur_page_count);
+                global->initial_value.i32 = (int32)
+                    (module_inst->default_memory->num_bytes_per_page
+                     * module_inst->default_memory->cur_page_count);
                 module_inst->DYNAMICTOP_PTR_offset = global->data_offset;
             }
             else if (!strcmp(import->u.names.field_name, "STACKTOP")) {
@@ -748,7 +753,8 @@ wasm_instantiate(WASMModule *module,
 
                 base_offset = (uint32)data_seg->base_offset.u.i32;
                 length = data_seg->data_length;
-                memory_size = NumBytesPerPage * module_inst->default_memory->cur_page_count;
+                memory_size = module_inst->default_memory->num_bytes_per_page
+                              * module_inst->default_memory->cur_page_count;
 
                 if (length > 0
                     && (base_offset >= memory_size
@@ -1140,7 +1146,7 @@ wasm_get_app_addr_range(WASMModuleInstance *module_inst,
 
     if (0 <= app_offset && app_offset < memory->heap_base_offset) {
         app_start_offset = 0;
-        app_end_offset = (int32)(NumBytesPerPage * memory->cur_page_count);
+        app_end_offset = (int32)(memory->num_bytes_per_page * memory->cur_page_count);
     }
     else if (memory->heap_base_offset < app_offset
              && app_offset < memory->heap_base_offset
@@ -1172,7 +1178,7 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst,
         && (uint8*)native_ptr < memory->end_addr) {
         native_start_addr = memory->memory_data;
         native_end_addr = memory->memory_data
-                          + NumBytesPerPage * memory->cur_page_count;
+                          + memory->num_bytes_per_page * memory->cur_page_count;
     }
     else if (memory->heap_data <= (uint8*)native_ptr
              && (uint8*)native_ptr < memory->heap_data_end) {
@@ -1197,7 +1203,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     WASMMemoryInstance *new_memory;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
-                        NumBytesPerPage * (uint64)total_page_count +
+                        memory->num_bytes_per_page * (uint64)total_page_count +
                         memory->global_data_size;
 
     if (inc_page_count <= 0)
@@ -1216,13 +1222,14 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         return false;
     }
 
+    new_memory->num_bytes_per_page = memory->num_bytes_per_page;
     new_memory->cur_page_count = total_page_count;
     new_memory->max_page_count = memory->max_page_count;
 
     new_memory->memory_data = new_memory->base_addr;
 
     new_memory->global_data = new_memory->memory_data +
-                              NumBytesPerPage * total_page_count;
+                              memory->num_bytes_per_page * total_page_count;
     new_memory->global_data_size = memory->global_data_size;
 
     new_memory->end_addr = new_memory->global_data + memory->global_data_size;
@@ -1236,8 +1243,8 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     bh_memcpy_s(new_memory->global_data, new_memory->global_data_size,
                 memory->global_data, memory->global_data_size);
     /* Init free space of new memory */
-    memset(new_memory->memory_data + NumBytesPerPage * memory->cur_page_count,
-           0, NumBytesPerPage * (total_page_count - memory->cur_page_count));
+    memset(new_memory->memory_data + memory->num_bytes_per_page * memory->cur_page_count,
+           0, memory->num_bytes_per_page * (total_page_count - memory->cur_page_count));
 
     new_memory->heap_data = memory->heap_data;
     new_memory->heap_data_end = memory->heap_data_end;

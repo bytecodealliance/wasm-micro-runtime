@@ -52,4 +52,5 @@ all:
     -Wl,--allow-undefined                           \
     -Wl,--no-threads,--strip-all,--no-entry          \
     -Wl,--export=on_init -Wl,--export=on_timer_callback \
+    -Wl,--export=__heap_base,--export=__data_end \
     -o ui_app.wasm

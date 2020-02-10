@@ -384,12 +384,16 @@ aot_create_comp_data(WASMModule *module)
 
   /* Set memory page count */
   if (module->import_memory_count) {
+    comp_data->num_bytes_per_page =
+      module->import_memories[0].u.memory.num_bytes_per_page;
     comp_data->mem_init_page_count =
       module->import_memories[0].u.memory.init_page_count;
     comp_data->mem_max_page_count =
       module->import_memories[0].u.memory.max_page_count;
   }
   else if (module->memory_count) {
+    comp_data->num_bytes_per_page =
+      module->memories[0].num_bytes_per_page;
     comp_data->mem_init_page_count =
       module->memories[0].init_page_count;
     comp_data->mem_max_page_count =
