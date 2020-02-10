@@ -14,7 +14,7 @@ enable_language (ASM)
 # change to "ARM[sub]", "THUMB[sub]", "X86_32", "MIPS_32" or "XTENSA_32"
 # if we want to support arm_32, x86, mips or xtensa
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  set (WAMR_BUILD_TARGET "THUMB")
+  set (WAMR_BUILD_TARGET "THUMBV7")
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
@@ -23,8 +23,7 @@ if (NOT DEFINED WAMR_BUILD_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_AOT)
-  # Disable AOT by default.
-  set (WAMR_BUILD_AOT 0)
+  set (WAMR_BUILD_AOT 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_JIT)

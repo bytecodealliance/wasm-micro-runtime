@@ -75,6 +75,7 @@ typedef struct AOTModule {
     uint32 module_type;
 
     /* memory info */
+    uint32 num_bytes_per_page;
     uint32 mem_init_page_count;
     uint32 mem_max_page_count;
     uint32 mem_init_data_count;
@@ -131,6 +132,11 @@ typedef struct AOTModule {
 
     /* constant string set */
     HashMap *const_str_set;
+
+    uint32 llvm_aux_data_end;
+    uint32 llvm_aux_stack_bottom;
+    uint32 llvm_aux_stack_size;
+    uint32 llvm_aux_stack_global_index;
 
     /* is jit mode or not */
     bool is_jit_mode;
@@ -210,7 +216,9 @@ typedef AOTExportFunc AOTFunctionInstance;
 /* Target info, read from ELF header of object file */
 typedef struct AOTTargetInfo {
     /* Binary type, elf32l/elf32b/elf64l/elf64b */
-    uint32 bin_type;
+    uint16 bin_type;
+    /* ABI type */
+    uint16 abi_type;
     /* Object file type */
     uint16 e_type;
     /* Architecture */

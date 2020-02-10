@@ -110,6 +110,7 @@ typedef struct AOTExportFunc {
 
 typedef struct AOTCompData {
   /* Memory and memory init data info */
+  uint32 num_bytes_per_page;
   uint32 mem_init_page_count;
   uint32 mem_max_page_count;
   uint32 mem_init_data_count;
@@ -141,6 +142,11 @@ typedef struct AOTCompData {
   uint32 start_func_index;
   uint32 addr_data_size;
   uint32 global_data_size;
+
+  uint32 llvm_aux_data_end;
+  uint32 llvm_aux_stack_bottom;
+  uint32 llvm_aux_stack_size;
+  uint32 llvm_aux_stack_global_index;
 
   WASMModule *wasm_module;
 } AOTCompData;

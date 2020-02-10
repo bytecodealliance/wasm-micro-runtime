@@ -289,7 +289,8 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     const uint8 *p = buf, *p_end = buf_end;
     bool is_target_little_endian, is_target_64_bit;
 
-    read_uint32(p, p_end, target_info.bin_type);
+    read_uint16(p, p_end, target_info.bin_type);
+    read_uint16(p, p_end, target_info.abi_type);
     read_uint16(p, p_end, target_info.e_type);
     read_uint16(p, p_end, target_info.e_machine);
     read_uint32(p, p_end, target_info.e_version);
@@ -424,6 +425,7 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *buf = *p_buf;
 
+    read_uint32(buf, buf_end, module->num_bytes_per_page);
     read_uint32(buf, buf_end, module->mem_init_page_count);
     read_uint32(buf, buf_end, module->mem_max_page_count);
     read_uint32(buf, buf_end, module->mem_init_data_count);
@@ -1000,6 +1002,11 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
                       "invalid start function index");
         return false;
     }
+
+    read_uint32(p, p_end, module->llvm_aux_data_end);
+    read_uint32(p, p_end, module->llvm_aux_stack_bottom);
+    read_uint32(p, p_end, module->llvm_aux_stack_size);
+    read_uint32(p, p_end, module->llvm_aux_stack_global_index);
 
     if (!load_object_data_sections_info(&p, p_end, module,
                                         error_buf, error_buf_size))
@@ -2297,6 +2304,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     memset(module, 0, sizeof(AOTModule));
 
     module->module_type = Wasm_Module_AoT;
+    module->num_bytes_per_page = comp_data->num_bytes_per_page;
     module->mem_init_page_count = comp_data->mem_init_page_count;
     module->mem_max_page_count = comp_data->mem_max_page_count;
 
@@ -2381,6 +2389,11 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     else {
         module->start_function = NULL;
     }
+
+    module->llvm_aux_data_end = comp_data->llvm_aux_data_end;
+    module->llvm_aux_stack_bottom = comp_data->llvm_aux_stack_bottom;
+    module->llvm_aux_stack_size = comp_data->llvm_aux_stack_size;
+    module->llvm_aux_stack_global_index = comp_data->llvm_aux_stack_global_index;
 
     module->code = NULL;
     module->code_size = 0;

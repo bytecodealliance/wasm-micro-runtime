@@ -476,36 +476,6 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
     }                                                           \
   } while (0)
 
-#define local_off(n) (frame_lp + cur_func->local_offsets[n])
-
-#define LOCAL_I32(n) (*(int32*)(local_off(n)))
-
-#define SET_LOCAL_I32(N, val) do {              \
-    uint32 n = (N);                             \
-    *(int32*)(local_off(n)) = (int32)(val);     \
-  } while (0)
-
-#define LOCAL_F32(n) (*(float32*)(local_off(n)))
-
-#define SET_LOCAL_F32(N, val) do {              \
-    uint32 n = (N);                             \
-    *(float32*)(local_off(n)) = (float32)(val); \
-  } while (0)
-
-#define LOCAL_I64(n) (GET_I64_FROM_ADDR(local_off(n)))
-
-#define SET_LOCAL_I64(N, val) do {              \
-    uint32 n = (N);                             \
-    PUT_I64_TO_ADDR(local_off(n), val);         \
-  } while (0)
-
-#define LOCAL_F64(n) (GET_F64_FROM_ADDR(local_off(n)))
-
-#define SET_LOCAL_F64(N, val) do {              \
-    uint32 n = (N);                             \
-    PUT_F64_TO_ADDR(local_off(n), val);         \
-  } while (0)
-
 /* Pop the given number of elements from the given frame's stack.  */
 #define POP(N) do {                             \
     int n = (N);                                \
@@ -525,18 +495,42 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
   } while (0)
 
 #define read_leb_int64(p, p_end, res) do {      \
+  uint8 _val = *p;                              \
+  if (!(_val & 0x80)) {                         \
+    res = (int64)_val;                          \
+    if (_val & 0x40)                            \
+      /* sign extend */                         \
+      res |= 0xFFFFFFFFFFFFFF80LL;              \
+    p++;                                        \
+    break;                                      \
+  }                                             \
   uint32 _off = 0;                              \
   res = (int64)read_leb(p, &_off, 64, true);    \
   p += _off;                                    \
 } while (0)
 
 #define read_leb_uint32(p, p_end, res) do {     \
+  uint8 _val = *p;                              \
+  if (!(_val & 0x80)) {                         \
+    res = _val;                                 \
+    p++;                                        \
+    break;                                      \
+  }                                             \
   uint32 _off = 0;                              \
   res = (uint32)read_leb(p, &_off, 32, false);  \
   p += _off;                                    \
 } while (0)
 
 #define read_leb_int32(p, p_end, res) do {      \
+  uint8 _val = *p;                              \
+  if (!(_val & 0x80)) {                         \
+    res = (int32)_val;                          \
+    if (_val & 0x40)                            \
+      /* sign extend */                         \
+      res |= 0xFFFFFF80;                        \
+    p++;                                        \
+    break;                                      \
+  }                                             \
   uint32 _off = 0;                              \
   res = (int32)read_leb(p, &_off, 32, true);    \
   p += _off;                                    \
@@ -558,30 +552,6 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 #else
 #define GET_OPCODE() (void)0
 #endif
-
-#define DEF_OP_LOAD(operation) do {                                 \
-    uint32 offset, flags, addr;                                     \
-    GET_OPCODE();                                                   \
-    read_leb_uint32(frame_ip, frame_ip_end, flags);                 \
-    read_leb_uint32(frame_ip, frame_ip_end, offset);                \
-    addr = POP_I32();                                               \
-    CHECK_MEMORY_OVERFLOW();                                        \
-    operation;                                                      \
-    (void)flags;                                                    \
-  } while (0)
-
-#define DEF_OP_STORE(sval_type, sval_op_type, operation) do {       \
-    uint32 offset, flags, addr;                                     \
-    sval_type sval;                                                 \
-    GET_OPCODE();                                                   \
-    read_leb_uint32(frame_ip, frame_ip_end, flags);                 \
-    read_leb_uint32(frame_ip, frame_ip_end, offset);                \
-    sval = POP_##sval_op_type();                                    \
-    addr = POP_I32();                                               \
-    CHECK_MEMORY_OVERFLOW();                                        \
-    operation;                                                      \
-    (void)flags;                                                    \
-  } while (0)
 
 #define DEF_OP_I_CONST(ctype, src_op_type) do {                     \
     ctype cval;                                                     \
@@ -673,10 +643,11 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
     PUSH_##dst_op_type(value);                                      \
   } while (0)
 
-#define GET_LOCAL_INDEX_AND_TYPE() do {                             \
+#define GET_LOCAL_INDEX_TYPE_AND_OFFSET() do {                      \
     uint32 param_count = cur_func->param_count;                     \
     read_leb_uint32(frame_ip, frame_ip_end, local_idx);             \
     bh_assert(local_idx < param_count + cur_func->local_count);     \
+    local_offset = cur_func->local_offsets[local_idx];              \
     if (local_idx < param_count)                                    \
       local_type = cur_func->param_types[local_idx];                \
     else                                                            \
@@ -818,6 +789,12 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
 #endif  /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
+typedef struct BlockAddrCache {
+  uint8 *frame_ip;
+  uint8 *else_addr;
+  uint8 *end_addr;
+} BlockAddrCache;
+
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
@@ -826,7 +803,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 {
   WASMMemoryInstance *memory = module->default_memory;
   uint32 memory_data_size = memory
-                            ? NumBytesPerPage * memory->cur_page_count : 0;
+                            ? memory->num_bytes_per_page * memory->cur_page_count : 0;
   uint32 heap_base_offset = memory ? (uint32)memory->heap_base_offset : 0;
   uint32 heap_data_size = memory
                           ? (uint32)(memory->heap_data_end - memory->heap_data) : 0;
@@ -841,7 +818,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   register uint32 *frame_lp = NULL;  /* cache of frame->lp */
   register uint32 *frame_sp = NULL;  /* cache of frame->sp */
   WASMBranchBlock *frame_csp = NULL;
-  uint8 *frame_ip_end = frame_ip + 1;
+  WASMGlobalInstance *global;
+  uint8 *frame_ip_end = frame_ip + 1, *frame_ip_org;
   uint8 opcode, block_ret_type;
   uint32 *depths = NULL;
   uint32 depth_buf[BR_TABLE_TMP_BUF_LEN];
@@ -849,6 +827,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint64 all_cell_num = 0;
   int32 didx, val;
   uint8 *else_addr, *end_addr, *maddr = NULL;
+  uint32 local_idx, local_offset, global_idx, global_data_offset;
+  uint8 local_type, *global_addr;
+  BlockAddrCache block_addr_cache[32] = { 0 };
+  uint32 cache_index, block_addr_cache_size = 32;
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -880,13 +862,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_BLOCK):
         block_ret_type = *frame_ip++;
 
-        if (!wasm_loader_find_block_addr(module->module,
-                                         frame_ip, frame_ip_end,
-                                         BLOCK_TYPE_BLOCK,
-                                         &else_addr, &end_addr,
-                                         NULL, 0)) {
-          wasm_set_exception(module, "find block address failed");
-          goto got_exception;
+        cache_index = ((uintptr_t)frame_ip) % block_addr_cache_size;
+        if (block_addr_cache[cache_index].frame_ip == frame_ip) {
+          end_addr = block_addr_cache[cache_index].end_addr;
+        }
+        else {
+          if (!wasm_loader_find_block_addr(module->module,
+                                           frame_ip, frame_ip_end,
+                                           BLOCK_TYPE_BLOCK,
+                                           &else_addr, &end_addr,
+                                           NULL, 0)) {
+            wasm_set_exception(module, "find block address failed");
+            goto got_exception;
+          }
+          block_addr_cache[cache_index].frame_ip = frame_ip;
+          block_addr_cache[cache_index].end_addr = end_addr;
         }
 
         PUSH_CSP(BLOCK_TYPE_BLOCK, block_ret_type, frame_ip, NULL, end_addr);
@@ -895,13 +885,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_LOOP):
         block_ret_type = *frame_ip++;
 
-        if (!wasm_loader_find_block_addr(module->module,
-                                         frame_ip, frame_ip_end,
-                                         BLOCK_TYPE_LOOP,
-                                         &else_addr, &end_addr,
-                                         NULL, 0)) {
-          wasm_set_exception(module, "find block address failed");
-          goto got_exception;
+        cache_index = ((uintptr_t)frame_ip) % block_addr_cache_size;
+        if (block_addr_cache[cache_index].frame_ip == frame_ip) {
+          end_addr = block_addr_cache[cache_index].end_addr;
+        }
+        else {
+          if (!wasm_loader_find_block_addr(module->module,
+                                           frame_ip, frame_ip_end,
+                                           BLOCK_TYPE_LOOP,
+                                           &else_addr, &end_addr,
+                                           NULL, 0)) {
+            wasm_set_exception(module, "find block address failed");
+            goto got_exception;
+          }
+          block_addr_cache[cache_index].frame_ip = frame_ip;
+          block_addr_cache[cache_index].end_addr = end_addr;
         }
 
         PUSH_CSP(BLOCK_TYPE_LOOP, block_ret_type, frame_ip, NULL, end_addr);
@@ -910,13 +908,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_IF):
         block_ret_type = *frame_ip++;
 
-        if (!wasm_loader_find_block_addr(module->module,
-                                         frame_ip, frame_ip_end,
-                                         BLOCK_TYPE_IF,
-                                         &else_addr, &end_addr,
-                                         NULL, 0)) {
-          wasm_set_exception(module, "find block address failed");
-          goto got_exception;
+        cache_index = ((uintptr_t)frame_ip) % block_addr_cache_size;
+        if (block_addr_cache[cache_index].frame_ip == frame_ip) {
+            else_addr = block_addr_cache[cache_index].else_addr;
+            end_addr = block_addr_cache[cache_index].end_addr;
+        }
+        else {
+          if (!wasm_loader_find_block_addr(module->module,
+                                           frame_ip, frame_ip_end,
+                                           BLOCK_TYPE_IF,
+                                           &else_addr, &end_addr,
+                                           NULL, 0)) {
+            wasm_set_exception(module, "find block address failed");
+            goto got_exception;
+          }
+
+          block_addr_cache[cache_index].frame_ip = frame_ip;
+          block_addr_cache[cache_index].else_addr = else_addr;
+          block_addr_cache[cache_index].end_addr = end_addr;
         }
 
         cond = (uint32)POP_I32();
@@ -1094,87 +1103,138 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       /* variable instructions */
       HANDLE_OP (WASM_OP_GET_LOCAL):
         {
-          uint32 local_idx;
-          uint8 local_type;
-
-          GET_LOCAL_INDEX_AND_TYPE();
+          frame_ip_org = frame_ip - 1;
+          GET_LOCAL_INDEX_TYPE_AND_OFFSET();
 
           switch (local_type) {
             case VALUE_TYPE_I32:
             case VALUE_TYPE_F32:
-              PUSH_I32(LOCAL_I32(local_idx));
+              PUSH_I32(*(int32*)(frame_lp + local_offset));
               break;
             case VALUE_TYPE_I64:
             case VALUE_TYPE_F64:
-              PUSH_I64(LOCAL_I64(local_idx));
+              PUSH_I64(GET_I64_FROM_ADDR(frame_lp + local_offset));
               break;
             default:
               wasm_set_exception(module, "invalid local type");
               goto got_exception;
           }
+
+          if (local_offset < 0x80) {
+            *frame_ip_org++ = WASM_OP_GET_LOCAL_FAST;
+            if (local_type == VALUE_TYPE_I32
+                || local_type == VALUE_TYPE_F32)
+              *frame_ip_org++ = (uint8)local_offset;
+            else
+              *frame_ip_org++ = (uint8)(local_offset | 0x80);
+            while (frame_ip_org < frame_ip)
+              *frame_ip_org++ = WASM_OP_NOP;
+          }
+
+          HANDLE_OP_END ();
+        }
+
+      HANDLE_OP (WASM_OP_GET_LOCAL_FAST):
+        {
+          local_offset = *frame_ip++;
+          if (local_offset & 0x80)
+            PUSH_I64(GET_I64_FROM_ADDR(frame_lp + (local_offset & 0x7F)));
+          else
+            PUSH_I32(*(int32*)(frame_lp + local_offset));
           HANDLE_OP_END ();
         }
 
       HANDLE_OP (WASM_OP_SET_LOCAL):
         {
-          uint32 local_idx;
-          uint8 local_type;
-
-          GET_LOCAL_INDEX_AND_TYPE();
+          frame_ip_org = frame_ip - 1;
+          GET_LOCAL_INDEX_TYPE_AND_OFFSET();
 
           switch (local_type) {
             case VALUE_TYPE_I32:
-              SET_LOCAL_I32(local_idx, POP_I32());
-              break;
             case VALUE_TYPE_F32:
-              SET_LOCAL_F32(local_idx, POP_F32());
+              *(int32*)(frame_lp + local_offset) = POP_I32();
               break;
             case VALUE_TYPE_I64:
-              SET_LOCAL_I64(local_idx, POP_I64());
-              break;
             case VALUE_TYPE_F64:
-              SET_LOCAL_F64(local_idx, POP_F64());
+              PUT_I64_TO_ADDR((uint32*)(frame_lp + local_offset), POP_I64());
               break;
             default:
               wasm_set_exception(module, "invalid local type");
               goto got_exception;
           }
+
+          if (local_offset < 0x80) {
+            *frame_ip_org++ = WASM_OP_SET_LOCAL_FAST;
+            if (local_type == VALUE_TYPE_I32
+                || local_type == VALUE_TYPE_F32)
+              *frame_ip_org++ = (uint8)local_offset;
+            else
+              *frame_ip_org++ = (uint8)(local_offset | 0x80);
+            while (frame_ip_org < frame_ip)
+              *frame_ip_org++ = WASM_OP_NOP;
+          }
+
+          HANDLE_OP_END ();
+        }
+
+      HANDLE_OP (WASM_OP_SET_LOCAL_FAST):
+        {
+          local_offset = *frame_ip++;
+          if (local_offset & 0x80)
+            PUT_I64_TO_ADDR((uint32*)(frame_lp + (local_offset & 0x7F)), POP_I64());
+          else
+            *(int32*)(frame_lp + local_offset) = POP_I32();
           HANDLE_OP_END ();
         }
 
       HANDLE_OP (WASM_OP_TEE_LOCAL):
         {
-          uint32 local_idx;
-          uint8 local_type;
-
-          GET_LOCAL_INDEX_AND_TYPE();
+          frame_ip_org = frame_ip - 1;
+          GET_LOCAL_INDEX_TYPE_AND_OFFSET();
 
           switch (local_type) {
             case VALUE_TYPE_I32:
-              SET_LOCAL_I32(local_idx, *(frame_sp - 1));
-              break;
             case VALUE_TYPE_F32:
-              SET_LOCAL_F32(local_idx, *(float32*)(frame_sp - 1));
+              *(int32*)(frame_lp + local_offset) = *(int32*)(frame_sp - 1);
               break;
             case VALUE_TYPE_I64:
-              SET_LOCAL_I64(local_idx, GET_I64_FROM_ADDR(frame_sp - 2));
-              break;
             case VALUE_TYPE_F64:
-              SET_LOCAL_F64(local_idx, GET_F64_FROM_ADDR(frame_sp - 2));
+              PUT_I64_TO_ADDR((uint32*)(frame_lp + local_offset),
+                              GET_I64_FROM_ADDR(frame_sp - 2));
               break;
             default:
               wasm_set_exception(module, "invalid local type");
               goto got_exception;
           }
+
+          if (local_offset < 0x80) {
+            *frame_ip_org++ = WASM_OP_TEE_LOCAL_FAST;
+            if (local_type == VALUE_TYPE_I32
+                || local_type == VALUE_TYPE_F32)
+              *frame_ip_org++ = (uint8)local_offset;
+            else
+              *frame_ip_org++ = (uint8)(local_offset | 0x80);
+            while (frame_ip_org < frame_ip)
+              *frame_ip_org++ = WASM_OP_NOP;
+          }
+
+          HANDLE_OP_END ();
+        }
+
+      HANDLE_OP (WASM_OP_TEE_LOCAL_FAST):
+        {
+          local_offset = *frame_ip++;
+          if (local_offset & 0x80)
+            PUT_I64_TO_ADDR((uint32*)(frame_lp + (local_offset & 0x7F)),
+                            GET_I64_FROM_ADDR(frame_sp - 2));
+          else
+            *(int32*)(frame_lp + local_offset) = *(int32*)(frame_sp - 1);
           HANDLE_OP_END ();
         }
 
       HANDLE_OP (WASM_OP_GET_GLOBAL):
         {
-          WASMGlobalInstance *global;
-          uint32 global_idx;
-          uint8 *global_addr;
-
+          frame_ip_org = frame_ip - 1;
           read_leb_uint32(frame_ip, frame_ip_end, global_idx);
 
           bh_assert(global_idx < module->global_count);
@@ -1183,30 +1243,47 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
           switch (global->type) {
             case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
               PUSH_I32(*(uint32*)global_addr);
               break;
-            case VALUE_TYPE_F32:
-              PUSH_F32(*(float32*)global_addr);
-              break;
             case VALUE_TYPE_I64:
-              PUSH_I64(GET_I64_FROM_ADDR((uint32*)global_addr));
-              break;
             case VALUE_TYPE_F64:
-              PUSH_F64(GET_F64_FROM_ADDR((uint32*)global_addr));
+              PUSH_I64(GET_I64_FROM_ADDR((uint32*)global_addr));
               break;
             default:
               wasm_set_exception(module, "invalid global type");
               goto got_exception;
           }
+
+          if (global->data_offset < 0x80) {
+            *frame_ip_org++ = WASM_OP_GET_GLOBAL_FAST;
+            if (global->type == VALUE_TYPE_I32
+                || global->type == VALUE_TYPE_F32)
+              *frame_ip_org++ = (uint8)global->data_offset;
+            else
+              *frame_ip_org++ = (uint8)(global->data_offset | 0x80);
+            while (frame_ip_org < frame_ip)
+                *frame_ip_org++ = WASM_OP_NOP;
+          }
+
+          HANDLE_OP_END ();
+        }
+
+      HANDLE_OP (WASM_OP_GET_GLOBAL_FAST):
+        {
+          global_data_offset = *frame_ip++;
+
+          if (global_data_offset & 0x80)
+            PUSH_I64(GET_I64_FROM_ADDR((uint32*)(global_data + (global_data_offset & 0x7F))));
+          else
+            PUSH_I32(*(uint32*)(global_data + global_data_offset));
+
           HANDLE_OP_END ();
         }
 
       HANDLE_OP (WASM_OP_SET_GLOBAL):
         {
-          WASMGlobalInstance *global;
-          uint32 global_idx;
-          uint8 *global_addr;
-
+          frame_ip_org = frame_ip - 1;
           read_leb_uint32(frame_ip, frame_ip_end, global_idx);
 
           bh_assert(global_idx < module->global_count);
@@ -1215,21 +1292,42 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
           switch (global->type) {
             case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
               *(int32*)global_addr = POP_I32();
               break;
-            case VALUE_TYPE_F32:
-              *(float32*)global_addr = POP_F32();
-              break;
             case VALUE_TYPE_I64:
-              PUT_I64_TO_ADDR((uint32*)global_addr, POP_I64());
-              break;
             case VALUE_TYPE_F64:
-              PUT_F64_TO_ADDR((uint32*)global_addr, POP_F64());
+              PUT_I64_TO_ADDR((uint32*)global_addr, POP_I64());
               break;
             default:
               wasm_set_exception(module, "invalid global type");
               goto got_exception;
           }
+
+          if (global->data_offset < 0x80) {
+            *frame_ip_org++ = WASM_OP_SET_GLOBAL_FAST;
+            if (global->type == VALUE_TYPE_I32
+                || global->type == VALUE_TYPE_F32)
+              *frame_ip_org++ = (uint8)global->data_offset;
+            else
+              *frame_ip_org++ = (uint8)(global->data_offset | 0x80);
+            while (frame_ip_org < frame_ip)
+                *frame_ip_org++ = WASM_OP_NOP;
+          }
+
+          HANDLE_OP_END ();
+        }
+
+      HANDLE_OP (WASM_OP_SET_GLOBAL_FAST):
+        {
+          global_data_offset = *frame_ip++;
+
+          if (global_data_offset & 0x80)
+            PUT_I64_TO_ADDR((uint32*)(global_data + (global_data_offset & 0x7F)),
+                            POP_I64());
+          else
+            *(uint32*)(global_data + global_data_offset) = POP_I32();
+
           HANDLE_OP_END ();
         }
 
@@ -1444,7 +1542,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           PUSH_I32(prev_page_count);
           /* update the memory instance ptr */
           memory = module->default_memory;
-          memory_data_size = NumBytesPerPage * memory->cur_page_count;
+          memory_data_size = memory->num_bytes_per_page * memory->cur_page_count;
           global_data = memory->global_data;
         }
 
