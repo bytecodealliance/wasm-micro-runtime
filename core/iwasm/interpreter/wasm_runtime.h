@@ -16,6 +16,8 @@ extern "C" {
 #endif
 
 typedef struct WASMMemoryInstance {
+    /* Number bytes per page */
+    uint32 num_bytes_per_page;
     /* Current page count */
     uint32 cur_page_count;
     /* Maximum page count */
@@ -42,7 +44,7 @@ typedef struct WASMMemoryInstance {
     /* Base address, the layout is:
        thunk_argv data + thunk arg offsets +
        memory data + global data
-       memory data init size is: NumBytesPerPage * cur_page_count
+       memory data init size is: num_bytes_per_page * cur_page_count
        global data size is calculated in module instantiating
        Note: when memory is re-allocated, the thunk argv data, thunk
              argv offsets and memory data must be copied to new memory also.

@@ -71,7 +71,8 @@ check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         uint32 memory_offset = (uint32)LLVMConstIntGetZExtValue(moffset);
         uint32 init_page_count = comp_ctx->comp_data->mem_init_page_count;
         if (init_page_count > 0
-            && memory_offset <= NumBytesPerPage * init_page_count - bytes) {
+            && memory_offset <= comp_ctx->comp_data->num_bytes_per_page
+                                * init_page_count - bytes) {
             /* inside memory space */
             if (!func_ctx->mem_space_unchanged) {
                 if (!(mem_base_addr = LLVMBuildLoad(comp_ctx->builder,
