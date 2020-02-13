@@ -245,6 +245,7 @@ fail:
         aot_set_last_error("llvm build load failed.");      \
         goto fail;                                          \
     }                                                       \
+    LLVMSetAlignment(value, 1);                             \
   } while (0)
 
 #define BUILD_TRUNC(data_type) do {                         \
@@ -256,10 +257,12 @@ fail:
   } while (0)
 
 #define BUILD_STORE() do {                                  \
-    if (!LLVMBuildStore(comp_ctx->builder, value, maddr)) { \
+    LLVMValueRef res;                                       \
+    if (!(res = LLVMBuildStore(comp_ctx->builder, value, maddr))) { \
         aot_set_last_error("llvm build store failed.");     \
         goto fail;                                          \
     }                                                       \
+    LLVMSetAlignment(res, 1);                               \
   } while (0)
 
 #define BUILD_SIGN_EXT(dst_type) do {                       \
@@ -599,12 +602,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    /* convert call result from i8 to i1 */
-    if (!(ret_value = LLVMBuildIntCast(comp_ctx->builder, ret_value,
-                                       INT1_TYPE, "mem_grow_ret"))) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
+    BUILD_ICMP(LLVMIntUGT, ret_value, I8_ZERO, ret_value, "mem_grow_ret");
 
     /* ret_value = ret_value == true ? delta : pre_page_count */
     if (!(ret_value = LLVMBuildSelect(comp_ctx->builder, ret_value,
