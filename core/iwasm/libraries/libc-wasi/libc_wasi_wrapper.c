@@ -200,7 +200,7 @@ wasi_environ_get(wasm_exec_env_t exec_env,
                                          &environ_count, &environ_buf_size);
     WASI_CHECK_ERR();
 
-    total_size = sizeof(uint32) * ((uint64)environ_count + 1);
+    total_size = sizeof(char*) * ((uint64)environ_count + 1);
     if (total_size >= UINT32_MAX
         || !validate_app_addr(environ_offset, (uint32)total_size)
         || environ_buf_size >= UINT32_MAX

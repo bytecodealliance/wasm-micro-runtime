@@ -405,14 +405,23 @@ aot_compile_int_bit_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     CHECK_LLVM_CONST(zero_undef);
 
     /* Call the LLVM intrinsic function */
-    DEF_INT_UNARY_OP(call_llvm_intrinsic(comp_ctx,
-                                         bit_cnt_llvm_intrinsic[type],
-                                         ret_type,
-                                         param_types,
-                                         2,
-                                         operand,
-                                         zero_undef),
-                     NULL);
+    if (type < POP_CNT32)
+        DEF_INT_UNARY_OP(call_llvm_intrinsic(comp_ctx,
+                                             bit_cnt_llvm_intrinsic[type],
+                                             ret_type,
+                                             param_types,
+                                             2,
+                                             operand,
+                                             zero_undef),
+                         NULL);
+    else
+        DEF_INT_UNARY_OP(call_llvm_intrinsic(comp_ctx,
+                                             bit_cnt_llvm_intrinsic[type],
+                                             ret_type,
+                                             param_types,
+                                             1,
+                                             operand),
+                         NULL);
 
     return true;
 
