@@ -43,6 +43,58 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 } while (0)
 
 static bool
+skip_leb(const uint8  *buf, const uint8 *buf_end,
+         uint32 *p_offset, uint32 maxbits,
+         char* error_buf, uint32 error_buf_size)
+{
+    uint32 bcnt = 0;
+    uint64 byte;
+
+    while (true) {
+        if (bcnt + 1 > (maxbits + 6) / 7) {
+            set_error_buf(error_buf, error_buf_size,
+                          "WASM module load failed: "
+                          "integer representation too long");
+            return false;
+        }
+
+        CHECK_BUF(buf, buf_end, *p_offset + 1);
+        byte = buf[*p_offset];
+        *p_offset += 1;
+        bcnt += 1;
+        if ((byte & 0x80) == 0) {
+            break;
+        }
+    }
+
+    return true;
+}
+
+#define skip_leb_int64(p, p_end) do {               \
+  uint32 off = 0;                                   \
+  if (!skip_leb(p, p_end, &off, 64,                 \
+                error_buf, error_buf_size))         \
+    return false;                                   \
+  p += off;                                         \
+} while (0)
+
+#define skip_leb_uint32(p, p_end) do {              \
+  uint32 off = 0;                                   \
+  if (!skip_leb(p, p_end, &off, 32,                 \
+                error_buf, error_buf_size))         \
+    return false;                                   \
+  p += off;                                         \
+} while (0)
+
+#define skip_leb_int32(p, p_end) do {               \
+  uint32 off = 0;                                   \
+  if (!skip_leb(p, p_end, &off, 32,                 \
+                error_buf, error_buf_size))         \
+    return false;                                   \
+  p += off;                                         \
+} while (0)
+
+static bool
 read_leb(const uint8 *buf, const uint8 *buf_end,
          uint32 *p_offset, uint32 maxbits,
          bool sign, uint64 *p_result,
@@ -122,17 +174,18 @@ fail_integer_too_large:
 #define read_uint32(p) TEMPLATE_READ_VALUE(uint32, p)
 #define read_bool(p)   TEMPLATE_READ_VALUE(bool, p)
 
-#define read_leb_uint64(p, p_end, res) do {         \
-  uint32 off = 0;                                   \
-  uint64 res64;                                     \
-  if (!read_leb(p, p_end, &off, 64, false, &res64,  \
-                error_buf, error_buf_size))         \
-    return false;                                   \
-  p += off;                                         \
-  res = (uint64)res64;                              \
-} while (0)
-
 #define read_leb_int64(p, p_end, res) do {          \
+  if (p < p_end) {                                  \
+    uint8 _val = *p;                                \
+    if (!(_val & 0x80)) {                           \
+      res = (int64)_val;                            \
+      if (_val & 0x40)                              \
+        /* sign extend */                           \
+        res |= 0xFFFFFFFFFFFFFF80LL;                \
+      p++;                                          \
+      break;                                        \
+    }                                               \
+  }                                                 \
   uint32 off = 0;                                   \
   uint64 res64;                                     \
   if (!read_leb(p, p_end, &off, 64, true, &res64,   \
@@ -143,6 +196,14 @@ fail_integer_too_large:
 } while (0)
 
 #define read_leb_uint32(p, p_end, res) do {         \
+  if (p < p_end) {                                  \
+    uint8 _val = *p;                                \
+    if (!(_val & 0x80)) {                           \
+      res = _val;                                   \
+      p++;                                          \
+      break;                                        \
+    }                                               \
+  }                                                 \
   uint32 off = 0;                                   \
   uint64 res64;                                     \
   if (!read_leb(p, p_end, &off, 32, false, &res64,  \
@@ -153,6 +214,17 @@ fail_integer_too_large:
 } while (0)
 
 #define read_leb_int32(p, p_end, res) do {          \
+  if (p < p_end) {                                  \
+    uint8 _val = *p;                                \
+    if (!(_val & 0x80)) {                           \
+      res = (int32)_val;                            \
+      if (_val & 0x40)                              \
+        /* sign extend */                           \
+        res |= 0xFFFFFF80;                          \
+      p++;                                          \
+      break;                                        \
+    }                                               \
+  }                                                 \
   uint32 off = 0;                                   \
   uint64 res64;                                     \
   if (!read_leb(p, p_end, &off, 32, true, &res64,   \
@@ -1878,8 +1950,7 @@ wasm_loader_find_block_addr(WASMModule *module,
 {
     const uint8 *p = start_addr, *p_end = code_end_addr;
     uint8 *else_addr = NULL;
-    uint32 block_nested_depth = 1, count, i, u32;
-    uint64 u64;
+    uint32 block_nested_depth = 1, count, i;
     uint8 opcode, u8;
 
     BlockAddr block_stack[16] = { 0 }, *block;
@@ -1969,24 +2040,24 @@ wasm_loader_find_block_addr(WASMModule *module,
 
             case WASM_OP_BR:
             case WASM_OP_BR_IF:
-                read_leb_uint32(p, p_end, u32); /* labelidx */
+                skip_leb_uint32(p, p_end); /* labelidx */
                 break;
 
             case WASM_OP_BR_TABLE:
                 read_leb_uint32(p, p_end, count); /* lable num */
                 for (i = 0; i <= count; i++) /* lableidxs */
-                    read_leb_uint32(p, p_end, u32);
+                    skip_leb_uint32(p, p_end);
                 break;
 
             case WASM_OP_RETURN:
                 break;
 
             case WASM_OP_CALL:
-                read_leb_uint32(p, p_end, u32); /* funcidx */
+                skip_leb_uint32(p, p_end); /* funcidx */
                 break;
 
             case WASM_OP_CALL_INDIRECT:
-                read_leb_uint32(p, p_end, u32); /* typeidx */
+                skip_leb_uint32(p, p_end); /* typeidx */
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* 0x00 */
                 break;
@@ -2004,7 +2075,7 @@ wasm_loader_find_block_addr(WASMModule *module,
             case WASM_OP_TEE_LOCAL:
             case WASM_OP_GET_GLOBAL:
             case WASM_OP_SET_GLOBAL:
-                read_leb_uint32(p, p_end, u32); /* localidx */
+                skip_leb_uint32(p, p_end); /* localidx */
                 break;
 
             case WASM_OP_GET_LOCAL_FAST:
@@ -2039,20 +2110,20 @@ wasm_loader_find_block_addr(WASMModule *module,
             case WASM_OP_I64_STORE8:
             case WASM_OP_I64_STORE16:
             case WASM_OP_I64_STORE32:
-                read_leb_uint32(p, p_end, u32); /* align */
-                read_leb_uint32(p, p_end, u32); /* offset */
+                skip_leb_uint32(p, p_end); /* align */
+                skip_leb_uint32(p, p_end); /* offset */
                 break;
 
             case WASM_OP_MEMORY_SIZE:
             case WASM_OP_MEMORY_GROW:
-                read_leb_uint32(p, p_end, u32); /* 0x00 */
+                skip_leb_uint32(p, p_end); /* 0x00 */
                 break;
 
             case WASM_OP_I32_CONST:
-                read_leb_int32(p, p_end, u32);
+                skip_leb_int32(p, p_end);
                 break;
             case WASM_OP_I64_CONST:
-                read_leb_int64(p, p_end, u64);
+                skip_leb_int64(p, p_end);
                 break;
             case WASM_OP_F32_CONST:
                 p += sizeof(float32);
@@ -2195,8 +2266,6 @@ wasm_loader_find_block_addr(WASMModule *module,
         }
     }
 
-    (void)u32;
-    (void)u64;
     (void)u8;
     return false;
 }
