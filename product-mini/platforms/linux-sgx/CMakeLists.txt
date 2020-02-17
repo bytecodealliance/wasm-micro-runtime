@@ -64,11 +64,17 @@ set (APP_FRAMEWORK_DIR ${WAMR_ROOT_DIR}/core/app-framework)
 # include the build config template file
 include (${WAMR_ROOT_DIR}/build-scripts/config_common.cmake)
 
+if ("$ENV{SGX_SDK}" STREQUAL "")
+  set (SGX_SDK_DIR "/opt/intel/sgxsdk")
+else()
+  set (SGX_SDK_DIR $ENV{SGX_SDK})
+endif()
+
 include_directories (${SHARED_DIR}/include
                      ${IWASM_DIR}/include
-                     $ENV{SGX_SDK}/include
-                     $ENV{SGX_SDK}/include/tlibc
-                     $ENV{SGX_SDK}/include/libcxx)
+                     ${SGX_SDK_DIR}/include
+                     ${SGX_SDK_DIR}/include/tlibc
+                     ${SGX_SDK_DIR}/include/libcxx)
 
 enable_language (ASM)
 
@@ -107,7 +113,3 @@ add_library (vmlib
              ${IWASM_COMPL_SOURCE})
 
 add_library (extlib ext_lib_export.c)
-
-set (copy_libs_cmd cp -a libvmlib.a libextlib.a ../enclave-sample/)
-add_custom_target (copy_libs_to_enclave ALL COMMAND ${copy_libs_cmd} DEPENDS vmlib extlib)
-
