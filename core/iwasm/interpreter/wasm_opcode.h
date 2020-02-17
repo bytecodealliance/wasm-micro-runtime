@@ -238,18 +238,13 @@ typedef enum WASMOpcode {
     WASM_OP_F64_REINTERPRET_I64   = 0xbf, /* f64.reinterpret/i64 */
 
     /* drop/select specified types*/
-    WASM_OP_DROP_32   = 0xc0,
-    WASM_OP_DROP_64   = 0xc1,
-    WASM_OP_SELECT_32 = 0xc2,
-    WASM_OP_SELECT_64 = 0xc3,
-    WASM_OP_GET_LOCAL_FAST = 0xc4,
-    WASM_OP_SET_LOCAL_FAST = 0xc5,
-    WASM_OP_TEE_LOCAL_FAST = 0xc6,
-    WASM_OP_GET_GLOBAL_FAST = 0xc7,
-    WASM_OP_SET_GLOBAL_FAST = 0xc8,
+    WASM_OP_DROP_64   = 0xc0,
+    WASM_OP_SELECT_64 = 0xc1,
+    WASM_OP_GET_LOCAL_FAST = 0xc2,
+    WASM_OP_SET_LOCAL_FAST = 0xc3,
+    WASM_OP_TEE_LOCAL_FAST = 0xc4,
 
-    WASM_OP_IMPDEP1       = 0xc9,
-    WASM_OP_IMPDEP2       = 0xca
+    WASM_OP_IMPDEP       = 0xc5
 } WASMOpcode;
 
 #ifdef __cplusplus
@@ -455,17 +450,12 @@ static const void *_name[WASM_INSTRUCTION_NUM] = {           \
   HANDLE_OPCODE (WASM_OP_I64_REINTERPRET_F64),   /* 0xbd */  \
   HANDLE_OPCODE (WASM_OP_F32_REINTERPRET_I32),   /* 0xbe */  \
   HANDLE_OPCODE (WASM_OP_F64_REINTERPRET_I64),   /* 0xbf */  \
-  HANDLE_OPCODE (WASM_OP_DROP_32),       /* 0xc0 */          \
-  HANDLE_OPCODE (WASM_OP_DROP_64),       /* 0xc1 */          \
-  HANDLE_OPCODE (WASM_OP_SELECT_32),     /* 0xc2 */          \
-  HANDLE_OPCODE (WASM_OP_SELECT_64),     /* 0xc3 */          \
-  HANDLE_OPCODE (WASM_OP_GET_LOCAL_FAST),/* 0xc4 */          \
-  HANDLE_OPCODE (WASM_OP_SET_LOCAL_FAST),/* 0xc5 */          \
-  HANDLE_OPCODE (WASM_OP_TEE_LOCAL_FAST),/* 0xc6 */          \
-  HANDLE_OPCODE (WASM_OP_GET_GLOBAL_FAST),/* 0xc7 */         \
-  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_FAST),/* 0xc8 */         \
-  HANDLE_OPCODE (WASM_OP_IMPDEP1),       /* 0xc9 */          \
-  HANDLE_OPCODE (WASM_OP_IMPDEP2),       /* 0xca */          \
+  HANDLE_OPCODE (WASM_OP_DROP_64),       /* 0xc0 */          \
+  HANDLE_OPCODE (WASM_OP_SELECT_64),     /* 0xc1 */          \
+  HANDLE_OPCODE (WASM_OP_GET_LOCAL_FAST),/* 0xc2 */          \
+  HANDLE_OPCODE (WASM_OP_SET_LOCAL_FAST),/* 0xc3 */          \
+  HANDLE_OPCODE (WASM_OP_TEE_LOCAL_FAST),/* 0xc4 */          \
+  HANDLE_OPCODE (WASM_OP_IMPDEP),        /* 0xc5 */          \
 }
 
 #endif /* end of _WASM_OPCODE_H */

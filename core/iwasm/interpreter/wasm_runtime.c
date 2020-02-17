@@ -290,43 +290,8 @@ static void
 functions_deinstantiate(WASMFunctionInstance *functions, uint32 count)
 {
     if (functions) {
-        uint32 i;
-
-        for (i = 0; i < count; i++)
-            if (functions[i].local_offsets)
-                wasm_free(functions[i].local_offsets);
         wasm_free(functions);
     }
-}
-
-static bool
-function_init_local_offsets(WASMFunctionInstance *func)
-{
-    uint32 local_offset = 0;
-    WASMType *param_type = func->u.func->func_type;
-    uint32 param_count = param_type->param_count;
-    uint8 *param_types = param_type->types;
-    uint32 local_count = func->u.func->local_count;
-    uint8 *local_types = func->u.func->local_types;
-    uint32 i;
-    uint64 total_size = sizeof(uint16) * (uint64)(param_count + local_count);
-
-    if (total_size >= UINT32_MAX
-        || !(func->local_offsets = wasm_malloc((uint32)total_size)))
-        return false;
-
-    for (i = 0; i < param_count; i++) {
-        func->local_offsets[i] = (uint16)local_offset;
-        local_offset += wasm_value_type_cell_num(param_types[i]);
-    }
-
-    for (i = 0; i < local_count; i++) {
-        func->local_offsets[param_count + i] = (uint16)local_offset;
-        local_offset += wasm_value_type_cell_num(local_types[i]);
-    }
-
-    bh_assert(local_offset == func->param_cell_num + func->local_cell_num);
-    return true;
 }
 
 /**
@@ -379,23 +344,16 @@ functions_instantiate(const WASMModule *module,
         function->is_import_func = false;
         function->u.func = module->functions[i];
 
-        function->param_cell_num =
-            wasm_type_param_cell_num(function->u.func->func_type);
-        function->ret_cell_num =
-            wasm_type_return_cell_num(function->u.func->func_type);
-        function->local_cell_num =
-            wasm_get_cell_num(function->u.func->local_types,
-                              function->u.func->local_count);
+        function->param_cell_num = function->u.func->param_cell_num;
+        function->ret_cell_num = function->u.func->ret_cell_num;
+        function->local_cell_num = function->u.func->local_cell_num;
 
         function->param_count = (uint16)function->u.func->func_type->param_count;
         function->local_count = (uint16)function->u.func->local_count;
         function->param_types = function->u.func->func_type->types;
         function->local_types = function->u.func->local_types;
 
-        if (!function_init_local_offsets(function)) {
-            functions_deinstantiate(functions, function_count);
-            return NULL;
-        }
+        function->local_offsets = function->u.func->local_offsets;
 
         function++;
     }
