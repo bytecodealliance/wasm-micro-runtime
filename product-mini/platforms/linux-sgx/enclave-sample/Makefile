@@ -170,6 +170,14 @@ Enclave/%.o: Enclave/%.cpp
 	@$(CXX) $(Enclave_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
+libvmlib.a: ../build/libvmlib.a
+	@cp $< $@
+	@echo "CP $@  <=  $<"
+
+libextlib.a: ../build/libextlib.a
+	@cp $< $@
+	@echo "CP $@  <=  $<"
+
 $(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects) libvmlib.a libextlib.a
 	@$(CXX) $^ -o $@ $(Enclave_Link_Flags)
 	@echo "LINK =>  $@"
