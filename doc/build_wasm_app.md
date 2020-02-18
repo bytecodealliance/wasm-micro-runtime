@@ -102,7 +102,9 @@ Usage: wamrc [options] -o output_file wasm_file
                             Use +feature to enable a feature, or -feature to disable it
                             For example, --cpu-features=+feature1,-feature2
                             Use --cpu-features=+help to list all the features supported
-  --opt-level=n             Set the optimization level (0 to 3, default: 3)
+  --opt-level=n             Set the optimization level (0 to 3, default: 3, which is fastest)
+  --size-level=n            Set the code size level (0 to 3, default: 3, which is smallest)
+  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)
   --format=<format>         Specifies the format of the output file
                             The format supported:
                               aot (default)  AoT file

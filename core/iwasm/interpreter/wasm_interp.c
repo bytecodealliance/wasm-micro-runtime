@@ -880,24 +880,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
       HANDLE_OP (WASM_OP_LOOP):
         block_ret_type = *frame_ip++;
-
-        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(block_addr_cache_size - 1);
-        if (block_addr_cache[cache_index].frame_ip == frame_ip) {
-          end_addr = block_addr_cache[cache_index].end_addr;
-        }
-        else {
-          if (!wasm_loader_find_block_addr(module->module,
-                                           frame_ip, (uint8*)-1,
-                                           BLOCK_TYPE_LOOP,
-                                           &else_addr, &end_addr,
-                                           NULL, 0)) {
-            wasm_set_exception(module, "find block address failed");
-            goto got_exception;
-          }
-          block_addr_cache[cache_index].frame_ip = frame_ip;
-          block_addr_cache[cache_index].end_addr = end_addr;
-        }
-
         PUSH_CSP(BLOCK_TYPE_LOOP, block_ret_type, frame_ip);
         HANDLE_OP_END ();
 
