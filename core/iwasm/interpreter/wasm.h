@@ -167,6 +167,17 @@ typedef struct WASMFunction {
     WASMType *func_type;
     uint32 local_count;
     uint8 *local_types;
+
+    /* cell num of parameters */
+    uint16 param_cell_num;
+    /* cell num of return type */
+    uint16 ret_cell_num;
+    /* cell num of local variables */
+    uint16 local_cell_num;
+    /* offset of each local, including function paramameters
+       and local variables */
+    uint16 *local_offsets;
+
     uint32 max_stack_cell_num;
     uint32 max_block_num;
     /* Whether function has opcode memory.grow */
@@ -226,6 +237,11 @@ typedef struct WASIArguments {
 } WASIArguments;
 #endif
 
+typedef struct StringNode {
+    struct StringNode *next;
+    char *str;
+} StringNode, *StringList;
+
 typedef struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -279,7 +295,8 @@ typedef struct WASMModule {
        memory.grow opcode or call enlargeMemory */
     bool possible_memory_grow;
 
-    HashMap *const_str_set;
+    StringList const_str_list;
+
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
 
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -291,8 +308,7 @@ typedef struct WASMModule {
 typedef struct WASMBranchBlock {
     uint8 block_type;
     uint8 return_type;
-    uint8 *start_addr;
-    uint8 *end_addr;
+    uint8 *target_addr;
     uint32 *frame_sp;
 } WASMBranchBlock;
 

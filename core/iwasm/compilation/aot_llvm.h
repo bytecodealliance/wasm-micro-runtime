@@ -219,6 +219,7 @@ typedef struct AOTCompOption{
     char *target_cpu;
     char *cpu_features;
     uint32 opt_level;
+    uint32 size_level;
     uint32 output_format;
 } AOTCompOption, *aot_comp_option_t;
 
