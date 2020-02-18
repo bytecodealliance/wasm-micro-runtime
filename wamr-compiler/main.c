@@ -28,7 +28,9 @@ print_help()
   bh_printf("                            Use +feature to enable a feature, or -feature to disable it\n");
   bh_printf("                            For example, --cpu-features=+feature1,-feature2\n");
   bh_printf("                            Use --cpu-features=+help to list all the features supported\n");
-  bh_printf("  --opt-level=n             Set the optimization level (0 to 3, default: 3)\n");
+  bh_printf("  --opt-level=n             Set the optimization level (0 to 3, default: 3, which is fastest)\n");
+  bh_printf("  --size-level=n            Set the code size level (0 to 3, default: 3, which is smallest)\n");
+  bh_printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)\n");
   bh_printf("  --format=<format>         Specifies the format of the output file\n");
   bh_printf("                            The format supported:\n");
   bh_printf("                              aot (default)  AoT file\n");
@@ -53,8 +55,10 @@ main(int argc, char *argv[])
   AOTCompOption option = { 0 };
   char error_buf[128];
   int log_verbose_level = 2;
+  bool sgx_mode = false;
 
   option.opt_level = 3;
+  option.size_level = 3;
   option.output_format = AOT_FORMAT_FILE;
 
   /* Process options.  */
@@ -92,6 +96,16 @@ main(int argc, char *argv[])
         if (option.opt_level > 3)
             option.opt_level = 3;
     }
+    else if (!strncmp(argv[0], "--size-level=", 13)) {
+        if (argv[0][13] == '\0')
+            return print_help();
+        option.size_level = (uint32)atoi(argv[0] + 13);
+        if (option.size_level > 3)
+            option.size_level = 3;
+    }
+    else if (!strcmp(argv[0], "-sgx")) {
+        sgx_mode = true;
+    }
     else if (!strncmp(argv[0], "--format=", 9)) {
         if (argv[0][9] == '\0')
             return print_help();
@@ -114,6 +128,9 @@ main(int argc, char *argv[])
 
   if (argc == 0)
     return print_help();
+
+  if (sgx_mode)
+      option.size_level = 1;
 
   wasm_file_name = argv[0];
 

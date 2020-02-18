@@ -744,7 +744,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
                     if (!(import->u.function.func_ptr_linked =
                                 resolve_sym(module_name, field_name))) {
-#ifndef WASM_ENABLE_WAMR_COMPILER /* Output warning except running aot compiler */
+#if WASM_ENABLE_WAMR_COMPILER == 0 /* Output warning except running aot compiler */
                         LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                                     module_name, field_name);
 #endif
@@ -3043,7 +3043,7 @@ handle_next_reachable_block:
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
                 PUSH_TYPE(local_type);
 
-#if !defined(WASM_ENABLE_WAMR_COMPILER) && !defined(WASM_ENABLE_JIT)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = WASM_OP_GET_LOCAL_FAST;
                     if (local_type == VALUE_TYPE_I32
@@ -3065,7 +3065,7 @@ handle_next_reachable_block:
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
                 POP_TYPE(local_type);
 
-#if !defined(WASM_ENABLE_WAMR_COMPILER) && !defined(WASM_ENABLE_JIT)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = WASM_OP_SET_LOCAL_FAST;
                     if (local_type == VALUE_TYPE_I32
@@ -3089,7 +3089,7 @@ handle_next_reachable_block:
                 POP_TYPE(local_type);
                 PUSH_TYPE(local_type);
 
-#if !defined(WASM_ENABLE_WAMR_COMPILER) && !defined(WASM_ENABLE_JIT)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (local_offset < 0x80) {
                     *p_org++ = WASM_OP_TEE_LOCAL_FAST;
                     if (local_type == VALUE_TYPE_I32
