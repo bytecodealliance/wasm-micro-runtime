@@ -1,9 +1,0 @@
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/install/strip.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/install/local.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/rebuild_cache.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/install.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/list_install_components.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/iwasm.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/libiwasm.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/vmlib.dir
-/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/product-mini/platforms/linux/build/CMakeFiles/edit_cache.dir
