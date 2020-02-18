@@ -837,7 +837,8 @@ aot_create_comp_context(AOTCompData *comp_data,
     char *triple_norm_new = NULL, *cpu_new = NULL;
     char *err = NULL, *fp_round= "round.tonearest", *fp_exce = "fpexcept.strict";
     char triple_buf[32] = {0};
-    uint32 opt_level;
+    uint32 opt_level, size_level;
+    LLVMCodeModel code_model;
 
     /* Initialize LLVM environment */
     LLVMInitializeAllTargetInfos();
@@ -896,6 +897,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         cpu = option->target_cpu;
         features = option->cpu_features;
         opt_level = option->opt_level;
+        size_level = option->size_level;
 
         if (arch) {
             /* Add default sub-arch if not specified */
@@ -1001,6 +1003,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         bh_printf("  target cpu:    %s\n", cpu);
         bh_printf("  cpu features:  %s\n", features);
         bh_printf("  opt level:     %d\n", opt_level);
+        bh_printf("  size level:    %d\n", size_level);
         switch (option->output_format) {
             case AOT_LLVMIR_UNOPT_FILE:
                 bh_printf("  output format: unoptimized LLVM IR\n");
@@ -1030,11 +1033,21 @@ aot_create_comp_context(AOTCompData *comp_data,
             goto fail;
         }
 
+        /* Set code model */
+        if (size_level == 0)
+            code_model = LLVMCodeModelLarge;
+        else if (size_level == 1)
+            code_model = LLVMCodeModelMedium;
+        else if (size_level == 2)
+            code_model = LLVMCodeModelKernel;
+        else
+            code_model = LLVMCodeModelSmall;
+
         /* Create the target machine */
         if (!(comp_ctx->target_machine =
                     LLVMCreateTargetMachine(target, triple_norm, cpu, features,
                                             opt_level, LLVMRelocStatic,
-                                            LLVMCodeModelSmall))) {
+                                            code_model))) {
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }

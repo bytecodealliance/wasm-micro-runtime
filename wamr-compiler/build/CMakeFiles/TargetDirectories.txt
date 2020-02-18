@@ -1,0 +1,6 @@
+/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/wamr-compiler/build/CMakeFiles/rebuild_cache.dir
+/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/wamr-compiler/build/CMakeFiles/intrinsics_gen.dir
+/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/wamr-compiler/build/CMakeFiles/edit_cache.dir
+/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/wamr-compiler/build/CMakeFiles/vmlib.dir
+/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/wamr-compiler/build/CMakeFiles/aotclib.dir
+/home/agent/WASM/ssg-dynamic-apps/wamr-wasmpoc/wamr-compiler/build/CMakeFiles/wamrc.dir

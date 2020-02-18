@@ -1283,7 +1283,8 @@ apply_relocation(AOTModule *module,
             if ((int32)target_addr != target_addr) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
-                              "relocation truncated to fit R_X86_64_PC32 failed");
+                              "relocation truncated to fit R_X86_64_PC32 failed. "
+                              "Try using wamrc with --size-level=1 option.");
                 return false;
             }
 
@@ -1305,7 +1306,8 @@ apply_relocation(AOTModule *module,
                     && (int32)target_addr != (int64)target_addr)) {
                 snprintf(buf, sizeof(buf),
                         "AOT module load failed: "
-                        "relocation truncated to fit %s failed",
+                        "relocation truncated to fit %s failed. "
+                        "Try using wamrc with --size-level=1 option.",
                         reloc_type == R_X86_64_32
                         ? "R_X86_64_32" : "R_X86_64_32S");
                 set_error_buf(error_buf, error_buf_size, buf);
@@ -1335,7 +1337,8 @@ apply_relocation(AOTModule *module,
             if ((int32)target_addr != target_addr) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
-                              "relocation truncated to fit R_X86_64_PC32 failed");
+                              "relocation truncated to fit R_X86_64_PC32 failed. "
+                              "Try using wamrc with --size-level=1 option.");
                 return false;
             }
 
