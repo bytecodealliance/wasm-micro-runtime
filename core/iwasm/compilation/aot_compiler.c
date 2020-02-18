@@ -186,7 +186,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
           return false;
         break;
 
-      case WASM_OP_DROP_32:
+      case WASM_OP_DROP:
         if (!aot_compile_op_drop(comp_ctx, func_ctx, true))
             return false;
         break;
@@ -196,7 +196,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             return false;
         break;
 
-      case WASM_OP_SELECT_32:
+      case WASM_OP_SELECT:
         if (!aot_compile_op_select(comp_ctx, func_ctx, true))
           return false;
         break;

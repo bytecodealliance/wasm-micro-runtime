@@ -64,6 +64,10 @@ enum {
 #define WASM_ENABLE_JIT 0
 #endif
 
+#ifndef WASM_ENABLE_WAMR_COMPILER
+#define WASM_ENABLE_WAMR_COMPILER 0
+#endif
+
 #ifndef WASM_ENABLE_LIBC_BUILTIN
 #define WASM_ENABLE_LIBC_BUILTIN 0
 #endif
