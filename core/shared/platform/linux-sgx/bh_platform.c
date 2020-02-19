@@ -89,7 +89,11 @@ void* bh_mmap(void *hint, unsigned int size, int prot, int flags)
     if (prot & MMAP_PROT_EXEC)
         mprot |= SGX_PROT_EXEC;
     st = sgx_tprotect_rsrv_mem(ret, alignedSize, mprot);
-    if (st != SGX_SUCCESS) bh_printf_sgx("bh_mmap(size=%d,prot=0x%x) failed to set protect.",size, prot);
+    if (st != SGX_SUCCESS){
+	bh_printf_sgx("bh_mmap(size=%d,prot=0x%x) failed to set protect.",size, prot);
+        sgx_free_rsrv_mem(ret, alignedSize);
+        return NULL;
+    }
 
     return ret;
 }
