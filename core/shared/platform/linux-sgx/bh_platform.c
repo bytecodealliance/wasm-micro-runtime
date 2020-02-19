@@ -7,6 +7,7 @@
 #include "bh_platform.h"
 
 #include <unistd.h>
+#include "sgx_rsrv_mem_mngr.h"
 
 #define FIXED_BUFFER_SIZE (1<<9)
 static bh_print_function_t print_function = NULL;
@@ -69,23 +70,52 @@ int bh_vprintf_sgx(const char * format, va_list arg)
     return 0;
 }
 
-void *
-bh_mmap(void *hint, unsigned int size, int prot, int flags)
+void* bh_mmap(void *hint, unsigned int size, int prot, int flags)
 {
-    /* TODO: implement bh_mmap in Linux SGX */
-    return NULL;
+    int mprot = 0;
+    unsigned alignedSize = (size+4095) & (unsigned)~4095; //Page aligned
+    void* ret = NULL;
+    sgx_status_t st = 0;
+
+    ret = sgx_alloc_rsrv_mem(alignedSize);
+    if (ret == NULL) {
+        bh_printf_sgx("bh_mmap(size=%d, alignedSize=%d, prot=0x%x) failed.",size, alignedSize, prot);
+        return NULL;
+    }
+    if (prot & MMAP_PROT_READ)
+        mprot |= SGX_PROT_READ;
+    if (prot & MMAP_PROT_WRITE)
+        mprot |= SGX_PROT_WRITE;
+    if (prot & MMAP_PROT_EXEC)
+        mprot |= SGX_PROT_EXEC;
+    st = sgx_tprotect_rsrv_mem(ret, alignedSize, mprot);
+    if (st != SGX_SUCCESS){
+	bh_printf_sgx("bh_mmap(size=%d,prot=0x%x) failed to set protect.",size, prot);
+        sgx_free_rsrv_mem(ret, alignedSize);
+        return NULL;
+    }
+
+    return ret;
 }
 
-void
-bh_munmap(void *addr, uint32 size)
+void bh_munmap(void *addr, uint32 size)
 {
-    /* TODO: implement bh_munmap in Linux SGX */
+    sgx_free_rsrv_mem(addr, size);
 }
 
-int
-bh_mprotect(void *addr, uint32 size, int prot)
+int bh_mprotect(void *addr, uint32 size, int prot)
 {
-    /* TODO: implement bh_mprotect in Linux SGX */
-    return -1;
-}
+    int mprot = 0;
+    sgx_status_t st = 0;
 
+    if (prot & MMAP_PROT_READ)
+        mprot |= SGX_PROT_READ;
+    if (prot & MMAP_PROT_WRITE)
+        mprot |= SGX_PROT_WRITE;
+    if (prot & MMAP_PROT_EXEC)
+        mprot |= SGX_PROT_EXEC;
+    st = sgx_tprotect_rsrv_mem(addr, size, mprot);
+    if (st != SGX_SUCCESS) bh_printf_sgx("bh_mprotect(addr=0x%lx,size=%d,prot=0x%x) failed.", addr, size, prot);
+
+    return (st == SGX_SUCCESS? 0:-1);
+}

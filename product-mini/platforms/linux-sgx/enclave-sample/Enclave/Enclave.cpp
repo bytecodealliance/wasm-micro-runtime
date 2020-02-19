@@ -10,7 +10,7 @@
 #include "bh_memory.h"
 #include "wasm_export.h"
 
-static char global_heap_buf[512 * 1024] = { 0 };
+static char global_heap_buf[2* 1024 * 1024] = { 0 };
 
 static int app_argc;
 static char **app_argv;
