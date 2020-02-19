@@ -32,8 +32,8 @@ if (NOT DEFINED WAMR_BUILD_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_AOT)
-  # Disable AOT by default.
-  set (WAMR_BUILD_AOT 0)
+  # Enable AOT by default.
+  set (WAMR_BUILD_AOT 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_JIT)
