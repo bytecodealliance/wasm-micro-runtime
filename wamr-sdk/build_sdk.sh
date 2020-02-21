@@ -22,7 +22,7 @@ usage ()
     echo " -x [config file path name]"
     echo " -e [extra include path], files under this path will be copied into SDK package"
     echo " -c, clean"
-    echo " -i, enter interactive config setting"
+    echo " -i, enter menu config settings"
     exit 1
 }
 
@@ -65,6 +65,14 @@ if [ ! -f "/opt/wasi-sdk/bin/clang" ]; then
         exit 1
 fi
 
+if [ -z "$PROFILE" ]; then
+    PROFILE="default"
+    echo "PROFILE argument not set, using DEFAULT"
+    if [[ -z "$wamr_config_cmake_file" ]]; then
+        wamr_config_cmake_file=${sdk_root}/wamr_config_default.cmake
+        echo "use default config file: [$wamr_config_cmake_file]"
+    fi
+fi
 
 
 if [ ! -d "${out_dir}" ]; then
@@ -102,17 +110,17 @@ if [[ -n "$wamr_config_cmake_file" ]]; then
 	
 else
 	wamr_config_cmake_file=${out_dir}/wamr_config_${PROFILE}.cmake
+    # always rebuilt the sdk if user is not giving the config file	
+	if [ -d ${curr_profile_dir} ]; then
+	   rm -rf ${curr_profile_dir}
+	fi
 	
-	if [[ "$MENUCONFIG" = "TRUE" ]]; then
+	if [[ "$MENUCONFIG" = "TRUE" ]] || [[ ! -f $wamr_config_cmake_file ]]; then
 		echo "MENUCONFIG: [${wamr_config_cmake_file}]"
 		./menuconfig.sh -x ${wamr_config_cmake_file}
 		[ $? -eq 0 ] || exit $?
-		
-	elif  [[ -f $wamr_config_cmake_file ]]; then
+	else
 		echo "use existing config file: [$wamr_config_cmake_file]"
- 	else
- 		wamr_config_cmake_file=${sdk_root}/wamr_config_default.cmake
- 		echo "use default config file: [$wamr_config_cmake_file]"
     fi
 fi
 
@@ -137,6 +145,11 @@ echo "##############  Start to build wasm app sdk  ###############"
 cd ${sdk_root}/app
 rm -fr build && mkdir build
 cd build
+
+out=`grep WAMR_BUILD_LIBC_WASI ${wamr_config_cmake_file} |grep 1`
+if [ -n "$out" ]; then
+    LIBC_SUPPORT="WASI"
+fi
 if [ "${LIBC_SUPPORT}" = "WASI" ]; then
     echo "using wasi toolchain"
     cmake .. $CMAKE_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE} -DCONFIG_PATH=${wamr_config_cmake_file} -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
@@ -145,8 +158,8 @@ else
     cmake .. $CMAKE_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE} -DCONFIG_PATH=${wamr_config_cmake_file} -DCMAKE_TOOLCHAIN_FILE=../wamr_toolchain.cmake
 fi
 [ $? -eq 0 ] || exit $?
-make
 
+make
 if (( $? == 0 )); then
     echo -e "\033[32mSuccessfully built app-sdk under ${curr_profile_dir}/app-sdk\033[0m"
 else
@@ -156,8 +169,10 @@ fi
 
 cd ..
 rm -fr build
-
 echo -e "\n\n"
+
+
+
 echo "##############  Start to build runtime sdk  ###############"
 cd ${sdk_root}/runtime
 rm -fr build_runtime_sdk && mkdir build_runtime_sdk
@@ -173,21 +188,15 @@ else
     exit 1
 fi
 
-cd ..
-rm -fr build_runtime_sdk
-
-if [ "$APP" = "TRUE" ]; then
+APP=`grep WAMR_BUILD_APP_FRAMEWORK ${wamr_config_cmake_file} |grep 1`
+if [ -n "$APP" ]; then
     # Generate defined-symbol list for app-sdk
     cd ${wamr_app_out_dir}/share
     cat ${curr_profile_dir}/runtime-sdk/include/*.inl | egrep "^ *EXPORT_WASM_API *[(] *[a-zA-Z_][a-zA-Z0-9_]* *?[)]" | cut -d '(' -f2 | cut -d ')' -f1 > defined-symbols.txt
-    echo "wasm_register_resource"       >> defined-symbols.txt
-    echo "wasm_response_send"           >> defined-symbols.txt
-    echo "wasm_post_request"            >> defined-symbols.txt
-    echo "wasm_sub_event"               >> defined-symbols.txt
-    echo "wasm_create_timer"            >> defined-symbols.txt
-    echo "wasm_timer_destroy"           >> defined-symbols.txt
-    echo "wasm_timer_cancel"            >> defined-symbols.txt
-    echo "wasm_timer_restart"           >> defined-symbols.txt
-    echo "wasm_get_sys_tick_ms"         >> defined-symbols.txt
 fi
 
+
+cd ..
+rm -fr build_runtime_sdk
+
+exit 0
