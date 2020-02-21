@@ -1,12 +1,5 @@
 mainmenu "WebAssembly Micro Runtime Configuration"
 
-config WAMR_SDK_PROFILE
-    string "wamr SDK profile name"
-    default "default"
-    help
-        create a new SDK by giving a name or overwrite
-        the "default" profile
-
 choice
     prompt "select a build target"
 
@@ -64,9 +57,7 @@ choice
 
 endchoice
 
- 
-
-choice 
+choice
     prompt "application framework"
     config APP_FRAMEWORK_DISABLE
         bool "Disable app framework"
@@ -77,29 +68,17 @@ choice
         bool "Default components"
         help
             Default components
-            
-    config TRI_CHOICE_SYM_2
-         tristate "Tristate choice sym 2"
 
-    config APP_BUILD_CUSTOM
+    config APP_FRAMEWORK_ALL
+        bool "All components"
+
+    config APP_FRAMEWORK_CUSTOM
         bool "customized module config"
 
     menu "modules:"
-        depends on APP_BUILD_CUSTOM
+        depends on APP_FRAMEWORK_CUSTOM
 
         source ".wamr_modules"
 
     endmenu
 endchoice
-
-config EXTRA_INCLUDE_ENABLE
-    bool "enable extra include dir"
-
-config EXTRA_INCLUDE_PATH
-    string "external include path"
-    depends on EXTRA_INCLUDE_ENABLE
-    help
-        Pass external include path to be added in the SDK
-        This is useful when your app modules need some external
-        header files, such as the wgl modules which need some config
-        file when building the runtime library
