@@ -79,11 +79,6 @@ sysroot_dir=${curr_profile_dir}/app-sdk/libc-builtin-sysroot
 echo "CMAKE_DEXTRA_SDK_INCLUDE_PATH=${CMAKE_DEXTRA_SDK_INCLUDE_PATH}"
 
 
-if [ -z "$PROFILE" ]; then
-    PROFILE="default"
-    echo "PROFILE argument not set, using DEFAULT"
-fi
-
 if [[ "$CLEAN" = "TRUE" ]]; then
     rm -rf ${curr_profile_dir}
 fi
@@ -98,9 +93,16 @@ fi
 # 4. Use the default config cmake file
 #
 if [[ -n "$wamr_config_cmake_file" ]]; then
+	if  [[ ! -f $wamr_config_cmake_file ]]; then
+	   echo "user given file not exist: ${wamr_config_cmake_file}"
+	   exit 1
+	fi
+	
 	echo "User config file: [${wamr_config_cmake_file}]"
+	
 else
-	wamr_config_cmake_file=${curr_profile_dir}/wamr_config_menu.cmake
+	wamr_config_cmake_file=${out_dir}/wamr_config_${PROFILE}.cmake
+	
 	if [[ "$MENUCONFIG" = "TRUE" ]]; then
 		echo "MENUCONFIG: [${wamr_config_cmake_file}]"
 		./menuconfig.sh -x ${wamr_config_cmake_file}
