@@ -146,104 +146,74 @@ if [ ! -e ".config" ]; then
     exit 0
 fi
 
-
-args=""
-function args_add_bool()
-{
-    args="${args} -$1"
-}
-
-function args_add_one()
-{
-    args="${args} -$1 $2"
-}
-
-function args_add_array()
-{
-    args="${args} -$1 ${2#,}"
-}
-
-source .config
-
-profile=`cat .config | grep "^CONFIG_WAMR_SDK_PROFILE"`
-profile=${profile#CONFIG_WAMR_SDK_PROFILE=\"}
-profile=${profile%*\"}
-args_add_one n ${profile}
-
+# parse platform
 platform=`cat .config | grep "^CONFIG_PLATFORM"`
 platform=${platform%*=y}
 platform=${platform,,}
 platform=${platform#config_platform_}
-if [ -n "${platform}" ]; then
-    args_add_one p ${platform#config_platform_}
-fi
 
+# parse target
 target=`cat .config | grep "^CONFIG_TARGET"`
 target=${target%*=y}
 target=${target#CONFIG_TARGET_}
-if [ -n "${target}" ]; then
-    args_add_one t ${target#CONFIG_TARGET_}
-fi
 
-
+# parse execution mode
 modes=`cat .config | grep "^CONFIG_EXEC"`
-arg_mode=""
+mode_list=""
 for mode in ${modes}
 do
     mode=${mode%*=y}
     mode=${mode#CONFIG_EXEC_}
-    arg_mode="${arg_mode},${mode,,}"
+    mode_list="${mode_list} ${mode,,}"
 done
-if [ -z "${arg_mode}" ]; then
+if [ -z "${mode_list}" ]; then
     echo "execution mode are not selected"
     exit 1
 fi
-args_add_array m "${arg_mode}"
 
+# parse libc support
 libc=`cat .config | grep "^CONFIG_LIBC"`
 libc=${libc%*=y}
 if [ "${libc}" = "CONFIG_LIBC_WASI" ]; then
-    args_add_bool w
+    libc_support="WASI"
+else
+    libc_support="BUILTIN"
 fi
 
-app_en=`cat .config | grep "^CONFIG_APP_FRAMEWORK"`
-app_en=${app_en%*=y}
-app_en=${app_en,,}
-if [ -n "${app_en}" ]; then
-    args_add_bool a
+# parse application framework options
+app_option=`cat .config | grep "^CONFIG_APP_FRAMEWORK"`
+app_option=${app_option%*=y}
+app_option=${app_option#CONFIG_APP_FRAMEWORK_}
+
+if [ "${app_option}" != "DISABLE" ]; then
+    app_enable="TRUE"
+
+    # Default components
+    if [ "${app_option}" = "DEFAULT" ]; then
+        app_list="base connection sensor"
+    # All components
+    elif [ "${app_option}" = "ALL" ]; then
+        app_list="all"
+    # Customize
+    elif [ "${app_option}" = "CUSTOM" ]; then
+        app_option=`cat .config | grep "^CONFIG_APP_BUILD"`
+        app_list="base"
+        for app in ${app_option}
+        do
+            app=${app%*=y}
+            app=${app#CONFIG_APP_BUILD_}
+            app_list="${app_list} ${app,,}"
+        done
+    fi
 fi
-
-apps=`cat .config | grep "^CONFIG_APP_BUILD"`
-arg_app=""
-for app in ${apps}
-do
-    app=${app%*=y}
-    app=${app#CONFIG_APP_BUILD_}
-    arg_app="${arg_app},${app,,}"
-done
-
-if [ -n "${app_en}" ]; then
-    arg_app="${arg_app},base"
-    args_add_array l "${arg_app}"
-fi
-
-extra_path=`cat .config | grep "^CONFIG_EXTRA_INCLUDE_PATH"`
-if [ -n "${extra_path}" ]; then
-    extra_path=${extra_path#CONFIG_EXTRA_INCLUDE_PATH=\"}
-    extra_path=${extra_path%*\"}
-    args_add_one e ${extra_path}
-fi
-
-args="-g ${args}"
-
 
 if  [[ -f $wamr_config_cmake_file ]]; then
     rm  $wamr_config_cmake_file
 fi
 
-set_build_target        ${TARGET}
-set_build_platform      ${PLATFORM}
-set_exec_mode           "${MODES[*]}"
-set_libc_support        ${LIBC_SUPPORT}
-set_app_module          "${APP_LIST[*]}"
-set_app_framework       ${APP}
+set_build_target        ${target}
+set_build_platform      ${platform}
+set_exec_mode           "${mode_list[*]}"
+set_libc_support        ${libc_support}
+set_app_module          "${app_list[*]}"
+set_app_framework       ${app_enable}

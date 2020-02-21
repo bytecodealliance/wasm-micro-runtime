@@ -95,7 +95,7 @@ fi
 
 # cmake config file for wamr runtime:
 # 1. use the users provided the config cmake file path.
-# 2. if user set MENU CONFIG, enter menu config to generate 
+# 2. if user set MENU CONFIG, enter menu config to generate
 #    menu_config.cmake in the profile output folder
 # 3. If the menu_config.cmake is already in the profile folder, use it
 # 4. Use the default config cmake file
@@ -105,16 +105,16 @@ if [[ -n "$wamr_config_cmake_file" ]]; then
 	   echo "user given file not exist: ${wamr_config_cmake_file}"
 	   exit 1
 	fi
-	
+
 	echo "User config file: [${wamr_config_cmake_file}]"
-	
+
 else
 	wamr_config_cmake_file=${out_dir}/wamr_config_${PROFILE}.cmake
-    # always rebuilt the sdk if user is not giving the config file	
+    # always rebuilt the sdk if user is not giving the config file
 	if [ -d ${curr_profile_dir} ]; then
 	   rm -rf ${curr_profile_dir}
 	fi
-	
+
 	if [[ "$MENUCONFIG" = "TRUE" ]] || [[ ! -f $wamr_config_cmake_file ]]; then
 		echo "MENUCONFIG: [${wamr_config_cmake_file}]"
 		./menuconfig.sh -x ${wamr_config_cmake_file}
@@ -145,6 +145,24 @@ echo "##############  Start to build wasm app sdk  ###############"
 cd ${sdk_root}/app
 rm -fr build && mkdir build
 cd build
+
+# If wgl module is selected, check if the extra SDK include dir is passed by the args, prompt user to input if not.
+app_all_selected=`cat ${wamr_config_cmake_file} | grep WAMR_APP_BUILD_ALL`
+app_wgl_selected=`cat ${wamr_config_cmake_file} | grep WAMR_APP_BUILD_WGL`
+
+if [[ -n "${app_wgl_selected}" ]] || [[ -n "${app_all_selected}" ]]; then
+    if [ -z "${CMAKE_DEXTRA_SDK_INCLUDE_PATH}" ]; then
+        echo -e "\033[31mWGL module require lvgl config files, please input the path to the lvgl SDK include path:\033[0m"
+        read -a extra_file_path
+
+        if [[ -z "${extra_file_path}" ]] || [[ ! -d "${extra_file_path}" ]]; then
+            echo -e "\033[31mThe extra SDK path is invalid, exiting\033[0m"
+            exit 1
+        else
+            CMAKE_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${extra_file_path}"
+        fi
+    fi
+fi
 
 out=`grep WAMR_BUILD_LIBC_WASI ${wamr_config_cmake_file} |grep 1`
 if [ -n "$out" ]; then
