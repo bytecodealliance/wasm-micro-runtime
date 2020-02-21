@@ -1,7 +1,7 @@
 mainmenu "WebAssembly Micro Runtime Configuration"
 
 config WAMR_SDK_PROFILE
-    string "wamr sdk profile name"
+    string "wamr SDK profile name"
     default "default"
     help
         create a new SDK by giving a name or overwrite
@@ -64,20 +64,33 @@ choice
 
 endchoice
 
-config APP_FRAMEWORK_ENABLE
-    bool "enable app framework"
-    help
-        enable wamr app framework
+ 
 
-menu "app modules"
-    depends on APP_FRAMEWORK_ENABLE
+choice 
+    prompt "application framework"
+    config APP_FRAMEWORK_DISABLE
+        bool "Disable app framework"
+        help
+            Disable wamr app framework
 
-    config APP_BUILD_ALL
-        bool "enable all modules"
+    config APP_FRAMEWORK_DEFAULT
+        bool "Default components"
+        help
+            Default components
+            
+    config TRI_CHOICE_SYM_2
+         tristate "Tristate choice sym 2"
 
-    source ".wamr_modules"
+    config APP_BUILD_CUSTOM
+        bool "customized module config"
 
-endmenu
+    menu "modules:"
+        depends on APP_BUILD_CUSTOM
+
+        source ".wamr_modules"
+
+    endmenu
+endchoice
 
 config EXTRA_INCLUDE_ENABLE
     bool "enable extra include dir"

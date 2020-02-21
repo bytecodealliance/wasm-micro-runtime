@@ -28,6 +28,7 @@ do
 done
 
 menuconfig Kconfig
+[ $? -eq 0 ] || exit $?
 
 if [ ! -e ".config" ]; then
     exit 0
@@ -49,6 +50,8 @@ function args_add_array()
 {
     args="${args} -$1 ${2#,}"
 }
+
+source .config
 
 profile=`cat .config | grep "^CONFIG_WAMR_SDK_PROFILE"`
 profile=${profile#CONFIG_WAMR_SDK_PROFILE=\"}
