@@ -3,6 +3,118 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+
+usage ()
+{
+    echo "menuconfig.sh [options]"
+    echo " -x [config file path name]"
+    exit 1
+}
+
+
+while getopts "x:" opt
+do
+    case $opt in
+        x)
+        wamr_config_cmake_file=$OPTARG
+        ;;
+        ?)
+        echo "Unknown arg: $arg"
+        usage
+        exit 1
+        ;;
+    esac
+done
+
+
+
+
+function set_build_target () {
+    target=$1
+
+    if [[ "${target}" = "X86_64" ]]; then
+        echo -e "set (WAMR_BUILD_TARGET \"X86_64\")" >> ${wamr_config_cmake_file}
+    elif [[ "${target}" = "X86_32" ]]; then
+        echo -e "set (WAMR_BUILD_TARGET \"X86_32\")" >> ${wamr_config_cmake_file}
+    else
+        echo "unknown build target."
+        exit 1
+    fi
+}
+
+function set_build_platform () {
+    platform=$1
+
+    if [[ "${platform}" = "linux" ]]; then
+        echo -e "set (WAMR_BUILD_PLATFORM \"linux\")" >> ${wamr_config_cmake_file}
+    # TODO: add other platforms
+    else
+        echo "${platform} platform currently not supported"
+        exit 1
+    fi
+}
+
+# input: array of selected exec modes [aot jit interp]
+function set_exec_mode () {
+    modes=($1)
+
+    for mode in ${modes[@]}
+    do
+        if [[ "$mode" = "aot" ]]; then
+            echo "set (WAMR_BUILD_AOT 1)" >> ${wamr_config_cmake_file}
+        elif [[ "$mode" = "jit" ]]; then
+            echo "set (WAMR_BUILD_JIT 1)" >> ${wamr_config_cmake_file}
+            BUILD_LLVM="TRUE"
+        elif [[ "$mode" = "interp" ]]; then
+            echo "set (WAMR_BUILD_INTERP 1)" >> ${wamr_config_cmake_file}
+        else
+            echo "unknown execute mode."
+            exit 1
+        fi
+    done
+}
+
+function set_libc_support () {
+    libc=$1
+
+    if [ "$libc" = "WASI" ]; then
+        echo "set (WAMR_BUILD_LIBC_WASI 1)" >> ${wamr_config_cmake_file}
+    else
+        echo "set (WAMR_BUILD_LIBC_BUILTIN 1)" >> ${wamr_config_cmake_file}
+    fi
+}
+
+function set_app_framework () {
+    app_support=$1
+
+    if [ "$app_support" = "TRUE" ]; then
+        echo "set (WAMR_BUILD_APP_FRAMEWORK 1)" >> ${wamr_config_cmake_file}
+    fi
+}
+
+# input: array of selected app modules
+function set_app_module () {
+    modules=($1)
+
+    for module in ${modules[*]}
+    do
+        if [ "${module}" = "all" ]; then
+            cmake_app_list="WAMR_APP_BUILD_ALL"
+            break
+        fi
+
+        cmake_app_list="${cmake_app_list} WAMR_APP_BUILD_${module^^}"
+    done
+
+    # APP module list
+    if [ -n "${cmake_app_list}" ]; then
+        echo "set (WAMR_BUILD_APP_LIST ${cmake_app_list# })" >> ${wamr_config_cmake_file}
+    fi
+}
+
+
+
+
 sdk_root=$(cd "$(dirname "$0")/" && pwd)
 wamr_root=${sdk_root}/..
 
@@ -123,4 +235,15 @@ if [ -n "${extra_path}" ]; then
 fi
 
 args="-g ${args}"
-./build_sdk.sh ${args}
+
+
+if  [[ -f $wamr_config_cmake_file ]]; then
+    rm  $wamr_config_cmake_file
+fi
+
+set_build_target        ${TARGET}
+set_build_platform      ${PLATFORM}
+set_exec_mode           "${MODES[*]}"
+set_libc_support        ${LIBC_SUPPORT}
+set_app_module          "${APP_LIST[*]}"
+set_app_framework       ${APP}

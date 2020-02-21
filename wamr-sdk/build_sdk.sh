@@ -27,7 +27,7 @@ usage ()
 }
 
 
-while getopts "e:x:n:t:m:l:awgicg" opt
+while getopts "e:x:n:ic" opt
 do
     case $opt in
         n)
@@ -39,14 +39,8 @@ do
         e)
         CMAKE_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${OPTARG}"
         ;;
-        a)
-        APP="TRUE"
-        ;;
         c)
         CLEAN="TRUE"
-        ;;
-        w)
-        LIBC_SUPPORT="WASI"
         ;;
         i)
         MENUCONFIG="TRUE"
@@ -59,9 +53,28 @@ do
     esac
 done
 
+
+if [ ! -f "/opt/wasi-sdk/bin/clang" ]; then
+        echo "Can't find wasi-sdk under /opt/wasi-sdk"
+        echo "You can download wasi-sdk from here:"
+        echo ""
+        echo "https://github.com/CraneStation/wasi-sdk/releases/tag/wasi-sdk-7"
+        echo ""
+        echo "please install it to the default path for your convenience"
+        echo ""
+        exit 1
+fi
+
+
+
 if [ ! -d "${out_dir}" ]; then
     mkdir -p ${out_dir}
 fi
+
+curr_profile_dir=${out_dir}/${PROFILE}
+wamr_app_out_dir=${curr_profile_dir}/app-sdk/wamr-app-framework
+sysroot_dir=${curr_profile_dir}/app-sdk/libc-builtin-sysroot
+
 
 echo "CMAKE_DEXTRA_SDK_INCLUDE_PATH=${CMAKE_DEXTRA_SDK_INCLUDE_PATH}"
 
@@ -71,46 +84,33 @@ if [ -z "$PROFILE" ]; then
     echo "PROFILE argument not set, using DEFAULT"
 fi
 
-curr_profile_dir=${out_dir}/${PROFILE}
-wamr_app_out_dir=${curr_profile_dir}/app-sdk/wamr-app-framework
-sysroot_dir=${curr_profile_dir}/app-sdk/libc-builtin-sysroot
-
 if [[ "$CLEAN" = "TRUE" ]]; then
     rm -rf ${curr_profile_dir}
 fi
 
+
+
 # cmake config file for wamr runtime:
 # 1. use the users provided the config cmake file path.
-# 2. if user set MENU CONFIG, enter menu config to generate menu_config.cmake in the profile output folder
+# 2. if user set MENU CONFIG, enter menu config to generate 
+#    menu_config.cmake in the profile output folder
 # 3. If the menu_config.cmake is already in the profile folder, use it
 # 4. Use the default config cmake file
+#
 if [[ -n "$wamr_config_cmake_file" ]]; then
 	echo "User config file: [${wamr_config_cmake_file}]"
 else
 	wamr_config_cmake_file=${curr_profile_dir}/wamr_config_menu.cmake
-	if [[ "$MENUCONFIG" = "TRUE" ]] || [[ "$FROM_GUI_MENU" = "TRUE" ]]; then
-		echo "MENUCONFIG: user config file: [${wamr_config_cmake_file}]"
+	if [[ "$MENUCONFIG" = "TRUE" ]]; then
+		echo "MENUCONFIG: [${wamr_config_cmake_file}]"
+		./menuconfig.sh -x ${wamr_config_cmake_file}
+		[ $? -eq 0 ] || exit $?
+		
 	elif  [[ -f $wamr_config_cmake_file ]]; then
 		echo "use existing config file: [$wamr_config_cmake_file]"
  	else
  		wamr_config_cmake_file=${sdk_root}/wamr_config_default.cmake
  		echo "use default config file: [$wamr_config_cmake_file]"
-    fi
-fi
-
-# if called by gui menuconfig, overwrite the exist profile
-if [ "${FROM_GUI_MENU}" != "TRUE" ]; then
-    if [[ "$PROFILE" != "default" ]] && [[ -d "$curr_profile_dir" ]]; then
-        echo "#########################################################"
-        echo "profile ${curr_profile_dir} already exists"
-        echo "  skip the build process and use the previous settings: [y]"
-        echo "  or delete the profile and generate a new one:          n"
-        read -a erase_exist
-        if [[ "$erase_exist" != "n" ]] && [[ "$erase_exist" != "N" ]]; then
-            exit 0
-        fi
-
-        rm -rf ${curr_profile_dir}
     fi
 fi
 
