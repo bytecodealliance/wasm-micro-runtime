@@ -185,6 +185,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                      uint8 **p_frame_ip, uint8 *frame_ip_end,
                      uint32 block_type, uint32 block_ret_type)
 {
+    BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
     AOTBlock *block;
     uint8 *else_addr, *end_addr;
     LLVMValueRef value;
@@ -197,7 +198,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Get block info */
-    if (!(wasm_loader_find_block_addr(comp_ctx->comp_data->wasm_module,
+    if (!(wasm_loader_find_block_addr((BlockAddr*)block_addr_cache,
                                       *p_frame_ip, frame_ip_end, (uint8)block_type,
                                       &else_addr, &end_addr, NULL, 0))) {
         aot_set_last_error("find block end addr failed.");
