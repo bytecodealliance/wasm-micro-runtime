@@ -361,7 +361,11 @@ static attr_container_t * read_test_sensor(void * sensor)
     //luc: for test
     attr_container_t *attr_obj = attr_container_create("read test sensor data");
     if (attr_obj) {
-        attr_container_set_string(&attr_obj, "name", "read test sensor");
+        bool ret = attr_container_set_string(&attr_obj, "name", "read test sensor");
+        if (!ret) {
+            attr_container_destroy(attr_obj);
+            return NULL;
+        }
         return attr_obj;
     }
     return NULL;
