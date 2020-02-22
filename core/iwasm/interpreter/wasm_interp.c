@@ -860,9 +860,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else if (cache_items[1].start_addr == frame_ip) {
           end_addr = cache_items[1].end_addr;
         }
-        else if (cache_items[2].start_addr == frame_ip) {
-          end_addr = cache_items[2].end_addr;
-        }
         else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
                                               frame_ip, (uint8*)-1,
                                               BLOCK_TYPE_BLOCK,
@@ -892,10 +889,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else if (cache_items[1].start_addr == frame_ip) {
           else_addr = cache_items[1].else_addr;
           end_addr = cache_items[1].end_addr;
-        }
-        else if (cache_items[2].start_addr == frame_ip) {
-          else_addr = cache_items[2].else_addr;
-          end_addr = cache_items[2].end_addr;
         }
         else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
                                               frame_ip, (uint8*)-1,
