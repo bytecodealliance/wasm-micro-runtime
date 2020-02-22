@@ -6,6 +6,7 @@ cmake_minimum_required (VERSION 2.8)
 project (simple)
 
 ################  wamr runtime settings  ################
+message(STATUS "WAMR_BUILD_SDK_PROFILE=${WAMR_BUILD_SDK_PROFILE}")
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
@@ -14,9 +15,9 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 
 ## use library and headers in the SDK
-link_directories(${WAMR_ROOT_DIR}/wamr-sdk/out/simple/runtime-sdk/lib)
+link_directories(${WAMR_ROOT_DIR}/wamr-sdk/out/${WAMR_BUILD_SDK_PROFILE}/runtime-sdk/lib)
 include_directories(
-    ${WAMR_ROOT_DIR}/wamr-sdk/out/simple/runtime-sdk/include
+    ${WAMR_ROOT_DIR}/wamr-sdk/out/${WAMR_BUILD_SDK_PROFILE}/runtime-sdk/include
 )
 
 ################  application related  ################
@@ -27,6 +28,6 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 #add_definitions (-DCONNECTION_UART)
 
 add_executable (simple src/main.c src/iwasm_main.c src/ext_lib_export.c)
-target_link_libraries (simple vmlib -lm -ldl -lpthread)
+target_link_libraries (simple vmlib -lm -ldl -lpthread -lrt)
 
 

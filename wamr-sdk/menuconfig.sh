@@ -27,6 +27,10 @@ do
 done
 
 
+if [  -z $wamr_config_cmake_file ]; then
+    usage
+    exit
+fi
 
 
 function set_build_target () {

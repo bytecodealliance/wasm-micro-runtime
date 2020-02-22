@@ -10,7 +10,9 @@ profile_path=${out_dir}/profile.cmake
 wamr_config_cmake_file=""
 # libc support, default builtin-libc
 LIBC_SUPPORT="BUILTIN"
-CMAKE_DEXTRA_SDK_INCLUDE_PATH=""
+CM_DEXTRA_SDK_INCLUDE_PATH=""
+CM_BUILD_TYPE="-DCMAKE_BUILD_TYPE=Release"
+CM_TOOLCHAIN=""
 
 # menuconfig will pass options to this script
 MENUCONFIG=""
@@ -20,27 +22,35 @@ usage ()
     echo "build.sh [options]"
     echo " -n [profile name]"
     echo " -x [config file path name]"
+    echo " -t [cmake toolchain file]"
     echo " -e [extra include path], files under this path will be copied into SDK package"
     echo " -c, clean"
+    echo " -d, debug mode"
     echo " -i, enter menu config settings"
     exit 1
 }
 
 
-while getopts "e:x:n:ic" opt
+while getopts "e:x:n:t:icd" opt
 do
     case $opt in
         n)
         PROFILE=$OPTARG
         ;;
+        t)
+        CM_TOOLCHAIN="-DCMAKE_TOOLCHAIN_FILE=$OPTARG"
+        ;;
         x)
         wamr_config_cmake_file=$OPTARG
         ;;
         e)
-        CMAKE_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${OPTARG}"
+        CM_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${OPTARG}"
         ;;
         c)
         CLEAN="TRUE"
+        ;;
+        d)
+        CM_BUILD_TYPE="-DCMAKE_BUILD_TYPE=Debug"
         ;;
         i)
         MENUCONFIG="TRUE"
@@ -84,7 +94,7 @@ wamr_app_out_dir=${curr_profile_dir}/app-sdk/wamr-app-framework
 sysroot_dir=${curr_profile_dir}/app-sdk/libc-builtin-sysroot
 
 
-echo "CMAKE_DEXTRA_SDK_INCLUDE_PATH=${CMAKE_DEXTRA_SDK_INCLUDE_PATH}"
+echo "CM_DEXTRA_SDK_INCLUDE_PATH=${CM_DEXTRA_SDK_INCLUDE_PATH}"
 
 
 if [[ "$CLEAN" = "TRUE" ]]; then
@@ -151,7 +161,7 @@ app_all_selected=`cat ${wamr_config_cmake_file} | grep WAMR_APP_BUILD_ALL`
 app_wgl_selected=`cat ${wamr_config_cmake_file} | grep WAMR_APP_BUILD_WGL`
 
 if [[ -n "${app_wgl_selected}" ]] || [[ -n "${app_all_selected}" ]]; then
-    if [ -z "${CMAKE_DEXTRA_SDK_INCLUDE_PATH}" ]; then
+    if [ -z "${CM_DEXTRA_SDK_INCLUDE_PATH}" ]; then
         echo -e "\033[31mWGL module require lvgl config files, please input the path to the lvgl SDK include path:\033[0m"
         read -a extra_file_path
 
@@ -159,7 +169,7 @@ if [[ -n "${app_wgl_selected}" ]] || [[ -n "${app_all_selected}" ]]; then
             echo -e "\033[31mThe extra SDK path is invalid, exiting\033[0m"
             exit 1
         else
-            CMAKE_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${extra_file_path}"
+            CM_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${extra_file_path}"
         fi
     fi
 fi
@@ -170,10 +180,16 @@ if [ -n "$out" ]; then
 fi
 if [ "${LIBC_SUPPORT}" = "WASI" ]; then
     echo "using wasi toolchain"
-    cmake .. $CMAKE_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE} -DCONFIG_PATH=${wamr_config_cmake_file} -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
+    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
+         -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \ 
+         -DCONFIG_PATH=${wamr_config_cmake_file} \
+         -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
 else
     echo "using builtin libc toolchain"
-    cmake .. $CMAKE_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE} -DCONFIG_PATH=${wamr_config_cmake_file} -DCMAKE_TOOLCHAIN_FILE=../wamr_toolchain.cmake
+    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
+         -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \
+         -DCONFIG_PATH=${wamr_config_cmake_file} \
+         -DCMAKE_TOOLCHAIN_FILE=../wamr_toolchain.cmake
 fi
 [ $? -eq 0 ] || exit $?
 
@@ -195,7 +211,10 @@ echo "##############  Start to build runtime sdk  ###############"
 cd ${sdk_root}/runtime
 rm -fr build_runtime_sdk && mkdir build_runtime_sdk
 cd build_runtime_sdk
-cmake .. $CMAKE_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE} -DCONFIG_PATH=${wamr_config_cmake_file}
+cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
+       -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \
+       -DCONFIG_PATH=${wamr_config_cmake_file} \
+       $CM_TOOLCHAIN $CM_BUILD_TYPE
 [ $? -eq 0 ] || exit $?
 make
 
