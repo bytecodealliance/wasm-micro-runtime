@@ -80,8 +80,39 @@ To run the UART based test, you have to set up a UART hardware connection betwee
 
 Build the sample
 ==============
-Execute the build.sh script then all binaries including wasm application files would be generated in 'out' directory.
-`./build.sh`
+Execute the build.sh script then all binaries including wasm application files would be generated in 'out' directory. 
+
+```
+$ ./build.sh 
+Enter build target profile (default=host-interp) -->
+arm-interp
+host-aot
+host-interp
+\>:
+
+```
+
+Enter the profile name for starting your build. "host-***" profiles build the sample for executing on your development machine, and "arm-interp" profile will do cross building for ARM target platform. If "arm-interp" is entered, please ensure the ARM cross compiler toolchain is already installed in your development machine. Your should set *ARM_A7_COMPILER_DIR* and *ARM_A7_SDKTARGETSYSROOT* environment variable in your ~/.bashrc correctly. refer to the file [profiles/arm-interp/toolchain.cmake](./profiles/arm-interp/toolchain.cmake).
+
+```
+~/.bashrc:
+export ARM_A7_COMPILER_DIR="/home/beihai/cross-toolchains/gcc-linaro-arm-linux-gnueabihf-4.7-2013.03-20130313_linux/bin"
+export ARM_A7_SDKTARGETSYSROOT="/home/beihai/cross-toolchains/gcc-linaro-arm-linux-gnueabihf-4.7-2013.03-20130313_linux/arm-linux-gnueabihf/libc"
+
+notes: please set the value to the actual path of your cross toolchain.
+```
+
+If you need to create additional profile for customizing your runtime, application framework or the target platforms, a new subfolder can be created under the *profiles* folder, and place your own version of "toolchain.cmake" and "wamr_config_simple.cmake" in it.
+
+```
+$wamr-root/samples/simple/profiles$ ls
+arm-interp  host-aot  host-interp
+$wamr-root/samples/simple/profiles$ ls arm-interp/
+toolchain.cmake  wamr_config_simple.cmake
+
+```
+
+
 
 
 

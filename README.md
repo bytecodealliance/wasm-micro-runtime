@@ -114,7 +114,7 @@ Menu configuration is supported for easy integration of runtime components and a
 
 ```
 cd wamr-sdk
-./menuconfig.sh
+./build_sdk.sh -i -n [profile name]
 ```
 
 <img src="./doc/pics/wamr_menu_config.png" alt="wamr build menu configuration" style="zoom:80%;" />
@@ -141,7 +141,7 @@ simple/
     └── lib
 ```
 
-The tool **build_sdk.sh** can be also directly executed by passing the configuration arguments, which is how each WAMR sample project builds the WAMR SDK for its own building profile.
+
 
 ### Use Runtime SDK
 

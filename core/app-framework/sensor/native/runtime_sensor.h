@@ -9,6 +9,7 @@
 #include "bh_platform.h"
 #include "bi-inc/attr_container.h"
 #include "wasm_export.h"
+#include "sensor_native_api.h"
 
 struct _sys_sensor;
 typedef struct _sys_sensor* sensor_obj_t;
@@ -50,20 +51,10 @@ void sensor_cleanup_callback(uint32 module_id);
 int check_sensor_timers();
 void reschedule_sensor_read();
 
-uint32
-wasm_sensor_open(wasm_exec_env_t exec_env,
-                 int32 name_offset, int instance);
+void init_sensor_framework();
+void start_sensor_framework();
+void exit_sensor_framework();
 
-bool
-wasm_sensor_config(wasm_exec_env_t exec_env,
-                   uint32 sensor, int interval, int bit_cfg, int delay);
 
-bool
-wasm_sensor_config_with_attr_container(wasm_exec_env_t exec_env,
-                                       uint32 sensor, int32 buffer_offset,
-                                       int len);
-
-bool
-wasm_sensor_close(wasm_exec_env_t exec_env, uint32 sensor);
 
 #endif /* LIB_EXTENSION_RUNTIME_SENSOR_H_ */
