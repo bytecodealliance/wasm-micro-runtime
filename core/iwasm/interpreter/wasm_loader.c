@@ -1485,6 +1485,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
+                             BlockAddr *block_addr_cache,
                              char *error_buf, uint32 error_buf_size);
 
 static bool
@@ -1502,6 +1503,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     uint32 data_end_global_index = UINT32_MAX;
     uint32 heap_base_global_index = UINT32_MAX;
     uint32 stack_top_global_index = UINT32_MAX;
+    BlockAddr *block_addr_cache;
+    uint64 total_size;
 
     /* Find code and function sections if have */
     while (section) {
@@ -1581,11 +1584,21 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         section = section->next;
     }
 
+    total_size = sizeof(BlockAddr) * (uint64)BLOCK_ADDR_CACHE_SIZE * BLOCK_ADDR_CONFLICT_SIZE;
+    if (total_size >= UINT32_MAX
+        || !(block_addr_cache = wasm_malloc((uint32)total_size))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "WASM module load failed: allocate memory failed");
+        return false;
+    }
+
     for (i = 0; i < module->function_count; i++) {
         WASMFunction *func = module->functions[i];
-        if (!wasm_loader_prepare_bytecode(module, func, error_buf, error_buf_size))
+        memset(block_addr_cache, 0, (uint32)total_size);
+        if (!wasm_loader_prepare_bytecode(module, func, block_addr_cache, error_buf, error_buf_size))
             return false;
     }
+    wasm_free(block_addr_cache);
 
     /* Resolve llvm auxiliary data/stack/heap info and reset memory info */
     if (!module->possible_memory_grow) {
@@ -1985,7 +1998,7 @@ wasm_loader_unload(WASMModule *module)
 }
 
 bool
-wasm_loader_find_block_addr(WASMModule *module,
+wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             const uint8 *start_addr,
                             const uint8 *code_end_addr,
                             uint8 block_type,
@@ -2002,17 +2015,8 @@ wasm_loader_find_block_addr(WASMModule *module,
     BlockAddr block_stack[16] = { 0 }, *block;
     uint32 j, t;
 
-    i = (uint32)(((uintptr_t)start_addr) ^ ((uintptr_t)start_addr >> 16));
-    i = i % BLOCK_ADDR_CACHE_SIZE;
-    block = module->block_addr_cache[i];
-    for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++) {
-        if (block[j].start_addr == start_addr) {
-            /* Cache hit */
-            *p_else_addr = block[j].else_addr;
-            *p_end_addr = block[j].end_addr;
-            return true;
-        }
-    }
+    i = ((uintptr_t)start_addr) % BLOCK_ADDR_CACHE_SIZE;
+    block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
 
     /* Cache unhit */
     block_stack[0].start_addr = start_addr;
@@ -2055,9 +2059,8 @@ wasm_loader_find_block_addr(WASMModule *module,
                     for (t = 0; t < sizeof(block_stack)/sizeof(BlockAddr); t++) {
                         start_addr = block_stack[t].start_addr;
                         if (start_addr) {
-                            i = (uint32)(((uintptr_t)start_addr) ^ ((uintptr_t)start_addr >> 16));
-                            i = i % BLOCK_ADDR_CACHE_SIZE;
-                            block = module->block_addr_cache[i];
+                            i = ((uintptr_t)start_addr) % BLOCK_ADDR_CACHE_SIZE;
+                            block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
                             for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++)
                                 if (!block[j].start_addr)
                                     break;
@@ -2677,6 +2680,7 @@ check_memory(WASMModule *module,
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
+                             BlockAddr *block_addr_cache,
                              char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;
@@ -2689,10 +2693,12 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint8 *param_types, ret_type, *local_types, local_type, global_type;
     uint16 *local_offsets, local_offset;
     uint32 count, i, local_idx, global_idx, depth, u32;
+    uint32 cache_index, item_index;
     int32 i32, i32_const = 0;
     int64 i64;
     uint8 opcode, u8, block_return_type;
     bool return_value = false, is_i32_const = false;
+    BlockAddr *cache_items;
 
     global_count = module->import_global_count + module->global_count;
 
@@ -2760,13 +2766,27 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                     (frame_csp - 1)->is_block_reachable = true;
                 else {
                     if (!i32_const) {
-                        if(!wasm_loader_find_block_addr(module,
-                                                        (frame_csp - 1)->start_addr,
-                                                        p_end,
-                                                        (frame_csp - 1)->block_type,
-                                                        &(frame_csp - 1)->else_addr,
-                                                        &(frame_csp - 1)->end_addr,
-                                                        error_buf, error_buf_size))
+                        cache_index = ((uintptr_t)(frame_csp - 1)->start_addr)
+                                      & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
+                        cache_items = block_addr_cache +
+                                      BLOCK_ADDR_CONFLICT_SIZE * cache_index;
+                        for (item_index = 0; item_index < BLOCK_ADDR_CONFLICT_SIZE;
+                             item_index++) {
+                            if (cache_items[item_index].start_addr ==
+                                                        (frame_csp - 1)->start_addr) {
+                                (frame_csp - 1)->else_addr = cache_items[item_index].else_addr;
+                                (frame_csp - 1)->end_addr =  cache_items[item_index].end_addr;
+                                break;
+                            }
+                        }
+                        if(item_index == BLOCK_ADDR_CONFLICT_SIZE
+                           && !wasm_loader_find_block_addr(block_addr_cache,
+                                                           (frame_csp - 1)->start_addr,
+                                                           p_end,
+                                                           (frame_csp - 1)->block_type,
+                                                           &(frame_csp - 1)->else_addr,
+                                                           &(frame_csp - 1)->end_addr,
+                                                           error_buf, error_buf_size))
                             goto fail;
 
                         if ((frame_csp - 1)->else_addr)
@@ -2821,13 +2841,24 @@ handle_next_reachable_block:
 
                 block_return_type = (frame_csp - i)->return_type;
 
-                if(!wasm_loader_find_block_addr(module,
-                                                (frame_csp - i)->start_addr,
-                                                p_end,
-                                                (frame_csp - i)->block_type,
-                                                &(frame_csp - i)->else_addr,
-                                                &(frame_csp - i)->end_addr,
-                                                error_buf, error_buf_size))
+                cache_index = ((uintptr_t)(frame_csp - i)->start_addr)
+                              & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
+                cache_items = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * cache_index;
+                for (item_index = 0; item_index < BLOCK_ADDR_CONFLICT_SIZE; item_index++) {
+                    if (cache_items[item_index].start_addr == (frame_csp - i)->start_addr) {
+                        (frame_csp - i)->else_addr = cache_items[item_index].else_addr;
+                        (frame_csp - i)->end_addr = cache_items[item_index].end_addr;
+                        break;
+                    }
+                }
+                if(item_index == BLOCK_ADDR_CONFLICT_SIZE
+                   && !wasm_loader_find_block_addr(block_addr_cache,
+                                                   (frame_csp - i)->start_addr,
+                                                   p_end,
+                                                   (frame_csp - i)->block_type,
+                                                   &(frame_csp - i)->else_addr,
+                                                   &(frame_csp - i)->end_addr,
+                                                   error_buf, error_buf_size))
                     goto fail;
 
                 stack_cell_num = (frame_csp - i)->stack_cell_num;
@@ -2877,13 +2908,26 @@ handle_next_reachable_block:
                 POP_TYPE(ret_type);
                 PUSH_TYPE(ret_type);
 
-                if(!wasm_loader_find_block_addr(module,
-                                                (frame_csp - 1)->start_addr,
-                                                p_end,
-                                                (frame_csp - 1)->block_type,
-                                                &(frame_csp - 1)->else_addr,
-                                                &(frame_csp - 1)->end_addr,
-                                                error_buf, error_buf_size))
+                cache_index = ((uintptr_t)(frame_csp - 1)->start_addr)
+                              & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
+                cache_items = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * cache_index;
+                for (item_index = 0; item_index < BLOCK_ADDR_CONFLICT_SIZE;
+                     item_index++) {
+                    if (cache_items[item_index].start_addr ==
+                                                      (frame_csp - 1)->start_addr) {
+                        (frame_csp - 1)->else_addr = cache_items[item_index].else_addr;
+                        (frame_csp - 1)->end_addr = cache_items[item_index].end_addr;
+                      break;
+                    }
+                }
+                if(item_index == BLOCK_ADDR_CONFLICT_SIZE
+                   && !wasm_loader_find_block_addr(block_addr_cache,
+                                                   (frame_csp - 1)->start_addr,
+                                                   p_end,
+                                                   (frame_csp - 1)->block_type,
+                                                   &(frame_csp - 1)->else_addr,
+                                                   &(frame_csp - 1)->end_addr,
+                                                   error_buf, error_buf_size))
                     goto fail;
 
                 stack_cell_num = (frame_csp - 1)->stack_cell_num;

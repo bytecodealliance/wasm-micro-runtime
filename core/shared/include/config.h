@@ -153,5 +153,9 @@ enum {
 #define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
 #endif
 
+/* Default wasm block address cache size and conflict list size */
+#define BLOCK_ADDR_CACHE_SIZE 64
+#define BLOCK_ADDR_CONFLICT_SIZE 2
+
 #endif /* end of _CONFIG_H_ */
 

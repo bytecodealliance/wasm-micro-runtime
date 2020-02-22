@@ -8,6 +8,9 @@
 
 #include "bh_thread.h"
 #include "bh_assert.h"
+#if WASM_ENABLE_INTERP != 0
+#include "../interpreter/wasm.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +35,10 @@ typedef struct WASMExecEnv {
 
     /* The native thread handle of current thread */
     korp_tid handle;
+
+#if WASM_ENABLE_INTERP != 0
+    BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
+#endif
 
     /* The boundary of native stack. When interpreter detects that native
        frame may overrun this boundary, it throws a stack overflow

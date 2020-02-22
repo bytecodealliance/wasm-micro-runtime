@@ -221,9 +221,6 @@ typedef struct BlockAddr {
     uint8 *end_addr;
 } BlockAddr;
 
-#define BLOCK_ADDR_CACHE_SIZE 64
-#define BLOCK_ADDR_CONFLICT_SIZE 4
-
 #if WASM_ENABLE_LIBC_WASI != 0
 typedef struct WASIArguments {
     const char **dir_list;
@@ -296,8 +293,6 @@ typedef struct WASMModule {
     bool possible_memory_grow;
 
     StringList const_str_list;
-
-    BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
 
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
