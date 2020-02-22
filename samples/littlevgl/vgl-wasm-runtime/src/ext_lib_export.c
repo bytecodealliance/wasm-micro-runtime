@@ -1,6 +1,6 @@
 #include "lib_export.h"
-#include "sensor_api.h"
-#include "connection_api.h"
+#include "sensor_native_api.h"
+#include "connection_native_api.h"
 #include "display_indev.h"
 
 static NativeSymbol extended_native_symbol_defs[] = {

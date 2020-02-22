@@ -84,21 +84,6 @@ void app_mgr_sensor_event_callback(module_data *m_data, bh_message_t msg)
     }
 }
 
-static attr_container_t * read_test_sensor(void * sensor)
-{
-    //luc: for test
-    attr_container_t *attr_obj = attr_container_create("read test sensor data");
-    if (attr_obj) {
-        attr_container_set_string(&attr_obj, "name", "read test sensor");
-        return attr_obj;
-    }
-    return NULL;
-}
-
-static bool config_test_sensor(void * s, void * config)
-{
-    return false;
-}
 
 static void thread_sensor_check(void * arg)
 {
@@ -122,13 +107,9 @@ void set_sensor_reshceduler(void (*callback)());
 void init_sensor_framework()
 {
     // init the mutext and conditions
-    korp_thread tid;
     vm_cond_init(&cond);
     vm_mutex_init(&mutex);
 
-    // add the sys sensor objects
-    add_sys_sensor("sensor_test", "This is a sensor for test", 0, 1000,
-                   read_test_sensor, config_test_sensor);
 
     set_sensor_reshceduler(cb_wakeup_thread);
 
@@ -137,12 +118,25 @@ void init_sensor_framework()
 
     wasm_register_cleanup_callback(sensor_cleanup_callback);
 
-    vm_thread_create(&tid, (void *)thread_sensor_check, NULL,
-                     BH_APPLET_PRESERVED_STACK_SIZE);
+
 }
+
+void start_sensor_framework()
+{
+    korp_thread tid;
+
+    vm_thread_create(&tid,
+            (void *)thread_sensor_check,
+            NULL,
+            BH_APPLET_PRESERVED_STACK_SIZE);
+}
+
 
 void exit_sensor_framework()
 {
     sensor_check_thread_run = false;
+    reschedule_sensor_read();
+
+    //todo: wait the sensor thread termination
 }
 
