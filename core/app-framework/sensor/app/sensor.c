@@ -4,6 +4,7 @@
  */
 
 #include "wa-inc/sensor.h"
+
 #include "sensor_api.h"
 
 typedef struct _sensor {

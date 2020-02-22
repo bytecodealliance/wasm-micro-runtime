@@ -9,6 +9,7 @@
 #include "bh_list.h"
 #include "bh_thread.h"
 #include "bh_time.h"
+#include "timer_native_api.h"
 
 static bool timer_thread_run = true;
 

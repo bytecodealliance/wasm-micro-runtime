@@ -354,6 +354,25 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 
 #endif
 
+
+
+static attr_container_t * read_test_sensor(void * sensor)
+{
+    //luc: for test
+    attr_container_t *attr_obj = attr_container_create("read test sensor data");
+    if (attr_obj) {
+        attr_container_set_string(&attr_obj, "name", "read test sensor");
+        return attr_obj;
+    }
+    return NULL;
+}
+
+static bool config_test_sensor(void * s, void * config)
+{
+    return false;
+}
+
+
 static char global_heap_buf[1024 * 1024] = { 0 };
 
 static void showUsage()
@@ -458,15 +477,34 @@ int iwasm_main(int argc, char *argv[])
         goto fail1;
     }
 
+    //
+    // timer manager
+    //
+    init_wasm_timer();
+
+
+    //
+    // connection framework
+    //
     if (!init_connection_framework()) {
         vm_thread_sys_destroy();
         goto fail1;
     }
 
+    //
+    // sensor framework
+    //
     init_sensor_framework();
+    // add the sys sensor objects
+    add_sys_sensor("sensor_test",
+            "This is a sensor for test",
+            0,
+            1000,
+            read_test_sensor,
+            config_test_sensor);
+    start_sensor_framework();
 
-    // timer manager
-    init_wasm_timer();
+
 
 #ifndef CONNECTION_UART
     if (server_mode)

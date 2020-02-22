@@ -6,6 +6,8 @@
 #include "connection_lib.h"
 #include "wasm_export.h"
 #include "native_interface.h"
+#include "connection_native_api.h"
+
 
 /* Note:
  *

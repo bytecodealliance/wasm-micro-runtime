@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lib_export.h"
-#include "base_lib_export.h"
+#include "req_resp_native_api.h"
+#include "timer_native_api.h"
+
 
 static NativeSymbol extended_native_symbol_defs[] = {
     /* TODO: use macro EXPORT_WASM_API() or EXPORT_WASM_API2() to
