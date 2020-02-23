@@ -787,12 +787,6 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
 #endif  /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
-typedef struct BlockAddrCache {
-  uint8 *frame_ip;
-  uint8 *else_addr;
-  uint8 *end_addr;
-} BlockAddrCache;
-
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMExecEnv *exec_env,
@@ -815,6 +809,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   register uint32 *frame_sp = NULL;  /* cache of frame->sp */
   WASMBranchBlock *frame_csp = NULL;
   WASMGlobalInstance *global;
+  BlockAddr *cache_items;
   uint8 *frame_ip_end = frame_ip + 1;
   uint8 opcode, block_ret_type;
   uint32 *depths = NULL;
@@ -825,8 +820,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint8 *else_addr, *end_addr, *maddr = NULL;
   uint32 local_idx, local_offset, global_idx;
   uint8 local_type, *global_addr;
-  BlockAddrCache block_addr_cache[32] = { 0 };
-  uint32 cache_index, block_addr_cache_size = 32;
+  uint32 cache_index;
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -858,21 +852,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_BLOCK):
         block_ret_type = *frame_ip++;
 
-        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(block_addr_cache_size - 1);
-        if (block_addr_cache[cache_index].frame_ip == frame_ip) {
-          end_addr = block_addr_cache[cache_index].end_addr;
+        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
+        cache_items = exec_env->block_addr_cache[cache_index];
+        if (cache_items[0].start_addr == frame_ip) {
+          end_addr = cache_items[0].end_addr;
         }
-        else {
-          if (!wasm_loader_find_block_addr(module->module,
-                                           frame_ip, (uint8*)-1,
-                                           BLOCK_TYPE_BLOCK,
-                                           &else_addr, &end_addr,
-                                           NULL, 0)) {
-            wasm_set_exception(module, "find block address failed");
-            goto got_exception;
-          }
-          block_addr_cache[cache_index].frame_ip = frame_ip;
-          block_addr_cache[cache_index].end_addr = end_addr;
+        else if (cache_items[1].start_addr == frame_ip) {
+          end_addr = cache_items[1].end_addr;
+        }
+        else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
+                                              frame_ip, (uint8*)-1,
+                                              BLOCK_TYPE_BLOCK,
+                                              &else_addr, &end_addr,
+                                              NULL, 0)) {
+          wasm_set_exception(module, "find block address failed");
+          goto got_exception;
         }
 
         PUSH_CSP(BLOCK_TYPE_BLOCK, block_ret_type, end_addr);
@@ -886,24 +880,23 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_IF):
         block_ret_type = *frame_ip++;
 
-        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(block_addr_cache_size - 1);
-        if (block_addr_cache[cache_index].frame_ip == frame_ip) {
-            else_addr = block_addr_cache[cache_index].else_addr;
-            end_addr = block_addr_cache[cache_index].end_addr;
+        cache_index = ((uintptr_t)frame_ip) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
+        cache_items = exec_env->block_addr_cache[cache_index];
+        if (cache_items[0].start_addr == frame_ip) {
+          else_addr = cache_items[0].else_addr;
+          end_addr = cache_items[0].end_addr;
         }
-        else {
-          if (!wasm_loader_find_block_addr(module->module,
-                                           frame_ip, (uint8*)-1,
-                                           BLOCK_TYPE_IF,
-                                           &else_addr, &end_addr,
-                                           NULL, 0)) {
-            wasm_set_exception(module, "find block address failed");
-            goto got_exception;
-          }
-
-          block_addr_cache[cache_index].frame_ip = frame_ip;
-          block_addr_cache[cache_index].else_addr = else_addr;
-          block_addr_cache[cache_index].end_addr = end_addr;
+        else if (cache_items[1].start_addr == frame_ip) {
+          else_addr = cache_items[1].else_addr;
+          end_addr = cache_items[1].end_addr;
+        }
+        else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
+                                              frame_ip, (uint8*)-1,
+                                              BLOCK_TYPE_IF,
+                                              &else_addr, &end_addr,
+                                              NULL, 0)) {
+          wasm_set_exception(module, "find block address failed");
+          goto got_exception;
         }
 
         cond = (uint32)POP_I32();
