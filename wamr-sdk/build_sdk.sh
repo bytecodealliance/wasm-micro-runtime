@@ -180,10 +180,7 @@ if [ -n "$out" ]; then
 fi
 if [ "${LIBC_SUPPORT}" = "WASI" ]; then
     echo "using wasi toolchain"
-    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
-         -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \ 
-         -DCONFIG_PATH=${wamr_config_cmake_file} \
-         -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
+    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE}  -DCONFIG_PATH=${wamr_config_cmake_file}  -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
 else
     echo "using builtin libc toolchain"
     cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
