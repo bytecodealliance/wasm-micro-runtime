@@ -4,6 +4,9 @@ PROJECT_DIR=$PWD
 WAMR_DIR=${PWD}/../..
 OUT_DIR=${PWD}/out
 BUILD_DIR=${PWD}/build
+LV_CFG_PATH=${PROJECT_DIR}/lv_config
+
+
 
 if [ -z $KW_BUILD ] || [ -z $KW_OUT_FILE ];then
     echo "Local Build Env"
@@ -35,7 +38,8 @@ fi
 
 echo "##################### 0. build wamr-sdk littlevgl start#####################"
 cd ${WAMR_DIR}/wamr-sdk
-./build_sdk.sh -n littlevgl -x ${PROJECT_DIR}/wamr_config_littlevgl.cmake
+./build_sdk.sh -n littlevgl -x ${PROJECT_DIR}/wamr_config_littlevgl.cmake -e ${LV_CFG_PATH}
+[ $? -eq 0 ] || exit $?
 echo "#####################build wamr-sdk littlevgl success"
 
 echo -e "\n\n"
@@ -60,6 +64,7 @@ mkdir -p vgl-wasm-runtime
 cd vgl-wasm-runtime
 $cmakewrap ${PROJECT_DIR}/vgl-wasm-runtime
 $makewrap
+[ $? -eq 0 ] || exit $?
 cp vgl_wasm_runtime ${OUT_DIR}/
 
 echo "##################### build littlevgl wasm runtime end#####################"
