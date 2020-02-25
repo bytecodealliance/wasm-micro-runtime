@@ -32,8 +32,9 @@ if (NOT DEFINED WAMR_BUILD_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_AOT)
-  # Enable AOT by default.
-  set (WAMR_BUILD_AOT 1)
+  # Disable AOT by default.
+  # If enabling AOT, please install Intel SGX SDKv2.8 or later.
+  set (WAMR_BUILD_AOT 0)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_JIT)
