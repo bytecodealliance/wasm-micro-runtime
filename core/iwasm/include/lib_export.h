@@ -15,8 +15,8 @@ typedef struct NativeSymbol {
     void *func_ptr;
 } NativeSymbol;
 
-#define EXPORT_WASM_API(symbol)  {#symbol, symbol}
-#define EXPORT_WASM_API2(symbol) {#symbol, symbol##_wrapper}
+#define EXPORT_WASM_API(symbol)  {#symbol, (void*)symbol}
+#define EXPORT_WASM_API2(symbol) {#symbol, (void*)symbol##_wrapper}
 
 /**
  * Get the exported APIs of base lib
