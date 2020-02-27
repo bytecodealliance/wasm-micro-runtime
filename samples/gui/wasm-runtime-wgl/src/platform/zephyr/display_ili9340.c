@@ -14,9 +14,9 @@
 #define LOG_DBG printf
 #define LOG_WRN printf
 
-#include <gpio.h>
+#include <drivers/gpio.h>
 #include <sys/byteorder.h>
-#include <spi.h>
+#include <drivers/spi.h>
 #include <string.h>
 
 struct ili9340_data {

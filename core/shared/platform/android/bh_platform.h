@@ -20,12 +20,14 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <limits.h>
 #include <fcntl.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
+#include <android/log.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,8 +40,8 @@ extern void DEBUGME(void);
 
 #define DIE do{bh_debug("Die here\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); DEBUGME(void); while(1);}while(0)
 
-#ifndef BH_PLATFORM_DARWIN
-#define BH_PLATFORM_DARWIN
+#ifndef BH_PLATFORM_ANDROID
+#define BH_PLATFORM_ANDROID
 #endif
 
 /* NEED qsort */
@@ -69,9 +71,10 @@ typedef void* (*thread_start_routine_t)(void*);
 #define wa_free bh_free
 #define wa_strdup bh_strdup
 
-#define bh_printf printf
+#define bh_printf(...) (__android_log_print(ANDROID_LOG_INFO, "wasm_runtime::", __VA_ARGS__))
 
-/* int snprintf(char *buffer, size_t count, const char *format, ...); */
+
+int snprintf(char *buffer, size_t count, const char *format, ...);
 double fmod(double x, double y);
 float fmodf(float x, float y);
 double sqrt(double x);

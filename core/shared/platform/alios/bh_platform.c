@@ -45,3 +45,7 @@ bh_mprotect(void *addr, uint32 size, int prot)
     return 0;
 }
 
+void
+bh_dcache_flush()
+{
+}

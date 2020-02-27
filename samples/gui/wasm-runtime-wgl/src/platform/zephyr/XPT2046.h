@@ -35,7 +35,7 @@ extern "C" {
 #include <stdbool.h>
 #include "lv_hal/lv_hal_indev.h"
 #include "device.h"
-#include "gpio.h"
+#include "drivers/gpio.h"
 
 /*********************
  *      DEFINES

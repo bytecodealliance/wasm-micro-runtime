@@ -130,6 +130,7 @@ enum {
 void *bh_mmap(void *hint, unsigned int size, int prot, int flags);
 void bh_munmap(void *addr, uint32 size);
 int bh_mprotect(void *addr, uint32 size, int prot);
+void bh_dcache_flush();
 
 #endif /* end of _BH_PLATFORM_H */
 

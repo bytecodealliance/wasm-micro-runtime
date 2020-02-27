@@ -7,6 +7,7 @@
 #include "bh_common.h"
 #include "bh_memory.h"
 #include "bh_log.h"
+#include "aot_reloc.h"
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_native.h"
 #include "../compilation/aot.h"
@@ -180,38 +181,6 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     }
 
     return c_str;
-}
-
-static void
-get_current_target(char *target_buf, uint32 target_buf_size)
-{
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    snprintf(target_buf, target_buf_size, "x86_64");
-#elif defined(BUILD_TARGET_X86_32)
-    snprintf(target_buf, target_buf_size, "i386");
-#elif defined(BUILD_TARGET_ARM) \
-      || defined(BUILD_TARGET_ARM_VFP) \
-      || defined(BUILD_TARGET_THUMB) \
-      || defined(BUILD_TARGET_THUMB_VFP)
-    char *build_target = BUILD_TARGET;
-    char *p = target_buf, *p_end;
-    snprintf(target_buf, target_buf_size, "%s", build_target);
-    p_end = p + strlen(target_buf);
-    while (p < p_end) {
-        if (*p >= 'A' && *p <= 'Z')
-            *p++ += 'a' - 'A';
-        else
-            p++;
-    }
-    if (!strcmp(target_buf, "arm"))
-        snprintf(target_buf, target_buf_size, "armv4");
-    else if (!strcmp(target_buf, "thumb"))
-        snprintf(target_buf, target_buf_size, "thumbv4t");
-#elif defined(BUILD_TARGET_MIPS)
-    snprintf(target_buf, target_buf_size, "mips");
-#elif defined(BUILD_TARGET_XTENSA)
-    snprintf(target_buf, target_buf_size, "xtensa");
-#endif
 }
 
 static bool
@@ -1025,15 +994,6 @@ fail:
     return false;
 }
 
-static uint32
-get_plt_item_size();
-
-static uint32
-get_plt_table_size();
-
-static void
-init_plt_table(uint8 *plt);
-
 static bool
 load_text_section(const uint8 *buf, const uint8 *buf_end,
                   AOTModule *module,
@@ -1211,197 +1171,6 @@ fail:
     return false;
 }
 
-#define R_386_32        1   /* Direct 32 bit  */
-#define R_386_PC32      2   /* PC relative 32 bit */
-
-#define R_X86_64_64     1   /* Direct 64 bit  */
-#define R_X86_64_PC32   2   /* PC relative 32 bit signed */
-#define R_X86_64_PLT32  4   /* 32 bit PLT address */
-#define R_X86_64_32     10  /* Direct 32 bit zero extended */
-#define R_X86_64_32S    11  /* Direct 32 bit sign extended */
-
-#define R_ARM_CALL      28  /* PC relative 24 bit (BL, BLX).  */
-#define R_ARM_JMP24     29  /* PC relative 24 bit (B/BL<cond>).  */
-#define R_ARM_ABS32     2   /* Direct 32 bit */
-
-#define R_ARM_THM_CALL  10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
-#define R_ARM_THM_JMP24 30  /* B.W */
-
-#define R_MIPS_32       2   /* Direct 32 bit */
-#define R_MIPS_26       4   /* Direct 26 bit shifted */
-
-#ifndef BH_MB
-#define BH_MB 1024 * 1024
-#endif
-
-static bool
-check_reloc_offset(uint32 target_section_size,
-                   uint64 reloc_offset, uint32 reloc_data_size,
-                   char *error_buf, uint32 error_buf_size)
-{
-    if (!(reloc_offset < (uint64)target_section_size
-          && reloc_offset + reloc_data_size <= (uint64)target_section_size)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: invalid relocation offset.");
-        return false;
-    }
-    return true;
-}
-
-#define CHECK_RELOC_OFFSET(data_size) do {                                  \
-    if (!check_reloc_offset(target_section_size, reloc_offset, data_size,   \
-                            error_buf, error_buf_size))                     \
-        return false;                                                       \
-  } while (0)
-
-static bool
-apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
-{
-    switch (reloc_type) {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        case R_X86_64_64:
-        {
-            intptr_t value;
-
-            CHECK_RELOC_OFFSET(sizeof(void*));
-            value = *(intptr_t*)(target_section_addr + (uint32)reloc_offset);
-            *(uint8**)(target_section_addr + reloc_offset)
-                = (uint8*)symbol_addr + reloc_addend + value;   /* S + A */
-            break;
-        }
-        case R_X86_64_PC32:
-        {
-            intptr_t target_addr = (intptr_t)   /* S + A - P */
-                                   ((uint8*)symbol_addr + reloc_addend
-                                    - (target_section_addr + reloc_offset));
-
-            CHECK_RELOC_OFFSET(sizeof(int32));
-            if ((int32)target_addr != target_addr) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "relocation truncated to fit R_X86_64_PC32 failed. "
-                              "Try using wamrc with --size-level=1 option.");
-                return false;
-            }
-
-            *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
-            break;
-        }
-        case R_X86_64_32:
-        case R_X86_64_32S:
-        {
-            char buf[128];
-            uintptr_t target_addr = (uintptr_t) /* S + A */
-                                    ((uint8*)symbol_addr + reloc_addend);
-
-            CHECK_RELOC_OFFSET(sizeof(int32));
-
-            if ((reloc_type == R_X86_64_32
-                 && (uint32)target_addr != (uint64)target_addr)
-                || (reloc_type == R_X86_64_32S
-                    && (int32)target_addr != (int64)target_addr)) {
-                snprintf(buf, sizeof(buf),
-                        "AOT module load failed: "
-                        "relocation truncated to fit %s failed. "
-                        "Try using wamrc with --size-level=1 option.",
-                        reloc_type == R_X86_64_32
-                        ? "R_X86_64_32" : "R_X86_64_32S");
-                set_error_buf(error_buf, error_buf_size, buf);
-                return false;
-            }
-
-            *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
-            break;
-        }
-        case R_X86_64_PLT32:
-        {
-            uint8 *plt = module->code + module->code_size - get_plt_table_size()
-                         + get_plt_item_size() * symbol_index;
-            intptr_t target_addr = (intptr_t)   /* L + A - P */
-                                   (plt + reloc_addend
-                                    - (target_section_addr + reloc_offset));
-
-            CHECK_RELOC_OFFSET(sizeof(int32));
-
-            if (symbol_index < 0) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "invalid symbol index for relocation");
-                return false;
-            }
-
-            if ((int32)target_addr != target_addr) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "relocation truncated to fit R_X86_64_PC32 failed. "
-                              "Try using wamrc with --size-level=1 option.");
-                return false;
-            }
-
-            *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
-            break;
-        }
-#endif /* end of BUILD_TARGET_X86_64 || BUILD_TARGET_AMD_64 */
-
-#if defined(BUILD_TARGET_X86_32)
-        case R_386_32:
-        {
-            intptr_t value;
-
-            CHECK_RELOC_OFFSET(sizeof(void*));
-            value = *(intptr_t*)(target_section_addr + (uint32)reloc_offset);
-            *(uint8**)(target_section_addr + reloc_offset)
-                = (uint8*)symbol_addr + reloc_addend + value;   /* S + A */
-            break;
-        }
-
-        case R_386_PC32:
-        {
-            int32 value;
-
-            CHECK_RELOC_OFFSET(sizeof(void*));
-            value = *(int32*)(target_section_addr + (uint32)reloc_offset);
-            *(uint32*)(target_section_addr + (uint32)reloc_offset) = (uint32)
-                ((uint8*)symbol_addr + (uint32)reloc_addend
-                 - (uint8*)(target_section_addr + (uint32)reloc_offset)
-                 + value);  /* S + A - P */
-            break;
-        }
-#endif /* end of BUILD_TARGET_X86_32 */
-
-#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_ARM_VFP)
-        /* TODO: implement ARM relocation */
-        case R_ARM_CALL:
-        case R_ARM_JMP24:
-        case R_ARM_ABS32:
-#endif
-
-#if defined(BUILD_TARGET_THUMB) || defined(BUILD_TARGET_THUMB_VFP)
-        /* TODO: implement THUMB relocation */
-        case R_ARM_THM_CALL:
-        case R_ARM_THM_JMP24:
-#endif
-
-#if defined(BUILD_TARGET_MIPS_32)
-        case R_MIPS_26:
-        case R_MIPS_32:
-            /* TODO: implement relocation for mips */
-#endif
-
-        default:
-            if (error_buf != NULL)
-                snprintf(error_buf, error_buf_size,
-                         "Load import section failed: "
-                         "invalid relocation type %d.",
-                         reloc_type);
-            return false;
-    }
-    return true;
-}
 
 static void *
 get_data_section_addr(AOTModule *module, const char *section_name,
@@ -1420,217 +1189,21 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     return NULL;
 }
 
-typedef struct {
-    const char *symbol_name;
-    void *symbol_addr;
-} SymbolMap;
-
-#define REG_SYM(symbol) { #symbol, (void*)symbol }
-
-#if defined(BUILD_TARGET_X86_32)
-void __divdi3();
-void __udivdi3();
-void __moddi3();
-void __umoddi3();
-#endif
-
-#if defined(BUILD_TARGET_ARM) \
-    || defined(BUILD_TARGET_ARM_VFP) \
-    || defined(BUILD_TARGET_THUMB) \
-    || defined(BUILD_TARGET_THUMB_VFP)
-void __divdi3();
-void __udivdi3();
-void __moddi3();
-void __umoddi3();
-void __divsi3();
-void __udivsi3();
-void __modsi3();
-void __udivmoddi4();
-void __clzsi2();
-void __fixsfdi();
-void __fixunssfdi();
-void __fixdfdi();
-void __fixunsdfdi();
-void __floatdisf();
-void __floatundisf();
-void __floatdidf();
-void __floatundidf();
-void __aeabi_l2f();
-void __aeabi_f2lz();
-void __aeabi_ul2f();
-void __aeabi_d2lz();
-void __aeabi_l2d();
-void __aeabi_f2ulz();
-void __aeabi_ul2d();
-void __aeabi_d2ulz();
-void __aeabi_idiv();
-void __aeabi_uidiv();
-void __aeabi_idivmod();
-void __aeabi_uidivmod();
-void __aeabi_ldivmod();
-void __aeabi_uldivmod();
-#endif
-
-static SymbolMap target_sym_map[] = {
-    REG_SYM(aot_set_exception_with_id),
-    REG_SYM(aot_get_exception),
-    REG_SYM(aot_is_wasm_type_equal),
-    REG_SYM(wasm_runtime_enlarge_memory),
-    REG_SYM(wasm_runtime_set_exception),
-    REG_SYM(fmin),
-    REG_SYM(fminf),
-    REG_SYM(fmax),
-    REG_SYM(fmaxf),
-    REG_SYM(ceil),
-    REG_SYM(ceilf),
-    REG_SYM(floor),
-    REG_SYM(floorf),
-    REG_SYM(trunc),
-    REG_SYM(truncf),
-    REG_SYM(rint),
-    REG_SYM(rintf),
-    /* compiler-rt symbols that come from compiler(e.g. gcc) */
-#if defined(BUILD_TARGET_X86_32)
-    REG_SYM(__divdi3),
-    REG_SYM(__udivdi3),
-    REG_SYM(__moddi3),
-    REG_SYM(__umoddi3)
-#elif defined(BUILD_TARGET_ARM) \
-      || defined(BUILD_TARGET_ARM_VFP) \
-      || defined(BUILD_TARGET_THUMB) \
-      || defined(BUILD_TARGET_THUMB_VFP)
-    REG_SYM(__divdi3),
-    REG_SYM(__udivdi3),
-    REG_SYM(__umoddi3),
-    REG_SYM(__divsi3),
-    REG_SYM(__udivsi3),
-    REG_SYM(__modsi3),
-    REG_SYM(__udivmoddi4),
-    REG_SYM(__clzsi2),
-    REG_SYM(__fixsfdi),
-    REG_SYM(__fixunssfdi),
-    REG_SYM(__fixdfdi),
-    REG_SYM(__fixunsdfdi),
-    REG_SYM(__floatdisf),
-    REG_SYM(__floatundisf),
-    REG_SYM(__floatdidf),
-    REG_SYM(__floatundidf),
-    REG_SYM(__aeabi_l2f),
-    REG_SYM(__aeabi_f2lz),
-    REG_SYM(__aeabi_ul2f),
-    REG_SYM(__aeabi_d2lz),
-    REG_SYM(__aeabi_l2d),
-    REG_SYM(__aeabi_f2ulz),
-    REG_SYM(__aeabi_ul2d),
-    REG_SYM(__aeabi_d2ulz),
-    REG_SYM(__aeabi_idiv),
-    REG_SYM(__aeabi_uidiv),
-    REG_SYM(__aeabi_idivmod),
-    REG_SYM(__aeabi_uidivmod),
-    REG_SYM(__aeabi_ldivmod),
-    REG_SYM(__aeabi_uldivmod),
-
-#endif /* end of BUILD_TARGET_X86_32 */
-};
-
 static void *
 resolve_target_sym(const char *symbol, int32 *p_index)
 {
-    uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
+    uint32 i, num = 0;
+    SymbolMap *target_sym_map;
+
+   if (!(target_sym_map = get_target_symbol_map(&num)))
+       return NULL;
+
     for (i = 0; i < num; i++)
         if (!strcmp(target_sym_map[i].symbol_name, symbol)) {
             *p_index = (int32)i;
             return target_sym_map[i].symbol_addr;
         }
     return NULL;
-}
-
-static inline uint32
-get_plt_item_size()
-{
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    /* size of mov instruction and jmp instruction */
-    return 12;
-#elif defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_ARM_VFP)
-    /* 20 bytes instructions and 4 bytes symbol address */
-    return 24;
-#elif defined(BUILD_TARGET_THUMB) || defined(BUILD_TARGET_THUMB_VFP)
-    /* 16 bytes instructions and 4 bytes symbol address */
-    return 20;
-#endif
-    return 0;
-}
-
-static uint32
-get_plt_table_size()
-{
-    return get_plt_item_size() * (sizeof(target_sym_map) / sizeof(SymbolMap));
-}
-
-static void
-init_plt_table(uint8 *plt)
-{
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
-    for (i = 0; i < num; i++) {
-        uint8 *p = plt;
-        /* mov symbol_addr, rax */
-        *p++ = 0x48;
-        *p++ = 0xB8;
-        *(uint64*)p = (uint64)(uintptr_t)target_sym_map[i].symbol_addr;
-        p += sizeof(uint64);
-        /* jmp rax */
-        *p++ = 0xFF;
-        *p++ = 0xE0;
-        plt += get_plt_item_size();
-    }
-#endif
-
-#if defined(BUILD_TARGET_ARM) || defined(BUILD_TARGET_ARM_VFP)
-    uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
-    for (i = 0; i < num; i++) {
-        uint32 *p = (uint32*)plt;
-        /* push {lr} */
-        *p++ = 0xe52de004;
-        /* ldr lr, [pc, #8] */
-        *p++ = 0xe59fe008;
-        /* blx lr */
-        *p++ = 0xe12fff3e;
-        /* pop {lr} */
-        *p++ = 0xe49de004;
-        /* bx lr */
-        *p++ = 0xe12fff1e;
-        /* symbol addr */
-        *p++ = (uint32)(uintptr_t)target_sym_map[i].symbol_addr;;
-        plt += get_plt_item_size();
-    }
-#endif
-
-#if defined(BUILD_TARGET_THUMB) || defined(BUILD_TARGET_THUMB_VFP)
-    uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
-    for (i = 0; i < num; i++) {
-        uint16 *p = (uint16*)plt;
-        /* push {lr} */
-        *p++ = 0xb500;
-        /* push {r4, r5} */
-        *p++ = 0xb430;
-        /* add  r4, pc, #8 */
-        *p++ = 0xa402;
-        /* ldr  r5, [r4, #0] */
-        *p++ = 0x6825;
-        /* blx  r5 */
-        *p++ = 0x47a8;
-        /* pop  {r4, r5} */
-        *p++ = 0xbc30;
-        /* pop  {pc} */
-        *p++ = 0xbd00;
-        p++;
-        /* symbol addr */
-        *(uint32*)p = (uint32)(uintptr_t)target_sym_map[i].symbol_addr;;
-        plt += get_plt_item_size();
-    }
-
-#endif
 }
 
 static bool
@@ -2045,6 +1618,10 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                       "AOT module load failed: section missing.");
         return false;
     }
+
+    /* Flush data cache before executing AOT code,
+     * otherwise unpredictable behavior can occur. */
+    bh_dcache_flush();
 
     return true;
 }

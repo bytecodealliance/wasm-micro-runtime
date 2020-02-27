@@ -35,7 +35,7 @@ extern "C" {
 #include <stdbool.h>
 //#include "lvgl/lv_hal/lv_hal_indev.h"
 #include "device.h"
-#include "gpio.h"
+#include "drivers/gpio.h"
 #if 1
 enum {
     LV_INDEV_STATE_REL = 0, LV_INDEV_STATE_PR

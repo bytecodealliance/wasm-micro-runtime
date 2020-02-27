@@ -37,9 +37,9 @@ cmake -DWAMR_BUILD_AOT=1/0 to enable or disable WASM AOT
 cmake -DWAMR_BUILD_JIT=1/0 to enable or disable WASM JIT
 cmake -DWAMR_BUILD_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's
 cmake -DWAMR_BUILD_LIBC_WASI=1/0 enable or disable Libc WASI API's
-cmake -DWAMR_BUILD_TARGET=<arch><sub> to set the building target, including:
+cmake -DWAMR_BUILD_TARGET=<arch> to set the building target, including:
     X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
-    for ARM and THUMB, we can specify the <sub> info, e.g. ARMV4, ARMV4T, ARMV5, ARMV5T, THUMBV4T, THUMBV5T and so on.
+    For ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and [_VFP] are optional. e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
 ```
 
 For example, if we want to disable interpreter, enable AOT and WASI, we can:
@@ -157,8 +157,15 @@ cd simple
 ln -s <wamr_root_dir> wamr
 mkdir build && cd build
 source ../../../zephyr-env.sh
+
+1. build for x86
 cmake -GNinja -DBOARD=qemu_x86_nommu ..
 ninja
+2. build for ARM
+modify ../prj.conf, modify the commented line "# CONFIG_ARM_MPU is not set" to "CONFIG_ARM_MPU=y"
+cmake -GNinja -DBOARD=nucleo_f767zi -DWAMR_BUILD_TARGET=THUMBV7 ..
+ninja
+
 ```
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
@@ -214,6 +221,36 @@ AliOS-Things
    aos make
    ```
    download the binary to developerkit board, check the output from serial port
+
+Android
+-------------------------
+able to generate a shared library support Android platform.
+- need an [android SDK](https://developer.android.com/studio). Go and get the "Command line tools only"
+- look for a command named *sdkmanager* and download below components. version numbers might need to check and pick others
+   - "build-tools;29.0.3" 
+   - "cmake;3.10.2.4988404" 
+   - "ndk;21.0.6113669" 
+   - "patcher;v4"
+   - "platform-tools" 
+   - "platforms;android-29"
+- add bin/ of the downloaded cmake to $PATH
+- export ANDROID_SDK_HOME=/the/path/of/downloaded/sdk/
+- export ANDROID_NDK_HOME=/the/path/of/downloaded/sdk/ndk/
+- ready to go
+
+Use such commands, you are able to compile with default configurations. Any compiling requirement should be satisfied by modifying product-mini/platforms/android/CMakeList.txt. For example, chaning ${WAMR_BUILD_TARGET} in CMakeList could get different libraries support different ABIs.
+
+``` shell
+$ cd product-mini/platforms/android/
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+$ # check output in distribution/wasm
+$ # include/ includes all necesary head files
+$ # lib includes libiwasm.so
+```
+
 
 Docker
 -------------------------

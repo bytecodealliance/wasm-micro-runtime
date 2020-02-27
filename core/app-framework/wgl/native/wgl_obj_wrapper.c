@@ -274,7 +274,10 @@ static void* lv_task_handler_thread_routine (void *arg)
 {
     korp_sem sem;
 
-    vm_sem_init(&sem, 0);
+    if (vm_sem_init(&sem, 1) != 0) {
+        printf("Init semaphore for lvgl task handler thread fail!\n");
+        return NULL;
+    }
 
     while (lv_task_handler_thread_run) {
         vm_sem_reltimedwait(&sem, 100);

@@ -27,7 +27,7 @@ extern void xpt2046_init(void);
 extern void wgl_init();
 
 #include <zephyr.h>
-#include <uart.h>
+#include <drivers/uart.h>
 #include <device.h>
 
 int uart_char_cnt = 0;
