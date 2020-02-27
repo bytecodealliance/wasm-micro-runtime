@@ -73,7 +73,7 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
  d. build source code</br>
     `mkdir build && cd build`</br>
     `source ../../../../zephyr-env.sh`</br>
-    `cmake -GNinja -DBOARD=nucleo_f746zg ..`</br>
+    `cmake -GNinja -DBOARD=nucleo_f767zi ..`</br>
    ` ninja flash`</br>
 
 - Hardware Connections

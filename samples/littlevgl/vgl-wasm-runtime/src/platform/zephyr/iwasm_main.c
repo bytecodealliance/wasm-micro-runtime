@@ -16,13 +16,14 @@
 #include "module_wasm_app.h"
 #include "wasm_export.h"
 
+#include <zephyr.h>
+#include <drivers/uart.h>
+#include <device.h>
+
+
 extern void init_sensor_framework();
 extern void exit_sensor_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
-
-#include <zephyr.h>
-#include <uart.h>
-#include <device.h>
 
 int uart_char_cnt = 0;
 

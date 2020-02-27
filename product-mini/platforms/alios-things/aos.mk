@@ -13,23 +13,29 @@ WAMR_BUILD_PLATFORM := alios-things
 ifeq (${WAMR_BUILD_TARGET}, X86_32)
   GLOBAL_DEFINES += BUILD_TARGET_X86_32
   INVOKE_NATIVE := invokeNative_ia32.s
+  AOT_RELOC := aot_reloc_x86_32.c
 else ifeq (${WAMR_BUILD_TARGET}, X86_64)
   GLOBAL_DEFINES += BUILD_TARGET_X86_64
   INVOKE_NATIVE := invokeNative_em64.s
+  AOT_RELOC := aot_reloc_x86_64.c
 else ifeq ($(findstring ARM,$(WAMR_BUILD_TARGET)), ARM)
   GLOBAL_DEFINES += BUILD_TARGET_ARM
   GLOBAL_DEFINES += BUILD_TARGET=\"$(WAMR_BUILD_TARGET)\"
   INVOKE_NATIVE := invokeNative_arm.s
+  AOT_RELOC := aot_reloc_arm.c
 else ifeq ($(findstring THUMB,$(WAMR_BUILD_TARGET)), THUMB)
   GLOBAL_DEFINES += BUILD_TARGET_THUMB
   GLOBAL_DEFINES += BUILD_TARGET=\"$(WAMR_BUILD_TARGET)\"
   INVOKE_NATIVE := invokeNative_thumb.s
+  AOT_RELOC := aot_reloc_thumb.c
 else ifeq (${WAMR_BUILD_TARGET}, MIPS)
   GLOBAL_DEFINES += BUILD_TARGET_MIPS
   INVOKE_NATIVE := invokeNative_mips.s
+  AOT_RELOC := aot_reloc_mips.c
 else ifeq (${WAMR_BUILD_TARGET}, XTENSA)
   GLOBAL_DEFINES += BUILD_TARGET_XTENSA
   INVOKE_NATIVE := invokeNative_xtensa.s
+  AOT_RELOC := aot_reloc_xtensa.c
 else
   $(error Build target isn't set)
 endif
@@ -96,6 +102,7 @@ endif
 
 ifeq (${WAMR_BUILD_AOT}, 1)
 $(NAME)_SOURCES += ${IWASM_ROOT}/aot/aot_loader.c \
+                   ${IWASM_ROOT}/aot/arch/${AOT_RELOC} \
                    ${IWASM_ROOT}/aot/aot_runtime.c
 endif
 

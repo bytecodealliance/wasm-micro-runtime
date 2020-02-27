@@ -8,7 +8,7 @@
 #include "board_config.h"
 #include "stdio.h"
 #include <string.h>
-#include "spi.h"
+#include "drivers/spi.h"
 
 #include "zephyr.h"
 #include "kernel.h"
