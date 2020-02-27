@@ -197,6 +197,8 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
+    memset(block_addr_cache, 0, sizeof(block_addr_cache));
+
     /* Get block info */
     if (!(wasm_loader_find_block_addr((BlockAddr*)block_addr_cache,
                                       *p_frame_ip, frame_ip_end, (uint8)block_type,
