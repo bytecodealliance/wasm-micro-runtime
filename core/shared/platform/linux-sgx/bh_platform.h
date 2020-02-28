@@ -124,6 +124,7 @@ enum {
 void *bh_mmap(void *hint, unsigned int size, int prot, int flags);
 void bh_munmap(void *addr, uint32 size);
 int bh_mprotect(void *addr, uint32 size, int prot);
+#define bh_dcache_flush() (void)0
 
 #ifdef __cplusplus
 }

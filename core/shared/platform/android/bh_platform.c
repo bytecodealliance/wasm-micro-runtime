@@ -137,14 +137,12 @@ bh_mmap(void *hint, uint32 size, int prot, int flags)
         request_size -= size;
     }
 
-#ifndef __APPLE__
     if (size >= 2 * 1024 * 1024) {
         /* Try to use huge page to improve performance */
         if (!madvise(addr, size, MADV_HUGEPAGE))
             /* make huge page become effective */
             memset(addr, 0, size);
     }
-#endif
 
     return addr_aligned;
 }

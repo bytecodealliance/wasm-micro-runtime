@@ -12,10 +12,18 @@
 #include "wasm_export.h"
 #include "test_wasm.h"
 
+#include <zephyr.h>
+#include <sys/printk.h>
+
 #define CONFIG_GLOBAL_HEAP_BUF_SIZE 131072
 #define CONFIG_APP_STACK_SIZE 8192
 #define CONFIG_APP_HEAP_SIZE 8192
+
+#ifdef CONFIG_NO_OPTIMIZATIONS
+#define CONFIG_MAIN_THREAD_STACK_SIZE 8192
+#else
 #define CONFIG_MAIN_THREAD_STACK_SIZE 4096
+#endif
 
 static int app_argc;
 static char **app_argv;
@@ -49,6 +57,8 @@ static char global_heap_buf[CONFIG_GLOBAL_HEAP_BUF_SIZE] = { 0 };
 
 void iwasm_main(void *arg1, void *arg2, void *arg3)
 {
+    int start, end;
+    start = k_uptime_get_32();
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
     wasm_module_t wasm_module = NULL;
@@ -97,6 +107,7 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
         goto fail3;
     }
 
+    /* invoke the main function */
     app_instance_main(wasm_module_inst);
 
     /* destroy the module instance */
@@ -111,6 +122,10 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
     wasm_runtime_destroy();
 
     fail1: bh_memory_destroy();
+
+    end = k_uptime_get_32();
+
+    printf("elpase: %d\n", (end - start));
 }
 
 #define MAIN_THREAD_STACK_SIZE (CONFIG_MAIN_THREAD_STACK_SIZE)
@@ -127,7 +142,6 @@ bool iwasm_init(void)
                                   MAIN_THREAD_PRIORITY, 0, K_NO_WAIT);
     return tid ? true : false;
 }
-
 void main(void)
 {
     iwasm_init();

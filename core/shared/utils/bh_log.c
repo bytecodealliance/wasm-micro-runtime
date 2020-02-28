@@ -55,6 +55,7 @@ void _bh_log_printf(const char *fmt, ...)
     va_end(ap);
 }
 
+#ifndef BH_PLATFORM_ANDROID
 /**
  * Return true if the given tag is enabled by the configuration.
  *
@@ -79,12 +80,14 @@ static void bh_log_emit_helper(const char *fmt, ...)
     bh_log_emit(fmt, ap);
     va_end(ap);
 }
+#endif
 
 extern size_t _bh_time_strftime(char *s, size_t max, const char *format,
         int64 time);
 
 void _bh_log_vprintf(const char *fmt, va_list ap)
 {
+#ifndef BH_PLATFORM_ANDROID
     korp_tid self = vm_self_thread();
     /* Try to own the log stream and start the log output.  */
     if (self != cur_logging_thread) {
@@ -102,7 +105,10 @@ void _bh_log_vprintf(const char *fmt, va_list ap)
                 fmt += 3;
         }
     }
-
+#else
+    // since we are using android log, do not worry about that
+    cur_log_enabled = true;
+#endif//BH_PLATFORM_ANDROID
     if (cur_log_enabled && fmt)
         bh_log_emit(fmt, ap);
 }
@@ -121,11 +127,17 @@ void _bh_log(const char *tag, const char *file, int line, const char *fmt, ...)
 {
     va_list ap;
 
+#ifndef BH_PLATFORM_ANDROID
     if (tag)
         _bh_log_printf(tag);
 
     if (file)
         _bh_log_printf("%s:%d", file, line);
+#else
+    (void)tag;
+    (void)file;
+    (void)line;
+#endif//BH_PLATFORM_ANDROID
 
     va_start(ap, fmt);
     _bh_log_vprintf(fmt, ap);

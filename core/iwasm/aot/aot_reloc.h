@@ -1,0 +1,58 @@
+/*
+ * Copyright (C) 2019 Intel Corporation. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
+#include "aot_runtime.h"
+
+typedef struct {
+    const char *symbol_name;
+    void *symbol_addr;
+} SymbolMap;
+
+#define REG_SYM(symbol) { #symbol, (void*)symbol }
+
+#define REG_COMMON_SYMBOLS                \
+    REG_SYM(aot_set_exception_with_id),   \
+    REG_SYM(aot_get_exception),           \
+    REG_SYM(aot_is_wasm_type_equal),      \
+    REG_SYM(wasm_runtime_enlarge_memory), \
+    REG_SYM(wasm_runtime_set_exception),  \
+    REG_SYM(fmin),                        \
+    REG_SYM(fminf),                       \
+    REG_SYM(fmax),                        \
+    REG_SYM(fmaxf),                       \
+    REG_SYM(ceil),                        \
+    REG_SYM(ceilf),                       \
+    REG_SYM(floor),                       \
+    REG_SYM(floorf),                      \
+    REG_SYM(trunc),                       \
+    REG_SYM(truncf),                      \
+    REG_SYM(rint),                        \
+    REG_SYM(rintf)
+
+#define CHECK_RELOC_OFFSET(data_size) do {                                  \
+    if (!check_reloc_offset(target_section_size, reloc_offset, data_size,   \
+                            error_buf, error_buf_size))                     \
+        return false;                                                       \
+  } while (0)
+
+SymbolMap *
+get_target_symbol_map(uint32 *sym_num);
+
+uint32
+get_plt_table_size();
+
+void
+init_plt_table(uint8 *plt);
+
+void
+get_current_target(char *target_buf, uint32 target_buf_size);
+
+bool
+apply_relocation(AOTModule *module,
+                 uint8 *target_section_addr, uint32 target_section_size,
+                 uint64 reloc_offset, uint64 reloc_addend,
+                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
+                 char *error_buf, uint32 error_buf_size);
+

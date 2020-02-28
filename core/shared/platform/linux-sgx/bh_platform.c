@@ -7,7 +7,9 @@
 #include "bh_platform.h"
 
 #include <unistd.h>
+#if WASM_ENABLE_AOT != 0
 #include "sgx_rsrv_mem_mngr.h"
+#endif
 
 #define FIXED_BUFFER_SIZE (1<<9)
 static bh_print_function_t print_function = NULL;
@@ -72,6 +74,7 @@ int bh_vprintf_sgx(const char * format, va_list arg)
 
 void* bh_mmap(void *hint, unsigned int size, int prot, int flags)
 {
+#if WASM_ENABLE_AOT != 0
     int mprot = 0;
     unsigned alignedSize = (size+4095) & (unsigned)~4095; //Page aligned
     void* ret = NULL;
@@ -96,15 +99,21 @@ void* bh_mmap(void *hint, unsigned int size, int prot, int flags)
     }
 
     return ret;
+#else
+    return NULL;
+#endif
 }
 
 void bh_munmap(void *addr, uint32 size)
 {
+#if WASM_ENABLE_AOT != 0
     sgx_free_rsrv_mem(addr, size);
+#endif
 }
 
 int bh_mprotect(void *addr, uint32 size, int prot)
 {
+#if WASM_ENABLE_AOT != 0
     int mprot = 0;
     sgx_status_t st = 0;
 
@@ -118,4 +127,7 @@ int bh_mprotect(void *addr, uint32 size, int prot)
     if (st != SGX_SUCCESS) bh_printf_sgx("bh_mprotect(addr=0x%lx,size=%d,prot=0x%x) failed.", addr, size, prot);
 
     return (st == SGX_SUCCESS? 0:-1);
+#else
+    return -1;
+#endif
 }

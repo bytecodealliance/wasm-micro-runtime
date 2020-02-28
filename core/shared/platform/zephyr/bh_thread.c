@@ -404,8 +404,8 @@ void vm_mutex_unlock(korp_mutex *mutex)
 
 int _vm_sem_init(korp_sem* sem, unsigned int c)
 {
-    k_sem_init(sem, 0, c);
-    return BHT_OK;
+    int ret = k_sem_init(sem, 0, c);
+    return ret == 0 ? BHT_OK : BHT_ERROR;
 }
 
 int _vm_sem_destroy(korp_sem *sem)

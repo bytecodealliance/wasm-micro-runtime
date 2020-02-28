@@ -658,7 +658,6 @@ wasm_app_module_install(request_t * msg)
                 destroy_all_aot_sections(aot_file->sections);
                 return false;
             }
-
             /* Destroy useless sections from list after load */
             destroy_part_aot_sections(&aot_file->sections,
                                       sections1,
