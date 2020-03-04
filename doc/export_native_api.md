@@ -2,8 +2,6 @@
 Export native API to WASM application
 =======================================================
 
-[TOC]
-
 
 
 Exporting native API steps

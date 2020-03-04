@@ -1,7 +1,6 @@
 Embedding WAMR guideline
 =====================================
 
-[TOC]
 
 **Note**: All the embedding APIs supported by the runtime are defined under folder [core/iwasm/include](../core/iwasm/include). The API details are available in the header files.
 

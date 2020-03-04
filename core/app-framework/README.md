@@ -1,6 +1,5 @@
 Application framework
 =======
-[TOC]
 
 ## Directory structure
 

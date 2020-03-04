@@ -1,6 +1,5 @@
 WASM application management
 =======
-[TOC]
 
 ## structure
 
