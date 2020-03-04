@@ -754,6 +754,10 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
+    wasi_ctx->curfds = curfds;
+    wasi_ctx->prestats = prestats;
+    wasi_ctx->argv_environ = argv_environ;
+
     fd_table_init(curfds);
     fd_prestats_init(prestats);
 

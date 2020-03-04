@@ -84,18 +84,18 @@ check_exception_thrown(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
 static bool
 call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            LLVMValueRef func_idx,
+                            LLVMValueRef func_idx, AOTFuncType *aot_func_type,
                             LLVMTypeRef *param_types, LLVMValueRef *param_values,
                             uint32 param_count, uint32 param_cell_num,
                             LLVMTypeRef ret_type, uint8 wasm_ret_type,
                             LLVMValueRef *p_value_ret)
 {
     LLVMTypeRef func_type, func_ptr_type, func_param_types[5];
-    LLVMTypeRef struct_type, struct_ptr_type, ret_ptr_type;
-    LLVMValueRef func, struct_val, struct_elem_ptr, struct_ptr;
+    LLVMTypeRef ret_ptr_type, elem_ptr_type;
+    LLVMValueRef func, elem_idx, elem_ptr;
     LLVMValueRef func_param_values[5], value_ret, value_ret_ptr, res;
     char buf[32], *func_name = "aot_invoke_native";
-    uint32 i;
+    uint32 i, cell_num = 0;
 
     /* prepare function type of aot_invoke_native */
     func_param_types[0] = comp_ctx->exec_env_type;  /* exec_env */
@@ -138,39 +138,29 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* prepare frame_lp */
-    if (!(struct_type = LLVMStructType(param_types, param_count, true))
-        || !(struct_ptr_type = LLVMPointerType(struct_type, 0))) {
-        aot_set_last_error("llvm add struct type failed.");
-        return false;
-    }
-
-    if (!(struct_val = LLVMBuildBitCast(comp_ctx->builder, func_ctx->argv_buf,
-                                        struct_ptr_type, "frame_lp"))) {
-        aot_set_last_error("llvm bit cast failed.");
-        return false;
-    }
-
     for (i = 0; i < param_count; i++) {
-        snprintf(buf, sizeof(buf), "%s%d", "elem", i);
-        if (!(struct_elem_ptr = LLVMBuildStructGEP(comp_ctx->builder,
-                                                   struct_val, i, buf))) {
-            aot_set_last_error("llvm build alloca failed.");
+        if (!(elem_idx = I32_CONST(cell_num))
+            || !(elem_ptr_type = LLVMPointerType(param_types[i], 0))) {
+            aot_set_last_error("llvm add const or pointer type failed.");
             return false;
         }
 
-        if (!(res = LLVMBuildStore(comp_ctx->builder,
-                                   param_values[i], struct_elem_ptr))) {
+        snprintf(buf, sizeof(buf), "%s%d", "elem", i);
+        if (!(elem_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
+                                              func_ctx->argv_buf, &elem_idx, 1, buf))
+            || !(elem_ptr = LLVMBuildBitCast(comp_ctx->builder, elem_ptr,
+                                             elem_ptr_type, buf))) {
+            aot_set_last_error("llvm build bit cast failed.");
+            return false;
+        }
+
+        if (!(res = LLVMBuildStore(comp_ctx->builder, param_values[i], elem_ptr))) {
             aot_set_last_error("llvm build store failed.");
             return false;
         }
         LLVMSetAlignment(res, 1);
-    }
 
-    /* convert to int32 pointer */
-    if (!(struct_ptr = LLVMBuildBitCast(comp_ctx->builder, struct_val,
-                                        INT32_PTR_TYPE, "struct_ptr"))) {
-        aot_set_last_error("llvm build store failed.");
-        return false;
+        cell_num += wasm_value_type_cell_num(aot_func_type->types[i]);
     }
 
     if (wasm_ret_type != VALUE_TYPE_VOID) {
@@ -198,7 +188,7 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     func_param_values[0] = func_ctx->exec_env;
     func_param_values[1] = func_idx;
-    func_param_values[2] = struct_ptr;
+    func_param_values[2] = func_ctx->argv_buf;
     func_param_values[3] = I32_CONST(param_cell_num);
     func_param_values[4] = value_ret_ptr;
 
@@ -299,7 +289,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
 
         /* call aot_invoke_native() */
-        if (!call_aot_invoke_native_func(comp_ctx, func_ctx, import_func_idx,
+        if (!call_aot_invoke_native_func(comp_ctx, func_ctx, import_func_idx, func_type,
                                          param_types + 1, param_values + 1,
                                          param_count, param_cell_num,
                                          ret_type, wasm_ret_type, &value_ret))
@@ -594,7 +584,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     for (i = param_count - 1; i >= 0; i--)
         POP(param_values[i + j], func_type->types[i]);
 
-    if (!call_aot_invoke_native_func(comp_ctx, func_ctx, func_idx,
+    if (!call_aot_invoke_native_func(comp_ctx, func_ctx, func_idx, func_type,
                                      param_types + 1, param_values + 1,
                                      param_count, param_cell_num,
                                      ret_type, wasm_ret_type, &value_ret))

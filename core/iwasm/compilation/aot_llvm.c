@@ -440,7 +440,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     AOTFuncContext *func_ctx;
     AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
     AOTBlock *aot_block;
-    LLVMTypeRef int8_ptr_type;
+    LLVMTypeRef int8_ptr_type, int32_ptr_type;
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
     LLVMValueRef argv_buf_offset = I32_THREE, argv_buf_addr;
     char local_name[32];
@@ -500,9 +500,20 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    if (!(int32_ptr_type = LLVMPointerType(INT32_PTR_TYPE, 0))) {
+        aot_set_last_error("llvm add pointer type failed");
+        goto fail;
+    }
+
     /* Convert to int32 pointer type */
-    if (!(func_ctx->argv_buf = LLVMBuildBitCast(comp_ctx->builder, argv_buf_addr,
-                                                INT32_PTR_TYPE, "argv_buf"))) {
+    if (!(argv_buf_addr = LLVMBuildBitCast(comp_ctx->builder, argv_buf_addr,
+                                           int32_ptr_type, "argv_buf_ptr"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->argv_buf = LLVMBuildLoad(comp_ctx->builder,
+                                             argv_buf_addr, "argv_buf"))) {
         aot_set_last_error("llvm build load failed");
         goto fail;
     }

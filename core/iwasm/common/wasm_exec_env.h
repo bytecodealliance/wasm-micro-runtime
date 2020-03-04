@@ -31,7 +31,7 @@ typedef struct WASMExecEnv {
     struct WASMModuleInstanceCommon *module_inst;
 
 #if WASM_ENABLE_AOT != 0
-    uint32 argv_buf[64];
+    uint32 *argv_buf;
 #endif
 
     /* Current interpreter frame of current thread */

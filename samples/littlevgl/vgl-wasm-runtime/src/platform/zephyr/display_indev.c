@@ -20,7 +20,7 @@ extern int ili9340_init();
 static int lcd_initialized = 0;
 
 void
-display_init()
+display_init(void)
 {
     if (lcd_initialized != 0) {
         return;

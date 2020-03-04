@@ -450,7 +450,6 @@ static bool parse_args(int argc, char *argv[])
 static NativeSymbol native_symbols[] = {
     #include "runtime_sensor.inl"
     #include "connection.inl"
-    EXPORT_WASM_API_WITH_SIG(display_init, "()"),
     EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),
     EXPORT_WASM_API_WITH_SIG(display_flush, "(iiii*)"),
     EXPORT_WASM_API_WITH_SIG(display_fill, "(iiii*)"),

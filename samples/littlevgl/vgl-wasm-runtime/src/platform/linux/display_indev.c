@@ -147,7 +147,7 @@ void monitor_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
 
 void
-display_init(wasm_exec_env_t exec_env)
+display_init(void)
 {
 }
 
