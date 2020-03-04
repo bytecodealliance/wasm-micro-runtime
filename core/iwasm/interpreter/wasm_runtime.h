@@ -222,7 +222,8 @@ const char*
 wasm_get_exception(WASMModuleInstance *module);
 
 int32
-wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size);
+wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
+                   void **p_native_addr);
 
 void
 wasm_module_free(WASMModuleInstance *module_inst, int32 ptr);

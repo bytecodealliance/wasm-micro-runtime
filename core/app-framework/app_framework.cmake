@@ -1,7 +1,14 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+
+add_definitions (-DWASM_ENABLE_APP_FRAMEWORK=1)
+
 set (APP_FRAMEWORK_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
+
+if ( NOT DEFINED APP_FRAMEWORK_INCLUDE_TYPE )
+    LIST (APPEND WASM_APP_LIB_SOURCE_ALL ${CMAKE_CURRENT_LIST_DIR}/app_ext_lib_export.c)
+endif()
 
 # app-native-shared and base are required
 include (${APP_FRAMEWORK_ROOT_DIR}/app-native-shared/native_interface.cmake)
@@ -31,10 +38,6 @@ function (add_module_native arg)
 
     LIST (APPEND WASM_APP_LIB_SOURCE_ALL ${WASM_APP_LIB_CURRENT_SOURCE})
     set (WASM_APP_LIB_SOURCE_ALL ${WASM_APP_LIB_SOURCE_ALL} PARENT_SCOPE)
-
-    # VARIABLES in function are only used in this scope,
-    # set PARENT_SCOPE to pass to top CMakeLists
-    set (WASM_LIB_BASE_SOURCE ${WASM_LIB_BASE_SOURCE} PARENT_SCOPE)
 endfunction ()
 
 function (add_module_app arg)

@@ -2,202 +2,232 @@
 Export native API to WASM application
 =======================================================
 
-The basic working flow for WASM application calling into the native API is shown in the following diagram:
-
-![WAMR WASM API ext diagram](./pics/extend_library.PNG "WAMR WASM API ext architecture diagram")
 
 
-WAMR provides the macro `EXPORT_WASM_API` to enable users to export a native API to a WASM application. WAMR has implemented a base API for the timer and messaging by using `EXPORT_WASM_API`. This can be a point of reference for extending your own library.
+Exporting native API steps
+--------------------------
+
+#### Step 1: Declare the function interface in WASM app
+
+Create a header file in a WASM app and declare the functions that are exported from native. In this example, we declare foo and foo2 as below in the header file "example.h"
+
+```c
+/*** file name: example.h  ***/
+
+int  foo(int a, int b);
+void foo2(char * msg, char * buffer, int buf_len);
+```
+
+
+
+#### Step 2: Define the native API
+
+Define the native functions which are executed from the WASM app in the runtime source file. The native function can be any name, for example **foo_native** and **foo2** here:
+
 ``` C
-static NativeSymbol extended_native_symbol_defs[] = {
-    EXPORT_WASM_API(wasm_register_resource),
-    EXPORT_WASM_API(wasm_response_send),
-    EXPORT_WASM_API(wasm_post_request),
-    EXPORT_WASM_API(wasm_sub_event),
-    EXPORT_WASM_API(wasm_create_timer),
-    EXPORT_WASM_API(wasm_timer_set_interval),
-    EXPORT_WASM_API(wasm_timer_cancel),
-    EXPORT_WASM_API(wasm_timer_restart)
+int foo_native(wasm_exec_env_t exec_env , int a, int b)
+{
+    return a+b;
+}
+
+void foo2(wasm_exec_env_t exec_env, char * msg, uint8 * buffer, int buf_len)
+{
+    strncpy(buffer, msg, buf_len);
+}
+```
+
+The first parameter exec_env must be defined using type **wasm_exec_env_t** which is the calling convention for exporting native API by WAMR. 
+
+The rest parameters should be in the same types as the parameters of WASM function foo(), but there are a few special cases that are explained in section "Buffer address conversion and boundary check".  Regarding the parameter names, they don't have to be the same, but we would suggest using the same names for easy maintenance.
+
+
+
+#### Step 3: Register the native APIs
+
+Register the native APIs in the runtime, then everything is fine. It is ready to build the runtime software.
+
+``` C
+// Define an array of NativeSymbol for the APIs to be exported. 
+// Note: the array must be static defined since runtime
+//       will keep it after registration
+static NativeSymbol native_symbols[] = 
+{
+    {
+        "foo", 		// the name of WASM function name
+     	foo_native, // the native function pointer
+        "(ii)i"		// the function prototype signature
+    },
+    {
+        "foo2", 		// the name of WASM function name
+     	foo2, 			// the native function pointer
+        "($*~)"			// the function prototype signature
+    }    
+};
+
+
+int n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
+if (!wasm_runtime_register_natives("env",
+                                   native_symbols, 
+                                   n_native_symbols)) {
+    goto fail1;
+}
+
+```
+
+**Function signature**:
+
+The function signature field in **NativeSymbol** structure is a string for describing the function prototype.  It is critical to ensure the function signature is correctly mapping the native function interface.
+
+Each letter in the "()" represents a parameter type, and the one following after ")" represents the return value type. The meaning of each letter:
+
+- 'i': i32 
+- 'I': i64 
+- 'f': f32
+- 'F': f64
+- '*': the parameter is a buffer address in WASM application
+- '~': the parameter is the byte length of WASM buffer as referred by preceding argument "\*". It must follow after '*', otherwise, registration will fail
+- '$': the parameter is a string in WASM application
+
+**Use EXPORT_WASM_API_WITH_SIG**
+
+The above foo2 NativeSymbol element can be also defined with macro EXPORT_WASM_API_WITH_SIG. This macro can be used when the native function name is the same as the WASM symbol name.
+
+```c
+static NativeSymbol native_symbols[] = 
+{
+	EXPORT_WASM_API_WITH_SIG(foo2, "($*~)")
 };
 ```
 
-**Security attention:** A WebAssembly application should only have access to its own memory space. As a result, the integrator should carefully design the native function to ensure that the memory accesses are safe. The native API to be exported to the WASM application must:
+​    
 
-- Only use 32 bits number for parameters
-- Should not pass data to the structure pointer (do data serialization instead)
-- Should do the pointer address conversion in the native API
-- Should not pass function pointer as callback
+## Call exported API in wasm application
 
-
-
-Below is a sample of a library extension. All code invoked across WASM and native world must be serialized and de-serialized, and the native world must do a boundary check for every incoming address from the WASM world.
-
-In wasm world:
-``` C
-void api_send_request(request_t * request, response_handler_f response_handler,
-        void * user_data)
-{
-    int size;
-    char *buffer;
-    transaction_t *trans;
-
-    if ((trans = (transaction_t *) malloc(sizeof(transaction_t))) == NULL) {
-        printf(
-                "send request: allocate memory for request transaction failed!\n");
-        return;
-    }
-
-    memset(trans, 0, sizeof(transaction_t));
-    trans->handler = response_handler;
-    trans->mid = request->mid;
-    trans->time = wasm_get_sys_tick_ms();
-    trans->user_data = user_data;
-
-    // pack request
-    if ((buffer = pack_request(request, &size)) == NULL) {
-        printf("send request: pack request failed!\n");
-        free(trans);
-        return;
-    }
-
-    transaction_add(trans);
-
-    /* if the trans is the 1st one, start the timer */
-    if (trans == g_transactions) {
-        /* assert(g_trans_timer == NULL); */
-        if (g_trans_timer == NULL) {
-            g_trans_timer = api_timer_create(TRANSACTION_TIMEOUT_MS,
-            false,
-            true, transaction_timeout_handler);
-        }
-    }
-
-    // call native API
-    wasm_post_request(buffer, size);
-
-    free_req_resp_packet(buffer);
-}
-```
-
-In native world:
-``` C
-void
-wasm_post_request(wasm_exec_env_t exec_env,
-                  int32 buffer_offset, int size)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *buffer = NULL;
-
-    // do boundary check
-    if (!validate_app_addr(buffer_offset, size))
-        return;
-
-    // do address conversion
-    buffer = addr_app_to_native(buffer_offset);
-
-    if (buffer != NULL) {
-        request_t req[1];
-
-        // De-serialize data
-        if (!unpack_request(buffer, size, req))
-            return;
-
-        // set sender to help dispatch the response to the sender app later
-        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
-                                                        module_inst);
-        bh_assert(mod_id != ID_NONE);
-        req->sender = mod_id;
-
-        if (req->action == COAP_EVENT) {
-            am_publish_event(req);
-            return;
-        }
-
-        am_dispatch_request(req);
-    }
-}
-```
-
-
-
-
-
-Steps for exporting native API
-==========================
-
-WAMR implemented a framework for developers to export API's. Below is the procedure to expose the platform API's in three steps:
-
-
-## Step 1: Define the native API for exporting
-
-Define the function **example_native_func** in your source file, namely `example.c` here:
-``` C
-int example_native_func(wasm_exec_env_t exec_env,
-                        int arg1, int arg2)
-{
-    // Your implementation here
-}
-```
-The first function argument must be defined using type **wasm_exec_env_t** which is the WAMR calling convention for native API exporting. 
-
-The function prototype should also be declared in a header file so the wasm application can include it.
-``` C
-#ifndef _EXAMPLE_H_
-#define _EXAMPLE_H_
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void example_native_func(int arg1, int arg2);
-
-#ifdef __cplusplus
-}
-#endif
-#endif
-```
-
-## Step 2: Declare the native API exporting
-
-Declare the function **example_native_func** with macro **EXPORT_WASM_API** in your **.inl** file, namely `example.inl` in this sample.
-``` C
-EXPORT_WASM_API(example_native_func),
-```
-
-Then include the file **example.inl** in definition of array **extended_native_symbol_defs** in the `ext_lib_export.c`.
-``` C
-static NativeSymbol extended_native_symbol_defs[] = {
-   #include "example.inl"
-};
-
-#include "ext_lib_export.h"
-```
-
-
-## Step 3: Compile the runtime product
-Add the source file **example.c** and **ext_lib_export.c** into the CMakeList.txt for building runtime with the exported API's:
-``` cmake
-set (EXT_API_SOURCE example.c)
-
-add_executable (sample
-    # other source files
-    # ......
-    ${EXT_API_SOURCE}
-    ext_lib_export.c
-)
-```
-
-# Use exported API in wasm application
-
-We can call the exported native API **example_native_func** in wasm application like this:
+Now we can call the exported native API in wasm application like this:
 ``` C
 #include <stdio.h>
-#include "example.h"
+#include "example.h"   // where the APIs are declared
 
 int main(int argc, char **argv)
 {
     int a = 0, b = 1;
+    char * msg = "hello";
+    char buffer[100];
 
-    example_native_func(a, b);
+    int c = foo(a, b);   // call into native foo_native()
+    foo2(msg, buffer, sizeof(buffer));   // call into native foo2()
+    
     return 0;
 }
 ```
+
+
+
+## Buffer address conversion and boundary check
+
+ A WebAssembly sandbox ensures applications only access to its own memory with a private address space. When passing a pointer address from WASM to native, the address value must be converted to native address before the native function can access it. It is also the native world's responsibility to check the buffer length is not over its sandbox boundary. 
+
+
+
+The signature letter '$', '\*' and '\~' help the runtime do automatic address conversion and buffer boundary check, so the native function directly uses the string and buffer address. **Notes**:  if '\*' is not followed by '\~', the native function should not assume the length of the buffer is more than 1 byte.
+
+
+
+As function parameters are always passed in 32 bits numbers, you can also use 'i' for the pointer type argument, then you must do all the address conversion and boundary checking in your native function. For example, if you change the foo2 signature  to "(iii)", then you will implement the native part as the following sample:
+
+```c
+void foo2(wasm_exec_env_t exec_env, 
+          uint32 msg_offset, 
+          uint32 buffer_offset, 
+          int32 buf_len)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    char *buffer;
+    char * msg ;
+
+    // do boundary check
+    if (!wasm_runtime_validate_app_str_add(msg_offset))
+        return 0;
+    
+    if (!wasm_runtime_validate_app_addr(buffer_offset, buf_len))
+        return;
+
+    // do address conversion
+    buffer = wasm_runtime_addr_app_to_native(buffer_offset);
+    msg = wasm_runtime_addr_app_to_native(msg_offset);
+
+    strncpy(buffer, msg, buf_len);
+}
+```
+
+
+
+
+
+## Sandbox security attention
+
+The runtime builder should ensure not broking the memory sandbox when exporting the native function to WASM. 
+
+A few key ground rules:
+
+- Never pass any structure/class object pointer to native (do data serialization instead)
+- Do the pointer address conversion in the native API if "$\*" is not used for the pointer in the function signature 
+- Never pass a function pointer to the native 
+
+
+
+## Pass structured data or class object
+
+We must do data serialization for passing structured data or class objects between the two worlds of WASM and native. There are two serialization methods available in WASM as below, and yet you can introduce more like json, cbor etc.
+
+- [attributes container](../core/app-framework/app-native-shared/attr_container.c)
+- [restful request/response](../core/app-framework/app-native-shared/restful_utils.c)
+
+Note the serialization library is separately compiled into WASM and runtime. And the source files are located in the folder "[core/app-framework/app-native-shared](../core/app-framework/app-native-shared)“ where all source files will be compiled into both worlds.
+
+
+
+The following sample code demonstrates WASM app packs a response structure to buffer, then pass the buffer pointer to the native:
+
+```c
+/*** file name: core/app-framework/base/app/request.c ***/
+
+void api_response_send(response_t *response)
+{
+    int size;
+    char * buffer = pack_response(response, &size);
+    if (buffer == NULL)
+        return;
+
+    wasm_response_send(buffer, size); // calling exported native API
+    free_req_resp_packet(buffer);
+}
+```
+
+
+
+The following code demonstrates the native API unpack the WASM buffer to local native data structure:
+
+```c
+/*** file name: core/app-framework/base/native/request_response.c  ***/
+
+bool
+wasm_response_send(wasm_exec_env_t exec_env, char *buffer, int size)
+{
+    if (buffer != NULL) {
+        response_t response[1];
+
+        if (NULL == unpack_response(buffer, size, response))
+            return false;
+
+        am_send_response(response);
+
+        return true;
+    }
+
+    return false;
+}
+```
+
+
+

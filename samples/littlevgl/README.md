@@ -4,7 +4,6 @@ This sample demonstrates that a graphic user interface application in WebAssembl
 
 In this sample, the whole LittlevGL source code is built into the WebAssembly code with the user application. The platform interfaces defined by LittlevGL is implemented in the runtime and exported to the application through the declarations from source "ext_lib_export.c" as below:
 
-        EXPORT_WASM_API(display_init),
         EXPORT_WASM_API(display_input_read),
         EXPORT_WASM_API(display_flush),
         EXPORT_WASM_API(display_fill),

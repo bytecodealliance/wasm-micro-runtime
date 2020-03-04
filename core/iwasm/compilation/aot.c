@@ -265,6 +265,7 @@ aot_create_import_funcs(const WASMModule *module)
     import_funcs[i].func_name = import_func->field_name;
     import_funcs[i].func_ptr_linked = import_func->func_ptr_linked;
     import_funcs[i].func_type = import_func->func_type;
+    import_funcs[i].signature = import_func->signature;
     /* Resolve function type index */
     for (j = 0; j < module->type_count; j++)
       if (import_func->func_type == module->types[j]) {

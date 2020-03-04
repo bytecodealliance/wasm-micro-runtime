@@ -20,23 +20,23 @@ extern "C" {
 
 void
 wasm_obj_native_call(wasm_exec_env_t exec_env,
-                     int32 func_id, uint32 argv_offset, uint32 argc);
+                     int32 func_id, uint32 *argv, uint32 argc);
 
 void
 wasm_btn_native_call(wasm_exec_env_t exec_env,
-                     int32 func_id, uint32 argv_offset, uint32 argc);
+                     int32 func_id, uint32 *argv, uint32 argc);
 
 void
 wasm_label_native_call(wasm_exec_env_t exec_env,
-                       int32 func_id, uint32 argv_offset, uint32 argc);
+                       int32 func_id, uint32 *argv, uint32 argc);
 
 void
 wasm_cb_native_call(wasm_exec_env_t exec_env,
-                    int32 func_id, uint32 argv_offset, uint32 argc);
+                    int32 func_id, uint32 *argv, uint32 argc);
 
 void
 wasm_list_native_call(wasm_exec_env_t exec_env,
-                      int32 func_id, uint32 argv_offset, uint32 argc);
+                      int32 func_id, uint32 *argv, uint32 argc);
 
 #ifdef __cplusplus
 }

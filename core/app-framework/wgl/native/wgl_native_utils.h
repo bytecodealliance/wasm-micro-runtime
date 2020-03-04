@@ -74,7 +74,7 @@ void wgl_native_func_call(wasm_module_inst_t module_inst,
                           WGLNativeFuncDef *funcs,
                           uint32 size,
                           int32 func_id,
-                          uint32 argv_offset,
+                          uint32 *argv,
                           uint32 argc);
 
 #ifdef __cplusplus

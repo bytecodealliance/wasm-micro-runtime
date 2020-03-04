@@ -11,17 +11,8 @@
 extern void module_request_handler(request_t *request, void *user_data);
 
 bool
-wasm_response_send(wasm_exec_env_t exec_env,
-                   int32 buffer_offset, int size)
+wasm_response_send(wasm_exec_env_t exec_env, char *buffer, int size)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *buffer = NULL;
-
-    if (!validate_app_addr(buffer_offset, size))
-        return false;
-
-    buffer = addr_app_to_native(buffer_offset);
-
     if (buffer != NULL) {
         response_t response[1];
 
@@ -37,15 +28,9 @@ wasm_response_send(wasm_exec_env_t exec_env,
 }
 
 void
-wasm_register_resource(wasm_exec_env_t exec_env, int32 url_offset)
+wasm_register_resource(wasm_exec_env_t exec_env, char *url)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *url = NULL;
-
-    if (!validate_app_str_addr(url_offset))
-        return;
-
-    url = addr_app_to_native(url_offset);
 
     if (url != NULL) {
         unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
@@ -56,16 +41,9 @@ wasm_register_resource(wasm_exec_env_t exec_env, int32 url_offset)
 }
 
 void
-wasm_post_request(wasm_exec_env_t exec_env,
-                  int32 buffer_offset, int size)
+wasm_post_request(wasm_exec_env_t exec_env, char *buffer, int size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *buffer = NULL;
-
-    if (!validate_app_addr(buffer_offset, size))
-        return;
-
-    buffer = addr_app_to_native(buffer_offset);
 
     if (buffer != NULL) {
         request_t req[1];
@@ -91,15 +69,9 @@ wasm_post_request(wasm_exec_env_t exec_env,
 }
 
 void
-wasm_sub_event(wasm_exec_env_t exec_env, int32 url_offset)
+wasm_sub_event(wasm_exec_env_t exec_env, char *url)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *url = NULL;
-
-    if (!validate_app_str_addr(url_offset))
-        return;
-
-    url = addr_app_to_native(url_offset);
 
     if (url != NULL) {
         unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,

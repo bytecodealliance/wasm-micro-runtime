@@ -109,17 +109,11 @@ void wgl_native_func_call(wasm_module_inst_t module_inst,
                           WGLNativeFuncDef *funcs,
                           uint32 size,
                           int32 func_id,
-                          uint32 argv_offset,
+                          uint32 *argv,
                           uint32 argc)
 {
     WGLNativeFuncDef *func_def = funcs;
     WGLNativeFuncDef *func_def_end = func_def + size;
-    uint32 *argv;
-
-    if (!validate_app_addr(argv_offset, argc * sizeof(uint32)))
-        return;
-
-    argv = addr_app_to_native(argv_offset);
 
     while (func_def < func_def_end) {
         if (func_def->func_id == func_id) {

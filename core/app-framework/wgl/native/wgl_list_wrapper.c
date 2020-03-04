@@ -49,7 +49,7 @@ static WGLNativeFuncDef list_native_func_defs[] = {
 /*************** Native Interface to Wasm App ***********/
 void
 wasm_list_native_call(wasm_exec_env_t exec_env,
-                      int32 func_id, uint32 argv_offset, uint32 argc)
+                      int32 func_id, uint32 *argv, uint32 argc)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint32 size = sizeof(list_native_func_defs) / sizeof(WGLNativeFuncDef);
@@ -58,6 +58,6 @@ wasm_list_native_call(wasm_exec_env_t exec_env,
                          list_native_func_defs,
                          size,
                          func_id,
-                         argv_offset,
+                         argv,
                          argc);
 }

@@ -113,4 +113,3 @@ add_library (vmlib
              ${IWASM_AOT_SOURCE}
              ${IWASM_COMPL_SOURCE})
 
-add_library (extlib ext_lib_export.c)

@@ -80,6 +80,5 @@ set (VM_LIB_SRCS
 
 target_sources(app PRIVATE
                ${VM_LIB_SRCS}
-               src/main.c
-               src/ext_lib_export.c)
+               src/main.c)
 

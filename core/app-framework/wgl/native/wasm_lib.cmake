@@ -6,6 +6,7 @@ set (WASM_LIB_GUI_DIR ${CMAKE_CURRENT_LIST_DIR})
 set (DEPS_DIR ${WASM_LIB_GUI_DIR}/../../../deps)
 
 add_definitions(-DLV_CONF_INCLUDE_SIMPLE)
+add_definitions (-DAPP_FRAMEWORK_WGL)
 
 include_directories(${WASM_LIB_GUI_DIR}
                     ${DEPS_DIR}

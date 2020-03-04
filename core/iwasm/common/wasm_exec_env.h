@@ -30,6 +30,10 @@ typedef struct WASMExecEnv {
     /* The WASM module instance of current thread */
     struct WASMModuleInstanceCommon *module_inst;
 
+#if WASM_ENABLE_AOT != 0
+    uint32 *argv_buf;
+#endif
+
     /* Current interpreter frame of current thread */
     struct WASMInterpFrame *cur_frame;
 
