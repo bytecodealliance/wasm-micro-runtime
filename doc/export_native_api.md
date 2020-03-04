@@ -11,7 +11,7 @@ Exporting native API steps
 
 #### Step 1: Declare the function interface in WASM app
 
-Create a header file in a WASM app and declare the functions that are exported from native. In this example, we declare foo and foo2 as below in the header file example.h
+Create a header file in a WASM app and declare the functions that are exported from native. In this example, we declare foo and foo2 as below in the header file "example.h"
 
 ```c
 /*** file name: example.h  ***/
@@ -208,7 +208,7 @@ void api_response_send(response_t *response)
 
 
 
-The following code demostrates the native API unpack the WASM buffer to local native data structure:
+The following code demonstrates the native API unpack the WASM buffer to local native data structure:
 
 ```c
 /*** file name: core/app-framework/base/native/request_response.c  ***/

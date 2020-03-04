@@ -1,6 +1,6 @@
 WebAssembly Micro Runtime
 =========================
-[Building WAMR VM core](./doc/build_wamr.md) | [Embedding WAMR VM core](./doc/embed_wamr.md) | [Building WASM applications](./doc/build_wasm_app.md) | [Samples and demos](https://github.com/bytecodealliance/wasm-micro-runtime#samples-and-demos)
+[Build WAMR VM core](./doc/build_wamr.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export native function](./doc/export_native_api.md)|[Build WASM applications](./doc/build_wasm_app.md) | [Samples](https://github.com/bytecodealliance/wasm-micro-runtime#samples-and-demos)
 
 **A [Bytecode Alliance][BA] project**
 
@@ -25,7 +25,7 @@ iwasm VM core
 - Near to native speed by AoT
 - AoT module loader works for both embedded OS and Linux system
 - Choices of WASM application libc support: the built-in libc subset for embedded environment or [WASI](https://github.com/WebAssembly/WASI) for standard libc
-- The mechanism for exporting native API's to WASM applications
+- The mechanism for exporting native API's to WASM applications. Refer to the [export_native_api.md](./doc/export_native_api.md) 
 
 ### Supported architectures and platforms
 
@@ -38,13 +38,7 @@ The iwasm supports following architectures:
 
 Following platforms are supported:
 
-- [Linux](./doc/build_wamr.md#linux)
-- [Zephyr](./doc/build_wamr.md#zephyr)
-- [MacOS](./doc/build_wamr.md#macos)
-- [VxWorks](./doc/build_wamr.md#vxworks)
-- [AliOS-Things](./doc/build_wamr.md#alios-things)
-- [Intel Software Guard Extention (Linux)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention)
-- [Android](./doc/build_wamr.md#android)
+- [Linux](./doc/build_wamr.md#linux), [Zephyr](./doc/build_wamr.md#zephyr), [MacOS](./doc/build_wamr.md#macos), [VxWorks](./doc/build_wamr.md#vxworks), [AliOS-Things](./doc/build_wamr.md#alios-things), [Intel Software Guard Extention (Linux)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention), [Android](./doc/build_wamr.md#android)
 
 Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
@@ -78,15 +72,11 @@ Application framework
 
 By using the iwasm VM core, we are flexible to build different application frameworks for the specific domains, although it would take quite some efforts.
 
-The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, which are based on the event driven programming model. Here are the supporting API sets by the [WAMR application library](./doc/wamr_api.md) :
+The WAMR has offered a comprehensive framework for programming WASM applications for device and IoT usages. The framework supports running multiple applications, that are based on the event driven programming model. Here are the supporting API sets by the [WAMR application framework library](./doc/wamr_api.md) :
 
-- Timer
-- Micro service (Request/Response) and Pub/Sub inter-app communication
-- Sensor
-- Connectivity and data transmission
-- 2D graphic UI (based on littlevgl)
+- Timer, Micro service (request/response) and pub/sub inter-app communication, Sensor, Connectivity and data transmission, 2D graphic UI (based on littlevgl)
 
-Every subfolder under  [WAMR application framework](./core/app-framework) folder is a compilation configurable component. The developers can copy the template folder to create new components to the application framework.  If a component needs to export native functions to the WASM application, refer to the [export_native_api.md](./doc/export_native_api.md) .
+Browse the folder  [core/app-framework](./core/app-framework) for how to extend the application framework.
 
 
 
@@ -155,7 +145,7 @@ The folder “**app-sdk**” contains all the header files and WASM library for 
 
 
 
-Samples and demos
+Samples
 =================
 
 The WAMR samples integrate the iwasm VM core, application manager and selected application framework components. The samples are located in folder [samples](./samples):

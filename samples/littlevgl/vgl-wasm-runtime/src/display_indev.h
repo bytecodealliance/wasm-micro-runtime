@@ -62,7 +62,7 @@ extern bool touchscreen_read(lv_indev_data_t *data);
 
 extern bool mouse_read(lv_indev_data_t *data);
 
-extern void display_init(wasm_exec_env_t exec_env);
+extern void display_init();
 
 extern void display_deinit(wasm_exec_env_t exec_env);
 

@@ -91,7 +91,7 @@ bh_mprotect(void *addr, uint32 size, int prot)
 void
 bh_dcache_flush()
 {
-#if defined(CONFIG_CPU_CORTEX_M7)
+#if defined(CONFIG_CPU_CORTEX_M7) && defined(CONFIG_ARM_MPU)
     uint32 key;
     key = irq_lock();
     SCB_CleanDCache();

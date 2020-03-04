@@ -38,7 +38,7 @@ fi
 
 echo "##################### 0. build wamr-sdk littlevgl start#####################"
 cd ${WAMR_DIR}/wamr-sdk
-./build_sdk.sh -n littlevgl -x ${PROJECT_DIR}/wamr_config_littlevgl.cmake -e ${LV_CFG_PATH}
+./build_sdk.sh -n littlevgl -x ${PROJECT_DIR}/wamr_config_littlevgl.cmake -e ${LV_CFG_PATH} -c
 [ $? -eq 0 ] || exit $?
 echo "#####################build wamr-sdk littlevgl success"
 

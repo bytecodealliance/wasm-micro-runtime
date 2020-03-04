@@ -15,10 +15,12 @@
 #define MONITOR_ZOOM        1
 #endif
 
+extern int ili9340_init();
+
 static int lcd_initialized = 0;
 
 void
-display_init(wasm_exec_env_t exec_env)
+display_init()
 {
     if (lcd_initialized != 0) {
         return;
@@ -38,7 +40,7 @@ display_flush(wasm_exec_env_t exec_env,
     struct display_buffer_descriptor desc;
 
     if (!wasm_runtime_validate_native_addr(module_inst,
-                                           color, sizeof(lv_color_t))
+                                           color, sizeof(lv_color_t)))
         return;
 
     u16_t w = x2 - x1 + 1;
@@ -74,7 +76,7 @@ display_input_read(wasm_exec_env_t exec_env, void *data)
     lv_indev_data_t *lv_data = (lv_indev_data_t*)data;
 
     if (!wasm_runtime_validate_native_addr(module_inst,
-                                           lv_data, sizeof(lv_index_data_t)))
+                                           lv_data, sizeof(lv_indev_data_t)))
         return false;
 
     return touchscreen_read(lv_data);
