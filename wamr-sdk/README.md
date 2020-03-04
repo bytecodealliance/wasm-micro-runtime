@@ -69,7 +69,7 @@ cd wamr-sdk
 
   The argument "-i" will make the command enter menu config mode as depicted below.
 
-<img src="C:/Users/xwang98/repos/ssg_micro_runtime-wasm-poc/doc/pics/wamr_menu_config.png" alt="wamr build menu configuration" style="zoom:80%;" />
+<img src="../doc/pics/wamr_menu_config.png" alt="wamr build menu configuration" style="zoom:80%;" />
 
 After the menu configuration is finished, the profile config file is saved and the building process is automatically started. When the building gets successful, the SDK package is generated under folder $wamr-sdk/out/{profile}, and the header files of configured components were copied into the SDK package.
 
