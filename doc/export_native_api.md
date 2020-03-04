@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 
 
 
-The signature letter '$', '\*' and '~' help the runtime do automatic address conversion and buffer boundary check, so the native function directly uses the string and buffer address. **Notes**:  if '*' is not followed by '~', the native function should not assume the length of the buffer is more than 1 byte.
+The signature letter '$', '\*' and '\~' help the runtime do automatic address conversion and buffer boundary check, so the native function directly uses the string and buffer address. **Notes**:  if '\*' is not followed by '\~', the native function should not assume the length of the buffer is more than 1 byte.
 
 
 
@@ -173,7 +173,7 @@ The runtime builder should ensure not broking the memory sandbox when exporting 
 A few key ground rules:
 
 - Never pass any structure/class object pointer to native (do data serialization instead)
-- Do the pointer address conversion in the native API if "$*" is not used for the pointer in the function signature 
+- Do the pointer address conversion in the native API if "$\*" is not used for the pointer in the function signature 
 - Never pass a function pointer to the native 
 
 

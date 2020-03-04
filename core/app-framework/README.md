@@ -38,7 +38,7 @@ Asynchronized programming model is supported for WASM applications
 
 - Queue and messaging
 
-<img src="..\..\doc\pics\app_framework.PNG" style="zoom:67%;" />
+<img src="../../doc/pics/app_framework.PNG" style="zoom:67%;" />
 
 
 
@@ -122,5 +122,5 @@ Generally you should follow following steps to create a new component:
 
 
 
-![](..\..\doc\pics\sensor_callflow.PNG)
+![](../../doc/pics/sensor_callflow.PNG)
 
