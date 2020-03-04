@@ -20,16 +20,16 @@ extern "C" {
 
 uint32
 wasm_open_connection(wasm_exec_env_t exec_env,
-                     int32 name_offset, int32 args_offset, uint32 len);
+                     char *name, char *args_buf, uint32 len);
 void
 wasm_close_connection(wasm_exec_env_t exec_env,
                       uint32 handle);
 int
 wasm_send_on_connection(wasm_exec_env_t exec_env,
-                        uint32 handle, int32 data_offset, uint32 len);
+                        uint32 handle, char *data, uint32 len);
 bool
 wasm_config_connection(wasm_exec_env_t exec_env,
-                       uint32 handle, int32 cfg_offset, uint32 len);
+                       uint32 handle, char *cfg_buf, uint32 len);
 
 
 

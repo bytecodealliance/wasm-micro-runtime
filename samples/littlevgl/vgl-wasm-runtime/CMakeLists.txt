@@ -27,7 +27,7 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 add_executable (vgl_wasm_runtime src/platform/${WAMR_BUILD_PLATFORM}/main.c
                 src/platform/${WAMR_BUILD_PLATFORM}/iwasm_main.c
-                src/ext_lib_export.c src/platform/${WAMR_BUILD_PLATFORM}/display_indev.c
+                src/platform/${WAMR_BUILD_PLATFORM}/display_indev.c
                 src/platform/${WAMR_BUILD_PLATFORM}/mouse.c)
 
 target_link_libraries (vgl_wasm_runtime vmlib -lm -ldl -lpthread -lSDL2)

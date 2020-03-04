@@ -135,15 +135,9 @@ wasm_sensor_config(wasm_exec_env_t exec_env,
 
 uint32
 wasm_sensor_open(wasm_exec_env_t exec_env,
-                 int32 name_offset, int instance)
+                 char *name, int instance)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *name = NULL;
-
-    if (!validate_app_str_addr(name_offset))
-        return -1;
-
-    name = addr_app_to_native(name_offset);
 
     if (name != NULL) {
         sensor_client_t *c;
@@ -192,17 +186,8 @@ wasm_sensor_open(wasm_exec_env_t exec_env,
 
 bool
 wasm_sensor_config_with_attr_container(wasm_exec_env_t exec_env,
-                                       uint32 sensor, int32 buffer_offset,
-                                       int len)
+                                       uint32 sensor, char *buffer, int len)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *buffer = NULL;
-
-    if (!validate_app_addr(buffer_offset, len))
-        return false;
-
-    buffer = addr_app_to_native(buffer_offset);
-
     if (buffer != NULL) {
         attr_container_t *cfg = (attr_container_t *)buffer;
         sensor_obj_t s = find_sys_sensor_id(sensor);

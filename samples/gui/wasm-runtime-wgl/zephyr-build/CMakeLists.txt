@@ -73,5 +73,4 @@ target_sources(app PRIVATE
                ${LVGL_DRV_SRCS}
                ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/main.c
                ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/zephyr/iwasm_main.c
-               ${CMAKE_CURRENT_SOURCE_DIR}/../src/ext_lib_export.c
               )

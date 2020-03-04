@@ -849,75 +849,15 @@ wasm_deinstantiate(WASMModuleInstance *module_inst)
     wasm_free(module_inst);
 }
 
-static bool
-check_type(uint8 type, const char *p)
-{
-    const char *str = "i32";
-
-    if (strlen(p) < 3)
-        return false;
-
-    switch (type) {
-        case VALUE_TYPE_I32:
-            str = "i32";
-            break;
-        case VALUE_TYPE_I64:
-            str = "i64";
-            break;
-        case VALUE_TYPE_F32:
-            str = "f32";
-            break;
-        case VALUE_TYPE_F64:
-            str = "f64";
-            break;
-    }
-    if (strncmp(p, str, 3))
-        return false;
-
-    return true;
-}
-
-static bool
-check_function_type(const WASMType *type, const char *signature)
-{
-    uint32 i;
-    const char *p = signature;
-
-    if (!p || *p++ != '(')
-        return false;
-
-    for (i = 0; i < type->param_count; i++) {
-        if (!check_type(type->types[i], p))
-            return false;
-        p += 3;
-    }
-
-    if (*p++ != ')')
-        return false;
-
-    if (type->result_count) {
-        if (!check_type(type->types[type->param_count], p))
-            return false;
-        p += 3;
-    }
-
-    if (*p != '\0')
-        return false;
-
-    return true;
-}
-
 WASMFunctionInstance*
 wasm_lookup_function(const WASMModuleInstance *module_inst,
                      const char *name, const char *signature)
 {
     uint32 i;
     for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name, name)
-            && check_function_type(
-                module_inst->export_functions[i].function->u.func->func_type,
-                signature))
+        if (!strcmp(module_inst->export_functions[i].name, name))
             return module_inst->export_functions[i].function;
+    (void)signature;
     return NULL;
 }
 
@@ -972,10 +912,13 @@ wasm_get_exception(WASMModuleInstance *module_inst)
 }
 
 int32
-wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size)
+wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
+                   void **p_native_addr)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint8 *addr = mem_allocator_malloc(memory->heap_handle, size);
+    if (p_native_addr)
+        *p_native_addr = addr;
     if (!addr) {
         wasm_set_exception(module_inst, "out of memory");
         return 0;
@@ -998,9 +941,10 @@ int32
 wasm_module_dup_data(WASMModuleInstance *module_inst,
                      const char *src, uint32 size)
 {
-    int32 buffer_offset = wasm_module_malloc(module_inst, size);
+    char *buffer;
+    int32 buffer_offset = wasm_module_malloc(module_inst, size,
+                                             (void**)&buffer);
     if (buffer_offset != 0) {
-        char *buffer;
         buffer = wasm_addr_app_to_native(module_inst, buffer_offset);
         bh_memcpy_s(buffer, size, src, size);
     }

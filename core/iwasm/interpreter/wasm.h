@@ -137,6 +137,8 @@ typedef struct WASMFunctionImport {
     WASMType *func_type;
     /* function pointer after linked */
     void *func_ptr_linked;
+  /* signature from registered native symbols */
+    const char *signature;
 } WASMFunctionImport;
 
 typedef struct WASMGlobalImport {
@@ -288,8 +290,7 @@ typedef struct WASMModule {
        auxiliary stack top pointer */
     uint32 llvm_aux_stack_global_index;
 
-    /* Whether there is possible memory grow, e.g.
-       memory.grow opcode or call enlargeMemory */
+    /* Whether there is possible memory grow, e.g. memory.grow opcode */
     bool possible_memory_grow;
 
     StringList const_str_list;

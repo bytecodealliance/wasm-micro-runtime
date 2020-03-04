@@ -556,36 +556,6 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     return true;
 }
 
-static void*
-resolve_sym(const char *module_name, const char *field_name)
-{
-    void *sym;
-
-#if WASM_ENABLE_LIBC_BUILTIN != 0
-    if ((sym = wasm_native_lookup_libc_builtin_func(module_name,
-                                                    field_name)))
-        return sym;
-#endif
-
-#if WASM_ENABLE_LIBC_WASI != 0
-    if ((sym = wasm_native_lookup_libc_wasi_func(module_name,
-                                                 field_name)))
-        return sym;
-#endif
-
-#if WASM_ENABLE_BASE_LIB != 0
-    if ((sym = wasm_native_lookup_base_lib_func(module_name,
-                                                field_name)))
-        return sym;
-#endif
-
-    if ((sym = wasm_native_lookup_extension_lib_func(module_name,
-                                                     field_name)))
-        return sym;
-
-    return NULL;
-}
-
 static bool
 load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     char *error_buf, uint32 error_buf_size)
@@ -737,13 +707,10 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                     import->u.function.func_type = module->types[type_index];
 
-                    if (!module->possible_memory_grow
-                        && !strcmp(module_name, "env")
-                        && !(strcmp(field_name, "enlargeMemory")))
-                        module->possible_memory_grow = true;
-
                     if (!(import->u.function.func_ptr_linked =
-                                resolve_sym(module_name, field_name))) {
+                            wasm_native_resolve_symbol(module_name, field_name,
+                                        import->u.function.func_type,
+                                        &import->u.function.signature))) {
 #if WASM_ENABLE_WAMR_COMPILER == 0 /* Output warning except running aot compiler */
                         LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                                     module_name, field_name);
@@ -3016,7 +2983,8 @@ handle_next_reachable_block:
                         POP_TYPE(func_type->types[idx]);
                 }
 
-                PUSH_TYPE(func_type->types[func_type->param_count]);
+                if (func_type->result_count > 0)
+                    PUSH_TYPE(func_type->types[func_type->param_count]);
 
                 func->has_op_func_call = true;
                 break;

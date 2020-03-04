@@ -96,7 +96,7 @@ Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fst
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-    libvmlib.a libextlib.a \
+    libvmlib.a \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
@@ -174,11 +174,7 @@ libvmlib.a: ../build/libvmlib.a
 	@cp $< $@
 	@echo "CP $@  <=  $<"
 
-libextlib.a: ../build/libextlib.a
-	@cp $< $@
-	@echo "CP $@  <=  $<"
-
-$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects) libvmlib.a libextlib.a
+$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects) libvmlib.a
 	@$(CXX) $^ -o $@ $(Enclave_Link_Flags)
 	@echo "LINK =>  $@"
 

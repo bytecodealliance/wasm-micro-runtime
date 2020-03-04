@@ -80,6 +80,10 @@ enum {
 #define WASM_ENABLE_BASE_LIB 0
 #endif
 
+#ifndef WASM_ENABLE_APP_FRAMEWORK
+#define WASM_ENABLE_APP_FRAMEWORK 0
+#endif
+
 /* WASM log system */
 #ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1

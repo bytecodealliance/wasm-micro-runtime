@@ -208,6 +208,7 @@ typedef enum FloatArithmetic {
 #define F64_ZERO    (comp_ctx->llvm_consts.f64_zero)
 #define I32_ONE     (comp_ctx->llvm_consts.i32_one)
 #define I32_TWO     (comp_ctx->llvm_consts.i32_two)
+#define I32_THREE   (comp_ctx->llvm_consts.i32_three)
 #define I32_FOUR    (comp_ctx->llvm_consts.i32_four)
 #define I32_EIGHT   (comp_ctx->llvm_consts.i32_eight)
 #define I32_NEG_ONE (comp_ctx->llvm_consts.i32_neg_one)

@@ -8,6 +8,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include "lib_export.h"
 
 
 #ifdef __cplusplus
@@ -161,8 +162,7 @@ wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
  *
  * @param module_inst the module instance
  * @param name the name of the function
- * @param signature the signature of the function, use "i32"/"i64"/"f32"/"f64"
- *        to represent the type of i32/i64/f32/f64, e.g. "(i32i64)" "(i32)f32"
+ * @param signature the signature of the function, ignored currently
  *
  * @return the function instance found
  */
@@ -293,6 +293,8 @@ wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
  *
  * @param module_inst the WASM module instance which contains heap
  * @param size the size bytes to allocate
+ * @param p_native_addr return native address of the allocated memory
+ *        if it is not NULL, and return NULL if memory malloc failed
  *
  * @return the allocated memory address, which is a relative offset to the
  *         base address of the module instance's memory space, the value range
@@ -300,7 +302,8 @@ wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
  *         Return non-zero if success, zero if failed.
  */
 int32_t
-wasm_runtime_module_malloc(wasm_module_inst_t module_inst, uint32_t size);
+wasm_runtime_module_malloc(wasm_module_inst_t module_inst, uint32_t size,
+                           void **p_native_addr);
 
 /**
  * Free memory to the heap of WASM module instance
@@ -431,6 +434,36 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
                                    uint8_t *native_ptr,
                                    uint8_t **p_native_start_addr,
                                    uint8_t **p_native_end_addr);
+
+/**
+  * Register native functions with same module name
+  *
+  * @param module_name the module name of the native functions
+  * @param native_symbols specifies an array of NativeSymbol structures which
+  *        contain the names, function pointers and signatures
+  *        Note: WASM runtime will not allocate memory to clone the data, so
+  *              user must ensure the array can be used forever
+  *        Meanings of letters in function signature:
+  *          'i': the parameter is i32 type
+  *          'I': the parameter is i64 type
+  *          'f': the parameter is f32 type
+  *          'F': the parameter is f64 type
+  *          '*': the parameter is a pointer (i32 in WASM), and runtime will
+  *               auto check its boundary before calling the native function.
+  *               If it is followed by '~', the checked length of the pointer
+  *               is gotten from the following parameter, if not, the checked
+  *               length of the pointer is 1.
+  *          '~': the parameter is the pointer's length with i32 type, and must
+  *               follow after '*'
+  *          '$': the parameter is a string (i32 in WASM), and runtime will
+  *               auto check its boundary before calling the native function
+  * @param n_native_symbols specifies the number of native symbols in the array
+  *
+  * @return true if success, false otherwise
+  */
+bool wasm_runtime_register_natives(const char *module_name,
+                                   NativeSymbol *native_symbols,
+                                   uint32_t n_native_symbols);
 
 #ifdef __cplusplus
 }

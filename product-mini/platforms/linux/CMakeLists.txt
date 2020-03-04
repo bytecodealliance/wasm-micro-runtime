@@ -76,7 +76,7 @@ endif ()
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
 
-add_executable (iwasm main.c ext_lib_export.c)
+add_executable (iwasm main.c)
 
 install (TARGETS iwasm DESTINATION bin)
 

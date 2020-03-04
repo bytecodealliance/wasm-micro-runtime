@@ -7,82 +7,66 @@
 #define _WASM_NATIVE_H
 
 #include "bh_common.h"
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
 #include "../interpreter/wasm.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * Lookup native function implementation of a given import function
- * in libc builtin API's
- *
- * @param module_name the module name of the import function
- * @param func_name the function name of the import function
- *
- * @return return the native function pointer if success, NULL otherwise
- */
-void *
-wasm_native_lookup_libc_builtin_func(const char *module_name,
-                                     const char *func_name);
+typedef struct NativeSymbol {
+    const char *symbol;
+    void *func_ptr;
+    const char *signature;
+} NativeSymbol;
 
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
+typedef struct NativeSymbolsNode {
+    struct NativeSymbolsNode *next;
+    const char *module_name;
+    NativeSymbol *native_symbols;
+    uint32 n_native_symbols;
+} NativeSymbolsNode, *NativeSymbolsList;
+
 /**
  * Lookup global variable of a given import global
- * in libc builtin globals
+ * from libc builtin globals
  *
  * @param module_name the module name of the import global
  * @param global_name the global name of the import global
  * @param global return the global data
  *
- * @param return true if success, false otherwise
+ * @param true if success, false otherwise
  */
 bool
 wasm_native_lookup_libc_builtin_global(const char *module_name,
                                        const char *global_name,
                                        WASMGlobalImport *global);
-#endif
 
 /**
- * Lookup native function implementation of a given import function
- * in libc wasi API's
+ * Resolve native symbol in all libraries, including libc-builtin, libc-wasi,
+ * base lib and extension lib, and user registered natives
+ * function, which can be auto checked by vm before calling native function
  *
  * @param module_name the module name of the import function
  * @param func_name the function name of the import function
+ * @param func_type the function prototype of the import function
+ * @param p_signature output the signature if resolve success
  *
- * @return return the native function pointer if success, NULL otherwise
+ * @return the native function pointer if success, NULL otherwise
  */
-void *
-wasm_native_lookup_libc_wasi_func(const char *module_name,
-                                  const char *func_name);
+void*
+wasm_native_resolve_symbol(const char *module_name, const char *field_name,
+                           const WASMType *func_type, const char **p_signature);
 
-/**
- * Lookup native function implementation of a given import function
- * in base lib API's
- *
- * @param module_name the module name of the import function
- * @param func_name the function name of the import function
- *
- * @return return the native function pointer if success, NULL otherwise
- */
-void *
-wasm_native_lookup_base_lib_func(const char *module_name,
-                                 const char *func_name);
+bool
+wasm_native_register_natives(const char *module_name,
+                             NativeSymbol *native_symbols,
+                             uint32 n_native_symbols);
 
-/**
- * Lookup native function implementation of a given import function
- * in extension lib API's
- *
- * @param module_name the module name of the import function
- * @param func_name the function name of the import function
- *
- * @return return the native function pointer if success, NULL otherwise
- */
-void *
-wasm_native_lookup_extension_lib_func(const char *module_name,
-                                      const char *func_name);
+bool
+wasm_native_init();
+
+void
+wasm_native_destroy();
 
 #ifdef __cplusplus
 }
