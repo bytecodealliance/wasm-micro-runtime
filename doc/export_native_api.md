@@ -64,6 +64,10 @@ static NativeSymbol native_symbols[] =
     }    
 };
 
+// ensure the memory and runtime initialization is finsihed
+// before registering the native functions
+bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf));
+wasm_runtime_init();
 
 int n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
 if (!wasm_runtime_register_natives("env",
@@ -72,6 +76,9 @@ if (!wasm_runtime_register_natives("env",
     goto fail1;
 }
 
+// natives registeration must be done before loading WASM modules
+module = wasm_runtime_load(buffer, size, error_buf, sizeof(error_buf));
+
 ```
 
 **Function signature**:
@@ -79,6 +86,7 @@ if (!wasm_runtime_register_natives("env",
 The function signature field in **NativeSymbol** structure is a string for describing the function prototype.  It is critical to ensure the function signature is correctly mapping the native function interface.
 
 Each letter in the "()" represents a parameter type, and the one following after ")" represents the return value type. The meaning of each letter:
+
 
 - 'i': i32 
 - 'I': i64 
