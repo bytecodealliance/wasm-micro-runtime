@@ -76,6 +76,9 @@ if (!wasm_runtime_register_natives("env",
     goto fail1;
 }
 
+// natives registeration must be done before loading WASM modules
+module = wasm_runtime_load(buffer, size, error_buf, sizeof(error_buf));
+
 ```
 
 **Function signature**:
