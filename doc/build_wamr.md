@@ -155,18 +155,19 @@ cd zephyr/samples/
 cp -a <wamr_root_dir>/product-mini/platforms/zephyr/simple .
 cd simple
 ln -s <wamr_root_dir> wamr
-mkdir build && cd build
-source ../../../zephyr-env.sh
-
-1. build for x86
-cmake -GNinja -DBOARD=qemu_x86_nommu ..
-ninja
-2. build for ARM
-modify ../prj.conf, modify the commented line "# CONFIG_ARM_MPU is not set" to "CONFIG_ARM_MPU=y"
-cmake -GNinja -DBOARD=nucleo_f767zi -DWAMR_BUILD_TARGET=THUMBV7 ..
-ninja
+source ../../zephyr-env.sh
 
 ```
+
+1. build for x86 (qemu_x86_nommu)
+``` Bash
+./build.sh x86
+```
+2. build for ARM (nucleo_f767zi)
+``` Bash
+./build.sh stm32
+```
+
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
 

@@ -44,6 +44,20 @@ void __aeabi_idivmod();
 void __aeabi_uidivmod();
 void __aeabi_ldivmod();
 void __aeabi_uldivmod();
+void __aeabi_i2d();
+void __aeabi_dadd();
+void __aeabi_ddiv();
+void __aeabi_dcmplt();
+void __aeabi_dcmpun();
+void __aeabi_dcmple();
+void __aeabi_dcmpge();
+void __aeabi_d2iz();
+void __aeabi_fcmplt();
+void __aeabi_fcmpun();
+void __aeabi_fcmple();
+void __aeabi_fcmpge();
+void __aeabi_f2iz();
+void __aeabi_f2d();
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS,
@@ -77,7 +91,21 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_idivmod),
     REG_SYM(__aeabi_uidivmod),
     REG_SYM(__aeabi_ldivmod),
-    REG_SYM(__aeabi_uldivmod)
+    REG_SYM(__aeabi_uldivmod),
+    REG_SYM(__aeabi_i2d),
+    REG_SYM(__aeabi_dadd),
+    REG_SYM(__aeabi_ddiv),
+    REG_SYM(__aeabi_dcmplt),
+    REG_SYM(__aeabi_dcmpun),
+    REG_SYM(__aeabi_dcmple),
+    REG_SYM(__aeabi_dcmpge),
+    REG_SYM(__aeabi_d2iz),
+    REG_SYM(__aeabi_fcmplt),
+    REG_SYM(__aeabi_fcmpun),
+    REG_SYM(__aeabi_fcmple),
+    REG_SYM(__aeabi_fcmpge),
+    REG_SYM(__aeabi_f2iz),
+    REG_SYM(__aeabi_f2d),
 };
 
 static void

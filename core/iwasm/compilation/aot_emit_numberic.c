@@ -858,12 +858,33 @@ fail:
 }
 
 static bool
+is_targeting_soft_float(LLVMTargetMachineRef target_machine)
+{
+    bool ret = false;
+    char *feature_string;
+
+    if (!(feature_string =
+                LLVMGetTargetMachineFeatureString(target_machine))) {
+        aot_set_last_error("llvm get target machine feature string fail.");
+        return false;
+    }
+
+    ret = strstr(feature_string, "+soft-float") ? true : false;
+    LLVMDisposeMessage(feature_string);
+    return ret;
+}
+
+static bool
 compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             FloatArithmetic arith_op, bool is_f32)
 {
     switch (arith_op) {
         case FLOAT_ADD:
-            DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+            if (is_targeting_soft_float(comp_ctx->target_machine))
+                DEF_FP_BINARY_OP(LLVMBuildFAdd(comp_ctx->builder, left, right, "fadd"),
+                                 "llvm build fadd fail.");
+            else
+                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
                                     comp_ctx,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fadd.f32"
@@ -873,10 +894,14 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                     right,
                                     comp_ctx->fp_rounding_mode,
                                     comp_ctx->fp_exception_behavior),
-                             NULL);
+                                 NULL);
             return true;
         case FLOAT_SUB:
-            DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+            if (is_targeting_soft_float(comp_ctx->target_machine))
+                DEF_FP_BINARY_OP(LLVMBuildFSub(comp_ctx->builder, left, right, "fsub"),
+                                 "llvm build fsub fail.");
+            else
+                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
                                     comp_ctx,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fsub.f32"
@@ -886,10 +911,14 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                     right,
                                     comp_ctx->fp_rounding_mode,
                                     comp_ctx->fp_exception_behavior),
-                             NULL);
+                                 NULL);
             return true;
         case FLOAT_MUL:
-            DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+            if (is_targeting_soft_float(comp_ctx->target_machine))
+                DEF_FP_BINARY_OP(LLVMBuildFMul(comp_ctx->builder, left, right, "fmul"),
+                                 "llvm build fmul fail.");
+            else
+                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
                                     comp_ctx,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fmul.f32"
@@ -899,10 +928,14 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                     right,
                                     comp_ctx->fp_rounding_mode,
                                     comp_ctx->fp_exception_behavior),
-                             NULL);
+                                 NULL);
             return true;
         case FLOAT_DIV:
-            DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+            if (is_targeting_soft_float(comp_ctx->target_machine))
+                DEF_FP_BINARY_OP(LLVMBuildFDiv(comp_ctx->builder, left, right, "fdiv"),
+                                 "llvm build fdiv fail.");
+            else
+                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
                                     comp_ctx,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fdiv.f32"
@@ -912,7 +945,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                     right,
                                     comp_ctx->fp_rounding_mode,
                                     comp_ctx->fp_exception_behavior),
-                             NULL);
+                                 NULL);
             return true;
         case FLOAT_MIN:
             DEF_FP_BINARY_OP(compile_op_float_min_max(comp_ctx,
@@ -1017,7 +1050,15 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             NULL);
             return true;
         case FLOAT_SQRT:
-            DEF_FP_UNARY_OP(call_llvm_libm_expermental_constrained_intrinsic(
+            if (is_targeting_soft_float(comp_ctx->target_machine))
+                DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   is_f32 ? "llvm.sqrt.f32" :
+                                                            "llvm.sqrt.f64",
+                                                   is_f32,
+                                                   operand),
+                                NULL);
+            else
+                DEF_FP_UNARY_OP(call_llvm_libm_expermental_constrained_intrinsic(
                                            comp_ctx,
                                            (is_f32
                                             ? "llvm.experimental.constrained.sqrt.f32"
@@ -1026,7 +1067,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                            operand,
                                            comp_ctx->fp_rounding_mode,
                                            comp_ctx->fp_exception_behavior),
-                            NULL);
+                                NULL);
             return true;
         default:
             bh_assert(0);
