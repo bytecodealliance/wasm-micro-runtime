@@ -10,6 +10,7 @@
 #include "bh_common.h"
 #include "bh_thread.h"
 #include "wasm_exec_env.h"
+#include "wasm_native.h"
 #include "../interpreter/wasm.h"
 #if WASM_ENABLE_LIBC_WASI != 0
 #include "wasmtime_ssp.h"
@@ -172,7 +173,8 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
 int32
-wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint32 size);
+wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint32 size,
+                           void **p_native_addr);
 
 /* See wasm_export.h for description */
 void
@@ -282,9 +284,15 @@ wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst);
 bool
 wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module, uint32 inc_page_count);
 
+/* See wasm_export.h for description */
 bool
-wasm_runtime_invoke_native(void *func_ptr, WASMType *func_type,
-                           WASMExecEnv *exec_env,
+wasm_runtime_register_natives(const char *module_name,
+                              NativeSymbol *native_symbols,
+                              uint32 n_native_symbols);
+
+bool
+wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
+                           const WASMType *func_type, const char *signature,
                            uint32 *argv, uint32 argc, uint32 *ret);
 
 

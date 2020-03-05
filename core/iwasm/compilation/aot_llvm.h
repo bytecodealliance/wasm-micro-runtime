@@ -92,6 +92,7 @@ typedef struct AOTFuncContext {
   LLVMValueRef exec_env;
   LLVMValueRef aot_inst;
   LLVMValueRef table_base;
+  LLVMValueRef argv_buf;
 
   LLVMValueRef mem_data_size;
   LLVMValueRef mem_base_addr;
@@ -150,6 +151,7 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef f64_zero;
     LLVMValueRef i32_one;
     LLVMValueRef i32_two;
+    LLVMValueRef i32_three;
     LLVMValueRef i32_four;
     LLVMValueRef i32_eight;
     LLVMValueRef i32_neg_one;

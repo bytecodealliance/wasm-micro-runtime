@@ -92,7 +92,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/bh_assert.c \
                    ${IWASM_ROOT}/common/wasm_native.c \
                    ${IWASM_ROOT}/common/wasm_exec_env.c \
                    ${IWASM_ROOT}/common/arch/${INVOKE_NATIVE} \
-                   src/main.c src/ext_lib_export.c
+                   src/main.c
 
 ifeq (${WAMR_BUILD_INTERP}, 1)
 $(NAME)_SOURCES += ${IWASM_ROOT}/interpreter/wasm_interp.c \

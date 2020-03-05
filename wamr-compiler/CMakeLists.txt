@@ -121,7 +121,7 @@ add_library (vmlib
 
 add_library (aotclib ${IWASM_COMPL_SOURCE})
 
-add_executable (wamrc main.c ext_lib_export.c)
+add_executable (wamrc main.c)
 
 target_link_libraries (wamrc aotclib vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
 

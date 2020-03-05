@@ -26,8 +26,8 @@
 #define addr_native_to_app(ptr) \
     wasm_runtime_addr_native_to_app(module_inst, ptr)
 
-#define module_malloc(size) \
-    wasm_runtime_module_malloc(module_inst, size)
+#define module_malloc(size, p_native_addr) \
+    wasm_runtime_module_malloc(module_inst, size, p_native_addr)
 
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)

@@ -4,22 +4,23 @@
 cmake_minimum_required (VERSION 3.4.1)
 
 set (CMAKE_VERBOSE_MAKEFILE on)
+set (CMAKE_BUILD_TYPE       Release)
 
 set (CMAKE_TOOLCHAIN_FILE "$ENV{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake")
 set (ANDROID_NDK $ENV{ANDROID_NDK_HOME})
 set (ANDROID_SDK $ENV{ANDROID_SDK_HOME})
-set (ANDROID_ABI "armeabi-v7a")
+set (ANDROID_ABI "x86")
+set (ANDROID_LD lld)
 
 project (iwasm)
 
 set (WAMR_BUILD_PLATFORM      "android")
-set (WAMR_BUILD_TARGET        "ARMv7")
-set (WAMR_BUILD_TYPE          Debug)
+set (WAMR_BUILD_TARGET        "X86_32")
+set (WAMR_BUILD_TYPE          Release)
 set (WAMR_BUILD_INTERP        1)
 set (WAMR_BUILD_AOT           0)
 set (WAMR_BUILD_LIBC_BUILTIN  1)
 set (WAMR_BUILD_LIBC_WASI     0)
-set (CMAKE_BUILD_TYPE         Debug)
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
@@ -89,8 +90,12 @@ endif ()
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
 #set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
 
-add_library (iwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE} ext_lib_export.c)
+add_library (iwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+if (CMAKE_BUILD_TYPE STREQUAL Release)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -landroid -llog -s)
+else()
 target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -landroid -llog)
+endif()
 
 set (distribution_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build/distribution)
 set_target_properties (iwasm PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${distribution_DIR}/wasm/lib")

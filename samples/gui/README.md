@@ -112,3 +112,9 @@ First, connect PC and STM32 with UART. Then install to use host_tool.</br>
 - Install AOT version WASM application
 `wamrc --target=thumbv7 --target-abi=eabi --cpu=cortex-m7 -o ui_app.aot ui_app.wasm`
 `./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app.aot`
+
+
+
+The graphic user interface demo photo:
+
+![WAMR samples diagram](../../doc/pics/vgl_demo.png "WAMR samples diagram")

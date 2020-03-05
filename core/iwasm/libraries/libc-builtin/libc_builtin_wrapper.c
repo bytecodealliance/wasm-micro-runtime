@@ -6,9 +6,7 @@
 #include "bh_common.h"
 #include "bh_log.h"
 #include "wasm_export.h"
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
 #include "../interpreter/wasm.h"
-#endif
 
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
@@ -34,14 +32,17 @@ wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 #define validate_app_str_addr(offset) \
     wasm_runtime_validate_app_str_addr(module_inst, offset)
 
+#define validate_native_addr(addr, size) \
+    wasm_runtime_validate_native_addr(module_inst, addr, size)
+
 #define addr_app_to_native(offset) \
     wasm_runtime_addr_app_to_native(module_inst, offset)
 
 #define addr_native_to_app(ptr) \
     wasm_runtime_addr_native_to_app(module_inst, ptr)
 
-#define module_malloc(size) \
-    wasm_runtime_module_malloc(module_inst, size)
+#define module_malloc(size, p_native_addr) \
+    wasm_runtime_module_malloc(module_inst, size, p_native_addr)
 
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
@@ -392,73 +393,46 @@ printf_out(int c, struct str_context *ctx)
     return c;
 }
 
-static bool
-parse_printf_args(wasm_module_inst_t module_inst, int32 fmt_offset,
-                  int32 va_list_offset, const char **p_fmt,
-                  _va_list *p_va_args)
-{
-    const char *fmt;
-    union {
-        uintptr_t u;
-        _va_list v;
-    } u;
-
-    if (!validate_app_str_addr(fmt_offset)
-        || !validate_app_addr(va_list_offset, sizeof(int32)))
-        return false;
-
-    fmt = (const char*) addr_app_to_native(fmt_offset);
-    u.u = (uintptr_t) addr_app_to_native(va_list_offset);
-
-    *p_fmt = fmt;
-    *p_va_args = u.v;
-    return true;
-}
-
 static int
-_printf_wrapper(wasm_exec_env_t exec_env,
-                int32 fmt_offset, int32 va_list_offset)
+printf_wrapper(wasm_exec_env_t exec_env,
+               const char * format, _va_list va_args)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     struct str_context ctx = { NULL, 0, 0 };
-    const char *fmt;
-    _va_list va_args;
 
-    if (!parse_printf_args(module_inst, fmt_offset, va_list_offset, &fmt, &va_args))
+    /* format has been checked by runtime */
+    if (!validate_native_addr(va_args, sizeof(int32)))
         return 0;
 
-    if (!_vprintf_wa((out_func_t)printf_out, &ctx, fmt, va_args, module_inst))
+    if (!_vprintf_wa((out_func_t)printf_out, &ctx, format, va_args, module_inst))
         return 0;
+
     return (int)ctx.count;
 }
 
 static int
-_sprintf_wrapper(wasm_exec_env_t exec_env,
-                 int32 str_offset, int32 fmt_offset, int32 va_list_offset)
+sprintf_wrapper(wasm_exec_env_t exec_env,
+                char *str, const char *format, _va_list va_args)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    int32 app_end_offset;
+    uint8 *native_end_offset;
     struct str_context ctx;
-    char *str;
-    const char *fmt;
-    _va_list va_args;
 
-    if (!wasm_runtime_get_app_addr_range(module_inst, str_offset,
-                                         NULL, &app_end_offset)) {
+    /* str and format have been checked by runtime */
+    if (!validate_native_addr(va_args, sizeof(uint32)))
+        return 0;
+
+    if (!wasm_runtime_get_native_addr_range(module_inst, (uint8*)str,
+                                            NULL, &native_end_offset)) {
         wasm_runtime_set_exception(module_inst, "out of bounds memory access");
         return false;
     }
 
-    str = addr_app_to_native(str_offset);
-
-    if (!parse_printf_args(module_inst, fmt_offset, va_list_offset, &fmt, &va_args))
-        return 0;
-
     ctx.str = str;
-    ctx.max = (uint32)(app_end_offset - str_offset);
+    ctx.max = (uint32)(native_end_offset - (uint8*)str);
     ctx.count = 0;
 
-    if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, fmt, va_args, module_inst))
+    if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, format, va_args, module_inst))
         return 0;
 
     if (ctx.count < ctx.max) {
@@ -469,29 +443,21 @@ _sprintf_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int
-_snprintf_wrapper(wasm_exec_env_t exec_env,
-                  int32 str_offset, uint32 size, int32 fmt_offset,
-                  int32 va_list_offset)
+snprintf_wrapper(wasm_exec_env_t exec_env, char *str, uint32 size,
+                 const char *format, _va_list va_args)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     struct str_context ctx;
-    char *str;
-    const char *fmt;
-    _va_list va_args;
 
-    if (!validate_app_addr(str_offset, size))
-        return 0;
-
-    str = addr_app_to_native(str_offset);
-
-    if (!parse_printf_args(module_inst, fmt_offset, va_list_offset, &fmt, &va_args))
+    /* str and format have been checked by runtime */
+    if (!validate_native_addr(va_args, sizeof(uint32)))
         return 0;
 
     ctx.str = str;
     ctx.max = size;
     ctx.count = 0;
 
-    if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, fmt, va_args, module_inst))
+    if (!_vprintf_wa((out_func_t)sprintf_out, &ctx, format, va_args, module_inst))
         return 0;
 
     if (ctx.count < ctx.max) {
@@ -502,46 +468,32 @@ _snprintf_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int
-_puts_wrapper(wasm_exec_env_t exec_env,
-              int32 str_offset)
+puts_wrapper(wasm_exec_env_t exec_env, const char *str)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    const char *str;
-
-    if (!validate_app_str_addr(str_offset))
-        return 0;
-
-    str = addr_app_to_native(str_offset);
     return bh_printf("%s\n", str);
 }
 
 static int
-_putchar_wrapper(wasm_exec_env_t exec_env, int c)
+putchar_wrapper(wasm_exec_env_t exec_env, int c)
 {
     bh_printf("%c", c);
     return 1;
 }
 
 static int32
-_strdup_wrapper(wasm_exec_env_t exec_env,
-                int32 str_offset)
+strdup_wrapper(wasm_exec_env_t exec_env, const char *str)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *str, *str_ret;
+    char *str_ret;
     uint32 len;
     int32 str_ret_offset = 0;
 
-    if (!validate_app_str_addr(str_offset))
-        return 0;
-
-    str = addr_app_to_native(str_offset);
-
+    /* str has been checked by runtime */
     if (str) {
         len = (uint32)strlen(str) + 1;
 
-        str_ret_offset = module_malloc(len);
+        str_ret_offset = module_malloc(len, (void**)&str_ret);
         if (str_ret_offset) {
-            str_ret = addr_app_to_native(str_ret_offset);
             bh_memcpy_s(str_ret, len, str, len);
         }
     }
@@ -550,192 +502,151 @@ _strdup_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int32
-__strdup_wrapper(wasm_exec_env_t exec_env,
-                int32 str_offset)
+_strdup_wrapper(wasm_exec_env_t exec_env, const char *str)
 {
-    return _strdup_wrapper(exec_env, str_offset);
+    return strdup_wrapper(exec_env, str);
 }
 
 static int32
-_memcmp_wrapper(wasm_exec_env_t exec_env,
-                int32 s1_offset, int32 s2_offset, uint32 size)
+memcmp_wrapper(wasm_exec_env_t exec_env,
+               const void *s1, const void *s2, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *s1, *s2;
 
-    if (!validate_app_addr(s1_offset, size)
-        || !validate_app_addr(s2_offset, size))
+    /* s2 has been checked by runtime */
+    if (!validate_native_addr((void*)s1, size))
         return 0;
 
-    s1 = addr_app_to_native(s1_offset);
-    s2 = addr_app_to_native(s2_offset);
     return memcmp(s1, s2, size);
 }
 
 static int32
-_memcpy_wrapper(wasm_exec_env_t exec_env,
-                int32 dst_offset, int32 src_offset, uint32 size)
+memcpy_wrapper(wasm_exec_env_t exec_env,
+               void *dst, const void *src, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *dst, *src;
+    int32 dst_offset = addr_native_to_app(dst);
 
     if (size == 0)
         return dst_offset;
 
-    if (!validate_app_addr(dst_offset, size)
-        || !validate_app_addr(src_offset, size))
+    /* src has been checked by runtime */
+    if (!validate_native_addr(dst, size))
         return dst_offset;
 
-    dst = addr_app_to_native(dst_offset);
-    src = addr_app_to_native(src_offset);
     bh_memcpy_s(dst, size, src, size);
     return dst_offset;
 }
 
 static int32
-_memmove_wrapper(wasm_exec_env_t exec_env,
-                 int32 dst_offset, int32 src_offset, uint32 size)
+memmove_wrapper(wasm_exec_env_t exec_env,
+                void *dst, void *src, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *dst, *src;
+    int32 dst_offset = addr_native_to_app(dst);
 
-    if (!validate_app_addr(dst_offset, size)
-        || !validate_app_addr(src_offset, size))
+    if (size == 0)
         return dst_offset;
 
-    dst = addr_app_to_native(dst_offset);
-    src = addr_app_to_native(src_offset);
+    /* src has been checked by runtime */
+    if (!validate_native_addr(dst, size))
+        return dst_offset;
+
     memmove(dst, src, size);
     return dst_offset;
 }
 
 static int32
-_memset_wrapper(wasm_exec_env_t exec_env,
-                int32 s_offset, int32 c, uint32 size)
+memset_wrapper(wasm_exec_env_t exec_env,
+               void *s, int32 c, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *s;
+    int32 s_offset = addr_native_to_app(s);
 
-    if (!validate_app_addr(s_offset, size))
+    if (!validate_native_addr(s, size))
         return s_offset;
 
-    s = addr_app_to_native(s_offset);
     memset(s, c, size);
     return s_offset;
 }
 
 static int32
-_strchr_wrapper(wasm_exec_env_t exec_env,
-                int32 s_offset, int32 c)
+strchr_wrapper(wasm_exec_env_t exec_env,
+               const char *s, int32 c)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    const char *s;
     char *ret;
 
-    if (!validate_app_str_addr(s_offset))
-        return s_offset;
-
-    s = addr_app_to_native(s_offset);
+    /* s has been checked by runtime */
     ret = strchr(s, c);
     return ret ? addr_native_to_app(ret) : 0;
 }
 
 static int32
-_strcmp_wrapper(wasm_exec_env_t exec_env,
-                int32 s1_offset, int32 s2_offset)
+strcmp_wrapper(wasm_exec_env_t exec_env,
+               const char *s1, const char *s2)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *s1, *s2;
-
-    if (!validate_app_str_addr(s1_offset)
-        || !validate_app_str_addr(s2_offset))
-        return 0;
-
-    s1 = addr_app_to_native(s1_offset);
-    s2 = addr_app_to_native(s2_offset);
+    /* s1 and s2 have been checked by runtime */
     return strcmp(s1, s2);
 }
 
 static int32
-_strncmp_wrapper(wasm_exec_env_t exec_env,
-                 int32 s1_offset, int32 s2_offset, uint32 size)
+strncmp_wrapper(wasm_exec_env_t exec_env,
+                const char *s1, const char *s2, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *s1, *s2;
 
-    if (!validate_app_addr(s1_offset, size)
-        || !validate_app_addr(s2_offset, size))
+    /* s2 has been checked by runtime */
+    if (!validate_native_addr((void*)s1, size))
         return 0;
 
-    s1 = addr_app_to_native(s1_offset);
-    s2 = addr_app_to_native(s2_offset);
     return strncmp(s1, s2, size);
 }
 
 static int32
-_strcpy_wrapper(wasm_exec_env_t exec_env,
-                int32 dst_offset, int32 src_offset)
+strcpy_wrapper(wasm_exec_env_t exec_env, char *dst, const char *src)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *dst, *src;
-    uint32 len;
+    uint32 len = strlen(src) + 1;
 
-    if (!validate_app_str_addr(src_offset))
+    /* src has been checked by runtime */
+    if (!validate_native_addr(dst, len))
         return 0;
 
-    src = addr_app_to_native(src_offset);
-    len = (uint32)strlen(src);
-
-    if (!validate_app_addr(dst_offset, len + 1))
-        return 0;
-
-    dst = addr_app_to_native(dst_offset);
-    strncpy(dst, src, len + 1);
-    return dst_offset;
+    strncpy(dst, src, len);
+    return addr_native_to_app(dst);
 }
 
 static int32
-_strncpy_wrapper(wasm_exec_env_t exec_env,
-                 int32 dst_offset, int32 src_offset, uint32 size)
+strncpy_wrapper(wasm_exec_env_t exec_env,
+                char *dst, const char *src, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *dst, *src;
 
-    if (!validate_app_addr(dst_offset, size)
-        || !validate_app_addr(src_offset, size))
+    /* src has been checked by runtime */
+    if (!validate_native_addr(dst, size))
         return 0;
 
-    dst = addr_app_to_native(dst_offset);
-    src = addr_app_to_native(src_offset);
     strncpy(dst, src, size);
-    return dst_offset;
+    return addr_native_to_app(dst);
 }
 
 static uint32
-_strlen_wrapper(wasm_exec_env_t exec_env,
-                int32 s_offset)
+strlen_wrapper(wasm_exec_env_t exec_env, const char *s)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *s;
-
-    if (!validate_app_str_addr(s_offset))
-        return 0;
-
-    s = addr_app_to_native(s_offset);
+    /* s has been checked by runtime */
     return (uint32)strlen(s);
 }
 
 static int32
-_malloc_wrapper(wasm_exec_env_t exec_env,
-                uint32 size)
+malloc_wrapper(wasm_exec_env_t exec_env, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    return module_malloc(size);
+    return module_malloc(size, NULL);
 }
 
 static int32
-_calloc_wrapper(wasm_exec_env_t exec_env,
-                uint32 nmemb, uint32 size)
+calloc_wrapper(wasm_exec_env_t exec_env, uint32 nmemb, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint64 total_size = (uint64) nmemb * (uint64) size;
@@ -745,9 +656,8 @@ _calloc_wrapper(wasm_exec_env_t exec_env,
     if (total_size >= UINT32_MAX)
         return 0;
 
-    ret_offset = module_malloc((uint32)total_size);
+    ret_offset = module_malloc((uint32)total_size, (void**)&ret_ptr);
     if (ret_offset) {
-        ret_ptr = addr_app_to_native(ret_offset);
         memset(ret_ptr, 0, (uint32) total_size);
     }
 
@@ -755,47 +665,25 @@ _calloc_wrapper(wasm_exec_env_t exec_env,
 }
 
 static void
-_free_wrapper(wasm_exec_env_t exec_env,
-              int32 ptr_offset)
+free_wrapper(wasm_exec_env_t exec_env, void *ptr)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    if (!validate_app_addr(ptr_offset, 4))
+
+    if (!validate_native_addr(ptr, sizeof(uint32)))
         return;
-    return module_free(ptr_offset);
+
+    return module_free(addr_native_to_app(ptr));
 }
 
 static int32
-_atoi_wrapper(wasm_exec_env_t exec_env,
-              int32 s_offset)
+atoi_wrapper(wasm_exec_env_t exec_env, const char *s)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *str;
-
-    if (!validate_app_str_addr(s_offset))
-        return 0;
-
-    str = addr_app_to_native(s_offset);
-
-    return atoi(str);
-}
-
-static int32
-_bsearch_wrapper(wasm_exec_env_t exec_env,
-                 int32 key_offset,     /* const void * */
-                 int32 array_offset,   /* const void * */
-                 uint32 count,
-                 uint32 size,
-                 int32 cmp_index)
-{
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasm_runtime_set_exception(module_inst, "bsearch not implemented.");
-
-    return 0;
+    /* s has been checked by runtime */
+    return atoi(s);
 }
 
 static void
-_exit_wrapper(wasm_exec_env_t exec_env,
-              int32 status)
+exit_wrapper(wasm_exec_env_t exec_env, int32 status)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
@@ -804,44 +692,32 @@ _exit_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int32
-_strtol_wrapper(wasm_exec_env_t exec_env,
-                int32 nptr_offset,      /* const char * */
-                int32 endptr_offset,    /* char ** */
-                int32 base)
+strtol_wrapper(wasm_exec_env_t exec_env,
+               const char *nptr, char **endptr, int32 base)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *nptr, **endptr;
     int32 num = 0;
 
-    if (!validate_app_str_addr(nptr_offset)
-        || !validate_app_addr(endptr_offset, sizeof(int32)))
+    /* nptr has been checked by runtime */
+    if (!validate_native_addr(endptr, sizeof(uint32)))
         return 0;
 
-    nptr = addr_app_to_native(nptr_offset);
-    endptr = addr_app_to_native(endptr_offset);
-
     num = (int32)strtol(nptr, endptr, base);
-    *(int32 *)endptr = addr_native_to_app(*endptr);
+    *(int32*)endptr = addr_native_to_app(*endptr);
 
     return num;
 }
 
 static uint32
-_strtoul_wrapper(wasm_exec_env_t exec_env,
-                 int32 nptr_offset,      /* const char * */
-                 int32 endptr_offset,    /* char ** */
-                 int32 base)
+strtoul_wrapper(wasm_exec_env_t exec_env,
+                const char *nptr, char **endptr, int32 base)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *nptr, **endptr;
     uint32 num = 0;
 
-    if (!validate_app_str_addr(nptr_offset)
-        || !validate_app_addr(endptr_offset, sizeof(int32)))
+    /* nptr has been checked by runtime */
+    if (!validate_native_addr(endptr, sizeof(uint32)))
         return 0;
-
-    nptr = addr_app_to_native(nptr_offset);
-    endptr = addr_app_to_native(endptr_offset);
 
     num = (uint32)strtoul(nptr, endptr, base);
     *(int32 *)endptr = addr_native_to_app(*endptr);
@@ -850,162 +726,115 @@ _strtoul_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int32
-_memchr_wrapper(wasm_exec_env_t exec_env,
-                int32 s_offset,     /* const void * */
-                int32 c,
-                uint32 n)
+memchr_wrapper(wasm_exec_env_t exec_env,
+               const void *s, int32 c, uint32 n)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *s, *res;
+    void *res;
 
-    if (!validate_app_addr(s_offset, n))
+    if (!validate_native_addr((void*)s, n))
         return 0;
 
-    s = (void*)addr_app_to_native(s_offset);
-
     res = memchr(s, c, n);
-
     return addr_native_to_app(res);
 }
 
 static int32
-_strncasecmp_wrapper(wasm_exec_env_t exec_env,
-                     int32 s1_offset,   /* const char * */
-                     int32 s2_offset,   /* const char * */
-                     uint32 n)
+strncasecmp_wrapper(wasm_exec_env_t exec_env,
+                    const char *s1, const char *s2, int32 n)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *s1, *s2;
-
-    if (!validate_app_str_addr(s1_offset)
-        || !validate_app_str_addr(s2_offset))
-        return 0;
-
-    s1 = addr_app_to_native(s1_offset);
-    s2 = addr_app_to_native(s2_offset);
-
+    /* s1 and s2 have been checked by runtime */
     return strncasecmp(s1, s2, n);
 }
 
 static uint32
-_strspn_wrapper(wasm_exec_env_t exec_env,
-                int32 s_offset,         /* const char * */
-                int32 accept_offset)    /* const char * */
+strspn_wrapper(wasm_exec_env_t exec_env,
+               const char *s, const char *accept)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *s, *accept;
-
-    if (!validate_app_str_addr(s_offset)
-        || !validate_app_str_addr(accept_offset))
-        return 0;
-
-    s = addr_app_to_native(s_offset);
-    accept = addr_app_to_native(accept_offset);
-
+    /* s and accept have been checked by runtime */
     return (uint32)strspn(s, accept);
 }
 
 static uint32
-_strcspn_wrapper(wasm_exec_env_t exec_env,
-                 int32 s_offset,        /* const char * */
-                 int32 reject_offset)   /* const char * */
+strcspn_wrapper(wasm_exec_env_t exec_env,
+                const char *s, const char *reject)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *s, *reject;
-
-    if (!validate_app_str_addr(s_offset)
-        || !validate_app_str_addr(reject_offset))
-        return 0;
-
-    s = addr_app_to_native(s_offset);
-    reject = addr_app_to_native(reject_offset);
-
+    /* s and reject have been checked by runtime */
     return (uint32)strcspn(s, reject);
 }
 
 static int32
-_strstr_wrapper(wasm_exec_env_t exec_env,
-                int32 s_offset,     /* const char * */
-                int32 find_offset)  /* const char * */
+strstr_wrapper(wasm_exec_env_t exec_env,
+               const char *s, const char *find)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    char *s, *find, *res;
-
-    if (!validate_app_str_addr(s_offset)
-        || !validate_app_str_addr(find_offset))
-        return 0;
-
-    s = addr_app_to_native(s_offset);
-    find = addr_app_to_native(find_offset);
-
-    res = strstr(s, find);
-
+    /* s and find have been checked by runtime */
+    char *res = strstr(s, find);
     return addr_native_to_app(res);
 }
 
 static int32
-_isupper_wrapper(wasm_exec_env_t exec_env, int32 c)
+isupper_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isupper(c);
 }
 
 static int32
-_isalpha_wrapper(wasm_exec_env_t exec_env, int32 c)
+isalpha_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isalpha(c);
 }
 
 static int32
-_isspace_wrapper(wasm_exec_env_t exec_env, int32 c)
+isspace_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isspace(c);
 }
 
 static int32
-_isgraph_wrapper(wasm_exec_env_t exec_env, int32 c)
+isgraph_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isgraph(c);
 }
 
 static int32
-_isprint_wrapper(wasm_exec_env_t exec_env, int32 c)
+isprint_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isprint(c);
 }
 
 static int32
-_isdigit_wrapper(wasm_exec_env_t exec_env, int32 c)
+isdigit_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isdigit(c);
 }
 
 static int32
-_isxdigit_wrapper(wasm_exec_env_t exec_env, int32 c)
+isxdigit_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isxdigit(c);
 }
 
 static int32
-_tolower_wrapper(wasm_exec_env_t exec_env, int32 c)
+tolower_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return tolower(c);
 }
 
 static int32
-_toupper_wrapper(wasm_exec_env_t exec_env, int32 c)
+toupper_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return toupper(c);
 }
 
 static int32
-_isalnum_wrapper(wasm_exec_env_t exec_env, int32 c)
+isalnum_wrapper(wasm_exec_env_t exec_env, int32 c)
 {
     return isalnum(c);
 }
 
 static void
-setTempRet0_wrapper(wasm_exec_env_t exec_env,
-                    uint32 temp_ret)
+setTempRet0_wrapper(wasm_exec_env_t exec_env, uint32 temp_ret)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasm_runtime_set_temp_ret(module_inst, temp_ret);
@@ -1019,8 +848,7 @@ getTempRet0_wrapper(wasm_exec_env_t exec_env)
 }
 
 static uint32
-_llvm_bswap_i16_wrapper(wasm_exec_env_t exec_env,
-                        uint32 data)
+llvm_bswap_i16_wrapper(wasm_exec_env_t exec_env, uint32 data)
 {
     return (data & 0xFFFF0000)
            | ((data & 0xFF) << 8)
@@ -1028,8 +856,7 @@ _llvm_bswap_i16_wrapper(wasm_exec_env_t exec_env,
 }
 
 static uint32
-_llvm_bswap_i32_wrapper(wasm_exec_env_t exec_env,
-                        uint32 data)
+llvm_bswap_i32_wrapper(wasm_exec_env_t exec_env, uint32 data)
 {
     return ((data & 0xFF) << 24)
            | ((data & 0xFF00) << 8)
@@ -1038,9 +865,9 @@ _llvm_bswap_i32_wrapper(wasm_exec_env_t exec_env,
 }
 
 static uint32
-_bitshift64Lshr_wrapper(wasm_exec_env_t exec_env,
-                        uint32 uint64_part0, uint32 uint64_part1,
-                        uint32 bits)
+bitshift64Lshr_wrapper(wasm_exec_env_t exec_env,
+                       uint32 uint64_part0, uint32 uint64_part1,
+                       uint32 bits)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     union {
@@ -1058,9 +885,9 @@ _bitshift64Lshr_wrapper(wasm_exec_env_t exec_env,
 }
 
 static uint32
-_bitshift64Shl_wrapper(wasm_exec_env_t exec_env,
-                       uint32 int64_part0, uint32 int64_part1,
-                       uint32 bits)
+bitshift64Shl_wrapper(wasm_exec_env_t exec_env,
+                      uint32 int64_part0, uint32 int64_part1,
+                      uint32 bits)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     union {
@@ -1078,8 +905,7 @@ _bitshift64Shl_wrapper(wasm_exec_env_t exec_env,
 }
 
 static void
-_llvm_stackrestore_wrapper(wasm_exec_env_t exec_env,
-                           uint32 llvm_stack)
+llvm_stackrestore_wrapper(wasm_exec_env_t exec_env, uint32 llvm_stack)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     bh_printf("_llvm_stackrestore called!\n");
@@ -1087,7 +913,7 @@ _llvm_stackrestore_wrapper(wasm_exec_env_t exec_env,
 }
 
 static uint32
-_llvm_stacksave_wrapper(wasm_exec_env_t exec_env)
+llvm_stacksave_wrapper(wasm_exec_env_t exec_env)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     bh_printf("_llvm_stacksave called!\n");
@@ -1095,27 +921,22 @@ _llvm_stacksave_wrapper(wasm_exec_env_t exec_env)
 }
 
 static int32
-_emscripten_memcpy_big_wrapper(wasm_exec_env_t exec_env,
-                               int32 dst_offset, int32 src_offset,
-                               uint32 size)
+emscripten_memcpy_big_wrapper(wasm_exec_env_t exec_env,
+                              void *dst, const void *src, uint32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    void *dst, *src;
+    int32 dst_offset = addr_native_to_app(dst);
 
-    if (!validate_app_addr(dst_offset, size)
-        || !validate_app_addr(src_offset, size))
+    /* src has been checked by runtime */
+    if (!validate_native_addr(dst, size))
         return dst_offset;
-
-    dst = addr_app_to_native(dst_offset);
-    src = addr_app_to_native(src_offset);
 
     bh_memcpy_s(dst, size, src, size);
     return dst_offset;
 }
 
 static void
-abort_wrapper(wasm_exec_env_t exec_env,
-              int32 code)
+abort_wrapper(wasm_exec_env_t exec_env, int32 code)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
@@ -1124,8 +945,7 @@ abort_wrapper(wasm_exec_env_t exec_env,
 }
 
 static void
-abortStackOverflow_wrapper(wasm_exec_env_t exec_env,
-                           int32 code)
+abortStackOverflow_wrapper(wasm_exec_env_t exec_env, int32 code)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
@@ -1134,8 +954,7 @@ abortStackOverflow_wrapper(wasm_exec_env_t exec_env,
 }
 
 static void
-nullFunc_X_wrapper(wasm_exec_env_t exec_env,
-                   int32 code)
+nullFunc_X_wrapper(wasm_exec_env_t exec_env, int32 code)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
@@ -1148,7 +967,7 @@ __cxa_allocate_exception_wrapper(wasm_exec_env_t exec_env,
                                  uint32 thrown_size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    int32 exception = module_malloc(thrown_size);
+    int32 exception = module_malloc(thrown_size, NULL);
     if (!exception)
         return 0;
 
@@ -1157,15 +976,14 @@ __cxa_allocate_exception_wrapper(wasm_exec_env_t exec_env,
 
 static void
 __cxa_begin_catch_wrapper(wasm_exec_env_t exec_env,
-                          int32 exception_object_offset)
+                          void *exception_object)
 {
-
 }
 
 static void
 __cxa_throw_wrapper(wasm_exec_env_t exec_env,
-                    int32 thrown_exception_offset,
-                    int32 tinfo_offset,
+                    void *thrown_exception,
+                    void *tinfo,
                     uint32 table_elem_idx)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
@@ -1175,114 +993,90 @@ __cxa_throw_wrapper(wasm_exec_env_t exec_env,
     wasm_runtime_set_exception(module_inst, buf);
 }
 
-#ifndef ENABLE_SPEC_TEST
-#define ENABLE_SPEC_TEST 0
-#endif
-
-#if ENABLE_SPEC_TEST != 0
 static void
 print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
 {
     bh_printf("%d\n", i32);
 }
-#endif
 
-/* TODO: add function parameter/result types check */
-#define REG_NATIVE_FUNC(module_name, func_name)     \
-    { #module_name, #func_name, func_name##_wrapper }
+#define REG_NATIVE_FUNC(func_name, signature)  \
+    { #func_name, func_name##_wrapper, signature }
 
-typedef struct WASMNativeFuncDef {
-    const char *module_name;
-    const char *func_name;
-    void *func_ptr;
-} WASMNativeFuncDef;
-
-static WASMNativeFuncDef native_func_defs[] = {
-#if ENABLE_SPEC_TEST != 0
-    REG_NATIVE_FUNC(spectest, print_i32),
-#endif
-    REG_NATIVE_FUNC(env, _printf),
-    REG_NATIVE_FUNC(env, _sprintf),
-    REG_NATIVE_FUNC(env, _snprintf),
-    REG_NATIVE_FUNC(env, _puts),
-    REG_NATIVE_FUNC(env, _putchar),
-    REG_NATIVE_FUNC(env, _memcmp),
-    REG_NATIVE_FUNC(env, _memcpy),
-    REG_NATIVE_FUNC(env, _memmove),
-    REG_NATIVE_FUNC(env, _memset),
-    REG_NATIVE_FUNC(env, _strchr),
-    REG_NATIVE_FUNC(env, _strcmp),
-    REG_NATIVE_FUNC(env, _strcpy),
-    REG_NATIVE_FUNC(env, _strlen),
-    REG_NATIVE_FUNC(env, _strncmp),
-    REG_NATIVE_FUNC(env, _strncpy),
-    REG_NATIVE_FUNC(env, _malloc),
-    REG_NATIVE_FUNC(env, _calloc),
-    REG_NATIVE_FUNC(env, _strdup),
+static NativeSymbol native_symbols_libc_builtin[] = {
+    REG_NATIVE_FUNC(printf, "($*)i"),
+    REG_NATIVE_FUNC(sprintf, "($$*)i"),
+    REG_NATIVE_FUNC(snprintf, "(*~$*)i"),
+    REG_NATIVE_FUNC(puts, "($)i"),
+    REG_NATIVE_FUNC(putchar, "(i)i"),
+    REG_NATIVE_FUNC(memcmp, "(**~)i"),
+    REG_NATIVE_FUNC(memcpy, "(**~)i"),
+    REG_NATIVE_FUNC(memmove, "(**~)i"),
+    REG_NATIVE_FUNC(memset, "(*ii)i"),
+    REG_NATIVE_FUNC(strchr, "($i)i"),
+    REG_NATIVE_FUNC(strcmp, "($$)i"),
+    REG_NATIVE_FUNC(strcpy, "(*$)i"),
+    REG_NATIVE_FUNC(strlen, "($)i"),
+    REG_NATIVE_FUNC(strncmp, "(**~)i"),
+    REG_NATIVE_FUNC(strncpy, "(**~)i"),
+    REG_NATIVE_FUNC(malloc, "(i)i"),
+    REG_NATIVE_FUNC(calloc, "(ii)i"),
+    REG_NATIVE_FUNC(strdup, "($)i"),
     /* clang may introduce __strdup */
-    REG_NATIVE_FUNC(env, __strdup),
-    REG_NATIVE_FUNC(env, _free),
-    REG_NATIVE_FUNC(env, _atoi),
-    REG_NATIVE_FUNC(env, _bsearch),
-    REG_NATIVE_FUNC(env, _exit),
-    REG_NATIVE_FUNC(env, _strtol),
-    REG_NATIVE_FUNC(env, _strtoul),
-    REG_NATIVE_FUNC(env, _memchr),
-    REG_NATIVE_FUNC(env, _strncasecmp),
-    REG_NATIVE_FUNC(env, _strspn),
-    REG_NATIVE_FUNC(env, _strcspn),
-    REG_NATIVE_FUNC(env, _strstr),
-    REG_NATIVE_FUNC(env, _isupper),
-    REG_NATIVE_FUNC(env, _isalpha),
-    REG_NATIVE_FUNC(env, _isspace),
-    REG_NATIVE_FUNC(env, _isgraph),
-    REG_NATIVE_FUNC(env, _isprint),
-    REG_NATIVE_FUNC(env, _isdigit),
-    REG_NATIVE_FUNC(env, _isxdigit),
-    REG_NATIVE_FUNC(env, _tolower),
-    REG_NATIVE_FUNC(env, _toupper),
-    REG_NATIVE_FUNC(env, _isalnum),
-    REG_NATIVE_FUNC(env, setTempRet0),
-    REG_NATIVE_FUNC(env, getTempRet0),
-    REG_NATIVE_FUNC(env, _llvm_bswap_i16),
-    REG_NATIVE_FUNC(env, _llvm_bswap_i32),
-    REG_NATIVE_FUNC(env, _bitshift64Lshr),
-    REG_NATIVE_FUNC(env, _bitshift64Shl),
-    REG_NATIVE_FUNC(env, _llvm_stackrestore),
-    REG_NATIVE_FUNC(env, _llvm_stacksave),
-    REG_NATIVE_FUNC(env, _emscripten_memcpy_big),
-    REG_NATIVE_FUNC(env, abort),
-    REG_NATIVE_FUNC(env, abortStackOverflow),
-    REG_NATIVE_FUNC(env, nullFunc_X),
-    REG_NATIVE_FUNC(env, __cxa_allocate_exception),
-    REG_NATIVE_FUNC(env, __cxa_begin_catch),
-    REG_NATIVE_FUNC(env, __cxa_throw)
+    REG_NATIVE_FUNC(_strdup, "($)i"),
+    REG_NATIVE_FUNC(free, "(*)"),
+    REG_NATIVE_FUNC(atoi, "($)i"),
+    REG_NATIVE_FUNC(exit, "(i)"),
+    REG_NATIVE_FUNC(strtol, "($*i)i"),
+    REG_NATIVE_FUNC(strtoul, "($*i)i"),
+    REG_NATIVE_FUNC(memchr, "(*ii)"),
+    REG_NATIVE_FUNC(strncasecmp, "($$i)"),
+    REG_NATIVE_FUNC(strspn, "($$)i"),
+    REG_NATIVE_FUNC(strcspn, "($$)i"),
+    REG_NATIVE_FUNC(strstr, "($$)i"),
+    REG_NATIVE_FUNC(isupper, "(i)i"),
+    REG_NATIVE_FUNC(isalpha, "(i)i"),
+    REG_NATIVE_FUNC(isspace, "(i)i"),
+    REG_NATIVE_FUNC(isgraph, "(i)i"),
+    REG_NATIVE_FUNC(isprint, "(i)i"),
+    REG_NATIVE_FUNC(isdigit, "(i)i"),
+    REG_NATIVE_FUNC(isxdigit, "(i)i"),
+    REG_NATIVE_FUNC(tolower, "(i)i"),
+    REG_NATIVE_FUNC(toupper, "(i)i"),
+    REG_NATIVE_FUNC(isalnum, "(i)i"),
+    REG_NATIVE_FUNC(setTempRet0, "(i)"),
+    REG_NATIVE_FUNC(getTempRet0, "()i"),
+    REG_NATIVE_FUNC(llvm_bswap_i16, "(i)i"),
+    REG_NATIVE_FUNC(llvm_bswap_i32, "(i)i"),
+    REG_NATIVE_FUNC(bitshift64Lshr, "(iii)i"),
+    REG_NATIVE_FUNC(bitshift64Shl, "(iii)i"),
+    REG_NATIVE_FUNC(llvm_stackrestore, "(i)"),
+    REG_NATIVE_FUNC(llvm_stacksave, "()i"),
+    REG_NATIVE_FUNC(emscripten_memcpy_big, "(**~)i"),
+    REG_NATIVE_FUNC(abort, "(i)"),
+    REG_NATIVE_FUNC(abortStackOverflow, "(i)"),
+    REG_NATIVE_FUNC(nullFunc_X, "(i)"),
+    REG_NATIVE_FUNC(__cxa_allocate_exception, "(i)i"),
+    REG_NATIVE_FUNC(__cxa_begin_catch, "(*)"),
+    REG_NATIVE_FUNC(__cxa_throw, "(**i)")
 };
 
-void *
-wasm_native_lookup_libc_builtin_func(const char *module_name,
-                                     const char *func_name)
+static NativeSymbol native_symbols_spectest[] = {
+    REG_NATIVE_FUNC(print_i32, "(i)")
+};
+
+uint32
+get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis)
 {
-    uint32 size = sizeof(native_func_defs) / sizeof(WASMNativeFuncDef);
-    WASMNativeFuncDef *func_def = native_func_defs;
-    WASMNativeFuncDef *func_def_end = func_def + size;
-
-    if (!module_name || !func_name)
-        return NULL;
-
-    while (func_def < func_def_end) {
-        if (!strcmp(func_def->module_name, module_name)
-            && (!strcmp(func_def->func_name, func_name)
-                || (func_def->func_name[0] == '_'
-                    && !strcmp(func_def->func_name + 1, func_name))))
-            return (void*) (uintptr_t) func_def->func_ptr;
-        func_def++;
-    }
-
-    return NULL;
+    *p_libc_builtin_apis = native_symbols_libc_builtin;
+    return sizeof(native_symbols_libc_builtin) / sizeof(NativeSymbol);
 }
 
-#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
+uint32
+get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis)
+{
+    *p_libc_builtin_apis = native_symbols_spectest;
+    return sizeof(native_symbols_spectest) / sizeof(NativeSymbol);
+}
 
 /*************************************
  * Global Variables                  *
@@ -1295,13 +1089,11 @@ typedef struct WASMNativeGlobalDef {
 } WASMNativeGlobalDef;
 
 static WASMNativeGlobalDef native_global_defs[] = {
-#if ENABLE_SPEC_TEST != 0
     { "spectest", "global_i32", .global_data.i32 = 666 },
     { "spectest", "global_f32", .global_data.f32 = 0 },
     { "spectest", "global_f64", .global_data.f64 = 0 },
     { "test", "global-i32", .global_data.i32 = 0 },
     { "test", "global-f32", .global_data.f32 = 0 },
-#endif
     { "env", "STACKTOP", .global_data.u32 = 0 },
     { "env", "STACK_MAX", .global_data.u32 = 0 },
     { "env", "ABORT", .global_data.u32 = 0 },
@@ -1339,6 +1131,4 @@ wasm_native_lookup_libc_builtin_global(const char *module_name,
 
     return false;
 }
-
-#endif /* end of WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0 */
 

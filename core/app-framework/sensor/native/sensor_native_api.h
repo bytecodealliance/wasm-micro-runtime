@@ -19,12 +19,11 @@ wasm_sensor_config(wasm_exec_env_t exec_env,
                    int bit_cfg, int delay);
 uint32
 wasm_sensor_open(wasm_exec_env_t exec_env,
-                 int32 name_offset, int instance);
+                 char *name, int instance);
 
 bool
 wasm_sensor_config_with_attr_container(wasm_exec_env_t exec_env,
-                                       uint32 sensor, int32 buffer_offset,
-                                       int len);
+                                       uint32 sensor, char *buffer, int len);
 
 bool
 wasm_sensor_close(wasm_exec_env_t exec_env, uint32 sensor);

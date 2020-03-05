@@ -735,40 +735,11 @@ fail:
 }
 
 static void
-destroy_import_funcs(AOTImportFunc *import_funcs, bool is_jit_mode)
+destroy_import_funcs(AOTImportFunc *import_funcs,
+                     bool is_jit_mode)
 {
     if (!is_jit_mode)
         wasm_free(import_funcs);
-}
-
-static void*
-resolve_sym(const char *module_name, const char *field_name)
-{
-    void *sym;
-
-#if WASM_ENABLE_LIBC_BUILTIN != 0
-    if ((sym = wasm_native_lookup_libc_builtin_func(module_name,
-                                                    field_name)))
-        return sym;
-#endif
-
-#if WASM_ENABLE_LIBC_WASI != 0
-    if ((sym = wasm_native_lookup_libc_wasi_func(module_name,
-                                                 field_name)))
-        return sym;
-#endif
-
-#if WASM_ENABLE_BASE_LIB != 0
-    if ((sym = wasm_native_lookup_base_lib_func(module_name,
-                                                field_name)))
-        return sym;
-#endif
-
-    if ((sym = wasm_native_lookup_extension_lib_func(module_name,
-                                                     field_name)))
-        return sym;
-
-    return NULL;
 }
 
 static bool
@@ -804,13 +775,16 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
                           "invalid function type index.");
             return false;
         }
+        import_funcs[i].func_type = module->func_types[import_funcs[i].func_type_index];
         read_string(buf, buf_end, import_funcs[i].module_name);
         read_string(buf, buf_end, import_funcs[i].func_name);
 
         module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
         if (!(import_funcs[i].func_ptr_linked =
-                    resolve_sym(module_name, field_name))) {
+                    wasm_native_resolve_symbol(module_name, field_name,
+                                               import_funcs[i].func_type,
+                                               &import_funcs[i].signature))) {
             LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                         module_name, field_name);
         }
@@ -2053,46 +2027,61 @@ aot_unload(AOTModule *module)
 #if WASM_ENABLE_JIT != 0
     if (module->comp_data)
         aot_destroy_comp_data(module->comp_data);
+
     if (module->comp_ctx)
         aot_destroy_comp_context(module->comp_ctx);
+
     if (module->wasm_module)
         wasm_loader_unload(module->wasm_module);
 #endif
+
     if (module->mem_init_data_list)
         destroy_mem_init_data_list(module->mem_init_data_list,
                                    module->mem_init_data_count,
                                    module->is_jit_mode);
+
     if (module->table_init_data_list)
         destroy_table_init_data_list(module->table_init_data_list,
                                      module->table_init_data_count,
                                      module->is_jit_mode);
+
     if (module->func_types)
         destroy_func_types(module->func_types,
                            module->func_type_count,
                            module->is_jit_mode);
+
     if (module->import_globals)
         destroy_import_globals(module->import_globals,
                                module->is_jit_mode);
+
     if (module->globals)
         destroy_globals(module->globals,
                         module->is_jit_mode);
+
     if (module->import_funcs)
         destroy_import_funcs(module->import_funcs,
                              module->is_jit_mode);
+
     if (module->export_funcs)
         destroy_export_funcs(module->export_funcs,
                              module->is_jit_mode);
+
     if (module->func_type_indexes)
         wasm_free(module->func_type_indexes);
+
     if (module->func_ptrs)
         wasm_free(module->func_ptrs);
+
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
+
     if (module->code)
         bh_munmap(module->code, module->code_size);
+
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,
                                      module->data_section_count);
+
     wasm_free(module);
 }
 

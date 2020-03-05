@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-EXPORT_WASM_API(wasm_sensor_open),
-EXPORT_WASM_API(wasm_sensor_config),
-EXPORT_WASM_API(wasm_sensor_config_with_attr_container),
-EXPORT_WASM_API(wasm_sensor_close),
+EXPORT_WASM_API_WITH_SIG(wasm_sensor_open, "($i)i"),
+EXPORT_WASM_API_WITH_SIG(wasm_sensor_config, "(iiii)i"),
+EXPORT_WASM_API_WITH_SIG(wasm_sensor_config_with_attr_container, "(i*~)i"),
+EXPORT_WASM_API_WITH_SIG(wasm_sensor_close, "(i)i"),

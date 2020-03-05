@@ -119,27 +119,32 @@ void on_init()
  * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
  */
 void display_flush_wrapper(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+                           const lv_color_t * color_p)
 {
     display_flush(x1, y1, x2, y2, color_p);
     lv_flush_ready();
 }
-void display_vdb_write_wrapper(uint8_t *buf, lv_coord_t buf_w, lv_coord_t x,
-        lv_coord_t y, lv_color_t color, lv_opa_t opa)
+
+void display_vdb_write_wrapper(uint8_t *buf,
+                               lv_coord_t buf_w, lv_coord_t x, lv_coord_t y,
+                               lv_color_t color, lv_opa_t opa)
 {
     display_vdb_write(buf, buf_w, x, y, &color, opa);
 }
-extern void display_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        lv_color_t color_p);
-extern void display_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p);
+
+void display_fill_wrapper(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+                          lv_color_t color)
+{
+    display_fill(x1, y1, x2, y2, &color);
+}
+
 static void hal_init(void)
 {
     /* Add a display*/
     lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv); /*Basic initialization*/
     disp_drv.disp_flush = display_flush_wrapper; /*Used when `LV_VDB_SIZE != 0` in lv_conf.h (buffered drawing)*/
-    disp_drv.disp_fill = display_fill; /*Used when `LV_VDB_SIZE == 0` in lv_conf.h (unbuffered drawing)*/
+    disp_drv.disp_fill = display_fill_wrapper; /*Used when `LV_VDB_SIZE == 0` in lv_conf.h (unbuffered drawing)*/
     disp_drv.disp_map = display_map; /*Used when `LV_VDB_SIZE == 0` in lv_conf.h (unbuffered drawing)*/
 #if LV_VDB_SIZE != 0
     disp_drv.vdb_wr = display_vdb_write_wrapper;

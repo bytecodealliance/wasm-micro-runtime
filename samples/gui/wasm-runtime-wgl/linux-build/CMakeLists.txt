@@ -42,7 +42,6 @@ include_directories(
 set (SOURCES
      ${PROJECT_SRC_DIR}/main.c
      ${PROJECT_SRC_DIR}/iwasm_main.c
-     ${PROJECT_SRC_DIR}/../../ext_lib_export.c
      ${LV_DRIVERS_SOURCES}
      )
 

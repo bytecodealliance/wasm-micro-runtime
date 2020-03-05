@@ -13,10 +13,16 @@ extern "C" {
 typedef struct NativeSymbol {
     const char *symbol;
     void *func_ptr;
+    const char *signature;
 } NativeSymbol;
 
-#define EXPORT_WASM_API(symbol)  {#symbol, (void*)symbol}
-#define EXPORT_WASM_API2(symbol) {#symbol, (void*)symbol##_wrapper}
+#define EXPORT_WASM_API(symbol)  {#symbol, (void*)symbol, NULL}
+#define EXPORT_WASM_API2(symbol) {#symbol, (void*)symbol##_wrapper, NULL}
+
+#define EXPORT_WASM_API_WITH_SIG(symbol, signature) \
+                                 {#symbol, (void*)symbol, signature}
+#define EXPORT_WASM_API_WITH_SIG2(symbol, signature) \
+                                 {#symbol, (void*)symbol##_wrapper, signature}
 
 /**
  * Get the exported APIs of base lib

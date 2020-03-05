@@ -440,8 +440,9 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     AOTFuncContext *func_ctx;
     AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
     AOTBlock *aot_block;
-    LLVMTypeRef int8_ptr_type;
+    LLVMTypeRef int8_ptr_type, int32_ptr_type;
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
+    LLVMValueRef argv_buf_offset = I32_THREE, argv_buf_addr;
     char local_name[32];
     uint64 size;
     uint32 i, j = 0;
@@ -476,7 +477,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     func_ctx->exec_env = LLVMGetParam(func_ctx->func, j++);
 
     /* Get aot inst address, the layout of exec_env is:
-       exec_env->next, exec_env->prev, and exec_env->module_inst */
+       exec_env->next, exec_env->prev, exec_env->module_inst, and argv_buf */
     if (!(aot_inst_addr =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
                                      &aot_inst_offset, 1, "aot_inst_addr"))) {
@@ -487,6 +488,32 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* Load aot inst */
     if (!(func_ctx->aot_inst = LLVMBuildLoad(comp_ctx->builder,
                                              aot_inst_addr, "aot_inst"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    /* Get argv buffer address */
+    if (!(argv_buf_addr =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                     &argv_buf_offset, 1, "argv_buf_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(int32_ptr_type = LLVMPointerType(INT32_PTR_TYPE, 0))) {
+        aot_set_last_error("llvm add pointer type failed");
+        goto fail;
+    }
+
+    /* Convert to int32 pointer type */
+    if (!(argv_buf_addr = LLVMBuildBitCast(comp_ctx->builder, argv_buf_addr,
+                                           int32_ptr_type, "argv_buf_ptr"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->argv_buf = LLVMBuildLoad(comp_ctx->builder,
+                                             argv_buf_addr, "argv_buf"))) {
         aot_set_last_error("llvm build load failed");
         goto fail;
     }
@@ -674,6 +701,7 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
     consts->f64_zero = F64_CONST(0);
     consts->i32_one = I32_CONST(1);
     consts->i32_two = I32_CONST(2);
+    consts->i32_three = I32_CONST(3);
     consts->i32_four = I32_CONST(4);
     consts->i32_eight = I32_CONST(8);
     consts->i32_neg_one = I32_CONST((uint32)-1);
@@ -692,6 +720,7 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
             && consts->f64_zero
             && consts->i32_one
             && consts->i32_two
+            && consts->i32_three
             && consts->i32_four
             && consts->i32_eight
             && consts->i32_neg_one
