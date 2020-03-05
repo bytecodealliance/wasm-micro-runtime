@@ -87,6 +87,7 @@ The function signature field in **NativeSymbol** structure is a string for descr
 
 Each letter in the "()" represents a parameter type, and the one following after ")" represents the return value type. The meaning of each letter:
 
+
 - 'i': i32 
 - 'I': i64 
 - 'f': f32
