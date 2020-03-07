@@ -9,6 +9,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include "lib_export.h"
+#include "bh_memory.h"
 
 
 #ifdef __cplusplus
@@ -25,21 +26,19 @@ struct WASMModuleInstanceCommon;
 typedef struct WASMModuleInstanceCommon *wasm_module_inst_t;
 
 /* Function instance */
-struct WASMFunctionInstanceCommon;
-typedef struct WASMFunctionInstanceCommon *wasm_function_inst_t;
+typedef void WASMFunctionInstanceCommon;
+typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 
 /* WASM section */
-typedef struct wasm_section {
-    struct wasm_section *next;
+typedef struct wasm_section_t {
+    struct wasm_section_t *next;
     /* section type */
     int section_type;
     /* section body, not include type and size */
     uint8_t *section_body;
     /* section body size */
     uint32_t section_body_size;
-} wasm_section_t, *wasm_section_list_t;
-
-typedef wasm_section_t aot_section_t, *aot_section_list_t;
+} wasm_section_t, aot_section_t, *wasm_section_list_t, *aot_section_list_t;
 
 /* Execution environment, e.g. stack info */
 struct WASMExecEnv;
@@ -51,6 +50,31 @@ typedef enum {
     Wasm_Module_AoT,
     Package_Type_Unknown = 0xFFFF
 } package_type_t;
+
+/* Memory allocator type */
+typedef enum {
+    Alloc_With_Pool = 0,
+    Alloc_With_Allocator
+} mem_alloc_type_t;
+
+/* WASM runtime initialize arguments */
+typedef struct RuntimeInitArgs {
+    mem_alloc_type_t mem_alloc_type;
+    union {
+        struct {
+            void *heap_buf;
+            uint32_t heap_size;
+        } pool;
+        struct {
+            void *malloc_func;
+            void *free_func;
+        } allocator;
+    } mem_alloc;
+
+    const char *native_module_name;
+    NativeSymbol *native_symbols;
+    uint32_t n_native_symbols;
+} RuntimeInitArgs;
 
 /**
  * Initialize the WASM runtime environment.
@@ -65,6 +89,25 @@ wasm_runtime_init();
  */
 void
 wasm_runtime_destroy();
+
+/**
+ * Initialize the WASM runtime environment, and also initialize
+ * the memory allocator and register native symbols, which are specified
+ * with init arguments
+ *
+ * @param init_args specifies the init arguments
+ *
+ * @return return true if success, false otherwise
+ */
+bool
+wasm_runtime_full_init(RuntimeInitArgs *init_args);
+
+/**
+ * Destroy the wasm runtime environment, and also destroy
+ * the memory allocator and registered native symbols
+ */
+void
+wasm_runtime_full_destroy();
 
 /**
  * Get the package type of a buffer.
@@ -167,7 +210,7 @@ wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
  * @return the function instance found
  */
 wasm_function_inst_t
-wasm_runtime_lookup_function(const wasm_module_inst_t module_inst,
+wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
                              const char *name, const char *signature);
 
 /**

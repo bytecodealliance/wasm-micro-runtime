@@ -7,7 +7,17 @@ add_definitions (-DWASM_ENABLE_INTERP=1)
 
 include_directories(${IWASM_INTERP_DIR})
 
-file (GLOB_RECURSE source_all ${IWASM_INTERP_DIR}/*.c)
+if (WAMR_BUILD_FAST_INTERP EQUAL 1)
+    set (INTERPRETER     "wasm_interp_fast.c")
+else ()
+    set (INTERPRETER     "wasm_interp.c")
+endif ()
+
+file (GLOB_RECURSE source_all
+    ${IWASM_INTERP_DIR}/wasm_loader.c
+    ${IWASM_INTERP_DIR}/wasm_runtime.c
+    ${IWASM_INTERP_DIR}/${INTERPRETER}
+)
 
 set (IWASM_INTERP_SOURCE ${source_all})
 

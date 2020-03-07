@@ -50,6 +50,49 @@ wasm_runtime_destroy()
     vm_thread_sys_destroy();
 }
 
+bool
+wasm_runtime_full_init(RuntimeInitArgs *init_args)
+{
+    if (init_args->mem_alloc_type == Alloc_With_Pool) {
+        void *heap_buf = init_args->mem_alloc.pool.heap_buf;
+        uint32 heap_size = init_args->mem_alloc.pool.heap_size;
+        if (bh_memory_init_with_pool(heap_buf, heap_size) != 0)
+            return false;
+    }
+    else if (init_args->mem_alloc_type == Alloc_With_Allocator) {
+        void *malloc_func = init_args->mem_alloc.allocator.malloc_func;
+        void *free_func = init_args->mem_alloc.allocator.free_func;
+        if (bh_memory_init_with_allocator(malloc_func, free_func) != 0)
+            return false;
+    }
+    else
+        return false;
+
+    if (!wasm_runtime_init())
+        goto fail1;
+
+    if (init_args->n_native_symbols > 0
+        && !wasm_runtime_register_natives(init_args->native_module_name,
+                                          init_args->native_symbols,
+                                          init_args->n_native_symbols))
+        goto fail2;
+
+    return true;
+
+fail2:
+    wasm_runtime_destroy();
+fail1:
+    bh_memory_destroy();
+    return false;
+}
+
+void
+wasm_runtime_full_destroy()
+{
+    wasm_runtime_destroy();
+    bh_memory_destroy();
+}
+
 PackageType
 get_package_type(const uint8 *buf, uint32 size)
 {
@@ -202,7 +245,7 @@ wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
 }
 
 WASMFunctionInstanceCommon *
-wasm_runtime_lookup_function(const WASMModuleInstanceCommon *module_inst,
+wasm_runtime_lookup_function(WASMModuleInstanceCommon * const module_inst,
                              const char *name,
                              const char *signature)
 {
@@ -339,7 +382,7 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst)
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
         return ((WASMModuleInstance*)module_inst)->custom_data;
-#endif  
+#endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
         return ((AOTModuleInstance*)module_inst)->custom_data.ptr;
@@ -619,7 +662,7 @@ wasm_runtime_set_wasi_args(WASMModuleCommon *module,
                            const char *dir_list[], uint32 dir_count,
                            const char *map_dir_list[], uint32 map_dir_count,
                            const char *env_list[], uint32 env_count,
-                           const char *argv[], uint32 argc)
+                           char *argv[], int argc)
 {
     WASIArguments *wasi_args = NULL;
 
@@ -649,7 +692,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
                        const char *map_dir_list[], uint32 map_dir_count,
                        const char *env[], uint32 env_count,
-                       const char *argv[], uint32 argc,
+                       char *argv[], uint32 argc,
                        char *error_buf, uint32 error_buf_size)
 {
     WASIContext *wasi_ctx;

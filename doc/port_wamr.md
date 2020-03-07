@@ -20,8 +20,6 @@ Create folders:
 Implement folder core/shared/platform/super-os. Normally in this folder you should implement the following files:
 - bh_platform.h and bh_platform.c: define the platform related macros, data types and APIs.
 - bh_assert.c: implement function bh_assert_internal() and bh_debug_internal().
-- bh_definition.c: implement function b_memcpy_s, b_strcat_s and b_strcpy_s. And implement fopen_s
-                                            if we need to read wasm file from file system.
 - bh_platform_log.c: implement function bh_log_emit, bh_fprintf and bh_fflush.
 - bh_time.c: implement several time related functions.
 - bh_thread.c: implement thread, mutex, condition related functions.
