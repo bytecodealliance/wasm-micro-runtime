@@ -155,6 +155,7 @@ int main(int argc, char *argv[])
     uint32 wasm_file_size;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
+    RuntimeInitArgs init_args;
     char error_buf[128] = { 0 };
 #if WASM_ENABLE_LOG != 0
     int log_verbose_level = 2;
@@ -228,35 +229,35 @@ int main(int argc, char *argv[])
     app_argc = argc;
     app_argv = argv;
 
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
 #if USE_GLOBAL_HEAP_BUF != 0
-    if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-        != 0) {
-        bh_printf("Init memory with global heap buffer failed.\n");
-        return -1;
-    }
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc.pool.heap_size = sizeof(global_heap_buf);
 #else
-    if (bh_memory_init_with_allocator(malloc, free)) {
-        bh_printf("Init memory with memory allocator failed.\n");
-        return -1;
-    }
+    init_args.mem_alloc_type = Alloc_With_Allocator;
+    init_args.mem_alloc.allocator.malloc_func = malloc;
+    init_args.mem_alloc.allocator.free_func = free;
 #endif
 
-    /* initialize runtime environment */
-    if (!wasm_runtime_init())
-        goto fail1;
+    if (!wasm_runtime_full_init(&init_args)) {
+        bh_printf("Init runtime environment failed.\n");
+        return -1;
+    }
 
     bh_log_set_verbose_level(log_verbose_level);
 
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf = (uint8*) bh_read_file_to_buffer(wasm_file,
                                                           &wasm_file_size)))
-        goto fail2;
+        goto fail1;
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
                                           error_buf, sizeof(error_buf)))) {
         bh_printf("%s\n", error_buf);
-        goto fail3;
+        goto fail2;
     }
 
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -274,7 +275,7 @@ int main(int argc, char *argv[])
                                                       error_buf,
                                                       sizeof(error_buf)))) {
         bh_printf("%s\n", error_buf);
-        goto fail4;
+        goto fail3;
     }
 
     if (is_repl_mode)
@@ -287,20 +288,17 @@ int main(int argc, char *argv[])
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
-fail4:
+fail3:
     /* unload the module */
     wasm_runtime_unload(wasm_module);
 
-fail3:
+fail2:
     /* free the file buffer */
     bh_free(wasm_file_buf);
 
-fail2:
-    /* destroy runtime environment */
-    wasm_runtime_destroy();
-
 fail1:
-    bh_memory_destroy();
+    /* destroy runtime environment */
+    wasm_runtime_full_destroy();
     return 0;
 }
 

@@ -355,6 +355,10 @@ functions_instantiate(const WASMModule *module,
 
         function->local_offsets = function->u.func->local_offsets;
 
+#if WASM_ENABLE_FAST_INTERP != 0
+        function->const_cell_num = function->u.func->const_cell_num;
+#endif
+
         function++;
     }
 

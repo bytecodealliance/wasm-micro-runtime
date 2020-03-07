@@ -7,17 +7,12 @@
 #define _WASM_NATIVE_H
 
 #include "bh_common.h"
+#include "../include/wasm_export.h"
 #include "../interpreter/wasm.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef struct NativeSymbol {
-    const char *symbol;
-    void *func_ptr;
-    const char *signature;
-} NativeSymbol;
 
 typedef struct NativeSymbolsNode {
     struct NativeSymbolsNode *next;

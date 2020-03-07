@@ -4,11 +4,17 @@
  */
 
 #include "bh_platform.h"
+#include "bh_common.h"
+
+#ifdef RSIZE_MAX
+#undef RSIZE_MAX
+#endif
 
 #define RSIZE_MAX 0x7FFFFFFF
 
-int b_memcpy_s(void * s1, unsigned int s1max,
-               const void * s2, unsigned int n)
+int
+b_memcpy_s(void * s1, unsigned int s1max,
+           const void * s2, unsigned int n)
 {
   char *dest = (char*)s1;
   char *src = (char*)s2;
@@ -27,7 +33,8 @@ int b_memcpy_s(void * s1, unsigned int s1max,
   return 0;
 }
 
-int b_strcat_s(char * s1, size_t s1max, const char * s2)
+int
+b_strcat_s(char * s1, size_t s1max, const char * s2)
 {
   if (NULL == s1 || NULL == s2
       || s1max < (strlen(s1) + strlen(s2) + 1)
@@ -35,11 +42,12 @@ int b_strcat_s(char * s1, size_t s1max, const char * s2)
     return -1;
   }
 
-  strcat(s1, s2);
+  memcpy(s1 + strlen(s1), s2, strlen(s2) + 1);
   return 0;
 }
 
-int b_strcpy_s(char * s1, size_t s1max, const char * s2)
+int
+b_strcpy_s(char * s1, size_t s1max, const char * s2)
 {
   if (NULL == s1 || NULL == s2
       || s1max < (strlen(s2) + 1)
@@ -47,7 +55,21 @@ int b_strcpy_s(char * s1, size_t s1max, const char * s2)
     return -1;
   }
 
-  strcpy(s1, s2);
+  memcpy(s1, s2, strlen(s2) + 1);
   return 0;
+}
+
+char *
+bh_strdup(const char *s)
+{
+    uint32 size;
+    char *s1 = NULL;
+
+    if (s) {
+        size = (uint32)(strlen(s) + 1);
+        if ((s1 = bh_malloc(size)))
+            bh_memcpy_s(s1, size, s, size);
+    }
+    return s1;
 }
 

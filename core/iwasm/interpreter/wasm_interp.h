@@ -26,6 +26,13 @@ typedef struct WASMInterpFrame {
   /* Instruction pointer of the bytecode array.  */
   uint8 *ip;
 
+#if WASM_ENABLE_FAST_INTERP != 0
+  /* return offset of current frame.
+    the callee will put return value here */
+  uint32 ret_offset;
+  uint32 *lp;
+  uint32 operand[1];
+#else
   /* Operand stack top pointer of the current frame.  The bottom of
      the stack is the next cell after the last local variable.  */
   uint32 *sp_bottom;
@@ -43,6 +50,7 @@ typedef struct WASMInterpFrame {
      ref to frame end: data types of local vairables and stack data
      */
   uint32 lp[1];
+#endif
 } WASMInterpFrame;
 
 /**

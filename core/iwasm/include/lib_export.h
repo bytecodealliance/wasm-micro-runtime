@@ -6,6 +6,8 @@
 #ifndef _LIB_EXPORT_H_
 #define _LIB_EXPORT_H_
 
+#include <inttypes.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,24 +33,8 @@ typedef struct NativeSymbol {
  *
  * @return the number of the exported API
  */
-int
+uint32_t
 get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
-
-/**
- * Get the exported APIs of extended lib, this API isn't provided by WASM VM,
- * it must be provided by developer to register the extended native APIs,
- * for example, developer can register his native APIs to extended_native_symbol_defs,
- * array, and include file ext_lib_export.h which implements this API.
- * And if developer hasn't any native API to register, he can define an empty
- * extended_native_symbol_defs array, and then include file ext_lib_export.h to
- * implements this API.
- *
- * @param p_base_lib_apis return the exported API array of extend lib
- *
- * @return the number of the exported API
- */
-int
-get_extend_lib_export_apis(NativeSymbol **p_base_lib_apis);
 
 #ifdef __cplusplus
 }

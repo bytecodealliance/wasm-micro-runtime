@@ -71,7 +71,6 @@ GLOBAL_INCLUDES += ${IWASM_ROOT}/aot
 endif
 
 $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/bh_assert.c \
-                   ${SHARED_ROOT}/platform/alios/bh_definition.c \
                    ${SHARED_ROOT}/platform/alios/bh_math.c \
                    ${SHARED_ROOT}/platform/alios/bh_platform.c \
                    ${SHARED_ROOT}/platform/alios/bh_platform_log.c \
@@ -82,6 +81,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/bh_assert.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_kfc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_alloc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_hmu.c \
+                   ${SHARED_ROOT}/utils/bh_definition.c \
                    ${SHARED_ROOT}/utils/bh_hashmap.c \
                    ${SHARED_ROOT}/utils/bh_list.c \
                    ${SHARED_ROOT}/utils/bh_log.c \

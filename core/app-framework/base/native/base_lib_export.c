@@ -17,7 +17,7 @@ static NativeSymbol extended_native_symbol_defs[] = {
 	#include "base_lib.inl"
 };
 
-int get_base_lib_export_apis(NativeSymbol **p_base_lib_apis)
+uint32 get_base_lib_export_apis(NativeSymbol **p_base_lib_apis)
 {
     *p_base_lib_apis = extended_native_symbol_defs;
     return sizeof(extended_native_symbol_defs) / sizeof(NativeSymbol);

@@ -87,6 +87,10 @@ typedef struct WASMFunctionInstance {
     uint16 ret_cell_num;
     /* cell num of local variables, 0 for import function */
     uint16 local_cell_num;
+#if WASM_ENABLE_FAST_INTERP != 0
+    /* cell num of consts */
+    uint16 const_cell_num;
+#endif
     uint16 *local_offsets;
     /* parameter types */
     uint8 *param_types;
@@ -165,7 +169,11 @@ typedef struct WASMInterpFrame WASMRuntimeFrame;
 static inline uint8*
 wasm_get_func_code(WASMFunctionInstance *func)
 {
+#if WASM_ENABLE_FAST_INTERP == 0
     return func->is_import_func ? NULL : func->u.func->code;
+#else
+    return func->is_import_func ? NULL : func->u.func->code_compiled;
+#endif
 }
 
 /**
@@ -178,8 +186,13 @@ wasm_get_func_code(WASMFunctionInstance *func)
 static inline uint8*
 wasm_get_func_code_end(WASMFunctionInstance *func)
 {
+#if WASM_ENABLE_FAST_INTERP == 0
     return func->is_import_func
            ? NULL : func->u.func->code + func->u.func->code_size;
+#else
+    return func->is_import_func
+           ? NULL : func->u.func->code_compiled + func->u.func->code_compiled_size;
+#endif
 }
 
 WASMModule *

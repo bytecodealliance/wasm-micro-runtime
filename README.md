@@ -20,12 +20,13 @@ iwasm VM core
 
 ### key features
 
-- [Embeddable with the supporting C API's](./doc/embed_wamr.md)
+- 100% compliant to the W3C WASM MVP
 - Small runtime binary size (85K for interpreter and 50K for AoT) and low memory usage
-- Near to native speed by AoT
-- Unique AoT support for embedded systems which have no system loaders
+- Near to native speed by AoT 
+- Self-implemented module loader enables AoT working cross Linux, SGX and MCU systems
 - Choices of WASM application libc support: the built-in libc subset for the embedded environment or [WASI](https://github.com/WebAssembly/WASI) for standard libc
-- [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)  
+- [Embeddable with the supporting C API's](./doc/embed_wamr.md)
+- [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
 
 ### Supported architectures and platforms
 
@@ -36,11 +37,11 @@ The iwasm supports the following architectures:
 - MIPS
 - XTENSA
 
-Following platforms are supported:
+Following platforms are supported. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
 - [Linux](./doc/build_wamr.md#linux), [Zephyr](./doc/build_wamr.md#zephyr), [MacOS](./doc/build_wamr.md#macos), [VxWorks](./doc/build_wamr.md#vxworks), [AliOS-Things](./doc/build_wamr.md#alios-things), [Intel Software Guard Extention (Linux)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention), [Android](./doc/build_wamr.md#android)
 
-Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
+
 
 ### Build wamrc AoT compiler
 
@@ -76,27 +77,26 @@ Browse the folder  [core/app-framework](./core/app-framework) for how to extend 
 
 # Remote application management
 
-The WAMR application manager supports remote application management from the host environment or the cloud through any physical communications such as TCP, UPD, UART, BLE, etc. Its modular design makes it able to support application management for different managed runtimes.
+The WAMR application manager supports [remote application management](./core/app-mgr) from the host environment or the cloud through any physical communications such as TCP, UPD, UART, BLE, etc. Its modular design makes it able to support application management for different managed runtimes.
 
 The tool [host_tool](./test-tools/host-tool) communicates to the WAMR app manager for installing/uninstalling the WASM applications on companion chip from the host system. And the [IoT App Store Demo](./test-tools/IoT-APP-Store-Demo/) shows the conception of remotely managing the device applications from the cloud.
 
-Browse the folder  [core/app-mgr](./core/app-mgr) for the details.
 
 WAMR SDK
 ==========
 
 Usually there are two tasks for integrating the WAMR into a particular project:
 
-- Select what WAMR components (vmcore, libc, app-mgr, app-framework components) to be integrated, and get the associated source files added into the project building configuration  
+- Select what WAMR components (vmcore, libc, app-mgr, app-framework components) to be integrated, and get the associated source files added into the project building configuration
 - Generate the APP SDK for developing the WASM apps on the selected libc and framework components
 
-The **[WAMR SDK](./wamr-sdk)** tools is helpful to finish the two tasks quickly. It supports menu configuration for selecting WAMR components and builds the WAMR to a SDK package that includes **runtime SDK** and **APP SDK**. The runtime SDK is used for building the native application and the APP SDK should be shipped to WASM application developers. 
+The **[WAMR SDK](./wamr-sdk)** tools is helpful to finish the two tasks quickly. It supports menu configuration for selecting WAMR components and builds the WAMR to a SDK package that includes **runtime SDK** and **APP SDK**. The runtime SDK is used for building the native application and the APP SDK should be shipped to WASM application developers.
 
 
 Samples
 =================
 
-The WAMR samples integrate the iwasm VM core, application manager and selected application framework components. The samples are located in folder [samples](./samples):
+The WAMR [samples](./samples) integrate the iwasm VM core, application manager and selected application framework components. 
 - **[Simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libraries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
 - **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/littlevgl/) 2D user graphic library and the UI application is built into WASM application.  It uses **WASI libc** and executes apps in **AoT mode** by default.
 - **[gui](./samples/gui/README.md)**: Moved the [LittlevGL](https://github.com/littlevgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.
