@@ -98,6 +98,13 @@ enum {
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
 
+#if WASM_ENABLE_FAST_INTERP != 0
+#define WASM_ENABLE_ABS_LABEL_ADDR 1
+#define WASM_DEBUG_PREPROCESSOR 0
+#else
+#define WASM_ENABLE_ABS_LABEL_ADDR 0
+#endif
+
 /* Heap and stack profiling */
 #define BEIHAI_ENABLE_MEMORY_PROFILING 0
 

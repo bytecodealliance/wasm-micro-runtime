@@ -20,20 +20,20 @@ Embedding WAMR guideline
 
   // all the WAMR heap and WASM applications are limited in this buffer
   bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf));
-  
+
   wasm_runtime_init();
 
   // read WASM file into a memory buffer
   buffer = read_wasm_binary_to_buffer(…, &size);
-  
+
   // parse the WASM file from buffer and create a WASM module
   module = wasm_runtime_load(buffer, size, error_buf, sizeof(error_buf));
 
   // create an instance of the WASM module (WASM linear memory is ready)
-  module_inst = wasm_runtime_instantiate(module, 
-                                         stack_size, 
+  module_inst = wasm_runtime_instantiate(module,
+                                         stack_size,
                                          heap_size,
-                                         error_buf, 
+                                         error_buf,
                                          sizeof(error_buf));
 ```
 
@@ -59,7 +59,6 @@ After a module is instantiated, the runtime native can lookup WASM functions by 
 
   // call the WASM function
   if (wasm_runtime_call_wasm(exec_env, func, 1, argv) ) {
-      
     /* the return value is stored in argv[0] */
     printf("fib function return: %d\n", argv[0]);
   }
@@ -79,25 +78,24 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
   double arg3 = 1.0;
   int 64 arg4 = 100;
   double ret;
-  
+
   argv[0] = arg1;
   argv[1] = arg2;
-  
-  // use memory copy for 8 bytes parameters rather than 
-  // *(double*)(&argv[2]) = arg3 here because some archs 
+
+  // use memory copy for 8 bytes parameters rather than
+  // *(double*)(&argv[2]) = arg3 here because some archs
   // like ARM, MIPS requires address is 8 aligned.
   // Or use the aligned malloc or compiler align attribute
   // to ensure the array address is 8 bytes aligned
   memcpy(&argv[2], &arg3, sizeof(arg3));
   memcpy(&argv[4], &arg4, sizeof(arg4));
-  
-  //  
+  //
   // attention: the arg number is 6 here since both
   //            arg3 and arg4 each takes 2 elements
   //
   wasm_runtime_call_wasm(exec_env, func, 6, argv);
-
-  // if the return value is type of 8 bytes, it takes 
+  
+  // if the return value is type of 8 bytes, it takes
   // the first two array elements
   memcpy(&ret, &argv[0], sizeof(ret));
 
@@ -109,7 +107,7 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
 
 
 
-If we need to transfer a buffer to WASM function, we can pass the buffer address through a parameter. **Attention**: The sandbox will forbid the WASM code to access outside memory, we must **allocate the buffer from WASM instance's own memory space and pass the buffer address in instance's space (not the runtime native address)**. 
+If we need to transfer a buffer to WASM function, we can pass the buffer address through a parameter. **Attention**: The sandbox will forbid the WASM code to access outside memory, we must **allocate the buffer from WASM instance's own memory space and pass the buffer address in instance's space (not the runtime native address)**.
 
 
 
@@ -124,10 +122,10 @@ There are two runtime APIs available for this purpose.
 * size: the buffer size to allocate
 */
 int32_t
-wasm_runtime_module_malloc(wasm_module_inst_t module_inst, 
+wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
            uint32_t size,
-           void **p_native_addr); 
-      
+           void **p_native_addr);
+
 /*
 * description: malloc a buffer from instance's private memory space,
 *              and copy the data from another native buffer to it.
@@ -137,8 +135,8 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
 */
 int32
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
-                             const char *src, 
-                             uint32 size);           
+                             const char *src,
+                             uint32 size);
 ```
 
 
@@ -154,7 +152,7 @@ if(buffer_for_wasm != 0)
 {
     unit32 argv[2];
     strncpy(buffer, "hello", 100);	// use native address for accessing in runtime
-    argv[0] = buffer_for_wasm;  	// pass the buffer address for WASM space. 
+    argv[0] = buffer_for_wasm;  	// pass the buffer address for WASM space.
     argv[1] = 100;					// the size of buffer
     wasm_runtime_call_wasm(exec_env, func, 2, argv);
 }

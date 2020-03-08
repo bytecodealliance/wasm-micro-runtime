@@ -7,7 +7,7 @@ Application framework
 
 This folder "app-native-shared" is for the source files shared by both WASM APP and native runtime
 
-- The c files in this directory are compiled into both the WASM APP and runtime. 
+- The c files in this directory are compiled into both the WASM APP and runtime.
 - The header files for distributing to SDK are placed in the "bi-inc" folder.
 
 
@@ -16,7 +16,7 @@ This folder "template" contains a pre-defined directory structure for a framewor
 
 
 
-Every other subfolder is framework component. Each component contains two library parts: **app and native**.  
+Every other subfolder is framework component. Each component contains two library parts: **app and native**.
 
 - The "base" component provide timer API and inter-app communication support. It must be enabled if other components are selected.
 - Under the "app" folder of a component, the subfolder "wa_inc" holds all header files that should be included by the WASM applications
@@ -85,13 +85,13 @@ Generally you should follow following steps to create a new component:
 
     ```c
     //use right signature for your functions
-    EXPORT_WASM_API_WITH_SIG(wasm_my_component_api_1, "(i*~)i"), 
+    EXPORT_WASM_API_WITH_SIG(wasm_my_component_api_1, "(i*~)i"),
     EXPORT_WASM_API_WITH_SIG(wasm_my_component_api_2, "(i)i"),
     ```
 
   - Ensure "wasm_lib.cmake" is provided as it will be included by the WAMR SDK building script
 
-  - Add a definition in "wasm_lib.cmake" for your component, e.g. 
+  - Add a definition in "wasm_lib.cmake" for your component, e.g.
 
     ```cmake
     add_definitions (-DAPP_FRAMEWORK_MY_COMPONENT)
@@ -101,12 +101,12 @@ Generally you should follow following steps to create a new component:
 
   ```
   #include "lib_export.h"
-  
+
   ...
   #ifdef APP_FRAMEWORK_MY_COMPONENT // this definition is created in wasm_lib.cmake
       #include "my_component_native_api.h"
   #endif
-  
+
   static NativeSymbol extended_native_symbol_defs[] = {
   ...
   #ifdef APP_FRAMEWORK_MY_COMPONENT
@@ -115,7 +115,7 @@ Generally you should follow following steps to create a new component:
   };
   ```
 
-  
+
 
 ## Sensor component working flow
 

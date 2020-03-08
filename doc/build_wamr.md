@@ -1,12 +1,72 @@
 
 Build WAMR core (iwasm)
 =========================
-Please follow the instructions below to build the WAMR VM core on different platforms.
+It is recommended to use the [WAMR SDK](../wamr-sdk) tools to build a project that embedes the WAMR. This document introduces how to build the WAMR minimal product which is vmcore only (no app-framework and app-mgr) for multiple platforms.
+
+
+
+## iwasm VM core CMake building configurations
+
+By including the cmake scripts under folder [build-scripts](../build-scripts), it is easy to build minimal product with CMake. WAMR provides a number of features which can be easily configured through cmake variables:
+
+``` Bash
+cmake -DWAMR_BUILD_INTERP=1/0 to enable or disable WASM intepreter
+cmake -DWAMR_BUILD_FAST_INTERP=1/0 to build fast (default) or classic WASM intepreter. 
+cmake -DWAMR_BUILD_AOT=1/0 to enable or disable WASM AOT
+cmake -DWAMR_BUILD_JIT=1/0 to enable or disable WASM JIT. (Disabled by default)
+cmake -DWAMR_BUILD_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's. (Enabled by default)
+cmake -DWAMR_BUILD_LIBC_WASI=1/0 enable or disable Libc WASI API's
+cmake -DWAMR_BUILD_TARGET=<arch> to set the building target, including:
+    X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
+    For ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and [_VFP] are optional. e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+```
+
+For example, if we want to enable classic interpreter, we can:
+
+``` Bash
+cmake .. -DWAMR_BUILD_FAST_INTERP=0 
+```
+
+**Note** the fast interpreter will run ~2X faster than classic interpreter, but it consumes about 2X memory to hold the WASM bytecode code.
+
+If we want to disable interpreter, enable AOT and WASI, we can:
+
+``` Bash
+cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0
+```
+
+Or if we want to enable inerpreter, disable AOT and WASI, and build as X86_32, we can:
+
+``` Bash
+cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
+```
+
+By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
+set to X86_64 or X86_32 depending on the platform's bitwidth.
+
+To enable WASM JIT, firstly we should build LLVM:
+
+``` Bash
+cd product-mini/platforms/linux/
+./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
+```
+
+Then pass option -DWAMR_BUILD_JIT=1 to cmake to enable WASM JIT:
+
+``` Bash
+mkdir build
+cd build
+cmake .. -DWAMR_BUILD_JIT=1
+make
+```
+
+
 
 Linux
 -------------------------
 First of all please install the dependent packages.
 Run command below in Ubuntu-18.04:
+
 ``` Bash
 sudo apt install build-essential cmake g++-multilib libgcc-8-dev lib32gcc-8-dev
 ```
@@ -29,46 +89,13 @@ make
 ```
 The binary file iwasm will be generated under build folder.
 
-Note:
-WAMR provides some features which can be easily configured by passing options to cmake:
-``` Bash
-cmake -DWAMR_BUILD_INTERP=1/0 to enable or disable WASM intepreter
-cmake -DWAMR_BUILD_AOT=1/0 to enable or disable WASM AOT
-cmake -DWAMR_BUILD_JIT=1/0 to enable or disable WASM JIT
-cmake -DWAMR_BUILD_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's
-cmake -DWAMR_BUILD_LIBC_WASI=1/0 enable or disable Libc WASI API's
-cmake -DWAMR_BUILD_TARGET=<arch> to set the building target, including:
-    X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
-    For ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and [_VFP] are optional. e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
-```
 
-For example, if we want to disable interpreter, enable AOT and WASI, we can:
-``` Bash
-cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0
-```
-Or if we want to enable inerpreter, disable AOT and WASI, and build as X86_32, we can:
-``` Bash
-cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
-```
 
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
-set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-To enable WASM JIT, firstly we should build LLVM:
-``` Bash
-cd product-mini/platforms/linux/
-./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
-```
-Then pass option -DWAMR_BUILD_JIT=1 to cmake to enable WASM JIT:
-``` Bash
-mkdir build
-cd build
-cmake .. -DWAMR_BUILD_JIT=1
-make
-```
 
 Linux SGX (Intel Software Guard Extention)
 -------------------------
+
 First of all please install the [Intel SGX SDK](https://software.intel.com/en-us/sgx/sdk).
 
 After installing dependencies, build the source code:
@@ -122,11 +149,11 @@ VxWorks 7 SR0620 release is validated.
 
 First you need to build a VSB. Make sure *UTILS_UNIX* layer is added in the VSB.
 After the VSB is built, export the VxWorks toolchain path by:
-```
+```bash
 export <vsb_dir_path>/host/vx-compiler/bin:$PATH
 ```
 Now switch to iwasm source tree to build the source code:
-```
+```bash
 cd product-mini/platforms/vxworks/
 mkdir build
 cd build

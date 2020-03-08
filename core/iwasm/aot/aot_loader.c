@@ -1703,7 +1703,7 @@ create_sections(const uint8 *buf, uint32 size,
 
             memset(section, 0, sizeof(AOTSection));
             section->section_type = (int32)section_type;
-            section->section_body = p;
+            section->section_body = (uint8*)p;
             section->section_body_size = section_size;
 
             if (section_type == AOT_SECTION_TYPE_TEXT) {

@@ -8,6 +8,8 @@ WAMR project reused some components from other open source project:
 - **freebsd libm**: used in core/shared/platform/alios/bh_math.c
 - **littlevgl**: for the gui samples and wrapped the wasm graphic layer.
 
+The WAMR fast interpreter is a clean room development. We would acknowledge the inspirations by  [WASM3](https://github.com/wasm3/wasm3) open source project for the approach of pre-calculated oprand stack location.
+
 ## Licenses
 
 ### wasmtime
