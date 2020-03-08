@@ -59,6 +59,16 @@ unsigned bh_memory_pool_size();
 void* bh_malloc(unsigned int size);
 
 /**
+ * This function reallocates a memory chunk from system
+ *
+ * @param ptr the original memory
+ * @param size bytes need allocate
+ *
+ * @return the pointer to memory allocated
+ */
+void* bh_realloc(void *ptr, unsigned int size);
+
+/**
  * This function frees memory chunk
  *
  * @param ptr the pointer to memory need free
@@ -68,9 +78,11 @@ void bh_free(void *ptr);
 #else
 
 void* bh_malloc_profile(const char *file, int line, const char *func, unsigned int size);
+void* bh_realloc_profile(const char *file, int line, const char *func, void *ptr, unsigned int size);
 void bh_free_profile(const char *file, int line, const char *func, void *ptr);
 
 #define bh_malloc(size) bh_malloc_profile(__FILE__, __LINE__, __func__, size)
+#define bh_realloc(ptr, size) bh_malloc_profile(__FILE__, __LINE__, __func__, ptr, size)
 #define bh_free(ptr) bh_free_profile(__FILE__, __LINE__, __func__, ptr)
 
 /**

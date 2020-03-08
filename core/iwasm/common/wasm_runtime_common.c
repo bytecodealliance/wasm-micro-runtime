@@ -50,6 +50,10 @@ wasm_runtime_destroy()
     vm_thread_sys_destroy();
 }
 
+int bh_memory_init_with_allocator_internal(void *_malloc_func,
+                                           void *_realloc_func,
+                                           void *_free_func);
+
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args)
 {
@@ -61,8 +65,11 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
     }
     else if (init_args->mem_alloc_type == Alloc_With_Allocator) {
         void *malloc_func = init_args->mem_alloc.allocator.malloc_func;
+        void *realloc_func = init_args->mem_alloc.allocator.realloc_func;
         void *free_func = init_args->mem_alloc.allocator.free_func;
-        if (bh_memory_init_with_allocator(malloc_func, free_func) != 0)
+        if (bh_memory_init_with_allocator_internal(malloc_func,
+                                                   realloc_func,
+                                                   free_func) != 0)
             return false;
     }
     else

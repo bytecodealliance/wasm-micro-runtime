@@ -48,6 +48,7 @@ static Memory_Mode memory_mode = MEMORY_MODE_UNKNOWN;
 static mem_allocator_t pool_allocator = NULL;
 
 static void *(*malloc_func)(unsigned int size) = NULL;
+static void *(*realloc_func)(void *ptr, unsigned int size) = NULL;
 static void (*free_func)(void *ptr) = NULL;
 
 static unsigned int global_pool_size;
@@ -69,11 +70,14 @@ int bh_memory_init_with_pool(void *mem, unsigned int bytes)
     return -1;
 }
 
-int bh_memory_init_with_allocator(void *_malloc_func, void *_free_func)
+int bh_memory_init_with_allocator_internal(void *_malloc_func,
+                                           void *_realloc_func,
+                                           void *_free_func)
 {
     if (_malloc_func && _free_func && _malloc_func != _free_func) {
         memory_mode = MEMORY_MODE_ALLOCATOR;
         malloc_func = _malloc_func;
+        realloc_func = _realloc_func;
         free_func = _free_func;
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
         vm_mutex_init(&profile_lock);
@@ -83,6 +87,12 @@ int bh_memory_init_with_allocator(void *_malloc_func, void *_free_func)
     bh_printf("Init memory with allocator (%p, %p) failed.\n", _malloc_func,
             _free_func);
     return -1;
+}
+
+int bh_memory_init_with_allocator(void *_malloc_func, void *_free_func)
+{
+    return bh_memory_init_with_allocator_internal(_malloc_func,
+                                                  NULL, _free_func);
 }
 
 void bh_memory_destroy()
@@ -112,6 +122,21 @@ void* bh_malloc_internal(unsigned int size)
         return mem_allocator_malloc(pool_allocator, size);
     } else {
         return malloc_func(size);
+    }
+}
+
+void* bh_realloc_internal(void *ptr, unsigned int size)
+{
+    if (memory_mode == MEMORY_MODE_UNKNOWN) {
+        bh_printf("bh_realloc failed: memory hasn't been initialize.\n");
+        return NULL;
+    } else if (memory_mode == MEMORY_MODE_POOL) {
+        return mem_allocator_realloc(pool_allocator, ptr, size);
+    } else {
+        if (realloc_func)
+            return realloc_func(ptr, size);
+        else
+            return NULL;
     }
 }
 
@@ -267,6 +292,11 @@ void* bh_malloc(unsigned int size)
     return bh_malloc_internal(size);
 }
 
+void* bh_realloc(void *ptr, unsigned int size)
+{
+    return bh_realloc_internal(ptr, size);
+}
+
 void bh_free(void *ptr)
 {
     bh_free_internal(ptr);
@@ -280,6 +310,11 @@ void bh_free(void *ptr)
 void* bh_malloc(unsigned int size)
 {
     return malloc(size);
+}
+
+void* bh_realloc(void *ptr, unsigned int size)
+{
+    return realloc(ptr, size);
 }
 
 void bh_free(void *ptr)
@@ -304,6 +339,23 @@ void* bh_malloc_profile(const char *file,
     (void)memory_in_use;
 
     return malloc(size);
+}
+
+void* bh_realloc_profile(const char *file,
+                         int line,
+                         const char *func,
+                         void *ptr,
+                         unsigned int size)
+{
+    (void)file;
+    (void)line;
+    (void)func;
+
+    (void)memory_profiles_list;
+    (void)profile_lock;
+    (void)memory_in_use;
+
+    return realloc(ptr, size);
 }
 
 void bh_free_profile(const char *file, int line, const char *func, void *ptr)
