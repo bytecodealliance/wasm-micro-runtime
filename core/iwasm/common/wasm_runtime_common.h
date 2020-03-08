@@ -23,6 +23,7 @@ extern "C" {
 #endif
 
 #define wasm_malloc bh_malloc
+#define wasm_realloc bh_realloc
 #define wasm_free bh_free
 
 typedef struct WASMModuleCommon {

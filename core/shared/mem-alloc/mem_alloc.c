@@ -26,6 +26,12 @@ mem_allocator_malloc(mem_allocator_t allocator, uint32_t size)
     return gc_alloc_vo_h((gc_handle_t) allocator, size);
 }
 
+void *
+mem_allocator_realloc(mem_allocator_t allocator, void *ptr, uint32_t size)
+{
+    return gc_realloc_vo_h((gc_handle_t) allocator, ptr, size);
+}
+
 void mem_allocator_free(mem_allocator_t allocator, void *ptr)
 {
     if (ptr)
@@ -101,11 +107,27 @@ mem_allocator_malloc(mem_allocator_t allocator, uint32_t size)
     mem_allocator_tlsf *allocator_tlsf = (mem_allocator_tlsf *)allocator;
 
     if (size == 0)
-    /* tlsf doesn't allow to allocate 0 byte */
-    size = 1;
+        /* tlsf doesn't allow to allocate 0 byte */
+        size = 1;
 
     vm_mutex_lock(&allocator_tlsf->lock);
     ret = tlsf_malloc(allocator_tlsf->tlsf, size);
+    vm_mutex_unlock(&allocator_tlsf->lock);
+    return ret;
+}
+
+void *
+mem_allocator_realloc(mem_allocator_t allocator, void *ptr, uint32_t size)
+{
+    void *ret;
+    mem_allocator_tlsf *allocator_tlsf = (mem_allocator_tlsf *)allocator;
+
+    if (size == 0)
+        /* tlsf doesn't allow to allocate 0 byte */
+        size = 1;
+
+    vm_mutex_lock(&allocator_tlsf->lock);
+    ret = tlsf_realloc(allocator_tlsf->tlsf, ptr, size);
     vm_mutex_unlock(&allocator_tlsf->lock);
     return ret;
 }

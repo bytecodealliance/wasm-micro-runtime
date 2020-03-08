@@ -750,8 +750,8 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     uint32 cur_page_count = module_inst->mem_cur_page_count;
     uint32 max_page_count = module_inst->mem_max_page_count;
     uint32 total_page_count = cur_page_count + inc_page_count;
-    uint32 old_size = num_bytes_per_page * cur_page_count;
     uint64 total_size = (uint64)num_bytes_per_page * total_page_count;
+    uint32 total_size_old;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -763,20 +763,29 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         return false;
     }
 
-    if (total_size >= UINT32_MAX
-        || !(mem_data_new = wasm_malloc((uint32)total_size))) {
+    if (total_size >= UINT32_MAX) {
         aot_set_exception(module_inst, "fail to enlarge memory.");
         return false;
     }
 
-    memcpy(mem_data_new, mem_data_old, old_size);
-    memset(mem_data_new + old_size, 0, (uint32)total_size - old_size);
+    if (!(mem_data_new = wasm_realloc(mem_data_old, (uint32)total_size))) {
+        if (!(mem_data_new = wasm_malloc((uint32)total_size))) {
+            aot_set_exception(module_inst, "fail to enlarge memory.");
+            return false;
+        }
+        total_size_old = module_inst->memory_data_size;
+        bh_memcpy_s(mem_data_new, (uint32)total_size,
+                    mem_data_old, total_size_old);
+        memset(mem_data_new + total_size_old,
+               0, (uint32)total_size - total_size_old);
+        wasm_free(mem_data_old);
+    }
+
     module_inst->mem_cur_page_count = total_page_count;
     module_inst->memory_data_size = (uint32)total_size;
     module_inst->memory_data.ptr = mem_data_new;
     module_inst->memory_data_end.ptr = mem_data_new + (uint32)total_size;
 
-    wasm_free(mem_data_old);
     return true;
 }
 

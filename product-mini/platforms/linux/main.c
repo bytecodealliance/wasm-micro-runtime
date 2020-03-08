@@ -238,6 +238,7 @@ int main(int argc, char *argv[])
 #else
     init_args.mem_alloc_type = Alloc_With_Allocator;
     init_args.mem_alloc.allocator.malloc_func = malloc;
+    init_args.mem_alloc.allocator.realloc_func = realloc;
     init_args.mem_alloc.allocator.free_func = free;
 #endif
 
@@ -270,8 +271,8 @@ int main(int argc, char *argv[])
 
     /* instantiate the module */
     if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      64 * 1024, /* stack size */
-                                                      64 * 1024, /* heap size */
+                                                      48 * 1024, /* stack size */
+                                                      16 * 1024, /* heap size */
                                                       error_buf,
                                                       sizeof(error_buf)))) {
         bh_printf("%s\n", error_buf);

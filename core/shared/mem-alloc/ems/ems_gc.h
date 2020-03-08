@@ -193,12 +193,14 @@ extern int gc_set_threshold_factor(void *heap, unsigned int factor);
 #    define ALLOC_EXTRA_ARGUMENTS , __FILE__, __LINE__
 #    define ALLOC_PASSDOWN_EXTRA_ARGUMENTS , file_name, line_number
 #    define gc_alloc_vo_h(heap, size) gc_alloc_vo_i_heap(heap, size, __FILE__, __LINE__)
+#    define gc_realloc_vo_h(heap, ptr, size) gc_realloc_vo_i_heap(heap, ptr, size, __FILE__, __LINE__)
 #    define gc_free_h(heap, obj) gc_free_i_heap(heap, obj, __FILE__, __LINE__)
 #else
 #    define ALLOC_EXTRA_PARAMETERS
 #    define ALLOC_EXTRA_ARGUMENTS
 #    define ALLOC_PASSDOWN_EXTRA_ARGUMENTS
 #    define gc_alloc_vo_h                    gc_alloc_vo_i_heap
+#    define gc_realloc_vo_h                  gc_realloc_vo_i_heap
 #    define gc_free_h                        gc_free_i_heap
 #endif
 
@@ -221,16 +223,22 @@ extern int gci_gc_heap(void *heap);
  *         NULL if failed.
  */
 extern gc_object_t _gc_alloc_vo_i_heap(void *heap,
-        gc_size_t size ALLOC_EXTRA_PARAMETERS);
+                                       gc_size_t size ALLOC_EXTRA_PARAMETERS);
+extern gc_object_t _gc_realloc_vo_i_heap(void *heap, void *ptr,
+                                         gc_size_t size ALLOC_EXTRA_PARAMETERS);
 extern gc_object_t _gc_alloc_jo_i_heap(void *heap,
-        gc_size_t size ALLOC_EXTRA_PARAMETERS);
+                                       gc_size_t size ALLOC_EXTRA_PARAMETERS);
 #ifdef INSTRUMENT_TEST_ENABLED
 extern gc_object_t gc_alloc_vo_i_heap_instr(void *heap, gc_size_t size, const char* func_name );
+extern gc_object_t gc_realloc_vo_i_heap_instr(void *heap, void *ptr, gc_size_t size,
+                                              const char* func_name );
 extern gc_object_t gc_alloc_jo_i_heap_instr(void *heap, gc_size_t size, const char* func_name);
 #    define gc_alloc_vo_i_heap(heap, size) gc_alloc_vo_i_heap_instr(heap, size, __FUNCTION__)
+#    define gc_realloc_vo_i_heap(heap, ptr, size) gc_realloc_vo_i_heap_instr(heap, ptr, size, __FUNCTION__)
 #    define gc_alloc_jo_i_heap(heap, size) gc_alloc_jo_i_heap_instr(heap, size, __FUNCTION__)
 #else
 #    define gc_alloc_vo_i_heap _gc_alloc_vo_i_heap
+#    define gc_realloc_vo_i_heap _gc_realloc_vo_i_heap
 #    define gc_alloc_jo_i_heap _gc_alloc_jo_i_heap
 #endif
 

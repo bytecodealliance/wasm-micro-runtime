@@ -348,7 +348,7 @@ unsigned long g_total_malloc = 0;
 unsigned long g_total_free = 0;
 
 gc_object_t _gc_alloc_vo_i_heap(void *vheap,
-        gc_size_t size ALLOC_EXTRA_PARAMETERS)
+                                gc_size_t size ALLOC_EXTRA_PARAMETERS)
 {
     gc_heap_t* heap = (gc_heap_t*) vheap;
     hmu_t *hmu = NULL;
@@ -381,8 +381,66 @@ gc_object_t _gc_alloc_vo_i_heap(void *vheap,
     bh_printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
 #endif
 
-    FINISH:
+FINISH:
     gct_vm_mutex_unlock(&heap->lock);
+
+    return ret;
+}
+
+gc_object_t _gc_realloc_vo_i_heap(void *vheap, void *ptr,
+                                  gc_size_t size ALLOC_EXTRA_PARAMETERS)
+{
+    gc_heap_t* heap = (gc_heap_t*) vheap;
+    hmu_t *hmu = NULL, *hmu_old = NULL;
+    gc_object_t ret = (gc_object_t) NULL, obj_old = (gc_object_t)ptr;
+    gc_size_t tot_size = 0, size_old = 0;
+
+    if (obj_old) {
+        hmu_old = obj_to_hmu(obj_old);
+        size_old = hmu_get_size(hmu_old);
+        size_old -= HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE;
+        if (size < size_old)
+            return NULL;
+        if (size == size_old)
+            return obj_old;
+    }
+
+    /* align size*/
+    tot_size = GC_ALIGN_8(size + HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE); /* hmu header, prefix, suffix*/
+    if (tot_size < size)
+        return NULL;
+
+    gct_vm_mutex_lock(&heap->lock);
+
+    hmu = alloc_hmu_ex(heap, tot_size);
+    if (!hmu)
+        goto FINISH;
+
+    g_total_malloc += tot_size;
+
+    hmu_set_ut(hmu, HMU_VO);
+    hmu_unfree_vo(hmu);
+
+#if defined(GC_VERIFY)
+    hmu_init_prefix_and_suffix(hmu, tot_size, file_name, line_number);
+#endif
+
+    ret = hmu_to_obj(hmu);
+
+#if BH_ENABLE_MEMORY_PROFILING != 0
+    bh_printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
+#endif
+
+FINISH:
+    gct_vm_mutex_unlock(&heap->lock);
+
+    if (ret) {
+        memset(ret, 0, size);
+        if (obj_old) {
+            memcpy(ret, obj_old, size_old);
+            gc_free_h(vheap, obj_old);
+        }
+    }
 
     return ret;
 }

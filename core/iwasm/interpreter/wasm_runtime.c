@@ -1105,12 +1105,13 @@ bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
 #if WASM_ENABLE_MEMORY_GROW != 0
-    WASMMemoryInstance *memory = module->default_memory;
-    WASMMemoryInstance *new_memory;
+    WASMMemoryInstance *memory = module->default_memory, *new_memory;
+    uint32 old_page_count = memory->cur_page_count, total_size_old;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
                         memory->num_bytes_per_page * (uint64)total_page_count +
                         memory->global_data_size;
+    uint8 *global_data_old;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -1122,43 +1123,39 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         return false;
     }
 
-    if (total_size >= UINT32_MAX
-        || !(new_memory = wasm_malloc((uint32)total_size))) {
+    if (total_size >= UINT32_MAX) {
         wasm_set_exception(module, "fail to enlarge memory.");
         return false;
     }
 
-    new_memory->num_bytes_per_page = memory->num_bytes_per_page;
+    if (!(new_memory = wasm_realloc(memory, (uint32)total_size))) {
+        if (!(new_memory = wasm_malloc((uint32)total_size))) {
+            wasm_set_exception(module, "fail to enlarge memory.");
+            return false;
+        }
+        total_size_old = memory->end_addr - (uint8*)memory;
+        bh_memcpy_s((uint8*)new_memory, (uint32)total_size,
+                    (uint8*)memory, total_size_old);
+        memset((uint8*)new_memory + total_size_old,
+                0, (uint32)total_size - total_size_old);
+        wasm_free(memory);
+    }
+
     new_memory->cur_page_count = total_page_count;
-    new_memory->max_page_count = memory->max_page_count;
-
     new_memory->memory_data = new_memory->base_addr;
-
     new_memory->global_data = new_memory->memory_data +
-                              memory->num_bytes_per_page * total_page_count;
-    new_memory->global_data_size = memory->global_data_size;
+                              new_memory->num_bytes_per_page * total_page_count;
+    new_memory->end_addr = new_memory->global_data + new_memory->global_data_size;
 
-    new_memory->end_addr = new_memory->global_data + memory->global_data_size;
+    global_data_old = new_memory->memory_data +
+                              new_memory->num_bytes_per_page * old_page_count;
 
-    /* Copy memory data */
-    bh_memcpy_s(new_memory->memory_data,
-                (uint32)(memory->global_data - memory->memory_data),
-                memory->memory_data,
-                (uint32)(memory->global_data - memory->memory_data));
     /* Copy global data */
     bh_memcpy_s(new_memory->global_data, new_memory->global_data_size,
-                memory->global_data, memory->global_data_size);
-    /* Init free space of new memory */
-    memset(new_memory->memory_data + memory->num_bytes_per_page * memory->cur_page_count,
-           0, memory->num_bytes_per_page * (total_page_count - memory->cur_page_count));
-
-    new_memory->heap_data = memory->heap_data;
-    new_memory->heap_data_end = memory->heap_data_end;
-    new_memory->heap_handle = memory->heap_handle;
-    new_memory->heap_base_offset = memory->heap_base_offset;
+                global_data_old, new_memory->global_data_size);
+    memset(global_data_old, 0, new_memory->global_data_size);
 
     module->memories[0] = module->default_memory = new_memory;
-    wasm_free(memory);
     return true;
 #else /* else of WASM_ENABLE_MEMORY_GROW */
     wasm_set_exception(module, "unsupported operation: enlarge memory.");

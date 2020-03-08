@@ -67,6 +67,7 @@ typedef struct RuntimeInitArgs {
         } pool;
         struct {
             void *malloc_func;
+            void *realloc_func;
             void *free_func;
         } allocator;
     } mem_alloc;
