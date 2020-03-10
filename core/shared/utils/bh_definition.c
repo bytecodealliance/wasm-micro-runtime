@@ -67,7 +67,21 @@ bh_strdup(const char *s)
 
     if (s) {
         size = (uint32)(strlen(s) + 1);
-        if ((s1 = bh_malloc(size)))
+        if ((s1 = BH_MALLOC(size)))
+            bh_memcpy_s(s1, size, s, size);
+    }
+    return s1;
+}
+
+char *
+wa_strdup(const char *s)
+{
+    uint32 size;
+    char *s1 = NULL;
+
+    if (s) {
+        size = (uint32)(strlen(s) + 1);
+        if ((s1 = WA_MALLOC(size)))
             bh_memcpy_s(s1, size, s, size);
     }
     return s1;

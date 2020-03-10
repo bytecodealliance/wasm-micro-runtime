@@ -5,7 +5,6 @@
 
 #include "bh_thread.h"
 #include "bh_assert.h"
-#include "bh_memory.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sgx_thread.h>

@@ -75,27 +75,25 @@ static unsigned char wasm_test_file[] = { 0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz) {
-    char error_buf[128] = {0};
-
-    void *(*malloc_func)(size_t) = &malloc;
-    void (*free_func)(void *) = &free;
-    LOGI("bh_memory_init_with_allocator");
-    if (bh_memory_init_with_allocator((void *) malloc_func, (void *) free_func)) {
-        LOGI("Init memory with memory allocator failed.\n");
-        return;
-    }
-
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
-
+    RuntimeInitArgs init_args;
     uint wasm_file_size = 0;
     uint8_t *wasm_file_buf = NULL;
+    char error_buf[128] = {0};
 
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+    init_args.mem_alloc_type = Alloc_With_Allocator;
+    init_args.mem_alloc_option.allocator.malloc_func = (void*)malloc;
+    init_args.mem_alloc_option.allocator.realloc_func = (void*)realloc;
+    init_args.mem_alloc_option.allocator.free_func = (void*)free;
+
+    LOGI("wasm_runtime_full_init");
     /* initialize runtime environment */
-    LOGI("wasm_runtime_init");
-    if (!wasm_runtime_init()) {
-        LOGI("goto fail1\n");
-        goto fail1;
+    if (!wasm_runtime_full_init(&init_args)) {
+        LOGI("Init runtime failed.\n");
+        return;
     }
 
     // set log level to INFO
@@ -112,8 +110,8 @@ Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz) {
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
                                           error_buf, sizeof(error_buf)))) {
         LOGI("in wasm_runtime_load %s\n", error_buf);
-        LOGI("goto fail3\n");
-        goto fail3;
+        LOGI("goto fail1\n");
+        goto fail1;
     }
 
     /* instantiate the module */
@@ -124,8 +122,8 @@ Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz) {
                                                       error_buf,
                                                       sizeof(error_buf)))) {
         LOGI("%s\n", error_buf);
-        LOGI("goto fail4\n");
-        goto fail4;
+        LOGI("goto fail2\n");
+        goto fail2;
     }
 
     LOGI("run main() of the application");
@@ -135,23 +133,18 @@ Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz) {
     LOGI("wasm_runtime_deinstantiate");
     wasm_runtime_deinstantiate(wasm_module_inst);
 
-    fail4:
+fail2:
     /* unload the module */
     LOGI("wasm_runtime_unload");
     wasm_runtime_unload(wasm_module);
 
-    fail3:
+fail1:
     // in our case, we don't need a free, but it is not a typical one
     /* free the file buffer */
     //bh_free((void *) wasm_file_buf);
 
-    fail2:
     /* destroy runtime environment */
     LOGI("wasm_runtime_destroy");
     wasm_runtime_destroy();
-
-    fail1:
-    LOGI("bh_memory_destroy");
-    bh_memory_destroy();
     return;
 }

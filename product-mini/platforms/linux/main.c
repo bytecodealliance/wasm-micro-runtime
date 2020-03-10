@@ -11,7 +11,6 @@
 #include "bh_platform.h"
 #include "bh_assert.h"
 #include "bh_log.h"
-#include "bh_memory.h"
 #include "wasm_export.h"
 
 static int app_argc;
@@ -24,9 +23,11 @@ static int print_help()
     bh_printf("  -f|--function name     Specify function name to run in module\n"
               "                         rather than main\n");
 #if WASM_ENABLE_LOG != 0
-    bh_printf("  -v=X                   Set log verbose level (0 to 5, default is 2),\n"
+    bh_printf("  -v=n                   Set log verbose level (0 to 5, default is 2),\n"
               "                         larger level with more log\n");
 #endif
+    bh_printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
+    bh_printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
     bh_printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
               "                         that runs commands in the form of `FUNC ARG...`\n");
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -153,6 +154,7 @@ int main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
+    uint32 stack_size = 16 * 1024, heap_size = 16 * 1024;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;
@@ -187,6 +189,16 @@ int main(int argc, char *argv[])
 #endif
         else if (!strcmp(argv[0], "--repl"))
             is_repl_mode = true;
+        else if (!strncmp(argv[0], "--stack-size=", 13)) {
+            if (argv[0][13] == '\0')
+                return print_help();
+            stack_size = atoi(argv[0] + 13);
+        }
+        else if (!strncmp(argv[0], "--heap-size=", 12)) {
+            if (argv[0][12] == '\0')
+                return print_help();
+            heap_size = atoi(argv[0] + 12);
+        }
 #if WASM_ENABLE_LIBC_WASI != 0
         else if (!strncmp(argv[0], "--dir=", 6)) {
             if (argv[0][6] == '\0')
@@ -233,15 +245,16 @@ int main(int argc, char *argv[])
 
 #if USE_GLOBAL_HEAP_BUF != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
-    init_args.mem_alloc.pool.heap_buf = global_heap_buf;
-    init_args.mem_alloc.pool.heap_size = sizeof(global_heap_buf);
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
 #else
     init_args.mem_alloc_type = Alloc_With_Allocator;
-    init_args.mem_alloc.allocator.malloc_func = malloc;
-    init_args.mem_alloc.allocator.realloc_func = realloc;
-    init_args.mem_alloc.allocator.free_func = free;
+    init_args.mem_alloc_option.allocator.malloc_func = malloc;
+    init_args.mem_alloc_option.allocator.realloc_func = realloc;
+    init_args.mem_alloc_option.allocator.free_func = free;
 #endif
 
+    /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
         bh_printf("Init runtime environment failed.\n");
         return -1;
@@ -271,8 +284,8 @@ int main(int argc, char *argv[])
 
     /* instantiate the module */
     if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      48 * 1024, /* stack size */
-                                                      16 * 1024, /* heap size */
+                                                      stack_size,
+                                                      heap_size,
                                                       error_buf,
                                                       sizeof(error_buf)))) {
         bh_printf("%s\n", error_buf);
@@ -295,11 +308,11 @@ fail3:
 
 fail2:
     /* free the file buffer */
-    bh_free(wasm_file_buf);
+    wasm_runtime_free(wasm_file_buf);
 
 fail1:
     /* destroy runtime environment */
-    wasm_runtime_full_destroy();
+    wasm_runtime_destroy();
     return 0;
 }
 

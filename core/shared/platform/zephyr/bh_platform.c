@@ -4,7 +4,6 @@
  */
 
 #include "bh_platform.h"
-#include "bh_memory.h"
 #include "bh_common.h"
 #include <stdlib.h>
 #include <string.h>
@@ -59,15 +58,32 @@ bh_platform_init()
 }
 
 void *
+os_malloc(unsigned size)
+{
+    return NULL;
+}
+
+void *
+os_realloc(void *ptr, unsigned size)
+{
+    return NULL;
+}
+
+void
+os_free(void *ptr)
+{
+}
+
+void *
 bh_mmap(void *hint, unsigned int size, int prot, int flags)
 {
-    return bh_malloc(size);
+    return BH_MALLOC(size);
 }
 
 void
 bh_munmap(void *addr, uint32 size)
 {
-    return bh_free(addr);
+    return BH_FREE(addr);
 }
 
 int

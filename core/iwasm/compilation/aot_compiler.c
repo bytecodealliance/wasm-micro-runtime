@@ -14,7 +14,6 @@
 #include "aot_emit_control.h"
 #include "aot_emit_function.h"
 #include "aot_emit_parametric.h"
-#include "bh_memory.h"
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_opcode.h"
 #include <errno.h>
@@ -152,7 +151,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
       case WASM_OP_BR_TABLE:
         read_leb_uint32(frame_ip, frame_ip_end, br_count);
-        if (!(br_depths = wasm_malloc((uint32)sizeof(uint32) * (br_count + 1)))) {
+        if (!(br_depths =
+                wasm_runtime_malloc((uint32)sizeof(uint32) * (br_count + 1)))) {
           aot_set_last_error("allocate memory failed.");
           goto fail;
         }
@@ -161,11 +161,11 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
         if (!aot_compile_op_br_table(comp_ctx, func_ctx,
                                      br_depths, br_count, &frame_ip)) {
-          wasm_free(br_depths);
+          wasm_runtime_free(br_depths);
           return false;
         }
 
-        wasm_free(br_depths);
+        wasm_runtime_free(br_depths);
         break;
 
       case WASM_OP_RETURN:

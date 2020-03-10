@@ -115,8 +115,8 @@ static void add_connection(sys_connection_t *conn)
 
 #define FREE_CONNECTION(conn) do {      \
     if (conn->arg)                      \
-        bh_free(conn->arg);             \
-    bh_free(conn);                      \
+        wasm_runtime_free(conn->arg);   \
+    wasm_runtime_free(conn);            \
 } while (0)
 
 static int get_app_conns_num(uint32 module_id)
@@ -223,7 +223,7 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
     if (get_app_conns_num(module_id) >= MAX_CONNECTION_PER_APP)
         return -1;
 
-    conn = (sys_connection_t *)bh_malloc(sizeof(*conn));
+    conn = (sys_connection_t *)wasm_runtime_malloc(sizeof(*conn));
     if (conn == NULL)
         return -1;
 
@@ -296,7 +296,7 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
 
 fail:
     find_connection(conn->handle, true);
-    bh_free(conn);
+    wasm_runtime_free(conn);
     return -1;
 }
 
@@ -356,7 +356,7 @@ static bool _conn_config(uint32 handle, attr_container_t *cfg)
         port = attr_container_get_as_uint16(cfg, "port");
 
         if (conn->arg == NULL) {
-            addr = (struct sockaddr_in *)bh_malloc(sizeof(*addr));
+            addr = (struct sockaddr_in *)wasm_runtime_malloc(sizeof(*addr));
             if (addr == NULL)
                 return false;
 
@@ -390,8 +390,8 @@ typedef struct connection_event {
 static void connection_event_cleaner(connection_event_t *conn_event)
 {
     if (conn_event->data != NULL)
-        bh_free(conn_event->data);
-    bh_free(conn_event);
+        wasm_runtime_free(conn_event->data);
+    wasm_runtime_free(conn_event);
 }
 
 static void post_msg_to_module(sys_connection_t *conn,
@@ -406,14 +406,14 @@ static void post_msg_to_module(sys_connection_t *conn,
     if (module == NULL)
         return;
 
-    conn_data_event = (connection_event_t *)bh_malloc(sizeof(*conn_data_event));
+    conn_data_event = (connection_event_t *)wasm_runtime_malloc(sizeof(*conn_data_event));
     if (conn_data_event == NULL)
         return;
 
     if (len > 0) {
-        data_copy = (char *)bh_malloc(len);
+        data_copy = (char *)wasm_runtime_malloc(len);
         if (data_copy == NULL) {
-            bh_free(conn_data_event);
+            wasm_runtime_free(conn_data_event);
             return;
         }
         bh_memcpy_s(data_copy, len, data, len);

@@ -4,7 +4,6 @@
  */
 
 #include "aot.h"
-#include "bh_memory.h"
 
 
 static char aot_error[128];
@@ -30,8 +29,8 @@ aot_destroy_mem_init_data_list(AOTMemInitData **data_list, uint32 count)
   uint32 i;
   for (i = 0; i < count; i++)
     if (data_list[i])
-      wasm_free(data_list[i]);
-  wasm_free(data_list);
+      wasm_runtime_free(data_list[i]);
+  wasm_runtime_free(data_list);
 }
 
 static AOTMemInitData **
@@ -44,7 +43,7 @@ aot_create_mem_init_data_list(const WASMModule *module)
   /* Allocate memory */
   size = sizeof(AOTMemInitData *) * (uint64)module->data_seg_count;
   if (size >= UINT32_MAX
-      || !(data_list = wasm_malloc((uint32)size))) {
+      || !(data_list = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -56,7 +55,7 @@ aot_create_mem_init_data_list(const WASMModule *module)
     size = offsetof(AOTMemInitData, bytes) +
                 (uint64)module->data_segments[i]->data_length;
     if (size >= UINT32_MAX
-        || !(data_list[i] = wasm_malloc((uint32)size))) {
+        || !(data_list[i] = wasm_runtime_malloc((uint32)size))) {
       aot_set_last_error("allocate memory failed.");
       goto fail;
     }
@@ -80,8 +79,8 @@ aot_destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count)
   uint32 i;
   for (i = 0; i < count; i++)
     if (data_list[i])
-      wasm_free(data_list[i]);
-  wasm_free(data_list);
+      wasm_runtime_free(data_list[i]);
+  wasm_runtime_free(data_list);
 }
 
 static AOTTableInitData **
@@ -94,7 +93,7 @@ aot_create_table_init_data_list(const WASMModule *module)
   /* Allocate memory */
   size = sizeof(AOTTableInitData *) * (uint64)module->table_seg_count;
   if (size >= UINT32_MAX
-      || !(data_list = wasm_malloc((uint32)size))) {
+      || !(data_list = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -106,7 +105,7 @@ aot_create_table_init_data_list(const WASMModule *module)
     size = offsetof(AOTTableInitData, func_indexes) +
            sizeof(uint32) * (uint64)module->table_segments[i].function_count;
     if (size >= UINT32_MAX
-        || !(data_list[i] = wasm_malloc((uint32)size))) {
+        || !(data_list[i] = wasm_runtime_malloc((uint32)size))) {
       aot_set_last_error("allocate memory failed.");
       goto fail;
     }
@@ -135,7 +134,7 @@ aot_create_import_globals(const WASMModule *module,
   /* Allocate memory */
   size = sizeof(AOTImportGlobal) * (uint64)module->import_global_count;
   if (size >= UINT32_MAX
-      || !(import_globals = wasm_malloc((uint32)size))) {
+      || !(import_globals = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -172,7 +171,7 @@ aot_create_globals(const WASMModule *module,
   /* Allocate memory */
   size = sizeof(AOTGlobal) * (uint64)module->global_count;
   if (size >= UINT32_MAX
-      || !(globals = wasm_malloc((uint32)size))) {
+      || !(globals = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -202,8 +201,8 @@ aot_destroy_func_types(AOTFuncType **func_types, uint32 count)
   uint32 i;
   for (i = 0; i < count; i++)
     if (func_types[i])
-      wasm_free(func_types[i]);
-  wasm_free(func_types);
+      wasm_runtime_free(func_types[i]);
+  wasm_runtime_free(func_types);
 }
 
 static AOTFuncType **
@@ -216,7 +215,7 @@ aot_create_func_types(const WASMModule *module)
   /* Allocate memory */
   size = sizeof(AOTFuncType*) * (uint64)module->type_count;
   if (size >= UINT32_MAX
-      || !(func_types = wasm_malloc((uint32)size))) {
+      || !(func_types = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -229,7 +228,7 @@ aot_create_func_types(const WASMModule *module)
            (uint64)module->types[i]->param_count +
            (uint64)module->types[i]->result_count;
     if (size >= UINT32_MAX
-        || !(func_types[i] = wasm_malloc((uint32)size))) {
+        || !(func_types[i] = wasm_runtime_malloc((uint32)size))) {
       aot_set_last_error("allocate memory failed.");
       goto fail;
     }
@@ -253,7 +252,7 @@ aot_create_import_funcs(const WASMModule *module)
   /* Allocate memory */
   size = sizeof(AOTImportFunc) * (uint64)module->import_function_count;
   if (size >= UINT32_MAX
-      || !(import_funcs = wasm_malloc((uint32)size))) {
+      || !(import_funcs = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -284,8 +283,8 @@ aot_destroy_funcs(AOTFunc **funcs, uint32 count)
 
   for (i = 0; i < count; i++)
     if (funcs[i])
-      wasm_free(funcs[i]);
-  wasm_free(funcs);
+      wasm_runtime_free(funcs[i]);
+  wasm_runtime_free(funcs);
 }
 
 static AOTFunc **
@@ -298,7 +297,7 @@ aot_create_funcs(const WASMModule *module)
   /* Allocate memory */
   size = sizeof(AOTFunc*) * (uint64)module->function_count;
   if (size >= UINT32_MAX
-      || !(funcs = wasm_malloc((uint32)size))) {
+      || !(funcs = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -309,7 +308,7 @@ aot_create_funcs(const WASMModule *module)
   for (i = 0; i < module->function_count; i++) {
     WASMFunction *func = module->functions[i];
     size = sizeof (AOTFunc);
-    if (!(funcs[i] = wasm_malloc((uint32)size))) {
+    if (!(funcs[i] = wasm_runtime_malloc((uint32)size))) {
       aot_set_last_error("allocate memory failed.");
       goto fail;
     }
@@ -348,7 +347,7 @@ aot_create_export_funcs(const WASMModule *module,
   /* Allocate memory */
   size = sizeof(AOTExportFunc) * (uint64)export_func_count;
   if (size >= UINT32_MAX
-      || !(export_funcs = wasm_malloc((uint32)size))) {
+      || !(export_funcs = wasm_runtime_malloc((uint32)size))) {
     aot_set_last_error("allocate memory failed.");
     return NULL;
   }
@@ -376,7 +375,7 @@ aot_create_comp_data(WASMModule *module)
   uint32 import_global_data_size = 0, global_data_size = 0, i;
 
   /* Allocate memory */
-  if (!(comp_data = wasm_malloc(sizeof(AOTCompData)))) {
+  if (!(comp_data = wasm_runtime_malloc(sizeof(AOTCompData)))) {
     aot_set_last_error("create compile data failed.\n");
     return NULL;
   }
@@ -492,24 +491,24 @@ aot_destroy_comp_data(AOTCompData *comp_data)
                                      comp_data->table_init_data_count);
 
   if (comp_data->import_globals)
-    wasm_free(comp_data->import_globals);
+    wasm_runtime_free(comp_data->import_globals);
 
   if (comp_data->globals)
-    wasm_free(comp_data->globals);
+    wasm_runtime_free(comp_data->globals);
 
   if (comp_data->func_types)
     aot_destroy_func_types(comp_data->func_types,
                            comp_data->func_type_count);
 
   if (comp_data->import_funcs)
-    wasm_free(comp_data->import_funcs);
+    wasm_runtime_free(comp_data->import_funcs);
 
   if (comp_data->funcs)
     aot_destroy_funcs(comp_data->funcs, comp_data->func_count);
 
   if (comp_data->export_funcs)
-    wasm_free(comp_data->export_funcs);
+    wasm_runtime_free(comp_data->export_funcs);
 
-  wasm_free(comp_data);
+  wasm_runtime_free(comp_data);
 }
 

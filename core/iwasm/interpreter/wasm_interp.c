@@ -4,7 +4,6 @@
  */
 
 #include "wasm_interp.h"
-#include "bh_memory.h"
 #include "bh_log.h"
 #include "wasm_runtime.h"
 #include "wasm_opcode.h"
@@ -948,7 +947,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else {
           uint64 total_size = sizeof(uint32) * (uint64)count;
           if (total_size >= UINT32_MAX
-              || !(depths = wasm_malloc((uint32)total_size))) {
+              || !(depths = wasm_runtime_malloc((uint32)total_size))) {
             wasm_set_exception(module,
                                "WASM interp failed: allocate memory failed.");
             goto got_exception;
@@ -963,7 +962,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           depth = depths[didx];
         }
         if (depths != depth_buf) {
-          wasm_free(depths);
+          wasm_runtime_free(depths);
           depths = NULL;
         }
         POP_CSP_N(depth);

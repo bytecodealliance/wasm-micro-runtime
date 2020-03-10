@@ -7,7 +7,6 @@
 #include "app_manager_host.h"
 #include "event.h"
 #include "bi-inc/attr_container.h"
-#include "bh_memory.h"
 #include "coap_ext.h"
 
 #if 0
@@ -21,7 +20,7 @@ bool send_coap_packet_to_host(coap_packet_t * packet)
     return false;
 
     app_manager_host_send_msg(buf, size);
-    bh_free(buf);
+    APP_MGR_FREE(buf);
 
     return true;
 }

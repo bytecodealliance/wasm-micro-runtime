@@ -5,6 +5,9 @@ NAME := iwasm
 IWASM_ROOT := wamr/core/iwasm
 SHARED_ROOT := wamr/core/shared
 
+GLOBAL_DEFINES += BH_MALLOC=wasm_runtime_malloc
+GLOBAL_DEFINES += BH_FREE=wasm_runtime_free
+
 # Change it to THUMBV7M if you want to build for developerkit
 WAMR_BUILD_TARGET := X86_32
 
@@ -76,7 +79,6 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/bh_assert.c \
                    ${SHARED_ROOT}/platform/alios/bh_platform_log.c \
                    ${SHARED_ROOT}/platform/alios/bh_thread.c \
                    ${SHARED_ROOT}/platform/alios/bh_time.c \
-                   ${SHARED_ROOT}/mem-alloc/bh_memory.c \
                    ${SHARED_ROOT}/mem-alloc/mem_alloc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_kfc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_alloc.c \
@@ -91,6 +93,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/bh_assert.c \
                    ${IWASM_ROOT}/common/wasm_runtime_common.c \
                    ${IWASM_ROOT}/common/wasm_native.c \
                    ${IWASM_ROOT}/common/wasm_exec_env.c \
+                   ${IWASM_ROOT}/common/wasm_memory.c \
                    ${IWASM_ROOT}/common/arch/${INVOKE_NATIVE} \
                    src/main.c
 

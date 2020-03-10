@@ -247,7 +247,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_count = (int32)func_type->param_count;
     total_size = sizeof(LLVMValueRef) * (uint64)(param_count + 1);
     if (total_size >= UINT32_MAX
-        || !(param_values = wasm_malloc((uint32)total_size))) {
+        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
         aot_set_last_error("Allocate memory failed.");
         return false;
     }
@@ -268,7 +268,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Initialize parameter types of the LLVM function */
         total_size = sizeof(LLVMTypeRef) * (uint64)(param_count + 1);
         if (total_size >= UINT32_MAX
-            || !(param_types = wasm_malloc((uint32)total_size))) {
+            || !(param_types = wasm_runtime_malloc((uint32)total_size))) {
             aot_set_last_error("Allocate memory failed.");
             goto fail;
         }
@@ -321,9 +321,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     ret = true;
 fail:
     if (param_types)
-        wasm_free(param_types);
+        wasm_runtime_free(param_types);
     if (param_values)
-        wasm_free(param_values);
+        wasm_runtime_free(param_values);
   return ret;
 }
 
@@ -548,7 +548,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_count = (int32)func_type->param_count;
     total_size = sizeof(LLVMTypeRef) * (uint64)(param_count + 1);
     if (total_size >= UINT32_MAX
-        || !(param_types = wasm_malloc((uint32)total_size))) {
+        || !(param_types = wasm_runtime_malloc((uint32)total_size))) {
         aot_set_last_error("Allocate memory failed.");
         goto fail;
     }
@@ -571,7 +571,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Allocate memory for parameters */
     total_size = sizeof(LLVMValueRef) * (uint64)(param_count + 1);
     if (total_size >= UINT32_MAX
-        || !(param_values = wasm_malloc((uint32)total_size))) {
+        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
         aot_set_last_error("Allocate memory failed.");
         goto fail;
     }
@@ -601,9 +601,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 fail:
     if (param_values)
-        wasm_free(param_values);
+        wasm_runtime_free(param_values);
     if (param_types)
-        wasm_free(param_types);
+        wasm_runtime_free(param_types);
     return ret;
 }
 

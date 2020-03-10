@@ -6,7 +6,6 @@
 #include "app_manager.h"
 #include "app_manager_host.h"
 #include "bh_queue.h"
-#include "bh_memory.h"
 #include "bh_thread.h"
 #include "bi-inc/attr_container.h"
 #include "event.h"
@@ -32,7 +31,7 @@ void module_data_list_destroy()
     if (module_data_list) {
         while (module_data_list) {
             module_data *p = module_data_list->next;
-            bh_free(module_data_list);
+            APP_MGR_FREE(module_data_list);
             module_data_list = p;
         }
     }
@@ -197,7 +196,7 @@ void release_module(module_data *m_data)
 
     destroy_module_timer_ctx(m_data->id);
 
-    bh_free(m_data);
+    APP_MGR_FREE(m_data);
 }
 
 int check_modules_timer_expiry()

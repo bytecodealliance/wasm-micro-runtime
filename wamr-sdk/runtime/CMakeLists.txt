@@ -7,6 +7,10 @@ project(runtime-sdk)
 SET (CMAKE_C_FLAGS          "-O3")
 set (CMAKE_BUILD_TYPE       Release)
 
+add_definitions(-DBH_MALLOC=wasm_runtime_malloc)
+add_definitions(-DBH_FREE=wasm_runtime_free)
+add_definitions(-DWA_MALLOC=wasm_runtime_malloc)
+add_definitions(-DWA_FREE=wasm_runtime_free)
 
 if (NOT DEFINED WAMR_BUILD_SDK_PROFILE)
     set (WAMR_BUILD_SDK_PROFILE       "default")

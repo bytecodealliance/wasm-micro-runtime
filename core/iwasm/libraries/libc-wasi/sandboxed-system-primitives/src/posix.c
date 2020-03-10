@@ -47,7 +47,6 @@
 #include "str.h"
 
 #include "bh_common.h"
-#include "bh_memory.h"
 
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
@@ -278,7 +277,7 @@ static bool fd_prestats_grow(
       size *= 2;
 
     // Grow the file descriptor table's allocation.
-    struct fd_prestat *prestats = bh_malloc((uint32)(sizeof(*prestats) * size));
+    struct fd_prestat *prestats = wasm_runtime_malloc((uint32)(sizeof(*prestats) * size));
     if (prestats == NULL)
       return false;
 
@@ -288,7 +287,7 @@ static bool fd_prestats_grow(
     }
 
     if (pt->prestats)
-      bh_free(pt->prestats);
+      wasm_runtime_free(pt->prestats);
 
     // Mark all new file descriptors as unused.
     for (size_t i = pt->size; i < size; ++i)
@@ -408,7 +407,7 @@ static bool fd_table_grow(
       size *= 2;
 
     // Grow the file descriptor table's allocation.
-    struct fd_entry *entries = bh_malloc((uint32)(sizeof(*entries) * size));
+    struct fd_entry *entries = wasm_runtime_malloc((uint32)(sizeof(*entries) * size));
     if (entries == NULL)
       return false;
 
@@ -418,7 +417,7 @@ static bool fd_table_grow(
     }
 
     if (ft->entries)
-      bh_free(ft->entries);
+      wasm_runtime_free(ft->entries);
 
     // Mark all new file descriptors as unused.
     for (size_t i = ft->size; i < size; ++i)
@@ -434,7 +433,7 @@ static __wasi_errno_t fd_object_new(
     __wasi_filetype_t type,
     struct fd_object **fo
 ) TRYLOCKS_SHARED(0, (*fo)->refcount) {
-  *fo = bh_malloc(sizeof(**fo));
+  *fo = wasm_runtime_malloc(sizeof(**fo));
   if (*fo == NULL)
     return __WASI_ENOMEM;
   refcount_init(&(*fo)->refcount, 1);
@@ -585,7 +584,7 @@ static void fd_object_release(
         CLOSE_NON_STD_FD(fd_number(fo));
         break;
     }
-    bh_free(fo);
+    wasm_runtime_free(fo);
   }
 }
 
@@ -878,7 +877,7 @@ __wasi_errno_t wasmtime_ssp_fd_pread(
     size_t totalsize = 0;
     for (size_t i = 0; i < iovcnt; ++i)
       totalsize += iov[i].buf_len;
-    char *buf = bh_malloc(totalsize);
+    char *buf = wasm_runtime_malloc(totalsize);
     if (buf == NULL) {
       fd_object_release(fo);
       return __WASI_ENOMEM;
@@ -888,7 +887,7 @@ __wasi_errno_t wasmtime_ssp_fd_pread(
     ssize_t len = pread(fd_number(fo), buf, totalsize, offset);
     fd_object_release(fo);
     if (len < 0) {
-      bh_free(buf);
+      wasm_runtime_free(buf);
       return convert_errno(errno);
     }
 
@@ -903,7 +902,7 @@ __wasi_errno_t wasmtime_ssp_fd_pread(
         break;
       }
     }
-    bh_free(buf);
+    wasm_runtime_free(buf);
     *nread = len;
     return 0;
   }
@@ -940,7 +939,7 @@ __wasi_errno_t wasmtime_ssp_fd_pwrite(
     size_t totalsize = 0;
     for (size_t i = 0; i < iovcnt; ++i)
       totalsize += iov[i].buf_len;
-    char *buf = bh_malloc(totalsize);
+    char *buf = wasm_runtime_malloc(totalsize);
     if (buf == NULL) {
       fd_object_release(fo);
       return __WASI_ENOMEM;
@@ -954,7 +953,7 @@ __wasi_errno_t wasmtime_ssp_fd_pwrite(
 
     // Perform a single write operation.
     len = pwrite(fd_number(fo), buf, totalsize, offset);
-    bh_free(buf);
+    wasm_runtime_free(buf);
   }
 #endif
   fd_object_release(fo);
@@ -1377,23 +1376,23 @@ static char *readlinkat_dup(
   size_t len_org = len;
 
   for (;;) {
-    char *newbuf = bh_malloc((uint32)len);
+    char *newbuf = wasm_runtime_malloc((uint32)len);
 
     if (newbuf == NULL) {
       if (buf)
-        bh_free(buf);
+        wasm_runtime_free(buf);
       return NULL;
     }
 
     if (buf != NULL) {
       bh_memcpy_s(newbuf, (uint32)len, buf, (uint32)len_org);
-      bh_free(buf);
+      wasm_runtime_free(buf);
     }
 
     buf = newbuf;
     ssize_t ret = readlinkat(fd, path, buf, len);
     if (ret < 0) {
-      bh_free(buf);
+      wasm_runtime_free(buf);
       return NULL;
     }
     if ((size_t)ret + 1 < len) {
@@ -1444,7 +1443,7 @@ static __wasi_errno_t path_get(
   __wasi_errno_t error =
       fd_object_get(curfds, &fo, fd, rights_base, rights_inheriting);
   if (error != 0) {
-    bh_free(path);
+    wasm_runtime_free(path);
     return error;
   }
 
@@ -1585,7 +1584,7 @@ static __wasi_errno_t path_get(
         // when called on paths like ".", "a/..", but also if the path
         // had trailing slashes and the caller is not interested in the
         // name of the pathname component.
-        bh_free(paths_start[0]);
+        wasm_runtime_free(paths_start[0]);
         pa->path = ".";
         pa->path_start = NULL;
         goto success;
@@ -1593,7 +1592,7 @@ static __wasi_errno_t path_get(
 
       // Finished expanding symlink. Continue processing along the
       // original path.
-      bh_free(paths_start[curpath--]);
+      wasm_runtime_free(paths_start[curpath--]);
     }
     continue;
 
@@ -1601,7 +1600,7 @@ static __wasi_errno_t path_get(
     // Prevent infinite loops by placing an upper limit on the number of
     // symlink expansions.
     if (++expansions == 128) {
-      bh_free(symlink);
+      wasm_runtime_free(symlink);
       error = __WASI_ELOOP;
       goto fail;
     }
@@ -1609,10 +1608,10 @@ static __wasi_errno_t path_get(
     if (*paths[curpath] == '\0') {
       // The original path already finished processing. Replace it by
       // this symlink entirely.
-      bh_free(paths_start[curpath]);
+      wasm_runtime_free(paths_start[curpath]);
     } else if (curpath + 1 == sizeof(paths) / sizeof(paths[0])) {
       // Too many nested symlinks. Stop processing.
-      bh_free(symlink);
+      wasm_runtime_free(symlink);
       error = __WASI_ELOOP;
       goto fail;
     } else {
@@ -1644,7 +1643,7 @@ fail:
   for (size_t i = 1; i <= curfd; ++i)
     close(fds[i]);
   for (size_t i = 0; i <= curpath; ++i)
-    bh_free(paths_start[i]);
+    wasm_runtime_free(paths_start[i]);
   fd_object_release(fo);
   return error;
 #endif
@@ -1668,7 +1667,7 @@ static __wasi_errno_t path_get_nofollow(
 static void path_put(
     struct path_access *pa
 ) UNLOCKS(pa->fd_object->refcount) {
-  bh_free(pa->path_start);
+  wasm_runtime_free(pa->path_start);
   if (fd_number(pa->fd_object) != pa->fd)
     close(pa->fd);
   fd_object_release(pa->fd_object);
@@ -1770,12 +1769,12 @@ __wasi_errno_t wasmtime_ssp_path_link(
       rwlock_rdlock(&prestats->lock);
       if (!validate_path(target, prestats)) {
           rwlock_unlock(&prestats->lock);
-          bh_free(target);
+          wasm_runtime_free(target);
           return __WASI_EBADF;
       }
       rwlock_unlock(&prestats->lock);
       ret = symlinkat(target, new_pa.fd, new_pa.path);
-      bh_free(target);
+      wasm_runtime_free(target);
     }
   }
   path_put(&old_pa);
@@ -2312,21 +2311,21 @@ __wasi_errno_t wasmtime_ssp_path_symlink(
   __wasi_errno_t error = path_get_nofollow(curfds,
       &pa, fd, new_path, new_path_len, __WASI_RIGHT_PATH_SYMLINK, 0, true);
   if (error != 0) {
-    bh_free(target);
+    wasm_runtime_free(target);
     return error;
   }
 
   rwlock_rdlock(&prestats->lock);
   if (!validate_path(target, prestats)) {
       rwlock_unlock(&prestats->lock);
-      bh_free(target);
+      wasm_runtime_free(target);
       return __WASI_EBADF;
   }
   rwlock_unlock(&prestats->lock);
 
   int ret = symlinkat(target, pa.fd, pa.path);
   path_put(&pa);
-  bh_free(target);
+  wasm_runtime_free(target);
   if (ret < 0)
     return convert_errno(errno);
   return 0;
@@ -2479,12 +2478,12 @@ __wasi_errno_t wasmtime_ssp_poll_oneoff(
   // __WASI_EVENTTYPE_FD_WRITE entries. There may be up to one
   // __WASI_EVENTTYPE_CLOCK entry to act as a timeout. These are also
   // the subscriptions generate by cloudlibc's poll() and select().
-  struct fd_object **fos = bh_malloc((uint32)(nsubscriptions * sizeof(*fos)));
+  struct fd_object **fos = wasm_runtime_malloc((uint32)(nsubscriptions * sizeof(*fos)));
   if (fos == NULL)
     return __WASI_ENOMEM;
-  struct pollfd *pfds = bh_malloc((uint32)(nsubscriptions * sizeof(*pfds)));
+  struct pollfd *pfds = wasm_runtime_malloc((uint32)(nsubscriptions * sizeof(*pfds)));
   if (pfds == NULL) {
-    bh_free(fos);
+    wasm_runtime_free(fos);
     return __WASI_ENOMEM;
   }
 
@@ -2623,8 +2622,8 @@ __wasi_errno_t wasmtime_ssp_poll_oneoff(
   for (size_t i = 0; i < nsubscriptions; ++i)
     if (fos[i] != NULL)
       fd_object_release(fos[i]);
-  bh_free(fos);
-  bh_free(pfds);
+  wasm_runtime_free(fos);
+  wasm_runtime_free(pfds);
   return error;
 }
 
@@ -2866,12 +2865,12 @@ bool argv_environ_init(struct argv_environ_values *argv_environ,
 
     total_size = sizeof(char *) * (uint64)argv_offsets_len;
     if (total_size >= UINT32_MAX
-        || !(argv_environ->argv = bh_malloc((uint32)total_size)))
+        || !(argv_environ->argv = wasm_runtime_malloc((uint32)total_size)))
         return false;
 
 
     if (argv_buf_len >= UINT32_MAX
-        || !(argv_environ->argv_buf = bh_malloc((uint32)argv_buf_len)))
+        || !(argv_environ->argv_buf = wasm_runtime_malloc((uint32)argv_buf_len)))
         goto fail1;
 
     for (i = 0; i < argv_offsets_len; ++i) {
@@ -2885,11 +2884,11 @@ bool argv_environ_init(struct argv_environ_values *argv_environ,
 
     total_size = sizeof(char *) * (uint64)environ_offsets_len;
     if (total_size >= UINT32_MAX
-        || !(argv_environ->environ = bh_malloc((uint32)total_size)))
+        || !(argv_environ->environ = wasm_runtime_malloc((uint32)total_size)))
         goto fail2;
 
     if (environ_buf_len >= UINT32_MAX
-        || !(argv_environ->environ_buf = bh_malloc((uint32)environ_buf_len)))
+        || !(argv_environ->environ_buf = wasm_runtime_malloc((uint32)environ_buf_len)))
         goto fail3;
 
     for (i = 0; i < environ_offsets_len; ++i) {
@@ -2901,11 +2900,11 @@ bool argv_environ_init(struct argv_environ_values *argv_environ,
     return true;
 
 fail3:
-    bh_free(argv_environ->environ);
+    wasm_runtime_free(argv_environ->environ);
 fail2:
-    bh_free(argv_environ->argv_buf);
+    wasm_runtime_free(argv_environ->argv_buf);
 fail1:
-    bh_free(argv_environ->argv);
+    wasm_runtime_free(argv_environ->argv);
 
     memset(argv_environ, 0, sizeof(struct argv_environ_values));
     return false;
@@ -2914,13 +2913,13 @@ fail1:
 void argv_environ_destroy(struct argv_environ_values *argv_environ)
 {
     if (argv_environ->argv_buf)
-        bh_free(argv_environ->argv_buf);
+        wasm_runtime_free(argv_environ->argv_buf);
     if (argv_environ->argv)
-        bh_free(argv_environ->argv);
+        wasm_runtime_free(argv_environ->argv);
     if (argv_environ->environ_buf)
-        bh_free(argv_environ->environ_buf);
+        wasm_runtime_free(argv_environ->environ_buf);
     if (argv_environ->environ)
-        bh_free(argv_environ->environ);
+        wasm_runtime_free(argv_environ->environ);
 }
 
 void fd_table_destroy(struct fd_table *ft)
@@ -2931,7 +2930,7 @@ void fd_table_destroy(struct fd_table *ft)
                 fd_object_release(ft->entries[i].object);
             }
         }
-        bh_free(ft->entries);
+        wasm_runtime_free(ft->entries);
     }
 }
 
@@ -2940,9 +2939,9 @@ void fd_prestats_destroy(struct fd_prestats *pt)
     if (pt->prestats) {
         for (uint32 i = 0; i < pt->size; i++) {
             if (pt->prestats[i].dir != NULL) {
-                bh_free((void*)pt->prestats[i].dir);
+                wasm_runtime_free((void*)pt->prestats[i].dir);
             }
         }
-        bh_free(pt->prestats);
+        wasm_runtime_free(pt->prestats);
     }
 }

@@ -22,9 +22,6 @@
 extern "C" {
 #endif
 
-#define wasm_malloc bh_malloc
-#define wasm_realloc bh_realloc
-#define wasm_free bh_free
 
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
@@ -64,16 +61,12 @@ bool
 wasm_runtime_init();
 
 /* See wasm_export.h for description */
-void
-wasm_runtime_destroy();
-
-/* See wasm_export.h for description */
 bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
 
 /* See wasm_export.h for description */
 void
-wasm_runtime_full_destroy();
+wasm_runtime_destroy();
 
 /* See wasm_export.h for description */
 PackageType

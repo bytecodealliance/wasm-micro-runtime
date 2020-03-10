@@ -4,7 +4,6 @@
  */
 
 #include "wasm_interp.h"
-#include "bh_memory.h"
 #include "bh_log.h"
 #include "wasm_runtime.h"
 #include "wasm_opcode.h"

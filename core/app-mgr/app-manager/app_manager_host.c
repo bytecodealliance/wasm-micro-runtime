@@ -9,7 +9,6 @@
 #include "app_manager.h"
 #include "app_manager_export.h"
 #include "coap_ext.h"
-#include "bh_memory.h"
 #include "bh_thread.h"
 
 /* host communication interface */
@@ -66,7 +65,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
         ctx->message.payload_size = 0;
 
         if (ctx->message.payload) {
-            bh_free(ctx->message.payload);
+            APP_MGR_FREE(ctx->message.payload);
             ctx->message.payload = NULL;
         }
 
@@ -117,7 +116,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
                 app_manager_printf("##On byte arrive: payload_size: %d\n",
                         ctx->message.payload_size);
             if (ctx->message.payload) {
-                bh_free(ctx->message.payload);
+                APP_MGR_FREE(ctx->message.payload);
                 ctx->message.payload = NULL;
             }
 
@@ -137,7 +136,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
 
             if (ctx->message.message_type != INSTALL_WASM_APP) {
                 ctx->message.payload =
-                    (char *) bh_malloc(ctx->message.payload_size);
+                    (char *) APP_MGR_MALLOC(ctx->message.payload_size);
                 if (!ctx->message.payload) {
                     ctx->phase = Phase_Non_Start;
                     return 0;
@@ -222,7 +221,7 @@ int aee_host_msg_callback(void *msg, uint16_t msg_len)
                     printf("unexpected host msg type: %d\n", msg_type);
                 }
 
-                bh_free(recv_ctx.message.payload);
+                APP_MGR_FREE(recv_ctx.message.payload);
                 recv_ctx.message.payload = NULL;
                 recv_ctx.message.payload_size = 0;
             }
