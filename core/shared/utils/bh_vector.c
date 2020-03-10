@@ -5,7 +5,6 @@
 
 #include "bh_log.h"
 #include "bh_vector.h"
-#include "bh_memory.h"
 
 
 static uint8*
@@ -18,7 +17,7 @@ alloc_vector_data(uint32 length, uint32 size_elem)
         return NULL;
     }
 
-    if ((data = bh_malloc((uint32)total_size))) {
+    if ((data = BH_MALLOC((uint32)total_size))) {
         memset(data, 0, (uint32)total_size);
     }
 
@@ -41,7 +40,7 @@ extend_vector(Vector *vector, uint32 length)
     }
 
     memcpy(data, vector->data, vector->size_elem * vector->max_elements);
-    bh_free(vector->data);
+    BH_FREE(vector->data);
     vector->data = data;
     vector->max_elements = length;
     return true;
@@ -200,7 +199,7 @@ bh_vector_destroy(Vector *vector)
     }
 
     if (vector->data)
-        bh_free(vector->data);
+        BH_FREE(vector->data);
     memset(vector, 0, sizeof(Vector));
     return true;
 }

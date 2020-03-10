@@ -6,12 +6,7 @@
 #ifndef _BH_COMMON_H
 #define _BH_COMMON_H
 
-#include "bh_assert.h"
 #include "bh_platform.h"
-#include "bh_list.h"
-
-typedef void (*bh_print_function_t)(const char* message);
-void bh_set_print_function(bh_print_function_t pf);
 
 #define bh_memcpy_s(dest, dlen, src, slen) do {                         \
     int _ret = slen == 0 ? 0 : b_memcpy_s (dest, dlen, src, slen);      \
@@ -30,5 +25,15 @@ void bh_set_print_function(bh_print_function_t pf);
     (void)_ret;                                                         \
     bh_assert (_ret == 0);                                              \
   } while (0)
+
+int b_memcpy_s(void * s1, unsigned int s1max, const void * s2, unsigned int n);
+int b_strcat_s(char * s1, size_t s1max, const char * s2);
+int b_strcpy_s(char * s1, size_t s1max, const char * s2);
+
+/* strdup with string allocated by BH_MALLOC */
+char *bh_strdup(const char *s);
+
+/* strdup with string allocated by WA_MALLOC */
+char *wa_strdup(const char *s);
 
 #endif

@@ -27,7 +27,6 @@
 #include "bh_common.h"
 #include "bh_queue.h"
 #include "bh_thread.h"
-#include "bh_memory.h"
 #include "runtime_sensor.h"
 #include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
@@ -466,19 +465,22 @@ static void hal_init(void)
 // Driver function
 int iwasm_main(int argc, char *argv[])
 {
+    RuntimeInitArgs init_args;
     korp_thread tid;
 
     if (!parse_args(argc, argv))
         return -1;
 
-    if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
-        printf("Init global heap failed.\n");
-        return -1;
-    }
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-    if (vm_thread_sys_init() != 0) {
-        goto fail1;
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+
+    /* initialize runtime environment */
+    if (!wasm_runtime_full_init(&init_args)) {
+        bh_printf("Init runtime environment failed.\n");
+        return -1;
     }
 
     if (!init_connection_framework()) {
@@ -513,7 +515,6 @@ int iwasm_main(int argc, char *argv[])
     exit_connection_framework();
 
 fail1:
-    bh_memory_destroy();
-
+    wasm_runtime_destroy();
     return -1;
 }

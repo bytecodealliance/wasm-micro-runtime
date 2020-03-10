@@ -75,7 +75,7 @@ uint16 ntohs(uint16 value)
 char *wa_strdup(const char *s)
 {
     char *s1 = NULL;
-    if (s && (s1 = wa_malloc(strlen(s) + 1)))
+    if (s && (s1 = WA_MALLOC(strlen(s) + 1)))
         memcpy(s1, s, strlen(s) + 1);
     return s1;
 }

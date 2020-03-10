@@ -6,9 +6,6 @@
 #include "bh_thread.h"
 #include "bh_assert.h"
 #include "bh_log.h"
-#include "bh_memory.h"
-#include <stdio.h>
-#include <stdlib.h>
 
 typedef struct bh_thread_wait_node {
     struct k_sem sem;
@@ -140,11 +137,11 @@ static void thread_obj_list_reclaim()
         if (p->to_be_freed) {
             if (p_prev == NULL) { /* p is the head of list */
                 thread_obj_list = p->next;
-                bh_free(p);
+                BH_FREE(p);
                 p = thread_obj_list;
             } else { /* p is not the head of list */
                 p_prev->next = p->next;
-                bh_free(p);
+                BH_FREE(p);
                 p = p_prev->next;
             }
         } else {
@@ -210,7 +207,7 @@ static void vm_thread_cleanup(void)
     /* Set flag to true for the next thread creating to
      free the thread object */
     ((bh_thread_obj*) thread_data->tid)->to_be_freed = true;
-    bh_free(thread_data);
+    BH_FREE(thread_data);
 }
 
 static void vm_thread_wrapper(void *start, void *arg, void *thread_data)
@@ -244,15 +241,15 @@ int _vm_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     thread_obj_list_reclaim();
 
     /* Create and initialize thread object */
-    if (!(tid = bh_malloc(sizeof(bh_thread_obj))))
+    if (!(tid = BH_MALLOC(sizeof(bh_thread_obj))))
         return BHT_ERROR;
 
     memset(tid, 0, sizeof(bh_thread_obj));
 
     /* Create and initialize thread data */
     thread_data_size = offsetof(bh_thread_data, stack) + stack_size;
-    if (!(thread_data = bh_malloc(thread_data_size))) {
-        bh_free(tid);
+    if (!(thread_data = BH_MALLOC(thread_data_size))) {
+        BH_FREE(tid);
         return BHT_ERROR;
     }
 
@@ -265,8 +262,8 @@ int _vm_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     if (!((tid = k_thread_create(tid, (k_thread_stack_t *) thread_data->stack,
             stack_size, vm_thread_wrapper, start, arg, thread_data, prio, 0,
             K_NO_WAIT)))) {
-        bh_free(tid);
-        bh_free(thread_data);
+        BH_FREE(tid);
+        BH_FREE(thread_data);
         return BHT_ERROR;
     }
 
@@ -305,7 +302,7 @@ int _vm_thread_join(korp_tid thread, void **value_ptr, int mills)
     bh_thread_wait_node *node;
 
     /* Create wait node and append it to wait list */
-    if (!(node = bh_malloc(sizeof(bh_thread_wait_node))))
+    if (!(node = BH_MALLOC(sizeof(bh_thread_wait_node))))
         return BHT_ERROR;
 
     k_sem_init(&node->sem, 0, 1);
@@ -334,7 +331,7 @@ int _vm_thread_join(korp_tid thread, void **value_ptr, int mills)
     k_sleep(100);
 
     /* Destroy resource */
-    bh_free(node);
+    BH_FREE(node);
     return BHT_OK;
 }
 
@@ -449,7 +446,7 @@ static int _vm_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
     bh_thread_wait_node *node;
 
     /* Create wait node and append it to wait list */
-    if (!(node = bh_malloc(sizeof(bh_thread_wait_node))))
+    if (!(node = BH_MALLOC(sizeof(bh_thread_wait_node))))
         return BHT_ERROR;
 
     k_sem_init(&node->sem, 0, 1);
@@ -483,7 +480,7 @@ static int _vm_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
             p = p->next;
         p->next = node->next;
     }
-    bh_free(node);
+    BH_FREE(node);
     k_mutex_unlock(&cond->wait_list_lock);
 
     return BHT_OK;

@@ -9,7 +9,6 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include "lib_export.h"
-#include "bh_memory.h"
 
 
 #ifdef __cplusplus
@@ -53,24 +52,33 @@ typedef enum {
 
 /* Memory allocator type */
 typedef enum {
+    /* pool mode, allocate memory from user defined heap buffer */
     Alloc_With_Pool = 0,
-    Alloc_With_Allocator
+    /* user allocator mode, allocate memory from user defined
+       malloc function */
+    Alloc_With_Allocator,
+    /* system allocator mode, allocate memory from system allocator,
+       or, platform's os_malloc function */
+    Alloc_With_System_Allocator,
 } mem_alloc_type_t;
+
+/* Memory allocator option */
+typedef union MemAllocOption {
+    struct {
+        void *heap_buf;
+        uint32_t heap_size;
+    } pool;
+    struct {
+        void *malloc_func;
+        void *realloc_func;
+        void *free_func;
+    } allocator;
+} MemAllocOption;
 
 /* WASM runtime initialize arguments */
 typedef struct RuntimeInitArgs {
     mem_alloc_type_t mem_alloc_type;
-    union {
-        struct {
-            void *heap_buf;
-            uint32_t heap_size;
-        } pool;
-        struct {
-            void *malloc_func;
-            void *realloc_func;
-            void *free_func;
-        } allocator;
-    } mem_alloc;
+    MemAllocOption mem_alloc_option;
 
     const char *native_module_name;
     NativeSymbol *native_symbols;
@@ -78,18 +86,14 @@ typedef struct RuntimeInitArgs {
 } RuntimeInitArgs;
 
 /**
- * Initialize the WASM runtime environment.
+ * Initialize the WASM runtime environment, and also initialize
+ * the memory allocator with system allocator, which calls os_malloc
+ * to allocate memory
  *
  * @return true if success, false otherwise
  */
 bool
 wasm_runtime_init();
-
-/**
- * Destroy the WASM runtime environment.
- */
-void
-wasm_runtime_destroy();
 
 /**
  * Initialize the WASM runtime environment, and also initialize
@@ -104,11 +108,36 @@ bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
 
 /**
- * Destroy the wasm runtime environment, and also destroy
- * the memory allocator and registered native symbols
+ * Destroy the WASM runtime environment.
  */
 void
-wasm_runtime_full_destroy();
+wasm_runtime_destroy();
+
+/**
+ * Allocate memory from runtime memory environment.
+ *
+ * @param size bytes need to allocate
+ *
+ * @return the pointer to memory allocated
+ */
+void *
+wasm_runtime_malloc(unsigned int size);
+
+/**
+ * Reallocate memory from runtime memory environment
+ *
+ * @param ptr the original memory
+ * @param size bytes need to reallocate
+ *
+ * @return the pointer to memory reallocated
+ */
+void *
+wasm_runtime_realloc(void *ptr, unsigned int size);
+
+/*
+ * Free memory to runtime memory environment.
+ */
+void wasm_runtime_free(void *ptr);
 
 /**
  * Get the package type of a buffer.

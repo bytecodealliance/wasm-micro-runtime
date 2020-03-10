@@ -186,7 +186,7 @@ call_llvm_intrinsic(AOTCompContext *comp_ctx,
     /* Create param values */
     total_size = sizeof(LLVMValueRef) * (uint64)param_count;
     if (total_size >= UINT32_MAX
-        || !(param_values = wasm_malloc((uint32)total_size))) {
+        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
         aot_set_last_error("allocate memory for param values failed.");
         return false;
     }
@@ -201,7 +201,7 @@ call_llvm_intrinsic(AOTCompContext *comp_ctx,
                                 param_types, param_count,
                                 param_values);
 
-    wasm_free(param_values);
+    wasm_runtime_free(param_values);
 
     return ret;
 }
@@ -221,7 +221,7 @@ call_llvm_intrinsic_v(AOTCompContext *comp_ctx,
     /* Create param values */
     total_size = sizeof(LLVMValueRef) * (uint64)param_count;
     if (total_size >= UINT32_MAX
-        || !(param_values = wasm_malloc((uint32)total_size))) {
+        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
         aot_set_last_error("allocate memory for param values failed.");
         return false;
     }
@@ -234,7 +234,7 @@ call_llvm_intrinsic_v(AOTCompContext *comp_ctx,
                                 param_types, param_count,
                                 param_values);
 
-    wasm_free(param_values);
+    wasm_runtime_free(param_values);
 
     return ret;
 }

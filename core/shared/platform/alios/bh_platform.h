@@ -8,7 +8,6 @@
 
 #include "bh_config.h"
 #include "bh_types.h"
-#include "bh_memory.h"
 #include <aos/kernel.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -39,10 +38,6 @@
 typedef uint64_t uint64;
 typedef int64_t int64;
 
-#define wa_malloc bh_malloc
-#define wa_free bh_free
-#define wa_strdup bh_strdup
-
 typedef aos_task_t korp_thread;
 typedef korp_thread *korp_tid;
 typedef aos_task_t *aos_tid_t;
@@ -57,6 +52,10 @@ typedef struct korp_cond {
 } korp_cond;
 
 typedef void* (*thread_start_routine_t)(void*);
+
+void *os_malloc(unsigned size);
+void *os_realloc(void *ptr, unsigned size);
+void os_free(void *ptr);
 
 /* Unit test framework is based on C++, where the declaration of
    snprintf is different.  */
@@ -84,10 +83,6 @@ int snprintf(char *buffer, size_t count, const char *format, ...);
 
 extern void bh_assert_internal(int v, const char *file_name, int line_number, const char *expr_string);
 #define bh_assert(expr) bh_assert_internal((int)(expr), __FILE__, __LINE__, # expr)
-
-extern int b_memcpy_s(void * s1, unsigned int s1max, const void * s2, unsigned int n);
-extern int b_strcat_s(char * s1, size_t s1max, const char * s2);
-extern int b_strcpy_s(char * s1, size_t s1max, const char * s2);
 
 /* math functions */
 double sqrt(double x);

@@ -7,7 +7,6 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_loader.h"
-#include "bh_memory.h"
 
 static char *block_name_prefix[] = { "block", "loop", "if" };
 static char *block_name_suffix[] = { "begin", "else", "end" };
@@ -208,7 +207,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Allocate memory */
-    if (!(block = wasm_malloc(sizeof(AOTBlock)))) {
+    if (!(block = wasm_runtime_malloc(sizeof(AOTBlock)))) {
         aot_set_last_error("allocate memory failed.");
         return false;
     }
@@ -309,7 +308,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         goto fail;
                     }
                     /* skip the block */
-                    wasm_free(block);
+                    wasm_runtime_free(block);
                     *p_frame_ip = end_addr + 1;
                 }
             }
@@ -322,7 +321,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     return true;
 fail:
-    wasm_free(block);
+    wasm_runtime_free(block);
     return false;
 }
 

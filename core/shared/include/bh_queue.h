@@ -20,8 +20,8 @@ typedef struct bh_queue bh_queue;
 
 typedef void (*bh_queue_handle_msg_callback)(void *message, void *arg);
 
-#define bh_queue_malloc bh_malloc
-#define bh_queue_free bh_free
+#define bh_queue_malloc BH_MALLOC
+#define bh_queue_free BH_FREE
 
 #define bh_queue_mutex korp_mutex
 #define bh_queue_sem korp_sem

@@ -32,10 +32,10 @@ sensor_event_cleaner(sensor_event_data_t *sensor_event)
         if (sensor_event->data_fmt == FMT_ATTR_CONTAINER)
             attr_container_destroy(sensor_event->data);
         else
-            bh_free(sensor_event->data);
+            wasm_runtime_free(sensor_event->data);
     }
 
-    bh_free(sensor_event);
+    wasm_runtime_free(sensor_event);
 }
 
 static void
@@ -56,7 +56,7 @@ wasm_sensor_callback(void *client, uint32 sensor_id, void *user_data)
       return;
 
     sensor_data_len = attr_container_get_serialize_length(sensor_data);
-    sensor_data_clone = (attr_container_t *)bh_malloc(sensor_data_len);
+    sensor_data_clone = (attr_container_t *)wasm_runtime_malloc(sensor_data_len);
     if (sensor_data_clone == NULL)
         return;
 
@@ -64,9 +64,9 @@ wasm_sensor_callback(void *client, uint32 sensor_id, void *user_data)
     bh_memcpy_s(sensor_data_clone, sensor_data_len,
                 sensor_data, sensor_data_len);
 
-    sensor_event = (sensor_event_data_t *)bh_malloc(sizeof(*sensor_event));
+    sensor_event = (sensor_event_data_t *)wasm_runtime_malloc(sizeof(*sensor_event));
     if (sensor_event == NULL) {
-        bh_free(sensor_data_clone);
+        wasm_runtime_free(sensor_data_clone);
         return;
     }
 
@@ -158,7 +158,7 @@ wasm_sensor_open(wasm_exec_env_t exec_env,
             return -1;
         }
 
-        sensor_client_t * client = (sensor_client_t*) bh_malloc(
+        sensor_client_t * client = (sensor_client_t*) wasm_runtime_malloc(
                 sizeof(sensor_client_t));
         if (client == NULL) {
             vm_mutex_unlock(&s->lock);
@@ -220,7 +220,7 @@ wasm_sensor_close(wasm_exec_env_t exec_env, uint32 sensor)
 
     vm_mutex_lock(&s->lock);
     if ((c = find_sensor_client(s, client_id, true)) != NULL)
-        bh_free(c);
+        wasm_runtime_free(c);
     vm_mutex_unlock(&s->lock);
 
     refresh_read_interval(s);
@@ -272,7 +272,7 @@ sensor_obj_t
 add_sys_sensor(char * name, char * description, int instance,
                uint32 default_interval, void * read_func, void * config_func)
 {
-    sys_sensor_t * s = (sys_sensor_t *) bh_malloc(sizeof(sys_sensor_t));
+    sys_sensor_t * s = (sys_sensor_t *) wasm_runtime_malloc(sizeof(sys_sensor_t));
     if (s == NULL)
         return NULL;
 
@@ -282,15 +282,15 @@ add_sys_sensor(char * name, char * description, int instance,
     s->default_interval = default_interval;
 
     if (!s->name) {
-        bh_free(s);
+        wasm_runtime_free(s);
         return NULL;
     }
 
     if (description) {
         s->description = bh_strdup(description);
         if (!s->description) {
-            bh_free(s->name);
-            bh_free(s);
+            wasm_runtime_free(s->name);
+            wasm_runtime_free(s);
             return NULL;
         }
     }
@@ -414,7 +414,7 @@ void sensor_cleanup_callback(uint32 module_id)
         sensor_client_t *c;
         vm_mutex_lock(&s->lock);
         if ((c = find_sensor_client(s, module_id, true)) != NULL) {
-            bh_free(c);
+            wasm_runtime_free(c);
         }
         vm_mutex_unlock(&s->lock);
         s = s->next;

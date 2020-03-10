@@ -8,7 +8,6 @@
 
 #include "bh_config.h"
 #include "bh_types.h"
-#include "bh_memory.h"
 #include <autoconf.h>
 #include <zephyr.h>
 #include <kernel.h>
@@ -55,10 +54,6 @@ typedef korp_thread *korp_tid;
 typedef struct k_mutex korp_mutex;
 typedef struct k_sem korp_sem;
 
-#define wa_malloc bh_malloc
-#define wa_free bh_free
-#define wa_strdup bh_strdup
-
 struct bh_thread_wait_node;
 typedef struct bh_thread_wait_node *bh_thread_wait_list;
 typedef struct korp_cond {
@@ -68,8 +63,9 @@ typedef struct korp_cond {
 
 typedef void* (*thread_start_routine_t)(void*);
 
-#define wa_malloc bh_malloc
-#define wa_free bh_free
+void *os_malloc(unsigned size);
+void *os_realloc(void *ptr, unsigned size);
+void os_free(void *ptr);
 
 #define bh_printf printf
 
@@ -101,11 +97,6 @@ int snprintf(char *buffer, size_t count, const char *format, ...);
             printk("bh_assert(%s, %d)\n", __func__, __LINE__);\
         } \
     } while (0)
-
-int b_memcpy_s(void * s1, unsigned int s1max, const void * s2,
-               unsigned int n);
-int b_strcat_s(char * s1, size_t s1max, const char * s2);
-int b_strcpy_s(char * s1, size_t s1max, const char * s2);
 
 /* math functions */
 double sqrt(double x);

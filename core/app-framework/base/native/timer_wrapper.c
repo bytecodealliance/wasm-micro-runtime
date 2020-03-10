@@ -107,7 +107,7 @@ timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
         return NULL;
 
     timer_ctx_node_t * node = (timer_ctx_node_t*)
-                              bh_malloc(sizeof(timer_ctx_node_t));
+                              wasm_runtime_malloc(sizeof(timer_ctx_node_t));
     if (node == NULL) {
         destroy_timer_ctx(ctx);
         return NULL;
@@ -131,7 +131,7 @@ void destroy_module_timer_ctx(unsigned int module_id)
         if (timer_ctx_get_owner(elem->timer_ctx) == module_id) {
             bh_list_remove(&g_timer_ctx_list, elem);
             destroy_timer_ctx(elem->timer_ctx);
-            bh_free(elem);
+            wasm_runtime_free(elem);
             break;
         }
 

@@ -53,7 +53,7 @@ cd wamr-compiler
 mkdir build && cd build
 cmake ..
 make
-ln -s ./wamrc /usr/bin/wamrc
+ln -s {current path}/wamrc /usr/bin/wamrc
 ```
 
 ### Build the mini product

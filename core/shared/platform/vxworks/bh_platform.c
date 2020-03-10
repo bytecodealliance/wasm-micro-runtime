@@ -22,6 +22,24 @@ bh_platform_init()
     return 0;
 }
 
+void *
+os_malloc(unsigned size)
+{
+    return malloc(size);
+}
+
+void *
+os_realloc(void *ptr, unsigned size)
+{
+    return realloc(ptr, size);
+}
+
+void
+os_free(void *ptr)
+{
+    free(ptr);
+}
+
 char*
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
@@ -50,7 +68,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 
     file_size = (uint32)stat_buf.st_size;
 
-    if (!(buffer = bh_malloc(file_size))) {
+    if (!(buffer = BH_MALLOC(file_size))) {
         printf("Read file to buffer failed: alloc memory failed.\n");
         close(file);
         return NULL;
@@ -61,7 +79,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 
     if (read_size < file_size) {
         printf("Read file to buffer failed: read file content failed.\n");
-        bh_free(buffer);
+        BH_FREE(buffer);
         return NULL;
     }
 

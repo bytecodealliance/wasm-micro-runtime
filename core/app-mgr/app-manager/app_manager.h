@@ -18,6 +18,9 @@
 extern "C" {
 #endif
 
+#define APP_MGR_MALLOC wasm_runtime_malloc
+#define APP_MGR_FREE wasm_runtime_free
+
 /* bh_printf is defined in each platform */
 #define app_manager_printf bh_printf
 

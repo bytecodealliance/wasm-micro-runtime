@@ -184,7 +184,7 @@ wasm_native_register_natives(const char *module_name,
 {
     NativeSymbolsNode *node;
 
-    if (!(node = bh_malloc(sizeof(NativeSymbolsNode))))
+    if (!(node = wasm_runtime_malloc(sizeof(NativeSymbolsNode))))
         return false;
 
     node->module_name = module_name;
@@ -256,7 +256,7 @@ wasm_native_destroy()
     node = g_native_symbols_list;
     while (node) {
         node_next = node->next;
-        bh_free(node);
+        wasm_runtime_free(node);
         node = node_next;
     }
 

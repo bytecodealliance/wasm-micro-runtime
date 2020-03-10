@@ -5,7 +5,6 @@
 
 #include "app_manager.h"
 #include "bh_platform.h"
-#include "bh_memory.h"
 #include <autoconf.h>
 #include <zephyr.h>
 #include <kernel.h>
@@ -21,7 +20,7 @@ void*
 app_manager_timer_create(void (*timer_callback)(void*),
         watchdog_timer *wd_timer)
 {
-    struct k_timer_watchdog *timer = bh_malloc(sizeof(struct k_timer_watchdog));
+    struct k_timer_watchdog *timer = APP_MGR_MALLOC(sizeof(struct k_timer_watchdog));
 
     if (timer) {
         k_timer_init(&timer->timer, (void (*)(struct k_timer*)) timer_callback,
@@ -34,7 +33,7 @@ app_manager_timer_create(void (*timer_callback)(void*),
 
 void app_manager_timer_destroy(void *timer)
 {
-    bh_free(timer);
+    APP_MGR_FREE(timer);
 }
 
 void app_manager_timer_start(void *timer, int timeout)

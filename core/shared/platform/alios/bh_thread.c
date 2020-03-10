@@ -6,7 +6,6 @@
 #include "bh_thread.h"
 #include "bh_assert.h"
 #include "bh_log.h"
-#include "bh_memory.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -102,7 +101,7 @@ vm_thread_cleanup(void)
   wait_node_sem = &thread_data->wait_node.sem;
 
   /* Free thread data firstly */
-  bh_free(thread_data);
+  BH_FREE(thread_data);
 
   aos_mutex_lock(wait_list_lock, AOS_WAIT_FOREVER);
   if (thread_wait_list) {
@@ -152,7 +151,7 @@ _vm_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     return BHT_ERROR;
 
   /* Create and initialize thread data */
-  if (!(thread_data = bh_malloc(sizeof(bh_thread_data))))
+  if (!(thread_data = BH_MALLOC(sizeof(bh_thread_data))))
     return BHT_ERROR;
 
   memset(thread_data, 0, sizeof(bh_thread_data));
@@ -184,7 +183,7 @@ fail3:
 fail2:
   aos_sem_free(&thread_data->wait_node.sem);
 fail1:
-  bh_free(thread_data);
+  BH_FREE(thread_data);
   return BHT_ERROR;
 }
 

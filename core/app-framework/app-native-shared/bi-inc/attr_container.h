@@ -406,11 +406,11 @@ void
 attr_container_dump(const attr_container_t *attr_cont);
 
 #ifndef attr_container_malloc
-#define attr_container_malloc wa_malloc
+#define attr_container_malloc WA_MALLOC
 #endif
 
 #ifndef attr_container_free
-#define attr_container_free wa_free
+#define attr_container_free WA_FREE
 #endif
 
 #ifndef attr_container_printf

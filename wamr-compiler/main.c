@@ -5,7 +5,6 @@
 
 #include <stdlib.h>
 #include "bh_platform.h"
-#include "bh_memory.h"
 #include "bh_assert.h"
 #include "bh_log.h"
 #include "wasm_export.h"
@@ -52,6 +51,7 @@ main(int argc, char *argv[])
   wasm_module_t wasm_module = NULL;
   aot_comp_data_t comp_data = NULL;
   aot_comp_context_t comp_ctx = NULL;
+  RuntimeInitArgs init_args;
   AOTCompOption option = { 0 };
   char error_buf[128];
   int log_verbose_level = 2;
@@ -134,43 +134,47 @@ main(int argc, char *argv[])
 
   wasm_file_name = argv[0];
 
-  if (bh_memory_init_with_allocator(malloc, free)) {
-      bh_printf("Init memory with memory allocator failed.\n");
-      return -1;
-  }
+  memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+  init_args.mem_alloc_type = Alloc_With_Allocator;
+  init_args.mem_alloc_option.allocator.malloc_func = malloc;
+  init_args.mem_alloc_option.allocator.realloc_func = realloc;
+  init_args.mem_alloc_option.allocator.free_func = free;
 
   /* initialize runtime environment */
-  if (!wasm_runtime_init())
-    goto fail1;
+  if (!wasm_runtime_full_init(&init_args)) {
+    bh_printf("Init runtime environment failed.\n");
+    return -1;
+  }
 
   bh_log_set_verbose_level(log_verbose_level);
 
   /* load WASM byte buffer from WASM bin file */
   if (!(wasm_file = (uint8*)
         bh_read_file_to_buffer(wasm_file_name, &wasm_file_size)))
-    goto fail2;
+    goto fail1;
 
   /* load WASM module */
   if (!(wasm_module = wasm_runtime_load(wasm_file, wasm_file_size,
                                         error_buf, sizeof(error_buf)))) {
     bh_printf("%s\n", error_buf);
-    goto fail3;
+    goto fail2;
   }
 
   if (!(comp_data = aot_create_comp_data(wasm_module))) {
     bh_printf("%s\n", aot_get_last_error());
-    goto fail4;
+    goto fail3;
   }
 
   if (!(comp_ctx = aot_create_comp_context(comp_data,
                                            &option))) {
     bh_printf("%s\n", aot_get_last_error());
-    goto fail5;
+    goto fail4;
   }
 
   if (!aot_compile_wasm(comp_ctx)) {
     bh_printf("%s\n", aot_get_last_error());
-    goto fail6;
+    goto fail5;
   }
 
   switch (option.output_format) {
@@ -178,19 +182,19 @@ main(int argc, char *argv[])
       case AOT_LLVMIR_OPT_FILE:
           if (!aot_emit_llvm_file(comp_ctx, out_file_name)) {
               bh_printf("%s\n", aot_get_last_error());
-              goto fail6;
+              goto fail5;
           }
           break;
       case AOT_OBJECT_FILE:
           if (!aot_emit_object_file(comp_ctx, out_file_name)) {
               bh_printf("%s\n", aot_get_last_error());
-              goto fail6;
+              goto fail5;
           }
           break;
       case AOT_FORMAT_FILE:
           if (!aot_emit_aot_file(comp_ctx, comp_data, out_file_name)) {
               bh_printf("%s\n", aot_get_last_error());
-              goto fail6;
+              goto fail5;
           }
           break;
       default:
@@ -199,29 +203,25 @@ main(int argc, char *argv[])
 
   bh_printf("Compile success, file %s was generated.\n", out_file_name);
 
-fail6:
+fail5:
   /* Destroy compiler context */
   aot_destroy_comp_context(comp_ctx);
 
-fail5:
+fail4:
   /* Destroy compile data */
   aot_destroy_comp_data(comp_data);
 
-fail4:
+fail3:
   /* Unload WASM module */
   wasm_runtime_unload(wasm_module);
 
-fail3:
-  /* free the file buffer */
-  bh_free(wasm_file);
-
 fail2:
-  /* Destroy runtime environment */
-  wasm_runtime_destroy();
+  /* free the file buffer */
+  wasm_runtime_free(wasm_file);
 
 fail1:
-  bh_memory_destroy();
-
+  /* Destroy runtime environment */
+  wasm_runtime_destroy();
   return 0;
 }
 
