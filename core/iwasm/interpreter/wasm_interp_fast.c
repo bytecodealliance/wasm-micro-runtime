@@ -534,13 +534,16 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 #if WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0
 #define DEF_OP_NUMERIC_64 DEF_OP_NUMERIC
 #else
-#define DEF_OP_NUMERIC_64(src_type1, src_type2, src_op_type, operation) do {\
-    src_type1 val1;                                                         \
-    src_type2 val2;                                                         \
-    val1 = (src_type1)GET_##src_op_type##_FROM_ADDR(frame_ip + 2);          \
-    val2 = (src_type2)GET_##src_op_type##_FROM_ADDR(frame_ip);              \
-    val1 operation##= val2;                                                 \
-    PUT_##src_op_type##_TO_ADDR(frame_ip + 4, val1);                        \
+#define DEF_OP_NUMERIC_64(src_type1, src_type2, src_op_type, operation) do {          \
+    src_type1 val1;                                                                   \
+    src_type2 val2;                                                                   \
+    val1 =                                                                            \
+      (src_type1)GET_##src_op_type##_FROM_ADDR(frame_lp + (*(int16*)(frame_ip + 2))); \
+    val2 =                                                                            \
+      (src_type2)GET_##src_op_type##_FROM_ADDR(frame_lp + (*(int16*)(frame_ip)));     \
+    val1 operation##= val2;                                                           \
+    PUT_##src_op_type##_TO_ADDR(frame_lp + (*(int16*)(frame_ip + 4)), val1);          \
+    frame_ip += 6;                                                                    \
   } while (0)
 #endif
 
