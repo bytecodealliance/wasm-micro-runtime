@@ -3054,7 +3054,8 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type,
         }
         c->slot_index = operand_offset;
         ctx->num_const ++;
-        LOG_OP("#### new const [%d]: %ld\n", num_const, (int64)val);
+        LOG_OP("#### new const [%d]: %ld\n",
+            ctx->num_const, (int64)c->value.i64);
     }
     /* use negetive index for const */
     operand_offset = -(operand_offset + 1);
@@ -4300,7 +4301,8 @@ handle_next_reachable_block:
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
                 disable_emit = true;
-                f64 = *(float64 *)p_org;
+                /* Some MCU may require 8-byte align */
+                memcpy((uint8*)&f64, p_org, sizeof(float64));
                 GET_CONST_F64_OFFSET(VALUE_TYPE_F64, f64);
 #endif
                 PUSH_F64();
