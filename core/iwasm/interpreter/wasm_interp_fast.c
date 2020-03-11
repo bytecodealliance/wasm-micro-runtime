@@ -874,12 +874,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         goto return_func;
 
-      HANDLE_OP (WASM_OP_CALL):
-        fidx = frame_lp[GET_OFFSET()];
-        bh_assert(fidx < module->function_count);
-        cur_func = module->functions + fidx;
-        goto call_func_from_interp;
-
       HANDLE_OP (WASM_OP_CALL_INDIRECT):
         {
           WASMType *cur_type, *cur_func_type;
@@ -2055,6 +2049,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         frame = prev_frame;
         frame_ip = frame->ip;
         goto call_func_from_entry;
+
+      HANDLE_OP (WASM_OP_CALL):
+        fidx = frame_lp[GET_OFFSET()];
+        bh_assert(fidx < module->function_count);
+        cur_func = module->functions + fidx;
+        goto call_func_from_interp;
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
       default:

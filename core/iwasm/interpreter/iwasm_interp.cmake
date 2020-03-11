@@ -10,7 +10,7 @@ include_directories(${IWASM_INTERP_DIR})
 if (WAMR_BUILD_FAST_INTERP EQUAL 1)
     set (INTERPRETER     "wasm_interp_fast.c")
 else ()
-    set (INTERPRETER     "wasm_interp.c")
+    set (INTERPRETER     "wasm_interp_classic.c")
 endif ()
 
 file (GLOB_RECURSE source_all
