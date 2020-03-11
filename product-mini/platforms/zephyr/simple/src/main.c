@@ -81,7 +81,7 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
         bh_printf("Init runtime environment failed.\n");
-        return -1;
+        return;
     }
 
 #if WASM_ENABLE_LOG != 0

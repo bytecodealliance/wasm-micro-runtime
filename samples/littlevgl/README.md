@@ -68,28 +68,46 @@ Build and Run
 Test on Zephyr
 ================================
 We can use a STM32 NUCLEO_F767ZI  board with ILI9341 display and XPT2046 touch screen to run the test. Then use host_tool to remotely install wasm app into STM32.
-- Build WASM VM into Zephyr system</br>
- a. clone zephyr source code</br>
-Refer to Zephyr getting started.</br>
-https://docs.zephyrproject.org/latest/getting_started/index.html</br>
-`west init zephyrproject`</br>
-`cd zephyrproject`</br>
-`west update`</br>
- b. copy samples</br>
-    `cd zephyr/samples/`</br>
-    `cp -a <wamr_root>samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime`</br>
-    `cd vgl-wasm-runtime/zephyr_build`</br>
- c. create a link to wamr root dir</br>
-   ` ln -s <wamr_root> wamr`</br>
- d. build source code</br>
-    Since ui_app incorporated LittlevGL source code, so it needs more RAM on the device to install the application.
-    It is recommended that RAM SIZE not less than 380KB.
-    In our test use nucleo_f767zi, which is supported by Zephyr.
+- Build WASM VM into Zephyr system
+  a. clone zephyr source code
+  Refer to Zephyr getting started.
+  https://docs.zephyrproject.org/latest/getting_started/index.html
 
-    `mkdir build && cd build`</br>
-    `source ../../../../zephyr-env.sh`</br>
-    `cmake -GNinja -DBOARD=nucleo_f767zi ..`</br>
-   ` ninja flash`</br>
+  ```bash
+  west init zephyrproject
+  cd zephyrproject
+  west update
+  ```
+
+  b. copy samples
+  ```bash
+  cd zephyr/samples/
+  cp -a <wamr_root>samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime
+  cd vgl-wasm-runtime/zephyr_build
+  ```
+  c. create a link to wamr root dir
+  ```bash
+  ln -s <wamr_root> wamr
+  ```
+
+  d. build source code
+  Since ui_app incorporated LittlevGL source code, so it needs more RAM on the device to install the application.  It is recommended that RAM SIZE not less than 380KB. In our test use nucleo_f767zi, which is supported by Zephyr. Since the littlevgl wasm app is quite big (~100KB in wasm format and ~200KB in AOT format ), there isn't enough SRAM to build interpreter and AOT together. You can only choose one of them:
+
+  - Interpreter
+    ``` Bash
+    mkdir build && cd build
+    source ../../../../zephyr-env.sh
+    cmake -GNinja -DBOARD=nucleo_f767zi -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 ..
+    ninja flash
+    ```
+
+  - AOT
+  ``` Bash
+    mkdir build && cd build
+    source ../../../../zephyr-env.sh
+    cmake -GNinja -DBOARD=nucleo_f767zi -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 ..
+    ninja flash
+    ```
 
 - Hardware Connections
 

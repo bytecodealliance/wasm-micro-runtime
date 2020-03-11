@@ -98,7 +98,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/bh_assert.c \
                    src/main.c
 
 ifeq (${WAMR_BUILD_INTERP}, 1)
-$(NAME)_SOURCES += ${IWASM_ROOT}/interpreter/wasm_interp.c \
+$(NAME)_SOURCES += ${IWASM_ROOT}/interpreter/wasm_interp_classic.c \
                    ${IWASM_ROOT}/interpreter/wasm_loader.c \
                    ${IWASM_ROOT}/interpreter/wasm_runtime.c
 endif
