@@ -12,7 +12,6 @@ extern "C" {
 
 #include "bh_platform.h"
 #include "bh_thread.h"
-#include "bh_memory.h"
 #include "bh_assert.h"
 #include "ems_gc.h"
 

@@ -4,13 +4,11 @@ Embedding WAMR guideline
 
 **Note**: All the embedding APIs supported by the runtime are defined under folder [core/iwasm/include](../core/iwasm/include). The API details are available in the header files.
 
-## The initialization procedure
+## The runtime initialization
 
 
 
 ``` C
-  static char global_heap_buf[512 * 1024];
-
   char *buffer, error_buf[128];
   wasm_module_t module;
   wasm_module_inst_t module_inst;
@@ -18,26 +16,61 @@ Embedding WAMR guideline
   wasm_exec_env_t exec_env;
   uint32 size, stack_size = 8092, heap_size = 8092;
 
-  // all the WAMR heap and WASM applications are limited in this buffer
-  bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf));
-  
+  // initialize the wasm runtime by default configurations
   wasm_runtime_init();
 
   // read WASM file into a memory buffer
   buffer = read_wasm_binary_to_buffer(…, &size);
-  
+
+  // Add it below if runtime needs to export native functions to WASM APP 
+  // wasm_runtime_register_natives(...)
+
   // parse the WASM file from buffer and create a WASM module
   module = wasm_runtime_load(buffer, size, error_buf, sizeof(error_buf));
 
   // create an instance of the WASM module (WASM linear memory is ready)
-  module_inst = wasm_runtime_instantiate(module, 
-                                         stack_size, 
+  module_inst = wasm_runtime_instantiate(module,
+                                         stack_size,
                                          heap_size,
-                                         error_buf, 
+                                         error_buf,
                                          sizeof(error_buf));
 ```
 
+The `wasm_runtime_init()`  will use the default memory allocator from the [`core/shared/platform`](../core/shared/platform) for the runtime memory management.
 
+
+
+The WAMR supports to restrict its all memory allocations in a raw buffer.  It ensures the dynamics by the WASM applications won't harm the system availability, which is extremely important for embedded systems. This can be done by using `wasm_runtime_full_init()`. This function also allows you to configure the native APIs for exporting to WASM app.
+
+Refer to the following sample:
+
+```c
+// the native functions that will be exported to WASM app
+static NativeSymbol native_symbols[] = {
+    EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),
+    EXPORT_WASM_API_WITH_SIG(display_flush, "(iiii*)")
+};
+
+// all the runtime memory allocations are retricted in the global_heap_buf array
+static char global_heap_buf[512 * 1024];
+RuntimeInitArgs init_args;
+memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+// configure the memory allocator for the runtime
+init_args.mem_alloc_type = Alloc_With_Pool;
+init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+
+// configure the native functions being exported to WASM app
+init_args.native_module_name = "env";
+init_args.n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
+init_args.native_symbols = native_symbols;
+
+/* initialize runtime environment with user configurations*/
+if (!wasm_runtime_full_init(&init_args)) {
+        return -1;
+}
+```
 
 
 
@@ -48,7 +81,8 @@ After a module is instantiated, the runtime native can lookup WASM functions by 
 ```c
   unit32 argv[2];
 
-  // lookup a WASM function by its name
+  // lookup a WASM function by its name. 
+  // The function signature can NULL here
   func = wasm_runtime_lookup_function(module_inst, "fib", NULL);
 
   // creat a excution environment which can be used by executing WASM functions
@@ -59,7 +93,6 @@ After a module is instantiated, the runtime native can lookup WASM functions by 
 
   // call the WASM function
   if (wasm_runtime_call_wasm(exec_env, func, 1, argv) ) {
-      
     /* the return value is stored in argv[0] */
     printf("fib function return: %d\n", argv[0]);
   }
@@ -79,25 +112,24 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
   double arg3 = 1.0;
   int 64 arg4 = 100;
   double ret;
-  
+
   argv[0] = arg1;
   argv[1] = arg2;
-  
-  // use memory copy for 8 bytes parameters rather than 
-  // *(double*)(&argv[2]) = arg3 here because some archs 
+
+  // use memory copy for 8 bytes parameters rather than
+  // *(double*)(&argv[2]) = arg3 here because some archs
   // like ARM, MIPS requires address is 8 aligned.
   // Or use the aligned malloc or compiler align attribute
   // to ensure the array address is 8 bytes aligned
   memcpy(&argv[2], &arg3, sizeof(arg3));
   memcpy(&argv[4], &arg4, sizeof(arg4));
-  
-  //  
+  //
   // attention: the arg number is 6 here since both
   //            arg3 and arg4 each takes 2 elements
   //
   wasm_runtime_call_wasm(exec_env, func, 6, argv);
-
-  // if the return value is type of 8 bytes, it takes 
+  
+  // if the return value is type of 8 bytes, it takes
   // the first two array elements
   memcpy(&ret, &argv[0], sizeof(ret));
 
@@ -109,7 +141,7 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
 
 
 
-If we need to transfer a buffer to WASM function, we can pass the buffer address through a parameter. **Attention**: The sandbox will forbid the WASM code to access outside memory, we must **allocate the buffer from WASM instance's own memory space and pass the buffer address in instance's space (not the runtime native address)**. 
+If we need to transfer a buffer to WASM function, we can pass the buffer address through a parameter. **Attention**: The sandbox will forbid the WASM code to access outside memory, we must **allocate the buffer from WASM instance's own memory space and pass the buffer address in instance's space (not the runtime native address)**.
 
 
 
@@ -124,10 +156,10 @@ There are two runtime APIs available for this purpose.
 * size: the buffer size to allocate
 */
 int32_t
-wasm_runtime_module_malloc(wasm_module_inst_t module_inst, 
+wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
            uint32_t size,
-           void **p_native_addr); 
-      
+           void **p_native_addr);
+
 /*
 * description: malloc a buffer from instance's private memory space,
 *              and copy the data from another native buffer to it.
@@ -137,8 +169,12 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
 */
 int32
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
-                             const char *src, 
-                             uint32 size);           
+                             const char *src,
+                             uint32 size);
+
+// free the memory allocated from module memory space
+void
+wasm_runtime_module_free(wasm_module_inst_t module_inst, int32_t ptr);
 ```
 
 
@@ -154,9 +190,13 @@ if(buffer_for_wasm != 0)
 {
     unit32 argv[2];
     strncpy(buffer, "hello", 100);	// use native address for accessing in runtime
-    argv[0] = buffer_for_wasm;  	// pass the buffer address for WASM space. 
+    argv[0] = buffer_for_wasm;  	// pass the buffer address for WASM space.
     argv[1] = 100;					// the size of buffer
     wasm_runtime_call_wasm(exec_env, func, 2, argv);
+    
+    // it is runtime responsibility to release the memory,
+    // unless the WASM app will free the passed pointer in its code
+    wasm_runtime_module_free(module_inst, buffer);
 }
 
 ```
@@ -176,7 +216,7 @@ We can't pass structure data or class objects through the pointer since the memo
   wasm_runtime_deinstantiate(module_inst);
   wasm_runtime_unload(module);
   wasm_runtime_destroy();
-  bh_memory_destroy();
+
 ```
 
 

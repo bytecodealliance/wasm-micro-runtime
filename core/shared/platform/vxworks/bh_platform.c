@@ -16,23 +16,28 @@
 #include <dlfcn.h>
 #include <sys/mman.h>
 
-
-char *bh_strdup(const char *s)
-{
-    uint32 size;
-    char *s1 = NULL;
-
-    if (s) {
-        size = (uint32)(strlen(s) + 1);
-        if ((s1 = bh_malloc(size)))
-            bh_memcpy_s(s1, size, s, size);
-    }
-    return s1;
-}
-
-int bh_platform_init()
+int
+bh_platform_init()
 {
     return 0;
+}
+
+void *
+os_malloc(unsigned size)
+{
+    return malloc(size);
+}
+
+void *
+os_realloc(void *ptr, unsigned size)
+{
+    return realloc(ptr, size);
+}
+
+void
+os_free(void *ptr)
+{
+    free(ptr);
 }
 
 char*
@@ -63,7 +68,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 
     file_size = (uint32)stat_buf.st_size;
 
-    if (!(buffer = bh_malloc(file_size))) {
+    if (!(buffer = BH_MALLOC(file_size))) {
         printf("Read file to buffer failed: alloc memory failed.\n");
         close(file);
         return NULL;
@@ -74,7 +79,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 
     if (read_size < file_size) {
         printf("Read file to buffer failed: read file content failed.\n");
-        bh_free(buffer);
+        BH_FREE(buffer);
         return NULL;
     }
 

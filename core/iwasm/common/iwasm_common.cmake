@@ -5,6 +5,9 @@ set (IWASM_COMMON_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 include_directories (${IWASM_COMMON_DIR})
 
+add_definitions(-DBH_MALLOC=wasm_runtime_malloc)
+add_definitions(-DBH_FREE=wasm_runtime_free)
+
 file (GLOB c_source_all ${IWASM_COMMON_DIR}/*.c)
 
 if (${WAMR_BUILD_TARGET} STREQUAL "X86_64" OR ${WAMR_BUILD_TARGET} STREQUAL "AMD_64")

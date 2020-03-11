@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (C) 2019 Intel Corporation. All rights reserved.
+# Copyright (C) 2020 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 DEPS_DIR=${PWD}/../../../core/deps
@@ -8,7 +8,7 @@ DEPS_DIR=${PWD}/../../../core/deps
 cd ${DEPS_DIR}
 if [ ! -d "llvm" ]; then
   echo "Clone llvm to core/deps/ .."
-  git clone https://github.com/llvm-mirror/llvm.git
+  git clone --depth 1 https://github.com/llvm-mirror/llvm.git
 fi
 
 cd llvm

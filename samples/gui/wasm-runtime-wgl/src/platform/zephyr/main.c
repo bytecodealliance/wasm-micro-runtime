@@ -10,7 +10,6 @@
 #include "bh_log.h"
 #include "bh_platform_log.h"
 #include "wasm_export.h"
-#include "bh_memory.h"
 
 extern int iwasm_main();
 

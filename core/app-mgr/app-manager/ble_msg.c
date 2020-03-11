@@ -75,16 +75,16 @@ app_instance_free_ble_msg(char *msg)
     dev_info = (ble_device_info *) ble_msg->payload;
 
     if (dev_info->scan_response != NULL)
-    bh_free(dev_info->scan_response);
+    APP_MGR_FREE(dev_info->scan_response);
 
     if (dev_info->private_data != NULL)
-    bh_free(dev_info->private_data);
+    APP_MGR_FREE(dev_info->private_data);
 
     if (dev_info->adv_data != NULL)
-    bh_free(dev_info->adv_data);
+    APP_MGR_FREE(dev_info->adv_data);
 
     if (dev_info != NULL)
-    bh_free(dev_info);
+    APP_MGR_FREE(dev_info);
 }
 
 static void

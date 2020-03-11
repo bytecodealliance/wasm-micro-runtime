@@ -16,5 +16,38 @@
 
 #include "config.h"
 
+#define BH_KB (1024)
+#define BH_MB ((BH_KB)*1024)
+#define BH_GB ((BH_MB)*1024)
+
+#ifndef BH_MALLOC
+#define BH_MALLOC os_malloc
+#endif
+
+#ifndef BH_FREE
+#define BH_FREE os_free
+#endif
+
+#ifndef WA_MALLOC
+#include <stdlib.h>
+#define WA_MALLOC malloc
+#endif
+
+#ifndef WA_FREE
+#include <stdlib.h>
+#define WA_FREE free
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void *wasm_runtime_malloc(unsigned int size);
+void wasm_runtime_free(void *ptr);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* end of BH_CONFIG */
 

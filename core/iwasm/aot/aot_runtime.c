@@ -4,7 +4,6 @@
  */
 
 #include "aot_runtime.h"
-#include "bh_memory.h"
 #include "bh_log.h"
 #include "mem_alloc.h"
 
@@ -116,7 +115,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* Allocate memory */
     if (total_size >= UINT32_MAX
-        || !(module_inst->memory_data.ptr = wasm_malloc((uint32)total_size))) {
+        || !(module_inst->memory_data.ptr = wasm_runtime_malloc((uint32)total_size))) {
         set_error_buf(error_buf, error_buf_size,
                       "AOT module instantiate failed: allocate memory failed.");
         return false;
@@ -166,7 +165,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             if (length > 0
                 && (base_offset >= module_inst->memory_data_size
                     || base_offset + length > module_inst->memory_data_size)) {
-                wasm_free(module_inst->memory_data.ptr);
+                wasm_runtime_free(module_inst->memory_data.ptr);
                 module_inst->memory_data.ptr = NULL;
                 set_error_buf(error_buf, error_buf_size,
                              "AOT module instantiate failed: data segment out of range.");
@@ -193,7 +192,7 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* Allocate memory */
     if (total_size >= UINT32_MAX
-        || !(module_inst->func_ptrs.ptr = wasm_malloc((uint32)total_size))) {
+        || !(module_inst->func_ptrs.ptr = wasm_runtime_malloc((uint32)total_size))) {
         set_error_buf(error_buf, error_buf_size,
                       "AOT module instantiate failed: allocate memory failed.");
         return false;
@@ -222,7 +221,8 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* Allocate memory */
     if (total_size >= UINT32_MAX
-        || !(module_inst->func_type_indexes.ptr = wasm_malloc((uint32)total_size))) {
+        || !(module_inst->func_type_indexes.ptr =
+                                wasm_runtime_malloc((uint32)total_size))) {
         set_error_buf(error_buf, error_buf_size,
                       "AOT module instantiate failed: allocate memory failed.");
         return false;
@@ -304,7 +304,7 @@ aot_instantiate(AOTModule *module,
 
     /* Allocate module instance, global data, table data and heap data */
     if (total_size >= UINT32_MAX
-        || !(module_inst = wasm_malloc((uint32)total_size))) {
+        || !(module_inst = wasm_runtime_malloc((uint32)total_size))) {
         set_error_buf(error_buf, error_buf_size,
                       "AOT module instantiate failed: allocate memory failed.");
         return NULL;
@@ -407,18 +407,18 @@ aot_deinstantiate(AOTModuleInstance *module_inst)
 #endif
 
     if (module_inst->memory_data.ptr)
-        wasm_free(module_inst->memory_data.ptr);
+        wasm_runtime_free(module_inst->memory_data.ptr);
 
     if (module_inst->heap_handle.ptr)
         mem_allocator_destroy(module_inst->heap_handle.ptr);
 
     if (module_inst->func_ptrs.ptr)
-        wasm_free(module_inst->func_ptrs.ptr);
+        wasm_runtime_free(module_inst->func_ptrs.ptr);
 
     if (module_inst->func_type_indexes.ptr)
-        wasm_free(module_inst->func_type_indexes.ptr);
+        wasm_runtime_free(module_inst->func_type_indexes.ptr);
 
-    wasm_free(module_inst);
+    wasm_runtime_free(module_inst);
 }
 
 AOTFunctionInstance*
@@ -750,8 +750,8 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     uint32 cur_page_count = module_inst->mem_cur_page_count;
     uint32 max_page_count = module_inst->mem_max_page_count;
     uint32 total_page_count = cur_page_count + inc_page_count;
-    uint32 old_size = num_bytes_per_page * cur_page_count;
     uint64 total_size = (uint64)num_bytes_per_page * total_page_count;
+    uint32 total_size_old;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -763,20 +763,29 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         return false;
     }
 
-    if (total_size >= UINT32_MAX
-        || !(mem_data_new = wasm_malloc((uint32)total_size))) {
+    if (total_size >= UINT32_MAX) {
         aot_set_exception(module_inst, "fail to enlarge memory.");
         return false;
     }
 
-    memcpy(mem_data_new, mem_data_old, old_size);
-    memset(mem_data_new + old_size, 0, (uint32)total_size - old_size);
+    if (!(mem_data_new = wasm_runtime_realloc(mem_data_old, (uint32)total_size))) {
+        if (!(mem_data_new = wasm_runtime_malloc((uint32)total_size))) {
+            aot_set_exception(module_inst, "fail to enlarge memory.");
+            return false;
+        }
+        total_size_old = module_inst->memory_data_size;
+        bh_memcpy_s(mem_data_new, (uint32)total_size,
+                    mem_data_old, total_size_old);
+        memset(mem_data_new + total_size_old,
+               0, (uint32)total_size - total_size_old);
+        wasm_runtime_free(mem_data_old);
+    }
+
     module_inst->mem_cur_page_count = total_page_count;
     module_inst->memory_data_size = (uint32)total_size;
     module_inst->memory_data.ptr = mem_data_new;
     module_inst->memory_data_end.ptr = mem_data_new + (uint32)total_size;
 
-    wasm_free(mem_data_old);
     return true;
 }
 

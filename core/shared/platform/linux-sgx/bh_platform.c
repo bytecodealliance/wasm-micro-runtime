@@ -14,22 +14,27 @@
 #define FIXED_BUFFER_SIZE (1<<9)
 static bh_print_function_t print_function = NULL;
 
-char *bh_strdup(const char *s)
-{
-    uint32 size;
-    char *s1 = NULL;
-
-    if (s) {
-        size = (uint32)(strlen(s) + 1);
-        if ((s1 = bh_malloc(size)))
-            bh_memcpy_s(s1, size, s, size);
-    }
-    return s1;
-}
-
 int bh_platform_init()
 {
     return 0;
+}
+
+void *
+os_malloc(unsigned size)
+{
+    return malloc(size);
+}
+
+void *
+os_realloc(void *ptr, unsigned size)
+{
+    return realloc(ptr, size);
+}
+
+void
+os_free(void *ptr)
+{
+    free(ptr);
 }
 
 int putchar(int c)

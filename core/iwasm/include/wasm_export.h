@@ -25,21 +25,19 @@ struct WASMModuleInstanceCommon;
 typedef struct WASMModuleInstanceCommon *wasm_module_inst_t;
 
 /* Function instance */
-struct WASMFunctionInstanceCommon;
-typedef struct WASMFunctionInstanceCommon *wasm_function_inst_t;
+typedef void WASMFunctionInstanceCommon;
+typedef WASMFunctionInstanceCommon *wasm_function_inst_t;
 
 /* WASM section */
-typedef struct wasm_section {
-    struct wasm_section *next;
+typedef struct wasm_section_t {
+    struct wasm_section_t *next;
     /* section type */
     int section_type;
     /* section body, not include type and size */
     uint8_t *section_body;
     /* section body size */
     uint32_t section_body_size;
-} wasm_section_t, *wasm_section_list_t;
-
-typedef wasm_section_t aot_section_t, *aot_section_list_t;
+} wasm_section_t, aot_section_t, *wasm_section_list_t, *aot_section_list_t;
 
 /* Execution environment, e.g. stack info */
 struct WASMExecEnv;
@@ -52,8 +50,45 @@ typedef enum {
     Package_Type_Unknown = 0xFFFF
 } package_type_t;
 
+/* Memory allocator type */
+typedef enum {
+    /* pool mode, allocate memory from user defined heap buffer */
+    Alloc_With_Pool = 0,
+    /* user allocator mode, allocate memory from user defined
+       malloc function */
+    Alloc_With_Allocator,
+    /* system allocator mode, allocate memory from system allocator,
+       or, platform's os_malloc function */
+    Alloc_With_System_Allocator,
+} mem_alloc_type_t;
+
+/* Memory allocator option */
+typedef union MemAllocOption {
+    struct {
+        void *heap_buf;
+        uint32_t heap_size;
+    } pool;
+    struct {
+        void *malloc_func;
+        void *realloc_func;
+        void *free_func;
+    } allocator;
+} MemAllocOption;
+
+/* WASM runtime initialize arguments */
+typedef struct RuntimeInitArgs {
+    mem_alloc_type_t mem_alloc_type;
+    MemAllocOption mem_alloc_option;
+
+    const char *native_module_name;
+    NativeSymbol *native_symbols;
+    uint32_t n_native_symbols;
+} RuntimeInitArgs;
+
 /**
- * Initialize the WASM runtime environment.
+ * Initialize the WASM runtime environment, and also initialize
+ * the memory allocator with system allocator, which calls os_malloc
+ * to allocate memory
  *
  * @return true if success, false otherwise
  */
@@ -61,10 +96,48 @@ bool
 wasm_runtime_init();
 
 /**
+ * Initialize the WASM runtime environment, and also initialize
+ * the memory allocator and register native symbols, which are specified
+ * with init arguments
+ *
+ * @param init_args specifies the init arguments
+ *
+ * @return return true if success, false otherwise
+ */
+bool
+wasm_runtime_full_init(RuntimeInitArgs *init_args);
+
+/**
  * Destroy the WASM runtime environment.
  */
 void
 wasm_runtime_destroy();
+
+/**
+ * Allocate memory from runtime memory environment.
+ *
+ * @param size bytes need to allocate
+ *
+ * @return the pointer to memory allocated
+ */
+void *
+wasm_runtime_malloc(unsigned int size);
+
+/**
+ * Reallocate memory from runtime memory environment
+ *
+ * @param ptr the original memory
+ * @param size bytes need to reallocate
+ *
+ * @return the pointer to memory reallocated
+ */
+void *
+wasm_runtime_realloc(void *ptr, unsigned int size);
+
+/*
+ * Free memory to runtime memory environment.
+ */
+void wasm_runtime_free(void *ptr);
 
 /**
  * Get the package type of a buffer.
@@ -167,7 +240,7 @@ wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
  * @return the function instance found
  */
 wasm_function_inst_t
-wasm_runtime_lookup_function(const wasm_module_inst_t module_inst,
+wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
                              const char *name, const char *signature);
 
 /**

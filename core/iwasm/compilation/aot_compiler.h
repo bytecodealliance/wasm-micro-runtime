@@ -8,7 +8,6 @@
 
 #include "aot.h"
 #include "aot_llvm.h"
-#include "bh_memory.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,7 +102,7 @@ typedef enum FloatArithmetic {
             && (aot_value->type != VALUE_TYPE_I32           \
                 && aot_value->type != VALUE_TYPE_I1))) {    \
       aot_set_last_error("invalid WASM stack data type.");  \
-      wasm_free(aot_value);                                 \
+      wasm_runtime_free(aot_value);                         \
       goto fail;                                            \
     }                                                       \
     if (aot_value->type == value_type)                      \
@@ -113,11 +112,11 @@ typedef enum FloatArithmetic {
       if (!(llvm_value = LLVMBuildZExt(comp_ctx->builder,   \
             aot_value->value, I32_TYPE, "i1toi32"))) {      \
         aot_set_last_error("invalid WASM stack data type.");\
-        wasm_free(aot_value);                               \
+        wasm_runtime_free(aot_value);                       \
         goto fail;                                          \
       }                                                     \
     }                                                       \
-    wasm_free(aot_value);                                   \
+    wasm_runtime_free(aot_value);                           \
   } while (0)
 
 #define POP_I32(v) POP(v, VALUE_TYPE_I32)
@@ -133,7 +132,7 @@ typedef enum FloatArithmetic {
     if (aot_value->type != VALUE_TYPE_I1                    \
         && aot_value->type != VALUE_TYPE_I32) {             \
       aot_set_last_error("invalid WASM stack data type.");  \
-      wasm_free(aot_value);                                 \
+      wasm_runtime_free(aot_value);                         \
       goto fail;                                            \
     }                                                       \
     if (aot_value->type == VALUE_TYPE_I1)                   \
@@ -143,11 +142,11 @@ typedef enum FloatArithmetic {
                     LLVMIntNE, aot_value->value, I32_ZERO,  \
                     "i1_cond"))){                           \
         aot_set_last_error("llvm build trunc failed.");     \
-        wasm_free(aot_value);                               \
+        wasm_runtime_free(aot_value);                       \
         goto fail;                                          \
       }                                                     \
     }                                                       \
-    wasm_free(aot_value);                                   \
+    wasm_runtime_free(aot_value);                           \
   } while (0)
 
 #define PUSH(llvm_value, value_type) do {                   \
@@ -156,7 +155,7 @@ typedef enum FloatArithmetic {
       aot_set_last_error("WASM block stack underflow.");    \
       goto fail;                                            \
     }                                                       \
-    aot_value = wasm_malloc(sizeof(AOTValue));              \
+    aot_value = wasm_runtime_malloc(sizeof(AOTValue));      \
     memset(aot_value, 0, sizeof(AOTValue));                 \
     if (!aot_value) {                                       \
       aot_set_last_error("allocate memory failed.");        \

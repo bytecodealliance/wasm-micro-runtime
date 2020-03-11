@@ -25,14 +25,14 @@ typedef int int32;
 #define inline __inline
 #endif
 
-// all wasm-app<->native shared source files should use wa_malloc/wa_free.
+// all wasm-app<->native shared source files should use WA_MALLOC/WA_FREE.
 // they will be mapped to different implementations in each side
-#ifndef wa_malloc
-#define wa_malloc malloc
+#ifndef WA_MALLOC
+#define WA_MALLOC malloc
 #endif
 
-#ifndef wa_free
-#define wa_free free
+#ifndef WA_FREE
+#define WA_FREE free
 #endif
 
 char *wa_strdup(const char *s);

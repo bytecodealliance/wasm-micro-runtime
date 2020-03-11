@@ -78,12 +78,12 @@ wasi_args_get(wasm_exec_env_t exec_env, int32 *argv_offsets, char *argv_buf)
 
     total_size = sizeof(char*) * ((uint64)argc + 1);
     if (total_size >= UINT32_MAX
-        || !(argv = bh_malloc((uint32)total_size)))
+        || !(argv = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;
 
     err = wasmtime_ssp_args_get(wasi_ctx->argv_environ, argv, argv_buf);
     if (err) {
-        bh_free(argv);
+        wasm_runtime_free(argv);
         return err;
     }
 
@@ -91,7 +91,7 @@ wasi_args_get(wasm_exec_env_t exec_env, int32 *argv_offsets, char *argv_buf)
         argv_offsets[i] = addr_native_to_app(argv[i]);
     argv_offsets[argc] = 0;
 
-    bh_free(argv);
+    wasm_runtime_free(argv);
     return 0;
 }
 
@@ -171,12 +171,12 @@ wasi_environ_get(wasm_exec_env_t exec_env,
     total_size = sizeof(char*) * (((uint64)environ_count + 1));
 
     if (total_size >= UINT32_MAX
-        || !(environs = bh_malloc((uint32)total_size)))
+        || !(environs = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;
 
     err = wasmtime_ssp_environ_get(wasi_ctx->argv_environ, environs, environ_buf);
     if (err) {
-        bh_free(environs);
+        wasm_runtime_free(environs);
         return err;
     }
 
@@ -184,7 +184,7 @@ wasi_environ_get(wasm_exec_env_t exec_env,
         environ_offsets[i] = addr_native_to_app(environs[i]);
     environ_offsets[environ_count] = 0;
 
-    bh_free(environs);
+    wasm_runtime_free(environs);
     return 0;
 }
 

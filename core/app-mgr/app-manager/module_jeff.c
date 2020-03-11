@@ -125,7 +125,7 @@ get_class_qname(const JeffString *pname, const JeffString *cname)
 {
     unsigned int length = pname->length ? pname->length + 2 + cname->length
     : cname->length + 1;
-    char *buf = bh_malloc(length), *p;
+    char *buf = APP_MGR_MALLOC(length), *p;
 
     if (!buf)
     return NULL;
@@ -166,7 +166,7 @@ send_exception_event_to_host(const char *applet_name, const char *exc_name)
     }
 
     url_len = strlen("/exception/") + strlen(applet_name);
-    url = bh_malloc(url_len + 1);
+    url = APP_MGR_MALLOC(url_len + 1);
     if (!url) {
         app_manager_printf("Send exception to host fail: allocate memory");
         goto fail;
@@ -182,7 +182,7 @@ send_exception_event_to_host(const char *applet_name, const char *exc_name)
 
     app_send_request_msg_to_host(&msg);
 
-    bh_free(url);
+    APP_MGR_FREE(url);
 
     fail:
     attr_container_destroy(payload);
@@ -208,7 +208,7 @@ check_exception()
             /* Send exception event to host */
             if (qname_buf) {
                 send_exception_event_to_host(app_manager_get_module_name(Module_Jeff), qname_buf);
-                bh_free(qname_buf);
+                APP_MGR_FREE(qname_buf);
             }
 
             /* Uninstall the applet */
@@ -455,17 +455,17 @@ check_exception()
 
         fail:
         if (dev_info->scan_response != NULL) {
-            bh_free(dev_info->scan_response);
+            APP_MGR_FREE(dev_info->scan_response);
         }
         if (dev_info->private_data != NULL) {
-            bh_free(dev_info->private_data);
+            APP_MGR_FREE(dev_info->private_data);
         }
 
         if (dev_info->adv_data != NULL) {
-            bh_free(dev_info->adv_data);
+            APP_MGR_FREE(dev_info->adv_data);
         }
         if (dev_info != NULL) {
-            bh_free(dev_info);
+            APP_MGR_FREE(dev_info);
         }
 
     }
@@ -479,16 +479,16 @@ check_exception()
         dev_info = (ble_device_info *) ble_msg->payload;
 
         if (dev_info->scan_response != NULL)
-        bh_free(dev_info->scan_response);
+        APP_MGR_FREE(dev_info->scan_response);
 
         if (dev_info->private_data != NULL)
-        bh_free(dev_info->private_data);
+        APP_MGR_FREE(dev_info->private_data);
 
         if (dev_info->adv_data != NULL)
-        bh_free(dev_info->adv_data);
+        APP_MGR_FREE(dev_info->adv_data);
 
         if (dev_info != NULL)
-        bh_free(dev_info);
+        APP_MGR_FREE(dev_info);
     }
 
     static void
@@ -500,7 +500,7 @@ check_exception()
             case APPLET_REQUEST:
             {
                 bh_request_msg_t *req_msg = (bh_request_msg_t *)msg->payload;
-                bh_free(req_msg);
+                APP_MGR_FREE(req_msg);
                 break;
             }
 
@@ -516,7 +516,7 @@ check_exception()
                     attr_container_t *event = sensor_event->event;
 
                     attr_container_destroy(event);
-                    bh_free(sensor_event);
+                    APP_MGR_FREE(sensor_event);
                 }
                 break;
             }
@@ -525,7 +525,7 @@ check_exception()
             {
                 if (msg->payload) {
                     app_instance_free_ble_msg(msg->payload);
-                    bh_free(msg->payload);
+                    APP_MGR_FREE(msg->payload);
                 }
                 break;
             }
@@ -541,7 +541,7 @@ check_exception()
             }
         }
 
-        bh_free(msg);
+        APP_MGR_FREE(msg);
     }
 
     static void
@@ -609,7 +609,7 @@ check_exception()
                 fail2:
                 jeff_runtime_pop_local_object_ref(1);
                 fail1:
-                bh_free(req_msg);
+                APP_MGR_FREE(req_msg);
                 break;
             }
 
@@ -633,7 +633,7 @@ check_exception()
                     bool ret = attr_container_to_attr_obj(event, &sensor->event);
 
                     attr_container_destroy(event);
-                    bh_free(sensor_event);
+                    APP_MGR_FREE(sensor_event);
 
                     if (ret) {
                         /* Call Sensor.callOnSensorEvent() method */
@@ -649,7 +649,7 @@ check_exception()
             {
                 if (msg->payload) {
                     app_instance_process_ble_msg(msg->payload);
-                    bh_free(msg->payload);
+                    APP_MGR_FREE(msg->payload);
                 }
                 break;
             }
@@ -678,7 +678,7 @@ check_exception()
             }
         }
 
-        bh_free(msg);
+        APP_MGR_FREE(msg);
     }
 
     static JeffClassHeaderLinked*
@@ -837,7 +837,7 @@ check_exception()
 
         /* TODO: convert bpk file to Jeff file */
         main_file_len = bpk_file_len;
-        main_file = bh_malloc(main_file_len);
+        main_file = APP_MGR_MALLOC(main_file_len);
         if (!main_file) {
             SEND_ERR_RESPONSE(msg->mid, "Install Applet failed: allocate memory failed.");
             return false;
@@ -866,7 +866,7 @@ check_exception()
         /* Create module data */
         size = offsetof(module_data, module_name) + strlen(applet_name) + 1;
         size = align_uint(size, 4);
-        m_data = bh_malloc(size + sizeof(jeff_applet_data));
+        m_data = APP_MGR_MALLOC(size + sizeof(jeff_applet_data));
         if (!m_data) {
             SEND_ERR_RESPONSE(msg->mid, "Install Applet failed: allocate memory failed.");
             goto fail2;
@@ -888,7 +888,7 @@ check_exception()
         /* Create applet permissions */
         applet_perm = attr_container_get_as_string(attr_cont, "perm");
         if (applet_perm != NULL) {
-            applet_data->perms = bh_malloc(strlen(applet_perm) + 1);
+            applet_data->perms = APP_MGR_MALLOC(strlen(applet_perm) + 1);
             if (!applet_data->perms) {
                 SEND_ERR_RESPONSE(msg->mid, "Install Applet failed: allocate memory for applet permissions failed.");
                 goto fail3;
@@ -993,16 +993,16 @@ check_exception()
         bh_queue_destroy(m_data->queue, NULL);
 
         fail3_1:
-        bh_free(applet_data->perms);
+        APP_MGR_FREE(applet_data->perms);
 
         fail3:
-        bh_free(applet_data);
+        APP_MGR_FREE(applet_data);
 
         fail2:
         jeff_runtime_unload(main_file);
 
         fail1:
-        bh_free(main_file);
+        APP_MGR_FREE(main_file);
 
         return false;
     }
@@ -1014,7 +1014,7 @@ check_exception()
 
         /* Unload Jeff main file and free it */
         jeff_runtime_unload(applet_data->main_file);
-        bh_free(applet_data->main_file);
+        APP_MGR_FREE(applet_data->main_file);
 
         /* Destroy queue */
         bh_queue_destroy(m_data->queue, app_instance_queue_free_callback);
@@ -1027,8 +1027,8 @@ check_exception()
 
         /* Remove module data from module data list and free it */
         app_manager_del_module_data(m_data);
-        bh_free(applet_data->perms);
-        bh_free(m_data);
+        APP_MGR_FREE(applet_data->perms);
+        APP_MGR_FREE(m_data);
     }
 
     /* Uninstall Java Applet */
@@ -1476,7 +1476,7 @@ check_exception()
                     }
 
                     /* Create queue message for tool agent */
-                    if (!(tool_agent_msg = bh_malloc(sizeof(bh_queue_msg_t)))) {
+                    if (!(tool_agent_msg = APP_MGR_MALLOC(sizeof(bh_queue_msg_t)))) {
                         SEND_ERR_RESPONSE(mid, "Send request to tool agent failed: allocate memory failed");
                         return false;
                     }
@@ -1487,9 +1487,9 @@ check_exception()
                     req_msg_len = sizeof(bh_request_msg_t) + strlen(p) + 1 + attr_cont_len;
 
                     /* Create request message */
-                    if (!(req_msg = bh_malloc(req_msg_len))) {
+                    if (!(req_msg = APP_MGR_MALLOC(req_msg_len))) {
                         SEND_ERR_RESPONSE(mid, "Send request to applet failed: allocate memory failed");
-                        bh_free(tool_agent_msg);
+                        APP_MGR_FREE(tool_agent_msg);
                         return false;
                     }
 
@@ -1511,8 +1511,8 @@ check_exception()
                     tool_agent_msg->payload_size = req_msg_len;
                     tool_agent_msg->payload = (char*)req_msg;
                     if (!bh_queue_send_message(applet_data->tool_agent_queue, tool_agent_msg)) {
-                        bh_free(req_msg);
-                        bh_free(tool_agent_msg);
+                        APP_MGR_FREE(req_msg);
+                        APP_MGR_FREE(tool_agent_msg);
                         SEND_ERR_RESPONSE
                         (mid, "Send request to tool agent failed: send queue msg failed.");
                         return false;
@@ -1693,16 +1693,16 @@ check_exception()
                 goto fail;
             }
 
-            bh_free(req_msg);
-            bh_free(msg);
+            APP_MGR_FREE(req_msg);
+            APP_MGR_FREE(msg);
             return;
 
             fail:
             bh_queue_exit_loop_run(queue);
-            bh_free(req_msg);
+            APP_MGR_FREE(req_msg);
         }
 
-        bh_free(msg);
+        APP_MGR_FREE(msg);
     }
 
     void
@@ -1712,10 +1712,10 @@ check_exception()
 
         if (msg->message_type == JDWP_REQUEST) {
             bh_request_msg_t *req_msg = (bh_request_msg_t*)msg->payload;
-            bh_free(req_msg);
+            APP_MGR_FREE(req_msg);
         }
 
-        bh_free(msg);
+        APP_MGR_FREE(msg);
     }
 
 #endif  /* BEIHAI_ENABLE_TOOL_AGENT != 0 */

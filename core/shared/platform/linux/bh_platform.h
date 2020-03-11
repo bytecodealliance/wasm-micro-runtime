@@ -8,7 +8,6 @@
 
 #include "bh_config.h"
 #include "bh_types.h"
-#include "bh_memory.h"
 #include <inttypes.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -66,9 +65,9 @@ typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
 typedef void* (*thread_start_routine_t)(void*);
 
-#define wa_malloc bh_malloc
-#define wa_free bh_free
-#define wa_strdup bh_strdup
+void *os_malloc(unsigned size);
+void *os_realloc(void *ptr, unsigned size);
+void os_free(void *ptr);
 
 #define bh_printf printf
 
@@ -97,16 +96,7 @@ double sqrt(double x);
 
 #define bh_assert assert
 
-int b_memcpy_s(void * s1, unsigned int s1max, const void * s2,
-               unsigned int n);
-int b_strcat_s(char * s1, size_t s1max, const char * s2);
-int b_strcpy_s(char * s1, size_t s1max, const char * s2);
-
-int fopen_s(FILE ** pFile, const char *filename, const char *mode);
-
 char *bh_read_file_to_buffer(const char *filename, uint32 *ret_size);
-
-char *bh_strdup(const char *s);
 
 int bh_platform_init();
 

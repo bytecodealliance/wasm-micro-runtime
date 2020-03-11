@@ -158,14 +158,14 @@ bool am_register_resource(const char *url,
     if (register_num >= RESOURCE_REGISTRATION_NUM_MAX)
         return false;
 
-    r = (app_res_register_t *) bh_malloc(sizeof(app_res_register_t));
+    r = (app_res_register_t *) APP_MGR_MALLOC(sizeof(app_res_register_t));
     if (r == NULL)
         return false;
 
     memset(r, 0, sizeof(*r));
     r->url = bh_strdup(url);
     if (r->url == NULL) {
-        bh_free(r);
+        APP_MGR_FREE(r);
         return false;
     }
 
@@ -191,8 +191,8 @@ void am_cleanup_registeration(uint32 register_id)
             else
                 g_resources = next;
 
-            bh_free(r->url);
-            bh_free(r);
+            APP_MGR_FREE(r->url);
+            APP_MGR_FREE(r);
         } else
             /* if r is freed, should not change prev. Only set prev to r
              when r isn't freed. */

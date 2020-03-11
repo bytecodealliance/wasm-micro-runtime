@@ -7,7 +7,6 @@
 #include <string.h>
 #include "Enclave_t.h"
 #include "test_wasm.h"
-#include "bh_memory.h"
 #include "wasm_export.h"
 
 static char global_heap_buf[2* 1024 * 1024] = { 0 };
@@ -50,17 +49,21 @@ void ecall_iwasm_main()
     int wasm_file_size;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
+    RuntimeInitArgs init_args;
     char error_buf[128];
 
-    if (bh_memory_init_with_pool(global_heap_buf,
-                                 sizeof(global_heap_buf)) != 0) {
-        ocall_print("Init global heap failed.\n");
-        return;
-    }
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
 
     /* initialize runtime environment */
-    if (!wasm_runtime_init())
-        goto fail1;
+    if (!wasm_runtime_full_init(&init_args)) {
+        ocall_print("Init runtime environment failed.");
+        ocall_print("\n");
+        return;
+    }
 
     /* load WASM byte buffer from byte buffer of include file */
     wasm_file_buf = (uint8_t*) wasm_test_file;
@@ -71,7 +74,7 @@ void ecall_iwasm_main()
                                           error_buf, sizeof(error_buf)))) {
         ocall_print(error_buf);
         ocall_print("\n");
-        goto fail2;
+        goto fail1;
     }
 
     /* instantiate the module */
@@ -82,7 +85,7 @@ void ecall_iwasm_main()
                                                       sizeof(error_buf)))) {
         ocall_print(error_buf);
         ocall_print("\n");
-        goto fail3;
+        goto fail2;
     }
 
     /* execute the main function of wasm app */
@@ -91,15 +94,12 @@ void ecall_iwasm_main()
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
-fail3:
+fail2:
     /* unload the module */
     wasm_runtime_unload(wasm_module);
 
-fail2:
+fail1:
     /* destroy runtime environment */
     wasm_runtime_destroy();
-
-fail1:
-    bh_memory_destroy();
 }
 

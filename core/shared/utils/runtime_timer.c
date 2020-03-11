@@ -172,7 +172,7 @@ static void release_timer(timer_ctx_t ctx, app_timer_t * t)
         vm_mutex_unlock(&ctx->mutex);
     } else {
         PRINT("destroy timer :%d\n", t->id);
-        bh_free(t);
+        BH_FREE(t);
     }
 }
 
@@ -182,7 +182,7 @@ void release_timer_list(app_timer_t ** p_list)
     while (t) {
         app_timer_t *next = t->next;
         PRINT("destroy timer list:%d\n", t->id);
-        bh_free(t);
+        BH_FREE(t);
         t = next;
     }
 
@@ -199,7 +199,7 @@ timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,
                              check_timer_expiry_f expiery_checker, int prealloc_num,
                              unsigned int owner)
 {
-    timer_ctx_t ctx = (timer_ctx_t) bh_malloc(sizeof(struct _timer_ctx));
+    timer_ctx_t ctx = (timer_ctx_t) BH_MALLOC(sizeof(struct _timer_ctx));
     if (ctx == NULL)
         return NULL;
     memset(ctx, 0, sizeof(struct _timer_ctx));
@@ -210,7 +210,7 @@ timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,
     ctx->owner = owner;
 
     while (prealloc_num > 0) {
-        app_timer_t *timer = (app_timer_t*) bh_malloc(sizeof(app_timer_t));
+        app_timer_t *timer = (app_timer_t*) BH_MALLOC(sizeof(app_timer_t));
         if (timer == NULL)
             goto cleanup;
 
@@ -231,7 +231,7 @@ timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,
 
     if (ctx) {
         release_timer_list(&ctx->free_timers);
-        bh_free(ctx);
+        BH_FREE(ctx);
     }
     PRINT("timer ctx create failed\n");
     return NULL;
@@ -242,14 +242,14 @@ void destroy_timer_ctx(timer_ctx_t ctx)
     while (ctx->free_timers) {
         void * tmp = ctx->free_timers;
         ctx->free_timers = ctx->free_timers->next;
-        bh_free(tmp);
+        BH_FREE(tmp);
     }
 
     cleanup_app_timers(ctx);
 
     vm_cond_destroy(&ctx->cond);
     vm_mutex_destroy(&ctx->mutex);
-    bh_free(ctx);
+    BH_FREE(ctx);
 }
 
 unsigned int timer_ctx_get_owner(timer_ctx_t ctx)
@@ -279,7 +279,7 @@ uint32 sys_create_timer(timer_ctx_t ctx, int interval, bool is_period,
             ctx->free_timers = timer->next;
         }
     } else {
-        timer = (app_timer_t*) bh_malloc(sizeof(app_timer_t));
+        timer = (app_timer_t*) BH_MALLOC(sizeof(app_timer_t));
         if (timer == NULL)
             return (uint32)-1;
     }

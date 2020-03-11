@@ -43,7 +43,7 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         *p_value = aot_value->value;
     }
 
-    wasm_free(aot_value);
+    wasm_runtime_free(aot_value);
 
     if ((is_32
          && (type != VALUE_TYPE_I32 && type != VALUE_TYPE_F32))

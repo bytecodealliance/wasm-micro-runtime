@@ -509,7 +509,7 @@ get_relocation_symbol_index(const char *symbol_name,
     }
 
     /* Not found in symbol_list, add it */
-    sym = bh_malloc(sizeof(AOTSymbolNode));
+    sym = wasm_runtime_malloc(sizeof(AOTSymbolNode));
     if (!sym) {
         return (uint32)-1;
     }
@@ -1492,7 +1492,7 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
 
     if (sections_count > 0) {
         size = (uint32)sizeof(AOTObjectDataSection) * sections_count;
-        if (!(data_section = obj_data->data_sections = bh_malloc(size))) {
+        if (!(data_section = obj_data->data_sections = wasm_runtime_malloc(size))) {
             aot_set_last_error("allocate memory for data sections failed.");
             return false;
         }
@@ -1531,7 +1531,7 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     /* allocate memory for aot function */
     obj_data->func_count = comp_ctx->comp_data->func_count;
     if (!(obj_data->funcs
-                = bh_malloc((uint32)sizeof(AOTObjectFunc) * obj_data->func_count))) {
+                = wasm_runtime_malloc((uint32)sizeof(AOTObjectFunc) * obj_data->func_count))) {
         aot_set_last_error("allocate memory for functions failed.");
         return false;
     }
@@ -1602,7 +1602,7 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         return false;
     }
     size = (uint32)sizeof(AOTRelocation) * group->relocation_count;
-    if (!(relocation = group->relocations = bh_malloc(size))) {
+    if (!(relocation = group->relocations = wasm_runtime_malloc(size))) {
         aot_set_last_error("allocate memory for relocations failed.");
         return false;
     }
@@ -1754,7 +1754,7 @@ aot_resolve_object_relocation_groups(AOTObjectData *obj_data)
         return true;
 
     size = (uint32)sizeof(AOTRelocationGroup) * group_count;
-    if (!(relocation_group = obj_data->relocation_groups = bh_malloc(size))) {
+    if (!(relocation_group = obj_data->relocation_groups = wasm_runtime_malloc(size))) {
         aot_set_last_error("allocate memory for relocation groups failed.");
         return false;
     }
@@ -1795,8 +1795,8 @@ destroy_relocation_groups(AOTRelocationGroup *relocation_groups,
 
     for (i = 0; i < relocation_group_count; i++, relocation_group++)
         if (relocation_group->relocations)
-            bh_free(relocation_group->relocations);
-    bh_free(relocation_groups);
+            wasm_runtime_free(relocation_group->relocations);
+    wasm_runtime_free(relocation_groups);
 }
 
 static void
@@ -1807,7 +1807,7 @@ destroy_relocation_symbol_list(AOTSymbolList *symbol_list)
     elem = symbol_list->head;
     while (elem) {
         AOTSymbolNode *next = elem->next;
-        bh_free(elem);
+        wasm_runtime_free(elem);
         elem = next;
     }
 }
@@ -1820,15 +1820,15 @@ aot_obj_data_destroy(AOTObjectData *obj_data)
     if (obj_data->mem_buf)
         LLVMDisposeMemoryBuffer(obj_data->mem_buf);
     if (obj_data->funcs)
-        bh_free(obj_data->funcs);
+        wasm_runtime_free(obj_data->funcs);
     if (obj_data->data_sections)
-        bh_free(obj_data->data_sections);
+        wasm_runtime_free(obj_data->data_sections);
     if (obj_data->relocation_groups)
         destroy_relocation_groups(obj_data->relocation_groups,
                                   obj_data->relocation_group_count);
     if (obj_data->symbol_list.len)
         destroy_relocation_symbol_list(&obj_data->symbol_list);
-    bh_free(obj_data);
+    wasm_runtime_free(obj_data);
 }
 
 static AOTObjectData *
@@ -1837,7 +1837,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     char *err = NULL;
     AOTObjectData *obj_data;
 
-    if (!(obj_data = bh_malloc(sizeof(AOTObjectData)))) {
+    if (!(obj_data = wasm_runtime_malloc(sizeof(AOTObjectData)))) {
         aot_set_last_error("allocate memory failed.");
         return false;
     }
@@ -1896,7 +1896,7 @@ aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     aot_file_size = get_aot_file_size(comp_data, obj_data);
 
-    if (!(buf = aot_file_buf = bh_malloc(aot_file_size))) {
+    if (!(buf = aot_file_buf = wasm_runtime_malloc(aot_file_size))) {
         aot_set_last_error("allocate memory failed.");
         goto fail1;
     }
@@ -1938,7 +1938,7 @@ fail3:
     fclose(file);
 
 fail2:
-    bh_free(aot_file_buf);
+    wasm_runtime_free(aot_file_buf);
 
 fail1:
     aot_obj_data_destroy(obj_data);

@@ -9,7 +9,7 @@ Exporting native API steps
 
 #### Step 1: Declare the function interface in WASM app
 
-Create a header file in a WASM app and declare the functions that are exported from native. In this example, we declare foo and foo2 as below in the header file "example.h"
+Create a header file in a WASM app and declare the functions that are exported from native. In this example, we declare foo and foo2 as below in the header file `example.h`
 
 ```c
 /*** file name: example.h  ***/
@@ -22,7 +22,7 @@ void foo2(char * msg, char * buffer, int buf_len);
 
 #### Step 2: Define the native API
 
-Define the native functions which are executed from the WASM app in the runtime source file. The native function can be any name, for example **foo_native** and **foo2** here:
+Then we should define the native functions in runtime source tree for handling the calls from the WASM app. The native function can be any name, for example **foo_native** and **foo2** here:
 
 ``` C
 int foo_native(wasm_exec_env_t exec_env , int a, int b)
@@ -36,7 +36,7 @@ void foo2(wasm_exec_env_t exec_env, char * msg, uint8 * buffer, int buf_len)
 }
 ```
 
-The first parameter exec_env must be defined using type **wasm_exec_env_t** which is the calling convention for exporting native API by WAMR. 
+The first parameter exec_env must be defined using type **wasm_exec_env_t** which is the calling convention  by WAMR. 
 
 The rest parameters should be in the same types as the parameters of WASM function foo(), but there are a few special cases that are explained in section "Buffer address conversion and boundary check".  Regarding the parameter names, they don't have to be the same, but we would suggest using the same names for easy maintenance.
 
@@ -64,9 +64,7 @@ static NativeSymbol native_symbols[] =
     }    
 };
 
-// ensure the memory and runtime initialization is finsihed
-// before registering the native functions
-bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf));
+// initialize the runtime before registering the native functions
 wasm_runtime_init();
 
 int n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
@@ -87,28 +85,30 @@ The function signature field in **NativeSymbol** structure is a string for descr
 
 Each letter in the "()" represents a parameter type, and the one following after ")" represents the return value type. The meaning of each letter:
 
-- 'i': i32 
-- 'I': i64 
-- 'f': f32
-- 'F': f64
-- '*': the parameter is a buffer address in WASM application
-- '~': the parameter is the byte length of WASM buffer as referred by preceding argument "\*". It must follow after '*', otherwise, registration will fail
-- '$': the parameter is a string in WASM application
+- '**i**': i32 
+- '**I**': i64 
+- '**f**': f32
+- '**F**': f64
+- '**\***': the parameter is a buffer address in WASM application
+- '**~**': the parameter is the byte length of WASM buffer as referred by preceding argument "\*". It must follow after '*', otherwise, registration will fail
+- '**$**': the parameter is a string in WASM application
+
+The signature can defined as NULL, then all function parameters are assumed as i32 data type.
 
 **Use EXPORT_WASM_API_WITH_SIG**
 
-The above foo2 NativeSymbol element can be also defined with macro EXPORT_WASM_API_WITH_SIG. This macro can be used when the native function name is the same as the WASM symbol name.
+The `NativeSymbol` element for `foo2 ` above can be also defined with macro EXPORT_WASM_API_WITH_SIG. This macro can be used when the native function name is the same as the WASM symbol name.
 
 ```c
 static NativeSymbol native_symbols[] = 
 {
-	EXPORT_WASM_API_WITH_SIG(foo2, "($*~)")
+	EXPORT_WASM_API_WITH_SIG(foo2, "($*~)")   // wasm symbol name will be "foo2"
 };
 ```
 
 ​    
 
-## Call exported API in wasm application
+## Call exported API in WASM application
 
 Now we can call the exported native API in wasm application like this:
 ``` C
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
     char * msg = "hello";
     char buffer[100];
 
-    int c = foo(a, b);   // call into native foo_native()
+    int c = foo(a, b);   				// call into native foo_native()
     foo2(msg, buffer, sizeof(buffer));   // call into native foo2()
     
     return 0;
@@ -143,6 +143,11 @@ The signature letter '$', '\*' and '\~' help the runtime do automatic address co
 As function parameters are always passed in 32 bits numbers, you can also use 'i' for the pointer type argument, then you must do all the address conversion and boundary checking in your native function. For example, if you change the foo2 signature  to "(iii)", then you will implement the native part as the following sample:
 
 ```c
+//
+// If the function signature used i32 data type ("i")
+// for buffer address or string parameters, here
+// is how to do address conversation and boundary check manually
+//
 void foo2(wasm_exec_env_t exec_env, 
           uint32 msg_offset, 
           uint32 buffer_offset, 

@@ -6,7 +6,6 @@
 #include "app_manager.h"
 #include "app_manager_host.h"
 #include "bh_queue.h"
-#include "bh_memory.h"
 #include "bh_thread.h"
 #include "bi-inc/attr_container.h"
 #include "event.h"

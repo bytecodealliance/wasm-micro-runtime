@@ -8,7 +8,6 @@
 
 #include "bh_config.h"
 #include "bh_types.h"
-#include "bh_memory.h"
 #include <inttypes.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -36,15 +35,9 @@ extern "C" {
 typedef uint64_t uint64;
 typedef int64_t int64;
 
-extern void DEBUGME(void);
-
-#define DIE do{bh_debug("Die here\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); DEBUGME(void); while(1);}while(0)
-
 #ifndef BH_PLATFORM_ANDROID
 #define BH_PLATFORM_ANDROID
 #endif
-
-/* NEED qsort */
 
 #define _STACK_SIZE_ADJUSTMENT (32 * 1024)
 
@@ -67,12 +60,11 @@ typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
 typedef void* (*thread_start_routine_t)(void*);
 
-#define wa_malloc bh_malloc
-#define wa_free bh_free
-#define wa_strdup bh_strdup
+void *os_malloc(unsigned size);
+void *os_realloc(void *ptr, unsigned size);
+void os_free(void *ptr);
 
 #define bh_printf(...) (__android_log_print(ANDROID_LOG_INFO, "wasm_runtime::", __VA_ARGS__))
-
 
 int snprintf(char *buffer, size_t count, const char *format, ...);
 double fmod(double x, double y);
@@ -99,16 +91,7 @@ double sqrt(double x);
 
 #define bh_assert assert
 
-int b_memcpy_s(void * s1, unsigned int s1max, const void * s2,
-               unsigned int n);
-int b_strcat_s(char * s1, size_t s1max, const char * s2);
-int b_strcpy_s(char * s1, size_t s1max, const char * s2);
-
-int fopen_s(FILE ** pFile, const char *filename, const char *mode);
-
 char *bh_read_file_to_buffer(const char *filename, uint32 *ret_size);
-
-char *bh_strdup(const char *s);
 
 int bh_platform_init();
 

@@ -6,8 +6,6 @@
 #include "watchdog.h"
 #include "bh_queue.h"
 #include "bh_thread.h"
-#include "bh_memory.h"
-#include "jeff_export.h"
 
 #define WATCHDOG_THREAD_PRIORITY 5
 

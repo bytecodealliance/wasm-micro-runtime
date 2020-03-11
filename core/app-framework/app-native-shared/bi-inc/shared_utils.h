@@ -145,6 +145,8 @@ unpack_response(char * packet, int size, response_t * response);
 void
 free_req_resp_packet(char * packet);
 
+char *
+wa_strdup(const char *str);
 
 
 #ifdef __cplusplus

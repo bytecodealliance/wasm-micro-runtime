@@ -6,7 +6,6 @@
 #include "bh_thread.h"
 #include "bh_assert.h"
 #include "bh_log.h"
-#include "bh_memory.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -67,7 +66,7 @@ static void *vm_thread_wrapper(void *arg)
     targ->stack = (void *)((uintptr_t)(&arg) & (uintptr_t)~0xfff);
     _vm_tls_put(1, targ);
     targ->start(targ->arg);
-    bh_free(targ);
+    BH_FREE(targ);
     _vm_tls_put(1, NULL);
     return NULL;
 }
@@ -93,7 +92,7 @@ int _vm_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
         return BHT_ERROR;
     }
 
-    targ = (thread_wrapper_arg*) bh_malloc(sizeof(*targ));
+    targ = (thread_wrapper_arg*) BH_MALLOC(sizeof(*targ));
     if (!targ) {
         pthread_attr_destroy(&tattr);
         return BHT_ERROR;
@@ -105,7 +104,7 @@ int _vm_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
 
     if (pthread_create(tid, &tattr, vm_thread_wrapper, targ) != 0) {
         pthread_attr_destroy(&tattr);
-        bh_free(targ);
+        BH_FREE(targ);
         return BHT_ERROR;
     }
 
@@ -127,7 +126,7 @@ korp_tid _vm_self_thread()
 
 void vm_thread_exit(void * code)
 {
-    bh_free(_vm_tls_get(1));
+    BH_FREE(_vm_tls_get(1));
     _vm_tls_put(1, NULL);
     pthread_exit(code);
 }

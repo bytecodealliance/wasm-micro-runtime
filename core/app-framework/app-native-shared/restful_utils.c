@@ -43,7 +43,7 @@ char * pack_request(request_t *request, int * size)
 {
     int url_len = strlen(request->url) + 1;
     int len = REQUEST_PACKET_FIX_PART_LEN + url_len + request->payload_len;
-    char * packet = (char*) wa_malloc(len);
+    char * packet = (char*) WA_MALLOC(len);
     if (packet == NULL)
         return NULL;
 
@@ -65,7 +65,7 @@ char * pack_request(request_t *request, int * size)
 
 void free_req_resp_packet(char * packet)
 {
-    wa_free(packet);
+    WA_FREE(packet);
 }
 
 request_t * unpack_request(char * packet, int size, request_t * request)
@@ -108,7 +108,7 @@ request_t * unpack_request(char * packet, int size, request_t * request)
 char * pack_response(response_t *response, int * size)
 {
     int len = RESPONSE_PACKET_FIX_PART_LEN + response->payload_len;
-    char * packet = (char*) wa_malloc(len);
+    char * packet = (char*) WA_MALLOC(len);
     if (packet == NULL)
         return NULL;
 
@@ -152,7 +152,7 @@ response_t * unpack_response(char * packet, int size, response_t * response)
 request_t *clone_request(request_t *request)
 {
     /* deep clone */
-    request_t *req = (request_t *) wa_malloc(sizeof(request_t));
+    request_t *req = (request_t *) WA_MALLOC(sizeof(request_t));
     if (req == NULL)
         return NULL;
 
@@ -169,7 +169,7 @@ request_t *clone_request(request_t *request)
     req->payload_len = request->payload_len;
 
     if (request->payload_len) {
-        req->payload = (char *) wa_malloc(request->payload_len);
+        req->payload = (char *) WA_MALLOC(request->payload_len);
         if (!req->payload)
             goto fail;
         memcpy(req->payload, request->payload, request->payload_len);
@@ -188,24 +188,24 @@ fail:
 void request_cleaner(request_t *request)
 {
     if (request->url != NULL)
-        wa_free(request->url);
+        WA_FREE(request->url);
     if (request->payload != NULL && request->payload_len > 0)
-        wa_free(request->payload);
+        WA_FREE(request->payload);
 
-    wa_free(request);
+    WA_FREE(request);
 }
 
 void response_cleaner(response_t * response)
 {
     if (response->payload != NULL && response->payload_len > 0)
-        wa_free(response->payload);
+        WA_FREE(response->payload);
 
-    wa_free(response);
+    WA_FREE(response);
 }
 
 response_t * clone_response(response_t * response)
 {
-    response_t *clone = (response_t *) wa_malloc(sizeof(response_t));
+    response_t *clone = (response_t *) WA_MALLOC(sizeof(response_t));
     if (clone == NULL)
         return NULL;
 
@@ -216,7 +216,7 @@ response_t * clone_response(response_t * response)
     clone->reciever = response->reciever;
     clone->payload_len = response->payload_len;
     if (clone->payload_len) {
-        clone->payload = (char *) wa_malloc(response->payload_len);
+        clone->payload = (char *) WA_MALLOC(response->payload_len);
         if (!clone->payload)
             goto fail;
         memcpy(clone->payload, response->payload, response->payload_len);

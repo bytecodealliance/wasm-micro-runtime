@@ -9,8 +9,7 @@ include_directories(${MEM_ALLOC_DIR})
 file (GLOB_RECURSE source_all
       ${MEM_ALLOC_DIR}/ems/*.c
       ${MEM_ALLOC_DIR}/tlsf/*.c
-      ${MEM_ALLOC_DIR}/mem_alloc.c
-      ${MEM_ALLOC_DIR}/bh_memory.c)
+      ${MEM_ALLOC_DIR}/mem_alloc.c)
 
 set (MEM_ALLOC_SHARED_SOURCE ${source_all})
 

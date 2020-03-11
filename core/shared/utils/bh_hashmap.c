@@ -6,7 +6,6 @@
 #include "bh_hashmap.h"
 #include "bh_log.h"
 #include "bh_thread.h"
-#include "bh_memory.h"
 
 
 typedef struct HashMapElem {
@@ -55,7 +54,7 @@ bh_hash_map_create(uint32 size, bool use_lock,
                  (use_lock ? sizeof(korp_mutex) : 0);
 
     if (total_size >= UINT32_MAX
-        || !(map = bh_malloc((uint32)total_size))) {
+        || !(map = BH_MALLOC((uint32)total_size))) {
         LOG_ERROR("HashMap create failed: alloc memory failed.\n");
         return NULL;
     }
@@ -68,7 +67,7 @@ bh_hash_map_create(uint32 size, bool use_lock,
                      + sizeof(HashMapElem) * size);
         if (vm_mutex_init(map->lock)) {
             LOG_ERROR("HashMap create failed: init map lock failed.\n");
-            bh_free(map);
+            BH_FREE(map);
             return NULL;
         }
     }
@@ -106,7 +105,7 @@ bh_hash_map_insert(HashMap *map, void *key, void *value)
         elem = elem->next;
     }
 
-    if (!(elem = bh_malloc(sizeof(HashMapElem)))) {
+    if (!(elem = BH_MALLOC(sizeof(HashMapElem)))) {
         LOG_ERROR("HashMap insert elem failed: alloc memory failed.\n");
         goto fail;
     }
@@ -233,7 +232,7 @@ bh_hash_map_remove(HashMap *map, void *key,
             else
                 prev->next = elem->next;
 
-            bh_free(elem);
+            BH_FREE(elem);
 
             if (map->lock) {
                 vm_mutex_unlock(map->lock);
@@ -277,7 +276,7 @@ bh_hash_map_destroy(HashMap *map)
             if (map->value_destroy_func) {
                 map->value_destroy_func(elem->value);
             }
-            bh_free(elem);
+            BH_FREE(elem);
 
             elem = next;
         }
@@ -287,6 +286,6 @@ bh_hash_map_destroy(HashMap *map)
         vm_mutex_unlock(map->lock);
         vm_mutex_destroy(map->lock);
     }
-    bh_free(map);
+    BH_FREE(map);
     return true;
 }

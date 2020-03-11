@@ -4,7 +4,6 @@
  */
 
 #include "wasm_interp.h"
-#include "bh_memory.h"
 #include "bh_log.h"
 #include "wasm_runtime.h"
 #include "wasm_opcode.h"
@@ -225,27 +224,24 @@ LOAD_I16(void *addr)
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
 #define CHECK_MEMORY_OVERFLOW() do {                                            \
-    uint32 offset1 = offset + addr;                                             \
+    uint64 offset1 = offset + addr;                                             \
     /* if (flags != 2)                                                          \
       LOG_VERBOSE("unaligned load/store in wasm interp, flag: %d.\n", flags); */\
     /* The WASM spec doesn't require that the dynamic address operand must be   \
        unsigned, so we don't check whether integer overflow or not here. */     \
     /* if (offset1 < offset)                                                    \
       goto out_of_bounds; */                                                    \
-    if (offset1 < memory_data_size) {                                           \
+    if (offset1 + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] <= memory_data_size) {   \
       /* If offset1 is in valid range, maddr must also be in valid range,       \
          no need to check it again. */                                          \
       maddr = memory->memory_data + offset1;                                    \
-      if (maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] > memory->end_addr)      \
-        goto out_of_bounds;                                                     \
     }                                                                           \
-    else if (offset1 > heap_base_offset                                         \
-             && offset1 < heap_base_offset + heap_data_size) {                  \
+    else if (offset1 > DEFAULT_APP_HEAP_BASE_OFFSET                             \
+             && (offset1 + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] <=              \
+                    DEFAULT_APP_HEAP_BASE_OFFSET + heap_data_size)) {           \
       /* If offset1 is in valid range, maddr must also be in valid range,       \
          no need to check it again. */                                          \
       maddr = memory->heap_data + offset1 - memory->heap_base_offset;           \
-      if (maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] > memory->heap_data_end) \
-        goto out_of_bounds;                                                     \
     }                                                                           \
     else                                                                        \
       goto out_of_bounds;                                                       \
@@ -795,7 +791,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   WASMMemoryInstance *memory = module->default_memory;
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
   uint32 memory_data_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
-  uint32 heap_base_offset = memory ? (uint32)memory->heap_base_offset : 0;
   uint32 heap_data_size = memory ? (uint32)(memory->heap_data_end - memory->heap_data) : 0;
   uint8 *global_data = memory ? memory->global_data : NULL;
   WASMTableInstance *table = module->default_table;
@@ -952,7 +947,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else {
           uint64 total_size = sizeof(uint32) * (uint64)count;
           if (total_size >= UINT32_MAX
-              || !(depths = wasm_malloc((uint32)total_size))) {
+              || !(depths = wasm_runtime_malloc((uint32)total_size))) {
             wasm_set_exception(module,
                                "WASM interp failed: allocate memory failed.");
             goto got_exception;
@@ -967,7 +962,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           depth = depths[didx];
         }
         if (depths != depth_buf) {
-          wasm_free(depths);
+          wasm_runtime_free(depths);
           depths = NULL;
         }
         POP_CSP_N(depth);
@@ -1080,7 +1075,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           HANDLE_OP_END ();
         }
 
-      HANDLE_OP (WASM_OP_GET_LOCAL_FAST):
+      HANDLE_OP (EXT_OP_GET_LOCAL_FAST):
         {
           local_offset = *frame_ip++;
           if (local_offset & 0x80)
@@ -1111,7 +1106,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           HANDLE_OP_END ();
         }
 
-      HANDLE_OP (WASM_OP_SET_LOCAL_FAST):
+      HANDLE_OP (EXT_OP_SET_LOCAL_FAST):
         {
           local_offset = *frame_ip++;
           if (local_offset & 0x80)
@@ -1143,7 +1138,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           HANDLE_OP_END ();
         }
 
-      HANDLE_OP (WASM_OP_TEE_LOCAL_FAST):
+      HANDLE_OP (EXT_OP_TEE_LOCAL_FAST):
         {
           local_offset = *frame_ip++;
           if (local_offset & 0x80)
@@ -2225,6 +2220,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     HANDLE_OP (WASM_OP_UNUSED_0x25):
     HANDLE_OP (WASM_OP_UNUSED_0x26):
     HANDLE_OP (WASM_OP_UNUSED_0x27):
+    /* Used by fast interpreter */
+    HANDLE_OP (EXT_OP_SET_LOCAL_FAST_I64):
+    HANDLE_OP (EXT_OP_TEE_LOCAL_FAST_I64):
+    HANDLE_OP (EXT_OP_COPY_STACK_TOP):
+    HANDLE_OP (EXT_OP_COPY_STACK_TOP_I64):
     {
       wasm_set_exception(module, "WASM interp failed: unsupported opcode.");
       goto got_exception;

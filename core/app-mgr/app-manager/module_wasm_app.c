@@ -10,7 +10,6 @@
 #include "bh_queue.h"
 #include "bi-inc/attr_container.h"
 #include "bh_thread.h"
-#include "bh_memory.h"
 #include "coap_ext.h"
 #include "event.h"
 #include "watchdog.h"
@@ -551,12 +550,7 @@ cleanup_app_resource(module_data *m_data)
 static bool
 wasm_app_module_init(void)
 {
-    /* Initialize WASM VM*/
-    if (!wasm_runtime_init()) {
-        app_manager_printf("WASM runtime environment initialization failed.\n");
-        return false;
-    }
-
+    /* wasm runtime is already initialized by main func */
     return true;
 }
 
@@ -776,7 +770,7 @@ wasm_app_module_install(request_t * msg)
     /* Create module data including the wasm_app_data as its internal_data*/
     m_data_size = offsetof(module_data, module_name) + strlen(m_name) + 1;
     m_data_size = align_uint(m_data_size, 4);
-    m_data = bh_malloc(m_data_size + sizeof(wasm_data));
+    m_data = APP_MGR_MALLOC(m_data_size + sizeof(wasm_data));
     if (!m_data) {
         SEND_ERR_RESPONSE(msg->mid, "Install WASM app failed: allocate memory failed.");
         goto fail;
@@ -1096,7 +1090,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
             recv_ctx.message.request_url_len =
                 ntohs(recv_ctx.message.request_url_len);
             recv_ctx.message.request_url =
-                bh_malloc(recv_ctx.message.request_url_len + 1);
+                APP_MGR_MALLOC(recv_ctx.message.request_url_len + 1);
             if (NULL == recv_ctx.message.request_url) {
                 app_manager_printf("Allocate memory failed!\n");
                 goto fail;
@@ -1177,7 +1171,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
         uint8 section_type = ch;
         if (section_type <= SECTION_TYPE_DATA) {
             wasm_section_t *new_section;
-            if (!(new_section = (wasm_section_t *) bh_malloc(sizeof(wasm_section_t)))) {
+            if (!(new_section = (wasm_section_t *) APP_MGR_MALLOC(sizeof(wasm_section_t)))) {
                 app_manager_printf("Allocate memory failed!\n");
                 goto fail;
             }
@@ -1226,7 +1220,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
 
         if ((byte & 0x80) == 0) {
             /* leb128 encoded section size parsed done */
-            if (!(section->section_body = bh_malloc(section->section_body_size))) {
+            if (!(section->section_body = APP_MGR_MALLOC(section->section_body_size))) {
                 app_manager_printf("Allocate memory failed!\n");
                 goto fail;
             }
@@ -1248,7 +1242,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
             if (recv_ctx.total_received_size == request_total_size) {
                 /* whole wasm app received */
                 if (module_wasm_app_handle_install_msg(&recv_ctx.message)) {
-                    bh_free(recv_ctx.message.request_url);
+                    APP_MGR_FREE(recv_ctx.message.request_url);
                     recv_ctx.message.request_url = NULL;
                     memset(&recv_ctx, 0, sizeof(recv_ctx));
                     return true;
@@ -1297,7 +1291,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
             if (aot_file_cur_offset % 4)
                 return true;
 
-            if (!(cur_section = (aot_section_t *) bh_malloc(sizeof(aot_section_t)))) {
+            if (!(cur_section = (aot_section_t *) APP_MGR_MALLOC(sizeof(aot_section_t)))) {
                 app_manager_printf("Allocate memory failed!\n");
                 goto fail;
             }
@@ -1377,7 +1371,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
                 }
                 else {
                     if (!(section->section_body =
-                                bh_malloc(section->section_body_size))) {
+                                APP_MGR_MALLOC(section->section_body_size))) {
                         app_manager_printf("Allocate memory failed!\n");
                         goto fail;
                     }
@@ -1411,7 +1405,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
             if (recv_ctx.total_received_size == request_total_size) {
                 /* whole aot file received */
                 if (module_wasm_app_handle_install_msg(&recv_ctx.message)) {
-                    bh_free(recv_ctx.message.request_url);
+                    APP_MGR_FREE(recv_ctx.message.request_url);
                     recv_ctx.message.request_url = NULL;
                     memset(&recv_ctx, 0, sizeof(recv_ctx));
                     return true;
@@ -1449,7 +1443,7 @@ fail:
     }
 
     if (recv_ctx.message.request_url != NULL) {
-        bh_free(recv_ctx.message.request_url);
+        APP_MGR_FREE(recv_ctx.message.request_url);
         recv_ctx.message.request_url = NULL;
     }
 
@@ -1466,7 +1460,7 @@ module_wasm_app_handle_install_msg(install_wasm_app_msg_t *message)
     request_t *request = NULL;
     bh_message_t msg;
 
-    request = (request_t *) bh_malloc(sizeof(request_t));
+    request = (request_t *) APP_MGR_MALLOC(sizeof(request_t));
     if (request == NULL)
         return false;
 
@@ -1477,7 +1471,7 @@ module_wasm_app_handle_install_msg(install_wasm_app_msg_t *message)
     request->sender = ID_HOST;
     request->mid = message->request_mid;
     request->payload_len = sizeof(message->app_file);
-    request->payload = bh_malloc(request->payload_len);
+    request->payload = APP_MGR_MALLOC(request->payload_len);
 
     if (request->url == NULL || request->payload == NULL) {
         request_cleaner(request);
@@ -1512,8 +1506,8 @@ destroy_all_wasm_sections(wasm_section_list_t sections)
     while (cur) {
         wasm_section_t *next = cur->next;
         if (cur->section_body != NULL)
-            bh_free(cur->section_body);
-        bh_free(cur);
+            APP_MGR_FREE(cur->section_body);
+        APP_MGR_FREE(cur);
         cur = next;
     }
 }
@@ -1537,8 +1531,8 @@ destroy_part_wasm_sections(wasm_section_list_t *p_sections,
                     *p_sections = next;
 
                 if (cur->section_body != NULL)
-                    bh_free(cur->section_body);
-                bh_free(cur);
+                    APP_MGR_FREE(cur->section_body);
+                APP_MGR_FREE(cur);
                 break;
             }
             else {
@@ -1561,9 +1555,9 @@ destroy_all_aot_sections(aot_section_list_t sections)
             if (cur->section_type == AOT_SECTION_TYPE_TEXT)
                 bh_munmap(cur->section_body, cur->section_body_size);
             else
-                bh_free(cur->section_body);
+                APP_MGR_FREE(cur->section_body);
         }
-        bh_free(cur);
+        APP_MGR_FREE(cur);
         cur = next;
     }
 }
@@ -1591,9 +1585,9 @@ destroy_part_aot_sections(aot_section_list_t *p_sections,
                     if (cur->section_type == AOT_SECTION_TYPE_TEXT)
                         bh_munmap(cur->section_body, cur->section_body_size);
                     else
-                        bh_free(cur->section_body);
+                        APP_MGR_FREE(cur->section_body);
                 }
-                bh_free(cur);
+                APP_MGR_FREE(cur);
                 break;
             }
             else {

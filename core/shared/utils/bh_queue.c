@@ -5,7 +5,6 @@
 
 #include "bh_queue.h"
 #include "bh_thread.h"
-#include "bh_memory.h"
 #include "bh_time.h"
 #include "bh_common.h"
 
@@ -131,7 +130,7 @@ bool bh_post_msg(bh_queue *queue, unsigned short tag, void *body,
     if (msg == NULL) {
         queue->drops++;
         if (len != 0 && body)
-            bh_free(body);
+            BH_FREE(body);
         return false;
     }
 

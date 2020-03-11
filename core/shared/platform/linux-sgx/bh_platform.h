@@ -8,7 +8,6 @@
 
 #include "bh_config.h"
 #include "bh_types.h"
-#include "bh_memory.h"
 #include <inttypes.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -27,13 +26,14 @@
 extern "C" {
 #endif
 
+typedef void (*bh_print_function_t)(const char* message);
+void bh_set_print_function(bh_print_function_t pf);
+
 extern int bh_printf_sgx(const char *message, ...);
 extern int bh_vprintf_sgx(const char * format, va_list arg);
 
 typedef uint64_t uint64;
 typedef int64_t int64;
-
-#define DIE do{bh_debug("Die here\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); DEBUGME(void); while(1);}while(0)
 
 #ifndef BH_PLATFORM_LINUX_SGX
 #define BH_PLATFORM_LINUX_SGX
@@ -62,9 +62,9 @@ typedef sgx_thread_t korp_tid;
 typedef sgx_thread_t korp_thread;
 typedef sgx_thread_cond_t korp_cond;
 
-#define wa_malloc bh_malloc
-#define wa_free bh_free
-#define wa_strdup bh_strdup
+void *os_malloc(unsigned size);
+void *os_realloc(void *ptr, unsigned size);
+void os_free(void *ptr);
 
 #define bh_printf bh_printf_sgx
 
@@ -93,13 +93,6 @@ double sqrt(double x);
 #endif
 
 #define bh_assert assert
-
-int b_memcpy_s(void * s1, unsigned int s1max, const void * s2,
-               unsigned int n);
-int b_strcat_s(char * s1, size_t s1max, const char * s2);
-int b_strcpy_s(char * s1, size_t s1max, const char * s2);
-
-char *bh_strdup(const char *s);
 
 int bh_platform_init();
 

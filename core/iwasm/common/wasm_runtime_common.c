@@ -9,6 +9,7 @@
 #include "bh_assert.h"
 #include "bh_log.h"
 #include "wasm_runtime_common.h"
+#include "wasm_memory.h"
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
 #endif
@@ -23,8 +24,8 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
         snprintf(error_buf, error_buf_size, "%s", string);
 }
 
-bool
-wasm_runtime_init()
+static bool
+wasm_runtime_env_init()
 {
     if (bh_platform_init() != 0)
         return false;
@@ -35,8 +36,20 @@ wasm_runtime_init()
     if (vm_thread_sys_init() != 0)
         return false;
 
-    if (wasm_native_init() == false) {
-        wasm_runtime_destroy();
+    if (wasm_native_init() == false)
+        return false;
+
+    return true;
+}
+
+bool
+wasm_runtime_init()
+{
+    if (!wasm_runtime_memory_init(Alloc_With_System_Allocator, NULL))
+        return false;
+
+    if (!wasm_runtime_env_init()) {
+        wasm_runtime_memory_destroy();
         return false;
     }
 
@@ -48,6 +61,30 @@ wasm_runtime_destroy()
 {
     wasm_native_destroy();
     vm_thread_sys_destroy();
+    wasm_runtime_memory_destroy();
+}
+
+bool
+wasm_runtime_full_init(RuntimeInitArgs *init_args)
+{
+    if (!wasm_runtime_memory_init(init_args->mem_alloc_type,
+                                  &init_args->mem_alloc_option))
+        return false;
+
+    if (!wasm_runtime_env_init()) {
+        wasm_runtime_memory_destroy();
+        return false;
+    }
+
+    if (init_args->n_native_symbols > 0
+        && !wasm_runtime_register_natives(init_args->native_module_name,
+                                          init_args->native_symbols,
+                                          init_args->n_native_symbols)) {
+        wasm_runtime_destroy();
+        return false;
+    }
+
+    return true;
 }
 
 PackageType
@@ -202,7 +239,7 @@ wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
 }
 
 WASMFunctionInstanceCommon *
-wasm_runtime_lookup_function(const WASMModuleInstanceCommon *module_inst,
+wasm_runtime_lookup_function(WASMModuleInstanceCommon * const module_inst,
                              const char *name,
                              const char *signature)
 {
@@ -339,7 +376,7 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst)
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
         return ((WASMModuleInstance*)module_inst)->custom_data;
-#endif  
+#endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
         return ((AOTModuleInstance*)module_inst)->custom_data.ptr;
@@ -619,7 +656,7 @@ wasm_runtime_set_wasi_args(WASMModuleCommon *module,
                            const char *dir_list[], uint32 dir_count,
                            const char *map_dir_list[], uint32 map_dir_count,
                            const char *env_list[], uint32 env_count,
-                           const char *argv[], uint32 argc)
+                           char *argv[], int argc)
 {
     WASIArguments *wasi_args = NULL;
 
@@ -649,7 +686,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
                        const char *map_dir_list[], uint32 map_dir_count,
                        const char *env[], uint32 env_count,
-                       const char *argv[], uint32 argc,
+                       char *argv[], uint32 argc,
                        char *error_buf, uint32 error_buf_size)
 {
     WASIContext *wasi_ctx;
@@ -673,7 +710,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     uint64 total_size;
     uint32 i;
 
-    if (!(wasi_ctx = wasm_malloc(sizeof(WASIContext)))) {
+    if (!(wasi_ctx = wasm_runtime_malloc(sizeof(WASIContext)))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed.");
         return false;
@@ -902,7 +939,7 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
             fd_table_destroy(wasi_ctx->curfds);
         if (wasi_ctx->prestats)
             fd_prestats_destroy(wasi_ctx->prestats);
-        bh_free(wasi_ctx);
+        wasm_runtime_free(wasi_ctx);
     }
 }
 
@@ -1222,7 +1259,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 
     total_size = sizeof(uint32) * (uint64)(argc1 > 2 ? argc1 : 2);
     if (total_size >= UINT32_MAX
-        || (!(argv1 = wasm_malloc((uint32)total_size)))) {
+        || (!(argv1 = wasm_runtime_malloc((uint32)total_size)))) {
         wasm_runtime_set_exception(module_inst, "allocate memory failed.");
         goto fail;
     }
@@ -1367,12 +1404,12 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
     bh_printf("\n");
 
-    wasm_free(argv1);
+    wasm_runtime_free(argv1);
     return true;
 
 fail:
     if (argv1)
-        wasm_free(argv1);
+        wasm_runtime_free(argv1);
 
     exception = wasm_runtime_get_exception(module_inst);
     bh_assert(exception);
@@ -1501,7 +1538,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
         size = sizeof(uint32) * (uint32)argc1;
         if (size >= UINT32_MAX
-                || !(argv1 = wasm_malloc((uint32)size))) {
+                || !(argv1 = wasm_runtime_malloc((uint32)size))) {
             wasm_runtime_set_exception(exec_env->module_inst,
                                        "allocate memory failed.");
             return false;
@@ -1629,7 +1666,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 
 fail:
     if (argv1 != argv_buf)
-        wasm_free(argv1);
+        wasm_runtime_free(argv1);
     return ret;
 }
 #endif /* end of defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP) */
@@ -1676,7 +1713,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
         size = sizeof(uint32) * (uint64)argc1;
         if (size >= UINT_MAX
-            || !(argv1 = wasm_malloc((uint32)size))) {
+            || !(argv1 = wasm_runtime_malloc((uint32)size))) {
             wasm_runtime_set_exception(exec_env->module_inst,
                                        "allocate memory failed.");
             return false;
@@ -1769,7 +1806,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 
 fail:
     if (argv1 != argv_buf)
-        wasm_free(argv1);
+        wasm_runtime_free(argv1);
     return ret;
 }
 
@@ -1824,7 +1861,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
         size = sizeof(uint64) * (uint64)argc1;
         if (size >= UINT32_MAX
-            || !(argv1 = wasm_malloc((uint32)size))) {
+            || !(argv1 = wasm_runtime_malloc((uint32)size))) {
             wasm_runtime_set_exception(exec_env->module_inst,
                                        "allocate memory failed.");
             return false;
@@ -1926,7 +1963,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     ret = true;
 fail:
     if (argv1 != argv_buf)
-        wasm_free(argv1);
+        wasm_runtime_free(argv1);
 
     return ret;
 }
