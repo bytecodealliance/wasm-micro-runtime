@@ -196,7 +196,7 @@ if(buffer_for_wasm != 0)
     
     // it is runtime responsibility to release the memory,
     // unless the WASM app will free the passed pointer in its code
-    wasm_runtime_module_free(module_inst, buffer);
+    wasm_runtime_module_free(module_inst, buffer_for_wasm);
 }
 
 ```
