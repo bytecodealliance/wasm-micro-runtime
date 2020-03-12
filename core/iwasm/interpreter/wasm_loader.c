@@ -4175,11 +4175,29 @@ handle_next_reachable_block:
             case WASM_OP_F32_STORE:
             case WASM_OP_F64_STORE:
             {
+#if WASM_ENABLE_FAST_INTERP != 0
+                /* change F32/F64 into I32/I64 */
+                if (opcode == WASM_OP_F32_LOAD) {
+                    skip_label();
+                    emit_label(WASM_OP_I32_LOAD);
+                }
+                else if (opcode == WASM_OP_F64_LOAD) {
+                    skip_label();
+                    emit_label(WASM_OP_I64_LOAD);
+                }
+                else if (opcode == WASM_OP_F32_STORE) {
+                    skip_label();
+                    emit_label(WASM_OP_I32_STORE);
+                }
+                else if (opcode == WASM_OP_F64_STORE) {
+                    skip_label();
+                    emit_label(WASM_OP_I64_STORE);
+                }
+#endif
                 CHECK_MEMORY();
                 read_leb_uint32(p, p_end, align); /* align */
                 read_leb_uint32(p, p_end, mem_offset); /* offset */
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_byte(loader_ctx, opcode);
                 emit_const(mem_offset);
 #endif
                 switch (opcode)
