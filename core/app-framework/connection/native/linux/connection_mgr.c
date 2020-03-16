@@ -11,14 +11,12 @@
  */
 
 #include "connection_lib.h"
-#include "bh_thread.h"
+#include "bh_platform.h"
 #include "app_manager_export.h"
 #include "module_wasm_app.h"
 #include "conn_tcp.h"
 #include "conn_udp.h"
 #include "conn_uart.h"
-#include "bh_common.h"
-#include "bh_assert.h"
 
 #include <unistd.h>
 #include <sys/epoll.h>
@@ -96,7 +94,7 @@ connection_interface_t connection_impl = {
 
 static void add_connection(sys_connection_t *conn)
 {
-    vm_mutex_lock(&g_lock);
+    os_mutex_lock(&g_lock);
 
     g_handle_max++;
     if (g_handle_max == -1)
@@ -110,7 +108,7 @@ static void add_connection(sys_connection_t *conn)
         g_connections = conn;
     }
 
-    vm_mutex_unlock(&g_lock);
+    os_mutex_unlock(&g_lock);
 }
 
 #define FREE_CONNECTION(conn) do {      \
@@ -124,7 +122,7 @@ static int get_app_conns_num(uint32 module_id)
     sys_connection_t *conn;
     int num = 0;
 
-    vm_mutex_lock(&g_lock);
+    os_mutex_lock(&g_lock);
 
     conn = g_connections;
     while (conn) {
@@ -133,7 +131,7 @@ static int get_app_conns_num(uint32 module_id)
         conn = conn->next;
     }
 
-    vm_mutex_unlock(&g_lock);
+    os_mutex_unlock(&g_lock);
 
     return num;
 }
@@ -142,7 +140,7 @@ static sys_connection_t *find_connection(uint32 handle, bool remove_found)
 {
     sys_connection_t *conn, *prev = NULL;
 
-    vm_mutex_lock(&g_lock);
+    os_mutex_lock(&g_lock);
 
     conn = g_connections;
     while (conn) {
@@ -154,7 +152,7 @@ static sys_connection_t *find_connection(uint32 handle, bool remove_found)
                     g_connections = conn->next;
                 }
             }
-            vm_mutex_unlock(&g_lock);
+            os_mutex_unlock(&g_lock);
             return conn;
         } else {
             prev = conn;
@@ -162,7 +160,7 @@ static sys_connection_t *find_connection(uint32 handle, bool remove_found)
         }
     }
 
-    vm_mutex_unlock(&g_lock);
+    os_mutex_unlock(&g_lock);
 
     return NULL;
 }
@@ -171,7 +169,7 @@ static void cleanup_connections(uint32 module_id)
 {
     sys_connection_t *conn, *prev = NULL;
 
-    vm_mutex_lock(&g_lock);
+    os_mutex_lock(&g_lock);
 
     conn = g_connections;
     while (conn) {
@@ -194,7 +192,7 @@ static void cleanup_connections(uint32 module_id)
         }
     }
 
-    vm_mutex_unlock(&g_lock);
+    os_mutex_unlock(&g_lock);
 }
 
 static conn_type_t get_conn_type(const char *name)
@@ -546,13 +544,13 @@ void app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
 
 bool init_connection_framework()
 {
-    korp_thread tid;
+    korp_tid tid;
 
     epollfd = epoll_create(MAX_EVENTS);
     if (epollfd == -1)
         return false;
 
-    if (vm_mutex_init(&g_lock) != 0) {
+    if (os_mutex_init(&g_lock) != 0) {
         close(epollfd);
         return false;
     }
@@ -566,7 +564,7 @@ bool init_connection_framework()
         goto fail;
     }
 
-    if (vm_thread_create(&tid,
+    if (os_thread_create(&tid,
                          polling_thread_routine,
                          NULL,
                          BH_APPLET_PRESERVED_STACK_SIZE) != 0) {
@@ -576,7 +574,7 @@ bool init_connection_framework()
     return true;
 
 fail:
-    vm_mutex_destroy(&g_lock);
+    os_mutex_destroy(&g_lock);
     close(epollfd);
     return false;
 }

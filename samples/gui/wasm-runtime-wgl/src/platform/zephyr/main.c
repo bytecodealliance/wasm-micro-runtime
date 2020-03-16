@@ -8,7 +8,6 @@
 #include "bh_platform.h"
 #include "bh_assert.h"
 #include "bh_log.h"
-#include "bh_platform_log.h"
 #include "wasm_export.h"
 
 extern int iwasm_main();

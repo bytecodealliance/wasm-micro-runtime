@@ -1,64 +1,82 @@
 
 Build WAMR core (iwasm)
 =========================
-It is recommended to use the [WAMR SDK](../wamr-sdk) tools to build a project that embedes the WAMR. This document introduces how to build the WAMR minimal product which is vmcore only (no app-framework and app-mgr) for multiple platforms.
+It is recommended to use the [WAMR SDK](../wamr-sdk) tools to build a project that integrates the WAMR. This document introduces how to build the WAMR minimal product which is vmcore only (no app-framework and app-mgr) for multiple platforms.
 
 
 
 ## iwasm VM core CMake building configurations
 
-By including the cmake scripts under folder [build-scripts](../build-scripts), it is easy to build minimal product with CMake. WAMR provides a number of features which can be easily configured through cmake variables:
+By including the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in CMakeList.txt, it is easy to build minimal product with CMake. 
 
-``` Bash
-cmake -DWAMR_BUILD_INTERP=1/0 to enable or disable WASM intepreter
-cmake -DWAMR_BUILD_FAST_INTERP=1/0 to build fast (default) or classic WASM intepreter. 
-cmake -DWAMR_BUILD_AOT=1/0 to enable or disable WASM AOT
-cmake -DWAMR_BUILD_JIT=1/0 to enable or disable WASM JIT. (Disabled by default)
-cmake -DWAMR_BUILD_LIBC_BUILTIN=1/0 enable or disable Libc builtin API's. (Enabled by default)
-cmake -DWAMR_BUILD_LIBC_WASI=1/0 enable or disable Libc WASI API's
-cmake -DWAMR_BUILD_TARGET=<arch> to set the building target, including:
-    X86_64, X86_32, ARM, THUMB, XTENSA and MIPS
-    For ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and [_VFP] are optional. e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+```cmake
+# add this in your CMakeList.text
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 ```
 
-For example, if we want to enable classic interpreter, we can:
+
+
+The script `runtime_lib.cmake` defined a number of variables for configuring the WAMR runtime features. You can set these variables in your CMakeList.txt or pass the configurations from cmake command line.
+
+#### **Configure platform and architecture**
+
+- **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform). 
+
+- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets:  X86_64, X86_32, ARM, THUMB, XTENSA and MIPS. For ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and [_VFP] are optional. e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+
+  ```bash
+  cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM  
+  ```
+
+#### **Configure interpreter** 
+
+- **WAMR_BUILD_INTERP**=1/0:  enable or disable WASM interpreter
+
+- **WAMR_BUILD_FAST_INTERP**=1/0：build fast (default) or classic WASM interpreter. 
+
+  NOTE: the fast interpreter will run ~2X faster than classic interpreter, but it consumes about 2X memory to hold the WASM bytecode code.
+
+#### **Configure AoT and JIT**
+
+- **WAMR_BUILD_AOT**=1/0
+- **WAMR_BUILD_JIT**=1/0 , (Disabled if no set)
+
+#### **Configure LIBC**
+
+- **WAMR_BUILD_LIBC_BUILTIN**=1/0,  default to enable if no set
+
+- **WAMR_BUILD_LIBC_WASI**=1/0, default to disable if no set
+
+  
+
+**Combination of configurations:**
+
+We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
 
 ``` Bash
-cmake .. -DWAMR_BUILD_FAST_INTERP=0 
+cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_PLATFORM=linux 
 ```
 
-**Note** the fast interpreter will run ~2X faster than classic interpreter, but it consumes about 2X memory to hold the WASM bytecode code.
-
-If we want to disable interpreter, enable AOT and WASI, we can:
-
-``` Bash
-cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0
-```
-
-Or if we want to enable inerpreter, disable AOT and WASI, and build as X86_32, we can:
+Or if we want to enable interpreter, disable AOT and WASI, and build as X86_32, we can run command:
 
 ``` Bash
 cmake .. -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_TARGET=X86_32
 ```
 
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
-set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-To enable WASM JIT, firstly we should build LLVM:
 
-``` Bash
-cd product-mini/platforms/linux/
-./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
+## Cross compilation
+
+If you are building for ARM architecture on a X86 development machine, you can use the `CMAKE_TOOLCHAIN_FILE`  to set the toolchain file for cross compling.
+
+```
+cmake .. -DCMAKE_TOOLCHAIN_FILE=$TOOL_CHAIN_FILE  \
+         -DWAMR_BUILD_PLATFORM=linux    \
+         -DWAMR_BUILD_TARGET=ARM  
 ```
 
-Then pass option -DWAMR_BUILD_JIT=1 to cmake to enable WASM JIT:
-
-``` Bash
-mkdir build
-cd build
-cmake .. -DWAMR_BUILD_JIT=1
-make
-```
+Refer to toochain sample file [`samples/simple/profiles/arm-interp/toolchain.cmake`](../samples/simple/profiles/arm-interp/toolchain.cmake) for how to build mini product for ARM target architecture.
 
 
 
@@ -87,9 +105,26 @@ cd build
 cmake ..
 make
 ```
-The binary file iwasm will be generated under build folder.
 
 
+By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
+set to X86_64 or X86_32 depending on the platform's bitwidth.
+
+To enable WASM JIT, firstly we should build LLVM:
+
+``` Bash
+cd product-mini/platforms/linux/
+./build_llvm.sh     (The llvm source code is cloned under <wamr_root_dir>/core/deps/llvm and auto built)
+```
+
+Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable WASM JIT:
+
+``` Bash
+mkdir build
+cd build
+cmake .. -DWAMR_BUILD_JIT=1
+make
+```
 
 
 
@@ -231,19 +266,21 @@ AliOS-Things
       $(NAME)_COMPONENTS := osal_aos iwasm
    ```
 7. build source code and run
-   For linuxhost:
+   For linux host:
+   
    ``` Bash
    aos make helloworld@linuxhost -c config
    aos make
    ./out/helloworld@linuxhost/binary/helloworld@linuxhost.elf
-   ```
-
+```
+   
    For developerkit:
    Modify file middleware/iwasm/aos.mk, patch as:
+   
    ``` C
-   WAMR_BUILD_TARGET := THUMBV7M
+WAMR_BUILD_TARGET := THUMBV7M
    ```
-
+   
    ``` Bash
    aos make helloworld@developerkit -c config
    aos make

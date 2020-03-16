@@ -1108,7 +1108,8 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
 #if WASM_ENABLE_MEMORY_GROW != 0
     WASMMemoryInstance *memory = module->default_memory, *new_memory;
-    uint32 old_page_count = memory->cur_page_count, total_size_old;
+    uint32 old_page_count = memory->cur_page_count;
+    uint32 total_size_old = memory->end_addr - (uint8*)memory;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
                         memory->num_bytes_per_page * (uint64)total_page_count +
@@ -1135,13 +1136,13 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
             wasm_set_exception(module, "fail to enlarge memory.");
             return false;
         }
-        total_size_old = memory->end_addr - (uint8*)memory;
         bh_memcpy_s((uint8*)new_memory, (uint32)total_size,
                     (uint8*)memory, total_size_old);
-        memset((uint8*)new_memory + total_size_old,
-                0, (uint32)total_size - total_size_old);
         wasm_runtime_free(memory);
     }
+
+    memset((uint8*)new_memory + total_size_old,
+           0, (uint32)total_size - total_size_old);
 
     new_memory->cur_page_count = total_page_count;
     new_memory->memory_data = new_memory->base_addr;

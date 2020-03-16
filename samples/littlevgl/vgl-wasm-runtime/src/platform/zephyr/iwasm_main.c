@@ -7,9 +7,7 @@
 #include "native_interface.h"
 #include "app_manager_export.h"
 #include "board_config.h"
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
+#include "bh_platform.h"
 #include "runtime_sensor.h"
 #include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
@@ -90,8 +88,6 @@ static NativeSymbol native_symbols[] = {
 int iwasm_main()
 {
     RuntimeInitArgs init_args;
-    korp_thread tid, tm_tid;
-    uint32 n_native_symbols;
 
     host_init();
 
@@ -107,7 +103,7 @@ int iwasm_main()
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
-        bh_printf("Init runtime environment failed.\n");
+        printf("Init runtime environment failed.\n");
         return -1;
     }
 

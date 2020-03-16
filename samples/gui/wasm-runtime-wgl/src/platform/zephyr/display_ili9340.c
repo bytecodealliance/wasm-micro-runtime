@@ -62,24 +62,24 @@ int ili9340_init()
     data->spi_config.cs = NULL;
 #endif
     data->reset_gpio = device_get_binding(
-        DT_ILITEK_ILI9340_0_RESET_GPIOS_CONTROLLER);
+                        DT_ILITEK_ILI9340_0_RESET_GPIOS_CONTROLLER);
     if (data->reset_gpio == NULL) {
         return -EPERM;
     }
 
     gpio_pin_configure(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN,
-        GPIO_DIR_OUT);
+                       GPIO_DIR_OUT);
 
     data->command_data_gpio = device_get_binding(
-        DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_CONTROLLER);
+                        DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_CONTROLLER);
     if (data->command_data_gpio == NULL) {    
         return -EPERM;
     }
 
     gpio_pin_configure(data->command_data_gpio,
-        DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN, GPIO_DIR_OUT);
+                        DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN, GPIO_DIR_OUT);
 
-    LOG_DBG("Resetting display driver");
+    LOG_DBG("Resetting display driver\n");
     gpio_pin_write(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 1);
     k_sleep(1);
     gpio_pin_write(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 0);
@@ -97,7 +97,7 @@ int ili9340_init()
 }
 
 static void ili9340_set_mem_area(struct ili9340_data *data, const u16_t x,
-    const u16_t y, const u16_t w, const u16_t h)
+                                 const u16_t y, const u16_t w, const u16_t h)
 {
     u16_t spi_data[2];
 
@@ -111,7 +111,7 @@ static void ili9340_set_mem_area(struct ili9340_data *data, const u16_t x,
 }
 
 static int ili9340_write(const struct device *dev, const u16_t x, const u16_t y,
-    const struct display_buffer_descriptor *desc, const void *buf)
+                         const struct display_buffer_descriptor *desc, const void *buf)
 {
     struct ili9340_data *data = (struct ili9340_data *) &ili9340_data1;
     const u8_t *write_data_start = (u8_t *) buf;
@@ -123,7 +123,7 @@ static int ili9340_write(const struct device *dev, const u16_t x, const u16_t y,
 
     __ASSERT(desc->width <= desc->pitch, "Pitch is smaller then width");
     __ASSERT((3 * desc->pitch * desc->height) <= desc->buf_size,
-        "Input buffer to small");
+             "Input buffer to small");
     ili9340_set_mem_area(data, x, y, desc->width, desc->height);
 
     if (desc->pitch > desc->width) {
@@ -134,7 +134,7 @@ static int ili9340_write(const struct device *dev, const u16_t x, const u16_t y,
         nbr_of_writes = 1U;
     }
     ili9340_transmit(data, ILI9340_CMD_MEM_WRITE, (void *) write_data_start,
-        3 * desc->width * write_h);
+                     3 * desc->width * write_h);
 
     tx_bufs.buffers = &tx_buf;
     tx_bufs.count = 1;
@@ -151,15 +151,15 @@ static int ili9340_write(const struct device *dev, const u16_t x, const u16_t y,
 }
 
 static int ili9340_read(const struct device *dev, const u16_t x, const u16_t y,
-    const struct display_buffer_descriptor *desc, void *buf)
+                        const struct display_buffer_descriptor *desc, void *buf)
 {
-    LOG_ERR("Reading not supported");
+    LOG_ERR("Reading not supported\n");
     return -ENOTSUP;
 }
 
 static void *ili9340_get_framebuffer(const struct device *dev)
 {
-    LOG_ERR("Direct framebuffer access not supported");
+    LOG_ERR("Direct framebuffer access not supported\n");
     return NULL;
 }
 
@@ -167,7 +167,7 @@ static int ili9340_display_blanking_off(const struct device *dev)
 {
     struct ili9340_data *data = (struct ili9340_data *) dev->driver_data;
 
-    LOG_DBG("Turning display blanking off");
+    LOG_DBG("Turning display blanking off\n");
     ili9340_transmit(data, ILI9340_CMD_DISPLAY_ON, NULL, 0);
     return 0;
 }
@@ -176,46 +176,46 @@ static int ili9340_display_blanking_on(const struct device *dev)
 {
     struct ili9340_data *data = (struct ili9340_data *) dev->driver_data;
 
-    LOG_DBG("Turning display blanking on");
+    LOG_DBG("Turning display blanking on\n");
     ili9340_transmit(data, ILI9340_CMD_DISPLAY_OFF, NULL, 0);
     return 0;
 }
 
 static int ili9340_set_brightness(const struct device *dev,
-    const u8_t brightness)
+                                  const u8_t brightness)
 {
-    LOG_WRN("Set brightness not implemented");
+    LOG_WRN("Set brightness not implemented\n");
     return -ENOTSUP;
 }
 
 static int ili9340_set_contrast(const struct device *dev, const u8_t contrast)
 {
-    LOG_ERR("Set contrast not supported");
+    LOG_ERR("Set contrast not supported\n");
     return -ENOTSUP;
 }
 
 static int ili9340_set_pixel_format(const struct device *dev,
-    const enum display_pixel_format pixel_format)
+                                    const enum display_pixel_format pixel_format)
 {
     if (pixel_format == PIXEL_FORMAT_RGB_888) {
     return 0;
 }
-    LOG_ERR("Pixel format change not implemented");
+    LOG_ERR("Pixel format change not implemented\n");
     return -ENOTSUP;
 }
 
 static int ili9340_set_orientation(const struct device *dev,
-    const enum display_orientation orientation)
+                                   const enum display_orientation orientation)
 {
-if (orientation == DISPLAY_ORIENTATION_NORMAL) {
-    return 0;
-}
-LOG_ERR("Changing display orientation not implemented");
+    if (orientation == DISPLAY_ORIENTATION_NORMAL) {
+        return 0;
+    }
+    LOG_ERR("Changing display orientation not implemented\n");
     return -ENOTSUP;
 }
 
 static void ili9340_get_capabilities(const struct device *dev,
-    struct display_capabilities *capabilities)
+                                     struct display_capabilities *capabilities)
 {
     memset(capabilities, 0, sizeof(struct display_capabilities));
     capabilities->x_resolution = 320;
@@ -226,7 +226,7 @@ static void ili9340_get_capabilities(const struct device *dev,
 }
 
 void ili9340_transmit(struct ili9340_data *data, u8_t cmd, void *tx_data,
-    size_t tx_len)
+                      size_t tx_len)
 {
     int i;
     char * buf1 = tx_data;
@@ -235,7 +235,7 @@ void ili9340_transmit(struct ili9340_data *data, u8_t cmd, void *tx_data,
     struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
 
     gpio_pin_write(data->command_data_gpio, DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
-        ILI9340_CMD_DATA_PIN_COMMAND);
+                   ILI9340_CMD_DATA_PIN_COMMAND);
     spi_transceive(data->spi_dev, &data->spi_config, &tx_bufs, NULL);
     if (tx_data != NULL) {
         tx_buf.buf = tx_data;
@@ -247,15 +247,18 @@ void ili9340_transmit(struct ili9340_data *data, u8_t cmd, void *tx_data,
     }
 }
 
-struct display_driver_api ili9340_api1 =
-    { .blanking_on = ili9340_display_blanking_on, .blanking_off =
-            ili9340_display_blanking_off, .write = ili9340_write, .read =
-            ili9340_read, .get_framebuffer = ili9340_get_framebuffer,
-            .set_brightness = ili9340_set_brightness, .set_contrast =
-                    ili9340_set_contrast, .get_capabilities =
-                    ili9340_get_capabilities, .set_pixel_format =
-                    ili9340_set_pixel_format, .set_orientation =
-                    ili9340_set_orientation, };
+struct display_driver_api ili9340_api1 = {
+    .blanking_on = ili9340_display_blanking_on,
+    .blanking_off = ili9340_display_blanking_off,
+    .write = ili9340_write,
+    .read = ili9340_read,
+    .get_framebuffer = ili9340_get_framebuffer,
+    .set_brightness = ili9340_set_brightness,
+    .set_contrast = ili9340_set_contrast,
+    .get_capabilities = ili9340_get_capabilities,
+    .set_pixel_format = ili9340_set_pixel_format,
+    .set_orientation = ili9340_set_orientation
+};
 
 /*
  DEVICE_AND_API_INIT(ili9340, DT_ILITEK_ILI9340_0_LABEL, &ili9340_init,

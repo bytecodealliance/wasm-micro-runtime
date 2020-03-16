@@ -2311,7 +2311,7 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
 #if WASM_ENABLE_FAST_INTERP != 0
 
 #if WASM_DEBUG_PREPROCESSOR != 0
-#define LOG_OP(...)       bh_printf(__VA_ARGS__)
+#define LOG_OP(...)       os_printf(__VA_ARGS__)
 #else
 #define LOG_OP(...)
 #endif
@@ -3886,6 +3886,7 @@ handle_next_reachable_block:
             }
 
             case WASM_OP_DROP:
+            case WASM_OP_DROP_64:
             {
                 if (loader_ctx->stack_cell_num <= 0) {
                     set_error_buf(error_buf, error_buf_size,
@@ -3915,7 +3916,7 @@ handle_next_reachable_block:
                     }
                     loader_ctx->frame_ref -= 2;
                     loader_ctx->stack_cell_num -= 2;
-#if WASM_ENABLE_FAST_INTERP == 0
+#if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
                     *(p - 1) = WASM_OP_DROP_64;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -3930,6 +3931,7 @@ handle_next_reachable_block:
             }
 
             case WASM_OP_SELECT:
+            case WASM_OP_SELECT_64:
             {
                 uint8 ref_type;
 
@@ -3948,7 +3950,7 @@ handle_next_reachable_block:
                         break;
                     case REF_I64_2:
                     case REF_F64_2:
-#if WASM_ENABLE_FAST_INTERP == 0
+#if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
                         *(p - 1) = WASM_OP_SELECT_64;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0

@@ -5,8 +5,7 @@
 
 #include "app_manager.h"
 #include "app_manager_host.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
+#include "bh_platform.h"
 #include "bi-inc/attr_container.h"
 #include "event.h"
 #include "watchdog.h"
@@ -38,7 +37,7 @@ void app_manager_post_applets_update_event()
         return;
     }
 
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
 
     m_data = module_data_list;
     while (m_data) {
@@ -80,7 +79,8 @@ void app_manager_post_applets_update_event()
     app_manager_printf("Post applets update event success!\n");
     attr_container_dump(attr_cont);
 
-    fail: vm_mutex_unlock(&module_data_list_lock);
+fail:
+    os_mutex_unlock(&module_data_list_lock);
     attr_container_destroy(attr_cont);
 }
 
@@ -89,7 +89,7 @@ static int get_applets_count()
     module_data *m_data;
     int num = 0;
 
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
 
     m_data = module_data_list;
     while (m_data) {
@@ -97,7 +97,7 @@ static int get_applets_count()
         m_data = m_data->next;
     }
 
-    vm_mutex_unlock(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
 
     return num;
 }
@@ -118,7 +118,7 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
         return false;
     }
 
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
 
     m_data = module_data_list;
     while (m_data) {
@@ -186,7 +186,8 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
     app_manager_printf("Query Applets success!\n");
     attr_container_dump(attr_cont);
 
-    fail: vm_mutex_unlock(&module_data_list_lock);
+fail:
+    os_mutex_unlock(&module_data_list_lock);
     attr_container_destroy(attr_cont);
     return ret;
 }
@@ -368,9 +369,11 @@ void app_manager_startup(host_interface *interface)
     /* Enter loop run */
     bh_queue_enter_loop_run(g_app_mgr_queue, app_manager_queue_callback, NULL);
 
-    fail2: module_data_list_destroy();
+fail2:
+    module_data_list_destroy();
 
-    fail1: bh_queue_destroy(g_app_mgr_queue);
+fail1:
+    bh_queue_destroy(g_app_mgr_queue);
 }
 
 #include "module_config.h"

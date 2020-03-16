@@ -3,13 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "bh_common.h"
-#include "bh_types.h"
+#include "bh_platform.h"
 #include "app_manager_host.h"
 #include "app_manager.h"
 #include "app_manager_export.h"
 #include "coap_ext.h"
-#include "bh_thread.h"
 
 /* host communication interface */
 static host_interface host_commu;
@@ -235,7 +233,7 @@ int aee_host_msg_callback(void *msg, uint16_t msg_len)
 
 bool app_manager_host_init(host_interface *interface)
 {
-    vm_mutex_init(&host_lock);
+    os_mutex_init(&host_lock);
     memset(&recv_ctx, 0, sizeof(recv_ctx));
 
     host_commu.init = interface->init;
@@ -255,7 +253,7 @@ int app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size)
         int size_s = size, n;
         char header[16];
 
-        vm_mutex_lock(&host_lock);
+        os_mutex_lock(&host_lock);
         /* leading bytes */
         bh_memcpy_s(header, 2, leadings, 2);
 
@@ -270,13 +268,13 @@ int app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size)
         bh_memcpy_s(header + 4, 4, &size_s, 4);
         n = host_commu.send(NULL, header, 8);
         if (n != 8) {
-            vm_mutex_unlock(&host_lock);
+            os_mutex_unlock(&host_lock);
             return 0;
         }
 
         /* payload */
         n = host_commu.send(NULL, buf, size);
-        vm_mutex_unlock(&host_lock);
+        os_mutex_unlock(&host_lock);
 
         printf("sent %d bytes to host\n", n);
         return n;

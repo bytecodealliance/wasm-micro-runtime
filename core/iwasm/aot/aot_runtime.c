@@ -751,7 +751,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     uint32 max_page_count = module_inst->mem_max_page_count;
     uint32 total_page_count = cur_page_count + inc_page_count;
     uint64 total_size = (uint64)num_bytes_per_page * total_page_count;
-    uint32 total_size_old;
+    uint32 total_size_old = module_inst->memory_data_size;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -773,13 +773,13 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
             aot_set_exception(module_inst, "fail to enlarge memory.");
             return false;
         }
-        total_size_old = module_inst->memory_data_size;
         bh_memcpy_s(mem_data_new, (uint32)total_size,
                     mem_data_old, total_size_old);
-        memset(mem_data_new + total_size_old,
-               0, (uint32)total_size - total_size_old);
         wasm_runtime_free(mem_data_old);
     }
+
+    memset(mem_data_new + total_size_old,
+           0, (uint32)total_size - total_size_old);
 
     module_inst->mem_cur_page_count = total_page_count;
     module_inst->memory_data_size = (uint32)total_size;
