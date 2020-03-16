@@ -11,8 +11,6 @@ extern "C" {
 #endif
 
 #include "bh_platform.h"
-#include "bh_thread.h"
-#include "bh_assert.h"
 #include "ems_gc.h"
 
 /* basic block managed by EMS gc is the so-called HMU (heap memory unit)*/
@@ -146,8 +144,35 @@ extern void hmu_verify(hmu_t *hmu);
 typedef struct _hmu_normal_node
 {
     hmu_t hmu_header;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    struct {
+        uint32 parts[2];
+    } next;
+#else
     struct _hmu_normal_node *next;
-}hmu_normal_node_t;
+#endif
+} hmu_normal_node_t;
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+static inline hmu_normal_node_t *
+get_hmu_normal_node_next(hmu_normal_node_t *node)
+{
+    hmu_normal_node_t *next;
+    bh_memcpy_s(&next, (uint32)sizeof(hmu_normal_node_t *),
+                &node->next.parts, (uint32)sizeof(uint32) * 2);
+    return next;
+}
+
+static inline void
+set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
+{
+    bh_memcpy_s(&node->next.parts, (uint32)sizeof(uint32) * 2,
+                &next, (uint32)sizeof(hmu_normal_node_t *));
+}
+#else
+#define get_hmu_normal_node_next(node) (node)->next
+#define set_hmu_normal_node_next(node, _next) (node)->next = _next
+#endif
 
 typedef struct _hmu_tree_node
 {
@@ -156,7 +181,7 @@ typedef struct _hmu_tree_node
     struct _hmu_tree_node *left;
     struct _hmu_tree_node *right;
     struct _hmu_tree_node *parent;
-}hmu_tree_node_t;
+} hmu_tree_node_t;
 
 typedef struct _gc_heap_struct
 {
@@ -193,7 +218,7 @@ typedef struct _gc_heap_struct
     gc_size_t gc_threshold_factor;
     gc_int64 total_gc_time;
 #endif
-}gc_heap_t;
+} gc_heap_t;
 
 /*////// MISC internal used APIs*/
 
@@ -254,10 +279,10 @@ extern int (*gct_vm_begin_rootset_enumeration)(void* heap);
 extern int (*gct_vm_gc_finished)(void);
 #else
 #define gct_vm_get_java_object_ref_list             bh_get_java_object_ref_list
-#define gct_vm_mutex_init                           vm_mutex_init
-#define gct_vm_mutex_destroy                        vm_mutex_destroy
-#define gct_vm_mutex_lock                           vm_mutex_lock
-#define gct_vm_mutex_unlock                         vm_mutex_unlock
+#define gct_vm_mutex_init                           os_mutex_init
+#define gct_vm_mutex_destroy                        os_mutex_destroy
+#define gct_vm_mutex_lock                           os_mutex_lock
+#define gct_vm_mutex_unlock                         os_mutex_unlock
 #define gct_vm_get_gc_handle_for_current_instance   app_manager_get_cur_applet_heap
 #define gct_vm_begin_rootset_enumeration            vm_begin_rootset_enumeration
 #define gct_vm_gc_finished                          jeff_runtime_gc_finished

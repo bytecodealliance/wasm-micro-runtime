@@ -4,9 +4,8 @@
  */
 
 #include "bh_list.h"
-#include "bh_assert.h"
 
-#ifdef BH_DEBUG
+#if BH_DEBUG != 0
 /**
  * Test whehter a pointer value has exist in given list.
  *
@@ -15,7 +14,7 @@
  * @return        <code>true</code> if the pointer has been in the list;
  *                <code>false</code> otherwise.
  */
-BH_STATIC bool bh_list_is_elem_exist(bh_list *list, void *elem);
+static bool bh_list_is_elem_exist(bh_list *list, void *elem);
 #endif
 
 bh_list_status bh_list_init(bh_list *list)
@@ -28,13 +27,13 @@ bh_list_status bh_list_init(bh_list *list)
     return BH_LIST_SUCCESS;
 }
 
-bh_list_status _bh_list_insert(bh_list *list, void *elem)
+bh_list_status bh_list_insert(bh_list *list, void *elem)
 {
     bh_list_link *p = NULL;
 
     if (!list || !elem)
         return BH_LIST_ERROR;
-#ifdef BH_DEBUG
+#if BH_DEBUG != 0
     bh_assert (!bh_list_is_elem_exist(list, elem));
 #endif
     p = (bh_list_link *) elem;
@@ -87,8 +86,8 @@ void* bh_list_elem_next(void *node)
     return (node ? ((bh_list_link *) node)->next : NULL);
 }
 
-#ifdef BH_DEBUG
-BH_STATIC bool bh_list_is_elem_exist(bh_list *list, void *elem)
+#if BH_DEBUG != 0
+static bool bh_list_is_elem_exist(bh_list *list, void *elem)
 {
     bh_list_link *p = NULL;
 

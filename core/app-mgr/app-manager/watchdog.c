@@ -4,8 +4,7 @@
  */
 
 #include "watchdog.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
+#include "bh_platform.h"
 
 #define WATCHDOG_THREAD_PRIORITY 5
 
@@ -20,7 +19,7 @@ static void watchdog_timer_callback(void *timer)
 
     watchdog_timer_stop(wd_timer);
 
-    vm_mutex_lock(&wd_timer->lock);
+    os_mutex_lock(&wd_timer->lock);
 
     if (!wd_timer->is_stopped) {
 
@@ -30,7 +29,7 @@ static void watchdog_timer_callback(void *timer)
                 sizeof(module_data));
     }
 
-    vm_mutex_unlock(&wd_timer->lock);
+    os_mutex_unlock(&wd_timer->lock);
 }
 #endif
 
@@ -39,12 +38,12 @@ bool watchdog_timer_init(module_data *m_data)
 #ifdef WATCHDOG_ENABLED /* TODO */
     watchdog_timer *wd_timer = &m_data->wd_timer;
 
-    if (0 != vm_mutex_init(&wd_timer->lock))
+    if (0 != os_mutex_init(&wd_timer->lock))
         return false;
 
     if (!(wd_timer->timer_handle =
                     app_manager_timer_create(watchdog_timer_callback, wd_timer))) {
-        vm_mutex_destroy(&wd_timer->lock);
+        os_mutex_destroy(&wd_timer->lock);
         return false;
     }
 
@@ -59,20 +58,20 @@ void watchdog_timer_destroy(watchdog_timer *wd_timer)
 {
 #ifdef WATCHDOG_ENABLED /* TODO */
     app_manager_timer_destroy(wd_timer->timer_handle);
-    vm_mutex_destroy(&wd_timer->lock);
+    os_mutex_destroy(&wd_timer->lock);
 #endif
 }
 
 void watchdog_timer_start(watchdog_timer *wd_timer)
 {
-    vm_mutex_lock(&wd_timer->lock);
+    os_mutex_lock(&wd_timer->lock);
 
     wd_timer->is_interrupting = false;
     wd_timer->is_stopped = false;
     app_manager_timer_start(wd_timer->timer_handle,
             wd_timer->module_data->timeout);
 
-    vm_mutex_unlock(&wd_timer->lock);
+    os_mutex_unlock(&wd_timer->lock);
 }
 
 void watchdog_timer_stop(watchdog_timer *wd_timer)

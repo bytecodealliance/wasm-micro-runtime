@@ -789,23 +789,23 @@ static void
 print_supported_targets()
 {
     uint32 i;
-    bh_printf("Supported targets:\n");
+    os_printf("Supported targets:\n");
     for (i = 0; i < sizeof(valid_archs) / sizeof(ArchItem); i++) {
-        bh_printf("%s ", valid_archs[i].arch);
+        os_printf("%s ", valid_archs[i].arch);
         if (valid_archs[i].support_eb)
-            bh_printf("%seb ", valid_archs[i].arch);
+            os_printf("%seb ", valid_archs[i].arch);
     }
-    bh_printf("\n");
+    os_printf("\n");
 }
 
 static void
 print_supported_abis()
 {
     uint32 i;
-    bh_printf("Supported ABI: ");
+    os_printf("Supported ABI: ");
     for (i = 0; i < sizeof(valid_abis) / sizeof(const char *); i++)
-        bh_printf("%s ", valid_abis[i]);
-    bh_printf("\n");
+        os_printf("%s ", valid_abis[i]);
+    os_printf("\n");
 }
 
 static bool
@@ -917,6 +917,8 @@ aot_create_comp_context(AOTCompData *comp_data,
             goto fail;
         }
         comp_ctx->is_jit_mode = true;
+        comp_ctx->target_machine =
+                LLVMGetExecutionEngineTargetMachine(comp_ctx->exec_engine);
     }
     else {
         /* Create LLVM target machine */
@@ -1026,24 +1028,24 @@ aot_create_comp_context(AOTCompData *comp_data,
         get_target_arch_from_triple(triple_norm, comp_ctx->target_arch,
                                     sizeof(comp_ctx->target_arch));
 
-        bh_printf("Create AoT compiler with:\n");
-        bh_printf("  target:        %s\n", comp_ctx->target_arch);
-        bh_printf("  target cpu:    %s\n", cpu);
-        bh_printf("  cpu features:  %s\n", features);
-        bh_printf("  opt level:     %d\n", opt_level);
-        bh_printf("  size level:    %d\n", size_level);
+        os_printf("Create AoT compiler with:\n");
+        os_printf("  target:        %s\n", comp_ctx->target_arch);
+        os_printf("  target cpu:    %s\n", cpu);
+        os_printf("  cpu features:  %s\n", features);
+        os_printf("  opt level:     %d\n", opt_level);
+        os_printf("  size level:    %d\n", size_level);
         switch (option->output_format) {
             case AOT_LLVMIR_UNOPT_FILE:
-                bh_printf("  output format: unoptimized LLVM IR\n");
+                os_printf("  output format: unoptimized LLVM IR\n");
                 break;
             case AOT_LLVMIR_OPT_FILE:
-                bh_printf("  output format: optimized LLVM IR\n");
+                os_printf("  output format: optimized LLVM IR\n");
                 break;
             case AOT_FORMAT_FILE:
-                bh_printf("  output format: AoT file\n");
+                os_printf("  output format: AoT file\n");
                 break;
             case AOT_OBJECT_FILE:
-                bh_printf("  output format: native object file\n");
+                os_printf("  output format: native object file\n");
                 break;
         }
 
@@ -1155,7 +1157,7 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (comp_ctx->pass_mgr)
         LLVMDisposePassManager(comp_ctx->pass_mgr);
 
-    if (comp_ctx->target_machine)
+    if (comp_ctx->target_machine && !comp_ctx->is_jit_mode)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);
 
     if (comp_ctx->builder)

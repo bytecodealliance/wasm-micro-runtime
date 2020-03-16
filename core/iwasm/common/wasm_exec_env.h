@@ -6,7 +6,6 @@
 #ifndef _WASM_EXEC_ENV_H
 #define _WASM_EXEC_ENV_H
 
-#include "bh_thread.h"
 #include "bh_assert.h"
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm.h"

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 NAME := iwasm
+CORE_ROOT := wamr/core
 IWASM_ROOT := wamr/core/iwasm
 SHARED_ROOT := wamr/core/shared
 
@@ -59,10 +60,13 @@ endif
 
 GLOBAL_DEFINES += WASM_ENABLE_LIBC_BUILTIN=1
 
-GLOBAL_INCLUDES += ${IWASM_ROOT}/include \
+GLOBAL_INCLUDES += ${CORE_ROOT} \
+				   ${IWASM_ROOT}/include \
                    ${IWASM_ROOT}/common \
                    ${SHARED_ROOT}/include \
                    ${SHARED_ROOT}/platform/include \
+                   ${SHARED_ROOT}/utils \
+                   ${SHARED_ROOT}/mem-alloc \
                    ${SHARED_ROOT}/platform/alios
 
 ifeq (${WAMR_BUILD_INTERP}, 1)
@@ -73,17 +77,16 @@ ifeq (${WAMR_BUILD_AOT}, 1)
 GLOBAL_INCLUDES += ${IWASM_ROOT}/aot
 endif
 
-$(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/bh_assert.c \
-                   ${SHARED_ROOT}/platform/alios/bh_math.c \
-                   ${SHARED_ROOT}/platform/alios/bh_platform.c \
-                   ${SHARED_ROOT}/platform/alios/bh_platform_log.c \
-                   ${SHARED_ROOT}/platform/alios/bh_thread.c \
-                   ${SHARED_ROOT}/platform/alios/bh_time.c \
+$(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/alios_platform.c \
+                   ${SHARED_ROOT}/platform/alios/alios_thread.c \
+                   ${SHARED_ROOT}/platform/alios/alios_time.c \
+                   ${SHARED_ROOT}/platform/common/math/math.c \
                    ${SHARED_ROOT}/mem-alloc/mem_alloc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_kfc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_alloc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_hmu.c \
-                   ${SHARED_ROOT}/utils/bh_definition.c \
+                   ${SHARED_ROOT}/utils/bh_assert.c \
+                   ${SHARED_ROOT}/utils/bh_common.c \
                    ${SHARED_ROOT}/utils/bh_hashmap.c \
                    ${SHARED_ROOT}/utils/bh_list.c \
                    ${SHARED_ROOT}/utils/bh_log.c \

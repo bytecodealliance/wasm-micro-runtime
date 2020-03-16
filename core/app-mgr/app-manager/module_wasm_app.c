@@ -7,9 +7,8 @@
 
 #include "native_interface.h" /* for request_t type */
 #include "app_manager_host.h"
-#include "bh_queue.h"
+#include "bh_platform.h"
 #include "bi-inc/attr_container.h"
-#include "bh_thread.h"
 #include "coap_ext.h"
 #include "event.h"
 #include "watchdog.h"
@@ -429,7 +428,6 @@ wasm_app_routine(void *arg)
     module_data *m_data = (module_data *) arg;
     wasm_data *wasm_app_data = (wasm_data*) m_data->internal_data;
     wasm_module_inst_t inst = wasm_app_data->wasm_module_inst;
-    korp_tid thread = wasm_app_data->thread_id;
 
     /* Set m_data to the VM managed instance's custom data */
     wasm_runtime_set_custom_data(inst, m_data);
@@ -489,8 +487,6 @@ fail2:
         wasm_runtime_call_wasm(wasm_app_data->exec_env, func_onDestroy, 0, NULL);
 
 fail1:
-    vm_thread_detach(thread);
-    vm_thread_exit(NULL);
 
     return NULL;
 }
@@ -847,7 +843,7 @@ wasm_app_module_install(request_t * msg)
     }
 
     /* Create WASM app thread. */
-    if (vm_thread_create(&wasm_app_data->thread_id, wasm_app_routine,
+    if (os_thread_create(&wasm_app_data->thread_id, wasm_app_routine,
                          (void*) m_data, APP_THREAD_STACK_SIZE_DEFAULT) != 0) {
         module_data_list_remove(m_data);
         SEND_ERR_RESPONSE(msg->mid,
@@ -941,7 +937,7 @@ wasm_app_module_uninstall(request_t *msg)
 
     /* Wait for wasm app thread to exit */
     wasm_app_data = (wasm_data*) m_data->internal_data;
-    vm_thread_join(wasm_app_data->thread_id, NULL, -1);
+    os_thread_join(wasm_app_data->thread_id, NULL);
 
     cleanup_app_resource(m_data);
 
@@ -1358,7 +1354,7 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
                     total_size = (total_size + 3) & ~((uint64)3);
                     if (total_size >= UINT32_MAX
                         || !(section->section_body =
-                                bh_mmap(NULL, (uint32)total_size,
+                                os_mmap(NULL, (uint32)total_size,
                                         map_prot, map_flags))) {
                         app_manager_printf("Allocate executable memory failed!\n");
                         goto fail;
@@ -1553,7 +1549,7 @@ destroy_all_aot_sections(aot_section_list_t sections)
         aot_section_t *next = cur->next;
         if (cur->section_body != NULL) {
             if (cur->section_type == AOT_SECTION_TYPE_TEXT)
-                bh_munmap(cur->section_body, cur->section_body_size);
+                os_munmap(cur->section_body, cur->section_body_size);
             else
                 APP_MGR_FREE(cur->section_body);
         }
@@ -1583,7 +1579,7 @@ destroy_part_aot_sections(aot_section_list_t *p_sections,
 
                 if (cur->section_body != NULL) {
                     if (cur->section_type == AOT_SECTION_TYPE_TEXT)
-                        bh_munmap(cur->section_body, cur->section_body_size);
+                        os_munmap(cur->section_body, cur->section_body_size);
                     else
                         APP_MGR_FREE(cur->section_body);
                 }

@@ -3,12 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "runtime_timer.h"
+#include "bh_platform.h"
 #include "app_manager_export.h"
 #include "module_wasm_app.h"
-#include "bh_list.h"
-#include "bh_thread.h"
-#include "bh_time.h"
 #include "timer_native_api.h"
 
 static bool timer_thread_run = true;
@@ -46,7 +43,7 @@ void * thread_modulers_timer_check(void * arg)
 
     while (timer_thread_run) {
         ms_to_expiry = -1;
-        vm_mutex_lock(&g_timer_ctx_list_mutex);
+        os_mutex_lock(&g_timer_ctx_list_mutex);
         timer_ctx_node_t* elem = (timer_ctx_node_t*)
                                  bh_list_first_elem(&g_timer_ctx_list);
         while (elem) {
@@ -58,14 +55,14 @@ void * thread_modulers_timer_check(void * arg)
 
             elem = (timer_ctx_node_t*) bh_list_elem_next(elem);
         }
-        vm_mutex_unlock(&g_timer_ctx_list_mutex);
+        os_mutex_unlock(&g_timer_ctx_list_mutex);
 
         if (ms_to_expiry == -1)
             ms_to_expiry = 60 * 1000;
-        vm_mutex_lock(&g_timer_ctx_list_mutex);
-        vm_cond_reltimedwait(&g_timer_ctx_list_cond, &g_timer_ctx_list_mutex,
-                             ms_to_expiry);
-        vm_mutex_unlock(&g_timer_ctx_list_mutex);
+        os_mutex_lock(&g_timer_ctx_list_mutex);
+        os_cond_reltimedwait(&g_timer_ctx_list_cond, &g_timer_ctx_list_mutex,
+                             ms_to_expiry * 1000);
+        os_mutex_unlock(&g_timer_ctx_list_mutex);
     }
 
     return NULL;
@@ -73,9 +70,9 @@ void * thread_modulers_timer_check(void * arg)
 
 void wakeup_modules_timer_thread(timer_ctx_t ctx)
 {
-    vm_mutex_lock(&g_timer_ctx_list_mutex);
-    vm_cond_signal(&g_timer_ctx_list_cond);
-    vm_mutex_unlock(&g_timer_ctx_list_mutex);
+    os_mutex_lock(&g_timer_ctx_list_mutex);
+    os_cond_signal(&g_timer_ctx_list_cond);
+    os_mutex_unlock(&g_timer_ctx_list_mutex);
 }
 
 void init_wasm_timer()
@@ -83,11 +80,11 @@ void init_wasm_timer()
     korp_tid tm_tid;
     bh_list_init(&g_timer_ctx_list);
 
-    vm_cond_init(&g_timer_ctx_list_cond);
+    os_cond_init(&g_timer_ctx_list_cond);
     /* temp solution for: thread_modulers_timer_check thread would recursive lock the mutex */
-    vm_recursive_mutex_init(&g_timer_ctx_list_mutex);
+    os_recursive_mutex_init(&g_timer_ctx_list_mutex);
 
-    vm_thread_create(&tm_tid, thread_modulers_timer_check,
+    os_thread_create(&tm_tid, thread_modulers_timer_check,
                      NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 }
 
@@ -115,16 +112,16 @@ timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
     memset(node, 0, sizeof(*node));
     node->timer_ctx = ctx;
 
-    vm_mutex_lock(&g_timer_ctx_list_mutex);
+    os_mutex_lock(&g_timer_ctx_list_mutex);
     bh_list_insert(&g_timer_ctx_list, node);
-    vm_mutex_unlock(&g_timer_ctx_list_mutex);
+    os_mutex_unlock(&g_timer_ctx_list_mutex);
 
     return ctx;
 }
 
 void destroy_module_timer_ctx(unsigned int module_id)
 {
-    vm_mutex_lock(&g_timer_ctx_list_mutex);
+    os_mutex_lock(&g_timer_ctx_list_mutex);
     timer_ctx_node_t* elem = (timer_ctx_node_t*)
                              bh_list_first_elem(&g_timer_ctx_list);
     while (elem) {
@@ -137,7 +134,7 @@ void destroy_module_timer_ctx(unsigned int module_id)
 
         elem = (timer_ctx_node_t*) bh_list_elem_next(elem);
     }
-    vm_mutex_unlock(&g_timer_ctx_list_mutex);
+    os_mutex_unlock(&g_timer_ctx_list_mutex);
 }
 
 timer_ctx_t get_wasm_timer_ctx(wasm_module_inst_t module_inst)
@@ -192,6 +189,6 @@ extern uint32 get_sys_tick_ms();
 uint32
 wasm_get_sys_tick_ms(wasm_exec_env_t exec_env)
 {
-    return (uint32) bh_get_tick_ms();
+    return (uint32)bh_get_tick_ms();
 }
 

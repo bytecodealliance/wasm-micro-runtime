@@ -101,7 +101,5 @@ set (distribution_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build/distribution)
 set_target_properties (iwasm PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${distribution_DIR}/wasm/lib")
 
 add_custom_command (TARGET iwasm POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/shared/include" "${distribution_DIR}/wasm/include/"
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/shared/platform/include" "${distribution_DIR}/wasm/include/platform/"
-        COMMAND "${CMAKE_COMMAND}" -E copy "${WAMR_ROOT_DIR}/core/shared/platform/android/bh_platform.h" "${distribution_DIR}/wasm/include/platform/"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/iwasm/include" "${distribution_DIR}/wasm/include/"
         COMMENT "Copying iwasm to output directory")

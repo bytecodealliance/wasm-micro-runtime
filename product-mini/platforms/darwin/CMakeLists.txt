@@ -62,7 +62,9 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
-add_executable (iwasm main.c)
+include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
+
+add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
 
 install (TARGETS iwasm DESTINATION bin)
 

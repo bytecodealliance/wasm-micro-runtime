@@ -729,7 +729,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 #endif  /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
 #if WASM_ENABLE_FAST_INTERP != 0
-static void *global_handle_table[WASM_INSTRUCTION_NUM] = { 0 };
+static void **global_handle_table;
 #endif
 
 static void
@@ -769,8 +769,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   #undef HANDLE_OPCODE
 #if WASM_ENABLE_FAST_INTERP != 0
   if (exec_env == NULL) {
-      bh_memcpy_s(global_handle_table, sizeof(void*) * WASM_INSTRUCTION_NUM,
-                  handle_table, sizeof(void*) * WASM_INSTRUCTION_NUM);
+      global_handle_table = (void **)handle_table;
       return;
   }
 #endif
@@ -1240,7 +1239,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           /* fail to memory.grow, return -1 */
           frame_lp[addr_ret] = -1;
           if (wasm_get_exception(module)) {
-            bh_printf("%s\n", wasm_get_exception(module));
+            os_printf("%s\n", wasm_get_exception(module));
             wasm_set_exception(module, NULL);
           }
         }
@@ -2035,19 +2034,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_TEE_LOCAL):
         {
           GET_LOCAL_INDEX_TYPE_AND_OFFSET();
+          addr1 = GET_OFFSET();
 
-          switch (local_type) {
-            case VALUE_TYPE_I32:
-            case VALUE_TYPE_F32:
-              *(int32*)(frame_lp + local_offset) = GET_OPERAND(uint32, 0);
-              break;
-            case VALUE_TYPE_I64:
-            case VALUE_TYPE_F64:
-              PUT_I64_TO_ADDR((uint32*)(frame_lp + local_offset), GET_OPERAND(uint64, 0));
-              break;
-            default:
-              wasm_set_exception(module, "invalid local type");
-              goto got_exception;
+          if (local_type == VALUE_TYPE_I32
+              || local_type == VALUE_TYPE_F32) {
+            *(int32*)(frame_lp + local_offset) = frame_lp[addr1];
+          }
+          else if (local_type == VALUE_TYPE_I32
+              || local_type == VALUE_TYPE_F32) {
+            PUT_I64_TO_ADDR((uint32*)(frame_lp + local_offset),
+                  GET_I64_FROM_ADDR(frame_lp + addr1));
+          }
+          else {
+            wasm_set_exception(module, "invalid local type");
+            goto got_exception;
           }
 
           HANDLE_OP_END ();
