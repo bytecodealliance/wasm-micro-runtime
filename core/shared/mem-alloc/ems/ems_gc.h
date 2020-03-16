@@ -44,13 +44,7 @@ extern "C" {
 #    error "Can not define GC_EMBEDDED and GC_STANDALONE at the same time"
 #endif
 
-#ifdef BH_TEST
-#    ifndef GC_TEST
-#        define GC_TEST
-#    endif
-#endif
-
-#ifdef BH_DEBUG
+#if BH_DEBUG != 0
 /*instrument mode ignore GC_DEBUG feature, for instrument testing gc_alloc_vo_i_heap only has func_name parameter*/
 #if !defined INSTRUMENT_TEST_ENABLED && !defined GC_DEBUG
 #        define GC_DEBUG

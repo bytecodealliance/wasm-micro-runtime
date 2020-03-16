@@ -8,7 +8,6 @@
 
 #include "bh_platform.h"
 #include "bh_common.h"
-#include "bh_thread.h"
 #include "wasm_exec_env.h"
 #include "wasm_native.h"
 #include "../include/wasm_export.h"

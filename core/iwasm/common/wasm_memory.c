@@ -6,7 +6,6 @@
 #include "wasm_runtime_common.h"
 #include "bh_platform.h"
 #include "mem_alloc.h"
-#include "bh_thread.h"
 
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
 
@@ -60,12 +59,12 @@ wasm_memory_init_with_pool(void *mem, unsigned int bytes)
         memory_mode = MEMORY_MODE_POOL;
         pool_allocator = _allocator;
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
-        vm_mutex_init(&profile_lock);
+        os_mutex_init(&profile_lock);
 #endif
         global_pool_size = bytes;
         return true;
     }
-    bh_printf("Init memory with pool (%p, %u) failed.\n", mem, bytes);
+    LOG_ERROR("Init memory with pool (%p, %u) failed.\n", mem, bytes);
     return false;
 }
 
@@ -80,11 +79,11 @@ wasm_memory_init_with_allocator(void *_malloc_func,
         realloc_func = _realloc_func;
         free_func = _free_func;
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
-        vm_mutex_init(&profile_lock);
+        os_mutex_init(&profile_lock);
 #endif
         return true;
     }
-    bh_printf("Init memory with allocator (%p, %p, %p) failed.\n",
+    LOG_ERROR("Init memory with allocator (%p, %p, %p) failed.\n",
               _malloc_func, _realloc_func, _free_func);
     return false;
 }
@@ -110,7 +109,7 @@ void
 wasm_runtime_memory_destroy()
 {
 #if BEIHAI_ENABLE_MEMORY_PROFILING != 0
-    vm_mutex_destroy(&profile_lock);
+    os_mutex_destroy(&profile_lock);
 #endif
     if (memory_mode == MEMORY_MODE_POOL)
         mem_allocator_destroy(pool_allocator);
@@ -130,7 +129,7 @@ void *
 wasm_runtime_malloc(unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
-        bh_printf("wasm_runtime_malloc failed: memory hasn't been initialize.\n");
+        LOG_WARNING("wasm_runtime_malloc failed: memory hasn't been initialize.\n");
         return NULL;
     } else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_malloc(pool_allocator, size);
@@ -143,7 +142,7 @@ void *
 wasm_runtime_realloc(void *ptr, unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
-        bh_printf("wasm_runtime_realloc failed: memory hasn't been initialize.\n");
+        LOG_WARNING("wasm_runtime_realloc failed: memory hasn't been initialize.\n");
         return NULL;
     } else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_realloc(pool_allocator, ptr, size);
@@ -159,7 +158,7 @@ void
 wasm_runtime_free(void *ptr)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
-        bh_printf("wasm_runtime_free failed: memory hasn't been initialize.\n");
+        LOG_WARNING("wasm_runtime_free failed: memory hasn't been initialize.\n");
     } else if (memory_mode == MEMORY_MODE_POOL) {
         mem_allocator_free(pool_allocator, ptr);
     } else {
@@ -177,7 +176,7 @@ wasm_runtime_malloc_profile(const char *file, int line,
     if (p) {
         memory_profile_t *profile;
 
-        vm_mutex_lock(&profile_lock);
+        os_mutex_lock(&profile_lock);
 
         profile = memory_profiles_list;
         while (profile) {
@@ -194,7 +193,7 @@ wasm_runtime_malloc_profile(const char *file, int line,
         } else {
             profile = wasm_runtime_malloc(sizeof(memory_profile_t));
             if (!profile) {
-              vm_mutex_unlock(&profile_lock);
+              os_mutex_unlock(&profile_lock);
               bh_memcpy_s(p, size + 8, &size, sizeof(size));
               return (char *)p + 8;
             }
@@ -209,7 +208,7 @@ wasm_runtime_malloc_profile(const char *file, int line,
             memory_profiles_list = profile;
         }
 
-        vm_mutex_unlock(&profile_lock);
+        os_mutex_unlock(&profile_lock);
 
         bh_memcpy_s(p, size + 8, &size, sizeof(size));
         memory_in_use += size;
@@ -234,7 +233,7 @@ wasm_runtime_free_profile(const char *file, int line,
     if (memory_in_use >= size)
         memory_in_use -= size;
 
-    vm_mutex_lock(&profile_lock);
+    os_mutex_lock(&profile_lock);
 
     profile = memory_profiles_list;
     while (profile) {
@@ -251,7 +250,7 @@ wasm_runtime_free_profile(const char *file, int line,
     } else {
         profile = wasm_runtime_malloc(sizeof(memory_profile_t));
         if (!profile) {
-            vm_mutex_unlock(&profile_lock);
+            os_mutex_unlock(&profile_lock);
             return;
         }
 
@@ -265,7 +264,7 @@ wasm_runtime_free_profile(const char *file, int line,
         memory_profiles_list = profile;
     }
 
-    vm_mutex_unlock(&profile_lock);
+    os_mutex_unlock(&profile_lock);
 }
 
 /**
@@ -277,11 +276,11 @@ void memory_usage_summarize()
 {
     memory_profile_t *profile;
 
-    vm_mutex_lock(&profile_lock);
+    os_mutex_lock(&profile_lock);
 
     profile = memory_profiles_list;
     while (profile) {
-        bh_printf("malloc:%d:malloc_num:%d:free:%d:free_num:%d:%s\n",
+        os_printf("malloc:%d:malloc_num:%d:free:%d:free_num:%d:%s\n",
                   profile->total_malloc,
                   profile->malloc_num,
                   profile->total_free,
@@ -290,14 +289,14 @@ void memory_usage_summarize()
         profile = profile->next;
     }
 
-    vm_mutex_unlock(&profile_lock);
+    os_mutex_unlock(&profile_lock);
 }
 
 void
 memory_profile_print(const char *file, int line,
                      const char *func, int alloc)
 {
-    bh_printf("location:%s@%d:used:%d:contribution:%d\n",
+    os_printf("location:%s@%d:used:%d:contribution:%d\n",
               func, line, memory_in_use, alloc);
 }
 

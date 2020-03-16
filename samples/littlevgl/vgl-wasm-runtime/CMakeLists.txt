@@ -20,6 +20,8 @@ link_directories(${WAMR_ROOT_DIR}/wamr-sdk/out/littlevgl/runtime-sdk/lib)
 include_directories(
     ${WAMR_ROOT_DIR}/wamr-sdk/out/littlevgl/runtime-sdk/include
     ${WAMR_ROOT_DIR}/wamr-sdk/out/littlevgl/runtime-sdk/include/bi-inc/deps
+    ${WAMR_ROOT_DIR}/core/shared/utils
+    ${WAMR_ROOT_DIR}/core/shared/platform/${WAMR_BUILD_PLATFORM}
 )
 
 ###############  application related  ###############

@@ -3,9 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "bh_log.h"
 #include "bh_vector.h"
-
 
 static uint8*
 alloc_vector_data(uint32 length, uint32 size_elem)

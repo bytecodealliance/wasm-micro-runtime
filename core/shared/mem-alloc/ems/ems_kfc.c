@@ -16,7 +16,7 @@ int gci_check_platform()
 {
 #define CHECK(x, y)  do {                                       \
   if((x) != (y)) {                                              \
-    bh_printf("Platform checking failed on LINE %d at FILE %s.",\
+    os_printf("Platform checking failed on LINE %d at FILE %s.",\
            __LINE__, __FILE__);                                 \
     return GC_ERROR;                                            \
   }                                                             \
@@ -48,12 +48,12 @@ gc_handle_t gc_init_with_pool(char *buf, gc_size_t buf_size)
 
     /* check system compatibility*/
     if (gci_check_platform() == GC_ERROR) {
-        bh_printf("Check platform compatibility failed");
+        os_printf("Check platform compatibility failed");
         return NULL;
     }
 
     if (buf_size < 1024) {
-        bh_printf("[GC_ERROR]heap_init_size(%d) < 1024", buf_size);
+        os_printf("[GC_ERROR]heap_init_size(%d) < 1024", buf_size);
         return NULL;
     }
 
@@ -65,12 +65,12 @@ gc_handle_t gc_init_with_pool(char *buf, gc_size_t buf_size)
 
     ret = gct_vm_mutex_init(&heap->lock);
     if (ret != BHT_OK) {
-        bh_printf("[GC_ERROR]failed to init lock ");
+        os_printf("[GC_ERROR]failed to init lock ");
         return NULL;
     }
 
 #ifdef BH_FOOTPRINT
-    bh_printf("\nINIT HEAP 0x%08x %d\n", base_addr, heap_max_size);
+    os_printf("\nINIT HEAP 0x%08x %d\n", base_addr, heap_max_size);
 #endif
 
     /* init all data structures*/
@@ -117,8 +117,8 @@ gc_handle_t gc_init_with_pool(char *buf, gc_size_t buf_size)
                     && HMU_FC_NORMAL_MAX_SIZE < q->size); /*@NOTIFY*/
 
 #if BH_ENABLE_MEMORY_PROFILING != 0
-    bh_printf("heap is successfully initialized with max_size=%u.",
-            heap_max_size);
+    os_printf("heap is successfully initialized with max_size=%u.",
+              heap_max_size);
 #endif
     return heap;
 }

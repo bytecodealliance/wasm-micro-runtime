@@ -84,7 +84,7 @@ typedef int16_t lv_coord_t;
 /* Automatically defrag. on free. Defrag. means joining the adjacent free cells. */
 #  define LV_MEM_AUTO_DEFRAG  1
 #else       /*LV_MEM_CUSTOM*/
-#  define LV_MEM_CUSTOM_INCLUDE "bh_config.h"   /*Header for the dynamic memory function*/
+#  define LV_MEM_CUSTOM_INCLUDE "bh_platform.h" /*Header for the dynamic memory function*/
 #  define LV_MEM_CUSTOM_ALLOC   BH_MALLOC       /*Wrapper to malloc*/
 #  define LV_MEM_CUSTOM_FREE    BH_FREE         /*Wrapper to free*/
 #endif     /*LV_MEM_CUSTOM*/

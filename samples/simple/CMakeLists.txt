@@ -18,6 +18,8 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 link_directories(${WAMR_ROOT_DIR}/wamr-sdk/out/${WAMR_BUILD_SDK_PROFILE}/runtime-sdk/lib)
 include_directories(
     ${WAMR_ROOT_DIR}/wamr-sdk/out/${WAMR_BUILD_SDK_PROFILE}/runtime-sdk/include
+    ${WAMR_ROOT_DIR}/core/shared/utils
+    ${WAMR_ROOT_DIR}/core/shared/platform/linux
 )
 
 ################  application related  ################
