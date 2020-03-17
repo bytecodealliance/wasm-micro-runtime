@@ -28,6 +28,9 @@ iwasm VM core
 - [Embeddable with the supporting C API's](./doc/embed_wamr.md)
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
 
+### Performance and memory usage
+The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.
+
 ### Supported architectures and platforms
 
 The iwasm supports the following architectures:
