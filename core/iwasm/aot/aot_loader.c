@@ -614,6 +614,7 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Create each import global */
     for (i = 0; i < module->import_global_count; i++) {
+        buf = (uint8*)align_ptr(buf, 2);
         read_uint8(buf, buf_end, import_globals[i].type);
         read_uint8(buf, buf_end, import_globals[i].is_mutable);
         read_string(buf, buf_end, import_globals[i].module_name);
