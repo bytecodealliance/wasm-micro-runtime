@@ -31,7 +31,9 @@
  *  STATIC PROTOTYPES
  **********************/
 static void xpt2046_corr(int16_t * x, int16_t * y);
+#if 0
 static void xpt2046_avg(int16_t * x, int16_t * y);
+#endif
 
 /**********************
  *  STATIC VARIABLES
@@ -73,7 +75,6 @@ int last_pen_interrupt_time = 0;
 void xpt2046_pen_gpio_callback(struct device *port, struct gpio_callback *cb,
         u32_t pins)
 {
-    int i;
     cnt++;
     if ((k_uptime_get_32() - last_pen_interrupt_time) > 500) {
         k_sem_give(&sem_touch_read);
@@ -86,15 +87,15 @@ void xpt2046_pen_gpio_callback(struct device *port, struct gpio_callback *cb,
 void disable_pen_interrupt()
 {
     int ret = 0;
-    ret = gpio_pin_disable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
+    ret = gpio_disable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
     if (ret != 0) {
-        printf("gpio_pin_configure GPIO_DIR_IN failed\n");
+        printf("gpio_pin_configure GPIO_INPUT failed\n");
     }
 }
 void enable_pen_interrupt()
 {
     int ret = 0;
-    ret = gpio_pin_enable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
+    ret = gpio_enable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
     if (ret != 0) {
         printf("gpio_pin_configure failed\n");
     }
@@ -152,8 +153,8 @@ void xpt2046_init(void)
         return;
     }
     gpio_pin_configure(xpt2046_cs_ctrl.gpio_dev, XPT2046_CS_GPIO_PIN,
-                       GPIO_DIR_OUT);
-    gpio_pin_write(xpt2046_cs_ctrl.gpio_dev, XPT2046_CS_GPIO_PIN, 1);
+                       GPIO_OUTPUT);
+    gpio_pin_set(xpt2046_cs_ctrl.gpio_dev, XPT2046_CS_GPIO_PIN, 1);
     xpt2046_cs_ctrl.gpio_pin = XPT2046_CS_GPIO_PIN;
     xpt2046_cs_ctrl.delay = 0;
     spi_conf_xpt2046.cs = &xpt2046_cs_ctrl;
@@ -169,8 +170,8 @@ void xpt2046_init(void)
     }
     /* Setup GPIO input */
     ret = gpio_pin_configure(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN,
-                             (GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE
-                              | GPIO_INT_ACTIVE_LOW | GPIO_INT_DEBOUNCE)
+                             (GPIO_INPUT | GPIO_INT_ENABLE | GPIO_INT_EDGE
+                              | GPIO_INT_LOW_0 | GPIO_INT_DEBOUNCE)
                             );
     if (ret) {
         printk("Error configuring pin %d!\n", XPT2046_PEN_GPIO_PIN);
@@ -183,9 +184,9 @@ void xpt2046_init(void)
     if (ret) {
         printk("gpio_add_callback error\n");
     }
-    ret = gpio_pin_enable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
+    ret = gpio_enable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
     if (ret) {
-        printk("gpio_pin_enable_callback error\n");
+        printk("gpio_enable_callback error\n");
     }
 #endif
 
@@ -209,7 +210,6 @@ bool xpt2046_read(lv_indev_data_t * data)
     static int16_t last_y = 0;
     bool valid = true;
     int s32_ret = 0;
-    uint8_t buf;
 
     int16_t x = 0;
     int16_t y = 0;
@@ -293,6 +293,7 @@ static void xpt2046_corr(int16_t * x, int16_t * y)
 
 }
 
+#if 0
 static void xpt2046_avg(int16_t * x, int16_t * y)
 {
     /*Shift out the oldest data*/
@@ -320,6 +321,7 @@ static void xpt2046_avg(int16_t * x, int16_t * y)
     (*x) = (int32_t) x_sum / avg_last;
     (*y) = (int32_t) y_sum / avg_last;
 }
+#endif
 
 bool touchscreen_read(lv_indev_data_t * data)
 {
