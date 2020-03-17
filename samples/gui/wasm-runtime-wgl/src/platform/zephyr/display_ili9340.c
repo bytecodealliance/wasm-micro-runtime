@@ -18,6 +18,7 @@
 #include <sys/byteorder.h>
 #include <drivers/spi.h>
 #include <string.h>
+#include <stdio.h>
 
 struct ili9340_data {
     struct device *reset_gpio;
@@ -62,29 +63,29 @@ int ili9340_init()
     data->spi_config.cs = NULL;
 #endif
     data->reset_gpio = device_get_binding(
-                        DT_ILITEK_ILI9340_0_RESET_GPIOS_CONTROLLER);
+        DT_ILITEK_ILI9340_0_RESET_GPIOS_CONTROLLER);
     if (data->reset_gpio == NULL) {
         return -EPERM;
     }
 
     gpio_pin_configure(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN,
-                       GPIO_DIR_OUT);
+                       GPIO_OUTPUT);
 
     data->command_data_gpio = device_get_binding(
-                        DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_CONTROLLER);
+                                DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_CONTROLLER);
     if (data->command_data_gpio == NULL) {    
         return -EPERM;
     }
 
     gpio_pin_configure(data->command_data_gpio,
-                        DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN, GPIO_DIR_OUT);
+                       DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN, GPIO_OUTPUT);
 
     LOG_DBG("Resetting display driver\n");
-    gpio_pin_write(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 1);
+    gpio_pin_set(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 1);
     k_sleep(1);
-    gpio_pin_write(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 0);
+    gpio_pin_set(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 0);
     k_sleep(1);
-    gpio_pin_write(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 1);
+    gpio_pin_set(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN, 1);
     k_sleep(5);
 
     LOG_DBG("Initializing LCD\n");
@@ -228,19 +229,17 @@ static void ili9340_get_capabilities(const struct device *dev,
 void ili9340_transmit(struct ili9340_data *data, u8_t cmd, void *tx_data,
                       size_t tx_len)
 {
-    int i;
-    char * buf1 = tx_data;
     data = (struct ili9340_data *) &ili9340_data1;
     struct spi_buf tx_buf = { .buf = &cmd, .len = 1 };
     struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
 
-    gpio_pin_write(data->command_data_gpio, DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
+    gpio_pin_set(data->command_data_gpio, DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
                    ILI9340_CMD_DATA_PIN_COMMAND);
     spi_transceive(data->spi_dev, &data->spi_config, &tx_bufs, NULL);
     if (tx_data != NULL) {
         tx_buf.buf = tx_data;
         tx_buf.len = tx_len;
-        gpio_pin_write(data->command_data_gpio,
+        gpio_pin_set(data->command_data_gpio,
         DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
         ILI9340_CMD_DATA_PIN_DATA);
         spi_transceive(data->spi_dev, &data->spi_config, &tx_bufs, NULL);
