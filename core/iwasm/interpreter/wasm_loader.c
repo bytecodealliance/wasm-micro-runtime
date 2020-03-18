@@ -2830,7 +2830,7 @@ add_label_patch_to_list(BranchBlock *frame_csp,
 
 static void
 apply_label_patch(WASMLoaderContext *ctx, uint8 depth,
-                  uint8 patch_type, uint8 *frame_ip)
+                  uint8 patch_type)
 {
     BranchBlock *frame_csp = ctx->frame_csp - depth;
     BranchBlockPatch *node = frame_csp->patch_list;
@@ -2882,7 +2882,12 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
                          char *error_buf, uint32 error_buf_size)
 {
     emit_operand(ctx, frame_csp->dynamic_offset);
-    if (frame_csp->return_type == VALUE_TYPE_I32
+    if (frame_csp->block_type == BLOCK_TYPE_LOOP ||
+        frame_csp->return_type == VALUE_TYPE_VOID) {
+        emit_byte(ctx, 0);
+        emit_operand(ctx, 0);
+    }
+    else if (frame_csp->return_type == VALUE_TYPE_I32
         || frame_csp->return_type == VALUE_TYPE_F32) {
         emit_byte(ctx, 1);
         emit_operand(ctx, *(int16*)(ctx->frame_offset - 1));
@@ -2892,10 +2897,7 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         emit_byte(ctx, 2);
         emit_operand(ctx, *(int16*)(ctx->frame_offset - 2));
     }
-    else {
-        emit_byte(ctx, 0);
-        emit_operand(ctx, 0);
-    }
+
     if (frame_csp->block_type == BLOCK_TYPE_LOOP) {
         wasm_loader_emit_ptr(ctx, frame_csp->code_compiled);
     }
@@ -3514,10 +3516,17 @@ re_scan:
                                                            error_buf, error_buf_size))
                             goto fail;
 
-                        if ((loader_ctx->frame_csp - 1)->else_addr)
-                            p = (loader_ctx->frame_csp - 1)->else_addr;
-                        else
+                        if ((loader_ctx->frame_csp - 1)->else_addr) {
+#if WASM_ENABLE_FAST_INTERP != 0
+                            loader_ctx->frame_offset = loader_ctx->frame_offset_bottom +
+                                                (loader_ctx->frame_csp - 1)->stack_cell_num;
+                            apply_label_patch(loader_ctx, 1, PATCH_ELSE);
+#endif
+                            p = (loader_ctx->frame_csp - 1)->else_addr + 1;
+                        }
+                        else {
                             p = (loader_ctx->frame_csp - 1)->end_addr;
+                        }
 
                         is_i32_const = false;
                         continue;
@@ -3539,7 +3548,7 @@ re_scan:
                 loader_ctx->frame_ref = loader_ctx->frame_ref_bottom +
                                             loader_ctx->stack_cell_num;
 #if WASM_ENABLE_FAST_INTERP != 0
-                // if the result of if branch is in local or const area, add a copy op
+                /* if the result of if branch is in local or const area, add a copy op */
                 if ((loader_ctx->frame_csp - 1)->return_type != VALUE_TYPE_VOID) {
                     uint8 return_cells;
                     if ((loader_ctx->frame_csp - 1)->return_type == VALUE_TYPE_I32
@@ -3557,14 +3566,14 @@ re_scan:
                         emit_operand(loader_ctx, *(loader_ctx->frame_offset - return_cells));
                         emit_operand(loader_ctx, (loader_ctx->frame_csp - 1)->dynamic_offset);
                         *(loader_ctx->frame_offset - return_cells) =
-                            loader_ctx->frame_csp->dynamic_offset;
+                            (loader_ctx->frame_csp - 1)->dynamic_offset;
                         emit_label(opcode);
                     }
                 }
                 loader_ctx->frame_offset = loader_ctx->frame_offset_bottom +
                                                 loader_ctx->stack_cell_num;
                 emit_empty_label_addr_and_frame_ip(PATCH_END);
-                apply_label_patch(loader_ctx, 1, PATCH_ELSE, p);
+                apply_label_patch(loader_ctx, 1, PATCH_ELSE);
 #endif
                 break;
 
@@ -3601,7 +3610,7 @@ re_scan:
                     wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
                 }
 
-                apply_label_patch(loader_ctx, 0, PATCH_END, p);
+                apply_label_patch(loader_ctx, 0, PATCH_END);
                 free_label_patch_list(loader_ctx->frame_csp);
                 if (loader_ctx->frame_csp->block_type == BLOCK_TYPE_FUNCTION) {
                     emit_label(WASM_OP_RETURN);
@@ -3670,8 +3679,15 @@ handle_next_reachable_block:
 
                 if ((loader_ctx->frame_csp - 1)->block_type == BLOCK_TYPE_IF
                         && (loader_ctx->frame_csp - 1)->else_addr != NULL
-                        && p <= (loader_ctx->frame_csp - 1)->else_addr)
-                    p = (loader_ctx->frame_csp - 1)->else_addr;
+                        && p <= (loader_ctx->frame_csp - 1)->else_addr) {
+#if WASM_ENABLE_FAST_INTERP != 0
+                    loader_ctx->frame_offset = loader_ctx->frame_offset_bottom +
+                                                (loader_ctx->frame_csp - 1)->stack_cell_num;
+                    apply_label_patch(loader_ctx, 1, PATCH_ELSE);
+#endif
+                    p = (loader_ctx->frame_csp - 1)->else_addr + 1;
+
+                }
                 else {
                     p = (loader_ctx->frame_csp - 1)->end_addr;
                     PUSH_TYPE(block_return_type);
@@ -3736,40 +3752,6 @@ handle_next_reachable_block:
                 POP_TYPE(ret_type);
                 PUSH_TYPE(ret_type);
 
-                cache_index = ((uintptr_t)(loader_ctx->frame_csp - 1)->start_addr)
-                              & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
-                cache_items = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * cache_index;
-                for (item_index = 0; item_index < BLOCK_ADDR_CONFLICT_SIZE;
-                     item_index++) {
-                    if (cache_items[item_index].start_addr ==
-                                                      (loader_ctx->frame_csp - 1)->start_addr) {
-                        (loader_ctx->frame_csp - 1)->else_addr = cache_items[item_index].else_addr;
-                        (loader_ctx->frame_csp - 1)->end_addr = cache_items[item_index].end_addr;
-                      break;
-                    }
-                }
-                if(item_index == BLOCK_ADDR_CONFLICT_SIZE
-                   && !wasm_loader_find_block_addr(block_addr_cache,
-                                                   (loader_ctx->frame_csp - 1)->start_addr,
-                                                   p_end,
-                                                   (loader_ctx->frame_csp - 1)->block_type,
-                                                   &(loader_ctx->frame_csp - 1)->else_addr,
-                                                   &(loader_ctx->frame_csp - 1)->end_addr,
-                                                   error_buf, error_buf_size))
-                    goto fail;
-
-                loader_ctx->stack_cell_num = (loader_ctx->frame_csp - 1)->stack_cell_num;
-                loader_ctx->frame_ref = loader_ctx->frame_ref_bottom + loader_ctx->stack_cell_num;
-
-                if ((loader_ctx->frame_csp - 1)->block_type == BLOCK_TYPE_IF
-                    && p <= (loader_ctx->frame_csp - 1)->else_addr) {
-                    p = (loader_ctx->frame_csp - 1)->else_addr;
-                }
-                else {
-                    p = (loader_ctx->frame_csp - 1)->end_addr;
-                    PUSH_TYPE((loader_ctx->frame_csp - 1)->return_type);
-                }
-
 #if WASM_ENABLE_FAST_INTERP != 0
                 // emit the offset after return opcode
                 POP_OFFSET_TYPE(ret_type);
@@ -3778,7 +3760,7 @@ handle_next_reachable_block:
 #endif
 
                 is_i32_const = false;
-                continue;
+                goto handle_next_reachable_block;
             }
 
             case WASM_OP_CALL:
