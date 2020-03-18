@@ -109,6 +109,11 @@ enum {
 #define WASM_ENABLE_ABS_LABEL_ADDR 0
 #endif
 
+/* Enable opcode counter or not */
+#ifndef WASM_ENABLE_OPCODE_COUNTER
+#define WASM_ENABLE_OPCODE_COUNTER 0
+#endif
+
 /* Heap and stack profiling */
 #define BEIHAI_ENABLE_MEMORY_PROFILING 0
 

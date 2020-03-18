@@ -697,10 +697,42 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 }
 
+#if WASM_ENABLE_OPCODE_COUNTER != 0
+typedef struct OpcodeInfo {
+    char *name;
+    uint64 count;
+} OpcodeInfo;
+
+#define HANDLE_OPCODE(op) { #op, 0 }
+DEFINE_GOTO_TABLE (OpcodeInfo, opcode_table);
+#undef HANDLE_OPCODE
+
+static void
+wasm_interp_dump_op_count()
+{
+    uint32 i;
+    uint64 total_count = 0;
+    for (i = 0; i < WASM_OP_IMPDEP; i++)
+        total_count += opcode_table[i].count;
+
+    printf("total opcode count: %ld\n", total_count);
+    for (i = 0; i < WASM_OP_IMPDEP; i++)
+        if (opcode_table[i].count > 0)
+            printf("\t\t%s count:\t\t%ld,\t\t%.2f%%\n",
+                   opcode_table[i].name, opcode_table[i].count,
+                   opcode_table[i].count * 100.0f / total_count);
+}
+#endif
+
+
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 
 //#define HANDLE_OP(opcode) HANDLE_##opcode:printf(#opcode"\n");h_##opcode
+#if WASM_ENABLE_OPCODE_COUNTER != 0
+#define HANDLE_OP(opcode) HANDLE_##opcode:opcode_table[opcode].count++;h_##opcode
+#else
 #define HANDLE_OP(opcode) HANDLE_##opcode
+#endif
 #if WASM_ENABLE_FAST_INTERP == 0
 #define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
 #else
@@ -765,7 +797,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
-  DEFINE_GOTO_TABLE (handle_table);
+  DEFINE_GOTO_TABLE (const void*, handle_table);
   #undef HANDLE_OPCODE
 #if WASM_ENABLE_FAST_INTERP != 0
   if (exec_env == NULL) {
@@ -2287,4 +2319,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
 
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
     FREE_FRAME(exec_env, frame);
+#if WASM_ENABLE_OPCODE_COUNTER != 0
+    wasm_interp_dump_op_count();
+#endif
 }

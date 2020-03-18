@@ -818,7 +818,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
-  DEFINE_GOTO_TABLE (handle_table);
+  DEFINE_GOTO_TABLE (const void *, handle_table);
   #undef HANDLE_OPCODE
 #endif
 
