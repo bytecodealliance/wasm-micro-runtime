@@ -43,7 +43,7 @@ os_mmap(void *hint, uint32 size, int prot, int flags)
 
     /* try 5 times */
     for (i = 0; i < 5; i ++) {
-        addr = mmap(hint, size, map_prot, map_flags, -1, 0);
+        addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
         if (addr != MAP_FAILED)
             break;
     }

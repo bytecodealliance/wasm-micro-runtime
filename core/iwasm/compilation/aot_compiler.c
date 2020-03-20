@@ -727,6 +727,8 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
   bool ret;
   uint32 i;
 
+  bh_print_time("Begin to compile WASM bytecode to LLVM IR");
+
   for (i = 0; i < comp_ctx->func_ctx_count; i++)
     if (!aot_compile_func(comp_ctx, i)) {
 #if 0
@@ -744,6 +746,8 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
   errno = 0;
 #endif
 
+  bh_print_time("Begin to verify LLVM module");
+
   ret = LLVMVerifyModule(comp_ctx->module, LLVMPrintMessageAction, &msg);
   if (!ret && msg) {
       if (msg[0] != '\0') {
@@ -753,6 +757,8 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
       }
       LLVMDisposeMessage(msg);
   }
+
+  bh_print_time("Begin to run function optimization passes");
 
   if (comp_ctx->optimize) {
       LLVMInitializeFunctionPassManager(comp_ctx->pass_mgr);
@@ -768,6 +774,8 @@ bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name)
 {
     char *err = NULL;
+
+    bh_print_time("Begin to emit LLVM IR file");
 
     if (LLVMPrintModuleToFile(comp_ctx->module, file_name, &err) != 0) {
         if (err) {
@@ -785,6 +793,8 @@ bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 {
     char *err = NULL;
+
+    bh_print_time("Begin to emit object file");
 
     if (LLVMTargetMachineEmitToFile(comp_ctx->target_machine,
                                     comp_ctx->module,
