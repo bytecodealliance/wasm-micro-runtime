@@ -2072,8 +2072,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
               || local_type == VALUE_TYPE_F32) {
             *(int32*)(frame_lp + local_offset) = frame_lp[addr1];
           }
-          else if (local_type == VALUE_TYPE_I32
-              || local_type == VALUE_TYPE_F32) {
+          else if (local_type == VALUE_TYPE_I64
+              || local_type == VALUE_TYPE_F64) {
             PUT_I64_TO_ADDR((uint32*)(frame_lp + local_offset),
                   GET_I64_FROM_ADDR(frame_lp + addr1));
           }
