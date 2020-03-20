@@ -99,7 +99,9 @@ The **[WAMR SDK](./wamr-sdk)** tools is helpful to finish the two tasks quickly.
 Samples
 =================
 
-The WAMR [samples](./samples) integrate the iwasm VM core, application manager and selected application framework components. 
+The WAMR [samples](./samples) integrate the iwasm VM core, application manager and selected application framework components.
+
+- [**Basic**](./samples/basic): Demonstrating how host runtime calls WASM function as well as WASM function calls native function.
 - **[Simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libraries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
 - **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/littlevgl/) 2D user graphic library and the UI application is built into WASM application.  It uses **WASI libc** and executes apps in **AoT mode** by default.
 - **[gui](./samples/gui/README.md)**: Moved the [LittlevGL](https://github.com/littlevgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.
