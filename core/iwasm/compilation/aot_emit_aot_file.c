@@ -1837,6 +1837,8 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     char *err = NULL;
     AOTObjectData *obj_data;
 
+    bh_print_time("Begin to emit object file to buffer");
+
     if (!(obj_data = wasm_runtime_malloc(sizeof(AOTObjectData)))) {
         aot_set_last_error("allocate memory failed.");
         return false;
@@ -1866,6 +1868,8 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         goto fail;
     }
 
+    bh_print_time("Begin to resolve object file info");
+
     /* resolve target info/text/relocations/functions */
     if (!aot_resolve_target_info(comp_ctx, obj_data)
         || !aot_resolve_text(obj_data)
@@ -1893,6 +1897,8 @@ aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     if (!obj_data)
         return false;
+
+    bh_print_time("Begin to emit AOT file");
 
     aot_file_size = get_aot_file_size(comp_data, obj_data);
 
