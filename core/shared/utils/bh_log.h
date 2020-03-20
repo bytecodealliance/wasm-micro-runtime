@@ -47,6 +47,9 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 #define LOG_WARNING(...) bh_log(LOG_LEVEL_WARNING, NULL, 0, __VA_ARGS__)
 #define LOG_VERBOSE(...) bh_log(LOG_LEVEL_VERBOSE, NULL, 0, __VA_ARGS__)
 
+void
+bh_print_time(const char *prompt);
+
 #ifdef __cplusplus
 }
 #endif

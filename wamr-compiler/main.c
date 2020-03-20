@@ -35,6 +35,7 @@ print_help()
   printf("                              object         Native object file\n");
   printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
   printf("                              llvmir-opt     Optimized LLVM IR\n");
+  printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
   printf("Examples: wamrc -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
@@ -121,6 +122,11 @@ main(int argc, char *argv[])
             return print_help();
         }
     }
+    else if (!strncmp(argv[0], "-v=", 3)) {
+        log_verbose_level = atoi(argv[0] + 3);
+        if (log_verbose_level < 0 || log_verbose_level > 5)
+            return print_help();
+    }
     else
       return print_help();
   }
@@ -148,6 +154,8 @@ main(int argc, char *argv[])
 
   bh_log_set_verbose_level(log_verbose_level);
 
+  bh_print_time("Begin to load wasm file");
+
   /* load WASM byte buffer from WASM bin file */
   if (!(wasm_file = (uint8*)
         bh_read_file_to_buffer(wasm_file_name, &wasm_file_size)))
@@ -165,11 +173,15 @@ main(int argc, char *argv[])
     goto fail3;
   }
 
+  bh_print_time("Begin to create compile context");
+
   if (!(comp_ctx = aot_create_comp_context(comp_data,
                                            &option))) {
     printf("%s\n", aot_get_last_error());
     goto fail4;
   }
+
+  bh_print_time("Begin to compile");
 
   if (!aot_compile_wasm(comp_ctx)) {
     printf("%s\n", aot_get_last_error());
@@ -200,6 +212,8 @@ main(int argc, char *argv[])
           break;
   }
 
+  bh_print_time("Compile end");
+
   printf("Compile success, file %s was generated.\n", out_file_name);
 
 fail5:
@@ -221,6 +235,8 @@ fail2:
 fail1:
   /* Destroy runtime environment */
   wasm_runtime_destroy();
+
+  bh_print_time("wamrc return");
   return 0;
 }
 
