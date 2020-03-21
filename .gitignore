@@ -1,2 +1,4 @@
 .vscode
 **/*build/
+core/deps/lv_drivers
+core/deps/llvm
