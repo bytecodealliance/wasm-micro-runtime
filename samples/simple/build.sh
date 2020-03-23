@@ -100,7 +100,7 @@ PROFILE="simple-$PROFILE"
 
 echo "#####################build wamr sdk"
 cd ${WAMR_DIR}/wamr-sdk
-./build_sdk.sh -n $PROFILE -x $SDK_CONFIG_FILE $ARG_TOOLCHAIN $*
+./build_sdk.sh -n $PROFILE -x $SDK_CONFIG_FILE $ARG_TOOLCHAIN
 [ $? -eq 0 ] || exit $?
 
 
