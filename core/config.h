@@ -8,6 +8,7 @@
 
 #if !defined(BUILD_TARGET_X86_64) \
     && !defined(BUILD_TARGET_AMD_64) \
+    && !defined(BUILD_TARGET_AARCH64) \
     && !defined(BUILD_TARGET_X86_32) \
     && !defined(BUILD_TARGET_ARM) \
     && !defined(BUILD_TARGET_ARM_VFP) \
@@ -19,6 +20,8 @@
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
 #define BUILD_TARGET_AMD_64
+#elif defined(__aarch64__)
+#define BUILD_TARGET_AARCH64
 #elif defined(__i386__) || defined(__i386) || defined(i386)
 #define BUILD_TARGET_X86_32
 #elif defined(__thumb__)

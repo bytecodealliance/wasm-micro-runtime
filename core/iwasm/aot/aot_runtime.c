@@ -811,7 +811,7 @@ aot_is_wasm_type_equal(AOTModuleInstance *module_inst,
     return wasm_type_equal(type1, type2);
 }
 
-void
+bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
                   uint32 *frame_lp, uint32 argc, uint32 *argv_ret)
 {
@@ -827,18 +827,76 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     const char *signature = NULL;
     char buf[128];
 
+    bh_assert(func_idx < aot_module->import_func_count);
+
+    import_func = aot_module->import_funcs + func_idx;
+    if (!func_ptr) {
+        snprintf(buf, sizeof(buf),
+                 "fail to call unlinked import function (%s, %s)",
+                 import_func->module_name, import_func->func_name);
+        aot_set_exception(module_inst, buf);
+        return false;
+    }
+
+    signature = import_func->signature;
+    return wasm_runtime_invoke_native(exec_env, func_ptr,
+                                      func_type, signature,
+                                      frame_lp, argc, argv_ret);
+}
+
+bool
+aot_call_indirect(WASMExecEnv *exec_env,
+                  uint32 func_type_idx, uint32 table_elem_idx,
+                  uint32 *frame_lp, uint32 argc, uint32 *argv_ret)
+{
+    AOTModuleInstance *module_inst = (AOTModuleInstance*)
+                                     wasm_runtime_get_module_inst(exec_env);
+    AOTModule *aot_module = (AOTModule*)module_inst->aot_module.ptr;
+    uint32 *func_type_indexes = (uint32*)module_inst->func_type_indexes.ptr;
+    uint32 *table_data = (uint32*)module_inst->table_data.ptr;
+    AOTFuncType *func_type = aot_module->func_types[func_type_idx];;
+    void **func_ptrs = (void**)module_inst->func_ptrs.ptr, *func_ptr;
+    uint32 table_size = module_inst->table_size;
+    uint32 func_idx, func_type_idx1;
+    AOTImportFunc *import_func;
+    const char *signature = NULL;
+    char buf[128];
+
+    if (table_elem_idx >= table_size) {
+        aot_set_exception_with_id(module_inst, EXCE_UNDEFINED_ELEMENT);
+        return false;
+    }
+
+    func_idx = table_data[table_elem_idx];
+    if (func_idx == (uint32)-1) {
+        aot_set_exception_with_id(module_inst, EXCE_UNINITIALIZED_ELEMENT);
+        return false;
+    }
+
+    func_type_idx1 = func_type_indexes[func_idx];
+    if (!aot_is_wasm_type_equal(module_inst, func_type_idx, func_type_idx1)) {
+        aot_set_exception_with_id(module_inst, EXCE_INVALID_FUNCTION_TYPE_INDEX);
+        return false;
+    }
+
     if (func_idx < aot_module->import_func_count) {
+        /* Call native function */
         import_func = aot_module->import_funcs + func_idx;
-        if (!func_ptr) {
-            snprintf(buf, sizeof(buf),
-                    "fail to call unlinked import function (%s, %s)",
-                    import_func->module_name, import_func->func_name);
-            aot_set_exception(module_inst, buf);
-            return;
-        }
         signature = import_func->signature;
     }
-    wasm_runtime_invoke_native(exec_env, func_ptr,
-                               func_type, signature, frame_lp, argc, argv_ret);
+
+    if (!(func_ptr = func_ptrs[func_idx])) {
+        bh_assert(func_idx < aot_module->import_func_count);
+        import_func = aot_module->import_funcs + func_idx;
+        snprintf(buf, sizeof(buf),
+                 "fail to call unlinked import function (%s, %s)",
+                 import_func->module_name, import_func->func_name);
+        aot_set_exception(module_inst, buf);
+        return false;
+    }
+
+    return wasm_runtime_invoke_native(exec_env, func_ptr,
+                                      func_type, signature,
+                                      frame_lp, argc, argv_ret);
 }
 

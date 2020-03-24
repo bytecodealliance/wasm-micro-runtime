@@ -37,6 +37,7 @@ The iwasm supports the following architectures:
 
 - X86-64, X86-32
 - ARM, THUMB (ARMV7 Cortex-M7 and Cortex-A15 are tested)
+- AArch64 (Cortex-A57 and Cortex-A53 are tested)
 - MIPS
 - XTENSA
 
