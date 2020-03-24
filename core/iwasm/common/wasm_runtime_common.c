@@ -1811,7 +1811,9 @@ fail:
                  || defined(BUILD_TARGET_MIPS) \
                  || defined(BUILD_TARGET_XTENSA) */
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(BUILD_TARGET_X86_64) \
+   || defined(BUILD_TARGET_AMD_64) \
+   || defined(BUILD_TARGET_AARCH64)
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
@@ -1832,8 +1834,12 @@ static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 #define MAX_REG_INTS  4
 #else
 #define MAX_REG_FLOATS  8
+#if defined(BUILD_TARGET_AARCH64)
+#define MAX_REG_INTS  8
+#else
 #define MAX_REG_INTS  6
-#endif
+#endif /* end of defined(BUILD_TARGET_AARCH64 */
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
@@ -1963,4 +1969,6 @@ fail:
     return ret;
 }
 
-#endif /* end of defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+#endif /* end of defined(BUILD_TARGET_X86_64) \
+                 || defined(BUILD_TARGET_AMD_64) \
+                 || defined(BUILD_TARGET_AARCH64) */

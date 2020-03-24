@@ -31,7 +31,7 @@ endif ()
 # Set default options
 
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 if (NOT DEFINED WAMR_BUILD_TARGET)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         # Build as X86_64 by default in 64-bit platform

@@ -435,8 +435,13 @@ aot_is_wasm_type_equal(AOTModuleInstance *module_inst,
 /**
  * Invoke native function from aot code
  */
-void
+bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
+                  uint32 *frame_lp, uint32 argc, uint32 *argv_ret);
+
+bool
+aot_call_indirect(WASMExecEnv *exec_env,
+                  uint32 func_type_idx, uint32 table_elem_idx,
                   uint32 *frame_lp, uint32 argc, uint32 *argv_ret);
 
 uint32

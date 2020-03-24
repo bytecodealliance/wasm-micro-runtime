@@ -140,6 +140,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_MACHINE_MIPS      8       /* MIPS R3000 big-endian */
 #define E_MACHINE_MIPS_RS3_LE  10   /* MIPS R3000 little-endian */
 #define E_MACHINE_ARM      40       /* ARM/Thumb */
+#define E_MACHINE_AARCH64  183      /* AArch64 */
 #define E_MACHINE_ARC      45       /* Argonaut RISC Core */
 #define E_MACHINE_IA_64    50       /* Intel Merced */
 #define E_MACHINE_MIPS_X   51       /* Stanford MIPS-X */
@@ -196,6 +197,7 @@ get_aot_file_target(AOTTargetInfo *target_info,
             machine_type = "i386";
             break;
         case E_MACHINE_ARM:
+        case E_MACHINE_AARCH64:
             machine_type = target_info->arch;
             break;
         case E_MACHINE_MIPS:

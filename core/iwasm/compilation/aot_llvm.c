@@ -741,6 +741,18 @@ static ArchItem valid_archs[] = {
     { "x86_64", false },
     { "i386", false },
     { "mips", true },
+    { "aarch64v8", false },
+    { "aarch64v8.1", false },
+    { "aarch64v8.2", false },
+    { "aarch64v8.3", false },
+    { "aarch64v8.4", false },
+    { "aarch64v8.5", false },
+    { "aarch64_bev8", false },   /* big endian */
+    { "aarch64_bev8.1", false },
+    { "aarch64_bev8.2", false },
+    { "aarch64_bev8.3", false },
+    { "aarch64_bev8.4", false },
+    { "aarch64_bev8.5", false },
     { "armv4", true },
     { "armv4t", true },
     { "armv5t", true },
@@ -939,6 +951,10 @@ aot_create_comp_context(AOTCompData *comp_data,
                 arch = "thumbv4t";
             else if (!strcmp(arch, "thumbeb"))
                 arch = "thumbv4teb";
+            else if (!strcmp(arch, "aarch64"))
+                arch = "aarch64v8";
+            else if (!strcmp(arch, "aarch64_be"))
+                arch = "aarch64_bev8";
         }
 
         /* Check target arch */

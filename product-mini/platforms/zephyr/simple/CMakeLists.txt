@@ -10,7 +10,7 @@ enable_language (ASM)
 
 set (WAMR_BUILD_PLATFORM "zephyr")
 
-# Build as X86_32 by default, change to "ARM[sub]", "THUMB[sub]", "MIPS" or "XTENSA"
+# Build as X86_32 by default, change to "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS" or "XTENSA"
 # if we want to support arm, thumb, mips or xtensa
 if (NOT DEFINED WAMR_BUILD_TARGET)
   set (WAMR_BUILD_TARGET "X86_32")

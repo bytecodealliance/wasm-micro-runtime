@@ -8,10 +8,6 @@
 #define R_ARM_THM_CALL  10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
 #define R_ARM_THM_JMP24 30  /* B.W */
 
-#ifndef BH_MB
-#define BH_MB 1024 * 1024
-#endif
-
 void __divdi3();
 void __udivdi3();
 void __moddi3();
