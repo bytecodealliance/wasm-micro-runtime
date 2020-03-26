@@ -262,8 +262,8 @@ typedef enum WASMOpcode {
  */
 #define WASM_INSTRUCTION_NUM 256
 
-#define DEFINE_GOTO_TABLE(_name)                             \
-static const void *_name[WASM_INSTRUCTION_NUM] = {           \
+#define DEFINE_GOTO_TABLE(type, _name)                       \
+static type _name[WASM_INSTRUCTION_NUM] = {                  \
   HANDLE_OPCODE (WASM_OP_UNREACHABLE),   /* 0x00 */          \
   HANDLE_OPCODE (WASM_OP_NOP),           /* 0x01 */          \
   HANDLE_OPCODE (WASM_OP_BLOCK),         /* 0x02 */          \

@@ -1811,7 +1811,9 @@ fail:
                  || defined(BUILD_TARGET_MIPS) \
                  || defined(BUILD_TARGET_XTENSA) */
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(BUILD_TARGET_X86_64) \
+   || defined(BUILD_TARGET_AMD_64) \
+   || defined(BUILD_TARGET_AARCH64)
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
@@ -1821,19 +1823,23 @@ typedef int64 (*Int64FuncPtr)(GenericFunctionPointer, uint64*,uint64);
 typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint64*, uint64);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint64*, uint64);
 
-static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
-static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
-static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)(uintptr_t)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)(uintptr_t)invokeNative;
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)(uintptr_t)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)(uintptr_t)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
 #if defined(_WIN32) || defined(_WIN32_)
 #define MAX_REG_FLOATS  4
 #define MAX_REG_INTS  4
 #else
 #define MAX_REG_FLOATS  8
+#if defined(BUILD_TARGET_AARCH64)
+#define MAX_REG_INTS  8
+#else
 #define MAX_REG_INTS  6
-#endif
+#endif /* end of defined(BUILD_TARGET_AARCH64 */
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
@@ -1963,4 +1969,6 @@ fail:
     return ret;
 }
 
-#endif /* end of defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+#endif /* end of defined(BUILD_TARGET_X86_64) \
+                 || defined(BUILD_TARGET_AMD_64) \
+                 || defined(BUILD_TARGET_AARCH64) */

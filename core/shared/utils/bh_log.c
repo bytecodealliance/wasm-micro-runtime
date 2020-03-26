@@ -52,3 +52,28 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
 
     os_printf("\n");
 }
+
+static uint32 last_time_ms = 0;
+static uint32 total_time_ms = 0;
+
+void
+bh_print_time(const char *prompt)
+{
+    uint32 curr_time_ms;
+
+    if (log_verbose_level < 3)
+        return;
+
+    curr_time_ms = (uint32)bh_get_tick_ms();
+
+    if (last_time_ms == 0)
+        last_time_ms = curr_time_ms;
+
+    total_time_ms += curr_time_ms - last_time_ms;
+
+    printf("%-48s time of last stage: %u ms, total time: %u ms\n",
+           prompt, curr_time_ms - last_time_ms, total_time_ms);
+
+    last_time_ms = curr_time_ms;
+}
+

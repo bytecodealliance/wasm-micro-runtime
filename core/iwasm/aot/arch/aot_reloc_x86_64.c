@@ -149,19 +149,22 @@ apply_relocation(AOTModule *module,
         }
         case R_X86_64_PLT32:
         {
-            uint8 *plt = (uint8*)module->code + module->code_size - get_plt_table_size()
-                         + get_plt_item_size() * symbol_index;
-            intptr_t target_addr = (intptr_t)   /* L + A - P */
-                                   (plt + reloc_addend
-                                    - (target_section_addr + reloc_offset));
+            uint8 *plt;
+            intptr_t target_addr = 0;
 
             CHECK_RELOC_OFFSET(sizeof(int32));
 
-            if (symbol_index < 0) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "invalid symbol index for relocation");
-                return false;
+            if (symbol_index >= 0) {
+                plt = (uint8*)module->code + module->code_size - get_plt_table_size()
+                      + get_plt_item_size() * symbol_index;
+                target_addr = (intptr_t)   /* L + A - P */
+                              (plt + reloc_addend
+                               - (target_section_addr + reloc_offset));
+            }
+            else {
+                target_addr = (intptr_t)   /* L + A - P */
+                              ((uint8*)symbol_addr + reloc_addend
+                               - (target_section_addr + reloc_offset));
             }
 
             if ((int32)target_addr != target_addr) {

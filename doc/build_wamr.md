@@ -23,7 +23,7 @@ The script `runtime_lib.cmake` defined a number of variables for configuring the
 
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform). 
 
-- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets:  X86_64, X86_32, ARM, THUMB, XTENSA and MIPS. For ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and [_VFP] are optional. e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets:  X86_64, X86_32, AArch64, ARM, THUMB, XTENSA and MIPS. For AArch64, ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and "_VFP" are optional. e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
 
   ```bash
   cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM  
@@ -229,6 +229,10 @@ source ../../zephyr-env.sh
 ``` Bash
 ./build.sh stm32
 ```
+3. build for AArch64 (qemu_cortex_a53)
+``` Bash
+./build.sh qemu_cortex_a53
+```
 
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [Linux platform](./build_wamr.md#linux) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
@@ -272,6 +276,7 @@ AliOS-Things
    aos make helloworld@linuxhost -c config
    aos make
    ./out/helloworld@linuxhost/binary/helloworld@linuxhost.elf
+   ```
 ```
    
    For developerkit:
@@ -279,8 +284,8 @@ AliOS-Things
    
    ``` C
 WAMR_BUILD_TARGET := THUMBV7M
-   ```
-   
+```
+
    ``` Bash
    aos make helloworld@developerkit -c config
    aos make

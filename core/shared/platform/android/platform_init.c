@@ -30,6 +30,6 @@ int os_printf(const char *fmt, ...)
 
 int os_vprintf(const char *fmt, va_list ap)
 {
-    return __android_log_print(ANDROID_LOG_INFO, "wasm_runtime::", fmt, ap);
+    return __android_log_vprint(ANDROID_LOG_INFO, "wasm_runtime::", fmt, ap);
 }
 

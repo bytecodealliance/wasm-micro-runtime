@@ -13,6 +13,8 @@ if (${WAMR_BUILD_TARGET} STREQUAL "X86_64" OR ${WAMR_BUILD_TARGET} STREQUAL "AMD
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_x86_64.c)
 elseif (${WAMR_BUILD_TARGET} STREQUAL "X86_32")
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_x86_32.c)
+elseif (${WAMR_BUILD_TARGET} MATCHES "AARCH64.*")
+  set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_aarch64.c)
 elseif (${WAMR_BUILD_TARGET} MATCHES "ARM.*")
   set (arch_source ${IWASM_AOT_DIR}/arch/aot_reloc_arm.c)
 elseif (${WAMR_BUILD_TARGET} MATCHES "THUMB.*")
