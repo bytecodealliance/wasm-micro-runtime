@@ -1620,9 +1620,9 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
                 if (llvm_data_end_global && llvm_heap_base_global) {
                     if ((data_end_global_index == heap_base_global_index + 1
-                         && data_end_global_index > 0)
+                         && (int32)data_end_global_index > 1)
                         || (heap_base_global_index == data_end_global_index + 1
-                            && heap_base_global_index > 0)) {
+                            && (int32)heap_base_global_index > 1)) {
                         global_index =
                             data_end_global_index < heap_base_global_index
                             ? data_end_global_index - 1 : heap_base_global_index - 1;
@@ -2716,6 +2716,128 @@ wasm_loader_check_br(WASMLoaderContext *ctx, uint32 depth,
 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
+
+#if WASM_ENABLE_ABS_LABEL_ADDR != 0
+
+#define emit_label(opcode) do {                                     \
+    wasm_loader_emit_ptr(loader_ctx, handle_table[opcode]);         \
+    LOG_OP("\nemit_op [%02x]\t", opcode);                           \
+  } while (0)
+
+#define skip_label() do {                                           \
+    wasm_loader_emit_backspace(loader_ctx, sizeof(void *));         \
+    LOG_OP("\ndelete last op\n");                                   \
+  } while (0)
+
+#else
+
+#define emit_label(opcode) do {                                     \
+    int32 offset = (int32)(handle_table[opcode] - handle_table[0]); \
+    if (!(offset >= INT16_MIN && offset < INT16_MAX)) {             \
+        set_error_buf(error_buf, error_buf_size,                    \
+                      "WASM module load failed: "                   \
+                      "pre-compiled label offset out of range");    \
+        goto fail;                                                  \
+    }                                                               \
+    wasm_loader_emit_int16(loader_ctx, offset);                     \
+    LOG_OP("\nemit_op [%02x]\t", opcode);                           \
+  } while (0)
+
+// drop local.get / const / block / loop / end
+#define skip_label() do {                                           \
+    wasm_loader_emit_backspace(loader_ctx, sizeof(int16));          \
+    LOG_OP("\ndelete last op\n");                                   \
+  } while (0)
+
+#endif /* WASM_ENABLE_ABS_LABEL_ADDR */
+
+#define emit_empty_label_addr_and_frame_ip(type) do {               \
+    if (!add_label_patch_to_list(loader_ctx->frame_csp - 1, type,   \
+                                 loader_ctx->p_code_compiled,       \
+                                 error_buf, error_buf_size))        \
+        goto fail;                                                  \
+    /* label address, to be patched */                              \
+    wasm_loader_emit_ptr(loader_ctx, NULL);                         \
+  } while (0)
+
+#define emit_br_info(frame_csp) do {                                \
+    if (!wasm_loader_emit_br_info(loader_ctx, frame_csp,            \
+                                  error_buf, error_buf_size))       \
+        goto fail;                                                  \
+  } while (0)
+
+#define LAST_OP_OUTPUT_I32() (last_op >= WASM_OP_I32_EQZ                \
+                                && last_op <= WASM_OP_I32_ROTR)         \
+                            || (last_op == WASM_OP_I32_LOAD             \
+                                || last_op == WASM_OP_F32_LOAD)         \
+                            || (last_op >= WASM_OP_I32_LOAD8_S          \
+                                && last_op <= WASM_OP_I32_LOAD16_U)     \
+                            || (last_op >= WASM_OP_F32_ABS              \
+                                && last_op <= WASM_OP_F32_COPYSIGN)     \
+                            || (last_op >= WASM_OP_I32_WRAP_I64         \
+                                && last_op <= WASM_OP_I32_TRUNC_U_F64)  \
+                            || (last_op >= WASM_OP_F32_CONVERT_S_I32    \
+                                && last_op <= WASM_OP_F32_DEMOTE_F64)   \
+                            || (last_op == WASM_OP_I32_REINTERPRET_F32) \
+                            || (last_op == WASM_OP_F32_REINTERPRET_I32) \
+                            || (last_op == EXT_OP_COPY_STACK_TOP)
+
+#define LAST_OP_OUTPUT_I64() (last_op >= WASM_OP_I64_CLZ                \
+                                && last_op <= WASM_OP_I64_ROTR)         \
+                            || (last_op >= WASM_OP_F64_ABS              \
+                                && last_op <= WASM_OP_F64_COPYSIGN)     \
+                            || (last_op == WASM_OP_I64_LOAD             \
+                                || last_op == WASM_OP_F64_LOAD)         \
+                            || (last_op >= WASM_OP_I64_LOAD8_S          \
+                                && last_op <= WASM_OP_I64_LOAD32_U)     \
+                            || (last_op >= WASM_OP_I64_EXTEND_S_I32     \
+                                && last_op <= WASM_OP_I64_TRUNC_U_F64)  \
+                            || (last_op >= WASM_OP_F64_CONVERT_S_I32    \
+                                && last_op <= WASM_OP_F64_PROMOTE_F32)  \
+                            || (last_op == WASM_OP_I64_REINTERPRET_F64) \
+                            || (last_op == WASM_OP_F64_REINTERPRET_I64) \
+                            || (last_op == EXT_OP_COPY_STACK_TOP_I64)
+
+#define GET_CONST_OFFSET(type, val) do {                                \
+    if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
+                                       val, 0, 0, &operand_offset,      \
+                                       error_buf, error_buf_size)))     \
+        goto fail;                                                      \
+  } while (0)
+
+#define GET_CONST_F32_OFFSET(type, fval) do {                           \
+    if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
+                                       0, fval, 0, &operand_offset,     \
+                                       error_buf, error_buf_size)))     \
+        goto fail;                                                      \
+  } while (0)
+
+#define GET_CONST_F64_OFFSET(type, fval) do {                           \
+    if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
+                                       0, 0, fval, &operand_offset,     \
+                                       error_buf, error_buf_size)))     \
+        goto fail;                                                      \
+  } while (0)
+
+#define emit_operand(ctx, offset) do {                              \
+    wasm_loader_emit_int16(ctx, offset);                            \
+    LOG_OP("%d\t", offset);                                         \
+  } while (0)
+
+#define emit_byte(ctx, byte) do {                                   \
+    wasm_loader_emit_uint8(ctx, byte);                              \
+    LOG_OP("%d\t", byte);                                           \
+  } while (0)
+
+#define emit_leb() do {                                             \
+    wasm_loader_emit_leb(loader_ctx, p_org, p);                     \
+  } while (0)
+
+#define emit_const(value) do {                                      \
+    GET_CONST_OFFSET(VALUE_TYPE_I32, value);                        \
+    emit_operand(loader_ctx, operand_offset);                       \
+  } while (0)
+
 static bool
 wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 {
@@ -2804,6 +2926,47 @@ wasm_loader_emit_leb(WASMLoaderContext *ctx, uint8* start, uint8* end)
 }
 
 static bool
+preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
+                          uint32 local_index, uint32 local_type, bool *preserved,
+                          char *error_buf, uint32 error_buf_size)
+{
+    int16 preserved_offset = (int16)local_index;
+    *preserved = false;
+    for (uint32 i = 0; i < loader_ctx->stack_cell_num; i++) {
+        /* move previous local into dynamic space before a set/tee_local opcode */
+        if (loader_ctx->frame_offset_bottom[i] == (int16)local_index) {
+            if (preserved_offset == (int16)local_index) {
+                *preserved = true;
+                skip_label();
+                if (local_type == VALUE_TYPE_I32
+                    || local_type == VALUE_TYPE_F32) {
+                    preserved_offset = loader_ctx->dynamic_offset++;
+                    emit_label(EXT_OP_COPY_STACK_TOP);
+                }
+                else {
+                    preserved_offset = loader_ctx->dynamic_offset;
+                    loader_ctx->dynamic_offset += 2;
+                    emit_label(EXT_OP_COPY_STACK_TOP_I64);
+                }
+                emit_operand(loader_ctx, local_index);
+                emit_operand(loader_ctx, preserved_offset);
+                emit_label(opcode);
+                if (loader_ctx->dynamic_offset > loader_ctx->max_dynamic_offset)
+                    loader_ctx->max_dynamic_offset = loader_ctx->dynamic_offset;
+            }
+            loader_ctx->frame_offset_bottom[i] = preserved_offset;
+        }
+    }
+
+    return true;
+
+#if WASM_ENABLE_ABS_LABEL_ADDR == 0
+fail:
+    return false;
+#endif
+}
+
+static bool
 add_label_patch_to_list(BranchBlock *frame_csp,
                         uint8 patch_type, uint8 *p_code_compiled,
                         char *error_buf, uint32 error_buf_size)
@@ -2857,25 +3020,6 @@ apply_label_patch(WASMLoaderContext *ctx, uint8 depth,
         node = node_next;
     }
 }
-
-#define emit_operand(ctx, offset) do {                              \
-    wasm_loader_emit_int16(ctx, offset);                            \
-    LOG_OP("%d\t", offset);                                         \
-  } while (0)
-
-#define emit_byte(ctx, byte) do {                                   \
-    wasm_loader_emit_uint8(ctx, byte);                               \
-    LOG_OP("%d\t", byte);                                           \
-  } while (0)
-
-#define emit_leb() do {                                             \
-    wasm_loader_emit_leb(loader_ctx, p_org, p);                     \
-  } while (0)
-
-#define emit_const(value) do {                                      \
-    GET_CONST_OFFSET(VALUE_TYPE_I32, value);                        \
-    emit_operand(loader_ctx, operand_offset);                       \
-  } while (0)
 
 static bool
 wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
@@ -3270,107 +3414,7 @@ check_memory(WASMModule *module,
   } while (0)
 
 #if WASM_ENABLE_FAST_INTERP != 0
-#if WASM_ENABLE_ABS_LABEL_ADDR != 0
 
-#define emit_label(opcode) do {                                     \
-    wasm_loader_emit_ptr(loader_ctx, handle_table[opcode]);         \
-    LOG_OP("\nemit_op [%02x]\t", opcode);                           \
-  } while (0)
-
-#define skip_label() do {                                           \
-    wasm_loader_emit_backspace(loader_ctx, sizeof(void *));         \
-    LOG_OP("\ndelete last op\n");                                   \
-  } while (0)
-
-#else
-
-#define emit_label(opcode) do {                                     \
-    int32 offset = (int32)(handle_table[opcode] - handle_table[0]); \
-    if (!(offset >= INT16_MIN && offset < INT16_MAX)) {             \
-        set_error_buf(error_buf, error_buf_size,                    \
-                      "WASM module load failed: "                   \
-                      "pre-compiled label offset out of range");    \
-        goto fail;                                                  \
-    }                                                               \
-    wasm_loader_emit_int16(loader_ctx, offset);                     \
-    LOG_OP("\nemit_op [%02x]\t", opcode);                           \
-  } while (0)
-
-// drop local.get / const / block / loop / end
-#define skip_label() do {                                           \
-    wasm_loader_emit_backspace(loader_ctx, sizeof(int16));          \
-    LOG_OP("\ndelete last op\n");                                   \
-  } while (0)
-
-#endif /* WASM_ENABLE_ABS_LABEL_ADDR */
-
-#define emit_empty_label_addr_and_frame_ip(type) do {               \
-    if (!add_label_patch_to_list(loader_ctx->frame_csp - 1, type,   \
-                                 loader_ctx->p_code_compiled,       \
-                                 error_buf, error_buf_size))        \
-        goto fail;                                                  \
-    /* label address, to be patched */                              \
-    wasm_loader_emit_ptr(loader_ctx, NULL);                         \
-  } while (0)
-
-#define emit_br_info(frame_csp) do {                                \
-    if (!wasm_loader_emit_br_info(loader_ctx, frame_csp,            \
-                                  error_buf, error_buf_size))       \
-        goto fail;                                                  \
-  } while (0)
-
-#define LAST_OP_OUTPUT_I32() (last_op >= WASM_OP_I32_EQZ                \
-                                && last_op <= WASM_OP_I32_ROTR)         \
-                            || (last_op == WASM_OP_I32_LOAD             \
-                                || last_op == WASM_OP_F32_LOAD)         \
-                            || (last_op >= WASM_OP_I32_LOAD8_S          \
-                                && last_op <= WASM_OP_I32_LOAD16_U)     \
-                            || (last_op >= WASM_OP_F32_ABS              \
-                                && last_op <= WASM_OP_F32_COPYSIGN)     \
-                            || (last_op >= WASM_OP_I32_WRAP_I64         \
-                                && last_op <= WASM_OP_I32_TRUNC_U_F64)  \
-                            || (last_op >= WASM_OP_F32_CONVERT_S_I32    \
-                                && last_op <= WASM_OP_F32_DEMOTE_F64)   \
-                            || (last_op == WASM_OP_I32_REINTERPRET_F32) \
-                            || (last_op == WASM_OP_F32_REINTERPRET_I32) \
-                            || (last_op == EXT_OP_COPY_STACK_TOP)
-
-#define LAST_OP_OUTPUT_I64() (last_op >= WASM_OP_I64_CLZ                \
-                                && last_op <= WASM_OP_I64_ROTR)         \
-                            || (last_op >= WASM_OP_F64_ABS              \
-                                && last_op <= WASM_OP_F64_COPYSIGN)     \
-                            || (last_op == WASM_OP_I64_LOAD             \
-                                || last_op == WASM_OP_F64_LOAD)         \
-                            || (last_op >= WASM_OP_I64_LOAD8_S          \
-                                && last_op <= WASM_OP_I64_LOAD32_U)     \
-                            || (last_op >= WASM_OP_I64_EXTEND_S_I32     \
-                                && last_op <= WASM_OP_I64_TRUNC_U_F64)  \
-                            || (last_op >= WASM_OP_F64_CONVERT_S_I32    \
-                                && last_op <= WASM_OP_F64_PROMOTE_F32)  \
-                            || (last_op == WASM_OP_I64_REINTERPRET_F64) \
-                            || (last_op == WASM_OP_F64_REINTERPRET_I64) \
-                            || (last_op == EXT_OP_COPY_STACK_TOP_I64)
-
-#define GET_CONST_OFFSET(type, val) do {                                \
-    if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
-                                       val, 0, 0, &operand_offset,      \
-                                       error_buf, error_buf_size)))     \
-        goto fail;                                                      \
-  } while (0)
-
-#define GET_CONST_F32_OFFSET(type, fval) do {                           \
-    if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
-                                       0, fval, 0, &operand_offset,     \
-                                       error_buf, error_buf_size)))     \
-        goto fail;                                                      \
-  } while (0)
-
-#define GET_CONST_F64_OFFSET(type, fval) do {                           \
-    if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
-                                       0, 0, fval, &operand_offset,     \
-                                       error_buf, error_buf_size)))     \
-        goto fail;                                                      \
-  } while (0)
 
 #endif /* WASM_ENABLE_FAST_INTERP */
 
@@ -3395,7 +3439,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint8 *func_const_end, *func_const;
     int16 operand_offset;
     uint8 last_op = 0;
-    bool disable_emit;
+    bool disable_emit, preserve_local = false;
     float32 f32;
     float64 f64;
 
@@ -3997,15 +4041,20 @@ handle_next_reachable_block:
                 POP_TYPE(local_type);
 
 #if WASM_ENABLE_FAST_INTERP != 0
+                if (!(preserve_referenced_local(loader_ctx, opcode, local_offset,
+                                                local_type, &preserve_local,
+                                                error_buf, error_buf_size)))
+                    goto fail;
+
                 if (local_offset < 256) {
                     skip_label();
-                    if (LAST_OP_OUTPUT_I32()) {
+                    if ((!preserve_local) && (LAST_OP_OUTPUT_I32())) {
                         if (loader_ctx->p_code_compiled)
                             *(int16*)(loader_ctx->p_code_compiled - 2) = local_offset;
                         loader_ctx->frame_offset --;
                         loader_ctx->dynamic_offset --;
                     }
-                    else if (LAST_OP_OUTPUT_I64()) {
+                    else if ((!preserve_local) && (LAST_OP_OUTPUT_I64())) {
                         if (loader_ctx->p_code_compiled)
                             *(int16*)(loader_ctx->p_code_compiled - 2) = local_offset;
                         loader_ctx->frame_offset -= 2;
@@ -4054,6 +4103,11 @@ handle_next_reachable_block:
                 PUSH_TYPE(local_type);
 
 #if WASM_ENABLE_FAST_INTERP != 0
+                if (!(preserve_referenced_local(loader_ctx, opcode, local_offset,
+                                                local_type, &preserve_local,
+                                                error_buf, error_buf_size)))
+                    goto fail;
+
                 if (local_offset < 256) {
                     skip_label();
                     if (local_type == VALUE_TYPE_I32
