@@ -71,8 +71,8 @@ bh_print_time(const char *prompt)
 
     total_time_ms += curr_time_ms - last_time_ms;
 
-    printf("%-48s time of last stage: %u ms, total time: %u ms\n",
-           prompt, curr_time_ms - last_time_ms, total_time_ms);
+    os_printf("%-48s time of last stage: %u ms, total time: %u ms\n",
+              prompt, curr_time_ms - last_time_ms, total_time_ms);
 
     last_time_ms = curr_time_ms;
 }

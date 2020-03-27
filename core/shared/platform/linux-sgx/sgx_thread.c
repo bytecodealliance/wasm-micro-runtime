@@ -24,21 +24,26 @@ int os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-/* Returned error (EINVAL, EAGAIN and EDEADLK) from
- locking the mutex indicates some logic error present in
- the program somewhere.
- Don't try to recover error for an existing unknown error.*/
 void os_mutex_lock(korp_mutex *mutex)
 {
     sgx_thread_mutex_lock(mutex);
 }
 
-/* Returned error (EINVAL, EAGAIN and EPERM) from
- unlocking the mutex indicates some logic error present
- in the program somewhere.
- Don't try to recover error for an existing unknown error.*/
 void os_mutex_unlock(korp_mutex *mutex)
 {
     sgx_thread_mutex_unlock(mutex);
+}
+
+int os_cond_init(korp_cond *cond)
+{
+    sgx_thread_cond_t c = SGX_THREAD_COND_INITIALIZER;
+    *cond = c;
+    return BHT_OK;
+}
+
+int os_cond_destroy(korp_cond *cond)
+{
+    sgx_thread_cond_destroy(cond);
+    return BHT_OK;
 }
 
