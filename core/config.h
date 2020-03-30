@@ -118,7 +118,10 @@ enum {
 #endif
 
 /* Heap and stack profiling */
-#define BEIHAI_ENABLE_MEMORY_PROFILING 0
+#define BH_ENABLE_MEMORY_PROFILING 0
+
+/* Heap verification */
+#define BH_ENABLE_GC_VERIFY 0
 
 /* Max app number of all modules */
 #define MAX_APP_INSTALLATIONS 3

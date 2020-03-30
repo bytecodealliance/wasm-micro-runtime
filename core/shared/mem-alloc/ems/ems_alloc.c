@@ -6,21 +6,25 @@
 #include "ems_gc_internal.h"
 
 
-static int hmu_is_in_heap(gc_heap_t* heap, hmu_t* hmu)
+static int
+hmu_is_in_heap(gc_heap_t* heap, hmu_t* hmu)
 {
-    return heap && hmu && (gc_uint8*) hmu >= heap->base_addr
-            && (gc_uint8*) hmu < heap->base_addr + heap->current_size;
+    return heap && hmu
+           && (gc_uint8*) hmu >= heap->base_addr
+           && (gc_uint8*) hmu < heap->base_addr + heap->current_size;
 }
 
-/* Remove a node from the tree it belongs to*/
-
-/* @p can not be NULL*/
-/* @p can not be the ROOT node*/
-
-/* Node @p will be removed from the tree and left,right,parent pointers of node @p will be*/
-/*  set to be NULL. Other fields will not be touched.*/
-/* The tree will be re-organized so that the order conditions are still satisified.*/
-static void remove_tree_node(hmu_tree_node_t *p)
+/**
+ * Remove a node from the tree it belongs to
+ *
+ * @param p the node to remove, can not be NULL, can not be the ROOT node
+ *        the node will be removed from the tree, and the left, right and
+ *        parent pointers of the node @p will be set to be NULL. Other fields
+ *        won't be touched. The tree will be re-organized so that the order
+ *        conditions are still satisified.
+ */
+static void
+remove_tree_node(hmu_tree_node_t *p)
 {
     hmu_tree_node_t *q = NULL, **slot = NULL;
 
@@ -35,11 +39,14 @@ static void remove_tree_node(hmu_tree_node_t *p)
         slot = &p->parent->left;
     }
 
-    /* algorithms used to remove node p*/
-    /* case 1: if p has no left child, replace p with its right child*/
-    /* case 2: if p has no right child, replace p with its left child*/
-    /* case 3: otherwise, find p's predecessor, remove it from the tree and replace p with it.*/
-    /*         use predecessor can keep the left <= root < right condition.*/
+    /**
+     * algorithms used to remove node p
+     * case 1: if p has no left child, replace p with its right child
+     * case 2: if p has no right child, replace p with its left child
+     * case 3: otherwise, find p's predecessor, remove it from the tree
+     *         and replace p with it.
+     * use predecessor can keep the left <= root < right condition.
+     */
 
     if (!p->left) {
         /* move right child up*/
@@ -64,7 +71,8 @@ static void remove_tree_node(hmu_tree_node_t *p)
     q = p->left;
     while (q->right)
         q = q->right;
-    remove_tree_node(q); /* remove from the tree*/
+    /* remove from the tree*/
+    remove_tree_node(q);
 
     *slot = q;
     q->parent = p->parent;
@@ -78,14 +86,14 @@ static void remove_tree_node(hmu_tree_node_t *p)
     p->left = p->right = p->parent = NULL;
 }
 
-static void unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
+static void
+unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
 {
     gc_size_t size;
 
     bh_assert(gci_is_heap_valid(heap));
-    bh_assert(
-            hmu && (gc_uint8*) hmu >= heap->base_addr
-                    && (gc_uint8*) hmu < heap->base_addr + heap->current_size);
+    bh_assert(hmu && (gc_uint8*) hmu >= heap->base_addr
+              && (gc_uint8*) hmu < heap->base_addr + heap->current_size);
     bh_assert(hmu_get_ut(hmu) == HMU_FC);
 
     size = hmu_get_size(hmu);
@@ -105,45 +113,46 @@ static void unlink_hmu(gc_heap_t *heap, hmu_t *hmu)
         }
 
         if (!node) {
-            os_printf("[GC_ERROR]couldn't find the node in the normal list");
+            os_printf("[GC_ERROR]couldn't find the node in the normal list\n");
         }
-    } else {
+    }
+    else {
         remove_tree_node((hmu_tree_node_t *) hmu);
     }
 }
 
-static void hmu_set_free_size(hmu_t *hmu)
+static void
+hmu_set_free_size(hmu_t *hmu)
 {
     gc_size_t size;
     bh_assert(hmu && hmu_get_ut(hmu) == HMU_FC);
 
     size = hmu_get_size(hmu);
-    *((uint32*) ((char*) hmu + size) - 1) = size;
+    *((uint32*)((char*) hmu + size) - 1) = size;
 }
 
-/* Add free chunk back to KFC*/
-
-/* @heap should not be NULL and it should be a valid heap*/
-/* @hmu should not be NULL and it should be a HMU of length @size inside @heap*/
-/* @hmu should be aligned to 8*/
-/* @size should be positive and multiple of 8*/
-
-/* @hmu with size @size will be added into KFC as a new FC.*/
-void gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
+/**
+ * Add free chunk back to KFC
+ *
+ * @param heap should not be NULL and it should be a valid heap
+ * @param hmu should not be NULL and it should be a HMU of length @size inside @heap
+ *        hmu should be 8-bytes aligned
+ * @param size should be positive and multiple of 8
+ *        hmu with size @size will be added into KFC as a new FC.
+ */
+void
+gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
 {
     hmu_normal_node_t *np = NULL;
     hmu_tree_node_t *root = NULL, *tp = NULL, *node = NULL;
     uint32 node_idx;
 
     bh_assert(gci_is_heap_valid(heap));
-    bh_assert(
-            hmu && (gc_uint8*) hmu >= heap->base_addr
-                    && (gc_uint8*) hmu < heap->base_addr + heap->current_size);
+    bh_assert(hmu && (gc_uint8*) hmu >= heap->base_addr
+              && (gc_uint8*) hmu < heap->base_addr + heap->current_size);
     bh_assert(((gc_uint32)(uintptr_t)hmu_to_obj(hmu) & 7) == 0);
-    bh_assert(
-            size > 0
-                    && ((gc_uint8*) hmu) + size
-                            <= heap->base_addr + heap->current_size);
+    bh_assert(size > 0
+              && ((gc_uint8*) hmu) + size <= heap->base_addr + heap->current_size);
     bh_assert(!(size & 7));
 
     hmu_set_ut(hmu, HMU_FC);
@@ -154,7 +163,8 @@ void gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
         np = (hmu_normal_node_t*) hmu;
 
         node_idx = size >> 3;
-        np->next = heap->kfc_normal_list[node_idx].next;
+        set_hmu_normal_node_next(np, get_hmu_normal_node_next
+                                        (&heap->kfc_normal_list[node_idx]));
         set_hmu_normal_node_next(&heap->kfc_normal_list[node_idx], np);
         return;
     }
@@ -176,8 +186,8 @@ void gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
                 break;
             }
             tp = tp->right;
-        } else /* tp->size >= size*/
-        {
+        }
+        else { /* tp->size >= size*/
             if (!tp->left) {
                 tp->left = node;
                 node->parent = tp;
@@ -188,17 +198,19 @@ void gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
     }
 }
 
-/* Find a proper hmu for required memory size*/
-
-/* @heap should not be NULL and it should be a valid heap*/
-/* @size should cover the header and it should be 8 bytes aligned*/
-
-/* GC will not be performed here.*/
-/* Heap extension will not be performed here.*/
-
-/* A proper HMU will be returned. This HMU can include the header and given size. The returned HMU will be aligned to 8 bytes.*/
-/* NULL will be returned if there are no proper HMU.*/
-static hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
+/**
+ * Find a proper hmu for required memory size
+ *
+ * @param heap should not be NULL and should be a valid heap
+ * @param size should cover the header and should be 8 bytes aligned
+ *        GC will not be performed here.
+ *        Heap extension will not be performed here.
+ *
+ * @return hmu allocated if success, which will be aligned to 8 bytes,
+ *         NULL otherwise
+ */
+static hmu_t *
+alloc_hmu(gc_heap_t *heap, gc_size_t size)
 {
     hmu_normal_node_t *node = NULL, *p = NULL;
     uint32 node_idx = 0, init_node_idx = 0;
@@ -228,31 +240,31 @@ static hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
             bh_assert(node_idx >= init_node_idx);
 
             p = get_hmu_normal_node_next(node);
-            node->next = p->next;
+            set_hmu_normal_node_next(node, get_hmu_normal_node_next(p));
             bh_assert(((gc_int32)(uintptr_t)hmu_to_obj(p) & 7) == 0);
 
             if ((gc_size_t)node_idx != (uint32)init_node_idx
-                && ((gc_size_t)node_idx << 3) >= size + GC_SMALLEST_SIZE) { /* with bigger size*/
+                /* with bigger size*/
+                && ((gc_size_t)node_idx << 3) >= size + GC_SMALLEST_SIZE) {
                 rest = (hmu_t*) (((char *) p) + size);
                 gci_add_fc(heap, rest, (node_idx << 3) - size);
                 hmu_mark_pinuse(rest);
-            } else {
+            }
+            else {
                 size = node_idx << 3;
                 next = (hmu_t*) ((char*) p + size);
                 if (hmu_is_in_heap(heap, next))
                     hmu_mark_pinuse(next);
             }
 
-#if GC_STAT_DATA != 0
             heap->total_free_size -= size;
             if ((heap->current_size - heap->total_free_size)
-                    > heap->highmark_size)
+                > heap->highmark_size)
                 heap->highmark_size = heap->current_size
-                        - heap->total_free_size;
-#endif
+                                      - heap->total_free_size;
 
-            hmu_set_size((hmu_t* ) p, size);
-            return (hmu_t*) p;
+            hmu_set_size((hmu_t* )p, size);
+            return (hmu_t*)p;
         }
     }
 
@@ -285,18 +297,18 @@ static hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
             rest = (hmu_t*) ((char*) last_tp + size);
             gci_add_fc(heap, rest, last_tp->size - size);
             hmu_mark_pinuse(rest);
-        } else {
+        }
+        else {
             size = last_tp->size;
             next = (hmu_t*) ((char*) last_tp + size);
             if (hmu_is_in_heap(heap, next))
                 hmu_mark_pinuse(next);
         }
 
-#if GC_STAT_DATA != 0
         heap->total_free_size -= size;
         if ((heap->current_size - heap->total_free_size) > heap->highmark_size)
             heap->highmark_size = heap->current_size - heap->total_free_size;
-#endif
+
         hmu_set_size((hmu_t* ) last_tp, size);
         return (hmu_t*) last_tp;
     }
@@ -304,52 +316,41 @@ static hmu_t *alloc_hmu(gc_heap_t *heap, gc_size_t size)
     return NULL;
 }
 
-/* Find a proper HMU for given size*/
-
-/* @heap should not be NULL and it should be a valid heap*/
-/* @size should cover the header and it should be 8 bytes aligned*/
-
-/* This function will try several ways to satisfy the allocation request.*/
-/*  1. Find a proper on available HMUs.*/
-/*  2. GC will be triggered if 1 failed.*/
-/*  3. Find a proper on available HMUS.*/
-/*  4. Return NULL if 3 failed*/
-
-/* A proper HMU will be returned. This HMU can include the header and given size. The returned HMU will be aligned to 8 bytes.*/
-/* NULL will be returned if there are no proper HMU.*/
-static hmu_t* alloc_hmu_ex(gc_heap_t *heap, gc_size_t size)
+/**
+ * Find a proper HMU with given size
+ *
+ * @param heap should not be NULL and should be a valid heap
+ * @param size should cover the header and should be 8 bytes aligned
+ *
+ * Note: This function will try several ways to satisfy the allocation request:
+ *   1. Find a proper on available HMUs.
+ *   2. GC will be triggered if 1 failed.
+ *   3. Find a proper on available HMUS.
+ *   4. Return NULL if 3 failed
+ *
+ * @return hmu allocated if success, which will be aligned to 8 bytes,
+ *         NULL otherwise
+ */
+static hmu_t *
+alloc_hmu_ex(gc_heap_t *heap, gc_size_t size)
 {
-    hmu_t *ret = NULL;
-
     bh_assert(gci_is_heap_valid(heap));
     bh_assert(size > 0 && !(size & 7));
 
-#ifdef GC_IN_EVERY_ALLOCATION
-    gci_gc_heap(heap);
-    ret = alloc_hmu(heap, size);
-#else
-
-# if GC_STAT_DATA != 0
-    if (heap->gc_threshold < heap->total_free_size)
-        ret = alloc_hmu(heap, size);
-# else
-    ret = alloc_hmu(heap, size);
-# endif
-
-    if (ret)
-        return ret;
-
-    /*gci_gc_heap(heap);*//* disable gc claim currently */
-    ret = alloc_hmu(heap, size);
-#endif
-    return ret;
+    return alloc_hmu(heap, size);
 }
 
-unsigned long g_total_malloc = 0;
-unsigned long g_total_free = 0;
+static unsigned long g_total_malloc = 0;
+static unsigned long g_total_free = 0;
 
-gc_object_t _gc_alloc_vo_i_heap(void *vheap,
-                                gc_size_t size ALLOC_EXTRA_PARAMETERS)
+#if BH_ENABLE_GC_VERIFY == 0
+gc_object_t
+gc_alloc_vo(void *vheap, gc_size_t size)
+#else
+gc_object_t
+gc_alloc_vo_internal(void *vheap, gc_size_t size,
+                     const char *file, int line)
+#endif
 {
     gc_heap_t* heap = (gc_heap_t*) vheap;
     hmu_t *hmu = NULL;
@@ -364,19 +365,19 @@ gc_object_t _gc_alloc_vo_i_heap(void *vheap,
         /* integer overflow */
         return NULL;
 
-    gct_vm_mutex_lock(&heap->lock);
+    os_mutex_lock(&heap->lock);
 
     hmu = alloc_hmu_ex(heap, tot_size);
     if (!hmu)
-        goto FINISH;
+        goto finish;
 
     g_total_malloc += tot_size;
 
     hmu_set_ut(hmu, HMU_VO);
     hmu_unfree_vo(hmu);
 
-#if defined(GC_VERIFY)
-    hmu_init_prefix_and_suffix(hmu, tot_size, file_name, line_number);
+#if BH_ENABLE_GC_VERIFY != 0
+    hmu_init_prefix_and_suffix(hmu, tot_size, file, line);
 #endif
 
     ret = hmu_to_obj(hmu);
@@ -385,17 +386,22 @@ gc_object_t _gc_alloc_vo_i_heap(void *vheap,
         memset((uint8*)ret + size, 0, tot_size - tot_size_unaligned);
 
 #if BH_ENABLE_MEMORY_PROFILING != 0
-    os_printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
+    os_printf("HEAP.ALLOC: heap: %p, size: %u\n", heap, size);
 #endif
 
-FINISH:
-    gct_vm_mutex_unlock(&heap->lock);
-
+finish:
+    os_mutex_unlock(&heap->lock);
     return ret;
 }
 
-gc_object_t _gc_realloc_vo_i_heap(void *vheap, void *ptr,
-                                  gc_size_t size ALLOC_EXTRA_PARAMETERS)
+#if BH_ENABLE_GC_VERIFY == 0
+gc_object_t
+gc_realloc_vo(void *vheap, void *ptr, gc_size_t size)
+#else
+gc_object_t
+gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
+                       const char *file, int line)
+#endif
 {
     gc_heap_t* heap = (gc_heap_t*) vheap;
     hmu_t *hmu = NULL, *hmu_old = NULL;
@@ -419,29 +425,29 @@ gc_object_t _gc_realloc_vo_i_heap(void *vheap, void *ptr,
             return obj_old;
     }
 
-    gct_vm_mutex_lock(&heap->lock);
+    os_mutex_lock(&heap->lock);
 
     hmu = alloc_hmu_ex(heap, tot_size);
     if (!hmu)
-        goto FINISH;
+        goto finish;
 
     g_total_malloc += tot_size;
 
     hmu_set_ut(hmu, HMU_VO);
     hmu_unfree_vo(hmu);
 
-#if defined(GC_VERIFY)
-    hmu_init_prefix_and_suffix(hmu, tot_size, file_name, line_number);
+#if BH_ENABLE_GC_VERIFY != 0
+    hmu_init_prefix_and_suffix(hmu, tot_size, file, line);
 #endif
 
     ret = hmu_to_obj(hmu);
 
 #if BH_ENABLE_MEMORY_PROFILING != 0
-    os_printf("HEAP.ALLOC: heap: %p, size: %u", heap, size);
+    os_printf("HEAP.ALLOC: heap: %p, size: %u\n", heap, size);
 #endif
 
-FINISH:
-    gct_vm_mutex_unlock(&heap->lock);
+finish:
+    os_mutex_unlock(&heap->lock);
 
     if (ret) {
         obj_size = tot_size - HMU_SIZE - OBJ_PREFIX_SIZE - OBJ_SUFFIX_SIZE;
@@ -450,18 +456,19 @@ FINISH:
             obj_size_old = tot_size_old - HMU_SIZE
                            - OBJ_PREFIX_SIZE - OBJ_SUFFIX_SIZE;
             bh_memcpy_s(ret, obj_size, obj_old, obj_size_old);
-            gc_free_h(vheap, obj_old);
+            gc_free_vo(vheap, obj_old);
         }
     }
 
     return ret;
 }
 
-/* Do some checking to see if given pointer is a possible valid heap*/
-
-/* Return GC_TRUE if all checking passed*/
-/* Return GC_FALSE otherwise*/
-int gci_is_heap_valid(gc_heap_t *heap)
+/**
+ * Do some checking to see if given pointer is a possible valid heap
+ * @return GC_TRUE if all checking passed, GC_FALSE otherwise
+ */
+int
+gci_is_heap_valid(gc_heap_t *heap)
 {
     if (!heap)
         return GC_FALSE;
@@ -471,7 +478,14 @@ int gci_is_heap_valid(gc_heap_t *heap)
     return GC_TRUE;
 }
 
-int gc_free_i_heap(void *vheap, gc_object_t obj ALLOC_EXTRA_PARAMETERS)
+#if BH_ENABLE_GC_VERIFY == 0
+int
+gc_free_vo(void *vheap, gc_object_t obj)
+#else
+int
+gc_free_vo_internal(void *vheap, gc_object_t obj,
+                    const char *file, int line)
+#endif
 {
     gc_heap_t* heap = (gc_heap_t*) vheap;
     hmu_t *hmu = NULL;
@@ -487,11 +501,11 @@ int gc_free_i_heap(void *vheap, gc_object_t obj ALLOC_EXTRA_PARAMETERS)
 
     hmu = obj_to_hmu(obj);
 
-    gct_vm_mutex_lock(&heap->lock);
+    os_mutex_lock(&heap->lock);
 
-    if ((gc_uint8 *) hmu >= heap->base_addr
-            && (gc_uint8 *) hmu < heap->base_addr + heap->current_size) {
-#ifdef GC_VERIFY
+    if ((gc_uint8 *)hmu >= heap->base_addr
+        && (gc_uint8 *)hmu < heap->base_addr + heap->current_size) {
+#if BH_ENABLE_GC_VERIFY != 0
         hmu_verify(hmu);
 #endif
         ut = hmu_get_ut(hmu);
@@ -506,11 +520,9 @@ int gc_free_i_heap(void *vheap, gc_object_t obj ALLOC_EXTRA_PARAMETERS)
 
             g_total_free += size;
 
-#if GC_STAT_DATA != 0
             heap->total_free_size += size;
-#endif
 #if BH_ENABLE_MEMORY_PROFILING != 0
-            os_printf("HEAP.FREE, heap: %p, size: %u\n",heap, size);
+            os_printf("HEAP.FREE, heap: %p, size: %u\n", heap, size);
 #endif
 
             if (!hmu_get_pinuse(hmu)) {
@@ -546,54 +558,51 @@ int gc_free_i_heap(void *vheap, gc_object_t obj ALLOC_EXTRA_PARAMETERS)
         goto out;
     }
 
-    out:
-    gct_vm_mutex_unlock(&heap->lock);
+out:
+    os_mutex_unlock(&heap->lock);
     return ret;
 }
 
-void gc_dump_heap_stats(gc_heap_t *heap)
+void
+gc_dump_heap_stats(gc_heap_t *heap)
 {
     os_printf("heap: %p, heap start: %p\n", heap, heap->base_addr);
-    os_printf(
-            "total malloc: totalfree: %u, current: %u, highmark: %u, gc cnt: %u\n",
-            heap->total_free_size, heap->current_size, heap->highmark_size,
-            heap->total_gc_count);
+    os_printf("total free: %u, current: %u, highmark: %u\n",
+              heap->total_free_size, heap->current_size, heap->highmark_size);
     os_printf("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
-            g_total_malloc, g_total_free, g_total_malloc - g_total_free);
+              g_total_malloc, g_total_free, g_total_malloc - g_total_free);
 }
 
-#ifdef GC_TEST
-
-void gci_dump(char* buf, gc_heap_t *heap)
+void
+gci_dump(gc_heap_t *heap)
 {
     hmu_t *cur = NULL, *end = NULL;
     hmu_type_t ut;
     gc_size_t size;
-    int i = 0;
-    int p;
-    char inuse;
-    int mark;
+    int i = 0, p, mark;
+    char inuse = 'U';
 
     cur = (hmu_t*)heap->base_addr;
     end = (hmu_t*)((char*)heap->base_addr + heap->current_size);
 
-    while(cur < end)
-    {
+    while(cur < end) {
         ut = hmu_get_ut(cur);
         size = hmu_get_size(cur);
         p = hmu_get_pinuse(cur);
         mark = hmu_is_jo_marked (cur);
 
-        if(ut == HMU_VO)
-        inuse = 'V';
-        else if(ut == HMU_JO)
-        inuse = hmu_is_jo_marked(cur) ? 'J' : 'j';
-        else if(ut == HMU_FC)
-        inuse = 'F';
+        if (ut == HMU_VO)
+            inuse = 'V';
+        else if (ut == HMU_JO)
+            inuse = hmu_is_jo_marked(cur) ? 'J' : 'j';
+        else if (ut == HMU_FC)
+            inuse = 'F';
 
         bh_assert(size > 0);
 
-        buf += sprintf(buf, "#%d %08x %x %x %d %c %d\n", i, (char*) cur - (char*) heap->base_addr, ut, p, mark, inuse, hmu_obj_size(size));
+        os_printf("#%d %08x %x %x %d %c %d\n",
+                  i, (int32)((char*) cur - (char*) heap->base_addr),
+                  ut, p, mark, inuse, (int32)hmu_obj_size(size));
 
         cur = (hmu_t*)((char *)cur + size);
         i++;
@@ -602,4 +611,3 @@ void gci_dump(char* buf, gc_heap_t *heap)
     bh_assert(cur == end);
 }
 
-#endif

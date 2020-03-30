@@ -492,8 +492,12 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint32 pool_size = wasm_runtime_memory_pool_size();
+#if WASM_ENABLE_APP_FRAMEWORK != 0
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
+#else
+    uint32 max_page_count = pool_size / DEFAULT_NUM_BYTES_PER_PAGE;
+#endif
 
     read_leb_uint32(p, p_end, memory->flags);
     read_leb_uint32(p, p_end, memory->init_page_count);
@@ -539,8 +543,12 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint32 pool_size = wasm_runtime_memory_pool_size();
+#if WASM_ENABLE_APP_FRAMEWORK != 0
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
                             / DEFAULT_NUM_BYTES_PER_PAGE;
+#else
+    uint32 max_page_count = pool_size / DEFAULT_NUM_BYTES_PER_PAGE;
+#endif
 
     read_leb_uint32(p, p_end, memory->flags);
     read_leb_uint32(p, p_end, memory->init_page_count);
@@ -1694,7 +1702,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     return true;
 }
 
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
 static void wasm_loader_free(void *ptr)
 {
     wasm_runtime_free(ptr);

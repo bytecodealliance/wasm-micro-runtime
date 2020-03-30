@@ -22,19 +22,19 @@ void mem_allocator_destroy(mem_allocator_t allocator)
 void *
 mem_allocator_malloc(mem_allocator_t allocator, uint32_t size)
 {
-    return gc_alloc_vo_h((gc_handle_t) allocator, size);
+    return gc_alloc_vo((gc_handle_t) allocator, size);
 }
 
 void *
 mem_allocator_realloc(mem_allocator_t allocator, void *ptr, uint32_t size)
 {
-    return gc_realloc_vo_h((gc_handle_t) allocator, ptr, size);
+    return gc_realloc_vo((gc_handle_t) allocator, ptr, size);
 }
 
 void mem_allocator_free(mem_allocator_t allocator, void *ptr)
 {
     if (ptr)
-        gc_free_h((gc_handle_t) allocator, ptr);
+        gc_free_vo((gc_handle_t) allocator, ptr);
 }
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */
