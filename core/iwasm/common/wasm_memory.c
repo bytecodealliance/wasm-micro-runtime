@@ -7,7 +7,7 @@
 #include "bh_platform.h"
 #include "mem_alloc.h"
 
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
 
 /* Memory profile data of a function */
 typedef struct memory_profile {
@@ -30,7 +30,7 @@ static memory_profile_t *memory_profiles_list = NULL;
 
 /* Lock of the memory profile list */
 static korp_mutex profile_lock;
-#endif /* end of BEIHAI_ENABLE_MEMORY_PROFILING */
+#endif /* end of BH_ENABLE_MEMORY_PROFILING */
 
 #ifndef MALLOC_MEMORY_FROM_SYSTEM
 
@@ -58,7 +58,7 @@ wasm_memory_init_with_pool(void *mem, unsigned int bytes)
     if (_allocator) {
         memory_mode = MEMORY_MODE_POOL;
         pool_allocator = _allocator;
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
         os_mutex_init(&profile_lock);
 #endif
         global_pool_size = bytes;
@@ -78,7 +78,7 @@ wasm_memory_init_with_allocator(void *_malloc_func,
         malloc_func = _malloc_func;
         realloc_func = _realloc_func;
         free_func = _free_func;
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
         os_mutex_init(&profile_lock);
 #endif
         return true;
@@ -108,7 +108,7 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 void
 wasm_runtime_memory_destroy()
 {
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
     os_mutex_destroy(&profile_lock);
 #endif
     if (memory_mode == MEMORY_MODE_POOL)
@@ -166,12 +166,21 @@ wasm_runtime_free(void *ptr)
     }
 }
 
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
+
+void
+memory_profile_print(const char *file, int line,
+                     const char *func, int alloc)
+{
+    os_printf("location:%s@%d:used:%d:contribution:%d\n",
+              func, line, memory_in_use, alloc);
+}
+
 void *
 wasm_runtime_malloc_profile(const char *file, int line,
                             const char *func, unsigned int size)
 {
-    void *p = wasm_rutime_malloc(size + 8);
+    void *p = wasm_runtime_malloc(size + 8);
 
     if (p) {
         memory_profile_t *profile;
@@ -292,15 +301,7 @@ void memory_usage_summarize()
     os_mutex_unlock(&profile_lock);
 }
 
-void
-memory_profile_print(const char *file, int line,
-                     const char *func, int alloc)
-{
-    os_printf("location:%s@%d:used:%d:contribution:%d\n",
-              func, line, memory_in_use, alloc);
-}
-
-#endif /* end of BEIHAI_ENABLE_MEMORY_PROFILING */
+#endif /* end of BH_ENABLE_MEMORY_PROFILING */
 
 #else /* else of MALLOC_MEMORY_FROM_SYSTEM */
 
@@ -324,7 +325,7 @@ wasm_runtime_free(void *ptr)
         free(ptr);
 }
 
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
 void *
 wasm_runtime_malloc_profile(const char *file, int line,
                             const char *func, unsigned int size)
@@ -366,6 +367,6 @@ wasm_runtime_free_profile(const char *file, int line,
     if (ptr)
         free(ptr);
 }
-#endif /* end of BEIHAI_ENABLE_MEMORY_PROFILING */
+#endif /* end of BH_ENABLE_MEMORY_PROFILING */
 #endif /* end of MALLOC_MEMORY_FROM_SYSTEM*/
 
