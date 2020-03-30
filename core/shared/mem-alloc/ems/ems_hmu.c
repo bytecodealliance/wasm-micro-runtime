@@ -5,13 +5,19 @@
 
 #include "ems_gc_internal.h"
 
-#if defined(GC_VERIFY)
-/* Set default value to prefix and suffix*/
+#if BH_ENABLE_GC_VERIFY != 0
 
-/* @hmu should not be NULL and it should have been correctly initilized (except for prefix and suffix part)*/
-/* @tot_size is offered here because hmu_get_size can not be used till now. @tot_size should not be smaller than OBJ_EXTRA_SIZE.*/
-/*  For VO, @tot_size should be equal to object total size.*/
-void hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size, const char *file_name, int line_no)
+/**
+ * Set default value to prefix and suffix
+ * @param hmu should not be NULL and should have been correctly initilized
+ *        (except prefix and suffix part)
+ * @param tot_size is offered here because hmu_get_size can not be used till now.
+ *        tot_size should not be smaller than OBJ_EXTRA_SIZE.
+ *        For VO, tot_size should be equal to object total size.
+ */
+void
+hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
+                           const char *file_name, int line_no)
 {
     gc_object_prefix_t *prefix = NULL;
     gc_object_suffix_t *suffix = NULL;
@@ -28,17 +34,18 @@ void hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size, const char *file
     prefix->file_name = file_name;
     prefix->line_no = line_no;
     prefix->size = tot_size;
-    for(i = 0;i < GC_OBJECT_PREFIX_PADDING_CNT;i++)
-    {
+
+    for(i = 0;i < GC_OBJECT_PREFIX_PADDING_CNT;i++) {
         prefix->padding[i] = GC_OBJECT_PADDING_VALUE;
     }
-    for(i = 0;i < GC_OBJECT_SUFFIX_PADDING_CNT;i++)
-    {
+
+    for(i = 0;i < GC_OBJECT_SUFFIX_PADDING_CNT;i++) {
         suffix->padding[i] = GC_OBJECT_PADDING_VALUE;
     }
 }
 
-void hmu_verify(hmu_t *hmu)
+void
+hmu_verify(hmu_t *hmu)
 {
     gc_object_prefix_t *prefix = NULL;
     gc_object_suffix_t *suffix = NULL;
@@ -83,5 +90,6 @@ void hmu_verify(hmu_t *hmu)
         bh_assert(is_padding_ok);
     }
 }
-#endif
+
+#endif /* end of BH_ENABLE_GC_VERIFY */
 

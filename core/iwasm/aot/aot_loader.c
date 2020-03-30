@@ -1602,7 +1602,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     return true;
 }
 
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
 static void aot_free(void *ptr)
 {
     wasm_runtime_free(ptr);
