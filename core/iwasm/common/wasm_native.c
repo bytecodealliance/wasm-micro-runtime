@@ -110,7 +110,7 @@ sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
 
 static void *
 lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
-              const char *symbol, const char **p_signature)
+              const char *symbol, const char **p_signature, void **p_attachment)
 {
     int low = 0, mid, ret;
     int high = n_native_symbols - 1;
@@ -120,6 +120,7 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
         ret = strcmp(symbol, native_symbols[mid].symbol);
         if (ret == 0) {
             *p_signature = native_symbols[mid].signature;
+            *p_attachment = native_symbols[mid].attachment;
             return native_symbols[mid].func_ptr;
         }
         else if (ret < 0)
@@ -133,11 +134,12 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
 
 void*
 wasm_native_resolve_symbol(const char *module_name, const char *field_name,
-                           const WASMType *func_type, const char **p_signature)
+                           const WASMType *func_type, const char **p_signature,
+                           void **p_attachment, bool *p_call_conv_raw)
 {
     NativeSymbolsNode *node, *node_next;
     const char *signature = NULL;
-    void *func_ptr = NULL;
+    void *func_ptr = NULL, *attachment;
 
     node = g_native_symbols_list;
     while (node) {
@@ -145,11 +147,12 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
         if (!strcmp(node->module_name, module_name)) {
             if ((func_ptr = lookup_symbol(node->native_symbols,
                                           node->n_native_symbols,
-                                          field_name, &signature))
+                                          field_name, &signature, &attachment))
                 || (field_name[0] == '_'
                     && (func_ptr = lookup_symbol(node->native_symbols,
                                                  node->n_native_symbols,
-                                                 field_name + 1, &signature))))
+                                                 field_name + 1,
+                                                 &signature, &attachment))))
             break;
         }
         node = node_next;
@@ -172,15 +175,19 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
         else
             /* signature is empty */
             *p_signature = NULL;
+
+        *p_attachment = attachment;
+        *p_call_conv_raw = node->call_conv_raw;
     }
 
     return func_ptr;
 }
 
-bool
-wasm_native_register_natives(const char *module_name,
-                             NativeSymbol *native_symbols,
-                             uint32 n_native_symbols)
+static bool
+register_natives(const char *module_name,
+                 NativeSymbol *native_symbols,
+                 uint32 n_native_symbols,
+                 bool call_conv_raw)
 {
     NativeSymbolsNode *node;
 
@@ -190,6 +197,7 @@ wasm_native_register_natives(const char *module_name,
     node->module_name = module_name;
     node->native_symbols = native_symbols;
     node->n_native_symbols = n_native_symbols;
+    node->call_conv_raw = call_conv_raw;
     node->next = NULL;
 
     if (g_native_symbols_list_end) {
@@ -202,6 +210,22 @@ wasm_native_register_natives(const char *module_name,
 
     sort_symbol_ptr(native_symbols, n_native_symbols);
     return true;
+}
+
+bool
+wasm_native_register_natives(const char *module_name,
+                             NativeSymbol *native_symbols,
+                             uint32 n_native_symbols)
+{
+    return register_natives(module_name, native_symbols, n_native_symbols, false);
+}
+
+bool
+wasm_native_register_natives_raw(const char *module_name,
+                                 NativeSymbol *native_symbols,
+                                 uint32 n_native_symbols)
+{
+    return register_natives(module_name, native_symbols, n_native_symbols, true);
 }
 
 bool

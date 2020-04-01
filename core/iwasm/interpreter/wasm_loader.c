@@ -721,7 +721,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (!(import->u.function.func_ptr_linked =
                             wasm_native_resolve_symbol(module_name, field_name,
                                         import->u.function.func_type,
-                                        &import->u.function.signature))) {
+                                        &import->u.function.signature,
+                                        &import->u.function.attachment,
+                                        &import->u.function.call_conv_raw))) {
 #if WASM_ENABLE_WAMR_COMPILER == 0 /* Output warning except running aot compiler */
                         LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                                     module_name, field_name);

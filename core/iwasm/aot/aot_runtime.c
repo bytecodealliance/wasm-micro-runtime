@@ -457,7 +457,7 @@ aot_call_function(WASMExecEnv *exec_env,
     AOTModuleInstance *module_inst = (AOTModuleInstance*)exec_env->module_inst;
     AOTFuncType *func_type = function->func_type;
     bool ret = wasm_runtime_invoke_native(exec_env, function->func_ptr,
-                                          func_type, NULL, argv, argc, argv);
+                                          func_type, NULL, NULL, argv, argc, argv);
     return ret && !aot_get_exception(module_inst) ? true : false;
 }
 
@@ -824,7 +824,8 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     void **func_ptrs = (void**)module_inst->func_ptrs.ptr;
     void *func_ptr = func_ptrs[func_idx];
     AOTImportFunc *import_func;
-    const char *signature = NULL;
+    const char *signature;
+    void *attachment;
     char buf[128];
 
     bh_assert(func_idx < aot_module->import_func_count);
@@ -839,9 +840,17 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     }
 
     signature = import_func->signature;
-    return wasm_runtime_invoke_native(exec_env, func_ptr,
-                                      func_type, signature,
-                                      frame_lp, argc, argv_ret);
+    attachment = import_func->attachment;
+    if (!import_func->call_conv_raw) {
+        return wasm_runtime_invoke_native(exec_env, func_ptr,
+                                          func_type, signature, attachment,
+                                          frame_lp, argc, argv_ret);
+    }
+    else {
+        return wasm_runtime_invoke_native_raw(exec_env, func_ptr,
+                                              func_type, signature, attachment,
+                                              frame_lp, argc, argv_ret);
+    }
 }
 
 bool
@@ -860,6 +869,7 @@ aot_call_indirect(WASMExecEnv *exec_env,
     uint32 func_idx, func_type_idx1;
     AOTImportFunc *import_func;
     const char *signature = NULL;
+    void *attachment = NULL;
     char buf[128];
 
     if (table_elem_idx >= table_size) {
@@ -879,12 +889,6 @@ aot_call_indirect(WASMExecEnv *exec_env,
         return false;
     }
 
-    if (func_idx < aot_module->import_func_count) {
-        /* Call native function */
-        import_func = aot_module->import_funcs + func_idx;
-        signature = import_func->signature;
-    }
-
     if (!(func_ptr = func_ptrs[func_idx])) {
         bh_assert(func_idx < aot_module->import_func_count);
         import_func = aot_module->import_funcs + func_idx;
@@ -895,8 +899,20 @@ aot_call_indirect(WASMExecEnv *exec_env,
         return false;
     }
 
+    if (func_idx < aot_module->import_func_count) {
+        /* Call native function */
+        import_func = aot_module->import_funcs + func_idx;
+        signature = import_func->signature;
+        if (import_func->call_conv_raw) {
+            attachment = import_func->attachment;
+            return wasm_runtime_invoke_native_raw(exec_env, func_ptr,
+                                                  func_type, signature, attachment,
+                                                  frame_lp, argc, argv_ret);
+        }
+    }
+
     return wasm_runtime_invoke_native(exec_env, func_ptr,
-                                      func_type, signature,
+                                      func_type, signature, attachment,
                                       frame_lp, argc, argv_ret);
 }
 

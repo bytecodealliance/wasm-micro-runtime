@@ -137,8 +137,11 @@ typedef struct WASMFunctionImport {
     WASMType *func_type;
     /* function pointer after linked */
     void *func_ptr_linked;
-  /* signature from registered native symbols */
+    /* signature from registered native symbols */
     const char *signature;
+    /* attachment */
+    void *attachment;
+    bool call_conv_raw;
 } WASMFunctionImport;
 
 typedef struct WASMGlobalImport {

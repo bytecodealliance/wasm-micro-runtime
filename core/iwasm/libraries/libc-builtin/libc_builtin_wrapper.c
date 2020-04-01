@@ -1000,7 +1000,7 @@ print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
 }
 
 #define REG_NATIVE_FUNC(func_name, signature)  \
-    { #func_name, func_name##_wrapper, signature }
+    { #func_name, func_name##_wrapper, signature, NULL }
 
 static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(printf, "($*)i"),
