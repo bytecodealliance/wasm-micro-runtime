@@ -651,6 +651,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
                              WASMFunctionInstance *cur_func,
                              WASMInterpFrame *prev_frame)
 {
+    WASMFunctionImport *func_import = cur_func->u.func_import;
     unsigned local_cell_num = 2;
     WASMInterpFrame *frame;
     uint32 argv_ret[2];
@@ -667,20 +668,27 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
-    if (!cur_func->u.func_import->func_ptr_linked) {
+    if (!func_import->func_ptr_linked) {
         char buf[128];
         snprintf(buf,
                  sizeof(buf), "fail to call unlinked import function (%s, %s)",
-                 cur_func->u.func_import->module_name,
-                 cur_func->u.func_import->field_name);
+                 func_import->module_name, func_import->field_name);
         wasm_set_exception((WASMModuleInstance*)module_inst, buf);
         return;
     }
 
-    ret = wasm_runtime_invoke_native(exec_env, cur_func->u.func_import->func_ptr_linked,
-                                     cur_func->u.func_import->func_type,
-                                     cur_func->u.func_import->signature,
-                                     frame->lp, cur_func->param_cell_num, argv_ret);
+    if (!func_import->call_conv_raw) {
+        ret = wasm_runtime_invoke_native(exec_env, func_import->func_ptr_linked,
+                                         func_import->func_type, func_import->signature,
+                                         func_import->attachment,
+                                         frame->lp, cur_func->param_cell_num, argv_ret);
+    }
+    else {
+        ret = wasm_runtime_invoke_native_raw(exec_env, func_import->func_ptr_linked,
+                                             func_import->func_type, func_import->signature,
+                                             func_import->attachment,
+                                             frame->lp, cur_func->param_cell_num, argv_ret);
+    }
 
     if (!ret)
         return;

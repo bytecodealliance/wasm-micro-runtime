@@ -786,7 +786,9 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
         if (!(import_funcs[i].func_ptr_linked =
                     wasm_native_resolve_symbol(module_name, field_name,
                                                import_funcs[i].func_type,
-                                               &import_funcs[i].signature))) {
+                                               &import_funcs[i].signature,
+                                               &import_funcs[i].attachment,
+                                               &import_funcs[i].call_conv_raw))) {
             LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                         module_name, field_name);
         }

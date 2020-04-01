@@ -33,6 +33,11 @@ typedef struct WASMExecEnv {
     uint32 *argv_buf;
 #endif
 
+    /* attachment for native function */
+    void *attachment;
+
+    void *user_data;
+
     /* Current interpreter frame of current thread */
     struct WASMInterpFrame *cur_frame;
 

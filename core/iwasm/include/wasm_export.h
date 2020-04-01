@@ -36,6 +36,11 @@ extern "C" {
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
 
+#define native_raw_return_type(type, args) type *raw_ret = (type*)(args)
+
+#define native_raw_get_arg(type, name, args) type name = *((type*)(args++))
+
+#define native_raw_set_return(val) *raw_ret = (val)
 
 
 /* Uninstantiated WASM module loaded from WASM binary file
@@ -560,6 +565,49 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
 bool wasm_runtime_register_natives(const char *module_name,
                                    NativeSymbol *native_symbols,
                                    uint32_t n_native_symbols);
+
+/**
+ * Register native functions with same module name, similar to
+ *   wasm_runtime_register_natives, the difference is that runtime passes raw
+ * arguments to native API, which means that the native API should be defined as:
+ *   void foo(wasm_exec_env_t exec_env, uint64 *args);
+ * and native API should extract arguments one by one from args array with macro
+ *   native_raw_get_arg
+ * and write the return value back to args[0] with macro
+ *   native_raw_return_type and native_raw_set_return
+ */
+bool wasm_runtime_register_natives_raw(const char *module_name,
+                                       NativeSymbol *native_symbols,
+                                       uint32_t n_native_symbols);
+
+/**
+ * Get attachment of native function from execution environment
+ *
+ * @param exec_env the execution environment to retrieve
+ *
+ * @return the attachment of native function
+ */
+void *
+wasm_runtime_get_function_attachment(wasm_exec_env_t exec_env);
+
+/**
+ * Set user data to execution environment.
+ *
+ * @param exec_env the execution environment
+ * @param user_data the user data to be set
+ */
+void
+wasm_runtime_set_user_data(wasm_exec_env_t exec_env,
+                           void *user_data);
+/**
+ * Get the user data within execution environment.
+ *
+ * @param exec_env the execution environment
+ *
+ * @return the user data (NULL if not set yet)
+ */
+void *
+wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
 
 #ifdef __cplusplus
 }
