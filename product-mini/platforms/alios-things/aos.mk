@@ -92,6 +92,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/alios_platform.c \
                    ${SHARED_ROOT}/utils/bh_log.c \
                    ${SHARED_ROOT}/utils/bh_queue.c \
                    ${SHARED_ROOT}/utils/bh_vector.c \
+                   ${SHARED_ROOT}/utils/runtime_timer.c \
                    ${IWASM_ROOT}/libraries/libc-builtin/libc_builtin_wrapper.c \
                    ${IWASM_ROOT}/common/wasm_runtime_common.c \
                    ${IWASM_ROOT}/common/wasm_native.c \

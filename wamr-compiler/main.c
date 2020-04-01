@@ -14,7 +14,7 @@ print_help()
 {
   printf("Usage: wamrc [options] -o output_file wasm_file\n");
   printf("  --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>\n");
-  printf("                            <arch> = x86_64, i386, aarch64, arm, thumb, mips.\n");
+  printf("                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips.\n");
   printf("                              Default is host arch, e.g. x86_64\n");
   printf("                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.\n");
   printf("                            Use --target=help to list supported targets\n");

@@ -277,14 +277,13 @@ AliOS-Things
    aos make
    ./out/helloworld@linuxhost/binary/helloworld@linuxhost.elf
    ```
-```
-   
+
    For developerkit:
    Modify file middleware/iwasm/aos.mk, patch as:
    
    ``` C
-WAMR_BUILD_TARGET := THUMBV7M
-```
+   WAMR_BUILD_TARGET := THUMBV7M
+   ```
 
    ``` Bash
    aos make helloworld@developerkit -c config
