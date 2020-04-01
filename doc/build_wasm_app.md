@@ -90,7 +90,7 @@ wamrc supports a number of compilation options through the command line argument
 wamrc --help
 Usage: wamrc [options] -o output_file wasm_file
   --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>
-                            <arch> = x86_64, i386, arm, thumb, mips.
+                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips.
                               Default is host arch, e.g. x86_64
                             <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.
                             Use --target=help to list supported targets
