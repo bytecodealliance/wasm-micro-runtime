@@ -233,6 +233,24 @@ wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
     return wasm_exec_env_get_module_inst(exec_env);
 }
 
+void *
+wasm_runtime_get_function_attachment(WASMExecEnv *exec_env)
+{
+    return exec_env->attachment;
+}
+
+void
+wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data)
+{
+    exec_env->user_data = user_data;
+}
+
+void *
+wasm_runtime_get_user_data(WASMExecEnv *exec_env)
+{
+    return exec_env->user_data;
+}
+
 WASMFunctionInstanceCommon *
 wasm_runtime_lookup_function(WASMModuleInstanceCommon * const module_inst,
                              const char *name,
@@ -1421,6 +1439,120 @@ wasm_runtime_register_natives(const char *module_name,
                                         native_symbols, n_native_symbols);
 }
 
+bool
+wasm_runtime_register_natives_raw(const char *module_name,
+                                  NativeSymbol *native_symbols,
+                                  uint32 n_native_symbols)
+{
+    return wasm_native_register_natives_raw(module_name,
+                                            native_symbols, n_native_symbols);
+}
+
+bool
+wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
+                               const WASMType *func_type, const char *signature,
+                               void *attachment,
+                               uint32 *argv, uint32 argc, uint32 *argv_ret)
+{
+    WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
+    typedef void (*NativeRawFuncPtr)(WASMExecEnv*, uint64*);
+    NativeRawFuncPtr invokeNativeRaw = (NativeRawFuncPtr)func_ptr;
+    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
+    uint32 *argv_src = argv, i, argc1, ptr_len;
+    int32 arg_i32;
+    bool ret = false;
+
+    argc1 = func_type->param_count;
+    if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
+        size = sizeof(uint64) * (uint64)argc1;
+        if (size >= UINT32_MAX
+            || !(argv1 = wasm_runtime_malloc((uint32)size))) {
+            wasm_runtime_set_exception(exec_env->module_inst,
+                                       "allocate memory failed.");
+            return false;
+        }
+        memset(argv1, 0, (uint32)size);
+    }
+
+    argv_dst = argv1;
+
+    /* Traverse secondly to fill in each argument */
+    for (i = 0; i < func_type->param_count; i++, argv_dst++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+            {
+                *(int32*)argv_dst = arg_i32 = (int32)*argv_src++;
+                if (signature) {
+                    if (signature[i + 1] == '*') {
+                        /* param is a pointer */
+                        if (signature[i + 2] == '~')
+                            /* pointer with length followed */
+                            ptr_len = *argv_src;
+                        else
+                            /* pointer without length followed */
+                            ptr_len = 1;
+
+                        if (!wasm_runtime_validate_app_addr(module, arg_i32, ptr_len))
+                            goto fail;
+
+                        *(uintptr_t*)argv_dst = (uintptr_t)
+                                      wasm_runtime_addr_app_to_native(module, arg_i32);
+                    }
+                    else if (signature[i + 1] == '$') {
+                        /* param is a string */
+                        if (!wasm_runtime_validate_app_str_addr(module, arg_i32))
+                            goto fail;
+
+                        *(uintptr_t*)argv_dst = (uintptr_t)
+                                      wasm_runtime_addr_app_to_native(module, arg_i32);
+                    }
+                }
+                break;
+            }
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                bh_memcpy_s(argv_dst, sizeof(uint64), argv_src, sizeof(uint32) * 2);
+                argv_src += 2;
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)argv_dst = *(float32*)argv_src++;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+
+    exec_env->attachment = attachment;
+    invokeNativeRaw(exec_env, argv1);
+    exec_env->attachment = NULL;
+
+    if (func_type->result_count > 0) {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                argv_ret[0] = *(uint32*)argv1;
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)argv_ret = *(float32*)argv1;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                bh_memcpy_s(argv_ret, sizeof(uint32) * 2, argv1, sizeof(uint64));
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+
+    ret = true;
+
+fail:
+    if (argv1 != argv_buf)
+        wasm_runtime_free(argv1);
+     return ret;
+}
+
 /**
  * Implementation of wasm_runtime_invoke_native()
  */
@@ -1469,6 +1601,7 @@ static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
@@ -1634,6 +1767,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+    exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, n_stacks);
     }
@@ -1656,6 +1790,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
         }
     }
+    exec_env->attachment = NULL;
 
     ret = true;
 
@@ -1689,6 +1824,7 @@ static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
@@ -1774,6 +1910,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     argc1 = j;
+    exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, argc1);
     }
@@ -1796,6 +1933,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
         }
     }
+    exec_env->attachment = NULL;
 
     ret = true;
 
@@ -1844,6 +1982,7 @@ static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
@@ -1938,6 +2077,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+    exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, n_stacks);
     }
@@ -1960,6 +2100,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
         }
     }
+    exec_env->attachment = NULL;
 
     ret = true;
 fail:

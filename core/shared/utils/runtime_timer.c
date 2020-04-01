@@ -230,7 +230,7 @@ timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,
 
     return ctx;
 
-    cleanup:
+cleanup:
 
     if (ctx) {
         release_timer_list(&ctx->free_timers);

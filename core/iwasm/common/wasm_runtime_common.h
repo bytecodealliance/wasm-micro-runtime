@@ -114,6 +114,18 @@ WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
+void *
+wasm_runtime_get_function_attachment(wasm_exec_env_t exec_env);
+
+/* See wasm_export.h for description */
+void
+wasm_runtime_set_user_data(wasm_exec_env_t exec_env, void *user_data);
+
+/* See wasm_export.h for description */
+void *
+wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
+
+/* See wasm_export.h for description */
 bool
 wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function,
@@ -275,10 +287,23 @@ wasm_runtime_register_natives(const char *module_name,
                               NativeSymbol *native_symbols,
                               uint32 n_native_symbols);
 
+/* See wasm_export.h for description */
+bool
+wasm_runtime_register_natives_raw(const char *module_name,
+                                  NativeSymbol *native_symbols,
+                                  uint32 n_native_symbols);
+
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *ret);
+
+bool
+wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
+                               const WASMType *func_type, const char *signature,
+                               void *attachment,
+                               uint32 *argv, uint32 argc, uint32 *ret);
 
 
 #ifdef __cplusplus

@@ -85,6 +85,9 @@ typedef struct AOTImportFunc {
   void *func_ptr_linked;
   /* signature from registered native symbols */
   const char *signature;
+  /* attachment */
+  void *attachment;
+  bool call_conv_raw;
 } AOTImportFunc;
 
 /**

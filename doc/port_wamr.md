@@ -3,14 +3,14 @@ WAMR porting guide
 =========================
 
 
-This document describes how to port WAMR to a new platform "**super-os**"
+This document describes how to port WAMR to a new platform "**new-os**"
 
 
 
 # Step 1: Implement platform API layer
 
 -------------------------
-Firstly create the folder **`core/shared/platform/super-os`** for platform API layer implementations. In the folder you just created, you must provide the following files:
+Firstly create the folder **`core/shared/platform/new-os`** for platform API layer implementations. In the folder you just created, you must provide the following files:
 
 - `platform_internal.h`: It can be used for any platform specific definitions such as macros, data types and internal APIs.
 
@@ -42,11 +42,11 @@ Some platforms such as ZephyrOS don't provide math functions e.g. sqrt, fabs and
 # Step 2: Create the mini product for the platform
 
 -------------------------
-You can build a mini WAMR product which is only the vmcore for you platform. Normally you need to implement the main function which loads a WASM file and run it with the WASM runtime. You don't have to do this step if there is no such need for your platform.
+You can build a mini WAMR product which is only the vmcore for you platform. Normally you need to implement the main function which loads a WASM file and run it with the WASM runtime. You don't have to do this step if there is no mini-product need for your platform porting.
 
 
 
-Firstly create folder **product-mini/platforms/super-os** for the platform mini product build, then refer to the linux platform mini-product for creating the CMakeList.txt and the C implementations.
+Firstly create folder **product-mini/platforms/new-os** for the platform mini product build, then refer to the linux platform mini-product for creating the CMakeList.txt and the C implementations.
 
 
 

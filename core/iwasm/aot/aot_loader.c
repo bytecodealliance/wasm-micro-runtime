@@ -786,7 +786,9 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
         if (!(import_funcs[i].func_ptr_linked =
                     wasm_native_resolve_symbol(module_name, field_name,
                                                import_funcs[i].func_type,
-                                               &import_funcs[i].signature))) {
+                                               &import_funcs[i].signature,
+                                               &import_funcs[i].attachment,
+                                               &import_funcs[i].call_conv_raw))) {
             LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                         module_name, field_name);
         }
@@ -1602,7 +1604,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     return true;
 }
 
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
 static void aot_free(void *ptr)
 {
     wasm_runtime_free(ptr);
