@@ -985,14 +985,21 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
-    module->code = (void*)buf;
-    module->code_size = (uint32)(buf_end - buf);
+    read_uint32(buf, buf_end, module->literal_size);
+
+    /* literal data is at begining of the text section */
+    module->literal = (uint8*)buf;
+    module->code = (void*)(buf + module->literal_size);
+    module->code_size = (uint32)(buf_end - (uint8*)module->code);
 
     if (module->code_size > 0) {
         plt_base = (uint8*)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
     }
     return true;
+
+fail:
+    return false;
 }
 
 static bool
@@ -1185,12 +1192,19 @@ resolve_target_sym(const char *symbol, int32 *p_index)
 }
 
 static bool
+is_literal_relocation(const char *reloc_sec_name)
+{
+    return !strcmp(reloc_sec_name, ".rela.literal");
+}
+
+static bool
 do_text_relocation(AOTModule *module,
                    AOTRelocationGroup *group,
                    char *error_buf, uint32 error_buf_size)
 {
-    uint8 *aot_text = module->code;
-    uint32 aot_text_size = module->code_size;
+    bool is_literal = is_literal_relocation(group->section_name);
+    uint8 *aot_text = is_literal ? module->literal : module->code;
+    uint32 aot_text_size = is_literal ? module->literal_size : module->code_size;
     uint32 i, func_index, symbol_len;
     char symbol_buf[128]  = { 0 }, *symbol, *p;
     void *symbol_addr;
@@ -1247,6 +1261,9 @@ do_text_relocation(AOTModule *module,
                              symbol);
                 goto check_symbol_fail;
             }
+        }
+        else if (!strcmp(symbol, ".literal")) {
+            symbol_addr = module->literal;
         }
         else if (!(symbol_addr = resolve_target_sym(symbol, &symbol_index))) {
             if (error_buf != NULL)
@@ -1495,7 +1512,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         }
 
         if (!strcmp(group->section_name, ".rel.text")
-            || !strcmp(group->section_name, ".rela.text")) {
+            || !strcmp(group->section_name, ".rela.text")
+            || !strcmp(group->section_name, ".rela.literal")) {
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
                 return false;
         }
@@ -2079,8 +2097,11 @@ aot_unload(AOTModule *module)
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
 
-    if (module->code)
-        os_munmap(module->code, module->code_size);
+    if (module->code) {
+        uint8 *mmap_addr = module->literal - sizeof(module->literal_size);
+        uint32 total_size = sizeof(module->literal_size) + module->literal_size + module->code_size;
+        os_munmap(mmap_addr, total_size);
+    }
 
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,

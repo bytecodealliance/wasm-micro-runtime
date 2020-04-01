@@ -125,6 +125,10 @@ typedef struct AOTModule {
     void *code;
     uint32 code_size;
 
+    /* literal for AOTed code, NULL for JIT mode */
+    uint8 *literal;
+    uint32 literal_size;
+
     /* data sections in AOT object file, including .data, .rodata
      * and .rodata.cstN. NULL for JIT mode. */
     AOTObjectDataSection *data_sections;

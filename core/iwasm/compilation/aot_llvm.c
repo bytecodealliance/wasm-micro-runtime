@@ -740,6 +740,7 @@ typedef struct ArchItem {
 static ArchItem valid_archs[] = {
     { "x86_64", false },
     { "i386", false },
+    { "xtensa", false},
     { "mips", true },
     { "aarch64v8", false },
     { "aarch64v8.1", false },

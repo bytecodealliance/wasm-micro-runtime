@@ -53,7 +53,7 @@ Execute following commands to build **wamrc** compiler:
 
 ```shell
 cd wamr-compiler
-./build_llvm.sh
+./build_llvm.sh (use build_llvm_xtensa.sh instead to support xtensa target)
 mkdir build && cd build
 cmake ..
 make

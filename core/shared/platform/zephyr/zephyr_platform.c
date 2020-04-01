@@ -6,6 +6,10 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+/* function pointers for executable memory management */
+static exec_mem_alloc_func_t exec_mem_alloc_func = NULL;
+static exec_mem_free_func_t exec_mem_free_func = NULL;
+
 #if WASM_ENABLE_AOT != 0
 #ifdef CONFIG_ARM_MPU
 /**
@@ -108,13 +112,19 @@ os_vprintf(const char *fmt, va_list ap)
 void *
 os_mmap(void *hint, unsigned int size, int prot, int flags)
 {
-    return BH_MALLOC(size);
+    if (exec_mem_alloc_func)
+        return exec_mem_alloc_func(size);
+    else
+        return BH_MALLOC(size);
 }
 
 void
 os_munmap(void *addr, uint32 size)
 {
-    return BH_FREE(addr);
+    if (exec_mem_free_func)
+        exec_mem_free_func(addr);
+    else
+        BH_FREE(addr);
 }
 
 int
@@ -133,3 +143,11 @@ os_dcache_flush()
     irq_unlock(key);
 #endif
 }
+
+void set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
+                             exec_mem_free_func_t free_func)
+{
+    exec_mem_alloc_func = alloc_func;
+    exec_mem_free_func = free_func;
+}
+
