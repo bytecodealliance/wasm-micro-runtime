@@ -67,12 +67,14 @@ int main(int argc, char *argv_main[])
         {
             "intToStr", 		// the name of WASM function name
             intToStr, 			// the native function pointer
-            "(i*~i)i"			// the function prototype signature, avoid to use i32
+            "(i*~i)i",			// the function prototype signature, avoid to use i32
+            NULL                // attachment is NULL
         },
         {
-            "get_pow", 		     // the name of WASM function name
+            "get_pow", 		    // the name of WASM function name
             get_pow, 			// the native function pointer
-            "(ii)i"			        // the function prototype signature, avoid to use i32
+            "(ii)i",			// the function prototype signature, avoid to use i32
+            NULL                // attachment is NULL
         }
     };
 
