@@ -322,29 +322,34 @@ void wgl_exit(void)
 /* -------------------------------------------------------------------------
  * Obj native function wrappers
  * -------------------------------------------------------------------------*/
-static lv_res_t
-lv_obj_del_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_del_wrapper)
 {
-    (void)module_inst;
+    lv_res_t res;
+    wgl_native_return_type(lv_res_t);
+    wgl_native_get_arg(lv_obj_t *, obj);
+
+    (void)exec_env;
 
     /* Recursively delete object node in the list belong to this
      * parent object including itself */
     _obj_del_recursive(obj);
-
-    return lv_obj_del(obj);
+    res = lv_obj_del(obj);
+    wgl_native_set_return(res);
 }
 
-static void
-lv_obj_del_async_wrapper(wasm_module_inst_t module_inst, lv_obj_t * obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_del_async_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+
+    (void)exec_env;
     lv_obj_del_async(obj);
 }
 
-static void
-lv_obj_clean_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_clean_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+
+    (void)exec_env;
 
     /* Recursively delete child object node in the list belong to this
      * parent object */
@@ -354,33 +359,40 @@ lv_obj_clean_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
     lv_obj_clean(obj);
 }
 
-static void
-lv_obj_align_wrapper(wasm_module_inst_t module_inst,
-                     lv_obj_t * obj,
-                     const lv_obj_t * base,
-                     lv_align_t align,
-                     lv_coord_t x_mod,
-                     lv_coord_t y_mod)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_align_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+    wgl_native_get_arg(uint32, base_obj_id);
+    wgl_native_get_arg(lv_align_t, align);
+    wgl_native_get_arg(lv_coord_t, x_mod);
+    wgl_native_get_arg(lv_coord_t, y_mod);
+    lv_obj_t *base = NULL;
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    /* validate the base object id if not equal to 0 */
+    if (base_obj_id != 0 && !wgl_native_validate_object(base_obj_id, &base)) {
+        wasm_runtime_set_exception(module_inst, "align with invalid base object.");
+        return;
+    }
+
     lv_obj_align(obj, base, align, x_mod, y_mod);
 }
 
-static void
-lv_obj_set_event_cb_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_set_event_cb_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+    (void)exec_env;
     lv_obj_set_event_cb(obj, internal_lv_obj_event_cb);
 }
+
 /* ------------------------------------------------------------------------- */
 
-
 static WGLNativeFuncDef obj_native_func_defs[] = {
-    { OBJ_FUNC_ID_DEL, lv_obj_del_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-    { OBJ_FUNC_ID_DEL_ASYNC, lv_obj_del_async_wrapper, NO_RET, 2, {1, -1}, {-1} },
-    { OBJ_FUNC_ID_CLEAN, lv_obj_clean_wrapper, NO_RET, 2, {1, -1}, {-1} },
-    { OBJ_FUNC_ID_ALIGN, lv_obj_align_wrapper, NO_RET, 6, {1, 2 | NULL_OK, -1}, {-1} },
-    { OBJ_FUNC_ID_SET_EVT_CB, lv_obj_set_event_cb_wrapper, NO_RET, 2, {1, -1}, {-1} },
+    { OBJ_FUNC_ID_DEL,         lv_obj_del_wrapper,            1,  true },
+    { OBJ_FUNC_ID_DEL_ASYNC,   lv_obj_del_async_wrapper,      1,  true },
+    { OBJ_FUNC_ID_CLEAN,       lv_obj_clean_wrapper,          1,  true },
+    { OBJ_FUNC_ID_ALIGN,       lv_obj_align_wrapper,          5,  true },
+    { OBJ_FUNC_ID_SET_EVT_CB,  lv_obj_set_event_cb_wrapper,   1,  true },
 };
 
 /*************** Native Interface to Wasm App ***********/
@@ -388,10 +400,9 @@ void
 wasm_obj_native_call(wasm_exec_env_t exec_env,
                      int32 func_id, uint32 *argv, uint32 argc)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint32 size = sizeof(obj_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(module_inst,
+    wgl_native_func_call(exec_env,
                          obj_native_func_defs,
                          size,
                          func_id,

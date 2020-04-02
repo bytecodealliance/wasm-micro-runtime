@@ -10,17 +10,27 @@
 
 #define THROW_EXC(msg) wasm_runtime_set_exception(module_inst, msg);
 
-void
-wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
-
-uint32 wgl_native_wigdet_create(int8 widget_type, lv_obj_t *par, lv_obj_t *copy,
+uint32 wgl_native_wigdet_create(int8 widget_type,
+                                uint32 par_obj_id,
+                                uint32 copy_obj_id,
                                 wasm_module_inst_t module_inst)
 {
     uint32 obj_id;
-    lv_obj_t *wigdet = NULL;
+    lv_obj_t *wigdet = NULL, *par = NULL, *copy = NULL;
     uint32 mod_id;
 
     //TODO: limit total widget number
+
+    /* validate the parent object id if not equal to 0 */
+    if (par_obj_id != 0 && !wgl_native_validate_object(par_obj_id, &par)) {
+        THROW_EXC("create widget with invalid parent object.");
+        return 0;
+    }
+    /* validate the copy object id if not equal to 0 */
+    if (copy_obj_id != 0 && !wgl_native_validate_object(copy_obj_id, &copy)) {
+        THROW_EXC("create widget with invalid copy object.");
+        return 0;
+    }
 
     if (par == NULL)
         par = lv_disp_get_scr_act(NULL);
@@ -48,146 +58,58 @@ uint32 wgl_native_wigdet_create(int8 widget_type, lv_obj_t *par, lv_obj_t *copy,
     return 0;
 }
 
-static void invokeNative(intptr_t argv[], uint32 argc, void (*native_code)())
-{
-    bh_assert(argc >= 1);
-
-    switch(argc) {
-        case 1:
-            native_code(argv[0]);
-            break;
-        case 2:
-            native_code(argv[0], argv[1]);
-            break;
-        case 3:
-            native_code(argv[0], argv[1], argv[2]);
-            break;
-        case 4:
-            native_code(argv[0], argv[1], argv[2], argv[3]);
-            break;
-        case 5:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4]);
-            break;
-        case 6:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
-            break;
-        case 7:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                        argv[6]);
-            break;
-        case 8:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                        argv[6], argv[7]);
-            break;
-        case 9:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                        argv[6], argv[7], argv[8]);
-            break;
-        case 10:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                        argv[6], argv[7], argv[8], argv[9]);
-            break;
-
-        default:
-        {
-            /* FIXME: If this happen, add more cases. */
-            wasm_module_inst_t module_inst = (wasm_module_inst_t)argv[0];
-            THROW_EXC("the argument number of native function exceeds maximum");
-            return;
-        }
-    }
-}
-
-typedef void (*GenericFunctionPointer)();
-typedef int32 (*Int32FuncPtr)(intptr_t *, uint32, GenericFunctionPointer);
-typedef void (*VoidFuncPtr)(intptr_t *, uint32, GenericFunctionPointer);
-
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
-
-void wgl_native_func_call(wasm_module_inst_t module_inst,
+void wgl_native_func_call(wasm_exec_env_t exec_env,
                           WGLNativeFuncDef *funcs,
                           uint32 size,
                           int32 func_id,
                           uint32 *argv,
                           uint32 argc)
 {
+    typedef void (*WGLNativeFuncPtr)(wasm_exec_env_t, uint64*, uint32*);
+    WGLNativeFuncPtr wglNativeFuncPtr;
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     WGLNativeFuncDef *func_def = funcs;
     WGLNativeFuncDef *func_def_end = func_def + size;
 
-    while (func_def < func_def_end) {
-        if (func_def->func_id == func_id) {
-            int i, obj_arg_num = 0, ptr_arg_num = 0, argc1 = 0;
-            intptr_t argv_copy_buf[16];
-            intptr_t *argv_copy = argv_copy_buf;
+    /* Note: argv is validated in wasm_runtime_invoke_native()
+     * with pointer length equals to 1. Here validate the argv
+     * buffer again but with its total length in bytes */
+    if (!wasm_runtime_validate_native_addr(module_inst, argv, argc * sizeof(uint32)))
+        return;
 
-            argc1++; /* module_inst */
-            argc1 += func_def->arg_num;
-            if (argc1 > 16) {
-                argv_copy = (intptr_t *)wasm_runtime_malloc(func_def->arg_num *
-                                                  sizeof(intptr_t));
-                if (argv_copy == NULL)
+    while (func_def < func_def_end) {
+        if (func_def->func_id == func_id
+            && (uint32)func_def->arg_num == argc) {
+            uint64 argv_copy_buf[16], size;
+            uint64 *argv_copy = argv_copy_buf;
+            int i;
+
+            if (argc > sizeof(argv_copy_buf) / sizeof(uint64)) {
+                size = sizeof(uint64) * (uint64)argc;
+                if (size >= UINT32_MAX
+                    || !(argv_copy = wasm_runtime_malloc((uint32)size))) {
+                    THROW_EXC("allocate memory failed.");
                     return;
+                }
+                memset(argv_copy, 0, (uint32)size);
             }
 
             /* Init argv_copy */
-            argv_copy[0] = (intptr_t)module_inst;
             for (i = 0; i < func_def->arg_num; i++)
-                argv_copy[i + 1] = (intptr_t)argv[i];
+                *(uint32*)&argv_copy[i] = argv[i];
 
-            /* Validate object arguments */
-            i = 0;
-            for (; i < OBJ_ARG_NUM_MAX && func_def->obj_arg_indexes[i] != 0xff;
-                   i++, obj_arg_num++) {
-                uint8 index = func_def->obj_arg_indexes[i];
-                bool null_ok = index & NULL_OK;
-
-                index = index & (~NULL_OK);
-
-                /* Some API's allow to pass NULL obj, such as xxx_create() */
-                if (argv_copy[index] == 0) {
-                    if (!null_ok) {
-                        THROW_EXC("the object id is 0 and invalid");
-                        goto fail;
-                    }
-                    /* Continue so that to pass null object validation */
-                    continue;
-                }
-
-                if (!wgl_native_validate_object(argv_copy[index],
-                                         (lv_obj_t **)&argv_copy[index])) {
+            /* Validate the first argument which is a lvgl object if needed */
+            if (func_def->check_obj) {
+                lv_obj_t *obj = NULL;
+                if (!wgl_native_validate_object(argv[0], &obj)) {
                     THROW_EXC("the object is invalid");
                     goto fail;
                 }
+                *(lv_obj_t **)&argv_copy[0] = obj;
             }
 
-            /* Validate address arguments */
-            i = 0;
-            for (; i < PTR_ARG_NUM_MAX && func_def->ptr_arg_indexes[i] != 0xff;
-                   i++, ptr_arg_num++) {
-                uint8 index = func_def->ptr_arg_indexes[i];
-
-                /* The index+1 arg is the data size to be validated */
-                if (!validate_app_addr(argv_copy[index], argv_copy[index + 1]))
-                    goto fail;
-
-                /* Convert to native address before call lvgl function */
-                argv_copy[index] = (intptr_t)addr_app_to_native(argv_copy[index]);
-            }
-
-            if (func_def->has_ret == NO_RET)
-                invokeNative_Void(argv_copy,
-                                  argc1,
-                                  func_def->func_ptr);
-            else {
-                argv[0] = invokeNative_Int32(argv_copy,
-                                             argc1,
-                                             func_def->func_ptr);
-                /* Convert to app memory offset if return value is a
-                 * native address pointer */
-                if (func_def->has_ret == RET_PTR)
-                    argv[0] = addr_native_to_app((char *)(intptr_t)argv[0]);
-            }
+            wglNativeFuncPtr = (WGLNativeFuncPtr)func_def->func_ptr;
+            wglNativeFuncPtr(exec_env, argv_copy, argv);
 
             if (argv_copy != argv_copy_buf)
                 wasm_runtime_free(argv_copy);

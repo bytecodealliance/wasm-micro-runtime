@@ -11,115 +11,139 @@
 /* -------------------------------------------------------------------------
  * Button widget native function wrappers
  * -------------------------------------------------------------------------*/
-static int32
-lv_btn_create_wrapper(wasm_module_inst_t module_inst,
-               lv_obj_t *par, lv_obj_t *copy)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_create_wrapper)
 {
-    return wgl_native_wigdet_create(WIDGET_TYPE_BTN, par, copy, module_inst);
+    int32 res;
+    wgl_native_return_type(int32);
+    wgl_native_get_arg(uint32, par_obj_id);
+    wgl_native_get_arg(uint32, copy_obj_id);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    res = wgl_native_wigdet_create(WIDGET_TYPE_BTN, par_obj_id, copy_obj_id, module_inst);
+    wgl_native_set_return(res);
 }
 
-static void
-lv_btn_set_toggle_wrapper(wasm_module_inst_t module_inst,
-                          lv_obj_t * btn, bool tgl)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_set_toggle_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, btn);
+    wgl_native_get_arg(bool, tgl);
+
+    (void)exec_env;
     lv_btn_set_toggle(btn, tgl);
 }
 
-static void
-lv_btn_set_state_wrapper(wasm_module_inst_t module_inst,
-                         lv_obj_t * btn, lv_btn_state_t state)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_set_state_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, btn);
+    wgl_native_get_arg(lv_btn_state_t, state);
+
+    (void)exec_env;
     lv_btn_set_state(btn, state);
 }
 
-static void
-lv_btn_set_ink_in_time_wrapper(wasm_module_inst_t module_inst,
-                               lv_obj_t * btn, uint16_t time)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_set_ink_in_time_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, btn);
+    wgl_native_get_arg(uint16_t, time);
+
+    (void)exec_env;
     lv_btn_set_ink_in_time(btn, time);
 }
 
-static void
-lv_btn_set_ink_out_time_wrapper(wasm_module_inst_t module_inst,
-                                lv_obj_t * btn, uint16_t time)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_set_ink_out_time_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, btn);
+    wgl_native_get_arg(uint16_t, time);
+
+    (void)exec_env;
     lv_btn_set_ink_out_time(btn, time);
 }
 
-static void
-lv_btn_set_ink_wait_time_wrapper(wasm_module_inst_t module_inst,
-                                 lv_obj_t * btn, uint16_t time)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_set_ink_wait_time_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, btn);
+    wgl_native_get_arg(uint16_t, time);
+
+    (void)exec_env;
     lv_btn_set_ink_wait_time(btn, time);
 }
 
-static uint16_t
-lv_btn_get_ink_in_time_wrapper(wasm_module_inst_t module_inst,
-                               lv_obj_t * btn)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_get_ink_in_time_wrapper)
 {
-    (void)module_inst;
-    return lv_btn_get_ink_in_time(btn);
+    uint16_t res;
+    wgl_native_return_type(uint16_t);
+    wgl_native_get_arg(lv_obj_t *, btn);
+
+    (void)exec_env;
+    res = lv_btn_get_ink_in_time(btn);
+    wgl_native_set_return(res);
 }
 
-static uint16_t
-lv_btn_get_ink_out_time_wrapper(wasm_module_inst_t module_inst,
-                                lv_obj_t * btn)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_get_ink_out_time_wrapper)
 {
-    (void)module_inst;
-    return lv_btn_get_ink_out_time(btn);
+    uint16_t res;
+    wgl_native_return_type(uint16_t);
+    wgl_native_get_arg(lv_obj_t *, btn);
+
+    (void)exec_env;
+    res = lv_btn_get_ink_out_time(btn);
+    wgl_native_set_return(res);
 }
 
-static uint16_t
-lv_btn_get_ink_wait_time_wrapper(wasm_module_inst_t module_inst,
-                                 lv_obj_t * btn)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_get_ink_wait_time_wrapper)
 {
-    (void)module_inst;
-    return lv_btn_get_ink_wait_time(btn);
+    uint16_t res;
+    wgl_native_return_type(uint16_t);
+    wgl_native_get_arg(lv_obj_t *, btn);
+
+    (void)exec_env;
+    res = lv_btn_get_ink_wait_time(btn);
+    wgl_native_set_return(res);
 }
 
-static lv_btn_state_t
-lv_btn_get_state_wrapper(wasm_module_inst_t module_inst,
-                         lv_obj_t * btn)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_get_state_wrapper)
 {
-    (void)module_inst;
-    return lv_btn_get_state(btn);
+    lv_btn_state_t res;
+    wgl_native_return_type(lv_btn_state_t);
+    wgl_native_get_arg(lv_obj_t *, btn);
+
+    (void)exec_env;
+    res = lv_btn_get_state(btn);
+    wgl_native_set_return(res);
 }
 
-static bool
-lv_btn_get_toggle_wrapper(wasm_module_inst_t module_inst,
-                          lv_obj_t * btn)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_get_toggle_wrapper)
 {
-    (void)module_inst;
-    return lv_btn_get_toggle(btn);
+    bool res;
+    wgl_native_return_type(bool);
+    wgl_native_get_arg(lv_obj_t *, btn);
+
+    (void)exec_env;
+    res = lv_btn_get_toggle(btn);
+    wgl_native_set_return(res);
 }
 
-static void
-lv_btn_toggle_wrapper(wasm_module_inst_t module_inst,
-                      lv_obj_t * btn)
+DEFINE_WGL_NATIVE_WRAPPER(lv_btn_toggle_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, btn);
+
+    (void)exec_env;
     lv_btn_toggle(btn);
 }
 
 static WGLNativeFuncDef btn_native_func_defs[] = {
-    { BTN_FUNC_ID_CREATE, lv_btn_create_wrapper, HAS_RET, 3, {1 | NULL_OK, 2 | NULL_OK, -1},  {-1} },
-    { BTN_FUNC_ID_SET_TOGGLE, lv_btn_set_toggle_wrapper, NO_RET, 3, {1, -1}, {-1} },
-    { BTN_FUNC_ID_SET_STATE, lv_btn_set_state_wrapper, NO_RET, 3, {1, -1}, {-1} },
-//    { BTN_FUNC_ID_SET_STYLE, _btn_set_style, NO_RET, 2, {0, -1}, {-1} },
-    { BTN_FUNC_ID_SET_INK_IN_TIME, lv_btn_set_ink_in_time_wrapper, NO_RET, 3, {1, -1}, {-1} },
-    { BTN_FUNC_ID_SET_INK_OUT_TIME, lv_btn_set_ink_out_time_wrapper, NO_RET, 3, {1, -1}, {-1} },
-    { BTN_FUNC_ID_SET_INK_WAIT_TIME, lv_btn_set_ink_wait_time_wrapper, NO_RET, 3, {1, -1}, {-1} },
-    { BTN_FUNC_ID_GET_INK_IN_TIME, lv_btn_get_ink_in_time_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-    { BTN_FUNC_ID_GET_INK_OUT_TIME, lv_btn_get_ink_out_time_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-    { BTN_FUNC_ID_GET_INK_WAIT_TIME, lv_btn_get_ink_wait_time_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-    { BTN_FUNC_ID_GET_STATE, lv_btn_get_state_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-    { BTN_FUNC_ID_GET_TOGGLE, lv_btn_get_toggle_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-    { BTN_FUNC_ID_TOGGLE, lv_btn_toggle_wrapper, NO_RET, 2, {1, -1}, {-1} },
+    { BTN_FUNC_ID_CREATE,              lv_btn_create_wrapper,             2,  false },
+    { BTN_FUNC_ID_SET_TOGGLE,          lv_btn_set_toggle_wrapper,         2,  true },
+    { BTN_FUNC_ID_SET_STATE,           lv_btn_set_state_wrapper,          2,  true },
+    { BTN_FUNC_ID_SET_INK_IN_TIME,     lv_btn_set_ink_in_time_wrapper,    2,  true },
+    { BTN_FUNC_ID_SET_INK_OUT_TIME,    lv_btn_set_ink_out_time_wrapper,   2,  true },
+    { BTN_FUNC_ID_SET_INK_WAIT_TIME,   lv_btn_set_ink_wait_time_wrapper,  2,  true },
+    { BTN_FUNC_ID_GET_INK_IN_TIME,     lv_btn_get_ink_in_time_wrapper,    1,  true },
+    { BTN_FUNC_ID_GET_INK_OUT_TIME,    lv_btn_get_ink_out_time_wrapper,   1,  true },
+    { BTN_FUNC_ID_GET_INK_WAIT_TIME,   lv_btn_get_ink_wait_time_wrapper,  1,  true },
+    { BTN_FUNC_ID_GET_STATE,           lv_btn_get_state_wrapper,          1,  true },
+    { BTN_FUNC_ID_GET_TOGGLE,          lv_btn_get_toggle_wrapper,         1,  true },
+    { BTN_FUNC_ID_TOGGLE,              lv_btn_toggle_wrapper,             1,  true },
 
 };
 
@@ -128,10 +152,9 @@ void
 wasm_btn_native_call(wasm_exec_env_t exec_env,
                      int32 func_id, uint32 *argv, uint32 argc)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint32 size = sizeof(btn_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(module_inst,
+    wgl_native_func_call(exec_env,
                          btn_native_func_defs,
                          size,
                          func_id,

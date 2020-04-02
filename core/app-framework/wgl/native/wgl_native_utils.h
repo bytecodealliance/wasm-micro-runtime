@@ -15,19 +15,12 @@ extern "C" {
 #include "wasm_export.h"
 #include "bi-inc/wgl_shared_utils.h"
 
-#define OBJ_ARG_NUM_MAX 4
-#define PTR_ARG_NUM_MAX 4
+#define wgl_native_return_type(type) type *wgl_ret = (type*)(args_ret)
+#define wgl_native_get_arg(type, name) type name = *((type*)(args++))
+#define wgl_native_set_return(val) *wgl_ret = (val)
 
-#define NULL_OK  0x80
-
-enum {
-    /* The function has a normal return value (not a pointer) */
-    HAS_RET,
-    /* The function doesn't have return value */
-    NO_RET,
-    /* The function's return value is a native address pointer */
-    RET_PTR
-};
+#define DEFINE_WGL_NATIVE_WRAPPER(func_name) \
+static void func_name(wasm_exec_env_t exec_env, uint64 *args, uint32 *args_ret)
 
 enum {
   WIDGET_TYPE_BTN,
@@ -46,19 +39,11 @@ typedef struct WGLNativeFuncDef {
     /* Native function pointer */
     void *func_ptr;
 
-    /* whether has return value */
-    uint8 has_ret;
-
     /* argument number */
     uint8 arg_num;
 
-    /* low 7 bit: obj argument index
-     * highest 1 bit: allow obj be null or not
-     * -1 means the end of this array */
-    uint8 obj_arg_indexes[OBJ_ARG_NUM_MAX];
-
-    /* pointer argument indexes, -1 means the end of this array */
-    uint8 ptr_arg_indexes[PTR_ARG_NUM_MAX];
+    /* whether the first argument is lvgl object and needs validate */
+    bool check_obj;
 } WGLNativeFuncDef;
 
 bool wgl_native_validate_object(int32 obj_id, lv_obj_t **obj);
@@ -66,11 +51,11 @@ bool wgl_native_validate_object(int32 obj_id, lv_obj_t **obj);
 bool wgl_native_add_object(lv_obj_t *obj, uint32 module_id, uint32 *obj_id);
 
 uint32 wgl_native_wigdet_create(int8 widget_type,
-                                lv_obj_t *par,
-                                lv_obj_t *copy,
+                                uint32 par_obj_id,
+                                uint32 copy_obj_id,
                                 wasm_module_inst_t module_inst);
 
-void wgl_native_func_call(wasm_module_inst_t module_inst,
+void wgl_native_func_call(wasm_exec_env_t exec_env,
                           WGLNativeFuncDef *funcs,
                           uint32 size,
                           int32 func_id,

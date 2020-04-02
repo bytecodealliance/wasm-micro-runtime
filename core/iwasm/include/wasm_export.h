@@ -363,6 +363,17 @@ const char *
 wasm_runtime_get_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Set exception info of the WASM module instance.
+ *
+ * @param module_inst the WASM module instance
+ *
+ * @param exception the exception string
+ */
+void
+wasm_runtime_set_exception(wasm_module_inst_t module_inst,
+                           const char *exception);
+
+/**
  * Clear exception info of the WASM module instance.
  *
  * @param module_inst the WASM module instance
