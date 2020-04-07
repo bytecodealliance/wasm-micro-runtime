@@ -9,6 +9,7 @@
 
 int intToStr(int x, char* str, int str_len, int digit);
 int get_pow(int x, int y);
+int32_t calculate_native(int32_t n, int32_t func1, int32_t func2);
 
 void print_usage(void)
 {
@@ -75,6 +76,12 @@ int main(int argc, char *argv_main[])
             get_pow, 			// the native function pointer
             "(ii)i",			// the function prototype signature, avoid to use i32
             NULL                // attachment is NULL
+        },
+        {
+            "calculate_native",
+            calculate_native,
+            "(iii)i",
+            NULL
         }
     };
 
@@ -164,6 +171,23 @@ int main(int argc, char *argv_main[])
     }
     else {
         printf("call wasm function float_to_string failed. error: %s\n", wasm_runtime_get_exception(module_inst));
+        goto fail;
+    }
+
+    wasm_function_inst_t func3 = wasm_runtime_lookup_function(module_inst,
+                                                              "calculate",
+                                                              NULL);
+    if (!func3) {
+        printf("The wasm function calculate is not found.\n");
+        goto fail;
+    }
+
+    uint32_t argv3[1] = {3};
+    if (wasm_runtime_call_wasm(exec_env, func3, 1, argv3)) {
+        uint32_t result = *(uint32_t*)argv3;
+        printf("Native finished calling wasm function: calculate, return: %d\n", result);
+    } else {
+        printf("call wasm function calculate failed. error: %s\n", wasm_runtime_get_exception(module_inst));
         goto fail;
     }
 

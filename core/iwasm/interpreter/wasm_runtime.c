@@ -1166,3 +1166,42 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 #endif /* end of WASM_ENABLE_MEMORY_GROW */
 }
 
+
+bool
+wasm_call_indirect(WASMExecEnv *exec_env,
+                   uint32_t element_indices,
+                   uint32_t argc, uint32_t argv[])
+{
+    WASMModuleInstance *module_inst = NULL;
+    WASMTableInstance *table_inst = NULL;
+    uint32_t function_indices = 0;
+    WASMFunctionInstance *function_inst = NULL;
+
+    module_inst =
+        (WASMModuleInstance*)exec_env->module_inst;
+    bh_assert(module_inst);
+
+    table_inst = module_inst->default_table;
+    if (!table_inst) {
+        wasm_set_exception(module_inst, "there is no table");
+        goto got_exception;
+    }
+
+    if (element_indices >= table_inst->cur_size) {
+        wasm_set_exception(module_inst, "undefined element");
+        goto got_exception;
+    }
+
+    function_indices = ((uint32_t*)table_inst->base_addr)[element_indices];
+    if (function_indices == 0xFFFFFFFF) {
+        wasm_set_exception(module_inst, "uninitialized element");
+        goto got_exception;
+    }
+
+    function_inst = module_inst->functions + function_indices;
+    wasm_interp_call_wasm(module_inst, exec_env, function_inst, argc, argv);
+    return !wasm_get_exception(module_inst) ? true : false;
+
+got_exception:
+    return false;
+}

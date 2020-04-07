@@ -131,6 +131,28 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function,
                        unsigned argc, uint32 argv[]);
 
+/**
+ * Call a function reference of a given WASM runtime instance with
+ * arguments.
+ *
+ * @param exec_env the execution environment to call the function
+ *   which must be created from wasm_create_exec_env()
+ * @param element_indices the function ference indicies, usually
+ *   prvovided by the caller of a registed native function
+ * @param argc the number of arguments
+ * @param argv the arguments.  If the function method has return value,
+ *   the first (or first two in case 64-bit return value) element of
+ *   argv stores the return value of the called WASM function after this
+ *   function returns.
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get exception info.
+ */
+bool
+wasm_runtime_call_indirect(WASMExecEnv *exec_env,
+                           uint32_t element_indices,
+                           uint32_t argc, uint32_t argv[]);
+
 bool
 wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst,
                                            WASMFunctionInstanceCommon *function,
@@ -269,6 +291,7 @@ wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst,
 
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst);
+
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 /**
@@ -304,7 +327,6 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                const WASMType *func_type, const char *signature,
                                void *attachment,
                                uint32 *argv, uint32 argc, uint32 *ret);
-
 
 #ifdef __cplusplus
 }
