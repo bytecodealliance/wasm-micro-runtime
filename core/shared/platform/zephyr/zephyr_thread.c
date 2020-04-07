@@ -325,7 +325,7 @@ int os_thread_join(korp_tid thread, void **value_ptr)
     k_sem_take(&node->sem, K_FOREVER);
 
     /* Wait some time for the thread to be actually terminated */
-    k_sleep(100);
+    k_sleep(Z_TIMEOUT_MS(100));
 
     /* Destroy resource */
     BH_FREE(node);
@@ -399,7 +399,7 @@ static int os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
 
     /* Unlock mutex, wait sem and lock mutex again */
     k_mutex_unlock(mutex);
-    k_sem_take(&node->sem, timed ? mills : K_FOREVER);
+    k_sem_take(&node->sem, timed ? Z_TIMEOUT_MS(mills) : K_FOREVER);
     k_mutex_lock(mutex, K_FOREVER);
 
     /* Remove wait node from wait list */
