@@ -37,6 +37,17 @@ wasm_runtime_env_init()
     return true;
 }
 
+static bool
+wasm_runtime_env_check(WASMExecEnv *exec_env)
+{
+    return !(!exec_env
+        || !exec_env->module_inst
+        || exec_env->wasm_stack_size == 0
+        || exec_env->wasm_stack.s.top_boundary !=
+                exec_env->wasm_stack.s.bottom + exec_env->wasm_stack_size
+        || exec_env->wasm_stack.s.top > exec_env->wasm_stack.s.top_boundary);
+}
+
 bool
 wasm_runtime_init()
 {
@@ -276,12 +287,7 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function,
                        unsigned argc, uint32 argv[])
 {
-    if (!exec_env
-        || !exec_env->module_inst
-        || exec_env->wasm_stack_size == 0
-        || exec_env->wasm_stack.s.top_boundary !=
-                exec_env->wasm_stack.s.bottom + exec_env->wasm_stack_size
-        || exec_env->wasm_stack.s.top > exec_env->wasm_stack.s.top_boundary) {
+    if (!wasm_runtime_env_check(exec_env)) {
         LOG_ERROR("Invalid exec env stack info.");
         return false;
     }
@@ -1392,15 +1398,19 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             break;
         case VALUE_TYPE_I64:
         {
-            char buf[16];
             union { uint64 val; uint32 parts[2]; } u;
             u.parts[0] = argv1[0];
             u.parts[1] = argv1[1];
+#ifdef PRIx64
+            os_printf("0x%"PRIx64":i64", u.val);
+#else
+            char buf[16];
             if (sizeof(long) == 4)
                 snprintf(buf, sizeof(buf), "%s", "0x%llx:i64");
             else
                 snprintf(buf, sizeof(buf), "%s", "0x%lx:i64");
             os_printf(buf, u.val);
+#endif
             break;
         }
         case VALUE_TYPE_F32:
@@ -2108,6 +2118,33 @@ fail:
         wasm_runtime_free(argv1);
 
     return ret;
+}
+
+bool
+wasm_runtime_call_indirect(WASMExecEnv *exec_env,
+                           uint32_t element_indices,
+                           uint32_t argc, uint32_t argv[])
+{
+    if (!wasm_runtime_env_check(exec_env)) {
+        LOG_ERROR("Invalid exec env stack info.");
+        return false;
+    }
+
+    exec_env->handle = os_self_thread();
+
+#if WASM_ENABLE_INTERP != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_call_indirect(exec_env,
+                                  element_indices,
+                                  argc, argv);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_AoT)
+        return aot_call_indirect(exec_env, false, 0,
+                                 element_indices,
+                                 argv, argc, argv);
+#endif
+    return false;
 }
 
 #endif /* end of defined(BUILD_TARGET_X86_64) \

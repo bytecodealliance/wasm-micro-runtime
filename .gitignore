@@ -5,3 +5,6 @@ core/deps/llvm
 core/deps/lvgl
 core/shared/mem-alloc/tlsf
 
+wamr-sdk/out/
+wamr-sdk/runtime/build_runtime_sdk/
+test-tools/host-tool/bin/

@@ -218,20 +218,9 @@ cp -a <wamr_root_dir>/product-mini/platforms/zephyr/simple .
 cd simple
 ln -s <wamr_root_dir> wamr
 source ../../zephyr-env.sh
+# Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
+./build_and_run.sh x86
 
-```
-
-1. build for x86 (qemu_x86_nommu)
-``` Bash
-./build.sh x86
-```
-2. build for ARM (nucleo_f767zi)
-``` Bash
-./build.sh stm32
-```
-3. build for AArch64 (qemu_cortex_a53)
-``` Bash
-./build.sh qemu_cortex_a53
 ```
 
 Note:

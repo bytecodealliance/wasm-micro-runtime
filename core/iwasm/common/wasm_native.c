@@ -251,6 +251,9 @@ wasm_native_init()
     if (!wasm_native_register_natives("wasi_unstable",
                                       native_symbols, n_native_symbols))
         return false;
+    if (!wasm_native_register_natives("wasi_snapshot_preview1",
+                                      native_symbols, n_native_symbols))
+        return false;
 #endif
 
 #if WASM_ENABLE_BASE_LIB != 0
