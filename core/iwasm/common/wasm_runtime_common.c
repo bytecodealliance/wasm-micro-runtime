@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "config.h"
 #include "bh_platform.h"
 #include "bh_common.h"
 #include "bh_assert.h"
@@ -30,16 +29,23 @@ wasm_runtime_env_init()
     if (bh_platform_init() != 0)
         return false;
 
-    if (bh_log_init() != 0)
+    if (wasm_native_init() == false) {
+        bh_platform_destroy();
         return false;
-
-    if (vm_thread_sys_init() != 0)
-        return false;
-
-    if (wasm_native_init() == false)
-        return false;
+    }
 
     return true;
+}
+
+static bool
+wasm_runtime_env_check(WASMExecEnv *exec_env)
+{
+    return !(!exec_env
+        || !exec_env->module_inst
+        || exec_env->wasm_stack_size == 0
+        || exec_env->wasm_stack.s.top_boundary !=
+                exec_env->wasm_stack.s.bottom + exec_env->wasm_stack_size
+        || exec_env->wasm_stack.s.top > exec_env->wasm_stack.s.top_boundary);
 }
 
 bool
@@ -60,7 +66,7 @@ void
 wasm_runtime_destroy()
 {
     wasm_native_destroy();
-    vm_thread_sys_destroy();
+    bh_platform_destroy();
     wasm_runtime_memory_destroy();
 }
 
@@ -238,6 +244,24 @@ wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
     return wasm_exec_env_get_module_inst(exec_env);
 }
 
+void *
+wasm_runtime_get_function_attachment(WASMExecEnv *exec_env)
+{
+    return exec_env->attachment;
+}
+
+void
+wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data)
+{
+    exec_env->user_data = user_data;
+}
+
+void *
+wasm_runtime_get_user_data(WASMExecEnv *exec_env)
+{
+    return exec_env->user_data;
+}
+
 WASMFunctionInstanceCommon *
 wasm_runtime_lookup_function(WASMModuleInstanceCommon * const module_inst,
                              const char *name,
@@ -263,17 +287,12 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function,
                        unsigned argc, uint32 argv[])
 {
-    if (!exec_env
-        || !exec_env->module_inst
-        || exec_env->wasm_stack_size == 0
-        || exec_env->wasm_stack.s.top_boundary !=
-                exec_env->wasm_stack.s.bottom + exec_env->wasm_stack_size
-        || exec_env->wasm_stack.s.top > exec_env->wasm_stack.s.top_boundary) {
+    if (!wasm_runtime_env_check(exec_env)) {
         LOG_ERROR("Invalid exec env stack info.");
         return false;
     }
 
-    exec_env->handle = vm_self_thread();
+    exec_env->handle = os_self_thread();
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
@@ -1375,34 +1394,38 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     /* print return value */
     switch (type->types[type->param_count]) {
         case VALUE_TYPE_I32:
-            bh_printf("0x%x:i32", argv1[0]);
+            os_printf("0x%x:i32", argv1[0]);
             break;
         case VALUE_TYPE_I64:
         {
-            char buf[16];
             union { uint64 val; uint32 parts[2]; } u;
             u.parts[0] = argv1[0];
             u.parts[1] = argv1[1];
+#ifdef PRIx64
+            os_printf("0x%"PRIx64":i64", u.val);
+#else
+            char buf[16];
             if (sizeof(long) == 4)
                 snprintf(buf, sizeof(buf), "%s", "0x%llx:i64");
             else
                 snprintf(buf, sizeof(buf), "%s", "0x%lx:i64");
-            bh_printf(buf, u.val);
+            os_printf(buf, u.val);
+#endif
             break;
         }
         case VALUE_TYPE_F32:
-            bh_printf("%.7g:f32", *(float32*)argv1);
+            os_printf("%.7g:f32", *(float32*)argv1);
         break;
         case VALUE_TYPE_F64:
         {
             union { float64 val; uint32 parts[2]; } u;
             u.parts[0] = argv1[0];
             u.parts[1] = argv1[1];
-            bh_printf("%.7g:f64", u.val);
+            os_printf("%.7g:f64", u.val);
             break;
         }
     }
-    bh_printf("\n");
+    os_printf("\n");
 
     wasm_runtime_free(argv1);
     return true;
@@ -1413,7 +1436,7 @@ fail:
 
     exception = wasm_runtime_get_exception(module_inst);
     bh_assert(exception);
-    bh_printf("%s\n", exception);
+    os_printf("%s\n", exception);
     return false;
 }
 
@@ -1424,6 +1447,120 @@ wasm_runtime_register_natives(const char *module_name,
 {
     return wasm_native_register_natives(module_name,
                                         native_symbols, n_native_symbols);
+}
+
+bool
+wasm_runtime_register_natives_raw(const char *module_name,
+                                  NativeSymbol *native_symbols,
+                                  uint32 n_native_symbols)
+{
+    return wasm_native_register_natives_raw(module_name,
+                                            native_symbols, n_native_symbols);
+}
+
+bool
+wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
+                               const WASMType *func_type, const char *signature,
+                               void *attachment,
+                               uint32 *argv, uint32 argc, uint32 *argv_ret)
+{
+    WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
+    typedef void (*NativeRawFuncPtr)(WASMExecEnv*, uint64*);
+    NativeRawFuncPtr invokeNativeRaw = (NativeRawFuncPtr)func_ptr;
+    uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
+    uint32 *argv_src = argv, i, argc1, ptr_len;
+    int32 arg_i32;
+    bool ret = false;
+
+    argc1 = func_type->param_count;
+    if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
+        size = sizeof(uint64) * (uint64)argc1;
+        if (size >= UINT32_MAX
+            || !(argv1 = wasm_runtime_malloc((uint32)size))) {
+            wasm_runtime_set_exception(exec_env->module_inst,
+                                       "allocate memory failed.");
+            return false;
+        }
+        memset(argv1, 0, (uint32)size);
+    }
+
+    argv_dst = argv1;
+
+    /* Traverse secondly to fill in each argument */
+    for (i = 0; i < func_type->param_count; i++, argv_dst++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+            {
+                *(int32*)argv_dst = arg_i32 = (int32)*argv_src++;
+                if (signature) {
+                    if (signature[i + 1] == '*') {
+                        /* param is a pointer */
+                        if (signature[i + 2] == '~')
+                            /* pointer with length followed */
+                            ptr_len = *argv_src;
+                        else
+                            /* pointer without length followed */
+                            ptr_len = 1;
+
+                        if (!wasm_runtime_validate_app_addr(module, arg_i32, ptr_len))
+                            goto fail;
+
+                        *(uintptr_t*)argv_dst = (uintptr_t)
+                                      wasm_runtime_addr_app_to_native(module, arg_i32);
+                    }
+                    else if (signature[i + 1] == '$') {
+                        /* param is a string */
+                        if (!wasm_runtime_validate_app_str_addr(module, arg_i32))
+                            goto fail;
+
+                        *(uintptr_t*)argv_dst = (uintptr_t)
+                                      wasm_runtime_addr_app_to_native(module, arg_i32);
+                    }
+                }
+                break;
+            }
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                bh_memcpy_s(argv_dst, sizeof(uint64), argv_src, sizeof(uint32) * 2);
+                argv_src += 2;
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)argv_dst = *(float32*)argv_src++;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+
+    exec_env->attachment = attachment;
+    invokeNativeRaw(exec_env, argv1);
+    exec_env->attachment = NULL;
+
+    if (func_type->result_count > 0) {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                argv_ret[0] = *(uint32*)argv1;
+                break;
+            case VALUE_TYPE_F32:
+                *(float32*)argv_ret = *(float32*)argv1;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                bh_memcpy_s(argv_ret, sizeof(uint32) * 2, argv1, sizeof(uint64));
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+
+    ret = true;
+
+fail:
+    if (argv1 != argv_buf)
+        wasm_runtime_free(argv1);
+     return ret;
 }
 
 /**
@@ -1474,6 +1611,7 @@ static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
@@ -1639,6 +1777,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+    exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, n_stacks);
     }
@@ -1661,6 +1800,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
         }
     }
+    exec_env->attachment = NULL;
 
     ret = true;
 
@@ -1694,6 +1834,7 @@ static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
@@ -1779,6 +1920,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     argc1 = j;
+    exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, argc1);
     }
@@ -1801,6 +1943,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
         }
     }
+    exec_env->attachment = NULL;
 
     ret = true;
 
@@ -1816,7 +1959,9 @@ fail:
                  || defined(BUILD_TARGET_MIPS) \
                  || defined(BUILD_TARGET_XTENSA) */
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(BUILD_TARGET_X86_64) \
+   || defined(BUILD_TARGET_AMD_64) \
+   || defined(BUILD_TARGET_AARCH64)
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
@@ -1826,23 +1971,28 @@ typedef int64 (*Int64FuncPtr)(GenericFunctionPointer, uint64*,uint64);
 typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint64*, uint64);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint64*, uint64);
 
-static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
-static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
-static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)(uintptr_t)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)(uintptr_t)invokeNative;
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)(uintptr_t)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)(uintptr_t)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
 #if defined(_WIN32) || defined(_WIN32_)
 #define MAX_REG_FLOATS  4
 #define MAX_REG_INTS  4
 #else
 #define MAX_REG_FLOATS  8
+#if defined(BUILD_TARGET_AARCH64)
+#define MAX_REG_INTS  8
+#else
 #define MAX_REG_INTS  6
-#endif
+#endif /* end of defined(BUILD_TARGET_AARCH64 */
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
@@ -1937,6 +2087,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+    exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, n_stacks);
     }
@@ -1959,6 +2110,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
         }
     }
+    exec_env->attachment = NULL;
 
     ret = true;
 fail:
@@ -1968,4 +2120,33 @@ fail:
     return ret;
 }
 
-#endif /* end of defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+bool
+wasm_runtime_call_indirect(WASMExecEnv *exec_env,
+                           uint32_t element_indices,
+                           uint32_t argc, uint32_t argv[])
+{
+    if (!wasm_runtime_env_check(exec_env)) {
+        LOG_ERROR("Invalid exec env stack info.");
+        return false;
+    }
+
+    exec_env->handle = os_self_thread();
+
+#if WASM_ENABLE_INTERP != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_call_indirect(exec_env,
+                                  element_indices,
+                                  argc, argv);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_AoT)
+        return aot_call_indirect(exec_env, false, 0,
+                                 element_indices,
+                                 argv, argc, argv);
+#endif
+    return false;
+}
+
+#endif /* end of defined(BUILD_TARGET_X86_64) \
+                 || defined(BUILD_TARGET_AMD_64) \
+                 || defined(BUILD_TARGET_AARCH64) */

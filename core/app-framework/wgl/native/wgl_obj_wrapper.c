@@ -6,8 +6,7 @@
 #include "lvgl.h"
 #include "app_manager_export.h"
 #include "module_wasm_app.h"
-#include "bh_list.h"
-#include "bh_thread.h"
+#include "bh_platform.h"
 #include "wgl_native_utils.h"
 #include "wgl.h"
 
@@ -38,6 +37,10 @@ static bh_list g_object_list;
 static korp_mutex g_object_list_mutex;
 
 static bool lv_task_handler_thread_run = true;
+
+static korp_mutex task_handler_lock;
+
+static korp_cond task_handler_cond;
 
 static void app_mgr_object_event_callback(module_data *m_data, bh_message_t msg)
 {
@@ -79,7 +82,7 @@ static void cleanup_object_list(uint32 module_id)
 {
     object_node_t *elem;
 
-    vm_mutex_lock(&g_object_list_mutex);
+    os_mutex_lock(&g_object_list_mutex);
 
     while (true) {
         bool found = false;
@@ -104,7 +107,7 @@ static void cleanup_object_list(uint32 module_id)
             break;
     }
 
-    vm_mutex_unlock(&g_object_list_mutex);
+    os_mutex_unlock(&g_object_list_mutex);
 }
 
 static bool init_object_event_callback_framework()
@@ -128,20 +131,20 @@ bool wgl_native_validate_object(int32 obj_id, lv_obj_t **obj)
 {
     object_node_t *elem;
 
-    vm_mutex_lock(&g_object_list_mutex);
+    os_mutex_lock(&g_object_list_mutex);
 
     elem = (object_node_t *)bh_list_first_elem(&g_object_list);
     while (elem) {
         if (obj_id == elem->obj_id) {
             if (obj != NULL)
                 *obj = elem->obj;
-            vm_mutex_unlock(&g_object_list_mutex);
+            os_mutex_unlock(&g_object_list_mutex);
             return true;
         }
         elem = (object_node_t *) bh_list_elem_next(elem);
     }
 
-    vm_mutex_unlock(&g_object_list_mutex);
+    os_mutex_unlock(&g_object_list_mutex);
 
     return false;
 }
@@ -165,9 +168,9 @@ bool wgl_native_add_object(lv_obj_t *obj, uint32 module_id, uint32 *obj_id)
     node->obj_id = g_obj_id_max;
     node->module_id = module_id;
 
-    vm_mutex_lock(&g_object_list_mutex);
+    os_mutex_lock(&g_object_list_mutex);
     bh_list_insert(&g_object_list, node);
-    vm_mutex_unlock(&g_object_list_mutex);
+    os_mutex_unlock(&g_object_list_mutex);
 
     if (obj_id != NULL)
         *obj_id = node->obj_id;
@@ -194,20 +197,20 @@ static void _obj_del_recursive(lv_obj_t *obj)
         i = i_next;
     }
 
-    vm_mutex_lock(&g_object_list_mutex);
+    os_mutex_lock(&g_object_list_mutex);
 
     elem = (object_node_t *)bh_list_first_elem(&g_object_list);
     while (elem) {
         if (obj == elem->obj) {
             bh_list_remove(&g_object_list, elem);
             wasm_runtime_free(elem);
-            vm_mutex_unlock(&g_object_list_mutex);
+            os_mutex_unlock(&g_object_list_mutex);
             return;
         }
         elem = (object_node_t *) bh_list_elem_next(elem);
     }
 
-    vm_mutex_unlock(&g_object_list_mutex);
+    os_mutex_unlock(&g_object_list_mutex);
 }
 
 static void _obj_clean_recursive(lv_obj_t *obj)
@@ -255,52 +258,55 @@ static void internal_lv_obj_event_cb(lv_obj_t *obj, lv_event_t event)
 {
     object_node_t *elem;
 
-    vm_mutex_lock(&g_object_list_mutex);
+    os_mutex_lock(&g_object_list_mutex);
 
     elem = (object_node_t *)bh_list_first_elem(&g_object_list);
     while (elem) {
         if (obj == elem->obj) {
             post_widget_msg_to_module(elem, event);
-            vm_mutex_unlock(&g_object_list_mutex);
+            os_mutex_unlock(&g_object_list_mutex);
             return;
         }
         elem = (object_node_t *) bh_list_elem_next(elem);
     }
 
-    vm_mutex_unlock(&g_object_list_mutex);
+    os_mutex_unlock(&g_object_list_mutex);
 }
 
 static void* lv_task_handler_thread_routine (void *arg)
 {
-    korp_sem sem;
-
-    if (vm_sem_init(&sem, 1) != 0) {
-        printf("Init semaphore for lvgl task handler thread fail!\n");
-        return NULL;
-    }
+    os_mutex_lock(&task_handler_lock);
 
     while (lv_task_handler_thread_run) {
-        vm_sem_reltimedwait(&sem, 100);
+        os_cond_reltimedwait(&task_handler_cond, &task_handler_lock,
+                             100 * 1000);
         lv_task_handler();
     }
 
-    vm_sem_destroy(&sem);
-
+    os_mutex_unlock(&task_handler_lock);
     return NULL;
 }
 
 void wgl_init(void)
 {
-    korp_thread tid;
+    korp_tid tid;
+
+    if (os_mutex_init(&task_handler_lock) != 0)
+        return;
+
+    if (os_cond_init(&task_handler_cond) != 0) {
+        os_mutex_destroy(&task_handler_lock);
+        return;
+    }
 
     lv_init();
 
     bh_list_init(&g_object_list);
-    vm_recursive_mutex_init(&g_object_list_mutex);
+    os_recursive_mutex_init(&g_object_list_mutex);
     init_object_event_callback_framework();
 
     /* new a thread, call lv_task_handler periodically */
-    vm_thread_create(&tid,
+    os_thread_create(&tid,
                      lv_task_handler_thread_routine,
                      NULL,
                      BH_APPLET_PRESERVED_STACK_SIZE);
@@ -309,34 +315,41 @@ void wgl_init(void)
 void wgl_exit(void)
 {
     lv_task_handler_thread_run = false;
+    os_cond_destroy(&task_handler_cond);
+    os_mutex_destroy(&task_handler_lock);
 }
 
 /* -------------------------------------------------------------------------
  * Obj native function wrappers
  * -------------------------------------------------------------------------*/
-static lv_res_t
-lv_obj_del_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_del_wrapper)
 {
-    (void)module_inst;
+    lv_res_t res;
+    wgl_native_return_type(lv_res_t);
+    wgl_native_get_arg(lv_obj_t *, obj);
+
+    (void)exec_env;
 
     /* Recursively delete object node in the list belong to this
      * parent object including itself */
     _obj_del_recursive(obj);
-
-    return lv_obj_del(obj);
+    res = lv_obj_del(obj);
+    wgl_native_set_return(res);
 }
 
-static void
-lv_obj_del_async_wrapper(wasm_module_inst_t module_inst, lv_obj_t * obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_del_async_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+
+    (void)exec_env;
     lv_obj_del_async(obj);
 }
 
-static void
-lv_obj_clean_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_clean_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+
+    (void)exec_env;
 
     /* Recursively delete child object node in the list belong to this
      * parent object */
@@ -346,33 +359,40 @@ lv_obj_clean_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
     lv_obj_clean(obj);
 }
 
-static void
-lv_obj_align_wrapper(wasm_module_inst_t module_inst,
-                     lv_obj_t * obj,
-                     const lv_obj_t * base,
-                     lv_align_t align,
-                     lv_coord_t x_mod,
-                     lv_coord_t y_mod)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_align_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+    wgl_native_get_arg(uint32, base_obj_id);
+    wgl_native_get_arg(lv_align_t, align);
+    wgl_native_get_arg(lv_coord_t, x_mod);
+    wgl_native_get_arg(lv_coord_t, y_mod);
+    lv_obj_t *base = NULL;
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    /* validate the base object id if not equal to 0 */
+    if (base_obj_id != 0 && !wgl_native_validate_object(base_obj_id, &base)) {
+        wasm_runtime_set_exception(module_inst, "align with invalid base object.");
+        return;
+    }
+
     lv_obj_align(obj, base, align, x_mod, y_mod);
 }
 
-static void
-lv_obj_set_event_cb_wrapper(wasm_module_inst_t module_inst, lv_obj_t *obj)
+DEFINE_WGL_NATIVE_WRAPPER(lv_obj_set_event_cb_wrapper)
 {
-    (void)module_inst;
+    wgl_native_get_arg(lv_obj_t *, obj);
+    (void)exec_env;
     lv_obj_set_event_cb(obj, internal_lv_obj_event_cb);
 }
+
 /* ------------------------------------------------------------------------- */
 
-
 static WGLNativeFuncDef obj_native_func_defs[] = {
-    { OBJ_FUNC_ID_DEL, lv_obj_del_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-    { OBJ_FUNC_ID_DEL_ASYNC, lv_obj_del_async_wrapper, NO_RET, 2, {1, -1}, {-1} },
-    { OBJ_FUNC_ID_CLEAN, lv_obj_clean_wrapper, NO_RET, 2, {1, -1}, {-1} },
-    { OBJ_FUNC_ID_ALIGN, lv_obj_align_wrapper, NO_RET, 6, {1, 2 | NULL_OK, -1}, {-1} },
-    { OBJ_FUNC_ID_SET_EVT_CB, lv_obj_set_event_cb_wrapper, NO_RET, 2, {1, -1}, {-1} },
+    { OBJ_FUNC_ID_DEL,         lv_obj_del_wrapper,            1,  true },
+    { OBJ_FUNC_ID_DEL_ASYNC,   lv_obj_del_async_wrapper,      1,  true },
+    { OBJ_FUNC_ID_CLEAN,       lv_obj_clean_wrapper,          1,  true },
+    { OBJ_FUNC_ID_ALIGN,       lv_obj_align_wrapper,          5,  true },
+    { OBJ_FUNC_ID_SET_EVT_CB,  lv_obj_set_event_cb_wrapper,   1,  true },
 };
 
 /*************** Native Interface to Wasm App ***********/
@@ -380,10 +400,9 @@ void
 wasm_obj_native_call(wasm_exec_env_t exec_env,
                      int32 func_id, uint32 *argv, uint32 argc)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint32 size = sizeof(obj_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(module_inst,
+    wgl_native_func_call(exec_env,
                          obj_native_func_defs,
                          size,
                          func_id,

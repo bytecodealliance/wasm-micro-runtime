@@ -1108,7 +1108,8 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
 #if WASM_ENABLE_MEMORY_GROW != 0
     WASMMemoryInstance *memory = module->default_memory, *new_memory;
-    uint32 old_page_count = memory->cur_page_count, total_size_old;
+    uint32 old_page_count = memory->cur_page_count;
+    uint32 total_size_old = memory->end_addr - (uint8*)memory;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
                         memory->num_bytes_per_page * (uint64)total_page_count +
@@ -1135,13 +1136,13 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
             wasm_set_exception(module, "fail to enlarge memory.");
             return false;
         }
-        total_size_old = memory->end_addr - (uint8*)memory;
         bh_memcpy_s((uint8*)new_memory, (uint32)total_size,
                     (uint8*)memory, total_size_old);
-        memset((uint8*)new_memory + total_size_old,
-                0, (uint32)total_size - total_size_old);
         wasm_runtime_free(memory);
     }
+
+    memset((uint8*)new_memory + total_size_old,
+           0, (uint32)total_size - total_size_old);
 
     new_memory->cur_page_count = total_page_count;
     new_memory->memory_data = new_memory->base_addr;
@@ -1165,3 +1166,42 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 #endif /* end of WASM_ENABLE_MEMORY_GROW */
 }
 
+
+bool
+wasm_call_indirect(WASMExecEnv *exec_env,
+                   uint32_t element_indices,
+                   uint32_t argc, uint32_t argv[])
+{
+    WASMModuleInstance *module_inst = NULL;
+    WASMTableInstance *table_inst = NULL;
+    uint32_t function_indices = 0;
+    WASMFunctionInstance *function_inst = NULL;
+
+    module_inst =
+        (WASMModuleInstance*)exec_env->module_inst;
+    bh_assert(module_inst);
+
+    table_inst = module_inst->default_table;
+    if (!table_inst) {
+        wasm_set_exception(module_inst, "there is no table");
+        goto got_exception;
+    }
+
+    if (element_indices >= table_inst->cur_size) {
+        wasm_set_exception(module_inst, "undefined element");
+        goto got_exception;
+    }
+
+    function_indices = ((uint32_t*)table_inst->base_addr)[element_indices];
+    if (function_indices == 0xFFFFFFFF) {
+        wasm_set_exception(module_inst, "uninitialized element");
+        goto got_exception;
+    }
+
+    function_inst = module_inst->functions + function_indices;
+    wasm_interp_call_wasm(module_inst, exec_env, function_inst, argc, argv);
+    return !wasm_get_exception(module_inst) ? true : false;
+
+got_exception:
+    return false;
+}

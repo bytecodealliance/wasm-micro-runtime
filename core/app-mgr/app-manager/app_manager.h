@@ -7,9 +7,6 @@
 #define APP_MANAGER_H
 
 #include "bh_platform.h"
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "bh_types.h"
 #include "app_manager_export.h"
 #include "native_interface.h"
 #include "bi-inc/shared_utils.h"
@@ -21,8 +18,8 @@ extern "C" {
 #define APP_MGR_MALLOC wasm_runtime_malloc
 #define APP_MGR_FREE wasm_runtime_free
 
-/* bh_printf is defined in each platform */
-#define app_manager_printf bh_printf
+/* os_printf is defined in each platform */
+#define app_manager_printf os_printf
 
 #define SEND_ERR_RESPONSE(mid, err_msg) do {                            \
   app_manager_printf("%s\n", err_msg);                                  \

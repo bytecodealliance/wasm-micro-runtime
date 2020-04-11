@@ -858,18 +858,63 @@ fail:
 }
 
 static bool
-is_targeting_soft_float(LLVMTargetMachineRef target_machine)
+is_target_arm(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "arm", 3) ||
+           !strncmp(comp_ctx->target_arch, "thumb", 5);
+}
+
+static bool
+is_target_x86(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "x86_64", 6) ||
+           !strncmp(comp_ctx->target_arch, "i386", 4);
+}
+
+static bool
+is_target_xtensa(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "xtensa", 6);
+}
+
+static bool
+is_target_mips(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "mips", 4);
+}
+
+static bool
+is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
 {
     bool ret = false;
     char *feature_string;
 
     if (!(feature_string =
-                LLVMGetTargetMachineFeatureString(target_machine))) {
+                LLVMGetTargetMachineFeatureString(comp_ctx->target_machine))) {
         aot_set_last_error("llvm get target machine feature string fail.");
         return false;
     }
 
-    ret = strstr(feature_string, "+soft-float") ? true : false;
+    /* Note:
+     * LLVM CodeGen uses FPU Coprocessor registers by default,
+     * so user must specify '--cpu-features=+soft-float' to wamrc if the target
+     * doesn't have or enable FPU on arm, x86 or mips. */
+    if (is_target_arm(comp_ctx) ||
+        is_target_x86(comp_ctx) ||
+        is_target_mips(comp_ctx))
+        ret = strstr(feature_string, "+soft-float") ? true : false;
+    else if (is_target_xtensa(comp_ctx))
+        /* Note:
+         * 1. The Floating-Point Coprocessor Option of xtensa only support
+         * single-precision floating-point operations, so must use soft-float
+         * for f64(i.e. double).
+         * 2. LLVM CodeGen uses Floating-Point Coprocessor registers by default,
+         * so user must specify '--cpu-features=-fp' to wamrc if the target
+         * doesn't have or enable Floating-Point Coprocessor Option on xtensa. */
+        ret = (!is_f32 || strstr(feature_string, "-fp")) ? true : false;
+    else
+        ret = true;
+
     LLVMDisposeMessage(feature_string);
     return ret;
 }
@@ -880,7 +925,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     switch (arith_op) {
         case FLOAT_ADD:
-            if (is_targeting_soft_float(comp_ctx->target_machine))
+            if (is_targeting_soft_float(comp_ctx, is_f32))
                 DEF_FP_BINARY_OP(LLVMBuildFAdd(comp_ctx->builder, left, right, "fadd"),
                                  "llvm build fadd fail.");
             else
@@ -897,7 +942,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                  NULL);
             return true;
         case FLOAT_SUB:
-            if (is_targeting_soft_float(comp_ctx->target_machine))
+            if (is_targeting_soft_float(comp_ctx, is_f32))
                 DEF_FP_BINARY_OP(LLVMBuildFSub(comp_ctx->builder, left, right, "fsub"),
                                  "llvm build fsub fail.");
             else
@@ -914,7 +959,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                  NULL);
             return true;
         case FLOAT_MUL:
-            if (is_targeting_soft_float(comp_ctx->target_machine))
+            if (is_targeting_soft_float(comp_ctx, is_f32))
                 DEF_FP_BINARY_OP(LLVMBuildFMul(comp_ctx->builder, left, right, "fmul"),
                                  "llvm build fmul fail.");
             else
@@ -931,7 +976,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                  NULL);
             return true;
         case FLOAT_DIV:
-            if (is_targeting_soft_float(comp_ctx->target_machine))
+            if (is_targeting_soft_float(comp_ctx, is_f32))
                 DEF_FP_BINARY_OP(LLVMBuildFDiv(comp_ctx->builder, left, right, "fdiv"),
                                  "llvm build fdiv fail.");
             else
@@ -1050,7 +1095,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             NULL);
             return true;
         case FLOAT_SQRT:
-            if (is_targeting_soft_float(comp_ctx->target_machine))
+            if (is_targeting_soft_float(comp_ctx, is_f32))
                 DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
                                                    is_f32 ? "llvm.sqrt.f32" :
                                                             "llvm.sqrt.f64",

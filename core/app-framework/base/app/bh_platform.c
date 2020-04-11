@@ -79,23 +79,3 @@ char *wa_strdup(const char *s)
         memcpy(s1, s, strlen(s) + 1);
     return s1;
 }
-
-#define RSIZE_MAX 0x7FFFFFFF
-int b_memcpy_s(void * s1, unsigned int s1max, const void * s2, unsigned int n)
-{
-    char *dest = (char*) s1;
-    char *src = (char*) s2;
-    if (n == 0) {
-        return 0;
-    }
-
-    if (s1 == NULL || s1max > RSIZE_MAX) {
-        return -1;
-    }
-    if (s2 == NULL || n > s1max) {
-        memset(dest, 0, s1max);
-        return -1;
-    }
-    memcpy(dest, src, n);
-    return 0;
-}

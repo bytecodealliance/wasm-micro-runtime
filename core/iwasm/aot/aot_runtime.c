@@ -457,7 +457,7 @@ aot_call_function(WASMExecEnv *exec_env,
     AOTModuleInstance *module_inst = (AOTModuleInstance*)exec_env->module_inst;
     AOTFuncType *func_type = function->func_type;
     bool ret = wasm_runtime_invoke_native(exec_env, function->func_ptr,
-                                          func_type, NULL, argv, argc, argv);
+                                          func_type, NULL, NULL, argv, argc, argv);
     return ret && !aot_get_exception(module_inst) ? true : false;
 }
 
@@ -751,7 +751,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     uint32 max_page_count = module_inst->mem_max_page_count;
     uint32 total_page_count = cur_page_count + inc_page_count;
     uint64 total_size = (uint64)num_bytes_per_page * total_page_count;
-    uint32 total_size_old;
+    uint32 total_size_old = module_inst->memory_data_size;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -773,13 +773,13 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
             aot_set_exception(module_inst, "fail to enlarge memory.");
             return false;
         }
-        total_size_old = module_inst->memory_data_size;
         bh_memcpy_s(mem_data_new, (uint32)total_size,
                     mem_data_old, total_size_old);
-        memset(mem_data_new + total_size_old,
-               0, (uint32)total_size - total_size_old);
         wasm_runtime_free(mem_data_old);
     }
+
+    memset(mem_data_new + total_size_old,
+           0, (uint32)total_size - total_size_old);
 
     module_inst->mem_cur_page_count = total_page_count;
     module_inst->memory_data_size = (uint32)total_size;
@@ -811,7 +811,7 @@ aot_is_wasm_type_equal(AOTModuleInstance *module_inst,
     return wasm_type_equal(type1, type2);
 }
 
-void
+bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
                   uint32 *frame_lp, uint32 argc, uint32 *argv_ret)
 {
@@ -824,21 +824,100 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     void **func_ptrs = (void**)module_inst->func_ptrs.ptr;
     void *func_ptr = func_ptrs[func_idx];
     AOTImportFunc *import_func;
-    const char *signature = NULL;
+    const char *signature;
+    void *attachment;
     char buf[128];
 
-    if (func_idx < aot_module->import_func_count) {
-        import_func = aot_module->import_funcs + func_idx;
-        if (!func_ptr) {
-            snprintf(buf, sizeof(buf),
-                    "fail to call unlinked import function (%s, %s)",
-                    import_func->module_name, import_func->func_name);
-            aot_set_exception(module_inst, buf);
-            return;
-        }
-        signature = import_func->signature;
+    bh_assert(func_idx < aot_module->import_func_count);
+
+    import_func = aot_module->import_funcs + func_idx;
+    if (!func_ptr) {
+        snprintf(buf, sizeof(buf),
+                 "fail to call unlinked import function (%s, %s)",
+                 import_func->module_name, import_func->func_name);
+        aot_set_exception(module_inst, buf);
+        return false;
     }
-    wasm_runtime_invoke_native(exec_env, func_ptr,
-                               func_type, signature, frame_lp, argc, argv_ret);
+
+    signature = import_func->signature;
+    attachment = import_func->attachment;
+    if (!import_func->call_conv_raw) {
+        return wasm_runtime_invoke_native(exec_env, func_ptr,
+                                          func_type, signature, attachment,
+                                          frame_lp, argc, argv_ret);
+    }
+    else {
+        return wasm_runtime_invoke_native_raw(exec_env, func_ptr,
+                                              func_type, signature, attachment,
+                                              frame_lp, argc, argv_ret);
+    }
 }
 
+bool
+aot_call_indirect(WASMExecEnv *exec_env,
+                  bool check_func_type, uint32 func_type_idx,
+                  uint32 table_elem_idx,
+                  uint32 *frame_lp, uint32 argc, uint32 *argv_ret)
+{
+    AOTModuleInstance *module_inst = (AOTModuleInstance*)
+                                     wasm_runtime_get_module_inst(exec_env);
+    AOTModule *aot_module = (AOTModule*)module_inst->aot_module.ptr;
+    uint32 *func_type_indexes = (uint32*)module_inst->func_type_indexes.ptr;
+    uint32 *table_data = (uint32*)module_inst->table_data.ptr;
+    AOTFuncType *func_type;
+    void **func_ptrs = (void**)module_inst->func_ptrs.ptr, *func_ptr;
+    uint32 table_size = module_inst->table_size;
+    uint32 func_idx, func_type_idx1;
+    AOTImportFunc *import_func;
+    const char *signature = NULL;
+    void *attachment = NULL;
+    char buf[128];
+
+    if (table_elem_idx >= table_size) {
+        aot_set_exception_with_id(module_inst, EXCE_UNDEFINED_ELEMENT);
+        return false;
+    }
+
+    func_idx = table_data[table_elem_idx];
+    if (func_idx == (uint32)-1) {
+        aot_set_exception_with_id(module_inst, EXCE_UNINITIALIZED_ELEMENT);
+        return false;
+    }
+
+    func_type_idx1 = func_type_indexes[func_idx];
+    if (check_func_type
+        && !aot_is_wasm_type_equal(module_inst, func_type_idx,
+                                   func_type_idx1)) {
+        aot_set_exception_with_id(module_inst,
+                                  EXCE_INVALID_FUNCTION_TYPE_INDEX);
+        return false;
+    }
+    func_type = aot_module->func_types[func_type_idx1];
+
+    if (!(func_ptr = func_ptrs[func_idx])) {
+        bh_assert(func_idx < aot_module->import_func_count);
+        import_func = aot_module->import_funcs + func_idx;
+        snprintf(buf, sizeof(buf),
+                 "fail to call unlinked import function (%s, %s)",
+                 import_func->module_name, import_func->func_name);
+        aot_set_exception(module_inst, buf);
+        return false;
+    }
+
+    if (func_idx < aot_module->import_func_count) {
+        /* Call native function */
+        import_func = aot_module->import_funcs + func_idx;
+        signature = import_func->signature;
+        if (import_func->call_conv_raw) {
+            attachment = import_func->attachment;
+            return wasm_runtime_invoke_native_raw(exec_env, func_ptr,
+                                                  func_type, signature,
+                                                  attachment,
+                                                  frame_lp, argc, argv_ret);
+        }
+    }
+
+    return wasm_runtime_invoke_native(exec_env, func_ptr,
+                                      func_type, signature, attachment,
+                                      frame_lp, argc, argv_ret);
+}

@@ -35,14 +35,14 @@ typedef int int32;
 #define WA_FREE free
 #endif
 
-char *wa_strdup(const char *s);
 
 uint32 htonl(uint32 value);
 uint32 ntohl(uint32 value);
 uint16 htons(uint16 value);
 uint16 ntohs(uint16 value);
 
-int
-b_memcpy_s(void * s1, unsigned int s1max, const void * s2, unsigned int n);
+
+// We are not worried for the WASM world since the sandbox will catch it.
+#define bh_memcpy_s(dst, dst_len, src, src_len)  memcpy(dst, src, src_len)
 
 #endif /* DEPS_IWASM_APP_LIBS_BASE_BH_PLATFORM_H_ */

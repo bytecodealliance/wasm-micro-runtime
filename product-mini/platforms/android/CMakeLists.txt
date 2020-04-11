@@ -27,7 +27,7 @@ set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 if (NOT DEFINED WAMR_BUILD_TARGET)
   if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
@@ -101,7 +101,5 @@ set (distribution_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build/distribution)
 set_target_properties (iwasm PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${distribution_DIR}/wasm/lib")
 
 add_custom_command (TARGET iwasm POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/shared/include" "${distribution_DIR}/wasm/include/"
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/shared/platform/include" "${distribution_DIR}/wasm/include/platform/"
-        COMMAND "${CMAKE_COMMAND}" -E copy "${WAMR_ROOT_DIR}/core/shared/platform/android/bh_platform.h" "${distribution_DIR}/wasm/include/platform/"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${WAMR_ROOT_DIR}/core/iwasm/include" "${distribution_DIR}/wasm/include/"
         COMMENT "Copying iwasm to output directory")

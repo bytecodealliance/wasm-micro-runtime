@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-@external("env", "printf")
+@external("env", "puts")
 declare function printf(a: ArrayBuffer): i32;
 
 export function log(a: string): void {
-    printf(String.UTF8.encode(a + '\n', true));
+    printf(String.UTF8.encode(a, true));
 }
 
 export function log_number(a: number): void {
-    printf(String.UTF8.encode(a.toString() + '\n'));
+    printf(String.UTF8.encode(a.toString()));
 }

@@ -8,7 +8,7 @@ DEPS_DIR=${PWD}/../core/deps
 cd ${DEPS_DIR}
 if [ ! -d "llvm" ]; then
   echo "Clone llvm to core/deps/ .."
-  git clone --depth 1 https://github.com/llvm-mirror/llvm.git
+  git clone --depth 1 https://github.com/llvm/llvm-project.git llvm
 fi
 
 cd llvm
@@ -24,7 +24,7 @@ if [ ! -f bin/llvm-lto ]; then
 
   echo "Build llvm with" ${CORE_NUM} "cores"
 
-  cmake .. \
+  cmake ../llvm \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DCMAKE_BUILD_TYPE:STRING="Release" \
           -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \

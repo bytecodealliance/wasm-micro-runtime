@@ -49,6 +49,10 @@ typedef struct AOTObjectData {
     void *text;
     uint32 text_size;
 
+    /* literal data and size */
+    void *literal;
+    uint32 literal_size;
+
     AOTObjectDataSection *data_sections;
     uint32 data_sections_count;
 
@@ -379,7 +383,7 @@ get_init_data_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
 static uint32
 get_text_section_size(AOTObjectData *obj_data)
 {
-    return obj_data->text_size;
+    return (sizeof(uint32) + obj_data->literal_size + obj_data->text_size + 3) & ~3;
 }
 
 static uint32
@@ -1118,12 +1122,19 @@ aot_emit_text_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 {
     uint32 section_size = get_text_section_size(obj_data);
     uint32 offset = *p_offset;
+    uint8 placeholder = 0;
 
     *p_offset = offset = align_uint(offset, 4);
 
     EMIT_U32(AOT_SECTION_TYPE_TEXT);
     EMIT_U32(section_size);
+    EMIT_U32(obj_data->literal_size);
+    if (obj_data->literal_size > 0)
+        EMIT_BUF(obj_data->literal, obj_data->literal_size);
     EMIT_BUF(obj_data->text, obj_data->text_size);
+
+    while (offset & 3)
+        EMIT_BUF(&placeholder, 1);
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit text section failed.");
@@ -1450,6 +1461,29 @@ aot_resolve_text(AOTObjectData *obj_data)
 }
 
 static bool
+aot_resolve_literal(AOTObjectData *obj_data)
+{
+    LLVMSectionIteratorRef sec_itr;
+    char *name;
+
+    if (!(sec_itr = LLVMObjectFileCopySectionIterator(obj_data->binary))) {
+        aot_set_last_error("llvm get section iterator failed.");
+        return false;
+    }
+    while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
+        if ((name = (char *)LLVMGetSectionName(sec_itr)) && !strcmp(name, ".literal")) {
+            obj_data->literal = (char *)LLVMGetSectionContents(sec_itr);
+            obj_data->literal_size = (uint32)LLVMGetSectionSize(sec_itr);
+            break;
+        }
+        LLVMMoveToNextSection(sec_itr);
+    }
+    LLVMDisposeSectionIterator(sec_itr);
+
+    return true;
+}
+
+static bool
 is_data_section(char *section_name)
 {
     return (!strcmp(section_name, ".data")
@@ -1701,6 +1735,7 @@ is_relocation_section(char *section_name)
 {
     return (!strcmp(section_name, ".rela.text")
             || !strcmp(section_name, ".rel.text")
+            || !strcmp(section_name, ".rela.literal")
             || !strcmp(section_name, ".rela.data")
             || !strcmp(section_name, ".rel.data")
             || !strcmp(section_name, ".rela.rodata")
@@ -1837,6 +1872,8 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     char *err = NULL;
     AOTObjectData *obj_data;
 
+    bh_print_time("Begin to emit object file to buffer");
+
     if (!(obj_data = wasm_runtime_malloc(sizeof(AOTObjectData)))) {
         aot_set_last_error("allocate memory failed.");
         return false;
@@ -1866,9 +1903,12 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         goto fail;
     }
 
+    bh_print_time("Begin to resolve object file info");
+
     /* resolve target info/text/relocations/functions */
     if (!aot_resolve_target_info(comp_ctx, obj_data)
         || !aot_resolve_text(obj_data)
+        || !aot_resolve_literal(obj_data)
         || !aot_resolve_object_data_sections(obj_data)
         || !aot_resolve_object_relocation_groups(obj_data)
         || !aot_resolve_functions(comp_ctx, obj_data))
@@ -1893,6 +1933,8 @@ aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     if (!obj_data)
         return false;
+
+    bh_print_time("Begin to emit AOT file");
 
     aot_file_size = get_aot_file_size(comp_data, obj_data);
 

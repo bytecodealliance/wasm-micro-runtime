@@ -12,53 +12,72 @@
 /* -------------------------------------------------------------------------
  * Label widget native function wrappers
  * -------------------------------------------------------------------------*/
-static int32
-lv_label_create_wrapper(wasm_module_inst_t module_inst,
-                        lv_obj_t *par, lv_obj_t *copy)
+DEFINE_WGL_NATIVE_WRAPPER(lv_label_create_wrapper)
 {
-    return wgl_native_wigdet_create(WIDGET_TYPE_LABEL, par, copy, module_inst);
+    int32 res;
+    wgl_native_return_type(int32);
+    wgl_native_get_arg(uint32, par_obj_id);
+    wgl_native_get_arg(uint32, copy_obj_id);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    res = wgl_native_wigdet_create(WIDGET_TYPE_LABEL, par_obj_id, copy_obj_id, module_inst);
+    wgl_native_set_return(res);
 }
 
-static void
-lv_label_set_text_wrapper(wasm_module_inst_t module_inst,
-                          lv_obj_t * label, const char * text)
+DEFINE_WGL_NATIVE_WRAPPER(lv_label_set_text_wrapper)
 {
-    (void)module_inst;
+    char *text;
+    wgl_native_get_arg(lv_obj_t *, label);
+    wgl_native_get_arg(uint32, text_offset);
+    wgl_native_get_arg(uint32, text_len);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    if (!validate_app_addr(text_offset, text_len)
+        || !(text = addr_app_to_native(text_offset)))
+        return;
+
     lv_label_set_text(label, text);
 }
 
-static int32
-lv_label_get_text_length_wrapper(wasm_module_inst_t module_inst,
-                                 lv_obj_t *label)
+DEFINE_WGL_NATIVE_WRAPPER(lv_label_get_text_length_wrapper)
 {
-    char *text = lv_label_get_text(label);
+    wgl_native_return_type(int32);
+    wgl_native_get_arg(lv_obj_t *, label);
+    const char *text;
 
-    if (text == NULL)
-        return 0;
+    (void)exec_env;
 
-    return strlen(text);
+    text = lv_label_get_text(label);
+    wgl_native_set_return(text ? strlen(text) : 0);
 }
 
-static char *
-lv_label_get_text_wrapper(wasm_module_inst_t module_inst,
-                          lv_obj_t *label, char *buffer, int buffer_len)
+DEFINE_WGL_NATIVE_WRAPPER(lv_label_get_text_wrapper)
 {
-    char *text = lv_label_get_text(label);
+    const char *text;
+    char *buffer;
+    wgl_native_return_type(uint32);
+    wgl_native_get_arg(lv_obj_t *, label);
+    wgl_native_get_arg(uint32, buffer_offset);
+    wgl_native_get_arg(int, buffer_len);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    if (text == NULL)
-        return 0;
+    if (!validate_app_addr(buffer_offset, buffer_len)
+        || !(buffer = addr_app_to_native(buffer_offset)))
+        return;
 
-    strncpy(buffer, text, buffer_len - 1);
-    buffer[buffer_len - 1] = '\0';
+    if ((text = lv_label_get_text(label))) {
+        strncpy(buffer, text, buffer_len - 1);
+        buffer[buffer_len - 1] = '\0';
+    }
 
-    return buffer;
+    wgl_native_set_return(buffer_offset);
 }
 
 static WGLNativeFuncDef label_native_func_defs[] = {
-        { LABEL_FUNC_ID_CREATE, lv_label_create_wrapper, HAS_RET, 3, {1 | NULL_OK, 2 | NULL_OK, -1}, {-1} },
-        { LABEL_FUNC_ID_SET_TEXT, lv_label_set_text_wrapper, NO_RET, 3, {1, -1}, {2, -1} },
-        { LABEL_FUNC_ID_GET_TEXT_LENGTH, lv_label_get_text_length_wrapper, HAS_RET, 2, {1, -1}, {-1} },
-        { LABEL_FUNC_ID_GET_TEXT, lv_label_get_text_wrapper, RET_PTR, 4, {1, -1}, {2, -1} },
+    { LABEL_FUNC_ID_CREATE,           lv_label_create_wrapper,          2,  false },
+    { LABEL_FUNC_ID_SET_TEXT,         lv_label_set_text_wrapper,        3,  true },
+    { LABEL_FUNC_ID_GET_TEXT_LENGTH,  lv_label_get_text_length_wrapper, 1,  true },
+    { LABEL_FUNC_ID_GET_TEXT,         lv_label_get_text_wrapper,        3,  true },
 };
 
 /*************** Native Interface to Wasm App ***********/
@@ -66,10 +85,9 @@ void
 wasm_label_native_call(wasm_exec_env_t exec_env,
                        int32 func_id, uint32 *argv, uint32 argc)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint32 size = sizeof(label_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(module_inst,
+    wgl_native_func_call(exec_env,
                          label_native_func_defs,
                          size,
                          func_id,

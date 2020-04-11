@@ -5,40 +5,40 @@
 
 #include <stdlib.h>
 #include "bh_platform.h"
-#include "bh_assert.h"
-#include "bh_log.h"
+#include "bh_read_file.h"
 #include "wasm_export.h"
 #include "aot_export.h"
 
 static int
 print_help()
 {
-  bh_printf("Usage: wamrc [options] -o output_file wasm_file\n");
-  bh_printf("  --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>\n");
-  bh_printf("                            <arch> = x86_64, i386, arm, thumb, mips.\n");
-  bh_printf("                              Default is host arch, e.g. x86_64\n");
-  bh_printf("                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.\n");
-  bh_printf("                            Use --target=help to list supported targets\n");
-  bh_printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, etc. (default: gnu)\n");
-  bh_printf("                            Use --target-abi=help to list all the ABI supported\n");
-  bh_printf("  --cpu=<cpu>               Set the target CPU (default: host CPU, e.g. skylake)\n");
-  bh_printf("                            Use --cpu=help to list all the CPU supported\n");
-  bh_printf("  --cpu-features=<features> Enable or disable the CPU features\n");
-  bh_printf("                            Use +feature to enable a feature, or -feature to disable it\n");
-  bh_printf("                            For example, --cpu-features=+feature1,-feature2\n");
-  bh_printf("                            Use --cpu-features=+help to list all the features supported\n");
-  bh_printf("  --opt-level=n             Set the optimization level (0 to 3, default: 3, which is fastest)\n");
-  bh_printf("  --size-level=n            Set the code size level (0 to 3, default: 3, which is smallest)\n");
-  bh_printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)\n");
-  bh_printf("  --format=<format>         Specifies the format of the output file\n");
-  bh_printf("                            The format supported:\n");
-  bh_printf("                              aot (default)  AoT file\n");
-  bh_printf("                              object         Native object file\n");
-  bh_printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
-  bh_printf("                              llvmir-opt     Optimized LLVM IR\n");
-  bh_printf("Examples: wamrc -o test.aot test.wasm\n");
-  bh_printf("          wamrc --target=i386 -o test.aot test.wasm\n");
-  bh_printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
+  printf("Usage: wamrc [options] -o output_file wasm_file\n");
+  printf("  --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>\n");
+  printf("                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips.\n");
+  printf("                              Default is host arch, e.g. x86_64\n");
+  printf("                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.\n");
+  printf("                            Use --target=help to list supported targets\n");
+  printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, etc. (default: gnu)\n");
+  printf("                            Use --target-abi=help to list all the ABI supported\n");
+  printf("  --cpu=<cpu>               Set the target CPU (default: host CPU, e.g. skylake)\n");
+  printf("                            Use --cpu=help to list all the CPU supported\n");
+  printf("  --cpu-features=<features> Enable or disable the CPU features\n");
+  printf("                            Use +feature to enable a feature, or -feature to disable it\n");
+  printf("                            For example, --cpu-features=+feature1,-feature2\n");
+  printf("                            Use --cpu-features=+help to list all the features supported\n");
+  printf("  --opt-level=n             Set the optimization level (0 to 3, default: 3, which is fastest)\n");
+  printf("  --size-level=n            Set the code size level (0 to 3, default: 3, which is smallest)\n");
+  printf("  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)\n");
+  printf("  --format=<format>         Specifies the format of the output file\n");
+  printf("                            The format supported:\n");
+  printf("                              aot (default)  AoT file\n");
+  printf("                              object         Native object file\n");
+  printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
+  printf("                              llvmir-opt     Optimized LLVM IR\n");
+  printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
+  printf("Examples: wamrc -o test.aot test.wasm\n");
+  printf("          wamrc --target=i386 -o test.aot test.wasm\n");
+  printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
   return 1;
 }
 
@@ -118,9 +118,14 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0] + 9, "llvmir-opt"))
           option.output_format = AOT_LLVMIR_OPT_FILE;
         else {
-            bh_printf("Invalid format %s.\n", argv[0] + 9);
+            printf("Invalid format %s.\n", argv[0] + 9);
             return print_help();
         }
+    }
+    else if (!strncmp(argv[0], "-v=", 3)) {
+        log_verbose_level = atoi(argv[0] + 3);
+        if (log_verbose_level < 0 || log_verbose_level > 5)
+            return print_help();
     }
     else
       return print_help();
@@ -143,11 +148,13 @@ main(int argc, char *argv[])
 
   /* initialize runtime environment */
   if (!wasm_runtime_full_init(&init_args)) {
-    bh_printf("Init runtime environment failed.\n");
+    printf("Init runtime environment failed.\n");
     return -1;
   }
 
   bh_log_set_verbose_level(log_verbose_level);
+
+  bh_print_time("Begin to load wasm file");
 
   /* load WASM byte buffer from WASM bin file */
   if (!(wasm_file = (uint8*)
@@ -157,23 +164,27 @@ main(int argc, char *argv[])
   /* load WASM module */
   if (!(wasm_module = wasm_runtime_load(wasm_file, wasm_file_size,
                                         error_buf, sizeof(error_buf)))) {
-    bh_printf("%s\n", error_buf);
+    printf("%s\n", error_buf);
     goto fail2;
   }
 
   if (!(comp_data = aot_create_comp_data(wasm_module))) {
-    bh_printf("%s\n", aot_get_last_error());
+    printf("%s\n", aot_get_last_error());
     goto fail3;
   }
 
+  bh_print_time("Begin to create compile context");
+
   if (!(comp_ctx = aot_create_comp_context(comp_data,
                                            &option))) {
-    bh_printf("%s\n", aot_get_last_error());
+    printf("%s\n", aot_get_last_error());
     goto fail4;
   }
 
+  bh_print_time("Begin to compile");
+
   if (!aot_compile_wasm(comp_ctx)) {
-    bh_printf("%s\n", aot_get_last_error());
+    printf("%s\n", aot_get_last_error());
     goto fail5;
   }
 
@@ -181,19 +192,19 @@ main(int argc, char *argv[])
       case AOT_LLVMIR_UNOPT_FILE:
       case AOT_LLVMIR_OPT_FILE:
           if (!aot_emit_llvm_file(comp_ctx, out_file_name)) {
-              bh_printf("%s\n", aot_get_last_error());
+              printf("%s\n", aot_get_last_error());
               goto fail5;
           }
           break;
       case AOT_OBJECT_FILE:
           if (!aot_emit_object_file(comp_ctx, out_file_name)) {
-              bh_printf("%s\n", aot_get_last_error());
+              printf("%s\n", aot_get_last_error());
               goto fail5;
           }
           break;
       case AOT_FORMAT_FILE:
           if (!aot_emit_aot_file(comp_ctx, comp_data, out_file_name)) {
-              bh_printf("%s\n", aot_get_last_error());
+              printf("%s\n", aot_get_last_error());
               goto fail5;
           }
           break;
@@ -201,7 +212,9 @@ main(int argc, char *argv[])
           break;
   }
 
-  bh_printf("Compile success, file %s was generated.\n", out_file_name);
+  bh_print_time("Compile end");
+
+  printf("Compile success, file %s was generated.\n", out_file_name);
 
 fail5:
   /* Destroy compiler context */
@@ -222,6 +235,8 @@ fail2:
 fail1:
   /* Destroy runtime environment */
   wasm_runtime_destroy();
+
+  bh_print_time("wamrc return");
   return 0;
 }
 

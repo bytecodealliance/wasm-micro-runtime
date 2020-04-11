@@ -140,6 +140,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_MACHINE_MIPS      8       /* MIPS R3000 big-endian */
 #define E_MACHINE_MIPS_RS3_LE  10   /* MIPS R3000 little-endian */
 #define E_MACHINE_ARM      40       /* ARM/Thumb */
+#define E_MACHINE_AARCH64  183      /* AArch64 */
 #define E_MACHINE_ARC      45       /* Argonaut RISC Core */
 #define E_MACHINE_IA_64    50       /* Intel Merced */
 #define E_MACHINE_MIPS_X   51       /* Stanford MIPS-X */
@@ -196,6 +197,7 @@ get_aot_file_target(AOTTargetInfo *target_info,
             machine_type = "i386";
             break;
         case E_MACHINE_ARM:
+        case E_MACHINE_AARCH64:
             machine_type = target_info->arch;
             break;
         case E_MACHINE_MIPS:
@@ -614,6 +616,7 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Create each import global */
     for (i = 0; i < module->import_global_count; i++) {
+        buf = (uint8*)align_ptr(buf, 2);
         read_uint8(buf, buf_end, import_globals[i].type);
         read_uint8(buf, buf_end, import_globals[i].is_mutable);
         read_string(buf, buf_end, import_globals[i].module_name);
@@ -783,13 +786,16 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
         if (!(import_funcs[i].func_ptr_linked =
                     wasm_native_resolve_symbol(module_name, field_name,
                                                import_funcs[i].func_type,
-                                               &import_funcs[i].signature))) {
+                                               &import_funcs[i].signature,
+                                               &import_funcs[i].attachment,
+                                               &import_funcs[i].call_conv_raw))) {
             LOG_WARNING("warning: fail to link import function (%s, %s)\n",
                         module_name, field_name);
         }
 
 #if WASM_ENABLE_LIBC_WASI != 0
-        if (!strcmp(import_funcs[i].module_name, "wasi_unstable"))
+        if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
+            || !strcmp(import_funcs[i].module_name, "wasi_snapshot_preview1"))
             module->is_wasi_module = true;
 #endif
     }
@@ -829,7 +835,7 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
     AOTObjectDataSection *data_section = data_sections;
     for (i = 0; i < data_section_count; i++, data_section++)
         if (data_section->data)
-            bh_munmap(data_section->data, data_section->size);
+            os_munmap(data_section->data, data_section->size);
     wasm_runtime_free(data_sections);
 }
 
@@ -872,7 +878,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
 
         /* Allocate memory for data */
         if (!(data_sections[i].data =
-                    bh_mmap(NULL, data_sections[i].size, map_prot, map_flags))) {
+                    os_mmap(NULL, data_sections[i].size, map_prot, map_flags))) {
             set_error_buf(error_buf, error_buf_size,
                           "AOT module load failed: "
                           "allocate memory failed.");
@@ -980,14 +986,21 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
-    module->code = (void*)buf;
-    module->code_size = (uint32)(buf_end - buf);
+    read_uint32(buf, buf_end, module->literal_size);
+
+    /* literal data is at begining of the text section */
+    module->literal = (uint8*)buf;
+    module->code = (void*)(buf + module->literal_size);
+    module->code_size = (uint32)(buf_end - (uint8*)module->code);
 
     if (module->code_size > 0) {
         plt_base = (uint8*)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
     }
     return true;
+
+fail:
+    return false;
 }
 
 static bool
@@ -1180,12 +1193,19 @@ resolve_target_sym(const char *symbol, int32 *p_index)
 }
 
 static bool
+is_literal_relocation(const char *reloc_sec_name)
+{
+    return !strcmp(reloc_sec_name, ".rela.literal");
+}
+
+static bool
 do_text_relocation(AOTModule *module,
                    AOTRelocationGroup *group,
                    char *error_buf, uint32 error_buf_size)
 {
-    uint8 *aot_text = module->code;
-    uint32 aot_text_size = module->code_size;
+    bool is_literal = is_literal_relocation(group->section_name);
+    uint8 *aot_text = is_literal ? module->literal : module->code;
+    uint32 aot_text_size = is_literal ? module->literal_size : module->code_size;
     uint32 i, func_index, symbol_len;
     char symbol_buf[128]  = { 0 }, *symbol, *p;
     void *symbol_addr;
@@ -1242,6 +1262,9 @@ do_text_relocation(AOTModule *module,
                              symbol);
                 goto check_symbol_fail;
             }
+        }
+        else if (!strcmp(symbol, ".literal")) {
+            symbol_addr = module->literal;
         }
         else if (!(symbol_addr = resolve_target_sym(symbol, &symbol_index))) {
             if (error_buf != NULL)
@@ -1490,7 +1513,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         }
 
         if (!strcmp(group->section_name, ".rel.text")
-            || !strcmp(group->section_name, ".rela.text")) {
+            || !strcmp(group->section_name, ".rela.text")
+            || !strcmp(group->section_name, ".rela.literal")) {
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
                 return false;
         }
@@ -1594,12 +1618,12 @@ load_from_sections(AOTModule *module, AOTSection *sections,
 
     /* Flush data cache before executing AOT code,
      * otherwise unpredictable behavior can occur. */
-    bh_dcache_flush();
+    os_dcache_flush();
 
     return true;
 }
 
-#if BEIHAI_ENABLE_MEMORY_PROFILING != 0
+#if BH_ENABLE_MEMORY_PROFILING != 0
 static void aot_free(void *ptr)
 {
     wasm_runtime_free(ptr);
@@ -1668,7 +1692,7 @@ destroy_sections(AOTSection *section_list, bool destroy_aot_text)
         if (destroy_aot_text
             && section->section_type == AOT_SECTION_TYPE_TEXT
             && section->section_body)
-            bh_munmap((uint8*)section->section_body, section->section_body_size);
+            os_munmap((uint8*)section->section_body, section->section_body_size);
         wasm_runtime_free(section);
         section = next;
     }
@@ -1719,7 +1743,7 @@ create_sections(const uint8 *buf, uint32 size,
                     total_size = (uint64)section_size + aot_get_plt_table_size();
                     total_size = (total_size + 3) & ~((uint64)3);
                     if (total_size >= UINT32_MAX
-                        || !(aot_text = bh_mmap(NULL, (uint32)total_size,
+                        || !(aot_text = os_mmap(NULL, (uint32)total_size,
                                                 map_prot, map_flags))) {
                         wasm_runtime_free(section);
                         set_error_buf(error_buf, error_buf_size,
@@ -2074,8 +2098,11 @@ aot_unload(AOTModule *module)
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
 
-    if (module->code)
-        bh_munmap(module->code, module->code_size);
+    if (module->code) {
+        uint8 *mmap_addr = module->literal - sizeof(module->literal_size);
+        uint32 total_size = sizeof(module->literal_size) + module->literal_size + module->code_size;
+        os_munmap(mmap_addr, total_size);
+    }
 
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,

@@ -47,6 +47,7 @@
 #include "str.h"
 
 #include "bh_common.h"
+#include "bh_assert.h"
 
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
@@ -1907,6 +1908,21 @@ __wasi_errno_t wasmtime_ssp_path_open(
     close(nfd);
     return error;
   }
+
+  {
+    struct stat sb;
+
+    if (fstat(nfd, &sb) < 0) {
+      close(nfd);
+      return convert_errno(errno);
+    }
+
+    if (S_ISDIR(sb.st_mode))
+      rights_base |= RIGHTS_DIRECTORY_BASE;
+    else if (S_ISREG(sb.st_mode))
+      rights_base |= RIGHTS_REGULAR_FILE_BASE;
+  }
+
   return fd_table_insert_fd(curfds, nfd, type, rights_base & max_base,
                             rights_inheriting & max_inheriting, fd);
 }
@@ -2272,8 +2288,14 @@ __wasi_errno_t wasmtime_ssp_path_filestat_set_times(
     __wasi_timestamp_t st_mtim,
     __wasi_fstflags_t fstflags
 ) {
-  if ((fstflags & ~(__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW |
-                    __WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW)) != 0)
+  if (((fstflags & ~(__WASI_FILESTAT_SET_ATIM | __WASI_FILESTAT_SET_ATIM_NOW |
+                     __WASI_FILESTAT_SET_MTIM | __WASI_FILESTAT_SET_MTIM_NOW)) != 0)
+      /* ATIM & ATIM_NOW can't be set at the same time */
+      || ((fstflags & __WASI_FILESTAT_SET_ATIM) != 0
+          && (fstflags & __WASI_FILESTAT_SET_ATIM_NOW) != 0)
+      /* MTIM & MTIM_NOW can't be set at the same time */
+      || ((fstflags & __WASI_FILESTAT_SET_MTIM) != 0
+          && (fstflags & __WASI_FILESTAT_SET_MTIM_NOW) != 0))
     return __WASI_EINVAL;
 
   struct path_access pa;

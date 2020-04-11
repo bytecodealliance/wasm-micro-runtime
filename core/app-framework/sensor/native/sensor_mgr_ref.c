@@ -3,9 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
+#include "bh_platform.h"
 #include "runtime_sensor.h"
 #include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
@@ -91,15 +89,15 @@ static void thread_sensor_check(void * arg)
         int ms_to_expiry = check_sensor_timers();
         if (ms_to_expiry == -1)
             ms_to_expiry = 5000;
-        vm_mutex_lock(&mutex);
-        vm_cond_reltimedwait(&cond, &mutex, ms_to_expiry);
-        vm_mutex_unlock(&mutex);
+        os_mutex_lock(&mutex);
+        os_cond_reltimedwait(&cond, &mutex, ms_to_expiry * 1000);
+        os_mutex_unlock(&mutex);
     }
 }
 
 static void cb_wakeup_thread()
 {
-    vm_cond_signal(&cond);
+    os_cond_signal(&cond);
 }
 
 void set_sensor_reshceduler(void (*callback)());
@@ -107,8 +105,8 @@ void set_sensor_reshceduler(void (*callback)());
 void init_sensor_framework()
 {
     // init the mutext and conditions
-    vm_cond_init(&cond);
-    vm_mutex_init(&mutex);
+    os_cond_init(&cond);
+    os_mutex_init(&mutex);
 
 
     set_sensor_reshceduler(cb_wakeup_thread);
@@ -123,9 +121,9 @@ void init_sensor_framework()
 
 void start_sensor_framework()
 {
-    korp_thread tid;
+    korp_tid tid;
 
-    vm_thread_create(&tid,
+    os_thread_create(&tid,
             (void *)thread_sensor_check,
             NULL,
             BH_APPLET_PRESERVED_STACK_SIZE);

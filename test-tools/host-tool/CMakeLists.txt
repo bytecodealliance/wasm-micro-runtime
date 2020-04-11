@@ -15,6 +15,9 @@ endif (NOT WAMR_BUILD_PLATFORM)
 
 message ("WAMR_BUILD_PLATFORM = " ${WAMR_BUILD_PLATFORM})
 
+add_definitions(-DWA_MALLOC=malloc)
+add_definitions(-DWA_FREE=free)
+
 set (REPO_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 set (IWASM_DIR  ${REPO_ROOT_DIR}/core/iwasm)
 set (APP_MGR_DIR ${REPO_ROOT_DIR}/core/app-mgr)

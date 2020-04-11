@@ -9,10 +9,6 @@
 #define R_ARM_JMP24     29  /* PC relative 24 bit (B/BL<cond>).  */
 #define R_ARM_ABS32     2   /* Direct 32 bit */
 
-#ifndef BH_MB
-#define BH_MB 1024 * 1024
-#endif
-
 void __divdi3();
 void __udivdi3();
 void __moddi3();
@@ -163,7 +159,7 @@ init_plt_table(uint8 *plt)
         /* nop */
         *p++ = 0xe1a00000;
         /* symbol addr */
-        *p++ = (uint32)(uintptr_t)target_sym_map[i].symbol_addr;;
+        *p++ = (uint32)(uintptr_t)target_sym_map[i].symbol_addr;
         plt += get_plt_item_size();
     }
 }

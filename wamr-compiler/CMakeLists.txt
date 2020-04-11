@@ -34,6 +34,9 @@ elseif (WAMR_BUILD_TARGET STREQUAL "AMD_64")
   add_definitions(-DBUILD_TARGET_AMD_64)
 elseif (WAMR_BUILD_TARGET STREQUAL "X86_32")
   add_definitions(-DBUILD_TARGET_X86_32)
+elseif (WAMR_BUILD_TARGET MATCHES "AARCH64.*")
+  add_definitions(-DBUILD_TARGET_AARCH64)
+  add_definitions(-DBUILD_TARGET="${WAMR_BUILD_TARGET}")
 elseif (WAMR_BUILD_TARGET MATCHES "ARM.*")
   add_definitions(-DBUILD_TARGET_ARM)
   add_definitions(-DBUILD_TARGET="${WAMR_BUILD_TARGET}")
@@ -44,7 +47,7 @@ endif ()
 message ("-- Build as target ${WAMR_BUILD_TARGET}")
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-  if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+  if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64" OR WAMR_BUILD_TARGET MATCHES "AARCH64.*")
     # Add -fPIC flag if build as 64-bit
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
     set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
@@ -89,6 +92,7 @@ enable_language (ASM)
 include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)
+include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)
 include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
@@ -114,6 +118,7 @@ add_library (vmlib
              ${PLATFORM_SHARED_SOURCE}
              ${MEM_ALLOC_SHARED_SOURCE}
              ${UTILS_SHARED_SOURCE}
+             ${UNCOMMON_SHARED_SOURCE}
              ${LIBC_BUILTIN_SOURCE}
              ${IWASM_COMMON_SOURCE}
              ${IWASM_INTERP_SOURCE}

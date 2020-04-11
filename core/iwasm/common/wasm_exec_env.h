@@ -6,7 +6,6 @@
 #ifndef _WASM_EXEC_ENV_H
 #define _WASM_EXEC_ENV_H
 
-#include "bh_thread.h"
 #include "bh_assert.h"
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm.h"
@@ -33,6 +32,11 @@ typedef struct WASMExecEnv {
 #if WASM_ENABLE_AOT != 0
     uint32 *argv_buf;
 #endif
+
+    /* attachment for native function */
+    void *attachment;
+
+    void *user_data;
 
     /* Current interpreter frame of current thread */
     struct WASMInterpFrame *cur_frame;

@@ -8,7 +8,6 @@
 
 #include "bh_platform.h"
 #include "bh_common.h"
-#include "bh_thread.h"
 #include "wasm_exec_env.h"
 #include "wasm_native.h"
 #include "../include/wasm_export.h"
@@ -115,10 +114,44 @@ WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
+void *
+wasm_runtime_get_function_attachment(wasm_exec_env_t exec_env);
+
+/* See wasm_export.h for description */
+void
+wasm_runtime_set_user_data(wasm_exec_env_t exec_env, void *user_data);
+
+/* See wasm_export.h for description */
+void *
+wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
+
+/* See wasm_export.h for description */
 bool
 wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function,
                        unsigned argc, uint32 argv[]);
+
+/**
+ * Call a function reference of a given WASM runtime instance with
+ * arguments.
+ *
+ * @param exec_env the execution environment to call the function
+ *   which must be created from wasm_create_exec_env()
+ * @param element_indices the function ference indicies, usually
+ *   prvovided by the caller of a registed native function
+ * @param argc the number of arguments
+ * @param argv the arguments.  If the function method has return value,
+ *   the first (or first two in case 64-bit return value) element of
+ *   argv stores the return value of the called WASM function after this
+ *   function returns.
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get exception info.
+ */
+bool
+wasm_runtime_call_indirect(WASMExecEnv *exec_env,
+                           uint32_t element_indices,
+                           uint32_t argc, uint32_t argv[]);
 
 bool
 wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst,
@@ -258,6 +291,7 @@ wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst,
 
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst);
+
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 /**
@@ -276,11 +310,23 @@ wasm_runtime_register_natives(const char *module_name,
                               NativeSymbol *native_symbols,
                               uint32 n_native_symbols);
 
+/* See wasm_export.h for description */
+bool
+wasm_runtime_register_natives_raw(const char *module_name,
+                                  NativeSymbol *native_symbols,
+                                  uint32 n_native_symbols);
+
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            const WASMType *func_type, const char *signature,
+                           void *attachment,
                            uint32 *argv, uint32 argc, uint32 *ret);
 
+bool
+wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
+                               const WASMType *func_type, const char *signature,
+                               void *attachment,
+                               uint32 *argv, uint32 argc, uint32 *ret);
 
 #ifdef __cplusplus
 }

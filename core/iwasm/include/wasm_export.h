@@ -15,6 +15,34 @@
 extern "C" {
 #endif
 
+#define get_module_inst(exec_env) \
+    wasm_runtime_get_module_inst(exec_env)
+
+#define validate_app_addr(offset, size) \
+    wasm_runtime_validate_app_addr(module_inst, offset, size)
+
+#define validate_app_str_addr(offset) \
+    wasm_runtime_validate_app_str_addr(module_inst, offset)
+
+#define addr_app_to_native(offset) \
+    wasm_runtime_addr_app_to_native(module_inst, offset)
+
+#define addr_native_to_app(ptr) \
+    wasm_runtime_addr_native_to_app(module_inst, ptr)
+
+#define module_malloc(size, p_native_addr) \
+    wasm_runtime_module_malloc(module_inst, size, p_native_addr)
+
+#define module_free(offset) \
+    wasm_runtime_module_free(module_inst, offset)
+
+#define native_raw_return_type(type, args) type *raw_ret = (type*)(args)
+
+#define native_raw_get_arg(type, name, args) type name = *((type*)(args++))
+
+#define native_raw_set_return(val) *raw_ret = (val)
+
+
 /* Uninstantiated WASM module loaded from WASM binary file
    or AoT binary file*/
 struct WASMModuleCommon;
@@ -335,6 +363,17 @@ const char *
 wasm_runtime_get_exception(wasm_module_inst_t module_inst);
 
 /**
+ * Set exception info of the WASM module instance.
+ *
+ * @param module_inst the WASM module instance
+ *
+ * @param exception the exception string
+ */
+void
+wasm_runtime_set_exception(wasm_module_inst_t module_inst,
+                           const char *exception);
+
+/**
  * Clear exception info of the WASM module instance.
  *
  * @param module_inst the WASM module instance
@@ -537,6 +576,49 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
 bool wasm_runtime_register_natives(const char *module_name,
                                    NativeSymbol *native_symbols,
                                    uint32_t n_native_symbols);
+
+/**
+ * Register native functions with same module name, similar to
+ *   wasm_runtime_register_natives, the difference is that runtime passes raw
+ * arguments to native API, which means that the native API should be defined as:
+ *   void foo(wasm_exec_env_t exec_env, uint64 *args);
+ * and native API should extract arguments one by one from args array with macro
+ *   native_raw_get_arg
+ * and write the return value back to args[0] with macro
+ *   native_raw_return_type and native_raw_set_return
+ */
+bool wasm_runtime_register_natives_raw(const char *module_name,
+                                       NativeSymbol *native_symbols,
+                                       uint32_t n_native_symbols);
+
+/**
+ * Get attachment of native function from execution environment
+ *
+ * @param exec_env the execution environment to retrieve
+ *
+ * @return the attachment of native function
+ */
+void *
+wasm_runtime_get_function_attachment(wasm_exec_env_t exec_env);
+
+/**
+ * Set user data to execution environment.
+ *
+ * @param exec_env the execution environment
+ * @param user_data the user data to be set
+ */
+void
+wasm_runtime_set_user_data(wasm_exec_env_t exec_env,
+                           void *user_data);
+/**
+ * Get the user data within execution environment.
+ *
+ * @param exec_env the execution environment
+ *
+ * @return the user data (NULL if not set yet)
+ */
+void *
+wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
 
 #ifdef __cplusplus
 }

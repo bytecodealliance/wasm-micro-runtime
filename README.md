@@ -28,12 +28,16 @@ iwasm VM core
 - [Embeddable with the supporting C API's](./doc/embed_wamr.md)
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
 
+### Performance and memory usage
+The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.
+
 ### Supported architectures and platforms
 
 The iwasm supports the following architectures:
 
 - X86-64, X86-32
 - ARM, THUMB (ARMV7 Cortex-M7 and Cortex-A15 are tested)
+- AArch64 (Cortex-A57 and Cortex-A53 are tested)
 - MIPS
 - XTENSA
 
@@ -49,7 +53,7 @@ Execute following commands to build **wamrc** compiler:
 
 ```shell
 cd wamr-compiler
-./build_llvm.sh
+./build_llvm.sh (use build_llvm_xtensa.sh instead to support xtensa target)
 mkdir build && cd build
 cmake ..
 make
@@ -96,7 +100,9 @@ The **[WAMR SDK](./wamr-sdk)** tools is helpful to finish the two tasks quickly.
 Samples
 =================
 
-The WAMR [samples](./samples) integrate the iwasm VM core, application manager and selected application framework components. 
+The WAMR [samples](./samples) integrate the iwasm VM core, application manager and selected application framework components.
+
+- [**Basic**](./samples/basic): Demonstrating how host runtime calls WASM function as well as WASM function calls native function.
 - **[Simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libraries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
 - **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/littlevgl/) 2D user graphic library and the UI application is built into WASM application.  It uses **WASI libc** and executes apps in **AoT mode** by default.
 - **[gui](./samples/gui/README.md)**: Moved the [LittlevGL](https://github.com/littlevgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.

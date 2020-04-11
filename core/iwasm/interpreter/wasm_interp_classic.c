@@ -748,9 +748,18 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
         return;
     }
 
-    ret = wasm_runtime_invoke_native(exec_env, func_import->func_ptr_linked,
-                                     func_import->func_type, func_import->signature,
-                                     frame->lp, cur_func->param_cell_num, argv_ret);
+    if (!func_import->call_conv_raw) {
+        ret = wasm_runtime_invoke_native(exec_env, func_import->func_ptr_linked,
+                                         func_import->func_type, func_import->signature,
+                                         func_import->attachment,
+                                         frame->lp, cur_func->param_cell_num, argv_ret);
+    }
+    else {
+        ret = wasm_runtime_invoke_native_raw(exec_env, func_import->func_ptr_linked,
+                                             func_import->func_type, func_import->signature,
+                                             func_import->attachment,
+                                             frame->lp, cur_func->param_cell_num, argv_ret);
+    }
 
     if (!ret)
         return;
@@ -818,7 +827,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
-  DEFINE_GOTO_TABLE (handle_table);
+  DEFINE_GOTO_TABLE (const void *, handle_table);
   #undef HANDLE_OPCODE
 #endif
 
@@ -1401,7 +1410,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           /* fail to memory.grow, return -1 */
           PUSH_I32(-1);
           if (wasm_get_exception(module)) {
-            bh_printf("%s\n", wasm_get_exception(module));
+            os_printf("%s\n", wasm_get_exception(module));
             wasm_set_exception(module, NULL);
           }
         }

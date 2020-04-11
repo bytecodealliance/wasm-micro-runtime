@@ -982,7 +982,7 @@ wasi_sched_yield(wasm_exec_env_t exec_env)
 }
 
 #define REG_NATIVE_FUNC(func_name, signature)     \
-    { #func_name, wasi_##func_name, signature }
+    { #func_name, wasi_##func_name, signature, NULL }
 
 static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(args_get, "(**)i"),
