@@ -40,16 +40,14 @@ Build and Run
 
 - Build</br>
 `./build.sh`</br>
-    All binaries are in "out", which contains "host_tool", "lvgl_native_ui_app", "ui_app.wasm", "ui_app_lvgl_compatible.wasm" and "wasm_runtime_wgl".
-- Run native Linux application</br>
-`./lvgl_native_ui_app`</br>
+    All binaries are in "out", which contains "host_tool", "ui_decrease.wasm", "ui_increase.wasm" and "wasm_runtime_wgl".
 
 - Run WASM VM Linux applicaton & install WASM APP</br>
  First start wasm_runtime_wgl in server mode.</br>
 `./wasm_runtime_wgl -s`</br>
  Then install wasm APP use host tool.</br>
-`./host_tool -i ui_app -f ui_app.wasm`</br>
-`./host_tool -i ui_app -f ui_app_lvgl_compatible.wasm`</br>
+`./host_tool -i inc -f ui_increase.wasm`</br>
+`./host_tool -i dec -f ui_decrease.wasm`</br>
 
 
 
@@ -107,11 +105,11 @@ https://docs.zephyrproject.org/latest/getting_started/index.html</br>
 
 - Install WASM application to Zephyr using host_tool</br>
 First, connect PC and STM32 with UART. Then install to use host_tool.</br>
-`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app.wasm`
+`./host_tool -D /dev/ttyUSBXXX -i inc -f ui_increase.wasm`
 
 - Install AOT version WASM application
-`wamrc --target=thumbv7 --target-abi=eabi --cpu=cortex-m7 -o ui_app.aot ui_app.wasm`
-`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app.aot`
+`wamrc --target=thumbv7 --target-abi=eabi --cpu=cortex-m7 -o ui_app.aot ui_increase.wasm`
+`./host_tool -D /dev/ttyUSBXXX -i inc -f ui_app.aot`
 
 
 
