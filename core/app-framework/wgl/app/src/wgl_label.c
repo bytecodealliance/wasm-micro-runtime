@@ -13,17 +13,17 @@
 #define ARGC sizeof(argv)/sizeof(uint32)
 #define CALL_LABEL_NATIVE_FUNC(id) wasm_label_native_call(id, argv, ARGC)
 
-lv_obj_t * lv_label_create(lv_obj_t * par, const lv_obj_t * copy);
+lv_obj_t * lv_label_create(lv_obj_t * par, const lv_obj_t * copy)
 {
     uint32 argv[2] = {0};
 
     argv[0] = (uint32)par;
     argv[1] = (uint32)copy;
     CALL_LABEL_NATIVE_FUNC(LABEL_FUNC_ID_CREATE);
-    return (wgl_obj_t)argv[0];
+    return (lv_obj_t *)argv[0];
 }
 
-void lv_label_set_text(lv_obj_t * label, const char * text);
+void lv_label_set_text(lv_obj_t * label, const char * text)
 {
     uint32 argv[3] = {0};
     argv[0] = (uint32)label;
@@ -33,7 +33,7 @@ void lv_label_set_text(lv_obj_t * label, const char * text);
 }
 
 
-void lv_label_set_array_text(lv_obj_t * label, const char * array, uint16_t size);
+void lv_label_set_array_text(lv_obj_t * label, const char * array, uint16_t size)
 {
     uint32 argv[3] = {0};
     argv[0] = (uint32)label;
@@ -43,7 +43,7 @@ void lv_label_set_array_text(lv_obj_t * label, const char * array, uint16_t size
 }
 
 
-void lv_label_set_static_text(lv_obj_t * label, const char * text);
+void lv_label_set_static_text(lv_obj_t * label, const char * text)
 {
     uint32 argv[3] = {0};
     argv[0] = (uint32)label;
@@ -53,7 +53,7 @@ void lv_label_set_static_text(lv_obj_t * label, const char * text);
 }
 
 
-void lv_label_set_long_mode(lv_obj_t * label, lv_label_long_mode_t long_mode);
+void lv_label_set_long_mode(lv_obj_t * label, lv_label_long_mode_t long_mode)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)label;
@@ -62,7 +62,7 @@ void lv_label_set_long_mode(lv_obj_t * label, lv_label_long_mode_t long_mode);
 }
 
 
-void lv_label_set_align(lv_obj_t * label, lv_label_align_t align);
+void lv_label_set_align(lv_obj_t * label, lv_label_align_t align)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)label;
@@ -71,7 +71,7 @@ void lv_label_set_align(lv_obj_t * label, lv_label_align_t align);
 }
 
 
-void lv_label_set_recolor(lv_obj_t * label, bool en);
+void lv_label_set_recolor(lv_obj_t * label, bool en)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)label;
@@ -80,7 +80,7 @@ void lv_label_set_recolor(lv_obj_t * label, bool en);
 }
 
 
-void lv_label_set_body_draw(lv_obj_t * label, bool en);
+void lv_label_set_body_draw(lv_obj_t * label, bool en)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)label;
@@ -89,7 +89,7 @@ void lv_label_set_body_draw(lv_obj_t * label, bool en);
 }
 
 
-void lv_label_set_anim_speed(lv_obj_t * label, uint16_t anim_speed);
+void lv_label_set_anim_speed(lv_obj_t * label, uint16_t anim_speed)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)label;
@@ -98,7 +98,7 @@ void lv_label_set_anim_speed(lv_obj_t * label, uint16_t anim_speed);
 }
 
 
-void lv_label_set_text_sel_start(lv_obj_t * label, uint16_t index);
+void lv_label_set_text_sel_start(lv_obj_t * label, uint16_t index)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)label;
@@ -107,7 +107,7 @@ void lv_label_set_text_sel_start(lv_obj_t * label, uint16_t index);
 }
 
 
-void lv_label_set_text_sel_end(lv_obj_t * label, uint16_t index);
+void lv_label_set_text_sel_end(lv_obj_t * label, uint16_t index)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)label;
@@ -115,7 +115,7 @@ void lv_label_set_text_sel_end(lv_obj_t * label, uint16_t index);
     CALL_LABEL_NATIVE_FUNC(LABEL_FUNC_ID_SET_TEXT_SEL_END);
 }
 
-unsigned int wgl_label_get_text_length(wgl_obj_t label)
+unsigned int wgl_label_get_text_length(lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
@@ -123,7 +123,7 @@ unsigned int wgl_label_get_text_length(wgl_obj_t label)
     return argv[0];
 }
 
-char * wgl_label_get_text(wgl_obj_t label, char *buffer, int buffer_len)
+char * wgl_label_get_text(lv_obj_t * label, char *buffer, int buffer_len)
 {
     uint32 argv[3] = {0};
     argv[0] = (uint32)label;
@@ -137,28 +137,30 @@ char * wgl_label_get_text(wgl_obj_t label, char *buffer, int buffer_len)
 char * lv_label_get_text(const lv_obj_t * label)
 {
 
+    return NULL;
+
 }
 
 
-wgl_label_long_mode_t wgl_label_get_long_mode(const wgl_obj_t label)
+lv_label_long_mode_t lv_label_get_long_mode(const lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
     CALL_LABEL_NATIVE_FUNC(LABEL_FUNC_ID_GET_LONG_MODE);
-    return (wgl_label_long_mode_t)argv[0];
+    return (lv_label_long_mode_t)argv[0];
 }
 
 
-lv_label_long_mode_t lv_label_get_long_mode(const lv_obj_t * label);
+lv_label_align_t lv_label_get_align(const lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
     CALL_LABEL_NATIVE_FUNC(LABEL_FUNC_ID_GET_ALIGN);
-    return (wgl_label_align_t)argv[0];
+    return (lv_label_align_t)argv[0];
 }
 
 
-bool lv_label_get_recolor(const lv_obj_t * label);
+bool lv_label_get_recolor(const lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
@@ -167,7 +169,7 @@ bool lv_label_get_recolor(const lv_obj_t * label);
 }
 
 
-bool lv_label_get_body_draw(const lv_obj_t * label);
+bool lv_label_get_body_draw(const lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
@@ -176,7 +178,7 @@ bool lv_label_get_body_draw(const lv_obj_t * label);
 }
 
 
-uint16_t lv_label_get_anim_speed(const lv_obj_t * label);
+uint16_t lv_label_get_anim_speed(const lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
@@ -185,7 +187,7 @@ uint16_t lv_label_get_anim_speed(const lv_obj_t * label);
 }
 
 
-void lv_label_get_letter_pos(const lv_obj_t * label, uint16_t index, lv_point_t * pos);
+void lv_label_get_letter_pos(const lv_obj_t * label, uint16_t index, lv_point_t * pos)
 {
     uint32 argv[4] = {0};
     argv[0] = (uint32)label;
@@ -196,7 +198,7 @@ void lv_label_get_letter_pos(const lv_obj_t * label, uint16_t index, lv_point_t 
 }
 
 
-uint16_t lv_label_get_letter_on(const lv_obj_t * label, lv_point_t * pos);
+uint16_t lv_label_get_letter_on(const lv_obj_t * label, lv_point_t * pos)
 {
     uint32 argv[3] = {0};
     argv[0] = (uint32)label;
@@ -207,7 +209,7 @@ uint16_t lv_label_get_letter_on(const lv_obj_t * label, lv_point_t * pos);
 }
 
 
-bool lv_label_is_char_under_pos(const lv_obj_t * label, lv_point_t * pos);
+bool lv_label_is_char_under_pos(const lv_obj_t * label, lv_point_t * pos)
 {
     uint32 argv[3] = {0};
     argv[0] = (uint32)label;
@@ -218,7 +220,7 @@ bool lv_label_is_char_under_pos(const lv_obj_t * label, lv_point_t * pos);
 }
 
 
-uint16_t lv_label_get_text_sel_start(const lv_obj_t * label);
+uint16_t lv_label_get_text_sel_start(const lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
@@ -227,7 +229,7 @@ uint16_t lv_label_get_text_sel_start(const lv_obj_t * label);
 }
 
 
-uint16_t lv_label_get_text_sel_end(const lv_obj_t * label);
+uint16_t lv_label_get_text_sel_end(const lv_obj_t * label)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)label;
@@ -236,7 +238,7 @@ uint16_t lv_label_get_text_sel_end(const lv_obj_t * label);
 }
 
 
-void lv_label_ins_text(lv_obj_t * label, uint32_t pos, const char * txt);
+void lv_label_ins_text(lv_obj_t * label, uint32_t pos, const char * txt)
 {
     uint32 argv[4] = {0};
     argv[0] = (uint32)label;
@@ -247,7 +249,7 @@ void lv_label_ins_text(lv_obj_t * label, uint32_t pos, const char * txt);
 }
 
 
-void lv_label_cut_text(lv_obj_t * label, uint32_t pos, uint32_t cnt);
+void lv_label_cut_text(lv_obj_t * label, uint32_t pos, uint32_t cnt)
 {
     uint32 argv[3] = {0};
     argv[0] = (uint32)label;

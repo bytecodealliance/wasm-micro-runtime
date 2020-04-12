@@ -7,6 +7,7 @@
 #define _GUI_API_H_
 
 #include "bh_platform.h"
+#include "bi-inc/wgl_shared_utils.h"
 
 #ifdef __cplusplus
 extern "C" {

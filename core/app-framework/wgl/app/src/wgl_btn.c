@@ -10,17 +10,17 @@
 #define ARGC sizeof(argv)/sizeof(uint32)
 #define CALL_BTN_NATIVE_FUNC(id) wasm_btn_native_call(id, argv, ARGC)
 
-lv_obj_t * lv_btn_create(lv_obj_t * par, const lv_obj_t * copy);
+lv_obj_t * lv_btn_create(lv_obj_t * par, const lv_obj_t * copy)
 {
     uint32 argv[2] = {0};
 
     argv[0] = (uint32)par;
     argv[1] = (uint32)copy;
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_CREATE);
-    return (wgl_obj_t)argv[0];
+    return (lv_obj_t *)argv[0];
 }
 
-void lv_btn_set_toggle(lv_obj_t * btn, bool tgl);
+void lv_btn_set_toggle(lv_obj_t * btn, bool tgl)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)btn;
@@ -28,7 +28,7 @@ void lv_btn_set_toggle(lv_obj_t * btn, bool tgl);
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_SET_TOGGLE);
 }
 
-void lv_btn_set_state(lv_obj_t * btn, lv_btn_state_t state);
+void lv_btn_set_state(lv_obj_t * btn, lv_btn_state_t state)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)btn;
@@ -36,14 +36,14 @@ void lv_btn_set_state(lv_obj_t * btn, lv_btn_state_t state);
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_SET_STATE);
 }
 
-void lv_btn_toggle(lv_obj_t * btn);
+void lv_btn_toggle(lv_obj_t * btn)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)btn;
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_TOGGLE);
 }
 
-void lv_btn_set_ink_in_time(lv_obj_t * btn, uint16_t time);
+void lv_btn_set_ink_in_time(lv_obj_t * btn, uint16_t time)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)btn;
@@ -51,7 +51,7 @@ void lv_btn_set_ink_in_time(lv_obj_t * btn, uint16_t time);
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_SET_INK_IN_TIME);
 }
 
-void lv_btn_set_ink_wait_time(lv_obj_t * btn, uint16_t time);
+void lv_btn_set_ink_wait_time(lv_obj_t * btn, uint16_t time)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)btn;
@@ -59,7 +59,7 @@ void lv_btn_set_ink_wait_time(lv_obj_t * btn, uint16_t time);
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_SET_INK_WAIT_TIME);
 }
 
-void lv_btn_set_ink_out_time(lv_obj_t * btn, uint16_t time);
+void lv_btn_set_ink_out_time(lv_obj_t * btn, uint16_t time)
 {
     uint32 argv[2] = {0};
     argv[0] = (uint32)btn;
@@ -73,15 +73,15 @@ void lv_btn_set_ink_out_time(lv_obj_t * btn, uint16_t time);
 //    //wasm_btn_set_style(btn, type, style);
 //}
 //
-lv_btn_state_t lv_btn_get_state(const lv_obj_t * btn);
+lv_btn_state_t lv_btn_get_state(const lv_obj_t * btn)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)btn;
     CALL_BTN_NATIVE_FUNC(BTN_FUNC_ID_GET_STATE);
-    return (wgl_btn_state_t)argv[0];
+    return (lv_btn_state_t)argv[0];
 }
 
-bool lv_btn_get_toggle(const lv_obj_t * btn);
+bool lv_btn_get_toggle(const lv_obj_t * btn)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)btn;
@@ -89,7 +89,7 @@ bool lv_btn_get_toggle(const lv_obj_t * btn);
     return (bool)argv[0];
 }
 
-uint16_t lv_btn_get_ink_in_time(const lv_obj_t * btn);
+uint16_t lv_btn_get_ink_in_time(const lv_obj_t * btn)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)btn;
@@ -97,7 +97,7 @@ uint16_t lv_btn_get_ink_in_time(const lv_obj_t * btn);
     return (uint16_t)argv[0];
 }
 
-uint16_t lv_btn_get_ink_wait_time(const lv_obj_t * btn);
+uint16_t lv_btn_get_ink_wait_time(const lv_obj_t * btn)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)btn;
@@ -105,7 +105,7 @@ uint16_t lv_btn_get_ink_wait_time(const lv_obj_t * btn);
     return (uint16_t)argv[0];
 }
 
-uint16_t lv_btn_get_ink_out_time(const lv_obj_t * btn);
+uint16_t lv_btn_get_ink_out_time(const lv_obj_t * btn)
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)btn;

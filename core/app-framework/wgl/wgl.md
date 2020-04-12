@@ -30,9 +30,24 @@ Firstly we have to redefine some data types such as lv_obj_t in the APIs exposed
 typedef void lv_obj_t;
 '''
 
-Secondly, as the littlevgl source code is no longer compiled and linked with the WASM app source codes, the compilation won't be successfully while including the original littvgl header files.
 
 
+# Prepare the lvgl header files for WASM applicaitons
+
+Run the below script to setup the lvgl header files for the wasm appliation.
+
+```
+core/app-framework/wgl/app/prepare_headers.sh
+```
+
+The script is also automatically executed after downloading the lvgl repo in the wamr-sdk building process.
+
+
+
+# How to extend a little vgl wideget
+Currently the wgl has exported the API for a few common used widgets such as button, label etc. 
+
+Refer to the implementation of these widgets for extending other widgets.
 
 
 

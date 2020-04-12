@@ -13,7 +13,7 @@
 #define CALL_LIST_NATIVE_FUNC(id) wasm_list_native_call(id, argv, ARGC)
 
 
-lv_obj_t * lv_list_create(lv_obj_t * par, const lv_obj_t * copy);
+lv_obj_t * lv_list_create(lv_obj_t * par, const lv_obj_t * copy)
 {
     uint32 argv[2] = {0};
 
@@ -21,7 +21,7 @@ lv_obj_t * lv_list_create(lv_obj_t * par, const lv_obj_t * copy);
     argv[1] = (uint32)copy;
 
     CALL_LIST_NATIVE_FUNC(LIST_FUNC_ID_CREATE);
-    return (wgl_obj_t)argv[0];
+    return (lv_obj_t *)argv[0];
 }
 //
 //
@@ -31,7 +31,7 @@ lv_obj_t * lv_list_create(lv_obj_t * par, const lv_obj_t * copy);
 //}
 //
 
-lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * img_src, const char * txt);
+lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * img_src, const char * txt)
 {
     uint32 argv[3] = {0};
 
@@ -41,7 +41,7 @@ lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * img_src, const char * t
     argv[1] = (uint32)txt;
     argv[2] = strlen(txt) + 1;
     CALL_LIST_NATIVE_FUNC(LIST_FUNC_ID_ADD_BTN);
-    return (wgl_obj_t)argv[0];
+    return (lv_obj_t *)argv[0];
 }
 //
 //
