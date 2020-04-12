@@ -280,6 +280,11 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst,
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
 
+bool
+wasm_call_indirect(WASMExecEnv *exec_env,
+                   uint32_t element_indices,
+                   uint32_t argc, uint32_t argv[]);
+
 #ifdef __cplusplus
 }
 #endif
