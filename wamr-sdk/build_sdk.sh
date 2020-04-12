@@ -75,6 +75,13 @@ if [ ! -f "/opt/wasi-sdk/bin/clang" ]; then
         exit 1
 fi
 
+
+echo "download dependent external repositories.."
+${wamr_root_dir}/core/deps/download.sh
+[ $? -eq 0 ] || exit $?
+
+
+
 if [ -z "$PROFILE" ]; then
     PROFILE="default"
     echo "PROFILE argument not set, using DEFAULT"
@@ -166,8 +173,7 @@ if [[ -n "${app_wgl_selected}" ]] || [[ -n "${app_all_selected}" ]]; then
         read -a extra_file_path
 
         if [[ -z "${extra_file_path}" ]] || [[ ! -d "${extra_file_path}" ]]; then
-            echo -e "\033[31mThe extra SDK path is invalid, exiting\033[0m"
-            exit 1
+            echo -e "\033[31mThe extra SDK path is empty\033[0m"
         else
             CM_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${extra_file_path}"
         fi

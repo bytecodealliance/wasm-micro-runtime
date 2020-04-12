@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 #include "wasm_app.h"
-#include "wa-inc/lvgl.h"
+#include "wa-inc/lvgl/lvgl.h"
 #include "wa-inc/timer_wasm_app.h"
 
 extern char g_widget_text[];
