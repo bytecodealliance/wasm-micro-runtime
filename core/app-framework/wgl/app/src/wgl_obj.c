@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "wa-inc/wgl.h"
+
+#include "wa-inc/lvgl/lvgl.h"
 #include "gui_api.h"
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +25,7 @@ static obj_evt_cb_t *g_obj_evt_cb_list = NULL;
 /* For lvgl compatible */
 char g_widget_text[100];
 
-wgl_res_t wgl_obj_del(wgl_obj_t obj)
+lv_res_t lv_obj_del(lv_obj_t * obj);
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)obj;
@@ -32,21 +33,21 @@ wgl_res_t wgl_obj_del(wgl_obj_t obj)
     return (wgl_res_t)argv[0];
 }
 
-void wgl_obj_del_async(wgl_obj_t obj)
+void lv_obj_del_async(struct _lv_obj_t *obj);
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)obj;
     CALL_OBJ_NATIVE_FUNC(OBJ_FUNC_ID_DEL_ASYNC);
 }
 
-void wgl_obj_clean(wgl_obj_t obj)
+void lv_obj_clean(lv_obj_t * obj);
 {
     uint32 argv[1] = {0};
     argv[0] = (uint32)obj;
     CALL_OBJ_NATIVE_FUNC(OBJ_FUNC_ID_CLEAN);
 }
 
-void wgl_obj_align(wgl_obj_t obj, const wgl_obj_t base, wgl_align_t align, wgl_coord_t x_mod, wgl_coord_t y_mod)
+void lv_obj_align(lv_obj_t * obj, const lv_obj_t * base, lv_align_t align, lv_coord_t x_mod, lv_coord_t y_mod);
 {
     uint32 argv[5] = {0};
     argv[0] = (uint32)obj;
@@ -57,7 +58,7 @@ void wgl_obj_align(wgl_obj_t obj, const wgl_obj_t base, wgl_align_t align, wgl_c
     CALL_OBJ_NATIVE_FUNC(OBJ_FUNC_ID_ALIGN);
 }
 
-wgl_event_cb_t wgl_obj_get_event_cb(const wgl_obj_t obj)
+lv_event_cb_t lv_obj_get_event_cb(const lv_obj_t * obj);
 {
     obj_evt_cb_t *obj_evt_cb = g_obj_evt_cb_list;
     while (obj_evt_cb != NULL) {
@@ -70,7 +71,7 @@ wgl_event_cb_t wgl_obj_get_event_cb(const wgl_obj_t obj)
     return NULL;
 }
 
-void wgl_obj_set_event_cb(wgl_obj_t obj, wgl_event_cb_t event_cb)
+void lv_obj_set_event_cb(lv_obj_t * obj, lv_event_cb_t event_cb);
 {
     obj_evt_cb_t *obj_evt_cb;
     uint32 argv[1] = {0};
