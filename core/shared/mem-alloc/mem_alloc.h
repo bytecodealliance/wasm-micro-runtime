@@ -29,6 +29,16 @@ mem_allocator_realloc(mem_allocator_t allocator, void *ptr, uint32_t size);
 void
 mem_allocator_free(mem_allocator_t allocator, void *ptr);
 
+int
+mem_allocator_migrate(mem_allocator_t allocator,
+                      mem_allocator_t allocator_old);
+
+int
+mem_allocator_reinit_lock(mem_allocator_t allocator);
+
+void
+mem_allocator_destroy_lock(mem_allocator_t allocator);
+
 #ifdef __cplusplus
 }
 #endif

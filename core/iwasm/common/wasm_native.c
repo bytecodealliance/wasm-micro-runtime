@@ -162,9 +162,11 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
         if (signature && signature[0] != '\0') {
             /* signature is not empty, check its format */
             if (!check_symbol_signature(func_type, signature)) {
+#if WASM_ENABLE_WAMR_COMPILER == 0 /* Output warning except running aot compiler */
                 LOG_WARNING("failed to check signature '%s' and resolve "
                             "pointer params for import function (%s %s)\n",
                             signature, module_name, field_name);
+#endif
                 return NULL;
             }
             else

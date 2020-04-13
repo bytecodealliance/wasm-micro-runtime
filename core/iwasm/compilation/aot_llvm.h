@@ -94,20 +94,13 @@ typedef struct AOTFuncContext {
   LLVMValueRef table_base;
   LLVMValueRef argv_buf;
 
-  LLVMValueRef mem_data_size;
-  LLVMValueRef mem_base_addr;
-  LLVMValueRef mem_bound_1_byte;
-  LLVMValueRef mem_bound_2_bytes;
-  LLVMValueRef mem_bound_4_bytes;
-  LLVMValueRef mem_bound_8_bytes;
-
   LLVMValueRef heap_base_offset;
-  LLVMValueRef heap_base_addr;
-  LLVMValueRef heap_data_size;
-  LLVMValueRef heap_bound_1_byte;
-  LLVMValueRef heap_bound_2_bytes;
-  LLVMValueRef heap_bound_4_bytes;
-  LLVMValueRef heap_bound_8_bytes;
+  LLVMValueRef mem_base_addr;
+  LLVMValueRef total_mem_size;
+  LLVMValueRef mem_bound_check_1byte;
+  LLVMValueRef mem_bound_check_2bytes;
+  LLVMValueRef mem_bound_check_4bytes;
+  LLVMValueRef mem_bound_check_8bytes;
 
   LLVMValueRef cur_exception;
 

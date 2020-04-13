@@ -225,28 +225,17 @@ LOAD_I16(void *addr)
 
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
-#define CHECK_MEMORY_OVERFLOW(bytes) do {                                  \
-    uint64 offset1 = offset + addr;                                             \
-    /* if (flags != 2)                                                          \
-      LOG_VERBOSE("unaligned load/store in wasm interp, flag: %d.\n", flags); */\
-    /* The WASM spec doesn't require that the dynamic address operand must be   \
-       unsigned, so we don't check whether integer overflow or not here. */     \
-    /* if (offset1 < offset)                                                    \
-      goto out_of_bounds; */                                                    \
-    if (offset1 + bytes <= memory_data_size) {                                  \
-      /* If offset1 is in valid range, maddr must also be in valid range,       \
-         no need to check it again. */                                          \
-      maddr = memory->memory_data + offset1;                                    \
-    }                                                                           \
-    else if (offset1 > DEFAULT_APP_HEAP_BASE_OFFSET                             \
-             && (offset1 + bytes <=                                             \
-                    DEFAULT_APP_HEAP_BASE_OFFSET + heap_data_size)) {           \
-      /* If offset1 is in valid range, maddr must also be in valid range,       \
-         no need to check it again. */                                          \
-      maddr = memory->heap_data + offset1 - DEFAULT_APP_HEAP_BASE_OFFSET;       \
-    }                                                                           \
-    else                                                                        \
-      goto out_of_bounds;                                                       \
+#define CHECK_MEMORY_OVERFLOW(bytes) do {                                \
+    int32 offset1 = (int32)(offset + addr);                              \
+    uint64 offset2 = (uint64)(uint32)(offset1 - heap_base_offset);       \
+    /* if (flags != 2)                                                   \
+      LOG_VERBOSE("unaligned load/store, flag: %d.\n", flags); */        \
+    if (offset2 + bytes <= total_mem_size)                               \
+      /* If offset1 is in valid range, maddr must also be in valid range,\
+         no need to check it again. */                                   \
+      maddr = memory->memory_data + offset1;                             \
+    else                                                                 \
+      goto out_of_bounds;                                                \
   } while (0)
 
 static inline uint32
@@ -501,10 +490,18 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
     frame_ip += 6;                                                          \
   } while (0)
 
+#if defined(BUILD_TARGET_X86_32)
+#define DEF_OP_REINTERPRET(src_type) do {                                   \
+    void *src = frame_lp + GET_OFFSET();                                    \
+    void *dst = frame_lp + GET_OFFSET();                                    \
+    bh_memcpy_s(dst, sizeof(src_type), src, sizeof(src_type));              \
+  } while (0)
+#else
 #define DEF_OP_REINTERPRET(src_type) do {                                   \
     SET_OPERAND(src_type, 2, GET_OPERAND(src_type, 0));                     \
     frame_ip += 4;                                                          \
   } while (0)
+#endif
 
 #if WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0
 #define DEF_OP_NUMERIC_64 DEF_OP_NUMERIC
@@ -779,9 +776,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMInterpFrame *prev_frame)
 {
   WASMMemoryInstance *memory = module->default_memory;
+  int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
-  uint32 memory_data_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
-  uint32 heap_data_size = memory ? (uint32)(memory->heap_data_end - memory->heap_data) : 0;
+  uint32 total_mem_size = memory ? num_bytes_per_page * memory->cur_page_count
+                                   - heap_base_offset : 0;
   uint8 *global_data = memory ? memory->global_data : NULL;
   WASMTableInstance *table = module->default_table;
   WASMGlobalInstance *globals = module->globals;
@@ -929,10 +927,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           addr2 = GET_OFFSET();
           addr_ret = GET_OFFSET();
 
-          if (!cond)
+          if (!cond) {
+#if defined(BUILD_TARGET_X86_32)
+            if (addr_ret != addr1)
+              bh_memcpy_s(frame_lp + addr_ret, sizeof(int32),
+                          frame_lp + addr1, sizeof(int32));
+#else
             frame_lp[addr_ret] = frame_lp[addr1];
-          else
+#endif
+          }
+          else {
+#if defined(BUILD_TARGET_X86_32)
+            if (addr_ret != addr2)
+              bh_memcpy_s(frame_lp + addr_ret, sizeof(int32),
+                          frame_lp + addr2, sizeof(int32));
+#else
             frame_lp[addr_ret] = frame_lp[addr2];
+#endif
+          }
           HANDLE_OP_END ();
         }
 
@@ -943,10 +955,24 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           addr2 = GET_OFFSET();
           addr_ret = GET_OFFSET();
 
-          if (!cond)
+          if (!cond) {
+#if defined(BUILD_TARGET_X86_32)
+            if (addr_ret != addr1)
+              bh_memcpy_s(frame_lp + addr_ret, sizeof(int64),
+                          frame_lp + addr1, sizeof(int64));
+#else
             *(int64*)(frame_lp + addr_ret) = *(int64*)(frame_lp + addr1);
-          else
+#endif
+          }
+          else {
+#if defined(BUILD_TARGET_X86_32)
+            if (addr_ret != addr2)
+              bh_memcpy_s(frame_lp + addr_ret, sizeof(int64),
+                          frame_lp + addr2, sizeof(int64));
+#else
             *(int64*)(frame_lp + addr_ret) = *(int64*)(frame_lp + addr2);
+#endif
+          }
           HANDLE_OP_END ();
         }
 
@@ -1288,7 +1314,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           frame_lp[addr_ret] = prev_page_count;
           /* update the memory instance ptr */
           memory = module->default_memory;
-          memory_data_size = num_bytes_per_page * memory->cur_page_count;
+          total_mem_size = num_bytes_per_page * memory->cur_page_count
+                           - heap_base_offset;
           global_data = memory->global_data;
         }
 
@@ -2061,13 +2088,23 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (EXT_OP_COPY_STACK_TOP):
         addr1 = GET_OFFSET();
         addr2 = GET_OFFSET();
+#if defined(BUILD_TARGET_X86_32)
+        bh_memcpy_s(frame_lp + addr2, sizeof(int32),
+                    frame_lp + addr1, sizeof(int32));
+#else
         frame_lp[addr2] = frame_lp[addr1];
+#endif
         HANDLE_OP_END ();
 
       HANDLE_OP (EXT_OP_COPY_STACK_TOP_I64):
         addr1 = GET_OFFSET();
         addr2 = GET_OFFSET();
+#if defined(BUILD_TARGET_X86_32)
+        bh_memcpy_s(frame_lp + addr2, sizeof(int64),
+                    frame_lp + addr1, sizeof(int64));
+#else
         *(float64*)(frame_lp + addr2) = *(float64*)(frame_lp + addr1);
+#endif
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_SET_LOCAL):

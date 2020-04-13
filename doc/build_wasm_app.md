@@ -129,7 +129,7 @@ Run the test.wasm or test.aot with WAMR mini product build:
 You will get the following output:
 ```
 Hello world!
-buf ptr: 0x400002b0
+buf ptr: 0xffffc2c8
 buf: 1234
 ```
 If you would like to run the test app on Zephyr, we have embedded a test sample into its OS image. You will need to execute:

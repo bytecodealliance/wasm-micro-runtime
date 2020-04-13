@@ -223,28 +223,17 @@ LOAD_I16(void *addr)
 
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
-#define CHECK_MEMORY_OVERFLOW() do {                                            \
-    uint64 offset1 = offset + addr;                                             \
-    /* if (flags != 2)                                                          \
-      LOG_VERBOSE("unaligned load/store in wasm interp, flag: %d.\n", flags); */\
-    /* The WASM spec doesn't require that the dynamic address operand must be   \
-       unsigned, so we don't check whether integer overflow or not here. */     \
-    /* if (offset1 < offset)                                                    \
-      goto out_of_bounds; */                                                    \
-    if (offset1 + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] <= memory_data_size) {   \
-      /* If offset1 is in valid range, maddr must also be in valid range,       \
-         no need to check it again. */                                          \
-      maddr = memory->memory_data + offset1;                                    \
-    }                                                                           \
-    else if (offset1 > DEFAULT_APP_HEAP_BASE_OFFSET                             \
-             && (offset1 + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] <=              \
-                    DEFAULT_APP_HEAP_BASE_OFFSET + heap_data_size)) {           \
-      /* If offset1 is in valid range, maddr must also be in valid range,       \
-         no need to check it again. */                                          \
-      maddr = memory->heap_data + offset1 - memory->heap_base_offset;           \
-    }                                                                           \
-    else                                                                        \
-      goto out_of_bounds;                                                       \
+#define CHECK_MEMORY_OVERFLOW(bytes) do {                                   \
+    int32 offset1 = (int32)(offset + addr);                                 \
+    uint64 offset2 = (uint64)(uint32)(offset1 - heap_base_offset);          \
+    /* if (flags != 2)                                                      \
+      LOG_VERBOSE("unaligned load/store, flag: %d.\n", flags); */           \
+    if (offset2 + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] <= total_mem_size)   \
+      /* If offset1 is in valid range, maddr must also be in valid range,   \
+         no need to check it again. */                                      \
+      maddr = memory->memory_data + offset1;                                \
+    else                                                                    \
+      goto out_of_bounds;                                                   \
   } while (0)
 
 static inline uint32
@@ -798,9 +787,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMInterpFrame *prev_frame)
 {
   WASMMemoryInstance *memory = module->default_memory;
+  int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
-  uint32 memory_data_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
-  uint32 heap_data_size = memory ? (uint32)(memory->heap_data_end - memory->heap_data) : 0;
+  uint32 total_mem_size = memory ? num_bytes_per_page * memory->cur_page_count
+                                   - heap_base_offset : 0;
   uint8 *global_data = memory ? memory->global_data : NULL;
   WASMTableInstance *table = module->default_table;
   WASMGlobalInstance *globals = module->globals;
@@ -1419,7 +1409,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           PUSH_I32(prev_page_count);
           /* update the memory instance ptr */
           memory = module->default_memory;
-          memory_data_size = num_bytes_per_page * memory->cur_page_count;
+          total_mem_size = num_bytes_per_page * memory->cur_page_count
+                           - heap_base_offset;
           global_data = memory->global_data;
         }
 

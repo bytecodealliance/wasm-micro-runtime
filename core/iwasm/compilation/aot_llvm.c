@@ -181,67 +181,116 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    /* Load memory data size */
-    offset = I32_CONST(offsetof(AOTModuleInstance, memory_data_size));
-    if (!(func_ctx->mem_data_size =
+    /* Load total memory size */
+    offset = I32_CONST(offsetof(AOTModuleInstance, total_mem_size));
+    if (!(func_ctx->total_mem_size =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                     &offset, 1, "mem_data_size_offset"))) {
+                                     &offset, 1, "bound_check_1byte_offset"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
-    if (!(func_ctx->mem_data_size =
-                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_data_size,
-                                 INT32_PTR_TYPE, "mem_data_size_ptr"))) {
+    if (!(func_ctx->total_mem_size =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->total_mem_size,
+                                 INT32_PTR_TYPE, "bound_check_1byte_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
     if (mem_space_unchanged) {
-        if (!(func_ctx->mem_data_size =
-                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_data_size,
-                                  "mem_data_size"))) {
+        if (!(func_ctx->total_mem_size =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->total_mem_size,
+                                  "bound_check_1byte"))) {
             aot_set_last_error("llvm build load failed");
-            return false;
-        }
-        if (!(func_ctx->mem_bound_1_byte =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_ONE,
-                                 "mem_bound_1_byte"))
-            || !(func_ctx->mem_bound_2_bytes =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_TWO,
-                                 "mem_bound_2_bytes"))
-            || !(func_ctx->mem_bound_4_bytes =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_FOUR,
-                                 "mem_bound_4_bytes"))
-            || !(func_ctx->mem_bound_8_bytes =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_EIGHT,
-                                 "mem_bound_8_bytes"))) {
-            aot_set_last_error("llvm build sub failed");
             return false;
         }
     }
 
-    /* Load heap base address */
-    offset = I32_CONST(offsetof(AOTModuleInstance, heap_data.ptr));
-    if (!(func_ctx->heap_base_addr =
+    /* Load memory bound check constants */
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_1byte));
+    if (!(func_ctx->mem_bound_check_1byte =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                     &offset, 1, "heap_base_addr_offset"))) {
+                                     &offset, 1, "bound_check_1byte_offset"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
-    if (!(func_ctx->heap_base_addr =
-                LLVMBuildBitCast(comp_ctx->builder, func_ctx->heap_base_addr,
-                                 int8_ptr_type, "heap_base_addr_tmp"))) {
+    if (!(func_ctx->mem_bound_check_1byte =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_1byte,
+                                 INT32_PTR_TYPE, "bound_check_1byte_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
-    if (!(func_ctx->heap_base_addr =
-                LLVMBuildLoad(comp_ctx->builder, func_ctx->heap_base_addr,
-                              "heap_base_addr"))) {
-        aot_set_last_error("llvm build load failed");
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_bound_check_1byte =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_1byte,
+                                  "bound_check_1byte"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
+    }
+
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_2bytes));
+    if (!(func_ctx->mem_bound_check_2bytes =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
+                                     &offset, 1, "bound_check_2bytes_offset"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
         return false;
+    }
+    if (!(func_ctx->mem_bound_check_2bytes =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_2bytes,
+                                 INT32_PTR_TYPE, "bound_check_2bytes_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_bound_check_2bytes =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_2bytes,
+                                  "bound_check_2bytes"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
+    }
+
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_4bytes));
+    if (!(func_ctx->mem_bound_check_4bytes =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
+                                     &offset, 1, "bound_check_4bytes_offset"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+    if (!(func_ctx->mem_bound_check_4bytes =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_4bytes,
+                                 INT32_PTR_TYPE, "bound_check_4bytes_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_bound_check_4bytes =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_4bytes,
+                                  "bound_check_4bytes"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
+    }
+
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_8bytes));
+    if (!(func_ctx->mem_bound_check_8bytes =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
+                                     &offset, 1, "bound_check_8bytes_offset"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+    if (!(func_ctx->mem_bound_check_8bytes =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_8bytes,
+                                 INT32_PTR_TYPE, "bound_check_8bytes_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_bound_check_8bytes =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_8bytes,
+                                  "bound_check_8bytes"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
     }
 
     /* Load heap base offset */
@@ -265,46 +314,6 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* Load heap data size */
-    offset = I32_CONST(offsetof(AOTModuleInstance, heap_data_size));
-    if (!(func_ctx->heap_data_size =
-                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                     &offset, 1, "heap_data_size_offset"))) {
-        aot_set_last_error("llvm build in bounds gep failed");
-        return false;
-    }
-    if (!(func_ctx->heap_data_size =
-                LLVMBuildBitCast(comp_ctx->builder, func_ctx->heap_data_size,
-                                 INT32_PTR_TYPE, "heap_data_size_tmp"))) {
-        aot_set_last_error("llvm build bit cast failed");
-        return false;
-    }
-    if (!(func_ctx->heap_data_size =
-                LLVMBuildLoad(comp_ctx->builder, func_ctx->heap_data_size,
-                              "heap_data_size"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
-    }
-    if (!(func_ctx->heap_bound_1_byte =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_ONE,
-                             "heap_bound_1_byte"))
-            || !(func_ctx->heap_bound_2_bytes =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_TWO,
-                             "heap_bound_2_bytes"))
-            || !(func_ctx->heap_bound_4_bytes =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_FOUR,
-                             "heap_bound_4_bytes"))
-            || !(func_ctx->heap_bound_8_bytes =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_EIGHT,
-                             "heap_bound_8_bytes"))) {
-        aot_set_last_error("llvm build sub failed");
-        return false;
-    }
-
     return true;
 }
 
@@ -313,7 +322,7 @@ create_table_base(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
 
-    offset = I32_CONST(offsetof(AOTModuleInstance, global_table_heap_data.bytes)
+    offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data.bytes)
                        + comp_ctx->comp_data->global_data_size);
     func_ctx->table_base = LLVMBuildInBoundsGEP(comp_ctx->builder,
                                                 func_ctx->aot_inst,
@@ -918,6 +927,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         /* Create LLVM execution engine */
         LLVMInitializeMCJITCompilerOptions(&jit_options, sizeof(jit_options));
         jit_options.OptLevel = LLVMCodeGenLevelAggressive;
+        jit_options.EnableFastISel = true;
         /*jit_options.CodeModel = LLVMCodeModelSmall;*/
         if (LLVMCreateMCJITCompilerForModule
                 (&comp_ctx->exec_engine, comp_ctx->module,

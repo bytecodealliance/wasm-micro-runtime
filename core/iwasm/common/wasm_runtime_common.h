@@ -46,9 +46,13 @@ typedef struct WASMModuleInstanceCommon {
 
 #if WASM_ENABLE_LIBC_WASI != 0
 typedef struct WASIContext {
-    struct fd_table *curfds;
-    struct fd_prestats *prestats;
-    struct argv_environ_values *argv_environ;
+    /* Use offset but not native address, since these fields are
+       allocated from app's heap, and the heap space may be re-allocated
+       after memory.grow opcode is executed, the original native address
+       cannot be accessed again. */
+    int32 curfds_offset;
+    int32 prestats_offset;
+    int32 argv_environ_offset;
 } WASIContext;
 #endif
 

@@ -73,6 +73,35 @@ int
 gc_destroy_with_pool(gc_handle_t handle);
 
 /**
+ * Migrate heap from one place to another place
+ *
+ * @param handle handle of the new heap
+ * @param handle_old handle of the old heap
+ *
+ * @return GC_SUCCESS if success, GC_ERROR otherwise
+ */
+int
+gc_migrate(gc_handle_t handle, gc_handle_t handle_old);
+
+/**
+ * Re-initialize lock of heap
+ *
+ * @param handle the heap handle
+ *
+ * @return GC_SUCCESS if success, GC_ERROR otherwise
+ */
+int
+gc_reinit_lock(gc_handle_t handle);
+
+/**
+ * Destroy lock of heap
+ *
+ * @param handle the heap handle
+ */
+void
+gc_destroy_lock(gc_handle_t handle);
+
+/**
  * Get Heap Stats
  *
  * @param stats [out] integer array to save heap stats

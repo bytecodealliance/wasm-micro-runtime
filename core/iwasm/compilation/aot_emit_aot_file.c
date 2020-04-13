@@ -821,13 +821,14 @@ aot_emit_file_header(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                      AOTCompData *comp_data, AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset;
+    uint32 aot_curr_version = AOT_CURRENT_VERSION;
 
     EMIT_U8('\0');
     EMIT_U8('a');
     EMIT_U8('o');
     EMIT_U8('t');
 
-    EMIT_U32(1);
+    EMIT_U32(aot_curr_version);
 
     *p_offset = offset;
     return true;

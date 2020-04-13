@@ -23,14 +23,6 @@
     }                                                   \
   } while (0)
 
-#define BUILD_COND_BR(cmp_val, then_block, else_block) do { \
-    if (!LLVMBuildCondBr(comp_ctx->builder, cmp_val,        \
-                         then_block, else_block)) {         \
-        aot_set_last_error("llvm build cond br failed.");   \
-        goto fail;                                          \
-    }                                                       \
-  } while (0)
-
 #define ADD_BASIC_BLOCK(block, name) do {                           \
     if (!(block = LLVMAppendBasicBlockInContext(comp_ctx->context,  \
                                                 func_ctx->func,     \
@@ -44,52 +36,87 @@
     LLVMPositionBuilderAtEnd(comp_ctx->builder, block)
 
 static LLVMValueRef
+get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       uint32 bytes)
+{
+    LLVMValueRef mem_check_bound = NULL;
+    switch (bytes) {
+        case 1:
+            mem_check_bound = func_ctx->mem_bound_check_1byte;
+            break;
+        case 2:
+            mem_check_bound = func_ctx->mem_bound_check_2bytes;
+            break;
+        case 4:
+            mem_check_bound = func_ctx->mem_bound_check_4bytes;
+            break;
+        case 8:
+            mem_check_bound = func_ctx->mem_bound_check_8bytes;
+            break;
+        default:
+            bh_assert(0);
+            return NULL;
+    }
+
+    if (func_ctx->mem_space_unchanged)
+        return mem_check_bound;
+
+    if (!(mem_check_bound = LLVMBuildLoad(comp_ctx->builder,
+                                          mem_check_bound,
+                                          "mem_check_bound"))) {
+        aot_set_last_error("llvm build load failed.");
+        return NULL;
+    }
+    return mem_check_bound;
+}
+
+static LLVMValueRef
 check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                       uint32 offset, uint32 bytes)
 {
     LLVMValueRef offset_const = I32_CONST(offset);
-    LLVMValueRef size_const = I32_CONST(bytes);
-    LLVMValueRef addr, maddr, moffset;
-    LLVMValueRef cmp, phi;
-    LLVMValueRef mem_base_addr, mem_data_size;
-    LLVMValueRef heap_base_addr, heap_base_offset;
-    LLVMValueRef mem_offset_max = NULL, heap_offset_max = NULL;
-    LLVMBasicBlockRef check_mem_space, check_heap_space, check_succ;
+    LLVMValueRef bytes_const = I32_CONST(bytes);
+    LLVMValueRef bytes64_const = I64_CONST(bytes);
+    LLVMValueRef heap_base_offset = func_ctx->heap_base_offset;
+    LLVMValueRef addr, maddr, offset1, offset2, cmp;
+    LLVMValueRef mem_base_addr, mem_check_bound, total_mem_size;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    LLVMBasicBlockRef check_succ, check_mem_space;
 
     CHECK_LLVM_CONST(offset_const);
-    CHECK_LLVM_CONST(size_const);
+    CHECK_LLVM_CONST(bytes_const);
+    CHECK_LLVM_CONST(bytes64_const);
 
-    heap_base_addr = func_ctx->heap_base_addr;
-    heap_base_offset = func_ctx->heap_base_offset;
+    /* Get memory base address and memory data size */
+    if (func_ctx->mem_space_unchanged) {
+        mem_base_addr = func_ctx->mem_base_addr;
+    }
+    else {
+        if (!(mem_base_addr = LLVMBuildLoad(comp_ctx->builder,
+                                            func_ctx->mem_base_addr,
+                                            "mem_base"))) {
+            aot_set_last_error("llvm build load failed.");
+            goto fail;
+        }
+    }
 
     POP_I32(addr);
-    BUILD_OP(Add, offset_const, addr, moffset, "moffset");
+    /* offset1 = offset + addr; */
+    BUILD_OP(Add, offset_const, addr, offset1, "offset1");
 
     /* return addres directly if constant offset and inside memory space */
-    if (LLVMIsConstant(moffset)) {
-        uint32 memory_offset = (uint32)LLVMConstIntGetZExtValue(moffset);
+    if (LLVMIsConstant(offset1)) {
+        uint32 mem_offset = (uint32)LLVMConstIntGetZExtValue(offset1);
+        uint32 num_bytes_per_page = comp_ctx->comp_data->num_bytes_per_page;
         uint32 init_page_count = comp_ctx->comp_data->mem_init_page_count;
-        if (init_page_count > 0
-            && memory_offset <= comp_ctx->comp_data->num_bytes_per_page
-                                * init_page_count - bytes) {
+        uint32 mem_data_size = num_bytes_per_page * init_page_count;
+        if (mem_data_size > 0
+            && mem_offset <= mem_data_size - bytes) {
             /* inside memory space */
-            if (!func_ctx->mem_space_unchanged) {
-                if (!(mem_base_addr = LLVMBuildLoad(comp_ctx->builder,
-                                func_ctx->mem_base_addr,
-                                "mem_base"))) {
-                    aot_set_last_error("llvm build load failed.");
-                    return NULL;
-                }
-            }
-            else {
-                mem_base_addr = func_ctx->mem_base_addr;
-            }
-
             /* maddr = mem_base_addr + moffset */
             if (!(maddr = LLVMBuildInBoundsGEP(comp_ctx->builder,
                                                mem_base_addr,
-                                               &moffset, 1, "maddr"))) {
+                                               &offset1, 1, "maddr"))) {
                 aot_set_last_error("llvm build add failed.");
                 goto fail;
             }
@@ -97,136 +124,63 @@ check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    /* Add basic blocks */
-    ADD_BASIC_BLOCK(check_heap_space, "check_heap_space");
-    ADD_BASIC_BLOCK(check_succ, "check_succ");
-
-    LLVMMoveBasicBlockAfter(check_heap_space, block_curr);
-    LLVMMoveBasicBlockAfter(check_succ, check_heap_space);
-
-    /* Add return maddress phi for check_succ block */
-    SET_BUILD_POS(check_succ);
-    if (!(phi = LLVMBuildPhi(comp_ctx->builder,
-                             INT8_PTR_TYPE, "maddr_phi"))) {
-        aot_set_last_error("llvm build phi failed.");
-        goto fail;
-    }
-    SET_BUILD_POS(block_curr);
-
-    /* Get memory data size */
-    if (!func_ctx->mem_space_unchanged) {
-        if (!(mem_data_size = LLVMBuildLoad(comp_ctx->builder,
-                                            func_ctx->mem_data_size,
-                                            "mem_data_size"))) {
-            aot_set_last_error("llvm build load failed.");
-            return NULL;
-        }
-    }
-    else {
-        mem_data_size = func_ctx->mem_data_size;
-    }
-
     if (comp_ctx->comp_data->mem_init_page_count == 0) {
+        /* Get total memory size */
+        if (func_ctx->mem_space_unchanged) {
+            total_mem_size = func_ctx->total_mem_size;
+        }
+        else {
+            if (!(total_mem_size = LLVMBuildLoad(comp_ctx->builder,
+                                                 func_ctx->total_mem_size,
+                                                 "total_mem_size"))) {
+                aot_set_last_error("llvm build load failed.");
+                goto fail;
+            }
+        }
+
         ADD_BASIC_BLOCK(check_mem_space, "check_mem_space");
         LLVMMoveBasicBlockAfter(check_mem_space, block_curr);
 
-        /* if mem_data_size is zero, check heap space */
-        BUILD_ICMP(LLVMIntEQ, mem_data_size, I32_ZERO, cmp,
-                   "cmp_mem_data_size");
-        BUILD_COND_BR(cmp, check_heap_space, check_mem_space);
+        /* if total_mem_size is zero, boundary check fail */
+        BUILD_ICMP(LLVMIntEQ, total_mem_size, I32_ZERO, cmp,
+                   "cmp_total_mem_size");
+        if (!aot_emit_exception(comp_ctx, func_ctx,
+                                EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
+                                true, cmp, check_mem_space)) {
+            goto fail;
+        }
         SET_BUILD_POS(check_mem_space);
     }
 
-    /* Get memory base address */
-    if (!func_ctx->mem_space_unchanged) {
-        if (!(mem_base_addr = LLVMBuildLoad(comp_ctx->builder,
-                                            func_ctx->mem_base_addr,
-                                            "mem_base"))) {
-            aot_set_last_error("llvm build load failed.");
-            return NULL;
-        }
-    }
-    else {
-        mem_base_addr = func_ctx->mem_base_addr;
-    }
+    /* offset2 = offset1 - heap_base_offset; */
+    BUILD_OP(Sub, offset1, heap_base_offset, offset2, "offset2");
 
-    /* maddr = mem_base_addr + moffset */
-    if (!(maddr = LLVMBuildInBoundsGEP(comp_ctx->builder, mem_base_addr,
-                                       &moffset, 1, "maddr"))) {
-        aot_set_last_error("llvm build add failed.");
-        goto fail;
-    }
-    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
-    LLVMAddIncoming(phi, &maddr, &block_curr, 1);
-
-    if (!func_ctx->mem_space_unchanged) {
-        /* mem_offset_max = mem_data_size - bytes to load/read */
-        if (!(mem_offset_max = LLVMBuildSub(comp_ctx->builder,
-                                            mem_data_size, size_const,
-                                            "mem_offset_max"))) {
-            aot_set_last_error("llvm build sub failed.");
-            goto fail;
-        }
-    }
-    else {
-        if (bytes == 1)
-            mem_offset_max = func_ctx->mem_bound_1_byte;
-        else if (bytes == 2)
-            mem_offset_max = func_ctx->mem_bound_2_bytes;
-        else if (bytes == 4)
-            mem_offset_max = func_ctx->mem_bound_4_bytes;
-        else if (bytes == 8)
-            mem_offset_max = func_ctx->mem_bound_8_bytes;
-    }
-
-    /* in linear memory if (uint32)moffset <= (uint32)mem_offset_max,
-       else check heap space */
-    BUILD_ICMP(LLVMIntULE, moffset, mem_offset_max, cmp, "cmp_mem_offset");
-
-    /* Create condtion br */
-    BUILD_COND_BR(cmp, check_succ, check_heap_space);
-
-    /* Start to translate the check_heap_space block */
-    SET_BUILD_POS(check_heap_space);
-
-    /* moffset -= heap_base_offset */
-    if (!(moffset = LLVMBuildSub(comp_ctx->builder,
-                                 moffset, heap_base_offset,
-                                 "moffset_to_heap"))) {
-        aot_set_last_error("llvm build sub failed.");
+    if (!(mem_check_bound =
+                get_memory_check_bound(comp_ctx, func_ctx, bytes))) {
         goto fail;
     }
 
-    /* maddr = heap_base_addr + moffset */
-    if (!(maddr = LLVMBuildInBoundsGEP(comp_ctx->builder, heap_base_addr,
-                                       &moffset, 1, "maddr"))) {
-        aot_set_last_error("llvm build add failed.");
-        goto fail;
-    }
-    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
-    LLVMAddIncoming(phi, &maddr, &block_curr, 1);
+    /* Add basic blocks */
+    ADD_BASIC_BLOCK(check_succ, "check_succ");
+    LLVMMoveBasicBlockAfter(check_succ, block_curr);
 
-    /* heap space base addr and size is unchanged,
-       the heap boundary is unchanged also. */
-    if (bytes == 1)
-        heap_offset_max = func_ctx->heap_bound_1_byte;
-    else if (bytes == 2)
-        heap_offset_max = func_ctx->heap_bound_2_bytes;
-    else if (bytes == 4)
-        heap_offset_max = func_ctx->heap_bound_4_bytes;
-    else if (bytes == 8)
-        heap_offset_max = func_ctx->heap_bound_8_bytes;
-
-    /* in heap space if (uint32)moffset <= (uint32)heap_offset_max,
-       else throw exception */
-    BUILD_ICMP(LLVMIntUGT, moffset, heap_offset_max, cmp, "cmp_heap_offset");
+    /* offset2 > bound ? */
+    BUILD_ICMP(LLVMIntUGT, offset2, mem_check_bound, cmp, "cmp");
     if (!aot_emit_exception(comp_ctx, func_ctx,
                             EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-                            true, cmp, check_succ))
+                            true, cmp, check_succ)) {
         goto fail;
+    }
 
     SET_BUILD_POS(check_succ);
-    return phi;
+
+    /* maddr = mem_base_addr + offset1 */
+    if (!(maddr = LLVMBuildInBoundsGEP(comp_ctx->builder, mem_base_addr,
+                                       &offset1, 1, "maddr"))) {
+        aot_set_last_error("llvm build add failed.");
+        goto fail;
+    }
+    return maddr;
 fail:
     return NULL;
 }
