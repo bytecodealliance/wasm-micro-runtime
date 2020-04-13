@@ -27,6 +27,7 @@ When the littlevgl library is compiled into the runtime, all the widget data is 
 
 # API compatibility with littlevgl
 We wish the application continue to use the littlevgl API and keep existing header files inclusion, however it is also a bit challenging since we have to redefine some data types such as lv_obj_t in the APIs exposed to the WASM app. 
+
 '''
 typedef void lv_obj_t;
 '''
