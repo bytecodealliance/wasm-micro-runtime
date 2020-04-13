@@ -23,17 +23,16 @@ typedef struct WASMMemoryInstance {
     /* Maximum page count */
     uint32 max_page_count;
 
-    /* Heap data base address */
-    uint8 *heap_data;
-    /* Heap data end address */
-    uint8 *heap_data_end;
-    /* The heap created */
-    void *heap_handle;
     /* Heap base offset of wasm app */
     int32 heap_base_offset;
+    /* Heap data base address */
+    uint8 *heap_data;
+    /* The heap created */
+    void *heap_handle;
 
     /* Memory data */
     uint8 *memory_data;
+
     /* Global data of global instances */
     uint8 *global_data;
     uint32 global_data_size;
@@ -42,12 +41,11 @@ typedef struct WASMMemoryInstance {
     uint8 *end_addr;
 
     /* Base address, the layout is:
-       thunk_argv data + thunk arg offsets +
-       memory data + global data
+       heap_data + memory data + global data
        memory data init size is: num_bytes_per_page * cur_page_count
        global data size is calculated in module instantiating
-       Note: when memory is re-allocated, the thunk argv data, thunk
-             argv offsets and memory data must be copied to new memory also.
+       Note: when memory is re-allocated, the heap data and memory data
+             must be copied to new memory also.
      */
     uint8 base_addr[1];
 } WASMMemoryInstance;

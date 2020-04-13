@@ -2816,21 +2816,21 @@ wasm_loader_check_br(WASMLoaderContext *ctx, uint32 depth,
 
 #define GET_CONST_OFFSET(type, val) do {                                \
     if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
-                                       val, 0, 0, &operand_offset,      \
+                                       &val, &operand_offset,           \
                                        error_buf, error_buf_size)))     \
         goto fail;                                                      \
   } while (0)
 
 #define GET_CONST_F32_OFFSET(type, fval) do {                           \
     if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
-                                       0, fval, 0, &operand_offset,     \
+                                       &fval, &operand_offset,          \
                                        error_buf, error_buf_size)))     \
         goto fail;                                                      \
   } while (0)
 
 #define GET_CONST_F64_OFFSET(type, fval) do {                           \
     if (!(wasm_loader_get_const_offset(loader_ctx, type,                \
-                                       0, 0, fval, &operand_offset,     \
+                                       &fval, &operand_offset,          \
                                        error_buf, error_buf_size)))     \
         goto fail;                                                      \
   } while (0)
@@ -3110,9 +3110,11 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
     }
 
     ctx->frame_offset++;
-    ctx->dynamic_offset++;
-    if (ctx->dynamic_offset > ctx->max_dynamic_offset)
-        ctx->max_dynamic_offset = ctx->dynamic_offset;
+    if (!disable_emit) {
+        ctx->dynamic_offset++;
+        if (ctx->dynamic_offset > ctx->max_dynamic_offset)
+            ctx->max_dynamic_offset = ctx->dynamic_offset;
+    }
     return true;
 }
 
@@ -3170,8 +3172,7 @@ wasm_loader_pop_frame_ref_offset(WASMLoaderContext *ctx, uint8 type,
 
 static bool
 wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type,
-                             int64 val_int, float32 val_f32,
-                             float64 val_f64, int16 *offset,
+                             void *value, int16 *offset,
                              char *error_buf, uint32 error_buf_size)
 {
     int16 operand_offset = 0;
@@ -3179,10 +3180,12 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type,
     for (c = (Const *)ctx->const_buf;
          (uint8*)c < ctx->const_buf + ctx->num_const * sizeof(Const); c ++) {
         if ((type == c->value_type)
-            && ((type == VALUE_TYPE_I64 && (int64)val_int == c->value.i64)
-            || (type == VALUE_TYPE_I32 && (int32)val_int == c->value.i32)
-            || (type == VALUE_TYPE_F64 && (float64)val_f64 == c->value.f64)
-            || (type == VALUE_TYPE_F32 && (float32)val_f32 == c->value.f32))) {
+            && ((type == VALUE_TYPE_I64 && *(int64*)value == c->value.i64)
+            || (type == VALUE_TYPE_I32 && *(int32*)value == c->value.i32)
+            || (type == VALUE_TYPE_F64
+                && (0 == memcmp(value, &(c->value.f64), sizeof(float64))))
+            || (type == VALUE_TYPE_F32
+                && (0 == memcmp(value, &(c->value.f32), sizeof(float32)))))) {
             operand_offset = c->slot_index;
             break;
         }
@@ -3203,23 +3206,23 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type,
         c->value_type = type;
         switch (type) {
         case VALUE_TYPE_F64:
-            c->value.f64 = (float64)val_f64;
+            bh_memcpy_s(&(c->value.f64), sizeof(WASMValue), value, sizeof(float64));
             ctx->const_cell_num += 2;
             /* The const buf will be reversed, we use the second cell */
             /* of the i64/f64 const so the finnal offset is corrent */
             operand_offset ++;
             break;
         case VALUE_TYPE_I64:
-            c->value.i64 = (int64)val_int;
+            c->value.i64 = *(int64*)value;
             ctx->const_cell_num += 2;
             operand_offset ++;
             break;
         case VALUE_TYPE_F32:
-            c->value.f32 = (float32)val_f32;
+            bh_memcpy_s(&(c->value.f32), sizeof(WASMValue), value, sizeof(float32));
             ctx->const_cell_num ++;
             break;
         case VALUE_TYPE_I32:
-            c->value.i32 = (int32)val_int;
+            c->value.i32 = *(int32*)value;
             ctx->const_cell_num ++;
             break;
         default:
@@ -3495,8 +3498,8 @@ re_scan:
     if (loader_ctx->code_compiled_size > 0) {
         if (!wasm_loader_ctx_reinit(loader_ctx)) {
             set_error_buf(error_buf, error_buf_size,
-                      "WASM loader prepare bytecode failed: "
-                      "allocate memory failed");
+                          "WASM loader prepare bytecode failed: "
+                          "allocate memory failed");
             goto fail;
         }
         p = func->code;
@@ -4005,7 +4008,7 @@ handle_next_reachable_block:
 #if WASM_ENABLE_FAST_INTERP != 0
                         if (loader_ctx->p_code_compiled) {
 #if WASM_ENABLE_ABS_LABEL_ADDR != 0
-                            *(void**)(loader_ctx->p_code_compiled - 10) =
+                            *(void**)(loader_ctx->p_code_compiled - 2 - sizeof(void*)) =
                                 handle_table[WASM_OP_SELECT_64];
 #else
                             *((int16*)loader_ctx->p_code_compiled - 2) = (int16)
@@ -4373,7 +4376,7 @@ handle_next_reachable_block:
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
                 disable_emit = true;
-                f32 = *(float32 *)p_org;
+                bh_memcpy_s((uint8*)&f32, sizeof(float32), p_org, sizeof(float32));
                 GET_CONST_F32_OFFSET(VALUE_TYPE_F32, f32);
 #endif
                 PUSH_F32();
@@ -4385,7 +4388,7 @@ handle_next_reachable_block:
                 skip_label();
                 disable_emit = true;
                 /* Some MCU may require 8-byte align */
-                memcpy((uint8*)&f64, p_org, sizeof(float64));
+                bh_memcpy_s((uint8*)&f64, sizeof(float64), p_org, sizeof(float64));
                 GET_CONST_F64_OFFSET(VALUE_TYPE_F64, f64);
 #endif
                 PUSH_F64();
@@ -4687,10 +4690,11 @@ handle_next_reachable_block:
         if (c->value_type == VALUE_TYPE_F64
             || c->value_type == VALUE_TYPE_I64) {
             bh_memcpy_s(func_const, func_const_end - func_const,
-                        &c->value.f64, sizeof(int64));
+                        &(c->value.f64), sizeof(int64));
             func_const += sizeof(int64);
         } else {
-            *(uint32*)func_const = c->value.i32;
+            bh_memcpy_s(func_const, func_const_end - func_const,
+                        &(c->value.f32), sizeof(int32));
             func_const += sizeof(int32);
         }
     }

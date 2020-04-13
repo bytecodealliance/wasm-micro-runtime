@@ -810,9 +810,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    wasi_ctx->curfds = curfds;
-    wasi_ctx->prestats = prestats;
-    wasi_ctx->argv_environ = argv_environ;
+    wasi_ctx->curfds_offset = offset_curfds;
+    wasi_ctx->prestats_offset = offset_prestats;
+    wasi_ctx->argv_environ_offset = offset_argv_environ;
 
     fd_table_init(curfds);
     fd_prestats_init(prestats);
@@ -950,14 +950,32 @@ void
 wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
 {
     WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
+    struct argv_environ_values *argv_environ;
+    struct fd_table *curfds;
+    struct fd_prestats *prestats;
 
     if (wasi_ctx) {
-        if (wasi_ctx->argv_environ)
-            argv_environ_destroy(wasi_ctx->argv_environ);
-        if (wasi_ctx->curfds)
-            fd_table_destroy(wasi_ctx->curfds);
-        if (wasi_ctx->prestats)
-            fd_prestats_destroy(wasi_ctx->prestats);
+        if (wasi_ctx->argv_environ_offset) {
+            argv_environ = (struct argv_environ_values *)
+                wasm_runtime_addr_app_to_native(module_inst,
+                                                wasi_ctx->argv_environ_offset);
+            argv_environ_destroy(argv_environ);
+            wasm_runtime_module_free(module_inst, wasi_ctx->argv_environ_offset);
+        }
+        if (wasi_ctx->curfds_offset) {
+            curfds = (struct fd_table *)
+                wasm_runtime_addr_app_to_native(module_inst,
+                                                wasi_ctx->curfds_offset);
+            fd_table_destroy(curfds);
+            wasm_runtime_module_free(module_inst, wasi_ctx->curfds_offset);
+        }
+        if (wasi_ctx->prestats_offset) {
+            prestats = (struct fd_prestats *)
+                wasm_runtime_addr_app_to_native(module_inst,
+                                                wasi_ctx->prestats_offset);
+            fd_prestats_destroy(prestats);
+            wasm_runtime_module_free(module_inst, wasi_ctx->prestats_offset);
+        }
         wasm_runtime_free(wasi_ctx);
     }
 }
@@ -2141,8 +2159,7 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT)
         return aot_call_indirect(exec_env, false, 0,
-                                 element_indices,
-                                 argv, argc, argv);
+                                 element_indices, argc, argv);
 #endif
     return false;
 }

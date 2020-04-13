@@ -143,20 +143,19 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             LLVMTypeRef ret_type, uint8 wasm_ret_type,
                             LLVMValueRef *p_value_ret, LLVMValueRef *p_res)
 {
-    LLVMTypeRef func_type, func_ptr_type, func_param_types[5];
+    LLVMTypeRef func_type, func_ptr_type, func_param_types[4];
     LLVMTypeRef ret_ptr_type, elem_ptr_type;
     LLVMValueRef func, elem_idx, elem_ptr;
-    LLVMValueRef func_param_values[5], value_ret = NULL, value_ret_ptr, res;
+    LLVMValueRef func_param_values[4], value_ret = NULL, res;
     char buf[32], *func_name = "aot_invoke_native";
     uint32 i, cell_num = 0;
 
     /* prepare function type of aot_invoke_native */
     func_param_types[0] = comp_ctx->exec_env_type;  /* exec_env */
     func_param_types[1] = I32_TYPE;                 /* func_idx */
-    func_param_types[2] = INT32_PTR_TYPE;           /* frame_lp */
-    func_param_types[3] = I32_TYPE;                 /* argc */
-    func_param_types[4] = INT32_PTR_TYPE;           /* argv_ret */
-    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 5, false))) {
+    func_param_types[2] = I32_TYPE;                 /* argc */
+    func_param_types[3] = INT32_PTR_TYPE;           /* argv */
+    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 4, false))) {
         aot_set_last_error("llvm add function type failed.");
         return false;
     }
@@ -216,6 +215,24 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         cell_num += wasm_value_type_cell_num(aot_func_type->types[i]);
     }
 
+    func_param_values[0] = func_ctx->exec_env;
+    func_param_values[1] = func_idx;
+    func_param_values[2] = I32_CONST(param_cell_num);
+    func_param_values[3] = func_ctx->argv_buf;
+
+    if (!func_param_values[2]) {
+        aot_set_last_error("llvm create const failed.");
+        return false;
+    }
+
+    /* call aot_invoke_native() function */
+    if (!(res = LLVMBuildCall(comp_ctx->builder, func,
+                              func_param_values, 4, "res"))) {
+        aot_set_last_error("llvm build call failed.");
+        return false;
+    }
+
+    /* get function return value */
     if (wasm_ret_type != VALUE_TYPE_VOID) {
         if (!(ret_ptr_type = LLVMPointerType(ret_type, 0))) {
             aot_set_last_error("llvm add pointer type failed.");
@@ -227,39 +244,12 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build bit cast failed.");
             return false;
         }
-
-        /* convert to int32 pointer */
-        if (!(value_ret_ptr = LLVMBuildBitCast(comp_ctx->builder, value_ret,
-                                               INT32_PTR_TYPE, "argv_ret_ptr"))) {
-            aot_set_last_error("llvm build store failed.");
+        if (!(*p_value_ret = LLVMBuildLoad(comp_ctx->builder, value_ret,
+                                           "value_ret"))) {
+            aot_set_last_error("llvm build load failed.");
             return false;
         }
     }
-    else {
-        value_ret_ptr = LLVMConstNull(INT32_PTR_TYPE);
-    }
-
-    func_param_values[0] = func_ctx->exec_env;
-    func_param_values[1] = func_idx;
-    func_param_values[2] = func_ctx->argv_buf;
-    func_param_values[3] = I32_CONST(param_cell_num);
-    func_param_values[4] = value_ret_ptr;
-
-    if (!func_param_values[3]) {
-        aot_set_last_error("llvm create const failed.");
-        return false;
-    }
-
-    /* call aot_invoke_native() function */
-    if (!(res = LLVMBuildCall(comp_ctx->builder, func,
-                              func_param_values, 5, "res"))) {
-        aot_set_last_error("llvm build call failed.");
-        return false;
-    }
-
-    if (wasm_ret_type != VALUE_TYPE_VOID)
-        /* get function return value */
-        *p_value_ret = LLVMBuildLoad(comp_ctx->builder, value_ret, "value_ret");
 
     *p_res = res;
     return true;
@@ -395,10 +385,10 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             LLVMTypeRef ret_type, uint8 wasm_ret_type,
                             LLVMValueRef *p_value_ret, LLVMValueRef *p_res)
 {
-    LLVMTypeRef func_type, func_ptr_type, func_param_types[7];
+    LLVMTypeRef func_type, func_ptr_type, func_param_types[6];
     LLVMTypeRef ret_ptr_type, elem_ptr_type;
     LLVMValueRef func, elem_idx, elem_ptr;
-    LLVMValueRef func_param_values[7], value_ret = NULL, value_ret_ptr, res = NULL;
+    LLVMValueRef func_param_values[6], value_ret = NULL, res = NULL;
     char buf[32], *func_name = "aot_call_indirect";
     uint32 i, cell_num = 0;
 
@@ -407,10 +397,9 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     func_param_types[1] = INT8_TYPE;                /* check_func_type */
     func_param_types[2] = I32_TYPE;                 /* func_type_idx */
     func_param_types[3] = I32_TYPE;                 /* table_elem_idx */
-    func_param_types[4] = INT32_PTR_TYPE;           /* frame_lp */
-    func_param_types[5] = I32_TYPE;                 /* argc */
-    func_param_types[6] = INT32_PTR_TYPE;           /* argv_ret */
-    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 7, false))) {
+    func_param_types[4] = I32_TYPE;                 /* argc */
+    func_param_types[5] = INT32_PTR_TYPE;           /* argv */
+    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 6, false))) {
         aot_set_last_error("llvm add function type failed.");
         return false;
     }
@@ -470,6 +459,26 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         cell_num += wasm_value_type_cell_num(aot_func_type->types[i]);
     }
 
+    func_param_values[0] = func_ctx->exec_env;
+    func_param_values[1] = I8_CONST(true);
+    func_param_values[2] = func_type_idx;
+    func_param_values[3] = table_elem_idx;
+    func_param_values[4] = I32_CONST(param_cell_num);
+    func_param_values[5] = func_ctx->argv_buf;
+
+    if (!func_param_values[1] || !func_param_values[4]) {
+        aot_set_last_error("llvm create const failed.");
+        return false;
+    }
+
+    /* call aot_call_indirect() function */
+    if (!(res = LLVMBuildCall(comp_ctx->builder, func,
+                              func_param_values, 6, "res"))) {
+        aot_set_last_error("llvm build call failed.");
+        return false;
+    }
+
+    /* get function return value */
     if (wasm_ret_type != VALUE_TYPE_VOID) {
         if (!(ret_ptr_type = LLVMPointerType(ret_type, 0))) {
             aot_set_last_error("llvm add pointer type failed.");
@@ -482,40 +491,12 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
 
-        /* convert to int32 pointer */
-        if (!(value_ret_ptr = LLVMBuildBitCast(comp_ctx->builder, value_ret,
-                                               INT32_PTR_TYPE, "argv_ret_ptr"))) {
-            aot_set_last_error("llvm build store failed.");
+        if (!(*p_value_ret = LLVMBuildLoad(comp_ctx->builder, value_ret,
+                                           "value_ret"))) {
+            aot_set_last_error("llvm build load failed.");
             return false;
         }
     }
-    else {
-        value_ret_ptr = LLVMConstNull(INT32_PTR_TYPE);
-    }
-
-    func_param_values[0] = func_ctx->exec_env;
-    func_param_values[1] = I8_CONST(true);
-    func_param_values[2] = func_type_idx;
-    func_param_values[3] = table_elem_idx;
-    func_param_values[4] = func_ctx->argv_buf;
-    func_param_values[5] = I32_CONST(param_cell_num);
-    func_param_values[6] = value_ret_ptr;
-
-    if (!func_param_values[1] || !func_param_values[4]) {
-        aot_set_last_error("llvm create const failed.");
-        return false;
-    }
-
-    /* call aot_call_indirect() function */
-    if (!(res = LLVMBuildCall(comp_ctx->builder, func,
-                              func_param_values, 7, "res"))) {
-        aot_set_last_error("llvm build call failed.");
-        return false;
-    }
-
-    if (wasm_ret_type != VALUE_TYPE_VOID)
-        /* get function return value */
-        *p_value_ret = LLVMBuildLoad(comp_ctx->builder, value_ret, "value_ret");
 
     *p_res = res;
     return true;

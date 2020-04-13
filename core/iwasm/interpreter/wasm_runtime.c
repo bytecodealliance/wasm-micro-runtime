@@ -51,7 +51,6 @@ memories_deinstantiate(WASMMemoryInstance **memories, uint32 count)
             if (memories[i]) {
                 if (memories[i]->heap_handle)
                     mem_allocator_destroy(memories[i]->heap_handle);
-                wasm_runtime_free(memories[i]->heap_data);
                 wasm_runtime_free(memories[i]);
             }
         wasm_runtime_free(memories);
@@ -67,6 +66,7 @@ memory_instantiate(uint32 num_bytes_per_page,
 {
     WASMMemoryInstance *memory;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
+                        (uint64)heap_size +
                         num_bytes_per_page * (uint64)init_page_count +
                         global_data_size;
 
@@ -83,42 +83,28 @@ memory_instantiate(uint32 num_bytes_per_page,
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
 
-    memory->memory_data = memory->base_addr;
-
+    memory->heap_data = memory->base_addr;
+    memory->memory_data = memory->heap_data + heap_size;
     memory->global_data = memory->memory_data +
                           num_bytes_per_page * memory->cur_page_count;
     memory->global_data_size = global_data_size;
-
     memory->end_addr = memory->global_data + global_data_size;
 
-    /* Allocate heap space */
-    if (!(memory->heap_data = wasm_runtime_malloc(heap_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "Instantiate memory failed: allocate memory failed.");
-        goto fail1;
-    }
-    memory->heap_data_end = memory->heap_data + heap_size;
+    bh_assert(memory->end_addr - (uint8*)memory == (uint32)total_size);
 
     /* Initialize heap */
     if (!(memory->heap_handle = mem_allocator_create
                 (memory->heap_data, heap_size))) {
-        goto fail2;
+        wasm_runtime_free(memory);
+        return NULL;
     }
 
-#if WASM_ENABLE_MEMORY_GROW != 0
-    memory->heap_base_offset = DEFAULT_APP_HEAP_BASE_OFFSET;
+#if WASM_ENABLE_SPEC_TEST == 0
+    memory->heap_base_offset = -(int32)heap_size;
 #else
-    memory->heap_base_offset = memory->end_addr - memory->memory_data;
+    memory->heap_base_offset = 0;
 #endif
-
     return memory;
-
-fail2:
-    wasm_runtime_free(memory->heap_data);
-
-fail1:
-    wasm_runtime_free(memory);
-    return NULL;
 }
 
 /**
@@ -811,6 +797,10 @@ wasm_instantiate(WASMModule *module,
     /* Initialize the thread related data */
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
+#if WASM_ENABLE_SPEC_TEST != 0
+    if (stack_size < 48 *1024)
+        stack_size = 48 * 1024;
+#endif
     module_inst->default_wasm_stack_size = stack_size;
 
     /* Execute __post_instantiate function */
@@ -923,13 +913,13 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint8 *addr = mem_allocator_malloc(memory->heap_handle, size);
-    if (p_native_addr)
-        *p_native_addr = addr;
     if (!addr) {
         wasm_set_exception(module_inst, "out of memory");
         return 0;
     }
-    return memory->heap_base_offset + (int32)(addr - memory->heap_data);
+    if (p_native_addr)
+        *p_native_addr = addr;
+    return (int32)(addr - memory->memory_data);
 }
 
 void
@@ -937,8 +927,8 @@ wasm_module_free(WASMModuleInstance *module_inst, int32 ptr)
 {
     if (ptr) {
         WASMMemoryInstance *memory = module_inst->default_memory;
-        uint8 *addr = memory->heap_data + (ptr - memory->heap_base_offset);
-        if (memory->heap_data < addr && addr < memory->heap_data_end)
+        uint8 *addr = memory->memory_data + ptr;
+        if (memory->heap_data < addr && addr < memory->memory_data)
             mem_allocator_free(memory->heap_handle, addr);
     }
 }
@@ -961,31 +951,20 @@ bool
 wasm_validate_app_addr(WASMModuleInstance *module_inst,
                        int32 app_offset, uint32 size)
 {
-    WASMMemoryInstance *memory;
-    uint8 *addr;
+    WASMMemoryInstance *memory = module_inst->default_memory;
+    int32 memory_data_size =
+        (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
     /* integer overflow check */
-    if(app_offset + (int32)size < app_offset) {
+    if (app_offset + (int32)size < app_offset) {
         goto fail;
     }
 
-    memory = module_inst->default_memory;
-    if (0 <= app_offset
-        && app_offset < memory->heap_base_offset) {
-        addr = memory->memory_data + app_offset;
-        if (!(memory->base_addr <= addr && addr + size <= memory->end_addr))
-            goto fail;
-        return true;
+    if (app_offset <= memory->heap_base_offset
+        || app_offset + (int32)size > memory_data_size) {
+        goto fail;
     }
-    else if (memory->heap_base_offset < app_offset
-             && app_offset < memory->heap_base_offset
-                             + (memory->heap_data_end - memory->heap_data)) {
-        addr = memory->heap_data + (app_offset - memory->heap_base_offset);
-        if (!(memory->heap_data <= addr && addr + size <= memory->heap_data_end))
-            goto fail;
-        return true;
-    }
-
+    return true;
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
@@ -995,18 +974,20 @@ bool
 wasm_validate_native_addr(WASMModuleInstance *module_inst,
                           void *native_ptr, uint32 size)
 {
-    uint8 *addr = native_ptr;
+    uint8 *addr = (uint8*)native_ptr;
     WASMMemoryInstance *memory = module_inst->default_memory;
+    int32 memory_data_size =
+        (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
     if (addr + size < addr) {
         goto fail;
     }
 
-    if ((memory->base_addr <= addr && addr + size <= memory->end_addr)
-        || (memory->heap_data <= addr && addr + size <= memory->heap_data_end)
-       )
-        return true;
-
+    if (addr <= memory->heap_data
+        || addr + size > memory->memory_data + memory_data_size) {
+        goto fail;
+    }
+    return true;
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
@@ -1017,14 +998,13 @@ wasm_addr_app_to_native(WASMModuleInstance *module_inst,
                         int32 app_offset)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
-    if (0 <= app_offset && app_offset < memory->heap_base_offset)
+    int32 memory_data_size =
+        (int32)(memory->num_bytes_per_page * memory->cur_page_count);
+
+    if (memory->heap_base_offset < app_offset
+        && app_offset < memory_data_size)
         return memory->memory_data + app_offset;
-    else if (memory->heap_base_offset < app_offset
-             && app_offset < memory->heap_base_offset
-                             + (memory->heap_data_end - memory->heap_data))
-        return memory->heap_data + (app_offset - memory->heap_base_offset);
-    else
-        return NULL;
+    return NULL;
 }
 
 int32
@@ -1032,15 +1012,14 @@ wasm_addr_native_to_app(WASMModuleInstance *module_inst,
                         void *native_ptr)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
-    if (memory->base_addr <= (uint8*)native_ptr
-        && (uint8*)native_ptr < memory->end_addr)
-        return (int32)((uint8*)native_ptr - memory->memory_data);
-    else if (memory->heap_data <= (uint8*)native_ptr
-             && (uint8*)native_ptr < memory->heap_data_end)
-        return memory->heap_base_offset
-               + (int32)((uint8*)native_ptr - memory->heap_data);
-    else
-        return 0;
+    uint8 *addr = (uint8*)native_ptr;
+    int32 memory_data_size =
+        (int32)(memory->num_bytes_per_page * memory->cur_page_count);
+
+    if (memory->heap_data < addr
+        && addr < memory->memory_data + memory_data_size)
+        return (int32)(addr - memory->memory_data);
+    return 0;
 }
 
 bool
@@ -1049,28 +1028,19 @@ wasm_get_app_addr_range(WASMModuleInstance *module_inst,
                         int32 *p_app_start_offset,
                         int32 *p_app_end_offset)
 {
-    int32 app_start_offset, app_end_offset;
     WASMMemoryInstance *memory = module_inst->default_memory;
+    int32 memory_data_size =
+        (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
-    if (0 <= app_offset && app_offset < memory->heap_base_offset) {
-        app_start_offset = 0;
-        app_end_offset = (int32)(memory->num_bytes_per_page * memory->cur_page_count);
+    if (memory->heap_base_offset < app_offset
+        && app_offset < memory_data_size) {
+        if (p_app_start_offset)
+            *p_app_start_offset = memory->heap_base_offset;
+        if (p_app_end_offset)
+            *p_app_end_offset = memory_data_size;
+        return true;
     }
-    else if (memory->heap_base_offset < app_offset
-             && app_offset < memory->heap_base_offset
-                             + (memory->heap_data_end - memory->heap_data)) {
-        app_start_offset = memory->heap_base_offset;
-        app_end_offset = memory->heap_base_offset
-                         + (int32)(memory->heap_data_end - memory->heap_data);
-    }
-    else
-        return false;
-
-    if (p_app_start_offset)
-        *p_app_start_offset = app_start_offset;
-    if (p_app_end_offset)
-        *p_app_end_offset = app_end_offset;
-    return true;
+    return false;
 }
 
 bool
@@ -1079,42 +1049,36 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst,
                            uint8 **p_native_start_addr,
                            uint8 **p_native_end_addr)
 {
-    uint8 *native_start_addr, *native_end_addr;
     WASMMemoryInstance *memory = module_inst->default_memory;
+    uint8 *addr = (uint8*)native_ptr;
+    int32 memory_data_size =
+        (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
-    if (memory->base_addr <= (uint8*)native_ptr
-        && (uint8*)native_ptr < memory->end_addr) {
-        native_start_addr = memory->memory_data;
-        native_end_addr = memory->memory_data
-                          + memory->num_bytes_per_page * memory->cur_page_count;
+    if (memory->heap_data < addr
+        && addr < memory->memory_data + memory_data_size) {
+        if (p_native_start_addr)
+            *p_native_start_addr = memory->heap_data;
+        if (p_native_end_addr)
+            *p_native_end_addr = memory->memory_data + memory_data_size;
+        return true;
     }
-    else if (memory->heap_data <= (uint8*)native_ptr
-             && (uint8*)native_ptr < memory->heap_data_end) {
-        native_start_addr = memory->heap_data;
-        native_end_addr = memory->heap_data_end;
-    }
-    else
-        return false;
-
-    if (p_native_start_addr)
-        *p_native_start_addr = native_start_addr;
-    if (p_native_end_addr)
-        *p_native_end_addr = native_end_addr;
-    return true;
+    return false;
 }
 
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
-#if WASM_ENABLE_MEMORY_GROW != 0
     WASMMemoryInstance *memory = module->default_memory, *new_memory;
+    uint32 heap_size = memory->memory_data - memory->heap_data;
     uint32 old_page_count = memory->cur_page_count;
     uint32 total_size_old = memory->end_addr - (uint8*)memory;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
-    uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
-                        memory->num_bytes_per_page * (uint64)total_page_count +
-                        memory->global_data_size;
+    uint64 total_size = offsetof(WASMMemoryInstance, base_addr)
+                        + (uint64)heap_size
+                        + memory->num_bytes_per_page * (uint64)total_page_count
+                        + memory->global_data_size;
     uint8 *global_data_old;
+    void *heap_handle_old = memory->heap_handle;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -1131,8 +1095,13 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         return false;
     }
 
+    /* Destroy heap's lock firstly, if its memory is re-allocated,
+       we cannot access its lock again. */
+    mem_allocator_destroy_lock(memory->heap_handle);
     if (!(new_memory = wasm_runtime_realloc(memory, (uint32)total_size))) {
         if (!(new_memory = wasm_runtime_malloc((uint32)total_size))) {
+            /* Restore heap's lock if memory re-alloc failed */
+            mem_allocator_reinit_lock(memory->heap_handle);
             wasm_set_exception(module, "fail to enlarge memory.");
             return false;
         }
@@ -1144,8 +1113,17 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memset((uint8*)new_memory + total_size_old,
            0, (uint32)total_size - total_size_old);
 
+    new_memory->heap_handle = (uint8*)heap_handle_old +
+                              ((uint8*)new_memory - (uint8*)memory);
+    if (mem_allocator_migrate(new_memory->heap_handle,
+                              heap_handle_old) != 0) {
+        wasm_set_exception(module, "fail to enlarge memory.");
+        return false;
+    }
+
     new_memory->cur_page_count = total_page_count;
-    new_memory->memory_data = new_memory->base_addr;
+    new_memory->heap_data = new_memory->base_addr;
+    new_memory->memory_data = new_memory->base_addr + heap_size;
     new_memory->global_data = new_memory->memory_data +
                               new_memory->num_bytes_per_page * total_page_count;
     new_memory->end_addr = new_memory->global_data + new_memory->global_data_size;
@@ -1160,10 +1138,6 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     module->memories[0] = module->default_memory = new_memory;
     return true;
-#else /* else of WASM_ENABLE_MEMORY_GROW */
-    wasm_set_exception(module, "unsupported operation: enlarge memory.");
-    return false;
-#endif /* end of WASM_ENABLE_MEMORY_GROW */
 }
 
 
