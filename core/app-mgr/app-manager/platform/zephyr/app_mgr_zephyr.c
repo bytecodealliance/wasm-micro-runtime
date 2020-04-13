@@ -38,7 +38,7 @@ void app_manager_timer_destroy(void *timer)
 
 void app_manager_timer_start(void *timer, int timeout)
 {
-    k_timer_start(timer, timeout, 0);
+    k_timer_start(timer, Z_TIMEOUT_MS(timeout), Z_TIMEOUT_MS(0));
 }
 
 void app_manager_timer_stop(void *timer)
