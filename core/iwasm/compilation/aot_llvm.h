@@ -30,6 +30,8 @@ typedef struct AOTValue {
   LLVMValueRef value;
   /* VALUE_TYPE_I32/I64/F32/F64/VOID */
   uint8 type;
+  bool is_local;
+  uint32 local_idx;
 } AOTValue;
 
 /**
@@ -84,6 +86,13 @@ typedef struct AOTBlockStack {
   uint32 block_index[3];
 } AOTBlockStack;
 
+typedef struct AOTCheckedAddr {
+  struct AOTCheckedAddr *next;
+  uint32 local_idx;
+  uint32 offset;
+  uint32 bytes;
+} AOTCheckedAddr, *AOTCheckedAddrList;
+
 typedef struct AOTFuncContext {
   AOTFunc *aot_func;
   LLVMValueRef func;
@@ -105,6 +114,7 @@ typedef struct AOTFuncContext {
   LLVMValueRef cur_exception;
 
   bool mem_space_unchanged;
+  AOTCheckedAddrList checked_addr_list;
 
   LLVMBasicBlockRef *exception_blocks;
   LLVMBasicBlockRef got_exception_block;
@@ -257,6 +267,20 @@ aot_block_destroy(AOTBlock *block);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type);
+
+bool
+aot_checked_addr_list_add(AOTFuncContext *func_ctx,
+                          uint32 local_idx, uint32 offset, uint32 bytes);
+
+void
+aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx);
+
+bool
+aot_checked_addr_list_find(AOTFuncContext *func_ctx,
+                           uint32 local_idx, uint32 offset, uint32 bytes);
+
+void
+aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

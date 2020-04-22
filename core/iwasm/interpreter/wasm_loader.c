@@ -419,7 +419,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             read_leb_uint32(p, p_end, result_count);
             if (result_count > 1) {
                 set_error_buf(error_buf, error_buf_size,
-                              "Load type section failed: invalid result count.");
+                              "Load type section failed: invalid result arity.");
                 return false;
             }
             CHECK_BUF(p, p_end, result_count);
@@ -486,6 +486,36 @@ unsigned
 wasm_runtime_memory_pool_size();
 
 static bool
+check_memory_init_size(uint32 init_size,
+                       char *error_buf, uint32 error_buf_size)
+{
+    if (init_size > 65536) {
+        set_error_buf(error_buf, error_buf_size,
+                      "memory size must be at most 65536 pages (4GiB)");
+        return false;
+    }
+    return true;
+}
+
+static bool
+check_memory_max_size(uint32 init_size, uint32 max_size,
+                      char *error_buf, uint32 error_buf_size)
+{
+    if (max_size < init_size) {
+        set_error_buf(error_buf, error_buf_size,
+                      "size minimum must not be greater than maximum");
+        return false;
+    }
+
+    if (max_size > 65536) {
+        set_error_buf(error_buf, error_buf_size,
+                      "memory size must be at most 65536 pages (4GiB)");
+        return false;
+    }
+    return true;
+}
+
+static bool
 load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
                    WASMMemoryImport *memory,
                    char *error_buf, uint32 error_buf_size)
@@ -501,8 +531,16 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
 
     read_leb_uint32(p, p_end, memory->flags);
     read_leb_uint32(p, p_end, memory->init_page_count);
+    if (!check_memory_init_size(memory->init_page_count,
+                                error_buf, error_buf_size))
+        return false;
+
     if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
+        if (!check_memory_max_size(memory->init_page_count,
+                                   memory->max_page_count,
+                                   error_buf, error_buf_size))
+                return false;
         if (memory->max_page_count > max_page_count)
             memory->max_page_count = max_page_count;
     }
@@ -552,8 +590,16 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
 
     read_leb_uint32(p, p_end, memory->flags);
     read_leb_uint32(p, p_end, memory->init_page_count);
+    if (!check_memory_init_size(memory->init_page_count,
+                                error_buf, error_buf_size))
+        return false;
+
     if (memory->flags & 1) {
         read_leb_uint32(p, p_end, memory->max_page_count);
+        if (!check_memory_max_size(memory->init_page_count,
+                                   memory->max_page_count,
+                                   error_buf, error_buf_size))
+                return false;
         if (memory->max_page_count > max_page_count)
             memory->max_page_count = max_page_count;
     }
@@ -715,7 +761,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (type_index >= module->type_count) {
                         set_error_buf(error_buf, error_buf_size,
                                       "Load import section failed: "
-                                      "function type index out of range.");
+                                      "unknown type.");
                         return false;
                     }
                     import->u.function.func_type = module->types[type_index];
@@ -898,7 +944,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             if (type_index >= module->type_count) {
                 set_error_buf(error_buf, error_buf_size,
                               "Load function section failed: "
-                              "function type index out of range.");
+                              "unknown type.");
                 return false;
             }
 
@@ -1017,7 +1063,7 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     if (table_count) {
         if (table_count > 1) {
             set_error_buf(error_buf, error_buf_size,
-                          "Load table section failed: multiple memories");
+                          "Load table section failed: multiple tables");
             return false;
         }
         module->table_count = table_count;
@@ -1194,7 +1240,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (index >= module->function_count + module->import_function_count) {
                         set_error_buf(error_buf, error_buf_size,
                                       "Load export section failed: "
-                                      "function index out of range.");
+                                      "unknown function.");
                         return false;
                     }
                     break;
@@ -1203,7 +1249,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (index >= module->table_count + module->import_table_count) {
                         set_error_buf(error_buf, error_buf_size,
                                       "Load export section failed: "
-                                      "table index out of range.");
+                                      "unknown table.");
                         return false;
                     }
                     break;
@@ -1212,7 +1258,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (index >= module->memory_count + module->import_memory_count) {
                         set_error_buf(error_buf, error_buf_size,
                                       "Load export section failed: "
-                                      "memory index out of range.");
+                                      "unknown memory.");
                         return false;
                     }
                     break;
@@ -1221,7 +1267,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (index >= module->global_count + module->import_global_count) {
                         set_error_buf(error_buf, error_buf_size,
                                       "Load export section failed: "
-                                      "global index out of range.");
+                                      "unknown global.");
                         return false;
                     }
                     break;
@@ -1273,7 +1319,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end, WASMModule *m
             if (p >= p_end) {
                 set_error_buf(error_buf, error_buf_size,
                               "Load table segment section failed: "
-                              "invalid value type");
+                              "unexpected end");
                 return false;
             }
             read_leb_uint32(p, p_end, table_index);
@@ -1417,7 +1463,7 @@ load_start_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         if (start_function >= module->function_count + module->import_function_count) {
             set_error_buf(error_buf, error_buf_size,
                           "Load start section failed: "
-                          "function index out of range.");
+                          "unknown function.");
             return false;
         }
         module->start_function = start_function;
@@ -2703,7 +2749,7 @@ wasm_loader_check_br(WASMLoaderContext *ctx, uint32 depth,
 {
     if (ctx->csp_num < depth + 1) {
       set_error_buf(error_buf, error_buf_size,
-                    "WASM module load failed: type mismatch: "
+                    "WASM module load failed: unknown label, "
                     "unexpected end of section or function");
       return false;
     }
@@ -3405,7 +3451,7 @@ fail:
     if (local_idx >= param_count + local_count) {   \
       set_error_buf(error_buf, error_buf_size,      \
                     "WASM module load failed: "     \
-                    "local index out of range");    \
+                    "unknown local.");              \
       goto fail;                                    \
     }                                               \
     local_type = local_idx < param_count            \
@@ -3427,8 +3473,7 @@ check_memory(WASMModule *module,
     if (module->memory_count == 0
         && module->import_memory_count == 0) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
-                      "load or store in module without default memory");
+                      "WASM module load failed: unknown memory");
         return false;
     }
     return true;
@@ -3848,7 +3893,7 @@ handle_next_reachable_block:
                 if (func_idx >= module->import_function_count + module->function_count) {
                     set_error_buf(error_buf, error_buf_size,
                                   "WASM loader prepare bytecode failed: "
-                                  "function index out of range");
+                                  "unknown function.");
                     goto fail;
                 }
 
@@ -3888,7 +3933,7 @@ handle_next_reachable_block:
                     && module->import_table_count == 0) {
                     set_error_buf(error_buf, error_buf_size,
                                   "WASM loader prepare bytecode failed: "
-                                  "call indirect without default table");
+                                  "call indirect with unknown table");
                     goto fail;
                 }
 
@@ -3911,7 +3956,7 @@ handle_next_reachable_block:
                 if (type_idx >= module->type_count) {
                     set_error_buf(error_buf, error_buf_size,
                                   "WASM loader prepare bytecode failed: "
-                                  "function index out of range");
+                                  "unknown type");
                     goto fail;
                 }
 
@@ -3992,7 +4037,8 @@ handle_next_reachable_block:
                 if (loader_ctx->stack_cell_num <= 0) {
                     set_error_buf(error_buf, error_buf_size,
                                   "WASM loader prepare bytecode failed: "
-                                  "opcode select was found but stack was empty");
+                                  "type mismatch, opcode select was found "
+                                  "but stack was empty");
                     goto fail;
                 }
 
@@ -4175,7 +4221,7 @@ handle_next_reachable_block:
                 if (global_idx >= global_count) {
                     set_error_buf(error_buf, error_buf_size,
                                   "WASM loader prepare bytecode failed: "
-                                  "global index out of range");
+                                  "unknown global.");
                     goto fail;
                 }
 
@@ -4197,7 +4243,7 @@ handle_next_reachable_block:
                 if (global_idx >= global_count) {
                     set_error_buf(error_buf, error_buf_size,
                                   "WASM loader prepare bytecode failed: "
-                                  "global index out of range");
+                                  "unknown global.");
                     goto fail;
                 }
 

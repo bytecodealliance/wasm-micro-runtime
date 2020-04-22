@@ -82,6 +82,7 @@ check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef mem_base_addr, mem_check_bound, total_mem_size;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_succ, check_mem_space;
+    AOTValue *aot_value;
 
     CHECK_LLVM_CONST(offset_const);
     CHECK_LLVM_CONST(bytes_const);
@@ -99,6 +100,8 @@ check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
         }
     }
+
+    aot_value = func_ctx->block_stack.block_list_end->value_stack.value_list_end;
 
     POP_I32(addr);
     /* offset1 = offset + addr; */
@@ -152,27 +155,37 @@ check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         SET_BUILD_POS(check_mem_space);
     }
 
-    /* offset2 = offset1 - heap_base_offset; */
-    BUILD_OP(Sub, offset1, heap_base_offset, offset2, "offset2");
+    if (!(aot_value->is_local
+          && aot_checked_addr_list_find(func_ctx, aot_value->local_idx,
+                                        offset, bytes))) {
+        /* offset2 = offset1 - heap_base_offset; */
+        BUILD_OP(Sub, offset1, heap_base_offset, offset2, "offset2");
 
-    if (!(mem_check_bound =
-                get_memory_check_bound(comp_ctx, func_ctx, bytes))) {
-        goto fail;
+        if (!(mem_check_bound =
+                    get_memory_check_bound(comp_ctx, func_ctx, bytes))) {
+            goto fail;
+        }
+
+        /* Add basic blocks */
+        ADD_BASIC_BLOCK(check_succ, "check_succ");
+        LLVMMoveBasicBlockAfter(check_succ, block_curr);
+
+        /* offset2 > bound ? */
+        BUILD_ICMP(LLVMIntUGT, offset2, mem_check_bound, cmp, "cmp");
+        if (!aot_emit_exception(comp_ctx, func_ctx,
+                                EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
+                                true, cmp, check_succ)) {
+            goto fail;
+        }
+
+        SET_BUILD_POS(check_succ);
+
+        if (aot_value->is_local) {
+            if (!aot_checked_addr_list_add(func_ctx, aot_value->local_idx,
+                                           offset, bytes))
+                goto fail;
+        }
     }
-
-    /* Add basic blocks */
-    ADD_BASIC_BLOCK(check_succ, "check_succ");
-    LLVMMoveBasicBlockAfter(check_succ, block_curr);
-
-    /* offset2 > bound ? */
-    BUILD_ICMP(LLVMIntUGT, offset2, mem_check_bound, cmp, "cmp");
-    if (!aot_emit_exception(comp_ctx, func_ctx,
-                            EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-                            true, cmp, check_succ)) {
-        goto fail;
-    }
-
-    SET_BUILD_POS(check_succ);
 
     /* maddr = mem_base_addr + offset1 */
     if (!(maddr = LLVMBuildInBoundsGEP(comp_ctx->builder, mem_base_addr,
