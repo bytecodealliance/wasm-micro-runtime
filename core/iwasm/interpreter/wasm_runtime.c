@@ -753,7 +753,7 @@ wasm_instantiate(WASMModule *module,
                 for (j = 0; j < length; j++) {
                     if (table_seg->func_indexes[j] >= module_inst->function_count) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "function index is overflow");
+                                      "WASM instantiate failed: unknown function");
                         wasm_deinstantiate(module_inst);
                         return NULL;
                     }

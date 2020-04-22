@@ -127,6 +127,8 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
     AOTBlock *block_prev;
     uint8 *frame_ip;
 
+    aot_checked_addr_list_destroy(func_ctx);
+
     if (block->block_type == BLOCK_TYPE_IF
         && block->llvm_else_block
         && !block->skip_wasm_code_else
@@ -233,6 +235,8 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Start to translate the block */
         SET_BUILDER_POS(block->llvm_entry_block);
         aot_block_stack_push(&func_ctx->block_stack, block);
+        if (block_type == BLOCK_TYPE_LOOP)
+            aot_checked_addr_list_destroy(func_ctx);
     }
     else if (block_type == BLOCK_TYPE_IF) {
         POP_COND(value);
@@ -373,6 +377,7 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Clear value stack and start to translate else branch */
         aot_value_stack_destroy(&block->value_stack);
         SET_BUILDER_POS(block->llvm_else_block);
+        aot_checked_addr_list_destroy(func_ctx);
         return true;
     }
 
