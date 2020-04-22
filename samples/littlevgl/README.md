@@ -1,15 +1,19 @@
 "littlevgl" sample introduction
 ==============
-This sample demonstrates that a graphic user interface application in WebAssembly by compiling the LittlevGL, an open-source embedded 2d graphic library into the WASM bytecode.
+This sample demonstrates that a graphic user interface application in WebAssembly by compiling the LittlevGL v5.3, an open-source embedded 2d graphic library into the WASM bytecode.
 
-In this sample, the whole LittlevGL source code is built into the WebAssembly code with the user application. The platform interfaces defined by LittlevGL is implemented in the runtime and exported to the application through the declarations from source "ext_lib_export.c" as below:
+In this sample, the whole LittlevGL v5.3 source code is built into the WebAssembly code with the user application. The platform interfaces defined by LittlevGL is implemented in the runtime and registered for WASM application through calling wasm_runtime_full_init().
 
-        EXPORT_WASM_API(display_input_read),
-        EXPORT_WASM_API(display_flush),
-        EXPORT_WASM_API(display_fill),
-        EXPORT_WASM_API(display_vdb_write),
-        EXPORT_WASM_API(display_map),
-        EXPORT_WASM_API(time_get_ms),
+```
+static NativeSymbol native_symbols[] = {
+    EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),
+    EXPORT_WASM_API_WITH_SIG(display_flush, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(display_fill, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(display_vdb_write, "(*iii*i)"),
+    EXPORT_WASM_API_WITH_SIG(display_map, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(time_get_ms, "()i")
+};
+```
 
 The runtime component supports building target for Linux and Zephyr/STM Nucleo board. The beauty of this sample is the WebAssembly application can have identical display and behavior when running from both runtime environments. That implies we can do majority of application validation from desktop environment as long as two runtime distributions support the same set of application interface.
 
@@ -56,14 +60,21 @@ Build and Run
 - Build</br>
 `./build.sh`</br>
     All binaries are in "out", which contains "host_tool", "vgl_native_ui_app", "ui_app.wasm" "ui_app_no_wasi.wasm "and "vgl_wasm_runtime".
-- Run native Linux application</br>
+- Run the native Linux build of the lvgl sample (no wasm) </br>
 `./vgl_native_ui_app`</br>
 
 - Run WASM VM Linux applicaton & install WASM APP</br>
  First start vgl_wasm_runtime in server mode.</br>
 `./vgl_wasm_runtime -s`</br>
- Then install wasm APP use host tool.</br>
-`./host_tool -i ui_app -f ui_app.wasm`</br>
+ Then install and uninstall wasm APPs by using host tool.</br>
+`./host_tool -i ui_wasi -f ui_app_wasi.wasm`</br>
+`./host_tool -q`</br>
+`./host_tool -u ui_wasi`</br>
+`./host_tool -i ui_no_wasi -f ui_app_builtin_libc.wasm`</br>
+`./host_tool -q`</br>
+`./host_tool -u ui_no_wasi`</br>
+
+
 
 Test on Zephyr
 ================================
@@ -140,9 +151,9 @@ We can use a STM32 NUCLEO_F767ZI  board with ILI9341 display and XPT2046 touch s
 
 - Install WASM application to Zephyr using host_tool</br>
 First, connect PC and STM32 with UART. Then install to use host_tool.</br>
-`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_no_wasi.wasm`
-**Note**: WASI is unavailable on zephyr currently, so you have to use the ui_app_no_wasi.wasm which doesn't depend on WASI.
+`./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_builtin_libc.wasm`
+**Note**: WASI is unavailable on zephyr currently, so you have to use the ui_app_builtin_libc.wasm which doesn't depend on WASI.
 
 - Install AOT version WASM application
-`wamrc --target=thumbv7 --target-abi=eabi --cpu=cortex-m7 -o ui_app_no_wasi.aot ui_app_no_wasi.wasm`
+`wamrc --target=thumbv7 --target-abi=eabi --cpu=cortex-m7 -o ui_app_no_wasi.aot ui_app_builtin_libc.wasm`
 `./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_no_wasi.aot`
