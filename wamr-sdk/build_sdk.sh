@@ -159,9 +159,6 @@ fi
 
 echo -e "\n\n"
 echo "##############  Start to build wasm app sdk  ###############"
-cd ${sdk_root}/app
-rm -fr build && mkdir build
-cd build
 
 # If wgl module is selected, check if the extra SDK include dir is passed by the args, prompt user to input if not.
 app_all_selected=`cat ${wamr_config_cmake_file} | grep WAMR_APP_BUILD_ALL`
@@ -178,7 +175,14 @@ if [[ -n "${app_wgl_selected}" ]] || [[ -n "${app_all_selected}" ]]; then
             CM_DEXTRA_SDK_INCLUDE_PATH="-DEXTRA_SDK_INCLUDE_PATH=${extra_file_path}"
         fi
     fi
+
+    cd ${wamr_root_dir}/core/app-framework/wgl/app
+    ./prepare_headers.sh
 fi
+
+cd ${sdk_root}/app
+rm -fr build && mkdir build
+cd build
 
 out=`grep WAMR_BUILD_LIBC_WASI ${wamr_config_cmake_file} |grep 1`
 if [ -n "$out" ]; then
