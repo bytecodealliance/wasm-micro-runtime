@@ -5,43 +5,44 @@ CC = /opt/wasi-sdk/bin/clang
 LVGL_DIR = ${shell pwd}
 SDK_DIR = $(LVGL_DIR)/../../../wamr-sdk/out/littlevgl/app-sdk
 APP_FRAMEWORK_DIR = $(SDK_DIR)/wamr-app-framework
+LVGL_REPO_PATH=../build/lvgl
 
 CFLAGS += -O3 \
         -I$(LVGL_DIR) \
-        -I$(LVGL_DIR)/lvgl \
+        -I$(LVGL_DIR)/../build \
         -I$(LVGL_DIR)/lv_drivers \
         -I$(LVGL_DIR)/src \
         -I$(LVGL_DIR)/../lv_config \
         -I$(APP_FRAMEWORK_DIR)/include
 
-SRCS += lvgl/lv_draw/lv_draw_line.c lvgl/lv_draw/lv_draw_rbasic.c
-SRCS += lvgl/lv_draw/lv_draw_img.c lvgl/lv_draw/lv_draw_arc.c
-SRCS += lvgl/lv_draw/lv_draw_rect.c lvgl/lv_draw/lv_draw_triangle.c
-SRCS += lvgl/lv_draw/lv_draw.c lvgl/lv_draw/lv_draw_label.c
-SRCS += lvgl/lv_draw/lv_draw_vbasic.c lvgl/lv_fonts/lv_font_builtin.c
-SRCS += lvgl/lv_fonts/lv_font_dejavu_20.c
-SRCS += lvgl/lv_objx/lv_img.c
-SRCS += lvgl/lv_objx/lv_roller.c lvgl/lv_objx/lv_cb.c lvgl/lv_objx/lv_led.c lvgl/lv_objx/lv_cont.c
-SRCS += lvgl/lv_objx/lv_calendar.c lvgl/lv_objx/lv_gauge.c lvgl/lv_objx/lv_page.c
-SRCS += lvgl/lv_objx/lv_list.c lvgl/lv_objx/lv_bar.c lvgl/lv_objx/lv_tabview.c
-SRCS += lvgl/lv_objx/lv_mbox.c lvgl/lv_objx/lv_objx_templ.c lvgl/lv_objx/lv_sw.c
-SRCS += lvgl/lv_objx/lv_label.c lvgl/lv_objx/lv_slider.c lvgl/lv_objx/lv_ddlist.c
-SRCS += lvgl/lv_objx/lv_imgbtn.c lvgl/lv_objx/lv_line.c lvgl/lv_objx/lv_chart.c
-SRCS += lvgl/lv_objx/lv_btnm.c lvgl/lv_objx/lv_arc.c lvgl/lv_objx/lv_preload.c
-SRCS += lvgl/lv_objx/lv_win.c lvgl/lv_objx/lv_lmeter.c lvgl/lv_objx/lv_btn.c
-SRCS += lvgl/lv_objx/lv_ta.c lvgl/lv_misc/lv_log.c lvgl/lv_misc/lv_fs.c
-SRCS += lvgl/lv_misc/lv_task.c lvgl/lv_misc/lv_circ.c lvgl/lv_misc/lv_anim.c
-SRCS += lvgl/lv_misc/lv_color.c lvgl/lv_misc/lv_txt.c lvgl/lv_misc/lv_math.c
-SRCS += lvgl/lv_misc/lv_mem.c lvgl/lv_misc/lv_font.c lvgl/lv_misc/lv_ll.c
-SRCS += lvgl/lv_misc/lv_area.c lvgl/lv_misc/lv_templ.c lvgl/lv_misc/lv_ufs.c
-SRCS += lvgl/lv_misc/lv_gc.c
-SRCS += lvgl/lv_hal/lv_hal_tick.c lvgl/lv_hal/lv_hal_indev.c lvgl/lv_hal/lv_hal_disp.c
-SRCS += lvgl/lv_themes/lv_theme_mono.c lvgl/lv_themes/lv_theme_templ.c
-SRCS += lvgl/lv_themes/lv_theme_material.c lvgl/lv_themes/lv_theme.c
-SRCS += lvgl/lv_themes/lv_theme_night.c lvgl/lv_themes/lv_theme_zen.c lvgl/lv_themes/lv_theme_nemo.c
-SRCS += lvgl/lv_themes/lv_theme_alien.c lvgl/lv_themes/lv_theme_default.c
-SRCS += lvgl/lv_core/lv_group.c lvgl/lv_core/lv_style.c lvgl/lv_core/lv_indev.c
-SRCS += lvgl/lv_core/lv_vdb.c lvgl/lv_core/lv_obj.c lvgl/lv_core/lv_refr.c
+SRCS += ${LVGL_REPO_PATH}/lv_draw/lv_draw_line.c ${LVGL_REPO_PATH}/lv_draw/lv_draw_rbasic.c
+SRCS += ${LVGL_REPO_PATH}/lv_draw/lv_draw_img.c ${LVGL_REPO_PATH}/lv_draw/lv_draw_arc.c
+SRCS += ${LVGL_REPO_PATH}/lv_draw/lv_draw_rect.c ${LVGL_REPO_PATH}/lv_draw/lv_draw_triangle.c
+SRCS += ${LVGL_REPO_PATH}/lv_draw/lv_draw.c ${LVGL_REPO_PATH}/lv_draw/lv_draw_label.c
+SRCS += ${LVGL_REPO_PATH}/lv_draw/lv_draw_vbasic.c ${LVGL_REPO_PATH}/lv_fonts/lv_font_builtin.c
+SRCS += ${LVGL_REPO_PATH}/lv_fonts/lv_font_dejavu_20.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_img.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_roller.c ${LVGL_REPO_PATH}/lv_objx/lv_cb.c ${LVGL_REPO_PATH}/lv_objx/lv_led.c ${LVGL_REPO_PATH}/lv_objx/lv_cont.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_calendar.c ${LVGL_REPO_PATH}/lv_objx/lv_gauge.c ${LVGL_REPO_PATH}/lv_objx/lv_page.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_list.c ${LVGL_REPO_PATH}/lv_objx/lv_bar.c ${LVGL_REPO_PATH}/lv_objx/lv_tabview.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_mbox.c ${LVGL_REPO_PATH}/lv_objx/lv_objx_templ.c ${LVGL_REPO_PATH}/lv_objx/lv_sw.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_label.c ${LVGL_REPO_PATH}/lv_objx/lv_slider.c ${LVGL_REPO_PATH}/lv_objx/lv_ddlist.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_imgbtn.c ${LVGL_REPO_PATH}/lv_objx/lv_line.c ${LVGL_REPO_PATH}/lv_objx/lv_chart.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_btnm.c ${LVGL_REPO_PATH}/lv_objx/lv_arc.c ${LVGL_REPO_PATH}/lv_objx/lv_preload.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_win.c ${LVGL_REPO_PATH}/lv_objx/lv_lmeter.c ${LVGL_REPO_PATH}/lv_objx/lv_btn.c
+SRCS += ${LVGL_REPO_PATH}/lv_objx/lv_ta.c ${LVGL_REPO_PATH}/lv_misc/lv_log.c ${LVGL_REPO_PATH}/lv_misc/lv_fs.c
+SRCS += ${LVGL_REPO_PATH}/lv_misc/lv_task.c ${LVGL_REPO_PATH}/lv_misc/lv_circ.c ${LVGL_REPO_PATH}/lv_misc/lv_anim.c
+SRCS += ${LVGL_REPO_PATH}/lv_misc/lv_color.c ${LVGL_REPO_PATH}/lv_misc/lv_txt.c ${LVGL_REPO_PATH}/lv_misc/lv_math.c
+SRCS += ${LVGL_REPO_PATH}/lv_misc/lv_mem.c ${LVGL_REPO_PATH}/lv_misc/lv_font.c ${LVGL_REPO_PATH}/lv_misc/lv_ll.c
+SRCS += ${LVGL_REPO_PATH}/lv_misc/lv_area.c ${LVGL_REPO_PATH}/lv_misc/lv_templ.c ${LVGL_REPO_PATH}/lv_misc/lv_ufs.c
+SRCS += ${LVGL_REPO_PATH}/lv_misc/lv_gc.c
+SRCS += ${LVGL_REPO_PATH}/lv_hal/lv_hal_tick.c ${LVGL_REPO_PATH}/lv_hal/lv_hal_indev.c ${LVGL_REPO_PATH}/lv_hal/lv_hal_disp.c
+SRCS += ${LVGL_REPO_PATH}/lv_themes/lv_theme_mono.c ${LVGL_REPO_PATH}/lv_themes/lv_theme_templ.c
+SRCS += ${LVGL_REPO_PATH}/lv_themes/lv_theme_material.c ${LVGL_REPO_PATH}/lv_themes/lv_theme.c
+SRCS += ${LVGL_REPO_PATH}/lv_themes/lv_theme_night.c ${LVGL_REPO_PATH}/lv_themes/lv_theme_zen.c ${LVGL_REPO_PATH}/lv_themes/lv_theme_nemo.c
+SRCS += ${LVGL_REPO_PATH}/lv_themes/lv_theme_alien.c ${LVGL_REPO_PATH}/lv_themes/lv_theme_default.c
+SRCS += ${LVGL_REPO_PATH}/lv_core/lv_group.c ${LVGL_REPO_PATH}/lv_core/lv_style.c ${LVGL_REPO_PATH}/lv_core/lv_indev.c
+SRCS += ${LVGL_REPO_PATH}/lv_core/lv_vdb.c ${LVGL_REPO_PATH}/lv_core/lv_obj.c ${LVGL_REPO_PATH}/lv_core/lv_refr.c
 SRCS += $(LVGL_DIR)/src/main.c
 
 all:
@@ -53,4 +54,4 @@ all:
     -Wl,--no-threads,--strip-all,--no-entry          \
     -Wl,--export=on_init -Wl,--export=on_timer_callback \
     -Wl,--export=__heap_base,--export=__data_end \
-    -o ui_app.wasm
+    -o ui_app_wasi.wasm

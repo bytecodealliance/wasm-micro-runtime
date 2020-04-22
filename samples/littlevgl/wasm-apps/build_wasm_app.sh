@@ -13,9 +13,10 @@ else
     makewrap="kwinject -o $KW_OUT_FILE make"
 fi
 
-if [ ! -d "lvgl" ]; then
-    git clone https://github.com/littlevgl/lvgl.git --branch v5.3
-fi
+echo "make Makefile_wasm_app"
 $makewrap -f Makefile_wasm_app
+
+echo "make Makefile_wasm_app_no_wasi"
 $makewrap -f Makefile_wasm_app_no_wasi
 
+echo "completed."

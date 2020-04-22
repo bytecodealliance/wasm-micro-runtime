@@ -24,7 +24,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
 set(lv_name lvgl)
-set(LVGL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${lv_name})
+set(LVGL_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/../build/lvgl)
 set(LVGL_DRIVER_DIR ${CMAKE_CURRENT_LIST_DIR}/lv-drivers)
 
 message(${LVGL_SOURCE_DIR})
@@ -32,21 +32,6 @@ include( ExternalProject )
 
 add_definitions(-DLV_CONF_INCLUDE_SIMPLE)
 
-
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.in ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl/CMakeLists.txt)
-
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl )
-if(result)
-  message(FATAL_ERROR "CMake step for lvgl failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl )
-if(result)
-  message(FATAL_ERROR "Build step for lvgl failed: ${result}")
-endif()
 SET (LVGL_SOURCES
     ${LVGL_SOURCE_DIR}/lv_core/lv_group.c
     ${LVGL_SOURCE_DIR}/lv_core/lv_indev.c

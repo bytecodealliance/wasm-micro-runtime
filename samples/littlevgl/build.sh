@@ -26,14 +26,14 @@ rm -rf ${OUT_DIR}
 mkdir ${OUT_DIR}
 
 
-cd ${WAMR_DIR}/core/shared/mem-alloc
-if [ ! -d "tlsf" ]; then
-    git clone https://github.com/mattconte/tlsf
-fi
-
-cd ${WAMR_DIR}/core/deps
+cd ${BUILD_DIR}
 if [ ! -d "lvgl" ]; then
-        git clone https://github.com/littlevgl/lvgl.git --branch v6.0.1
+        echo "starting download lvgl for v5.3 ..."
+        git clone https://github.com/littlevgl/lvgl.git --branch v5.3
+        if [ $? != 0 ];then
+            echo "download lvgl repo failed: $?\n"
+            exit 2
+        fi
 fi
 
 echo "##################### 0. build wamr-sdk littlevgl start#####################"
@@ -92,7 +92,6 @@ if [ ! -d "${PROJECT_DIR}/wasm-apps/lvgl" ]; then
     fi
 fi
 ./build_wasm_app.sh
-mv ui_app.wasm ${OUT_DIR}/
-mv ui_app_no_wasi.wasm ${OUT_DIR}/
-rm -fr ${PROJECT_DIR}/wasm-apps/lvgl
+mv *.wasm ${OUT_DIR}/
+
 echo "#####################  build wasm ui app end#####################"
