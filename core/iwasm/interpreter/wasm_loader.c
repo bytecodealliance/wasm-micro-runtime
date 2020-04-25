@@ -3490,6 +3490,24 @@ check_memory(WASMModule *module,
 #endif /* WASM_ENABLE_FAST_INTERP */
 
 static bool
+is_block_type_valid(uint8 type)
+{
+    return type == VALUE_TYPE_I32 ||
+           type == VALUE_TYPE_I64 ||
+           type == VALUE_TYPE_F32 ||
+           type == VALUE_TYPE_F64 ||
+           type == VALUE_TYPE_VOID;
+}
+
+#define CHECK_BLOCK_TYPE(type) do {                                         \
+        if (!is_block_type_valid(type)) {                                   \
+            set_error_buf(error_buf, error_buf_size,                        \
+                          "WASM module load failed: invalid block type");   \
+            goto fail;                                                      \
+        }                                                                   \
+    } while (0)
+
+static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              BlockAddr *block_addr_cache,
                              char *error_buf, uint32 error_buf_size)
@@ -3576,6 +3594,7 @@ re_scan:
             case WASM_OP_BLOCK:
                 /* 0x40/0x7F/0x7E/0x7D/0x7C */
                 block_return_type = read_uint8(p);
+                CHECK_BLOCK_TYPE(block_return_type);
                 PUSH_CSP(BLOCK_TYPE_BLOCK, block_return_type, p);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -3585,6 +3604,7 @@ re_scan:
             case WASM_OP_LOOP:
                 /* 0x40/0x7F/0x7E/0x7D/0x7C */
                 block_return_type = read_uint8(p);
+                CHECK_BLOCK_TYPE(block_return_type);
                 PUSH_CSP(BLOCK_TYPE_LOOP, block_return_type, p);
 #if WASM_ENABLE_FAST_INTERP != 0
                 skip_label();
@@ -3597,6 +3617,7 @@ re_scan:
                 POP_I32();
                 /* 0x40/0x7F/0x7E/0x7D/0x7C */
                 block_return_type = read_uint8(p);
+                CHECK_BLOCK_TYPE(block_return_type);
                 PUSH_CSP(BLOCK_TYPE_IF, block_return_type, p);
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_empty_label_addr_and_frame_ip(PATCH_ELSE);
