@@ -124,3 +124,7 @@ else ()
   message ("     Fast interpreter disabled")
 endif ()
 
+if (WAMR_BUILD_SPEC_TEST EQUAL 1)
+  add_definitions (-DWASM_ENABLE_SPEC_TEST=1)
+  message ("     spec test compatible mode is on")
+endif()

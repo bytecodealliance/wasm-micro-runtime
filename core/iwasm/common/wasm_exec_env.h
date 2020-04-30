@@ -20,11 +20,14 @@ struct WASMInterpFrame;
 
 /* Execution environment */
 typedef struct WASMExecEnv {
-    /* Next thread's exec env of a WASM module instance.  */
+    /* Next thread's exec env of a WASM module instance. */
     struct WASMExecEnv *next;
 
-    /* Previous thread's exec env of a WASM module instance.  */
+    /* Previous thread's exec env of a WASM module instance. */
     struct WASMExecEnv *prev;
+
+    /* Note: field module_inst, argv_buf and native_stack_boundary
+             are used by AOTed code, don't change the places of them */
 
     /* The WASM module instance of current thread */
     struct WASMModuleInstanceCommon *module_inst;
@@ -32,6 +35,11 @@ typedef struct WASMExecEnv {
 #if WASM_ENABLE_AOT != 0
     uint32 *argv_buf;
 #endif
+
+    /* The boundary of native stack. When runtime detects that native
+       frame may overrun this boundary, it throws stack overflow
+       exception. */
+    uint8 *native_stack_boundary;
 
     /* attachment for native function */
     void *attachment;
@@ -48,11 +56,6 @@ typedef struct WASMExecEnv {
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
 #endif
 
-    /* The boundary of native stack. When interpreter detects that native
-       frame may overrun this boundary, it throws a stack overflow
-       exception. */
-    void *native_stack_boundary;
-
     /* The WASM stack size */
     uint32 wasm_stack_size;
 
@@ -61,13 +64,13 @@ typedef struct WASMExecEnv {
         uint64 __make_it_8_byte_aligned_;
 
         struct {
-            /* The top boundary of the stack.  */
+            /* The top boundary of the stack. */
             uint8 *top_boundary;
 
-            /* Top cell index which is free.  */
+            /* Top cell index which is free. */
             uint8 *top;
 
-            /* The Java stack.  */
+            /* The WASM stack. */
             uint8 bottom[1];
         } s;
     } wasm_stack;
@@ -158,6 +161,9 @@ wasm_exec_env_get_cur_frame(WASMExecEnv *exec_env)
 
 struct WASMModuleInstanceCommon *
 wasm_exec_env_get_module_inst(WASMExecEnv *exec_env);
+
+void
+wasm_exec_env_set_thread_info(WASMExecEnv *exec_env);
 
 #ifdef __cplusplus
 }

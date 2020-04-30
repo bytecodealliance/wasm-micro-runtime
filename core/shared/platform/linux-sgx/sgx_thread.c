@@ -47,3 +47,9 @@ int os_cond_destroy(korp_cond *cond)
     return BHT_OK;
 }
 
+uint8 *os_thread_get_stack_boundary()
+{
+    /* TODO: get sgx stack boundary */
+    return NULL;
+}
+

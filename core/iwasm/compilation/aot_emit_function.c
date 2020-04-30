@@ -255,6 +255,39 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+static bool
+check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    LLVMBasicBlockRef check_stack;
+    LLVMValueRef cmp;
+
+    if (!(check_stack = LLVMAppendBasicBlockInContext(comp_ctx->context,
+                                                      func_ctx->func,
+                                                      "check_stack"))) {
+        aot_set_last_error("llvm add basic block failed.");
+        return false;
+    }
+
+    LLVMMoveBasicBlockAfter(check_stack, block_curr);
+
+    if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULT,
+                              func_ctx->last_alloca, func_ctx->native_stack_bound,
+                              "cmp"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        return false;
+    }
+
+    if (!aot_emit_exception(comp_ctx, func_ctx,
+                            EXCE_NATIVE_STACK_OVERFLOW,
+                            true, cmp, check_stack)) {
+        return false;
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, check_stack);
+    return true;
+}
+
 bool
 aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     uint32 func_idx, uint8 **p_frame_ip)
@@ -346,6 +379,9 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
     else {
         func = func_ctxes[func_idx - import_func_count]->func;
+
+        if (!check_stack_boundary(comp_ctx, func_ctx))
+            goto fail;
 
         /* Call the function */
         if (!(value_ret = LLVMBuildCall(comp_ctx->builder, func,

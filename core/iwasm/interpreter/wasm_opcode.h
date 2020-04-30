@@ -237,21 +237,41 @@ typedef enum WASMOpcode {
     WASM_OP_F32_REINTERPRET_I32   = 0xbe, /* f32.reinterpret/i32 */
     WASM_OP_F64_REINTERPRET_I64   = 0xbf, /* f64.reinterpret/i64 */
 
+    WASM_OP_I32_EXTEND8_S         = 0xc0,  /* i32.extend8_s */
+    WASM_OP_I32_EXTEND16_S        = 0xc1,  /* i32.extend16_s */
+    WASM_OP_I64_EXTEND8_S         = 0xc2,  /* i64.extend8_s */
+    WASM_OP_I64_EXTEND16_S        = 0xc3,  /* i64.extend16_s */
+    WASM_OP_I64_EXTEND32_S        = 0xc4,  /* i64.extend32_s */
+
     /* drop/select specified types*/
-    WASM_OP_DROP_64               = 0xc0,
-    WASM_OP_SELECT_64             = 0xc1,
+    WASM_OP_DROP_64               = 0xc5,
+    WASM_OP_SELECT_64             = 0xc6,
 
     /* extend op code */
-    EXT_OP_GET_LOCAL_FAST         = 0xc2,
-    EXT_OP_SET_LOCAL_FAST_I64     = 0xc3,
-    EXT_OP_SET_LOCAL_FAST         = 0xc4,
-    EXT_OP_TEE_LOCAL_FAST         = 0xc5,
-    EXT_OP_TEE_LOCAL_FAST_I64     = 0xc6,
-    EXT_OP_COPY_STACK_TOP         = 0xc7,
-    EXT_OP_COPY_STACK_TOP_I64     = 0xc8,
+    EXT_OP_GET_LOCAL_FAST         = 0xc7,
+    EXT_OP_SET_LOCAL_FAST_I64     = 0xc8,
+    EXT_OP_SET_LOCAL_FAST         = 0xc9,
+    EXT_OP_TEE_LOCAL_FAST         = 0xca,
+    EXT_OP_TEE_LOCAL_FAST_I64     = 0xcb,
+    EXT_OP_COPY_STACK_TOP         = 0xcc,
+    EXT_OP_COPY_STACK_TOP_I64     = 0xcd,
 
-    WASM_OP_IMPDEP                = 0xc9
+    WASM_OP_IMPDEP                = 0xce,
+
+    /* Post-MVP extend op prefix */
+    WASM_OP_MISC_PREFIX           = 0xfc,
 } WASMOpcode;
+
+typedef enum WASMEXTOpcode {
+    WASM_OP_I32_TRUNC_SAT_S_F32   = 0x00,
+    WASM_OP_I32_TRUNC_SAT_U_F32   = 0x01,
+    WASM_OP_I32_TRUNC_SAT_S_F64   = 0x02,
+    WASM_OP_I32_TRUNC_SAT_U_F64   = 0x03,
+    WASM_OP_I64_TRUNC_SAT_S_F32   = 0x04,
+    WASM_OP_I64_TRUNC_SAT_U_F32   = 0x05,
+    WASM_OP_I64_TRUNC_SAT_S_F64   = 0x06,
+    WASM_OP_I64_TRUNC_SAT_U_F64   = 0x07,
+} WASMEXTOpcode;
 
 #ifdef __cplusplus
 }
@@ -456,16 +476,24 @@ static type _name[WASM_INSTRUCTION_NUM] = {                  \
   HANDLE_OPCODE (WASM_OP_I64_REINTERPRET_F64),   /* 0xbd */  \
   HANDLE_OPCODE (WASM_OP_F32_REINTERPRET_I32),   /* 0xbe */  \
   HANDLE_OPCODE (WASM_OP_F64_REINTERPRET_I64),   /* 0xbf */  \
-  HANDLE_OPCODE (WASM_OP_DROP_64),           /* 0xc0 */      \
-  HANDLE_OPCODE (WASM_OP_SELECT_64),         /* 0xc1 */      \
-  HANDLE_OPCODE (EXT_OP_GET_LOCAL_FAST),     /* 0xc2 */      \
-  HANDLE_OPCODE (EXT_OP_SET_LOCAL_FAST_I64), /* 0xc3 */      \
-  HANDLE_OPCODE (EXT_OP_SET_LOCAL_FAST),     /* 0xc4 */      \
-  HANDLE_OPCODE (EXT_OP_TEE_LOCAL_FAST),     /* 0xc5 */      \
-  HANDLE_OPCODE (EXT_OP_TEE_LOCAL_FAST_I64), /* 0xc6 */      \
-  HANDLE_OPCODE (EXT_OP_COPY_STACK_TOP),     /* 0xc7 */      \
-  HANDLE_OPCODE (EXT_OP_COPY_STACK_TOP_I64), /* 0xc8 */      \
-  HANDLE_OPCODE (WASM_OP_IMPDEP),            /* 0xc9 */      \
-}
-
+  HANDLE_OPCODE (WASM_OP_I32_EXTEND8_S),     /* 0xc0 */      \
+  HANDLE_OPCODE (WASM_OP_I32_EXTEND16_S),    /* 0xc1 */      \
+  HANDLE_OPCODE (WASM_OP_I64_EXTEND8_S),     /* 0xc2 */      \
+  HANDLE_OPCODE (WASM_OP_I64_EXTEND16_S),    /* 0xc3 */      \
+  HANDLE_OPCODE (WASM_OP_I64_EXTEND32_S),    /* 0xc4 */      \
+  HANDLE_OPCODE (WASM_OP_DROP_64),           /* 0xc5 */      \
+  HANDLE_OPCODE (WASM_OP_SELECT_64),         /* 0xc6 */      \
+  HANDLE_OPCODE (EXT_OP_GET_LOCAL_FAST),     /* 0xc7 */      \
+  HANDLE_OPCODE (EXT_OP_SET_LOCAL_FAST_I64), /* 0xc8 */      \
+  HANDLE_OPCODE (EXT_OP_SET_LOCAL_FAST),     /* 0xc9 */      \
+  HANDLE_OPCODE (EXT_OP_TEE_LOCAL_FAST),     /* 0xca */      \
+  HANDLE_OPCODE (EXT_OP_TEE_LOCAL_FAST_I64), /* 0xcb */      \
+  HANDLE_OPCODE (EXT_OP_COPY_STACK_TOP),     /* 0xcc */      \
+  HANDLE_OPCODE (EXT_OP_COPY_STACK_TOP_I64), /* 0xcd */      \
+  HANDLE_OPCODE (WASM_OP_IMPDEP),            /* 0xce */      \
+};                                                           \
+do {                                                         \
+  _name[WASM_OP_MISC_PREFIX] =                               \
+    HANDLE_OPCODE (WASM_OP_MISC_PREFIX);     /* 0xfc */      \
+} while (0)
 #endif /* end of _WASM_OPCODE_H */

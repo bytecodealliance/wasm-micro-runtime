@@ -50,3 +50,12 @@ wasm_exec_env_get_module_inst(WASMExecEnv *exec_env)
     return exec_env->module_inst;
 }
 
+void
+wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
+{
+    exec_env->handle = os_self_thread();
+    exec_env->native_stack_boundary = os_thread_get_stack_boundary()
+                                      + RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY;
+
+}
+

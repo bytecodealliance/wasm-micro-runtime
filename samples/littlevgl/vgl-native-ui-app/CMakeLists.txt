@@ -128,6 +128,7 @@ include_directories(
     ${LVGL_DRIVER_DIR}/display
     ${LVGL_DRIVER_DIR}/indev
     ${LVGL_SOURCE_DIR}
+    ${LVGL_SOURCE_DIR}/..
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/../lv_config

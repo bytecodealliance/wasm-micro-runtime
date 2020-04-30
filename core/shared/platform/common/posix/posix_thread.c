@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
@@ -216,5 +219,22 @@ int os_cond_signal(korp_cond *cond)
 int os_thread_join(korp_tid thread, void **value_ptr)
 {
     return pthread_join(thread, value_ptr);
+}
+
+uint8 *os_thread_get_stack_boundary()
+{
+    pthread_attr_t attr;
+    void *addr = NULL;
+    size_t size;
+
+    if (pthread_getattr_np(pthread_self(), &attr) == 0) {
+        pthread_attr_getstack(&attr, &addr, &size);
+        pthread_attr_destroy (&attr);
+    }
+
+    if (addr)
+        return (uint8*)addr + _STACK_SIZE_ADJUSTMENT;
+    else
+        return NULL;
 }
 

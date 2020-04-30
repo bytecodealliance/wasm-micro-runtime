@@ -179,6 +179,10 @@ enum {
 #define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
 #endif
 
+/* Reserved bytes to the native thread stack boundary, throw native
+   stack overflow exception if the guard boudary is reached */
+#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
+
 /* Default wasm block address cache size and conflict list size */
 #define BLOCK_ADDR_CACHE_SIZE 64
 #define BLOCK_ADDR_CONFLICT_SIZE 2

@@ -993,11 +993,44 @@ __cxa_throw_wrapper(wasm_exec_env_t exec_env,
     wasm_runtime_set_exception(module_inst, buf);
 }
 
+#if WASM_ENABLE_SPEC_TEST != 0
+static void
+print_wrapper(wasm_exec_env_t exec_env)
+{
+    os_printf("in specttest.print()\n");
+
+}
+
 static void
 print_i32_wrapper(wasm_exec_env_t exec_env, int32 i32)
 {
-    os_printf("%d\n", i32);
+    os_printf("in specttest.print_i32(%d)\n", i32);
 }
+
+static void
+print_i32_f32_wrapper(wasm_exec_env_t exec_env, int32 i32, float f32)
+{
+    os_printf("in specttest.print_i32_f32(%d, %f)\n", i32, f32);
+}
+
+static void
+print_f64_f64_wrapper(wasm_exec_env_t exec_env, double f64_1, double f64_2)
+{
+    os_printf("in specttest.print_f64_f64(%f, %f)\n", f64_1, f64_2);
+}
+
+static void
+print_f32_wrapper(wasm_exec_env_t exec_env, float f32)
+{
+    os_printf("in specttest.print_f32(%f)\n", f32);
+}
+
+static void
+print_f64_wrapper(wasm_exec_env_t exec_env, double f64)
+{
+    os_printf("in specttest.print_f64(%f)\n", f64);
+}
+#endif /* WASM_ENABLE_SPEC_TEST */
 
 #define REG_NATIVE_FUNC(func_name, signature)  \
     { #func_name, func_name##_wrapper, signature, NULL }
@@ -1060,9 +1093,16 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(__cxa_throw, "(**i)")
 };
 
+#if WASM_ENABLE_SPEC_TEST != 0
 static NativeSymbol native_symbols_spectest[] = {
-    REG_NATIVE_FUNC(print_i32, "(i)")
+    REG_NATIVE_FUNC(print, "()"),
+    REG_NATIVE_FUNC(print_i32, "(i)"),
+    REG_NATIVE_FUNC(print_i32_f32, "(if)"),
+    REG_NATIVE_FUNC(print_f64_f64, "(fF)"),
+    REG_NATIVE_FUNC(print_f32, "(f)"),
+    REG_NATIVE_FUNC(print_f64, "(F)")
 };
+#endif
 
 uint32
 get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis)
@@ -1071,12 +1111,14 @@ get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis)
     return sizeof(native_symbols_libc_builtin) / sizeof(NativeSymbol);
 }
 
+#if WASM_ENABLE_SPEC_TEST != 0
 uint32
 get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis)
 {
     *p_libc_builtin_apis = native_symbols_spectest;
     return sizeof(native_symbols_spectest) / sizeof(NativeSymbol);
 }
+#endif
 
 /*************************************
  * Global Variables                  *
@@ -1090,8 +1132,8 @@ typedef struct WASMNativeGlobalDef {
 
 static WASMNativeGlobalDef native_global_defs[] = {
     { "spectest", "global_i32", .global_data.i32 = 666 },
-    { "spectest", "global_f32", .global_data.f32 = 0 },
-    { "spectest", "global_f64", .global_data.f64 = 0 },
+    { "spectest", "global_f32", .global_data.f32 = 666.6 },
+    { "spectest", "global_f64", .global_data.f64 = 666.6 },
     { "test", "global-i32", .global_data.i32 = 0 },
     { "test", "global-f32", .global_data.f32 = 0 },
     { "env", "STACKTOP", .global_data.u32 = 0 },

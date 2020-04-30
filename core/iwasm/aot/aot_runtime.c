@@ -39,7 +39,11 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         init_expr = &global->init_expr;
         switch (init_expr->init_expr_type) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
-                bh_assert(init_expr->u.global_index < module->import_global_count);
+                if (init_expr->u.global_index >= module->import_global_count + i) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "Instantiate global failed: unknown global.");
+                    return false;
+                }
                 memcpy(p,
                        &module->import_globals[init_expr->u.global_index].global_data_linked,
                        global->size);
@@ -501,6 +505,9 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         return false;
     }
 
+    /* set thread handle and stack boundary */
+    wasm_exec_env_set_thread_info(exec_env);
+
     ret = aot_call_function(exec_env, func, argc, argv);
     wasm_exec_env_destroy(exec_env);
     return ret;
@@ -555,6 +562,9 @@ aot_set_exception_with_id(AOTModuleInstance *module_inst,
             break;
         case EXCE_CALL_UNLINKED_IMPORT_FUNC:
             aot_set_exception(module_inst, "fail to call unlinked import function");
+            break;
+        case EXCE_NATIVE_STACK_OVERFLOW:
+            aot_set_exception(module_inst, "native stack overflow");
             break;
         default:
             break;
@@ -662,10 +672,12 @@ void *
 aot_addr_app_to_native(AOTModuleInstance *module_inst, int32 app_offset)
 {
     int32 memory_data_size = (int32)module_inst->memory_data_size;
+    uint8 *addr = (uint8 *)module_inst->memory_data.ptr + app_offset;
 
-    if (module_inst->heap_base_offset < app_offset
-        && app_offset < memory_data_size)
-        return (uint8*)module_inst->memory_data.ptr + app_offset;
+    if ((uint8*)module_inst->heap_data.ptr < addr
+        && addr < (uint8*)module_inst->memory_data.ptr
+                  + memory_data_size)
+        return addr;
     return NULL;
 }
 
@@ -927,6 +939,15 @@ aot_call_indirect(WASMExecEnv *exec_env,
                                                   attachment,
                                                   argv, argc, argv);
         }
+    }
+
+    /* this function is called from native code, so exec_env->handle and
+       exec_env->native_stack_boundary must have been set, we don't set
+       it again */
+
+    if ((uint8*)&module_inst < exec_env->native_stack_boundary) {
+        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+        return false;
     }
 
     return wasm_runtime_invoke_native(exec_env, func_ptr,

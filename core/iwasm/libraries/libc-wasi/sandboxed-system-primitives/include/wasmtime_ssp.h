@@ -13,6 +13,22 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+#ifndef _Static_assert
+#define _Static_assert static_assert
+#endif /* _Static_assert */
+
+#ifndef _Alignof
+#define _Alignof alignof
+#endif /* _Alignof */
+
+#ifndef _Noreturn
+#define _Noreturn [[ noreturn ]]
+#endif /* _Noreturn */
+extern "C" {
+#endif
+
+
 _Static_assert(_Alignof(int8_t) == 1, "non-wasi data layout");
 _Static_assert(_Alignof(uint8_t) == 1, "non-wasi data layout");
 _Static_assert(_Alignof(int16_t) == 2, "non-wasi data layout");
@@ -22,10 +38,6 @@ _Static_assert(_Alignof(uint32_t) == 4, "non-wasi data layout");
 #if 0
 _Static_assert(_Alignof(int64_t) == 8, "non-wasi data layout");
 _Static_assert(_Alignof(uint64_t) == 8, "non-wasi data layout");
-#endif
-
-#ifdef __cplusplus
-extern "C" {
 #endif
 
 typedef uint8_t __wasi_advice_t;
@@ -874,3 +886,4 @@ __wasi_errno_t wasmtime_ssp_sched_yield(void)
 #undef WASMTIME_SSP_SYSCALL_NAME
 
 #endif
+

@@ -5,6 +5,7 @@
 
 #include "aot_llvm.h"
 #include "aot_compiler.h"
+#include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 
 
@@ -451,6 +452,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     LLVMTypeRef int8_ptr_type, int32_ptr_type;
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
     LLVMValueRef argv_buf_offset = I32_THREE, argv_buf_addr;
+    LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
     char local_name[32];
     uint64 size;
     uint32 i, j = 0;
@@ -526,6 +528,21 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    /* Get native stack boundary address */
+    if (!(stack_bound_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &stack_bound_offset, 1, "stack_bound_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->native_stack_bound =
+            LLVMBuildLoad(comp_ctx->builder,
+                          stack_bound_addr, "native_stack_bound"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
     for (i = 0; i < aot_func_type->param_count; i++, j++) {
         snprintf(local_name, sizeof(local_name), "l%d", i);
         func_ctx->locals[i] =
@@ -576,6 +593,24 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         if (!LLVMBuildStore(comp_ctx->builder, local_value,
                             func_ctx->locals[aot_func_type->param_count + i])) {
             aot_set_last_error("llvm build store failed.");
+            goto fail;
+        }
+    }
+
+    if (aot_func_type->param_count + func->local_count > 0) {
+        func_ctx->last_alloca = func_ctx->locals[aot_func_type->param_count
+                                                 + func->local_count - 1];
+        if (!(func_ctx->last_alloca =
+                    LLVMBuildBitCast(comp_ctx->builder, func_ctx->last_alloca,
+                                     INT8_PTR_TYPE, "stack_ptr"))) {
+            aot_set_last_error("llvm build bit cast failed.");
+            goto fail;
+        }
+    }
+    else {
+        if (!(func_ctx->last_alloca = LLVMBuildAlloca(comp_ctx->builder, INT8_TYPE,
+                                          "stack_ptr"))) {
+            aot_set_last_error("llvm build alloca failed.");
             goto fail;
         }
     }

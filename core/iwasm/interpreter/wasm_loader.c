@@ -321,7 +321,7 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
 
 static bool
 load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
-               InitializerExpression *init_expr,
+               InitializerExpression *init_expr, uint8 type,
                char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
@@ -335,14 +335,20 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
     switch (flag) {
         /* i32.const */
         case INIT_EXPR_TYPE_I32_CONST:
+            if (type != VALUE_TYPE_I32)
+                goto fail;
             read_leb_int32(p, p_end, init_expr->u.i32);
             break;
         /* i64.const */
         case INIT_EXPR_TYPE_I64_CONST:
+            if (type != VALUE_TYPE_I64)
+                goto fail;
             read_leb_int64(p, p_end, init_expr->u.i64);
             break;
         /* f32.const */
         case INIT_EXPR_TYPE_F32_CONST:
+            if (type != VALUE_TYPE_F32)
+                goto fail;
             CHECK_BUF(p, p_end, 4);
             p_float = (uint8*)&init_expr->u.f32;
             for (i = 0; i < sizeof(float32); i++)
@@ -350,6 +356,8 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
             break;
         /* f64.const */
         case INIT_EXPR_TYPE_F64_CONST:
+            if (type != VALUE_TYPE_F64)
+                goto fail;
             CHECK_BUF(p, p_end, 8);
             p_float = (uint8*)&init_expr->u.f64;
             for (i = 0; i < sizeof(float64); i++)
@@ -360,21 +368,20 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
             read_leb_uint32(p, p_end, init_expr->u.global_index);
             break;
         default:
-            set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: type mismatch");
-            return false;
+            goto fail;
     }
     CHECK_BUF(p, p_end, 1);
     end_byte = read_uint8(p);
-    if (end_byte != 0x0b) {
-        set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
-                      "unexpected end of section or function");
-        return false;
-    }
+    if (end_byte != 0x0b)
+        goto fail;
     *p_buf = p;
 
     return true;
+fail:
+    set_error_buf(error_buf, error_buf_size,
+                  "WASM module load failed: type mismatch or "
+                  "constant expression required.");
+    return false;
 }
 
 static bool
@@ -1104,7 +1111,6 @@ load_memory_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     WASMMemory *memory;
 
     read_leb_uint32(p, p_end, memory_count);
-    bh_assert(memory_count == 1);
 
     if (memory_count) {
         if (memory_count > 1) {
@@ -1180,7 +1186,8 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             global->is_mutable = mutable ? true : false;
 
             /* initialize expression */
-            if (!load_init_expr(&p, p_end, &(global->init_expr), error_buf, error_buf_size))
+            if (!load_init_expr(&p, p_end, &(global->init_expr),
+                                global->type, error_buf, error_buf_size))
                 return false;
         }
     }
@@ -1327,7 +1334,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end, WASMModule *m
 
             /* initialize expression */
             if (!load_init_expr(&p, p_end, &(table_segment->base_offset),
-                                error_buf, error_buf_size))
+                                VALUE_TYPE_I32, error_buf, error_buf_size))
                 return false;
 
             read_leb_uint32(p, p_end, function_count);
@@ -1387,7 +1394,8 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
         for (i = 0; i < data_seg_count; i++) {
             read_leb_uint32(p, p_end, mem_index);
 
-            if (!load_init_expr(&p, p_end, &init_expr, error_buf, error_buf_size))
+            if (!load_init_expr(&p, p_end, &init_expr, VALUE_TYPE_I32,
+                                error_buf, error_buf_size))
                 return false;
 
             read_leb_uint32(p, p_end, data_seg_len);
@@ -1455,19 +1463,32 @@ load_start_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
+    WASMType *type;
     uint32 start_function;
 
     read_leb_uint32(p, p_end, start_function);
 
-    if (start_function) {
-        if (start_function >= module->function_count + module->import_function_count) {
-            set_error_buf(error_buf, error_buf_size,
-                          "Load start section failed: "
-                          "unknown function.");
-            return false;
-        }
-        module->start_function = start_function;
+    if (start_function >= module->function_count
+                          + module->import_function_count) {
+        set_error_buf(error_buf, error_buf_size,
+                "Load start section failed: "
+                "unknown function.");
+        return false;
     }
+
+    if (start_function < module->import_function_count)
+        type = module->import_functions[start_function].u.function.func_type;
+    else
+        type = module->functions
+                [start_function - module->import_function_count]->func_type;
+    if (type->param_count != 0 || type->result_count != 0) {
+        set_error_buf(error_buf, error_buf_size,
+                "Load start section failed: "
+                "invalid start function.");
+        return false;
+    }
+
+    module->start_function = start_function;
 
     if (p != p_end) {
         set_error_buf(error_buf, error_buf_size,
@@ -2345,6 +2366,16 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
             case WASM_OP_I64_REINTERPRET_F64:
             case WASM_OP_F32_REINTERPRET_I32:
             case WASM_OP_F64_REINTERPRET_I64:
+            case WASM_OP_I32_EXTEND8_S:
+            case WASM_OP_I32_EXTEND16_S:
+            case WASM_OP_I64_EXTEND8_S:
+            case WASM_OP_I64_EXTEND16_S:
+            case WASM_OP_I64_EXTEND32_S:
+                break;
+            case WASM_OP_MISC_PREFIX:
+                /* skip extend op */
+                if (p < code_end_addr)
+                    p++;
                 break;
 
             default:
@@ -4713,6 +4744,58 @@ handle_next_reachable_block:
                 POP_I64();
                 PUSH_F64();
                 break;
+
+            case WASM_OP_I32_EXTEND8_S:
+            case WASM_OP_I32_EXTEND16_S:
+                POP_I32();
+                PUSH_I32();
+                break;
+
+            case WASM_OP_I64_EXTEND8_S:
+            case WASM_OP_I64_EXTEND16_S:
+            case WASM_OP_I64_EXTEND32_S:
+                POP_I64();
+                PUSH_I64();
+                break;
+
+            case WASM_OP_MISC_PREFIX:
+            {
+                opcode = read_uint8(p);
+#if WASM_ENABLE_FAST_INTERP != 0
+                emit_byte(loader_ctx, opcode);
+#endif
+                switch (opcode)
+                {
+                case WASM_OP_I32_TRUNC_SAT_S_F32:
+                case WASM_OP_I32_TRUNC_SAT_U_F32:
+                    POP_F32();
+                    PUSH_I32();
+                    break;
+                case WASM_OP_I32_TRUNC_SAT_S_F64:
+                case WASM_OP_I32_TRUNC_SAT_U_F64:
+                    POP_F64();
+                    PUSH_I32();
+                    break;
+                case WASM_OP_I64_TRUNC_SAT_S_F32:
+                case WASM_OP_I64_TRUNC_SAT_U_F32:
+                    POP_F32();
+                    PUSH_I64();
+                    break;
+                case WASM_OP_I64_TRUNC_SAT_S_F64:
+                case WASM_OP_I64_TRUNC_SAT_U_F64:
+                    POP_F64();
+                    PUSH_I64();
+                    break;
+                default:
+                    if (error_buf != NULL)
+                        snprintf(error_buf, error_buf_size,
+                                 "WASM module load failed: "
+                                 "invalid opcode 0xfc %02x.", opcode);
+                    goto fail;
+                    break;
+                }
+                break;
+            }
 
             default:
                 if (error_buf != NULL)

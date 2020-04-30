@@ -17,7 +17,8 @@ static char *exce_block_names[] = {
     "exce_invalid_func_idx",        /* EXCE_INVALID_FUNCTION_INDEX */
     "exce_undefined_element",       /* EXCE_UNDEFINED_ELEMENT */
     "exce_uninit_element",          /* EXCE_UNINITIALIZED_ELEMENT */
-    "exce_call_unlinked"            /* EXCE_CALL_UNLINKED_IMPORT_FUNC */
+    "exce_call_unlinked",           /* EXCE_CALL_UNLINKED_IMPORT_FUNC */
+    "exce_native_stack_overflow"    /* EXCE_NATIVE_STACK_OVERFLOW */
 };
 
 bool
