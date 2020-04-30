@@ -595,14 +595,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
       case WASM_OP_I32_TRUNC_S_F32:
       case WASM_OP_I32_TRUNC_U_F32:
         sign = (opcode == WASM_OP_I32_TRUNC_S_F32) ? true : false;
-        if (!aot_compile_op_i32_trunc_f32(comp_ctx, func_ctx, sign))
+        if (!aot_compile_op_i32_trunc_f32(comp_ctx, func_ctx, sign, false))
           return false;
         break;
 
       case WASM_OP_I32_TRUNC_S_F64:
       case WASM_OP_I32_TRUNC_U_F64:
         sign = (opcode == WASM_OP_I32_TRUNC_S_F64) ? true : false;
-        if (!aot_compile_op_i32_trunc_f64(comp_ctx, func_ctx, sign))
+        if (!aot_compile_op_i32_trunc_f64(comp_ctx, func_ctx, sign, false))
           return false;
         break;
 
@@ -616,14 +616,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
       case WASM_OP_I64_TRUNC_S_F32:
       case WASM_OP_I64_TRUNC_U_F32:
         sign = (opcode == WASM_OP_I64_TRUNC_S_F32) ? true : false;
-        if (!aot_compile_op_i64_trunc_f32(comp_ctx, func_ctx, sign))
+        if (!aot_compile_op_i64_trunc_f32(comp_ctx, func_ctx, sign, false))
           return false;
         break;
 
       case WASM_OP_I64_TRUNC_S_F64:
       case WASM_OP_I64_TRUNC_U_F64:
         sign = (opcode == WASM_OP_I64_TRUNC_S_F64) ? true : false;
-        if (!aot_compile_op_i64_trunc_f64(comp_ctx, func_ctx, sign))
+        if (!aot_compile_op_i64_trunc_f64(comp_ctx, func_ctx, sign, false))
           return false;
         break;
 
@@ -684,6 +684,67 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         if (!aot_compile_op_f64_reinterpret_i64(comp_ctx, func_ctx))
             return false;
         break;
+
+      case WASM_OP_I32_EXTEND8_S:
+        if (!aot_compile_op_i32_extend_i32(comp_ctx, func_ctx, 8))
+          return false;
+        break;
+
+      case WASM_OP_I32_EXTEND16_S:
+        if (!aot_compile_op_i32_extend_i32(comp_ctx, func_ctx, 16))
+          return false;
+        break;
+
+      case WASM_OP_I64_EXTEND8_S:
+        if (!aot_compile_op_i64_extend_i64(comp_ctx, func_ctx, 8))
+          return false;
+        break;
+
+      case WASM_OP_I64_EXTEND16_S:
+        if (!aot_compile_op_i64_extend_i64(comp_ctx, func_ctx, 16))
+          return false;
+        break;
+
+      case WASM_OP_I64_EXTEND32_S:
+        if (!aot_compile_op_i64_extend_i64(comp_ctx, func_ctx, 32))
+          return false;
+        break;
+
+      case WASM_OP_MISC_PREFIX:
+      {
+        if (frame_ip < frame_ip_end) {
+          opcode = *frame_ip++;
+        }
+
+        switch (opcode) {
+          case WASM_OP_I32_TRUNC_SAT_S_F32:
+          case WASM_OP_I32_TRUNC_SAT_U_F32:
+            sign = (opcode == WASM_OP_I32_TRUNC_SAT_S_F32) ? true : false;
+            if (!aot_compile_op_i32_trunc_f32(comp_ctx, func_ctx, sign, true))
+              return false;
+            break;
+          case WASM_OP_I32_TRUNC_SAT_S_F64:
+          case WASM_OP_I32_TRUNC_SAT_U_F64:
+            sign = (opcode == WASM_OP_I32_TRUNC_SAT_S_F64) ? true : false;
+            if (!aot_compile_op_i32_trunc_f64(comp_ctx, func_ctx, sign, true))
+              return false;
+            break;
+          case WASM_OP_I64_TRUNC_SAT_S_F32:
+          case WASM_OP_I64_TRUNC_SAT_U_F32:
+            sign = (opcode == WASM_OP_I64_TRUNC_SAT_S_F32) ? true : false;
+            if (!aot_compile_op_i64_trunc_f32(comp_ctx, func_ctx, sign, true))
+              return false;
+            break;
+          case WASM_OP_I64_TRUNC_SAT_S_F64:
+          case WASM_OP_I64_TRUNC_SAT_U_F64:
+            sign = (opcode == WASM_OP_I64_TRUNC_SAT_S_F64) ? true : false;
+            if (!aot_compile_op_i64_trunc_f64(comp_ctx, func_ctx, sign, true))
+              return false;
+            break;
+          default:
+            break;
+        }
+      }
 
       default:
         break;

@@ -339,3 +339,9 @@ os_cond_signal(korp_cond *cond)
     return BHT_OK;
 }
 
+uint8 *os_thread_get_stack_boundary()
+{
+    /* TODO: get alios stack boundary */
+    return NULL;
+}
+

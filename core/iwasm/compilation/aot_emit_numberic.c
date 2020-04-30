@@ -27,7 +27,7 @@
 #define ADD_BASIC_BLOCK(block, name) do {                                  \
     if (!(block = LLVMAppendBasicBlockInContext(comp_ctx->context,         \
                                                 func_ctx->func,            \
-                                                name))) { \
+                                                name))) {                  \
         aot_set_last_error("llvm add basic block failed.");                \
         goto fail;                                                         \
     }                                                                      \

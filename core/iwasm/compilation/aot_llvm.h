@@ -102,6 +102,8 @@ typedef struct AOTFuncContext {
   LLVMValueRef aot_inst;
   LLVMValueRef table_base;
   LLVMValueRef argv_buf;
+  LLVMValueRef native_stack_bound;
+  LLVMValueRef last_alloca;
 
   LLVMValueRef heap_base_offset;
   LLVMValueRef mem_base_addr;

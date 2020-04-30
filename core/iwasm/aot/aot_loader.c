@@ -942,8 +942,7 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 
     /* check start function index */
     if (module->start_func_index != (uint32)-1
-        && (module->start_func_index < module->import_func_count
-            || module->start_func_index >= module->import_func_count
+        && (module->start_func_index >= module->import_func_count
                                            + module->func_count)) {
         set_error_buf(error_buf, error_buf_size,
                       "AOT module load failed: "
@@ -1044,9 +1043,13 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
     /* Set start function when function pointers are resolved */
     if (module->start_func_index != (uint32)-1) {
-        module->start_function =
-            module->func_ptrs[module->start_func_index
-                              - module->import_func_count];
+        if (module->start_func_index >= module->import_func_count)
+            module->start_function =
+                module->func_ptrs[module->start_func_index
+                            - module->import_func_count];
+        else
+            /* TODO: fix start function can be import function issue */
+            module->start_function = NULL;
     }
     else {
         module->start_function = NULL;

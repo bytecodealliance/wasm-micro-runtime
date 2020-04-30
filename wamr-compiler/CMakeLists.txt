@@ -59,7 +59,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE)
- set(CMAKE_BUILD_TYPE Release)
+  set(CMAKE_BUILD_TYPE Release)
 endif (NOT CMAKE_BUILD_TYPE)
 message ("-- CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 

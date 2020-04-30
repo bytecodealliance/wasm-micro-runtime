@@ -419,47 +419,24 @@ globals_instantiate(const WASMModule *module,
     return globals;
 }
 
-static void
+static bool
 globals_instantiate_fix(WASMGlobalInstance *globals,
                         const WASMModule *module,
-                        WASMModuleInstance *module_inst)
+                        WASMModuleInstance *module_inst,
+                        char *error_buf, uint32 error_buf_size)
 {
     WASMGlobalInstance *global = globals;
-    WASMImport *import = module->import_globals;
     uint32 i;
-
-    /* Fix globals from import section */
-    for (i = 0; i < module->import_global_count; i++, import++, global++) {
-        if (!strcmp(import->u.names.module_name, "env")) {
-            if (!strcmp(import->u.names.field_name, "memoryBase")
-                || !strcmp(import->u.names.field_name, "__memory_base")) {
-                global->initial_value.addr = 0;
-            }
-            else if (!strcmp(import->u.names.field_name, "tableBase")
-                     || !strcmp(import->u.names.field_name, "__table_base")) {
-                global->initial_value.addr = 0;
-            }
-            else if (!strcmp(import->u.names.field_name, "DYNAMICTOP_PTR")) {
-                global->initial_value.i32 = (int32)
-                    (module_inst->default_memory->num_bytes_per_page
-                     * module_inst->default_memory->cur_page_count);
-                module_inst->DYNAMICTOP_PTR_offset = global->data_offset;
-            }
-            else if (!strcmp(import->u.names.field_name, "STACKTOP")) {
-                global->initial_value.i32 = 0;
-            }
-            else if (!strcmp(import->u.names.field_name, "STACK_MAX")) {
-                /* Unused in emcc wasm bin actually. */
-                global->initial_value.i32 = 0;
-            }
-        }
-    }
 
     for (i = 0; i < module->global_count; i++) {
         InitializerExpression *init_expr = &module->globals[i].init_expr;
 
         if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-            bh_assert(init_expr->u.global_index < module->import_global_count);
+            if (init_expr->u.global_index >= module->import_global_count + i) {
+                set_error_buf(error_buf, error_buf_size,
+                              "Instantiate global failed: unknown global.");
+                return false;
+            }
             global->initial_value = globals[init_expr->u.global_index].initial_value;
         }
         else {
@@ -468,6 +445,7 @@ globals_instantiate_fix(WASMGlobalInstance *globals,
         }
         global++;
     }
+    return true;
 }
 
 /**
@@ -658,7 +636,11 @@ wasm_instantiate(WASMModule *module,
         memory_data = module_inst->default_memory->memory_data;
 
         /* fix import memoryBase */
-        globals_instantiate_fix(globals, module, module_inst);
+        if (!globals_instantiate_fix(globals, module, module_inst,
+                                     error_buf, error_buf_size)) {
+            wasm_deinstantiate(module_inst);
+            return NULL;
+        }
 
         /* Initialize the global data */
         global_data = memory->global_data;
@@ -710,7 +692,7 @@ wasm_instantiate(WASMModule *module,
                     && (base_offset >= memory_size
                         || base_offset + length > memory_size)) {
                     set_error_buf(error_buf, error_buf_size,
-                            "Instantiate module failed: data segment out of range.");
+                            "Instantiate module failed: data segment does not fit.");
                     wasm_deinstantiate(module_inst);
                     return NULL;
                 }
@@ -784,9 +766,10 @@ wasm_instantiate(WASMModule *module,
 #endif
 
     if (module->start_function != (uint32)-1) {
-        bh_assert(module->start_function >= module->import_function_count);
-        module_inst->start_function =
-            &module_inst->functions[module->start_function];
+        /* TODO: fix start function can be import function issue */
+        if (module->start_function >= module->import_function_count)
+            module_inst->start_function =
+                &module_inst->functions[module->start_function];
     }
 
     module_inst->module = module;
@@ -880,6 +863,9 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         wasm_set_exception(module_inst, "allocate memory failed.");
         return false;
     }
+
+    /* set thread handle and stack boundary */
+    wasm_exec_env_set_thread_info(exec_env);
 
     ret = wasm_call_function(exec_env, func, argc, argv);
     wasm_exec_env_destroy(exec_env);
@@ -998,12 +984,13 @@ wasm_addr_app_to_native(WASMModuleInstance *module_inst,
                         int32 app_offset)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
+    uint8 *addr = memory->memory_data + app_offset;
     int32 memory_data_size =
         (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
-    if (memory->heap_base_offset < app_offset
-        && app_offset < memory_data_size)
-        return memory->memory_data + app_offset;
+    if (memory->heap_data < addr
+        && addr < memory->memory_data + memory_data_size)
+        return addr;
     return NULL;
 }
 

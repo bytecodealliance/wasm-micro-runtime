@@ -136,7 +136,6 @@ typedef struct WASMModuleInstance {
     WASIContext *wasi_ctx;
 #endif
 
-    uint32 DYNAMICTOP_PTR_offset;
     uint32 temp_ret;
     uint32 llvm_stack;
 

@@ -66,6 +66,13 @@ uint64 os_time_get_boot_microsecond(void);
 korp_tid os_self_thread(void);
 
 /**
+ * Get current thread's stack boundary address, used for runtime
+ * to check the native stack overflow. Return NULL if it is not
+ * easy to implement, but may have potential issue.
+ */
+uint8 *os_thread_get_stack_boundary(void);
+
+/**
  ************** mutext APIs ***********
  *  vmcore:  Not required until pthread is supported by runtime
  *  app-mgr: Must be implemented

@@ -292,7 +292,8 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
         return false;
     }
 
-    exec_env->handle = os_self_thread();
+    /* set thread handle and stack boundary */
+    wasm_exec_env_set_thread_info(exec_env);
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
@@ -1410,37 +1411,39 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
 
     /* print return value */
-    switch (type->types[type->param_count]) {
-        case VALUE_TYPE_I32:
-            os_printf("0x%x:i32", argv1[0]);
-            break;
-        case VALUE_TYPE_I64:
-        {
-            union { uint64 val; uint32 parts[2]; } u;
-            u.parts[0] = argv1[0];
-            u.parts[1] = argv1[1];
+    if (type->result_count > 0) {
+        switch (type->types[type->param_count]) {
+            case VALUE_TYPE_I32:
+                os_printf("0x%x:i32", argv1[0]);
+                break;
+            case VALUE_TYPE_I64:
+            {
+                union { uint64 val; uint32 parts[2]; } u;
+                u.parts[0] = argv1[0];
+                u.parts[1] = argv1[1];
 #ifdef PRIx64
-            os_printf("0x%"PRIx64":i64", u.val);
+                os_printf("0x%"PRIx64":i64", u.val);
 #else
-            char buf[16];
-            if (sizeof(long) == 4)
-                snprintf(buf, sizeof(buf), "%s", "0x%llx:i64");
-            else
-                snprintf(buf, sizeof(buf), "%s", "0x%lx:i64");
-            os_printf(buf, u.val);
+                char buf[16];
+                if (sizeof(long) == 4)
+                    snprintf(buf, sizeof(buf), "%s", "0x%llx:i64");
+                else
+                    snprintf(buf, sizeof(buf), "%s", "0x%lx:i64");
+                os_printf(buf, u.val);
 #endif
-            break;
-        }
-        case VALUE_TYPE_F32:
-            os_printf("%.7g:f32", *(float32*)argv1);
-        break;
-        case VALUE_TYPE_F64:
-        {
-            union { float64 val; uint32 parts[2]; } u;
-            u.parts[0] = argv1[0];
-            u.parts[1] = argv1[1];
-            os_printf("%.7g:f64", u.val);
-            break;
+                break;
+            }
+            case VALUE_TYPE_F32:
+                os_printf("%.7g:f32", *(float32*)argv1);
+                break;
+            case VALUE_TYPE_F64:
+            {
+                union { float64 val; uint32 parts[2]; } u;
+                u.parts[0] = argv1[0];
+                u.parts[1] = argv1[1];
+                os_printf("%.7g:f64", u.val);
+                break;
+            }
         }
     }
     os_printf("\n");
@@ -2148,7 +2151,9 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
         return false;
     }
 
-    exec_env->handle = os_self_thread();
+    /* this function is called from native code, so exec_env->handle and
+       exec_env->native_stack_boundary must have been set, we don't set
+       it again */
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
