@@ -952,11 +952,10 @@ wasm_validate_app_addr(WASMModuleInstance *module_inst,
         goto fail;
     }
 
-    if (app_offset <= memory->heap_base_offset
-        || app_offset + (int32)size > memory_data_size) {
-        goto fail;
+    if (memory->heap_base_offset <= app_offset
+        && app_offset + (int32)size <= memory_data_size) {
+        return true;
     }
-    return true;
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
@@ -975,11 +974,10 @@ wasm_validate_native_addr(WASMModuleInstance *module_inst,
         goto fail;
     }
 
-    if (addr <= memory->heap_data
-        || addr + size > memory->memory_data + memory_data_size) {
-        goto fail;
+    if (memory->heap_data <= addr
+        && addr + size <= memory->memory_data + memory_data_size) {
+        return true;
     }
-    return true;
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
@@ -994,7 +992,7 @@ wasm_addr_app_to_native(WASMModuleInstance *module_inst,
     int32 memory_data_size =
         (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
-    if (memory->heap_data < addr
+    if (memory->heap_data <= addr
         && addr < memory->memory_data + memory_data_size)
         return addr;
     return NULL;
@@ -1009,7 +1007,7 @@ wasm_addr_native_to_app(WASMModuleInstance *module_inst,
     int32 memory_data_size =
         (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
-    if (memory->heap_data < addr
+    if (memory->heap_data <= addr
         && addr < memory->memory_data + memory_data_size)
         return (int32)(addr - memory->memory_data);
     return 0;
@@ -1025,7 +1023,7 @@ wasm_get_app_addr_range(WASMModuleInstance *module_inst,
     int32 memory_data_size =
         (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
-    if (memory->heap_base_offset < app_offset
+    if (memory->heap_base_offset <= app_offset
         && app_offset < memory_data_size) {
         if (p_app_start_offset)
             *p_app_start_offset = memory->heap_base_offset;
@@ -1047,7 +1045,7 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst,
     int32 memory_data_size =
         (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
-    if (memory->heap_data < addr
+    if (memory->heap_data <= addr
         && addr < memory->memory_data + memory_data_size) {
         if (p_native_start_addr)
             *p_native_start_addr = memory->heap_data;
