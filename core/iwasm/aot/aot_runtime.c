@@ -897,6 +897,15 @@ aot_call_indirect(WASMExecEnv *exec_env,
     void *attachment = NULL;
     char buf[128];
 
+    /* this function is called from native code, so exec_env->handle and
+       exec_env->native_stack_boundary must have been set, we don't set
+       it again */
+
+    if ((uint8*)&module_inst < exec_env->native_stack_boundary) {
+        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+        return false;
+    }
+
     if (table_elem_idx >= table_size) {
         aot_set_exception_with_id(module_inst, EXCE_UNDEFINED_ELEMENT);
         return false;
@@ -939,15 +948,6 @@ aot_call_indirect(WASMExecEnv *exec_env,
                                                   attachment,
                                                   argv, argc, argv);
         }
-    }
-
-    /* this function is called from native code, so exec_env->handle and
-       exec_env->native_stack_boundary must have been set, we don't set
-       it again */
-
-    if ((uint8*)&module_inst < exec_env->native_stack_boundary) {
-        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
-        return false;
     }
 
     return wasm_runtime_invoke_native(exec_env, func_ptr,

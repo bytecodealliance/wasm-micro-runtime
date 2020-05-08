@@ -1959,12 +1959,14 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     module->start_func_index = comp_data->start_func_index;
     if (comp_data->start_func_index != (uint32)-1) {
-        bh_assert(comp_data->start_func_index >= module->import_func_count
-                  && comp_data->start_func_index < module->import_func_count
-                                                   + module->func_count);
-        module->start_function =
-            module->func_ptrs[comp_data->start_func_index
-                              - module->import_func_count];
+        bh_assert(comp_data->start_func_index < module->import_func_count
+                                                + module->func_count);
+        /* TODO: fix issue that start func cannot be import func */
+        if (comp_data->start_func_index >= module->import_func_count) {
+            module->start_function =
+                module->func_ptrs[comp_data->start_func_index
+                                  - module->import_func_count];
+        }
     }
     else {
         module->start_function = NULL;

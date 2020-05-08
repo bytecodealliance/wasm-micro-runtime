@@ -60,15 +60,13 @@ memories_deinstantiate(WASMMemoryInstance **memories, uint32 count)
 static WASMMemoryInstance*
 memory_instantiate(uint32 num_bytes_per_page,
                    uint32 init_page_count, uint32 max_page_count,
-                   uint32 global_data_size,
                    uint32 heap_size,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMMemoryInstance *memory;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
                         (uint64)heap_size +
-                        num_bytes_per_page * (uint64)init_page_count +
-                        global_data_size;
+                        num_bytes_per_page * (uint64)init_page_count;
 
     /* Allocate memory space, addr data and global data */
     if (total_size >= UINT32_MAX
@@ -85,10 +83,8 @@ memory_instantiate(uint32 num_bytes_per_page,
 
     memory->heap_data = memory->base_addr;
     memory->memory_data = memory->heap_data + heap_size;
-    memory->global_data = memory->memory_data +
+    memory->end_addr = memory->memory_data +
                           num_bytes_per_page * memory->cur_page_count;
-    memory->global_data_size = global_data_size;
-    memory->end_addr = memory->global_data + global_data_size;
 
     bh_assert(memory->end_addr - (uint8*)memory == (uint32)total_size);
 
@@ -112,7 +108,7 @@ memory_instantiate(uint32 num_bytes_per_page,
  */
 static WASMMemoryInstance**
 memories_instantiate(const WASMModule *module,
-                     uint32 global_data_size, uint32 heap_size,
+                     uint32 heap_size,
                      char *error_buf, uint32 error_buf_size)
 {
     WASMImport *import;
@@ -120,9 +116,6 @@ memories_instantiate(const WASMModule *module,
         module->import_memory_count + module->memory_count;
     uint64 total_size;
     WASMMemoryInstance **memories, *memory;
-
-    if (memory_count == 0 && global_data_size > 0)
-        memory_count = 1;
 
     total_size = sizeof(WASMMemoryInstance*) * (uint64)memory_count;
 
@@ -143,7 +136,6 @@ memories_instantiate(const WASMModule *module,
                     memory_instantiate(import->u.memory.num_bytes_per_page,
                                        import->u.memory.init_page_count,
                                        import->u.memory. max_page_count,
-                                       global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                          "Instantiate memory failed: "
@@ -159,7 +151,6 @@ memories_instantiate(const WASMModule *module,
                     memory_instantiate(module->memories[i].num_bytes_per_page,
                                        module->memories[i].init_page_count,
                                        module->memories[i].max_page_count,
-                                       global_data_size,
                                        heap_size, error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed: "
@@ -172,8 +163,8 @@ memories_instantiate(const WASMModule *module,
     if (mem_index == 0) {
         /* no import memory and define memory, but has global variables */
         if (!(memory = memories[mem_index++] =
-                    memory_instantiate(0, 0, 0, global_data_size,
-                                       heap_size, error_buf, error_buf_size))) {
+                    memory_instantiate(0, 0, 0, heap_size,
+                                       error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed: "
                           "allocate memory failed.\n");
@@ -608,11 +599,20 @@ wasm_instantiate(WASMModule *module,
         module->import_function_count + module->function_count;
     module_inst->export_func_count = get_export_function_count(module);
 
+    if (global_count > 0) {
+        if (!(module_inst->global_data =
+                    wasm_runtime_malloc(global_data_size))) {
+            wasm_deinstantiate(module_inst);
+            return NULL;
+        }
+        memset(module_inst->global_data, 0, global_data_size);
+    }
+
     /* Instantiate memories/tables/functions */
-    if (((module_inst->memory_count > 0 || global_count > 0)
+    if ((module_inst->memory_count > 0
          && !(module_inst->memories =
-             memories_instantiate(module, global_data_size,
-                                  heap_size, error_buf, error_buf_size)))
+                memories_instantiate(module, heap_size,
+                                     error_buf, error_buf_size)))
         || (module_inst->table_count > 0
             && !(module_inst->tables = tables_instantiate(module,
                                                           error_buf,
@@ -629,13 +629,8 @@ wasm_instantiate(WASMModule *module,
         return NULL;
     }
 
-    if (module_inst->memory_count || global_count > 0) {
-        WASMMemoryInstance *memory;
-
-        memory = module_inst->default_memory = module_inst->memories[0];
-        memory_data = module_inst->default_memory->memory_data;
-
-        /* fix import memoryBase */
+    if (global_count > 0) {
+        /* fix globals */
         if (!globals_instantiate_fix(globals, module, module_inst,
                                      error_buf, error_buf_size)) {
             wasm_deinstantiate(module_inst);
@@ -643,7 +638,7 @@ wasm_instantiate(WASMModule *module,
         }
 
         /* Initialize the global data */
-        global_data = memory->global_data;
+        global_data = module_inst->global_data;
         global_data_end = global_data + global_data_size;
         global = globals;
         for (i = 0; i < global_count; i++, global++) {
@@ -665,8 +660,16 @@ wasm_instantiate(WASMModule *module,
         }
         bh_assert(global_data == global_data_end);
 
+    }
+
+    if (module_inst->memory_count) {
+        WASMMemoryInstance *memory;
+
+        memory = module_inst->default_memory = module_inst->memories[0];
+        memory_data = module_inst->default_memory->memory_data;
+
         /* Initialize the memory data with data segment section */
-        if (module_inst->default_memory->cur_page_count > 0) {
+        if (memory->cur_page_count > 0) {
             for (i = 0; i < module->data_seg_count; i++) {
                 data_seg = module->data_segments[i];
                 bh_assert(data_seg->memory_index == 0);
@@ -685,8 +688,8 @@ wasm_instantiate(WASMModule *module,
 
                 base_offset = (uint32)data_seg->base_offset.u.i32;
                 length = data_seg->data_length;
-                memory_size = module_inst->default_memory->num_bytes_per_page
-                              * module_inst->default_memory->cur_page_count;
+                memory_size = memory->num_bytes_per_page
+                              * memory->cur_page_count;
 
                 if (length > 0
                     && (base_offset >= memory_size
@@ -824,6 +827,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst)
     functions_deinstantiate(module_inst->functions, module_inst->function_count);
     globals_deinstantiate(module_inst->globals);
     export_functions_deinstantiate(module_inst->export_functions);
+
+    if (module_inst->global_data)
+        wasm_runtime_free(module_inst->global_data);
 
     wasm_runtime_free(module_inst);
 }
@@ -1057,14 +1063,11 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
     WASMMemoryInstance *memory = module->default_memory, *new_memory;
     uint32 heap_size = memory->memory_data - memory->heap_data;
-    uint32 old_page_count = memory->cur_page_count;
     uint32 total_size_old = memory->end_addr - (uint8*)memory;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
     uint64 total_size = offsetof(WASMMemoryInstance, base_addr)
                         + (uint64)heap_size
-                        + memory->num_bytes_per_page * (uint64)total_page_count
-                        + memory->global_data_size;
-    uint8 *global_data_old;
+                        + memory->num_bytes_per_page * (uint64)total_page_count;
     void *heap_handle_old = memory->heap_handle;
 
     if (inc_page_count <= 0)
@@ -1111,17 +1114,8 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     new_memory->cur_page_count = total_page_count;
     new_memory->heap_data = new_memory->base_addr;
     new_memory->memory_data = new_memory->base_addr + heap_size;
-    new_memory->global_data = new_memory->memory_data +
-                              new_memory->num_bytes_per_page * total_page_count;
-    new_memory->end_addr = new_memory->global_data + new_memory->global_data_size;
-
-    global_data_old = new_memory->memory_data +
-                              new_memory->num_bytes_per_page * old_page_count;
-
-    /* Copy global data */
-    bh_memcpy_s(new_memory->global_data, new_memory->global_data_size,
-                global_data_old, new_memory->global_data_size);
-    memset(global_data_old, 0, new_memory->global_data_size);
+    new_memory->end_addr = new_memory->memory_data +
+                            new_memory->num_bytes_per_page * total_page_count;
 
     module->memories[0] = module->default_memory = new_memory;
     return true;

@@ -233,7 +233,8 @@ uint8 *os_thread_get_stack_boundary()
     }
 
     if (addr)
-        return (uint8*)addr + _STACK_SIZE_ADJUSTMENT;
+        /* Reserved 4 KB for safety */
+        return (uint8*)addr + 4 * 1024;
     else
         return NULL;
 }
