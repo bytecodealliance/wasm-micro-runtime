@@ -256,11 +256,25 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static bool
-check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                     uint32 callee_cell_num)
 {
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_stack;
-    LLVMValueRef cmp;
+    LLVMValueRef callee_local_size, stack_bound, cmp;
+
+    if (!(callee_local_size = I32_CONST(callee_cell_num * 4))) {
+        aot_set_last_error("llvm build const failed.");
+        return false;
+    }
+
+    if (!(stack_bound = LLVMBuildInBoundsGEP(comp_ctx->builder,
+                                             func_ctx->native_stack_bound,
+                                             &callee_local_size, 1,
+                                             "stack_bound"))) {
+        aot_set_last_error("llvm build inbound gep failed.");
+        return false;
+    }
 
     if (!(check_stack = LLVMAppendBasicBlockInContext(comp_ctx->context,
                                                       func_ctx->func,
@@ -272,7 +286,7 @@ check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMMoveBasicBlockAfter(check_stack, block_curr);
 
     if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULT,
-                              func_ctx->last_alloca, func_ctx->native_stack_bound,
+                              func_ctx->last_alloca, stack_bound,
                               "cmp"))) {
         aot_set_last_error("llvm build icmp failed.");
         return false;
@@ -297,11 +311,13 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint32 func_count = comp_ctx->func_ctx_count, param_cell_num = 0;
     AOTFuncContext **func_ctxes = comp_ctx->func_ctxes;
     AOTFuncType *func_type;
+    AOTFunc *aot_func;
     LLVMTypeRef *param_types = NULL, ret_type;
     LLVMValueRef *param_values = NULL, value_ret = NULL, func;
     LLVMValueRef import_func_idx, res;
     int32 i, j = 0, param_count;
     uint64 total_size;
+    uint32 callee_cell_num;
     uint8 wasm_ret_type;
     bool ret = false;
 
@@ -379,8 +395,10 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
     else {
         func = func_ctxes[func_idx - import_func_count]->func;
+        aot_func = func_ctxes[func_idx - import_func_count]->aot_func;
+        callee_cell_num = aot_func->param_cell_num + aot_func->local_cell_num + 1;
 
-        if (!check_stack_boundary(comp_ctx, func_ctx))
+        if (!check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
 
         /* Call the function */

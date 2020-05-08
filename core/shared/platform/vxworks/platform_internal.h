@@ -36,10 +36,8 @@ extern "C" {
 #define BH_PLATFORM_VXWORKS
 #endif
 
-#define _STACK_SIZE_ADJUSTMENT (32 * 1024)
-
 /* Stack size of applet threads's native part.  */
-#define BH_APPLET_PRESERVED_STACK_SIZE (32 * 1024 + _STACK_SIZE_ADJUSTMENT)
+#define BH_APPLET_PRESERVED_STACK_SIZE (32 * 1024)
 
 /* Default thread priority */
 #define BH_THREAD_DEFAULT_PRIORITY 0

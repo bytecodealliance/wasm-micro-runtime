@@ -33,17 +33,12 @@ typedef struct WASMMemoryInstance {
     /* Memory data */
     uint8 *memory_data;
 
-    /* Global data of global instances */
-    uint8 *global_data;
-    uint32 global_data_size;
-
     /* End address of memory */
     uint8 *end_addr;
 
     /* Base address, the layout is:
-       heap_data + memory data + global data
+       heap_data + memory data
        memory data init size is: num_bytes_per_page * cur_page_count
-       global data size is calculated in module instantiating
        Note: when memory is re-allocated, the heap data and memory data
              must be copied to new memory also.
      */
@@ -127,6 +122,8 @@ typedef struct WASMModuleInstance {
 
     WASMMemoryInstance *default_memory;
     WASMTableInstance *default_table;
+    /* Global data of global instances */
+    uint8 *global_data;
 
     WASMFunctionInstance *start_function;
 

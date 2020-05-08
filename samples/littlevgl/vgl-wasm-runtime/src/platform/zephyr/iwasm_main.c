@@ -74,7 +74,7 @@ host_interface interface = {
 
 timer_ctx_t timer_ctx;
 
-static char global_heap_buf[370 * 1024] = { 0 };
+static char global_heap_buf[368 * 1024] = { 0 };
 
 static NativeSymbol native_symbols[] = {
     EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),

@@ -901,7 +901,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
   uint32 total_mem_size = memory ? num_bytes_per_page * memory->cur_page_count
                                    - heap_base_offset : 0;
-  uint8 *global_data = memory ? memory->global_data : NULL;
+  uint8 *global_data = module->global_data;
   WASMTableInstance *table = module->default_table;
   WASMGlobalInstance *globals = module->globals;
   uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
@@ -1521,7 +1521,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           memory = module->default_memory;
           total_mem_size = num_bytes_per_page * memory->cur_page_count
                            - heap_base_offset;
-          global_data = memory->global_data;
         }
 
         (void)reserved;
