@@ -583,7 +583,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* To be simple, call wasm_runtime_set_exception() no matter
        enlarge success or not */
-    param_types[1] = VOID_PTR_TYPE;
+    param_types[1] = INT8_PTR_TYPE;
     ret_type = VOID_TYPE;
     if (!(func_type = LLVMFunctionType(ret_type, param_types, 2, false))) {
         aot_set_last_error("llvm add function type failed.");
@@ -614,7 +614,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     /* Call function wasm_runtime_set_exception(aot_inst, NULL) */
-    param_values[1] = LLVMConstNull(VOID_PTR_TYPE);
+    param_values[1] = LLVMConstNull(INT8_PTR_TYPE);
     CHECK_LLVM_CONST(param_values[1]);
     if (!(LLVMBuildCall(comp_ctx->builder, func, param_values, 2, ""))) {
         aot_set_last_error("llvm build call failed.");

@@ -360,45 +360,6 @@ create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-create_func_ptrs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    LLVMValueRef offset, func_ptrs_ptr;
-    LLVMTypeRef void_ptr_type;
-
-    offset = I32_CONST(offsetof(AOTModuleInstance, func_ptrs.ptr));
-    func_ptrs_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
-                                         func_ctx->aot_inst,
-                                         &offset, 1,
-                                         "func_ptrs_ptr");
-    if (!func_ptrs_ptr) {
-        aot_set_last_error("llvm build in bounds gep failed.");
-        return false;
-    }
-
-    if (!(void_ptr_type = LLVMPointerType(VOID_PTR_TYPE, 0))
-        || !(void_ptr_type = LLVMPointerType(void_ptr_type, 0))) {
-        aot_set_last_error("llvm get pointer type failed.");
-        return false;
-    }
-
-    func_ctx->func_ptrs = LLVMBuildBitCast(comp_ctx->builder, func_ptrs_ptr,
-                                           void_ptr_type, "func_ptrs_tmp");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
-
-    func_ctx->func_ptrs = LLVMBuildLoad(comp_ctx->builder, func_ctx->func_ptrs,
-            "func_ptrs");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build load failed.");
-        return false;
-    }
-
-    return true;
-}
-
-static bool
 create_func_type_indexes(AOTCompContext *comp_ctx,
                          AOTFuncContext *func_ctx)
 {
@@ -636,10 +597,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     if (!create_cur_exception(comp_ctx, func_ctx))
         goto fail;
 
-    /* Load function pointers */
-    if (!create_func_ptrs(comp_ctx, func_ctx))
-      goto fail;
-
     /* Load function type indexes */
     if (!create_func_type_indexes(comp_ctx, func_ctx))
         goto fail;
@@ -723,7 +680,6 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->int64_ptr_type = LLVMPointerType(basic_types->int64_type, 0);
     basic_types->float32_ptr_type = LLVMPointerType(basic_types->float32_type, 0);
     basic_types->float64_ptr_type = LLVMPointerType(basic_types->float64_type, 0);
-    basic_types->void_ptr_type = LLVMPointerType(basic_types->void_type, 0);
 
     return (basic_types->int8_ptr_type
             && basic_types->int16_ptr_type
@@ -731,7 +687,6 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
             && basic_types->int64_ptr_type
             && basic_types->float32_ptr_type
             && basic_types->float64_ptr_type
-            && basic_types->void_ptr_type
             && basic_types->meta_data_type) ? true : false;
 }
 
