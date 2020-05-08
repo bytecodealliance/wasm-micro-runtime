@@ -192,7 +192,6 @@ typedef enum FloatArithmetic {
 #define INT64_PTR_TYPE comp_ctx->basic_types.int64_ptr_type
 #define F32_PTR_TYPE comp_ctx->basic_types.float32_ptr_type
 #define F64_PTR_TYPE comp_ctx->basic_types.float64_ptr_type
-#define VOID_PTR_TYPE comp_ctx->basic_types.void_ptr_type
 
 #define I32_CONST(v) LLVMConstInt(I32_TYPE, v, true)
 #define I64_CONST(v) LLVMConstInt(I64_TYPE, v, true)

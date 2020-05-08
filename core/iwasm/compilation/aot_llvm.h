@@ -122,7 +122,6 @@ typedef struct AOTFuncContext {
   LLVMBasicBlockRef got_exception_block;
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
-  LLVMValueRef func_ptrs;
   LLVMValueRef func_type_indexes;
   LLVMValueRef locals[1];
 } AOTFuncContext;
@@ -143,7 +142,6 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef int64_ptr_type;
   LLVMTypeRef float32_ptr_type;
   LLVMTypeRef float64_ptr_type;
-  LLVMTypeRef void_ptr_type;
 
   LLVMTypeRef meta_data_type;
 } AOTLLVMTypes;
