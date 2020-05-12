@@ -28,11 +28,11 @@ extern "C" {
 #endif
 
 typedef enum {
-    LOG_LEVEL_FATAL = 0,
-    LOG_LEVEL_ERROR = 1,
-    LOG_LEVEL_WARNING = 2,
-    LOG_LEVEL_DEBUG = 3,
-    LOG_LEVEL_VERBOSE = 4
+    BH_LOG_LEVEL_FATAL = 0,
+    BH_LOG_LEVEL_ERROR = 1,
+    BH_LOG_LEVEL_WARNING = 2,
+    BH_LOG_LEVEL_DEBUG = 3,
+    BH_LOG_LEVEL_VERBOSE = 4
 } LogLevel;
 
 void
@@ -41,11 +41,11 @@ bh_log_set_verbose_level(uint32 level);
 void
 bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 
-#define LOG_FATAL(...)   bh_log(LOG_LEVEL_FATAL, __FILE__, __LINE__, __VA_ARGS__)
-#define LOG_ERROR(...)   bh_log(LOG_LEVEL_ERROR, NULL, 0, __VA_ARGS__)
-#define LOG_DEBUG(...)   bh_log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, 0, __VA_ARGS__)
-#define LOG_WARNING(...) bh_log(LOG_LEVEL_WARNING, NULL, 0, __VA_ARGS__)
-#define LOG_VERBOSE(...) bh_log(LOG_LEVEL_VERBOSE, NULL, 0, __VA_ARGS__)
+#define LOG_FATAL(...)   bh_log(BH_LOG_LEVEL_FATAL, __FILE__, __LINE__, __VA_ARGS__)
+#define LOG_ERROR(...)   bh_log(BH_LOG_LEVEL_ERROR, NULL, 0, __VA_ARGS__)
+#define LOG_DEBUG(...)   bh_log(BH_LOG_LEVEL_DEBUG, __FILE__, __LINE__, 0, __VA_ARGS__)
+#define LOG_WARNING(...) bh_log(BH_LOG_LEVEL_WARNING, NULL, 0, __VA_ARGS__)
+#define LOG_VERBOSE(...) bh_log(BH_LOG_LEVEL_VERBOSE, NULL, 0, __VA_ARGS__)
 
 void
 bh_print_time(const char *prompt);
