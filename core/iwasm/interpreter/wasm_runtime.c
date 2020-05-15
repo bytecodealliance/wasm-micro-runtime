@@ -818,10 +818,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst)
 
     if (module_inst->memory_count > 0)
         memories_deinstantiate(module_inst->memories, module_inst->memory_count);
-    else if (module_inst->memories != NULL && module_inst->global_count > 0)
-        /* No imported memory and defined memory, the memory is created when
-           global count > 0. */
-        memories_deinstantiate(module_inst->memories, 1);
 
     tables_deinstantiate(module_inst->tables, module_inst->table_count);
     functions_deinstantiate(module_inst->functions, module_inst->function_count);

@@ -223,19 +223,31 @@ int os_thread_join(korp_tid thread, void **value_ptr)
 
 uint8 *os_thread_get_stack_boundary()
 {
+    pthread_t self = pthread_self();
     pthread_attr_t attr;
-    void *addr = NULL;
-    size_t size;
+    uint8 *addr = NULL;
+    size_t stack_size, guard_size;
 
-    if (pthread_getattr_np(pthread_self(), &attr) == 0) {
-        pthread_attr_getstack(&attr, &addr, &size);
-        pthread_attr_destroy (&attr);
+#ifdef __linux__
+    if (pthread_getattr_np(self, &attr) == 0) {
+        pthread_attr_getstack(&attr, (void**)&addr, &stack_size);
+        pthread_attr_getguardsize(&attr, &guard_size);
+        pthread_attr_destroy(&attr);
+        if (guard_size < 4 * 1024)
+            /* Reserved 4 KB guard size at least for safety */
+            guard_size = 4 * 1024;
+        addr += guard_size;
     }
+    (void)stack_size;
+#elif defined(__APPLE__)
+    if ((addr = (uint8*)pthread_get_stackaddr_np(self))) {
+        stack_size = pthread_get_stacksize_np(self);
+        addr -= stack_size;
+        /* Reserved 4 KB guard size at least for safety */
+        addr += 4 * 1024;
+    }
+#endif
 
-    if (addr)
-        /* Reserved 4 KB for safety */
-        return (uint8*)addr + 4 * 1024;
-    else
-        return NULL;
+    return addr;
 }
 
