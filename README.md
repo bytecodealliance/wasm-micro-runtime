@@ -59,6 +59,7 @@ cmake ..
 make
 ln -s {current path}/wamrc /usr/bin/wamrc
 ```
+For MacOS, you should replace `cmake ..` with `cmake -DWAMR_BUILD_PLATFORM=darwin ..`.
 
 ### Build the mini product
 
