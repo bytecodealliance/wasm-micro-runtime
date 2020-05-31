@@ -1394,7 +1394,11 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     if (bin_type != LLVMBinaryTypeELF32L
         && bin_type != LLVMBinaryTypeELF32B
         && bin_type != LLVMBinaryTypeELF64L
-        && bin_type != LLVMBinaryTypeELF64B) {
+        && bin_type != LLVMBinaryTypeELF64B
+        && bin_type != LLVMBinaryTypeMachO32L
+        && bin_type != LLVMBinaryTypeMachO32B
+        && bin_type != LLVMBinaryTypeMachO64L
+        && bin_type != LLVMBinaryTypeMachO64B) {
         aot_set_last_error("invaid llvm binary bin_type.");
         return false;
     }
