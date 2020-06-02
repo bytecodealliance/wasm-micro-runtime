@@ -15,6 +15,12 @@
 extern "C" {
 #endif
 
+typedef struct WASMModuleInstance WASMModuleInstance;
+typedef struct WASMFunctionInstance WASMFunctionInstance;
+typedef struct WASMMemoryInstance WASMMemoryInstance;
+typedef struct WASMTableInstance WASMTableInstance;
+typedef struct WASMGlobalInstance WASMGlobalInstance;
+
 typedef struct WASMMemoryInstance {
     /* Number bytes per page */
     uint32 num_bytes_per_page;
@@ -36,6 +42,10 @@ typedef struct WASMMemoryInstance {
     /* End address of memory */
     uint8 *end_addr;
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* to indicate which module instance create it */
+    WASMModuleInstance *owner;
+#endif
     /* Base address, the layout is:
        heap_data + memory data
        memory data init size is: num_bytes_per_page * cur_page_count
@@ -52,6 +62,10 @@ typedef struct WASMTableInstance {
     uint32 cur_size;
     /* Maximum size */
     uint32 max_size;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* just for import, keep the reference here */
+    WASMTableInstance *table_inst_linked;
+#endif
     /* Base address */
     uint8 base_addr[1];
 } WASMTableInstance;
@@ -65,6 +79,11 @@ typedef struct WASMGlobalInstance {
     uint32 data_offset;
     /* initial value */
     WASMValue initial_value;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* just for import, keep the reference here */
+    WASMModuleInstance *import_module_inst;
+    WASMGlobalInstance *import_global_inst;
+#endif
 } WASMGlobalInstance;
 
 typedef struct WASMFunctionInstance {
@@ -93,12 +112,33 @@ typedef struct WASMFunctionInstance {
         WASMFunctionImport *func_import;
         WASMFunction *func;
     } u;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModuleInstance *import_module_inst;
+    WASMFunctionInstance *import_func_inst;
+#endif
 } WASMFunctionInstance;
 
 typedef struct WASMExportFuncInstance {
     char *name;
     WASMFunctionInstance *function;
 } WASMExportFuncInstance;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+typedef struct WASMExportGlobInstance {
+    char *name;
+    WASMGlobalInstance *global;
+} WASMExportGlobInstance;
+
+typedef struct WASMExportTabInstance {
+    char *name;
+    WASMTableInstance *table;
+} WASMExportTabInstance;
+
+typedef struct WASMExportMemInstance {
+    char *name;
+    WASMMemoryInstance *memory;
+} WASMExportMemInstance;
+#endif
 
 typedef struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
@@ -112,13 +152,25 @@ typedef struct WASMModuleInstance {
     uint32 table_count;
     uint32 global_count;
     uint32 function_count;
+
     uint32 export_func_count;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    uint32 export_glob_count;
+    uint32 export_mem_count;
+    uint32 export_tab_count;
+#endif
 
     WASMMemoryInstance **memories;
     WASMTableInstance **tables;
     WASMGlobalInstance *globals;
     WASMFunctionInstance *functions;
+
     WASMExportFuncInstance *export_functions;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMExportGlobInstance *export_globals;
+    WASMExportMemInstance *export_memories;
+    WASMExportTabInstance *export_tables;
+#endif
 
     WASMMemoryInstance *default_memory;
     WASMTableInstance *default_table;
@@ -148,10 +200,25 @@ typedef struct WASMModuleInstance {
 
     /* Main exec env */
     WASMExecEnv *main_exec_env;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    // TODO: mutex ? mutli-threads ?
+    bh_list sub_module_inst_list_head;
+    bh_list *sub_module_inst_list;
+#endif
 } WASMModuleInstance;
 
 struct WASMInterpFrame;
 typedef struct WASMInterpFrame WASMRuntimeFrame;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+typedef struct WASMSubModInstNode {
+    bh_list_link l;
+    /* point to a string pool */
+    const char *module_name;
+    WASMModuleInstance *module_inst;
+} WASMSubModInstNode;
+#endif
 
 /**
  * Return the code block of a function.
@@ -182,10 +249,11 @@ wasm_get_func_code_end(WASMFunctionInstance *func)
 {
 #if WASM_ENABLE_FAST_INTERP == 0
     return func->is_import_func
-           ? NULL : func->u.func->code + func->u.func->code_size;
+             ? NULL : func->u.func->code + func->u.func->code_size;
 #else
     return func->is_import_func
-           ? NULL : func->u.func->code_compiled + func->u.func->code_compiled_size;
+             ? NULL
+             : func->u.func->code_compiled + func->u.func->code_compiled_size;
 #endif
 }
 
@@ -211,6 +279,17 @@ wasm_deinstantiate(WASMModuleInstance *module_inst);
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst,
                              const char *name, const char *signature);
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+WASMGlobalInstance *
+wasm_lookup_global(const WASMModuleInstance *module_inst, const char *name);
+
+WASMMemoryInstance *
+wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name);
+
+WASMTableInstance *
+wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name);
+#endif
 
 bool
 wasm_call_function(WASMExecEnv *exec_env,

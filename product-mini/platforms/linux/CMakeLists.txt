@@ -4,12 +4,15 @@
 cmake_minimum_required (VERSION 2.8)
 
 project (iwasm)
+# set (CMAKE_VERBOSE_MAKEFILE 1)
 
 set (WAMR_BUILD_PLATFORM "linux")
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
+
+set (CMAKE_C_STANDARD 99)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
@@ -55,6 +58,11 @@ endif ()
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   # Enable fast interpreter
   set (WAMR_BUILD_FAST_INTERP 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
+  # Enable multiple modules
+  set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)

@@ -17,7 +17,7 @@ uint32 bh_get_elpased_ms(uint32 *last_system_clock);
 
 struct _timer_ctx;
 typedef struct _timer_ctx * timer_ctx_t;
-typedef void (*timer_callback_f)(uint32 id, unsigned int owner);
+typedef void (*timer_callback_f)(unsigned int id, unsigned int owner);
 typedef void (*check_timer_expiry_f)(timer_ctx_t ctx);
 
 timer_ctx_t create_timer_ctx(timer_callback_f timer_handler,

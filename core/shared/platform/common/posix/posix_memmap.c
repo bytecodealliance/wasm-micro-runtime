@@ -11,13 +11,11 @@ os_mmap(void *hint, uint32 size, int prot, int flags)
     int map_prot = PROT_NONE;
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE;
     uint64 request_size, page_size;
-    uint8 *addr, *addr_aligned;
+    uint8 *addr;
     uint32 i;
 
-    /* align to 2M if no less than 2M, else align to 4K */
-    page_size = size < 2 * 1024 * 1024 ? 4096 : 2 * 1024 * 1024;
+    page_size = getpagesize();
     request_size = (size + page_size - 1) & ~(page_size - 1);
-    request_size += page_size;
 
     if (request_size >= UINT32_MAX)
         return NULL;
@@ -47,43 +45,25 @@ os_mmap(void *hint, uint32 size, int prot, int flags)
         if (addr != MAP_FAILED)
             break;
     }
+
     if (addr == MAP_FAILED)
         return NULL;
 
-    addr_aligned = (uint8*)(uintptr_t)
-        (((uint64)(uintptr_t)addr + page_size - 1) & ~(page_size - 1));
-
-    /* Unmap memory allocated before the aligned base address */
-    if (addr != addr_aligned) {
-        uint32 prefix_size = (uint32)(addr_aligned - addr);
-        munmap(addr, prefix_size);
-        request_size -= prefix_size;
-    }
-
-    /* Unmap memory allocated after the potentially unaligned end */
-    if (size != request_size) {
-        uint32 suffix_size = (uint32)(request_size - size);
-        munmap(addr_aligned + size, suffix_size);
-        request_size -= size;
-    }
-
-#ifndef __APPLE__
-    if (size >= 2 * 1024 * 1024) {
-        /* Try to use huge page to improve performance */
-        if (!madvise(addr, size, MADV_HUGEPAGE))
-            /* make huge page become effective */
-            memset(addr, 0, size);
-    }
-#endif
-
-    return addr_aligned;
+    return addr;
 }
 
 void
 os_munmap(void *addr, uint32 size)
 {
-    if (addr)
-        munmap(addr, size);
+    uint64 page_size = getpagesize();
+    uint64 request_size = (size + page_size - 1) & ~(page_size - 1);
+
+    if (addr) {
+        if (munmap(addr, request_size)) {
+            os_printf("os_munmap error addr:%p, size:0x%lx, errno:%d\n",
+                      addr, request_size, errno);
+        }
+    }
 }
 
 int

@@ -1098,7 +1098,7 @@ static NativeSymbol native_symbols_spectest[] = {
     REG_NATIVE_FUNC(print, "()"),
     REG_NATIVE_FUNC(print_i32, "(i)"),
     REG_NATIVE_FUNC(print_i32_f32, "(if)"),
-    REG_NATIVE_FUNC(print_f64_f64, "(fF)"),
+    REG_NATIVE_FUNC(print_f64_f64, "(FF)"),
     REG_NATIVE_FUNC(print_f32, "(f)"),
     REG_NATIVE_FUNC(print_f64, "(F)")
 };

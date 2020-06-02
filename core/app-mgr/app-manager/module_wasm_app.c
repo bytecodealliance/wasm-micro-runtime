@@ -445,7 +445,7 @@ wasm_app_routine(void *arg)
                                         0, NULL)) {
                 const char *exception = wasm_runtime_get_exception(inst);
                 bh_assert(exception);
-                printf("Got exception running wasi start function: %s\n",
+                app_manager_printf("Got exception running wasi start function: %s\n",
                         exception);
                 wasm_runtime_clear_exception(inst);
                 goto fail1;
@@ -467,7 +467,7 @@ wasm_app_routine(void *arg)
                                 0, NULL)) {
         const char *exception = wasm_runtime_get_exception(inst);
         bh_assert(exception);
-        printf("Got exception running WASM code: %s\n",
+        app_manager_printf("Got exception running WASM code: %s\n",
                exception);
         wasm_runtime_clear_exception(inst);
         /* call on_destroy() in case some resources are opened in on_init()
@@ -644,7 +644,7 @@ wasm_app_module_install(request_t * msg)
             if (!module) {
                 SEND_ERR_RESPONSE(msg->mid,
                                   "Install WASM app failed: load WASM file failed.");
-                printf("error: %s\n", err);
+                app_manager_printf("error: %s\n", err);
                 destroy_all_aot_sections(aot_file->sections);
                 return false;
             }
@@ -674,7 +674,7 @@ wasm_app_module_install(request_t * msg)
             if (!inst) {
                 SEND_ERR_RESPONSE(msg->mid,
                                   "Install WASM app failed: instantiate wasm runtime failed.");
-                printf("error: %s\n", err);
+                app_manager_printf("error: %s\n", err);
                 wasm_runtime_unload(module);
                 destroy_all_aot_sections(aot_file->sections);
                 return false;
@@ -713,7 +713,7 @@ wasm_app_module_install(request_t * msg)
             if (!module) {
                 SEND_ERR_RESPONSE(msg->mid,
                                   "Install WASM app failed: load WASM file failed.");
-                printf("error: %s\n", err);
+                app_manager_printf("error: %s\n", err);
                 destroy_all_wasm_sections(bytecode_file->sections);
                 return false;
             }
@@ -744,7 +744,7 @@ wasm_app_module_install(request_t * msg)
             if (!inst) {
                 SEND_ERR_RESPONSE(msg->mid,
                                   "Install WASM app failed: instantiate wasm runtime failed.");
-                printf("error: %s\n", err);
+                app_manager_printf("error: %s\n", err);
                 wasm_runtime_unload(module);
                 destroy_all_wasm_sections(bytecode_file->sections);
                 return false;

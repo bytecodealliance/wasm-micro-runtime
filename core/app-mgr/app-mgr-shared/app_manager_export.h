@@ -285,7 +285,7 @@ bool
 bh_applet_check_permission(const char *perm);
 
 int
-app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size);
+app_manager_host_send_msg(int msg_type, const char *buf, int size);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

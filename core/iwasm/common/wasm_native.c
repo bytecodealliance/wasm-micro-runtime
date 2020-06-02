@@ -243,6 +243,7 @@ wasm_native_init()
     if (!wasm_native_register_natives("env",
                                        native_symbols, n_native_symbols))
         return false;
+#endif /* WASM_ENABLE_LIBC_BUILTIN */
 
 #if WASM_ENABLE_SPEC_TEST
     n_native_symbols = get_spectest_export_apis(&native_symbols);
@@ -250,7 +251,6 @@ wasm_native_init()
                                        native_symbols, n_native_symbols))
         return false;
 #endif /* WASM_ENABLE_SPEC_TEST */
-#endif /* WASM_ENABLE_LIBC_BUILTIN */
 
 #if WASM_ENABLE_LIBC_WASI != 0
     n_native_symbols = get_libc_wasi_export_apis(&native_symbols);

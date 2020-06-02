@@ -262,7 +262,7 @@ typedef enum WASMOpcode {
     WASM_OP_MISC_PREFIX           = 0xfc,
 } WASMOpcode;
 
-typedef enum WASMEXTOpcode {
+typedef enum WASMMiscEXTOpcode {
     WASM_OP_I32_TRUNC_SAT_S_F32   = 0x00,
     WASM_OP_I32_TRUNC_SAT_U_F32   = 0x01,
     WASM_OP_I32_TRUNC_SAT_S_F64   = 0x02,
@@ -271,7 +271,16 @@ typedef enum WASMEXTOpcode {
     WASM_OP_I64_TRUNC_SAT_U_F32   = 0x05,
     WASM_OP_I64_TRUNC_SAT_S_F64   = 0x06,
     WASM_OP_I64_TRUNC_SAT_U_F64   = 0x07,
-} WASMEXTOpcode;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    WASM_OP_MEMORY_INIT           = 0x08,
+    WASM_OP_DATA_DROP             = 0x09,
+    WASM_OP_MEMORY_COPY           = 0x0a,
+    WASM_OP_MEMORY_FILL           = 0x0b,
+    WASM_OP_TABLE_INIT            = 0x0c,
+    WASM_OP_ELEM_DROP             = 0x0d,
+    WASM_OP_TABLE_COPY            = 0x0e
+#endif
+} WASMMiscEXTOpcode;
 
 #ifdef __cplusplus
 }
