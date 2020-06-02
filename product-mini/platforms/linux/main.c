@@ -8,24 +8,26 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+
 #include "bh_platform.h"
-#include "bh_assert.h"
-#include "bh_log.h"
 #include "bh_read_file.h"
 #include "wasm_export.h"
 
 static int app_argc;
 static char **app_argv;
 
-static int print_help()
+#define MODULE_PATH ("--module-path=")
+
+static int
+print_help()
 {
     printf("Usage: iwasm [-options] wasm_file [args...]\n");
     printf("options:\n");
-    printf("  -f|--function name     Specify function name to run in module\n"
-           "                         rather than main\n");
+    printf("  -f|--function name     Specify a function name of the module to run rather\n"
+           "                         than main\n");
 #if WASM_ENABLE_LOG != 0
-    printf("  -v=n                   Set log verbose level (0 to 5, default is 2),\n"
-           "                         larger level with more log\n");
+    printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
+           "                         level with more log\n");
 #endif
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
@@ -39,11 +41,14 @@ static int print_help()
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
 #endif
-
+#if WASM_ENABLE_MULTI_MODULE != 0
+    printf("  --module-path=         Indicate a module search path. default is current\n"
+           "                         directory('./')\n");
+#endif
     return 1;
 }
 
-static void*
+static void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
     const char *exception;
@@ -54,7 +59,7 @@ app_instance_main(wasm_module_inst_t module_inst)
     return NULL;
 }
 
-static void*
+static void *
 app_instance_func(wasm_module_inst_t module_inst, const char *func_name)
 {
     wasm_application_execute_func(module_inst, func_name, app_argc - 1,
@@ -81,12 +86,23 @@ split_string(char *str, int *count)
     do {
         p = strtok(str, " ");
         str = NULL;
-        res = (char**) realloc(res, sizeof(char*) * (uint32)(idx + 1));
+        res = (char **)realloc(res, sizeof(char *) * (uint32)(idx + 1));
         if (res == NULL) {
             return NULL;
         }
         res[idx++] = p;
     } while (p);
+
+    /**
+     * since the function name,
+     * res[0] might be contains a '\' to indicate a space
+     * func\name -> func name
+     */
+    p = strchr(res[0], '\\');
+    while (p) {
+        *p = ' ';
+        p = strchr(p, '\\');
+    }
 
     if (count) {
         *count = idx - 1;
@@ -94,7 +110,7 @@ split_string(char *str, int *count)
     return res;
 }
 
-static void*
+static void *
 app_instance_repl(wasm_module_inst_t module_inst)
 {
     char *cmd = NULL;
@@ -149,7 +165,49 @@ validate_env_str(char *env)
 static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 #endif
 
-int main(int argc, char *argv[])
+#if WASM_ENABLE_MULTI_MODULE != 0
+static char *
+handle_module_path(const char *module_path)
+{
+    // next character after =
+    return (strchr(module_path, '=')) + 1;
+}
+
+static char *module_search_path = ".";
+static bool
+module_reader_callback(const char *module_name, uint8 **p_buffer,
+                       uint32 *p_size)
+{
+    const char *format = "%s/%s.wasm";
+    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name) +
+             strlen(".wasm") + 1;
+    char *wasm_file_name = BH_MALLOC(sz);
+    if (!wasm_file_name) {
+        return false;
+    }
+
+    snprintf(wasm_file_name, sz, format, module_search_path, module_name);
+
+    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_name, p_size);
+
+    wasm_runtime_free(wasm_file_name);
+    return *p_buffer != NULL;
+}
+
+static void
+moudle_destroyer(uint8 *buffer, uint32 size)
+{
+    if (!buffer) {
+        return;
+    }
+
+    wasm_runtime_free(buffer);
+    buffer = NULL;
+}
+#endif /* WASM_ENABLE_MULTI_MODULE */
+
+int
+main(int argc, char *argv[])
 {
     char *wasm_file = NULL;
     const char *func_name = NULL;
@@ -172,6 +230,8 @@ int main(int argc, char *argv[])
 #endif
 
     /* Process options.  */
+    // TODO: use a option name and option handler pair table to
+    //       optimize
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
@@ -188,8 +248,9 @@ int main(int argc, char *argv[])
                 return print_help();
         }
 #endif
-        else if (!strcmp(argv[0], "--repl"))
+        else if (!strcmp(argv[0], "--repl")) {
             is_repl_mode = true;
+        }
         else if (!strncmp(argv[0], "--stack-size=", 13)) {
             if (argv[0][13] == '\0')
                 return print_help();
@@ -204,9 +265,9 @@ int main(int argc, char *argv[])
         else if (!strncmp(argv[0], "--dir=", 6)) {
             if (argv[0][6] == '\0')
                 return print_help();
-            if (dir_list_size >= sizeof(dir_list) / sizeof(char*)) {
+            if (dir_list_size >= sizeof(dir_list) / sizeof(char *)) {
                 printf("Only allow max dir number %d\n",
-                       (int)(sizeof(dir_list) / sizeof(char*)));
+                       (int)(sizeof(dir_list) / sizeof(char *)));
                 return -1;
             }
             dir_list[dir_list_size++] = argv[0] + 6;
@@ -216,17 +277,26 @@ int main(int argc, char *argv[])
 
             if (argv[0][6] == '\0')
                 return print_help();
-            if (env_list_size >= sizeof(env_list) / sizeof(char*)) {
+            if (env_list_size >= sizeof(env_list) / sizeof(char *)) {
                 printf("Only allow max env number %d\n",
-                       (int)(sizeof(env_list) / sizeof(char*)));
+                       (int)(sizeof(env_list) / sizeof(char *)));
                 return -1;
             }
             tmp_env = argv[0] + 6;
             if (validate_env_str(tmp_env))
                 env_list[env_list_size++] = tmp_env;
             else {
-                printf("Wasm parse env string failed: expect \"key=value\", got \"%s\"\n",
+                printf("Wasm parse env string failed: expect \"key=value\", "
+                       "got \"%s\"\n",
                        tmp_env);
+                return print_help();
+            }
+        }
+#endif /* WASM_ENABLE_LIBC_WASI */
+#if WASM_ENABLE_MULTI_MODULE != 0
+        else if (!strncmp(argv[0], MODULE_PATH, strlen(MODULE_PATH))) {
+            module_search_path = handle_module_path(argv[0]);
+            if (!strlen(module_search_path)) {
                 return print_help();
             }
         }
@@ -261,12 +331,18 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+#if WASM_ENABLE_LOG != 0
     bh_log_set_verbose_level(log_verbose_level);
+#endif
 
     /* load WASM byte buffer from WASM bin file */
-    if (!(wasm_file_buf = (uint8*) bh_read_file_to_buffer(wasm_file,
-                                                          &wasm_file_size)))
+    if (!(wasm_file_buf =
+            (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
+#endif
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
@@ -276,19 +352,14 @@ int main(int argc, char *argv[])
     }
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    wasm_runtime_set_wasi_args(wasm_module,
-                               dir_list, dir_list_size,
-                               NULL, 0,
-                               env_list, env_list_size,
-                               argv, argc);
+    wasm_runtime_set_wasi_args(wasm_module, dir_list, dir_list_size, NULL, 0,
+                               env_list, env_list_size, argv, argc);
 #endif
 
     /* instantiate the module */
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      stack_size,
-                                                      heap_size,
-                                                      error_buf,
-                                                      sizeof(error_buf)))) {
+    if (!(wasm_module_inst =
+            wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
+                                     error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail3;
     }
@@ -316,4 +387,3 @@ fail1:
     wasm_runtime_destroy();
     return 0;
 }
-

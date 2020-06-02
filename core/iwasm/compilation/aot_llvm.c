@@ -914,6 +914,9 @@ aot_create_comp_context(AOTCompData *comp_data,
         goto fail;
     }
 
+    if (option->enable_bulk_memory)
+        comp_ctx->enable_bulk_memory = true;
+
     if (option->is_jit_mode) {
         /* Create LLVM execution engine */
         LLVMInitializeMCJITCompilerOptions(&jit_options, sizeof(jit_options));

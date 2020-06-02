@@ -741,6 +741,39 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             if (!aot_compile_op_i64_trunc_f64(comp_ctx, func_ctx, sign, true))
               return false;
             break;
+#if WASM_ENABLE_BULK_MEMORY != 0
+          case WASM_OP_MEMORY_INIT:
+          {
+            uint32 seg_index;
+            read_leb_uint32(frame_ip, frame_ip_end, seg_index);
+            frame_ip ++;
+            if (!aot_compile_op_memory_init(comp_ctx, func_ctx, seg_index))
+              return false;
+            break;
+          }
+          case WASM_OP_DATA_DROP:
+          {
+            uint32 seg_index;
+            read_leb_uint32(frame_ip, frame_ip_end, seg_index);
+            if (!aot_compile_op_data_drop(comp_ctx, func_ctx, seg_index))
+              return false;
+            break;
+          }
+          case WASM_OP_MEMORY_COPY:
+          {
+            frame_ip += 2;
+            if (!aot_compile_op_memory_copy(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case WASM_OP_MEMORY_FILL:
+          {
+            frame_ip ++;
+            if (!aot_compile_op_memory_fill(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+#endif /* WASM_ENABLE_BULK_MEMORY */
           default:
             break;
         }

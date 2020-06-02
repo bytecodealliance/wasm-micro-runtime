@@ -185,6 +185,9 @@ typedef struct AOTCompContext {
   LLVMExecutionEngineRef exec_engine;
   bool is_jit_mode;
 
+  /* Bulk memory feature */
+  bool enable_bulk_memory;
+
   /* Whether optimize the JITed code */
   bool optimize;
 
@@ -223,6 +226,7 @@ typedef struct AOTCompOption{
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool enable_bulk_memory;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;

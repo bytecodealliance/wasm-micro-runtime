@@ -94,6 +94,11 @@ enum {
 #define WASM_ENABLE_APP_FRAMEWORK 0
 #endif
 
+/* Bulk memory operation */
+#ifndef WASM_ENABLE_BULK_MEMORY
+#define WASM_ENABLE_BULK_MEMORY 0
+#endif
+
 /* WASM log system */
 #ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1
@@ -118,6 +123,11 @@ enum {
 /* Enable opcode counter or not */
 #ifndef WASM_ENABLE_OPCODE_COUNTER
 #define WASM_ENABLE_OPCODE_COUNTER 0
+#endif
+
+/* Support a module with dependency, other modules */
+#ifndef WASM_ENABLE_MULTI_MODULE
+#define WASM_ENABLE_MULTI_MODULE 0
 #endif
 
 /* Heap and stack profiling */

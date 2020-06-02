@@ -12,6 +12,30 @@ typedef struct {
 
 #define REG_SYM(symbol) { #symbol, (void*)symbol }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+#define REG_COMMON_SYMBOLS                \
+    REG_SYM(aot_set_exception_with_id),   \
+    REG_SYM(aot_invoke_native),           \
+    REG_SYM(aot_call_indirect),           \
+    REG_SYM(wasm_runtime_enlarge_memory), \
+    REG_SYM(wasm_runtime_set_exception),  \
+    REG_SYM(fmin),                        \
+    REG_SYM(fminf),                       \
+    REG_SYM(fmax),                        \
+    REG_SYM(fmaxf),                       \
+    REG_SYM(ceil),                        \
+    REG_SYM(ceilf),                       \
+    REG_SYM(floor),                       \
+    REG_SYM(floorf),                      \
+    REG_SYM(trunc),                       \
+    REG_SYM(truncf),                      \
+    REG_SYM(rint),                        \
+    REG_SYM(rintf),                       \
+    REG_SYM(memset),                      \
+    REG_SYM(memmove),                     \
+    REG_SYM(aot_memory_init),             \
+    REG_SYM(aot_data_drop)
+#else
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
@@ -30,6 +54,7 @@ typedef struct {
     REG_SYM(truncf),                      \
     REG_SYM(rint),                        \
     REG_SYM(rintf)
+#endif
 
 #define CHECK_RELOC_OFFSET(data_size) do {                                  \
     if (!check_reloc_offset(target_section_size, reloc_offset, data_size,   \

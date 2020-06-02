@@ -39,6 +39,7 @@ typedef struct AOTCompOption{
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool enable_bulk_memory;
     uint32_t opt_level;
     uint32_t size_level;
     uint32_t output_format;

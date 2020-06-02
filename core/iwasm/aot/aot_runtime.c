@@ -68,42 +68,62 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     uint32 i, global_index, global_data_offset, base_offset, length;
     AOTTableInitData *table_seg;
 
-    if (module->table_init_data_count > 0) {
-        for (i = 0; i < module->table_init_data_count; i++) {
-            table_seg = module->table_init_data_list[i];
-            bh_assert(table_seg->offset.init_expr_type ==
-                            INIT_EXPR_TYPE_I32_CONST
-                      || table_seg->offset.init_expr_type ==
-                            INIT_EXPR_TYPE_GET_GLOBAL);
+    for (i = 0; i < module->table_init_data_count; i++) {
+        table_seg = module->table_init_data_list[i];
+        bh_assert(table_seg->offset.init_expr_type ==
+                        INIT_EXPR_TYPE_I32_CONST
+                    || table_seg->offset.init_expr_type ==
+                        INIT_EXPR_TYPE_GET_GLOBAL);
 
-            /* Resolve table data base offset */
-            if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-                global_index = table_seg->offset.u.global_index;
-                bh_assert(global_index <
-                          module->import_global_count + module->global_count);
-                /* TODO: && globals[table_seg->offset.u.global_index].type ==
-                           VALUE_TYPE_I32*/
-                if (global_index < module->import_global_count)
-                    global_data_offset =
-                        module->import_globals[global_index].data_offset;
-                else
-                    global_data_offset =
-                        module->globals[global_index - module->import_global_count]
-                                .data_offset;
-
-                base_offset = *(uint32*)
-                    ((uint8*)module_inst->global_data.ptr + global_data_offset);
-            }
+        /* Resolve table data base offset */
+        if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
+            global_index = table_seg->offset.u.global_index;
+            bh_assert(global_index <
+                        module->import_global_count + module->global_count);
+            /* TODO: && globals[table_seg->offset.u.global_index].type ==
+                        VALUE_TYPE_I32*/
+            if (global_index < module->import_global_count)
+                global_data_offset =
+                    module->import_globals[global_index].data_offset;
             else
-                base_offset = (uint32)table_seg->offset.u.i32;
+                global_data_offset =
+                    module->globals[global_index - module->import_global_count]
+                            .data_offset;
 
-            /* Copy table data */
-            length = table_seg->func_index_count;
-            if (base_offset < module_inst->table_size) {
-                memcpy((uint32*)module_inst->table_data.ptr + base_offset,
-                       table_seg->func_indexes, length * sizeof(uint32));
-            }
+            base_offset = *(uint32*)
+                ((uint8*)module_inst->global_data.ptr + global_data_offset);
         }
+        else
+            base_offset = (uint32)table_seg->offset.u.i32;
+
+        /* Copy table data */
+        bh_assert(module_inst->table_data.ptr);
+        /* base_offset only since length might negative */
+        if (base_offset > module_inst->table_size) {
+            LOG_DEBUG("base_offset(%d) > table_size(%d)", base_offset,
+                      module_inst->table_size);
+            set_error_buf(error_buf, error_buf_size,
+                          "elements segment does not fit");
+            return false;
+        }
+
+        /* base_offset + length(could be zero) */
+        length = table_seg->func_index_count;
+        if (base_offset + length > module_inst->table_size) {
+            LOG_DEBUG("base_offset(%d) + length(%d) > table_size(%d)",
+                      base_offset, length, module_inst->table_size);
+            set_error_buf(error_buf, error_buf_size,
+                          "elements segment does not fit");
+            return false;
+        }
+
+        /**
+         * Check function index in the current module inst for now.
+         * will check the linked table inst owner in future
+         */
+        memcpy((uint32 *)module_inst->table_data.ptr + base_offset,
+               table_seg->func_indexes,
+               length * sizeof(uint32));
     }
 
     return true;
@@ -169,50 +189,64 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         module_inst->mem_bound_check_8bytes = module_inst->total_mem_size - 8;
     }
 
-    if (module->mem_init_page_count > 0) {
-        for (i = 0; i < module->mem_init_data_count; i++) {
-            data_seg = module->mem_init_data_list[i];
-            bh_assert(data_seg->offset.init_expr_type ==
-                            INIT_EXPR_TYPE_I32_CONST
-                      || data_seg->offset.init_expr_type ==
-                            INIT_EXPR_TYPE_GET_GLOBAL);
+    for (i = 0; i < module->mem_init_data_count; i++) {
+        data_seg = module->mem_init_data_list[i];
+#if WASM_ENABLE_BULK_MEMORY != 0
+        if (data_seg->is_passive)
+            continue;
+#endif
 
-            /* Resolve memory data base offset */
-            if (data_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-                global_index = data_seg->offset.u.global_index;
-                bh_assert(global_index <
-                          module->import_global_count + module->global_count);
-                /* TODO: && globals[data_seg->offset.u.global_index].type ==
-                           VALUE_TYPE_I32*/
-                if (global_index < module->import_global_count)
-                    global_data_offset =
-                        module->import_globals[global_index].data_offset;
-                else
-                    global_data_offset =
-                        module->globals[global_index - module->import_global_count]
-                                .data_offset;
+        bh_assert(data_seg->offset.init_expr_type ==
+                        INIT_EXPR_TYPE_I32_CONST
+                    || data_seg->offset.init_expr_type ==
+                        INIT_EXPR_TYPE_GET_GLOBAL);
 
-                base_offset = *(uint32*)
-                    ((uint8*)module_inst->global_data.ptr + global_data_offset);
-            }
+        /* Resolve memory data base offset */
+        if (data_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
+            global_index = data_seg->offset.u.global_index;
+            bh_assert(global_index <
+                        module->import_global_count + module->global_count);
+            /* TODO: && globals[data_seg->offset.u.global_index].type ==
+                        VALUE_TYPE_I32*/
+            if (global_index < module->import_global_count)
+                global_data_offset =
+                    module->import_globals[global_index].data_offset;
             else
-                base_offset = (uint32)data_seg->offset.u.i32;
+                global_data_offset =
+                    module->globals[global_index - module->import_global_count]
+                            .data_offset;
 
-            length = data_seg->byte_count;
-
-            /* Check memory data */
-            if (length > 0
-                && (base_offset >= module_inst->memory_data_size
-                    || base_offset + length > module_inst->memory_data_size)) {
-                set_error_buf(error_buf, error_buf_size,
-                             "AOT module instantiate failed: data segment out of range.");
-                goto fail2;
-            }
-
-            /* Copy memory data */
-            memcpy((uint8*)module_inst->memory_data.ptr + base_offset,
-                   data_seg->bytes, length);
+            base_offset = *(uint32*)
+                ((uint8*)module_inst->global_data.ptr + global_data_offset);
+        } else {
+            base_offset = (uint32)data_seg->offset.u.i32;
         }
+
+        /* Copy memory data */
+        bh_assert(module_inst->memory_data.ptr);
+
+        /* Check memory data */
+        /* check offset since length might negative */
+        if (base_offset > module_inst->memory_data_size) {
+            LOG_DEBUG("base_offset(%d) > memory_data_size(%d)", base_offset,
+                      module_inst->memory_data_size);
+            set_error_buf(error_buf, error_buf_size,
+                          "data segment does not fit");
+            goto fail2;
+        }
+
+        /* check offset + length(could be zero) */
+        length = data_seg->byte_count;
+        if (base_offset + length > module_inst->memory_data_size) {
+            LOG_DEBUG("base_offset(%d) + length(%d) > memory_data_size(%d)",
+                      base_offset, length, module_inst->memory_data_size);
+            set_error_buf(error_buf, error_buf_size,
+                          "data segment does not fit");
+            goto fail2;
+        }
+
+        memcpy((uint8*)module_inst->memory_data.ptr + base_offset,
+                data_seg->bytes, length);
     }
 
     return true;
@@ -952,3 +986,61 @@ aot_call_indirect(WASMExecEnv *exec_env,
                                       func_type, signature, attachment,
                                       argv, argc, argv);
 }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+bool
+aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index,
+                uint32 offset, uint32 len, uint32 dst)
+{
+    AOTModule *aot_module;
+    uint8 *data = NULL;
+    uint8 *maddr;
+    uint64 seg_len = 0;
+
+    aot_module = (AOTModule *)module_inst->aot_module.ptr;
+    if (aot_module->is_jit_mode) {
+#if WASM_ENABLE_JIT != 0
+        seg_len = aot_module->wasm_module->data_segments[seg_index]->data_length;
+        data = aot_module->wasm_module->data_segments[seg_index]->data;
+#endif
+    }
+    else {
+        seg_len = aot_module->mem_init_data_list[seg_index]->byte_count;
+        data = aot_module->mem_init_data_list[seg_index]->bytes;
+    }
+
+    if (!aot_validate_app_addr(module_inst, dst, len))
+        return false;
+
+    if ((uint64)offset + (uint64)len > seg_len) {
+        aot_set_exception(module_inst, "out of bounds memory access");
+        return false;
+    }
+
+    maddr = aot_addr_app_to_native(module_inst, dst);
+
+    bh_memcpy_s(maddr, module_inst->memory_data_size - dst,
+                data + offset, len);
+    return true;
+}
+
+bool
+aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index)
+{
+    AOTModule *aot_module = (AOTModule *)(module_inst->aot_module.ptr);
+
+    if (aot_module->is_jit_mode) {
+#if WASM_ENABLE_JIT != 0
+        aot_module->wasm_module->data_segments[seg_index]->data_length = 0;
+        /* Currently we can't free the dropped data segment
+            as they are stored in wasm bytecode */
+#endif
+    }
+    else {
+        aot_module->mem_init_data_list[seg_index]->byte_count = 0;
+        /* Currently we can't free the dropped data segment
+            as the mem_init_data_count is a continuous array */
+    }
+    return true;
+}
+#endif /* WASM_ENABLE_BULK_MEMORY */

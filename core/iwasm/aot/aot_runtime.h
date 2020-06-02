@@ -458,6 +458,15 @@ aot_call_indirect(WASMExecEnv *exec_env,
 uint32
 aot_get_plt_table_size();
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+bool
+aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index,
+                uint32 offset, uint32 len, uint32 dst);
+
+bool
+aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
+#endif
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

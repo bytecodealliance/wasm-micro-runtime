@@ -6,7 +6,7 @@
 #ifndef _ATTR_CONTAINER_H_
 #define _ATTR_CONTAINER_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
