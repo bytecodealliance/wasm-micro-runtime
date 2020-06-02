@@ -1,13 +1,47 @@
----
+RawStringFormats:
+  - Language:        Cpp
+    Delimiters:
+      - c
+      - C
+      - cc
+      - CC
+      - cpp
+      - Cpp
+      - CPP
+      - 'c++'
+      - 'C++'
+      - h
+      - hpp
+    CanonicalDelimiter: ''
+    BasedOnStyle:    google
+  - Language:        TextProto
+    Delimiters:
+      - pb
+      - PB
+      - proto
+      - PROTO
+    EnclosingFunctions:
+      - EqualsProto
+      - EquivToProto
+      - PARSE_PARTIAL_TEXT_PROTO
+      - PARSE_TEST_PROTO
+      - PARSE_TEXT_PROTO
+      - ParseTextOrDie
+      - ParseTextProtoOrDie
+    CanonicalDelimiter: ''
+    BasedOnStyle:    google
+
+Language: Cpp
 BasedOnStyle: Mozilla
 IndentWidth: 4
-
----
-Language: Cpp
+AlignAfterOpenBracket: Align
+AllowAllArgumentsOnNextLine: false
 AlignConsecutiveMacros: true
 AllowShortBlocksOnASingleLine: true
+AlwaysBreakAfterReturnType: All
 BinPackArguments: true
-BinPackParameters: true
+BinPackParameters: false
+BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: false
@@ -17,16 +51,17 @@ BraceWrapping:
   AfterFunction: true
   AfterNamespace: false
   AfterObjCDeclaration: false
-  AfterStruct: true
+  AfterStruct: false
   AfterUnion: false
-  AfterExternBlock: true
+  AfterExternBlock: false
   BeforeCatch: false
-  BeforeElse: false
+  BeforeElse: true
   IndentBraces: false
   SplitEmptyFunction: true
   SplitEmptyRecord: false
   SplitEmptyNamespace: true
 ColumnLimit: 79
+ContinuationIndentWidth: 2
 DerivePointerAlignment: false
 IncludeBlocks: Regroup
 IncludeCategories:
@@ -36,20 +71,22 @@ IncludeCategories:
     Priority: 1
   - Regex: ".*"
     Priority: 3
+IndentPPDirectives: None
+KeepEmptyLinesAtTheStartOfBlocks: false
+NamespaceIndentation: None
 PointerAlignment: Right
 ReflowComments: false
-Standard: Cpp03
+Standard: Auto
 StatementMacros:
   - Q_UNUSED
   - QT_REQUIRE_VERSION
+
 # AccessModifierOffset: -2
-# AlignAfterOpenBracket: Align
 # AlignConsecutiveAssignments: false
 # AlignConsecutiveDeclarations: false
 # AlignEscapedNewlines: Right
 # AlignOperands:   true
 # AlignTrailingComments: true
-# AllowAllArgumentsOnNextLine: true
 # AllowAllConstructorInitializersOnNextLine: true
 # AllowAllParametersOfDeclarationOnNextLine: false
 # AllowShortCaseLabelsOnASingleLine: false
@@ -61,7 +98,6 @@ StatementMacros:
 # AlwaysBreakAfterReturnType: TopLevel
 # AlwaysBreakBeforeMultilineStrings: false
 # AlwaysBreakTemplateDeclarations: Yes
-# BreakBeforeBinaryOperators: None
 # BreakBeforeInheritanceComma: false
 # BreakInheritanceList: BeforeComma
 # BreakBeforeTernaryOperators: true
@@ -73,7 +109,6 @@ StatementMacros:
 # CompactNamespaces: false
 # ConstructorInitializerAllOnOneLineOrOnePerLine: false
 # ConstructorInitializerIndentWidth: 2
-# ContinuationIndentWidth: 2
 # Cpp11BracedListStyle: false
 # DisableFormat:   false
 # ExperimentalAutoDetectBinPacking: false
@@ -84,7 +119,6 @@ StatementMacros:
 #   - BOOST_FOREACH
 # IncludeIsMainRegex: '(Test)?$'
 # IndentCaseLabels: true
-# IndentPPDirectives: None
 # IndentWrappedFunctionNames: false
 # JavaScriptQuotes: Leave
 # JavaScriptWrapImports: true
@@ -92,7 +126,6 @@ StatementMacros:
 # MacroBlockBegin: ''
 # MacroBlockEnd:   ''
 # MaxEmptyLinesToKeep: 1
-# NamespaceIndentation: None
 # ObjCBinPackProtocolList: Auto
 # ObjCBlockIndentWidth: 2
 # ObjCSpaceAfterProperty: true
