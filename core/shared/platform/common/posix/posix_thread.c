@@ -250,4 +250,3 @@ uint8 *os_thread_get_stack_boundary()
 
     return addr;
 }
-

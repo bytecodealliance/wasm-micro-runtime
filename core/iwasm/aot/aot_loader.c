@@ -363,6 +363,11 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
     for (i = 0; i < module->mem_init_data_count; i++) {
         uint32 init_expr_type, byte_count;
         uint64 init_expr_value;
+        uint32 is_passive;
+        uint32 memory_index;
+
+        read_uint32(buf, buf_end, is_passive);
+        read_uint32(buf, buf_end, memory_index);
         read_uint32(buf, buf_end, init_expr_type);
         read_uint64(buf, buf_end, init_expr_value);
         read_uint32(buf, buf_end, byte_count);
@@ -375,6 +380,11 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+        /* is_passive and memory_index is only used in bulk memory mode */
+        data_list[i]->is_passive = (bool)is_passive;
+        data_list[i]->memory_index = memory_index;
+#endif
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
         data_list[i]->byte_count = byte_count;
@@ -773,8 +783,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
         read_uint16(buf, buf_end, import_funcs[i].func_type_index);
         if (import_funcs[i].func_type_index >= module->func_type_count) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "invalid function type index.");
+                          "AOT module load failed: unknown type.");
             return false;
         }
         import_funcs[i].func_type = module->func_types[import_funcs[i].func_type_index];
@@ -1067,8 +1076,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
         read_uint32(p, p_end, module->func_type_indexes[i]);
         if (module->func_type_indexes[i] >= module->func_type_count) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "invalid function type index.");
+                          "AOT module load failed: unknown type.");
             return false;
         }
     }

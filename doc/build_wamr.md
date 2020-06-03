@@ -7,7 +7,7 @@ It is recommended to use the [WAMR SDK](../wamr-sdk) tools to build a project th
 
 ## iwasm VM core CMake building configurations
 
-By including the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in CMakeList.txt, it is easy to build minimal product with CMake. 
+By including the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in CMakeList.txt, it is easy to build minimal product with CMake.
 
 ```cmake
 # add this in your CMakeList.text
@@ -21,19 +21,19 @@ The script `runtime_lib.cmake` defined a number of variables for configuring the
 
 #### **Configure platform and architecture**
 
-- **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform). 
+- **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
 
 - **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets:  X86_64, X86_32, AArch64, ARM, THUMB, XTENSA and MIPS. For AArch64, ARM and THUMB, the format is <arch>[<sub-arch>][_VFP] where <sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both <sub-arch> and "_VFP" are optional. e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
 
   ```bash
-  cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM  
+  cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
   ```
 
-#### **Configure interpreter** 
+#### **Configure interpreter**
 
 - **WAMR_BUILD_INTERP**=1/0:  enable or disable WASM interpreter
 
-- **WAMR_BUILD_FAST_INTERP**=1/0：build fast (default) or classic WASM interpreter. 
+- **WAMR_BUILD_FAST_INTERP**=1/0：build fast (default) or classic WASM interpreter.
 
   NOTE: the fast interpreter will run ~2X faster than classic interpreter, but it consumes about 2X memory to hold the WASM bytecode code.
 
@@ -48,14 +48,16 @@ The script `runtime_lib.cmake` defined a number of variables for configuring the
 
 - **WAMR_BUILD_LIBC_WASI**=1/0, default to disable if no set
 
-  
+#### **Enable Multi-Module feature**
+
+- **WAMR_BUILD_MULTI_MODULE**=1/0, default to disable if not set
 
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
 
 ``` Bash
-cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_PLATFORM=linux 
+cmake .. -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_LIBC_WASI=0 -DWAMR_BUILD_PLATFORM=linux
 ```
 
 Or if we want to enable interpreter, disable AOT and WASI, and build as X86_32, we can run command:
@@ -73,7 +75,7 @@ If you are building for ARM architecture on a X86 development machine, you can u
 ```
 cmake .. -DCMAKE_TOOLCHAIN_FILE=$TOOL_CHAIN_FILE  \
          -DWAMR_BUILD_PLATFORM=linux    \
-         -DWAMR_BUILD_TARGET=ARM  
+         -DWAMR_BUILD_TARGET=ARM
 ```
 
 Refer to toochain sample file [`samples/simple/profiles/arm-interp/toolchain.cmake`](../samples/simple/profiles/arm-interp/toolchain.cmake) for how to build mini product for ARM target architecture.
@@ -260,7 +262,7 @@ AliOS-Things
    ```
 7. build source code and run
    For linux host:
-   
+
    ``` Bash
    aos make helloworld@linuxhost -c config
    aos make
@@ -269,7 +271,7 @@ AliOS-Things
 
    For developerkit:
    Modify file middleware/iwasm/aos.mk, patch as:
-   
+
    ``` C
    WAMR_BUILD_TARGET := THUMBV7M
    ```
@@ -285,11 +287,11 @@ Android
 able to generate a shared library support Android platform.
 - need an [android SDK](https://developer.android.com/studio). Go and get the "Command line tools only"
 - look for a command named *sdkmanager* and download below components. version numbers might need to check and pick others
-   - "build-tools;29.0.3" 
-   - "cmake;3.10.2.4988404" 
-   - "ndk;21.0.6113669" 
+   - "build-tools;29.0.3"
+   - "cmake;3.10.2.4988404"
+   - "ndk;21.0.6113669"
    - "patcher;v4"
-   - "platform-tools" 
+   - "platform-tools"
    - "platforms;android-29"
 - add bin/ of the downloaded cmake to $PATH
 - export ANDROID_SDK_HOME=/the/path/of/downloaded/sdk/

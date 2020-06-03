@@ -6,7 +6,7 @@
 #ifndef _WASM_EXPORT_H
 #define _WASM_EXPORT_H
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include "lib_export.h"
 
@@ -178,6 +178,56 @@ void wasm_runtime_free(void *ptr);
 package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+/**
+ * It is a callback for WAMR providing by embedding to load a module file
+ * into a buffer
+ */
+typedef bool (*module_reader)(const char *module_name,
+                              uint8_t **p_buffer, uint32_t *p_size);
+
+/**
+ * It is a callback for WAMR providing by embedding to release the buffer which
+ * is used by loading a module file
+ */
+typedef void (*module_destroyer)(uint8_t *buffer, uint32_t size);
+
+/**
+ * To setup callbacks for reading and releasing a buffer about a module file
+ *
+ * @param reader a callback to read a module file into a buffer
+ * @param destroyer a callback to release above buffer
+ */
+void
+wasm_runtime_set_module_reader(const module_reader reader,
+                               const module_destroyer destroyer);
+/**
+ * Give the "module" a name "module_name".
+ * can not assign a new name to a module if it already has a name
+ *
+ * @param module_name indicate a name
+ * @param module the target module
+ * @param error_buf output of the exception info
+ * @param error_buf_size the size of the exception string
+ *
+ * @return true means success, false means failed
+ */
+bool
+wasm_runtime_register_module(const char *module_name, wasm_module_t module,
+                             char *error_buf, uint32_t error_buf_size);
+
+/**
+ * To check if there is already a loaded module named module_name in the
+ * runtime. you will not want to load repeately
+ *
+ * @param module_name indicate a name
+ *
+ * @return return WASM module loaded, NULL if failed
+ */
+wasm_module_t
+wasm_runtime_find_module_registered(const char *module_name);
+#endif /* WASM_ENABLE_MULTI_MODULE */
+
 /**
  * Load a WASM module from a specified byte buffer. The byte buffer can be
  * WASM binary data when interpreter or JIT is enabled, or AOT binary data
@@ -348,7 +398,9 @@ wasm_application_execute_main(wasm_module_inst_t module_inst,
  * and execute that function.
  *
  * @param module_inst the WASM module instance
- * @param name the name of the function to execute
+ * @param name the name of the function to execute.
+ *  to indicate the module name via: $module_name$function_name
+ *  or just a function name: function_name
  * @param argc the number of arguments
  * @param argv the arguments array
  *

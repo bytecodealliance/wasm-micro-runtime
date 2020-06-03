@@ -35,6 +35,7 @@ print_help()
   printf("                              object         Native object file\n");
   printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
   printf("                              llvmir-opt     Optimized LLVM IR\n");
+  printf("  --enable-bulk-memory      Enable the post-MVP bulk memory feature\n");
   printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
   printf("Examples: wamrc -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -126,6 +127,9 @@ main(int argc, char *argv[])
         log_verbose_level = atoi(argv[0] + 3);
         if (log_verbose_level < 0 || log_verbose_level > 5)
             return print_help();
+    }
+    else if (!strcmp(argv[0], "--enable-bulk-memory")) {
+        option.enable_bulk_memory = true;
     }
     else
       return print_help();

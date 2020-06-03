@@ -82,29 +82,39 @@ int os_vprintf(const char * format, va_list arg)
     return 0;
 }
 
-void* os_mmap(void *hint, unsigned int size, int prot, int flags)
+void* os_mmap(void *hint, uint32 size, int prot, int flags)
 {
 #if WASM_ENABLE_AOT != 0
     int mprot = 0;
-    unsigned alignedSize = (size+4095) & (unsigned)~4095; //Page aligned
+    uint64 aligned_size, page_size;
     void* ret = NULL;
     sgx_status_t st = 0;
 
-    ret = sgx_alloc_rsrv_mem(alignedSize);
+    page_size = getpagesize();
+    aligned_size = (size + page_size - 1) & ~(page_size - 1);
+
+    if (aligned_size >= UINT32_MAX)
+        return NULL;
+
+    ret = sgx_alloc_rsrv_mem(aligned_size);
     if (ret == NULL) {
-        os_printf("os_mmap(size=%d, alignedSize=%d, prot=0x%x) failed.",size, alignedSize, prot);
+        os_printf("os_mmap(size=%u, aligned size=%lu, prot=0x%x) failed.",
+                  size, aligned_size, prot);
         return NULL;
     }
+
     if (prot & MMAP_PROT_READ)
         mprot |= SGX_PROT_READ;
     if (prot & MMAP_PROT_WRITE)
         mprot |= SGX_PROT_WRITE;
     if (prot & MMAP_PROT_EXEC)
         mprot |= SGX_PROT_EXEC;
-    st = sgx_tprotect_rsrv_mem(ret, alignedSize, mprot);
-    if (st != SGX_SUCCESS){
-        os_printf("os_mmap(size=%d,prot=0x%x) failed to set protect.",size, prot);
-        sgx_free_rsrv_mem(ret, alignedSize);
+
+    st = sgx_tprotect_rsrv_mem(ret, aligned_size, mprot);
+    if (st != SGX_SUCCESS) {
+        os_printf("os_mmap(size=%u, prot=0x%x) failed to set protect.",
+                  size, prot);
+        sgx_free_rsrv_mem(ret, aligned_size);
         return NULL;
     }
 
@@ -117,7 +127,11 @@ void* os_mmap(void *hint, unsigned int size, int prot, int flags)
 void os_munmap(void *addr, uint32 size)
 {
 #if WASM_ENABLE_AOT != 0
-    sgx_free_rsrv_mem(addr, size);
+    uint64 aligned_size, page_size;
+
+    page_size = getpagesize();
+    aligned_size = (size + page_size - 1) & ~(page_size - 1);
+    sgx_free_rsrv_mem(addr, aligned_size);
 #endif
 }
 
@@ -135,7 +149,8 @@ int os_mprotect(void *addr, uint32 size, int prot)
         mprot |= SGX_PROT_EXEC;
     st = sgx_tprotect_rsrv_mem(addr, size, mprot);
     if (st != SGX_SUCCESS)
-        os_printf("os_mprotect(addr=0x%lx,size=%d,prot=0x%x) failed.", addr, size, prot);
+        os_printf("os_mprotect(addr=0x%lx, size=%u, prot=0x%x) failed.",
+                  addr, size, prot);
 
     return (st == SGX_SUCCESS? 0:-1);
 #else
