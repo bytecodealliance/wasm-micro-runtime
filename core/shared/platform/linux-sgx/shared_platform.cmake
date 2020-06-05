@@ -7,6 +7,10 @@ add_definitions(-DBH_PLATFORM_LINUX_SGX)
 
 include_directories(${PLATFORM_SHARED_DIR})
 include_directories(${PLATFORM_SHARED_DIR}/../include)
+if(NOT EXISTS ${SGX_SDK_PATH})
+    set(SGX_SDK_PATH /opt/intel/sgxsdk)
+endif()
+include_directories(${SGX_SDK_PATH}/include)
 
 
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
