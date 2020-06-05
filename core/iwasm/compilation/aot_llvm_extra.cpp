@@ -20,7 +20,7 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
-#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+// #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Instructions.h>
@@ -39,7 +39,7 @@
 #include <llvm/Transforms/Scalar/SimpleLoopUnswitch.h>
 #include <llvm/Transforms/Scalar/LICM.h>
 #include <llvm/Transforms/Scalar/GVN.h>
-#include <llvm/Passes/PassBuilder.h>
+// #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
 #if LLVM_VERSION_MAJOR >= 12
 #include <llvm/Analysis/AliasAnalysis.h>
@@ -50,7 +50,7 @@
 #include "aot_llvm.h"
 
 using namespace llvm;
-using namespace llvm::orc;
+// using namespace llvm::orc;
 
 LLVM_C_EXTERN_C_BEGIN
 

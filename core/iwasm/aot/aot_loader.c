@@ -1386,7 +1386,8 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
 
-#if WASM_ENABLE_LIBC_WASI != 0
+// Faasm uses its own custom libc
+#if !defined(WAMR_FAASM) && (WASM_ENABLE_LIBC_WASI != 0)
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
             || !strcmp(import_funcs[i].module_name, "wasi_snapshot_preview1"))
             module->import_wasi_api = true;

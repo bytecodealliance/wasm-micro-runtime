@@ -14,11 +14,12 @@ else()
   set (SGX_SDK_DIR $ENV{SGX_SDK})
 endif()
 
-include_directories (${SGX_SDK_DIR}/include)
-if (NOT BUILD_UNTRUST_PART EQUAL 1)
-  include_directories (${SGX_SDK_DIR}/include/tlibc
-                       ${SGX_SDK_DIR}/include/libcxx)
-endif ()
+#We must include these dependencies in src/sgx/CMakeLists.txt to handle the different include scopes
+#include_directories (${SGX_SDK_DIR}/include)
+#if (NOT BUILD_UNTRUST_PART EQUAL 1)
+  #include_directories (${SGX_SDK_DIR}/include/tlibc
+  #                     ${SGX_SDK_DIR}/include/libcxx)
+#endif ()
 
 if (NOT WAMR_BUILD_LIBC_WASI EQUAL 1)
   add_definitions(-DSGX_DISABLE_WASI)

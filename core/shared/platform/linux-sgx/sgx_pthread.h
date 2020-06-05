@@ -6,6 +6,8 @@
 #ifndef _SGX_PTHREAD_H
 #define _SGX_PTHREAD_H
 
+#ifndef SGX_THREAD_LOCK_INITIALIZER
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,6 +32,8 @@ pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 #endif /* end of _SGX_PTHREAD_H */

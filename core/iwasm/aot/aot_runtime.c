@@ -1233,10 +1233,13 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
+    // This assertion is failing in Faasm
+#ifndef WAMR_FAASM
     if (!os_thread_signal_inited()) {
         aot_set_exception(module_inst, "thread signal env not inited");
         return false;
     }
+#endif
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 

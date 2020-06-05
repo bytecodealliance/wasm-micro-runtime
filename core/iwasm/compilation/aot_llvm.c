@@ -459,11 +459,21 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool mem_space_unchanged =
         (!func->has_op_memory_grow && !func->has_op_func_call)
         || (!module->possible_memory_grow);
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory;
 #endif
 
+// Faasm - We always want to allow for memory changing in Faasm and don't want the
+// optimisations in WAMR that are triggered from this flag.
+#ifdef WAMR_FAASM
+    // 25/05/2022 - We may need this, but it is giving problems in the code
+    // generation.
+    // func_ctx->mem_space_unchanged = false;
     func_ctx->mem_space_unchanged = mem_space_unchanged;
+#else
+    func_ctx->mem_space_unchanged = mem_space_unchanged;
+#endif
 
     memory_count = module->memory_count + module->import_memory_count;
     /* If the module dosen't have memory, reserve
@@ -1618,6 +1628,10 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     comp_ctx->custom_sections_wp = option->custom_sections;
     comp_ctx->custom_sections_count = option->custom_sections_count;
 
+// Faasm - we always disable is_jit_mode for WAMR codegen so it is safe to
+// comment this lines out. We need to do it as including the Orc JIT headers
+// gives compilation errors (and we don't need the symbols anyway)
+// TODO: not disabling anything now
     if (option->is_jit_mode) {
         comp_ctx->is_jit_mode = true;
 
@@ -1646,6 +1660,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         /* Native stack overflow check with hardware trap is enabled,
            no need to enable the check by LLVM JITed/AOTed code */
         comp_ctx->enable_stack_bound_check = false;
+#endif
 #endif
 #endif
     }
@@ -2036,6 +2051,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         option->enable_simd = false;
     }
 
+// Faasm - we always disable simd so it is safe to comment this out
+#if WAMR_BUILD_SIMD != 0
     if (option->enable_simd) {
         char *tmp;
         bool check_simd_ret;
@@ -2057,6 +2074,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
     }
+#endif /* WAMR_BUILD_SIMD */
 
     if (!(target_data_ref =
               LLVMCreateTargetDataLayout(comp_ctx->target_machine))) {

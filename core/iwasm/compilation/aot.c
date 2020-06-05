@@ -398,6 +398,9 @@ aot_create_comp_data(WASMModule *module)
     }
     memset(comp_data->memories, 0, size);
 
+    // Faasm - always set bytes per page to default
+    comp_data->memories[0].num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
+
     if (!(module->import_memory_count + module->memory_count)) {
         comp_data->memories[0].num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
     }
