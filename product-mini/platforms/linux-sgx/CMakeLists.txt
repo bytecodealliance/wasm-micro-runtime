@@ -65,17 +65,8 @@ set (APP_FRAMEWORK_DIR ${WAMR_ROOT_DIR}/core/app-framework)
 # include the build config template file
 include (${WAMR_ROOT_DIR}/build-scripts/config_common.cmake)
 
-if ("$ENV{SGX_SDK}" STREQUAL "")
-  set (SGX_SDK_DIR "/opt/intel/sgxsdk")
-else()
-  set (SGX_SDK_DIR $ENV{SGX_SDK})
-endif()
-
 include_directories (${SHARED_DIR}/include
-                     ${IWASM_DIR}/include
-                     ${SGX_SDK_DIR}/include
-                     ${SGX_SDK_DIR}/include/tlibc
-                     ${SGX_SDK_DIR}/include/libcxx)
+                     ${IWASM_DIR}/include)
 
 enable_language (ASM)
 

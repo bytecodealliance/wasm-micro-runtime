@@ -130,6 +130,11 @@ enum {
 #define WASM_ENABLE_MULTI_MODULE 0
 #endif
 
+/* Enable wasm mini loader or not */
+#ifndef WASM_ENABLE_MINI_LOADER
+#define WASM_ENABLE_MINI_LOADER 0
+#endif
+
 /* Heap and stack profiling */
 #define BH_ENABLE_MEMORY_PROFILING 0
 
