@@ -60,6 +60,29 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
         snprintf(error_buf, error_buf_size, "%s", string);
 }
 
+static void *
+runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
+               char *error_buf, uint32 error_buf_size)
+{
+    void *mem;
+
+    if (size >= UINT32_MAX
+        || !(mem = wasm_runtime_malloc((uint32)size))) {
+        if (module_inst != NULL) {
+            wasm_runtime_set_exception(module_inst,
+                                       "allocate memory failed.");
+        }
+        else if (error_buf != NULL) {
+            set_error_buf(error_buf, error_buf_size,
+                          "allocate memory failed.");
+        }
+        return NULL;
+    }
+
+    memset(mem, 0, (uint32)size);
+    return mem;
+}
+
 static bool
 wasm_runtime_env_init()
 {
@@ -91,12 +114,12 @@ wasm_runtime_env_init()
 static bool
 wasm_runtime_exec_env_check(WASMExecEnv *exec_env)
 {
-    return !(!exec_env
-        || !exec_env->module_inst
-        || exec_env->wasm_stack_size == 0
-        || exec_env->wasm_stack.s.top_boundary !=
+    return exec_env
+           && exec_env->module_inst
+           && exec_env->wasm_stack_size > 0
+           && exec_env->wasm_stack.s.top_boundary ==
                 exec_env->wasm_stack.s.bottom + exec_env->wasm_stack_size
-        || exec_env->wasm_stack.s.top > exec_env->wasm_stack.s.top_boundary);
+           && exec_env->wasm_stack.s.top <= exec_env->wasm_stack.s.top_boundary;
 }
 
 bool
@@ -240,13 +263,10 @@ wasm_runtime_register_module_internal(const char *module_name,
     }
 
     /* module hasn't been registered */
-    node = wasm_runtime_malloc(sizeof(WASMRegisteredModule));
+    node = runtime_malloc(sizeof(WASMRegisteredModule), NULL, NULL, 0);
     if (!node) {
         LOG_DEBUG("malloc WASMRegisteredModule failed. SZ=%d",
                   sizeof(WASMRegisteredModule));
-        set_error_buf_v(error_buf, error_buf_size,
-                        "malloc WASMRegisteredModule failed. SZ=%d",
-                        sizeof(WASMRegisteredModule));
         return false;
     }
 
@@ -377,16 +397,15 @@ wasm_runtime_destroy_registered_module_list()
 }
 
 bool
-wasm_runtime_add_loading_module(const char *module_name, char *error_buf,
-                                uint32 error_buf_size)
+wasm_runtime_add_loading_module(const char *module_name,
+                                char *error_buf, uint32 error_buf_size)
 {
     LOG_DEBUG("add %s into a loading list", module_name);
-    LoadingModule *loadingModule = wasm_runtime_malloc(sizeof(LoadingModule));
+    LoadingModule *loadingModule =
+            runtime_malloc(sizeof(LoadingModule), NULL,
+                           error_buf, error_buf_size);
 
     if (!loadingModule) {
-        set_error_buf_v(error_buf, error_buf_size,
-                        "malloc LoadingModule failed. SZ=%d",
-                        sizeof(LoadingModule));
         return false;
     }
 
@@ -1145,13 +1164,11 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     uint64 total_size;
     uint32 i;
 
-    if (!(wasi_ctx = wasm_runtime_malloc(sizeof(WASIContext)))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "Init wasi environment failed: allocate memory failed.");
+    if (!(wasi_ctx = runtime_malloc(sizeof(WASIContext), NULL,
+                                    error_buf, error_buf_size))) {
         return false;
     }
 
-    memset(wasi_ctx, 0, sizeof(WASIContext));
     wasm_runtime_set_wasi_ctx(module_inst, wasi_ctx);
 
 #if WASM_ENABLE_INTERP != 0
@@ -1645,12 +1662,11 @@ resolve_function(const WASMModuleInstanceCommon *module_inst,
     char *function_name = NULL;
     uint32 length = strlen(name) + 1;
 
-    orig_name = wasm_runtime_malloc(sizeof(char) * length);
+    orig_name = runtime_malloc(sizeof(char) * length, NULL, NULL, 0);
     if (!orig_name) {
         return NULL;
     }
 
-    memset(orig_name, 0, sizeof(char) * length);
     strncpy(orig_name, name, length);
 
     if (!parse_function_name(orig_name, &sub_module_name, &function_name)) {
@@ -1808,9 +1824,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
 
     total_size = sizeof(uint32) * (uint64)(argc1 > 2 ? argc1 : 2);
-    if (total_size >= UINT32_MAX
-        || (!(argv1 = wasm_runtime_malloc((uint32)total_size)))) {
-        wasm_runtime_set_exception(module_inst, "allocate memory failed.");
+    if ((!(argv1 = runtime_malloc((uint32)total_size, module_inst,
+                                  NULL, 0)))) {
         goto fail;
     }
 
@@ -2008,13 +2023,10 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     argc1 = func_type->param_count;
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
         size = sizeof(uint64) * (uint64)argc1;
-        if (size >= UINT32_MAX
-            || !(argv1 = wasm_runtime_malloc((uint32)size))) {
-            wasm_runtime_set_exception(exec_env->module_inst,
-                                       "allocate memory failed.");
+        if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
+                                     NULL, 0))) {
             return false;
         }
-        memset(argv1, 0, (uint32)size);
     }
 
     argv_dst = argv1;
@@ -2208,10 +2220,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     argc1 = MAX_REG_INTS + MAX_REG_FLOATS + n_stacks;
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
         size = sizeof(uint32) * (uint32)argc1;
-        if (size >= UINT32_MAX
-                || !(argv1 = wasm_runtime_malloc((uint32)size))) {
-            wasm_runtime_set_exception(exec_env->module_inst,
-                                       "allocate memory failed.");
+        if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
+                                     NULL, 0))) {
             return false;
         }
     }
@@ -2386,10 +2396,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
         size = sizeof(uint32) * (uint64)argc1;
-        if (size >= UINT_MAX
-            || !(argv1 = wasm_runtime_malloc((uint32)size))) {
-            wasm_runtime_set_exception(exec_env->module_inst,
-                                       "allocate memory failed.");
+        if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
+                                     NULL, 0))) {
             return false;
         }
     }
@@ -2543,10 +2551,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     argc1 = 1 + MAX_REG_FLOATS + func_type->param_count + 2;
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
         size = sizeof(uint64) * (uint64)argc1;
-        if (size >= UINT32_MAX
-            || !(argv1 = wasm_runtime_malloc((uint32)size))) {
-            wasm_runtime_set_exception(exec_env->module_inst,
-                                       "allocate memory failed.");
+        if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
+                                     NULL, 0))) {
             return false;
         }
     }

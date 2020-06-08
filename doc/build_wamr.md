@@ -52,6 +52,11 @@ The script `runtime_lib.cmake` defined a number of variables for configuring the
 
 - **WAMR_BUILD_MULTI_MODULE**=1/0, default to disable if not set
 
+#### **Enable WASM mini loader**
+
+- **WAMR_BUILD_MINI_LOADER**=1/0, default to disable if not set
+Note: the mini loader doesn't check the integrity of the WASM binary file, user must ensure that the WASM file is not mal-formed.
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
