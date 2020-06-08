@@ -8,6 +8,15 @@ add_definitions(-DBH_PLATFORM_LINUX_SGX)
 include_directories(${PLATFORM_SHARED_DIR})
 include_directories(${PLATFORM_SHARED_DIR}/../include)
 
+if ("$ENV{SGX_SDK}" STREQUAL "")
+  set (SGX_SDK_DIR "/opt/intel/sgxsdk")
+else()
+  set (SGX_SDK_DIR $ENV{SGX_SDK})
+endif()
+
+include_directories (${SGX_SDK_DIR}/include
+                     ${SGX_SDK_DIR}/include/tlibc
+                     ${SGX_SDK_DIR}/include/libcxx)
 
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 

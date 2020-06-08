@@ -25,7 +25,7 @@ Enter the out directory.
 ```
 $ cd ./out/
 $
-$ ./basic wasm-apps/testapp.wasm
+$ ./basic -f wasm-apps/testapp.wasm
 calling into WASM function: generate_float
 Native finished calling wasm function generate_float(), returned a float value: 102009.921875f
 calling into WASM function: float_to_string
