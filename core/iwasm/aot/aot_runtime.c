@@ -14,6 +14,23 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
         snprintf(error_buf, error_buf_size, "%s", string);
 }
 
+static void *
+runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
+{
+    void *mem;
+
+    if (size >= UINT32_MAX
+        || !(mem = wasm_runtime_malloc((uint32)size))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "AOT module instantiate failed: "
+                      "allocate memory failed.");
+        return NULL;
+    }
+
+    memset(mem, 0, (uint32)size);
+    return mem;
+}
+
 static bool
 global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                    char *error_buf, uint32 error_buf_size)
@@ -142,14 +159,9 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     uint8 *p;
 
     /* Allocate memory */
-    if (total_size >= UINT32_MAX
-        || !(p = wasm_runtime_malloc((uint32)total_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: allocate memory failed.");
+    if (!(p = runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(p, 0, (uint32)total_size);
 
     /* Initialize heap info */
     module_inst->heap_data.ptr = p;
@@ -270,14 +282,10 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
         ((uint64)module->import_func_count + module->func_count) * sizeof(void*);
 
     /* Allocate memory */
-    if (total_size >= UINT32_MAX
-        || !(module_inst->func_ptrs.ptr = wasm_runtime_malloc((uint32)total_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: allocate memory failed.");
+    if (!(module_inst->func_ptrs.ptr = runtime_malloc
+                (total_size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(module_inst->func_ptrs.ptr, 0, (uint32)total_size);
 
     /* Set import function pointers */
     func_ptrs = (void**)module_inst->func_ptrs.ptr;
@@ -299,15 +307,10 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
         ((uint64)module->import_func_count + module->func_count) * sizeof(uint32);
 
     /* Allocate memory */
-    if (total_size >= UINT32_MAX
-        || !(module_inst->func_type_indexes.ptr =
-                                wasm_runtime_malloc((uint32)total_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: allocate memory failed.");
+    if (!(module_inst->func_type_indexes.ptr =
+                runtime_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(module_inst->func_type_indexes.ptr, 0, (uint32)total_size);
 
     /* Set import function type indexes */
     func_type_index = (uint32*)module_inst->func_type_indexes.ptr;
@@ -381,14 +384,11 @@ aot_instantiate(AOTModule *module,
         heap_size = APP_HEAP_SIZE_MAX;
 
     /* Allocate module instance, global data, table data and heap data */
-    if (total_size >= UINT32_MAX
-        || !(module_inst = wasm_runtime_malloc((uint32)total_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: allocate memory failed.");
+    if (!(module_inst = runtime_malloc(total_size,
+                                       error_buf, error_buf_size))) {
         return NULL;
     }
 
-    memset(module_inst, 0, total_size);
     module_inst->module_type = Wasm_Module_AoT;
     module_inst->aot_module.ptr = module;
 
@@ -801,7 +801,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     /* Destroy heap's lock firstly, if its memory is re-allocated,
        we cannot access its lock again. */
     mem_allocator_destroy_lock(module_inst->heap_handle.ptr);
-    if (!(heap_data = wasm_runtime_realloc(heap_handle_old, (uint32)total_size))) {
+    if (!(heap_data = wasm_runtime_realloc(heap_data_old, (uint32)total_size))) {
         if (!(heap_data = wasm_runtime_malloc((uint32)total_size))) {
             /* Restore heap's lock if memory re-alloc failed */
             mem_allocator_reinit_lock(module_inst->heap_handle.ptr);
