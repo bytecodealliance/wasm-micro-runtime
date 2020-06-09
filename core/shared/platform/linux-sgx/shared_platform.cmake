@@ -14,9 +14,7 @@ else()
   set (SGX_SDK_DIR $ENV{SGX_SDK})
 endif()
 
-include_directories (${SGX_SDK_DIR}/include
-                     ${SGX_SDK_DIR}/include/tlibc
-                     ${SGX_SDK_DIR}/include/libcxx)
+include_directories (${SGX_SDK_DIR}/include)
 
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 
