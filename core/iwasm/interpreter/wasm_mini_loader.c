@@ -1209,7 +1209,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end, WASMModule *m
 
             for (j = 0; j < function_count; j++) {
                 read_leb_uint32(p, p_end, function_index);
-                bh_assert(function_index < module->function_count
+                bh_assert(function_index < module->import_function_count
                                            + module->function_count);
                 table_segment->func_indexes[j] = function_index;
             }

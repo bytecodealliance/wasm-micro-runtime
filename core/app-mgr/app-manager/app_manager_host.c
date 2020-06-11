@@ -216,7 +216,7 @@ int aee_host_msg_callback(void *msg, uint16_t msg_len)
 
                     am_dispatch_request(&request);
                 } else {
-                    printf("unexpected host msg type: %d\n", msg_type);
+                    app_manager_printf("unexpected host msg type: %d\n", msg_type);
                 }
 
                 APP_MGR_FREE(recv_ctx.message.payload);

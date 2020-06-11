@@ -71,7 +71,7 @@ void targeted_app_request_handler(request_t *request, void *unused)
     }
 
     strncpy(applet_name, request->url + offset, sizeof(applet_name) - 1);
-    char *p = strrchr(applet_name, '/');
+    char *p = strchr(applet_name, '/');
     if (p) {
         *p = 0;
     } else
