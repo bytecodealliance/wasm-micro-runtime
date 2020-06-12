@@ -15,6 +15,10 @@ else()
 endif()
 
 include_directories (${SGX_SDK_DIR}/include)
+if (NOT BUILD_UNTRUST_PART EQUAL 1)
+  include_directories (${SGX_SDK_DIR}/include/tlibc
+                       ${SGX_SDK_DIR}/include/libcxx)
+endif ()
 
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 
