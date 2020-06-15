@@ -167,30 +167,24 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     module_inst->heap_data.ptr = p;
     p += heap_size;
     module_inst->heap_data_end.ptr = p;
-    if (!(heap_handle = mem_allocator_create(module_inst->heap_data.ptr,
-                                             heap_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: init app heap failed.");
-        goto fail1;
-    }
-    module_inst->heap_handle.ptr = heap_handle;
     module_inst->heap_data_size = heap_size;
-#if WASM_ENABLE_SPEC_TEST == 0
     module_inst->heap_base_offset = -(int32)heap_size;
-#else
-    module_inst->heap_base_offset = 0;
-#endif
+    if (heap_size > 0) {
+        if (!(heap_handle = mem_allocator_create(module_inst->heap_data.ptr,
+                                                 heap_size))) {
+            set_error_buf(error_buf, error_buf_size,
+                    "AOT module instantiate failed: init app heap failed.");
+            goto fail1;
+        }
+        module_inst->heap_handle.ptr = heap_handle;
+    }
 
     /* Init memory info */
     module_inst->memory_data.ptr = p;
     p += (uint32)memory_data_size;
     module_inst->memory_data_end.ptr = p;
     module_inst->memory_data_size = (uint32)memory_data_size;
-#if WASM_ENABLE_SPEC_TEST == 0
     module_inst->total_mem_size = (uint32)(heap_size + memory_data_size);
-#else
-    module_inst->total_mem_size = (uint32)memory_data_size;
-#endif
     module_inst->mem_cur_page_count = module->mem_init_page_count;
     module_inst->mem_max_page_count = module->mem_max_page_count;
 
@@ -210,7 +204,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
         bh_assert(data_seg->offset.init_expr_type ==
                         INIT_EXPR_TYPE_I32_CONST
-                    || data_seg->offset.init_expr_type ==
+                  || data_seg->offset.init_expr_type ==
                         INIT_EXPR_TYPE_GET_GLOBAL);
 
         /* Resolve memory data base offset */
@@ -264,8 +258,10 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     return true;
 
 fail2:
-    mem_allocator_destroy(module_inst->heap_handle.ptr);
-    module_inst->heap_handle.ptr = NULL;
+    if (heap_size > 0) {
+        mem_allocator_destroy(module_inst->heap_handle.ptr);
+        module_inst->heap_handle.ptr = NULL;
+    }
 fail1:
     wasm_runtime_free(module_inst->heap_data.ptr);
     module_inst->heap_data.ptr = NULL;
@@ -361,7 +357,7 @@ execute_start_function(AOTModuleInstance *module_inst)
 }
 
 AOTModuleInstance*
-aot_instantiate(AOTModule *module,
+aot_instantiate(AOTModule *module, bool is_sub_inst,
                 uint32 stack_size, uint32 heap_size,
                 char *error_buf, uint32 error_buf_size)
 {
@@ -376,10 +372,6 @@ aot_instantiate(AOTModule *module,
 
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
-    if (heap_size == 0)
-        heap_size = APP_HEAP_SIZE_DEFAULT;
-    if (heap_size < APP_HEAP_SIZE_MIN)
-        heap_size = APP_HEAP_SIZE_MIN;
     if (heap_size > APP_HEAP_SIZE_MAX)
         heap_size = APP_HEAP_SIZE_MAX;
 
@@ -422,16 +414,17 @@ aot_instantiate(AOTModule *module,
         goto fail;
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (!wasm_runtime_init_wasi((WASMModuleInstanceCommon*)module_inst,
-                                module->wasi_args.dir_list,
-                                module->wasi_args.dir_count,
-                                module->wasi_args.map_dir_list,
-                                module->wasi_args.map_dir_count,
-                                module->wasi_args.env,
-                                module->wasi_args.env_count,
-                                module->wasi_args.argv,
-                                module->wasi_args.argc,
-                                error_buf, error_buf_size))
+    if (heap_size > 0
+        && !wasm_runtime_init_wasi((WASMModuleInstanceCommon*)module_inst,
+                                   module->wasi_args.dir_list,
+                                   module->wasi_args.dir_count,
+                                   module->wasi_args.map_dir_list,
+                                   module->wasi_args.map_dir_count,
+                                   module->wasi_args.env,
+                                   module->wasi_args.env_count,
+                                   module->wasi_args.argv,
+                                   module->wasi_args.argc,
+                                   error_buf, error_buf_size))
         goto fail;
 #endif
 
@@ -455,19 +448,21 @@ aot_instantiate(AOTModule *module,
     return module_inst;
 
 fail:
-    aot_deinstantiate(module_inst);
+    aot_deinstantiate(module_inst, is_sub_inst);
     return NULL;
 }
 
 void
-aot_deinstantiate(AOTModuleInstance *module_inst)
+aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
 #if WASM_ENABLE_LIBC_WASI != 0
     /* Destroy wasi resource before freeing app heap, since some fields of
        wasi contex are allocated from app heap, and if app heap is freed,
        these fields will be set to NULL, we cannot free their internal data
        which may allocated from global heap. */
-    wasm_runtime_destroy_wasi((WASMModuleInstanceCommon*)module_inst);
+    /* Only destroy wasi ctx in the main module instance */
+    if (!is_sub_inst)
+        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon*)module_inst);
 #endif
 
     if (module_inst->heap_handle.ptr)
@@ -798,13 +793,17 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         return false;
     }
 
-    /* Destroy heap's lock firstly, if its memory is re-allocated,
-       we cannot access its lock again. */
-    mem_allocator_destroy_lock(module_inst->heap_handle.ptr);
+    if (heap_size > 0) {
+        /* Destroy heap's lock firstly, if its memory is re-allocated,
+           we cannot access its lock again. */
+        mem_allocator_destroy_lock(module_inst->heap_handle.ptr);
+    }
     if (!(heap_data = wasm_runtime_realloc(heap_data_old, (uint32)total_size))) {
         if (!(heap_data = wasm_runtime_malloc((uint32)total_size))) {
-            /* Restore heap's lock if memory re-alloc failed */
-            mem_allocator_reinit_lock(module_inst->heap_handle.ptr);
+            if (heap_size > 0) {
+                /* Restore heap's lock if memory re-alloc failed */
+                mem_allocator_reinit_lock(module_inst->heap_handle.ptr);
+            }
             aot_set_exception(module_inst, "fail to enlarge memory.");
             return false;
         }
@@ -817,23 +816,21 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
            0, (uint32)total_size - total_size_old);
 
     module_inst->heap_data.ptr = heap_data;
-    module_inst->heap_handle.ptr = (uint8*)heap_handle_old
-                                   + (heap_data - heap_data_old);
     module_inst->heap_data_end.ptr = heap_data + heap_size;
 
-    if (mem_allocator_migrate(module_inst->heap_handle.ptr,
-                              heap_handle_old) != 0) {
-        aot_set_exception(module_inst, "fail to enlarge memory.");
-        return false;
+    if (heap_size > 0) {
+        module_inst->heap_handle.ptr = (uint8*)heap_handle_old
+                                       + (heap_data - heap_data_old);
+        if (mem_allocator_migrate(module_inst->heap_handle.ptr,
+                                  heap_handle_old) != 0) {
+            aot_set_exception(module_inst, "fail to enlarge memory.");
+            return false;
+        }
     }
 
     module_inst->mem_cur_page_count = total_page_count;
     module_inst->memory_data_size = (uint32)memory_data_size;
-#if WASM_ENABLE_SPEC_TEST == 0
     module_inst->total_mem_size = (uint32)(heap_size + memory_data_size);
-#else
-    module_inst->total_mem_size = (uint32)memory_data_size;
-#endif
     module_inst->memory_data.ptr = (uint8*)heap_data + heap_size;
     module_inst->memory_data_end.ptr = (uint8*)module_inst->memory_data.ptr
                                        + (uint32)memory_data_size;

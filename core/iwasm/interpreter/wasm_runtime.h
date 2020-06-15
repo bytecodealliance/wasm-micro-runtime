@@ -22,6 +22,10 @@ typedef struct WASMTableInstance WASMTableInstance;
 typedef struct WASMGlobalInstance WASMGlobalInstance;
 
 typedef struct WASMMemoryInstance {
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* shared memory flag */
+    bool is_shared;
+#endif
     /* Number bytes per page */
     uint32 num_bytes_per_page;
     /* Current page count */
@@ -269,12 +273,12 @@ void
 wasm_unload(WASMModule *module);
 
 WASMModuleInstance *
-wasm_instantiate(WASMModule *module,
+wasm_instantiate(WASMModule *module, bool is_sub_inst,
                  uint32 stack_size, uint32 heap_size,
                  char *error_buf, uint32 error_buf_size);
 
 void
-wasm_deinstantiate(WASMModuleInstance *module_inst);
+wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst);
 
 WASMFunctionInstance *
 wasm_lookup_function(const WASMModuleInstance *module_inst,
@@ -357,6 +361,16 @@ bool
 wasm_call_indirect(WASMExecEnv *exec_env,
                    uint32_t element_indices,
                    uint32_t argc, uint32_t argv[]);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+wasm_set_aux_stack(WASMExecEnv *exec_env,
+                   uint32 start_offset, uint32 size);
+
+bool
+wasm_get_aux_stack(WASMExecEnv *exec_env,
+                   uint32 *start_offset, uint32 *size);
+#endif
 
 #ifdef __cplusplus
 }

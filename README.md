@@ -33,6 +33,7 @@ iwasm VM core
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
 - [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops)
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
+- [Shared memmory](https://github.com/WebAssembly/threads/blob/master/proposals/threads/Overview.md#shared-linear-memory)
 
 ### Performance and memory usage
 The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.
