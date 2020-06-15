@@ -19,10 +19,12 @@ typedef struct {
 static void *os_thread_wrapper(void *arg)
 {
     thread_wrapper_arg * targ = arg;
+    thread_start_routine_t start_func = targ->start;
+    void *thread_arg = targ->arg;
     printf("THREAD CREATE %p\n", &targ);
     targ->stack = (void *)((uintptr_t)(&arg) & (uintptr_t)~0xfff);
-    targ->start(targ->arg);
     BH_FREE(targ);
+    start_func(thread_arg);
     return NULL;
 }
 
@@ -114,7 +116,7 @@ int os_mutex_destroy(korp_mutex *mutex)
  locking the mutex indicates some logic error present in
  the program somewhere.
  Don't try to recover error for an existing unknown error.*/
-void os_mutex_lock(korp_mutex *mutex)
+int os_mutex_lock(korp_mutex *mutex)
 {
     int ret;
 
@@ -124,13 +126,14 @@ void os_mutex_lock(korp_mutex *mutex)
         printf("vm mutex lock failed (ret=%d)!\n", ret);
         exit(-1);
     }
+    return ret;
 }
 
 /* Returned error (EINVAL, EAGAIN and EPERM) from
  unlocking the mutex indicates some logic error present
  in the program somewhere.
  Don't try to recover error for an existing unknown error.*/
-void os_mutex_unlock(korp_mutex *mutex)
+int os_mutex_unlock(korp_mutex *mutex)
 {
     int ret;
 
@@ -140,6 +143,7 @@ void os_mutex_unlock(korp_mutex *mutex)
         printf("vm mutex unlock failed (ret=%d)!\n", ret);
         exit(-1);
     }
+    return ret;
 }
 
 int os_cond_init(korp_cond *cond)
@@ -219,6 +223,16 @@ int os_cond_signal(korp_cond *cond)
 int os_thread_join(korp_tid thread, void **value_ptr)
 {
     return pthread_join(thread, value_ptr);
+}
+
+int os_thread_detach(korp_tid thread)
+{
+    return pthread_detach(thread);
+}
+
+void os_thread_exit(void *retval)
+{
+    return pthread_exit(retval);
 }
 
 uint8 *os_thread_get_stack_boundary()

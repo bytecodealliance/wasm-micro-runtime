@@ -242,16 +242,16 @@ os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-void
+int
 os_mutex_lock(korp_mutex *mutex)
 {
-    aos_mutex_lock(mutex, AOS_WAIT_FOREVER);
+    return aos_mutex_lock(mutex, AOS_WAIT_FOREVER);
 }
 
-void
+int
 os_mutex_unlock(korp_mutex *mutex)
 {
-    aos_mutex_unlock(mutex);
+    return aos_mutex_unlock(mutex);
 }
 
 int

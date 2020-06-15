@@ -82,9 +82,9 @@ int os_mutex_init(korp_mutex *mutex);
 
 int os_mutex_destroy(korp_mutex *mutex);
 
-void os_mutex_lock(korp_mutex *mutex);
+int os_mutex_lock(korp_mutex *mutex);
 
-void os_mutex_unlock(korp_mutex *mutex);
+int os_mutex_unlock(korp_mutex *mutex);
 
 
 /**************************************************

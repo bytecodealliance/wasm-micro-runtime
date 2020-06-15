@@ -1545,67 +1545,76 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     wasm_runtime_free(block_addr_cache);
 
     /* Resolve llvm auxiliary data/stack/heap info and reset memory info */
-    if (!module->possible_memory_grow) {
-        export = module->exports;
-        for (i = 0; i < module->export_count; i++, export++) {
-            if (export->kind == EXPORT_KIND_GLOBAL) {
-                if (!strcmp(export->name, "__heap_base")) {
-                    global_index = export->index - module->import_global_count;
-                    global = module->globals + global_index;
-                    if (global->type == VALUE_TYPE_I32
-                        && !global->is_mutable
-                        && global->init_expr.init_expr_type ==
-                                INIT_EXPR_TYPE_I32_CONST) {
-                        heap_base_global_index = global_index;
-                        llvm_heap_base_global = global;
-                        llvm_heap_base = global->init_expr.u.i32;
-                        LOG_VERBOSE("found llvm __heap_base global, value: %d\n",
-                                    llvm_heap_base);
-                    }
-                }
-                else if (!strcmp(export->name, "__data_end")) {
-                    global_index = export->index - module->import_global_count;
-                    global = module->globals + global_index;
-                    if (global->type == VALUE_TYPE_I32
-                        && !global->is_mutable
-                        && global->init_expr.init_expr_type ==
-                                INIT_EXPR_TYPE_I32_CONST) {
-                        data_end_global_index = global_index;
-                        llvm_data_end_global = global;
-                        llvm_data_end = global->init_expr.u.i32;
-                        LOG_VERBOSE("found llvm __data_end global, value: %d\n",
-                                    llvm_data_end);
-
-                        llvm_data_end = align_uint(llvm_data_end, 16);
-                    }
-                }
-
-                if (llvm_data_end_global && llvm_heap_base_global) {
-                    if ((data_end_global_index == heap_base_global_index + 1
-                         && (int32)data_end_global_index > 1)
-                        || (heap_base_global_index == data_end_global_index + 1
-                            && (int32)heap_base_global_index > 1)) {
-                        global_index =
-                            data_end_global_index < heap_base_global_index
-                            ? data_end_global_index - 1 : heap_base_global_index - 1;
-                        global = module->globals + global_index;
-                        if (global->type == VALUE_TYPE_I32
-                            && global->is_mutable
-                            && global->init_expr.init_expr_type ==
-                                        INIT_EXPR_TYPE_I32_CONST) {
-                            llvm_stack_top_global = global;
-                            llvm_stack_top = global->init_expr.u.i32;
-                            stack_top_global_index = global_index;
-                            LOG_VERBOSE("found llvm stack top global, "
-                                        "value: %d, global index: %d\n",
-                                        llvm_stack_top, global_index);
-                        }
-                    }
-                    break;
+    export = module->exports;
+    for (i = 0; i < module->export_count; i++, export++) {
+        if (export->kind == EXPORT_KIND_GLOBAL) {
+            if (!strcmp(export->name, "__heap_base")) {
+                global_index = export->index - module->import_global_count;
+                global = module->globals + global_index;
+                if (global->type == VALUE_TYPE_I32
+                    && !global->is_mutable
+                    && global->init_expr.init_expr_type ==
+                            INIT_EXPR_TYPE_I32_CONST) {
+                    heap_base_global_index = global_index;
+                    llvm_heap_base_global = global;
+                    llvm_heap_base = global->init_expr.u.i32;
+                    LOG_VERBOSE("found llvm __heap_base global, value: %d\n",
+                                llvm_heap_base);
                 }
             }
-        }
+            else if (!strcmp(export->name, "__data_end")) {
+                global_index = export->index - module->import_global_count;
+                global = module->globals + global_index;
+                if (global->type == VALUE_TYPE_I32
+                    && !global->is_mutable
+                    && global->init_expr.init_expr_type ==
+                            INIT_EXPR_TYPE_I32_CONST) {
+                    data_end_global_index = global_index;
+                    llvm_data_end_global = global;
+                    llvm_data_end = global->init_expr.u.i32;
+                    LOG_VERBOSE("found llvm __data_end global, value: %d\n",
+                                llvm_data_end);
 
+                    llvm_data_end = align_uint(llvm_data_end, 16);
+                }
+            }
+
+            if (llvm_data_end_global && llvm_heap_base_global) {
+                if ((data_end_global_index == heap_base_global_index + 1
+                        && (int32)data_end_global_index > 1)
+                    || (heap_base_global_index == data_end_global_index + 1
+                        && (int32)heap_base_global_index > 1)) {
+                    global_index =
+                        data_end_global_index < heap_base_global_index
+                        ? data_end_global_index - 1 : heap_base_global_index - 1;
+                    global = module->globals + global_index;
+                    if (global->type == VALUE_TYPE_I32
+                        && global->is_mutable
+                        && global->init_expr.init_expr_type ==
+                                    INIT_EXPR_TYPE_I32_CONST) {
+                        llvm_stack_top_global = global;
+                        llvm_stack_top = global->init_expr.u.i32;
+                        stack_top_global_index = global_index;
+                        LOG_VERBOSE("found llvm stack top global, "
+                                    "value: %d, global index: %d\n",
+                                    llvm_stack_top, global_index);
+                    }
+                }
+                module->llvm_aux_data_end = llvm_data_end;
+                module->llvm_aux_stack_bottom = llvm_stack_top;
+                module->llvm_aux_stack_size = llvm_stack_top > llvm_data_end
+                                              ? llvm_stack_top - llvm_data_end
+                                              : llvm_stack_top;
+                module->llvm_aux_stack_global_index = stack_top_global_index;
+                LOG_VERBOSE("aux stack bottom: %d, size: %d\n",
+                            module->llvm_aux_stack_bottom,
+                            module->llvm_aux_stack_size);
+                break;
+            }
+        }
+    }
+
+    if (!module->possible_memory_grow) {
         if (llvm_data_end_global
             && llvm_heap_base_global
             && llvm_stack_top_global
@@ -1640,16 +1649,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     LOG_VERBOSE("reset memory size to %d\n", shrunk_memory_size);
                 }
             }
-
-            module->llvm_aux_data_end = llvm_data_end;
-            module->llvm_aux_stack_bottom = llvm_stack_top;
-            module->llvm_aux_stack_size = llvm_stack_top > llvm_data_end
-                                          ? llvm_stack_top - llvm_data_end
-                                          : llvm_stack_top;
-            module->llvm_aux_stack_global_index = stack_top_global_index;
-            LOG_VERBOSE("aux stack bottom: %d, size: %d\n",
-                        module->llvm_aux_stack_bottom,
-                        module->llvm_aux_stack_size);
         }
     }
 
