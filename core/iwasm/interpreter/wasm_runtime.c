@@ -10,6 +10,9 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#include "../common/wasm_shared_memory.h"
+#endif
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -87,6 +90,19 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                 if (memories[i]->owner != module_inst)
                     continue;
 #endif
+#if WASM_ENABLE_SHARED_MEMORY != 0
+                if (memories[i]->is_shared) {
+                    int32 ref_count =
+                        shared_memory_dec_reference(
+                            (WASMModuleCommon *)module_inst->module);
+                    bh_assert(ref_count >= 0);
+
+                    /* if the reference count is not zero,
+                        don't free the memory */
+                    if (ref_count > 0)
+                        continue;
+                }
+#endif
                 if (memories[i]->heap_handle) {
                     mem_allocator_destroy(memories[i]->heap_handle);
                     memories[i]->heap_handle = NULL;
@@ -99,15 +115,44 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
 }
 
 static WASMMemoryInstance*
-memory_instantiate(uint32 num_bytes_per_page,
+memory_instantiate(WASMModuleInstance *module_inst,
+                   uint32 num_bytes_per_page,
                    uint32 init_page_count, uint32 max_page_count,
-                   uint32 heap_size,
+                   uint32 heap_size, uint32 flags,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMMemoryInstance *memory;
-    uint64 total_size = offsetof(WASMMemoryInstance, base_addr) +
-                        (uint64)heap_size +
+    uint64 heap_and_inst_size = offsetof(WASMMemoryInstance, base_addr) +
+                                (uint64)heap_size;
+    uint64 total_size = heap_and_inst_size +
                         num_bytes_per_page * (uint64)init_page_count;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    bool is_shared_memory = flags & 0x02 ? true : false;
+
+    /* shared memory */
+    if (is_shared_memory) {
+        WASMSharedMemNode *node =
+            wasm_module_get_shared_memory(
+                (WASMModuleCommon *)module_inst->module);
+        /* If the memory of this module has been instantiated,
+            return the memory instance directly */
+        if (node) {
+            uint32 ref_count;
+            ref_count = shared_memory_inc_reference(
+                            (WASMModuleCommon *)module_inst->module);
+            bh_assert(ref_count > 0);
+            memory = shared_memory_get_memory_inst(node);
+            bh_assert(memory);
+
+            (void)ref_count;
+            return memory;
+        }
+        /* Allocate max page for shared memory */
+        total_size = heap_and_inst_size +
+                     num_bytes_per_page * (uint64)max_page_count;
+    }
+#endif
 
     /* Allocate memory space, addr data and global data */
     if (!(memory = runtime_malloc(total_size,
@@ -121,8 +166,17 @@ memory_instantiate(uint32 num_bytes_per_page,
 
     memory->heap_data = memory->base_addr;
     memory->memory_data = memory->heap_data + heap_size;
-    memory->end_addr = memory->memory_data +
-                          num_bytes_per_page * memory->cur_page_count;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        memory->end_addr = memory->memory_data +
+                           num_bytes_per_page * memory->max_page_count;
+    }
+    else
+#endif
+    {
+        memory->end_addr = memory->memory_data +
+                           num_bytes_per_page * memory->cur_page_count;
+    }
 
     bh_assert(memory->end_addr - (uint8*)memory == (uint32)total_size);
 
@@ -134,10 +188,20 @@ memory_instantiate(uint32 num_bytes_per_page,
         return NULL;
     }
 
-#if WASM_ENABLE_SPEC_TEST == 0
     memory->heap_base_offset = -(int32)heap_size;
-#else
-    memory->heap_base_offset = 0;
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (is_shared_memory) {
+        memory->is_shared = true;
+        if (!shared_memory_set_memory_inst(
+                (WASMModuleCommon *)module_inst->module, memory)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "Instantiate memory failed:"
+                          "allocate memory failed.");
+            wasm_runtime_free(memory);
+            return NULL;
+        }
+    }
 #endif
     return memory;
 }
@@ -169,6 +233,7 @@ memories_instantiate(const WASMModule *module,
         uint32 num_bytes_per_page = import->u.memory.num_bytes_per_page;
         uint32 init_page_count = import->u.memory.init_page_count;
         uint32 max_page_count = import->u.memory.max_page_count;
+        uint32 flags = import->u.memory.flags;
         uint32 actual_heap_size = heap_size;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -197,8 +262,9 @@ memories_instantiate(const WASMModule *module,
 #endif
         {
             if (!(memory = memories[mem_index++] = memory_instantiate(
-                    num_bytes_per_page, init_page_count, max_page_count,
-                    actual_heap_size, error_buf, error_buf_size))) {
+                    module_inst, num_bytes_per_page, init_page_count,
+                    max_page_count, actual_heap_size, flags,
+                    error_buf, error_buf_size))) {
                 set_error_buf(error_buf, error_buf_size,
                               "Instantiate memory failed: "
                               "allocate memory failed.");
@@ -213,10 +279,12 @@ memories_instantiate(const WASMModule *module,
     /* instantiate memories from memory section */
     for (i = 0; i < module->memory_count; i++) {
         if (!(memory = memories[mem_index++] =
-                    memory_instantiate(module->memories[i].num_bytes_per_page,
+                    memory_instantiate(module_inst,
+                                       module->memories[i].num_bytes_per_page,
                                        module->memories[i].init_page_count,
                                        module->memories[i].max_page_count,
-                                       heap_size, error_buf, error_buf_size))) {
+                                       heap_size, module->memories[i].flags,
+                                       error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed: "
                           "allocate memory failed.");
@@ -236,7 +304,7 @@ memories_instantiate(const WASMModule *module,
          * for wasm code
          */
         if (!(memory = memories[mem_index++] =
-                    memory_instantiate(0, 0, 0, heap_size,
+                    memory_instantiate(module_inst, 0, 0, 0, heap_size, 0,
                                        error_buf, error_buf_size))) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed: "
@@ -792,6 +860,36 @@ execute_post_inst_function(WASMModuleInstance *module_inst)
                                                   0, NULL);
 }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+static bool
+execute_memory_init_function(WASMModuleInstance *module_inst)
+{
+    WASMFunctionInstance *memory_init_func = NULL;
+    WASMType *memory_init_func_type;
+    uint32 i;
+
+    for (i = 0; i < module_inst->export_func_count; i++)
+        if (!strcmp(module_inst->export_functions[i].name, "__wasm_call_ctors")) {
+            memory_init_func = module_inst->export_functions[i].function;
+            break;
+        }
+
+    if (!memory_init_func)
+        /* Not found */
+        return true;
+
+    memory_init_func_type = memory_init_func->u.func->func_type;
+    if (memory_init_func_type->param_count != 0
+        || memory_init_func_type->result_count != 0)
+        /* Not a valid function type, ignore it */
+        return true;
+
+    return wasm_create_exec_env_and_call_function(module_inst,
+                                                  memory_init_func,
+                                                  0, NULL);
+}
+#endif
+
 static bool
 execute_start_function(WASMModuleInstance *module_inst)
 {
@@ -819,7 +917,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
     while (sub_module_list_node) {
         WASMModule *sub_module = (WASMModule*)sub_module_list_node->module;
         WASMModuleInstance *sub_module_inst = wasm_instantiate(
-          sub_module, stack_size, heap_size, error_buf, error_buf_size);
+          sub_module, false, stack_size, heap_size, error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
@@ -833,7 +931,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
                       sizeof(WASMSubModInstNode));
-            wasm_deinstantiate(sub_module_inst);
+            wasm_deinstantiate(sub_module_inst, false);
             return false;
         }
 
@@ -859,7 +957,7 @@ sub_module_deinstantiate(WASMModuleInstance *module_inst)
     while (node) {
         WASMSubModInstNode *next_node = bh_list_elem_next(node);
         bh_list_remove(list, node);
-        wasm_deinstantiate(node->module_inst);
+        wasm_deinstantiate(node->module_inst, false);
         node = next_node;
     }
 }
@@ -869,7 +967,7 @@ sub_module_deinstantiate(WASMModuleInstance *module_inst)
  * Instantiate module
  */
 WASMModuleInstance*
-wasm_instantiate(WASMModule *module,
+wasm_instantiate(WASMModule *module, bool is_sub_inst,
                  uint32 stack_size, uint32 heap_size,
                  char *error_buf, uint32 error_buf_size)
 {
@@ -887,10 +985,6 @@ wasm_instantiate(WASMModule *module,
 
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
-    if (heap_size == 0)
-        heap_size = APP_HEAP_SIZE_DEFAULT;
-    if (heap_size < APP_HEAP_SIZE_MIN)
-        heap_size = APP_HEAP_SIZE_MIN;
     if (heap_size > APP_HEAP_SIZE_MAX)
         heap_size = APP_HEAP_SIZE_MAX;
 
@@ -904,6 +998,8 @@ wasm_instantiate(WASMModule *module,
 
     memset(module_inst, 0, (uint32)sizeof(WASMModuleInstance));
 
+    module_inst->module = module;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->sub_module_inst_list =
       &module_inst->sub_module_inst_list_head;
@@ -911,7 +1007,7 @@ wasm_instantiate(WASMModule *module,
                                  error_buf, error_buf_size);
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
-        wasm_deinstantiate(module_inst);
+        wasm_deinstantiate(module_inst, false);
         return NULL;
     }
 #endif
@@ -922,7 +1018,7 @@ wasm_instantiate(WASMModule *module,
                             module,
                             module_inst,
                             &global_data_size, error_buf, error_buf_size))) {
-        wasm_deinstantiate(module_inst);
+        wasm_deinstantiate(module_inst, false);
         return NULL;
     }
     module_inst->global_count = global_count;
@@ -946,7 +1042,7 @@ wasm_instantiate(WASMModule *module,
     if (global_count > 0) {
         if (!(module_inst->global_data = runtime_malloc
                     (global_data_size, error_buf, error_buf_size))) {
-            wasm_deinstantiate(module_inst);
+            wasm_deinstantiate(module_inst, false);
             return NULL;
         }
     }
@@ -978,7 +1074,7 @@ wasm_instantiate(WASMModule *module,
                    error_buf, error_buf_size)))
 #endif
     ) {
-        wasm_deinstantiate(module_inst);
+        wasm_deinstantiate(module_inst, false);
         return NULL;
     }
 
@@ -989,7 +1085,7 @@ wasm_instantiate(WASMModule *module,
          */
         if (!globals_instantiate_fix(globals, module,
                                      error_buf, error_buf_size)) {
-            wasm_deinstantiate(module_inst);
+            wasm_deinstantiate(module_inst, false);
             return NULL;
         }
 
@@ -1063,7 +1159,7 @@ wasm_instantiate(WASMModule *module,
                       memory_size);
             set_error_buf(error_buf, error_buf_size,
                           "data segment does not fit.");
-            wasm_deinstantiate(module_inst);
+            wasm_deinstantiate(module_inst, false);
             return NULL;
         }
 
@@ -1075,7 +1171,7 @@ wasm_instantiate(WASMModule *module,
             set_error_buf(
               error_buf, error_buf_size,
               "Instantiate module failed: data segment does not fit.");
-            wasm_deinstantiate(module_inst);
+            wasm_deinstantiate(module_inst, false);
             return NULL;
         }
 
@@ -1121,7 +1217,7 @@ wasm_instantiate(WASMModule *module,
                       table_seg->base_offset.u.i32, table->cur_size);
             set_error_buf(error_buf, error_buf_size,
                           "elements segment does not fit");
-            wasm_deinstantiate(module_inst);
+            wasm_deinstantiate(module_inst, false);
             return NULL;
         }
 
@@ -1132,7 +1228,7 @@ wasm_instantiate(WASMModule *module,
                       table_seg->base_offset.u.i32, length, table->cur_size);
             set_error_buf(error_buf, error_buf_size,
                           "elements segment does not fit");
-            wasm_deinstantiate(module_inst);
+            wasm_deinstantiate(module_inst, false);
             return NULL;
         }
 
@@ -1149,18 +1245,22 @@ wasm_instantiate(WASMModule *module,
     }
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (!wasm_runtime_init_wasi((WASMModuleInstanceCommon*)module_inst,
-                                module->wasi_args.dir_list,
-                                module->wasi_args.dir_count,
-                                module->wasi_args.map_dir_list,
-                                module->wasi_args.map_dir_count,
-                                module->wasi_args.env,
-                                module->wasi_args.env_count,
-                                module->wasi_args.argv,
-                                module->wasi_args.argc,
-                                error_buf, error_buf_size)) {
-        wasm_deinstantiate(module_inst);
-        return NULL;
+    /* The sub-instance will get the wasi_ctx from main-instance */
+    if (!is_sub_inst) {
+        if (heap_size > 0
+            && !wasm_runtime_init_wasi((WASMModuleInstanceCommon*)module_inst,
+                                       module->wasi_args.dir_list,
+                                       module->wasi_args.dir_count,
+                                       module->wasi_args.map_dir_list,
+                                       module->wasi_args.map_dir_count,
+                                       module->wasi_args.env,
+                                       module->wasi_args.env_count,
+                                       module->wasi_args.argv,
+                                       module->wasi_args.argc,
+                                       error_buf, error_buf_size)) {
+            wasm_deinstantiate(module_inst, false);
+            return NULL;
+        }
     }
 #endif
 
@@ -1170,8 +1270,6 @@ wasm_instantiate(WASMModule *module,
             module_inst->start_function =
                 &module_inst->functions[module->start_function];
     }
-
-    module_inst->module = module;
 
     /* module instance type */
     module_inst->module_type = Wasm_Module_Bytecode;
@@ -1190,16 +1288,36 @@ wasm_instantiate(WASMModule *module,
         || !execute_start_function(module_inst)) {
         set_error_buf(error_buf, error_buf_size,
                       module_inst->cur_exception);
-        wasm_deinstantiate(module_inst);
+        wasm_deinstantiate(module_inst, false);
         return NULL;
     }
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+#if WASM_ENABLE_LIBC_WASI != 0
+    if (!module->is_wasi_module) {
+#endif
+        /* Only execute the memory init function for main instance because
+            the data segments will be dropped once initialized.
+        */
+        if (!is_sub_inst) {
+            if (!execute_memory_init_function(module_inst)) {
+                set_error_buf(error_buf, error_buf_size,
+                              module_inst->cur_exception);
+                wasm_deinstantiate(module_inst, false);
+                return NULL;
+            }
+        }
+#if WASM_ENABLE_LIBC_WASI != 0
+    }
+#endif
+#endif
 
     (void)global_data_end;
     return module_inst;
 }
 
 void
-wasm_deinstantiate(WASMModuleInstance *module_inst)
+wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 {
     if (!module_inst)
         return;
@@ -1213,7 +1331,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst)
        wasi contex are allocated from app heap, and if app heap is freed,
        these fields will be set to NULL, we cannot free their internal data
        which may allocated from global heap. */
-    wasm_runtime_destroy_wasi((WASMModuleInstanceCommon*)module_inst);
+    /* Only destroy wasi ctx in the main module instance */
+    if (!is_sub_inst)
+        wasm_runtime_destroy_wasi((WASMModuleInstanceCommon*)module_inst);
 #endif
 
     if (module_inst->memory_count > 0)
@@ -1299,8 +1419,9 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
     WASMExecEnv *exec_env;
     bool ret;
 
-    if (!(exec_env = wasm_exec_env_create((WASMModuleInstanceCommon*)module_inst,
-                                          module_inst->default_wasm_stack_size))) {
+    if (!(exec_env = wasm_exec_env_create(
+                            (WASMModuleInstanceCommon*)module_inst,
+                            module_inst->default_wasm_stack_size))) {
         wasm_set_exception(module_inst, "allocate memory failed.");
         return false;
     }
@@ -1518,6 +1639,15 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         return false;
     }
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (memory->is_shared) {
+        /* For shared memory, we have reserved the maximum spaces during
+            instantiate, only change the cur_page_count here */
+        memory->cur_page_count = total_page_count;
+        return true;
+    }
+#endif
+
     if (heap_size > 0) {
         /* Destroy heap's lock firstly, if its memory is re-allocated,
            we cannot access its lock again. */
@@ -1612,3 +1742,66 @@ wasm_call_indirect(WASMExecEnv *exec_env,
 got_exception:
     return false;
 }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+wasm_set_aux_stack(WASMExecEnv *exec_env,
+                   uint32 start_offset, uint32 size)
+{
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance*)exec_env->module_inst;
+
+    uint32 stack_top_idx =
+        module_inst->module->llvm_aux_stack_global_index;
+    uint32 data_end =
+        module_inst->module->llvm_aux_data_end;
+    uint32 stack_bottom =
+        module_inst->module->llvm_aux_stack_bottom;
+    bool is_stack_before_data =
+        stack_bottom < data_end ? true : false;
+
+    /* Check the aux stack space, currently we don't allocate space in heap */
+    if ((is_stack_before_data && (size > start_offset))
+        || ((!is_stack_before_data) && (start_offset - data_end < size)))
+        return false;
+
+    if (stack_bottom) {
+        /* The aux stack top is a wasm global,
+            set the initial value for the global */
+        uint8 *global_addr =
+            module_inst->global_data +
+            module_inst->globals[stack_top_idx].data_offset;
+        *(int32*)global_addr = start_offset;
+        /* The aux stack boundary is a constant value,
+            set the value to exec_env */
+        exec_env->aux_stack_boundary = start_offset - size;
+        return true;
+    }
+
+    return false;
+}
+
+bool
+wasm_get_aux_stack(WASMExecEnv *exec_env,
+                   uint32 *start_offset, uint32 *size)
+{
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance*)exec_env->module_inst;
+
+    /* The aux stack information is resolved in loader
+        and store in module */
+    uint32 stack_bottom =
+        module_inst->module->llvm_aux_stack_bottom;
+    uint32 total_aux_stack_size =
+        module_inst->module->llvm_aux_stack_size;
+
+    if (stack_bottom != 0 && total_aux_stack_size != 0) {
+        if (start_offset)
+            *start_offset = stack_bottom;
+        if (size)
+            *size = total_aux_stack_size;
+        return true;
+    }
+    return false;
+}
+#endif

@@ -877,6 +877,18 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+#define CHECK_SUSPEND_FLAGS() do {                      \
+    if (exec_env->suspend_flags != 0) {                 \
+        if (exec_env->suspend_flags & 0x01) {           \
+            /* terminate current thread */              \
+            return;                                     \
+        }                                               \
+        /* TODO: support suspend and breakpoint */      \
+    }                                                   \
+  } while (0)
+#endif
+
 #if WASM_ENABLE_OPCODE_COUNTER != 0
 typedef struct OpcodeInfo {
     char *name;
@@ -978,6 +990,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint8 *maddr = NULL;
   uint32 local_idx, local_offset, global_idx;
   uint8 opcode, local_type, *global_addr;
+  int32 aux_stack_top_global_idx = -1;
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -990,6 +1003,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   }
 #endif
 #endif
+
+  /* If the aux stack information is resolved,
+    we will check the aux stack boundary */
+  if (module->module->llvm_aux_stack_size) {
+    aux_stack_top_global_idx = module->module->llvm_aux_stack_global_index;
+  }
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
   while (frame_ip < frame_ip_end) {
@@ -1024,10 +1043,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         RECOVER_BR_INFO();
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR_IF):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         cond = frame_lp[GET_OFFSET()];
 
         if (cond)
@@ -1039,6 +1064,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR_TABLE):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         count = GET_OPERAND(uint32, 0);
         didx = GET_OPERAND(uint32, 2);
         frame_ip += 4;
@@ -1063,6 +1091,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           WASMType *cur_type, *cur_func_type;
           WASMTableInstance *cur_table_inst;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+          CHECK_SUSPEND_FLAGS();
+#endif
 
           tidx = GET_OPERAND(int32, 0);
           val = GET_OPERAND(int32, 2);
@@ -1245,6 +1277,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
           switch (global->type) {
             case VALUE_TYPE_I32:
+              /* Check aux stack boundary */
+              if ((global_idx == (uint32)aux_stack_top_global_idx)
+                  && (frame_lp[addr1] < exec_env->aux_stack_boundary))
+                goto out_of_bounds;
             case VALUE_TYPE_F32:
               *(int32*)global_addr = frame_lp[addr1];
               break;
@@ -2482,6 +2518,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         goto call_func_from_entry;
 
       HANDLE_OP (WASM_OP_CALL):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         fidx = frame_lp[GET_OFFSET()];
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (fidx >= module->function_count) {

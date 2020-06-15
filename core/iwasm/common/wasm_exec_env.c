@@ -6,9 +6,13 @@
 #include "wasm_exec_env.h"
 #include "wasm_runtime_common.h"
 
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
+
 WASMExecEnv *
-wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
-                     uint32 stack_size)
+wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
+                              uint32 stack_size)
 {
     uint64 total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom)
                         + (uint64)stack_size;
@@ -22,9 +26,16 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
 
 #if WASM_ENABLE_AOT != 0
     if (!(exec_env->argv_buf = wasm_runtime_malloc(sizeof(uint32) * 64))) {
-        wasm_runtime_free(exec_env);
-        return NULL;
+        goto fail1;
     }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (os_mutex_init(&exec_env->wait_lock) != 0)
+        goto fail2;
+
+    if (os_cond_init(&exec_env->wait_cond) != 0)
+        goto fail3;
 #endif
 
     exec_env->module_inst = module_inst;
@@ -33,15 +44,69 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
         exec_env->wasm_stack.s.bottom + stack_size;
     exec_env->wasm_stack.s.top = exec_env->wasm_stack.s.bottom;
     return exec_env;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+fail3:
+    os_mutex_destroy(&exec_env->wait_lock);
+fail2:
+#endif
+#if WASM_ENABLE_AOT != 0
+    wasm_runtime_free(exec_env->argv_buf);
+fail1:
+#endif
+    wasm_runtime_free(exec_env);
+    return NULL;
+}
+
+void
+wasm_exec_env_destroy_internal(WASMExecEnv *exec_env)
+{
+#if WASM_ENABLE_THREAD_MGR != 0
+    os_mutex_destroy(&exec_env->wait_lock);
+    os_cond_destroy(&exec_env->wait_cond);
+#endif
+#if WASM_ENABLE_AOT != 0
+    wasm_runtime_free(exec_env->argv_buf);
+#endif
+    wasm_runtime_free(exec_env);
+}
+
+WASMExecEnv *
+wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
+                     uint32 stack_size)
+{
+    WASMExecEnv *exec_env = wasm_exec_env_create_internal(module_inst,
+                                                          stack_size);
+    /* Set the aux_stack_boundary to 0 */
+    exec_env->aux_stack_boundary = 0;
+#if WASM_ENABLE_THREAD_MGR != 0
+    WASMCluster *cluster;
+
+    if (!exec_env)
+        return NULL;
+
+    /* Create a new cluster for this exec_env */
+    cluster = wasm_cluster_create(exec_env);
+    if (!cluster) {
+        wasm_exec_env_destroy_internal(exec_env);
+        return NULL;
+    }
+#endif
+    return exec_env;
 }
 
 void
 wasm_exec_env_destroy(WASMExecEnv *exec_env)
 {
-#if WASM_ENABLE_AOT != 0
-    wasm_runtime_free(exec_env->argv_buf);
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Terminate all sub-threads */
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    if (cluster) {
+        wasm_cluster_terminate_all_except_self(cluster, exec_env);
+        wasm_cluster_del_exec_env(cluster, exec_env);
+    }
 #endif
-    wasm_runtime_free(exec_env);
+    wasm_exec_env_destroy_internal(exec_env);
 }
 
 WASMModuleInstanceCommon *
@@ -59,3 +124,16 @@ wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
 
 }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+void *
+wasm_exec_env_get_thread_arg(WASMExecEnv *exec_env)
+{
+    return exec_env->thread_arg;
+}
+
+void
+wasm_exec_env_set_thread_arg(WASMExecEnv *exec_env, void *thread_arg)
+{
+    exec_env->thread_arg = thread_arg;
+}
+#endif

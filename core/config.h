@@ -86,6 +86,10 @@ enum {
 #define WASM_ENABLE_LIBC_WASI 0
 #endif
 
+#ifndef WASM_ENABLE_LIB_PTHREAD
+#define WASM_ENABLE_LIB_PTHREAD 0
+#endif
+
 #ifndef WASM_ENABLE_BASE_LIB
 #define WASM_ENABLE_BASE_LIB 0
 #endif
@@ -97,6 +101,16 @@ enum {
 /* Bulk memory operation */
 #ifndef WASM_ENABLE_BULK_MEMORY
 #define WASM_ENABLE_BULK_MEMORY 0
+#endif
+
+/* Shared memory */
+#ifndef WASM_ENABLE_SHARED_MEMORY
+#define WASM_ENABLE_SHARED_MEMORY 0
+#endif
+
+/* Thread manager */
+#ifndef WASM_ENABLE_THREAD_MGR
+#define WASM_ENABLE_THREAD_MGR 0
 #endif
 
 /* WASM log system */
@@ -205,6 +219,10 @@ enum {
 #ifndef WASM_ENABLE_SPEC_TEST
 #define WASM_ENABLE_SPEC_TEST 0
 #endif
+
+/* Default max thread num per cluster. Can be overwrite by
+    wasm_runtime_set_max_thread_num */
+#define CLUSTER_MAX_THREAD_NUM 4
 
 #endif /* end of _CONFIG_H_ */
 

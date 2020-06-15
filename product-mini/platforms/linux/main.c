@@ -45,6 +45,9 @@ print_help()
     printf("  --module-path=         Indicate a module search path. default is current\n"
            "                         directory('./')\n");
 #endif
+#if WASM_ENABLE_LIB_PTHREAD != 0
+    printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
+#endif
     return 1;
 }
 
@@ -124,6 +127,10 @@ app_instance_repl(wasm_module_inst_t module_inst)
                 continue;
             else
                 cmd[n - 1] = '\0';
+        }
+        if (!strcmp(cmd, "__exit__")) {
+            printf("exit repl mode\n");
+            break;
         }
         app_argv = split_string(cmd, &app_argc);
         if (app_argv == NULL) {
@@ -299,6 +306,13 @@ main(int argc, char *argv[])
             if (!strlen(module_search_path)) {
                 return print_help();
             }
+        }
+#endif
+#if WASM_ENABLE_LIB_PTHREAD != 0
+        else if (!strncmp(argv[0], "--max-threads=", 14)) {
+            if (argv[0][14] == '\0')
+                return print_help();
+            wasm_runtime_set_max_thread_num(atoi(argv[0] + 14));
         }
 #endif
         else

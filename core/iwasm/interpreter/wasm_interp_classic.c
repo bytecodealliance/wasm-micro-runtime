@@ -939,6 +939,18 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
+#define CHECK_SUSPEND_FLAGS() do {                      \
+    if (exec_env->suspend_flags != 0) {                 \
+        if (exec_env->suspend_flags & 0x01) {           \
+            /* terminate current thread */              \
+            return;                                     \
+        }                                               \
+        /* TODO: support suspend and breakpoint */      \
+    }                                                   \
+  } while (0)
+#endif
+
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 
 #define HANDLE_OP(opcode) HANDLE_##opcode
@@ -989,6 +1001,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint32 local_idx, local_offset, global_idx;
   uint8 local_type, *global_addr;
   uint32 cache_index;
+  int32 aux_stack_top_global_idx = -1;
+
+  /* If the aux stack information is resolved,
+    we will check the aux stack boundary */
+  if (module->module->llvm_aux_stack_size) {
+    aux_stack_top_global_idx = module->module->llvm_aux_stack_global_index;
+  }
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -1103,11 +1122,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         read_leb_uint32(frame_ip, frame_ip_end, depth);
         POP_CSP_N(depth);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR_IF):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         read_leb_uint32(frame_ip, frame_ip_end, depth);
         cond = (uint32)POP_I32();
         if (cond)
@@ -1115,6 +1140,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR_TABLE):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         read_leb_uint32(frame_ip, frame_ip_end, count);
         if (count <= BR_TABLE_TMP_BUF_LEN)
           depths = depth_buf;
@@ -1150,6 +1178,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         goto return_func;
 
       HANDLE_OP (WASM_OP_CALL):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
         read_leb_uint32(frame_ip, frame_ip_end, fidx);
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (fidx >= module->function_count) {
@@ -1165,6 +1196,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           WASMType *cur_type, *cur_func_type;
           WASMTableInstance *cur_table_inst;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+          CHECK_SUSPEND_FLAGS();
+#endif
 
           /**
            * type check. compiler will make sure all like
@@ -1406,6 +1441,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
           switch (global->type) {
             case VALUE_TYPE_I32:
+              /* Check aux stack boundary */
+              if ((global_idx == (uint32)aux_stack_top_global_idx)
+                  && (*(uint32*)(frame_sp - 1) < exec_env->aux_stack_boundary))
+                goto out_of_bounds;
             case VALUE_TYPE_F32:
               *(int32*)global_addr = POP_I32();
               break;

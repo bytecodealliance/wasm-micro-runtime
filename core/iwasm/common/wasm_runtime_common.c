@@ -15,6 +15,12 @@
 #if WASM_ENABLE_AOT != 0
 #include "../aot/aot_runtime.h"
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#include "wasm_shared_memory.h"
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 /*
@@ -90,25 +96,50 @@ wasm_runtime_env_init()
         return false;
 
     if (wasm_native_init() == false) {
-        bh_platform_destroy();
-        return false;
+        goto fail1;
     }
 
 #if WASM_ENABLE_MULTI_MODULE
     if (BHT_OK != os_mutex_init(&registered_module_list_lock)) {
-        wasm_native_destroy();
-        bh_platform_destroy();
-        return false;
+        goto fail2;
     }
 
     if (BHT_OK != os_mutex_init(&loading_module_list_lock)) {
-        os_mutex_destroy(&registered_module_list_lock);
-        wasm_native_destroy();
-        bh_platform_destroy();
-        return false;
+        goto fail3;
+    }
+#endif
+
+#if WASM_ENABLE_SHARED_MEMORY
+    if (!wasm_shared_memory_init()) {
+        goto fail4;
+    }
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    if (!thread_manager_init()) {
+        goto fail5;
     }
 #endif
     return true;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+fail5:
+#endif
+#if WASM_ENABLE_SHARED_MEMORY
+    wasm_shared_memory_destroy();
+fail4:
+#endif
+#if WASM_ENABLE_MULTI_MODULE
+    os_mutex_destroy(&loading_module_list_lock);
+fail3:
+    os_mutex_destroy(&registered_module_list_lock);
+fail2:
+#endif
+    wasm_native_destroy();
+fail1:
+    bh_platform_destroy();
+
+    return false;
 }
 
 static bool
@@ -147,6 +178,15 @@ wasm_runtime_destroy()
     wasm_runtime_destroy_registered_module_list();
     os_mutex_destroy(&registered_module_list_lock);
 #endif
+
+#if WASM_ENABLE_SHARED_MEMORY
+    wasm_shared_memory_destroy();
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    thread_manager_destroy();
+#endif
+
     wasm_native_destroy();
     bh_platform_destroy();
 
@@ -191,7 +231,6 @@ get_package_type(const uint8 *buf, uint32 size)
 #if WASM_ENABLE_MULTI_MODULE != 0
 static module_reader reader;
 static module_destroyer destroyer;
-
 void
 wasm_runtime_set_module_reader(const module_reader reader_cb,
                                const module_destroyer destroyer_cb)
@@ -492,6 +531,42 @@ wasm_runtime_is_built_in_module(const char *module_name)
             );
 }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+wasm_exec_env_set_aux_stack(WASMExecEnv *exec_env,
+                            uint32 start_offset, uint32 size)
+{
+    WASMModuleInstanceCommon *module_inst
+        = wasm_exec_env_get_module_inst(exec_env);
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_set_aux_stack(exec_env, start_offset, size);
+    }
+#endif
+    return false;
+}
+
+bool
+wasm_exec_env_get_aux_stack(WASMExecEnv *exec_env,
+                            uint32 *start_offset, uint32 *size)
+{
+    WASMModuleInstanceCommon *module_inst
+        = wasm_exec_env_get_module_inst(exec_env);
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_get_aux_stack(exec_env, start_offset, size);
+    }
+#endif
+    return false;
+}
+
+void
+wasm_runtime_set_max_thread_num(uint32 num)
+{
+    wasm_cluster_set_max_thread_num(num);
+}
+#endif /* end of WASM_ENABLE_THREAD_MGR */
+
 static WASMModuleCommon *
 register_module_with_null_name(WASMModuleCommon *module_common,
                                char *error_buf, uint32 error_buf_size)
@@ -618,45 +693,61 @@ wasm_runtime_unload(WASMModuleCommon *module)
 }
 
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate(WASMModuleCommon *module,
-                         uint32 stack_size, uint32 heap_size,
-                         char *error_buf, uint32 error_buf_size)
+wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
+                                  uint32 stack_size, uint32 heap_size,
+                                  char *error_buf, uint32 error_buf_size)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
         return (WASMModuleInstanceCommon*)
-               wasm_instantiate((WASMModule*)module,
+               wasm_instantiate((WASMModule*)module, is_sub_inst,
                                 stack_size, heap_size,
                                 error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT)
         return (WASMModuleInstanceCommon*)
-               aot_instantiate((AOTModule*)module,
+               aot_instantiate((AOTModule*)module, is_sub_inst,
                                stack_size, heap_size,
                                error_buf, error_buf_size);
 #endif
-
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");
     return NULL;
 }
 
+WASMModuleInstanceCommon *
+wasm_runtime_instantiate(WASMModuleCommon *module,
+                         uint32 stack_size, uint32 heap_size,
+                         char *error_buf, uint32 error_buf_size)
+{
+    return wasm_runtime_instantiate_internal(module, false,
+                                             stack_size, heap_size,
+                                             error_buf, error_buf_size);
+}
+
 void
-wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
+wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
+                                    bool is_sub_inst)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        wasm_deinstantiate((WASMModuleInstance*)module_inst);
+        wasm_deinstantiate((WASMModuleInstance*)module_inst, is_sub_inst);
         return;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        aot_deinstantiate((AOTModuleInstance*)module_inst);
+        aot_deinstantiate((AOTModuleInstance*)module_inst, is_sub_inst);
         return;
     }
 #endif
+}
+
+void
+wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
+{
+    return wasm_runtime_deinstantiate_internal(module_inst, false);
 }
 
 WASMExecEnv *
@@ -1441,6 +1532,24 @@ wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst,
 #endif
 }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
+
+WASMModuleCommon*
+wasm_exec_env_get_module(WASMExecEnv *exec_env)
+{
+    WASMModuleInstanceCommon *module_inst =
+        wasm_runtime_get_module_inst(exec_env);
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return (WASMModuleCommon*)
+            ((WASMModuleInstance*)module_inst)->module;
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return (WASMModuleCommon*)
+            ((AOTModuleInstance*)module_inst)->aot_module.ptr;
+#endif
+    return NULL;
+}
 
 /**
  * Implementation of wasm_application_execute_main()

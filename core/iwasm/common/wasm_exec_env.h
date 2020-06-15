@@ -18,6 +18,10 @@ extern "C" {
 struct WASMModuleInstanceCommon;
 struct WASMInterpFrame;
 
+#if WASM_ENABLE_THREAD_MGR != 0
+typedef struct WASMCluster WASMCluster;
+#endif
+
 /* Execution environment */
 typedef struct WASMExecEnv {
     /* Next thread's exec env of a WASM module instance. */
@@ -40,6 +44,28 @@ typedef struct WASMExecEnv {
        frame may overrun this boundary, it throws stack overflow
        exception. */
     uint8 *native_stack_boundary;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Used to terminate or suspend the interpreter
+        bit 0: need terminate
+        bit 1: need suspend
+        bit 2: need to go into breakpoint */
+    uintptr_t suspend_flags;
+
+    /* Must be provided by thread library */
+    void* (*thread_start_routine)(void *);
+    void *thread_arg;
+
+    /* pointer to the cluster */
+    WASMCluster *cluster;
+
+    /* used to support debugger */
+    korp_mutex wait_lock;
+    korp_cond wait_cond;
+#endif
+
+    /* Aux stack boundary */
+    uint32 aux_stack_boundary;
 
     /* attachment for native function */
     void *attachment;
@@ -75,6 +101,13 @@ typedef struct WASMExecEnv {
         } s;
     } wasm_stack;
 } WASMExecEnv;
+
+WASMExecEnv *
+wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
+                              uint32 stack_size);
+
+void
+wasm_exec_env_destroy_internal(WASMExecEnv *exec_env);
 
 WASMExecEnv *
 wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
@@ -164,6 +197,15 @@ wasm_exec_env_get_module_inst(WASMExecEnv *exec_env);
 
 void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env);
+
+
+#if WASM_ENABLE_THREAD_MGR != 0
+void *
+wasm_exec_env_get_thread_arg(WASMExecEnv *exec_env);
+
+void
+wasm_exec_env_set_thread_arg(WASMExecEnv *exec_env, void *thread_arg);
+#endif
 
 #ifdef __cplusplus
 }

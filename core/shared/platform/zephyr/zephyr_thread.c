@@ -350,14 +350,14 @@ int os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-void os_mutex_lock(korp_mutex *mutex)
+int os_mutex_lock(korp_mutex *mutex)
 {
-    k_mutex_lock(mutex, K_FOREVER);
+    return k_mutex_lock(mutex, K_FOREVER);
 }
 
-void os_mutex_unlock(korp_mutex *mutex)
+int os_mutex_unlock(korp_mutex *mutex)
 {
-    k_mutex_unlock(mutex);
+    return k_mutex_unlock(mutex);
 }
 
 int os_cond_init(korp_cond *cond)
