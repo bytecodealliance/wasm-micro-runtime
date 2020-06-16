@@ -28,6 +28,7 @@ iwasm VM core
 - [Embeddable with the supporting C API's](./doc/embed_wamr.md)
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
 - [Multiple modules as dependencies](./doc/multi_module.md)
+- [Thread management and pthread library](./doc/pthread_library.md)
 
 ### post-MVP features
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)

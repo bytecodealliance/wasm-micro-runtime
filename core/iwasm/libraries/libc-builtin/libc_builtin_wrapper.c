@@ -1131,11 +1131,9 @@ typedef struct WASMNativeGlobalDef {
 } WASMNativeGlobalDef;
 
 static WASMNativeGlobalDef native_global_defs[] = {
-#if WASM_ENABLE_SPEC_TEST != 0
     { "spectest", "global_i32", .global_data.i32 = 666 },
     { "spectest", "global_f32", .global_data.f32 = 666.6 },
     { "spectest", "global_f64", .global_data.f64 = 666.6 },
-#endif
     { "test", "global-i32", .global_data.i32 = 0 },
     { "test", "global-f32", .global_data.f32 = 0 },
     { "env", "STACKTOP", .global_data.u32 = 0 },

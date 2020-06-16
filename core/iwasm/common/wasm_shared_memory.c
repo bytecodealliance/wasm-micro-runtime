@@ -88,6 +88,7 @@ shared_memory_dec_reference(WASMModuleCommon *module)
     return -1;
 }
 
+#if WASM_ENABLE_INTERP != 0
 WASMMemoryInstance*
 shared_memory_get_memory_inst(WASMSharedMemNode *node)
 {
@@ -120,5 +121,7 @@ shared_memory_set_memory_inst(WASMModuleCommon *module,
     (void)ret;
     return node;
 }
+
+#endif /* end of WASM_ENABLE_INTERP */
 
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
