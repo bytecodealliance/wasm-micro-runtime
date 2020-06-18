@@ -6,10 +6,11 @@
 #ifndef _WAMR_LIB_PTHREAD_H
 #define _WAMR_LIB_PTHREAD_H
 
-/* Data type define of pthread, mutex and cond */
+/* Data type define of pthread, mutex, cond and key */
 typedef unsigned int pthread_t;
 typedef unsigned int pthread_mutex_t;
 typedef unsigned int pthread_cond_t;
+typedef unsigned int pthread_key_t;
 
 /* Thread APIs */
 int pthread_create(pthread_t *thread, const void *attr,
@@ -45,5 +46,14 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
 int pthread_cond_signal(pthread_cond_t *cond);
 
 int pthread_cond_destroy(pthread_cond_t *cond);
+
+/* Pthread key APIs */
+int pthread_key_create(pthread_key_t *key, void (*destructor)(void *));
+
+int pthread_setspecific(pthread_key_t key, const void *value);
+
+void *pthread_getspecific(pthread_key_t key);
+
+int pthread_key_delete(pthread_key_t key);
 
 #endif /* end of _WAMR_LIB_PTHREAD_H */

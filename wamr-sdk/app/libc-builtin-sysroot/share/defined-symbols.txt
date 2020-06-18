@@ -77,3 +77,7 @@ pthread_cond_wait
 pthread_cond_timedwait
 pthread_cond_signal
 pthread_cond_destroy
+pthread_key_create
+pthread_setspecific
+pthread_getspecific
+pthread_key_delete

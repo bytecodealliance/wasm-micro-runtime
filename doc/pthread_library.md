@@ -47,7 +47,7 @@ To build this C program into WebAssembly app with libc-builtin, you can use this
     -Wl,--export=__wasm_call_ctors  \
     main.c -o test.wasm
 # -pthread: it will enable some dependent WebAssembly features for thread
-# -nostdlib: disable the WASI standard library as we only support libc-builtin currently
+# -nostdlib: disable the WASI standard library as we are using WAMR builtin-libc
 # -z stack-size=: specify the total aux stack size
 # -Wl,--export=__heap_base,--export=__data_end: export these globals so the runtime can resolve the total aux stack size and the start offset of the stack top
 # -Wl,--export=__wasm_call_ctors: export the init function to initialize the passive data segments
@@ -149,6 +149,15 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
 int pthread_cond_signal(pthread_cond_t *cond);
 
 int pthread_cond_destroy(pthread_cond_t *cond);
+
+/* Pthread key APIs */
+int pthread_key_create(pthread_key_t *key, void (*destructor)(void *));
+
+int pthread_setspecific(pthread_key_t key, const void *value);
+
+void *pthread_getspecific(pthread_key_t key);
+
+int pthread_key_delete(pthread_key_t key);
 ```
 
 ## Known limits
