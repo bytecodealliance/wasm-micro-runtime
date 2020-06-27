@@ -61,7 +61,7 @@ int main(int argc, char *argv_main[])
     // Note: the array must be static defined since runtime
     //            will keep it after registration
     // For the function signature specifications, goto the link:
-    // https://github.com/bytecodealliance/wasm-micro-runtime/blob/master/doc/export_native_api.md
+    // https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
 
     static NativeSymbol native_symbols[] =
     {

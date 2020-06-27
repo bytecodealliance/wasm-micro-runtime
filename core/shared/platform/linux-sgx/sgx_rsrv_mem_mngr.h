@@ -30,7 +30,7 @@
  */
 
 /*
- * This file is copied from https://github.com/intel/linux-sgx/blob/master/common/inc/internal/sgx_rsrv_mem_mngr.h
+ * This file is copied from https://github.com/intel/linux-sgx/blob/4589daddd58bec7367a6a9de3fe301e6de17671a/common/inc/internal/sgx_rsrv_mem_mngr.h
  * The reason we copied here is that the official SGX SDK release has
  * not included this header file yet.
  */
