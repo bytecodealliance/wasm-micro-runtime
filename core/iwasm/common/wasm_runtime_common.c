@@ -543,6 +543,10 @@ wasm_exec_env_set_aux_stack(WASMExecEnv *exec_env,
         return wasm_set_aux_stack(exec_env, start_offset, size);
     }
 #endif
+#if WASM_ENABLE_AOT != 0
+    /* TODO: implement set aux stack in AoT mode */
+    (void)module_inst;
+#endif
     return false;
 }
 
@@ -556,6 +560,10 @@ wasm_exec_env_get_aux_stack(WASMExecEnv *exec_env,
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         return wasm_get_aux_stack(exec_env, start_offset, size);
     }
+#endif
+#if WASM_ENABLE_AOT != 0
+    /* TODO: implement get aux stack in AoT mode */
+    (void)module_inst;
 #endif
     return false;
 }

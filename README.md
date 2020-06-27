@@ -28,12 +28,13 @@ iwasm VM core
 - [Embeddable with the supporting C API's](./doc/embed_wamr.md)
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
 - [Multiple modules as dependencies](./doc/multi_module.md)
+- [Thread management and pthread library](./doc/pthread_library.md)
 
 ### post-MVP features
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
 - [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops)
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
-- [Shared memmory](https://github.com/WebAssembly/threads/blob/master/proposals/threads/Overview.md#shared-linear-memory)
+- [Shared memmory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 
 ### Performance and memory usage
 The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.

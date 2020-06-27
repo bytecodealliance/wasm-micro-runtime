@@ -10,6 +10,8 @@
 #include "../common/wasm_runtime_common.h"
 #include "thread_manager.h"
 
+#define WAMR_PTHREAD_KEYS_MAX 32
+
 #define get_module(exec_env) \
     wasm_exec_env_get_module(exec_env)
 
@@ -62,10 +64,27 @@ enum cond_status_t {
     COND_DESTROYED,
 };
 
+typedef struct ThreadKeyValueNode {
+    bh_list_link l;
+    wasm_exec_env_t exec_env;
+    int32 thread_key_values[WAMR_PTHREAD_KEYS_MAX];
+} ThreadKeyValueNode;
+
+typedef struct KeyData {
+    int32 destructor_func;
+    bool is_created;
+} KeyData;
+
 typedef struct ClusterInfoNode {
     bh_list_link l;
     WASMCluster *cluster;
     HashMap *thread_info_map;
+    /* Key data list */
+    KeyData key_data_list[WAMR_PTHREAD_KEYS_MAX];
+    korp_mutex key_data_list_lock;
+    /* Every node contains the key value list for a thread */
+    bh_list thread_list_head;
+    bh_list *thread_list;
 } ClusterInfoNode;
 
 typedef struct ThreadInfoNode {
@@ -180,6 +199,132 @@ get_cluster_info(WASMCluster *cluster)
     return NULL;
 }
 
+static KeyData*
+key_data_list_lookup(wasm_exec_env_t exec_env, int32 key)
+{
+    ClusterInfoNode *node;
+    WASMCluster *cluster =
+        wasm_exec_env_get_cluster(exec_env);
+
+    if ((node = get_cluster_info(cluster))) {
+        return (key >= 0 && key < WAMR_PTHREAD_KEYS_MAX
+                && node->key_data_list[key].is_created)
+               ? &(node->key_data_list[key]) : NULL;
+    }
+
+    return NULL;
+}
+
+/* Lookup the thread key value node for a thread,
+    create a new one if failed
+   This design will reduce the memory usage. If the thread doesn't use
+    the local storage, it will not occupy memory space
+*/
+static int32*
+key_value_list_lookup_or_create(wasm_exec_env_t exec_env,
+                                ClusterInfoNode *info, int32 key)
+{
+    KeyData *key_node;
+    ThreadKeyValueNode *data;
+
+    /* Check if the key is valid */
+    key_node = key_data_list_lookup(exec_env, key);
+    if (!key_node) {
+        return NULL;
+    }
+
+    /* Find key values node */
+    data = bh_list_first_elem(info->thread_list);
+    while (data) {
+        if (data->exec_env == exec_env)
+            return data->thread_key_values;
+        data = bh_list_elem_next(data);
+    }
+
+    /* If not found, create a new node for this thread */
+    if (!(data = wasm_runtime_malloc(sizeof(ThreadKeyValueNode))))
+        return NULL;
+    memset(data, 0, sizeof(ThreadKeyValueNode));
+    data->exec_env = exec_env;
+
+    if (bh_list_insert(info->thread_list, data) != 0) {
+        wasm_runtime_free(data);
+        return NULL;
+    }
+
+    return data->thread_key_values;
+}
+
+static void
+call_key_destructor(wasm_exec_env_t exec_env)
+{
+    int32 i;
+    uint32 destructor_index;
+    KeyData *key_node;
+    ThreadKeyValueNode *value_node;
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    ClusterInfoNode *info = get_cluster_info(cluster);
+
+    value_node = bh_list_first_elem(info->thread_list);
+    while (value_node) {
+        if (value_node->exec_env == exec_env)
+            break;
+        value_node = bh_list_elem_next(value_node);
+    }
+
+    /* This thread hasn't created key value node */
+    if (!value_node)
+        return;
+
+    /* Destroy key values */
+    for (i = 0; i < WAMR_PTHREAD_KEYS_MAX; i++) {
+        if (value_node->thread_key_values[i] != 0) {
+            int32 value = value_node->thread_key_values[i];
+            os_mutex_lock(&info->key_data_list_lock);
+
+            if ((key_node = key_data_list_lookup(exec_env, i)))
+                destructor_index = key_node->destructor_func;
+            else
+                destructor_index = 0;
+            os_mutex_unlock(&info->key_data_list_lock);
+
+            /* reset key value */
+            value_node->thread_key_values[i] = 0;
+
+            /* Call the destructor func provided by app */
+            if (destructor_index) {
+                uint32 argv[1];
+
+                argv[0] = value;
+                wasm_runtime_call_indirect(exec_env,
+                                           destructor_index,
+                                           1, argv);
+            }
+        }
+    }
+
+    bh_list_remove(info->thread_list, value_node);
+    wasm_runtime_free(value_node);
+}
+
+static void
+destroy_thread_key_value_list(bh_list *list)
+{
+    ThreadKeyValueNode *node, *next;
+
+    /* There should be only one node for main thread */
+    bh_assert(list->len <= 1);
+
+    if (list->len) {
+        node = bh_list_first_elem(list);
+        while (node) {
+            next = bh_list_elem_next(node);
+            call_key_destructor(node->exec_env);
+            node = next;
+        }
+    }
+}
+
 static ClusterInfoNode*
 create_cluster_info(WASMCluster *cluster)
 {
@@ -187,6 +332,16 @@ create_cluster_info(WASMCluster *cluster)
     bh_list_status ret;
 
     if (!(node = wasm_runtime_malloc(sizeof(ClusterInfoNode)))) {
+        return NULL;
+    }
+    memset(node, 0, sizeof(WASMCluster));
+
+    node->thread_list = &node->thread_list_head;
+    ret = bh_list_init(node->thread_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
+
+    if (os_mutex_init(&node->key_data_list_lock) != 0) {
+        wasm_runtime_free(node);
         return NULL;
     }
 
@@ -197,12 +352,13 @@ create_cluster_info(WASMCluster *cluster)
                                (KeyEqualFunc)thread_handle_equal,
                                NULL,
                                thread_info_destroy))) {
+        os_mutex_destroy(&node->key_data_list_lock);
         wasm_runtime_free(node);
         return NULL;
     }
     os_mutex_lock(&pthread_global_lock);
     ret = bh_list_insert(&cluster_info_list, node);
-    bh_assert(ret == 0);
+    bh_assert(ret == BH_LIST_SUCCESS);
     os_mutex_unlock(&pthread_global_lock);
 
     (void)ret;
@@ -215,6 +371,10 @@ destroy_cluster_info(WASMCluster *cluster)
     ClusterInfoNode *node = get_cluster_info(cluster);
     if (node) {
         bh_hash_map_destroy(node->thread_info_map);
+        destroy_thread_key_value_list(node->thread_list);
+        os_mutex_destroy(&node->key_data_list_lock);
+
+        /* Remove from the cluster info list */
         os_mutex_lock(&pthread_global_lock);
         bh_list_remove(&cluster_info_list, node);
         wasm_runtime_free(node);
@@ -330,6 +490,9 @@ pthread_start_routine(void *arg)
                                    1, argv)) {
         wasm_cluster_spread_exception(exec_env);
     }
+
+    /* destroy pthread key values */
+    call_key_destructor(exec_env);
 
     /* routine exit, destroy instance */
     wasm_runtime_deinstantiate_internal(module_inst, true);
@@ -508,6 +671,9 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     /* Currently exit main thread is not allowed */
     if (!args)
         return;
+
+    /* destroy pthread key values */
+    call_key_destructor(exec_env);
 
     /* routine exit, destroy instance */
     wasm_runtime_deinstantiate_internal(module_inst, true);
@@ -702,6 +868,114 @@ pthread_cond_destroy_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
     return ret_val;
 }
 
+static int32
+pthread_key_create_wrapper(wasm_exec_env_t exec_env, int32 *key,
+                           int32 destructor_elem_index)
+{
+    uint32 i;
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    ClusterInfoNode *info = get_cluster_info(cluster);
+
+    if (!info) {
+        /* The user may call pthread_key_create in main thread,
+            in this case the cluster info hasn't been created */
+        if (!(info = create_cluster_info(cluster))) {
+            return -1;
+        }
+    }
+
+    os_mutex_lock(&info->key_data_list_lock);
+    for (i = 0; i < WAMR_PTHREAD_KEYS_MAX; i++) {
+        if (!info->key_data_list[i].is_created) {
+            break;
+        }
+    }
+
+    if (i == WAMR_PTHREAD_KEYS_MAX) {
+        os_mutex_unlock(&info->key_data_list_lock);
+        return -1;
+    }
+
+    info->key_data_list[i].destructor_func = destructor_elem_index;
+    info->key_data_list[i].is_created = true;
+    *key = i;
+    os_mutex_unlock(&info->key_data_list_lock);
+
+    return 0;
+}
+
+static int32
+pthread_setspecific_wrapper(wasm_exec_env_t exec_env, int32 key,
+                            int32 value_offset)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    ClusterInfoNode *info = get_cluster_info(cluster);
+    int32 *key_values;
+
+    if (!info)
+        return -1;
+
+    os_mutex_lock(&info->key_data_list_lock);
+
+    key_values = key_value_list_lookup_or_create(exec_env, info, key);
+    if (!key_values) {
+        os_mutex_unlock(&info->key_data_list_lock);
+        return 0;
+    }
+
+    key_values[key] = value_offset;
+    os_mutex_unlock(&info->key_data_list_lock);
+
+    return 0;
+}
+
+static int32
+pthread_getspecific_wrapper(wasm_exec_env_t exec_env, int32 key)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    ClusterInfoNode *info = get_cluster_info(cluster);
+    int32 ret, *key_values;
+
+    if (!info)
+        return -1;
+
+    os_mutex_lock(&info->key_data_list_lock);
+
+    key_values = key_value_list_lookup_or_create(exec_env, info, key);
+    if (!key_values) {
+        os_mutex_unlock(&info->key_data_list_lock);
+        return 0;
+    }
+
+    ret = key_values[key];
+    os_mutex_unlock(&info->key_data_list_lock);
+
+    return ret;
+}
+
+static int32
+pthread_key_delete_wrapper(wasm_exec_env_t exec_env, int32 key)
+{
+    KeyData *data;
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    ClusterInfoNode *info = get_cluster_info(cluster);
+
+    if (!info)
+        return -1;
+
+    os_mutex_lock(&info->key_data_list_lock);
+    data = key_data_list_lookup(exec_env, key);
+    if (!data) {
+        os_mutex_unlock(&info->key_data_list_lock);
+        return -1;
+    }
+
+    memset(data, 0, sizeof(KeyData));
+    os_mutex_unlock(&info->key_data_list_lock);
+
+    return 0;
+}
+
 #define REG_NATIVE_FUNC(func_name, signature)  \
     { #func_name, func_name##_wrapper, signature, NULL }
 
@@ -721,6 +995,10 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_cond_timedwait, "(**i)i"),
     REG_NATIVE_FUNC(pthread_cond_signal,    "(*)i"),
     REG_NATIVE_FUNC(pthread_cond_destroy,   "(*)i"),
+    REG_NATIVE_FUNC(pthread_key_create,     "(*i)i"),
+    REG_NATIVE_FUNC(pthread_setspecific,    "(ii)i"),
+    REG_NATIVE_FUNC(pthread_getspecific,    "(i)i"),
+    REG_NATIVE_FUNC(pthread_key_delete,     "(i)i"),
 };
 
 uint32
