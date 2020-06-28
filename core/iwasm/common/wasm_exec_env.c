@@ -61,6 +61,15 @@ fail1:
 void
 wasm_exec_env_destroy_internal(WASMExecEnv *exec_env)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMJmpBuf *jmpbuf = exec_env->jmpbuf_stack_top;
+    WASMJmpBuf *jmpbuf_prev;
+    while (jmpbuf) {
+        jmpbuf_prev = jmpbuf->prev;
+        wasm_runtime_free(jmpbuf);
+        jmpbuf = jmpbuf_prev;
+    }
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
     os_mutex_destroy(&exec_env->wait_lock);
     os_cond_destroy(&exec_env->wait_cond);
@@ -121,7 +130,6 @@ wasm_exec_env_set_thread_info(WASMExecEnv *exec_env)
     exec_env->handle = os_self_thread();
     exec_env->native_stack_boundary = os_thread_get_stack_boundary()
                                       + RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY;
-
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -137,3 +145,26 @@ wasm_exec_env_set_thread_arg(WASMExecEnv *exec_env, void *thread_arg)
     exec_env->thread_arg = thread_arg;
 }
 #endif
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+void
+wasm_exec_env_push_jmpbuf(WASMExecEnv *exec_env, WASMJmpBuf *jmpbuf)
+{
+    jmpbuf->prev = exec_env->jmpbuf_stack_top;
+    exec_env->jmpbuf_stack_top = jmpbuf;
+}
+
+WASMJmpBuf *
+wasm_exec_env_pop_jmpbuf(WASMExecEnv *exec_env)
+{
+    WASMJmpBuf *stack_top = exec_env->jmpbuf_stack_top;
+
+    if (stack_top) {
+        exec_env->jmpbuf_stack_top = stack_top->prev;
+        return stack_top;
+    }
+
+    return NULL;
+}
+#endif
+

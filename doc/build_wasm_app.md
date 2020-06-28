@@ -2,7 +2,7 @@
 
 # Prepare WASM building environments
 
-WASI-SDK version 7.0+ is the major tool supported by WAMR for building WASM applications. There are some other WASM compilers such as the standard clang compiler and Emscripten might also work [here](./other_wasm_compilers.md).
+WASI-SDK version 8.0+ is the major tool supported by WAMR to build WASM applications. There are some other WASM compilers such as the standard clang compiler and Emscripten might also work [here](./other_wasm_compilers.md).
 
 Install WASI SDK: Download the [wasi-sdk](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`
 
@@ -38,14 +38,47 @@ int main(int argc, char **argv)
 }
 ```
 
-
-
-To build the source file to WASM bytecode, input following command:
+To build the source file to WASM bytecode, we can input the following command:
 
 ``` Bash
-/opt/wasi-sdk/bin/clang test.c -o test.wasm
+/opt/wasi-sdk/bin/clang -O3 -o test.wasm test.c
 ```
 
+There are some useful options which can be specified to build the source code:
+
+- **-nostdlib** Do not use the standard system startup files or libraries when linking. In this mode, the libc-builtin library of WAMR must be built to run the wasm app, otherwise, the libc-wasi library must be built. You can specify **-DWAMR_BUILD_LIBC_BUILTIN** or **-DWAMR_BUILD_LIBC_WASI** for cmake to build WAMR with libc-builtin support or libc-wasi support.
+
+- **-Wl,--no-entry** Do not output any entry point
+
+- **-Wl,--export=<value>** Force a symbol to be exported, e.g. **-Wl,--export=main** to export main function
+
+- **-Wl,--export-all** Export all symbols (normally combined with --no-gc-sections)
+
+- **-Wl,--initial-memory=<value>** Initial size of the linear memory, which must be a multiple of 65536
+
+- **-Wl,--max-memory=<value>** Maximum size of the linear memory, which must be a multiple of 65536
+
+- **-z stack-size=<vlaue>** The auxiliary stack size, which is an area of linear memory, and must be smaller than initial memory size.
+
+- **-Wl,--strip-all** Strip all symbols
+
+- **-Wl,--shared-memory** Use shared linear memory
+
+- **-Wl,--threads** or **-Wl,--no-threads** Run or do not run the linker multi-threaded
+
+- **-Wl,--allow-undefined** Allow undefined symbols in linked binary
+
+- **-Wl,--allow-undefined-file=<value>** Allow symbols listed in <file> to be undefined in linked binary
+
+For example, we can build the wasm app with command:
+``` Bash
+/opt/wasi-sdk/bin/clang -O3 -nostdlib \
+    -z stack-size=8192 -Wl,--initial-memory=65536 \
+    -Wl,--export=main -o test.wasm test.c \
+    -Wl,--export=__heap_base,--export=__data_end \
+    -Wl,--no-entry -Wl,--strip-all -Wl,--allow-undefined
+```
+to generate a wasm binary with small footprint.
 
 # Build a project with cmake
 

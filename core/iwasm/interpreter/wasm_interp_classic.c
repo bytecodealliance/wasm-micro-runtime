@@ -224,11 +224,9 @@ LOAD_I16(void *addr)
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
 #define CHECK_MEMORY_OVERFLOW(bytes) do {                                   \
-    int32 offset1 = (int32)(offset + addr);                                 \
-    uint64 offset2 = (uint64)(uint32)(offset1 - heap_base_offset);          \
-    /* if (flags != 2)                                                      \
-      LOG_VERBOSE("unaligned load/store, flag: %d.\n", flags); */           \
-    if (offset2 + LOAD_SIZE[opcode - WASM_OP_I32_LOAD] <= total_mem_size)   \
+    int64 offset1 = (int64)(uint32)offset + (int64)(int32)addr;             \
+    if (heap_base_offset <= offset1                                         \
+        && offset1 <= (int64)linear_mem_size - bytes)                       \
       /* If offset1 is in valid range, maddr must also be in valid range,   \
          no need to check it again. */                                      \
       maddr = memory->memory_data + offset1;                                \
@@ -973,12 +971,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   WASMMemoryInstance *memory = module->default_memory;
   int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
-  uint32 total_mem_size = memory ? num_bytes_per_page * memory->cur_page_count
-                                   - heap_base_offset : 0;
   uint8 *global_data = module->global_data;
-#if WASM_ENABLE_BULK_MEMORY != 0
   uint32 linear_mem_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
-#endif
   WASMTableInstance *table = module->default_table;
   WASMGlobalInstance *globals = module->globals;
   uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
@@ -1014,12 +1008,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   DEFINE_GOTO_TABLE (const void *, handle_table);
   #undef HANDLE_OPCODE
 #endif
-
-  /* Size of memory load.
-     This starts with the first memory load operator at opcode 0x28 */
-  uint32 LOAD_SIZE[] = {
-    4, 8, 4, 8, 1, 1, 2, 2, 1, 1, 2, 2, 4, 4,   /* loads */
-    4, 8, 4, 8, 1, 2, 1, 2, 4 };                /* stores */
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
   while (frame_ip < frame_ip_end) {
@@ -1445,6 +1433,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
               if ((global_idx == (uint32)aux_stack_top_global_idx)
                   && (*(uint32*)(frame_sp - 1) < exec_env->aux_stack_boundary))
                 goto out_of_bounds;
+              *(int32*)global_addr = POP_I32();
+              break;
             case VALUE_TYPE_F32:
               *(int32*)global_addr = POP_I32();
               break;
@@ -1462,180 +1452,261 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
       /* memory load instructions */
       HANDLE_OP (WASM_OP_I32_LOAD):
-      HANDLE_OP (WASM_OP_I64_LOAD):
       HANDLE_OP (WASM_OP_F32_LOAD):
-      HANDLE_OP (WASM_OP_F64_LOAD):
-      HANDLE_OP (WASM_OP_I32_LOAD8_S):
-      HANDLE_OP (WASM_OP_I32_LOAD8_U):
-      HANDLE_OP (WASM_OP_I32_LOAD16_S):
-      HANDLE_OP (WASM_OP_I32_LOAD16_U):
-      HANDLE_OP (WASM_OP_I64_LOAD8_S):
-      HANDLE_OP (WASM_OP_I64_LOAD8_U):
-      HANDLE_OP (WASM_OP_I64_LOAD16_S):
-      HANDLE_OP (WASM_OP_I64_LOAD16_U):
-      HANDLE_OP (WASM_OP_I64_LOAD32_S):
-      HANDLE_OP (WASM_OP_I64_LOAD32_U):
         {
-          uint32 offset, flags, addr;
-          GET_OPCODE();
+          uint32 offset, flags;
+          int32 addr;
+
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
-          addr = (uint32)POP_I32();
-          CHECK_MEMORY_OVERFLOW();
-#if WASM_ENABLE_LABELS_AS_VALUES != 0
-          static const void *handle_load_table[] = {
-              &&HANDLE_LOAD_WASM_OP_I32_LOAD,
-              &&HANDLE_LOAD_WASM_OP_I64_LOAD,
-              &&HANDLE_LOAD_WASM_OP_F32_LOAD,
-              &&HANDLE_LOAD_WASM_OP_F64_LOAD,
-              &&HANDLE_LOAD_WASM_OP_I32_LOAD8_S,
-              &&HANDLE_LOAD_WASM_OP_I32_LOAD8_U,
-              &&HANDLE_LOAD_WASM_OP_I32_LOAD16_S,
-              &&HANDLE_LOAD_WASM_OP_I32_LOAD16_U,
-              &&HANDLE_LOAD_WASM_OP_I64_LOAD8_S,
-              &&HANDLE_LOAD_WASM_OP_I64_LOAD8_U,
-              &&HANDLE_LOAD_WASM_OP_I64_LOAD16_S,
-              &&HANDLE_LOAD_WASM_OP_I64_LOAD16_U,
-              &&HANDLE_LOAD_WASM_OP_I64_LOAD32_S,
-              &&HANDLE_LOAD_WASM_OP_I64_LOAD32_U
-          };
-          #define HANDLE_OP_LOAD(opcode) HANDLE_LOAD_##opcode
-          goto *handle_load_table[opcode - WASM_OP_I32_LOAD];
-#else
-          #define HANDLE_OP_LOAD(opcode) case opcode
-          switch (opcode)
-#endif
-          {
-            HANDLE_OP_LOAD(WASM_OP_I32_LOAD):
-              PUSH_I32(LOAD_I32(maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I64_LOAD):
-              PUSH_I64(LOAD_I64(maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_F32_LOAD):
-              PUSH_I32(LOAD_I32(maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_F64_LOAD):
-              PUSH_F64(LOAD_F64(maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I32_LOAD8_S):
-              PUSH_I32(sign_ext_8_32(*(int8*)maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I32_LOAD8_U):
-              PUSH_I32((uint32)(*(uint8*)maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I32_LOAD16_S):
-              PUSH_I32(sign_ext_16_32(LOAD_I16(maddr)));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I32_LOAD16_U):
-              PUSH_I32((uint32)(LOAD_U16(maddr)));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I64_LOAD8_S):
-              PUSH_I64(sign_ext_8_64(*(int8*)maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I64_LOAD8_U):
-              PUSH_I64((uint64)(*(uint8*)maddr));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I64_LOAD16_S):
-              PUSH_I64(sign_ext_16_64(LOAD_I16(maddr)));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I64_LOAD16_U):
-              PUSH_I64((uint64)(LOAD_U16(maddr)));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I64_LOAD32_S):
-              PUSH_I64(sign_ext_32_64(LOAD_I32(maddr)));
-              HANDLE_OP_END();
-            HANDLE_OP_LOAD(WASM_OP_I64_LOAD32_U):
-              PUSH_I64((uint64)(LOAD_U32(maddr)));
-              HANDLE_OP_END();
-          }
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(4);
+          PUSH_I32(LOAD_I32(maddr));
           (void)flags;
-          HANDLE_OP_END ();
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I64_LOAD):
+      HANDLE_OP (WASM_OP_F64_LOAD):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(8);
+          PUSH_I64(LOAD_I64(maddr));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I32_LOAD8_S):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(1);
+          PUSH_I32(sign_ext_8_32(*(int8*)maddr));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I32_LOAD8_U):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(1);
+          PUSH_I32((uint32)(*(uint8*)maddr));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I32_LOAD16_S):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(2);
+          PUSH_I32(sign_ext_16_32(LOAD_I16(maddr)));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I32_LOAD16_U):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(2);
+          PUSH_I32((uint32)(LOAD_U16(maddr)));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I64_LOAD8_S):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(1);
+          PUSH_I64(sign_ext_8_64(*(int8*)maddr));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I64_LOAD8_U):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(1);
+          PUSH_I64((uint64)(*(uint8*)maddr));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I64_LOAD16_S):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(2);
+          PUSH_I64(sign_ext_16_64(LOAD_I16(maddr)));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I64_LOAD16_U):
+          {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(2);
+          PUSH_I64((uint64)(LOAD_U16(maddr)));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I64_LOAD32_S):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          opcode = *(frame_ip - 1);
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(4);
+          PUSH_I64(sign_ext_32_64(LOAD_I32(maddr)));
+          (void)flags;
+          HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_I64_LOAD32_U):
+        {
+          uint32 offset, flags;
+          int32 addr;
+
+          read_leb_uint32(frame_ip, frame_ip_end, flags);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(4);
+          PUSH_I64((uint64)(LOAD_U32(maddr)));
+          (void)flags;
+          HANDLE_OP_END();
         }
 
       /* memory store instructions */
+      HANDLE_OP (WASM_OP_I32_STORE):
       HANDLE_OP (WASM_OP_F32_STORE):
         {
-          uint32 offset, flags, addr;
-          GET_OPCODE();
+          uint32 offset, flags;
+          int32 addr;
+
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
           frame_sp--;
-          addr = (uint32)POP_I32();
-          CHECK_MEMORY_OVERFLOW();
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(4);
           STORE_U32(maddr, frame_sp[1]);
           (void)flags;
           HANDLE_OP_END ();
         }
 
+      HANDLE_OP (WASM_OP_I64_STORE):
       HANDLE_OP (WASM_OP_F64_STORE):
         {
-          uint32 offset, flags, addr;
-          GET_OPCODE();
+          uint32 offset, flags;
+          int32 addr;
+
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
           frame_sp -= 2;
-          addr = (uint32)POP_I32();
-          CHECK_MEMORY_OVERFLOW();
+          addr = POP_I32();
+          CHECK_MEMORY_OVERFLOW(8);
           STORE_U32(maddr, frame_sp[1]);
           STORE_U32(maddr + 4, frame_sp[2]);
           (void)flags;
           HANDLE_OP_END ();
         }
 
-      HANDLE_OP (WASM_OP_I32_STORE):
       HANDLE_OP (WASM_OP_I32_STORE8):
       HANDLE_OP (WASM_OP_I32_STORE16):
         {
-          uint32 offset, flags, addr;
+          uint32 offset, flags;
+          int32 addr;
           uint32 sval;
-          GET_OPCODE();
+
+          opcode = *(frame_ip - 1);
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
           sval = (uint32)POP_I32();
-          addr = (uint32)POP_I32();
-          CHECK_MEMORY_OVERFLOW();
-          switch (opcode) {
-            case WASM_OP_I32_STORE:
-              STORE_U32(maddr, sval);
-              break;
-            case WASM_OP_I32_STORE8:
+          addr = POP_I32();
+
+          if (opcode == WASM_OP_I32_STORE8) {
+              CHECK_MEMORY_OVERFLOW(1);
               *(uint8*)maddr = (uint8)sval;
-              break;
-            case WASM_OP_I32_STORE16:
-              STORE_U16(maddr, (uint16)sval);
-              break;
           }
+          else {
+              CHECK_MEMORY_OVERFLOW(2);
+              STORE_U16(maddr, (uint16)sval);
+          }
+
           (void)flags;
           HANDLE_OP_END ();
         }
 
-      HANDLE_OP (WASM_OP_I64_STORE):
       HANDLE_OP (WASM_OP_I64_STORE8):
       HANDLE_OP (WASM_OP_I64_STORE16):
       HANDLE_OP (WASM_OP_I64_STORE32):
         {
-          uint32 offset, flags, addr;
+          uint32 offset, flags;
+          int32 addr;
           uint64 sval;
-          GET_OPCODE();
+
+          opcode = *(frame_ip - 1);
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
           sval = (uint64)POP_I64();
-          addr = (uint32)POP_I32();
-          CHECK_MEMORY_OVERFLOW();
-          switch (opcode) {
-            case WASM_OP_I64_STORE:
-              STORE_I64(maddr, sval);
-              break;
-            case WASM_OP_I64_STORE8:
+          addr = POP_I32();
+
+          if (opcode == WASM_OP_I64_STORE8) {
+              CHECK_MEMORY_OVERFLOW(1);
               *(uint8*)maddr = (uint8)sval;
-              break;
-            case WASM_OP_I64_STORE16:
+          }
+          else if(opcode == WASM_OP_I64_STORE16) {
+              CHECK_MEMORY_OVERFLOW(2);
               STORE_U16(maddr, (uint16)sval);
-              break;
-            case WASM_OP_I64_STORE32:
+          }
+          else {
+              CHECK_MEMORY_OVERFLOW(4);
               STORE_U32(maddr, (uint32)sval);
-              break;
           }
           (void)flags;
           HANDLE_OP_END ();
@@ -1671,11 +1742,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           PUSH_I32(prev_page_count);
           /* update the memory instance ptr */
           memory = module->default_memory;
-          total_mem_size = num_bytes_per_page * memory->cur_page_count
-                           - heap_base_offset;
-#if WASM_ENABLE_BULK_MEMORY != 0
           linear_mem_size = num_bytes_per_page * memory->cur_page_count;
-#endif
         }
 
         (void)reserved;

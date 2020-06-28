@@ -22,6 +22,13 @@ struct WASMInterpFrame;
 typedef struct WASMCluster WASMCluster;
 #endif
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+typedef struct WASMJmpBuf {
+    struct WASMJmpBuf *prev;
+    korp_jmpbuf jmpbuf;
+} WASMJmpBuf;
+#endif
+
 /* Execution environment */
 typedef struct WASMExecEnv {
     /* Next thread's exec env of a WASM module instance. */
@@ -80,6 +87,10 @@ typedef struct WASMExecEnv {
 
 #if WASM_ENABLE_INTERP != 0
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
+#endif
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMJmpBuf *jmpbuf_stack_top;
 #endif
 
     /* The WASM stack size */
@@ -205,6 +216,14 @@ wasm_exec_env_get_thread_arg(WASMExecEnv *exec_env);
 
 void
 wasm_exec_env_set_thread_arg(WASMExecEnv *exec_env, void *thread_arg);
+#endif
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+void
+wasm_exec_env_push_jmpbuf(WASMExecEnv *exec_env, WASMJmpBuf *jmpbuf);
+
+WASMJmpBuf *
+wasm_exec_env_pop_jmpbuf(WASMExecEnv *exec_env);
 #endif
 
 #ifdef __cplusplus

@@ -6,7 +6,7 @@
 #include "platform_api_vmcore.h"
 
 void *
-os_mmap(void *hint, uint32 size, int prot, int flags)
+os_mmap(void *hint, size_t size, int prot, int flags)
 {
     int map_prot = PROT_NONE;
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE;
@@ -17,7 +17,12 @@ os_mmap(void *hint, uint32 size, int prot, int flags)
     page_size = getpagesize();
     request_size = (size + page_size - 1) & ~(page_size - 1);
 
-    if (request_size >= UINT32_MAX)
+    if ((size_t)request_size < size)
+        /* integer overflow */
+        return NULL;
+
+    if (request_size > 16 * (uint64)UINT32_MAX)
+        /* At most 16 G is allowed */
         return NULL;
 
     if (prot & MMAP_PROT_READ)
@@ -53,7 +58,7 @@ os_mmap(void *hint, uint32 size, int prot, int flags)
 }
 
 void
-os_munmap(void *addr, uint32 size)
+os_munmap(void *addr, size_t size)
 {
     uint64 page_size = getpagesize();
     uint64 request_size = (size + page_size - 1) & ~(page_size - 1);
@@ -67,9 +72,11 @@ os_munmap(void *addr, uint32 size)
 }
 
 int
-os_mprotect(void *addr, uint32 size, int prot)
+os_mprotect(void *addr, size_t size, int prot)
 {
     int map_prot = PROT_NONE;
+    uint64 page_size = getpagesize();
+    uint64 request_size = (size + page_size - 1) & ~(page_size - 1);
 
     if (!addr)
         return 0;
@@ -83,7 +90,7 @@ os_mprotect(void *addr, uint32 size, int prot)
     if (prot & MMAP_PROT_EXEC)
         map_prot |= PROT_EXEC;
 
-    return mprotect(addr, size, map_prot);
+    return mprotect(addr, request_size, map_prot);
 }
 
 void

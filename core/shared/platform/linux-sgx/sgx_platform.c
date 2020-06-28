@@ -82,7 +82,7 @@ int os_vprintf(const char * format, va_list arg)
     return 0;
 }
 
-void* os_mmap(void *hint, uint32 size, int prot, int flags)
+void* os_mmap(void *hint, size_t size, int prot, int flags)
 {
 #if WASM_ENABLE_AOT != 0
     int mprot = 0;
@@ -124,7 +124,7 @@ void* os_mmap(void *hint, uint32 size, int prot, int flags)
 #endif
 }
 
-void os_munmap(void *addr, uint32 size)
+void os_munmap(void *addr, size_t size)
 {
 #if WASM_ENABLE_AOT != 0
     uint64 aligned_size, page_size;
@@ -135,11 +135,15 @@ void os_munmap(void *addr, uint32 size)
 #endif
 }
 
-int os_mprotect(void *addr, uint32 size, int prot)
+int os_mprotect(void *addr, size_t size, int prot)
 {
 #if WASM_ENABLE_AOT != 0
     int mprot = 0;
     sgx_status_t st = 0;
+    uint64 aligned_size, page_size;
+
+    page_size = getpagesize();
+    aligned_size = (size + page_size - 1) & ~(page_size - 1);
 
     if (prot & MMAP_PROT_READ)
         mprot |= SGX_PROT_READ;
@@ -147,7 +151,7 @@ int os_mprotect(void *addr, uint32 size, int prot)
         mprot |= SGX_PROT_WRITE;
     if (prot & MMAP_PROT_EXEC)
         mprot |= SGX_PROT_EXEC;
-    st = sgx_tprotect_rsrv_mem(addr, size, mprot);
+    st = sgx_tprotect_rsrv_mem(addr, aligned_size, mprot);
     if (st != SGX_SUCCESS)
         os_printf("os_mprotect(addr=0x%lx, size=%u, prot=0x%x) failed.",
                   addr, size, prot);

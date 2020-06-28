@@ -226,11 +226,9 @@ LOAD_I16(void *addr)
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
 #define CHECK_MEMORY_OVERFLOW(bytes) do {                                \
-    int32 offset1 = (int32)(offset + addr);                              \
-    uint64 offset2 = (uint64)(uint32)(offset1 - heap_base_offset);       \
-    /* if (flags != 2)                                                   \
-      LOG_VERBOSE("unaligned load/store, flag: %d.\n", flags); */        \
-    if (offset2 + bytes <= total_mem_size)                               \
+    int64 offset1 = (int64)(uint32)offset + (int64)(int32)addr;          \
+    if (heap_base_offset <= offset1                                      \
+        && offset1 <= (int64)linear_mem_size - bytes)                    \
       /* If offset1 is in valid range, maddr must also be in valid range,\
          no need to check it again. */                                   \
       maddr = memory->memory_data + offset1;                             \
@@ -411,6 +409,8 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
   res = (uint32)read_leb(p, &_off, 32, false);  \
   p += _off;                                    \
 } while (0)
+
+#define read_uint32(p) (p += sizeof(uint32), *(uint32 *)(p - sizeof(uint32)))
 
 #define GET_LOCAL_INDEX_TYPE_AND_OFFSET() do {                      \
     uint32 param_count = cur_func->param_count;                     \
@@ -965,12 +965,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   WASMMemoryInstance *memory = module->default_memory;
   int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
-  uint32 total_mem_size = memory ? num_bytes_per_page * memory->cur_page_count
-                                   - heap_base_offset : 0;
   uint8 *global_data = module->global_data;
-#if WASM_ENABLE_BULK_MEMORY != 0
   uint32 linear_mem_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
-#endif
   WASMTableInstance *table = module->default_table;
   WASMGlobalInstance *globals = module->globals;
   uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
@@ -1067,9 +1063,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0
         CHECK_SUSPEND_FLAGS();
 #endif
-        count = GET_OPERAND(uint32, 0);
-        didx = GET_OPERAND(uint32, 2);
-        frame_ip += 4;
+        count = read_uint32(frame_ip);
+        didx = GET_OPERAND(uint32, 0);
+        frame_ip += 2;
 
         if (!(didx >= 0 && (uint32)didx < count))
             didx = count;
@@ -1096,9 +1092,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           CHECK_SUSPEND_FLAGS();
 #endif
 
-          tidx = GET_OPERAND(int32, 0);
-          val = GET_OPERAND(int32, 2);
-          frame_ip += 4;
+          tidx = read_uint32(frame_ip);
+          val = GET_OPERAND(int32, 0);
+          frame_ip += 2;
 
           if (tidx >= module->module->type_count) {
             wasm_set_exception(module, "type index is overflow");
@@ -1228,7 +1224,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
       HANDLE_OP (WASM_OP_GET_GLOBAL):
         {
-          global_idx = frame_lp[GET_OFFSET()];
+          global_idx = read_uint32(frame_ip);
           addr_ret = GET_OFFSET();
 
           bh_assert(global_idx < module->global_count);
@@ -1261,7 +1257,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
       HANDLE_OP (WASM_OP_SET_GLOBAL):
         {
-          global_idx = frame_lp[GET_OFFSET()];
+          global_idx = read_uint32(frame_ip);
           addr1 = GET_OFFSET();
 
           bh_assert(global_idx < module->global_count);
@@ -1281,6 +1277,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
               if ((global_idx == (uint32)aux_stack_top_global_idx)
                   && (frame_lp[addr1] < exec_env->aux_stack_boundary))
                 goto out_of_bounds;
+              *(int32*)global_addr = frame_lp[addr1];
+              break;
             case VALUE_TYPE_F32:
               *(int32*)global_addr = frame_lp[addr1];
               break;
@@ -1300,9 +1298,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I32_LOAD):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(4);
           frame_lp[addr_ret] = LOAD_I32(maddr);
@@ -1312,9 +1310,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I64_LOAD):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(8);
           PUT_I64_TO_ADDR(frame_lp + addr_ret, LOAD_I64(maddr));
@@ -1324,9 +1322,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I32_LOAD8_S):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(1);
           frame_lp[addr_ret] = sign_ext_8_32(*(int8*)maddr);
@@ -1336,9 +1334,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I32_LOAD8_U):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(1);
           frame_lp[addr_ret] = (uint32)(*(uint8*)maddr);
@@ -1348,9 +1346,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I32_LOAD16_S):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(2);
           frame_lp[addr_ret] = sign_ext_16_32(LOAD_I16(maddr));
@@ -1360,9 +1358,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I32_LOAD16_U):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(2);
           frame_lp[addr_ret] = (uint32)(LOAD_U16(maddr));
@@ -1372,9 +1370,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I64_LOAD8_S):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(1);
           *(int64 *)(frame_lp + addr_ret) = sign_ext_8_64(*(int8*)maddr);
@@ -1384,9 +1382,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I64_LOAD8_U):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(1);
           *(int64 *)(frame_lp + addr_ret) = (uint64)(*(uint8*)maddr);
@@ -1396,9 +1394,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I64_LOAD16_S):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(2);
           *(int64 *)(frame_lp + addr_ret) = sign_ext_16_64(LOAD_I16(maddr));
@@ -1408,9 +1406,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I64_LOAD16_U):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(2);
           *(int64 *)(frame_lp + addr_ret) = (uint64)(LOAD_U16(maddr));
@@ -1420,9 +1418,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I64_LOAD32_S):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(4);
           *(int64 *)(frame_lp + addr_ret) = sign_ext_32_64(LOAD_I32(maddr));
@@ -1432,9 +1430,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_I64_LOAD32_U):
         {
           uint32 offset, addr;
-          offset = GET_OPERAND(uint32, 0);
-          addr = GET_OPERAND(uint32, 2);
-          frame_ip += 4;
+          offset = read_uint32(frame_ip);
+          addr = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
           addr_ret = GET_OFFSET();
           CHECK_MEMORY_OVERFLOW(4);
           *(int64 *)(frame_lp + addr_ret) = (uint64)(LOAD_U32(maddr));
@@ -1445,10 +1443,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 offset, addr;
           uint32 sval;
-          offset = GET_OPERAND(uint32, 0);
-          sval = GET_OPERAND(uint32, 2);
-          addr = GET_OPERAND(uint32, 4);
-          frame_ip += 6;
+          offset = read_uint32(frame_ip);
+          sval = GET_OPERAND(uint32, 0);
+          addr = GET_OPERAND(uint32, 2);
+          frame_ip += 4;
           CHECK_MEMORY_OVERFLOW(4);
           STORE_U32(maddr, sval);
           HANDLE_OP_END ();
@@ -1458,10 +1456,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 offset, addr;
           uint32 sval;
-          offset = GET_OPERAND(uint32, 0);
-          sval = GET_OPERAND(uint32, 2);
-          addr = GET_OPERAND(uint32, 4);
-          frame_ip += 6;
+          offset = read_uint32(frame_ip);
+          sval = GET_OPERAND(uint32, 0);
+          addr = GET_OPERAND(uint32, 2);
+          frame_ip += 4;
           CHECK_MEMORY_OVERFLOW(1);
           *(uint8*)maddr = (uint8)sval;
           HANDLE_OP_END ();
@@ -1471,10 +1469,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 offset, addr;
           uint32 sval;
-          offset = GET_OPERAND(uint32, 0);
-          sval = GET_OPERAND(uint32, 2);
-          addr = GET_OPERAND(uint32, 4);
-          frame_ip += 6;
+          offset = read_uint32(frame_ip);
+          sval = GET_OPERAND(uint32, 0);
+          addr = GET_OPERAND(uint32, 2);
+          frame_ip += 4;
           CHECK_MEMORY_OVERFLOW(2);
           STORE_U16(maddr, (uint16)sval);
           HANDLE_OP_END ();
@@ -1484,10 +1482,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 offset, addr;
           uint64 sval;
-          offset = GET_OPERAND(uint32, 0);
-          sval = GET_OPERAND(uint64, 2);
-          addr = GET_OPERAND(uint32, 4);
-          frame_ip += 6;
+          offset = read_uint32(frame_ip);
+          sval = GET_OPERAND(uint64, 0);
+          addr = GET_OPERAND(uint32, 2);
+          frame_ip += 4;
           CHECK_MEMORY_OVERFLOW(8);
           STORE_I64(maddr, sval);
           HANDLE_OP_END ();
@@ -1497,10 +1495,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 offset, addr;
           uint64 sval;
-          offset = GET_OPERAND(uint32, 0);
-          sval = GET_OPERAND(uint64, 2);
-          addr = GET_OPERAND(uint32, 4);
-          frame_ip += 6;
+          offset = read_uint32(frame_ip);
+          sval = GET_OPERAND(uint64, 0);
+          addr = GET_OPERAND(uint32, 2);
+          frame_ip += 4;
           CHECK_MEMORY_OVERFLOW(1);
           *(uint8*)maddr = (uint8)sval;
           HANDLE_OP_END ();
@@ -1510,10 +1508,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 offset, addr;
           uint64 sval;
-          offset = GET_OPERAND(uint32, 0);
-          sval = GET_OPERAND(uint64, 2);
-          addr = GET_OPERAND(uint32, 4);
-          frame_ip += 6;
+          offset = read_uint32(frame_ip);
+          sval = GET_OPERAND(uint64, 0);
+          addr = GET_OPERAND(uint32, 2);
+          frame_ip += 4;
           CHECK_MEMORY_OVERFLOW(2);
           STORE_U16(maddr, (uint16)sval);
           HANDLE_OP_END ();
@@ -1523,10 +1521,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 offset, addr;
           uint64 sval;
-          offset = GET_OPERAND(uint32, 0);
-          sval = GET_OPERAND(uint64, 2);
-          addr = GET_OPERAND(uint32, 4);
-          frame_ip += 6;
+          offset = read_uint32(frame_ip);
+          sval = GET_OPERAND(uint64, 0);
+          addr = GET_OPERAND(uint32, 2);
+          frame_ip += 4;
           CHECK_MEMORY_OVERFLOW(4);
           STORE_U32(maddr, (uint32)sval);
           HANDLE_OP_END ();
@@ -1563,11 +1561,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           frame_lp[addr_ret] = prev_page_count;
           /* update the memory instance ptr */
           memory = module->default_memory;
-          total_mem_size = num_bytes_per_page * memory->cur_page_count
-                           - heap_base_offset;
-#if WASM_ENABLE_BULK_MEMORY != 0
           linear_mem_size = num_bytes_per_page * memory->cur_page_count;
-#endif
         }
 
         (void)reserved;
@@ -2335,23 +2329,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (EXT_OP_COPY_STACK_TOP):
         addr1 = GET_OFFSET();
         addr2 = GET_OFFSET();
-#if defined(BUILD_TARGET_X86_32)
-        bh_memcpy_s(frame_lp + addr2, sizeof(int32),
-                    frame_lp + addr1, sizeof(int32));
-#else
         frame_lp[addr2] = frame_lp[addr1];
-#endif
         HANDLE_OP_END ();
 
       HANDLE_OP (EXT_OP_COPY_STACK_TOP_I64):
         addr1 = GET_OFFSET();
         addr2 = GET_OFFSET();
-#if defined(BUILD_TARGET_X86_32)
-        bh_memcpy_s(frame_lp + addr2, sizeof(int64),
-                    frame_lp + addr1, sizeof(int64));
-#else
-        *(float64*)(frame_lp + addr2) = *(float64*)(frame_lp + addr1);
-#endif
+        *(uint64*)(frame_lp + addr2) = *(uint64*)(frame_lp + addr1);
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_SET_LOCAL):
@@ -2441,8 +2425,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
           uint64 bytes, offset, seg_len;
           uint8* data;
 
-          segment = GET_OPERAND(uint32, 0);
-          frame_ip += 2;
+          segment = read_uint32(frame_ip);
 
           bytes = (uint64)POP_I32();
           offset = (uint64)POP_I32();
@@ -2463,8 +2446,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
           uint32 segment;
 
-          segment = GET_OPERAND(uint32, 0);
-          frame_ip += 2;
+          segment = read_uint32(frame_ip);
 
           module->module->data_segments[segment]->data_length = 0;
 
@@ -2521,7 +2503,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0
         CHECK_SUSPEND_FLAGS();
 #endif
-        fidx = frame_lp[GET_OFFSET()];
+        fidx = read_uint32(frame_ip);
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (fidx >= module->function_count) {
           wasm_set_exception(module, "unknown function");

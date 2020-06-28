@@ -483,6 +483,7 @@ pthread_start_routine(void *arg)
         return NULL;
     }
 
+    wasm_exec_env_set_thread_info(exec_env);
     argv[0] = addr_native_to_app(routine_args->arg);
 
     if(!wasm_runtime_call_indirect(exec_env,
