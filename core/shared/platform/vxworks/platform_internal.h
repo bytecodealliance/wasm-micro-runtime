@@ -50,6 +50,38 @@ typedef pthread_t korp_thread;
 #define os_printf printf
 #define os_vprintf vprintf
 
+#if WASM_DISABLE_HW_BOUND_CHECK == 0
+#if defined(BUILD_TARGET_X86_64) \
+    || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_AARCH64)
+
+#include <signal.h>
+#include <setjmp.h>
+
+#define OS_ENABLE_HW_BOUND_CHECK
+
+#define os_thread_local_attribute __thread
+
+typedef jmp_buf korp_jmpbuf;
+
+#define os_setjmp setjmp
+#define os_longjmp longjmp
+#define os_alloca alloca
+
+#define os_getpagesize getpagesize
+
+typedef void (*os_signal_handler)(void *sig_addr);
+
+int os_signal_init(os_signal_handler handler);
+
+void os_signal_destroy();
+
+void os_signal_unmask();
+
+void os_sigreturn();
+#endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64 */
+#endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+
 #ifdef __cplusplus
 }
 #endif

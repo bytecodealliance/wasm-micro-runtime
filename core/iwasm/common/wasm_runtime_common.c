@@ -120,9 +120,24 @@ wasm_runtime_env_init()
         goto fail5;
     }
 #endif
+
+#if WASM_ENABLE_AOT != 0
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!aot_signal_init()) {
+        goto fail6;
+    }
+#endif
+#endif
+
     return true;
 
+#if WASM_ENABLE_AOT != 0
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+fail6:
+#endif
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
+    thread_manager_destroy();
 fail5:
 #endif
 #if WASM_ENABLE_SHARED_MEMORY
@@ -170,6 +185,12 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
+#if WASM_ENABLE_AOT != 0
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    aot_signal_destroy();
+#endif
+#endif
+
     /* runtime env destroy */
 #if WASM_ENABLE_MULTI_MODULE
     wasm_runtime_destroy_loading_module_list();

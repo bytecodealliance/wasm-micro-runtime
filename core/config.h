@@ -149,6 +149,12 @@ enum {
 #define WASM_ENABLE_MINI_LOADER 0
 #endif
 
+/* Disable boundary check with hardware trap or not,
+ * enable it by default if it is supported */
+#ifndef WASM_DISABLE_HW_BOUND_CHECK
+#define WASM_DISABLE_HW_BOUND_CHECK 0
+#endif
+
 /* Heap and stack profiling */
 #define BH_ENABLE_MEMORY_PROFILING 0
 
@@ -199,8 +205,8 @@ enum {
 
 /* Default/min/max stack size of each app thread */
 #if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS)
-#define APP_THREAD_STACK_SIZE_DEFAULT (20 * 1024)
-#define APP_THREAD_STACK_SIZE_MIN (16 * 1024)
+#define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
+#define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
 #else
 #define APP_THREAD_STACK_SIZE_DEFAULT (6 * 1024)

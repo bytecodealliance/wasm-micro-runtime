@@ -398,7 +398,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_func = func_ctxes[func_idx - import_func_count]->aot_func;
         callee_cell_num = aot_func->param_cell_num + aot_func->local_cell_num + 1;
 
-        if (!check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
+        if (comp_ctx->enable_bound_check
+            && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
 
         /* Call the function */

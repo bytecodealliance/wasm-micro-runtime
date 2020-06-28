@@ -2881,13 +2881,13 @@ wasm_loader_check_br(WASMLoaderContext *ctx, uint32 depth,
     LOG_OP("%d\t", byte);                                           \
   } while (0)
 
-#define emit_leb() do {                                             \
-    wasm_loader_emit_leb(loader_ctx, p_org, p);                     \
+#define emit_uint32(ctx, value) do {                                \
+    wasm_loader_emit_uint32(ctx, value);                            \
+    LOG_OP("%d\t", value);                                          \
   } while (0)
 
-#define emit_const(value) do {                                      \
-    GET_CONST_OFFSET(VALUE_TYPE_I32, value);                        \
-    emit_operand(loader_ctx, operand_offset);                       \
+#define emit_leb() do {                                             \
+    wasm_loader_emit_leb(loader_ctx, p_org, p);                     \
   } while (0)
 
 static bool
@@ -2920,6 +2920,17 @@ wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 
     /* const buf is reserved */
     return true;
+}
+
+static void
+wasm_loader_emit_uint32(WASMLoaderContext *ctx, uint32 value)
+{
+    if (ctx->p_code_compiled) {
+        *(uint32*)(ctx->p_code_compiled) = value;
+        ctx->p_code_compiled += sizeof(uint32);
+    }
+    else
+        ctx->code_compiled_size += sizeof(uint32);
 }
 
 static void
@@ -3968,7 +3979,7 @@ re_scan:
 
                 read_leb_uint32(p, p_end, count);
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_const(count);
+                emit_uint32(loader_ctx, count);
 #endif
                 POP_I32();
 
@@ -4025,7 +4036,7 @@ re_scan:
                 read_leb_uint32(p, p_end, func_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
                 // we need to emit func_idx before arguments
-                emit_const(func_idx);
+                emit_uint32(loader_ctx, func_idx);
 #endif
 
                 bh_assert(func_idx < module->import_function_count
@@ -4069,7 +4080,7 @@ re_scan:
                 read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
                 // we need to emit func_idx before arguments
-                emit_const(type_idx);
+                emit_uint32(loader_ctx, type_idx);
 #endif
 
                 /* reserved byte 0x00 */
@@ -4369,7 +4380,7 @@ re_scan:
 
                 PUSH_TYPE(global_type);
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_const(global_idx);
+                emit_uint32(loader_ctx, global_idx);
                 PUSH_OFFSET_TYPE(global_type);
 #endif
                 break;
@@ -4396,7 +4407,7 @@ re_scan:
 
                 POP_TYPE(global_type);
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_const(global_idx);
+                emit_uint32(loader_ctx, global_idx);
                 POP_OFFSET_TYPE(global_type);
 #endif
                 (void)is_mutable;
@@ -4452,7 +4463,7 @@ re_scan:
                 read_leb_uint32(p, p_end, align); /* align */
                 read_leb_uint32(p, p_end, mem_offset); /* offset */
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_const(mem_offset);
+                emit_uint32(loader_ctx, mem_offset);
 #endif
                 switch (opcode)
                 {
@@ -4823,7 +4834,7 @@ re_scan:
                 case WASM_OP_MEMORY_INIT:
                     read_leb_uint32(p, p_end, segment_index);
 #if WASM_ENABLE_FAST_INTERP != 0
-                    emit_const(segment_index);
+                    emit_uint32(loader_ctx, segment_index);
 #endif
                     bh_assert(module->import_memory_count
                               + module->memory_count > 0);
@@ -4841,7 +4852,7 @@ re_scan:
                 case WASM_OP_DATA_DROP:
                     read_leb_uint32(p, p_end, segment_index);
 #if WASM_ENABLE_FAST_INTERP != 0
-                    emit_const(segment_index);
+                    emit_uint32(loader_ctx, segment_index);
 #endif
                     bh_assert(segment_index < module->data_seg_count);
                     bh_assert(module->data_seg_count1 > 0);

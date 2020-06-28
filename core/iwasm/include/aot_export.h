@@ -40,9 +40,11 @@ typedef struct AOTCompOption{
     char *target_cpu;
     char *cpu_features;
     bool enable_bulk_memory;
+    bool is_sgx_platform;
     uint32_t opt_level;
     uint32_t size_level;
     uint32_t output_format;
+    uint32_t bounds_checks;
 } AOTCompOption, *aot_comp_option_t;
 
 aot_comp_context_t

@@ -46,7 +46,7 @@ The script `runtime_lib.cmake` defined a number of variables for configuring the
 
 - **WAMR_BUILD_LIBC_BUILTIN**=1/0,  default to enable if no set
 
-- **WAMR_BUILD_LIBC_WASI**=1/0, default to disable if no set
+- **WAMR_BUILD_LIBC_WASI**=1/0, default to enable if no set
 
 #### **Enable Multi-Module feature**
 
@@ -55,7 +55,7 @@ The script `runtime_lib.cmake` defined a number of variables for configuring the
 #### **Enable WASM mini loader**
 
 - **WAMR_BUILD_MINI_LOADER**=1/0, default to disable if not set
-Note: the mini loader doesn't check the integrity of the WASM binary file, user must ensure that the WASM file is not mal-formed.
+Note: the mini loader doesn't check the integrity of the WASM binary file, developer must ensure that the WASM file is not mal-formed.
 
 #### **Enable shared memory feature**
 - **WAMR_BUILD_SHARED_MEMORY**=1/0, default to disable if not set
@@ -63,9 +63,13 @@ Note: the mini loader doesn't check the integrity of the WASM binary file, user 
 #### **Enable thread manager**
 - **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
 
-#### **Enable Lib-pthread**
+#### **Enable lib-pthread**
 - **WAMR_BUILD_LIB_PTHREAD**=1/0, default to disable if not set
 > Note: The dependent feature of lib pthread such as the `shared memory` and `thread manager` will be enabled automatically.
+
+#### **Disable boundary check with hardware trap in AOT or JIT mode**
+- **WAMR_DISABLE_HW_BOUND_CHECK=1, default to enable if not set and supported by platform
+> Note: by default only platform linux/darwin/android/vxworks 64-bit will enable boundary check with hardware trap in AOT or JIT mode, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance.
 
 **Combination of configurations:**
 
