@@ -968,7 +968,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint8 *global_data = module->global_data;
   uint32 linear_mem_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
   WASMTableInstance *table = module->default_table;
-  WASMGlobalInstance *globals = module->globals;
+  WASMGlobalInstance *globals = module->globals, *global;
   uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
   WASMInterpFrame *frame = NULL;
   /* Points to this special opcode so as to jump to the call_method_from_entry.  */
@@ -977,7 +977,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_ABS_LABEL_ADDR == 0
   register uint8 *label_base = &&HANDLE_WASM_OP_UNREACHABLE;  /* cache of label base addr */
 #endif
-  WASMGlobalInstance *global;
   uint8 *frame_ip_end;
   uint32 cond, count, fidx, tidx, frame_size = 0;
   uint64 all_cell_num = 0;
@@ -986,7 +985,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint8 *maddr = NULL;
   uint32 local_idx, local_offset, global_idx;
   uint8 opcode, local_type, *global_addr;
-  int32 aux_stack_top_global_idx = -1;
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
   #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -999,12 +997,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   }
 #endif
 #endif
-
-  /* If the aux stack information is resolved,
-    we will check the aux stack boundary */
-  if (module->module->llvm_aux_stack_size) {
-    aux_stack_top_global_idx = module->module->llvm_aux_stack_global_index;
-  }
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
   while (frame_ip < frame_ip_end) {
@@ -1225,72 +1217,92 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
       HANDLE_OP (WASM_OP_GET_GLOBAL):
         {
           global_idx = read_uint32(frame_ip);
-          addr_ret = GET_OFFSET();
-
           bh_assert(global_idx < module->global_count);
           global = globals + global_idx;
-          global_addr =
-#if WASM_ENABLE_MULTI_MODULE != 0
-            global->import_global_inst
-              ? global->import_module_inst->global_data
-                + global->import_global_inst->data_offset
-              :
+#if WASM_ENABLE_MULTI_MODULE == 0
+          global_addr = global_data + global->data_offset;
+#else
+          global_addr = global->import_global_inst
+                        ? global->import_module_inst->global_data
+                          + global->import_global_inst->data_offset
+                        : global_data + global->data_offset;
 #endif
-          global_data + global->data_offset;
+          addr_ret = GET_OFFSET();
+          frame_lp[addr_ret] = *(uint32*)global_addr;
+          HANDLE_OP_END ();
+        }
 
-          switch (global->type) {
-            case VALUE_TYPE_I32:
-            case VALUE_TYPE_F32:
-              frame_lp[addr_ret] = *(uint32*)global_addr;
-              break;
-            case VALUE_TYPE_I64:
-            case VALUE_TYPE_F64:
-              *(uint64 *)(frame_lp + addr_ret) = GET_I64_FROM_ADDR((uint32*)global_addr);
-              break;
-            default:
-              wasm_set_exception(module, "invalid global type");
-              goto got_exception;
-          }
-
+      HANDLE_OP (WASM_OP_GET_GLOBAL_64):
+        {
+          global_idx = read_uint32(frame_ip);
+          bh_assert(global_idx < module->global_count);
+          global = globals + global_idx;
+#if WASM_ENABLE_MULTI_MODULE == 0
+          global_addr = global_data + global->data_offset;
+#else
+          global_addr = global->import_global_inst
+                        ? global->import_module_inst->global_data
+                          + global->import_global_inst->data_offset
+                        : global_data + global->data_offset;
+#endif
+          addr_ret = GET_OFFSET();
+          *(uint64 *)(frame_lp + addr_ret) = GET_I64_FROM_ADDR((uint32*)global_addr);
           HANDLE_OP_END ();
         }
 
       HANDLE_OP (WASM_OP_SET_GLOBAL):
         {
           global_idx = read_uint32(frame_ip);
-          addr1 = GET_OFFSET();
-
           bh_assert(global_idx < module->global_count);
           global = globals + global_idx;
-          global_addr =
-#if WASM_ENABLE_MULTI_MODULE != 0
-            global->import_global_inst
-              ? global->import_module_inst->global_data
-                + global->import_global_inst->data_offset
-              :
+#if WASM_ENABLE_MULTI_MODULE == 0
+          global_addr = global_data + global->data_offset;
+#else
+          global_addr = global->import_global_inst
+                        ? global->import_module_inst->global_data
+                          + global->import_global_inst->data_offset
+                        : global_data + global->data_offset;
 #endif
-              global_data + global->data_offset;
+          addr1 = GET_OFFSET();
+          *(int32*)global_addr = frame_lp[addr1];
+          HANDLE_OP_END ();
+        }
 
-          switch (global->type) {
-            case VALUE_TYPE_I32:
-              /* Check aux stack boundary */
-              if ((global_idx == (uint32)aux_stack_top_global_idx)
-                  && (frame_lp[addr1] < exec_env->aux_stack_boundary))
-                goto out_of_bounds;
-              *(int32*)global_addr = frame_lp[addr1];
-              break;
-            case VALUE_TYPE_F32:
-              *(int32*)global_addr = frame_lp[addr1];
-              break;
-            case VALUE_TYPE_I64:
-            case VALUE_TYPE_F64:
-              PUT_I64_TO_ADDR((uint32*)global_addr, *(int64 *)(frame_lp + addr1));
-              break;
-            default:
-              wasm_set_exception(module, "invalid global type");
-              goto got_exception;
-          }
+      HANDLE_OP (WASM_OP_SET_GLOBAL_AUX_STACK):
+        {
+          global_idx = read_uint32(frame_ip);
+          bh_assert(global_idx < module->global_count);
+          global = globals + global_idx;
+#if WASM_ENABLE_MULTI_MODULE == 0
+          global_addr = global_data + global->data_offset;
+#else
+          global_addr = global->import_global_inst
+                        ? global->import_module_inst->global_data
+                          + global->import_global_inst->data_offset
+                        : global_data + global->data_offset;
+#endif
+          addr1 = GET_OFFSET();
+          if (frame_lp[addr1] < exec_env->aux_stack_boundary)
+              goto out_of_bounds;
+          *(int32*)global_addr = frame_lp[addr1];
+          HANDLE_OP_END ();
+        }
 
+      HANDLE_OP (WASM_OP_SET_GLOBAL_64):
+        {
+          global_idx = read_uint32(frame_ip);
+          bh_assert(global_idx < module->global_count);
+          global = globals + global_idx;
+#if WASM_ENABLE_MULTI_MODULE == 0
+          global_addr = global_data + global->data_offset;
+#else
+          global_addr = global->import_global_inst
+                        ? global->import_module_inst->global_data
+                          + global->import_global_inst->data_offset
+                        : global_data + global->data_offset;
+#endif
+          addr1 = GET_OFFSET();
+          PUT_I64_TO_ADDR((uint32*)global_addr, *(int64 *)(frame_lp + addr1));
           HANDLE_OP_END ();
         }
 
@@ -2538,9 +2550,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     HANDLE_OP (WASM_OP_UNUSED_0x1d):
     HANDLE_OP (WASM_OP_UNUSED_0x1e):
     HANDLE_OP (WASM_OP_UNUSED_0x1f):
-    HANDLE_OP (WASM_OP_UNUSED_0x25):
-    HANDLE_OP (WASM_OP_UNUSED_0x26):
-    HANDLE_OP (WASM_OP_UNUSED_0x27):
     /* optimized op code */
     HANDLE_OP (WASM_OP_F32_STORE):
     HANDLE_OP (WASM_OP_F64_STORE):
