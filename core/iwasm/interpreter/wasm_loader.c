@@ -1538,10 +1538,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 case IMPORT_KIND_GLOBAL: /* import global */
                     bh_assert(import_globals);
                     import = import_globals++;
-                    if (!load_global_import(module,
-                                            sub_module,
-                                            sub_module_name, field_name, &p,
-                                            p_end, &import->u.global,
+                    if (!load_global_import(module, sub_module,
+                                            sub_module_name, field_name,
+                                            &p, p_end, &import->u.global,
                                             error_buf, error_buf_size)) {
                         return false;
                     }
@@ -3058,6 +3057,9 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
             case WASM_OP_TEE_LOCAL:
             case WASM_OP_GET_GLOBAL:
             case WASM_OP_SET_GLOBAL:
+            case WASM_OP_GET_GLOBAL_64:
+            case WASM_OP_SET_GLOBAL_64:
+            case WASM_OP_SET_GLOBAL_AUX_STACK:
                 skip_leb_uint32(p, p_end); /* localidx */
                 break;
 
@@ -5473,6 +5475,7 @@ re_scan:
 
             case WASM_OP_GET_GLOBAL:
             {
+                p_org = p - 1;
                 read_leb_uint32(p, p_end, global_idx);
                 if (global_idx >= global_count) {
                     set_error_buf(error_buf, error_buf_size,
@@ -5481,21 +5484,38 @@ re_scan:
                     goto fail;
                 }
 
-                global_type = global_idx < module->import_global_count
-                              ? module->import_globals[global_idx].u.global.type
-                              :module->globals[global_idx - module->import_global_count].type;
+                global_type =
+                  global_idx < module->import_global_count
+                    ? module->import_globals[global_idx].u.global.type
+                    : module->globals[global_idx - module->import_global_count]
+                        .type;
 
                 PUSH_TYPE(global_type);
-#if WASM_ENABLE_FAST_INTERP != 0
+
+#if WASM_ENABLE_FAST_INTERP == 0
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+                if (global_type == VALUE_TYPE_I64
+                    || global_type == VALUE_TYPE_F64) {
+                    *p_org = WASM_OP_GET_GLOBAL_64;
+                }
+#endif
+#else /* else of WASM_ENABLE_FAST_INTERP */
+                if (global_type == VALUE_TYPE_I64
+                    || global_type == VALUE_TYPE_F64) {
+                    skip_label();
+                    emit_label(WASM_OP_GET_GLOBAL_64);
+                }
                 emit_uint32(loader_ctx, global_idx);
                 PUSH_OFFSET_TYPE(global_type);
-#endif
+#endif /* end of WASM_ENABLE_FAST_INTERP */
                 break;
             }
 
             case WASM_OP_SET_GLOBAL:
             {
                 bool is_mutable = false;
+
+                p_org = p - 1;
                 read_leb_uint32(p, p_end, global_idx);
                 if (global_idx >= global_count) {
                     set_error_buf(error_buf, error_buf_size,
@@ -5523,10 +5543,32 @@ re_scan:
                         .type;
 
                 POP_TYPE(global_type);
-#if WASM_ENABLE_FAST_INTERP != 0
+
+#if WASM_ENABLE_FAST_INTERP == 0
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+                if (global_type == VALUE_TYPE_I64
+                    || global_type == VALUE_TYPE_F64) {
+                    *p_org = WASM_OP_SET_GLOBAL_64;
+                }
+                else if (module->llvm_aux_stack_size > 0
+                         && global_idx == module->llvm_aux_stack_global_index) {
+                    *p_org = WASM_OP_SET_GLOBAL_AUX_STACK;
+                }
+#endif
+#else /* else of WASM_ENABLE_FAST_INTERP */
+                if (global_type == VALUE_TYPE_I64
+                    || global_type == VALUE_TYPE_F64) {
+                    skip_label();
+                    emit_label(WASM_OP_SET_GLOBAL_64);
+                }
+                else if (module->llvm_aux_stack_size > 0
+                         && global_idx == module->llvm_aux_stack_global_index) {
+                    skip_label();
+                    emit_label(WASM_OP_SET_GLOBAL_AUX_STACK);
+                }
                 emit_uint32(loader_ctx, global_idx);
                 POP_OFFSET_TYPE(global_type);
-#endif
+#endif /* end of WASM_ENABLE_FAST_INTERP */
                 break;
             }
 

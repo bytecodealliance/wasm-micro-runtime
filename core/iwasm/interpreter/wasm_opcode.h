@@ -60,9 +60,9 @@ typedef enum WASMOpcode {
     WASM_OP_GET_GLOBAL    = 0x23, /* get_global */
     WASM_OP_SET_GLOBAL    = 0x24, /* set_global */
 
-    WASM_OP_UNUSED_0x25   = 0x25,
-    WASM_OP_UNUSED_0x26   = 0x26,
-    WASM_OP_UNUSED_0x27   = 0x27,
+    WASM_OP_GET_GLOBAL_64 = 0x25,
+    WASM_OP_SET_GLOBAL_64 = 0x26,
+    WASM_OP_SET_GLOBAL_AUX_STACK = 0x27,
 
     /* memory instructions */
     WASM_OP_I32_LOAD      = 0x28, /* i32.load */
@@ -330,9 +330,9 @@ static type _name[WASM_INSTRUCTION_NUM] = {                  \
   HANDLE_OPCODE (WASM_OP_TEE_LOCAL),     /* 0x22 */          \
   HANDLE_OPCODE (WASM_OP_GET_GLOBAL),    /* 0x23 */          \
   HANDLE_OPCODE (WASM_OP_SET_GLOBAL),    /* 0x24 */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x25),   /* 0x25 */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x26),   /* 0x26 */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x27),   /* 0x27 */          \
+  HANDLE_OPCODE (WASM_OP_GET_GLOBAL_64), /* 0x25 */          \
+  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_64), /* 0x26 */          \
+  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_AUX_STACK), /* 0x27 */   \
   HANDLE_OPCODE (WASM_OP_I32_LOAD),      /* 0x28 */          \
   HANDLE_OPCODE (WASM_OP_I64_LOAD),      /* 0x29 */          \
   HANDLE_OPCODE (WASM_OP_F32_LOAD),      /* 0x2a */          \
