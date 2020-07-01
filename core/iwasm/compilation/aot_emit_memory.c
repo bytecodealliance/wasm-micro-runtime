@@ -111,7 +111,7 @@ check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             && mem_offset <= mem_data_size - bytes) {
             /* inside memory space */
             offset1 = I32_CONST((uint32)mem_offset);
-            CHECK_LLVM_CONST(offset_const);
+            CHECK_LLVM_CONST(offset1);
             if (!(maddr = LLVMBuildInBoundsGEP(comp_ctx->builder, mem_base_addr,
                                                &offset1, 1, "maddr"))) {
                 aot_set_last_error("llvm build add failed.");
