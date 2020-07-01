@@ -211,7 +211,7 @@ typedef struct AOTModuleInstance {
     uint32 default_wasm_stack_size;
 
     /* reserved */
-    uint32 reserved[12];
+    uint32 reserved[11];
 
     union {
         uint64 _make_it_8_byte_aligned_;

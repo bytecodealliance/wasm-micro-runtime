@@ -144,10 +144,23 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
         block_prev = block->prev;
         block = aot_block_stack_pop(&func_ctx->block_stack);
 
-        if (block->block_type == BLOCK_TYPE_IF
-            && block->llvm_end_block) {
-            LLVMDeleteBasicBlock(block->llvm_end_block);
-            block->llvm_end_block = NULL;
+        if (block->block_type == BLOCK_TYPE_IF) {
+            if (block->llvm_else_block
+                && !block->skip_wasm_code_else
+                && *p_frame_ip <= block->wasm_code_else) {
+                /* Clear value stack and start to translate else branch */
+                aot_value_stack_destroy(&block->value_stack);
+                SET_BUILDER_POS(block->llvm_else_block);
+                *p_frame_ip = block->wasm_code_else + 1;
+                /* Push back the block */
+                aot_block_stack_push(&func_ctx->block_stack, block);
+                return true;
+            }
+            else if (block->llvm_end_block) {
+                /* Remove unreachable basic block */
+                LLVMDeleteBasicBlock(block->llvm_end_block);
+                block->llvm_end_block = NULL;
+            }
         }
 
         frame_ip = block->wasm_code_end;

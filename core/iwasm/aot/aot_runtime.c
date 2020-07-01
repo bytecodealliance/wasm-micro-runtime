@@ -215,13 +215,11 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     module_inst->mem_cur_page_count = module->mem_init_page_count;
     module_inst->mem_max_page_count = module->mem_max_page_count;
 
-    module_inst->mem_bound_check_heap_base = module_inst->heap_base_offset;
-    if (module_inst->memory_data_size > 0) {
-        module_inst->mem_bound_check_1byte = module_inst->memory_data_size - 1;
-        module_inst->mem_bound_check_2bytes = module_inst->memory_data_size - 2;
-        module_inst->mem_bound_check_4bytes = module_inst->memory_data_size - 4;
-        module_inst->mem_bound_check_8bytes = module_inst->memory_data_size - 8;
-    }
+    module_inst->mem_bound_check_heap_base = (int64)module_inst->heap_base_offset;
+    module_inst->mem_bound_check_1byte = (int64)module_inst->memory_data_size - 1;
+    module_inst->mem_bound_check_2bytes = (int64)module_inst->memory_data_size - 2;
+    module_inst->mem_bound_check_4bytes = (int64)module_inst->memory_data_size - 4;
+    module_inst->mem_bound_check_8bytes = (int64)module_inst->memory_data_size - 8;
 
     for (i = 0; i < module->mem_init_data_count; i++) {
         data_seg = module->mem_init_data_list[i];
