@@ -847,7 +847,7 @@ wasm_app_module_install(request_t * msg)
                          (void*) m_data, APP_THREAD_STACK_SIZE_DEFAULT) != 0) {
         module_data_list_remove(m_data);
         SEND_ERR_RESPONSE(msg->mid,
-                          "Install WASM app failed: create app threadf failed.");
+                          "Install WASM app failed: create app thread failed.");
         goto fail;
     }
 
