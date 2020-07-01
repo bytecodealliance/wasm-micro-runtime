@@ -175,15 +175,6 @@ typedef struct host_interface {
 bool
 app_manager_host_init(host_interface *interface);
 
-/**
- * Send message to Host
- *
- * @param buf buffer to send
- * @param size size of buffer
- *
- * @return size of buffer sent
- */
-
 /* Startup app manager */
 void
 app_manager_startup(host_interface *interface);
@@ -284,6 +275,14 @@ send_error_response_to_host(int mid, int code, const char *msg);
 bool
 bh_applet_check_permission(const char *perm);
 
+/**
+ * Send message to Host
+ *
+ * @param buf buffer to send
+ * @param size size of buffer
+ *
+ * @return size of buffer sent
+ */
 int
 app_manager_host_send_msg(int msg_type, const char *buf, int size);
 
