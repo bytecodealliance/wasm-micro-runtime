@@ -2797,6 +2797,10 @@ fail:
     return ret;
 }
 
+#endif /* end of defined(BUILD_TARGET_X86_64) \
+                 || defined(BUILD_TARGET_AMD_64) \
+                 || defined(BUILD_TARGET_AARCH64) */
+
 bool
 wasm_runtime_call_indirect(WASMExecEnv *exec_env,
                            uint32_t element_indices,
@@ -2825,6 +2829,3 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
     return false;
 }
 
-#endif /* end of defined(BUILD_TARGET_X86_64) \
-                 || defined(BUILD_TARGET_AMD_64) \
-                 || defined(BUILD_TARGET_AARCH64) */

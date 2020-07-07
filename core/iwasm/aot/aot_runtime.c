@@ -550,6 +550,8 @@ aot_lookup_function(const AOTModuleInstance *module_inst,
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
+#define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
+
 static os_thread_local_attribute WASMExecEnv *aot_exec_env = NULL;
 
 static inline uint8 *
@@ -567,6 +569,7 @@ aot_signal_handler(void *sig_addr)
     uint8 *mapped_mem_start_addr, *mapped_mem_end_addr;
     uint8 *stack_min_addr;
     uint32 page_size;
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
 
     /* Check whether current thread is running aot function */
     if (aot_exec_env
@@ -591,7 +594,8 @@ aot_signal_handler(void *sig_addr)
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
         else if (stack_min_addr - page_size <= (uint8*)sig_addr
-                 && (uint8*)sig_addr < stack_min_addr + page_size * 3) {
+                 && (uint8*)sig_addr < stack_min_addr
+                                       + page_size * guard_page_count) {
             /* The address which causes segmentation fault is inside
                native thread's guard page */
             aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
@@ -621,11 +625,13 @@ touch_pages(uint8 *stack_min_addr, uint32 page_size)
 {
     uint8 sum = 0;
     while (1) {
-        uint8 *touch_addr = os_alloca(page_size / 2);
-        sum += *touch_addr;
+        volatile uint8 *touch_addr =
+            (volatile uint8*)os_alloca(page_size / 2);
         if (touch_addr < stack_min_addr + page_size) {
+            sum += *(stack_min_addr + page_size - 1);
             break;
         }
+        sum += *touch_addr;
     }
     return sum;
 }
@@ -640,8 +646,18 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     WASMExecEnv **p_aot_exec_env = &aot_exec_env;
     WASMJmpBuf *jmpbuf_node, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     uint8 *stack_min_addr = get_stack_min_addr(exec_env, page_size);
     bool ret;
+
+    /* Check native stack overflow firstly to ensure we have enough
+       native stack to run the following codes before actually calling
+       the aot function in invokeNative function. */
+    if ((uint8*)&module_inst < exec_env->native_stack_boundary
+                               + page_size * (guard_page_count + 1)) {
+        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+        return false;
+    }
 
     if (aot_exec_env
         && (aot_exec_env != exec_env)) {
@@ -654,7 +670,8 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
            lazily grow the stack mapping as a guard page is hit. */
         touch_pages(stack_min_addr, page_size);
         /* First time to call aot function, protect one page */
-        if (os_mprotect(stack_min_addr, page_size * 3, MMAP_PROT_NONE) != 0) {
+        if (os_mprotect(stack_min_addr, page_size * guard_page_count,
+                        MMAP_PROT_NONE) != 0) {
             aot_set_exception(module_inst, "Set protected page failed.");
             return false;
         }
@@ -671,7 +688,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     if (os_setjmp(jmpbuf_node->jmpbuf) == 0) {
         ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
                                          signature, attachment,
-                                         argv, argc, argv);
+                                         argv, argc, argv_ret);
     }
     else {
         /* Exception has been set in signal handler before calling longjmp */
@@ -683,7 +700,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     wasm_runtime_free(jmpbuf_node);
     if (!exec_env->jmpbuf_stack_top) {
         /* Unprotect the guard page when the nested call depth is zero */
-        os_mprotect(stack_min_addr, page_size * 3,
+        os_mprotect(stack_min_addr, page_size * guard_page_count,
                     MMAP_PROT_READ | MMAP_PROT_WRITE);
         *p_aot_exec_env = NULL;
     }
@@ -1112,6 +1129,19 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     const char *signature;
     void *attachment;
     char buf[128];
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    uint32 page_size = os_getpagesize();
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    /* Check native stack overflow firstly to ensure we have enough
+       native stack to run the following codes before actually calling
+       the aot function in invokeNative function. */
+    if ((uint8*)&module_inst < exec_env->native_stack_boundary
+                               + page_size * (guard_page_count + 1)) {
+        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+        return false;
+    }
+#endif
 
     bh_assert(func_idx < aot_module->import_func_count);
 
