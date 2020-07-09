@@ -415,6 +415,10 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                void *attachment,
                                uint32 *argv, uint32 argc, uint32 *ret);
 
+static WASMFunctionInstanceCommon*
+resolve_function(const WASMModuleInstanceCommon *module_inst,
+                 const char *name);
+
 #ifdef __cplusplus
 }
 #endif
