@@ -35,6 +35,7 @@ iwasm VM core
 - [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops)
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
 - [Shared memmory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
+- [Multi-value](https://github.com/WebAssembly/multi-value)
 
 ### Performance and memory usage
 The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.

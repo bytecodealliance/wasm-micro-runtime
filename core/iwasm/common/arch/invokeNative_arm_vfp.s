@@ -52,7 +52,7 @@ invokeNative:
         beq     call_func
 
 
-        /* Fill all stack args: reserve stack space and fill ony by one */
+        /* Fill all stack args: reserve stack space and fill one by one */
         add     r4, r4, #64     /* r4 points to stack args */
         bic     sp, sp, #7      /* Ensure stack is 8 byte aligned */
         mov     r7, r5, lsl#2   /* r7 = nstacks * 4 */

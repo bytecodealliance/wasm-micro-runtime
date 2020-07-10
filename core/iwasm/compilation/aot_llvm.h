@@ -48,10 +48,8 @@ typedef struct AOTBlock {
 
   /* Block index */
   uint32 block_index;
-  /* BLOCK_TYPE_BLOCK/LOOP/IF/FUNCTION */
-  uint32 block_type;
-  /* VALUE_TYPE_I32/I64/F32/F64/VOID */
-  uint8 return_type;
+  /* LABEL_TYPE_BLOCK/LOOP/IF/FUNCTION */
+  uint32 label_type;
   /* Whether it is reachable */
   bool is_reachable;
   /* Whether skip translation of wasm else branch */
@@ -72,8 +70,16 @@ typedef struct AOTBlock {
   /* WASM operation stack */
   AOTValueStack value_stack;
 
-  /* Return value of this block, a PHI node */
-  LLVMValueRef return_value_phi;
+  /* Param count/types/PHIs of this block */
+  uint32 param_count;
+  uint8 *param_types;
+  LLVMValueRef *param_phis;
+  LLVMValueRef *else_param_phis;
+
+  /* Result count/types/PHIs of this block */
+  uint32 result_count;
+  uint8 *result_types;
+  LLVMValueRef *result_phis;
 } AOTBlock;
 
 /**

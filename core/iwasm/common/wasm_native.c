@@ -54,7 +54,7 @@ check_symbol_signature(const WASMType *type, const char *signature)
     if (*p++ != '(')
         return false;
 
-    if ((uint32)(p_end - p) < type->param_count + 1)
+    if ((uint32)(p_end - p) < (uint32)(type->param_count + 1))
         /* signatures of parameters, and ')' */
         return false;
 
