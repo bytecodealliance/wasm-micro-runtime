@@ -66,10 +66,10 @@ extern "C" {
 #define EXPORT_KIND_MEMORY 2
 #define EXPORT_KIND_GLOBAL 3
 
-#define BLOCK_TYPE_BLOCK 0
-#define BLOCK_TYPE_LOOP 1
-#define BLOCK_TYPE_IF 2
-#define BLOCK_TYPE_FUNCTION 3
+#define LABEL_TYPE_BLOCK 0
+#define LABEL_TYPE_LOOP 1
+#define LABEL_TYPE_IF 2
+#define LABEL_TYPE_FUNCTION 3
 
 typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
@@ -98,9 +98,10 @@ typedef struct InitializerExpression {
 } InitializerExpression;
 
 typedef struct WASMType {
-    uint32 param_count;
-    /* only one result is supported currently */
-    uint32 result_count;
+    uint16 param_count;
+    uint16 result_count;
+    uint16 param_cell_num;
+    uint16 ret_cell_num;
     /* types of params and results */
     uint8 types[1];
 } WASMType;
@@ -206,7 +207,7 @@ typedef struct WASMFunction {
     uint16 ret_cell_num;
     /* cell num of local variables */
     uint16 local_cell_num;
-    /* offset of each local, including function paramameters
+    /* offset of each local, including function parameters
        and local variables */
     uint16 *local_offsets;
 
@@ -351,9 +352,21 @@ typedef struct WASMModule {
 #endif
 } WASMModule;
 
+typedef struct BlockType {
+    /* Block type may be expressed in one of two forms:
+     * either by the type of the single return value or
+     * by a type index of module.
+     */
+    union {
+        uint8 value_type;
+        WASMType *type;
+    } u;
+    bool is_value_type;
+} BlockType;
+
 typedef struct WASMBranchBlock {
-    uint8 block_type;
-    uint8 return_type;
+    uint8 label_type;
+    uint32 cell_num;
     uint8 *target_addr;
     uint32 *frame_sp;
 } WASMBranchBlock;
@@ -421,40 +434,28 @@ wasm_value_type_size(uint8 value_type)
 inline static uint16
 wasm_value_type_cell_num(uint8 value_type)
 {
-    switch (value_type) {
-        case VALUE_TYPE_I32:
-        case VALUE_TYPE_F32:
-            return 1;
-        case VALUE_TYPE_I64:
-        case VALUE_TYPE_F64:
-            return 2;
-        default:
-            bh_assert(0);
+    if (value_type == VALUE_TYPE_VOID)
+        return 0;
+    else if (value_type == VALUE_TYPE_I32
+             || value_type == VALUE_TYPE_F32)
+        return 1;
+    else if (value_type == VALUE_TYPE_I64
+             || value_type == VALUE_TYPE_F64)
+        return 2;
+    else {
+        bh_assert(0);
     }
     return 0;
 }
 
-inline static uint16
+inline static uint32
 wasm_get_cell_num(const uint8 *types, uint32 type_count)
 {
     uint32 cell_num = 0;
     uint32 i;
     for (i = 0; i < type_count; i++)
         cell_num += wasm_value_type_cell_num(types[i]);
-    return (uint16)cell_num;
-}
-
-inline static uint16
-wasm_type_param_cell_num(const WASMType *type)
-{
-    return wasm_get_cell_num(type->types, type->param_count);
-}
-
-inline static uint16
-wasm_type_return_cell_num(const WASMType *type)
-{
-    return wasm_get_cell_num(type->types + type->param_count,
-                             type->result_count);
+    return cell_num;
 }
 
 inline static bool
@@ -465,6 +466,43 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
             && memcmp(type1->types, type2->types,
                       type1->param_count + type1->result_count) == 0)
         ? true : false;
+}
+
+static inline uint32
+block_type_get_param_types(BlockType *block_type,
+                           uint8 **p_param_types)
+{
+    uint32 param_count = 0;
+    if (!block_type->is_value_type) {
+        WASMType *wasm_type = block_type->u.type;
+        *p_param_types = wasm_type->types;
+        param_count = wasm_type->param_count;
+    }
+    else {
+        *p_param_types = NULL;
+        param_count  = 0;
+    }
+
+    return param_count;
+}
+
+static inline uint32
+block_type_get_result_types(BlockType *block_type,
+                            uint8 **p_result_types)
+{
+    uint32 result_count = 0;
+    if (block_type->is_value_type) {
+        if (block_type->u.value_type != VALUE_TYPE_VOID) {
+            *p_result_types = &block_type->u.value_type;
+            result_count = 1;
+        }
+    }
+    else {
+        WASMType *wasm_type = block_type->u.type;
+        *p_result_types = wasm_type->types + wasm_type->param_count;
+        result_count = wasm_type->result_count;
+    }
+    return result_count;
 }
 
 #ifdef __cplusplus

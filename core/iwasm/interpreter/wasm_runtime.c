@@ -509,9 +509,9 @@ functions_instantiate(const WASMModule *module,
                       import->u.function.field_name);
             function->u.func_import = &import->u.function;
             function->param_cell_num =
-              wasm_type_param_cell_num(import->u.function.func_type);
+              import->u.function.func_type->param_cell_num;
             function->ret_cell_num =
-              wasm_type_return_cell_num(import->u.function.func_type);
+              import->u.function.func_type->ret_cell_num;
             function->param_count =
               (uint16)function->u.func_import->func_type->param_count;
             function->param_types = function->u.func_import->func_type->types;

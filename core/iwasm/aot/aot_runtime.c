@@ -722,9 +722,77 @@ aot_call_function(WASMExecEnv *exec_env,
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance*)exec_env->module_inst;
     AOTFuncType *func_type = function->func_type;
-    bool ret = invoke_native_internal(exec_env, function->func_ptr,
-                                      func_type, NULL, NULL, argv, argc, argv);
-    return ret && !aot_get_exception(module_inst) ? true : false;
+    uint32 result_count = func_type->result_count;
+    uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
+    bool ret;
+
+    if (ext_ret_count > 0) {
+        uint32 cell_num = 0, i;
+        uint8 *ext_ret_types = func_type->types + func_type->param_count + 1;
+        uint32 argv1_buf[32], *argv1 = argv1_buf, *ext_rets = NULL;
+        uint32 *argv_ret = argv;
+        uint32 ext_ret_cell = wasm_get_cell_num(ext_ret_types, ext_ret_count);
+        uint64 size;
+
+        /* Allocate memory all arguments */
+        size = sizeof(uint32) * (uint64)argc            /* original arguments */
+               + sizeof(void*) * (uint64)ext_ret_count  /* extra result values' addr */
+               + sizeof(uint32) * (uint64)ext_ret_cell; /* extra result values */
+        if (size > sizeof(argv1_buf)
+            && !(argv1 = runtime_malloc(size, module_inst->cur_exception,
+                                        sizeof(module_inst->cur_exception)))) {
+            aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
+            return false;
+        }
+
+        /* Copy original arguments */
+        bh_memcpy_s(argv1, (uint32)size, argv, sizeof(uint32) * argc);
+
+        /* Get the extra result value's address */
+        ext_rets = argv1 + argc + sizeof(void*)/sizeof(uint32) * ext_ret_count;
+
+        /* Append each extra result value's address to original arguments */
+        for (i = 0; i < ext_ret_count; i++) {
+            *(uintptr_t*)(argv1 + argc + sizeof(void*) / sizeof(uint32) * i) =
+                (uintptr_t)(ext_rets + cell_num);
+            cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
+        }
+
+        ret = invoke_native_internal(exec_env, function->func_ptr,
+                                     func_type, NULL, NULL, argv1, argc, argv);
+        if (!ret || aot_get_exception(module_inst)) {
+            if (argv1 != argv1_buf)
+                wasm_runtime_free(argv1);
+            return false;
+        }
+
+        /* Get extra result values */
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
+                argv_ret++;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                argv_ret += 2;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+        ext_rets = argv1 + argc + sizeof(void*)/sizeof(uint32) * ext_ret_count;
+        bh_memcpy_s(argv_ret, sizeof(uint32) * cell_num,
+                    ext_rets, sizeof(uint32) * cell_num);
+        if (argv1 != argv1_buf)
+            wasm_runtime_free(argv1);
+
+        return true;
+    }
+    else {
+        ret = invoke_native_internal(exec_env, function->func_ptr,
+                                     func_type, NULL, NULL, argv, argc, argv);
+        return ret && !aot_get_exception(module_inst) ? true : false;
+    }
 }
 
 bool
@@ -1183,10 +1251,12 @@ aot_call_indirect(WASMExecEnv *exec_env,
     void **func_ptrs = (void**)module_inst->func_ptrs.ptr, *func_ptr;
     uint32 table_size = module_inst->table_size;
     uint32 func_idx, func_type_idx1;
+    uint32 ext_ret_count;
     AOTImportFunc *import_func;
     const char *signature = NULL;
     void *attachment = NULL;
     char buf[128];
+    bool ret;
 
     /* this function is called from native code, so exec_env->handle and
        exec_env->native_stack_boundary must have been set, we don't set
@@ -1241,9 +1311,77 @@ aot_call_indirect(WASMExecEnv *exec_env,
         }
     }
 
-    return invoke_native_internal(exec_env, func_ptr,
-                                  func_type, signature, attachment,
-                                  argv, argc, argv);
+    ext_ret_count = func_type->result_count > 1
+                    ? func_type->result_count - 1 : 0;
+    if (ext_ret_count > 0) {
+        uint32 argv1_buf[32], *argv1 = argv1_buf;
+        uint32 *ext_rets = NULL, *argv_ret = argv;
+        uint32 cell_num = 0, i;
+        uint8 *ext_ret_types = func_type->types + func_type->param_count + 1;
+        uint32 ext_ret_cell = wasm_get_cell_num(ext_ret_types, ext_ret_count);
+        uint64 size;
+
+        /* Allocate memory all arguments */
+        size = sizeof(uint32) * (uint64)argc            /* original arguments */
+               + sizeof(void*) * (uint64)ext_ret_count  /* extra result values' addr */
+               + sizeof(uint32) * (uint64)ext_ret_cell; /* extra result values */
+        if (size > sizeof(argv1_buf)
+            && !(argv1 = runtime_malloc(size, module_inst->cur_exception,
+                                        sizeof(module_inst->cur_exception)))) {
+            aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
+            return false;
+        }
+
+        /* Copy original arguments */
+        bh_memcpy_s(argv1, (uint32)size, argv, sizeof(uint32) * argc);
+
+        /* Get the extra result value's address */
+        ext_rets = argv1 + argc + sizeof(void*)/sizeof(uint32) * ext_ret_count;
+
+        /* Append each extra result value's address to original arguments */
+        for (i = 0; i < ext_ret_count; i++) {
+            *(uintptr_t*)(argv1 + argc + sizeof(void*) / sizeof(uint32) * i) =
+                (uintptr_t)(ext_rets + cell_num);
+            cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
+        }
+
+        ret = invoke_native_internal(exec_env, func_ptr,
+                                     func_type, signature, attachment,
+                                     argv1, argc, argv);
+        if (!ret || aot_get_exception(module_inst)) {
+            if (argv1 != argv1_buf)
+                wasm_runtime_free(argv1);
+            return false;
+        }
+
+        /* Get extra result values */
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
+                argv_ret++;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                argv_ret += 2;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+        ext_rets = argv1 + argc + sizeof(void*)/sizeof(uint32) * ext_ret_count;
+        bh_memcpy_s(argv_ret, sizeof(uint32) * cell_num,
+                    ext_rets, sizeof(uint32) * cell_num);
+
+        if (argv1 != argv1_buf)
+            wasm_runtime_free(argv1);
+
+        return true;
+    }
+    else {
+        return invoke_native_internal(exec_env, func_ptr,
+                                      func_type, signature, attachment,
+                                      argv, argc, argv);
+    }
 }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
