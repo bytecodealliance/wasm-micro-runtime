@@ -242,16 +242,16 @@ os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-void
+int
 os_mutex_lock(korp_mutex *mutex)
 {
-    aos_mutex_lock(mutex, AOS_WAIT_FOREVER);
+    return aos_mutex_lock(mutex, AOS_WAIT_FOREVER);
 }
 
-void
+int
 os_mutex_unlock(korp_mutex *mutex)
 {
-    aos_mutex_unlock(mutex);
+    return aos_mutex_unlock(mutex);
 }
 
 int
@@ -337,5 +337,11 @@ os_cond_signal(korp_cond *cond)
     aos_mutex_unlock(&cond->wait_list_lock);
 
     return BHT_OK;
+}
+
+uint8 *os_thread_get_stack_boundary()
+{
+    /* TODO: get alios stack boundary */
+    return NULL;
 }
 

@@ -1,4 +1,4 @@
-This directory consists of selected files copied from the [libemulator]
+This directory consists of selected files copied from the [src/libemulator]
 directory in the [cloudabi-utils] repository, with minor modifications,
 along with the accompanying LICENSE file from that repository.
 
@@ -10,5 +10,5 @@ which is dated
 Tue Jun 25 17:22:07 2019 -0700
 .
 
-[libemulator]: https://github.com/NuxiNL/cloudabi-utils/tree/master/src/libemulator
+[libemulator]: https://github.com/NuxiNL/cloudabi-utils/tree/223dadc53248552db43e012c67ed08cf416a2b12/src/libemulator
 [cloudabi-utils]: https://github.com/NuxiNL/cloudabi-utils

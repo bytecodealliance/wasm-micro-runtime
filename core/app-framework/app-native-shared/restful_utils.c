@@ -71,23 +71,18 @@ void free_req_resp_packet(char * packet)
 request_t * unpack_request(char * packet, int size, request_t * request)
 {
     if (*packet != REQUES_PACKET_VER) {
-        printf("version fail\n");
         return NULL;
     }
     if (size < REQUEST_PACKET_FIX_PART_LEN) {
-        printf("size error: %d\n", size);
         return NULL;
     }
     uint16 url_len = ntohs(*((uint16*) (packet + 12)));
     uint32 payload_len = ntohl(*((uint32*) (packet + 14)));
 
     if (size != ( REQUEST_PACKET_FIX_PART_LEN + url_len + payload_len)) {
-        printf("size error: %d, expect: %d\n", size,
-        REQUEST_PACKET_FIX_PART_LEN + url_len + payload_len);
         return NULL;
     }
     if (*(packet + REQUEST_PACKET_FIX_PART_LEN + url_len - 1) != 0) {
-        printf("url not end with 0\n");
         return NULL;
     }
 

@@ -69,6 +69,18 @@ if (WAMR_BUILD_LIBC_WASI EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
 endif ()
 
+if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
+    include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
+    # Enable the dependent feature if lib pthread is enabled
+    set (WAMR_BUILD_THREAD_MGR 1)
+    set (WAMR_BUILD_BULK_MEMORY 1)
+    set (WAMR_BUILD_SHARED_MEMORY 1)
+endif ()
+
+if (WAMR_BUILD_THREAD_MGR EQUAL 1)
+    include (${IWASM_DIR}/libraries/thread-mgr/thread_mgr.cmake)
+endif ()
+
 ####################### Common sources #######################
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
                                      -Wall -Wno-unused-parameter -Wno-pedantic")
@@ -106,6 +118,8 @@ set (source_all
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}
     ${APP_MGR_SOURCE}
+    ${LIB_PTHREAD_SOURCE}
+    ${THREAD_MGR_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

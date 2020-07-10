@@ -60,6 +60,10 @@ aot_create_mem_init_data_list(const WASMModule *module)
       goto fail;
     }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+    data_list[i]->is_passive = module->data_segments[i]->is_passive;
+    data_list[i]->memory_index = module->data_segments[i]->memory_index;
+#endif
     data_list[i]->offset = module->data_segments[i]->base_offset;
     data_list[i]->byte_count = module->data_segments[i]->data_length;
     memcpy(data_list[i]->bytes, module->data_segments[i]->data,
@@ -327,6 +331,8 @@ aot_create_funcs(const WASMModule *module)
     /* Resolve local variable info and code info */
     funcs[i]->local_count = func->local_count;
     funcs[i]->local_types = func->local_types;
+    funcs[i]->param_cell_num = func->param_cell_num;
+    funcs[i]->local_cell_num = func->local_cell_num;
     funcs[i]->code = func->code;
     funcs[i]->code_size = func->code_size;
   }

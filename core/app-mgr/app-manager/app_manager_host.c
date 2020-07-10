@@ -216,7 +216,7 @@ int aee_host_msg_callback(void *msg, uint16_t msg_len)
 
                     am_dispatch_request(&request);
                 } else {
-                    printf("unexpected host msg type: %d\n", msg_type);
+                    app_manager_printf("unexpected host msg type: %d\n", msg_type);
                 }
 
                 APP_MGR_FREE(recv_ctx.message.payload);
@@ -246,7 +246,7 @@ bool app_manager_host_init(host_interface *interface)
     return true;
 }
 
-int app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size)
+int app_manager_host_send_msg(int msg_type, const char *buf, int size)
 {
     /* send an IMRT LINK message contains the buf as payload */
     if (host_commu.send != NULL) {
@@ -276,10 +276,10 @@ int app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size)
         n = host_commu.send(NULL, buf, size);
         os_mutex_unlock(&host_lock);
 
-        printf("sent %d bytes to host\n", n);
+        app_manager_printf("sent %d bytes to host\n", n);
         return n;
     } else {
-        printf("no send api provided\n");
+        app_manager_printf("no send api provided\n");
     }
     return 0;
 }

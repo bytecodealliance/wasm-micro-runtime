@@ -30,6 +30,8 @@ typedef struct AOTValue {
   LLVMValueRef value;
   /* VALUE_TYPE_I32/I64/F32/F64/VOID */
   uint8 type;
+  bool is_local;
+  uint32 local_idx;
 } AOTValue;
 
 /**
@@ -84,6 +86,13 @@ typedef struct AOTBlockStack {
   uint32 block_index[3];
 } AOTBlockStack;
 
+typedef struct AOTCheckedAddr {
+  struct AOTCheckedAddr *next;
+  uint32 local_idx;
+  uint32 offset;
+  uint32 bytes;
+} AOTCheckedAddr, *AOTCheckedAddrList;
+
 typedef struct AOTFuncContext {
   AOTFunc *aot_func;
   LLVMValueRef func;
@@ -93,31 +102,25 @@ typedef struct AOTFuncContext {
   LLVMValueRef aot_inst;
   LLVMValueRef table_base;
   LLVMValueRef argv_buf;
+  LLVMValueRef native_stack_bound;
+  LLVMValueRef last_alloca;
 
-  LLVMValueRef mem_data_size;
   LLVMValueRef mem_base_addr;
-  LLVMValueRef mem_bound_1_byte;
-  LLVMValueRef mem_bound_2_bytes;
-  LLVMValueRef mem_bound_4_bytes;
-  LLVMValueRef mem_bound_8_bytes;
-
-  LLVMValueRef heap_base_offset;
-  LLVMValueRef heap_base_addr;
-  LLVMValueRef heap_data_size;
-  LLVMValueRef heap_bound_1_byte;
-  LLVMValueRef heap_bound_2_bytes;
-  LLVMValueRef heap_bound_4_bytes;
-  LLVMValueRef heap_bound_8_bytes;
+  LLVMValueRef mem_bound_check_heap_base;
+  LLVMValueRef mem_bound_check_1byte;
+  LLVMValueRef mem_bound_check_2bytes;
+  LLVMValueRef mem_bound_check_4bytes;
+  LLVMValueRef mem_bound_check_8bytes;
 
   LLVMValueRef cur_exception;
 
   bool mem_space_unchanged;
+  AOTCheckedAddrList checked_addr_list;
 
   LLVMBasicBlockRef *exception_blocks;
   LLVMBasicBlockRef got_exception_block;
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
-  LLVMValueRef func_ptrs;
   LLVMValueRef func_type_indexes;
   LLVMValueRef locals[1];
 } AOTFuncContext;
@@ -138,7 +141,6 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef int64_ptr_type;
   LLVMTypeRef float32_ptr_type;
   LLVMTypeRef float64_ptr_type;
-  LLVMTypeRef void_ptr_type;
 
   LLVMTypeRef meta_data_type;
 } AOTLLVMTypes;
@@ -182,6 +184,12 @@ typedef struct AOTCompContext {
   LLVMExecutionEngineRef exec_engine;
   bool is_jit_mode;
 
+  /* Bulk memory feature */
+  bool enable_bulk_memory;
+
+  /* Bounday Check */
+  bool enable_bound_check;
+
   /* Whether optimize the JITed code */
   bool optimize;
 
@@ -220,9 +228,12 @@ typedef struct AOTCompOption{
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool enable_bulk_memory;
+    bool is_sgx_platform;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
+    uint32 bounds_checks;
 } AOTCompOption, *aot_comp_option_t;
 
 AOTCompContext *
@@ -264,6 +275,20 @@ aot_block_destroy(AOTBlock *block);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type);
+
+bool
+aot_checked_addr_list_add(AOTFuncContext *func_ctx,
+                          uint32 local_idx, uint32 offset, uint32 bytes);
+
+void
+aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx);
+
+bool
+aot_checked_addr_list_find(AOTFuncContext *func_ctx,
+                           uint32 local_idx, uint32 offset, uint32 bytes);
+
+void
+aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

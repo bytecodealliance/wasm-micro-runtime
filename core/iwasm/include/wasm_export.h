@@ -6,7 +6,7 @@
 #ifndef _WASM_EXPORT_H
 #define _WASM_EXPORT_H
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include "lib_export.h"
 
@@ -178,8 +178,60 @@ void wasm_runtime_free(void *ptr);
 package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
 
+#if WASM_ENABLE_MULTI_MODULE != 0
 /**
- * Load a WASM module from a specified byte buffer.
+ * It is a callback for WAMR providing by embedding to load a module file
+ * into a buffer
+ */
+typedef bool (*module_reader)(const char *module_name,
+                              uint8_t **p_buffer, uint32_t *p_size);
+
+/**
+ * It is a callback for WAMR providing by embedding to release the buffer which
+ * is used by loading a module file
+ */
+typedef void (*module_destroyer)(uint8_t *buffer, uint32_t size);
+
+/**
+ * To setup callbacks for reading and releasing a buffer about a module file
+ *
+ * @param reader a callback to read a module file into a buffer
+ * @param destroyer a callback to release above buffer
+ */
+void
+wasm_runtime_set_module_reader(const module_reader reader,
+                               const module_destroyer destroyer);
+/**
+ * Give the "module" a name "module_name".
+ * can not assign a new name to a module if it already has a name
+ *
+ * @param module_name indicate a name
+ * @param module the target module
+ * @param error_buf output of the exception info
+ * @param error_buf_size the size of the exception string
+ *
+ * @return true means success, false means failed
+ */
+bool
+wasm_runtime_register_module(const char *module_name, wasm_module_t module,
+                             char *error_buf, uint32_t error_buf_size);
+
+/**
+ * To check if there is already a loaded module named module_name in the
+ * runtime. you will not want to load repeately
+ *
+ * @param module_name indicate a name
+ *
+ * @return return WASM module loaded, NULL if failed
+ */
+wasm_module_t
+wasm_runtime_find_module_registered(const char *module_name);
+#endif /* WASM_ENABLE_MULTI_MODULE */
+
+/**
+ * Load a WASM module from a specified byte buffer. The byte buffer can be
+ * WASM binary data when interpreter or JIT is enabled, or AOT binary data
+ * when AOT is enabled. If it is AOT binary data, it must be 4-byte aligned.
  *
  * @param buf the byte buffer which contains the WASM binary data
  * @param size the size of the buffer
@@ -225,11 +277,13 @@ wasm_runtime_set_wasi_args(wasm_module_t module,
  * Instantiate a WASM module.
  *
  * @param module the WASM module to instantiate
- * @param stack_size the default stack size of the module instance, a stack
- *        will be created when function wasm_runtime_call_wasm() is called
- *        to run WASM function and the exec_env argument passed to
- *        wasm_runtime_call_wasm() is NULL. That means this parameter is
- *        ignored if exec_env is not NULL.
+ * @param stack_size the default stack size of the module instance when the
+ *        exec env's operation stack isn't created by user, e.g. API
+ *        wasm_application_execute_main() and wasm_application_execute_func()
+ *        create the operation stack internally with the stack size specified
+ *        here. And API wasm_runtime_create_exec_env() creates the operation
+ *        stack with stack size specified by its parameter, the stack size
+ *        specified here is ignored.
  * @param heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
  *        function can allocate memory from the heap. If heap_size is 0, the
@@ -265,7 +319,7 @@ wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
  * @param name the name of the function
  * @param signature the signature of the function, ignored currently
  *
- * @return the function instance found
+ * @return the function instance found, NULL if not found
  */
 wasm_function_inst_t
 wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
@@ -277,7 +331,8 @@ wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
  * @param module_inst the module instance
  * @param stack_size the stack size to execute a WASM function
  *
- * @return the execution environment
+ * @return the execution environment, NULL if failed, e.g. invalid
+ *         stack size is passed
  */
 wasm_exec_env_t
 wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
@@ -286,7 +341,7 @@ wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
 /**
  * Destroy the execution environment.
  *
- * @param env the execution environment to destroy
+ * @param exec_env the execution environment to destroy
  */
 void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
@@ -305,17 +360,18 @@ wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
  * Call the given WASM function of a WASM module instance with
  * arguments (bytecode and AoT).
  *
- * @param exec_env the execution environment to call the function
+ * @param exec_env the execution environment to call the function,
  *   which must be created from wasm_create_exec_env()
- * @param function the function to be called
+ * @param function the function to call
  * @param argc the number of arguments
- * @param argv the arguments.  If the function method has return value,
+ * @param argv the arguments. If the function has return value,
  *   the first (or first two in case 64-bit return value) element of
  *   argv stores the return value of the called WASM function after this
  *   function returns.
  *
  * @return true if success, false otherwise and exception will be thrown,
- *   the caller can call wasm_runtime_get_exception to get exception info.
+ *   the caller can call wasm_runtime_get_exception to get the exception
+ *   info.
  */
 bool
 wasm_runtime_call_wasm(wasm_exec_env_t exec_env,
@@ -330,8 +386,9 @@ wasm_runtime_call_wasm(wasm_exec_env_t exec_env,
  * @param argc the number of arguments
  * @param argv the arguments array
  *
- * @return true if the main function is called, false otherwise and exception will be thrown,
- *   the caller can call wasm_runtime_get_exception to get exception info.
+ * @return true if the main function is called, false otherwise and exception
+ *   will be thrown, the caller can call wasm_runtime_get_exception to get
+ *   the exception info.
  */
 bool
 wasm_application_execute_main(wasm_module_inst_t module_inst,
@@ -342,12 +399,15 @@ wasm_application_execute_main(wasm_module_inst_t module_inst,
  * and execute that function.
  *
  * @param module_inst the WASM module instance
- * @param name the name of the function to execute
+ * @param name the name of the function to execute.
+ *  to indicate the module name via: $module_name$function_name
+ *  or just a function name: function_name
  * @param argc the number of arguments
  * @param argv the arguments array
  *
- * @return true if the specified function is called, false otherwise and exception will be thrown,
- *   the caller can call wasm_runtime_get_exception to get exception info.
+ * @return true if the specified function is called, false otherwise and
+ *   exception will be thrown, the caller can call wasm_runtime_get_exception
+ *   to get the exception info.
  */
 bool
 wasm_application_execute_func(wasm_module_inst_t module_inst,
@@ -619,6 +679,16 @@ wasm_runtime_set_user_data(wasm_exec_env_t exec_env,
  */
 void *
 wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+/**
+ * Set the max thread num per cluster.
+ *
+ * @param num maximum thread num
+ */
+void
+wasm_runtime_set_max_thread_num(uint32_t num);
+#endif
 
 #ifdef __cplusplus
 }

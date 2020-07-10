@@ -192,7 +192,6 @@ typedef struct gc_heap_struct {
 
     gc_uint8 *base_addr;
     gc_size_t current_size;
-    gc_size_t max_size;
 
     korp_mutex lock;
 

@@ -22,11 +22,19 @@ iwasm VM core
 
 - 100% compliant to the W3C WASM MVP
 - Small runtime binary size (85K for interpreter and 50K for AoT) and low memory usage
-- Near to native speed by AoT 
+- Near to native speed by AoT
 - Self-implemented module loader enables AoT working cross Linux, SGX and MCU systems
 - Choices of WASM application libc support: the built-in libc subset for the embedded environment or [WASI](https://github.com/WebAssembly/WASI) for standard libc
 - [Embeddable with the supporting C API's](./doc/embed_wamr.md)
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
+- [Multiple modules as dependencies](./doc/multi_module.md)
+- [Thread management and pthread library](./doc/pthread_library.md)
+
+### post-MVP features
+- [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
+- [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops)
+- [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
+- [Shared memmory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 
 ### Performance and memory usage
 The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.
@@ -45,11 +53,13 @@ Following platforms are supported. Refer to [WAMR porting guide](./doc/port_wamr
 
 - [Linux](./doc/build_wamr.md#linux), [Zephyr](./doc/build_wamr.md#zephyr), [MacOS](./doc/build_wamr.md#macos), [VxWorks](./doc/build_wamr.md#vxworks), [AliOS-Things](./doc/build_wamr.md#alios-things), [Intel Software Guard Extention (Linux)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention), [Android](./doc/build_wamr.md#android)
 
+### Build iwasm VM core (mini product)
 
+WAMR supports building the iwasm VM core only (no app framework) to the mini product. The WAMR mini product takes the WASM application file name or AoT file name as input and then executes it. For the detailed procedure, please see **[build WAMR VM core](./doc/build_wamr.md)** and **[build and run WASM application](./doc/build_wasm_app.md)**. Also we can click the link of each platform above to see how to build iwasm on it.
 
 ### Build wamrc AoT compiler
 
-Execute following commands to build **wamrc** compiler:
+Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compiler is to compile wasm binary file to AoT file which can also be run by iwasm. Execute following commands to build **wamrc** compiler:
 
 ```shell
 cd wamr-compiler
@@ -59,12 +69,7 @@ cmake ..
 make
 ln -s {current path}/wamrc /usr/bin/wamrc
 ```
-
-### Build the mini product
-
-WAMR supports building the iwasm VM core only (no app framework) to the mini product.  The WAMR mini product takes the WASM application file name as input and then executes it. For the detailed procedure, see **[build WAMR VM core](./doc/build_wamr.md)** and **[build and run WASM application](./doc/build_wasm_app.md)**.
-
-
+For MacOS, you should replace `cmake ..` with `cmake -DWAMR_BUILD_PLATFORM=darwin ..`.
 
 Application framework
 ===================================

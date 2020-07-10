@@ -24,6 +24,12 @@ typedef WASMType AOTFuncType;
  * A segment of memory init data
  */
 typedef struct AOTMemInitData {
+#if WASM_ENABLE_BULK_MEMORY != 0
+  /* Passive flag */
+  bool is_passive;
+  /* memory index */
+  uint32 memory_index;
+#endif
   /* Start address of init data */
   AOTInitExpr offset;
   /* Byte count */
@@ -98,6 +104,8 @@ typedef struct AOTFunc {
   uint32 func_type_index;
   uint32 local_count;
   uint8 *local_types;
+  uint16 param_cell_num;
+  uint16 local_cell_num;
   uint32 code_size;
   uint8 *code;
 } AOTFunc;

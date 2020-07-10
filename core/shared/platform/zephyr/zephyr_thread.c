@@ -350,14 +350,14 @@ int os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-void os_mutex_lock(korp_mutex *mutex)
+int os_mutex_lock(korp_mutex *mutex)
 {
-    k_mutex_lock(mutex, K_FOREVER);
+    return k_mutex_lock(mutex, K_FOREVER);
 }
 
-void os_mutex_unlock(korp_mutex *mutex)
+int os_mutex_unlock(korp_mutex *mutex)
 {
-    k_mutex_unlock(mutex);
+    return k_mutex_unlock(mutex);
 }
 
 int os_cond_init(korp_cond *cond)
@@ -442,5 +442,15 @@ int os_cond_signal(korp_cond *cond)
     k_mutex_unlock(&cond->wait_list_lock);
 
     return BHT_OK;
+}
+
+uint8 *os_thread_get_stack_boundary()
+{
+#if defined(CONFIG_THREAD_STACK_INFO)
+    korp_tid thread = k_current_get();
+    return (uint8*)thread->stack_info.start;
+#else
+    return NULL;
+#endif
 }
 

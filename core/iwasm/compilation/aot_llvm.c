@@ -5,6 +5,7 @@
 
 #include "aot_llvm.h"
 #include "aot_compiler.h"
+#include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 
 
@@ -181,127 +182,113 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    /* Load memory data size */
-    offset = I32_CONST(offsetof(AOTModuleInstance, memory_data_size));
-    if (!(func_ctx->mem_data_size =
+    /* Load memory bound check constants */
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_1byte));
+    if (!(func_ctx->mem_bound_check_1byte =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                     &offset, 1, "mem_data_size_offset"))) {
+                                     &offset, 1, "bound_check_1byte_offset"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
-    if (!(func_ctx->mem_data_size =
-                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_data_size,
-                                 INT32_PTR_TYPE, "mem_data_size_ptr"))) {
+    if (!(func_ctx->mem_bound_check_1byte =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_1byte,
+                                 INT64_PTR_TYPE, "bound_check_1byte_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
     if (mem_space_unchanged) {
-        if (!(func_ctx->mem_data_size =
-                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_data_size,
-                                  "mem_data_size"))) {
+        if (!(func_ctx->mem_bound_check_1byte =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_1byte,
+                                  "bound_check_1byte"))) {
             aot_set_last_error("llvm build load failed");
             return false;
         }
-        if (!(func_ctx->mem_bound_1_byte =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_ONE,
-                                 "mem_bound_1_byte"))
-            || !(func_ctx->mem_bound_2_bytes =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_TWO,
-                                 "mem_bound_2_bytes"))
-            || !(func_ctx->mem_bound_4_bytes =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_FOUR,
-                                 "mem_bound_4_bytes"))
-            || !(func_ctx->mem_bound_8_bytes =
-                    LLVMBuildSub(comp_ctx->builder,
-                                 func_ctx->mem_data_size, I32_EIGHT,
-                                 "mem_bound_8_bytes"))) {
-            aot_set_last_error("llvm build sub failed");
+    }
+
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_2bytes));
+    if (!(func_ctx->mem_bound_check_2bytes =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
+                                     &offset, 1, "bound_check_2bytes_offset"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+    if (!(func_ctx->mem_bound_check_2bytes =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_2bytes,
+                                 INT64_PTR_TYPE, "bound_check_2bytes_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_bound_check_2bytes =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_2bytes,
+                                  "bound_check_2bytes"))) {
+            aot_set_last_error("llvm build load failed");
             return false;
         }
     }
 
-    /* Load heap base address */
-    offset = I32_CONST(offsetof(AOTModuleInstance, heap_data.ptr));
-    if (!(func_ctx->heap_base_addr =
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_4bytes));
+    if (!(func_ctx->mem_bound_check_4bytes =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                     &offset, 1, "heap_base_addr_offset"))) {
+                                     &offset, 1, "bound_check_4bytes_offset"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
-    if (!(func_ctx->heap_base_addr =
-                LLVMBuildBitCast(comp_ctx->builder, func_ctx->heap_base_addr,
-                                 int8_ptr_type, "heap_base_addr_tmp"))) {
+    if (!(func_ctx->mem_bound_check_4bytes =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_4bytes,
+                                 INT64_PTR_TYPE, "bound_check_4bytes_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
-    if (!(func_ctx->heap_base_addr =
-                LLVMBuildLoad(comp_ctx->builder, func_ctx->heap_base_addr,
-                              "heap_base_addr"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_bound_check_4bytes =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_4bytes,
+                                  "bound_check_4bytes"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
     }
 
-    /* Load heap base offset */
-    offset = I32_CONST(offsetof(AOTModuleInstance, heap_base_offset));
-    if (!(func_ctx->heap_base_offset =
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_8bytes));
+    if (!(func_ctx->mem_bound_check_8bytes =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                     &offset, 1, "heap_base_offset_offset"))) {
+                                     &offset, 1, "bound_check_8bytes_offset"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
-    if (!(func_ctx->heap_base_offset =
-                LLVMBuildBitCast(comp_ctx->builder, func_ctx->heap_base_offset,
-                                 INT32_PTR_TYPE, "heap_base_offset_tmp"))) {
+    if (!(func_ctx->mem_bound_check_8bytes =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_8bytes,
+                                 INT64_PTR_TYPE, "bound_check_8bytes_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
-    if (!(func_ctx->heap_base_offset =
-                LLVMBuildLoad(comp_ctx->builder, func_ctx->heap_base_offset,
-                              "heap_base_offset"))) {
-        aot_set_last_error("llvm build load failed");
-        return false;
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_bound_check_8bytes =
+                    LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_8bytes,
+                                  "bound_check_8bytes"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
     }
 
-    /* Load heap data size */
-    offset = I32_CONST(offsetof(AOTModuleInstance, heap_data_size));
-    if (!(func_ctx->heap_data_size =
+    /* Load bound_check_heap_base */
+    offset = I32_CONST(offsetof(AOTModuleInstance, mem_bound_check_heap_base));
+    if (!(func_ctx->mem_bound_check_heap_base =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                     &offset, 1, "heap_data_size_offset"))) {
+                                     &offset, 1, "bound_check_heap_base_offset"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
-    if (!(func_ctx->heap_data_size =
-                LLVMBuildBitCast(comp_ctx->builder, func_ctx->heap_data_size,
-                                 INT32_PTR_TYPE, "heap_data_size_tmp"))) {
+    if (!(func_ctx->mem_bound_check_heap_base =
+                LLVMBuildBitCast(comp_ctx->builder, func_ctx->mem_bound_check_heap_base,
+                                 INT64_PTR_TYPE, "bound_check_heap_base_tmp"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
-    if (!(func_ctx->heap_data_size =
-                LLVMBuildLoad(comp_ctx->builder, func_ctx->heap_data_size,
-                              "heap_data_size"))) {
+    if (!(func_ctx->mem_bound_check_heap_base =
+                LLVMBuildLoad(comp_ctx->builder, func_ctx->mem_bound_check_heap_base,
+                              "bound_check_heap_base"))) {
         aot_set_last_error("llvm build load failed");
-        return false;
-    }
-    if (!(func_ctx->heap_bound_1_byte =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_ONE,
-                             "heap_bound_1_byte"))
-            || !(func_ctx->heap_bound_2_bytes =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_TWO,
-                             "heap_bound_2_bytes"))
-            || !(func_ctx->heap_bound_4_bytes =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_FOUR,
-                             "heap_bound_4_bytes"))
-            || !(func_ctx->heap_bound_8_bytes =
-                LLVMBuildSub(comp_ctx->builder,
-                             func_ctx->heap_data_size, I32_EIGHT,
-                             "heap_bound_8_bytes"))) {
-        aot_set_last_error("llvm build sub failed");
         return false;
     }
 
@@ -313,7 +300,7 @@ create_table_base(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
 
-    offset = I32_CONST(offsetof(AOTModuleInstance, global_table_heap_data.bytes)
+    offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data.bytes)
                        + comp_ctx->comp_data->global_data_size);
     func_ctx->table_base = LLVMBuildInBoundsGEP(comp_ctx->builder,
                                                 func_ctx->aot_inst,
@@ -346,45 +333,6 @@ create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         aot_set_last_error("llvm build in bounds gep failed.");
         return false;
     }
-    return true;
-}
-
-static bool
-create_func_ptrs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    LLVMValueRef offset, func_ptrs_ptr;
-    LLVMTypeRef void_ptr_type;
-
-    offset = I32_CONST(offsetof(AOTModuleInstance, func_ptrs.ptr));
-    func_ptrs_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
-                                         func_ctx->aot_inst,
-                                         &offset, 1,
-                                         "func_ptrs_ptr");
-    if (!func_ptrs_ptr) {
-        aot_set_last_error("llvm build in bounds gep failed.");
-        return false;
-    }
-
-    if (!(void_ptr_type = LLVMPointerType(VOID_PTR_TYPE, 0))
-        || !(void_ptr_type = LLVMPointerType(void_ptr_type, 0))) {
-        aot_set_last_error("llvm get pointer type failed.");
-        return false;
-    }
-
-    func_ctx->func_ptrs = LLVMBuildBitCast(comp_ctx->builder, func_ptrs_ptr,
-                                           void_ptr_type, "func_ptrs_tmp");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
-
-    func_ctx->func_ptrs = LLVMBuildLoad(comp_ctx->builder, func_ctx->func_ptrs,
-            "func_ptrs");
-    if (!func_ctx->func_ptrs) {
-        aot_set_last_error("llvm build load failed.");
-        return false;
-    }
-
     return true;
 }
 
@@ -442,6 +390,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     LLVMTypeRef int8_ptr_type, int32_ptr_type;
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
     LLVMValueRef argv_buf_offset = I32_THREE, argv_buf_addr;
+    LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
     char local_name[32];
     uint64 size;
     uint32 i, j = 0;
@@ -517,6 +466,21 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    /* Get native stack boundary address */
+    if (!(stack_bound_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &stack_bound_offset, 1, "stack_bound_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->native_stack_bound =
+            LLVMBuildLoad(comp_ctx->builder,
+                          stack_bound_addr, "native_stack_bound"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
     for (i = 0; i < aot_func_type->param_count; i++, j++) {
         snprintf(local_name, sizeof(local_name), "l%d", i);
         func_ctx->locals[i] =
@@ -571,6 +535,24 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         }
     }
 
+    if (aot_func_type->param_count + func->local_count > 0) {
+        func_ctx->last_alloca = func_ctx->locals[aot_func_type->param_count
+                                                 + func->local_count - 1];
+        if (!(func_ctx->last_alloca =
+                    LLVMBuildBitCast(comp_ctx->builder, func_ctx->last_alloca,
+                                     INT8_PTR_TYPE, "stack_ptr"))) {
+            aot_set_last_error("llvm build bit cast failed.");
+            goto fail;
+        }
+    }
+    else {
+        if (!(func_ctx->last_alloca = LLVMBuildAlloca(comp_ctx->builder, INT8_TYPE,
+                                          "stack_ptr"))) {
+            aot_set_last_error("llvm build alloca failed.");
+            goto fail;
+        }
+    }
+
     if (!(int8_ptr_type = LLVMPointerType(INT8_PTR_TYPE, 0))) {
         aot_set_last_error("llvm add pointer type failed.");
         goto fail;
@@ -591,10 +573,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     /* Load current exception */
     if (!create_cur_exception(comp_ctx, func_ctx))
         goto fail;
-
-    /* Load function pointers */
-    if (!create_func_ptrs(comp_ctx, func_ctx))
-      goto fail;
 
     /* Load function type indexes */
     if (!create_func_type_indexes(comp_ctx, func_ctx))
@@ -620,6 +598,7 @@ aot_destroy_func_contexts(AOTFuncContext **func_ctxes, uint32 count)
             if (func_ctxes[i]->exception_blocks)
                 wasm_runtime_free(func_ctxes[i]->exception_blocks);
             aot_block_stack_destroy(&func_ctxes[i]->block_stack);
+            aot_checked_addr_list_destroy(func_ctxes[i]);
             wasm_runtime_free(func_ctxes[i]);
         }
     wasm_runtime_free(func_ctxes);
@@ -678,7 +657,6 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->int64_ptr_type = LLVMPointerType(basic_types->int64_type, 0);
     basic_types->float32_ptr_type = LLVMPointerType(basic_types->float32_type, 0);
     basic_types->float64_ptr_type = LLVMPointerType(basic_types->float64_type, 0);
-    basic_types->void_ptr_type = LLVMPointerType(basic_types->void_type, 0);
 
     return (basic_types->int8_ptr_type
             && basic_types->int16_ptr_type
@@ -686,7 +664,6 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
             && basic_types->int64_ptr_type
             && basic_types->float32_ptr_type
             && basic_types->float64_ptr_type
-            && basic_types->void_ptr_type
             && basic_types->meta_data_type) ? true : false;
 }
 
@@ -914,10 +891,14 @@ aot_create_comp_context(AOTCompData *comp_data,
         goto fail;
     }
 
+    if (option->enable_bulk_memory)
+        comp_ctx->enable_bulk_memory = true;
+
     if (option->is_jit_mode) {
         /* Create LLVM execution engine */
         LLVMInitializeMCJITCompilerOptions(&jit_options, sizeof(jit_options));
         jit_options.OptLevel = LLVMCodeGenLevelAggressive;
+        jit_options.EnableFastISel = true;
         /*jit_options.CodeModel = LLVMCodeModelSmall;*/
         if (LLVMCreateMCJITCompilerForModule
                 (&comp_ctx->exec_engine, comp_ctx->module,
@@ -932,6 +913,11 @@ aot_create_comp_context(AOTCompData *comp_data,
         comp_ctx->is_jit_mode = true;
         comp_ctx->target_machine =
                 LLVMGetExecutionEngineTargetMachine(comp_ctx->exec_engine);
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+        comp_ctx->enable_bound_check = true;
+#else
+        comp_ctx->enable_bound_check = false;
+#endif
     }
     else {
         /* Create LLVM target machine */
@@ -1045,6 +1031,21 @@ aot_create_comp_context(AOTCompData *comp_data,
         get_target_arch_from_triple(triple_norm, comp_ctx->target_arch,
                                     sizeof(comp_ctx->target_arch));
 
+        if (option->bounds_checks == 1 || option->bounds_checks == 0) {
+            /* Set by user */
+            comp_ctx->enable_bound_check =
+                (option->bounds_checks == 1) ? true : false;
+        }
+        else {
+            /* Unset by user, use default value */
+            if (strstr(comp_ctx->target_arch, "64") && !option->is_sgx_platform) {
+                comp_ctx->enable_bound_check = false;
+            }
+            else {
+                comp_ctx->enable_bound_check = true;
+            }
+        }
+
         os_printf("Create AoT compiler with:\n");
         os_printf("  target:        %s\n", comp_ctx->target_arch);
         os_printf("  target cpu:    %s\n", cpu);
@@ -1109,6 +1110,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         aot_set_last_error("create LLVM pass manager failed.");
         goto fail;
     }
+
     LLVMAddPromoteMemoryToRegisterPass(comp_ctx->pass_mgr);
     LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
     LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
@@ -1288,3 +1290,80 @@ aot_block_destroy(AOTBlock *block)
     aot_value_stack_destroy(&block->value_stack);
     wasm_runtime_free(block);
 }
+
+bool
+aot_checked_addr_list_add(AOTFuncContext *func_ctx,
+                          uint32 local_idx, uint32 offset, uint32 bytes)
+{
+    AOTCheckedAddr *node = func_ctx->checked_addr_list;
+
+    if (!(node = wasm_runtime_malloc(sizeof(AOTCheckedAddr)))) {
+        aot_set_last_error("allocate memory failed.");
+        return false;
+    }
+
+    node->local_idx = local_idx;
+    node->offset = offset;
+    node->bytes = bytes;
+
+    node->next = func_ctx->checked_addr_list;
+    func_ctx->checked_addr_list = node;
+    return true;
+}
+
+void
+aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx)
+{
+    AOTCheckedAddr *node = func_ctx->checked_addr_list;
+    AOTCheckedAddr *node_prev = NULL, *node_next;
+
+    while (node) {
+        node_next = node->next;
+
+        if (node->local_idx == local_idx) {
+            if (!node_prev)
+                func_ctx->checked_addr_list = node_next;
+            else
+                node_prev->next = node_next;
+            wasm_runtime_free(node);
+        }
+        else {
+            node_prev = node;
+        }
+
+        node = node_next;
+    }
+}
+
+bool
+aot_checked_addr_list_find(AOTFuncContext *func_ctx,
+                           uint32 local_idx, uint32 offset, uint32 bytes)
+{
+    AOTCheckedAddr *node = func_ctx->checked_addr_list;
+
+    while (node) {
+        if (node->local_idx == local_idx
+            && node->offset == offset
+            && node->bytes >= bytes) {
+            return true;
+        }
+        node = node->next;
+    }
+
+    return false;
+}
+
+void
+aot_checked_addr_list_destroy(AOTFuncContext *func_ctx)
+{
+    AOTCheckedAddr *node = func_ctx->checked_addr_list, *node_next;
+
+    while (node) {
+        node_next = node->next;
+        wasm_runtime_free(node);
+        node = node_next;
+    }
+
+    func_ctx->checked_addr_list = NULL;
+}
+

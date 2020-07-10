@@ -50,6 +50,22 @@ aot_compile_op_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 bool
 aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+bool
+aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           uint32 seg_index);
+
+bool
+aot_compile_op_data_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                         uint32 seg_index);
+
+bool
+aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+
+bool
+aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+#endif
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

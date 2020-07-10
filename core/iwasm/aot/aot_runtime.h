@@ -18,9 +18,6 @@
 extern "C" {
 #endif
 
-#define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 1
-
 typedef enum AOTExceptionID {
     EXCE_UNREACHABLE = 0,
     EXCE_OUT_OF_MEMORY,
@@ -33,6 +30,7 @@ typedef enum AOTExceptionID {
     EXCE_UNDEFINED_ELEMENT,
     EXCE_UNINITIALIZED_ELEMENT,
     EXCE_CALL_UNLINKED_IMPORT_FUNC,
+    EXCE_NATIVE_STACK_OVERFLOW,
     EXCE_NUM,
 } AOTExceptionID;
 
@@ -200,19 +198,25 @@ typedef struct AOTModuleInstance {
     /* WASI context */
     AOTPointer wasi_ctx;
 
+    /* boundary check constants for aot code */
+    int64 mem_bound_check_heap_base;
+    int64 mem_bound_check_1byte;
+    int64 mem_bound_check_2bytes;
+    int64 mem_bound_check_4bytes;
+    int64 mem_bound_check_8bytes;
+
     /* others */
     int32 temp_ret;
     uint32 llvm_stack;
-    int32 DYNAMICTOP_PTR_offset;
     uint32 default_wasm_stack_size;
 
     /* reserved */
-    uint32 reserved[16];
+    uint32 reserved[11];
 
     union {
         uint64 _make_it_8_byte_aligned_;
         uint8 bytes[1];
-    } global_table_heap_data;
+    } global_table_data;
 } AOTModuleInstance;
 
 typedef AOTExportFunc AOTFunctionInstance;
@@ -290,6 +294,7 @@ aot_unload(AOTModule *module);
  * Instantiate a AOT module.
  *
  * @param module the AOT module to instantiate
+ * @param is_sub_inst the flag of sub instance
  * @param heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
  *        function can allocate memory from the heap. If heap_size is 0, the
@@ -300,7 +305,7 @@ aot_unload(AOTModule *module);
  * @return return the instantiated AOT module instance, NULL if failed
  */
 AOTModuleInstance*
-aot_instantiate(AOTModule *module,
+aot_instantiate(AOTModule *module, bool is_sub_inst,
                 uint32 stack_size, uint32 heap_size,
                 char *error_buf, uint32 error_buf_size);
 
@@ -308,9 +313,10 @@ aot_instantiate(AOTModule *module,
  * Deinstantiate a AOT module instance, destroy the resources.
  *
  * @param module_inst the AOT module instance to destroy
+ * @param is_sub_inst the flag of sub instance
  */
 void
-aot_deinstantiate(AOTModuleInstance *module_inst);
+aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
 
 /**
  * Lookup an exported function in the AOT module instance.
@@ -441,16 +447,33 @@ aot_is_wasm_type_equal(AOTModuleInstance *module_inst,
  */
 bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
-                  uint32 *frame_lp, uint32 argc, uint32 *argv_ret);
+                  uint32 argc, uint32 *argv);
 
 bool
 aot_call_indirect(WASMExecEnv *exec_env,
                   bool check_func_type, uint32 func_type_idx,
                   uint32 table_elem_idx,
-                  uint32 *frame_lp, uint32 argc, uint32 *argv_ret);
+                  uint32 argc, uint32 *argv);
 
 uint32
 aot_get_plt_table_size();
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+bool
+aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index,
+                uint32 offset, uint32 len, uint32 dst);
+
+bool
+aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
+#endif
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+bool
+aot_signal_init();
+
+void
+aot_signal_destroy();
+#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */

@@ -24,14 +24,14 @@ int os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-void os_mutex_lock(korp_mutex *mutex)
+int os_mutex_lock(korp_mutex *mutex)
 {
-    sgx_thread_mutex_lock(mutex);
+    return sgx_thread_mutex_lock(mutex);
 }
 
-void os_mutex_unlock(korp_mutex *mutex)
+int os_mutex_unlock(korp_mutex *mutex)
 {
-    sgx_thread_mutex_unlock(mutex);
+    return sgx_thread_mutex_unlock(mutex);
 }
 
 int os_cond_init(korp_cond *cond)
@@ -45,5 +45,11 @@ int os_cond_destroy(korp_cond *cond)
 {
     sgx_thread_cond_destroy(cond);
     return BHT_OK;
+}
+
+uint8 *os_thread_get_stack_boundary()
+{
+    /* TODO: get sgx stack boundary */
+    return NULL;
 }
 

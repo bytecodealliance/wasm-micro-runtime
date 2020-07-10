@@ -20,7 +20,7 @@ static exec_mem_free_func_t exec_mem_free_func = NULL;
 static void
 disable_mpu_rasr_xn(void)
 {
-    u32_t index;
+    uint32 index;
     /* Kept the max index as 8 (irrespective of soc) because the sram
        would most likely be set at index 2. */
     for (index = 0U; index < 8; index++) {
@@ -110,16 +110,18 @@ os_vprintf(const char *fmt, va_list ap)
 }
 
 void *
-os_mmap(void *hint, unsigned int size, int prot, int flags)
+os_mmap(void *hint, size_t size, int prot, int flags)
 {
+    if ((uint64)size >= UINT32_MAX)
+        return NULL;
     if (exec_mem_alloc_func)
-        return exec_mem_alloc_func(size);
+        return exec_mem_alloc_func((uint32)size);
     else
         return BH_MALLOC(size);
 }
 
 void
-os_munmap(void *addr, uint32 size)
+os_munmap(void *addr, size_t size)
 {
     if (exec_mem_free_func)
         exec_mem_free_func(addr);
@@ -128,7 +130,7 @@ os_munmap(void *addr, uint32 size)
 }
 
 int
-os_mprotect(void *addr, uint32 size, int prot)
+os_mprotect(void *addr, size_t size, int prot)
 {
     return 0;
 }

@@ -345,7 +345,7 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 #endif
 
 #ifdef __x86_64__
-static char global_heap_buf[420 * 1024] = { 0 };
+static char global_heap_buf[400 * 1024] = { 0 };
 #else
 static char global_heap_buf[270 * 1024] = { 0 };
 #endif

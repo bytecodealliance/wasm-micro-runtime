@@ -22,6 +22,8 @@ extern "C" {
 #define VALUE_TYPE_VOID 0x40
 /* Used by AOT */
 #define VALUE_TYPE_I1  0x41
+/*  Used by loader to represent any type of i32/i64/f32/f64 */
+#define VALUE_TYPE_ANY 0x42
 
 /* Table Element Type */
 #define TABLE_ELEM_TYPE_ANY_FUNC 0x70
@@ -50,6 +52,9 @@ extern "C" {
 #define SECTION_TYPE_ELEM 9
 #define SECTION_TYPE_CODE 10
 #define SECTION_TYPE_DATA 11
+#if WASM_ENABLE_BULK_MEMORY != 0
+#define SECTION_TYPE_DATACOUNT 12
+#endif
 
 #define IMPORT_KIND_FUNC 0
 #define IMPORT_KIND_TABLE 1
@@ -65,6 +70,10 @@ extern "C" {
 #define BLOCK_TYPE_LOOP 1
 #define BLOCK_TYPE_IF 2
 #define BLOCK_TYPE_FUNCTION 3
+
+typedef struct WASMModule WASMModule;
+typedef struct WASMFunction WASMFunction;
+typedef struct WASMGlobal WASMGlobal;
 
 typedef union WASMValue {
     int32 i32;
@@ -119,6 +128,10 @@ typedef struct WASMTableImport {
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModule *import_module;
+    WASMTable *import_table_linked;
+#endif
 } WASMTableImport;
 
 typedef struct WASMMemoryImport {
@@ -128,6 +141,10 @@ typedef struct WASMMemoryImport {
     uint32 num_bytes_per_page;
     uint32 init_page_count;
     uint32 max_page_count;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModule *import_module;
+    WASMMemory *import_memory_linked;
+#endif
 } WASMMemoryImport;
 
 typedef struct WASMFunctionImport {
@@ -135,13 +152,17 @@ typedef struct WASMFunctionImport {
     char *field_name;
     /* function type */
     WASMType *func_type;
-    /* function pointer after linked */
+    /* native function pointer after linked */
     void *func_ptr_linked;
     /* signature from registered native symbols */
     const char *signature;
     /* attachment */
     void *attachment;
     bool call_conv_raw;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModule *import_module;
+    WASMFunction *import_func_linked;
+#endif
 } WASMFunctionImport;
 
 typedef struct WASMGlobalImport {
@@ -151,6 +172,12 @@ typedef struct WASMGlobalImport {
     bool is_mutable;
     /* global data after linked */
     WASMValue global_data_linked;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* imported function pointer after linked */
+    // TODO: remove if not necessary
+    WASMModule *import_module;
+    WASMGlobal *import_global_linked;
+#endif
 } WASMGlobalImport;
 
 typedef struct WASMImport {
@@ -223,6 +250,9 @@ typedef struct WASMDataSeg {
     uint32 memory_index;
     InitializerExpression base_offset;
     uint32 data_length;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bool is_passive;
+#endif
     uint8 *data;
 } WASMDataSeg;
 
@@ -266,7 +296,12 @@ typedef struct WASMModule {
     uint32 global_count;
     uint32 export_count;
     uint32 table_seg_count;
+    /* data seg count read from data segment section */
     uint32 data_seg_count;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    /* data count read from datacount section */
+    uint32 data_seg_count1;
+#endif
 
     uint32 import_function_count;
     uint32 import_table_count;
@@ -307,6 +342,12 @@ typedef struct WASMModule {
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
     bool is_wasi_module;
+#endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    // TODO: mutex ? mutli-threads ?
+    bh_list import_module_list_head;
+    bh_list *import_module_list;
 #endif
 } WASMModule;
 
@@ -431,4 +472,3 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
 #endif
 
 #endif /* end of _WASM_H_ */
-

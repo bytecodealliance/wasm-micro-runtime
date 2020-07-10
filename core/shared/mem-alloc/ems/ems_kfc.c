@@ -35,7 +35,6 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     }
 
     /* init all data structures*/
-    heap->max_size = heap_max_size;
     heap->current_size = heap_max_size;
     heap->base_addr = (gc_uint8*)base_addr;
     heap->heap_id = (gc_handle_t)heap;
@@ -82,9 +81,70 @@ gc_destroy_with_pool(gc_handle_t handle)
 {
     gc_heap_t *heap = (gc_heap_t *) handle;
     os_mutex_destroy(&heap->lock);
-    memset(heap->base_addr, 0, heap->max_size);
+    memset(heap->base_addr, 0, heap->current_size);
     memset(heap, 0, sizeof(gc_heap_t));
     return GC_SUCCESS;
+}
+
+static void
+adjust_ptr(uint8 **p_ptr, intptr_t offset)
+{
+    if (*p_ptr)
+        *p_ptr += offset;
+}
+
+int
+gc_migrate(gc_handle_t handle, gc_handle_t handle_old)
+{
+    gc_heap_t *heap = (gc_heap_t *) handle;
+    intptr_t offset = (uint8*)handle - (uint8*)handle_old;
+    hmu_t *cur = NULL, *end = NULL;
+    hmu_tree_node_t *tree_node;
+    gc_size_t size;
+
+    os_mutex_init(&heap->lock);
+
+    if (offset == 0)
+        return 0;
+
+    heap->heap_id = (gc_handle_t)heap;
+    heap->base_addr += offset;
+    adjust_ptr((uint8**)&heap->kfc_tree_root.left, offset);
+    adjust_ptr((uint8**)&heap->kfc_tree_root.right, offset);
+    adjust_ptr((uint8**)&heap->kfc_tree_root.parent, offset);
+
+    cur = (hmu_t*)heap->base_addr;
+    end = (hmu_t*)((char*)heap->base_addr + heap->current_size);
+
+    while (cur < end) {
+        size = hmu_get_size(cur);
+        bh_assert(size > 0);
+
+        if (!HMU_IS_FC_NORMAL(size)) {
+            tree_node = (hmu_tree_node_t *)cur;
+            adjust_ptr((uint8**)&tree_node->left, offset);
+            adjust_ptr((uint8**)&tree_node->right, offset);
+            adjust_ptr((uint8**)&tree_node->parent, offset);
+        }
+        cur = (hmu_t*)((char *)cur + size);
+    }
+
+    bh_assert(cur == end);
+    return 0;
+}
+
+int
+gc_reinit_lock(gc_handle_t handle)
+{
+    gc_heap_t *heap = (gc_heap_t *) handle;
+    return os_mutex_init(&heap->lock);
+}
+
+void
+gc_destroy_lock(gc_handle_t handle)
+{
+    gc_heap_t *heap = (gc_heap_t *) handle;
+    os_mutex_destroy(&heap->lock);
 }
 
 #if BH_ENABLE_GC_VERIFY != 0

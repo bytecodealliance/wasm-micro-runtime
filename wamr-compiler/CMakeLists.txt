@@ -4,7 +4,9 @@ cmake_minimum_required (VERSION 2.8)
 
 project (aot-compiler)
 
-set (WAMR_BUILD_PLATFORM "linux")
+if (NOT DEFINED WAMR_BUILD_PLATFORM)
+  set (WAMR_BUILD_PLATFORM "linux")
+endif()
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
@@ -12,6 +14,8 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 add_definitions(-DWASM_ENABLE_INTERP=1)
 add_definitions(-DWASM_ENABLE_WAMR_COMPILER=1)
+add_definitions(-DWASM_ENABLE_BULK_MEMORY=1)
+add_definitions(-DWASM_DISABLE_HW_BOUND_CHECK=1)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
@@ -59,7 +63,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE)
- set(CMAKE_BUILD_TYPE Release)
+  set(CMAKE_BUILD_TYPE Release)
 endif (NOT CMAKE_BUILD_TYPE)
 message ("-- CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 
@@ -76,7 +80,9 @@ add_definitions(${LLVM_DEFINITIONS})
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+endif()
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections \
                     -Wall -Wno-unused-parameter -Wno-pedantic")
 
@@ -102,7 +108,9 @@ include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+  if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+  endif()
 endif ()
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")

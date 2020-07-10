@@ -18,13 +18,27 @@ extern "C" {
 struct WASMModuleInstanceCommon;
 struct WASMInterpFrame;
 
+#if WASM_ENABLE_THREAD_MGR != 0
+typedef struct WASMCluster WASMCluster;
+#endif
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+typedef struct WASMJmpBuf {
+    struct WASMJmpBuf *prev;
+    korp_jmpbuf jmpbuf;
+} WASMJmpBuf;
+#endif
+
 /* Execution environment */
 typedef struct WASMExecEnv {
-    /* Next thread's exec env of a WASM module instance.  */
+    /* Next thread's exec env of a WASM module instance. */
     struct WASMExecEnv *next;
 
-    /* Previous thread's exec env of a WASM module instance.  */
+    /* Previous thread's exec env of a WASM module instance. */
     struct WASMExecEnv *prev;
+
+    /* Note: field module_inst, argv_buf and native_stack_boundary
+             are used by AOTed code, don't change the places of them */
 
     /* The WASM module instance of current thread */
     struct WASMModuleInstanceCommon *module_inst;
@@ -32,6 +46,33 @@ typedef struct WASMExecEnv {
 #if WASM_ENABLE_AOT != 0
     uint32 *argv_buf;
 #endif
+
+    /* The boundary of native stack. When runtime detects that native
+       frame may overrun this boundary, it throws stack overflow
+       exception. */
+    uint8 *native_stack_boundary;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Used to terminate or suspend the interpreter
+        bit 0: need terminate
+        bit 1: need suspend
+        bit 2: need to go into breakpoint */
+    uintptr_t suspend_flags;
+
+    /* Must be provided by thread library */
+    void* (*thread_start_routine)(void *);
+    void *thread_arg;
+
+    /* pointer to the cluster */
+    WASMCluster *cluster;
+
+    /* used to support debugger */
+    korp_mutex wait_lock;
+    korp_cond wait_cond;
+#endif
+
+    /* Aux stack boundary */
+    uint32 aux_stack_boundary;
 
     /* attachment for native function */
     void *attachment;
@@ -48,10 +89,9 @@ typedef struct WASMExecEnv {
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
 #endif
 
-    /* The boundary of native stack. When interpreter detects that native
-       frame may overrun this boundary, it throws a stack overflow
-       exception. */
-    void *native_stack_boundary;
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    WASMJmpBuf *jmpbuf_stack_top;
+#endif
 
     /* The WASM stack size */
     uint32 wasm_stack_size;
@@ -61,17 +101,24 @@ typedef struct WASMExecEnv {
         uint64 __make_it_8_byte_aligned_;
 
         struct {
-            /* The top boundary of the stack.  */
+            /* The top boundary of the stack. */
             uint8 *top_boundary;
 
-            /* Top cell index which is free.  */
+            /* Top cell index which is free. */
             uint8 *top;
 
-            /* The Java stack.  */
+            /* The WASM stack. */
             uint8 bottom[1];
         } s;
     } wasm_stack;
 } WASMExecEnv;
+
+WASMExecEnv *
+wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
+                              uint32 stack_size);
+
+void
+wasm_exec_env_destroy_internal(WASMExecEnv *exec_env);
 
 WASMExecEnv *
 wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
@@ -158,6 +205,26 @@ wasm_exec_env_get_cur_frame(WASMExecEnv *exec_env)
 
 struct WASMModuleInstanceCommon *
 wasm_exec_env_get_module_inst(WASMExecEnv *exec_env);
+
+void
+wasm_exec_env_set_thread_info(WASMExecEnv *exec_env);
+
+
+#if WASM_ENABLE_THREAD_MGR != 0
+void *
+wasm_exec_env_get_thread_arg(WASMExecEnv *exec_env);
+
+void
+wasm_exec_env_set_thread_arg(WASMExecEnv *exec_env, void *thread_arg);
+#endif
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+void
+wasm_exec_env_push_jmpbuf(WASMExecEnv *exec_env, WASMJmpBuf *jmpbuf);
+
+WASMJmpBuf *
+wasm_exec_env_pop_jmpbuf(WASMExecEnv *exec_env);
+#endif
 
 #ifdef __cplusplus
 }

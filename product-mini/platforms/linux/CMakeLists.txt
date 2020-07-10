@@ -4,12 +4,15 @@
 cmake_minimum_required (VERSION 2.8)
 
 project (iwasm)
+# set (CMAKE_VERBOSE_MAKEFILE 1)
 
 set (WAMR_BUILD_PLATFORM "linux")
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
+
+set (CMAKE_C_STANDARD 99)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
@@ -57,6 +60,20 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
+  # Enable multiple modules
+  set (WAMR_BUILD_MULTI_MODULE 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
+  # Disable wasm mini loader by default
+  set (WAMR_BUILD_MINI_LOADER 0)
+endif ()
+
+if (COLLECT_CODE_COVERAGE EQUAL 1)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+endif ()
+
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -96,4 +113,3 @@ install (TARGETS libiwasm DESTINATION lib)
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
 target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
-

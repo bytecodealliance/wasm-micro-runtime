@@ -404,10 +404,11 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
 #endif
 {
     gc_heap_t* heap = (gc_heap_t*) vheap;
-    hmu_t *hmu = NULL, *hmu_old = NULL;
+    hmu_t *hmu = NULL, *hmu_old = NULL, *hmu_next;
     gc_object_t ret = (gc_object_t) NULL, obj_old = (gc_object_t)ptr;
-    gc_size_t tot_size, tot_size_unaligned, tot_size_old = 0;
+    gc_size_t tot_size, tot_size_unaligned, tot_size_old = 0, tot_size_next;
     gc_size_t obj_size, obj_size_old;
+    hmu_type_t ut;
 
     /* hmu header + prefix + obj + suffix */
     tot_size_unaligned = HMU_SIZE + OBJ_PREFIX_SIZE + size + OBJ_SUFFIX_SIZE;
@@ -426,6 +427,32 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
     }
 
     os_mutex_lock(&heap->lock);
+
+    if (hmu_old) {
+        hmu_next = (hmu_t*)((char *)hmu_old + tot_size_old);
+        if (hmu_is_in_heap(heap, hmu_next)) {
+            ut = hmu_get_ut(hmu_next);
+            tot_size_next = hmu_get_size(hmu_next);
+            if (ut == HMU_FC
+                && tot_size <= tot_size_old + tot_size_next) {
+                /* current node and next node meets requirement */
+                unlink_hmu(heap, hmu_next);
+                hmu_set_size(hmu_old, tot_size);
+                memset((char*)hmu_old + tot_size_old, 0, tot_size - tot_size_old);
+#if BH_ENABLE_GC_VERIFY != 0
+                hmu_init_prefix_and_suffix(hmu_old, tot_size, file, line);
+#endif
+                if (tot_size < tot_size_old + tot_size_next) {
+                    hmu_next = (hmu_t*)((char*)hmu_old + tot_size);
+                    tot_size_next = tot_size_old + tot_size_next - tot_size;
+                    gci_add_fc(heap, hmu_next, tot_size_next);
+                }
+                os_mutex_unlock(&heap->lock);
+                return obj_old;
+            }
+        }
+    }
+
 
     hmu = alloc_hmu_ex(heap, tot_size);
     if (!hmu)
