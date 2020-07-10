@@ -275,9 +275,9 @@ typedef uint64_t __wasi_timestamp_t;
 typedef uint64_t __wasi_userdata_t;
 
 typedef uint8_t __wasi_whence_t;
-#define __WASI_WHENCE_CUR (0)
-#define __WASI_WHENCE_END (1)
-#define __WASI_WHENCE_SET (2)
+#define __WASI_WHENCE_SET (0)
+#define __WASI_WHENCE_CUR (1)
+#define __WASI_WHENCE_END (2)
 
 typedef uint8_t __wasi_preopentype_t;
 #define __WASI_PREOPENTYPE_DIR              (0)

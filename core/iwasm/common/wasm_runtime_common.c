@@ -1584,41 +1584,9 @@ wasm_exec_env_get_module(WASMExecEnv *exec_env)
  * Implementation of wasm_application_execute_main()
  */
 
-static WASMFunctionInstanceCommon *
-resolve_main_function(const WASMModuleInstanceCommon *module_inst)
-{
-    uint32 i;
-
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstance *wasm_inst = (WASMModuleInstance*)module_inst;
-        for (i = 0; i < wasm_inst->export_func_count; i++) {
-            if (!strcmp(wasm_inst->export_functions[i].name, "_main")
-                || !strcmp(wasm_inst->export_functions[i].name, "main"))
-                return (WASMFunctionInstanceCommon*)
-                       wasm_inst->export_functions[i].function;
-        }
-        LOG_ERROR("WASM execute application failed: main function not found.\n");
-        return NULL;
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *aot_inst = (AOTModuleInstance*)module_inst;
-        AOTModule *module = (AOTModule*)aot_inst->aot_module.ptr;
-        for (i = 0; i < module->export_func_count; i++) {
-            if (!strcmp(module->export_funcs[i].func_name, "_main")
-                || !strcmp(module->export_funcs[i].func_name, "main"))
-                return (WASMFunctionInstanceCommon*)&module->export_funcs[i];
-        }
-        LOG_ERROR("WASM execute application failed: main function not found.\n");
-        return NULL;
-    }
-#endif
-
-    return NULL;
-}
+static WASMFunctionInstanceCommon*
+resolve_function(const WASMModuleInstanceCommon *module_inst,
+                 const char *name);
 
 static bool
 check_main_func_type(const WASMType *type)
@@ -1672,7 +1640,11 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
-    func = resolve_main_function(module_inst);
+    func = resolve_function(module_inst, "_main");
+    if (!func) {
+        func = resolve_function(module_inst, "main");
+    }
+
     if (!func) {
         wasm_runtime_set_exception(module_inst,
                                    "lookup main function failed.");
