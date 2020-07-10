@@ -1580,6 +1580,14 @@ wasm_exec_env_get_module(WASMExecEnv *exec_env)
     return NULL;
 }
 
+/**
+ * Implementation of wasm_application_execute_main()
+ */
+
+static WASMFunctionInstanceCommon*
+resolve_function(const WASMModuleInstanceCommon *module_inst,
+                 const char *name);
+
 static bool
 check_main_func_type(const WASMType *type)
 {
