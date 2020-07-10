@@ -92,14 +92,21 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
   AOTFuncContext *func_ctx = comp_ctx->func_ctxes[func_index];
   uint8 *frame_ip = func_ctx->aot_func->code, opcode, *p_f32, *p_f64;
   uint8 *frame_ip_end = frame_ip + func_ctx->aot_func->code_size;
-  uint32 block_ret_type, br_depth, *br_depths, br_count;
+  uint8 *param_types = NULL;
+  uint8 *result_types = NULL;
+  uint8 value_type;
+  uint16 param_count;
+  uint16 result_count;
+  uint32 br_depth, *br_depths, br_count;
   uint32 func_idx, type_idx, mem_idx, local_idx, global_idx, i;
   uint32 bytes = 4, align, offset;
+  uint32 type_index;
   bool sign = true;
   int32 i32_const;
   int64 i64_const;
   float32 f32_const;
   float64 f64_const;
+  AOTFuncType *func_type = NULL;
 
   /* Start to translate the opcodes */
   LLVMPositionBuilderAtEnd(comp_ctx->builder,
@@ -119,11 +126,37 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
       case WASM_OP_BLOCK:
       case WASM_OP_LOOP:
       case WASM_OP_IF:
-        read_leb_uint32(frame_ip, frame_ip_end, block_ret_type);
+        value_type = *frame_ip++;
+        if (value_type == VALUE_TYPE_I32
+            || value_type == VALUE_TYPE_I64
+            || value_type == VALUE_TYPE_F32
+            || value_type == VALUE_TYPE_F64
+            || value_type == VALUE_TYPE_VOID) {
+          param_count = 0;
+          param_types = NULL;
+          if (value_type == VALUE_TYPE_VOID) {
+            result_count = 0;
+            result_types = NULL;
+          }
+          else {
+            result_count = 1;
+            result_types = &value_type;
+          }
+        }
+        else {
+          frame_ip--;
+          read_leb_uint32(frame_ip, frame_ip_end, type_index);
+          func_type = comp_ctx->comp_data->func_types[type_index];
+          param_count = func_type->param_count;
+          param_types = func_type->types;
+          result_count = func_type->result_count;
+          result_types = func_type->types + param_count;
+        }
         if (!aot_compile_op_block(comp_ctx, func_ctx,
                                   &frame_ip, frame_ip_end,
-                                  (uint32)(BLOCK_TYPE_BLOCK + opcode - WASM_OP_BLOCK),
-                                  block_ret_type))
+                                  (uint32)(LABEL_TYPE_BLOCK + opcode - WASM_OP_BLOCK),
+                                  param_count, param_types,
+                                  result_count, result_types))
           return false;
         break;
 

@@ -41,8 +41,13 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, AOTFuncType *aot_func_type,
     uint64 size;
     uint32 i, j = 0, param_count = (uint64)aot_func_type->param_count;
 
-    /* aot context as first parameter */
+    /* exec env as first parameter */
     param_count++;
+
+    /* Extra wasm function results(except the first one)'s address are
+     * appended to aot function parameters. */
+    if (aot_func_type->result_count > 1)
+      param_count += aot_func_type->result_count - 1;
 
     /* Initialize parameter types of the LLVM function */
     size = sizeof(LLVMTypeRef) * ((uint64)param_count);
@@ -56,6 +61,15 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, AOTFuncType *aot_func_type,
     param_types[j++] = comp_ctx->exec_env_type;
     for (i = 0; i < aot_func_type->param_count; i++)
         param_types[j++] = TO_LLVM_TYPE(aot_func_type->types[i]);
+    /* Extra results' address */
+    for (i = 1; i < aot_func_type->result_count; i++, j++) {
+      param_types[j] =
+          TO_LLVM_TYPE(aot_func_type->types[aot_func_type->param_count + i]);
+      if (!(param_types[j] = LLVMPointerType(param_types[j], 0))) {
+          aot_set_last_error("llvm get pointer type failed.");
+          goto fail;
+      }
+    }
 
     /* Resolve return type of the LLVM function */
     if (aot_func_type->result_count)
@@ -92,6 +106,16 @@ fail:
     return func;
 }
 
+static void
+free_block_memory(AOTBlock *block)
+{
+    if (block->param_types)
+        wasm_runtime_free(block->param_types);
+    if (block->result_types)
+        wasm_runtime_free(block->result_types);
+    wasm_runtime_free(block);
+}
+
 /**
  * Create first AOTBlock, or function block for the function
  */
@@ -100,22 +124,33 @@ aot_create_func_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                       AOTFunc *func, AOTFuncType *aot_func_type)
 {
     AOTBlock *aot_block;
+    uint32 param_count = aot_func_type->param_count,
+           result_count = aot_func_type->result_count;
 
     /* Allocate memory */
     if (!(aot_block = wasm_runtime_malloc(sizeof(AOTBlock)))) {
         aot_set_last_error("allocate memory failed.");
         return NULL;
     }
-
     memset(aot_block, 0, sizeof(AOTBlock));
+    if (param_count
+        && !(aot_block->param_types = wasm_runtime_malloc(param_count))) {
+        aot_set_last_error("allocate memory failed.");
+        goto fail;
+    }
+    if (result_count) {
+        if (!(aot_block->result_types = wasm_runtime_malloc(result_count))) {
+            aot_set_last_error("allocate memory failed.");
+            goto fail;
+        }
+    }
 
-    /* Set block type and return type */
-    aot_block->block_type = BLOCK_TYPE_FUNCTION;
-    if (aot_func_type->result_count)
-        aot_block->return_type = aot_func_type->types[aot_func_type->param_count];
-    else
-        aot_block->return_type = VALUE_TYPE_VOID;
-
+    /* Set block data */
+    aot_block->label_type = LABEL_TYPE_FUNCTION;
+    aot_block->param_count = param_count;
+    memcpy(aot_block->param_types, aot_func_type->types, param_count);
+    aot_block->result_count = result_count;
+    memcpy(aot_block->result_types, aot_func_type->types + param_count, result_count);
     aot_block->wasm_code_end = func->code + func->code_size;
 
     /* Add function entry block */
@@ -129,7 +164,7 @@ aot_create_func_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return aot_block;
 
 fail:
-    wasm_runtime_free(aot_block);
+    free_block_memory(aot_block);
     return NULL;
 }
 
@@ -1288,6 +1323,16 @@ void
 aot_block_destroy(AOTBlock *block)
 {
     aot_value_stack_destroy(&block->value_stack);
+    if (block->param_types)
+        wasm_runtime_free(block->param_types);
+    if (block->param_phis)
+        wasm_runtime_free(block->param_phis);
+    if (block->else_param_phis)
+        wasm_runtime_free(block->else_param_phis);
+    if (block->result_types)
+        wasm_runtime_free(block->result_types);
+    if (block->result_phis)
+        wasm_runtime_free(block->result_phis);
     wasm_runtime_free(block);
 }
 

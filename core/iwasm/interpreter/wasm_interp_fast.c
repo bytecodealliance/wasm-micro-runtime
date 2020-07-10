@@ -679,21 +679,121 @@ trunc_f64_to_int(WASMModuleInstance *module,
     PUSH_##dst_op_type(value);                                      \
   } while (0)
 
-#define RECOVER_BR_INFO() do {                      \
-    uint16 stack_index, ret_cell_num;               \
-    stack_index = *(uint16*)frame_ip;               \
-    frame_ip += sizeof(uint16);                     \
-    ret_cell_num = *(uint8*)frame_ip;               \
-    frame_ip += sizeof(uint8);                      \
-    if (ret_cell_num == 1)                          \
-        frame_lp[stack_index] =                     \
-            frame_lp[*(int16*)frame_ip];            \
-    else if (ret_cell_num == 2) {                   \
-        *(int64*)(frame_lp + stack_index) =         \
-            *(int64*)(frame_lp + *(int16*)frame_ip);\
-    }                                               \
-    frame_ip += sizeof(int16);                      \
-    frame_ip = *(uint8**)frame_ip;                  \
+static bool
+copy_stack_values(WASMModuleInstance *module,
+                  uint32 *frame_lp,
+                  uint32 arity,
+                  uint32 total_cell_num,
+                  const uint8 *cells,
+                  const int16 *src_offsets,
+                  const uint16 *dst_offsets)
+{
+  /* To avoid the overlap issue between src offsets and dst offset,
+   * we use 2 steps to do the copy. First step, copy the src values
+   * to a tmp buf. Second step, copy the values from tmp buf to dst.
+   */
+  uint32 buf[16] = {0}, i;
+  uint32 *tmp_buf = buf;
+  uint8 cell;
+  int16 src, buf_index = 0;
+  uint16 dst;
+
+  /* Allocate memory if the buf is not large enough */
+  if (total_cell_num > sizeof(buf)/sizeof(uint32)) {
+    uint64 total_size = sizeof(uint32) * (uint64)total_cell_num;
+    if (total_size >= UINT32_MAX
+        || !(tmp_buf = wasm_runtime_malloc((uint32)total_size))) {
+      wasm_set_exception(module,
+                         "WASM interp failed: allocate memory failed.");
+      return false;
+    }
+  }
+
+  /* 1) Copy values from src to tmp buf */
+  for (i = 0; i < arity; i++) {
+    cell = cells[i];
+    src = src_offsets[i];
+    if (cell == 1)
+      tmp_buf[buf_index] = frame_lp[src];
+    else
+      *(uint64*)(tmp_buf + buf_index) = *(uint64*)(frame_lp + src);
+    buf_index += cell;
+  }
+
+  /* 2) Copy values from tmp buf to dest */
+  buf_index = 0;
+  for (i = 0; i < arity; i++) {
+    cell = cells[i];
+    dst = dst_offsets[i];
+    if (cell == 1)
+      frame_lp[dst] = tmp_buf[buf_index];
+    else
+      *(uint64*)(frame_lp + dst) = *(uint64*)(tmp_buf + buf_index);
+    buf_index += cell;
+  }
+
+  if (tmp_buf !=  buf) {
+    wasm_runtime_free(tmp_buf);
+  }
+
+    return true;
+}
+
+#define RECOVER_BR_INFO() do {                                \
+    uint32 arity;                                             \
+    /* read arity */                                          \
+    arity = *(uint32*)frame_ip;                               \
+    frame_ip += sizeof(arity);                                \
+    if (arity) {                                              \
+        uint32 total_cell;                                    \
+        uint16 *dst_offsets = NULL;                           \
+        uint8 *cells;                                         \
+        int16 *src_offsets = NULL;                            \
+        /* read total cell num */                             \
+        total_cell = *(uint32*)frame_ip;                      \
+        frame_ip += sizeof(total_cell);                       \
+        /* cells */                                           \
+        cells = (uint8 *)frame_ip;                            \
+        frame_ip += arity * sizeof(uint8);                    \
+        /* src offsets */                                     \
+        src_offsets = (int16 *)frame_ip;                      \
+        frame_ip += arity * sizeof(int16);                    \
+        /* dst offsets */                                     \
+        dst_offsets = (uint16*)frame_ip;                      \
+        frame_ip += arity * sizeof(uint16);                   \
+        if (arity == 1) {                                     \
+            if (cells[0] == 1)                                \
+                frame_lp[dst_offsets[0]] =                    \
+                    frame_lp[src_offsets[0]];                 \
+            else if (cells[0] == 2) {                         \
+                *(int64*)(frame_lp + dst_offsets[0]) =        \
+                    *(int64*)(frame_lp + src_offsets[0]);     \
+            }                                                 \
+        }                                                     \
+        else {                                                \
+            if (!copy_stack_values(module, frame_lp,          \
+                                   arity, total_cell,         \
+                                   cells, src_offsets,        \
+                                   dst_offsets))              \
+                goto got_exception;                           \
+        }                                                     \
+    }                                                         \
+    frame_ip = *(uint8**)frame_ip;                            \
+  } while (0)
+
+#define SKIP_BR_INFO() do {                                                 \
+    uint32 arity;                                                           \
+    /* read and skip arity */                                               \
+    arity = *(uint32*)frame_ip;                                             \
+    frame_ip += sizeof(arity);                                              \
+    if (arity) {                                                            \
+        /* skip total cell num */                                           \
+        frame_ip += sizeof(uint32);                                         \
+        /* skip cells, src offsets and dst offsets */                       \
+        frame_ip += (sizeof(uint8) + sizeof(int16) + sizeof(uint16)) * arity; \
+    }                                                                       \
+    /* skip target address */                                               \
+    frame_ip += sizeof(uint8*);                                             \
   } while (0)
 
 static inline int32
@@ -1034,6 +1134,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_THREAD_MGR != 0
         CHECK_SUSPEND_FLAGS();
 #endif
+recover_br_info:
         RECOVER_BR_INFO();
         HANDLE_OP_END ();
 
@@ -1044,10 +1145,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         cond = frame_lp[GET_OFFSET()];
 
         if (cond)
-          RECOVER_BR_INFO();
-        else {
-          frame_ip += (2 + 1 + 2 + sizeof(uint8*));
-        }
+          goto recover_br_info;
+        else
+          SKIP_BR_INFO();
 
         HANDLE_OP_END ();
 
@@ -1062,16 +1162,44 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         if (!(didx >= 0 && (uint32)didx < count))
             didx = count;
 
-        frame_ip += (didx * ((2 + 1 + 2 + sizeof(uint8*))));
-        RECOVER_BR_INFO();
-        HANDLE_OP_END ();
+        while (didx--)
+          SKIP_BR_INFO();
+
+        goto recover_br_info;
 
       HANDLE_OP (WASM_OP_RETURN):
-        if (cur_func->ret_cell_num == 2) {
-            *((uint64 *)(prev_frame->lp + prev_frame->ret_offset)) =
-                GET_OPERAND(uint64, 0);
-        } else if (cur_func->ret_cell_num == 1) {
-            prev_frame->lp[prev_frame->ret_offset] = GET_OPERAND(int32, 0);;
+        {
+          uint32 ret_idx;
+          WASMType *func_type;
+          uint32 off, ret_offset;
+          uint8 *ret_types;
+          if (cur_func->is_import_func
+#if WASM_ENABLE_MULTI_MODULE != 0
+              && !cur_func->import_func_inst
+#endif
+          )
+            func_type = cur_func->u.func_import->func_type;
+          else
+            func_type = cur_func->u.func->func_type;
+
+          /* types of each return value */
+          ret_types = func_type->types + func_type->param_count;
+          ret_offset = prev_frame->ret_offset;
+
+          for (ret_idx = 0, off = sizeof(int16) * (func_type->result_count - 1);
+               ret_idx < func_type->result_count;
+               ret_idx++, off -= sizeof(int16)) {
+            if (ret_types[ret_idx] == VALUE_TYPE_I64
+                || ret_types[ret_idx] == VALUE_TYPE_F64) {
+              *((uint64 *)(prev_frame->lp + ret_offset)) =
+                                           GET_OPERAND(uint64, off);
+              ret_offset += 2;
+            }
+            else {
+              prev_frame->lp[ret_offset] = GET_OPERAND(int32, off);
+              ret_offset++;
+            }
+          }
         }
         goto return_func;
 
@@ -1128,7 +1256,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
               && !cur_func->import_func_inst
 #endif
           )
-              cur_func_type = cur_func->u.func_import->func_type;
+            cur_func_type = cur_func->u.func_import->func_type;
           else
             cur_func_type = cur_func->u.func->func_type;
           if (!wasm_type_equal(cur_type, cur_func_type)) {
@@ -2350,6 +2478,37 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         *(uint64*)(frame_lp + addr2) = *(uint64*)(frame_lp + addr1);
         HANDLE_OP_END ();
 
+      HANDLE_OP (EXT_OP_COPY_STACK_VALUES):
+      {
+        uint32 values_count, total_cell;
+        uint8 *cells;
+        int16 *src_offsets = NULL;
+        uint16 *dst_offsets = NULL;
+
+        /* read values_count */
+        values_count = *(uint32*)frame_ip;
+        frame_ip += sizeof(values_count);
+        /* read total cell num */
+        total_cell = *(uint32*)frame_ip;
+        frame_ip += sizeof(total_cell);
+        /* cells */
+        cells = (uint8 *)frame_ip;
+        frame_ip += values_count * sizeof(uint8);
+        /* src offsets */
+        src_offsets = (int16 *)frame_ip;
+        frame_ip += values_count * sizeof(int16);
+        /* dst offsets */
+        dst_offsets = (uint16*)frame_ip;
+        frame_ip += values_count * sizeof(uint16);
+
+        if (!copy_stack_values(module, frame_lp,
+                               values_count, total_cell,
+                               cells, src_offsets,
+                               dst_offsets))
+          goto got_exception;
+
+        HANDLE_OP_END ();
+      }
       HANDLE_OP (WASM_OP_SET_LOCAL):
       HANDLE_OP (WASM_OP_TEE_LOCAL):
         {
@@ -2567,6 +2726,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     HANDLE_OP (WASM_OP_LOOP):
     HANDLE_OP (WASM_OP_END):
     HANDLE_OP (WASM_OP_NOP):
+    HANDLE_OP (EXT_OP_BLOCK):
+    HANDLE_OP (EXT_OP_LOOP):
+    HANDLE_OP (EXT_OP_IF):
     {
       wasm_set_exception(module, "WASM interp failed: unsupported opcode.");
       goto got_exception;
@@ -2596,8 +2758,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
       }
       frame_ip += cur_func->param_count * sizeof(int16);
-      if (cur_func->ret_cell_num != 0)
+      if (cur_func->ret_cell_num != 0) {
+        /* Get the first return value's offset. Since loader emit all return
+         * values' offset so we must skip remain return values' offsets.
+         */
+        WASMType *func_type;
+        if (cur_func->is_import_func
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !cur_func->import_func_inst
+#endif
+        )
+          func_type = cur_func->u.func_import->func_type;
+        else
+          func_type = cur_func->u.func->func_type;
         frame->ret_offset = GET_OFFSET();
+        frame_ip += 2 * (func_type->result_count - 1);
+      }
       SYNC_ALL_TO_FRAME();
       prev_frame = frame;
     }
@@ -2712,7 +2888,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
     WASMInterpFrame *frame, *outs_area;
 
     /* Allocate sufficient cells for all kinds of return values.  */
-    unsigned all_cell_num = 2, i;
+    unsigned all_cell_num = function->ret_cell_num > 2 ?
+                            function->ret_cell_num : 2, i;
     /* This frame won't be used by JITed code, so only allocate interp
        frame here.  */
     unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);

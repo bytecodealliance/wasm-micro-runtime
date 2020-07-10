@@ -551,10 +551,18 @@ load_func_types(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each function type */
     for (i = 0; i < module->func_type_count; i++) {
         uint32 param_count, result_count;
+        uint32 param_cell_num, ret_cell_num;
         uint64 size1;
 
         read_uint32(buf, buf_end, param_count);
         read_uint32(buf, buf_end, result_count);
+
+        if (param_count > UINT16_MAX || result_count > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "AOT module load failed: "
+                          "param count or result count too large");
+            return false;
+        }
 
         size1 = (uint64)param_count + (uint64)result_count;
         size = offsetof(AOTFuncType, types) + size1;
@@ -563,9 +571,22 @@ load_func_types(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 
-        func_types[i]->param_count = param_count;
-        func_types[i]->result_count = result_count;
+        func_types[i]->param_count = (uint16)param_count;
+        func_types[i]->result_count = (uint16)result_count;
         read_byte_array(buf, buf_end, func_types[i]->types, (uint32)size1);
+
+        param_cell_num = wasm_get_cell_num(func_types[i]->types, param_count);
+        ret_cell_num = wasm_get_cell_num(func_types[i]->types + param_count,
+                                         result_count);
+        if (param_cell_num > UINT16_MAX || ret_cell_num > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "AOT module load failed: "
+                          "param count or result count too large");
+            return false;
+        }
+
+        func_types[i]->param_cell_num = (uint16)param_cell_num;
+        func_types[i]->ret_cell_num = (uint16)ret_cell_num;
     }
 
     *p_buf = buf;

@@ -1916,7 +1916,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 {
     WASMFunctionInstanceCommon *func;
     WASMType *type = NULL;
-    uint32 argc1, *argv1 = NULL;
+    uint32 argc1, *argv1 = NULL, cell_num, j, k = 0;
     int32 i, p;
     uint64 total_size;
     const char *exception;
@@ -1946,12 +1946,16 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         }
         type = wasm_func->u.func->func_type;
         argc1 = wasm_func->param_cell_num;
+        cell_num = argc1 > wasm_func->ret_cell_num ?
+                   argc1 : wasm_func->ret_cell_num;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
         type = ((AOTFunctionInstance*)func)->func_type;
-        argc1 = wasm_type_param_cell_num(type);
+        argc1 = type->param_cell_num;
+        cell_num = argc1 > type->ret_cell_num ?
+                   argc1 : type->ret_cell_num;
     }
 #endif
 
@@ -1961,7 +1965,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    total_size = sizeof(uint32) * (uint64)(argc1 > 2 ? argc1 : 2);
+    total_size = sizeof(uint32) * (uint64)(cell_num > 2 ? cell_num : 2);
     if ((!(argv1 = runtime_malloc((uint32)total_size, module_inst,
                                   NULL, 0)))) {
         goto fail;
@@ -2076,16 +2080,18 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
 
     /* print return value */
-    if (type->result_count > 0) {
-        switch (type->types[type->param_count]) {
+    for (j = 0; j < type->result_count; j++) {
+        switch (type->types[type->param_count + j]) {
             case VALUE_TYPE_I32:
-                os_printf("0x%x:i32", argv1[0]);
+                os_printf("0x%x:i32", argv1[k]);
+                k++;
                 break;
             case VALUE_TYPE_I64:
             {
                 union { uint64 val; uint32 parts[2]; } u;
-                u.parts[0] = argv1[0];
-                u.parts[1] = argv1[1];
+                u.parts[0] = argv1[k];
+                u.parts[1] = argv1[k + 1];
+                k += 2;
 #ifdef PRIx64
                 os_printf("0x%"PRIx64":i64", u.val);
 #else
@@ -2099,17 +2105,21 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 break;
             }
             case VALUE_TYPE_F32:
-                os_printf("%.7g:f32", *(float32*)argv1);
+                os_printf("%.7g:f32", *(float32*)(argv1 + k));
+                k++;
                 break;
             case VALUE_TYPE_F64:
             {
                 union { float64 val; uint32 parts[2]; } u;
-                u.parts[0] = argv1[0];
-                u.parts[1] = argv1[1];
+                u.parts[0] = argv1[k];
+                u.parts[1] = argv1[k + 1];
+                k += 2;
                 os_printf("%.7g:f64", u.val);
                 break;
             }
         }
+        if (j < (uint32)(type->result_count - 1))
+            os_printf(",");
     }
     os_printf("\n");
 
@@ -2302,6 +2312,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint32 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size;
     uint32 *argv_src = argv, i, argc1, n_ints = 0, n_fps = 0, n_stacks = 0;
     uint32 arg_i32, ptr_len;
+    uint32 result_count = func_type->result_count;
+    uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
 
     n_ints++; /* exec env */
@@ -2353,6 +2365,13 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 bh_assert(0);
                 break;
         }
+    }
+
+    for (i = 0; i < ext_ret_count; i++) {
+        if (n_ints < MAX_REG_INTS)
+            n_ints++;
+        else
+            n_stacks++;
     }
 
     argc1 = MAX_REG_INTS + MAX_REG_FLOATS + n_stacks;
@@ -2458,6 +2477,14 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+    /* Save extra result values' address to argv1 */
+    for (i = 0; i < ext_ret_count; i++) {
+        if (n_ints < MAX_REG_INTS)
+            ints[n_ints++] = *(uint32*)argv_src++;
+        else
+            stacks[n_stacks++] = *(uint32*)argv_src++;
+    }
+
     exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, n_stacks);
@@ -2521,15 +2548,17 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     uint32 argv_buf[32], *argv1 = argv_buf, argc1, i, j = 0;
     uint32 arg_i32, ptr_len;
+    uint32 result_count = func_type->result_count;
+    uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     uint64 size;
     bool ret = false;
 
 #if defined(BUILD_TARGET_X86_32)
-    argc1 = argc + 2;
+    argc1 = argc + ext_ret_count + 2;
 #else
     /* arm/thumb/mips/xtensa, 64-bit data must be 8 bytes aligned,
        so we need to allocate more memory. */
-    argc1 = func_type->param_count * 2 + 2;
+    argc1 = func_type->param_count * 2 + ext_ret_count + 2;
 #endif
 
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
@@ -2598,7 +2627,10 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-    argc1 = j;
+    /* Save extra result values' address to argv1 */
+    word_copy(argv1 + j, argv, ext_ret_count);
+
+    argc1 = j + ext_ret_count;
     exec_env->attachment = attachment;
     if (func_type->result_count == 0) {
         invokeNative_Void(func_ptr, argv1, argc1);
@@ -2678,7 +2710,10 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint64 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size, arg_i64;
     uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
     uint32 arg_i32, ptr_len;
+    uint32 result_count = func_type->result_count;
+    uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
+
 #if defined(_WIN32) || defined(_WIN32_)
     /* important difference in calling conventions */
 #define n_fps n_ints
@@ -2686,7 +2721,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     int n_fps = 0;
 #endif
 
-    argc1 = 1 + MAX_REG_FLOATS + func_type->param_count + 2;
+    argc1 = 1 + MAX_REG_FLOATS + func_type->param_count + ext_ret_count;
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
         size = sizeof(uint64) * (uint64)argc1;
         if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
@@ -2764,11 +2799,21 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+    /* Save extra result values' address to argv1 */
+    for (i = 0; i < ext_ret_count; i++) {
+        if (n_ints < MAX_REG_INTS)
+            ints[n_ints++] = *(uint64*)argv_src;
+        else
+            stacks[n_stacks++] = *(uint64*)argv_src;
+        argv_src += 2;
+    }
+
     exec_env->attachment = attachment;
-    if (func_type->result_count == 0) {
+    if (result_count == 0) {
         invokeNative_Void(func_ptr, argv1, n_stacks);
     }
     else {
+        /* Invoke the native function and get the first result value */
         switch (func_type->types[func_type->param_count]) {
             case VALUE_TYPE_I32:
                 argv_ret[0] = (uint32)invokeNative_Int32(func_ptr, argv1, n_stacks);
