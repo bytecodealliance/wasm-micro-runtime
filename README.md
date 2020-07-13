@@ -34,7 +34,7 @@ iwasm VM core
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
 - [Sign-extension operators](https://github.com/WebAssembly/sign-extension-ops)
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
-- [Shared memmory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
+- [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 - [Multi-value](https://github.com/WebAssembly/multi-value)
 
 ### Performance and memory usage
