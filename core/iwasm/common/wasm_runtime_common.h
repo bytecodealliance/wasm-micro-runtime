@@ -67,6 +67,14 @@ typedef struct WASMRegisteredModule {
 } WASMRegisteredModule;
 #endif
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+typedef struct WASMMemoryInstanceCommon {
+    uint32 module_type;
+    uint8 memory_inst_data[1];
+} WASMMemoryInstanceCommon;
+
+#endif
+
 typedef package_type_t PackageType;
 typedef wasm_section_t WASMSection, AOTSection;
 

@@ -22,10 +22,10 @@ typedef struct WASMTableInstance WASMTableInstance;
 typedef struct WASMGlobalInstance WASMGlobalInstance;
 
 typedef struct WASMMemoryInstance {
-#if WASM_ENABLE_SHARED_MEMORY != 0
-    /* shared memory flag */
+    /* Module type */
+    uint32 module_type;
+    /* Shared memory flag */
     bool is_shared;
-#endif
     /* Number bytes per page */
     uint32 num_bytes_per_page;
     /* Current page count */

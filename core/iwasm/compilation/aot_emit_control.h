@@ -53,6 +53,11 @@ aot_handle_next_reachable_block(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx,
                                 uint8 **p_frame_ip);
 
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+#endif
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

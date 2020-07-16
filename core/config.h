@@ -62,7 +62,7 @@ enum {
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 1
+#define AOT_CURRENT_VERSION 2
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0

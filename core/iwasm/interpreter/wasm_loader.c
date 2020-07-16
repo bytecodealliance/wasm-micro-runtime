@@ -2538,10 +2538,10 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         && global->is_mutable
                         && global->init_expr.init_expr_type ==
                                     INIT_EXPR_TYPE_I32_CONST
-                        && (global->init_expr.u.i32 ==
+                        && (global->init_expr.u.i32 <=
                                     llvm_heap_base_global->init_expr.u.i32
-                            || global->init_expr.u.i32 ==
-                                    llvm_data_end_global->init_expr.u.i32)) {
+                            && llvm_data_end_global->init_expr.u.i32 <=
+                                    llvm_heap_base_global->init_expr.u.i32)) {
                         llvm_stack_top_global = global;
                         llvm_stack_top = global->init_expr.u.i32;
                         stack_top_global_index = global_index;
@@ -2592,7 +2592,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             if (module->memory_count) {
                 memory = &module->memories[0];
                 init_memory_size = (uint64)memory->num_bytes_per_page *
-                             memory->init_page_count;
+                                   memory->init_page_count;
                 if (llvm_heap_base <= init_memory_size
                     && llvm_data_end <= init_memory_size) {
                     /* Reset memory info to decrease memory usage */

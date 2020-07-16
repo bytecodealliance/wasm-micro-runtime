@@ -979,8 +979,8 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
 #if WASM_ENABLE_THREAD_MGR != 0
 #define CHECK_SUSPEND_FLAGS() do {                      \
-    if (exec_env->suspend_flags != 0) {                 \
-        if (exec_env->suspend_flags & 0x01) {           \
+    if (exec_env->suspend_flags.flags != 0) {           \
+        if (exec_env->suspend_flags.flags & 0x01) {     \
             /* terminate current thread */              \
             return;                                     \
         }                                               \
