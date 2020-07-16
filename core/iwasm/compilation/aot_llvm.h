@@ -99,6 +99,16 @@ typedef struct AOTCheckedAddr {
   uint32 bytes;
 } AOTCheckedAddr, *AOTCheckedAddrList;
 
+typedef struct AOTMemInfo {
+  LLVMValueRef mem_base_addr;
+  LLVMValueRef mem_cur_page_count_addr;
+  LLVMValueRef mem_bound_check_heap_base;
+  LLVMValueRef mem_bound_check_1byte;
+  LLVMValueRef mem_bound_check_2bytes;
+  LLVMValueRef mem_bound_check_4bytes;
+  LLVMValueRef mem_bound_check_8bytes;
+} AOTMemInfo;
+
 typedef struct AOTFuncContext {
   AOTFunc *aot_func;
   LLVMValueRef func;
@@ -111,12 +121,7 @@ typedef struct AOTFuncContext {
   LLVMValueRef native_stack_bound;
   LLVMValueRef last_alloca;
 
-  LLVMValueRef mem_base_addr;
-  LLVMValueRef mem_bound_check_heap_base;
-  LLVMValueRef mem_bound_check_1byte;
-  LLVMValueRef mem_bound_check_2bytes;
-  LLVMValueRef mem_bound_check_4bytes;
-  LLVMValueRef mem_bound_check_8bytes;
+  AOTMemInfo *mem_info;
 
   LLVMValueRef cur_exception;
 
@@ -196,6 +201,9 @@ typedef struct AOTCompContext {
   /* Bounday Check */
   bool enable_bound_check;
 
+  /* Thread Manager */
+  bool enable_thread_mgr;
+
   /* Whether optimize the JITed code */
   bool optimize;
 
@@ -235,6 +243,7 @@ typedef struct AOTCompOption{
     char *target_cpu;
     char *cpu_features;
     bool enable_bulk_memory;
+    bool enable_thread_mgr;
     bool is_sgx_platform;
     uint32 opt_level;
     uint32 size_level;

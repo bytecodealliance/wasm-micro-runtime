@@ -56,8 +56,15 @@ typedef struct WASMExecEnv {
     /* Used to terminate or suspend the interpreter
         bit 0: need terminate
         bit 1: need suspend
-        bit 2: need to go into breakpoint */
-    uintptr_t suspend_flags;
+        bit 2: need to go into breakpoint
+        bit 3: return from pthread_exit */
+    union {
+        uint32 flags;
+        uintptr_t __padding__;
+    } suspend_flags;
+
+    /* thread return value */
+    void *thread_ret_value;
 
     /* Must be provided by thread library */
     void* (*thread_start_routine)(void *);

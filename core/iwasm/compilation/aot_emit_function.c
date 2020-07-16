@@ -326,6 +326,14 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bool ret = false;
     char buf[32];
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
+
     /* Check function index */
     if (func_idx >= import_func_count + func_count) {
         aot_set_last_error("Function index out of range.");
@@ -513,6 +521,14 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef func_param_values[6], res = NULL;
     char buf[32], *func_name = "aot_call_indirect";
     uint32 i, cell_num = 0, ret_cell_num, argv_cell_num;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
 
     /* prepare function type of aot_call_indirect */
     func_param_types[0] = comp_ctx->exec_env_type;  /* exec_env */

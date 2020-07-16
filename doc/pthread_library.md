@@ -79,6 +79,13 @@ Then build the program with this command:
 # -Wl,--no-check-features: the errno.o in wasi-sysroot is not compatible with pthread feature, pass this option to avoid errors
 ```
 
+**Build AoT module**
+
+You can build the wasm module into AoT module with pthread support, please pass option `--enable-multi-thread` to wamrc:
+``` bash
+wamrc --enable-multi-thread -o test.aot test.wasm
+```
+
 Currently WAMR disables pthread library by default. To run the module with pthread support, please build the runtime with `-DWAMR_BUILD_LIB_PTHREAD=1`
 ``` bash
 cd ${WAMR_ROOT}/product-mini/platforms/linux
@@ -87,9 +94,9 @@ cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
 make
 # Then you can run the wasm module above:
 ./iwasm test.wasm
+# Or the AoT module:
+# ./iwasm test.aot
 ```
-
-> Note: Currently pthread library is not supported in AoT mode.
 
 [Here](../samples/multi-thread) is also a sample to show how wasm-apps use pthread APIs to create threads, and how to build it with cmake. You can build this sample and have a try:
 ``` bash

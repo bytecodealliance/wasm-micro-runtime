@@ -102,6 +102,14 @@ format_block_name(char *name, uint32 name_size,
                     &value, &block_curr, 1);                 \
   } while (0)
 
+#define BUILD_ICMP(op, left, right, res, name) do {     \
+    if (!(res = LLVMBuildICmp(comp_ctx->builder, op,    \
+                              left, right, name))) {    \
+        aot_set_last_error("llvm build icmp failed.");  \
+        goto fail;                                      \
+    }                                                   \
+  } while (0)
+
 #define ADD_TO_PARAM_PHIS(block, value, idx) do {            \
     LLVMBasicBlockRef block_curr = CURR_BLOCK();             \
     LLVMAddIncoming(block->param_phis[idx],                  \
@@ -614,6 +622,99 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef terminate_addr, terminate_flags, flag, offset, res;
+    LLVMBasicBlockRef terminate_check_block, non_terminate_block;
+    AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
+    LLVMBasicBlockRef terminate_block;
+
+    /* Offset of suspend_flags */
+    offset = I32_CONST(5);
+    CHECK_LLVM_CONST(offset);
+
+    if (!(terminate_addr =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                     &offset, 1, "terminate_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+    if (!(terminate_addr =
+                LLVMBuildBitCast(comp_ctx->builder,
+                                 terminate_addr,
+                                 INT32_PTR_TYPE, "terminate_addr_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+
+    if (!(terminate_flags =
+                LLVMBuildLoad(comp_ctx->builder,
+                              terminate_addr, "terminate_flags"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+    /* Set terminate_flags memory accecc to volatile, so that the value
+        will always be loaded from memory rather than register */
+    LLVMSetVolatile(terminate_flags, true);
+
+    CREATE_BLOCK(terminate_check_block, "terminate_check");
+    MOVE_BLOCK_AFTER_CURR(terminate_check_block);
+
+    CREATE_BLOCK(non_terminate_block, "non_terminate");
+    MOVE_BLOCK_AFTER_CURR(non_terminate_block);
+
+    BUILD_ICMP(LLVMIntSGT, terminate_flags, I32_ZERO, res, "need_terminate");
+    BUILD_COND_BR(res, terminate_check_block, non_terminate_block);
+
+    /* Move builder to terminate check block */
+    SET_BUILDER_POS(terminate_check_block);
+
+    CREATE_BLOCK(terminate_block, "terminate");
+    MOVE_BLOCK_AFTER_CURR(terminate_block);
+
+    if (!(flag =
+            LLVMBuildAnd(comp_ctx->builder, terminate_flags,
+                         I32_ONE, "termination_flag"))) {
+        aot_set_last_error("llvm build AND failed");
+        return false;
+    }
+
+    BUILD_ICMP(LLVMIntSGT, flag, I32_ZERO, res, "need_terminate");
+    BUILD_COND_BR(res, terminate_block, non_terminate_block);
+
+    /* Move builder to terminate block */
+    SET_BUILDER_POS(terminate_block);
+    if (aot_func_type->result_count) {
+        switch (aot_func_type->types[aot_func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                LLVMBuildRet(comp_ctx->builder, I32_ZERO);
+                break;
+            case VALUE_TYPE_I64:
+                LLVMBuildRet(comp_ctx->builder, I64_ZERO);
+                break;
+            case VALUE_TYPE_F32:
+                LLVMBuildRet(comp_ctx->builder, F32_ZERO);
+                break;
+            case VALUE_TYPE_F64:
+                LLVMBuildRet(comp_ctx->builder, F64_ZERO);
+                break;
+        }
+    }
+    else {
+        LLVMBuildRetVoid(comp_ctx->builder);
+    }
+
+    /* Move builder to terminate block */
+    SET_BUILDER_POS(non_terminate_block);
+    return true;
+
+fail:
+    return false;
+}
+#endif /* End of WASM_ENABLE_THREAD_MGR */
+
 bool
 aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                   uint32 br_depth, uint8 **p_frame_ip)
@@ -623,6 +724,14 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef next_llvm_end_block;
     char name[32];
     uint32 i, param_index, result_index;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
 
     if (!(block_dst = get_target_block(func_ctx, br_depth))) {
         return false;
@@ -679,6 +788,14 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     char name[32];
     uint32 i, param_index, result_index;
     uint64 size;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
 
     POP_COND(value_cmp);
     if (!LLVMIsConstant(value_cmp)) {
@@ -797,6 +914,14 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint32 param_index, result_index;
     uint64 size;
     char name[32];
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            return false;
+    }
+#endif
 
     POP_I32(value_cmp);
     if (!LLVMIsConstant(value_cmp)) {
