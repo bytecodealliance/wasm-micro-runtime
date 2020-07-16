@@ -1440,8 +1440,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     WASMGlobal *llvm_stack_top_global = NULL, *global;
     uint32 llvm_data_end = UINT32_MAX, llvm_heap_base = UINT32_MAX;
     uint32 llvm_stack_top = UINT32_MAX, global_index, i;
-    uint32 data_end_global_index = UINT32_MAX;
-    uint32 heap_base_global_index = UINT32_MAX;
     uint32 stack_top_global_index = UINT32_MAX;
     BlockAddr *block_addr_cache;
     uint64 total_size;
@@ -1563,7 +1561,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && !global->is_mutable
                     && global->init_expr.init_expr_type ==
                             INIT_EXPR_TYPE_I32_CONST) {
-                    heap_base_global_index = global_index;
                     llvm_heap_base_global = global;
                     llvm_heap_base = global->init_expr.u.i32;
                     LOG_VERBOSE("found llvm __heap_base global, value: %d\n",
@@ -1577,7 +1574,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && !global->is_mutable
                     && global->init_expr.init_expr_type ==
                             INIT_EXPR_TYPE_I32_CONST) {
-                    data_end_global_index = global_index;
                     llvm_data_end_global = global;
                     llvm_data_end = global->init_expr.u.i32;
                     LOG_VERBOSE("found llvm __data_end global, value: %d\n",
@@ -1588,26 +1584,29 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             }
 
             if (llvm_data_end_global && llvm_heap_base_global) {
-                if ((data_end_global_index == heap_base_global_index + 1
-                        && (int32)data_end_global_index > 1)
-                    || (heap_base_global_index == data_end_global_index + 1
-                        && (int32)heap_base_global_index > 1)) {
-                    global_index =
-                        data_end_global_index < heap_base_global_index
-                        ? data_end_global_index - 1 : heap_base_global_index - 1;
+                /* Resolve aux stack top global */
+                for (global_index = 0; global_index < module->global_count; global_index++) {
                     global = module->globals + global_index;
-                    if (global->type == VALUE_TYPE_I32
+                    if (global != llvm_data_end_global
+                        && global != llvm_heap_base_global
+                        && global->type == VALUE_TYPE_I32
                         && global->is_mutable
                         && global->init_expr.init_expr_type ==
-                                    INIT_EXPR_TYPE_I32_CONST) {
+                                    INIT_EXPR_TYPE_I32_CONST
+                        && (global->init_expr.u.i32 <=
+                                    llvm_heap_base_global->init_expr.u.i32
+                            && llvm_data_end_global->init_expr.u.i32 <=
+                                    llvm_heap_base_global->init_expr.u.i32)) {
                         llvm_stack_top_global = global;
                         llvm_stack_top = global->init_expr.u.i32;
                         stack_top_global_index = global_index;
                         LOG_VERBOSE("found llvm stack top global, "
                                     "value: %d, global index: %d\n",
                                     llvm_stack_top, global_index);
+                        break;
                     }
                 }
+
                 module->llvm_aux_data_end = llvm_data_end;
                 module->llvm_aux_stack_bottom = llvm_stack_top;
                 module->llvm_aux_stack_size = llvm_stack_top > llvm_data_end

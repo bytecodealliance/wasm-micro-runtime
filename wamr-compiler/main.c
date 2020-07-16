@@ -40,6 +40,8 @@ print_help()
   printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
   printf("                              llvmir-opt     Optimized LLVM IR\n");
   printf("  --enable-bulk-memory      Enable the post-MVP bulk memory feature\n");
+  printf("  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and\n");
+  printf("                            thread-mgr will be enabled automatically\n");
   printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
   printf("Examples: wamrc -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -139,6 +141,10 @@ main(int argc, char *argv[])
     }
     else if (!strcmp(argv[0], "--enable-bulk-memory")) {
         option.enable_bulk_memory = true;
+    }
+    else if (!strcmp(argv[0], "--enable-multi-thread")) {
+        option.enable_bulk_memory = true;
+        option.enable_thread_mgr = true;
     }
     else
       return print_help();

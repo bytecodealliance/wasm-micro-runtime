@@ -69,18 +69,45 @@ typedef struct AOTRelocationGroup {
     AOTRelocation *relocations;
 } AOTRelocationGroup;
 
+/* AOT function instance */
+typedef struct AOTFunctionInstance {
+    char *func_name;
+    uint32 func_index;
+    bool is_import_func;
+    union {
+        struct {
+            AOTFuncType *func_type;
+            /* function pointer linked */
+            void *func_ptr;
+        } func;
+        AOTImportFunc *func_import;
+    } u;
+} AOTFunctionInstance;
+
 typedef struct AOTModule {
     uint32 module_type;
 
+    /* import memories */
+    uint32 import_memory_count;
+    AOTImportMemory *import_memories;
+
     /* memory info */
-    uint32 num_bytes_per_page;
-    uint32 mem_init_page_count;
-    uint32 mem_max_page_count;
+    uint32 memory_count;
+    AOTMemory *memories;
+
+    /* init data */
     uint32 mem_init_data_count;
     AOTMemInitData **mem_init_data_list;
 
-    /* table info */
-    uint32 table_size;
+    /* import tables */
+    uint32 import_table_count;
+    AOTImportTable *import_tables;
+
+    /* tables */
+    uint32 table_count;
+    AOTTable *tables;
+
+    /* table init data info */
     uint32 table_init_data_count;
     AOTTableInitData **table_init_data_list;
 
@@ -110,9 +137,9 @@ typedef struct AOTModule {
     /* function type indexes */
     uint32 *func_type_indexes;
 
-    /* export function info */
-    uint32 export_func_count;
-    AOTExportFunc *export_funcs;
+    /* export info */
+    uint32 export_count;
+    AOTExport *exports;
 
     /* start function index, -1 denotes no start function */
     uint32 start_func_index;
@@ -160,13 +187,15 @@ typedef union {
     void *ptr;
 } AOTPointer;
 
-typedef struct AOTModuleInstance {
+typedef struct AOTMemoryInstance {
     uint32 module_type;
-
+    /* shared memory flag */
+    bool is_shared;
     /* memory space info */
     uint32 mem_cur_page_count;
     uint32 mem_max_page_count;
     uint32 memory_data_size;
+    uint32 __padding__;
     AOTPointer memory_data;
     AOTPointer memory_data_end;
 
@@ -176,6 +205,21 @@ typedef struct AOTModuleInstance {
     AOTPointer heap_data;
     AOTPointer heap_data_end;
     AOTPointer heap_handle;
+
+    /* boundary check constants for aot code */
+    int64 mem_bound_check_heap_base;
+    int64 mem_bound_check_1byte;
+    int64 mem_bound_check_2bytes;
+    int64 mem_bound_check_4bytes;
+    int64 mem_bound_check_8bytes;
+} AOTMemoryInstance;
+
+typedef struct AOTModuleInstance {
+    uint32 module_type;
+
+    /* memories */
+    uint32 memory_count;
+    AOTPointer memories;
 
     /* global and table info */
     uint32 global_data_size;
@@ -188,6 +232,16 @@ typedef struct AOTModuleInstance {
     /* function type indexes */
     AOTPointer func_type_indexes;
 
+    /* export info */
+    uint32 export_func_count;
+    uint32 export_global_count;
+    uint32 export_mem_count;
+    uint32 export_tab_count;
+    AOTPointer export_funcs;
+    AOTPointer export_globals;
+    AOTPointer export_memories;
+    AOTPointer export_tables;
+
     /* The exception buffer for current thread. */
     char cur_exception[128];
     /* The custom data that can be set/get by
@@ -197,13 +251,6 @@ typedef struct AOTModuleInstance {
     AOTPointer aot_module;
     /* WASI context */
     AOTPointer wasi_ctx;
-
-    /* boundary check constants for aot code */
-    int64 mem_bound_check_heap_base;
-    int64 mem_bound_check_1byte;
-    int64 mem_bound_check_2bytes;
-    int64 mem_bound_check_4bytes;
-    int64 mem_bound_check_8bytes;
 
     /* others */
     int32 temp_ret;
@@ -215,11 +262,10 @@ typedef struct AOTModuleInstance {
 
     union {
         uint64 _make_it_8_byte_aligned_;
+        AOTMemoryInstance memory_instances[1];
         uint8 bytes[1];
     } global_table_data;
 } AOTModuleInstance;
-
-typedef AOTExportFunc AOTFunctionInstance;
 
 /* Target info, read from ELF header of object file */
 typedef struct AOTTargetInfo {
@@ -465,6 +511,16 @@ aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index,
 
 bool
 aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+aot_set_aux_stack(WASMExecEnv *exec_env,
+                  uint32 start_offset, uint32 size);
+
+bool
+aot_get_aux_stack(WASMExecEnv *exec_env,
+                  uint32 *start_offset, uint32 *size);
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
