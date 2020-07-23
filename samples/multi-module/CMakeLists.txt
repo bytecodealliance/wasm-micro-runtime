@@ -3,7 +3,6 @@
 
 cmake_minimum_required(VERSION 2.8)
 project(multi_module)
-set(CMAKE_VERBOSE_MAKEFILE on)
 
 ################  runtime settings  ################
 set(WAMR_BUILD_PLATFORM "linux")
@@ -18,7 +17,7 @@ set(WAMR_BUILD_INTERP 1)
 set(WAMR_BUILD_AOT 0)
 set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_LIBC_BUILTIN 1)
-set(WAMR_BUILD_LIBC_WASI 1)
+set(WAMR_BUILD_LIBC_WASI 0)
 set(WAMR_BUILD_FAST_INTERP 0)
 set(WAMR_BUILD_MULTI_MODULE 1)
 
