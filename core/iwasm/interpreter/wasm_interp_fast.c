@@ -495,7 +495,7 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 
 #define DEF_OP_NUMERIC(src_type1, src_type2, src_op_type, operation) do {   \
     SET_OPERAND(src_type1, 4, (GET_OPERAND(src_type1, 2)                    \
-        operation GET_OPERAND(src_type1, 0)));                              \
+        operation GET_OPERAND(src_type2, 0)));                              \
     frame_ip += 6;                                                          \
   } while (0)
 
@@ -530,13 +530,13 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 
 #define DEF_OP_NUMERIC2(src_type1, src_type2, src_op_type, operation) do {  \
     SET_OPERAND(src_type1, 4, (GET_OPERAND(src_type1, 2)                    \
-        operation (GET_OPERAND(src_type1, 0) % 32)));                       \
+        operation (GET_OPERAND(src_type2, 0) % 32)));                       \
     frame_ip += 6;                                                          \
   } while (0)
 
 #define DEF_OP_NUMERIC2_64(src_type1, src_type2, src_op_type, operation) do { \
     SET_OPERAND(src_type1, 4, (GET_OPERAND(src_type1, 2)                      \
-        operation (GET_OPERAND(src_type1, 0) % 64)));                         \
+        operation (GET_OPERAND(src_type2, 0) % 64)));                         \
     frame_ip += 6;                                                            \
   } while (0)
 
