@@ -127,6 +127,11 @@ enum {
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
 
+/* Enable fast interpreter or not */
+#ifndef WASM_ENABLE_FAST_INTERP
+#define WASM_ENABLE_FAST_INTERP 0
+#endif
+
 #if WASM_ENABLE_FAST_INTERP != 0
 #define WASM_ENABLE_ABS_LABEL_ADDR 1
 #define WASM_DEBUG_PREPROCESSOR 0

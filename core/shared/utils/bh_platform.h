@@ -15,6 +15,7 @@
 #include "bh_list.h"
 #include "bh_log.h"
 #include "bh_queue.h"
+#include "bh_vector.h"
 #include "runtime_timer.h"
 
 

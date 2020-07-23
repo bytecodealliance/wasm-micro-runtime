@@ -1095,9 +1095,11 @@ load_global_import(const WASMModule *parent_module,
 #endif
 
     if (!ret) {
+#if WASM_ENABLE_SPEC_TEST != 0
         set_error_buf_v(error_buf, error_buf_size,
                         "unknown import or incompatible import type");
         return false;
+#endif
     }
 
     global->module_name = sub_module_name;
