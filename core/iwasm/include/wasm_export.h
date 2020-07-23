@@ -43,10 +43,13 @@ extern "C" {
 #define native_raw_set_return(val) *raw_ret = (val)
 
 
+#ifndef WASM_MODULE_T_DEFINED
+#define WASM_MODULE_T_DEFINED
 /* Uninstantiated WASM module loaded from WASM binary file
    or AoT binary file*/
 struct WASMModuleCommon;
 typedef struct WASMModuleCommon *wasm_module_t;
+#endif
 
 /* Instantiated WASM module */
 struct WASMModuleInstanceCommon;

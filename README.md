@@ -1,6 +1,6 @@
 WebAssembly Micro Runtime
 =========================
-[Build WAMR VM core](./doc/build_wamr.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export native function](./doc/export_native_api.md) | [Build WASM applications](./doc/build_wasm_app.md) | [Samples](https://github.com/bytecodealliance/wasm-micro-runtime#samples-and-demos)
+[Build WAMR VM core](./doc/build_wamr.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export native function](./doc/export_native_api.md) | [Build WASM applications](./doc/build_wasm_app.md) | [Samples](https://github.com/bytecodealliance/wasm-micro-runtime#samples)
 
 **A [Bytecode Alliance][BA] project**
 
@@ -36,6 +36,7 @@ iwasm VM core
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
 - [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 - [Multi-value](https://github.com/WebAssembly/multi-value)
+- [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
 
 ### Performance and memory usage
 The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.
@@ -112,8 +113,7 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 - **[Simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libraries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
 - **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/littlevgl/) 2D user graphic library and the UI application is built into WASM application.  It uses **WASI libc** and executes apps in **AoT mode** by default.
 - **[gui](./samples/gui/README.md)**: Moved the [LittlevGL](https://github.com/littlevgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.
-
-
+- **[wasm-c-api](./samples/wasm-c-api/README.md)**: they are samples from [wasm-c-api proposal](https://github.com/WebAssembly/wasm-c-api) and show supported APIs.
 
 
 Releases and acknowledgments

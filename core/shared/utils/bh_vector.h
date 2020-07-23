@@ -15,14 +15,14 @@ extern "C" {
 #define DEFAULT_VECTOR_INIT_SIZE 8
 
 typedef struct Vector {
-    /* size of each element */
-    uint32 size_elem;
     /* max element number */
-    uint32 max_elements;
-    /* current element num */
-    uint32 num_elements;
+    size_t max_elems;
     /* vector data allocated */
     uint8 *data;
+    /* current element num */
+    size_t num_elems;
+    /* size of each element */
+    size_t size_elem;
 } Vector;
 
 /**

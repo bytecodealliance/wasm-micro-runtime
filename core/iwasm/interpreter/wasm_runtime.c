@@ -995,9 +995,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
                                        error_buf, error_buf_size))) {
         return NULL;
     }
-
-    LOG_DEBUG("Instantiate a module %p -> %p", module, module_inst);
-
     memset(module_inst, 0, (uint32)sizeof(WASMModuleInstance));
 
     module_inst->module = module;
