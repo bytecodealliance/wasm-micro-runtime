@@ -8,7 +8,11 @@ enclave {
 
     trusted {
         /* define ECALLs here. */
-        public void ecall_iwasm_main(void);
+        public void ecall_handle_command(unsigned cmd,
+                                         [in, out, size=cmd_buf_size]uint8_t *cmd_buf,
+                                         unsigned cmd_buf_size);
+        public void ecall_iwasm_main([user_check]uint8_t *wasm_file_buf,
+                                     uint32_t wasm_file_size);
     };
 
     untrusted {

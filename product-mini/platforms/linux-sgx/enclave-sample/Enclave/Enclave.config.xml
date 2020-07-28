@@ -3,7 +3,7 @@
   <ProdID>0</ProdID>
   <ISVSVN>0</ISVSVN>
   <StackMaxSize>0x40000</StackMaxSize>
-  <HeapMaxSize>0x200000</HeapMaxSize>
+  <HeapMaxSize>0x400000</HeapMaxSize>
   <ReservedMemMaxSize>0x100000</ReservedMemMaxSize>
   <ReservedMemExecutable>1</ReservedMemExecutable>
   <TCSNum>10</TCSNum>
