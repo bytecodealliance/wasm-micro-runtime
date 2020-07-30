@@ -118,3 +118,14 @@ install (TARGETS libiwasm DESTINATION lib)
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
 target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+
+if (ENABLE_SNMALLOC)
+
+      set (SNMALLOC_ONLY_HEADER_LIBRARY ON)
+      add_subdirectory (${CMAKE_CURRENT_LIST_DIR}/../../../snmalloc ${CMAKE_CURRENT_LIST_DIR}/../../../snmalloc/build EXCLUDE_FROM_ALL)
+      set (CMAKE_CXX_FLAGS "${CMAKE_CX_FLAGS} -std=c++1z -mcx16")
+      target_link_libraries (iwasm PRIVATE snmalloc_lib)
+      target_link_libraries (libiwasm PRIVATE snmalloc_lib)
+      add_compile_definitions (ENABLE_SNMALLOC)
+
+endif()

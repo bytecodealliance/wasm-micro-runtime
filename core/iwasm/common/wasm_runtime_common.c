@@ -1383,6 +1383,14 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                       "init argument environment failed.");
         goto fail;
     }
+    wasm_runtime_module_free(module_inst, offset_argv_buf);
+    offset_argv_buf = 0;
+    wasm_runtime_module_free(module_inst, offset_argv_offsets);
+    offset_argv_offsets = 0;
+    wasm_runtime_module_free(module_inst, offset_env_buf);
+    offset_env_buf = 0;
+    wasm_runtime_module_free(module_inst, offset_env_offsets);
+    offset_env_offsets = 0;
 
     /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
     if (!fd_table_insert_existing(curfds, 0, 0)
