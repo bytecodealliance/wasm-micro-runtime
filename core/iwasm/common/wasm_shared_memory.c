@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#if WASM_ENABLE_SHARED_MEMORY != 0
-
 #include "bh_log.h"
 #include "wasm_shared_memory.h"
 
@@ -88,16 +86,15 @@ shared_memory_dec_reference(WASMModuleCommon *module)
     return -1;
 }
 
-#if WASM_ENABLE_INTERP != 0
-WASMMemoryInstance*
+WASMMemoryInstanceCommon*
 shared_memory_get_memory_inst(WASMSharedMemNode *node)
 {
-    return node->u.wasm_memory;
+    return node->memory_inst;
 }
 
 WASMSharedMemNode*
 shared_memory_set_memory_inst(WASMModuleCommon *module,
-                              WASMMemoryInstance *memory)
+                              WASMMemoryInstanceCommon *memory)
 {
     WASMSharedMemNode *node;
     bh_list_status ret;
@@ -106,7 +103,7 @@ shared_memory_set_memory_inst(WASMModuleCommon *module,
         return NULL;
 
     node->module = module;
-    node->u.wasm_memory = memory;
+    node->memory_inst = memory;
     node->ref_count = 1;
     if (os_mutex_init(&node->lock) != 0) {
         wasm_runtime_free(node);
@@ -121,7 +118,3 @@ shared_memory_set_memory_inst(WASMModuleCommon *module,
     (void)ret;
     return node;
 }
-
-#endif /* end of WASM_ENABLE_INTERP */
-
-#endif /* end of WASM_ENABLE_SHARED_MEMORY */

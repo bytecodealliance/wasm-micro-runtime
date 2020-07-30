@@ -48,10 +48,8 @@ typedef struct AOTBlock {
 
   /* Block index */
   uint32 block_index;
-  /* BLOCK_TYPE_BLOCK/LOOP/IF/FUNCTION */
-  uint32 block_type;
-  /* VALUE_TYPE_I32/I64/F32/F64/VOID */
-  uint8 return_type;
+  /* LABEL_TYPE_BLOCK/LOOP/IF/FUNCTION */
+  uint32 label_type;
   /* Whether it is reachable */
   bool is_reachable;
   /* Whether skip translation of wasm else branch */
@@ -72,8 +70,16 @@ typedef struct AOTBlock {
   /* WASM operation stack */
   AOTValueStack value_stack;
 
-  /* Return value of this block, a PHI node */
-  LLVMValueRef return_value_phi;
+  /* Param count/types/PHIs of this block */
+  uint32 param_count;
+  uint8 *param_types;
+  LLVMValueRef *param_phis;
+  LLVMValueRef *else_param_phis;
+
+  /* Result count/types/PHIs of this block */
+  uint32 result_count;
+  uint8 *result_types;
+  LLVMValueRef *result_phis;
 } AOTBlock;
 
 /**
@@ -93,6 +99,16 @@ typedef struct AOTCheckedAddr {
   uint32 bytes;
 } AOTCheckedAddr, *AOTCheckedAddrList;
 
+typedef struct AOTMemInfo {
+  LLVMValueRef mem_base_addr;
+  LLVMValueRef mem_cur_page_count_addr;
+  LLVMValueRef mem_bound_check_heap_base;
+  LLVMValueRef mem_bound_check_1byte;
+  LLVMValueRef mem_bound_check_2bytes;
+  LLVMValueRef mem_bound_check_4bytes;
+  LLVMValueRef mem_bound_check_8bytes;
+} AOTMemInfo;
+
 typedef struct AOTFuncContext {
   AOTFunc *aot_func;
   LLVMValueRef func;
@@ -105,12 +121,7 @@ typedef struct AOTFuncContext {
   LLVMValueRef native_stack_bound;
   LLVMValueRef last_alloca;
 
-  LLVMValueRef mem_base_addr;
-  LLVMValueRef mem_bound_check_heap_base;
-  LLVMValueRef mem_bound_check_1byte;
-  LLVMValueRef mem_bound_check_2bytes;
-  LLVMValueRef mem_bound_check_4bytes;
-  LLVMValueRef mem_bound_check_8bytes;
+  AOTMemInfo *mem_info;
 
   LLVMValueRef cur_exception;
 
@@ -190,6 +201,9 @@ typedef struct AOTCompContext {
   /* Bounday Check */
   bool enable_bound_check;
 
+  /* Thread Manager */
+  bool enable_thread_mgr;
+
   /* Whether optimize the JITed code */
   bool optimize;
 
@@ -229,6 +243,7 @@ typedef struct AOTCompOption{
     char *target_cpu;
     char *cpu_features;
     bool enable_bulk_memory;
+    bool enable_thread_mgr;
     bool is_sgx_platform;
     uint32 opt_level;
     uint32 size_level;

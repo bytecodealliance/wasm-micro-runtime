@@ -44,7 +44,7 @@ invokeNative:
         cmp     x21, #0
         beq     call_func
 
-        /* Fill all stack args: reserve stack space and fill ony by one */
+        /* Fill all stack args: reserve stack space and fill one by one */
         mov     x23, sp
         bic     sp,  x23, #15    /* Ensure stack is 16 bytes aligned */
         lsl     x23, x21, #3     /* x23 = nstacks * 8 */

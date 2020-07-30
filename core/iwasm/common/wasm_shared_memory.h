@@ -25,28 +25,7 @@ typedef struct WASMSharedMemNode {
     /* The module reference */
     WASMModuleCommon *module;
     /* The memory information */
-    union {
-#if WASM_ENABLE_INTERP
-        WASMMemoryInstance *wasm_memory;
-#endif
-#if WASM_ENABLE_AOT
-        struct {
-            /* memory space info */
-            uint32 mem_cur_page_count;
-            uint32 mem_max_page_count;
-            uint32 memory_data_size;
-            AOTPointer memory_data;
-            AOTPointer memory_data_end;
-
-            /* heap space info */
-            int32 heap_base_offset;
-            uint32 heap_data_size;
-            AOTPointer heap_data;
-            AOTPointer heap_data_end;
-            AOTPointer heap_handle;
-        } aot_memory;
-#endif
-    } u;
+    WASMMemoryInstanceCommon *memory_inst;
 
     /* reference count */
     uint32 ref_count;
@@ -67,12 +46,12 @@ shared_memory_inc_reference(WASMModuleCommon *module);
 int32
 shared_memory_dec_reference(WASMModuleCommon *module);
 
-WASMMemoryInstance*
+WASMMemoryInstanceCommon*
 shared_memory_get_memory_inst(WASMSharedMemNode *node);
 
 WASMSharedMemNode*
 shared_memory_set_memory_inst(WASMModuleCommon *module,
-                              WASMMemoryInstance *memory);
+                              WASMMemoryInstanceCommon *memory);
 
 
 #ifdef __cplusplus

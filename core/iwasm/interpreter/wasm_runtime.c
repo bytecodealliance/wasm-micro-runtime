@@ -142,7 +142,7 @@ memory_instantiate(WASMModuleInstance *module_inst,
             ref_count = shared_memory_inc_reference(
                             (WASMModuleCommon *)module_inst->module);
             bh_assert(ref_count > 0);
-            memory = shared_memory_get_memory_inst(node);
+            memory = (WASMMemoryInstance *)shared_memory_get_memory_inst(node);
             bh_assert(memory);
 
             (void)ref_count;
@@ -160,6 +160,7 @@ memory_instantiate(WASMModuleInstance *module_inst,
         return NULL;
     }
 
+    memory->module_type = Wasm_Module_Bytecode;
     memory->num_bytes_per_page = num_bytes_per_page;
     memory->cur_page_count = init_page_count;
     memory->max_page_count = max_page_count;
@@ -194,7 +195,8 @@ memory_instantiate(WASMModuleInstance *module_inst,
     if (is_shared_memory) {
         memory->is_shared = true;
         if (!shared_memory_set_memory_inst(
-                (WASMModuleCommon *)module_inst->module, memory)) {
+                (WASMModuleCommon *)module_inst->module,
+                (WASMMemoryInstanceCommon *)memory)) {
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed:"
                           "allocate memory failed.");
@@ -509,9 +511,9 @@ functions_instantiate(const WASMModule *module,
                       import->u.function.field_name);
             function->u.func_import = &import->u.function;
             function->param_cell_num =
-              wasm_type_param_cell_num(import->u.function.func_type);
+              import->u.function.func_type->param_cell_num;
             function->ret_cell_num =
-              wasm_type_return_cell_num(import->u.function.func_type);
+              import->u.function.func_type->ret_cell_num;
             function->param_count =
               (uint16)function->u.func_import->func_type->param_count;
             function->param_types = function->u.func_import->func_type->types;
@@ -993,9 +995,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
                                        error_buf, error_buf_size))) {
         return NULL;
     }
-
-    LOG_DEBUG("Instantiate a module %p -> %p", module, module_inst);
-
     memset(module_inst, 0, (uint32)sizeof(WASMModuleInstance));
 
     module_inst->module = module;
@@ -1765,7 +1764,7 @@ wasm_set_aux_stack(WASMExecEnv *exec_env,
         || ((!is_stack_before_data) && (start_offset - data_end < size)))
         return false;
 
-    if (stack_bottom) {
+    if ((stack_bottom != (uint32)-1) && (stack_top_idx != (uint32)-1)) {
         /* The aux stack top is a wasm global,
             set the initial value for the global */
         uint8 *global_addr =

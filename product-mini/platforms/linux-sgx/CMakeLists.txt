@@ -32,9 +32,9 @@ if (NOT DEFINED WAMR_BUILD_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_AOT)
-  # Disable AOT by default.
-  # If enabling AOT, please install Intel SGX SDKv2.8 or later.
-  set (WAMR_BUILD_AOT 0)
+  # Enable AOT by default
+  # Please install Intel SGX SDKv2.8 or later.
+  set (WAMR_BUILD_AOT 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_JIT)
@@ -50,6 +50,10 @@ endif ()
 if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   # Disable libc wasi support by default
   set (WAMR_BUILD_LIBC_WASI 0)
+endif ()
+
+if (COLLECT_CODE_COVERAGE EQUAL 1)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")

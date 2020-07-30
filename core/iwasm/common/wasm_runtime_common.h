@@ -67,6 +67,11 @@ typedef struct WASMRegisteredModule {
 } WASMRegisteredModule;
 #endif
 
+typedef struct WASMMemoryInstanceCommon {
+    uint32 module_type;
+    uint8 memory_inst_data[1];
+} WASMMemoryInstanceCommon;
+
 typedef package_type_t PackageType;
 typedef wasm_section_t WASMSection, AOTSection;
 

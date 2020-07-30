@@ -556,7 +556,7 @@ wasm_app_module_init(void)
 static bool
 wasm_app_module_install(request_t * msg)
 {
-    unsigned int m_data_size, heap_size;
+    unsigned int m_data_size, heap_size, stack_size;
     unsigned int timeout, timers, err_size;
     char *properties;
     int properties_offset;
@@ -842,9 +842,13 @@ wasm_app_module_install(request_t * msg)
         goto fail;
     }
 
+    stack_size = APP_THREAD_STACK_SIZE_DEFAULT;
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    stack_size += 4 * BH_KB;
+#endif
     /* Create WASM app thread. */
     if (os_thread_create(&wasm_app_data->thread_id, wasm_app_routine,
-                         (void*) m_data, APP_THREAD_STACK_SIZE_DEFAULT) != 0) {
+                         (void*) m_data, stack_size) != 0) {
         module_data_list_remove(m_data);
         SEND_ERR_RESPONSE(msg->mid,
                           "Install WASM app failed: create app thread failed.");

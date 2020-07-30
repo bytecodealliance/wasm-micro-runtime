@@ -290,6 +290,11 @@ thread_manager_start_routine(void *arg)
     exec_env->handle = os_self_thread();
     ret = exec_env->thread_start_routine(exec_env);
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (exec_env->suspend_flags.flags & 0x08)
+        ret = exec_env->thread_ret_value;
+#endif
+
     /* Routine exit */
     /* Free aux stack space */
     free_aux_stack(cluster,
@@ -376,6 +381,25 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 {
     WASMCluster *cluster;
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (exec_env->jmpbuf_stack_top) {
+        WASMJmpBuf *jmpbuf_node;
+
+        /* Store the return value in exec_env */
+        exec_env->thread_ret_value = retval;
+        exec_env->suspend_flags.flags |= 0x08;
+
+        /* Free all jmpbuf_node except the last one */
+        while (exec_env->jmpbuf_stack_top->prev) {
+            jmpbuf_node = wasm_exec_env_pop_jmpbuf(exec_env);
+            wasm_runtime_free(jmpbuf_node);
+        }
+        jmpbuf_node = exec_env->jmpbuf_stack_top;
+        os_longjmp(jmpbuf_node->jmpbuf, 1);
+        return;
+    }
+#endif
+
     cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
 
@@ -396,7 +420,7 @@ int32
 wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
 {
     /* Set the termination flag */
-    exec_env->suspend_flags |= 0x01;
+    exec_env->suspend_flags.flags |= 0x01;
     return 0;
 }
 
@@ -446,7 +470,7 @@ void
 wasm_cluster_suspend_thread(WASMExecEnv *exec_env)
 {
     /* Set the suspend flag */
-    exec_env->suspend_flags |= 0x02;
+    exec_env->suspend_flags.flags |= 0x02;
 }
 
 static void
@@ -479,7 +503,7 @@ wasm_cluster_suspend_all_except_self(WASMCluster *cluster,
 void
 wasm_cluster_resume_thread(WASMExecEnv *exec_env)
 {
-    exec_env->suspend_flags &= ~0x02;
+    exec_env->suspend_flags.flags &= ~0x02;
 }
 
 static void

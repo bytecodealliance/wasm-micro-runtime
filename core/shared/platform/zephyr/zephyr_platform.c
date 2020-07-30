@@ -20,7 +20,7 @@ static exec_mem_free_func_t exec_mem_free_func = NULL;
 static void
 disable_mpu_rasr_xn(void)
 {
-    u32_t index;
+    uint32 index;
     /* Kept the max index as 8 (irrespective of soc) because the sram
        would most likely be set at index 2. */
     for (index = 0U; index < 8; index++) {

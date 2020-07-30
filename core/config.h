@@ -62,7 +62,7 @@ enum {
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 1
+#define AOT_CURRENT_VERSION 2
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
@@ -126,6 +126,11 @@ enum {
 
 /* WASM Interpreter labels-as-values feature */
 #define WASM_ENABLE_LABELS_AS_VALUES 1
+
+/* Enable fast interpreter or not */
+#ifndef WASM_ENABLE_FAST_INTERP
+#define WASM_ENABLE_FAST_INTERP 0
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
 #define WASM_ENABLE_ABS_LABEL_ADDR 1
