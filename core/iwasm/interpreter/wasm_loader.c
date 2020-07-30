@@ -6127,6 +6127,8 @@ handle_op_block_and_loop:
                     goto fail;
                 }
                 PUSH_I32();
+
+                module->possible_memory_grow = true;
                 break;
 
             case WASM_OP_MEMORY_GROW:
