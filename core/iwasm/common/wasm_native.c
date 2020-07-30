@@ -3,10 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+//#define QUICKSORT_DEBUG
+
 #include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "bh_log.h"
 
+#ifdef QUICKSORT_DEBUG
+#include<sys/time.h>
+#endif
 
 static NativeSymbolsList g_native_symbols_list = NULL;
 static NativeSymbolsList g_native_symbols_list_end = NULL;
@@ -121,6 +126,50 @@ sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
     }
 }
 
+void swap_symbol(NativeSymbol* left, NativeSymbol* right)
+{
+    NativeSymbol temp = *left;
+    *left = *right;
+    *right = temp;
+}
+
+void quick_sort_symbols(NativeSymbol* native_symbols, int left, int right)
+{
+    if (left >= right) {
+        return;
+    }
+
+    int pin_left = left;
+    int pin_right = right;
+
+    NativeSymbol base_symbol = native_symbols[left];
+    while(left < right) {
+        while(left < right && strcmp(native_symbols[right].symbol,
+                                     base_symbol.symbol) > 0 ){
+            right--;
+        }
+
+        if(left < right) {
+            swap_symbol(&native_symbols[left], &native_symbols[right]);
+            left++;
+        }
+
+        while(left < right && strcmp(native_symbols[left].symbol,
+                                     base_symbol.symbol) < 0) {
+            left++;
+        }
+
+        if(left < right) {
+            swap_symbol(&native_symbols[left], &native_symbols[right]);
+            right--;
+        }
+    }
+    native_symbols[left] = base_symbol;
+
+    quick_sort_symbols(native_symbols, pin_left, left - 1);
+    quick_sort_symbols(native_symbols, left + 1, pin_right);
+}
+
 static void *
 lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
               const char *symbol, const char **p_signature, void **p_attachment)
@@ -223,7 +272,21 @@ register_natives(const char *module_name,
         g_native_symbols_list = g_native_symbols_list_end = node;
     }
 
+#ifdef QUICKSORT_DEBUG
+    struct timeval start;
+    struct timeval end;
+    unsigned long timer;
+    gettimeofday(&start, NULL);
+#endif
+
     sort_symbol_ptr(native_symbols, n_native_symbols);
+    //quick_sort_symbols(native_symbols, 0, n_native_symbols - 1);
+
+#ifdef QUICKSORT_DEBUG
+    gettimeofday(&end, NULL);
+    timer = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
+    LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us", module_name, n_native_symbols, timer);
+#endif
     return true;
 }
 
