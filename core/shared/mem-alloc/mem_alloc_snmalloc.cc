@@ -26,37 +26,61 @@ mem_allocator_t mem_allocator_create(void *mem, uint32_t size)
     }
     snmalloc_wamr::PALFixedRegion::setup_initial_range(mem, (char*)mem + size);
     called = true;
-    return (mem_allocator_t)1;
+    return (mem_allocator_t)new snmalloc_wamr::Alloc(snmalloc_wamr::default_memory_provider());
 }
 
 void mem_allocator_destroy(mem_allocator_t allocator)
 {
-    UNUSED(allocator);
-    snmalloc_wamr::current_alloc_pool()->cleanup_unused();
-    snmalloc_wamr::current_alloc_pool()->debug_check_empty();
+    delete (snmalloc_wamr::Alloc*)allocator;
     return;
 }
 
 void *
 mem_allocator_malloc(mem_allocator_t allocator, uint32_t size)
 {
-    UNUSED(allocator);
-    return wamr_sn_malloc(size);
+    return ((snmalloc_wamr::Alloc*)allocator)->alloc(size);
 }
 
 void *
 mem_allocator_realloc(mem_allocator_t allocator, void *ptr, uint32_t size)
 {
-    UNUSED(allocator);
-    return wamr_sn_realloc(ptr, size);
+    if (size == (uint32_t)-1)
+    {
+      errno = ENOMEM;
+      return nullptr;
+    }
+    if (ptr == nullptr)
+    {
+      return mem_allocator_malloc(allocator, size);
+    }
+    if (size == 0)
+    {
+      mem_allocator_free(allocator, ptr);
+      return nullptr;
+    }
+    uint32_t sz = (uint32_t)((snmalloc_wamr::Alloc*)allocator)->alloc_size(ptr);
+    // Keep the current allocation if the given size is in the same sizeclass.
+    if (sz == round_size(size))
+    {
+      return ptr;
+    }
+
+    void* p = mem_allocator_malloc(allocator, size);
+    if (p != nullptr)
+    {
+      sz = bits::min(size, sz);
+      memcpy(p, ptr, sz);
+      mem_allocator_free(allocator, ptr);
+    }
+
+    return p;
 }
 
 void mem_allocator_free(mem_allocator_t allocator, void *ptr)
 {
-    UNUSED(allocator);
     if (ptr)
     {
-        wamr_sn_free(ptr);
+        ((snmalloc_wamr::Alloc*)allocator)->dealloc(ptr);
     }
 }
 

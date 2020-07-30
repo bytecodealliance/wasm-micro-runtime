@@ -107,10 +107,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     mem_allocator_destroy(memories[i]->heap_handle);
                     memories[i]->heap_handle = NULL;
                 }
-// Do not free memories if snmalloc heap allocators are still active in them
-#ifndef ENABLE_SNMALLOC
                 wasm_runtime_free(memories[i]);
-#endif
             }
         wasm_runtime_free(memories);
   }

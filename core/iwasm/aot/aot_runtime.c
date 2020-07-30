@@ -174,8 +174,6 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
             if (memory_inst->heap_handle.ptr)
                 mem_allocator_destroy(memory_inst->heap_handle.ptr);
 
-// Do not free memories if snmalloc heap allocators are still active in them
-#ifndef ENABLE_SNMALLOC
             if (memory_inst->heap_data.ptr) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                 wasm_runtime_free(memory_inst->heap_data.ptr);
@@ -184,7 +182,6 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
                           8 * (uint64)BH_GB);
 #endif
             }
-#endif
         }
     }
     wasm_runtime_free(module_inst->memories.ptr);
