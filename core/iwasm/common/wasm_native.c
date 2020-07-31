@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-//#define QUICKSORT_DEBUG
-
 #include "wasm_native.h"
 #include "wasm_runtime_common.h"
 #include "bh_log.h"
 
-#ifdef QUICKSORT_DEBUG
+#define ENABLE_QUICKSORT 1
+#define ENABLE_SORT_DEBUG 0
+
+#if ENABLE_SORT_DEBUG != 0
 #include<sys/time.h>
 #endif
 
@@ -108,6 +109,7 @@ check_symbol_signature(const WASMType *type, const char *signature)
     return true;
 }
 
+#if ENABLE_QUICKSORT == 0
 static void
 sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
 {
@@ -125,41 +127,46 @@ sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
         }
     }
 }
-
-void swap_symbol(NativeSymbol* left, NativeSymbol* right)
+#else
+static void
+swap_symbol(NativeSymbol* left, NativeSymbol* right)
 {
     NativeSymbol temp = *left;
     *left = *right;
     *right = temp;
 }
 
-void quick_sort_symbols(NativeSymbol* native_symbols, int left, int right)
+static void
+quick_sort_symbols(NativeSymbol* native_symbols, int left, int right)
 {
+    NativeSymbol base_symbol;
+    int pin_left = left;
+    int pin_right = right;
+
     if (left >= right) {
         return;
     }
 
-    int pin_left = left;
-    int pin_right = right;
-
-    NativeSymbol base_symbol = native_symbols[left];
-    while(left < right) {
-        while(left < right && strcmp(native_symbols[right].symbol,
-                                     base_symbol.symbol) > 0 ){
+    base_symbol = native_symbols[left];
+    while (left < right) {
+        while (left < right
+               && strcmp(native_symbols[right].symbol,
+                         base_symbol.symbol) > 0) {
             right--;
         }
 
-        if(left < right) {
+        if (left < right) {
             swap_symbol(&native_symbols[left], &native_symbols[right]);
             left++;
         }
 
-        while(left < right && strcmp(native_symbols[left].symbol,
-                                     base_symbol.symbol) < 0) {
+        while (left < right
+               && strcmp(native_symbols[left].symbol,
+                         base_symbol.symbol) < 0) {
             left++;
         }
 
-        if(left < right) {
+        if (left < right) {
             swap_symbol(&native_symbols[left], &native_symbols[right]);
             right--;
         }
@@ -169,6 +176,7 @@ void quick_sort_symbols(NativeSymbol* native_symbols, int left, int right)
     quick_sort_symbols(native_symbols, pin_left, left - 1);
     quick_sort_symbols(native_symbols, left + 1, pin_right);
 }
+#endif /* end of ENABLE_QUICKSORT */
 
 static void *
 lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
@@ -254,6 +262,11 @@ register_natives(const char *module_name,
                  bool call_conv_raw)
 {
     NativeSymbolsNode *node;
+#if ENABLE_SORT_DEBUG != 0
+    struct timeval start;
+    struct timeval end;
+    unsigned long timer;
+#endif
 
     if (!(node = wasm_runtime_malloc(sizeof(NativeSymbolsNode))))
         return false;
@@ -272,20 +285,22 @@ register_natives(const char *module_name,
         g_native_symbols_list = g_native_symbols_list_end = node;
     }
 
-#ifdef QUICKSORT_DEBUG
-    struct timeval start;
-    struct timeval end;
-    unsigned long timer;
+#if ENABLE_SORT_DEBUG != 0
     gettimeofday(&start, NULL);
 #endif
 
+#if ENABLE_QUICKSORT == 0
     sort_symbol_ptr(native_symbols, n_native_symbols);
-    //quick_sort_symbols(native_symbols, 0, n_native_symbols - 1);
+#else
+    quick_sort_symbols(native_symbols, 0, (int)(n_native_symbols - 1));
+#endif
 
-#ifdef QUICKSORT_DEBUG
+#if ENABLE_SORT_DEBUG != 0
     gettimeofday(&end, NULL);
-    timer = 1000000 * (end.tv_sec - start.tv_sec) + end.tv_usec - start.tv_usec;
-    LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us", module_name, n_native_symbols, timer);
+    timer = 1000000 * (end.tv_sec - start.tv_sec)
+            + (end.tv_usec - start.tv_usec);
+    LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us",
+              module_name, n_native_symbols, timer);
 #endif
     return true;
 }
@@ -384,4 +399,3 @@ wasm_native_destroy()
 
     g_native_symbols_list = g_native_symbols_list_end = NULL;
 }
-
