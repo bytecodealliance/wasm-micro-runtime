@@ -124,7 +124,7 @@ typedef struct RuntimeInitArgs {
  * @return true if success, false otherwise
  */
 bool
-wasm_runtime_init();
+wasm_runtime_init(void);
 
 /**
  * Initialize the WASM runtime environment, and also initialize
@@ -142,7 +142,7 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args);
  * Destroy the WASM runtime environment.
  */
 void
-wasm_runtime_destroy();
+wasm_runtime_destroy(void);
 
 /**
  * Allocate memory from runtime memory environment.
