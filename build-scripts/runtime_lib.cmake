@@ -88,8 +88,7 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-secti
 # include the build config template file
 include (${CMAKE_CURRENT_LIST_DIR}/config_common.cmake)
 
-include_directories (${SHARED_DIR}/include
-                     ${IWASM_DIR}/include)
+include_directories (${IWASM_DIR}/include)
 
 file (GLOB header
     ${SHARED_DIR}/include/*.h
