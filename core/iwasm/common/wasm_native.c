@@ -7,7 +7,12 @@
 #include "wasm_runtime_common.h"
 #include "bh_log.h"
 
+#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS)
 #define ENABLE_QUICKSORT 1
+#else
+#define ENABLE_QUICKSORT 0
+#endif
+
 #define ENABLE_SORT_DEBUG 0
 
 #if ENABLE_SORT_DEBUG != 0

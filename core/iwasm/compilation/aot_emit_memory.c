@@ -205,7 +205,7 @@ fail:
     LLVMSetAlignment(value, 1);                             \
   } while (0)
 
-#define BUILD_TRUNC(data_type) do {                         \
+#define BUILD_TRUNC(value, data_type) do {                  \
     if (!(value = LLVMBuildTrunc(comp_ctx->builder, value,  \
                                  data_type, "val_trunc"))){ \
         aot_set_last_error("llvm build trunc failed.");     \
@@ -238,9 +238,79 @@ fail:
     }                                                       \
   } while (0)
 
+#if WASM_ENABLE_SHARED_MEMORY != 0
+bool
+check_memory_alignment(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       LLVMValueRef addr, uint32 align)
+{
+    LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    LLVMBasicBlockRef check_align_succ;
+    LLVMValueRef align_mask = I32_CONST(((uint32)1 << align) - 1);
+    LLVMValueRef res;
+
+    CHECK_LLVM_CONST(align_mask);
+
+    /* Convert pointer to int */
+    if (!(addr = LLVMBuildPtrToInt(comp_ctx->builder, addr,
+                                   I32_TYPE, "address"))) {
+        aot_set_last_error("llvm build ptr to int failed.");
+        goto fail;
+    }
+
+    /* The memory address should be aligned */
+    BUILD_OP(And, addr, align_mask, res, "and");
+    BUILD_ICMP(LLVMIntNE, res, I32_ZERO, res, "cmp");
+
+    /* Add basic blocks */
+    ADD_BASIC_BLOCK(check_align_succ, "check_align_succ");
+    LLVMMoveBasicBlockAfter(check_align_succ, block_curr);
+
+    if (!aot_emit_exception(comp_ctx, func_ctx,
+                            EXCE_UNALIGNED_ATOMIC,
+                            true, res, check_align_succ)) {
+        goto fail;
+    }
+
+    SET_BUILD_POS(check_align_succ);
+
+    return true;
+fail:
+    return false;
+}
+
+#define BUILD_ATOMIC_LOAD(align) do {                                   \
+    if (!(check_memory_alignment(comp_ctx, func_ctx, maddr, align))) {  \
+        goto fail;                                                      \
+    }                                                                   \
+    if (!(value = LLVMBuildLoad(comp_ctx->builder, maddr,               \
+                                "data"))) {                             \
+        aot_set_last_error("llvm build load failed.");                  \
+        goto fail;                                                      \
+    }                                                                   \
+    LLVMSetAlignment(value, 1 << align);                                \
+    LLVMSetVolatile(value, true);                                       \
+    LLVMSetOrdering(value, LLVMAtomicOrderingSequentiallyConsistent);   \
+  } while (0)
+
+#define BUILD_ATOMIC_STORE(align) do {                                  \
+    LLVMValueRef res;                                                   \
+    if (!(check_memory_alignment(comp_ctx, func_ctx, maddr, align))) {  \
+        goto fail;                                                      \
+    }                                                                   \
+    if (!(res = LLVMBuildStore(comp_ctx->builder, value, maddr))) {     \
+        aot_set_last_error("llvm build store failed.");                 \
+        goto fail;                                                      \
+    }                                                                   \
+    LLVMSetAlignment(res, 1 << align);                                  \
+    LLVMSetVolatile(res, true);                                         \
+    LLVMSetOrdering(res, LLVMAtomicOrderingSequentiallyConsistent);     \
+  } while (0)
+#endif
+
 bool
 aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, uint32 offset, uint32 bytes, bool sign)
+                        uint32 align, uint32 offset, uint32 bytes,
+                        bool sign, bool atomic)
 {
     LLVMValueRef maddr, value = NULL;
 
@@ -250,7 +320,12 @@ aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     switch (bytes) {
         case 4:
             BUILD_PTR_CAST(INT32_PTR_TYPE);
-            BUILD_LOAD();
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            if (atomic)
+                BUILD_ATOMIC_LOAD(align);
+            else
+#endif
+                BUILD_LOAD();
             break;
         case 2:
         case 1:
@@ -258,11 +333,20 @@ aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 BUILD_PTR_CAST(INT16_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT8_PTR_TYPE);
-            BUILD_LOAD();
-            if (sign)
-                BUILD_SIGN_EXT(I32_TYPE);
-            else
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            if (atomic) {
+                BUILD_ATOMIC_LOAD(align);
                 BUILD_ZERO_EXT(I32_TYPE);
+            }
+            else
+#endif
+            {
+                BUILD_LOAD();
+                if (sign)
+                    BUILD_SIGN_EXT(I32_TYPE);
+                else
+                    BUILD_ZERO_EXT(I32_TYPE);
+            }
             break;
         default:
             bh_assert(0);
@@ -277,7 +361,8 @@ fail:
 
 bool
 aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 align, uint32 offset, uint32 bytes, bool sign)
+                        uint32 align, uint32 offset, uint32 bytes,
+                        bool sign, bool atomic)
 {
     LLVMValueRef maddr, value = NULL;
 
@@ -287,7 +372,12 @@ aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     switch (bytes) {
         case 8:
             BUILD_PTR_CAST(INT64_PTR_TYPE);
-            BUILD_LOAD();
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            if (atomic)
+                BUILD_ATOMIC_LOAD(align);
+            else
+#endif
+                BUILD_LOAD();
             break;
         case 4:
         case 2:
@@ -298,11 +388,20 @@ aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 BUILD_PTR_CAST(INT16_PTR_TYPE);
             else
                 BUILD_PTR_CAST(INT8_PTR_TYPE);
-            BUILD_LOAD();
-            if (sign)
-                BUILD_SIGN_EXT(I64_TYPE);
-            else
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            if (atomic) {
+                BUILD_ATOMIC_LOAD(align);
                 BUILD_ZERO_EXT(I64_TYPE);
+            }
+            else
+#endif
+            {
+                BUILD_LOAD();
+                if (sign)
+                    BUILD_SIGN_EXT(I64_TYPE);
+                else
+                    BUILD_ZERO_EXT(I64_TYPE);
+            }
             break;
         default:
             bh_assert(0);
@@ -351,7 +450,7 @@ fail:
 
 bool
 aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, uint32 offset, uint32 bytes)
+                         uint32 align, uint32 offset, uint32 bytes, bool atomic)
 {
     LLVMValueRef maddr, value;
 
@@ -366,18 +465,23 @@ aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             break;
         case 2:
             BUILD_PTR_CAST(INT16_PTR_TYPE);
-            BUILD_TRUNC(INT16_TYPE);
+            BUILD_TRUNC(value, INT16_TYPE);
             break;
         case 1:
             BUILD_PTR_CAST(INT8_PTR_TYPE);
-            BUILD_TRUNC(INT8_TYPE);
+            BUILD_TRUNC(value, INT8_TYPE);
             break;
         default:
             bh_assert(0);
             break;
     }
 
-    BUILD_STORE();
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic)
+        BUILD_ATOMIC_STORE(align);
+    else
+#endif
+        BUILD_STORE();
     return true;
 fail:
     return false;
@@ -385,7 +489,7 @@ fail:
 
 bool
 aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                         uint32 align, uint32 offset, uint32 bytes)
+                         uint32 align, uint32 offset, uint32 bytes, bool atomic)
 {
     LLVMValueRef maddr, value;
 
@@ -400,22 +504,27 @@ aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             break;
         case 4:
             BUILD_PTR_CAST(INT32_PTR_TYPE);
-            BUILD_TRUNC(I32_TYPE);
+            BUILD_TRUNC(value, I32_TYPE);
             break;
         case 2:
             BUILD_PTR_CAST(INT16_PTR_TYPE);
-            BUILD_TRUNC(INT16_TYPE);
+            BUILD_TRUNC(value, INT16_TYPE);
             break;
         case 1:
             BUILD_PTR_CAST(INT8_PTR_TYPE);
-            BUILD_TRUNC(INT8_TYPE);
+            BUILD_TRUNC(value, INT8_TYPE);
             break;
         default:
             bh_assert(0);
             break;
     }
 
-    BUILD_STORE();
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    if (atomic)
+        BUILD_ATOMIC_STORE(align);
+    else
+#endif
+        BUILD_STORE();
     return true;
 fail:
     return false;
@@ -603,6 +712,36 @@ fail:
     return false;
 }
 
+#define GET_AOT_FUNCTION(name, argc) do {                               \
+    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
+                                       argc, false))) {                 \
+        aot_set_last_error("llvm add function type failed.");           \
+        return false;                                                   \
+    }                                                                   \
+    if (comp_ctx->is_jit_mode) {                                        \
+        /* JIT mode, call the function directly */                      \
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
+            aot_set_last_error("llvm add pointer type failed.");        \
+            return false;                                               \
+        }                                                               \
+        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
+            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
+            aot_set_last_error("create LLVM value failed.");            \
+            return false;                                               \
+        }                                                               \
+    }                                                                   \
+    else {                                                              \
+        char *func_name = #name;                                        \
+        /* AOT mode, delcare the function */                            \
+        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
+            && !(func = LLVMAddFunction(comp_ctx->module,               \
+                                        func_name, func_type))) {       \
+            aot_set_last_error("llvm add function failed.");            \
+            return false;                                               \
+        }                                                               \
+    }                                                                   \
+  } while (0)
+
 #if WASM_ENABLE_BULK_MEMORY != 0
 
 static LLVMValueRef
@@ -690,36 +829,6 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return NULL;
 }
-
-#define GET_AOT_FUNCTION(name, argc) do {                               \
-    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
-                                       argc, false))) {                 \
-        aot_set_last_error("llvm add function type failed.");           \
-        return false;                                                   \
-    }                                                                   \
-    if (comp_ctx->is_jit_mode) {                                        \
-        /* JIT mode, call the function directly */                      \
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
-            aot_set_last_error("llvm add pointer type failed.");        \
-            return false;                                               \
-        }                                                               \
-        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
-            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
-            aot_set_last_error("create LLVM value failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-    else {                                                              \
-        char *func_name = #name;                                        \
-        /* AOT mode, delcare the function */                            \
-        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
-            && !(func = LLVMAddFunction(comp_ctx->module,               \
-                                        func_name, func_type))) {       \
-            aot_set_last_error("llvm add function failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-  } while (0)
 
 bool
 aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -810,6 +919,7 @@ aot_compile_op_data_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
 
     seg = I32_CONST(seg_index);
+    CHECK_LLVM_CONST(seg);
 
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
@@ -825,7 +935,10 @@ aot_compile_op_data_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build call failed.");
         return false;
     }
+
     return true;
+fail:
+    return false;
 }
 
 bool
@@ -879,4 +992,308 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 fail:
     return false;
 }
-#endif /* WASM_ENABLE_BULK_MEMORY */
+#endif /* end of WASM_ENABLE_BULK_MEMORY */
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+bool
+aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx,
+                          uint8 atomic_op, uint8 op_type,
+                          uint32 align, uint32 offset,
+                          uint32 bytes)
+{
+    LLVMValueRef maddr, value, result;
+
+    if (op_type == VALUE_TYPE_I32)
+        POP_I32(value);
+    else
+        POP_I64(value);
+
+    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+        return false;
+
+    if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
+        return false;
+
+    switch (bytes) {
+        case 8:
+            BUILD_PTR_CAST(INT64_PTR_TYPE);
+            break;
+        case 4:
+            BUILD_PTR_CAST(INT32_PTR_TYPE);
+            if (op_type == VALUE_TYPE_I64)
+                BUILD_TRUNC(value, I32_TYPE);
+            break;
+        case 2:
+            BUILD_PTR_CAST(INT16_PTR_TYPE);
+            BUILD_TRUNC(value, INT16_TYPE);
+            break;
+        case 1:
+            BUILD_PTR_CAST(INT8_PTR_TYPE);
+            BUILD_TRUNC(value, INT8_TYPE);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    if (!(result =
+        LLVMBuildAtomicRMW(comp_ctx->builder,
+                           atomic_op, maddr, value,
+                           LLVMAtomicOrderingSequentiallyConsistent, false))) {
+        goto fail;
+    }
+
+    LLVMSetVolatile(result, true);
+
+    if (op_type == VALUE_TYPE_I32) {
+        if (!(result = LLVMBuildZExt(comp_ctx->builder, result,
+                                     I32_TYPE, "result_i32"))) {
+            goto fail;
+        }
+        PUSH_I32(result);
+    }
+    else {
+        if (!(result = LLVMBuildZExt(comp_ctx->builder, result,
+                                     I64_TYPE, "result_i64"))) {
+            goto fail;
+        }
+        PUSH_I64(result);
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx,
+                              uint8 op_type, uint32 align,
+                              uint32 offset, uint32 bytes)
+{
+    LLVMValueRef maddr, value, expect, result;
+
+    if (op_type == VALUE_TYPE_I32) {
+        POP_I32(value);
+        POP_I32(expect);
+    }
+    else {
+        POP_I64(value);
+        POP_I64(expect);
+    }
+
+    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+        return false;
+
+    if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
+        return false;
+
+    switch (bytes) {
+        case 8:
+            BUILD_PTR_CAST(INT64_PTR_TYPE);
+            break;
+        case 4:
+            BUILD_PTR_CAST(INT32_PTR_TYPE);
+            if (op_type == VALUE_TYPE_I64) {
+                BUILD_TRUNC(value, I32_TYPE);
+                BUILD_TRUNC(expect, I32_TYPE);
+            }
+            break;
+        case 2:
+            BUILD_PTR_CAST(INT16_PTR_TYPE);
+            BUILD_TRUNC(value, INT16_TYPE);
+            BUILD_TRUNC(expect, INT16_TYPE);
+            break;
+        case 1:
+            BUILD_PTR_CAST(INT8_PTR_TYPE);
+            BUILD_TRUNC(value, INT8_TYPE);
+            BUILD_TRUNC(expect, INT8_TYPE);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    if (!(result =
+        LLVMBuildAtomicCmpXchg(comp_ctx->builder, maddr, expect, value,
+                               LLVMAtomicOrderingSequentiallyConsistent,
+                               LLVMAtomicOrderingSequentiallyConsistent,
+                               false))) {
+        goto fail;
+    }
+
+    LLVMSetVolatile(result, true);
+
+    /* CmpXchg return {i32, i1} structure,
+        we need to extrack the previous_value from the structure */
+    if (!(result =
+        LLVMBuildExtractValue(comp_ctx->builder,
+                              result, 0, "previous_value"))) {
+        goto fail;
+    }
+
+    if (op_type == VALUE_TYPE_I32) {
+        if (!(result = LLVMBuildZExt(comp_ctx->builder, result,
+                                     I32_TYPE, "result_i32"))) {
+            goto fail;
+        }
+        PUSH_I32(result);
+    }
+    else {
+        if (!(result = LLVMBuildZExt(comp_ctx->builder, result,
+                                     I64_TYPE, "result_i64"))) {
+            goto fail;
+        }
+        PUSH_I64(result);
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           uint8 op_type, uint32 align,
+                           uint32 offset, uint32 bytes)
+{
+    LLVMValueRef maddr, value, timeout, expect, cmp;
+    LLVMValueRef param_values[5], ret_value, func, is_wait64;
+    LLVMTypeRef param_types[5], ret_type, func_type, func_ptr_type;
+    LLVMBasicBlockRef wait_fail, wait_success;
+    LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
+
+    POP_I64(timeout);
+    if (op_type == VALUE_TYPE_I32) {
+        POP_I32(expect);
+        is_wait64 = I8_CONST(false);
+        if (!(expect =
+            LLVMBuildZExt(comp_ctx->builder, expect,
+                          I64_TYPE, "expect_i64"))) {
+            goto fail;
+        }
+    }
+    else {
+        POP_I64(expect);
+        is_wait64 = I8_CONST(true);
+    }
+
+    CHECK_LLVM_CONST(is_wait64);
+
+    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+        return false;
+
+    if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
+        return false;
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = INT8_PTR_TYPE;
+    param_types[2] = I64_TYPE;
+    param_types[3] = I64_TYPE;
+    param_types[4] = INT8_TYPE;
+    ret_type = I32_TYPE;
+
+    GET_AOT_FUNCTION(wasm_runtime_atomic_wait, 5);
+
+    /* Call function wasm_runtime_atomic_wait() */
+    param_values[0] = func_ctx->aot_inst;
+    param_values[1] = maddr;
+    param_values[2] = expect;
+    param_values[3] = timeout;
+    param_values[4] = is_wait64;
+    if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func,
+                                    param_values, 5, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        return false;
+    }
+
+    BUILD_ICMP(LLVMIntSGT, ret_value, I32_ZERO, cmp, "atomic_wait_ret");
+
+    ADD_BASIC_BLOCK(wait_fail, "atomic_wait_fail");
+    ADD_BASIC_BLOCK(wait_success, "wait_success");
+
+    LLVMMoveBasicBlockAfter(wait_fail, block_curr);
+    LLVMMoveBasicBlockAfter(wait_success, block_curr);
+
+    if (!LLVMBuildCondBr(comp_ctx->builder, cmp,
+                         wait_success, wait_fail)) {
+        aot_set_last_error("llvm build cond br failed.");
+        goto fail;
+    }
+
+    /* If atomic wait failed, return this function
+        so the runtime can catch the exception */
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, wait_fail);
+    if (aot_func_type->result_count) {
+        switch (aot_func_type->types[aot_func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                LLVMBuildRet(comp_ctx->builder, I32_ZERO);
+                break;
+            case VALUE_TYPE_I64:
+                LLVMBuildRet(comp_ctx->builder, I64_ZERO);
+                break;
+            case VALUE_TYPE_F32:
+                LLVMBuildRet(comp_ctx->builder, F32_ZERO);
+                break;
+            case VALUE_TYPE_F64:
+                LLVMBuildRet(comp_ctx->builder, F64_ZERO);
+                break;
+        }
+    }
+    else {
+        LLVMBuildRetVoid(comp_ctx->builder);
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, wait_success);
+
+    PUSH_I32(ret_value);
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compiler_op_atomic_notify(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx,
+                              uint32 align, uint32 offset, uint32 bytes)
+{
+    LLVMValueRef maddr, value, count;
+    LLVMValueRef param_values[3], ret_value, func;
+    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+
+    POP_I32(count);
+
+    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+        return false;
+
+    if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
+        return false;
+
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = INT8_PTR_TYPE;
+    param_types[2] = I32_TYPE;
+    ret_type = I32_TYPE;
+
+    GET_AOT_FUNCTION(wasm_runtime_atomic_notify, 3);
+
+    /* Call function wasm_runtime_atomic_notify() */
+    param_values[0] = func_ctx->aot_inst;
+    param_values[1] = maddr;
+    param_values[2] = count;
+    if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func,
+                                    param_values, 3, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        return false;
+    }
+
+    PUSH_I32(ret_value);
+
+    return true;
+fail:
+    return false;
+}
+
+#endif /* end of WASM_ENABLE_SHARED_MEMORY */

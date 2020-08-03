@@ -3307,13 +3307,28 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                     default:
                         if (error_buf)
                             snprintf(error_buf, error_buf_size,
-                                    "WASM loader find block addr failed: "
-                                    "invalid opcode fc %02x.", opcode);
+                                     "WASM loader find block addr failed: "
+                                     "invalid opcode fc %02x.", opcode);
                         return false;
                 }
                 break;
             }
-
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            case WASM_OP_ATOMIC_PREFIX:
+            {
+                /* atomic_op (1 u8) + memarg (2 u32_leb) */
+                opcode = read_uint8(p);
+                if (opcode != WASM_OP_ATOMIC_FENCE) {
+                    skip_leb_uint32(p, p_end); /* align */
+                    skip_leb_uint32(p, p_end); /* offset */
+                }
+                else {
+                    /* atomic.fence doesn't have memarg */
+                    p++;
+                }
+                break;
+            }
+#endif
             default:
                 if (error_buf)
                     snprintf(error_buf, error_buf_size,
@@ -4795,6 +4810,36 @@ check_memory_access_align(uint8 opcode, uint32 align,
     }
     return true;
 }
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+static bool
+check_memory_align_equal(uint8 opcode, uint32 align,
+                         char *error_buf, uint32 error_buf_size)
+{
+    uint8 wait_notify_aligns[] = {2, 2, 3};
+    uint8 mem_access_aligns[] = {
+        2, 3, 0, 1, 0, 1, 2,
+    };
+    uint8 expect;
+
+    bh_assert((opcode <= WASM_OP_ATOMIC_WAIT64)
+              || (opcode >= WASM_OP_ATOMIC_I32_LOAD
+                  && opcode <= WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U));
+    if (opcode <= WASM_OP_ATOMIC_WAIT64) {
+        expect = wait_notify_aligns[opcode - WASM_OP_ATOMIC_NOTIFY];
+    }
+    else {
+        /* 7 opcodes in every group */
+        expect = mem_access_aligns[(opcode - WASM_OP_ATOMIC_I32_LOAD) % 7];
+    }
+    if (align != expect) {
+        set_error_buf(error_buf, error_buf_size,
+                      "alignment isn't equal to natural");
+        return false;
+    }
+    return true;
+}
+#endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
 static bool
 is_value_type(uint8 type)
@@ -6535,6 +6580,147 @@ fail_data_cnt_sec_require:
                 }
                 break;
             }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+            case WASM_OP_ATOMIC_PREFIX:
+            {
+                opcode = read_uint8(p);
+#if WASM_ENABLE_FAST_INTERP != 0
+                emit_byte(loader_ctx, opcode);
+#endif
+                if (opcode != WASM_OP_ATOMIC_FENCE) {
+                    CHECK_MEMORY();
+                    read_leb_uint32(p, p_end, align); /* align */
+                    read_leb_uint32(p, p_end, mem_offset); /* offset */
+                    if (!check_memory_align_equal(opcode, align,
+                                                  error_buf,
+                                                  error_buf_size)) {
+                        goto fail;
+                    }
+                }
+                switch (opcode) {
+                    case WASM_OP_ATOMIC_NOTIFY:
+                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        break;
+                    case WASM_OP_ATOMIC_WAIT32:
+                        POP_I64();
+                        POP_I32();
+                        POP_I32();
+                        PUSH_I32();
+                        break;
+                    case WASM_OP_ATOMIC_WAIT64:
+                        POP_I64();
+                        POP_I64();
+                        POP_I32();
+                        PUSH_I32();
+                        break;
+                    case WASM_OP_ATOMIC_FENCE:
+                        /* reserved byte 0x00 */
+                        if (*p++ != 0x00) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "WASM loader prepare bytecode failed: "
+                                          "zero flag expected");
+                            goto fail;
+                        }
+                        break;
+                    case WASM_OP_ATOMIC_I32_LOAD:
+                    case WASM_OP_ATOMIC_I32_LOAD8_U:
+                    case WASM_OP_ATOMIC_I32_LOAD16_U:
+                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        break;
+                    case WASM_OP_ATOMIC_I32_STORE:
+                    case WASM_OP_ATOMIC_I32_STORE8:
+                    case WASM_OP_ATOMIC_I32_STORE16:
+                        POP_I32();
+                        POP_I32();
+                        break;
+                    case WASM_OP_ATOMIC_I64_LOAD:
+                    case WASM_OP_ATOMIC_I64_LOAD8_U:
+                    case WASM_OP_ATOMIC_I64_LOAD16_U:
+                    case WASM_OP_ATOMIC_I64_LOAD32_U:
+                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I64);
+                        break;
+                    case WASM_OP_ATOMIC_I64_STORE:
+                    case WASM_OP_ATOMIC_I64_STORE8:
+                    case WASM_OP_ATOMIC_I64_STORE16:
+                    case WASM_OP_ATOMIC_I64_STORE32:
+                        POP_I64();
+                        POP_I32();
+                        break;
+                    case WASM_OP_ATOMIC_RMW_I32_ADD:
+                    case WASM_OP_ATOMIC_RMW_I32_ADD8_U:
+                    case WASM_OP_ATOMIC_RMW_I32_ADD16_U:
+                    case WASM_OP_ATOMIC_RMW_I32_SUB:
+                    case WASM_OP_ATOMIC_RMW_I32_SUB8_U:
+                    case WASM_OP_ATOMIC_RMW_I32_SUB16_U:
+                    case WASM_OP_ATOMIC_RMW_I32_AND:
+                    case WASM_OP_ATOMIC_RMW_I32_AND8_U:
+                    case WASM_OP_ATOMIC_RMW_I32_AND16_U:
+                    case WASM_OP_ATOMIC_RMW_I32_OR:
+                    case WASM_OP_ATOMIC_RMW_I32_OR8_U:
+                    case WASM_OP_ATOMIC_RMW_I32_OR16_U:
+                    case WASM_OP_ATOMIC_RMW_I32_XOR:
+                    case WASM_OP_ATOMIC_RMW_I32_XOR8_U:
+                    case WASM_OP_ATOMIC_RMW_I32_XOR16_U:
+                    case WASM_OP_ATOMIC_RMW_I32_XCHG:
+                    case WASM_OP_ATOMIC_RMW_I32_XCHG8_U:
+                    case WASM_OP_ATOMIC_RMW_I32_XCHG16_U:
+                        POP2_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_I32);
+                        break;
+                    case WASM_OP_ATOMIC_RMW_I64_ADD:
+                    case WASM_OP_ATOMIC_RMW_I64_ADD8_U:
+                    case WASM_OP_ATOMIC_RMW_I64_ADD16_U:
+                    case WASM_OP_ATOMIC_RMW_I64_ADD32_U:
+                    case WASM_OP_ATOMIC_RMW_I64_SUB:
+                    case WASM_OP_ATOMIC_RMW_I64_SUB8_U:
+                    case WASM_OP_ATOMIC_RMW_I64_SUB16_U:
+                    case WASM_OP_ATOMIC_RMW_I64_SUB32_U:
+                    case WASM_OP_ATOMIC_RMW_I64_AND:
+                    case WASM_OP_ATOMIC_RMW_I64_AND8_U:
+                    case WASM_OP_ATOMIC_RMW_I64_AND16_U:
+                    case WASM_OP_ATOMIC_RMW_I64_AND32_U:
+                    case WASM_OP_ATOMIC_RMW_I64_OR:
+                    case WASM_OP_ATOMIC_RMW_I64_OR8_U:
+                    case WASM_OP_ATOMIC_RMW_I64_OR16_U:
+                    case WASM_OP_ATOMIC_RMW_I64_OR32_U:
+                    case WASM_OP_ATOMIC_RMW_I64_XOR:
+                    case WASM_OP_ATOMIC_RMW_I64_XOR8_U:
+                    case WASM_OP_ATOMIC_RMW_I64_XOR16_U:
+                    case WASM_OP_ATOMIC_RMW_I64_XOR32_U:
+                    case WASM_OP_ATOMIC_RMW_I64_XCHG:
+                    case WASM_OP_ATOMIC_RMW_I64_XCHG8_U:
+                    case WASM_OP_ATOMIC_RMW_I64_XCHG16_U:
+                    case WASM_OP_ATOMIC_RMW_I64_XCHG32_U:
+                        POP_I64();
+                        POP_I32();
+                        PUSH_I64();
+                        break;
+                    case WASM_OP_ATOMIC_RMW_I32_CMPXCHG:
+                    case WASM_OP_ATOMIC_RMW_I32_CMPXCHG8_U:
+                    case WASM_OP_ATOMIC_RMW_I32_CMPXCHG16_U:
+                        POP_I32();
+                        POP_I32();
+                        POP_I32();
+                        PUSH_I32();
+                        break;
+                    case WASM_OP_ATOMIC_RMW_I64_CMPXCHG:
+                    case WASM_OP_ATOMIC_RMW_I64_CMPXCHG8_U:
+                    case WASM_OP_ATOMIC_RMW_I64_CMPXCHG16_U:
+                    case WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U:
+                        POP_I64();
+                        POP_I64();
+                        POP_I32();
+                        PUSH_I64();
+                        break;
+                    default:
+                        if (error_buf != NULL)
+                            snprintf(error_buf, error_buf_size,
+                                     "WASM module load failed: "
+                                     "invalid opcode 0xfe %02x.", opcode);
+                        goto fail;
+                }
+                break;
+            }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY */
             default:
                 if (error_buf != NULL)
                     snprintf(error_buf, error_buf_size,
@@ -6566,7 +6752,7 @@ fail_data_cnt_sec_require:
         goto fail;
     }
     func_const_end = func->consts + func->const_cell_num * 4;
-    // reverse the const buf
+    /* reverse the const buf */
     for (int i = loader_ctx->num_const - 1; i >= 0; i--) {
         Const *c = (Const*)(loader_ctx->const_buf + i * sizeof(Const));
         if (c->value_type == VALUE_TYPE_F64
