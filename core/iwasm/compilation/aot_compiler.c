@@ -86,6 +86,38 @@ read_leb(const uint8 *buf, const uint8 *buf_end,
   res = (int64)res64;                               \
 } while (0)
 
+#define COMPILE_ATOMIC_RMW(OP, NAME)                            \
+  case WASM_OP_ATOMIC_RMW_I32_##NAME:                           \
+    bytes = 4;                                                  \
+    op_type = VALUE_TYPE_I32;                                   \
+    goto OP_ATOMIC_##OP;                                        \
+  case WASM_OP_ATOMIC_RMW_I64_##NAME:                           \
+    bytes = 8;                                                  \
+    op_type = VALUE_TYPE_I64;                                   \
+    goto OP_ATOMIC_##OP;                                        \
+  case WASM_OP_ATOMIC_RMW_I32_##NAME##8_U:                      \
+    bytes = 1;                                                  \
+    op_type = VALUE_TYPE_I32;                                   \
+    goto OP_ATOMIC_##OP;                                        \
+  case WASM_OP_ATOMIC_RMW_I32_##NAME##16_U:                     \
+    bytes = 2;                                                  \
+    op_type = VALUE_TYPE_I32;                                   \
+    goto OP_ATOMIC_##OP;                                        \
+  case WASM_OP_ATOMIC_RMW_I64_##NAME##8_U:                      \
+    bytes = 1;                                                  \
+    op_type = VALUE_TYPE_I64;                                   \
+    goto OP_ATOMIC_##OP;                                        \
+  case WASM_OP_ATOMIC_RMW_I64_##NAME##16_U:                     \
+    bytes = 2;                                                  \
+    op_type = VALUE_TYPE_I64;                                   \
+    goto OP_ATOMIC_##OP;                                        \
+  case WASM_OP_ATOMIC_RMW_I64_##NAME##32_U:                     \
+    bytes = 4;                                                  \
+    op_type = VALUE_TYPE_I64;                                   \
+OP_ATOMIC_##OP:                                                 \
+    bin_op = LLVMAtomicRMWBinOp##OP;                            \
+    goto build_atomic_rmw;
+
 static bool
 aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 {
@@ -286,7 +318,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         read_leb_uint32(frame_ip, frame_ip_end, align);
         read_leb_uint32(frame_ip, frame_ip_end, offset);
         if (!aot_compile_op_i32_load(comp_ctx, func_ctx, align, offset,
-                                     bytes, sign))
+                                     bytes, sign, false))
           return false;
         break;
 
@@ -312,7 +344,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         read_leb_uint32(frame_ip, frame_ip_end, align);
         read_leb_uint32(frame_ip, frame_ip_end, offset);
         if (!aot_compile_op_i64_load(comp_ctx, func_ctx, align, offset,
-                                     bytes, sign))
+                                     bytes, sign, false))
           return false;
         break;
 
@@ -341,7 +373,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     op_i32_store:
         read_leb_uint32(frame_ip, frame_ip_end, align);
         read_leb_uint32(frame_ip, frame_ip_end, offset);
-        if (!aot_compile_op_i32_store(comp_ctx, func_ctx, align, offset, bytes))
+        if (!aot_compile_op_i32_store(comp_ctx, func_ctx, align,
+                                      offset, bytes, false))
           return false;
         break;
 
@@ -359,7 +392,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     op_i64_store:
         read_leb_uint32(frame_ip, frame_ip_end, align);
         read_leb_uint32(frame_ip, frame_ip_end, offset);
-        if (!aot_compile_op_i64_store(comp_ctx, func_ctx, align, offset, bytes))
+        if (!aot_compile_op_i64_store(comp_ctx, func_ctx, align,
+                                      offset, bytes, false))
           return false;
         break;
 
@@ -810,7 +844,152 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
           default:
             break;
         }
+        break;
       }
+#if WASM_ENABLE_SHARED_MEMORY != 0
+      case WASM_OP_ATOMIC_PREFIX:
+      {
+        uint8 bin_op, op_type;
+
+        if (frame_ip < frame_ip_end) {
+          opcode = *frame_ip++;
+        }
+        if (opcode != WASM_OP_ATOMIC_FENCE) {
+          read_leb_uint32(frame_ip, frame_ip_end, align);
+          read_leb_uint32(frame_ip, frame_ip_end, offset);
+        }
+        switch (opcode) {
+          case WASM_OP_ATOMIC_WAIT32:
+            if (!aot_compile_op_atomic_wait(comp_ctx, func_ctx, VALUE_TYPE_I32,
+                                            align, offset, 4))
+              return false;
+            break;
+          case WASM_OP_ATOMIC_WAIT64:
+            if (!aot_compile_op_atomic_wait(comp_ctx, func_ctx, VALUE_TYPE_I64,
+                                            align, offset, 8))
+              return false;
+            break;
+          case WASM_OP_ATOMIC_NOTIFY:
+            if (!aot_compiler_op_atomic_notify(comp_ctx, func_ctx, align,
+                                               offset, bytes))
+              return false;
+            break;
+          case WASM_OP_ATOMIC_I32_LOAD:
+            bytes = 4;
+            goto op_atomic_i32_load;
+          case WASM_OP_ATOMIC_I32_LOAD8_U:
+            bytes = 1;
+            goto op_atomic_i32_load;
+          case WASM_OP_ATOMIC_I32_LOAD16_U:
+            bytes = 2;
+          op_atomic_i32_load:
+            if (!aot_compile_op_i32_load(comp_ctx, func_ctx, align,
+                                         offset, bytes, sign, true))
+              return false;
+            break;
+
+          case WASM_OP_ATOMIC_I64_LOAD:
+            bytes = 8;
+            goto op_atomic_i64_load;
+          case WASM_OP_ATOMIC_I64_LOAD8_U:
+            bytes = 1;
+            goto op_atomic_i64_load;
+          case WASM_OP_ATOMIC_I64_LOAD16_U:
+            bytes = 2;
+            goto op_atomic_i64_load;
+          case WASM_OP_ATOMIC_I64_LOAD32_U:
+            bytes = 4;
+          op_atomic_i64_load:
+            if (!aot_compile_op_i64_load(comp_ctx, func_ctx, align,
+                                         offset, bytes, sign, true))
+              return false;
+            break;
+
+          case WASM_OP_ATOMIC_I32_STORE:
+            bytes = 4;
+            goto op_atomic_i32_store;
+          case WASM_OP_ATOMIC_I32_STORE8:
+            bytes = 1;
+            goto op_atomic_i32_store;
+          case WASM_OP_ATOMIC_I32_STORE16:
+            bytes = 2;
+          op_atomic_i32_store:
+            if (!aot_compile_op_i32_store(comp_ctx, func_ctx, align,
+                                          offset, bytes, true))
+              return false;
+            break;
+
+          case WASM_OP_ATOMIC_I64_STORE:
+            bytes = 8;
+            goto op_atomic_i64_store;
+          case WASM_OP_ATOMIC_I64_STORE8:
+            bytes = 1;
+            goto op_atomic_i64_store;
+          case WASM_OP_ATOMIC_I64_STORE16:
+            bytes = 2;
+            goto op_atomic_i64_store;
+          case WASM_OP_ATOMIC_I64_STORE32:
+            bytes = 4;
+          op_atomic_i64_store:
+            if (!aot_compile_op_i64_store(comp_ctx, func_ctx, align,
+                                          offset, bytes, true))
+              return false;
+            break;
+
+          case WASM_OP_ATOMIC_RMW_I32_CMPXCHG:
+            bytes = 4;
+            op_type = VALUE_TYPE_I32;
+            goto op_atomic_cmpxchg;
+          case WASM_OP_ATOMIC_RMW_I64_CMPXCHG:
+            bytes = 8;
+            op_type = VALUE_TYPE_I64;
+            goto op_atomic_cmpxchg;
+          case WASM_OP_ATOMIC_RMW_I32_CMPXCHG8_U:
+            bytes = 1;
+            op_type = VALUE_TYPE_I32;
+            goto op_atomic_cmpxchg;
+          case WASM_OP_ATOMIC_RMW_I32_CMPXCHG16_U:
+            bytes = 2;
+            op_type = VALUE_TYPE_I32;
+            goto op_atomic_cmpxchg;
+          case WASM_OP_ATOMIC_RMW_I64_CMPXCHG8_U:
+            bytes = 1;
+            op_type = VALUE_TYPE_I64;
+            goto op_atomic_cmpxchg;
+          case WASM_OP_ATOMIC_RMW_I64_CMPXCHG16_U:
+            bytes = 2;
+            op_type = VALUE_TYPE_I64;
+            goto op_atomic_cmpxchg;
+          case WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U:
+            bytes = 4;
+            op_type = VALUE_TYPE_I64;
+          op_atomic_cmpxchg:
+            if (!aot_compile_op_atomic_cmpxchg(comp_ctx, func_ctx,
+                                               op_type, align,
+                                               offset, bytes))
+              return false;
+            break;
+
+          COMPILE_ATOMIC_RMW(Add, ADD);
+          COMPILE_ATOMIC_RMW(Sub, SUB);
+          COMPILE_ATOMIC_RMW(And, AND);
+          COMPILE_ATOMIC_RMW(Or, OR);
+          COMPILE_ATOMIC_RMW(Xor, XOR);
+          COMPILE_ATOMIC_RMW(Xchg, XCHG);
+
+build_atomic_rmw:
+            if (!aot_compile_op_atomic_rmw(comp_ctx, func_ctx,
+                                           bin_op, op_type,
+                                           align, offset, bytes))
+              return false;
+            break;
+
+          default:
+            break;
+        }
+        break;
+      }
+#endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
       default:
         break;

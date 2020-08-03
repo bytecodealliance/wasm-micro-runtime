@@ -1,9 +1,6 @@
 .vscode
 **/*build/
-core/deps/lv_drivers
-core/deps/llvm
-core/deps/lvgl
-core/deps/tlsf
+core/deps/**
 core/shared/mem-alloc/tlsf
 core/app-framework/wgl
 

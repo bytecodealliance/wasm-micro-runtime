@@ -1124,6 +1124,9 @@ aot_set_exception_with_id(AOTModuleInstance *module_inst,
         case EXCE_NATIVE_STACK_OVERFLOW:
             aot_set_exception(module_inst, "native stack overflow");
             break;
+        case EXCE_UNALIGNED_ATOMIC:
+            aot_set_exception(module_inst, "unaligned atomic");
+            break;
         default:
             break;
     }

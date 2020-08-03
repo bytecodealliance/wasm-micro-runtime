@@ -22,7 +22,7 @@ void __modsi3();
 void __divdi3();
 
 static SymbolMap target_sym_map[] = {
-    REG_COMMON_SYMBOLS,
+    REG_COMMON_SYMBOLS
 
     /* API's for soft-float */
     /* TODO: only register these symbols when Floating-Point Coprocessor

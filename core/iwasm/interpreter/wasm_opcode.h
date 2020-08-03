@@ -263,6 +263,7 @@ typedef enum WASMOpcode {
 
     /* Post-MVP extend op prefix */
     WASM_OP_MISC_PREFIX           = 0xfc,
+    WASM_OP_ATOMIC_PREFIX         = 0xfe,
 } WASMOpcode;
 
 typedef enum WASMMiscEXTOpcode {
@@ -284,6 +285,85 @@ typedef enum WASMMiscEXTOpcode {
     WASM_OP_TABLE_COPY            = 0x0e
 #endif
 } WASMMiscEXTOpcode;
+
+typedef enum WASMAtomicEXTOpcode {
+    /* atomic wait and notify */
+    WASM_OP_ATOMIC_NOTIFY               = 0x00,
+    WASM_OP_ATOMIC_WAIT32               = 0x01,
+    WASM_OP_ATOMIC_WAIT64               = 0x02,
+    WASM_OP_ATOMIC_FENCE                = 0x03,
+    /* atomic load and store */
+    WASM_OP_ATOMIC_I32_LOAD             = 0x10,
+    WASM_OP_ATOMIC_I64_LOAD             = 0x11,
+    WASM_OP_ATOMIC_I32_LOAD8_U          = 0x12,
+    WASM_OP_ATOMIC_I32_LOAD16_U         = 0x13,
+    WASM_OP_ATOMIC_I64_LOAD8_U          = 0x14,
+    WASM_OP_ATOMIC_I64_LOAD16_U         = 0x15,
+    WASM_OP_ATOMIC_I64_LOAD32_U         = 0x16,
+    WASM_OP_ATOMIC_I32_STORE            = 0x17,
+    WASM_OP_ATOMIC_I64_STORE            = 0x18,
+    WASM_OP_ATOMIC_I32_STORE8           = 0x19,
+    WASM_OP_ATOMIC_I32_STORE16          = 0x1a,
+    WASM_OP_ATOMIC_I64_STORE8           = 0x1b,
+    WASM_OP_ATOMIC_I64_STORE16          = 0x1c,
+    WASM_OP_ATOMIC_I64_STORE32          = 0x1d,
+    /* atomic add */
+    WASM_OP_ATOMIC_RMW_I32_ADD          = 0x1e,
+    WASM_OP_ATOMIC_RMW_I64_ADD          = 0x1f,
+    WASM_OP_ATOMIC_RMW_I32_ADD8_U       = 0x20,
+    WASM_OP_ATOMIC_RMW_I32_ADD16_U      = 0x21,
+    WASM_OP_ATOMIC_RMW_I64_ADD8_U       = 0x22,
+    WASM_OP_ATOMIC_RMW_I64_ADD16_U      = 0x23,
+    WASM_OP_ATOMIC_RMW_I64_ADD32_U      = 0x24,
+    /* atomic sub */
+    WASM_OP_ATOMIC_RMW_I32_SUB          = 0x25,
+    WASM_OP_ATOMIC_RMW_I64_SUB          = 0x26,
+    WASM_OP_ATOMIC_RMW_I32_SUB8_U       = 0x27,
+    WASM_OP_ATOMIC_RMW_I32_SUB16_U      = 0x28,
+    WASM_OP_ATOMIC_RMW_I64_SUB8_U       = 0x29,
+    WASM_OP_ATOMIC_RMW_I64_SUB16_U      = 0x2a,
+    WASM_OP_ATOMIC_RMW_I64_SUB32_U      = 0x2b,
+    /* atomic and */
+    WASM_OP_ATOMIC_RMW_I32_AND          = 0x2c,
+    WASM_OP_ATOMIC_RMW_I64_AND          = 0x2d,
+    WASM_OP_ATOMIC_RMW_I32_AND8_U       = 0x2e,
+    WASM_OP_ATOMIC_RMW_I32_AND16_U      = 0x2f,
+    WASM_OP_ATOMIC_RMW_I64_AND8_U       = 0x30,
+    WASM_OP_ATOMIC_RMW_I64_AND16_U      = 0x31,
+    WASM_OP_ATOMIC_RMW_I64_AND32_U      = 0x32,
+    /* atomic or */
+    WASM_OP_ATOMIC_RMW_I32_OR           = 0x33,
+    WASM_OP_ATOMIC_RMW_I64_OR           = 0x34,
+    WASM_OP_ATOMIC_RMW_I32_OR8_U        = 0x35,
+    WASM_OP_ATOMIC_RMW_I32_OR16_U       = 0x36,
+    WASM_OP_ATOMIC_RMW_I64_OR8_U        = 0x37,
+    WASM_OP_ATOMIC_RMW_I64_OR16_U       = 0x38,
+    WASM_OP_ATOMIC_RMW_I64_OR32_U       = 0x39,
+    /* atomic xor */
+    WASM_OP_ATOMIC_RMW_I32_XOR          = 0x3a,
+    WASM_OP_ATOMIC_RMW_I64_XOR          = 0x3b,
+    WASM_OP_ATOMIC_RMW_I32_XOR8_U       = 0x3c,
+    WASM_OP_ATOMIC_RMW_I32_XOR16_U      = 0x3d,
+    WASM_OP_ATOMIC_RMW_I64_XOR8_U       = 0x3e,
+    WASM_OP_ATOMIC_RMW_I64_XOR16_U      = 0x3f,
+    WASM_OP_ATOMIC_RMW_I64_XOR32_U      = 0x40,
+    /* atomic xchg */
+    WASM_OP_ATOMIC_RMW_I32_XCHG         = 0x41,
+    WASM_OP_ATOMIC_RMW_I64_XCHG         = 0x42,
+    WASM_OP_ATOMIC_RMW_I32_XCHG8_U      = 0x43,
+    WASM_OP_ATOMIC_RMW_I32_XCHG16_U     = 0x44,
+    WASM_OP_ATOMIC_RMW_I64_XCHG8_U      = 0x45,
+    WASM_OP_ATOMIC_RMW_I64_XCHG16_U     = 0x46,
+    WASM_OP_ATOMIC_RMW_I64_XCHG32_U     = 0x47,
+    /* atomic cmpxchg */
+    WASM_OP_ATOMIC_RMW_I32_CMPXCHG      = 0x48,
+    WASM_OP_ATOMIC_RMW_I64_CMPXCHG      = 0x49,
+    WASM_OP_ATOMIC_RMW_I32_CMPXCHG8_U   = 0x4a,
+    WASM_OP_ATOMIC_RMW_I32_CMPXCHG16_U  = 0x4b,
+    WASM_OP_ATOMIC_RMW_I64_CMPXCHG8_U   = 0x4c,
+    WASM_OP_ATOMIC_RMW_I64_CMPXCHG16_U  = 0x4d,
+    WASM_OP_ATOMIC_RMW_I64_CMPXCHG32_U  = 0x4e,
+} WASMAtomicEXTOpcode;
 
 #ifdef __cplusplus
 }
