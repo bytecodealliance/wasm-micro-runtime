@@ -781,6 +781,7 @@ wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
     return wasm_runtime_deinstantiate_internal(module_inst, false);
 }
 
+
 WASMExecEnv *
 wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
                              uint32 stack_size)
@@ -1025,6 +1026,9 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst,
         return aot_validate_app_addr((AOTModuleInstance*)module_inst,
                                      app_offset, size);
 #endif
+
+
+
     return false;
 }
 
@@ -2858,3 +2862,101 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
 #endif
     return false;
 }
+
+
+#if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+bool
+__wasm_runtime_set_ext_memory(WASMModuleInstance *module_inst,
+                            uint8 *ext_mem_data, uint32 ext_mem_size,
+                            char *error_buf, uint32 error_buf_size)
+{
+    
+    if (module_inst->ext_mem_data) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Set external memory failed: "
+                      "an external memory has been set.");
+        return false;
+    }
+
+    if (!ext_mem_data
+        || ext_mem_size > 1 * BH_GB
+        || ext_mem_data + ext_mem_size < ext_mem_data) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Set external memory failed: "
+                      "invalid input.");
+        return false;
+    }
+
+    module_inst->ext_mem_data = ext_mem_data;
+    module_inst->ext_mem_data_end = ext_mem_data + ext_mem_size;
+    module_inst->ext_mem_size = ext_mem_size;
+    module_inst->ext_mem_base_offset = DEFAULT_EXT_MEM_BASE_OFFSET;
+
+    return true;
+}
+
+
+bool
+wasm_runtime_set_ext_memory(WASMModuleInstanceCommon * const module_inst,
+                            uint8 *ext_mem_data, uint32 ext_mem_size,
+                            char *error_buf, uint32 error_buf_size)
+{
+
+    return __wasm_runtime_set_ext_memory((const WASMModuleInstance*)module_inst, ext_mem_data, ext_mem_size,error_buf, error_buf_size);
+}
+
+
+
+int32
+sandbox_pagemap_malloc(WASMModuleInstanceCommon *module_inst, uint32 size,
+                           void **p_native_addr)
+{
+#if WASM_ENABLE_INTERP != 0
+    os_printf("[%s] not supported\n",__FUNCTION__);
+ 
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return aot_module_malloc((AOTModuleInstance*)module_inst, size,
+                                 p_native_addr);
+#endif
+    return 0;
+}
+
+void
+sandbox_pagemap_free(WASMModuleInstanceCommon *module_inst, int32 ptr)
+{
+#if WASM_ENABLE_INTERP != 0
+    os_printf("[%s] not supported\n",__FUNCTION__);
+ 
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_module_free((AOTModuleInstance*)module_inst, ptr);
+        return;
+    }
+#endif
+}
+
+int32
+sandbox_pagemap_dup_data(WASMModuleInstanceCommon *module_inst,
+                             const char *src, uint32 size)
+{
+#if WASM_ENABLE_INTERP != 0
+    os_printf("[%s] not supported\n",__FUNCTION__);
+ 
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        return aot_module_dup_data((AOTModuleInstance*)module_inst, src, size);
+    }
+#endif
+    return 0;
+}
+
+#endif
+
+
+
+

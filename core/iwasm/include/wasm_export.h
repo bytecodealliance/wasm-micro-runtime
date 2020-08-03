@@ -693,6 +693,34 @@ void
 wasm_runtime_set_max_thread_num(uint32_t num);
 #endif
 
+#if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+bool
+wasm_runtime_set_ext_memory(wasm_module_inst_t module_inst,
+                            uint8_t *ext_mem_data, uint32_t ext_mem_size,
+                            char *error_buf, uint32_t error_buf_size);
+
+
+// allocate from in-sandbox pagemap
+int32_t
+sandbox_pagemap_malloc(wasm_module_inst_t module_inst, uint32_t size,
+                           void **p_native_addr);
+
+// deallocate from in-sandbox pagemap: 
+// the sandbox allocator should actuallt deallocated it
+
+void
+sandbox_pagemap_free(wasm_module_inst_t module_inst, int32_t ptr);
+
+// allocate from in-sandbox pagemap and initialize it with src
+int32_t
+sandbox_pagemap_dup_data(wasm_module_inst_t module_inst,
+                             const char *src, uint32_t size);
+
+
+#endif
+
+
+
 #ifdef __cplusplus
 }
 #endif

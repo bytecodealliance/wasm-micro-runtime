@@ -108,6 +108,13 @@ enum {
 #define WASM_ENABLE_SHARED_MEMORY 0
 #endif
 
+/* Snmalloc-based Shared memory */
+#ifndef WASM_SNMALLOC_ENABLE_SHARED_MEMORY
+#define WASM_SNMALLOC_ENABLE_SHARED_MEMORY 0
+#endif
+
+#define DEFAULT_EXT_MEM_BASE_OFFSET (-2 * BH_GB)
+
 /* Thread manager */
 #ifndef WASM_ENABLE_THREAD_MGR
 #define WASM_ENABLE_THREAD_MGR 0

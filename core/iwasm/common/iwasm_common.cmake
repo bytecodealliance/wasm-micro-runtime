@@ -3,12 +3,15 @@
 
 set (IWASM_COMMON_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-include_directories (${IWASM_COMMON_DIR})
+include_directories (${IWASM_COMMON_DIR} ${IWASM_COMMON_DIR}/../../../snmalloc/src)
 
 add_definitions(-DBH_MALLOC=wasm_runtime_malloc)
 add_definitions(-DBH_FREE=wasm_runtime_free)
 
 file (GLOB c_source_all ${IWASM_COMMON_DIR}/*.c)
+
+
+
 
 if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   set (source_all ${c_source_all} ${IWASM_COMMON_DIR}/arch/invokeNative_em64.s)
@@ -44,5 +47,19 @@ else ()
   message (FATAL_ERROR "Build target isn't set")
 endif ()
 
+
+#file (GLOB source_all ${IWASM_COMMON_DIR}/wasm_pagemap.cc)
+
+if (NOT ENABLE_SNMALLOC)
+
 set (IWASM_COMMON_SOURCE ${source_all})
+
+
+else()
+
+set (IWASM_COMMON_SOURCE ${source_all} ${IWASM_COMMON_DIR}/wasm_pagemap.cc)
+
+
+endif()
+
 

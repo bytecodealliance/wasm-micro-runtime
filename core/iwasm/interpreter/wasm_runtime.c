@@ -1499,6 +1499,7 @@ wasm_validate_app_addr(WASMModuleInstance *module_inst,
                        int32 app_offset, uint32 size)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
+    uint8 *addr;
     int32 memory_data_size =
         (int32)(memory->num_bytes_per_page * memory->cur_page_count);
 
@@ -1511,6 +1512,22 @@ wasm_validate_app_addr(WASMModuleInstance *module_inst,
         && app_offset + (int32)size <= memory_data_size) {
         return true;
     }
+
+#if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_base_offset <= app_offset
+             && app_offset < module_inst->ext_mem_base_offset
+                             + module_inst->ext_mem_size) {
+        addr = module_inst->ext_mem_data
+               + (app_offset - module_inst->ext_mem_base_offset);
+        if (!(module_inst->ext_mem_data <= addr
+              && addr + size <= module_inst->ext_mem_data_end))
+            goto fail;
+
+        return true;
+    }
+#endif
+
 fail:
     wasm_set_exception(module_inst, "out of bounds memory access");
     return false;
@@ -1529,8 +1546,15 @@ wasm_validate_native_addr(WASMModuleInstance *module_inst,
         goto fail;
     }
 
-    if (memory->heap_data <= addr
-        && addr + size <= memory->memory_data + memory_data_size) {
+    if ((memory->heap_data <= addr
+        && addr + size <= memory->memory_data + memory_data_size) 
+  #if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+        || (module_inst->ext_mem_data
+            && module_inst->ext_mem_data <= addr
+            && addr + size <= module_inst->ext_mem_data_end)
+#endif      
+        
+        ){
         return true;
     }
 fail:
@@ -1550,6 +1574,17 @@ wasm_addr_app_to_native(WASMModuleInstance *module_inst,
     if (memory->heap_data <= addr
         && addr < memory->memory_data + memory_data_size)
         return addr;
+
+#if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_base_offset <= app_offset
+             && app_offset < module_inst->ext_mem_base_offset
+                             + module_inst->ext_mem_size)
+        return module_inst->ext_mem_data
+               + (app_offset - module_inst->ext_mem_base_offset);
+#endif
+    else
+
     return NULL;
 }
 
@@ -1565,6 +1600,16 @@ wasm_addr_native_to_app(WASMModuleInstance *module_inst,
     if (memory->heap_data <= addr
         && addr < memory->memory_data + memory_data_size)
         return (int32)(addr - memory->memory_data);
+
+#if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+    else if (module_inst->ext_mem_data
+             && module_inst->ext_mem_data <= (uint8*)native_ptr
+             && (uint8*)native_ptr < module_inst->ext_mem_data_end)
+        return module_inst->ext_mem_base_offset
+               + ((uint8*)native_ptr - module_inst->ext_mem_data);
+#endif
+    else
+
     return 0;
 }
 
@@ -1803,4 +1848,6 @@ wasm_get_aux_stack(WASMExecEnv *exec_env,
     }
     return false;
 }
+
 #endif
+

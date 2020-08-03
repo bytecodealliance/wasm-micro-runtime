@@ -176,6 +176,13 @@ typedef struct WASMModuleInstance {
     WASMExportTabInstance *export_tables;
 #endif
 
+#if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+    int32 ext_mem_base_offset;
+    uint8 *ext_mem_data;
+    uint8 *ext_mem_data_end;
+    uint32 ext_mem_size;
+#endif
+
     WASMMemoryInstance *default_memory;
     WASMTableInstance *default_table;
     /* Global data of global instances */

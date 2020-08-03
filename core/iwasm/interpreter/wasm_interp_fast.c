@@ -236,6 +236,27 @@ LOAD_I16(void *addr)
       goto out_of_bounds;                                                \
   } while (0)
 
+
+
+#if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+#define CHECK_EXT_MEMORY_SPACE() \
+    else if (module->ext_mem_data                                               \
+             && module->ext_mem_base_offset <= offset1                          \
+             && offset1 < module->ext_mem_base_offset                           \
+                          + module->ext_mem_size) {                             \
+        maddr = module->ext_mem_data                                            \
+                + (offset1 - module->ext_mem_base_offset);                      \
+        if (maddr < module->ext_mem_data)                                       \
+          goto out_of_bounds;                                                   \
+        maddr1 = maddr + LOAD_SIZE[opcode - WASM_OP_I32_LOAD];                  \
+        if (maddr1 > module->ext_mem_data_end)                                  \
+          goto out_of_bounds;                                                   \
+    }
+#else
+#define CHECK_EXT_MEMORY_SPACE()
+#endif
+
+
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) do {                \
     uint64 offset1 = (int32)(start);                                        \
     if (offset1 + bytes <= linear_mem_size)                                 \

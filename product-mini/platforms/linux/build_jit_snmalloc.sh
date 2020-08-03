@@ -5,6 +5,6 @@
 
 rm -fr build && mkdir build
 cd build
-cmake .. -DWAMR_BUILD_JIT=1 -DENABLE_SNMALLOC=1
+cmake .. -DWAMR_BUILD_JIT=1 -DENABLE_SNMALLOC=1 -DWAMR_BUILD_SNMALLOC_SHARED_MEMORY=1
 make
 cd ..
