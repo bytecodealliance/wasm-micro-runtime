@@ -14,7 +14,7 @@ void __moddi3();
 void __umoddi3();
 
 static SymbolMap target_sym_map[] = {
-    REG_COMMON_SYMBOLS,
+    REG_COMMON_SYMBOLS
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
     REG_SYM(__divdi3),
     REG_SYM(__udivdi3),
