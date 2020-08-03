@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 cmake_minimum_required (VERSION 2.8)
 
-project (aot-compiler)
+project (aot-compiler C ASM)
+enable_language(ASM_MASM)
 
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
   set (WAMR_BUILD_PLATFORM "linux")
@@ -29,6 +30,11 @@ if (NOT WAMR_BUILD_TARGET)
     # Build as X86_32 by default in 32-bit platform
     set (WAMR_BUILD_TARGET "X86_32")
   endif ()
+  if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+    if (("${CMAKE_GENERATOR_PLATFORM}" STREQUAL "Win32"))
+      set (WAMR_BUILD_TARGET "X86_32")
+    endif()
+  endif()
 endif ()
 
 string(TOUPPER ${WAMR_BUILD_TARGET} WAMR_BUILD_TARGET)
@@ -71,10 +77,18 @@ message ("-- CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
 
 # Enable LLVM
 set (LLVM_SRC_ROOT "${PROJECT_SOURCE_DIR}/../core/deps/llvm")
+if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+  if (NOT EXISTS "${LLVM_SRC_ROOT}/win32build")
+    message (FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/win32build")
+  endif ()
+  set (CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/win32build;${CMAKE_PREFIX_PATH}")
+else()
 if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
   message (FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/build")
 endif ()
 set (CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/build;${CMAKE_PREFIX_PATH}")
+endif ()
+
 find_package(LLVM REQUIRED CONFIG)
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
@@ -83,10 +97,17 @@ message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
+  if(NOT MSVC)
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+  else()
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+  endif()
 endif()
+
+if (NOT MSVC)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections \
                     -Wall -Wno-unused-parameter -Wno-pedantic")
+endif()
 
 set (SHARED_DIR ../core/shared)
 set (IWASM_DIR ../core/iwasm)
@@ -107,20 +128,28 @@ include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 
+if (NOT MSVC)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
+endif()
+
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
-  if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
+  if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang" OR MSVC))
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
   endif()
 endif ()
+
+if (NOT MSVC)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
+endif()
 
 # We disable these flags by default to stay the same with wasm runtime
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
 
+if (NOT MSVC)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
+endif()
 
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
@@ -138,5 +167,12 @@ add_library (aotclib ${IWASM_COMPL_SOURCE})
 
 add_executable (wamrc main.c)
 
-target_link_libraries (wamrc aotclib vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+if (NOT MSVC)
+target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+else()
+get_filename_component(WINPLIB_PATH
+                       "${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/lib/pthread_lib.lib"
+                       ABSOLUTE)
+target_link_libraries (wamrc aotclib vmlib  ${LLVM_AVAILABLE_LIBS}  ${WINPLIB_PATH})
+endif()
 

@@ -88,7 +88,7 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
                                                           stack_size);
     /* Set the aux_stack_boundary to 0 */
     exec_env->aux_stack_boundary = 0;
-#if WASM_ENABLE_THREAD_MGR != 0
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_THREAD_MGR != 0)
     WASMCluster *cluster;
 
     if (!exec_env)
@@ -107,7 +107,7 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
 void
 wasm_exec_env_destroy(WASMExecEnv *exec_env)
 {
-#if WASM_ENABLE_THREAD_MGR != 0
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_THREAD_MGR != 0)
     /* Terminate all sub-threads */
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     if (cluster) {

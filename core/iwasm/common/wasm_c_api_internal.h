@@ -91,7 +91,11 @@ struct wasm_export_type_t {
 };
 
 /* Runtime Objects */
+#ifdef __GNUC__
 struct wasm_ref_t {};
+#else
+struct wasm_ref_t  {uint32 obj;};
+#endif
 
 struct wasm_trap_t {
     wasm_byte_vec_t *message;
