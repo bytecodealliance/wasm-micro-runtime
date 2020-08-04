@@ -109,6 +109,12 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 void
 wasm_cluster_spread_exception(WASMExecEnv *exec_env);
 
+WASMExecEnv *
+wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env);
+
+void
+wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env);
+
 #ifdef __cplusplus
 }
 #endif
