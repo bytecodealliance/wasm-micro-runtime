@@ -234,6 +234,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
         return false;
     }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_set_max_thread_num(init_args->max_thread_num);
+#endif
+
     return true;
 }
 
@@ -2850,3 +2854,77 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
 #endif
     return false;
 }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+typedef struct WASMThreadArg {
+    WASMExecEnv *new_exec_env;
+    wasm_thread_callback_t callback;
+    void *arg;
+} WASMThreadArg;
+
+WASMExecEnv *
+wasm_runtime_spawn_exec_env(WASMExecEnv *exec_env)
+{
+    return wasm_cluster_spawn_exec_env(exec_env);
+}
+
+void
+wasm_runtime_destroy_spawned_exec_env(WASMExecEnv *exec_env)
+{
+    wasm_cluster_destroy_spawned_exec_env(exec_env);
+}
+
+static void*
+wasm_runtime_thread_routine(void *arg)
+{
+    WASMThreadArg *thread_arg = (WASMThreadArg *)arg;
+    void *ret;
+
+    bh_assert(thread_arg->new_exec_env);
+    ret = thread_arg->callback(thread_arg->new_exec_env, thread_arg->arg);
+
+    wasm_runtime_destroy_spawned_exec_env(thread_arg->new_exec_env);
+    wasm_runtime_free(thread_arg);
+
+    os_thread_exit(ret);
+    return ret;
+}
+
+int32
+wasm_runtime_spawn_thread(WASMExecEnv *exec_env, wasm_thread_t *tid,
+                          wasm_thread_callback_t callback, void *arg)
+{
+    WASMExecEnv *new_exec_env = wasm_runtime_spawn_exec_env(exec_env);
+    WASMThreadArg *thread_arg;
+    int32 ret;
+
+    if (!new_exec_env)
+        return -1;
+
+    if (!(thread_arg = wasm_runtime_malloc(sizeof(WASMThreadArg)))) {
+        wasm_runtime_destroy_spawned_exec_env(new_exec_env);
+        return -1;
+    }
+
+    thread_arg->new_exec_env = new_exec_env;
+    thread_arg->callback = callback;
+    thread_arg->arg = arg;
+
+    ret = os_thread_create((korp_tid *)tid, wasm_runtime_thread_routine,
+                           thread_arg, APP_THREAD_STACK_SIZE_DEFAULT);
+
+    if (ret != 0) {
+        wasm_runtime_destroy_spawned_exec_env(new_exec_env);
+        wasm_runtime_free(thread_arg);
+    }
+
+    return ret;
+}
+
+int32
+wasm_runtime_join_thread(wasm_thread_t tid, void **retval)
+{
+    return os_thread_join((korp_tid)tid, retval);
+}
+
+#endif

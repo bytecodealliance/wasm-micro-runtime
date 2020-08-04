@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required(VERSION 2.8)
-project(pthread)
+project(spawn_thread)
 
 ################  runtime settings  ################
 set(WAMR_BUILD_PLATFORM "linux")
@@ -39,9 +39,8 @@ add_subdirectory(wasm-apps)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set (RUNTIME_SOURCE_ALL
-    ${CMAKE_CURRENT_LIST_DIR}/../../product-mini/platforms/linux/main.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/main.c
     ${UNCOMMON_SHARED_SOURCE}
 )
-add_executable (iwasm ${RUNTIME_SOURCE_ALL})
-target_link_libraries(iwasm vmlib -lpthread -lm)
-
+add_executable (spawn_thread ${RUNTIME_SOURCE_ALL})
+target_link_libraries(spawn_thread vmlib -lpthread -lm)
