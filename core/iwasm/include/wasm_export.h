@@ -114,6 +114,10 @@ typedef struct RuntimeInitArgs {
     const char *native_module_name;
     NativeSymbol *native_symbols;
     uint32_t n_native_symbols;
+
+    /* maximum thread number, only used when
+        WASM_ENABLE_THREAD_MGR is defined */
+    uint32_t max_thread_num;
 } RuntimeInitArgs;
 
 /**
@@ -684,6 +688,11 @@ void *
 wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
 
 #if WASM_ENABLE_THREAD_MGR != 0
+/* wasm thread callback function type */
+typedef void* (*wasm_thread_callback_t)(wasm_exec_env_t, void *);
+/* wasm thread type */
+typedef uintptr_t wasm_thread_t;
+
 /**
  * Set the max thread num per cluster.
  *
@@ -691,6 +700,50 @@ wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
  */
 void
 wasm_runtime_set_max_thread_num(uint32_t num);
+
+/**
+ * spawn a new exec_env, the spawned exec_env
+ *   can be used in other threads
+ *
+ * @param num the original exec_env
+ *
+ * @return the spawned exec_env if success, NULL otherwise
+ */
+wasm_exec_env_t
+wasm_runtime_spawn_exec_env(wasm_exec_env_t exec_env);
+
+/**
+ * Destroy the spawned exec_env
+ *
+ * @param exec_env the spawned exec_env
+ */
+void
+wasm_runtime_destroy_spawned_exec_env(wasm_exec_env_t exec_env);
+
+/**
+ * spawn a thread from the given exec_env
+ *
+ * @param exec_env the original exec_env
+ * @param tid thread id to be returned to the caller
+ * @param callback the callback function provided by the user
+ * @param arg the arguments passed to the callback
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int32_t
+wasm_runtime_spawn_thread(wasm_exec_env_t exec_env, wasm_thread_t *tid,
+                          wasm_thread_callback_t callback, void *arg);
+
+/**
+ * waits a spawned thread to terminate
+ *
+ * @param tid thread id
+ * @param retval if not NULL, output the return value of the thread
+ *
+ * @return 0 if success, error number otherwise
+ */
+int32_t
+wasm_runtime_join_thread(wasm_thread_t tid, void **retval);
 #endif
 
 #ifdef __cplusplus

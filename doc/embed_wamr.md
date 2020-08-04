@@ -22,7 +22,7 @@ Embedding WAMR guideline
   // read WASM file into a memory buffer
   buffer = read_wasm_binary_to_buffer(…, &size);
 
-  // Add it below if runtime needs to export native functions to WASM APP 
+  // Add it below if runtime needs to export native functions to WASM APP
   // wasm_runtime_register_natives(...)
 
   // parse the WASM file from buffer and create a WASM module
@@ -81,7 +81,7 @@ After a module is instantiated, the runtime native can lookup WASM functions by 
 ```c
   unit32 argv[2];
 
-  // lookup a WASM function by its name. 
+  // lookup a WASM function by its name.
   // The function signature can NULL here
   func = wasm_runtime_lookup_function(module_inst, "fib", NULL);
 
@@ -128,7 +128,7 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
   //            arg3 and arg4 each takes 2 elements
   //
   wasm_runtime_call_wasm(exec_env, func, 6, argv);
-  
+
   // if the return value is type of 8 bytes, it takes
   // the first two array elements
   memcpy(&ret, &argv[0], sizeof(ret));
@@ -193,7 +193,7 @@ if(buffer_for_wasm != 0)
     argv[0] = buffer_for_wasm;  	// pass the buffer address for WASM space.
     argv[1] = 100;					// the size of buffer
     wasm_runtime_call_wasm(exec_env, func, 2, argv);
-    
+
     // it is runtime responsibility to release the memory,
     // unless the WASM app will free the passed pointer in its code
     wasm_runtime_module_free(module_inst, buffer_for_wasm);
@@ -206,6 +206,73 @@ if(buffer_for_wasm != 0)
 ## Pass structured data to WASM function
 
 We can't pass structure data or class objects through the pointer since the memory layout can different in two worlds. The way to do it is serialization. Refer to [export_native_api.md](./export_native_api.md) for the details.
+
+
+
+## Execute wasm functions in multiple threads
+
+The `exec_env` is not thread safety, it will cause unexpected behavior if the same `exec_env` is used in multiple threads. However, we've provided two ways to execute wasm functions concurrently:
+
+- You can use `pthread` APIs in your wasm application, see [pthread library](./pthread_library.md) for more details.
+
+- The `spawn exec_env` and `spawn thread` APIs are available, you can use these APIs to manage the threads in native:
+
+  *spawn exec_env:*
+
+  `spawn exec_env` API spawn a `new_exec_env` base on the original `exec_env`, use can use it in other threads:
+
+  ```C
+  new_exec_env = wasm_runtime_spawn_exec_env(exec_env);
+
+    /* Then you can use new_exec_env in your new thread */
+    module_inst = wasm_runtime_get_module_inst(new_exec_env);
+    func_inst = wasm_runtime_lookup_function(module_inst, ...);
+    wasm_runtime_call_wasm(new_exec_env, func_inst, ...);
+
+  /* you need to use this API to manually destroy the spawned exec_env */
+  wasm_runtime_destroy_spawned_exec_env(new_exec_env);
+  ```
+
+  *spawn thread:*
+
+  You can also use `spawn thread` API to avoid manually manage the spawned exec_env:
+
+  ```C
+  wasm_thread_t wasm_tid;
+  void *wamr_thread_cb(wasm_exec_env_t exec_env, void *arg)
+  {
+    module_inst = wasm_runtime_get_module_inst(exec_env);
+    func_inst = wasm_runtime_lookup_function(module_inst, ...);
+    wasm_runtime_call_wasm(exec_env, func_inst, ...);
+  }
+  wasm_runtime_spawn_thread(exec_env, &wasm_tid, wamr_thread_cb, NULL);
+  /* Use wasm_runtime_join_thread to join the spawned thread */
+  wasm_runtime_join_thread(wasm_tid, NULL);
+  ```
+
+**Note1: You can manage the maximum number of threads can be created:**
+
+```C
+init_args.max_thread_num = THREAD_NUM;
+/* If this init argument is not set, the default maximum thread number is 4 */
+```
+
+  **Note2: The wasm application should be built with `--shared-memory` and `-pthread` enabled:**
+
+```bash
+  /opt/wasi-sdk/bin/clang -o test.wasm test.c -nostdlib -pthread    \
+    -Wl,--shared-memory,--max-memory=131072                         \
+    -Wl,--no-entry,--export=__heap_base,--export=__data_end         \
+    -Wl,--export=__wasm_call_ctors,--export=${your_func_name}
+```
+
+  **Note3: The pthread library feature should be enabled while building the runtime:**
+
+  ```bash
+  cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
+  ```
+
+[Here](../samples/spawn-thread) is a sample to show how to use these APIs.
 
 
 
