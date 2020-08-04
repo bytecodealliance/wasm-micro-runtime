@@ -81,7 +81,7 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format,
 
 /* See wasm_export.h for description */
 bool
-wasm_runtime_init();
+wasm_runtime_init(void);
 
 /* See wasm_export.h for description */
 bool
@@ -89,7 +89,7 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args);
 
 /* See wasm_export.h for description */
 void
-wasm_runtime_destroy();
+wasm_runtime_destroy(void);
 
 /* See wasm_export.h for description */
 PackageType
