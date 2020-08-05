@@ -101,6 +101,7 @@ include (${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/shared_platform.cmake)
 include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
+include (${IWASM_DIR}/libraries/thread-mgr/thread_mgr.cmake)
 include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)
 include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
@@ -129,6 +130,7 @@ add_library (vmlib
              ${MEM_ALLOC_SHARED_SOURCE}
              ${UTILS_SHARED_SOURCE}
              ${UNCOMMON_SHARED_SOURCE}
+             ${THREAD_MGR_SOURCE}
              ${LIBC_BUILTIN_SOURCE}
              ${IWASM_COMMON_SOURCE}
              ${IWASM_INTERP_SOURCE}
