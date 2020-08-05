@@ -91,7 +91,6 @@ include (${CMAKE_CURRENT_LIST_DIR}/config_common.cmake)
 include_directories (${IWASM_DIR}/include)
 
 file (GLOB header
-    ${SHARED_DIR}/include/*.h
     ${IWASM_DIR}/include/*.h
 )
 LIST (APPEND RUNTIME_LIB_HEADER_LIST ${header})
