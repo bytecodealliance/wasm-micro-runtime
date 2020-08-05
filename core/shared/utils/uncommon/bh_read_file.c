@@ -4,6 +4,55 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#if defined(_WIN32) || defined(_WIN32_)
+#include <io.h>
+char*
+bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
+{
+    char *buffer;
+    int file;
+    uint32 file_size, read_size;
+    struct stat stat_buf;
+
+    if (!filename || !ret_size) {
+        printf("Read file to buffer failed: invalid filename or ret size.\n");
+        return NULL;
+    }
+
+    if (_sopen_s(&file, filename, _O_RDONLY| _O_BINARY, _SH_DENYNO, 0)) {
+        printf("Read file to buffer failed: open file %s failed.\n",
+            filename);
+        return NULL;
+    }
+
+    if (fstat(file, &stat_buf) != 0) {
+        printf("Read file to buffer failed: fstat file %s failed.\n",
+            filename);
+        _close(file);
+        return NULL;
+    }
+    file_size = (uint32)stat_buf.st_size;
+
+    if (!(buffer = (char *)BH_MALLOC(file_size))) {
+        printf("Read file to buffer failed: alloc memory failed.\n");
+        _close(file);
+        return NULL;
+    }
+
+    read_size = _read(file, buffer, file_size);
+    _close(file);
+
+    if (read_size < file_size) {
+        printf("Read file to buffer failed: read file content failed.\n");
+        BH_FREE(buffer);
+        return NULL;
+    }
+
+    *ret_size = file_size;
+    return buffer;
+}
+
+#else
 char*
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
@@ -50,4 +99,4 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     *ret_size = file_size;
     return buffer;
 }
-
+#endif
