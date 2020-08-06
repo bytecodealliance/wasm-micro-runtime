@@ -14,6 +14,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "wasm_pagemap.hh"
+
 
 using address_t = snmalloc::Aal::address_t;
 int pagemap_socket = -1;

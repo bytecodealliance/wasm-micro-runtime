@@ -85,6 +85,12 @@ endif ()
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
                                      -Wall -Wno-unused-parameter -Wno-pedantic")
 
+
+if (WAMR_BUILD_SNMALLOC_SHARED_MEMORY EQUAL 1)
+set (CMAKE_CXX_FLAGS "${CMAKE_CX_FLAGS} -std=c++1z -mcx16")
+endif ()
+                                     
+
 # include the build config template file
 include (${CMAKE_CURRENT_LIST_DIR}/config_common.cmake)
 

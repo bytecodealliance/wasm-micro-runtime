@@ -57,7 +57,7 @@ set (IWASM_COMMON_SOURCE ${source_all})
 
 else()
 
-set (IWASM_COMMON_SOURCE ${source_all} ${IWASM_COMMON_DIR}/wasm_pagemap.cc)
+set (IWASM_COMMON_SOURCE ${source_all} ${IWASM_COMMON_DIR}/wasm_pagemap.hh ${IWASM_COMMON_DIR}/wasm_pagemap.cc )
 
 
 endif()

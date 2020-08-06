@@ -2865,6 +2865,9 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
 
 
 #if WASM_SNMALLOC_ENABLE_SHARED_MEMORY != 0
+
+
+
 bool
 __wasm_runtime_set_ext_memory(WASMModuleInstance *module_inst,
                             uint8 *ext_mem_data, uint32 ext_mem_size,
@@ -2905,6 +2908,7 @@ wasm_runtime_set_ext_memory(WASMModuleInstanceCommon * const module_inst,
     return __wasm_runtime_set_ext_memory((const WASMModuleInstance*)module_inst, ext_mem_data, ext_mem_size,error_buf, error_buf_size);
 }
 
+// an init alocator that you should give half of the private mem to it
 
 
 int32
