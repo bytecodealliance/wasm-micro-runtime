@@ -2,7 +2,10 @@
 ; Copyright (C) 2019 Intel Corporation.  All rights reserved.
 ; SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 ;
-_TEXT$00 SEGMENT ALIGN(10h) 'CODE'
+
+    .386
+    .model flat
+    .code
 _invokeNative PROC 
     push    ebp
     mov     ebp,esp
@@ -21,5 +24,4 @@ skip_push_args:
     leave
     ret
 _invokeNative ENDP
-_TEXT$00 ENDS
 END
