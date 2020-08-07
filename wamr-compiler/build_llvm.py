@@ -7,7 +7,7 @@ def clone_llvm():
     llvm_dir = Path("llvm")
     if(llvm_dir.exists() == False):
         print("Clone llvm to core/deps/ ..")
-        for line in os.popen("git clone --depth 1 https://github.com/llvm/llvm-project.git llvm"):
+        for line in os.popen("git clone --branch release/10.x https://github.com/llvm/llvm-project.git llvm"):
             print(line)
     else:
         print("llvm source codes already existed")
@@ -34,12 +34,11 @@ def main():
 
     current_dir = Path.cwd()
     deps_dir = current_dir.joinpath( "../core/deps")
-    
+
     os.chdir(deps_dir)
     llvm_dir = clone_llvm()
     os.chdir(llvm_dir)
-    
-    
+
     if(current_os == "linux"):
         build_dir_name = "build"
         llvm_file = "bin/llvm-lto"
@@ -59,15 +58,22 @@ def main():
     if ( not Path(llvm_file).exists()):
         core_number = os.cpu_count()
         print("Build llvm with", core_number, " cores")
-        cmd = "cmake ../llvm \
+        cmd = 'cmake ../llvm \
                 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-                -DCMAKE_BUILD_TYPE:STRING='Release' \
+                -DCMAKE_BUILD_TYPE:STRING="Release" \
+                -DLLVM_TARGETS_TO_BUILD:STRING="X86" \
+                -DLLVM_INCLUDE_GO_TESTS=OFF \
+                -DLLVM_INCLUDE_TOOLS=OFF \
+                -DLLVM_INCLUDE_UTILS=OFF \
+                -DLLVM_ENABLE_TERMINFO=OFF \
                 -DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF \
                 -DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON \
+                -DLLVM_ENABLE_ZLIB:BOOL=OFF \
+                -DLLVM_INCLUDE_DOCS:BOOL=OFF \
                 -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF \
                 -DLLVM_INCLUDE_TESTS:BOOL=OFF \
                 -DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF \
-                -DLLVM_APPEND_VC_REV:BOOL=OFF"
+                -DLLVM_APPEND_VC_REV:BOOL=OFF'
         print(cmd)
         for line in os.popen(cmd):
                 print(line)
@@ -78,7 +84,7 @@ def main():
         for line in os.popen("make -j {}".format(core_number)):
             print(line)
     elif(current_os == "win32"):
-        print("Please open LLVM.sln in {} to build".format(build_dir.absolute()))
+        print("Please open LLVM.sln in {} to build *Release* version".format(build_dir.absolute()))
 
     os.chdir(current_dir)
 
