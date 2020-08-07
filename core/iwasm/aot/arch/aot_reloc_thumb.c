@@ -117,22 +117,33 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
+
+#define BUILD_TARGET_V4 "thumbv4t"
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
-    char *build_target = BUILD_TARGET;
-    char *p = target_buf, *p_end;
-    snprintf(target_buf, target_buf_size, "%s", build_target);
-    p_end = p + strlen(target_buf);
-    while (p < p_end) {
-        if (*p >= 'A' && *p <= 'Z')
-            *p++ += 'a' - 'A';
-        else
-            p++;
+    const char * s =  BUILD_TARGET;
+    size_t s_size = sizeof(BUILD_TARGET);
+
+    //check if wenn need to add some subarchitecture specification
+    //this is some kind of thumb since we are in ...thumb.c
+    if(sizeof(BUILD_TARGET) == sizeof("thumb")){
+        s = BUILD_TARGET_V4;
+        s_size = sizeof(BUILD_TARGET_V4);
     }
-    if (!strcmp(target_buf, "thumb"))
-        snprintf(target_buf, target_buf_size, "thumbv4t");
+    if(target_buf_size < s_size){
+        s_size = target_buf_size;
+    }
+    char *d = target_buf;
+    while (--s_size) {
+        if (*s >= 'A' && *s <= 'Z')
+            *d++ = *s++ + 'a' - 'A';
+        else
+            *d++ = *s++ ;
+    }
+    *d=0;//allways set the end last byte 0
 }
+#undef BUILD_TARGET_V4
 
 uint32
 get_plt_item_size()
