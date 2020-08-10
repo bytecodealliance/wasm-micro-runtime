@@ -25,13 +25,13 @@ extern "C" {
  *
  * @return 0 if success
  */
-int bh_platform_init();
+int bh_platform_init(void);
 
 /**
  * Destroy the platform internal resources if needed,
  * this function is called by wasm_runtime_destroy()
  */
-void bh_platform_destroy();
+void bh_platform_destroy(void);
 
 /**
  ******** memory allocator APIs **********

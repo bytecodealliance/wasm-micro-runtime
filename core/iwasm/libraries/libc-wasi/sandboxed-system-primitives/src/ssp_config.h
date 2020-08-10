@@ -73,7 +73,7 @@
 #define CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP 0
 #endif
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(BH_PLATFORM_LINUX_SGX)
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 1
 #else
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 0
@@ -95,6 +95,12 @@
 #define CONFIG_TLS_USE_GSBASE 1
 #else
 #define CONFIG_TLS_USE_GSBASE 0
+#endif
+
+#if !defined(BH_PLATFORM_LINUX_SGX)
+#define CONFIG_HAS_STD_ATOMIC 1
+#else
+#define CONFIG_HAS_STD_ATOMIC 0
 #endif
 
 #endif

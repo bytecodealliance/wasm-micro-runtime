@@ -234,6 +234,10 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
         return false;
     }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_set_max_thread_num(init_args->max_thread_num);
+#endif
+
     return true;
 }
 
@@ -1277,6 +1281,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     struct fd_table *curfds;
     struct fd_prestats *prestats;
     struct argv_environ_values *argv_environ;
+    bool fd_table_inited = false, fd_prestats_inited = false;
+    bool argv_environ_inited = false;
     int32 offset_argv_offsets = 0, offset_env_offsets = 0;
     int32 offset_argv_buf = 0, offset_env_buf = 0;
     int32 offset_curfds = 0;
@@ -1371,9 +1377,26 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     wasi_ctx->curfds_offset = offset_curfds;
     wasi_ctx->prestats_offset = offset_prestats;
     wasi_ctx->argv_environ_offset = offset_argv_environ;
+    wasi_ctx->argv_buf_offset = offset_argv_buf;
+    wasi_ctx->argv_offsets_offset = offset_argv_offsets;
+    wasi_ctx->env_buf_offset = offset_env_buf;
+    wasi_ctx->env_offsets_offset = offset_env_offsets;
 
-    fd_table_init(curfds);
-    fd_prestats_init(prestats);
+    if (!fd_table_init(curfds)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Init wasi environment failed: "
+                      "init fd table failed.");
+        goto fail;
+    }
+    fd_table_inited = true;
+
+    if (!fd_prestats_init(prestats)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Init wasi environment failed: "
+                      "init fd prestats failed.");
+        goto fail;
+    }
+    fd_prestats_inited = true;
 
     if (!argv_environ_init(argv_environ,
                            argv_offsets, argc,
@@ -1385,6 +1408,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                       "init argument environment failed.");
         goto fail;
     }
+    argv_environ_inited = true;
 
     /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
     if (!fd_table_insert_existing(curfds, 0, 0)
@@ -1422,6 +1446,12 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     return true;
 
 fail:
+    if (argv_environ_inited)
+        argv_environ_destroy(argv_environ);
+    if (fd_prestats_inited)
+        fd_prestats_destroy(prestats);
+    if (fd_table_inited)
+        fd_table_destroy(curfds);
     if (offset_curfds != 0)
         wasm_runtime_module_free(module_inst, offset_curfds);
     if (offset_prestats != 0)
@@ -1535,6 +1565,14 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
             fd_prestats_destroy(prestats);
             wasm_runtime_module_free(module_inst, wasi_ctx->prestats_offset);
         }
+        if (wasi_ctx->argv_buf_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->argv_buf_offset);
+        if (wasi_ctx->argv_offsets_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->argv_offsets_offset);
+        if (wasi_ctx->env_buf_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->env_buf_offset);
+        if (wasi_ctx->env_offsets_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->env_offsets_offset);
         wasm_runtime_free(wasi_ctx);
     }
 }
@@ -2852,3 +2890,77 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
 #endif
     return false;
 }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+typedef struct WASMThreadArg {
+    WASMExecEnv *new_exec_env;
+    wasm_thread_callback_t callback;
+    void *arg;
+} WASMThreadArg;
+
+WASMExecEnv *
+wasm_runtime_spawn_exec_env(WASMExecEnv *exec_env)
+{
+    return wasm_cluster_spawn_exec_env(exec_env);
+}
+
+void
+wasm_runtime_destroy_spawned_exec_env(WASMExecEnv *exec_env)
+{
+    wasm_cluster_destroy_spawned_exec_env(exec_env);
+}
+
+static void*
+wasm_runtime_thread_routine(void *arg)
+{
+    WASMThreadArg *thread_arg = (WASMThreadArg *)arg;
+    void *ret;
+
+    bh_assert(thread_arg->new_exec_env);
+    ret = thread_arg->callback(thread_arg->new_exec_env, thread_arg->arg);
+
+    wasm_runtime_destroy_spawned_exec_env(thread_arg->new_exec_env);
+    wasm_runtime_free(thread_arg);
+
+    os_thread_exit(ret);
+    return ret;
+}
+
+int32
+wasm_runtime_spawn_thread(WASMExecEnv *exec_env, wasm_thread_t *tid,
+                          wasm_thread_callback_t callback, void *arg)
+{
+    WASMExecEnv *new_exec_env = wasm_runtime_spawn_exec_env(exec_env);
+    WASMThreadArg *thread_arg;
+    int32 ret;
+
+    if (!new_exec_env)
+        return -1;
+
+    if (!(thread_arg = wasm_runtime_malloc(sizeof(WASMThreadArg)))) {
+        wasm_runtime_destroy_spawned_exec_env(new_exec_env);
+        return -1;
+    }
+
+    thread_arg->new_exec_env = new_exec_env;
+    thread_arg->callback = callback;
+    thread_arg->arg = arg;
+
+    ret = os_thread_create((korp_tid *)tid, wasm_runtime_thread_routine,
+                           thread_arg, APP_THREAD_STACK_SIZE_DEFAULT);
+
+    if (ret != 0) {
+        wasm_runtime_destroy_spawned_exec_env(new_exec_env);
+        wasm_runtime_free(thread_arg);
+    }
+
+    return ret;
+}
+
+int32
+wasm_runtime_join_thread(wasm_thread_t tid, void **retval)
+{
+    return os_thread_join((korp_tid)tid, retval);
+}
+
+#endif
