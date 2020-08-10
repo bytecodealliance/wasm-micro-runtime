@@ -12,8 +12,6 @@
 #ifndef QUEUE_H
 #define QUEUE_H
 
-#include <stddef.h>
-
 // LIST: Double-linked list.
 
 #define LIST_HEAD(name, type) \

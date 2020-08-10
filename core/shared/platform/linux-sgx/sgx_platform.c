@@ -5,10 +5,7 @@
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
-
-#if WASM_ENABLE_AOT != 0
 #include "sgx_rsrv_mem_mngr.h"
-#endif
 
 #define FIXED_BUFFER_SIZE (1<<9)
 
@@ -82,9 +79,17 @@ int os_vprintf(const char * format, va_list arg)
     return 0;
 }
 
+char *strcpy(char *dest, const char *src)
+{
+    const unsigned char *s = src;
+    unsigned char *d = dest;
+
+    while ((*d++ = *s++));
+    return dest;
+}
+
 void* os_mmap(void *hint, size_t size, int prot, int flags)
 {
-#if WASM_ENABLE_AOT != 0
     int mprot = 0;
     uint64 aligned_size, page_size;
     void* ret = NULL;
@@ -119,25 +124,19 @@ void* os_mmap(void *hint, size_t size, int prot, int flags)
     }
 
     return ret;
-#else
-    return NULL;
-#endif
 }
 
 void os_munmap(void *addr, size_t size)
 {
-#if WASM_ENABLE_AOT != 0
     uint64 aligned_size, page_size;
 
     page_size = getpagesize();
     aligned_size = (size + page_size - 1) & ~(page_size - 1);
     sgx_free_rsrv_mem(addr, aligned_size);
-#endif
 }
 
 int os_mprotect(void *addr, size_t size, int prot)
 {
-#if WASM_ENABLE_AOT != 0
     int mprot = 0;
     sgx_status_t st = 0;
     uint64 aligned_size, page_size;
@@ -157,9 +156,6 @@ int os_mprotect(void *addr, size_t size, int prot)
                   addr, size, prot);
 
     return (st == SGX_SUCCESS? 0:-1);
-#else
-    return -1;
-#endif
 }
 
 void

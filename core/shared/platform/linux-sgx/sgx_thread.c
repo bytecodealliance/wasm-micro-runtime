@@ -6,45 +6,136 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+typedef struct {
+    thread_start_routine_t start;
+    void *arg;
+} thread_wrapper_arg;
+
+static void *os_thread_wrapper(void *arg)
+{
+    thread_wrapper_arg * targ = arg;
+    thread_start_routine_t start_func = targ->start;
+    void *thread_arg = targ->arg;
+    os_printf("THREAD CREATED %p\n", &targ);
+    BH_FREE(targ);
+    start_func(thread_arg);
+    return NULL;
+}
+
+int os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
+                               void *arg, unsigned int stack_size, int prio)
+{
+    thread_wrapper_arg *targ;
+
+    assert(tid);
+    assert(start);
+
+    targ = (thread_wrapper_arg *) BH_MALLOC(sizeof(*targ));
+    if (!targ) {
+        return BHT_ERROR;
+    }
+
+    targ->start = start;
+    targ->arg = arg;
+
+    if (pthread_create(tid, NULL, os_thread_wrapper, targ) != 0) {
+        BH_FREE(targ);
+        return BHT_ERROR;
+    }
+
+    return BHT_OK;
+}
+
+int os_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
+                     unsigned int stack_size)
+{
+    return os_thread_create_with_prio(tid, start, arg, stack_size,
+                                      BH_THREAD_DEFAULT_PRIORITY);
+}
+
 korp_tid os_self_thread()
 {
-    return sgx_thread_self();
+    return pthread_self();
 }
 
 int os_mutex_init(korp_mutex *mutex)
 {
-    sgx_thread_mutex_t m = SGX_THREAD_MUTEX_INITIALIZER;
+    pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
     *mutex = m;
     return BHT_OK;
 }
 
 int os_mutex_destroy(korp_mutex *mutex)
 {
-    sgx_thread_mutex_destroy(mutex);
+    pthread_mutex_destroy(mutex);
     return BHT_OK;
 }
 
 int os_mutex_lock(korp_mutex *mutex)
 {
-    return sgx_thread_mutex_lock(mutex);
+    return pthread_mutex_lock(mutex);
 }
 
 int os_mutex_unlock(korp_mutex *mutex)
 {
-    return sgx_thread_mutex_unlock(mutex);
+    return pthread_mutex_unlock(mutex);
 }
 
 int os_cond_init(korp_cond *cond)
 {
-    sgx_thread_cond_t c = SGX_THREAD_COND_INITIALIZER;
+    pthread_cond_t c = PTHREAD_COND_INITIALIZER;
     *cond = c;
     return BHT_OK;
 }
 
 int os_cond_destroy(korp_cond *cond)
 {
-    sgx_thread_cond_destroy(cond);
+    pthread_cond_destroy(cond);
     return BHT_OK;
+}
+
+int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
+{
+    assert(cond);
+    assert(mutex);
+
+    if (pthread_cond_wait(cond, mutex) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds)
+{
+    os_printf("warning: SGX pthread_cond_timedwait isn't supported, "
+              "calling pthread_cond_wait instead!\n");
+    return BHT_ERROR;
+}
+
+int os_cond_signal(korp_cond *cond)
+{
+    assert(cond);
+
+    if (pthread_cond_signal(cond) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int os_thread_join(korp_tid thread, void **value_ptr)
+{
+    return pthread_join(thread, value_ptr);
+}
+
+int os_thread_detach(korp_tid thread)
+{
+    /* SGX pthread_detach isn't provided, return directly. */
+    return 0;
+}
+
+void os_thread_exit(void *retval)
+{
+    return pthread_exit(retval);
 }
 
 uint8 *os_thread_get_stack_boundary()

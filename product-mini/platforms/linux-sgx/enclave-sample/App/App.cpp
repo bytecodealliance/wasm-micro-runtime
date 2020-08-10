@@ -27,7 +27,7 @@
 
 #define TOKEN_FILENAME   "enclave.token"
 #define ENCLAVE_FILENAME "enclave.signed.so"
-#define MAX_PATH FILENAME_MAX
+#define MAX_PATH 1024
 
 #define TEST_OCALL_API 0
 
@@ -39,10 +39,25 @@ ocall_print(const char* str)
     printf("%s", str);
 }
 
-static void
-print_error_message(sgx_status_t ret)
+static char *
+get_exe_path(char *path_buf, unsigned path_buf_size)
 {
-    printf("SGX error code: %d\n", ret);
+    ssize_t i;
+    ssize_t size = readlink("/proc/self/exe",
+                            path_buf, path_buf_size - 1);
+
+    if (size < 0 || (size >= path_buf_size - 1)) {
+        return NULL;
+    }
+
+    path_buf[size] = '\0';
+    for (i = size - 1; i >= 0; i--) {
+        if (path_buf[i] == '/') {
+            path_buf[i + 1] = '\0';
+            break;
+        }
+    }
+    return path_buf;
 }
 
 /* Initialize the enclave:
@@ -54,16 +69,27 @@ static int
 enclave_init(sgx_enclave_id_t *p_eid)
 
 {
-    char token_path[MAX_PATH] = {'\0'};
-    sgx_launch_token_t token = {0};
+    char token_path[MAX_PATH] = { '\0' };
+    char enclave_path[MAX_PATH] = { '\0' };
+    const char *home_dir;
+    sgx_launch_token_t token = { 0 };
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
     int updated = 0;
+    size_t write_num, enc_file_len;
+    FILE *fp;
+
+    enc_file_len = strlen(ENCLAVE_FILENAME);
+    if (!get_exe_path(enclave_path, sizeof(enclave_path) - enc_file_len)) {
+        printf("Failed to get exec path\n");
+        return -1;
+    }
+    memcpy(enclave_path + strlen(enclave_path), ENCLAVE_FILENAME, enc_file_len);
 
     /* Step 1: try to retrieve the launch token saved by last transaction
      *         if there is no token, then create a new one.
      */
     /* try to get the token saved in $HOME */
-    const char *home_dir = getpwuid(getuid())->pw_dir;
+    home_dir = getpwuid(getuid())->pw_dir;
 
     if (home_dir != NULL &&
         (strlen(home_dir) + strlen("/") + sizeof(TOKEN_FILENAME) + 1) <= MAX_PATH) {
@@ -77,9 +103,10 @@ enclave_init(sgx_enclave_id_t *p_eid)
         strncpy(token_path, TOKEN_FILENAME, sizeof(TOKEN_FILENAME));
     }
 
-    FILE *fp = fopen(token_path, "rb");
+    fp = fopen(token_path, "rb");
     if (fp == NULL && (fp = fopen(token_path, "wb")) == NULL) {
-        printf("Warning: Failed to create/open the launch token file \"%s\".\n", token_path);
+        printf("Warning: Failed to create/open the launch token file \"%s\".\n",
+               token_path);
     }
 
     if (fp != NULL) {
@@ -94,9 +121,15 @@ enclave_init(sgx_enclave_id_t *p_eid)
 
     /* Step 2: call sgx_create_enclave to initialize an enclave instance */
     /* Debug Support: set 2nd parameter to 1 */
-    ret = sgx_create_enclave(ENCLAVE_FILENAME, SGX_DEBUG_FLAG, &token, &updated, p_eid, NULL);
+    ret = sgx_create_enclave(ENCLAVE_FILENAME, SGX_DEBUG_FLAG,
+                             &token, &updated, p_eid, NULL);
+    if (ret != SGX_SUCCESS)
+        /* Try to load enclave.sign.so from the path of exe file */
+        ret = sgx_create_enclave(enclave_path, SGX_DEBUG_FLAG,
+                                 &token, &updated, p_eid, NULL);
     if (ret != SGX_SUCCESS) {
-        print_error_message(ret);
+        printf("Failed to create enclave from %s, error code: %d\n",
+               ENCLAVE_FILENAME, ret);
         if (fp != NULL)
             fclose(fp);
         return -1;
@@ -114,7 +147,7 @@ enclave_init(sgx_enclave_id_t *p_eid)
     if (fp == NULL)
         return 0;
 
-    size_t write_num = fwrite(token, 1, sizeof(sgx_launch_token_t), fp);
+    write_num = fwrite(token, 1, sizeof(sgx_launch_token_t), fp);
     if (write_num != sizeof(sgx_launch_token_t))
         printf("Warning: Failed to save launch token to \"%s\".\n", token_path);
 
@@ -129,14 +162,23 @@ read_file_to_buffer(const char *filename, uint32_t *ret_size)
     FILE *file;
     int file_size, read_size;
 
-    if (!(file = fopen(filename, "r")))
+    if (!filename || !ret_size) {
+        printf("Read file to buffer failed: invalid filename or ret size.\n");
         return NULL;
+    }
+
+    if (!(file = fopen(filename, "r"))) {
+        printf("Read file to buffer failed: open file %s failed.\n",
+               filename);
+        return NULL;
+    }
 
     fseek(file, 0, SEEK_END);
     file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
     if (!(buffer = (unsigned char*)malloc(file_size))) {
+        printf("Read file to buffer failed: alloc memory failed.\n");
         fclose(file);
         return NULL;
     }
@@ -145,6 +187,7 @@ read_file_to_buffer(const char *filename, uint32_t *ret_size)
     fclose(file);
 
     if (read_size < file_size) {
+        printf("Read file to buffer failed: read file content failed.\n");
         free(buffer);
         return NULL;
     }
@@ -233,7 +276,6 @@ typedef enum EcallCmd {
     CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
     CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
-    CMD_SET_MAX_THREAD_NUM,   /* wasm_runtime_set_max_thread_num() */
 } EcallCmd;
 
 static void
@@ -310,14 +352,15 @@ set_log_verbose_level(int log_verbose_level)
 }
 
 static bool
-init_runtime(bool alloc_with_pool)
+init_runtime(bool alloc_with_pool, uint32_t max_thread_num)
 {
-    uint64_t ecall_args[1];
+    uint64_t ecall_args[2];
 
     ecall_args[0] = alloc_with_pool;
+    ecall_args[1] = max_thread_num;
     if (SGX_SUCCESS != ecall_handle_command(g_eid, CMD_INIT_RUNTIME,
                                             (uint8_t *)ecall_args,
-                                            sizeof(uint64_t))) {
+                                            sizeof(uint64_t) * 2)) {
         printf("Call ecall_handle_command() failed.\n");
         return false;
     }
@@ -536,6 +579,7 @@ main(int argc, char *argv[])
     uint32_t dir_list_size = 0;
     const char *env_list[8] = { NULL };
     uint32_t env_list_size = 0;
+    uint32_t max_thread_num = 4;
 
     if (enclave_init(&g_eid) < 0) {
         std::cout << "Fail to initialize enclave." << std::endl;
@@ -544,7 +588,11 @@ main(int argc, char *argv[])
 
 #if TEST_OCALL_API != 0
     {
+        if (!init_runtime(alloc_with_pool, max_thread_num)) {
+            return -1;
+        }
         ecall_iwasm_test(g_eid);
+        destroy_runtime();
         return 0;
     }
 #endif
@@ -610,8 +658,7 @@ main(int argc, char *argv[])
         else if (!strncmp(argv[0], "--max-threads=", 14)) {
             if (argv[0][14] == '\0')
                 return print_help();
-            /*wasm_runtime_set_max_thread_num(atoi(argv[0] + 14));*/
-            /* TODO */
+            max_thread_num = atoi(argv[0] + 14);
         }
         else
             return print_help();
@@ -623,7 +670,7 @@ main(int argc, char *argv[])
     wasm_file = argv[0];
 
     /* Init runtime */
-    if (!init_runtime(alloc_with_pool)) {
+    if (!init_runtime(alloc_with_pool, max_thread_num)) {
         return -1;
     }
 

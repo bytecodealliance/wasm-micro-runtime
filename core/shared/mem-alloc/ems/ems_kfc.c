@@ -80,6 +80,17 @@ int
 gc_destroy_with_pool(gc_handle_t handle)
 {
     gc_heap_t *heap = (gc_heap_t *) handle;
+#if BH_ENABLE_GC_VERIFY != 0
+    hmu_t *cur = (hmu_t*)heap->base_addr;
+    hmu_t *end = (hmu_t*)((char*)heap->base_addr + heap->current_size);
+    if ((hmu_t*)((char *)cur + hmu_get_size(cur)) != end) {
+        os_printf("Memory leak detected:\n");
+        gci_dump(heap);
+#if WASM_ENABLE_SPEC_TEST != 0
+        while (1);
+#endif
+    }
+#endif
     os_mutex_destroy(&heap->lock);
     memset(heap->base_addr, 0, heap->current_size);
     memset(heap, 0, sizeof(gc_heap_t));

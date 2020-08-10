@@ -972,9 +972,11 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#ifndef BH_PLATFORM_LINUX_SGX
         /* address must be in the first 2 Gigabytes of
            the process address space */
         bh_assert((uintptr_t)data_sections[i].data < INT32_MAX);
+#endif
 #endif
 
         read_byte_array(buf, buf_end,
@@ -1799,9 +1801,11 @@ create_sections(const uint8 *buf, uint32 size,
                         goto fail;
                     }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#ifndef BH_PLATFORM_LINUX_SGX
                     /* address must be in the first 2 Gigabytes of
                        the process address space */
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
+#endif
 #endif
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);

@@ -10,15 +10,7 @@
 // Copyright (c) 2016 Nuxi, https://nuxi.nl/
 
 #include "ssp_config.h"
-
-#include <fcntl.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-
+#include "bh_platform.h"
 #include "random.h"
 
 #if CONFIG_HAS_ARC4RANDOM_BUF
@@ -29,7 +21,9 @@ void random_buf(void *buf, size_t len) {
 
 #elif CONFIG_HAS_GETRANDOM
 
+#ifndef BH_PLATFORM_LINUX_SGX
 #include <sys/random.h>
+#endif
 
 void random_buf(void *buf, size_t len) {
   for (;;) {
@@ -37,7 +31,7 @@ void random_buf(void *buf, size_t len) {
      if (x < 0) {
          if (errno == EINTR)
              continue;
-         fprintf(stderr, "getrandom failed: %s", strerror(errno));
+         os_printf("getrandom failed: %s", strerror(errno));
          abort();
      }
      if ((size_t)x == len)
@@ -54,7 +48,7 @@ static int urandom;
 static void open_urandom(void) {
   urandom = open("/dev/urandom", O_RDONLY);
   if (urandom < 0) {
-    fputs("Failed to open /dev/urandom\n", stderr);
+    os_printf("Failed to open /dev/urandom\n");
     abort();
   }
 }
@@ -64,7 +58,7 @@ void random_buf(void *buf, size_t len) {
   pthread_once(&open_once, open_urandom);
 
   if ((size_t)read(urandom, buf, len) != len) {
-    fputs("Short read on /dev/urandom\n", stderr);
+    os_printf("Short read on /dev/urandom\n");
     abort();
   }
 }

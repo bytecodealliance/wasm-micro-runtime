@@ -13,8 +13,6 @@ WebAssembly Micro Runtime (WAMR) is a standalone WebAssembly (WASM) runtime with
 
 - The **dynamic management** of the WASM applications
 
-
-
 iwasm VM core
 =========================
 
@@ -53,7 +51,8 @@ The iwasm supports the following architectures:
 
 Following platforms are supported. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
-- [Linux](./doc/build_wamr.md#linux), [Zephyr](./doc/build_wamr.md#zephyr), [MacOS](./doc/build_wamr.md#macos), [VxWorks](./doc/build_wamr.md#vxworks), [AliOS-Things](./doc/build_wamr.md#alios-things), [Intel Software Guard Extention (Linux)](./doc/build_wamr.md#linux-sgx-intel-software-guard-extention), [Android](./doc/build_wamr.md#android)
+- [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android)
+- [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks)
 
 ### Build iwasm VM core (mini product)
 
@@ -84,8 +83,6 @@ The WAMR has offered a comprehensive framework for programming WASM applications
 
 Browse the folder  [core/app-framework](./core/app-framework) for how to extend the application framework.
 
-
-
 # Remote application management
 
 The WAMR application manager supports [remote application management](./core/app-mgr) from the host environment or the cloud through any physical communications such as TCP, UPD, UART, BLE, etc. Its modular design makes it able to support application management for different managed runtimes.
@@ -109,11 +106,14 @@ Samples
 
 The WAMR [samples](./samples) integrate the iwasm VM core, application manager and selected application framework components.
 
-- [**Basic**](./samples/basic): Demonstrating how host runtime calls WASM function as well as WASM function calls native function.
-- **[Simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libraries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
-- **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittlevGL](https://github.com/lvgl/) 2D user graphic library and the UI application is built into WASM application.  It uses **WASI libc** and executes apps in **AoT mode** by default.
-- **[gui](./samples/gui/README.md)**: Moved the [LittlevGL](https://github.com/lvgl/) library into the runtime and defined a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.
-- **[wasm-c-api](./samples/wasm-c-api/README.md)**: they are samples from [wasm-c-api proposal](https://github.com/WebAssembly/wasm-c-api) and show supported APIs.
+- [**basic**](./samples/basic): Demonstrating how to use runtime exposed API's to call WASM functions, how to register native functions and call them, and how to call WASM function from native function.
+- **[simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libraries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
+- **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittleVGL](https://github.com/lvgl/) 2D user graphic library and the UI application are built into WASM application.  It uses **WASI libc** and executes apps in **AoT mode** by default.
+- **[gui](./samples/gui/README.md)**: Move the [LittleVGL](https://github.com/lvgl/) library into the runtime and define a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.
+- **[multi-thread](./samples/multi-thread/)**: Demonstrating how to run wasm application which creates multiple threads to execute wasm functions concurrently, and uses mutex/cond by calling pthread related API's.
+- **[spawn-thread](./samples/spawn-thread)**: Demonstrating how to execute wasm functions of the same wasm application concurrently, in threads created by host embedder or runtime, but not the wasm application itself.
+- **[multi-module](./samples/multi-module)**: Demonstrating the [multiple modules as dependencies](./doc/multi_module.md) feature which implements the [load-time dynamic linking](https://webassembly.org/docs/dynamic-linking/).
+- **[wasm-c-api](./samples/wasm-c-api/README.md)**: Demonstrating how to run some samples from [wasm-c-api proposal](https://github.com/WebAssembly/wasm-c-api) and showing the supported API's.
 
 
 Releases and acknowledgments

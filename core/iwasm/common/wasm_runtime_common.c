@@ -1279,6 +1279,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     struct fd_table *curfds;
     struct fd_prestats *prestats;
     struct argv_environ_values *argv_environ;
+    bool fd_table_inited = false, fd_prestats_inited = false;
+    bool argv_environ_inited = false;
     int32 offset_argv_offsets = 0, offset_env_offsets = 0;
     int32 offset_argv_buf = 0, offset_env_buf = 0;
     int32 offset_curfds = 0;
@@ -1373,9 +1375,26 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     wasi_ctx->curfds_offset = offset_curfds;
     wasi_ctx->prestats_offset = offset_prestats;
     wasi_ctx->argv_environ_offset = offset_argv_environ;
+    wasi_ctx->argv_buf_offset = offset_argv_buf;
+    wasi_ctx->argv_offsets_offset = offset_argv_offsets;
+    wasi_ctx->env_buf_offset = offset_env_buf;
+    wasi_ctx->env_offsets_offset = offset_env_offsets;
 
-    fd_table_init(curfds);
-    fd_prestats_init(prestats);
+    if (!fd_table_init(curfds)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Init wasi environment failed: "
+                      "init fd table failed.");
+        goto fail;
+    }
+    fd_table_inited = true;
+
+    if (!fd_prestats_init(prestats)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Init wasi environment failed: "
+                      "init fd prestats failed.");
+        goto fail;
+    }
+    fd_prestats_inited = true;
 
     if (!argv_environ_init(argv_environ,
                            argv_offsets, argc,
@@ -1387,6 +1406,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                       "init argument environment failed.");
         goto fail;
     }
+    argv_environ_inited = true;
 
     /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
     if (!fd_table_insert_existing(curfds, 0, 0)
@@ -1424,6 +1444,12 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     return true;
 
 fail:
+    if (argv_environ_inited)
+        argv_environ_destroy(argv_environ);
+    if (fd_prestats_inited)
+        fd_prestats_destroy(prestats);
+    if (fd_table_inited)
+        fd_table_destroy(curfds);
     if (offset_curfds != 0)
         wasm_runtime_module_free(module_inst, offset_curfds);
     if (offset_prestats != 0)
@@ -1537,6 +1563,14 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
             fd_prestats_destroy(prestats);
             wasm_runtime_module_free(module_inst, wasi_ctx->prestats_offset);
         }
+        if (wasi_ctx->argv_buf_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->argv_buf_offset);
+        if (wasi_ctx->argv_offsets_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->argv_offsets_offset);
+        if (wasi_ctx->env_buf_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->env_buf_offset);
+        if (wasi_ctx->env_offsets_offset)
+            wasm_runtime_module_free(module_inst, wasi_ctx->env_offsets_offset);
         wasm_runtime_free(wasi_ctx);
     }
 }

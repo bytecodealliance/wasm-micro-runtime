@@ -630,6 +630,12 @@ gci_dump(gc_heap_t *heap)
         os_printf("#%d %08x %x %x %d %c %d\n",
                   i, (int32)((char*) cur - (char*) heap->base_addr),
                   ut, p, mark, inuse, (int32)hmu_obj_size(size));
+#if BH_ENABLE_GC_VERIFY != 0
+        if (inuse == 'V') {
+            gc_object_prefix_t *prefix = (gc_object_prefix_t *)(cur + 1);
+            os_printf("#%s:%d\n", prefix->file_name, prefix->line_no);
+        }
+#endif
 
         cur = (hmu_t*)((char *)cur + size);
         i++;

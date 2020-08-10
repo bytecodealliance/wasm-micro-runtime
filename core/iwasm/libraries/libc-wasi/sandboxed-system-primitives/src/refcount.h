@@ -12,36 +12,89 @@
 #ifndef REFCOUNT_H
 #define REFCOUNT_H
 
-#include <assert.h>
-#include <stdatomic.h>
-#include <stdbool.h>
-
+#include "bh_platform.h"
 #include "locking.h"
-
-// Simple reference counter.
-struct LOCKABLE refcount {
-  atomic_uint count;
-};
 
 #define PRODUCES(...) LOCKS_SHARED(__VA_ARGS__) NO_LOCK_ANALYSIS
 #define CONSUMES(...) UNLOCKS(__VA_ARGS__) NO_LOCK_ANALYSIS
 
-// Initialize the reference counter.
-static void refcount_init(struct refcount *r, unsigned int count) PRODUCES(*r) {
-  atomic_init(&r->count, count);
+#if CONFIG_HAS_STD_ATOMIC != 0
+
+#include <stdatomic.h>
+
+/* Simple reference counter. */
+struct LOCKABLE refcount {
+    atomic_uint count;
+};
+
+/* Initialize the reference counter. */
+static inline void
+refcount_init(struct refcount *r, unsigned int count) PRODUCES(*r)
+{
+    atomic_init(&r->count, count);
 }
 
-// Increment the reference counter.
-static inline void refcount_acquire(struct refcount *r) PRODUCES(*r) {
-  atomic_fetch_add_explicit(&r->count, 1, memory_order_acquire);
+/* Increment the reference counter. */
+static inline void
+refcount_acquire(struct refcount *r) PRODUCES(*r)
+{
+    atomic_fetch_add_explicit(&r->count, 1, memory_order_acquire);
 }
 
-// Decrement the reference counter, returning whether the reference
-// dropped to zero.
-static inline bool refcount_release(struct refcount *r) CONSUMES(*r) {
-  int old = (int)atomic_fetch_sub_explicit(&r->count, 1, memory_order_release);
-  assert(old != 0 && "Reference count becoming negative");
-  return old == 1;
+/* Decrement the reference counter, returning whether the reference
+   dropped to zero. */
+static inline bool
+refcount_release(struct refcount *r) CONSUMES(*r)
+{
+    int old = (int)atomic_fetch_sub_explicit(&r->count, 1,
+                                             memory_order_release);
+    bh_assert(old != 0 && "Reference count becoming negative");
+    return old == 1;
 }
 
-#endif
+#elif defined(BH_PLATFORM_LINUX_SGX)
+
+#include <sgx_spinlock.h>
+
+/* Simple reference counter. */
+struct refcount {
+    sgx_spinlock_t lock;
+    unsigned int count;
+};
+
+/* Initialize the reference counter. */
+static inline void
+refcount_init(struct refcount *r, unsigned int count)
+{
+    r->lock = SGX_SPINLOCK_INITIALIZER;
+    r->count = count;
+}
+
+/* Increment the reference counter. */
+static inline void
+refcount_acquire(struct refcount *r)
+{
+    sgx_spin_lock(&r->lock);
+    r->count++;
+    sgx_spin_unlock(&r->lock);
+}
+
+/* Decrement the reference counter, returning whether the reference
+   dropped to zero. */
+static inline bool
+refcount_release(struct refcount *r)
+{
+    int old;
+    sgx_spin_lock(&r->lock);
+    old = (int)r->count;
+    r->count--;
+    sgx_spin_unlock(&r->lock);
+    bh_assert(old != 0 && "Reference count becoming negative");
+    return old == 1;
+}
+
+#else /* else of CONFIG_HAS_STD_ATOMIC */
+#error "Reference counter isn't implemented"
+#endif /* end of CONFIG_HAS_STD_ATOMIC */
+
+#endif /* end of REFCOUNT_H */

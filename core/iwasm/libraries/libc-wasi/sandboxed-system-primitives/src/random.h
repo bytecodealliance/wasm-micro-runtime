@@ -12,8 +12,6 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
-#include <stdint.h>
-
 void random_buf(void *, size_t);
 uintmax_t random_uniform(uintmax_t);
 
