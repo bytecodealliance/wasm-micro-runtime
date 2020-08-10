@@ -6596,6 +6596,9 @@ fail_data_cnt_sec_require:
                                                   error_buf_size)) {
                         goto fail;
                     }
+#if WASM_ENABLE_FAST_INTERP != 0
+                    emit_uint32(loader_ctx, mem_offset);
+#endif
                 }
                 switch (opcode) {
                     case WASM_OP_ATOMIC_NOTIFY:

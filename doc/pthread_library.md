@@ -67,7 +67,6 @@ You can also build this program with WASI, but we need to make some changes to w
     ```
 > Note: </br>
 >1. Remember to back up the original sysroot files
->2. wasi-sdk 9.0 or above are not supported, please use 7.0 or 8.0
 
 Then build the program with this command:
 ``` bash

@@ -91,6 +91,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     continue;
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
+                os_mutex_destroy(&memories[0]->mem_lock);
                 if (memories[i]->is_shared) {
                     int32 ref_count =
                         shared_memory_dec_reference(
@@ -192,6 +193,11 @@ memory_instantiate(WASMModuleInstance *module_inst,
     memory->heap_base_offset = -(int32)heap_size;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
+    if (0 != os_mutex_init(&memory->mem_lock)) {
+        mem_allocator_destroy(memory->heap_handle);
+        wasm_runtime_free(memory);
+        return NULL;
+    }
     if (is_shared_memory) {
         memory->is_shared = true;
         if (!shared_memory_set_memory_inst(
@@ -200,6 +206,8 @@ memory_instantiate(WASMModuleInstance *module_inst,
             set_error_buf(error_buf, error_buf_size,
                           "Instantiate memory failed:"
                           "allocate memory failed.");
+            os_mutex_destroy(&memory->mem_lock);
+            mem_allocator_destroy(memory->heap_handle);
             wasm_runtime_free(memory);
             return NULL;
         }

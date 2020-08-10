@@ -369,6 +369,15 @@ typedef enum WASMAtomicEXTOpcode {
 }
 #endif
 
+/* Opcode prefix controlled by features */
+#if WASM_ENABLE_SHARED_MEMORY != 0
+#define DEF_ATOMIC_PREFIX_HANDLE(_name)                      \
+  _name[WASM_OP_ATOMIC_PREFIX] =                             \
+    HANDLE_OPCODE (WASM_OP_ATOMIC_PREFIX);   /* 0xfe */
+#else
+#define DEF_ATOMIC_PREFIX_HANDLE(_name)
+#endif
+
 /*
  * Macro used to generate computed goto tables for the C interpreter.
  */
@@ -591,5 +600,6 @@ static type _name[WASM_INSTRUCTION_NUM] = {                  \
 do {                                                         \
   _name[WASM_OP_MISC_PREFIX] =                               \
     HANDLE_OPCODE (WASM_OP_MISC_PREFIX);     /* 0xfc */      \
+  DEF_ATOMIC_PREFIX_HANDLE(_name)                            \
 } while (0)
 #endif /* end of _WASM_OPCODE_H */

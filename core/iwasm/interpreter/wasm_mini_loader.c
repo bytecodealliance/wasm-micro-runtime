@@ -5348,6 +5348,9 @@ handle_op_block_and_loop:
                     CHECK_MEMORY();
                     read_leb_uint32(p, p_end, align); /* align */
                     read_leb_uint32(p, p_end, mem_offset); /* offset */
+#if WASM_ENABLE_FAST_INTERP != 0
+                    emit_uint32(loader_ctx, mem_offset);
+#endif
                 }
                 switch (opcode) {
                     case WASM_OP_ATOMIC_NOTIFY:
