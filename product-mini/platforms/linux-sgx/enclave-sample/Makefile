@@ -152,7 +152,10 @@ endif
 ######## App Objects ########
 
 App/Enclave_u.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include --search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
+	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl \
+		--search-path ../Enclave \
+		--search-path $(SGX_SDK)/include \
+		--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
 	@echo "GEN  =>  $@"
 
 App/Enclave_u.o: App/Enclave_u.c
@@ -175,7 +178,10 @@ $(App_Name): App/Enclave_u.o $(App_Cpp_Objects) libvmlib_untrusted.a
 ######## Enclave Objects ########
 
 Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include --search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
+	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl \
+		--search-path ../Enclave \
+		--search-path $(SGX_SDK)/include \
+		--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
 	@echo "GEN  =>  $@"
 
 Enclave/Enclave_t.o: Enclave/Enclave_t.c

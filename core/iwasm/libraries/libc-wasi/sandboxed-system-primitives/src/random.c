@@ -21,6 +21,10 @@ void random_buf(void *buf, size_t len) {
 
 #elif CONFIG_HAS_GETRANDOM
 
+#ifndef BH_PLATFORM_LINUX_SGX
+#include <sys/random.h>
+#endif
+
 void random_buf(void *buf, size_t len) {
   for (;;) {
      ssize_t x = getrandom(buf, len, 0);

@@ -54,11 +54,17 @@ from "sgx_wamr.edl" import *;
 The sgx_wamr.edl is under ${WAMR_ROOT}/core/shared/platform/linux-sgx, so please **add it to the search path list** when generating Enclave_u.c and Enclave_t.c from Enclave.edl:
 
 ```bash
-@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include --search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
+@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl \
+        --search-path ../Enclave \
+        --search-path $(SGX_SDK)/include \
+        --search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
 ```
 
 ```bash
-@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include --search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
+@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl \
+        --search-path ../Enclave \
+        --search-path $(SGX_SDK)/include \
+        --search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
 ```
 
 **Step 2: Link libvmlib.a to Enclave part and link libvmlib_untrusted.a to App part:**

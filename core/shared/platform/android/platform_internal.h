@@ -35,7 +35,6 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/resource.h>
-#include <sys/random.h>
 #include <android/log.h>
 
 #ifdef __cplusplus
