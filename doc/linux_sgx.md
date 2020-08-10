@@ -63,23 +63,23 @@ The sgx_wamr.edl is under ${WAMR_ROOT}/core/shared/platform/linux-sgx, so please
 
 **Step 2: Link libvmlib.a to Enclave part and link libvmlib_untrusted.a to App part:**
 
-```bash
+```makefile
 Enclave_Link_Flags := ... libvmlib.a ...
 ```
 
-```bash
+```makefile
 App_Link_Flags := ... libvmlib_untrusted.a ...
 ```
 
 **And link SGX pthread lib to Enclave part:**
 
-```bash
+```makefile
 Enclave_Link_Flags := ... -lsgx_pthread ...
 ```
 
 **Step 3: Add WAMR folders and SGX SDK folders to Enclave include path:**
 
-```bash
+```makefile
 Enclave_Include_Paths := ... -I$(WAMR_ROOT)/core/iwasm/include \
                          -I$(WAMR_ROOT)/core/shared/utils \
                          -I$(WAMR_ROOT)/core/shared/platform/linux-sgx \
@@ -90,7 +90,7 @@ Enclave_Include_Paths := ... -I$(WAMR_ROOT)/core/iwasm/include \
 
 **Step 4: Configure reserved memory and thread info in file Enclave config file (e.g. Enclave.config.xml) to support WAMR AOT and multi-thread, e.g:**
 
-```bash
+```xml
 <ReservedMemMaxSize>0x400000</ReservedMemMaxSize>
 <ReservedMemExecutable>1</ReservedMemExecutable>
 <TCSNum>10</TCSNum>
@@ -185,7 +185,7 @@ Others
 
   Enclave/Enclave.config.xml, default max heap size is 16 MB:
 
-  ```bash
+  ```xml
   <HeapMaxSize>0x1000000</HeapMaxSize>
   ```
 
