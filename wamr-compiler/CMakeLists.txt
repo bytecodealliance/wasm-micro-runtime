@@ -172,9 +172,6 @@ add_executable (wamrc main.c)
 if (NOT MSVC)
 target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
 else()
-get_filename_component(WINPLIB_PATH
-                       "${SHARED_DIR}/platform/${WAMR_BUILD_PLATFORM}/lib/pthread_lib.lib"
-                       ABSOLUTE)
-target_link_libraries (wamrc aotclib vmlib  ${LLVM_AVAILABLE_LIBS}  ${WINPLIB_PATH})
+target_link_libraries (wamrc aotclib vmlib  ${LLVM_AVAILABLE_LIBS})
 endif()
 
