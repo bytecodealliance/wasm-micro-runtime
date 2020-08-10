@@ -57,7 +57,7 @@ uint32
 wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
                          uint64 expect, int64 timeout, bool wait64);
 
-uint8
+uint32
 wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module,
                            void *address, uint32 count);
 

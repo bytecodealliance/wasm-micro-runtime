@@ -50,6 +50,12 @@ typedef struct WASMMemoryInstance {
     /* to indicate which module instance create it */
     WASMModuleInstance *owner;
 #endif
+
+#if WASM_ENABLE_SHARED_MEMORY != 0
+    /* mutex lock for the memory, used in atomic operation */
+    korp_mutex mem_lock;
+#endif
+
     /* Base address, the layout is:
        heap_data + memory data
        memory data init size is: num_bytes_per_page * cur_page_count
