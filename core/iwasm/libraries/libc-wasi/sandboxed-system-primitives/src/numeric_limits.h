@@ -12,8 +12,6 @@
 #ifndef COMMON_LIMITS_H
 #define COMMON_LIMITS_H
 
-#include <limits.h>
-
 #define NUMERIC_MIN(t)                                  \
   _Generic((t)0, char                                   \
            : CHAR_MIN, signed char                      \

@@ -38,7 +38,6 @@ typedef enum EcallCmd {
     CMD_DESTROY_RUNTIME,      /* wasm_runtime_destroy() */
     CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
-    CMD_SET_MAX_THREAD_NUM,   /* wasm_runtime_set_max_thread_num() */
 } EcallCmd;
 
 typedef struct EnclaveModule {
@@ -54,7 +53,11 @@ typedef struct EnclaveModule {
     uint32 wasi_argc;
 } EnclaveModule;
 
-static char global_heap_buf[2 * 1024 * 1024] = { 0 };
+#if WASM_ENABLE_SPEC_TEST == 0
+static char global_heap_buf[10 * 1024 * 1024] = { 0 };
+#else
+static char global_heap_buf[100 * 1024 * 1024] = { 0 };
+#endif
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -66,16 +69,23 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 static void
 handle_cmd_init_runtime(uint64 *args, uint32 argc)
 {
-    bool alloc_with_pool = true;
+    bool alloc_with_pool;
+    uint32 max_thread_num;
     RuntimeInitArgs init_args;
+
+    bh_assert(argc == 2);
 
     os_set_print_function(enclave_print);
 
-    if (argc > 0) {
-        alloc_with_pool = (bool)args[0];
-    }
+#if WASM_ENABLE_SPEC_TEST == 0
+    alloc_with_pool = (bool)args[0];
+#else
+    alloc_with_pool = true;
+#endif
+    max_thread_num = (uint32)args[1];
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
+    init_args.max_thread_num = max_thread_num;
 
     if (alloc_with_pool) {
         init_args.mem_alloc_type = Alloc_With_Pool;
@@ -291,15 +301,6 @@ handle_cmd_set_log_level(uint64 *args, uint32 argc)
 }
 
 static void
-handle_cmd_set_max_thread_num(uint64 *args, uint32 argc)
-{
-#if WASM_ENABLE_LIB_PTHREAD != 0
-    LOG_VERBOSE("Set max thread num to %d.\n", (uint32)args[0]);
-    wasm_runtime_set_max_thread_num((uint32)args[0]);
-#endif
-}
-
-static void
 handle_cmd_set_wasi_args(uint64 *args, int32 argc)
 {
     uint64 *args_org = args;
@@ -379,16 +380,14 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
         p += sizeof(char *) * wasi_argc;
     }
 
-#if WASM_ENABLE_LIBC_WASI != 0
     wasm_runtime_set_wasi_args(enclave_module->module,
                                (const char **)enclave_module->wasi_dir_list,
                                dir_list_size,
                                NULL, 0,
                                (const char **)enclave_module->wasi_env_list,
                                env_list_size,
-                               envclave_module->wasi_argv,
-                               envclave_module->wasi_argc);
-#endif
+                               enclave_module->wasi_argv,
+                               enclave_module->wasi_argc);
 
     *args_org = true;
 }
@@ -440,9 +439,6 @@ ecall_handle_command(unsigned cmd,
             break;
         case CMD_SET_LOG_LEVEL:
             handle_cmd_set_log_level(args, argc);
-            break;
-        case CMD_SET_MAX_THREAD_NUM:
-            handle_cmd_set_max_thread_num(args, argc);
             break;
         default:
             LOG_ERROR("Unknown command %d\n", cmd);

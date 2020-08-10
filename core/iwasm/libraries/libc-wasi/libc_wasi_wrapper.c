@@ -4,8 +4,7 @@
  */
 
 #include "libc_wasi_wrapper.h"
-#include "bh_common.h"
-#include "bh_log.h"
+#include "bh_platform.h"
 #include "wasm_export.h"
 
 void

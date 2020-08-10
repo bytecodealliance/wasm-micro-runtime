@@ -10,34 +10,8 @@
 // Copyright (c) 2016-2018 Nuxi, https://nuxi.nl/
 
 #include "ssp_config.h"
-
-#include <sys/types.h>
-
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/uio.h>
-
-#include <assert.h>
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-
-#include <wasmtime_ssp.h>
-
+#include "bh_platform.h"
+#include "wasmtime_ssp.h"
 #include "locking.h"
 #include "numeric_limits.h"
 #include "posix.h"
@@ -45,9 +19,6 @@
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
-
-#include "bh_common.h"
-#include "bh_assert.h"
 
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
@@ -252,16 +223,18 @@ struct fd_prestat {
   const char *dir;
 };
 
-void fd_prestats_init(
+bool fd_prestats_init(
     struct fd_prestats *pt
 ) {
-  rwlock_init(&pt->lock);
+  if (!rwlock_init(&pt->lock))
+    return false;
   pt->prestats = NULL;
   pt->size = 0;
   pt->used = 0;
 #if defined(WASMTIME_SSP_STATIC_CURFDS)
   prestats = pt;
 #endif
+  return true;
 }
 
 // Grows the preopened resource table to a required lower bound and a
@@ -359,16 +332,18 @@ struct fd_entry {
   __wasi_rights_t rights_inheriting;
 };
 
-void fd_table_init(
+bool fd_table_init(
     struct fd_table *ft
 ) {
-  rwlock_init(&ft->lock);
+  if (!rwlock_init(&ft->lock))
+    return false;
   ft->entries = NULL;
   ft->size = 0;
   ft->used = 0;
 #if defined(WASMTIME_SSP_STATIC_CURFDS)
   curfds = ft;
 #endif
+  return true;
 }
 
 // Looks up a file descriptor table entry by number and required rights.
@@ -598,17 +573,22 @@ bool fd_table_insert_existing(
 ) {
   __wasi_filetype_t type;
   __wasi_rights_t rights_base, rights_inheriting;
-  if (fd_determine_type_rights(out, &type, &rights_base, &rights_inheriting) !=
-      0)
+  struct fd_object *fo;
+  __wasi_errno_t error;
+
+  if (fd_determine_type_rights(out, &type, &rights_base,
+                               &rights_inheriting) != 0)
     return false;
 
-  struct fd_object *fo;
-  __wasi_errno_t error = fd_object_new(type, &fo);
+  error = fd_object_new(type, &fo);
   if (error != 0)
     return false;
   fo->number = out;
   if (type == __WASI_FILETYPE_DIRECTORY) {
-    mutex_init(&fo->directory.lock);
+    if (!mutex_init(&fo->directory.lock)) {
+      fd_object_release(fo);
+      return false;
+    }
     fo->directory.handle = NULL;
   }
 
@@ -671,13 +651,17 @@ static __wasi_errno_t fd_table_insert_fd(
 ) REQUIRES_UNLOCKED(ft->lock) {
   struct fd_object *fo;
   __wasi_errno_t error = fd_object_new(type, &fo);
+
   if (error != 0) {
     close(in);
     return error;
   }
   fo->number = in;
   if (type == __WASI_FILETYPE_DIRECTORY) {
-    mutex_init(&fo->directory.lock);
+    if (!mutex_init(&fo->directory.lock)) {
+      fd_object_release(fo);
+      return -1;
+    }
     fo->directory.handle = NULL;
   }
   return fd_table_insert(ft, fo, rights_base, rights_inheriting, out);
@@ -2471,9 +2455,14 @@ __wasi_errno_t wasmtime_ssp_poll_oneoff(
           // Sleeping to an absolute point in time can only be done
           // by waiting on a condition variable.
           struct mutex mutex;
-          mutex_init(&mutex);
           struct cond cond;
-          cond_init_realtime(&cond);
+
+          if (!mutex_init(&mutex))
+            return -1;
+          if (!cond_init_realtime(&cond)) {
+            mutex_destroy(&mutex);
+            return -1;
+          }
           mutex_lock(&mutex);
           cond_timedwait(&cond, &mutex, in[0].u.clock.timeout, true);
           mutex_unlock(&mutex);
@@ -2649,11 +2638,17 @@ __wasi_errno_t wasmtime_ssp_poll_oneoff(
   return error;
 }
 
+#if 0
+/**
+ * We throw exception in libc-wasi wrapper function wasi_proc_exit()
+ * but not call this function.
+ */
 void wasmtime_ssp_proc_exit(
     __wasi_exitcode_t rval
 ) {
   _Exit((int32)rval);
 }
+#endif
 
 __wasi_errno_t wasmtime_ssp_proc_raise(
     __wasi_signal_t sig
@@ -2952,6 +2947,7 @@ void fd_table_destroy(struct fd_table *ft)
                 fd_object_release(ft->entries[i].object);
             }
         }
+        rwlock_destroy(&ft->lock);
         wasm_runtime_free(ft->entries);
     }
 }
@@ -2964,6 +2960,7 @@ void fd_prestats_destroy(struct fd_prestats *pt)
                 wasm_runtime_free((void*)pt->prestats[i].dir);
             }
         }
+        rwlock_destroy(&pt->lock);
         wasm_runtime_free(pt->prestats);
     }
 }
