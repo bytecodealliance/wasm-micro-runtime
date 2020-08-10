@@ -76,7 +76,9 @@ static inline void
 generic_vec_init_data(Vector *out, size_t num_of_elems, size_t size_of_elem)
 {
     if (!bh_vector_init(out, num_of_elems, size_of_elem)) {
-        memset(out, 0, sizeof(Vector));
+        out->data = NULL;
+        out->max_elems = 0;
+        out->num_elems = 0;
     }
     else {
         memset(out->data, 0, num_of_elems * size_of_elem);

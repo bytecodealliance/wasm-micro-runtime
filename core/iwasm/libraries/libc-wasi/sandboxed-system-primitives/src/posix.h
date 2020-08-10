@@ -12,9 +12,7 @@
 #ifndef POSIX_H
 #define POSIX_H
 
-#include <stdbool.h>
-#include <stddef.h>
-
+#include "bh_platform.h"
 #include "locking.h"
 
 struct fd_entry;
@@ -46,9 +44,9 @@ struct argv_environ_values {
   char *environ_buf;
 };
 
-void fd_table_init(struct fd_table *);
+bool fd_table_init(struct fd_table *);
 bool fd_table_insert_existing(struct fd_table *, __wasi_fd_t, int);
-void fd_prestats_init(struct fd_prestats *);
+bool fd_prestats_init(struct fd_prestats *);
 bool fd_prestats_insert(struct fd_prestats *, const char *, __wasi_fd_t);
 bool argv_environ_init(struct argv_environ_values *,
                        const size_t *argv_offsets, size_t argv_offsets_len,

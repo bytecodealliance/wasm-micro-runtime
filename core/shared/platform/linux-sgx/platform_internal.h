@@ -20,6 +20,14 @@
 #include <limits.h>
 #include <errno.h>
 #include <sgx_thread.h>
+#include <pthread.h>
+
+#include "sgx_error.h"
+#include "sgx_file.h"
+#include "sgx_pthread.h"
+#include "sgx_time.h"
+#include "sgx_socket.h"
+#include "sgx_signal.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,13 +45,15 @@ extern "C" {
 /* Default thread priority */
 #define BH_THREAD_DEFAULT_PRIORITY 0
 
-typedef sgx_thread_t korp_thread;
-typedef sgx_thread_t korp_tid;
-typedef sgx_thread_mutex_t korp_mutex;
-typedef sgx_thread_cond_t korp_cond;
+typedef pthread_t korp_thread;
+typedef pthread_t korp_tid;
+typedef pthread_mutex_t korp_mutex;
+typedef pthread_cond_t korp_cond;
 
 typedef void (*os_print_function_t)(const char* message);
 void os_set_print_function(os_print_function_t pf);
+
+char *strcpy(char *dest, const char *src);
 
 #ifdef __cplusplus
 }

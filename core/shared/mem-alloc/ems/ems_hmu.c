@@ -84,8 +84,8 @@ hmu_verify(hmu_t *hmu)
 
         if(!is_padding_ok)
         {
-            printf("Invalid padding for object created at %s:%d",
-                    (prefix->file_name ? prefix->file_name : ""), prefix->line_no);
+            os_printf("Invalid padding for object created at %s:%d",
+                      (prefix->file_name ? prefix->file_name : ""), prefix->line_no);
         }
         bh_assert(is_padding_ok);
     }

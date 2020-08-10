@@ -41,7 +41,7 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
 
     snprintf(buf, sizeof(buf), "%02u:%02u:%02u:%03u", h, m, s, mills);
 
-    os_printf("[%s - %X]: ", buf, (uint32)self);
+    os_printf("[%s - %X]: ", buf, (uint32)(uintptr_t)self);
 
     if (file)
         os_printf("%s, line %d, ", file, line);

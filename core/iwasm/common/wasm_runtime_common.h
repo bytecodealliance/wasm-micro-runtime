@@ -52,6 +52,10 @@ typedef struct WASIContext {
     int32 curfds_offset;
     int32 prestats_offset;
     int32 argv_environ_offset;
+    int32 argv_buf_offset;
+    int32 argv_offsets_offset;
+    int32 env_buf_offset;
+    int32 env_offsets_offset;
 } WASIContext;
 #endif
 
