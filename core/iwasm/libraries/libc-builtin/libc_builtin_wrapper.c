@@ -8,6 +8,11 @@
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
 
+#if defined(_WIN32) || defined(_WIN32_)
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+#endif
+
 void
 wasm_runtime_set_exception(wasm_module_inst_t module, const char *exception);
 
@@ -213,8 +218,17 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     padding = PAD_ZERO_BEFORE;
                     goto still_might_format;
                 }
-                /* Fall through */
-            case '1' ... '9':
+                goto handle_1_to_9;
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+handle_1_to_9:
                 if (min_width < 0) {
                     min_width = *fmt - '0';
                 } else {

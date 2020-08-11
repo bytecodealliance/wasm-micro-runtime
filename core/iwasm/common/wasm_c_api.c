@@ -1785,7 +1785,7 @@ aot_global_set(const AOTModuleInstance *inst_aot,
             .type;
     }
 
-    data = inst_aot->global_data.ptr + data_offset;
+    data = (void *)((uint8 *)inst_aot->global_data.ptr + data_offset);
     switch (val_type_rt) {
         case VALUE_TYPE_I32:
             bh_assert(WASM_I32 == v->kind);
@@ -1834,7 +1834,7 @@ aot_global_get(const AOTModuleInstance *inst_aot,
             .type;
     }
 
-    data = inst_aot->global_data.ptr + data_offset;
+    data = (void *)((uint8 *)inst_aot->global_data.ptr + data_offset);
     switch (val_type_rt) {
         case VALUE_TYPE_I32:
             out->kind = WASM_I32;

@@ -91,7 +91,9 @@ struct wasm_export_type_t {
 };
 
 /* Runtime Objects */
-struct wasm_ref_t {};
+struct wasm_ref_t {
+    uint32 obj;
+};
 
 struct wasm_trap_t {
     wasm_byte_vec_t *message;
