@@ -83,10 +83,10 @@ if (WAMR_BUILD_PLATFORM STREQUAL "windows")
   endif ()
   set (CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/win32build;${CMAKE_PREFIX_PATH}")
 else()
-if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
-  message (FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/build")
-endif ()
-set (CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/build;${CMAKE_PREFIX_PATH}")
+  if (NOT EXISTS "${LLVM_SRC_ROOT}/build")
+    message (FATAL_ERROR "Cannot find LLVM dir: ${LLVM_SRC_ROOT}/build")
+  endif ()
+  set (CMAKE_PREFIX_PATH "${LLVM_SRC_ROOT}/build;${CMAKE_PREFIX_PATH}")
 endif ()
 
 find_package(LLVM REQUIRED CONFIG)
@@ -98,15 +98,15 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
   if(NOT MSVC)
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
   else()
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
   endif()
 endif()
 
 if (NOT MSVC)
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections \
-                    -Wall -Wno-unused-parameter -Wno-pedantic")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections \
+                      -Wall -Wno-unused-parameter -Wno-pedantic")
 endif()
 
 set (SHARED_DIR ../core/shared)
@@ -130,7 +130,7 @@ include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 
 if (NOT MSVC)
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 endif()
 
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
@@ -141,15 +141,15 @@ if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
 endif ()
 
 if (NOT MSVC)
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
 endif()
 
 # We disable these flags by default to stay the same with wasm runtime
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
 
 if (NOT MSVC)
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
 endif()
 
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
@@ -170,8 +170,7 @@ add_library (aotclib ${IWASM_COMPL_SOURCE})
 add_executable (wamrc main.c)
 
 if (NOT MSVC)
-target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+  target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
 else()
-target_link_libraries (wamrc aotclib vmlib  ${LLVM_AVAILABLE_LIBS})
+  target_link_libraries (wamrc aotclib vmlib  ${LLVM_AVAILABLE_LIBS})
 endif()
-
