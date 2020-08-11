@@ -117,7 +117,6 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
-
 #define BUILD_TARGET_THUMB_V4T "thumbv4t"
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
@@ -140,7 +139,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
         else
             *d++ = *s++ ;
     }
-   /* Ensure the string is null byte ('\0') terminated */
+    /* Ensure the string is null byte ('\0') terminated */
     *d = '\0';
 }
 #undef BUILD_TARGET_THUMB_V4T
