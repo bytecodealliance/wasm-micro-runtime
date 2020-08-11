@@ -162,4 +162,7 @@ if (WAMR_DISABLE_HW_BOUND_CHECK EQUAL 1)
   add_definitions (-DWASM_DISABLE_HW_BOUND_CHECK=1)
   message ("     Hardware boundary check disabled")
 endif ()
+if (DEFINED WAMR_APP_THREAD_STACK_SIZE_MAX)
+  add_definitions (-DAPP_THREAD_STACK_SIZE_MAX=${WAMR_APP_THREAD_STACK_SIZE_MAX})
+endif ()
 
