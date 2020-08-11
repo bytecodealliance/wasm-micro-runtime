@@ -218,6 +218,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     padding = PAD_ZERO_BEFORE;
                     goto still_might_format;
                 }
+                goto handle_1_to_9:
             case '1':
             case '2':
             case '3':
@@ -227,6 +228,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
             case '7':
             case '8':
             case '9':
+handle_1_to_9:
                 if (min_width < 0) {
                     min_width = *fmt - '0';
                 } else {
