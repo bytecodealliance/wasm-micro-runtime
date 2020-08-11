@@ -64,13 +64,15 @@ Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compile
 
 ```shell
 cd wamr-compiler
-./build_llvm.sh (use build_llvm_xtensa.sh instead to support xtensa target)
+./build_llvm.sh (use build_llvm_xtensa.sh instead to support xtensa target; use build_llvm.py for windows)
 mkdir build && cd build
 cmake ..
 make
 ln -s {current path}/wamrc /usr/bin/wamrc
 ```
 For MacOS, you should replace `cmake ..` with `cmake -DWAMR_BUILD_PLATFORM=darwin ..`.
+
+For Windows you should replace `cmake ..` with `cmake -D WAMR_BUILD_PLATFORM=windows -A Win32 ..`.
 
 Application framework
 ===================================

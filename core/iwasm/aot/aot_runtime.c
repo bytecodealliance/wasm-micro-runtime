@@ -1747,7 +1747,7 @@ aot_set_aux_stack(WASMExecEnv *exec_env,
             set the initial value for the global */
         uint32 global_offset =
                 module->globals[stack_top_idx].data_offset;
-        uint8 *global_addr = module_inst->global_data.ptr + global_offset;
+        uint8 *global_addr = (uint8 *)module_inst->global_data.ptr + global_offset;
         *(int32*)global_addr = start_offset;
 
         /* The aux stack boundary is a constant value,

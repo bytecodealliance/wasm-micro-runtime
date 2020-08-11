@@ -82,8 +82,10 @@ if (WAMR_BUILD_THREAD_MGR EQUAL 1)
 endif ()
 
 ####################### Common sources #######################
+if (NOT MSVC)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
                                      -Wall -Wno-unused-parameter -Wno-pedantic")
+endif ()
 
 # include the build config template file
 include (${CMAKE_CURRENT_LIST_DIR}/config_common.cmake)
