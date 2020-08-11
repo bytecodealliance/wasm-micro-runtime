@@ -1,9 +1,14 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 cmake_minimum_required (VERSION 2.8)
 
-project (aot-compiler C ASM)
-enable_language(ASM_MASM)
+if (NOT MSVC)
+  project (aot-compiler)
+else()
+  project (aot-compiler C ASM)
+  enable_language (ASM_MASM)
+endif()
 
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
   set (WAMR_BUILD_PLATFORM "linux")
