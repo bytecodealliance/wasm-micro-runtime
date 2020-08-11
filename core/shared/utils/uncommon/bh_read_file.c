@@ -2,12 +2,13 @@
 
 #include <sys/stat.h>
 #include <fcntl.h>
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(_WIN32_)
 #include <unistd.h>
+#else
+include <io.h>
 #endif
 
 #if defined(_WIN32) || defined(_WIN32_)
-#include <io.h>
 char*
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
@@ -53,8 +54,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     *ret_size = file_size;
     return buffer;
 }
-
-#else
+#else /* else of defined(_WIN32) || defined(_WIN32_) */
 char*
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
@@ -101,4 +101,4 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     *ret_size = file_size;
     return buffer;
 }
-#endif
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
