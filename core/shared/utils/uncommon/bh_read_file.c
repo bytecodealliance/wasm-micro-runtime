@@ -2,10 +2,10 @@
 
 #include <sys/stat.h>
 #include <fcntl.h>
-#if !defined(_WIN32) && !defined(_WIN32_)
-#include <unistd.h>
-#else
+#if defined(_WIN32) || defined(_WIN32_)
 include <io.h>
+#else
+#include <unistd.h>
 #endif
 
 #if defined(_WIN32) || defined(_WIN32_)
