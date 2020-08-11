@@ -15,7 +15,7 @@ void __umoddi3();
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(_WIN32_)
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
     REG_SYM(__divdi3),
     REG_SYM(__udivdi3),
