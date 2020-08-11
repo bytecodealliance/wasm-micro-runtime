@@ -598,9 +598,7 @@ wasm_exec_env_get_aux_stack(WASMExecEnv *exec_env,
 void
 wasm_runtime_set_max_thread_num(uint32 num)
 {
-#if (WASM_ENABLE_WAMR_COMPILER == 0)
     wasm_cluster_set_max_thread_num(num);
-#endif
 }
 #endif /* end of WASM_ENABLE_THREAD_MGR */
 
