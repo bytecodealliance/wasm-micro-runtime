@@ -38,7 +38,7 @@ typedef struct {
     REG_SYM(wasm_runtime_set_exception),  \
     REG_BULK_MEMORY_SYM()                 \
     REG_ATOMIC_WAIT_SYM()
-#else
+#else /* else of defined(_WIN32) && defined(NDEBUG) */
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
@@ -59,7 +59,7 @@ typedef struct {
     REG_SYM(rintf),                       \
     REG_BULK_MEMORY_SYM()                 \
     REG_ATOMIC_WAIT_SYM()
-#endif
+#endif /* end of defined(_WIN32) && defined(NDEBUG) */
 
 #define CHECK_RELOC_OFFSET(data_size) do {                                  \
     if (!check_reloc_offset(target_section_size, reloc_offset, data_size,   \
