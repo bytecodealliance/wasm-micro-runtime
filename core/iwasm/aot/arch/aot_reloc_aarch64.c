@@ -27,22 +27,32 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
+#define BUILD_TARGET_AARCH64_DEFAULT "aarch64v8"
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
-    char *build_target = BUILD_TARGET;
-    char *p = target_buf, *p_end;
-    snprintf(target_buf, target_buf_size, "%s", build_target);
-    p_end = p + strlen(target_buf);
-    while (p < p_end) {
-        if (*p >= 'A' && *p <= 'Z')
-            *p++ += 'a' - 'A';
-        else
-            p++;
+    const char * s =  BUILD_TARGET;
+    size_t s_size = sizeof(BUILD_TARGET);
+    char *d = target_buf;
+
+    /* Set to "aarch64v8" by default if sub version isn't specified */
+    if (strcmp(s, "AARACH64") == 0) {
+        s = BUILD_TARGET_AARCH64_DEFAULT;
+        s_size = sizeof(BUILD_TARGET_AARCH64_DEFAULT);
     }
-    if (!strcmp(target_buf, "aarch64"))
-        snprintf(target_buf, target_buf_size, "aarch64v8");
+    if(target_buf_size < s_size){
+        s_size = target_buf_size;
+    }
+    while (--s_size) {
+        if (*s >= 'A' && *s <= 'Z')
+            *d++ = *s++ + 'a' - 'A';
+        else
+            *d++ = *s++ ;
+    }
+    /* Ensure the string is null byte ('\0') terminated */
+    *d = '\0';
 }
+#undef BUILD_TARGET_AARCH64_DEFAULT
 
 static uint32
 get_plt_item_size()
