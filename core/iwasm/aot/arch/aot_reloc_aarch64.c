@@ -35,7 +35,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
     size_t s_size = sizeof(BUILD_TARGET);
     char *d = target_buf;
 
-    /* Set to "thumbv4t" by default if sub version isn't specified */
+    /* Set to "aarch64v8" by default if sub version isn't specified */
     if (strcmp(s, "AARACH64") == 0) {
         s = BUILD_TARGET_AARCH64_DEFAULT;
         s_size = sizeof(BUILD_TARGET_AARCH64_DEFAULT);
