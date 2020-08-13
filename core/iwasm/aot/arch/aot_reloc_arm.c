@@ -126,7 +126,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
     size_t s_size = sizeof(BUILD_TARGET);
     char *d = target_buf;
 
-    /* Set to "thumbv4t" by default if sub version isn't specified */
+    /* Set to "armv4" by default if sub version isn't specified */
     if (strcmp(s, "ARM") == 0) {
         s = BUILD_TARGET_ARM_DEFAULT;
         s_size = sizeof(BUILD_TARGET_ARM_DEFAULT);
