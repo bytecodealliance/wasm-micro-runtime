@@ -4,6 +4,7 @@
  */
 
 #include "platform_api_vmcore.h"
+
 void * os_mmap(void *hint, size_t size, int prot, int flags)
 {
     DWORD AllocType = MEM_RESERVE | MEM_COMMIT;
@@ -17,14 +18,14 @@ void * os_mmap(void *hint, size_t size, int prot, int flags)
     if (request_size < size)
         /* integer overflow */
         return NULL;
-    
+
     if (prot & MMAP_PROT_EXEC) {
         if (prot & MMAP_PROT_WRITE)
             flProtect = PAGE_EXECUTE_READWRITE;
-        else 
+        else
             flProtect = PAGE_EXECUTE_READ;
-    } 
-    else if (prot & MMAP_PROT_WRITE) 
+    }
+    else if (prot & MMAP_PROT_WRITE)
         flProtect = PAGE_READWRITE;
     else if (prot & MMAP_PROT_READ)
         flProtect = PAGE_READONLY;
@@ -40,12 +41,12 @@ os_munmap(void *addr, size_t size)
 {
     size_t page_size = getpagesize();
     size_t request_size = (size + page_size - 1) & ~(page_size - 1);
+
     if (addr) {
-        
         if (VirtualFree(addr, 0, MEM_RELEASE) == 0) {
             if (VirtualFree(addr, size, MEM_DECOMMIT) == 0) {
                 os_printf("os_munmap error addr:%p, size:0x%lx, errno:%d\n",
-                      addr, request_size, errno);
+                          addr, request_size, errno);
             }
         }
     }
@@ -56,16 +57,17 @@ os_mprotect(void *addr, size_t size, int prot)
 {
     DWORD AllocType = MEM_RESERVE | MEM_COMMIT;
     DWORD flProtect = PAGE_NOACCESS;
+
     if (!addr)
         return 0;
-    
+
     if (prot & MMAP_PROT_EXEC) {
         if (prot & MMAP_PROT_WRITE)
             flProtect = PAGE_EXECUTE_READWRITE;
-        else 
+        else
             flProtect = PAGE_EXECUTE_READ;
-    } 
-    else if (prot & MMAP_PROT_WRITE) 
+    }
+    else if (prot & MMAP_PROT_WRITE)
         flProtect = PAGE_READWRITE;
     else if (prot & MMAP_PROT_READ)
         flProtect = PAGE_READONLY;
@@ -76,4 +78,5 @@ os_mprotect(void *addr, size_t size, int prot)
 void
 os_dcache_flush(void)
 {
+
 }

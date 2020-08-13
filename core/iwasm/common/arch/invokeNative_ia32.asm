@@ -6,7 +6,7 @@
     .386
     .model flat
     .code
-_invokeNative PROC 
+_invokeNative PROC
     push    ebp
     mov     ebp,esp
     mov     ecx, [ebp+16]          ; ecx = argc */
