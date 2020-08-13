@@ -59,7 +59,7 @@ def main():
     Path(build_dir_name).mkdir(exist_ok = True)
     build_dir = Path(build_dir_name)
     os.chdir(build_dir)
-    
+
     if ( not Path(llvm_file).exists()):
         core_number = os.cpu_count()
         print("Build llvm with", core_number, " cores")
@@ -81,10 +81,10 @@ def main():
                 -DLLVM_APPEND_VC_REV:BOOL=OFF'
         print(cmd)
         for line in os.popen(cmd):
-                print(line)
+            print(line)
     else:
         print("llvm has already been Cmaked")
-    
+
     if(current_os == "linux"):
         for line in os.popen("make -j {}".format(core_number)):
             print(line)

@@ -45,17 +45,19 @@ typedef void *korp_sem;
 typedef void *korp_thread;
 
 typedef struct {
-  korp_sem s;
-  unsigned int waiting_count;
+    korp_sem s;
+    unsigned int waiting_count;
 } korp_cond;
 
 #define os_printf printf
 #define os_vprintf vprintf
 
-static inline size_t getpagesize() {
-  SYSTEM_INFO S;
-  GetNativeSystemInfo(&S);
-  return S.dwPageSize;
+static inline size_t
+getpagesize()
+{
+    SYSTEM_INFO S;
+    GetNativeSystemInfo(&S);
+    return S.dwPageSize;
 }
 
 #ifdef __cplusplus

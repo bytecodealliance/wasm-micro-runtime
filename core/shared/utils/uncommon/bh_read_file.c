@@ -24,13 +24,13 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 
     if (_sopen_s(&file, filename, _O_RDONLY| _O_BINARY, _SH_DENYNO, 0)) {
         printf("Read file to buffer failed: open file %s failed.\n",
-            filename);
+               filename);
         return NULL;
     }
 
     if (fstat(file, &stat_buf) != 0) {
         printf("Read file to buffer failed: fstat file %s failed.\n",
-            filename);
+               filename);
         _close(file);
         return NULL;
     }
