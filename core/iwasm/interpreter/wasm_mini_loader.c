@@ -3116,6 +3116,9 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
      *  d) each arity value's src frame offset
      *  e) each arity values's dst dynamic offset
      *  f) branch target address
+     *
+     *  Note: b-e are omitted when arity is 0 so that
+     *  interpreter can recover the br info quickly.
      */
     BlockType *block_type = &frame_csp->block_type;
     uint8 *types = NULL, cell;
@@ -3134,27 +3137,30 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
 
     /* Part a */
     emit_uint32(ctx, arity);
-    /* Part b */
-    emit_uint32(ctx, wasm_get_cell_num(types, arity));
 
-    /* Part c */
-    for (i = (int32)arity - 1; i >= 0; i--) {
-        cell = wasm_value_type_cell_num(types[i]);
-        emit_byte(ctx, cell);
-    }
-    /* Part d */
-    for (i = (int32)arity - 1; i >= 0; i--) {
-        cell = wasm_value_type_cell_num(types[i]);
-        frame_offset -= cell;
-        emit_operand(ctx, *(int16*)(frame_offset));
-    }
-    /* Part e */
-    dynamic_offset = frame_csp->dynamic_offset
-                     + wasm_get_cell_num(types, arity);
-    for (i = (int32)arity - 1; i >= 0; i--) {
-        cell = wasm_value_type_cell_num(types[i]);
-        dynamic_offset -= cell;
-        emit_operand(ctx, dynamic_offset);
+    if (arity) {
+        /* Part b */
+        emit_uint32(ctx, wasm_get_cell_num(types, arity));
+
+        /* Part c */
+        for (i = (int32)arity - 1; i >= 0; i--) {
+            cell = wasm_value_type_cell_num(types[i]);
+            emit_byte(ctx, cell);
+        }
+        /* Part d */
+        for (i = (int32)arity - 1; i >= 0; i--) {
+            cell = wasm_value_type_cell_num(types[i]);
+            frame_offset -= cell;
+            emit_operand(ctx, *(int16*)(frame_offset));
+        }
+        /* Part e */
+        dynamic_offset = frame_csp->dynamic_offset
+                         + wasm_get_cell_num(types, arity);
+        for (i = (int32)arity - 1; i >= 0; i--) {
+            cell = wasm_value_type_cell_num(types[i]);
+            dynamic_offset -= cell;
+            emit_operand(ctx, dynamic_offset);
+        }
     }
 
     /* Part f */
@@ -3577,6 +3583,33 @@ reserve_block_ret(WASMLoaderContext *loader_ctx,
           *frame_offset = NULL, *frame_offset_org = NULL;
 
     return_count = block_type_get_result_types(block_type, &return_types);
+
+    /* If there is only one return value, use EXT_OP_COPY_STACK_TOP/_I64 instead
+     * of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
+    if (return_count == 1) {
+        uint8 cell = wasm_value_type_cell_num(return_types[0]);
+        if (block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
+            /* insert op_copy before else opcode */
+            if (opcode == WASM_OP_ELSE)
+                skip_label();
+            emit_label(cell == 1 ? EXT_OP_COPY_STACK_TOP : EXT_OP_COPY_STACK_TOP_I64);
+            emit_operand(loader_ctx, *(loader_ctx->frame_offset - cell));
+            emit_operand(loader_ctx, block->dynamic_offset);
+
+            if (opcode == WASM_OP_ELSE) {
+                *(loader_ctx->frame_offset - cell) = block->dynamic_offset;
+            }
+            else {
+                loader_ctx->frame_offset -= cell;
+                loader_ctx->dynamic_offset = block->dynamic_offset;
+                PUSH_OFFSET_TYPE(return_types[0]);
+                wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
+            }
+            if (opcode == WASM_OP_ELSE)
+                emit_label(opcode);
+        }
+        return true;
+    }
 
     /* Copy stack top values to block's results which are in dynamic space.
      * The instruction format:
@@ -5498,7 +5531,7 @@ handle_op_block_and_loop:
         goto fail;
     }
     func_const_end = func->consts + func->const_cell_num * 4;
-    // reverse the const buf
+    /* reverse the const buf */
     for (int i = loader_ctx->num_const - 1; i >= 0; i--) {
         Const *c = (Const*)(loader_ctx->const_buf + i * sizeof(Const));
         if (c->value_type == VALUE_TYPE_F64
