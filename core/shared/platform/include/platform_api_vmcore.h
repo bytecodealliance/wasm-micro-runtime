@@ -49,10 +49,13 @@ void os_free(void *ptr);
  *       Refer to wasm_runtime_full_init().
  */
 
-
+#ifndef os_printf
 int os_printf(const char *format, ...);
+#endif
 
+#ifndef os_vprintf
 int os_vprintf(const char *format, va_list ap);
+#endif
 
 /**
  * Get microseconds after boot.
