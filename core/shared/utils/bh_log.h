@@ -54,7 +54,7 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 #if BH_DEBUG == 1
 #define LOG_DEBUG(...)   bh_log(BH_LOG_LEVEL_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
 #else
-#define LOG_DEBUG(...)   /* do nothing */
+#define LOG_DEBUG(...)   (void)0
 #endif
 
 void

@@ -13,13 +13,14 @@
 #include "event.h"
 #include "watchdog.h"
 #include "runtime_lib.h"
+#include "wasm.h"
 #if WASM_ENABLE_AOT != 0
 #include "aot_export.h"
 #endif
 
 #if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
 /* Wasm bytecode file 4 version bytes */
-static uint8 wasm_bytecode_version[] = {
+static uint8 wasm_bytecode_version[4] = {
     (uint8) 0x01,
     (uint8) 0x00,
     (uint8) 0x00,
@@ -29,12 +30,13 @@ static uint8 wasm_bytecode_version[] = {
 
 #if WASM_ENABLE_AOT != 0
 /* Wasm aot file 4 version bytes */
-static uint8 wasm_aot_version[] = {
-    (uint8) 0x01,
+static uint8 wasm_aot_version[4] = {
+    (uint8) 0x02,
     (uint8) 0x00,
     (uint8) 0x00,
     (uint8) 0x00
 };
+#endif
 
 static union {
     int a;
@@ -42,8 +44,6 @@ static union {
 } __ue = { .a = 1 };
 
 #define is_little_endian() (__ue.b == 1)
-#endif
-
 /* Wasm App Install Request Receiving Phase */
 typedef enum wasm_app_install_req_recv_phase_t {
     Phase_Req_Ver,
@@ -163,14 +163,6 @@ module_interface wasm_app_module_interface = {
     wasm_app_module_on_install_request_byte_arrive
 };
 
-static unsigned
-align_uint(unsigned v, unsigned b)
-{
-    unsigned m = b - 1;
-    return (v + m) & ~m;
-}
-
-#if WASM_ENABLE_AOT != 0
 static void
 exchange_uint32(uint8 *p_data)
 {
@@ -182,7 +174,6 @@ exchange_uint32(uint8 *p_data)
     *(p_data + 1) = *(p_data + 2);
     *(p_data + 2) = value;
 }
-#endif
 
 static wasm_function_inst_t
 app_manager_lookup_function(const wasm_module_inst_t module_inst,
@@ -546,7 +537,21 @@ cleanup_app_resource(module_data *m_data)
 static bool
 wasm_app_module_init(void)
 {
-    /* wasm runtime is already initialized by main func */
+    uint32 version;
+
+#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
+    version = WASM_CURRENT_VERSION;
+    if (!is_little_endian())
+        exchange_uint32((uint8 *)&version);
+    bh_memcpy_s(wasm_bytecode_version, 4, &version, 4);
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    version = AOT_CURRENT_VERSION;
+    if (!is_little_endian())
+        exchange_uint32((uint8 *)&version);
+    bh_memcpy_s(wasm_aot_version, 4, &version, 4);
+#endif
     return true;
 }
 

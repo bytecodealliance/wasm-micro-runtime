@@ -65,7 +65,7 @@ os_munmap(void *addr, size_t size)
 
     if (addr) {
         if (munmap(addr, request_size)) {
-            os_printf("os_munmap error addr:%p, size:0x%lx, errno:%d\n",
+            os_printf("os_munmap error addr:%p, size:0x%"PRIx64", errno:%d\n",
                       addr, request_size, errno);
         }
     }

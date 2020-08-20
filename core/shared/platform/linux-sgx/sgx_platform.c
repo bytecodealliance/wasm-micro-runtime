@@ -152,8 +152,8 @@ int os_mprotect(void *addr, size_t size, int prot)
         mprot |= SGX_PROT_EXEC;
     st = sgx_tprotect_rsrv_mem(addr, aligned_size, mprot);
     if (st != SGX_SUCCESS)
-        os_printf("os_mprotect(addr=0x%lx, size=%u, prot=0x%x) failed.",
-                  addr, size, prot);
+        os_printf("os_mprotect(addr=0x%"PRIx64", size=%u, prot=0x%x) failed.",
+                  (uintptr_t)addr, size, prot);
 
     return (st == SGX_SUCCESS? 0:-1);
 }

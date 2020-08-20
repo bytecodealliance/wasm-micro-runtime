@@ -147,6 +147,9 @@ typedef struct AOTModule {
     /* start function, point to AOTed/JITed function */
     void *start_function;
 
+    uint32 malloc_func_index;
+    uint32 free_func_index;
+
     /* AOTed code, NULL for JIT mode */
     void *code;
     uint32 code_size;
@@ -163,10 +166,25 @@ typedef struct AOTModule {
     /* constant string set */
     HashMap *const_str_set;
 
-    uint32 llvm_aux_data_end;
-    uint32 llvm_aux_stack_bottom;
-    uint32 llvm_aux_stack_size;
-    uint32 llvm_aux_stack_global_index;
+    /* the index of auxiliary __data_end global,
+       -1 means unexported */
+    uint32 aux_data_end_global_index;
+    /* auxiliary __data_end exported by wasm app */
+    uint32 aux_data_end;
+
+    /* the index of auxiliary __heap_base global,
+       -1 means unexported */
+    uint32 aux_heap_base_global_index;
+    /* auxiliary __heap_base exported by wasm app */
+    uint32 aux_heap_base;
+
+    /* the index of auxiliary stack top global,
+       -1 means unexported */
+    uint32 aux_stack_top_global_index;
+    /* auxiliary stack bottom resolved */
+    uint32 aux_stack_bottom;
+    /* auxiliary stack size resolved */
+    uint32 aux_stack_size;
 
     /* is jit mode or not */
     bool is_jit_mode;
@@ -188,31 +206,34 @@ typedef union {
     void *ptr;
 } AOTPointer;
 
+typedef union {
+    uint64 u64;
+    uint32 u32[2];
+} MemBound;
+
 typedef struct AOTMemoryInstance {
     uint32 module_type;
     /* shared memory flag */
     bool is_shared;
+
     /* memory space info */
-    uint32 mem_cur_page_count;
-    uint32 mem_max_page_count;
+    uint32 num_bytes_per_page;
+    uint32 cur_page_count;
+    uint32 max_page_count;
     uint32 memory_data_size;
-    uint32 __padding__;
     AOTPointer memory_data;
     AOTPointer memory_data_end;
 
     /* heap space info */
-    int32 heap_base_offset;
-    uint32 heap_data_size;
     AOTPointer heap_data;
     AOTPointer heap_data_end;
     AOTPointer heap_handle;
 
     /* boundary check constants for aot code */
-    int64 mem_bound_check_heap_base;
-    int64 mem_bound_check_1byte;
-    int64 mem_bound_check_2bytes;
-    int64 mem_bound_check_4bytes;
-    int64 mem_bound_check_8bytes;
+    MemBound mem_bound_check_1byte;
+    MemBound mem_bound_check_2bytes;
+    MemBound mem_bound_check_4bytes;
+    MemBound mem_bound_check_8bytes;
 } AOTMemoryInstance;
 
 typedef struct AOTModuleInstance {

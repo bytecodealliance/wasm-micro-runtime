@@ -779,9 +779,10 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
       case WASM_OP_MISC_PREFIX:
       {
-        if (frame_ip < frame_ip_end) {
-          opcode = *frame_ip++;
-        }
+        uint32 opcode1;
+
+        read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+        opcode = (uint32)opcode1;
 
         switch (opcode) {
           case WASM_OP_I32_TRUNC_SAT_S_F32:

@@ -375,6 +375,10 @@ aot_create_comp_data(WASMModule *module)
   }
   memset(comp_data->memories, 0, size);
 
+  if (!(module->import_memory_count + module->memory_count)) {
+      comp_data->memories[0].num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
+  }
+
   /* Set memory page count */
   for (i = 0; i < module->import_memory_count + module->memory_count; i++) {
     if (i < module->import_memory_count) {
@@ -487,13 +491,19 @@ aot_create_comp_data(WASMModule *module)
       && !(comp_data->funcs = aot_create_funcs(module)))
     goto fail;
 
-  /* Create llvm aux stack informations */
-  comp_data->llvm_aux_stack_global_index = module->llvm_aux_stack_global_index;
-  comp_data->llvm_aux_data_end = module->llvm_aux_data_end;
-  comp_data->llvm_aux_stack_bottom = module->llvm_aux_stack_bottom;
-  comp_data->llvm_aux_stack_size = module->llvm_aux_stack_size;
+  /* Create aux data/heap/stack information */
+  comp_data->aux_data_end_global_index = module->aux_data_end_global_index;
+  comp_data->aux_data_end = module->aux_data_end;
+  comp_data->aux_heap_base_global_index = module->aux_heap_base_global_index;
+  comp_data->aux_heap_base = module->aux_heap_base;
+  comp_data->aux_stack_top_global_index = module->aux_stack_top_global_index;
+  comp_data->aux_stack_bottom = module->aux_stack_bottom;
+  comp_data->aux_stack_size = module->aux_stack_size;
 
   comp_data->start_func_index = module->start_function;
+  comp_data->malloc_func_index = module->malloc_function;
+  comp_data->free_func_index = module->free_function;
+
   comp_data->wasm_module = module;
 
   return comp_data;

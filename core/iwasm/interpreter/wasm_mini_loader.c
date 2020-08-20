@@ -555,24 +555,27 @@ static bool
 load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
            char *error_buf, uint32 error_buf_size)
 {
-    const uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
 
     CHECK_BUF(p, p_end, 1);
     /* 0x70 */
     table->elem_type = read_uint8(p);
     bh_assert(TABLE_ELEM_TYPE_ANY_FUNC == table->elem_type);
 
+    p_org = p;
     read_leb_uint32(p, p_end, table->flags);
+    bh_assert(p - p_org <= 1);
+    bh_assert(table->flags <= 1);
+    (void)p_org;
+
     read_leb_uint32(p, p_end, table->init_size);
-    if (table->flags & 1) {
+    if (table->flags == 0) {
+        table->max_size = 0x10000;
+    }
+    else if (table->flags == 1) {
         read_leb_uint32(p, p_end, table->max_size);
         bh_assert(table->init_size <= table->max_size);
     }
-    else
-        table->max_size = 0x10000;
-
-    bh_assert(!((table->flags & 1)
-                && table->init_size > table->max_size));
 
     *p_buf = p;
     return true;
@@ -582,7 +585,7 @@ static bool
 load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
             char *error_buf, uint32 error_buf_size)
 {
-    const uint8 *p = *p_buf, *p_end = buf_end;
+    const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
     uint32 pool_size = wasm_runtime_memory_pool_size();
 #if WASM_ENABLE_APP_FRAMEWORK != 0
     uint32 max_page_count = pool_size * APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT
@@ -591,7 +594,15 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     uint32 max_page_count = pool_size / DEFAULT_NUM_BYTES_PER_PAGE;
 #endif
 
+    p_org = p;
     read_leb_uint32(p, p_end, memory->flags);
+    bh_assert(p - p_org <= 1);
+#if WASM_ENABLE_SHARED_MEMORY == 0
+    bh_assert(memory->flags <= 1);
+#else
+    bh_assert(memory->flags <= 3 && memory->flags != 2);
+#endif
+
     read_leb_uint32(p, p_end, memory->init_page_count);
     bh_assert(memory->init_page_count <= 65536);
 
@@ -602,9 +613,10 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
         if (memory->max_page_count > max_page_count)
             memory->max_page_count = max_page_count;
     }
-    else
+    else {
         /* Limit the maximum memory size to max_page_count */
         memory->max_page_count = max_page_count;
+    }
 
     memory->num_bytes_per_page = DEFAULT_NUM_BYTES_PER_PAGE;
 
@@ -707,7 +719,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
         p = p_old;
 
-        // TODO: move it out of the loop
+        /* TODO: move it out of the loop */
         /* insert "env", "wasi_unstable" and "wasi_snapshot_preview1" to const str list */
         if (!const_str_list_insert((uint8*)"env", 3, module, error_buf, error_buf_size)
             || !const_str_list_insert((uint8*)"wasi_unstable", 13, module,
@@ -1436,12 +1448,14 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     WASMSection *section = sections;
     const uint8 *buf, *buf_end, *buf_code = NULL, *buf_code_end = NULL,
                 *buf_func = NULL, *buf_func_end = NULL;
-    WASMGlobal *llvm_data_end_global = NULL, *llvm_heap_base_global = NULL;
-    WASMGlobal *llvm_stack_top_global = NULL, *global;
-    uint32 llvm_data_end = UINT32_MAX, llvm_heap_base = UINT32_MAX;
-    uint32 llvm_stack_top = UINT32_MAX, global_index, i;
-    uint32 stack_top_global_index = UINT32_MAX;
+    WASMGlobal *aux_data_end_global = NULL, *aux_heap_base_global = NULL;
+    WASMGlobal *aux_stack_top_global = NULL, *global;
+    uint32 aux_data_end = (uint32)-1, aux_heap_base = (uint32)-1;
+    uint32 aux_stack_top = (uint32)-1, global_index, func_index, i;
+    uint32 aux_data_end_global_index = (uint32)-1;
+    uint32 aux_heap_base_global_index = (uint32)-1;
     BlockAddr *block_addr_cache;
+    WASMType *func_type;
     uint64 total_size;
 
     /* Find code and function sections if have */
@@ -1550,7 +1564,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     }
     wasm_runtime_free(block_addr_cache);
 
-    /* Resolve llvm auxiliary data/stack/heap info and reset memory info */
+    module->aux_data_end_global_index = (uint32)-1;
+    module->aux_heap_base_global_index = (uint32)-1;
+    module->aux_stack_top_global_index = (uint32)-1;
+
+    /* Resolve auxiliary data/stack/heap info and reset memory info */
     export = module->exports;
     for (i = 0; i < module->export_count; i++, export++) {
         if (export->kind == EXPORT_KIND_GLOBAL) {
@@ -1561,10 +1579,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && !global->is_mutable
                     && global->init_expr.init_expr_type ==
                             INIT_EXPR_TYPE_I32_CONST) {
-                    llvm_heap_base_global = global;
-                    llvm_heap_base = global->init_expr.u.i32;
-                    LOG_VERBOSE("found llvm __heap_base global, value: %d\n",
-                                llvm_heap_base);
+                    aux_heap_base_global = global;
+                    aux_heap_base = global->init_expr.u.i32;
+                    aux_heap_base_global_index = export->index;
+                    LOG_VERBOSE("Found aux __heap_base global, value: %d",
+                                aux_heap_base);
                 }
             }
             else if (!strcmp(export->name, "__data_end")) {
@@ -1574,89 +1593,155 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && !global->is_mutable
                     && global->init_expr.init_expr_type ==
                             INIT_EXPR_TYPE_I32_CONST) {
-                    llvm_data_end_global = global;
-                    llvm_data_end = global->init_expr.u.i32;
-                    LOG_VERBOSE("found llvm __data_end global, value: %d\n",
-                                llvm_data_end);
+                    aux_data_end_global = global;
+                    aux_data_end = global->init_expr.u.i32;
+                    aux_data_end_global_index = export->index;
+                    LOG_VERBOSE("Found aux __data_end global, value: %d",
+                                aux_data_end);
 
-                    llvm_data_end = align_uint(llvm_data_end, 16);
+                    aux_data_end = align_uint(aux_data_end, 16);
                 }
             }
 
-            if (llvm_data_end_global && llvm_heap_base_global) {
+            /* For module compiled with -pthread option, the global is:
+                [0] stack_top       <-- 0
+                [1] tls_pointer
+                [2] tls_size
+                [3] data_end        <-- 3
+                [4] global_base
+                [5] heap_base       <-- 5
+                [6] dso_handle
+
+                For module compiled without -pthread option:
+                [0] stack_top       <-- 0
+                [1] data_end        <-- 1
+                [2] global_base
+                [3] heap_base       <-- 3
+                [4] dso_handle
+            */
+            if (aux_data_end_global && aux_heap_base_global
+                && aux_data_end <= aux_heap_base) {
+                module->aux_data_end_global_index = aux_data_end_global_index;
+                module->aux_data_end = aux_data_end;
+                module->aux_heap_base_global_index = aux_heap_base_global_index;
+                module->aux_heap_base = aux_heap_base;
+
                 /* Resolve aux stack top global */
-                for (global_index = 0; global_index < module->global_count; global_index++) {
+                for (global_index = 0; global_index < module->global_count;
+                     global_index++) {
                     global = module->globals + global_index;
-                    if (global != llvm_data_end_global
-                        && global != llvm_heap_base_global
+                    if (global->is_mutable /* heap_base and data_end is
+                                              not mutable */
                         && global->type == VALUE_TYPE_I32
-                        && global->is_mutable
                         && global->init_expr.init_expr_type ==
                                     INIT_EXPR_TYPE_I32_CONST
-                        && (global->init_expr.u.i32 <=
-                                    llvm_heap_base_global->init_expr.u.i32
-                            && llvm_data_end_global->init_expr.u.i32 <=
-                                    llvm_heap_base_global->init_expr.u.i32)) {
-                        llvm_stack_top_global = global;
-                        llvm_stack_top = global->init_expr.u.i32;
-                        stack_top_global_index = global_index;
-                        LOG_VERBOSE("found llvm stack top global, "
-                                    "value: %d, global index: %d\n",
-                                    llvm_stack_top, global_index);
+                        && (uint32)global->init_expr.u.i32 <= aux_heap_base) {
+                        aux_stack_top_global = global;
+                        aux_stack_top = (uint32)global->init_expr.u.i32;
+                        module->aux_stack_top_global_index =
+                                module->import_global_count + global_index;
+                        module->aux_stack_bottom = aux_stack_top;
+                        module->aux_stack_size = aux_stack_top > aux_data_end
+                                                 ? aux_stack_top - aux_data_end
+                                                 : aux_stack_top;
+                        LOG_VERBOSE("Found aux stack top global, value: %d, "
+                                    "global index: %d, stack size: %d",
+                                    aux_stack_top, global_index,
+                                    module->aux_stack_size);
                         break;
                     }
                 }
-
-                module->llvm_aux_data_end = llvm_data_end;
-                module->llvm_aux_stack_bottom = llvm_stack_top;
-                module->llvm_aux_stack_size = llvm_stack_top > llvm_data_end
-                                              ? llvm_stack_top - llvm_data_end
-                                              : llvm_stack_top;
-                module->llvm_aux_stack_global_index = stack_top_global_index;
-                LOG_VERBOSE("aux stack bottom: %d, size: %d\n",
-                            module->llvm_aux_stack_bottom,
-                            module->llvm_aux_stack_size);
                 break;
             }
         }
     }
 
+    module->malloc_function = (uint32)-1;
+    module->free_function = (uint32)-1;
+
+    /* Resolve auxiliary data/stack/heap info and reset memory info */
+    export = module->exports;
+    for (i = 0; i < module->export_count; i++, export++) {
+        if (export->kind == EXPORT_KIND_FUNC) {
+            if (!strcmp(export->name, "malloc")
+                && export->index >= module->import_function_count) {
+                func_index = export->index - module->import_function_count;
+                func_type = module->functions[func_index]->func_type;
+                if (func_type->param_count == 1
+                    && func_type->result_count == 1
+                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[1] == VALUE_TYPE_I32) {
+                    module->malloc_function = export->index;
+                    LOG_VERBOSE("Found malloc function, index: %u",
+                                export->index);
+                }
+            }
+            else if (!strcmp(export->name, "free")
+                     && export->index >= module->import_function_count) {
+                func_index = export->index - module->import_function_count;
+                func_type = module->functions[func_index]->func_type;
+                if (func_type->param_count == 1
+                    && func_type->result_count == 0
+                    && func_type->types[0] == VALUE_TYPE_I32) {
+                    module->free_function = export->index;
+                    LOG_VERBOSE("Found free function, index: %u",
+                                export->index);
+                }
+            }
+        }
+    }
+
     if (!module->possible_memory_grow) {
-        if (llvm_data_end_global
-            && llvm_heap_base_global
-            && llvm_stack_top_global
-            && llvm_stack_top <= llvm_heap_base) {
-            WASMMemoryImport *memory_import;
-            WASMMemory *memory;
+        WASMMemoryImport *memory_import;
+        WASMMemory *memory;
+
+        if (aux_data_end_global
+            && aux_heap_base_global
+            && aux_stack_top_global) {
             uint64 init_memory_size;
-            uint32 shrunk_memory_size = llvm_heap_base > llvm_data_end
-                                        ? llvm_heap_base : llvm_data_end;
+            uint32 shrunk_memory_size = align_uint(aux_heap_base, 8);
+
             if (module->import_memory_count) {
                 memory_import = &module->import_memories[0].u.memory;
                 init_memory_size = (uint64)memory_import->num_bytes_per_page *
                                    memory_import->init_page_count;
-                if (llvm_heap_base <= init_memory_size
-                    && llvm_data_end <= init_memory_size) {
+                if (shrunk_memory_size <= init_memory_size) {
                     /* Reset memory info to decrease memory usage */
                     memory_import->num_bytes_per_page = shrunk_memory_size;
                     memory_import->init_page_count = 1;
-                    LOG_VERBOSE("reset import memory size to %d\n",
+                    LOG_VERBOSE("Shrink import memory size to %d",
                                 shrunk_memory_size);
                 }
             }
             if (module->memory_count) {
                 memory = &module->memories[0];
                 init_memory_size = (uint64)memory->num_bytes_per_page *
-                             memory->init_page_count;
-                if (llvm_heap_base <= init_memory_size
-                    && llvm_data_end <= init_memory_size) {
+                                   memory->init_page_count;
+                if (shrunk_memory_size <= init_memory_size) {
                     /* Reset memory info to decrease memory usage */
                     memory->num_bytes_per_page = shrunk_memory_size;
                     memory->init_page_count = 1;
-                    LOG_VERBOSE("reset memory size to %d\n", shrunk_memory_size);
+                    LOG_VERBOSE("Shrink memory size to %d", shrunk_memory_size);
                 }
             }
         }
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+        if (module->import_memory_count) {
+            memory_import = &module->import_memories[0].u.memory;
+            /* Memory init page count cannot be larger than 65536, we don't
+               check integer overflow again. */
+            memory_import->num_bytes_per_page *= memory_import->init_page_count;
+            memory_import->init_page_count = memory_import->max_page_count = 1;
+        }
+        if (module->memory_count) {
+            /* Memory init page count cannot be larger than 65536, we don't
+               check integer overflow again. */
+            memory = &module->memories[0];
+            memory->num_bytes_per_page *= memory->init_page_count;
+            memory->init_page_count = memory->max_page_count = 1;
+        }
+#endif
     }
 
     return true;
@@ -1878,7 +1963,7 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_bu
         goto fail;
     }
 
-    LOG_VERBOSE("Load module success");
+    LOG_VERBOSE("Load module success.\n");
     return module;
 
 fail:
@@ -2295,8 +2380,11 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                 break;
             case WASM_OP_MISC_PREFIX:
             {
-                opcode = read_uint8(p);
-                switch (opcode) {
+                uint32 opcode1;
+
+                read_leb_uint32(p, p_end, opcode1);
+
+                switch (opcode1) {
                     case WASM_OP_I32_TRUNC_SAT_S_F32:
                     case WASM_OP_I32_TRUNC_SAT_U_F32:
                     case WASM_OP_I32_TRUNC_SAT_S_F64:
@@ -4869,8 +4957,8 @@ handle_op_block_and_loop:
                     || global_type == VALUE_TYPE_F64) {
                     *p_org = WASM_OP_SET_GLOBAL_64;
                 }
-                else if (module->llvm_aux_stack_size > 0
-                         && global_idx == module->llvm_aux_stack_global_index) {
+                else if (module->aux_stack_size > 0
+                         && global_idx == module->aux_stack_top_global_index) {
                     *p_org = WASM_OP_SET_GLOBAL_AUX_STACK;
                 }
 #endif
@@ -4880,8 +4968,8 @@ handle_op_block_and_loop:
                     skip_label();
                     emit_label(WASM_OP_SET_GLOBAL_64);
                 }
-                else if (module->llvm_aux_stack_size > 0
-                         && global_idx == module->llvm_aux_stack_global_index) {
+                else if (module->aux_stack_size > 0
+                         && global_idx == module->aux_stack_top_global_index) {
                     skip_label();
                     emit_label(WASM_OP_SET_GLOBAL_AUX_STACK);
                 }
@@ -5289,12 +5377,13 @@ handle_op_block_and_loop:
 
             case WASM_OP_MISC_PREFIX:
             {
-                opcode = read_uint8(p);
+                uint32 opcode1;
+
+                read_leb_uint32(p, p_end, opcode1);
 #if WASM_ENABLE_FAST_INTERP != 0
-                emit_byte(loader_ctx, opcode);
+                emit_byte(loader_ctx, ((uint8)opcode1));
 #endif
-                switch (opcode)
-                {
+                switch (opcode1) {
                 case WASM_OP_I32_TRUNC_SAT_S_F32:
                 case WASM_OP_I32_TRUNC_SAT_U_F32:
                     POP_AND_PUSH(VALUE_TYPE_F32, VALUE_TYPE_I32);

@@ -33,18 +33,12 @@ typedef struct WASMMemoryInstance {
     /* Maximum page count */
     uint32 max_page_count;
 
-    /* Heap base offset of wasm app */
-    int32 heap_base_offset;
     /* Heap data base address */
     uint8 *heap_data;
+    /* Heap data end address */
+    uint8 *heap_data_end;
     /* The heap created */
     void *heap_handle;
-
-    /* Memory data */
-    uint8 *memory_data;
-
-    /* End address of memory */
-    uint8 *end_addr;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* to indicate which module instance create it */
@@ -56,13 +50,13 @@ typedef struct WASMMemoryInstance {
     korp_mutex mem_lock;
 #endif
 
-    /* Base address, the layout is:
-       heap_data + memory data
-       memory data init size is: num_bytes_per_page * cur_page_count
+    /* Memory data end address */
+    uint8 *memory_data_end;
+
+    /* Memory data begin address, the layout is: memory data + heap data
        Note: when memory is re-allocated, the heap data and memory data
-             must be copied to new memory also.
-     */
-    uint8 base_addr[1];
+             must be copied to new memory also. */
+    uint8 memory_data[1];
 } WASMMemoryInstance;
 
 typedef struct WASMTableInstance {
@@ -188,6 +182,8 @@ typedef struct WASMModuleInstance {
     uint8 *global_data;
 
     WASMFunctionInstance *start_function;
+    WASMFunctionInstance *malloc_function;
+    WASMFunctionInstance *free_function;
 
     WASMModule *module;
 

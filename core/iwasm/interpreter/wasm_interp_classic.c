@@ -227,9 +227,8 @@ LOAD_I16(void *addr)
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
 #define CHECK_MEMORY_OVERFLOW(bytes) do {                                   \
-    int64 offset1 = (int64)(uint32)offset + (int64)(int32)addr;             \
-    if (heap_base_offset <= offset1                                         \
-        && offset1 <= (int64)linear_mem_size - bytes)                       \
+    uint64 offset1 = (uint64)offset + (uint64)addr;                         \
+    if (offset1 + bytes <= (uint64)linear_mem_size)                         \
       /* If offset1 is in valid range, maddr must also be in valid range,   \
          no need to check it again. */                                      \
       maddr = memory->memory_data + offset1;                                \
@@ -238,8 +237,8 @@ LOAD_I16(void *addr)
   } while (0)
 
 #define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) do {                \
-    uint64 offset1 = (int32)(start);                                        \
-    if (offset1 + bytes <= linear_mem_size)                                 \
+    uint64 offset1 = (uint32)(start);                                       \
+    if (offset1 + bytes <= (uint64)linear_mem_size)                         \
       /* App heap space is not valid space for bulk memory operation */     \
       maddr = memory->memory_data + offset1;                                \
     else                                                                    \
@@ -1063,7 +1062,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMInterpFrame *prev_frame)
 {
   WASMMemoryInstance *memory = module->default_memory;
-  int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
   uint8 *global_data = module->global_data;
   uint32 linear_mem_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
@@ -1579,8 +1577,7 @@ label_pop_csp_n:
       HANDLE_OP (WASM_OP_I32_LOAD):
       HANDLE_OP (WASM_OP_F32_LOAD):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1594,8 +1591,7 @@ label_pop_csp_n:
       HANDLE_OP (WASM_OP_I64_LOAD):
       HANDLE_OP (WASM_OP_F64_LOAD):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1608,8 +1604,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I32_LOAD8_S):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1622,8 +1617,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I32_LOAD8_U):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1636,8 +1630,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I32_LOAD16_S):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1650,8 +1643,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I32_LOAD16_U):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1664,8 +1656,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I64_LOAD8_S):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1678,8 +1669,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I64_LOAD8_U):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1692,8 +1682,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I64_LOAD16_S):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1706,8 +1695,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I64_LOAD16_U):
           {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1720,8 +1708,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I64_LOAD32_S):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           opcode = *(frame_ip - 1);
           read_leb_uint32(frame_ip, frame_ip_end, flags);
@@ -1735,8 +1722,7 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_I64_LOAD32_U):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1751,8 +1737,7 @@ label_pop_csp_n:
       HANDLE_OP (WASM_OP_I32_STORE):
       HANDLE_OP (WASM_OP_F32_STORE):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1767,8 +1752,7 @@ label_pop_csp_n:
       HANDLE_OP (WASM_OP_I64_STORE):
       HANDLE_OP (WASM_OP_F64_STORE):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
 
           read_leb_uint32(frame_ip, frame_ip_end, flags);
           read_leb_uint32(frame_ip, frame_ip_end, offset);
@@ -1784,8 +1768,7 @@ label_pop_csp_n:
       HANDLE_OP (WASM_OP_I32_STORE8):
       HANDLE_OP (WASM_OP_I32_STORE16):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
           uint32 sval;
 
           opcode = *(frame_ip - 1);
@@ -1811,8 +1794,7 @@ label_pop_csp_n:
       HANDLE_OP (WASM_OP_I64_STORE16):
       HANDLE_OP (WASM_OP_I64_STORE32):
         {
-          uint32 offset, flags;
-          int32 addr;
+          uint32 offset, flags, addr;
           uint64 sval;
 
           opcode = *(frame_ip - 1);
@@ -2665,9 +2647,12 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_MISC_PREFIX):
       {
-        opcode = *frame_ip++;
-        switch (opcode)
-        {
+        uint32 opcode1;
+
+        read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+        opcode = (uint8)opcode1;
+
+        switch (opcode) {
         case WASM_OP_I32_TRUNC_SAT_S_F32:
           DEF_OP_TRUNC_SAT_F32(-2147483904.0f, 2147483648.0f,
                                true, true);
@@ -2787,8 +2772,7 @@ label_pop_csp_n:
 #if WASM_ENABLE_SHARED_MEMORY != 0
       HANDLE_OP (WASM_OP_ATOMIC_PREFIX):
       {
-        uint32 offset, align;
-        int32 addr;
+        uint32 offset, align, addr;
 
         opcode = *frame_ip++;
 
