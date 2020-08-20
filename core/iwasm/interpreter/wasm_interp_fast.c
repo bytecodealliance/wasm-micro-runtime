@@ -229,9 +229,8 @@ LOAD_I16(void *addr)
 #endif  /* WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS != 0 */
 
 #define CHECK_MEMORY_OVERFLOW(bytes) do {                                \
-    int64 offset1 = (int64)(uint32)offset + (int64)(int32)addr;          \
-    if (heap_base_offset <= offset1                                      \
-        && offset1 <= (int64)linear_mem_size - bytes)                    \
+    uint64 offset1 = (uint64)offset + (uint64)addr;                      \
+    if (offset1 + bytes <= (uint64)linear_mem_size)                      \
       /* If offset1 is in valid range, maddr must also be in valid range,\
          no need to check it again. */                                   \
       maddr = memory->memory_data + offset1;                             \
@@ -239,13 +238,13 @@ LOAD_I16(void *addr)
       goto out_of_bounds;                                                \
   } while (0)
 
-#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) do {                \
-    uint64 offset1 = (int32)(start);                                        \
-    if (offset1 + bytes <= linear_mem_size)                                 \
-      /* App heap space is not valid space for bulk memory operation */     \
-      maddr = memory->memory_data + offset1;                                \
-    else                                                                    \
-      goto out_of_bounds;                                                   \
+#define CHECK_BULK_MEMORY_OVERFLOW(start, bytes, maddr) do {             \
+    uint64 offset1 = (uint32)(start);                                    \
+    if (offset1 + bytes <= linear_mem_size)                              \
+      /* App heap space is not valid space for bulk memory operation */  \
+      maddr = memory->memory_data + offset1;                             \
+    else                                                                 \
+      goto out_of_bounds;                                                \
   } while (0)
 
 #define CHECK_ATOMIC_MEMORY_ACCESS(align) do {          \
@@ -1163,7 +1162,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                WASMInterpFrame *prev_frame)
 {
   WASMMemoryInstance *memory = module->default_memory;
-  int32 heap_base_offset = memory ? memory->heap_base_offset : 0;
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
   uint8 *global_data = module->global_data;
   uint32 linear_mem_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
@@ -2768,8 +2766,7 @@ recover_br_info:
 #if WASM_ENABLE_SHARED_MEMORY != 0
       HANDLE_OP (WASM_OP_ATOMIC_PREFIX):
       {
-        uint32 offset;
-        int32 addr;
+        uint32 offset, addr;
 
         GET_OPCODE();
 

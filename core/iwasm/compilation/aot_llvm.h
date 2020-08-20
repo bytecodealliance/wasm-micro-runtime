@@ -102,7 +102,6 @@ typedef struct AOTCheckedAddr {
 typedef struct AOTMemInfo {
   LLVMValueRef mem_base_addr;
   LLVMValueRef mem_cur_page_count_addr;
-  LLVMValueRef mem_bound_check_heap_base;
   LLVMValueRef mem_bound_check_1byte;
   LLVMValueRef mem_bound_check_2bytes;
   LLVMValueRef mem_bound_check_4bytes;
@@ -190,6 +189,7 @@ typedef struct AOTCompContext {
   LLVMTargetMachineRef target_machine;
   char *target_cpu;
   char target_arch[16];
+  unsigned pointer_size;
 
   /* LLVM execution engine required by JIT */
   LLVMExecutionEngineRef exec_engine;

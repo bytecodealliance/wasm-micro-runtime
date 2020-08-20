@@ -325,15 +325,30 @@ typedef struct WASMModule {
     WASMDataSeg **data_segments;
     uint32 start_function;
 
-    /* __data_end global exported by llvm */
-    uint32 llvm_aux_data_end;
-    /* auxiliary stack bottom, or __heap_base global exported by llvm */
-    uint32 llvm_aux_stack_bottom;
-    /* auxiliary stack size */
-    uint32 llvm_aux_stack_size;
-    /* the index of a global exported by llvm, which is
-       auxiliary stack top pointer */
-    uint32 llvm_aux_stack_global_index;
+    /* the index of auxiliary __data_end global,
+       -1 means unexported */
+    uint32 aux_data_end_global_index;
+    /* auxiliary __data_end exported by wasm app */
+    uint32 aux_data_end;
+
+    /* the index of auxiliary __heap_base global,
+       -1 means unexported */
+    uint32 aux_heap_base_global_index;
+    /* auxiliary __heap_base exported by wasm app */
+    uint32 aux_heap_base;
+
+    /* the index of auxiliary stack top global,
+       -1 means unexported */
+    uint32 aux_stack_top_global_index;
+    /* auxiliary stack bottom resolved */
+    uint32 aux_stack_bottom;
+    /* auxiliary stack size resolved */
+    uint32 aux_stack_size;
+
+    /* the index of malloc/free function,
+       -1 means unexported */
+    uint32 malloc_function;
+    uint32 free_function;
 
     /* Whether there is possible memory grow, e.g. memory.grow opcode */
     bool possible_memory_grow;

@@ -1039,10 +1039,13 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
-    read_uint32(p, p_end, module->llvm_aux_data_end);
-    read_uint32(p, p_end, module->llvm_aux_stack_bottom);
-    read_uint32(p, p_end, module->llvm_aux_stack_size);
-    read_uint32(p, p_end, module->llvm_aux_stack_global_index);
+    read_uint32(p, p_end, module->aux_data_end_global_index);
+    read_uint32(p, p_end, module->aux_data_end);
+    read_uint32(p, p_end, module->aux_heap_base_global_index);
+    read_uint32(p, p_end, module->aux_heap_base);
+    read_uint32(p, p_end, module->aux_stack_top_global_index);
+    read_uint32(p, p_end, module->aux_stack_bottom);
+    read_uint32(p, p_end, module->aux_stack_size);
 
     if (!load_object_data_sections_info(&p, p_end, module,
                                         error_buf, error_buf_size))
@@ -1613,6 +1616,9 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     AOTSection *section = sections;
     const uint8 *buf, *buf_end;
     uint32 last_section_type = (uint32)-1, section_type;
+    uint32 i, func_index, func_type_index;
+    AOTFuncType *func_type;
+    AOTExport *exports;
 
     while (section) {
         buf = section->section_body;
@@ -1668,6 +1674,42 @@ load_from_sections(AOTModule *module, AOTSection *sections,
         set_error_buf(error_buf, error_buf_size,
                       "AOT module load failed: section missing.");
         return false;
+    }
+
+    /* Resolve malloc and free function */
+    module->malloc_func_index = (uint32)-1;
+    module->free_func_index = (uint32)-1;
+
+    exports = module->exports;
+    for (i = 0; i < module->export_count; i++) {
+        if (exports[i].kind == EXPORT_KIND_FUNC
+            && exports[i].index >= module->import_func_count) {
+            if (!strcmp(exports[i].name, "malloc")) {
+                func_index = exports[i].index - module->import_func_count;
+                func_type_index = module->func_type_indexes[func_index];
+                func_type = module->func_types[func_type_index];
+                if (func_type->param_count == 1
+                    && func_type->result_count == 1
+                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[1] == VALUE_TYPE_I32) {
+                    module->malloc_func_index = func_index;
+                    LOG_VERBOSE("Found malloc function, index: %u",
+                                exports[i].index);
+                }
+            }
+            else if (!strcmp(exports[i].name, "free")) {
+                func_index = exports[i].index - module->import_func_count;
+                func_type_index = module->func_type_indexes[func_index];
+                func_type = module->func_types[func_type_index];
+                if (func_type->param_count == 1
+                    && func_type->result_count == 0
+                    && func_type->types[0] == VALUE_TYPE_I32) {
+                    module->free_func_index = func_index;
+                    LOG_VERBOSE("Found free function, index: %u",
+                                exports[i].index);
+                }
+            }
+        }
     }
 
     /* Flush data cache before executing AOT code,
@@ -2018,14 +2060,17 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                                   - module->import_func_count];
         }
     }
-    else {
-        module->start_function = NULL;
-    }
 
-    module->llvm_aux_data_end = comp_data->llvm_aux_data_end;
-    module->llvm_aux_stack_bottom = comp_data->llvm_aux_stack_bottom;
-    module->llvm_aux_stack_size = comp_data->llvm_aux_stack_size;
-    module->llvm_aux_stack_global_index = comp_data->llvm_aux_stack_global_index;
+    module->malloc_func_index = comp_data->malloc_func_index;
+    module->free_func_index = comp_data->free_func_index;
+
+    module->aux_data_end_global_index = comp_data->aux_data_end_global_index;
+    module->aux_data_end = comp_data->aux_data_end;
+    module->aux_heap_base_global_index = comp_data->aux_heap_base_global_index;
+    module->aux_heap_base = comp_data->aux_heap_base;
+    module->aux_stack_top_global_index = comp_data->aux_stack_top_global_index;
+    module->aux_stack_bottom = comp_data->aux_stack_bottom;
+    module->aux_stack_size = comp_data->aux_stack_size;
 
     module->code = NULL;
     module->code_size = 0;

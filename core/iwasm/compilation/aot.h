@@ -201,14 +201,19 @@ typedef struct AOTCompData {
   uint32 func_count;
   AOTFunc **funcs;
 
-  uint32 start_func_index;
-  uint32 addr_data_size;
   uint32 global_data_size;
 
-  uint32 llvm_aux_data_end;
-  uint32 llvm_aux_stack_bottom;
-  uint32 llvm_aux_stack_size;
-  uint32 llvm_aux_stack_global_index;
+  uint32 start_func_index;
+  uint32 malloc_func_index;
+  uint32 free_func_index;
+
+  uint32 aux_data_end_global_index;
+  uint32 aux_data_end;
+  uint32 aux_heap_base_global_index;
+  uint32 aux_heap_base;
+  uint32 aux_stack_top_global_index;
+  uint32 aux_stack_bottom;
+  uint32 aux_stack_size;
 
   WASMModule *wasm_module;
 } AOTCompData;

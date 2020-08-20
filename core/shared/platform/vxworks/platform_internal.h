@@ -55,9 +55,6 @@ typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
 
-#define os_printf printf
-#define os_vprintf vprintf
-
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) \
     || defined(BUILD_TARGET_AMD_64) \
