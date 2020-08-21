@@ -6,7 +6,11 @@ project(wasm-apps)
 
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
-set(CMAKE_SYSTEM_NAME Linux)
+if (APPLE)
+    set (HAVE_FLAG_SEARCH_PATHS_FIRST 0)
+    set (CMAKE_C_LINK_FLAGS "")
+    set (CMAKE_CXX_LINK_FLAGS "")
+endif ()
 set(CMAKE_SYSTEM_PROCESSOR wasm32)
 set (CMAKE_SYSROOT                  ${WAMR_ROOT_DIR}/wamr-sdk/app/libc-builtin-sysroot)
 
