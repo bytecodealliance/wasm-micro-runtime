@@ -13,8 +13,10 @@
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
-    if (error_buf != NULL)
-        snprintf(error_buf, error_buf_size, "%s", string);
+    if (error_buf != NULL) {
+        snprintf(error_buf, error_buf_size,
+                 "AOT module instantiate failed: %s", string);
+    }
 }
 
 static void *
@@ -25,8 +27,7 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     if (size >= UINT32_MAX
         || !(mem = wasm_runtime_malloc((uint32)size))) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: "
-                      "allocate memory failed.");
+                      "allocate memory failed");
         return NULL;
     }
 
@@ -60,8 +61,7 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         switch (init_expr->init_expr_type) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
                 if (init_expr->u.global_index >= module->import_global_count + i) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "Instantiate global failed: unknown global.");
+                    set_error_buf(error_buf, error_buf_size, "unknown global");
                     return false;
                 }
                 memcpy(p,
@@ -333,14 +333,12 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     if (total_size >= UINT32_MAX
         || !(p = mapped_mem = os_mmap(NULL, map_size,
                                       MMAP_PROT_NONE, MMAP_MAP_NONE))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: mmap memory failed.");
+        set_error_buf(error_buf, error_buf_size, "mmap memory failed");
         return NULL;
     }
 
     if (os_mprotect(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE) != 0) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module instantiate failed: mprotec memory failed.");
+        set_error_buf(error_buf, error_buf_size, "mprotec memory failed");
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
@@ -364,8 +362,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         if (!(heap_handle = mem_allocator_create(memory_inst->heap_data.ptr,
                                                  heap_size))) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module instantiate failed:"
-                          "init app heap failed.");
+                          "init app heap failed");
             goto fail1;
         }
         memory_inst->heap_handle.ptr = heap_handle;
@@ -392,8 +389,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         if (!shared_memory_set_memory_inst((WASMModuleCommon *)module,
                                            (WASMMemoryInstanceCommon *)memory_inst)) {
             set_error_buf(error_buf, error_buf_size,
-                          "Instantiate memory failed:"
-                          "allocate memory failed.");
+                          "allocate memory failed");
             goto fail2;
         }
     }
@@ -659,7 +655,7 @@ execute_start_function(AOTModuleInstance *module_inst)
 
     if (!(exec_env = wasm_exec_env_create((WASMModuleInstanceCommon*)module_inst,
                                           module_inst->default_wasm_stack_size))) {
-        aot_set_exception(module_inst, "allocate memory failed.");
+        aot_set_exception(module_inst, "allocate memory failed");
         return false;
     }
 
@@ -988,7 +984,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 
     if (aot_exec_env
         && (aot_exec_env != exec_env)) {
-        aot_set_exception(module_inst, "Invalid exec env.");
+        aot_set_exception(module_inst, "invalid exec env");
         return false;
     }
 
@@ -999,7 +995,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         /* First time to call aot function, protect one page */
         if (os_mprotect(stack_min_addr, page_size * guard_page_count,
                         MMAP_PROT_NONE) != 0) {
-            aot_set_exception(module_inst, "Set protected page failed.");
+            aot_set_exception(module_inst, "set protected page failed");
             return false;
         }
     }
@@ -1132,7 +1128,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
 
     if (!(exec_env = wasm_exec_env_create((WASMModuleInstanceCommon*)module_inst,
                                           module_inst->default_wasm_stack_size))) {
-        aot_set_exception(module_inst, "allocate memory failed.");
+        aot_set_exception(module_inst, "allocate memory failed");
         return false;
     }
 
@@ -1471,12 +1467,10 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 
     if (total_page_count < cur_page_count /* integer overflow */
         || total_page_count > max_page_count) {
-        aot_set_exception(module_inst, "fail to enlarge memory.");
         return false;
     }
 
     if (total_size >= UINT32_MAX) {
-        aot_set_exception(module_inst, "fail to enlarge memory.");
         return false;
     }
 
@@ -1501,7 +1495,6 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
                 /* Restore heap's lock if memory re-alloc failed */
                 mem_allocator_reinit_lock(memory_inst->heap_handle.ptr);
             }
-            aot_set_exception(module_inst, "fail to enlarge memory.");
             return false;
         }
         bh_memcpy_s(memory_data, (uint32)total_size,
@@ -1522,7 +1515,6 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
                                        + (memory_data - memory_data_old);
         if (mem_allocator_migrate(memory_inst->heap_handle.ptr,
                                   heap_handle_old) != 0) {
-            aot_set_exception(module_inst, "fail to enlarge memory.");
             return false;
         }
     }
@@ -1562,14 +1554,12 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 
     if (total_page_count < cur_page_count /* integer overflow */
         || total_page_count > max_page_count) {
-        aot_set_exception(module_inst, "fail to enlarge memory.");
         return false;
     }
 
     if (os_mprotect(memory_inst->memory_data_end.ptr,
                     num_bytes_per_page * inc_page_count,
                     MMAP_PROT_READ | MMAP_PROT_WRITE) != 0) {
-        aot_set_exception(module_inst, "fail to enlarge memory.");
         return false;
     }
 

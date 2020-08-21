@@ -17,8 +17,10 @@
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
-    if (error_buf != NULL)
-        snprintf(error_buf, error_buf_size, "%s", string);
+    if (error_buf != NULL) {
+        snprintf(error_buf, error_buf_size,
+                 "WASM module instantiate failed: %s", string);
+    }
 }
 
 WASMModule*
@@ -50,8 +52,7 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     if (size >= UINT32_MAX
         || !(mem = wasm_runtime_malloc((uint32)size))) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM module instantiate failed: "
-                      "allocate memory failed.");
+                      "allocate memory failed");
         return NULL;
     }
 
@@ -262,17 +263,13 @@ memory_instantiate(WASMModuleInstance *module_inst,
     if (heap_size > 0
         && !(memory->heap_handle =
                mem_allocator_create(memory->heap_data, heap_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "Instantiate memory failed: "
-                      "init app heap failed.");
+        set_error_buf(error_buf, error_buf_size, "init app heap failed");
         goto fail1;
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (0 != os_mutex_init(&memory->mem_lock)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "Instantiate memory failed: "
-                      "init mutex failed.");
+        set_error_buf(error_buf, error_buf_size, "init mutex failed");
         goto fail2;
     }
     if (is_shared_memory) {
@@ -281,8 +278,7 @@ memory_instantiate(WASMModuleInstance *module_inst,
                 (WASMModuleCommon *)module_inst->module,
                 (WASMMemoryInstanceCommon *)memory)) {
             set_error_buf(error_buf, error_buf_size,
-                          "Instantiate memory failed: "
-                          "allocate memory failed.");
+                          "allocate memory failed");
             goto fail3;
         }
     }
@@ -735,8 +731,7 @@ globals_instantiate(const WASMModule *module,
               sub_module_inst->globals,
               sub_module_inst->global_count, &(global->initial_value));
             if (!ret) {
-                set_error_buf(error_buf, error_buf_size,
-                              "Instantiate global failed: unknown global.");
+                set_error_buf(error_buf, error_buf_size, "unknown global");
                 return NULL;
             }
         }
@@ -774,8 +769,7 @@ globals_instantiate(const WASMModule *module,
               parse_init_expr(init_expr, globals, global_count,
                               &(global->initial_value));
             if (!ret) {
-                set_error_buf(error_buf, error_buf_size,
-                              "Instantiate global failed: unknown global.");
+                set_error_buf(error_buf, error_buf_size, "unknown global");
                 return NULL;
             }
         }
@@ -811,8 +805,7 @@ globals_instantiate_fix(WASMGlobalInstance *globals,
             ret = parse_init_expr(init_expr, globals, global_count,
                                   &global->initial_value);
             if (!ret) {
-                set_error_buf(error_buf, error_buf_size,
-                              "Instantiate global failed: unknown global.");
+                set_error_buf(error_buf, error_buf_size, "unknown global");
                 return false;
             }
         }
@@ -1024,18 +1017,18 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
       bh_list_first_elem(module->import_module_list);
 
     while (sub_module_list_node) {
+        WASMSubModInstNode *sub_module_inst_list_node;
         WASMModule *sub_module = (WASMModule*)sub_module_list_node->module;
-        WASMModuleInstance *sub_module_inst = wasm_instantiate(
-          sub_module, false, stack_size, heap_size, error_buf, error_buf_size);
+        WASMModuleInstance *sub_module_inst =
+                wasm_instantiate(sub_module, false, stack_size, heap_size,
+                                 error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
-            set_error_buf_v(error_buf, error_buf_size, "instantiate %s failed",
-                            sub_module_list_node->module_name);
             return false;
         }
 
-        WASMSubModInstNode *sub_module_inst_list_node = runtime_malloc
+        sub_module_inst_list_node = runtime_malloc
             (sizeof(WASMSubModInstNode), error_buf, error_buf_size);
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
@@ -1102,7 +1095,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
                                        error_buf, error_buf_size))) {
         return NULL;
     }
-    memset(module_inst, 0, (uint32)sizeof(WASMModuleInstance));
 
     module_inst->module = module;
 
@@ -1264,7 +1256,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
             LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
                       memory_size);
             set_error_buf(error_buf, error_buf_size,
-                          "data segment does not fit.");
+                          "data segment does not fit");
             wasm_deinstantiate(module_inst, false);
             return NULL;
         }
@@ -1274,9 +1266,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
         if (base_offset + length > memory_size) {
             LOG_DEBUG("base_offset(%d) + length(%d) > memory_size(%d)",
                       base_offset, length, memory_size);
-            set_error_buf(
-              error_buf, error_buf_size,
-              "Instantiate module failed: data segment does not fit.");
+            set_error_buf(error_buf, error_buf_size,
+                          "data segment does not fit");
             wasm_deinstantiate(module_inst, false);
             return NULL;
         }
@@ -1538,7 +1529,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
     if (!(exec_env = wasm_exec_env_create(
                             (WASMModuleInstanceCommon*)module_inst,
                             module_inst->default_wasm_stack_size))) {
-        wasm_set_exception(module_inst, "allocate memory failed.");
+        wasm_set_exception(module_inst, "allocate memory failed");
         return false;
     }
 
@@ -1764,12 +1755,10 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     if (total_page_count < memory->cur_page_count /* integer overflow */
         || total_page_count > memory->max_page_count) {
-        wasm_set_exception(module, "fail to enlarge memory.");
         return false;
     }
 
     if (total_size >= UINT32_MAX) {
-        wasm_set_exception(module, "fail to enlarge memory.");
         return false;
     }
 
@@ -1793,7 +1782,6 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
                 /* Restore heap's lock if memory re-alloc failed */
                 mem_allocator_reinit_lock(memory->heap_handle);
             }
-            wasm_set_exception(module, "fail to enlarge memory.");
             return false;
         }
         bh_memcpy_s((uint8 *)new_memory, (uint32)total_size,
@@ -1809,7 +1797,6 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
                                   ((uint8 *)new_memory - (uint8 *)memory);
         if (mem_allocator_migrate(new_memory->heap_handle,
                                   heap_handle_old) != 0) {
-            wasm_set_exception(module, "fail to enlarge memory.");
             return false;
         }
     }

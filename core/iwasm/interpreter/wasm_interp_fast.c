@@ -802,8 +802,7 @@ copy_stack_values(WASMModuleInstance *module,
     uint64 total_size = sizeof(uint32) * (uint64)total_cell_num;
     if (total_size >= UINT32_MAX
         || !(tmp_buf = wasm_runtime_malloc((uint32)total_size))) {
-      wasm_set_exception(module,
-                         "WASM interp failed: allocate memory failed.");
+      wasm_set_exception(module, "allocate memory failed");
       return false;
     }
   }
@@ -951,7 +950,7 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
         frame->prev_frame = prev_frame;
     else {
         wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
-                           "WASM interp failed: stack overflow.");
+                           "stack overflow");
     }
 
     return frame;
@@ -1789,10 +1788,6 @@ recover_br_info:
         if (!wasm_enlarge_memory(module, delta)) {
           /* fail to memory.grow, return -1 */
           frame_lp[addr_ret] = -1;
-          if (wasm_get_exception(module)) {
-            os_printf("%s\n", wasm_get_exception(module));
-            wasm_set_exception(module, NULL);
-          }
         }
         else {
           /* success, return previous page count */
@@ -2756,7 +2751,7 @@ recover_br_info:
         }
 #endif /* WASM_ENABLE_BULK_MEMORY */
         default:
-          wasm_set_exception(module, "WASM interp failed: unsupported opcode.");
+          wasm_set_exception(module, "unsupported opcode");
             goto got_exception;
           break;
         }
@@ -3111,7 +3106,7 @@ recover_br_info:
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
       default:
-        wasm_set_exception(module, "WASM interp failed: unsupported opcode.");
+        wasm_set_exception(module, "unsupported opcode");
         goto got_exception;
     }
 #endif
@@ -3155,7 +3150,7 @@ recover_br_info:
     HANDLE_OP (EXT_OP_LOOP):
     HANDLE_OP (EXT_OP_IF):
     {
-      wasm_set_exception(module, "WASM interp failed: unsupported opcode.");
+      wasm_set_exception(module, "unsupported opcode");
       goto got_exception;
     }
 #endif
@@ -3234,7 +3229,7 @@ recover_br_info:
                        + (uint64)cur_func->const_cell_num
                        + (uint64)cur_wasm_func->max_stack_cell_num;
         if (all_cell_num >= UINT32_MAX) {
-            wasm_set_exception(module, "WASM interp failed: stack overflow.");
+            wasm_set_exception(module, "stack overflow");
             goto got_exception;
         }
 
@@ -3336,7 +3331,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
 
     if ((uint8*)&prev_frame < exec_env->native_stack_boundary) {
         wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
-                           "WASM interp failed: native stack overflow.");
+                           "native stack overflow");
         return;
     }
 
@@ -3359,19 +3354,15 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (function->import_module_inst) {
             LOG_DEBUG("it is a function of a sub module");
-            wasm_interp_call_func_import(module_inst,
-                                         exec_env,
-                                         function,
-                                         frame);
+            wasm_interp_call_func_import(module_inst, exec_env,
+                                         function, frame);
         }
         else
 #endif
         {
             LOG_DEBUG("it is an native function");
-            wasm_interp_call_func_native(module_inst,
-                                         exec_env,
-                                         function,
-                                         frame);
+            wasm_interp_call_func_native(module_inst, exec_env,
+                                         function, frame);
         }
     }
     else {

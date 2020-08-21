@@ -21,7 +21,8 @@ static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
     if (error_buf != NULL)
-        snprintf(error_buf, error_buf_size, "%s", string);
+        snprintf(error_buf, error_buf_size,
+                 "WASM module load failed: %s", string);
 }
 
 #define CHECK_BUF(buf, buf_end, length) do {                \
@@ -168,8 +169,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     if (size >= UINT32_MAX
         || !(mem = wasm_runtime_malloc((uint32)size))) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
-                      "allocate memory failed.");
+                      "allocate memory failed");
         return NULL;
     }
 
@@ -378,8 +378,7 @@ load_function_import(const WASMModule *parent_module, WASMModule *sub_module,
     is_built_in_module = wasm_runtime_is_built_in_module(sub_module_name);
     if (is_built_in_module) {
         LOG_DEBUG("%s is a function of a built-in module %s",
-                  function_name,
-                  sub_module_name);
+                  function_name, sub_module_name);
         /* check built-in modules */
         linked_func = wasm_native_resolve_symbol(sub_module_name,
                                                  function_name,
@@ -391,15 +390,13 @@ load_function_import(const WASMModule *parent_module, WASMModule *sub_module,
 
     if (!linked_func) {
 #if WASM_ENABLE_SPEC_TEST != 0
-        set_error_buf(error_buf,
-                      error_buf_size,
+        set_error_buf(error_buf, error_buf_size,
                       "unknown import or incompatible import type");
         return false;
 #else
 #if WASM_ENABLE_WAMR_COMPILER == 0
-        LOG_WARNING(
-          "warning: fail to link import function (%s, %s)",
-          sub_module_name, function_name);
+        LOG_WARNING("warning: fail to link import function (%s, %s)",
+                    sub_module_name, function_name);
 #endif
 #endif
     }
@@ -538,8 +535,8 @@ load_global_import(const WASMModule *parent_module,
 #endif /* WASM_ENABLE_LIBC_BUILTIN */
 
     if (!ret) {
-        set_error_buf_v(error_buf, error_buf_size,
-                        "unknown import or incompatible import type");
+        set_error_buf(error_buf, error_buf_size,
+                      "unknown import or incompatible import type");
         return false;
     }
 
@@ -597,6 +594,7 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
     p_org = p;
     read_leb_uint32(p, p_end, memory->flags);
     bh_assert(p - p_org <= 1);
+    (void)p_org;
 #if WASM_ENABLE_SHARED_MEMORY == 0
     bh_assert(memory->flags <= 1);
 #else
@@ -1536,7 +1534,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #endif
             default:
                 set_error_buf(error_buf, error_buf_size,
-                              "WASM module load failed: invalid section id");
+                              "invalid section id");
                 return false;
         }
 
@@ -1934,8 +1932,7 @@ load(const uint8 *buf, uint32 size, WASMModule *module,
         exchange32((uint8*)&version);
 
     if (version != WASM_CURRENT_VERSION) {
-        set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: unknown binary version");
+        set_error_buf(error_buf, error_buf_size, "unknown binary version");
         return false;
     }
 
@@ -1959,7 +1956,6 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_bu
     }
 
     if (!load(buf, size, module, error_buf, error_buf_size)) {
-        LOG_VERBOSE("Load module failed, %s", error_buf);
         goto fail;
     }
 
@@ -2459,7 +2455,7 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
 #if WASM_DEBUG_PREPROCESSOR != 0
 #define LOG_OP(...)       os_printf(__VA_ARGS__)
 #else
-#define LOG_OP(...)
+#define LOG_OP(...)       (void)0
 #endif
 
 #define PATCH_ELSE 0
@@ -3878,7 +3874,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
 
     if (loader_ctx->csp_num < depth + 1) {
       set_error_buf(error_buf, error_buf_size,
-                    "WASM module load failed: unknown label, "
+                    "unknown label, "
                     "unexpected end of section or function");
       return false;
     }
@@ -4196,7 +4192,6 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
     if (!(loader_ctx = wasm_loader_ctx_init(func))) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM loader prepare bytecode failed: "
                       "allocate memory failed");
         goto fail;
     }
@@ -4206,7 +4201,6 @@ re_scan:
     if (loader_ctx->code_compiled_size > 0) {
         if (!wasm_loader_ctx_reinit(loader_ctx)) {
             set_error_buf(error_buf, error_buf_size,
-                          "WASM loader prepare bytecode failed: "
                           "allocate memory failed");
             goto fail;
         }
@@ -5604,8 +5598,7 @@ handle_op_block_and_loop:
 
     if (loader_ctx->csp_num > 0) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
-                      "function body must end with END opcode.");
+                      "function body must end with END opcode");
         goto fail;
     }
 

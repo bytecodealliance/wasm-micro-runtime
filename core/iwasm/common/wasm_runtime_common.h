@@ -79,10 +79,6 @@ typedef struct WASMMemoryInstanceCommon {
 typedef package_type_t PackageType;
 typedef wasm_section_t WASMSection, AOTSection;
 
-void
-set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format,
-                ...);
-
 /* See wasm_export.h for description */
 bool
 wasm_runtime_init(void);
