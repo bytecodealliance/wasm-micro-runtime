@@ -700,47 +700,6 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     PUSH_I32(ret_value);
-
-    /* To be simple, call wasm_runtime_set_exception() no matter
-       enlarge success or not */
-    param_types[1] = INT8_PTR_TYPE;
-    ret_type = VOID_TYPE;
-    if (!(func_type = LLVMFunctionType(ret_type, param_types, 2, false))) {
-        aot_set_last_error("llvm add function type failed.");
-        return false;
-    }
-
-    if (comp_ctx->is_jit_mode) {
-        /* JIT mode, call the function directly */
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
-            aot_set_last_error("llvm add pointer type failed.");
-            return false;
-        }
-        if (!(value = I64_CONST((uint64)(uintptr_t)wasm_runtime_set_exception))
-            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {
-            aot_set_last_error("create LLVM value failed.");
-            return false;
-        }
-    }
-    else {
-        char *func_name = "wasm_runtime_set_exception";
-        /* AOT mode, delcare the function */
-        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name))
-            && !(func = LLVMAddFunction(comp_ctx->module,
-                                        func_name, func_type))) {
-           aot_set_last_error("llvm add function failed.");
-           return false;
-       }
-    }
-
-    /* Call function wasm_runtime_set_exception(aot_inst, NULL) */
-    param_values[1] = LLVMConstNull(INT8_PTR_TYPE);
-    CHECK_LLVM_CONST(param_values[1]);
-    if (!(LLVMBuildCall(comp_ctx->builder, func, param_values, 2, ""))) {
-        aot_set_last_error("llvm build call failed.");
-        return false;
-    }
-
     return true;
 fail:
     return false;

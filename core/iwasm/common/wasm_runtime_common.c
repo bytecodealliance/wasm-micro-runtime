@@ -49,16 +49,6 @@ static void
 wasm_runtime_destroy_registered_module_list();
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
-void
-set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format,
-                ...)
-{
-    va_list args;
-    va_start(args, format);
-    vsnprintf(error_buf, error_buf_size, format, args);
-    va_end(args);
-}
-
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -76,11 +66,11 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
         || !(mem = wasm_runtime_malloc((uint32)size))) {
         if (module_inst != NULL) {
             wasm_runtime_set_exception(module_inst,
-                                       "allocate memory failed.");
+                                       "allocate memory failed");
         }
         else if (error_buf != NULL) {
             set_error_buf(error_buf, error_buf_size,
-                          "allocate memory failed.");
+                          "allocate memory failed");
         }
         return NULL;
     }
@@ -308,8 +298,9 @@ wasm_runtime_register_module_internal(const char *module_name,
                /* module has different name */
                LOG_DEBUG("module(%p) has been registered with name %s",
                          module, node->module_name);
-               set_error_buf_v(error_buf, error_buf_size,
-                               "can not rename the module");
+               set_error_buf(error_buf, error_buf_size,
+                             "Register module failed: "
+                             "failed to rename the module");
                return false;
            }
            else {
@@ -359,14 +350,16 @@ wasm_runtime_register_module(const char *module_name, WASMModuleCommon *module,
 
     if (!module_name || !module) {
         LOG_DEBUG("module_name and module are required");
-        set_error_buf_v(error_buf, error_buf_size,
-                        "module_name and module are required");
+        set_error_buf(error_buf, error_buf_size,
+                      "Register module failed: "
+                      "module_name and module are required");
         return false;
     }
 
     if (wasm_runtime_is_built_in_module(module_name)) {
         LOG_DEBUG("%s is a built-in module name", module_name);
         set_error_buf(error_buf, error_buf_size,
+                      "Register module failed: "
                       "can not register as a built-in module");
         return false;
     }
@@ -1325,7 +1318,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                                     (module_inst, (uint32)argv_buf_len,
                                      (void**)&argv_buf))) {
         set_error_buf(error_buf, error_buf_size,
-                      "Init wasi environment failed: allocate memory failed.");
+                      "Init wasi environment failed: allocate memory failed");
         goto fail;
     }
 
@@ -1349,7 +1342,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                                     (module_inst, (uint32)env_buf_len,
                                      (void**)&env_buf))) {
         set_error_buf(error_buf, error_buf_size,
-                      "Init wasi environment failed: allocate memory failed.");
+                      "Init wasi environment failed: allocate memory failed");
         goto fail;
     }
 
@@ -1368,7 +1361,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                 (module_inst, sizeof(struct argv_environ_values),
                  (void**)&argv_environ))) {
         set_error_buf(error_buf, error_buf_size,
-                      "Init wasi environment failed: allocate memory failed.");
+                      "Init wasi environment failed: allocate memory failed");
         goto fail;
     }
 
@@ -1383,7 +1376,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     if (!fd_table_init(curfds)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: "
-                      "init fd table failed.");
+                      "init fd table failed");
         goto fail;
     }
     fd_table_inited = true;
@@ -1391,7 +1384,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     if (!fd_prestats_init(prestats)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: "
-                      "init fd prestats failed.");
+                      "init fd prestats failed");
         goto fail;
     }
     fd_prestats_inited = true;
@@ -1403,7 +1396,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                            env_buf, env_buf_len)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: "
-                      "init argument environment failed.");
+                      "init argument environment failed");
         goto fail;
     }
     argv_environ_inited = true;
@@ -1413,7 +1406,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         || !fd_table_insert_existing(curfds, 1, 1)
         || !fd_table_insert_existing(curfds, 2, 2)) {
         set_error_buf(error_buf, error_buf_size,
-                      "Init wasi environment failed: init fd table failed.");
+                      "Init wasi environment failed: init fd table failed");
         goto fail;
     }
 
@@ -1689,7 +1682,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
 
     if (!func) {
         wasm_runtime_set_exception(module_inst,
-                                   "lookup main function failed.");
+                                   "lookup main function failed");
         return false;
     }
 
@@ -1697,7 +1690,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         if (((WASMFunctionInstance*)func)->is_import_func) {
             wasm_runtime_set_exception(module_inst,
-                                       "lookup main function failed.");
+                                       "lookup main function failed");
             return false;
         }
         func_type = ((WASMFunctionInstance*)func)->u.func->func_type;
@@ -1710,7 +1703,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
 
     if (!check_main_func_type(func_type)) {
         wasm_runtime_set_exception(module_inst,
-                                   "invalid function type of main function.");
+                                   "invalid function type of main function");
         return false;
     }
 
@@ -1726,7 +1719,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
                     wasm_runtime_module_malloc(module_inst, (uint32)total_size,
                                                (void**)&argv_buf))) {
             wasm_runtime_set_exception(module_inst,
-                                       "allocate memory failed.");
+                                       "allocate memory failed");
             return false;
         }
 
@@ -1942,7 +1935,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     func = resolve_function(module_inst, name);
 
     if (!func) {
-        snprintf(buf, sizeof(buf), "lookup function %s failed.", name);
+        snprintf(buf, sizeof(buf), "lookup function %s failed", name);
         wasm_runtime_set_exception(module_inst, buf);
         goto fail;
     }
@@ -1955,7 +1948,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             && !wasm_func->import_func_inst
 #endif
         ) {
-            snprintf(buf, sizeof(buf), "lookup function %s failed.", name);
+            snprintf(buf, sizeof(buf), "lookup function %s failed", name);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
@@ -1976,7 +1969,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 
     if (type->param_count != (uint32)argc) {
         wasm_runtime_set_exception(module_inst,
-                                   "invalid input argument count.");
+                                   "invalid input argument count");
         goto fail;
     }
 
@@ -1994,7 +1987,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         char *endptr = NULL;
         bh_assert(argv[i] != NULL);
         if (argv[i][0] == '\0') {
-            snprintf(buf, sizeof(buf), "invalid input argument %d.", i);
+            snprintf(buf, sizeof(buf), "invalid input argument %d", i);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
@@ -2074,14 +2067,14 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             }
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
-            snprintf(buf, sizeof(buf), "invalid input argument %d: %s.",
+            snprintf(buf, sizeof(buf), "invalid input argument %d: %s",
                      i, argv[i]);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
         if (errno != 0) {
             snprintf(buf, sizeof(buf),
-                     "prepare function argument error, errno: %d.", errno);
+                     "prepare function argument error, errno: %d", errno);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
