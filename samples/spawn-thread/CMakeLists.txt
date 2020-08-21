@@ -5,7 +5,10 @@ cmake_minimum_required(VERSION 2.8)
 project(spawn_thread)
 
 ################  runtime settings  ################
-set(WAMR_BUILD_PLATFORM "linux")
+string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+if (APPLE)
+  add_definitions(-DBH_PLATFORM_DARWIN)
+endif ()
 
 # Resetdefault linker flags
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
@@ -21,7 +24,10 @@ set(WAMR_BUILD_FAST_INTERP 1)
 set(WAMR_BUILD_LIB_PTHREAD 1)
 
 # compiling and linking flags
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
+if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+endif ()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 
 # build out vmlib

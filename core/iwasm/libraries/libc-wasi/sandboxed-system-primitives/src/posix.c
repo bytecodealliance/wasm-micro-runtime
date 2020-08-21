@@ -2137,7 +2137,11 @@ static void convert_timestamp(
     struct timespec *out
 ) {
   // Store sub-second remainder.
+#ifndef __APPLE__
   out->tv_nsec = (__syscall_slong_t)(in % 1000000000);
+#else
+  out->tv_nsec = (long)(in % 1000000000);
+#endif
   in /= 1000000000;
 
   // Clamp to the maximum in case it would overflow our system's time_t.
