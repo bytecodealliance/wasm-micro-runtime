@@ -1191,8 +1191,12 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
         return false;
     }
 #else
-    if (memory->flags > 3 || memory->flags == 2) {
+    if (memory->flags > 3) {
         set_error_buf(error_buf, error_buf_size, "integer too large");
+        return false;
+    }
+    else if (memory->flags == 2) {
+        set_error_buf(error_buf, error_buf_size, "shared memory must have maximum");
         return false;
     }
 #endif

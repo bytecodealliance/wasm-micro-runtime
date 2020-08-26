@@ -1034,13 +1034,13 @@ argv_to_params(const uint64 *argv,
         switch (param_def->kind) {
             case WASM_I32:
                 param->kind = WASM_I32;
-                param->of.i32 = *(uint32 *)argv_p;
+                param->of.i32 = *(int32 *)argv_p;
                 argv_p = (uint32 *)argv_p + 1;
                 argc++;
                 break;
             case WASM_I64:
                 param->kind = WASM_I64;
-                param->of.i64 = *(uint64 *)argv_p;
+                param->of.i64 = *(int64 *)argv_p;
                 argv_p = (uint64 *)argv_p + 1;
                 argc++;
                 break;
@@ -1081,12 +1081,12 @@ results_to_argv(const wasm_val_t *results,
         const wasm_val_t *result = results + i;
         switch (result_def->kind) {
             case WASM_I32:
-                *(uint32 *)argv_p = result->of.i32;
+                *(int32 *)argv_p = result->of.i32;
                 argv_p = (uint32 *)argv_p + 1;
                 argc++;
                 break;
             case WASM_I64:
-                *(uint64 *)argv_p = result->of.i64;
+                *(int64 *)argv_p = result->of.i64;
                 argv_p = (uint64 *)argv_p + 1;
                 argc++;
                 break;
@@ -2099,7 +2099,7 @@ interp_link_table(const WASMModule *module_interp,
     return false;
 }
 
-static int32
+static uint32
 interp_link(const wasm_instance_t *inst,
             const WASMModule *module_interp,
             wasm_extern_t *imports[])
@@ -2157,7 +2157,7 @@ interp_link(const wasm_instance_t *inst,
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    return -1;
+    return (uint32)-1;
 }
 
 static bool
@@ -2296,7 +2296,7 @@ failed:
     return false;
 }
 
-static int32
+static uint32
 aot_link(const wasm_instance_t *inst,
          const AOTModule *module_aot,
          wasm_extern_t *imports[])
@@ -2346,7 +2346,7 @@ aot_link(const wasm_instance_t *inst,
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    return -1;
+    return (uint32)-1;
 }
 
 static bool
@@ -2419,7 +2419,7 @@ wasm_instance_new(wasm_store_t *store,
     char error[128] = { 0 };
     const uint32 stack_size = 16 * 1024;
     const uint32 heap_size = 16 * 1024;
-    int32 import_count = 0;
+    uint32 import_count = 0;
     wasm_instance_t *instance = NULL;
     uint32 i = 0;
     (void)traps;
@@ -2459,7 +2459,7 @@ wasm_instance_new(wasm_store_t *store,
           aot_link(instance, (AOTModule *)*module, (wasm_extern_t **)imports);
 #endif
     }
-    if (import_count < 0) {
+    if ((int32)import_count < 0) {
         goto failed;
     }
 

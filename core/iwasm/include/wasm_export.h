@@ -476,11 +476,11 @@ wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
  *        if it is not NULL, and return NULL if memory malloc failed
  *
  * @return the allocated memory address, which is a relative offset to the
- *         base address of the module instance's memory space, the value range
- *         is (-heap_size, 0). Note that it is not an absolute address.
+ *         base address of the module instance's memory space. Note that
+ *         it is not an absolute address.
  *         Return non-zero if success, zero if failed.
  */
-int32_t
+uint32_t
 wasm_runtime_module_malloc(wasm_module_inst_t module_inst, uint32_t size,
                            void **p_native_addr);
 
@@ -491,7 +491,7 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst, uint32_t size,
  * @param ptr the pointer to free
  */
 void
-wasm_runtime_module_free(wasm_module_inst_t module_inst, int32_t ptr);
+wasm_runtime_module_free(wasm_module_inst_t module_inst, uint32_t ptr);
 
 /**
  * Allocate memory from the heap of WASM module instance and initialize
@@ -502,11 +502,11 @@ wasm_runtime_module_free(wasm_module_inst_t module_inst, int32_t ptr);
  * @param size the size of the source data
  *
  * @return the allocated memory address, which is a relative offset to the
- *         base address of the module instance's memory space, the value range
- *         is (-heap_size, 0). Note that it is not an absolute address.
+ *         base address of the module instance's memory space. Note that
+ *         it is not an absolute address.
  *         Return non-zero if success, zero if failed.
  */
-int32_t
+uint32_t
 wasm_runtime_module_dup_data(wasm_module_inst_t module_inst,
                              const char *src, uint32_t size);
 
@@ -523,7 +523,7 @@ wasm_runtime_module_dup_data(wasm_module_inst_t module_inst,
  */
 bool
 wasm_runtime_validate_app_addr(wasm_module_inst_t module_inst,
-                               int32_t app_offset, uint32_t size);
+                               uint32_t app_offset, uint32_t size);
 
 /**
  * Similar to wasm_runtime_validate_app_addr(), except that the size parameter
@@ -540,7 +540,7 @@ wasm_runtime_validate_app_addr(wasm_module_inst_t module_inst,
  */
 bool
 wasm_runtime_validate_app_str_addr(wasm_module_inst_t module_inst,
-                                   int32_t app_str_offset);
+                                   uint32_t app_str_offset);
 
 /**
  * Validate the native address, check whether it belongs to WASM module
@@ -568,7 +568,7 @@ wasm_runtime_validate_native_addr(wasm_module_inst_t module_inst,
  */
 void*
 wasm_runtime_addr_app_to_native(wasm_module_inst_t module_inst,
-                                int32_t app_offset);
+                                uint32_t app_offset);
 
 /**
  * Convert native address(absolute address) to app address(relative address)
@@ -578,7 +578,7 @@ wasm_runtime_addr_app_to_native(wasm_module_inst_t module_inst,
  *
  * @return the app address converted
  */
-int32_t
+uint32_t
 wasm_runtime_addr_native_to_app(wasm_module_inst_t module_inst,
                                 void *native_ptr);
 
@@ -594,9 +594,9 @@ wasm_runtime_addr_native_to_app(wasm_module_inst_t module_inst,
  */
 bool
 wasm_runtime_get_app_addr_range(wasm_module_inst_t module_inst,
-                                int32_t app_offset,
-                                int32_t *p_app_start_offset,
-                                int32_t *p_app_end_offset);
+                                uint32_t app_offset,
+                                uint32_t *p_app_start_offset,
+                                uint32_t *p_app_end_offset);
 
 /**
  * Get the native address range (absolute address) that a native address belongs to

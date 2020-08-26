@@ -479,7 +479,8 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
     return (type1->param_count == type2->param_count
             && type1->result_count == type2->result_count
             && memcmp(type1->types, type2->types,
-                      type1->param_count + type1->result_count) == 0)
+                      (uint32)(type1->param_count
+                               + type1->result_count)) == 0)
         ? true : false;
 }
 

@@ -49,13 +49,13 @@ typedef struct WASIContext {
        allocated from app's heap, and the heap space may be re-allocated
        after memory.grow opcode is executed, the original native address
        cannot be accessed again. */
-    int32 curfds_offset;
-    int32 prestats_offset;
-    int32 argv_environ_offset;
-    int32 argv_buf_offset;
-    int32 argv_offsets_offset;
-    int32 env_buf_offset;
-    int32 env_offsets_offset;
+    uint32 curfds_offset;
+    uint32 prestats_offset;
+    uint32 argv_environ_offset;
+    uint32 argv_buf_offset;
+    uint32 argv_offsets_offset;
+    uint32 env_buf_offset;
+    uint32 env_offsets_offset;
 } WASIContext;
 #endif
 
@@ -227,28 +227,28 @@ void *
 wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
-int32
+uint32
 wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint32 size,
                            void **p_native_addr);
 
 /* See wasm_export.h for description */
 void
-wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, int32 ptr);
+wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, uint32 ptr);
 
 /* See wasm_export.h for description */
-int32
+uint32
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
                              const char *src, uint32 size);
 
 /* See wasm_export.h for description */
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst,
-                               int32 app_offset, uint32 size);
+                               uint32 app_offset, uint32 size);
 
 /* See wasm_export.h for description */
 bool
 wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst,
-                                   int32 app_str_offset);
+                                   uint32 app_str_offset);
 
 /* See wasm_export.h for description */
 bool
@@ -258,19 +258,19 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst,
 /* See wasm_export.h for description */
 void *
 wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst,
-                                int32 app_offset);
+                                uint32 app_offset);
 
 /* See wasm_export.h for description */
-int32
+uint32
 wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst,
                                 void *native_ptr);
 
 /* See wasm_export.h for description */
 bool
 wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst,
-                                int32 app_offset,
-                                int32 *p_app_start_offset,
-                                int32 *p_app_end_offset);
+                                uint32 app_offset,
+                                uint32 *p_app_start_offset,
+                                uint32 *p_app_end_offset);
 
 /* See wasm_export.h for description */
 bool

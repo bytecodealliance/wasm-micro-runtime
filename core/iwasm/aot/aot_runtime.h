@@ -275,7 +275,7 @@ typedef struct AOTModuleInstance {
     AOTPointer wasi_ctx;
 
     /* others */
-    int32 temp_ret;
+    uint32 temp_ret;
     uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
@@ -456,20 +456,20 @@ aot_get_exception(AOTModuleInstance *module_inst);
 void
 aot_clear_exception(AOTModuleInstance *module_inst);
 
-int32
+uint32
 aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr);
 
 void
-aot_module_free(AOTModuleInstance *module_inst, int32 ptr);
+aot_module_free(AOTModuleInstance *module_inst, uint32 ptr);
 
-int32
+uint32
 aot_module_dup_data(AOTModuleInstance *module_inst,
                     const char *src, uint32 size);
 
 bool
 aot_validate_app_addr(AOTModuleInstance *module_inst,
-                      int32 app_offset, uint32 size);
+                      uint32 app_offset, uint32 size);
 
 
 bool
@@ -477,16 +477,16 @@ aot_validate_native_addr(AOTModuleInstance *module_inst,
                          void *native_ptr, uint32 size);
 
 void *
-aot_addr_app_to_native(AOTModuleInstance *module_inst, int32 app_offset);
+aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset);
 
-int32
+uint32
 aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr);
 
 bool
 aot_get_app_addr_range(AOTModuleInstance *module_inst,
-                       int32 app_offset,
-                       int32 *p_app_start_offset,
-                       int32 *p_app_end_offset);
+                       uint32 app_offset,
+                       uint32 *p_app_start_offset,
+                       uint32 *p_app_end_offset);
 
 bool
 aot_get_native_addr_range(AOTModuleInstance *module_inst,

@@ -242,7 +242,8 @@ uint8 *os_thread_get_stack_boundary()
     uint8 *addr = NULL;
     size_t stack_size, guard_size;
     int page_size = getpagesize();
-    size_t max_stack_size = (APP_THREAD_STACK_SIZE_MAX + page_size - 1)
+    size_t max_stack_size = (size_t)
+                            (APP_THREAD_STACK_SIZE_MAX + page_size - 1)
                             & ~(page_size - 1);
 
     if (max_stack_size < APP_THREAD_STACK_SIZE_DEFAULT)

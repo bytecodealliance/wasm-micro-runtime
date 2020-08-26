@@ -957,7 +957,7 @@ wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst)
     return NULL;
 }
 
-int32
+uint32
 wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint32 size,
                            void **p_native_addr)
 {
@@ -975,7 +975,7 @@ wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint32 size,
 }
 
 void
-wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, int32 ptr)
+wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, uint32 ptr)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
@@ -991,7 +991,7 @@ wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, int32 ptr)
 #endif
 }
 
-int32
+uint32
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
                              const char *src, uint32 size)
 {
@@ -1010,7 +1010,7 @@ wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
 
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst,
-                               int32 app_offset, uint32 size)
+                               uint32 app_offset, uint32 size)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -1027,9 +1027,9 @@ wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst,
 
 bool
 wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst,
-                                   int32 app_str_offset)
+                                   uint32 app_str_offset)
 {
-    int32 app_end_offset;
+    uint32 app_end_offset;
     char *str, *str_end;
 
     if (!wasm_runtime_get_app_addr_range(module_inst, app_str_offset,
@@ -1068,7 +1068,7 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst,
 
 void *
 wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst,
-                                int32 app_offset)
+                                uint32 app_offset)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -1083,7 +1083,7 @@ wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst,
     return NULL;
 }
 
-int32
+uint32
 wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst,
                                 void *native_ptr)
 {
@@ -1102,9 +1102,9 @@ wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst,
 
 bool
 wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst,
-                                int32 app_offset,
-                                int32 *p_app_start_offset,
-                                int32 *p_app_end_offset)
+                                uint32 app_offset,
+                                uint32 *p_app_start_offset,
+                                uint32 *p_app_end_offset)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -1250,7 +1250,7 @@ wasm_runtime_set_wasi_args(WASMModuleCommon *module,
         wasi_args->env = env_list;
         wasi_args->env_count = env_count;
         wasi_args->argv = argv;
-        wasi_args->argc = argc;
+        wasi_args->argc = (uint32)argc;
     }
 }
 
@@ -1274,11 +1274,11 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     struct argv_environ_values *argv_environ;
     bool fd_table_inited = false, fd_prestats_inited = false;
     bool argv_environ_inited = false;
-    int32 offset_argv_offsets = 0, offset_env_offsets = 0;
-    int32 offset_argv_buf = 0, offset_env_buf = 0;
-    int32 offset_curfds = 0;
-    int32 offset_prestats = 0;
-    int32 offset_argv_environ = 0;
+    uint32 offset_argv_offsets = 0, offset_env_offsets = 0;
+    uint32 offset_argv_buf = 0, offset_env_buf = 0;
+    uint32 offset_curfds = 0;
+    uint32 offset_prestats = 0;
+    uint32 offset_argv_environ = 0;
     __wasi_fd_t wasm_fd = 3;
     int32 raw_fd;
     char *path, resolved_path[PATH_MAX];
@@ -1657,9 +1657,10 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
     uint32 argc1 = 0, argv1[2] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
-    int32 argv_buf_offset, i;
+    uint32 argv_buf_offset;
+    int32 i;
     char *argv_buf, *p, *p_end;
-    int32 *argv_offsets;
+    uint32 *argv_offsets;
 
 #if WASM_ENABLE_LIBC_WASI != 0
     if (wasm_runtime_is_wasi_mode(module_inst)) {
@@ -1724,12 +1725,12 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
         }
 
         p = argv_buf;
-        argv_offsets = (int32*)(p + total_argv_size);
+        argv_offsets = (uint32*)(p + total_argv_size);
         p_end = p + total_size;
 
         for (i = 0; i < argc; i++) {
             bh_memcpy_s(p, (uint32)(p_end - p), argv[i], (uint32)(strlen(argv[i]) + 1));
-            argv_offsets[i] = argv_buf_offset + (int32)(p - argv_buf);
+            argv_offsets[i] = argv_buf_offset + (uint32)(p - argv_buf);
             p += strlen(argv[i]) + 1;
         }
 
@@ -2173,7 +2174,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     NativeRawFuncPtr invokeNativeRaw = (NativeRawFuncPtr)func_ptr;
     uint64 argv_buf[16] = { 0 }, *argv1 = argv_buf, *argv_dst, size;
     uint32 *argv_src = argv, i, argc1, ptr_len;
-    int32 arg_i32;
+    uint32 arg_i32;
     bool ret = false;
 
     argc1 = func_type->param_count;
@@ -2192,7 +2193,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         switch (func_type->types[i]) {
             case VALUE_TYPE_I32:
             {
-                *(int32*)argv_dst = arg_i32 = (int32)*argv_src++;
+                *(uint32*)argv_dst = arg_i32 = *argv_src++;
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -2729,7 +2730,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     int n_fps = 0;
 #endif
 
-    argc1 = 1 + MAX_REG_FLOATS + func_type->param_count + ext_ret_count;
+    argc1 = 1 + MAX_REG_FLOATS + (uint32)func_type->param_count + ext_ret_count;
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
         size = sizeof(uint64) * (uint64)argc1;
         if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
