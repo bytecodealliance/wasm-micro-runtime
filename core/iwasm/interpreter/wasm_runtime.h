@@ -313,24 +313,24 @@ wasm_set_exception(WASMModuleInstance *module, const char *exception);
 const char*
 wasm_get_exception(WASMModuleInstance *module);
 
-int32
+uint32
 wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
                    void **p_native_addr);
 
 void
-wasm_module_free(WASMModuleInstance *module_inst, int32 ptr);
+wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr);
 
-int32
+uint32
 wasm_module_dup_data(WASMModuleInstance *module_inst,
                      const char *src, uint32 size);
 
 bool
 wasm_validate_app_addr(WASMModuleInstance *module_inst,
-                       int32 app_offset, uint32 size);
+                       uint32 app_offset, uint32 size);
 
 bool
 wasm_validate_app_str_addr(WASMModuleInstance *module_inst,
-                           int32 app_offset);
+                           uint32 app_offset);
 
 bool
 wasm_validate_native_addr(WASMModuleInstance *module_inst,
@@ -338,17 +338,17 @@ wasm_validate_native_addr(WASMModuleInstance *module_inst,
 
 void *
 wasm_addr_app_to_native(WASMModuleInstance *module_inst,
-                        int32 app_offset);
+                        uint32 app_offset);
 
-int32
+uint32
 wasm_addr_native_to_app(WASMModuleInstance *module_inst,
                         void *native_ptr);
 
 bool
 wasm_get_app_addr_range(WASMModuleInstance *module_inst,
-                        int32 app_offset,
-                        int32 *p_app_start_offset,
-                        int32 *p_app_end_offset);
+                        uint32 app_offset,
+                        uint32 *p_app_start_offset,
+                        uint32 *p_app_end_offset);
 
 bool
 wasm_get_native_addr_range(WASMModuleInstance *module_inst,

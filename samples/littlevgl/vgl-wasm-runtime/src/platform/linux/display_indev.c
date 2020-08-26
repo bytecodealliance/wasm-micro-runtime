@@ -183,7 +183,7 @@ display_map(wasm_exec_env_t exec_env,
 
 typedef struct display_input_data {
     lv_point_t point;
-    int32 user_data_offset;
+    uint32 user_data_offset;
     uint8 state;
 } display_input_data;
 

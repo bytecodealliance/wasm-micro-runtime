@@ -1562,7 +1562,7 @@ wasm_get_exception(WASMModuleInstance *module_inst)
         return module_inst->cur_exception;
 }
 
-int32
+uint32
 wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
                    void **p_native_addr)
 {
@@ -1589,15 +1589,15 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     }
     if (p_native_addr)
         *p_native_addr = addr;
-    return (int32)(addr - memory->memory_data);
+    return (uint32)(addr - memory->memory_data);
 }
 
 void
-wasm_module_free(WASMModuleInstance *module_inst, int32 ptr)
+wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
 {
     if (ptr) {
         WASMMemoryInstance *memory = module_inst->default_memory;
-        uint8 *addr = memory->memory_data + (uint32)ptr;
+        uint8 *addr = memory->memory_data + ptr;
 
         if (memory->heap_handle
             && memory->heap_data <= addr
@@ -1610,18 +1610,18 @@ wasm_module_free(WASMModuleInstance *module_inst, int32 ptr)
                  && addr < memory->memory_data_end) {
             execute_free_function(module_inst,
                                   module_inst->free_function,
-                                  (uint32)ptr);
+                                  ptr);
         }
     }
 }
 
-int32
+uint32
 wasm_module_dup_data(WASMModuleInstance *module_inst,
                      const char *src, uint32 size)
 {
     char *buffer;
-    int32 buffer_offset = wasm_module_malloc(module_inst, size,
-                                             (void**)&buffer);
+    uint32 buffer_offset = wasm_module_malloc(module_inst, size,
+                                              (void**)&buffer);
     if (buffer_offset != 0) {
         buffer = wasm_addr_app_to_native(module_inst, buffer_offset);
         bh_memcpy_s(buffer, size, src, size);
@@ -1631,18 +1631,18 @@ wasm_module_dup_data(WASMModuleInstance *module_inst,
 
 bool
 wasm_validate_app_addr(WASMModuleInstance *module_inst,
-                       int32 app_offset, uint32 size)
+                       uint32 app_offset, uint32 size)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint32 memory_data_size =
         memory->num_bytes_per_page * memory->cur_page_count;
 
     /* integer overflow check */
-    if ((uint32)app_offset + size < (uint32)app_offset) {
+    if (app_offset + size < app_offset) {
         goto fail;
     }
 
-    if ((uint32)app_offset + size <= memory_data_size) {
+    if (app_offset + size <= memory_data_size) {
         return true;
     }
 fail:
@@ -1673,7 +1673,7 @@ fail:
 
 void *
 wasm_addr_app_to_native(WASMModuleInstance *module_inst,
-                        int32 app_offset)
+                        uint32 app_offset)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint8 *addr = memory->memory_data + app_offset;
@@ -1684,7 +1684,7 @@ wasm_addr_app_to_native(WASMModuleInstance *module_inst,
     return NULL;
 }
 
-int32
+uint32
 wasm_addr_native_to_app(WASMModuleInstance *module_inst,
                         void *native_ptr)
 {
@@ -1693,21 +1693,21 @@ wasm_addr_native_to_app(WASMModuleInstance *module_inst,
 
     if (memory->memory_data <= addr
         && addr < memory->memory_data_end)
-        return (int32)(addr - memory->memory_data);
+        return (uint32)(addr - memory->memory_data);
     return 0;
 }
 
 bool
 wasm_get_app_addr_range(WASMModuleInstance *module_inst,
-                        int32 app_offset,
-                        int32 *p_app_start_offset,
-                        int32 *p_app_end_offset)
+                        uint32 app_offset,
+                        uint32 *p_app_start_offset,
+                        uint32 *p_app_end_offset)
 {
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint32 memory_data_size =
         memory->num_bytes_per_page * memory->cur_page_count;
 
-    if ((uint32)app_offset < memory_data_size) {
+    if (app_offset < memory_data_size) {
         if (p_app_start_offset)
             *p_app_start_offset = 0;
         if (p_app_end_offset)

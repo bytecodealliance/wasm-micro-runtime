@@ -143,7 +143,7 @@ There are two runtime APIs available for this purpose.
  * p_native_addr: return the native address of allocated memory
  * size: the buffer size to allocate
  */
-int32_t
+uint32_t
 wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
                            uint32_t size, void **p_native_addr);
 
@@ -155,20 +155,20 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
  * src: the native buffer address
  * size: the size of buffer to be allocated and copy data
  */
-int32
+uint32_t
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
-                             const char *src, uint32 size);
+                             const char *src, uint32_t size);
 
 /* free the memory allocated from module memory space */
 void
-wasm_runtime_module_free(wasm_module_inst_t module_inst, int32_t ptr);
+wasm_runtime_module_free(wasm_module_inst_t module_inst, uint32_t ptr);
 ```
 
 Usage sample:
 
 ```c
 char * buffer = NULL;
-int32_t buffer_for_wasm;
+uint32_t buffer_for_wasm;
 
 buffer_for_wasm = wasm_runtime_module_malloc(module_inst, 100, &buffer);
 if (buffer_for_wasm != 0) {

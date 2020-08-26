@@ -885,7 +885,8 @@ aot_signal_handler(void *sig_addr)
     AOTModuleInstance *module_inst;
     AOTMemoryInstance *memory_inst;
     WASMJmpBuf *jmpbuf_node;
-    uint8 *mapped_mem_start_addr, *mapped_mem_end_addr;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
     uint8 *stack_min_addr;
     uint32 page_size;
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
@@ -1265,7 +1266,7 @@ execute_free_function(AOTModuleInstance *module_inst,
     }
 }
 
-int32
+uint32
 aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr)
 {
@@ -1298,11 +1299,11 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
     }
     if (p_native_addr)
         *p_native_addr = addr;
-    return (int32)(addr - (uint8*)memory_inst->memory_data.ptr);
+    return (uint32)(addr - (uint8*)memory_inst->memory_data.ptr);
 }
 
 void
-aot_module_free(AOTModuleInstance *module_inst, int32 ptr)
+aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
@@ -1322,18 +1323,18 @@ aot_module_free(AOTModuleInstance *module_inst, int32 ptr)
                 aot_lookup_function(module_inst, "free", "(i)i");
 
             bh_assert(free_func);
-            execute_free_function(module_inst, free_func, (uint32)ptr);
+            execute_free_function(module_inst, free_func, ptr);
         }
     }
 }
 
-int32
+uint32
 aot_module_dup_data(AOTModuleInstance *module_inst,
                     const char *src, uint32 size)
 {
     char *buffer;
-    int32 buffer_offset = aot_module_malloc(module_inst, size,
-                                            (void**)&buffer);
+    uint32 buffer_offset = aot_module_malloc(module_inst, size,
+                                             (void**)&buffer);
 
     if (buffer_offset != 0) {
         buffer = aot_addr_app_to_native(module_inst, buffer_offset);
@@ -1344,15 +1345,15 @@ aot_module_dup_data(AOTModuleInstance *module_inst,
 
 bool
 aot_validate_app_addr(AOTModuleInstance *module_inst,
-                      int32 app_offset, uint32 size)
+                      uint32 app_offset, uint32 size)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
 
     /* integer overflow check */
-    if((uint32)app_offset + size < (uint32)app_offset) {
+    if(app_offset + size < app_offset) {
         goto fail;
     }
-    if ((uint32)app_offset + size <= memory_inst->memory_data_size) {
+    if (app_offset + size <= memory_inst->memory_data_size) {
         return true;
     }
 fail:
@@ -1381,10 +1382,10 @@ fail:
 }
 
 void *
-aot_addr_app_to_native(AOTModuleInstance *module_inst, int32 app_offset)
+aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint8 *addr = (uint8 *)memory_inst->memory_data.ptr + (uint32)app_offset;
+    uint8 *addr = (uint8 *)memory_inst->memory_data.ptr + app_offset;
 
     if ((uint8 *)memory_inst->memory_data.ptr <= addr
         && addr < (uint8 *)memory_inst->memory_data_end.ptr)
@@ -1392,7 +1393,7 @@ aot_addr_app_to_native(AOTModuleInstance *module_inst, int32 app_offset)
     return NULL;
 }
 
-int32
+uint32
 aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr)
 {
     uint8 *addr = (uint8 *)native_ptr;
@@ -1400,24 +1401,24 @@ aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr)
 
     if ((uint8 *)memory_inst->memory_data.ptr <= addr
         && addr < (uint8 *)memory_inst->memory_data_end.ptr)
-        return (int32)(addr - (uint8 *)memory_inst->memory_data.ptr);
+        return (uint32)(addr - (uint8 *)memory_inst->memory_data.ptr);
     return 0;
 }
 
 bool
 aot_get_app_addr_range(AOTModuleInstance *module_inst,
-                       int32 app_offset,
-                       int32 *p_app_start_offset,
-                       int32 *p_app_end_offset)
+                       uint32 app_offset,
+                       uint32 *p_app_start_offset,
+                       uint32 *p_app_end_offset)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     uint32 memory_data_size = memory_inst->memory_data_size;
 
-    if ((uint32)app_offset < memory_data_size) {
+    if (app_offset < memory_data_size) {
         if (p_app_start_offset)
             *p_app_start_offset = 0;
         if (p_app_end_offset)
-            *p_app_end_offset = (int32)memory_data_size;
+            *p_app_end_offset = memory_data_size;
         return true;
     }
     return false;

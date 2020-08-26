@@ -660,7 +660,7 @@ static __wasi_errno_t fd_table_insert_fd(
   if (type == __WASI_FILETYPE_DIRECTORY) {
     if (!mutex_init(&fo->directory.lock)) {
       fd_object_release(fo);
-      return -1;
+      return (__wasi_errno_t)-1;
     }
     fo->directory.handle = NULL;
   }

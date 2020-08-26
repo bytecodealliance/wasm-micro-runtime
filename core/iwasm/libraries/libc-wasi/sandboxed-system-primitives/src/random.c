@@ -37,7 +37,7 @@ void random_buf(void *buf, size_t len) {
      if ((size_t)x == len)
          return;
      buf = (void *)((unsigned char *)buf + x);
-     len -= x;
+     len -= (size_t)x;
   }
 }
 

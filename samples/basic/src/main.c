@@ -32,7 +32,7 @@ int main(int argc, char *argv_main[])
     wasm_function_inst_t func = NULL;
     wasm_function_inst_t func2 = NULL;
     char * native_buffer = NULL;
-    int32_t wasm_buffer = 0;
+    uint32_t wasm_buffer = 0;
 
     RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));

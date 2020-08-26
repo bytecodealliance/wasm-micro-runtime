@@ -188,7 +188,7 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
               const char *symbol, const char **p_signature, void **p_attachment)
 {
     int low = 0, mid, ret;
-    int high = n_native_symbols - 1;
+    int high = (int32)n_native_symbols - 1;
 
     while (low <= high) {
         mid = (low + high) / 2;
