@@ -8,7 +8,7 @@ DEPS_DIR=${PWD}/../../../core/deps
 cd ${DEPS_DIR}
 if [ ! -d "llvm" ]; then
   echo "Clone llvm to core/deps/ .."
-  git clone --depth 1 https://github.com/llvm/llvm-project.git llvm
+  git clone --depth 1 --branch release/10.x https://github.com/llvm/llvm-project.git llvm
 fi
 
 cd llvm

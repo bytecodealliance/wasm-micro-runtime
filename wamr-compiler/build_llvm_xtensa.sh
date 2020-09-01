@@ -8,7 +8,7 @@ DEPS_DIR=${PWD}/../core/deps
 cd ${DEPS_DIR}
 if [ ! -d "llvm" ]; then
   echo "Clone llvm Xtensa to core/deps/ .."
-  git clone https://github.com/espressif/llvm-project.git llvm
+  git clone --depth 1 --branch xtensa_release_10.0.1 https://github.com/espressif/llvm-project.git llvm
 fi
 
 cd llvm
