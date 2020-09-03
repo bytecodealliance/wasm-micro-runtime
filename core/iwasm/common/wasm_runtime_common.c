@@ -863,6 +863,197 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
     return false;
 }
 
+uint32 parse_args_to_uint32_array(WASMModuleInstanceCommon *module_inst, WASMType *type,
+                                uint32 num_args, wasm_val_t *args,
+                                uint32 *out_argv)
+{
+    int i, p;
+
+    for (i = 0, p = 0; i < num_args; i++) {
+        switch (args[i].kind) {
+            case WASM_I32:
+                out_argv[p++] = args[i].of.i32;
+                break;
+            case WASM_I64:
+            {
+                union { uint64 val; uint32 parts[2]; } u;
+                u.val = args[i].of.i64;
+                out_argv[p++] = u.parts[0];
+                out_argv[p++] = u.parts[1];
+                break;
+            }
+            case WASM_F32:
+            {
+                union { float32 val; uint32 part; } u;
+                u.val = args[i].of.f32;
+                out_argv[p++] = u.part;
+                break;
+            }
+            case WASM_F64:
+            {
+                union { float64 val; uint32 parts[2]; } u;
+                u.val = args[i].of.f64;
+                out_argv[p++] = u.parts[0];
+                out_argv[p++] = u.parts[1];
+                break;
+            }
+        }
+    }
+    return p;
+}
+
+uint32 parse_uint32_array_to_results(WASMModuleInstanceCommon *module_inst, WASMType *type,
+                                uint32 argc, uint32 *argv,
+                                wasm_val_t *out_results)
+{
+    int i, p;
+
+    for (i = 0, p = 0; i < type->result_count; i++) {
+        switch (type->types[type->param_count + i]) {
+            case VALUE_TYPE_I32:
+                out_results[i].kind = WASM_I32;
+                out_results[i].of.i32 = argv[p];
+                p++;
+                break;
+            case VALUE_TYPE_I64:
+            {
+                union { uint64 val; uint32 parts[2]; } u;
+                u.parts[0] = argv[p];
+                u.parts[1] = argv[p + 1];
+                out_results[i].kind = WASM_I64;
+                out_results[i].of.i64 = u.val;
+                p += 2;
+                break;
+            }
+            case VALUE_TYPE_F32:
+                out_results[i].kind = WASM_F32;
+                out_results[i].of.f32 = *(float32*)(argv + p);
+                p++;
+                break;
+            case VALUE_TYPE_F64:
+            {
+                union { float64 val; uint32 parts[2]; } u;
+                u.parts[0] = argv[p];
+                u.parts[1] = argv[p + 1];
+                out_results[i].kind = WASM_F64;
+                out_results[i].of.f64 = u.val;
+                p += 2;
+                break;
+            }
+        }
+    }
+    bh_assert(argc == p);
+    return type->result_count;
+}
+
+bool
+wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
+                       WASMFunctionInstanceCommon *function,
+                       uint32 num_results, wasm_val_t *results,
+                       uint32 num_args, wasm_val_t *args)
+{
+    uint32 argc, *argv, ret_num, cell_num, total_size;
+    bool ret = false;
+    WASMType *type = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *wasm_func = (WASMFunctionInstance*)function;
+        type = wasm_func->u.func->func_type;
+        argc = wasm_func->param_cell_num;
+        cell_num = argc > wasm_func->ret_cell_num ?
+                   argc : wasm_func->ret_cell_num;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
+        type = ((AOTFunctionInstance*)function)->u.func.func_type;
+        argc = type->param_cell_num;
+        cell_num = argc > type->ret_cell_num ?
+                   argc : type->ret_cell_num;
+    }
+#endif
+
+    if (num_results != type->result_count || num_args != type->param_count)
+        goto fail2;
+
+    total_size = sizeof(uint32) * (uint64)(cell_num > 2 ? cell_num : 2);
+    if (!(argv = runtime_malloc((uint32)total_size, exec_env->module_inst, NULL, 0)))
+        goto fail2;
+
+    argc == parse_args_to_uint32_array(exec_env->module_inst,
+                                    type, num_args, args, argv);
+    if (!(ret = wasm_runtime_call_wasm(exec_env, function, argc, argv)))
+        goto fail1;
+    ret_num = parse_uint32_array_to_results(exec_env->module_inst,
+                                    type, type->ret_cell_num, argv, results);
+    if (ret_num != num_results) {
+        LOG_ERROR("The return value number does not match the expected number.");
+        ret = false;
+    }
+
+fail1:
+    wasm_runtime_free(argv);
+fail2:
+    return ret;
+}
+
+bool
+wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
+                       WASMFunctionInstanceCommon *func,
+                       uint32 num_results, wasm_val_t *results,
+                       uint32 num_args, ...)
+{
+    wasm_val_t *args = NULL;
+    WASMType *type = NULL;
+    bool ret;
+    int i = 0;
+    #if WASM_ENABLE_INTERP != 0
+        if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
+           WASMFunctionInstance *wasm_func = (WASMFunctionInstance*)func;
+           type = wasm_func->u.func->func_type;
+        }
+    #endif
+    #if WASM_ENABLE_AOT != 0
+        if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
+           type = ((AOTFunctionInstance*)func)->u.func.func_type;
+        }
+    #endif
+    if (num_args != type->param_count) {
+        LOG_ERROR("The argument number does not match the expected number.");
+        return false;
+    }
+    if (!(args = runtime_malloc(sizeof(wasm_val_t) * num_args, NULL, NULL, 0))) {
+        return false;
+    }
+    va_list vargs;
+    va_start(vargs, num_args);
+    for (i = 0; i < num_args; i++) {
+        switch (type->types[i]) {
+            case VALUE_TYPE_I32:
+                args[i].kind = WASM_I32;
+                args[i].of.i32 = va_arg(vargs, uint32);
+                break;
+            case VALUE_TYPE_I64:
+                args[i].kind = WASM_I64;
+                args[i].of.i64 = va_arg(vargs, uint64);
+                break;
+            case VALUE_TYPE_F32:
+                args[i].kind = WASM_F32;
+                args[i].of.f32 = (float32)va_arg(vargs, float64);
+                break;
+            case VALUE_TYPE_F64:
+                args[i].kind = WASM_F64;
+                args[i].of.f64 = va_arg(vargs, float64);;
+                break;
+        }
+    }
+    va_end(vargs);
+    ret = wasm_runtime_call_wasm_a(exec_env, func, num_results, results, num_args, args);
+    wasm_runtime_free(args);
+    return ret;
+}
+
 bool
 wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst,
                                            WASMFunctionInstanceCommon *function,
