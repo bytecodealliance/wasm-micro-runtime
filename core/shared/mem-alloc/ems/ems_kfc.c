@@ -131,7 +131,7 @@ gc_migrate(gc_handle_t handle, gc_handle_t handle_old)
         size = hmu_get_size(cur);
         bh_assert(size > 0);
 
-        if (!HMU_IS_FC_NORMAL(size)) {
+        if (hmu_get_ut(cur) == HMU_FC && !HMU_IS_FC_NORMAL(size)) {
             tree_node = (hmu_tree_node_t *)cur;
             adjust_ptr((uint8**)&tree_node->left, offset);
             adjust_ptr((uint8**)&tree_node->right, offset);

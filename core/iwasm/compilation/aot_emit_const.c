@@ -45,7 +45,7 @@ aot_compile_op_f32_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
       int32 i32_const;
       memcpy(&i32_const, &f32_const, sizeof(int32));
       if (!(alloca = LLVMBuildAlloca(comp_ctx->builder,
-                                     INT32_PTR_TYPE, "i32_ptr"))) {
+                                     I32_TYPE, "i32_ptr"))) {
           aot_set_last_error("llvm build alloca failed.");
           return false;
       }
