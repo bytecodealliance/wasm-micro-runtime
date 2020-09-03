@@ -863,6 +863,227 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
     return false;
 }
 
+static uint32
+parse_args_to_uint32_array(WASMType *type,
+                           uint32 num_args, wasm_val_t *args,
+                           uint32 *out_argv)
+{
+    int i, p;
+
+    for (i = 0, p = 0; i < num_args; i++) {
+        switch (args[i].kind) {
+            case WASM_I32:
+                out_argv[p++] = args[i].of.i32;
+                break;
+            case WASM_I64:
+            {
+                union { uint64 val; uint32 parts[2]; } u;
+                u.val = args[i].of.i64;
+                out_argv[p++] = u.parts[0];
+                out_argv[p++] = u.parts[1];
+                break;
+            }
+            case WASM_F32:
+            {
+                union { float32 val; uint32 part; } u;
+                u.val = args[i].of.f32;
+                out_argv[p++] = u.part;
+                break;
+            }
+            case WASM_F64:
+            {
+                union { float64 val; uint32 parts[2]; } u;
+                u.val = args[i].of.f64;
+                out_argv[p++] = u.parts[0];
+                out_argv[p++] = u.parts[1];
+                break;
+            }
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+    return p;
+}
+
+static uint32
+parse_uint32_array_to_results(WASMType *type,
+                              uint32 argc, uint32 *argv,
+                              wasm_val_t *out_results)
+{
+    int i, p;
+
+    for (i = 0, p = 0; i < type->result_count; i++) {
+        switch (type->types[type->param_count + i]) {
+            case VALUE_TYPE_I32:
+                out_results[i].kind = WASM_I32;
+                out_results[i].of.i32 = *(int32 *)argv[p++];
+                break;
+            case VALUE_TYPE_I64:
+            {
+                union { uint64 val; uint32 parts[2]; } u;
+                u.parts[0] = argv[p++];
+                u.parts[1] = argv[p++];
+                out_results[i].kind = WASM_I64;
+                out_results[i].of.i64 = u.val;
+                break;
+            }
+            case VALUE_TYPE_F32:
+            {
+                union { float32 val; uint32 part; } u;
+                u.part = argv[p++];
+                out_results[i].kind = WASM_F32;
+                out_results[i].of.f32 = u.val;
+                break;
+            }
+            case VALUE_TYPE_F64:
+            {
+                union { float64 val; uint32 parts[2]; } u;
+                u.parts[0] = argv[p++];
+                u.parts[1] = argv[p++];
+                out_results[i].kind = WASM_F64;
+                out_results[i].of.f64 = u.val;
+                break;
+            }
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+    bh_assert(argc == p);
+    return type->result_count;
+}
+
+bool
+wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
+                         WASMFunctionInstanceCommon *function,
+                         uint32 num_results, wasm_val_t results[],
+                         uint32 num_args, wasm_val_t args[])
+{
+    uint32 argc, *argv, ret_num, cell_num, total_size;
+    bool ret = false;
+    WASMType *type = NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *wasm_func = (WASMFunctionInstance*)function;
+        type = wasm_func->u.func->func_type;
+        argc = wasm_func->param_cell_num;
+        cell_num = argc > wasm_func->ret_cell_num ?
+                   argc : wasm_func->ret_cell_num;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
+        type = ((AOTFunctionInstance*)function)->u.func.func_type;
+        argc = type->param_cell_num;
+        cell_num = argc > type->ret_cell_num ?
+                   argc : type->ret_cell_num;
+    }
+#endif
+    if (!type) {
+        LOG_ERROR("Function type get failed, WAMR Interpreter and AOT must be enabled at least one.");
+        goto fail1;
+    }
+
+    if (num_results != type->result_count) {
+        LOG_ERROR("The result value number does not match the function declaration.");
+        goto fail1;
+    }
+
+    if (num_args != type->param_count) {
+        LOG_ERROR("The argument value number does not match the function declaration.");
+        goto fail1;
+    }
+
+    total_size = sizeof(uint32) * (uint64)(cell_num > 2 ? cell_num : 2);
+    if (!(argv = runtime_malloc((uint32)total_size, exec_env->module_inst, NULL, 0))) {
+        wasm_runtime_set_exception(exec_env->module_inst, "allocate memory failed");
+        goto fail1;
+    }
+
+    argc = parse_args_to_uint32_array(type, num_args, args, argv);
+    if (!(ret = wasm_runtime_call_wasm(exec_env, function, argc, argv)))
+        goto fail2;
+
+    ret_num = parse_uint32_array_to_results(type, type->ret_cell_num, argv, results);
+    bh_assert(ret_num == num_results);
+
+fail2:
+    wasm_runtime_free(argv);
+fail1:
+    return ret;
+}
+
+bool
+wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
+                         WASMFunctionInstanceCommon *function,
+                         uint32 num_results, wasm_val_t results[],
+                         uint32 num_args, ...)
+{
+    wasm_val_t *args = NULL;
+    WASMType *type = NULL;
+    bool ret = false;
+    int i = 0;
+    va_list vargs;
+
+#if WASM_ENABLE_INTERP != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMFunctionInstance *wasm_func = (WASMFunctionInstance*)function;
+        type = wasm_func->u.func->func_type;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exec_env->module_inst->module_type == Wasm_Module_AoT) {
+        type = ((AOTFunctionInstance*)function)->u.func.func_type;
+    }
+#endif
+    if (!type) {
+        LOG_ERROR("Function type get failed, WAMR Interpreter and AOT must be enabled at least one.");
+        goto fail1;
+    }
+
+    if (num_args != type->param_count) {
+        LOG_ERROR("The argument value number does not match the function declaration.");
+        goto fail1;
+    }
+    if (!(args = runtime_malloc(sizeof(wasm_val_t) * num_args, NULL, NULL, 0))) {
+        wasm_runtime_set_exception(exec_env->module_inst, "allocate memory failed");
+        goto fail1;
+    }
+
+    va_start(vargs, num_args);
+    for (i = 0; i < num_args; i++) {
+        switch (type->types[i]) {
+            case VALUE_TYPE_I32:
+                args[i].kind = WASM_I32;
+                args[i].of.i32 = va_arg(vargs, uint32);
+                break;
+            case VALUE_TYPE_I64:
+                args[i].kind = WASM_I64;
+                args[i].of.i64 = va_arg(vargs, uint64);
+                break;
+            case VALUE_TYPE_F32:
+                args[i].kind = WASM_F32;
+                args[i].of.f32 = (float32)va_arg(vargs, float64);
+                break;
+            case VALUE_TYPE_F64:
+                args[i].kind = WASM_F64;
+                args[i].of.f64 = va_arg(vargs, float64);;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+    }
+    va_end(vargs);
+    ret = wasm_runtime_call_wasm_a(exec_env, function, num_results, results, num_args, args);
+    wasm_runtime_free(args);
+
+fail1:
+    return ret;
+}
+
 bool
 wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst,
                                            WASMFunctionInstanceCommon *function,

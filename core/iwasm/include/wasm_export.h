@@ -120,6 +120,35 @@ typedef struct RuntimeInitArgs {
     uint32_t max_thread_num;
 } RuntimeInitArgs;
 
+#ifndef WASM_VALKIND_T_DEFINED
+#define WASM_VALKIND_T_DEFINED
+typedef uint8_t wasm_valkind_t;
+enum wasm_valkind_enum {
+    WASM_I32,
+    WASM_I64,
+    WASM_F32,
+    WASM_F64,
+    WASM_ANYREF = 128,
+    WASM_FUNCREF,
+};
+#endif
+
+#ifndef WASM_VAL_T_DEFINED
+#define WASM_VAL_T_DEFINED
+struct wasm_ref_t;
+
+typedef struct wasm_val_t {
+  wasm_valkind_t kind;
+  union {
+    int32_t i32;
+    int64_t i64;
+    float f32;
+    double f64;
+    struct wasm_ref_t* ref;
+  } of;
+} wasm_val_t;
+#endif
+
 /**
  * Initialize the WASM runtime environment, and also initialize
  * the memory allocator with system allocator, which calls os_malloc
@@ -384,6 +413,50 @@ bool
 wasm_runtime_call_wasm(wasm_exec_env_t exec_env,
                        wasm_function_inst_t function,
                        uint32_t argc, uint32_t argv[]);
+
+/**
+ * Call the given WASM function of a WASM module instance with
+ * provided results space and arguments (bytecode and AoT).
+ *
+ * @param exec_env the execution environment to call the function,
+ *   which must be created from wasm_create_exec_env()
+ * @param function the function to call
+ * @param num_results the number of results
+ * @param results the pre-alloced pointer to get the results
+ * @param num_args the number of arguments
+ * @param args the arguments
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get the exception
+ *   info.
+ */
+bool
+wasm_runtime_call_wasm_a(wasm_exec_env_t exec_env,
+                         wasm_function_inst_t function,
+                         uint32_t num_results, wasm_val_t results[],
+                         uint32_t num_args, wasm_val_t *args);
+
+/**
+ * Call the given WASM function of a WASM module instance with
+ * provided results space and variant arguments (bytecode and AoT).
+ *
+ * @param exec_env the execution environment to call the function,
+ *   which must be created from wasm_create_exec_env()
+ * @param function the function to call
+ * @param num_results the number of results
+ * @param results the pre-alloced pointer to get the results
+ * @param num_args the number of arguments
+ * @param ... the variant arguments
+ *
+ * @return true if success, false otherwise and exception will be thrown,
+ *   the caller can call wasm_runtime_get_exception to get the exception
+ *   info.
+ */
+bool
+wasm_runtime_call_wasm_v(wasm_exec_env_t exec_env,
+                         wasm_function_inst_t function,
+                         uint32_t num_results, wasm_val_t results[],
+                         uint32_t num_args, ...);
 
 /**
  * Find the unique main function from a WASM module instance
