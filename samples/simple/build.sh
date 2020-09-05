@@ -153,6 +153,7 @@ OUT_FILE=${i%.*}.wasm
         -Wl,--export=on_request -Wl,--export=on_response \
         -Wl,--export=on_sensor_event -Wl,--export=on_timer_callback \
         -Wl,--export=on_connection_data \
+        -Wl,--export=__heap_base -Wl,--export=__data_end \
         -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
 if [ -f ${OUT_DIR}/wasm-apps/${OUT_FILE} ]; then
         echo "build ${OUT_FILE} success"
