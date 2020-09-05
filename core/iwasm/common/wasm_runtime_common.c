@@ -1365,14 +1365,6 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    wasi_ctx->curfds_offset = offset_curfds;
-    wasi_ctx->prestats_offset = offset_prestats;
-    wasi_ctx->argv_environ_offset = offset_argv_environ;
-    wasi_ctx->argv_buf_offset = offset_argv_buf;
-    wasi_ctx->argv_offsets_offset = offset_argv_offsets;
-    wasi_ctx->env_buf_offset = offset_env_buf;
-    wasi_ctx->env_offsets_offset = offset_env_offsets;
-
     if (!fd_table_init(curfds)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: "
@@ -1433,6 +1425,14 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         fd_table_insert_existing(curfds, wasm_fd, raw_fd);
         fd_prestats_insert(prestats, dir_list[i], wasm_fd);
     }
+
+    wasi_ctx->curfds_offset = offset_curfds;
+    wasi_ctx->prestats_offset = offset_prestats;
+    wasi_ctx->argv_environ_offset = offset_argv_environ;
+    wasi_ctx->argv_buf_offset = offset_argv_buf;
+    wasi_ctx->argv_offsets_offset = offset_argv_offsets;
+    wasi_ctx->env_buf_offset = offset_env_buf;
+    wasi_ctx->env_offsets_offset = offset_env_offsets;
 
     return true;
 
