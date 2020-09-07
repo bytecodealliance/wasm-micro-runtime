@@ -1580,6 +1580,9 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
                                      size, &offset)) {
             return 0;
         }
+        /* If we use app's malloc function,
+            the default memory may be changed while memory growing */
+        memory = module_inst->default_memory;
         addr = offset ? memory->memory_data + offset : NULL;
     }
 
@@ -1589,6 +1592,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     }
     if (p_native_addr)
         *p_native_addr = addr;
+
     return (uint32)(addr - memory->memory_data);
 }
 
