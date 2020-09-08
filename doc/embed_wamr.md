@@ -71,17 +71,23 @@ if (!wasm_runtime_full_init(&init_args)) {
 
 ## Native calls WASM functions and passes parameters
 
-After a module is instantiated, the runtime native can lookup WASM functions by the names and call them.
+After a module is instantiated, the runtime embedder can lookup the target WASM function by name, and create execution environment to call the function.
 
 ```c
-  unit32 argv[2];
-
   /* lookup a WASM function by its name
      The function signature can NULL here */
   func = wasm_runtime_lookup_function(module_inst, "fib", NULL);
 
   /* creat an execution environment to execute the WASM functions */
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
+```
+
+There are several ways to call WASM function:
+
+1. Function call with parameters in an array of 32 bits elements and size:
+
+```c
+  unit32 argv[2];
 
   /* arguments are always transferred in 32-bit element */
   argv[0] = 8;
@@ -127,6 +133,44 @@ The parameters are transferred in an array of 32 bits elements. For parameters t
   /* if the return value is type of 8 bytes, it takes
      the first two array elements */
   memcpy(&ret, &argv[0], sizeof(ret));
+```
+
+2. Function call with results and arguments both in `wasm_val_t` struct and size:
+
+```c
+  unit32 num_args = 1, num_results = 1;
+  wasm_val_t args[1], results[1];
+
+  /* set the argument type and value */
+  args[0].kind = WASM_I32;
+  args[0].of.i32 = 8;
+
+  /* call the WASM function */
+  if (wasm_runtime_call_wasm_a(exec_env, func, num_results, results, num_args, args)) {
+      /* the return value is stored in results */
+      printf("fib function return: %d\n", results[0].of.i32);
+  }
+  else {
+      /* exception is thrown if call fails */
+      printf("%s\n", wasm_runtime_get_exception(module_inst));
+  }
+```
+
+3. Function call with variant argument support:
+
+```c
+  unit32 num_args = 1, num_results = 1;
+  wasm_val_t results[1];
+
+  /* call the WASM function */
+  if (wasm_runtime_call_wasm_v(exec_env, func, 1, results, 1, 8)) {
+      /* the return value is stored in results */
+      printf("fib function return: %d\n", results[0].of.i32);
+  }
+  else {
+      /* exception is thrown if call fails */
+      printf("%s\n", wasm_runtime_get_exception(module_inst));
+  }
 ```
 
 ## Pass buffer to WASM function

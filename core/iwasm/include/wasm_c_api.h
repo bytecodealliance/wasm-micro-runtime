@@ -165,6 +165,8 @@ static const uint32_t wasm_limits_max_default = 0xffffffff;
 
 WASM_DECLARE_TYPE(valtype)
 
+#ifndef WASM_VALKIND_T_DEFINED
+#define WASM_VALKIND_T_DEFINED
 typedef uint8_t wasm_valkind_t;
 enum wasm_valkind_enum {
   WASM_I32,
@@ -174,6 +176,7 @@ enum wasm_valkind_enum {
   WASM_ANYREF = 128,
   WASM_FUNCREF,
 };
+#endif
 
 WASM_API_EXTERN own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t);
 
@@ -299,6 +302,8 @@ WASM_API_EXTERN const wasm_externtype_t* wasm_exporttype_type(const wasm_exportt
 
 // Values
 
+#ifndef WASM_VAL_T_DEFINED
+#define WASM_VAL_T_DEFINED
 struct wasm_ref_t;
 
 typedef struct wasm_val_t {
@@ -311,6 +316,7 @@ typedef struct wasm_val_t {
     struct wasm_ref_t* ref;
   } of;
 } wasm_val_t;
+#endif
 
 WASM_API_EXTERN void wasm_val_delete(own wasm_val_t* v);
 WASM_API_EXTERN void wasm_val_copy(own wasm_val_t* out, const wasm_val_t*);
