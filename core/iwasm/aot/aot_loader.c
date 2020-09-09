@@ -156,6 +156,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define BIN_TYPE_ELF32B 1           /* 32-bit big endian */
 #define BIN_TYPE_ELF64L 2           /* 64-bit little endian */
 #define BIN_TYPE_ELF64B 3           /* 64-bit big endian */
+#define BIN_TYPE_COFF64 6           /* 64-bit little endian */
 
 /* Legal values for e_type (object file type). */
 #define E_TYPE_NONE     0           /* No file type */
@@ -174,6 +175,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_MACHINE_MIPS_X   51       /* Stanford MIPS-X */
 #define E_MACHINE_X86_64   62       /* AMD x86-64 architecture */
 #define E_MACHINE_XTENSA   94       /* Tensilica Xtensa Architecture */
+#define E_MACHINE_WIN_X86_64 0x8664 /* Windowx x86-64 architecture */
 
 /* Legal values for e_version */
 #define E_VERSION_CURRENT  1        /* Current version */
@@ -232,6 +234,7 @@ get_aot_file_target(AOTTargetInfo *target_info,
     char *machine_type = NULL;
     switch (target_info->e_machine) {
         case E_MACHINE_X86_64:
+        case E_MACHINE_WIN_X86_64:
             machine_type = "x86_64";
             break;
         case E_MACHINE_386:
@@ -973,7 +976,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#ifndef BH_PLATFORM_LINUX_SGX
+#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS)
         /* address must be in the first 2 Gigabytes of
            the process address space */
         bh_assert((uintptr_t)data_sections[i].data < INT32_MAX);
@@ -1564,7 +1567,11 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         if (!strcmp(group->section_name, ".rel.text")
             || !strcmp(group->section_name, ".rela.text")
-            || !strcmp(group->section_name, ".rela.literal")) {
+            || !strcmp(group->section_name, ".rela.literal")
+#ifdef BH_PLATFORM_WINDOWS
+            || !strcmp(group->section_name, ".text")
+#endif
+            ) {
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
                 return false;
         }
@@ -1819,7 +1826,7 @@ create_sections(const uint8 *buf, uint32 size,
                         goto fail;
                     }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#ifndef BH_PLATFORM_LINUX_SGX
+#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS)
                     /* address must be in the first 2 Gigabytes of
                        the process address space */
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
