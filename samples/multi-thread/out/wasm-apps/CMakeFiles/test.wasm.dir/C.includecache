@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/wasm-apps/main.c
+stdio.h
+-
+pthread.h
+-
+

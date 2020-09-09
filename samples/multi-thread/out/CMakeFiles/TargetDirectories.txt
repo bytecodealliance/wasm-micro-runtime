@@ -1,0 +1,7 @@
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/out/CMakeFiles/rebuild_cache.dir
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/out/CMakeFiles/iwasm.dir
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/out/CMakeFiles/edit_cache.dir
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/out/CMakeFiles/vmlib.dir
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/out/wasm-apps/CMakeFiles/rebuild_cache.dir
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/out/wasm-apps/CMakeFiles/edit_cache.dir
+/home/zt/Documents/git/verona-mc/verona/src/rt/external/wasm-micro-runtime/samples/multi-thread/out/wasm-apps/CMakeFiles/test.wasm.dir

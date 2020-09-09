@@ -12,7 +12,7 @@
  *      INCLUDES
  *********************/
 #include <stdlib.h>
-//#include <unistd.h>
+#include <stdio.h>
 #include <inttypes.h>
 #include "lvgl/lvgl.h"
 #include "display_indev.h"
@@ -161,4 +161,5 @@ static void hal_init(void)
     lv_indev_t * mouse_indev = lv_indev_drv_register(&indev_drv);
 
 }
+
 

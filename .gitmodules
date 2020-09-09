@@ -1,3 +1,6 @@
 [submodule "snmalloc"]
 	path = snmalloc
 	url = https://github.com/microsoft/snmalloc
+[submodule "samples/zlib/zlib"]
+	path = samples/zlib/zlib
+	url = https://github.com/madler/zlib.git
