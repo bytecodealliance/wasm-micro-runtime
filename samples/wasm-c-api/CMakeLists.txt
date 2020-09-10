@@ -65,7 +65,7 @@ include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 if (MSVC)
-target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
+  target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
 endif()
 ################################################
 
@@ -77,7 +77,7 @@ target_include_directories(c-api
 )
 target_link_libraries(c-api PRIVATE vmlib -lpthread -lm)
 if (MSVC)
-target_compile_definitions(c-api PRIVATE WASM_API_EXTERN=)
+  target_compile_definitions(c-api PRIVATE WASM_API_EXTERN=)
 endif()
 
 foreach(SRC ${SOURCES})

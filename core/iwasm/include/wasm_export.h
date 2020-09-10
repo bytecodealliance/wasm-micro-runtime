@@ -728,8 +728,8 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
   */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives(const char *module_name,
-                                   NativeSymbol *native_symbols,
-                                   uint32_t n_native_symbols);
+                              NativeSymbol *native_symbols,
+                              uint32_t n_native_symbols);
 
 /**
  * Register native functions with same module name, similar to
@@ -743,8 +743,8 @@ wasm_runtime_register_natives(const char *module_name,
  */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives_raw(const char *module_name,
-                                       NativeSymbol *native_symbols,
-                                       uint32_t n_native_symbols);
+                                  NativeSymbol *native_symbols,
+                                  uint32_t n_native_symbols);
 
 /**
  * Get attachment of native function from execution environment
