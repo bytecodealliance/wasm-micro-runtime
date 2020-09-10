@@ -6,9 +6,7 @@
 
 #include "wasm_export.h"
 #include "bh_read_file.h"
-#ifdef WIN32
 #include "bh_getopt.h"
-#endif
 
 int intToStr(int x, char* str, int str_len, int digit);
 int get_pow(int x, int y);

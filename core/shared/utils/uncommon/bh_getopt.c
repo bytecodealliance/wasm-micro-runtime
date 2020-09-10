@@ -1,51 +1,55 @@
-/* *****************************************************************
-*
-* Copyright 2016 Microsoft
-*
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-******************************************************************/
-#ifdef WIN32
+#ifndef __GNUC__
+
 #include "bh_getopt.h"
-#include <windows.h>
+#include <string.h>
+
 char* optarg = NULL;
 int optind = 1;
 
 int getopt(int argc, char *const argv[], const char *optstring)
 {
-    if ((optind >= argc) || (argv[optind][0] != '-') || (argv[optind][0] == 0))
-    {
-        return -1;
-    }
+    static int sp = 1;
+    int c;
+    int opt;
+    char *p;
 
-    int opt = argv[optind][1];
-    const char *p = strchr(optstring, opt);
-
-    if (p == NULL)
-    {
-        return '?';
-    }
-    if (p[1] == ':')
-    {
-        optind++;
-        if (optind >= argc)
-        {
-            return '?';
+    if (sp == 1) {
+        if ((optind >= argc) || (argv[optind][0] != '-') || (argv[optind][1] == 0)){
+            return -1;
+        } else if (!strcmp(argv[optind], "--")) {
+            optind++;
+            return -1;
         }
-        optarg = argv[optind];
-        optind++;
     }
-    return opt;
+
+    opt = argv[optind][sp];
+    p = strchr(optstring, opt);
+    if (opt == ':' || p == NULL) {
+        printf("illegal option : '-%c'\n", opt);
+        if ( argv[optind][++sp] == '\0') {
+            optind ++;
+            sp = 1;
+        }
+        return ('?');
+    }
+    if (p[1]  == ':') {
+        if (argv[optind][sp + 1] != '\0')
+            optarg = &argv[optind++][sp + 1];
+        else if (++optind >= argc) {
+            printf("option '-%c' requires an argument :\n", opt);
+            sp = 1;
+            return ('?');
+        } else {
+            optarg = argv[optind++];
+        }
+        sp = 1;
+    } else {
+        if (argv[optind][++sp] == '\0') {
+            sp = 1;
+            optind++;
+        }
+        optarg = NULL;
+    }
+    return (opt);
 }
 #endif
