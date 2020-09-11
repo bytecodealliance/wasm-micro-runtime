@@ -241,10 +241,10 @@ call_llvm_intrinsic_v(AOTCompContext *comp_ctx,
 
 /* Call llvm constrained floating-point intrinsic */
 static LLVMValueRef
-call_llvm_float_expermental_constrained_intrinsic(AOTCompContext *comp_ctx,
-                                                  const char *intrinsic,
-                                                  bool is_f32,
-                                                  ...)
+call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
+                                                   bool is_f32,
+                                                   const char *intrinsic,
+                                                   ...)
 {
     va_list param_value_list;
     LLVMValueRef ret;
@@ -253,7 +253,7 @@ call_llvm_float_expermental_constrained_intrinsic(AOTCompContext *comp_ctx,
     param_types[0] = param_types[1] = ret_type;
     param_types[2] = param_types[3] = MD_TYPE;
 
-    va_start(param_value_list, is_f32);
+    va_start(param_value_list, intrinsic);
 
     ret = call_llvm_intrinsic_v(comp_ctx,
                                 intrinsic,
@@ -269,10 +269,10 @@ call_llvm_float_expermental_constrained_intrinsic(AOTCompContext *comp_ctx,
 
 /* Call llvm constrained libm-equivalent intrinsic */
 static LLVMValueRef
-call_llvm_libm_expermental_constrained_intrinsic(AOTCompContext *comp_ctx,
-                                                 const char *intrinsic,
-                                                 bool is_f32,
-                                                 ...)
+call_llvm_libm_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
+                                                  bool is_f32,
+                                                  const char *intrinsic,
+                                                  ...)
 {
     va_list param_value_list;
     LLVMValueRef ret;
@@ -281,7 +281,7 @@ call_llvm_libm_expermental_constrained_intrinsic(AOTCompContext *comp_ctx,
     param_types[0] = ret_type;
     param_types[1] = param_types[2] = MD_TYPE;
 
-    va_start(param_value_list, is_f32);
+    va_start(param_value_list, intrinsic);
 
     ret = call_llvm_intrinsic_v(comp_ctx,
                                 intrinsic,
@@ -929,12 +929,12 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 DEF_FP_BINARY_OP(LLVMBuildFAdd(comp_ctx->builder, left, right, "fadd"),
                                  "llvm build fadd fail.");
             else
-                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+                DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fadd.f32"
                                      : "llvm.experimental.constrained.fadd.f64"),
-                                    is_f32,
                                     left,
                                     right,
                                     comp_ctx->fp_rounding_mode,
@@ -946,12 +946,12 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 DEF_FP_BINARY_OP(LLVMBuildFSub(comp_ctx->builder, left, right, "fsub"),
                                  "llvm build fsub fail.");
             else
-                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+                DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fsub.f32"
                                      : "llvm.experimental.constrained.fsub.f64"),
-                                    is_f32,
                                     left,
                                     right,
                                     comp_ctx->fp_rounding_mode,
@@ -963,12 +963,12 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 DEF_FP_BINARY_OP(LLVMBuildFMul(comp_ctx->builder, left, right, "fmul"),
                                  "llvm build fmul fail.");
             else
-                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+                DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fmul.f32"
                                      : "llvm.experimental.constrained.fmul.f64"),
-                                    is_f32,
                                     left,
                                     right,
                                     comp_ctx->fp_rounding_mode,
@@ -980,12 +980,12 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 DEF_FP_BINARY_OP(LLVMBuildFDiv(comp_ctx->builder, left, right, "fdiv"),
                                  "llvm build fdiv fail.");
             else
-                DEF_FP_BINARY_OP(call_llvm_float_expermental_constrained_intrinsic(
+                DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fdiv.f32"
                                      : "llvm.experimental.constrained.fdiv.f64"),
-                                    is_f32,
                                     left,
                                     right,
                                     comp_ctx->fp_rounding_mode,
@@ -1020,9 +1020,9 @@ fail:
 
 static LLVMValueRef
 call_llvm_float_math_intrinsic(AOTCompContext *comp_ctx,
-                                const char *intrinsic,
-                                bool is_f32,
-                                ...)
+                               bool is_f32,
+                               const char *intrinsic,
+                               ...)
 {
     va_list param_value_list;
     LLVMValueRef ret;
@@ -1030,7 +1030,7 @@ call_llvm_float_math_intrinsic(AOTCompContext *comp_ctx,
 
     param_type = ret_type;
 
-    va_start(param_value_list, is_f32);
+    va_start(param_value_list, intrinsic);
 
     ret = call_llvm_intrinsic_v(comp_ctx,
                                 intrinsic,
@@ -1051,9 +1051,9 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     switch (math_op) {
         case FLOAT_ABS:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   is_f32,
                                                    is_f32 ? "llvm.fabs.f32" :
                                                             "llvm.fabs.f64",
-                                                   is_f32,
                                                    operand),
                             NULL);
             return true;
@@ -1064,51 +1064,51 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         case FLOAT_CEIL:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   is_f32,
                                                    is_f32 ? "llvm.ceil.f32" :
                                                             "llvm.ceil.f64",
-                                                   is_f32,
                                                    operand),
                             NULL);
             return true;
         case FLOAT_FLOOR:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
-                                                   is_f32 ? "llvm.floor.f32" :
-                                                            "llvm.floor.f64",
                                                    is_f32,
+                                                   is_f32 ? "llvm.floor.f32":
+                                                            "llvm.floor.f64",
                                                    operand),
                             NULL);
             return true;
         case FLOAT_TRUNC:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   is_f32,
                                                    is_f32 ? "llvm.trunc.f32" :
                                                             "llvm.trunc.f64",
-                                                   is_f32,
                                                    operand),
                             NULL);
             return true;
         case FLOAT_NEAREST:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   is_f32,
                                                    is_f32 ? "llvm.rint.f32" :
                                                             "llvm.rint.f64",
-                                                   is_f32,
                                                    operand),
                             NULL);
             return true;
         case FLOAT_SQRT:
             if (is_targeting_soft_float(comp_ctx, is_f32))
                 DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   is_f32,
                                                    is_f32 ? "llvm.sqrt.f32" :
                                                             "llvm.sqrt.f64",
-                                                   is_f32,
                                                    operand),
                                 NULL);
             else
-                DEF_FP_UNARY_OP(call_llvm_libm_expermental_constrained_intrinsic(
+                DEF_FP_UNARY_OP(call_llvm_libm_experimental_constrained_intrinsic(
                                            comp_ctx,
+                                           is_f32,
                                            (is_f32
                                             ? "llvm.experimental.constrained.sqrt.f32"
                                             : "llvm.experimental.constrained.sqrt.f64"),
-                                           is_f32,
                                            operand,
                                            comp_ctx->fp_rounding_mode,
                                            comp_ctx->fp_exception_behavior),

@@ -661,7 +661,7 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint32 param_cell_num;
     uint64 total_size;
     uint8 *wasm_ret_types = NULL;
-    bool ret;
+    bool ret = false;
 
     /* Check function type index */
     if (type_idx >= comp_ctx->comp_data->func_type_count) {

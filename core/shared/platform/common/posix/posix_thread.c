@@ -238,9 +238,12 @@ void os_thread_exit(void *retval)
 uint8 *os_thread_get_stack_boundary()
 {
     pthread_t self = pthread_self();
+#ifdef __linux__
     pthread_attr_t attr;
+    size_t guard_size;
+#endif
     uint8 *addr = NULL;
-    size_t stack_size, guard_size;
+    size_t stack_size;
     int page_size = getpagesize();
     size_t max_stack_size = (size_t)
                             (APP_THREAD_STACK_SIZE_MAX + page_size - 1)

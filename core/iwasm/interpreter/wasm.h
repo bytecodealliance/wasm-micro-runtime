@@ -195,7 +195,7 @@ typedef struct WASMImport {
     } u;
 } WASMImport;
 
-typedef struct WASMFunction {
+struct WASMFunction {
     /* the type of function */
     WASMType *func_type;
     uint32 local_count;
@@ -226,13 +226,13 @@ typedef struct WASMFunction {
     uint8 *consts;
     uint32 const_cell_num;
 #endif
-} WASMFunction;
+};
 
-typedef struct WASMGlobal {
+struct WASMGlobal {
     uint8 type;
     bool is_mutable;
     InitializerExpression init_expr;
-} WASMGlobal;
+};
 
 typedef struct WASMExport {
     char *name;
@@ -281,7 +281,7 @@ typedef struct StringNode {
     char *str;
 } StringNode, *StringList;
 
-typedef struct WASMModule {
+struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
        for module loaded from AOT file, this field is
@@ -365,7 +365,7 @@ typedef struct WASMModule {
     bh_list import_module_list_head;
     bh_list *import_module_list;
 #endif
-} WASMModule;
+};
 
 typedef struct BlockType {
     /* Block type may be expressed in one of two forms:
