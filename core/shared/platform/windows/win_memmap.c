@@ -19,6 +19,9 @@ void * os_mmap(void *hint, size_t size, int prot, int flags)
         /* integer overflow */
         return NULL;
 
+    if (request_size == 0)
+        request_size = page_size;
+
     if (prot & MMAP_PROT_EXEC) {
         if (prot & MMAP_PROT_WRITE)
             flProtect = PAGE_EXECUTE_READWRITE;
