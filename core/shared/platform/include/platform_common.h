@@ -34,8 +34,13 @@ extern "C" {
 #define BH_FREE os_free
 #endif
 
+#if defined(MSVC)
+__declspec(dllimport)  void *BH_MALLOC(unsigned int size);
+__declspec(dllimport)  void BH_FREE(void *ptr);
+#else
 void *BH_MALLOC(unsigned int size);
 void BH_FREE(void *ptr);
+#endif
 
 #ifndef NULL
 #define NULL (void*)0

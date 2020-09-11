@@ -119,3 +119,5 @@ install (TARGETS libiwasm DESTINATION lib)
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
 target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS})
+
+target_compile_definitions(libiwasm PRIVATE COMPILING_WASM_RUNTIME_API=1)
