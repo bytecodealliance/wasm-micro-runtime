@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required (VERSION 2.8)
-project(c-api)
+
+if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
+  project(c-api)
+else()
+  project (c-api C ASM)
+  enable_language (ASM_MASM)
+endif()
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -39,24 +45,28 @@ if(NOT DEFINED WAMR_BUILD_FAST_INTERP)
   set(WAMR_BUILD_FAST_INTERP 0)
 endif()
 
-# compiling and linking flags
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
-if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
-endif ()
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
-if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+if (NOT MSVC)
+  # compiling and linking flags
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
   endif ()
-endif ()
-
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
+  if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
+    if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
+      set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+    endif ()
+  endif ()
+endif()
 # build out vmlib
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 set(WAMRC ${WAMR_ROOT_DIR}/wamr-compiler/build/wamrc)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
+if (MSVC)
+  target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
+endif()
 ################################################
 
 ################  application related  ################
@@ -66,6 +76,9 @@ target_include_directories(c-api
   PRIVATE ${C_API_PATH}/include
 )
 target_link_libraries(c-api PRIVATE vmlib -lpthread -lm)
+if (MSVC)
+  target_compile_definitions(c-api PRIVATE WASM_API_EXTERN=)
+endif()
 
 foreach(SRC ${SOURCES})
   get_filename_component(APPNAME ${SRC} NAME_WE)
@@ -74,6 +87,9 @@ foreach(SRC ${SOURCES})
   add_executable(${APPNAME} ${SRC})
   message("create executable about ${APPNAME}")
   target_link_libraries(${APPNAME} c-api)
+  if (MSVC)
+    target_compile_definitions(${APPNAME} PRIVATE WASM_API_EXTERN=)
+  endif()
 
   # copy .wasm
   add_custom_command(TARGET ${APPNAME} POST_BUILD

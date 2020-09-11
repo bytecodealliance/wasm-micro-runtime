@@ -6,6 +6,7 @@
 
 #include "wasm_export.h"
 #include "bh_read_file.h"
+#include "bh_getopt.h"
 
 int intToStr(int x, char* str, int str_len, int digit);
 int get_pow(int x, int y);
