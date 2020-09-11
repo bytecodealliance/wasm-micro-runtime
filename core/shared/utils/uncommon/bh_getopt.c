@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2020 Ant Financial Services Group. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #ifndef __GNUC__
 
 #include "bh_getopt.h"
