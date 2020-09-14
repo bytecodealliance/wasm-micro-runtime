@@ -1540,7 +1540,7 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             obj_data->target_info.bin_type = AOT_COFF_BIN_TYPE;
     }
     else if (bin_type == LLVMBinaryTypeELF32L
-        || bin_type == LLVMBinaryTypeELF32B) {
+             || bin_type == LLVMBinaryTypeELF32B) {
         struct elf32_ehdr *elf_header;
         bool is_little_bin = bin_type == LLVMBinaryTypeELF32L;
 

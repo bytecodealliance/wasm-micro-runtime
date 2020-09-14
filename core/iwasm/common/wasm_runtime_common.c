@@ -868,7 +868,7 @@ parse_args_to_uint32_array(WASMType *type,
                            uint32 num_args, wasm_val_t *args,
                            uint32 *out_argv)
 {
-    int i, p;
+    uint32 i, p;
 
     for (i = 0, p = 0; i < num_args; i++) {
         switch (args[i].kind) {
@@ -911,13 +911,13 @@ parse_uint32_array_to_results(WASMType *type,
                               uint32 argc, uint32 *argv,
                               wasm_val_t *out_results)
 {
-    int i, p;
+    uint32 i, p;
 
     for (i = 0, p = 0; i < type->result_count; i++) {
         switch (type->types[type->param_count + i]) {
             case VALUE_TYPE_I32:
                 out_results[i].kind = WASM_I32;
-                out_results[i].of.i32 = *(int32 *)argv[p++];
+                out_results[i].of.i32 = (int32)argv[p++];
                 break;
             case VALUE_TYPE_I64:
             {
@@ -1008,6 +1008,7 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
 
     ret_num = parse_uint32_array_to_results(type, type->ret_cell_num, argv, results);
     bh_assert(ret_num == num_results);
+    (void)ret_num;
 
 fail2:
     wasm_runtime_free(argv);
@@ -1024,7 +1025,7 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
     wasm_val_t *args = NULL;
     WASMType *type = NULL;
     bool ret = false;
-    int i = 0;
+    uint32 i = 0;
     va_list vargs;
 
 #if WASM_ENABLE_INTERP != 0
