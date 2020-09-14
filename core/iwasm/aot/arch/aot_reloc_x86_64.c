@@ -11,7 +11,8 @@
 #define R_X86_64_32     10  /* Direct 32 bit zero extended */
 #define R_X86_64_32S    11  /* Direct 32 bit sign extended */
 
-#define IMAGE_REL_AMD64_REL32 4 /* The 32-bit relative address from the byte following the relocation. */
+#define IMAGE_REL_AMD64_REL32 4 /* The 32-bit relative address from
+                                   the byte following the relocation */
 
 void __divdi3();
 void __udivdi3();
