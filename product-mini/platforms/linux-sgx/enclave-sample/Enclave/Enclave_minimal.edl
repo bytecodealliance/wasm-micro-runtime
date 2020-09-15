@@ -5,8 +5,6 @@
 
 enclave {
     from "sgx_tstdc.edl" import *;
-    from "sgx_pthread.edl" import *;
-    from "sgx_wamr.edl" import *;
 
     trusted {
         /* define ECALLs here. */

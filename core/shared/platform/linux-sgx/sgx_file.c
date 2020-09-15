@@ -7,6 +7,8 @@
 #include "sgx_error.h"
 #include "sgx_file.h"
 
+#ifndef SGX_DISABLE_WASI
+
 #define TRACE_FUNC() os_printf("undefined %s\n", __FUNCTION__)
 #define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
 
@@ -830,3 +832,6 @@ int get_errno(void)
     }
     return ret;
 }
+
+#endif
+
