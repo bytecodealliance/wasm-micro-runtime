@@ -28,6 +28,8 @@ os_time_get_boot_microsecond()
     return 0;
 }
 
+#ifndef SGX_DISABLE_WASI
+
 int clock_getres(int clock_id, struct timespec *res)
 {
     int ret;
@@ -113,3 +115,6 @@ int clock_nanosleep(clockid_t clock_id, int flags,
 
     return ret;
 }
+
+#endif
+
