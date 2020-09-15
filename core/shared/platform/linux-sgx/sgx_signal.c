@@ -5,6 +5,8 @@
 
 #include "platform_api_vmcore.h"
 
+#ifndef SGX_DISABLE_WASI
+
 #define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
 
 int ocall_raise(int *p_ret, int sig);
@@ -23,4 +25,6 @@ int raise(int sig)
 
     return ret;
 }
+
+#endif
 

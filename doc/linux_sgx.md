@@ -39,12 +39,25 @@ or:
 iwasm [-options] aot_file [args...]
 ```
 
+### Minimal build
+The libc-WASI and lib-pthread features require a lot of ocalls, if you don't need so much ocalls in your application, you can use the `minimal` version
+
+``` Bash
+# replace the build files with minimal version
+cd product-mini/platforms/linux-sgx/
+cp CMakeLists_minimal.txt CMakeLists.txt
+cp enclave-sample/Makefile_minimal enclave-sample/Makefile
+cp enclave-sample/Enclave/Enclave_minimal.edl enclave-sample/Enclave/Enclave.edl
+# follow the building process above
+```
+
 Port WAMR vmcore for Linux SGX
 ------------------------------
 
 The enclave-sample creates a sample to embed wamr vmlib of Enclave part and App part to an SGX application. To port WAMR vmcore lib to SGX application, there are some steps to do:
 
 **Step 1: Add "sgx_wamr.edl" and "sgx_pthread.edl" into EDL file, e.g. Enclave.edl:**
+> This step is not required in minimal version
 
 ```bash
 from "sgx_pthread.edl" import *;
@@ -68,6 +81,7 @@ The sgx_wamr.edl is under ${WAMR_ROOT}/core/shared/platform/linux-sgx, so please
 ```
 
 **Step 2: Link libvmlib.a to Enclave part and link libvmlib_untrusted.a to App part:**
+> libvmlib_untrusted.a is not required in minimal version
 
 ```makefile
 Enclave_Link_Flags := ... libvmlib.a ...
@@ -78,6 +92,7 @@ App_Link_Flags := ... libvmlib_untrusted.a ...
 ```
 
 **And link SGX pthread lib to Enclave part:**
+> SGX pthread lib is not required in minimal version
 
 ```makefile
 Enclave_Link_Flags := ... -lsgx_pthread ...

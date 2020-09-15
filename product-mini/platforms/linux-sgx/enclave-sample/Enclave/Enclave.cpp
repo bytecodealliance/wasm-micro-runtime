@@ -300,6 +300,7 @@ handle_cmd_set_log_level(uint64 *args, uint32 argc)
 #endif
 }
 
+#ifndef SGX_DISABLE_WASI
 static void
 handle_cmd_set_wasi_args(uint64 *args, int32 argc)
 {
@@ -391,6 +392,13 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
 
     *args_org = true;
 }
+#else
+static void
+handle_cmd_set_wasi_args(uint64 *args, int32 argc)
+{
+    *args = true;
+}
+#endif /* end of SGX_DISABLE_WASI */
 
 void
 ecall_handle_command(unsigned cmd,

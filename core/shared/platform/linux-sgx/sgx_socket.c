@@ -5,8 +5,9 @@
 
 #include "platform_api_vmcore.h"
 
-#define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
+#ifndef SGX_DISABLE_WASI
 
+#define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
 
 int ocall_socket(int *p_ret, int domain, int type, int protocol);
 int ocall_getsockopt(int *p_ret, int sockfd, int level, int optname,
@@ -216,3 +217,6 @@ int shutdown(int sockfd, int how)
 
     return ret;
 }
+
+#endif
+
