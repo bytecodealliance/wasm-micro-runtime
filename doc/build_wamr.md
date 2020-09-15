@@ -301,6 +301,9 @@ $ # include/ includes all necesary head files
 $ # lib includes libiwasm.so
 ```
 
+NuttX
+-------------------------
+WAMR is intergrated with NuttX, just enable the WAMR in Kconfig option (Application Configuration/Interpreters).
 
 Docker
 -------------------------
