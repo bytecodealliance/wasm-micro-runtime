@@ -47,9 +47,19 @@ void BH_FREE(void *ptr);
 #endif
 
 #ifndef __cplusplus
+
+#ifndef true
 #define true 1
+#endif
+
+#ifndef false
 #define false 0
+#endif
+
+#ifndef inline
 #define inline __inline
+#endif
+
 #endif
 
 /* Return the offset of the given field in the given type */
