@@ -1,4 +1,4 @@
-# Copyright (C) 2020 XiaoMi Corporation.  All rights reserved.
+# Copyright (C) 2020 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 set (PLATFORM_SHARED_DIR ${CMAKE_CURRENT_LIST_DIR})
