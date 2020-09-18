@@ -2657,13 +2657,6 @@ fail:
  * Implementation of wasm_runtime_invoke_native()
  */
 
-static inline void
-word_copy(uint32 *dest, uint32 *src, unsigned num)
-{
-    for (; num > 0; num--)
-        *dest++ = *src++;
-}
-
 #define PUT_I64_TO_ADDR(addr, value) do {       \
     union { int64 val; uint32 parts[2]; } u;    \
     u.val = (value);                            \
@@ -2935,6 +2928,13 @@ static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
 static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
 static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
 static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+
+static inline void
+word_copy(uint32 *dest, uint32 *src, unsigned num)
+{
+    for (; num > 0; num--)
+        *dest++ = *src++;
+}
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
