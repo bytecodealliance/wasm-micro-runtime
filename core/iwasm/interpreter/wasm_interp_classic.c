@@ -1285,11 +1285,33 @@ label_pop_csp_n:
         cur_func = module->functions + fidx;
         goto call_func_from_interp;
 
+#if WASM_ENABLE_TAIL_CALL != 0
+      HANDLE_OP (WASM_OP_RETURN_CALL):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
+        read_leb_uint32(frame_ip, frame_ip_end, fidx);
+#if WASM_ENABLE_MULTI_MODULE != 0
+        if (fidx >= module->function_count) {
+          wasm_set_exception(module, "unknown function");
+          goto got_exception;
+        }
+#endif
+        cur_func = module->functions + fidx;
+
+        goto call_func_from_return_call;
+#endif /* WASM_ENABLE_TAIL_CALL */
+
       HANDLE_OP (WASM_OP_CALL_INDIRECT):
+#if WASM_ENABLE_TAIL_CALL != 0
+      HANDLE_OP (WASM_OP_RETURN_CALL_INDIRECT):
+#endif
         {
           WASMType *cur_type, *cur_func_type;
           WASMTableInstance *cur_table_inst;
-
+#if WASM_ENABLE_TAIL_CALL != 0
+          opcode = *(frame_ip - 1);
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
           CHECK_SUSPEND_FLAGS();
 #endif
@@ -1352,7 +1374,10 @@ label_pop_csp_n:
             wasm_set_exception(module, "indirect call type mismatch");
             goto got_exception;
           }
-
+#if WASM_ENABLE_TAIL_CALL != 0
+          if (opcode == WASM_OP_RETURN_CALL_INDIRECT)
+            goto call_func_from_return_call;
+#endif
           goto call_func_from_interp;
         }
 
@@ -3121,8 +3146,10 @@ label_pop_csp_n:
     HANDLE_OP (WASM_OP_UNUSED_0x08):
     HANDLE_OP (WASM_OP_UNUSED_0x09):
     HANDLE_OP (WASM_OP_UNUSED_0x0a):
-    HANDLE_OP (WASM_OP_UNUSED_0x12):
-    HANDLE_OP (WASM_OP_UNUSED_0x13):
+#if WASM_ENABLE_TAIL_CALL == 0
+    HANDLE_OP (WASM_OP_RETURN_CALL):
+    HANDLE_OP (WASM_OP_RETURN_CALL_INDIRECT):
+#endif
     HANDLE_OP (WASM_OP_UNUSED_0x14):
     HANDLE_OP (WASM_OP_UNUSED_0x15):
     HANDLE_OP (WASM_OP_UNUSED_0x16):
@@ -3151,6 +3178,15 @@ label_pop_csp_n:
     FETCH_OPCODE_AND_DISPATCH ();
 #endif
 
+#if WASM_ENABLE_TAIL_CALL != 0
+  call_func_from_return_call:
+    POP(cur_func->param_cell_num);
+    word_copy(frame->lp, frame_sp, cur_func->param_cell_num);
+    FREE_FRAME(exec_env, frame);
+    wasm_exec_env_set_cur_frame(exec_env,
+                                (WASMRuntimeFrame *)prev_frame);
+    goto call_func_from_entry;
+#endif
   call_func_from_interp:
     /* Only do the copy when it's called from interpreter.  */
     {

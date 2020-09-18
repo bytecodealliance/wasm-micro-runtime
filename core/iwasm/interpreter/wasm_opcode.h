@@ -34,9 +34,9 @@ typedef enum WASMOpcode {
     WASM_OP_RETURN        = 0x0f, /* return */
     WASM_OP_CALL          = 0x10, /* call */
     WASM_OP_CALL_INDIRECT = 0x11, /* call_indirect */
+    WASM_OP_RETURN_CALL   = 0x12, /* return_call */
+    WASM_OP_RETURN_CALL_INDIRECT = 0x13, /* return_call_indirect */
 
-    WASM_OP_UNUSED_0x12   = 0x12,
-    WASM_OP_UNUSED_0x13   = 0x13,
     WASM_OP_UNUSED_0x14   = 0x14,
     WASM_OP_UNUSED_0x15   = 0x15,
     WASM_OP_UNUSED_0x16   = 0x16,
@@ -403,8 +403,8 @@ static type _name[WASM_INSTRUCTION_NUM] = {                  \
   HANDLE_OPCODE (WASM_OP_RETURN),        /* 0x0f */          \
   HANDLE_OPCODE (WASM_OP_CALL),          /* 0x10 */          \
   HANDLE_OPCODE (WASM_OP_CALL_INDIRECT), /* 0x11 */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x12),   /* 0x12 */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x13),   /* 0x13 */          \
+  HANDLE_OPCODE (WASM_OP_RETURN_CALL),   /* 0x12 */          \
+  HANDLE_OPCODE (WASM_OP_RETURN_CALL_INDIRECT),   /* 0x13 */ \
   HANDLE_OPCODE (WASM_OP_UNUSED_0x14),   /* 0x14 */          \
   HANDLE_OPCODE (WASM_OP_UNUSED_0x15),   /* 0x15 */          \
   HANDLE_OPCODE (WASM_OP_UNUSED_0x16),   /* 0x16 */          \

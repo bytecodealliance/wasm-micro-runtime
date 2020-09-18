@@ -173,4 +173,8 @@ if (WAMR_BUILD_CUSTOM_NAME_SECTION EQUAL 1)
   add_definitions (-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
   message ("     Custom name section enabled")
 endif ()
+if (WAMR_BUILD_TAIL_CALL EQUAL 1)
+  add_definitions (-DWASM_ENABLE_TAIL_CALL=1)
+  message ("     Tail call enabled")
+endif ()
 
