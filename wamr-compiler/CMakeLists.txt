@@ -110,8 +110,11 @@ if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*
 endif()
 
 if (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections \
-                      -Wall -Wno-unused-parameter -Wno-pedantic")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
+                                       -ffunction-sections -fdata-sections \
+                                       -Wno-unused-parameter -Wno-pedantic")
+  # Remove the extra spaces for better make log
+  string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 endif()
 
 set (SHARED_DIR ../core/shared)
@@ -134,10 +137,6 @@ include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
 include (${IWASM_DIR}/compilation/iwasm_compl.cmake)
 
-if (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
-endif()
-
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang" OR MSVC))
@@ -147,6 +146,8 @@ endif ()
 
 if (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong --param ssp-buffer-size=4")
+endif()
+if (NOT (MSVC OR CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack,-z,relro,-z,now")
 endif()
 
@@ -154,7 +155,11 @@ endif()
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
 
 if (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
+  if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pie -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
+  else()
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -ftrapv -D_FORTIFY_SOURCE=2")
+  endif()
 endif()
 
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")

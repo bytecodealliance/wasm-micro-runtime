@@ -21,7 +21,7 @@ typedef struct WASMMemoryInstance WASMMemoryInstance;
 typedef struct WASMTableInstance WASMTableInstance;
 typedef struct WASMGlobalInstance WASMGlobalInstance;
 
-typedef struct WASMMemoryInstance {
+struct WASMMemoryInstance {
     /* Module type */
     uint32 module_type;
     /* Shared memory flag */
@@ -57,9 +57,9 @@ typedef struct WASMMemoryInstance {
        Note: when memory is re-allocated, the heap data and memory data
              must be copied to new memory also. */
     uint8 memory_data[1];
-} WASMMemoryInstance;
+};
 
-typedef struct WASMTableInstance {
+struct WASMTableInstance {
     /* The element type, TABLE_ELEM_TYPE_ANY_FUNC currently */
     uint8 elem_type;
     /* Current size */
@@ -72,9 +72,9 @@ typedef struct WASMTableInstance {
 #endif
     /* Base address */
     uint8 base_addr[1];
-} WASMTableInstance;
+};
 
-typedef struct WASMGlobalInstance {
+struct WASMGlobalInstance {
     /* value type, VALUE_TYPE_I32/I64/F32/F64 */
     uint8 type;
     /* mutable or constant */
@@ -88,9 +88,9 @@ typedef struct WASMGlobalInstance {
     WASMModuleInstance *import_module_inst;
     WASMGlobalInstance *import_global_inst;
 #endif
-} WASMGlobalInstance;
+};
 
-typedef struct WASMFunctionInstance {
+struct WASMFunctionInstance {
     /* whether it is import function or WASM function */
     bool is_import_func;
     /* parameter count */
@@ -120,7 +120,7 @@ typedef struct WASMFunctionInstance {
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
 #endif
-} WASMFunctionInstance;
+};
 
 typedef struct WASMExportFuncInstance {
     char *name;
@@ -144,7 +144,7 @@ typedef struct WASMExportMemInstance {
 } WASMExportMemInstance;
 #endif
 
-typedef struct WASMModuleInstance {
+struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
        WASM bytecode binary, this field is Wasm_Module_Bytecode;
        for module instance loaded from AOT file, this field is
@@ -213,7 +213,7 @@ typedef struct WASMModuleInstance {
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     uint32 max_aux_stack_used;
 #endif
-} WASMModuleInstance;
+};
 
 struct WASMInterpFrame;
 typedef struct WASMInterpFrame WASMRuntimeFrame;
