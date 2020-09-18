@@ -275,6 +275,9 @@ register_natives(const char *module_name,
 
     if (!(node = wasm_runtime_malloc(sizeof(NativeSymbolsNode))))
         return false;
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    os_printf("Register native, size: %u\n", sizeof(NativeSymbolsNode));
+#endif
 
     node->module_name = module_name;
     node->native_symbols = native_symbols;

@@ -43,6 +43,35 @@ typedef struct WASMModuleInstanceCommon {
     uint8 module_inst_data[1];
 } WASMModuleInstanceCommon;
 
+typedef struct WASMModuleMemConsumption {
+    uint32 total_size;
+    uint32 module_struct_size;
+    uint32 types_size;
+    uint32 imports_size;
+    uint32 functions_size;
+    uint32 tables_size;
+    uint32 memories_size;
+    uint32 globals_size;
+    uint32 exports_size;
+    uint32 table_segs_size;
+    uint32 data_segs_size;
+    uint32 const_strs_size;
+#if WASM_ENABLE_AOT != 0
+    uint32 aot_code_size;
+#endif
+} WASMModuleMemConsumption;
+
+typedef struct WASMModuleInstMemConsumption {
+    uint32 total_size;
+    uint32 module_inst_struct_size;
+    uint32 memories_size;
+    uint32 app_heap_size;
+    uint32 tables_size;
+    uint32 globals_size;
+    uint32 functions_size;
+    uint32 exports_size;
+} WASMModuleInstMemConsumption;
+
 #if WASM_ENABLE_LIBC_WASI != 0
 typedef struct WASIContext {
     /* Use offset but not native address, since these fields are
@@ -431,6 +460,16 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                const WASMType *func_type, const char *signature,
                                void *attachment,
                                uint32 *argv, uint32 argc, uint32 *ret);
+
+void
+wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module);
+
+void
+wasm_runtime_dump_module_inst_mem_consumption(const WASMModuleInstanceCommon
+                                              *module_inst);
+
+void
+wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env);
 
 #ifdef __cplusplus
 }

@@ -164,11 +164,20 @@ enum {
 #define WASM_DISABLE_HW_BOUND_CHECK 0
 #endif
 
-/* Heap and stack profiling */
-#define BH_ENABLE_MEMORY_PROFILING 0
+/* Memory profiling */
+#ifndef WASM_ENABLE_MEMORY_PROFILING
+#define WASM_ENABLE_MEMORY_PROFILING 0
+#endif
+
+/* Memory tracing */
+#ifndef WASM_ENABLE_MEMORY_TRACING
+#define WASM_ENABLE_MEMORY_TRACING 0
+#endif
 
 /* Heap verification */
+#ifndef BH_ENABLE_GC_VERIFY
 #define BH_ENABLE_GC_VERIFY 0
+#endif
 
 /* Max app number of all modules */
 #define MAX_APP_INSTALLATIONS 3
@@ -197,12 +206,9 @@ enum {
 /* The max percentage of global heap that app memory space can grow */
 #define APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT 1 / 3
 
-/* Default base offset of app heap space */
-#define DEFAULT_APP_HEAP_BASE_OFFSET (1 * BH_GB)
-
 /* Default min/max heap size of each app */
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
-#define APP_HEAP_SIZE_MIN (2 * 1024)
+#define APP_HEAP_SIZE_MIN (512)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 
 /* Default wasm stack size of each app */
@@ -229,7 +235,9 @@ enum {
 #define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
 
 /* Default wasm block address cache size and conflict list size */
+#ifndef BLOCK_ADDR_CACHE_SIZE
 #define BLOCK_ADDR_CACHE_SIZE 64
+#endif
 #define BLOCK_ADDR_CONFLICT_SIZE 2
 
 #ifndef WASM_ENABLE_SPEC_TEST

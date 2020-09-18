@@ -775,6 +775,18 @@ wasm_runtime_set_user_data(wasm_exec_env_t exec_env,
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
 
+/**
+ * Dump runtime memory consumption, including:
+ *     Exec env memory consumption
+ *     WASM module memory consumption
+ *     WASM module instance memory consumption
+ *     stack and app heap used info
+ *
+ * @param exec_env the execution environment
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env);
+
 #if WASM_ENABLE_THREAD_MGR != 0
 /* wasm thread callback function type */
 typedef void* (*wasm_thread_callback_t)(wasm_exec_env_t, void *);

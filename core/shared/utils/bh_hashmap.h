@@ -32,6 +32,10 @@ typedef void (*KeyDestroyFunc)(void *key);
    when an hash element is removed. */
 typedef void (*ValueDestroyFunc)(void *key);
 
+/* traverse callback function:
+   auto called when traverse every hash element */
+typedef void (*TraverseCallbackFunc)(void *key, void *value);
+
 /**
  * Create a hash map.
  *
@@ -123,6 +127,37 @@ bh_hash_map_remove(HashMap *map, void *key,
  */
 bool
 bh_hash_map_destroy(HashMap *map);
+
+/**
+ * Get the structure size of HashMap
+ *
+ * @param map the hash map to calculate
+ *
+ * @return the memory space occupied by HashMap structure
+ */
+uint32
+bh_hash_map_get_struct_size(HashMap *hashmap);
+
+/**
+ * Get the structure size of HashMap Element
+ *
+ * @return the memory space occupied by HashMapElem structure
+ */
+uint32
+bh_hash_map_get_elem_struct_size();
+
+/**
+ * Traverse the hash map and call the callback function
+ *
+ * @param map the hash map to traverse
+ * @callback the function to be called for every element
+ *
+ * @return true if success, false otherwise
+ * Note: if the hash map has lock, the map will be locked during traverse,
+ *       keep the callback function as simple as possible.
+ */
+bool
+bh_hash_map_traverse(HashMap *map, TraverseCallbackFunc callback);
 
 #ifdef __cplusplus
 }

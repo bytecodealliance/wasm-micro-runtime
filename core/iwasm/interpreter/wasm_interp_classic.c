@@ -1552,6 +1552,14 @@ label_pop_csp_n:
           if (*(uint32*)(frame_sp - 1) < exec_env->aux_stack_boundary)
             goto out_of_bounds;
           *(int32*)global_addr = POP_I32();
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+          if (module->module->aux_stack_top_global_index != (uint32)-1) {
+              uint32 aux_stack_used =
+                  module->module->aux_stack_bottom - *(uint32*)global_addr;
+              if (aux_stack_used > module->max_aux_stack_used)
+                  module->max_aux_stack_used = aux_stack_used;
+          }
+#endif
           HANDLE_OP_END ();
         }
 

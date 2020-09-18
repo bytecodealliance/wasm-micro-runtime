@@ -361,7 +361,7 @@ typedef struct WASMModule {
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    // TODO: mutex ? mutli-threads ?
+    /* TODO: add mutex for mutli-thread? */
     bh_list import_module_list_head;
     bh_list *import_module_list;
 #endif

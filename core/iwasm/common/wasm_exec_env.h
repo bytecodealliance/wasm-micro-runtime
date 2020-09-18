@@ -92,12 +92,16 @@ typedef struct WASMExecEnv {
     /* The native thread handle of current thread */
     korp_tid handle;
 
-#if WASM_ENABLE_INTERP != 0
+#if WASM_ENABLE_INTERP != 0 && WASM_ENABLE_FAST_INTERP == 0
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMJmpBuf *jmpbuf_stack_top;
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    uint32 max_wasm_stack_used;
 #endif
 
     /* The WASM stack size */
@@ -154,13 +158,19 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
        multiplying by 2 is enough. */
     if (addr + size * 2 > exec_env->wasm_stack.s.top_boundary) {
         /* WASM stack overflow. */
-        /* When throwing SOE, the preserved space must be enough. */
-        /* bh_assert(!exec_env->throwing_soe);*/
         return NULL;
     }
 
     exec_env->wasm_stack.s.top += size;
 
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    {
+        uint32 wasm_stack_used = exec_env->wasm_stack.s.top
+                                 - exec_env->wasm_stack.s.bottom;
+        if (wasm_stack_used > exec_env->max_wasm_stack_used)
+            exec_env->max_wasm_stack_used = wasm_stack_used;
+    }
+#endif
     return addr;
 }
 
