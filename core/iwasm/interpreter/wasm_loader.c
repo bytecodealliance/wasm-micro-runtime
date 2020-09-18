@@ -250,36 +250,72 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 static bool
 check_utf8_str(const uint8* str, uint32 len)
 {
-    const uint8 *p = str, *p_end = str + len, *p_end1;
-    uint8 chr, n_bytes;
+    /* The valid ranges are taken from page 125, below link
+       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
+    const uint8 *p = str, *p_end = str + len;
+    uint8 chr;
 
     while (p < p_end) {
-        chr = *p++;
-        if (chr >= 0x80) {
-            /* Calculate the byte count: the first byte must be
-               110XXXXX, 1110XXXX, 11110XXX, 111110XX, or 1111110X,
-               the count of leading '1' denotes the total byte count */
-            n_bytes = 0;
-            while ((chr & 0x80) != 0) {
-                chr = (uint8)(chr << 1);
-                n_bytes++;
-            }
-
-            /* Check byte count */
-            if (n_bytes < 2 || n_bytes > 6
-                || p + n_bytes - 1 > p_end)
+        chr = *p;
+        if (chr < 0x80) {
+            p++;
+        }
+        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
+            if (p[1] < 0x80 || p[1] > 0xBF) {
                 return false;
-
-            /* Check the following bytes, which must be 10XXXXXX */
-            p_end1 = p + n_bytes - 1;
-            while (p < p_end1) {
-                if (!(*p & 0x80) || (*p | 0x40))
-                    return false;
-                p++;
             }
+            p += 2;
+        }
+        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
+            if (chr == 0xE0) {
+                if (p[1] < 0xA0 || p[1] > 0xBF
+                    || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xED) {
+                if (p[1] < 0x80 || p[1] > 0x9F
+                    || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xE1 && chr <= 0xEF) {
+                if (p[1] < 0x80 || p[1] > 0xBF
+                    || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 3;
+        }
+        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
+            if (chr == 0xF0) {
+                if (p[1] < 0x90 || p[1] > 0xBF
+                    || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xF1 && chr <= 0xF3) {
+                if (p[1] < 0x80 || p[1] > 0xBF
+                    || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xF4) {
+                if (p[1] < 0x80 || p[1] > 0x8F
+                    || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 4;
+        }
+        else {
+            return false;
         }
     }
-    return true;
+    return (p == p_end);
 }
 
 static char*
@@ -2382,7 +2418,6 @@ fail:
     return false;
 }
 
-
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              BlockAddr *block_addr_cache,
@@ -2508,28 +2543,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
         section = section->next;
     }
-
-#if WASM_ENABLE_FAST_INTERP != 0
-    handle_table = wasm_interp_get_handle_table();
-#endif
-
-    total_size = sizeof(BlockAddr) * (uint64)BLOCK_ADDR_CACHE_SIZE
-                                   * BLOCK_ADDR_CONFLICT_SIZE;
-    if (!(block_addr_cache = loader_malloc
-                (total_size, error_buf, error_buf_size))) {
-        return false;
-    }
-
-    for (i = 0; i < module->function_count; i++) {
-        WASMFunction *func = module->functions[i];
-        memset(block_addr_cache, 0, (uint32)total_size);
-        if (!wasm_loader_prepare_bytecode(module, func, block_addr_cache,
-                                          error_buf, error_buf_size)) {
-            wasm_runtime_free(block_addr_cache);
-            return false;
-        }
-    }
-    wasm_runtime_free(block_addr_cache);
 
     module->aux_data_end_global_index = (uint32)-1;
     module->aux_heap_base_global_index = (uint32)-1;
@@ -2658,6 +2671,28 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         }
     }
 
+#if WASM_ENABLE_FAST_INTERP != 0
+    handle_table = wasm_interp_get_handle_table();
+#endif
+
+    total_size = sizeof(BlockAddr) * (uint64)BLOCK_ADDR_CACHE_SIZE
+                                   * BLOCK_ADDR_CONFLICT_SIZE;
+    if (!(block_addr_cache = loader_malloc
+                (total_size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    for (i = 0; i < module->function_count; i++) {
+        WASMFunction *func = module->functions[i];
+        memset(block_addr_cache, 0, (uint32)total_size);
+        if (!wasm_loader_prepare_bytecode(module, func, block_addr_cache,
+                                          error_buf, error_buf_size)) {
+            wasm_runtime_free(block_addr_cache);
+            return false;
+        }
+    }
+    wasm_runtime_free(block_addr_cache);
+
     if (!module->possible_memory_grow) {
         WASMMemoryImport *memory_import;
         WASMMemory *memory;
@@ -2711,17 +2746,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #endif
     }
 
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_module_mem_consumption((WASMModuleCommon*)module);
+#endif
     return true;
 }
-
-#if BH_ENABLE_MEMORY_PROFILING != 0
-static void wasm_loader_free(void *ptr)
-{
-    wasm_runtime_free(ptr);
-}
-#else
-#define wasm_loader_free wasm_free
-#endif
 
 static WASMModule*
 create_module(char *error_buf, uint32 error_buf_size)

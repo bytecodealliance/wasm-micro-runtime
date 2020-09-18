@@ -801,6 +801,11 @@ aot_instantiate(AOTModule *module, bool is_sub_inst,
 #endif
 #endif
 
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_module_inst_mem_consumption
+                    ((WASMModuleInstanceCommon *)module_inst);
+#endif
+
     return module_inst;
 
 fail:
@@ -1932,3 +1937,137 @@ aot_get_aux_stack(WASMExecEnv *exec_env,
 }
 
 #endif
+
+#if (WASM_ENABLE_MEMORY_PROFILING != 0) || (WASM_ENABLE_MEMORY_TRACING != 0)
+static uint32 const_string_size;
+
+void const_string_node_size_cb(void *key, void *value)
+{
+    const_string_size += bh_hash_map_get_elem_struct_size();
+    const_string_size += strlen((const char *)value) + 1;
+}
+
+void
+aot_get_module_mem_consumption(const AOTModule *module,
+                               WASMModuleMemConsumption *mem_conspn)
+{
+    uint32 i, size;
+
+    memset(mem_conspn, 0, sizeof(*mem_conspn));
+
+    mem_conspn->module_struct_size = sizeof(AOTModule);
+
+    mem_conspn->types_size = sizeof(AOTFuncType *) * module->func_type_count;
+    for (i = 0; i < module->func_type_count; i++) {
+        AOTFuncType *type = module->func_types[i];
+        size = offsetof(AOTFuncType, types) +
+               sizeof(uint8) * (type->param_count + type->result_count);
+        mem_conspn->types_size += size;
+    }
+
+    mem_conspn->imports_size =
+        sizeof(AOTImportMemory) * module->import_memory_count
+        + sizeof(AOTImportTable) * module->import_table_count
+        + sizeof(AOTImportGlobal) * module->import_global_count
+        + sizeof(AOTImportFunc) * module->import_func_count;
+
+    /* func_ptrs and func_type_indexes */
+    mem_conspn->functions_size =
+        (sizeof(void *) + sizeof(uint32)) * module->func_count;
+
+    mem_conspn->tables_size = sizeof(AOTTable) * module->table_count;
+
+    mem_conspn->memories_size = sizeof(AOTMemory) * module->memory_count;
+    mem_conspn->globals_size = sizeof(AOTGlobal) * module->global_count;
+    mem_conspn->exports_size = sizeof(AOTExport) * module->export_count;
+
+    mem_conspn->table_segs_size =
+        sizeof(AOTTableInitData *) * module->table_init_data_count;
+    for (i = 0; i < module->table_init_data_count; i++) {
+        AOTTableInitData *init_data = module->table_init_data_list[i];
+        size = offsetof(AOTTableInitData, func_indexes)
+               + sizeof(uint32) * init_data->func_index_count;
+        mem_conspn->table_segs_size += size;
+    }
+
+    mem_conspn->data_segs_size = sizeof(AOTMemInitData *)
+                                 * module->mem_init_data_count;
+    for (i = 0; i < module->mem_init_data_count; i++) {
+        mem_conspn->data_segs_size += sizeof(AOTMemInitData);
+    }
+
+    mem_conspn->const_strs_size =
+        bh_hash_map_get_struct_size(module->const_str_set);
+
+    const_string_size = 0;
+    if (module->const_str_set) {
+        bh_hash_map_traverse(module->const_str_set,
+                             const_string_node_size_cb);
+    }
+    mem_conspn->const_strs_size += const_string_size;
+
+    /* code size + literal size + object data section size */
+    mem_conspn->aot_code_size = module->code_size + module->literal_size
+        + sizeof(AOTObjectDataSection) * module->data_section_count;
+    for (i = 0; i < module->data_section_count; i++) {
+        AOTObjectDataSection *obj_data = module->data_sections + i;
+        mem_conspn->aot_code_size += sizeof(uint8) * obj_data->size;
+    }
+
+    mem_conspn->total_size += mem_conspn->module_struct_size;
+    mem_conspn->total_size += mem_conspn->types_size;
+    mem_conspn->total_size += mem_conspn->imports_size;
+    mem_conspn->total_size += mem_conspn->functions_size;
+    mem_conspn->total_size += mem_conspn->tables_size;
+    mem_conspn->total_size += mem_conspn->memories_size;
+    mem_conspn->total_size += mem_conspn->globals_size;
+    mem_conspn->total_size += mem_conspn->exports_size;
+    mem_conspn->total_size += mem_conspn->table_segs_size;
+    mem_conspn->total_size += mem_conspn->data_segs_size;
+    mem_conspn->total_size += mem_conspn->const_strs_size;
+    mem_conspn->total_size += mem_conspn->aot_code_size;
+}
+
+void
+aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
+                                    WASMModuleInstMemConsumption *mem_conspn)
+{
+    uint32 i;
+
+    memset(mem_conspn, 0, sizeof(*mem_conspn));
+
+    mem_conspn->module_inst_struct_size = sizeof(AOTModuleInstance);
+
+    mem_conspn->memories_size =
+        sizeof(AOTPointer) * module_inst->memory_count
+        + sizeof(AOTMemoryInstance) * module_inst->memory_count;
+    for (i = 0; i < module_inst->memory_count; i++) {
+        AOTMemoryInstance *mem_inst =
+            ((AOTMemoryInstance **)module_inst->memories.ptr)[i];
+        mem_conspn->memories_size +=
+            mem_inst->num_bytes_per_page * mem_inst->cur_page_count;
+        mem_conspn->app_heap_size =
+            mem_inst->heap_data_end.ptr - mem_inst->heap_data.ptr;
+    }
+
+    mem_conspn->tables_size = sizeof(uint32) * module_inst->table_size;
+
+    /* func_ptrs and func_type_indexes */
+    mem_conspn->functions_size =  (sizeof(void *) + sizeof(uint32)) *
+        (((AOTModule *)module_inst->aot_module.ptr)->import_func_count
+         + ((AOTModule *)module_inst->aot_module.ptr)->func_count);
+
+    mem_conspn->globals_size = module_inst->global_data_size;
+
+    mem_conspn->exports_size =
+        sizeof(AOTFunctionInstance) * (uint64)module_inst->export_func_count;
+
+    mem_conspn->total_size += mem_conspn->module_inst_struct_size;
+    mem_conspn->total_size += mem_conspn->memories_size;
+    mem_conspn->total_size += mem_conspn->functions_size;
+    mem_conspn->total_size += mem_conspn->tables_size;
+    mem_conspn->total_size += mem_conspn->globals_size;
+    mem_conspn->total_size += mem_conspn->exports_size;
+}
+#endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0)
+                 || (WASM_ENABLE_MEMORY_TRACING != 0) */

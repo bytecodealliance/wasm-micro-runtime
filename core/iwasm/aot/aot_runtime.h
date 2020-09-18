@@ -553,6 +553,14 @@ void
 aot_signal_destroy();
 #endif
 
+void
+aot_get_module_mem_consumption(const AOTModule *module,
+                               WASMModuleMemConsumption *mem_conspn);
+
+void
+aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
+                                    WASMModuleInstMemConsumption *mem_conspn);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

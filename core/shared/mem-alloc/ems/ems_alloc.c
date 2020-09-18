@@ -385,10 +385,6 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size,
         /* clear buffer appended by GC_ALIGN_8() */
         memset((uint8*)ret + size, 0, tot_size - tot_size_unaligned);
 
-#if BH_ENABLE_MEMORY_PROFILING != 0
-    os_printf("HEAP.ALLOC: heap: %p, size: %u\n", heap, size);
-#endif
-
 finish:
     os_mutex_unlock(&heap->lock);
     return ret;
@@ -469,10 +465,6 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
 
     ret = hmu_to_obj(hmu);
 
-#if BH_ENABLE_MEMORY_PROFILING != 0
-    os_printf("HEAP.ALLOC: heap: %p, size: %u\n", heap, size);
-#endif
-
 finish:
     os_mutex_unlock(&heap->lock);
 
@@ -548,9 +540,6 @@ gc_free_vo_internal(void *vheap, gc_object_t obj,
             g_total_free += size;
 
             heap->total_free_size += size;
-#if BH_ENABLE_MEMORY_PROFILING != 0
-            os_printf("HEAP.FREE, heap: %p, size: %u\n", heap, size);
-#endif
 
             if (!hmu_get_pinuse(hmu)) {
                 prev = (hmu_t*) ((char*) hmu - *((int*) hmu - 1));
@@ -598,6 +587,12 @@ gc_dump_heap_stats(gc_heap_t *heap)
               heap->total_free_size, heap->current_size, heap->highmark_size);
     os_printf("g_total_malloc=%lu, g_total_free=%lu, occupied=%lu\n",
               g_total_malloc, g_total_free, g_total_malloc - g_total_free);
+}
+
+uint32
+gc_get_heap_highmark_size(gc_heap_t *heap)
+{
+    return heap->highmark_size;
 }
 
 void

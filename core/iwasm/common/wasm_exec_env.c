@@ -43,6 +43,10 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     exec_env->wasm_stack.s.top_boundary =
         exec_env->wasm_stack.s.bottom + stack_size;
     exec_env->wasm_stack.s.top = exec_env->wasm_stack.s.bottom;
+
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_exec_env_mem_consumption(exec_env);
+#endif
     return exec_env;
 
 #if WASM_ENABLE_THREAD_MGR != 0
