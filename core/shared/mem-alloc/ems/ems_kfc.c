@@ -9,16 +9,17 @@ gc_handle_t
 gc_init_with_pool(char *buf, gc_size_t buf_size)
 {
     char *buf_end = buf + buf_size;
-    char *buf_aligned = (char*) (((uintptr_t) buf + 7) & (uintptr_t)~7);
+    char *buf_aligned = (char*)(((uintptr_t) buf + 7) & (uintptr_t)~7);
     char *base_addr = buf_aligned + sizeof(gc_heap_t);
-    gc_heap_t *heap = (gc_heap_t*) buf_aligned;
+    gc_heap_t *heap = (gc_heap_t*)buf_aligned;
     gc_size_t heap_max_size;
     hmu_normal_node_t *p = NULL;
     hmu_tree_node_t *root = NULL, *q = NULL;
     int i = 0, ret;
 
-    if (buf_size < 1024) {
-        os_printf("[GC_ERROR]heap_init_size(%d) < 1024\n", buf_size);
+    if (buf_size < APP_HEAP_SIZE_MIN) {
+        os_printf("[GC_ERROR]heap init buf size (%u) < %u\n",
+                  buf_size, APP_HEAP_SIZE_MIN);
         return NULL;
     }
 
@@ -66,12 +67,14 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     q->parent = root;
     q->size = heap->current_size;
 
-    bh_assert(root->size <= HMU_FC_NORMAL_MAX_SIZE
-              && HMU_FC_NORMAL_MAX_SIZE < q->size);
+    bh_assert(root->size <= HMU_FC_NORMAL_MAX_SIZE);
 
-#if BH_ENABLE_MEMORY_PROFILING != 0
-    os_printf("heap is successfully initialized with max_size=%u.\n",
-              heap_max_size);
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    os_printf("Heap created, total size: %u\n", buf_size);
+    os_printf("   heap struct size: %u\n", sizeof(gc_heap_t));
+    os_printf("   actual heap size: %u\n", heap_max_size);
+    os_printf("   padding bytes: %u\n",
+              buf_size - sizeof(gc_heap_t) - heap_max_size);
 #endif
     return heap;
 }

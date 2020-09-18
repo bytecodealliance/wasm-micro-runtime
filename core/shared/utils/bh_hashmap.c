@@ -47,7 +47,7 @@ bh_hash_map_create(uint32 size, bool use_lock,
     }
 
     total_size = offsetof(HashMap, elements) +
-                 sizeof(HashMapElem) * (uint64)size +
+                 sizeof(HashMapElem *) * (uint64)size +
                  (use_lock ? sizeof(korp_mutex) : 0);
 
     if (total_size >= UINT32_MAX
@@ -61,7 +61,7 @@ bh_hash_map_create(uint32 size, bool use_lock,
     if (use_lock) {
         map->lock = (korp_mutex*)
                     ((uint8*)map + offsetof(HashMap, elements)
-                     + sizeof(HashMapElem) * size);
+                     + sizeof(HashMapElem *) * size);
         if (os_mutex_init(map->lock)) {
             LOG_ERROR("HashMap create failed: init map lock failed.\n");
             BH_FREE(map);
@@ -188,8 +188,8 @@ bh_hash_map_update(HashMap *map, void *key, void *value,
                 os_mutex_unlock(map->lock);
             }
             return true;
-    }
-    elem = elem->next;
+        }
+        elem = elem->next;
     }
 
     if (map->lock) {
@@ -284,5 +284,55 @@ bh_hash_map_destroy(HashMap *map)
         os_mutex_destroy(map->lock);
     }
     BH_FREE(map);
+    return true;
+}
+
+uint32
+bh_hash_map_get_struct_size(HashMap *hashmap)
+{
+    uint32 size = offsetof(HashMap, elements)
+                  + sizeof(HashMapElem *) * hashmap->size;
+
+    if (hashmap->lock) {
+        size += sizeof(korp_mutex);
+    }
+
+    return size;
+}
+
+uint32
+bh_hash_map_get_elem_struct_size()
+{
+    return sizeof(HashMapElem);
+}
+
+bool
+bh_hash_map_traverse(HashMap *map, TraverseCallbackFunc callback)
+{
+    uint32 index;
+    HashMapElem *elem, *next;
+
+    if (!map || !callback) {
+        LOG_ERROR("HashMap traverse failed: map or callback is NULL.\n");
+        return false;
+    }
+
+    if (map->lock) {
+        os_mutex_lock(map->lock);
+    }
+
+    for (index = 0; index < map->size; index++) {
+        elem = map->elements[index];
+        while (elem) {
+            next = elem->next;
+            callback(elem->key, elem->value);
+            elem = next;
+        }
+    }
+
+    if (map->lock) {
+        os_mutex_unlock(map->lock);
+    }
+
     return true;
 }

@@ -2382,7 +2382,6 @@ fail:
     return false;
 }
 
-
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              BlockAddr *block_addr_cache,
@@ -2508,28 +2507,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
         section = section->next;
     }
-
-#if WASM_ENABLE_FAST_INTERP != 0
-    handle_table = wasm_interp_get_handle_table();
-#endif
-
-    total_size = sizeof(BlockAddr) * (uint64)BLOCK_ADDR_CACHE_SIZE
-                                   * BLOCK_ADDR_CONFLICT_SIZE;
-    if (!(block_addr_cache = loader_malloc
-                (total_size, error_buf, error_buf_size))) {
-        return false;
-    }
-
-    for (i = 0; i < module->function_count; i++) {
-        WASMFunction *func = module->functions[i];
-        memset(block_addr_cache, 0, (uint32)total_size);
-        if (!wasm_loader_prepare_bytecode(module, func, block_addr_cache,
-                                          error_buf, error_buf_size)) {
-            wasm_runtime_free(block_addr_cache);
-            return false;
-        }
-    }
-    wasm_runtime_free(block_addr_cache);
 
     module->aux_data_end_global_index = (uint32)-1;
     module->aux_heap_base_global_index = (uint32)-1;
@@ -2658,6 +2635,28 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         }
     }
 
+#if WASM_ENABLE_FAST_INTERP != 0
+    handle_table = wasm_interp_get_handle_table();
+#endif
+
+    total_size = sizeof(BlockAddr) * (uint64)BLOCK_ADDR_CACHE_SIZE
+                                   * BLOCK_ADDR_CONFLICT_SIZE;
+    if (!(block_addr_cache = loader_malloc
+                (total_size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    for (i = 0; i < module->function_count; i++) {
+        WASMFunction *func = module->functions[i];
+        memset(block_addr_cache, 0, (uint32)total_size);
+        if (!wasm_loader_prepare_bytecode(module, func, block_addr_cache,
+                                          error_buf, error_buf_size)) {
+            wasm_runtime_free(block_addr_cache);
+            return false;
+        }
+    }
+    wasm_runtime_free(block_addr_cache);
+
     if (!module->possible_memory_grow) {
         WASMMemoryImport *memory_import;
         WASMMemory *memory;
@@ -2711,17 +2710,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 #endif
     }
 
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_module_mem_consumption((WASMModuleCommon*)module);
+#endif
     return true;
 }
-
-#if BH_ENABLE_MEMORY_PROFILING != 0
-static void wasm_loader_free(void *ptr)
-{
-    wasm_runtime_free(ptr);
-}
-#else
-#define wasm_loader_free wasm_free
-#endif
 
 static WASMModule*
 create_module(char *error_buf, uint32 error_buf_size)

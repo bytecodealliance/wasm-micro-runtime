@@ -791,6 +791,168 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
     wasm_exec_env_destroy(exec_env);
 }
 
+void
+wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)
+{
+    WASMModuleMemConsumption mem_conspn = { 0 };
+
+#if WASM_ENABLE_INTERP != 0
+    if (module->module_type == Wasm_Module_Bytecode) {
+        wasm_get_module_mem_consumption((WASMModule*)module, &mem_conspn);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT) {
+        aot_get_module_mem_consumption((AOTModule*)module, &mem_conspn);
+    }
+#endif
+
+    os_printf("WASM module memory consumption, total size: %u\n",
+              mem_conspn.total_size);
+    os_printf("    module struct size: %u\n", mem_conspn.module_struct_size);
+    os_printf("    types size: %u\n", mem_conspn.types_size);
+    os_printf("    imports size: %u\n", mem_conspn.imports_size);
+    os_printf("    funcs size: %u\n", mem_conspn.functions_size);
+    os_printf("    tables size: %u\n", mem_conspn.tables_size);
+    os_printf("    memories size: %u\n", mem_conspn.memories_size);
+    os_printf("    globals size: %u\n", mem_conspn.globals_size);
+    os_printf("    exports size: %u\n", mem_conspn.exports_size);
+    os_printf("    table segs size: %u\n", mem_conspn.table_segs_size);
+    os_printf("    data segs size: %u\n", mem_conspn.data_segs_size);
+    os_printf("    const strings size: %u\n", mem_conspn.const_strs_size);
+#if WASM_ENABLE_AOT != 0
+    os_printf("    aot code size: %u\n", mem_conspn.aot_code_size);
+#endif
+}
+
+void
+wasm_runtime_dump_module_inst_mem_consumption(const WASMModuleInstanceCommon
+                                              *module_inst)
+{
+    WASMModuleInstMemConsumption mem_conspn = { 0 };
+
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        wasm_get_module_inst_mem_consumption((WASMModuleInstance*)module_inst,
+                                             &mem_conspn);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_get_module_inst_mem_consumption((AOTModuleInstance*)module_inst,
+                                            &mem_conspn);
+    }
+#endif
+
+    os_printf("WASM module inst memory consumption, total size: %u\n",
+              mem_conspn.total_size);
+    os_printf("    module inst struct size: %u\n",
+              mem_conspn.module_inst_struct_size);
+    os_printf("    memories size: %u\n", mem_conspn.memories_size);
+    os_printf("        app heap size: %u\n", mem_conspn.app_heap_size);
+    os_printf("    tables size: %u\n", mem_conspn.tables_size);
+    os_printf("    functions size: %u\n", mem_conspn.functions_size);
+    os_printf("    globals size: %u\n", mem_conspn.globals_size);
+    os_printf("    exports size: %u\n", mem_conspn.exports_size);
+}
+
+void
+wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env)
+{
+    uint32 total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom)
+                        + exec_env->wasm_stack_size;
+
+    os_printf("Exec env memory consumption, total size: %u\n", total_size);
+    os_printf("    exec env struct size: %u\n",
+              offsetof(WASMExecEnv, wasm_stack.s.bottom));
+#if WASM_ENABLE_INTERP != 0 && WASM_ENABLE_FAST_INTERP == 0
+    os_printf("        block addr cache size: %u\n",
+              sizeof(exec_env->block_addr_cache));
+#endif
+    os_printf("    stack size: %u\n", exec_env->wasm_stack_size);
+}
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+uint32
+gc_get_heap_highmark_size(void *heap);
+
+void
+wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
+{
+    WASMModuleInstMemConsumption module_inst_mem_consps;
+    WASMModuleMemConsumption module_mem_consps;
+    WASMModuleInstanceCommon *module_inst_common;
+    WASMModuleCommon *module_common = NULL;
+    void *heap_handle = NULL;
+    uint32 total_size = 0, app_heap_peak_size = 0;
+    uint32 max_aux_stack_used = -1;
+
+    module_inst_common = exec_env->module_inst;
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst_common->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *wasm_module_inst =
+                    (WASMModuleInstance*)module_inst_common;
+        WASMModule *wasm_module = wasm_module_inst->module;
+        module_common = (WASMModuleCommon*)wasm_module;
+        if (wasm_module_inst->memories) {
+            heap_handle = wasm_module_inst->memories[0]->heap_handle;
+        }
+        wasm_get_module_inst_mem_consumption
+                    (wasm_module_inst, &module_inst_mem_consps);
+        wasm_get_module_mem_consumption
+                    (wasm_module, &module_mem_consps);
+        if (wasm_module_inst->module->aux_stack_top_global_index != (uint32)-1)
+            max_aux_stack_used = wasm_module_inst->max_aux_stack_used;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst_common->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *aot_module_inst =
+                    (AOTModuleInstance*)module_inst_common;
+        AOTModule *aot_module =
+                    (AOTModule*)aot_module_inst->aot_module.ptr;
+        module_common = (WASMModuleCommon*)aot_module;
+        if (aot_module_inst->memories.ptr) {
+            AOTMemoryInstance **memories =
+               (AOTMemoryInstance **)aot_module_inst->memories.ptr;
+            heap_handle = memories[0]->heap_handle.ptr;
+        }
+        aot_get_module_inst_mem_consumption
+                    (aot_module_inst, &module_inst_mem_consps);
+        aot_get_module_mem_consumption
+                    (aot_module, &module_mem_consps);
+    }
+#endif
+
+    bh_assert(module_common != NULL);
+
+    if (heap_handle) {
+        app_heap_peak_size = gc_get_heap_highmark_size(heap_handle);
+    }
+
+    total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom)
+                 + exec_env->wasm_stack_size
+                 + module_mem_consps.total_size
+                 + module_inst_mem_consps.total_size;
+
+    os_printf("\nMemory consumption summary (bytes):\n");
+    wasm_runtime_dump_module_mem_consumption(module_common);
+    wasm_runtime_dump_module_inst_mem_consumption(module_inst_common);
+    wasm_runtime_dump_exec_env_mem_consumption(exec_env);
+    os_printf("\nTotal memory consumption of module, module inst and "
+              "exec env: %u\n", total_size);
+    os_printf("Total interpreter stack used: %u\n",
+              exec_env->max_wasm_stack_used);
+
+    if (max_aux_stack_used != (uint32)-1)
+        os_printf("Total auxiliary stack used: %u\n", max_aux_stack_used);
+    else
+        os_printf("Total aux stack used: no enough info to profile\n");
+
+    os_printf("Total app heap used: %u\n", app_heap_peak_size);
+}
+#endif
+
 WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
 {
@@ -1879,10 +2041,11 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
     uint32 argc1 = 0, argv1[2] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
-    uint32 argv_buf_offset;
+    uint32 argv_buf_offset = 0;
     int32 i;
     char *argv_buf, *p, *p_end;
     uint32 *argv_offsets;
+    bool ret;
 
 #if WASM_ENABLE_LIBC_WASI != 0
     if (wasm_runtime_is_wasi_mode(module_inst)) {
@@ -1961,8 +2124,11 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
         argv1[1] = (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
     }
 
-    return wasm_runtime_create_exec_env_and_call_wasm(module_inst, func,
-                                                      argc1, argv1);
+    ret = wasm_runtime_create_exec_env_and_call_wasm(module_inst, func,
+                                                     argc1, argv1);
+    if (argv_buf_offset)
+        wasm_runtime_module_free(module_inst, argv_buf_offset);
+    return ret;
 }
 
 

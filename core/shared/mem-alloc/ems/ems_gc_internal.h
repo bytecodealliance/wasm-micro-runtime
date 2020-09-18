@@ -145,7 +145,9 @@ hmu_verify(hmu_t *hmu);
  * HMU free chunk management
  */
 
+#ifndef HMU_NORMAL_NODE_CNT
 #define HMU_NORMAL_NODE_CNT 32
+#endif
 #define HMU_FC_NORMAL_MAX_SIZE ((HMU_NORMAL_NODE_CNT - 1) << 3)
 #define HMU_IS_FC_NORMAL(size) ((size) < HMU_FC_NORMAL_MAX_SIZE)
 #if HMU_FC_NORMAL_MAX_SIZE >= GC_MAX_HEAP_SIZE

@@ -1701,17 +1701,11 @@ load_from_sections(AOTModule *module, AOTSection *sections,
      * otherwise unpredictable behavior can occur. */
     os_dcache_flush();
 
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_module_mem_consumption((WASMModuleCommon*)module);
+#endif
     return true;
 }
-
-#if BH_ENABLE_MEMORY_PROFILING != 0
-static void aot_free(void *ptr)
-{
-    wasm_runtime_free(ptr);
-}
-#else
-#define aot_free wasm_runtime_free
-#endif
 
 static AOTModule*
 create_module(char *error_buf, uint32 error_buf_size)
@@ -1730,7 +1724,7 @@ create_module(char *error_buf, uint32 error_buf_size)
                                    (HashFunc)wasm_string_hash,
                                    (KeyEqualFunc)wasm_string_equal,
                                    NULL,
-                                   aot_free))) {
+                                   wasm_runtime_free))) {
         set_error_buf(error_buf, error_buf_size,
                       "create const string set failed");
         wasm_runtime_free(module);

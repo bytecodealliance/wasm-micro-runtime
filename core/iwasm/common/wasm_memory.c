@@ -32,8 +32,6 @@ static memory_profile_t *memory_profiles_list = NULL;
 static korp_mutex profile_lock;
 #endif /* end of BH_ENABLE_MEMORY_PROFILING */
 
-#ifndef MALLOC_MEMORY_FROM_SYSTEM
-
 typedef enum Memory_Mode {
     MEMORY_MODE_UNKNOWN = 0,
     MEMORY_MODE_POOL,
@@ -125,28 +123,32 @@ wasm_runtime_memory_pool_size()
         return 1 * BH_GB;
 }
 
-void *
-wasm_runtime_malloc(unsigned int size)
+static inline void *
+wasm_runtime_malloc_internal(unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING("wasm_runtime_malloc failed: memory hasn't been initialize.\n");
         return NULL;
-    } else if (memory_mode == MEMORY_MODE_POOL) {
+    }
+    else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_malloc(pool_allocator, size);
-    } else {
+    }
+    else {
         return malloc_func(size);
     }
 }
 
-void *
-wasm_runtime_realloc(void *ptr, unsigned int size)
+static inline void *
+wasm_runtime_realloc_internal(void *ptr, unsigned int size)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING("wasm_runtime_realloc failed: memory hasn't been initialize.\n");
         return NULL;
-    } else if (memory_mode == MEMORY_MODE_POOL) {
+    }
+    else if (memory_mode == MEMORY_MODE_POOL) {
         return mem_allocator_realloc(pool_allocator, ptr, size);
-    } else {
+    }
+    else {
         if (realloc_func)
             return realloc_func(ptr, size);
         else
@@ -154,20 +156,97 @@ wasm_runtime_realloc(void *ptr, unsigned int size)
     }
 }
 
-void
-wasm_runtime_free(void *ptr)
+static inline void
+wasm_runtime_free_internal(void *ptr)
 {
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
         LOG_WARNING("wasm_runtime_free failed: memory hasn't been initialize.\n");
-    } else if (memory_mode == MEMORY_MODE_POOL) {
+    }
+    else if (memory_mode == MEMORY_MODE_POOL) {
         mem_allocator_free(pool_allocator, ptr);
-    } else {
+    }
+    else {
         free_func(ptr);
     }
 }
 
-#if BH_ENABLE_MEMORY_PROFILING != 0
+void *
+wasm_runtime_malloc(unsigned int size)
+{
+    return wasm_runtime_malloc_internal(size);
+}
 
+void *
+wasm_runtime_realloc(void *ptr, unsigned int size)
+{
+    return wasm_runtime_realloc_internal(ptr, size);
+}
+
+void
+wasm_runtime_free(void *ptr)
+{
+    wasm_runtime_free_internal(ptr);
+}
+
+#if 0
+static uint64 total_malloc = 0;
+static uint64 total_free = 0;
+
+void *
+wasm_runtime_malloc(unsigned int size)
+{
+    void *ret = wasm_runtime_malloc_internal(size + 8);
+
+    if (ret) {
+        total_malloc += size;
+        *(uint32 *)ret = size;
+        return (uint8 *)ret + 8;
+    }
+    else
+        return NULL;
+}
+
+void *
+wasm_runtime_realloc(void *ptr, unsigned int size)
+{
+    if (!ptr)
+        return wasm_runtime_malloc(size);
+    else {
+        uint8 *ptr_old = (uint8 *)ptr - 8;
+        uint32 size_old = *(uint32 *)ptr_old;
+
+        ptr = wasm_runtime_realloc_internal(ptr_old, size + 8);
+        if (ptr) {
+            total_free += size_old;
+            total_malloc += size;
+            *(uint32 *)ptr = size;
+            return (uint8 *)ptr + 8;
+        }
+        return NULL;
+    }
+}
+
+void
+wasm_runtime_free(void *ptr)
+{
+    if (ptr) {
+        uint8 *ptr_old = (uint8 *)ptr - 8;
+        uint32 size_old = *(uint32 *)ptr_old;
+
+        total_free += size_old;
+        wasm_runtime_free_internal(ptr_old);
+    }
+}
+
+void dump_memory_usage()
+{
+    os_printf("Memory usage:\n");
+    os_printf("    total malloc: %"PRIu64"\n", total_malloc);
+    os_printf("    total free: %"PRIu64"\n", total_free);
+}
+#endif
+
+#if BH_ENABLE_MEMORY_PROFILING != 0
 void
 memory_profile_print(const char *file, int line,
                      const char *func, int alloc)
@@ -300,73 +379,5 @@ void memory_usage_summarize()
 
     os_mutex_unlock(&profile_lock);
 }
-
 #endif /* end of BH_ENABLE_MEMORY_PROFILING */
-
-#else /* else of MALLOC_MEMORY_FROM_SYSTEM */
-
-
-void *
-wasm_runtime_malloc(unsigned int size)
-{
-    return malloc(size);
-}
-
-void *
-wasm_runtime_realloc(void *ptr, unsigned int size)
-{
-    return realloc(ptr, size);
-}
-
-void
-wasm_runtime_free(void *ptr)
-{
-    if (ptr)
-        free(ptr);
-}
-
-#if BH_ENABLE_MEMORY_PROFILING != 0
-void *
-wasm_runtime_malloc_profile(const char *file, int line,
-                            const char *func, unsigned int size)
-{
-    (void)file;
-    (void)line;
-    (void)func;
-
-    (void)memory_profiles_list;
-    (void)profile_lock;
-    (void)memory_in_use;
-
-    return malloc(size);
-}
-
-void *
-wasm_runtime_realloc_profile(const char *file, int line,
-                             const char *func, void *ptr, unsigned int size)
-{
-    (void)file;
-    (void)line;
-    (void)func;
-
-    (void)memory_profiles_list;
-    (void)profile_lock;
-    (void)memory_in_use;
-
-    return realloc(ptr, size);
-}
-
-void
-wasm_runtime_free_profile(const char *file, int line,
-                          const char *func, void *ptr)
-{
-    (void)file;
-    (void)line;
-    (void)func;
-
-    if (ptr)
-        free(ptr);
-}
-#endif /* end of BH_ENABLE_MEMORY_PROFILING */
-#endif /* end of MALLOC_MEMORY_FROM_SYSTEM*/
 

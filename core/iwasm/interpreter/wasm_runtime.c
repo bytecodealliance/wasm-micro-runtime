@@ -257,7 +257,8 @@ memory_instantiate(WASMModuleInstance *module_inst,
     memory->heap_data_end = memory->heap_data + heap_size;
     memory->memory_data_end = memory->memory_data + (uint32)memory_data_size;
 
-    bh_assert(memory->memory_data_end - (uint8*)memory == (uint32)total_size);
+    bh_assert((uint32)(memory->memory_data_end - (uint8*)memory)
+              == (uint32)total_size);
 
     /* Initialize heap */
     if (heap_size > 0
@@ -1112,10 +1113,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
 
     /* Instantiate global firstly to get the mutable data size */
     global_count = module->import_global_count + module->global_count;
-    if (global_count && !(globals = globals_instantiate(
-                            module,
-                            module_inst,
-                            &global_data_size, error_buf, error_buf_size))) {
+    if (global_count
+        && !(globals = globals_instantiate(module, module_inst,
+                                           &global_data_size,
+                                           error_buf, error_buf_size))) {
         wasm_deinstantiate(module_inst, false);
         return NULL;
     }
@@ -1419,6 +1420,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
 #endif
 #endif
 
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_module_inst_mem_consumption
+                    ((WASMModuleInstanceCommon *)module_inst);
+#endif
     (void)global_data_end;
     return module_inst;
 }
@@ -1928,3 +1933,138 @@ wasm_get_aux_stack(WASMExecEnv *exec_env,
     return false;
 }
 #endif
+
+#if (WASM_ENABLE_MEMORY_PROFILING != 0) || (WASM_ENABLE_MEMORY_TRACING != 0)
+void
+wasm_get_module_mem_consumption(const WASMModule *module,
+                                WASMModuleMemConsumption *mem_conspn)
+{
+    uint32 i, size;
+
+    memset(mem_conspn, 0, sizeof(*mem_conspn));
+
+    mem_conspn->module_struct_size = sizeof(WASMModule);
+
+    mem_conspn->types_size = sizeof(WASMType *) * module->type_count;
+    for (i = 0; i < module->type_count; i++) {
+        WASMType *type = module->types[i];
+        size = offsetof(WASMType, types) +
+               sizeof(uint8) * (type->param_count + type->result_count);
+        mem_conspn->types_size += size;
+    }
+
+    mem_conspn->imports_size = sizeof(WASMImport) * module->import_count;
+
+    mem_conspn->functions_size = sizeof(WASMFunction *)
+                                 * module->function_count;
+    for (i = 0; i < module->function_count; i++) {
+        WASMFunction *func = module->functions[i];
+        WASMType *type = func->func_type;
+        size = sizeof(WASMFunction) + func->local_count
+               + sizeof(uint16) * (type->param_count + func->local_count);
+#if WASM_ENABLE_FAST_INTERP != 0
+        size += func->code_compiled_size
+                + sizeof(uint32) * func->const_cell_num;
+#endif
+        mem_conspn->functions_size += size;
+    }
+
+    mem_conspn->tables_size = sizeof(WASMTable) * module->table_count;
+    mem_conspn->memories_size = sizeof(WASMMemory) * module->memory_count;
+    mem_conspn->globals_size = sizeof(WASMGlobal) * module->global_count;
+    mem_conspn->exports_size = sizeof(WASMExport) * module->export_count;
+
+    mem_conspn->table_segs_size = sizeof(WASMTableSeg)
+                                  * module->table_seg_count;
+    for (i = 0; i < module->table_seg_count; i++) {
+        WASMTableSeg *table_seg = &module->table_segments[i];
+        mem_conspn->tables_size += sizeof(uint32)
+                                   * table_seg->function_count;
+    }
+
+    mem_conspn->data_segs_size = sizeof(WASMDataSeg*)
+                                 * module->data_seg_count;
+    for (i = 0; i < module->data_seg_count; i++) {
+        mem_conspn->data_segs_size += sizeof(WASMDataSeg);
+    }
+
+    if (module->const_str_list) {
+        StringNode *node = module->const_str_list, *node_next;
+        while (node) {
+            node_next = node->next;
+            mem_conspn->const_strs_size += sizeof(StringNode)
+                                           + strlen(node->str) + 1;
+            node = node_next;
+        }
+    }
+
+    mem_conspn->total_size += mem_conspn->module_struct_size;
+    mem_conspn->total_size += mem_conspn->types_size;
+    mem_conspn->total_size += mem_conspn->imports_size;
+    mem_conspn->total_size += mem_conspn->functions_size;
+    mem_conspn->total_size += mem_conspn->tables_size;
+    mem_conspn->total_size += mem_conspn->memories_size;
+    mem_conspn->total_size += mem_conspn->globals_size;
+    mem_conspn->total_size += mem_conspn->exports_size;
+    mem_conspn->total_size += mem_conspn->table_segs_size;
+    mem_conspn->total_size += mem_conspn->data_segs_size;
+    mem_conspn->total_size += mem_conspn->const_strs_size;
+#if WASM_ENABLE_AOT != 0
+    mem_conspn->total_size += mem_conspn->aot_code_size;
+#endif
+}
+
+void
+wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
+                                     WASMModuleInstMemConsumption *mem_conspn)
+{
+    uint32 i, size;
+
+    memset(mem_conspn, 0, sizeof(*mem_conspn));
+
+    mem_conspn->module_inst_struct_size = sizeof(WASMModuleInstance);
+
+    mem_conspn->memories_size = sizeof(WASMMemoryInstance *)
+                                * module_inst->memory_count;
+    for (i = 0; i < module_inst->memory_count; i++) {
+        WASMMemoryInstance *memory = module_inst->memories[i];
+        size = offsetof(WASMMemoryInstance, memory_data)
+               + memory->num_bytes_per_page * memory->cur_page_count;
+        mem_conspn->memories_size += size;
+        mem_conspn->app_heap_size += memory->heap_data_end
+                                     - memory->heap_data;
+    }
+
+    mem_conspn->tables_size = sizeof(WASMTableInstance *)
+                              * module_inst->table_count;
+    for (i = 0; i < module_inst->table_count; i++) {
+        WASMTableInstance *table = module_inst->tables[i];
+        size = offsetof(WASMTableInstance, base_addr)
+               + sizeof(uint32) * table->cur_size;
+        mem_conspn->tables_size += size;
+    }
+
+    mem_conspn->functions_size = sizeof(WASMFunctionInstance)
+                                 * module_inst->function_count;
+
+    mem_conspn->globals_size = sizeof(WASMGlobalInstance)
+                               * module_inst->global_count;
+    if (module_inst->global_count > 0) {
+        WASMGlobalInstance *global =
+            &module_inst->globals[module_inst->global_count - 1];
+        mem_conspn->globals_size += global->data_offset
+                                    + wasm_value_type_size(global->type);
+    }
+
+    mem_conspn->exports_size = sizeof(WASMExportFuncInstance)
+                               * module_inst->export_func_count;
+
+    mem_conspn->total_size += mem_conspn->module_inst_struct_size;
+    mem_conspn->total_size += mem_conspn->memories_size;
+    mem_conspn->total_size += mem_conspn->functions_size;
+    mem_conspn->total_size += mem_conspn->tables_size;
+    mem_conspn->total_size += mem_conspn->globals_size;
+    mem_conspn->total_size += mem_conspn->exports_size;
+}
+#endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0)
+                 || (WASM_ENABLE_MEMORY_TRACING != 0) */

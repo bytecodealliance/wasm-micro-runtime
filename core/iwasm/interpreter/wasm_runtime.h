@@ -204,13 +204,14 @@ typedef struct WASMModuleInstance {
      * wasm_set_custom_data/wasm_get_custom_data */
     void *custom_data;
 
-    /* Main exec env */
-    WASMExecEnv *main_exec_env;
-
 #if WASM_ENABLE_MULTI_MODULE != 0
-    // TODO: mutex ? mutli-threads ?
+    /* TODO: add mutex for mutli-threads? */
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    uint32 max_aux_stack_used;
 #endif
 } WASMModuleInstance;
 
@@ -374,6 +375,13 @@ wasm_get_aux_stack(WASMExecEnv *exec_env,
                    uint32 *start_offset, uint32 *size);
 #endif
 
+void
+wasm_get_module_mem_consumption(const WASMModule *module,
+                                WASMModuleMemConsumption *mem_conspn);
+
+void
+wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module,
+                                     WASMModuleInstMemConsumption *mem_conspn);
 #ifdef __cplusplus
 }
 #endif
