@@ -99,7 +99,7 @@ static char global_heap_buf[164 * 1024] = { 0 };
 static char *
 handle_module_path(const char *module_path)
 {
-    // next character after =
+    /* next character after = */
     return (strchr(module_path, '=')) + 1;
 }
 
@@ -159,8 +159,6 @@ main(int argc, char *argv[])
 #endif
 
     /* Process options.  */
-    // TODO: use a option name and option handler pair table to
-    //       optimize
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;

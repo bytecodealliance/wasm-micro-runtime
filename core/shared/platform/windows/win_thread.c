@@ -61,19 +61,11 @@ int os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-/* Returned error (EINVAL, EAGAIN and EDEADLK) from
- locking the mutex indicates some logic error present in
- the program somewhere.
- Don't try to recover error for an existing unknown error.*/
 int os_mutex_lock(korp_mutex *mutex)
 {
     return BHT_ERROR;
 }
 
-/* Returned error (EINVAL, EAGAIN and EPERM) from
- unlocking the mutex indicates some logic error present
- in the program somewhere.
- Don't try to recover error for an existing unknown error.*/
 int os_mutex_unlock(korp_mutex *mutex)
 {
     return BHT_OK;

@@ -9,6 +9,7 @@ WAMR_DIR=${PWD}/../../..
         --sysroot=${WAMR_DIR}/wamr-sdk/app/libc-builtin-sysroot    \
         -Wl,--allow-undefined-file=${WAMR_DIR}/wamr-sdk/app/libc-builtin-sysroot/share/defined-symbols.txt \
         -Wl,--export=main, \
+        -Wl,--export=__data_end, -Wl,--export=__heap_base \
         -Wl,--no-threads,--strip-all,--no-entry \
         -nostdlib -o test.wasm *.c
 #./jeffdump -o test_wasm.h -n wasm_test_file test.wasm

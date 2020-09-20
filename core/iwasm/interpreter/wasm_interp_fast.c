@@ -1117,7 +1117,7 @@ wasm_interp_dump_op_count()
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 
-//#define HANDLE_OP(opcode) HANDLE_##opcode:printf(#opcode"\n");h_##opcode
+/* #define HANDLE_OP(opcode) HANDLE_##opcode:printf(#opcode"\n");h_##opcode */
 #if WASM_ENABLE_OPCODE_COUNTER != 0
 #define HANDLE_OP(opcode) HANDLE_##opcode:opcode_table[opcode].count++;h_##opcode
 #else

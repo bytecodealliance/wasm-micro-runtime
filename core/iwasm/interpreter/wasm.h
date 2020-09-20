@@ -175,7 +175,7 @@ typedef struct WASMGlobalImport {
     WASMValue global_data_linked;
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* imported function pointer after linked */
-    // TODO: remove if not necessary
+    /* TODO: remove if not needed */
     WASMModule *import_module;
     WASMGlobal *import_global_linked;
 #endif

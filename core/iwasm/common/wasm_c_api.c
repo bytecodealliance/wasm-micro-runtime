@@ -2202,9 +2202,9 @@ interp_process_export(wasm_store_t *store,
 
                 external = wasm_global_as_extern(global);
                 break;
-            // TODO:
             case EXPORT_KIND_MEMORY:
             case EXPORT_KIND_TABLE:
+                /* TODO: */
                 break;
             default:
                 goto failed;

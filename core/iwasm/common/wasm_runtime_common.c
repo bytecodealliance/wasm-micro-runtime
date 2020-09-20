@@ -791,6 +791,7 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
     wasm_exec_env_destroy(exec_env);
 }
 
+#if (WASM_ENABLE_MEMORY_PROFILING != 0) || (WASM_ENABLE_MEMORY_TRACING != 0)
 void
 wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)
 {
@@ -872,7 +873,6 @@ wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env)
     os_printf("    stack size: %u\n", exec_env->wasm_stack_size);
 }
 
-#if WASM_ENABLE_MEMORY_PROFILING != 0
 uint32
 gc_get_heap_highmark_size(void *heap);
 
@@ -951,7 +951,8 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
 
     os_printf("Total app heap used: %u\n", app_heap_peak_size);
 }
-#endif
+#endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0)
+                 || (WASM_ENABLE_MEMORY_TRACING != 0) */
 
 WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
@@ -2645,7 +2646,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-    ret = true;
+    ret = !wasm_runtime_get_exception(module) ? true : false;
 
 fail:
     if (argv1 != argv_buf)
@@ -2900,7 +2901,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = true;
+    ret = !wasm_runtime_get_exception(module) ? true : false;
 
 fail:
     if (argv1 != argv_buf)
@@ -3053,7 +3054,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = true;
+    ret = !wasm_runtime_get_exception(module) ? true : false;
 
 fail:
     if (argv1 != argv_buf)
@@ -3231,7 +3232,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
     exec_env->attachment = NULL;
 
-    ret = true;
+    ret = !wasm_runtime_get_exception(module) ? true : false;
 fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
