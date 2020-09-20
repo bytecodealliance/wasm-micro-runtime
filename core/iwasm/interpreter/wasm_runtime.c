@@ -330,15 +330,15 @@ memories_instantiate(const WASMModule *module,
 #if WASM_ENABLE_MULTI_MODULE != 0
         WASMMemoryInstance *memory_inst_linked = NULL;
         if (import->u.memory.import_module != NULL) {
+            WASMModuleInstance *module_inst_linked;
+
             LOG_DEBUG("(%s, %s) is a memory of a sub-module",
                       import->u.memory.module_name,
                       import->u.memory.field_name);
 
-            // TODO: how about native memory ?
-            WASMModuleInstance *module_inst_linked =
-              get_sub_module_inst(
-                  module_inst,
-                  import->u.memory.import_module);
+            module_inst_linked =
+                get_sub_module_inst(module_inst,
+                                    import->u.memory.import_module);
             bh_assert(module_inst_linked);
 
             memory_inst_linked =

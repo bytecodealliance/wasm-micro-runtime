@@ -2890,7 +2890,7 @@ wasm_loader_pop_frame_csp(WASMLoaderContext *ctx,
     LOG_OP("\nemit_op [%02x]\t", opcode);                           \
   } while (0)
 
-// drop local.get / const / block / loop / end
+/* drop local.get / const / block / loop / end */
 #define skip_label() do {                                           \
     wasm_loader_emit_backspace(loader_ctx, sizeof(int16));          \
     LOG_OP("\ndelete last op\n");                                   \
@@ -3264,7 +3264,7 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
     if (type == VALUE_TYPE_VOID)
         return true;
 
-    // only check memory overflow in first traverse
+    /* only check memory overflow in first traverse */
     if (ctx->p_code_compiled == NULL) {
         if (!check_offset_push(ctx, error_buf, error_buf_size))
             return false;
@@ -4525,7 +4525,7 @@ handle_op_block_and_loop:
                                  + func->func_type->param_count + idx);
                     POP_TYPE(ret_type);
 #if WASM_ENABLE_FAST_INTERP != 0
-                    // emit the offset after return opcode
+                    /* emit the offset after return opcode */
                     POP_OFFSET_TYPE(ret_type);
 #endif
                 }
@@ -4544,7 +4544,7 @@ handle_op_block_and_loop:
 
                 read_leb_uint32(p, p_end, func_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
-                // we need to emit func_idx before arguments
+                /* we need to emit func_idx before arguments */
                 emit_uint32(loader_ctx, func_idx);
 #endif
 
@@ -4592,7 +4592,7 @@ handle_op_block_and_loop:
 
                 read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
-                // we need to emit func_idx before arguments
+                /* we need to emit func_idx before arguments */
                 emit_uint32(loader_ctx, type_idx);
 #endif
 

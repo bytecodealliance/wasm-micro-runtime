@@ -36,11 +36,8 @@ os_mutex_lock(korp_mutex *mutex)
 
     assert(mutex);
     ret = pthread_mutex_lock(mutex);
-    if (0 != ret) {
-        os_printf("vm mutex lock failed (ret=%d)!\n", ret);
-        exit(-1);
-    }
-    return ret;
+
+    return ret == 0 ? BHT_OK : BHT_ERROR;
 }
 
 int
@@ -50,11 +47,8 @@ os_mutex_unlock(korp_mutex *mutex)
 
     assert(mutex);
     ret = pthread_mutex_unlock(mutex);
-    if (0 != ret) {
-        os_printf("vm mutex unlock failed (ret=%d)!\n", ret);
-        exit(-1);
-    }
-    return ret;
+
+    return ret == 0 ? BHT_OK : BHT_ERROR;
 }
 
 uint8 *

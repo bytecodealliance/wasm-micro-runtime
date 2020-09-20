@@ -176,11 +176,12 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 static char *
 handle_module_path(const char *module_path)
 {
-    // next character after =
+    /* next character after = */
     return (strchr(module_path, '=')) + 1;
 }
 
 static char *module_search_path = ".";
+
 static bool
 module_reader_callback(const char *module_name, uint8 **p_buffer,
                        uint32 *p_size)
@@ -237,8 +238,6 @@ main(int argc, char *argv[])
 #endif
 
     /* Process options.  */
-    // TODO: use a option name and option handler pair table to
-    //       optimize
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;

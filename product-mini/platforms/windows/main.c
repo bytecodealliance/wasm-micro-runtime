@@ -236,8 +236,6 @@ main(int argc, char *argv[])
 #endif
 
     /* Process options.  */
-    // TODO: use a option name and option handler pair table to
-    //       optimize
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;

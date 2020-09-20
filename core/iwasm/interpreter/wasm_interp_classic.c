@@ -3269,7 +3269,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
                       WASMFunctionInstance *function,
                       uint32 argc, uint32 argv[])
 {
-    // TODO: since module_inst = exec_env->module_inst, shall we remove the 1st arg?
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
     WASMInterpFrame *frame, *outs_area;
 

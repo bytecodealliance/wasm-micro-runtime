@@ -31,9 +31,9 @@ typedef enum runtime_mode_e {
 } runtime_mode_e;
 
 struct wasm_engine_t {
-    // support one store for now
+    /* support one store for now */
     wasm_store_vec_t *stores;
-    // Interpreter by deault
+    /* Interpreter by deault */
     runtime_mode_e mode;
 };
 
@@ -49,21 +49,21 @@ struct wasm_valtype_t {
 
 struct wasm_functype_t {
     uint32 extern_kind;
-    // gona to new and delete own
+    /* gona to new and delete own */
     wasm_valtype_vec_t *params;
     wasm_valtype_vec_t *results;
 };
 
 struct wasm_globaltype_t {
     uint32 extern_kind;
-    // gona to new and delete own
+    /* gona to new and delete own */
     wasm_valtype_t *val_type;
     wasm_mutability_t mutability;
 };
 
 struct wasm_tabletype_t {
     uint32 extern_kind;
-    // always be WASM_FUNCREF
+    /* always be WASM_FUNCREF */
     wasm_valtype_t *type;
     wasm_limits_t *limits;
 };
