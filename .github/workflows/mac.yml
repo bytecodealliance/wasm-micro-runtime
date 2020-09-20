@@ -1,0 +1,78 @@
+name: Mac
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build iwasm [default]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake ..
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [Classic interp]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_FAST_INTERP=0
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [Multi module]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_MULTI_MODULE=1
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [lib-pthread]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [aot only]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [interp only]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_AOT=0
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [memory profiling]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_MEMORY_PROFILING=1
+        make
+        cd .. && rm -rf build
+    - name: Build Sample [wasm-c-api]
+      run: |
+        cd samples/wasm-c-api
+        mkdir build && cd build
+        cmake ..
+        make
+        ./hello
+        ./global
+        ./callback
