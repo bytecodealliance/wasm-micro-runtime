@@ -1,0 +1,36 @@
+name: Linux
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-20.04]
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build iwasm
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake ..
+        make
+
+    - name: Build wasm-c-api
+      run: |
+        cd samples/wasm-c-api
+        mkdir build && cd build
+        cmake ..
+        make
+        ./hello
+        ./global
+        ./callback
