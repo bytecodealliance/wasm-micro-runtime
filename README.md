@@ -35,6 +35,7 @@ iwasm VM core
 - [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 - [Multi-value](https://github.com/WebAssembly/multi-value)
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
+- [Tail-call](https://github.com/WebAssembly/tail-call)
 
 ### Performance and memory usage
 The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.
