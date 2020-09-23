@@ -56,6 +56,10 @@ extern "C" {
 #define SECTION_TYPE_DATACOUNT 12
 #endif
 
+#define SUB_SECTION_TYPE_MODULE 0
+#define SUB_SECTION_TYPE_FUNC   1
+#define SUB_SECTION_TYPE_LOCAL  2
+
 #define IMPORT_KIND_FUNC 0
 #define IMPORT_KIND_TABLE 1
 #define IMPORT_KIND_MEMORY 2
@@ -196,6 +200,9 @@ typedef struct WASMImport {
 } WASMImport;
 
 struct WASMFunction {
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    char *field_name;
+#endif
     /* the type of function */
     WASMType *func_type;
     uint32 local_count;
