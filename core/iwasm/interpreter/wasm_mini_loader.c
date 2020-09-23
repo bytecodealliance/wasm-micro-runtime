@@ -853,8 +853,9 @@ init_function_local_offsets(WASMFunction *func,
     uint32 i, local_offset = 0;
     uint64 total_size = sizeof(uint16) * ((uint64)param_count + local_count);
 
-    if (!(func->local_offsets =
-                loader_malloc(total_size, error_buf, error_buf_size))) {
+    if (total_size > 0
+        && !(func->local_offsets =
+               loader_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
 
