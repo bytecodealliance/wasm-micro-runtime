@@ -4,8 +4,14 @@
  */
         .text
         .align  2
-        .global invokeNative
-        .type   invokeNative,function
+#ifndef BH_PLATFORM_DARWIN
+        .globl invokeNative
+        .type   invokeNative, @function
+invokeNative:
+#else
+        .globl _invokeNative
+_invokeNative:
+#endif /* end of BH_PLATFORM_DARWIN */
 
 /*
  * Arguments passed in:
@@ -15,7 +21,6 @@
  * x2 nstacks
  */
 
-invokeNative:
         sub     sp, sp, #0x30
         stp     x19, x20, [sp, #0x20] /* save the registers */
         stp     x21, x22, [sp, #0x10]
