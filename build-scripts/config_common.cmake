@@ -169,4 +169,8 @@ endif ()
 if (DEFINED WAMR_APP_THREAD_STACK_SIZE_MAX)
   add_definitions (-DAPP_THREAD_STACK_SIZE_MAX=${WAMR_APP_THREAD_STACK_SIZE_MAX})
 endif ()
+if (WAMR_BUILD_CUSTOM_NAME_SECTION EQUAL 1)
+  add_definitions (-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
+  message ("     Custom name section enabled")
+endif ()
 

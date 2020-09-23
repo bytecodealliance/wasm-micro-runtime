@@ -1408,6 +1408,73 @@ load_start_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     return true;
 }
 
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+static bool
+handle_name_section(const uint8 *buf, const uint8 *buf_end,
+                    WASMModule *module,
+                    char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 name_type, subsection_size;
+    uint32 previous_name_type = 0;
+    uint32 num_func_name;
+    uint32 func_index;
+    uint32 previous_func_index = ~0U;
+    uint32 func_name_len;
+    uint32 name_index;
+    int i = 0;
+
+    bh_assert(p < p_end);
+
+    while (p < p_end) {
+        read_leb_uint32(p, p_end, name_type);
+        if (i != 0) {
+            bh_assert(name_type > previous_name_type);
+        }
+        previous_name_type = name_type;
+        read_leb_uint32(p, p_end, subsection_size);
+        CHECK_BUF(p, p_end, subsection_size);
+        switch (name_type) {
+            case SUB_SECTION_TYPE_FUNC:
+                if (subsection_size) {
+                    read_leb_uint32(p, p_end, num_func_name);
+                    for (name_index = 0; name_index < num_func_name;
+                         name_index++) {
+                        read_leb_uint32(p, p_end, func_index);
+                        bh_assert(func_index > previous_func_index);
+                        previous_func_index = func_index;
+                        read_leb_uint32(p, p_end, func_name_len);
+                        CHECK_BUF(p, p_end, func_name_len);
+                        // Skip the import functions
+                        if (func_index >= module->import_count) {
+                            func_index -= module->import_count;
+                            bh_assert(func_index < module->function_count);
+                            if (!(module->functions[func_index]->field_name =
+                                    const_str_list_insert(p, func_name_len,
+                                                          module, error_buf,
+                                                          error_buf_size))) {
+                                return false;
+                            }
+                        }
+                        p += func_name_len;
+                    }
+                }
+                break;
+            case SUB_SECTION_TYPE_MODULE: /* TODO: Parse for module subsection */
+            case SUB_SECTION_TYPE_LOCAL: /* TODO: Parse for local subsection */
+            default:
+                p = p + subsection_size;
+                break;
+        }
+        i++;
+    }
+
+    return true;
+fail:
+    return false;
+}
+#endif
+
 static bool
 load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                   char *error_buf, uint32 error_buf_size)
@@ -1421,6 +1488,13 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
     bh_assert(name_len > 0
               && p + name_len <= p_end);
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if (memcmp(p, "name", 4) == 0) {
+        p += name_len;
+        handle_name_section(p, p_end, module, error_buf, error_buf_size);
+    }
+#endif
     LOG_VERBOSE("Load custom section success.\n");
     (void)name_len;
     return true;

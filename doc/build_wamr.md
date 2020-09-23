@@ -44,6 +44,10 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_LIBC_WASI**=1/0, default to enable if not set
 
+#### **Configure Debug**
+
+- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0,  load the function name from custom name section, default to disable if not set
+
 #### **Enable Multi-Module feature**
 
 - **WAMR_BUILD_MULTI_MODULE**=1/0, default to disable if not set
