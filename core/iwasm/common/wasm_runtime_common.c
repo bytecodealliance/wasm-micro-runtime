@@ -2369,9 +2369,6 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    /* Clear errno before parsing arguments */
-    errno = 0;
-
     /* Parse arguments */
     for (i = 0, p = 0; i < argc; i++) {
         char *endptr = NULL;
@@ -2459,12 +2456,6 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         if (endptr && *endptr != '\0' && *endptr != '_') {
             snprintf(buf, sizeof(buf), "invalid input argument %d: %s",
                      i, argv[i]);
-            wasm_runtime_set_exception(module_inst, buf);
-            goto fail;
-        }
-        if (errno != 0) {
-            snprintf(buf, sizeof(buf),
-                     "prepare function argument error, errno: %d", errno);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
