@@ -2394,7 +2394,7 @@ fail:
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static bool
-handle_name_section(const uint8 *buf, const uint8 *buf_end,Ø
+handle_name_section(const uint8 *buf, const uint8 *buf_end,
                     WASMModule *module,
                     char *error_buf, uint32 error_buf_size)
 {
