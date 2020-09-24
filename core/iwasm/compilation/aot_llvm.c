@@ -997,6 +997,13 @@ get_target_arch_from_triple(const char *triple, char *arch_buf, uint32 buf_size)
     bh_assert(*triple == '-' || *triple == '\0');
 }
 
+LLVMBool
+WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
+                                 LLVMModuleRef M,
+                                 struct LLVMMCJITCompilerOptions *Options,
+                                 size_t SizeOfOptions,
+                                 char **OutError);
+
 void LLVMAddPromoteMemoryToRegisterPass(LLVMPassManagerRef PM);
 
 AOTCompContext *
@@ -1007,7 +1014,8 @@ aot_create_comp_context(AOTCompData *comp_data,
     /*LLVMTypeRef elem_types[8];*/
     struct LLVMMCJITCompilerOptions jit_options;
     LLVMTargetRef target;
-    char *triple = NULL, *triple_norm, *arch, *abi, *cpu, *features, buf[128];
+    char *triple = NULL, *triple_jit = NULL, *triple_norm, *arch, *abi;
+    char *cpu = NULL, *features, buf[128];
     char *triple_norm_new = NULL, *cpu_new = NULL;
     char *err = NULL, *fp_round= "round.tonearest", *fp_exce = "fpexcept.strict";
     char triple_buf[32] = {0};
@@ -1060,7 +1068,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         jit_options.OptLevel = LLVMCodeGenLevelAggressive;
         jit_options.EnableFastISel = true;
         /*jit_options.CodeModel = LLVMCodeModelSmall;*/
-        if (LLVMCreateMCJITCompilerForModule
+        if (WAMRCreateMCJITCompilerForModule
                 (&comp_ctx->exec_engine, comp_ctx->module,
                  &jit_options, sizeof(jit_options), &err) != 0) {
             if (err) {
@@ -1078,6 +1086,17 @@ aot_create_comp_context(AOTCompData *comp_data,
 #else
         comp_ctx->enable_bound_check = false;
 #endif
+
+        if (!(triple_jit =
+                LLVMGetTargetMachineTriple(comp_ctx->target_machine))) {
+            aot_set_last_error("can not get triple from the target machine");
+            goto fail;
+        }
+
+        /* Save target arch */
+        get_target_arch_from_triple(triple_jit, comp_ctx->target_arch,
+                                    sizeof(comp_ctx->target_arch));
+        LLVMDisposeMessage(triple_jit);
     }
     else {
         /* Create LLVM target machine */
