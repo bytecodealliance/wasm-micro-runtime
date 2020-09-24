@@ -43,12 +43,8 @@
 #define BH_DEBUG 0
 #endif
 
-enum {
-    /* Memory allocator ems */
-    MEM_ALLOCATOR_EMS = 0,
-    /* Memory allocator tlsf */
-    MEM_ALLOCATOR_TLSF
-};
+#define MEM_ALLOCATOR_EMS  0
+#define MEM_ALLOCATOR_TLSF 1
 
 /* Default memory allocator */
 #define DEFAULT_MEM_ALLOCATOR MEM_ALLOCATOR_EMS
