@@ -70,7 +70,7 @@ CFLAGS += -DWASM_ENABLE_AOT=0
 endif
 
 CFLAGS += -DWASM_ENABLE_INTERP=1
-CSRCS += wasm_runtime.c wasm_loader.c
+CSRCS += wasm_runtime.c
 
 ifeq (${CONFIG_INTERPRETERS_WAMR_FAST},y)
 CFLAGS += -DWASM_ENABLE_FAST_INTERP=1
@@ -85,9 +85,38 @@ else
 CFLAGS += -DWASM_ENABLE_LIBC_BUILTIN=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_MULTI_MODULE),y)
+CFLAGS += -DWASM_ENABLE_MULTI_MODULE=1
+else
 CFLAGS += -DWASM_ENABLE_MULTI_MODULE=0
+endif
+
+ifeq ($(CONFIG_INTERPRETERS_WAMR_THREAD_MGR),y)
+CFLAGS += -DWASM_ENABLE_THREAD_MGR=1
+CSRCS += thread_manager.c
+VPATH += ${IWASM_ROOT}/libraries/thread-mgr
+else
 CFLAGS += -DWASM_ENABLE_THREAD_MGR=0
-CFLAGS += -Wno-strict-prototypes
+endif
+
+ifeq ($(CONFIG_INTERPRETERS_WAMR_MINILOADER),y)
+CFLAGS += -DWASM_ENABLE_MINI_LOADER=1
+CSRCS += wasm_mini_loader.c
+else
+CFLAGS += -DWASM_ENABLE_MINI_LOADER=0
+CSRCS += wasm_loader.c
+endif
+
+ifeq ($(CONFIG_INTERPRETERS_WAMR_DISABLE_HW_BOUND_CHECK),y)
+CFLAGS += -DWASM_DISABLE_HW_BOUND_CHECK=1
+else
+CFLAGS += -DWASM_DISABLE_HW_BOUND_CHECK=0
+endif
+
+CFLAGS += -DBH_ENABLE_MEMORY_PROFILING=0
+
+CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
+CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 
 CFLAGS += -I${CORE_ROOT} \
 		      -I${IWASM_ROOT}/include \

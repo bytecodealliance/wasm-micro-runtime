@@ -3307,10 +3307,16 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                 break;
 
             case WASM_OP_CALL:
+#if WASM_ENABLE_TAIL_CALL != 0
+            case WASM_OP_RETURN_CALL:
+#endif
                 skip_leb_uint32(p, p_end); /* funcidx */
                 break;
 
             case WASM_OP_CALL_INDIRECT:
+#if WASM_ENABLE_TAIL_CALL != 0
+            case WASM_OP_RETURN_CALL_INDIRECT:
+#endif
                 skip_leb_uint32(p, p_end); /* typeidx */
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* 0x00 */
@@ -5812,6 +5818,9 @@ handle_op_block_and_loop:
             }
 
             case WASM_OP_CALL:
+#if WASM_ENABLE_TAIL_CALL != 0
+            case WASM_OP_RETURN_CALL:
+#endif
             {
                 WASMType *func_type;
                 uint32 func_idx;
@@ -5844,22 +5853,53 @@ handle_op_block_and_loop:
                     }
                 }
 
-                for (i = 0; i < func_type->result_count; i++) {
-                    PUSH_TYPE(func_type->types[func_type->param_count + i]);
-#if WASM_ENABLE_FAST_INTERP != 0
-                    /* Here we emit each return value's dynamic_offset. But in fact
-                     * these offsets are continuous, so interpreter only need to get
-                     * the first return value's offset.
-                     */
-                    PUSH_OFFSET_TYPE(func_type->types[func_type->param_count + i]);
+#if WASM_ENABLE_TAIL_CALL != 0
+                if (opcode == WASM_OP_CALL) {
 #endif
+                    for (i = 0; i < func_type->result_count; i++) {
+                        PUSH_TYPE(func_type->types[func_type->param_count + i]);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        /* Here we emit each return value's dynamic_offset. But in fact
+                         * these offsets are continuous, so interpreter only need to get
+                         * the first return value's offset.
+                         */
+                        PUSH_OFFSET_TYPE(func_type->types[func_type->param_count + i]);
+#endif
+                    }
+#if WASM_ENABLE_TAIL_CALL != 0
                 }
-
+                else {
+                    char *type_str[] = { "f64", "f32", "i64", "i32" };
+                    uint8 type;
+                    if (func_type->result_count != func->func_type->result_count) {
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s%u%s", "type mismatch: expect ",
+                                        func->func_type->result_count,
+                                        " return values but got other");
+                        goto fail;
+                    }
+                    for (i = 0; i < func_type->result_count; i++) {
+                        type = func->func_type->types[func->func_type->param_count + i];
+                        if (func_type->types[func_type->param_count + i] != type) {
+                            set_error_buf_v(error_buf, error_buf_size,
+                                            "%s%s%s", "type mismatch: expect ",
+                                            type_str[type - VALUE_TYPE_F64],
+                                            " but got other");
+                            goto fail;
+                        }
+                    }
+                    RESET_STACK();
+                    SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+                }
+#endif
                 func->has_op_func_call = true;
                 break;
             }
 
             case WASM_OP_CALL_INDIRECT:
+#if WASM_ENABLE_TAIL_CALL != 0
+            case WASM_OP_RETURN_CALL_INDIRECT:
+#endif
             {
                 int32 idx;
                 WASMType *func_type;
@@ -5904,13 +5944,40 @@ handle_op_block_and_loop:
                     }
                 }
 
-                for (i = 0; i < func_type->result_count; i++) {
-                    PUSH_TYPE(func_type->types[func_type->param_count + i]);
-#if WASM_ENABLE_FAST_INTERP != 0
-                    PUSH_OFFSET_TYPE(func_type->types[func_type->param_count + i]);
+#if WASM_ENABLE_TAIL_CALL != 0
+                if (opcode == WASM_OP_CALL_INDIRECT) {
 #endif
+                    for (i = 0; i < func_type->result_count; i++) {
+                        PUSH_TYPE(func_type->types[func_type->param_count + i]);
+#if WASM_ENABLE_FAST_INTERP != 0
+                        PUSH_OFFSET_TYPE(func_type->types[func_type->param_count + i]);
+#endif
+                    }
+#if WASM_ENABLE_TAIL_CALL != 0
                 }
-
+                else {
+                    char *type_str[] = { "f64", "f32", "i64", "i32" };
+                    uint8 type;
+                    if (func_type->result_count != func->func_type->result_count) {
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s%u%s", "type mismatch: expect ",
+                                        func->func_type->result_count,
+                                        " return values but got other");
+                        goto fail;
+                    }
+                    for (i = 0; i < func_type->result_count; i++) {
+                        type = func->func_type->types[func->func_type->param_count + i];
+                        if (func_type->types[func_type->param_count + i] != type)
+                            set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
+                                            "type mismatch: expect ",
+                                            type_str[type - VALUE_TYPE_F64],
+                                            " but got other");
+                        goto fail;
+                    }
+                    RESET_STACK();
+                    SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+                }
+#endif
                 func->has_op_func_call = true;
                 break;
             }

@@ -70,6 +70,20 @@ jobs:
         cmake .. -DWAMR_BUILD_MEMORY_PROFILING=1
         make
         cd .. && rm -rf build
+    - name: Build iwasm [tail call]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_TAIL_CALL=1
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [custom name section]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
+        make
+        cd .. && rm -rf build
     - name: Build Sample [wasm-c-api]
       run: |
         cd samples/wasm-c-api
