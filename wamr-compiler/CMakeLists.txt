@@ -10,6 +10,8 @@ else()
   enable_language (ASM_MASM)
 endif()
 
+set (CMAKE_CXX_STANDARD 14)
+
 if (NOT DEFINED WAMR_BUILD_PLATFORM)
   set (WAMR_BUILD_PLATFORM "linux")
 endif()
