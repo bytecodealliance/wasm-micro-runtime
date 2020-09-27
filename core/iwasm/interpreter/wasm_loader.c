@@ -4273,24 +4273,30 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
                           uint32 local_index, uint32 local_type, bool *preserved,
                           char *error_buf, uint32 error_buf_size)
 {
+    uint32 i = 0;
     int16 preserved_offset = (int16)local_index;
+
     *preserved = false;
-    for (uint32 i = 0; i < loader_ctx->stack_cell_num; i++) {
+    while (i < loader_ctx->stack_cell_num) {
+        uint8 cur_type = loader_ctx->frame_ref_bottom[i];
+
         /* move previous local into dynamic space before a set/tee_local opcode */
         if (loader_ctx->frame_offset_bottom[i] == (int16)local_index) {
-            if (preserved_offset == (int16)local_index) {
+            if (!(*preserved)) {
                 *preserved = true;
                 skip_label();
+                preserved_offset = loader_ctx->preserved_local_offset;
+                if (loader_ctx->p_code_compiled) {
+                    bh_assert(preserved_offset != (int16)local_index);
+                }
                 if (local_type == VALUE_TYPE_I32
                     || local_type == VALUE_TYPE_F32) {
-                    preserved_offset = loader_ctx->preserved_local_offset;
                     /* Only increase preserve offset in the second traversal */
                     if (loader_ctx->p_code_compiled)
                         loader_ctx->preserved_local_offset++;
                     emit_label(EXT_OP_COPY_STACK_TOP);
                 }
                 else {
-                    preserved_offset = loader_ctx->preserved_local_offset;
                     if (loader_ctx->p_code_compiled)
                         loader_ctx->preserved_local_offset += 2;
                     emit_label(EXT_OP_COPY_STACK_TOP_I64);
@@ -4301,6 +4307,11 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
             }
             loader_ctx->frame_offset_bottom[i] = preserved_offset;
         }
+
+        if (cur_type == VALUE_TYPE_I32 || cur_type == VALUE_TYPE_F32)
+            i++;
+        else
+            i += 2;
     }
 
     return true;
@@ -4309,6 +4320,38 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
 fail:
     return false;
 #endif
+}
+
+static bool
+preserve_local_for_block(WASMLoaderContext *loader_ctx, uint8 opcode,
+                         char *error_buf, uint32 error_buf_size)
+{
+    uint32 i = 0;
+    bool preserve_local;
+
+    /* preserve locals before blocks to ensure that "tee/set_local" inside
+        blocks will not influence the value of these locals */
+    while (i < loader_ctx->stack_cell_num) {
+        int16 cur_offset = loader_ctx->frame_offset_bottom[i];
+        uint8 cur_type = loader_ctx->frame_ref_bottom[i];
+
+        if ((cur_offset < loader_ctx->start_dynamic_offset)
+            && (cur_offset >= 0)) {
+            if (!(preserve_referenced_local(loader_ctx, opcode, cur_offset,
+                                            cur_type, &preserve_local,
+                                            error_buf, error_buf_size)))
+                return false;
+        }
+
+        if (cur_type == VALUE_TYPE_I32 || cur_type == VALUE_TYPE_F32) {
+            i++;
+        }
+        else {
+            i += 2;
+        }
+    }
+
+    return true;
 }
 
 static bool
@@ -5387,6 +5430,13 @@ fail:
 #define BLOCK_HAS_PARAM(block_type) \
     (!block_type.is_value_type && block_type.u.type->param_count > 0)
 
+#define PRESERVE_LOCAL_FOR_BLOCK()  do {                                  \
+    if (!(preserve_local_for_block(loader_ctx, opcode,                    \
+                                   error_buf, error_buf_size))) {         \
+        goto fail;                                                        \
+    }                                                                     \
+} while (0)
+
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              BlockAddr *block_addr_cache,
@@ -5475,10 +5525,16 @@ re_scan:
                 break;
 
             case WASM_OP_IF:
+#if WASM_ENABLE_FAST_INTERP != 0
+                PRESERVE_LOCAL_FOR_BLOCK();
+#endif
                 POP_I32();
                 goto handle_op_block_and_loop;
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
+#if WASM_ENABLE_FAST_INTERP != 0
+                PRESERVE_LOCAL_FOR_BLOCK();
+#endif
 handle_op_block_and_loop:
             {
                 uint8 value_type;
