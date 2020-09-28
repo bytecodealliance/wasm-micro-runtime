@@ -1575,10 +1575,6 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     uint8 *addr = NULL;
     uint32 offset = 0;
 
-    /*
-     * This case is not common but exists, some compiler may generate
-     * code that uses libc's malloc without initial memory or memory.grow 
-     */
     if (!memory) {
         wasm_set_exception(module_inst, "uninitialized memory");
         return 0;
@@ -1615,13 +1611,13 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
 {
     if (ptr) {
         WASMMemoryInstance *memory = module_inst->default_memory;
+        uint8* addr;
 
-        if (!memory)
-        {
+        if (!memory) {
             return;
         }
 
-        uint8 *addr = memory->memory_data + ptr;
+        addr = memory->memory_data + ptr;
 
         if (memory->heap_handle
             && memory->heap_data <= addr
