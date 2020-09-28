@@ -21,6 +21,7 @@ static char **app_argv;
 static int
 print_help()
 {
+    /* clang-format off */
     printf("Usage: iwasm [-options] wasm_file [args...]\n");
     printf("options:\n");
     printf("  -f|--function name     Specify a function name of the module to run rather\n"
@@ -46,6 +47,7 @@ print_help()
 #if WASM_ENABLE_LIB_PTHREAD != 0
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
 #endif
+    /* clang-format on */
     return 1;
 }
 
@@ -89,10 +91,8 @@ validate_env_str(char *env)
 }
 #endif
 
-#define USE_GLOBAL_HEAP_BUF 1
-
-#if USE_GLOBAL_HEAP_BUF != 0
-static char global_heap_buf[164 * 1024] = { 0 };
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
+static char global_heap_buf[WASM_GLOBAL_HEAP_SIZE * BH_KB] = { 0 };
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -105,12 +105,13 @@ handle_module_path(const char *module_path)
 
 static char *module_search_path = ".";
 static bool
-module_reader_callback(const char *module_name, uint8 **p_buffer,
+module_reader_callback(const char *module_name,
+                       uint8 **p_buffer,
                        uint32 *p_size)
 {
     const char *format = "%s/%s.wasm";
-    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name) +
-             strlen(".wasm") + 1;
+    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
+             + strlen(".wasm") + 1;
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
         return false;
@@ -245,7 +246,7 @@ main(int argc, char *argv[])
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-#if USE_GLOBAL_HEAP_BUF != 0
+#if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
