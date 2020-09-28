@@ -3,7 +3,7 @@
 
 cmake_minimum_required (VERSION 2.8)
 
-project (iwasm C ASM)
+project (iwasm C ASM CXX)
 enable_language(ASM_MASM)
 # set (CMAKE_VERBOSE_MAKEFILE 1)
 
