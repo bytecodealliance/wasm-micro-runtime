@@ -56,7 +56,7 @@ struct WASMMemoryInstance {
     /* Memory data begin address, the layout is: memory data + heap data
        Note: when memory is re-allocated, the heap data and memory data
              must be copied to new memory also. */
-    uint8 memory_data[1];
+    uint8 *memory_data;
 };
 
 struct WASMTableInstance {
