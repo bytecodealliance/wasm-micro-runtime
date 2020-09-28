@@ -1276,15 +1276,14 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    uint8 *addr = NULL;
+    uint32 offset = 0;
 
     if (!memory_inst) {
         aot_set_exception(module_inst, "uninitialized memory");
         return 0;
     }
-
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
-    uint8 *addr = NULL;
-    uint32 offset = 0;
 
     if (memory_inst->heap_handle.ptr) {
         addr = mem_allocator_malloc(memory_inst->heap_handle.ptr, size);
@@ -1317,12 +1316,11 @@ void
 aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
 
     if (!memory_inst) {
         return;
     }
-
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
 
     if (ptr) {
         uint8 *addr = (uint8 *)memory_inst->memory_data.ptr + ptr;
