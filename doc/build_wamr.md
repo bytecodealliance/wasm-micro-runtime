@@ -48,6 +48,8 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0,  load the function name from custom name section, default to disable if not set
 
+> Note: if it is enabled, the call stack will be dumped when exception occurs.
+
 #### **Enable Multi-Module feature**
 
 - **WAMR_BUILD_MULTI_MODULE**=1/0, default to disable if not set

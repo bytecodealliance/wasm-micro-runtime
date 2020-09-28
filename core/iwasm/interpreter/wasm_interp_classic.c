@@ -3379,6 +3379,9 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
         }
     }
     else {
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+        wasm_interp_dump_call_stack(exec_env);
+#endif
         LOG_DEBUG("meet an exception %s", wasm_get_exception(module_inst));
     }
 

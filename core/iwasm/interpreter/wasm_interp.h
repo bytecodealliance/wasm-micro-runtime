@@ -74,6 +74,11 @@ wasm_interp_call_wasm(struct WASMModuleInstance *module_inst,
                       struct WASMFunctionInstance *function,
                       uint32 argc, uint32 argv[]);
 
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+void
+wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

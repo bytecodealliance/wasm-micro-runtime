@@ -3382,6 +3382,11 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
         for (i = 0; i < function->ret_cell_num; i++)
             argv[i] = *(frame->lp + i);
     }
+    else {
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+        wasm_interp_dump_call_stack(exec_env);
+#endif
+    }
 
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
     FREE_FRAME(exec_env, frame);

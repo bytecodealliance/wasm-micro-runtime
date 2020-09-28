@@ -85,7 +85,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
 {
     uint32 i;
     if (memories) {
-        for (i = 0; i < count; i++)
+        for (i = 0; i < count; i++) {
             if (memories[i]) {
 #if WASM_ENABLE_MULTI_MODULE != 0
                 if (memories[i]->owner != module_inst)
@@ -109,8 +109,10 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     mem_allocator_destroy(memories[i]->heap_handle);
                     memories[i]->heap_handle = NULL;
                 }
+                wasm_runtime_free(memories[i]->memory_data);
                 wasm_runtime_free(memories[i]);
             }
+        }
         wasm_runtime_free(memories);
   }
   (void)module_inst;
@@ -125,7 +127,7 @@ memory_instantiate(WASMModuleInstance *module_inst,
 {
     WASMModule *module = module_inst->module;
     WASMMemoryInstance *memory;
-    uint64 total_size, memory_data_size;
+    uint64 memory_data_size;
     uint32 heap_offset = num_bytes_per_page * init_page_count;
     uint32 inc_page_count, aux_heap_base, global_idx;
     uint32 bytes_of_last_page, bytes_to_page_end;
@@ -239,13 +241,15 @@ memory_instantiate(WASMModuleInstance *module_inst,
     }
 #endif
 
-    total_size = offsetof(WASMMemoryInstance, memory_data)
-                 + memory_data_size;
-
     /* Allocate memory space, addr data and global data */
-    if (!(memory = runtime_malloc(total_size,
+    if (!(memory = runtime_malloc((uint64)sizeof(WASMMemoryInstance),
                                   error_buf, error_buf_size))) {
         return NULL;
+    }
+
+    if (!(memory->memory_data =
+        runtime_malloc(memory_data_size, error_buf, error_buf_size))) {
+        goto fail1;
     }
 
     memory->module_type = Wasm_Module_Bytecode;
@@ -257,21 +261,18 @@ memory_instantiate(WASMModuleInstance *module_inst,
     memory->heap_data_end = memory->heap_data + heap_size;
     memory->memory_data_end = memory->memory_data + (uint32)memory_data_size;
 
-    bh_assert((uint32)(memory->memory_data_end - (uint8*)memory)
-              == (uint32)total_size);
-
     /* Initialize heap */
     if (heap_size > 0
         && !(memory->heap_handle =
                mem_allocator_create(memory->heap_data, heap_size))) {
         set_error_buf(error_buf, error_buf_size, "init app heap failed");
-        goto fail1;
+        goto fail2;
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (0 != os_mutex_init(&memory->mem_lock)) {
         set_error_buf(error_buf, error_buf_size, "init mutex failed");
-        goto fail2;
+        goto fail3;
     }
     if (is_shared_memory) {
         memory->is_shared = true;
@@ -280,18 +281,20 @@ memory_instantiate(WASMModuleInstance *module_inst,
                 (WASMMemoryInstanceCommon *)memory)) {
             set_error_buf(error_buf, error_buf_size,
                           "allocate memory failed");
-            goto fail3;
+            goto fail4;
         }
     }
 #endif
     return memory;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-fail3:
+fail4:
     os_mutex_destroy(&memory->mem_lock);
-fail2:
+fail3:
     if (heap_size > 0)
         mem_allocator_destroy(memory->heap_handle);
 #endif
+fail2:
+    wasm_runtime_free(memory->memory_data);
 fail1:
     wasm_runtime_free(memory);
     return NULL;
@@ -1760,12 +1763,12 @@ wasm_get_native_addr_range(WASMModuleInstance *module_inst,
 bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 {
-    WASMMemoryInstance *memory = module->default_memory, *new_memory;
+    WASMMemoryInstance *memory = module->default_memory;
+    uint8 *new_memory_data, *memory_data = memory->memory_data;
     uint32 heap_size = memory->heap_data_end - memory->heap_data;
-    uint32 total_size_old = memory->memory_data_end - (uint8 *)memory;
+    uint32 total_size_old = memory->memory_data_end - memory_data;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
-    uint64 total_size = offsetof(WASMMemoryInstance, memory_data)
-                        + memory->num_bytes_per_page * (uint64)total_page_count;
+    uint64 total_size = memory->num_bytes_per_page * (uint64)total_page_count;
     void *heap_handle_old = memory->heap_handle;
     uint8 *heap_data_old = memory->heap_data;
 
@@ -1796,40 +1799,39 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
            we cannot access its lock again. */
         mem_allocator_destroy_lock(memory->heap_handle);
     }
-    if (!(new_memory = wasm_runtime_realloc(memory, (uint32)total_size))) {
-        if (!(new_memory = wasm_runtime_malloc((uint32)total_size))) {
+    if (!(new_memory_data = wasm_runtime_realloc(memory_data, (uint32)total_size))) {
+        if (!(new_memory_data = wasm_runtime_malloc((uint32)total_size))) {
             if (heap_size > 0) {
                 /* Restore heap's lock if memory re-alloc failed */
                 mem_allocator_reinit_lock(memory->heap_handle);
             }
             return false;
         }
-        bh_memcpy_s((uint8 *)new_memory, (uint32)total_size,
-                    (uint8 *)memory, total_size_old);
-        wasm_runtime_free(memory);
+        bh_memcpy_s(new_memory_data, (uint32)total_size,
+                    memory_data, total_size_old);
+        wasm_runtime_free(memory_data);
     }
 
-    memset((uint8 *)new_memory + total_size_old,
+    memset(new_memory_data + total_size_old,
            0, (uint32)total_size - total_size_old);
 
     if (heap_size > 0) {
-        new_memory->heap_handle = (uint8 *)heap_handle_old +
-                                  ((uint8 *)new_memory - (uint8 *)memory);
-        if (mem_allocator_migrate(new_memory->heap_handle,
+        memory->heap_handle = (uint8 *)heap_handle_old +
+                              (new_memory_data - memory_data);
+        if (mem_allocator_migrate(memory->heap_handle,
                                   heap_handle_old) != 0) {
             return false;
         }
     }
 
-    new_memory->cur_page_count = total_page_count;
-    new_memory->heap_data = heap_data_old +
-                            ((uint8 *)new_memory - (uint8 *)memory);
-    new_memory->heap_data_end = new_memory->heap_data + heap_size;
-    new_memory->memory_data_end = new_memory->memory_data
-                                  + new_memory->num_bytes_per_page
-                                    * total_page_count;
+    memory->memory_data = new_memory_data;
+    memory->cur_page_count = total_page_count;
+    memory->heap_data = heap_data_old + (new_memory_data - memory_data);
+    memory->heap_data_end = memory->heap_data + heap_size;
+    memory->memory_data_end = memory->memory_data
+                              + memory->num_bytes_per_page
+                                * total_page_count;
 
-    module->memories[0] = module->default_memory = new_memory;
     return true;
 }
 
@@ -2039,7 +2041,7 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
                                 * module_inst->memory_count;
     for (i = 0; i < module_inst->memory_count; i++) {
         WASMMemoryInstance *memory = module_inst->memories[i];
-        size = offsetof(WASMMemoryInstance, memory_data)
+        size = sizeof(WASMMemoryInstance)
                + memory->num_bytes_per_page * memory->cur_page_count;
         mem_conspn->memories_size += size;
         mem_conspn->app_heap_size += memory->heap_data_end
@@ -2079,3 +2081,40 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
 }
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0)
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+void
+wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
+{
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
+    WASMInterpFrame *cur_frame =
+        wasm_exec_env_get_cur_frame(exec_env);
+    WASMFunctionInstance *func_inst;
+    const char *func_name = NULL;
+    uint32 n;
+
+    os_printf("\n");
+    for (n = 0; cur_frame && cur_frame->function; n++) {
+        func_inst = cur_frame->function;
+
+        if (func_inst->is_import_func) {
+            func_name = func_inst->u.func_import->field_name;
+        }
+        else {
+            func_name = func_inst->u.func->field_name;
+        }
+
+        /* function name not exported, print number instead */
+        if (func_name == NULL) {
+            os_printf("#%02d $f%d \n", n, func_inst - module_inst->functions);
+        }
+        else {
+            os_printf("#%02d %s \n", n, func_name);
+        }
+
+        cur_frame = cur_frame->prev_frame;
+    }
+    os_printf("\n");
+}
+#endif /* end of WASM_ENABLE_CUSTOM_NAME_SECTION */
