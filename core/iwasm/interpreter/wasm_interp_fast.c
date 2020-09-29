@@ -1301,10 +1301,16 @@ recover_br_info:
         goto return_func;
 
       HANDLE_OP (WASM_OP_CALL_INDIRECT):
+#if WASM_ENABLE_TAIL_CALL != 0
+      HANDLE_OP (WASM_OP_RETURN_CALL_INDIRECT):
+#endif
         {
           WASMType *cur_type, *cur_func_type;
           WASMTableInstance *cur_table_inst;
 
+#if WASM_ENABLE_TAIL_CALL != 0
+          GET_OPCODE();
+#endif
 #if WASM_ENABLE_THREAD_MGR != 0
           CHECK_SUSPEND_FLAGS();
 #endif
@@ -1360,6 +1366,10 @@ recover_br_info:
             wasm_set_exception(module, "indirect call type mismatch");
             goto got_exception;
           }
+#if WASM_ENABLE_TAIL_CALL != 0
+          if (opcode == WASM_OP_RETURN_CALL_INDIRECT)
+              goto call_func_from_return_call;
+#endif
           goto call_func_from_interp;
         }
 
@@ -3112,6 +3122,22 @@ recover_br_info:
         cur_func = module->functions + fidx;
         goto call_func_from_interp;
 
+#if WASM_ENABLE_TAIL_CALL != 0
+    HANDLE_OP (WASM_OP_RETURN_CALL):
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
+        fidx = read_uint32(frame_ip);
+#if WASM_ENABLE_MULTI_MODULE != 0
+        if (fidx >= module->function_count) {
+          wasm_set_exception(module, "unknown function");
+          goto got_exception;
+        }
+#endif
+        cur_func = module->functions + fidx;
+        goto call_func_from_return_call;
+#endif /* WASM_ENABLE_TAIL_CALL */
+
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
       default:
         wasm_set_exception(module, "unsupported opcode");
@@ -3125,8 +3151,10 @@ recover_br_info:
     HANDLE_OP (WASM_OP_UNUSED_0x08):
     HANDLE_OP (WASM_OP_UNUSED_0x09):
     HANDLE_OP (WASM_OP_UNUSED_0x0a):
+#if WASM_ENABLE_TAIL_CALL == 0
     HANDLE_OP (WASM_OP_RETURN_CALL):
     HANDLE_OP (WASM_OP_RETURN_CALL_INDIRECT):
+#endif
     HANDLE_OP (WASM_OP_UNUSED_0x14):
     HANDLE_OP (WASM_OP_UNUSED_0x15):
     HANDLE_OP (WASM_OP_UNUSED_0x16):
@@ -3169,6 +3197,40 @@ recover_br_info:
     FETCH_OPCODE_AND_DISPATCH ();
 #endif
 
+#if WASM_ENABLE_TAIL_CALL !=0
+  call_func_from_return_call:
+  {
+      uint32 *lp_base;
+      uint32 *lp;
+      int i;
+
+      if (!(lp_base = lp = wasm_runtime_malloc(cur_func->param_cell_num * sizeof(uint32)))) {
+          wasm_set_exception(module, "allocate memory failed");
+          goto got_exception;
+      }
+      for (i = 0; i < cur_func->param_count; i++) {
+          if (cur_func->param_types[i] == VALUE_TYPE_I64
+              || cur_func->param_types[i] == VALUE_TYPE_F64) {
+              *(int64*)(lp) =
+                GET_OPERAND(int64, (2 * (cur_func->param_count - i - 1)));
+              lp += 2;
+          }
+          else {
+              *(lp) = GET_OPERAND(int32, (2 * (cur_func->param_count - i - 1)));
+              lp ++;
+          }
+      }
+      frame->lp = frame->operand + cur_func->const_cell_num;
+      bh_memcpy_s(frame->lp, (lp - lp_base) * sizeof(uint32),
+                  lp_base, (lp - lp_base) * sizeof(uint32));
+      wasm_runtime_free(lp_base);
+      FREE_FRAME(exec_env, frame);
+      frame_ip += cur_func->param_count * sizeof(int16);
+      wasm_exec_env_set_cur_frame(exec_env,
+                                  (WASMRuntimeFrame *)prev_frame);
+      goto call_func_from_entry;
+  }
+#endif /* WASM_ENABLE_TAIL_CALL */
   call_func_from_interp:
     /* Only do the copy when it's called from interpreter.  */
     {

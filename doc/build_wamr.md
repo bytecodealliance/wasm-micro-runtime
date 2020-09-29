@@ -83,6 +83,9 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
 > Note: the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
 
+#### **Enable tail call feature**
+- **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:

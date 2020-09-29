@@ -5970,6 +5970,9 @@ handle_op_block_and_loop:
 
                 read_leb_uint32(p, p_end, type_idx);
 #if WASM_ENABLE_FAST_INTERP != 0
+#if WASM_ENABLE_TAIL_CALL != 0
+                emit_byte(loader_ctx, opcode);
+#endif
                 /* we need to emit func_idx before arguments */
                 emit_uint32(loader_ctx, type_idx);
 #endif
@@ -6023,12 +6026,13 @@ handle_op_block_and_loop:
                     }
                     for (i = 0; i < func_type->result_count; i++) {
                         type = func->func_type->types[func->func_type->param_count + i];
-                        if (func_type->types[func_type->param_count + i] != type)
-                            set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
-                                            "type mismatch: expect ",
+                        if (func_type->types[func_type->param_count + i] != type) {
+                            set_error_buf_v(error_buf, error_buf_size,
+                                            "%s%s%s", "type mismatch: expect ",
                                             type_str[type - VALUE_TYPE_F64],
                                             " but got other");
-                        goto fail;
+                            goto fail;
+                        }
                     }
                     RESET_STACK();
                     SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
