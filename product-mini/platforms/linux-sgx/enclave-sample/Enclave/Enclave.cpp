@@ -148,6 +148,7 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     if (!(enclave_module->module =
                 wasm_runtime_load(enclave_module->wasm_file, wasm_file_size,
                                   error_buf, error_buf_size))) {
+        wasm_runtime_free(enclave_module);
         *(void **)args_org = NULL;
         return;
     }
