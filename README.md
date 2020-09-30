@@ -37,9 +37,6 @@ iwasm VM core
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
 - [Tail-call](https://github.com/WebAssembly/tail-call)
 
-### Performance and memory usage
-The WAMR performance, footprint and memory usage data are available at the [performance](../../wiki/Performance) wiki page.
-
 ### Supported architectures and platforms
 
 The iwasm supports the following architectures:
@@ -52,7 +49,7 @@ The iwasm supports the following architectures:
 
 Following platforms are supported. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
-- [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android)
+- [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android), Windows
 - [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx)
 
 ### Build iwasm VM core (mini product)
@@ -119,22 +116,6 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 - **[wasm-c-api](./samples/wasm-c-api/README.md)**: Demonstrating how to run some samples from [wasm-c-api proposal](https://github.com/WebAssembly/wasm-c-api) and showing the supported API's.
 
 
-Releases and acknowledgments
-============================
-
-WAMR is a community effort. Since Intel Corp contributed the first release of this open source project, this project has received many good contributions from the community.
-
-See the [major features releasing history and contributor names](./doc/release_ack.md)
-
-
-Roadmap
-=======
-
-See the [roadmap](./doc/roadmap.md) to understand what major features are planned or under development.
-
-Please submit issues for any new feature request or your plan for contributing new features.
-
-
 License
 =======
 WAMR uses the same license as LLVM: the `Apache 2.0 license` with the LLVM
@@ -143,9 +124,13 @@ use, modify, distribute and sell your own products based on WAMR.
 Any contributions you make will be under the same license.
 
 
-Submit issues and contact the maintainers
-=========================================
-[Click here to submit. Your feedback is always welcome!](https://github.com/intel/wasm-micro-runtime/issues/new)
 
+# More resources
 
-Contact the maintainers: imrt-public@intel.com
+Check out the [Wiki documents ](../../wiki) for more resources:
+
+- [Performance and footprint data](../../wiki/Performance)
+- Community news and events
+- Roadmap
+- Technical documents
+
