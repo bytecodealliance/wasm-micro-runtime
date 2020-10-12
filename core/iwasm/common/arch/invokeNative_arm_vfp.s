@@ -6,7 +6,7 @@
         .align  2
 #ifndef BH_PLATFORM_DARWIN
         .globl invokeNative
-        .type   invokeNative, @function
+        .type  invokeNative, function
 invokeNative:
 #else
         .globl _invokeNative
