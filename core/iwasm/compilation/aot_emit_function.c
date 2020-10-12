@@ -304,7 +304,7 @@ check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                    uint32 func_idx, uint8 **p_frame_ip)
+                    uint32 func_idx, bool tail_call)
 {
     uint32 import_func_count = comp_ctx->comp_data->import_func_count;
     AOTImportFunc *import_funcs = comp_ctx->comp_data->import_funcs;
@@ -476,8 +476,12 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Set calling convention for the call with the func's calling convention */
         LLVMSetInstructionCallConv(value_ret, LLVMGetFunctionCallConv(func));
 
+        if (tail_call)
+            LLVMSetTailCall(value_ret, true);
+
         /* Check whether there was exception thrown when executing the function */
-        if (!check_exception_thrown(comp_ctx, func_ctx))
+        if (!tail_call
+            && !check_exception_thrown(comp_ctx, func_ctx))
             goto fail;
     }
 

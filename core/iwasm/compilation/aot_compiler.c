@@ -240,7 +240,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
       case WASM_OP_CALL:
         read_leb_uint32(frame_ip, frame_ip_end, func_idx);
-        if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, &frame_ip))
+        if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, false))
           return false;
         break;
 
@@ -250,6 +250,33 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx))
           return false;
         break;
+
+#if WASM_ENABLE_TAIL_CALL != 0
+      case WASM_OP_RETURN_CALL:
+        if (!comp_ctx->enable_tail_call) {
+          aot_set_last_error("unsupported opcode");
+          return false;
+        }
+        read_leb_uint32(frame_ip, frame_ip_end, func_idx);
+        if (!aot_compile_op_call(comp_ctx, func_ctx, func_idx, true))
+          return false;
+        if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
+          return false;
+        break;
+
+      case WASM_OP_RETURN_CALL_INDIRECT:
+        if (!comp_ctx->enable_tail_call) {
+          aot_set_last_error("unsupported opcode");
+          return false;
+        }
+        read_leb_uint32(frame_ip, frame_ip_end, type_idx);
+        frame_ip++; /* skip 0x00 */
+        if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx))
+          return false;
+        if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
+          return false;
+        break;
+#endif /* end of WASM_ENABLE_TAIL_CALL */
 
       case WASM_OP_DROP:
         if (!aot_compile_op_drop(comp_ctx, func_ctx, true))
@@ -993,6 +1020,7 @@ build_atomic_rmw:
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
       default:
+        aot_set_last_error("unsupported opcode");
         break;
     }
   }
