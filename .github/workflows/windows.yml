@@ -56,12 +56,4 @@ jobs:
         cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
         cmake --build . --config Release
         cd .. && rm -r build
-    - name: Build Sample [wasm-c-api]
-      run: |
-        cd samples/wasm-c-api
-        mkdir build && cd build
-        cmake ..
-        cmake --build . --config Release
-        ./hello
-        ./global
-        ./callback
+
