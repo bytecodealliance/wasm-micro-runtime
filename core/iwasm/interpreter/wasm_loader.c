@@ -3885,7 +3885,7 @@ wasm_loader_ctx_init(WASMFunction *func)
     WASMLoaderContext *loader_ctx =
         wasm_runtime_malloc(sizeof(WASMLoaderContext));
     if (!loader_ctx)
-        return false;
+        return NULL;
     memset(loader_ctx, 0, sizeof(WASMLoaderContext));
 
     loader_ctx->frame_ref_size = 32;
