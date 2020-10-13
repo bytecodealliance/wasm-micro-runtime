@@ -204,6 +204,9 @@ typedef struct AOTCompContext {
   /* Thread Manager */
   bool enable_thread_mgr;
 
+  /* Tail Call */
+  bool enable_tail_call;
+
   /* Whether optimize the JITed code */
   bool optimize;
 
@@ -244,6 +247,7 @@ typedef struct AOTCompOption{
     char *cpu_features;
     bool enable_bulk_memory;
     bool enable_thread_mgr;
+    bool enable_tail_call;
     bool is_sgx_platform;
     uint32 opt_level;
     uint32 size_level;

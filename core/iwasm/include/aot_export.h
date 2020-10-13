@@ -41,6 +41,7 @@ typedef struct AOTCompOption{
     char *cpu_features;
     bool enable_bulk_memory;
     bool enable_thread_mgr;
+    bool enable_tail_call;
     bool is_sgx_platform;
     uint32_t opt_level;
     uint32_t size_level;
