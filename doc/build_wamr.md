@@ -174,7 +174,7 @@ brew install cmake
 ```
 
 Then build the source codes:
-```
+``` Bash
 cd product-mini/platforms/darwin/
 mkdir build
 cd build
@@ -183,6 +183,21 @@ make
 ```
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AoT, and builtin libc are enabled by default.
+
+Windows
+-------------------------
+
+Make sure `MSVC` and `cmake` are installed and available in the command line environment
+
+Then build the source codes:
+``` Bash
+cd product-mini/platforms/windows/
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+The executable file is `build/Release/iwasm.exe`
 
 VxWorks
 -------------------------
