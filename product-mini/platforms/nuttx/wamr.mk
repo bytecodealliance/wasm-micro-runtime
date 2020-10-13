@@ -15,6 +15,14 @@ else ifeq ($(CONFIG_ARCH_X86_64),y)
 WAMR_BUILD_TARGET := X86_64
 else ifeq ($(CONFIG_ARCH_XTENSA),y)
 WAMR_BUILD_TARGET := XTENSA
+else ifeq ($(CONFIG_ARCH_SIM),y)
+ifeq ($(CONFIG_HOST_X86_64),y)
+WAMR_BUILD_TARGET := X86_64
+endif
+ifeq ($(CONFIG_HOST_MACOS),y)
+# Note: invokeNative_em64.s needs BH_PLATFORM_DARWIN
+CFLAGS += -DBH_PLATFORM_DARWIN
+endif
 endif
 
 WAMR_BUILD_PLATFORM := nuttx
