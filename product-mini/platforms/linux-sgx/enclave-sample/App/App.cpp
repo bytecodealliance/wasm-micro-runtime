@@ -16,6 +16,7 @@
 
 #include "Enclave_u.h"
 #include "sgx_urts.h"
+#include "pal_api.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -32,6 +33,10 @@
 #define TEST_OCALL_API 0
 
 static sgx_enclave_id_t g_eid = 0;
+
+sgx_enclave_id_t pal_get_enclave_id(void) {
+    return g_eid;
+}
 
 void
 ocall_print(const char* str)
@@ -734,3 +739,127 @@ fail1:
     return 0;
 }
 
+int wamr_pal_get_version(void) {
+    return WAMR_PAL_VERSION;
+}
+
+int wamr_pal_init(const struct wamr_pal_attr *args) {
+    sgx_enclave_id_t *p_eid = &g_eid;
+    
+    if (enclave_init(&g_eid) < 0) {
+        std::cout << "Fail to initialize enclave." << std::endl;
+        return 1;
+    }
+} 
+
+int
+wamr_pal_create_process(struct wamr_pal_create_process_args *args) {
+    char *wasm_file = NULL;
+    const char *func_name = NULL;
+    uint8_t *wasm_file_buf = NULL;
+    uint32_t wasm_file_size;
+    uint32_t stack_size = 16 * 1024, heap_size = 16 * 1024;
+    void *wasm_module = NULL;
+    void *wasm_module_inst = NULL;
+    char error_buf[128] = { 0 };
+    int log_verbose_level = 2;
+    bool is_repl_mode = false, alloc_with_pool = false;
+    const char *dir_list[8] = { NULL };
+    uint32_t dir_list_size = 0;
+    const char *env_list[8] = { NULL };
+    uint32_t env_list_size = 0;
+    uint32_t max_thread_num = 4;
+    wasm_file = (char *)args->argv[0];
+    int argc = 2;
+    char *argv[argc] = { (char*)"./iwasm", wasm_file};
+    //wasm_file = (char *)"./main.aot";
+    /* Init runtime */
+    if (!init_runtime(alloc_with_pool, max_thread_num)) {
+        return -1;
+    }
+
+    /* Set log verbose level */
+    if (!set_log_verbose_level(log_verbose_level)) {
+        goto fail1;
+    }
+
+    /* Load WASM byte buffer from WASM bin file */
+    if (!(wasm_file_buf =
+            (uint8_t *)read_file_to_buffer(wasm_file, &wasm_file_size))) {
+        goto fail1;
+    }
+
+    /* Load module */
+    if (!(wasm_module = load_module(wasm_file_buf, wasm_file_size,
+                                    error_buf, sizeof(error_buf)))) {
+        printf("%s\n", error_buf);
+        goto fail2;
+    }
+
+    /* Set wasi arguments */
+    if (!set_wasi_args(wasm_module, dir_list, dir_list_size,
+                       env_list, env_list_size, argv, argc)) {
+        printf("%s\n", "set wasi arguments failed.\n");
+        goto fail3;
+    }
+
+    /* Instantiate module */
+    if (!(wasm_module_inst = instantiate_module(wasm_module,
+                                                stack_size, heap_size,
+                                                error_buf,
+                                                sizeof(error_buf)))) {
+        printf("%s\n", error_buf);
+        goto fail3;
+    }
+
+
+    if (is_repl_mode)
+        app_instance_repl(wasm_module_inst, argc, argv);
+    else if (func_name)
+        app_instance_func(wasm_module_inst, func_name,
+                          argc - 1, argv + 1);
+    else
+        app_instance_main(wasm_module_inst, argc, argv);
+
+    /* Deinstantiate module */
+    deinstantiate_module(wasm_module_inst);
+
+fail3:
+    /* Unload module */
+    unload_module(wasm_module);
+
+fail2:
+    /* Free the file buffer */
+    free(wasm_file_buf);
+
+fail1:
+    /* Destroy runtime environment */
+    destroy_runtime();
+    return 0;
+}
+
+int
+wamr_pal_destroy(void) {
+    //destroy_runtime();
+    //sgx_destroy_enclave(g_eid);
+    return 0;
+}
+
+int wamr_pal_exec(struct wamr_pal_exec_args *args) { return 0; }
+
+int wamr_pal_kill(int pid, int sig) { return 0; }
+
+int pal_get_version(void) __attribute__((weak, alias ("wamr_pal_get_version")));
+
+int pal_init(const struct wamr_pal_attr *attr)\
+__attribute__ ((weak, alias ("wamr_pal_init")));
+
+int pal_create_process(struct wamr_pal_create_process_args *args)\
+__attribute__ ((weak, alias ("wamr_pal_create_process")));
+
+int pal_exec(struct wamr_pal_exec_args *args)\
+__attribute__ ((weak, alias ("wamr_pal_exec")));
+
+int pal_kill(int pid, int sig) __attribute__ ((weak, alias ("wamr_pal_kill")));
+
+int pal_destroy(void) __attribute__ ((weak, alias ("wamr_pal_destroy")));
