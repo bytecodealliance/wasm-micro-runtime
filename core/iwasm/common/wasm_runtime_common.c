@@ -540,6 +540,12 @@ wasm_runtime_destroy_loading_module_list()
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
 bool
+wasm_runtime_is_host_module(const char *module_name)
+{
+    return strlen(module_name) == 0;
+}
+
+bool
 wasm_runtime_is_built_in_module(const char *module_name)
 {
     return (!strcmp("env", module_name)
@@ -2342,7 +2348,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
-        type = wasm_func->u.func->func_type;
+        type = wasm_func->is_import_func ? wasm_func->u.func_import->func_type
+                                         : wasm_func->u.func->func_type;
         argc1 = wasm_func->param_cell_num;
         cell_num = argc1 > wasm_func->ret_cell_num ?
                    argc1 : wasm_func->ret_cell_num;

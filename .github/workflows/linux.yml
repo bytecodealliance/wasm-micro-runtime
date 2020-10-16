@@ -84,12 +84,18 @@ jobs:
         cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
         make
         cd .. && rm -rf build
-    - name: download wasi-sdk
+    - name: download and install wasi-sdk
       run: |
         cd /opt
         wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-8/wasi-sdk-8.0-linux.tar.gz
         tar -xzf wasi-sdk-8.0-linux.tar.gz
         mv wasi-sdk-8.0 wasi-sdk
+    - name: download and install wabt
+      run: |
+        cd /opt
+        wget https://github.com/WebAssembly/wabt/releases/download/1.0.19/wabt-1.0.19-ubuntu.tar.gz
+        tar -xzf wabt-1.0.19-ubuntu.tar.gz
+        mv wabt-1.0.19 wabt
     - name: Build Sample [wasm-c-api]
       run: |
         cd samples/wasm-c-api

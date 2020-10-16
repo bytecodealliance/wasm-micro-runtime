@@ -1362,12 +1362,8 @@ label_pop_csp_n:
           /* always call module own functions */
           cur_func = module->functions + fidx;
 
-          if (cur_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-              && !cur_func->import_func_inst
-#endif
-          )
-              cur_func_type = cur_func->u.func_import->func_type;
+          if (cur_func->is_import_func)
+            cur_func_type = cur_func->u.func_import->func_type;
           else
             cur_func_type = cur_func->u.func->func_type;
           if (!wasm_type_equal(cur_type, cur_func_type)) {

@@ -1696,7 +1696,14 @@ interp_global_set(const WASMModuleInstance *inst_interp,
     const WASMGlobalInstance *global_interp =
       inst_interp->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    uint8 *data = global_interp->import_global_inst
+                    ? global_interp->import_module_inst->global_data
+                        + global_interp->import_global_inst->data_offset
+                    : inst_interp->global_data + global_interp->data_offset;
+#else
     uint8 *data = inst_interp->global_data + global_interp->data_offset;
+#endif
     bool ret = true;
 
     switch (val_type_rt) {
@@ -1732,7 +1739,14 @@ interp_global_get(const WASMModuleInstance *inst_interp,
 {
     WASMGlobalInstance *global_interp = inst_interp->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    uint8 *data = global_interp->import_global_inst
+                    ? global_interp->import_module_inst->global_data
+                        + global_interp->import_global_inst->data_offset
+                    : inst_interp->global_data + global_interp->data_offset;
+#else
     uint8 *data = inst_interp->global_data + global_interp->data_offset;
+#endif
     bool ret = true;
 
     switch (val_type_rt) {
@@ -2080,6 +2094,7 @@ interp_link_global(const WASMModule *module_interp,
     }
 
     import->global_idx_rt = global_idx_rt;
+    imported_global_interp->u.global.is_linked = true;
     return true;
 }
 
@@ -2432,35 +2447,44 @@ wasm_instance_new(wasm_store_t *store,
     }
 
     /* link module and imports */
-    if (INTERP_MODE == current_runtime_mode()) {
+    if (imports) {
+        if (INTERP_MODE == current_runtime_mode()) {
 #if WASM_ENABLE_INTERP != 0
-        import_count = ((WASMModule *)*module)->import_count;
-        INIT_VEC(instance->imports, wasm_extern_vec, import_count);
-        if (!instance->imports) {
-            goto failed;
-        }
+            import_count = ((WASMModule *)*module)->import_count;
+            INIT_VEC(instance->imports, wasm_extern_vec, import_count);
+            if (!instance->imports) {
+                goto failed;
+            }
 
-        import_count = interp_link(instance, (WASMModule *)*module,
-                                   (wasm_extern_t **)imports);
+            if (import_count) {
+                import_count = interp_link(instance, (WASMModule *)*module,
+                                           (wasm_extern_t **)imports);
+                if ((int32)import_count < 0) {
+                    goto failed;
+                }
+            }
 #endif
-    }
-    else {
+        }
+        else {
 #if WASM_ENABLE_AOT != 0
-        import_count = ((AOTModule *)*module)->import_func_count
-                       + ((AOTModule *)*module)->import_global_count
-                       + ((AOTModule *)*module)->import_memory_count
-                       + ((AOTModule *)*module)->import_table_count;
-        INIT_VEC(instance->imports, wasm_extern_vec, import_count);
-        if (!instance->imports) {
-            goto failed;
-        }
+            import_count = ((AOTModule *)*module)->import_func_count
+                           + ((AOTModule *)*module)->import_global_count
+                           + ((AOTModule *)*module)->import_memory_count
+                           + ((AOTModule *)*module)->import_table_count;
+            INIT_VEC(instance->imports, wasm_extern_vec, import_count);
+            if (!instance->imports) {
+                goto failed;
+            }
 
-        import_count =
-          aot_link(instance, (AOTModule *)*module, (wasm_extern_t **)imports);
+            if (import_count) {
+                import_count = aot_link(instance, (AOTModule *)*module,
+                                        (wasm_extern_t **)imports);
+                if ((int32)import_count < 0) {
+                    goto failed;
+                }
+            }
 #endif
-    }
-    if ((int32)import_count < 0) {
-        goto failed;
+        }
     }
 
     instance->inst_comm_rt = wasm_runtime_instantiate(

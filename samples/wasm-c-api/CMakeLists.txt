@@ -40,6 +40,7 @@ endif()
 
 set(WAMR_BUILD_LIBC_BUILTIN 1)
 set(WAMR_BUILD_LIBC_WASI 0)
+set(WAMR_BUILD_MULTI_MODULE 1)
 
 if(NOT DEFINED WAMR_BUILD_FAST_INTERP)
   set(WAMR_BUILD_FAST_INTERP 0)
@@ -70,47 +71,44 @@ endif()
 ################################################
 
 ################  application related  ################
-file(GLOB SOURCES src/*.c)
-add_library(c-api ${SOURCES})
-target_include_directories(c-api
-  PRIVATE ${C_API_PATH}/include
+## locate wat2wasm
+find_program(WAT2WASM
+  wat2wasm
+  PATHS /opt/wabt/bin /opt/wabt-1.0.18/bin
+  REQUIRED
 )
-target_link_libraries(c-api PRIVATE vmlib -lpthread -lm)
-if (MSVC)
-  target_compile_definitions(c-api PRIVATE WASM_API_EXTERN=)
+
+if(NOT WAT2WASM)
+  message(SEND_ERROR "can not find wat2wasm")
 endif()
 
+include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
+
+set(MM_UTIL src/utils/multi_module_utils.c)
+# build executable for each .c
+file(GLOB SOURCES src/*.c)
 foreach(SRC ${SOURCES})
   get_filename_component(APPNAME ${SRC} NAME_WE)
 
-  # build executable for each .c
-  add_executable(${APPNAME} ${SRC})
-  message("create executable about ${APPNAME}")
-  target_link_libraries(${APPNAME} c-api)
+  add_executable(${APPNAME} ${SRC} ${UNCOMMON_SHARED_SOURCE} ${MM_UTIL})
+  target_include_directories(${APPNAME} PRIVATE ${UNCOMMON_SHARED_DIR})
+  target_link_libraries(${APPNAME} vmlib -lpthread -lm)
   if (MSVC)
     target_compile_definitions(${APPNAME} PRIVATE WASM_API_EXTERN=)
   endif()
+endforeach()
 
-  # copy .wasm
-  add_custom_command(TARGET ${APPNAME} POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src/${APPNAME}.wasm
-                  ${PROJECT_BINARY_DIR}/
-      BYPRODUCTS ${APPNAME}.wasm
-      COMMENT "Copy ${SRC} to the output directory"
+# wat to wasm
+file(GLOB WAT_FILES src/*.wat)
+foreach(WAT_FILE ${WAT_FILES})
+  get_filename_component(WATNAME ${WAT_FILE} NAME_WE)
+
+  add_custom_target(${WATNAME}_WASM ALL
+    COMMAND ${WAT2WASM} ${WAT_FILE} -o ${PROJECT_BINARY_DIR}/${WATNAME}.wasm
+    DEPENDS ${WAT_FILE}
+    BYPRODUCTS ${PROJECT_BINARY_DIR}/${WATNAME}.wasm
+    VERBATIM
+    SOURCES ${WAT_FILE}
   )
-
-  # generate .aot file
-  if(${WAMR_BUILD_AOT} EQUAL 1)
-    if(EXISTS ${WAMRC})
-      add_custom_command(TARGET ${APPNAME} POST_BUILD
-          COMMAND ${WAMRC} -o ${APPNAME}.aot
-              ${CMAKE_CURRENT_SOURCE_DIR}/src/${APPNAME}.wasm
-          BYPRODUCTS ${APPNAME}.aot
-          COMMENT "generate a aot file ${APPNAME}.aot"
-      )
-    endif()
-  endif()
-
-endforeach(SRC ${SOURCES})
+endforeach()
 ################################################
