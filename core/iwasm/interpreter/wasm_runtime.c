@@ -550,56 +550,27 @@ functions_instantiate(const WASMModule *module,
 
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (import->u.function.import_module) {
-            LOG_DEBUG("(%s, %s) is a function of a sub-module",
-                      import->u.function.module_name,
-                      import->u.function.field_name);
-
             function->import_module_inst =
               get_sub_module_inst(module_inst,
                                   import->u.function.import_module);
-            bh_assert(function->import_module_inst);
 
-            WASMFunction *function_linked =
-              import->u.function.import_func_linked;
-
-            function->u.func = function_linked;
-            function->import_func_inst =
-              wasm_lookup_function(function->import_module_inst,
-                                   import->u.function.field_name,
-                                   NULL);
-            bh_assert(function->import_func_inst);
-
-            function->param_cell_num = function->u.func->param_cell_num;
-            function->ret_cell_num = function->u.func->ret_cell_num;
-            function->local_cell_num = function->u.func->local_cell_num;
-            function->param_count =
-              (uint16)function->u.func->func_type->param_count;
-            function->local_count = (uint16)function->u.func->local_count;
-            function->param_types = function->u.func->func_type->types;
-            function->local_types = function->u.func->local_types;
-            function->local_offsets = function->u.func->local_offsets;
-#if WASM_ENABLE_FAST_INTERP != 0
-            function->const_cell_num = function->u.func->const_cell_num;
-#endif
+            if (function->import_module_inst) {
+                function->import_func_inst =
+                  wasm_lookup_function(function->import_module_inst,
+                                       import->u.function.field_name, NULL);
+            }
         }
-        else
 #endif /* WASM_ENABLE_MULTI_MODULE */
-        {
-            LOG_DEBUG("(%s, %s) is a function of native",
-                      import->u.function.module_name,
-                      import->u.function.field_name);
-            function->u.func_import = &import->u.function;
-            function->param_cell_num =
-              import->u.function.func_type->param_cell_num;
-            function->ret_cell_num =
-              import->u.function.func_type->ret_cell_num;
-            function->param_count =
-              (uint16)function->u.func_import->func_type->param_count;
-            function->param_types = function->u.func_import->func_type->types;
-            function->local_cell_num = 0;
-            function->local_count = 0;
-            function->local_types = NULL;
-        }
+        function->u.func_import = &import->u.function;
+        function->param_cell_num =
+          import->u.function.func_type->param_cell_num;
+        function->ret_cell_num = import->u.function.func_type->ret_cell_num;
+        function->param_count =
+          (uint16)function->u.func_import->func_type->param_count;
+        function->param_types = function->u.func_import->func_type->types;
+        function->local_cell_num = 0;
+        function->local_count = 0;
+        function->local_types = NULL;
 
         function++;
     }
@@ -1069,6 +1040,57 @@ sub_module_deinstantiate(WASMModuleInstance *module_inst)
 }
 #endif
 
+static bool
+check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
+                    uint32 error_buf_size)
+{
+    WASMModule *module = module_inst->module;
+    uint32 i;
+
+    for (i = 0; i < module->import_function_count; i++) {
+        WASMFunctionImport *func =
+          &((module->import_functions + i)->u.function);
+        if (!func->func_ptr_linked
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !func->import_func_linked
+#endif
+        ) {
+#if WASM_ENABLE_SPEC_TEST != 0
+            set_error_buf(error_buf, error_buf_size,
+                          "unknown import or incompatible import type");
+            return false;
+#else
+#if WASM_ENABLE_WAMR_COMPILER == 0
+            LOG_WARNING("warning: fail to link import function (%s, %s)",
+                        func->module_name, func->field_name);
+#else
+            /* do nothing to avoid confused message */
+#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
+#endif /* WASM_ENABLE_SPEC_TEST != 0 */
+        }
+    }
+
+    for (i = 0; i < module->import_global_count; i++) {
+        WASMGlobalImport *global = &((module->import_globals + i)->u.global);
+        if (!global->is_linked) {
+#if WASM_ENABLE_SPEC_TEST != 0
+            set_error_buf(error_buf, error_buf_size,
+                          "unknown import or incompatible import type");
+            return false;
+#else
+#if WASM_ENABLE_WAMR_COMPILER == 0
+            LOG_DEBUG("warning: fail to link import global (%s, %s)",
+                      global->module_name, global->field_name);
+#else
+            /* do nothing to avoid confused message */
+#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
+#endif /* WASM_ENABLE_SPEC_TEST != 0 */
+        }
+    }
+
+    return true;
+}
+
 /**
  * Instantiate module
  */
@@ -1213,6 +1235,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
             }
         }
         bh_assert(global_data == global_data_end);
+    }
+
+    if (!check_linked_symbol(module_inst, error_buf, error_buf_size)) {
+        wasm_deinstantiate(module_inst, false);
+        return NULL;
     }
 
     /* Initialize the memory data with data segment section */

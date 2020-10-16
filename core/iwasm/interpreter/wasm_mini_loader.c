@@ -527,19 +527,10 @@ load_global_import(const WASMModule *parent_module,
         /* check built-in modules */
         ret = wasm_native_lookup_libc_builtin_global(sub_module_name,
                                                      global_name, global);
-        if (ret) {
-            LOG_DEBUG("(%s, %s) is a global of a built-in module",
-                      sub_module_name, global_name);
-        }
     }
 #endif /* WASM_ENABLE_LIBC_BUILTIN */
 
-    if (!ret) {
-        set_error_buf(error_buf, error_buf_size,
-                      "unknown import or incompatible import type");
-        return false;
-    }
-
+    global->is_linked = ret;
     global->module_name = sub_module_name;
     global->field_name = global_name;
     global->type = declare_type;

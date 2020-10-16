@@ -4,6 +4,14 @@
 #include <inttypes.h>
 
 #include "wasm_c_api.h"
+#include "wasm_export.h"
+#include "bh_platform.h"
+
+extern bool
+reader(const char *module_name, uint8 **p_buffer, uint32 *p_size);
+
+extern void
+destroyer(uint8 *buffer, uint32 size);
 
 #define own
 
@@ -18,6 +26,8 @@ own wasm_trap_t* hello_callback(
 
 
 int main(int argc, const char* argv[]) {
+  wasm_runtime_set_module_reader(reader, destroyer);
+
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();

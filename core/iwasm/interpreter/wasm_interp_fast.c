@@ -1270,11 +1270,7 @@ recover_br_info:
           WASMType *func_type;
           uint32 off, ret_offset;
           uint8 *ret_types;
-          if (cur_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-              && !cur_func->import_func_inst
-#endif
-          )
+          if (cur_func->is_import_func)
             func_type = cur_func->u.func_import->func_type;
           else
             func_type = cur_func->u.func->func_type;
@@ -1354,11 +1350,7 @@ recover_br_info:
           /* always call module own functions */
           cur_func = module->functions + fidx;
 
-          if (cur_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-              && !cur_func->import_func_inst
-#endif
-          )
+          if (cur_func->is_import_func)
             cur_func_type = cur_func->u.func_import->func_type;
           else
             cur_func_type = cur_func->u.func->func_type;
@@ -3253,11 +3245,7 @@ recover_br_info:
          * values' offset so we must skip remain return values' offsets.
          */
         WASMType *func_type;
-        if (cur_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !cur_func->import_func_inst
-#endif
-        )
+        if (cur_func->is_import_func)
           func_type = cur_func->u.func_import->func_type;
         else
           func_type = cur_func->u.func->func_type;

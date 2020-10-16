@@ -374,6 +374,9 @@ wasm_runtime_destroy_loading_module_list();
 #endif /* WASM_ENALBE_MULTI_MODULE */
 
 bool
+wasm_runtime_is_host_module(const char *module_name);
+
+bool
 wasm_runtime_is_built_in_module(const char *module_name);
 
 #if WASM_ENABLE_THREAD_MGR != 0
