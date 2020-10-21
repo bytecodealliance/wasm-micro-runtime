@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #ifndef __WAMR_PAL_API_H__
 #define __WAMR_PAL_API_H__
 
@@ -33,9 +38,9 @@ typedef struct wamr_pal_attr {
     const char     *log_level;
 } wamr_pal_attr_t;
 
-#define WAMR_PAL_ATTR_INITVAL         { \
-    .instance_dir = ".",                 \
-    .log_level = 2                        \
+#define WAMR_PAL_ATTR_INITVAL { \
+    .instance_dir = ".",        \
+    .log_level = 2              \
 }
 
 /*
@@ -62,14 +67,15 @@ struct wamr_pal_create_process_args {
     // Argments array pass to new process.
     //
     // The arguments to the command. By convention, the argv[0] should be the program name.
-    // And the array must be NULL terminated.
+    // And the last element of the array must be NULL to indicate the length of array.
     //
     // Mandatory field. Must not be NULL.
     const char **argv;
 
     // Untrusted environment variable array pass to new process.
     //
-    // The untrusted env vars to the command. The array must be NULL terminated.
+    // The untrusted env vars to the command. And the last element of the array must be
+    // NULL to indicate the length of array.
     //
     // Optional field.
     const char **env;
@@ -109,20 +115,15 @@ struct wamr_pal_exec_args {
     int *exit_value;
 };
 
-int
-wamr_pal_init(const struct wamr_pal_attr *args);
+int wamr_pal_init(const struct wamr_pal_attr *args);
 
-int
-wamr_pal_create_process(struct wamr_pal_create_process_args *args);
+int wamr_pal_create_process(struct wamr_pal_create_process_args *args);
 
-int
-wamr_pal_destroy(void);
+int wamr_pal_destroy(void);
 
-int
-wamr_pal_exec(struct wamr_pal_exec_args *args);
+int wamr_pal_exec(struct wamr_pal_exec_args *args);
 
-int
-wamr_pal_kill(int pid, int sig);
+int wamr_pal_kill(int pid, int sig);
 
 int pal_get_version(void);
 
