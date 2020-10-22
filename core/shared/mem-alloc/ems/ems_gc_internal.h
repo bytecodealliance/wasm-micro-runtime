@@ -52,7 +52,7 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
                            const char *file_name, int line_no);
 
 void
-hmu_verify(hmu_t *hmu);
+hmu_verify(void *vheap, hmu_t *hmu);
 
 #define SKIP_OBJ_PREFIX(p) ((void*)((gc_uint8*)(p) + OBJ_PREFIX_SIZE))
 #define SKIP_OBJ_SUFFIX(p) ((void*)((gc_uint8*)(p) + OBJ_SUFFIX_SIZE))
@@ -159,6 +159,10 @@ typedef struct hmu_normal_node {
     gc_int32 next_offset;
 } hmu_normal_node_t;
 
+typedef struct hmu_normal_list {
+    hmu_normal_node_t *next;
+} hmu_normal_list_t;
+
 static inline hmu_normal_node_t *
 get_hmu_normal_node_next(hmu_normal_node_t *node)
 {
@@ -197,10 +201,14 @@ typedef struct gc_heap_struct {
 
     korp_mutex lock;
 
-    hmu_normal_node_t kfc_normal_list[HMU_NORMAL_NODE_CNT];
+    hmu_normal_list_t kfc_normal_list[HMU_NORMAL_NODE_CNT];
 
     /* order in kfc_tree is: size[left] <= size[cur] < size[right]*/
     hmu_tree_node_t kfc_tree_root;
+
+    /* whether heap is corrupted, e.g. the hmu nodes are modified
+       by user */
+    bool is_heap_corrupted;
 
     gc_size_t init_size;
     gc_size_t highmark_size;
@@ -211,7 +219,7 @@ typedef struct gc_heap_struct {
  * MISC internal used APIs
  */
 
-void
+bool
 gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size);
 
 int

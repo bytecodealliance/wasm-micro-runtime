@@ -107,6 +107,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
 #endif
                 if (memories[i]->heap_handle) {
                     mem_allocator_destroy(memories[i]->heap_handle);
+                    wasm_runtime_free(memories[i]->heap_handle);
                     memories[i]->heap_handle = NULL;
                 }
                 wasm_runtime_free(memories[i]->memory_data);
@@ -262,17 +263,25 @@ memory_instantiate(WASMModuleInstance *module_inst,
     memory->memory_data_end = memory->memory_data + (uint32)memory_data_size;
 
     /* Initialize heap */
-    if (heap_size > 0
-        && !(memory->heap_handle =
-               mem_allocator_create(memory->heap_data, heap_size))) {
-        set_error_buf(error_buf, error_buf_size, "init app heap failed");
-        goto fail2;
+    if (heap_size > 0) {
+        uint32 heap_struct_size = mem_allocator_get_heap_struct_size();
+
+        if (!(memory->heap_handle = runtime_malloc((uint64)heap_struct_size,
+                                                   error_buf, error_buf_size))) {
+            goto fail2;
+        }
+        if (!mem_allocator_create_with_struct_and_pool
+                    (memory->heap_handle, heap_struct_size,
+                     memory->heap_data, heap_size)) {
+            set_error_buf(error_buf, error_buf_size, "init app heap failed");
+            goto fail3;
+        }
     }
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (0 != os_mutex_init(&memory->mem_lock)) {
         set_error_buf(error_buf, error_buf_size, "init mutex failed");
-        goto fail3;
+        goto fail4;
     }
     if (is_shared_memory) {
         memory->is_shared = true;
@@ -281,18 +290,21 @@ memory_instantiate(WASMModuleInstance *module_inst,
                 (WASMMemoryInstanceCommon *)memory)) {
             set_error_buf(error_buf, error_buf_size,
                           "allocate memory failed");
-            goto fail4;
+            goto fail5;
         }
     }
 #endif
     return memory;
 #if WASM_ENABLE_SHARED_MEMORY != 0
-fail4:
+fail5:
     os_mutex_destroy(&memory->mem_lock);
-fail3:
+fail4:
     if (heap_size > 0)
         mem_allocator_destroy(memory->heap_handle);
 #endif
+fail3:
+    if (heap_size > 0)
+        wasm_runtime_free(memory->heap_handle);
 fail2:
     wasm_runtime_free(memory->memory_data);
 fail1:
@@ -1796,7 +1808,6 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     uint32 total_size_old = memory->memory_data_end - memory_data;
     uint32 total_page_count = inc_page_count + memory->cur_page_count;
     uint64 total_size = memory->num_bytes_per_page * (uint64)total_page_count;
-    void *heap_handle_old = memory->heap_handle;
     uint8 *heap_data_old = memory->heap_data;
 
     if (inc_page_count <= 0)
@@ -1821,17 +1832,8 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     }
 #endif
 
-    if (heap_size > 0) {
-        /* Destroy heap's lock firstly, if its memory is re-allocated,
-           we cannot access its lock again. */
-        mem_allocator_destroy_lock(memory->heap_handle);
-    }
     if (!(new_memory_data = wasm_runtime_realloc(memory_data, (uint32)total_size))) {
         if (!(new_memory_data = wasm_runtime_malloc((uint32)total_size))) {
-            if (heap_size > 0) {
-                /* Restore heap's lock if memory re-alloc failed */
-                mem_allocator_reinit_lock(memory->heap_handle);
-            }
             return false;
         }
         bh_memcpy_s(new_memory_data, (uint32)total_size,
@@ -1843,10 +1845,10 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
            0, (uint32)total_size - total_size_old);
 
     if (heap_size > 0) {
-        memory->heap_handle = (uint8 *)heap_handle_old +
-                              (new_memory_data - memory_data);
         if (mem_allocator_migrate(memory->heap_handle,
-                                  heap_handle_old) != 0) {
+                                  (char *)heap_data_old
+                                  + (new_memory_data - memory_data),
+                                  heap_size) != 0) {
             return false;
         }
     }

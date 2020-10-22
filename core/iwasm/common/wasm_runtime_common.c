@@ -2138,8 +2138,6 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
     return ret;
 }
 
-
-
 #if WASM_ENABLE_MULTI_MODULE != 0
 static WASMModuleInstance *
 get_sub_module_inst(const WASMModuleInstance *parent_module_inst,
