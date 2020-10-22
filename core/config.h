@@ -82,6 +82,11 @@
 #define WASM_ENABLE_LIBC_WASI 0
 #endif
 
+/* Default disable libc emcc */
+#ifndef WASM_ENABLE_LIBC_EMCC
+#define WASM_ENABLE_LIBC_EMCC 0
+#endif
+
 #ifndef WASM_ENABLE_LIB_PTHREAD
 #define WASM_ENABLE_LIB_PTHREAD 0
 #endif
