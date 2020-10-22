@@ -45,8 +45,9 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
 }
 
 void
-hmu_verify(hmu_t *hmu)
+hmu_verify(void *vheap, hmu_t *hmu)
 {
+    gc_heap_t *heap = (gc_heap_t *)vheap;
     gc_object_prefix_t *prefix = NULL;
     gc_object_suffix_t *suffix = NULL;
     gc_uint32 i = 0;
@@ -62,32 +63,27 @@ hmu_verify(hmu_t *hmu)
     size = prefix->size;
     suffix = (gc_object_suffix_t *)((gc_uint8*)hmu + size - OBJ_SUFFIX_SIZE);
 
-    if(ut == HMU_VO || ut == HMU_JO)
-    {
+    if (ut == HMU_VO || ut == HMU_JO) {
         /* check padding*/
-        for(i = 0;i < GC_OBJECT_PREFIX_PADDING_CNT;i++)
-        {
-            if(prefix->padding[i] != GC_OBJECT_PADDING_VALUE)
-            {
+        for (i = 0;i < GC_OBJECT_PREFIX_PADDING_CNT;i++) {
+            if (prefix->padding[i] != GC_OBJECT_PADDING_VALUE) {
                 is_padding_ok = 0;
                 break;
             }
         }
-        for(i = 0;i < GC_OBJECT_SUFFIX_PADDING_CNT;i++)
-        {
-            if(suffix->padding[i] != GC_OBJECT_PADDING_VALUE)
-            {
+        for (i = 0;i < GC_OBJECT_SUFFIX_PADDING_CNT;i++) {
+            if (suffix->padding[i] != GC_OBJECT_PADDING_VALUE) {
                 is_padding_ok = 0;
                 break;
             }
         }
 
-        if(!is_padding_ok)
-        {
-            os_printf("Invalid padding for object created at %s:%d",
-                      (prefix->file_name ? prefix->file_name : ""), prefix->line_no);
+        if (!is_padding_ok) {
+            os_printf("Invalid padding for object created at %s:%d\n",
+                      (prefix->file_name ? prefix->file_name : ""),
+                      prefix->line_no);
+            heap->is_heap_corrupted = true;
         }
-        bh_assert(is_padding_ok);
     }
 }
 

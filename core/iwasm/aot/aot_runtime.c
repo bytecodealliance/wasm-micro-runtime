@@ -171,8 +171,10 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
                     continue;
             }
 #endif
-            if (memory_inst->heap_handle.ptr)
+            if (memory_inst->heap_handle.ptr) {
                 mem_allocator_destroy(memory_inst->heap_handle.ptr);
+                wasm_runtime_free(memory_inst->heap_handle.ptr);
+            }
 
             if (memory_inst->heap_data.ptr) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
@@ -359,13 +361,22 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     memory_inst->heap_data.ptr = p + heap_offset;
     memory_inst->heap_data_end.ptr = p + heap_offset + heap_size;
     if (heap_size > 0) {
-        if (!(heap_handle = mem_allocator_create(memory_inst->heap_data.ptr,
-                                                 heap_size))) {
-            set_error_buf(error_buf, error_buf_size,
-                          "init app heap failed");
+        uint32 heap_struct_size = mem_allocator_get_heap_struct_size();
+
+        if (!(heap_handle = runtime_malloc((uint64)heap_struct_size,
+                                           error_buf, error_buf_size))) {
             goto fail1;
         }
+
         memory_inst->heap_handle.ptr = heap_handle;
+
+        if (!mem_allocator_create_with_struct_and_pool
+                    (heap_handle, heap_struct_size,
+                     memory_inst->heap_data.ptr, heap_size)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "init app heap failed");
+            goto fail2;
+        }
     }
 
     if (total_size > 0) {
@@ -390,7 +401,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                                            (WASMMemoryInstanceCommon *)memory_inst)) {
             set_error_buf(error_buf, error_buf_size,
                           "allocate memory failed");
-            goto fail2;
+            goto fail3;
         }
     }
 #endif
@@ -398,12 +409,13 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     return memory_inst;
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
-fail2:
-    if (heap_size > 0) {
+fail3:
+    if (heap_size > 0)
         mem_allocator_destroy(memory_inst->heap_handle.ptr);
-        memory_inst->heap_handle.ptr = NULL;
-    }
 #endif
+fail2:
+    if (heap_size > 0)
+        wasm_runtime_free(memory_inst->heap_handle.ptr);
 fail1:
 #ifndef OS_ENABLE_HW_BOUND_CHECK
     wasm_runtime_free(memory_inst->memory_data.ptr);
@@ -1474,7 +1486,6 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     uint8 *memory_data_old = (uint8 *)memory_inst->memory_data.ptr;
     uint8 *heap_data_old = (uint8 *)memory_inst->heap_data.ptr;
     uint8 *memory_data, *heap_data;
-    void *heap_handle_old = memory_inst->heap_handle.ptr;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -1498,18 +1509,9 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     }
 #endif
 
-    if (heap_size > 0) {
-        /* Destroy heap's lock firstly, if its memory is re-allocated,
-           we cannot access its lock again. */
-        mem_allocator_destroy_lock(memory_inst->heap_handle.ptr);
-    }
     if (!(memory_data = wasm_runtime_realloc(memory_data_old,
                                              (uint32)total_size))) {
         if (!(memory_data = wasm_runtime_malloc((uint32)total_size))) {
-            if (heap_size > 0) {
-                /* Restore heap's lock if memory re-alloc failed */
-                mem_allocator_reinit_lock(memory_inst->heap_handle.ptr);
-            }
             return false;
         }
         bh_memcpy_s(memory_data, (uint32)total_size,
@@ -1526,10 +1528,10 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     memory_inst->memory_data_end.ptr = memory_data + total_size;
 
     if (heap_size > 0) {
-        memory_inst->heap_handle.ptr = (uint8 *)heap_handle_old
-                                       + (memory_data - memory_data_old);
         if (mem_allocator_migrate(memory_inst->heap_handle.ptr,
-                                  heap_handle_old) != 0) {
+                                  (char*)heap_data_old
+                                  + (memory_data - memory_data_old),
+                                  heap_size)) {
             return false;
         }
     }
