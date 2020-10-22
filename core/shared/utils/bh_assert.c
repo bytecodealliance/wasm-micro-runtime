@@ -1,0 +1,31 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
+#include "bh_assert.h"
+
+void bh_assert_internal(int v, const char *file_name, int line_number,
+                        const char *expr_string)
+{
+    int i;
+
+    if (v)
+        return;
+
+    if (!file_name)
+        file_name = "NULL FILENAME";
+
+    if (!expr_string)
+        expr_string = "NULL EXPR_STRING";
+
+    os_printf("\nASSERTION FAILED: %s, at file %s, line %d\n",
+              expr_string, file_name, line_number);
+
+    i = os_printf(" ");
+
+    /* divived by 0 to make it abort */
+    os_printf("%d\n", i / (i - 1));
+    while (1);
+}
+
