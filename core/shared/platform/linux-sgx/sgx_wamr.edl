@@ -30,6 +30,9 @@ enclave {
         long ocall_telldir([user_check]void *dirp);
         int ocall_closedir([user_check]void *dirp);
 
+        int ocall_stat([in, string]const char *pathname,
+                       [out, size=buf_len]void *buf,
+                       unsigned int buf_len);
         int ocall_fstat(int fd, [out, size=buf_len]void *buf,
                         unsigned int buf_len);
         int ocall_fstatat(int dirfd, [in, string]const char *pathname,
@@ -76,6 +79,7 @@ enclave {
                          [in, string]const char *optstring);
         ssize_t ocall_getrandom([out, size=buflen]void *buf, size_t buflen,
                                 unsigned int flags);
+        int ocall_getentropy([out, size=length]void *buffer, size_t length);
         ssize_t ocall_readv(int fd,
                             [in, out, size=buf_size]char *iov_buf,
                             unsigned int buf_size, int iovcnt,

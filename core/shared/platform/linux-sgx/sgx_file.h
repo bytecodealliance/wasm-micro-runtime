@@ -183,6 +183,7 @@ ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt,
 off_t lseek(int fd, off_t offset, int whence);
 int ftruncate(int fd, off_t length);
 
+int stat(const char *pathname, struct stat *statbuf);
 int fstat(int fd, struct stat *statbuf);
 int fstatat(int dirfd, const char *pathname, struct stat *statbuf,
             int flags);
@@ -218,6 +219,7 @@ int getopt(int argc, char * const argv[],
 int sched_yield(void);
 
 ssize_t getrandom(void *buf, size_t buflen, unsigned int flags);
+int getentropy(void *buffer, size_t length);
 
 int get_errno(void);
 
