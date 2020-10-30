@@ -3,15 +3,15 @@
 ####################################
 #   build tensorflow-lite sample   #
 ####################################
-set -x
-set -e
+set -xe
 
 EMSDK_WASM_DIR="$EM_CACHE/wasm"
 BUILD_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_DIR=${BUILD_SCRIPT_DIR}/out
+OUT_DIR="${BUILD_SCRIPT_DIR}/out"
 TENSORFLOW_DIR="${BUILD_SCRIPT_DIR}/tensorflow"
-TF_LITE_BUILD_DIR=${TENSORFLOW_DIR}/tensorflow/lite/tools/make
-WAMR_DIR="${BUILD_SCRIPT_DIR}/../../../product-mini/platforms/linux"
+TF_LITE_BUILD_DIR="${TENSORFLOW_DIR}/tensorflow/lite/tools/make"
+WAMR_PLATFORM_DIR="${BUILD_SCRIPT_DIR}/../../../product-mini/platforms"
+WAMRC_DIR="${BUILD_SCRIPT_DIR}/../../../wamr-compiler"
 
 function Clear_Before_Exit
 {
@@ -64,34 +64,66 @@ fi
 if [ -d "${TF_LITE_BUILD_DIR}/gen" ]; then
     rm -fr ${TF_LITE_BUILD_DIR}/gen
 fi
-make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile $@
+make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile
 
 # 2.5 copy /make/gen target files to out/
 rm -rf ${OUT_DIR}
 mkdir ${OUT_DIR}
 cp -r ${TF_LITE_BUILD_DIR}/gen/linux_x86_64/bin/. ${OUT_DIR}/
 
-# 3. build iwasm with pthread and libc_emcc enable
-cd ${WAMR_DIR}
+# 3. compile tf-model.wasm to tf-model.aot with wamrc
+# 3.1 build wamr-compiler
+cd ${WAMRC_DIR}
+./build_llvm.sh
 rm -fr build && mkdir build
-cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+cd build && cmake ..
 make
+# 3.2 compile tf-mode.wasm to tf-model.aot
+WAMRC_CMD="$(pwd)/wamrc"
+cd ${OUT_DIR}
+if [[ $1 == '--sgx' ]]; then
+    ${WAMRC_CMD} -sgx -o benchmark_model.aot benchmark_model.wasm
+else
+    ${WAMRC_CMD} -o benchmark_model.aot benchmark_model.wasm
+fi
 
-# 4. run tensorflow with iwasm
+# 4. build iwasm with pthread and libc_emcc enable
+#    platform:
+#     linux by default
+#     linux-sgx if $1 equals '--sgx'
+if [[ $1 == '--sgx' ]]; then
+    cd ${WAMR_PLATFORM_DIR}/linux-sgx
+    rm -fr build && mkdir build
+    cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+    make
+    cd ../enclave-sample
+    make
+else
+    cd ${WAMR_PLATFORM_DIR}/linux
+    rm -fr build && mkdir build
+    cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+    make
+fi
+
+# 5. run tensorflow with iwasm
 cd ${BUILD_SCRIPT_DIR}
-# 4.1 download tf-lite model
+# 5.1 download tf-lite model
 if [ ! -f mobilenet_quant_v1_224.tflite ]; then
     wget "https://storage.googleapis.com/download.tensorflow.org/models/tflite/mobilenet_v1_224_android_quant_2017_11_08.zip"
     unzip mobilenet_v1_224_android_quant_2017_11_08.zip
 fi
 
-# 4.2 run tf-lite model with iwasm
+# 5.2 run tf-lite model with iwasm
 echo "---> run tensorflow benchmark model with iwasm"
-${WAMR_DIR}/build/iwasm --heap-size=10475860 \
-                        ${OUT_DIR}/benchmark_model.wasm \
+if [[ $1 == '--sgx' ]]; then
+    IWASM_CMD="${WAMR_PLATFORM_DIR}/linux-sgx/enclave-sample/iwasm"
+else
+    IWASM_CMD="${WAMR_PLATFORM_DIR}/linux/build/iwasm"
+fi
+
+${IWASM_CMD} --heap-size=10475860 \
+                        ${OUT_DIR}/benchmark_model.aot \
                         --graph=mobilenet_quant_v1_224.tflite --max_secs=300
 
 Clear_Before_Exit
-
-
 
