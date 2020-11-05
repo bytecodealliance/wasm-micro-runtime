@@ -13,7 +13,7 @@ if [ ! -d "lvgl" ]; then
 fi
 if [ ! -d "lv_drivers" ]; then
         echo "git pull lv_drivers..."
-        git clone https://github.com/littlevgl/lv_drivers.git
+        git clone https://github.com/littlevgl/lv_drivers.git --branch v6.0.1
         [ $? -eq 0 ] || exit $?
 fi
 

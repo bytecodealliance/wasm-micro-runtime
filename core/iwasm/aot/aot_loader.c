@@ -66,6 +66,11 @@ exchange_uint32(uint8 *p_data)
 static void
 exchange_uint64(uint8 *pData)
 {
+    uint32 value;
+
+    value = *(uint32 *)pData;
+    *(uint32 *)pData = *(uint32 *)(pData + 4);
+    *(uint32 *)(pData + 4) = value;
     exchange_uint32(pData);
     exchange_uint32(pData + 4);
 }
@@ -801,14 +806,22 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
         uint16 init_expr_type;
-        uint64 init_expr_value;
 
         read_uint8(buf, buf_end, globals[i].type);
         read_uint8(buf, buf_end, globals[i].is_mutable);
         read_uint16(buf, buf_end, init_expr_type);
-        read_uint64(buf, buf_end, init_expr_value);
+
+        if (init_expr_type != INIT_EXPR_TYPE_V128_CONST) {
+            read_uint64(buf, buf_end, globals[i].init_expr.u.i64);
+        }
+        else {
+            uint64 *i64x2 = (uint64 *)globals[i].init_expr.u.v128.i64x2;
+            CHECK_BUF(buf, buf_end, sizeof(uint64) * 2);
+            wasm_runtime_read_v128(buf, &i64x2[0], &i64x2[1]);
+            buf += sizeof(uint64) * 2;
+        }
+
         globals[i].init_expr.init_expr_type = (uint8)init_expr_type;
-        globals[i].init_expr.u.i64 = (int64)init_expr_value;
 
         globals[i].size = wasm_value_type_size(globals[i].type);
         globals[i].data_offset = data_offset;
@@ -2101,6 +2114,9 @@ aot_convert_wasm_module(WASMModule *wasm_module,
 #endif
 #if WASM_ENABLE_TAIL_CALL != 0
     option.enable_tail_call = true;
+#endif
+#if WASM_ENABLE_SIMD != 0
+    option.enable_simd = true;
 #endif
     comp_ctx = aot_create_comp_context(comp_data, &option);
     if (!comp_ctx) {

@@ -21,6 +21,10 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
             return llvm_types->float32_type;
         case VALUE_TYPE_F64:
             return llvm_types->float64_type;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            return llvm_types->i64x2_vec_type;
+#endif
         case VALUE_TYPE_VOID:
             return llvm_types->void_type;
     }
@@ -444,6 +448,31 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
+    offset = I32_CONST(offsetof(AOTMemoryInstance, mem_bound_check_16bytes)
+                       - offsetof(AOTMemoryInstance, memory_data.ptr));
+    if (!(func_ctx->mem_info[0].mem_bound_check_16bytes =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, mem_info_base,
+                                     &offset, 1, "bound_check_16bytes_offset"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+    if (!(func_ctx->mem_info[0].mem_bound_check_16bytes =
+                LLVMBuildBitCast(comp_ctx->builder,
+                                 func_ctx->mem_info[0].mem_bound_check_16bytes,
+                                 bound_check_type, "bound_check_16bytes_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+    if (mem_space_unchanged) {
+        if (!(func_ctx->mem_info[0].mem_bound_check_16bytes =
+                LLVMBuildLoad(comp_ctx->builder,
+                              func_ctx->mem_info[0].mem_bound_check_16bytes,
+                              "bound_check_16bytes"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -676,6 +705,11 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             case VALUE_TYPE_F64:
                 local_value = F64_ZERO;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                local_value = V128_ZERO;
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -814,23 +848,55 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->float32_ptr_type = LLVMPointerType(basic_types->float32_type, 0);
     basic_types->float64_ptr_type = LLVMPointerType(basic_types->float64_type, 0);
 
+    basic_types->i8x16_vec_type = LLVMVectorType(basic_types->int8_type, 16);
+    basic_types->i16x8_vec_type = LLVMVectorType(basic_types->int16_type, 8);
+    basic_types->i32x4_vec_type = LLVMVectorType(basic_types->int32_type, 4);
+    basic_types->i64x2_vec_type = LLVMVectorType(basic_types->int64_type, 2);
+    basic_types->f32x4_vec_type = LLVMVectorType(basic_types->float32_type, 4);
+    basic_types->f64x2_vec_type = LLVMVectorType(basic_types->float64_type, 2);
+
+    basic_types->v128_type = basic_types->i64x2_vec_type;
+    basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
+
     return (basic_types->int8_ptr_type
             && basic_types->int16_ptr_type
             && basic_types->int32_ptr_type
             && basic_types->int64_ptr_type
             && basic_types->float32_ptr_type
             && basic_types->float64_ptr_type
+            && basic_types->i8x16_vec_type
+            && basic_types->i16x8_vec_type
+            && basic_types->i32x4_vec_type
+            && basic_types->i64x2_vec_type
+            && basic_types->f32x4_vec_type
+            && basic_types->f64x2_vec_type
             && basic_types->meta_data_type) ? true : false;
 }
 
 static bool
 aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
 {
+    LLVMValueRef i64_consts[2];
+
     consts->i8_zero = I8_CONST(0);
     consts->i32_zero = I32_CONST(0);
     consts->i64_zero = I64_CONST(0);
     consts->f32_zero = F32_CONST(0);
     consts->f64_zero = F64_CONST(0);
+
+    if (consts->i64_zero) {
+        i64_consts[0] = i64_consts[1] = consts->i64_zero;
+        consts->v128_zero = consts->i64x2_vec_zero =
+                                    LLVMConstVector(i64_consts, 2);
+        if (consts->i64x2_vec_zero) {
+            consts->i8x16_vec_zero = TO_V128_i8x16(consts->i64x2_vec_zero);
+            consts->i16x8_vec_zero = TO_V128_i16x8(consts->i64x2_vec_zero);
+            consts->i32x4_vec_zero = TO_V128_i32x4(consts->i64x2_vec_zero);
+            consts->f32x4_vec_zero = TO_V128_f32x4(consts->i64x2_vec_zero);
+            consts->f64x2_vec_zero = TO_V128_f64x2(consts->i64x2_vec_zero);
+        }
+    }
+
     consts->i32_one = I32_CONST(1);
     consts->i32_two = I32_CONST(2);
     consts->i32_three = I32_CONST(3);
@@ -850,6 +916,12 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
             && consts->i64_zero
             && consts->f32_zero
             && consts->f64_zero
+            && consts->i8x16_vec_zero
+            && consts->i16x8_vec_zero
+            && consts->i32x4_vec_zero
+            && consts->i64x2_vec_zero
+            && consts->f32x4_vec_zero
+            && consts->f64x2_vec_zero
             && consts->i32_one
             && consts->i32_two
             && consts->i32_three
@@ -1014,7 +1086,7 @@ aot_create_comp_context(AOTCompData *comp_data,
     /*LLVMTypeRef elem_types[8];*/
     struct LLVMMCJITCompilerOptions jit_options;
     LLVMTargetRef target;
-    char *triple = NULL, *triple_jit = NULL, *triple_norm, *arch, *abi;
+    char *triple = NULL, *triple_norm, *arch, *abi;
     char *cpu = NULL, *features, buf[128];
     char *triple_norm_new = NULL, *cpu_new = NULL;
     char *err = NULL, *fp_round= "round.tonearest", *fp_exce = "fpexcept.strict";
@@ -1065,7 +1137,12 @@ aot_create_comp_context(AOTCompData *comp_data,
     if (option->enable_tail_call)
         comp_ctx->enable_tail_call = true;
 
+    if (option->enable_simd)
+        comp_ctx->enable_simd = true;
+
     if (option->is_jit_mode) {
+        char *triple_jit = NULL;
+
         /* Create LLVM execution engine */
         LLVMInitializeMCJITCompilerOptions(&jit_options, sizeof(jit_options));
         jit_options.OptLevel = LLVMCodeGenLevelAggressive;
@@ -1186,7 +1263,8 @@ aot_create_comp_context(AOTCompData *comp_data,
             if (!cpu)
                 cpu = "";
         }
-        else { /* triple is NULL, cpu isn't NULL */
+        else {
+            /* triple is NULL, cpu isn't NULL */
             snprintf(buf, sizeof(buf),
                     "target isn't specified for cpu %s.", cpu);
             aot_set_last_error(buf);
@@ -1283,6 +1361,23 @@ aot_create_comp_context(AOTCompData *comp_data,
         }
     }
 
+    if (option->enable_simd) {
+        char *tmp;
+        bool ret;
+
+        if (!(tmp = LLVMGetTargetMachineCPU(comp_ctx->target_machine))) {
+            aot_set_last_error("get CPU from Target Machine fail");
+            goto fail;
+        }
+
+        ret = aot_check_simd_compatibility(comp_ctx->target_arch, tmp);
+        LLVMDisposeMessage(tmp);
+        if (!ret) {
+            aot_set_last_error("SIMD compatibility check failed");
+            goto fail;
+        }
+    }
+
     if (!(target_data_ref =
             LLVMCreateTargetDataLayout(comp_ctx->target_machine))) {
         aot_set_last_error("create LLVM target data layout failed.");
@@ -1349,11 +1444,13 @@ aot_create_comp_context(AOTCompData *comp_data,
 fail:
     if (triple_norm_new)
         LLVMDisposeMessage(triple_norm_new);
+
     if (cpu_new)
         LLVMDisposeMessage(cpu_new);
 
     if (!ret)
         aot_destroy_comp_context(comp_ctx);
+
     return ret;
 }
 
@@ -1567,3 +1664,144 @@ aot_checked_addr_list_destroy(AOTFuncContext *func_ctx)
     func_ctx->checked_addr_list = NULL;
 }
 
+bool
+aot_build_zero_function_ret(AOTCompContext *comp_ctx,
+                            AOTFuncType *func_type)
+{
+    LLVMValueRef ret = NULL;
+
+    if (func_type->result_count) {
+        switch (func_type->types[func_type->param_count]) {
+            case VALUE_TYPE_I32:
+                ret = LLVMBuildRet(comp_ctx->builder, I32_ZERO);
+                break;
+            case VALUE_TYPE_I64:
+                ret = LLVMBuildRet(comp_ctx->builder, I64_ZERO);
+                break;
+            case VALUE_TYPE_F32:
+                ret = LLVMBuildRet(comp_ctx->builder, F32_ZERO);
+                break;
+            case VALUE_TYPE_F64:
+                ret = LLVMBuildRet(comp_ctx->builder, F64_ZERO);
+                break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                ret = LLVMBuildRet(comp_ctx->builder, V128_ZERO);
+                break;
+#endif
+            default:
+                bh_assert(0);
+        }
+    }
+    else {
+        ret = LLVMBuildRetVoid(comp_ctx->builder);
+    }
+
+    if (!ret) {
+        aot_set_last_error("llvm build ret failed.");
+        return false;
+    }
+    return true;
+}
+
+static LLVMValueRef
+__call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                      const char *name,
+                      LLVMTypeRef ret_type,
+                      LLVMTypeRef *param_types,
+                      int param_count,
+                      LLVMValueRef *param_values)
+{
+    LLVMValueRef func, ret;
+    LLVMTypeRef func_type;
+
+    /* Declare llvm intrinsic function if necessary */
+    if (!(func = LLVMGetNamedFunction(comp_ctx->module, name))) {
+        if (!(func_type = LLVMFunctionType(ret_type, param_types,
+                                           (uint32)param_count, false))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return NULL;
+        }
+
+        if (!(func = LLVMAddFunction(comp_ctx->module, name, func_type))) {
+            aot_set_last_error("add LLVM function failed.");
+            return NULL;
+        }
+    }
+
+    /* Call the LLVM intrinsic function */
+    if (!(ret = LLVMBuildCall(comp_ctx->builder, func, param_values,
+                              (uint32)param_count, "call"))) {
+        aot_set_last_error("llvm build call failed.");
+        return NULL;
+    }
+
+    return ret;
+}
+
+LLVMValueRef
+aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                        const char *name,
+                        LLVMTypeRef ret_type,
+                        LLVMTypeRef *param_types,
+                        int param_count,
+                        ...)
+{
+    LLVMValueRef *param_values, ret;
+    va_list argptr;
+    uint64 total_size;
+    int i = 0;
+
+    /* Create param values */
+    total_size = sizeof(LLVMValueRef) * (uint64)param_count;
+    if (total_size >= UINT32_MAX
+        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
+        aot_set_last_error("allocate memory for param values failed.");
+        return false;
+    }
+
+    /* Load each param value */
+    va_start(argptr, param_count);
+    while (i < param_count)
+        param_values[i++] = va_arg(argptr, LLVMValueRef);
+    va_end(argptr);
+
+    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type, param_types,
+                                param_count, param_values);
+
+    wasm_runtime_free(param_values);
+
+    return ret;
+}
+
+LLVMValueRef
+aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
+                          const char *name,
+                          LLVMTypeRef ret_type,
+                          LLVMTypeRef *param_types,
+                          int param_count,
+                          va_list param_value_list)
+{
+    LLVMValueRef *param_values, ret;
+    uint64 total_size;
+    int i = 0;
+
+    /* Create param values */
+    total_size = sizeof(LLVMValueRef) * (uint64)param_count;
+    if (total_size >= UINT32_MAX
+        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
+        aot_set_last_error("allocate memory for param values failed.");
+        return false;
+    }
+
+    /* Load each param value */
+    while (i < param_count)
+        param_values[i++] = va_arg(param_value_list, LLVMValueRef);
+
+    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type, param_types,
+                                param_count, param_values);
+
+    wasm_runtime_free(param_values);
+
+    return ret;
+}

@@ -1,8 +1,20 @@
+#
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
 #!/bin/bash
 
 ####################################
 #   build tensorflow-lite sample   #
 ####################################
+if [ ! -d "${EMSDK}" ]; then
+    echo "can not find emsdk. "
+    echo "please refer to https://emscripten.org/docs/getting_started/downloads.html "
+    echo "to install it, or active it by 'source <emsdk_dir>emsdk_env.sh'"
+    exit
+fi
+
 set -xe
 
 EMSDK_WASM_DIR="$EM_CACHE/wasm"
@@ -64,7 +76,15 @@ fi
 if [ -d "${TF_LITE_BUILD_DIR}/gen" ]; then
     rm -fr ${TF_LITE_BUILD_DIR}/gen
 fi
-make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile
+if [[ $1 == '--sgx' ]]; then
+    make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile
+else
+    export BUILD_WITH_SIMD=true
+    make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile
+fi
+
+# remove patch file and recover emcc libc.a after building
+Clear_Before_Exit
 
 # 2.5 copy /make/gen target files to out/
 rm -rf ${OUT_DIR}
@@ -84,7 +104,7 @@ cd ${OUT_DIR}
 if [[ $1 == '--sgx' ]]; then
     ${WAMRC_CMD} -sgx -o benchmark_model.aot benchmark_model.wasm
 else
-    ${WAMRC_CMD} -o benchmark_model.aot benchmark_model.wasm
+    ${WAMRC_CMD} --enable-simd -o benchmark_model.aot benchmark_model.wasm
 fi
 
 # 4. build iwasm with pthread and libc_emcc enable
@@ -101,7 +121,7 @@ if [[ $1 == '--sgx' ]]; then
 else
     cd ${WAMR_PLATFORM_DIR}/linux
     rm -fr build && mkdir build
-    cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+    cd build && cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
     make
 fi
 
@@ -122,8 +142,6 @@ else
 fi
 
 ${IWASM_CMD} --heap-size=10475860 \
-                        ${OUT_DIR}/benchmark_model.aot \
-                        --graph=mobilenet_quant_v1_224.tflite --max_secs=300
-
-Clear_Before_Exit
+             ${OUT_DIR}/benchmark_model.aot \
+             --graph=mobilenet_quant_v1_224.tflite --max_secs=300
 

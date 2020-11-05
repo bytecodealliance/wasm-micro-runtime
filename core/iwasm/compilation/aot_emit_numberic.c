@@ -135,110 +135,6 @@
 } while (0)
 
 
-static LLVMValueRef
-__call_llvm_intrinsic(AOTCompContext *comp_ctx,
-                      const char *name,
-                      LLVMTypeRef ret_type,
-                      LLVMTypeRef *param_types,
-                      int param_count,
-                      LLVMValueRef *param_values)
-{
-    LLVMValueRef func, ret;
-    LLVMTypeRef func_type;
-
-    /* Declare llvm intrinsic function if necessary */
-    if (!(func = LLVMGetNamedFunction(comp_ctx->module, name))) {
-        if (!(func_type =
-                LLVMFunctionType(ret_type, param_types, (uint32)param_count, false))) {
-            aot_set_last_error("create LLVM function type failed.");
-            return NULL;
-        }
-
-        if (!(func = LLVMAddFunction(comp_ctx->module, name, func_type))) {
-            aot_set_last_error("add LLVM function failed.");
-            return NULL;
-        }
-    }
-
-    /* Call the LLVM intrinsic function */
-    if (!(ret = LLVMBuildCall(comp_ctx->builder, func, param_values,
-                              (uint32)param_count, "call"))) {
-        aot_set_last_error("llvm build call failed.");
-        return NULL;
-    }
-
-    return ret;
-}
-
-static LLVMValueRef
-call_llvm_intrinsic(AOTCompContext *comp_ctx,
-                    const char *name,
-                    LLVMTypeRef ret_type,
-                    LLVMTypeRef *param_types,
-                    int param_count,
-                    ...)
-{
-    LLVMValueRef *param_values, ret;
-    va_list argptr;
-    uint64 total_size;
-    int i = 0;
-
-    /* Create param values */
-    total_size = sizeof(LLVMValueRef) * (uint64)param_count;
-    if (total_size >= UINT32_MAX
-        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
-        aot_set_last_error("allocate memory for param values failed.");
-        return false;
-    }
-
-    /* Load each param value */
-    va_start(argptr, param_count);
-    while (i < param_count)
-        param_values[i++] = va_arg(argptr, LLVMValueRef);
-    va_end(argptr);
-
-    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type,
-                                param_types, param_count,
-                                param_values);
-
-    wasm_runtime_free(param_values);
-
-    return ret;
-}
-
-static LLVMValueRef
-call_llvm_intrinsic_v(AOTCompContext *comp_ctx,
-                      const char *name,
-                      LLVMTypeRef ret_type,
-                      LLVMTypeRef *param_types,
-                      int param_count,
-                      va_list param_value_list)
-{
-    LLVMValueRef *param_values, ret;
-    uint64 total_size;
-    int i = 0;
-
-    /* Create param values */
-    total_size = sizeof(LLVMValueRef) * (uint64)param_count;
-    if (total_size >= UINT32_MAX
-        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
-        aot_set_last_error("allocate memory for param values failed.");
-        return false;
-    }
-
-    /* Load each param value */
-    while (i < param_count)
-        param_values[i++] = va_arg(param_value_list, LLVMValueRef);
-
-    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type,
-                                param_types, param_count,
-                                param_values);
-
-    wasm_runtime_free(param_values);
-
-    return ret;
-}
-
 /* Call llvm constrained floating-point intrinsic */
 static LLVMValueRef
 call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
@@ -255,12 +151,8 @@ call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
 
     va_start(param_value_list, intrinsic);
 
-    ret = call_llvm_intrinsic_v(comp_ctx,
-                                intrinsic,
-                                ret_type,
-                                param_types,
-                                4,
-                                param_value_list);
+    ret = aot_call_llvm_intrinsic_v(comp_ctx, intrinsic, ret_type, param_types,
+                                    4, param_value_list);
 
     va_end(param_value_list);
 
@@ -283,12 +175,8 @@ call_llvm_libm_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
 
     va_start(param_value_list, intrinsic);
 
-    ret = call_llvm_intrinsic_v(comp_ctx,
-                                intrinsic,
-                                ret_type,
-                                param_types,
-                                3,
-                                param_value_list);
+    ret = aot_call_llvm_intrinsic_v(comp_ctx, intrinsic, ret_type, param_types,
+                                    3, param_value_list);
 
     va_end(param_value_list);
 
@@ -342,13 +230,8 @@ compile_op_float_min_max(AOTCompContext *comp_ctx,
         return NULL;
     }
 
-    if (!(cmp = call_llvm_intrinsic(comp_ctx,
-                                    intrinsic,
-                                    ret_type,
-                                    param_types,
-                                    2,
-                                    left,
-                                    right)))
+    if (!(cmp = aot_call_llvm_intrinsic(comp_ctx, intrinsic, ret_type,
+                                        param_types, 2, left, right)))
         return NULL;
 
     if (!(cmp = LLVMBuildSelect(comp_ctx->builder,
@@ -406,21 +289,21 @@ aot_compile_int_bit_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Call the LLVM intrinsic function */
     if (type < POP_CNT32)
-        DEF_INT_UNARY_OP(call_llvm_intrinsic(comp_ctx,
-                                             bit_cnt_llvm_intrinsic[type],
-                                             ret_type,
-                                             param_types,
-                                             2,
-                                             operand,
-                                             zero_undef),
+        DEF_INT_UNARY_OP(aot_call_llvm_intrinsic(comp_ctx,
+                                                 bit_cnt_llvm_intrinsic[type],
+                                                 ret_type,
+                                                 param_types,
+                                                 2,
+                                                 operand,
+                                                 zero_undef),
                          NULL);
     else
-        DEF_INT_UNARY_OP(call_llvm_intrinsic(comp_ctx,
-                                             bit_cnt_llvm_intrinsic[type],
-                                             ret_type,
-                                             param_types,
-                                             1,
-                                             operand),
+        DEF_INT_UNARY_OP(aot_call_llvm_intrinsic(comp_ctx,
+                                                 bit_cnt_llvm_intrinsic[type],
+                                                 ret_type,
+                                                 param_types,
+                                                 1,
+                                                 operand),
                          NULL);
 
     return true;
@@ -1032,12 +915,8 @@ call_llvm_float_math_intrinsic(AOTCompContext *comp_ctx,
 
     va_start(param_value_list, intrinsic);
 
-    ret = call_llvm_intrinsic_v(comp_ctx,
-                                intrinsic,
-                                ret_type,
-                                &param_type,
-                                1,
-                                param_value_list);
+    ret = aot_call_llvm_intrinsic_v(comp_ctx, intrinsic, ret_type, &param_type,
+                                    1, param_value_list);
 
     va_end(param_value_list);
 
@@ -1133,14 +1012,14 @@ compile_float_copysign(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     param_types[0] = param_types[1] = ret_type = is_f32 ? F32_TYPE : F64_TYPE;
 
-    DEF_FP_BINARY_OP(call_llvm_intrinsic(comp_ctx,
-                                         is_f32 ? "llvm.copysign.f32" :
-                                                  "llvm.copysign.f64",
-                                         ret_type,
-                                         param_types,
-                                         2,
-                                         left,
-                                         right),
+    DEF_FP_BINARY_OP(aot_call_llvm_intrinsic(comp_ctx,
+                                             is_f32 ? "llvm.copysign.f32" :
+                                                      "llvm.copysign.f64",
+                                             ret_type,
+                                             param_types,
+                                             2,
+                                             left,
+                                             right),
                     NULL);
     return true;
 

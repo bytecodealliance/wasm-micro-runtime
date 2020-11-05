@@ -46,11 +46,34 @@ typedef enum IntArithmetic {
   INT_REM_U
 } IntArithmetic;
 
+typedef enum V128Arithmetic {
+  V128_ADD = 0,
+  V128_ADD_SATURATE_S,
+  V128_ADD_SATURATE_U,
+  V128_SUB,
+  V128_SUB_SATURATE_S,
+  V128_SUB_SATURATE_U,
+  V128_MUL,
+  V128_DIV,
+  V128_NEG,
+  V128_MIN,
+  V128_MAX,
+} V128Arithmetic;
+
 typedef enum IntBitwise {
   INT_AND = 0,
   INT_OR,
   INT_XOR,
 } IntBitwise;
+
+typedef enum V128Bitwise {
+  V128_NOT,
+  V128_AND,
+  V128_ANDNOT,
+  V128_OR,
+  V128_XOR,
+  V128_BITSELECT
+} V128Bitwise;
 
 typedef enum IntShift {
   INT_SHL = 0,
@@ -123,6 +146,7 @@ typedef enum FloatArithmetic {
 #define POP_I64(v) POP(v, VALUE_TYPE_I64)
 #define POP_F32(v) POP(v, VALUE_TYPE_F32)
 #define POP_F64(v) POP(v, VALUE_TYPE_F64)
+#define POP_V128(v) POP(v, VALUE_TYPE_V128)
 
 #define POP_COND(llvm_value) do {                           \
     AOTValue *aot_value;                                    \
@@ -172,6 +196,7 @@ typedef enum FloatArithmetic {
 #define PUSH_I64(v) PUSH(v, VALUE_TYPE_I64)
 #define PUSH_F32(v) PUSH(v, VALUE_TYPE_F32)
 #define PUSH_F64(v) PUSH(v, VALUE_TYPE_F64)
+#define PUSH_V128(v) PUSH(v, VALUE_TYPE_V128)
 #define PUSH_COND(v) PUSH(v, VALUE_TYPE_I1)
 
 #define TO_LLVM_TYPE(wasm_type) \
@@ -217,6 +242,36 @@ typedef enum FloatArithmetic {
 #define I32_32     (comp_ctx->llvm_consts.i32_32)
 #define I64_63     (comp_ctx->llvm_consts.i64_63)
 #define I64_64     (comp_ctx->llvm_consts.i64_64)
+
+#define V128_TYPE       comp_ctx->basic_types.v128_type
+#define V128_PTR_TYPE   comp_ctx->basic_types.v128_ptr_type
+#define V128_i8x16_TYPE comp_ctx->basic_types.i8x16_vec_type
+#define V128_i16x8_TYPE comp_ctx->basic_types.i16x8_vec_type
+#define V128_i32x4_TYPE comp_ctx->basic_types.i32x4_vec_type
+#define V128_i64x2_TYPE comp_ctx->basic_types.i64x2_vec_type
+#define V128_f32x4_TYPE comp_ctx->basic_types.f32x4_vec_type
+#define V128_f64x2_TYPE comp_ctx->basic_types.f64x2_vec_type
+
+#define V128_ZERO       (comp_ctx->llvm_consts.v128_zero)
+#define V128_i8x16_ZERO (comp_ctx->llvm_consts.i8x16_vec_zero)
+#define V128_i16x8_ZERO (comp_ctx->llvm_consts.i16x8_vec_zero)
+#define V128_i32x4_ZERO (comp_ctx->llvm_consts.i32x4_vec_zero)
+#define V128_i64x2_ZERO (comp_ctx->llvm_consts.i64x2_vec_zero)
+#define V128_f32x4_ZERO (comp_ctx->llvm_consts.f32x4_vec_zero)
+#define V128_f64x2_ZERO (comp_ctx->llvm_consts.f64x2_vec_zero)
+
+#define TO_V128_i8x16(v) LLVMBuildBitCast(comp_ctx->builder, v, \
+                                          V128_i8x16_TYPE, "i8x16_val")
+#define TO_V128_i16x8(v) LLVMBuildBitCast(comp_ctx->builder, v, \
+                                          V128_i16x8_TYPE, "i16x8_val")
+#define TO_V128_i32x4(v) LLVMBuildBitCast(comp_ctx->builder, v, \
+                                          V128_i32x4_TYPE, "i32x4_val")
+#define TO_V128_i64x2(v) LLVMBuildBitCast(comp_ctx->builder, v, \
+                                          V128_i64x2_TYPE, "i64x2_val")
+#define TO_V128_f32x4(v) LLVMBuildBitCast(comp_ctx->builder, v, \
+                                          V128_f32x4_TYPE, "f32x4_val")
+#define TO_V128_f64x2(v) LLVMBuildBitCast(comp_ctx->builder, v, \
+                                          V128_f64x2_TYPE, "f64x2_val")
 
 #define CHECK_LLVM_CONST(v) do {                        \
     if (!v) {                                           \

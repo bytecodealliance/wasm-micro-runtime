@@ -2457,6 +2457,23 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 argv1[p++] = u.parts[1];
                 break;
             }
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+            {
+                /* it likes 0x123\0x234 or 123\234 */
+                /* retrive first i64 */
+                *(uint64*)(argv1 + p) = strtoull(argv[i], &endptr, 0);
+                /* skip \ */
+                endptr++;
+                /* retrive second i64 */
+                *(uint64*)(argv1 + p + 2) = strtoull(endptr, &endptr, 0);
+                p += 4;
+                break;
+            }
+#endif /* WASM_ENABLE_SIMD != 0 */
+            default:
+                bh_assert(0);
+                break;
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
             snprintf(buf, sizeof(buf), "invalid input argument %d: %s",
@@ -2477,9 +2494,11 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     for (j = 0; j < type->result_count; j++) {
         switch (type->types[type->param_count + j]) {
             case VALUE_TYPE_I32:
+            {
                 os_printf("0x%x:i32", argv1[k]);
                 k++;
                 break;
+            }
             case VALUE_TYPE_I64:
             {
                 union { uint64 val; uint32 parts[2]; } u;
@@ -2511,6 +2530,27 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 os_printf("%.7g:f64", u.val);
                 break;
             }
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+            {
+                uint64 *v = (uint64*)(argv1 + k);
+#if defined(PRIx64)
+                os_printf("<0x%016"PRIx64" 0x%016"PRIx64">:v128", *v, *(v + 1));
+#else
+                if (4 == sizeof(long)) {
+                    os_printf("<0x%016llx 0x%016llx>:v128", *v, *(v + 1));
+                }
+                else {
+                    os_printf("<0x%016lx 0x%016lx>:v128", *v, *(v + 1));
+                }
+#endif /* PRIx64 */
+                k += 4;
+                break;
+            }
+#endif /*  WASM_ENABLE_SIMD != 0 */
+            default:
+                bh_assert(0);
+                break;
         }
         if (j < (uint32)(type->result_count - 1))
             os_printf(",");
@@ -3067,12 +3107,31 @@ fail:
 #if defined(BUILD_TARGET_X86_64) \
    || defined(BUILD_TARGET_AMD_64) \
    || defined(BUILD_TARGET_AARCH64)
+
+#if WASM_ENABLE_SIMD != 0
+#ifdef v128
+#undef v128
+#endif
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#include <emmintrin.h>
+/* unaligned */
+#define v128 __m128i_u
+#else
+#warning "Include header files for v128 to support SIMD feature"
+#endif
+
+#ifndef v128
+#error "v128 type isn't defined"
+#endif
+#endif /* end of WASM_ENABLE_SIMD != 0 */
+
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 
 typedef float64 (*Float64FuncPtr)(GenericFunctionPointer, uint64*, uint64);
 typedef float32 (*Float32FuncPtr)(GenericFunctionPointer, uint64*, uint64);
-typedef int64 (*Int64FuncPtr)(GenericFunctionPointer, uint64*,uint64);
+typedef int64 (*Int64FuncPtr)(GenericFunctionPointer, uint64*, uint64);
 typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint64*, uint64);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint64*, uint64);
 
@@ -3082,10 +3141,15 @@ static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)(uintptr_t)invokeNative;
 static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)(uintptr_t)invokeNative;
 static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
+#if WASM_ENABLE_SIMD != 0
+typedef v128 (*V128FuncPtr)(GenericFunctionPointer, uint64*, uint64);
+static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
+#endif
+
 #if defined(_WIN32) || defined(_WIN32_)
 #define MAX_REG_FLOATS  4
 #define MAX_REG_INTS  4
-#else
+#else /* else of defined(_WIN32) || defined(_WIN32_) */
 #define MAX_REG_FLOATS  8
 #if defined(BUILD_TARGET_AARCH64)
 #define MAX_REG_INTS  8
@@ -3101,12 +3165,17 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                            uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
-    uint64 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size, arg_i64;
+    uint64 argv_buf[32], *argv1 = argv_buf, *ints, *stacks, size, arg_i64;
     uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
     uint32 arg_i32, ptr_len;
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
+#if WASM_ENABLE_SIMD == 0
+    uint64 *fps;
+#else
+    v128 *fps;
+#endif
 
 #if defined(_WIN32) || defined(_WIN32_)
     /* important difference in calling conventions */
@@ -3115,7 +3184,13 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     int n_fps = 0;
 #endif
 
-    argc1 = 1 + MAX_REG_FLOATS + (uint32)func_type->param_count + ext_ret_count;
+#if WASM_ENABLE_SIMD == 0
+    argc1 = 1 + MAX_REG_FLOATS + (uint32)func_type->param_count
+              + ext_ret_count;
+#else
+    argc1 = 1 + MAX_REG_FLOATS * 2 + (uint32)func_type->param_count * 2
+              + ext_ret_count;
+#endif
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
         size = sizeof(uint64) * (uint64)argc1;
         if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
@@ -3124,8 +3199,13 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+#if WASM_ENABLE_SIMD == 0
     fps = argv1;
     ints = fps + MAX_REG_FLOATS;
+#else
+    fps = (v128 *)argv1;
+    ints = (uint64 *)(fps + MAX_REG_FLOATS);
+#endif
     stacks = ints + MAX_REG_INTS;
 
     ints[n_ints++] = (uint64)(uintptr_t)exec_env;
@@ -3175,18 +3255,34 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 argv_src += 2;
                 break;
             case VALUE_TYPE_F32:
-                if (n_fps < MAX_REG_FLOATS)
+                if (n_fps < MAX_REG_FLOATS) {
                     *(float32*)&fps[n_fps++] = *(float32*)argv_src++;
-                else
+                }
+                else {
                     *(float32*)&stacks[n_stacks++] = *(float32*)argv_src++;
+                }
                 break;
             case VALUE_TYPE_F64:
-                if (n_fps < MAX_REG_FLOATS)
+                if (n_fps < MAX_REG_FLOATS) {
                     *(float64*)&fps[n_fps++] = *(float64*)argv_src;
-                else
+                }
+                else {
                     *(float64*)&stacks[n_stacks++] = *(float64*)argv_src;
+                }
                 argv_src += 2;
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                if (n_fps < MAX_REG_FLOATS) {
+                    *(v128*)&fps[n_fps++] = *(v128*)argv_src;
+                }
+                else {
+                    *(v128*)&stacks[n_stacks++] = *(v128*)argv_src;
+                    n_stacks++;
+                }
+                argv_src += 4;
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -3221,6 +3317,11 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             case VALUE_TYPE_F64:
                 PUT_F64_TO_ADDR(argv_ret, invokeNative_Float64(func_ptr, argv1, n_stacks));
                 break;
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+                *(v128*)argv_ret = invokeNative_V128(func_ptr, argv1, n_stacks);
+                break;
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -3266,6 +3367,50 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
                                  element_indices, argc, argv);
 #endif
     return false;
+}
+
+static void
+exchange_uint32(uint8 *p_data)
+{
+    uint8 value = *p_data;
+    *p_data = *(p_data + 3);
+    *(p_data + 3) = value;
+
+    value = *(p_data + 1);
+    *(p_data + 1) = *(p_data + 2);
+    *(p_data + 2) = value;
+}
+
+static void
+exchange_uint64(uint8 *p_data)
+{
+    uint32 value;
+
+    value = *(uint32 *)p_data;
+    *(uint32 *)p_data = *(uint32 *)(p_data + 4);
+    *(uint32 *)(p_data + 4) = value;
+    exchange_uint32(p_data);
+    exchange_uint32(p_data + 4);
+}
+
+void
+wasm_runtime_read_v128(const uint8 *bytes, uint64 *ret1, uint64 *ret2)
+{
+    uint64 u1, u2;
+
+    bh_memcpy_s(&u1, 8, bytes, 8);
+    bh_memcpy_s(&u2, 8, bytes + 8, 8);
+
+    if (!is_little_endian()) {
+        exchange_uint64((uint8*)&u1);
+        exchange_uint64((uint8*)&u2);
+        *ret1 = u2;
+        *ret2 = u1;
+    }
+    else {
+        *ret1 = u1;
+        *ret2 = u2;
+    }
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0

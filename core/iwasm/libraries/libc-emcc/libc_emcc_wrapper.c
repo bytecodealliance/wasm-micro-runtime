@@ -23,6 +23,90 @@
 #define REG_NATIVE_FUNC(func_name, signature)  \
     { #func_name, func_name##_wrapper, signature, NULL }
 
+extern bool
+wasm_runtime_call_indirect(wasm_exec_env_t exec_env,
+                           uint32 element_idx,
+                           uint32 argc, uint32 argv[]);
+
+static void
+invoke_viiii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx,
+                     int arg0, int arg1, int arg2, int arg3)
+{
+    uint32 argv[4];
+    bool ret;
+
+    argv[0] = arg0;
+    argv[1] = arg1;
+    argv[2] = arg2;
+    argv[3] = arg3;
+    ret = wasm_runtime_call_indirect(exec_env, elem_idx, 4, argv);
+    (void)ret;
+}
+
+static void
+invoke_viii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx,
+                    int arg0, int arg1, int arg2)
+{
+    uint32 argv[4];
+    bool ret;
+
+    argv[0] = arg0;
+    argv[1] = arg1;
+    argv[2] = arg2;
+    ret = wasm_runtime_call_indirect(exec_env, elem_idx, 3, argv);
+    (void)ret;
+}
+
+static void
+invoke_vii_wrapper(wasm_exec_env_t exec_env,
+                   uint32 elem_idx, int arg0, int arg1)
+{
+    uint32 argv[4];
+    bool ret;
+
+    argv[0] = arg0;
+    argv[1] = arg1;
+    ret = wasm_runtime_call_indirect(exec_env, elem_idx, 2, argv);
+    (void)ret;
+}
+
+static void
+invoke_vi_wrapper(wasm_exec_env_t exec_env,
+                  uint32 elem_idx, int arg0)
+{
+    uint32 argv[4];
+    bool ret;
+
+    argv[0] = arg0;
+    ret = wasm_runtime_call_indirect(exec_env, elem_idx, 1, argv);
+    (void)ret;
+}
+
+static int
+invoke_iii_wrapper(wasm_exec_env_t exec_env,
+                   uint32 elem_idx, int arg0, int arg1)
+{
+    uint32 argv[4];
+    bool ret;
+
+    argv[0] = arg0;
+    argv[1] = arg1;
+    ret = wasm_runtime_call_indirect(exec_env, elem_idx, 2, argv);
+    return ret ? argv[0] : 0;
+}
+
+static int
+invoke_ii_wrapper(wasm_exec_env_t exec_env,
+                  uint32 elem_idx, int arg0)
+{
+    uint32 argv[4];
+    bool ret;
+
+    argv[0] = arg0;
+    ret = wasm_runtime_call_indirect(exec_env, elem_idx, 1, argv);
+    return ret ? argv[0] : 0;
+}
+
 struct timespec_emcc {
     int tv_sec;
     int tv_nsec;
@@ -174,10 +258,111 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
     return getentropy(buffer, length);
 }
 
+#if !defined(BH_PLATFORM_LINUX_SGX)
+static FILE *file_list[32] = { 0 };
+
+static int
+get_free_file_slot()
+{
+    unsigned int i;
+
+    for (i = 0; i < sizeof(file_list) / sizeof(FILE *); i++) {
+        if (file_list[i] == NULL)
+            return (int)i;
+    }
+    return -1;
+}
+
+static int
+fopen_wrapper(wasm_exec_env_t exec_env,
+              const char *pathname,
+              const char *mode)
+{
+    FILE *file;
+    int file_id;
+
+    if (pathname == NULL || mode == NULL)
+        return -1;
+
+    if ((file_id = get_free_file_slot()) == -1)
+        return -1;
+
+    file = fopen(pathname, mode);
+    file_list[file_id] = file;
+    return file_id + 1;
+}
+
+static uint32
+fread_wrapper(wasm_exec_env_t exec_env,
+              void *ptr, uint32 size, uint32 nmemb, int file_id)
+{
+    FILE *file;
+
+    file_id = file_id - 1;
+    if ((unsigned)file_id >= sizeof(file_list) / sizeof(FILE *)) {
+        return 0;
+    }
+    if ((file = file_list[file_id]) == NULL) {
+        return 0;
+    }
+    return (uint32)fread(ptr, size, nmemb, file);
+}
+
+static uint32
+emcc_fwrite_wrapper(wasm_exec_env_t exec_env,
+                    const void *ptr, uint32 size, uint32 nmemb,
+                    int file_id)
+{
+    FILE *file;
+
+    file_id = file_id - 1;
+    if ((unsigned)file_id >= sizeof(file_list) / sizeof(FILE *)) {
+        return 0;
+    }
+    if ((file = file_list[file_id]) == NULL) {
+        return 0;
+    }
+    return (uint32)fwrite(ptr, size, nmemb, file);
+}
+
+static int
+feof_wrapper(wasm_exec_env_t exec_env, int file_id)
+{
+    FILE *file;
+
+    file_id = file_id - 1;
+    if ((unsigned)file_id >= sizeof(file_list) / sizeof(FILE *))
+        return 1;
+    if ((file = file_list[file_id]) == NULL)
+        return 1;
+    return feof(file);
+}
+
+static int
+fclose_wrapper(wasm_exec_env_t exec_env, int file_id)
+{
+    FILE *file;
+
+    file_id = file_id - 1;
+    if ((unsigned)file_id >= sizeof(file_list) / sizeof(FILE *))
+        return -1;
+    if ((file = file_list[file_id]) == NULL)
+        return -1;
+    file_list[file_id] = NULL;
+    return fclose(file);
+}
+#endif /* end of BH_PLATFORM_LINUX_SGX */
+
 #define REG_NATIVE_FUNC(func_name, signature)  \
     { #func_name, func_name##_wrapper, signature, NULL }
 
 static NativeSymbol native_symbols_libc_emcc[] = {
+    REG_NATIVE_FUNC(invoke_viiii, "(iiiii)"),
+    REG_NATIVE_FUNC(invoke_viii, "(iiii)"),
+    REG_NATIVE_FUNC(invoke_vii, "(iii)"),
+    REG_NATIVE_FUNC(invoke_vi, "(ii)"),
+    REG_NATIVE_FUNC(invoke_iii, "(iii)i"),
+    REG_NATIVE_FUNC(invoke_ii, "(ii)i"),
     REG_NATIVE_FUNC(open, "($ii)i"),
     REG_NATIVE_FUNC(__sys_read, "(i*~)i"),
     REG_NATIVE_FUNC(__sys_stat64, "($*)i"),
@@ -186,6 +371,13 @@ static NativeSymbol native_symbols_libc_emcc[] = {
     REG_NATIVE_FUNC(munmap, "(ii)i"),
     REG_NATIVE_FUNC(__munmap, "(ii)i"),
     REG_NATIVE_FUNC(getentropy, "(*~)i"),
+#if !defined(BH_PLATFORM_LINUX_SGX)
+    REG_NATIVE_FUNC(fopen, "($$)i"),
+    REG_NATIVE_FUNC(fread, "(*iii)i"),
+    REG_NATIVE_FUNC(emcc_fwrite, "(*iii)i"),
+    REG_NATIVE_FUNC(feof, "(i)i"),
+    REG_NATIVE_FUNC(fclose, "(i)i"),
+#endif /* end of BH_PLATFORM_LINUX_SGX */
 };
 
 uint32

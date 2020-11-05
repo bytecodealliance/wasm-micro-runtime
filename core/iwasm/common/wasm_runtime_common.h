@@ -465,6 +465,9 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                uint32 *argv, uint32 argc, uint32 *ret);
 
 void
+wasm_runtime_read_v128(const uint8 *bytes, uint64 *ret1, uint64 *ret2);
+
+void
 wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module);
 
 void

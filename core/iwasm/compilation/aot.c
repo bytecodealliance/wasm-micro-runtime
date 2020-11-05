@@ -15,6 +15,15 @@ aot_get_last_error()
 }
 
 void
+aot_set_last_error_v(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(aot_error, sizeof(aot_error), format, args);
+    va_end(args);
+}
+
+void
 aot_set_last_error(const char *error)
 {
   if (error)
