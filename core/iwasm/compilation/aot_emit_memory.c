@@ -53,6 +53,9 @@ get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         case 8:
             mem_check_bound = func_ctx->mem_info[0].mem_bound_check_8bytes;
             break;
+        case 16:
+            mem_check_bound = func_ctx->mem_info[0].mem_bound_check_16bytes;
+            break;
         default:
             bh_assert(0);
             return NULL;
@@ -73,9 +76,9 @@ get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 static LLVMValueRef
 get_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
-static LLVMValueRef
-check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                      uint32 offset, uint32 bytes)
+LLVMValueRef
+aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 offset, uint32 bytes)
 {
     LLVMValueRef offset_const = I32_CONST(offset);
     LLVMValueRef addr, maddr, offset1, cmp1, cmp2, cmp;
@@ -348,7 +351,7 @@ aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value = NULL;
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     switch (bytes) {
@@ -400,7 +403,7 @@ aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value = NULL;
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     switch (bytes) {
@@ -454,7 +457,7 @@ aot_compile_op_f32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value;
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, 4)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4)))
         return false;
 
     BUILD_PTR_CAST(F32_PTR_TYPE);
@@ -471,7 +474,7 @@ aot_compile_op_f64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value;
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, 8)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 8)))
         return false;
 
     BUILD_PTR_CAST(F64_PTR_TYPE);
@@ -490,7 +493,7 @@ aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I32(value);
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     switch (bytes) {
@@ -529,7 +532,7 @@ aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I64(value);
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     switch (bytes) {
@@ -572,7 +575,7 @@ aot_compile_op_f32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F32(value);
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, 4)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4)))
         return false;
 
     BUILD_PTR_CAST(F32_PTR_TYPE);
@@ -590,7 +593,7 @@ aot_compile_op_f64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F64(value);
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, 8)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 8)))
         return false;
 
     BUILD_PTR_CAST(F64_PTR_TYPE);
@@ -877,24 +880,8 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* If memory.init failed, return this function
         so the runtime can catch the exception */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, mem_init_fail);
-    if (aot_func_type->result_count) {
-        switch (aot_func_type->types[aot_func_type->param_count]) {
-            case VALUE_TYPE_I32:
-                LLVMBuildRet(comp_ctx->builder, I32_ZERO);
-                break;
-            case VALUE_TYPE_I64:
-                LLVMBuildRet(comp_ctx->builder, I64_ZERO);
-                break;
-            case VALUE_TYPE_F32:
-                LLVMBuildRet(comp_ctx->builder, F32_ZERO);
-                break;
-            case VALUE_TYPE_F64:
-                LLVMBuildRet(comp_ctx->builder, F64_ZERO);
-                break;
-        }
-    }
-    else {
-        LLVMBuildRetVoid(comp_ctx->builder);
+    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+        goto fail;
     }
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, init_success);
@@ -1002,7 +989,7 @@ aot_compile_op_atomic_rmw(AOTCompContext *comp_ctx,
     else
         POP_I64(value);
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1076,7 +1063,7 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
         POP_I64(expect);
     }
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1175,7 +1162,7 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     CHECK_LLVM_CONST(is_wait64);
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
@@ -1219,24 +1206,8 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* If atomic wait failed, return this function
         so the runtime can catch the exception */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, wait_fail);
-    if (aot_func_type->result_count) {
-        switch (aot_func_type->types[aot_func_type->param_count]) {
-            case VALUE_TYPE_I32:
-                LLVMBuildRet(comp_ctx->builder, I32_ZERO);
-                break;
-            case VALUE_TYPE_I64:
-                LLVMBuildRet(comp_ctx->builder, I64_ZERO);
-                break;
-            case VALUE_TYPE_F32:
-                LLVMBuildRet(comp_ctx->builder, F32_ZERO);
-                break;
-            case VALUE_TYPE_F64:
-                LLVMBuildRet(comp_ctx->builder, F64_ZERO);
-                break;
-        }
-    }
-    else {
-        LLVMBuildRetVoid(comp_ctx->builder);
+    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+        goto fail;
     }
 
     LLVMPositionBuilderAtEnd(comp_ctx->builder, wait_success);
@@ -1259,7 +1230,7 @@ aot_compiler_op_atomic_notify(AOTCompContext *comp_ctx,
 
     POP_I32(count);
 
-    if (!(maddr = check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))

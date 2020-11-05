@@ -96,11 +96,17 @@ format_block_name(char *name, uint32 name_size,
     }                                                               \
   } while (0)
 
-#define ADD_TO_RESULT_PHIS(block, value, idx) do {           \
-    LLVMBasicBlockRef block_curr = CURR_BLOCK();             \
-    LLVMAddIncoming(block->result_phis[idx],                 \
-                    &value, &block_curr, 1);                 \
-  } while (0)
+#define ADD_TO_RESULT_PHIS(block, value, idx) do {                        \
+    LLVMBasicBlockRef block_curr = CURR_BLOCK();                          \
+    LLVMTypeRef phi_ty = LLVMTypeOf(block->result_phis[idx]);             \
+    LLVMTypeRef value_ty = LLVMTypeOf(value);                             \
+    bh_assert(LLVMGetTypeKind(phi_ty) == LLVMGetTypeKind(value_ty));      \
+    bh_assert(LLVMGetTypeContext(phi_ty)                                  \
+              == LLVMGetTypeContext(value_ty));                           \
+    LLVMAddIncoming(block->result_phis[idx], &value, &block_curr, 1);     \
+    (void)phi_ty;                                                         \
+    (void)value_ty;                                                       \
+ } while (0)
 
 #define BUILD_ICMP(op, left, right, res, name) do {     \
     if (!(res = LLVMBuildICmp(comp_ctx->builder, op,    \
@@ -686,24 +692,8 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* Move builder to terminate block */
     SET_BUILDER_POS(terminate_block);
-    if (aot_func_type->result_count) {
-        switch (aot_func_type->types[aot_func_type->param_count]) {
-            case VALUE_TYPE_I32:
-                LLVMBuildRet(comp_ctx->builder, I32_ZERO);
-                break;
-            case VALUE_TYPE_I64:
-                LLVMBuildRet(comp_ctx->builder, I64_ZERO);
-                break;
-            case VALUE_TYPE_F32:
-                LLVMBuildRet(comp_ctx->builder, F32_ZERO);
-                break;
-            case VALUE_TYPE_F64:
-                LLVMBuildRet(comp_ctx->builder, F64_ZERO);
-                break;
-        }
-    }
-    else {
-        LLVMBuildRetVoid(comp_ctx->builder);
+    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+        goto fail;
     }
 
     /* Move builder to terminate block */

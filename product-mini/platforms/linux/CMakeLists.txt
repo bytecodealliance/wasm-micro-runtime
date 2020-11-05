@@ -75,6 +75,11 @@ if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
   set (WAMR_BUILD_MINI_LOADER 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_SIMD)
+  # Disable SIMD by default
+  set (WAMR_BUILD_SIMD 0)
+endif ()
+
 if (COLLECT_CODE_COVERAGE EQUAL 1)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()

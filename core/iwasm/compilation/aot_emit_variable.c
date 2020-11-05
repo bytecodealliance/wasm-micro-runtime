@@ -116,7 +116,7 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         + sizeof(AOTMemoryInstance) * comp_ctx->comp_data->memory_count;
     uint32 global_offset;
     uint8 global_type;
-    LLVMValueRef offset, global_ptr, global;
+    LLVMValueRef offset, global_ptr, global, res;
     LLVMTypeRef ptr_type = NULL;
 
     bh_assert(global_idx < import_global_count + comp_data->global_count);
@@ -153,6 +153,9 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         case VALUE_TYPE_F64:
             ptr_type = comp_ctx->basic_types.float64_ptr_type;
             break;
+        case VALUE_TYPE_V128:
+            ptr_type = comp_ctx->basic_types.v128_ptr_type;
+            break;
         default:
             bh_assert(0);
             break;
@@ -170,14 +173,19 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build load failed.");
             return false;
         }
+        /* All globals' data is 4-byte aligned */
+        LLVMSetAlignment(global, 4);
         PUSH(global, global_type);
     }
     else {
         POP(global, global_type);
-        if (!LLVMBuildStore(comp_ctx->builder, global, global_ptr)) {
+        if (!(res = LLVMBuildStore(comp_ctx->builder,
+                                   global, global_ptr))) {
             aot_set_last_error("llvm build store failed.");
             return false;
         }
+        /* All globals' data is 4-byte aligned */
+        LLVMSetAlignment(res, 4);
     }
 
     return true;

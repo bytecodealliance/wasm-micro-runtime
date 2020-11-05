@@ -86,6 +86,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 #### **Enable tail call feature**
 - **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
 
+#### **Enable 128-bit SIMD feature**
+- **WAMR_BUILD_SIMD**=1/0, default to disable if not set
+> Note: only supported in AOT mode, and the *--enable-simd* flag should be added for wamrc when generating aot file.
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:

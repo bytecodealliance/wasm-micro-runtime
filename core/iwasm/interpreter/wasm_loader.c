@@ -231,6 +231,23 @@ fail:
   res = (int32)res64;                               \
 } while (0)
 
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+static V128
+read_i8x16(uint8 *p_buf, char* error_buf, uint32 error_buf_size)
+{
+    V128 result;
+    uint8 i;
+
+    for (i = 0; i != 16; ++i) {
+        result.i8x16[i] = read_uint8(p_buf);
+    }
+
+    return result;
+}
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_SIMD */
+
 static void *
 loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 {
@@ -412,6 +429,29 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
             for (i = 0; i < sizeof(float64); i++)
                 *p_float++ = *p++;
             break;
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+        case INIT_EXPR_TYPE_V128_CONST:
+        {
+            uint8 flag;
+            uint64 high, low;
+
+            if (type != VALUE_TYPE_V128)
+                goto fail;
+
+            flag = read_uint8(p);
+            (void)flag;
+
+            CHECK_BUF(p, p_end, 16);
+            wasm_runtime_read_v128(p, &high,  &low);
+            p += 16;
+
+            init_expr->u.v128.i64x2[0] = high;
+            init_expr->u.v128.i64x2[1] = low;
+            break;
+        }
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_SIMD */
         /* get_global */
         case INIT_EXPR_TYPE_GET_GLOBAL:
             read_leb_uint32(p, p_end, init_expr->u.global_index);
@@ -1794,7 +1834,13 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 CHECK_BUF(p_code, buf_code_end, 1);
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
-                if (type < VALUE_TYPE_F64 || type > VALUE_TYPE_I32) {
+                if ((type < VALUE_TYPE_F64 || type > VALUE_TYPE_I32)
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+                    && type != VALUE_TYPE_V128
+#endif
+#endif
+                        ) {
                     set_error_buf(error_buf, error_buf_size,
                                   "invalid local type");
                     return false;
@@ -2031,6 +2077,12 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                       "unknown function");
                         return false;
                     }
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+                    /* TODO: check func type, if it has v128 param or result,
+                             report error */
+#endif
+#endif
                     break;
                 /*table index*/
                 case EXPORT_KIND_TABLE:
@@ -3529,6 +3581,81 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                 }
                 break;
             }
+
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+            case WASM_OP_SIMD_PREFIX:
+            {
+                opcode = read_uint8(p);
+                if (SIMD_i8x16_eq <= opcode
+                    && opcode <= SIMD_f32x4_convert_i32x4_u) {
+                    break;
+                }
+
+                switch (opcode) {
+                    case SIMD_v128_load:
+                    case SIMD_i16x8_load8x8_s:
+                    case SIMD_i16x8_load8x8_u:
+                    case SIMD_i32x4_load16x4_s:
+                    case SIMD_i32x4_load16x4_u:
+                    case SIMD_i64x2_load32x2_s:
+                    case SIMD_i64x2_load32x2_u:
+                    case SIMD_v8x16_load_splat:
+                    case SIMD_v16x8_load_splat:
+                    case SIMD_v32x4_load_splat:
+                    case SIMD_v64x2_load_splat:
+                    case SIMD_v128_store:
+                        skip_leb_uint32(p, p_end); /* align */
+                        skip_leb_uint32(p, p_end); /* offset */
+                        break;
+
+                    case SIMD_v128_const:
+                    case SIMD_v8x16_shuffle:
+                        CHECK_BUF1(p, p_end, 16);
+                        p += 16;
+                        break;
+
+                    case SIMD_v8x16_swizzle:
+                    case SIMD_i8x16_splat:
+                    case SIMD_i16x8_splat:
+                    case SIMD_i32x4_splat:
+                    case SIMD_i64x2_splat:
+                    case SIMD_f32x4_splat:
+                    case SIMD_f64x2_splat:
+                        break;
+
+                    case SIMD_i8x16_extract_lane_s:
+                    case SIMD_i8x16_extract_lane_u:
+                    case SIMD_i8x16_replace_lane:
+                    case SIMD_i16x8_extract_lane_s:
+                    case SIMD_i16x8_extract_lane_u:
+                    case SIMD_i16x8_replace_lane:
+                    case SIMD_i32x4_extract_lane:
+                    case SIMD_i32x4_replace_lane:
+                    case SIMD_i64x2_extract_lane:
+                    case SIMD_i64x2_replace_lane:
+                    case SIMD_f32x4_extract_lane:
+                    case SIMD_f32x4_replace_lane:
+                    case SIMD_f64x2_extract_lane:
+                    case SIMD_f64x2_replace_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        p++;
+                        break;
+
+                    default:
+                        LOG_WARNING("WASM loader find block addr failed: "
+                                    "invalid opcode fd 0x%02x.", opcode);
+                        if (error_buf)
+                            snprintf(error_buf, error_buf_size,
+                                     "WASM loader find block addr failed: "
+                                     "invalid opcode fd %02x.", opcode);
+                        return false;
+                }
+                break;
+            }
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_SIMD */
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
@@ -3545,6 +3672,7 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                 break;
             }
 #endif
+
             default:
                 set_error_buf_v(error_buf, error_buf_size,
                                 "%s %02x",
@@ -3565,6 +3693,10 @@ fail:
 #define REF_I64_2 VALUE_TYPE_I64
 #define REF_F64_1 VALUE_TYPE_F64
 #define REF_F64_2 VALUE_TYPE_F64
+#define REF_V128_1 VALUE_TYPE_V128
+#define REF_V128_2 VALUE_TYPE_V128
+#define REF_V128_3 VALUE_TYPE_V128
+#define REF_V128_4 VALUE_TYPE_V128
 #define REF_ANY   VALUE_TYPE_ANY
 
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -3775,12 +3907,18 @@ static bool
 check_stack_top_values(uint8 *frame_ref, int32 stack_cell_num, uint8 type,
                        char *error_buf, uint32 error_buf_size)
 {
-    char *type_str[] = { "f64", "f32", "i64", "i32" };
+    char *type_str[] = { "v128", "f64", "f32", "i64", "i32" };
 
     if (((type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32)
          && stack_cell_num < 1)
         || ((type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64)
-            && stack_cell_num < 2)) {
+            && stack_cell_num < 2)
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+        || (type == VALUE_TYPE_V128 && stack_cell_num < 4)
+#endif
+#endif
+        ) {
         set_error_buf(error_buf, error_buf_size,
                       "type mismatch: expect data but stack was empty");
         return false;
@@ -3793,10 +3931,20 @@ check_stack_top_values(uint8 *frame_ref, int32 stack_cell_num, uint8 type,
                 || *(frame_ref - 1) != REF_I64_2))
         || (type == VALUE_TYPE_F64
             && (*(frame_ref - 2) != REF_F64_1
-                || *(frame_ref - 1) != REF_F64_2))) {
+                || *(frame_ref - 1) != REF_F64_2))
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+        || (type == VALUE_TYPE_V128
+            && (*(frame_ref - 4) != REF_V128_1
+                || *(frame_ref - 3) != REF_V128_2
+                || *(frame_ref - 2) != REF_V128_3
+                || *(frame_ref - 1) != REF_V128_4))
+#endif
+#endif
+        ) {
         set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
                         "type mismatch: expect ",
-                        type_str[type - VALUE_TYPE_F64],
+                        type_str[type - VALUE_TYPE_V128],
                         " but got other");
         return false;
     }
@@ -3922,6 +4070,23 @@ wasm_loader_push_frame_ref(WASMLoaderContext *ctx, uint8 type,
     ctx->stack_cell_num++;
     if (ctx->stack_cell_num > ctx->max_stack_cell_num)
         ctx->max_stack_cell_num = ctx->stack_cell_num;
+
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+    if (type == VALUE_TYPE_V128) {
+        if (!check_stack_push(ctx, error_buf, error_buf_size))
+            return false;
+        *ctx->frame_ref++ = type;
+        ctx->stack_cell_num++;
+        if (!check_stack_push(ctx, error_buf, error_buf_size))
+            return false;
+        *ctx->frame_ref++ = type;
+        ctx->stack_cell_num++;
+        if (ctx->stack_cell_num > ctx->max_stack_cell_num)
+            ctx->max_stack_cell_num = ctx->stack_cell_num;
+    }
+#endif
+#endif
     return true;
 }
 
@@ -3954,6 +4119,15 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type,
 
     ctx->frame_ref--;
     ctx->stack_cell_num--;
+
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+    if (type == VALUE_TYPE_V128) {
+        ctx->frame_ref -= 2;
+        ctx->stack_cell_num -= 2;
+    }
+#endif
+#endif
     return true;
 }
 
@@ -4713,6 +4887,13 @@ fail:
         goto fail;                                                      \
   } while (0)
 
+#define PUSH_V128() do {                                                \
+    if (!(wasm_loader_push_frame_ref_offset(loader_ctx, VALUE_TYPE_V128,\
+                                            disable_emit, operand_offset,\
+                                            error_buf, error_buf_size)))\
+        goto fail;                                                      \
+  } while (0)
+
 #define POP_I32() do {                                                  \
     if (!wasm_loader_pop_frame_ref_offset(loader_ctx, VALUE_TYPE_I32,   \
                                           error_buf, error_buf_size))   \
@@ -4733,6 +4914,12 @@ fail:
 
 #define POP_F64() do {                                                  \
     if (!wasm_loader_pop_frame_ref_offset(loader_ctx, VALUE_TYPE_F64,   \
+                                          error_buf, error_buf_size))   \
+        goto fail;                                                      \
+  } while (0)
+
+#define POP_V128() do {                                                 \
+    if (!wasm_loader_pop_frame_ref_offset(loader_ctx, VALUE_TYPE_V128,  \
                                           error_buf, error_buf_size))   \
         goto fail;                                                      \
   } while (0)
@@ -4793,6 +4980,12 @@ fail:
         goto fail;                                                  \
   } while (0)
 
+#define PUSH_V128() do {                                            \
+    if (!(wasm_loader_push_frame_ref(loader_ctx, VALUE_TYPE_V128,   \
+                                     error_buf, error_buf_size)))   \
+        goto fail;                                                  \
+  } while (0)
+
 #define POP_I32() do {                                              \
     if (!(wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_I32,     \
                                     error_buf, error_buf_size)))    \
@@ -4813,6 +5006,12 @@ fail:
 
 #define POP_F64() do {                                              \
     if (!(wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_F64,     \
+                                    error_buf, error_buf_size)))    \
+        goto fail;                                                  \
+  } while (0)
+
+#define POP_V128() do {                                             \
+    if (!(wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_V128,    \
                                     error_buf, error_buf_size)))    \
         goto fail;                                                  \
   } while (0)
@@ -5054,8 +5253,8 @@ check_memory_access_align(uint8 opcode, uint32 align,
                           char *error_buf, uint32 error_buf_size)
 {
     uint8 mem_access_aligns[] = {
-       2, 3, 2, 3, 0, 0, 1, 1, 0, 0, 1, 1, 2, 2, /* loads */
-       2, 3, 2, 3, 0, 1, 0, 1, 2                 /* stores */
+        2, 3, 2, 3, 0, 0, 1, 1, 0, 0, 1, 1, 2, 2, /* loads */
+        2, 3, 2, 3, 0, 1, 0, 1, 2                 /* stores */
     };
     bh_assert(opcode >= WASM_OP_I32_LOAD
               && opcode <= WASM_OP_I64_STORE32);
@@ -5066,6 +5265,92 @@ check_memory_access_align(uint8 opcode, uint32 align,
     }
     return true;
 }
+
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+static bool
+check_simd_memory_access_align(uint8 opcode, uint32 align,
+                               char *error_buf, uint32 error_buf_size)
+{
+    uint8 mem_access_aligns[] = {
+        4,  /* load */
+        3, 3, 3, 3, 3, 3,  /* load and extend */
+        0, 1, 2, 3, /* load and splat */
+        4, /* store */
+    };
+
+    bh_assert(opcode <= SIMD_v128_store);
+
+    if (align > mem_access_aligns[opcode - SIMD_v128_load]) {
+        set_error_buf(error_buf, error_buf_size,
+                      "alignment must not be larger than natural");
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+check_simd_access_lane(uint8 opcode, uint8 lane,
+                       char *error_buf, uint32 error_buf_size)
+{
+    switch (opcode) {
+        case SIMD_i8x16_extract_lane_s:
+        case SIMD_i8x16_extract_lane_u:
+        case SIMD_i8x16_replace_lane:
+            if (lane >= 16) {
+                goto fail;
+            }
+            break;
+        case SIMD_i16x8_extract_lane_s:
+        case SIMD_i16x8_extract_lane_u:
+        case SIMD_i16x8_replace_lane:
+            if (lane >= 8) {
+                goto fail;
+            }
+            break;
+        case SIMD_i32x4_extract_lane:
+        case SIMD_i32x4_replace_lane:
+        case SIMD_f32x4_extract_lane:
+        case SIMD_f32x4_replace_lane:
+            if (lane >= 4) {
+                goto fail;
+            }
+            break;
+        case SIMD_i64x2_extract_lane:
+        case SIMD_i64x2_replace_lane:
+        case SIMD_f64x2_extract_lane:
+        case SIMD_f64x2_replace_lane:
+            if (lane >= 2) {
+                goto fail;
+            }
+            break;
+        default:
+            goto fail;
+    }
+
+    return true;
+fail:
+    set_error_buf(error_buf, error_buf_size, "invalid lane index");
+    return false;
+}
+
+static bool
+check_simd_shuffle_mask(V128 mask,
+                       char *error_buf,
+                       uint32 error_buf_size)
+{
+    uint8 i;
+    for (i = 0; i != 16; ++i) {
+        if (mask.i8x16[i] < 0 || mask.i8x16[i] >= 32) {
+            set_error_buf(error_buf, error_buf_size, "invalid lane index");
+            return false;
+        }
+    }
+    return true;
+}
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_SIMD */
 
 #if WASM_ENABLE_SHARED_MEMORY != 0
 static bool
@@ -5104,6 +5389,7 @@ is_value_type(uint8 type)
            type == VALUE_TYPE_I64 ||
            type == VALUE_TYPE_F32 ||
            type == VALUE_TYPE_F64 ||
+           type == VALUE_TYPE_V128 ||
            type == VALUE_TYPE_VOID;
 }
 
@@ -5892,7 +6178,7 @@ handle_op_block_and_loop:
 #if WASM_ENABLE_TAIL_CALL != 0
                 }
                 else {
-                    char *type_str[] = { "f64", "f32", "i64", "i32" };
+                    char *type_str[] = { "v128", "f64", "f32", "i64", "i32" };
                     uint8 type;
                     if (func_type->result_count != func->func_type->result_count) {
                         set_error_buf_v(error_buf, error_buf_size,
@@ -5906,7 +6192,7 @@ handle_op_block_and_loop:
                         if (func_type->types[func_type->param_count + i] != type) {
                             set_error_buf_v(error_buf, error_buf_size,
                                             "%s%s%s", "type mismatch: expect ",
-                                            type_str[type - VALUE_TYPE_F64],
+                                            type_str[type - VALUE_TYPE_V128],
                                             " but got other");
                             goto fail;
                         }
@@ -5982,7 +6268,7 @@ handle_op_block_and_loop:
 #if WASM_ENABLE_TAIL_CALL != 0
                 }
                 else {
-                    char *type_str[] = { "f64", "f32", "i64", "i32" };
+                    char *type_str[] = { "v128", "f64", "f32", "i64", "i32" };
                     uint8 type;
                     if (func_type->result_count != func->func_type->result_count) {
                         set_error_buf_v(error_buf, error_buf_size,
@@ -5996,7 +6282,7 @@ handle_op_block_and_loop:
                         if (func_type->types[func_type->param_count + i] != type) {
                             set_error_buf_v(error_buf, error_buf_size,
                                             "%s%s%s", "type mismatch: expect ",
-                                            type_str[type - VALUE_TYPE_F64],
+                                            type_str[type - VALUE_TYPE_V128],
                                             " but got other");
                             goto fail;
                         }
@@ -6037,7 +6323,8 @@ handle_op_block_and_loop:
                             loader_ctx->dynamic_offset --;
 #endif
                     }
-                    else {
+                    else if (*(loader_ctx->frame_ref - 1) == REF_I64_1
+                             || *(loader_ctx->frame_ref - 1) == REF_F64_1) {
                         loader_ctx->frame_ref -= 2;
                         loader_ctx->stack_cell_num -= 2;
 #if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
@@ -6050,6 +6337,10 @@ handle_op_block_and_loop:
                                 loader_ctx->start_dynamic_offset)
                             loader_ctx->dynamic_offset -= 2;
 #endif
+                    }
+                    else { /* V128 */
+                        loader_ctx->frame_ref -= 4;
+                        loader_ctx->stack_cell_num -= 4;
                     }
                 }
                 else {
@@ -6889,6 +7180,376 @@ fail_data_cnt_sec_require:
                 }
                 break;
             }
+
+#if WASM_ENABLE_SIMD != 0
+#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
+            case WASM_OP_SIMD_PREFIX:
+            {
+                uint8 lane;
+
+                opcode = read_uint8(p);
+                switch (opcode) {
+                    case SIMD_v128_load:
+                    case SIMD_i16x8_load8x8_s:
+                    case SIMD_i16x8_load8x8_u:
+                    case SIMD_i32x4_load16x4_s:
+                    case SIMD_i32x4_load16x4_u:
+                    case SIMD_i64x2_load32x2_s:
+                    case SIMD_i64x2_load32x2_u:
+                    case SIMD_v8x16_load_splat:
+                    case SIMD_v16x8_load_splat:
+                    case SIMD_v32x4_load_splat:
+                    case SIMD_v64x2_load_splat:
+                    {
+                        CHECK_MEMORY();
+
+                        read_leb_uint32(p, p_end, align); /* align */
+                        if (!check_simd_memory_access_align(
+                              opcode, align, error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+
+                        read_leb_uint32(p, p_end, mem_offset); /* offset */
+
+                        /* pop(i32 %i), push(v128 *result) */
+                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_v128_store:
+                    {
+                        CHECK_MEMORY();
+
+                        read_leb_uint32(p, p_end, align); /* align */
+                        if (!check_simd_memory_access_align(
+                              opcode, align, error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+
+                        read_leb_uint32(p, p_end, mem_offset); /* offset */
+
+                        /* pop(v128 %value) */
+                        POP_V128();
+                        /* pop(i32 %i) */
+                        POP_I32();
+                        break;
+                    }
+
+                    case SIMD_v128_const:
+                        CHECK_BUF1(p, p_end, 16);
+                        p += 16;
+                        PUSH_V128();
+                        break;
+
+                    case SIMD_v8x16_shuffle:
+                    {
+                        V128 mask;
+
+                        CHECK_BUF1(p, p_end, 16);
+                        mask = read_i8x16(p, error_buf, error_buf_size);
+                        p += 16;
+                        if (!check_simd_shuffle_mask(mask, error_buf,
+                                                     error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_v8x16_swizzle:
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+
+                    case SIMD_i8x16_splat:
+                    case SIMD_i16x8_splat:
+                    case SIMD_i32x4_splat:
+                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_V128);
+                        break;
+                    case SIMD_i64x2_splat:
+                        POP_AND_PUSH(VALUE_TYPE_I64, VALUE_TYPE_V128);
+                        break;
+                    case SIMD_f32x4_splat:
+                        POP_AND_PUSH(VALUE_TYPE_F32, VALUE_TYPE_V128);
+                        break;
+                    case SIMD_f64x2_splat:
+                        POP_AND_PUSH(VALUE_TYPE_F64, VALUE_TYPE_V128);
+                        break;
+
+                    case SIMD_i8x16_extract_lane_s:
+                    case SIMD_i8x16_extract_lane_u:
+                    case SIMD_i16x8_extract_lane_s:
+                    case SIMD_i16x8_extract_lane_u:
+                    case SIMD_i32x4_extract_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
+                        break;
+                    case SIMD_i64x2_extract_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I64);
+                        break;
+                    case SIMD_f32x4_extract_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_F32);
+                        break;
+                    case SIMD_f64x2_extract_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_F64);
+                        break;
+                    case SIMD_i8x16_replace_lane:
+                    case SIMD_i16x8_replace_lane:
+                    case SIMD_i32x4_replace_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_I32();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    case SIMD_i64x2_replace_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_I64();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    case SIMD_f32x4_replace_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_F32();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    case SIMD_f64x2_replace_lane:
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_F64();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    case SIMD_i8x16_eq:
+                    case SIMD_i8x16_ne:
+                    case SIMD_i8x16_lt_s:
+                    case SIMD_i8x16_lt_u:
+                    case SIMD_i8x16_gt_s:
+                    case SIMD_i8x16_gt_u:
+                    case SIMD_i8x16_le_s:
+                    case SIMD_i8x16_le_u:
+                    case SIMD_i8x16_ge_s:
+                    case SIMD_i8x16_ge_u:
+                    case SIMD_i16x8_eq:
+                    case SIMD_i16x8_ne:
+                    case SIMD_i16x8_lt_s:
+                    case SIMD_i16x8_lt_u:
+                    case SIMD_i16x8_gt_s:
+                    case SIMD_i16x8_gt_u:
+                    case SIMD_i16x8_le_s:
+                    case SIMD_i16x8_le_u:
+                    case SIMD_i16x8_ge_s:
+                    case SIMD_i16x8_ge_u:
+                    case SIMD_i32x4_eq:
+                    case SIMD_i32x4_ne:
+                    case SIMD_i32x4_lt_s:
+                    case SIMD_i32x4_lt_u:
+                    case SIMD_i32x4_gt_s:
+                    case SIMD_i32x4_gt_u:
+                    case SIMD_i32x4_le_s:
+                    case SIMD_i32x4_le_u:
+                    case SIMD_i32x4_ge_s:
+                    case SIMD_i32x4_ge_u:
+                    case SIMD_f32x4_eq:
+                    case SIMD_f32x4_ne:
+                    case SIMD_f32x4_lt:
+                    case SIMD_f32x4_gt:
+                    case SIMD_f32x4_le:
+                    case SIMD_f32x4_ge:
+                    case SIMD_f64x2_eq:
+                    case SIMD_f64x2_ne:
+                    case SIMD_f64x2_lt:
+                    case SIMD_f64x2_gt:
+                    case SIMD_f64x2_le:
+                    case SIMD_f64x2_ge:
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+
+                    case SIMD_v128_not:
+                    case SIMD_i8x16_abs:
+                    case SIMD_i8x16_neg:
+                    case SIMD_i16x8_abs:
+                    case SIMD_i16x8_neg:
+                    case SIMD_i32x4_abs:
+                    case SIMD_i32x4_neg:
+                    case SIMD_i64x2_neg:
+                    case SIMD_f32x4_abs:
+                    case SIMD_f32x4_neg:
+                    case SIMD_f32x4_sqrt:
+                    case SIMD_f64x2_abs:
+                    case SIMD_f64x2_neg:
+                    case SIMD_f64x2_sqrt:
+                    case SIMD_i16x8_widen_low_i8x16_s:
+                    case SIMD_i16x8_widen_high_i8x16_s:
+                    case SIMD_i16x8_widen_low_i8x16_u:
+                    case SIMD_i16x8_widen_high_i8x16_u:
+                    case SIMD_i32x4_widen_low_i16x8_s:
+                    case SIMD_i32x4_widen_high_i16x8_s:
+                    case SIMD_i32x4_widen_low_i16x8_u:
+                    case SIMD_i32x4_widen_high_i16x8_u:
+                    case SIMD_i32x4_trunc_sat_f32x4_s:
+                    case SIMD_i32x4_trunc_sat_f32x4_u:
+                    case SIMD_f32x4_convert_i32x4_s:
+                    case SIMD_f32x4_convert_i32x4_u:
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+
+                    case SIMD_v128_bitselect:
+                        POP_V128();
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+
+                    case SIMD_i8x16_any_true:
+                    case SIMD_i8x16_all_true:
+                    case SIMD_i8x16_bitmask:
+                    case SIMD_i16x8_any_true:
+                    case SIMD_i16x8_all_true:
+                    case SIMD_i16x8_bitmask:
+                    case SIMD_i32x4_any_true:
+                    case SIMD_i32x4_all_true:
+                    case SIMD_i32x4_bitmask:
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
+                        break;
+
+                    case SIMD_i8x16_shl:
+                    case SIMD_i8x16_shr_s:
+                    case SIMD_i8x16_shr_u:
+                    case SIMD_i16x8_shl:
+                    case SIMD_i16x8_shr_s:
+                    case SIMD_i16x8_shr_u:
+                    case SIMD_i32x4_shl:
+                    case SIMD_i32x4_shr_s:
+                    case SIMD_i32x4_shr_u:
+                    case SIMD_i64x2_shl:
+                    case SIMD_i64x2_shr_s:
+                    case SIMD_i64x2_shr_u:
+                        POP_I32();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+
+                    case SIMD_i8x16_narrow_i16x8_s:
+                    case SIMD_i8x16_narrow_i16x8_u:
+                    case SIMD_i16x8_narrow_i32x4_s:
+                    case SIMD_i16x8_narrow_i32x4_u:
+                    case SIMD_v128_and:
+                    case SIMD_v128_andnot:
+                    case SIMD_v128_or:
+                    case SIMD_v128_xor:
+                    case SIMD_i8x16_add:
+                    case SIMD_i8x16_add_saturate_s:
+                    case SIMD_i8x16_add_saturate_u:
+                    case SIMD_i8x16_sub:
+                    case SIMD_i8x16_sub_saturate_s:
+                    case SIMD_i8x16_sub_saturate_u:
+                    case SIMD_i8x16_min_s:
+                    case SIMD_i8x16_min_u:
+                    case SIMD_i8x16_max_s:
+                    case SIMD_i8x16_max_u:
+                    case SIMD_i8x16_avgr_u:
+                    case SIMD_i16x8_add:
+                    case SIMD_i16x8_add_saturate_s:
+                    case SIMD_i16x8_add_saturate_u:
+                    case SIMD_i16x8_sub:
+                    case SIMD_i16x8_sub_saturate_s:
+                    case SIMD_i16x8_sub_saturate_u:
+                    case SIMD_i16x8_mul:
+                    case SIMD_i16x8_min_s:
+                    case SIMD_i16x8_min_u:
+                    case SIMD_i16x8_max_s:
+                    case SIMD_i16x8_max_u:
+                    case SIMD_i16x8_avgr_u:
+                    case SIMD_i32x4_add:
+                    case SIMD_i32x4_sub:
+                    case SIMD_i32x4_mul:
+                    case SIMD_i32x4_min_s:
+                    case SIMD_i32x4_min_u:
+                    case SIMD_i32x4_max_s:
+                    case SIMD_i32x4_max_u:
+                    case SIMD_i64x2_add:
+                    case SIMD_i64x2_sub:
+                    case SIMD_i64x2_mul:
+                    case SIMD_f32x4_add:
+                    case SIMD_f32x4_sub:
+                    case SIMD_f32x4_mul:
+                    case SIMD_f32x4_div:
+                    case SIMD_f32x4_min:
+                    case SIMD_f32x4_max:
+                    case SIMD_f64x2_add:
+                    case SIMD_f64x2_sub:
+                    case SIMD_f64x2_mul:
+                    case SIMD_f64x2_div:
+                    case SIMD_f64x2_min:
+                    case SIMD_f64x2_max:
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+
+                    default:
+                        if (error_buf != NULL) {
+                            snprintf(error_buf, error_buf_size,
+                                    "WASM module load failed: "
+                                    "invalid opcode 0xfd %02x.", opcode);
+                        }
+                        goto fail;
+                }
+                break;
+            }
+#endif /* end of (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
+#endif /* end of WASM_ENABLE_SIMD */
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
             case WASM_OP_ATOMIC_PREFIX:
             {
@@ -7031,6 +7692,7 @@ fail_data_cnt_sec_require:
                 break;
             }
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
+
             default:
                 set_error_buf_v(error_buf, error_buf_size,
                                 "%s %02x",

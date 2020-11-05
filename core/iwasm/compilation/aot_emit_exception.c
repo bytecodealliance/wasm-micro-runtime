@@ -53,10 +53,8 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                  func_ctx->got_exception_block);
 
         /* Create exection id phi */
-        if (!(func_ctx->exception_id_phi =
-                LLVMBuildPhi(comp_ctx->builder,
-                             comp_ctx->basic_types.int32_type,
-                             "exception_id_phi"))) {
+        if (!(func_ctx->exception_id_phi = LLVMBuildPhi(
+                comp_ctx->builder, I32_TYPE, "exception_id_phi"))) {
             aot_set_last_error("llvm build phi failed.");
             return false;
         }
@@ -110,24 +108,8 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Create return IR */
         AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
-        if (aot_func_type->result_count) {
-            switch (aot_func_type->types[aot_func_type->param_count]) {
-                case VALUE_TYPE_I32:
-                    LLVMBuildRet(comp_ctx->builder, I32_ZERO);
-                    break;
-                case VALUE_TYPE_I64:
-                    LLVMBuildRet(comp_ctx->builder, I64_ZERO);
-                    break;
-                case VALUE_TYPE_F32:
-                    LLVMBuildRet(comp_ctx->builder, F32_ZERO);
-                    break;
-                case VALUE_TYPE_F64:
-                    LLVMBuildRet(comp_ctx->builder, F64_ZERO);
-                    break;
-            }
-        }
-        else {
-            LLVMBuildRetVoid(comp_ctx->builder);
+        if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+            return false;
         }
 
         /* Resume the builder position */

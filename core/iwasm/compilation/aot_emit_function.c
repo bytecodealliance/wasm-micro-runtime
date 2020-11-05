@@ -25,24 +25,8 @@ create_func_return_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
         /* Create return IR */
         LLVMPositionBuilderAtEnd(comp_ctx->builder, func_ctx->func_return_block);
-        if (aot_func_type->result_count) {
-            switch (aot_func_type->types[aot_func_type->param_count]) {
-                case VALUE_TYPE_I32:
-                    LLVMBuildRet(comp_ctx->builder, I32_ZERO);
-                    break;
-                case VALUE_TYPE_I64:
-                    LLVMBuildRet(comp_ctx->builder, I64_ZERO);
-                    break;
-                case VALUE_TYPE_F32:
-                    LLVMBuildRet(comp_ctx->builder, F32_ZERO);
-                    break;
-                case VALUE_TYPE_F64:
-                    LLVMBuildRet(comp_ctx->builder, F64_ZERO);
-                    break;
-            }
-        }
-        else {
-            LLVMBuildRetVoid(comp_ctx->builder);
+        if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+            return false;
         }
     }
 

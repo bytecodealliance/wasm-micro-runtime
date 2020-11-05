@@ -165,6 +165,11 @@
 #define WASM_DISABLE_HW_BOUND_CHECK 0
 #endif
 
+/* Disable SIMD unless it is manualy enabled somewhere */
+#ifndef WASM_ENABLE_SIMD
+#define WASM_ENABLE_SIMD 0
+#endif
+
 /* Memory profiling */
 #ifndef WASM_ENABLE_MEMORY_PROFILING
 #define WASM_ENABLE_MEMORY_PROFILING 0

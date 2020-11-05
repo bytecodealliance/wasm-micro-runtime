@@ -234,6 +234,7 @@ typedef struct AOTMemoryInstance {
     MemBound mem_bound_check_2bytes;
     MemBound mem_bound_check_4bytes;
     MemBound mem_bound_check_8bytes;
+    MemBound mem_bound_check_16bytes;
 } AOTMemoryInstance;
 
 typedef struct AOTModuleInstance {

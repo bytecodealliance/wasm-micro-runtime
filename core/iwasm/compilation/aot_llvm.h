@@ -106,6 +106,7 @@ typedef struct AOTMemInfo {
   LLVMValueRef mem_bound_check_2bytes;
   LLVMValueRef mem_bound_check_4bytes;
   LLVMValueRef mem_bound_check_8bytes;
+  LLVMValueRef mem_bound_check_16bytes;
 } AOTMemInfo;
 
 typedef struct AOTFuncContext {
@@ -152,6 +153,15 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef float32_ptr_type;
   LLVMTypeRef float64_ptr_type;
 
+  LLVMTypeRef v128_type;
+  LLVMTypeRef v128_ptr_type;
+  LLVMTypeRef i8x16_vec_type;
+  LLVMTypeRef i16x8_vec_type;
+  LLVMTypeRef i32x4_vec_type;
+  LLVMTypeRef i64x2_vec_type;
+  LLVMTypeRef f32x4_vec_type;
+  LLVMTypeRef f64x2_vec_type;
+
   LLVMTypeRef meta_data_type;
 } AOTLLVMTypes;
 
@@ -161,6 +171,13 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i64_zero;
     LLVMValueRef f32_zero;
     LLVMValueRef f64_zero;
+    LLVMValueRef v128_zero;
+    LLVMValueRef i8x16_vec_zero;
+    LLVMValueRef i16x8_vec_zero;
+    LLVMValueRef i32x4_vec_zero;
+    LLVMValueRef i64x2_vec_zero;
+    LLVMValueRef f32x4_vec_zero;
+    LLVMValueRef f64x2_vec_zero;
     LLVMValueRef i32_one;
     LLVMValueRef i32_two;
     LLVMValueRef i32_three;
@@ -200,6 +217,9 @@ typedef struct AOTCompContext {
 
   /* Bounday Check */
   bool enable_bound_check;
+
+  /* 128-bit SIMD */
+  bool enable_simd;
 
   /* Thread Manager */
   bool enable_thread_mgr;
@@ -248,6 +268,7 @@ typedef struct AOTCompOption{
     bool enable_bulk_memory;
     bool enable_thread_mgr;
     bool enable_tail_call;
+    bool enable_simd;
     bool is_sgx_platform;
     uint32 opt_level;
     uint32 size_level;
@@ -308,6 +329,29 @@ aot_checked_addr_list_find(AOTFuncContext *func_ctx,
 
 void
 aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
+
+bool
+aot_build_zero_function_ret(AOTCompContext *comp_ctx,
+                            AOTFuncType *func_type);
+
+LLVMValueRef
+aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                        const char *name,
+                        LLVMTypeRef ret_type,
+                        LLVMTypeRef *param_types,
+                        int param_count,
+                        ...);
+
+LLVMValueRef
+aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
+                          const char *name,
+                          LLVMTypeRef ret_type,
+                          LLVMTypeRef *param_types,
+                          int param_count,
+                          va_list param_value_list);
+
+bool
+aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

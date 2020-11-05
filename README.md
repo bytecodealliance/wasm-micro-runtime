@@ -36,6 +36,7 @@ iwasm VM core
 - [Multi-value](https://github.com/WebAssembly/multi-value)
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
 - [Tail-call](https://github.com/WebAssembly/tail-call)
+- [128-bit SIMD](https://github.com/WebAssembly/simd)
 
 ### Supported architectures and platforms
 
