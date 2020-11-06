@@ -62,6 +62,16 @@ wasm_loader_unload(WASMModule *module);
  *
  * @return true if success, false otherwise
  */
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+bool
+wasm_loader_find_block_addr(WASMExecEnv *exec_env,
+                            BlockAddr *block_addr_cache,
+                            const uint8 *start_addr,
+                            const uint8 *code_end_addr,
+                            uint8 block_type,
+                            uint8 **p_else_addr,
+                            uint8 **p_end_addr);
+#else
 bool
 wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             const uint8 *start_addr,
@@ -69,6 +79,7 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             uint8 block_type,
                             uint8 **p_else_addr,
                             uint8 **p_end_addr);
+#endif
 
 #if WASM_ENABLE_REF_TYPES != 0
 void

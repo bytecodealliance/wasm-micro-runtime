@@ -10,6 +10,9 @@
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
 #include "../common/wasm_native.h"
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+#include "../libraries/debug-engine/debug_engine.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -2934,6 +2937,10 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         if (section->section_type == SECTION_TYPE_CODE) {
             buf_code = section->section_body;
             buf_code_end = buf_code + section->section_body_size;
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+            module->buf_code = (uint8 *)buf_code;
+            module->buf_code_size = section->section_body_size;
+#endif
         }
         else if (section->section_type == SECTION_TYPE_FUNC) {
             buf_func = section->section_body;
@@ -3297,8 +3304,24 @@ create_module(char *error_buf, uint32 error_buf_size)
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
 #endif
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+    bh_list_init(&module->fast_opcode_list);
+#endif
     return module;
 }
+
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+void
+record_fast_op(WASMModule *module, uint8 * pos, uint8 orig_op)
+{
+    WASMFastOPCodeNode * fast_op = wasm_runtime_malloc(sizeof(WASMFastOPCodeNode));
+    if (fast_op) {
+        fast_op->offset = pos - module->load_addr;
+        fast_op->orig_op = orig_op;
+        bh_list_insert(&module->fast_opcode_list, fast_op);
+    }
+}
+#endif
 
 WASMModule *
 wasm_loader_load_from_sections(WASMSection *section_list,
@@ -3493,6 +3516,11 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_bu
         return NULL;
     }
 
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+    module->load_addr = (uint8 *)buf;
+    module->load_size = size;
+#endif
+
     if (!load(buf, size, module, error_buf, error_buf_size)) {
         goto fail;
     }
@@ -3601,10 +3629,26 @@ wasm_loader_unload(WASMModule *module)
         }
     }
 #endif
-
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+    WASMFastOPCodeNode * fast_opcode = bh_list_first_elem(&module->fast_opcode_list);
+    while(fast_opcode) {
+        WASMFastOPCodeNode * next = bh_list_elem_next(fast_opcode);
+        wasm_runtime_free(fast_opcode);
+        fast_opcode = next;
+    }
+#endif
     wasm_runtime_free(module);
 }
-
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+bool
+wasm_loader_find_block_addr(WASMExecEnv *exec_env,
+                            BlockAddr *block_addr_cache,
+                            const uint8 *start_addr,
+                            const uint8 *code_end_addr,
+                            uint8 label_type,
+                            uint8 **p_else_addr,
+                            uint8 **p_end_addr)
+#else
 bool
 wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             const uint8 *start_addr,
@@ -3612,6 +3656,7 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             uint8 label_type,
                             uint8 **p_else_addr,
                             uint8 **p_end_addr)
+#endif
 {
     const uint8 *p = start_addr, *p_end = code_end_addr;
     uint8 *else_addr = NULL;
@@ -3638,7 +3683,9 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
 
     while (p < code_end_addr) {
         opcode = *p++;
-
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+op_break_retry:
+#endif
         switch (opcode) {
             case WASM_OP_UNREACHABLE:
             case WASM_OP_NOP:
@@ -4131,6 +4178,31 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                 else {
                     /* atomic.fence doesn't have memarg */
                     p++;
+                }
+                break;
+            }
+#endif
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+            case DEBUG_OP_BREAK: {
+                WASMDebugInstance *debug_instance =
+                  wasm_exec_env_get_instance(exec_env);
+                char orignal_opcode[1];
+                uint64 size = 1;
+                WASMModuleInstance *module_inst =
+                  (WASMModuleInstance *)exec_env->module_inst;
+                uint64 offset = (p - 1) >= module_inst->module->load_addr
+                                  ? (p - 1) - module_inst->module->load_addr
+                                  : ~0;
+                if (debug_instance) {
+                    if (wasm_debug_instance_get_obj_mem(
+                          debug_instance, offset, orignal_opcode, &size)
+                        && size == 1) {
+                        LOG_VERBOSE("WASM loader find OP_BREAK , recover it "
+                                    "with  %02x: ",
+                                    orignal_opcode[0]);
+                        opcode = orignal_opcode[0];
+                        goto op_break_retry;
+                    }
                 }
                 break;
             }
@@ -6262,6 +6334,9 @@ handle_op_block_and_loop:
                      * to new extended opcode so that interpreter can resolve the
                      * block quickly.
                      */
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                    record_fast_op(module, p - 2, *(p - 2));
+#endif
                     *(p - 2) = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
 #endif
                 }
@@ -7141,13 +7216,28 @@ handle_op_block_and_loop:
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (local_offset < 0x80) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                    record_fast_op(module, p_org, *p_org);
+#endif
                     *p_org++ = EXT_OP_GET_LOCAL_FAST;
-                    if (is_32bit_type(local_type))
+                    if (is_32bit_type(local_type)) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = (uint8)local_offset;
-                    else
+                    }
+                    else {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = (uint8)(local_offset | 0x80);
-                    while (p_org < p)
+                    }
+                    while (p_org < p) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = WASM_OP_NOP;
+                    }
                 }
 #endif
 #endif
@@ -7199,13 +7289,28 @@ handle_op_block_and_loop:
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (local_offset < 0x80) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                    record_fast_op(module, p_org, *p_org);
+#endif
                     *p_org++ = EXT_OP_SET_LOCAL_FAST;
-                    if (is_32bit_type(local_type))
+                    if (is_32bit_type(local_type)) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = (uint8)local_offset;
-                    else
+                    }
+                    else {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = (uint8)(local_offset | 0x80);
-                    while (p_org < p)
+                    }
+                    while (p_org < p) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = WASM_OP_NOP;
+                    }
                 }
 #endif
 #endif
@@ -7254,13 +7359,28 @@ handle_op_block_and_loop:
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (local_offset < 0x80) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                    record_fast_op(module, p_org, *p_org);
+#endif
                     *p_org++ = EXT_OP_TEE_LOCAL_FAST;
-                    if (is_32bit_type(local_type))
+                    if (is_32bit_type(local_type)) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = (uint8)local_offset;
-                    else
+                    }
+                    else {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = (uint8)(local_offset | 0x80);
-                    while (p_org < p)
+                    }
+                    while (p_org < p) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
                         *p_org++ = WASM_OP_NOP;
+                    }
                 }
 #endif
 #endif
@@ -7289,6 +7409,9 @@ handle_op_block_and_loop:
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                    record_fast_op(module, p_org, *p_org);
+#endif
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
 #endif
@@ -7338,10 +7461,16 @@ handle_op_block_and_loop:
 #if WASM_ENABLE_FAST_INTERP == 0
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                    record_fast_op(module, p_org, *p_org);
+#endif
                     *p_org = WASM_OP_SET_GLOBAL_64;
                 }
                 else if (module->aux_stack_size > 0
                          && global_idx == module->aux_stack_top_global_index) {
+#if WASM_ENABLE_DEBUG_ENGINE != 0
+                    record_fast_op(module, p_org, *p_org);
+#endif
                     *p_org = WASM_OP_SET_GLOBAL_AUX_STACK;
                 }
 #else /* else of WASM_ENABLE_FAST_INTERP */
