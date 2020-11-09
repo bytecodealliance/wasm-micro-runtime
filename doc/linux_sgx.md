@@ -17,6 +17,8 @@ cmake ..
 make
 ```
 
+**Note:** By default, the generated SGX application assumes it is signed with production key and running on simulation mode. In order to build a debug enclave on hardware-based SGX platform, execute `make SGX_DEBUG=1 SGX_MODE=HW` instead.
+
 This builds two libraries required by SGX application:
  - libvmlib.a for Enclave part
  - libvmlib_untrusted.a for App part
