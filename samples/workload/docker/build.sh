@@ -13,6 +13,7 @@ WASI_SDK_VER=11.0
 WABT_VER=1.0.19
 CMAKE_VER=3.16.2
 BINARYEN_VER=version_97
+BAZEL_VER=3.7.0
 
 cd build_scripts
 if [[ ! -f wasi-sdk-${WASI_SDK_VER}-linux.tar.gz ]]; then
@@ -34,6 +35,10 @@ fi
 if [[ ! -f binaryen-${BINARYEN_VER}-x86_64-linux.tar.gz ]]; then
   wget https://github.com/WebAssembly/binaryen/releases/download/${BINARYEN_VER}/binaryen-${BINARYEN_VER}-x86_64-linux.tar.gz
 fi
+
+if [[ ! -f bazel-${BAZEL_VER}-installer-linux-x86_64.sh ]]; then
+  wget https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VER}/bazel-${BAZEL_VER}-installer-linux-x86_64.sh
+fi
 cd -
 
 docker build \
@@ -45,4 +50,5 @@ docker build \
   --build-arg WABT_VER=${WABT_VER} \
   --build-arg CMAKE_VER=${CMAKE_VER} \
   --build-arg BINARYEN_VER=${BINARYEN_VER} \
+  --build-arg BAZEL_VER=${BAZEL_VER} \
   -t clang_env:0.1 -f Dockerfile build_scripts

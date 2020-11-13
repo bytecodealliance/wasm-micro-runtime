@@ -11,17 +11,26 @@
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
+#define validate_app_addr(offset, size) \
+    wasm_runtime_validate_app_addr(module_inst, offset, size)
+
+#define validate_app_str_addr(offset) \
+    wasm_runtime_validate_app_str_addr(module_inst, offset)
+
 #define validate_native_addr(addr, size) \
     wasm_runtime_validate_native_addr(module_inst, addr, size)
+
+#define addr_app_to_native(offset) \
+    wasm_runtime_addr_app_to_native(module_inst, offset)
+
+#define addr_native_to_app(ptr) \
+    wasm_runtime_addr_native_to_app(module_inst, ptr)
 
 #define module_malloc(size, p_native_addr) \
     wasm_runtime_module_malloc(module_inst, size, p_native_addr)
 
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
-
-#define REG_NATIVE_FUNC(func_name, signature)  \
-    { #func_name, func_name##_wrapper, signature, NULL }
 
 extern bool
 wasm_runtime_call_indirect(wasm_exec_env_t exec_env,
@@ -282,12 +291,15 @@ fopen_wrapper(wasm_exec_env_t exec_env,
     int file_id;
 
     if (pathname == NULL || mode == NULL)
-        return -1;
+        return 0;
 
     if ((file_id = get_free_file_slot()) == -1)
-        return -1;
+        return 0;
 
     file = fopen(pathname, mode);
+    if (!file)
+        return 0;
+
     file_list[file_id] = file;
     return file_id + 1;
 }
@@ -306,6 +318,22 @@ fread_wrapper(wasm_exec_env_t exec_env,
         return 0;
     }
     return (uint32)fread(ptr, size, nmemb, file);
+}
+
+static int
+fseeko_wrapper(wasm_exec_env_t exec_env,
+               int file_id, int64 offset, int whence)
+{
+    FILE *file;
+
+    file_id = file_id - 1;
+    if ((unsigned)file_id >= sizeof(file_list) / sizeof(FILE *)) {
+        return -1;
+    }
+    if ((file = file_list[file_id]) == NULL) {
+        return -1;
+    }
+    return (uint32)fseek(file, offset, whence);
 }
 
 static uint32
@@ -351,6 +379,113 @@ fclose_wrapper(wasm_exec_env_t exec_env, int file_id)
     file_list[file_id] = NULL;
     return fclose(file);
 }
+
+static int
+__sys_mkdir_wrapper(wasm_exec_env_t exec_env,
+                    const char *pathname, int mode)
+{
+    if (!pathname)
+        return -1;
+    return mkdir(pathname, mode);
+}
+
+static int
+__sys_rmdir_wrapper(wasm_exec_env_t exec_env, const char *pathname)
+{
+    if (!pathname)
+        return -1;
+    return rmdir(pathname);
+}
+
+static int
+__sys_unlink_wrapper(wasm_exec_env_t exec_env, const char *pathname)
+{
+    if (!pathname)
+        return -1;
+    return unlink(pathname);
+}
+
+static uint32
+__sys_getcwd_wrapper(wasm_exec_env_t exec_env, char *buf, uint32 size)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    char *ret;
+
+    if (!buf)
+        return -1;
+
+    ret = getcwd(buf, size);
+    return ret ? addr_native_to_app(ret) : 0;
+}
+
+#include <sys/utsname.h>
+
+struct utsname_app {
+    char sysname[64];
+    char nodename[64];
+    char release[64];
+    char version[64];
+    char machine[64];
+    char domainname[64];
+};
+
+static int
+__sys_uname_wrapper(wasm_exec_env_t exec_env, struct utsname_app *uname_app)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    struct utsname uname_native = { 0 };
+    uint32 length;
+
+    if (!validate_native_addr(uname_app, sizeof(struct utsname_app)))
+        return -1;
+
+    if (uname(&uname_native) != 0) {
+        return -1;
+    }
+
+    memset(uname_app, 0, sizeof(struct utsname_app));
+
+    length = strlen(uname_native.sysname);
+    if (length > sizeof(uname_app->sysname) - 1)
+        length = sizeof(uname_app->sysname) - 1;
+    bh_memcpy_s(uname_app->sysname, sizeof(uname_app->sysname),
+                uname_native.sysname, length);
+
+    length = strlen(uname_native.nodename);
+    if (length > sizeof(uname_app->nodename) - 1)
+        length = sizeof(uname_app->nodename) - 1;
+    bh_memcpy_s(uname_app->nodename, sizeof(uname_app->nodename),
+                uname_native.nodename, length);
+
+    length = strlen(uname_native.release);
+    if (length > sizeof(uname_app->release) - 1)
+        length = sizeof(uname_app->release) - 1;
+    bh_memcpy_s(uname_app->release, sizeof(uname_app->release),
+                uname_native.release, length);
+
+    length = strlen(uname_native.version);
+    if (length > sizeof(uname_app->version) - 1)
+        length = sizeof(uname_app->version) - 1;
+    bh_memcpy_s(uname_app->version, sizeof(uname_app->version),
+                uname_native.version, length);
+
+#ifdef _GNU_SOURCE
+    length = strlen(uname_native.domainname);
+    if (length > sizeof(uname_app->domainname) - 1)
+        length = sizeof(uname_app->domainname) - 1;
+    bh_memcpy_s(uname_app->domainname, sizeof(uname_app->domainname),
+                uname_native.domainname, length);
+#endif
+
+    return 0;
+}
+
+static void
+emscripten_notify_memory_growth_wrapper(wasm_exec_env_t exec_env, int i)
+{
+    (void)i;
+}
+
 #endif /* end of BH_PLATFORM_LINUX_SGX */
 
 #define REG_NATIVE_FUNC(func_name, signature)  \
@@ -374,9 +509,16 @@ static NativeSymbol native_symbols_libc_emcc[] = {
 #if !defined(BH_PLATFORM_LINUX_SGX)
     REG_NATIVE_FUNC(fopen, "($$)i"),
     REG_NATIVE_FUNC(fread, "(*iii)i"),
+    REG_NATIVE_FUNC(fseeko, "(iIi)i"),
     REG_NATIVE_FUNC(emcc_fwrite, "(*iii)i"),
     REG_NATIVE_FUNC(feof, "(i)i"),
     REG_NATIVE_FUNC(fclose, "(i)i"),
+    REG_NATIVE_FUNC(__sys_mkdir, "($i)i"),
+    REG_NATIVE_FUNC(__sys_rmdir, "($)i"),
+    REG_NATIVE_FUNC(__sys_unlink, "($)i"),
+    REG_NATIVE_FUNC(__sys_getcwd, "(*~)i"),
+    REG_NATIVE_FUNC(__sys_uname, "(*)i"),
+    REG_NATIVE_FUNC(emscripten_notify_memory_growth, "(i)"),
 #endif /* end of BH_PLATFORM_LINUX_SGX */
 };
 
