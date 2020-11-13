@@ -1,45 +1,40 @@
-# WAMR as an Enclave Runtime for Rune
+# Running WAMR as an [Enclave Runtime](https://github.com/alibaba/inclavare-containers/blob/master/docs/design/terminology.md#enclave-runtime) for [Inclavare Containers](https://github.com/alibaba/inclavare-containers)
 
-## Build WAMR vmcore (iwasm) for Linux-SGX
+In order to establish with `rune`, a novel OCI Runtime for spawning and running enclaves in containers, it is required to implement an [enclave runtime PAL](https://github.com/alibaba/inclavare-containers/blob/master/docs/design/terminology.md#enclave-runtime-pal) to make the communications with WAMR.
 
-Please follow [this guide](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/linux_sgx.md#build-wamr-vmcore-iwasm-for-linux-sgx) to build iwasm as the prerequisite.
+With the assist of `rune`, WAMR is brought to the cloud-native ecosystem beyond the basis. This is the so-called term "WAMR enclave runtime".
 
-Then build enclave image and sign it:
+This guide will provide the information about the build, integration and deployment for WAMR enclave runtime. Eventually, the resulting docker image will be launched by `rune`, and the WARM application as the entrypoint of docker image will run in Intel SGX enclave with the hardware-enforced isolation and cryptographically data protection.
 
-```shell
-cd enclave-sample
-make
-/opt/intel/sgxsdk/bin/x64/sgx_sign sign -key Enclave/Enclave_private.pem -enclave enclave.so -out enclave.signed.so -config Enclave/Enclave.config.xml
-```
+## Build WAMR vmcore (iwasm) and enclave image
 
-The generated enclave.signed.so is required by PAL.
+Please follow [this guide](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/linux_sgx.md#build-wamr-vmcore-iwasm-for-linux-sgx) to build iwasm and enclave image as the prerequisite.
+
+The generated enclave image enclave.signed.so will be consumed by WAMR enclave runtime mentioned below.
 
 ---
 
-## Build PAL dynamically linked shared object
-
-To build WAMR as an Enclave Runtime for [Inclavare Containers](https://github.com/alibaba/inclavare-containers), we should implement the [PAL API v2](https://github.com/alibaba/inclavare-containers/blob/master/rune/libenclave/internal/runtime/pal/spec_v2.md) in WAMR for rune to call the PAL to create the enclave with WAMR and run applications.
+## Build and install the PAL of WAMR enclave runtime
 
 ```shell
 g++ -shared -fPIC -o libwamr-pal.so App/*.o libvmlib_untrusted.a -L/opt/intel/sgxsdk/lib64 -lsgx_urts -lpthread -lssl -lcrypto
 cp ./libwamr-pal.so /usr/lib/libwamr-pal.so
 ```
 
-Note: Assuming `/opt/intel/sgxsdk/` is where you installed the SGX SDK.
-
 ---
 
 ## Build WAMR application
 
-To Build a WAMR application, please refer to [this guide](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/build_wasm_app.md#build-wasm-applications)
+As the prerequisite, please
+- refer to [this step](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/build_wasm_app.md#prepare-wasm-building-environments) to install wasi-sdk. Note that the binaries of wasi-sdk must be installed at `/opt/wasi-sdk/bin/`.
+- refer to [this guide](https://github.com/bytecodealliance/wasm-micro-runtime#build-wamrc-aot-compiler) to generate wamrc AoT compiler.
 
-To run a WAMR application with Intel SGX enclave by `rune`, please refer to [this guide](https://github.com/bytecodealliance/wasm-micro-runtime#build-wamrc-aot-compiler) to generate wamrc AoT compiler, and then refer to [this guide](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/build_wasm_app.md#compile-wasm-to-aot-module) to compile the `.wasm` file to `.aot` file.
-
-Note: the AoT file must be generated using --size-level=1 to set a bigger code size, e.g,
-
+The sample WAMR application test.c is provided in [this guide](https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/build_wasm_app.md#build-wasm-applications). Don't forget to compile the `.wasm` file to `.aot` file:
 ```shell
-wamrc --size-level=1 -o test.aot test.wasm
+wamrc -sgx -o test.aot test.wasm
 ```
+
+The generated test.aot is the WAMR application launched by WAMR enclave runtime.
 
 ---
 
@@ -47,7 +42,7 @@ wamrc --size-level=1 -o test.aot test.wasm
 
 Under the `enclave-sample` directory, to create the WAMR docker images to load the `enclave.signed.so` and target application wasm files, please type the following commands to create a `Dockerfile`:
 
-For centos:
+For CentOS:
 
 ```shell
 cat >Dockerfile <<EOF
@@ -57,9 +52,9 @@ RUN mkdir -p /run/rune
 WORKDIR /run/rune
 
 COPY enclave.signed.so .
-COPY ${wasm_app.aot} .
-#COPY ${wasm_app2.aot} .
-#...
+COPY test.aot app
+#COPY ${wasm_app.aot} .
+ENTRYPOINT ["/run/rune/app"]
 EOF
 ```
 
@@ -73,23 +68,23 @@ RUN mkdir -p /run/rune
 WORKDIR /run/rune
 
 COPY enclave.signed.so .
-COPY ${wasm_app.aot} .
+COPY test.aot app
 #COPY ${wasm_app.aot} .
-#...
+ENTRYPOINT ["/run/rune/app"]
 EOF
 ```
 
-where `${wasm_app.aot}` files are the other applications you want to run in WAMR.
+where `${wasm_app.aot}` files are the extra WAMR applications you want to run.
 
 Then build the WAMR docker image with the command:
 
 ```shell
-docker build . -t wamr-app
+docker build . -t wamr-sgx-app
 ```
 
 ---
 
-## Run WAMR SGX with Docker and OCI Runtime rune
+## Deploy WAMR SGX Docker image
 
 The following guide provides the steps to run WAMR with Docker and OCI Runtime `rune`.
 
@@ -112,11 +107,11 @@ The following guide provides the steps to run WAMR with Docker and OCI Runtime `
 
 - The simplest way to install `rune` is to download a pre-built binary from [Inclavare Containers release page](https://github.com/alibaba/inclavare-containers/releases).
 
-### Configuring OCI Runtime rune for Docker
+### Integrate OCI Runtime rune with Docker
 
-Add the assocated configuration for `rune` in dockerd config file, e.g, `/etc/docker/daemon.json`, on your system.
+Add the associated configuration for `rune` in dockerd config file, e.g, `/etc/docker/daemon.json`, on your system.
 
-```
+```json
 {
 	"runtimes": {
 		"rune": {
@@ -141,7 +136,7 @@ The expected result would be:
 Runtimes: rune runc
 ```
 
-### Run WAMR docker image
+### Run WAMR SGX docker image
 
 You need to specify a set of parameters to `docker run` to run:
 
@@ -150,7 +145,7 @@ docker run -it --rm --runtime=rune \
   -e ENCLAVE_TYPE=intelSgx \
   -e ENCLAVE_RUNTIME_PATH=/usr/lib/libwamr-pal.so \
   -e ENCLAVE_RUNTIME_ARGS=debug \
-  wamr-app /run/rune/${wasm_app.aot}
+  wamr-sgx-app
 ```
 
 where:
@@ -161,6 +156,6 @@ where:
 
 ---
 
-## (Optional) Run WAMR bundle for rune
+## Develop and debug WAMR enclave runtime with rune
 
 Please refer to [this guide](https://github.com/leyao-daily/wasm-micro-runtime/blob/main/product-mini/platforms/linux-sgx/enclave-sample/App/wamr-bundle.md). This is optional, and suits for the developer in most cases.
