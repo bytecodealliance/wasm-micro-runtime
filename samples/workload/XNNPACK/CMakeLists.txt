@@ -1,0 +1,102 @@
+# Copyright (C) 2019 Intel Corporation. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+cmake_minimum_required (VERSION 3.0)
+
+project(xnnpack_wasm)
+
+################  EMCC ################
+if(NOT DEFINED ENV{EMSDK})
+  message(SEND_ERROR
+    "can not find emsdk. "
+    "please refer to https://emscripten.org/docs/getting_started/downloads.html "
+    "and install it, "
+    "or active emsdk by 'source ./emsdk_env.sh'"
+  )
+endif()
+
+include(ExternalProject)
+
+ExternalProject_Add(xnnpack
+    PREFIX xnnpack
+    GIT_REPOSITORY https://github.com/google/XNNPACK.git
+    GIT_TAG        2da0de89960b829c6fae74204a102db524e73047
+    GIT_PROGRESS   ON
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
+    UPDATE_COMMAND git checkout .bazelrc BUILD.bazel emscripten.bzl
+                   && git apply ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack.patch
+                   && cmake -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/toolchain ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/toolchain
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND  cd ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
+                   && bazel build -c opt --sandbox_writable_path=$ENV{HOME} --config=emscripten_wasm
+                        //:qs8_gemm_bench.wasm
+                        //:qs8_requantization_bench.wasm
+                        //:qu8_gemm_bench.wasm
+                        //:qu8_requantization_bench.wasm
+                        //:f16_igemm_bench.wasm
+                        //:f16_gemm_bench.wasm
+                        //:f16_spmm_bench.wasm
+                        //:f32_igemm_bench.wasm
+                        //:f16_relu_bench.wasm
+                        //:f32_conv_hwc_bench.wasm
+                        //:f32_conv_hwc2chw_bench.wasm
+                        //:f16_dwconv_bench.wasm
+                        //:f32_dwconv_bench.wasm
+                        //:f32_dwconv2d_chw_bench.wasm
+                        //:f32_gemm_bench.wasm
+                        //:f32_hswish_bench.wasm
+                        //:f32_raddexpminusmax_bench.wasm
+                        //:f32_raddextexp_bench.wasm
+                        //:f32_raddstoreexpminusmax_bench.wasm
+                        //:f32_relu_bench.wasm
+                        //:f32_rmax_bench.wasm
+                        //:f32_sigmoid_bench.wasm
+                        //:f32_spmm_bench.wasm
+                        //:f32_softmax_bench.wasm
+                        //:f32_vscaleexpminusmax_bench.wasm
+                        //:f32_vscaleextexp_bench.wasm
+                        //:f32_vsqrt_bench.wasm
+                        //:f32_im2col_gemm_bench.wasm
+                        //:rounding_bench.wasm
+                        //:average_pooling_bench.wasm
+                        //:bankers_rounding_bench.wasm
+                        //:ceiling_bench.wasm
+                        //:channel_shuffle_bench.wasm
+                        //:convolution_bench.wasm
+                        //:deconvolution_bench.wasm
+                        //:floor_bench.wasm
+                        //:global_average_pooling_bench.wasm
+                        //:hardswish_bench.wasm
+                        //:max_pooling_bench.wasm
+                        //:sigmoid_bench.wasm
+                        //:prelu_bench.wasm
+                        //:softmax_bench.wasm
+                        //:square_root_bench.wasm
+                        //:truncation_bench.wasm
+                        //:fp32_mobilenet_v1.wasm
+                        //:fp16_mobilenet_v1.wasm
+                        //:qs8_mobilenet_v1.wasm
+                        //:qs8_mobilenet_v2.wasm
+                        //:fp32_mobilenet_v2.wasm
+                        //:fp16_mobilenet_v2.wasm
+                        //:fp32_mobilenet_v3_large.wasm
+                        //:fp16_mobilenet_v3_large.wasm
+                        //:fp32_mobilenet_v3_small.wasm
+                        //:fp16_mobilenet_v3_small.wasm
+                        //:f32_dwconv_e2e_bench.wasm
+                        //:f32_gemm_e2e_bench.wasm
+                        //:end2end_bench.wasm
+                        //:f32_exp_eval.wasm
+                        //:f32_expminus_eval.wasm
+                        //:f32_extexp_eval.wasm
+                        //:f32_roundne_eval.wasm
+                        //:f32_roundd_eval.wasm
+                        //:f32_roundu_eval.wasm
+                        //:f32_roundz_eval.wasm
+                        //:f32_sigmoid_eval.wasm
+                        //:f32_sqrt_eval.wasm
+                        #--sandbox_debug
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E create_symlink
+                      ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/bazel-out/wasm-opt/bin/
+                      ${CMAKE_CURRENT_SOURCE_DIR}/build/wasm-opt
+)

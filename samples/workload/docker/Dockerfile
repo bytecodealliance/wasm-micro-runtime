@@ -13,6 +13,7 @@ ARG WASI_SDK_VER=11.0
 ARG WABT_VER=1.0.19
 ARG CMAKE_VER=3.16.2
 ARG BINARYEN_VER=version_97
+ARG BAZEL_VER=3.7.0
 
 #
 # install wasi-sdk
@@ -65,6 +66,16 @@ RUN cd /opt \
     && tar zxf ${BINARYEN_FILE} \
     && rm ${BINARYEN_FILE}  \
     && ln -sf /opt/binaryen-${BINARYEN_VER} /opt/binaryen
+
+RUN apt install -y unzip zip
+
+#
+# install bazel
+ARG BAZEL_FILE=bazel-${BAZEL_VER}-installer-linux-x86_64.sh
+COPY ${BAZEL_FILE} /tmp
+RUN cd /tmp \
+      && chmod a+x ${BAZEL_FILE} \
+      && ./${BAZEL_FILE}
 
 #
 # Clean up

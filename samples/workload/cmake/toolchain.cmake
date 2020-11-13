@@ -59,6 +59,8 @@ add_compile_options(
   $<$<CONFIG:Debug>:-v>
 )
 
+# need users to create their own additional include files
+
 ################  AR  ################
 find_program(LLVM_AR NAMES llvm-ar llvm-ar-11 REQUIRED)
 
