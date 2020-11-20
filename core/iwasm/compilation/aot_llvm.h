@@ -13,7 +13,9 @@
 #include "llvm-c/Object.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Analysis.h"
+#include "llvm-c/Transforms/Utils.h"
 #include "llvm-c/Transforms/Scalar.h"
+#include "llvm-c/Transforms/Vectorize.h"
 
 #ifdef __cplusplus
 extern "C" {

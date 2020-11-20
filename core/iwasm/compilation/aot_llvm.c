@@ -1401,6 +1401,20 @@ aot_create_comp_context(AOTCompData *comp_data,
     LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
     LLVMAddJumpThreadingPass(comp_ctx->pass_mgr);
     LLVMAddConstantPropagationPass(comp_ctx->pass_mgr);
+    LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
+
+    if (!option->is_jit_mode) {
+        LLVMAddLoopRotatePass(comp_ctx->pass_mgr);
+        LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
+        LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
+        LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
+        LLVMAddGVNPass(comp_ctx->pass_mgr);
+        LLVMAddLICMPass(comp_ctx->pass_mgr);
+        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
+        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
+        LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
+        LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
+    }
 
     /* Create metadata for llvm float experimental constrained intrinsics */
     if (!(comp_ctx->fp_rounding_mode =
