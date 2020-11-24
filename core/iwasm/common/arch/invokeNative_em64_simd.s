@@ -41,14 +41,14 @@ push_args:
     loop push_args
 push_args_end:
     /* fill all fp args */
-    movdqa 0x00(%rsi), %xmm0
-    movdqa 0x10(%rsi), %xmm1
-    movdqa 0x20(%rsi), %xmm2
-    movdqa 0x30(%rsi), %xmm3
-    movdqa 0x40(%rsi), %xmm4
-    movdqa 0x50(%rsi), %xmm5
-    movdqa 0x60(%rsi), %xmm6
-    movdqa 0x70(%rsi), %xmm7
+    movdqu 0x00(%rsi), %xmm0
+    movdqu 0x10(%rsi), %xmm1
+    movdqu 0x20(%rsi), %xmm2
+    movdqu 0x30(%rsi), %xmm3
+    movdqu 0x40(%rsi), %xmm4
+    movdqu 0x50(%rsi), %xmm5
+    movdqu 0x60(%rsi), %xmm6
+    movdqu 0x70(%rsi), %xmm7
 
     /* fill all int args */
     movq 0x80(%rsi), %rdi

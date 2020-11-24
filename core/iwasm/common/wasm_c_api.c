@@ -579,8 +579,10 @@ wasm_functype_new(wasm_valtype_vec_t *params, wasm_valtype_vec_t *results)
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    FREEIF(func_type->params);
-    FREEIF(func_type->results);
+    if (func_type)
+        FREEIF(func_type->params);
+    if (func_type)
+        FREEIF(func_type->results);
     FREEIF(func_type);
     return NULL;
 }
@@ -1151,10 +1153,15 @@ native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
     }
 
     if (trap) {
-        wasm_name_t *message = NULL;
-        wasm_trap_message(trap, message);
-        LOG_WARNING("got a trap %s", message->data);
-        wasm_name_delete(message);
+        wasm_name_t *message = malloc_internal(sizeof(wasm_name_t));
+        if (message) {
+            wasm_trap_message(trap, message);
+            if (message->data) {
+                LOG_WARNING("got a trap %s", message->data);
+                wasm_name_delete(message);
+            }
+            FREEIF(message);
+        }
     }
 
     /* there is no result or there is an exception */
@@ -2188,7 +2195,7 @@ interp_process_export(wasm_store_t *store,
     uint32 export_cnt = 0;
     uint32 i = 0;
 
-    bh_assert(store && inst_interp && externals);
+    bh_assert(store && inst_interp && inst_interp->module && externals);
 
     exports = inst_interp->module->exports;
     export_cnt = inst_interp->module->export_count;

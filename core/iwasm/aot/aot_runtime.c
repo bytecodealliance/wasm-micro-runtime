@@ -644,6 +644,24 @@ create_exports(AOTModuleInstance *module_inst, AOTModule *module,
 }
 
 static bool
+clear_wasi_proc_exit_exception(AOTModuleInstance *module_inst)
+{
+#if WASM_ENABLE_LIBC_WASI != 0
+    const char *exception = aot_get_exception(module_inst);
+    if (exception && !strcmp(exception, "Exception: wasi proc exit")) {
+        /* The "wasi proc exit" exception is thrown by native lib to
+           let wasm app exit, which is a normal behavior, we clear
+           the exception here. */
+        aot_set_exception(module_inst, NULL);
+        return true;
+    }
+    return false;
+#else
+    return false;
+#endif
+}
+
+static bool
 execute_post_inst_function(AOTModuleInstance *module_inst)
 {
     AOTFunctionInstance *post_inst_func =
@@ -677,6 +695,7 @@ execute_start_function(AOTModuleInstance *module_inst)
     u.f(exec_env);
 
     wasm_exec_env_destroy(exec_env);
+    (void)clear_wasi_proc_exit_exception(module_inst);
     return !aot_get_exception(module_inst);
 }
 
@@ -974,6 +993,7 @@ touch_pages(uint8 *stack_min_addr, uint32 page_size)
             sum += *(stack_min_addr + page_size - 1);
             break;
         }
+        *touch_addr = 0;
         sum += *touch_addr;
     }
     return sum;
@@ -1011,7 +1031,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     if (!exec_env->jmpbuf_stack_top) {
         /* Touch each stack page to ensure that it has been mapped: the OS may
            lazily grow the stack mapping as a guard page is hit. */
-        touch_pages(stack_min_addr, page_size);
+        (void)touch_pages(stack_min_addr, page_size);
         /* First time to call aot function, protect one page */
         if (os_mprotect(stack_min_addr, page_size * guard_page_count,
                         MMAP_PROT_NONE) != 0) {
@@ -1106,6 +1126,8 @@ aot_call_function(WASMExecEnv *exec_env,
         if (!ret || aot_get_exception(module_inst)) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
+            if (clear_wasi_proc_exit_exception(module_inst))
+                return true;
             return false;
         }
 
@@ -1134,6 +1156,8 @@ aot_call_function(WASMExecEnv *exec_env,
     else {
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv, argc, argv);
+        if (clear_wasi_proc_exit_exception(module_inst))
+            return true;
         return ret && !aot_get_exception(module_inst) ? true : false;
     }
 }
@@ -1377,10 +1401,15 @@ aot_validate_app_addr(AOTModuleInstance *module_inst,
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
 
+    if (!memory_inst) {
+        goto fail;
+    }
+
     /* integer overflow check */
     if(app_offset + size < app_offset) {
         goto fail;
     }
+
     if (app_offset + size <= memory_inst->memory_data_size) {
         return true;
     }
@@ -1393,8 +1422,12 @@ bool
 aot_validate_native_addr(AOTModuleInstance *module_inst,
                          void *native_ptr, uint32 size)
 {
-    uint8 *addr = (uint8 *)native_ptr;
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    uint8 *addr = (uint8 *)native_ptr;
+
+    if (!memory_inst) {
+        goto fail;
+    }
 
     /* integer overflow check */
     if (addr + size < addr) {
@@ -1413,7 +1446,13 @@ void *
 aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint8 *addr = (uint8 *)memory_inst->memory_data.ptr + app_offset;
+    uint8 *addr;
+
+    if (!memory_inst) {
+        return NULL;
+    }
+
+    addr = (uint8 *)memory_inst->memory_data.ptr + app_offset;
 
     if ((uint8 *)memory_inst->memory_data.ptr <= addr
         && addr < (uint8 *)memory_inst->memory_data_end.ptr)
@@ -1424,8 +1463,12 @@ aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset)
 uint32
 aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr)
 {
-    uint8 *addr = (uint8 *)native_ptr;
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    uint8 *addr = (uint8 *)native_ptr;
+
+    if (!memory_inst) {
+        return 0;
+    }
 
     if ((uint8 *)memory_inst->memory_data.ptr <= addr
         && addr < (uint8 *)memory_inst->memory_data_end.ptr)
@@ -1440,7 +1483,13 @@ aot_get_app_addr_range(AOTModuleInstance *module_inst,
                        uint32 *p_app_end_offset)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint32 memory_data_size = memory_inst->memory_data_size;
+    uint32 memory_data_size;
+
+    if (!memory_inst) {
+        return false;
+    }
+
+    memory_data_size = memory_inst->memory_data_size;
 
     if (app_offset < memory_data_size) {
         if (p_app_start_offset)
@@ -1458,8 +1507,12 @@ aot_get_native_addr_range(AOTModuleInstance *module_inst,
                           uint8 **p_native_start_addr,
                           uint8 **p_native_end_addr)
 {
-    uint8 *addr = (uint8 *)native_ptr;
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    uint8 *addr = (uint8 *)native_ptr;
+
+    if (!memory_inst) {
+        return false;
+    }
 
     if ((uint8 *)memory_inst->memory_data.ptr <= addr
         && addr < (uint8 *)memory_inst->memory_data_end.ptr) {
@@ -1477,17 +1530,24 @@ bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint32 num_bytes_per_page = memory_inst->num_bytes_per_page;
-    uint32 cur_page_count = memory_inst->cur_page_count;
-    uint32 max_page_count = memory_inst->max_page_count;
-    uint32 total_page_count = cur_page_count + inc_page_count;
-    uint32 total_size_old = memory_inst->memory_data_size;
-    uint64 total_size = (uint64)num_bytes_per_page * total_page_count;
-    uint32 heap_size = (uint32)((uint8 *)memory_inst->heap_data_end.ptr
-                                - (uint8 *)memory_inst->heap_data.ptr);
-    uint8 *memory_data_old = (uint8 *)memory_inst->memory_data.ptr;
-    uint8 *heap_data_old = (uint8 *)memory_inst->heap_data.ptr;
-    uint8 *memory_data, *heap_data;
+    uint32 num_bytes_per_page, cur_page_count, max_page_count;
+    uint32 total_page_count, total_size_old, heap_size;
+    uint64 total_size;
+    uint8 *memory_data_old, *heap_data_old, *memory_data, *heap_data;
+
+    if (!memory_inst)
+        return false;
+
+    num_bytes_per_page = memory_inst->num_bytes_per_page;
+    cur_page_count = memory_inst->cur_page_count;
+    max_page_count = memory_inst->max_page_count;
+    total_page_count = cur_page_count + inc_page_count;
+    total_size_old = memory_inst->memory_data_size;
+    total_size = (uint64)num_bytes_per_page * total_page_count;
+    heap_size = (uint32)((uint8 *)memory_inst->heap_data_end.ptr
+                         - (uint8 *)memory_inst->heap_data.ptr);
+    memory_data_old = (uint8 *)memory_inst->memory_data.ptr;
+    heap_data_old = (uint8 *)memory_inst->heap_data.ptr;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -1563,11 +1623,18 @@ bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
-    uint32 num_bytes_per_page = memory_inst->num_bytes_per_page;
-    uint32 cur_page_count = memory_inst->cur_page_count;
-    uint32 max_page_count = memory_inst->max_page_count;
-    uint32 total_page_count = cur_page_count + inc_page_count;
-    uint64 total_size = (uint64)num_bytes_per_page * total_page_count;
+    uint32 num_bytes_per_page, cur_page_count, max_page_count;
+    uint32 total_page_count;
+    uint64 total_size;
+
+    if (!memory_inst)
+        return false;
+
+    num_bytes_per_page = memory_inst->num_bytes_per_page;
+    cur_page_count = memory_inst->cur_page_count;
+    max_page_count = memory_inst->max_page_count;
+    total_page_count = cur_page_count + inc_page_count;
+    total_size = (uint64)num_bytes_per_page * total_page_count;
 
     if (inc_page_count <= 0)
         /* No need to enlarge memory */
@@ -1802,6 +1869,8 @@ aot_call_indirect(WASMExecEnv *exec_env,
         if (!ret || aot_get_exception(module_inst)) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
+            if (clear_wasi_proc_exit_exception(module_inst))
+                return true;
             return false;
         }
 
@@ -1829,9 +1898,12 @@ aot_call_indirect(WASMExecEnv *exec_env,
         return true;
     }
     else {
-        return invoke_native_internal(exec_env, func_ptr,
-                                      func_type, signature, attachment,
-                                      argv, argc, argv);
+        ret = invoke_native_internal(exec_env, func_ptr,
+                                     func_type, signature, attachment,
+                                     argv, argc, argv);
+        if (clear_wasi_proc_exit_exception(module_inst))
+            return true;
+        return ret;
     }
 }
 
@@ -2013,15 +2085,15 @@ aot_get_module_mem_consumption(const AOTModule *module,
         mem_conspn->data_segs_size += sizeof(AOTMemInitData);
     }
 
-    mem_conspn->const_strs_size =
-        bh_hash_map_get_struct_size(module->const_str_set);
-
-    const_string_size = 0;
     if (module->const_str_set) {
+        mem_conspn->const_strs_size =
+            bh_hash_map_get_struct_size(module->const_str_set);
+
+        const_string_size = 0;
         bh_hash_map_traverse(module->const_str_set,
                              const_string_node_size_cb);
+        mem_conspn->const_strs_size += const_string_size;
     }
-    mem_conspn->const_strs_size += const_string_size;
 
     /* code size + literal size + object data section size */
     mem_conspn->aot_code_size = module->code_size + module->literal_size
@@ -2065,6 +2137,9 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
             mem_inst->num_bytes_per_page * mem_inst->cur_page_count;
         mem_conspn->app_heap_size =
             mem_inst->heap_data_end.ptr - mem_inst->heap_data.ptr;
+        /* size of app heap structure */
+        mem_conspn->memories_size +=
+            mem_allocator_get_heap_struct_size();
     }
 
     mem_conspn->tables_size = sizeof(uint32) * module_inst->table_size;

@@ -443,7 +443,10 @@ static void hal_init(void)
 
     /*Create a display*/
     lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);            /*Basic initialization*/
+
+    /*Basic initialization*/
+    memset(&disp_drv, 0, sizeof(disp_drv));
+    lv_disp_drv_init(&disp_drv);
     disp_drv.buffer = &disp_buf1;
     disp_drv.flush_cb = monitor_flush;
     //    disp_drv.hor_res = 200;

@@ -290,11 +290,11 @@ bh_hash_map_destroy(HashMap *map)
 uint32
 bh_hash_map_get_struct_size(HashMap *hashmap)
 {
-    uint32 size = offsetof(HashMap, elements)
-                  + sizeof(HashMapElem *) * hashmap->size;
+    uint32 size = (uint32)(uintptr_t)offsetof(HashMap, elements)
+                  + (uint32)sizeof(HashMapElem *) * hashmap->size;
 
     if (hashmap->lock) {
-        size += sizeof(korp_mutex);
+        size += (uint32)sizeof(korp_mutex);
     }
 
     return size;
@@ -303,7 +303,7 @@ bh_hash_map_get_struct_size(HashMap *hashmap)
 uint32
 bh_hash_map_get_elem_struct_size()
 {
-    return sizeof(HashMapElem);
+    return (uint32)sizeof(HashMapElem);
 }
 
 bool

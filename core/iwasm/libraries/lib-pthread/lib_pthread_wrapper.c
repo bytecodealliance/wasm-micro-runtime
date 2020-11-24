@@ -265,6 +265,10 @@ call_key_destructor(wasm_exec_env_t exec_env)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     ClusterInfoNode *info = get_cluster_info(cluster);
 
+    if (!info) {
+        return;
+    }
+
     value_node = bh_list_first_elem(info->thread_list);
     while (value_node) {
         if (value_node->exec_env == exec_env)
@@ -435,6 +439,11 @@ get_thread_info(wasm_exec_env_t exec_env, uint32 handle)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     ClusterInfoNode *info = get_cluster_info(cluster);
+
+    if (!info) {
+        return NULL;
+    }
+
     return bh_hash_map_find(info->thread_info_map, (void *)(uintptr_t)handle);
 }
 
@@ -523,6 +532,8 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     WASIContext *wasi_ctx = get_wasi_ctx(module_inst);
 #endif
+
+    bh_assert(module);
 
     if (!(new_module_inst =
             wasm_runtime_instantiate_internal(module, true, 8192, 0,

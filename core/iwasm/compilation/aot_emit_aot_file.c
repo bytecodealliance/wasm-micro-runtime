@@ -878,7 +878,7 @@ static union {
     uint64 *t = (uint64*)v.i64x2;           \
     CHECK_BUF(16);                          \
     if (!is_little_endian())                \
-        exchange_uint128((uint8 *)&t);      \
+        exchange_uint128((uint8 *)t);       \
     PUT_U64_TO_ADDR(buf + offset, t[0]);    \
     offset += (uint32)sizeof(uint64);       \
     PUT_U64_TO_ADDR(buf + offset, t[1]);    \

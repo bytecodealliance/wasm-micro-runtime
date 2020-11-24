@@ -87,6 +87,7 @@ os_free(void *ptr)
 {
 }
 
+#if 0
 struct out_context {
     int count;
 };
@@ -100,13 +101,19 @@ char_out(int c, void *ctx)
     out_ctx->count++;
     return _stdout_hook_iwasm(c);
 }
+#endif
 
 int
 os_vprintf(const char *fmt, va_list ap)
 {
+#if 0
     struct out_context ctx = { 0 };
     z_vprintk(char_out, &ctx, fmt, ap);
     return ctx.count;
+#else
+    vprintk(fmt, ap);
+    return 0;
+#endif
 }
 
 void *

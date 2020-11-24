@@ -267,6 +267,21 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
     return getentropy(buffer, length);
 }
 
+static int
+setjmp_wrapper(wasm_exec_env_t exec_env,
+               void *jmp_buf)
+{
+    os_printf("setjmp() called\n");
+    return 0;
+}
+
+static void
+longjmp_wrapper(wasm_exec_env_t exec_env,
+               void *jmp_buf, int val)
+{
+    os_printf("longjmp() called\n");
+}
+
 #if !defined(BH_PLATFORM_LINUX_SGX)
 static FILE *file_list[32] = { 0 };
 
@@ -506,6 +521,8 @@ static NativeSymbol native_symbols_libc_emcc[] = {
     REG_NATIVE_FUNC(munmap, "(ii)i"),
     REG_NATIVE_FUNC(__munmap, "(ii)i"),
     REG_NATIVE_FUNC(getentropy, "(*~)i"),
+    REG_NATIVE_FUNC(setjmp, "(*)i"),
+    REG_NATIVE_FUNC(longjmp, "(*i)"),
 #if !defined(BH_PLATFORM_LINUX_SGX)
     REG_NATIVE_FUNC(fopen, "($$)i"),
     REG_NATIVE_FUNC(fread, "(*iii)i"),

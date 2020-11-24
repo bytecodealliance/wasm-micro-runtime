@@ -358,6 +358,46 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     for (i = param_count - 1; i >= 0; i--)
         POP(param_values[i + j], func_type->types[i]);
 
+    /* Set parameters for multiple return values, the first return value
+       is returned by function return value, and the other return values
+       are returned by function parameters with pointer types */
+    if (ext_ret_count > 0) {
+        ext_ret_types = func_type->types + param_count + 1;
+        ext_ret_cell_num = wasm_get_cell_num(ext_ret_types, ext_ret_count);
+        if (ext_ret_cell_num > 64) {
+            aot_set_last_error("prepare extra results's return "
+                               "address arguments failed: "
+                               "maximum 64 parameter cell number supported.");
+            goto fail;
+        }
+
+        for (i = 0; i < ext_ret_count; i++) {
+            if (!(ext_ret_idx = I32_CONST(cell_num))
+                || !(ext_ret_ptr_type =
+                        LLVMPointerType(TO_LLVM_TYPE(ext_ret_types[i]), 0))) {
+                aot_set_last_error("llvm add const or pointer type failed.");
+                goto fail;
+            }
+
+            snprintf(buf, sizeof(buf), "ext_ret%d_ptr", i);
+            if (!(ext_ret_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
+                                                     func_ctx->argv_buf,
+                                                     &ext_ret_idx, 1, buf))) {
+                aot_set_last_error("llvm build GEP failed.");
+                goto fail;
+            }
+            snprintf(buf, sizeof(buf), "ext_ret%d_ptr_cast", i);
+            if (!(ext_ret_ptr = LLVMBuildBitCast(comp_ctx->builder,
+                                                 ext_ret_ptr, ext_ret_ptr_type,
+                                                 buf))) {
+                aot_set_last_error("llvm build bit cast failed.");
+                goto fail;
+            }
+            param_values[param_count + 1 + i] = ext_ret_ptr;
+            cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
+        }
+    }
+
     if (func_idx < import_func_count) {
         if (!(import_func_idx = I32_CONST(func_idx))) {
             aot_set_last_error("llvm build inbounds gep failed.");
@@ -406,46 +446,6 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (comp_ctx->enable_bound_check
             && !check_stack_boundary(comp_ctx, func_ctx, callee_cell_num))
             goto fail;
-
-        /* Prepare parameters for extra results */
-        if (ext_ret_count > 0) {
-            ext_ret_types = func_type->types + param_count + 1;
-            ext_ret_cell_num =
-                wasm_get_cell_num(ext_ret_types, ext_ret_count);
-            if (ext_ret_cell_num > 64) {
-                aot_set_last_error("prepare extra results's return "
-                                   "address arguments failed: "
-                                   "maximum 64 parameter cell number supported.");
-                goto fail;
-            }
-
-            for (i = 0; i < ext_ret_count; i++) {
-                if (!(ext_ret_idx = I32_CONST(cell_num))
-                    || !(ext_ret_ptr_type =
-                             LLVMPointerType(TO_LLVM_TYPE(ext_ret_types[i]), 0))) {
-                    aot_set_last_error("llvm add const or pointer type failed.");
-                    goto fail;
-                }
-
-                snprintf(buf, sizeof(buf), "func%d_ext_ret%d_ptr", func_idx, i);
-                if (!(ext_ret_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
-                                                         func_ctx->argv_buf,
-                                                         &ext_ret_idx, 1, buf))) {
-                    aot_set_last_error("llvm build GEP failed.");
-                    goto fail;
-                }
-                snprintf(buf, sizeof(buf), "func%d_ext_ret%d_ptr_cast", func_idx, i);
-                if (!(ext_ret_ptr = LLVMBuildBitCast(comp_ctx->builder,
-                                                        ext_ret_ptr,
-                                                        ext_ret_ptr_type,
-                                                        buf))) {
-                    aot_set_last_error("llvm build bit cast failed.");
-                    goto fail;
-                }
-                param_values[1 + param_count + i] = ext_ret_ptr;
-                cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
-            }
-        }
 
         /* Call the function */
         if (!(value_ret = LLVMBuildCall(comp_ctx->builder, func,

@@ -30,7 +30,7 @@ index c39fff6..4682d43 100644
  		)
  
 diff --git a/test.c b/test.c
-index df2d44b..8e81cdc 100644
+index df2d44b..cb270de 100644
 --- a/test.c
 +++ b/test.c
 @@ -18,6 +18,9 @@
@@ -58,7 +58,7 @@ index df2d44b..8e81cdc 100644
      fclose(f);
  }
  
-@@ -63,6 +67,7 @@ main(int argc, char *argv[]) {
+@@ -63,9 +67,12 @@ main(int argc, char *argv[]) {
                      static int     i = 0;
                      
                      ++i;
@@ -66,6 +66,11 @@ index df2d44b..8e81cdc 100644
                      if (30 <= i && i < 40) {
                          dump_raw_frame(af, i);
                      }
++                    if (i >= 1000)
++                        break;
+                 }
+                 /*
+                  * Run the decoder every time, so that we keep
 diff --git a/third_party/aom/CMakeLists.txt b/third_party/aom/CMakeLists.txt
 index 9dbe301..20c7be4 100644
 --- a/third_party/aom/CMakeLists.txt

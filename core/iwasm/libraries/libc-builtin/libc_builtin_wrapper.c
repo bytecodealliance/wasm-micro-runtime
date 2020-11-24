@@ -1007,21 +1007,6 @@ __cxa_throw_wrapper(wasm_exec_env_t exec_env,
     wasm_runtime_set_exception(module_inst, buf);
 }
 
-static int
-setjmp_wrapper(wasm_exec_env_t exec_env,
-               void *jmp_buf)
-{
-    os_printf("in setjmp()\n");
-    return 0;
-}
-
-static void
-longjmp_wrapper(wasm_exec_env_t exec_env,
-               void *jmp_buf, int val)
-{
-    os_printf("in longjmp()\n");
-}
-
 #if WASM_ENABLE_SPEC_TEST != 0
 static void
 print_wrapper(wasm_exec_env_t exec_env)
@@ -1120,8 +1105,6 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(__cxa_allocate_exception, "(i)i"),
     REG_NATIVE_FUNC(__cxa_begin_catch, "(*)"),
     REG_NATIVE_FUNC(__cxa_throw, "(**i)"),
-    REG_NATIVE_FUNC(setjmp, "(*)i"),
-    REG_NATIVE_FUNC(longjmp, "(*i)"),
 };
 
 #if WASM_ENABLE_SPEC_TEST != 0

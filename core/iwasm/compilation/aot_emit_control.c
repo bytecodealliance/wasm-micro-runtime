@@ -155,11 +155,13 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
 {
     AOTBlock *block = func_ctx->block_stack.block_list_end;
     AOTBlock *block_prev;
-    uint8 *frame_ip;
+    uint8 *frame_ip = NULL;
     uint32 i;
     AOTFuncType *func_type;
 
     aot_checked_addr_list_destroy(func_ctx);
+
+    bh_assert(block);
 
     if (block->label_type == LABEL_TYPE_IF
         && block->llvm_else_block

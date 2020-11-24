@@ -2999,7 +2999,7 @@ create_sections(const uint8 *buf, uint32 size,
             section->section_body = (uint8*)p;
             section->section_body_size = section_size;
 
-            if (!*p_section_list)
+            if (!section_list_end)
                 *p_section_list = section_list_end = section;
             else {
                 section_list_end->next = section;
