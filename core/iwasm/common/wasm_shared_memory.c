@@ -200,8 +200,10 @@ notify_wait_list(bh_list *wait_list, uint32 count)
         notify_count = wait_list->len;
 
     node = bh_list_first_elem(wait_list);
+    if (!node)
+        return 0;
 
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < notify_count; i++) {
         bh_assert(node);
         next = bh_list_elem_next(node);
 

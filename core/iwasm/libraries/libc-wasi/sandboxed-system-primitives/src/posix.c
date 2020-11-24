@@ -1902,9 +1902,9 @@ __wasi_errno_t wasmtime_ssp_path_open(
     }
 
     if (S_ISDIR(sb.st_mode))
-      rights_base |= RIGHTS_DIRECTORY_BASE;
+      rights_base |= (__wasi_rights_t)RIGHTS_DIRECTORY_BASE;
     else if (S_ISREG(sb.st_mode))
-      rights_base |= RIGHTS_REGULAR_FILE_BASE;
+      rights_base |= (__wasi_rights_t)RIGHTS_REGULAR_FILE_BASE;
   }
 
   return fd_table_insert_fd(curfds, nfd, type, rights_base & max_base,

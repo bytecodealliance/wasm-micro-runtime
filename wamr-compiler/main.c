@@ -159,7 +159,7 @@ main(int argc, char *argv[])
       return print_help();
   }
 
-  if (argc == 0)
+  if (argc == 0 || !out_file_name)
     return print_help();
 
   if (sgx_mode) {

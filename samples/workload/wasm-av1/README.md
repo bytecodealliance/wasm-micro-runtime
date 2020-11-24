@@ -39,7 +39,7 @@ Firstly please build iwasm with simd support:
 ``` shell
 $ cd <wamr dir>/product-mini/platforms/linux/
 $ mkdir build && cd build
-$ cmake .. -DWAMR_BUILD_SIMD=1
+$ cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIBC_EMCC=1
 $ make
 ```
 

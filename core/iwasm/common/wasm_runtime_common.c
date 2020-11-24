@@ -2094,6 +2094,11 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
         func_type = ((AOTFunctionInstance*)func)->u.func.func_type;
 #endif
 
+    if (!func_type) {
+        LOG_ERROR("invalid module instance type");
+        return false;
+    }
+
     if (!check_main_func_type(func_type)) {
         wasm_runtime_set_exception(module_inst,
                                    "invalid function type of main function");
@@ -2318,7 +2323,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 {
     WASMFunctionInstanceCommon *func;
     WASMType *type = NULL;
-    uint32 argc1, *argv1 = NULL, cell_num, j, k = 0;
+    uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
     int32 i, p;
     uint64 total_size;
     const char *exception;
@@ -2361,6 +2366,11 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                    argc1 : type->ret_cell_num;
     }
 #endif
+
+    if (!type) {
+        LOG_ERROR("invalid module instance type");
+        return false;
+    }
 
     if (type->param_count != (uint32)argc) {
         wasm_runtime_set_exception(module_inst,

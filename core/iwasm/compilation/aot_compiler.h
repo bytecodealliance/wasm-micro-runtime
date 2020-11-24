@@ -180,11 +180,11 @@ typedef enum FloatArithmetic {
       goto fail;                                            \
     }                                                       \
     aot_value = wasm_runtime_malloc(sizeof(AOTValue));      \
-    memset(aot_value, 0, sizeof(AOTValue));                 \
     if (!aot_value) {                                       \
       aot_set_last_error("allocate memory failed.");        \
       goto fail;                                            \
     }                                                       \
+    memset(aot_value, 0, sizeof(AOTValue));                 \
     aot_value->type = value_type;                           \
     aot_value->value = llvm_value;                          \
     aot_value_stack_push                                    \
