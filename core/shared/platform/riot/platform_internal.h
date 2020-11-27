@@ -8,7 +8,7 @@
 #define _PLATFORM_INTERNAL_H
 
 //Riot includes core
-#include <kernel_types.h>
+#include <sched.h>
 #include <thread.h>
 #include <mutex.h>
 
