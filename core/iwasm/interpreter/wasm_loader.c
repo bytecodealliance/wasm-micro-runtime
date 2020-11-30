@@ -6393,6 +6393,9 @@ handle_op_block_and_loop:
                             }
 #endif
                             break;
+                        default:
+                            bh_assert(0);
+                            break;
                     }
 
                     ref_type = *(loader_ctx->frame_ref - 1);

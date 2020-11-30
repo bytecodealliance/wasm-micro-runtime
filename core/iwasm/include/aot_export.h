@@ -6,7 +6,7 @@
 #ifndef _AOT_EXPORT_H
 #define _AOT_EXPORT_H
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 

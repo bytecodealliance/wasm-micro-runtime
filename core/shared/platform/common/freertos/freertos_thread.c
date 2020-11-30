@@ -8,9 +8,12 @@
 
 #define bh_assert(v) do {                                   \
     if (!(v)) {                                             \
+        int _count = 1;                                     \
         os_printf("\nASSERTION FAILED: %s, at %s, line %d\n",\
-                  #v, __FILE__, __LINE__);                   \
-        abort();                                            \
+                  #v, __FILE__, __LINE__);                  \
+        /* divived by 0 to make it abort */                 \
+        os_printf("%d\n", _count / (_count - 1));           \
+        while (1);                                          \
     }                                                       \
   } while (0)
 
@@ -293,7 +296,8 @@ int os_thread_join(korp_tid thread, void **value_ptr)
 int os_mutex_init(korp_mutex *mutex)
 {
     SemaphoreHandle_t semaphore;
-	if (!(semaphore = xSemaphoreCreateMutex()))
+
+    if (!(semaphore = xSemaphoreCreateMutex()))
         return BHT_ERROR;
     mutex->sem = semaphore;
     mutex->is_recursive = false;
@@ -303,6 +307,7 @@ int os_mutex_init(korp_mutex *mutex)
 int os_recursive_mutex_init(korp_mutex *mutex)
 {
     SemaphoreHandle_t semaphore;
+
     if (!(semaphore = xSemaphoreCreateRecursiveMutex()))
         return BHT_ERROR;
     mutex->sem = semaphore;
@@ -416,11 +421,5 @@ int os_cond_signal(korp_cond *cond)
     xSemaphoreGive(cond->wait_list_lock);
 
     return BHT_OK;
-}
-
-uint8 *os_thread_get_stack_boundary()
-{
-    /* TODO: implement os_thread_get_stack_boundary */
-    return NULL;
 }
 

@@ -5,7 +5,7 @@
 
 #include "bh_platform.h"
 #include "app_manager_export.h"
-#include "module_wasm_app.h"
+#include "../app-manager/module_wasm_app.h"
 #include "timer_native_api.h"
 
 static bool timer_thread_run = true;

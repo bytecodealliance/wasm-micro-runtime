@@ -134,8 +134,6 @@ else
 CFLAGS += -DWASM_ENABLE_GLOBAL_HEAP_POOL=0
 endif
 
-CFLAGS += -DBH_ENABLE_MEMORY_PROFILING=0
-
 CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
 CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 

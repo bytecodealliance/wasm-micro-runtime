@@ -226,7 +226,7 @@
 
 /* Default/min/max stack size of each app thread */
 #if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
-    && !defined(BH_PLATFORM_FREERTOS)
+    && !defined(BH_PLATFORM_ESP_IDF) && !defined(BH_PLATFORM_OPENRTOS)
 #define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #else
@@ -257,6 +257,10 @@
 
 #ifndef WASM_ENABLE_TAIL_CALL
 #define WASM_ENABLE_TAIL_CALL 0
+#endif
+
+#ifndef WASM_ENABLE_CUSTOM_NAME_SECTION
+#define WASM_ENABLE_CUSTOM_NAME_SECTION 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

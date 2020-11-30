@@ -1,5 +1,5 @@
 # TODO: set WAMR root dir
-WAMR_ROOT := ../../../../
+WAMR_ROOT := ../../..
 
 override PROJECT_CFLAGS := $(PROJECT_CFLAGS) -Wno-unused-parameter -Wno-pedantic
 
@@ -12,11 +12,11 @@ override PROJECT_CFLAGS := $(PROJECT_CFLAGS) \
                            -I$(WAMR_INC_ROOT)/core/shared/utils \
                            -I$(WAMR_INC_ROOT)/core/shared/mem-alloc \
                            -I$(WAMR_INC_ROOT)/core/shared/platform/include \
-                           -I$(WAMR_INC_ROOT)/core/shared/platform/freertos \
+                           -I$(WAMR_INC_ROOT)/core/shared/platform/esp-idf \
                            -I$(WAMR_INC_ROOT)/core/iwasm/interpreter
 
 override PROJECT_CFLAGS := $(PROJECT_CFLAGS) \
-                           -DBH_PLATFORM_FREERTOS \
+                           -DBH_PLATFORM_ESP_IDF \
                            -DBH_MALLOC=wasm_runtime_malloc \
                            -DBH_FREE=wasm_runtime_free \
                            -DBUILD_TARGET_X86_32 \
@@ -25,10 +25,11 @@ override PROJECT_CFLAGS := $(PROJECT_CFLAGS) \
                            -DWASM_ENABLE_LIBC_BUILTIN=1
 
 override PROJECT_CSRC := $(PROJECT_CSRC) \
-                         $(WAMR_SRC_ROOT)/core/shared/platform/freertos/freertos_platform.c \
-                         $(WAMR_SRC_ROOT)/core/shared/platform/freertos/freertos_thread.c \
-                         $(WAMR_SRC_ROOT)/core/shared/platform/freertos/freertos_time.c \
-                         $(WAMR_SRC_ROOT)/core/shared/platform/common/math/math.c \
+                         $(WAMR_SRC_ROOT)/core/shared/platform/esp-idf/espidf_platform.c \
+                         $(WAMR_SRC_ROOT)/core/shared/platform/esp-idf/espidf_thread.c \
+                         $(WAMR_SRC_ROOT)/core/shared/platform/common/freertos/freertos_malloc.c \
+                         $(WAMR_SRC_ROOT)/core/shared/platform/common/freertos/freertos_thread.c \
+                         $(WAMR_SRC_ROOT)/core/shared/platform/common/freertos/freertos_time.c \
                          $(WAMR_SRC_ROOT)/core/shared/mem-alloc/mem_alloc.c \
                          $(WAMR_SRC_ROOT)/core/shared/mem-alloc/ems/ems_kfc.c \
                          $(WAMR_SRC_ROOT)/core/shared/mem-alloc/ems/ems_hmu.c \
@@ -50,5 +51,5 @@ override PROJECT_CSRC := $(PROJECT_CSRC) \
                          $(WAMR_SRC_ROOT)/core/iwasm/interpreter/wasm_interp_classic.c \
                          $(WAMR_SRC_ROOT)/core/iwasm/interpreter/wasm_loader.c \
                          $(WAMR_SRC_ROOT)/core/iwasm/interpreter/wasm_runtime.c \
-                         $(WAMR_SRC_ROOT)/product-mini/platforms/freertos/simple/iwasm_main.c \
-                         $(WAMR_SRC_ROOT)/product-mini/platforms/freertos/simple/main.c
+                         $(WAMR_SRC_ROOT)/product-mini/platforms/esp-idf/iwasm_main.c \
+                         $(WAMR_SRC_ROOT)/product-mini/platforms/esp-idf/main.c

@@ -527,6 +527,12 @@ aot_call_indirect(WASMExecEnv *exec_env,
 uint32
 aot_get_plt_table_size();
 
+void *
+aot_memmove(void *dest, const void *src, size_t n);
+
+void *
+aot_memset(void *s, int c, size_t n);
+
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index,

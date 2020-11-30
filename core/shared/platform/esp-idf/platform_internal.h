@@ -20,8 +20,8 @@
 #include <task.h>
 #include <os_api.h>
 
-#ifndef BH_PLATFORM_FREERTOS
-#define BH_PLATFORM_FREERTOS
+#ifndef BH_PLATFORM_ESP_IDF
+#define BH_PLATFORM_ESP_IDF
 #endif
 
 #define BH_APPLET_PRESERVED_STACK_SIZE (2 * BH_KB)
