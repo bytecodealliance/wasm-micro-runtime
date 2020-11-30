@@ -209,13 +209,14 @@ int aee_host_msg_callback(void *msg, uint16_t msg_len)
                     memset(&request, 0, sizeof(request));
 
                     if (!unpack_request(recv_ctx.message.payload,
-                            recv_ctx.message.payload_size, &request))
+                                        recv_ctx.message.payload_size, &request))
                         continue;
 
                     request.sender = ID_HOST;
 
                     am_dispatch_request(&request);
-                } else {
+                }
+                else {
                     app_manager_printf("unexpected host msg type: %d\n", msg_type);
                 }
 

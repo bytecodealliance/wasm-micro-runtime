@@ -7,6 +7,8 @@
 #include "bh_platform.h"
 #include "mem_alloc.h"
 
+#define BH_ENABLE_MEMORY_PROFILING 0
+
 #if BH_ENABLE_MEMORY_PROFILING != 0
 
 /* Memory profile data of a function */

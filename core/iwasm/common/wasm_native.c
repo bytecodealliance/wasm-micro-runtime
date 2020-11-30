@@ -8,7 +8,7 @@
 #include "bh_log.h"
 
 #if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
-    && !defined(BH_PLATFORM_FREERTOS)
+    && !defined(BH_PLATFORM_OPENRTOS) && !defined(BH_PLATFORM_ESP_IDF)
 #define ENABLE_QUICKSORT 1
 #else
 #define ENABLE_QUICKSORT 0

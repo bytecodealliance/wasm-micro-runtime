@@ -106,13 +106,13 @@ attr_container_get_attr_begin(const attr_container_t *attr_cont,
 
     /* tag content */
     p += str_len;
-    if (p - attr_cont->buf >= total_length)
+    if ((uint32_t)(p - attr_cont->buf) >= total_length)
         return NULL;
 
     /* attribute num */
     attr_num = get_uint16(p);
     p += sizeof(uint16_t);
-    if (p - attr_cont->buf >= total_length)
+    if ((uint32_t)(p - attr_cont->buf) >= total_length)
         return NULL;
 
     if (p_total_length)
@@ -174,7 +174,8 @@ attr_container_find_attr(const attr_container_t *attr_cont, const char *key)
 
         if (str_len == strlen(key) + 1
                 && memcmp(p + sizeof(uint16_t), key, str_len) == 0) {
-            if (p + sizeof(uint16_t) + str_len - attr_cont->buf >= total_length)
+            if ((uint32_t)(p + sizeof(uint16_t) + str_len
+                           - attr_cont->buf) >= total_length)
                 return NULL;
             return p;
         }
@@ -337,7 +338,7 @@ bool attr_container_set_attr(attr_container_t **p_attr_cont, const char *key,
     }
 
     /* Set the attr buf */
-    str_len = strlen(key) + 1;
+    str_len = (uint16_t)(strlen(key) + 1);
     set_uint16(p, str_len);
     p += sizeof(uint16_t);
     bh_memcpy_s(p, str_len, key, str_len);
@@ -366,7 +367,7 @@ bool attr_container_set_attr(attr_container_t **p_attr_cont, const char *key,
             return true;
         }
 
-        if (p1 - p + msg_end - attr_end >= attr_len) {
+        if ((uint32_t)(p1 - p + msg_end - attr_end) >= attr_len) {
             memmove(p, p1, attr_end - p1);
             bh_memcpy_s(p + (attr_end - p1), attr_len, attr_buf, attr_len);
             attr_container_free(attr_buf);
@@ -399,7 +400,7 @@ bool attr_container_set_attr(attr_container_t **p_attr_cont, const char *key,
         return true;
     } else {
         /* key not found */
-        if (msg_end - attr_end >= attr_len) {
+        if ((uint32_t)(msg_end - attr_end) >= attr_len) {
             bh_memcpy_s(attr_end, msg_end - attr_end, attr_buf, attr_len);
             attr_container_inc_attr_num(attr_cont);
             attr_container_free(attr_buf);
@@ -564,6 +565,9 @@ attr_container_get_attr(const attr_container_t *attr_cont, const char *key)
         bh_memcpy_s(&val.var_name, sizeof(val.var_name), addr, len); \
         break;                                              \
       }                                                     \
+      default:                                              \
+        bh_assert(0);                                       \
+        break;                                              \
     }                                                       \
     return val.var_name;                                    \
   } while (0)
@@ -818,6 +822,9 @@ void attr_container_dump(const attr_container_t *attr_cont)
             attr_container_printf(", type: byte array, length: %d\n",
                     get_uint32(p));
             p += sizeof(uint32_t) + get_uint32(p);
+            break;
+        default:
+            bh_assert(0);
             break;
         }
     }

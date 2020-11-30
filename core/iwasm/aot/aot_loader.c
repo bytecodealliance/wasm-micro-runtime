@@ -1663,6 +1663,10 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                              error_buf, error_buf_size))
                     return false;
                 break;
+            default:
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid aot section type");
+                return false;
         }
 
         section = section->next;

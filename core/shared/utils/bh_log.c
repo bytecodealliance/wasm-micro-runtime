@@ -26,7 +26,7 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
     uint64 usec;
     uint32 t, h, m, s, mills;
 
-    if (log_level > log_verbose_level)
+    if ((uint32)log_level > log_verbose_level)
         return;
 
     self = os_self_thread();

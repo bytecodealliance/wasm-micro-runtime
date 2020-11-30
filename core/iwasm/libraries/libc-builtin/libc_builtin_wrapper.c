@@ -399,6 +399,31 @@ sprintf_out(int c, struct str_context *ctx)
     return c;
 }
 
+#ifdef BH_PLATFORM_OPENRTOS
+PRIVILEGED_DATA static char print_buf[128] = { 0 };
+PRIVILEGED_DATA static int print_buf_size = 0;
+
+static int
+printf_out(int c, struct str_context *ctx)
+{
+    if (c == '\n') {
+        print_buf[print_buf_size] = '\0';
+        os_printf("%s\n", print_buf);
+        print_buf_size = 0;
+    }
+    else if (print_buf_size >= sizeof(print_buf) - 2) {
+        print_buf[print_buf_size++] = (char)c;
+        print_buf[print_buf_size] = '\0';
+        os_printf("%s\n", print_buf);
+        print_buf_size = 0;
+    }
+    else {
+        print_buf[print_buf_size++] = (char)c;
+    }
+    ctx->count++;
+    return c;
+}
+#else
 static int
 printf_out(int c, struct str_context *ctx)
 {
@@ -406,6 +431,7 @@ printf_out(int c, struct str_context *ctx)
     ctx->count++;
     return c;
 }
+#endif
 
 static int
 printf_wrapper(wasm_exec_env_t exec_env,

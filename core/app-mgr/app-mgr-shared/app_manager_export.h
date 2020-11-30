@@ -173,11 +173,11 @@ typedef struct host_interface {
  * @return true if success, false otherwise
  */
 bool
-app_manager_host_init(host_interface *interface);
+app_manager_host_init(host_interface *intf);
 
 /* Startup app manager */
 void
-app_manager_startup(host_interface *interface);
+app_manager_startup(host_interface *intf);
 
 /* Get queue of current applet */
 void *

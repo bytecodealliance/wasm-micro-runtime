@@ -147,7 +147,6 @@ int os_thread_detach(korp_tid thread)
 
 void os_thread_exit(void *retval)
 {
-    return BHT_OK;
 }
 
 uint8 *os_thread_get_stack_boundary()

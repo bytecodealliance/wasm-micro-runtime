@@ -1907,6 +1907,18 @@ aot_call_indirect(WASMExecEnv *exec_env,
     }
 }
 
+void *
+aot_memmove(void *dest, const void *src, size_t n)
+{
+    return memmove(dest, src, n);
+}
+
+void *
+aot_memset(void *s, int c, size_t n)
+{
+    return memset(s, c, n);
+}
+
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
 aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index,

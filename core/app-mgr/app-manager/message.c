@@ -73,8 +73,8 @@ bool send_error_response_to_host(int mid, int status, const char *msg)
         }
     }
 
-    set_response(response, status,
-    FMT_ATTR_CONTAINER, (const char *)payload, payload_len);
+    set_response(response, status, FMT_ATTR_CONTAINER,
+                 (const char *)payload, payload_len);
     response->mid = mid;
 
     send_response_to_host(response);

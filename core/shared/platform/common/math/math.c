@@ -32,6 +32,10 @@
 
 #define __FDLIBM_STDC__
 
+#ifndef FLT_EVAL_METHOD
+#define FLT_EVAL_METHOD 0
+#endif
+
 typedef uint32_t u_int32_t;
 typedef uint64_t u_int64_t;
 
