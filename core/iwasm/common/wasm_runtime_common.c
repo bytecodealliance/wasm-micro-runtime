@@ -1654,26 +1654,20 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        char *error_buf, uint32 error_buf_size)
 {
     WASIContext *wasi_ctx;
-    size_t *argv_offsets = NULL;
     char *argv_buf = NULL;
-    size_t *env_offsets = NULL;
+    char **argv_list = NULL;
     char *env_buf = NULL;
-    uint64 argv_buf_len = 0, env_buf_len = 0;
+    char **env_list = NULL;
+    uint64 argv_buf_size = 0, env_buf_size = 0, total_size;
     uint32 argv_buf_offset = 0, env_buf_offset = 0;
-    struct fd_table *curfds;
-    struct fd_prestats *prestats;
-    struct argv_environ_values *argv_environ;
+    struct fd_table *curfds = NULL;
+    struct fd_prestats *prestats = NULL;
+    struct argv_environ_values *argv_environ = NULL;
     bool fd_table_inited = false, fd_prestats_inited = false;
     bool argv_environ_inited = false;
-    uint32 offset_argv_offsets = 0, offset_env_offsets = 0;
-    uint32 offset_argv_buf = 0, offset_env_buf = 0;
-    uint32 offset_curfds = 0;
-    uint32 offset_prestats = 0;
-    uint32 offset_argv_environ = 0;
     __wasi_fd_t wasm_fd = 3;
     int32 raw_fd;
     char *path, resolved_path[PATH_MAX];
-    uint64 total_size;
     uint32 i;
 
     if (!(wasi_ctx = runtime_malloc(sizeof(WASIContext), NULL,
@@ -1697,60 +1691,49 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     /* process argv[0], trip the path and suffix, only keep the program name */
     for (i = 0; i < argc; i++)
-        argv_buf_len += strlen(argv[i]) + 1;
+        argv_buf_size += strlen(argv[i]) + 1;
 
-    total_size = sizeof(size_t) * (uint64)argc;
+    total_size = sizeof(char *) * (uint64)argc;
     if (total_size >= UINT32_MAX
-        || !(offset_argv_offsets = wasm_runtime_module_malloc
-                                    (module_inst, (uint32)total_size,
-                                     (void**)&argv_offsets))
-        || argv_buf_len >= UINT32_MAX
-        || !(offset_argv_buf = wasm_runtime_module_malloc
-                                    (module_inst, (uint32)argv_buf_len,
-                                     (void**)&argv_buf))) {
+        || !(argv_list = wasm_runtime_malloc((uint32)total_size))
+        || argv_buf_size >= UINT32_MAX
+        || !(argv_buf = wasm_runtime_malloc((uint32)argv_buf_size))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
     }
 
     for (i = 0; i < argc; i++) {
-        argv_offsets[i] = argv_buf_offset;
+        argv_list[i] = argv_buf + argv_buf_offset;
         bh_strcpy_s(argv_buf + argv_buf_offset,
-                    (uint32)argv_buf_len - argv_buf_offset, argv[i]);
+                    (uint32)argv_buf_size - argv_buf_offset, argv[i]);
         argv_buf_offset += (uint32)(strlen(argv[i]) + 1);
     }
 
     for (i = 0; i < env_count; i++)
-        env_buf_len += strlen(env[i]) + 1;
+        env_buf_size += strlen(env[i]) + 1;
 
-    total_size = sizeof(size_t) * (uint64)argc;
+    total_size = sizeof(char *) * (uint64)argc;
     if (total_size >= UINT32_MAX
-        || !(offset_env_offsets = wasm_runtime_module_malloc
-                                    (module_inst, (uint32)total_size,
-                                     (void**)&env_offsets))
-        || env_buf_len >= UINT32_MAX
-        || !(offset_env_buf = wasm_runtime_module_malloc
-                                    (module_inst, (uint32)env_buf_len,
-                                     (void**)&env_buf))) {
+        || !(env_list = wasm_runtime_malloc((uint32)total_size))
+        || env_buf_size >= UINT32_MAX
+        || !(env_buf = wasm_runtime_malloc((uint32)env_buf_size))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
     }
 
     for (i = 0; i < env_count; i++) {
-        env_offsets[i] = env_buf_offset;
+        env_list[i] = env_buf + env_buf_offset;
         bh_strcpy_s(env_buf + env_buf_offset,
-                    (uint32)env_buf_len - env_buf_offset, env[i]);
+                    (uint32)env_buf_size - env_buf_offset, env[i]);
         env_buf_offset += (uint32)(strlen(env[i]) + 1);
     }
 
-    if (!(offset_curfds = wasm_runtime_module_malloc
-                (module_inst, sizeof(struct fd_table), (void**)&curfds))
-        || !(offset_prestats = wasm_runtime_module_malloc
-                (module_inst, sizeof(struct fd_prestats), (void**)&prestats))
-        || !(offset_argv_environ = wasm_runtime_module_malloc
-                (module_inst, sizeof(struct argv_environ_values),
-                 (void**)&argv_environ))) {
+    if (!(curfds = wasm_runtime_malloc(sizeof(struct fd_table)))
+        || !(prestats = wasm_runtime_malloc(sizeof(struct fd_prestats)))
+        || !(argv_environ =
+                wasm_runtime_malloc(sizeof(struct argv_environ_values)))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
@@ -1773,10 +1756,10 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     fd_prestats_inited = true;
 
     if (!argv_environ_init(argv_environ,
-                           argv_offsets, argc,
-                           argv_buf, argv_buf_len,
-                           env_offsets, env_count,
-                           env_buf, env_buf_len)) {
+                           argv_buf, argv_buf_size,
+                           argv_list, argc,
+                           env_buf, env_buf_size,
+                           env_list, env_count)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: "
                       "init argument environment failed");
@@ -1817,13 +1800,13 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         fd_prestats_insert(prestats, dir_list[i], wasm_fd);
     }
 
-    wasi_ctx->curfds_offset = offset_curfds;
-    wasi_ctx->prestats_offset = offset_prestats;
-    wasi_ctx->argv_environ_offset = offset_argv_environ;
-    wasi_ctx->argv_buf_offset = offset_argv_buf;
-    wasi_ctx->argv_offsets_offset = offset_argv_offsets;
-    wasi_ctx->env_buf_offset = offset_env_buf;
-    wasi_ctx->env_offsets_offset = offset_env_offsets;
+    wasi_ctx->curfds = curfds;
+    wasi_ctx->prestats = prestats;
+    wasi_ctx->argv_environ = argv_environ;
+    wasi_ctx->argv_buf = argv_buf;
+    wasi_ctx->argv_list = argv_list;
+    wasi_ctx->env_buf = env_buf;
+    wasi_ctx->env_list = env_list;
 
     return true;
 
@@ -1834,20 +1817,20 @@ fail:
         fd_prestats_destroy(prestats);
     if (fd_table_inited)
         fd_table_destroy(curfds);
-    if (offset_curfds != 0)
-        wasm_runtime_module_free(module_inst, offset_curfds);
-    if (offset_prestats != 0)
-        wasm_runtime_module_free(module_inst, offset_prestats);
-    if (offset_argv_environ != 0)
-        wasm_runtime_module_free(module_inst, offset_argv_environ);
-    if (offset_argv_buf)
-        wasm_runtime_module_free(module_inst, offset_argv_buf);
-    if (offset_argv_offsets)
-        wasm_runtime_module_free(module_inst, offset_argv_offsets);
-    if (offset_env_buf)
-        wasm_runtime_module_free(module_inst, offset_env_buf);
-    if (offset_env_offsets)
-        wasm_runtime_module_free(module_inst, offset_env_offsets);
+    if (curfds)
+        wasm_runtime_free(curfds);
+    if (prestats)
+        wasm_runtime_free(prestats);
+    if (argv_environ)
+        wasm_runtime_free(argv_environ);
+    if (argv_buf)
+        wasm_runtime_free(argv_buf);
+    if (argv_list)
+        wasm_runtime_free(argv_list);
+    if (env_buf)
+        wasm_runtime_free(env_buf);
+    if (env_list)
+        wasm_runtime_free(env_list);
     return false;
 }
 
@@ -1921,40 +1904,28 @@ void
 wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
 {
     WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
-    struct argv_environ_values *argv_environ;
-    struct fd_table *curfds;
-    struct fd_prestats *prestats;
 
     if (wasi_ctx) {
-        if (wasi_ctx->argv_environ_offset) {
-            argv_environ = (struct argv_environ_values *)
-                wasm_runtime_addr_app_to_native(module_inst,
-                                                wasi_ctx->argv_environ_offset);
-            argv_environ_destroy(argv_environ);
-            wasm_runtime_module_free(module_inst, wasi_ctx->argv_environ_offset);
+        if (wasi_ctx->argv_environ) {
+            argv_environ_destroy(wasi_ctx->argv_environ);
+            wasm_runtime_free(wasi_ctx->argv_environ);
         }
-        if (wasi_ctx->curfds_offset) {
-            curfds = (struct fd_table *)
-                wasm_runtime_addr_app_to_native(module_inst,
-                                                wasi_ctx->curfds_offset);
-            fd_table_destroy(curfds);
-            wasm_runtime_module_free(module_inst, wasi_ctx->curfds_offset);
+        if (wasi_ctx->curfds) {
+            fd_table_destroy(wasi_ctx->curfds);
+            wasm_runtime_free(wasi_ctx->curfds);
         }
-        if (wasi_ctx->prestats_offset) {
-            prestats = (struct fd_prestats *)
-                wasm_runtime_addr_app_to_native(module_inst,
-                                                wasi_ctx->prestats_offset);
-            fd_prestats_destroy(prestats);
-            wasm_runtime_module_free(module_inst, wasi_ctx->prestats_offset);
+        if (wasi_ctx->prestats) {
+            fd_prestats_destroy(wasi_ctx->prestats);
+            wasm_runtime_free(wasi_ctx->prestats);
         }
-        if (wasi_ctx->argv_buf_offset)
-            wasm_runtime_module_free(module_inst, wasi_ctx->argv_buf_offset);
-        if (wasi_ctx->argv_offsets_offset)
-            wasm_runtime_module_free(module_inst, wasi_ctx->argv_offsets_offset);
-        if (wasi_ctx->env_buf_offset)
-            wasm_runtime_module_free(module_inst, wasi_ctx->env_buf_offset);
-        if (wasi_ctx->env_offsets_offset)
-            wasm_runtime_module_free(module_inst, wasi_ctx->env_offsets_offset);
+        if (wasi_ctx->argv_buf)
+            wasm_runtime_free(wasi_ctx->argv_buf);
+        if (wasi_ctx->argv_list)
+            wasm_runtime_free(wasi_ctx->argv_list);
+        if (wasi_ctx->env_buf)
+            wasm_runtime_free(wasi_ctx->env_buf);
+        if (wasi_ctx->env_list)
+            wasm_runtime_free(wasi_ctx->env_list);
         wasm_runtime_free(wasi_ctx);
     }
 }

@@ -45,49 +45,43 @@ typedef struct iovec_app {
 } iovec_app_t;
 
 typedef struct WASIContext {
-    uint32 curfds_offset;
-    uint32 prestats_offset;
-    uint32 argv_environ_offset;
-    uint32 argv_buf_offset;
-    uint32 argv_offsets_offset;
-    uint32 env_buf_offset;
-    uint32 env_offsets_offset;
+    struct fd_table *curfds;
+    struct fd_prestats *prestats;
+    struct argv_environ_values *argv_environ;
+    char *argv_buf;
+    char **argv_list;
+    char *env_buf;
+    char **env_list;
 } *wasi_ctx_t;
 
 wasi_ctx_t
 wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
 
-static struct fd_table *
+static inline struct fd_table *
 wasi_ctx_get_curfds(wasm_module_inst_t module_inst,
                     wasi_ctx_t wasi_ctx)
 {
     if (!wasi_ctx)
         return NULL;
-    return (struct fd_table *)
-        wasm_runtime_addr_app_to_native(module_inst,
-                                        wasi_ctx->curfds_offset);
+    return wasi_ctx->curfds;
 }
 
-static struct argv_environ_values *
+static inline struct argv_environ_values *
 wasi_ctx_get_argv_environ(wasm_module_inst_t module_inst,
                           wasi_ctx_t wasi_ctx)
 {
     if (!wasi_ctx)
         return NULL;
-    return (struct argv_environ_values *)
-        wasm_runtime_addr_app_to_native(module_inst,
-                                        wasi_ctx->argv_environ_offset);
+    return wasi_ctx->argv_environ;
 }
 
-static struct fd_prestats *
+static inline struct fd_prestats *
 wasi_ctx_get_prestats(wasm_module_inst_t module_inst,
                       wasi_ctx_t wasi_ctx)
 {
     if (!wasi_ctx)
         return NULL;
-    return (struct fd_prestats *)
-        wasm_runtime_addr_app_to_native(module_inst,
-                                        wasi_ctx->prestats_offset);
+    return wasi_ctx->prestats;
 }
 
 static wasi_errno_t
@@ -152,9 +146,7 @@ wasi_args_sizes_get(wasm_exec_env_t exec_env,
         || !validate_native_addr(argv_buf_size_app, sizeof(uint32)))
         return (wasi_errno_t)-1;
 
-    argv_environ = (struct argv_environ_values *)
-        wasm_runtime_addr_app_to_native(module_inst,
-                                        wasi_ctx->argv_environ_offset);
+    argv_environ = wasi_ctx->argv_environ;
 
     err = wasmtime_ssp_args_sizes_get(argv_environ,
                                       &argc, &argv_buf_size);
