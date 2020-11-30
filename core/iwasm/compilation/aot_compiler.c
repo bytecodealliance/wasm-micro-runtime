@@ -1770,13 +1770,6 @@ build_atomic_rmw:
       if (last_block != func_ctx->got_exception_block)
           LLVMMoveBasicBlockAfter(func_ctx->got_exception_block,
                                   last_block);
-
-      /* Move all other exception blocks before got_exception block */
-      for (i = 0; i < EXCE_NUM; i++) {
-          if (func_ctx->exception_blocks[i])
-              LLVMMoveBasicBlockBefore(func_ctx->exception_blocks[i],
-                                       func_ctx->got_exception_block);
-      }
   }
   return true;
 
