@@ -6,22 +6,6 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 
-static char *exce_block_names[] = {
-    "exce_unreachable",             /* EXCE_UNREACHABLE */
-    "exce_out_of_memory",           /* EXCE_OUT_OF_MEMORY */
-    "exce_out_of_bounds_mem_access",/* EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS */
-    "exce_integer_overflow",        /* EXCE_INTEGER_OVERFLOW */
-    "exce_divide_by_zero",          /* EXCE_INTEGER_DIVIDE_BY_ZERO */
-    "exce_invalid_convert_to_int",  /* EXCE_INVALID_CONVERSION_TO_INTEGER */
-    "exce_invalid_func_type_idx",   /* EXCE_INVALID_FUNCTION_TYPE_INDEX */
-    "exce_invalid_func_idx",        /* EXCE_INVALID_FUNCTION_INDEX */
-    "exce_undefined_element",       /* EXCE_UNDEFINED_ELEMENT */
-    "exce_uninit_element",          /* EXCE_UNINITIALIZED_ELEMENT */
-    "exce_call_unlinked",           /* EXCE_CALL_UNLINKED_IMPORT_FUNC */
-    "exce_native_stack_overflow",   /* EXCE_NATIVE_STACK_OVERFLOW */
-    "exce_unaligned_atomic"         /* EXCE_UNALIGNED_ATOMIC */
-};
-
 bool
 aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    int32 exception_id,
@@ -29,7 +13,6 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMValueRef cond_br_if,
                    LLVMBasicBlockRef cond_br_else_block)
 {
-    LLVMBasicBlockRef exce_block;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMValueRef exce_id = I32_CONST((uint32)exception_id), func_const, func;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
@@ -116,36 +99,12 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
     }
 
-    /* Create exception block if needed */
-    if (!(exce_block = func_ctx->exception_blocks[exception_id])) {
-        if (!(func_ctx->exception_blocks[exception_id] = exce_block =
-                LLVMAppendBasicBlockInContext(comp_ctx->context,
-                                              func_ctx->func,
-                                              exce_block_names[exception_id]))) {
-            aot_set_last_error("add LLVM basic block failed.");
-            return false;
-        }
-
-        /* Move before got_exception block */
-        LLVMMoveBasicBlockBefore(exce_block, func_ctx->got_exception_block);
-
-        /* Add phi incoming value to got_exception block */
-        LLVMAddIncoming(func_ctx->exception_id_phi, &exce_id, &exce_block, 1);
-
-        /* Jump to got exception block */
-        LLVMPositionBuilderAtEnd(comp_ctx->builder, exce_block);
-        if (!LLVMBuildBr(comp_ctx->builder, func_ctx->got_exception_block)) {
-            aot_set_last_error("llvm build br failed.");
-            return false;
-        }
-    }
-
-    /* Resume builder position */
-    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_curr);
+    /* Add phi incoming value to got_exception block */
+    LLVMAddIncoming(func_ctx->exception_id_phi, &exce_id, &block_curr, 1);
 
     if (!is_cond_br) {
         /* not condition br, create br IR */
-        if (!LLVMBuildBr(comp_ctx->builder, exce_block)) {
+        if (!LLVMBuildBr(comp_ctx->builder, func_ctx->got_exception_block)) {
             aot_set_last_error("llvm build br failed.");
             return false;
         }
@@ -153,7 +112,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     else {
         /* Create condition br */
         if (!LLVMBuildCondBr(comp_ctx->builder, cond_br_if,
-                             exce_block, cond_br_else_block)) {
+                             func_ctx->got_exception_block, cond_br_else_block)) {
             aot_set_last_error("llvm build cond br failed.");
             return false;
         }

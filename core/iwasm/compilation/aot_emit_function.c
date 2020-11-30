@@ -99,7 +99,7 @@ check_call_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Add check exection success block */
     if (!(check_call_succ = LLVMAppendBasicBlockInContext(comp_ctx->context,
                                                           func_ctx->func,
-                                                          "check_exce_succ"))) {
+                                                          "check_call_succ"))) {
         aot_set_last_error("llvm add basic block failed.");
         return false;
     }

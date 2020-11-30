@@ -173,20 +173,6 @@ fail:
 }
 
 static bool
-create_exception_blocks(AOTFuncContext *func_ctx)
-{
-    if (!(func_ctx->exception_blocks =
-                wasm_runtime_malloc(sizeof(LLVMBasicBlockRef) * EXCE_NUM))) {
-        aot_set_last_error("allocate memory failed.");
-        return false;;
-    }
-
-    memset(func_ctx->exception_blocks, 0,
-           sizeof(LLVMBasicBlockRef) * EXCE_NUM);
-  return true;
-}
-
-static bool
 create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMTypeRef int8_ptr_type, uint32 func_index)
 {
@@ -744,10 +730,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    /* Create exception blocks */
-    if (!create_exception_blocks(func_ctx))
-        goto fail;
-
     /* Create base addr, end addr, data size of mem, heap */
     if (!create_memory_info(comp_ctx, func_ctx, int8_ptr_type, func_index))
         goto fail;
@@ -769,8 +751,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 fail:
     if (func_ctx->mem_info)
         wasm_runtime_free(func_ctx->mem_info);
-    if (func_ctx->exception_blocks)
-        wasm_runtime_free(func_ctx->exception_blocks);
     aot_block_stack_destroy(&func_ctx->block_stack);
     wasm_runtime_free(func_ctx);
     return NULL;
@@ -785,8 +765,6 @@ aot_destroy_func_contexts(AOTFuncContext **func_ctxes, uint32 count)
         if (func_ctxes[i]) {
             if (func_ctxes[i]->mem_info)
                 wasm_runtime_free(func_ctxes[i]->mem_info);
-            if (func_ctxes[i]->exception_blocks)
-                wasm_runtime_free(func_ctxes[i]->exception_blocks);
             aot_block_stack_destroy(&func_ctxes[i]->block_stack);
             aot_checked_addr_list_destroy(func_ctxes[i]);
             wasm_runtime_free(func_ctxes[i]);
