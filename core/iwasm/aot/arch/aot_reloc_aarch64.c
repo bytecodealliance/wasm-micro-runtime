@@ -1,12 +1,36 @@
 /*
- * Copyright (C) 2019 Intel Corporation. All rights reserved.
+ * Copyright (C) 2020 Intel Corporation. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "aot_reloc.h"
 
+#define R_AARCH64_MOVW_UABS_G0          263
+#define R_AARCH64_MOVW_UABS_G0_NC       264
+#define R_AARCH64_MOVW_UABS_G1          265
+#define R_AARCH64_MOVW_UABS_G1_NC       266
+#define R_AARCH64_MOVW_UABS_G2          267
+#define R_AARCH64_MOVW_UABS_G2_NC       268
+#define R_AARCH64_MOVW_UABS_G3          269
+
+#define R_AARCH64_MOVW_SABS_G0          270
+#define R_AARCH64_MOVW_SABS_G1          271
+#define R_AARCH64_MOVW_SABS_G2          272
+
+#define R_AARCH64_ADR_PREL_LO19         273
+#define R_AARCH64_ADR_PREL_LO21         274
 #define R_AARCH64_ADR_PREL_PG_HI21      275
+#define R_AARCH64_ADR_PREL_PG_HI21_NC   276
+
 #define R_AARCH64_ADD_ABS_LO12_NC       277
+
+#define R_AARCH64_LDST8_ABS_LO12_NC     278
+#define R_AARCH64_LDST16_ABS_LO12_NC    284
+#define R_AARCH64_LDST32_ABS_LO12_NC    285
+#define R_AARCH64_LDST64_ABS_LO12_NC    286
+#define R_AARCH64_LDST128_ABS_LO12_NC   299
+
+#define R_AARCH64_JUMP26                282
 #define R_AARCH64_CALL26                283
 
 static SymbolMap target_sym_map[] = {
@@ -57,8 +81,8 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 static uint32
 get_plt_item_size()
 {
-    /* 8*4 bytes instructions and 8 bytes symbol address */
-    return 40;
+    /* 6*4 bytes instructions and 8 bytes symbol address */
+    return 32;
 }
 
 void
@@ -67,13 +91,11 @@ init_plt_table(uint8 *plt)
     uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
     for (i = 0; i < num; i++) {
         uint32 *p = (uint32*)plt;
-        *p++ = 0xd10023ff; /* sub  sp, sp, #0x8 */
-        *p++ = 0xf90003fe; /* str  x30, [sp]    */
-        *p++ = 0x100000de; /* adr  x30, #24     */
+        *p++ = 0xf81f0ffe; /* str  x30, [sp, #-16]! */
+        *p++ = 0x100000be; /* adr  x30, #20  ;symbol addr is PC + 5 instructions below */
         *p++ = 0xf94003de; /* ldr  x30, [x30]   */
         *p++ = 0xd63f03c0; /* blr  x30          */
-        *p++ = 0xf94003fe; /* ldr  x30, [sp]    */
-        *p++ = 0x910023ff; /* add  sp, sp, #0x8 */
+        *p++ = 0xf84107fe; /* ldr  x30, [sp], #16  */
         *p++ = 0xd61f03c0; /* br   x30          */
         /* symbol addr */
         *(uint64*)p = (uint64)(uintptr_t)target_sym_map[i].symbol_addr;
@@ -173,7 +195,74 @@ apply_relocation(AOTModule *module,
             break;
         }
 
+        case R_AARCH64_MOVW_UABS_G0:
+        case R_AARCH64_MOVW_UABS_G0_NC:
+        case R_AARCH64_MOVW_UABS_G1:
+        case R_AARCH64_MOVW_UABS_G1_NC:
+        case R_AARCH64_MOVW_UABS_G2:
+        case R_AARCH64_MOVW_UABS_G2_NC:
+        case R_AARCH64_MOVW_UABS_G3:
+        {
+            void *S = symbol_addr, *P = (void*)(target_section_addr + reloc_offset);
+            int64 X, A, initial_addend;
+            int32 insn, imm16;
+
+            CHECK_RELOC_OFFSET(sizeof(int32));
+
+            insn = *(int32*)P;
+            imm16 = (insn >> 5) & 0xFFFF;
+
+            SIGN_EXTEND_TO_INT64(imm16, 16, initial_addend);
+            A = initial_addend;
+            A += (int64)reloc_addend;
+
+            /* S + A */
+            X = (int64)S + A;
+
+            /* No need to check overflow for this reloction type */
+            switch (reloc_type) {
+                case R_AARCH64_MOVW_UABS_G0:
+                    if (X < 0 || X >= (1LL << 16))
+                        goto overflow_check_fail;
+                    break;
+                case R_AARCH64_MOVW_UABS_G1:
+                    if (X < 0 || X >= (1LL << 32))
+                        goto overflow_check_fail;
+                    break;
+                case R_AARCH64_MOVW_UABS_G2:
+                    if (X < 0 || X >= (1LL << 48))
+                        goto overflow_check_fail;
+                    break;
+                default:
+                    break;
+            }
+
+            /* write the imm16 back to bits[5:20] of instruction */
+            switch (reloc_type) {
+                case R_AARCH64_MOVW_UABS_G0:
+                case R_AARCH64_MOVW_UABS_G0_NC:
+                    *(int32*)P = (insn & 0xFFE0001F) | ((int32)((X & 0xFFFF) << 5));
+                    break;
+                case R_AARCH64_MOVW_UABS_G1:
+                case R_AARCH64_MOVW_UABS_G1_NC:
+                    *(int32*)P = (insn & 0xFFE0001F) | ((int32)(((X >> 16) & 0xFFFF) << 5));
+                    break;
+                case R_AARCH64_MOVW_UABS_G2:
+                case R_AARCH64_MOVW_UABS_G2_NC:
+                    *(int32*)P = (insn & 0xFFE0001F) | ((int32)(((X >> 32) & 0xFFFF) << 5));
+                    break;
+                case R_AARCH64_MOVW_UABS_G3:
+                    *(int32*)P = (insn & 0xFFE0001F) | ((int32)(((X >> 48) & 0xFFFF) << 5));
+                    break;
+                default:
+                    bh_assert(0);
+                    break;
+            }
+            break;
+        }
+
         case R_AARCH64_ADR_PREL_PG_HI21:
+        case R_AARCH64_ADR_PREL_PG_HI21_NC:
         {
             void *S = symbol_addr, *P = (void*)(target_section_addr + reloc_offset);
             int64 X, A, initial_addend;
@@ -194,12 +283,9 @@ apply_relocation(AOTModule *module,
             X = Page((int64)S + A) - Page((int64)P);
 
             /* Check overflow: +-4GB */
-            if (X > ((int64)4 * BH_GB) || X < ((int64)-4 * BH_GB)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "target address out of range.");
-                return false;
-            }
+            if (reloc_type == R_AARCH64_ADR_PREL_PG_HI21
+                && (X > ((int64)4 * BH_GB) || X < ((int64)-4 * BH_GB)))
+                goto overflow_check_fail;
 
             /* write the imm21 back to instruction */
             immhi19 = (int32)(((X >> 12) >> 2) & 0x7FFFF);
@@ -234,6 +320,54 @@ apply_relocation(AOTModule *module,
             break;
         }
 
+        case R_AARCH64_LDST8_ABS_LO12_NC:
+        case R_AARCH64_LDST16_ABS_LO12_NC:
+        case R_AARCH64_LDST32_ABS_LO12_NC:
+        case R_AARCH64_LDST64_ABS_LO12_NC:
+        case R_AARCH64_LDST128_ABS_LO12_NC:
+        {
+            void *S = symbol_addr, *P = (void*)(target_section_addr + reloc_offset);
+            int64 X, A, initial_addend;
+            int32 insn, imm12;
+
+            CHECK_RELOC_OFFSET(sizeof(int32));
+
+            insn = *(int32*)P;
+            imm12 = (insn >> 10) & 0xFFF;
+
+            SIGN_EXTEND_TO_INT64(imm12, 12, initial_addend);
+            A = initial_addend;
+            A += (int64)reloc_addend;
+
+            /* S + A */
+            X = (int64)S + A;
+
+            /* No need to check overflow for this reloction type */
+
+            /* write the imm12 back to instruction */
+            switch (reloc_type) {
+                case R_AARCH64_LDST8_ABS_LO12_NC:
+                    *(int32*)P = (insn & 0xFFC003FF) | ((int32)((X & 0xFFF) << 10));
+                    break;
+                case R_AARCH64_LDST16_ABS_LO12_NC:
+                    *(int32*)P = (insn & 0xFFC003FF) | ((int32)(((X & 0xFFF) >> 1) << 10));
+                    break;
+                case R_AARCH64_LDST32_ABS_LO12_NC:
+                    *(int32*)P = (insn & 0xFFC003FF) | ((int32)(((X & 0xFFF) >> 2) << 10));
+                    break;
+                case R_AARCH64_LDST64_ABS_LO12_NC:
+                    *(int32*)P = (insn & 0xFFC003FF) | ((int32)(((X & 0xFFF) >> 3) << 10));
+                    break;
+                case R_AARCH64_LDST128_ABS_LO12_NC:
+                    *(int32*)P = (insn & 0xFFC003FF) | ((int32)(((X & 0xFFF) >> 4) << 10));
+                    break;
+                default:
+                    bh_assert(0);
+                    break;
+            }
+            break;
+        }
+
         default:
             if (error_buf != NULL)
                 snprintf(error_buf, error_buf_size,
@@ -244,5 +378,11 @@ apply_relocation(AOTModule *module,
     }
 
     return true;
+
+overflow_check_fail:
+    set_error_buf(error_buf, error_buf_size,
+                  "AOT module load failed: "
+                  "target address out of range.");
+    return false;
 }
 
