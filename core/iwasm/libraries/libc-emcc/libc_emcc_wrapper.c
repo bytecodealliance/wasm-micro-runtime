@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2020 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
@@ -7,6 +7,9 @@
 #include "bh_log.h"
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
+#ifndef _DEFAULT_SOURCE
+#include "sys/syscall.h"
+#endif
 
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
@@ -264,7 +267,11 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
 {
     if (buffer == NULL)
         return -1;
+#ifdef _DEFAULT_SOURCE
     return getentropy(buffer, length);
+#else
+    return syscall(SYS_getrandom, buffer, length, 0);
+#endif
 }
 
 static int
