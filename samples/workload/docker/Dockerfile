@@ -23,7 +23,7 @@ RUN cd /opt \
     && tar zxf ${WASI_SDK_FILE} \
     && rm ${WASI_SDK_FILE} \
     && ln -sf /opt/wasi-sdk-${WASI_SDK_VER} /opt/wasi-sdk \
-    && ln -sf /opt/wasi-sdk/lib/clang/10.0.0/lib/wasi/ /usr/lib/llvm-11/lib/clang/11.0.0/lib/
+    && ln -sf /opt/wasi-sdk/lib/clang/10.0.0/lib/wasi/ /usr/lib/llvm-11/lib/clang/11.0.1/lib/
 
 #
 # install wabt
@@ -46,7 +46,8 @@ RUN cd /tmp \
 
 #
 # install tools
-RUN apt install -y git tree
+RUN apt update \
+      && apt install -y git tree
 
 #
 # install emsdk
@@ -85,4 +86,19 @@ RUN apt-get autoremove -y \
     && rm -rf /tmp/*
 
 VOLUME /data
-WORKDIR /data
+
+#
+#
+RUN touch  /build.sh \
+    && echo "\
+#!/bin/bash \n\
+if [[ -d /data/project/build ]]; then \n\
+  rm -r /data/project/build \n\
+fi \n\
+mkdir /data/project/build \n\
+cd /data/project/build \n\
+source /opt/emsdk/emsdk_env.sh \n\
+cmake .. \n\
+make \n\
+cd - > /dev/null" > /build.sh \
+    && chmod a+x /build.sh

@@ -5,8 +5,10 @@
 
 #!/bin/bash
 
-if [[ ! -d build_scripts ]]; then
-    mkdir build_scripts
+BUILD_CONTENT="/tmp/build_content"
+
+if [[ ! -d ${BUILD_CONTENT} ]]; then
+  mkdir ${BUILD_CONTENT}
 fi
 
 WASI_SDK_VER=11.0
@@ -15,7 +17,7 @@ CMAKE_VER=3.16.2
 BINARYEN_VER=version_97
 BAZEL_VER=3.7.0
 
-cd build_scripts
+cd ${BUILD_CONTENT}
 if [[ ! -f wasi-sdk-${WASI_SDK_VER}-linux.tar.gz ]]; then
   wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-11/wasi-sdk-${WASI_SDK_VER}-linux.tar.gz
 fi
@@ -39,16 +41,30 @@ fi
 if [[ ! -f bazel-${BAZEL_VER}-installer-linux-x86_64.sh ]]; then
   wget https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VER}/bazel-${BAZEL_VER}-installer-linux-x86_64.sh
 fi
-cd -
+cd - > /dev/null
+
+DOCKERFILE_PATH=$(dirname $(realpath $0))
 
 docker build \
   --build-arg http_proxy=${http_proxy} \
   --build-arg https_proxy=${https_proxy} \
   --build-arg HTTP_PROXY=${http_proxy} \
   --build-arg HTTPS_PROXY=${https_proxy} \
-  --build-arg WASI_SDK_VER=11.0 \
+  --build-arg WASI_SDK_VER=${WASI_SDK_VER} \
   --build-arg WABT_VER=${WABT_VER} \
   --build-arg CMAKE_VER=${CMAKE_VER} \
   --build-arg BINARYEN_VER=${BINARYEN_VER} \
   --build-arg BAZEL_VER=${BAZEL_VER} \
-  -t clang_env:0.1 -f Dockerfile build_scripts
+  -t clang_env:0.1 -f ${DOCKERFILE_PATH}/Dockerfile ${BUILD_CONTENT}
+
+docker run --rm -it \
+  -e http_proxy=${http_proxy} \
+  -e https_proxy=${https_proxy} \
+  -e HTTP_PROXY=${http_proxy} \
+  -e HTTPS_PROXY=${htpps_proxy} \
+  --name workload_w_clang \
+  --mount type=bind,source=$(pwd),target=/data/project \
+  --mount type=bind,source=$(pwd)/../cmake,target=/data/cmake \
+  -w /data/project \
+  clang_env:0.1 \
+  /bin/bash -c /build.sh

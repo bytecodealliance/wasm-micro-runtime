@@ -6,6 +6,10 @@ Ubuntu 18.04 as an example.
 
 ## Installation instructions
 
+use [preparation.sh](./preparation.sh) to install all dependencies before compiling any workload.
+
+for details, the script includes below steps:
+
 - **wasi-sdk**. Install
   [latest release](https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-11/wasi-sdk-11.0-linux.tar.gz)
   in */opt/wasi-sdk* or */opt/wasi-sdk-11*
