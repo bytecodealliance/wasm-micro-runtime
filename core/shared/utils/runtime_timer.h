@@ -33,7 +33,7 @@ bool sys_timer_cancel(timer_ctx_t ctx, uint32 timer_id);
 bool sys_timer_restart(timer_ctx_t ctx, uint32 timer_id, int interval);
 void cleanup_app_timers(timer_ctx_t ctx);
 int check_app_timers(timer_ctx_t ctx);
-int get_expiry_ms(timer_ctx_t ctx);
+uint32 get_expiry_ms(timer_ctx_t ctx);
 
 #ifdef __cplusplus
 }
