@@ -1263,23 +1263,39 @@ aot_clear_exception(AOTModuleInstance *module_inst)
 static bool
 execute_malloc_function(AOTModuleInstance *module_inst,
                         AOTFunctionInstance *malloc_func,
+                        AOTFunctionInstance *retain_func,
                         uint32 size, uint32 *p_result)
 {
-    uint32 argv[2];
+    uint32 argv[2], argc;
     bool ret;
 
     argv[0] = size;
+    argc = 1;
+    if (retain_func) {
+        argv[1] = 0;
+        argc = 2;
+    }
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (aot_exec_env != NULL) {
         bh_assert(aot_exec_env->module_inst
                   == (WASMModuleInstanceCommon *)module_inst);
-        ret = aot_call_function(aot_exec_env, malloc_func, 1, argv);
+        ret = aot_call_function(aot_exec_env, malloc_func, argc, argv);
+
+        if (retain_func && ret) {
+            ret = aot_call_function(aot_exec_env, retain_func, 1, argv);
+        }
     }
     else
 #endif
     {
         ret = aot_create_exec_env_and_call_function
-                                (module_inst, malloc_func, 1, argv);
+                                (module_inst, malloc_func, argc, argv);
+
+        if (retain_func && ret) {
+            ret = aot_create_exec_env_and_call_function
+                                (module_inst, retain_func, 1, argv);
+        }
     }
 
     if (ret)
@@ -1328,11 +1344,27 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
     }
     else if (module->malloc_func_index != (uint32)-1
              && module->free_func_index != (uint32)-1) {
-        AOTFunctionInstance *malloc_func =
-            aot_lookup_function(module_inst, "malloc", "(i)i");
+        AOTFunctionInstance *malloc_func, *retain_func = NULL;
+        char *malloc_func_name;
+        char *malloc_func_sig;
+
+        if (module->retain_func_index != (uint32)-1) {
+            malloc_func_name = "__new";
+            malloc_func_sig = "(ii)i";
+            retain_func =
+                aot_lookup_function(module_inst, "__retain", "(i)i");
+            bh_assert(retain_func);
+        }
+        else {
+            malloc_func_name = "malloc";
+            malloc_func_sig = "(i)i";
+        }
+        malloc_func =
+            aot_lookup_function(module_inst,
+                                malloc_func_name, malloc_func_sig);
 
         bh_assert(malloc_func);
-        if (!execute_malloc_function(module_inst, malloc_func,
+        if (!execute_malloc_function(module_inst, malloc_func, retain_func,
                                      size, &offset)) {
             return 0;
         }
@@ -1371,8 +1403,17 @@ aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
                  && module->free_func_index != (uint32)-1
                  && (uint8 *)memory_inst->memory_data.ptr <= addr
                  && addr < (uint8 *)memory_inst->memory_data_end.ptr) {
-            AOTFunctionInstance *free_func =
-                aot_lookup_function(module_inst, "free", "(i)i");
+            AOTFunctionInstance *free_func;
+            char *free_func_name;
+
+            if (module->retain_func_index != (uint32)-1) {
+                free_func_name = "__release";
+            }
+            else {
+                free_func_name = "free";
+            }
+            free_func =
+                aot_lookup_function(module_inst, free_func_name, "(i)i");
 
             bh_assert(free_func);
             execute_free_function(module_inst, free_func, ptr);

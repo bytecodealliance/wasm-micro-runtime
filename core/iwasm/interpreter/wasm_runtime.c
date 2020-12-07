@@ -970,14 +970,35 @@ execute_start_function(WASMModuleInstance *module_inst)
 static bool
 execute_malloc_function(WASMModuleInstance *module_inst,
                         WASMFunctionInstance *malloc_func,
+                        WASMFunctionInstance *retain_func,
                         uint32 size, uint32 *p_result)
 {
-    uint32 argv[2];
+    uint32 argv[2], argc;
     bool ret;
 
     argv[0] = size;
+    argc = 1;
+
+    /* if __retain is exported, then this module is compiled by
+        assemblyscript, the memory should be managed by as's runtime,
+        in this case we need to call the retain function after malloc
+        the memory */
+    if (retain_func) {
+        /* the malloc functino from assemblyscript is:
+            function __new(size: usize, id: u32)
+            id = 0 means this is an ArrayBuffer object */
+        argv[1] = 0;
+        argc = 2;
+    }
+
     ret = wasm_create_exec_env_and_call_function
-                        (module_inst, malloc_func, 1, argv);
+                        (module_inst, malloc_func, argc, argv);
+
+    if (retain_func && ret) {
+        ret = wasm_create_exec_env_and_call_function
+                        (module_inst, retain_func, 1, argv);
+    }
+
     if (ret)
         *p_result = argv[0];
     return ret;
@@ -1409,6 +1430,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
             &module_inst->functions[module->free_function];
     }
 
+    if (module->retain_function != (uint32)-1) {
+        module_inst->retain_function =
+            &module_inst->functions[module->retain_function];
+    }
+
 #if WASM_ENABLE_LIBC_WASI != 0
     /* The sub-instance will get the wasi_ctx from main-instance */
     if (!is_sub_inst) {
@@ -1651,6 +1677,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
              && module_inst->free_function) {
         if (!execute_malloc_function(module_inst,
                                      module_inst->malloc_function,
+                                     module_inst->retain_function,
                                      size, &offset)) {
             return 0;
         }

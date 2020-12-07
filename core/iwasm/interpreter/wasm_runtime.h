@@ -184,6 +184,7 @@ struct WASMModuleInstance {
     WASMFunctionInstance *start_function;
     WASMFunctionInstance *malloc_function;
     WASMFunctionInstance *free_function;
+    WASMFunctionInstance *retain_function;
 
     WASMModule *module;
 

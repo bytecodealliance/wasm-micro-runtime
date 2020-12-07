@@ -512,6 +512,7 @@ aot_create_comp_data(WASMModule *module)
   comp_data->start_func_index = module->start_function;
   comp_data->malloc_func_index = module->malloc_function;
   comp_data->free_func_index = module->free_function;
+  comp_data->retain_func_index = module->retain_function;
 
   comp_data->wasm_module = module;
 
