@@ -420,13 +420,26 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
     return os_cond_wait_internal(cond, mutex, false, 0);
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds)
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
 
-    if (useconds == BHT_WAIT_FOREVER)
+    if (useconds == BHT_WAIT_FOREVER) {
         return os_cond_wait_internal(cond, mutex, false, 0);
-    else
-        return os_cond_wait_internal(cond, mutex, true, useconds / 1000);
+    }
+    else {
+        uint64 mills_64 = useconds / 1000;
+        int32 mills;
+
+        if (mills_64 < (uint64)INT32_MAX) {
+            mills = (int32)mills_64;
+        }
+        else {
+            mills = INT32_MAX;
+            os_printf("Warning: os_cond_reltimedwait exceeds limit, "
+                      "set to max timeout instead\n");
+        }
+        return os_cond_wait_internal(cond, mutex, true, mills);
+    }
 }
 
 int os_cond_signal(korp_cond *cond)

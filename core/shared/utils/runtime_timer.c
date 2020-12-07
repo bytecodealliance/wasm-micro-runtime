@@ -396,7 +396,6 @@ handle_expired_timers(timer_ctx_t ctx, app_timer_t *expired)
         if (t->is_periodic) {
             /* if it is repeating, then reschedule it; */
             reschedule_timer(ctx, t);
-
         }
         else {
             /* else move it to idle list */
@@ -423,10 +422,10 @@ get_expiry_ms(timer_ctx_t ctx)
     return ms_to_next_expiry;
 }
 
-int
+uint32
 check_app_timers(timer_ctx_t ctx)
 {
-    app_timer_t *t, *expired = NULL;
+    app_timer_t *t, *expired = NULL, *expired_end = NULL;
     uint64 now = bh_get_tick_ms();
 
     os_mutex_lock(&ctx->mutex);
@@ -436,8 +435,15 @@ check_app_timers(timer_ctx_t ctx)
         if (now >= t->expiry) {
             ctx->app_timers = t->next;
 
-            t->next = expired;
-            expired = t;
+            /* append t to the end of expired list */
+            t->next = NULL;
+            if (!expired_end) {
+                expired = expired_end = t;
+            }
+            else {
+                expired_end->next = t;
+                expired_end = t;
+            }
 
             t = ctx->app_timers;
         }

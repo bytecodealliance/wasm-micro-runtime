@@ -848,7 +848,7 @@ pthread_cond_wait_wrapper(wasm_exec_env_t exec_env, uint32 *cond, uint32 *mutex)
 */
 static int32
 pthread_cond_timedwait_wrapper(wasm_exec_env_t exec_env, uint32 *cond,
-                               uint32 *mutex, uint32 useconds)
+                               uint32 *mutex, uint64 useconds)
 {
     ThreadInfoNode *cond_info_node, *mutex_info_node;
 
@@ -1014,7 +1014,7 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_mutex_destroy,  "(*)i"),
     REG_NATIVE_FUNC(pthread_cond_init,      "(**)i"),
     REG_NATIVE_FUNC(pthread_cond_wait,      "(**)i"),
-    REG_NATIVE_FUNC(pthread_cond_timedwait, "(**i)i"),
+    REG_NATIVE_FUNC(pthread_cond_timedwait, "(**I)i"),
     REG_NATIVE_FUNC(pthread_cond_signal,    "(*)i"),
     REG_NATIVE_FUNC(pthread_cond_destroy,   "(*)i"),
     REG_NATIVE_FUNC(pthread_key_create,     "(*i)i"),

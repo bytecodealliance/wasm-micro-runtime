@@ -171,7 +171,7 @@ void bh_free_msg(bh_queue_node *msg)
     bh_queue_free(msg);
 }
 
-bh_message_t bh_get_msg(bh_queue *queue, int timeout)
+bh_message_t bh_get_msg(bh_queue *queue, uint64 timeout_us)
 {
     bh_queue_node *msg = NULL;
     bh_queue_mutex_lock(&queue->queue_lock);
@@ -180,13 +180,13 @@ bh_message_t bh_get_msg(bh_queue *queue, int timeout)
         bh_assert(queue->head == NULL);
         bh_assert(queue->tail == NULL);
 
-        if (timeout == 0) {
+        if (timeout_us == 0) {
             bh_queue_mutex_unlock(&queue->queue_lock);
             return NULL;
         }
 
         bh_queue_cond_timedwait(&queue->queue_wait_cond, &queue->queue_lock,
-                                timeout);
+                                timeout_us);
     }
 
     if (queue->cnt == 0) {
@@ -226,7 +226,7 @@ void bh_queue_enter_loop_run(bh_queue *queue,
         return;
 
     while (!queue->exit_loop_run) {
-        bh_queue_node * message = bh_get_msg(queue, (int)BHT_WAIT_FOREVER);
+        bh_queue_node * message = bh_get_msg(queue, BHT_WAIT_FOREVER);
 
         if (message) {
             handle_cb(message, arg);

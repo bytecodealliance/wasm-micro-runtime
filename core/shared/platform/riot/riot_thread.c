@@ -399,11 +399,10 @@ os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 }
 
 int
-os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds)
+os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
-    uint64 useconds64 = (uint64) useconds;
     return os_cond_wait_internal(cond, mutex,
-                                 (useconds64 != BHT_WAIT_FOREVER), useconds64);
+                                 (useconds != BHT_WAIT_FOREVER), useconds);
 }
 
 int
