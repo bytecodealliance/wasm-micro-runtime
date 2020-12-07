@@ -149,6 +149,7 @@ typedef struct AOTModule {
 
     uint32 malloc_func_index;
     uint32 free_func_index;
+    uint32 retain_func_index;
 
     /* AOTed code, NULL for JIT mode */
     void *code;

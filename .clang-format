@@ -44,7 +44,7 @@ BinPackParameters: false
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Custom
 BraceWrapping:
-  AfterCaseLabel: false
+  AfterCaseLabel: true
   AfterClass: true
   AfterControlStatement: false
   AfterEnum: false
@@ -76,6 +76,7 @@ KeepEmptyLinesAtTheStartOfBlocks: false
 NamespaceIndentation: None
 PointerAlignment: Right
 ReflowComments: false
+SortIncludes:   false
 Standard: Auto
 StatementMacros:
   - Q_UNUSED

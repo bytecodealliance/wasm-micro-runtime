@@ -1701,7 +1701,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     module->malloc_function = (uint32)-1;
     module->free_function = (uint32)-1;
 
-    /* Resolve auxiliary data/stack/heap info and reset memory info */
+    /* Resolve malloc/free function exported by wasm module */
     export = module->exports;
     for (i = 0; i < module->export_count; i++, export++) {
         if (export->kind == EXPORT_KIND_FUNC) {
@@ -1713,21 +1713,75 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     && func_type->result_count == 1
                     && func_type->types[0] == VALUE_TYPE_I32
                     && func_type->types[1] == VALUE_TYPE_I32) {
+                    bh_assert(module->malloc_function == (uint32)-1);
                     module->malloc_function = export->index;
-                    LOG_VERBOSE("Found malloc function, index: %u",
-                                export->index);
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                export->name, export->index);
                 }
             }
-            else if (!strcmp(export->name, "free")
+            else if (!strcmp(export->name, "__new")
+                     && export->index >= module->import_function_count) {
+                /* __new && __retain for AssemblyScript */
+                func_index = export->index - module->import_function_count;
+                func_type = module->functions[func_index]->func_type;
+                if (func_type->param_count == 2
+                    && func_type->result_count == 1
+                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[1] == VALUE_TYPE_I32
+                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    uint32 j;
+                    WASMExport *export_tmp;
+
+                    bh_assert(module->malloc_function == (uint32)-1);
+                    module->malloc_function = export->index;
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                export->name, export->index);
+
+                    /* resolve retain function.
+                        If not find, reset malloc function index */
+                    export_tmp = module->exports;
+                    for (j = 0; j < module->export_count; j++, export_tmp++) {
+                        if ((export_tmp->kind == EXPORT_KIND_FUNC)
+                            && (!strcmp(export_tmp->name, "__retain"))
+                            && (export_tmp->index
+                                >= module->import_function_count)) {
+                            func_index = export_tmp->index
+                                            - module->import_function_count;
+                            func_type =
+                                    module->functions[func_index]->func_type;
+                            if (func_type->param_count == 1
+                                && func_type->result_count == 1
+                                && func_type->types[0] == VALUE_TYPE_I32
+                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                bh_assert(
+                                    module->retain_function == (uint32)-1);
+                                module->retain_function = export_tmp->index;
+                                LOG_VERBOSE(
+                                    "Found retain function, name: %s, index: %u",
+                                    export_tmp->name, export_tmp->index);
+                                break;
+                            }
+                        }
+                    }
+                    if (j == module->export_count) {
+                        module->malloc_function = (uint32)-1;
+                        LOG_VERBOSE("Can't find retain function,"
+                                    "reset malloc function index to -1");
+                    }
+                }
+            }
+            else if (((!strcmp(export->name, "free"))
+                      || (!strcmp(export->name, "__release")))
                      && export->index >= module->import_function_count) {
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 1
                     && func_type->result_count == 0
                     && func_type->types[0] == VALUE_TYPE_I32) {
+                    bh_assert(module->free_function == (uint32)-1);
                     module->free_function = export->index;
-                    LOG_VERBOSE("Found free function, index: %u",
-                                export->index);
+                    LOG_VERBOSE("Found free function, name: %s, index: %u",
+                                export->name, export->index);
                 }
             }
         }

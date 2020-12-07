@@ -371,6 +371,10 @@ struct WASMModule {
     uint32 malloc_function;
     uint32 free_function;
 
+    /* the index of __retain function,
+       -1 means unexported */
+    uint32 retain_function;
+
     /* Whether there is possible memory grow, e.g. memory.grow opcode */
     bool possible_memory_grow;
 

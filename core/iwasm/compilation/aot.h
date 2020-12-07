@@ -206,6 +206,7 @@ typedef struct AOTCompData {
   uint32 start_func_index;
   uint32 malloc_func_index;
   uint32 free_func_index;
+  uint32 retain_func_index;
 
   uint32 aux_data_end_global_index;
   uint32 aux_data_end;
