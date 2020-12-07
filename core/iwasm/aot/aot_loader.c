@@ -1681,6 +1681,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     /* Resolve malloc and free function */
     module->malloc_func_index = (uint32)-1;
     module->free_func_index = (uint32)-1;
+    module->retain_func_index = (uint32)-1;
 
     exports = module->exports;
     for (i = 0; i < module->export_count; i++) {
@@ -1694,21 +1695,73 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     && func_type->result_count == 1
                     && func_type->types[0] == VALUE_TYPE_I32
                     && func_type->types[1] == VALUE_TYPE_I32) {
+                    bh_assert(module->malloc_func_index == (uint32)-1);
                     module->malloc_func_index = func_index;
-                    LOG_VERBOSE("Found malloc function, index: %u",
-                                exports[i].index);
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
                 }
             }
-            else if (!strcmp(exports[i].name, "free")) {
+            else if (!strcmp(exports[i].name, "__new")) {
+                func_index = exports[i].index - module->import_func_count;
+                func_type_index = module->func_type_indexes[func_index];
+                func_type = module->func_types[func_type_index];
+                if (func_type->param_count == 2
+                    && func_type->result_count == 1
+                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[1] == VALUE_TYPE_I32
+                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    uint32 j;
+                    WASMExport *export_tmp;
+
+                    bh_assert(module->malloc_func_index == (uint32)-1);
+                    module->malloc_func_index = func_index;
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
+
+                    /* resolve retain function.
+                        If not find, reset malloc function index */
+                    export_tmp = module->exports;
+                    for (j = 0; j < module->export_count; j++, export_tmp++) {
+                        if ((export_tmp->kind == EXPORT_KIND_FUNC)
+                            && (!strcmp(export_tmp->name, "__retain"))) {
+                            func_index = export_tmp->index
+                                            - module->import_func_count;
+                            func_type_index =
+                                        module->func_type_indexes[func_index];
+                            func_type = module->func_types[func_type_index];
+                            if (func_type->param_count == 1
+                                && func_type->result_count == 1
+                                && func_type->types[0] == VALUE_TYPE_I32
+                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                bh_assert(
+                                    module->retain_func_index == (uint32)-1);
+                                module->retain_func_index = export_tmp->index;
+                                LOG_VERBOSE(
+                                    "Found retain function, name: %s, index: %u",
+                                    export_tmp->name, export_tmp->index);
+                                break;
+                            }
+                        }
+                    }
+                    if (j == module->export_count) {
+                        module->malloc_func_index = (uint32)-1;
+                        LOG_VERBOSE("Can't find retain function,"
+                                    "reset malloc function index to -1");
+                    }
+                }
+            }
+            else if ((!strcmp(exports[i].name, "free"))
+                     || (!strcmp(exports[i].name, "__release"))) {
                 func_index = exports[i].index - module->import_func_count;
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = module->func_types[func_type_index];
                 if (func_type->param_count == 1
                     && func_type->result_count == 0
                     && func_type->types[0] == VALUE_TYPE_I32) {
+                    bh_assert(module->free_func_index == (uint32)-1);
                     module->free_func_index = func_index;
-                    LOG_VERBOSE("Found free function, index: %u",
-                                exports[i].index);
+                    LOG_VERBOSE("Found free function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
                 }
             }
         }
@@ -2057,6 +2110,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     module->malloc_func_index = comp_data->malloc_func_index;
     module->free_func_index = comp_data->free_func_index;
+    module->retain_func_index = comp_data->retain_func_index;
 
     module->aux_data_end_global_index = comp_data->aux_data_end_global_index;
     module->aux_data_end = comp_data->aux_data_end;
