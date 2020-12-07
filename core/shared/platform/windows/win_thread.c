@@ -125,7 +125,7 @@ static void msec_nsec_to_abstime(struct timespec *ts, int usec)
     }
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds)
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
     return BHT_OK;
 }

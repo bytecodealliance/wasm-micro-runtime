@@ -42,17 +42,18 @@ wasm_timer_callback(timer_id_t id, unsigned int mod_id)
 
 void * thread_modulers_timer_check(void * arg)
 {
-    int ms_to_expiry;
+    uint32 ms_to_expiry;
+    uint64 us_to_wait;
 
     while (timer_thread_run) {
-        ms_to_expiry = -1;
+        ms_to_expiry = (uint32)-1;
         os_mutex_lock(&g_timer_ctx_list_mutex);
         timer_ctx_node_t* elem = (timer_ctx_node_t*)
                                  bh_list_first_elem(&g_timer_ctx_list);
         while (elem) {
-            int next = check_app_timers(elem->timer_ctx);
-            if (next != -1) {
-                if (ms_to_expiry == -1 || ms_to_expiry > next)
+            uint32 next = check_app_timers(elem->timer_ctx);
+            if (next != (uint32)-1) {
+                if (ms_to_expiry == (uint32)-1 || ms_to_expiry > next)
                     ms_to_expiry = next;
             }
 
@@ -60,11 +61,13 @@ void * thread_modulers_timer_check(void * arg)
         }
         os_mutex_unlock(&g_timer_ctx_list_mutex);
 
-        if (ms_to_expiry == -1)
-            ms_to_expiry = 60 * 1000;
+        if (ms_to_expiry == (uint32)-1)
+            us_to_wait = BHT_WAIT_FOREVER;
+        else
+            us_to_wait = (uint64)ms_to_expiry * 1000;
         os_mutex_lock(&g_timer_ctx_list_mutex);
         os_cond_reltimedwait(&g_timer_ctx_list_cond, &g_timer_ctx_list_mutex,
-                             ms_to_expiry * 1000);
+                             us_to_wait);
         os_mutex_unlock(&g_timer_ctx_list_mutex);
     }
 
