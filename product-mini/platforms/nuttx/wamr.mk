@@ -153,7 +153,8 @@ CFLAGS += -I${IWASM_ROOT}/interpreter
 endif
 
 CSRCS += nuttx_platform.c \
-         nuttx_thread.c \
+         posix_thread.c \
+         posix_time.c \
          mem_alloc.c \
          ems_kfc.c \
          ems_alloc.c \
@@ -176,6 +177,7 @@ CSRCS += nuttx_platform.c \
 ASRCS += ${INVOKE_NATIVE}
 
 VPATH += ${SHARED_ROOT}/platform/nuttx
+VPATH += ${SHARED_ROOT}/platform/common/posix
 VPATH += ${SHARED_ROOT}/mem-alloc
 VPATH += ${SHARED_ROOT}/mem-alloc/ems
 VPATH += ${SHARED_ROOT}/utils
