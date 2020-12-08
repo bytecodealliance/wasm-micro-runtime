@@ -107,6 +107,13 @@ else
 CFLAGS += -DWASM_ENABLE_THREAD_MGR=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_LIB_PTHREAD),y)
+CFLAGS += -DWASM_ENABLE_LIB_PTHREAD=1
+CSRCS += lib_pthread_wrapper.c
+else
+CFLAGS += -DWASM_ENABLE_LIB_PTHREAD=0
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_MINILOADER),y)
 CFLAGS += -DWASM_ENABLE_MINI_LOADER=1
 CSRCS += wasm_mini_loader.c
@@ -140,6 +147,7 @@ CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 CFLAGS += -I${CORE_ROOT} \
 		      -I${IWASM_ROOT}/include \
           -I${IWASM_ROOT}/common \
+          -I${IWASM_ROOT}/libraries/thread-mgr \
           -I${SHARED_ROOT}/include \
           -I${SHARED_ROOT}/platform/include \
           -I${SHARED_ROOT}/utils \
@@ -186,6 +194,7 @@ VPATH += ${IWASM_ROOT}/common
 VPATH += ${IWASM_ROOT}/interpreter
 VPATH += ${IWASM_ROOT}/libraries
 VPATH += ${IWASM_ROOT}/libraries/libc-builtin
+VPATH += ${IWASM_ROOT}/libraries/lib-pthread
 VPATH += ${IWASM_ROOT}/common/arch
 VPATH += ${IWASM_ROOT}/aot
 VPATH += ${IWASM_ROOT}/aot/arch
