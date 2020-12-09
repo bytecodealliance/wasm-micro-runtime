@@ -7,6 +7,7 @@
 #define _GNU_SOURCE
 #endif
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "bh_platform.h"
@@ -26,6 +27,8 @@ print_help()
     printf("options:\n");
     printf("  -f|--function name     Specify a function name of the module to run rather\n"
            "                         than main\n");
+    printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
+           "                         that runs commands in the form of `FUNC ARG...`\n");
 #if WASM_ENABLE_LOG != 0
     printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
            "                         level with more log\n");
@@ -69,6 +72,81 @@ app_instance_func(wasm_module_inst_t module_inst, const char *func_name)
                                   app_argv + 1);
     /* The result of wasm function or exception info was output inside
        wasm_application_execute_func(), here we don't output them again. */
+    return NULL;
+}
+
+/**
+ * Split a space separated strings into an array of strings
+ * Returns NULL on failure
+ * Memory must be freed by caller
+ * Based on: http://stackoverflow.com/a/11198630/471795
+ */
+static char **
+split_string(char *str, int *count)
+{
+    char **res = NULL;
+    char *p;
+    int idx = 0;
+
+    /* split string and append tokens to 'res' */
+    do {
+        p = strtok(str, " ");
+        str = NULL;
+        res = (char **)realloc(res, sizeof(char *) * (uint32)(idx + 1));
+        if (res == NULL) {
+            return NULL;
+        }
+        res[idx++] = p;
+    } while (p);
+
+    /**
+     * since the function name,
+     * res[0] might be contains a '\' to indicate a space
+     * func\name -> func name
+     */
+    p = strchr(res[0], '\\');
+    while (p) {
+        *p = ' ';
+        p = strchr(p, '\\');
+    }
+
+    if (count) {
+        *count = idx - 1;
+    }
+    return res;
+}
+
+static void *
+app_instance_repl(wasm_module_inst_t module_inst)
+{
+    char *cmd = NULL;
+    size_t len = 0;
+    ssize_t n;
+
+    while ((printf("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
+        bh_assert(n > 0);
+        if (cmd[n - 1] == '\n') {
+            if (n == 1)
+                continue;
+            else
+                cmd[n - 1] = '\0';
+        }
+        if (!strcmp(cmd, "__exit__")) {
+            printf("exit repl mode\n");
+            break;
+        }
+        app_argv = split_string(cmd, &app_argc);
+        if (app_argv == NULL) {
+            LOG_ERROR("Wasm prepare param failed: split string failed.\n");
+            break;
+        }
+        if (app_argc != 0) {
+            wasm_application_execute_func(module_inst, app_argv[0],
+                                          app_argc - 1, app_argv + 1);
+        }
+        free(app_argv);
+    }
+    free(cmd);
     return NULL;
 }
 
@@ -152,6 +230,7 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_LOG != 0
     int log_verbose_level = 2;
 #endif
+    bool is_repl_mode = false;
 #if WASM_ENABLE_LIBC_WASI != 0
     const char *dir_list[8] = { NULL };
     uint32 dir_list_size = 0;
@@ -176,6 +255,9 @@ main(int argc, char *argv[])
                 return print_help();
         }
 #endif
+        else if (!strcmp(argv[0], "--repl")) {
+            is_repl_mode = true;
+        }
         else if (!strncmp(argv[0], "--stack-size=", 13)) {
             if (argv[0][13] == '\0')
                 return print_help();
@@ -296,7 +378,9 @@ main(int argc, char *argv[])
         goto fail3;
     }
 
-    if (func_name)
+    if (is_repl_mode)
+        app_instance_repl(wasm_module_inst);
+    else if (func_name)
         app_instance_func(wasm_module_inst, func_name);
     else
         app_instance_main(wasm_module_inst);
