@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <system/readline.h>
+
 #include "bh_platform.h"
 #include "bh_read_file.h"
 #include "wasm_export.h"
@@ -119,13 +121,20 @@ split_string(char *str, int *count)
 static void *
 app_instance_repl(wasm_module_inst_t module_inst)
 {
-    char *cmd = NULL;
-    size_t len = 0;
+    size_t len = 128;
+    char *cmd = malloc(len);
     ssize_t n;
 
-    while ((printf("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
+    if (NULL == cmd) {
+        LOG_ERROR("Wasm repl cmd buffer alloc failed.\n");
+        return NULL;
+    }
+
+    while (
+      (printf("webassembly> "), fflush(stdout), n = std_readline(cmd, len))
+      != -1) {
         bh_assert(n > 0);
-        if (cmd[n - 1] == '\n') {
+        if ((cmd[n - 1] == '\n') || (cmd[n - 1] == '\r')) {
             if (n == 1)
                 continue;
             else
