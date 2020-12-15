@@ -1036,8 +1036,8 @@ build_atomic_rmw:
       case WASM_OP_SIMD_PREFIX:
       {
         if (!comp_ctx->enable_simd) {
-            aot_set_last_error(
-              "current building does not support SIMD instructions");
+            aot_set_last_error("SIMD instruction was found, "
+                               "try adding --enable-simd option?");
             return false;
         }
 

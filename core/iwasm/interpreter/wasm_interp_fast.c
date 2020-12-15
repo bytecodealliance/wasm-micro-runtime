@@ -987,8 +987,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     if (!func_import->func_ptr_linked) {
         char buf[128];
-        snprintf(buf,
-                 sizeof(buf), "fail to call unlinked import function (%s, %s)",
+        snprintf(buf, sizeof(buf),
+                 "failed to call unlinked import function (%s, %s)",
                  func_import->module_name, func_import->field_name);
         wasm_set_exception((WASMModuleInstance*)module_inst, buf);
         return;
@@ -1043,7 +1043,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
-                 "fail to call unlinked import function (%s, %s)",
+                 "failed to call unlinked import function (%s, %s)",
                  func_import->module_name, func_import->field_name);
         wasm_set_exception(module_inst, buf);
         return;
@@ -1796,7 +1796,7 @@ recover_br_info:
         delta = (uint32)frame_lp[addr1];
 
         if (!wasm_enlarge_memory(module, delta)) {
-          /* fail to memory.grow, return -1 */
+          /* failed to memory.grow, return -1 */
           frame_lp[addr_ret] = -1;
         }
         else {

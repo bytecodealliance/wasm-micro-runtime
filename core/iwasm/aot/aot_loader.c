@@ -894,15 +894,12 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
 
         module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
-        if (!(import_funcs[i].func_ptr_linked =
+        import_funcs[i].func_ptr_linked =
                     wasm_native_resolve_symbol(module_name, field_name,
                                                import_funcs[i].func_type,
                                                &import_funcs[i].signature,
                                                &import_funcs[i].attachment,
-                                               &import_funcs[i].call_conv_raw))) {
-            LOG_WARNING("warning: fail to link import function (%s, %s)\n",
-                        module_name, field_name);
-        }
+                                               &import_funcs[i].call_conv_raw);
 
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")

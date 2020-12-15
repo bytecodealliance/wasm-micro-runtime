@@ -388,19 +388,6 @@ load_function_import(const WASMModule *parent_module, WASMModule *sub_module,
                                                  &linked_call_conv_raw);
     }
 
-    if (!linked_func) {
-#if WASM_ENABLE_SPEC_TEST != 0
-        set_error_buf(error_buf, error_buf_size,
-                      "unknown import or incompatible import type");
-        return false;
-#else
-#if WASM_ENABLE_WAMR_COMPILER == 0
-        LOG_WARNING("warning: fail to link import function (%s, %s)",
-                    sub_module_name, function_name);
-#endif
-#endif
-    }
-
     function->module_name = sub_module_name;
     function->field_name = function_name;
     function->func_type = declare_func_type;

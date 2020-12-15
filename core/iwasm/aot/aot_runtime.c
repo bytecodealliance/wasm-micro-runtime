@@ -551,8 +551,15 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* Set import function pointers */
     func_ptrs = (void**)module_inst->func_ptrs.ptr;
-    for (i = 0; i < module->import_func_count; i++, func_ptrs++)
+    for (i = 0; i < module->import_func_count; i++, func_ptrs++) {
         *func_ptrs = (void*)module->import_funcs[i].func_ptr_linked;
+        if (!*func_ptrs) {
+            const char *module_name = module->import_funcs[i].module_name;
+            const char *field_name = module->import_funcs[i].func_name;
+            LOG_WARNING("warning: failed to link import function (%s, %s)",
+                        module_name, field_name);
+        }
+    }
 
     /* Set defined function pointers */
     memcpy(func_ptrs, module->func_ptrs, module->func_count * sizeof(void*));
@@ -1232,7 +1239,7 @@ aot_set_exception_with_id(AOTModuleInstance *module_inst,
             aot_set_exception(module_inst, "uninitialized element");
             break;
         case EXCE_CALL_UNLINKED_IMPORT_FUNC:
-            aot_set_exception(module_inst, "fail to call unlinked import function");
+            aot_set_exception(module_inst, "failed to call unlinked import function");
             break;
         case EXCE_NATIVE_STACK_OVERFLOW:
             aot_set_exception(module_inst, "native stack overflow");
@@ -1775,7 +1782,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     import_func = aot_module->import_funcs + func_idx;
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
-                 "fail to call unlinked import function (%s, %s)",
+                 "failed to call unlinked import function (%s, %s)",
                  import_func->module_name, import_func->func_name);
         aot_set_exception(module_inst, buf);
         return false;
@@ -1851,7 +1858,7 @@ aot_call_indirect(WASMExecEnv *exec_env,
         bh_assert(func_idx < aot_module->import_func_count);
         import_func = aot_module->import_funcs + func_idx;
         snprintf(buf, sizeof(buf),
-                 "fail to call unlinked import function (%s, %s)",
+                 "failed to call unlinked import function (%s, %s)",
                  import_func->module_name, import_func->func_name);
         aot_set_exception(module_inst, buf);
         return false;

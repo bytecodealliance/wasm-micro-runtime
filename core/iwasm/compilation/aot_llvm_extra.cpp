@@ -115,9 +115,10 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 
     llvm::SmallVector<std::string, 1> targetAttributes;
     llvm::Triple targetTriple(arch_c_str, "", "");
-    llvm::TargetMachine *targetMachine = llvm::EngineBuilder().selectTarget(
-      targetTriple, "", std::string(cpu_c_str), targetAttributes);
-    if (targetMachine == nullptr) {
+    auto targetMachine =
+      std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
+        targetTriple, "", std::string(cpu_c_str), targetAttributes));
+    if (!targetMachine) {
         return false;
     }
 
