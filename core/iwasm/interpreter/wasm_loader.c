@@ -1841,8 +1841,12 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 #endif
 #endif
                         ) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "invalid local type");
+                    if (type == VALUE_TYPE_V128)
+                        set_error_buf(error_buf, error_buf_size,
+                                      "v128 value type requires simd feature");
+                    else
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "invalid local type 0x%02X", type);
                     return false;
                 }
                 for (k = 0; k < sub_local_count; k++) {

@@ -159,6 +159,13 @@ static void hal_init(void)
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read = display_input_read; /*This function will be called periodically (by the library) to get the mouse position and state*/
     lv_indev_t * mouse_indev = lv_indev_drv_register(&indev_drv);
+}
 
+/* Implement empry main function as wasi start function calls it */
+int main(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    return 0;
 }
 

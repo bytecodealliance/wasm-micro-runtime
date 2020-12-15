@@ -86,7 +86,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_succ;
     AOTValue *aot_value;
-    bool is_target_64bit;
+    uint32 local_idx_of_aot_value = 0;
+    bool is_target_64bit, is_local_of_aot_value = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory =
         comp_ctx->comp_data->memories[0].memory_flags & 0x02;
@@ -116,6 +117,12 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     aot_value = func_ctx->block_stack.block_list_end->value_stack.value_list_end;
+    if (aot_value) {
+        /* aot_value is freed in the following POP_I32(addr),
+           so save its fields here for further use */
+        is_local_of_aot_value = aot_value->is_local;
+        local_idx_of_aot_value = aot_value->local_idx;
+    }
 
     POP_I32(addr);
 
@@ -156,8 +163,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     BUILD_OP(Add, offset_const, addr, offset1, "offset1");
 
     if (comp_ctx->enable_bound_check
-        && !(aot_value->is_local
-             && aot_checked_addr_list_find(func_ctx, aot_value->local_idx,
+        && !(is_local_of_aot_value
+             && aot_checked_addr_list_find(func_ctx, local_idx_of_aot_value,
                                            offset, bytes))) {
         uint32 init_page_count =
                 comp_ctx->comp_data->memories[0].mem_init_page_count;
@@ -207,8 +214,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         SET_BUILD_POS(check_succ);
 
-        if (aot_value->is_local) {
-            if (!aot_checked_addr_list_add(func_ctx, aot_value->local_idx,
+        if (is_local_of_aot_value) {
+            if (!aot_checked_addr_list_add(func_ctx, local_idx_of_aot_value,
                                            offset, bytes))
                 goto fail;
         }
