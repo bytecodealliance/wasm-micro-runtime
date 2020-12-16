@@ -472,6 +472,16 @@ typedef enum WASMSimdEXTOpcode {
     SIMD_i64x2_sub    = 0xd1,
     SIMD_i64x2_mul    = 0xd5,
 
+    /* float ceil/floor/trunc/nearest */
+    SIMD_f32x4_ceil   = 0xd8,
+    SIMD_f32x4_floor  = 0xd9,
+    SIMD_f32x4_trunc  = 0xda,
+    SIMD_f32x4_nearest = 0xdb,
+    SIMD_f64x2_ceil   = 0xdc,
+    SIMD_f64x2_floor  = 0xdd,
+    SIMD_f64x2_trunc  = 0xde,
+    SIMD_f64x2_nearest = 0xdf,
+
     /* f32x4 operation */
     SIMD_f32x4_abs    = 0xe0,
     SIMD_f32x4_neg    = 0xe1,
