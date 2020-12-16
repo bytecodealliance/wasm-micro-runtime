@@ -7481,6 +7481,14 @@ fail_data_cnt_sec_require:
                         POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
 
+                    case SIMD_f32x4_ceil:
+                    case SIMD_f32x4_floor:
+                    case SIMD_f32x4_trunc:
+                    case SIMD_f32x4_nearest:
+                    case SIMD_f64x2_ceil:
+                    case SIMD_f64x2_floor:
+                    case SIMD_f64x2_trunc:
+                    case SIMD_f64x2_nearest:
                     case SIMD_v128_not:
                     case SIMD_i8x16_abs:
                     case SIMD_i8x16_neg:

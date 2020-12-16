@@ -1741,6 +1741,55 @@ build_atomic_rmw:
             break;
           }
 
+          case SIMD_f32x4_ceil:
+          {
+            if (!aot_compile_simd_f32x4_ceil(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_ceil:
+          {
+            if (!aot_compile_simd_f64x2_ceil(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f32x4_floor:
+          {
+            if (!aot_compile_simd_f32x4_floor(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_floor:
+          {
+            if (!aot_compile_simd_f64x2_floor(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f32x4_trunc:
+          {
+            if (!aot_compile_simd_f32x4_trunc(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_trunc:
+          {
+            if (!aot_compile_simd_f64x2_trunc(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f32x4_nearest:
+          {
+            if (!aot_compile_simd_f32x4_nearest(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_nearest:
+          {
+            if (!aot_compile_simd_f64x2_nearest(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+
           default:
             break;
         }

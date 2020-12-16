@@ -178,57 +178,10 @@ aot_compile_simd_f64x2_neg(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 static bool
-simd_v128_float_abs(AOTCompContext *comp_ctx,
-                    AOTFuncContext *func_ctx,
-                    LLVMTypeRef vector_type,
-                    const char *intrinsic)
-{
-    LLVMValueRef vector, result;
-    LLVMTypeRef param_types[1] = { vector_type };
-
-    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
-                                             "vec"))) {
-        goto fail;
-    }
-
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, intrinsic, vector_type,
-                                           param_types, 1, vector))) {
-        HANDLE_FAILURE("LLVMBuildCall");
-        goto fail;
-    }
-
-    if (!(result = LLVMBuildBitCast(comp_ctx->builder, result, V128_i64x2_TYPE,
-                                    "ret"))) {
-        HANDLE_FAILURE("LLVMBuildBitCast");
-        goto fail;
-    }
-
-    /* push result into the stack */
-    PUSH_V128(result);
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_compile_simd_f32x4_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    return simd_v128_float_abs(comp_ctx, func_ctx, V128_f32x4_TYPE,
-                               "llvm.fabs.v4f32");
-}
-
-bool
-aot_compile_simd_f64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    return simd_v128_float_abs(comp_ctx, func_ctx, V128_f64x2_TYPE,
-                               "llvm.fabs.v2f64");
-}
-
-static bool
-simd_v128_float_sqrt(AOTCompContext *comp_ctx,
-                     AOTFuncContext *func_ctx,
-                     LLVMTypeRef vector_type,
-                     const char *intrinsic)
+simd_v128_float_intrinsic(AOTCompContext *comp_ctx,
+                          AOTFuncContext *func_ctx,
+                          LLVMTypeRef vector_type,
+                          const char *intrinsic)
 {
     LLVMValueRef number, result;
     LLVMTypeRef param_types[1] = { vector_type };
@@ -259,15 +212,85 @@ fail:
 }
 
 bool
+aot_compile_simd_f32x4_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,
+                                     "llvm.fabs.v4f32");
+}
+
+bool
+aot_compile_simd_f64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f64x2_TYPE,
+                                     "llvm.fabs.v2f64");
+}
+
+bool
 aot_compile_simd_f32x4_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    return simd_v128_float_sqrt(comp_ctx, func_ctx, V128_f32x4_TYPE,
-                                "llvm.sqrt.v4f32");
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,
+                                     "llvm.sqrt.v4f32");
 }
 
 bool
 aot_compile_simd_f64x2_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    return simd_v128_float_sqrt(comp_ctx, func_ctx, V128_f64x2_TYPE,
-                                "llvm.sqrt.v2f64");
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f64x2_TYPE,
+                                     "llvm.sqrt.v2f64");
+}
+
+bool
+aot_compile_simd_f32x4_ceil(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,
+                                     "llvm.ceil.v4f32");
+}
+
+bool
+aot_compile_simd_f64x2_ceil(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f64x2_TYPE,
+                                     "llvm.ceil.v2f64");
+}
+
+bool
+aot_compile_simd_f32x4_floor(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,
+                                     "llvm.floor.v4f32");
+}
+
+bool
+aot_compile_simd_f64x2_floor(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f64x2_TYPE,
+                                     "llvm.floor.v2f64");
+}
+
+bool
+aot_compile_simd_f32x4_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,
+                                     "llvm.trunc.v4f32");
+}
+
+bool
+aot_compile_simd_f64x2_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f64x2_TYPE,
+                                     "llvm.trunc.v2f64");
+}
+
+bool
+aot_compile_simd_f32x4_nearest(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f32x4_TYPE,
+                                     "llvm.rint.v4f32");
+}
+
+bool
+aot_compile_simd_f64x2_nearest(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    return simd_v128_float_intrinsic(comp_ctx, func_ctx, V128_f64x2_TYPE,
+                                     "llvm.rint.v2f64");
 }
