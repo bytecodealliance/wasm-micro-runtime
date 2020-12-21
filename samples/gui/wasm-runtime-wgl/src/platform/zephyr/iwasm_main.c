@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 #include "bh_platform.h"
 #include "runtime_lib.h"
@@ -20,17 +9,15 @@
 #include "board_config.h"
 #include "bh_common.h"
 #include "bh_queue.h"
-#include "bh_thread.h"
-#include "bh_memory.h"
 #include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
 #include "display.h"
 #include "lvgl.h"
 
-extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
+extern void exit_sensor_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 extern bool touchscreen_read(lv_indev_data_t * data);
 extern int ili9340_init();
@@ -38,7 +25,7 @@ extern void xpt2046_init(void);
 extern void wgl_init();
 
 #include <zephyr.h>
-#include <uart.h>
+#include <drivers/uart.h>
 #include <device.h>
 
 int uart_char_cnt = 0;
@@ -157,16 +144,19 @@ static void hal_init(void)
 
 int iwasm_main()
 {
+    RuntimeInitArgs init_args;
     host_init();
 
-    if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
-        printf("Init global heap failed.\n");
-        return -1;
-    }
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-    if (vm_thread_sys_init() != 0) {
-        goto fail1;
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+
+    /* initialize runtime environment */
+    if (!wasm_runtime_full_init(&init_args)) {
+        printf("Init runtime environment failed.\n");
+        return -1;
     }
 
     wgl_init();
@@ -178,7 +168,6 @@ int iwasm_main()
     // TODO:
     app_manager_startup(&interface);
 
-fail1:
-    bh_memory_destroy();
+    wasm_runtime_destroy();
     return -1;
 }

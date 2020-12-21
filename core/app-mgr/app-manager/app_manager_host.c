@@ -1,27 +1,13 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "bh_common.h"
-#include "korp_types.h"
+#include "bh_platform.h"
 #include "app_manager_host.h"
 #include "app_manager.h"
 #include "app_manager_export.h"
 #include "coap_ext.h"
-#include "bh_memory.h"
-#include "bh_thread.h"
 
 /* host communication interface */
 static host_interface host_commu;
@@ -77,7 +63,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
         ctx->message.payload_size = 0;
 
         if (ctx->message.payload) {
-            bh_free(ctx->message.payload);
+            APP_MGR_FREE(ctx->message.payload);
             ctx->message.payload = NULL;
         }
 
@@ -121,19 +107,14 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
         p[ctx->size_in_phase++] = ch;
 
         if (ctx->size_in_phase == sizeof(ctx->message.payload_size)) {
-#ifndef __ZEPHYR__
             ctx->message.payload_size = ntohl(ctx->message.payload_size);
-#else
-            if (is_little_endian())
-            exchange32((uint8*)&ctx->message.payload_size);
-#endif
             ctx->phase = Phase_Payload;
 
             if (enable_log)
                 app_manager_printf("##On byte arrive: payload_size: %d\n",
                         ctx->message.payload_size);
             if (ctx->message.payload) {
-                bh_free(ctx->message.payload);
+                APP_MGR_FREE(ctx->message.payload);
                 ctx->message.payload = NULL;
             }
 
@@ -151,9 +132,9 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
                 return 0;
             }
 
-            if (ctx->message.message_type != INSTALL_WASM_BYTECODE_APP) {
-                ctx->message.payload = (char *) bh_malloc(
-                        ctx->message.payload_size);
+            if (ctx->message.message_type != INSTALL_WASM_APP) {
+                ctx->message.payload =
+                    (char *) APP_MGR_MALLOC(ctx->message.payload_size);
                 if (!ctx->message.payload) {
                     ctx->phase = Phase_Non_Start;
                     return 0;
@@ -166,7 +147,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
 
         return 0;
     } else if (ctx->phase == Phase_Payload) {
-        if (ctx->message.message_type == INSTALL_WASM_BYTECODE_APP) {
+        if (ctx->message.message_type == INSTALL_WASM_APP) {
             int received_size;
             module_on_install_request_byte_arrive_func module_on_install =
                     g_module_interfaces[Module_WASM_App]->module_on_install;
@@ -175,7 +156,7 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
 
             if (module_on_install != NULL) {
                 if (module_on_install(ch, ctx->message.payload_size,
-                        &received_size)) {
+                                      &received_size)) {
                     if (received_size == ctx->message.payload_size) {
                         /* whole wasm app received */
                         ctx->phase = Phase_Non_Start;
@@ -184,11 +165,13 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
                 } else {
                     /* receive or handle fail */
                     ctx->phase = Phase_Non_Start;
+                    ctx->size_in_phase = 0;
                     return 0;
                 }
                 return 0;
             } else {
                 ctx->phase = Phase_Non_Start;
+                ctx->size_in_phase = 0;
                 return 0;
             }
         } else {
@@ -197,9 +180,8 @@ static int on_imrt_link_byte_arrive(unsigned char ch, recv_context_t *ctx)
             if (ctx->size_in_phase == ctx->message.payload_size) {
                 ctx->phase = Phase_Non_Start;
                 if (enable_log)
-                    app_manager_printf(
-                            "##On byte arrive: receive end, payload_size is %d.\n",
-                            ctx->message.payload_size);
+                    app_manager_printf("##On byte arrive: receive end, payload_size is %d.\n",
+                                       ctx->message.payload_size);
                 return 1;
             }
             return 0;
@@ -227,17 +209,18 @@ int aee_host_msg_callback(void *msg, uint16_t msg_len)
                     memset(&request, 0, sizeof(request));
 
                     if (!unpack_request(recv_ctx.message.payload,
-                            recv_ctx.message.payload_size, &request))
+                                        recv_ctx.message.payload_size, &request))
                         continue;
 
                     request.sender = ID_HOST;
 
                     am_dispatch_request(&request);
-                } else {
-                    printf("unexpected host msg type: %d\n", msg_type);
+                }
+                else {
+                    app_manager_printf("unexpected host msg type: %d\n", msg_type);
                 }
 
-                bh_free(recv_ctx.message.payload);
+                APP_MGR_FREE(recv_ctx.message.payload);
                 recv_ctx.message.payload = NULL;
                 recv_ctx.message.payload_size = 0;
             }
@@ -251,7 +234,7 @@ int aee_host_msg_callback(void *msg, uint16_t msg_len)
 
 bool app_manager_host_init(host_interface *interface)
 {
-    vm_mutex_init(&host_lock);
+    os_mutex_init(&host_lock);
     memset(&recv_ctx, 0, sizeof(recv_ctx));
 
     host_commu.init = interface->init;
@@ -264,14 +247,14 @@ bool app_manager_host_init(host_interface *interface)
     return true;
 }
 
-int app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size)
+int app_manager_host_send_msg(int msg_type, const char *buf, int size)
 {
     /* send an IMRT LINK message contains the buf as payload */
     if (host_commu.send != NULL) {
         int size_s = size, n;
         char header[16];
 
-        vm_mutex_lock(&host_lock);
+        os_mutex_lock(&host_lock);
         /* leading bytes */
         bh_memcpy_s(header, 2, leadings, 2);
 
@@ -286,18 +269,18 @@ int app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size)
         bh_memcpy_s(header + 4, 4, &size_s, 4);
         n = host_commu.send(NULL, header, 8);
         if (n != 8) {
-            vm_mutex_unlock(&host_lock);
+            os_mutex_unlock(&host_lock);
             return 0;
         }
 
         /* payload */
         n = host_commu.send(NULL, buf, size);
-        vm_mutex_unlock(&host_lock);
+        os_mutex_unlock(&host_lock);
 
-        printf("sent %d bytes to host\n", n);
+        app_manager_printf("sent %d bytes to host\n", n);
         return n;
     } else {
-        printf("no send api provided\n");
+        app_manager_printf("no send api provided\n");
     }
     return 0;
 }

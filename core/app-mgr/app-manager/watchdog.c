@@ -1,24 +1,10 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "watchdog.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
-#include "bh_memory.h"
-#include "jeff_export.h"
+#include "bh_platform.h"
 
 #define WATCHDOG_THREAD_PRIORITY 5
 
@@ -33,7 +19,7 @@ static void watchdog_timer_callback(void *timer)
 
     watchdog_timer_stop(wd_timer);
 
-    vm_mutex_lock(&wd_timer->lock);
+    os_mutex_lock(&wd_timer->lock);
 
     if (!wd_timer->is_stopped) {
 
@@ -43,7 +29,7 @@ static void watchdog_timer_callback(void *timer)
                 sizeof(module_data));
     }
 
-    vm_mutex_unlock(&wd_timer->lock);
+    os_mutex_unlock(&wd_timer->lock);
 }
 #endif
 
@@ -52,12 +38,12 @@ bool watchdog_timer_init(module_data *m_data)
 #ifdef WATCHDOG_ENABLED /* TODO */
     watchdog_timer *wd_timer = &m_data->wd_timer;
 
-    if (BH_SUCCESS != vm_mutex_init(&wd_timer->lock))
-    return false;
+    if (0 != os_mutex_init(&wd_timer->lock))
+        return false;
 
     if (!(wd_timer->timer_handle =
                     app_manager_timer_create(watchdog_timer_callback, wd_timer))) {
-        vm_mutex_destroy(&wd_timer->lock);
+        os_mutex_destroy(&wd_timer->lock);
         return false;
     }
 
@@ -72,20 +58,20 @@ void watchdog_timer_destroy(watchdog_timer *wd_timer)
 {
 #ifdef WATCHDOG_ENABLED /* TODO */
     app_manager_timer_destroy(wd_timer->timer_handle);
-    vm_mutex_destroy(&wd_timer->lock);
+    os_mutex_destroy(&wd_timer->lock);
 #endif
 }
 
 void watchdog_timer_start(watchdog_timer *wd_timer)
 {
-    vm_mutex_lock(&wd_timer->lock);
+    os_mutex_lock(&wd_timer->lock);
 
     wd_timer->is_interrupting = false;
     wd_timer->is_stopped = false;
     app_manager_timer_start(wd_timer->timer_handle,
             wd_timer->module_data->timeout);
 
-    vm_mutex_unlock(&wd_timer->lock);
+    os_mutex_unlock(&wd_timer->lock);
 }
 
 void watchdog_timer_stop(watchdog_timer *wd_timer)

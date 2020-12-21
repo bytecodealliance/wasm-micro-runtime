@@ -1,0 +1,14 @@
+<!-- Please refer to User's Guide for the explanation of each field -->
+<EnclaveConfiguration>
+  <ProdID>0</ProdID>
+  <ISVSVN>0</ISVSVN>
+  <StackMaxSize>0x100000</StackMaxSize>
+  <HeapMaxSize>0x2000000</HeapMaxSize>
+  <ReservedMemMaxSize>0x1000000</ReservedMemMaxSize>
+  <ReservedMemExecutable>1</ReservedMemExecutable>
+  <TCSNum>10</TCSNum>
+  <TCSPolicy>1</TCSPolicy>
+  <DisableDebug>0</DisableDebug>
+  <MiscSelect>0</MiscSelect>
+  <MiscMask>0xFFFFFFFF</MiscMask>
+</EnclaveConfiguration>

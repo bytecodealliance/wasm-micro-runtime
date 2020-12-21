@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include <stdbool.h>
@@ -23,8 +12,8 @@
 #include <unistd.h>
 
 #include "host_tool_utils.h"
-#include "shared_utils.h"
-#include "attr_container.h"
+#include "bi-inc/shared_utils.h"
+#include "bi-inc/attr_container.h"
 #include "coap_ext.h"
 #include "cJSON.h"
 #include "app_manager_export.h" /* for Module_WASM_App */
@@ -110,14 +99,10 @@ extern int g_mid;
 extern unsigned char leading[2];
 
 /* -1 fail, 0 success */
-static int send_request(request_t *request, bool is_install_wasm_bytecode_app)
+static int send_request(request_t *request, uint16_t msg_type)
 {
     char *req_p;
     int req_size, req_size_n, ret = -1;
-    uint16_t msg_type = REQUEST_PACKET;
-
-    if (is_install_wasm_bytecode_app)
-        msg_type = INSTALL_WASM_BYTECODE_APP;
 
     if ((req_p = pack_request(request, &req_size)) == NULL)
         return -1;
@@ -148,6 +133,7 @@ static int send_request(request_t *request, bool is_install_wasm_bytecode_app)
     return ret;
 }
 
+/*
 static package_type_t get_app_package_type(const char *buf, int size)
 {
     if (buf && size > 4) {
@@ -158,6 +144,7 @@ static package_type_t get_app_package_type(const char *buf, int size)
     }
     return Package_Type_Unknown;
 }
+*/
 
 #define url_remain_space (sizeof(url) - strlen(url))
 
@@ -170,7 +157,6 @@ static int install(inst_info *info)
     char *app_file_buf;
     char url[URL_MAX_LEN] = { 0 };
     int ret = -1, app_size;
-    bool is_wasm_bytecode_app;
 
     snprintf(url, sizeof(url) - 1, "/applet?name=%s", info->name);
 
@@ -199,13 +185,10 @@ static int install(inst_info *info)
     FMT_APP_RAW_BINARY, app_file_buf, app_size);
     request->mid = gen_random_id();
 
-    if ((info->module_type == NULL || strcmp(info->module_type, "wasm") == 0)
-            && get_app_package_type(app_file_buf, app_size) == Wasm_Module_Bytecode)
-        is_wasm_bytecode_app = true;
+    if (info->module_type == NULL || strcmp(info->module_type, "wasm") == 0)
+        ret = send_request(request, INSTALL_WASM_APP);
     else
-        is_wasm_bytecode_app = false;
-
-    ret = send_request(request, is_wasm_bytecode_app);
+        ret = send_request(request, REQUEST_PACKET);
 
     free(app_file_buf);
 
@@ -228,7 +211,7 @@ static int uninstall(uninst_info *info)
     NULL, 0);
     request->mid = gen_random_id();
 
-    return send_request(request, false);
+    return send_request(request, REQUEST_PACKET);
 }
 
 static int query(query_info *info)
@@ -247,7 +230,7 @@ static int query(query_info *info)
     NULL, 0);
     request->mid = gen_random_id();
 
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 
     return ret;
 }
@@ -287,7 +270,7 @@ static int request(req_info *info)
     FMT_ATTR_CONTAINER, payload, payload_len);
     request->mid = gen_random_id();
 
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 
     if (info->json_payload_file != NULL && payload != NULL)
         attr_container_destroy(payload);
@@ -309,7 +292,7 @@ static int subscribe(reg_info *info)
     p = strtok(info->urls, ",");
     while(p != NULL) {
         char url[URL_MAX_LEN] = {0};
-        sprintf(url, "%s%s", "/event/", p);
+        snprintf(url, URL_MAX_LEN, "%s%s", "/event/", p);
         init_request(request,
                 url,
                 COAP_PUT,
@@ -323,12 +306,12 @@ static int subscribe(reg_info *info)
 #else
     char url[URL_MAX_LEN] = { 0 };
     char *prefix = info->urls[0] == '/' ? "/event" : "/event/";
-    sprintf(url, "%s%s", prefix, info->urls);
+    snprintf(url, URL_MAX_LEN, "%s%s", prefix, info->urls);
     init_request(request, url, COAP_PUT,
     FMT_ATTR_CONTAINER,
     NULL, 0);
     request->mid = gen_random_id();
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 #endif
     return ret;
 }
@@ -343,7 +326,7 @@ static int unsubscribe(unreg_info *info)
     p = strtok(info->urls, ",");
     while(p != NULL) {
         char url[URL_MAX_LEN] = {0};
-        sprintf(url, "%s%s", "/event/", p);
+        snprintf(url, URL_MAX_LEN, "%s%s", "/event/", p);
         init_request(request,
                 url,
                 COAP_DELETE,
@@ -356,12 +339,12 @@ static int unsubscribe(unreg_info *info)
     }
 #else
     char url[URL_MAX_LEN] = { 0 };
-    sprintf(url, "%s%s", "/event/", info->urls);
+    snprintf(url, URL_MAX_LEN, "%s%s", "/event/", info->urls);
     init_request(request, url, COAP_DELETE,
     FMT_ATTR_CONTAINER,
     NULL, 0);
     request->mid = gen_random_id();
-    ret = send_request(request, false);
+    ret = send_request(request, REQUEST_PACKET);
 #endif
     return ret;
 }
@@ -788,7 +771,7 @@ int main(int argc, char *argv[])
     int ret;
     imrt_link_recv_context_t recv_ctx = { 0 };
     char buffer[BUF_SIZE] = { 0 };
-    uint32_t last_check, total_elpased_ms = 0;
+    uint32_t last_check = 0, total_elpased_ms = 0;
     bool is_responsed = false;
     operation op;
 

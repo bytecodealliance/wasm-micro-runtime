@@ -24,14 +24,12 @@
 #include "runtime_timer.h"
 #include "native_interface.h"
 #include "app_manager_export.h"
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
-#include "bh_memory.h"
+#include "bh_platform.h"
 #include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
+#include "wgl.h"
 
 #include "lv_drivers/display/monitor.h"
 #include "lv_drivers/indev/mouse.h"
@@ -47,11 +45,11 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
+extern void exit_sensor_framework();
+extern void exit_connection_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 extern bool init_connection_framework();
-extern void wgl_init();
 
 #ifndef CONNECTION_UART
 int listenfd = -1;
@@ -445,7 +443,10 @@ static void hal_init(void)
 
     /*Create a display*/
     lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);            /*Basic initialization*/
+
+    /*Basic initialization*/
+    memset(&disp_drv, 0, sizeof(disp_drv));
+    lv_disp_drv_init(&disp_drv);
     disp_drv.buffer = &disp_buf1;
     disp_drv.flush_cb = monitor_flush;
     //    disp_drv.hor_res = 200;
@@ -465,23 +466,25 @@ static void hal_init(void)
 // Driver function
 int iwasm_main(int argc, char *argv[])
 {
-    korp_thread tid;
+    RuntimeInitArgs init_args;
+    korp_tid tid;
 
     if (!parse_args(argc, argv))
         return -1;
 
-    if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
-        printf("Init global heap failed.\n");
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+
+    /* initialize runtime environment */
+    if (!wasm_runtime_full_init(&init_args)) {
+        printf("Init runtime environment failed.\n");
         return -1;
     }
 
-    if (vm_thread_sys_init() != 0) {
-        goto fail1;
-    }
-
     if (!init_connection_framework()) {
-        vm_thread_sys_destroy();
         goto fail1;
     }
 
@@ -496,17 +499,22 @@ int iwasm_main(int argc, char *argv[])
 
 #ifndef CONNECTION_UART
     if (server_mode)
-        vm_thread_create(&tid, func_server_mode, NULL,
+        os_thread_create(&tid, func_server_mode, NULL,
         BH_APPLET_PRESERVED_STACK_SIZE);
     else
-        vm_thread_create(&tid, func, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+        os_thread_create(&tid, func, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #else
-    vm_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+    os_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #endif
 
-    // TODO:
     app_manager_startup(&interface);
 
-    fail1: bh_memory_destroy();
+    exit_wasm_timer();
+    exit_sensor_framework();
+    wgl_exit();
+    exit_connection_framework();
+
+fail1:
+    wasm_runtime_destroy();
     return -1;
 }

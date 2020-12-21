@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include <stdbool.h>
@@ -46,8 +35,10 @@ bool tcp_init(const char *address, uint16_t port, int *fd)
     servaddr.sin_addr.s_addr = inet_addr(address);
     servaddr.sin_port = htons(port);
 
-    if (connect(sock, (SA*) &servaddr, sizeof(servaddr)) != 0)
+    if (connect(sock, (SA*) &servaddr, sizeof(servaddr)) != 0) {
+        close(sock);
         return false;
+    }
 
     *fd = sock;
     return true;
@@ -104,7 +95,7 @@ bool uart_init(const char *device, int baudrate, int *fd)
 
     uart_fd = open(device, O_RDWR | O_NOCTTY);
 
-    if (uart_fd <= 0)
+    if (uart_fd < 0)
         return false;
 
     memset(&uart_term, 0, sizeof(uart_term));

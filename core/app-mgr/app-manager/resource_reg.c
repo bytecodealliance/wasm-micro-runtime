@@ -1,25 +1,14 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 
 #include "native_interface.h"
-#include "shared_utils.h"
 #include "app_manager.h"
 #include "app_manager_export.h"
-#include "attr_container.h"
+#include "bi-inc/shared_utils.h"
+#include "bi-inc/attr_container.h"
 #include "coap_ext.h"
 
 typedef struct _app_res_register {
@@ -82,7 +71,7 @@ void targeted_app_request_handler(request_t *request, void *unused)
     }
 
     strncpy(applet_name, request->url + offset, sizeof(applet_name) - 1);
-    char *p = strrchr(applet_name, '/');
+    char *p = strchr(applet_name, '/');
     if (p) {
         *p = 0;
     } else
@@ -169,14 +158,14 @@ bool am_register_resource(const char *url,
     if (register_num >= RESOURCE_REGISTRATION_NUM_MAX)
         return false;
 
-    r = (app_res_register_t *) bh_malloc(sizeof(app_res_register_t));
+    r = (app_res_register_t *) APP_MGR_MALLOC(sizeof(app_res_register_t));
     if (r == NULL)
         return false;
 
     memset(r, 0, sizeof(*r));
     r->url = bh_strdup(url);
     if (r->url == NULL) {
-        bh_free(r);
+        APP_MGR_FREE(r);
         return false;
     }
 
@@ -202,8 +191,8 @@ void am_cleanup_registeration(uint32 register_id)
             else
                 g_resources = next;
 
-            bh_free(r->url);
-            bh_free(r);
+            APP_MGR_FREE(r->url);
+            APP_MGR_FREE(r);
         } else
             /* if r is freed, should not change prev. Only set prev to r
              when r isn't freed. */

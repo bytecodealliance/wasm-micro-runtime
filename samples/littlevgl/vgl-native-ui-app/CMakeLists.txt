@@ -1,23 +1,12 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required (VERSION 2.8.2)
 message ("vgl_native_ui_app...")
 project (vgl_native_ui_app)
 
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLV_CONF_INCLUDE_SIMPLE -DPLATFORM_NATIVE_LINUX -DUSE_MONITOR -DUSE_MOUSE=1")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -DPLATFORM_NATIVE_LINUX -DUSE_MONITOR -DUSE_MOUSE=1")
 
 # Currently build as 64-bit by default. Set to "NO" to build 32-bit binaries.
 set (BUILD_AS_64BIT_SUPPORT "YES")
@@ -35,26 +24,14 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
 set(lv_name lvgl)
-set(LVGL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/${lv_name})
+set(LVGL_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/../build/lvgl)
 set(LVGL_DRIVER_DIR ${CMAKE_CURRENT_LIST_DIR}/lv-drivers)
 
 message(${LVGL_SOURCE_DIR})
 include( ExternalProject )
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.in ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl/CMakeLists.txt)
+add_definitions(-DLV_CONF_INCLUDE_SIMPLE)
 
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl )
-if(result)
-  message(FATAL_ERROR "CMake step for lvgl failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/download_lvgl )
-if(result)
-  message(FATAL_ERROR "Build step for lvgl failed: ${result}")
-endif()
 SET (LVGL_SOURCES
     ${LVGL_SOURCE_DIR}/lv_core/lv_group.c
     ${LVGL_SOURCE_DIR}/lv_core/lv_indev.c
@@ -151,8 +128,10 @@ include_directories(
     ${LVGL_DRIVER_DIR}/display
     ${LVGL_DRIVER_DIR}/indev
     ${LVGL_SOURCE_DIR}
+    ${LVGL_SOURCE_DIR}/..
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/../lv_config
 )
 add_executable(vgl_native_ui_app ${SOURCES} )
 target_link_libraries( vgl_native_ui_app -lSDL2)

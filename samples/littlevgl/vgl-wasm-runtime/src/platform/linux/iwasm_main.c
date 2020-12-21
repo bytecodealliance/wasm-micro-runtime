@@ -24,14 +24,14 @@
 #include "runtime_timer.h"
 #include "native_interface.h"
 #include "app_manager_export.h"
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
-#include "bh_memory.h"
-#include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bh_platform.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
+#include "sensor_native_api.h"
+#include "connection_native_api.h"
+#include "display_indev.h"
+
 #define MAX 2048
 
 #ifndef CONNECTION_UART
@@ -43,8 +43,9 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
+extern void exit_sensor_framework();
+extern void exit_connection_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 extern bool init_connection_framework();
 
@@ -344,7 +345,7 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 #endif
 
 #ifdef __x86_64__
-static char global_heap_buf[300 * 1024] = { 0 };
+static char global_heap_buf[400 * 1024] = { 0 };
 #else
 static char global_heap_buf[270 * 1024] = { 0 };
 #endif
@@ -369,6 +370,8 @@ static void showUsage()
      printf("\t<Uart Device> represents the UART device name and the default is /dev/ttyS2\n");
      printf("\t<Baudrate> represents the UART device baudrate and the default is 115200\n");
 #endif
+     printf("\nNote:\n");
+     printf("\tUse -w|--wasi_root to specify the root dir (default to '.') of WASI wasm modules. \n");
 }
 
 static bool parse_args(int argc, char *argv[])
@@ -377,7 +380,7 @@ static bool parse_args(int argc, char *argv[])
 
     while (1) {
         int optIndex = 0;
-        static struct option longOpts[] = { 
+        static struct option longOpts[] = {
 #ifndef CONNECTION_UART
             { "server_mode",    no_argument,       NULL, 's' },
             { "host_address",   required_argument, NULL, 'a' },
@@ -386,11 +389,14 @@ static bool parse_args(int argc, char *argv[])
             { "uart",           required_argument, NULL, 'u' },
             { "baudrate",       required_argument, NULL, 'b' },
 #endif
+#if WASM_ENABLE_LIBC_WASI != 0
+            { "wasi_root",      required_argument, NULL, 'w' },
+#endif
             { "help",           required_argument, NULL, 'h' },
-            { 0, 0, 0, 0 } 
+            { 0, 0, 0, 0 }
         };
 
-        c = getopt_long(argc, argv, "sa:p:u:b:h", longOpts, &optIndex);
+        c = getopt_long(argc, argv, "sa:p:u:b:w:h", longOpts, &optIndex);
         if (c == -1)
             break;
 
@@ -417,6 +423,14 @@ static bool parse_args(int argc, char *argv[])
                 printf("uart baudrate: %s\n", optarg);
                 break;
 #endif
+#if WASM_ENABLE_LIBC_WASI != 0
+            case 'w':
+                if (!wasm_set_wasi_root_dir(optarg)) {
+                    printf("Fail to set wasi root dir: %s\n", optarg);
+                    return false;
+                }
+                break;
+#endif
             case 'h':
                 showUsage();
                 return false;
@@ -429,26 +443,42 @@ static bool parse_args(int argc, char *argv[])
     return true;
 }
 
+static NativeSymbol native_symbols[] = {
+    EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),
+    EXPORT_WASM_API_WITH_SIG(display_flush, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(display_fill, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(display_vdb_write, "(*iii*i)"),
+    EXPORT_WASM_API_WITH_SIG(display_map, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(time_get_ms, "()i")
+};
+
 // Driver function
 int iwasm_main(int argc, char *argv[])
 {
-    korp_thread tid;
+    RuntimeInitArgs init_args;
+    korp_tid tid;
+    uint32 n_native_symbols;
 
     if (!parse_args(argc, argv))
         return -1;
 
-    if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
-        printf("Init global heap failed.\n");
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+
+    init_args.native_module_name = "env";
+    init_args.n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
+    init_args.native_symbols = native_symbols;
+
+    /* initialize runtime environment */
+    if (!wasm_runtime_full_init(&init_args)) {
+        printf("Init runtime environment failed.\n");
         return -1;
     }
 
-    if (vm_thread_sys_init() != 0) {
-        goto fail1;
-    }
-
     if (!init_connection_framework()) {
-        vm_thread_sys_destroy();
         goto fail1;
     }
 
@@ -462,17 +492,22 @@ int iwasm_main(int argc, char *argv[])
 
 #ifndef CONNECTION_UART
     if (server_mode)
-        vm_thread_create(&tid, func_server_mode, NULL,
+        os_thread_create(&tid, func_server_mode, NULL,
         BH_APPLET_PRESERVED_STACK_SIZE);
     else
-        vm_thread_create(&tid, func, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+        os_thread_create(&tid, func, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #else
-    vm_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+    os_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #endif
 
-    // TODO:
     app_manager_startup(&interface);
 
-    fail1: bh_memory_destroy();
+    exit_wasm_timer();
+    exit_sensor_framework();
+    exit_connection_framework();
+
+fail1:
+    wasm_runtime_destroy();
+
     return -1;
 }

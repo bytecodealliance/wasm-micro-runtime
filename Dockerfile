@@ -14,8 +14,8 @@ WORKDIR /root
 
 RUN git clone https://github.com/intel/wasm-micro-runtime
 
-RUN cd wasm-micro-runtime/core/iwasm/products/linux/ && mkdir build && \
+RUN cd wasm-micro-runtime/product-mini/platforms/linux/ && mkdir build && \
   cd build && cmake .. && make
 
 RUN cd /usr/bin && ln -s wasm-ld-8 wasm-ld
-RUN cd /usr/bin && ln -s ~/wasm-micro-runtime/core/iwasm/products/linux/build/iwasm iwasm
+RUN cd /usr/bin && ln -s ~/wasm-micro-runtime/product-mini/platforms/linux/build/iwasm iwasm

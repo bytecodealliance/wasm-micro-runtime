@@ -1,43 +1,25 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #ifndef APP_MANAGER_H
 #define APP_MANAGER_H
 
 #include "bh_platform.h"
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "korp_types.h"
 #include "app_manager_export.h"
 #include "native_interface.h"
-#include "shared_utils.h"
+#include "bi-inc/shared_utils.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef __ZEPHYR__
-#define app_manager_printf printf
-#else
-#define app_manager_printf printk
-#endif
+#define APP_MGR_MALLOC wasm_runtime_malloc
+#define APP_MGR_FREE wasm_runtime_free
 
-#define ID_HOST -3
-#define ID_APP_MGR -2
-#define ID_NONE (uint32)-1
+/* os_printf is defined in each platform */
+#define app_manager_printf os_printf
 
 #define SEND_ERR_RESPONSE(mid, err_msg) do {                            \
   app_manager_printf("%s\n", err_msg);                                  \
@@ -93,11 +75,6 @@ app_manager_signature_verify(const uint8_t *file, unsigned int file_len,
         const uint8_t *signature, unsigned int sig_size);
 
 void targeted_app_request_handler(request_t *request, void *unused);
-
-#if BEIHAI_ENABLE_TOOL_AGENT != 0
-void *
-app_manager_get_tool_agent_queue();
-#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */

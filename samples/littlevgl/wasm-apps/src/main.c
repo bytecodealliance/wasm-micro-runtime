@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 /**
@@ -28,6 +17,7 @@
 #include "lvgl/lvgl.h"
 #include "display_indev.h"
 #include "wasm_app.h"
+#include "wa-inc/timer_wasm_app.h"
 /*********************
  *      DEFINES
  *********************/
@@ -67,7 +57,7 @@ char label_count1_str[11] = { 0 };
 void timer1_update(user_timer_t timer1)
 {
     if ((count % 100) == 0) {
-        sprintf(count_str, "%d", count / 100);
+        snprintf(count_str, sizeof(count_str), "%d", count / 100);
         lv_label_set_text(count_label, count_str);
     }
     lv_task_handler();
@@ -78,7 +68,8 @@ void timer1_update(user_timer_t timer1)
 static lv_res_t btn_rel_action(lv_obj_t * btn)
 {
     label_count1_value++;
-    sprintf(label_count1_str, "%d", label_count1_value);
+    snprintf(label_count1_str, sizeof(label_count1_str),
+             "%d", label_count1_value);
     lv_label_set_text(label_count1, label_count1_str);
     return LV_RES_OK;
 }
@@ -114,7 +105,10 @@ void on_init()
     /* set up a timer */
     user_timer_t timer;
     timer = api_timer_create(10, true, false, timer1_update);
-    api_timer_restart(timer, 10);
+    if (timer)
+        api_timer_restart(timer, 10);
+    else
+        printf("Fail to create timer.\n");
 }
 
 /**********************
@@ -125,27 +119,32 @@ void on_init()
  * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
  */
 void display_flush_wrapper(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+                           const lv_color_t * color_p)
 {
     display_flush(x1, y1, x2, y2, color_p);
     lv_flush_ready();
 }
-void display_vdb_write_wrapper(uint8_t *buf, lv_coord_t buf_w, lv_coord_t x,
-        lv_coord_t y, lv_color_t color, lv_opa_t opa)
+
+void display_vdb_write_wrapper(uint8_t *buf,
+                               lv_coord_t buf_w, lv_coord_t x, lv_coord_t y,
+                               lv_color_t color, lv_opa_t opa)
 {
     display_vdb_write(buf, buf_w, x, y, &color, opa);
 }
-extern void display_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        lv_color_t color_p);
-extern void display_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p);
+
+void display_fill_wrapper(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+                          lv_color_t color)
+{
+    display_fill(x1, y1, x2, y2, &color);
+}
+
 static void hal_init(void)
 {
     /* Add a display*/
     lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv); /*Basic initialization*/
     disp_drv.disp_flush = display_flush_wrapper; /*Used when `LV_VDB_SIZE != 0` in lv_conf.h (buffered drawing)*/
-    disp_drv.disp_fill = display_fill; /*Used when `LV_VDB_SIZE == 0` in lv_conf.h (unbuffered drawing)*/
+    disp_drv.disp_fill = display_fill_wrapper; /*Used when `LV_VDB_SIZE == 0` in lv_conf.h (unbuffered drawing)*/
     disp_drv.disp_map = display_map; /*Used when `LV_VDB_SIZE == 0` in lv_conf.h (unbuffered drawing)*/
 #if LV_VDB_SIZE != 0
     disp_drv.vdb_wr = display_vdb_write_wrapper;
@@ -160,6 +159,13 @@ static void hal_init(void)
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read = display_input_read; /*This function will be called periodically (by the library) to get the mouse position and state*/
     lv_indev_t * mouse_indev = lv_indev_drv_register(&indev_drv);
+}
 
+/* Implement empry main function as wasi start function calls it */
+int main(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    return 0;
 }
 

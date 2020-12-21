@@ -1,25 +1,12 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "app_manager.h"
 #include "app_manager_host.h"
-#include "bh_queue.h"
-#include "bh_memory.h"
-#include "bh_thread.h"
-#include "attr_container.h"
+#include "bh_platform.h"
+#include "bi-inc/attr_container.h"
 #include "event.h"
 #include "watchdog.h"
 #include "coap_ext.h"
@@ -33,28 +20,28 @@ module_data *module_data_list;
 bool module_data_list_init()
 {
     module_data_list = NULL;
-    return !vm_mutex_init(&module_data_list_lock) ? true : false;
+    return !os_mutex_init(&module_data_list_lock) ? true : false;
 }
 
 void module_data_list_destroy()
 {
 
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
     if (module_data_list) {
         while (module_data_list) {
             module_data *p = module_data_list->next;
-            bh_free(module_data_list);
+            APP_MGR_FREE(module_data_list);
             module_data_list = p;
         }
     }
-    vm_mutex_unlock(&module_data_list_lock);
-    vm_mutex_destroy(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
+    os_mutex_destroy(&module_data_list_lock);
 }
 
 static void module_data_list_add(module_data *m_data)
 {
     static uint32 module_id_max = 1;
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
     // reserve some special ID
     // TODO: check the new id is not already occupied!
     if (module_id_max == 0xFFFFFFF0)
@@ -67,12 +54,12 @@ static void module_data_list_add(module_data *m_data)
         m_data->next = module_data_list;
         module_data_list = m_data;
     }
-    vm_mutex_unlock(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
 }
 
 void module_data_list_remove(module_data *m_data)
 {
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
     if (module_data_list) {
         if (module_data_list == m_data)
             module_data_list = module_data_list->next;
@@ -86,54 +73,55 @@ void module_data_list_remove(module_data *m_data)
                 p->next = p->next->next;
         }
     }
-    vm_mutex_unlock(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
 }
 
 module_data*
 module_data_list_lookup(const char *module_name)
 {
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
     if (module_data_list) {
         module_data *p = module_data_list;
 
         while (p) {
             /* Search by module name */
             if (!strcmp(module_name, p->module_name)) {
-                vm_mutex_unlock(&module_data_list_lock);
+                os_mutex_unlock(&module_data_list_lock);
                 return p;
             }
             p = p->next;
         }
     }
-    vm_mutex_unlock(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
     return NULL;
 }
 
 module_data*
 module_data_list_lookup_id(unsigned int module_id)
 {
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
     if (module_data_list) {
         module_data *p = module_data_list;
 
         while (p) {
             /* Search by module name */
             if (module_id == p->id) {
-                vm_mutex_unlock(&module_data_list_lock);
+                os_mutex_unlock(&module_data_list_lock);
                 return p;
             }
             p = p->next;
         }
     }
-    vm_mutex_unlock(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
     return NULL;
 }
 
 module_data *
 app_manager_get_module_data(uint32 module_type, void *module_inst)
 {
-    if (g_module_interfaces[module_type]
-            && g_module_interfaces[module_type]->module_get_module_data)
+    if (module_type < Module_Max
+        && g_module_interfaces[module_type]
+        && g_module_interfaces[module_type]->module_get_module_data)
         return g_module_interfaces[module_type]->module_get_module_data(module_inst);
     return NULL;
 }
@@ -141,24 +129,28 @@ app_manager_get_module_data(uint32 module_type, void *module_inst)
 void*
 app_manager_get_module_queue(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->queue;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->queue : NULL;
 }
 
 const char*
 app_manager_get_module_name(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->module_name;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->module_name : NULL;
 }
 
 unsigned int app_manager_get_module_id(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->id;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->id : ID_NONE;
 }
 
 void*
 app_manager_get_module_heap(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->heap;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->heap : NULL;
 }
 
 module_data*
@@ -181,7 +173,8 @@ void app_manager_del_module_data(module_data *m_data)
 
 bool app_manager_is_interrupting_module(uint32 module_type, void *module_inst)
 {
-    return app_manager_get_module_data(module_type, module_inst)->wd_timer.is_interrupting;
+    module_data *m_data = app_manager_get_module_data(module_type, module_inst);
+    return m_data ? m_data->wd_timer.is_interrupting : false;
 }
 
 extern void destroy_module_timer_ctx(unsigned int module_id);
@@ -191,7 +184,8 @@ void release_module(module_data *m_data)
     watchdog_timer_destroy(&m_data->wd_timer);
 
 #ifdef HEAP_ENABLED /* TODO */
-    if(m_data->heap) gc_destroy_for_instance(m_data->heap);
+    if(m_data->heap)
+        gc_destroy_for_instance(m_data->heap);
 #endif
 
     if (m_data->queue)
@@ -201,26 +195,25 @@ void release_module(module_data *m_data)
 
     destroy_module_timer_ctx(m_data->id);
 
-    bh_free(m_data);
+    APP_MGR_FREE(m_data);
 }
 
-int check_modules_timer_expiry()
+uint32 check_modules_timer_expiry()
 {
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
     module_data *p = module_data_list;
-    int ms_to_expiry = -1;
+    uint32 ms_to_expiry = (uint32)-1;
 
     while (p) {
-
-        int next = get_expiry_ms(p->timer_ctx);
-        if (next != -1) {
-            if (ms_to_expiry == -1 || ms_to_expiry > next)
+        uint32 next = get_expiry_ms(p->timer_ctx);
+        if (next != (uint32)-1) {
+            if (ms_to_expiry == (uint32)-1 || ms_to_expiry > next)
                 ms_to_expiry = next;
         }
 
         p = p->next;
     }
-    vm_mutex_unlock(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
     return ms_to_expiry;
 }
 

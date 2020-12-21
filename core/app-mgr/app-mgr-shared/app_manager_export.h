@@ -1,24 +1,13 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #ifndef _APP_MANAGER_EXPORT_H_
 #define _APP_MANAGER_EXPORT_H_
 
 #include "native_interface.h"
-#include "shared_utils.h"
+#include "bi-inc/shared_utils.h"
 #include "bh_queue.h"
 #include "host_link.h"
 #include "runtime_timer.h"
@@ -26,6 +15,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Special module IDs */
+#define ID_HOST -3
+#define ID_APP_MGR -2
+/* Invalid module ID */
+#define ID_NONE (uint32)-1
 
 struct attr_container_t;
 
@@ -67,6 +62,7 @@ typedef struct watchdog_timer {
 typedef struct module_data {
     struct module_data *next;
 
+    /* ID of the module */
     uint32 id;
 
     /* Type of the module */
@@ -119,8 +115,8 @@ typedef module_data *(*module_get_module_data_func)(void *inst);
  *
  * @return true if success, false otherwise
  */
-typedef bool (*module_on_install_request_byte_arrive_func)(uint8 ch,
-        int total_size, int *received_total_size);
+typedef bool (*module_on_install_request_byte_arrive_func) (
+        uint8 ch, int total_size, int *received_total_size);
 
 /* Interfaces of each module */
 typedef struct module_interface {
@@ -177,20 +173,11 @@ typedef struct host_interface {
  * @return true if success, false otherwise
  */
 bool
-app_manager_host_init(host_interface *interface);
-
-/**
- * Send message to Host
- *
- * @param buf buffer to send
- * @param size size of buffer
- *
- * @return size of buffer sent
- */
+app_manager_host_init(host_interface *intf);
 
 /* Startup app manager */
 void
-app_manager_startup(host_interface *interface);
+app_manager_startup(host_interface *intf);
 
 /* Get queue of current applet */
 void *
@@ -285,12 +272,19 @@ send_error_response_to_host(int mid, int code, const char *msg);
  *
  * @return true if success, false otherwise
  */
-
-int
-app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size);
-
 bool
 bh_applet_check_permission(const char *perm);
+
+/**
+ * Send message to Host
+ *
+ * @param buf buffer to send
+ * @param size size of buffer
+ *
+ * @return size of buffer sent
+ */
+int
+app_manager_host_send_msg(int msg_type, const char *buf, int size);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

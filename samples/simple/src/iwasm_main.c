@@ -24,19 +24,11 @@
 #include "runtime_timer.h"
 #include "native_interface.h"
 #include "app_manager_export.h"
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
-#include "bh_memory.h"
+#include "bh_platform.h"
 #include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
-
-#if WASM_ENABLE_GUI != 0
-#include "lv_drivers/display/monitor.h"
-#include "lv_drivers/indev/mouse.h"
-#endif
 
 #define MAX 2048
 
@@ -49,11 +41,11 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void * thread_timer_check(void *);
 extern void init_sensor_framework();
+extern void exit_sensor_framework();
+extern void exit_connection_framework();
 extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 extern bool init_connection_framework();
-extern void wgl_init();
 
 #ifndef CONNECTION_UART
 int listenfd = -1;
@@ -159,6 +151,9 @@ host_interface interface = {
     .destroy = host_destroy
 };
 
+/* Change it to 1 when fuzzing test */
+#define WASM_ENABLE_FUZZ_TEST 0
+
 void* func_server_mode(void* arg)
 {
     int clilent;
@@ -227,6 +222,12 @@ void* func_server_mode(void* arg)
 
             aee_host_msg_callback(buff, n);
         }
+#if WASM_ENABLE_FUZZ_TEST != 0
+        /* Exit the process when host disconnect.
+         * This is helpful for reproducing failure case. */
+        close(sockfd);
+        exit(1);
+#endif
     }
 }
 
@@ -350,7 +351,30 @@ static host_interface interface = { .send = uart_send, .destroy = uart_destroy }
 
 #endif
 
-static char global_heap_buf[512 * 1024] = { 0 };
+
+
+static attr_container_t * read_test_sensor(void * sensor)
+{
+    //luc: for test
+    attr_container_t *attr_obj = attr_container_create("read test sensor data");
+    if (attr_obj) {
+        bool ret = attr_container_set_string(&attr_obj, "name", "read test sensor");
+        if (!ret) {
+            attr_container_destroy(attr_obj);
+            return NULL;
+        }
+        return attr_obj;
+    }
+    return NULL;
+}
+
+static bool config_test_sensor(void * s, void * config)
+{
+    return false;
+}
+
+
+static char global_heap_buf[1024 * 1024] = { 0 };
 
 static void showUsage()
 {
@@ -380,7 +404,7 @@ static bool parse_args(int argc, char *argv[])
 
     while (1) {
         int optIndex = 0;
-        static struct option longOpts[] = { 
+        static struct option longOpts[] = {
 #ifndef CONNECTION_UART
             { "server_mode",    no_argument,       NULL, 's' },
             { "host_address",   required_argument, NULL, 'a' },
@@ -390,10 +414,10 @@ static bool parse_args(int argc, char *argv[])
             { "baudrate",       required_argument, NULL, 'b' },
 #endif
             { "help",           required_argument, NULL, 'h' },
-            { 0, 0, 0, 0 } 
+            { 0, 0, 0, 0 }
         };
 
-        c = getopt_long(argc, argv, "sa:p:u:b:h", longOpts, &optIndex);
+        c = getopt_long(argc, argv, "sa:p:u:b:w:h", longOpts, &optIndex);
         if (c == -1)
             break;
 
@@ -432,86 +456,71 @@ static bool parse_args(int argc, char *argv[])
     return true;
 }
 
-#if WASM_ENABLE_GUI != 0
-/**
- * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
- */
-static void hal_init(void)
-{
-    /* Use the 'monitor' driver which creates window on PC's monitor to simulate a display*/
-    monitor_init();
-
-    /*Create a display buffer*/
-    static lv_disp_buf_t disp_buf1;
-    static lv_color_t buf1_1[480*10];
-    lv_disp_buf_init(&disp_buf1, buf1_1, NULL, 480*10);
-
-    /*Create a display*/
-    lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);            /*Basic initialization*/
-    disp_drv.buffer = &disp_buf1;
-    disp_drv.flush_cb = monitor_flush;
-    //    disp_drv.hor_res = 200;
-    //    disp_drv.ver_res = 100;
-    lv_disp_drv_register(&disp_drv);
-
-    /* Add the mouse as input device
-    * Use the 'mouse' driver which reads the PC's mouse*/
-    mouse_init();
-    lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);          /*Basic initialization*/
-    indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = mouse_read;         /*This function will be called periodically (by the library) to get the mouse position and state*/
-    lv_indev_drv_register(&indev_drv);
-}
-#endif
-
 // Driver function
 int iwasm_main(int argc, char *argv[])
 {
-    korp_thread tid;
+    RuntimeInitArgs init_args;
+    korp_tid tid;
 
     if (!parse_args(argc, argv))
         return -1;
 
-    if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
-        printf("Init global heap failed.\n");
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+#if USE_GLOBAL_HEAP_BUF != 0
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+#else
+    init_args.mem_alloc_type = Alloc_With_Allocator;
+    init_args.mem_alloc_option.allocator.malloc_func = malloc;
+    init_args.mem_alloc_option.allocator.realloc_func = realloc;
+    init_args.mem_alloc_option.allocator.free_func = free;
+#endif
+
+    /* initialize runtime environment */
+    if (!wasm_runtime_full_init(&init_args)) {
+        printf("Init runtime environment failed.\n");
         return -1;
     }
 
-    if (vm_thread_sys_init() != 0) {
-        goto fail1;
-    }
-
-    if (!init_connection_framework()) {
-        vm_thread_sys_destroy();
-        goto fail1;
-    }
-
-#if WASM_ENABLE_GUI != 0
-    wgl_init();
-    hal_init();
-#endif
-
-    init_sensor_framework();
-
-    // timer manager
+    /* timer manager */
     init_wasm_timer();
+
+    /* connection framework */
+    if (!init_connection_framework()) {
+        goto fail1;
+    }
+
+    /* sensor framework */
+    init_sensor_framework();
+    // add the sys sensor objects
+    add_sys_sensor("sensor_test",
+                   "This is a sensor for test",
+                   0,
+                   1000,
+                   read_test_sensor,
+            config_test_sensor);
+    start_sensor_framework();
 
 #ifndef CONNECTION_UART
     if (server_mode)
-        vm_thread_create(&tid, func_server_mode, NULL,
+        os_thread_create(&tid, func_server_mode, NULL,
         BH_APPLET_PRESERVED_STACK_SIZE);
     else
-        vm_thread_create(&tid, func, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+        os_thread_create(&tid, func, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #else
-    vm_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+    os_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #endif
 
-    // TODO:
     app_manager_startup(&interface);
 
-    fail1: bh_memory_destroy();
+    exit_wasm_timer();
+    exit_sensor_framework();
+    exit_connection_framework();
+
+fail1:
+    wasm_runtime_destroy();
+
     return -1;
 }

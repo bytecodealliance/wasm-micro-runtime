@@ -1,46 +1,35 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 #include "bh_platform.h"
 #include "runtime_lib.h"
 #include "native_interface.h"
 #include "app_manager_export.h"
 #include "board_config.h"
-#include "bh_common.h"
-#include "bh_queue.h"
-#include "bh_thread.h"
-#include "bh_memory.h"
+#include "bh_platform.h"
 #include "runtime_sensor.h"
-#include "attr_container.h"
+#include "bi-inc/attr_container.h"
 #include "module_wasm_app.h"
 #include "wasm_export.h"
-
-extern void * thread_timer_check(void *);
-extern void init_sensor_framework();
-extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
+#include "sensor_native_api.h"
+#include "connection_native_api.h"
+#include "display_indev.h"
 
 #include <zephyr.h>
-#include <uart.h>
+#include <drivers/uart.h>
 #include <device.h>
+
+
+extern void init_sensor_framework();
+extern void exit_sensor_framework();
+extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
 
 int uart_char_cnt = 0;
 
 static void uart_irq_callback(struct device *dev)
 {
     unsigned char ch;
-    int size = 0;
 
     while (uart_poll_in(dev, &ch) == 0) {
         uart_char_cnt++;
@@ -85,24 +74,37 @@ host_interface interface = {
 
 timer_ctx_t timer_ctx;
 
-static char global_heap_buf[270 * 1024] = { 0 };
+static char global_heap_buf[368 * 1024] = { 0 };
 
-extern void display_init(void);
+static NativeSymbol native_symbols[] = {
+    EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),
+    EXPORT_WASM_API_WITH_SIG(display_flush, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(display_fill, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(display_vdb_write, "(*iii*i)"),
+    EXPORT_WASM_API_WITH_SIG(display_map, "(iiii*)"),
+    EXPORT_WASM_API_WITH_SIG(time_get_ms, "()i")
+};
 
 int iwasm_main()
 {
-    korp_thread tid, tm_tid;
+    RuntimeInitArgs init_args;
 
     host_init();
 
-    if (bh_memory_init_with_pool(global_heap_buf, sizeof(global_heap_buf))
-            != 0) {
-        printf("Init global heap failed.\n");
-        return -1;
-    }
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
-    if (vm_thread_sys_init() != 0) {
-        goto fail1;
+    init_args.mem_alloc_type = Alloc_With_Pool;
+    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+    init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+
+    init_args.native_module_name = "env";
+    init_args.n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
+    init_args.native_symbols = native_symbols;
+
+    /* initialize runtime environment */
+    if (!wasm_runtime_full_init(&init_args)) {
+        printf("Init runtime environment failed.\n");
+        return -1;
     }
 
     display_init();
@@ -113,7 +115,6 @@ int iwasm_main()
     // TODO:
     app_manager_startup(&interface);
 
-fail1:
-    bh_memory_destroy();
+    wasm_runtime_destroy();
     return -1;
 }

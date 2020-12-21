@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include <string.h>
@@ -19,7 +8,6 @@
 #include "event.h"
 
 #include "app_manager.h"
-#include "bh_memory.h"
 #include "coap_ext.h"
 
 typedef struct _subscribe {
@@ -49,7 +37,7 @@ static bool find_subscriber(event_reg_t * reg, uint32 id, bool remove_found)
                 else
                     reg->subscribers = next;
 
-                bh_free(c);
+                APP_MGR_FREE(c);
             }
 
             return true;
@@ -88,7 +76,7 @@ bool am_register_event(const char *url, uint32_t reg_client)
 
     if (current == NULL) {
         if (NULL
-                == (current = (event_reg_t *) bh_malloc(
+                == (current = (event_reg_t *) APP_MGR_MALLOC(
                         offsetof(event_reg_t, url) + strlen(url) + 1))) {
             app_manager_printf("am_register_event: malloc fail\n");
             return false;
@@ -103,7 +91,7 @@ bool am_register_event(const char *url, uint32_t reg_client)
     if (find_subscriber(current, reg_client, false)) {
         return true;
     } else {
-        subscribe_t * s = (subscribe_t*) bh_malloc(sizeof(subscribe_t));
+        subscribe_t * s = (subscribe_t*) APP_MGR_MALLOC(sizeof(subscribe_t));
         if (s == NULL)
             return false;
 
@@ -139,7 +127,7 @@ bool am_unregister_event(const char *url, uint32_t reg_client)
                     pre->next = next;
                 else
                     g_events = next;
-                bh_free(current);
+                APP_MGR_FREE(current);
                 current = next;
                 continue;
             }

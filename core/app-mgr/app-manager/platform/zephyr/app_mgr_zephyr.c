@@ -1,22 +1,10 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "app_manager.h"
 #include "bh_platform.h"
-#include "bh_memory.h"
 #include <autoconf.h>
 #include <zephyr.h>
 #include <kernel.h>
@@ -32,7 +20,7 @@ void*
 app_manager_timer_create(void (*timer_callback)(void*),
         watchdog_timer *wd_timer)
 {
-    struct k_timer_watchdog *timer = bh_malloc(sizeof(struct k_timer_watchdog));
+    struct k_timer_watchdog *timer = APP_MGR_MALLOC(sizeof(struct k_timer_watchdog));
 
     if (timer) {
         k_timer_init(&timer->timer, (void (*)(struct k_timer*)) timer_callback,
@@ -45,12 +33,12 @@ app_manager_timer_create(void (*timer_callback)(void*),
 
 void app_manager_timer_destroy(void *timer)
 {
-    bh_free(timer);
+    APP_MGR_FREE(timer);
 }
 
 void app_manager_timer_start(void *timer, int timeout)
 {
-    k_timer_start(timer, timeout, 0);
+    k_timer_start(timer, Z_TIMEOUT_MS(timeout), Z_TIMEOUT_MS(0));
 }
 
 void app_manager_timer_stop(void *timer)

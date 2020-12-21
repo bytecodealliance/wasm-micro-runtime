@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 /**
@@ -66,7 +55,8 @@ char label_count1_str[11] = { 0 };
 static lv_res_t btn_rel_action(lv_obj_t * btn)
 {
     label_count1_value++;
-    sprintf(label_count1_str, "%d", label_count1_value);
+    snprintf(label_count1_str, sizeof(label_count1_str),
+             "%d", label_count1_value);
     lv_label_set_text(label_count1, label_count1_str);
     return LV_RES_OK;
 }
@@ -106,7 +96,7 @@ int main()
         /* Periodically call the lv_task handler.
          * It could be done in a timer interrupt or an OS task too.*/
         if ((count % 100) == 0) {
-            sprintf(count_str, "%d", count/ 100);
+            snprintf(count_str, sizeof(count_str), "%d", count/ 100);
             lv_label_set_text(count_label, count_str);
         }
         lv_task_handler();

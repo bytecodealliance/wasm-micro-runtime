@@ -1,25 +1,12 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "app_manager.h"
 #include "app_manager_host.h"
-#include "bh_queue.h"
-#include "bh_memory.h"
-#include "bh_thread.h"
-#include "attr_container.h"
+#include "bh_platform.h"
+#include "bi-inc/attr_container.h"
 #include "event.h"
 #include "watchdog.h"
 #include "coap_ext.h"
@@ -50,7 +37,7 @@ void app_manager_post_applets_update_event()
         return;
     }
 
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
 
     m_data = module_data_list;
     while (m_data) {
@@ -92,7 +79,8 @@ void app_manager_post_applets_update_event()
     app_manager_printf("Post applets update event success!\n");
     attr_container_dump(attr_cont);
 
-    fail: vm_mutex_unlock(&module_data_list_lock);
+fail:
+    os_mutex_unlock(&module_data_list_lock);
     attr_container_destroy(attr_cont);
 }
 
@@ -101,7 +89,7 @@ static int get_applets_count()
     module_data *m_data;
     int num = 0;
 
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
 
     m_data = module_data_list;
     while (m_data) {
@@ -109,7 +97,7 @@ static int get_applets_count()
         m_data = m_data->next;
     }
 
-    vm_mutex_unlock(&module_data_list_lock);
+    os_mutex_unlock(&module_data_list_lock);
 
     return num;
 }
@@ -130,7 +118,7 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
         return false;
     }
 
-    vm_mutex_lock(&module_data_list_lock);
+    os_mutex_lock(&module_data_list_lock);
 
     m_data = module_data_list;
     while (m_data) {
@@ -198,7 +186,8 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
     app_manager_printf("Query Applets success!\n");
     attr_container_dump(attr_cont);
 
-    fail: vm_mutex_unlock(&module_data_list_lock);
+fail:
+    os_mutex_unlock(&module_data_list_lock);
     attr_container_destroy(attr_cont);
     return ret;
 }
@@ -225,7 +214,7 @@ void applet_mgt_reqeust_handler(request_t *request, void *unused)
 static int get_module_type(char *kv_str)
 {
     int module_type = -1;
-    char type_str[8] = { 0 };
+    char type_str[16] = { 0 };
 
     find_key_value(kv_str, strlen(kv_str), "type", type_str,
             sizeof(type_str) - 1, '&');
@@ -380,9 +369,11 @@ void app_manager_startup(host_interface *interface)
     /* Enter loop run */
     bh_queue_enter_loop_run(g_app_mgr_queue, app_manager_queue_callback, NULL);
 
-    fail2: module_data_list_destroy();
+fail2:
+    module_data_list_destroy();
 
-    fail1: bh_queue_destroy(g_app_mgr_queue);
+fail1:
+    bh_queue_destroy(g_app_mgr_queue);
 }
 
 #include "module_config.h"
@@ -405,4 +396,5 @@ module_interface *g_module_interfaces[Module_Max] = {
 #else
         NULL
 #endif
-    };
+};
+

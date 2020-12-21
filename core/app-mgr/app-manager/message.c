@@ -1,24 +1,12 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "app_manager.h"
 #include "app_manager_host.h"
 #include "event.h"
-#include "attr_container.h"
-#include "bh_memory.h"
+#include "bi-inc/attr_container.h"
 #include "coap_ext.h"
 
 #if 0
@@ -32,7 +20,7 @@ bool send_coap_packet_to_host(coap_packet_t * packet)
     return false;
 
     app_manager_host_send_msg(buf, size);
-    bh_free(buf);
+    APP_MGR_FREE(buf);
 
     return true;
 }
@@ -85,8 +73,8 @@ bool send_error_response_to_host(int mid, int status, const char *msg)
         }
     }
 
-    set_response(response, status,
-    FMT_ATTR_CONTAINER, (const char *)payload, payload_len);
+    set_response(response, status, FMT_ATTR_CONTAINER,
+                 (const char *)payload, payload_len);
     response->mid = mid;
 
     send_response_to_host(response);

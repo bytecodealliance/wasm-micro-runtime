@@ -1,17 +1,6 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include <stdio.h>
@@ -20,6 +9,7 @@
 #include "SDL2/SDL.h"
 #include "sys/time.h"
 #include "wasm_export.h"
+#include "app_manager_export.h"
 
 #define MONITOR_HOR_RES 320
 #define MONITOR_VER_RES 240
@@ -33,10 +23,8 @@ void monitor_sdl_clean_up(void);
 
 static uint32_t tft_fb[MONITOR_HOR_RES * MONITOR_VER_RES];
 
-
-
 int
-time_get_ms(wasm_module_inst_t module_inst)
+time_get_ms(wasm_exec_env_t exec_env)
 {
     static struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -53,7 +41,7 @@ static volatile bool sdl_refr_qry = false;
 static volatile bool sdl_quit_qry = false;
 
 void monitor_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+                   const lv_color_t * color)
 {
     /*Return if the area is out the screen*/
     if (x2 < 0 || y2 < 0 || x1 > MONITOR_HOR_RES - 1
@@ -63,16 +51,16 @@ void monitor_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
     int32_t y;
     uint32_t w = x2 - x1 + 1;
-    for (y = y1; y <= y2; y++) {
-        memcpy(&tft_fb[y * MONITOR_HOR_RES + x1], color_p,
-                w * sizeof(lv_color_t));
 
-        color_p += w;
+    for (y = y1; y <= y2; y++) {
+        memcpy(&tft_fb[y * MONITOR_HOR_RES + x1], color,
+               w * sizeof(lv_color_t));
+
+        color += w;
     }
     sdl_refr_qry = true;
 
     /*IMPORTANT! It must be called to tell the system the flush is ready*/
-
 }
 
 /**
@@ -84,7 +72,7 @@ void monitor_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
  * @param color fill color
  */
 void monitor_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        lv_color_t color)
+                  lv_color_t *color)
 {
     /*Return if the area is out the screen*/
     if (x2 < 0)
@@ -104,7 +92,7 @@ void monitor_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
     int32_t x;
     int32_t y;
-    uint32_t color32 = color.full; //lv_color_to32(color);
+    uint32_t color32 = color->full; //lv_color_to32(color);
 
     for (x = act_x1; x <= act_x2; x++) {
         for (y = act_y1; y <= act_y2; y++) {
@@ -121,10 +109,10 @@ void monitor_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
  * @param y1 top coordinate
  * @param x2 right coordinate
  * @param y2 bottom coordinate
- * @param color_p an array of colors
+ * @param color an array of colors
  */
 void monitor_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-        const lv_color_t * color_p)
+                 const lv_color_t *color)
 {
     /*Return if the area is out the screen*/
     if (x2 < 0)
@@ -147,11 +135,11 @@ void monitor_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
     for (y = act_y1; y <= act_y2; y++) {
         for (x = act_x1; x <= act_x2; x++) {
-            tft_fb[y * MONITOR_HOR_RES + x] = color_p->full; //lv_color_to32(*color_p);
-            color_p++;
+            tft_fb[y * MONITOR_HOR_RES + x] = color->full; //lv_color_to32(*color);
+            color++;
         }
 
-        color_p += x2 - act_x2;
+        color += x2 - act_x2;
     }
 
     sdl_refr_qry = true;
@@ -159,59 +147,63 @@ void monitor_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 
 
 void
-display_init(wasm_module_inst_t module_inst)
+display_init(void)
 {
 }
 
 void
-display_flush(wasm_module_inst_t module_inst,
+display_flush(wasm_exec_env_t exec_env,
               int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-              int32 color_p_offset)
+              lv_color_t *color)
 {
-    if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    if (!wasm_runtime_validate_native_addr(module_inst,
+                                           color, sizeof(lv_color_t)))
         return;
-    lv_color_t * color_p = wasm_runtime_addr_app_to_native(module_inst,
-            color_p_offset);
 
-    monitor_flush(x1, y1, x2, y2, color_p);
+    monitor_flush(x1, y1, x2, y2, color);
 }
 
 void
-display_fill(wasm_module_inst_t module_inst,
+display_fill(wasm_exec_env_t exec_env,
              int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-             lv_color_t color_p)
+             lv_color_t *color)
 {
-    monitor_fill(x1, y1, x2, y2, color_p);
+    monitor_fill(x1, y1, x2, y2, color);
 }
 
 void
-display_map(wasm_module_inst_t module_inst,
+display_map(wasm_exec_env_t exec_env,
             int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-            const lv_color_t * color_p)
+            const lv_color_t *color)
 {
-    monitor_map(x1, y1, x2, y2, color_p);
+    monitor_map(x1, y1, x2, y2, color);
 }
+
+typedef struct display_input_data {
+    lv_point_t point;
+    uint32 user_data_offset;
+    uint8 state;
+} display_input_data;
 
 bool
-display_input_read(wasm_module_inst_t module_inst,
-                   int32 data_p_offset)
+display_input_read(wasm_exec_env_t exec_env,
+                   void *input_data_app)
 {
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    display_input_data *data_app = (display_input_data*)input_data_app;
     bool ret;
-    if (!wasm_runtime_validate_app_addr(module_inst, data_p_offset, 1))
+
+    if (!wasm_runtime_validate_native_addr(module_inst,
+                                           data_app,
+                                           sizeof(display_input_data)))
         return false;
 
-    struct {
-        lv_point_t point;
-        int32 user_data_offset;
-        uint8 state;
-    } *data_app;
 
-    lv_indev_data_t data;
+    lv_indev_data_t data = {0};
 
     ret = mouse_read(&data);
-
-    data_app = wasm_runtime_addr_app_to_native(module_inst,
-                                               data_p_offset);
 
     data_app->point = data.point;
     data_app->user_data_offset =
@@ -222,40 +214,23 @@ display_input_read(wasm_module_inst_t module_inst,
 }
 
 void
-display_deinit(wasm_module_inst_t module_inst)
+display_deinit(wasm_exec_env_t exec_env)
 {
 }
 
 void
-display_vdb_write(wasm_module_inst_t module_inst,
-                  int32 buf_offset, lv_coord_t buf_w, lv_coord_t x,
-                  lv_coord_t y, int32 color_p_offset, lv_opa_t opa)
+display_vdb_write(wasm_exec_env_t exec_env,
+                  void *buf, lv_coord_t buf_w, lv_coord_t x, lv_coord_t y,
+                  lv_color_t *color, lv_opa_t opa)
 {
-    if (!wasm_runtime_validate_app_addr(module_inst, color_p_offset, 1))
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    unsigned char *buf_xy = (unsigned char*)buf + 4 * x + 4 * y * buf_w;
+
+    if (!wasm_runtime_validate_native_addr(module_inst,
+                                           color, sizeof(lv_color_t)))
         return;
-    lv_color_t *color = wasm_runtime_addr_app_to_native(module_inst,
-            color_p_offset);
 
-    void *buf = wasm_runtime_addr_app_to_native(module_inst, buf_offset);
-
-    unsigned char *buf_xy = buf + 4 * x + 4 * y * buf_w;
-    lv_color_t * temp = (lv_color_t *) buf_xy;
-    *temp = *color;
-    /*
-     if (opa != LV_OPA_COVER) {
-     lv_color_t mix_color;
-
-     mix_color.red = *buf_xy;
-     mix_color.green = *(buf_xy+1);
-     mix_color.blue = *(buf_xy+2);
-     color = lv_color_mix(color, mix_color, opa);
-     }
-     */
-    /*
-     *buf_xy = color->red;
-     *(buf_xy + 1) = color->green;
-     *(buf_xy + 2) = color->blue;
-     */
+    *(lv_color_t *)buf_xy = *color;
 }
 
 int monitor_sdl_refr_thread(void * param)

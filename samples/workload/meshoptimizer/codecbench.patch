@@ -1,0 +1,47 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index eccc49e..dac126c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -127,3 +127,42 @@ install(FILES
+     ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfig.cmake
+     ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfigVersion.cmake
+     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/meshoptimizer)
++
++##################################################
++# codecbench
++##################################################
++add_executable(codecbench tools/codecbench.cpp ${SOURCES})
++
++set_target_properties(codecbench PROPERTIES OUTPUT_NAME codecbench.wasm)
++
++target_compile_options(codecbench
++  PUBLIC
++    -std=c++11
++    -Wno-unused-function
++    -Wno-unused-variable
++)
++
++target_link_options(codecbench
++  PUBLIC
++    LINKER:-allow-undefined,--demangle
++)
++
++find_program(WASM_OPT
++    NAMES wasm-opt
++    PATHS /opt/binaryen-version_97/bin /opt/binaryen/bin
++)
++
++if (NOT WASM_OPT)
++  message(WARNING "can not find wasm-opt and will not optimize any wasm module")
++endif()
++
++add_custom_target(codecbench.opt ALL
++  COMMAND
++    ${WASM_OPT} -Oz --enable-simd -o codecbench.opt.wasm codecbench.wasm
++  BYPRODUCTS
++    ${CMAKE_CURRENT_BINARY_DIR}/codecbench.opt.wasm
++  WORKING_DIRECTORY
++    ${CMAKE_CURRENT_BINARY_DIR}
++)
++
++add_dependencies(codecbench.opt codecbench)

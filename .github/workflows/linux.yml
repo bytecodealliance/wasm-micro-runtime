@@ -1,0 +1,133 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: Linux
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the main branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-20.04]
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build iwasm [default]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake ..
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [Classic interp]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_FAST_INTERP=0
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [Multi module]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_MULTI_MODULE=1
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [lib-pthread]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [aot only]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [interp only]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_AOT=0
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [memory profiling]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_MEMORY_PROFILING=1
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [tail call]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_TAIL_CALL=1
+        make
+        cd .. && rm -rf build
+    - name: Build iwasm [custom name section]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
+        make
+        cd .. && rm -rf build
+    - name: download and install wasi-sdk
+      run: |
+        cd /opt
+        wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-8/wasi-sdk-8.0-linux.tar.gz
+        tar -xzf wasi-sdk-8.0-linux.tar.gz
+        mv wasi-sdk-8.0 wasi-sdk
+    - name: download and install wabt
+      run: |
+        cd /opt
+        wget https://github.com/WebAssembly/wabt/releases/download/1.0.19/wabt-1.0.19-ubuntu.tar.gz
+        tar -xzf wabt-1.0.19-ubuntu.tar.gz
+        mv wabt-1.0.19 wabt
+    - name: Build Sample [wasm-c-api]
+      run: |
+        cd samples/wasm-c-api
+        mkdir build && cd build
+        cmake ..
+        make
+        ./hello
+        ./global
+        ./callback
+    - name: Build Sample [basic]
+      run: |
+        cd samples/basic
+        ./build.sh
+        ./run.sh
+    - name: Build Sample [multi-thread]
+      run: |
+        cd samples/multi-thread
+        mkdir build && cd build
+        cmake ..
+        make
+        ./iwasm wasm-apps/test.wasm
+    - name: Build Sample [multi-module]
+      run: |
+        cd samples/multi-module
+        mkdir build && cd build
+        cmake ..
+        make
+        ./multi_module
+    - name: Build Sample [spawn-thread]
+      run: |
+        cd samples/spawn-thread
+        mkdir build && cd build
+        cmake ..
+        make
+        ./spawn_thread

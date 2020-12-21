@@ -1,20 +1,12 @@
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "wasm_app.h"
+#include "wa-inc/connection.h"
+#include "wa-inc/timer_wasm_app.h"
+#include "wa-inc/request.h"
 
 /* User global variable */
 static int num = 0;
@@ -55,7 +47,7 @@ void my_close_handler(request_t * request)
         api_timer_cancel(g_timer);
         api_close_connection(g_conn);
     }
-     
+
     make_response_for_request(request, response);
     set_response(response, DELETED_2_02, 0, NULL, 0);
     api_response_send(response);
