@@ -294,7 +294,7 @@ wasm_runtime_register_module_internal(const char *module_name,
     node = wasm_runtime_find_module_registered_by_reference(module);
     if (node) { /* module has been registered */
         if (node->module_name) { /* module has name */
-           if (strcmp(node->module_name, module_name)) {
+           if (!module_name || strcmp(node->module_name, module_name)) {
                /* module has different name */
                LOG_DEBUG("module(%p) has been registered with name %s",
                          module, node->module_name);
@@ -3094,17 +3094,9 @@ fail:
 #undef v128
 #endif
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#include <emmintrin.h>
-/* unaligned */
-#define v128 __m128i_u
-#else
-#warning "Include header files for v128 to support SIMD feature"
-#endif
+typedef long long v128 __attribute__ ((__vector_size__ (16),
+                                       __may_alias__, __aligned__ (1)));
 
-#ifndef v128
-#error "v128 type isn't defined"
-#endif
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
 typedef void (*GenericFunctionPointer)();

@@ -76,12 +76,8 @@ fi
 if [ -d "${TF_LITE_BUILD_DIR}/gen" ]; then
     rm -fr ${TF_LITE_BUILD_DIR}/gen
 fi
-if [[ $1 == '--sgx' ]]; then
-    make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile
-else
-    export BUILD_WITH_SIMD=true
-    make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile
-fi
+
+make -j 4 -C "${TENSORFLOW_DIR}" -f ${TF_LITE_BUILD_DIR}/Makefile
 
 # remove patch file and recover emcc libc.a after building
 Clear_Before_Exit
@@ -102,7 +98,7 @@ make
 WAMRC_CMD="$(pwd)/wamrc"
 cd ${OUT_DIR}
 if [[ $1 == '--sgx' ]]; then
-    ${WAMRC_CMD} -sgx -o benchmark_model.aot benchmark_model.wasm
+    ${WAMRC_CMD} --enable-simd -sgx -o benchmark_model.aot benchmark_model.wasm
 else
     ${WAMRC_CMD} --enable-simd -o benchmark_model.aot benchmark_model.wasm
 fi
@@ -114,7 +110,7 @@ fi
 if [[ $1 == '--sgx' ]]; then
     cd ${WAMR_PLATFORM_DIR}/linux-sgx
     rm -fr build && mkdir build
-    cd build && cmake .. -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
+    cd build && cmake .. -DWAMR_BUILD_SIMD=1 -DWAMR_BUILD_LIB_PTHREAD=1 -DWAMR_BUILD_LIBC_EMCC=1
     make
     cd ../enclave-sample
     make
