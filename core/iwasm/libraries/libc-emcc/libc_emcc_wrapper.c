@@ -7,7 +7,7 @@
 #include "bh_log.h"
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
-#ifndef _DEFAULT_SOURCE
+#if !defined(_DEFAULT_SOURCE) && !defined(BH_PLATFORM_LINUX_SGX)
 #include "sys/syscall.h"
 #endif
 
@@ -267,7 +267,7 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
 {
     if (buffer == NULL)
         return -1;
-#ifdef _DEFAULT_SOURCE
+#if defined(_DEFAULT_SOURCE) || defined(BH_PLATFORM_LINUX_SGX)
     return getentropy(buffer, length);
 #else
     return syscall(SYS_getrandom, buffer, length, 0);
