@@ -405,10 +405,10 @@ typedef struct BlockType {
 } BlockType;
 
 typedef struct WASMBranchBlock {
-    uint8 label_type;
-    uint32 cell_num;
+    uint8 *begin_addr;
     uint8 *target_addr;
     uint32 *frame_sp;
+    uint32 cell_num;
 } WASMBranchBlock;
 
 /* Execution environment, e.g. stack info */

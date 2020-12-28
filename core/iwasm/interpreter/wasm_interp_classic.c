@@ -381,27 +381,27 @@ popcount64(uint64 u)
 static uint64
 read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 {
-    uint64 result = 0;
+    uint64 result = 0, byte;
+    uint32 offset = *p_offset;
     uint32 shift = 0;
-    uint32 bcnt = 0;
-    uint64 byte;
 
     while (true) {
-        byte = buf[*p_offset];
-        *p_offset += 1;
+        byte = buf[offset++];
         result |= ((byte & 0x7f) << shift);
         shift += 7;
         if ((byte & 0x80) == 0) {
             break;
         }
-        bcnt += 1;
     }
     if (sign && (shift < maxbits) && (byte & 0x40)) {
         /* Sign extend */
         result |= - ((uint64)1 << shift);
     }
+    *p_offset = offset;
     return result;
 }
+
+#define skip_leb(p) while (*p++ & 0x80)
 
 #define PUSH_I32(value) do {                    \
     *(int32*)frame_sp++ = (int32)(value);       \
@@ -423,8 +423,9 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 
 #define PUSH_CSP(_label_type, cell_num, _target_addr) do {   \
     bh_assert(frame_csp < frame->csp_boundary);              \
-    frame_csp->label_type = _label_type;                     \
+    /* frame_csp->label_type = _label_type; */               \
     frame_csp->cell_num = cell_num;                          \
+    frame_csp->begin_addr = frame_ip;                        \
     frame_csp->target_addr = _target_addr;                   \
     frame_csp->frame_sp = frame_sp;                          \
     frame_csp++;                                             \
@@ -1078,11 +1079,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   BlockAddr *cache_items;
   uint8 *frame_ip_end = frame_ip + 1;
   uint8 opcode;
-  uint32 *depths = NULL;
-  uint32 depth_buf[BR_TABLE_TMP_BUF_LEN];
-  uint32 i, depth, cond, count, fidx, tidx, frame_size = 0;
+  uint32 i, depth, cond, count, fidx, tidx, lidx, frame_size = 0;
   uint64 all_cell_num = 0;
-  int32 didx, val;
+  int32 val;
   uint8 *else_addr, *end_addr, *maddr = NULL;
   uint32 local_idx, local_offset, global_idx;
   uint8 local_type, *global_addr;
@@ -1127,15 +1126,9 @@ handle_op_block:
         else if (cache_items[1].start_addr == frame_ip) {
           end_addr = cache_items[1].end_addr;
         }
-        else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
-                                              frame_ip, (uint8*)-1,
-                                              LABEL_TYPE_BLOCK,
-                                              &else_addr, &end_addr,
-                                              NULL, 0)) {
-          wasm_set_exception(module, "find block address failed");
-          goto got_exception;
+        else {
+          end_addr = NULL;
         }
-
         PUSH_CSP(LABEL_TYPE_BLOCK, cell_num, end_addr);
         HANDLE_OP_END ();
 
@@ -1173,26 +1166,26 @@ handle_op_if:
         else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
                                               frame_ip, (uint8*)-1,
                                               LABEL_TYPE_IF,
-                                              &else_addr, &end_addr,
-                                              NULL, 0)) {
+                                              &else_addr, &end_addr)) {
           wasm_set_exception(module, "find block address failed");
           goto got_exception;
         }
 
         cond = (uint32)POP_I32();
 
-        PUSH_CSP(LABEL_TYPE_IF, cell_num, end_addr);
-
-        /* condition of the if branch is false, else condition is met */
-        if (cond == 0) {
+        if (cond) { /* if branch is met */
+          PUSH_CSP(LABEL_TYPE_IF, cell_num, end_addr);
+        }
+        else { /* if branch is not met */
           /* if there is no else branch, go to the end addr */
           if (else_addr == NULL) {
-            POP_CSP();
             frame_ip = end_addr + 1;
           }
           /* if there is an else branch, go to the else addr */
-          else
+          else {
+            PUSH_CSP(LABEL_TYPE_IF, cell_num, end_addr);
             frame_ip = else_addr + 1;
+          }
         }
         HANDLE_OP_END ();
 
@@ -1221,6 +1214,16 @@ handle_op_if:
         read_leb_uint32(frame_ip, frame_ip_end, depth);
 label_pop_csp_n:
         POP_CSP_N(depth);
+        if (!frame_ip) { /* must be label pushed by WASM_OP_BLOCK */
+          if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
+                                           (frame_csp - 1)->begin_addr, (uint8*)-1,
+                                           LABEL_TYPE_BLOCK,
+                                           &else_addr, &end_addr)) {
+            wasm_set_exception(module, "find block address failed");
+            goto got_exception;
+          }
+          frame_ip = end_addr;
+        }
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR_IF):
@@ -1238,30 +1241,13 @@ label_pop_csp_n:
         CHECK_SUSPEND_FLAGS();
 #endif
         read_leb_uint32(frame_ip, frame_ip_end, count);
-        if (count <= BR_TABLE_TMP_BUF_LEN)
-          depths = depth_buf;
-        else {
-          uint64 total_size = sizeof(uint32) * (uint64)count;
-          if (total_size >= UINT32_MAX
-              || !(depths = wasm_runtime_malloc((uint32)total_size))) {
-            wasm_set_exception(module, "allocate memory failed");
-            goto got_exception;
-          }
-        }
-        for (i = 0; i < count; i++) {
-          read_leb_uint32(frame_ip, frame_ip_end, depths[i]);
-        }
+        lidx = POP_I32();
+        if (lidx > count)
+          lidx = count;
+        for (i = 0; i < lidx; i++)
+          skip_leb(frame_ip);
         read_leb_uint32(frame_ip, frame_ip_end, depth);
-        didx = POP_I32();
-        if (didx >= 0 && (uint32)didx < count) {
-          depth = depths[didx];
-        }
-        if (depths != depth_buf) {
-          wasm_runtime_free(depths);
-          depths = NULL;
-        }
         goto label_pop_csp_n;
-        HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_RETURN):
         frame_sp -= cur_func->ret_cell_num;
