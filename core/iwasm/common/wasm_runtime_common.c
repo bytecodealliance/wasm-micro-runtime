@@ -2039,12 +2039,9 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
-    func = resolve_function(module_inst, "_main");
-    if (!func) {
-        func = resolve_function(module_inst, "main");
-    }
-
-    if (!func) {
+    if (!(func = resolve_function(module_inst, "main"))
+        && !(func = resolve_function(module_inst, "__main_argc_argv"))
+        && !(func = resolve_function(module_inst, "_main"))) {
         wasm_runtime_set_exception(module_inst,
                                    "lookup main function failed");
         return false;

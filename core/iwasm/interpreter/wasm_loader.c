@@ -79,53 +79,10 @@ check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
   }                                             \
 } while (0)
 
-static bool
-skip_leb(const uint8 **p_buf, const uint8 *buf_end, uint32 maxbits,
-         char* error_buf, uint32 error_buf_size)
-{
-    const uint8 *buf = *p_buf;
-    uint32 offset = 0, bcnt = 0;
-    uint64 byte;
-
-    while (true) {
-        if (bcnt + 1 > (maxbits + 6) / 7) {
-            set_error_buf(error_buf, error_buf_size,
-                          "integer representation too long");
-            return false;
-        }
-
-        CHECK_BUF(buf, buf_end, offset + 1);
-        byte = buf[offset];
-        offset += 1;
-        bcnt += 1;
-        if ((byte & 0x80) == 0) {
-            break;
-        }
-    }
-
-    *p_buf += offset;
-    return true;
-fail:
-    return false;
-}
-
-#define skip_leb_int64(p, p_end) do {               \
-  if (!skip_leb(&p, p_end, 64,                      \
-                error_buf, error_buf_size))         \
-    return false;                                   \
-} while (0)
-
-#define skip_leb_uint32(p, p_end) do {              \
-  if (!skip_leb(&p, p_end, 32,                      \
-                error_buf, error_buf_size))         \
-    return false;                                   \
-} while (0)
-
-#define skip_leb_int32(p, p_end) do {               \
-  if (!skip_leb(&p, p_end, 32,                      \
-                error_buf, error_buf_size))         \
-    return false;                                   \
-} while (0)
+#define skip_leb(p) while (*p++ & 0x80)
+#define skip_leb_int64(p, p_end) skip_leb(p)
+#define skip_leb_uint32(p, p_end) skip_leb(p)
+#define skip_leb_int32(p, p_end) skip_leb(p)
 
 static bool
 read_leb(uint8 **p_buf, const uint8 *buf_end,
@@ -1134,13 +1091,15 @@ load_global_import(const WASMModule *parent_module,
     }
 
     if (wasm_runtime_is_host_module(sub_module_name)) {
-        /* do nothing, let host injects the symbol */
+        /* do nothing, let host inject the symbol */
     }
+#if WASM_ENABLE_LIBC_BUILTIN != 0
     else if (wasm_runtime_is_built_in_module(sub_module_name)) {
         /* check built-in modules */
         global->is_linked = wasm_native_lookup_libc_builtin_global(
               sub_module_name, global_name, global);
     }
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     else {
         /* check sub modules */
@@ -3267,17 +3226,17 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             const uint8 *code_end_addr,
                             uint8 label_type,
                             uint8 **p_else_addr,
-                            uint8 **p_end_addr,
-                            char *error_buf,
-                            uint32 error_buf_size)
+                            uint8 **p_end_addr)
 {
     const uint8 *p = start_addr, *p_end = code_end_addr;
     uint8 *else_addr = NULL;
+    char error_buf[128];
     uint32 block_nested_depth = 1, count, i, j, t;
+    uint32 error_buf_size = sizeof(error_buf);
     uint8 opcode, u8;
     BlockAddr block_stack[16] = { 0 }, *block;
 
-    i = ((uintptr_t)start_addr) % BLOCK_ADDR_CACHE_SIZE;
+    i = ((uintptr_t)start_addr) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
     block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
 
     for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++) {
@@ -3303,7 +3262,6 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
             case WASM_OP_IF:
-                CHECK_BUF(p, p_end, 1);
                 /* block result type: 0x40/0x7F/0x7E/0x7D/0x7C */
                 u8 = read_uint8(p);
                 if (block_nested_depth < sizeof(block_stack)/sizeof(BlockAddr)) {
@@ -3342,7 +3300,8 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                     for (t = 0; t < sizeof(block_stack)/sizeof(BlockAddr); t++) {
                         start_addr = block_stack[t].start_addr;
                         if (start_addr) {
-                            i = ((uintptr_t)start_addr) % BLOCK_ADDR_CACHE_SIZE;
+                            i = ((uintptr_t)start_addr)
+                                & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
                             block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
                             for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++)
                                 if (!block[j].start_addr)
@@ -3633,9 +3592,6 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                         break;
 #endif
                     default:
-                        set_error_buf_v(error_buf, error_buf_size,
-                                        "%s %02x %02x",
-                                        "unsupported opcode", 0xfc, opcode);
                         return false;
                 }
                 break;
@@ -3704,10 +3660,6 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                     default:
                         LOG_WARNING("WASM loader find block addr failed: "
                                     "invalid opcode fd 0x%02x.", opcode);
-                        if (error_buf)
-                            snprintf(error_buf, error_buf_size,
-                                     "WASM loader find block addr failed: "
-                                     "invalid opcode fd %02x.", opcode);
                         return false;
                 }
                 break;
@@ -3733,9 +3685,6 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
 #endif
 
             default:
-                set_error_buf_v(error_buf, error_buf_size,
-                                "%s %02x",
-                                "unsupported opcode", opcode);
                 return false;
         }
     }
@@ -6126,7 +6075,6 @@ handle_op_block_and_loop:
 #endif
                 POP_I32();
 
-                /* TODO: check the const */
                 for (i = 0; i <= count; i++) {
                     if (!(frame_csp_tmp =
                             check_branch_block(loader_ctx, &p, p_end,
@@ -6136,8 +6084,8 @@ handle_op_block_and_loop:
                     if (i == 0) {
                         if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP)
                             ret_count =
-                                    block_type_get_result_types(&frame_csp_tmp->block_type,
-                                                                &ret_types);
+                                block_type_get_result_types(&frame_csp_tmp->block_type,
+                                                             &ret_types);
                     }
                     else {
                         uint8 *tmp_ret_types = NULL;
@@ -6146,8 +6094,8 @@ handle_op_block_and_loop:
                         /* Check whether all table items have the same return type */
                         if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP)
                             tmp_ret_count =
-                                    block_type_get_result_types(&frame_csp_tmp->block_type,
-                                                                &tmp_ret_types);
+                                block_type_get_result_types(&frame_csp_tmp->block_type,
+                                                            &tmp_ret_types);
 
                         if (ret_count != tmp_ret_count
                             || (ret_count

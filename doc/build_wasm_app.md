@@ -64,18 +64,19 @@ There are some useful options which can be specified to build the source code:
 
 - **-Wl,--shared-memory** Use shared linear memory
 
-- **-Wl,--threads** or **-Wl,--no-threads** Run or do not run the linker multi-threaded
-
 - **-Wl,--allow-undefined** Allow undefined symbols in linked binary
 
 - **-Wl,--allow-undefined-file=<value>** Allow symbols listed in <file> to be undefined in linked binary
+
+- **-pthread** Support POSIX threads in generated code
 
 For example, we can build the wasm app with command:
 ``` Bash
 /opt/wasi-sdk/bin/clang -O3 -nostdlib \
     -z stack-size=8192 -Wl,--initial-memory=65536 \
-    -Wl,--export=main -o test.wasm test.c \
-    -Wl,--export=__heap_base,--export=__data_end \
+    -o test.wasm test.c \
+    -Wl,--export=main -Wl,--export=__main_argc_argv \
+    -Wl,--export=__heap_base -Wl,--export=__data_end \
     -Wl,--no-entry -Wl,--strip-all -Wl,--allow-undefined
 ```
 to generate a wasm binary with small footprint.
