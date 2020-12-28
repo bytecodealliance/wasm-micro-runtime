@@ -1249,20 +1249,36 @@ recover_br_info:
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR_TABLE):
-#if WASM_ENABLE_THREAD_MGR != 0
-        CHECK_SUSPEND_FLAGS();
-#endif
-        count = read_uint32(frame_ip);
-        didx = GET_OPERAND(uint32, 0);
-        frame_ip += 2;
+        {
+          uint32 arity, br_item_size;
 
-        if (!(didx >= 0 && (uint32)didx < count))
+#if WASM_ENABLE_THREAD_MGR != 0
+          CHECK_SUSPEND_FLAGS();
+#endif
+          count = read_uint32(frame_ip);
+          didx = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
+
+          if (!(didx >= 0 && (uint32)didx < count))
             didx = count;
 
-        while (didx--)
-          SKIP_BR_INFO();
+          /* all br items must have the same arity and item size,
+             so we only calculate the first item size */
+          arity = *(uint32*)frame_ip;
+          br_item_size = sizeof(uint32); /* arity */
+          if (arity) {
+            /* total cell num */
+            br_item_size += sizeof(uint32);
+            /* cells, src offsets and dst offsets */
+            br_item_size += (sizeof(uint8) + sizeof(int16) + sizeof(uint16))
+                            * arity;
+          }
+          /* target address */
+          br_item_size += sizeof(uint8*);
 
-        goto recover_br_info;
+          frame_ip += br_item_size * didx;
+          goto recover_br_info;
+        }
 
       HANDLE_OP (WASM_OP_RETURN):
         {

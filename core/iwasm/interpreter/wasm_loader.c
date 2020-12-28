@@ -6075,7 +6075,6 @@ handle_op_block_and_loop:
 #endif
                 POP_I32();
 
-                /* TODO: check the const */
                 for (i = 0; i <= count; i++) {
                     if (!(frame_csp_tmp =
                             check_branch_block(loader_ctx, &p, p_end,
@@ -6085,8 +6084,8 @@ handle_op_block_and_loop:
                     if (i == 0) {
                         if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP)
                             ret_count =
-                                    block_type_get_result_types(&frame_csp_tmp->block_type,
-                                                                &ret_types);
+                                block_type_get_result_types(&frame_csp_tmp->block_type,
+                                                             &ret_types);
                     }
                     else {
                         uint8 *tmp_ret_types = NULL;
@@ -6095,8 +6094,8 @@ handle_op_block_and_loop:
                         /* Check whether all table items have the same return type */
                         if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP)
                             tmp_ret_count =
-                                    block_type_get_result_types(&frame_csp_tmp->block_type,
-                                                                &tmp_ret_types);
+                                block_type_get_result_types(&frame_csp_tmp->block_type,
+                                                            &tmp_ret_types);
 
                         if (ret_count != tmp_ret_count
                             || (ret_count
