@@ -1,9 +1,13 @@
 #!/bin/bash
+#
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
 
 readonly BUILD_CONTENT="/tmp/build_content"
-readonly WASI_SDK_VER=11.0
-readonly WASI_SDK_FILE="wasi-sdk-${WASI_SDK_VER}-linux.tar.gz"
-readonly WABT_VER=1.0.19
+readonly WASI_SDK_VER=12
+readonly WASI_SDK_FILE="wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz"
+readonly WABT_VER=1.0.20
 readonly WABT_FILE="wabt-${WABT_VER}-ubuntu.tar.gz"
 readonly CMAKE_VER=3.16.2
 readonly CMAKE_FILE="cmake-${CMAKE_VER}-Linux-x86_64.sh"
@@ -13,7 +17,7 @@ readonly BAZEL_VER=3.7.0
 readonly BAZEL_FILE=bazel-${BAZEL_VER}-installer-linux-x86_64.sh
 
 function DEBUG() {
-  [[ -n $(env | grep "\<DEBUG\>") ]]
+  env | grep -q "\<DEBUG\>"
 }
 
 #
@@ -26,25 +30,24 @@ function install_deps() {
 
 #
 # install clang
-function install_clang() {
-  if [[ ! -f llvm.sh ]]; then
-    wget https://apt.llvm.org/llvm.sh
-  fi
-
-  chmod a+x llvm.sh
-  ./llvm.sh 11
-}
+#function install_clang() {
+#  if [[ ! -f llvm.sh ]]; then
+#    wget https://apt.llvm.org/llvm.sh
+#  fi
+#
+#  chmod a+x llvm.sh
+#  ./llvm.sh 11
+#}
 
 #
 # install wasi-sdk
 function install_wasi-sdk() {
   if [[ ! -f ${WASI_SDK_FILE} ]]; then
-    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-11/${WASI_SDK_FILE}
+    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/${WASI_SDK_FILE}
   fi
 
   tar zxf ${WASI_SDK_FILE} -C /opt
-  ln -sf /opt/wasi-sdk-${WASI_SDK_VER} /opt/wasi-sdk
-  ln -sf /opt/wasi-sdk/lib/clang/10.0.0/lib/wasi/ /usr/lib/llvm-11/lib/clang/11.0.1/lib/
+  ln -sf /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk
 }
 
 #
@@ -80,7 +83,7 @@ function install_emsdk() {
   git pull
   ./emsdk install latest
   ./emsdk activate latest
-  echo "source /opt/emsdk/emsdk_env.sh" >> ${HOME}/.bashrc
+  echo "source /opt/emsdk/emsdk_env.sh" >> "${HOME}"/.bashrc
 }
 
 #
@@ -112,18 +115,17 @@ if [[ ! -d ${BUILD_CONTENT} ]]; then
   mkdir ${BUILD_CONTENT}
 fi
 
-cd ${BUILD_CONTENT}
+cd ${BUILD_CONTENT} || exit
 if DEBUG; then
-  $@
+  "$@"
 else
   install_deps \
-    && install_clang \
-    && install_wasi \
+    && install_wasi-sdk \
     && install_wabt \
     && install_cmake \
     && install_emsdk \
     && install_binaryen \
     && install_bazel
 fi
-cd - > /dev/null
+cd - > /dev/null || exit
 DEBUG && set +xevu

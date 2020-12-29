@@ -1,6 +1,7 @@
 "tensorflow" sample introduction
 ==============
-This sample demonstrates how to build [tensorflow](https://github.com/tensorflow/tensorflow) into WebAssembly with emcc toolchain and run it with iwasm. Please first install [emsdk](https://github.com/emscripten-core/emsdk):
+
+This sample demonstrates how to build [tensorflow](https://github.com/tensorflow/tensorflow) into WebAssembly with emsdk toolchain and run it with iwasm. Please first install [emsdk](https://github.com/emscripten-core/emsdk):
 ```bash
 git clone https://github.com/emscripten-core/emsdk.git
 cd emsdk

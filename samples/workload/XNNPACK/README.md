@@ -1,6 +1,7 @@
 "XNNPACK" sample introduction
 ==============
-This sample demonstrates how to build [XNNPACK](https://github.com/google/XNNPACK) benchmarks into WebAssembly with emcc toolchain and run them with iwasm.
+
+This sample demonstrates how to build [XNNPACK](https://github.com/google/XNNPACK) benchmarks into WebAssembly with emsdk toolchain and run them with iwasm.
 
 ## Installation toolchains
 
