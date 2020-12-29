@@ -33,42 +33,10 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
     bh_assert(buf + length <= buf_end);                     \
   } while (0)
 
-static void
-skip_leb(const uint8 **p_buf, const uint8 *buf_end, uint32 maxbits,
-         char* error_buf, uint32 error_buf_size)
-{
-    const uint8 *buf = *p_buf;
-    uint32 offset = 0, bcnt = 0;
-    uint64 byte;
-
-    while (true) {
-        bh_assert(bcnt + 1 <= (maxbits + 6) / 7);
-        CHECK_BUF(buf, buf_end, offset + 1);
-        byte = buf[offset];
-        offset += 1;
-        bcnt += 1;
-        if ((byte & 0x80) == 0) {
-            break;
-        }
-    }
-
-    *p_buf += offset;
-}
-
-#define skip_leb_int64(p, p_end) do {               \
-    skip_leb(&p, p_end, 64,                         \
-             error_buf, error_buf_size);            \
-  } while (0)
-
-#define skip_leb_uint32(p, p_end) do {              \
-    skip_leb(&p, p_end, 32,                         \
-             error_buf, error_buf_size);            \
-  } while (0)
-
-#define skip_leb_int32(p, p_end) do {               \
-    skip_leb(&p, p_end, 32,                         \
-             error_buf, error_buf_size);            \
-  } while (0)
+#define skip_leb(p) while (*p++ & 0x80)
+#define skip_leb_int64(p, p_end) skip_leb(p)
+#define skip_leb_uint32(p, p_end) skip_leb(p)
+#define skip_leb_int32(p, p_end) skip_leb(p)
 
 static void
 read_leb(uint8 **p_buf, const uint8 *buf_end,
@@ -2149,17 +2117,17 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             const uint8 *code_end_addr,
                             uint8 label_type,
                             uint8 **p_else_addr,
-                            uint8 **p_end_addr,
-                            char *error_buf,
-                            uint32 error_buf_size)
+                            uint8 **p_end_addr)
 {
     const uint8 *p = start_addr, *p_end = code_end_addr;
     uint8 *else_addr = NULL;
+    char error_buf[128];
     uint32 block_nested_depth = 1, count, i, j, t;
+    uint32 error_buf_size = sizeof(error_buf);
     uint8 opcode, u8;
     BlockAddr block_stack[16] = { 0 }, *block;
 
-    i = ((uintptr_t)start_addr) % BLOCK_ADDR_CACHE_SIZE;
+    i = ((uintptr_t)start_addr) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
     block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
 
     for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++) {
@@ -2185,7 +2153,6 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
             case WASM_OP_IF:
-                CHECK_BUF(p, p_end, 1);
                 /* block result type: 0x40/0x7F/0x7E/0x7D/0x7C */
                 u8 = read_uint8(p);
                 if (block_nested_depth < sizeof(block_stack)/sizeof(BlockAddr)) {
@@ -2224,7 +2191,8 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                     for (t = 0; t < sizeof(block_stack)/sizeof(BlockAddr); t++) {
                         start_addr = block_stack[t].start_addr;
                         if (start_addr) {
-                            i = ((uintptr_t)start_addr) % BLOCK_ADDR_CACHE_SIZE;
+                            i = ((uintptr_t)start_addr)
+                                & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
                             block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
                             for (j = 0; j < BLOCK_ADDR_CONFLICT_SIZE; j++)
                                 if (!block[j].start_addr)
@@ -4669,7 +4637,6 @@ handle_op_block_and_loop:
 #endif
                 POP_I32();
 
-                /* TODO: check the const */
                 for (i = 0; i <= count; i++) {
                     if (!(frame_csp_tmp =
                             check_branch_block(loader_ctx, &p, p_end,
