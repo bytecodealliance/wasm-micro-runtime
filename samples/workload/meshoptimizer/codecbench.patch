@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index eccc49e..dac126c 100644
+index ffdb4da..536a5c8 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -127,3 +127,42 @@ install(FILES
+@@ -127,3 +127,43 @@ install(FILES
      ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfig.cmake
      ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfigVersion.cmake
      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/meshoptimizer)
@@ -16,6 +16,7 @@ index eccc49e..dac126c 100644
 +
 +target_compile_options(codecbench
 +  PUBLIC
++    -O3 -msimd128
 +    -std=c++11
 +    -Wno-unused-function
 +    -Wno-unused-variable
