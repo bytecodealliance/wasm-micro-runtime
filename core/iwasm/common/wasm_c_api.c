@@ -523,9 +523,9 @@ wasm_functype_new_internal(WASMType *type_rt)
 
     /* WASMType->types[type_rt->param_count : type_rt->result_count) -> func_type->results */
     INIT_VEC(func_type->results, wasm_valtype_vec, type_rt->result_count);
-    for (i = type_rt->param_count; i < type_rt->result_count; ++i) {
+    for (i = 0; i < type_rt->result_count; ++i) {
         wasm_valtype_t *result_type =
-          wasm_valtype_new_internal(*(type_rt->types + i));
+          wasm_valtype_new_internal(*(type_rt->types + type_rt->param_count + i));
         if (!result_type) {
             goto failed;
         }
@@ -2603,7 +2603,7 @@ wasm_instance_exports(const wasm_instance_t *instance, wasm_extern_vec_t *out)
 void
 wasm_instance_vec_new_uninitialized(wasm_instance_vec_t *out, size_t size)
 {
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_instance_t));
+    generic_vec_init_data((Vector *)out, size, sizeof(wasm_instance_t *));
 }
 
 void
