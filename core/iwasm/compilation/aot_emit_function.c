@@ -347,7 +347,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                                  + ext_ret_count);
     if (total_size >= UINT32_MAX
         || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
-        aot_set_last_error("Allocate memory failed.");
+        aot_set_last_error("allocate memory failed.");
         return false;
     }
 
@@ -408,7 +408,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         total_size = sizeof(LLVMTypeRef) * (uint64)(param_count + 1);
         if (total_size >= UINT32_MAX
             || !(param_types = wasm_runtime_malloc((uint32)total_size))) {
-            aot_set_last_error("Allocate memory failed.");
+            aot_set_last_error("allocate memory failed.");
             goto fail;
         }
 
@@ -510,22 +510,12 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     char buf[32], *func_name = "aot_call_indirect";
     uint32 i, cell_num = 0, ret_cell_num, argv_cell_num;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Insert suspend check point */
-    if (comp_ctx->enable_thread_mgr) {
-        if (!check_suspend_flags(comp_ctx, func_ctx))
-            return false;
-    }
-#endif
-
     /* prepare function type of aot_call_indirect */
     func_param_types[0] = comp_ctx->exec_env_type;  /* exec_env */
-    func_param_types[1] = INT8_TYPE;                /* check_func_type */
-    func_param_types[2] = I32_TYPE;                 /* func_type_idx */
-    func_param_types[3] = I32_TYPE;                 /* table_elem_idx */
-    func_param_types[4] = I32_TYPE;                 /* argc */
-    func_param_types[5] = INT32_PTR_TYPE;           /* argv */
-    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 6, false))) {
+    func_param_types[1] = I32_TYPE;                 /* table_elem_idx */
+    func_param_types[2] = I32_TYPE;                 /* argc */
+    func_param_types[3] = INT32_PTR_TYPE;           /* argv */
+    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 4, false))) {
         aot_set_last_error("llvm add function type failed.");
         return false;
     }
@@ -588,20 +578,18 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     func_param_values[0] = func_ctx->exec_env;
-    func_param_values[1] = I8_CONST(true);
-    func_param_values[2] = func_type_idx;
-    func_param_values[3] = table_elem_idx;
-    func_param_values[4] = I32_CONST(param_cell_num);
-    func_param_values[5] = func_ctx->argv_buf;
+    func_param_values[1] = table_elem_idx;
+    func_param_values[2] = I32_CONST(param_cell_num);
+    func_param_values[3] = func_ctx->argv_buf;
 
-    if (!func_param_values[1] || !func_param_values[4]) {
+    if (!func_param_values[2]) {
         aot_set_last_error("llvm create const failed.");
         return false;
     }
 
     /* call aot_call_indirect() function */
     if (!(res = LLVMBuildCall(comp_ctx->builder, func,
-                              func_param_values, 6, "res"))) {
+                              func_param_values, 4, "res"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
@@ -642,89 +630,453 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              uint32 type_idx)
 {
     AOTFuncType *func_type;
-    LLVMValueRef elem_idx, ftype_idx;
-    LLVMValueRef *param_values = NULL, *value_rets = NULL, res = NULL;
-    LLVMTypeRef *param_types = NULL;
-    int32 i, param_count, result_count;
-    uint32 param_cell_num;
+    LLVMValueRef elem_idx, table_elem, func_idx;
+    LLVMValueRef ftype_idx_ptr, ftype_idx, ftype_idx_const;
+    LLVMValueRef cmp_elem_idx, cmp_func_idx, cmp_ftype_idx;
+    LLVMValueRef func, func_ptr, table_size_const;
+    LLVMValueRef ext_ret_offset, ext_ret_ptr, ext_ret, res;
+    LLVMValueRef *param_values = NULL, *value_rets = NULL;
+    LLVMValueRef *result_phis = NULL, value_ret, import_func_count;
+    LLVMTypeRef *param_types = NULL, ret_type;
+    LLVMTypeRef llvm_func_type, llvm_func_ptr_type;
+    LLVMTypeRef ext_ret_ptr_type;
+    LLVMBasicBlockRef check_elem_idx_succ, check_ftype_idx_succ;
+    LLVMBasicBlockRef check_func_idx_succ, block_return, block_curr;
+    LLVMBasicBlockRef block_call_import, block_call_non_import;
+    uint32 total_param_count, func_param_count, func_result_count;
+    uint32 table_init_size = 0, ext_cell_num, param_cell_num, i, j;
+    uint8 wasm_ret_type, *wasm_ret_types;
     uint64 total_size;
-    uint8 *wasm_ret_types = NULL;
-    bool ret = false;
+    char buf[32];
+    bool ret;
 
     /* Check function type index */
     if (type_idx >= comp_ctx->comp_data->func_type_count) {
-        aot_set_last_error("type index is overflow");
+        aot_set_last_error("function type index out of range");
         return false;
     }
 
-    ftype_idx = I32_CONST(type_idx);
-    CHECK_LLVM_CONST(ftype_idx);
+    /* Find the equivalent function type whose type index is the smallest:
+       the callee function's type index is also converted to the smallest
+       one in wasm loader, so we can just check whether the two type indexes
+       are equal (the type index of call_indirect opcode and callee func),
+       we don't need to check whether the whole function types are equal,
+       including param types and result types. */
+    type_idx = wasm_get_smallest_type_idx(comp_ctx->comp_data->func_types,
+                                          comp_ctx->comp_data->func_type_count,
+                                          type_idx);
+    ftype_idx_const = I32_CONST(type_idx);
+    CHECK_LLVM_CONST(ftype_idx_const);
 
     func_type = comp_ctx->comp_data->func_types[type_idx];
-
-    param_cell_num = func_type->param_cell_num;
-    result_count = func_type->result_count;
-    wasm_ret_types = func_type->types + func_type->param_count;
+    func_param_count = func_type->param_count;
+    func_result_count = func_type->result_count;
 
     POP_I32(elem_idx);
 
+    if (comp_ctx->comp_data->import_table_count > 0) {
+        table_init_size = comp_ctx->comp_data->import_tables[0]
+                          .table_init_size;
+    }
+    else if (comp_ctx->comp_data->table_count > 0) {
+        table_init_size = comp_ctx->comp_data->tables[0]
+                          .table_init_size;
+    }
+    else {
+        aot_set_last_error("table index out of range");
+        goto fail;
+    }
+    table_size_const = I32_CONST(table_init_size);
+    CHECK_LLVM_CONST(table_size_const);
+
+    /* Check if (uint32)elem index >= table size */
+    if (!(cmp_elem_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE,
+                                       elem_idx, table_size_const,
+                                       "cmp_elem_idx"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        goto fail;
+    }
+
+    /* Throw exception if elem index >= table size */
+    if (!(check_elem_idx_succ =
+                LLVMAppendBasicBlockInContext(comp_ctx->context,
+                                              func_ctx->func,
+                                              "check_elem_idx_succ"))) {
+        aot_set_last_error("llvm add basic block failed.");
+        goto fail;
+    }
+
+    LLVMMoveBasicBlockAfter(check_elem_idx_succ,
+                            LLVMGetInsertBlock(comp_ctx->builder));
+
+    if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_UNDEFINED_ELEMENT,
+                             true, cmp_elem_idx, check_elem_idx_succ)))
+        goto fail;
+
+    /* Load function index */
+    if (!(table_elem = LLVMBuildInBoundsGEP(comp_ctx->builder,
+                                            func_ctx->table_base,
+                                            &elem_idx, 1, "table_elem"))) {
+        aot_set_last_error("llvm build add failed.");
+        goto fail;
+    }
+
+    if (!(func_idx = LLVMBuildLoad(comp_ctx->builder,
+                                   table_elem, "func_idx"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    /* Check if func_idx == -1 */
+    if (!(cmp_func_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ,
+                                       func_idx, I32_NEG_ONE,
+                                       "cmp_func_idx"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        goto fail;
+    }
+
+    /* Throw exception if func_idx == -1 */
+    if (!(check_func_idx_succ =
+                LLVMAppendBasicBlockInContext(comp_ctx->context,
+                                              func_ctx->func,
+                                              "check_func_idx_succ"))) {
+        aot_set_last_error("llvm add basic block failed.");
+        goto fail;
+    }
+
+    LLVMMoveBasicBlockAfter(check_func_idx_succ,
+                            LLVMGetInsertBlock(comp_ctx->builder));
+
+    if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_UNINITIALIZED_ELEMENT,
+                             true, cmp_func_idx, check_func_idx_succ)))
+        goto fail;
+
+    /* Load function type index */
+    if (!(ftype_idx_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
+                                               func_ctx->func_type_indexes,
+                                               &func_idx, 1,
+                                               "ftype_idx_ptr"))) {
+        aot_set_last_error("llvm build inbounds gep failed.");
+        goto fail;
+    }
+
+    if (!(ftype_idx = LLVMBuildLoad(comp_ctx->builder, ftype_idx_ptr,
+                                    "ftype_idx"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    /* Check if function type index not equal */
+    if (!(cmp_ftype_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntNE,
+                                        ftype_idx, ftype_idx_const,
+                                        "cmp_ftype_idx"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        goto fail;
+    }
+
+    /* Throw exception if ftype_idx != ftype_idx_const */
+    if (!(check_ftype_idx_succ =
+                LLVMAppendBasicBlockInContext(comp_ctx->context,
+                                              func_ctx->func,
+                                              "check_ftype_idx_succ"))) {
+        aot_set_last_error("llvm add basic block failed.");
+        goto fail;
+    }
+
+    LLVMMoveBasicBlockAfter(check_ftype_idx_succ,
+                            LLVMGetInsertBlock(comp_ctx->builder));
+
+    if (!(aot_emit_exception(comp_ctx, func_ctx,
+                             EXCE_INVALID_FUNCTION_TYPE_INDEX,
+                             true, cmp_ftype_idx, check_ftype_idx_succ)))
+        goto fail;
+
     /* Initialize parameter types of the LLVM function */
-    param_count = (int32)func_type->param_count;
-    total_size = sizeof(LLVMTypeRef) * (uint64)param_count;
+    total_param_count = 1 + func_param_count;
+
+    /* Extra function results' addresses (except the first one) are
+     * appended to aot function parameters. */
+    if (func_result_count > 1)
+      total_param_count += func_result_count - 1;
+
+    total_size = sizeof(LLVMTypeRef) * (uint64)total_param_count;
     if (total_size >= UINT32_MAX
         || !(param_types = wasm_runtime_malloc((uint32)total_size))) {
-        aot_set_last_error("Allocate memory failed.");
+        aot_set_last_error("allocate memory failed.");
         goto fail;
     }
 
-    for (i = 0; i < param_count; i++)
-        param_types[i] = TO_LLVM_TYPE(func_type->types[i]);
+    /* Prepare param types */
+    j = 0;
+    param_types[j++] = comp_ctx->exec_env_type;
+    for (i = 0; i < func_param_count; i++)
+        param_types[j++] = TO_LLVM_TYPE(func_type->types[i]);
+
+    for (i = 1; i < func_result_count; i++, j++) {
+        param_types[j] =
+            TO_LLVM_TYPE(func_type->types[func_param_count + i]);
+        if (!(param_types[j] = LLVMPointerType(param_types[j], 0))) {
+            aot_set_last_error("llvm get pointer type failed.");
+            goto fail;
+        }
+    }
+
+    /* Resolve return type of the LLVM function */
+    if (func_result_count) {
+        wasm_ret_type = func_type->types[func_param_count];
+        ret_type = TO_LLVM_TYPE(wasm_ret_type);
+    }
+    else {
+        wasm_ret_type = VALUE_TYPE_VOID;
+        ret_type = VOID_TYPE;
+    }
 
     /* Allocate memory for parameters */
-    total_size = sizeof(LLVMValueRef) * (uint64)param_count;
+    total_size = sizeof(LLVMValueRef) * (uint64)total_param_count;
     if (total_size >= UINT32_MAX
         || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
-        aot_set_last_error("Allocate memory failed.");
+        aot_set_last_error("allocate memory failed.");
         goto fail;
     }
 
+    /* First parameter is exec env */
+    j = 0;
+    param_values[j++] = func_ctx->exec_env;
+
     /* Pop parameters from stack */
-    for (i = param_count - 1; i >= 0; i--)
-        POP(param_values[i], func_type->types[i]);
+    for (i = func_param_count - 1; (int32)i >= 0; i--)
+        POP(param_values[i + j], func_type->types[i]);
+
+    /* Prepare extra parameters */
+    ext_cell_num = 0;
+    for (i = 1; i < func_result_count; i++) {
+        ext_ret_offset = I32_CONST(ext_cell_num);
+        CHECK_LLVM_CONST(ext_ret_offset);
+
+        snprintf(buf, sizeof(buf), "ext_ret%d_ptr", i - 1);
+        if (!(ext_ret_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder,
+                                                 func_ctx->argv_buf,
+                                                 &ext_ret_offset, 1, buf))) {
+            aot_set_last_error("llvm build GEP failed.");
+            goto fail;
+        }
+
+        ext_ret_ptr_type = param_types[func_param_count + i];
+        snprintf(buf, sizeof(buf), "ext_ret%d_ptr_cast", i - 1);
+        if (!(ext_ret_ptr = LLVMBuildBitCast(comp_ctx->builder,
+                                             ext_ret_ptr, ext_ret_ptr_type,
+                                             buf))) {
+            aot_set_last_error("llvm build bit cast failed.");
+            goto fail;
+        }
+
+        param_values[func_param_count + i] = ext_ret_ptr;
+        ext_cell_num += wasm_value_type_cell_num(
+                func_type->types[func_param_count + i]);
+    }
+
+    if (ext_cell_num > 64) {
+        aot_set_last_error("prepare call-indirect arguments failed: "
+                           "maximum 64 extra cell number supported.");
+        goto fail;
+    }
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (comp_ctx->enable_thread_mgr) {
+        if (!check_suspend_flags(comp_ctx, func_ctx))
+            goto fail;
+    }
+#endif
+
+    /* Add basic blocks */
+    block_call_import =
+        LLVMAppendBasicBlockInContext(comp_ctx->context, func_ctx->func,
+                                      "call_import");
+    block_call_non_import =
+        LLVMAppendBasicBlockInContext(comp_ctx->context, func_ctx->func,
+                                      "call_non_import");
+    block_return =
+        LLVMAppendBasicBlockInContext(comp_ctx->context, func_ctx->func,
+                                      "func_return");
+    if (!block_call_import || !block_call_non_import || !block_return) {
+        aot_set_last_error("llvm add basic block failed.");
+        goto fail;
+    }
+
+    LLVMMoveBasicBlockAfter(block_call_import,
+                            LLVMGetInsertBlock(comp_ctx->builder));
+    LLVMMoveBasicBlockAfter(block_call_non_import, block_call_import);
+    LLVMMoveBasicBlockAfter(block_return, block_call_non_import);
+
+    import_func_count = I32_CONST(comp_ctx->comp_data->import_func_count);
+    CHECK_LLVM_CONST(import_func_count);
+
+    /* Check if func_idx < import_func_count */
+    if (!(cmp_func_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntULT,
+                                       func_idx, import_func_count,
+                                       "cmp_func_idx"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        goto fail;
+    }
+
+    /* If func_idx < import_func_count, jump to call import block,
+       else jump to call non-import block */
+    if (!LLVMBuildCondBr(comp_ctx->builder, cmp_func_idx,
+                         block_call_import, block_call_non_import)) {
+        aot_set_last_error("llvm build cond br failed.");
+        goto fail;
+    }
+
+    /* Add result phis for return block */
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_return);
+
+    if (func_result_count > 0) {
+        total_size = sizeof(LLVMValueRef) * (uint64)func_result_count;
+        if (total_size >= UINT32_MAX
+            || !(result_phis = wasm_runtime_malloc((uint32)total_size))) {
+            aot_set_last_error("allocate memory failed.");
+            goto fail;
+        }
+        memset(result_phis, 0, (uint32)total_size);
+        for (i = 0; i < func_result_count; i++) {
+            LLVMTypeRef tmp_type =
+                TO_LLVM_TYPE(func_type->types[func_param_count + i]);
+            if (!(result_phis[i] = LLVMBuildPhi(comp_ctx->builder,
+                                                tmp_type, "phi"))) {
+                aot_set_last_error("llvm build phi failed.");
+                goto fail;
+            }
+        }
+    }
+
+    /* Translate call import block */
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_import);
 
     /* Allocate memory for result values */
-    total_size = sizeof(LLVMValueRef) * (uint64)result_count;
+    total_size = sizeof(LLVMValueRef) * (uint64)func_result_count;
     if (total_size >= UINT32_MAX
         || !(value_rets = wasm_runtime_malloc((uint32)total_size))) {
-        aot_set_last_error("Allocate memory failed.");
+        aot_set_last_error("allocate memory failed.");
         goto fail;
     }
     memset(value_rets, 0, total_size);
 
+    param_cell_num = func_type->param_cell_num;
+    wasm_ret_types = func_type->types + func_type->param_count;
+
     if (!call_aot_call_indirect_func(comp_ctx, func_ctx,
                                      func_type, ftype_idx, elem_idx,
-                                     param_types, param_values,
-                                     param_count, param_cell_num,
-                                     result_count, wasm_ret_types,
+                                     param_types + 1, param_values + 1,
+                                     func_param_count, param_cell_num,
+                                     func_result_count, wasm_ret_types,
                                      value_rets, &res))
         goto fail;
 
-    for (i = 0; i < func_type->result_count; i++)
-        PUSH(value_rets[i], func_type->types[func_type->param_count + i]);
-
-    /* Check whether there was exception thrown when executing the function */
+    /* Check whether exception was thrown when executing the function */
     if (!check_call_return(comp_ctx, func_ctx, res))
         goto fail;
+
+    block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    for (i = 0; i < func_result_count; i++) {
+        LLVMAddIncoming(result_phis[i], &value_rets[i], &block_curr, 1);
+    }
+
+    if (!LLVMBuildBr(comp_ctx->builder, block_return)) {
+        aot_set_last_error("llvm build br failed.");
+        goto fail;
+    }
+
+    /* Translate call non-import block */
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_call_non_import);
+
+    if (comp_ctx->enable_bound_check
+        && !check_stack_boundary(comp_ctx, func_ctx,
+                                 param_cell_num + ext_cell_num + 1
+                                 /* Reserve some local variables */
+                                 + 16))
+        goto fail;
+
+    /* Load function pointer */
+    if (!(func_ptr = LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->func_ptrs,
+                                          &func_idx, 1, "func_ptr_tmp"))) {
+        aot_set_last_error("llvm build inbounds gep failed.");
+        goto fail;
+    }
+
+    if (!(func_ptr = LLVMBuildLoad(comp_ctx->builder, func_ptr, "func_ptr"))) {
+        aot_set_last_error("llvm build load failed.");
+        goto fail;
+    }
+
+    if (!(llvm_func_type = LLVMFunctionType(ret_type, param_types,
+                                            total_param_count, false))
+        || !(llvm_func_ptr_type = LLVMPointerType(llvm_func_type, 0))) {
+        aot_set_last_error("llvm add function type failed.");
+        goto fail;
+    }
+
+    if (!(func = LLVMBuildBitCast(comp_ctx->builder,
+                                  func_ptr, llvm_func_ptr_type,
+                                  "indirect_func"))) {
+        aot_set_last_error("llvm build bit cast failed.");
+        goto fail;
+    }
+
+    if (!(value_ret = LLVMBuildCall(comp_ctx->builder, func,
+                                    param_values, total_param_count,
+                                    func_result_count > 0
+                                    ? "ret" : ""))) {
+        aot_set_last_error("llvm build call failed.");
+        goto fail;
+    }
+
+    /* Check whether exception was thrown when executing the function */
+    if (!check_exception_thrown(comp_ctx, func_ctx))
+        goto fail;
+
+    if (func_result_count > 0) {
+        block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+
+        /* Push the first result to stack */
+        LLVMAddIncoming(result_phis[0], &value_ret, &block_curr, 1);
+
+        /* Load extra result from its address and push to stack */
+        for (i = 1; i < func_result_count; i++) {
+            snprintf(buf, sizeof(buf), "ext_ret%d", i - 1);
+            if (!(ext_ret = LLVMBuildLoad(comp_ctx->builder,
+                                          param_values[func_param_count + i],
+                                          buf))) {
+                aot_set_last_error("llvm build load failed.");
+                goto fail;
+            }
+            LLVMAddIncoming(result_phis[i], &ext_ret, &block_curr, 1);
+        }
+    }
+
+    if (!LLVMBuildBr(comp_ctx->builder, block_return)) {
+        aot_set_last_error("llvm build br failed.");
+        goto fail;
+    }
+
+    /* Translate function return block */
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, block_return);
+
+    for (i = 0; i < func_result_count; i++) {
+        PUSH(result_phis[i], func_type->types[func_param_count + i]);
+    }
 
     ret = true;
 
 fail:
-    if (value_rets)
-        wasm_runtime_free(value_rets);
     if (param_values)
         wasm_runtime_free(param_values);
     if (param_types)
         wasm_runtime_free(param_types);
+    if (value_rets)
+        wasm_runtime_free(value_rets);
+    if (result_phis)
+        wasm_runtime_free(result_phis);
     return ret;
 }
 

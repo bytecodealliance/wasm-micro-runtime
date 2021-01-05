@@ -3327,14 +3327,11 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env,
 
 #if WASM_ENABLE_INTERP != 0
     if (exec_env->module_inst->module_type == Wasm_Module_Bytecode)
-        return wasm_call_indirect(exec_env,
-                                  element_indices,
-                                  argc, argv);
+        return wasm_call_indirect(exec_env, element_indices, argc, argv);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT)
-        return aot_call_indirect(exec_env, false, 0,
-                                 element_indices, argc, argv);
+        return aot_call_indirect(exec_env, element_indices, argc, argv);
 #endif
     return false;
 }

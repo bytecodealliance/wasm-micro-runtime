@@ -465,9 +465,13 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 static bool
 create_table_base(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
+    AOTCompData *comp_data = comp_ctx->comp_data;
+    uint64 module_inst_mem_inst_size =
+        (uint64)comp_data->memory_count * sizeof(AOTMemoryInstance);
     LLVMValueRef offset;
 
     offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data.bytes)
+                       + module_inst_mem_inst_size
                        + comp_ctx->comp_data->global_data_size);
     func_ctx->table_base = LLVMBuildInBoundsGEP(comp_ctx->builder,
                                                 func_ctx->aot_inst,
@@ -541,6 +545,43 @@ create_func_type_indexes(AOTCompContext *comp_ctx,
         aot_set_last_error("llvm build load failed.");
         return false;
     }
+    return true;
+}
+
+static bool
+create_func_ptrs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef offset;
+
+    offset = I32_CONST(offsetof(AOTModuleInstance, func_ptrs));
+    func_ctx->func_ptrs = LLVMBuildInBoundsGEP(comp_ctx->builder,
+                                                func_ctx->aot_inst,
+                                                &offset, 1, "func_ptrs_offset");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build in bounds gep failed.");
+        return false;
+    }
+    func_ctx->func_ptrs = LLVMBuildBitCast(comp_ctx->builder, func_ctx->func_ptrs,
+                                           comp_ctx->exec_env_type, "func_ptrs_tmp");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build bit cast failed.");
+        return false;
+    }
+
+    func_ctx->func_ptrs = LLVMBuildLoad(comp_ctx->builder, func_ctx->func_ptrs,
+                                        "func_ptrs_ptr");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build load failed.");
+        return false;
+    }
+
+    func_ctx->func_ptrs = LLVMBuildBitCast(comp_ctx->builder, func_ctx->func_ptrs,
+                                           comp_ctx->exec_env_type, "func_ptrs");
+    if (!func_ctx->func_ptrs) {
+        aot_set_last_error("llvm build bit cast failed.");
+        return false;
+    }
+
     return true;
 }
 
@@ -744,6 +785,10 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Load function type indexes */
     if (!create_func_type_indexes(comp_ctx, func_ctx))
+        goto fail;
+
+    /* Load function pointers */
+    if (!create_func_ptrs(comp_ctx, func_ctx))
         goto fail;
 
     return func_ctx;

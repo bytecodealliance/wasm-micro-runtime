@@ -380,48 +380,11 @@ popcount64(uint64 u)
     return ret;
 }
 
-static uint64
-read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
-{
-    uint64 result = 0;
-    uint32 shift = 0;
-    uint32 bcnt = 0;
-    uint64 byte;
-
-    while (true) {
-        byte = buf[*p_offset];
-        *p_offset += 1;
-        result |= ((byte & 0x7f) << shift);
-        shift += 7;
-        if ((byte & 0x80) == 0) {
-            break;
-        }
-        bcnt += 1;
-    }
-    if (sign && (shift < maxbits) && (byte & 0x40)) {
-        /* Sign extend */
-        result |= - ((uint64)1 << shift);
-    }
-    return result;
-}
-
-#define read_leb_uint32(p, p_end, res) do {     \
-  uint8 _val = *p;                              \
-  if (!(_val & 0x80)) {                         \
-    res = _val;                                 \
-    p++;                                        \
-    break;                                      \
-  }                                             \
-  uint32 _off = 0;                              \
-  res = (uint32)read_leb(p, &_off, 32, false);  \
-  p += _off;                                    \
-} while (0)
-
 #define read_uint32(p) (p += sizeof(uint32), *(uint32 *)(p - sizeof(uint32)))
 
 #define GET_LOCAL_INDEX_TYPE_AND_OFFSET() do {                      \
     uint32 param_count = cur_func->param_count;                     \
-    read_leb_uint32(frame_ip, frame_ip_end, local_idx);             \
+    local_idx = read_uint32(frame_ip);                              \
     bh_assert(local_idx < param_count + cur_func->local_count);     \
     local_offset = cur_func->local_offsets[local_idx];              \
     if (local_idx < param_count)                                    \

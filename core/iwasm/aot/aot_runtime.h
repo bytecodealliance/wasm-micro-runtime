@@ -521,7 +521,6 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 
 bool
 aot_call_indirect(WASMExecEnv *exec_env,
-                  bool check_func_type, uint32 func_type_idx,
                   uint32 table_elem_idx,
                   uint32 argc, uint32 *argv);
 

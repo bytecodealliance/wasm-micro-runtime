@@ -517,6 +517,19 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
         ? true : false;
 }
 
+inline static uint32
+wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
+                           uint32 cur_type_idx)
+{
+    uint32 i;
+
+    for (i = 0; i < cur_type_idx; i++) {
+        if (wasm_type_equal(types[cur_type_idx], types[i]))
+            return i;
+    }
+    return cur_type_idx;
+}
+
 static inline uint32
 block_type_get_param_types(BlockType *block_type,
                            uint8 **p_param_types)

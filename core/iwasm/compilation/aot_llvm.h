@@ -122,6 +122,7 @@ typedef struct AOTFuncContext {
   LLVMValueRef argv_buf;
   LLVMValueRef native_stack_bound;
   LLVMValueRef last_alloca;
+  LLVMValueRef func_ptrs;
 
   AOTMemInfo *mem_info;
 
@@ -130,7 +131,6 @@ typedef struct AOTFuncContext {
   bool mem_space_unchanged;
   AOTCheckedAddrList checked_addr_list;
 
-  LLVMBasicBlockRef *exception_blocks;
   LLVMBasicBlockRef got_exception_block;
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
