@@ -109,12 +109,14 @@ gc_migrate(gc_handle_t handle,
            char *pool_buf_new, gc_size_t pool_buf_size);
 
 /**
- * Destroy lock of heap
+ * Check whether the heap is corrupted
  *
- * @param handle the heap handle
+ * @param handle handle of the heap
+ *
+ * @return true if success, false otherwise
  */
-void
-gc_destroy_lock(gc_handle_t handle);
+bool
+gc_is_heap_corrupted(gc_handle_t handle);
 
 /**
  * Get Heap Stats

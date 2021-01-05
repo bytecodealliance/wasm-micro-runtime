@@ -3062,10 +3062,6 @@ wasm_loader_pop_frame_csp(WASMLoaderContext *ctx,
     LOG_OP("%d\t", value);                                          \
   } while (0)
 
-#define emit_leb() do {                                             \
-    wasm_loader_emit_leb(loader_ctx, p_org, p);                     \
-  } while (0)
-
 static bool
 wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 {
@@ -3150,21 +3146,6 @@ wasm_loader_emit_backspace(WASMLoaderContext *ctx, uint32 size)
     }
     else
         ctx->code_compiled_size -= size;
-}
-
-static void
-wasm_loader_emit_leb(WASMLoaderContext *ctx, uint8* start, uint8* end)
-{
-    if (ctx->p_code_compiled) {
-        bh_memcpy_s(ctx->p_code_compiled,
-                    ctx->p_code_compiled_end - ctx->p_code_compiled,
-                    start, end - start);
-        ctx->p_code_compiled += (end - start);
-    }
-    else {
-        ctx->code_compiled_size += (end - start);
-    }
-
 }
 
 static bool
@@ -4970,8 +4951,7 @@ handle_op_block_and_loop:
                     }
                 }
                 else {   /* local index larger than 255, reserve leb */
-                    p_org ++;
-                    emit_leb();
+                    emit_uint32(loader_ctx, local_idx);
                     POP_OFFSET_TYPE(local_type);
                 }
 #else
@@ -5027,11 +5007,10 @@ handle_op_block_and_loop:
                     }
                 }
                 else {  /* local index larger than 255, reserve leb */
-                    p_org ++;
-                    emit_leb();
+                    emit_uint32(loader_ctx, local_idx);
                 }
                 emit_operand(loader_ctx, *(loader_ctx->frame_offset -
-                        wasm_value_type_cell_num(local_type)));
+                                           wasm_value_type_cell_num(local_type)));
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (local_offset < 0x80) {
