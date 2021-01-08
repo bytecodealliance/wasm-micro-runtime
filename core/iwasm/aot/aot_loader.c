@@ -1584,11 +1584,11 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 #endif
             ) {
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
-                return false;
+                goto fail;
         }
         else {
             if (!do_data_relocation(module, group, error_buf, error_buf_size))
-                return false;
+                goto fail;
         }
     }
 
