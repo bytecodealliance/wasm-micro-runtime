@@ -305,6 +305,60 @@ AliOS-Things
    ```
    download the binary to developerkit board, check the output from serial port
 
+RT-Thread
+-------------------------
+
+1. Get rt-thread [system codes](https://github.com/RT-Thread/rt-thread).
+
+2. Enable WAMR software package with menuconfig tool which provided by RT-Thread.
+
+   * Environment in Linux, run command below:
+
+   ```bash
+   scons --menuconfig
+   ```
+
+   * Environment in Windows ConEmu, run command below:
+
+   ```bash
+   menuconfig
+   ```
+
+   Select and enable `WAMR` in:
+
+   * RT-Thread online packages
+     * tools packages
+       * WebAssembly Micro Runtime (WAMR)
+
+3. Configure `WAMR` with menuconfig tool.
+
+   you can choice features of iwasm below:
+
+   * Enable testing parameters of iwasm
+   * Enable interpreter Mode / Fast interpreter Mode
+   * Use built-libc
+   * Enable AOT
+
+4. Exit menuconfig tool and save configure, update and download package.
+
+   ```bash
+   pkgs --update
+   ```
+
+5. build project and download the binary to boards.
+
+   ```bash
+   scons
+   ```
+
+   or build project with 8-thread by using command below:
+
+   ```bash
+   scons -j8
+   ```
+
+   after project building, you can got an binary file named `rtthread.bin`, then you can download this file to the MCU board.
+
 Android
 -------------------------
 able to generate a shared library support Android platform.

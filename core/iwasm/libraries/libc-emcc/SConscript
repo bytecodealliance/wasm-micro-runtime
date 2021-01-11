@@ -1,0 +1,13 @@
+from building import *
+
+cwd     = GetCurrentDir()
+
+src = Split('''
+libc_emcc_wrapper.c
+''')
+
+CPPPATH = [cwd]
+
+group = DefineGroup('iwasm_libc_emcc', src, depend = [''], CPPPATH = CPPPATH)
+
+Return('group')

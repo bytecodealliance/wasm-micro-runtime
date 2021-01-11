@@ -1,0 +1,14 @@
+from building import *
+
+cwd     = GetCurrentDir()
+
+src = Split('''
+libc_pthread_wrapper.c
+''')
+
+CPPPATH = [cwd]
+
+
+group = DefineGroup('iwasm_libc_pthread', src, depend = [''], CPPPATH = CPPPATH)
+
+Return('group')
