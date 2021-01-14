@@ -2,13 +2,19 @@
 
 # Prepare WASM building environments
 
-WASI-SDK version 8.0+ is the major tool supported by WAMR to build WASM applications. There are some other WASM compilers such as the standard clang compiler and Emscripten might also work [here](./other_wasm_compilers.md).
+For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. There are some other WASM compilers such as [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk) and the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
 
-Install WASI SDK: Download the [wasi-sdk](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`
+To install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
+
+For [AssemblyScript](https://github.com/AssemblyScript/assemblyscript), please refer to [AssemblyScript quick start](https://www.assemblyscript.org/quick-start.html) and [AssemblyScript compiler](https://www.assemblyscript.org/compiler.html#command-line-options) for how to install `asc` compiler and build WASM applications.
+
+For Rust, please firstly ref to [Install Rust and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) to install cargo, rustc and rustup, by default they are installed under ~/.cargo/bin, and then run `rustup target add wasm32-wasi` to install wasm32-wasi target for Rust toolchain. To build WASM applications, we can run `cargo build --target wasm32-wasi`, the output files are under `target/wasm32-wasi`.
 
 
-Build WASM applications
+Build WASM applications with wasi-sdk
 =========================
+
+## 1. wasi-sdk options
 
 You can write a simple ```test.c``` as the first sample.
 
@@ -44,13 +50,13 @@ To build the source file to WASM bytecode, we can input the following command:
 /opt/wasi-sdk/bin/clang -O3 -o test.wasm test.c
 ```
 
-There are some useful options which can be specified to build the source code:
+There are some useful options which can be specified to build the source code (for more link options, please run `/opt/wasi-sdk/bin/wasm-ld --help`):
 
-- **-nostdlib** Do not use the standard system startup files or libraries when linking. In this mode, the libc-builtin library of WAMR must be built to run the wasm app, otherwise, the libc-wasi library must be built. You can specify **-DWAMR_BUILD_LIBC_BUILTIN** or **-DWAMR_BUILD_LIBC_WASI** for cmake to build WAMR with libc-builtin support or libc-wasi support.
+- **-nostdlib** Do not use the standard system startup files or libraries when linking. In this mode, the **libc-builtin** library of WAMR must be built to run the wasm app, otherwise, the **libc-wasi** library must be built. You can specify **-DWAMR_BUILD_LIBC_BUILTIN=1** or **-DWAMR_BUILD_LIBC_WASI=1** for cmake to build WAMR with libc-builtin support or libc-wasi support.
 
 - **-Wl,--no-entry** Do not output any entry point
 
-- **-Wl,--export=<value>** Force a symbol to be exported, e.g. **-Wl,--export=main** to export main function
+- **-Wl,--export=<value>** Force a symbol to be exported, e.g. **-Wl,--export=foo** to export foo function
 
 - **-Wl,--export-all** Export all symbols (normally combined with --no-gc-sections)
 
@@ -71,6 +77,7 @@ There are some useful options which can be specified to build the source code:
 - **-pthread** Support POSIX threads in generated code
 
 For example, we can build the wasm app with command:
+
 ``` Bash
 /opt/wasi-sdk/bin/clang -O3 -nostdlib \
     -z stack-size=8192 -Wl,--initial-memory=65536 \
@@ -79,7 +86,59 @@ For example, we can build the wasm app with command:
     -Wl,--export=__heap_base -Wl,--export=__data_end \
     -Wl,--no-entry -Wl,--strip-all -Wl,--allow-undefined
 ```
-to generate a wasm binary with small footprint.
+to generate a wasm binary with nostdlib mode, auxiliary stack size is 8192 bytes, initialize memory size is 64 KB,  main function, heap base global and data end global are exported, no entry function is generated (no _start function is exported), and all symbols are stripped. Note that it is nostdlib mode, so libc-builtin should be enabled by runtime embedder or iwasm (with cmake -DWAMR_BUILD_LIBC_BUILT=1, enabled by iwasm in Linux by default).
+
+If we want to build the wasm app with wasi mode, we may build the wasm app with command:
+
+```bash
+/opt/wasi-sdk/bin/clang -O3 \
+    -z stack-size=8192 -Wl,--initial-memory=65536 \
+    -o test.wasm test.c \
+    -Wl,--export=__heap_base -Wl,--export=__data_end \
+    -Wl,--strip-all
+```
+
+to generate a wasm binary with wasi mode, auxiliary stack size is 8192 bytes, initialize memory size is 64 KB,  heap base global and data end global are exported, wasi entry function exported (_start function), and all symbols are stripped. Note that it is wasi mode, so libc-wasi should be enabled by runtime embedder or iwasm (with cmake -DWAMR_BUILD_LIBC_WASI=1, enabled by iwasm in Linux by default).
+
+## 2. How to reduce the footprint?
+
+Firstly if libc-builtin (-nostdlib) mode meets the requirements, e.g. there are no file io operations in wasm app, we should build the wasm app with -nostdlib option as possible as we can, since the compiler doesn't build the libc source code into wasm bytecodes, which greatly reduces the binary size.
+
+### (1) Methods to reduce the libc-builtin (-nostdlib) mode footprint
+
+- export \_\_heap_base global and \_\_data_end global
+
+  If the two globals are exported, and there are no memory.grow and memory.size opcodes (normally nostdlib mode doesn't introduce these opcodes since the libc malloc function isn't built into wasm bytecode), WAMR runtime will truncate the linear memory at the place of __heap_base and append app heap to the end, so we don't to allocate the memory specified by `-Wl,--initial-memory=n` which must be at least 64 KB. This is helpful for some embedded devices whose memory resource might be limited.
+
+- reduce auxiliary stack size
+
+  The auxiliary stack is an area of linear memory, normally the size is 64 KB by default which might be a little large for embedded devices and actually partly used, we can use `-z stack-size=n` to set its size.
+
+- use -O3 and -Wl,--strip-all
+
+- reduce app heap size when running iwasm
+
+  We can pass `--heap-size=n` option to set the maximum app heap size for iwasm, by default it is 16 KB. For the runtime embedder, we can set the `uint32_t heap_size` argument when calling API ` wasm_runtime_instantiate`.
+
+- reduce wasm operand stack size when running iwasm
+
+  WebAssembly is a binary instruction format for a stack-based virtual machine, which requires a stack to execute the bytecodes. We can pass `--stack-size=n` option to set the maximum stack size for iwasm, by default it is 16 KB. For the runtime embedder, we can set the `uint32_t stack_size` argument when calling API ` wasm_runtime_instantiate` and `wasm_runtime_create_exec_env`.
+
+- decrease block_addr_cache size for classic interpreter
+
+  The block_addr_cache is an hash cache to store the else/end addresses for WebAssembly blocks (BLOCK/IF/LOOP) to speed up address lookup. This is only available in classic interpreter. We can set it by define macro `-DBLOCK_ADDR_CACHE_SIZE=n`, e.g. add `add_defintion (-DBLOCK_ADDR_CACHE_SIZE=n)` in CMakeLists.txt, by default it is 64, and total block_addr_cache size is 3072 bytes in 64-bit platform and 1536 bytes in 32-bit platform.
+
+### (2) Methods to reduce the libc-wasi (without -nostdlib) mode footprint
+
+Most of the above methods are also available for libc-wasi mode, besides them, we can export malloc and free functions with `-Wl,--export=malloc -Wl,--export=free` option, so WAMR runtime will disable its app heap and call the malloc/free function exported to allocate/free the memory from/to the heap space managed by libc.
+
+## 3. Build wasm app with pthread support
+
+Please ref to [pthread library](./pthread_library.md) for more details.
+
+## 4. Build wasm app with SIMD support
+
+Normally we should install emsdk and use its SSE header files, please ref to workload samples, e.g. [bwa CMakeLists.txt](../samples/workload/bwa/CMakeLists.txt) and [wasm-av1 CMakeLists.txt](../samples/workload/wasm-av1/CMakeLists.txt) for more details.
 
 # Build a project with cmake
 
