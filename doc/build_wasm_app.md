@@ -2,7 +2,7 @@
 
 # Prepare WASM building environments
 
-For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. There are some other WASM compilers such as [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk) and the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
+For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. Also we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
 
 To install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
@@ -141,6 +141,57 @@ Please ref to [pthread library](./pthread_library.md) for more details.
 ## 4. Build wasm app with SIMD support
 
 Normally we should install emsdk and use its SSE header files, please ref to workload samples, e.g. [bwa CMakeLists.txt](../samples/workload/bwa/CMakeLists.txt) and [wasm-av1 CMakeLists.txt](../samples/workload/wasm-av1/CMakeLists.txt) for more details.
+
+# Build WASM applications with emsdk
+
+## 1. Install emsdk
+
+Assuming you are using Linux, you may install emcc and em++ from Emscripten EMSDK following the steps below:
+
+```
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+# And then source the emsdk_env.sh script before build wasm app
+source emsdk_env.sh    (or add it to ~/.bashrc if you don't want to run it each time)
+```
+
+The Emscripten website provides other installation methods beyond Linux.
+
+## 2. emsdk options
+
+To build the wasm C source code into wasm binary, we can use the following command:
+
+```bash
+EMCC_ONLY_FORCED_STDLIBS=1 emcc -O3 -s STANDALONE_WASM=1 \
+    -o test.wasm test.c \
+    -s TOTAL_STACK=4096 -s TOTAL_MEMORY=65536 \
+    -s "EXPORTED_FUNCTIONS=['_main']" \
+    -s ERROR_ON_UNDEFINED_SYMBOLS=0
+```
+
+There are some useful options:
+
+- **EMCC_ONLY_FORCED_STDLIBS=1** whether to link libc library into the output binary or not, similar to `-nostdlib` option of wasi-sdk clang. If specified, then no libc library is linked and the **libc-builtin** library of WAMR must be built to run the wasm app, otherwise, the **libc-wasi** library must be built. You can specify **-DWAMR_BUILD_LIBC_BUILTIN=1** or **-DWAMR_BUILD_LIBC_WASI=1** for cmake to build WAMR with libc-builtin support or libc-wasi support.
+
+  The emsdk's wasi implementation is incomplete, e.g. open a file might just return fail, so it is strongly not recommended to use this mode, especially when there are file io operations in wasm app, please use wasi-sdk instead.
+
+- **-s STANDALONE_WASM=1** build wasm app in standalone mode (non-web mode), if the output file has suffix ".wasm", then only wasm file is generated (without html file and JavaScript file).
+
+- **-s TOTAL_STACK=\<value\>** the auxiliary stack size, same as `-z stack-size=\<value\>` of wasi-sdk
+
+- **-s TOTAL_MEMORY=\<value\>**  or **-s INITIAL_MEORY=\<value\>** the initial linear memory size
+
+- **-s MAXIMUM_MEMORY=\<value\>** the maximum linear memory size, only take effect if **-s ALLOW_MEMORY_GROWTH=1** is set
+
+- **-s ALLOW_MEMORY_GROWTH=1/0** whether the linear memory is allowed to grow or not
+
+- **-s "EXPORTED_FUNCTIONS=['func name1', 'func name2']"** to export functions
+
+- **-s ERROR_ON_UNDEFINED_SYMBOLS=0** disable the errors when there are undefined symbols
+
+For more options, please ref to <EMSDK_DIR>/upstream/emscripten/src/settings.js, or [Emscripten document](https://emscripten.org/docs/compiling/Building-Projects.html).
 
 # Build a project with cmake
 
