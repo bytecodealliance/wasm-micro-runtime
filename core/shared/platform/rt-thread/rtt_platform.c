@@ -11,65 +11,86 @@ typedef struct os_malloc_list {
     rt_list_t node;
 }os_malloc_list_t;
 
-static rt_list_t mem_list;
-
 int bh_platform_init(void)
 {
-    rt_list_init(&mem_list);
     return 0;
 }
 
 void bh_platform_destroy(void)
 {
-    while(!rt_list_isempty(&mem_list))
-    {
-        os_malloc_list_t *ptr = rt_list_entry(mem_list.next, os_malloc_list_t, node);
-        rt_list_remove(&ptr->node);
-        rt_free(ptr->real);
-        rt_free(ptr);
-    }
 }
-
 
 void *os_malloc(unsigned size)
 {
-    void* buf = rt_malloc(size + 8);
-    if (((rt_ubase_t)buf)&7)
+    void *buf_origin;
+    void *buf_fixed;
+    rt_ubase_t *addr_field;
+
+    if (size == 0)
     {
-        os_malloc_list_t *mem_item = rt_malloc(sizeof(os_malloc_list_t));
-        if (!mem_item)
-        {
-            rt_free(buf);
-            return RT_NULL;
-        }
-        mem_item->real = buf;
-        buf = (void*)((rt_ubase_t)(buf+8)&(~7));
-        mem_item->used = buf;
-        rt_list_insert_after(&mem_list, &mem_item->node);
+        return RT_NULL;
     }
-    return buf;
+    buf_origin = rt_malloc(size + 8 + sizeof(rt_ubase_t));
+    buf_fixed = buf_origin + sizeof(void*);
+    if ((rt_ubase_t)buf_fixed & 0x7)
+    {
+        buf_fixed = (void*)((rt_ubase_t)(buf_fixed+8)&(~7));
+    }
+
+    addr_field = buf_fixed - sizeof(rt_ubase_t);
+    *addr_field = (rt_ubase_t )buf_origin;
+
+    return buf_fixed;
+
 }
 
 void *os_realloc(void *ptr, unsigned size)
 {
-    return rt_realloc(ptr, size);
+
+    void* mem_origin;
+    void* mem_new;
+    void *mem_new_fixed;
+    rt_ubase_t *addr_field;
+
+    if (!ptr)
+    {
+        return RT_NULL;
+    }
+
+    addr_field = ptr - sizeof(rt_ubase_t);
+    mem_origin = (void*)(*addr_field);
+    mem_new = rt_realloc(mem_origin, size + 8 + sizeof(rt_ubase_t));
+
+    if (mem_origin != mem_new)
+    {
+        mem_new_fixed = mem_new + sizeof(rt_ubase_t);
+        if ((rt_ubase_t)mem_new_fixed & 0x7)
+        {
+            mem_new_fixed = (void*)((rt_ubase_t)(mem_new_fixed+8)&(~7));
+        }
+
+        addr_field = mem_new_fixed - sizeof(rt_ubase_t);
+        *addr_field = (rt_ubase_t )mem_new;
+
+        return mem_new_fixed;
+    }
+
+    return ptr;
 }
 
 void os_free(void *ptr)
 {
-    os_malloc_list_t *mem;
-    for(rt_list_t* node = mem_list.next; node != &mem_list; node = node->next)
+    void* mem_origin;
+    rt_ubase_t *addr_field;
+
+    if (ptr)
     {
-        mem = rt_list_entry(node, os_malloc_list_t, node);
-        if (mem->used == ptr)
-        {
-            rt_list_remove(node);
-            rt_free(mem->real);
-            rt_free(mem);
-            return;
-        }
+        addr_field = ptr - sizeof(rt_ubase_t);
+        mem_origin = (void*)(*addr_field);
+
+        rt_free(mem_origin);
     }
-    rt_free(ptr);
+
 }
 
 
