@@ -16,10 +16,6 @@
 #include <stdint.h>
 #include <ctype.h>
 
-#ifndef BUILD_TARGET
-#define BUILD_TARGET "Unknown"
-#endif
-
 typedef rt_thread_t korp_tid;
 typedef struct rt_mutex korp_mutex;
 typedef struct rt_thread korp_cond;
