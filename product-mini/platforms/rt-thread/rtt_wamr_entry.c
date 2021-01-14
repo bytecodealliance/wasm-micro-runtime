@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2021, RT-Thread Development Team
+ *
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 

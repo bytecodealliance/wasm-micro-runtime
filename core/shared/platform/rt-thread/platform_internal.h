@@ -1,6 +1,8 @@
-//
-// Created by alvis on 2020/12/14.
-//
+/*
+ * Copyright (c) 2021, RT-Thread Development Team
+ *
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 
 #ifndef RTTHREAD_PLATFORM_INTERNAL_H
 #define RTTHREAD_PLATFORM_INTERNAL_H

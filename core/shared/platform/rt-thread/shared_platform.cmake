@@ -1,6 +1,8 @@
-# Copyright (C) 2019 Intel Corporation.  All rights reserved.
-# Copyright (C) 2020 TU Bergakademie Freiberg Karl Fessel
+#
+# Copyright (c) 2021, RT-Thread Development Team
+#
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
 
 set (PLATFORM_SHARED_DIR ${CMAKE_CURRENT_LIST_DIR})
 

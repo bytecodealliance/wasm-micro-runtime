@@ -1,4 +1,8 @@
-
+#
+# Copyright (c) 2021, RT-Thread Development Team
+#
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
 
 set(CMAKE_ASM_COMPILER_WORKS 1)
 
