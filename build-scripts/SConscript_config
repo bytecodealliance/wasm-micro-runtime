@@ -32,24 +32,23 @@ if rtconfig.ARCH == 'arm':
     if re.match('^cortex-m.*', rtconfig.CPU):
         print('[WAMR] using thumbv4t')
         CPPDEFINES += ['BUILD_TARGET_THUMB']
-        CPPDEFINES += [r'BUILD_TARGET=\"thumbv4t\"']
+        CPPDEFINES += ['RTT_WAMR_BUILD_TARGET_THUMB']
     elif re.match('^cortex-a.*', rtconfig.CPU):
         print('[WAMR] using armv7')
         CPPDEFINES += ['BUILD_TARGET_ARM']
-        CPPDEFINES += [r'BUILD_TARGET=\"armv7\"']
+        CPPDEFINES += ['RTT_WAMR_BUILD_TARGET_ARMV7']
     elif re.match('^cortex-r.*', rtconfig.CPU):
         print('[WAMR] using armv7')
         CPPDEFINES += ['BUILD_TARGET_ARM']
-        CPPDEFINES += [r'BUILD_TARGET=\"armv7\"']
+        CPPDEFINES += ['RTT_WAMR_BUILD_TARGET_ARMV7']
     elif rtconfig.CPU == 'armv6':
         print('[WAMR] using armv6')
         CPPDEFINES += ['BUILD_TARGET_ARM']
-        CPPDEFINES += [r'BUILD_TARGET=\"armv6\"']
+        CPPDEFINES += ['RTT_WAMR_BUILD_TARGET_ARMV6']
     elif re.match('^arm9*', rtconfig.CPU):
         print('[WAMR] using armv4')
         CPPDEFINES += ['BUILD_TARGET_ARM']
-        CPPDEFINES += [r'BUILD_TARGET=\"armv4\"']
-
+        CPPDEFINES += ['RTT_WAMR_BUILD_TARGET_ARMV4']
 else:
     print("[WAMR] unknown arch", rtconfig.ARCH)
 

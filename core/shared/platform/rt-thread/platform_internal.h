@@ -16,6 +16,20 @@
 #include <stdint.h>
 #include <ctype.h>
 
+#if defined(WASM_ENABLE_AOT)
+#if defined(RTT_WAMR_BUILD_TARGET_THUMB)
+#define BUILD_TARGET "thumbv4t"
+#elif defined(RTT_WAMR_BUILD_TARGET_ARMV7)
+#define BUILD_TARGET "armv7"
+#elif defined(RTT_WAMR_BUILD_TARGET_ARMV6)
+#define BUILD_TARGET "armv6"
+#elif defined(RTT_WAMR_BUILD_TARGET_ARMV4)
+#define BUILD_TARGET "armv4"
+#else
+#error "unsupported aot platform."
+#endif
+#endif /* WASM_ENABLE_AOT */
+
 typedef rt_thread_t korp_tid;
 typedef struct rt_mutex korp_mutex;
 typedef struct rt_thread korp_cond;

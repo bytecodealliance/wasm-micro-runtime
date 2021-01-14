@@ -12,6 +12,9 @@
 #include <dfs_fs.h>
 #include <dfs_posix.h>
 
+#ifdef WAMR_ENABLE_RTT_EXPORT
+
+#ifdef WAMR_RTT_EXPORT_VPRINTF
 static int wasm_vprintf(wasm_exec_env_t env, const char* fmt, va_list va)
 {
     return vprintf(fmt, va);
@@ -27,6 +30,9 @@ static int wasm_vsnprintf(wasm_exec_env_t env, char *buf, int n, const char *fmt
     return vsnprintf(buf, n, fmt, va);
 }
 
+#endif /* WAMR_RTT_EXPORT_VPRINTF */
+
+#ifdef WAMR_RTT_EXPORT_DEVICE_OPS
 static rt_device_t wasm_rt_device_find(wasm_exec_env_t env, const char *name)
 {
     return rt_device_find(name);
@@ -57,7 +63,11 @@ static rt_err_t  wasm_rt_device_control(wasm_exec_env_t env, rt_device_t dev, in
     return rt_device_control(dev, cmd, arg);
 }
 
+#endif /* WAMR_RTT_EXPORT_DEVICE_OPS */
+
 static NativeSymbol native_export_symbols[] = {
+
+#ifdef WAMR_RTT_EXPORT_VPRINTF
         {
             "vprintf",
             wasm_vprintf,
@@ -73,6 +83,9 @@ static NativeSymbol native_export_symbols[] = {
             wasm_vsnprintf,
             "($i$*)i"
         },
+#endif /* WAMR_RTT_EXPORT_VPRINTF */
+
+#ifdef WAMR_RTT_EXPORT_DEVICE_OPS
         {
                 "rt_device_find",
                 wasm_rt_device_find,
@@ -102,8 +115,38 @@ static NativeSymbol native_export_symbols[] = {
             "rt_device_control",
             wasm_rt_device_control,
             "(ii*)i"
-        }
+        },
+#ifdef WAMR_RTT_EXPORT_DEVICE_OPS_CPP
+        {
+            "_Z15rt_device_closeP9rt_device",
+                    wasm_rt_device_close,
+                    "(i)i"
+        },
+        {
+                "_Z14rt_device_readP9rt_devicejPvj",
+                wasm_rt_device_read,
+                "(ii*~)i"
+        },
+        {
+                "_Z15rt_device_writeP9rt_devicejPKvj",
+                wasm_rt_device_write,
+                "(ii*~)i"
+        },
+        {
+                "_Z14rt_device_openP9rt_devicet",
+                wasm_rt_device_open,
+                "(ii)i"
+        },
+        {
+                "_Z14rt_device_findPKc",
+                wasm_rt_device_find,
+                "($)i"
+        },
+#endif /* WAMR_RTT_EXPORT_DEVICE_OPS_CPP */
+#endif /* WAMR_RTT_EXPORT_DEVICE_OPS */
 };
+
+#endif /* WAMR_ENABLE_RTT_EXPORT */
 
 /**
  * run WASM module instance.
@@ -236,9 +279,11 @@ int iwasm(int argc, char **argv)
     init_args.mem_alloc_option.allocator.malloc_func = os_malloc;
     init_args.mem_alloc_option.allocator.realloc_func = os_realloc;
     init_args.mem_alloc_option.allocator.free_func = os_free;
+#ifdef WAMR_ENABLE_RTT_EXPORT
     init_args.native_symbols = native_export_symbols;
     init_args.n_native_symbols = sizeof(native_export_symbols) / sizeof(NativeSymbol);
     init_args.native_module_name = "env";
+#endif /* WAMR_ENABLE_RTT_EXPORT */
 
 #ifdef WAMR_ENABLE_IWASM_PARAMS
 #if defined(RT_USING_HEAP) && defined(RT_USING_MEMHEAP_AS_HEAP)
