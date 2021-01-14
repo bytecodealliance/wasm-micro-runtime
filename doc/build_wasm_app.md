@@ -56,15 +56,15 @@ There are some useful options which can be specified to build the source code (f
 
 - **-Wl,--no-entry** Do not output any entry point
 
-- **-Wl,--export=<value>** Force a symbol to be exported, e.g. **-Wl,--export=foo** to export foo function
+- **-Wl,--export=\<value\>** Force a symbol to be exported, e.g. **-Wl,--export=foo** to export foo function
 
 - **-Wl,--export-all** Export all symbols (normally combined with --no-gc-sections)
 
-- **-Wl,--initial-memory=<value>** Initial size of the linear memory, which must be a multiple of 65536
+- **-Wl,--initial-memory=\<value\>** Initial size of the linear memory, which must be a multiple of 65536
 
-- **-Wl,--max-memory=<value>** Maximum size of the linear memory, which must be a multiple of 65536
+- **-Wl,--max-memory=\<value\>** Maximum size of the linear memory, which must be a multiple of 65536
 
-- **-z stack-size=<vlaue>** The auxiliary stack size, which is an area of linear memory, and must be smaller than initial memory size.
+- **-z stack-size=\<vlaue\>** The auxiliary stack size, which is an area of linear memory, and must be smaller than initial memory size.
 
 - **-Wl,--strip-all** Strip all symbols
 
@@ -72,7 +72,7 @@ There are some useful options which can be specified to build the source code (f
 
 - **-Wl,--allow-undefined** Allow undefined symbols in linked binary
 
-- **-Wl,--allow-undefined-file=<value>** Allow symbols listed in <file> to be undefined in linked binary
+- **-Wl,--allow-undefined-file=\<value\>** Allow symbols listed in \<file\> to be undefined in linked binary
 
 - **-pthread** Support POSIX threads in generated code
 
@@ -86,7 +86,7 @@ For example, we can build the wasm app with command:
     -Wl,--export=__heap_base -Wl,--export=__data_end \
     -Wl,--no-entry -Wl,--strip-all -Wl,--allow-undefined
 ```
-to generate a wasm binary with nostdlib mode, auxiliary stack size is 8192 bytes, initialize memory size is 64 KB,  main function, heap base global and data end global are exported, no entry function is generated (no _start function is exported), and all symbols are stripped. Note that it is nostdlib mode, so libc-builtin should be enabled by runtime embedder or iwasm (with cmake -DWAMR_BUILD_LIBC_BUILT=1, enabled by iwasm in Linux by default).
+to generate a wasm binary with nostdlib mode, auxiliary stack size is 8192 bytes, initial memory size is 64 KB,  main function, heap base global and data end global are exported, no entry function is generated (no _start function is exported), and all symbols are stripped. Note that it is nostdlib mode, so libc-builtin should be enabled by runtime embedder or iwasm (with cmake -DWAMR_BUILD_LIBC_BUILT=1, enabled by iwasm in Linux by default).
 
 If we want to build the wasm app with wasi mode, we may build the wasm app with command:
 
@@ -98,7 +98,7 @@ If we want to build the wasm app with wasi mode, we may build the wasm app with 
     -Wl,--strip-all
 ```
 
-to generate a wasm binary with wasi mode, auxiliary stack size is 8192 bytes, initialize memory size is 64 KB,  heap base global and data end global are exported, wasi entry function exported (_start function), and all symbols are stripped. Note that it is wasi mode, so libc-wasi should be enabled by runtime embedder or iwasm (with cmake -DWAMR_BUILD_LIBC_WASI=1, enabled by iwasm in Linux by default).
+to generate a wasm binary with wasi mode, auxiliary stack size is 8192 bytes, initial memory size is 64 KB,  heap base global and data end global are exported, wasi entry function exported (_start function), and all symbols are stripped. Note that it is wasi mode, so libc-wasi should be enabled by runtime embedder or iwasm (with cmake -DWAMR_BUILD_LIBC_WASI=1, enabled by iwasm in Linux by default), and normally no need to export main function, by default _start function is executed by iwasm.
 
 ## 2. How to reduce the footprint?
 
@@ -107,8 +107,10 @@ Firstly if libc-builtin (-nostdlib) mode meets the requirements, e.g. there are 
 ### (1) Methods to reduce the libc-builtin (-nostdlib) mode footprint
 
 - export \_\_heap_base global and \_\_data_end global
-
-  If the two globals are exported, and there are no memory.grow and memory.size opcodes (normally nostdlib mode doesn't introduce these opcodes since the libc malloc function isn't built into wasm bytecode), WAMR runtime will truncate the linear memory at the place of __heap_base and append app heap to the end, so we don't to allocate the memory specified by `-Wl,--initial-memory=n` which must be at least 64 KB. This is helpful for some embedded devices whose memory resource might be limited.
+  ```bash
+  -Wl,--export=__heap_base -Wl,--export=__data_end
+  ```
+  If the two globals are exported, and there are no memory.grow and memory.size opcodes (normally nostdlib mode doesn't introduce these opcodes since the libc malloc function isn't built into wasm bytecode), WAMR runtime will truncate the linear memory at the place of \__heap_base and append app heap to the end, so we don't need to allocate the memory specified by `-Wl,--initial-memory=n` which must be at least 64 KB. This is helpful for some embedded devices whose memory resource might be limited.
 
 - reduce auxiliary stack size
 
@@ -195,19 +197,29 @@ Usage: wamrc [options] -o output_file wasm_file
                             Use +feature to enable a feature, or -feature to disable it
                             For example, --cpu-features=+feature1,-feature2
                             Use --cpu-features=+help to list all the features supported
-  --opt-level=n             Set the optimization level (0 to 3, default: 3, which is fastest)
-  --size-level=n            Set the code size level (0 to 3, default: 3, which is smallest)
+  --opt-level=n             Set the optimization level (0 to 3, default is 3)
+  --size-level=n            Set the code size level (0 to 3, default is 3)
   -sgx                      Generate code for SGX platform (Intel Software Guard Extention)
+  --bounds-checks=1/0       Enable or disable the bounds checks for memory access:
+                              by default it is disabled in all 64-bit platforms except SGX and
+                              in these platforms runtime does bounds checks with hardware trap,
+                              and by default it is enabled in all 32-bit platforms
   --format=<format>         Specifies the format of the output file
                             The format supported:
                               aot (default)  AoT file
                               object         Native object file
                               llvmir-unopt   Unoptimized LLVM IR
                               llvmir-opt     Optimized LLVM IR
+  --enable-bulk-memory      Enable the post-MVP bulk memory feature
+  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and
+  --enable-tail-call        Enable the post-MVP tail call feature
+                            thread-mgr will be enabled automatically
+  --enable-simd             Enable the post-MVP 128-bit SIMD feature
+  --enable-dump-call-stack  Enable stack trace feature
+  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log
 Examples: wamrc -o test.aot test.wasm
           wamrc --target=i386 -o test.aot test.wasm
           wamrc --target=i386 --format=object -o test.o test.wasm
-
 ```
 
 
