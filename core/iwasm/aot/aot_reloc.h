@@ -29,6 +29,14 @@ typedef struct {
 #define REG_ATOMIC_WAIT_SYM()
 #endif
 
+#if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
+#define REG_AOT_TRACE_SYM()               \
+    REG_SYM(aot_alloc_frame),             \
+    REG_SYM(aot_free_frame),
+#else
+#define REG_AOT_TRACE_SYM()
+#endif
+
 #if (defined(_WIN32) || defined(_WIN32_)) && defined(NDEBUG)
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
@@ -39,7 +47,8 @@ typedef struct {
     REG_SYM(aot_memset),                  \
     REG_SYM(aot_memmove),                 \
     REG_BULK_MEMORY_SYM()                 \
-    REG_ATOMIC_WAIT_SYM()
+    REG_ATOMIC_WAIT_SYM()                 \
+    REG_AOT_TRACE_SYM()
 #else /* else of (defined(_WIN32) || defined(_WIN32_)) && defined(NDEBUG) */
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
@@ -62,7 +71,8 @@ typedef struct {
     REG_SYM(rint),                        \
     REG_SYM(rintf),                       \
     REG_BULK_MEMORY_SYM()                 \
-    REG_ATOMIC_WAIT_SYM()
+    REG_ATOMIC_WAIT_SYM()                 \
+    REG_AOT_TRACE_SYM()
 #endif /* end of (defined(_WIN32) || defined(_WIN32_)) && defined(NDEBUG) */
 
 #define CHECK_RELOC_OFFSET(data_size) do {                                  \

@@ -8,6 +8,45 @@
 #include "aot_emit_control.h"
 #include "../aot/aot_runtime.h"
 
+#define GET_AOT_FUNCTION(name, argc) do {                               \
+    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
+                                       argc, false))) {                 \
+        aot_set_last_error("llvm add function type failed.");           \
+        return false;                                                   \
+    }                                                                   \
+    if (comp_ctx->is_jit_mode) {                                        \
+        /* JIT mode, call the function directly */                      \
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
+            aot_set_last_error("llvm add pointer type failed.");        \
+            return false;                                               \
+        }                                                               \
+        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
+            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
+            aot_set_last_error("create LLVM value failed.");            \
+            return false;                                               \
+        }                                                               \
+    }                                                                   \
+    else {                                                              \
+        char *func_name = #name;                                        \
+        /* AOT mode, delcare the function */                            \
+        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
+            && !(func = LLVMAddFunction(comp_ctx->module,               \
+                                        func_name, func_type))) {       \
+            aot_set_last_error("llvm add function failed.");            \
+            return false;                                               \
+        }                                                               \
+    }                                                                   \
+  } while (0)
+
+#define ADD_BASIC_BLOCK(block, name) do {                           \
+    if (!(block = LLVMAppendBasicBlockInContext(comp_ctx->context,  \
+                                                func_ctx->func,     \
+                                                name))) {           \
+        aot_set_last_error("llvm add basic block failed.");         \
+        goto fail;                                                  \
+    }                                                               \
+  } while (0)
+
 static bool
 create_func_return_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
@@ -239,6 +278,91 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+static bool
+call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          LLVMValueRef func_idx)
+{
+    LLVMValueRef param_values[2], ret_value, value, func;
+    LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
+    LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+    LLVMBasicBlockRef frame_alloc_fail, frame_alloc_success;
+    AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
+
+    param_types[0] = comp_ctx->exec_env_type;
+    param_types[1] = I32_TYPE;
+    ret_type = INT8_TYPE;
+
+    GET_AOT_FUNCTION(aot_alloc_frame, 2);
+
+    param_values[0] = func_ctx->exec_env;
+    param_values[1] = func_idx;
+
+    if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func,
+                                    param_values, 2,
+                                    "call_aot_alloc_frame"))) {
+        aot_set_last_error("llvm build call failed.");
+        return false;
+    }
+
+    if (!(ret_value = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT,
+                                    ret_value, I8_ZERO, "frame_alloc_ret"))) {
+        aot_set_last_error("llvm build icmp failed.");
+        return false;
+    }
+
+    ADD_BASIC_BLOCK(frame_alloc_fail, "frame_alloc_fail");
+    ADD_BASIC_BLOCK(frame_alloc_success, "frame_alloc_success");
+
+    LLVMMoveBasicBlockAfter(frame_alloc_fail, block_curr);
+    LLVMMoveBasicBlockAfter(frame_alloc_success, block_curr);
+
+    if (!LLVMBuildCondBr(comp_ctx->builder, ret_value,
+                         frame_alloc_success, frame_alloc_fail)) {
+        aot_set_last_error("llvm build cond br failed.");
+        return false;
+    }
+
+    /* If frame alloc failed, return this function
+        so the runtime can catch the exception */
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, frame_alloc_fail);
+    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+        return false;
+    }
+
+    LLVMPositionBuilderAtEnd(comp_ctx->builder, frame_alloc_success);
+
+    return true;
+
+fail:
+    return false;
+}
+
+static bool
+call_aot_free_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef param_values[1], ret_value, value, func;
+    LLVMTypeRef param_types[1], ret_type, func_type, func_ptr_type;
+
+    param_types[0] = comp_ctx->exec_env_type;
+    ret_type = INT8_TYPE;
+
+    GET_AOT_FUNCTION(aot_free_frame, 1);
+
+    param_values[0] = func_ctx->exec_env;
+
+    if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func,
+                                    param_values, 1,
+                                    "call_aot_free_frame"))) {
+        aot_set_last_error("llvm build call failed.");
+        return false;
+    }
+
+    return true;
+}
+#endif /* end of (WASM_ENABLE_DUMP_CALL_STACK != 0)
+                 || (WASM_ENABLE_PERF_PROFILING != 0) */
+
 static bool
 check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                      uint32 callee_cell_num)
@@ -333,6 +457,19 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Get param cell number */
     param_cell_num = func_type->param_cell_num;
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+    if (comp_ctx->enable_aux_stack_frame) {
+        LLVMValueRef func_idx_const;
+
+        if (!(func_idx_const = I32_CONST(func_idx))) {
+            aot_set_last_error("llvm build const failed.");
+            return false;
+        }
+        if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx_const))
+            return false;
+    }
+#endif
 
     /* Allocate memory for parameters.
      * Parameters layout:
@@ -485,13 +622,20 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+    if (comp_ctx->enable_aux_stack_frame) {
+        if (!call_aot_free_frame_func(comp_ctx, func_ctx))
+            goto fail;
+    }
+#endif
+
     ret = true;
 fail:
     if (param_types)
         wasm_runtime_free(param_types);
     if (param_values)
         wasm_runtime_free(param_values);
-  return ret;
+    return ret;
 }
 
 static bool
@@ -889,6 +1033,13 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 #endif
 
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+    if (comp_ctx->enable_aux_stack_frame) {
+        if (!call_aot_alloc_frame_func(comp_ctx, func_ctx, func_idx))
+            goto fail;
+    }
+#endif
+
     /* Add basic blocks */
     block_call_import =
         LLVMAppendBasicBlockInContext(comp_ctx->context, func_ctx->func,
@@ -1065,6 +1216,13 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     for (i = 0; i < func_result_count; i++) {
         PUSH(result_phis[i], func_type->types[func_param_count + i]);
     }
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+    if (comp_ctx->enable_aux_stack_frame) {
+        if (!call_aot_free_frame_func(comp_ctx, func_ctx))
+            goto fail;
+    }
+#endif
 
     ret = true;
 

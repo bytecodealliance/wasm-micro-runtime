@@ -2175,6 +2175,9 @@ aot_convert_wasm_module(WASMModule *wasm_module,
 #if WASM_ENABLE_SIMD != 0
     option.enable_simd = true;
 #endif
+#if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
+    option.enable_aux_stack_frame = true;
+#endif
     comp_ctx = aot_create_comp_context(comp_data, &option);
     if (!comp_ctx) {
         aot_last_error = aot_get_last_error();

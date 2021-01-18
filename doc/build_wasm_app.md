@@ -14,8 +14,6 @@ For Rust, please firstly ref to [Install Rust and Cargo](https://doc.rust-lang.o
 Build WASM applications with wasi-sdk
 =========================
 
-## 1. wasi-sdk options
-
 You can write a simple ```test.c``` as the first sample.
 
 ``` C
@@ -49,6 +47,8 @@ To build the source file to WASM bytecode, we can input the following command:
 ``` Bash
 /opt/wasi-sdk/bin/clang -O3 -o test.wasm test.c
 ```
+
+## 1. wasi-sdk options
 
 There are some useful options which can be specified to build the source code (for more link options, please run `/opt/wasi-sdk/bin/wasm-ld --help`):
 

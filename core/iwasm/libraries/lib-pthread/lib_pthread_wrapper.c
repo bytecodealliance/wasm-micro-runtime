@@ -616,7 +616,7 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
 
     /* validate addr before join thread, otherwise
         the module_inst may be freed */
-    if (!validate_app_addr(retval_offset, sizeof(uint32))) {
+    if (!validate_app_addr(retval_offset, sizeof(void *))) {
         /* Join failed, but we don't want to terminate all threads,
             do not spread exception here */
         wasm_runtime_set_exception(module_inst, NULL);

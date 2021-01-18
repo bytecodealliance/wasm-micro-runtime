@@ -28,6 +28,9 @@ add_definitions(-DWASM_ENABLE_SHARED_MEMORY=1)
 add_definitions(-DWASM_ENABLE_THREAD_MGR=1)
 add_definitions(-DWASM_ENABLE_TAIL_CALL=1)
 add_definitions(-DWASM_ENABLE_SIMD=1)
+add_definitions(-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
+add_definitions(-DWASM_ENABLE_DUMP_CALL_STACK=1)
+add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"

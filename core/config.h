@@ -180,6 +180,16 @@
 #define WASM_ENABLE_MEMORY_TRACING 0
 #endif
 
+/* Performance profiling */
+#ifndef WASM_ENABLE_PERF_PROFILING
+#define WASM_ENABLE_PERF_PROFILING 0
+#endif
+
+/* Dump call stack */
+#ifndef WASM_ENABLE_DUMP_CALL_STACK
+#define WASM_ENABLE_DUMP_CALL_STACK 0
+#endif
+
 /* Heap verification */
 #ifndef BH_ENABLE_GC_VERIFY
 #define BH_ENABLE_GC_VERIFY 0

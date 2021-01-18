@@ -909,8 +909,12 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 {
     WASMInterpFrame *frame = wasm_exec_env_alloc_wasm_frame(exec_env, size);
 
-    if (frame)
+    if (frame) {
         frame->prev_frame = prev_frame;
+#if WASM_ENABLE_PERF_PROFILING != 0
+        frame->time_started = os_time_get_boot_microsecond();
+#endif
+    }
     else {
         wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
                            "stack overflow");
@@ -922,6 +926,13 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 static inline void
 FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 {
+#if WASM_ENABLE_PERF_PROFILING != 0
+    if (frame->function) {
+        frame->function->total_exec_time += os_time_get_boot_microsecond()
+                                            - frame->time_started;
+        frame->function->total_exec_cnt++;
+    }
+#endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
 }
 
@@ -1086,9 +1097,6 @@ wasm_interp_dump_op_count()
 #else
 #define HANDLE_OP(opcode) HANDLE_##opcode
 #endif
-#if WASM_ENABLE_FAST_INTERP == 0
-#define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
-#else
 #if WASM_ENABLE_ABS_LABEL_ADDR != 0
 #define FETCH_OPCODE_AND_DISPATCH() do {                    \
     const void *p_label_addr = *(void**)frame_ip;           \
@@ -1103,7 +1111,6 @@ wasm_interp_dump_op_count()
     goto *p_label_addr;                                     \
   } while (0)
 #endif
-#endif
 #define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
 
 #else   /* else of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1113,9 +1120,7 @@ wasm_interp_dump_op_count()
 
 #endif  /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
-#if WASM_ENABLE_FAST_INTERP != 0
 static void **global_handle_table;
-#endif
 
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
@@ -1150,12 +1155,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   #define HANDLE_OPCODE(op) &&HANDLE_##op
   DEFINE_GOTO_TABLE (const void*, handle_table);
   #undef HANDLE_OPCODE
-#if WASM_ENABLE_FAST_INTERP != 0
   if (exec_env == NULL) {
       global_handle_table = (void **)handle_table;
       return;
   }
-#endif
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
@@ -3330,7 +3333,6 @@ recover_br_info:
 #endif
 }
 
-#if WASM_ENABLE_FAST_INTERP != 0
 void **
 wasm_interp_get_handle_table()
 {
@@ -3339,7 +3341,6 @@ wasm_interp_get_handle_table()
     wasm_interp_call_func_bytecode(&module, NULL, NULL, NULL);
     return global_handle_table;
 }
-#endif
 
 void
 wasm_interp_call_wasm(WASMModuleInstance *module_inst,
@@ -3412,7 +3413,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
             argv[i] = *(frame->lp + i);
     }
     else {
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
         wasm_interp_dump_call_stack(exec_env);
 #endif
     }
