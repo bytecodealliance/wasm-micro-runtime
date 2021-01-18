@@ -900,8 +900,12 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 {
     WASMInterpFrame *frame = wasm_exec_env_alloc_wasm_frame(exec_env, size);
 
-    if (frame)
+    if (frame) {
         frame->prev_frame = prev_frame;
+#if WASM_ENABLE_PERF_PROFILING != 0
+        frame->time_started = os_time_get_boot_microsecond();
+#endif
+    }
     else {
         wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
                            "stack overflow");
@@ -913,6 +917,13 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 static inline void
 FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 {
+#if WASM_ENABLE_PERF_PROFILING != 0
+    if (frame->function) {
+        frame->function->total_exec_time += os_time_get_boot_microsecond()
+                                            - frame->time_started;
+        frame->function->total_exec_cnt++;
+    }
+#endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
 }
 
@@ -3361,7 +3372,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
         }
     }
     else {
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
         wasm_interp_dump_call_stack(exec_env);
 #endif
         LOG_DEBUG("meet an exception %s", wasm_get_exception(module_inst));

@@ -281,8 +281,13 @@ typedef struct AOTModuleInstance {
     uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
+    uint32 __padding;
+
+    /* function performance profiling info list */
+    AOTPointer func_perf_profilings;
+
     /* reserved */
-    uint32 reserved[11];
+    uint32 reserved[8];
 
     union {
         uint64 _make_it_8_byte_aligned_;
@@ -310,6 +315,24 @@ typedef struct AOTTargetInfo {
     /* Arch name */
     char arch[16];
 } AOTTargetInfo;
+
+typedef struct AOTFuncPerfProfInfo
+{
+    /* total execution time */
+    uint64 total_exec_time;
+    /* total execution count */
+    uint32 total_exec_cnt;
+} AOTFuncPerfProfInfo;
+
+/* AOT auxiliary call stack */
+typedef struct AOTFrame {
+    struct AOTFrame *prev_frame;
+    uint32 func_index;
+#if WASM_ENABLE_PERF_PROFILING != 0
+    uint64 time_started;
+    AOTFuncPerfProfInfo *func_perf_prof_info;
+#endif
+} AOTFrame;
 
 /**
  * Load a AOT module from aot file buffer
@@ -567,6 +590,18 @@ aot_get_module_mem_consumption(const AOTModule *module,
 void
 aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
                                     WASMModuleInstMemConsumption *mem_conspn);
+
+bool
+aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
+
+void
+aot_free_frame(WASMExecEnv *exec_env);
+
+void
+aot_dump_call_stack(WASMExecEnv *exec_env);
+
+void
+aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

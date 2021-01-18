@@ -1448,7 +1448,6 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
-                             BlockAddr *block_addr_cache,
                              char *error_buf, uint32 error_buf_size);
 
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -1472,9 +1471,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     uint32 aux_stack_top = (uint32)-1, global_index, func_index, i;
     uint32 aux_data_end_global_index = (uint32)-1;
     uint32 aux_heap_base_global_index = (uint32)-1;
-    BlockAddr *block_addr_cache;
     WASMType *func_type;
-    uint64 total_size;
 
     /* Find code and function sections if have */
     while (section) {
@@ -1746,22 +1743,13 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     handle_table = wasm_interp_get_handle_table();
 #endif
 
-    total_size = sizeof(BlockAddr) * (uint64)BLOCK_ADDR_CACHE_SIZE * BLOCK_ADDR_CONFLICT_SIZE;
-    if (!(block_addr_cache = loader_malloc
-                (total_size, error_buf, error_buf_size))) {
-        return false;
-    }
-
     for (i = 0; i < module->function_count; i++) {
         WASMFunction *func = module->functions[i];
-        memset(block_addr_cache, 0, (uint32)total_size);
-        if (!wasm_loader_prepare_bytecode(module, func, block_addr_cache,
+        if (!wasm_loader_prepare_bytecode(module, func,
                                           error_buf, error_buf_size)) {
-            wasm_runtime_free(block_addr_cache);
             return false;
         }
     }
-    wasm_runtime_free(block_addr_cache);
 
     if (!module->possible_memory_grow) {
         WASMMemoryImport *memory_import;
@@ -4251,7 +4239,6 @@ fail:
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
-                             BlockAddr *block_addr_cache,
                              char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;

@@ -814,6 +814,15 @@ aot_instantiate(AOTModule *module, bool is_sub_inst,
 #endif
     module_inst->default_wasm_stack_size = stack_size;
 
+#if WASM_ENABLE_PERF_PROFILING != 0
+    total_size = (uint64)sizeof(AOTFuncPerfProfInfo) *
+                 (module->import_func_count + module->func_count);
+    if (!(module_inst->func_perf_profilings.ptr =
+                runtime_malloc(total_size, error_buf, error_buf_size))) {
+        goto fail;
+    }
+#endif
+
     /* Execute __post_instantiate function and start function*/
     if (!execute_post_inst_function(module_inst)
         || !execute_start_function(module_inst)) {
@@ -864,6 +873,11 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
     /* Only destroy wasi ctx in the main module instance */
     if (!is_sub_inst)
         wasm_runtime_destroy_wasi((WASMModuleInstanceCommon*)module_inst);
+#endif
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    if (module_inst->func_perf_profilings.ptr)
+        wasm_runtime_free(module_inst->func_perf_profilings.ptr);
 #endif
 
     if (module_inst->memories.ptr)
@@ -1128,15 +1142,37 @@ aot_call_function(WASMExecEnv *exec_env,
             cell_num += wasm_value_type_cell_num(ext_ret_types[i]);
         }
 
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+        if (!aot_alloc_frame(exec_env, function->func_index)) {
+            wasm_runtime_free(argv1);
+            return false;
+        }
+#endif
+
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv1, argc, argv);
+
         if (!ret || aot_get_exception(module_inst)) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
+
             if (clear_wasi_proc_exit_exception(module_inst))
-                return true;
-            return false;
+                ret = true;
+            else
+                ret = false;
         }
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+        if (!ret) {
+            aot_dump_call_stack(exec_env);
+        }
+#endif
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+        aot_free_frame(exec_env);
+#endif
+        if (!ret)
+            return ret;
 
         /* Get extra result values */
         switch (func_type->types[func_type->param_count]) {
@@ -1161,10 +1197,28 @@ aot_call_function(WASMExecEnv *exec_env,
         return true;
     }
     else {
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+        if (!aot_alloc_frame(exec_env, function->func_index)) {
+            return false;
+        }
+#endif
+
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
                                      func_type, NULL, NULL, argv, argc, argv);
+
         if (clear_wasi_proc_exit_exception(module_inst))
-            return true;
+            ret = true;
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+        if (aot_get_exception(module_inst)) {
+            aot_dump_call_stack(exec_env);
+        }
+#endif
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+        aot_free_frame(exec_env);
+#endif
+
         return ret && !aot_get_exception(module_inst) ? true : false;
     }
 }
@@ -2224,3 +2278,134 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
 }
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0)
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
+
+#if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+static const char *
+get_func_name_from_index(const AOTModuleInstance *module_inst,
+                         uint32 func_index)
+{
+    const char *func_name = NULL;
+    AOTModule *module = module_inst->aot_module.ptr;
+
+    if (func_index < module->import_func_count) {
+        func_name = module->import_funcs[func_index].func_name;
+    }
+    else {
+        uint32 i;
+
+        for (i = 0; i < module->export_count; i++) {
+            AOTExport export = module->exports[i];
+            if (export.index == func_index
+                && export.kind == EXPORT_KIND_FUNC) {
+                func_name = export.name;
+                break;
+            }
+        }
+    }
+
+    return func_name;
+}
+
+bool
+aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index)
+{
+    AOTFrame *frame =
+        wasm_exec_env_alloc_wasm_frame(exec_env, sizeof(AOTFrame));
+#if WASM_ENABLE_PERF_PROFILING != 0
+    AOTModuleInstance *module_inst =
+        (AOTModuleInstance*)exec_env->module_inst;
+    AOTFuncPerfProfInfo *func_perf_prof =
+        (AOTFuncPerfProfInfo*)module_inst->func_perf_profilings.ptr + func_index;
+#endif
+
+    if (!frame) {
+        aot_set_exception((AOTModuleInstance*)exec_env->module_inst,
+                          "auxiliary call stack overflow");
+        return false;
+    }
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    frame->time_started = os_time_get_boot_microsecond();
+    frame->func_perf_prof_info = func_perf_prof;
+#endif
+
+    frame->prev_frame = (AOTFrame *)exec_env->cur_frame;
+    exec_env->cur_frame = (struct WASMInterpFrame *)frame;
+
+    frame->func_index = func_index;
+    return true;
+}
+
+void
+aot_free_frame(WASMExecEnv *exec_env)
+{
+    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
+    AOTFrame *prev_frame = cur_frame->prev_frame;
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    cur_frame->func_perf_prof_info->total_exec_time +=
+            os_time_get_boot_microsecond() - cur_frame->time_started;
+    cur_frame->func_perf_prof_info->total_exec_cnt++;
+#endif
+
+    wasm_exec_env_free_wasm_frame(exec_env, cur_frame);
+    exec_env->cur_frame = (struct WASMInterpFrame *)prev_frame;
+}
+#endif /* end of (WASM_ENABLE_DUMP_CALL_STACK != 0)
+                 || (WASM_ENABLE_PERF_PROFILING != 0) */
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+void
+aot_dump_call_stack(WASMExecEnv *exec_env)
+{
+    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
+    AOTModuleInstance *module_inst =
+            (AOTModuleInstance *)exec_env->module_inst;
+    const char *func_name;
+    uint32 n = 0;
+
+    os_printf("\n");
+    while (cur_frame) {
+        func_name =
+            get_func_name_from_index(module_inst, cur_frame->func_index);
+
+        /* function name not exported, print number instead */
+        if (func_name == NULL) {
+            os_printf("#%02d $f%d \n", n, cur_frame->func_index);
+        }
+        else {
+            os_printf("#%02d %s \n", n, func_name);
+        }
+
+        cur_frame = cur_frame->prev_frame;
+        n++;
+    }
+    os_printf("\n");
+}
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+void
+aot_dump_perf_profiling(const AOTModuleInstance *module_inst)
+{
+    AOTFuncPerfProfInfo *perf_prof = (AOTFuncPerfProfInfo *)
+                                      module_inst->func_perf_profilings.ptr;
+    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
+    uint32 total_func_count = module->import_func_count + module->func_count, i;
+    const char *func_name;
+
+    os_printf("Performance profiler data:\n");
+    for (i = 0; i < total_func_count; i++, perf_prof++) {
+        func_name = get_func_name_from_index(module_inst, i);
+
+        if (func_name)
+            os_printf("  func %s, execution time: %.3f ms, execution count: %d times\n",
+                      func_name, perf_prof->total_exec_time / 1000.0f,
+                      perf_prof->total_exec_cnt);
+        else
+            os_printf("  func %d, execution time: %.3f ms, execution count: %d times\n",
+                      i, perf_prof->total_exec_time / 1000.0f,
+                      perf_prof->total_exec_cnt);
+    }
+}
+#endif /* end of WASM_ENABLE_PERF_PROFILING */

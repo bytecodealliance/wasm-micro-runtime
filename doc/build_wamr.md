@@ -48,7 +48,13 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0,  load the function name from custom name section, default to disable if not set
 
+#### **Enable dump call stack feature**
+- **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
+
 > Note: if it is enabled, the call stack will be dumped when exception occurs.
+
+> - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
+> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
 
 #### **Enable Multi-Module feature**
 
@@ -78,6 +84,12 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump the memory consumption info.
 Currently we only profile the memory consumption of module, module_instance and exec_env, the memory consumed by other components such as `wasi-ctx`, `multi-module` and `thread-manager` are not included.
+
+#### **Enable performance profiling (Experiment)**
+- **WAMR_BUILD_PERF_PROFILING**=1/0, default to disable if not set
+> Note: if it is enabled, developer can use API `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump the performance consumption info. Currently we only profile the performance consumption of each WASM function.
+
+> The function name searching sequence is the same with dump call stack feature.
 
 #### **Set maximum app thread stack size**
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
