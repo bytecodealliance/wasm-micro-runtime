@@ -287,7 +287,7 @@ typedef struct AOTModuleInstance {
     AOTPointer func_perf_profilings;
 
     /* reserved */
-    uint32 reserved[9];
+    uint32 reserved[8];
 
     union {
         uint64 _make_it_8_byte_aligned_;
