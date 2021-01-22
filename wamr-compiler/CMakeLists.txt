@@ -3,6 +3,8 @@
 
 cmake_minimum_required (VERSION 2.8)
 
+string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project (aot-compiler)
 else()
