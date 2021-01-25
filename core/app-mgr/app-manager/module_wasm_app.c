@@ -703,7 +703,11 @@ wasm_app_module_install(request_t * msg)
                 SECTION_TYPE_GLOBAL,
                 SECTION_TYPE_EXPORT,
                 SECTION_TYPE_START,
-                SECTION_TYPE_ELEM
+                SECTION_TYPE_ELEM,
+#if WASM_ENABLE_BULK_MEMORY != 0
+                SECTION_TYPE_DATACOUNT
+#endif
+
             };
             /* Sections to be released after instantiating */
             uint8 sections2[] = { SECTION_TYPE_DATA };
@@ -1174,7 +1178,12 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
     }
     else if (recv_ctx.phase == Phase_Wasm_Section_Type) {
         uint8 section_type = ch;
-        if (section_type <= SECTION_TYPE_DATA) {
+#if WASM_ENABLE_BULK_MEMORY == 0
+        uint8 section_type_max = SECTION_TYPE_DATA;
+#else
+        uint8 section_type_max = SECTION_TYPE_DATACOUNT;
+#endif
+        if (section_type <= section_type_max) {
             wasm_section_t *new_section;
             if (!(new_section = (wasm_section_t *) APP_MGR_MALLOC(sizeof(wasm_section_t)))) {
                 app_manager_printf("Allocate memory failed!\n");

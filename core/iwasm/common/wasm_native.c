@@ -7,7 +7,8 @@
 #include "wasm_runtime_common.h"
 #include "bh_log.h"
 
-#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS)
+#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
+    && !defined(BH_PLATFORM_OPENRTOS) && !defined(BH_PLATFORM_ESP_IDF)
 #define ENABLE_QUICKSORT 1
 #else
 #define ENABLE_QUICKSORT 0
@@ -49,6 +50,9 @@ lib_pthread_destroy();
 uint32
 get_lib_pthread_export_apis(NativeSymbol **p_lib_pthread_apis);
 #endif
+
+uint32
+get_libc_emcc_export_apis(NativeSymbol **p_libc_emcc_apis);
 
 static bool
 check_symbol_signature(const WASMType *type, const char *signature)
@@ -385,6 +389,14 @@ wasm_native_init()
                                          native_symbols, n_native_symbols))
         return false;
 #endif
+
+#if WASM_ENABLE_LIBC_EMCC != 0
+    n_native_symbols = get_libc_emcc_export_apis(&native_symbols);
+    if (n_native_symbols > 0
+        && !wasm_native_register_natives("env",
+                                         native_symbols, n_native_symbols))
+        return false;
+#endif /* WASM_ENABLE_LIBC_EMCC */
 
     return true;
 }

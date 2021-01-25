@@ -81,6 +81,10 @@ if (WAMR_BUILD_THREAD_MGR EQUAL 1)
     include (${IWASM_DIR}/libraries/thread-mgr/thread_mgr.cmake)
 endif ()
 
+if (WAMR_BUILD_LIBC_EMCC EQUAL 1)
+    include (${IWASM_DIR}/libraries/libc-emcc/libc_emcc.cmake)
+endif()
+
 ####################### Common sources #######################
 if (NOT MSVC)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
@@ -120,6 +124,7 @@ set (source_all
     ${APP_MGR_SOURCE}
     ${LIB_PTHREAD_SOURCE}
     ${THREAD_MGR_SOURCE}
+    ${LIBC_EMCC_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

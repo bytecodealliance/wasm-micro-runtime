@@ -129,7 +129,7 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
     return BHT_OK;
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds)
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
     os_printf("warning: SGX pthread_cond_timedwait isn't supported, "
               "calling pthread_cond_wait instead!\n");

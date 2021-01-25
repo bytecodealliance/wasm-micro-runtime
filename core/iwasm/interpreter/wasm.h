@@ -19,6 +19,7 @@ extern "C" {
 #define VALUE_TYPE_I64 0X7E
 #define VALUE_TYPE_F32 0x7D
 #define VALUE_TYPE_F64 0x7C
+#define VALUE_TYPE_V128 0x7B
 #define VALUE_TYPE_VOID 0x40
 /* Used by AOT */
 #define VALUE_TYPE_I1  0x41
@@ -34,6 +35,7 @@ extern "C" {
 #define INIT_EXPR_TYPE_I64_CONST 0x42
 #define INIT_EXPR_TYPE_F32_CONST 0x43
 #define INIT_EXPR_TYPE_F64_CONST 0x44
+#define INIT_EXPR_TYPE_V128_CONST 0xFD
 #define INIT_EXPR_TYPE_GET_GLOBAL 0x23
 #define INIT_EXPR_TYPE_ERROR 0xff
 
@@ -79,6 +81,15 @@ typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
 typedef struct WASMGlobal WASMGlobal;
 
+typedef union V128 {
+    int8 i8x16[16];
+    int16 i16x8[8];
+    int32 i32x8[4];
+    int64 i64x2[2];
+    float32 f32x4[4];
+    float64 f64x2[2];
+} V128;
+
 typedef union WASMValue {
     int32 i32;
     uint32 u32;
@@ -87,6 +98,7 @@ typedef union WASMValue {
     float32 f32;
     float64 f64;
     uintptr_t addr;
+    V128 v128;
 } WASMValue;
 
 typedef struct InitializerExpression {
@@ -98,6 +110,7 @@ typedef struct InitializerExpression {
         float32 f32;
         float64 f64;
         uint32 global_index;
+        V128 v128;
     } u;
 } InitializerExpression;
 
@@ -177,6 +190,7 @@ typedef struct WASMGlobalImport {
     bool is_mutable;
     /* global data after linked */
     WASMValue global_data_linked;
+    bool is_linked;
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* imported function pointer after linked */
     /* TODO: remove if not needed */
@@ -357,6 +371,10 @@ struct WASMModule {
     uint32 malloc_function;
     uint32 free_function;
 
+    /* the index of __retain function,
+       -1 means unexported */
+    uint32 retain_function;
+
     /* Whether there is possible memory grow, e.g. memory.grow opcode */
     bool possible_memory_grow;
 
@@ -387,10 +405,10 @@ typedef struct BlockType {
 } BlockType;
 
 typedef struct WASMBranchBlock {
-    uint8 label_type;
-    uint32 cell_num;
+    uint8 *begin_addr;
     uint8 *target_addr;
     uint32 *frame_sp;
+    uint32 cell_num;
 } WASMBranchBlock;
 
 /* Execution environment, e.g. stack info */
@@ -447,6 +465,10 @@ wasm_value_type_size(uint8 value_type)
         case VALUE_TYPE_I64:
         case VALUE_TYPE_F64:
             return sizeof(int64);
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            return sizeof(int64) * 2;
+#endif
         default:
             bh_assert(0);
     }
@@ -464,6 +486,10 @@ wasm_value_type_cell_num(uint8 value_type)
     else if (value_type == VALUE_TYPE_I64
              || value_type == VALUE_TYPE_F64)
         return 2;
+#if WASM_ENABLE_SIMD != 0
+    else if (value_type == VALUE_TYPE_V128)
+        return 4;
+#endif
     else {
         bh_assert(0);
     }
@@ -489,6 +515,19 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
                       (uint32)(type1->param_count
                                + type1->result_count)) == 0)
         ? true : false;
+}
+
+inline static uint32
+wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
+                           uint32 cur_type_idx)
+{
+    uint32 i;
+
+    for (i = 0; i < cur_type_idx; i++) {
+        if (wasm_type_equal(types[cur_type_idx], types[i]))
+            return i;
+    }
+    return cur_type_idx;
 }
 
 static inline uint32

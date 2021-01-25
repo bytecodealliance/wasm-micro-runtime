@@ -51,7 +51,10 @@ typedef enum {
 } GC_STAT_INDEX;
 
 /**
- * GC initialization from a buffer
+ * GC initialization from a buffer, which is separated into
+ * two parts: the beginning of the buffer is used to create
+ * the heap structure, and the left is used to create the
+ * actual pool data
  *
  * @param buf the buffer to be initialized to a heap
  * @param buf_size the size of buffer
@@ -60,6 +63,20 @@ typedef enum {
  */
 gc_handle_t
 gc_init_with_pool(char *buf, gc_size_t buf_size);
+
+/**
+ * GC initialization from heap struct buffer and pool buffer
+ *
+ * @param struct_buf the struct buffer to create the heap structure
+ * @param struct_buf_size the size of struct buffer
+ * @param pool_buf the pool buffer to create pool data
+ * @param pool_buf_size the size of poll buffer
+ *
+ * @return gc handle if success, NULL otherwise
+ */
+gc_handle_t
+gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
+                             char *pool_buf, gc_size_t pool_buf_size);
 
 /**
  * Destroy heap which is initilized from a buffer
@@ -73,33 +90,33 @@ int
 gc_destroy_with_pool(gc_handle_t handle);
 
 /**
- * Migrate heap from one place to another place
+ * Return heap struct size
+ */
+uint32
+gc_get_heap_struct_size(void);
+
+/**
+ * Migrate heap from one pool buf to another pool buf
  *
  * @param handle handle of the new heap
- * @param handle_old handle of the old heap
+ * @param pool_buf_new the new pool buffer
+ * @param pool_buf_size the size of new pool buffer
  *
  * @return GC_SUCCESS if success, GC_ERROR otherwise
  */
 int
-gc_migrate(gc_handle_t handle, gc_handle_t handle_old);
+gc_migrate(gc_handle_t handle,
+           char *pool_buf_new, gc_size_t pool_buf_size);
 
 /**
- * Re-initialize lock of heap
+ * Check whether the heap is corrupted
  *
- * @param handle the heap handle
+ * @param handle handle of the heap
  *
- * @return GC_SUCCESS if success, GC_ERROR otherwise
+ * @return true if success, false otherwise
  */
-int
-gc_reinit_lock(gc_handle_t handle);
-
-/**
- * Destroy lock of heap
- *
- * @param handle the heap handle
- */
-void
-gc_destroy_lock(gc_handle_t handle);
+bool
+gc_is_heap_corrupted(gc_handle_t handle);
 
 /**
  * Get Heap Stats

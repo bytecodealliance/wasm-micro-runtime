@@ -49,9 +49,11 @@ int ocall_closedir(int *p_ret, void *dirp);
 /** DIR end **/
 
 /** stat **/
+int ocall_stat(int *p_ret, const char *pathname,
+               void *buf, unsigned int buf_len);
 int ocall_fstat(int *p_ret, int fd, void *buf, unsigned int buf_len);
-int ocall_fstatat(int *p_ret, int dirfd, const char *pathname, void *buf,
-                  unsigned int buf_len, int flags);
+int ocall_fstatat(int *p_ret, int dirfd, const char *pathname,
+                  void *buf, unsigned int buf_len, int flags);
 /** stat end **/
 
 /** link **/
@@ -87,6 +89,7 @@ int ocall_getopt(int *p_ret, int argc, char *argv_buf,
                  unsigned int argv_buf_len, const char *optstring);
 int ocall_getrandom(ssize_t *p_ret, void *buf, size_t buflen,
                     unsigned int flags);
+int ocall_getentropy(int *p_ret, void *buffer, size_t length);
 int ocall_sched_yield(int *p_ret);
 
 /** struct iovec **/
@@ -444,6 +447,25 @@ int ftruncate(int fd, off_t length)
         TRACE_OCALL_FAIL();
         return -1;
     }
+    if (ret == -1)
+        errno = get_errno();
+    return ret;
+}
+
+int stat(const char *pathname, struct stat *statbuf)
+{
+    int ret;
+
+    if (statbuf == NULL)
+        return -1;
+
+    if (ocall_stat(&ret, pathname,
+                   (void *)statbuf,
+                   sizeof(struct stat)) != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
+        return -1;
+    }
+
     if (ret == -1)
         errno = get_errno();
     return ret;
@@ -814,6 +836,19 @@ ssize_t getrandom(void *buf, size_t buflen, unsigned int flags)
     ssize_t ret;
 
     if (ocall_getrandom(&ret, buf, buflen, flags) != SGX_SUCCESS) {
+        TRACE_OCALL_FAIL();
+        return -1;
+    }
+    if (ret == -1)
+        errno = get_errno();
+    return ret;
+}
+
+int getentropy(void *buffer, size_t length)
+{
+    int ret;
+
+    if (ocall_getentropy(&ret, buffer, length) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }

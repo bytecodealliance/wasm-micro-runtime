@@ -17,8 +17,17 @@ typedef void *mem_allocator_t;
 mem_allocator_t
 mem_allocator_create(void *mem, uint32_t size);
 
+mem_allocator_t
+mem_allocator_create_with_struct_and_pool(void *struct_buf,
+                                          uint32_t struct_buf_size,
+                                          void *pool_buf,
+                                          uint32_t pool_buf_size);
+
 void
 mem_allocator_destroy(mem_allocator_t allocator);
+
+uint32
+mem_allocator_get_heap_struct_size(void);
 
 void *
 mem_allocator_malloc(mem_allocator_t allocator, uint32_t size);
@@ -31,13 +40,10 @@ mem_allocator_free(mem_allocator_t allocator, void *ptr);
 
 int
 mem_allocator_migrate(mem_allocator_t allocator,
-                      mem_allocator_t allocator_old);
+                      char *pool_buf_new, uint32 pool_buf_size);
 
-int
-mem_allocator_reinit_lock(mem_allocator_t allocator);
-
-void
-mem_allocator_destroy_lock(mem_allocator_t allocator);
+bool
+mem_allocator_is_heap_corrupted(mem_allocator_t allocator);
 
 #ifdef __cplusplus
 }

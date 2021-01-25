@@ -396,4 +396,5 @@ module_interface *g_module_interfaces[Module_Max] = {
 #else
         NULL
 #endif
-    };
+};
+

@@ -74,17 +74,13 @@ typedef struct WASMModuleInstMemConsumption {
 
 #if WASM_ENABLE_LIBC_WASI != 0
 typedef struct WASIContext {
-    /* Use offset but not native address, since these fields are
-       allocated from app's heap, and the heap space may be re-allocated
-       after memory.grow opcode is executed, the original native address
-       cannot be accessed again. */
-    uint32 curfds_offset;
-    uint32 prestats_offset;
-    uint32 argv_environ_offset;
-    uint32 argv_buf_offset;
-    uint32 argv_offsets_offset;
-    uint32 env_buf_offset;
-    uint32 env_offsets_offset;
+    struct fd_table *curfds;
+    struct fd_prestats *prestats;
+    struct argv_environ_values *argv_environ;
+    char *argv_buf;
+    char **argv_list;
+    char *env_buf;
+    char **env_list;
 } WASIContext;
 #endif
 
@@ -374,6 +370,9 @@ wasm_runtime_destroy_loading_module_list();
 #endif /* WASM_ENALBE_MULTI_MODULE */
 
 bool
+wasm_runtime_is_host_module(const char *module_name);
+
+bool
 wasm_runtime_is_built_in_module(const char *module_name);
 
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -460,6 +459,9 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                                const WASMType *func_type, const char *signature,
                                void *attachment,
                                uint32 *argv, uint32 argc, uint32 *ret);
+
+void
+wasm_runtime_read_v128(const uint8 *bytes, uint64 *ret1, uint64 *ret2);
 
 void
 wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module);

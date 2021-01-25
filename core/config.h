@@ -82,6 +82,11 @@
 #define WASM_ENABLE_LIBC_WASI 0
 #endif
 
+/* Default disable libc emcc */
+#ifndef WASM_ENABLE_LIBC_EMCC
+#define WASM_ENABLE_LIBC_EMCC 0
+#endif
+
 #ifndef WASM_ENABLE_LIB_PTHREAD
 #define WASM_ENABLE_LIB_PTHREAD 0
 #endif
@@ -160,6 +165,11 @@
 #define WASM_DISABLE_HW_BOUND_CHECK 0
 #endif
 
+/* Disable SIMD unless it is manualy enabled somewhere */
+#ifndef WASM_ENABLE_SIMD
+#define WASM_ENABLE_SIMD 0
+#endif
+
 /* Memory profiling */
 #ifndef WASM_ENABLE_MEMORY_PROFILING
 #define WASM_ENABLE_MEMORY_PROFILING 0
@@ -168,6 +178,16 @@
 /* Memory tracing */
 #ifndef WASM_ENABLE_MEMORY_TRACING
 #define WASM_ENABLE_MEMORY_TRACING 0
+#endif
+
+/* Performance profiling */
+#ifndef WASM_ENABLE_PERF_PROFILING
+#define WASM_ENABLE_PERF_PROFILING 0
+#endif
+
+/* Dump call stack */
+#ifndef WASM_ENABLE_DUMP_CALL_STACK
+#define WASM_ENABLE_DUMP_CALL_STACK 0
 #endif
 
 /* Heap verification */
@@ -215,7 +235,8 @@
 #endif
 
 /* Default/min/max stack size of each app thread */
-#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS)
+#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
+    && !defined(BH_PLATFORM_ESP_IDF) && !defined(BH_PLATFORM_OPENRTOS)
 #define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #else
@@ -246,6 +267,10 @@
 
 #ifndef WASM_ENABLE_TAIL_CALL
 #define WASM_ENABLE_TAIL_CALL 0
+#endif
+
+#ifndef WASM_ENABLE_CUSTOM_NAME_SECTION
+#define WASM_ENABLE_CUSTOM_NAME_SECTION 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

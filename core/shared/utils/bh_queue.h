@@ -56,7 +56,7 @@ bool bh_post_msg(bh_queue *queue, unsigned short tag, void *body,
                  unsigned int len);
 bool bh_post_msg2(bh_queue *queue, bh_message_t msg);
 
-bh_message_t bh_get_msg(bh_queue *queue, int timeout);
+bh_message_t bh_get_msg(bh_queue *queue, uint64 timeout_us);
 
 unsigned
 bh_queue_get_message_count(bh_queue *queue);

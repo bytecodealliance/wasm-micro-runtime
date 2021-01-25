@@ -48,7 +48,13 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0,  load the function name from custom name section, default to disable if not set
 
+#### **Enable dump call stack feature**
+- **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
+
 > Note: if it is enabled, the call stack will be dumped when exception occurs.
+
+> - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
+> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
 
 #### **Enable Multi-Module feature**
 
@@ -79,12 +85,22 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump the memory consumption info.
 Currently we only profile the memory consumption of module, module_instance and exec_env, the memory consumed by other components such as `wasi-ctx`, `multi-module` and `thread-manager` are not included.
 
+#### **Enable performance profiling (Experiment)**
+- **WAMR_BUILD_PERF_PROFILING**=1/0, default to disable if not set
+> Note: if it is enabled, developer can use API `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump the performance consumption info. Currently we only profile the performance consumption of each WASM function.
+
+> The function name searching sequence is the same with dump call stack feature.
+
 #### **Set maximum app thread stack size**
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
 > Note: the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
 
 #### **Enable tail call feature**
 - **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
+
+#### **Enable 128-bit SIMD feature**
+- **WAMR_BUILD_SIMD**=1/0, default to disable if not set
+> Note: only supported in AOT mode, and the *--enable-simd* flag should be added for wamrc when generating aot file.
 
 **Combination of configurations:**
 
@@ -300,6 +316,60 @@ AliOS-Things
    aos make
    ```
    download the binary to developerkit board, check the output from serial port
+
+RT-Thread
+-------------------------
+
+1. Get rt-thread [system codes](https://github.com/RT-Thread/rt-thread).
+
+2. Enable WAMR software package with menuconfig tool which provided by RT-Thread.
+
+   * Environment in Linux, run command below:
+
+   ```bash
+   scons --menuconfig
+   ```
+
+   * Environment in Windows ConEmu, run command below:
+
+   ```bash
+   menuconfig
+   ```
+
+   Select and enable `WAMR` in:
+
+   * RT-Thread online packages
+     * tools packages
+       * WebAssembly Micro Runtime (WAMR)
+
+3. Configure `WAMR` with menuconfig tool.
+
+   you can choice features of iwasm below:
+
+   * Enable testing parameters of iwasm
+   * Enable interpreter Mode / Fast interpreter Mode
+   * Use built-libc
+   * Enable AOT
+
+4. Exit menuconfig tool and save configure, update and download package.
+
+   ```bash
+   pkgs --update
+   ```
+
+5. build project and download the binary to boards.
+
+   ```bash
+   scons
+   ```
+
+   or build project with 8-thread by using command below:
+
+   ```bash
+   scons -j8
+   ```
+
+   after project building, you can got an binary file named `rtthread.bin`, then you can download this file to the MCU board.
 
 Android
 -------------------------

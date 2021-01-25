@@ -21,8 +21,8 @@ all:
     --target=wasm32 -O3 -z stack-size=2048 -Wl,--initial-memory=65536 \
     --sysroot=$(SDK_DIR)/libc-builtin-sysroot       \
     -L$(APP_FRAMEWORK_DIR)/lib -lapp_framework      \
-    -Wl,--allow-undefined-file=$(SDK_DIR)/libc-builtin-sysroot/share/defined-symbols.txt	\
-    -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
+    -Wl,--allow-undefined-file=$(SDK_DIR)/libc-builtin-sysroot/share/defined-symbols.txt \
+    -Wl,--strip-all,--no-entry -nostdlib \
     -Wl,--export=on_init -Wl,--export=on_timer_callback \
     -Wl,--export=on_widget_event \
     -Wl,--export=__heap_base,--export=__data_end \

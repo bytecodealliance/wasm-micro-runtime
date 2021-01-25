@@ -27,7 +27,7 @@ all:
 	@$(CC) $(CFLAGS) $(SRCS) \
     --target=wasm32 -O3 -z stack-size=2048 -Wl,--initial-memory=65536 \
     -Wl,--allow-undefined \
-    -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
+    -Wl,--strip-all,--no-entry -nostdlib \
     -Wl,--export=on_init -Wl,--export=on_timer_callback \
     -Wl,--export=on_widget_event \
     -Wl,--export=__heap_base,--export=__data_end \

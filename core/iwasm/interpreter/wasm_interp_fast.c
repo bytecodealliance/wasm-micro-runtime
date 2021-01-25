@@ -380,48 +380,11 @@ popcount64(uint64 u)
     return ret;
 }
 
-static uint64
-read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
-{
-    uint64 result = 0;
-    uint32 shift = 0;
-    uint32 bcnt = 0;
-    uint64 byte;
-
-    while (true) {
-        byte = buf[*p_offset];
-        *p_offset += 1;
-        result |= ((byte & 0x7f) << shift);
-        shift += 7;
-        if ((byte & 0x80) == 0) {
-            break;
-        }
-        bcnt += 1;
-    }
-    if (sign && (shift < maxbits) && (byte & 0x40)) {
-        /* Sign extend */
-        result |= - ((uint64)1 << shift);
-    }
-    return result;
-}
-
-#define read_leb_uint32(p, p_end, res) do {     \
-  uint8 _val = *p;                              \
-  if (!(_val & 0x80)) {                         \
-    res = _val;                                 \
-    p++;                                        \
-    break;                                      \
-  }                                             \
-  uint32 _off = 0;                              \
-  res = (uint32)read_leb(p, &_off, 32, false);  \
-  p += _off;                                    \
-} while (0)
-
 #define read_uint32(p) (p += sizeof(uint32), *(uint32 *)(p - sizeof(uint32)))
 
 #define GET_LOCAL_INDEX_TYPE_AND_OFFSET() do {                      \
     uint32 param_count = cur_func->param_count;                     \
-    read_leb_uint32(frame_ip, frame_ip_end, local_idx);             \
+    local_idx = read_uint32(frame_ip);                              \
     bh_assert(local_idx < param_count + cur_func->local_count);     \
     local_offset = cur_func->local_offsets[local_idx];              \
     if (local_idx < param_count)                                    \
@@ -946,8 +909,12 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 {
     WASMInterpFrame *frame = wasm_exec_env_alloc_wasm_frame(exec_env, size);
 
-    if (frame)
+    if (frame) {
         frame->prev_frame = prev_frame;
+#if WASM_ENABLE_PERF_PROFILING != 0
+        frame->time_started = os_time_get_boot_microsecond();
+#endif
+    }
     else {
         wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
                            "stack overflow");
@@ -959,6 +926,13 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 static inline void
 FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 {
+#if WASM_ENABLE_PERF_PROFILING != 0
+    if (frame->function) {
+        frame->function->total_exec_time += os_time_get_boot_microsecond()
+                                            - frame->time_started;
+        frame->function->total_exec_cnt++;
+    }
+#endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
 }
 
@@ -987,8 +961,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     if (!func_import->func_ptr_linked) {
         char buf[128];
-        snprintf(buf,
-                 sizeof(buf), "fail to call unlinked import function (%s, %s)",
+        snprintf(buf, sizeof(buf),
+                 "failed to call unlinked import function (%s, %s)",
                  func_import->module_name, func_import->field_name);
         wasm_set_exception((WASMModuleInstance*)module_inst, buf);
         return;
@@ -1043,7 +1017,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
     if (!sub_func_inst) {
         snprintf(buf, sizeof(buf),
-                 "fail to call unlinked import function (%s, %s)",
+                 "failed to call unlinked import function (%s, %s)",
                  func_import->module_name, func_import->field_name);
         wasm_set_exception(module_inst, buf);
         return;
@@ -1123,9 +1097,6 @@ wasm_interp_dump_op_count()
 #else
 #define HANDLE_OP(opcode) HANDLE_##opcode
 #endif
-#if WASM_ENABLE_FAST_INTERP == 0
-#define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
-#else
 #if WASM_ENABLE_ABS_LABEL_ADDR != 0
 #define FETCH_OPCODE_AND_DISPATCH() do {                    \
     const void *p_label_addr = *(void**)frame_ip;           \
@@ -1140,7 +1111,6 @@ wasm_interp_dump_op_count()
     goto *p_label_addr;                                     \
   } while (0)
 #endif
-#endif
 #define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
 
 #else   /* else of WASM_ENABLE_LABELS_AS_VALUES */
@@ -1150,9 +1120,7 @@ wasm_interp_dump_op_count()
 
 #endif  /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
-#if WASM_ENABLE_FAST_INTERP != 0
 static void **global_handle_table;
-#endif
 
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,
@@ -1187,12 +1155,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   #define HANDLE_OPCODE(op) &&HANDLE_##op
   DEFINE_GOTO_TABLE (const void*, handle_table);
   #undef HANDLE_OPCODE
-#if WASM_ENABLE_FAST_INTERP != 0
   if (exec_env == NULL) {
       global_handle_table = (void **)handle_table;
       return;
   }
-#endif
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
@@ -1249,20 +1215,36 @@ recover_br_info:
         HANDLE_OP_END ();
 
       HANDLE_OP (WASM_OP_BR_TABLE):
-#if WASM_ENABLE_THREAD_MGR != 0
-        CHECK_SUSPEND_FLAGS();
-#endif
-        count = read_uint32(frame_ip);
-        didx = GET_OPERAND(uint32, 0);
-        frame_ip += 2;
+        {
+          uint32 arity, br_item_size;
 
-        if (!(didx >= 0 && (uint32)didx < count))
+#if WASM_ENABLE_THREAD_MGR != 0
+          CHECK_SUSPEND_FLAGS();
+#endif
+          count = read_uint32(frame_ip);
+          didx = GET_OPERAND(uint32, 0);
+          frame_ip += 2;
+
+          if (!(didx >= 0 && (uint32)didx < count))
             didx = count;
 
-        while (didx--)
-          SKIP_BR_INFO();
+          /* all br items must have the same arity and item size,
+             so we only calculate the first item size */
+          arity = *(uint32*)frame_ip;
+          br_item_size = sizeof(uint32); /* arity */
+          if (arity) {
+            /* total cell num */
+            br_item_size += sizeof(uint32);
+            /* cells, src offsets and dst offsets */
+            br_item_size += (sizeof(uint8) + sizeof(int16) + sizeof(uint16))
+                            * arity;
+          }
+          /* target address */
+          br_item_size += sizeof(uint8*);
 
-        goto recover_br_info;
+          frame_ip += br_item_size * didx;
+          goto recover_br_info;
+        }
 
       HANDLE_OP (WASM_OP_RETURN):
         {
@@ -1270,11 +1252,7 @@ recover_br_info:
           WASMType *func_type;
           uint32 off, ret_offset;
           uint8 *ret_types;
-          if (cur_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-              && !cur_func->import_func_inst
-#endif
-          )
+          if (cur_func->is_import_func)
             func_type = cur_func->u.func_import->func_type;
           else
             func_type = cur_func->u.func->func_type;
@@ -1354,11 +1332,7 @@ recover_br_info:
           /* always call module own functions */
           cur_func = module->functions + fidx;
 
-          if (cur_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-              && !cur_func->import_func_inst
-#endif
-          )
+          if (cur_func->is_import_func)
             cur_func_type = cur_func->u.func_import->func_type;
           else
             cur_func_type = cur_func->u.func->func_type;
@@ -1804,7 +1778,7 @@ recover_br_info:
         delta = (uint32)frame_lp[addr1];
 
         if (!wasm_enlarge_memory(module, delta)) {
-          /* fail to memory.grow, return -1 */
+          /* failed to memory.grow, return -1 */
           frame_lp[addr_ret] = -1;
         }
         else {
@@ -3253,11 +3227,7 @@ recover_br_info:
          * values' offset so we must skip remain return values' offsets.
          */
         WASMType *func_type;
-        if (cur_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !cur_func->import_func_inst
-#endif
-        )
+        if (cur_func->is_import_func)
           func_type = cur_func->u.func_import->func_type;
         else
           func_type = cur_func->u.func->func_type;
@@ -3363,7 +3333,6 @@ recover_br_info:
 #endif
 }
 
-#if WASM_ENABLE_FAST_INTERP != 0
 void **
 wasm_interp_get_handle_table()
 {
@@ -3372,7 +3341,6 @@ wasm_interp_get_handle_table()
     wasm_interp_call_func_bytecode(&module, NULL, NULL, NULL);
     return global_handle_table;
 }
-#endif
 
 void
 wasm_interp_call_wasm(WASMModuleInstance *module_inst,
@@ -3445,7 +3413,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
             argv[i] = *(frame->lp + i);
     }
     else {
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
         wasm_interp_dump_call_stack(exec_env);
 #endif
     }

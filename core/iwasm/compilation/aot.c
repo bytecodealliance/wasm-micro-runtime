@@ -15,6 +15,15 @@ aot_get_last_error()
 }
 
 void
+aot_set_last_error_v(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(aot_error, sizeof(aot_error), format, args);
+    va_end(args);
+}
+
+void
 aot_set_last_error(const char *error)
 {
   if (error)
@@ -503,6 +512,7 @@ aot_create_comp_data(WASMModule *module)
   comp_data->start_func_index = module->start_function;
   comp_data->malloc_func_index = module->malloc_function;
   comp_data->free_func_index = module->free_function;
+  comp_data->retain_func_index = module->retain_function;
 
   comp_data->wasm_module = module;
 

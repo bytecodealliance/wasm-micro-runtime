@@ -36,6 +36,7 @@ iwasm VM core
 - [Multi-value](https://github.com/WebAssembly/multi-value)
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
 - [Tail-call](https://github.com/WebAssembly/tail-call)
+- [128-bit SIMD](https://github.com/WebAssembly/simd)
 
 ### Supported architectures and platforms
 
@@ -50,7 +51,7 @@ The iwasm supports the following architectures:
 Following platforms are supported. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
 - [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android), [Windows](./doc/build_wamr.md#windows)
-- [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx)
+- [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx), [RT-Thread](./doc/build_wamr.md#RT-Thread)
 
 ### Build iwasm VM core (mini product)
 
@@ -114,6 +115,7 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 - **[spawn-thread](./samples/spawn-thread)**: Demonstrating how to execute wasm functions of the same wasm application concurrently, in threads created by host embedder or runtime, but not the wasm application itself.
 - **[multi-module](./samples/multi-module)**: Demonstrating the [multiple modules as dependencies](./doc/multi_module.md) feature which implements the [load-time dynamic linking](https://webassembly.org/docs/dynamic-linking/).
 - **[wasm-c-api](./samples/wasm-c-api/README.md)**: Demonstrating how to run some samples from [wasm-c-api proposal](https://github.com/WebAssembly/wasm-c-api) and showing the supported API's.
+- **[workload](./samples/workload/README.md)**: Demonstrating how to build and run some complex workloads, e.g. tensorflow-lite, XNNPACK, wasm-av1, meshoptimizer and bwa.
 
 
 License

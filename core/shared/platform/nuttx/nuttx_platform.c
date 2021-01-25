@@ -57,14 +57,3 @@ os_mprotect(void *addr, size_t size, int prot)
 void
 os_dcache_flush()
 {}
-
-uint64
-os_time_get_boot_microsecond()
-{
-    struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
-        return 0;
-    }
-
-    return ((uint64)ts.tv_sec) * 1000 * 1000 + ((uint64)ts.tv_nsec) / 1000;
-}
