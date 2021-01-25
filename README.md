@@ -47,6 +47,7 @@ The iwasm supports the following architectures:
 - AArch64 (Cortex-A57 and Cortex-A53 are tested)
 - MIPS
 - XTENSA
+- RISCV64, RISCV32 (interpreter only)
 
 Following platforms are supported. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
