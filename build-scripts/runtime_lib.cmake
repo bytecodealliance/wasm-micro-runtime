@@ -31,9 +31,14 @@ endif ()
 # Set default options
 
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set (WAMR_BUILD_TARGET "AARCH64")
+    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+        set (WAMR_BUILD_TARGET "RISCV64")
+    elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
         # Build as X86_64 by default in 64-bit platform
         set (WAMR_BUILD_TARGET "X86_64")
     else ()
@@ -45,6 +50,11 @@ endif ()
 ################ optional according to settings ################
 if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
     include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
+endif ()
+
+if (WAMR_BUILD_TARGET MATCHES "RISCV.*" AND WAMR_BUILD_AOT EQUAL 1)
+    set (WAMR_BUILD_AOT 0)
+    message ("-- WAMR AOT disabled as it isn't supported by riscv currently")
 endif ()
 
 if (WAMR_BUILD_AOT EQUAL 1)

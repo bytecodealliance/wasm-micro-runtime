@@ -294,6 +294,7 @@ memory_instantiate(WASMModuleInstance *module_inst,
         }
     }
 #endif
+    LOG_VERBOSE("Memory instantiate success.");
     return memory;
 #if WASM_ENABLE_SHARED_MEMORY != 0
 fail5:

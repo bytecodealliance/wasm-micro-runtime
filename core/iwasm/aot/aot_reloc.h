@@ -44,8 +44,8 @@ typedef struct {
     REG_SYM(aot_call_indirect),           \
     REG_SYM(wasm_runtime_enlarge_memory), \
     REG_SYM(wasm_runtime_set_exception),  \
-    REG_SYM(aot_memset),                  \
-    REG_SYM(aot_memmove),                 \
+    {"memset", (void*)aot_memset},        \
+    {"memmove", (void*)aot_memmove},      \
     REG_BULK_MEMORY_SYM()                 \
     REG_ATOMIC_WAIT_SYM()                 \
     REG_AOT_TRACE_SYM()
@@ -56,8 +56,8 @@ typedef struct {
     REG_SYM(aot_call_indirect),           \
     REG_SYM(wasm_runtime_enlarge_memory), \
     REG_SYM(wasm_runtime_set_exception),  \
-    REG_SYM(aot_memset),                  \
-    REG_SYM(aot_memmove),                 \
+    {"memset", (void*)aot_memset},        \
+    {"memmove", (void*)aot_memmove},      \
     REG_SYM(fmin),                        \
     REG_SYM(fminf),                       \
     REG_SYM(fmax),                        \
