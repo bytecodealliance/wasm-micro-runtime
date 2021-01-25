@@ -15,7 +15,11 @@
     && !defined(BUILD_TARGET_THUMB) \
     && !defined(BUILD_TARGET_THUMB_VFP) \
     && !defined(BUILD_TARGET_MIPS) \
-    && !defined(BUILD_TARGET_XTENSA)
+    && !defined(BUILD_TARGET_XTENSA) \
+    && !defined(BUILD_TARGET_RISCV64_LP64D) \
+    && !defined(BUILD_TARGET_RISCV64_LP64) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32D) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32)
 #if defined(__x86_64__) || defined(__x86_64)
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
@@ -34,6 +38,10 @@
 #define BUILD_TARGET_MIPS
 #elif defined(__XTENSA__)
 #define BUILD_TARGET_XTENSA
+#elif defined(__riscv) && (__riscv_xlen == 64)
+#define BUILD_TARGET_RISCV64_LP64D
+#elif defined(__riscv) && (__riscv_xlen == 32)
+#define BUILD_TARGET_RISCV32_ILP32D
 #else
 #error "Build target isn't set"
 #endif
@@ -224,7 +232,7 @@
 
 /* Default min/max heap size of each app */
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
-#define APP_HEAP_SIZE_MIN (512)
+#define APP_HEAP_SIZE_MIN (256)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 
 /* Default wasm stack size of each app */

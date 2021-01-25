@@ -108,7 +108,7 @@ os_vprintf(const char *fmt, va_list ap)
 {
 #if 0
     struct out_context ctx = { 0 };
-    z_vprintk(char_out, &ctx, fmt, ap);
+    cbvprintf(char_out, &ctx, fmt, ap);
     return ctx.count;
 #else
     vprintk(fmt, ap);

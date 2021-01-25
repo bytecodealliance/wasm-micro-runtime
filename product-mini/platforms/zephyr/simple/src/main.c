@@ -9,10 +9,27 @@
 #include "bh_assert.h"
 #include "bh_log.h"
 #include "wasm_export.h"
+#if defined(BUILD_TARGET_RISCV64_LP64) || defined(BUILD_TARGET_RISCV32_ILP32)
+#include "test_wasm_riscv64.h"
+#else
 #include "test_wasm.h"
+#endif /* end of BUILD_TARGET_RISCV64_LP64 || BUILD_TARGET_RISCV32_ILP32 */
 
 #include <zephyr.h>
 #include <sys/printk.h>
+
+#if defined(BUILD_TARGET_RISCV64_LP64) || defined(BUILD_TARGET_RISCV32_ILP32)
+#if defined(BUILD_TARGET_RISCV64_LP64)
+#define CONFIG_GLOBAL_HEAP_BUF_SIZE 4360
+#define CONFIG_APP_STACK_SIZE 288
+#define CONFIG_MAIN_THREAD_STACK_SIZE 2400
+#else
+#define CONFIG_GLOBAL_HEAP_BUF_SIZE 5120
+#define CONFIG_APP_STACK_SIZE 512
+#define CONFIG_MAIN_THREAD_STACK_SIZE 4096
+#endif
+#define CONFIG_APP_HEAP_SIZE 256
+#else /* else of BUILD_TARGET_RISCV64_LP64 || BUILD_TARGET_RISCV32_ILP32 */
 
 #define CONFIG_GLOBAL_HEAP_BUF_SIZE 131072
 #define CONFIG_APP_STACK_SIZE 8192
@@ -23,6 +40,8 @@
 #else
 #define CONFIG_MAIN_THREAD_STACK_SIZE 4096
 #endif
+
+#endif /* end of BUILD_TARGET_RISCV64_LP64 || BUILD_TARGET_RISCV32_ILP32 */
 
 static int app_argc;
 static char **app_argv;
@@ -119,7 +138,6 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
     (void) arg1;
     (void) arg2;
     (void) arg3;
-
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 

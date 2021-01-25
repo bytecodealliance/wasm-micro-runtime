@@ -2704,7 +2704,10 @@ fail:
   } while (0)
 
 /* The invoke native implementation on ARM platform with VFP co-processor */
-#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP)
+#if defined(BUILD_TARGET_ARM_VFP) \
+    || defined(BUILD_TARGET_THUMB_VFP) \
+    || defined(BUILD_TARGET_RISCV32_ILP32D) \
+    || defined(BUILD_TARGET_RISCV32_ILP32)
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 n_stacks);
 
@@ -2714,14 +2717,20 @@ typedef int64 (*Int64FuncPtr)(GenericFunctionPointer, uint32*,uint32);
 typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint32*, uint32);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint32*, uint32);
 
-static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
-static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
-static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)(uintptr_t)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)(uintptr_t)invokeNative;
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)(uintptr_t)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)(uintptr_t)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
+#if !defined(BUILD_TARGET_RISCV32_ILP32D) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32)
 #define MAX_REG_INTS   4
 #define MAX_REG_FLOATS 16
+#else
+#define MAX_REG_INTS   8
+#define MAX_REG_FLOATS 8
+#endif
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
@@ -2731,12 +2740,19 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     /* argv buf layout: int args(fix cnt) + float args(fix cnt) + stack args */
-    uint32 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size;
-    uint32 *argv_src = argv, i, argc1, n_ints = 0, n_fps = 0, n_stacks = 0;
+    uint32 argv_buf[32], *argv1 = argv_buf, *ints, *stacks, size;
+    uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
     uint32 arg_i32, ptr_len;
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
+#if !defined(BUILD_TARGET_RISCV32_ILP32)
+    uint32 *fps;
+    int n_fps = 0;
+#else
+#define fps ints
+#define n_fps n_ints
+#endif
 
     n_ints++; /* exec env */
 
@@ -2751,18 +2767,29 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             case VALUE_TYPE_I64:
                 if (n_ints < MAX_REG_INTS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_ints & 1)
                         n_ints++;
+#endif
                     n_ints += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_RISCV32_ILP32D)
+                /* part in register, part in stack */
+                else if (n_ints == MAX_REG_INTS - 1) {
+                    n_ints++;
+                    n_stacks++;
+                }
+#endif
                 else {
-                    /* 64-bit data must be 8 bytes aligned in arm */
+                    /* 64-bit data in stack must be 8 bytes aligned
+                       in arm and riscv32 */
                     if (n_stacks & 1)
                         n_stacks++;
                     n_stacks += 2;
                 }
                 break;
+#if !defined(BUILD_TARGET_RISCV32_ILP32D)
             case VALUE_TYPE_F32:
                 if (n_fps < MAX_REG_FLOATS)
                     n_fps++;
@@ -2771,11 +2798,19 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             case VALUE_TYPE_F64:
                 if (n_fps < MAX_REG_FLOATS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_fps & 1)
                         n_fps++;
+#endif
                     n_fps += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32)
+                else if (n_fps == MAX_REG_FLOATS - 1) {
+                    n_fps++;
+                    n_stacks++;
+                }
+#endif
                 else {
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_stacks & 1)
@@ -2783,6 +2818,31 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     n_stacks += 2;
                 }
                 break;
+#else /* BUILD_TARGET_RISCV32_ILP32D */
+            case VALUE_TYPE_F32:
+            case VALUE_TYPE_F64:
+                if (n_fps < MAX_REG_FLOATS) {
+                    n_fps++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F32
+                         && n_ints < MAX_REG_INTS) {
+                    /* use int reg firstly if available */
+                    n_ints++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F64
+                         && n_ints < MAX_REG_INTS - 1) {
+                    /* use int regs firstly if available */
+                    if (n_ints & 1)
+                        n_ints++;
+                    ints += 2;
+                }
+                else {
+                    /* 64-bit data in stack must be 8 bytes aligned in riscv32 */
+                    if (n_stacks & 1)
+                        n_stacks++;
+                    n_stacks += 2;
+                }
+#endif /* BUILD_TARGET_RISCV32_ILP32D */
             default:
                 bh_assert(0);
                 break;
@@ -2796,7 +2856,14 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             n_stacks++;
     }
 
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
     argc1 = MAX_REG_INTS + MAX_REG_FLOATS + n_stacks;
+#elif defined(BUILD_TARGET_RISCV32_ILP32)
+    argc1 = MAX_REG_INTS + n_stacks;
+#else
+    argc1 = MAX_REG_INTS + MAX_REG_FLOATS * 2 + n_stacks;
+#endif
+
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
         size = sizeof(uint32) * (uint32)argc1;
         if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
@@ -2806,8 +2873,15 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     ints = argv1;
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
     fps = ints + MAX_REG_INTS;
     stacks = fps + MAX_REG_FLOATS;
+#elif defined(BUILD_TARGET_RISCV32_ILP32)
+    stacks = ints + MAX_REG_INTS;
+#else
+    fps = ints + MAX_REG_INTS;
+    stacks = fps + MAX_REG_FLOATS * 2;
+#endif
 
     n_ints = 0;
     n_fps = 0;
@@ -2854,45 +2928,121 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             }
             case VALUE_TYPE_I64:
+            {
                 if (n_ints < MAX_REG_INTS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_ints & 1)
                         n_ints++;
+#endif
                     *(uint64*)&ints[n_ints] = *(uint64*)argv_src;
                     n_ints += 2;
+                    argv_src += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_RISCV32_ILP32D)
+                else if (n_ints == MAX_REG_INTS - 1) {
+                    ints[n_ints++] = *argv_src++;
+                    stacks[n_stacks++] = *argv_src++;
+                }
+#endif
                 else {
-                    /* 64-bit data must be 8 bytes aligned in arm */
+                    /* 64-bit data in stack must be 8 bytes aligned
+                       in arm and riscv32 */
                     if (n_stacks & 1)
                         n_stacks++;
                     *(uint64*)&stacks[n_stacks] = *(uint64*)argv_src;
                     n_stacks += 2;
+                    argv_src += 2;
                 }
-                argv_src += 2;
                 break;
+            }
+#if !defined(BUILD_TARGET_RISCV32_ILP32D)
             case VALUE_TYPE_F32:
+            {
                 if (n_fps < MAX_REG_FLOATS)
                     *(float32*)&fps[n_fps++] = *(float32*)argv_src++;
                 else
                     *(float32*)&stacks[n_stacks++] = *(float32*)argv_src++;
                 break;
+            }
             case VALUE_TYPE_F64:
+            {
                 if (n_fps < MAX_REG_FLOATS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_fps & 1)
                         n_fps++;
+#endif
                     *(float64*)&fps[n_fps] = *(float64*)argv_src;
                     n_fps += 2;
+                    argv_src += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32)
+                else if (n_fps == MAX_REG_FLOATS - 1) {
+                    fps[n_fps++] = *argv_src++;
+                    stacks[n_stacks++] = *argv_src++;
+                }
+#endif
                 else {
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_stacks & 1)
                         n_stacks++;
                     *(float64*)&stacks[n_stacks] = *(float64*)argv_src;
                     n_stacks += 2;
+                    argv_src += 2;
                 }
-                argv_src += 2;
                 break;
+            }
+#else /* BUILD_TARGET_RISCV32_ILP32D */
+            case VALUE_TYPE_F32:
+            case VALUE_TYPE_F64:
+            {
+                if (n_fps < MAX_REG_FLOATS) {
+                    if (func_type->types[i] == VALUE_TYPE_F32) {
+                        *(float32*)&fps[n_fps * 2] = *(float32*)argv_src++;
+                        /* NaN boxing, the upper bits of a valid NaN-boxed
+                          value must be all 1s. */
+                        fps[n_fps * 2 + 1] = 0xFFFFFFFF;
+                    }
+                    else {
+                        *(float64*)&fps[n_fps * 2] = *(float64*)argv_src;
+                        argv_src += 2;
+                    }
+                    n_fps++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F32
+                         && n_ints < MAX_REG_INTS) {
+                    /* use int reg firstly if available */
+                    *(float32*)&ints[n_ints++] = *(float32*)argv_src++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F64
+                         && n_ints < MAX_REG_INTS - 1) {
+                    /* use int regs firstly if available */
+                    if (n_ints & 1)
+                        n_ints++;
+                    *(float64*)&ints[n_ints] = *(float64*)argv_src;
+                    n_ints += 2;
+                    argv_src += 2;
+                }
+                else {
+                    /* 64-bit data in stack must be 8 bytes aligned in riscv32 */
+                    if (n_stacks & 1)
+                        n_stacks++;
+                    if (func_type->types[i] == VALUE_TYPE_F32) {
+                        *(float32*)&stacks[n_stacks] = *(float32*)argv_src++;
+                        /* NaN boxing, the upper bits of a valid NaN-boxed
+                          value must be all 1s. */
+                        stacks[n_stacks + 1] = 0xFFFFFFFF;
+                    }
+                    else {
+                        *(float64*)&stacks[n_stacks] = *(float64*)argv_src;
+                        argv_src += 2;
+                    }
+                    n_stacks += 2;
+                }
+                break;
+            }
+#endif /* BUILD_TARGET_RISCV32_ILP32D */
             default:
                 bh_assert(0);
                 break;
@@ -2939,7 +3089,10 @@ fail:
         wasm_runtime_free(argv1);
     return ret;
 }
-#endif /* end of defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP) */
+#endif /* end of defined(BUILD_TARGET_ARM_VFP)
+          || defined(BUILD_TARGET_THUMB_VFP) \
+          || defined(BUILD_TARGET_RISCV32_ILP32D)
+          || defined(BUILD_TARGET_RISCV32_ILP32) */
 
 #if defined(BUILD_TARGET_X86_32) \
     || defined(BUILD_TARGET_ARM) \
@@ -3101,7 +3254,9 @@ fail:
 
 #if defined(BUILD_TARGET_X86_64) \
    || defined(BUILD_TARGET_AMD_64) \
-   || defined(BUILD_TARGET_AARCH64)
+   || defined(BUILD_TARGET_AARCH64) \
+   || defined(BUILD_TARGET_RISCV64_LP64D) \
+   || defined(BUILD_TARGET_RISCV64_LP64)
 
 #if WASM_ENABLE_SIMD != 0
 #ifdef v128
@@ -3138,11 +3293,15 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
 #define MAX_REG_INTS  4
 #else /* else of defined(_WIN32) || defined(_WIN32_) */
 #define MAX_REG_FLOATS  8
-#if defined(BUILD_TARGET_AARCH64)
+#if defined(BUILD_TARGET_AARCH64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D) \
+    || defined(BUILD_TARGET_RISCV64_LP64)
 #define MAX_REG_INTS  8
 #else
 #define MAX_REG_INTS  6
-#endif /* end of defined(BUILD_TARGET_AARCH64 */
+#endif /* end of defined(BUILD_TARGET_AARCH64) \
+          || defined(BUILD_TARGET_RISCV64_LP64D) \
+          || defined(BUILD_TARGET_RISCV64_LP64) */
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 bool
@@ -3158,13 +3317,17 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
+#ifndef BUILD_TARGET_RISCV64_LP64
 #if WASM_ENABLE_SIMD == 0
     uint64 *fps;
 #else
     v128 *fps;
 #endif
+#else /* else of BUILD_TARGET_RISCV64_LP64 */
+#define fps ints
+#endif /* end of BUILD_TARGET_RISCV64_LP64 */
 
-#if defined(_WIN32) || defined(_WIN32_)
+#if defined(_WIN32) || defined(_WIN32_) || defined(BUILD_TARGET_RISCV64_LP64)
     /* important difference in calling conventions */
 #define n_fps n_ints
 #else
@@ -3186,6 +3349,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+#ifndef BUILD_TARGET_RISCV64_LP64
 #if WASM_ENABLE_SIMD == 0
     fps = argv1;
     ints = fps + MAX_REG_FLOATS;
@@ -3193,6 +3357,9 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     fps = (v128 *)argv1;
     ints = (uint64 *)(fps + MAX_REG_FLOATS);
 #endif
+#else /* else of BUILD_TARGET_RISCV64_LP64 */
+    ints = argv1;
+#endif /* end of BUILD_TARGET_RISCV64_LP64 */
     stacks = ints + MAX_REG_INTS;
 
     ints[n_ints++] = (uint64)(uintptr_t)exec_env;
@@ -3326,7 +3493,9 @@ fail:
 
 #endif /* end of defined(BUILD_TARGET_X86_64) \
                  || defined(BUILD_TARGET_AMD_64) \
-                 || defined(BUILD_TARGET_AARCH64) */
+                 || defined(BUILD_TARGET_AARCH64) \
+                 || defined(BUILD_TARGET_RISCV64_LP64D) \
+                 || defined(BUILD_TARGET_RISCV64_LP64) */
 
 bool
 wasm_runtime_call_indirect(WASMExecEnv *exec_env,
