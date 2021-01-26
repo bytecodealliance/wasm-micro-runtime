@@ -1734,7 +1734,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     if (total_size >= UINT32_MAX
         || !(env_list = wasm_runtime_malloc((uint32)total_size))
         || env_buf_size >= UINT32_MAX
-        || !(env_buf = wasm_runtime_malloc((uint32)env_buf_size))) {
+        || (!(env_buf = wasm_runtime_malloc((uint32)env_buf_size))
+            && (env_buf_size != 0))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;

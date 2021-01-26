@@ -2148,8 +2148,9 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end, WASMModule *m
             read_leb_uint32(p, p_end, function_count);
             table_segment->function_count = function_count;
             total_size = sizeof(uint32) * (uint64)function_count;
-            if (!(table_segment->func_indexes = (uint32 *)
-                    loader_malloc(total_size, error_buf, error_buf_size))) {
+            if (!(table_segment->func_indexes = (uint32 *)loader_malloc(
+                    total_size, error_buf, error_buf_size))
+                && (total_size != 0)) {
                 return false;
             }
             for (j = 0; j < function_count; j++) {
@@ -7710,11 +7711,12 @@ fail_data_cnt_sec_require:
         goto re_scan;
 
     func->const_cell_num = loader_ctx->const_cell_num;
-    if (!(func->consts = func_const =
-                loader_malloc(func->const_cell_num * 4,
-                              error_buf, error_buf_size))) {
-        goto fail;
-    }
+    if (func->const_cell_num != 0)
+        if (!(func->consts = func_const =
+                    loader_malloc(func->const_cell_num * 4,
+                                error_buf, error_buf_size))) {
+            goto fail;
+        }
     func_const_end = func->consts + func->const_cell_num * 4;
     /* reverse the const buf */
     for (int i = loader_ctx->num_const - 1; i >= 0; i--) {

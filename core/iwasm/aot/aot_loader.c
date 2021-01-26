@@ -1498,7 +1498,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
     /* Allocate memory for relocation groups */
     size = sizeof(AOTRelocationGroup) * (uint64)group_count;
-    if (!(groups = loader_malloc(size, error_buf, error_buf_size))) {
+    if (!(groups = loader_malloc(size, error_buf, error_buf_size))
+        && (size != 0)) {
         goto fail;
     }
 
