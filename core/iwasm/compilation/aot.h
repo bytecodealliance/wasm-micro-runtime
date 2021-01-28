@@ -234,7 +234,7 @@ aot_set_last_error(const char *error);
 void
 aot_set_last_error_v(const char *format, ...);
 
-#if BH_DEBUG == 1
+#if BH_DEBUG != 0
 #define HANDLE_FAILURE(callee) do {                          \
     aot_set_last_error_v("call %s failed in %s:%d", (callee),\
                          __FUNCTION__, __LINE__);            \

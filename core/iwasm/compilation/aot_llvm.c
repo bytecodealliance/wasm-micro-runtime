@@ -262,6 +262,13 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build in bounds gep failed");
             return false;
         }
+        offset = I32_CONST(offsetof(AOTMemoryInstance, memory_data_size));
+        if (!(func_ctx->mem_info[0].mem_data_size_addr =
+                LLVMBuildInBoundsGEP(comp_ctx->builder, shared_mem_addr,
+                                     &offset, 1, "mem_data_size_offset"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
     }
     else
 #endif
@@ -279,6 +286,14 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (!(func_ctx->mem_info[0].mem_cur_page_count_addr =
                     LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
                                          &offset, 1, "mem_cur_page_offset"))) {
+            aot_set_last_error("llvm build in bounds gep failed");
+            return false;
+        }
+        offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data)
+                           + offsetof(AOTMemoryInstance, memory_data_size));
+        if (!(func_ctx->mem_info[0].mem_data_size_addr =
+                    LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->aot_inst,
+                                         &offset, 1, "mem_data_size_offset"))) {
             aot_set_last_error("llvm build in bounds gep failed");
             return false;
         }
@@ -300,6 +315,13 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
+    if (!(func_ctx->mem_info[0].mem_data_size_addr =
+                LLVMBuildBitCast(comp_ctx->builder,
+                                 func_ctx->mem_info[0].mem_data_size_addr,
+                                 INT32_PTR_TYPE, "mem_data_size_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        return false;
+    }
     if (mem_space_unchanged) {
         if (!(func_ctx->mem_info[0].mem_base_addr =
                     LLVMBuildLoad(comp_ctx->builder,
@@ -311,7 +333,14 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (!(func_ctx->mem_info[0].mem_cur_page_count_addr =
                     LLVMBuildLoad(comp_ctx->builder,
                                   func_ctx->mem_info[0].mem_cur_page_count_addr,
-                                  "mem_cur_page_count_addr"))) {
+                                  "mem_cur_page_count"))) {
+            aot_set_last_error("llvm build load failed");
+            return false;
+        }
+        if (!(func_ctx->mem_info[0].mem_data_size_addr =
+                    LLVMBuildLoad(comp_ctx->builder,
+                                  func_ctx->mem_info[0].mem_data_size_addr,
+                                  "mem_data_size"))) {
             aot_set_last_error("llvm build load failed");
             return false;
         }
@@ -1476,7 +1505,9 @@ aot_create_comp_context(AOTCompData *comp_data,
 
     /* Create function context for each function */
     comp_ctx->func_ctx_count = comp_data->func_count;
-    if (!(comp_ctx->func_ctxes = aot_create_func_contexts(comp_data, comp_ctx)))
+    if (comp_data->func_count > 0
+        && !(comp_ctx->func_ctxes =
+                aot_create_func_contexts(comp_data, comp_ctx)))
         goto fail;
 
     ret = comp_ctx;
@@ -1521,7 +1552,8 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
         LLVMContextDispose(comp_ctx->context);
 
     if (comp_ctx->func_ctxes)
-        aot_destroy_func_contexts(comp_ctx->func_ctxes, comp_ctx->func_ctx_count);
+        aot_destroy_func_contexts(comp_ctx->func_ctxes,
+                                  comp_ctx->func_ctx_count);
 
     wasm_runtime_free(comp_ctx);
 }

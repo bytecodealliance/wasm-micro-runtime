@@ -161,8 +161,14 @@ wasm_runtime_realloc_internal(void *ptr, unsigned int size)
 static inline void
 wasm_runtime_free_internal(void *ptr)
 {
+    if (!ptr) {
+        LOG_WARNING("warning: wasm_runtime_free with NULL pointer\n");
+        return;
+    }
+
     if (memory_mode == MEMORY_MODE_UNKNOWN) {
-        LOG_WARNING("wasm_runtime_free failed: memory hasn't been initialize.\n");
+        LOG_WARNING("warning: wasm_runtime_free failed: "
+                    "memory hasn't been initialize.\n");
     }
     else if (memory_mode == MEMORY_MODE_POOL) {
         mem_allocator_free(pool_allocator, ptr);
@@ -175,6 +181,12 @@ wasm_runtime_free_internal(void *ptr)
 void *
 wasm_runtime_malloc(unsigned int size)
 {
+    if (size == 0) {
+        LOG_WARNING("warning: wasm_runtime_malloc with size zero\n");
+        /* At lease alloc 1 byte to avoid malloc failed */
+        size = 1;
+    }
+
     return wasm_runtime_malloc_internal(size);
 }
 

@@ -1652,7 +1652,8 @@ static __wasi_errno_t path_get_nofollow(
 static void path_put(
     struct path_access *pa
 ) UNLOCKS(pa->fd_object->refcount) {
-  wasm_runtime_free(pa->path_start);
+  if (pa->path_start)
+    wasm_runtime_free(pa->path_start);
   if (fd_number(pa->fd_object) != pa->fd)
     close(pa->fd);
   fd_object_release(pa->fd_object);

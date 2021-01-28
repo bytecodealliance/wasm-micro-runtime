@@ -1712,9 +1712,11 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     total_size = sizeof(char *) * (uint64)argc;
     if (total_size >= UINT32_MAX
-        || !(argv_list = wasm_runtime_malloc((uint32)total_size))
+        || (total_size > 0 &&
+            !(argv_list = wasm_runtime_malloc((uint32)total_size)))
         || argv_buf_size >= UINT32_MAX
-        || !(argv_buf = wasm_runtime_malloc((uint32)argv_buf_size))) {
+        || (argv_buf_size > 0 &&
+            !(argv_buf = wasm_runtime_malloc((uint32)argv_buf_size)))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
@@ -1730,11 +1732,13 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     for (i = 0; i < env_count; i++)
         env_buf_size += strlen(env[i]) + 1;
 
-    total_size = sizeof(char *) * (uint64)argc;
+    total_size = sizeof(char *) * (uint64)env_count;
     if (total_size >= UINT32_MAX
-        || !(env_list = wasm_runtime_malloc((uint32)total_size))
+        || (total_size > 0
+            && !(env_list = wasm_runtime_malloc((uint32)total_size)))
         || env_buf_size >= UINT32_MAX
-        || !(env_buf = wasm_runtime_malloc((uint32)env_buf_size))) {
+        || (env_buf_size > 0
+            && !(env_buf = wasm_runtime_malloc((uint32)env_buf_size)))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
@@ -2842,6 +2846,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                         n_stacks++;
                     n_stacks += 2;
                 }
+                break;
 #endif /* BUILD_TARGET_RISCV32_ILP32D */
             default:
                 bh_assert(0);

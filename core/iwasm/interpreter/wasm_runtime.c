@@ -110,7 +110,8 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     wasm_runtime_free(memories[i]->heap_handle);
                     memories[i]->heap_handle = NULL;
                 }
-                wasm_runtime_free(memories[i]->memory_data);
+                if (memories[i]->memory_data)
+                    wasm_runtime_free(memories[i]->memory_data);
                 wasm_runtime_free(memories[i]);
             }
         }
@@ -248,8 +249,10 @@ memory_instantiate(WASMModuleInstance *module_inst,
         return NULL;
     }
 
-    if (!(memory->memory_data =
-        runtime_malloc(memory_data_size, error_buf, error_buf_size))) {
+    if (memory_data_size > 0
+        && !(memory->memory_data =
+                    runtime_malloc(memory_data_size,
+                                   error_buf, error_buf_size))) {
         goto fail1;
     }
 
@@ -307,7 +310,8 @@ fail3:
     if (heap_size > 0)
         wasm_runtime_free(memory->heap_handle);
 fail2:
-    wasm_runtime_free(memory->memory_data);
+    if (memory->memory_data)
+        wasm_runtime_free(memory->memory_data);
 fail1:
     wasm_runtime_free(memory);
     return NULL;
@@ -1293,9 +1297,8 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
         bh_assert(memory);
 
         memory_data = memory->memory_data;
-        bh_assert(memory_data);
-
         memory_size = memory->num_bytes_per_page * memory->cur_page_count;
+        bh_assert(memory_data || memory_size == 0);
 
         bh_assert(data_seg->base_offset.init_expr_type
                     == INIT_EXPR_TYPE_I32_CONST
@@ -1337,8 +1340,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
             goto fail;
         }
 
-        bh_memcpy_s(memory_data + base_offset, memory_size - base_offset,
-                    data_seg->data, length);
+        if (memory_data) {
+            bh_memcpy_s(memory_data + base_offset, memory_size - base_offset,
+                        data_seg->data, length);
+        }
     }
 
     /* Initialize the table data with table segment section */
@@ -1970,9 +1975,11 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         if (!(new_memory_data = wasm_runtime_malloc((uint32)total_size))) {
             return false;
         }
-        bh_memcpy_s(new_memory_data, (uint32)total_size,
-                    memory_data, total_size_old);
-        wasm_runtime_free(memory_data);
+        if (memory_data) {
+            bh_memcpy_s(new_memory_data, (uint32)total_size,
+                        memory_data, total_size_old);
+            wasm_runtime_free(memory_data);
+        }
     }
 
     memset(new_memory_data + total_size_old,

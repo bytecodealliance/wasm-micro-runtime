@@ -2148,7 +2148,8 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end, WASMModule *m
             read_leb_uint32(p, p_end, function_count);
             table_segment->function_count = function_count;
             total_size = sizeof(uint32) * (uint64)function_count;
-            if (!(table_segment->func_indexes = (uint32 *)
+            if (total_size > 0
+                && !(table_segment->func_indexes = (uint32 *)
                     loader_malloc(total_size, error_buf, error_buf_size))) {
                 return false;
             }
@@ -2444,7 +2445,7 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end,
                         previous_func_index = func_index;
                         read_leb_uint32(p, p_end, func_name_len);
                         CHECK_BUF(p, p_end, func_name_len);
-                        // Skip the import functions
+                        /* Skip the import functions */
                         if (func_index >= module->import_count) {
                             func_index -= module->import_count;
                             if (func_index >= module->function_count) {
@@ -5697,7 +5698,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint32 segment_index;
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
-    uint8 *func_const_end, *func_const;
+    uint8 *func_const_end, *func_const = NULL;
     int16 operand_offset;
     uint8 last_op = 0;
     bool disable_emit, preserve_local = false;
@@ -7710,7 +7711,8 @@ fail_data_cnt_sec_require:
         goto re_scan;
 
     func->const_cell_num = loader_ctx->const_cell_num;
-    if (!(func->consts = func_const =
+    if (func->const_cell_num > 0
+        && !(func->consts = func_const =
                 loader_malloc(func->const_cell_num * 4,
                               error_buf, error_buf_size))) {
         goto fail;

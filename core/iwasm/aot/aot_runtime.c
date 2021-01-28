@@ -176,7 +176,7 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
                 wasm_runtime_free(memory_inst->heap_handle.ptr);
             }
 
-            if (memory_inst->heap_data.ptr) {
+            if (memory_inst->memory_data.ptr) {
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                 wasm_runtime_free(memory_inst->memory_data.ptr);
 #else
@@ -202,7 +202,7 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     uint32 bytes_of_last_page, bytes_to_page_end;
     uint32 heap_offset = num_bytes_per_page *init_page_count;
     uint64 total_size;
-    uint8 *p, *global_addr;
+    uint8 *p = NULL, *global_addr;
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     uint8 *mapped_mem;
     uint64 map_size = 8 * (uint64)BH_GB;
@@ -321,7 +321,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
 #ifndef OS_ENABLE_HW_BOUND_CHECK
     /* Allocate memory */
-    if (!(p = runtime_malloc(total_size, error_buf, error_buf_size))) {
+    if (total_size > 0
+        && !(p = runtime_malloc(total_size, error_buf, error_buf_size))) {
         return NULL;
     }
 #else
@@ -420,7 +421,8 @@ fail2:
         wasm_runtime_free(memory_inst->heap_handle.ptr);
 fail1:
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-    wasm_runtime_free(memory_inst->memory_data.ptr);
+    if (memory_inst->memory_data.ptr)
+        wasm_runtime_free(memory_inst->memory_data.ptr);
 #else
     os_munmap(mapped_mem, map_size);
 #endif
@@ -504,7 +506,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         }
 
         /* Copy memory data */
-        bh_assert(memory_inst->memory_data.ptr);
+        bh_assert(memory_inst->memory_data.ptr
+                  || memory_inst->memory_data_size == 0);
 
         /* Check memory data */
         /* check offset since length might negative */
@@ -526,9 +529,11 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
             return false;
         }
 
-        bh_memcpy_s((uint8*)memory_inst->memory_data.ptr + base_offset,
-                    memory_inst->memory_data_size - base_offset,
-                    data_seg->bytes, length);
+        if (memory_inst->memory_data.ptr) {
+            bh_memcpy_s((uint8*)memory_inst->memory_data.ptr + base_offset,
+                        memory_inst->memory_data_size - base_offset,
+                        data_seg->bytes, length);
+        }
     }
 
     return true;
@@ -542,6 +547,9 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
     void **func_ptrs;
     uint64 total_size =
         ((uint64)module->import_func_count + module->func_count) * sizeof(void*);
+
+    if (module->import_func_count + module->func_count == 0)
+        return true;
 
     /* Allocate memory */
     if (!(module_inst->func_ptrs.ptr = runtime_malloc
@@ -562,7 +570,8 @@ init_func_ptrs(AOTModuleInstance *module_inst, AOTModule *module,
     }
 
     /* Set defined function pointers */
-    memcpy(func_ptrs, module->func_ptrs, module->func_count * sizeof(void*));
+    bh_memcpy_s(func_ptrs, sizeof(void*) * module->func_count,
+                module->func_ptrs, sizeof(void*) * module->func_count);
     return true;
 }
 
@@ -575,6 +584,9 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
     uint64 total_size =
         ((uint64)module->import_func_count + module->func_count) * sizeof(uint32);
 
+    if (module->import_func_count + module->func_count == 0)
+        return true;
+
     /* Allocate memory */
     if (!(module_inst->func_type_indexes.ptr =
                 runtime_malloc(total_size, error_buf, error_buf_size))) {
@@ -586,9 +598,8 @@ init_func_type_indexes(AOTModuleInstance *module_inst, AOTModule *module,
     for (i = 0; i < module->import_func_count; i++, func_type_index++)
         *func_type_index = module->import_funcs[i].func_type_index;
 
-    memcpy(func_type_index, module->func_type_indexes,
-           module->func_count * sizeof(uint32));
-
+    bh_memcpy_s(func_type_index, sizeof(uint32) * module->func_count,
+                module->func_type_indexes, sizeof(uint32) * module->func_count);
     return true;
 }
 
@@ -1688,9 +1699,11 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         if (!(memory_data = wasm_runtime_malloc((uint32)total_size))) {
             return false;
         }
-        bh_memcpy_s(memory_data, (uint32)total_size,
-                    memory_data_old, total_size_old);
-        wasm_runtime_free(memory_data_old);
+        if (memory_data_old) {
+            bh_memcpy_s(memory_data, (uint32)total_size,
+                        memory_data_old, total_size_old);
+            wasm_runtime_free(memory_data_old);
+        }
     }
 
     memset(memory_data + total_size_old,
