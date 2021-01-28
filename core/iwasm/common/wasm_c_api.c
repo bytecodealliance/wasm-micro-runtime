@@ -1113,7 +1113,6 @@ failed:
     return 0;
 }
 
-//TODO: do we need to check the length of argv ?
 static void
 native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
 {

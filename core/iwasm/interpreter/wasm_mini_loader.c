@@ -1392,7 +1392,7 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end,
                         previous_func_index = func_index;
                         read_leb_uint32(p, p_end, func_name_len);
                         CHECK_BUF(p, p_end, func_name_len);
-                        // Skip the import functions
+                        /* Skip the import functions */
                         if (func_index >= module->import_count) {
                             func_index -= module->import_count;
                             bh_assert(func_index < module->function_count);
