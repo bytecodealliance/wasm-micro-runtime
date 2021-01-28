@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index ffdb4da..536a5c8 100644
+index ffdb4da..a397427 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -127,3 +127,43 @@ install(FILES
@@ -24,7 +24,7 @@ index ffdb4da..536a5c8 100644
 +
 +target_link_options(codecbench
 +  PUBLIC
-+    LINKER:-allow-undefined,--demangle
++    LINKER:-allow-undefined,--demangle,--export=malloc,--export=free
 +)
 +
 +find_program(WASM_OPT

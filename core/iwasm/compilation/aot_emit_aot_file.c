@@ -1751,16 +1751,18 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     AOTObjectFunc *func;
     LLVMSymbolIteratorRef sym_itr;
     char *name, *prefix = AOT_FUNC_PREFIX;
-    uint32 func_index;
+    uint32 func_index, total_size;
 
     /* allocate memory for aot function */
     obj_data->func_count = comp_ctx->comp_data->func_count;
-    if (!(obj_data->funcs
-                = wasm_runtime_malloc((uint32)sizeof(AOTObjectFunc) * obj_data->func_count))) {
-        aot_set_last_error("allocate memory for functions failed.");
-        return false;
+    if (obj_data->func_count) {
+        total_size = (uint32)sizeof(AOTObjectFunc) * obj_data->func_count;
+        if (!(obj_data->funcs = wasm_runtime_malloc(total_size))) {
+            aot_set_last_error("allocate memory for functions failed.");
+            return false;
+        }
+        memset(obj_data->funcs, 0, total_size);
     }
-    memset(obj_data->funcs, 0, sizeof(AOTObjectFunc) * obj_data->func_count);
 
     if (!(sym_itr = LLVMObjectFileCopySymbolIterator(obj_data->binary))) {
         aot_set_last_error("llvm get symbol iterator failed.");

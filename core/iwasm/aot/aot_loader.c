@@ -1117,8 +1117,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     uint64 size, text_offset;
 
     size = sizeof(void*) * (uint64)module->func_count;
-    if (!(module->func_ptrs = loader_malloc
-                (size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_ptrs = loader_malloc
+                    (size, error_buf, error_buf_size))) {
         return false;
     }
 
@@ -1158,8 +1159,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     size = sizeof(uint32) * (uint64)module->func_count;
-    if (!(module->func_type_indexes = loader_malloc
-                (size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_type_indexes = loader_malloc
+                    (size, error_buf, error_buf_size))) {
         return false;
     }
 
@@ -1498,7 +1500,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
     /* Allocate memory for relocation groups */
     size = sizeof(AOTRelocationGroup) * (uint64)group_count;
-    if (!(groups = loader_malloc(size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(groups = loader_malloc(size, error_buf, error_buf_size))) {
         goto fail;
     }
 
@@ -2065,8 +2068,9 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Allocate memory for function pointers */
     size = (uint64)module->func_count * sizeof(void *);
-    if (!(module->func_ptrs =
-            loader_malloc(size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_ptrs =
+                loader_malloc(size, error_buf, error_buf_size))) {
         goto fail2;
     }
 
@@ -2085,8 +2089,9 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Allocation memory for function type indexes */
     size = (uint64)module->func_count * sizeof(uint32);
-    if (!(module->func_type_indexes =
-            loader_malloc(size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_type_indexes =
+                loader_malloc(size, error_buf, error_buf_size))) {
         goto fail3;
     }
     for (i = 0; i < comp_data->func_count; i++)
@@ -2135,7 +2140,8 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     return module;
 
 fail3:
-    wasm_runtime_free(module->func_ptrs);
+    if (module->func_ptrs)
+        wasm_runtime_free(module->func_ptrs);
 fail2:
     if (module->memory_count > 0)
         wasm_runtime_free(module->memories);

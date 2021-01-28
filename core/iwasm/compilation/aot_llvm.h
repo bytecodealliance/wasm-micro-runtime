@@ -103,6 +103,7 @@ typedef struct AOTCheckedAddr {
 
 typedef struct AOTMemInfo {
   LLVMValueRef mem_base_addr;
+  LLVMValueRef mem_data_size_addr;
   LLVMValueRef mem_cur_page_count_addr;
   LLVMValueRef mem_bound_check_1byte;
   LLVMValueRef mem_bound_check_2bytes;

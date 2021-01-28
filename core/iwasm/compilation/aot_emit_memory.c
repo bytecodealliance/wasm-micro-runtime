@@ -74,7 +74,7 @@ get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static LLVMValueRef
-get_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 LLVMValueRef
 aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -171,7 +171,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (init_page_count == 0) {
             LLVMValueRef mem_size;
 
-            if (!(mem_size = get_memory_size(comp_ctx, func_ctx))) {
+            if (!(mem_size = get_memory_curr_page_count(comp_ctx, func_ctx))) {
                 goto fail;
             }
             BUILD_ICMP(LLVMIntEQ, mem_size, I32_ZERO, cmp, "is_zero");
@@ -611,7 +611,7 @@ fail:
 }
 
 static LLVMValueRef
-get_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef mem_size;
 
@@ -636,7 +636,7 @@ fail:
 bool
 aot_compile_op_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef mem_size = get_memory_size(comp_ctx, func_ctx);
+    LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
 
     if (mem_size)
         PUSH_I32(mem_size);
@@ -648,7 +648,7 @@ fail:
 bool
 aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef mem_size = get_memory_size(comp_ctx, func_ctx);
+    LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
     LLVMValueRef delta, param_values[2], ret_value, func, value;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
 
@@ -801,9 +801,17 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    /* mem_size_offset = aot_inst + off */
-    if (!(mem_size = get_memory_size(comp_ctx, func_ctx))) {
-        goto fail;
+    if (func_ctx->mem_space_unchanged) {
+        mem_size = func_ctx->mem_info[0].mem_data_size_addr;
+    }
+    else {
+        if (!(mem_size =
+                LLVMBuildLoad(comp_ctx->builder,
+                              func_ctx->mem_info[0].mem_data_size_addr,
+                              "mem_size"))) {
+            aot_set_last_error("llvm build load failed.");
+            goto fail;
+        }
     }
 
     ADD_BASIC_BLOCK(check_succ, "check_succ");
