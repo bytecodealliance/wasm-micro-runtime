@@ -411,7 +411,7 @@ struct WASMModule {
     bh_list import_module_list_head;
     bh_list *import_module_list;
 #endif
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_ENGINE != 0 || WASM_ENABLE_DEBUG_INFO != 0 
     bh_list fast_opcode_list;
     uint8 *buf_code;
     uint8 *load_addr;

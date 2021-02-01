@@ -2937,7 +2937,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         if (section->section_type == SECTION_TYPE_CODE) {
             buf_code = section->section_body;
             buf_code_end = buf_code + section->section_body_size;
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_ENGINE != 0 || WASM_ENABLE_DEBUG_INFO != 0 
             module->buf_code = (uint8 *)buf_code;
             module->buf_code_size = section->section_body_size;
 #endif

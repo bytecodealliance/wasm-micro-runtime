@@ -21,6 +21,10 @@ typedef InitializerExpression AOTInitExpr;
 typedef WASMType AOTFuncType;
 typedef WASMExport AOTExport;
 
+#if WASM_ENABLE_DEBUG_INFO != 0
+typedef void * dwar_extractor_handle_t;
+#endif
+
 /**
  * Import memory
  */
@@ -227,6 +231,9 @@ typedef struct AOTCompData {
   uint32 aux_stack_size;
 
   WASMModule *wasm_module;
+#if WASM_ENABLE_DEBUG_INFO != 0
+  dwar_extractor_handle_t extractor;
+#endif
 } AOTCompData;
 
 typedef struct AOTNativeSymbol {

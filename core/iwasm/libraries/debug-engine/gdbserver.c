@@ -21,6 +21,7 @@
 #include "bh_log.h"
 #include "handler.h"
 #include "packets.h"
+#include "utils.h"
 
 typedef void (*PacketHandler)(WASMGDBServer *server, char *payload);
 struct packet_handler_elem {

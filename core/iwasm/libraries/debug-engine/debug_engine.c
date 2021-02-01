@@ -81,7 +81,7 @@ wasm_debug_control_thread_create(WASMDebugObject *debug_object)
 
     if (0
         != os_thread_create(&control_thread->tid, control_thread_routine,
-                            debug_object, APP_THREAD_STACK_SIZE_MIN)) {
+                            debug_object, APP_THREAD_STACK_SIZE_MAX)) {
         goto fail2;
     }
 
