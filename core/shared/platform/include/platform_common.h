@@ -19,8 +19,7 @@ extern "C" {
 #define BHT_TIMED_OUT (1)
 #define BHT_OK (0)
 
-#define BHT_NO_WAIT 0x00000000
-#define BHT_WAIT_FOREVER 0xFFFFFFFF
+#define BHT_WAIT_FOREVER ((uint64)-1LL)
 
 #define BH_KB (1024)
 #define BH_MB ((BH_KB)*1024)

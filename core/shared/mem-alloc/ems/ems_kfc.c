@@ -204,11 +204,12 @@ gc_migrate(gc_handle_t handle,
     return 0;
 }
 
-void
-gc_destroy_lock(gc_handle_t handle)
+bool
+gc_is_heap_corrupted(gc_handle_t handle)
 {
-    gc_heap_t *heap = (gc_heap_t *) handle;
-    os_mutex_destroy(&heap->lock);
+    gc_heap_t *heap = (gc_heap_t *)handle;
+
+    return heap->is_heap_corrupted ? true : false;
 }
 
 #if BH_ENABLE_GC_VERIFY != 0

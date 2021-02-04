@@ -138,7 +138,7 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex);
  *
  * @return 0 if success
  */
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds);
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
 
 /**
  * Signals the condition variable

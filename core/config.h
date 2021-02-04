@@ -15,7 +15,11 @@
     && !defined(BUILD_TARGET_THUMB) \
     && !defined(BUILD_TARGET_THUMB_VFP) \
     && !defined(BUILD_TARGET_MIPS) \
-    && !defined(BUILD_TARGET_XTENSA)
+    && !defined(BUILD_TARGET_XTENSA) \
+    && !defined(BUILD_TARGET_RISCV64_LP64D) \
+    && !defined(BUILD_TARGET_RISCV64_LP64) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32D) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32)
 #if defined(__x86_64__) || defined(__x86_64)
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
@@ -34,6 +38,10 @@
 #define BUILD_TARGET_MIPS
 #elif defined(__XTENSA__)
 #define BUILD_TARGET_XTENSA
+#elif defined(__riscv) && (__riscv_xlen == 64)
+#define BUILD_TARGET_RISCV64_LP64D
+#elif defined(__riscv) && (__riscv_xlen == 32)
+#define BUILD_TARGET_RISCV32_ILP32D
 #else
 #error "Build target isn't set"
 #endif
@@ -180,6 +188,16 @@
 #define WASM_ENABLE_MEMORY_TRACING 0
 #endif
 
+/* Performance profiling */
+#ifndef WASM_ENABLE_PERF_PROFILING
+#define WASM_ENABLE_PERF_PROFILING 0
+#endif
+
+/* Dump call stack */
+#ifndef WASM_ENABLE_DUMP_CALL_STACK
+#define WASM_ENABLE_DUMP_CALL_STACK 0
+#endif
+
 /* Heap verification */
 #ifndef BH_ENABLE_GC_VERIFY
 #define BH_ENABLE_GC_VERIFY 0
@@ -214,7 +232,7 @@
 
 /* Default min/max heap size of each app */
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
-#define APP_HEAP_SIZE_MIN (512)
+#define APP_HEAP_SIZE_MIN (256)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 
 /* Default wasm stack size of each app */
@@ -225,7 +243,8 @@
 #endif
 
 /* Default/min/max stack size of each app thread */
-#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS)
+#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
+    && !defined(BH_PLATFORM_ESP_IDF) && !defined(BH_PLATFORM_OPENRTOS)
 #define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #else
@@ -256,6 +275,10 @@
 
 #ifndef WASM_ENABLE_TAIL_CALL
 #define WASM_ENABLE_TAIL_CALL 0
+#endif
+
+#ifndef WASM_ENABLE_CUSTOM_NAME_SECTION
+#define WASM_ENABLE_CUSTOM_NAME_SECTION 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

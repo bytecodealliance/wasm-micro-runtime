@@ -155,11 +155,13 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
 {
     AOTBlock *block = func_ctx->block_stack.block_list_end;
     AOTBlock *block_prev;
-    uint8 *frame_ip;
+    uint8 *frame_ip = NULL;
     uint32 i;
     AOTFuncType *func_type;
 
     aot_checked_addr_list_destroy(func_ctx);
+
+    bh_assert(block);
 
     if (block->label_type == LABEL_TYPE_IF
         && block->llvm_else_block
@@ -381,7 +383,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Get block info */
     if (!(wasm_loader_find_block_addr((BlockAddr*)block_addr_cache,
                                       *p_frame_ip, frame_ip_end, (uint8)label_type,
-                                      &else_addr, &end_addr, NULL, 0))) {
+                                      &else_addr, &end_addr))) {
         aot_set_last_error("find block end addr failed.");
         return false;
     }

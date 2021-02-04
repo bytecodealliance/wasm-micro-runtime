@@ -86,9 +86,9 @@
 #endif
 
 #ifdef __APPLE__
-#define st_atimespec st_atim
-#define st_mtimespec st_mtim
-#define st_ctimespec st_ctim
+#define st_atim st_atimespec
+#define st_ctim st_ctimespec
+#define st_mtim st_mtimespec
 #endif
 
 #ifdef __APPLE__

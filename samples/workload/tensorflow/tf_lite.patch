@@ -1,5 +1,5 @@
 diff --git a/tensorflow/lite/tools/make/Makefile b/tensorflow/lite/tools/make/Makefile
-index c7ddff5844..17146868f7 100644
+index c7ddff58440..ed69c452b67 100644
 --- a/tensorflow/lite/tools/make/Makefile
 +++ b/tensorflow/lite/tools/make/Makefile
 @@ -48,11 +48,7 @@ INCLUDES += -I/usr/local/include
@@ -15,15 +15,12 @@ index c7ddff5844..17146868f7 100644
  -ldl
  
  # There are no rules for compiling objects for the host system (since we don't
-@@ -84,14 +80,24 @@ endif # ifeq ($(HOST_ARCH),$(TARGET_ARCH))
+@@ -84,14 +80,21 @@ endif # ifeq ($(HOST_ARCH),$(TARGET_ARCH))
  endif # ifeq ($(HOST_OS),$(TARGET))
  endif
  
-+BUILD_WITH_SIMD ?= false
-+ifeq ($(BUILD_WITH_SIMD), true)
 +CFLAGS+=-msimd128
 +CXXFLAGS+=-msimd128
-+endif
 +
 +LIBFLAGS += -s TOTAL_STACK=1048576 \
 +            -Wl,--export=__data_end -Wl,--export=__heap_base \
@@ -42,7 +39,7 @@ index c7ddff5844..17146868f7 100644
  
  # A small example program that shows how to link against the library.
  MINIMAL_SRCS := \
-@@ -277,12 +283,16 @@ LIB_PATH := $(LIBDIR)$(LIB_NAME)
+@@ -277,12 +280,16 @@ LIB_PATH := $(LIBDIR)$(LIB_NAME)
  BENCHMARK_LIB := $(LIBDIR)$(BENCHMARK_LIB_NAME)
  BENCHMARK_BINARY := $(BINDIR)$(BENCHMARK_BINARY_NAME)
  BENCHMARK_PERF_OPTIONS_BINARY := $(BINDIR)$(BENCHMARK_PERF_OPTIONS_BINARY_NAME)
@@ -64,7 +61,7 @@ index c7ddff5844..17146868f7 100644
  MINIMAL_OBJS := $(addprefix $(OBJDIR), \
  $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(MINIMAL_SRCS))))
 diff --git a/tensorflow/lite/tools/make/targets/linux_makefile.inc b/tensorflow/lite/tools/make/targets/linux_makefile.inc
-index 222cef9e5f..eea89a38f0 100644
+index 222cef9e5ff..eea89a38f01 100644
 --- a/tensorflow/lite/tools/make/targets/linux_makefile.inc
 +++ b/tensorflow/lite/tools/make/targets/linux_makefile.inc
 @@ -2,12 +2,10 @@

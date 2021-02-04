@@ -83,7 +83,7 @@ fail:
     return false;
 }
 
-// TODO: instructions for other CPUs
+/* TODO: instructions for other CPUs */
 /* shufflevector is not an option, since it requires *mask as a const */
 bool
 aot_compile_simd_swizzle(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)

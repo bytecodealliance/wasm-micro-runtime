@@ -1652,7 +1652,8 @@ static __wasi_errno_t path_get_nofollow(
 static void path_put(
     struct path_access *pa
 ) UNLOCKS(pa->fd_object->refcount) {
-  wasm_runtime_free(pa->path_start);
+  if (pa->path_start)
+    wasm_runtime_free(pa->path_start);
   if (fd_number(pa->fd_object) != pa->fd)
     close(pa->fd);
   fd_object_release(pa->fd_object);
@@ -1902,9 +1903,9 @@ __wasi_errno_t wasmtime_ssp_path_open(
     }
 
     if (S_ISDIR(sb.st_mode))
-      rights_base |= RIGHTS_DIRECTORY_BASE;
+      rights_base |= (__wasi_rights_t)RIGHTS_DIRECTORY_BASE;
     else if (S_ISREG(sb.st_mode))
-      rights_base |= RIGHTS_REGULAR_FILE_BASE;
+      rights_base |= (__wasi_rights_t)RIGHTS_REGULAR_FILE_BASE;
   }
 
   return fd_table_insert_fd(curfds, nfd, type, rights_base & max_base,
@@ -2822,7 +2823,7 @@ __wasi_errno_t wasmtime_ssp_args_get(
   char *argv_buf
 ) {
   for (size_t i = 0; i < argv_environ->argc; ++i) {
-    argv[i] = argv_buf + (argv_environ->argv[i] - argv_environ->argv_buf);
+    argv[i] = argv_buf + (argv_environ->argv_list[i] - argv_environ->argv_buf);
   }
   argv[argv_environ->argc] = NULL;
   bh_memcpy_s(argv_buf, (uint32)argv_environ->argv_buf_size,
@@ -2850,7 +2851,7 @@ __wasi_errno_t wasmtime_ssp_environ_get(
   char *environ_buf
 ) {
   for (size_t i = 0; i < argv_environ->environ_count; ++i) {
-    environ[i] = environ_buf + (argv_environ->environ[i] - argv_environ->environ_buf);
+    environ[i] = environ_buf + (argv_environ->environ_list[i] - argv_environ->environ_buf);
   }
   environ[argv_environ->environ_count] = NULL;
   bh_memcpy_s(environ_buf, (uint32)argv_environ->environ_buf_size,
@@ -2871,76 +2872,26 @@ __wasi_errno_t wasmtime_ssp_environ_sizes_get(
 }
 
 bool argv_environ_init(struct argv_environ_values *argv_environ,
-                       const size_t *argv_offsets, size_t argv_offsets_len,
-                       const char *argv_buf, size_t argv_buf_len,
-                       const size_t *environ_offsets, size_t environ_offsets_len,
-                       const char *environ_buf, size_t environ_buf_len)
+                       char *argv_buf, size_t argv_buf_size,
+                       char **argv_list, size_t argc,
+                       char *environ_buf, size_t environ_buf_size,
+                       char **environ_list, size_t environ_count)
 {
-    uint64 total_size;
-    size_t i;
-
     memset(argv_environ, 0, sizeof(struct argv_environ_values));
 
-    argv_environ->argc = argv_offsets_len;
-    argv_environ->argv_buf_size = argv_buf_len;
-
-    total_size = sizeof(char *) * (uint64)argv_offsets_len;
-    if (total_size >= UINT32_MAX
-        || !(argv_environ->argv = wasm_runtime_malloc((uint32)total_size)))
-        return false;
-
-
-    if (argv_buf_len >= UINT32_MAX
-        || !(argv_environ->argv_buf = wasm_runtime_malloc((uint32)argv_buf_len)))
-        goto fail1;
-
-    for (i = 0; i < argv_offsets_len; ++i) {
-        argv_environ->argv[i] = argv_environ->argv_buf + argv_offsets[i];
-    }
-    bh_memcpy_s(argv_environ->argv_buf, (uint32)argv_buf_len,
-                argv_buf, (uint32)argv_buf_len);
-
-    argv_environ->environ_count = environ_offsets_len;
-    argv_environ->environ_buf_size = environ_buf_len;
-
-    total_size = sizeof(char *) * (uint64)environ_offsets_len;
-    if (total_size >= UINT32_MAX
-        || !(argv_environ->environ = wasm_runtime_malloc((uint32)total_size)))
-        goto fail2;
-
-    if (environ_buf_len >= UINT32_MAX
-        || !(argv_environ->environ_buf = wasm_runtime_malloc((uint32)environ_buf_len)))
-        goto fail3;
-
-    for (i = 0; i < environ_offsets_len; ++i) {
-        argv_environ->environ[i] = argv_environ->environ_buf + environ_offsets[i];
-    }
-    bh_memcpy_s(argv_environ->environ_buf, (uint32)environ_buf_len,
-                environ_buf, (uint32)environ_buf_len);
-
+    argv_environ->argv_buf = argv_buf;
+    argv_environ->argv_buf_size = argv_buf_size;
+    argv_environ->argv_list = argv_list;
+    argv_environ->argc = argc;
+    argv_environ->environ_buf = environ_buf;
+    argv_environ->environ_buf_size = environ_buf_size;
+    argv_environ->environ_list = environ_list;
+    argv_environ->environ_count = environ_count;
     return true;
-
-fail3:
-    wasm_runtime_free(argv_environ->environ);
-fail2:
-    wasm_runtime_free(argv_environ->argv_buf);
-fail1:
-    wasm_runtime_free(argv_environ->argv);
-
-    memset(argv_environ, 0, sizeof(struct argv_environ_values));
-    return false;
 }
 
 void argv_environ_destroy(struct argv_environ_values *argv_environ)
 {
-    if (argv_environ->argv_buf)
-        wasm_runtime_free(argv_environ->argv_buf);
-    if (argv_environ->argv)
-        wasm_runtime_free(argv_environ->argv);
-    if (argv_environ->environ_buf)
-        wasm_runtime_free(argv_environ->environ_buf);
-    if (argv_environ->environ)
-        wasm_runtime_free(argv_environ->environ);
 }
 
 void fd_table_destroy(struct fd_table *ft)

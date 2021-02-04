@@ -5,6 +5,38 @@ cmake_minimum_required (VERSION 3.0)
 
 project(bwa_wasm)
 
+################  WASI-SDK ################
+find_path(WASI_SDK_HOME
+  NAMES wasi-sdk
+  PATHS /opt/
+  REQUIRED
+)
+
+if (NOT WASI_SDK_HOME)
+  message(FATAL_ERROR
+    "can not find wasi-sdk. "
+    "please download it from "
+    "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz "
+    "and install it under /opt/wasi-sdk"
+  )
+endif()
+
+#
+# check clang version
+execute_process(COMMAND
+  ${WASI_SDK_HOME}/wasi-sdk/bin/clang --version
+  OUTPUT_VARIABLE clang_full_version_string
+)
+string(REGEX REPLACE ".*clang version ([0-9]+\\.[0-9]+).*" "\\1"
+  CLANG_VERSION_STRING ${clang_full_version_string}
+)
+message("cur clang version is ${CLANG_VERSION_STRING}")
+if(CLANG_VERSION_STRING VERSION_LESS 11.0)
+  message(FATAL_ERROR
+    "please install latest wai-sdk to get a clang-11 at least"
+  )
+endif()
+
 ################  EMCC ################
 if(NOT DEFINED ENV{EMSDK})
   message(FATAL_ERROR
@@ -85,7 +117,10 @@ ExternalProject_Add(bwa
   UPDATE_COMMAND git clean -fd && git checkout -- *
                   && ${CMAKE_COMMAND} -E echo "Copying pre-installed CMakeLists.txt"
                   && ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.bwa_wasm.txt CMakeLists.txt
-  CONFIGURE_COMMAND  ${CMAKE_COMMAND} -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/../cmake/toolchain.cmake ${CMAKE_CURRENT_SOURCE_DIR}/bwa
+  CONFIGURE_COMMAND  ${CMAKE_COMMAND}
+                         -DWASI_SDK_PREFIX=${WASI_SDK_HOME}/wasi-sdk
+                         -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_HOME}/wasi-sdk/share/cmake/wasi-sdk.cmake
+                         ${CMAKE_CURRENT_SOURCE_DIR}/bwa
   BUILD_COMMAND  make bwa_wasm_opt
   INSTALL_COMMAND ${CMAKE_COMMAND} -E copy ./bwa.opt.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build/bwa.wasm
 )

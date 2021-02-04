@@ -894,15 +894,12 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
 
         module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
-        if (!(import_funcs[i].func_ptr_linked =
+        import_funcs[i].func_ptr_linked =
                     wasm_native_resolve_symbol(module_name, field_name,
                                                import_funcs[i].func_type,
                                                &import_funcs[i].signature,
                                                &import_funcs[i].attachment,
-                                               &import_funcs[i].call_conv_raw))) {
-            LOG_WARNING("warning: fail to link import function (%s, %s)\n",
-                        module_name, field_name);
-        }
+                                               &import_funcs[i].call_conv_raw);
 
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
@@ -989,7 +986,8 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS)
+#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS) \
+    && !defined(BH_PLATFORM_DARWIN)
         /* address must be in the first 2 Gigabytes of
            the process address space */
         bh_assert((uintptr_t)data_sections[i].data < INT32_MAX);
@@ -1119,8 +1117,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     uint64 size, text_offset;
 
     size = sizeof(void*) * (uint64)module->func_count;
-    if (!(module->func_ptrs = loader_malloc
-                (size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_ptrs = loader_malloc
+                    (size, error_buf, error_buf_size))) {
         return false;
     }
 
@@ -1160,8 +1159,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     size = sizeof(uint32) * (uint64)module->func_count;
-    if (!(module->func_type_indexes = loader_malloc
-                (size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_type_indexes = loader_malloc
+                    (size, error_buf, error_buf_size))) {
         return false;
     }
 
@@ -1500,7 +1500,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
     /* Allocate memory for relocation groups */
     size = sizeof(AOTRelocationGroup) * (uint64)group_count;
-    if (!(groups = loader_malloc(size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(groups = loader_malloc(size, error_buf, error_buf_size))) {
         goto fail;
     }
 
@@ -1586,11 +1587,11 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 #endif
             ) {
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
-                return false;
+                goto fail;
         }
         else {
             if (!do_data_relocation(module, group, error_buf, error_buf_size))
-                return false;
+                goto fail;
         }
     }
 
@@ -1663,6 +1664,10 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                              error_buf, error_buf_size))
                     return false;
                 break;
+            default:
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid aot section type");
+                return false;
         }
 
         section = section->next;
@@ -1677,6 +1682,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     /* Resolve malloc and free function */
     module->malloc_func_index = (uint32)-1;
     module->free_func_index = (uint32)-1;
+    module->retain_func_index = (uint32)-1;
 
     exports = module->exports;
     for (i = 0; i < module->export_count; i++) {
@@ -1690,21 +1696,73 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     && func_type->result_count == 1
                     && func_type->types[0] == VALUE_TYPE_I32
                     && func_type->types[1] == VALUE_TYPE_I32) {
+                    bh_assert(module->malloc_func_index == (uint32)-1);
                     module->malloc_func_index = func_index;
-                    LOG_VERBOSE("Found malloc function, index: %u",
-                                exports[i].index);
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
                 }
             }
-            else if (!strcmp(exports[i].name, "free")) {
+            else if (!strcmp(exports[i].name, "__new")) {
+                func_index = exports[i].index - module->import_func_count;
+                func_type_index = module->func_type_indexes[func_index];
+                func_type = module->func_types[func_type_index];
+                if (func_type->param_count == 2
+                    && func_type->result_count == 1
+                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[1] == VALUE_TYPE_I32
+                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    uint32 j;
+                    WASMExport *export_tmp;
+
+                    bh_assert(module->malloc_func_index == (uint32)-1);
+                    module->malloc_func_index = func_index;
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
+
+                    /* resolve retain function.
+                        If not find, reset malloc function index */
+                    export_tmp = module->exports;
+                    for (j = 0; j < module->export_count; j++, export_tmp++) {
+                        if ((export_tmp->kind == EXPORT_KIND_FUNC)
+                            && (!strcmp(export_tmp->name, "__retain"))) {
+                            func_index = export_tmp->index
+                                            - module->import_func_count;
+                            func_type_index =
+                                        module->func_type_indexes[func_index];
+                            func_type = module->func_types[func_type_index];
+                            if (func_type->param_count == 1
+                                && func_type->result_count == 1
+                                && func_type->types[0] == VALUE_TYPE_I32
+                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                bh_assert(
+                                    module->retain_func_index == (uint32)-1);
+                                module->retain_func_index = export_tmp->index;
+                                LOG_VERBOSE(
+                                    "Found retain function, name: %s, index: %u",
+                                    export_tmp->name, export_tmp->index);
+                                break;
+                            }
+                        }
+                    }
+                    if (j == module->export_count) {
+                        module->malloc_func_index = (uint32)-1;
+                        LOG_VERBOSE("Can't find retain function,"
+                                    "reset malloc function index to -1");
+                    }
+                }
+            }
+            else if ((!strcmp(exports[i].name, "free"))
+                     || (!strcmp(exports[i].name, "__release"))) {
                 func_index = exports[i].index - module->import_func_count;
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = module->func_types[func_type_index];
                 if (func_type->param_count == 1
                     && func_type->result_count == 0
                     && func_type->types[0] == VALUE_TYPE_I32) {
+                    bh_assert(module->free_func_index == (uint32)-1);
                     module->free_func_index = func_index;
-                    LOG_VERBOSE("Found free function, index: %u",
-                                exports[i].index);
+                    LOG_VERBOSE("Found free function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
                 }
             }
         }
@@ -1833,7 +1891,8 @@ create_sections(const uint8 *buf, uint32 size,
                         goto fail;
                     }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS)
+#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS) \
+    && !defined(BH_PLATFORM_DARWIN)
                     /* address must be in the first 2 Gigabytes of
                        the process address space */
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
@@ -2009,8 +2068,9 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Allocate memory for function pointers */
     size = (uint64)module->func_count * sizeof(void *);
-    if (!(module->func_ptrs =
-            loader_malloc(size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_ptrs =
+                loader_malloc(size, error_buf, error_buf_size))) {
         goto fail2;
     }
 
@@ -2029,8 +2089,9 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Allocation memory for function type indexes */
     size = (uint64)module->func_count * sizeof(uint32);
-    if (!(module->func_type_indexes =
-            loader_malloc(size, error_buf, error_buf_size))) {
+    if (size > 0
+        && !(module->func_type_indexes =
+                loader_malloc(size, error_buf, error_buf_size))) {
         goto fail3;
     }
     for (i = 0; i < comp_data->func_count; i++)
@@ -2053,6 +2114,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     module->malloc_func_index = comp_data->malloc_func_index;
     module->free_func_index = comp_data->free_func_index;
+    module->retain_func_index = comp_data->retain_func_index;
 
     module->aux_data_end_global_index = comp_data->aux_data_end_global_index;
     module->aux_data_end = comp_data->aux_data_end;
@@ -2078,7 +2140,8 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     return module;
 
 fail3:
-    wasm_runtime_free(module->func_ptrs);
+    if (module->func_ptrs)
+        wasm_runtime_free(module->func_ptrs);
 fail2:
     if (module->memory_count > 0)
         wasm_runtime_free(module->memories);
@@ -2117,6 +2180,9 @@ aot_convert_wasm_module(WASMModule *wasm_module,
 #endif
 #if WASM_ENABLE_SIMD != 0
     option.enable_simd = true;
+#endif
+#if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
+    option.enable_aux_stack_frame = true;
 #endif
     comp_ctx = aot_create_comp_context(comp_data, &option);
     if (!comp_ctx) {

@@ -1036,8 +1036,8 @@ build_atomic_rmw:
       case WASM_OP_SIMD_PREFIX:
       {
         if (!comp_ctx->enable_simd) {
-            aot_set_last_error(
-              "current building does not support SIMD instructions");
+            aot_set_last_error("SIMD instruction was found, "
+                               "try adding --enable-simd option?");
             return false;
         }
 
@@ -1741,6 +1741,55 @@ build_atomic_rmw:
             break;
           }
 
+          case SIMD_f32x4_ceil:
+          {
+            if (!aot_compile_simd_f32x4_ceil(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_ceil:
+          {
+            if (!aot_compile_simd_f64x2_ceil(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f32x4_floor:
+          {
+            if (!aot_compile_simd_f32x4_floor(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_floor:
+          {
+            if (!aot_compile_simd_f64x2_floor(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f32x4_trunc:
+          {
+            if (!aot_compile_simd_f32x4_trunc(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_trunc:
+          {
+            if (!aot_compile_simd_f64x2_trunc(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f32x4_nearest:
+          {
+            if (!aot_compile_simd_f32x4_nearest(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+          case SIMD_f64x2_nearest:
+          {
+            if (!aot_compile_simd_f64x2_nearest(comp_ctx, func_ctx))
+              return false;
+            break;
+          }
+
           default:
             break;
         }
@@ -1770,13 +1819,6 @@ build_atomic_rmw:
       if (last_block != func_ctx->got_exception_block)
           LLVMMoveBasicBlockAfter(func_ctx->got_exception_block,
                                   last_block);
-
-      /* Move all other exception blocks before got_exception block */
-      for (i = 0; i < EXCE_NUM; i++) {
-          if (func_ctx->exception_blocks[i])
-              LLVMMoveBasicBlockBefore(func_ctx->exception_blocks[i],
-                                       func_ctx->got_exception_block);
-      }
   }
   return true;
 

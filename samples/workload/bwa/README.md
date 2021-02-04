@@ -40,8 +40,7 @@ $ make
 Then compile wasm file to aot file and run:
 
 ``` shell
-$ cd <wamr dir>/wamr-compiler/build
-$ ./wamrc --enable-simd -o bwa.aot ./bwa.wasm
-$ cd <wamr dir>/product-mini/platforms/linux/
-$ ./iwasm --dir=. ./bwa.aot index hs38DH.fa
+$ cd <wamr dir>/samples/workload/bwa/build
+$ <wamr dir>/wamr-compiler/build/wamrc --enable-simd -o bwa.aot bwa.wasm
+$ <wamr dir>/product-mini/platforms/linux/iwasm --dir=. bwa.aot index hs38DH.fa
 ```

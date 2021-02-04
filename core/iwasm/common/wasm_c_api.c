@@ -23,7 +23,7 @@ void
 wasm_instance_delete_internal(wasm_instance_t *);
 
 static void *
-malloc_internal(size_t size)
+malloc_internal(uint64 size)
 {
     void *mem = NULL;
 
@@ -47,8 +47,7 @@ malloc_internal(size_t size)
 /* Vectors */
 #define INIT_VEC(vector_p, func_prefix, size)                                 \
     do {                                                                      \
-        vector_p = malloc_internal(sizeof(*(vector_p)));                      \
-        if (!vector_p) {                                                      \
+        if (!(vector_p = malloc_internal(sizeof(*(vector_p))))) {             \
             goto failed;                                                      \
         }                                                                     \
         func_prefix##_new_uninitialized(vector_p, size);                      \
@@ -75,7 +74,8 @@ malloc_internal(size_t size)
 static inline void
 generic_vec_init_data(Vector *out, size_t num_of_elems, size_t size_of_elem)
 {
-    if (!bh_vector_init(out, num_of_elems, size_of_elem)) {
+    /* size 0 is meaningless for a elemment */
+    if (!size_of_elem || !bh_vector_init(out, num_of_elems, size_of_elem)) {
         out->data = NULL;
         out->max_elems = 0;
         out->num_elems = 0;
@@ -99,7 +99,7 @@ wasm_byte_vec_copy(wasm_byte_vec_t *out, const wasm_byte_vec_t *src)
 
     bh_assert(out && src);
 
-    generic_vec_init_data((Vector *)out, src->size, src->size_of_elem);
+    generic_vec_init_data((Vector *)out, src->size, sizeof(wasm_byte_t));
     if (!out->data) {
         goto failed;
     }
@@ -187,7 +187,7 @@ wasm_engine_new_internal(mem_alloc_type_t type,
         goto failed;
     }
 
-#if BH_DEBUG == 1
+#if BH_DEBUG != 0
     bh_log_set_verbose_level(5);
 #else
     bh_log_set_verbose_level(3);
@@ -459,7 +459,7 @@ wasm_valtype_vec_copy(wasm_valtype_vec_t *out, const wasm_valtype_vec_t *src)
 
     bh_assert(out && src);
 
-    generic_vec_init_data((Vector *)out, src->size, src->size_of_elem);
+    generic_vec_init_data((Vector *)out, src->size, sizeof(wasm_valtype_t *));
     if (!out->data) {
         goto failed;
     }
@@ -523,9 +523,9 @@ wasm_functype_new_internal(WASMType *type_rt)
 
     /* WASMType->types[type_rt->param_count : type_rt->result_count) -> func_type->results */
     INIT_VEC(func_type->results, wasm_valtype_vec, type_rt->result_count);
-    for (i = type_rt->param_count; i < type_rt->result_count; ++i) {
+    for (i = 0; i < type_rt->result_count; ++i) {
         wasm_valtype_t *result_type =
-          wasm_valtype_new_internal(*(type_rt->types + i));
+          wasm_valtype_new_internal(*(type_rt->types + type_rt->param_count + i));
         if (!result_type) {
             goto failed;
         }
@@ -579,8 +579,10 @@ wasm_functype_new(wasm_valtype_vec_t *params, wasm_valtype_vec_t *results)
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    FREEIF(func_type->params);
-    FREEIF(func_type->results);
+    if (func_type)
+        FREEIF(func_type->params);
+    if (func_type)
+        FREEIF(func_type->results);
     FREEIF(func_type);
     return NULL;
 }
@@ -1114,33 +1116,41 @@ failed:
 static void
 native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
 {
-    wasm_val_t *params = NULL;
-    wasm_val_t *results = NULL;
+    wasm_val_t *params = NULL, *results = NULL;
     uint32 argc = 0;
     const wasm_func_t *func = NULL;
     wasm_trap_t *trap = NULL;
-
-    bh_assert(argv);
+    size_t param_count, result_count;
 
     func = wasm_runtime_get_function_attachment(exec_env);
     bh_assert(func);
 
-    params = malloc_internal(wasm_func_param_arity(func) * sizeof(wasm_val_t));
-    if (!params) {
-        goto failed;
+    param_count = wasm_func_param_arity(func);
+    if (param_count) {
+        if (!argv) {
+            goto failed;
+        }
+
+        if (!(params = malloc_internal(param_count * sizeof(wasm_val_t)))) {
+            goto failed;
+        }
+
+        /* argv -> const wasm_val_t params[] */
+        if (!(argc = argv_to_params(
+                argv, wasm_functype_params(wasm_func_type(func)), params))) {
+            goto failed;
+        }
     }
 
-    results =
-      malloc_internal(wasm_func_result_arity(func) * sizeof(wasm_val_t));
-    if (!results) {
-        goto failed;
-    }
+    result_count = wasm_func_result_arity(func);
+    if (result_count) {
+        if (!argv) {
+            goto failed;
+        }
 
-    /* argv -> const wasm_val_t params[] */
-    argc =
-      argv_to_params(argv, wasm_functype_params(wasm_func_type(func)), params);
-    if (wasm_func_param_arity(func) && !argc) {
-        goto failed;
+        if (!(results = malloc_internal(result_count * sizeof(wasm_val_t)))) {
+            goto failed;
+        }
     }
 
     if (func->with_env) {
@@ -1151,22 +1161,28 @@ native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
     }
 
     if (trap) {
-        wasm_name_t *message = NULL;
-        wasm_trap_message(trap, message);
-        LOG_WARNING("got a trap %s", message->data);
-        wasm_name_delete(message);
+        wasm_name_t *message = malloc_internal(sizeof(wasm_name_t));
+        if (message) {
+            wasm_trap_message(trap, message);
+            if (message->data) {
+                LOG_WARNING("got a trap %s", message->data);
+                wasm_name_delete(message);
+            }
+            FREEIF(message);
+        }
     }
 
-    /* there is no result or there is an exception */
-    if (trap || !wasm_func_result_arity(func)) {
+    if (argv) {
         memset(argv, 0, wasm_func_param_arity(func) * sizeof(uint64));
     }
 
-    /* wasm_val_t results[] -> argv */
-    argc = results_to_argv(results,
-                           wasm_functype_results(wasm_func_type(func)), argv);
-    if (wasm_func_result_arity(func) && !argc) {
-        goto failed;
+    /* there is no trap and there is return values */
+    if (!trap && result_count) {
+        /* wasm_val_t results[] -> argv */
+        if (!(argc = results_to_argv(
+                results, wasm_functype_results(wasm_func_type(func)), argv))) {
+            goto failed;
+        }
     }
 
 failed:
@@ -1496,8 +1512,7 @@ wasm_func_call(const wasm_func_t *func,
     /* a parameter list and a return value list */
     uint32 *argv = NULL;
     WASMFunctionInstanceCommon *func_comm_rt = NULL;
-    size_t param_count = 0;
-    size_t result_count = 0;
+    size_t param_count, result_count, alloc_count;
 
     bh_assert(func && func->func_type && func->inst_comm_rt);
 
@@ -1520,17 +1535,18 @@ wasm_func_call(const wasm_func_t *func,
 
     param_count = wasm_func_param_arity(func);
     result_count = wasm_func_result_arity(func);
-    argv = malloc_internal(
-      sizeof(uint64)
-      * (param_count > result_count ? param_count : result_count));
-    if (!argv) {
-        goto failed;
+    alloc_count = (param_count > result_count) ? param_count : result_count;
+    if (alloc_count) {
+        if (!(argv = malloc_internal(sizeof(uint64) * alloc_count))) {
+            goto failed;
+        }
     }
 
     /* copy parametes */
-    argc = params_to_argv(params, wasm_functype_params(wasm_func_type(func)),
-                          wasm_func_param_arity(func), argv);
-    if (wasm_func_param_arity(func) && !argc) {
+    if (param_count
+        && !(argc = params_to_argv(params,
+                                   wasm_functype_params(wasm_func_type(func)),
+                                   wasm_func_param_arity(func), argv))) {
         goto failed;
     }
 
@@ -1541,9 +1557,10 @@ wasm_func_call(const wasm_func_t *func,
     }
 
     /* copy results */
-    argc = argv_to_results(argv, wasm_functype_results(wasm_func_type(func)),
-                           wasm_func_result_arity(func), results);
-    if (wasm_func_result_arity(func) && !argc) {
+    if (result_count
+        && !(argc = argv_to_results(
+               argv, wasm_functype_results(wasm_func_type(func)),
+               wasm_func_result_arity(func), results))) {
         goto failed;
     }
 
@@ -2188,7 +2205,7 @@ interp_process_export(wasm_store_t *store,
     uint32 export_cnt = 0;
     uint32 i = 0;
 
-    bh_assert(store && inst_interp && externals);
+    bh_assert(store && inst_interp && inst_interp->module && externals);
 
     exports = inst_interp->module->exports;
     export_cnt = inst_interp->module->export_count;
@@ -2596,7 +2613,7 @@ wasm_instance_exports(const wasm_instance_t *instance, wasm_extern_vec_t *out)
 void
 wasm_instance_vec_new_uninitialized(wasm_instance_vec_t *out, size_t size)
 {
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_instance_t));
+    generic_vec_init_data((Vector *)out, size, sizeof(wasm_instance_t *));
 }
 
 void
@@ -2727,7 +2744,7 @@ wasm_extern_vec_copy(wasm_extern_vec_t *out, const wasm_extern_vec_t *src)
     size_t i = 0;
     bh_assert(out && src);
 
-    generic_vec_init_data((Vector *)out, src->size, src->size_of_elem);
+    generic_vec_init_data((Vector *)out, src->size, sizeof(wasm_extern_t *));
     if (!out->data) {
         goto failed;
     }

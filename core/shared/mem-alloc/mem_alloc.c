@@ -63,10 +63,10 @@ mem_allocator_migrate(mem_allocator_t allocator,
                       pool_buf_new, pool_buf_size);
 }
 
-void
-mem_allocator_destroy_lock(mem_allocator_t allocator)
+bool
+mem_allocator_is_heap_corrupted(mem_allocator_t allocator)
 {
-    gc_destroy_lock((gc_handle_t) allocator);
+    return gc_is_heap_corrupted((gc_handle_t) allocator);
 }
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */
@@ -179,20 +179,6 @@ mem_allocator_migrate(mem_allocator_t allocator,
 {
     return tlsf_migrate((mem_allocator_tlsf *) allocator,
                         (mem_allocator_tlsf *) allocator_old);
-}
-
-int
-mem_allocator_init_lock(mem_allocator_t allocator)
-{
-    mem_allocator_tlsf *allocator_tlsf = (mem_allocator_tlsf *)allocator;
-    return os_mutex_init(&allocator_tlsf->lock);
-}
-
-void
-mem_allocator_destroy_lock(mem_allocator_t allocator)
-{
-    mem_allocator_tlsf *allocator_tlsf = (mem_allocator_tlsf *)allocator;
-    os_mutex_destroy(&allocator_tlsf->lock);
 }
 
 #endif /* end of DEFAULT_MEM_ALLOCATOR */

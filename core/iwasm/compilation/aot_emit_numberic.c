@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Intel Corporation. All rights reserved.
+ * Copyright (C) 2020 Intel Corporation. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
@@ -744,6 +744,7 @@ static bool
 is_target_arm(AOTCompContext *comp_ctx)
 {
     return !strncmp(comp_ctx->target_arch, "arm", 3) ||
+           !strncmp(comp_ctx->target_arch, "aarch64", 7) ||
            !strncmp(comp_ctx->target_arch, "thumb", 5);
 }
 

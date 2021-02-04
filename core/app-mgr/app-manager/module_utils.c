@@ -198,17 +198,16 @@ void release_module(module_data *m_data)
     APP_MGR_FREE(m_data);
 }
 
-int check_modules_timer_expiry()
+uint32 check_modules_timer_expiry()
 {
     os_mutex_lock(&module_data_list_lock);
     module_data *p = module_data_list;
-    int ms_to_expiry = -1;
+    uint32 ms_to_expiry = (uint32)-1;
 
     while (p) {
-
-        int next = get_expiry_ms(p->timer_ctx);
-        if (next != -1) {
-            if (ms_to_expiry == -1 || ms_to_expiry > next)
+        uint32 next = get_expiry_ms(p->timer_ctx);
+        if (next != (uint32)-1) {
+            if (ms_to_expiry == (uint32)-1 || ms_to_expiry > next)
                 ms_to_expiry = next;
         }
 

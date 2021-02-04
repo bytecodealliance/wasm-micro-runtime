@@ -74,7 +74,7 @@ endif()
 ## locate wat2wasm
 find_program(WAT2WASM
   wat2wasm
-  PATHS /opt/wabt/bin /opt/wabt-1.0.18/bin
+  PATHS /opt/wabt/bin
   REQUIRED
 )
 

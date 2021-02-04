@@ -371,6 +371,10 @@ struct WASMModule {
     uint32 malloc_function;
     uint32 free_function;
 
+    /* the index of __retain function,
+       -1 means unexported */
+    uint32 retain_function;
+
     /* Whether there is possible memory grow, e.g. memory.grow opcode */
     bool possible_memory_grow;
 
@@ -401,10 +405,10 @@ typedef struct BlockType {
 } BlockType;
 
 typedef struct WASMBranchBlock {
-    uint8 label_type;
-    uint32 cell_num;
+    uint8 *begin_addr;
     uint8 *target_addr;
     uint32 *frame_sp;
+    uint32 cell_num;
 } WASMBranchBlock;
 
 /* Execution environment, e.g. stack info */
@@ -511,6 +515,19 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
                       (uint32)(type1->param_count
                                + type1->result_count)) == 0)
         ? true : false;
+}
+
+inline static uint32
+wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
+                           uint32 cur_type_idx)
+{
+    uint32 i;
+
+    for (i = 0; i < cur_type_idx; i++) {
+        if (wasm_type_equal(types[cur_type_idx], types[i]))
+            return i;
+    }
+    return cur_type_idx;
 }
 
 static inline uint32

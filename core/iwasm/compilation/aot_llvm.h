@@ -13,7 +13,9 @@
 #include "llvm-c/Object.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Analysis.h"
+#include "llvm-c/Transforms/Utils.h"
 #include "llvm-c/Transforms/Scalar.h"
+#include "llvm-c/Transforms/Vectorize.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +103,7 @@ typedef struct AOTCheckedAddr {
 
 typedef struct AOTMemInfo {
   LLVMValueRef mem_base_addr;
+  LLVMValueRef mem_data_size_addr;
   LLVMValueRef mem_cur_page_count_addr;
   LLVMValueRef mem_bound_check_1byte;
   LLVMValueRef mem_bound_check_2bytes;
@@ -120,6 +123,7 @@ typedef struct AOTFuncContext {
   LLVMValueRef argv_buf;
   LLVMValueRef native_stack_bound;
   LLVMValueRef last_alloca;
+  LLVMValueRef func_ptrs;
 
   AOTMemInfo *mem_info;
 
@@ -128,7 +132,6 @@ typedef struct AOTFuncContext {
   bool mem_space_unchanged;
   AOTCheckedAddrList checked_addr_list;
 
-  LLVMBasicBlockRef *exception_blocks;
   LLVMBasicBlockRef got_exception_block;
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
@@ -221,6 +224,9 @@ typedef struct AOTCompContext {
   /* 128-bit SIMD */
   bool enable_simd;
 
+  /* generate auxiliary stack frame */
+  bool enable_aux_stack_frame;
+
   /* Thread Manager */
   bool enable_thread_mgr;
 
@@ -269,6 +275,7 @@ typedef struct AOTCompOption{
     bool enable_thread_mgr;
     bool enable_tail_call;
     bool enable_simd;
+    bool enable_aux_stack_frame;
     bool is_sgx_platform;
     uint32 opt_level;
     uint32 size_level;

@@ -1,0 +1,742 @@
+diff --git a/.bazelrc b/.bazelrc
+index ea28201..ffd4ed4 100644
+--- a/.bazelrc
++++ b/.bazelrc
+@@ -44,3 +44,7 @@ build:ios_arm64e --watchos_cpus=armv7k
+ build:ios_fat --config=ios
+ build:ios_fat --ios_multi_cpus=armv7,arm64
+ build:ios_fat --watchos_cpus=armv7k
++
++# WASM configs
++build:emscripten_wasm --cpu=wasm
++build:emscripten_wasm --crosstool_top=//toolchain:emscripten
+diff --git a/BUILD.bazel b/BUILD.bazel
+index d38ef1e..f261eb5 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -3228,13 +3228,19 @@ xnnpack_cc_library(
+     hdrs = INTERNAL_HDRS,
+     gcc_copts = xnnpack_gcc_std_copts(),
+     msvc_copts = xnnpack_msvc_std_copts(),
+-    wasm_srcs = WASM_UKERNELS,
+-    wasmsimd_srcs = WASM_UKERNELS + WASMSIMD_UKERNELS,
++    optimized_copts = [
++        "-ffast-math",
++    ],
++    wasm_srcs = WASM_UKERNELS + WASMSIMD_UKERNELS +
++                PSIMD_FASTMATH_UKERNELS + PSIMD_ACCMATH_UKERNELS,
++    wasmsimd_srcs = WASM_UKERNELS + WASMSIMD_UKERNELS +
++                    PSIMD_FASTMATH_UKERNELS + PSIMD_ACCMATH_UKERNELS,
+     deps = [
+         ":tables",
+         "@FP16",
+         "@FXdiv",
+         "@pthreadpool",
++        "@psimd",
+     ],
+ )
+ 
+@@ -3247,13 +3253,19 @@ xnnpack_cc_library(
+     ],
+     gcc_copts = xnnpack_gcc_std_copts(),
+     msvc_copts = xnnpack_msvc_std_copts(),
+-    wasm_srcs = WASM_UKERNELS,
+-    wasmsimd_srcs = WASM_UKERNELS + WASMSIMD_UKERNELS,
++    optimized_copts = [
++        "-ffast-math",
++    ],
++    wasm_srcs = WASM_UKERNELS + WASMSIMD_UKERNELS +
++                PSIMD_FASTMATH_UKERNELS + PSIMD_ACCMATH_UKERNELS,
++    wasmsimd_srcs = WASM_UKERNELS + WASMSIMD_UKERNELS +
++                    PSIMD_FASTMATH_UKERNELS + PSIMD_ACCMATH_UKERNELS,
+     deps = [
+         ":tables",
+         "@FP16",
+         "@FXdiv",
+         "@pthreadpool",
++        "@psimd",
+     ],
+ )
+ 
+@@ -4495,7 +4507,7 @@ xnnpack_cc_library(
+ ######################### Benchmarks for micro-kernels #########################
+ 
+ xnnpack_benchmark(
+-    name = "qs8_gemm_bench",
++    name = "qs8_gemm_bench.wasm",
+     srcs = [
+         "bench/gemm.h",
+         "bench/qs8-gemm.cc",
+@@ -4506,7 +4518,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "qs8_requantization_bench",
++    name = "qs8_requantization_bench.wasm",
+     srcs = [
+         "bench/qs8-requantization.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4516,7 +4528,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "qu8_gemm_bench",
++    name = "qu8_gemm_bench.wasm",
+     srcs = [
+         "bench/gemm.h",
+         "bench/qu8-gemm.cc",
+@@ -4527,7 +4539,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "qu8_requantization_bench",
++    name = "qu8_requantization_bench.wasm",
+     srcs = [
+         "bench/qu8-requantization.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4537,11 +4549,11 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f16_igemm_bench",
++    name = "f16_igemm_bench.wasm",
+     srcs = [
+         "bench/f16-igemm.cc",
+         "bench/conv.h",
+-        "bench/google/conv.h",
++        #"bench/google/conv.h",
+         "src/xnnpack/AlignedAllocator.h",
+     ] + MICROKERNEL_BENCHMARK_HDRS,
+     deps = MICROKERNEL_BENCHMARK_DEPS + [
+@@ -4551,7 +4563,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f16_gemm_bench",
++    name = "f16_gemm_bench.wasm",
+     srcs = [
+         "bench/f16-gemm.cc",
+         "bench/gemm.h",
+@@ -4563,7 +4575,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f16_spmm_bench",
++    name = "f16_spmm_bench.wasm",
+     srcs = [
+         "bench/f16-spmm.cc",
+         "bench/gemm.h",
+@@ -4573,7 +4585,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_igemm_bench",
++    name = "f32_igemm_bench.wasm",
+     srcs = [
+         "bench/f32-igemm.cc",
+         "bench/conv.h",
+@@ -4586,7 +4598,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f16_relu_bench",
++    name = "f16_relu_bench.wasm",
+     srcs = [
+         "bench/f16-relu.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4595,7 +4607,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_conv_hwc_bench",
++    name = "f32_conv_hwc_bench.wasm",
+     srcs = [
+         "bench/f32-conv-hwc.cc",
+         "bench/dconv.h",
+@@ -4607,7 +4619,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_conv_hwc2chw_bench",
++    name = "f32_conv_hwc2chw_bench.wasm",
+     srcs = [
+         "bench/f32-conv-hwc2chw.cc",
+         "bench/dconv.h",
+@@ -4619,11 +4631,11 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f16_dwconv_bench",
++    name = "f16_dwconv_bench.wasm",
+     srcs = [
+         "bench/f16-dwconv.cc",
+         "bench/dwconv.h",
+-        "bench/google/dwconv.h",
++        #"bench/google/dwconv.h",
+         "src/xnnpack/AlignedAllocator.h",
+     ] + MICROKERNEL_BENCHMARK_HDRS,
+     deps = MICROKERNEL_BENCHMARK_DEPS + [
+@@ -4633,7 +4645,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_dwconv_bench",
++    name = "f32_dwconv_bench.wasm",
+     srcs = [
+         "bench/f32-dwconv.cc",
+         "bench/dwconv.h",
+@@ -4646,7 +4658,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_dwconv2d_chw_bench",
++    name = "f32_dwconv2d_chw_bench.wasm",
+     srcs = [
+         "bench/f32-dwconv2d-chw.cc",
+         "bench/dwconv.h",
+@@ -4659,7 +4671,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_gemm_bench",
++    name = "f32_gemm_bench.wasm",
+     srcs = [
+         "bench/f32-gemm.cc",
+         "bench/gemm.h",
+@@ -4670,7 +4682,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_hswish_bench",
++    name = "f32_hswish_bench.wasm",
+     srcs = [
+         "bench/f32-hswish.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4679,7 +4691,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_raddexpminusmax_bench",
++    name = "f32_raddexpminusmax_bench.wasm",
+     srcs = [
+         "bench/f32-raddexpminusmax.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4688,7 +4700,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_raddextexp_bench",
++    name = "f32_raddextexp_bench.wasm",
+     srcs = [
+         "bench/f32-raddextexp.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4697,7 +4709,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_raddstoreexpminusmax_bench",
++    name = "f32_raddstoreexpminusmax_bench.wasm",
+     srcs = [
+         "bench/f32-raddstoreexpminusmax.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4706,7 +4718,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_relu_bench",
++    name = "f32_relu_bench.wasm",
+     srcs = [
+         "bench/f32-relu.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4715,7 +4727,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_rmax_bench",
++    name = "f32_rmax_bench.wasm",
+     srcs = [
+         "bench/f32-rmax.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4724,7 +4736,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_sigmoid_bench",
++    name = "f32_sigmoid_bench.wasm",
+     srcs = [
+         "bench/f32-sigmoid.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4733,7 +4745,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_spmm_bench",
++    name = "f32_spmm_bench.wasm",
+     srcs = [
+         "bench/f32-spmm.cc",
+         "bench/gemm.h",
+@@ -4743,7 +4755,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_softmax_bench",
++    name = "f32_softmax_bench.wasm",
+     srcs = [
+         "bench/f32-softmax.cc",
+     ] + MICROKERNEL_BENCHMARK_HDRS,
+@@ -4752,7 +4764,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_vscaleexpminusmax_bench",
++    name = "f32_vscaleexpminusmax_bench.wasm",
+     srcs = [
+         "bench/f32-vscaleexpminusmax.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4761,7 +4773,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_vscaleextexp_bench",
++    name = "f32_vscaleextexp_bench.wasm",
+     srcs = [
+         "bench/f32-vscaleextexp.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4770,7 +4782,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_vsqrt_bench",
++    name = "f32_vsqrt_bench.wasm",
+     srcs = [
+         "bench/f32-vsqrt.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4779,7 +4791,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_im2col_gemm_bench",
++    name = "f32_im2col_gemm_bench.wasm",
+     srcs = [
+         "bench/f32-im2col-gemm.cc",
+         "bench/conv.h",
+@@ -4792,7 +4804,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "rounding_bench",
++    name = "rounding_bench.wasm",
+     srcs = [
+         "bench/rounding.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -4804,7 +4816,7 @@ xnnpack_benchmark(
+ ########################### Benchmarks for operators ###########################
+ 
+ xnnpack_benchmark(
+-    name = "average_pooling_bench",
++    name = "average_pooling_bench.wasm",
+     srcs = ["bench/average-pooling.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4812,7 +4824,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "bankers_rounding_bench",
++    name = "bankers_rounding_bench.wasm",
+     srcs = ["bench/bankers-rounding.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4820,7 +4832,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "ceiling_bench",
++    name = "ceiling_bench.wasm",
+     srcs = ["bench/ceiling.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4828,13 +4840,13 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "channel_shuffle_bench",
++    name = "channel_shuffle_bench.wasm",
+     srcs = ["bench/channel-shuffle.cc"],
+     deps = OPERATOR_BENCHMARK_DEPS,
+ )
+ 
+ xnnpack_benchmark(
+-    name = "convolution_bench",
++    name = "convolution_bench.wasm",
+     srcs = ["bench/convolution.cc"],
+     copts = xnnpack_optional_tflite_copts() + xnnpack_optional_armcl_copts(),
+     tags = ["nowin32"],
+@@ -4842,7 +4854,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "deconvolution_bench",
++    name = "deconvolution_bench.wasm",
+     srcs = ["bench/deconvolution.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4850,7 +4862,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "floor_bench",
++    name = "floor_bench.wasm",
+     srcs = ["bench/floor.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4858,13 +4870,13 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "global_average_pooling_bench",
++    name = "global_average_pooling_bench.wasm",
+     srcs = ["bench/global-average-pooling.cc"],
+     deps = OPERATOR_BENCHMARK_DEPS,
+ )
+ 
+ xnnpack_benchmark(
+-    name = "hardswish_bench",
++    name = "hardswish_bench.wasm",
+     srcs = ["bench/hardswish.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4872,13 +4884,13 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "max_pooling_bench",
++    name = "max_pooling_bench.wasm",
+     srcs = ["bench/max-pooling.cc"],
+     deps = OPERATOR_BENCHMARK_DEPS,
+ )
+ 
+ xnnpack_benchmark(
+-    name = "sigmoid_bench",
++    name = "sigmoid_bench.wasm",
+     srcs = ["bench/sigmoid.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4886,7 +4898,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "prelu_bench",
++    name = "prelu_bench.wasm",
+     srcs = ["bench/prelu.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4894,7 +4906,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "softmax_bench",
++    name = "softmax_bench.wasm",
+     srcs = ["bench/softmax.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4902,7 +4914,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "square_root_bench",
++    name = "square_root_bench.wasm",
+     srcs = ["bench/square-root.cc"],
+     copts = xnnpack_optional_tflite_copts(),
+     tags = ["nowin32"],
+@@ -4910,7 +4922,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "truncation_bench",
++    name = "truncation_bench.wasm",
+     srcs = ["bench/truncation.cc"],
+     deps = OPERATOR_BENCHMARK_DEPS,
+ )
+@@ -4918,7 +4930,7 @@ xnnpack_benchmark(
+ ############################# End-to-end benchmarks ############################
+ 
+ cc_library(
+-    name = "fp32_mobilenet_v1",
++    name = "fp32_mobilenet_v1.wasm",
+     srcs = ["models/fp32-mobilenet-v1.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -4930,7 +4942,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "fp16_mobilenet_v1",
++    name = "fp16_mobilenet_v1.wasm",
+     srcs = ["models/fp16-mobilenet-v1.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -4943,7 +4955,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "qs8_mobilenet_v1",
++    name = "qs8_mobilenet_v1.wasm",
+     srcs = ["models/qs8-mobilenet-v1.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -4955,7 +4967,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "qs8_mobilenet_v2",
++    name = "qs8_mobilenet_v2.wasm",
+     srcs = ["models/qs8-mobilenet-v2.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -4967,7 +4979,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "fp32_mobilenet_v2",
++    name = "fp32_mobilenet_v2.wasm",
+     srcs = ["models/fp32-mobilenet-v2.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -4979,7 +4991,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "fp16_mobilenet_v2",
++    name = "fp16_mobilenet_v2.wasm",
+     srcs = ["models/fp16-mobilenet-v2.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -4992,7 +5004,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "fp32_mobilenet_v3_large",
++    name = "fp32_mobilenet_v3_large.wasm",
+     srcs = ["models/fp32-mobilenet-v3-large.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -5004,7 +5016,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "fp16_mobilenet_v3_large",
++    name = "fp16_mobilenet_v3_large.wasm",
+     srcs = ["models/fp16-mobilenet-v3-large.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -5017,7 +5029,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "fp32_mobilenet_v3_small",
++    name = "fp32_mobilenet_v3_small.wasm",
+     srcs = ["models/fp32-mobilenet-v3-small.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -5029,7 +5041,7 @@ cc_library(
+ )
+ 
+ cc_library(
+-    name = "fp16_mobilenet_v3_small",
++    name = "fp16_mobilenet_v3_small.wasm",
+     srcs = ["models/fp16-mobilenet-v3-small.cc"],
+     hdrs = ["models/models.h"],
+     copts = xnnpack_std_cxxopts(),
+@@ -5042,51 +5054,51 @@ cc_library(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_dwconv_e2e_bench",
++    name = "f32_dwconv_e2e_bench.wasm",
+     srcs = [
+         "bench/f32-dwconv-e2e.cc",
+         "bench/end2end.h",
+     ] + MICROKERNEL_BENCHMARK_HDRS,
+     deps = MICROKERNEL_BENCHMARK_DEPS + [
+         ":XNNPACK",
+-        ":fp32_mobilenet_v1",
+-        ":fp32_mobilenet_v2",
+-        ":fp32_mobilenet_v3_large",
+-        ":fp32_mobilenet_v3_small",
++        ":fp32_mobilenet_v1.wasm",
++        ":fp32_mobilenet_v2.wasm",
++        ":fp32_mobilenet_v3_large.wasm",
++        ":fp32_mobilenet_v3_small.wasm",
+     ],
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_gemm_e2e_bench",
++    name = "f32_gemm_e2e_bench.wasm",
+     srcs = [
+         "bench/f32-gemm-e2e.cc",
+         "bench/end2end.h",
+     ] + MICROKERNEL_BENCHMARK_HDRS,
+     deps = MICROKERNEL_BENCHMARK_DEPS + [
+         ":XNNPACK",
+-        ":fp32_mobilenet_v1",
+-        ":fp32_mobilenet_v2",
+-        ":fp32_mobilenet_v3_large",
+-        ":fp32_mobilenet_v3_small",
++        ":fp32_mobilenet_v1.wasm",
++        ":fp32_mobilenet_v2.wasm",
++        ":fp32_mobilenet_v3_large.wasm",
++        ":fp32_mobilenet_v3_small.wasm",
+     ],
+ )
+ 
+ xnnpack_benchmark(
+-    name = "end2end_bench",
++    name = "end2end_bench.wasm",
+     srcs = ["bench/end2end.cc"],
+     deps = [
+         ":XNNPACK",
+         ":bench_utils",
+-        ":fp16_mobilenet_v1",
+-        ":fp16_mobilenet_v2",
+-        ":fp16_mobilenet_v3_large",
+-        ":fp16_mobilenet_v3_small",
+-        ":fp32_mobilenet_v1",
+-        ":fp32_mobilenet_v2",
+-        ":fp32_mobilenet_v3_large",
+-        ":fp32_mobilenet_v3_small",
+-        ":qs8_mobilenet_v1",
+-        ":qs8_mobilenet_v2",
++        ":fp16_mobilenet_v1.wasm",
++        ":fp16_mobilenet_v2.wasm",
++        ":fp16_mobilenet_v3_large.wasm",
++        ":fp16_mobilenet_v3_small.wasm",
++        ":fp32_mobilenet_v1.wasm",
++        ":fp32_mobilenet_v2.wasm",
++        ":fp32_mobilenet_v3_large.wasm",
++        ":fp32_mobilenet_v3_small.wasm",
++        ":qs8_mobilenet_v1.wasm",
++        ":qs8_mobilenet_v2.wasm",
+         "@pthreadpool",
+     ],
+ )
+@@ -5094,7 +5106,7 @@ xnnpack_benchmark(
+ #################### Accuracy evaluation for math functions ####################
+ 
+ xnnpack_benchmark(
+-    name = "f32_exp_eval",
++    name = "f32_exp_eval.wasm",
+     srcs = [
+         "eval/f32-exp.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5103,7 +5115,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_expminus_eval",
++    name = "f32_expminus_eval.wasm",
+     srcs = [
+         "eval/f32-expminus.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5112,7 +5124,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_extexp_eval",
++    name = "f32_extexp_eval.wasm",
+     srcs = [
+         "eval/f32-extexp.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5121,7 +5133,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_unit_test(
+-    name = "f32_roundne_eval",
++    name = "f32_roundne_eval.wasm",
+     srcs = [
+         "eval/f32-roundne.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5132,7 +5144,7 @@ xnnpack_unit_test(
+ )
+ 
+ xnnpack_unit_test(
+-    name = "f32_roundd_eval",
++    name = "f32_roundd_eval.wasm",
+     srcs = [
+         "eval/f32-roundd.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5143,7 +5155,7 @@ xnnpack_unit_test(
+ )
+ 
+ xnnpack_unit_test(
+-    name = "f32_roundu_eval",
++    name = "f32_roundu_eval.wasm",
+     srcs = [
+         "eval/f32-roundu.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5154,7 +5166,7 @@ xnnpack_unit_test(
+ )
+ 
+ xnnpack_unit_test(
+-    name = "f32_roundz_eval",
++    name = "f32_roundz_eval.wasm",
+     srcs = [
+         "eval/f32-roundz.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5165,7 +5177,7 @@ xnnpack_unit_test(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_sigmoid_eval",
++    name = "f32_sigmoid_eval.wasm",
+     srcs = [
+         "eval/f32-sigmoid.cc",
+         "src/xnnpack/AlignedAllocator.h",
+@@ -5174,7 +5186,7 @@ xnnpack_benchmark(
+ )
+ 
+ xnnpack_benchmark(
+-    name = "f32_sqrt_eval",
++    name = "f32_sqrt_eval.wasm",
+     srcs = [
+         "eval/f32-sqrt.cc",
+         "src/xnnpack/AlignedAllocator.h",
+diff --git a/emscripten.bzl b/emscripten.bzl
+index faad087..2b4763f 100644
+--- a/emscripten.bzl
++++ b/emscripten.bzl
+@@ -4,30 +4,25 @@ def xnnpack_emscripten_minimal_linkopts():
+     """Minimal Emscripten-specific linkopts for binaries."""
+     return [
+         "-s ASSERTIONS=0",
+-        "-s ERROR_ON_UNDEFINED_SYMBOLS=1",
+-        "-s EXIT_RUNTIME=1",
++        "-s ERROR_ON_UNDEFINED_SYMBOLS=0",
+     ]
+ 
+ def xnnpack_emscripten_test_linkopts():
+     """Emscripten-specific linkopts for unit tests."""
+     return [
+         "-s ASSERTIONS=2",
+-        "-s ERROR_ON_UNDEFINED_SYMBOLS=1",
++        "-s ERROR_ON_UNDEFINED_SYMBOLS=0",
+         "-s DEMANGLE_SUPPORT=1",
+-        "-s EXIT_RUNTIME=1",
+         "-s ALLOW_MEMORY_GROWTH=1",
+-        "--pre-js $(location :preamble.js.lds)",
+     ]
+ 
+ def xnnpack_emscripten_benchmark_linkopts():
+     """Emscripten-specific linkopts for benchmarks."""
+     return [
+         "-s ASSERTIONS=1",
+-        "-s ERROR_ON_UNDEFINED_SYMBOLS=1",
+-        "-s EXIT_RUNTIME=1",
++        "-s ERROR_ON_UNDEFINED_SYMBOLS=0",
+         "-s ALLOW_MEMORY_GROWTH=1",
+         "-s TOTAL_MEMORY=268435456",  # 256M
+-        "--pre-js $(location :preamble.js.lds)",
+     ]
+ 
+ def xnnpack_emscripten_deps():

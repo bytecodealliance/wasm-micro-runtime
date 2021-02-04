@@ -84,7 +84,7 @@ typedef enum {
 
 /* CoAP response codes */
 typedef enum {
-  NO_ERROR = 0,
+  COAP_NO_ERROR = 0,
 
   CREATED_2_01 = 65,            /* CREATED */
   DELETED_2_02 = 66,            /* DELETED */

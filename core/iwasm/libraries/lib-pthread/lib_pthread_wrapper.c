@@ -265,6 +265,10 @@ call_key_destructor(wasm_exec_env_t exec_env)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     ClusterInfoNode *info = get_cluster_info(cluster);
 
+    if (!info) {
+        return;
+    }
+
     value_node = bh_list_first_elem(info->thread_list);
     while (value_node) {
         if (value_node->exec_env == exec_env)
@@ -435,6 +439,11 @@ get_thread_info(wasm_exec_env_t exec_env, uint32 handle)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     ClusterInfoNode *info = get_cluster_info(cluster);
+
+    if (!info) {
+        return NULL;
+    }
+
     return bh_hash_map_find(info->thread_info_map, (void *)(uintptr_t)handle);
 }
 
@@ -524,6 +533,8 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     WASIContext *wasi_ctx = get_wasi_ctx(module_inst);
 #endif
 
+    bh_assert(module);
+
     if (!(new_module_inst =
             wasm_runtime_instantiate_internal(module, true, 8192, 0,
                                               NULL, 0)))
@@ -605,7 +616,7 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
 
     /* validate addr before join thread, otherwise
         the module_inst may be freed */
-    if (!validate_app_addr(retval_offset, sizeof(uint32))) {
+    if (!validate_app_addr(retval_offset, sizeof(void *))) {
         /* Join failed, but we don't want to terminate all threads,
             do not spread exception here */
         wasm_runtime_set_exception(module_inst, NULL);
@@ -837,7 +848,7 @@ pthread_cond_wait_wrapper(wasm_exec_env_t exec_env, uint32 *cond, uint32 *mutex)
 */
 static int32
 pthread_cond_timedwait_wrapper(wasm_exec_env_t exec_env, uint32 *cond,
-                               uint32 *mutex, uint32 useconds)
+                               uint32 *mutex, uint64 useconds)
 {
     ThreadInfoNode *cond_info_node, *mutex_info_node;
 
@@ -1003,7 +1014,7 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_mutex_destroy,  "(*)i"),
     REG_NATIVE_FUNC(pthread_cond_init,      "(**)i"),
     REG_NATIVE_FUNC(pthread_cond_wait,      "(**)i"),
-    REG_NATIVE_FUNC(pthread_cond_timedwait, "(**i)i"),
+    REG_NATIVE_FUNC(pthread_cond_timedwait, "(**I)i"),
     REG_NATIVE_FUNC(pthread_cond_signal,    "(*)i"),
     REG_NATIVE_FUNC(pthread_cond_destroy,   "(*)i"),
     REG_NATIVE_FUNC(pthread_key_create,     "(*i)i"),

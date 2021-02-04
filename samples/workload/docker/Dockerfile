@@ -1,28 +1,32 @@
 FROM ubuntu:18.04 as builder
 
+RUN apt update \
+      && apt install -y lsb-release software-properties-common build-essential \
+          wget curl git tree zip unzip
+
 #
 # install clang and llvm
-COPY llvm.sh /tmp
-RUN apt update \
-    && apt install -y lsb-release wget software-properties-common build-essential \
-    && cd /tmp \
-    && chmod a+x llvm.sh \
-    && ./llvm.sh 11
+# COPY llvm.sh /tmp
+# RUN apt update \
+#     && apt install -y lsb-release wget software-properties-common build-essential \
+#     && cd /tmp \
+#     && chmod a+x llvm.sh \
+#     && ./llvm.sh 11
 
-ARG WASI_SDK_VER=11.0
-ARG WABT_VER=1.0.19
+ARG WASI_SDK_VER=12
+ARG WABT_VER=1.0.20
 ARG CMAKE_VER=3.16.2
 ARG BINARYEN_VER=version_97
+ARG BAZEL_VER=3.7.0
 
 #
 # install wasi-sdk
-ARG WASI_SDK_FILE="wasi-sdk-${WASI_SDK_VER}-linux.tar.gz"
+ARG WASI_SDK_FILE="wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz"
 COPY ${WASI_SDK_FILE} /opt
 RUN cd /opt \
     && tar zxf ${WASI_SDK_FILE} \
     && rm ${WASI_SDK_FILE} \
-    && ln -sf /opt/wasi-sdk-${WASI_SDK_VER} /opt/wasi-sdk \
-    && ln -sf /opt/wasi-sdk/lib/clang/10.0.0/lib/wasi/ /usr/lib/llvm-11/lib/clang/11.0.0/lib/
+    && ln -sf /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk
 
 #
 # install wabt
@@ -44,10 +48,6 @@ RUN cd /tmp \
     && ln -sf /opt/cmake/bin/cmake /usr/local/bin/cmake
 
 #
-# install tools
-RUN apt install -y git tree
-
-#
 # install emsdk
 RUN cd /opt \
     && git clone https://github.com/emscripten-core/emsdk.git \
@@ -66,6 +66,14 @@ RUN cd /opt \
     && rm ${BINARYEN_FILE}  \
     && ln -sf /opt/binaryen-${BINARYEN_VER} /opt/binaryen
 
+# #
+# # install bazel
+# ARG BAZEL_FILE=bazel-${BAZEL_VER}-installer-linux-x86_64.sh
+# COPY ${BAZEL_FILE} /tmp
+# RUN cd /tmp \
+#       && chmod a+x ${BAZEL_FILE} \
+#       && ./${BAZEL_FILE}
+
 #
 # Clean up
 RUN apt-get autoremove -y \
@@ -74,4 +82,19 @@ RUN apt-get autoremove -y \
     && rm -rf /tmp/*
 
 VOLUME /data
-WORKDIR /data
+
+#
+#
+RUN touch  /build.sh \
+    && echo "\
+#!/bin/bash \n\
+if [[ -d /data/project/build ]]; then \n\
+  rm -r /data/project/build \n\
+fi \n\
+mkdir /data/project/build \n\
+cd /data/project/build \n\
+source /opt/emsdk/emsdk_env.sh \n\
+cmake .. \n\
+make \n\
+cd - > /dev/null" > /build.sh \
+    && chmod a+x /build.sh

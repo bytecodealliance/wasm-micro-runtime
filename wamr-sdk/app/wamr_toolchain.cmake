@@ -18,7 +18,7 @@ SET (CMAKE_CXX_COMPILER_TARGET      "wasm32")
 SET (CMAKE_CXX_COMPILER             "${WASI_SDK_DIR}/bin/clang++")
 
 SET (CMAKE_EXE_LINKER_FLAGS
-    "-Wl,--initial-memory=65536,--no-entry,--no-threads,--strip-all" CACHE INTERNAL "")
+    "-Wl,--initial-memory=65536,--no-entry,--strip-all" CACHE INTERNAL "")
 
 SET (CMAKE_LINKER  "${WASI_SDK_DIR}/bin/wasm-ld"                     CACHE INTERNAL "")
 SET (CMAKE_AR      "${WASI_SDK_DIR}/bin/llvm-ar"                     CACHE INTERNAL "")

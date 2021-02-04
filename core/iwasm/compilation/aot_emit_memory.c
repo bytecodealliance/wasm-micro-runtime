@@ -74,7 +74,7 @@ get_memory_check_bound(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static LLVMValueRef
-get_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 LLVMValueRef
 aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -86,7 +86,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_succ;
     AOTValue *aot_value;
-    bool is_target_64bit;
+    uint32 local_idx_of_aot_value = 0;
+    bool is_target_64bit, is_local_of_aot_value = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
     bool is_shared_memory =
         comp_ctx->comp_data->memories[0].memory_flags & 0x02;
@@ -116,6 +117,12 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     aot_value = func_ctx->block_stack.block_list_end->value_stack.value_list_end;
+    if (aot_value) {
+        /* aot_value is freed in the following POP_I32(addr),
+           so save its fields here for further use */
+        is_local_of_aot_value = aot_value->is_local;
+        local_idx_of_aot_value = aot_value->local_idx;
+    }
 
     POP_I32(addr);
 
@@ -156,15 +163,15 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     BUILD_OP(Add, offset_const, addr, offset1, "offset1");
 
     if (comp_ctx->enable_bound_check
-        && !(aot_value->is_local
-             && aot_checked_addr_list_find(func_ctx, aot_value->local_idx,
+        && !(is_local_of_aot_value
+             && aot_checked_addr_list_find(func_ctx, local_idx_of_aot_value,
                                            offset, bytes))) {
         uint32 init_page_count =
                 comp_ctx->comp_data->memories[0].mem_init_page_count;
         if (init_page_count == 0) {
             LLVMValueRef mem_size;
 
-            if (!(mem_size = get_memory_size(comp_ctx, func_ctx))) {
+            if (!(mem_size = get_memory_curr_page_count(comp_ctx, func_ctx))) {
                 goto fail;
             }
             BUILD_ICMP(LLVMIntEQ, mem_size, I32_ZERO, cmp, "is_zero");
@@ -207,8 +214,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         SET_BUILD_POS(check_succ);
 
-        if (aot_value->is_local) {
-            if (!aot_checked_addr_list_add(func_ctx, aot_value->local_idx,
+        if (is_local_of_aot_value) {
+            if (!aot_checked_addr_list_add(func_ctx, local_idx_of_aot_value,
                                            offset, bytes))
                 goto fail;
         }
@@ -604,7 +611,7 @@ fail:
 }
 
 static LLVMValueRef
-get_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+get_memory_curr_page_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef mem_size;
 
@@ -629,7 +636,7 @@ fail:
 bool
 aot_compile_op_memory_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef mem_size = get_memory_size(comp_ctx, func_ctx);
+    LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
 
     if (mem_size)
         PUSH_I32(mem_size);
@@ -641,7 +648,7 @@ fail:
 bool
 aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    LLVMValueRef mem_size = get_memory_size(comp_ctx, func_ctx);
+    LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
     LLVMValueRef delta, param_values[2], ret_value, func, value;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
 
@@ -794,9 +801,17 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    /* mem_size_offset = aot_inst + off */
-    if (!(mem_size = get_memory_size(comp_ctx, func_ctx))) {
-        goto fail;
+    if (func_ctx->mem_space_unchanged) {
+        mem_size = func_ctx->mem_info[0].mem_data_size_addr;
+    }
+    else {
+        if (!(mem_size =
+                LLVMBuildLoad(comp_ctx->builder,
+                              func_ctx->mem_info[0].mem_data_size_addr,
+                              "mem_size"))) {
+            aot_set_last_error("llvm build load failed.");
+            goto fail;
+        }
     }
 
     ADD_BASIC_BLOCK(check_succ, "check_succ");

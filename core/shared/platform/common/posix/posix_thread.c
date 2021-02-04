@@ -163,27 +163,48 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
     return BHT_OK;
 }
 
-static void msec_nsec_to_abstime(struct timespec *ts, int usec)
+static void msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
 {
     struct timeval tv;
+    long int tv_sec_new, tv_nsec_new;
 
     gettimeofday(&tv, NULL);
 
-    ts->tv_sec = (long int)(tv.tv_sec + usec / 1000000);
-    ts->tv_nsec = (long int)(tv.tv_usec * 1000 + (usec % 1000000) * 1000);
+    tv_sec_new = (long int)(tv.tv_sec + usec / 1000000);
+    if (tv_sec_new >= tv.tv_sec) {
+        ts->tv_sec = tv_sec_new;
+    }
+    else {
+        /* integer overflow */
+        ts->tv_sec = LONG_MAX;
+        os_printf("Warning: os_cond_reltimedwait exceeds limit, "
+                  "set to max timeout instead\n");
+    }
 
-    if (ts->tv_nsec >= 1000000000L) {
+    tv_nsec_new = (long int)(tv.tv_usec * 1000 + (usec % 1000000) * 1000);
+    if (tv.tv_usec * 1000 >= tv.tv_usec
+        && tv_nsec_new >= tv.tv_usec * 1000) {
+        ts->tv_nsec = tv_nsec_new;
+    }
+    else {
+        /* integer overflow */
+        ts->tv_nsec = LONG_MAX;
+        os_printf("Warning: os_cond_reltimedwait exceeds limit, "
+                  "set to max timeout instead\n");
+    }
+
+    if (ts->tv_nsec >= 1000000000L && ts->tv_sec < LONG_MAX) {
         ts->tv_sec++;
         ts->tv_nsec -= 1000000000L;
     }
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds)
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
     int ret;
     struct timespec abstime;
 
-    if (useconds == (int)BHT_WAIT_FOREVER)
+    if (useconds == BHT_WAIT_FOREVER)
         ret = pthread_cond_wait(cond, mutex);
     else {
         msec_nsec_to_abstime(&abstime, useconds);
@@ -290,7 +311,6 @@ mask_signals(int how)
 __attribute__((noreturn)) static void
 signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
 {
-    int i;
     void *sig_addr = sig_info->si_addr;
 
     mask_signals(SIG_BLOCK);
@@ -314,12 +334,7 @@ signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
             break;
     }
 
-    /* divived by 0 to make it abort */
-    i = os_printf(" ");
-    os_printf("%d\n", i / (i - 1));
-    /* access NULL ptr to make it abort */
-    os_printf("%d\n", *(uint32*)(uintptr_t)(i - 1));
-    exit(1);
+    abort();
 }
 
 int
