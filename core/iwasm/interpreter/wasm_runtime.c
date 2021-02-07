@@ -92,7 +92,6 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     continue;
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
-                os_mutex_destroy(&memories[0]->mem_lock);
                 if (memories[i]->is_shared) {
                     int32 ref_count =
                         shared_memory_dec_reference(
@@ -104,6 +103,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
                     if (ref_count > 0)
                         continue;
                 }
+                os_mutex_destroy(&memories[i]->mem_lock);
 #endif
                 if (memories[i]->heap_handle) {
                     mem_allocator_destroy(memories[i]->heap_handle);
