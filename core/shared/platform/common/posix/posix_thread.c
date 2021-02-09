@@ -214,7 +214,7 @@ int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
     if (ret != BHT_OK && ret != ETIMEDOUT)
         return BHT_ERROR;
 
-    return BHT_OK;
+    return ret;
 }
 
 int os_cond_signal(korp_cond *cond)
