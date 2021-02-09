@@ -97,10 +97,13 @@ typedef struct ThreadInfoNode {
     /* Thread status, this variable should be volatile
         as its value may be changed in different threads */
     volatile uint32 status;
+    bool joinable;
     union {
         korp_tid thread;
         korp_mutex *mutex;
         korp_cond *cond;
+        /* A copy of the thread return value */
+        void *ret;
     } u;
 } ThreadInfoNode;
 
@@ -136,16 +139,9 @@ static void
 thread_info_destroy(void *node)
 {
     ThreadInfoNode *info_node = (ThreadInfoNode *)node;
-    ThreadRoutineArgs *args;
 
     pthread_mutex_lock(&pthread_global_lock);
-    if (info_node->type == T_THREAD) {
-        args = get_thread_arg(info_node->exec_env);
-        if (args) {
-            wasm_runtime_free(args);
-        }
-    }
-    else if (info_node->type == T_MUTEX) {
+    if (info_node->type == T_MUTEX) {
         if (info_node->status != MUTEX_DESTROYED)
             os_mutex_destroy(info_node->u.mutex);
         wasm_runtime_free(info_node->u.mutex);
@@ -510,7 +506,17 @@ pthread_start_routine(void *arg)
 
     info_node->status = THREAD_EXIT;
 
-    delete_thread_info_node(info_node);
+    wasm_runtime_free(routine_args);
+
+    /* if the thread is joinable, store the result in its info node,
+        if the other threads join this thread after exited, then we
+        can return the stored result */
+    if (!info_node->joinable) {
+        delete_thread_info_node(info_node);
+    }
+    else {
+        info_node->u.ret = (void *)(uintptr_t)argv[0];
+    }
 
     return (void *)(uintptr_t)argv[0];
 }
@@ -554,6 +560,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     info_node->handle = thread_handle;
     info_node->type = T_THREAD;
     info_node->status = THREAD_INIT;
+    info_node->joinable = true;
 
     if (!(routine_args = wasm_runtime_malloc(sizeof(ThreadRoutineArgs))))
         goto fail;
@@ -604,27 +611,41 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
     wasm_module_inst_t module_inst;
     wasm_exec_env_t target_exec_env;
 
-    node = get_thread_info(exec_env, thread);
-    if (!node) {
-        /* The thread has exited, return 0 to app */
-        return 0;
-    }
+    module_inst = get_module_inst(exec_env);
 
-    target_exec_env = node->exec_env;
-    bh_assert(target_exec_env != NULL);
-    module_inst = get_module_inst(target_exec_env);
-
-    /* validate addr before join thread, otherwise
-        the module_inst may be freed */
+    /* validate addr, we can use current thread's
+        module instance here as the memory is shared */
     if (!validate_app_addr(retval_offset, sizeof(void *))) {
         /* Join failed, but we don't want to terminate all threads,
             do not spread exception here */
         wasm_runtime_set_exception(module_inst, NULL);
         return -1;
     }
+
     retval = (void **)addr_app_to_native(retval_offset);
 
-    join_ret = wasm_cluster_join_thread(target_exec_env, (void **)&ret);
+    node = get_thread_info(exec_env, thread);
+    if (!node) {
+        /* The thread has exited and not joinable, return 0 to app */
+        return 0;
+    }
+
+    target_exec_env = node->exec_env;
+    bh_assert(target_exec_env);
+
+    if (node->status != THREAD_EXIT) {
+        /* if the thread is still running, call the platforms join API */
+        join_ret = wasm_cluster_join_thread(target_exec_env, (void **)&ret);
+    }
+    else {
+        /* if the thread has exited, return stored results */
+
+        /* this thread must be joinable, otherwise the
+            info_node should be destroyed once exit */
+        bh_assert(node->joinable);
+        join_ret = 0;
+        ret = node->u.ret;
+    }
 
     if (retval_offset != 0)
         *retval = (void*)ret;
@@ -642,6 +663,8 @@ pthread_detach_wrapper(wasm_exec_env_t exec_env, uint32 thread)
     if (!node)
         return 0;
 
+    node->joinable = false;
+
     target_exec_env = node->exec_env;
     bh_assert(target_exec_env != NULL);
 
@@ -657,6 +680,9 @@ pthread_cancel_wrapper(wasm_exec_env_t exec_env, uint32 thread)
     node = get_thread_info(exec_env, thread);
     if (!node)
         return 0;
+
+    node->status = THREAD_CANCELLED;
+    node->joinable = false;
 
     target_exec_env = node->exec_env;
     bh_assert(target_exec_env != NULL);
@@ -700,7 +726,16 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     /* routine exit, destroy instance */
     wasm_runtime_deinstantiate_internal(module_inst, true);
 
-    delete_thread_info_node(args->info_node);
+    args->info_node->status = THREAD_EXIT;
+
+    if (!args->info_node->joinable) {
+        delete_thread_info_node(args->info_node);
+    }
+    else {
+        args->info_node->u.ret = (void *)(uintptr_t)retval_offset;
+    }
+
+    wasm_runtime_free(args);
 
     wasm_cluster_exit_thread(exec_env, (void *)(uintptr_t)retval_offset);
 }
