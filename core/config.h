@@ -241,6 +241,8 @@
 #else
 #define DEFAULT_WASM_STACK_SIZE (12 * 1024)
 #endif
+/* Min auxilliary stack size of each wasm thread */
+#define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
 /* Default/min/max stack size of each app thread */
 #if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
