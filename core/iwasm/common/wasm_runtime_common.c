@@ -540,19 +540,13 @@ wasm_runtime_destroy_loading_module_list()
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
 bool
-wasm_runtime_is_host_module(const char *module_name)
-{
-    return strlen(module_name) == 0;
-}
-
-bool
 wasm_runtime_is_built_in_module(const char *module_name)
 {
     return (!strcmp("env", module_name)
             || !strcmp("wasi_unstable", module_name)
             || !strcmp("wasi_snapshot_preview1", module_name)
             || !strcmp("spectest", module_name)
-            );
+            || !strcmp("", module_name));
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0
