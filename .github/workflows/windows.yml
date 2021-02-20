@@ -21,6 +21,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: clone uvwasi library
+      run: |
+        cd core/deps
+        git clone https://github.com/nodejs/uvwasi.git
     - name: Build iwasm [default]
       run: |
         cd product-mini/platforms/windows
