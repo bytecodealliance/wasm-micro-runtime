@@ -119,7 +119,7 @@ add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 

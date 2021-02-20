@@ -43,13 +43,22 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 #### **Configure LIBC**
 
-- **WAMR_BUILD_LIBC_BUILTIN**=1/0,  default to enable if not set
+- **WAMR_BUILD_LIBC_BUILTIN**=1/0, build the built-in libc subset for WASM app, default to enable if not set
 
-- **WAMR_BUILD_LIBC_WASI**=1/0, default to enable if not set
+- **WAMR_BUILD_LIBC_WASI**=1/0, build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app, default to enable if not set
+
+- **WAMR_BUILD_LIBC_UVWASI**=1/0 (Experiment), build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app based on [uvwasi](https://github.com/nodejs/uvwasi) implementation, default to disable if not set
+
+> Note: for platform which doesn't support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developer can try using **WAMR_BUILD_LIBC_UVWASI**. And the uvwasi source code must be cloned under core/deps:
+>
+> ```bash
+> cd <WAMR-ROOT>/core/deps
+> git clone https://github.com/nodejs/uvwasi.git
+> ```
 
 #### **Configure Debug**
 
-- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0,  load the function name from custom name section, default to disable if not set
+- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0, load the function name from custom name section, default to disable if not set
 
 #### **Enable dump call stack feature**
 - **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set

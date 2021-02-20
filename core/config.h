@@ -90,6 +90,10 @@
 #define WASM_ENABLE_LIBC_WASI 0
 #endif
 
+#ifndef WASM_ENABLE_UVWASI
+#define WASM_ENABLE_UVWASI 0
+#endif
+
 /* Default disable libc emcc */
 #ifndef WASM_ENABLE_LIBC_EMCC
 #define WASM_ENABLE_LIBC_EMCC 0
