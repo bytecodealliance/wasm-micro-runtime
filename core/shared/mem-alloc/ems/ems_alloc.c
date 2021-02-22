@@ -472,6 +472,11 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size,
     if (!hmu)
         goto finish;
 
+    bh_assert(hmu_get_size(hmu) >= tot_size);
+    /* the total size allocated may be larger than
+       the required size, reset it here */
+    tot_size = hmu_get_size(hmu);
+
     g_total_malloc += tot_size;
 
     hmu_set_ut(hmu, HMU_VO);
@@ -570,6 +575,9 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
     if (!hmu)
         goto finish;
 
+    bh_assert(hmu_get_size(hmu) >= tot_size);
+    /* the total size allocated may be larger than
+       the required size, reset it here */
     g_total_malloc += tot_size;
 
     hmu_set_ut(hmu, HMU_VO);

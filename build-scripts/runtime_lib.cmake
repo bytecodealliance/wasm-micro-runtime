@@ -75,7 +75,9 @@ if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
 endif ()
 
-if (WAMR_BUILD_LIBC_WASI EQUAL 1)
+if (WAMR_BUILD_LIBC_UVWASI EQUAL 1)
+    include (${IWASM_DIR}/libraries/libc-uvwasi/libc_uvwasi.cmake)
+elseif (WAMR_BUILD_LIBC_WASI EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
 endif ()
 
