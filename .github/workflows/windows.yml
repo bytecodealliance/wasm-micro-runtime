@@ -29,7 +29,7 @@ jobs:
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
-        cmake .. -DWAMR_BUILD_LIBC_UVWASI=0
+        cmake ..
         cmake --build . --config Release
         cd .. && rm -r build
     - name: Build iwasm [aot only]
