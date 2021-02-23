@@ -14,10 +14,35 @@
 #define IMAGE_REL_AMD64_REL32 4 /* The 32-bit relative address from
                                    the byte following the relocation */
 
+#if !defined(_WIN64) && !defined(_WIN64_)
 void __divdi3();
 void __udivdi3();
 void __moddi3();
 void __umoddi3();
+#else
+#pragma function (floor)
+#pragma function (ceil)
+
+int64_t __divdi3(int64_t a, int64_t b)
+{
+    return a / b;
+}
+
+uint64_t __udivdi3(uint64_t a, uint64_t b)
+{
+    return a / b;
+}
+
+int64_t __moddi3(int64_t a, int64_t b)
+{
+    return a % b;
+}
+
+uint64_t __umoddi3(uint64_t a, uint64_t b)
+{
+    return a % b;
+}
+#endif
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
