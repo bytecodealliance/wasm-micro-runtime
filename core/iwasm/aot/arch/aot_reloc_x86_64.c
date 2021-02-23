@@ -22,6 +22,8 @@ void __umoddi3();
 #else
 #pragma function (floor)
 #pragma function (ceil)
+#pragma function (floorf)
+#pragma function (ceilf)
 
 int64_t __divdi3(int64_t a, int64_t b)
 {
