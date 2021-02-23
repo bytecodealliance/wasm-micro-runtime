@@ -1525,9 +1525,9 @@ wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst,
 
 bool
 wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
-                                   uint8_t *native_ptr,
-                                   uint8_t **p_native_start_addr,
-                                   uint8_t **p_native_end_addr)
+                                   uint8 *native_ptr,
+                                   uint8 **p_native_start_addr,
+                                   uint8 **p_native_end_addr)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)

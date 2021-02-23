@@ -17,22 +17,26 @@ void __umoddi3();
 #pragma function (floor)
 #pragma function (ceil)
 
-int64_t __divdi3(int64_t a, int64_t b)
+static int64
+__divdi3(int64 a, int64 b)
 {
     return a / b;
 }
 
-uint64_t __udivdi3(uint64_t a, uint64_t b)
+static uint64
+__udivdi3(uint64 a, uint64 b)
 {
     return a / b;
 }
 
-int64_t __moddi3(int64_t a, int64_t b)
+static int64
+__moddi3(int64 a, int64 b)
 {
     return a % b;
 }
 
-uint64_t __umoddi3(uint64_t a, uint64_t b)
+static uint64
+__umoddi3(uint64 a, uint64 b)
 {
     return a % b;
 }

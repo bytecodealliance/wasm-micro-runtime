@@ -194,7 +194,7 @@ module_reader_callback(const char *module_name, uint8 **p_buffer,
 
     snprintf(wasm_file_name, sz, format, module_search_path, module_name);
 
-    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_name, p_size);
+    *p_buffer = (uint8 *)bh_read_file_to_buffer(wasm_file_name, p_size);
 
     wasm_runtime_free(wasm_file_name);
     return *p_buffer != NULL;
