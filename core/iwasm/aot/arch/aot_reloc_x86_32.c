@@ -8,20 +8,43 @@
 #define R_386_32        1   /* Direct 32 bit  */
 #define R_386_PC32      2   /* PC relative 32 bit */
 
+#if !defined(_WIN32) && !defined(_WIN32_)
 void __divdi3();
 void __udivdi3();
 void __moddi3();
 void __umoddi3();
+#else
+#pragma function (floor)
+#pragma function (ceil)
+
+int64_t __divdi3(int64_t a, int64_t b)
+{
+    return a / b;
+}
+
+uint64_t __udivdi3(uint64_t a, uint64_t b)
+{
+    return a / b;
+}
+
+int64_t __moddi3(int64_t a, int64_t b)
+{
+    return a % b;
+}
+
+uint64_t __umoddi3(uint64_t a, uint64_t b)
+{
+    return a % b;
+}
+#endif
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
-#if !defined(_WIN32) && !defined(_WIN32_)
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
     REG_SYM(__divdi3),
     REG_SYM(__udivdi3),
     REG_SYM(__moddi3),
     REG_SYM(__umoddi3)
-#endif
 };
 
 static void
