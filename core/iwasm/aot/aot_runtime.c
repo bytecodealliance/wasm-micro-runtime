@@ -2264,7 +2264,7 @@ aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
         mem_conspn->memories_size +=
             mem_inst->num_bytes_per_page * mem_inst->cur_page_count;
         mem_conspn->app_heap_size =
-            mem_inst->heap_data_end.ptr - mem_inst->heap_data.ptr;
+            (uint8 *) mem_inst->heap_data_end.ptr - (uint8 *) mem_inst->heap_data.ptr;
         /* size of app heap structure */
         mem_conspn->memories_size +=
             mem_allocator_get_heap_struct_size();
