@@ -41,11 +41,12 @@ else ifeq ($(findstring ARM,$(WAMR_BUILD_TARGET)), ARM)
   INVOKE_NATIVE := invokeNative_arm.s
   AOT_RELOC := aot_reloc_arm.c
 else ifeq ($(findstring THUMB,$(WAMR_BUILD_TARGET)), THUMB)
-  CFLAGS += -DBUILD_TARGET_THUMB
   CFLAGS += -DBUILD_TARGET=\"$(WAMR_BUILD_TARGET)\"
   ifeq ($(CONFIG_ARCH_FPU),y)
+  CFLAGS += -DBUILD_TARGET_THUMB_VFP
   INVOKE_NATIVE := invokeNative_thumb_vfp.s
   else
+  CFLAGS += -DBUILD_TARGET_THUMB
   INVOKE_NATIVE := invokeNative_thumb.s
   endif
   AOT_RELOC := aot_reloc_thumb.c
