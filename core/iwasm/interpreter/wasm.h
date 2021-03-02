@@ -93,6 +93,8 @@ typedef union V128 {
 typedef union WASMValue {
     int32 i32;
     uint32 u32;
+    uint32 global_index;
+    uint32 ref_index;
     int64 i64;
     uint64 u64;
     float32 f32;
@@ -104,14 +106,7 @@ typedef union WASMValue {
 typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX */
     uint8 init_expr_type;
-    union {
-        int32 i32;
-        int64 i64;
-        float32 f32;
-        float64 f64;
-        uint32 global_index;
-        V128 v128;
-    } u;
+    WASMValue u;
 } InitializerExpression;
 
 typedef struct WASMType {
