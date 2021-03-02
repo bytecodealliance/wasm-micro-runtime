@@ -1183,6 +1183,8 @@ static WASMNativeGlobalDef native_global_defs[] = {
     { "test", "global-mut-i32", VALUE_TYPE_I32, true, .value.i32 = 0 },
     { "test", "global-mut-i64", VALUE_TYPE_I64, true, .value.i64 = 0 },
 #endif
+    { "global", "NaN", VALUE_TYPE_F64, .value.u64 = 0x7FF8000000000000LL },
+    { "global", "Infinity", VALUE_TYPE_F64, .value.u64 = 0x7FF0000000000000LL }
 };
 
 bool
