@@ -6,6 +6,7 @@
 #include "aot_runtime.h"
 #include "bh_log.h"
 #include "mem_alloc.h"
+#include "../common/wasm_runtime_common.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -16,6 +17,22 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
     if (error_buf != NULL) {
         snprintf(error_buf, error_buf_size,
                  "AOT module instantiate failed: %s", string);
+    }
+}
+
+static void
+set_error_buf_v(char *error_buf, uint32 error_buf_size,
+                const char *format, ...)
+{
+    va_list args;
+    char buf[128];
+
+    if (error_buf != NULL) {
+        va_start(args, format);
+        vsnprintf(buf, sizeof(buf), format, args);
+        va_end(args);
+        snprintf(error_buf, error_buf_size,
+                 "AOT module instantiate failed: %s", buf);
     }
 }
 
@@ -36,6 +53,58 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 }
 
 static bool
+check_global_init_expr(const AOTModule *module, uint32 global_index,
+                       char *error_buf, uint32 error_buf_size)
+{
+    if (global_index >= module->import_global_count + module->global_count) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "unknown global %d", global_index);
+        return false;
+    }
+
+    /**
+     * Currently, constant expressions occurring as initializers of
+     * globals are further constrained in that contained global.get
+     * instructions are only allowed to refer to imported globals.
+     *
+     * And initializer expression cannot reference a mutable global.
+     */
+    if (global_index >= module->import_global_count
+        || module->import_globals->is_mutable) {
+        set_error_buf(error_buf, error_buf_size,
+                      "constant expression required");
+        return false;
+    }
+
+    return true;
+}
+
+static void
+init_global_data(uint8 *global_data, uint8 type,
+                 WASMValue *initial_value)
+{
+    switch (type) {
+        case VALUE_TYPE_I32:
+        case VALUE_TYPE_F32:
+            *(int32*)global_data = initial_value->i32;
+            break;
+        case VALUE_TYPE_I64:
+        case VALUE_TYPE_F64:
+            bh_memcpy_s(global_data, sizeof(int64),
+                        &initial_value->i64, sizeof(int64));
+            break;
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            bh_memcpy_s(global_data, sizeof(V128),
+                        &initial_value->i64, sizeof(V128));
+            break;
+#endif
+        default:
+            bh_assert(0);
+    }
+}
+
+static bool
 global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
                    char *error_buf, uint32 error_buf_size)
 {
@@ -49,7 +118,8 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     for (i = 0; i < module->import_global_count; i++, import_global++) {
         bh_assert(import_global->data_offset ==
                   (uint32)(p - (uint8*)module_inst->global_data.ptr));
-        memcpy(p, &import_global->global_data_linked, import_global->size);
+        init_global_data(p, import_global->type,
+                         &import_global->global_data_linked);
         p += import_global->size;
     }
 
@@ -60,18 +130,21 @@ global_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         init_expr = &global->init_expr;
         switch (init_expr->init_expr_type) {
             case INIT_EXPR_TYPE_GET_GLOBAL:
-                if (init_expr->u.global_index >= module->import_global_count + i) {
-                    set_error_buf(error_buf, error_buf_size, "unknown global");
+            {
+                if (!check_global_init_expr(module, init_expr->u.global_index,
+                                            error_buf, error_buf_size)) {
                     return false;
                 }
-                memcpy(p,
-                       &module->import_globals[init_expr->u.global_index].global_data_linked,
-                       global->size);
+                init_global_data(p, global->type,
+                                 &module->import_globals[init_expr->u.global_index]
+                                    .global_data_linked);
                 break;
+            }
             default:
-                /* TODO: check whether global type and init_expr type are matching */
-                memcpy(p, &init_expr->u, global->size);
+            {
+                init_global_data(p, global->type, &init_expr->u);
                 break;
+            }
         }
         p += global->size;
     }
@@ -98,10 +171,12 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         /* Resolve table data base offset */
         if (table_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = table_seg->offset.u.global_index;
-            bh_assert(global_index <
-                        module->import_global_count + module->global_count);
-            /* TODO: && globals[table_seg->offset.u.global_index].type ==
-                        VALUE_TYPE_I32*/
+
+            if (!check_global_init_expr(module, global_index,
+                                        error_buf, error_buf_size)) {
+                return false;
+            }
+
             if (global_index < module->import_global_count)
                 global_data_offset =
                     module->import_globals[global_index].data_offset;
@@ -487,10 +562,12 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         /* Resolve memory data base offset */
         if (data_seg->offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             global_index = data_seg->offset.u.global_index;
-            bh_assert(global_index <
-                        module->import_global_count + module->global_count);
-            /* TODO: && globals[data_seg->offset.u.global_index].type ==
-                        VALUE_TYPE_I32*/
+
+            if (!check_global_init_expr(module, global_index,
+                                        error_buf, error_buf_size)) {
+                return false;
+            }
+
             if (global_index < module->import_global_count)
                 global_data_offset =
                     module->import_globals[global_index].data_offset;
@@ -501,7 +578,8 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
             base_offset = *(uint32*)
                 ((uint8*)module_inst->global_data.ptr + global_data_offset);
-        } else {
+        }
+        else {
             base_offset = (uint32)data_seg->offset.u.i32;
         }
 

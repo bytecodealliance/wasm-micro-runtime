@@ -23,6 +23,22 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
     }
 }
 
+static void
+set_error_buf_v(char *error_buf, uint32 error_buf_size,
+                const char *format, ...)
+{
+    va_list args;
+    char buf[128];
+
+    if (error_buf != NULL) {
+        va_start(args, format);
+        vsnprintf(buf, sizeof(buf), format, args);
+        va_end(args);
+        snprintf(error_buf, error_buf_size,
+                 "WASM module instantiate failed: %s", buf);
+    }
+}
+
 WASMModule*
 wasm_load(const uint8 *buf, uint32 size,
           char *error_buf, uint32 error_buf_size)
@@ -635,40 +651,30 @@ globals_deinstantiate(WASMGlobalInstance *globals)
         wasm_runtime_free(globals);
 }
 
-/**
- * init_expr->u ==> init_val
- */
 static bool
-parse_init_expr(const InitializerExpression *init_expr,
-                const WASMGlobalInstance *global_inst_array,
-                uint32 boundary, WASMValue *init_val)
+check_global_init_expr(const WASMModule *module, uint32 global_index,
+                       char *error_buf, uint32 error_buf_size)
 {
-    if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-        uint32 target_global_index = init_expr->u.global_index;
-        /**
-         * a global gets the init value of another global
-         */
-        if (target_global_index >= boundary) {
-            LOG_DEBUG("unknown target global, %d", target_global_index);
-            return false;
-        }
+    if (global_index >= module->import_global_count + module->global_count) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "unknown global %d", global_index);
+        return false;
+    }
 
-        /**
-         * it will work if using WASMGlobalImport and WASMGlobal in
-         * WASMModule, but will have to face complicated cases
-         *
-         * but we still have no sure the target global has been
-         * initialized before
-         */
-        WASMValue target_value =
-          global_inst_array[target_global_index].initial_value;
-        bh_memcpy_s(init_val, sizeof(WASMValue), &target_value,
-                    sizeof(target_value));
+    /**
+     * Currently, constant expressions occurring as initializers of
+     * globals are further constrained in that contained global.get
+     * instructions are only allowed to refer to imported globals.
+     *
+     * And initializer expression cannot reference a mutable global.
+     */
+    if (global_index >= module->import_global_count
+        || (module->import_globals + global_index)->u.global.is_mutable) {
+        set_error_buf(error_buf, error_buf_size,
+                      "constant expression required");
+        return false;
     }
-    else {
-        bh_memcpy_s(init_val, sizeof(WASMValue), &init_expr->u,
-                    sizeof(init_expr->u));
-    }
+
     return true;
 }
 
@@ -714,26 +720,19 @@ globals_instantiate(const WASMModule *module,
                 return NULL;
             }
 
-            /**
-             * although, actually don't need initial_value for an imported
-             * global, we keep it here like a place holder because of
-             * global-data and
-             * (global $g2 i32 (global.get $g1))
-             */
-            if (!parse_init_expr(
-                  &(global_import->import_global_linked->init_expr),
-                  global->import_module_inst->globals,
-                  global->import_module_inst->global_count,
-                  &(global->initial_value))) {
-                set_error_buf(error_buf, error_buf_size, "unknown global");
-                return NULL;
-            }
+            /* The linked global instance has been initialized, we
+               just need to copy the value. */
+            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                        &(global_import->import_global_linked->init_expr),
+                        sizeof(WASMValue));
         }
         else
 #endif
         {
             /* native globals share their initial_values in one module */
-            global->initial_value = global_import->global_data_linked;
+            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                        &(global_import->global_data_linked),
+                        sizeof(WASMValue));
         }
         global->data_offset = global_data_offset;
         global_data_offset += wasm_value_type_size(global->type);
@@ -743,9 +742,6 @@ globals_instantiate(const WASMModule *module,
 
     /* instantiate globals from global section */
     for (i = 0; i < module->global_count; i++) {
-        bool ret = false;
-        uint32 global_count =
-          module->import_global_count + module->global_count;
         InitializerExpression *init_expr = &(module->globals[i].init_expr);
 
         global->type = module->globals[i].type;
@@ -754,18 +750,20 @@ globals_instantiate(const WASMModule *module,
 
         global_data_offset += wasm_value_type_size(global->type);
 
-        /**
-         * first init, it might happen that the target global instance
-         * has not been initialize yet
-         */
-        if (init_expr->init_expr_type != INIT_EXPR_TYPE_GET_GLOBAL) {
-            ret =
-              parse_init_expr(init_expr, globals, global_count,
-                              &(global->initial_value));
-            if (!ret) {
-                set_error_buf(error_buf, error_buf_size, "unknown global");
+        if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module, init_expr->u.global_index,
+                                        error_buf, error_buf_size)) {
                 return NULL;
             }
+
+            bh_memcpy_s(
+              &(global->initial_value), sizeof(WASMValue),
+              &(globals[init_expr->u.global_index].initial_value),
+              sizeof(globals[init_expr->u.global_index].initial_value));
+        }
+        else {
+            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                        &(init_expr->u), sizeof(init_expr->u));
         }
         global++;
     }
@@ -774,39 +772,6 @@ globals_instantiate(const WASMModule *module,
     *p_global_data_size = global_data_offset;
     (void)module_inst;
     return globals;
-}
-
-static bool
-globals_instantiate_fix(WASMGlobalInstance *globals,
-                        const WASMModule *module,
-                        char *error_buf, uint32 error_buf_size)
-{
-    WASMGlobalInstance *global = globals;
-    uint32 i;
-    uint32 global_count = module->import_global_count + module->global_count;
-
-    /**
-     * second init, only target global instances from global
-     * (ignore import_global)
-     * to fix skipped init_value in the previous round
-     * hope two rounds are enough but how about a chain ?
-     */
-    for (i = 0; i < module->global_count; i++) {
-        bool ret = false;
-        InitializerExpression *init_expr = &module->globals[i].init_expr;
-
-        if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
-            ret = parse_init_expr(init_expr, globals, global_count,
-                                  &global->initial_value);
-            if (!ret) {
-                set_error_buf(error_buf, error_buf_size, "unknown global");
-                return false;
-            }
-        }
-
-        global++;
-    }
-    return true;
 }
 
 /**
@@ -1240,15 +1205,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
     }
 
     if (global_count > 0) {
-        /**
-         * since there might be some globals are not instantiate the first
-         * instantiate round
-         */
-        if (!globals_instantiate_fix(globals, module,
-                                     error_buf, error_buf_size)) {
-            goto fail;
-        }
-
         /* Initialize the global data */
         global_data = module_inst->global_data;
         global_data_end = global_data + global_data_size;
@@ -1307,14 +1263,20 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
 
         if (data_seg->base_offset.init_expr_type
             == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module,
+                                        data_seg->base_offset.u.global_index,
+                                        error_buf, error_buf_size)) {
+                goto fail;
+            }
+
             if (!globals
-                || data_seg->base_offset.u.global_index >= global_count
                 || globals[data_seg->base_offset.u.global_index].type
-                   != VALUE_TYPE_I32) {
+                     != VALUE_TYPE_I32) {
                 set_error_buf(error_buf, error_buf_size,
                               "data segment does not fit");
                 goto fail;
             }
+
             data_seg->base_offset.u.i32 =
                 globals[data_seg->base_offset.u.global_index]
                 .initial_value.i32;
@@ -1371,8 +1333,13 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
 
         if (table_seg->base_offset.init_expr_type
             == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module,
+                                        table_seg->base_offset.u.global_index,
+                                        error_buf, error_buf_size)) {
+                goto fail;
+            }
+
             if (!globals
-                || table_seg->base_offset.u.global_index >= global_count
                 || globals[table_seg->base_offset.u.global_index].type
                    != VALUE_TYPE_I32) {
                 set_error_buf(error_buf, error_buf_size,

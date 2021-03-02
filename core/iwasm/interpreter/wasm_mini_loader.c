@@ -477,6 +477,10 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     /* check built-in modules */
     ret = wasm_native_lookup_libc_builtin_global(sub_module_name,
                                                  global_name, global);
+    if (ret) {
+        bh_assert(global->type == declare_type
+                  && global->is_mutable != declare_mutable);
+    }
 #endif /* WASM_ENABLE_LIBC_BUILTIN */
 
     global->is_linked = ret;

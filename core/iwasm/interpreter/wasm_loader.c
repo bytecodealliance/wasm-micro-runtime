@@ -1276,6 +1276,14 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_LIBC_BUILTIN != 0
     global->is_linked = wasm_native_lookup_libc_builtin_global(
                                 sub_module_name, global_name, global);
+    if (global->is_linked) {
+        if (global->type != declare_type
+            || global->is_mutable != declare_mutable) {
+            set_error_buf(error_buf, error_buf_size,
+                          "incompatible import type");
+            return false;
+        }
+    }
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (!global->is_linked
@@ -1324,6 +1332,7 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
 
     p_org = p;
     read_leb_uint32(p, p_end, table->flags);
+#if WASM_ENABLE_SHARED_MEMORY == 0
     if (p - p_org > 1) {
         set_error_buf(error_buf, error_buf_size,
                       "integer representation too long");
@@ -1333,6 +1342,20 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
         set_error_buf(error_buf, error_buf_size, "integer too large");
         return false;
     }
+#else
+    if (p - p_org > 1) {
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+        return false;
+    }
+    if (table->flags == 2) {
+        set_error_buf(error_buf, error_buf_size, "tables cannot be shared");
+        return false;
+    }
+    if (table->flags > 1) {
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+        return false;
+    }
+#endif
 
     read_leb_uint32(p, p_end, table->init_size);
     if (table->flags == 0) {
@@ -1366,19 +1389,23 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
 
     p_org = p;
     read_leb_uint32(p, p_end, memory->flags);
+#if WASM_ENABLE_SHARED_MEMORY == 0
     if (p - p_org > 1) {
         set_error_buf(error_buf, error_buf_size,
                       "integer representation too long");
         return false;
     }
-#if WASM_ENABLE_SHARED_MEMORY == 0
     if (memory->flags > 1) {
         set_error_buf(error_buf, error_buf_size, "integer too large");
         return false;
     }
 #else
+    if (p - p_org > 1) {
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
+        return false;
+    }
     if (memory->flags > 3) {
-        set_error_buf(error_buf, error_buf_size, "integer too large");
+        set_error_buf(error_buf, error_buf_size, "invalid limits flags");
         return false;
     }
     else if (memory->flags == 2) {
