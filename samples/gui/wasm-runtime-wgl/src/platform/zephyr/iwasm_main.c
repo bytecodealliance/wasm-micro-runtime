@@ -18,7 +18,7 @@
 
 extern void init_sensor_framework();
 extern void exit_sensor_framework();
-extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
+extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
 extern bool touchscreen_read(lv_indev_data_t * data);
 extern int ili9340_init();
 extern void xpt2046_init(void);

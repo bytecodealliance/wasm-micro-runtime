@@ -30,7 +30,12 @@
 #define CONNECTION_MODE_UART 2
 
 typedef enum {
-    INSTALL, UNINSTALL, QUERY, REQUEST, REGISTER, UNREGISTER
+    INSTALL,
+    UNINSTALL,
+    QUERY,
+    REQUEST,
+    REGISTER,
+    UNREGISTER
 } op_type;
 
 typedef struct {
@@ -81,7 +86,8 @@ typedef struct {
 } operation;
 
 typedef enum REPLY_PACKET_TYPE {
-    REPLY_TYPE_EVENT = 0, REPLY_TYPE_RESPONSE = 1
+    REPLY_TYPE_EVENT = 0,
+    REPLY_TYPE_RESPONSE = 1
 } REPLY_PACKET_TYPE;
 
 static uint32_t g_timeout_ms = DEFAULT_TIMEOUT_MS;
@@ -119,7 +125,7 @@ static int send_request(request_t *request, uint16_t msg_type)
     /* payload length */
     req_size_n = htonl(req_size);
     if (!host_tool_send_data(g_conn_fd, (char *) &req_size_n,
-            sizeof(req_size_n)))
+                             sizeof(req_size_n)))
         goto ret;
 
     /* payload */
@@ -128,29 +134,16 @@ static int send_request(request_t *request, uint16_t msg_type)
 
     ret = 0;
 
-    ret: free_req_resp_packet(req_p);
-
+ret:
+    free_req_resp_packet(req_p);
     return ret;
 }
 
-/*
-static package_type_t get_app_package_type(const char *buf, int size)
-{
-    if (buf && size > 4) {
-        if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
-            return Wasm_Module_Bytecode;
-        if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 'o' && buf[3] == 't')
-            return Wasm_Module_AoT;
-    }
-    return Package_Type_Unknown;
-}
-*/
-
 #define url_remain_space (sizeof(url) - strlen(url))
 
-/*return:
- 0: success
- others: fail*/
+/**
+ * return: 0: success, others: fail
+ */
 static int install(inst_info *info)
 {
     request_t request[1] = { 0 };
@@ -176,13 +169,11 @@ static int install(inst_info *info)
         snprintf(url + strlen(url), url_remain_space, "&wd=%d",
                 info->watchdog_interval);
 
-    /*TODO: permissions to access JLF resource: AUDIO LOCATION SENSOR VISION platform.SERVICE */
-
     if ((app_file_buf = read_file_to_buffer(info->file, &app_size)) == NULL)
         return -1;
 
-    init_request(request, url, COAP_PUT,
-    FMT_APP_RAW_BINARY, app_file_buf, app_size);
+    init_request(request, url, COAP_PUT, FMT_APP_RAW_BINARY,
+                 app_file_buf, app_size);
     request->mid = gen_random_id();
 
     if (info->module_type == NULL || strcmp(info->module_type, "wasm") == 0)
@@ -204,11 +195,10 @@ static int uninstall(uninst_info *info)
 
     if (info->module_type != NULL && url_remain_space > 0)
         snprintf(url + strlen(url), url_remain_space, "&type=%s",
-                info->module_type);
+                 info->module_type);
 
-    init_request(request, url, COAP_DELETE,
-    FMT_ATTR_CONTAINER,
-    NULL, 0);
+    init_request(request, url, COAP_DELETE, FMT_ATTR_CONTAINER,
+                 NULL, 0);
     request->mid = gen_random_id();
 
     return send_request(request, REQUEST_PACKET);
@@ -217,7 +207,6 @@ static int uninstall(uninst_info *info)
 static int query(query_info *info)
 {
     request_t request[1] = { 0 };
-    int ret = -1;
     char url[URL_MAX_LEN] = { 0 };
 
     if (info->name != NULL)
@@ -225,14 +214,10 @@ static int query(query_info *info)
     else
         snprintf(url, sizeof(url) - 1, "/applet");
 
-    init_request(request, url, COAP_GET,
-    FMT_ATTR_CONTAINER,
-    NULL, 0);
+    init_request(request, url, COAP_GET, FMT_ATTR_CONTAINER, NULL, 0);
     request->mid = gen_random_id();
 
-    ret = send_request(request, REQUEST_PACKET);
-
-    return ret;
+    return send_request(request, REQUEST_PACKET);
 }
 
 static int request(req_info *info)
@@ -247,7 +232,7 @@ static int request(req_info *info)
         int payload_file_size;
 
         if ((payload_file = read_file_to_buffer(info->json_payload_file,
-                &payload_file_size)) == NULL)
+                                                &payload_file_size)) == NULL)
             return -1;
 
         if (NULL == (json = cJSON_Parse(payload_file))) {
@@ -267,7 +252,7 @@ static int request(req_info *info)
     }
 
     init_request(request, (char *)info->url, info->action,
-    FMT_ATTR_CONTAINER, payload, payload_len);
+                 FMT_ATTR_CONTAINER, payload, payload_len);
     request->mid = gen_random_id();
 
     ret = send_request(request, REQUEST_PACKET);
@@ -275,12 +260,13 @@ static int request(req_info *info)
     if (info->json_payload_file != NULL && payload != NULL)
         attr_container_destroy(payload);
 
-    fail: return ret;
+fail:
+    return ret;
 }
 
-/*
- TODO: currently only support 1 url.
- how to handle multiple responses and set process's exit code?
+/**
+ * TODO: currently only support 1 url.
+ * how to handle multiple responses and set process's exit code?
  */
 static int subscribe(reg_info *info)
 {
@@ -307,9 +293,8 @@ static int subscribe(reg_info *info)
     char url[URL_MAX_LEN] = { 0 };
     char *prefix = info->urls[0] == '/' ? "/event" : "/event/";
     snprintf(url, URL_MAX_LEN, "%s%s", prefix, info->urls);
-    init_request(request, url, COAP_PUT,
-    FMT_ATTR_CONTAINER,
-    NULL, 0);
+    init_request(request, url, COAP_PUT, FMT_ATTR_CONTAINER,
+                 NULL, 0);
     request->mid = gen_random_id();
     ret = send_request(request, REQUEST_PACKET);
 #endif
@@ -340,9 +325,8 @@ static int unsubscribe(unreg_info *info)
 #else
     char url[URL_MAX_LEN] = { 0 };
     snprintf(url, URL_MAX_LEN, "%s%s", "/event/", info->urls);
-    init_request(request, url, COAP_DELETE,
-    FMT_ATTR_CONTAINER,
-    NULL, 0);
+    init_request(request, url, COAP_DELETE, FMT_ATTR_CONTAINER,
+                 NULL, 0);
     request->mid = gen_random_id();
     ret = send_request(request, REQUEST_PACKET);
 #endif
@@ -357,7 +341,8 @@ static int init()
             return -1;
         g_conn_fd = fd;
         return 0;
-    } else if (g_connection_mode == CONNECTION_MODE_UART) {
+    }
+    else if (g_connection_mode == CONNECTION_MODE_UART) {
         int fd;
         if (!uart_init(g_uart_dev, g_baudrate, &fd))
             return -1;
@@ -389,7 +374,6 @@ static int parse_action(const char *str)
 static void showUsage()
 {
     printf("\n");
-    /*printf("Usage: host_tool [-i|--install]|[-u|--uninstall]|[-q|--query]|[-r|--request]|[-s|--register]|[-d|--deregister] ...\n");*/
     printf("Usage:\n\thost_tool -i|-u|-q|-r|-s|-d ...\n\n");
 
     printf("\thost_tool -i <App Name> -f <App File>\n"
@@ -453,26 +437,24 @@ static void showUsage()
     printf("\t<Watchdog Interval>=Watchdog interval in ms.\n");
 }
 
-#define CHECK_DUPLICATE_OPERATION do{ \
-  if (operation_parsed)               \
-  {                                   \
-    showUsage();                      \
-    return false;                     \
-  }                                   \
-}while(0)
+#define CHECK_DUPLICATE_OPERATION do {  \
+  if (operation_parsed) {               \
+    showUsage();                        \
+    return false;                       \
+  }                                     \
+} while(0)
 
-#define ERROR_RETURN do{   \
-  showUsage();             \
-  return false;            \
-}while(0)
+#define ERROR_RETURN do {               \
+  showUsage();                          \
+  return false;                         \
+} while(0)
 
-#define CHECK_ARGS_UNMATCH_OPERATION(op_type) do{ \
-  if (!operation_parsed || op->type != op_type)   \
-  {                                    \
-    showUsage();                       \
-    return false;                      \
-  }                                    \
-}while(0)
+#define CHECK_ARGS_UNMATCH_OPERATION(op_type) do {  \
+  if (!operation_parsed || op->type != op_type) {   \
+    showUsage();                                    \
+    return false;                                   \
+  }                                                 \
+} while(0)
 
 static bool parse_args(int argc, char *argv[], operation *op)
 {
@@ -509,7 +491,7 @@ static bool parse_args(int argc, char *argv[], operation *op)
         };
 
         c = getopt_long(argc, argv, "i:u:q::r:s:d:t:a:o:U:A:f:p:S:P:D:B:h",
-                longOpts, &optIndex);
+                        longOpts, &optIndex);
         if (c == -1)
             break;
 
@@ -661,11 +643,10 @@ static bool parse_args(int argc, char *argv[], operation *op)
     return true;
 }
 
-/*
- return value:
- < 0: not complete message
- REPLY_TYPE_EVENT: event(request)
- REPLY_TYPE_RESPONSE: response
+/**
+ * return value: < 0: not complete message
+ *               REPLY_TYPE_EVENT: event(request)
+ *               REPLY_TYPE_RESPONSE: response
  */
 static int preocess_reply_data(const char *buf, int len,
         imrt_link_recv_context_t *ctx)
@@ -696,6 +677,7 @@ static int preocess_reply_data(const char *buf, int len,
             break;
         }
     }
+
     return -1;
 }
 
@@ -717,8 +699,8 @@ parse_event_from_imrtlink(imrt_link_message_t *message, request_t *request)
     return request;
 }
 
-static void output(const char *header, attr_container_t *payload, int foramt,
-        int payload_len)
+static void output(const char *header, attr_container_t *payload,
+                   int foramt, int payload_len)
 {
     cJSON *json = NULL;
     char *json_str = NULL;
@@ -780,7 +762,7 @@ int main(int argc, char *argv[])
     if (!parse_args(argc, argv, &op))
         return -1;
 
-    //TODO: reconnect 3 times
+    /* TODO: reconnect 3 times */
     if (init() != 0)
         return -1;
 
@@ -853,8 +835,10 @@ int main(int argc, char *argv[])
                 ret = -1;
                 goto ret;
             }
-        } else if (result == 0) { /* select timeout */
-        } else if (result > 0) {
+        }
+        else if (result == 0) { /* select timeout */
+        }
+        else if (result > 0) {
             int n;
             if (FD_ISSET(g_conn_fd, &readfds)) {
                 int reply_type = -1;
@@ -886,7 +870,8 @@ int main(int argc, char *argv[])
                         total_elpased_ms = 0;
                         bh_get_elpased_ms(&last_check);
                     }
-                } else if (reply_type == REPLY_TYPE_EVENT) {
+                }
+                else if (reply_type == REPLY_TYPE_EVENT) {
                     request_t event[1] = { 0 };
 
                     parse_event_from_imrtlink(&recv_ctx.message, event);
@@ -899,10 +884,10 @@ int main(int argc, char *argv[])
         }
     } /* end of while(1) */
 
-    ret: if (recv_ctx.message.payload != NULL)
+ret:
+    if (recv_ctx.message.payload != NULL)
         free(recv_ctx.message.payload);
 
     deinit();
-
     return ret;
 }

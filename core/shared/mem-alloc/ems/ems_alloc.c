@@ -570,6 +570,7 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
         }
     }
 
+
     hmu = alloc_hmu_ex(heap, tot_size);
     if (!hmu)
         goto finish;
