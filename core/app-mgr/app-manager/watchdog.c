@@ -125,7 +125,7 @@ bool watchdog_startup()
     return true;
 }
 
-bool watchdog_destroy()
+void watchdog_destroy()
 {
     bh_queue_exit_loop_run(watchdog_queue);
     bh_queue_destroy(watchdog_queue);

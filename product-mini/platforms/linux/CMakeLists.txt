@@ -81,8 +81,8 @@ if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_SIMD)
-  # Disable SIMD by default
-  set (WAMR_BUILD_SIMD 0)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
 endif ()
 
 if (COLLECT_CODE_COVERAGE EQUAL 1)
