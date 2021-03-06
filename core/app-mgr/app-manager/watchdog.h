@@ -31,7 +31,7 @@ app_manager_get_watchdog_timer(void *timer);
 bool
 watchdog_startup();
 
-bool
+void
 watchdog_destroy();
 
 #ifdef __cplusplus

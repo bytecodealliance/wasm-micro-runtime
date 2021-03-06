@@ -57,6 +57,31 @@ if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   set (WAMR_BUILD_LIBC_WASI 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
+  # Enable fast interpreter
+  set (WAMR_BUILD_FAST_INTERP 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
+  # Enable multiple modules
+  set (WAMR_BUILD_MULTI_MODULE 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
+  # Disable pthread library by default
+  set (WAMR_BUILD_LIB_PTHREAD 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
+  # Disable wasm mini loader by default
+  set (WAMR_BUILD_MINI_LOADER 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_SIMD)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
+endif ()
+
 set (CMAKE_SHARED_LINKER_FLAGS "-Wl,-U,_get_ext_lib_export_apis")
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 

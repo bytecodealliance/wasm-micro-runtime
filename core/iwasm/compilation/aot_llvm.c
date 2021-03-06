@@ -1189,9 +1189,6 @@ aot_create_comp_context(AOTCompData *comp_data,
     if (option->enable_tail_call)
         comp_ctx->enable_tail_call = true;
 
-    if (option->enable_simd)
-        comp_ctx->enable_simd = true;
-
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
 
@@ -1416,9 +1413,17 @@ aot_create_comp_context(AOTCompData *comp_data,
         }
     }
 
+    if (option->enable_simd
+        && strcmp(comp_ctx->target_arch, "x86_64") != 0) {
+        /* Disable simd if it isn't supported by target arch */
+        option->enable_simd = false;
+    }
+
     if (option->enable_simd) {
         char *tmp;
         bool ret;
+
+        comp_ctx->enable_simd = true;
 
         if (!(tmp = LLVMGetTargetMachineCPU(comp_ctx->target_machine))) {
             aot_set_last_error("get CPU from Target Machine fail");
@@ -1428,7 +1433,9 @@ aot_create_comp_context(AOTCompData *comp_data,
         ret = aot_check_simd_compatibility(comp_ctx->target_arch, tmp);
         LLVMDisposeMessage(tmp);
         if (!ret) {
-            aot_set_last_error("SIMD compatibility check failed");
+            aot_set_last_error("SIMD compatibility check failed, "
+                               "try adding --cpu=<cpu> to specify a cpu "
+                               "or adding --disable-simd to disable SIMD");
             goto fail;
         }
     }

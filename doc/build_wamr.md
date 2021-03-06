@@ -20,7 +20,7 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
 
 - **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, RISCV64 and MIPS.
-  - For AARCH64, ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. Both \<sub-arch> and "_VFP" are optional, e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+  - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. Both \<sub-arch> and "_VFP" are optional, e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
   - For RISCV64, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV64, RISCV64_LP64D and RISCV64_LP64: RISCV64 and RISCV64_LP64D are identical, using [LP64D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (LP64 with hardware floating-point calling convention for FLEN=64). And RISCV64_LP64 uses [LP64](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
   - For RISCV32, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV32, RISCV32_ILP32D and RISCV32_ILP32: RISCV32 and RISCV32_ILP32D are identical, using [ILP32D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=64). And RISCV32_ILP32 uses [ILP32](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
 
@@ -30,16 +30,16 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 #### **Configure interpreter**
 
-- **WAMR_BUILD_INTERP**=1/0:  enable or disable WASM interpreter
+- **WAMR_BUILD_INTERP**=1/0: enable or disable WASM interpreter
 
-- **WAMR_BUILD_FAST_INTERP**=1/0：build fast (default) or classic WASM interpreter.
+- **WAMR_BUILD_FAST_INTERP**=1/0: build fast (default) or classic WASM interpreter.
 
   NOTE: the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the WASM bytecode code.
 
 #### **Configure AoT and JIT**
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
-- **WAMR_BUILD_JIT**=1/0 , default to disable if not set
+- **WAMR_BUILD_JIT**=1/0, default to disable if not set
 
 #### **Configure LIBC**
 
@@ -55,18 +55,6 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > cd <WAMR-ROOT>/core/deps
 > git clone https://github.com/nodejs/uvwasi.git
 > ```
-
-#### **Configure Debug**
-
-- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0, load the function name from custom name section, default to disable if not set
-
-#### **Enable dump call stack feature**
-- **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
-
-> Note: if it is enabled, the call stack will be dumped when exception occurs.
-
-> - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
-> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
 
 #### **Enable Multi-Module feature**
 
@@ -92,6 +80,25 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
 > Note: by default only platform linux/darwin/android/vxworks 64-bit will enable boundary check with hardware trap in AOT or JIT mode, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance.
 
+#### **Enable tail call feature**
+- **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
+
+#### **Enable 128-bit SIMD feature**
+- **WAMR_BUILD_SIMD**=1/0, default to enable if not set
+> Note: only supported in AOT mode x86-64 target.
+
+#### **Configure Debug**
+
+- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0, load the function name from custom name section, default to disable if not set
+
+#### **Enable dump call stack feature**
+- **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
+
+> Note: if it is enabled, the call stack will be dumped when exception occurs.
+
+> - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
+> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
+
 #### **Enable memory profiling (Experiment)**
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump the memory consumption info.
@@ -106,13 +113,6 @@ Currently we only profile the memory consumption of module, module_instance and 
 #### **Set maximum app thread stack size**
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
 > Note: the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
-
-#### **Enable tail call feature**
-- **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
-
-#### **Enable 128-bit SIMD feature**
-- **WAMR_BUILD_SIMD**=1/0, default to disable if not set
-> Note: only supported in AOT mode, and the *--enable-simd* flag should be added for wamrc when generating aot file.
 
 **Combination of configurations:**
 
