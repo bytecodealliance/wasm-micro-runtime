@@ -34,11 +34,19 @@ extern "C" {
 #endif
 
 #if defined(MSVC)
-__declspec(dllimport)  void *BH_MALLOC(unsigned int size);
-__declspec(dllimport)  void BH_FREE(void *ptr);
+__declspec(dllimport) void *BH_MALLOC(unsigned int size);
+__declspec(dllimport) void BH_FREE(void *ptr);
 #else
 void *BH_MALLOC(unsigned int size);
 void BH_FREE(void *ptr);
+#endif
+
+#if defined(BH_VPRINTF)
+#if defined(MSVC)
+__declspec(dllimport) int BH_VPRINTF(const char *format, va_list ap);
+#else
+int BH_VPRINTF(const char *format, va_list ap);
+#endif
 #endif
 
 #ifndef NULL

@@ -1237,7 +1237,29 @@ __wasi_errno_t wasmtime_ssp_fd_write(
   if (error != 0)
     return error;
 
+#ifndef BH_VPRINTF
   ssize_t len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+#else
+  ssize_t len = 0;
+  /* redirect stdout/stderr output to BH_VPRINTF function */
+  if (fd_number(fo) == 1 || fd_number(fo) == 2) {
+    int i;
+    const struct iovec *iov1 = (const struct iovec *)iov;
+
+    for (i = 0; i < (int)iovcnt; i++, iov1++) {
+      if (iov1->iov_len > 0 && iov1->iov_base) {
+        char format[16];
+
+        /* make up format string "%.ns" */
+        snprintf(format, sizeof(format), "%%.%ds", (int)iov1->iov_len);
+        len += (ssize_t)os_printf(format, iov1->iov_base);
+      }
+    }
+  }
+  else {
+    len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+  }
+#endif /* end of BH_VPRINTF */
   fd_object_release(fo);
   if (len < 0)
     return convert_errno(errno);

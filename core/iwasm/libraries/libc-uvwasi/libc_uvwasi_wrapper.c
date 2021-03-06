@@ -604,8 +604,31 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
         ciovec->buf_len = iovec_app->buf_len;
     }
 
-    err = uvwasi_fd_write(uvwasi, fd,
-                          ciovec_begin, iovs_len, &nwritten);
+#ifndef BH_VPRINTF
+    err = uvwasi_fd_write(uvwasi, fd, ciovec_begin, iovs_len, &nwritten);
+#else
+    /* redirect stdout/stderr output to BH_VPRINTF function */
+    if (fd == 1 || fd == 2) {
+        int i;
+        const struct iovec *iov1 = (const struct iovec *)ciovec_begin;
+
+        nwritten = 0;
+        for (i = 0; i < (int)iovs_len; i++, iov1++) {
+            if (iov1->iov_len > 0 && iov1->iov_base) {
+                char format[16];
+
+                /* make up format string "%.ns" */
+                snprintf(format, sizeof(format), "%%.%ds", (int)iov1->iov_len);
+                nwritten += (uvwasi_size_t)os_printf(format, iov1->iov_base);
+            }
+        }
+        err = 0;
+    }
+    else {
+        err = uvwasi_fd_write(uvwasi, fd, ciovec_begin, iovs_len, &nwritten);
+    }
+#endif /* end of BH_VPRINTF */
+
     if (err)
         goto fail;
 
