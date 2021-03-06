@@ -114,6 +114,27 @@ Currently we only profile the memory consumption of module, module_instance and 
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
 > Note: the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
 
+#### **WAMR_BH_VPRINTF**=<vprintf_callback>, default to disable if not set
+> Note: if the vprintf_callback function is provided by developer, the os_printf() and os_vprintf() in Linux, Darwin, Windows and VxWorks platforms, besides WASI Libc output will call the callback function instead of libc vprintf() function to redirect the stdout output. For example, developer can define the callback function like below outside runtime lib:
+>
+> ```C
+> int my_vprintf(const char *format, va_list ap)
+> {
+>     /* output to pre-opened file stream */
+>     FILE *my_file = ...;
+>     return vfprintf(my_file, format, ap);
+>     /* or output to pre-opened file descriptor */
+>     int my_fd = ...;
+>     return vdprintf(my_fd, format, ap);
+>     /* or output to string buffer and print the string */
+>     char buf[128];
+>     vsnprintf(buf, sizeof(buf), format, ap);
+>     return my_printf("%s", buf);
+> }
+> ```
+>
+> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt.
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
