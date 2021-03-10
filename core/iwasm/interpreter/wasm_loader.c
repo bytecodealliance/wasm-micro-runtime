@@ -3618,7 +3618,7 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
     uint32 block_nested_depth = 1, count, i, j, t;
     uint32 error_buf_size = sizeof(error_buf);
     uint8 opcode, u8;
-    BlockAddr block_stack[16] = { 0 }, *block;
+    BlockAddr block_stack[16] = {{0}}, *block;
 
     i = ((uintptr_t)start_addr) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
     block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
