@@ -43,8 +43,8 @@ display_flush(wasm_exec_env_t exec_env,
                                            color, sizeof(lv_color_t)))
         return;
 
-    u16_t w = x2 - x1 + 1;
-    u16_t h = y2 - y1 + 1;
+    uint16_t w = x2 - x1 + 1;
+    uint16_t h = y2 - y1 + 1;
 
     desc.buf_size = 3 * w * h;
     desc.width = w;
@@ -93,7 +93,7 @@ display_vdb_write(wasm_exec_env_t exec_env,
                   lv_color_t *color, lv_opa_t opa)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    u8_t *buf_xy = (u8_t*)buf + 3 * x + 3 * y * buf_w;
+    uint8_t *buf_xy = (uint8_t*)buf + 3 * x + 3 * y * buf_w;
 
     if (!wasm_runtime_validate_native_addr(module_inst,
                                            color, sizeof(lv_color_t)))
