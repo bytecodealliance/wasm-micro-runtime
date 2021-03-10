@@ -333,8 +333,7 @@ wasm_runtime_set_wasi_args(wasm_module_t module,
  *        specified here is ignored.
  * @param heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
- *        function can allocate memory from the heap. If heap_size is 0, the
- *        default heap size will be used.
+ *        function can allocate memory from the heap.
  * @param error_buf buffer to output the error info if failed
  * @param error_buf_size the size of the error buffer
  *
