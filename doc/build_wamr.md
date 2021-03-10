@@ -240,6 +240,8 @@ Make sure `MSVC` and `cmake` are installed and available in the command line env
 
 Then build the source codes:
 ``` Bash
+cd core/deps/
+git clone https://github.com/nodejs/uvwasi.git
 cd product-mini/platforms/windows/
 mkdir build
 cd build
