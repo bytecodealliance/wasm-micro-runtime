@@ -1784,7 +1784,7 @@ recover_br_info:
         else {
           /* success, return previous page count */
           frame_lp[addr_ret] = prev_page_count;
-          /* update the memory instance ptr */
+          /* update memory instance ptr and memory size */
           memory = module->default_memory;
           linear_mem_size = num_bytes_per_page * memory->cur_page_count;
         }
@@ -3257,7 +3257,10 @@ recover_br_info:
           cur_func = frame->function;
           UPDATE_ALL_FROM_FRAME();
 
+          /* update memory instance ptr and memory size */
           memory = module->default_memory;
+          if (memory)
+              linear_mem_size = num_bytes_per_page * memory->cur_page_count;
           if (wasm_get_exception(module))
               goto got_exception;
       }
