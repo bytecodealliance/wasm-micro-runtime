@@ -3400,8 +3400,21 @@ fail:
 #undef v128
 #endif
 
+#if defined(_WIN32) || defined(_WIN32_)
+typedef union __declspec(intrin_type) __declspec(align(1)) v128 {
+    __int8 m128i_i8[16];
+    __int16 m128i_i16[8];
+    __int32 m128i_i32[4];
+    __int64 m128i_i64[2];
+    unsigned __int8 m128i_u8[16];
+    unsigned __int16 m128i_u16[8];
+    unsigned __int32 m128i_u32[4];
+    unsigned __int64 m128i_u64[2];
+} v128;
+#else
 typedef long long v128 __attribute__ ((__vector_size__ (16),
                                        __may_alias__, __aligned__ (1)));
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 

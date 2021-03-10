@@ -879,17 +879,16 @@ aot_instantiate(AOTModule *module, bool is_sub_inst,
 
 #if WASM_ENABLE_LIBC_WASI != 0
     if (!is_sub_inst) {
-        if (heap_size > 0
-            && !wasm_runtime_init_wasi((WASMModuleInstanceCommon*)module_inst,
-                                       module->wasi_args.dir_list,
-                                       module->wasi_args.dir_count,
-                                       module->wasi_args.map_dir_list,
-                                       module->wasi_args.map_dir_count,
-                                       module->wasi_args.env,
-                                       module->wasi_args.env_count,
-                                       module->wasi_args.argv,
-                                       module->wasi_args.argc,
-                                       error_buf, error_buf_size))
+        if (!wasm_runtime_init_wasi((WASMModuleInstanceCommon*)module_inst,
+                                    module->wasi_args.dir_list,
+                                    module->wasi_args.dir_count,
+                                    module->wasi_args.map_dir_list,
+                                    module->wasi_args.map_dir_count,
+                                    module->wasi_args.env,
+                                    module->wasi_args.env_count,
+                                    module->wasi_args.argv,
+                                    module->wasi_args.argc,
+                                    error_buf, error_buf_size))
             goto fail;
     }
 #endif
