@@ -40,6 +40,9 @@ typedef pthread_t korp_thread;
 #define os_printf  printf
 #define os_vprintf vprintf
 
+/* On NuttX, time_t is uint32_t */
+#define BH_TIME_T_MAX 0xffffffff
+
 #ifdef __cplusplus
 }
 #endif

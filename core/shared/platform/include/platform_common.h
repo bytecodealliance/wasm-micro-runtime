@@ -33,6 +33,10 @@ extern "C" {
 #define BH_FREE os_free
 #endif
 
+#ifndef BH_TIME_T_MAX
+#define BH_TIME_T_MAX LONG_MAX
+#endif
+
 #if defined(_MSC_BUILD)
 #if defined(COMPILING_WASM_RUNTIME_API)
 __declspec(dllexport) void *BH_MALLOC(unsigned int size);
