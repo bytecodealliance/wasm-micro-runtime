@@ -60,19 +60,28 @@ WAMR supports building the iwasm VM core only (no app framework) to the mini pro
 
 ### Build wamrc AoT compiler
 
-Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compiler is to compile wasm binary file to AoT file which can also be run by iwasm. Execute following commands to build **wamrc** compiler:
+Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compiler is to compile wasm binary file to AoT file which can also be run by iwasm. Execute following commands to build **wamrc** compiler for Linux:
 
 ```shell
 cd wamr-compiler
-./build_llvm.sh (use build_llvm_xtensa.sh instead to support xtensa target; use build_llvm.py for windows)
+./build_llvm.sh (or "./build_llvm_xtensa.sh" to support xtensa target)
+mkdir build && cd build
+cmake .. (or "cmake .. -DWAMR_BUILD_TARGET=darwin" for MacOS)
+make
+# wamrc is generated under current directory
+```
+
+For **Windows**：
+```shell
+cd wamr-compiler
+python build_llvm.py
+open LLVM.sln in wasm-micro-runtime\core\deps\llvm\win32build with Visual Studio
+build LLVM.sln Release
 mkdir build && cd build
 cmake ..
-make
-ln -s {current path}/wamrc /usr/bin/wamrc
+cmake --build . --config Release
+# wamrc.exe is generated under .\Release directory
 ```
-For MacOS, you should replace `cmake ..` with `cmake -DWAMR_BUILD_PLATFORM=darwin ..`.
-
-For Windows you should replace `cmake ..` with `cmake -D WAMR_BUILD_PLATFORM=windows -A Win32 ..`.
 
 Application framework
 ===================================
