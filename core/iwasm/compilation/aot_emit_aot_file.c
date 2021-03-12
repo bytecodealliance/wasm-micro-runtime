@@ -1678,6 +1678,7 @@ static bool
 is_data_section(char *section_name)
 {
     return (!strcmp(section_name, ".data")
+            || !strcmp(section_name, ".rdata")
             || !strcmp(section_name, ".rodata")
             /* ".rodata.cst4/8/16/.." */
             || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst")));
