@@ -1045,6 +1045,105 @@ fail:
 }
 
 static bool
+load_rdata_sections(const uint8 **p_buf, const uint8 *buf_end,
+                    AOTModule *module,
+                    char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    AOTRDataSection *rdata_section;
+    uint64 total_size = 0;
+    uint32 rdata_size, rdata_size_aligned, relocation_count;
+    uint32 rdata_offset = 0, rdata_offset_aligned = 0, i;
+    int map_prot, map_flags;
+
+    for (i = 0; i < module->rdata_section_count; i++) {
+        read_uint32(buf, buf_end, rdata_size);
+        read_uint32(buf, buf_end, relocation_count);
+        CHECK_BUF(buf, buf_end, rdata_size);
+        buf += rdata_size;
+
+        rdata_size_aligned = align_uint(rdata_size, 16);
+        if (rdata_size_aligned < rdata_size) {
+            set_error_buf(error_buf, error_buf_size,
+                          "invalid rdata size");
+            return false;
+        }
+        total_size += rdata_size_aligned;
+    }
+
+    /* Map memory for rdata */
+    map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    /* aot code and data in x86_64 must be in range 0 to 2G due to
+       relocation for R_X86_64_32/32S/PC32 */
+    map_flags = MMAP_MAP_32BIT;
+#else
+    map_flags = MMAP_MAP_NONE;
+#endif
+    if (total_size > UINT32_MAX
+        || !(module->rdata = os_mmap(NULL, (uint32)total_size,
+                                     map_prot, map_flags))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "allocate memory failed");
+        return false;
+    }
+    module->rdata_size = (uint32)total_size;
+
+    /* Allocate memory */
+    total_size = sizeof(AOTRDataSection) * (uint64)module->rdata_section_count;
+    if (!(module->rdata_sections = rdata_section =
+                loader_malloc(total_size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    buf = *p_buf;
+
+    /* Create each rdata section */
+    for (i = 0; i < module->rdata_section_count; i++, rdata_section++) {
+        read_uint32(buf, buf_end, rdata_size);
+        read_uint32(buf, buf_end, rdata_section->relocation_count);
+
+        rdata_size_aligned = align_uint(rdata_size, 16);
+        rdata_section->size = rdata_size;
+        rdata_section->offset = rdata_offset;
+        rdata_section->offset_aligned = rdata_offset_aligned;
+
+        rdata_section->data = module->rdata + rdata_offset_aligned;
+        rdata_offset += rdata_size;
+        rdata_offset_aligned += rdata_size_aligned;
+
+        read_byte_array(buf, buf_end,
+                        rdata_section->data, rdata_size);
+    }
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
+load_rdata_sections_info(const uint8 **p_buf, const uint8 *buf_end,
+                         AOTModule *module,
+                         char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+
+    read_uint32(buf, buf_end, module->rdata_section_count);
+
+    /* load rdata sections */
+    if (module->data_section_count > 0
+        && !load_rdata_sections(&buf, buf_end, module,
+                                error_buf, error_buf_size))
+        return false;
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
 load_init_data_section(const uint8 *buf, const uint8 *buf_end,
                        AOTModule *module,
                        char *error_buf, uint32 error_buf_size)
@@ -1082,6 +1181,10 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 
     if (!load_object_data_sections_info(&p, p_end, module,
                                         error_buf, error_buf_size))
+        return false;
+
+    if (!load_rdata_sections_info(&p, p_end, module,
+                                  error_buf, error_buf_size))
         return false;
 
     if (p != p_end) {
@@ -1280,12 +1383,13 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     uint32 i;
     AOTObjectDataSection *data_section = module->data_sections;
 
-    for (i = 0; i < module->data_section_count; i++, data_section++)
+    for (i = 0; i < module->data_section_count; i++, data_section++) {
         if (!strcmp(data_section->name, section_name)) {
             if (p_data_size)
                 *p_data_size = data_section->size;
             return data_section->data;
         }
+    }
 
     return NULL;
 }
@@ -1313,8 +1417,7 @@ is_literal_relocation(const char *reloc_sec_name)
     return !strcmp(reloc_sec_name, ".rela.literal");
 }
 
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
 static bool
 str2uint64(const char *buf, uint64 *p_res)
 {
@@ -1348,8 +1451,7 @@ do_text_relocation(AOTModule *module,
     uint8 *aot_text = is_literal ? module->literal : module->code;
     uint32 aot_text_size = is_literal ? module->literal_size : module->code_size;
     uint32 i, func_index, symbol_len;
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
     uint32 xmm_plt_index = 0, real_plt_index = 0;
     uint64 *xmm_plt_data, *real_plt_data;
 #endif
@@ -1391,7 +1493,6 @@ do_text_relocation(AOTModule *module,
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data")
-                 || !strcmp(symbol, ".rdata")
                  || !strcmp(symbol, ".rodata")
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))) {
@@ -1405,8 +1506,25 @@ do_text_relocation(AOTModule *module,
         else if (!strcmp(symbol, ".literal")) {
             symbol_addr = module->literal;
         }
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
+        else if (!strcmp(symbol, ".rdata")) {
+            uint8 *rdata = NULL;
+            uint32 rdata_idx;
+
+            for (rdata_idx = 0; rdata_idx < module->rdata_section_count;
+                 rdata_idx++) {
+                if (module->rdata_sections[rdata_idx].relocation_count > 0) {
+                    rdata = module->rdata_sections[rdata_idx].data;
+                    break;
+                }
+            }
+            if (!rdata) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol .rdata failed");
+                goto check_symbol_fail;
+            }
+            symbol_addr = rdata;
+        }
         else if (!strcmp(group->section_name, ".text")
                  && !strncmp(symbol, "__xmm@", strlen("__xmm@"))
                  && strlen(symbol) == strlen("__xmm@") + 32) {
@@ -1442,8 +1560,7 @@ do_text_relocation(AOTModule *module,
             }
             real_plt_index++;
         }
-#endif /* end of (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64))
-                 && defined(BH_PLATFORM_WINDOWS) */
+#endif /* end of defined(BH_PLATFORM_WINDOWS) */
         else if (!(symbol_addr = resolve_target_sym(symbol, &symbol_index))) {
             set_error_buf_v(error_buf, error_buf_size,
                             "resolve symbol %s failed", symbol);
@@ -1489,6 +1606,11 @@ do_data_relocation(AOTModule *module,
     else if (!strncmp(group->section_name, ".rel.", 5)) {
         data_section_name = group->section_name + strlen(".rel");
     }
+#if defined(BH_PLATFORM_WINDOWS)
+    else if (!strcmp(group->section_name, ".rdata")) {
+        data_section_name = group->section_name;
+    }
+#endif
     else {
         set_error_buf(error_buf, error_buf_size,
                       "invalid data relocation section name");
@@ -1497,6 +1619,26 @@ do_data_relocation(AOTModule *module,
 
     data_addr = get_data_section_addr(module, data_section_name,
                                       &data_size);
+#if defined(BH_PLATFORM_WINDOWS)
+    if (!strcmp(data_section_name, ".rdata")) {
+        uint32 rdata_idx;
+
+        for (rdata_idx = 0; rdata_idx < module->rdata_section_count;
+             rdata_idx++) {
+            if (module->rdata_sections[rdata_idx].relocation_count > 0) {
+                data_addr = module->rdata_sections[rdata_idx].data;
+                data_size = module->rdata_sections[rdata_idx].size;
+                break;
+            }
+        }
+        if (!data_addr) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "resolve symbol .rdata failed");
+            return false;
+        }
+    }
+#endif
+
     if (group->relocation_count > 0 && !data_addr) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid data relocation count");
@@ -1585,8 +1727,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         goto fail;
     }
 
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
 
@@ -1676,8 +1817,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         }
         module->extra_plt_data_size = (uint32)size;
     }
-#endif /* end of (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64))
-                 && defined(BH_PLATFORM_WINDOWS) */
+#endif /* end of defined(BH_PLATFORM_WINDOWS) */
 
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
@@ -1778,6 +1918,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                 goto fail;
         }
     }
+
+    /* TODO: set code and data read only */
 
     ret = true;
 
@@ -2469,12 +2611,12 @@ aot_unload(AOTModule *module)
 
     if (module->code) {
         uint8 *mmap_addr = module->literal - sizeof(module->literal_size);
-        uint32 total_size = sizeof(module->literal_size) + module->literal_size + module->code_size;
+        uint32 total_size = sizeof(module->literal_size)
+                            + module->literal_size + module->code_size;
         os_munmap(mmap_addr, total_size);
     }
 
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
     if (module->extra_plt_data) {
         os_munmap(module->extra_plt_data, module->extra_plt_data_size);
     }
@@ -2483,6 +2625,11 @@ aot_unload(AOTModule *module)
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,
                                      module->data_section_count);
+
+    if (module->rdata)
+        os_munmap(module->rdata, module->rdata_size);
+    if (module->rdata_sections)
+        wasm_runtime_free(module->rdata_sections);
 
     wasm_runtime_free(module);
 }

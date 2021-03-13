@@ -51,6 +51,14 @@ typedef struct AOTObjectDataSection {
     uint32 size;
 } AOTObjectDataSection;
 
+typedef struct AOTRDataSection {
+    uint8 *data;
+    uint32 size;
+    uint32 relocation_count;
+    uint32 offset;
+    uint32 offset_aligned;
+} AOTRDataSection;
+
 /* Relocation info */
 typedef struct AOTRelocation {
     uint64 relocation_offset;
@@ -173,6 +181,12 @@ typedef struct AOTModule {
      * and .rodata.cstN. NULL for JIT mode. */
     AOTObjectDataSection *data_sections;
     uint32 data_section_count;
+
+    /* rdata sections in AOT object file */
+    uint8 *rdata;
+    uint32 rdata_size;
+    AOTRDataSection *rdata_sections;
+    uint32 rdata_section_count;
 
     /* constant string set */
     HashMap *const_str_set;
