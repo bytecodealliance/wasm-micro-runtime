@@ -208,6 +208,9 @@ apply_relocation(AOTModule *module,
                                - (target_section_addr + reloc_offset));
             }
 
+#if defined(BH_PLATFORM_WINDOWS)
+            target_addr -= sizeof(int32);
+#endif
             if ((int32)target_addr != target_addr) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
@@ -220,9 +223,6 @@ apply_relocation(AOTModule *module,
                               "Try using wamrc with --size-level=1 option.");
                 return false;
             }
-#if defined(BH_PLATFORM_WINDOWS)
-            target_addr -= sizeof(int32);
-#endif
             *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
             break;
         }
