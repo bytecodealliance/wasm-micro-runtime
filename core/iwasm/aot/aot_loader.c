@@ -1374,7 +1374,6 @@ do_text_relocation(AOTModule *module,
     uint32 i, func_index, symbol_len;
 #if defined(BH_PLATFORM_WINDOWS)
     uint32 xmm_plt_index = 0, real_plt_index = 0, float_plt_index = 0;
-    uint64 *xmm_plt_data, *real_plt_data, *float_plt_data;
 #endif
     char symbol_buf[128]  = { 0 }, *symbol, *p;
     void *symbol_addr;
@@ -1436,7 +1435,7 @@ do_text_relocation(AOTModule *module,
 
             symbol_addr = module->extra_plt_data + xmm_plt_index * 16;
             bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
-                        symbol + strlen(XMM_PLT_PREFIX), 16);
+                        symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
             if (!str2uint64(xmm_buf, (uint64*)symbol_addr)) {
                 set_error_buf(error_buf, error_buf,
                               "resolve symbol %s failed", symbol);
@@ -1444,7 +1443,7 @@ do_text_relocation(AOTModule *module,
             }
 
             bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
-                        symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
+                        symbol + strlen(XMM_PLT_PREFIX), 16);
             if (!str2uint64(xmm_buf, (uint64*)((uint8*)symbol_addr + 8))) {
                 set_error_buf(error_buf, error_buf,
                               "resolve symbol %s failed", symbol);

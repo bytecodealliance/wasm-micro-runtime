@@ -58,7 +58,7 @@ endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   # Enable fast interpreter
-  set (WAMR_BUILD_FAST_INTERP 0)
+  set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
@@ -74,6 +74,11 @@ endif ()
 if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
   # Disable wasm mini loader by default
   set (WAMR_BUILD_MINI_LOADER 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_SIMD)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
 endif ()
 
 if (COLLECT_CODE_COVERAGE EQUAL 1)
