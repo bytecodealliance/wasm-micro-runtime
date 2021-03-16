@@ -1675,16 +1675,24 @@ aot_resolve_literal(AOTObjectData *obj_data)
 }
 
 static bool
-is_data_section(char *section_name)
+get_relocations_count(LLVMSectionIteratorRef sec_itr, uint32 *p_count);
+
+static bool
+is_data_section(LLVMSectionIteratorRef sec_itr, char *section_name)
 {
+    uint32 relocation_count = 0;
+
     return (!strcmp(section_name, ".data")
             || !strcmp(section_name, ".rodata")
             /* ".rodata.cst4/8/16/.." */
-            || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst")));
+            || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst"))
+            || (!strcmp(section_name, ".rdata")
+                && get_relocations_count(sec_itr, &relocation_count)
+                && relocation_count > 0));
 }
 
-static uint32
-get_object_data_sections_count(AOTObjectData *obj_data)
+static bool
+get_object_data_sections_count(AOTObjectData *obj_data, uint32 *p_count)
 {
     LLVMSectionIteratorRef sec_itr;
     char *name;
@@ -1692,18 +1700,19 @@ get_object_data_sections_count(AOTObjectData *obj_data)
 
     if (!(sec_itr = LLVMObjectFileCopySectionIterator(obj_data->binary))) {
         aot_set_last_error("llvm get section iterator failed.");
-        return 0;
+        return false;
     }
     while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
         if ((name = (char *)LLVMGetSectionName(sec_itr))
-            && (is_data_section(name))) {
+            && (is_data_section(sec_itr, name))) {
             count++;
         }
         LLVMMoveToNextSection(sec_itr);
     }
     LLVMDisposeSectionIterator(sec_itr);
 
-    return count;
+    *p_count = count;
+    return true;
 }
 
 static bool
@@ -1712,8 +1721,12 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
     LLVMSectionIteratorRef sec_itr;
     char *name;
     AOTObjectDataSection *data_section;
-    uint32 sections_count = get_object_data_sections_count(obj_data);
+    uint32 sections_count;
     uint32 size;
+
+    if (!get_object_data_sections_count(obj_data, &sections_count)) {
+        return false;
+    }
 
     if (sections_count > 0) {
         size = (uint32)sizeof(AOTObjectDataSection) * sections_count;
@@ -1728,10 +1741,9 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
             aot_set_last_error("llvm get section iterator failed.");
             return false;
         }
-        while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary,
-                                                     sec_itr)) {
+        while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
             if ((name = (char *)LLVMGetSectionName(sec_itr))
-                && (is_data_section(name))) {
+                && (is_data_section(sec_itr, name))) {
                 data_section->name = name;
                 data_section->data = (uint8 *)LLVMGetSectionContents(sec_itr);
                 data_section->size = (uint32)LLVMGetSectionSize(sec_itr);
@@ -1949,7 +1961,7 @@ is_relocation_section(LLVMSectionIteratorRef sec_itr)
     if (name) {
         if (is_relocation_section_name(name))
             return true;
-        else if (!strncmp(name, ".text", strlen(".text"))
+        else if ((!strcmp(name, ".text") || !strcmp(name, ".rdata"))
                  && get_relocations_count(sec_itr, &count) && count > 0)
             return true;
     }
