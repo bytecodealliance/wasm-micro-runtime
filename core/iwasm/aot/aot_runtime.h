@@ -159,6 +159,17 @@ typedef struct AOTModule {
     uint8 *literal;
     uint32 literal_size;
 
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && defined(BH_PLATFORM_WINDOWS)
+    /* extra plt data area for __xmm and __real constants
+       in Windows platform, NULL for JIT mode */
+    uint8 *extra_plt_data;
+    uint32 extra_plt_data_size;
+    uint32 xmm_plt_count;
+    uint32 real_plt_count;
+    uint32 float_plt_count;
+#endif
+
     /* data sections in AOT object file, including .data, .rodata
      * and .rodata.cstN. NULL for JIT mode. */
     AOTObjectDataSection *data_sections;

@@ -15,6 +15,8 @@
 #include "../interpreter/wasm_loader.h"
 #endif
 
+#define XMM_PLT_PREFIX "__xmm@"
+#define REAL_PLT_PREFIX "__real@"
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -1280,12 +1282,13 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     uint32 i;
     AOTObjectDataSection *data_section = module->data_sections;
 
-    for (i = 0; i < module->data_section_count; i++, data_section++)
+    for (i = 0; i < module->data_section_count; i++, data_section++) {
         if (!strcmp(data_section->name, section_name)) {
             if (p_data_size)
                 *p_data_size = data_section->size;
             return data_section->data;
         }
+    }
 
     return NULL;
 }
@@ -1313,6 +1316,53 @@ is_literal_relocation(const char *reloc_sec_name)
     return !strcmp(reloc_sec_name, ".rela.literal");
 }
 
+#if defined(BH_PLATFORM_WINDOWS)
+static bool
+str2uint32(const char *buf, uint32 *p_res)
+{
+    uint32 res = 0, val;
+    const char *buf_end = buf + 8;
+    char ch;
+
+    while (buf < buf_end) {
+        ch = *buf++;
+        if (ch >= '0' && ch <= '9')
+            val = ch - '0';
+        else if (ch >= 'a' && ch <= 'f')
+            val = ch - 'a' + 0xA;
+        else if (ch >= 'A' && ch <= 'F')
+            val = ch - 'A' + 0xA;
+        else
+            return false;
+        res = (res << 4) | val;
+    }
+    *p_res = res;
+    return true;
+}
+static bool
+str2uint64(const char *buf, uint64 *p_res)
+{
+    uint64 res = 0, val;
+    const char *buf_end = buf + 16;
+    char ch;
+
+    while (buf < buf_end) {
+        ch = *buf++;
+        if (ch >= '0' && ch <= '9')
+            val = ch - '0';
+        else if (ch >= 'a' && ch <= 'f')
+            val = ch - 'a' + 0xA;
+        else if (ch >= 'A' && ch <= 'F')
+            val = ch - 'A' + 0xA;
+        else
+            return false;
+        res = (res << 4) | val;
+    }
+    *p_res = res;
+    return true;
+}
+#endif
+
 static bool
 do_text_relocation(AOTModule *module,
                    AOTRelocationGroup *group,
@@ -1322,6 +1372,9 @@ do_text_relocation(AOTModule *module,
     uint8 *aot_text = is_literal ? module->literal : module->code;
     uint32 aot_text_size = is_literal ? module->literal_size : module->code_size;
     uint32 i, func_index, symbol_len;
+#if defined(BH_PLATFORM_WINDOWS)
+    uint32 xmm_plt_index = 0, real_plt_index = 0, float_plt_index = 0;
+#endif
     char symbol_buf[128]  = { 0 }, *symbol, *p;
     void *symbol_addr;
     AOTRelocation *relocation = group->relocations;
@@ -1360,6 +1413,7 @@ do_text_relocation(AOTModule *module,
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data")
+                 || !strcmp(symbol, ".rdata")
                  || !strcmp(symbol, ".rodata")
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))) {
@@ -1373,9 +1427,66 @@ do_text_relocation(AOTModule *module,
         else if (!strcmp(symbol, ".literal")) {
             symbol_addr = module->literal;
         }
+#if defined(BH_PLATFORM_WINDOWS)
+        else if (!strcmp(group->section_name, ".text")
+                 && !strncmp(symbol, XMM_PLT_PREFIX, strlen(XMM_PLT_PREFIX))
+                 && strlen(symbol) == strlen(XMM_PLT_PREFIX) + 32) {
+            char xmm_buf[17] = { 0 };
+
+            symbol_addr = module->extra_plt_data + xmm_plt_index * 16;
+            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
+                        symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
+            if (!str2uint64(xmm_buf, (uint64*)symbol_addr)) {
+                set_error_buf(error_buf, error_buf,
+                              "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+
+            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
+                        symbol + strlen(XMM_PLT_PREFIX), 16);
+            if (!str2uint64(xmm_buf, (uint64*)((uint8*)symbol_addr + 8))) {
+                set_error_buf(error_buf, error_buf,
+                              "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+            xmm_plt_index++;
+        }
+        else if (!strcmp(group->section_name, ".text")
+                 && !strncmp(symbol, REAL_PLT_PREFIX, strlen(REAL_PLT_PREFIX))
+                 && strlen(symbol) == strlen(REAL_PLT_PREFIX) + 16) {
+            char real_buf[17] = { 0 };
+
+            symbol_addr = module->extra_plt_data + module->xmm_plt_count * 16
+                          + real_plt_index * 8;
+            bh_memcpy_s(real_buf, sizeof(real_buf),
+                        symbol + strlen(REAL_PLT_PREFIX), 16);
+            if (!str2uint64(real_buf, (uint64*)symbol_addr)) {
+                set_error_buf(error_buf, error_buf,
+                              "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+            real_plt_index++;
+        }
+        else if (!strcmp(group->section_name, ".text")
+                 && !strncmp(symbol, REAL_PLT_PREFIX, strlen(REAL_PLT_PREFIX))
+                 && strlen(symbol) == strlen(REAL_PLT_PREFIX) + 8) {
+            char float_buf[9] = { 0 };
+
+            symbol_addr = module->extra_plt_data + module->xmm_plt_count * 16
+                          + module->real_plt_count * 8 + float_plt_index * 4;
+            bh_memcpy_s(float_buf, sizeof(float_buf),
+                        symbol + strlen(REAL_PLT_PREFIX), 8);
+            if (!str2uint32(float_buf, (uint32*)symbol_addr)) {
+                set_error_buf(error_buf, error_buf,
+                              "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+            float_plt_index++;
+        }
+#endif /* end of defined(BH_PLATFORM_WINDOWS) */
         else if (!(symbol_addr = resolve_target_sym(symbol, &symbol_index))) {
             set_error_buf_v(error_buf, error_buf_size,
-                         "resolve symbol %s failed", symbol);
+                            "resolve symbol %s failed", symbol);
             goto check_symbol_fail;
         }
 
@@ -1418,6 +1529,9 @@ do_data_relocation(AOTModule *module,
     else if (!strncmp(group->section_name, ".rel.", 5)) {
         data_section_name = group->section_name + strlen(".rel");
     }
+    else if (!strcmp(group->section_name, ".rdata")) {
+        data_section_name = group->section_name;
+    }
     else {
         set_error_buf(error_buf, error_buf_size,
                       "invalid data relocation section name");
@@ -1426,6 +1540,7 @@ do_data_relocation(AOTModule *module,
 
     data_addr = get_data_section_addr(module, data_section_name,
                                       &data_size);
+
     if (group->relocation_count > 0 && !data_addr) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid data relocation count");
@@ -1513,6 +1628,106 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                       "validate symbol table failed");
         goto fail;
     }
+
+#if defined(BH_PLATFORM_WINDOWS)
+    buf = symbol_buf_end;
+    read_uint32(buf, buf_end, group_count);
+
+    for (i = 0; i < group_count; i++) {
+        uint32 name_index, relocation_count;
+        uint16 group_name_len;
+        uint8 *group_name;
+
+        /* section name address is 4 bytes aligned. */
+        buf = (uint8*)align_ptr(buf, sizeof(uint32));
+        read_uint32(buf, buf_end, name_index);
+
+        if (name_index >= symbol_count) {
+            set_error_buf(error_buf, error_buf_size,
+                          "symbol index out of range");
+            goto fail;
+        }
+
+        group_name = symbol_buf + symbol_offsets[name_index];
+        group_name_len = *(uint16 *)group_name;
+        group_name += sizeof(uint16);
+
+        read_uint32(buf, buf_end, relocation_count);
+
+        for (j = 0; j < relocation_count; j++) {
+            AOTRelocation relocation = { 0 };
+            uint32 symbol_index, offset32, addend32;
+            uint16 symbol_name_len;
+            uint8 *symbol_name;
+
+            if (sizeof(void *) == 8) {
+                read_uint64(buf, buf_end, relocation.relocation_offset);
+                read_uint64(buf, buf_end, relocation.relocation_addend);
+            }
+            else {
+                read_uint32(buf, buf_end, offset32);
+                relocation.relocation_offset = (uint64)offset32;
+                read_uint32(buf, buf_end, addend32);
+                relocation.relocation_addend = (uint64)addend32;
+            }
+            read_uint32(buf, buf_end, relocation.relocation_type);
+            read_uint32(buf, buf_end, symbol_index);
+
+            if (symbol_index >= symbol_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "symbol index out of range");
+                goto fail;
+            }
+
+            symbol_name = symbol_buf + symbol_offsets[symbol_index];
+            symbol_name_len = *(uint16 *)symbol_name;
+            symbol_name += sizeof(uint16);
+
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
+            memcpy(group_name_buf, group_name, group_name_len);
+            memcpy(symbol_name_buf, symbol_name, symbol_name_len);
+
+            if (group_name_len == strlen(".text")
+                && !strncmp(group_name, ".text", strlen(".text"))) {
+                if (symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                    && !strncmp(symbol_name, XMM_PLT_PREFIX,
+                                strlen(XMM_PLT_PREFIX))) {
+                    module->xmm_plt_count++;
+                }
+                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
+                         && !strncmp(symbol_name, REAL_PLT_PREFIX,
+                                     strlen(REAL_PLT_PREFIX))) {
+                    module->real_plt_count++;
+                }
+                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 8
+                         && !strncmp(symbol_name, REAL_PLT_PREFIX,
+                                     strlen(REAL_PLT_PREFIX))) {
+                    module->float_plt_count++;
+                }
+            }
+        }
+    }
+
+    /* Allocate memory for extra plt data */
+    size = sizeof(uint64) * 2 * module->xmm_plt_count
+           + sizeof(uint64) * module->real_plt_count
+           + sizeof(uint32) * module->float_plt_count;
+    if (size > 0) {
+        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+        /* aot code and data in x86_64 must be in range 0 to 2G due to
+           relocation for R_X86_64_32/32S/PC32 */
+        int map_flags = MMAP_MAP_32BIT;
+
+        if (size > UINT32_MAX
+            || !(module->extra_plt_data = os_mmap(NULL, (uint32)size,
+                                                  map_prot, map_flags))) {
+            set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+            goto fail;
+        }
+        module->extra_plt_data_size = (uint32)size;
+    }
+#endif /* end of defined(BH_PLATFORM_WINDOWS) */
 
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
@@ -1613,6 +1828,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                 goto fail;
         }
     }
+
+    /* TODO: set code and data read only */
 
     ret = true;
 
@@ -2304,9 +2521,16 @@ aot_unload(AOTModule *module)
 
     if (module->code) {
         uint8 *mmap_addr = module->literal - sizeof(module->literal_size);
-        uint32 total_size = sizeof(module->literal_size) + module->literal_size + module->code_size;
+        uint32 total_size = sizeof(module->literal_size)
+                            + module->literal_size + module->code_size;
         os_munmap(mmap_addr, total_size);
     }
+
+#if defined(BH_PLATFORM_WINDOWS)
+    if (module->extra_plt_data) {
+        os_munmap(module->extra_plt_data, module->extra_plt_data_size);
+    }
+#endif
 
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,
