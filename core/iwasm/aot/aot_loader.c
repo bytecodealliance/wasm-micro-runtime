@@ -1111,6 +1111,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
+    /* The layout is: literal size + literal + code (with plt table) */
     read_uint32(buf, buf_end, module->literal_size);
 
     /* literal data is at begining of the text section */
@@ -1339,6 +1340,7 @@ str2uint32(const char *buf, uint32 *p_res)
     *p_res = res;
     return true;
 }
+
 static bool
 str2uint64(const char *buf, uint64 *p_res)
 {
@@ -1428,6 +1430,11 @@ do_text_relocation(AOTModule *module,
             symbol_addr = module->literal;
         }
 #if defined(BH_PLATFORM_WINDOWS)
+        /* Relocation for symbols which start with "__xmm@" or "__real@" and
+           end with the xmm value or real value. In Windows PE file, the data
+           is stored in some individual ".rdata" sections. We simply create
+           extra plt data, parse the values from the symbols and stored them
+           into the extra plt data. */
         else if (!strcmp(group->section_name, ".text")
                  && !strncmp(symbol, XMM_PLT_PREFIX, strlen(XMM_PLT_PREFIX))
                  && strlen(symbol) == strlen(XMM_PLT_PREFIX) + 32) {
@@ -1437,16 +1444,16 @@ do_text_relocation(AOTModule *module,
             bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
                         symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
             if (!str2uint64(xmm_buf, (uint64*)symbol_addr)) {
-                set_error_buf(error_buf, error_buf,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
 
             bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
                         symbol + strlen(XMM_PLT_PREFIX), 16);
             if (!str2uint64(xmm_buf, (uint64*)((uint8*)symbol_addr + 8))) {
-                set_error_buf(error_buf, error_buf,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
             xmm_plt_index++;
@@ -1461,8 +1468,8 @@ do_text_relocation(AOTModule *module,
             bh_memcpy_s(real_buf, sizeof(real_buf),
                         symbol + strlen(REAL_PLT_PREFIX), 16);
             if (!str2uint64(real_buf, (uint64*)symbol_addr)) {
-                set_error_buf(error_buf, error_buf,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
             real_plt_index++;
@@ -1477,8 +1484,8 @@ do_text_relocation(AOTModule *module,
             bh_memcpy_s(float_buf, sizeof(float_buf),
                         symbol + strlen(REAL_PLT_PREFIX), 8);
             if (!str2uint32(float_buf, (uint32*)symbol_addr)) {
-                set_error_buf(error_buf, error_buf,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
             float_plt_index++;
@@ -1607,6 +1614,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     uint64 size;
     uint32 *symbol_offsets, total_string_len;
     uint8 *symbol_buf, *symbol_buf_end;
+    int map_prot, map_flags;
     bool ret = false;
 
     read_uint32(buf, buf_end, symbol_count);
@@ -1714,10 +1722,10 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
            + sizeof(uint64) * module->real_plt_count
            + sizeof(uint32) * module->float_plt_count;
     if (size > 0) {
-        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+        map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
         /* aot code and data in x86_64 must be in range 0 to 2G due to
            relocation for R_X86_64_32/32S/PC32 */
-        int map_flags = MMAP_MAP_32BIT;
+        map_flags = MMAP_MAP_32BIT;
 
         if (size > UINT32_MAX
             || !(module->extra_plt_data = os_mmap(NULL, (uint32)size,
@@ -1829,7 +1837,34 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         }
     }
 
-    /* TODO: set code and data read only */
+    /* Set read only for AOT code and some data sections */
+    map_prot = MMAP_PROT_READ;
+
+    if (module->code) {
+        /* The layout is: literal size + literal + code (with plt table) */
+        uint8 *mmap_addr = module->literal - sizeof(uint32);
+        uint32 total_size = sizeof(uint32)
+                            + module->literal_size + module->code_size;
+        os_mprotect(mmap_addr, total_size, map_prot);
+    }
+
+#if defined(BH_PLATFORM_WINDOWS)
+    if (module->extra_plt_data) {
+        os_mprotect(module->extra_plt_data, module->extra_plt_data_size,
+                    map_prot);
+    }
+#endif
+
+    for (i = 0; i < module->data_section_count; i++) {
+        AOTObjectDataSection *data_section = module->data_sections + i;
+        if (!strcmp(data_section->name, ".rdata")
+            || !strcmp(data_section->name, ".rodata")
+            /* ".rodata.cst4/8/16/.." */
+            || !strncmp(data_section->name, ".rodata.cst",
+                        strlen(".rodata.cst"))) {
+            os_mprotect(data_section->data, data_section->size, map_prot);
+        }
+    }
 
     ret = true;
 
@@ -1841,6 +1876,7 @@ fail:
         wasm_runtime_free(groups);
     }
 
+    (void)map_flags;
     return ret;
 }
 
@@ -2522,8 +2558,9 @@ aot_unload(AOTModule *module)
         bh_hash_map_destroy(module->const_str_set);
 
     if (module->code) {
-        uint8 *mmap_addr = module->literal - sizeof(module->literal_size);
-        uint32 total_size = sizeof(module->literal_size)
+        /* The layout is: literal size + literal + code (with plt table) */
+        uint8 *mmap_addr = module->literal - sizeof(uint32);
+        uint32 total_size = sizeof(uint32)
                             + module->literal_size + module->code_size;
         os_munmap(mmap_addr, total_size);
     }
