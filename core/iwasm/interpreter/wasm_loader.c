@@ -2768,7 +2768,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             }
             else if (!strcmp(export->name, "__new")
                      && export->index >= module->import_function_count) {
-                /* __new && __retain for AssemblyScript */
+                /* __new && __pin for AssemblyScript */
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;
                 if (func_type->param_count == 2
@@ -2789,7 +2789,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                     export_tmp = module->exports;
                     for (j = 0; j < module->export_count; j++, export_tmp++) {
                         if ((export_tmp->kind == EXPORT_KIND_FUNC)
-                            && (!strcmp(export_tmp->name, "__retain"))
+                            && (!strcmp(export_tmp->name, "__retain")
+                                || (!strcmp(export_tmp->name, "__pin")))
                             && (export_tmp->index
                                 >= module->import_function_count)) {
                             func_index = export_tmp->index
@@ -2818,7 +2819,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                 }
             }
             else if (((!strcmp(export->name, "free"))
-                      || (!strcmp(export->name, "__release")))
+                      || (!strcmp(export->name, "__release"))
+                      || (!strcmp(export->name, "__unpin")))
                      && export->index >= module->import_function_count) {
                 func_index = export->index - module->import_function_count;
                 func_type = module->functions[func_index]->func_type;

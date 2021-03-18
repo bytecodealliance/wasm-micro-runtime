@@ -1960,7 +1960,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     export_tmp = module->exports;
                     for (j = 0; j < module->export_count; j++, export_tmp++) {
                         if ((export_tmp->kind == EXPORT_KIND_FUNC)
-                            && (!strcmp(export_tmp->name, "__retain"))) {
+                            && (!strcmp(export_tmp->name, "__retain")
+                                || !strcmp(export_tmp->name, "__pin"))) {
                             func_index = export_tmp->index
                                             - module->import_func_count;
                             func_type_index =
@@ -1988,7 +1989,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 }
             }
             else if ((!strcmp(exports[i].name, "free"))
-                     || (!strcmp(exports[i].name, "__release"))) {
+                     || (!strcmp(exports[i].name, "__release"))
+                     || (!strcmp(exports[i].name, "__unpin"))) {
                 func_index = exports[i].index - module->import_func_count;
                 func_type_index = module->func_type_indexes[func_index];
                 func_type = module->func_types[func_type_index];
