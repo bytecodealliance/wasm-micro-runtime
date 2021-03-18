@@ -1501,7 +1501,9 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
             malloc_func_name = "__new";
             malloc_func_sig = "(ii)i";
             retain_func =
-                aot_lookup_function(module_inst, "__pin", "(i)i");
+                aot_lookup_function(module_inst, "__retain", "(i)i");
+            if (!retain_func)
+                retain_func = aot_lookup_function(module_inst, "__pin", "(i)i");
             bh_assert(retain_func);
         }
         else {
@@ -1566,13 +1568,15 @@ aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
             char *free_func_name;
 
             if (module->retain_func_index != (uint32)-1) {
-                free_func_name = "__unpin";
+                free_func_name = "__release";
             }
             else {
                 free_func_name = "free";
             }
             free_func =
                 aot_lookup_function(module_inst, free_func_name, "(i)i");
+            if (!free_func)
+                free_func = aot_lookup_function(module_inst, "__unpin", "(i)i");
 
             bh_assert(free_func);
             execute_free_function(module_inst, free_func, ptr);
