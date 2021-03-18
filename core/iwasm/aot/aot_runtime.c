@@ -1575,7 +1575,7 @@ aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
             }
             free_func =
                 aot_lookup_function(module_inst, free_func_name, "(i)i");
-            if (!free_func)
+            if (!free_func && module->retain_func_index != (uint32)-1)
                 free_func = aot_lookup_function(module_inst, "__unpin", "(i)i");
 
             bh_assert(free_func);
