@@ -647,7 +647,7 @@ static uint32
 strcpy_wrapper(wasm_exec_env_t exec_env, char *dst, const char *src)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    uint32 len = strlen(src) + 1;
+    uint32 len = (uint32)strlen(src) + 1;
 
     /* src has been checked by runtime */
     if (!validate_native_addr(dst, len))
@@ -712,7 +712,7 @@ free_wrapper(wasm_exec_env_t exec_env, void *ptr)
     if (!validate_native_addr(ptr, sizeof(uint32)))
         return;
 
-    return module_free(addr_native_to_app(ptr));
+    module_free(addr_native_to_app(ptr));
 }
 
 static int32

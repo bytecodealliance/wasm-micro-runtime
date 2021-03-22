@@ -777,7 +777,7 @@ wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
 void
 wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst)
 {
-    return wasm_runtime_deinstantiate_internal(module_inst, false);
+    wasm_runtime_deinstantiate_internal(module_inst, false);
 }
 
 WASMExecEnv *
@@ -1962,7 +1962,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
 fail:
     if (envp)
-        wasm_runtime_free(envp);
+        wasm_runtime_free((void*)envp);
 
     if (init_options.preopens)
         wasm_runtime_free(init_options.preopens);

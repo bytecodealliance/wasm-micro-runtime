@@ -1909,8 +1909,8 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
         return false;
 
     memory_data = memory->memory_data;
-    heap_size = memory->heap_data_end - memory->heap_data;
-    total_size_old = memory->memory_data_end - memory_data;
+    heap_size = (uint32)(memory->heap_data_end - memory->heap_data);
+    total_size_old = (uint32)(memory->memory_data_end - memory_data);
     total_page_count = inc_page_count + memory->cur_page_count;
     total_size = memory->num_bytes_per_page * (uint64)total_page_count;
     heap_data_old = memory->heap_data;
