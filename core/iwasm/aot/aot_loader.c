@@ -1444,16 +1444,16 @@ do_text_relocation(AOTModule *module,
             bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
                         symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
             if (!str2uint64(xmm_buf, (uint64*)symbol_addr)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
 
             bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
                         symbol + strlen(XMM_PLT_PREFIX), 16);
             if (!str2uint64(xmm_buf, (uint64*)((uint8*)symbol_addr + 8))) {
-                set_error_buf(error_buf, error_buf_size,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
             xmm_plt_index++;
@@ -1468,8 +1468,8 @@ do_text_relocation(AOTModule *module,
             bh_memcpy_s(real_buf, sizeof(real_buf),
                         symbol + strlen(REAL_PLT_PREFIX), 16);
             if (!str2uint64(real_buf, (uint64*)symbol_addr)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
             real_plt_index++;
@@ -1484,8 +1484,8 @@ do_text_relocation(AOTModule *module,
             bh_memcpy_s(float_buf, sizeof(float_buf),
                         symbol + strlen(REAL_PLT_PREFIX), 8);
             if (!str2uint32(float_buf, (uint32*)symbol_addr)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "resolve symbol %s failed", symbol);
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
                 goto check_symbol_fail;
             }
             float_plt_index++;
