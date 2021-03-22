@@ -117,6 +117,7 @@ ExternalProject_Add(bwa
   UPDATE_COMMAND git clean -fd && git checkout -- *
                   && ${CMAKE_COMMAND} -E echo "Copying pre-installed CMakeLists.txt"
                   && ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.bwa_wasm.txt CMakeLists.txt
+                  && git apply ../bwa.patch
   CONFIGURE_COMMAND  ${CMAKE_COMMAND}
                          -DWASI_SDK_PREFIX=${WASI_SDK_HOME}/wasi-sdk
                          -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_HOME}/wasi-sdk/share/cmake/wasi-sdk.cmake

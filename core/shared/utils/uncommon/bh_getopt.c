@@ -6,6 +6,7 @@
 #ifndef __GNUC__
 
 #include "bh_getopt.h"
+#include <stdio.h>
 #include <string.h>
 
 char* optarg = NULL;
@@ -14,7 +15,6 @@ int optind = 1;
 int getopt(int argc, char *const argv[], const char *optstring)
 {
     static int sp = 1;
-    int c;
     int opt;
     char *p;
 
