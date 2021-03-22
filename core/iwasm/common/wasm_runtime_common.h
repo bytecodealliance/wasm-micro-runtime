@@ -13,8 +13,12 @@
 #include "../include/wasm_export.h"
 #include "../interpreter/wasm.h"
 #if WASM_ENABLE_LIBC_WASI != 0
+#if WASM_ENABLE_UVWASI == 0
 #include "wasmtime_ssp.h"
 #include "posix.h"
+#else
+#include "uvwasi.h"
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -73,6 +77,7 @@ typedef struct WASMModuleInstMemConsumption {
 } WASMModuleInstMemConsumption;
 
 #if WASM_ENABLE_LIBC_WASI != 0
+#if WASM_ENABLE_UVWASI == 0
 typedef struct WASIContext {
     struct fd_table *curfds;
     struct fd_prestats *prestats;
@@ -82,6 +87,9 @@ typedef struct WASIContext {
     char *env_buf;
     char **env_list;
 } WASIContext;
+#else
+typedef uvwasi_t WASIContext;
+#endif
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -368,9 +376,6 @@ wasm_runtime_is_loading_module(const char *module_name);
 void
 wasm_runtime_destroy_loading_module_list();
 #endif /* WASM_ENALBE_MULTI_MODULE */
-
-bool
-wasm_runtime_is_host_module(const char *module_name);
 
 bool
 wasm_runtime_is_built_in_module(const char *module_name);

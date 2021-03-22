@@ -12,7 +12,7 @@ def clone_llvm():
     llvm_dir = Path("llvm")
     if(llvm_dir.exists() == False):
         print("Clone llvm to core/deps/ ..")
-        for line in os.popen("git clone --branch release/10.x https://github.com/llvm/llvm-project.git llvm"):
+        for line in os.popen("git clone --branch release/11.x https://github.com/llvm/llvm-project.git llvm"):
             print(line)
     else:
         print("llvm source codes already existed")

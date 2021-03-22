@@ -900,8 +900,12 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 {
     WASMInterpFrame *frame = wasm_exec_env_alloc_wasm_frame(exec_env, size);
 
-    if (frame)
+    if (frame) {
         frame->prev_frame = prev_frame;
+#if WASM_ENABLE_PERF_PROFILING != 0
+        frame->time_started = os_time_get_boot_microsecond();
+#endif
+    }
     else {
         wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
                            "stack overflow");
@@ -913,6 +917,13 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
 static inline void
 FREE_FRAME(WASMExecEnv *exec_env, WASMInterpFrame *frame)
 {
+#if WASM_ENABLE_PERF_PROFILING != 0
+    if (frame->function) {
+        frame->function->total_exec_time += os_time_get_boot_microsecond()
+                                            - frame->time_started;
+        frame->function->total_exec_cnt++;
+    }
+#endif
     wasm_exec_env_free_wasm_frame(exec_env, frame);
 }
 
@@ -1857,7 +1868,7 @@ label_pop_csp_n:
         else {
           /* success, return previous page count */
           PUSH_I32(prev_page_count);
-          /* update the memory instance ptr */
+          /* update memory instance ptr and memory size */
           memory = module->default_memory;
           linear_mem_size = num_bytes_per_page * memory->cur_page_count;
         }
@@ -3198,7 +3209,10 @@ label_pop_csp_n:
           cur_func = frame->function;
           UPDATE_ALL_FROM_FRAME();
 
+          /* update memory instance ptr and memory size */
           memory = module->default_memory;
+          if (memory)
+             linear_mem_size = num_bytes_per_page * memory->cur_page_count;
           if (wasm_get_exception(module))
               goto got_exception;
       }
@@ -3361,7 +3375,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
         }
     }
     else {
-#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
         wasm_interp_dump_call_stack(exec_env);
 #endif
         LOG_DEBUG("meet an exception %s", wasm_get_exception(module_inst));

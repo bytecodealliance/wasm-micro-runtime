@@ -472,6 +472,11 @@ gc_alloc_vo_internal(void *vheap, gc_size_t size,
     if (!hmu)
         goto finish;
 
+    bh_assert(hmu_get_size(hmu) >= tot_size);
+    /* the total size allocated may be larger than
+       the required size, reset it here */
+    tot_size = hmu_get_size(hmu);
+
     g_total_malloc += tot_size;
 
     hmu_set_ut(hmu, HMU_VO);
@@ -570,6 +575,10 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
     if (!hmu)
         goto finish;
 
+    bh_assert(hmu_get_size(hmu) >= tot_size);
+    /* the total size allocated may be larger than
+       the required size, reset it here */
+    tot_size = hmu_get_size(hmu);
     g_total_malloc += tot_size;
 
     hmu_set_ut(hmu, HMU_VO);
@@ -582,7 +591,6 @@ gc_realloc_vo_internal(void *vheap, void *ptr, gc_size_t size,
     ret = hmu_to_obj(hmu);
 
 finish:
-    os_mutex_unlock(&heap->lock);
 
     if (ret) {
         obj_size = tot_size - HMU_SIZE - OBJ_PREFIX_SIZE - OBJ_SUFFIX_SIZE;
@@ -591,9 +599,13 @@ finish:
             obj_size_old = tot_size_old - HMU_SIZE
                            - OBJ_PREFIX_SIZE - OBJ_SUFFIX_SIZE;
             bh_memcpy_s(ret, obj_size, obj_old, obj_size_old);
-            gc_free_vo(vheap, obj_old);
         }
     }
+
+    os_mutex_unlock(&heap->lock);
+
+    if (ret && obj_old)
+        gc_free_vo(vheap, obj_old);
 
     return ret;
 }

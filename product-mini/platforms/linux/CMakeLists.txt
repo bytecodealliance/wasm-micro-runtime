@@ -15,9 +15,14 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 set (CMAKE_C_STANDARD 99)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    set (WAMR_BUILD_TARGET "AARCH64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    set (WAMR_BUILD_TARGET "RISCV64")
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
   else ()
@@ -76,8 +81,8 @@ if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_SIMD)
-  # Disable SIMD by default
-  set (WAMR_BUILD_SIMD 0)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
 endif ()
 
 if (COLLECT_CODE_COVERAGE EQUAL 1)
@@ -114,7 +119,7 @@ add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 

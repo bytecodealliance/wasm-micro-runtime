@@ -29,7 +29,13 @@ typedef struct hmu_struct {
 
 #if BH_ENABLE_GC_VERIFY != 0
 
+#if UINTPTR_MAX > UINT32_MAX
+/* 2 prefix paddings for 64-bit pointer */
+#define GC_OBJECT_PREFIX_PADDING_CNT 2
+#else
+/* 3 prefix paddings for 32-bit pointer */
 #define GC_OBJECT_PREFIX_PADDING_CNT 3
+#endif
 #define GC_OBJECT_SUFFIX_PADDING_CNT 4
 #define GC_OBJECT_PADDING_VALUE (0x12345678)
 

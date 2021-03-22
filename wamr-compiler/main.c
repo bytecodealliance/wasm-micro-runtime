@@ -41,9 +41,14 @@ print_help()
   printf("                              llvmir-opt     Optimized LLVM IR\n");
   printf("  --enable-bulk-memory      Enable the post-MVP bulk memory feature\n");
   printf("  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and\n");
-  printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
   printf("                            thread-mgr will be enabled automatically\n");
-  printf("  --enable-simd             Enable the post-MVP 128-bit SIMD feature\n");
+  printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
+  printf("  --disable-simd            Disable the post-MVP 128-bit SIMD feature:\n");
+  printf("                              currently 128-bit SIMD is only supported for x86-64 target,\n");
+  printf("                              and by default it is enabled in x86-64 target and disabled\n");
+  printf("                              in other targets\n");
+  printf("  --enable-dump-call-stack  Enable stack trace feature\n");
+  printf("  --enable-perf-profiling   Enable function performance profiling\n");
   printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
   printf("Examples: wamrc -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -71,7 +76,7 @@ main(int argc, char *argv[])
   option.output_format = AOT_FORMAT_FILE;
   /* default value, enable or disable depends on the platform */
   option.bounds_checks = 2;
-  option.enable_simd = false;
+  option.enable_simd = true;
 
   /* Process options.  */
   for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -153,7 +158,17 @@ main(int argc, char *argv[])
         option.enable_tail_call = true;
     }
     else if (!strcmp(argv[0], "--enable-simd")) {
+        /* obsolete option, kept for compatibility */
         option.enable_simd = true;
+    }
+    else if (!strcmp(argv[0], "--disable-simd")) {
+        option.enable_simd = false;
+    }
+    else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
+        option.enable_aux_stack_frame = true;
+    }
+    else if (!strcmp(argv[0], "--enable-perf-profiling")) {
+        option.enable_aux_stack_frame = true;
     }
     else
       return print_help();

@@ -227,7 +227,6 @@ wasm_runtime_free(void *ptr);
 WASM_RUNTIME_API_EXTERN package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
 
-#if WASM_ENABLE_MULTI_MODULE != 0
 /**
  * It is a callback for WAMR providing by embedding to load a module file
  * into a buffer
@@ -275,7 +274,6 @@ wasm_runtime_register_module(const char *module_name, wasm_module_t module,
  */
 WASM_RUNTIME_API_EXTERN wasm_module_t
 wasm_runtime_find_module_registered(const char *module_name);
-#endif /* WASM_ENABLE_MULTI_MODULE */
 
 /**
  * Load a WASM module from a specified byte buffer. The byte buffer can be
@@ -335,8 +333,7 @@ wasm_runtime_set_wasi_args(wasm_module_t module,
  *        specified here is ignored.
  * @param heap_size the default heap size of the module instance, a heap will
  *        be created besides the app memory space. Both wasm app and native
- *        function can allocate memory from the heap. If heap_size is 0, the
- *        default heap size will be used.
+ *        function can allocate memory from the heap.
  * @param error_buf buffer to output the error info if failed
  * @param error_buf_size the size of the error buffer
  *
@@ -787,7 +784,14 @@ wasm_runtime_get_user_data(wasm_exec_env_t exec_env);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env);
 
-#if WASM_ENABLE_THREAD_MGR != 0
+/**
+ * Dump runtime performance profiler data of each function
+ *
+ * @param module_inst the WASM module instance to profile
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst);
+
 /* wasm thread callback function type */
 typedef void* (*wasm_thread_callback_t)(wasm_exec_env_t, void *);
 /* wasm thread type */
@@ -844,7 +848,14 @@ wasm_runtime_spawn_thread(wasm_exec_env_t exec_env, wasm_thread_t *tid,
  */
 WASM_RUNTIME_API_EXTERN int32_t
 wasm_runtime_join_thread(wasm_thread_t tid, void **retval);
-#endif
+
+/**
+ * dump the call stack
+ *
+ * @param exec_env the execution environment
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_dump_call_stack(wasm_exec_env_t exec_env);
 
 #ifdef __cplusplus
 }

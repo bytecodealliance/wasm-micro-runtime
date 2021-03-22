@@ -16,7 +16,9 @@ WAMR_BUILD_TARGET := X86_64
 else ifeq ($(CONFIG_ARCH_XTENSA),y)
 WAMR_BUILD_TARGET := XTENSA
 else ifeq ($(CONFIG_ARCH_SIM),y)
-ifeq ($(CONFIG_HOST_X86_64),y)
+ifeq ($(CONFIG_SIM_M32),y)
+WAMR_BUILD_TARGET := X86_32
+else
 WAMR_BUILD_TARGET := X86_64
 endif
 ifeq ($(CONFIG_HOST_MACOS),y)
@@ -41,11 +43,12 @@ else ifeq ($(findstring ARM,$(WAMR_BUILD_TARGET)), ARM)
   INVOKE_NATIVE := invokeNative_arm.s
   AOT_RELOC := aot_reloc_arm.c
 else ifeq ($(findstring THUMB,$(WAMR_BUILD_TARGET)), THUMB)
-  CFLAGS += -DBUILD_TARGET_THUMB
   CFLAGS += -DBUILD_TARGET=\"$(WAMR_BUILD_TARGET)\"
   ifeq ($(CONFIG_ARCH_FPU),y)
+  CFLAGS += -DBUILD_TARGET_THUMB_VFP
   INVOKE_NATIVE := invokeNative_thumb_vfp.s
   else
+  CFLAGS += -DBUILD_TARGET_THUMB
   INVOKE_NATIVE := invokeNative_thumb.s
   endif
   AOT_RELOC := aot_reloc_thumb.c

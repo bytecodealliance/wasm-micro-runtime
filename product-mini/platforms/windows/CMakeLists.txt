@@ -51,14 +51,14 @@ if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   set (WAMR_BUILD_LIBC_BUILTIN 1)
 endif ()
 
-if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
-  # Enable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 0)
+if (NOT DEFINED WAMR_BUILD_LIBC_UVWASI)
+  # Enable libc uvwasi support by default
+  set (WAMR_BUILD_LIBC_UVWASI 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   # Enable fast interpreter
-  set (WAMR_BUILD_FAST_INTERP 0)
+  set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
@@ -76,6 +76,11 @@ if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
   set (WAMR_BUILD_MINI_LOADER 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_SIMD)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
+endif ()
+
 if (COLLECT_CODE_COVERAGE EQUAL 1)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()
@@ -86,6 +91,7 @@ include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
@@ -110,7 +116,7 @@ add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS})
+target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
@@ -118,6 +124,6 @@ install (TARGETS libiwasm DESTINATION lib)
 
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
-target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS})
+target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
 
 target_compile_definitions(libiwasm PRIVATE COMPILING_WASM_RUNTIME_API=1)

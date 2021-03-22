@@ -19,7 +19,10 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
 
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
 
-- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AArch64, ARM, THUMB, XTENSA and MIPS. For AArch64, ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP] where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means VFP coprocessor registers s0-s15 (d0-d7) are used for passing arguments or returning results in standard procedure-call. Both \<sub-arch> and "_VFP" are optional, e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, RISCV64 and MIPS.
+  - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. Both \<sub-arch> and "_VFP" are optional, e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+  - For RISCV64, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV64, RISCV64_LP64D and RISCV64_LP64: RISCV64 and RISCV64_LP64D are identical, using [LP64D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (LP64 with hardware floating-point calling convention for FLEN=64). And RISCV64_LP64 uses [LP64](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
+  - For RISCV32, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV32, RISCV32_ILP32D and RISCV32_ILP32: RISCV32 and RISCV32_ILP32D are identical, using [ILP32D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=64). And RISCV32_ILP32 uses [ILP32](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
 
 ```bash
 cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
@@ -27,28 +30,31 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 #### **Configure interpreter**
 
-- **WAMR_BUILD_INTERP**=1/0:  enable or disable WASM interpreter
+- **WAMR_BUILD_INTERP**=1/0: enable or disable WASM interpreter
 
-- **WAMR_BUILD_FAST_INTERP**=1/0：build fast (default) or classic WASM interpreter.
+- **WAMR_BUILD_FAST_INTERP**=1/0: build fast (default) or classic WASM interpreter.
 
   NOTE: the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the WASM bytecode code.
 
 #### **Configure AoT and JIT**
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
-- **WAMR_BUILD_JIT**=1/0 , default to disable if not set
+- **WAMR_BUILD_JIT**=1/0, default to disable if not set
 
 #### **Configure LIBC**
 
-- **WAMR_BUILD_LIBC_BUILTIN**=1/0,  default to enable if not set
+- **WAMR_BUILD_LIBC_BUILTIN**=1/0, build the built-in libc subset for WASM app, default to enable if not set
 
-- **WAMR_BUILD_LIBC_WASI**=1/0, default to enable if not set
+- **WAMR_BUILD_LIBC_WASI**=1/0, build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app, default to enable if not set
 
-#### **Configure Debug**
+- **WAMR_BUILD_LIBC_UVWASI**=1/0 (Experiment), build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app based on [uvwasi](https://github.com/nodejs/uvwasi) implementation, default to disable if not set
 
-- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0,  load the function name from custom name section, default to disable if not set
-
-> Note: if it is enabled, the call stack will be dumped when exception occurs.
+> Note: for platform which doesn't support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developer can try using **WAMR_BUILD_LIBC_UVWASI**. And the uvwasi source code must be cloned under core/deps:
+>
+> ```bash
+> cd <WAMR-ROOT>/core/deps
+> git clone https://github.com/nodejs/uvwasi.git
+> ```
 
 #### **Enable Multi-Module feature**
 
@@ -74,21 +80,60 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 - **WAMR_DISABLE_HW_BOUND_CHECK**=1/0, default to enable if not set and supported by platform
 > Note: by default only platform linux/darwin/android/vxworks 64-bit will enable boundary check with hardware trap in AOT or JIT mode, and the wamrc tool will generate AOT code without boundary check instructions in all 64-bit targets except SGX to improve performance.
 
+#### **Enable tail call feature**
+- **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
+
+#### **Enable 128-bit SIMD feature**
+- **WAMR_BUILD_SIMD**=1/0, default to enable if not set
+> Note: only supported in AOT mode x86-64 target.
+
+#### **Configure Debug**
+
+- **WAMR_BUILD_CUSTOM_NAME_SECTION**=1/0, load the function name from custom name section, default to disable if not set
+
+#### **Enable dump call stack feature**
+- **WAMR_BUILD_DUMP_CALL_STACK**=1/0, default to disable if not set
+
+> Note: if it is enabled, the call stack will be dumped when exception occurs.
+
+> - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
+> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
+
 #### **Enable memory profiling (Experiment)**
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
 > Note: if it is enabled, developer can use API `void wasm_runtime_dump_mem_consumption(wasm_exec_env_t exec_env)` to dump the memory consumption info.
 Currently we only profile the memory consumption of module, module_instance and exec_env, the memory consumed by other components such as `wasi-ctx`, `multi-module` and `thread-manager` are not included.
 
+#### **Enable performance profiling (Experiment)**
+- **WAMR_BUILD_PERF_PROFILING**=1/0, default to disable if not set
+> Note: if it is enabled, developer can use API `void wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst)` to dump the performance consumption info. Currently we only profile the performance consumption of each WASM function.
+
+> The function name searching sequence is the same with dump call stack feature.
+
 #### **Set maximum app thread stack size**
 - **WAMR_APP_THREAD_STACK_SIZE_MAX**=n, default to 8 MB (8388608) if not set
 > Note: the AOT boundary check with hardware trap mechanism might consume large stack since the OS may lazily grow the stack mapping as a guard page is hit, we may use this configuration to reduce the total stack usage, e.g. -DWAMR_APP_THREAD_STACK_SIZE_MAX=131072 (128 KB).
 
-#### **Enable tail call feature**
-- **WAMR_BUILD_TAIL_CALL**=1/0, default to disable if not set
-
-#### **Enable 128-bit SIMD feature**
-- **WAMR_BUILD_SIMD**=1/0, default to disable if not set
-> Note: only supported in AOT mode, and the *--enable-simd* flag should be added for wamrc when generating aot file.
+#### **WAMR_BH_VPRINTF**=<vprintf_callback>, default to disable if not set
+> Note: if the vprintf_callback function is provided by developer, the os_printf() and os_vprintf() in Linux, Darwin, Windows and VxWorks platforms, besides WASI Libc output will call the callback function instead of libc vprintf() function to redirect the stdout output. For example, developer can define the callback function like below outside runtime lib:
+>
+> ```C
+> int my_vprintf(const char *format, va_list ap)
+> {
+>     /* output to pre-opened file stream */
+>     FILE *my_file = ...;
+>     return vfprintf(my_file, format, ap);
+>     /* or output to pre-opened file descriptor */
+>     int my_fd = ...;
+>     return vdprintf(my_fd, format, ap);
+>     /* or output to string buffer and print the string */
+>     char buf[128];
+>     vsnprintf(buf, sizeof(buf), format, ap);
+>     return my_printf("%s", buf);
+> }
+> ```
+>
+> and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt.
 
 **Combination of configurations:**
 
@@ -195,6 +240,8 @@ Make sure `MSVC` and `cmake` are installed and available in the command line env
 
 Then build the source codes:
 ``` Bash
+cd core/deps/
+git clone https://github.com/nodejs/uvwasi.git
 cd product-mini/platforms/windows/
 mkdir build
 cd build
@@ -304,6 +351,60 @@ AliOS-Things
    aos make
    ```
    download the binary to developerkit board, check the output from serial port
+
+RT-Thread
+-------------------------
+
+1. Get rt-thread [system codes](https://github.com/RT-Thread/rt-thread).
+
+2. Enable WAMR software package with menuconfig tool which provided by RT-Thread.
+
+   * Environment in Linux, run command below:
+
+   ```bash
+   scons --menuconfig
+   ```
+
+   * Environment in Windows ConEmu, run command below:
+
+   ```bash
+   menuconfig
+   ```
+
+   Select and enable `WAMR` in:
+
+   * RT-Thread online packages
+     * tools packages
+       * WebAssembly Micro Runtime (WAMR)
+
+3. Configure `WAMR` with menuconfig tool.
+
+   you can choice features of iwasm below:
+
+   * Enable testing parameters of iwasm
+   * Enable interpreter Mode / Fast interpreter Mode
+   * Use built-libc
+   * Enable AOT
+
+4. Exit menuconfig tool and save configure, update and download package.
+
+   ```bash
+   pkgs --update
+   ```
+
+5. build project and download the binary to boards.
+
+   ```bash
+   scons
+   ```
+
+   or build project with 8-thread by using command below:
+
+   ```bash
+   scons -j8
+   ```
+
+   after project building, you can got an binary file named `rtthread.bin`, then you can download this file to the MCU board.
 
 Android
 -------------------------

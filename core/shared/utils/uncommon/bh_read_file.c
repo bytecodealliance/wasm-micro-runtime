@@ -14,7 +14,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
     char *buffer;
     int file;
-    uint32 file_size, read_size;
+    uint32 file_size, buf_size, read_size;
     struct stat stat_buf;
 
     if (!filename || !ret_size) {
@@ -36,7 +36,10 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     }
     file_size = (uint32)stat_buf.st_size;
 
-    if (!(buffer = (char *)BH_MALLOC(file_size))) {
+    /* At lease alloc 1 byte to avoid malloc failed */
+    buf_size = file_size > 0 ? file_size : 1;
+
+    if (!(buffer = (char *)BH_MALLOC(buf_size))) {
         printf("Read file to buffer failed: alloc memory failed.\n");
         _close(file);
         return NULL;
@@ -63,7 +66,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
     char *buffer;
     int file;
-    uint32 file_size, read_size;
+    uint32 file_size, buf_size, read_size;
     struct stat stat_buf;
 
     if (!filename || !ret_size) {
@@ -86,7 +89,10 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 
     file_size = (uint32)stat_buf.st_size;
 
-    if (!(buffer = BH_MALLOC(file_size))) {
+    /* At lease alloc 1 byte to avoid malloc failed */
+    buf_size = file_size > 0 ? file_size : 1;
+
+    if (!(buffer = BH_MALLOC(buf_size))) {
         printf("Read file to buffer failed: alloc memory failed.\n");
         close(file);
         return NULL;

@@ -540,19 +540,15 @@ wasm_runtime_destroy_loading_module_list()
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
 bool
-wasm_runtime_is_host_module(const char *module_name)
-{
-    return strlen(module_name) == 0;
-}
-
-bool
 wasm_runtime_is_built_in_module(const char *module_name)
 {
     return (!strcmp("env", module_name)
             || !strcmp("wasi_unstable", module_name)
             || !strcmp("wasi_snapshot_preview1", module_name)
+#if WASM_ENABLE_SPEC_TEST != 0
             || !strcmp("spectest", module_name)
-            );
+#endif
+            || !strcmp("", module_name));
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -959,6 +955,23 @@ wasm_runtime_dump_mem_consumption(WASMExecEnv *exec_env)
 }
 #endif /* end of (WASM_ENABLE_MEMORY_PROFILING != 0)
                  || (WASM_ENABLE_MEMORY_TRACING != 0) */
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+void
+wasm_runtime_dump_perf_profiling(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        wasm_dump_perf_profiling((WASMModuleInstance*)module_inst);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_dump_perf_profiling((AOTModuleInstance*)module_inst);
+    }
+#endif
+}
+#endif
 
 WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
@@ -1514,9 +1527,9 @@ wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst,
 
 bool
 wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
-                                   uint8_t *native_ptr,
-                                   uint8_t **p_native_start_addr,
-                                   uint8_t **p_native_end_addr)
+                                   uint8 *native_ptr,
+                                   uint8 **p_native_start_addr,
+                                   uint8 **p_native_end_addr)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode)
@@ -1645,6 +1658,7 @@ wasm_runtime_set_wasi_args(WASMModuleCommon *module,
     }
 }
 
+#if WASM_ENABLE_UVWASI == 0
 bool
 wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
@@ -1695,9 +1709,11 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
 
     total_size = sizeof(char *) * (uint64)argc;
     if (total_size >= UINT32_MAX
-        || !(argv_list = wasm_runtime_malloc((uint32)total_size))
+        || (total_size > 0 &&
+            !(argv_list = wasm_runtime_malloc((uint32)total_size)))
         || argv_buf_size >= UINT32_MAX
-        || !(argv_buf = wasm_runtime_malloc((uint32)argv_buf_size))) {
+        || (argv_buf_size > 0 &&
+            !(argv_buf = wasm_runtime_malloc((uint32)argv_buf_size)))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
@@ -1713,11 +1729,13 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     for (i = 0; i < env_count; i++)
         env_buf_size += strlen(env[i]) + 1;
 
-    total_size = sizeof(char *) * (uint64)argc;
+    total_size = sizeof(char *) * (uint64)env_count;
     if (total_size >= UINT32_MAX
-        || !(env_list = wasm_runtime_malloc((uint32)total_size))
+        || (total_size > 0
+            && !(env_list = wasm_runtime_malloc((uint32)total_size)))
         || env_buf_size >= UINT32_MAX
-        || !(env_buf = wasm_runtime_malloc((uint32)env_buf_size))) {
+        || (env_buf_size > 0
+            && !(env_buf = wasm_runtime_malloc((uint32)env_buf_size)))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
@@ -1833,6 +1851,128 @@ fail:
         wasm_runtime_free(env_list);
     return false;
 }
+#else /* else of WASM_ENABLE_UVWASI == 0 */
+static void *
+wasm_uvwasi_malloc(size_t size, void *mem_user_data)
+{
+    return runtime_malloc(size, NULL, NULL, 0);
+    (void)mem_user_data;
+}
+
+static void
+wasm_uvwasi_free(void *ptr, void *mem_user_data)
+{
+    if (ptr)
+        wasm_runtime_free(ptr);
+    (void)mem_user_data;
+}
+
+static void *
+wasm_uvwasi_calloc(size_t nmemb, size_t size,
+                   void *mem_user_data)
+{
+    uint64 total_size = (uint64)nmemb * size;
+    return runtime_malloc(total_size, NULL, NULL, 0);
+    (void)mem_user_data;
+}
+
+static void *
+wasm_uvwasi_realloc(void *ptr, size_t size,
+                    void *mem_user_data)
+{
+    if (size >= UINT32_MAX) {
+        return NULL;
+    }
+    return wasm_runtime_realloc(ptr, (uint32)size);
+}
+
+static uvwasi_mem_t uvwasi_allocator = {
+    .mem_user_data = 0,
+    .malloc = wasm_uvwasi_malloc,
+    .free = wasm_uvwasi_free,
+    .calloc = wasm_uvwasi_calloc,
+    .realloc = wasm_uvwasi_realloc
+};
+
+bool
+wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
+                       const char *dir_list[], uint32 dir_count,
+                       const char *map_dir_list[], uint32 map_dir_count,
+                       const char *env[], uint32 env_count,
+                       char *argv[], uint32 argc,
+                       char *error_buf, uint32 error_buf_size)
+{
+    uvwasi_t *uvwasi = NULL;
+    uvwasi_options_t init_options;
+    const char **envp = NULL;
+    uint64 total_size;
+    uint32 i;
+    bool ret = false;
+
+    uvwasi = runtime_malloc(sizeof(uvwasi_t), module_inst,
+                            error_buf, error_buf_size);
+    if (!uvwasi)
+        return false;
+
+    /* Setup the initialization options */
+    uvwasi_options_init(&init_options);
+    init_options.allocator = &uvwasi_allocator;
+    init_options.argc = argc;
+    init_options.argv = (const char **)argv;
+
+    if (dir_count > 0) {
+        init_options.preopenc = dir_count;
+
+        total_size = sizeof(uvwasi_preopen_t) * (uint64)init_options.preopenc;
+        init_options.preopens =
+            (uvwasi_preopen_t *)runtime_malloc(total_size, module_inst,
+                                               error_buf, error_buf_size);
+        if (init_options.preopens == NULL)
+            goto fail;
+
+        for (i = 0; i < init_options.preopenc; i++) {
+            init_options.preopens[i].real_path = dir_list[i];
+            init_options.preopens[i].mapped_path =
+                    (i < map_dir_count) ? map_dir_list[i] : dir_list[i];
+        }
+    }
+
+    if (env_count > 0) {
+        total_size = sizeof(char *) * (uint64)(env_count + 1);
+        envp = runtime_malloc(total_size, module_inst,
+                              error_buf, error_buf_size);
+        if (envp == NULL)
+            goto fail;
+
+        for (i = 0; i < env_count; i++) {
+            envp[i] = env[i];
+        }
+        envp[env_count] = NULL;
+        init_options.envp = envp;
+    }
+
+    if (UVWASI_ESUCCESS != uvwasi_init(uvwasi, &init_options)) {
+        set_error_buf(error_buf, error_buf_size, "uvwasi init failed");
+        goto fail;
+    }
+
+    wasm_runtime_set_wasi_ctx(module_inst, uvwasi);
+
+    ret = true;
+
+fail:
+    if (envp)
+        wasm_runtime_free(envp);
+
+    if (init_options.preopens)
+        wasm_runtime_free(init_options.preopens);
+
+    if (!ret && uvwasi)
+        wasm_runtime_free(uvwasi);
+
+    return ret;
+}
+#endif /* end of WASM_ENABLE_UVWASI */
 
 bool
 wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst)
@@ -1900,6 +2040,7 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
     return NULL;
 }
 
+#if WASM_ENABLE_UVWASI == 0
 void
 wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
 {
@@ -1929,6 +2070,18 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
         wasm_runtime_free(wasi_ctx);
     }
 }
+#else
+void
+wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
+{
+    WASIContext *wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
+
+    if (wasi_ctx) {
+        uvwasi_destroy(wasi_ctx);
+        wasm_runtime_free(wasi_ctx);
+    }
+}
+#endif
 
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst)
@@ -2687,7 +2840,10 @@ fail:
   } while (0)
 
 /* The invoke native implementation on ARM platform with VFP co-processor */
-#if defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP)
+#if defined(BUILD_TARGET_ARM_VFP) \
+    || defined(BUILD_TARGET_THUMB_VFP) \
+    || defined(BUILD_TARGET_RISCV32_ILP32D) \
+    || defined(BUILD_TARGET_RISCV32_ILP32)
 typedef void (*GenericFunctionPointer)();
 int64 invokeNative(GenericFunctionPointer f, uint32 *args, uint32 n_stacks);
 
@@ -2697,14 +2853,20 @@ typedef int64 (*Int64FuncPtr)(GenericFunctionPointer, uint32*,uint32);
 typedef int32 (*Int32FuncPtr)(GenericFunctionPointer, uint32*, uint32);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer, uint32*, uint32);
 
-static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
-static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
-static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)(uintptr_t)invokeNative;
+static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)(uintptr_t)invokeNative;
+static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)(uintptr_t)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)(uintptr_t)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
+#if !defined(BUILD_TARGET_RISCV32_ILP32D) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32)
 #define MAX_REG_INTS   4
 #define MAX_REG_FLOATS 16
+#else
+#define MAX_REG_INTS   8
+#define MAX_REG_FLOATS 8
+#endif
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
@@ -2714,12 +2876,19 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     /* argv buf layout: int args(fix cnt) + float args(fix cnt) + stack args */
-    uint32 argv_buf[32], *argv1 = argv_buf, *fps, *ints, *stacks, size;
-    uint32 *argv_src = argv, i, argc1, n_ints = 0, n_fps = 0, n_stacks = 0;
+    uint32 argv_buf[32], *argv1 = argv_buf, *ints, *stacks, size;
+    uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
     uint32 arg_i32, ptr_len;
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
+#if !defined(BUILD_TARGET_RISCV32_ILP32)
+    uint32 *fps;
+    int n_fps = 0;
+#else
+#define fps ints
+#define n_fps n_ints
+#endif
 
     n_ints++; /* exec env */
 
@@ -2734,18 +2903,29 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             case VALUE_TYPE_I64:
                 if (n_ints < MAX_REG_INTS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_ints & 1)
                         n_ints++;
+#endif
                     n_ints += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_RISCV32_ILP32D)
+                /* part in register, part in stack */
+                else if (n_ints == MAX_REG_INTS - 1) {
+                    n_ints++;
+                    n_stacks++;
+                }
+#endif
                 else {
-                    /* 64-bit data must be 8 bytes aligned in arm */
+                    /* 64-bit data in stack must be 8 bytes aligned
+                       in arm and riscv32 */
                     if (n_stacks & 1)
                         n_stacks++;
                     n_stacks += 2;
                 }
                 break;
+#if !defined(BUILD_TARGET_RISCV32_ILP32D)
             case VALUE_TYPE_F32:
                 if (n_fps < MAX_REG_FLOATS)
                     n_fps++;
@@ -2754,11 +2934,19 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             case VALUE_TYPE_F64:
                 if (n_fps < MAX_REG_FLOATS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_fps & 1)
                         n_fps++;
+#endif
                     n_fps += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32)
+                else if (n_fps == MAX_REG_FLOATS - 1) {
+                    n_fps++;
+                    n_stacks++;
+                }
+#endif
                 else {
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_stacks & 1)
@@ -2766,6 +2954,32 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     n_stacks += 2;
                 }
                 break;
+#else /* BUILD_TARGET_RISCV32_ILP32D */
+            case VALUE_TYPE_F32:
+            case VALUE_TYPE_F64:
+                if (n_fps < MAX_REG_FLOATS) {
+                    n_fps++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F32
+                         && n_ints < MAX_REG_INTS) {
+                    /* use int reg firstly if available */
+                    n_ints++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F64
+                         && n_ints < MAX_REG_INTS - 1) {
+                    /* use int regs firstly if available */
+                    if (n_ints & 1)
+                        n_ints++;
+                    ints += 2;
+                }
+                else {
+                    /* 64-bit data in stack must be 8 bytes aligned in riscv32 */
+                    if (n_stacks & 1)
+                        n_stacks++;
+                    n_stacks += 2;
+                }
+                break;
+#endif /* BUILD_TARGET_RISCV32_ILP32D */
             default:
                 bh_assert(0);
                 break;
@@ -2779,7 +2993,14 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             n_stacks++;
     }
 
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
     argc1 = MAX_REG_INTS + MAX_REG_FLOATS + n_stacks;
+#elif defined(BUILD_TARGET_RISCV32_ILP32)
+    argc1 = MAX_REG_INTS + n_stacks;
+#else
+    argc1 = MAX_REG_INTS + MAX_REG_FLOATS * 2 + n_stacks;
+#endif
+
     if (argc1 > sizeof(argv_buf) / sizeof(uint32)) {
         size = sizeof(uint32) * (uint32)argc1;
         if (!(argv1 = runtime_malloc((uint32)size, exec_env->module_inst,
@@ -2789,8 +3010,15 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     ints = argv1;
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
     fps = ints + MAX_REG_INTS;
     stacks = fps + MAX_REG_FLOATS;
+#elif defined(BUILD_TARGET_RISCV32_ILP32)
+    stacks = ints + MAX_REG_INTS;
+#else
+    fps = ints + MAX_REG_INTS;
+    stacks = fps + MAX_REG_FLOATS * 2;
+#endif
 
     n_ints = 0;
     n_fps = 0;
@@ -2837,45 +3065,121 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
             }
             case VALUE_TYPE_I64:
+            {
                 if (n_ints < MAX_REG_INTS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32) && !defined(BUILD_TARGET_RISCV32_ILP32D)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_ints & 1)
                         n_ints++;
+#endif
                     *(uint64*)&ints[n_ints] = *(uint64*)argv_src;
                     n_ints += 2;
+                    argv_src += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32) || defined(BUILD_TARGET_RISCV32_ILP32D)
+                else if (n_ints == MAX_REG_INTS - 1) {
+                    ints[n_ints++] = *argv_src++;
+                    stacks[n_stacks++] = *argv_src++;
+                }
+#endif
                 else {
-                    /* 64-bit data must be 8 bytes aligned in arm */
+                    /* 64-bit data in stack must be 8 bytes aligned
+                       in arm and riscv32 */
                     if (n_stacks & 1)
                         n_stacks++;
                     *(uint64*)&stacks[n_stacks] = *(uint64*)argv_src;
                     n_stacks += 2;
+                    argv_src += 2;
                 }
-                argv_src += 2;
                 break;
+            }
+#if !defined(BUILD_TARGET_RISCV32_ILP32D)
             case VALUE_TYPE_F32:
+            {
                 if (n_fps < MAX_REG_FLOATS)
                     *(float32*)&fps[n_fps++] = *(float32*)argv_src++;
                 else
                     *(float32*)&stacks[n_stacks++] = *(float32*)argv_src++;
                 break;
+            }
             case VALUE_TYPE_F64:
+            {
                 if (n_fps < MAX_REG_FLOATS - 1) {
+#if !defined(BUILD_TARGET_RISCV32_ILP32)
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_fps & 1)
                         n_fps++;
+#endif
                     *(float64*)&fps[n_fps] = *(float64*)argv_src;
                     n_fps += 2;
+                    argv_src += 2;
                 }
+#if defined(BUILD_TARGET_RISCV32_ILP32)
+                else if (n_fps == MAX_REG_FLOATS - 1) {
+                    fps[n_fps++] = *argv_src++;
+                    stacks[n_stacks++] = *argv_src++;
+                }
+#endif
                 else {
                     /* 64-bit data must be 8 bytes aligned in arm */
                     if (n_stacks & 1)
                         n_stacks++;
                     *(float64*)&stacks[n_stacks] = *(float64*)argv_src;
                     n_stacks += 2;
+                    argv_src += 2;
                 }
-                argv_src += 2;
                 break;
+            }
+#else /* BUILD_TARGET_RISCV32_ILP32D */
+            case VALUE_TYPE_F32:
+            case VALUE_TYPE_F64:
+            {
+                if (n_fps < MAX_REG_FLOATS) {
+                    if (func_type->types[i] == VALUE_TYPE_F32) {
+                        *(float32*)&fps[n_fps * 2] = *(float32*)argv_src++;
+                        /* NaN boxing, the upper bits of a valid NaN-boxed
+                          value must be all 1s. */
+                        fps[n_fps * 2 + 1] = 0xFFFFFFFF;
+                    }
+                    else {
+                        *(float64*)&fps[n_fps * 2] = *(float64*)argv_src;
+                        argv_src += 2;
+                    }
+                    n_fps++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F32
+                         && n_ints < MAX_REG_INTS) {
+                    /* use int reg firstly if available */
+                    *(float32*)&ints[n_ints++] = *(float32*)argv_src++;
+                }
+                else if (func_type->types[i] == VALUE_TYPE_F64
+                         && n_ints < MAX_REG_INTS - 1) {
+                    /* use int regs firstly if available */
+                    if (n_ints & 1)
+                        n_ints++;
+                    *(float64*)&ints[n_ints] = *(float64*)argv_src;
+                    n_ints += 2;
+                    argv_src += 2;
+                }
+                else {
+                    /* 64-bit data in stack must be 8 bytes aligned in riscv32 */
+                    if (n_stacks & 1)
+                        n_stacks++;
+                    if (func_type->types[i] == VALUE_TYPE_F32) {
+                        *(float32*)&stacks[n_stacks] = *(float32*)argv_src++;
+                        /* NaN boxing, the upper bits of a valid NaN-boxed
+                          value must be all 1s. */
+                        stacks[n_stacks + 1] = 0xFFFFFFFF;
+                    }
+                    else {
+                        *(float64*)&stacks[n_stacks] = *(float64*)argv_src;
+                        argv_src += 2;
+                    }
+                    n_stacks += 2;
+                }
+                break;
+            }
+#endif /* BUILD_TARGET_RISCV32_ILP32D */
             default:
                 bh_assert(0);
                 break;
@@ -2922,7 +3226,10 @@ fail:
         wasm_runtime_free(argv1);
     return ret;
 }
-#endif /* end of defined(BUILD_TARGET_ARM_VFP) || defined(BUILD_TARGET_THUMB_VFP) */
+#endif /* end of defined(BUILD_TARGET_ARM_VFP)
+          || defined(BUILD_TARGET_THUMB_VFP) \
+          || defined(BUILD_TARGET_RISCV32_ILP32D)
+          || defined(BUILD_TARGET_RISCV32_ILP32) */
 
 #if defined(BUILD_TARGET_X86_32) \
     || defined(BUILD_TARGET_ARM) \
@@ -3084,15 +3391,30 @@ fail:
 
 #if defined(BUILD_TARGET_X86_64) \
    || defined(BUILD_TARGET_AMD_64) \
-   || defined(BUILD_TARGET_AARCH64)
+   || defined(BUILD_TARGET_AARCH64) \
+   || defined(BUILD_TARGET_RISCV64_LP64D) \
+   || defined(BUILD_TARGET_RISCV64_LP64)
 
 #if WASM_ENABLE_SIMD != 0
 #ifdef v128
 #undef v128
 #endif
 
+#if defined(_WIN32) || defined(_WIN32_)
+typedef union __declspec(intrin_type) __declspec(align(1)) v128 {
+    __int8 m128i_i8[16];
+    __int16 m128i_i16[8];
+    __int32 m128i_i32[4];
+    __int64 m128i_i64[2];
+    unsigned __int8 m128i_u8[16];
+    unsigned __int16 m128i_u16[8];
+    unsigned __int32 m128i_u32[4];
+    unsigned __int64 m128i_u64[2];
+} v128;
+#else
 typedef long long v128 __attribute__ ((__vector_size__ (16),
                                        __may_alias__, __aligned__ (1)));
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
@@ -3121,11 +3443,15 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
 #define MAX_REG_INTS  4
 #else /* else of defined(_WIN32) || defined(_WIN32_) */
 #define MAX_REG_FLOATS  8
-#if defined(BUILD_TARGET_AARCH64)
+#if defined(BUILD_TARGET_AARCH64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D) \
+    || defined(BUILD_TARGET_RISCV64_LP64)
 #define MAX_REG_INTS  8
 #else
 #define MAX_REG_INTS  6
-#endif /* end of defined(BUILD_TARGET_AARCH64 */
+#endif /* end of defined(BUILD_TARGET_AARCH64) \
+          || defined(BUILD_TARGET_RISCV64_LP64D) \
+          || defined(BUILD_TARGET_RISCV64_LP64) */
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */
 
 bool
@@ -3141,13 +3467,17 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
+#ifndef BUILD_TARGET_RISCV64_LP64
 #if WASM_ENABLE_SIMD == 0
     uint64 *fps;
 #else
     v128 *fps;
 #endif
+#else /* else of BUILD_TARGET_RISCV64_LP64 */
+#define fps ints
+#endif /* end of BUILD_TARGET_RISCV64_LP64 */
 
-#if defined(_WIN32) || defined(_WIN32_)
+#if defined(_WIN32) || defined(_WIN32_) || defined(BUILD_TARGET_RISCV64_LP64)
     /* important difference in calling conventions */
 #define n_fps n_ints
 #else
@@ -3169,6 +3499,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
+#ifndef BUILD_TARGET_RISCV64_LP64
 #if WASM_ENABLE_SIMD == 0
     fps = argv1;
     ints = fps + MAX_REG_FLOATS;
@@ -3176,6 +3507,9 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     fps = (v128 *)argv1;
     ints = (uint64 *)(fps + MAX_REG_FLOATS);
 #endif
+#else /* else of BUILD_TARGET_RISCV64_LP64 */
+    ints = argv1;
+#endif /* end of BUILD_TARGET_RISCV64_LP64 */
     stacks = ints + MAX_REG_INTS;
 
     ints[n_ints++] = (uint64)(uintptr_t)exec_env;
@@ -3309,7 +3643,9 @@ fail:
 
 #endif /* end of defined(BUILD_TARGET_X86_64) \
                  || defined(BUILD_TARGET_AMD_64) \
-                 || defined(BUILD_TARGET_AARCH64) */
+                 || defined(BUILD_TARGET_AARCH64) \
+                 || defined(BUILD_TARGET_RISCV64_LP64D) \
+                 || defined(BUILD_TARGET_RISCV64_LP64) */
 
 bool
 wasm_runtime_call_indirect(WASMExecEnv *exec_env,
@@ -3453,3 +3789,22 @@ wasm_runtime_join_thread(wasm_thread_t tid, void **retval)
 }
 
 #endif
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+void
+wasm_runtime_dump_call_stack(WASMExecEnv *exec_env)
+{
+    WASMModuleInstanceCommon *module_inst
+        = wasm_exec_env_get_module_inst(exec_env);
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        wasm_interp_dump_call_stack(exec_env);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        aot_dump_call_stack(exec_env);
+    }
+#endif
+}
+#endif /* end of WASM_ENABLE_DUMP_CALL_STACK */

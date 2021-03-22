@@ -23,7 +23,7 @@
 
 extern void init_sensor_framework();
 extern void exit_sensor_framework();
-extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
+extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
 
 int uart_char_cnt = 0;
 

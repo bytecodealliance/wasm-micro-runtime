@@ -49,9 +49,6 @@ typedef struct {
     unsigned int waiting_count;
 } korp_cond;
 
-#define os_printf printf
-#define os_vprintf vprintf
-
 static inline size_t
 getpagesize()
 {

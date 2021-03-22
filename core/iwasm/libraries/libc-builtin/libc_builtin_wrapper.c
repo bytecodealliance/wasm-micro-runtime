@@ -1167,26 +1167,24 @@ get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis)
 typedef struct WASMNativeGlobalDef {
     const char *module_name;
     const char *global_name;
-    WASMValue global_data;
+    uint8 type;
+    bool is_mutable;
+    WASMValue value;
 } WASMNativeGlobalDef;
 
 static WASMNativeGlobalDef native_global_defs[] = {
-    { "spectest", "global_i32", .global_data.i32 = 666 },
-    { "spectest", "global_f32", .global_data.f32 = 666.6 },
-    { "spectest", "global_f64", .global_data.f64 = 666.6 },
-    { "test", "global-i32", .global_data.i32 = 0 },
-    { "test", "global-f32", .global_data.f32 = 0 },
-    { "env", "STACKTOP", .global_data.u32 = 0 },
-    { "env", "STACK_MAX", .global_data.u32 = 0 },
-    { "env", "ABORT", .global_data.u32 = 0 },
-    { "env", "memoryBase", .global_data.u32 = 0 },
-    { "env", "__memory_base", .global_data.u32 = 0 },
-    { "env", "tableBase", .global_data.u32 = 0 },
-    { "env", "__table_base", .global_data.u32 = 0 },
-    { "env", "DYNAMICTOP_PTR", .global_data.addr = 0 },
-    { "env", "tempDoublePtr", .global_data.addr = 0 },
-    { "global", "NaN", .global_data.u64 = 0x7FF8000000000000LL },
-    { "global", "Infinity", .global_data.u64 = 0x7FF0000000000000LL }
+#if WASM_ENABLE_SPEC_TEST != 0
+    { "spectest", "global_i32", VALUE_TYPE_I32, false, .value.i32 = 666 },
+    { "spectest", "global_i64", VALUE_TYPE_I64, false, .value.i64 = 666 },
+    { "spectest", "global_f32", VALUE_TYPE_F32, false, .value.f32 = 666.6 },
+    { "spectest", "global_f64", VALUE_TYPE_F64, false, .value.f64 = 666.6 },
+    { "test", "global-i32", VALUE_TYPE_I32, false, .value.i32 = 0 },
+    { "test", "global-f32", VALUE_TYPE_F32, false, .value.f32 = 0 },
+    { "test", "global-mut-i32", VALUE_TYPE_I32, true, .value.i32 = 0 },
+    { "test", "global-mut-i64", VALUE_TYPE_I64, true, .value.i64 = 0 },
+#endif
+    { "global", "NaN", VALUE_TYPE_F64, .value.u64 = 0x7FF8000000000000LL },
+    { "global", "Infinity", VALUE_TYPE_F64, .value.u64 = 0x7FF0000000000000LL }
 };
 
 bool
@@ -1205,7 +1203,9 @@ wasm_native_lookup_libc_builtin_global(const char *module_name,
     while (global_def < global_def_end) {
         if (!strcmp(global_def->module_name, module_name)
             && !strcmp(global_def->global_name, global_name)) {
-            global->global_data_linked = global_def->global_data;
+            global->type = global_def->type;
+            global->is_mutable = global_def->is_mutable;
+            global->global_data_linked = global_def->value;
             return true;
         }
         global_def++;
