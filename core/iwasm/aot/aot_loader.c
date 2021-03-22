@@ -1850,7 +1850,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
 #if defined(BH_PLATFORM_WINDOWS)
     if (module->extra_plt_data) {
-        os_mprotect(module->extra_plt_data, module_extra_plt_data_size,
+        os_mprotect(module->extra_plt_data, module->extra_plt_data_size,
                     map_prot);
     }
 #endif
