@@ -76,7 +76,7 @@ ili9340_init()
 
     data->command_data_gpio = device_get_binding(
                                 DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_CONTROLLER);
-    if (data->command_data_gpio == NULL) {    
+    if (data->command_data_gpio == NULL) {
         return -EPERM;
     }
 
@@ -175,7 +175,7 @@ ili9340_get_framebuffer(const struct device *dev)
 static int
 ili9340_display_blanking_off(const struct device *dev)
 {
-    struct ili9340_data *data = (struct ili9340_data *)dev->data;
+    struct ili9340_data *data = (struct ili9340_data *)dev->driver_data;
 
     LOG_DBG("Turning display blanking off\n");
     ili9340_transmit(data, ILI9340_CMD_DISPLAY_ON, NULL, 0);
@@ -185,7 +185,7 @@ ili9340_display_blanking_off(const struct device *dev)
 static int
 ili9340_display_blanking_on(const struct device *dev)
 {
-    struct ili9340_data *data = (struct ili9340_data *)dev->data;
+    struct ili9340_data *data = (struct ili9340_data *)dev->driver_data;
 
     LOG_DBG("Turning display blanking on\n");
     ili9340_transmit(data, ILI9340_CMD_DISPLAY_OFF, NULL, 0);
