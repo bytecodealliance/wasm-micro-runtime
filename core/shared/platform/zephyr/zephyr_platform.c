@@ -101,7 +101,6 @@ char_out(int c, void *ctx)
     out_ctx->count++;
     return _stdout_hook_iwasm(c);
 }
-#endif
 
 int
 os_vprintf(const char *fmt, va_list ap)
@@ -115,6 +114,59 @@ os_vprintf(const char *fmt, va_list ap)
     return 0;
 #endif
 }
+#endif
+
+int
+os_printf(const char *format, ...)
+{
+    int ret = 0;
+    va_list ap;
+
+    va_start(ap, format);
+#ifndef BH_VPRINTF
+    ret += vprintf(format, ap);
+#else
+    ret += BH_VPRINTF(format, ap);
+#endif
+    va_end(ap);
+
+    return ret;
+}
+
+int
+os_vprintf(const char *format, va_list ap)
+{
+#ifndef BH_VPRINTF
+    return vprintf(format, ap);
+#else
+    return BH_VPRINTF(format, ap);
+#endif
+}
+
+#if KERNEL_VERSION_NUMBER <= 0x020400 /* version 2.4.0 */
+void
+abort(void)
+{
+    int i = 0;
+    os_printf("%d\n", 1 / i);
+}
+#endif
+
+#if KERNEL_VERSION_NUMBER <= 0x010E01 /* version 1.14.1 */
+size_t
+strspn(const char *s, const char *accept)
+{
+    os_printf("## unimplemented function %s called", __FUNCTION__);
+    return 0;
+}
+
+size_t
+strcspn(const char *s, const char *reject)
+{
+    os_printf("## unimplemented function %s called", __FUNCTION__);
+    return 0;
+}
+#endif
 
 void *
 os_mmap(void *hint, size_t size, int prot, int flags)

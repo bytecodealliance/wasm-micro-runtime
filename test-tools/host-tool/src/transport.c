@@ -233,11 +233,6 @@ int on_imrt_link_byte_arrive(unsigned char ch, imrt_link_recv_context_t *ctx)
                 return 0;
             }
 
-            if (ctx->message.payload_size > 1024 * 1024) {
-                SET_RECV_PHASE(ctx, Phase_Non_Start);
-                return -1;
-            }
-
             ctx->message.payload = (char *) malloc(ctx->message.payload_size);
             SET_RECV_PHASE(ctx, Phase_Payload);
         }

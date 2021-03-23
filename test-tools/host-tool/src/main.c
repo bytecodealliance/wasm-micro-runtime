@@ -113,7 +113,7 @@ static int send_request(request_t *request, uint16_t msg_type)
     if ((req_p = pack_request(request, &req_size)) == NULL)
         return -1;
 
-    /* leanding bytes */
+    /* leading bytes */
     if (!host_tool_send_data(g_conn_fd, leading, sizeof(leading)))
         goto ret;
 
@@ -648,8 +648,8 @@ static bool parse_args(int argc, char *argv[], operation *op)
  *               REPLY_TYPE_EVENT: event(request)
  *               REPLY_TYPE_RESPONSE: response
  */
-static int preocess_reply_data(const char *buf, int len,
-        imrt_link_recv_context_t *ctx)
+static int process_reply_data(const char *buf, int len,
+                              imrt_link_recv_context_t *ctx)
 {
     int result = -1;
     const char *pos = buf;
@@ -849,7 +849,7 @@ int main(int argc, char *argv[])
                     continue;
                 }
 
-                reply_type = preocess_reply_data((char *) buffer, n, &recv_ctx);
+                reply_type = process_reply_data((char *) buffer, n, &recv_ctx);
 
                 if (reply_type == REPLY_TYPE_RESPONSE) {
                     response_t response[1] = { 0 };

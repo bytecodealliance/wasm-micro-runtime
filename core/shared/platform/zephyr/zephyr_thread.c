@@ -353,7 +353,12 @@ int os_mutex_lock(korp_mutex *mutex)
 
 int os_mutex_unlock(korp_mutex *mutex)
 {
+#if KERNEL_VERSION_NUMBER >= 0x020200 /* version 2.2.0 */
     return k_mutex_unlock(mutex);
+#else
+    k_mutex_unlock(mutex);
+    return 0;
+#endif
 }
 
 int os_cond_init(korp_cond *cond)
