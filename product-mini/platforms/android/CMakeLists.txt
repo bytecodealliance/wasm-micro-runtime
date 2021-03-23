@@ -11,6 +11,7 @@ set (ANDROID_NDK $ENV{ANDROID_NDK_HOME})
 set (ANDROID_SDK $ENV{ANDROID_SDK_HOME})
 set (ANDROID_ABI "x86")
 set (ANDROID_LD lld)
+set (ANDROID_PLATFORM 24)
 
 project (iwasm)
 
@@ -20,7 +21,7 @@ set (WAMR_BUILD_TYPE          Release)
 set (WAMR_BUILD_INTERP        1)
 set (WAMR_BUILD_AOT           0)
 set (WAMR_BUILD_LIBC_BUILTIN  1)
-set (WAMR_BUILD_LIBC_WASI     0)
+set (WAMR_BUILD_LIBC_WASI     1)
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
