@@ -87,6 +87,45 @@ void os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
+typedef long int __syscall_slong_t;
+
+#if __ANDROID_API__ < 19
+
+int futimens(int __dir_fd, const struct timespec __times[2]);
+
+#endif
+
+#if __ANDROID_API__ < 21
+
+int posix_fallocate(int __fd, off_t __offset, off_t __length);
+
+int posix_fadvise(int fd, off_t offset, off_t len, int advice);
+
+int linkat(int __old_dir_fd, const char *__old_path,
+           int __new_dir_fd, const char *__new_path, int __flags);
+
+int symlinkat(const char *__old_path, int __new_dir_fd, const char *__new_path);
+
+ssize_t readlinkat(int __dir_fd, const char *__path, char *__buf, size_t __buf_size);
+
+#endif
+
+#if __ANDROID_API__ < 23
+
+long telldir(DIR *__dir);
+
+void seekdir(DIR *__dir, long __location);
+
+#endif
+
+#if __ANDROID_API__ < 24
+
+ssize_t preadv(int __fd, const struct iovec *__iov, int __count, off_t __offset);
+
+ssize_t pwritev(int __fd, const struct iovec *__iov, int __count, off_t __offset);
+
+#endif
+
 #ifdef __cplusplus
 }
 #endif
