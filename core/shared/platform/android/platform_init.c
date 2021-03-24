@@ -64,7 +64,7 @@ int posix_fadvise(int fd, off_t offset, off_t len, int advice)
 }
 
 int linkat(int __old_dir_fd, const char *__old_path,
-       int __new_dir_fd, const char *__new_path, int __flags)
+           int __new_dir_fd, const char *__new_path, int __flags)
 {
     API_NOT_SUPPORT_ERROR(linkat, 21);
     return -1;
