@@ -101,7 +101,8 @@ int posix_fallocate(int __fd, off_t __offset, off_t __length);
 
 int posix_fadvise(int fd, off_t offset, off_t len, int advice);
 
-int linkat(int __old_dir_fd, const char *__old_path, int __new_dir_fd, const char *__new_path, int __flags);
+int linkat(int __old_dir_fd, const char *__old_path, int __new_dir_fd,
+       const char *__new_path, int __flags);
 
 int symlinkat(const char *__old_path, int __new_dir_fd, const char *__new_path);
 
