@@ -104,7 +104,9 @@ wasm_byte_vec_copy(wasm_byte_vec_t *out, const wasm_byte_vec_t *src)
         goto failed;
     }
 
-    len = src->size * src->size_of_elem;
+    /* integer overflow has been checked in generic_vec_init_data,
+       no need to check again */
+    len = (uint32)(src->size * src->size_of_elem);
     bh_memcpy_s(out->data, len, src->data, len);
     out->num_elems = src->num_elems;
     return;
@@ -117,7 +119,7 @@ failed:
 void
 wasm_byte_vec_new(wasm_byte_vec_t *out, size_t size, const wasm_byte_t *data)
 {
-    size_t size_in_bytes = 0;
+    uint32 size_in_bytes = 0;
 
     bh_assert(out && data);
 
@@ -126,7 +128,9 @@ wasm_byte_vec_new(wasm_byte_vec_t *out, size_t size, const wasm_byte_t *data)
         goto failed;
     }
 
-    size_in_bytes = size * sizeof(wasm_byte_t);
+    /* integer overflow has been checked in generic_vec_init_data,
+       no need to check again */
+    size_in_bytes = (uint32)(size * sizeof(wasm_byte_t));
     bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);
     out->num_elems = size;
     return;
@@ -435,14 +439,16 @@ wasm_valtype_vec_new(wasm_valtype_vec_t *out,
                      size_t size,
                      wasm_valtype_t *const data[])
 {
-    size_t size_in_bytes = 0;
+    uint32 size_in_bytes = 0;
     bh_assert(out && data);
     generic_vec_init_data((Vector *)out, size, sizeof(wasm_valtype_t *));
     if (!out->data) {
         goto failed;
     }
 
-    size_in_bytes = size * sizeof(wasm_valtype_t *);
+    /* integer overflow has been checked in generic_vec_init_data,
+       no need to check again */
+    size_in_bytes = (uint32)(size * sizeof(wasm_valtype_t *));
     bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);
     out->num_elems = size;
     return;
@@ -924,17 +930,21 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
     check_engine_and_store(singleton_engine, store);
     bh_assert(binary && binary->data && binary->size);
 
-    pkg_type = get_package_type((uint8 *)binary->data, binary->size);
+    if (binary->size > UINT32_MAX) {
+        LOG_ERROR("%s failed", __FUNCTION__);
+        return NULL;
+    }
+
+    pkg_type = get_package_type((uint8 *)binary->data, (uint32)binary->size);
     if (Package_Type_Unknown == pkg_type
         || (Wasm_Module_Bytecode == pkg_type
             && INTERP_MODE != current_runtime_mode())
         || (Wasm_Module_AoT == pkg_type
             && INTERP_MODE == current_runtime_mode())) {
-        LOG_WARNING(
-          "current runtime mode %d doesn\'t support the package type "
-          "%d",
+        LOG_ERROR(
+          "current runtime mode %d doesn\'t support the package type %d",
           current_runtime_mode(), pkg_type);
-        goto failed;
+        return NULL;
     }
 
     module_ex = malloc_internal(sizeof(wasm_module_ex_t));
@@ -954,10 +964,12 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
     module_ex->module_comm_rt =
       wasm_runtime_load((uint8 *)module_ex->binary->data,
-                        module_ex->binary->size, error, (uint32)sizeof(error));
+                        (uint32)module_ex->binary->size,
+                        error, (uint32)sizeof(error));
     if (!(module_ex->module_comm_rt)) {
         LOG_ERROR(error);
-        goto failed;
+        wasm_module_delete_internal(module_ext_to_module(module_ex));
+        return NULL;
     }
 
     /* add it to a watching list in store */
@@ -968,7 +980,7 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
     return module_ext_to_module(module_ex);
 
 failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
+    LOG_ERROR("%s failed", __FUNCTION__);
     wasm_module_delete_internal(module_ext_to_module(module_ex));
     return NULL;
 }
@@ -2687,7 +2699,7 @@ wasm_extern_delete(wasm_extern_t *external)
 wasm_externkind_t
 wasm_extern_kind(const wasm_extern_t *extrenal)
 {
-    return extrenal->kind;
+    return (wasm_externkind_t)extrenal->kind;
 }
 
 wasm_func_t *

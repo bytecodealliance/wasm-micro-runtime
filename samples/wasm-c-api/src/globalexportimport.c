@@ -34,8 +34,8 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
 
 #define check(val, type, expected) \
   if (val.of.type != expected) { \
-    printf("> Expected reading value %f or %d \n", expected, expected); \
-    printf("> Error reading value %f or %d\n", val.of.type, val.of.type); \
+    printf("> Expected reading value %f or %f \n", expected, expected); \
+    printf("> Error reading value %f or %f\n", val.of.type, val.of.type); \
   }
 
 #define check_global(global, type, expected) \
@@ -62,14 +62,14 @@ wasm_module_t * create_module_from_file(wasm_store_t* store, const char * filena
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
-    return 1;
+    return NULL;
   }
   // Compile.
   printf("Compiling module...\n");
   own wasm_module_t* module = wasm_module_new(store, &binary);
   if (!module) {
     printf("> Error compiling module!\n");
-    return 1;
+    return NULL;
   }
   wasm_byte_vec_delete(&binary);
   fclose(file);
@@ -88,10 +88,16 @@ int main(int argc, const char* argv[]) {
   // Load binary.
   printf("Loading binary...\n");
 #if WASM_ENABLE_AOT != 0 && WASM_ENABLE_INTERP == 0
-  wasm_module_t* moduleimport =  create_module_from_file(store, "globalimport.aot");
+  wasm_module_t* moduleimport =
+      create_module_from_file(store, "globalimport.aot");
 #else
-  wasm_module_t* moduleimport =  create_module_from_file(store, "globalexportimport-1.wasm");
+  wasm_module_t* moduleimport =
+      create_module_from_file(store, "globalexportimport-1.wasm");
 #endif
+
+  if (!moduleimport) {
+      return 1;
+  }
 
   // Instantiate.
   printf("Instantiating Import module...\n");
