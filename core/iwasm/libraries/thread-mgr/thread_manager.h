@@ -106,6 +106,9 @@ wasm_cluster_add_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 bool
 wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 
+WASMExecEnv *
+wasm_clusters_search_exec_env(WASMModuleInstanceCommon *module_inst);
+
 void
 wasm_cluster_spread_exception(WASMExecEnv *exec_env);
 

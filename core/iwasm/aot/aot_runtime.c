@@ -10,6 +10,9 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -1319,17 +1322,33 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
     WASMExecEnv *exec_env;
     bool ret;
 
-    if (!(exec_env = wasm_exec_env_create((WASMModuleInstanceCommon*)module_inst,
-                                          module_inst->default_wasm_stack_size))) {
-        aot_set_exception(module_inst, "allocate memory failed");
-        return false;
-    }
+#if WASM_ENABLE_THREAD_MGR != 0
+    WASMExecEnv *existing_exec_env = NULL;
 
-    /* set thread handle and stack boundary */
-    wasm_exec_env_set_thread_info(exec_env);
+    if (!(existing_exec_env = exec_env =
+        wasm_clusters_search_exec_env(
+            (WASMModuleInstanceCommon*)module_inst))) {
+#endif
+        if (!(exec_env = wasm_exec_env_create((WASMModuleInstanceCommon*)module_inst,
+                                            module_inst->default_wasm_stack_size))) {
+            aot_set_exception(module_inst, "allocate memory failed");
+            return false;
+        }
+
+        /* set thread handle and stack boundary */
+        wasm_exec_env_set_thread_info(exec_env);
+#if WASM_ENABLE_THREAD_MGR != 0
+    }
+#endif
 
     ret = aot_call_function(exec_env, func, argc, argv);
-    wasm_exec_env_destroy(exec_env);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* don't destroy the exec_env if it's searched from the cluster */
+    if (!existing_exec_env)
+#endif
+        wasm_exec_env_destroy(exec_env);
+
     return ret;
 }
 
