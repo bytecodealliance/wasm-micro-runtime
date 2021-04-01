@@ -131,17 +131,22 @@
 #define WASM_ENABLE_LOG 1
 #endif
 
-#if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64)
-#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 1
+#ifndef WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS
+#if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64) \
+    || defined(BUILD_TARGET_AARCH64)
+#define WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS 1
 #else
-#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 0
+#define WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS 0
+#endif
 #endif
 
 /* WASM Interpreter labels-as-values feature */
+#ifndef WASM_ENABLE_LABELS_AS_VALUES
 #ifdef __GNUC__
 #define WASM_ENABLE_LABELS_AS_VALUES 1
 #else
 #define WASM_ENABLE_LABELS_AS_VALUES 0
+#endif
 #endif
 
 /* Enable fast interpreter or not */
@@ -150,10 +155,7 @@
 #endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
-#define WASM_ENABLE_ABS_LABEL_ADDR 1
 #define WASM_DEBUG_PREPROCESSOR 0
-#else
-#define WASM_ENABLE_ABS_LABEL_ADDR 0
 #endif
 
 /* Enable opcode counter or not */

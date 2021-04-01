@@ -1001,21 +1001,6 @@ aot_lookup_function(const AOTModuleInstance *module_inst,
     return NULL;
 }
 
-#define PUT_I64_TO_ADDR(addr, value) do {       \
-    union { int64 val; uint32 parts[2]; } u;    \
-    u.val = (value);                            \
-    (addr)[0] = u.parts[0];                     \
-    (addr)[1] = u.parts[1];                     \
-  } while (0)
-
-#define PUT_F64_TO_ADDR(addr, value) do {       \
-    union { float64 val; uint32 parts[2]; } u;  \
-    u.val = (value);                            \
-    (addr)[0] = u.parts[0];                     \
-    (addr)[1] = u.parts[1];                     \
-  } while (0)
-
-
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
 #define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
