@@ -281,6 +281,49 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
     return ret;
 }
 
+static WASMExecEnv *
+wasm_cluster_search_exec_env(WASMCluster *cluster,
+                             WASMModuleInstanceCommon *module_inst)
+{
+    WASMExecEnv *node = NULL;
+
+    os_mutex_lock(&cluster->lock);
+    node = bh_list_first_elem(&cluster->exec_env_list);
+    while (node) {
+        if (node->module_inst == module_inst) {
+            os_mutex_unlock(&cluster->lock);
+            return node;
+        }
+        node = bh_list_elem_next(node);
+    }
+
+    os_mutex_unlock(&cluster->lock);
+    return NULL;
+}
+
+/* search the global cluster list to find if the given
+    module instance have a corresponding exec_env */
+WASMExecEnv *
+wasm_clusters_search_exec_env(WASMModuleInstanceCommon *module_inst)
+{
+    WASMCluster *cluster = NULL;
+    WASMExecEnv *exec_env = NULL;
+
+    os_mutex_lock(&cluster_list_lock);
+    cluster = bh_list_first_elem(cluster_list);
+    while (cluster) {
+        exec_env = wasm_cluster_search_exec_env(cluster, module_inst);
+        if (exec_env) {
+            os_mutex_unlock(&cluster_list_lock);
+            return exec_env;
+        }
+        cluster = bh_list_elem_next(cluster);
+    }
+
+    os_mutex_unlock(&cluster_list_lock);
+    return NULL;
+}
+
 WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 {
