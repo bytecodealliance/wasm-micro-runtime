@@ -58,7 +58,7 @@ endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   # Enable fast interpreter
-  set (WAMR_BUILD_FAST_INTERP 0)
+  set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
@@ -91,7 +91,7 @@ include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
-set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
 
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")

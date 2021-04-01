@@ -2825,20 +2825,6 @@ fail:
  * Implementation of wasm_runtime_invoke_native()
  */
 
-#define PUT_I64_TO_ADDR(addr, value) do {       \
-    union { int64 val; uint32 parts[2]; } u;    \
-    u.val = (value);                            \
-    (addr)[0] = u.parts[0];                     \
-    (addr)[1] = u.parts[1];                     \
-  } while (0)
-
-#define PUT_F64_TO_ADDR(addr, value) do {       \
-    union { float64 val; uint32 parts[2]; } u;  \
-    u.val = (value);                            \
-    (addr)[0] = u.parts[0];                     \
-    (addr)[1] = u.parts[1];                     \
-  } while (0)
-
 /* The invoke native implementation on ARM platform with VFP co-processor */
 #if defined(BUILD_TARGET_ARM_VFP) \
     || defined(BUILD_TARGET_THUMB_VFP) \

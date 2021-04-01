@@ -95,9 +95,9 @@ endif ()
 
 add_library (iwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 if (CMAKE_BUILD_TYPE STREQUAL Release)
-target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -landroid -llog -s)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -landroid -llog -s)
 else()
-target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -landroid -llog)
+target_link_libraries (iwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -landroid -llog)
 endif()
 
 set (distribution_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build/distribution)

@@ -2533,7 +2533,7 @@ static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              char *error_buf, uint32 error_buf_size);
 
-#if WASM_ENABLE_FAST_INTERP != 0
+#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_LABELS_AS_VALUES != 0
 void **
 wasm_interp_get_handle_table();
 
@@ -2836,7 +2836,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
         }
     }
 
-#if WASM_ENABLE_FAST_INTERP != 0
+#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_LABELS_AS_VALUES != 0
     handle_table = wasm_interp_get_handle_table();
 #endif
 
@@ -3859,7 +3859,7 @@ static bool
 check_offset_push(WASMLoaderContext *ctx,
                   char *error_buf, uint32 error_buf_size)
 {
-    uint32 cell_num = (ctx->frame_offset - ctx->frame_offset_bottom);
+    uint32 cell_num = (uint32)(ctx->frame_offset - ctx->frame_offset_bottom);
     if (ctx->frame_offset >= ctx->frame_offset_boundary) {
         MEM_REALLOC(ctx->frame_offset_bottom, ctx->frame_offset_size,
                     ctx->frame_offset_size + 16);
@@ -4209,22 +4209,20 @@ fail:
 
 #if WASM_ENABLE_FAST_INTERP != 0
 
-#if WASM_ENABLE_ABS_LABEL_ADDR != 0
-
+#if WASM_ENABLE_LABELS_AS_VALUES != 0
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
 #define emit_label(opcode) do {                                     \
     wasm_loader_emit_ptr(loader_ctx, handle_table[opcode]);         \
     LOG_OP("\nemit_op [%02x]\t", opcode);                           \
   } while (0)
-
 #define skip_label() do {                                           \
     wasm_loader_emit_backspace(loader_ctx, sizeof(void *));         \
     LOG_OP("\ndelete last op\n");                                   \
   } while (0)
-
-#else
-
+#else /* else of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
 #define emit_label(opcode) do {                                     \
-    int32 offset = (int32)(handle_table[opcode] - handle_table[0]); \
+    int32 offset = (int32)((uint8*)handle_table[opcode]             \
+                           - (uint8*)handle_table[0]);              \
     if (!(offset >= INT16_MIN && offset < INT16_MAX)) {             \
         set_error_buf(error_buf, error_buf_size,                    \
                       "pre-compiled label offset out of range");    \
@@ -4233,14 +4231,21 @@ fail:
     wasm_loader_emit_int16(loader_ctx, offset);                     \
     LOG_OP("\nemit_op [%02x]\t", opcode);                           \
   } while (0)
-
-/* drop local.get / const / block / loop / end */
 #define skip_label() do {                                           \
     wasm_loader_emit_backspace(loader_ctx, sizeof(int16));          \
     LOG_OP("\ndelete last op\n");                                   \
   } while (0)
-
-#endif /* WASM_ENABLE_ABS_LABEL_ADDR */
+#endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
+#else /* else of WASM_ENABLE_LABELS_AS_VALUES */
+#define emit_label(opcode) do {                                     \
+    wasm_loader_emit_uint8(loader_ctx, opcode);                     \
+    LOG_OP("\nemit_op [%02x]\t", opcode);                           \
+  } while (0)
+#define skip_label() do {                                           \
+    wasm_loader_emit_backspace(loader_ctx, sizeof(uint8));          \
+    LOG_OP("\ndelete last op\n");                                   \
+  } while (0)
+#endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
 #define emit_empty_label_addr_and_frame_ip(type) do {               \
     if (!add_label_patch_to_list(loader_ctx->frame_csp - 1, type,   \
@@ -4361,22 +4366,36 @@ static void
 wasm_loader_emit_uint32(WASMLoaderContext *ctx, uint32 value)
 {
     if (ctx->p_code_compiled) {
-        *(uint32*)(ctx->p_code_compiled) = value;
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
+#endif
+        STORE_U32(ctx->p_code_compiled, value);
         ctx->p_code_compiled += sizeof(uint32);
     }
-    else
+    else {
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert((ctx->code_compiled_size & 1) == 0);
+#endif
         ctx->code_compiled_size += sizeof(uint32);
+    }
 }
 
 static void
 wasm_loader_emit_int16(WASMLoaderContext *ctx, int16 value)
 {
     if (ctx->p_code_compiled) {
-        *(int16*)(ctx->p_code_compiled) = value;
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
+#endif
+        STORE_U16(ctx->p_code_compiled, (uint16)value);
         ctx->p_code_compiled += sizeof(int16);
     }
-    else
+    else {
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert((ctx->code_compiled_size & 1) == 0);
+#endif
         ctx->code_compiled_size += sizeof(int16);
+    }
 }
 
 static void
@@ -4385,20 +4404,36 @@ wasm_loader_emit_uint8(WASMLoaderContext *ctx, uint8 value)
     if (ctx->p_code_compiled) {
         *(ctx->p_code_compiled) = value;
         ctx->p_code_compiled += sizeof(uint8);
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        ctx->p_code_compiled++;
+        bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
+#endif
     }
-    else
+    else {
         ctx->code_compiled_size += sizeof(uint8);
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        ctx->code_compiled_size++;
+        bh_assert((ctx->code_compiled_size & 1) == 0);
+#endif
+    }
 }
 
 static void
 wasm_loader_emit_ptr(WASMLoaderContext *ctx, void *value)
 {
     if (ctx->p_code_compiled) {
-        *(uint8**)(ctx->p_code_compiled) = value;
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
+#endif
+        STORE_PTR(ctx->p_code_compiled, value);
         ctx->p_code_compiled += sizeof(void *);
     }
-    else
+    else {
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert((ctx->code_compiled_size & 1) == 0);
+#endif
         ctx->code_compiled_size += sizeof(void *);
+    }
 }
 
 static void
@@ -4406,9 +4441,22 @@ wasm_loader_emit_backspace(WASMLoaderContext *ctx, uint32 size)
 {
     if (ctx->p_code_compiled) {
         ctx->p_code_compiled -= size;
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        if (size == sizeof(uint8)) {
+            ctx->p_code_compiled--;
+            bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
+        }
+#endif
     }
-    else
+    else {
         ctx->code_compiled_size -= size;
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        if (size == sizeof(uint8)) {
+            ctx->code_compiled_size--;
+            bh_assert((ctx->code_compiled_size & 1) == 0);
+        }
+#endif
+    }
 }
 
 static bool
@@ -4458,10 +4506,11 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
     }
 
     return true;
-
-#if WASM_ENABLE_ABS_LABEL_ADDR == 0
+#if WASM_ENABLE_LABELS_AS_VALUES != 0
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
 fail:
     return false;
+#endif
 #endif
 }
 
@@ -4534,7 +4583,7 @@ apply_label_patch(WASMLoaderContext *ctx, uint8 depth,
     while (node) {
         node_next = node->next;
         if (node->patch_type == patch_type) {
-            *((uint8**)node->code_compiled) = ctx->p_code_compiled;
+            STORE_PTR(node->code_compiled, ctx->p_code_compiled);
             if (node_prev == NULL) {
                 frame_csp->patch_list = node_next;
             }
@@ -4588,12 +4637,12 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         emit_uint32(ctx, wasm_get_cell_num(types, arity));
         /* Part c */
         for (i = (int32)arity - 1; i >= 0; i--) {
-            cell = wasm_value_type_cell_num(types[i]);
+            cell = (uint8)wasm_value_type_cell_num(types[i]);
             emit_byte(ctx, cell);
         }
         /* Part d */
         for (i = (int32)arity - 1; i >= 0; i--) {
-            cell = wasm_value_type_cell_num(types[i]);
+            cell = (uint8)wasm_value_type_cell_num(types[i]);
             frame_offset -= cell;
             emit_operand(ctx, *(int16*)(frame_offset));
         }
@@ -4601,7 +4650,7 @@ wasm_loader_emit_br_info(WASMLoaderContext *ctx, BranchBlock *frame_csp,
         dynamic_offset = frame_csp->dynamic_offset
                          + wasm_get_cell_num(types, arity);
         for (i = (int32)arity - 1; i >= 0; i--) {
-            cell = wasm_value_type_cell_num(types[i]);
+            cell = (uint8)wasm_value_type_cell_num(types[i]);
             dynamic_offset -= cell;
             emit_operand(ctx, dynamic_offset);
         }
@@ -5056,7 +5105,7 @@ reserve_block_ret(WASMLoaderContext *loader_ctx,
     /* If there is only one return value, use EXT_OP_COPY_STACK_TOP/_I64 instead
      * of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
     if (return_count == 1) {
-        uint8 cell = wasm_value_type_cell_num(return_types[0]);
+        uint8 cell = (uint8)wasm_value_type_cell_num(return_types[0]);
         if (block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
             /* insert op_copy before else opcode */
             if (opcode == WASM_OP_ELSE)
@@ -5095,7 +5144,7 @@ reserve_block_ret(WASMLoaderContext *loader_ctx,
 
     /* First traversal to get the count of values needed to be copied. */
     for (i = (int32)return_count - 1; i >= 0; i--) {
-        uint8 cells = wasm_value_type_cell_num(return_types[i]);
+        uint8 cells = (uint8)wasm_value_type_cell_num(return_types[i]);
 
         frame_offset -= cells;
         dynamic_offset -= cells;
@@ -5135,7 +5184,7 @@ reserve_block_ret(WASMLoaderContext *loader_ctx,
         frame_offset = frame_offset_org;
         dynamic_offset = dynamic_offset_org;
         for (i = (int32)return_count - 1, j = 0; i >= 0; i--) {
-            uint8 cell = wasm_value_type_cell_num(return_types[i]);
+            uint8 cell = (uint8)wasm_value_type_cell_num(return_types[i]);
             frame_offset -= cell;
             dynamic_offset -= cell;
             if (dynamic_offset != *frame_offset) {
@@ -5614,7 +5663,7 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
 
     /* Get each param's cell num and src offset */
     for (i = 0; i < param_count; i++) {
-        cell = wasm_value_type_cell_num(wasm_type->types[i]);
+        cell = (uint8)wasm_value_type_cell_num(wasm_type->types[i]);
         cells[i] = cell;
         src_offsets[i] = *frame_offset;
         frame_offset += cell;
@@ -5753,6 +5802,7 @@ re_scan:
         }
         p = func->code;
         func->code_compiled = loader_ctx->p_code_compiled;
+        func->code_compiled_size = loader_ctx->code_compiled_size;
     }
 #endif
 
@@ -5901,9 +5951,9 @@ handle_op_block_and_loop:
                                     loader_malloc(size, error_buf, error_buf_size)))
                             goto fail;
                         bh_memcpy_s(block->param_frame_offsets,
-                                    size,
+                                    (uint32)size,
                                     loader_ctx->frame_offset - size/sizeof(int16),
-                                    size);
+                                    (uint32)size);
                     }
 
                     emit_empty_label_addr_and_frame_ip(PATCH_ELSE);
@@ -6383,15 +6433,34 @@ handle_op_block_and_loop:
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
                             if (loader_ctx->p_code_compiled) {
-#if WASM_ENABLE_ABS_LABEL_ADDR != 0
-                                *(void**)(loader_ctx->p_code_compiled - 2 - sizeof(void*)) =
-                                    handle_table[WASM_OP_SELECT_64];
+                                uint8 opcode_tmp = WASM_OP_SELECT_64;
+                                uint8 *p_code_compiled_tmp =
+                                    loader_ctx->p_code_compiled - 2;
+#if WASM_ENABLE_LABELS_AS_VALUES != 0
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
+                                *(void**)(p_code_compiled_tmp - sizeof(void*)) =
+                                                        handle_table[opcode_tmp];
 #else
-                                *((int16*)loader_ctx->p_code_compiled - 2) = (int16)
-                                    (handle_table[WASM_OP_SELECT_64] - handle_table[0]);
-#endif
+                                int32 offset = (int32)
+                                               ((uint8*)handle_table[opcode_tmp]
+                                                - (uint8*)handle_table[0]);
+                                if (!(offset >= INT16_MIN && offset < INT16_MAX)) {
+                                    set_error_buf(error_buf, error_buf_size,
+                                        "pre-compiled label offset out of range");
+                                    goto fail;
+                                }
+                                *(int16*)(p_code_compiled_tmp - sizeof(int16)) =
+                                                                    (int16)offset;
+#endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
+#else /* else of WASM_ENABLE_LABELS_AS_VALUES */
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
+                                *(p_code_compiled_tmp - 1) = opcode_tmp;
+#else
+                                *(p_code_compiled_tmp - 2) = opcode_tmp;
+#endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
+#endif /* end of WASM_ENABLE_LABELS_AS_VALUES */
                             }
-#endif
+#endif /* end of WASM_ENABLE_FAST_INTERP */
                             break;
                         default:
                             bh_assert(0);
@@ -6466,13 +6535,13 @@ handle_op_block_and_loop:
                     skip_label();
                     if ((!preserve_local) && (LAST_OP_OUTPUT_I32())) {
                         if (loader_ctx->p_code_compiled)
-                            *(int16*)(loader_ctx->p_code_compiled - 2) = local_offset;
+                            STORE_U16(loader_ctx->p_code_compiled - 2, local_offset);
                         loader_ctx->frame_offset --;
                         loader_ctx->dynamic_offset --;
                     }
                     else if ((!preserve_local) && (LAST_OP_OUTPUT_I64())) {
                         if (loader_ctx->p_code_compiled)
-                            *(int16*)(loader_ctx->p_code_compiled - 2) = local_offset;
+                            STORE_U16(loader_ctx->p_code_compiled - 2, local_offset);
                         loader_ctx->frame_offset -= 2;
                         loader_ctx->dynamic_offset -= 2;
                     }
@@ -6480,11 +6549,11 @@ handle_op_block_and_loop:
                         if (local_type == VALUE_TYPE_I32
                             || local_type == VALUE_TYPE_F32) {
                             emit_label(EXT_OP_SET_LOCAL_FAST);
-                            emit_byte(loader_ctx, local_offset);
+                            emit_byte(loader_ctx, (uint8)local_offset);
                         }
                         else {
                             emit_label(EXT_OP_SET_LOCAL_FAST_I64);
-                            emit_byte(loader_ctx, local_offset);
+                            emit_byte(loader_ctx, (uint8)local_offset);
                         }
                         POP_OFFSET_TYPE(local_type);
                     }
@@ -6538,11 +6607,11 @@ handle_op_block_and_loop:
                     if (local_type == VALUE_TYPE_I32
                         || local_type == VALUE_TYPE_F32) {
                         emit_label(EXT_OP_TEE_LOCAL_FAST);
-                        emit_byte(loader_ctx, local_offset);
+                        emit_byte(loader_ctx, (uint8)local_offset);
                     }
                     else {
                         emit_label(EXT_OP_TEE_LOCAL_FAST_I64);
-                        emit_byte(loader_ctx, local_offset);
+                        emit_byte(loader_ctx, (uint8)local_offset);
                     }
                 }
                 else {  /* local index larger than 255, reserve leb */
@@ -7737,12 +7806,12 @@ fail_data_cnt_sec_require:
         Const *c = (Const*)(loader_ctx->const_buf + i * sizeof(Const));
         if (c->value_type == VALUE_TYPE_F64
             || c->value_type == VALUE_TYPE_I64) {
-            bh_memcpy_s(func_const, func_const_end - func_const,
-                        &(c->value.f64), sizeof(int64));
+            bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
+                        &(c->value.f64), (uint32)sizeof(int64));
             func_const += sizeof(int64);
         } else {
-            bh_memcpy_s(func_const, func_const_end - func_const,
-                        &(c->value.f32), sizeof(int32));
+            bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
+                        &(c->value.f32), (uint32)sizeof(int32));
             func_const += sizeof(int32);
         }
     }

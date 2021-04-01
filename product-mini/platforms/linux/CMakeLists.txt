@@ -127,4 +127,4 @@ install (TARGETS libiwasm DESTINATION lib)
 
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
-target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
