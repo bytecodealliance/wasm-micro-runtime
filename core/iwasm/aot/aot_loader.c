@@ -1838,7 +1838,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     /* Set read only for AOT code and some data sections */
-    map_prot = MMAP_PROT_READ;
+    map_prot = MMAP_PROT_READ | MMAP_PROT_EXEC;
 
     if (module->code) {
         /* The layout is: literal size + literal + code (with plt table) */
@@ -1847,6 +1847,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                             + module->literal_size + module->code_size;
         os_mprotect(mmap_addr, total_size, map_prot);
     }
+
+    map_prot = MMAP_PROT_READ;
 
 #if defined(BH_PLATFORM_WINDOWS)
     if (module->extra_plt_data) {
