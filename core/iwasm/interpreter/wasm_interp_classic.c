@@ -702,7 +702,7 @@ ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
     }
     else {
         wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
-                           "stack overflow");
+                           "wasm operand stack overflow");
     }
 
     return frame;
@@ -1350,6 +1350,8 @@ label_pop_csp_n:
 
       HANDLE_OP (WASM_OP_SET_GLOBAL_AUX_STACK):
         {
+          uint32 aux_stack_top;
+
           read_leb_uint32(frame_ip, frame_ip_end, global_idx);
           bh_assert(global_idx < module->global_count);
           global = globals + global_idx;
@@ -1361,9 +1363,17 @@ label_pop_csp_n:
                           + global->import_global_inst->data_offset
                         : global_data + global->data_offset;
 #endif
-          if (*(uint32*)(frame_sp - 1) < exec_env->aux_stack_boundary)
-            goto out_of_bounds;
-          *(int32*)global_addr = POP_I32();
+          aux_stack_top = *(uint32*)(frame_sp - 1);
+          if (aux_stack_top <= exec_env->aux_stack_boundary.boundary) {
+            wasm_set_exception(module, "wasm auxiliary stack overflow");
+            goto got_exception;
+          }
+          if (aux_stack_top > exec_env->aux_stack_bottom.bottom) {
+            wasm_set_exception(module, "wasm auxiliary stack underflow");
+            goto got_exception;
+          }
+          *(int32*)global_addr = aux_stack_top;
+          frame_sp--;
 #if WASM_ENABLE_MEMORY_PROFILING != 0
           if (module->module->aux_stack_top_global_index != (uint32)-1) {
               uint32 aux_stack_used =
@@ -3021,7 +3031,7 @@ label_pop_csp_n:
                        + (uint64)cur_wasm_func->max_stack_cell_num
                        + ((uint64)cur_wasm_func->max_block_num) * sizeof(WASMBranchBlock) / 4;
         if (all_cell_num >= UINT32_MAX) {
-            wasm_set_exception(module, "stack overflow");
+            wasm_set_exception(module, "wasm operand stack overflow");
             goto got_exception;
         }
 

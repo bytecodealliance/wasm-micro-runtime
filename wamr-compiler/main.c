@@ -47,6 +47,7 @@ print_help()
   printf("                              currently 128-bit SIMD is only supported for x86-64 target,\n");
   printf("                              and by default it is enabled in x86-64 target and disabled\n");
   printf("                              in other targets\n");
+  printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
   printf("  --enable-dump-call-stack  Enable stack trace feature\n");
   printf("  --enable-perf-profiling   Enable function performance profiling\n");
   printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
@@ -77,6 +78,7 @@ main(int argc, char *argv[])
   /* default value, enable or disable depends on the platform */
   option.bounds_checks = 2;
   option.enable_simd = true;
+  option.enable_aux_stack_check = true;
 
   /* Process options.  */
   for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -163,6 +165,9 @@ main(int argc, char *argv[])
     }
     else if (!strcmp(argv[0], "--disable-simd")) {
         option.enable_simd = false;
+    }
+    else if (!strcmp(argv[0], "--disable-aux-stack-check")) {
+        option.enable_aux_stack_check = false;
     }
     else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
         option.enable_aux_stack_frame = true;

@@ -628,6 +628,8 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
     LLVMValueRef argv_buf_offset = I32_THREE, argv_buf_addr;
     LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
+    LLVMValueRef aux_stack_bound_offset = I32_SIX, aux_stack_bound_addr;
+    LLVMValueRef aux_stack_bottom_offset = I32_SEVEN, aux_stack_bottom_addr;
     char local_name[32];
     uint64 size;
     uint32 i, j = 0;
@@ -714,6 +716,53 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     if (!(func_ctx->native_stack_bound =
             LLVMBuildLoad(comp_ctx->builder,
                           stack_bound_addr, "native_stack_bound"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    /* Get aux stack boundary address */
+    if (!(aux_stack_bound_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &aux_stack_bound_offset, 1,
+                                 "aux_stack_bound_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(aux_stack_bound_addr =
+            LLVMBuildBitCast(comp_ctx->builder,
+                             aux_stack_bound_addr,
+                             INT32_PTR_TYPE, "aux_stack_bound_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->aux_stack_bound =
+            LLVMBuildLoad(comp_ctx->builder,
+                          aux_stack_bound_addr, "aux_stack_bound"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    /* Get aux stack bottom address */
+    if (!(aux_stack_bottom_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &aux_stack_bottom_offset, 1,
+                                 "aux_stack_bottom_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(aux_stack_bottom_addr =
+            LLVMBuildBitCast(comp_ctx->builder,
+                             aux_stack_bottom_addr,
+                             INT32_PTR_TYPE, "aux_stack_bottom_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+    if (!(func_ctx->aux_stack_bottom =
+            LLVMBuildLoad(comp_ctx->builder,
+                          aux_stack_bottom_addr, "aux_stack_bottom"))) {
         aot_set_last_error("llvm build load failed");
         goto fail;
     }
@@ -953,6 +1002,9 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
     consts->i32_two = I32_CONST(2);
     consts->i32_three = I32_CONST(3);
     consts->i32_four = I32_CONST(4);
+    consts->i32_five = I32_CONST(5);
+    consts->i32_six = I32_CONST(6);
+    consts->i32_seven = I32_CONST(7);
     consts->i32_eight = I32_CONST(8);
     consts->i32_neg_one = I32_CONST((uint32)-1);
     consts->i64_neg_one = I64_CONST((uint64)-1);
@@ -978,6 +1030,9 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
             && consts->i32_two
             && consts->i32_three
             && consts->i32_four
+            && consts->i32_five
+            && consts->i32_six
+            && consts->i32_seven
             && consts->i32_eight
             && consts->i32_neg_one
             && consts->i64_neg_one
@@ -1191,6 +1246,9 @@ aot_create_comp_context(AOTCompData *comp_data,
 
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
+
+    if (option->enable_aux_stack_check)
+        comp_ctx->enable_aux_stack_check = true;
 
     if (option->is_jit_mode) {
         char *triple_jit = NULL;

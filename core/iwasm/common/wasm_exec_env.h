@@ -37,8 +37,10 @@ typedef struct WASMExecEnv {
     /* Previous thread's exec env of a WASM module instance. */
     struct WASMExecEnv *prev;
 
-    /* Note: field module_inst, argv_buf and native_stack_boundary
-             are used by AOTed code, don't change the places of them */
+    /* Note: field module_inst, argv_buf, native_stack_boundary,
+       suspend_flags, aux_stack_boundary, aux_stack_bottom, and
+       native_symbol are used by AOTed code, don't change the
+       places of them */
 
     /* The WASM module instance of current thread */
     struct WASMModuleInstanceCommon *module_inst;
@@ -52,10 +54,9 @@ typedef struct WASMExecEnv {
        exception. */
     uint8 *native_stack_boundary;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Used to terminate or suspend the interpreter
-        bit 0: need terminate
-        bit 1: need suspend
+    /* Used to terminate or suspend current thread
+        bit 0: need to terminate
+        bit 1: need to suspend
         bit 2: need to go into breakpoint
         bit 3: return from pthread_exit */
     union {
@@ -63,6 +64,24 @@ typedef struct WASMExecEnv {
         uintptr_t __padding__;
     } suspend_flags;
 
+    /* Auxiliary stack boundary */
+    union {
+        uint32 boundary;
+        uintptr_t __padding__;
+    } aux_stack_boundary;
+
+    /* Auxiliary stack bottom */
+    union {
+        uint32 bottom;
+        uintptr_t __padding__;
+    } aux_stack_bottom;
+
+#if WASM_ENABLE_AOT != 0
+    /* Native symbol list, reserved */
+    void **native_symbol;
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
     /* thread return value */
     void *thread_ret_value;
 
@@ -77,9 +96,6 @@ typedef struct WASMExecEnv {
     korp_mutex wait_lock;
     korp_cond wait_cond;
 #endif
-
-    /* Aux stack boundary */
-    uint32 aux_stack_boundary;
 
     /* attachment for native function */
     void *attachment;

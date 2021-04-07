@@ -1393,6 +1393,12 @@ aot_set_exception_with_id(AOTModuleInstance *module_inst,
         case EXCE_UNALIGNED_ATOMIC:
             aot_set_exception(module_inst, "unaligned atomic");
             break;
+        case EXCE_AUX_STACK_OVERFLOW:
+            aot_set_exception(module_inst, "wasm auxiliary stack overflow");
+            break;
+        case EXCE_AUX_STACK_UNDERFLOW:
+            aot_set_exception(module_inst, "wasm auxiliary stack underflow");
+            break;
         default:
             break;
     }
@@ -2208,7 +2214,8 @@ aot_set_aux_stack(WASMExecEnv *exec_env,
 
         /* The aux stack boundary is a constant value,
             set the value to exec_env */
-        exec_env->aux_stack_boundary = start_offset - size;
+        exec_env->aux_stack_boundary.boundary = start_offset - size;
+        exec_env->aux_stack_bottom.bottom = start_offset;
         return true;
     }
 

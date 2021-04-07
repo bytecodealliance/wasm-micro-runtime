@@ -640,8 +640,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMBasicBlockRef terminate_block;
 
     /* Offset of suspend_flags */
-    offset = I32_CONST(5);
-    CHECK_LLVM_CONST(offset);
+    offset = I32_FIVE;
 
     if (!(terminate_addr =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
