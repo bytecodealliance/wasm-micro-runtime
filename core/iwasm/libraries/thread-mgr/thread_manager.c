@@ -384,8 +384,7 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     bh_assert(cluster != NULL);
 
     /* Free aux stack space */
-    free_aux_stack(cluster,
-                   exec_env->aux_stack_boundary + cluster->stack_size);
+    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
     wasm_cluster_del_exec_env(cluster, exec_env);
     wasm_exec_env_destroy_internal(exec_env);
 
@@ -411,8 +410,7 @@ thread_manager_start_routine(void *arg)
 
     /* Routine exit */
     /* Free aux stack space */
-    free_aux_stack(cluster,
-                   exec_env->aux_stack_boundary + cluster->stack_size);
+    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
     /* Remove and destroy exec_env */
@@ -519,8 +517,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
     /* App exit the thread, free the resources before exit native thread */
     /* Free aux stack space */
-    free_aux_stack(cluster,
-                   exec_env->aux_stack_boundary + cluster->stack_size);
+    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
     /* Remove and destroy exec_env */

@@ -2071,7 +2071,8 @@ wasm_set_aux_stack(WASMExecEnv *exec_env,
         *(int32*)global_addr = start_offset;
         /* The aux stack boundary is a constant value,
             set the value to exec_env */
-        exec_env->aux_stack_boundary = start_offset - size;
+        exec_env->aux_stack_boundary.boundary = start_offset - size;
+        exec_env->aux_stack_bottom.bottom = start_offset;
         return true;
     }
 

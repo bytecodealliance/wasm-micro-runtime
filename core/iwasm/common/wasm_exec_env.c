@@ -5,6 +5,12 @@
 
 #include "wasm_exec_env.h"
 #include "wasm_runtime_common.h"
+#if WASM_ENABLE_INTERP != 0
+#include "../interpreter/wasm_runtime.h"
+#endif
+#if WASM_ENABLE_AOT != 0
+#include "../aot/aot_runtime.h"
+#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
@@ -88,20 +94,37 @@ WASMExecEnv *
 wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
                      uint32 stack_size)
 {
+#if WASM_ENABLE_THREAD_MGR != 0
+    WASMCluster *cluster;
+#endif
     WASMExecEnv *exec_env =
         wasm_exec_env_create_internal(module_inst, stack_size);
 
     if (!exec_env)
         return NULL;
 
-    /* Set the aux_stack_boundary to 0 */
-    exec_env->aux_stack_boundary = 0;
-#if WASM_ENABLE_THREAD_MGR != 0
-    WASMCluster *cluster;
+    /* Set the aux_stack_boundary and aux_stack_bottom */
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
+        exec_env->aux_stack_bottom.bottom = module->aux_stack_bottom;
+        exec_env->aux_stack_boundary.boundary = module->aux_stack_bottom
+                                                - module->aux_stack_size;
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModule *module =
+            (AOTModule *)(((AOTModuleInstance *)module_inst)->aot_module.ptr);
+        exec_env->aux_stack_bottom.bottom = module->aux_stack_bottom;
+        exec_env->aux_stack_boundary.boundary = module->aux_stack_bottom
+                                                - module->aux_stack_size;
+    }
+#endif
 
+#if WASM_ENABLE_THREAD_MGR != 0
     /* Create a new cluster for this exec_env */
-    cluster = wasm_cluster_create(exec_env);
-    if (!cluster) {
+    if (!(cluster = wasm_cluster_create(exec_env))) {
         wasm_exec_env_destroy_internal(exec_env);
         return NULL;
     }

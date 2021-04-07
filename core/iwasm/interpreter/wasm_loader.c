@@ -6705,7 +6705,6 @@ handle_op_block_and_loop:
                 POP_TYPE(global_type);
 
 #if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     *p_org = WASM_OP_SET_GLOBAL_64;
@@ -6714,7 +6713,6 @@ handle_op_block_and_loop:
                          && global_idx == module->aux_stack_top_global_index) {
                     *p_org = WASM_OP_SET_GLOBAL_AUX_STACK;
                 }
-#endif
 #else /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {

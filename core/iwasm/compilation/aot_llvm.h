@@ -122,6 +122,8 @@ typedef struct AOTFuncContext {
   LLVMValueRef table_base;
   LLVMValueRef argv_buf;
   LLVMValueRef native_stack_bound;
+  LLVMValueRef aux_stack_bound;
+  LLVMValueRef aux_stack_bottom;
   LLVMValueRef last_alloca;
   LLVMValueRef func_ptrs;
 
@@ -185,6 +187,9 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32_two;
     LLVMValueRef i32_three;
     LLVMValueRef i32_four;
+    LLVMValueRef i32_five;
+    LLVMValueRef i32_six;
+    LLVMValueRef i32_seven;
     LLVMValueRef i32_eight;
     LLVMValueRef i32_neg_one;
     LLVMValueRef i64_neg_one;
@@ -224,7 +229,10 @@ typedef struct AOTCompContext {
   /* 128-bit SIMD */
   bool enable_simd;
 
-  /* generate auxiliary stack frame */
+  /* Auxiliary stack overflow/underflow check */
+  bool enable_aux_stack_check;
+
+  /* Generate auxiliary stack frame */
   bool enable_aux_stack_frame;
 
   /* Thread Manager */
@@ -275,6 +283,7 @@ typedef struct AOTCompOption{
     bool enable_thread_mgr;
     bool enable_tail_call;
     bool enable_simd;
+    bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
     bool is_sgx_platform;
     uint32 opt_level;
