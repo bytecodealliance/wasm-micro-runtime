@@ -2325,7 +2325,7 @@ resolve_function(const WASMModuleInstanceCommon *module_inst,
     char *orig_name = NULL;
     char *sub_module_name = NULL;
     char *function_name = NULL;
-    uint32 length = strlen(name) + 1;
+    uint32 length = (uint32)(strlen(name) + 1);
 
     orig_name = runtime_malloc(sizeof(char) * length, NULL, NULL, 0);
     if (!orig_name) {
@@ -3387,7 +3387,7 @@ fail:
 #endif
 
 #if defined(_WIN32) || defined(_WIN32_)
-typedef union __declspec(intrin_type) __declspec(align(1)) v128 {
+typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
     __int8 m128i_i8[16];
     __int16 m128i_i16[8];
     __int32 m128i_i32[4];

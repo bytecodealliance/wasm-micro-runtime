@@ -33,9 +33,14 @@ extern "C" {
 #define BH_FREE os_free
 #endif
 
-#if defined(MSVC)
-__declspec(dllimport) void *BH_MALLOC(unsigned int size);
-__declspec(dllimport) void BH_FREE(void *ptr);
+#if defined(_MSC_BUILD)
+#if defined(COMPILING_WASM_RUNTIME_API)
+__declspec(dllexport) void *BH_MALLOC(unsigned int size);
+__declspec(dllexport) void BH_FREE(void *ptr);
+#else
+__declspec(dllimport) void* BH_MALLOC(unsigned int size);
+__declspec(dllimport) void BH_FREE(void* ptr);
+#endif
 #else
 void *BH_MALLOC(unsigned int size);
 void BH_FREE(void *ptr);

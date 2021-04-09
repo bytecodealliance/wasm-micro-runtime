@@ -15,6 +15,8 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 set (CMAKE_C_STANDARD 99)
 
+add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
+
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 if (NOT DEFINED WAMR_BUILD_TARGET)
@@ -126,4 +128,3 @@ set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
 target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
 
-target_compile_definitions(libiwasm PRIVATE COMPILING_WASM_RUNTIME_API=1)
