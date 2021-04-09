@@ -28,6 +28,10 @@ wasm_runtime_get_llvm_stack(wasm_module_inst_t module);
 void
 wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 
+uint32
+wasm_runtime_module_realloc(wasm_module_inst_t module, uint32 ptr,
+                            uint32 size, void **p_native_addr);
+
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
@@ -704,6 +708,14 @@ calloc_wrapper(wasm_exec_env_t exec_env, uint32 nmemb, uint32 size)
     return ret_offset;
 }
 
+static uint32
+realloc_wrapper(wasm_exec_env_t exec_env, uint32 ptr, uint32 new_size)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    return wasm_runtime_module_realloc(module_inst, ptr, new_size, NULL);
+}
+
 static void
 free_wrapper(wasm_exec_env_t exec_env, void *ptr)
 {
@@ -1092,6 +1104,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(strncmp, "(**~)i"),
     REG_NATIVE_FUNC(strncpy, "(**~)i"),
     REG_NATIVE_FUNC(malloc, "(i)i"),
+    REG_NATIVE_FUNC(realloc, "(ii)i"),
     REG_NATIVE_FUNC(calloc, "(ii)i"),
     REG_NATIVE_FUNC(strdup, "($)i"),
     /* clang may introduce __strdup */

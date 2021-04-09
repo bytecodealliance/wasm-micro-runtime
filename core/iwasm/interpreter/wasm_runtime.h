@@ -328,6 +328,10 @@ uint32
 wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
                    void **p_native_addr);
 
+uint32
+wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
+                    void **p_native_addr);
+
 void
 wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr);
 

@@ -1553,6 +1553,43 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
     return (uint32)(addr - (uint8*)memory_inst->memory_data.ptr);
 }
 
+uint32
+aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr,
+                   uint32 size, void **p_native_addr)
+{
+    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    uint8 *addr = NULL;
+
+    if (!memory_inst) {
+        aot_set_exception(module_inst, "uninitialized memory");
+        return 0;
+    }
+
+    if (memory_inst->heap_handle.ptr) {
+        addr =
+            mem_allocator_realloc(memory_inst->heap_handle.ptr,
+                                  (uint8*)memory_inst->memory_data.ptr + ptr,
+                                  size);
+    }
+
+    /* Only support realloc in WAMR's app heap */
+
+    if (!addr) {
+        if (memory_inst->heap_handle.ptr
+            && mem_allocator_is_heap_corrupted(memory_inst->heap_handle.ptr)) {
+            aot_set_exception(module_inst, "app heap corrupted");
+        }
+        else {
+            aot_set_exception(module_inst, "out of memory");
+        }
+        return 0;
+    }
+
+    if (p_native_addr)
+        *p_native_addr = addr;
+    return (uint32)(addr - (uint8*)memory_inst->memory_data.ptr);
+}
+
 void
 aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
 {
