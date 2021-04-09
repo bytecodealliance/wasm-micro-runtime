@@ -648,7 +648,7 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
     }
 
     if (retval_offset != 0)
-        *retval = (void*)ret;
+        *(uint32*)retval = (uint32)(uintptr_t)ret;
 
     return join_ret;
 }

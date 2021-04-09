@@ -57,7 +57,7 @@ To build this C program into WebAssembly app with libc-builtin, you can use this
 
 You can also build this program with WASI, but we need to make some changes to wasi-sysroot:
 
-1. disable malloc/free of wasi if the wasi-sdk version is smaller than wasi-sdk-12.0 (not include 12.0), as they don't support shared memory:
+1. disable malloc/free of wasi, as they are not atomic operations:
     ``` bash
     /opt/wasi-sdk/bin/llvm-ar -d /opt/wasi-sdk/share/wasi-sysroot/lib/wasm32-wasi/libc.a dlmalloc.o
     ```
