@@ -1107,7 +1107,8 @@ static ArchItem valid_archs[] = {
 static const char *valid_abis[] = {
     "gnu",
     "eabi",
-    "gnueabihf"
+    "gnueabihf",
+    "msvc"
 };
 
 static void
@@ -1335,9 +1336,32 @@ aot_create_comp_context(AOTCompData *comp_data,
 
         if (arch) {
             /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
-            const char *vendor_sys = "-pc-linux-";
-            if (!abi)
-                abi = "gnu";
+            const char *vendor_sys;
+            char *default_triple = LLVMGetDefaultTargetTriple();
+
+            if (!default_triple) {
+                aot_set_last_error("llvm get default target triple failed.");
+                goto fail;
+            }
+
+            if (strstr(default_triple, "windows")) {
+                vendor_sys = "-pc-windows-";
+                if (!abi)
+                    abi = "msvc";
+            }
+            else if (strstr(default_triple, "win32")) {
+                vendor_sys = "-pc-win32-";
+                if (!abi)
+                    abi = "msvc";
+            }
+            else {
+                vendor_sys = "-pc-linux-";
+                if (!abi)
+                    abi = "gnu";
+            }
+
+            LLVMDisposeMessage(default_triple);
+
             bh_assert(strlen(arch) + strlen(vendor_sys) + strlen(abi) < sizeof(triple_buf));
             memcpy(triple_buf, arch, strlen(arch));
             memcpy(triple_buf + strlen(arch), vendor_sys, strlen(vendor_sys));
