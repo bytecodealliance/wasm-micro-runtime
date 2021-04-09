@@ -1741,6 +1741,41 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     return (uint32)(addr - memory->memory_data);
 }
 
+uint32
+wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
+                    void **p_native_addr)
+{
+    WASMMemoryInstance *memory = module_inst->default_memory;
+    uint8 *addr = NULL;
+
+    if (!memory) {
+        wasm_set_exception(module_inst, "uninitialized memory");
+        return 0;
+    }
+
+    if (memory->heap_handle) {
+        addr = mem_allocator_realloc(memory->heap_handle,
+                                     memory->memory_data + ptr, size);
+    }
+
+    /* Only support realloc in WAMR's app heap */
+
+    if (!addr) {
+        if (memory->heap_handle
+            && mem_allocator_is_heap_corrupted(memory->heap_handle)) {
+            wasm_set_exception(module_inst, "app heap corrupted");
+        }
+        else {
+            wasm_set_exception(module_inst, "out of memory");
+        }
+        return 0;
+    }
+    if (p_native_addr)
+        *p_native_addr = addr;
+
+    return (uint32)(addr - memory->memory_data);
+}
+
 void
 wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
 {

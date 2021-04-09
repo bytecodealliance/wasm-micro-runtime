@@ -1378,6 +1378,23 @@ wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint32 size,
     return 0;
 }
 
+uint32
+wasm_runtime_module_realloc(WASMModuleInstanceCommon *module_inst, uint32 ptr,
+                            uint32 size, void **p_native_addr)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_module_realloc((WASMModuleInstance*)module_inst, ptr,
+                                   size, p_native_addr);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return aot_module_realloc((AOTModuleInstance*)module_inst, ptr,
+                                  size, p_native_addr);
+#endif
+    return 0;
+}
+
 void
 wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, uint32 ptr)
 {

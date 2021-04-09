@@ -498,6 +498,10 @@ uint32
 aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr);
 
+uint32
+aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr,
+                   uint32 size, void **p_native_addr);
+
 void
 aot_module_free(AOTModuleInstance *module_inst, uint32 ptr);
 
