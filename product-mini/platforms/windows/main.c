@@ -185,8 +185,8 @@ module_reader_callback(const char *module_name, uint8 **p_buffer,
                        uint32 *p_size)
 {
     const char *format = "%s/%s.wasm";
-    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name) +
-             strlen(".wasm") + 1;
+    uint32 sz = (uint32)(strlen(module_search_path) + strlen("/")
+                         + strlen(module_name) + strlen(".wasm") + 1);
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
         return false;

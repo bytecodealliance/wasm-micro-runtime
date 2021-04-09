@@ -337,34 +337,34 @@ typedef package_type_t PackageType;
 typedef wasm_section_t WASMSection, AOTSection;
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_full_init(RuntimeInitArgs *init_args);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy(void);
 
 /* See wasm_export.h for description */
-PackageType
+WASM_RUNTIME_API_EXTERN PackageType
 get_package_type(const uint8 *buf, uint32 size);
 
 
 /* See wasm_export.h for description */
-WASMModuleCommon *
+WASM_RUNTIME_API_EXTERN WASMModuleCommon *
 wasm_runtime_load(const uint8 *buf, uint32 size,
                   char *error_buf, uint32 error_buf_size);
 
 /* See wasm_export.h for description */
-WASMModuleCommon *
+WASM_RUNTIME_API_EXTERN WASMModuleCommon *
 wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
                                 char *error_buf, uint32 error_buf_size);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(WASMModuleCommon *module);
 
 /* Internal API */
@@ -379,58 +379,58 @@ wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
                                     bool is_sub_inst);
 
 /* See wasm_export.h for description */
-WASMModuleInstanceCommon *
+WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_instantiate(WASMModuleCommon *module,
                          uint32 stack_size, uint32 heap_size,
                          char *error_buf, uint32 error_buf_size);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
-WASMFunctionInstanceCommon *
+WASM_RUNTIME_API_EXTERN WASMFunctionInstanceCommon *
 wasm_runtime_lookup_function(WASMModuleInstanceCommon * const module_inst,
                              const char *name, const char *signature);
 
 /* See wasm_export.h for description */
-WASMExecEnv *
+WASM_RUNTIME_API_EXTERN WASMExecEnv *
 wasm_runtime_create_exec_env(WASMModuleInstanceCommon *module_inst,
                              uint32 stack_size);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
-WASMModuleInstanceCommon *
+WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
-void *
+WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_function_attachment(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_user_data(WASMExecEnv *exec_env, void *user_data);
 
 /* See wasm_export.h for description */
-void *
+WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_user_data(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_call_wasm(WASMExecEnv *exec_env,
                        WASMFunctionInstanceCommon *function,
                        uint32 argc, uint32 argv[]);
 
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
                          WASMFunctionInstanceCommon *function,
                          uint32 num_results, wasm_val_t *results,
                          uint32 num_args, wasm_val_t *args);
 
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          WASMFunctionInstanceCommon *function,
                          uint32 num_results, wasm_val_t *results,
@@ -464,85 +464,85 @@ wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst
                                            uint32 argc, uint32 argv[]);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
                               int32 argc, char *argv[]);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                               const char *name, int32 argc, char *argv[]);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_exception(WASMModuleInstanceCommon *module,
                            const char *exception);
 
 /* See wasm_export.h for description */
-const char *
+WASM_RUNTIME_API_EXTERN const char *
 wasm_runtime_get_exception(WASMModuleInstanceCommon *module);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_clear_exception(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_custom_data(WASMModuleInstanceCommon *module_inst,
                              void *custom_data);
 
 /* See wasm_export.h for description */
-void *
+WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
-uint32
+WASM_RUNTIME_API_EXTERN uint32
 wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint32 size,
                            void **p_native_addr);
 
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, uint32 ptr);
 
 /* See wasm_export.h for description */
-uint32
+WASM_RUNTIME_API_EXTERN uint32
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
                              const char *src, uint32 size);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst,
                                uint32 app_offset, uint32 size);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst,
                                    uint32 app_str_offset);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst,
                                   void *native_ptr, uint32 size);
 
 /* See wasm_export.h for description */
-void *
+WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst,
                                 uint32 app_offset);
 
 /* See wasm_export.h for description */
-uint32
+WASM_RUNTIME_API_EXTERN uint32
 wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst,
                                 void *native_ptr);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst,
                                 uint32 app_offset,
                                 uint32 *p_app_start_offset,
                                 uint32 *p_app_end_offset);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
                                    uint8 *native_ptr,
                                    uint8 **p_native_start_addr,
@@ -563,7 +563,7 @@ wasm_runtime_set_llvm_stack(WASMModuleInstanceCommon *module_inst,
                             uint32 llvm_stack);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_module_reader(const module_reader reader,
                                const module_destroyer destroyer);
 
@@ -616,7 +616,7 @@ wasm_exec_env_set_aux_stack(WASMExecEnv *exec_env,
 
 #if WASM_ENABLE_LIBC_WASI != 0
 /* See wasm_export.h for description */
-void
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args(WASMModuleCommon *module,
                            const char *dir_list[], uint32 dir_count,
                            const char *map_dir_list[], uint32 map_dir_count,
@@ -624,11 +624,11 @@ wasm_runtime_set_wasi_args(WASMModuleCommon *module,
                            char *argv[], int argc);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
-WASMFunctionInstanceCommon *
+WASM_RUNTIME_API_EXTERN WASMFunctionInstanceCommon *
 wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst);
 
 bool
@@ -666,13 +666,13 @@ bool
 wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module, uint32 inc_page_count);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives(const char *module_name,
                               NativeSymbol *native_symbols,
                               uint32 n_native_symbols);
 
 /* See wasm_export.h for description */
-bool
+WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives_raw(const char *module_name,
                                   NativeSymbol *native_symbols,
                                   uint32 n_native_symbols);

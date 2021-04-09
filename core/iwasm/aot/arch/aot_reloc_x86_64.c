@@ -12,10 +12,12 @@
 #define R_X86_64_32    10 /* Direct 32 bit zero extended */
 #define R_X86_64_32S   11 /* Direct 32 bit sign extended */
 #else
+#ifndef IMAGE_REL_AMD64_ADDR64
 #define IMAGE_REL_AMD64_ADDR64 1 /* The 64-bit VA of the relocation target */
 #define IMAGE_REL_AMD64_ADDR32 2 /* The 32-bit VA of the relocation target */
 #define IMAGE_REL_AMD64_REL32  4 /* The 32-bit relative address from
                                     the byte following the relocation*/
+#endif
 #endif
 
 #if defined(BH_PLATFORM_WINDOWS)

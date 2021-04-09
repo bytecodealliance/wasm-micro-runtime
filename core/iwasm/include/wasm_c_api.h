@@ -10,8 +10,12 @@
 #include <assert.h>
 
 #ifndef WASM_API_EXTERN
-#ifdef _WIN32
-#define WASM_API_EXTERN __declspec(dllimport)
+#if defined(_MSC_BUILD)
+    #if defined(COMPILING_WASM_RUNTIME_API)
+        #define WASM_API_EXTERN __declspec(dllexport)
+    #else
+        #define WASM_API_EXTERN __declspec(dllimport)
+    #endif
 #else
 #define WASM_API_EXTERN
 #endif
