@@ -90,7 +90,6 @@ fail:
     return false;
 }
 
-/* TODO: instructions for other CPUs */
 /* shufflevector is not an option, since it requires *mask as a const */
 bool
 aot_compile_simd_swizzle_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
@@ -158,16 +157,12 @@ fail:
     return false;
 }
 
-bool
-aot_compile_simd_swizzle(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+static bool
+aot_compile_simd_swizzle_common(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef vector, mask, default_lane_value, condition, max_lane_id,
       result, idx, id, replace_with_zero, elem, elem_or_zero, undef;
     uint8 i;
-
-    if (is_target_x86(comp_ctx)) {
-        return aot_compile_simd_swizzle_x86(comp_ctx, func_ctx);
-    }
 
     int const_lane_ids[16] = { 16, 16, 16, 16, 16, 16, 16, 16,
                                16, 16, 16, 16, 16, 16, 16, 16 },
@@ -259,6 +254,17 @@ aot_compile_simd_swizzle(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     return true;
 fail:
     return false;
+}
+
+bool
+aot_compile_simd_swizzle(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    if (is_target_x86(comp_ctx)) {
+        return aot_compile_simd_swizzle_x86(comp_ctx, func_ctx);
+    }
+    else {
+        return aot_compile_simd_swizzle_common(comp_ctx, func_ctx);
+    }
 }
 
 static bool
