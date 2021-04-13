@@ -8,6 +8,13 @@
 #include "../aot_emit_exception.h"
 #include "../../aot/aot_runtime.h"
 
+static bool
+is_target_x86(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "x86_64", 6) ||
+           !strncmp(comp_ctx->target_arch, "i386", 4);
+}
+
 static LLVMValueRef
 build_intx16_vector(const AOTCompContext *comp_ctx,
                     const LLVMTypeRef element_type,
@@ -86,7 +93,7 @@ fail:
 /* TODO: instructions for other CPUs */
 /* shufflevector is not an option, since it requires *mask as a const */
 bool
-aot_compile_simd_swizzle(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+aot_compile_simd_swizzle_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef vector, mask, max_lanes, condition, mask_lanes, result;
     LLVMTypeRef param_types[2];
@@ -139,6 +146,109 @@ aot_compile_simd_swizzle(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     if (!(result = LLVMBuildBitCast(comp_ctx->builder, result, V128_i64x2_TYPE,
+                                    "ret"))) {
+        HANDLE_FAILURE("LLVMBuildBitCast");
+        goto fail;
+    }
+
+    PUSH_V128(result);
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_simd_swizzle(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef vector, mask, default_lane_value, condition, max_lane_id,
+      result, idx, id, replace_with_zero, elem, elem_or_zero, undef;
+    uint8 i;
+
+    if (is_target_x86(comp_ctx)) {
+        return aot_compile_simd_swizzle_x86(comp_ctx, func_ctx);
+    }
+
+    int const_lane_ids[16] = { 16, 16, 16, 16, 16, 16, 16, 16,
+                               16, 16, 16, 16, 16, 16, 16, 16 },
+        const_zeors[16] = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+                            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
+
+    if (!(mask = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, V128_i8x16_TYPE,
+                                           "mask"))) {
+        goto fail;
+    }
+
+    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
+                                             V128_i8x16_TYPE, "vec"))) {
+        goto fail;
+    }
+
+    if (!(undef = LLVMGetUndef(V128_i8x16_TYPE))) {
+        HANDLE_FAILURE("LLVMGetUndef");
+        goto fail;
+    }
+
+    /* icmp uge <16 x i8> mask, <16, 16, 16, 16, ...> */
+    if (!(max_lane_id =
+            build_intx16_vector(comp_ctx, INT8_TYPE, const_lane_ids))) {
+        goto fail;
+    }
+
+    if (!(condition = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE, mask,
+                                    max_lane_id, "out_of_range"))) {
+        HANDLE_FAILURE("LLVMBuldICmp");
+        goto fail;
+    }
+
+    /*  if the id is out of range (>=16), set the id as 0 */
+    if (!(default_lane_value =
+            build_intx16_vector(comp_ctx, INT8_TYPE, const_zeors))) {
+        goto fail;
+    }
+
+    if (!(idx = LLVMBuildSelect(comp_ctx->builder, condition,
+                                default_lane_value, mask, "mask"))) {
+        HANDLE_FAILURE("LLVMBuildSelect");
+        goto fail;
+    }
+
+    for (i = 0; i < 16; i++) {
+        if (!(id = LLVMBuildExtractElement(comp_ctx->builder, idx, I8_CONST(i),
+                                           "id"))) {
+            HANDLE_FAILURE("LLVMBuildExtractElement");
+            goto fail;
+        }
+
+        if (!(replace_with_zero =
+                LLVMBuildExtractElement(comp_ctx->builder, condition,
+                                        I8_CONST(i), "replace_with_zero"))) {
+            HANDLE_FAILURE("LLVMBuildExtractElement");
+            goto fail;
+        }
+
+        if (!(elem = LLVMBuildExtractElement(comp_ctx->builder, vector, id,
+                                             "vector[mask[i]]"))) {
+            HANDLE_FAILURE("LLVMBuildExtractElement");
+            goto fail;
+        }
+
+        if (!(elem_or_zero =
+                LLVMBuildSelect(comp_ctx->builder, replace_with_zero,
+                                I8_CONST(0), elem, "elem_or_zero"))) {
+            HANDLE_FAILURE("LLVMBuildSelect");
+            goto fail;
+        }
+
+        if (!(undef =
+                LLVMBuildInsertElement(comp_ctx->builder, undef, elem_or_zero,
+                                       I8_CONST(i), "new_vector"))) {
+            HANDLE_FAILURE("LLVMBuildInsertElement");
+            goto fail;
+        }
+    }
+
+    if (!(result = LLVMBuildBitCast(comp_ctx->builder, undef, V128_i64x2_TYPE,
                                     "ret"))) {
         HANDLE_FAILURE("LLVMBuildBitCast");
         goto fail;

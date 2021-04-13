@@ -285,7 +285,7 @@ check_machine_info(AOTTargetInfo *target_info,
                              error_buf, error_buf_size))
         return false;
 
-    if (strcmp(target_expected, target_got)) {
+    if (strncmp(target_expected, target_got, strlen(target_expected))) {
         set_error_buf_v(error_buf, error_buf_size,
                         "invalid target type, expected %s but got %s",
                         target_expected, target_got);
