@@ -153,20 +153,15 @@ aot_compile_simd_i16x8_narrow_i32x4_x86(AOTCompContext *comp_ctx,
       is_signed ? "llvm.x86.sse2.packssdw.128" : "llvm.x86.sse41.packusdw");
 }
 
-bool
-aot_compile_simd_i8x16_narrow_i16x8(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool is_signed)
+static bool
+aot_compile_simd_i8x16_narrow_i16x8_common(AOTCompContext *comp_ctx,
+                                           AOTFuncContext *func_ctx,
+                                           bool is_signed)
 {
     LLVMValueRef vector1, vector2, result, vector_min, vector_max, shuffle,
       vector1_clamped, vector2_clamped, vector1_trunced, vector2_trunced,
       shuffle_vector;
     LLVMValueRef v1_gt_max, v1_lt_min, v2_gt_max, v2_lt_min;
-
-    if (is_target_x86(comp_ctx)) {
-        return aot_compile_simd_i8x16_narrow_i16x8_x86(comp_ctx, func_ctx,
-                                                       is_signed);
-    }
 
     int min_s_array[8] = { 0xff80, 0xff80, 0xff80, 0xff80,
                            0xff80, 0xff80, 0xff80, 0xff80 };
@@ -290,19 +285,29 @@ fail:
 }
 
 bool
-aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
+aot_compile_simd_i8x16_narrow_i16x8(AOTCompContext *comp_ctx,
                                     AOTFuncContext *func_ctx,
                                     bool is_signed)
+{
+    if (is_target_x86(comp_ctx)) {
+        return aot_compile_simd_i8x16_narrow_i16x8_x86(comp_ctx, func_ctx,
+                                                       is_signed);
+    }
+    else {
+        return aot_compile_simd_i8x16_narrow_i16x8_common(comp_ctx, func_ctx,
+                                                          is_signed);
+    }
+}
+
+static bool
+aot_compile_simd_i16x8_narrow_i32x4_common(AOTCompContext *comp_ctx,
+                                           AOTFuncContext *func_ctx,
+                                           bool is_signed)
 {
     LLVMValueRef vector1, vector2, result, vector_min, vector_max, shuffle,
       vector1_clamped, vector2_clamped, vector1_trunced, vector2_trunced,
       shuffle_vector;
     LLVMValueRef v1_gt_max, v1_lt_min, v2_gt_max, v2_lt_min;
-
-    if (is_target_x86(comp_ctx)) {
-        return aot_compile_simd_i16x8_narrow_i32x4_x86(comp_ctx, func_ctx,
-                                                       is_signed);
-    }
 
     int min_s_array[4] = { 0xffff8000, 0xffff8000, 0xffff8000, 0xffff8000 };
     int32 max_s_array[4] = { 0x00007fff, 0x00007fff, 0x00007fff, 0x00007fff };
@@ -418,6 +423,21 @@ aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
 
 fail:
     return false;
+}
+
+bool
+aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
+                                    AOTFuncContext *func_ctx,
+                                    bool is_signed)
+{
+    if (is_target_x86(comp_ctx)) {
+        return aot_compile_simd_i16x8_narrow_i32x4_x86(comp_ctx, func_ctx,
+                                                       is_signed);
+    }
+    else {
+        return aot_compile_simd_i16x8_narrow_i32x4_common(comp_ctx, func_ctx,
+                                                          is_signed);
+    }
 }
 
 bool
