@@ -3414,10 +3414,14 @@ typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
     unsigned __int32 m128i_u32[4];
     unsigned __int64 m128i_u64[2];
 } v128;
-#else
+#elif defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 typedef long long v128 __attribute__ ((__vector_size__ (16),
                                        __may_alias__, __aligned__ (1)));
-#endif /* end of defined(_WIN32) || defined(_WIN32_) */
+#elif defined(BUILD_TARGET_AARCH64)
+#include <arm_neon.h>
+typedef uint32x4_t __m128i;
+#define v128 __m128i
+#endif
 
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
