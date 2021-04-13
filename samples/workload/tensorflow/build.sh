@@ -17,7 +17,7 @@ fi
 
 set -xe
 
-EMSDK_WASM_DIR="$EM_CACHE/wasm"
+EMSDK_WASM_DIR="$EM_CACHE/sysroot/lib/wasm32-emscripten"
 BUILD_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="${BUILD_SCRIPT_DIR}/out"
 TENSORFLOW_DIR="${BUILD_SCRIPT_DIR}/tensorflow"

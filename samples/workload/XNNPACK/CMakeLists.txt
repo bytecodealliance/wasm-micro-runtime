@@ -26,6 +26,8 @@ ExternalProject_Add(xnnpack
     UPDATE_COMMAND git checkout .bazelrc BUILD.bazel emscripten.bzl
                    && git apply ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack.patch
                    && cmake -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/toolchain ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/toolchain
+                   # replace string "$ENV{HOME}" with actual home directory
+                   && sed -i "s|\$ENV{HOME}|$ENV{HOME}|g" ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/toolchain/emscripten_toolchain_config.bzl
     CONFIGURE_COMMAND ""
     BUILD_COMMAND  cd ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
                    && bazel build -c opt --sandbox_writable_path=$ENV{HOME} --config=emscripten_wasm

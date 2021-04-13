@@ -2458,6 +2458,7 @@ aot_convert_wasm_module(WASMModule *wasm_module,
 #if WASM_ENABLE_SIMD != 0
     option.enable_simd = true;
 #endif
+    option.enable_aux_stack_check = true;
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
     option.enable_aux_stack_frame = true;
 #endif

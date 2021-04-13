@@ -68,28 +68,28 @@ include(ExternalProject)
 ################ HEADERS ################
 ExternalProject_Add(headers_from_emcc
    PREFIX headers
-   SOURCE_DIR "$ENV{EMSDK}/upstream/emscripten/system/include/SSE"
+   SOURCE_DIR "$ENV{EM_CACHE}/sysroot/include"
    CONFIGURE_COMMAND ""
    BUILD_COMMAND  ""
    INSTALL_COMMAND mkdir -p ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE
                      && ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys
                      && ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/include/emscripten
                      # copy emscripten SSE header files
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/SSE/immintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/compat/immintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
                      # SSE
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/SSE/xmmintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/compat/xmmintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
                      # SSE2
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/SSE/emmintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/compat/emmintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
                      # SSE4.1
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/SSE/smmintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/compat/smmintrin.h ${CMAKE_CURRENT_SOURCE_DIR}/include/SSE/
                      # a fake empty header to aovid further depenency
                      && ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_SOURCE_DIR}/include/emscripten/emscripten.h
                      # copy emscripten pthread related header files
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/pthread.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/signal.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/netdb.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/sys/wait.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/sys/socket.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/pthread.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/signal.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/netdb.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/sys/wait.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/sys/socket.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
 )
 
 ################ libz ################
