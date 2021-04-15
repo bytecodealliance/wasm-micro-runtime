@@ -29,6 +29,17 @@ typedef struct {
 #define REG_ATOMIC_WAIT_SYM()
 #endif
 
+#if WASM_ENABLE_REF_TYPES != 0
+#define REG_REF_TYPES_SYM()               \
+    REG_SYM(aot_drop_table_seg),          \
+    REG_SYM(aot_table_init),              \
+    REG_SYM(aot_table_copy),              \
+    REG_SYM(aot_table_fill),              \
+    REG_SYM(aot_table_grow),
+#else
+#define REG_REF_TYPES_SYM()
+#endif
+
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
 #define REG_AOT_TRACE_SYM()               \
     REG_SYM(aot_alloc_frame),             \
@@ -41,8 +52,8 @@ typedef struct {
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
     REG_SYM(aot_call_indirect),           \
-    REG_SYM(wasm_runtime_enlarge_memory), \
-    REG_SYM(wasm_runtime_set_exception),  \
+    REG_SYM(aot_enlarge_memory),          \
+    REG_SYM(aot_set_exception),           \
     {"memset", (void*)aot_memset},        \
     {"memmove", (void*)aot_memmove},      \
     REG_SYM(fmin),                        \
@@ -59,6 +70,7 @@ typedef struct {
     REG_SYM(rintf),                       \
     REG_BULK_MEMORY_SYM()                 \
     REG_ATOMIC_WAIT_SYM()                 \
+    REG_REF_TYPES_SYM()                   \
     REG_AOT_TRACE_SYM()
 
 #define CHECK_RELOC_OFFSET(data_size) do {                                  \

@@ -6,37 +6,8 @@
 #include "aot_emit_function.h"
 #include "aot_emit_exception.h"
 #include "aot_emit_control.h"
+#include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
-
-#define GET_AOT_FUNCTION(name, argc) do {                               \
-    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
-                                       argc, false))) {                 \
-        aot_set_last_error("llvm add function type failed.");           \
-        return false;                                                   \
-    }                                                                   \
-    if (comp_ctx->is_jit_mode) {                                        \
-        /* JIT mode, call the function directly */                      \
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
-            aot_set_last_error("llvm add pointer type failed.");        \
-            return false;                                               \
-        }                                                               \
-        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
-            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
-            aot_set_last_error("create LLVM value failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-    else {                                                              \
-        char *func_name = #name;                                        \
-        /* AOT mode, delcare the function */                            \
-        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
-            && !(func = LLVMAddFunction(comp_ctx->module,               \
-                                        func_name, func_type))) {       \
-            aot_set_last_error("llvm add function failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-  } while (0)
 
 #define ADD_BASIC_BLOCK(block, name) do {                           \
     if (!(block = LLVMAppendBasicBlockInContext(comp_ctx->context,  \
@@ -640,8 +611,8 @@ fail:
 
 static bool
 call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                            AOTFuncType *aot_func_type,
-                            LLVMValueRef func_type_idx, LLVMValueRef table_elem_idx,
+                            AOTFuncType *aot_func_type, LLVMValueRef func_type_idx,
+                            LLVMValueRef table_idx, LLVMValueRef table_elem_idx,
                             LLVMTypeRef *param_types, LLVMValueRef *param_values,
                             uint32 param_count, uint32 param_cell_num,
                             uint32 result_count, uint8 *wasm_ret_types,
@@ -656,10 +627,11 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* prepare function type of aot_call_indirect */
     func_param_types[0] = comp_ctx->exec_env_type;  /* exec_env */
-    func_param_types[1] = I32_TYPE;                 /* table_elem_idx */
-    func_param_types[2] = I32_TYPE;                 /* argc */
-    func_param_types[3] = INT32_PTR_TYPE;           /* argv */
-    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 4, false))) {
+    func_param_types[1] = I32_TYPE;                 /* table_idx */
+    func_param_types[2] = I32_TYPE;                 /* table_elem_idx */
+    func_param_types[3] = I32_TYPE;                 /* argc */
+    func_param_types[4] = INT32_PTR_TYPE;           /* argv */
+    if (!(func_type = LLVMFunctionType(INT8_TYPE, func_param_types, 5, false))) {
         aot_set_last_error("llvm add function type failed.");
         return false;
     }
@@ -722,18 +694,19 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     func_param_values[0] = func_ctx->exec_env;
-    func_param_values[1] = table_elem_idx;
-    func_param_values[2] = I32_CONST(param_cell_num);
-    func_param_values[3] = func_ctx->argv_buf;
+    func_param_values[1] = table_idx;
+    func_param_values[2] = table_elem_idx;
+    func_param_values[3] = I32_CONST(param_cell_num);
+    func_param_values[4] = func_ctx->argv_buf;
 
-    if (!func_param_values[2]) {
+    if (!func_param_values[3]) {
         aot_set_last_error("llvm create const failed.");
         return false;
     }
 
     /* call aot_call_indirect() function */
     if (!(res = LLVMBuildCall(comp_ctx->builder, func,
-                              func_param_values, 4, "res"))) {
+                              func_param_values, 5, "res"))) {
         aot_set_last_error("llvm build call failed.");
         return false;
     }
@@ -771,10 +744,10 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 bool
 aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                             uint32 type_idx)
+                             uint32 type_idx, uint32 tbl_idx)
 {
     AOTFuncType *func_type;
-    LLVMValueRef elem_idx, table_elem, func_idx;
+    LLVMValueRef tbl_idx_value, elem_idx, table_elem, func_idx;
     LLVMValueRef ftype_idx_ptr, ftype_idx, ftype_idx_const;
     LLVMValueRef cmp_elem_idx, cmp_func_idx, cmp_ftype_idx;
     LLVMValueRef func, func_ptr, table_size_const;
@@ -787,8 +760,9 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef check_elem_idx_succ, check_ftype_idx_succ;
     LLVMBasicBlockRef check_func_idx_succ, block_return, block_curr;
     LLVMBasicBlockRef block_call_import, block_call_non_import;
+    LLVMValueRef offset;
     uint32 total_param_count, func_param_count, func_result_count;
-    uint32 table_init_size = 0, ext_cell_num, param_cell_num, i, j;
+    uint32 ext_cell_num, param_cell_num, i, j;
     uint8 wasm_ret_type, *wasm_ret_types;
     uint64 total_size;
     char buf[32];
@@ -818,20 +792,31 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I32(elem_idx);
 
-    if (comp_ctx->comp_data->import_table_count > 0) {
-        table_init_size = comp_ctx->comp_data->import_tables[0]
-                          .table_init_size;
-    }
-    else if (comp_ctx->comp_data->table_count > 0) {
-        table_init_size = comp_ctx->comp_data->tables[0]
-                          .table_init_size;
-    }
-    else {
-        aot_set_last_error("table index out of range");
+    /* get the cur size of the table instance */
+    if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
+                             + offsetof(AOTTableInstance, cur_size)))) {
+        HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
-    table_size_const = I32_CONST(table_init_size);
-    CHECK_LLVM_CONST(table_size_const);
+
+    if (!(table_size_const =
+            LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst, &offset, 1,
+                         "cur_size_i8p"))) {
+        HANDLE_FAILURE("LLVMBuildGEP");
+        goto fail;
+    }
+
+    if (!(table_size_const =
+            LLVMBuildBitCast(comp_ctx->builder, table_size_const,
+                             INT32_PTR_TYPE, "cur_siuze_i32p"))) {
+        HANDLE_FAILURE("LLVMBuildBitCast");
+        goto fail;
+    }
+
+    if (!(table_size_const = LLVMBuildLoad(comp_ctx->builder, table_size_const, "cur_size"))) {
+        HANDLE_FAILURE("LLVMBuildLoad");
+        goto fail;
+    }
 
     /* Check if (uint32)elem index >= table size */
     if (!(cmp_elem_idx = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGE,
@@ -857,11 +842,29 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              true, cmp_elem_idx, check_elem_idx_succ)))
         goto fail;
 
-    /* Load function index */
-    if (!(table_elem = LLVMBuildInBoundsGEP(comp_ctx->builder,
-                                            func_ctx->table_base,
-                                            &elem_idx, 1, "table_elem"))) {
+    /* load data as i32* */
+    if (!(offset = I32_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)
+                             + offsetof(AOTTableInstance, data)))) {
+        HANDLE_FAILURE("LLVMConstInt");
+        goto fail;
+    }
+
+    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst,
+                                    &offset, 1, "table_elem_i8p"))) {
         aot_set_last_error("llvm build add failed.");
+        goto fail;
+    }
+
+    if (!(table_elem = LLVMBuildBitCast(comp_ctx->builder, table_elem,
+                                        INT32_PTR_TYPE, "table_elem_i32p"))) {
+        HANDLE_FAILURE("LLVMBuildBitCast");
+        goto fail;
+    }
+
+    /* Load function index */
+    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx,
+                                    1, "table_elem"))) {
+        HANDLE_FAILURE("LLVMBuildNUWAdd");
         goto fail;
     }
 
@@ -1118,8 +1121,15 @@ aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_cell_num = func_type->param_cell_num;
     wasm_ret_types = func_type->types + func_type->param_count;
 
+    tbl_idx_value = I32_CONST(tbl_idx);
+    if (!tbl_idx_value) {
+        aot_set_last_error("llvm create const failed.");
+        goto fail;
+    }
+
     if (!call_aot_call_indirect_func(comp_ctx, func_ctx,
-                                     func_type, ftype_idx, elem_idx,
+                                     func_type, ftype_idx,
+                                     tbl_idx_value, elem_idx,
                                      param_types + 1, param_values + 1,
                                      func_param_count, param_cell_num,
                                      func_result_count, wasm_ret_types,
@@ -1240,3 +1250,56 @@ fail:
     return ret;
 }
 
+bool
+aot_compile_op_ref_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    PUSH_I32(REF_NULL);
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+{
+    LLVMValueRef lhs, res;
+
+    POP_I32(lhs);
+
+    if (!(res = LLVMBuildICmp(comp_ctx->builder, LLVMIntEQ, lhs, REF_NULL,
+                              "cmp_w_null"))) {
+        HANDLE_FAILURE("LLVMBuildICmp");
+        goto fail;
+    }
+
+    if (!(res = LLVMBuildZExt(comp_ctx->builder, res, I32_TYPE, "r_i"))) {
+        HANDLE_FAILURE("LLVMBuildZExt");
+        goto fail;
+    }
+
+    PUSH_I32(res);
+
+    return true;
+fail:
+    return false;
+}
+
+bool
+aot_compile_op_ref_func(AOTCompContext *comp_ctx,
+                        AOTFuncContext *func_ctx,
+                        uint32 func_idx)
+{
+    LLVMValueRef ref_idx;
+
+    if (!(ref_idx = I32_CONST(func_idx))) {
+        HANDLE_FAILURE("LLVMConstInt");
+        goto fail;
+    }
+
+    PUSH_I32(ref_idx);
+
+    return true;
+fail:
+    return false;
+}

@@ -74,7 +74,13 @@ check_symbol_signature(const WASMType *type, const char *signature)
 
     for (i = 0; i < type->param_count; i++) {
         sig = *p++;
-        if (sig == sig_map[type->types[i] - VALUE_TYPE_F64])
+        if ((type->types[i] >= VALUE_TYPE_F64
+             && type->types[i] <= VALUE_TYPE_I32
+             && sig == sig_map[type->types[i] - VALUE_TYPE_F64])
+#if WASM_ENABLE_REF_TYPES != 0
+            || (sig == 'i' && type->types[i] == VALUE_TYPE_EXTERNREF)
+#endif
+           )
             /* normal parameter */
             continue;
 

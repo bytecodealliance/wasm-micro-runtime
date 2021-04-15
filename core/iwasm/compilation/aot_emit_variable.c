@@ -143,6 +143,8 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     switch (global_type) {
         case VALUE_TYPE_I32:
+        case VALUE_TYPE_EXTERNREF:
+        case VALUE_TYPE_FUNCREF:
             ptr_type = comp_ctx->basic_types.int32_ptr_type;
             break;
         case VALUE_TYPE_I64:
@@ -158,7 +160,7 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             ptr_type = comp_ctx->basic_types.v128_ptr_type;
             break;
         default:
-            bh_assert(0);
+            bh_assert("unknown type");
             break;
     }
 

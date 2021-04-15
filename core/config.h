@@ -66,7 +66,7 @@
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 2
+#define AOT_CURRENT_VERSION 3
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
@@ -287,6 +287,10 @@
 
 #ifndef WASM_ENABLE_CUSTOM_NAME_SECTION
 #define WASM_ENABLE_CUSTOM_NAME_SECTION 0
+#endif
+
+#ifndef WASM_ENABLE_REF_TYPES
+#define WASM_ENABLE_REF_TYPES 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

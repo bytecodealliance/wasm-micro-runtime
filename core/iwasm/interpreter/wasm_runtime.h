@@ -60,7 +60,7 @@ struct WASMMemoryInstance {
 };
 
 struct WASMTableInstance {
-    /* The element type, TABLE_ELEM_TYPE_ANY_FUNC currently */
+    /* The element type, VALUE_TYPE_FUNCREF/EXTERNREF currently */
     uint8 elem_type;
     /* Current size */
     uint32 cur_size;
@@ -376,6 +376,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
 
 bool
 wasm_call_indirect(WASMExecEnv *exec_env,
+                   uint32_t tbl_idx,
                    uint32_t element_indices,
                    uint32_t argc, uint32_t argv[]);
 
@@ -396,6 +397,45 @@ wasm_get_module_mem_consumption(const WASMModule *module,
 void
 wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module,
                                      WASMModuleInstMemConsumption *mem_conspn);
+
+#if WASM_ENABLE_REF_TYPES != 0
+static inline bool
+wasm_elem_is_active(uint32 mode)
+{
+    return (mode & 0x1) == 0x0;
+}
+
+static inline bool
+wasm_elem_is_passive(uint32 mode)
+{
+    return (mode & 0x1) == 0x1;
+}
+
+static inline bool
+wasm_elem_is_declarative(uint32 mode)
+{
+    return (mode & 0x3) == 0x3;
+}
+
+bool
+wasm_enlarge_table(WASMModuleInstance *module_inst,
+                   uint32 table_idx, uint32 inc_entries, uint32 init_val);
+#endif /* WASM_ENABLE_REF_TYPES != 0 */
+
+static inline WASMTableInstance *
+wasm_get_table_inst(const WASMModuleInstance *module_inst,
+                    const uint32 tbl_idx)
+{
+    /* careful, it might be a table in another module */
+    WASMTableInstance *tbl_inst = module_inst->tables[tbl_idx];
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (tbl_inst->table_inst_linked) {
+        tbl_inst = tbl_inst->table_inst_linked;
+    }
+#endif
+    bh_assert(tbl_inst);
+    return tbl_inst;
+}
 
 #if WASM_ENABLE_DUMP_CALL_STACK != 0
 void

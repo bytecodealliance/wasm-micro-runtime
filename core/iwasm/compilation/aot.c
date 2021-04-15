@@ -125,8 +125,18 @@ aot_create_table_init_data_list(const WASMModule *module)
 
     data_list[i]->offset = module->table_segments[i].base_offset;
     data_list[i]->func_index_count = module->table_segments[i].function_count;
-    memcpy(data_list[i]->func_indexes, module->table_segments[i].func_indexes,
-           sizeof(uint32) * module->table_segments[i].function_count);
+    data_list[i]->mode = module->table_segments[i].mode;
+    data_list[i]->elem_type = module->table_segments[i].elem_type;
+    /* runtime control it */
+    data_list[i]->is_dropped = false;
+    data_list[i]->table_index = module->table_segments[i].table_index;
+    bh_memcpy_s(&data_list[i]->offset, sizeof(AOTInitExpr),
+                &module->table_segments[i].base_offset, sizeof(AOTInitExpr));
+    data_list[i]->func_index_count = module->table_segments[i].function_count;
+    bh_memcpy_s(data_list[i]->func_indexes,
+                sizeof(uint32) * module->table_segments[i].function_count,
+                module->table_segments[i].func_indexes,
+                sizeof(uint32) * module->table_segments[i].function_count);
   }
 
   return data_list;
@@ -424,8 +434,6 @@ aot_create_comp_data(WASMModule *module)
             aot_create_mem_init_data_list(module)))
     goto fail;
 
-  /* TODO: create import tables */
-
   /* Create tables */
   comp_data->table_count = module->import_table_count + module->table_count;
 
@@ -447,6 +455,8 @@ aot_create_comp_data(WASMModule *module)
             module->import_tables[i].u.table.init_size;
         comp_data->tables[i].table_max_size =
             module->import_tables[i].u.table.max_size;
+        comp_data->tables[i].possible_grow =
+            module->import_tables[i].u.table.possible_grow;
       }
       else {
         j = i - module->import_table_count;
@@ -454,6 +464,7 @@ aot_create_comp_data(WASMModule *module)
         comp_data->tables[i].table_flags = module->tables[i].flags;
         comp_data->tables[i].table_init_size = module->tables[i].init_size;
         comp_data->tables[i].table_max_size = module->tables[i].max_size;
+        comp_data->tables[i].possible_grow = module->tables[i].possible_grow;
       }
     }
   }

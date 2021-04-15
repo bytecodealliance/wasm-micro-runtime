@@ -135,6 +135,9 @@ Currently we only profile the memory consumption of module, module_instance and 
 >
 > and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt.
 
+#### **Enable reference types feature**
+- **WAMR_BUILD_REF_TYPES**=1/0, default to disable if not set
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:

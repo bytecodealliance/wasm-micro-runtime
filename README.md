@@ -25,8 +25,8 @@ iwasm VM core
 - Choices of WASM application libc support: the built-in libc subset for the embedded environment or [WASI](https://github.com/WebAssembly/WASI) for standard libc
 - [Embeddable with the supporting C API's](./doc/embed_wamr.md)
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
-- [Multiple modules as dependencies](./doc/multi_module.md)
-- [Thread management and pthread library](./doc/pthread_library.md)
+- [Multiple modules as dependencies](./doc/multi_module.md), ref to [sample](samples/multi-module)
+- [Thread management and pthread library](./doc/pthread_library.md), ref to [sample](samples/multi-thread)
 
 ### post-MVP features
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
@@ -34,9 +34,10 @@ iwasm VM core
 - [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations)
 - [Shared memory](https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md#shared-linear-memory)
 - [Multi-value](https://github.com/WebAssembly/multi-value)
-- [wasm-c-api](https://github.com/WebAssembly/wasm-c-api)
+- [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)
 - [Tail-call](https://github.com/WebAssembly/tail-call)
-- [128-bit SIMD](https://github.com/WebAssembly/simd)
+- [128-bit SIMD](https://github.com/WebAssembly/simd), ref to [samples/workload](samples/workload)
+- [Reference Types](https://github.com/WebAssembly/reference-types), ref to [document](doc/ref_types.md) and [sample](samples/ref-types)
 
 ### Supported architectures and platforms
 
@@ -124,6 +125,7 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 - **[multi-thread](./samples/multi-thread/)**: Demonstrating how to run wasm application which creates multiple threads to execute wasm functions concurrently, and uses mutex/cond by calling pthread related API's.
 - **[spawn-thread](./samples/spawn-thread)**: Demonstrating how to execute wasm functions of the same wasm application concurrently, in threads created by host embedder or runtime, but not the wasm application itself.
 - **[multi-module](./samples/multi-module)**: Demonstrating the [multiple modules as dependencies](./doc/multi_module.md) feature which implements the [load-time dynamic linking](https://webassembly.org/docs/dynamic-linking/).
+- **[ref-types](./samples/ref-types)**: Demonstrating how to call wasm functions with argument of externref type introduced by [reference types proposal](https://github.com/WebAssembly/reference-types).
 - **[wasm-c-api](./samples/wasm-c-api/README.md)**: Demonstrating how to run some samples from [wasm-c-api proposal](https://github.com/WebAssembly/wasm-c-api) and showing the supported API's.
 - **[workload](./samples/workload/README.md)**: Demonstrating how to build and run some complex workloads, e.g. tensorflow-lite, XNNPACK, wasm-av1, meshoptimizer and bwa.
 
