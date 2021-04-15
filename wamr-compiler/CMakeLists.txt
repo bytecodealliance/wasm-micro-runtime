@@ -31,6 +31,7 @@ add_definitions(-DWASM_ENABLE_SHARED_MEMORY=1)
 add_definitions(-DWASM_ENABLE_THREAD_MGR=1)
 add_definitions(-DWASM_ENABLE_TAIL_CALL=1)
 add_definitions(-DWASM_ENABLE_SIMD=1)
+add_definitions(-DWASM_ENABLE_REF_TYPES=1)
 add_definitions(-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
 add_definitions(-DWASM_ENABLE_DUMP_CALL_STACK=1)
 add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
@@ -89,6 +90,10 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif (NOT CMAKE_BUILD_TYPE)
 message ("-- CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  add_definitions(-DBH_DEBUG=1)
+endif ()
 
 # Enable LLVM
 set (LLVM_SRC_ROOT "${PROJECT_SOURCE_DIR}/../core/deps/llvm")

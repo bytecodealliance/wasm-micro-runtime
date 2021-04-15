@@ -352,7 +352,6 @@ wasm_runtime_destroy(void);
 WASM_RUNTIME_API_EXTERN PackageType
 get_package_type(const uint8 *buf, uint32 size);
 
-
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleCommon *
 wasm_runtime_load(const uint8 *buf, uint32 size,
@@ -392,6 +391,11 @@ wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst);
 WASM_RUNTIME_API_EXTERN WASMFunctionInstanceCommon *
 wasm_runtime_lookup_function(WASMModuleInstanceCommon * const module_inst,
                              const char *name, const char *signature);
+
+/* Internal API */
+WASMType *
+wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
+                               uint32 module_type);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMExecEnv *
@@ -651,6 +655,34 @@ wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst);
 
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
+#if WASM_ENABLE_REF_TYPES != 0
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_obj2ref(WASMModuleInstanceCommon *module_inst,
+                       void *extern_obj, uint32 *p_externref_idx);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_ref2obj(uint32 externref_idx, void **p_extern_obj);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_retain(uint32 externref_idx);
+
+/**
+ * Reclaim the externref objects/indexes which are not used by
+ * module instance
+ */
+void
+wasm_externref_reclaim(WASMModuleInstanceCommon *module_inst);
+
+/**
+ * Cleanup the externref objects/indexes of the module instance
+ */
+void
+wasm_externref_cleanup(WASMModuleInstanceCommon *module_inst);
+#endif /* end of WASM_ENABLE_REF_TYPES */
+
 /* Get module of the current exec_env */
 WASMModuleCommon*
 wasm_exec_env_get_module(WASMExecEnv *exec_env);
@@ -701,6 +733,16 @@ wasm_runtime_dump_module_inst_mem_consumption(const WASMModuleInstanceCommon
 
 void
 wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env);
+
+#if WASM_ENABLE_REF_TYPES != 0
+void
+wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
+                                   WASMFunctionInstanceCommon *function);
+void
+wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
+                                    WASMFunctionInstanceCommon *function,
+                                    bool ret, uint32 *argv);
+#endif
 
 #ifdef __cplusplus
 }

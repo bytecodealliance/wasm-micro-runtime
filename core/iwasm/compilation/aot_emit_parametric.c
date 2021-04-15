@@ -45,11 +45,18 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     wasm_runtime_free(aot_value);
 
-    if ((is_32
-         && (type != VALUE_TYPE_I32 && type != VALUE_TYPE_F32
-             && type != VALUE_TYPE_V128))
-        || (!is_32
-            && (type != VALUE_TYPE_I64 && type != VALUE_TYPE_F64))) {
+    /* is_32: i32, f32, ref.func, ref.extern, v128 */
+    if (is_32
+        && !(type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
+             || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
+             || type == VALUE_TYPE_V128)) {
+        aot_set_last_error("invalid WASM stack data type.");
+        return false;
+    }
+
+    /* !is_32: i64, f64 */
+    if (!is_32
+        && !(type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64)) {
         aot_set_last_error("invalid WASM stack data type.");
         return false;
     }

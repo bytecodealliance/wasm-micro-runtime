@@ -14,6 +14,7 @@
 #include "aot_emit_control.h"
 #include "aot_emit_function.h"
 #include "aot_emit_parametric.h"
+#include "aot_emit_table.h"
 #include "simd/simd_access_lanes.h"
 #include "simd/simd_bitmask_extracts.h"
 #include "simd/simd_bit_shifts.h"
@@ -176,7 +177,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             || value_type == VALUE_TYPE_F32
             || value_type == VALUE_TYPE_F64
             || value_type == VALUE_TYPE_V128
-            || value_type == VALUE_TYPE_VOID) {
+            || value_type == VALUE_TYPE_VOID
+            || value_type == VALUE_TYPE_FUNCREF
+            || value_type == VALUE_TYPE_EXTERNREF) {
           param_count = 0;
           param_types = NULL;
           if (value_type == VALUE_TYPE_VOID) {
@@ -258,11 +261,27 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         break;
 
       case WASM_OP_CALL_INDIRECT:
+      {
+        uint32 tbl_idx;
+
         read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-        frame_ip++; /* skip 0x00 */
-        if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx))
+
+#if WASM_ENABLE_REF_TYPES != 0
+        if (comp_ctx->enable_ref_types) {
+          read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+        }
+        else
+#endif
+        {
+          frame_ip++;
+          tbl_idx = 0;
+        }
+
+        if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
+                                          tbl_idx))
           return false;
         break;
+      }
 
 #if WASM_ENABLE_TAIL_CALL != 0
       case WASM_OP_RETURN_CALL:
@@ -278,17 +297,33 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         break;
 
       case WASM_OP_RETURN_CALL_INDIRECT:
+      {
+        uint32 tbl_idx;
+
         if (!comp_ctx->enable_tail_call) {
           aot_set_last_error("unsupported opcode");
           return false;
         }
+
         read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-        frame_ip++; /* skip 0x00 */
-        if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx))
+#if WASM_ENABLE_REF_TYPES != 0
+        if (comp_ctx->enable_ref_types) {
+          read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+        }
+        else
+#endif
+        {
+          frame_ip++;
+          tbl_idx = 0;
+        }
+
+        if (!aot_compile_op_call_indirect(comp_ctx, func_ctx, type_idx,
+                                          tbl_idx))
           return false;
         if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
           return false;
         break;
+      }
 #endif /* end of WASM_ENABLE_TAIL_CALL */
 
       case WASM_OP_DROP:
@@ -310,6 +345,93 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         if (!aot_compile_op_select(comp_ctx, func_ctx, false))
           return false;
         break;
+
+#if WASM_ENABLE_REF_TYPES != 0
+      case WASM_OP_SELECT_T:
+      {
+        uint32 vec_len;
+
+        if (!comp_ctx->enable_ref_types) {
+          goto unsupport_ref_types;
+        }
+
+        read_leb_uint32(frame_ip, frame_ip_end, vec_len);
+        bh_assert(vec_len == 1);
+        vec_len = vec_len;
+
+        type_idx = *frame_ip++;
+        if (!aot_compile_op_select(comp_ctx, func_ctx,
+                                   (type_idx != VALUE_TYPE_I64)
+                                     && (type_idx != VALUE_TYPE_F64)))
+          return false;
+        break;
+      }
+      case WASM_OP_TABLE_GET:
+      {
+        uint32 tbl_idx;
+
+        if (!comp_ctx->enable_ref_types) {
+          goto unsupport_ref_types;
+        }
+
+        read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+        if (!aot_compile_op_table_get(comp_ctx, func_ctx, tbl_idx))
+          return false;
+        break;
+      }
+      case WASM_OP_TABLE_SET:
+      {
+        uint32 tbl_idx;
+
+        if (!comp_ctx->enable_ref_types) {
+          goto unsupport_ref_types;
+        }
+
+        read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+        if (!aot_compile_op_table_set(comp_ctx, func_ctx, tbl_idx))
+          return false;
+        break;
+      }
+      case WASM_OP_REF_NULL:
+      {
+        uint32 type;
+
+        if (!comp_ctx->enable_ref_types) {
+          goto unsupport_ref_types;
+        }
+
+        read_leb_uint32(frame_ip, frame_ip_end, type);
+
+        if (!aot_compile_op_ref_null(comp_ctx, func_ctx))
+          return false;
+
+        (void)type;
+        break;
+      }
+      case WASM_OP_REF_IS_NULL:
+      {
+        if (!comp_ctx->enable_ref_types) {
+          goto unsupport_ref_types;
+        }
+
+        if (!aot_compile_op_ref_is_null(comp_ctx, func_ctx))
+          return false;
+        break;
+      }
+      case WASM_OP_REF_FUNC:
+      {
+        uint32 func_idx;
+
+        if (!comp_ctx->enable_ref_types) {
+          goto unsupport_ref_types;
+        }
+
+        read_leb_uint32(frame_ip, frame_ip_end, func_idx);
+        if (!aot_compile_op_ref_func(comp_ctx, func_ctx, func_idx))
+          return false;
+        break;
+      }
+#endif
 
       case WASM_OP_GET_LOCAL:
         read_leb_uint32(frame_ip, frame_ip_end, local_idx);
@@ -828,6 +950,15 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
         read_leb_uint32(frame_ip, frame_ip_end, opcode1);
         opcode = (uint32)opcode1;
 
+        //TODO: --enable-bulk-memory ?
+
+#if WASM_ENABLE_REF_TYPES != 0
+        if (WASM_OP_TABLE_INIT <= opcode && opcode <= WASM_OP_TABLE_FILL
+            && !comp_ctx->enable_ref_types) {
+          goto unsupport_ref_types;
+        }
+#endif
+
         switch (opcode) {
           case WASM_OP_I32_TRUNC_SAT_S_F32:
           case WASM_OP_I32_TRUNC_SAT_U_F32:
@@ -886,11 +1017,74 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             break;
           }
 #endif /* WASM_ENABLE_BULK_MEMORY */
-          default:
+#if WASM_ENABLE_REF_TYPES != 0
+          case WASM_OP_TABLE_INIT:
+          {
+            uint32 tbl_idx, tbl_seg_idx;
+
+            read_leb_uint32(frame_ip, frame_ip_end, tbl_seg_idx);
+            read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+            if (!aot_compile_op_table_init(comp_ctx, func_ctx, tbl_idx,
+                                           tbl_seg_idx))
+              return false;
             break;
+          }
+          case WASM_OP_ELEM_DROP:
+          {
+            uint32 tbl_seg_idx;
+
+            read_leb_uint32(frame_ip, frame_ip_end, tbl_seg_idx);
+            if (!aot_compile_op_elem_drop(comp_ctx, func_ctx, tbl_seg_idx))
+              return false;
+            break;
+          }
+          case WASM_OP_TABLE_COPY:
+          {
+            uint32 src_tbl_idx, dst_tbl_idx;
+
+            read_leb_uint32(frame_ip, frame_ip_end, dst_tbl_idx);
+            read_leb_uint32(frame_ip, frame_ip_end, src_tbl_idx);
+            if (!aot_compile_op_table_copy(comp_ctx, func_ctx, src_tbl_idx,
+                                           dst_tbl_idx))
+              return false;
+            break;
+          }
+          case WASM_OP_TABLE_GROW:
+          {
+            uint32 tbl_idx;
+
+            read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+            if (!aot_compile_op_table_grow(comp_ctx, func_ctx, tbl_idx))
+              return false;
+            break;
+          }
+
+          case WASM_OP_TABLE_SIZE:
+          {
+            uint32 tbl_idx;
+
+            read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+            if (!aot_compile_op_table_size(comp_ctx, func_ctx, tbl_idx))
+              return false;
+            break;
+          }
+          case WASM_OP_TABLE_FILL:
+          {
+            uint32 tbl_idx;
+
+            read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+            if (!aot_compile_op_table_fill(comp_ctx, func_ctx, tbl_idx))
+              return false;
+            break;
+          }
+#endif /* WASM_ENABLE_REF_TYPES */
+          default:
+            aot_set_last_error("unsupported opcode");
+            return false;
         }
         break;
       }
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
       case WASM_OP_ATOMIC_PREFIX:
       {
@@ -1030,7 +1224,8 @@ build_atomic_rmw:
             break;
 
           default:
-            break;
+            aot_set_last_error("unsupported opcode");
+            return false;
         }
         break;
       }
@@ -1040,9 +1235,7 @@ build_atomic_rmw:
       case WASM_OP_SIMD_PREFIX:
       {
         if (!comp_ctx->enable_simd) {
-            aot_set_last_error("SIMD instruction was found, "
-                               "try adding --enable-simd option?");
-            return false;
+          goto unsupport_simd;
         }
 
         opcode = *frame_ip++;
@@ -1795,7 +1988,8 @@ build_atomic_rmw:
           }
 
           default:
-            break;
+            aot_set_last_error("unsupported opcode");
+            return false;
         }
         break;
       }
@@ -1803,28 +1997,42 @@ build_atomic_rmw:
 
       default:
         aot_set_last_error("unsupported opcode");
-        break;
+        return false;
     }
   }
 
   /* Move func_return block to the bottom */
   if (func_ctx->func_return_block) {
-      LLVMBasicBlockRef last_block =
-          LLVMGetLastBasicBlock(func_ctx->func);
-      if (last_block != func_ctx->func_return_block)
-          LLVMMoveBasicBlockAfter(func_ctx->func_return_block,
-                                  last_block);
+    LLVMBasicBlockRef last_block =
+        LLVMGetLastBasicBlock(func_ctx->func);
+    if (last_block != func_ctx->func_return_block)
+      LLVMMoveBasicBlockAfter(func_ctx->func_return_block,
+                              last_block);
   }
 
   /* Move got_exception block to the bottom */
   if (func_ctx->got_exception_block) {
-      LLVMBasicBlockRef last_block =
-          LLVMGetLastBasicBlock(func_ctx->func);
-      if (last_block != func_ctx->got_exception_block)
-          LLVMMoveBasicBlockAfter(func_ctx->got_exception_block,
-                                  last_block);
+    LLVMBasicBlockRef last_block =
+        LLVMGetLastBasicBlock(func_ctx->func);
+    if (last_block != func_ctx->got_exception_block)
+      LLVMMoveBasicBlockAfter(func_ctx->got_exception_block,
+                              last_block);
   }
   return true;
+
+#if WASM_ENABLE_SIMD != 0
+unsupport_simd:
+  aot_set_last_error("SIMD instruction was found, "
+                     "try adding --enable-simd option?");
+  return false;
+#endif
+
+#if WASM_ENABLE_REF_TYPES != 0
+unsupport_ref_types:
+  aot_set_last_error("reference type instruction was found, "
+                     "try adding --enable-ref-types option?");
+  return false;
+#endif
 
 fail:
   return false;

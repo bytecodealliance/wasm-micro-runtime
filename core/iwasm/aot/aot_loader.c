@@ -507,13 +507,46 @@ destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count,
 }
 
 static bool
+load_import_table_list(const uint8 **p_buf,
+                       const uint8 *buf_end,
+                       AOTModule *module,
+                       char *error_buf,
+                       uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    AOTImportTable *import_table;
+    uint64 size;
+    uint32 i, possible_grow;
+
+    /* Allocate memory */
+    size = sizeof(AOTImportTable) * (uint64)module->import_table_count;
+    if (!(module->import_tables = import_table =
+            loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    /* keep sync with aot_emit_table_info() aot_emit_aot_file */
+    for (i = 0; i < module->import_table_count; i++, import_table++) {
+        read_uint32(buf, buf_end, import_table->table_init_size);
+        read_uint32(buf, buf_end, import_table->table_max_size);
+        read_uint32(buf, buf_end, possible_grow);
+        import_table->possible_grow = (possible_grow & 0x1);
+    }
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
 load_table_list(const uint8 **p_buf, const uint8 *buf_end,
                 AOTModule *module, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTTable *table;
     uint64 size;
-    uint32 i;
+    uint32 i, possible_grow;
 
     /* Allocate memory */
     size = sizeof(AOTTable) * (uint64)module->table_count;
@@ -528,6 +561,8 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end,
         read_uint32(buf, buf_end, table->table_flags);
         read_uint32(buf, buf_end, table->table_init_size);
         read_uint32(buf, buf_end, table->table_max_size);
+        read_uint32(buf, buf_end, possible_grow);
+        table->possible_grow = (possible_grow & 0x1);
     }
 
     *p_buf = buf;
@@ -555,9 +590,12 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Create each table data segment */
     for (i = 0; i < module->table_init_data_count; i++) {
+        uint32 mode, elem_type;
         uint32 table_index, init_expr_type, func_index_count;
         uint64 init_expr_value, size1;
 
+        read_uint32(buf, buf_end, mode);
+        read_uint32(buf, buf_end, elem_type);
         read_uint32(buf, buf_end, table_index);
         read_uint32(buf, buf_end, init_expr_type);
         read_uint64(buf, buf_end, init_expr_value);
@@ -570,6 +608,9 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 
+        data_list[i]->mode = mode;
+        data_list[i]->elem_type = elem_type;
+        data_list[i]->is_dropped = false;
         data_list[i]->table_index = table_index;
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
@@ -591,13 +632,14 @@ load_table_info(const uint8 **p_buf, const uint8 *buf_end,
     const uint8 *buf = *p_buf;
 
     read_uint32(buf, buf_end, module->import_table_count);
-    /* We don't support import_table_count > 0 currently */
-    bh_assert(module->import_table_count == 0);
+    if (module->import_table_count > 0
+        && !load_import_table_list(&buf, buf_end, module, error_buf,
+                                   error_buf_size))
+        return false;
 
     read_uint32(buf, buf_end, module->table_count);
     if (module->table_count > 0
-        && !load_table_list(&buf, buf_end, module,
-                            error_buf, error_buf_size))
+        && !load_table_list(&buf, buf_end, module, error_buf, error_buf_size))
         return false;
 
     read_uint32(buf, buf_end, module->table_init_data_count);
@@ -2458,10 +2500,14 @@ aot_convert_wasm_module(WASMModule *wasm_module,
 #if WASM_ENABLE_SIMD != 0
     option.enable_simd = true;
 #endif
+#if WASM_ENABLE_REF_TYPES != 0
+    option.enable_ref_types = true;
+#endif
     option.enable_aux_stack_check = true;
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
     option.enable_aux_stack_frame = true;
 #endif
+
     comp_ctx = aot_create_comp_context(comp_data, &option);
     if (!comp_ctx) {
         aot_last_error = aot_get_last_error();

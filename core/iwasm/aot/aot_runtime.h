@@ -34,6 +34,7 @@ typedef enum AOTExceptionID {
     EXCE_UNALIGNED_ATOMIC,
     EXCE_AUX_STACK_OVERFLOW,
     EXCE_AUX_STACK_UNDERFLOW,
+    EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
     EXCE_NUM,
 } AOTExceptionID;
 
@@ -251,6 +252,22 @@ typedef struct AOTMemoryInstance {
     MemBound mem_bound_check_16bytes;
 } AOTMemoryInstance;
 
+typedef struct AOTTableInstance {
+    uint32 cur_size;
+    /*
+     * only grow in the range of [:max_size)
+     * if the table is growable, max_size equals to its declared maximum size
+     * otherwise, max_size equals to its declared minimum size
+     */
+    uint32 max_size;
+    /*
+     * +------------------------------+  <--- data
+     * | ref.func[] or ref.extern[]
+     * +------------------------------+
+     */
+    uint32 data[1];
+} AOTTableInstance;
+
 typedef struct AOTModuleInstance {
     uint32 module_type;
 
@@ -260,9 +277,17 @@ typedef struct AOTModuleInstance {
 
     /* global and table info */
     uint32 global_data_size;
-    uint32 table_size;
+    /*
+     * the count of AOTTableInstance.
+     * it includes imported tables and local tables.
+     *
+     * TODO: for now we treate imported table like a local table
+     */
+    uint32 table_count;
+   /* points to global_data */
     AOTPointer global_data;
-    AOTPointer table_data;
+    /* points to AOTTableInstance[] */
+    AOTPointer tables;
 
     /* funciton pointer array */
     AOTPointer func_ptrs;
@@ -288,20 +313,26 @@ typedef struct AOTModuleInstance {
     AOTPointer aot_module;
     /* WASI context */
     AOTPointer wasi_ctx;
+    /* function performance profiling info list */
+    AOTPointer func_perf_profilings;
 
     /* others */
     uint32 temp_ret;
     uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
-    uint32 __padding;
-
-    /* function performance profiling info list */
-    AOTPointer func_perf_profilings;
-
     /* reserved */
-    uint32 reserved[8];
+    uint32 reserved[11];
 
+   /*
+    * +------------------------------+ <-- memories.ptr
+    * | #0 AOTMemoryInstance
+    * +------------------------------+ <-- global_data.ptr
+    * | global data
+    * +------------------------------+ <-- tables.ptr
+    * | AOTTableInstance[table_count]
+    * +------------------------------+
+    */
     union {
         uint64 _make_it_8_byte_aligned_;
         AOTMemoryInstance memory_instances[1];
@@ -561,7 +592,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 
 bool
 aot_call_indirect(WASMExecEnv *exec_env,
-                  uint32 table_elem_idx,
+                  uint32 tbl_idx, uint32 table_elem_idx,
                   uint32 argc, uint32 *argv);
 
 uint32
@@ -607,6 +638,32 @@ aot_get_module_mem_consumption(const AOTModule *module,
 void
 aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
                                     WASMModuleInstMemConsumption *mem_conspn);
+
+#if WASM_ENABLE_REF_TYPES != 0
+void
+aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx);
+
+void
+aot_table_init(AOTModuleInstance *module_inst,
+               uint32 tbl_idx, uint32 tbl_seg_idx,
+               uint32 length, uint32 src_offset, uint32 dst_offset);
+
+void
+aot_table_copy(AOTModuleInstance *module_inst,
+               uint32 src_tbl_idx, uint32 dst_tbl_idx,
+               uint32 length, uint32 src_offset, uint32 dst_offset);
+
+void
+aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx,
+               uint32 length, uint32 val, uint32 data_offset);
+
+uint32
+aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
+               uint32 inc_entries, uint32 init_val);
+#endif
+
+AOTTableInstance *
+aot_next_tbl_inst(const AOTTableInstance *tbl_inst);
 
 bool
 aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);

@@ -850,6 +850,45 @@ WASM_RUNTIME_API_EXTERN int32_t
 wasm_runtime_join_thread(wasm_thread_t tid, void **retval);
 
 /**
+ * Map external object to an internal externref index: if the index
+ *   has been created, return it, otherwise create the index.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to be mapped
+ * @param p_externref_idx return externref index of the external object
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_obj2ref(wasm_module_inst_t module_inst,
+                       void *extern_obj, uint32_t *p_externref_idx);
+
+/**
+ * Retrieve the external object from an internal externref index
+ *
+ * @param externref_idx the externref index to retrieve
+ * @param p_extern_obj return the mapped external object of
+ *        the externref index
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_ref2obj(uint32_t externref_idx, void **p_extern_obj);
+
+/**
+ * Retain an extern object which is mapped to the internal externref
+ *   so that the object won't be cleaned during extern object reclaim
+ *   if it isn't used.
+ *
+ * @param externref_idx the externref index of an external object
+ *        to retain
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_retain(uint32_t externref_idx);
+
+/**
  * dump the call stack
  *
  * @param exec_env the execution environment

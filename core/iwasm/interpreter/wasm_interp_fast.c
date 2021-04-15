@@ -991,7 +991,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
   uint32 num_bytes_per_page = memory ? memory->num_bytes_per_page : 0;
   uint8 *global_data = module->global_data;
   uint32 linear_mem_size = memory ? num_bytes_per_page * memory->cur_page_count : 0;
-  WASMTableInstance *table = module->default_table;
   WASMGlobalInstance *globals = module->globals, *global;
   uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
   WASMInterpFrame *frame = NULL;
@@ -1150,7 +1149,8 @@ recover_br_info:
 #endif
         {
           WASMType *cur_type, *cur_func_type;
-          WASMTableInstance *cur_table_inst;
+          WASMTableInstance *tbl_inst;
+          uint32 tbl_idx;
 
 #if WASM_ENABLE_TAIL_CALL != 0
           GET_OPCODE();
@@ -1160,40 +1160,36 @@ recover_br_info:
 #endif
 
           tidx = read_uint32(frame_ip);
+          cur_type = module->module->types[tidx];
+
+          tbl_idx = read_uint32(frame_ip);
+          bh_assert(tbl_idx < module->table_count);
+
+          tbl_inst = wasm_get_table_inst(module, tbl_idx);
+
           val = GET_OPERAND(uint32, I32, 0);
           frame_ip += 2;
 
-          if (tidx >= module->module->type_count) {
-            wasm_set_exception(module, "type index is overflow");
-            goto got_exception;
-          }
-          cur_type = module->module->types[tidx];
-
-          /* careful, it might be a table in another module */
-          cur_table_inst = table;
-#if WASM_ENABLE_MULTI_MODULE != 0
-          if (table->table_inst_linked) {
-              cur_table_inst = table->table_inst_linked;
-          }
-#endif
-
-          if (val < 0 || val >= (int32)cur_table_inst->cur_size) {
+          if (val < 0 || val >= (int32)tbl_inst->cur_size) {
             wasm_set_exception(module, "undefined element");
             goto got_exception;
           }
 
-          fidx = ((uint32*)cur_table_inst->base_addr)[val];
+          fidx = ((uint32*)tbl_inst->base_addr)[val];
           if (fidx == (uint32)-1) {
             wasm_set_exception(module, "uninitialized element");
             goto got_exception;
           }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
+          /*
+           * we might be using a table injected by host or
+           * another module. in that case, we don't validate
+           * the elem value while loading
+           */
           if (fidx >= module->function_count) {
             wasm_set_exception(module, "unknown function");
             goto got_exception;
           }
-#endif
 
           /* always call module own functions */
           cur_func = module->functions + fidx;
@@ -1251,6 +1247,70 @@ recover_br_info:
           }
           HANDLE_OP_END ();
         }
+
+#if WASM_ENABLE_REF_TYPES != 0
+      HANDLE_OP (WASM_OP_TABLE_GET):
+        {
+            uint32 tbl_idx, elem_idx;
+            WASMTableInstance *tbl_inst;
+
+            tbl_idx = read_uint32(frame_ip);
+            bh_assert(tbl_idx < module->table_count);
+
+            tbl_inst = wasm_get_table_inst(module, tbl_idx);
+
+            elem_idx = POP_I32();
+            if (elem_idx >= tbl_inst->cur_size) {
+                wasm_set_exception(module, "out of bounds table access");
+                goto got_exception;
+            }
+
+            PUSH_I32(((uint32 *)tbl_inst->base_addr)[elem_idx]);
+            HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_TABLE_SET):
+        {
+            uint32 tbl_idx, elem_idx, val;
+            WASMTableInstance *tbl_inst;
+
+            tbl_idx = read_uint32(frame_ip);
+            bh_assert(tbl_idx < module->table_count);
+
+            tbl_inst = wasm_get_table_inst(module, tbl_idx);
+
+            val = POP_I32();
+            elem_idx = POP_I32();
+            if (elem_idx >= tbl_inst->cur_size) {
+                wasm_set_exception(module, "out of bounds table access");
+                goto got_exception;
+            }
+
+            ((uint32 *)tbl_inst->base_addr)[elem_idx] = val;
+            HANDLE_OP_END ();
+        }
+
+      HANDLE_OP (WASM_OP_REF_NULL):
+        {
+            PUSH_I32(NULL_REF);
+            HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_REF_IS_NULL):
+        {
+            uint32 val;
+            val = POP_I32();
+            PUSH_I32(val == NULL_REF ? 1 : 0);
+            HANDLE_OP_END();
+        }
+
+      HANDLE_OP (WASM_OP_REF_FUNC):
+        {
+            uint32 func_idx = read_uint32(frame_ip);
+            PUSH_I32(func_idx);
+            HANDLE_OP_END();
+        }
+#endif /* WASM_ENABLE_REF_TYPES */
 
       /* variable instructions */
       HANDLE_OP (EXT_OP_SET_LOCAL_FAST):
@@ -2605,10 +2665,165 @@ recover_br_info:
           break;
         }
 #endif /* WASM_ENABLE_BULK_MEMORY */
+#if WASM_ENABLE_REF_TYPES != 0
+        case WASM_OP_TABLE_INIT:
+        {
+            uint32 tbl_idx, elem_idx;
+            uint64 n, s, d;
+            WASMTableInstance *tbl_inst;
+
+            elem_idx = read_uint32(frame_ip);
+            bh_assert(elem_idx < module->module->table_seg_count);
+
+            tbl_idx = read_uint32(frame_ip);
+            bh_assert(tbl_idx < module->module->table_count);
+
+            tbl_inst = wasm_get_table_inst(module, tbl_idx);
+
+            n = (uint32)POP_I32();
+            s = (uint32)POP_I32();
+            d = (uint32)POP_I32();
+
+            if (!n) {
+                break;
+            }
+
+            if (n + s > module->module->table_segments[elem_idx].function_count
+                || d + n > tbl_inst->cur_size) {
+                wasm_set_exception(module, "out of bounds table access");
+                goto got_exception;
+            }
+
+            if (module->module->table_segments[elem_idx].is_dropped) {
+                wasm_set_exception(module, "out of bounds table access");
+                goto got_exception;
+            }
+
+            if (!wasm_elem_is_passive(
+                  module->module->table_segments[elem_idx].mode)) {
+                wasm_set_exception(module, "out of bounds table access");
+                goto got_exception;
+            }
+
+            bh_memcpy_s(
+              (uint8 *)tbl_inst + offsetof(WASMTableInstance, base_addr)
+                + d * sizeof(uint32),
+              (tbl_inst->cur_size - d) * sizeof(uint32),
+              module->module->table_segments[elem_idx].func_indexes + s,
+              n * sizeof(uint32));
+            break;
+        }
+        case WASM_OP_ELEM_DROP:
+        {
+            uint32 elem_idx = read_uint32(frame_ip);
+            bh_assert(elem_idx < module->module->table_seg_count);
+
+            module->module->table_segments[elem_idx].is_dropped = true;
+            break;
+        }
+        case WASM_OP_TABLE_COPY:
+        {
+            uint32 src_tbl_idx, dst_tbl_idx;
+            uint64 n, s, d;
+            WASMTableInstance *src_tbl_inst, *dst_tbl_inst;
+
+            dst_tbl_idx = read_uint32(frame_ip);
+            bh_assert(dst_tbl_idx < module->table_count);
+
+            dst_tbl_inst = wasm_get_table_inst(module, dst_tbl_idx);
+
+            src_tbl_idx = read_uint32(frame_ip);
+            bh_assert(src_tbl_idx < module->table_count);
+
+            src_tbl_inst = wasm_get_table_inst(module, src_tbl_idx);
+
+            n = (uint32)POP_I32();
+            s = (uint32)POP_I32();
+            d = (uint32)POP_I32();
+
+            if (s + n > dst_tbl_inst->cur_size
+                || d + n > src_tbl_inst->cur_size) {
+                wasm_set_exception(module, "out of bounds table access");
+                goto got_exception;
+            }
+
+            /* if s >= d, copy from front to back */
+            /* if s < d, copy from back to front */
+            /* merge all together */
+            bh_memcpy_s(
+              (uint8 *)dst_tbl_inst + offsetof(WASMTableInstance, base_addr)
+                + d * sizeof(uint32),
+              (dst_tbl_inst->cur_size - d) * sizeof(uint32),
+              (uint8 *)src_tbl_inst
+                + offsetof(WASMTableInstance, base_addr) + s * sizeof(uint32),
+              n * sizeof(uint32));
+            break;
+        }
+        case WASM_OP_TABLE_GROW:
+        {
+            uint32 tbl_idx, n, init_val, orig_tbl_sz;
+            WASMTableInstance *tbl_inst;
+
+            tbl_idx = read_uint32(frame_ip);
+            bh_assert(tbl_idx < module->table_count);
+
+            tbl_inst = wasm_get_table_inst(module, tbl_idx);
+
+            orig_tbl_sz = tbl_inst->cur_size;
+
+            n = POP_I32();
+            init_val = POP_I32();
+
+            if (!wasm_enlarge_table(module, tbl_idx, n, init_val)) {
+                PUSH_I32(-1);
+            } else {
+                PUSH_I32(orig_tbl_sz);
+            }
+
+            break;
+        }
+        case WASM_OP_TABLE_SIZE:
+        {
+            uint32 tbl_idx;
+            WASMTableInstance *tbl_inst;
+
+            tbl_idx = read_uint32(frame_ip);
+            bh_assert(tbl_idx < module->table_count);
+
+            tbl_inst = wasm_get_table_inst(module, tbl_idx);
+
+            PUSH_I32(tbl_inst->cur_size);
+            break;
+        }
+        case WASM_OP_TABLE_FILL:
+        {
+            uint32 tbl_idx, n, val, i;
+            WASMTableInstance *tbl_inst;
+
+            tbl_idx = read_uint32(frame_ip);
+            bh_assert(tbl_idx < module->table_count);
+
+            tbl_inst = wasm_get_table_inst(module, tbl_idx);
+
+            n = POP_I32();
+            val = POP_I32();
+            i = POP_I32();
+
+            if (i + n > tbl_inst->cur_size) {
+                wasm_set_exception(module, "out of bounds table access");
+                goto got_exception;
+            }
+
+            for (; n != 0; i++, n--) {
+                ((uint32 *)(tbl_inst->base_addr))[i] = val;
+            }
+
+            break;
+        }
+#endif /* WASM_ENABLE_REF_TYPES */
         default:
           wasm_set_exception(module, "unsupported opcode");
-            goto got_exception;
-          break;
+          goto got_exception;
         }
         HANDLE_OP_END ();
       }
@@ -2992,16 +3207,25 @@ recover_br_info:
     HANDLE_OP (WASM_OP_RETURN_CALL):
     HANDLE_OP (WASM_OP_RETURN_CALL_INDIRECT):
 #endif
+#if WASM_ENABLE_SHARED_MEMORY == 0
+    HANDLE_OP (WASM_OP_ATOMIC_PREFIX):
+#endif
+#if WASM_ENABLE_REF_TYPES == 0
+    HANDLE_OP (WASM_OP_TABLE_GET):
+    HANDLE_OP (WASM_OP_TABLE_SET):
+    HANDLE_OP (WASM_OP_REF_NULL):
+    HANDLE_OP (WASM_OP_REF_IS_NULL):
+    HANDLE_OP (WASM_OP_REF_FUNC):
+#endif
+    /* SELECT_T is converted to SELECT or SELECT_64 */
+    HANDLE_OP (WASM_OP_SELECT_T):
     HANDLE_OP (WASM_OP_UNUSED_0x14):
     HANDLE_OP (WASM_OP_UNUSED_0x15):
     HANDLE_OP (WASM_OP_UNUSED_0x16):
     HANDLE_OP (WASM_OP_UNUSED_0x17):
     HANDLE_OP (WASM_OP_UNUSED_0x18):
     HANDLE_OP (WASM_OP_UNUSED_0x19):
-    HANDLE_OP (WASM_OP_UNUSED_0x1c):
-    HANDLE_OP (WASM_OP_UNUSED_0x1d):
-    HANDLE_OP (WASM_OP_UNUSED_0x1e):
-    HANDLE_OP (WASM_OP_UNUSED_0x1f):
+    HANDLE_OP (WASM_OP_UNUSED_0x27):
     /* optimized op code */
     HANDLE_OP (WASM_OP_F32_STORE):
     HANDLE_OP (WASM_OP_F64_STORE):

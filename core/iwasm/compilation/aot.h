@@ -71,6 +71,7 @@ typedef struct AOTImportTable {
   uint32 table_flags;
   uint32 table_init_size;
   uint32 table_max_size;
+  bool possible_grow;
 } AOTImportTable;
 
 /**
@@ -81,12 +82,19 @@ typedef struct AOTTable {
   uint32 table_flags;
   uint32 table_init_size;
   uint32 table_max_size;
+  bool possible_grow;
 } AOTTable;
 
 /**
  * A segment of table init data
  */
 typedef struct AOTTableInitData {
+  /* 0 to 7 */
+  uint32 mode;
+  /* funcref or externref, elemkind will be considered as funcref */
+  uint32 elem_type;
+  bool is_dropped;
+  /* optional, only for active */
   uint32 table_index;
   /* Start address of init data */
   AOTInitExpr offset;
@@ -244,6 +252,18 @@ aot_set_last_error_v(const char *format, ...);
     aot_set_last_error_v("call %s failed", (callee));        \
   } while (0)
 #endif
+
+static inline uint32
+aot_get_tbl_data_slots(const AOTTable *tbl)
+{
+    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+}
+
+static inline uint32
+aot_get_imp_tbl_data_slots(const AOTImportTable *tbl)
+{
+    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+}
 
 #ifdef __cplusplus
 } /* end of extern "C" */
