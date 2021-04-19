@@ -55,6 +55,8 @@ typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
 
+#define os_thread_local_attribute __thread
+
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) \
     || defined(BUILD_TARGET_AMD_64) \
@@ -64,8 +66,6 @@ typedef pthread_t korp_thread;
 
 #define OS_ENABLE_HW_BOUND_CHECK
 
-#define os_thread_local_attribute __thread
-
 typedef jmp_buf korp_jmpbuf;
 
 #define os_setjmp setjmp
@@ -73,6 +73,10 @@ typedef jmp_buf korp_jmpbuf;
 #define os_alloca alloca
 
 #define os_getpagesize getpagesize
+
+bool os_thread_init_stack_guard_pages();
+
+void os_thread_destroy_stack_guard_pages();
 
 typedef void (*os_signal_handler)(void *sig_addr);
 

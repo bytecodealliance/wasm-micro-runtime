@@ -1110,16 +1110,7 @@ aot_lookup_function(const AOTModuleInstance *module_inst,
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 
-#define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
-
 static os_thread_local_attribute WASMExecEnv *aot_exec_env = NULL;
-
-static inline uint8 *
-get_stack_min_addr(WASMExecEnv *exec_env, uint32 page_size)
-{
-    uintptr_t stack_bound = (uintptr_t)exec_env->native_stack_boundary;
-    return (uint8*)(stack_bound & ~(uintptr_t)(page_size -1 ));
-}
 
 static void
 aot_signal_handler(void *sig_addr)
@@ -1149,7 +1140,7 @@ aot_signal_handler(void *sig_addr)
 
         /* Get stack info of current thread */
         page_size = os_getpagesize();
-        stack_min_addr = get_stack_min_addr(aot_exec_env, page_size);
+        stack_min_addr = os_thread_get_stack_boundary();
 
         if (memory_inst
             && (mapped_mem_start_addr <= (uint8*)sig_addr
@@ -1182,27 +1173,6 @@ aot_signal_destroy()
     os_signal_destroy();
 }
 
-#if defined(__GNUC__)
-__attribute__((no_sanitize_address)) static uint32
-#else
-static uint32
-#endif
-touch_pages(uint8 *stack_min_addr, uint32 page_size)
-{
-    uint8 sum = 0;
-    while (1) {
-        volatile uint8 *touch_addr =
-            (volatile uint8*)os_alloca(page_size / 2);
-        if (touch_addr < stack_min_addr + page_size) {
-            sum += *(stack_min_addr + page_size - 1);
-            break;
-        }
-        *touch_addr = 0;
-        sum += *touch_addr;
-    }
-    return sum;
-}
-
 static bool
 invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                                  const WASMType *func_type, const char *signature,
@@ -1211,10 +1181,9 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance*)exec_env->module_inst;
     WASMExecEnv **p_aot_exec_env = &aot_exec_env;
-    WASMJmpBuf *jmpbuf_node, *jmpbuf_node_pop;
+    WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-    uint8 *stack_min_addr = get_stack_min_addr(exec_env, page_size);
     bool ret;
 
     /* Check native stack overflow firstly to ensure we have enough
@@ -1226,33 +1195,17 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
-    if (aot_exec_env
-        && (aot_exec_env != exec_env)) {
+    if (aot_exec_env && (aot_exec_env != exec_env)) {
         aot_set_exception(module_inst, "invalid exec env");
         return false;
     }
 
-    if (!exec_env->jmpbuf_stack_top) {
-        /* Touch each stack page to ensure that it has been mapped: the OS may
-           lazily grow the stack mapping as a guard page is hit. */
-        (void)touch_pages(stack_min_addr, page_size);
-        /* First time to call aot function, protect one page */
-        if (os_mprotect(stack_min_addr, page_size * guard_page_count,
-                        MMAP_PROT_NONE) != 0) {
-            aot_set_exception(module_inst, "set protected page failed");
-            return false;
-        }
-    }
+    os_thread_init_stack_guard_pages();
 
-    if (!(jmpbuf_node = wasm_runtime_malloc(sizeof(WASMJmpBuf)))) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
-        return false;
-    }
-
-    wasm_exec_env_push_jmpbuf(exec_env, jmpbuf_node);
+    wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
     aot_exec_env = exec_env;
-    if (os_setjmp(jmpbuf_node->jmpbuf) == 0) {
+    if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
         ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
                                          signature, attachment,
                                          argv, argc, argv_ret);
@@ -1263,12 +1216,8 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     jmpbuf_node_pop = wasm_exec_env_pop_jmpbuf(exec_env);
-    bh_assert(jmpbuf_node == jmpbuf_node_pop);
-    wasm_runtime_free(jmpbuf_node);
+    bh_assert(&jmpbuf_node == jmpbuf_node_pop);
     if (!exec_env->jmpbuf_stack_top) {
-        /* Unprotect the guard page when the nested call depth is zero */
-        os_mprotect(stack_min_addr, page_size * guard_page_count,
-                    MMAP_PROT_READ | MMAP_PROT_WRITE);
         *p_aot_exec_env = NULL;
     }
     os_sigreturn();
@@ -1292,6 +1241,9 @@ aot_call_function(WASMExecEnv *exec_env,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
+
+    /* set thread handle and stack boundary */
+    wasm_exec_env_set_thread_info(exec_env);
 
     if (ext_ret_count > 0) {
         uint32 cell_num = 0, i;
@@ -1375,7 +1327,7 @@ aot_call_function(WASMExecEnv *exec_env,
             case VALUE_TYPE_V128:
                 argv_ret += 4;
                 break;
-#endif                -
+#endif
             default:
                 bh_assert(0);
                 break;
@@ -1436,8 +1388,6 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
             return false;
         }
 
-        /* set thread handle and stack boundary */
-        wasm_exec_env_set_thread_info(exec_env);
 #if WASM_ENABLE_THREAD_MGR != 0
     }
 #endif
@@ -2265,7 +2215,7 @@ aot_call_indirect(WASMExecEnv *exec_env,
             case VALUE_TYPE_V128:
                 argv_ret += 4;
                 break;
-#endif                -
+#endif
             default:
                 bh_assert(0);
                 break;
