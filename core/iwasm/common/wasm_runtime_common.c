@@ -1122,9 +1122,6 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
         return false;
     }
 
-    /* set thread handle and stack boundary */
-    wasm_exec_env_set_thread_info(exec_env);
-
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_runtime_prepare_call_function(exec_env, function);
 #endif

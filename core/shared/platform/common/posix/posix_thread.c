@@ -25,6 +25,9 @@ static void *os_thread_wrapper(void *arg)
     targ->stack = (void *)((uintptr_t)(&arg) & (uintptr_t)~0xfff);
     BH_FREE(targ);
     start_func(thread_arg);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    os_thread_destroy_stack_guard_pages();
+#endif
     return NULL;
 }
 
@@ -239,22 +242,32 @@ int os_thread_detach(korp_tid thread)
 
 void os_thread_exit(void *retval)
 {
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    os_thread_destroy_stack_guard_pages();
+#endif
     return pthread_exit(retval);
 }
 
+static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
+
 uint8 *os_thread_get_stack_boundary()
 {
-    pthread_t self = pthread_self();
+    pthread_t self;
 #ifdef __linux__
     pthread_attr_t attr;
     size_t guard_size;
 #endif
     uint8 *addr = NULL;
-    size_t stack_size;
-    int page_size = getpagesize();
-    size_t max_stack_size = (size_t)
-                            (APP_THREAD_STACK_SIZE_MAX + page_size - 1)
-                            & ~(page_size - 1);
+    size_t stack_size, max_stack_size;
+    int page_size;
+
+    if (thread_stack_boundary)
+        return thread_stack_boundary;
+
+    page_size = getpagesize();
+    self = pthread_self();
+    max_stack_size = (size_t)(APP_THREAD_STACK_SIZE_MAX + page_size - 1)
+                     & ~(page_size - 1);
 
     if (max_stack_size < APP_THREAD_STACK_SIZE_DEFAULT)
         max_stack_size = APP_THREAD_STACK_SIZE_DEFAULT;
@@ -284,6 +297,7 @@ uint8 *os_thread_get_stack_boundary()
     }
 #endif
 
+    thread_stack_boundary = addr;
     return addr;
 }
 
@@ -291,11 +305,70 @@ uint8 *os_thread_get_stack_boundary()
 
 #define SIG_ALT_STACK_SIZE (32 * 1024)
 
+/* Whether the stack pages are touched and guard pages are set */
+static os_thread_local_attribute bool stack_guard_pages_inited = false;
+
 /* The signal alternate stack base addr */
 static uint8 *sigalt_stack_base_addr;
 
 /* The signal handler passed to os_signal_init() */
 static os_signal_handler signal_handler;
+
+#if defined(__GNUC__)
+__attribute__((no_sanitize_address)) static uint32
+#else
+static uint32
+#endif
+touch_pages(uint8 *stack_min_addr, uint32 page_size)
+{
+    uint8 sum = 0;
+    while (1) {
+        volatile uint8 *touch_addr =
+            (volatile uint8*)os_alloca(page_size / 2);
+        if (touch_addr < stack_min_addr + page_size) {
+            sum += *(stack_min_addr + page_size - 1);
+            break;
+        }
+        *touch_addr = 0;
+        sum += *touch_addr;
+    }
+    return sum;
+}
+
+bool
+os_thread_init_stack_guard_pages()
+{
+    uint32 page_size = os_getpagesize();
+    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    uint8 *stack_min_addr = os_thread_get_stack_boundary();
+
+    if (!stack_guard_pages_inited) {
+        /* Touch each stack page to ensure that it has been mapped: the OS
+           may lazily grow the stack mapping as a guard page is hit. */
+        (void)touch_pages(stack_min_addr, page_size);
+        /* First time to call aot function, protect guard pages */
+        if (os_mprotect(stack_min_addr, page_size * guard_page_count,
+                        MMAP_PROT_NONE) != 0) {
+            return false;
+        }
+        stack_guard_pages_inited = true;
+    }
+    return true;
+}
+
+void
+os_thread_destroy_stack_guard_pages()
+{
+    if (stack_guard_pages_inited) {
+        uint32 page_size = os_getpagesize();
+        uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+        uint8 *stack_min_addr = os_thread_get_stack_boundary();
+
+        os_mprotect(stack_min_addr, page_size * guard_page_count,
+                    MMAP_PROT_READ | MMAP_PROT_WRITE);
+        stack_guard_pages_inited = false;
+    }
+}
 
 static void
 mask_signals(int how)
