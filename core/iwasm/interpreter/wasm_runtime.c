@@ -1647,6 +1647,10 @@ wasm_call_function(WASMExecEnv *exec_env,
                    unsigned argc, uint32 argv[])
 {
     WASMModuleInstance *module_inst = (WASMModuleInstance*)exec_env->module_inst;
+
+    /* set thread handle and stack boundary */
+    wasm_exec_env_set_thread_info(exec_env);
+
     wasm_interp_call_wasm(module_inst, exec_env, function, argc, argv);
     (void)clear_wasi_proc_exit_exception(module_inst);
     return !wasm_get_exception(module_inst) ? true : false;
@@ -1674,8 +1678,6 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
             return false;
         }
 
-        /* set thread handle and stack boundary */
-        wasm_exec_env_set_thread_info(exec_env);
 #if WASM_ENABLE_THREAD_MGR != 0
     }
 #endif

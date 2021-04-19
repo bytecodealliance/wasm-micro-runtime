@@ -267,6 +267,9 @@
    stack overflow exception if the guard boudary is reached */
 #define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
 
+/* Guard page count for stack overflow check with hardware trap */
+#define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
+
 /* Default wasm block address cache size and conflict list size */
 #ifndef BLOCK_ADDR_CACHE_SIZE
 #define BLOCK_ADDR_CACHE_SIZE 64
