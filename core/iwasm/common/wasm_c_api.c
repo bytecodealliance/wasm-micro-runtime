@@ -12,27 +12,49 @@
 #include "aot_runtime.h"
 #endif
 
-#define NOT_REACHED() bh_assert(!"should not be reached")
+#include <pthread.h>
+
+#define ASSERT_NOT_IMPLEMENTED() bh_assert(!"not implemented")
 
 typedef struct wasm_module_ex_t wasm_module_ex_t;
 
-void
+static void
 wasm_module_delete_internal(wasm_module_t *);
 
-void
+static void
 wasm_instance_delete_internal(wasm_instance_t *);
+
+/* temporarily put stubs here */
+static wasm_store_t *
+wasm_store_copy(const wasm_store_t *src)
+{
+    (void)src;
+    LOG_WARNING("in the stub of %s", __FUNCTION__);
+    return NULL;
+}
+
+wasm_module_t *
+wasm_module_copy(const wasm_module_t *src)
+{
+    (void)src;
+    LOG_WARNING("in the stub of %s", __FUNCTION__);
+    return NULL;
+}
+
+wasm_instance_t *
+wasm_instance_copy(const wasm_instance_t *src)
+{
+    (void)src;
+    LOG_WARNING("in the stub of %s", __FUNCTION__);
+    return NULL;
+}
 
 static void *
 malloc_internal(uint64 size)
 {
     void *mem = NULL;
 
-    if (size >= UINT32_MAX) {
-        return NULL;
-    }
-
-    mem = wasm_runtime_malloc((uint32)size);
-    if (mem) {
+    if (size < UINT32_MAX && (mem = wasm_runtime_malloc((uint32)size))) {
         memset(mem, 0, size);
     }
 
@@ -44,109 +66,169 @@ malloc_internal(uint64 size)
         wasm_runtime_free(p);                                                 \
     }
 
+/* clang-format off */
+#define RETURN_OBJ(obj, obj_del_func)                                         \
+    return obj;                                                               \
+failed:                                                                       \
+    obj_del_func(obj);                                                        \
+    return NULL;
+
+#define RETURN_VOID(obj, obj_del_func)                                        \
+    return;                                                                   \
+failed:                                                                       \
+    obj_del_func(obj);                                                        \
+    return;
+/* clang-format on */
+
 /* Vectors */
-#define INIT_VEC(vector_p, func_prefix, size)                                 \
+#define INIT_VEC(vector_p, init_func, ...)                                    \
     do {                                                                      \
         if (!(vector_p = malloc_internal(sizeof(*(vector_p))))) {             \
             goto failed;                                                      \
         }                                                                     \
-        func_prefix##_new_uninitialized(vector_p, size);                      \
-        if (!(vector_p)->data) {                                              \
+                                                                              \
+        init_func(vector_p, ##__VA_ARGS__);                                   \
+        if (vector_p->size && !(vector_p)->data) {                            \
+            LOG_DEBUG("%s failed", #init_func);                               \
             goto failed;                                                      \
         }                                                                     \
     } while (false)
 
-#define DEINIT_VEC(vector_p, delete_func)                                     \
+#define DEINIT_VEC(vector_p, deinit_func)                                     \
     if ((vector_p)) {                                                         \
-        if ((vector_p)->data) {                                               \
-            delete_func(vector_p);                                            \
-        }                                                                     \
+        deinit_func(vector_p);                                                \
         wasm_runtime_free(vector_p);                                          \
         vector_p = NULL;                                                      \
     }
 
-#define FREE_VEC_ELEMS(vec, del_func)                                         \
-    for (i = 0; i < (vec)->num_elems; ++i) {                                  \
-        del_func(*((vec)->data + i));                                         \
-        *((vec)->data + i) = NULL;                                            \
+#define WASM_DEFINE_VEC(name)                                                 \
+    void wasm_##name##_vec_new_empty(own wasm_##name##_vec_t *out)            \
+    {                                                                         \
+        wasm_##name##_vec_new_uninitialized(out, 0);                          \
+    }                                                                         \
+    void wasm_##name##_vec_new_uninitialized(own wasm_##name##_vec_t *out,    \
+                                             size_t size)                     \
+    {                                                                         \
+        wasm_##name##_vec_new(out, size, NULL);                               \
     }
 
-static inline void
-generic_vec_init_data(Vector *out, size_t num_of_elems, size_t size_of_elem)
-{
-    /* size 0 is meaningless for a elemment */
-    if (!size_of_elem || !bh_vector_init(out, num_of_elems, size_of_elem)) {
-        out->data = NULL;
-        out->max_elems = 0;
-        out->num_elems = 0;
-    }
-    else {
-        memset(out->data, 0, num_of_elems * size_of_elem);
-    }
-}
-
-void
-wasm_byte_vec_new_uninitialized(wasm_byte_vec_t *out, size_t size)
-{
-    bh_assert(out);
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_byte_t));
-}
-
-void
-wasm_byte_vec_copy(wasm_byte_vec_t *out, const wasm_byte_vec_t *src)
-{
-    uint32 len = 0;
-
-    bh_assert(out && src);
-
-    generic_vec_init_data((Vector *)out, src->size, sizeof(wasm_byte_t));
-    if (!out->data) {
-        goto failed;
-    }
-
-    /* integer overflow has been checked in generic_vec_init_data,
-       no need to check again */
-    len = (uint32)(src->size * src->size_of_elem);
-    bh_memcpy_s(out->data, len, src->data, len);
-    out->num_elems = src->num_elems;
-    return;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_byte_vec_delete(out);
-}
-
-void
-wasm_byte_vec_new(wasm_byte_vec_t *out, size_t size, const wasm_byte_t *data)
-{
-    uint32 size_in_bytes = 0;
-
-    bh_assert(out && data);
-
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_byte_t));
-    if (!out->data) {
-        goto failed;
+#define WASM_DEFINE_VEC_PLAIN(name)                                           \
+    WASM_DEFINE_VEC(name)                                                     \
+    void wasm_##name##_vec_new(own wasm_##name##_vec_t *out, size_t size,     \
+                               own wasm_##name##_t const data[])              \
+    {                                                                         \
+        bh_assert(out);                                                       \
+                                                                              \
+        memset(out, 0, sizeof(wasm_##name##_vec_t));                          \
+                                                                              \
+        if (!size) {                                                          \
+            return;                                                           \
+        }                                                                     \
+                                                                              \
+        if (!bh_vector_init((Vector *)out, size, sizeof(wasm_##name##_t))) {  \
+            LOG_DEBUG("bh_vector_init failed");                               \
+            goto failed;                                                      \
+        }                                                                     \
+                                                                              \
+        if (data) {                                                           \
+            unsigned int size_in_bytes = 0;                                   \
+            size_in_bytes = size * sizeof(wasm_##name##_t);                   \
+            bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);       \
+            out->num_elems = size;                                            \
+        }                                                                     \
+                                                                              \
+        RETURN_VOID(out, wasm_##name##_vec_delete)                            \
+    }                                                                         \
+    void wasm_##name##_vec_copy(wasm_##name##_vec_t *out,                     \
+                                const wasm_##name##_vec_t *src)               \
+    {                                                                         \
+        wasm_##name##_vec_new(out, src->size, src->data);                     \
+    }                                                                         \
+    void wasm_##name##_vec_delete(wasm_##name##_vec_t *v)                     \
+    {                                                                         \
+        if (!v) {                                                             \
+            return;                                                           \
+        }                                                                     \
+        bh_vector_destroy((Vector *)v);                                       \
     }
 
-    /* integer overflow has been checked in generic_vec_init_data,
-       no need to check again */
-    size_in_bytes = (uint32)(size * sizeof(wasm_byte_t));
-    bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);
-    out->num_elems = size;
-    return;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_byte_vec_delete(out);
-}
-
-void
-wasm_byte_vec_delete(wasm_byte_vec_t *byte_vec)
-{
-    if (byte_vec && byte_vec->data) {
-        bh_vector_destroy((Vector *)byte_vec);
+#define WASM_DEFINE_VEC_OWN(name, elem_destroy_func)                          \
+    WASM_DEFINE_VEC(name)                                                     \
+    void wasm_##name##_vec_new(own wasm_##name##_vec_t *out, size_t size,     \
+                               own wasm_##name##_t *const data[])             \
+    {                                                                         \
+        bh_assert(out);                                                       \
+                                                                              \
+        memset(out, 0, sizeof(wasm_##name##_vec_t));                          \
+                                                                              \
+        if (!size) {                                                          \
+            return;                                                           \
+        }                                                                     \
+                                                                              \
+        if (!bh_vector_init((Vector *)out, size,                              \
+                            sizeof(wasm_##name##_t *))) {                     \
+            LOG_DEBUG("bh_vector_init failed");                               \
+            goto failed;                                                      \
+        }                                                                     \
+                                                                              \
+        if (data) {                                                           \
+            unsigned int size_in_bytes = 0;                                   \
+            size_in_bytes = size * sizeof(wasm_##name##_t *);                 \
+            bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);       \
+            out->num_elems = size;                                            \
+        }                                                                     \
+                                                                              \
+        RETURN_VOID(out, wasm_##name##_vec_delete)                            \
+    }                                                                         \
+    void wasm_##name##_vec_copy(own wasm_##name##_vec_t *out,                 \
+                                const wasm_##name##_vec_t *src)               \
+    {                                                                         \
+        size_t i = 0;                                                         \
+        memset(out, 0, sizeof(Vector));                                       \
+                                                                              \
+        if (!src->size) {                                                     \
+            return;                                                           \
+        }                                                                     \
+                                                                              \
+        if (!bh_vector_init((Vector *)out, src->size,                         \
+                            sizeof(wasm_##name##_t *))) {                     \
+            LOG_DEBUG("bh_vector_init failed");                               \
+            goto failed;                                                      \
+        }                                                                     \
+                                                                              \
+        for (i = 0; i != src->num_elems; ++i) {                               \
+            if (!(out->data[i] = wasm_##name##_copy(src->data[i]))) {         \
+                LOG_DEBUG("wasm_%s_copy failed", #name);                      \
+                goto failed;                                                  \
+            }                                                                 \
+        }                                                                     \
+        out->num_elems = src->num_elems;                                      \
+                                                                              \
+        RETURN_VOID(out, wasm_##name##_vec_delete)                            \
+    }                                                                         \
+    void wasm_##name##_vec_delete(wasm_##name##_vec_t *v)                     \
+    {                                                                         \
+        size_t i = 0;                                                         \
+        if (!v) {                                                             \
+            return;                                                           \
+        }                                                                     \
+        for (i = 0; i != v->num_elems; ++i) {                                 \
+            elem_destroy_func(*(v->data + i));                                \
+        }                                                                     \
+        bh_vector_destroy((Vector *)v);                                       \
     }
-}
+
+WASM_DEFINE_VEC_PLAIN(byte)
+WASM_DEFINE_VEC_PLAIN(val)
+
+WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
+WASM_DEFINE_VEC_OWN(functype, wasm_functype_delete)
+WASM_DEFINE_VEC_OWN(exporttype, wasm_exporttype_delete)
+WASM_DEFINE_VEC_OWN(importtype, wasm_importtype_delete)
+WASM_DEFINE_VEC_OWN(store, wasm_store_delete)
+WASM_DEFINE_VEC_OWN(module, wasm_module_delete_internal)
+WASM_DEFINE_VEC_OWN(instance, wasm_instance_delete_internal)
+WASM_DEFINE_VEC_OWN(extern, wasm_extern_delete)
 
 /* Runtime Environment */
 static void
@@ -188,6 +270,7 @@ wasm_engine_new_internal(mem_alloc_type_t type,
     }
 
     if (!wasm_runtime_full_init(&init_args)) {
+        LOG_DEBUG("wasm_runtime_full_init failed");
         goto failed;
     }
 
@@ -208,14 +291,9 @@ wasm_engine_new_internal(mem_alloc_type_t type,
     engine->mode = mode;
 
     /* create wasm_store_vec_t */
-    INIT_VEC(engine->stores, wasm_store_vec, 1);
+    INIT_VEC(engine->stores, wasm_store_vec_new_uninitialized, 1);
 
-    return engine;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_engine_delete_internal(engine);
-    return NULL;
+    RETURN_OBJ(engine, wasm_engine_delete_internal)
 }
 
 /* global engine instance */
@@ -265,6 +343,7 @@ wasm_engine_new_with_args(mem_alloc_type_t type,
     return singleton_engine;
 }
 
+/* BE AWARE: will RESET the singleton */
 void
 wasm_engine_delete(wasm_engine_t *engine)
 {
@@ -281,119 +360,118 @@ wasm_store_new(wasm_engine_t *engine)
 
     bh_assert(engine && singleton_engine == engine);
 
-    /* always return the first store */
-    if (bh_vector_size((Vector *)singleton_engine->stores) > 0) {
-        /*
-         * although it is a copy of the first store, but still point to
-         * the wasm_store_t
-         */
-        if (!bh_vector_get((Vector *)singleton_engine->stores, 0, &store)) {
-            goto failed;
-        }
-        return store;
-    }
-
     store = malloc_internal(sizeof(wasm_store_t));
     if (!store) {
         goto failed;
     }
 
     /* new a vector, and new its data */
-    INIT_VEC(store->modules, wasm_module_vec, DEFAULT_VECTOR_INIT_LENGTH);
-    INIT_VEC(store->instances, wasm_instance_vec, DEFAULT_VECTOR_INIT_LENGTH);
+    INIT_VEC(store->modules, wasm_module_vec_new_uninitialized,
+             DEFAULT_VECTOR_INIT_LENGTH);
+    INIT_VEC(store->instances, wasm_instance_vec_new_uninitialized,
+             DEFAULT_VECTOR_INIT_LENGTH);
 
     /* append to a store list of engine */
     if (!bh_vector_append((Vector *)singleton_engine->stores, &store)) {
+        LOG_DEBUG("bh_vector_append failed");
         goto failed;
     }
 
-    return store;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_store_delete(store);
-    return NULL;
+    RETURN_OBJ(store, wasm_store_delete)
 }
 
 void
 wasm_store_delete(wasm_store_t *store)
 {
-    if (!store || singleton_engine->stores->num_elems == 0) {
+    size_t i, store_count;
+
+    if (!store) {
         return;
+    }
+
+    /* TODO: if we release store here, we have no chance to verify
+     * whether a wasm_func_call() is in a valid store or not
+     */
+
+    /* remove it from the list in the engine */
+    store_count = bh_vector_size((Vector*)singleton_engine->stores);
+    for (i = 0; i != store_count; ++i) {
+        wasm_store_t *tmp;
+
+        if (!bh_vector_get((Vector*)singleton_engine->stores, i, &tmp)) {
+            break;
+        }
+
+        if (tmp == store) {
+            bh_vector_remove((Vector*)singleton_engine->stores, i, NULL);
+            break;
+        }
     }
 
     DEINIT_VEC(store->modules, wasm_module_vec_delete);
     DEINIT_VEC(store->instances, wasm_instance_vec_delete);
-
     wasm_runtime_free(store);
-    bh_vector_remove((Vector *)singleton_engine->stores, 0, NULL);
-}
-
-void
-wasm_store_vec_new_uninitialized(wasm_store_vec_t *out, size_t size)
-{
-    bh_assert(out);
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_store_t *));
-}
-
-void
-wasm_store_vec_delete(wasm_store_vec_t *store_vec)
-{
-    size_t i = 0;
-    if (!store_vec || !store_vec->data) {
-        return;
-    }
-
-    FREE_VEC_ELEMS(store_vec, wasm_store_delete);
-    bh_vector_destroy((Vector *)store_vec);
 }
 
 static inline void
 check_engine_and_store(wasm_engine_t *engine, wasm_store_t *store)
 {
     /* remove it if we are supporting more than one store */
-    bh_assert(engine && store && engine->stores->data[0] == store);
+    bh_assert(engine && store);
 }
 
 /* Type Representations */
-static wasm_valtype_t *
-wasm_valtype_new_internal(uint8 val_type_rt)
+static wasm_valkind_t
+val_type_rt_2_valkind(uint8 val_type_rt)
 {
     switch (val_type_rt) {
         case VALUE_TYPE_I32:
-            return wasm_valtype_new_i32();
+            return WASM_I32;
         case VALUE_TYPE_I64:
-            return wasm_valtype_new_i64();
+            return WASM_I64;
         case VALUE_TYPE_F32:
-            return wasm_valtype_new_f32();
+            return WASM_F32;
         case VALUE_TYPE_F64:
-            return wasm_valtype_new_f64();
+            return WASM_F64;
         case VALUE_TYPE_ANY:
-            return wasm_valtype_new_anyref();
+            return WASM_ANYREF;
+        case VALUE_TYPE_FUNCREF:
+            return WASM_FUNCREF;
         default:
-            return NULL;
+            LOG_WARNING("%s meets unsupported type: %d", __FUNCTION__,
+                        val_type_rt);
+            return WASM_ANYREF;
     }
+}
+
+static wasm_valtype_t *
+wasm_valtype_new_internal(uint8 val_type_rt)
+{
+    return wasm_valtype_new(val_type_rt_2_valkind(val_type_rt));
 }
 
 wasm_valtype_t *
 wasm_valtype_new(wasm_valkind_t kind)
 {
-    wasm_valtype_t *val_type = malloc_internal(sizeof(wasm_valtype_t));
-    if (val_type) {
-        val_type->kind = kind;
+    wasm_valtype_t *val_type;
+
+    if (!(val_type = malloc_internal(sizeof(wasm_valtype_t)))) {
+        goto failed;
     }
-    return val_type;
+
+    val_type->kind = kind;
+
+    RETURN_OBJ(val_type, wasm_valtype_delete)
 }
 
 void
 wasm_valtype_delete(wasm_valtype_t *val_type)
 {
-    bh_assert(val_type);
-    wasm_runtime_free(val_type);
+    FREEIF(val_type);
 }
 
 wasm_valtype_t *
-wasm_valtype_copy(wasm_valtype_t *src)
+wasm_valtype_copy(const wasm_valtype_t *src)
 {
     bh_assert(src);
     return wasm_valtype_new(src->kind);
@@ -420,218 +498,116 @@ wasm_valtype_same(const wasm_valtype_t *vt1, const wasm_valtype_t *vt2)
     return vt1->kind == vt2->kind;
 }
 
-void
-wasm_valtype_vec_new_uninitialized(wasm_valtype_vec_t *out, size_t size)
-{
-    bh_assert(out);
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_valtype_t *));
-}
-
-void
-wasm_valtype_vec_new_empty(wasm_valtype_vec_t *out)
-{
-    bh_assert(out);
-    memset(out, 0, sizeof(wasm_valtype_vec_t));
-}
-
-void
-wasm_valtype_vec_new(wasm_valtype_vec_t *out,
-                     size_t size,
-                     wasm_valtype_t *const data[])
-{
-    uint32 size_in_bytes = 0;
-    bh_assert(out && data);
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_valtype_t *));
-    if (!out->data) {
-        goto failed;
-    }
-
-    /* integer overflow has been checked in generic_vec_init_data,
-       no need to check again */
-    size_in_bytes = (uint32)(size * sizeof(wasm_valtype_t *));
-    bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);
-    out->num_elems = size;
-    return;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_valtype_vec_delete(out);
-}
-
-void
-wasm_valtype_vec_copy(wasm_valtype_vec_t *out, const wasm_valtype_vec_t *src)
-{
-    size_t i = 0;
-
-    bh_assert(out && src);
-
-    generic_vec_init_data((Vector *)out, src->size, sizeof(wasm_valtype_t *));
-    if (!out->data) {
-        goto failed;
-    }
-
-    /* clone every wasm_valtype_t */
-    for (i = 0; i < src->num_elems; i++) {
-        wasm_valtype_t *cloned = wasm_valtype_copy(*(src->data + i));
-        if (!cloned) {
-            goto failed;
-        }
-        if (!bh_vector_append((Vector *)out, &cloned)) {
-            goto failed;
-        }
-    }
-
-    return;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_valtype_vec_delete(out);
-}
-
-void
-wasm_valtype_vec_delete(wasm_valtype_vec_t *val_type_vec)
-{
-    size_t i = 0;
-    if (!val_type_vec || !val_type_vec->data) {
-        return;
-    }
-
-    FREE_VEC_ELEMS(val_type_vec, wasm_valtype_delete);
-    bh_vector_destroy((Vector *)val_type_vec);
-}
-
 static wasm_functype_t *
 wasm_functype_new_internal(WASMType *type_rt)
 {
-    wasm_functype_t *func_type = NULL;
+    wasm_functype_t *type = NULL;
     uint32 i = 0;
 
     bh_assert(type_rt);
 
-    func_type = malloc_internal(sizeof(wasm_functype_t));
-    if (!func_type) {
+    type = malloc_internal(sizeof(wasm_functype_t));
+    if (!type) {
         goto failed;
     }
 
-    /* WASMType->types[0 : type_rt->param_count) -> func_type->params */
-    INIT_VEC(func_type->params, wasm_valtype_vec, type_rt->param_count);
+    type->extern_kind = WASM_EXTERN_FUNC;
+
+    /* WASMType->types[0 : type_rt->param_count) -> type->params */
+    INIT_VEC(type->params, wasm_valtype_vec_new_uninitialized,
+             type_rt->param_count);
     for (i = 0; i < type_rt->param_count; ++i) {
-        wasm_valtype_t *param_type =
-          wasm_valtype_new_internal(*(type_rt->types + i));
-        if (!param_type) {
+        wasm_valtype_t *param_type;
+        if (!(param_type = wasm_valtype_new_internal(*(type_rt->types + i)))) {
             goto failed;
         }
 
-        if (!bh_vector_append((Vector *)func_type->params, &param_type)) {
+        if (!bh_vector_append((Vector *)type->params, &param_type)) {
             goto failed;
         }
     }
 
-    /* WASMType->types[type_rt->param_count : type_rt->result_count) -> func_type->results */
-    INIT_VEC(func_type->results, wasm_valtype_vec, type_rt->result_count);
+    /* WASMType->types[type_rt->param_count : type_rt->result_count) -> type->results */
+    INIT_VEC(type->results, wasm_valtype_vec_new_uninitialized,
+             type_rt->result_count);
     for (i = 0; i < type_rt->result_count; ++i) {
-        wasm_valtype_t *result_type =
-          wasm_valtype_new_internal(*(type_rt->types + type_rt->param_count + i));
-        if (!result_type) {
+        wasm_valtype_t *result_type;
+        if (!(result_type = wasm_valtype_new_internal(
+                *(type_rt->types + type_rt->param_count + i)))) {
             goto failed;
         }
 
-        if (!bh_vector_append((Vector *)func_type->results, &result_type)) {
+        if (!bh_vector_append((Vector *)type->results, &result_type)) {
             goto failed;
         }
     }
 
-    return func_type;
+    return type;
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_functype_delete(func_type);
+    wasm_functype_delete(type);
     return NULL;
 }
 
 wasm_functype_t *
-wasm_functype_new(wasm_valtype_vec_t *params, wasm_valtype_vec_t *results)
+wasm_functype_new(own wasm_valtype_vec_t *params,
+                  own wasm_valtype_vec_t *results)
 {
-    wasm_functype_t *func_type = NULL;
+    wasm_functype_t *type = NULL;
 
     bh_assert(params);
     bh_assert(results);
 
-    func_type = malloc_internal(sizeof(wasm_functype_t));
-    if (!func_type) {
+    type = malloc_internal(sizeof(wasm_functype_t));
+    if (!type) {
         goto failed;
     }
 
-    func_type->extern_kind = WASM_EXTERN_FUNC;
+    type->extern_kind = WASM_EXTERN_FUNC;
 
-    func_type->params = malloc_internal(sizeof(wasm_valtype_vec_t));
-    if (!func_type->params) {
+    /* different with INIT_VEC, reusing .data */
+    if (!(type->params = malloc_internal(sizeof(wasm_valtype_vec_t)))) {
         goto failed;
     }
-
-    /* transfer ownership of contents of params and results */
-    bh_memcpy_s(func_type->params, sizeof(wasm_valtype_vec_t), params,
+    bh_memcpy_s(type->params, sizeof(wasm_valtype_vec_t), params,
                 sizeof(wasm_valtype_vec_t));
 
-    func_type->results = malloc_internal(sizeof(wasm_valtype_vec_t));
-    if (!func_type->results) {
+    if (!(type->results = malloc_internal(sizeof(wasm_valtype_vec_t)))) {
         goto failed;
     }
-
-    bh_memcpy_s(func_type->results, sizeof(wasm_valtype_vec_t), results,
+    bh_memcpy_s(type->results, sizeof(wasm_valtype_vec_t), results,
                 sizeof(wasm_valtype_vec_t));
 
-    return func_type;
+    return type;
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
-    if (func_type)
-        FREEIF(func_type->params);
-    if (func_type)
-        FREEIF(func_type->results);
-    FREEIF(func_type);
+    wasm_functype_delete(type);
     return NULL;
 }
 
 wasm_functype_t *
-wasm_functype_copy(wasm_functype_t *src)
+wasm_functype_copy(const wasm_functype_t *src)
 {
-    wasm_functype_t *dst = NULL;
-
+    wasm_valtype_vec_t params = { 0 }, results = { 0 };
     bh_assert(src);
 
-    dst = malloc_internal(sizeof(wasm_functype_t));
-    if (!dst) {
+    wasm_valtype_vec_copy(&params, src->params);
+    if (src->params->size && !params.data) {
         goto failed;
     }
 
-    dst->extern_kind = src->extern_kind;
-
-    dst->params = malloc_internal(sizeof(wasm_valtype_vec_t));
-    if (!dst->params) {
+    wasm_valtype_vec_copy(&results, src->results);
+    if (src->results->size && !results.data) {
         goto failed;
     }
 
-    wasm_valtype_vec_copy(dst->params, src->params);
-    if (!dst->params) {
-        goto failed;
-    }
-
-    dst->results = malloc_internal(sizeof(wasm_valtype_vec_t));
-    if (!dst->results) {
-        goto failed;
-    }
-
-    wasm_valtype_vec_copy(dst->results, src->results);
-    if (!dst->results) {
-        goto failed;
-    }
-
-    return dst;
+    return wasm_functype_new(&params, &results);
 
 failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_functype_delete(dst);
+    wasm_valtype_vec_delete(&params);
+    wasm_valtype_vec_delete(&results);
     return NULL;
 }
 
@@ -642,17 +618,8 @@ wasm_functype_delete(wasm_functype_t *func_type)
         return;
     }
 
-    if (func_type->params) {
-        wasm_valtype_vec_delete(func_type->params);
-        wasm_runtime_free(func_type->params);
-        func_type->params = NULL;
-    }
-
-    if (func_type->results) {
-        wasm_valtype_vec_delete(func_type->results);
-        wasm_runtime_free(func_type->results);
-        func_type->results = NULL;
-    }
+    DEINIT_VEC(func_type->params, wasm_valtype_vec_delete);
+    DEINIT_VEC(func_type->results, wasm_valtype_vec_delete);
 
     wasm_runtime_free(func_type);
 }
@@ -672,51 +639,34 @@ wasm_functype_results(const wasm_functype_t *func_type)
 }
 
 wasm_globaltype_t *
-wasm_globaltype_new(wasm_valtype_t *val_type, wasm_mutability_t mut)
+wasm_globaltype_new(own wasm_valtype_t *val_type, wasm_mutability_t mut)
 {
     wasm_globaltype_t *global_type = NULL;
 
     bh_assert(val_type);
 
-    global_type = malloc_internal(sizeof(wasm_globaltype_t));
-    if (!global_type) {
+    if (!(global_type = malloc_internal(sizeof(wasm_globaltype_t)))) {
         goto failed;
     }
 
+    global_type->extern_kind = WASM_EXTERN_GLOBAL;
     global_type->val_type = val_type;
     global_type->mutability = mut;
 
-    return global_type;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_globaltype_delete(global_type);
-    return NULL;
+    RETURN_OBJ(global_type, wasm_globaltype_delete)
 }
 
 wasm_globaltype_t *
 wasm_globaltype_new_internal(uint8 val_type_rt, bool is_mutable)
 {
-    wasm_globaltype_t *global_type = NULL;
+    wasm_valkind_t kind = val_type_rt_2_valkind(val_type_rt);
+    wasm_valtype_t *val_type;
 
-    global_type = malloc_internal(sizeof(wasm_globaltype_t));
-    if (!global_type) {
-        goto failed;
+    if (!(val_type = wasm_valtype_new(kind))) {
+        return NULL;
     }
 
-    global_type->val_type = wasm_valtype_new_internal(val_type_rt);
-    if (!global_type->val_type) {
-        goto failed;
-    }
-
-    global_type->mutability = is_mutable ? WASM_VAR : WASM_CONST;
-
-    return global_type;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_globaltype_delete(global_type);
-    return NULL;
+    return wasm_globaltype_new(val_type, is_mutable ? WASM_VAR : WASM_CONST);
 }
 
 void
@@ -735,30 +685,16 @@ wasm_globaltype_delete(wasm_globaltype_t *global_type)
 }
 
 wasm_globaltype_t *
-wasm_globaltype_copy(wasm_globaltype_t *src)
+wasm_globaltype_copy(const wasm_globaltype_t *src)
 {
-    wasm_globaltype_t *dst = NULL;
-
+    wasm_valtype_t *val_type;
     bh_assert(src);
 
-    dst = malloc_internal(sizeof(wasm_globaltype_t));
-    if (!dst) {
-        goto failed;
+    if (!(val_type = wasm_valtype_copy(src->val_type))) {
+        return NULL;
     }
 
-    dst->val_type = wasm_valtype_copy(src->val_type);
-    if (!dst->val_type) {
-        goto failed;
-    }
-
-    dst->mutability = src->mutability;
-
-    return dst;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_globaltype_delete(dst);
-    return NULL;
+    return wasm_globaltype_new(val_type, src->mutability);
 }
 
 const wasm_valtype_t *
@@ -791,32 +727,359 @@ wasm_globaltype_same(const wasm_globaltype_t *gt1,
            || gt1->mutability == gt2->mutability;
 }
 
-wasm_tabletype_t *
-wasm_tabletype_new(wasm_valtype_t *val_type, const wasm_limits_t *limits)
+static wasm_tabletype_t *
+wasm_tabletype_new_internal(uint8 val_type_rt,
+                            uint32 init_size,
+                            uint32 max_size)
 {
-    return NULL;
+    wasm_limits_t limits = { init_size, max_size };
+    wasm_valtype_t *val_type;
+
+    if (!(val_type = wasm_valtype_new_internal(val_type_rt))) {
+        return NULL;
+    }
+
+    return wasm_tabletype_new(val_type, &limits);
+}
+
+wasm_tabletype_t *
+wasm_tabletype_new(own wasm_valtype_t *val_type, const wasm_limits_t *limits)
+{
+    wasm_tabletype_t *table_type = NULL;
+
+    bh_assert(val_type);
+
+    if (!(table_type = malloc_internal(sizeof(wasm_tabletype_t)))) {
+        goto failed;
+    }
+
+    table_type->extern_kind = WASM_EXTERN_TABLE;
+    table_type->val_type = val_type;
+    table_type->limits.min = limits->min;
+    table_type->limits.max = limits->max;
+
+    RETURN_OBJ(table_type, wasm_tabletype_delete)
+}
+
+wasm_tabletype_t *
+wasm_tabletype_copy(const wasm_tabletype_t *src)
+{
+    wasm_valtype_t *val_type;
+    if (!(val_type = wasm_valtype_copy(src->val_type))) {
+        return NULL;
+    }
+
+    return wasm_tabletype_new(val_type, &src->limits);
 }
 
 void
 wasm_tabletype_delete(wasm_tabletype_t *table_type)
-{}
+{
+    if (!table_type) {
+        return;
+    }
+
+    if (table_type->val_type) {
+        wasm_valtype_delete(table_type->val_type);
+        table_type->val_type = NULL;
+    }
+
+    wasm_runtime_free(table_type);
+}
+
+const wasm_valtype_t *
+wasm_tabletype_element(const wasm_tabletype_t *table_type)
+{
+    return table_type->val_type;
+}
+
+const wasm_limits_t *
+wasm_tabletype_limits(const wasm_tabletype_t *table_type)
+{
+    return &(table_type->limits);
+}
+
+static wasm_memorytype_t *
+wasm_memorytype_new_internal(uint32 min_pages, uint32 max_pages)
+{
+    wasm_limits_t limits = { min_pages, max_pages };
+    return wasm_memorytype_new(&limits);
+}
 
 wasm_memorytype_t *
 wasm_memorytype_new(const wasm_limits_t *limits)
 {
-    return NULL;
+    wasm_memorytype_t *memory_type = NULL;
+    bh_assert(limits);
+
+    if (!(memory_type = malloc_internal(sizeof(wasm_memorytype_t)))) {
+        goto failed;
+    }
+
+    memory_type->extern_kind = WASM_EXTERN_MEMORY;
+    memory_type->limits.min = limits->min;
+    memory_type->limits.max = limits->max;
+
+    RETURN_OBJ(memory_type, wasm_memorytype_delete)
+}
+
+wasm_memorytype_t *
+wasm_memorytype_copy(const wasm_memorytype_t *src)
+{
+    bh_assert(src);
+    return wasm_memorytype_new(&src->limits);
 }
 
 void
 wasm_memorytype_delete(wasm_memorytype_t *memory_type)
-{}
+{
+    FREEIF(memory_type);
+}
+
+const wasm_limits_t *
+wasm_memorytype_limits(const wasm_memorytype_t *memory_type)
+{
+    return &(memory_type->limits);
+}
+
+wasm_externkind_t
+wasm_externtype_kind(const wasm_externtype_t *externtype)
+{
+    return externtype->extern_kind;
+}
+
+#define BASIC_FOUR_TYPE_LIST(V)                                               \
+    V(functype)                                                               \
+    V(globaltype)                                                             \
+    V(memorytype)                                                             \
+    V(tabletype)
+
+#define WASM_EXTERNTYPE_AS_OTHERTYPE(name)                                    \
+    wasm_##name##_t *wasm_externtype_as_##name(wasm_externtype_t *externtype) \
+    {                                                                         \
+        return (wasm_##name##_t *)externtype;                                 \
+    }
+
+BASIC_FOUR_TYPE_LIST(WASM_EXTERNTYPE_AS_OTHERTYPE)
+#undef WASM_EXTERNTYPE_AS_OTHERTYPE
+
+#define WASM_OTHERTYPE_AS_EXTERNTYPE(name)                                    \
+    wasm_externtype_t *wasm_##name##_as_externtype(wasm_##name##_t *other)    \
+    {                                                                         \
+        return (wasm_externtype_t *)other;                                    \
+    }
+
+BASIC_FOUR_TYPE_LIST(WASM_OTHERTYPE_AS_EXTERNTYPE)
+#undef WASM_OTHERTYPE_AS_EXTERNTYPE
+
+#define WASM_EXTERNTYPE_AS_OTHERTYPE_CONST(name)                              \
+    const wasm_##name##_t *wasm_externtype_as_##name##_const(                 \
+      const wasm_externtype_t *externtype)                                    \
+    {                                                                         \
+        return (const wasm_##name##_t *)externtype;                           \
+    }
+
+BASIC_FOUR_TYPE_LIST(WASM_EXTERNTYPE_AS_OTHERTYPE_CONST)
+#undef WASM_EXTERNTYPE_AS_OTHERTYPE_CONST
+
+#define WASM_OTHERTYPE_AS_EXTERNTYPE_CONST(name)                              \
+    const wasm_externtype_t *wasm_##name##_as_externtype_const(               \
+      const wasm_##name##_t *other)                                           \
+    {                                                                         \
+        return (const wasm_externtype_t *)other;                              \
+    }
+
+BASIC_FOUR_TYPE_LIST(WASM_OTHERTYPE_AS_EXTERNTYPE_CONST)
+#undef WASM_OTHERTYPE_AS_EXTERNTYPE_CONST
+
+wasm_externtype_t *
+wasm_externtype_copy(const wasm_externtype_t *src)
+{
+    wasm_externtype_t *externtype = NULL;
+
+    bh_assert(src);
+
+    switch (src->extern_kind) {
+#define COPY_EXTERNTYPE(NAME, name)                                           \
+    case WASM_EXTERN_##NAME:                                                  \
+    {                                                                         \
+        externtype = wasm_##name##_as_externtype(                             \
+          wasm_##name##_copy(wasm_externtype_as_##name##_const(src)));        \
+        break;                                                                \
+    }
+        COPY_EXTERNTYPE(FUNC, functype)
+        COPY_EXTERNTYPE(GLOBAL, globaltype)
+        COPY_EXTERNTYPE(MEMORY, memorytype)
+        COPY_EXTERNTYPE(TABLE, tabletype)
+#undef COPY_EXTERNTYPE
+        default:
+            LOG_WARNING("%s meets unsupported kind", __FUNCTION__,
+                        src->extern_kind);
+            break;
+    }
+    return externtype;
+}
+
+void
+wasm_externtype_delete(wasm_externtype_t *externtype)
+{
+    if (!externtype) {
+        return;
+    }
+
+    switch (wasm_externtype_kind(externtype)) {
+        case WASM_EXTERN_FUNC:
+            wasm_functype_delete(wasm_externtype_as_functype(externtype));
+            break;
+        case WASM_EXTERN_GLOBAL:
+            wasm_globaltype_delete(wasm_externtype_as_globaltype(externtype));
+            break;
+        case WASM_EXTERN_MEMORY:
+            wasm_memorytype_delete(wasm_externtype_as_memorytype(externtype));
+            break;
+        case WASM_EXTERN_TABLE:
+            wasm_tabletype_delete(wasm_externtype_as_tabletype(externtype));
+            break;
+        default:
+            LOG_WARNING("%s meets unsupported type", __FUNCTION__,
+                        externtype);
+            break;
+    }
+}
+
+own wasm_importtype_t *
+wasm_importtype_new(own wasm_name_t *module,
+                    own wasm_name_t *name,
+                    own wasm_externtype_t *externtype)
+{
+    wasm_importtype_t *importtype = NULL;
+
+    if (!(importtype = malloc_internal(sizeof(wasm_importtype_t)))) {
+        goto failed;
+    }
+
+    importtype->module_name = module;
+    importtype->name = name;
+    importtype->externtype = externtype;
+
+    RETURN_OBJ(importtype, wasm_importtype_delete);
+}
+
+void
+wasm_importtype_delete(own wasm_importtype_t *importtype)
+{
+    if (!importtype) {
+        return;
+    }
+
+    DEINIT_VEC(importtype->module_name, wasm_byte_vec_delete);
+    DEINIT_VEC(importtype->name, wasm_byte_vec_delete);
+    wasm_externtype_delete(importtype->externtype);
+    wasm_runtime_free(importtype);
+}
+
+own wasm_importtype_t *
+wasm_importtype_copy(const wasm_importtype_t *src)
+{
+    wasm_name_t *module_name = NULL, *name = NULL;
+    wasm_externtype_t *externtype = NULL;
+    wasm_importtype_t *importtype = NULL;
+
+    bh_assert(src);
+
+    INIT_VEC(module_name, wasm_byte_vec_copy, src->module_name);
+    INIT_VEC(name, wasm_byte_vec_copy, src->name);
+
+    if (!(externtype = wasm_externtype_copy(src->externtype))) {
+        goto failed;
+    }
+
+    if (!(importtype = wasm_importtype_new(module_name, name, externtype))) {
+        goto failed;
+    }
+
+    return importtype;
+
+failed:
+    DEINIT_VEC(module_name, wasm_byte_vec_delete);
+    DEINIT_VEC(name, wasm_byte_vec_delete);
+    wasm_externtype_delete(externtype);
+    wasm_importtype_delete(importtype);
+    return NULL;
+}
+
+const wasm_name_t *
+wasm_importtype_module(const wasm_importtype_t *importtype)
+{
+    return importtype->module_name;
+}
+
+const wasm_name_t *
+wasm_importtype_name(const wasm_importtype_t *importtype)
+{
+    return importtype->name;
+}
+
+const wasm_externtype_t *
+wasm_importtype_type(const wasm_importtype_t *importtype)
+{
+    return importtype->externtype;
+}
+
+own wasm_exporttype_t *
+wasm_exporttype_new(own wasm_name_t *name, own wasm_externtype_t *externtype)
+{
+    wasm_exporttype_t *exporttype = NULL;
+
+    if (!(exporttype = malloc_internal(sizeof(wasm_exporttype_t)))) {
+        goto failed;
+    }
+
+    INIT_VEC(exporttype->name, wasm_byte_vec_new, name->size, name->data);
+
+    exporttype->externtype = externtype;
+
+    RETURN_OBJ(exporttype, wasm_exporttype_delete)
+}
+
+wasm_exporttype_t *
+wasm_exporttype_copy(const wasm_exporttype_t *exporttype)
+{
+    return wasm_exporttype_new(exporttype->name, exporttype->externtype);
+}
+
+void
+wasm_exporttype_delete(wasm_exporttype_t *exporttype)
+{
+    if (!exporttype) {
+        return;
+    }
+
+    DEINIT_VEC(exporttype->name, wasm_byte_vec_delete);
+
+    wasm_externtype_delete(exporttype->externtype);
+
+    wasm_runtime_free(exporttype);
+}
+
+const wasm_name_t *
+wasm_exporttype_name(const wasm_exporttype_t *exporttype)
+{
+    return exporttype->name;
+}
+
+const wasm_externtype_t *
+wasm_exporttype_type(const wasm_exporttype_t *exporttype)
+{
+    return exporttype->externtype;
+}
 
 /* Runtime Objects */
 
 void
 wasm_val_delete(wasm_val_t *v)
 {
-    /* do nothing */
+    FREEIF(v);
 }
 
 void
@@ -858,28 +1121,39 @@ wasm_val_same(const wasm_val_t *v1, const wasm_val_t *v2)
     return false;
 }
 
-wasm_trap_t *
-wasm_trap_new(wasm_store_t *store, const wasm_message_t *message)
+static wasm_trap_t *
+wasm_trap_new_basic(const wasm_message_t *message)
 {
     wasm_trap_t *trap;
 
+    if (!(trap = malloc_internal(sizeof(wasm_trap_t)))) {
+        goto failed;
+    }
+
+    INIT_VEC(trap->message, wasm_byte_vec_new, message->size, message->data);
+
+    RETURN_OBJ(trap, wasm_trap_delete);
+}
+
+static wasm_trap_t *
+wasm_trap_new_internal(const char *string)
+{
+    wasm_trap_t *trap;
+
+    if (!(trap = malloc_internal(sizeof(wasm_trap_t)))) {
+        goto failed;
+    }
+
+    INIT_VEC(trap->message, wasm_byte_vec_new, strlen(string) + 1, string);
+
+    RETURN_OBJ(trap, wasm_trap_delete);
+}
+
+wasm_trap_t *
+wasm_trap_new(wasm_store_t *store, const wasm_message_t *message)
+{
     bh_assert(store && message);
-
-    trap = malloc_internal(sizeof(wasm_trap_t));
-    if (!trap) {
-        goto failed;
-    }
-
-    wasm_byte_vec_new(trap->message, message->num_elems, message->data);
-    if (!trap->message->data) {
-        goto failed;
-    }
-
-    return trap;
-
-failed:
-    wasm_trap_delete(trap);
-    return NULL;
+    return wasm_trap_new_basic(message);
 }
 
 void
@@ -889,18 +1163,16 @@ wasm_trap_delete(wasm_trap_t *trap)
         return;
     }
 
-    if (trap->message) {
-        wasm_byte_vec_delete(trap->message);
-    }
+    DEINIT_VEC(trap->message, wasm_byte_vec_delete);
 
     wasm_runtime_free(trap);
 }
 
 void
-wasm_trap_message(const wasm_trap_t *trap, wasm_message_t *out)
+wasm_trap_message(const wasm_trap_t *trap, own wasm_message_t *out)
 {
     bh_assert(trap && out);
-    wasm_byte_vec_copy(out, trap->message);
+    wasm_name_copy(out, trap->message);
 }
 
 struct wasm_module_ex_t {
@@ -919,6 +1191,16 @@ module_to_module_ext(wasm_module_t *module)
 {
     return (wasm_module_ex_t *)module;
 }
+
+#if WASM_ENABLE_INTERP != 0
+#undef MODULE_RUNTIME
+#define MODULE_RUNTIME(module) ((WASMModule *)(*module))
+#endif
+
+#if WASM_ENABLE_AOT != 0
+#undef MODULE_RUNTIME
+#define MODULE_RUNTIME(module) ((AOTModule *)(*module))
+#endif
 
 wasm_module_t *
 wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
@@ -952,20 +1234,11 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
         goto failed;
     }
 
-    module_ex->binary = malloc_internal(sizeof(wasm_byte_vec_t));
-    if (!module_ex->binary) {
-        goto failed;
-    }
+    INIT_VEC(module_ex->binary, wasm_byte_vec_new, binary->size, binary->data);
 
-    wasm_byte_vec_copy(module_ex->binary, binary);
-    if (!module_ex->binary->data) {
-        goto failed;
-    }
-
-    module_ex->module_comm_rt =
-      wasm_runtime_load((uint8 *)module_ex->binary->data,
-                        (uint32)module_ex->binary->size,
-                        error, (uint32)sizeof(error));
+    module_ex->module_comm_rt = wasm_runtime_load(
+      (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size, error,
+      (uint32)sizeof(error));
     if (!(module_ex->module_comm_rt)) {
         LOG_ERROR(error);
         wasm_module_delete_internal(module_ext_to_module(module_ex));
@@ -985,7 +1258,7 @@ failed:
     return NULL;
 }
 
-void
+static void
 wasm_module_delete_internal(wasm_module_t *module)
 {
     wasm_module_ex_t *module_ex;
@@ -994,11 +1267,7 @@ wasm_module_delete_internal(wasm_module_t *module)
     }
 
     module_ex = module_to_module_ext(module);
-    if (module_ex->binary) {
-        wasm_byte_vec_delete(module_ex->binary);
-        wasm_runtime_free(module_ex->binary);
-        module_ex->binary = NULL;
-    }
+    DEINIT_VEC(module_ex->binary, wasm_byte_vec_delete);
 
     if (module_ex->module_comm_rt) {
         wasm_runtime_unload(module_ex->module_comm_rt);
@@ -1008,39 +1277,280 @@ wasm_module_delete_internal(wasm_module_t *module)
     wasm_runtime_free(module_ex);
 }
 
-/* will release module when releasing the store */
 void
 wasm_module_delete(wasm_module_t *module)
 {
-    /* pass */
+    /* will release module when releasing the store */
 }
 
 void
-wasm_module_vec_new_uninitialized(wasm_module_vec_t *out, size_t size)
+wasm_module_imports(const wasm_module_t *module,
+                    own wasm_importtype_vec_t *out)
 {
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_module_t *));
-}
+    uint32 i, import_count;
+    wasm_name_t *module_name = NULL, *name = NULL;
 
-void
-wasm_module_vec_delete(wasm_module_vec_t *module_vec)
-{
-    size_t i = 0;
-    if (!module_vec || !module_vec->data) {
-        return;
+    bh_assert(out);
+
+#if WASM_ENABLE_INTERP != 0
+    import_count = MODULE_RUNTIME(module)->import_count;
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    /* TODO */
+#endif
+
+    wasm_importtype_vec_new_uninitialized(out, import_count);
+
+    /* TODO: module_name ? */
+
+    for (i = 0; i != import_count; ++i) {
+#if WASM_ENABLE_INTERP != 0
+        WASMImport *import = MODULE_RUNTIME(module)->imports + i;
+#endif
+
+#if WASM_ENABLE_AOT != 0
+        /* TODO */
+#endif
+        wasm_externtype_t *externtype = NULL;
+        wasm_importtype_t *importtype = NULL;
+
+        INIT_VEC(module_name, wasm_byte_vec_new,
+                 strlen(import->u.names.module_name),
+                 import->u.names.module_name);
+        INIT_VEC(name, wasm_byte_vec_new, strlen(import->u.names.field_name),
+                 import->u.names.field_name);
+
+        switch (import->kind) {
+            case IMPORT_KIND_FUNC:
+            {
+                wasm_functype_t *type = NULL;
+                WASMType *type_rt;
+
+                type_rt = import->u.function.func_type;
+
+                if (!(type = wasm_functype_new_internal(type_rt))) {
+                    goto failed;
+                }
+
+                externtype = wasm_functype_as_externtype(type);
+                break;
+            }
+            case IMPORT_KIND_GLOBAL:
+            {
+                wasm_globaltype_t *type = NULL;
+                uint8 val_type_rt = 0;
+                bool mutability_rt = 0;
+
+                val_type_rt = import->u.global.type;
+                mutability_rt = import->u.global.is_mutable;
+
+                if (!(type = wasm_globaltype_new_internal(val_type_rt,
+                                                          mutability_rt))) {
+                    goto failed;
+                }
+
+                externtype = wasm_globaltype_as_externtype(type);
+                break;
+            }
+            case IMPORT_KIND_TABLE:
+            {
+                wasm_tabletype_t *type = NULL;
+                uint8 elem_type_rt = 0;
+                uint32 min_size = 0, max_size = 0;
+
+                elem_type_rt = import->u.table.elem_type;
+                min_size = import->u.table.init_size;
+                max_size = import->u.table.max_size;
+
+                if (!(type = wasm_tabletype_new_internal(
+                        elem_type_rt, min_size, max_size))) {
+                    goto failed;
+                }
+
+                externtype = wasm_tabletype_as_externtype(type);
+                break;
+            }
+            case IMPORT_KIND_MEMORY:
+            {
+                wasm_memorytype_t *type = NULL;
+                uint32 min_page = 0, max_page = 0;
+
+                min_page = import->u.memory.init_page_count;
+                max_page = import->u.memory.max_page_count;
+
+                if (!(type =
+                        wasm_memorytype_new_internal(min_page, max_page))) {
+                    goto failed;
+                }
+
+                externtype = wasm_memorytype_as_externtype(type);
+                break;
+            }
+            default:
+            {
+                LOG_WARNING("%s meets unsupported type", __FUNCTION__,
+                            import->kind);
+                goto failed;
+            }
+        }
+
+        if (!(importtype =
+                wasm_importtype_new(module_name, name, externtype))) {
+            goto failed;
+        }
+
+        if (!bh_vector_append((Vector *)out, &importtype)) {
+            goto failed;
+        }
     }
 
-    FREE_VEC_ELEMS(module_vec, wasm_module_delete_internal);
-    bh_vector_destroy((Vector *)module_vec);
+    return;
+
+failed:
+    DEINIT_VEC(module_name, wasm_byte_vec_delete);
+    DEINIT_VEC(name, wasm_byte_vec_delete);
+    wasm_importtype_vec_delete(out);
+}
+
+void
+wasm_module_exports(const wasm_module_t *module, wasm_exporttype_vec_t *out)
+{
+    uint32 i, export_count;
+    wasm_name_t *name = NULL;
+
+    bh_assert(out);
+
+#if WASM_ENABLE_INTERP != 0
+    export_count = MODULE_RUNTIME(module)->export_count;
+#endif
+#if WASM_ENABLE_AOT != 0
+    export_count = MODULE_RUNTIME(module)->export_count;
+#endif
+
+    wasm_exporttype_vec_new_uninitialized(out, export_count);
+
+    for (i = 0; i != export_count; i++) {
+#if WASM_ENABLE_INTERP != 0
+        WASMExport *export = MODULE_RUNTIME(module)->exports + i;
+#endif
+#if WASM_ENABLE_AOT != 0
+        WASMExport *export = MODULE_RUNTIME(module)->exports + i;
+#endif
+        wasm_externtype_t *externtype = NULL;
+        wasm_exporttype_t *exporttype = NULL;
+
+        /* byte* -> wasm_byte_vec_t */
+        INIT_VEC(name, wasm_byte_vec_new, strlen(export->name), export->name);
+
+        /* WASMExport -> (WASMType, (uint8, bool)) -> (wasm_functype_t, wasm_globaltype_t) -> wasm_externtype_t*/
+        switch (export->kind) {
+            case EXPORT_KIND_FUNC:
+            {
+                wasm_functype_t *type = NULL;
+                WASMType *type_rt;
+
+                if (!wasm_runtime_get_export_func_type(*module, export,
+                                                       &type_rt)) {
+                    goto failed;
+                }
+
+                if (!(type = wasm_functype_new_internal(type_rt))) {
+                    goto failed;
+                }
+
+                externtype = wasm_functype_as_externtype(type);
+                break;
+            }
+            case EXPORT_KIND_GLOBAL:
+            {
+                wasm_globaltype_t *type = NULL;
+                uint8 val_type_rt = 0;
+                bool mutability_rt = 0;
+
+                if (!wasm_runtime_get_export_global_type(
+                      *module, export, &val_type_rt, &mutability_rt)) {
+                    goto failed;
+                }
+
+                if (!(type = wasm_globaltype_new_internal(val_type_rt,
+                                                          mutability_rt))) {
+                    goto failed;
+                }
+
+                externtype = wasm_globaltype_as_externtype(type);
+                break;
+            }
+            case EXPORT_KIND_MEMORY:
+            {
+                wasm_memorytype_t *type = NULL;
+                uint32 min_page = 0, max_page = 0;
+
+                if (!wasm_runtime_get_export_memory_type(
+                      *module, export, &min_page, &max_page)) {
+                    goto failed;
+                }
+
+                if (!(type =
+                        wasm_memorytype_new_internal(min_page, max_page))) {
+                    goto failed;
+                }
+
+                externtype = wasm_memorytype_as_externtype(type);
+                break;
+            }
+            case EXPORT_KIND_TABLE:
+            {
+                wasm_tabletype_t *type = NULL;
+                uint8 elem_type_rt = 0;
+                uint32 min_size = 0, max_size = 0;
+
+                if (!wasm_runtime_get_export_table_type(
+                      *module, export, &elem_type_rt, &min_size, &max_size)) {
+                    goto failed;
+                }
+
+                if (!(type = wasm_tabletype_new_internal(
+                        elem_type_rt, min_size, max_size))) {
+                    goto failed;
+                }
+
+                externtype = wasm_tabletype_as_externtype(type);
+                break;
+            }
+            default:
+            {
+                LOG_WARNING("%s meets unsupported type", __FUNCTION__,
+                            export->kind);
+                break;
+            }
+        }
+
+        if (!(exporttype = wasm_exporttype_new(name, externtype))) {
+            goto failed;
+        }
+
+        DEINIT_VEC(name, wasm_byte_vec_delete);
+
+        if (!(bh_vector_append((Vector *)out, &exporttype))) {
+            goto failed;
+        }
+    }
+
+    return;
+
+failed:
+    DEINIT_VEC(name, wasm_byte_vec_delete);
+    wasm_exporttype_vec_delete(out);
 }
 
 static uint32
 argv_to_params(const uint64 *argv,
                const wasm_valtype_vec_t *param_defs,
-               wasm_val_t *out)
+               wasm_val_t out[])
 {
     size_t i = 0;
     uint32 argc = 0;
-    void *argv_p = (void *)argv;
 
     for (i = 0; i < param_defs->num_elems; i++) {
         wasm_valtype_t *param_def = param_defs->data[i];
@@ -1048,30 +1558,27 @@ argv_to_params(const uint64 *argv,
         switch (param_def->kind) {
             case WASM_I32:
                 param->kind = WASM_I32;
-                param->of.i32 = *(int32 *)argv_p;
-                argv_p = (uint32 *)argv_p + 1;
+                param->of.i32 = *(uint32 *)(argv + i);
                 argc++;
                 break;
             case WASM_I64:
                 param->kind = WASM_I64;
-                param->of.i64 = *(int64 *)argv_p;
-                argv_p = (uint64 *)argv_p + 1;
+                param->of.i64 = *(uint64 *)(argv + i);
                 argc++;
                 break;
             case WASM_F32:
                 param->kind = WASM_F32;
-                param->of.f32 = *(float32 *)argv_p;
-                argv_p = (float32 *)argv_p + 1;
+                param->of.f32 = *(float32 *)(argv + i);
                 argc++;
                 break;
             case WASM_F64:
                 param->kind = WASM_F64;
-                param->of.f64 = *(float64 *)argv_p;
-                argv_p = (float64 *)argv_p + 1;
+                param->of.f64 = *(float64 *)(argv + i);
                 argc++;
                 break;
             default:
-                NOT_REACHED();
+                LOG_WARNING("%s meets unsupported type: %d", __FUNCTION__,
+                            param_def->kind);
                 goto failed;
         }
     }
@@ -1088,35 +1595,33 @@ results_to_argv(const wasm_val_t *results,
 {
     size_t i = 0;
     uint32 argc = 0;
-    void *argv_p = out;
 
     for (i = 0; i < result_defs->num_elems; ++i) {
         wasm_valtype_t *result_def = result_defs->data[i];
         const wasm_val_t *result = results + i;
         switch (result_def->kind) {
             case WASM_I32:
-                *(int32 *)argv_p = result->of.i32;
-                argv_p = (uint32 *)argv_p + 1;
+                *(int32 *)(out + i) = result->of.i32;
                 argc++;
                 break;
             case WASM_I64:
-                *(int64 *)argv_p = result->of.i64;
-                argv_p = (uint64 *)argv_p + 1;
+                *(int64 *)(out + i) = result->of.i64;
                 argc++;
                 break;
             case WASM_F32:
-                *(float32 *)argv_p = result->of.f32;
-                argv_p = (float32 *)argv_p + 1;
+                *(float32 *)(out + i) = result->of.f32;
                 argc++;
                 break;
             case WASM_F64:
-                *(float64 *)argv_p = result->of.f64;
-                argv_p = (float64 *)argv_p + 1;
+                *(float64 *)(out + i) = result->of.f64;
                 argc++;
                 break;
             default:
-                NOT_REACHED();
+            {
+                LOG_WARNING("%s meets unsupported kind", __FUNCTION__,
+                            result_def->kind);
                 goto failed;
+            }
         }
     }
 
@@ -1125,6 +1630,7 @@ failed:
     return 0;
 }
 
+static wasm_trap_t *cur_trap = NULL;
 static void
 native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
 {
@@ -1148,8 +1654,8 @@ native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
         }
 
         /* argv -> const wasm_val_t params[] */
-        if (!(argc = argv_to_params(
-                argv, wasm_functype_params(wasm_func_type(func)), params))) {
+        if (!(argc = argv_to_params(argv, wasm_functype_params(func->type),
+                                    params))) {
             goto failed;
         }
     }
@@ -1173,15 +1679,16 @@ native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
     }
 
     if (trap) {
-        wasm_name_t *message = malloc_internal(sizeof(wasm_name_t));
-        if (message) {
-            wasm_trap_message(trap, message);
-            if (message->data) {
-                LOG_WARNING("got a trap %s", message->data);
-                wasm_name_delete(message);
-            }
-            FREEIF(message);
+        wasm_name_t message = { 0 };
+        wasm_trap_message(trap, &message);
+        if (message.data) {
+            LOG_WARNING("got a trap %s", message.data);
+            wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
+                               "call failed, meet a wasm_trap_t");
         }
+        wasm_name_delete(&message);
+
+        cur_trap = trap;
     }
 
     if (argv) {
@@ -1192,7 +1699,7 @@ native_func_trampoline(wasm_exec_env_t exec_env, uint64 *argv)
     if (!trap && result_count) {
         /* wasm_val_t results[] -> argv */
         if (!(argc = results_to_argv(
-                results, wasm_functype_results(wasm_func_type(func)), argv))) {
+                results, wasm_functype_results(func->type), argv))) {
             goto failed;
         }
     }
@@ -1203,52 +1710,39 @@ failed:
     return;
 }
 
-wasm_func_t *
-wasm_func_new(wasm_store_t *store,
-              const wasm_functype_t *func_type,
-              wasm_func_callback_t callback)
+static wasm_func_t *
+wasm_func_new_basic(const wasm_functype_t *type,
+                    wasm_func_callback_t func_callback)
 {
     wasm_func_t *func = NULL;
+    bh_assert(type);
 
-    check_engine_and_store(singleton_engine, store);
-    bh_assert(func_type);
-
-    func = malloc_internal(sizeof(wasm_func_t));
-    if (!func) {
+    if (!(func = malloc_internal(sizeof(wasm_func_t)))) {
         goto failed;
     }
 
     func->kind = WASM_EXTERN_FUNC;
     func->with_env = false;
-    func->u.cb = callback;
+    func->u.cb = func_callback;
 
-    func->func_type = wasm_functype_copy((wasm_functype_t *)func_type);
-    if (!func->func_type) {
+    if (!(func->type = wasm_functype_copy(type))) {
         goto failed;
     }
 
-    return func;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_func_delete(func);
-    return NULL;
+    RETURN_OBJ(func, wasm_func_delete)
 }
 
-wasm_func_t *
-wasm_func_new_with_env(wasm_store_t *store,
-                       const wasm_functype_t *func_type,
-                       wasm_func_callback_with_env_t callback,
-                       void *env,
-                       void (*finalizer)(void *))
+static wasm_func_t *
+wasm_func_new_with_env_basic(const wasm_functype_t *type,
+                             wasm_func_callback_with_env_t callback,
+                             void *env,
+                             void (*finalizer)(void *))
 {
     wasm_func_t *func = NULL;
 
-    check_engine_and_store(singleton_engine, store);
-    bh_assert(func_type);
+    bh_assert(type);
 
-    func = malloc_internal(sizeof(wasm_func_t));
-    if (!func) {
+    if (!(func = malloc_internal(sizeof(wasm_func_t)))) {
         goto failed;
     }
 
@@ -1258,17 +1752,31 @@ wasm_func_new_with_env(wasm_store_t *store,
     func->u.cb_env.env = env;
     func->u.cb_env.finalizer = finalizer;
 
-    func->func_type = wasm_functype_copy((wasm_functype_t *)func_type);
-    if (!func->func_type) {
+    if (!(func->type = wasm_functype_copy(type))) {
         goto failed;
     }
 
-    return func;
+    RETURN_OBJ(func, wasm_func_delete)
+}
 
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_func_delete(func);
-    return NULL;
+wasm_func_t *
+wasm_func_new(wasm_store_t *store,
+              const wasm_functype_t *type,
+              wasm_func_callback_t callback)
+{
+    check_engine_and_store(singleton_engine, store);
+    return wasm_func_new_basic(type, callback);
+}
+
+wasm_func_t *
+wasm_func_new_with_env(wasm_store_t *store,
+                       const wasm_functype_t *type,
+                       wasm_func_callback_with_env_t callback,
+                       void *env,
+                       void (*finalizer)(void *))
+{
+    check_engine_and_store(singleton_engine, store);
+    return wasm_func_new_with_env_basic(type, callback, env, finalizer);
 }
 
 static wasm_func_t *
@@ -1315,8 +1823,8 @@ wasm_func_new_internal(wasm_store_t *store,
         goto failed;
     }
 
-    func->func_type = wasm_functype_new_internal(type_rt);
-    if (!func->func_type) {
+    func->type = wasm_functype_new_internal(type_rt);
+    if (!func->type) {
         goto failed;
     }
 
@@ -1340,9 +1848,9 @@ wasm_func_delete(wasm_func_t *func)
         return;
     }
 
-    if (func->func_type) {
-        wasm_functype_delete(func->func_type);
-        func->func_type = NULL;
+    if (func->type) {
+        wasm_functype_delete(func->type);
+        func->type = NULL;
     }
 
     if (func->with_env) {
@@ -1356,49 +1864,32 @@ wasm_func_delete(wasm_func_t *func)
     wasm_runtime_free(func);
 }
 
-wasm_func_t *
+own wasm_func_t *
 wasm_func_copy(const wasm_func_t *func)
 {
     wasm_func_t *cloned = NULL;
 
     bh_assert(func);
 
-    cloned = malloc_internal(sizeof(wasm_func_t));
-    if (!cloned) {
+    if (!(cloned = func->with_env
+                     ? wasm_func_new_with_env_basic(
+                       func->type, func->u.cb_env.cb, func->u.cb_env.env,
+                       func->u.cb_env.finalizer)
+                     : wasm_func_new_basic(func->type, func->u.cb))) {
         goto failed;
-    }
-
-    cloned->kind = func->kind;
-    cloned->with_env = func->with_env;
-    if (cloned->with_env) {
-        cloned->u.cb_env.cb = func->u.cb_env.cb;
-        cloned->u.cb_env.env = func->u.cb_env.env;
-        cloned->u.cb_env.finalizer = func->u.cb_env.finalizer;
-    }
-    else {
-        cloned->u.cb = func->u.cb;
     }
 
     cloned->func_idx_rt = func->func_idx_rt;
     cloned->inst_comm_rt = func->inst_comm_rt;
-    cloned->func_type = wasm_functype_copy(func->func_type);
-    if (!cloned->func_type) {
-        goto failed;
-    }
 
-    return cloned;
-
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_func_delete(cloned);
-    return NULL;
+    RETURN_OBJ(cloned, wasm_func_delete)
 }
 
-wasm_functype_t *
+own wasm_functype_t *
 wasm_func_type(const wasm_func_t *func)
 {
     bh_assert(func);
-    return func->func_type;
+    return wasm_functype_copy(func->type);
 }
 
 static uint32
@@ -1479,27 +1970,36 @@ argv_to_results(const uint32 *results,
 
         switch (def->kind) {
             case WASM_I32:
+            {
                 out->kind = WASM_I32;
                 out->of.i32 = *(int32 *)result;
                 result += 1;
                 break;
+            }
             case WASM_I64:
+            {
                 out->kind = WASM_I64;
                 out->of.i64 = *(int64 *)result;
                 result += 2;
                 break;
+            }
             case WASM_F32:
+            {
                 out->kind = WASM_F32;
                 out->of.f32 = *(float32 *)result;
                 result += 1;
                 break;
+            }
             case WASM_F64:
+            {
                 out->kind = WASM_F64;
                 out->of.f64 = *(float64 *)result;
                 result += 2;
                 break;
+            }
             default:
-                LOG_DEBUG("unexpected parameter val type %d", def->kind);
+                LOG_WARNING("%s meets unsupported type: %d", __FUNCTION__,
+                            def->kind);
                 goto failed;
         }
         out++;
@@ -1526,7 +2026,11 @@ wasm_func_call(const wasm_func_t *func,
     WASMFunctionInstanceCommon *func_comm_rt = NULL;
     size_t param_count, result_count, alloc_count;
 
-    bh_assert(func && func->func_type && func->inst_comm_rt);
+    bh_assert(func && func->type && func->inst_comm_rt);
+
+    /* TODO: how to check whether its store still exists */
+
+    cur_trap = NULL;
 
     if (INTERP_MODE == current_runtime_mode()) {
 #if WASM_ENABLE_INTERP != 0
@@ -1556,54 +2060,58 @@ wasm_func_call(const wasm_func_t *func,
 
     /* copy parametes */
     if (param_count
-        && !(argc = params_to_argv(params,
-                                   wasm_functype_params(wasm_func_type(func)),
-                                   wasm_func_param_arity(func), argv))) {
+        && !(argc = params_to_argv(params, wasm_functype_params(func->type),
+                                   param_count, argv))) {
         goto failed;
     }
 
     if (!wasm_runtime_create_exec_env_and_call_wasm(
           func->inst_comm_rt, func_comm_rt, argc, argv)) {
-        LOG_DEBUG("wasm_runtime_create_exec_env_and_call_wasm failed");
-        goto failed;
+        if (wasm_runtime_get_exception(func->inst_comm_rt)) {
+            LOG_DEBUG(wasm_runtime_get_exception(func->inst_comm_rt));
+            goto failed;
+        }
     }
 
     /* copy results */
-    if (result_count
-        && !(argc = argv_to_results(
-               argv, wasm_functype_results(wasm_func_type(func)),
-               wasm_func_result_arity(func), results))) {
-        goto failed;
+    if (result_count) {
+        if (!(argc = argv_to_results(argv, wasm_functype_results(func->type),
+                                     result_count, results))) {
+            goto failed;
+        }
     }
 
     FREEIF(argv);
-    /* should return trap */
     return NULL;
 
 failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
     FREEIF(argv);
-    return NULL;
+    if (cur_trap) {
+        return cur_trap;
+    }
+    else {
+        if (wasm_runtime_get_exception(func->inst_comm_rt)) {
+            return wasm_trap_new_internal(
+              wasm_runtime_get_exception(func->inst_comm_rt));
+        }
+        else {
+            return wasm_trap_new_internal("wasm_func_call failed");
+        }
+    }
 }
 
 size_t
 wasm_func_param_arity(const wasm_func_t *func)
 {
-    bh_assert(func && func->func_type && func->func_type->params);
-    return func->func_type->params->num_elems;
+    bh_assert(func && func->type && func->type->params);
+    return func->type->params->num_elems;
 }
 
 size_t
 wasm_func_result_arity(const wasm_func_t *func)
 {
-    bh_assert(func && func->func_type && func->func_type->results);
-    return func->func_type->results->num_elems;
-}
-
-wasm_extern_t *
-wasm_func_as_extern(wasm_func_t *func)
-{
-    return (wasm_extern_t *)func;
+    bh_assert(func && func->type && func->type->results);
+    return func->type->results->num_elems;
 }
 
 wasm_global_t *
@@ -1622,7 +2130,7 @@ wasm_global_new(wasm_store_t *store,
     }
 
     global->kind = WASM_EXTERN_GLOBAL;
-    global->type = wasm_globaltype_copy((wasm_globaltype_t *)global_type);
+    global->type = wasm_globaltype_copy(global_type);
     if (!global->type) {
         goto failed;
     }
@@ -1657,7 +2165,7 @@ wasm_global_copy(const wasm_global_t *src)
     }
 
     global->kind = WASM_EXTERN_GLOBAL;
-    global->type = wasm_globaltype_copy((wasm_globaltype_t *)src->type);
+    global->type = wasm_globaltype_copy(src->type);
     if (!global->type) {
         goto failed;
     }
@@ -1689,7 +2197,6 @@ wasm_global_delete(wasm_global_t *global)
 
     if (global->init) {
         wasm_val_delete(global->init);
-        wasm_runtime_free(global->init);
         global->init = NULL;
     }
 
@@ -2034,22 +2541,228 @@ wasm_globaltype_t *
 wasm_global_type(const wasm_global_t *global)
 {
     bh_assert(global);
-    return global->type;
+    return wasm_globaltype_copy(global->type);
 }
 
-wasm_extern_t *
-wasm_global_as_extern(wasm_global_t *global)
+static wasm_table_t *
+wasm_table_new_basic(const wasm_tabletype_t *type)
 {
-    return (wasm_extern_t *)global;
+    wasm_table_t *table = NULL;
+
+    bh_assert(type);
+
+    if (!(table = malloc_internal(sizeof(wasm_table_t)))) {
+        goto failed;
+    }
+
+    table->kind = WASM_EXTERN_TABLE;
+
+    if (!(table->type = wasm_tabletype_copy(type))) {
+        goto failed;
+    }
+
+    RETURN_OBJ(table, wasm_table_delete);
+}
+
+static wasm_table_t *
+wasm_table_new_internal(wasm_store_t *store,
+                        uint16 table_idx_rt,
+                        WASMModuleInstanceCommon *inst_comm_rt)
+{
+    wasm_table_t *table = NULL;
+    uint8 val_type_rt = 0;
+    uint32 init_size = 0, max_size = 0;
+
+    check_engine_and_store(singleton_engine, store);
+    bh_assert(inst_comm_rt);
+
+    if (!(table = malloc_internal(sizeof(wasm_table_t)))) {
+        goto failed;
+    }
+
+    table->kind = WASM_EXTERN_TABLE;
+
+    if (INTERP_MODE == current_runtime_mode()) {
+#if WASM_ENABLE_INTERP != 0
+        WASMTableInstance *table_interp =
+          ((WASMModuleInstance *)inst_comm_rt)->tables[table_idx_rt];
+        val_type_rt = table_interp->elem_type;
+        init_size = table_interp->cur_size;
+        max_size = table_interp->max_size;
+#endif
+    }
+    else {
+#if WASM_ENABLE_AOT != 0
+        /* TODO */
+#endif
+    }
+
+    if (!(table->type =
+            wasm_tabletype_new_internal(val_type_rt, init_size, max_size))) {
+        goto failed;
+    }
+
+    table->inst_comm_rt = inst_comm_rt;
+    table->table_idx_rt = table_idx_rt;
+
+    RETURN_OBJ(table, wasm_table_delete);
+}
+
+wasm_table_t *
+wasm_table_new(wasm_store_t *store,
+               const wasm_tabletype_t *table_type,
+               wasm_ref_t *init)
+{
+    (void)init;
+    check_engine_and_store(singleton_engine, store);
+    return wasm_table_new_basic(table_type);
+}
+
+wasm_table_t *
+wasm_table_copy(const wasm_table_t *src)
+{
+    return wasm_table_new_basic(src->type);
 }
 
 void
 wasm_table_delete(wasm_table_t *table)
-{}
+{
+    if (!table) {
+        return;
+    }
+
+    if (table->type) {
+        wasm_tabletype_delete(table->type);
+        table->type = NULL;
+    }
+
+    wasm_runtime_free(table);
+}
+
+wasm_tabletype_t *
+wasm_table_type(const wasm_table_t *table)
+{
+    bh_assert(table);
+    return wasm_tabletype_copy(table->type);
+}
+
+static wasm_memory_t *
+wasm_memory_new_basic(const wasm_memorytype_t *type)
+{
+    wasm_memory_t *memory = NULL;
+
+    bh_assert(type);
+
+    if (!(memory = malloc_internal(sizeof(wasm_memory_t)))) {
+        goto failed;
+    }
+
+    memory->kind = WASM_EXTERN_MEMORY;
+    memory->type = wasm_memorytype_copy(type);
+
+    RETURN_OBJ(memory, wasm_memory_delete)
+}
+
+wasm_memory_t *
+wasm_memory_new(wasm_store_t *store, const wasm_memorytype_t *type)
+{
+    check_engine_and_store(singleton_engine, store);
+    return wasm_memory_new_basic(type);
+}
+
+wasm_memory_t *
+wasm_memory_copy(const wasm_memory_t *src)
+{
+    wasm_memory_t *dst = NULL;
+
+    bh_assert(src);
+
+    if (!(dst = wasm_memory_new_basic(src->type))) {
+        goto failed;
+    }
+
+    dst->memory_idx_rt = src->memory_idx_rt;
+    dst->inst_comm_rt = src->inst_comm_rt;
+
+    RETURN_OBJ(dst, wasm_memory_delete)
+}
+
+static wasm_memory_t *
+wasm_memory_new_internal(wasm_store_t *store,
+                         uint16 memory_idx_rt,
+                         WASMModuleInstanceCommon *inst_comm_rt)
+{
+    wasm_memory_t *memory = NULL;
+    uint32 min_pages = 0, max_pages = 0;
+
+    check_engine_and_store(singleton_engine, store);
+    bh_assert(inst_comm_rt);
+
+    if (!(memory = malloc_internal(sizeof(wasm_memory_t)))) {
+        goto failed;
+    }
+
+    memory->kind = WASM_EXTERN_MEMORY;
+
+    if (INTERP_MODE == current_runtime_mode()) {
+#if WASM_ENABLE_INTERP != 0
+        WASMMemoryInstance *memory_interp =
+          ((WASMModuleInstance *)inst_comm_rt)->memories[memory_idx_rt];
+        min_pages = memory_interp->cur_page_count;
+        max_pages = memory_interp->max_page_count;
+#endif
+    }
+    else {
+#if WASM_ENABLE_AOT != 0
+        /* TODO */
+#endif
+    }
+
+    if (!(memory->type = wasm_memorytype_new_internal(min_pages, max_pages))) {
+        goto failed;
+    }
+
+    memory->inst_comm_rt = inst_comm_rt;
+    memory->memory_idx_rt = memory_idx_rt;
+
+    RETURN_OBJ(memory, wasm_memory_delete);
+}
 
 void
 wasm_memory_delete(wasm_memory_t *memory)
-{}
+{
+    if (!memory) {
+        return;
+    }
+
+    if (memory->type) {
+        wasm_memorytype_delete(memory->type);
+        memory->type = NULL;
+    }
+
+    wasm_runtime_free(memory);
+}
+
+wasm_memorytype_t *
+wasm_memory_type(const wasm_memory_t *memory)
+{
+    bh_assert(memory);
+    return wasm_memorytype_copy(memory->type);
+}
+
+byte_t *
+wasm_memory_data(wasm_memory_t *memory)
+{
+    return (byte_t *)wasm_runtime_get_memory_data(memory->inst_comm_rt,
+                                                  memory->memory_idx_rt);
+}
+
+size_t
+wasm_memory_data_size(const wasm_memory_t *memory)
+{
+    return wasm_runtime_get_memory_data_size(memory->inst_comm_rt,
+                                             memory->memory_idx_rt);
+}
 
 #if WASM_ENABLE_INTERP != 0
 static bool
@@ -2068,8 +2781,12 @@ interp_link_func(const wasm_instance_t *inst,
     imported_func_interp = module_interp->import_functions + func_idx_rt;
     bh_assert(imported_func_interp);
 
-    cloned = wasm_func_copy(import);
-    if (!cloned || !bh_vector_append((Vector *)inst->imports, &cloned)) {
+    if (!(cloned = wasm_func_copy(import))) {
+        return false;
+    }
+
+    if (!bh_vector_append((Vector *)inst->imports, &cloned)) {
+        wasm_func_delete(cloned);
         return false;
     }
 
@@ -2127,22 +2844,6 @@ interp_link_global(const WASMModule *module_interp,
     return true;
 }
 
-static bool
-interp_link_memory(const WASMModule *module_interp,
-                   uint16 memory_inst_index,
-                   wasm_memory_t *import)
-{
-    return false;
-}
-
-static bool
-interp_link_table(const WASMModule *module_interp,
-                  uint16 table_inst_index,
-                  wasm_table_t *import)
-{
-    return false;
-}
-
 static uint32
 interp_link(const wasm_instance_t *inst,
             const WASMModule *module_interp,
@@ -2151,10 +2852,6 @@ interp_link(const wasm_instance_t *inst,
     uint32 i = 0;
     uint32 import_func_i = 0;
     uint32 import_global_i = 0;
-    uint32 import_table_i = 0;
-    uint32 import_memory_i = 0;
-    wasm_func_t *func = NULL;
-    wasm_global_t *global = NULL;
 
     bh_assert(inst && module_interp && imports);
 
@@ -2164,40 +2861,35 @@ interp_link(const wasm_instance_t *inst,
 
         switch (import_rt->kind) {
             case IMPORT_KIND_FUNC:
-                func = wasm_extern_as_func(import);
+            {
                 if (!interp_link_func(inst, module_interp, import_func_i++,
-                                      func)) {
+                                      wasm_extern_as_func(import))) {
                     goto failed;
                 }
 
                 break;
+            }
             case IMPORT_KIND_GLOBAL:
-                global = wasm_extern_as_global(import);
+            {
                 if (!interp_link_global(module_interp, import_global_i++,
-                                        global)) {
+                                        wasm_extern_as_global(import))) {
                     goto failed;
                 }
 
                 break;
+            }
             case IMPORT_KIND_MEMORY:
-                if (!interp_link_memory(module_interp, import_memory_i++,
-                                        wasm_extern_as_memory(import))) {
-                    goto failed;
-                };
-                break;
             case IMPORT_KIND_TABLE:
-                if (!interp_link_table(module_interp, import_table_i++,
-                                       wasm_extern_as_table(import))) {
-                    goto failed;
-                }
+                ASSERT_NOT_IMPLEMENTED();
                 break;
             default:
-                NOT_REACHED();
-                break;
+                LOG_WARNING("%s meets unsupported kind: %d", __FUNCTION__,
+                            import_rt->kind);
+                goto failed;
         }
     }
 
-    return module_interp->import_count;
+    return i;
 
 failed:
     LOG_DEBUG("%s failed", __FUNCTION__);
@@ -2211,8 +2903,6 @@ interp_process_export(wasm_store_t *store,
 {
     WASMExport *exports = NULL;
     WASMExport *export = NULL;
-    wasm_func_t *func = NULL;
-    wasm_global_t *global = NULL;
     wasm_extern_t *external = NULL;
     uint32 export_cnt = 0;
     uint32 i = 0;
@@ -2227,30 +2917,56 @@ interp_process_export(wasm_store_t *store,
 
         switch (export->kind) {
             case EXPORT_KIND_FUNC:
-                func = wasm_func_new_internal(
-                  store, export->index,
-                  (WASMModuleInstanceCommon *)inst_interp);
-                if (!func) {
+            {
+                wasm_func_t *func;
+                if (!(func = wasm_func_new_internal(
+                        store, export->index,
+                        (WASMModuleInstanceCommon *)inst_interp))) {
                     goto failed;
                 }
 
                 external = wasm_func_as_extern(func);
                 break;
+            }
             case EXPORT_KIND_GLOBAL:
-                global = wasm_global_new_internal(
-                  store, export->index,
-                  (WASMModuleInstanceCommon *)inst_interp);
-                if (!global) {
+            {
+                wasm_global_t *global;
+                if (!(global = wasm_global_new_internal(
+                        store, export->index,
+                        (WASMModuleInstanceCommon *)inst_interp))) {
                     goto failed;
                 }
 
                 external = wasm_global_as_extern(global);
                 break;
-            case EXPORT_KIND_MEMORY:
+            }
             case EXPORT_KIND_TABLE:
-                /* TODO: */
+            {
+                wasm_table_t *table;
+                if (!(table = wasm_table_new_internal(
+                        store, export->index,
+                        (WASMModuleInstanceCommon *)inst_interp))) {
+                    goto failed;
+                }
+
+                external = wasm_table_as_extern(table);
                 break;
+            }
+            case EXPORT_KIND_MEMORY:
+            {
+                wasm_memory_t *memory;
+                if (!(memory = wasm_memory_new_internal(
+                        store, export->index,
+                        (WASMModuleInstanceCommon *)inst_interp))) {
+                    goto failed;
+                }
+
+                external = wasm_memory_as_extern(memory);
+                break;
+            }
             default:
+                LOG_WARNING("%s meets unsupported kind: %d", __FUNCTION__,
+                            export->kind);
                 goto failed;
         }
 
@@ -2282,13 +2998,12 @@ aot_link_func(const wasm_instance_t *inst,
     import_aot_func = module_aot->import_funcs + import_func_idx_rt;
     bh_assert(import_aot_func);
 
-    cloned = wasm_func_copy(import);
-    if (!cloned || !bh_vector_append((Vector *)inst->imports, &cloned)) {
+    if (!(cloned = wasm_func_copy(import))) {
         return false;
     }
 
     import_aot_func->call_conv_raw = true;
-    import_aot_func->attachment = wasm_func_copy(import);
+    import_aot_func->attachment = cloned;
     import_aot_func->func_ptr_linked = native_func_trampoline;
     import->func_idx_rt = import_func_idx_rt;
 
@@ -2308,6 +3023,7 @@ aot_link_global(const AOTModule *module_aot,
     import_aot_global = module_aot->import_globals + global_idx_rt;
     bh_assert(import_aot_global);
 
+    //TODO: import->type ?
     val_type = wasm_globaltype_content(wasm_global_type(import));
     bh_assert(val_type);
 
@@ -2378,8 +3094,8 @@ aot_link(const wasm_instance_t *inst,
 
                 break;
             case WASM_EXTERN_MEMORY:
-                break;
             case WASM_EXTERN_TABLE:
+                ASSERT_NOT_IMPLEMENTED();
                 break;
             default:
                 goto failed;
@@ -2437,7 +3153,8 @@ aot_process_export(wasm_store_t *store,
             case EXPORT_KIND_TABLE:
                 break;
             default:
-                NOT_REACHED();
+                LOG_WARNING("%s meets unsupported kind: %d", __FUNCTION__,
+                            export->kind);
                 goto failed;
         }
 
@@ -2458,7 +3175,7 @@ wasm_instance_t *
 wasm_instance_new(wasm_store_t *store,
                   const wasm_module_t *module,
                   const wasm_extern_t *const imports[],
-                  wasm_trap_t **traps)
+                  own wasm_trap_t **traps)
 {
     char error[128] = { 0 };
     const uint32 stack_size = 16 * 1024;
@@ -2479,16 +3196,17 @@ wasm_instance_new(wasm_store_t *store,
     if (imports) {
         if (INTERP_MODE == current_runtime_mode()) {
 #if WASM_ENABLE_INTERP != 0
-            import_count = ((WASMModule *)*module)->import_count;
-            INIT_VEC(instance->imports, wasm_extern_vec, import_count);
-            if (!instance->imports) {
-                goto failed;
-            }
+            import_count = MODULE_RUNTIME(module)->import_count;
+
+            INIT_VEC(instance->imports, wasm_extern_vec_new_uninitialized,
+                     import_count);
 
             if (import_count) {
-                import_count = interp_link(instance, (WASMModule *)*module,
-                                           (wasm_extern_t **)imports);
-                if ((int32)import_count < 0) {
+                uint32 actual_link_import_count = interp_link(
+                  instance, MODULE_RUNTIME(module), (wasm_extern_t **)imports);
+                /* make sure a complete import list */
+                if ((int32)import_count < 0
+                    || import_count != actual_link_import_count) {
                     goto failed;
                 }
             }
@@ -2496,17 +3214,16 @@ wasm_instance_new(wasm_store_t *store,
         }
         else {
 #if WASM_ENABLE_AOT != 0
-            import_count = ((AOTModule *)*module)->import_func_count
-                           + ((AOTModule *)*module)->import_global_count
-                           + ((AOTModule *)*module)->import_memory_count
-                           + ((AOTModule *)*module)->import_table_count;
-            INIT_VEC(instance->imports, wasm_extern_vec, import_count);
-            if (!instance->imports) {
-                goto failed;
-            }
+            import_count = MODULE_RUNTIME(module)->import_func_count
+                           + MODULE_RUNTIME(module)->import_global_count
+                           + MODULE_RUNTIME(module)->import_memory_count
+                           + MODULE_RUNTIME(module)->import_table_count;
+
+            INIT_VEC(instance->imports, wasm_extern_vec_new_uninitialized,
+                     import_count);
 
             if (import_count) {
-                import_count = aot_link(instance, (AOTModule *)*module,
+                import_count = aot_link(instance, MODULE_RUNTIME(module),
                                         (wasm_extern_t **)imports);
                 if ((int32)import_count < 0) {
                     goto failed;
@@ -2523,8 +3240,8 @@ wasm_instance_new(wasm_store_t *store,
         goto failed;
     }
 
-    /* fill in inst */
-    for (i = 0; i < (uint32)import_count; ++i) {
+    /* fill with inst */
+    for (i = 0; imports && i < (uint32)import_count; ++i) {
         wasm_extern_t *import = (wasm_extern_t *)imports[i];
         switch (import->kind) {
             case WASM_EXTERN_FUNC:
@@ -2554,7 +3271,8 @@ wasm_instance_new(wasm_store_t *store,
         uint32 export_cnt =
           ((WASMModuleInstance *)instance->inst_comm_rt)->module->export_count;
 
-        INIT_VEC(instance->exports, wasm_extern_vec, export_cnt);
+        INIT_VEC(instance->exports, wasm_extern_vec_new_uninitialized,
+                 export_cnt);
 
         if (!interp_process_export(
               store, (WASMModuleInstance *)instance->inst_comm_rt,
@@ -2568,7 +3286,8 @@ wasm_instance_new(wasm_store_t *store,
         uint32 export_cnt =
           ((AOTModuleInstance *)instance->inst_comm_rt)->export_func_count;
 
-        INIT_VEC(instance->exports, wasm_extern_vec, export_cnt);
+        INIT_VEC(instance->exports, wasm_extern_vec_new_uninitialized,
+                 export_cnt);
 
         if (!aot_process_export(store,
                                 (AOTModuleInstance *)instance->inst_comm_rt,
@@ -2591,7 +3310,7 @@ failed:
     return NULL;
 }
 
-void
+static void
 wasm_instance_delete_internal(wasm_instance_t *instance)
 {
     if (!instance) {
@@ -2608,58 +3327,46 @@ wasm_instance_delete_internal(wasm_instance_t *instance)
     wasm_runtime_free(instance);
 }
 
-/* will release instance when releasing the store */
 void
 wasm_instance_delete(wasm_instance_t *module)
 {
-    /* pass */
+    /* will release instance when releasing the store */
 }
 
 void
-wasm_instance_exports(const wasm_instance_t *instance, wasm_extern_vec_t *out)
+wasm_instance_exports(const wasm_instance_t *instance,
+                      own wasm_extern_vec_t *out)
 {
     bh_assert(instance && out);
     wasm_extern_vec_copy(out, instance->exports);
-}
-
-void
-wasm_instance_vec_new_uninitialized(wasm_instance_vec_t *out, size_t size)
-{
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_instance_t *));
-}
-
-void
-wasm_instance_vec_delete(wasm_instance_vec_t *instance_vec)
-{
-    size_t i = 0;
-    if (!instance_vec || !instance_vec->data) {
-        return;
-    }
-
-    FREE_VEC_ELEMS(instance_vec, wasm_instance_delete_internal);
-    bh_vector_destroy((Vector *)instance_vec);
 }
 
 wasm_extern_t *
 wasm_extern_copy(const wasm_extern_t *src)
 {
     wasm_extern_t *dst = NULL;
-    wasm_func_t *func = NULL;
-    wasm_global_t *global = NULL;
     bh_assert(src);
 
     switch (wasm_extern_kind(src)) {
         case WASM_EXTERN_FUNC:
-            func = wasm_func_copy(wasm_extern_as_func_const(src));
-            dst = wasm_func_as_extern(func);
+            dst = wasm_func_as_extern(
+              wasm_func_copy(wasm_extern_as_func_const(src)));
             break;
         case WASM_EXTERN_GLOBAL:
-            global = wasm_global_copy(wasm_extern_as_global_const(src));
-            dst = wasm_global_as_extern(global);
+            dst = wasm_global_as_extern(
+              wasm_global_copy(wasm_extern_as_global_const(src)));
             break;
         case WASM_EXTERN_MEMORY:
+            dst = wasm_memory_as_extern(
+              wasm_memory_copy(wasm_extern_as_memory_const(src)));
+            break;
         case WASM_EXTERN_TABLE:
+            dst = wasm_table_as_extern(
+              wasm_table_copy(wasm_extern_as_table_const(src)));
+            break;
         default:
+            LOG_WARNING("%s meets unsupported kind: %d", __FUNCTION__,
+                        src->kind);
             break;
     }
 
@@ -2690,8 +3397,14 @@ wasm_extern_delete(wasm_extern_t *external)
             wasm_global_delete(wasm_extern_as_global(external));
             break;
         case WASM_EXTERN_MEMORY:
+            wasm_memory_delete(wasm_extern_as_memory(external));
+            break;
         case WASM_EXTERN_TABLE:
+            wasm_table_delete(wasm_extern_as_table(external));
+            break;
         default:
+            LOG_WARNING("%s meets unsupported kind: %d", __FUNCTION__,
+                        external->kind);
             break;
     }
 }
@@ -2699,102 +3412,73 @@ wasm_extern_delete(wasm_extern_t *external)
 wasm_externkind_t
 wasm_extern_kind(const wasm_extern_t *extrenal)
 {
-    return (wasm_externkind_t)extrenal->kind;
+    return extrenal->kind;
 }
 
-wasm_func_t *
-wasm_extern_as_func(wasm_extern_t *external)
+own wasm_externtype_t *
+wasm_extern_type(const wasm_extern_t *external)
 {
-    return (wasm_func_t *)external;
+    switch (wasm_extern_kind(external)) {
+        case WASM_EXTERN_FUNC:
+            return wasm_functype_as_externtype(
+              wasm_func_type(wasm_extern_as_func_const(external)));
+        case WASM_EXTERN_GLOBAL:
+            return wasm_globaltype_as_externtype(
+              wasm_global_type(wasm_extern_as_global_const(external)));
+        case WASM_EXTERN_MEMORY:
+            return wasm_memorytype_as_externtype(
+              wasm_memory_type(wasm_extern_as_memory_const(external)));
+        case WASM_EXTERN_TABLE:
+            return wasm_tabletype_as_externtype(
+              wasm_table_type(wasm_extern_as_table_const(external)));
+        default:
+            LOG_WARNING("%s meets unsupported kind: %d", __FUNCTION__,
+                        external->kind);
+            break;
+    }
+    return NULL;
 }
 
-const wasm_func_t *
-wasm_extern_as_func_const(const wasm_extern_t *external)
-{
-    return (const wasm_func_t *)external;
-}
+#define BASIC_FOUR_LIST(V)                                                    \
+    V(func)                                                                   \
+    V(global)                                                                 \
+    V(memory)                                                                 \
+    V(table)
 
-wasm_global_t *
-wasm_extern_as_global(wasm_extern_t *external)
-{
-    return (wasm_global_t *)external;
-}
-
-const wasm_global_t *
-wasm_extern_as_global_const(const wasm_extern_t *external)
-{
-    return (const wasm_global_t *)external;
-}
-
-wasm_memory_t *
-wasm_extern_as_memory(wasm_extern_t *external)
-{
-    return (wasm_memory_t *)external;
-}
-
-const wasm_memory_t *
-wasm_extern_as_memory_const(const wasm_extern_t *external)
-{
-    return (const wasm_memory_t *)external;
-}
-
-wasm_table_t *
-wasm_extern_as_table(wasm_extern_t *external)
-{
-    return (wasm_table_t *)external;
-}
-
-const wasm_table_t *
-wasm_extern_as_table_const(const wasm_extern_t *external)
-{
-    return (const wasm_table_t *)external;
-}
-
-void
-wasm_extern_vec_copy(wasm_extern_vec_t *out, const wasm_extern_vec_t *src)
-{
-    size_t i = 0;
-    bh_assert(out && src);
-
-    generic_vec_init_data((Vector *)out, src->size, sizeof(wasm_extern_t *));
-    if (!out->data) {
-        goto failed;
+#define WASM_EXTERN_AS_OTHER(name)                                            \
+    wasm_##name##_t *wasm_extern_as_##name(wasm_extern_t *external)           \
+    {                                                                         \
+        return (wasm_##name##_t *)external;                                   \
     }
 
-    for (i = 0; i < src->num_elems; ++i) {
-        wasm_extern_t *orig = *(src->data + i);
-        wasm_extern_t *cloned = wasm_extern_copy(orig);
-        if (!cloned) {
-            goto failed;
-        }
+BASIC_FOUR_LIST(WASM_EXTERN_AS_OTHER)
+#undef WASM_EXTERN_AS_OTHER
 
-        if (!bh_vector_append((Vector *)out, &cloned)) {
-            goto failed;
-        }
+#define WASM_OTHER_AS_EXTERN(name)                                            \
+    wasm_extern_t *wasm_##name##_as_extern(wasm_##name##_t *other)            \
+    {                                                                         \
+        return (wasm_extern_t *)other;                                        \
     }
 
-    return;
+BASIC_FOUR_LIST(WASM_OTHER_AS_EXTERN)
+#undef WASM_OTHER_AS_EXTERN
 
-failed:
-    LOG_DEBUG("%s failed", __FUNCTION__);
-    wasm_extern_vec_delete(out);
-    return;
-}
-
-void
-wasm_extern_vec_new_uninitialized(wasm_extern_vec_t *out, size_t size)
-{
-    generic_vec_init_data((Vector *)out, size, sizeof(wasm_extern_t *));
-}
-
-void
-wasm_extern_vec_delete(wasm_extern_vec_t *extern_vec)
-{
-    size_t i = 0;
-    if (!extern_vec || !extern_vec->data) {
-        return;
+#define WASM_EXTERN_AS_OTHER_CONST(name)                                      \
+    const wasm_##name##_t *wasm_extern_as_##name##_const(                     \
+      const wasm_extern_t *external)                                          \
+    {                                                                         \
+        return (const wasm_##name##_t *)external;                             \
     }
 
-    FREE_VEC_ELEMS(extern_vec, wasm_extern_delete);
-    bh_vector_destroy((Vector *)extern_vec);
-}
+BASIC_FOUR_LIST(WASM_EXTERN_AS_OTHER_CONST)
+#undef WASM_EXTERN_AS_OTHER_CONST
+
+#define WASM_OTHER_AS_EXTERN_CONST(name)                                      \
+    const wasm_extern_t *wasm_##name##_as_extern_const(                       \
+      const wasm_##name##_t *other)                                           \
+    {                                                                         \
+        return (const wasm_extern_t *)other;                                  \
+    }
+
+BASIC_FOUR_LIST(WASM_OTHER_AS_EXTERN_CONST)
+#undef WASM_OTHER_AS_EXTERN_CONST

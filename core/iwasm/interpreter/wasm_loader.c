@@ -377,7 +377,6 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
     }
 
     if (node) {
-        LOG_DEBUG("reuse %s", node->str);
         return node->str;
     }
 
@@ -613,7 +612,6 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
 
-    LOG_VERBOSE("Load type section success.\n");
     return true;
 fail:
     return false;
@@ -703,7 +701,8 @@ wasm_loader_resolve_function(const char *module_name,
     module_reg = wasm_runtime_find_module_registered(module_name);
     if (!module_reg
         || module_reg->module_type != Wasm_Module_Bytecode) {
-        LOG_DEBUG("can not find a module named %s for function", module_name);
+        LOG_DEBUG("can not find a module named %s for function %s",
+                  module_name, function_name);
         set_error_buf(error_buf, error_buf_size, "unknown import");
         return NULL;
     }
@@ -1722,8 +1721,6 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             /* 0x00/0x01/0x02/0x03 */
             kind = read_uint8(p);
 
-            LOG_DEBUG("import #%d: (%s, %s), kind: %d",
-                      i, sub_module_name, field_name, kind);
             switch (kind) {
                 case IMPORT_KIND_FUNC: /* import function */
                     bh_assert(import_functions);
@@ -1798,7 +1795,6 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
 
-    LOG_VERBOSE("Load import section success.\n");
     (void)u8;
     (void)u32;
     (void)type_index;
@@ -2007,7 +2003,6 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
-    LOG_VERBOSE("Load function section success.\n");
     return true;
 fail:
     return false;
@@ -2068,7 +2063,6 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
 
-    LOG_VERBOSE("Load table section success.\n");
     return true;
 fail:
     return false;
@@ -2110,7 +2104,6 @@ load_memory_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
 
-    LOG_VERBOSE("Load memory section success.\n");
     return true;
 fail:
     return false;
@@ -2181,7 +2174,6 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
 
-    LOG_VERBOSE("Load global section success.\n");
     return true;
 fail:
     return false;
@@ -2291,7 +2283,6 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
 
-    LOG_VERBOSE("Load export section success.\n");
     return true;
 fail:
     return false;
@@ -2556,7 +2547,6 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end, WASMModule *m
         return false;
     }
 
-    LOG_VERBOSE("Load table segment section success.\n");
     return true;
 fail:
     return false;
@@ -2672,7 +2662,6 @@ check_mem_index:
         return false;
     }
 
-    LOG_VERBOSE("Load data segment section success.\n");
     return true;
 fail:
     return false;
@@ -2694,7 +2683,6 @@ load_datacount_section(const uint8 *buf, const uint8 *buf_end, WASMModule *modul
         return false;
     }
 
-    LOG_VERBOSE("Load datacount section success.\n");
     return true;
 fail:
     return false;
@@ -2725,7 +2713,6 @@ load_code_section(const uint8 *buf, const uint8 *buf_end,
         return false;
     }
 
-    LOG_VERBOSE("Load code segment section success.\n");
     return true;
 fail:
     return false;
@@ -2765,7 +2752,6 @@ load_start_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         return false;
     }
 
-    LOG_VERBOSE("Load start section success.\n");
     return true;
 fail:
     return false;
@@ -2896,7 +2882,6 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         handle_name_section(p, p_end, module, error_buf, error_buf_size);
     }
 #endif
-    LOG_VERBOSE("Load custom section success.\n");
     return true;
 fail:
     return false;
@@ -2947,7 +2932,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     while (section) {
         buf = section->section_body;
         buf_end = buf + section->section_body_size;
-        LOG_DEBUG("load section, type: %d", section->section_type);
         switch (section->section_type) {
             case SECTION_TYPE_USER:
                 /* unsupported user section, ignore it. */

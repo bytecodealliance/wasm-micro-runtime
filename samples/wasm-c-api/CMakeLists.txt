@@ -82,6 +82,11 @@ if(NOT WAT2WASM)
   message(SEND_ERROR "can not find wat2wasm")
 endif()
 
+find_program(VALGRIND
+  valgrind
+  REQUIRED
+)
+
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set(MM_UTIL src/utils/multi_module_utils.c)
@@ -111,4 +116,16 @@ foreach(WAT_FILE ${WAT_FILES})
     SOURCES ${WAT_FILE}
   )
 endforeach()
-################################################
+
+# valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ${APPNAME}
+if(VALGRIND)
+  foreach(SRC ${SOURCES})
+    get_filename_component(APPNAME ${SRC} NAME_WE)
+    add_custom_target(${APPNAME}_LEAK_TEST
+      COMMAND ${VALGRIND} --tool=memcheck --leak-check=yes --show-reachable=yes ./${APPNAME}
+      DEPENDS ${APPNAME} #${APPNAME}_WASM
+      VERBATIM
+      SOURCES ${SRC}
+    )
+  endforeach()
+endif()

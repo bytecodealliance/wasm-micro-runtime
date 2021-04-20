@@ -7,41 +7,20 @@
 
 #define own
 
-// Print a Wasm value
-void wasm_val_print(wasm_val_t val) {
-  switch (val.kind) {
-    case WASM_I32: {
-      printf("%" PRIu32, val.of.i32);
-    } break;
-    case WASM_I64: {
-      printf("%" PRIu64, val.of.i64);
-    } break;
-    case WASM_F32: {
-      printf("%f", val.of.f32);
-    } break;
-    case WASM_F64: {
-      printf("%g", val.of.f64);
-    } break;
-    case WASM_ANYREF:
-    case WASM_FUNCREF: {
-      if (val.of.ref == NULL) {
-        printf("null");
-      } else {
-        printf("ref(%p)", val.of.ref);
-      }
-    } break;
-  }
-}
-
 // A function to be called from Wasm code.
-own wasm_trap_t* print_callback(
+own wasm_trap_t* callback(
   const wasm_val_t args[], wasm_val_t results[]
 ) {
   printf("Calling back...\n> ");
-  wasm_val_print(args[0]);
+  printf("> %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32"\n",
+    args[0].of.i32, args[1].of.i64,
+    args[2].of.i64, args[3].of.i32);
   printf("\n");
 
-  wasm_val_copy(&results[0], &args[0]);
+  wasm_val_copy(&results[0], &args[3]);
+  wasm_val_copy(&results[1], &args[1]);
+  wasm_val_copy(&results[2], &args[2]);
+  wasm_val_copy(&results[3], &args[0]);
   return NULL;
 }
 
@@ -68,7 +47,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("callback.wasm", "rb");
+  FILE* file = fopen("multi.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
@@ -96,21 +75,22 @@ int main(int argc, const char* argv[]) {
 
   // Create external print functions.
   printf("Creating callback...\n");
-  own wasm_functype_t* print_type = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
-  own wasm_func_t* print_func = wasm_func_new(store, print_type, print_callback);
+  wasm_valtype_t* types[4] = {
+    wasm_valtype_new_i32(), wasm_valtype_new_i64(),
+    wasm_valtype_new_i64(), wasm_valtype_new_i32()
+  };
+  own wasm_valtype_vec_t tuple1, tuple2;
+  wasm_valtype_vec_new(&tuple1, 4, types);
+  wasm_valtype_vec_copy(&tuple2, &tuple1);
+  own wasm_functype_t* callback_type = wasm_functype_new(&tuple1, &tuple2);
+  own wasm_func_t* callback_func =
+    wasm_func_new(store, callback_type, callback);
 
-  int i = 42;
-  own wasm_functype_t* closure_type = wasm_functype_new_0_1(wasm_valtype_new_i32());
-  own wasm_func_t* closure_func = wasm_func_new_with_env(store, closure_type, closure_callback, &i, NULL);
-
-  wasm_functype_delete(print_type);
-  wasm_functype_delete(closure_type);
+  wasm_functype_delete(callback_type);
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = {
-    wasm_func_as_extern(print_func), wasm_func_as_extern(closure_func)
-  };
+  const wasm_extern_t* imports[] = { wasm_func_as_extern(callback_func) };
   own wasm_instance_t* instance =
     wasm_instance_new(store, module, imports, NULL);
   if (!instance) {
@@ -118,8 +98,7 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
-  wasm_func_delete(print_func);
-  wasm_func_delete(closure_func);
+  wasm_func_delete(callback_func);
 
   // Extract export.
   printf("Extracting export...\n");
@@ -140,8 +119,12 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t args[2] = { WASM_I32_VAL(3), WASM_I32_VAL(4) };
-  wasm_val_t results[1] = { WASM_INIT_VAL };
+  wasm_val_t args[4] = {
+    WASM_I32_VAL(1), WASM_I64_VAL(2), WASM_I64_VAL(3), WASM_I32_VAL(4)
+  };
+  wasm_val_t results[4] = {
+    WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL
+  };
   if (wasm_func_call(run_func, args, results)) {
     printf("> Error calling function!\n");
     return 1;
@@ -151,7 +134,13 @@ int main(int argc, const char* argv[]) {
 
   // Print result.
   printf("Printing result...\n");
-  printf("> %u\n", results[0].of.i32);
+  printf("> %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32"\n",
+    results[0].of.i32, results[1].of.i64, results[2].of.i64, results[3].of.i32);
+
+  assert(results[0].of.i32 == 1);
+  assert(results[1].of.i64 == 2);
+  assert(results[2].of.i64 == 3);
+  assert(results[3].of.i32 == 4);
 
   // Shut down.
   printf("Shutting down...\n");
