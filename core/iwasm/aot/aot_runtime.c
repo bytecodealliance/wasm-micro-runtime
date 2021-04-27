@@ -784,11 +784,6 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
     uint64 size;
     uint32 i, func_index, ftype_index;
 
-    for (i = 0; i < module->export_count; i++) {
-        if (exports[i].kind == EXPORT_KIND_FUNC)
-            module_inst->export_func_count++;
-    }
-
     if (module_inst->export_func_count > 0) {
         /* Allocate memory */
         size = sizeof(AOTFunctionInstance)
@@ -829,6 +824,28 @@ static bool
 create_exports(AOTModuleInstance *module_inst, AOTModule *module,
                char *error_buf, uint32 error_buf_size)
 {
+    AOTExport *exports = module->exports;
+    uint32 i;
+
+    for (i = 0; i < module->export_count; i++) {
+        switch (exports[i].kind) {
+            case EXPORT_KIND_FUNC:
+                module_inst->export_func_count++;
+                break;
+            case EXPORT_KIND_GLOBAL:
+                module_inst->export_global_count++;
+                break;
+            case EXPORT_KIND_TABLE:
+                module_inst->export_tab_count++;
+                break;
+            case EXPORT_KIND_MEMORY:
+                module_inst->export_mem_count++;
+                break;
+            default:
+                return false;
+        }
+    }
+
     return create_export_funcs(module_inst, module,
                                error_buf, error_buf_size);
 }

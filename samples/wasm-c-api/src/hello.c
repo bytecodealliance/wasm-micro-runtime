@@ -4,14 +4,6 @@
 #include <inttypes.h>
 
 #include "wasm_c_api.h"
-#include "wasm_export.h"
-#include "bh_platform.h"
-
-extern bool
-reader(const char *module_name, uint8 **p_buffer, uint32 *p_size);
-
-extern void
-destroyer(uint8 *buffer, uint32 size);
 
 #define own
 
@@ -26,8 +18,6 @@ own wasm_trap_t* hello_callback(
 
 
 int main(int argc, const char* argv[]) {
-  wasm_runtime_set_module_reader(reader, destroyer);
-
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
@@ -35,11 +25,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_INTERP == 0
-  FILE* file = fopen("hello.aot", "rb");
-#else
   FILE* file = fopen("hello.wasm", "rb");
-#endif
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
@@ -65,25 +51,14 @@ int main(int argc, const char* argv[]) {
 
   wasm_byte_vec_delete(&binary);
 
-  // Create external print functions.
-  printf("Creating callback...\n");
-  own wasm_functype_t* hello_type = wasm_functype_new_0_0();
-  own wasm_func_t* hello_func =
-    wasm_func_new(store, hello_type, hello_callback);
-
-  wasm_functype_delete(hello_type);
-
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(hello_func) };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, NULL, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
   }
-
-  wasm_func_delete(hello_func);
 
   // Extract export.
   printf("Extracting export...\n");
@@ -93,21 +68,9 @@ int main(int argc, const char* argv[]) {
     printf("> Error accessing exports!\n");
     return 1;
   }
-  const wasm_func_t* run_func = wasm_extern_as_func(exports.data[0]);
-  if (run_func == NULL) {
-    printf("> Error accessing export!\n");
-    return 1;
-  }
 
   wasm_module_delete(module);
   wasm_instance_delete(instance);
-
-  // Call.
-  printf("Calling export...\n");
-  if (wasm_func_call(run_func, NULL, NULL)) {
-    printf("> Error calling function!\n");
-    return 1;
-  }
 
   wasm_extern_vec_delete(&exports);
 

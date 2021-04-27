@@ -20,85 +20,72 @@ include(ExternalProject)
 ExternalProject_Add(xnnpack
     PREFIX xnnpack
     GIT_REPOSITORY https://github.com/google/XNNPACK.git
-    GIT_TAG        2da0de89960b829c6fae74204a102db524e73047
+    GIT_TAG        master
     GIT_PROGRESS   ON
     SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
-    UPDATE_COMMAND git checkout .bazelrc BUILD.bazel emscripten.bzl
+    UPDATE_COMMAND git checkout .
                    && git apply ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack.patch
-                   && cmake -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/toolchain ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/toolchain
-                   # replace string "$ENV{HOME}" with actual home directory
-                   && sed -i "s|\$ENV{HOME}|$ENV{HOME}|g" ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/toolchain/emscripten_toolchain_config.bzl
     CONFIGURE_COMMAND ""
     BUILD_COMMAND  cd ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
-                   && bazel build -c opt --sandbox_writable_path=$ENV{HOME} --config=emscripten_wasm
-                        //:qs8_gemm_bench.wasm
-                        //:qs8_requantization_bench.wasm
-                        //:qu8_gemm_bench.wasm
-                        //:qu8_requantization_bench.wasm
-                        //:f16_igemm_bench.wasm
-                        //:f16_gemm_bench.wasm
-                        //:f16_spmm_bench.wasm
-                        //:f32_igemm_bench.wasm
-                        //:f16_relu_bench.wasm
-                        //:f32_conv_hwc_bench.wasm
-                        //:f32_conv_hwc2chw_bench.wasm
-                        //:f16_dwconv_bench.wasm
-                        //:f32_dwconv_bench.wasm
-                        //:f32_dwconv2d_chw_bench.wasm
-                        //:f32_gemm_bench.wasm
-                        //:f32_hswish_bench.wasm
-                        //:f32_raddexpminusmax_bench.wasm
-                        //:f32_raddextexp_bench.wasm
-                        //:f32_raddstoreexpminusmax_bench.wasm
-                        //:f32_relu_bench.wasm
-                        //:f32_rmax_bench.wasm
-                        //:f32_sigmoid_bench.wasm
-                        //:f32_spmm_bench.wasm
-                        //:f32_softmax_bench.wasm
-                        //:f32_vscaleexpminusmax_bench.wasm
-                        //:f32_vscaleextexp_bench.wasm
-                        //:f32_vsqrt_bench.wasm
-                        //:f32_im2col_gemm_bench.wasm
-                        //:rounding_bench.wasm
-                        //:average_pooling_bench.wasm
-                        //:bankers_rounding_bench.wasm
-                        //:ceiling_bench.wasm
-                        //:channel_shuffle_bench.wasm
-                        //:convolution_bench.wasm
-                        //:deconvolution_bench.wasm
-                        //:floor_bench.wasm
-                        //:global_average_pooling_bench.wasm
-                        //:hardswish_bench.wasm
-                        //:max_pooling_bench.wasm
-                        //:sigmoid_bench.wasm
-                        //:prelu_bench.wasm
-                        //:softmax_bench.wasm
-                        //:square_root_bench.wasm
-                        //:truncation_bench.wasm
-                        //:fp32_mobilenet_v1.wasm
-                        //:fp16_mobilenet_v1.wasm
-                        //:qs8_mobilenet_v1.wasm
-                        //:qs8_mobilenet_v2.wasm
-                        //:fp32_mobilenet_v2.wasm
-                        //:fp16_mobilenet_v2.wasm
-                        //:fp32_mobilenet_v3_large.wasm
-                        //:fp16_mobilenet_v3_large.wasm
-                        //:fp32_mobilenet_v3_small.wasm
-                        //:fp16_mobilenet_v3_small.wasm
-                        //:f32_dwconv_e2e_bench.wasm
-                        //:f32_gemm_e2e_bench.wasm
-                        //:end2end_bench.wasm
-                        //:f32_exp_eval.wasm
-                        //:f32_expminus_eval.wasm
-                        //:f32_extexp_eval.wasm
-                        //:f32_roundne_eval.wasm
-                        //:f32_roundd_eval.wasm
-                        //:f32_roundu_eval.wasm
-                        //:f32_roundz_eval.wasm
-                        //:f32_sigmoid_eval.wasm
-                        //:f32_sqrt_eval.wasm
+                   && bazel --output_user_root=build_user_output build -c opt --config=wasm
+                        //:qs8_gemm_bench
+                        //:qs8_requantization_bench
+                        //:qu8_gemm_bench
+                        //:qu8_requantization_bench
+                        //:f16_igemm_bench
+                        //:f16_gemm_bench
+                        //:f16_spmm_bench
+                        //:f32_igemm_bench
+                        //:f16_relu_bench
+                        //:f32_conv_hwc_bench
+                        //:f32_conv_hwc2chw_bench
+                        //:f16_dwconv_bench
+                        //:f32_dwconv_bench
+                        //:f32_dwconv2d_chw_bench
+                        //:f32_gemm_bench
+                        //:f32_hswish_bench
+                        //:f32_raddexpminusmax_bench
+                        //:f32_raddextexp_bench
+                        //:f32_raddstoreexpminusmax_bench
+                        //:f32_relu_bench
+                        //:f32_rmax_bench
+                        //:f32_sigmoid_bench
+                        //:f32_spmm_bench
+                        //:f32_softmax_bench
+                        //:f32_velu_bench
+                        //:f32_vscaleexpminusmax_bench
+                        //:f32_vscaleextexp_bench
+                        //:f32_vsqrt_bench
+                        //:f32_im2col_gemm_bench
+                        //:rounding_bench
+                        //:average_pooling_bench
+                        //:bankers_rounding_bench
+                        //:ceiling_bench
+                        //:channel_shuffle_bench
+                        //:convolution_bench
+                        //:deconvolution_bench
+                        //:elu_bench
+                        //:floor_bench
+                        //:global_average_pooling_bench
+                        //:hardswish_bench
+                        //:max_pooling_bench
+                        //:sigmoid_bench
+                        //:prelu_bench
+                        //:softmax_bench
+                        //:square_root_bench
+                        //:truncation_bench
+                        //:f32_dwconv_e2e_bench
+                        //:f32_gemm_e2e_bench
+                        //:qs8_gemm_e2e_bench
+                        //:end2end_bench
+                        //:f32_exp_ulp_eval
+                        //:f32_expminus_ulp_eval
+                        //:f32_expm1minus_ulp_eval
+                        //:f32_extexp_ulp_eval
+                        //:f32_sigmoid_ulp_eval
+                        //:f32_sqrt_ulp_eval
                         #--sandbox_debug
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E create_symlink
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
                       ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/bazel-out/wasm-opt/bin/
                       ${CMAKE_CURRENT_SOURCE_DIR}/build/wasm-opt
 )

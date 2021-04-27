@@ -377,7 +377,6 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
     }
 
     if (node) {
-        LOG_DEBUG("reuse %s", node->str);
         return node->str;
     }
 
@@ -703,7 +702,8 @@ wasm_loader_resolve_function(const char *module_name,
     module_reg = wasm_runtime_find_module_registered(module_name);
     if (!module_reg
         || module_reg->module_type != Wasm_Module_Bytecode) {
-        LOG_DEBUG("can not find a module named %s for function", module_name);
+        LOG_DEBUG("can not find a module named %s for function %s",
+                  module_name, function_name);
         set_error_buf(error_buf, error_buf_size, "unknown import");
         return NULL;
     }
@@ -1722,8 +1722,6 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             /* 0x00/0x01/0x02/0x03 */
             kind = read_uint8(p);
 
-            LOG_DEBUG("import #%d: (%s, %s), kind: %d",
-                      i, sub_module_name, field_name, kind);
             switch (kind) {
                 case IMPORT_KIND_FUNC: /* import function */
                     bh_assert(import_functions);
@@ -2947,7 +2945,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     while (section) {
         buf = section->section_body;
         buf_end = buf + section->section_body_size;
-        LOG_DEBUG("load section, type: %d", section->section_type);
         switch (section->section_type) {
             case SECTION_TYPE_USER:
                 /* unsupported user section, ignore it. */
