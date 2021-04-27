@@ -17,7 +17,6 @@ ARG WASI_SDK_VER=12
 ARG WABT_VER=1.0.20
 ARG CMAKE_VER=3.16.2
 ARG BINARYEN_VER=version_97
-ARG BAZEL_VER=3.7.0
 
 #
 # install wasi-sdk
@@ -66,13 +65,13 @@ RUN cd /opt \
     && rm ${BINARYEN_FILE}  \
     && ln -sf /opt/binaryen-${BINARYEN_VER} /opt/binaryen
 
-# #
-# # install bazel
-# ARG BAZEL_FILE=bazel-${BAZEL_VER}-installer-linux-x86_64.sh
-# COPY ${BAZEL_FILE} /tmp
-# RUN cd /tmp \
-#       && chmod a+x ${BAZEL_FILE} \
-#       && ./${BAZEL_FILE}
+#
+# install bazelisk
+ARG BAZEL_FILE="bazelisk-linux-amd64"
+COPY ${BAZEL_FILE} /opt/bazelisk/bin/bazelisk
+RUN cd /opt/bazelisk/bin/ \
+      && chmod a+x bazelisk \
+      && ln -sf /opt/bazelisk/bin/bazelisk /usr/local/bin/bazel
 
 #
 # Clean up

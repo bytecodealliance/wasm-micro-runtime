@@ -454,14 +454,16 @@ wasm_runtime_destroy_registered_module_list()
         bh_list_remove(registered_module_list, reg_module);
 
         /* now, it is time to release every module in the runtime */
+        if (reg_module->module->module_type == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
-        if (reg_module->module->module_type == Wasm_Module_Bytecode)
             wasm_unload((WASMModule *)reg_module->module);
 #endif
+        }
+        else {
 #if WASM_ENABLE_AOT != 0
-        if (reg_module->module->module_type == Wasm_Module_AoT)
             aot_unload((AOTModule *)reg_module->module);
 #endif
+        }
 
         /* destroy the file buffer */
         if (destroyer && reg_module->orig_file_buf) {
@@ -4317,4 +4319,245 @@ wasm_runtime_dump_call_stack(WASMExecEnv *exec_env)
 #endif
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
+
+bool
+wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
+                                  const WASMExport *export,
+                                  WASMType **out)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = (WASMModule *)module_comm;
+
+        if (export->index < module->import_function_count) {
+            *out =
+              module->import_functions[export->index].u.function.func_type;
+        }
+        else {
+            *out =
+              module->functions[export->index - module->import_function_count]
+                ->func_type;
+        }
+        return true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_comm->module_type == Wasm_Module_AoT) {
+        AOTModule *module = (AOTModule *)module_comm;
+
+        if (export->index < module->import_func_count) {
+            *out = module->func_types[module->import_funcs[export->index]
+                                        .func_type_index];
+        }
+        else {
+            *out =
+              module->func_types[module->func_type_indexes
+                                  [export->index - module->import_func_count]];
+        }
+        return true;
+    }
+#endif
+    return false;
+}
+
+bool
+wasm_runtime_get_export_global_type(const WASMModuleCommon *module_comm,
+                                    const WASMExport *export,
+                                    uint8 *out_val_type,
+                                    bool *out_mutability)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = (WASMModule *)module_comm;
+
+        if (export->index < module->import_global_count) {
+            WASMGlobalImport *import_global =
+              &((module->import_globals + export->index)->u.global);
+            *out_val_type = import_global->type;
+            *out_mutability = import_global->is_mutable;
+        }
+        else {
+            WASMGlobal *global =
+              module->globals + (export->index - module->import_global_count);
+            *out_val_type = global->type;
+            *out_mutability = global->is_mutable;
+        }
+        return true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_comm->module_type == Wasm_Module_AoT) {
+        AOTModule *module = (AOTModule *)module_comm;
+
+        if (export->index < module->import_global_count) {
+            AOTImportGlobal *import_global =
+              module->import_globals + export->index;
+            *out_val_type = import_global->type;
+            *out_mutability = import_global->is_mutable;
+        }
+        else {
+            AOTGlobal *global =
+              module->globals + (export->index - module->import_global_count);
+            *out_val_type = global->type;
+            *out_mutability = global->is_mutable;
+        }
+        return true;
+    }
+#endif
+    return false;
+}
+
+bool
+wasm_runtime_get_export_memory_type(const WASMModuleCommon *module_comm,
+                                    const WASMExport *export,
+                                    uint32 *out_min_page,
+                                    uint32 *out_max_page)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = (WASMModule *)module_comm;
+
+        if (export->index < module->import_memory_count) {
+            WASMMemoryImport *import_memory =
+              &((module->import_memories + export->index)->u.memory);
+            *out_min_page = import_memory->init_page_count;
+            *out_max_page = import_memory->max_page_count;
+        }
+        else {
+            WASMMemory *memory =
+              module->memories + (export->index - module->import_memory_count);
+            *out_min_page = memory->init_page_count;
+            *out_max_page = memory->max_page_count;
+        }
+        return true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_comm->module_type == Wasm_Module_AoT) {
+        AOTModule *module = (AOTModule *)module_comm;
+
+        if (export->index < module->import_memory_count) {
+            AOTImportMemory *import_memory =
+              module->import_memories + export->index;
+            *out_min_page = import_memory->mem_init_page_count;
+            *out_max_page = import_memory->mem_max_page_count;
+        }
+        else {
+            AOTMemory *memory =
+              module->memories + (export->index - module->import_memory_count);
+            *out_min_page = memory->mem_init_page_count;
+            *out_max_page = memory->mem_max_page_count;
+        }
+        return true;
+    }
+#endif
+    return false;
+}
+
+bool
+wasm_runtime_get_export_table_type(const WASMModuleCommon *module_comm,
+                                   const WASMExport *export,
+                                   uint8 *out_elem_type,
+                                   uint32 *out_min_size,
+                                   uint32 *out_max_size)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModule *module = (WASMModule *)module_comm;
+
+        if (export->index < module->import_table_count) {
+            WASMTableImport *import_table =
+              &((module->import_tables + export->index)->u.table);
+            *out_elem_type = import_table->elem_type;
+            *out_min_size = import_table->init_size;
+            *out_max_size = import_table->max_size;
+        }
+        else {
+            WASMTable *table =
+              module->tables + (export->index - module->import_table_count);
+            *out_elem_type = table->elem_type;
+            *out_min_size = table->init_size;
+            *out_max_size = table->max_size;
+        }
+        return true;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_comm->module_type == Wasm_Module_AoT) {
+        AOTModule *module = (AOTModule *)module_comm;
+
+        if (export->index < module->import_table_count) {
+            AOTImportTable *import_table =
+              module->import_tables + export->index;
+            *out_elem_type = VALUE_TYPE_FUNCREF;
+            *out_min_size = import_table->table_init_size;
+            *out_max_size = import_table->table_max_size;
+        }
+        else {
+            AOTTable *table =
+              module->tables + (export->index - module->import_table_count);
+            *out_elem_type = table->elem_type;
+            *out_min_size = table->table_init_size;
+            *out_max_size = table->table_max_size;
+        }
+        return true;
+    }
+#endif
+      return false;
+}
+
+uint8 *
+wasm_runtime_get_memory_data(const WASMModuleInstanceCommon *module_inst_comm,
+                             uint32 memory_inst_idx)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst =
+          (WASMModuleInstance *)module_inst_comm;
+        WASMMemoryInstance *memory_inst =
+          module_inst->memories[memory_inst_idx];
+        return memory_inst->memory_data;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst_comm->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
+        AOTMemoryInstance *memory_inst =
+          (AOTMemoryInstance*)module_inst->memories.ptr + memory_inst_idx;
+        return memory_inst->memory_data.ptr;
+    }
+#endif
+    return NULL;
+}
+
+uint32
+wasm_runtime_get_memory_data_size(
+  const WASMModuleInstanceCommon *module_inst_comm,
+  uint32 memory_inst_idx)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
+        WASMModuleInstance *module_inst =
+          (WASMModuleInstance *)module_inst_comm;
+        WASMMemoryInstance *memory_inst =
+          module_inst->memories[memory_inst_idx];
+        return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst_comm->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
+        AOTMemoryInstance *memory_inst =
+          (AOTMemoryInstance*)module_inst->memories.ptr + memory_inst_idx;
+        return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
+    }
+#endif
+    return 0;
+}
 

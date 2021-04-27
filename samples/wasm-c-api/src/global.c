@@ -4,14 +4,6 @@
 #include <inttypes.h>
 
 #include "wasm_c_api.h"
-#include "wasm_export.h"
-#include "bh_platform.h"
-
-extern bool
-reader(const char *module_name, uint8 **p_buffer, uint32 *p_size);
-
-extern void
-destroyer(uint8 *buffer, uint32 size);
 
 #define own
 
@@ -54,8 +46,6 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
 
 
 int main(int argc, const char* argv[]) {
-  wasm_runtime_set_module_reader(reader, destroyer);
-
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
@@ -63,11 +53,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_INTERP == 0
-  FILE* file = fopen("global.aot", "rb");
-#else
   FILE* file = fopen("global.wasm", "rb");
-#endif
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
@@ -104,16 +90,16 @@ int main(int argc, const char* argv[]) {
   own wasm_globaltype_t* var_i64_type = wasm_globaltype_new(
     wasm_valtype_new(WASM_I64), WASM_VAR);
 
-  wasm_val_t val_f32_1 = {.kind = WASM_F32, .of = {.f32 = 1}};
+  wasm_val_t val_f32_1 = WASM_F32_VAL(1);
   own wasm_global_t* const_f32_import =
     wasm_global_new(store, const_f32_type, &val_f32_1);
-  wasm_val_t val_i64_2 = {.kind = WASM_I64, .of = {.i64 = 2}};
+  wasm_val_t val_i64_2 = WASM_I64_VAL(2);
   own wasm_global_t* const_i64_import =
     wasm_global_new(store, const_i64_type, &val_i64_2);
-  wasm_val_t val_f32_3 = {.kind = WASM_F32, .of = {.f32 = 3}};
+  wasm_val_t val_f32_3 = WASM_F32_VAL(3);
   own wasm_global_t* var_f32_import =
     wasm_global_new(store, var_f32_type, &val_f32_3);
-  wasm_val_t val_i64_4 = {.kind = WASM_I64, .of = {.i64 = 4}};
+  wasm_val_t val_i64_4 = WASM_I64_VAL(4);
   own wasm_global_t* var_i64_import =
     wasm_global_new(store, var_i64_type, &val_i64_4);
 
@@ -189,13 +175,13 @@ int main(int argc, const char* argv[]) {
   check_call(get_var_i64_export, i64, 8);
 
   // Modify variables through API and check again.
-  wasm_val_t val33 = {.kind = WASM_F32, .of = {.f32 = 33}};
+  wasm_val_t val33 = WASM_F32_VAL(33);
   wasm_global_set(var_f32_import, &val33);
-  wasm_val_t val34 = {.kind = WASM_I64, .of = {.i64 = 34}};
+  wasm_val_t val34 = WASM_I64_VAL(34);
   wasm_global_set(var_i64_import, &val34);
-  wasm_val_t val37 = {.kind = WASM_F32, .of = {.f32 = 37}};
+  wasm_val_t val37 = WASM_F32_VAL(37);
   wasm_global_set(var_f32_export, &val37);
-  wasm_val_t val38 = {.kind = WASM_I64, .of = {.i64 = 38}};
+  wasm_val_t val38 = WASM_I64_VAL(38);
   wasm_global_set(var_i64_export, &val38);
 
   check_global(var_f32_import, f32, 33);
@@ -209,13 +195,13 @@ int main(int argc, const char* argv[]) {
   check_call(get_var_i64_export, i64, 38);
 
   // Modify variables through calls and check again.
-  wasm_val_t args73[] = { {.kind = WASM_F32, .of = {.f32 = 73}} };
+  wasm_val_t args73[] = { WASM_F32_VAL(73) };
   wasm_func_call(set_var_f32_import, args73, NULL);
-  wasm_val_t args74[] = { {.kind = WASM_I64, .of = {.i64 = 74}} };
+  wasm_val_t args74[] = { WASM_I64_VAL(74) };
   wasm_func_call(set_var_i64_import, args74, NULL);
-  wasm_val_t args77[] = { {.kind = WASM_F32, .of = {.f32 = 77}} };
+  wasm_val_t args77[] = { WASM_F32_VAL(77) };
   wasm_func_call(set_var_f32_export, args77, NULL);
-  wasm_val_t args78[] = { {.kind = WASM_I64, .of = {.i64 = 78}} };
+  wasm_val_t args78[] = { WASM_I64_VAL(78) };
   wasm_func_call(set_var_i64_export, args78, NULL);
 
   check_global(var_f32_import, f32, 73);

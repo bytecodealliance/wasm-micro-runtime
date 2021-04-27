@@ -3417,21 +3417,18 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
     if (function->is_import_func) {
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (function->import_module_inst) {
-            LOG_DEBUG("it is a function of a sub module");
             wasm_interp_call_func_import(module_inst, exec_env,
                                          function, frame);
         }
         else
 #endif
         {
-            LOG_DEBUG("it is an native function");
             /* it is a native function */
             wasm_interp_call_func_native(module_inst, exec_env,
                                          function, frame);
         }
     }
     else {
-        LOG_DEBUG("it is a function of the module itself");
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
     }
 
@@ -3439,13 +3436,6 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
     if (!wasm_get_exception(module_inst)) {
         for (i = 0; i < function->ret_cell_num; i++) {
             argv[i] = *(frame->sp + i - function->ret_cell_num);
-        }
-
-        if (function->ret_cell_num) {
-            LOG_DEBUG("first return value argv[0]=%d", argv[0]);
-        }
-        else {
-            LOG_DEBUG("no return value");
         }
     }
     else {

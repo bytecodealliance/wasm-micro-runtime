@@ -24,17 +24,9 @@ WASM_DECLARE_VEC(module, *)
 WASM_DECLARE_VEC(instance, *)
 
 /* Runtime Environment */
-typedef enum runtime_mode_e {
-    INTERP_MODE = 0,
-    JIT_MODE,
-    AOT_MODE
-} runtime_mode_e;
-
 struct wasm_engine_t {
     /* support one store for now */
     wasm_store_vec_t *stores;
-    /* Interpreter by deault */
-    runtime_mode_e mode;
 };
 
 struct wasm_store_t {
@@ -64,13 +56,13 @@ struct wasm_globaltype_t {
 struct wasm_tabletype_t {
     uint32 extern_kind;
     /* always be WASM_FUNCREF */
-    wasm_valtype_t *type;
-    wasm_limits_t *limits;
+    wasm_valtype_t *val_type;
+    wasm_limits_t limits;
 };
 
 struct wasm_memorytype_t {
     uint32 extern_kind;
-    wasm_limits_t *limits;
+    wasm_limits_t limits;
 };
 
 struct wasm_externtype_t {
@@ -78,16 +70,15 @@ struct wasm_externtype_t {
     uint8 data[1];
 };
 
-struct wasm_import_type_t {
-    uint32 extern_kind;
+struct wasm_importtype_t {
     wasm_name_t *module_name;
     wasm_name_t *name;
+    wasm_externtype_t *extern_type;
 };
 
-struct wasm_export_type_t {
-    uint32 extern_kind;
-    wasm_name_t *module_name;
+struct wasm_exporttype_t {
     wasm_name_t *name;
+    wasm_externtype_t *extern_type;
 };
 
 /* Runtime Objects */
@@ -104,7 +95,7 @@ struct wasm_func_t {
     wasm_name_t *name;
     uint16 kind;
 
-    wasm_functype_t *func_type;
+    wasm_functype_t *type;
 
     bool with_env;
     union {
@@ -169,7 +160,7 @@ struct wasm_table_t {
 struct wasm_extern_t {
     wasm_name_t *module_name;
     wasm_name_t *name;
-    uint16 kind;
+    wasm_externkind_t kind;
     uint8 data[1];
 };
 

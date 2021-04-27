@@ -744,6 +744,38 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
                                     bool ret, uint32 *argv);
 #endif
 
+bool
+wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
+                                  const WASMExport *export,
+                                  WASMType **out);
+
+bool
+wasm_runtime_get_export_global_type(const WASMModuleCommon *module_comm,
+                                    const WASMExport *export,
+                                    uint8 *out_val_type,
+                                    bool *out_mutability);
+
+bool
+wasm_runtime_get_export_memory_type(const WASMModuleCommon *module_comm,
+                                    const WASMExport *export,
+                                    uint32 *out_min_page,
+                                    uint32 *out_max_page);
+
+bool
+wasm_runtime_get_export_table_type(const WASMModuleCommon *module_comm,
+                                   const WASMExport *export,
+                                   uint8 *out_elem_type,
+                                   uint32 *out_min_size,
+                                   uint32 *out_max_size);
+
+uint8 *
+wasm_runtime_get_memory_data(const WASMModuleInstanceCommon *module_inst_comm,
+                             uint32 memory_inst_idx);
+
+uint32
+wasm_runtime_get_memory_data_size(const WASMModuleInstanceCommon *module_inst_comm,
+                                  uint32 memory_inst_idx);
+
 #ifdef __cplusplus
 }
 #endif
