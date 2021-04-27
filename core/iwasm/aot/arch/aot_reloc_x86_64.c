@@ -61,15 +61,22 @@ get_plt_item_size()
 uint32
 get_plt_table_size()
 {
-    return get_plt_item_size() * (sizeof(target_sym_map) / sizeof(SymbolMap));
+    uint32 size = get_plt_item_size()
+                  * (sizeof(target_sym_map) / sizeof(SymbolMap));
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    size += get_plt_item_size() + sizeof(AOTUnwindInfo);
+#endif
+    return size;
 }
 
 void
 init_plt_table(uint8 *plt)
 {
     uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
+    uint8 *p;
+
     for (i = 0; i < num; i++) {
-        uint8 *p = plt;
+        p = plt;
         /* mov symbol_addr, rax */
         *p++ = 0x48;
         *p++ = 0xB8;
@@ -80,6 +87,18 @@ init_plt_table(uint8 *plt)
         *p++ = 0xE0;
         plt += get_plt_item_size();
     }
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    p = plt;
+    /* mov exception_handler, rax */
+    *p++ = 0x48;
+	*p++ = 0xB8;
+    *(uint64*)p = (uint64)(uintptr_t)aot_exception_handler;
+    p += sizeof(uint64);
+    /* jmp rax */
+	*p++ = 0xFF;
+	*p++ = 0xE0;
+#endif
 }
 
 static bool
