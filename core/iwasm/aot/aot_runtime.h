@@ -88,6 +88,28 @@ typedef struct AOTFunctionInstance {
     } u;
 } AOTFunctionInstance;
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+typedef struct AOTUnwindInfo {
+    uint8 Version       : 3;
+    uint8 Flags         : 5;
+    uint8 SizeOfProlog;
+    uint8 CountOfCodes;
+    uint8 FrameRegister : 4;
+    uint8 FrameOffset   : 4;
+    struct {
+        struct {
+            uint8 CodeOffset;
+            uint8 UnwindOp : 4;
+            uint8 OpInfo   : 4;
+        };
+        uint16 FrameOffset;
+    } UnwindCode[1];
+} AOTUnwindInfo;
+
+/* size of mov instruction and jmp instruction */
+#define PLT_ITEM_SIZE 12
+#endif
+
 typedef struct AOTModule {
     uint32 module_type;
 
@@ -171,6 +193,14 @@ typedef struct AOTModule {
     uint32 xmm_plt_count;
     uint32 real_plt_count;
     uint32 float_plt_count;
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    /* dynamic function table to be added by RtlAddFunctionTable(),
+       used to unwind the call stack and register exception handler
+       for AOT functions */
+    RUNTIME_FUNCTION *rtl_func_table;
+    bool rtl_func_table_registered;
 #endif
 
     /* data sections in AOT object file, including .data, .rodata
@@ -629,6 +659,14 @@ aot_signal_init();
 
 void
 aot_signal_destroy();
+
+#ifdef BH_PLATFORM_WINDOWS
+EXCEPTION_DISPOSITION
+aot_exception_handler(PEXCEPTION_RECORD ExceptionRecord,
+                      ULONG64 EstablisherFrame,
+                      PCONTEXT ContextRecord,
+                      PDISPATCHER_CONTEXT DispatcherContext);
+#endif
 #endif
 
 void

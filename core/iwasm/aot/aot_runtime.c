@@ -339,6 +339,11 @@ memories_deinstantiate(AOTModuleInstance *module_inst)
 #ifndef OS_ENABLE_HW_BOUND_CHECK
                 wasm_runtime_free(memory_inst->memory_data.ptr);
 #else
+#ifdef BH_PLATFORM_WINDOWS
+                os_mem_decommit(memory_inst->memory_data.ptr,
+                                memory_inst->num_bytes_per_page
+                                * memory_inst->cur_page_count);
+#endif
                 os_munmap((uint8*)memory_inst->memory_data.ptr,
                           8 * (uint64)BH_GB);
 #endif
@@ -499,8 +504,19 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
         return NULL;
     }
 
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_mem_commit(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        set_error_buf(error_buf, error_buf_size, "commit memory failed");
+        os_munmap(mapped_mem, map_size);
+        return NULL;
+    }
+#endif
+
     if (os_mprotect(p, total_size, MMAP_PROT_READ | MMAP_PROT_WRITE) != 0) {
         set_error_buf(error_buf, error_buf_size, "mprotec memory failed");
+#ifdef BH_PLATFORM_WINDOWS
+        os_mem_decommit(p, total_size);
+#endif
         os_munmap(mapped_mem, map_size);
         return NULL;
     }
@@ -583,6 +599,10 @@ fail1:
     if (memory_inst->memory_data.ptr)
         wasm_runtime_free(memory_inst->memory_data.ptr);
 #else
+#ifdef BH_PLATFORM_WINDOWS
+    if (memory_inst->memory_data.ptr)
+        os_mem_decommit(p, total_size);
+#endif
     os_munmap(mapped_mem, map_size);
 #endif
     memory_inst->memory_data.ptr = NULL;
@@ -1129,8 +1149,16 @@ aot_lookup_function(const AOTModuleInstance *module_inst,
 
 static os_thread_local_attribute WASMExecEnv *aot_exec_env = NULL;
 
+#ifndef BH_PLATFORM_WINDOWS
 static void
 aot_signal_handler(void *sig_addr)
+#else
+EXCEPTION_DISPOSITION
+aot_exception_handler(PEXCEPTION_RECORD ExceptionRecord,
+                      ULONG64 EstablisherFrame,
+                      PCONTEXT ContextRecord,
+                      PDISPATCHER_CONTEXT DispatcherContext)
+#endif
 {
     AOTModuleInstance *module_inst;
     AOTMemoryInstance *memory_inst;
@@ -1140,11 +1168,18 @@ aot_signal_handler(void *sig_addr)
     uint8 *stack_min_addr;
     uint32 page_size;
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+#ifdef BH_PLATFORM_WINDOWS
+    uint8 *sig_addr = (uint8*)ExceptionRecord->ExceptionInformation[1];
+#endif
 
     /* Check whether current thread is running aot function */
     if (aot_exec_env
         && aot_exec_env->handle == os_self_thread()
-        && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)) {
+        && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)
+#ifdef BH_PLATFORM_WINDOWS
+        && ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION
+#endif
+        ) {
         /* Get mapped mem info of current instance */
         module_inst = (AOTModuleInstance *)aot_exec_env->module_inst;
         /* Get the default memory instance */
@@ -1176,18 +1211,60 @@ aot_signal_handler(void *sig_addr)
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
     }
+
+#ifdef BH_PLATFORM_WINDOWS
+    ContextRecord->Rip += 3;
+    return EXCEPTION_CONTINUE_SEARCH;
+    (void)EstablisherFrame;
+    (void)ContextRecord;
+    (void)DispatcherContext;
+#endif
 }
+
+#ifdef BH_PLATFORM_WINDOWS
+static LONG
+stack_overflow_handler(EXCEPTION_POINTERS *exce_info)
+{
+    AOTModuleInstance* module_inst;
+    WASMJmpBuf* jmpbuf_node;
+
+    /* Check whether it is stack overflow exception and
+       current thread is running aot function */
+    if (exce_info->ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW
+        && aot_exec_env
+        && aot_exec_env->handle == os_self_thread()
+        && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)) {
+        /* Set stack overflow exception and let the aot func continue
+           to run, when the aot func returns, the caller will check
+           whether the exception is thrown and return to runtime, and
+           the damaged stack will be recovered by _resetstkoflw(). */
+        module_inst = (AOTModuleInstance*)aot_exec_env->module_inst;
+        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
 
 bool
 aot_signal_init()
 {
+#ifndef BH_PLATFORM_WINDOWS
     return os_signal_init(aot_signal_handler) == 0 ? true : false;
+#else
+    return AddVectoredExceptionHandler(1, stack_overflow_handler)
+           ? true : false;
+#endif
 }
 
 void
 aot_signal_destroy()
 {
+#ifndef BH_PLATFORM_WINDOWS
     os_signal_destroy();
+#else
+    RemoveVectoredExceptionHandler(stack_overflow_handler);
+#endif
 }
 
 static bool
@@ -1201,6 +1278,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+#if BH_PLATFORM_WINDOWS
+    const char *exce;
+    int result;
+#endif
     bool ret;
 
     /* Check native stack overflow firstly to ensure we have enough
@@ -1226,6 +1307,15 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
                                          signature, attachment,
                                          argv, argc, argv_ret);
+#ifdef BH_PLATFORM_WINDOWS
+        if ((exce = aot_get_exception(module_inst))
+            && strstr(exce, "native stack overflow")) {
+            /* After a stack overflow, the stack was left
+               in a damaged state, let the CRT repair it */
+            result = _resetstkoflw();
+            bh_assert(result != 0);
+        }
+#endif
     }
     else {
         /* Exception has been set in signal handler before calling longjmp */
@@ -1992,9 +2082,21 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         return false;
     }
 
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_mem_commit(memory_inst->memory_data_end.ptr,
+                       num_bytes_per_page * inc_page_count,
+                       MMAP_PROT_READ | MMAP_PROT_WRITE)) {
+        return false;
+    }
+#endif
+
     if (os_mprotect(memory_inst->memory_data_end.ptr,
                     num_bytes_per_page * inc_page_count,
                     MMAP_PROT_READ | MMAP_PROT_WRITE) != 0) {
+#ifdef BH_PLATFORM_WINDOWS
+        os_mem_decommit(memory_inst->memory_data_end.ptr,
+                        num_bytes_per_page * inc_page_count);
+#endif
         return false;
     }
 

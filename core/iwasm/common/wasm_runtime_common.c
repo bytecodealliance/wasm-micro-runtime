@@ -2707,7 +2707,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
-                if (strncasecmp(argv[i], "null", 4) == 0) {
+                if (strncmp(argv[i], "null", 4) == 0
+                    || strncmp(argv[i], "NULL", 4) == 0) {
                     argv1[p++] = NULL_REF;
                 }
                 else {
@@ -2717,7 +2718,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             }
             case VALUE_TYPE_EXTERNREF:
             {
-                if (strncasecmp(argv[i], "null", 4) == 0) {
+                if (strncmp(argv[i], "null", 4) == 0
+                    || strncmp(argv[i], "NULL", 4) == 0) {
                     argv1[p++] = NULL_REF;
                 }
                 else {

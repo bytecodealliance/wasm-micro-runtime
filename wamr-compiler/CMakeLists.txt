@@ -76,9 +76,11 @@ message ("-- Build as target ${WAMR_BUILD_TARGET}")
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
   if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64" OR WAMR_BUILD_TARGET MATCHES "AARCH64.*")
-    # Add -fPIC flag if build as 64-bit
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-    set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
+    if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
+      # Add -fPIC flag if build as 64-bit
+      set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+      set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS} -fPIC")
+    endif ()
   else ()
     add_definitions (-m32)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")

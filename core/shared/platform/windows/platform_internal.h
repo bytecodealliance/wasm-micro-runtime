@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <malloc.h>
 #include <Windows.h>
 
 #ifdef __cplusplus
@@ -49,13 +50,34 @@ typedef struct {
     unsigned int waiting_count;
 } korp_cond;
 
-static inline size_t
-getpagesize()
-{
-    SYSTEM_INFO S;
-    GetNativeSystemInfo(&S);
-    return S.dwPageSize;
-}
+unsigned os_getpagesize();
+void *os_mem_commit(void *ptr, size_t size, int flags);
+void os_mem_decommit(void *ptr, size_t size);
+
+#define os_thread_local_attribute __declspec(thread)
+
+#if WASM_DISABLE_HW_BOUND_CHECK == 0
+#if defined(BUILD_TARGET_X86_64) \
+    || defined(BUILD_TARGET_AMD_64)
+
+#include <setjmp.h>
+
+#define OS_ENABLE_HW_BOUND_CHECK
+
+typedef jmp_buf korp_jmpbuf;
+
+#define os_setjmp setjmp
+#define os_longjmp longjmp
+
+bool os_thread_init_stack_guard_pages();
+
+void os_thread_destroy_stack_guard_pages();
+
+#define os_signal_unmask() (void)0
+#define os_sigreturn() (void)0
+
+#endif /* end of BUILD_TARGET_X86_64/AMD_64 */
+#endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
 #ifdef __cplusplus
 }

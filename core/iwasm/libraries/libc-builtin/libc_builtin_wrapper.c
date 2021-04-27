@@ -657,7 +657,11 @@ strcpy_wrapper(wasm_exec_env_t exec_env, char *dst, const char *src)
     if (!validate_native_addr(dst, len))
         return 0;
 
+#ifndef BH_PLATFORM_WINDOWS
     strncpy(dst, src, len);
+#else
+    strncpy_s(dst, len, src, len);
+#endif
     return addr_native_to_app(dst);
 }
 
@@ -671,7 +675,11 @@ strncpy_wrapper(wasm_exec_env_t exec_env,
     if (!validate_native_addr(dst, size))
         return 0;
 
+#ifndef BH_PLATFORM_WINDOWS
     strncpy(dst, src, size);
+#else
+    strncpy_s(dst, size, src, size);
+#endif
     return addr_native_to_app(dst);
 }
 

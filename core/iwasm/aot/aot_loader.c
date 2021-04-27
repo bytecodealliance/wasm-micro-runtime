@@ -1042,7 +1042,8 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
         read_uint32(buf, buf_end, data_sections[i].size);
 
         /* Allocate memory for data */
-        if (!(data_sections[i].data =
+        if (data_sections[i].size > 0
+            && !(data_sections[i].data =
                     os_mmap(NULL, data_sections[i].size, map_prot, map_flags))) {
             set_error_buf(error_buf, error_buf_size,
                           "allocate memory failed");
@@ -1179,6 +1180,27 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    RUNTIME_FUNCTION *rtl_func_table;
+    AOTUnwindInfo *unwind_info;
+    uint32 unwind_info_offset = module->code_size - sizeof(AOTUnwindInfo);
+    uint32 unwind_code_offset = unwind_info_offset - PLT_ITEM_SIZE;
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    unwind_info= (AOTUnwindInfo *)((uint8*)module->code + module->code_size
+                                   - sizeof(AOTUnwindInfo));
+    unwind_info->Version = 1;
+    unwind_info->Flags = UNW_FLAG_EHANDLER;
+    *(uint32*)&unwind_info->UnwindCode[0] = unwind_code_offset;
+
+    size = sizeof(RUNTIME_FUNCTION) * (uint64)module->func_count;
+    if (size > 0
+        && !(rtl_func_table = module->rtl_func_table =
+                loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+#endif
 
     size = sizeof(void*) * (uint64)module->func_count;
     if (size > 0
@@ -1206,7 +1228,29 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void*)((uintptr_t)module->func_ptrs[i] | 1);
 #endif
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+        rtl_func_table[i].BeginAddress = (DWORD)text_offset;
+        if (i > 0) {
+            rtl_func_table[i].EndAddress = rtl_func_table[i - 1].BeginAddress;
+        }
+        rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
+#endif
     }
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    if (module->func_count > 0) {
+        rtl_func_table[module->func_count - 1].EndAddress =
+                    (DWORD)(module->code_size - get_plt_table_size());
+
+        if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
+                                 (DWORD64)(uintptr_t)module->code)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "add dynamic function table failed");
+            return false;
+        }
+        module->rtl_func_table_registered = true;
+    }
+#endif
 
     /* Set start function when function pointers are resolved */
     if (module->start_func_index != (uint32)-1) {
@@ -2618,6 +2662,14 @@ aot_unload(AOTModule *module)
 #if defined(BH_PLATFORM_WINDOWS)
     if (module->extra_plt_data) {
         os_munmap(module->extra_plt_data, module->extra_plt_data_size);
+    }
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    if (module->rtl_func_table) {
+        if (module->rtl_func_table_registered)
+            RtlDeleteFunctionTable(module->rtl_func_table);
+        wasm_runtime_free(module->rtl_func_table);
     }
 #endif
 

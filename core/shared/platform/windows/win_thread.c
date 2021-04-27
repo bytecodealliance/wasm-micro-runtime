@@ -149,7 +149,32 @@ void os_thread_exit(void *retval)
 {
 }
 
+static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
+
 uint8 *os_thread_get_stack_boundary()
 {
-    return NULL;
+    ULONG_PTR low_limit = 0, high_limit = 0;
+    uint32 page_size;
+
+    if (thread_stack_boundary)
+        return thread_stack_boundary;
+
+    page_size = os_getpagesize();
+    GetCurrentThreadStackLimits(&low_limit, &high_limit);
+    /* 4 pages are set unaccessible by system, we reserved
+       one more page at least for safety */
+    thread_stack_boundary = (uint8*)(uintptr_t)low_limit + page_size * 5;
+    return thread_stack_boundary;
 }
+
+bool
+os_thread_init_stack_guard_pages()
+{
+    return true;
+}
+
+void
+os_thread_destroy_stack_guard_pages()
+{
+}
+
