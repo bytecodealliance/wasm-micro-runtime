@@ -1203,7 +1203,7 @@ wasm_trap_new_internal(const char *string)
         goto failed;
     }
 
-    wasm_name_new_from_string_nt(trap->message, string);
+    wasm_name_new_from_string(trap->message, string);
     if (strlen(string) && !trap->message->data) {
         goto failed;
     }
@@ -1409,12 +1409,12 @@ wasm_module_imports(const wasm_module_t *module,
                 continue;
             }
 
-            wasm_name_new_from_string_nt(&module_name, module_name_rt);
+            wasm_name_new_from_string(&module_name, module_name_rt);
             if (strlen(module_name_rt) && !module_name.data) {
                 goto failed;
             }
 
-            wasm_name_new_from_string_nt(&name, field_name_rt);
+            wasm_name_new_from_string(&name, field_name_rt);
             if (strlen(field_name_rt) && !name.data) {
                 goto failed;
             }
@@ -1494,12 +1494,12 @@ wasm_module_imports(const wasm_module_t *module,
                 continue;
             }
 
-            wasm_name_new_from_string_nt(&module_name, module_name_rt);
+            wasm_name_new_from_string(&module_name, module_name_rt);
             if (strlen(module_name_rt) && !module_name.data) {
                 goto failed;
             }
 
-            wasm_name_new_from_string_nt(&name, field_name_rt);
+            wasm_name_new_from_string(&name, field_name_rt);
             if (strlen(field_name_rt) && !name.data) {
                 goto failed;
             }
@@ -1623,7 +1623,7 @@ wasm_module_exports(const wasm_module_t *module, wasm_exporttype_vec_t *out)
         }
 
         /* byte* -> wasm_byte_vec_t */
-        wasm_name_new_from_string_nt(&name, export->name);
+        wasm_name_new_from_string(&name, export->name);
         if (strlen(export->name) && !name.data) {
             goto failed;
         }
@@ -3221,6 +3221,11 @@ aot_link_func(const wasm_instance_t *inst,
         return false;
     }
 
+    if (!bh_vector_append((Vector *)inst->imports, &cloned)) {
+        wasm_func_delete(cloned);
+        return false;
+    }
+
     import_aot_func->call_conv_raw = true;
     import_aot_func->attachment = cloned;
     import_aot_func->func_ptr_linked = native_func_trampoline;
@@ -3243,7 +3248,7 @@ aot_link_global(const AOTModule *module_aot,
     bh_assert(import_aot_global);
 
     //TODO: import->type ?
-    val_type = wasm_globaltype_content(wasm_global_type(import));
+    val_type = wasm_globaltype_content(import->type);
     bh_assert(val_type);
 
     switch (wasm_valtype_kind(val_type)) {
