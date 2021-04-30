@@ -130,10 +130,10 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   if(VALGRIND)
     foreach(EX ${EXAMPLES})
       add_custom_target(${EX}_LEAK_TEST
-        COMMAND ${VALGRIND} --tool=memcheck --leak-check=yes --show-reachable=yes ./${EX}
+        COMMAND ${VALGRIND} --tool=memcheck --leak-check=yes ./${EX}
         DEPENDS ${EX} ${EX}_WASM
         VERBATIM
-        SOURCES ${EX}
+        COMMENT "run a leak check on ${EX}"
       )
     endforeach()
   endif (VALGRIND)
