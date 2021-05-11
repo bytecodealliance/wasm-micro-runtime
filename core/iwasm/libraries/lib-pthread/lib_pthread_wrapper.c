@@ -117,7 +117,7 @@ typedef struct {
 } ThreadRoutineArgs;
 
 static bh_list cluster_info_list;
-static korp_mutex pthread_global_lock;
+static korp_mutex thread_global_lock;
 static uint32 handle_id = 1;
 
 static void
@@ -140,7 +140,7 @@ thread_info_destroy(void *node)
 {
     ThreadInfoNode *info_node = (ThreadInfoNode *)node;
 
-    pthread_mutex_lock(&pthread_global_lock);
+    os_mutex_lock(&thread_global_lock);
     if (info_node->type == T_MUTEX) {
         if (info_node->status != MUTEX_DESTROYED)
             os_mutex_destroy(info_node->u.mutex);
@@ -152,18 +152,18 @@ thread_info_destroy(void *node)
         wasm_runtime_free(info_node->u.cond);
     }
     wasm_runtime_free(info_node);
-    pthread_mutex_unlock(&pthread_global_lock);
+    os_mutex_unlock(&thread_global_lock);
 }
 
 bool
 lib_pthread_init()
 {
-    if (0 != os_mutex_init(&pthread_global_lock))
+    if (0 != os_mutex_init(&thread_global_lock))
         return false;
     bh_list_init(&cluster_info_list);
     if (!wasm_cluster_register_destroy_callback(
             lib_pthread_destroy_callback)) {
-        os_mutex_destroy(&pthread_global_lock);
+        os_mutex_destroy(&thread_global_lock);
         return false;
     }
     return true;
@@ -172,7 +172,7 @@ lib_pthread_init()
 void
 lib_pthread_destroy()
 {
-    os_mutex_destroy(&pthread_global_lock);
+    os_mutex_destroy(&thread_global_lock);
 }
 
 static ClusterInfoNode*
@@ -180,17 +180,17 @@ get_cluster_info(WASMCluster *cluster)
 {
     ClusterInfoNode *node;
 
-    os_mutex_lock(&pthread_global_lock);
+    os_mutex_lock(&thread_global_lock);
     node = bh_list_first_elem(&cluster_info_list);
 
     while (node) {
         if (cluster == node->cluster) {
-            os_mutex_unlock(&pthread_global_lock);
+            os_mutex_unlock(&thread_global_lock);
             return node;
         }
         node = bh_list_elem_next(node);
     }
-    os_mutex_unlock(&pthread_global_lock);
+    os_mutex_unlock(&thread_global_lock);
 
     return NULL;
 }
@@ -356,10 +356,10 @@ create_cluster_info(WASMCluster *cluster)
         wasm_runtime_free(node);
         return NULL;
     }
-    os_mutex_lock(&pthread_global_lock);
+    os_mutex_lock(&thread_global_lock);
     ret = bh_list_insert(&cluster_info_list, node);
     bh_assert(ret == BH_LIST_SUCCESS);
-    os_mutex_unlock(&pthread_global_lock);
+    os_mutex_unlock(&thread_global_lock);
 
     (void)ret;
     return node;
@@ -375,10 +375,10 @@ destroy_cluster_info(WASMCluster *cluster)
         os_mutex_destroy(&node->key_data_list_lock);
 
         /* Remove from the cluster info list */
-        os_mutex_lock(&pthread_global_lock);
+        os_mutex_lock(&thread_global_lock);
         bh_list_remove(&cluster_info_list, node);
         wasm_runtime_free(node);
-        os_mutex_unlock(&pthread_global_lock);
+        os_mutex_unlock(&thread_global_lock);
         return true;
     }
     return false;
@@ -447,9 +447,9 @@ static uint32
 allocate_handle()
 {
     uint32 id;
-    os_mutex_lock(&pthread_global_lock);
+    os_mutex_lock(&thread_global_lock);
     id = handle_id++;
-    os_mutex_unlock(&pthread_global_lock);
+    os_mutex_unlock(&thread_global_lock);
     return id;
 }
 
@@ -504,8 +504,6 @@ pthread_start_routine(void *arg)
     /* routine exit, destroy instance */
     wasm_runtime_deinstantiate_internal(module_inst, true);
 
-    info_node->status = THREAD_EXIT;
-
     wasm_runtime_free(routine_args);
 
     /* if the thread is joinable, store the result in its info node,
@@ -516,6 +514,14 @@ pthread_start_routine(void *arg)
     }
     else {
         info_node->u.ret = (void *)(uintptr_t)argv[0];
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+        if (exec_env->suspend_flags.flags & 0x08)
+            /* argv[0] isn't set after longjmp(1) to
+               invoke_native_with_hw_bound_check */
+            info_node->u.ret = exec_env->thread_ret_value;
+#endif
+        /* Update node status after ret value was set */
+        info_node->status = THREAD_EXIT;
     }
 
     return (void *)(uintptr_t)argv[0];
@@ -711,7 +717,7 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     if (!args)
         return;
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && !defined(BH_PLATFORM_WINDOWS)
     /* If hardware bound check enabled, don't deinstantiate module inst
         and thread info node here for AoT module, as they will be freed
         in pthread_start_routine */
@@ -726,13 +732,13 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     /* routine exit, destroy instance */
     wasm_runtime_deinstantiate_internal(module_inst, true);
 
-    args->info_node->status = THREAD_EXIT;
-
     if (!args->info_node->joinable) {
         delete_thread_info_node(args->info_node);
     }
     else {
         args->info_node->u.ret = (void *)(uintptr_t)retval_offset;
+        /* Update node status after ret value was set */
+        args->info_node->status = THREAD_EXIT;
     }
 
     wasm_runtime_free(args);

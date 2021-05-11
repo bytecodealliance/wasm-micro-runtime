@@ -448,14 +448,15 @@ Docker
 
 Make sure you have Docker installed on your machine: [macOS](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/) or [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
 
-Build the Docker image:
+Build *iwasm* with the Docker image:
 
 ``` Bash
-docker build --rm -f "Dockerfile" -t wamr:latest .
+$ cd ci
+$ ./build_wamr.sh
+$ ls ../build_out/
 ```
-Run the image in interactive mode:
-``` Bash
-docker run --rm -it wamr:latest
-```
-You'll now enter the container at `/root`.
 
+*build_wamr.sh* will generate *linux* compatible libraries ( libiwasm.so and
+libvmlib.a ) and an executable binary (*iwasm*) and copy *iwasm* to
+*build_out*. All original generated files are still under
+*product-mini/platforms/linux/build*.

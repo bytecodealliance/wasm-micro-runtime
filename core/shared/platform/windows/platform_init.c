@@ -6,14 +6,21 @@
 #include "platform_api_vmcore.h"
 
 int
+os_thread_sys_init();
+
+void
+os_thread_sys_destroy();
+
+int
 bh_platform_init()
 {
-    return 0;
+    return os_thread_sys_init();
 }
 
 void
 bh_platform_destroy()
 {
+    os_thread_sys_destroy();
 }
 
 int
