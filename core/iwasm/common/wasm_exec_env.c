@@ -71,15 +71,6 @@ fail1:
 void
 wasm_exec_env_destroy_internal(WASMExecEnv *exec_env)
 {
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    WASMJmpBuf *jmpbuf = exec_env->jmpbuf_stack_top;
-    WASMJmpBuf *jmpbuf_prev;
-    while (jmpbuf) {
-        jmpbuf_prev = jmpbuf->prev;
-        wasm_runtime_free(jmpbuf);
-        jmpbuf = jmpbuf_prev;
-    }
-#endif
 #if WASM_ENABLE_THREAD_MGR != 0
     os_mutex_destroy(&exec_env->wait_lock);
     os_cond_destroy(&exec_env->wait_cond);

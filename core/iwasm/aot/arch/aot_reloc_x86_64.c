@@ -93,7 +93,7 @@ init_plt_table(uint8 *plt)
     /* mov exception_handler, rax */
     *p++ = 0x48;
 	*p++ = 0xB8;
-    *(uint64*)p = (uint64)(uintptr_t)aot_exception_handler;
+    *(uint64*)p = 0;/*(uint64)(uintptr_t)aot_exception_handler;*/
     p += sizeof(uint64);
     /* jmp rax */
 	*p++ = 0xFF;

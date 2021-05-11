@@ -1191,7 +1191,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     unwind_info= (AOTUnwindInfo *)((uint8*)module->code + module->code_size
                                    - sizeof(AOTUnwindInfo));
     unwind_info->Version = 1;
-    unwind_info->Flags = UNW_FLAG_EHANDLER;
+    unwind_info->Flags = UNW_FLAG_NHANDLER;
     *(uint32*)&unwind_info->UnwindCode[0] = unwind_code_offset;
 
     size = sizeof(RUNTIME_FUNCTION) * (uint64)module->func_count;
@@ -1231,7 +1231,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
         rtl_func_table[i].BeginAddress = (DWORD)text_offset;
         if (i > 0) {
-            rtl_func_table[i].EndAddress = rtl_func_table[i - 1].BeginAddress;
+            rtl_func_table[i - 1].EndAddress = rtl_func_table[i].BeginAddress;
         }
         rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
 #endif

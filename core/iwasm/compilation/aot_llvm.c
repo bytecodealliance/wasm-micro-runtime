@@ -1542,8 +1542,12 @@ aot_create_comp_context(AOTCompData *comp_data,
         LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
         LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
-        LLVMAddGVNPass(comp_ctx->pass_mgr);
-        LLVMAddLICMPass(comp_ctx->pass_mgr);
+        if (!option->enable_thread_mgr) {
+            /* These two passes may destroy the volatile semantics,
+                disable them when building as multi-thread mode */
+            LLVMAddGVNPass(comp_ctx->pass_mgr);
+            LLVMAddLICMPass(comp_ctx->pass_mgr);
+        }
         LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
         LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);

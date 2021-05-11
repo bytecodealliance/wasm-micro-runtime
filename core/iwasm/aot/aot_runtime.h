@@ -659,14 +659,6 @@ aot_signal_init();
 
 void
 aot_signal_destroy();
-
-#ifdef BH_PLATFORM_WINDOWS
-EXCEPTION_DISPOSITION
-aot_exception_handler(PEXCEPTION_RECORD ExceptionRecord,
-                      ULONG64 EstablisherFrame,
-                      PCONTEXT ContextRecord,
-                      PDISPATCHER_CONTEXT DispatcherContext);
-#endif
 #endif
 
 void

@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <stdint.h>
 #include <malloc.h>
+#include <process.h>
 #include <Windows.h>
 
 #ifdef __cplusplus
@@ -40,14 +41,16 @@ extern "C" {
 /* Default thread priority */
 #define BH_THREAD_DEFAULT_PRIORITY 0
 
+typedef void *korp_thread;
 typedef void *korp_tid;
 typedef void *korp_mutex;
 typedef void *korp_sem;
-typedef void *korp_thread;
 
-typedef struct {
-    korp_sem s;
-    unsigned int waiting_count;
+struct os_thread_wait_node;
+typedef struct os_thread_wait_node *os_thread_wait_list;
+typedef struct korp_cond {
+    korp_mutex wait_list_lock;
+    os_thread_wait_list thread_wait_list;
 } korp_cond;
 
 unsigned os_getpagesize();

@@ -1152,13 +1152,6 @@ static os_thread_local_attribute WASMExecEnv *aot_exec_env = NULL;
 #ifndef BH_PLATFORM_WINDOWS
 static void
 aot_signal_handler(void *sig_addr)
-#else
-EXCEPTION_DISPOSITION
-aot_exception_handler(PEXCEPTION_RECORD ExceptionRecord,
-                      ULONG64 EstablisherFrame,
-                      PCONTEXT ContextRecord,
-                      PDISPATCHER_CONTEXT DispatcherContext)
-#endif
 {
     AOTModuleInstance *module_inst;
     AOTMemoryInstance *memory_inst;
@@ -1168,18 +1161,11 @@ aot_exception_handler(PEXCEPTION_RECORD ExceptionRecord,
     uint8 *stack_min_addr;
     uint32 page_size;
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-#ifdef BH_PLATFORM_WINDOWS
-    uint8 *sig_addr = (uint8*)ExceptionRecord->ExceptionInformation[1];
-#endif
 
     /* Check whether current thread is running aot function */
     if (aot_exec_env
         && aot_exec_env->handle == os_self_thread()
-        && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)
-#ifdef BH_PLATFORM_WINDOWS
-        && ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION
-#endif
-        ) {
+        && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)) {
         /* Get mapped mem info of current instance */
         module_inst = (AOTModuleInstance *)aot_exec_env->module_inst;
         /* Get the default memory instance */
@@ -1211,40 +1197,58 @@ aot_exception_handler(PEXCEPTION_RECORD ExceptionRecord,
             os_longjmp(jmpbuf_node->jmpbuf, 1);
         }
     }
-
-#ifdef BH_PLATFORM_WINDOWS
-    ContextRecord->Rip += 3;
-    return EXCEPTION_CONTINUE_SEARCH;
-    (void)EstablisherFrame;
-    (void)ContextRecord;
-    (void)DispatcherContext;
-#endif
 }
-
-#ifdef BH_PLATFORM_WINDOWS
+#else /* else of BH_PLATFORM_WINDOWS */
 static LONG
-stack_overflow_handler(EXCEPTION_POINTERS *exce_info)
+aot_exception_handler(EXCEPTION_POINTERS *exce_info)
 {
-    AOTModuleInstance* module_inst;
-    WASMJmpBuf* jmpbuf_node;
+    PEXCEPTION_RECORD ExceptionRecord = exce_info->ExceptionRecord;
+    uint8 *sig_addr = (uint8*)ExceptionRecord->ExceptionInformation[1];
+    AOTModuleInstance *module_inst;
+    AOTMemoryInstance *memory_inst;
+    WASMJmpBuf *jmpbuf_node;
+    uint8 *mapped_mem_start_addr = NULL;
+    uint8 *mapped_mem_end_addr = NULL;
+    uint32 page_size = os_getpagesize();
 
-    /* Check whether it is stack overflow exception and
-       current thread is running aot function */
-    if (exce_info->ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW
-        && aot_exec_env
+    if (aot_exec_env
         && aot_exec_env->handle == os_self_thread()
         && (jmpbuf_node = aot_exec_env->jmpbuf_stack_top)) {
-        /* Set stack overflow exception and let the aot func continue
-           to run, when the aot func returns, the caller will check
-           whether the exception is thrown and return to runtime, and
-           the damaged stack will be recovered by _resetstkoflw(). */
         module_inst = (AOTModuleInstance*)aot_exec_env->module_inst;
-        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
-        return EXCEPTION_CONTINUE_EXECUTION;
+        if (ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+            /* Get the default memory instance */
+            memory_inst = aot_get_default_memory(module_inst);
+            if (memory_inst) {
+                mapped_mem_start_addr = (uint8*)memory_inst->memory_data.ptr;
+                mapped_mem_end_addr = (uint8*)memory_inst->memory_data.ptr
+                                      + 8 * (uint64)BH_GB;
+                if (mapped_mem_start_addr <= (uint8*)sig_addr
+                    && (uint8*)sig_addr < mapped_mem_end_addr) {
+                    /* The address which causes segmentation fault is inside
+                       aot instance's guard regions.
+                       Set exception and let the aot func continue to run, when
+                       the aot func returns, the caller will check whether the
+                       exception is thrown and return to runtime. */
+                    aot_set_exception_with_id(module_inst,
+                                              EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS);
+                    /* Skip current instruction */
+                    exce_info->ContextRecord->Rip++;
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
+            }
+        }
+        else if (ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
+            /* Set stack overflow exception and let the aot func continue
+               to run, when the aot func returns, the caller will check
+               whether the exception is thrown and return to runtime, and
+               the damaged stack will be recovered by _resetstkoflw(). */
+            aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
     }
     return EXCEPTION_CONTINUE_SEARCH;
 }
-#endif
+#endif /* end of BH_PLATFORM_WINDOWS */
 
 bool
 aot_signal_init()
@@ -1252,7 +1256,7 @@ aot_signal_init()
 #ifndef BH_PLATFORM_WINDOWS
     return os_signal_init(aot_signal_handler) == 0 ? true : false;
 #else
-    return AddVectoredExceptionHandler(1, stack_overflow_handler)
+    return AddVectoredExceptionHandler(1, aot_exception_handler)
            ? true : false;
 #endif
 }
@@ -1263,7 +1267,7 @@ aot_signal_destroy()
 #ifndef BH_PLATFORM_WINDOWS
     os_signal_destroy();
 #else
-    RemoveVectoredExceptionHandler(stack_overflow_handler);
+    RemoveVectoredExceptionHandler(aot_exception_handler);
 #endif
 }
 

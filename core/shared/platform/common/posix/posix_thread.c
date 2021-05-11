@@ -11,22 +11,30 @@
 
 typedef struct {
     thread_start_routine_t start;
-    void* stack;
-    uint32 stack_size;
     void* arg;
 } thread_wrapper_arg;
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+static int os_thread_signal_init();
+static void os_thread_signal_destroy();
+#endif
+
 static void *os_thread_wrapper(void *arg)
 {
-    thread_wrapper_arg * targ = arg;
+    thread_wrapper_arg *targ = arg;
     thread_start_routine_t start_func = targ->start;
     void *thread_arg = targ->arg;
-    os_printf("THREAD CREATED %p\n", &targ);
-    targ->stack = (void *)((uintptr_t)(&arg) & (uintptr_t)~0xfff);
+
+    os_printf("THREAD CREATED %p\n", pthread_self());
     BH_FREE(targ);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (os_thread_signal_init() != 0)
+        return NULL;
+#endif
     start_func(thread_arg);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     os_thread_destroy_stack_guard_pages();
+    os_thread_signal_destroy();
 #endif
     return NULL;
 }
@@ -58,7 +66,6 @@ int os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
 
     targ->start = start;
     targ->arg = arg;
-    targ->stack_size = stack_size;
 
     if (pthread_create(tid, &tattr, os_thread_wrapper, targ) != 0) {
         pthread_attr_destroy(&tattr);
@@ -244,6 +251,7 @@ void os_thread_exit(void *retval)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     os_thread_destroy_stack_guard_pages();
+    os_thread_signal_destroy();
 #endif
     return pthread_exit(retval);
 }
@@ -309,7 +317,7 @@ uint8 *os_thread_get_stack_boundary()
 static os_thread_local_attribute bool stack_guard_pages_inited = false;
 
 /* The signal alternate stack base addr */
-static uint8 *sigalt_stack_base_addr;
+static os_thread_local_attribute uint8 *sigalt_stack_base_addr;
 
 /* The signal handler passed to os_signal_init() */
 static os_signal_handler signal_handler;
@@ -419,7 +427,7 @@ os_signal_init(os_signal_handler handler)
     uint32 map_size = SIG_ALT_STACK_SIZE;
     uint8 *map_addr;
 
-    /* Initialize memory for signal alternate stack */
+    /* Initialize memory for signal alternate stack of current thread */
     if (!(map_addr = os_mmap(NULL, map_size,
                              MMAP_PROT_READ | MMAP_PROT_WRITE,
                              MMAP_MAP_NONE))) {
@@ -471,6 +479,20 @@ os_signal_destroy()
     sigaltstack(&sigalt_stack_info, NULL);
 
     os_munmap(sigalt_stack_base_addr, SIG_ALT_STACK_SIZE);
+}
+
+static int
+os_thread_signal_init()
+{
+    assert(signal_handler);
+    /* Use the global signal handler registered previously */
+    return os_signal_init(signal_handler);
+}
+
+static void
+os_thread_signal_destroy()
+{
+    os_signal_destroy();
 }
 
 void

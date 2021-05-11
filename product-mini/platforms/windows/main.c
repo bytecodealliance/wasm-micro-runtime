@@ -79,12 +79,12 @@ static char **
 split_string(char *str, int *count)
 {
     char **res = NULL;
-    char *p;
+    char *p, *next_token;
     int idx = 0;
 
     /* split string and append tokens to 'res' */
     do {
-        p = strtok(str, " ");
+        p = strtok_s(str, " ", &next_token);
         str = NULL;
         res = (char **)realloc(res, sizeof(char *) * (uint32)(idx + 1));
         if (res == NULL) {
