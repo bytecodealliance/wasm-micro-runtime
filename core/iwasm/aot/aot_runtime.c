@@ -1483,25 +1483,24 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
                                       AOTFunctionInstance *func,
                                       unsigned argc, uint32 argv[])
 {
-    WASMExecEnv *exec_env;
+    WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
 #if WASM_ENABLE_THREAD_MGR != 0
-    WASMExecEnv *existing_exec_env = NULL;
-
-    if (!(existing_exec_env = exec_env =
-        wasm_clusters_search_exec_env(
-            (WASMModuleInstanceCommon*)module_inst))) {
+    existing_exec_env = exec_env = wasm_clusters_search_exec_env(
+            (WASMModuleInstanceCommon*)module_inst);
+#elif defined(OS_ENABLE_HW_BOUND_CHECK)
+    existing_exec_env = exec_env = aot_exec_env;
 #endif
-        if (!(exec_env = wasm_exec_env_create((WASMModuleInstanceCommon*)module_inst,
-                                            module_inst->default_wasm_stack_size))) {
+
+    if (!existing_exec_env) {
+        if (!(exec_env =
+                wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                     module_inst->default_wasm_stack_size))) {
             aot_set_exception(module_inst, "allocate memory failed");
             return false;
         }
-
-#if WASM_ENABLE_THREAD_MGR != 0
     }
-#endif
 
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_runtime_prepare_call_function(exec_env, func);
@@ -1513,10 +1512,8 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
     wasm_runtime_finalize_call_function(exec_env, func, ret, argv);
 #endif
 
-#if WASM_ENABLE_THREAD_MGR != 0
     /* don't destroy the exec_env if it's searched from the cluster */
     if (!existing_exec_env)
-#endif
         wasm_exec_env_destroy(exec_env);
 
     return ret;

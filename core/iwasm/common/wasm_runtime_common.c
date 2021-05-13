@@ -4530,7 +4530,7 @@ wasm_runtime_get_memory_data(const WASMModuleInstanceCommon *module_inst_comm,
     if (module_inst_comm->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
         AOTMemoryInstance *memory_inst =
-          (AOTMemoryInstance*)module_inst->memories.ptr + memory_inst_idx;
+          ((AOTMemoryInstance**)module_inst->memories.ptr)[memory_inst_idx];
         return memory_inst->memory_data.ptr;
     }
 #endif
@@ -4556,7 +4556,7 @@ wasm_runtime_get_memory_data_size(
     if (module_inst_comm->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
         AOTMemoryInstance *memory_inst =
-          (AOTMemoryInstance*)module_inst->memories.ptr + memory_inst_idx;
+          ((AOTMemoryInstance**)module_inst->memories.ptr)[memory_inst_idx];
         return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
     }
 #endif
