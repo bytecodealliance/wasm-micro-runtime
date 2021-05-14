@@ -1254,21 +1254,26 @@ bool
 aot_signal_init()
 {
 #ifndef BH_PLATFORM_WINDOWS
-    return os_signal_init(aot_signal_handler) == 0 ? true : false;
+    return os_thread_signal_init(aot_signal_handler) == 0 ? true : false;
 #else
-    return AddVectoredExceptionHandler(1, aot_exception_handler)
-           ? true : false;
+    if (os_thread_signal_init() != 0)
+        return false;
+
+    if (!AddVectoredExceptionHandler(1, aot_exception_handler)) {
+        os_thread_signal_destroy();
+        return false;
+    }
 #endif
+    return true;
 }
 
 void
 aot_signal_destroy()
 {
-#ifndef BH_PLATFORM_WINDOWS
-    os_signal_destroy();
-#else
+#ifdef BH_PLATFORM_WINDOWS
     RemoveVectoredExceptionHandler(aot_exception_handler);
 #endif
+    os_thread_signal_destroy();
 }
 
 static bool
@@ -1302,7 +1307,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
-    os_thread_init_stack_guard_pages();
+    if (!os_thread_signal_inited()) {
+        aot_set_exception(module_inst, "thread signal env not inited");
+        return false;
+    }
 
     wasm_exec_env_push_jmpbuf(exec_env, &jmpbuf_node);
 
@@ -1486,11 +1494,11 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
 
-#if WASM_ENABLE_THREAD_MGR != 0
+#if defined(OS_ENABLE_HW_BOUND_CHECK)
+    existing_exec_env = exec_env = aot_exec_env;
+#elif WASM_ENABLE_THREAD_MGR != 0
     existing_exec_env = exec_env = wasm_clusters_search_exec_env(
             (WASMModuleInstanceCommon*)module_inst);
-#elif defined(OS_ENABLE_HW_BOUND_CHECK)
-    existing_exec_env = exec_env = aot_exec_env;
 #endif
 
     if (!existing_exec_env) {

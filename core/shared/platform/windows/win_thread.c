@@ -154,6 +154,10 @@ os_thread_wrapper(void *arg)
     os_mutex_lock(&parent->wait_lock);
     thread_data->thread_id = GetCurrentThreadId();
     result = TlsSetValue(thread_data_key, thread_data);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (result)
+        result = os_thread_signal_init() == 0 ? true : false;
+#endif
     /* Notify parent thread */
     os_cond_signal(&parent->wait_cond);
     os_mutex_unlock(&parent->wait_lock);
@@ -511,25 +515,34 @@ os_thread_get_stack_boundary()
     return thread_stack_boundary;
 }
 
-static os_thread_local_attribute bool stack_guard_pages_inited = false;
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+static os_thread_local_attribute bool thread_signal_inited = false;
 
-bool
-os_thread_init_stack_guard_pages()
+int
+os_thread_signal_init()
 {
     ULONG StackSizeInBytes = 16 * 1024;
     bool ret;
 
-    if (stack_guard_pages_inited)
+    if (thread_signal_inited)
         return true;
 
     ret = SetThreadStackGuarantee(&StackSizeInBytes);
     if (ret)
-        stack_guard_pages_inited = true;
-    return ret;
+        thread_signal_inited = true;
+    return ret ? 0 : -1;
 }
 
 void
-os_thread_destroy_stack_guard_pages()
+os_thread_signal_destroy()
 {
+    /* Do nothing */
 }
+
+bool
+os_thread_signal_inited()
+{
+    return thread_signal_inited;
+}
+#endif
 
