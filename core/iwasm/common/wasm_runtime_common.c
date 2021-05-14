@@ -819,6 +819,27 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
     wasm_exec_env_destroy(exec_env);
 }
 
+bool
+wasm_runtime_init_thread_env()
+{
+#if WASM_ENABLE_AOT != 0
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    return aot_signal_init();
+#endif
+#endif
+    return true;
+}
+
+void
+wasm_runtime_destroy_thread_env()
+{
+#if WASM_ENABLE_AOT != 0
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    return aot_signal_destroy();
+#endif
+#endif
+}
+
 #if (WASM_ENABLE_MEMORY_PROFILING != 0) || (WASM_ENABLE_MEMORY_TRACING != 0)
 void
 wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)

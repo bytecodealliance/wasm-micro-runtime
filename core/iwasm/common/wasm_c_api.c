@@ -363,7 +363,13 @@ wasm_store_new(wasm_engine_t *engine)
         return NULL;
     }
 
+    if (!wasm_runtime_init_thread_env()) {
+        LOG_ERROR("init thread environment failed");
+        return NULL;
+    }
+
     if (!(store = malloc_internal(sizeof(wasm_store_t)))) {
+        wasm_runtime_destroy_thread_env();
         return NULL;
     }
 
@@ -412,6 +418,8 @@ wasm_store_delete(wasm_store_t *store)
     DEINIT_VEC(store->modules, wasm_module_vec_delete);
     DEINIT_VEC(store->instances, wasm_instance_vec_delete);
     wasm_runtime_free(store);
+
+    wasm_runtime_destroy_thread_env();
 }
 
 /* Type Representations */
@@ -1376,7 +1384,7 @@ module_to_module_ext(wasm_module_t *module)
 wasm_module_t *
 wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 {
-    char error[128] = { 0 };
+    char error_buf[128] = { 0 };
     wasm_module_ex_t *module_ex = NULL;
 
     bh_assert(singleton_engine);
@@ -1393,11 +1401,12 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
     INIT_VEC(module_ex->binary, wasm_byte_vec_new, binary->size, binary->data);
 
-    module_ex->module_comm_rt = wasm_runtime_load(
-      (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size, error,
-      (uint32)sizeof(error));
+    module_ex->module_comm_rt =
+        wasm_runtime_load((uint8 *)module_ex->binary->data,
+                          (uint32)module_ex->binary->size,
+                          error_buf, (uint32)sizeof(error_buf));
     if (!(module_ex->module_comm_rt)) {
-        LOG_ERROR(error);
+        LOG_ERROR(error_buf);
         goto failed;
     }
 
@@ -1418,6 +1427,7 @@ static void
 wasm_module_delete_internal(wasm_module_t *module)
 {
     wasm_module_ex_t *module_ex;
+
     if (!module) {
         return;
     }
@@ -1436,7 +1446,7 @@ wasm_module_delete_internal(wasm_module_t *module)
 void
 wasm_module_delete(wasm_module_t *module)
 {
-    /* will release module when releasing the store */
+    /* the module will be released when releasing the store */
 }
 
 void
@@ -3589,7 +3599,7 @@ wasm_instance_new(wasm_store_t *store,
                   const wasm_extern_t *const imports[],
                   own wasm_trap_t **traps)
 {
-    char error[128] = { 0 };
+    char error_buf[128] = { 0 };
     const uint32 stack_size = 16 * 1024;
     const uint32 heap_size = 16 * 1024;
     uint32 import_count = 0;
@@ -3650,10 +3660,11 @@ wasm_instance_new(wasm_store_t *store,
 #endif
     }
 
-    instance->inst_comm_rt = wasm_runtime_instantiate(
-      *module, stack_size, heap_size, error, sizeof(error));
+    instance->inst_comm_rt =
+        wasm_runtime_instantiate(*module, stack_size, heap_size,
+                                 error_buf, sizeof(error_buf));
     if (!instance->inst_comm_rt) {
-        LOG_ERROR(error);
+        LOG_ERROR(error_buf);
         goto failed;
     }
 

@@ -393,6 +393,27 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
 /**
+ * Initialize thread environment.
+ * Note:
+ *   If developer creates a child thread by himself to call the
+ *   the wasm function in that thread, he should call this API
+ *   firstly before calling the wasm function and then call
+ *   wasm_runtime_destroy_thread_env() after calling the wasm
+ *   function. If the thread is created from the runtime API,
+ *   it is unnecessary to call these two APIs.
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_init_thread_env();
+
+/**
+ * Destroy thread environment
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_thread_env();
+
+/**
  * Get WASM module instance from execution environment
  *
  * @param exec_env the execution environment to retrieve

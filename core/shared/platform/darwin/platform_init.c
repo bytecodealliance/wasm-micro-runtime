@@ -14,9 +14,6 @@ bh_platform_init()
 void
 bh_platform_destroy()
 {
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    os_thread_destroy_stack_guard_pages();
-#endif
 }
 
 int

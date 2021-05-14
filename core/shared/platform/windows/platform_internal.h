@@ -72,9 +72,11 @@ typedef jmp_buf korp_jmpbuf;
 #define os_setjmp setjmp
 #define os_longjmp longjmp
 
-bool os_thread_init_stack_guard_pages();
+int os_thread_signal_init();
 
-void os_thread_destroy_stack_guard_pages();
+void os_thread_signal_destroy();
+
+bool os_thread_signal_inited();
 
 #define os_signal_unmask() (void)0
 #define os_sigreturn() (void)0

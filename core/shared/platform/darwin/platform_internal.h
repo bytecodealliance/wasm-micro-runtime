@@ -76,15 +76,13 @@ typedef jmp_buf korp_jmpbuf;
 
 #define os_getpagesize getpagesize
 
-bool os_thread_init_stack_guard_pages();
-
-void os_thread_destroy_stack_guard_pages();
-
 typedef void (*os_signal_handler)(void *sig_addr);
 
-int os_signal_init(os_signal_handler handler);
+int os_thread_signal_init(os_signal_handler handler);
 
-void os_signal_destroy();
+void os_thread_signal_destroy();
+
+bool os_thread_signal_inited();
 
 void os_signal_unmask();
 
