@@ -554,6 +554,9 @@ wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
  * Set custom data to WASM module instance.
+ * Note:
+ *  If WAMR_BUILD_LIB_PTHREAD is enabled, this API
+ *  will spread the custom data to all threads
  *
  * @param module_inst the WASM module instance
  * @param custom_data the custom data to be set

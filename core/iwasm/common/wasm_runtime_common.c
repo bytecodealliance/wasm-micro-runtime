@@ -1438,8 +1438,8 @@ wasm_runtime_clear_exception(WASMModuleInstanceCommon *module_inst)
 }
 
 void
-wasm_runtime_set_custom_data(WASMModuleInstanceCommon *module_inst,
-                             void *custom_data)
+wasm_runtime_set_custom_data_internal(WASMModuleInstanceCommon *module_inst,
+                                      void *custom_data)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
@@ -1452,6 +1452,17 @@ wasm_runtime_set_custom_data(WASMModuleInstanceCommon *module_inst,
         ((AOTModuleInstance*)module_inst)->custom_data.ptr = custom_data;
         return;
     }
+#endif
+}
+
+void
+wasm_runtime_set_custom_data(WASMModuleInstanceCommon *module_inst,
+                             void *custom_data)
+{
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_cluster_spread_custom_data(module_inst, custom_data);
+#else
+    wasm_runtime_set_custom_data_internal(module_inst, custom_data);
 #endif
 }
 

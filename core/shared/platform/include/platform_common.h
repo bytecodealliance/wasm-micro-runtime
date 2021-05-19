@@ -10,8 +10,8 @@
 extern "C" {
 #endif
 
-#include "../../../config.h"
 #include "platform_internal.h"
+#include "../../../config.h"
 
 #define BH_MAX_THREAD 32
 

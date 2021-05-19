@@ -118,6 +118,10 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env);
 void
 wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env);
 
+void
+wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
+                                void *custom_data);
+
 #ifdef __cplusplus
 }
 #endif
