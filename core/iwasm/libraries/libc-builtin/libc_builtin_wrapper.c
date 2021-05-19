@@ -361,6 +361,19 @@ handle_1_to_9:
                 break;
             }
 
+            case 'f': {
+                float64 f64;
+                char buf[16], *s;
+
+                CHECK_VA_ARG(ap, float64);
+                f64 = _va_arg(ap, float64);
+                snprintf(buf, sizeof(buf), "%f", f64);
+                s = buf;
+                while (*s)
+                    out((int) (*s++), ctx);
+                break;
+            }
+
             default:
                 out((int) '%', ctx);
                 out((int) *fmt, ctx);

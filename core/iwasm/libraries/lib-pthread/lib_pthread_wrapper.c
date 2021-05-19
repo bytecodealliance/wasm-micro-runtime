@@ -535,13 +535,13 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
                        void *arg)           /* arguments buffer */
 {
     wasm_module_t module = get_module(exec_env);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasm_module_inst_t new_module_inst = NULL;
     ThreadInfoNode *info_node = NULL;
     ThreadRoutineArgs *routine_args = NULL;
     uint32 thread_handle;
     int32 ret = -1;
 #if WASM_ENABLE_LIBC_WASI != 0
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     WASIContext *wasi_ctx = get_wasi_ctx(module_inst);
 #endif
 
@@ -551,6 +551,13 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
             wasm_runtime_instantiate_internal(module, true, 8192, 0,
                                               NULL, 0)))
         return -1;
+
+    if (module_inst) {
+        /* Set custom_data to new module instance */
+        wasm_runtime_set_custom_data_internal(
+            new_module_inst,
+            wasm_runtime_get_custom_data(module_inst));
+    }
 
 #if WASM_ENABLE_LIBC_WASI != 0
     if (wasi_ctx)
