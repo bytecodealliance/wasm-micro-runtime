@@ -328,6 +328,7 @@ WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasm_module_t module = wasm_exec_env_get_module(exec_env);
     wasm_module_inst_t new_module_inst;
     WASMExecEnv *new_exec_env;
@@ -341,6 +342,13 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
         wasm_runtime_instantiate_internal(module, true, 8192,
                                           0, NULL, 0))) {
         return NULL;
+    }
+
+    if (module_inst) {
+        /* Set custom_data to new module instance */
+        wasm_runtime_set_custom_data_internal(
+            new_module_inst,
+            wasm_runtime_get_custom_data(module_inst));
     }
 
     new_exec_env = wasm_exec_env_create_internal(
@@ -653,4 +661,25 @@ wasm_cluster_spread_exception(WASMExecEnv *exec_env)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
 
     traverse_list(&cluster->exec_env_list, set_exception_visitor, exec_env);
+}
+
+static void
+set_custom_data_visitor(void *node, void *user_data)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
+
+    wasm_runtime_set_custom_data_internal(module_inst, user_data);
+}
+
+void
+wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
+                                void *custom_data)
+{
+    WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+
+    traverse_list(&cluster->exec_env_list,
+                  set_custom_data_visitor,
+                  custom_data);
 }
