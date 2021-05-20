@@ -53,7 +53,11 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
+#ifdef WAMR_BUILD_AOT
+  FILE* file = fopen("global.aot", "rb");
+#else
   FILE* file = fopen("global.wasm", "rb");
+#endif
   if (!file) {
     printf("> Error loading module!\n");
     return 1;

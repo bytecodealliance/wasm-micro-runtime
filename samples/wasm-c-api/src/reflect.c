@@ -90,7 +90,11 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
+#ifdef WAMR_BUILD_AOT
+  FILE* file = fopen("reflect.aot", "rb");
+#else
   FILE* file = fopen("reflect.wasm", "rb");
+#endif
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
