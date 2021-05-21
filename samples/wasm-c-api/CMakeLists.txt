@@ -31,11 +31,7 @@ if(NOT DEFINED WAMR_BUILD_INTERP)
 endif()
 
 if(NOT DEFINED WAMR_BUILD_AOT)
-  set(WAMR_BUILD_AOT 0)
-endif()
-
-if(${WAMR_BUILD_AOT} EQUAL 1)
-  add_definitions(-DWAMR_BUILD_AOT)
+  set(WAMR_BUILD_AOT 1)
 endif()
 
 if(NOT DEFINED WAMR_BUILD_JIT)

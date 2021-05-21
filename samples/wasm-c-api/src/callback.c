@@ -68,7 +68,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-#ifdef WAMR_BUILD_AOT
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_INTERP == 0
   FILE* file = fopen("callback.aot", "rb");
 #else
   FILE* file = fopen("callback.wasm", "rb");
