@@ -1397,6 +1397,35 @@ wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst
     return ret;
 }
 
+bool
+wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return wasm_create_exec_env_singleton((WASMModuleInstance *)module_inst);
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return aot_create_exec_env_singleton((AOTModuleInstance *)module_inst);
+#endif
+    return false;
+}
+
+WASMExecEnv *
+wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return ((WASMModuleInstance *)module_inst)->exec_env_singleton;
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return (WASMExecEnv *)
+               ((AOTModuleInstance *)module_inst)->exec_env_singleton.ptr;
+#endif
+    return NULL;
+}
+
 void
 wasm_runtime_set_exception(WASMModuleInstanceCommon *module_inst,
                            const char *exception)

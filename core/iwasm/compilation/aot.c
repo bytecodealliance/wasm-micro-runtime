@@ -290,6 +290,7 @@ aot_create_import_funcs(const WASMModule *module)
     import_funcs[i].signature = import_func->signature;
     import_funcs[i].attachment = import_func->attachment;
     import_funcs[i].call_conv_raw = import_func->call_conv_raw;
+    import_funcs[i].call_conv_wasm_c_api = false;
     /* Resolve function type index */
     for (j = 0; j < module->type_count; j++)
       if (import_func->func_type == module->types[j]) {

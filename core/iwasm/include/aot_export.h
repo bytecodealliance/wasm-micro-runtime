@@ -77,6 +77,11 @@ aot_emit_aot_file(aot_comp_context_t comp_ctx,
 void
 aot_destroy_aot_file(uint8_t *aot_file);
 
+uint8_t*
+aot_compile_wasm_file(const uint8_t *wasm_file_buf, uint32_t wasm_file_size,
+                      uint32_t opt_level, uint32_t size_level,
+                      uint32_t *p_aot_file_size);
+
 char*
 aot_get_last_error();
 

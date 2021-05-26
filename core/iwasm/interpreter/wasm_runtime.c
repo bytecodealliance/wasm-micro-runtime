@@ -1574,6 +1574,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     wasm_externref_cleanup((WASMModuleInstanceCommon*)module_inst);
 #endif
 
+    if (module_inst->exec_env_singleton)
+        wasm_exec_env_destroy(module_inst->exec_env_singleton);
+
     wasm_runtime_free(module_inst);
 }
 
@@ -1699,6 +1702,18 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         wasm_exec_env_destroy(exec_env);
 
     return ret;
+}
+
+bool
+wasm_create_exec_env_singleton(WASMModuleInstance *module_inst)
+{
+    WASMExecEnv *exec_env =
+        wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                             module_inst->default_wasm_stack_size);
+    if (exec_env)
+        module_inst->exec_env_singleton = exec_env;
+
+    return exec_env ? true : false;
 }
 
 void

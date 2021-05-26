@@ -198,6 +198,8 @@ struct WASMModuleInstance {
     WASIContext *wasi_ctx;
 #endif
 
+    WASMExecEnv *exec_env_singleton;
+
     uint32 temp_ret;
     uint32 llvm_stack;
 
@@ -317,6 +319,9 @@ bool
 wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *function,
                                        unsigned argc, uint32 argv[]);
+
+bool
+wasm_create_exec_env_singleton(WASMModuleInstance *module_inst);
 
 void
 wasm_set_exception(WASMModuleInstance *module, const char *exception);

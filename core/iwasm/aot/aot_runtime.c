@@ -13,6 +13,7 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
+#include "../common/wasm_c_api_internal.h"
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -1097,6 +1098,18 @@ fail:
     return NULL;
 }
 
+bool
+aot_create_exec_env_singleton(AOTModuleInstance *module_inst)
+{
+    WASMExecEnv *exec_env =
+        wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                             module_inst->default_wasm_stack_size);
+    if (exec_env)
+        module_inst->exec_env_singleton.ptr = exec_env;
+
+    return exec_env ? true : false;
+}
+
 void
 aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 {
@@ -1126,6 +1139,10 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 
     if (module_inst->func_type_indexes.ptr)
         wasm_runtime_free(module_inst->func_type_indexes.ptr);
+
+    if (module_inst->exec_env_singleton.ptr)
+        wasm_exec_env_destroy((WASMExecEnv *)
+                              module_inst->exec_env_singleton.ptr);
 
     wasm_runtime_free(module_inst);
 }
@@ -1287,6 +1304,9 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     WASMJmpBuf jmpbuf_node = { 0 }, *jmpbuf_node_pop;
     uint32 page_size = os_getpagesize();
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
+    uint16 param_count = func_type->param_count;
+    uint16 result_count = func_type->result_count;
+    const uint8 *types = func_type->types;
 #if BH_PLATFORM_WINDOWS
     const char *exce;
     int result;
@@ -1316,9 +1336,31 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
 
     aot_exec_env = exec_env;
     if (os_setjmp(jmpbuf_node.jmpbuf) == 0) {
-        ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                         signature, attachment,
-                                         argv, argc, argv_ret);
+        /* Quick call with func_ptr if the function signature is simple */
+        if (!signature && param_count == 1 && types[0] == VALUE_TYPE_I32) {
+            if (result_count == 0) {
+                void (*NativeFunc)(WASMExecEnv*, uint32) =
+                    (void (*)(WASMExecEnv*, uint32))func_ptr;
+                NativeFunc(exec_env, argv[0]);
+                ret = aot_get_exception(module_inst) ? false : true;
+            }
+            else if (result_count == 1 && types[param_count] == VALUE_TYPE_I32) {
+                uint32 (*NativeFunc)(WASMExecEnv*, uint32) =
+                    (uint32 (*)(WASMExecEnv*, uint32))func_ptr;
+                argv_ret[0] = NativeFunc(exec_env, argv[0]);
+                ret = aot_get_exception(module_inst) ? false : true;
+            }
+            else {
+                ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
+                                                 signature, attachment,
+                                                 argv, argc, argv_ret);
+            }
+        }
+        else {
+            ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
+                                             signature, attachment,
+                                             argv, argc, argv_ret);
+        }
 #ifdef BH_PLATFORM_WINDOWS
         if ((exce = aot_get_exception(module_inst))
             && strstr(exce, "native stack overflow")) {
@@ -1339,8 +1381,10 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     if (!exec_env->jmpbuf_stack_top) {
         *p_aot_exec_env = NULL;
     }
-    os_sigreturn();
-    os_signal_unmask();
+    if (!ret) {
+        os_sigreturn();
+        os_signal_unmask();
+    }
     (void)jmpbuf_node_pop;
     return ret;
 }
@@ -2157,6 +2201,140 @@ aot_is_wasm_type_equal(AOTModuleInstance *module_inst,
     return wasm_type_equal(type1, type2);
 }
 
+static inline bool
+argv_to_params(wasm_val_t *out_params, const uint32 *argv,
+               AOTFuncType *func_type)
+{
+    wasm_val_t *param = out_params;
+    uint32 i = 0, *u32;
+
+    for (i = 0; i < func_type->param_count; i++, param++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+                param->kind = WASM_I32;
+                param->of.i32 = *argv++;
+                break;
+            case VALUE_TYPE_I64:
+                param->kind = WASM_I64;
+                u32 = (uint32*)&param->of.i64;
+                u32[0] = *argv++;
+                u32[1] = *argv++;
+                break;
+            case VALUE_TYPE_F32:
+                param->kind = WASM_F32;
+                param->of.f32 = *(float32 *)argv++;
+                break;
+            case VALUE_TYPE_F64:
+                param->kind = WASM_F64;
+                u32 = (uint32*)&param->of.i64;
+                u32[0] = *argv++;
+                u32[1] = *argv++;
+                break;
+            default:
+                return false;
+        }
+    }
+
+    return true;
+}
+
+static inline bool
+results_to_argv(uint32 *out_argv, const wasm_val_t *results,
+                AOTFuncType *func_type)
+{
+    const wasm_val_t *result = results;
+    uint32 *argv = out_argv, *u32, i;
+    uint8 *result_types = func_type->types + func_type->param_count;
+
+    for (i = 0; i < func_type->result_count; i++, result++) {
+        switch (result_types[i]) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
+                *(int32*)argv++ = result->of.i32;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                u32 = (uint32*)&result->of.i64;
+                *argv++ = u32[0];
+                *argv++ = u32[1];
+                break;
+            default:
+                return false;
+        }
+    }
+
+    return true;
+}
+
+static inline bool
+invoke_wasm_c_api_native(AOTModuleInstance *module_inst, void *func_ptr,
+                         AOTFuncType *func_type, uint32 argc, uint32 *argv,
+                         bool with_env, void *wasm_c_api_env)
+{
+    wasm_val_t params_buf[16], results_buf[4];
+    wasm_val_t *params = params_buf, *results = results_buf;
+    wasm_trap_t *trap = NULL;
+    bool ret = false;
+    char fmt[16];
+
+    if (func_type->param_count > 16
+        && !(params = wasm_runtime_malloc(sizeof(wasm_val_t)
+                                          * func_type->param_count))) {
+        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
+        return false;
+    }
+
+    if (!argv_to_params(params, argv, func_type)) {
+        aot_set_exception(module_inst, "unsupported param type");
+        goto fail;
+    }
+
+    if (!with_env) {
+        wasm_func_callback_t callback = (wasm_func_callback_t)func_ptr;
+        trap = callback(params, results);
+    }
+    else {
+        wasm_func_callback_with_env_t callback =
+                            (wasm_func_callback_with_env_t)func_ptr;
+        trap = callback(wasm_c_api_env, params, results);
+    }
+    if (trap) {
+        if (trap->message->data) {
+            snprintf(fmt, sizeof(fmt), "%%%us", (uint32)trap->message->size);
+            snprintf(module_inst->cur_exception,
+                     sizeof(module_inst->cur_exception),
+                     fmt, trap->message->data);
+        }
+        else {
+            aot_set_exception(module_inst,
+                              "native function throw unknown exception");
+        }
+        wasm_trap_delete(trap);
+        goto fail;
+    }
+
+    if (func_type->result_count > 4
+        && !(results = wasm_runtime_malloc(sizeof(wasm_val_t)
+                                           * func_type->result_count))) {
+        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
+        goto fail;
+    }
+
+    if (!results_to_argv(argv, results, func_type)) {
+        aot_set_exception(module_inst, "unsupported result type");
+        goto fail;
+    }
+
+    ret = true;
+
+fail:
+    if (params != params_buf)
+        wasm_runtime_free(params);
+    if (results != results_buf)
+        wasm_runtime_free(results);
+    return ret;
+}
+
 bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
                   uint32 argc, uint32 *argv)
@@ -2174,19 +2352,6 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     void *attachment;
     char buf[128];
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
-    uint32 page_size = os_getpagesize();
-    uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
-    /* Check native stack overflow firstly to ensure we have enough
-       native stack to run the following codes before actually calling
-       the aot function in invokeNative function. */
-    if ((uint8*)&module_inst < exec_env->native_stack_boundary
-                               + page_size * (guard_page_count + 1)) {
-        aot_set_exception_with_id(module_inst, EXCE_NATIVE_STACK_OVERFLOW);
-        return false;
-    }
-#endif
-
     bh_assert(func_idx < aot_module->import_func_count);
 
     import_func = aot_module->import_funcs + func_idx;
@@ -2198,14 +2363,21 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
         return false;
     }
 
-    signature = import_func->signature;
     attachment = import_func->attachment;
-    if (!import_func->call_conv_raw) {
+    if (import_func->call_conv_wasm_c_api) {
+        return invoke_wasm_c_api_native(module_inst, func_ptr,
+                                       func_type, argc, argv,
+                                       import_func->wasm_c_api_with_env,
+                                       attachment);
+    }
+    else if (!import_func->call_conv_raw) {
+        signature = import_func->signature;
         return wasm_runtime_invoke_native(exec_env, func_ptr,
                                           func_type, signature, attachment,
                                           argv, argc, argv);
     }
     else {
+        signature = import_func->signature;
         return wasm_runtime_invoke_native_raw(exec_env, func_ptr,
                                               func_type, signature, attachment,
                                               argv, argc, argv);

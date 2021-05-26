@@ -346,13 +346,15 @@ typedef struct AOTModuleInstance {
     /* function performance profiling info list */
     AOTPointer func_perf_profilings;
 
+    AOTPointer exec_env_singleton;
+
     /* others */
     uint32 temp_ret;
     uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
     /* reserved */
-    uint32 reserved[11];
+    uint32 reserved[9];
 
    /*
     * +------------------------------+ <-- memories.ptr
@@ -522,6 +524,10 @@ bool
 aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
                                       AOTFunctionInstance *function,
                                       unsigned argc, uint32 argv[]);
+
+bool
+aot_create_exec_env_singleton(AOTModuleInstance *module_inst);
+
 /**
  * Set AOT module instance exception with exception string
  *
