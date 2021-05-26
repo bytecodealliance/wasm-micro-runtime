@@ -365,6 +365,8 @@ handle_1_to_9:
                 float64 f64;
                 char buf[16], *s;
 
+                /* Make 8-byte aligned */
+                ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                 CHECK_VA_ARG(ap, float64);
                 f64 = _va_arg(ap, float64);
                 snprintf(buf, sizeof(buf), "%f", f64);

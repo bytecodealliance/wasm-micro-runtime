@@ -10,6 +10,10 @@ add_definitions(-DBH_FREE=wasm_runtime_free)
 
 file (GLOB c_source_all ${IWASM_COMMON_DIR}/*.c)
 
+if (WAMR_DISABLE_APP_ENTRY EQUAL 1)
+  list(REMOVE_ITEM c_source_all "${IWASM_COMMON_DIR}/wasm_application.c")
+endif ()
+
 if (WAMR_BUILD_INVOKE_NATIVE_GENERAL EQUAL 1)
   # Use invokeNative C version instead of asm code version
   # if WAMR_BUILD_INVOKE_NATIVE_GENERAL is explicitly set.
