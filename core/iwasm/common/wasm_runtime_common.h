@@ -467,6 +467,12 @@ wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst
                                            WASMFunctionInstanceCommon *function,
                                            uint32 argc, uint32 argv[]);
 
+bool
+wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
+
+WASMExecEnv *
+wasm_runtime_get_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,

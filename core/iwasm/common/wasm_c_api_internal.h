@@ -112,6 +112,7 @@ struct wasm_func_t {
      */
     uint16 func_idx_rt;
     WASMModuleInstanceCommon *inst_comm_rt;
+    WASMFunctionInstanceCommon *func_comm_rt;
 };
 
 struct wasm_global_t {

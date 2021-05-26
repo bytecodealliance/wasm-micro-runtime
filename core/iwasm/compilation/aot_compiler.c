@@ -2130,3 +2130,103 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
     return true;
 }
 
+#if WASM_ENABLE_REF_TYPES != 0
+extern void
+wasm_set_ref_types_flag(bool enable);
+#endif
+
+uint8*
+aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
+                      uint32 opt_level, uint32 size_level,
+                      uint32 *p_aot_file_size)
+{
+    WASMModuleCommon *wasm_module = NULL;
+    AOTCompData *comp_data = NULL;
+    AOTCompContext *comp_ctx = NULL;
+    RuntimeInitArgs init_args;
+    AOTCompOption option = { 0 };
+    uint8 *aot_file_buf = NULL;
+    uint32 aot_file_size;
+    char error_buf[128];
+
+    option.is_jit_mode = false;
+    option.opt_level = opt_level;
+    option.size_level = size_level;
+    option.output_format = AOT_FORMAT_FILE;
+    /* default value, enable or disable depends on the platform */
+    option.bounds_checks = 2;
+    option.enable_simd = true;
+    option.enable_aux_stack_check = true;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    option.enable_bulk_memory = true;
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    option.enable_thread_mgr = true;
+#endif
+#if WASM_ENABLE_TAIL_CALL != 0
+  option.enable_tail_call = true;
+#endif
+#if WASM_ENABLE_SIMD != 0
+  option.enable_simd = true;
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    option.enable_ref_types = true;
+#endif
+#if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
+    option.enable_aux_stack_frame = true;
+#endif
+
+#if WASM_ENABLE_REF_TYPES != 0
+    wasm_set_ref_types_flag(option.enable_ref_types);
+#endif
+
+    memset(&init_args, 0, sizeof(RuntimeInitArgs));
+
+    init_args.mem_alloc_type = Alloc_With_Allocator;
+    init_args.mem_alloc_option.allocator.malloc_func = malloc;
+    init_args.mem_alloc_option.allocator.realloc_func = realloc;
+    init_args.mem_alloc_option.allocator.free_func = free;
+
+    /* load WASM module */
+    if (!(wasm_module = (WASMModuleCommon*)
+                        wasm_load(wasm_file_buf, wasm_file_size,
+                                  error_buf, sizeof(error_buf)))) {
+        os_printf("%s\n", error_buf);
+        aot_set_last_error(error_buf);
+        return NULL;
+    }
+
+    if (!(comp_data = aot_create_comp_data((WASMModule*)wasm_module))) {
+        os_printf("%s\n", aot_get_last_error());
+        goto fail1;
+    }
+
+    if (!(comp_ctx = aot_create_comp_context(comp_data, &option))) {
+        os_printf("%s\n", aot_get_last_error());
+        goto fail2;
+    }
+
+    if (!aot_compile_wasm(comp_ctx)) {
+        os_printf("%s\n", aot_get_last_error());
+        goto fail3;
+    }
+
+    if (!(aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data,
+                                               &aot_file_size))) {
+        os_printf("%s\n", aot_get_last_error());
+        goto fail3;
+    }
+
+    *p_aot_file_size = aot_file_size;
+
+fail3:
+    /* Destroy compiler context */
+    aot_destroy_comp_context(comp_ctx);
+fail2:
+  /* Destroy compile data */
+    aot_destroy_comp_data(comp_data);
+fail1:
+    wasm_runtime_unload(wasm_module);
+
+    return aot_file_buf;
+}

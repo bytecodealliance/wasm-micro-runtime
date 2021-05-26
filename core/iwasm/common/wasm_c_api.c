@@ -2335,14 +2335,12 @@ wasm_func_call(const wasm_func_t *func,
     /* a int64 or float64 parameter means 2 */
     uint32 argc = 0;
     /* a parameter list and a return value list */
-    uint32 *argv = NULL;
+    uint32 argv_buf[32], *argv = argv_buf;
     WASMFunctionInstanceCommon *func_comm_rt = NULL;
+    WASMExecEnv *exec_env = NULL;
     size_t param_count, result_count, alloc_count;
 
-    if (!func || !func->type || !func->inst_comm_rt
-        || !valid_module_type(func->inst_comm_rt->module_type)) {
-        return NULL;
-    }
+    bh_assert(func && func->type && func->inst_comm_rt);
 
     cur_trap = NULL;
 
@@ -2355,20 +2353,23 @@ wasm_func_call(const wasm_func_t *func,
 
 #if WASM_ENABLE_AOT != 0
     if (func->inst_comm_rt->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *inst_aot = (AOTModuleInstance *)func->inst_comm_rt;
-        AOTModule *module_aot = (AOTModule *)inst_aot->aot_module.ptr;
+        if (!(func_comm_rt = func->func_comm_rt)) {
+            AOTModuleInstance *inst_aot = (AOTModuleInstance *)func->inst_comm_rt;
+            AOTModule *module_aot = (AOTModule *)inst_aot->aot_module.ptr;
+            uint32 export_i = 0, export_func_j = 0;
 
-        uint32 export_i = 0, export_func_j = 0;
-        for (; export_i < module_aot->export_count; ++export_i) {
-            AOTExport *export = module_aot->exports + export_i;
-            if (export->kind == EXPORT_KIND_FUNC) {
-                if (export->index == func->func_idx_rt) {
-                    func_comm_rt =
-                      (AOTFunctionInstance *)inst_aot->export_funcs.ptr
-                      + export_func_j;
-                    break;
+            for (; export_i < module_aot->export_count; ++export_i) {
+                AOTExport *export = module_aot->exports + export_i;
+                if (export->kind == EXPORT_KIND_FUNC) {
+                    if (export->index == func->func_idx_rt) {
+                        func_comm_rt =
+                            (AOTFunctionInstance *)inst_aot->export_funcs.ptr
+                            + export_func_j;
+                        ((wasm_func_t*)func)->func_comm_rt = func_comm_rt;
+                        break;
+                    }
+                    export_func_j++;
                 }
-                export_func_j++;
             }
         }
     }
@@ -2381,7 +2382,7 @@ wasm_func_call(const wasm_func_t *func,
     param_count = wasm_func_param_arity(func);
     result_count = wasm_func_result_arity(func);
     alloc_count = (param_count > result_count) ? param_count : result_count;
-    if (alloc_count) {
+    if (alloc_count > sizeof(argv_buf)/sizeof(uint64)) {
         if (!(argv = malloc_internal(sizeof(uint64) * alloc_count))) {
             goto failed;
         }
@@ -2394,8 +2395,12 @@ wasm_func_call(const wasm_func_t *func,
         goto failed;
     }
 
-    if (!wasm_runtime_create_exec_env_and_call_wasm(
-          func->inst_comm_rt, func_comm_rt, argc, argv)) {
+    exec_env = wasm_runtime_get_exec_env_singleton(func->inst_comm_rt);
+    if (!exec_env) {
+        goto failed;
+    }
+
+    if (!wasm_runtime_call_wasm(exec_env, func_comm_rt, argc, argv)) {
         if (wasm_runtime_get_exception(func->inst_comm_rt)) {
             LOG_DEBUG(wasm_runtime_get_exception(func->inst_comm_rt));
             goto failed;
@@ -2410,11 +2415,13 @@ wasm_func_call(const wasm_func_t *func,
         }
     }
 
-    FREEIF(argv);
+    if (argv != argv_buf)
+        wasm_runtime_free(argv);
     return NULL;
 
 failed:
-    FREEIF(argv);
+    if (argv != argv_buf)
+        wasm_runtime_free(argv);
     if (cur_trap) {
         return cur_trap;
     }
@@ -3392,9 +3399,14 @@ aot_link_func(const wasm_instance_t *inst,
         return false;
     }
 
-    import_aot_func->call_conv_raw = true;
-    import_aot_func->attachment = cloned;
-    import_aot_func->func_ptr_linked = native_func_trampoline;
+    import_aot_func->call_conv_wasm_c_api = true;
+    import_aot_func->wasm_c_api_with_env = import->with_env;
+    if (import->with_env) {
+        import_aot_func->func_ptr_linked = import->u.cb_env.cb;
+        import_aot_func->attachment = import->u.cb_env.env;
+    }
+    else
+        import_aot_func->func_ptr_linked = import->u.cb;
     import->func_idx_rt = import_func_idx_rt;
 
     return true;
@@ -3665,6 +3677,10 @@ wasm_instance_new(wasm_store_t *store,
                                  error_buf, sizeof(error_buf));
     if (!instance->inst_comm_rt) {
         LOG_ERROR(error_buf);
+        goto failed;
+    }
+
+    if (!wasm_runtime_create_exec_env_singleton(instance->inst_comm_rt)) {
         goto failed;
     }
 

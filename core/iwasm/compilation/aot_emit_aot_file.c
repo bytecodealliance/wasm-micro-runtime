@@ -2208,20 +2208,17 @@ fail:
     return NULL;
 }
 
-bool
-aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  const char *file_name)
+uint8*
+aot_emit_aot_file_buf(AOTCompContext *comp_ctx,
+                      AOTCompData *comp_data,
+                      uint32 *p_aot_file_size)
 {
     AOTObjectData *obj_data = aot_obj_data_create(comp_ctx);
     uint8 *aot_file_buf, *buf, *buf_end;
     uint32 aot_file_size, offset = 0;
-    bool ret = false;
-    FILE *file;
 
     if (!obj_data)
-        return false;
-
-    bh_print_time("Begin to emit AOT file");
+        return NULL;
 
     aot_file_size = get_aot_file_size(comp_ctx, comp_data, obj_data);
 
@@ -2251,25 +2248,52 @@ aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         goto fail2;
     }
 
-    /* write buffer to file */
-    if (!(file = fopen(file_name, "wb"))) {
-        aot_set_last_error("open or create aot file failed.");
-        goto fail2;
-    }
-    if (!fwrite(aot_file_buf, aot_file_size, 1, file)) {
-        aot_set_last_error("write to aot file failed.");
-        goto fail3;
-    }
+    *p_aot_file_size = aot_file_size;
 
-    ret = true;
-
-fail3:
-    fclose(file);
+    aot_obj_data_destroy(obj_data);
+    return aot_file_buf;
 
 fail2:
     wasm_runtime_free(aot_file_buf);
 
 fail1:
     aot_obj_data_destroy(obj_data);
+    return NULL;
+}
+
+bool
+aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                  const char *file_name)
+{
+    uint8 *aot_file_buf;
+    uint32 aot_file_size;
+    bool ret = false;
+    FILE *file;
+
+    bh_print_time("Begin to emit AOT file");
+
+    if (!(aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data,
+                                               &aot_file_size))) {
+        return false;
+    }
+
+    /* write buffer to file */
+    if (!(file = fopen(file_name, "wb"))) {
+        aot_set_last_error("open or create aot file failed.");
+        goto fail1;
+    }
+    if (!fwrite(aot_file_buf, aot_file_size, 1, file)) {
+        aot_set_last_error("write to aot file failed.");
+        goto fail2;
+    }
+
+    ret = true;
+
+fail2:
+    fclose(file);
+
+fail1:
+    wasm_runtime_free(aot_file_buf);
+
     return ret;
 }
