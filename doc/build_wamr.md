@@ -138,6 +138,12 @@ Currently we only profile the memory consumption of module, module_instance and 
 #### **Enable reference types feature**
 - **WAMR_BUILD_REF_TYPES**=1/0, default to disable if not set
 
+#### **Exclude WAMR application entry functions**
+- **WAMR_DISABLE_APP_ENTRY**=1/0, default to disable if not set
+
+> Note: The WAMR application entry (`core/iwasm/common/wasm_application.c`) encapsulate some common process to instantiate, execute the wasm functions and print the results. Some platform related APIs are used in these functions, so you can enable this flag to exclude this file if your platform doesn't support those APIs.
+> *Don't enable this flag if you are building `product-mini`*
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:

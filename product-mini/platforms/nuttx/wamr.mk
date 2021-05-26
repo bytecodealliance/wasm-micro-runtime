@@ -180,6 +180,7 @@ CSRCS += nuttx_platform.c \
          bh_read_file.c \
          runtime_timer.c \
          libc_builtin_wrapper.c \
+         wasm_application.c \
          wasm_runtime_common.c \
          wasm_native.c \
          wasm_exec_env.c \

@@ -41,6 +41,7 @@ override PROJECT_CSRC := $(PROJECT_CSRC) \
                          $(WAMR_SRC_ROOT)/core/shared/utils/bh_log.c \
                          $(WAMR_SRC_ROOT)/core/shared/utils/bh_vector.c \
                          $(WAMR_SRC_ROOT)/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c \
+                         $(WAMR_SRC_ROOT)/core/iwasm/common/wasm_application.c \
                          $(WAMR_SRC_ROOT)/core/iwasm/common/wasm_runtime_common.c \
                          $(WAMR_SRC_ROOT)/core/iwasm/common/wasm_exec_env.c \
                          $(WAMR_SRC_ROOT)/core/iwasm/common/wasm_native.c \
