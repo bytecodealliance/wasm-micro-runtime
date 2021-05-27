@@ -264,7 +264,9 @@ void os_thread_exit(void *retval)
     return pthread_exit(retval);
 }
 
+#if defined(os_thread_local_attribute)
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
+#endif
 
 uint8 *os_thread_get_stack_boundary()
 {
@@ -277,8 +279,10 @@ uint8 *os_thread_get_stack_boundary()
     size_t stack_size, max_stack_size;
     int page_size;
 
+#if defined(os_thread_local_attribute)
     if (thread_stack_boundary)
         return thread_stack_boundary;
+#endif
 
     page_size = getpagesize();
     self = pthread_self();
@@ -313,7 +317,9 @@ uint8 *os_thread_get_stack_boundary()
     }
 #endif
 
+#if defined(os_thread_local_attribute)
     thread_stack_boundary = addr;
+#endif
     return addr;
 }
 
