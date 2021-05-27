@@ -119,6 +119,21 @@ foreach(EX ${EXAMPLES})
     VERBATIM
     SOURCES ${SRC}
   )
+
+  # generate .aot file
+  if(${WAMR_BUILD_AOT} EQUAL 1)
+    if(EXISTS ${WAMRC})
+      add_custom_target(${EX}_AOT ALL
+        COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
+          ${PROJECT_BINARY_DIR}/${EX}.wasm
+        DEPENDS ${PROJECT_BINARY_DIR}/${EX}.wasm
+        BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
+        VERBATIM
+        SOURCES ${SRC}
+        COMMENT "generate a aot file ${PROJECT_BINARY_DIR}/${EX}.aot"
+      )
+    endif()
+  endif()
 endforeach()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
