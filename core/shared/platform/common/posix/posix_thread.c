@@ -31,7 +31,7 @@ static void *os_thread_wrapper(void *arg)
     os_signal_handler handler = targ->signal_handler;
 #endif
 
-    os_printf("THREAD CREATED %p\n", pthread_self());
+    os_printf("THREAD CREATED %jx\n", (uintmax_t)(uintptr_t)pthread_self());
     BH_FREE(targ);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (os_thread_signal_init(handler) != 0)
