@@ -23,7 +23,7 @@ WAMR_BUILD_TARGET := X86_64
 endif
 ifeq ($(CONFIG_HOST_MACOS),y)
 # Note: invokeNative_em64.s needs BH_PLATFORM_DARWIN
-CFLAGS += -DBH_PLATFORM_DARWIN
+AFLAGS += -DBH_PLATFORM_DARWIN
 endif
 endif
 

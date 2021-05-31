@@ -92,7 +92,7 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
     }
 
     if (struct_buf_size < sizeof(gc_handle_t)) {
-        os_printf("[GC_ERROR]heap init struct buf size (%u) < %u\n",
+        os_printf("[GC_ERROR]heap init struct buf size (%u) < %zu\n",
                   struct_buf_size, sizeof(gc_handle_t));
         return NULL;
     }
