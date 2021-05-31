@@ -31,7 +31,7 @@ static void *os_thread_wrapper(void *arg)
     os_signal_handler handler = targ->signal_handler;
 #endif
 
-    os_printf("THREAD CREATED %p\n", pthread_self());
+    os_printf("THREAD CREATED %jx\n", (uintmax_t)(uintptr_t)pthread_self());
     BH_FREE(targ);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (os_thread_signal_init(handler) != 0)
@@ -184,17 +184,18 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 static void msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
 {
     struct timeval tv;
-    long int tv_sec_new, tv_nsec_new;
+    time_t tv_sec_new;
+    long int tv_nsec_new;
 
     gettimeofday(&tv, NULL);
 
-    tv_sec_new = (long int)(tv.tv_sec + usec / 1000000);
+    tv_sec_new = (time_t)(tv.tv_sec + usec / 1000000);
     if (tv_sec_new >= tv.tv_sec) {
         ts->tv_sec = tv_sec_new;
     }
     else {
         /* integer overflow */
-        ts->tv_sec = LONG_MAX;
+        ts->tv_sec = BH_TIME_T_MAX;
         os_printf("Warning: os_cond_reltimedwait exceeds limit, "
                   "set to max timeout instead\n");
     }
@@ -211,7 +212,7 @@ static void msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
                   "set to max timeout instead\n");
     }
 
-    if (ts->tv_nsec >= 1000000000L && ts->tv_sec < LONG_MAX) {
+    if (ts->tv_nsec >= 1000000000L && ts->tv_sec < BH_TIME_T_MAX) {
         ts->tv_sec++;
         ts->tv_nsec -= 1000000000L;
     }
@@ -263,7 +264,9 @@ void os_thread_exit(void *retval)
     return pthread_exit(retval);
 }
 
+#if defined(os_thread_local_attribute)
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
+#endif
 
 uint8 *os_thread_get_stack_boundary()
 {
@@ -276,8 +279,10 @@ uint8 *os_thread_get_stack_boundary()
     size_t stack_size, max_stack_size;
     int page_size;
 
+#if defined(os_thread_local_attribute)
     if (thread_stack_boundary)
         return thread_stack_boundary;
+#endif
 
     page_size = getpagesize();
     self = pthread_self();
@@ -312,7 +317,9 @@ uint8 *os_thread_get_stack_boundary()
     }
 #endif
 
+#if defined(os_thread_local_attribute)
     thread_stack_boundary = addr;
+#endif
     return addr;
 }
 
