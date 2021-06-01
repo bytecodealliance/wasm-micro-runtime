@@ -5,7 +5,9 @@ CORE_ROOT := wamr/core
 IWASM_ROOT := wamr/core/iwasm
 SHARED_ROOT := wamr/core/shared
 
-ifeq ($(CONFIG_ARCH_ARMV7M),y)
+ifeq ($(CONFIG_ARCH_ARMV7A),y)
+WAMR_BUILD_TARGET := THUMBV7A
+else ifeq ($(CONFIG_ARCH_ARMV7M),y)
 WAMR_BUILD_TARGET := THUMBV7EM
 else ifeq ($(CONFIG_ARCH_ARMV8M),y)
 WAMR_BUILD_TARGET := THUMBV8M
