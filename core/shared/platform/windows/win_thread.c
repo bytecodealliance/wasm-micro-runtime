@@ -141,7 +141,7 @@ os_thread_cleanup(void *retval)
     BH_FREE(thread_data);
 }
 
-static unsigned
+static unsigned __stdcall
 os_thread_wrapper(void *arg)
 {
     os_thread_data *thread_data = arg;

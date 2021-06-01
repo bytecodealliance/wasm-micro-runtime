@@ -835,7 +835,7 @@ wasm_runtime_destroy_thread_env()
 {
 #if WASM_ENABLE_AOT != 0
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    return aot_signal_destroy();
+    aot_signal_destroy();
 #endif
 #endif
 }
