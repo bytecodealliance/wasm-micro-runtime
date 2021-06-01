@@ -92,6 +92,7 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   for (int i = 0; i < 2; ++i) {
+    char buf[32];
     const wasm_func_t* func = wasm_extern_as_func(exports.data[i]);
     if (func == NULL) {
       printf("> Error accessing export!\n");
@@ -109,7 +110,8 @@ int main(int argc, const char* argv[]) {
     printf("Printing message...\n");
     own wasm_name_t message;
     wasm_trap_message(trap, &message);
-    printf("> %s\n", message.data);
+    snprintf(buf, sizeof(buf), "> %%.%us\n", (unsigned)message.size);
+    printf(buf, message.data);
 
     wasm_trap_delete(trap);
     wasm_name_delete(&message);
