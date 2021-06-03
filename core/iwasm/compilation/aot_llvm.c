@@ -1087,14 +1087,22 @@ static ArchItem valid_archs[] = {
     { "thumbv8r", true },
     { "thumbv8m.base", true },
     { "thumbv8m.main", true },
-    { "thumbv8.1m.main", true }
+    { "thumbv8.1m.main", true },
+    { "riscv32", true},
+    { "riscv64", true}
 };
 
 static const char *valid_abis[] = {
     "gnu",
     "eabi",
     "gnueabihf",
-    "msvc"
+    "msvc",
+    "ilp32",
+    "ilp32f",
+    "ilp32d",
+    "lp64",
+    "lp64f",
+    "lp64d"
 };
 
 static void
