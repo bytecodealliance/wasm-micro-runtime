@@ -6,6 +6,7 @@
 #ifndef _PLATFORM_INTERNAL_H
 #define _PLATFORM_INTERNAL_H
 
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
