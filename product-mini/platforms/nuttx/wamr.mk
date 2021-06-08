@@ -72,11 +72,10 @@ ifeq (${CONFIG_ARCH_FPU},y)
   $(error riscv64 lp64f is unsupported)
 else ifeq (${CONFIG_ARCH_DPFPU}, y)
   CFLAGS += -DBUILD_TARGET_RISCV64_LP64D
-  INVOKE_NATIVE += invokeNative_riscv64_lp64d.s
 else
   CFLAGS += -DBUILD_TARGET_RISCV64_LP64
-  INVOKE_NATIVE += invokeNative_riscv64_lp64.s
 endif
+  INVOKE_NATIVE += invokeNative_riscv.S
 
   AOT_RELOC :=
 
@@ -86,12 +85,11 @@ ifeq (${CONFIG_ARCH_FPU}, y)
   $(error riscv32 ilp32f is unsupported)
 else ifeq (${CONFIG_ARCH_DPFPU}, y)
   CFLAGS += -DBUILD_TARGET_RISCV64_ILP32D
-  INVOKE_NATIVE += invokeNative_riscv32_ilp32d.s
 else
   CFLAGS += -DBUILD_TARGET_RISCV64_ILP32
-  INVOKE_NATIVE += invokeNative_riscv32_ilp32.s
 endif
 
+  INVOKE_NATIVE += invokeNative_riscv.S
   AOT_RELOC :=
 
 else
