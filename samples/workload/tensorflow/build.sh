@@ -1,9 +1,9 @@
+#!/bin/bash
+
 #
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
-
-#!/bin/bash
 
 ####################################
 #   build tensorflow-lite sample   #
@@ -99,6 +99,8 @@ WAMRC_CMD="$(pwd)/wamrc"
 cd ${OUT_DIR}
 if [[ $1 == '--sgx' ]]; then
     ${WAMRC_CMD} --enable-simd -sgx -o benchmark_model.aot benchmark_model.wasm
+elif [[  $1 == '--threads' ]]; then
+    ${WAMRC_CMD} --enable-simd --enable-multi-thread -o benchmark_model.aot benchmark_model.wasm
 else
     ${WAMRC_CMD} --enable-simd -o benchmark_model.aot benchmark_model.wasm
 fi
@@ -137,7 +139,13 @@ else
     IWASM_CMD="${WAMR_PLATFORM_DIR}/linux/build/iwasm"
 fi
 
-${IWASM_CMD} --heap-size=10475860 \
+if [[  $1 == '--threads' ]]; then
+    ${IWASM_CMD} --heap-size=10475860 \
+             ${OUT_DIR}/benchmark_model.aot --num_threads=4 \
+             --graph=mobilenet_quant_v1_224.tflite --max_secs=300
+else
+    ${IWASM_CMD} --heap-size=10475860 \
              ${OUT_DIR}/benchmark_model.aot \
              --graph=mobilenet_quant_v1_224.tflite --max_secs=300
+fi
 

@@ -78,6 +78,18 @@ Then build the program with this command:
 # -Wl,--no-check-features: the errno.o in wasi-sysroot is not compatible with pthread feature, pass this option to avoid errors
 ```
 
+**Build with EMCC**
+
+EMCC's `-pthread` option is not compatible with standalone mode, we need to pass `-mbulk-memory -matomics` to the compiler and `--shared-memory,--no-check-features` to linker manually
+
+``` bash
+emcc -O3 -mbulk-memory -matomics -s MALLOC="none"   \
+     -Wl,--export=__data_end,--export=__heap_base   \
+     -Wl,--shared-memory,--no-check-features        \
+     -s ERROR_ON_UNDEFINED_SYMBOLS=0                \
+     main.c -o test.wasm
+```
+
 **Build AoT module**
 
 You can build the wasm module into AoT module with pthread support, please pass option `--enable-multi-thread` to wamrc:

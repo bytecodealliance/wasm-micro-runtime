@@ -17,7 +17,9 @@ Then run
 ./build.sh
 # for linux platform, or
 ./build.sh --sgx
-# for linux-sgx platform
+# for linux-sgx platform or
+./build.sh --threads
+# for multi-thread execution (on linux platform)
 ```
 to build tensorflow and run it with iwasm, which basically contains the following steps:
 - hack emcc to delete some objects in libc.a

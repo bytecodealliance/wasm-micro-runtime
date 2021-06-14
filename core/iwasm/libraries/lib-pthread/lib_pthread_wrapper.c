@@ -542,24 +542,24 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     uint32 thread_handle;
     int32 ret = -1;
 #if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext *wasi_ctx = get_wasi_ctx(module_inst);
+    WASIContext *wasi_ctx;
 #endif
 
     bh_assert(module);
+    bh_assert(module_inst);
 
     if (!(new_module_inst =
             wasm_runtime_instantiate_internal(module, true, 8192, 0,
                                               NULL, 0)))
         return -1;
 
-    if (module_inst) {
-        /* Set custom_data to new module instance */
-        wasm_runtime_set_custom_data_internal(
-            new_module_inst,
-            wasm_runtime_get_custom_data(module_inst));
-    }
+    /* Set custom_data to new module instance */
+    wasm_runtime_set_custom_data_internal(
+        new_module_inst,
+        wasm_runtime_get_custom_data(module_inst));
 
 #if WASM_ENABLE_LIBC_WASI != 0
+    wasi_ctx = get_wasi_ctx(module_inst);
     if (wasi_ctx)
         wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
 #endif
@@ -628,7 +628,7 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
 
     /* validate addr, we can use current thread's
         module instance here as the memory is shared */
-    if (!validate_app_addr(retval_offset, sizeof(void *))) {
+    if (!validate_app_addr(retval_offset, sizeof(int32))) {
         /* Join failed, but we don't want to terminate all threads,
             do not spread exception here */
         wasm_runtime_set_exception(module_inst, NULL);
@@ -1046,6 +1046,22 @@ pthread_key_delete_wrapper(wasm_exec_env_t exec_env, int32 key)
     return 0;
 }
 
+/* Currently the memory allocator doesn't support alloc specific aligned
+    space, we wrap posix_memalign to simply malloc memory */
+static int32
+posix_memalign_wrapper(wasm_exec_env_t exec_env,
+                       void **memptr, int32 align, int32 size)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    void *p = NULL;
+
+    *((int32 *)memptr) = module_malloc(size, (void**)&p);
+    if (!p)
+        return -1;
+
+    return 0;
+}
+
 #define REG_NATIVE_FUNC(func_name, signature)  \
     { #func_name, func_name##_wrapper, signature, NULL }
 
@@ -1069,6 +1085,7 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_setspecific,    "(ii)i"),
     REG_NATIVE_FUNC(pthread_getspecific,    "(i)i"),
     REG_NATIVE_FUNC(pthread_key_delete,     "(i)i"),
+    REG_NATIVE_FUNC(posix_memalign,         "(*ii)i"),
 };
 
 uint32

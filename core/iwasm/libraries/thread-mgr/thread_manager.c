@@ -659,6 +659,7 @@ void
 wasm_cluster_spread_exception(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
 
     traverse_list(&cluster->exec_env_list, set_exception_visitor, exec_env);
 }
@@ -677,7 +678,11 @@ wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
                                 void *custom_data)
 {
     WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
-    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    WASMCluster *cluster = NULL;
+    bh_assert(exec_env);
+
+    cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
 
     traverse_list(&cluster->exec_env_list,
                   set_custom_data_visitor,
