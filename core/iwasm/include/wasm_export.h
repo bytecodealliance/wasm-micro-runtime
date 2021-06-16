@@ -495,7 +495,9 @@ wasm_runtime_call_wasm_v(wasm_exec_env_t exec_env,
  *
  * @param module_inst the WASM module instance
  * @param argc the number of arguments
- * @param argv the arguments array
+ * @param argv the arguments array, if the main function has return value,
+ *   *(int*)argv stores the return value of the called main function after
+ *   this function returns.
  *
  * @return true if the main function is called, false otherwise and exception
  *   will be thrown, the caller can call wasm_runtime_get_exception to get

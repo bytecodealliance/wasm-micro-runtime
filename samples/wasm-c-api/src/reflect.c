@@ -32,6 +32,12 @@ void print_valtype(const wasm_valtype_t* type) {
 
 void print_valtypes(const wasm_valtype_vec_t* types) {
   bool first = true;
+
+  if (!types) {
+    printf("> Error print a NULL valtype\n");
+    return;
+  }
+
   for (size_t i = 0; i < types->size; ++i) {
     if (first) {
       first = false;
@@ -43,6 +49,11 @@ void print_valtypes(const wasm_valtype_vec_t* types) {
 }
 
 void print_externtype(const wasm_externtype_t* type) {
+  if (!type) {
+    printf("> Error print a NULL externtype\n");
+    return;
+  }
+
   switch (wasm_externtype_kind(type)) {
     case WASM_EXTERN_FUNC: {
       const wasm_functype_t* functype =
@@ -78,6 +89,11 @@ void print_externtype(const wasm_externtype_t* type) {
 }
 
 void print_name(const wasm_name_t* name) {
+  if (!name) {
+    printf("> Error print a NULL name\n");
+    return;
+  }
+
   printf("\"%.*s\"", (int)name->size, name->data);
 }
 
@@ -106,6 +122,7 @@ int main(int argc, const char* argv[]) {
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
+    fclose(file);
     return 1;
   }
   fclose(file);
