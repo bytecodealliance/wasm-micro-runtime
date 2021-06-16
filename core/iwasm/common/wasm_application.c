@@ -182,6 +182,10 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
 
     ret = wasm_runtime_create_exec_env_and_call_wasm(module_inst, func,
                                                      argc1, argv1);
+    if (ret && func_type->result_count > 0 && argc > 0 && argv)
+        /* copy the return value */
+        *(int*)argv = (int)argv1[0];
+
     if (argv_buf_offset)
         wasm_runtime_module_free(module_inst, argv_buf_offset);
     return ret;

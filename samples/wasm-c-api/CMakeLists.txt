@@ -93,8 +93,7 @@ set(EXAMPLES
   global
   reflect
   trap
-  # multi # AOT/JIT return multiple values
-  # globalexportimport # AOT/JIT doesn't suppport MULTI_MODULE
+  callback_chain
 )
 
 foreach(EX ${EXAMPLES})
