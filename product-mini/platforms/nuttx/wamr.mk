@@ -77,20 +77,20 @@ else
 endif
   INVOKE_NATIVE += invokeNative_riscv.S
 
-  AOT_RELOC :=
+  AOT_RELOC := aot_reloc_riscv.c
 
 else ifeq (${WAMR_BUILD_TARGET}, RISCV32)
 
 ifeq (${CONFIG_ARCH_FPU}, y)
   $(error riscv32 ilp32f is unsupported)
 else ifeq (${CONFIG_ARCH_DPFPU}, y)
-  CFLAGS += -DBUILD_TARGET_RISCV64_ILP32D
+  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32D
 else
-  CFLAGS += -DBUILD_TARGET_RISCV64_ILP32
+  CFLAGS += -DBUILD_TARGET_RISCV32_ILP32
 endif
 
   INVOKE_NATIVE += invokeNative_riscv.S
-  AOT_RELOC :=
+  AOT_RELOC := aot_reloc_riscv.c
 
 else
   $(error Build target is unsupported)
@@ -180,7 +180,8 @@ CFLAGS += -Wno-strict-prototypes -Wno-shadow -Wno-unused-variable
 CFLAGS += -Wno-int-conversion -Wno-implicit-function-declaration
 
 CFLAGS += -I${CORE_ROOT} \
-		      -I${IWASM_ROOT}/include \
+          -I${IWASM_ROOT}/include \
+          -I${IWASM_ROOT}/interpreter \
           -I${IWASM_ROOT}/common \
           -I${IWASM_ROOT}/libraries/thread-mgr \
           -I${SHARED_ROOT}/include \
@@ -216,7 +217,8 @@ CSRCS += nuttx_platform.c \
          wasm_runtime_common.c \
          wasm_native.c \
          wasm_exec_env.c \
-         wasm_memory.c
+         wasm_memory.c \
+         wasm_c_api.c
 
 ASRCS += ${INVOKE_NATIVE}
 
