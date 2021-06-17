@@ -26,7 +26,7 @@
 #define RV_OP_STOREREG sw
 #define RV_REG_SIZE    4
 #define RV_REG_SHIFT   2
-#define RV_FP_OFFSET   (8 * RV_FPREG_SIZE)
+#define RV_FP_OFFSET   (8 * RV_REG_SIZE)
 #define RV_INT_OFFSET  0
 #else
 #define RV_OP_LOADREG  ld
