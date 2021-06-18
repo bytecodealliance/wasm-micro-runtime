@@ -97,11 +97,12 @@ enclave_init(sgx_enclave_id_t *p_eid)
      */
     /* try to get the token saved in $HOME */
     home_dir = getpwuid(getuid())->pw_dir;
+    size_t home_dir_len = home_dir ? strlen(home_dir) : 0;
 
     if (home_dir != NULL &&
-        (strlen(home_dir) + strlen("/") + sizeof(TOKEN_FILENAME) + 1) <= MAX_PATH) {
+        home_dir_len <= MAX_PATH - 1 - sizeof(TOKEN_FILENAME) - strlen("/")) {
         /* compose the token path */
-        strncpy(token_path, home_dir, strlen(home_dir));
+        strncpy(token_path, home_dir, MAX_PATH);
         strncat(token_path, "/", strlen("/"));
         strncat(token_path, TOKEN_FILENAME, sizeof(TOKEN_FILENAME) + 1);
     }
@@ -756,6 +757,7 @@ wamr_pal_init(const struct wamr_pal_attr *args)
         std::cout << "Fail to initialize enclave." << std::endl;
         return 1;
     }
+    return 0;
 }
 
 int
