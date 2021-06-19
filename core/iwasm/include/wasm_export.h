@@ -314,6 +314,14 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(wasm_module_t module);
 
 WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_args_ex(wasm_module_t module,
+                           const char *dir_list[], uint32_t dir_count,
+                           const char *map_dir_list[], uint32_t map_dir_count,
+                           const char *env[], uint32_t env_count,
+                           char *argv[], int argc,
+                           int stdinfd, int stdoutfd, int stderrfd);
+
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,
                            const char *map_dir_list[], uint32_t map_dir_count,
