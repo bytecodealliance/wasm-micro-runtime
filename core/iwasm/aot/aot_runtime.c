@@ -1036,6 +1036,9 @@ aot_instantiate(AOTModule *module, bool is_sub_inst,
                                     module->wasi_args.env_count,
                                     module->wasi_args.argv,
                                     module->wasi_args.argc,
+                                    module->wasi_args.stdio[0],
+                                    module->wasi_args.stdio[1],
+                                    module->wasi_args.stdio[2],
                                     error_buf, error_buf_size))
             goto fail;
     }

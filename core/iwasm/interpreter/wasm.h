@@ -305,6 +305,7 @@ typedef struct WASIArguments {
     uint32 env_count;
     char **argv;
     uint32 argc;
+    int stdio[3];
 } WASIArguments;
 #endif
 
