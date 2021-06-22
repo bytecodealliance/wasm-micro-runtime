@@ -1793,12 +1793,14 @@ wasm_runtime_enlarge_memory(WASMModuleInstanceCommon *module,
 }
 
 #if WASM_ENABLE_LIBC_WASI != 0
+
 void
-wasm_runtime_set_wasi_args(WASMModuleCommon *module,
+wasm_runtime_set_wasi_args_ex(WASMModuleCommon *module,
                            const char *dir_list[], uint32 dir_count,
                            const char *map_dir_list[], uint32 map_dir_count,
                            const char *env_list[], uint32 env_count,
-                           char *argv[], int argc)
+                           char *argv[], int argc,
+                           int stdinfd, int stdoutfd, int stderrfd)
 {
     WASIArguments *wasi_args = NULL;
 
@@ -1820,7 +1822,25 @@ wasm_runtime_set_wasi_args(WASMModuleCommon *module,
         wasi_args->env_count = env_count;
         wasi_args->argv = argv;
         wasi_args->argc = (uint32)argc;
+        wasi_args->stdio[0] = stdinfd;
+        wasi_args->stdio[1] = stdoutfd;
+        wasi_args->stdio[2] = stderrfd;
     }
+}
+
+void
+wasm_runtime_set_wasi_args(WASMModuleCommon *module,
+                           const char *dir_list[], uint32 dir_count,
+                           const char *map_dir_list[], uint32 map_dir_count,
+                           const char *env_list[], uint32 env_count,
+                           char *argv[], int argc)
+{
+    wasm_runtime_set_wasi_args_ex(module,
+                                  dir_list, dir_count,
+                                  map_dir_list, map_dir_count,
+                                  env_list, env_count,
+                                  argv, argc,
+                                  -1, -1, -1);
 }
 
 #if WASM_ENABLE_UVWASI == 0
@@ -1830,6 +1850,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *map_dir_list[], uint32 map_dir_count,
                        const char *env[], uint32 env_count,
                        char *argv[], uint32 argc,
+                       int stdinfd, int stdoutfd, int stderrfd,
                        char *error_buf, uint32 error_buf_size)
 {
     WASIContext *wasi_ctx;
@@ -1951,9 +1972,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     argv_environ_inited = true;
 
     /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
-    if (!fd_table_insert_existing(curfds, 0, 0)
-        || !fd_table_insert_existing(curfds, 1, 1)
-        || !fd_table_insert_existing(curfds, 2, 2)) {
+    if (!fd_table_insert_existing(curfds, 0, (stdinfd != -1) ? stdinfd : 0)
+        || !fd_table_insert_existing(curfds, 1, (stdoutfd != -1) ? stdoutfd : 1)
+        || !fd_table_insert_existing(curfds, 2, (stderrfd != -1) ? stderrfd : 2)) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: init fd table failed");
         goto fail;
@@ -2065,6 +2086,7 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *map_dir_list[], uint32 map_dir_count,
                        const char *env[], uint32 env_count,
                        char *argv[], uint32 argc,
+                       int stdinfd, int stdoutfd, int stderrfd,
                        char *error_buf, uint32 error_buf_size)
 {
     uvwasi_t *uvwasi = NULL;
@@ -2084,6 +2106,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     init_options.allocator = &uvwasi_allocator;
     init_options.argc = argc;
     init_options.argv = (const char **)argv;
+    init_options.in = (stdinfd != -1) ? (uvwasi_fd_t)stdinfd : init_options.in;
+    init_options.out = (stdoutfd != -1) ? (uvwasi_fd_t)stdoutfd : init_options.out;
+    init_options.err = (stderrfd != -1) ? (uvwasi_fd_t)stderrfd : init_options.err;
 
     if (dir_count > 0) {
         init_options.preopenc = dir_count;
