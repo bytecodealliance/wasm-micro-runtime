@@ -83,7 +83,7 @@ DEFINE_FUNCTION(log)
         return NULL;
     }
 
-    if (data[length.of.i32]) {
+    if (data[length.of.i32 - 1]) {
         printf("> Error terminated character\n");
         return NULL;
     }
@@ -188,7 +188,11 @@ main(int argc, const char *argv[])
 
     // Load binary.
     printf("Loading binary...\n");
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_INTERP == 0
+    FILE *file = fopen("callback_chain.aot", "rb");
+#else
     FILE *file = fopen("callback_chain.wasm", "rb");
+#endif
     if (!file) {
         printf("> Error loading module!\n");
         return 1;

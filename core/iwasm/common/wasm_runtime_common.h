@@ -796,6 +796,12 @@ uint32
 wasm_runtime_get_memory_data_size(const WASMModuleInstanceCommon *module_inst_comm,
                                   uint32 memory_inst_idx);
 
+bool
+wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
+                                 void *func_ptr, WASMType *func_type,
+                                 uint32 argc, uint32 *argv,
+                                 bool with_env, void *wasm_c_api_env);
+
 #ifdef __cplusplus
 }
 #endif

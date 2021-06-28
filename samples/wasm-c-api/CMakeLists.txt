@@ -105,32 +105,30 @@ foreach(EX ${EXAMPLES})
   if (MSVC)
     target_compile_definitions(${EX} PRIVATE WASM_API_EXTERN=)
   endif()
-endforeach()
 
-# wat to wasm
-foreach(EX ${EXAMPLES})
-  set(SRC ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.wat)
+  # wat to wasm
+  set(WAT ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.wat)
 
-  add_custom_target(${EX}_WASM ALL
-    COMMAND ${WAT2WASM} ${SRC} -o ${PROJECT_BINARY_DIR}/${EX}.wasm
-    DEPENDS ${SRC}
+  add_custom_target(${EX}_WASM
+    COMMAND ${WAT2WASM} ${WAT} -o ${PROJECT_BINARY_DIR}/${EX}.wasm
+    DEPENDS ${WAT}
     BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.wasm
     VERBATIM
-    SOURCES ${SRC}
   )
+  add_dependencies(${EX} ${EX}_WASM)
 
   # generate .aot file
   if(${WAMR_BUILD_AOT} EQUAL 1)
     if(EXISTS ${WAMRC})
-      add_custom_target(${EX}_AOT ALL
+      add_custom_target(${EX}_AOT
         COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
           ${PROJECT_BINARY_DIR}/${EX}.wasm
-        DEPENDS ${PROJECT_BINARY_DIR}/${EX}.wasm
+        DEPENDS ${EX}_WASM
         BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
         VERBATIM
-        SOURCES ${SRC}
         COMMENT "generate a aot file ${PROJECT_BINARY_DIR}/${EX}.aot"
       )
+      add_dependencies(${EX} ${EX}_AOT)
     endif()
   endif()
 endforeach()
