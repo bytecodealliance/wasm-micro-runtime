@@ -7,6 +7,7 @@
 #define _AOT_LLVM_H_
 
 #include "aot.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Core.h"

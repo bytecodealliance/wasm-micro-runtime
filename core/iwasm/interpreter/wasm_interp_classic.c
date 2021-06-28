@@ -753,7 +753,14 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
         return;
     }
 
-    if (!func_import->call_conv_raw) {
+    if (func_import->call_conv_wasm_c_api) {
+        ret = wasm_runtime_invoke_c_api_native(
+          (WASMModuleInstanceCommon *)module_inst,
+          func_import->func_ptr_linked, func_import->func_type,
+          cur_func->param_cell_num, frame->lp,
+          func_import->wasm_c_api_with_env, func_import->attachment);
+    }
+    else if (!func_import->call_conv_raw) {
         ret = wasm_runtime_invoke_native(exec_env, func_import->func_ptr_linked,
                                          func_import->func_type, func_import->signature,
                                          func_import->attachment,

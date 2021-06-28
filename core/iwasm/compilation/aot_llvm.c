@@ -1534,7 +1534,9 @@ aot_create_comp_context(AOTCompData *comp_data,
     LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
     LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
     LLVMAddJumpThreadingPass(comp_ctx->pass_mgr);
+#if LLVM_VERSION_MAJOR < 12
     LLVMAddConstantPropagationPass(comp_ctx->pass_mgr);
+#endif
     LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
 
     if (!option->is_jit_mode) {

@@ -186,6 +186,8 @@ typedef struct WASMFunctionImport {
     WASMModule *import_module;
     WASMFunction *import_func_linked;
 #endif
+    bool call_conv_wasm_c_api;
+    bool wasm_c_api_with_env;
 } WASMFunctionImport;
 
 typedef struct WASMGlobalImport {

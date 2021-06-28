@@ -21,6 +21,7 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "wasm_shared_memory.h"
 #endif
+#include "../common/wasm_c_api_internal.h"
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 /*
@@ -4026,3 +4027,141 @@ wasm_runtime_get_memory_data_size(
     return 0;
 }
 
+static inline bool
+argv_to_params(wasm_val_t *out_params,
+               const uint32 *argv,
+               WASMType *func_type)
+{
+    wasm_val_t *param = out_params;
+    uint32 i = 0, *u32;
+
+    for (i = 0; i < func_type->param_count; i++, param++) {
+        switch (func_type->types[i]) {
+            case VALUE_TYPE_I32:
+                param->kind = WASM_I32;
+                param->of.i32 = *argv++;
+                break;
+            case VALUE_TYPE_I64:
+                param->kind = WASM_I64;
+                u32 = (uint32 *)&param->of.i64;
+                u32[0] = *argv++;
+                u32[1] = *argv++;
+                break;
+            case VALUE_TYPE_F32:
+                param->kind = WASM_F32;
+                param->of.f32 = *(float32 *)argv++;
+                break;
+            case VALUE_TYPE_F64:
+                param->kind = WASM_F64;
+                u32 = (uint32 *)&param->of.i64;
+                u32[0] = *argv++;
+                u32[1] = *argv++;
+                break;
+            default:
+                return false;
+        }
+    }
+
+    return true;
+}
+
+static inline bool
+results_to_argv(uint32 *out_argv,
+                const wasm_val_t *results,
+                WASMType *func_type)
+{
+    const wasm_val_t *result = results;
+    uint32 *argv = out_argv, *u32, i;
+    uint8 *result_types = func_type->types + func_type->param_count;
+
+    for (i = 0; i < func_type->result_count; i++, result++) {
+        switch (result_types[i]) {
+            case VALUE_TYPE_I32:
+            case VALUE_TYPE_F32:
+                *(int32 *)argv++ = result->of.i32;
+                break;
+            case VALUE_TYPE_I64:
+            case VALUE_TYPE_F64:
+                u32 = (uint32 *)&result->of.i64;
+                *argv++ = u32[0];
+                *argv++ = u32[1];
+                break;
+            default:
+                return false;
+        }
+    }
+
+    return true;
+}
+
+bool
+wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
+                                 void *func_ptr, WASMType *func_type,
+                                 uint32 argc, uint32 *argv,
+                                 bool with_env, void *wasm_c_api_env)
+{
+    wasm_val_t params_buf[16], results_buf[4];
+    wasm_val_t *params = params_buf, *results = results_buf;
+    wasm_trap_t *trap = NULL;
+    bool ret = false;
+
+    if (func_type->param_count > 16
+        && !(params = wasm_runtime_malloc(sizeof(wasm_val_t)
+                                          * func_type->param_count))) {
+        wasm_runtime_set_exception(module_inst, "allocate memory failed");
+        return false;
+    }
+
+    if (!argv_to_params(params, argv, func_type)) {
+        wasm_runtime_set_exception(module_inst, "unsupported param type");
+        goto fail;
+    }
+
+    if (!with_env) {
+        wasm_func_callback_t callback = (wasm_func_callback_t)func_ptr;
+        trap = callback(params, results);
+    }
+    else {
+        wasm_func_callback_with_env_t callback =
+          (wasm_func_callback_with_env_t)func_ptr;
+        trap = callback(wasm_c_api_env, params, results);
+    }
+
+    if (trap) {
+        if (trap->message->data) {
+            /* since trap->message->data does not end with '\0' */
+            char trap_message[128] = { 0 };
+            bh_memcpy_s(
+              trap_message, 127, trap->message->data,
+              (trap->message->size < 127 ? trap->message->size : 127));
+            wasm_runtime_set_exception(module_inst, trap_message);
+        }
+        else {
+            wasm_runtime_set_exception(
+              module_inst, "native function throw unknown exception");
+        }
+        wasm_trap_delete(trap);
+        goto fail;
+    }
+
+    if (func_type->result_count > 4
+        && !(results = wasm_runtime_malloc(sizeof(wasm_val_t)
+                                           * func_type->result_count))) {
+        wasm_runtime_set_exception(module_inst, "allocate memory failed");
+        goto fail;
+    }
+
+    if (!results_to_argv(argv, results, func_type)) {
+        wasm_runtime_set_exception(module_inst, "unsupported result type");
+        goto fail;
+    }
+
+    ret = true;
+
+fail:
+    if (params != params_buf)
+        wasm_runtime_free(params);
+    if (results != results_buf)
+        wasm_runtime_free(results);
+    return ret;
+}

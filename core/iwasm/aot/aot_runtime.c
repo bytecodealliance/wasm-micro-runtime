@@ -13,7 +13,6 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
-#include "../common/wasm_c_api_internal.h"
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -2204,140 +2203,6 @@ aot_is_wasm_type_equal(AOTModuleInstance *module_inst,
     return wasm_type_equal(type1, type2);
 }
 
-static inline bool
-argv_to_params(wasm_val_t *out_params, const uint32 *argv,
-               AOTFuncType *func_type)
-{
-    wasm_val_t *param = out_params;
-    uint32 i = 0, *u32;
-
-    for (i = 0; i < func_type->param_count; i++, param++) {
-        switch (func_type->types[i]) {
-            case VALUE_TYPE_I32:
-                param->kind = WASM_I32;
-                param->of.i32 = *argv++;
-                break;
-            case VALUE_TYPE_I64:
-                param->kind = WASM_I64;
-                u32 = (uint32*)&param->of.i64;
-                u32[0] = *argv++;
-                u32[1] = *argv++;
-                break;
-            case VALUE_TYPE_F32:
-                param->kind = WASM_F32;
-                param->of.f32 = *(float32 *)argv++;
-                break;
-            case VALUE_TYPE_F64:
-                param->kind = WASM_F64;
-                u32 = (uint32*)&param->of.i64;
-                u32[0] = *argv++;
-                u32[1] = *argv++;
-                break;
-            default:
-                return false;
-        }
-    }
-
-    return true;
-}
-
-static inline bool
-results_to_argv(uint32 *out_argv, const wasm_val_t *results,
-                AOTFuncType *func_type)
-{
-    const wasm_val_t *result = results;
-    uint32 *argv = out_argv, *u32, i;
-    uint8 *result_types = func_type->types + func_type->param_count;
-
-    for (i = 0; i < func_type->result_count; i++, result++) {
-        switch (result_types[i]) {
-            case VALUE_TYPE_I32:
-            case VALUE_TYPE_F32:
-                *(int32*)argv++ = result->of.i32;
-                break;
-            case VALUE_TYPE_I64:
-            case VALUE_TYPE_F64:
-                u32 = (uint32*)&result->of.i64;
-                *argv++ = u32[0];
-                *argv++ = u32[1];
-                break;
-            default:
-                return false;
-        }
-    }
-
-    return true;
-}
-
-static inline bool
-invoke_wasm_c_api_native(AOTModuleInstance *module_inst, void *func_ptr,
-                         AOTFuncType *func_type, uint32 argc, uint32 *argv,
-                         bool with_env, void *wasm_c_api_env)
-{
-    wasm_val_t params_buf[16], results_buf[4];
-    wasm_val_t *params = params_buf, *results = results_buf;
-    wasm_trap_t *trap = NULL;
-    bool ret = false;
-    char fmt[16];
-
-    if (func_type->param_count > 16
-        && !(params = wasm_runtime_malloc(sizeof(wasm_val_t)
-                                          * func_type->param_count))) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
-        return false;
-    }
-
-    if (!argv_to_params(params, argv, func_type)) {
-        aot_set_exception(module_inst, "unsupported param type");
-        goto fail;
-    }
-
-    if (!with_env) {
-        wasm_func_callback_t callback = (wasm_func_callback_t)func_ptr;
-        trap = callback(params, results);
-    }
-    else {
-        wasm_func_callback_with_env_t callback =
-                            (wasm_func_callback_with_env_t)func_ptr;
-        trap = callback(wasm_c_api_env, params, results);
-    }
-    if (trap) {
-        if (trap->message->data) {
-            snprintf(fmt, sizeof(fmt), "%%.%us", (uint32)trap->message->size);
-            snprintf(module_inst->cur_exception,
-                     sizeof(module_inst->cur_exception),
-                     fmt, trap->message->data);
-        }
-        else {
-            aot_set_exception(module_inst,
-                              "native function throw unknown exception");
-        }
-        wasm_trap_delete(trap);
-        goto fail;
-    }
-
-    if (func_type->result_count > 4
-        && !(results = wasm_runtime_malloc(sizeof(wasm_val_t)
-                                           * func_type->result_count))) {
-        aot_set_exception_with_id(module_inst, EXCE_OUT_OF_MEMORY);
-        goto fail;
-    }
-
-    if (!results_to_argv(argv, results, func_type)) {
-        aot_set_exception(module_inst, "unsupported result type");
-        goto fail;
-    }
-
-    ret = true;
-
-fail:
-    if (params != params_buf)
-        wasm_runtime_free(params);
-    if (results != results_buf)
-        wasm_runtime_free(results);
-    return ret;
-}
-
 bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
                   uint32 argc, uint32 *argv)
@@ -2368,10 +2233,9 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 
     attachment = import_func->attachment;
     if (import_func->call_conv_wasm_c_api) {
-        return invoke_wasm_c_api_native(module_inst, func_ptr,
-                                       func_type, argc, argv,
-                                       import_func->wasm_c_api_with_env,
-                                       attachment);
+        return wasm_runtime_invoke_c_api_native(
+          (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
+          argv, import_func->wasm_c_api_with_env, attachment);
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
