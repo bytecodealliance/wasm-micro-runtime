@@ -8,6 +8,19 @@
 #define R_ARM_THM_CALL  10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
 #define R_ARM_THM_JMP24 30  /* B.W */
 
+void __ltdf2();
+void __adddf3();
+void __eqdf2();
+void __unorddf2();
+void __muldf3();
+void __subdf3();
+void __gedf2();
+void __ledf2();
+void __fixunsdfsi();
+void __floatunsidf();
+void __fixdfsi();
+void __nedf2();
+void __floatsidf();
 void __divdi3();
 void __udivdi3();
 void __moddi3();
@@ -55,8 +68,21 @@ void __aeabi_f2iz();
 void __aeabi_f2d();
 
 static SymbolMap target_sym_map[] = {
-    REG_COMMON_SYMBOLS,
+    REG_COMMON_SYMBOLS
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
+    REG_SYM(__ltdf2),
+    REG_SYM(__adddf3),
+    REG_SYM(__eqdf2),
+    REG_SYM(__unorddf2),
+    REG_SYM(__muldf3),
+    REG_SYM(__subdf3),
+    REG_SYM(__gedf2),
+    REG_SYM(__ledf2),
+    REG_SYM(__fixunsdfsi),
+    REG_SYM(__floatunsidf),
+    REG_SYM(__fixdfsi),
+    REG_SYM(__nedf2),
+    REG_SYM(__floatsidf),
     REG_SYM(__divdi3),
     REG_SYM(__udivdi3),
     REG_SYM(__umoddi3),
@@ -117,22 +143,32 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
+#define BUILD_TARGET_THUMB_V4T "thumbv4t"
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
-    char *build_target = BUILD_TARGET;
-    char *p = target_buf, *p_end;
-    snprintf(target_buf, target_buf_size, "%s", build_target);
-    p_end = p + strlen(target_buf);
-    while (p < p_end) {
-        if (*p >= 'A' && *p <= 'Z')
-            *p++ += 'a' - 'A';
-        else
-            p++;
+    const char * s =  BUILD_TARGET;
+    size_t s_size = sizeof(BUILD_TARGET);
+    char *d = target_buf;
+
+    /* Set to "thumbv4t" by default if sub version isn't specified */
+    if (strcmp(s, "THUMB") == 0) {
+        s = BUILD_TARGET_THUMB_V4T;
+        s_size = sizeof(BUILD_TARGET_THUMB_V4T);
     }
-    if (!strcmp(target_buf, "thumb"))
-        snprintf(target_buf, target_buf_size, "thumbv4t");
+    if(target_buf_size < s_size){
+        s_size = target_buf_size;
+    }
+    while (--s_size) {
+        if (*s >= 'A' && *s <= 'Z')
+            *d++ = *s++ + 'a' - 'A';
+        else
+            *d++ = *s++ ;
+    }
+    /* Ensure the string is null byte ('\0') terminated */
+    *d = '\0';
 }
+#undef BUILD_TARGET_THUMB_V4T
 
 uint32
 get_plt_item_size()

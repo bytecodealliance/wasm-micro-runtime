@@ -4,6 +4,7 @@
 cmake_minimum_required (VERSION 2.8)
 
 project (iwasm)
+# set (CMAKE_VERBOSE_MAKEFILE 1)
 
 set (WAMR_BUILD_PLATFORM "linux")
 
@@ -11,10 +12,17 @@ set (WAMR_BUILD_PLATFORM "linux")
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
+set (CMAKE_C_STANDARD 99)
+
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    set (WAMR_BUILD_TARGET "AARCH64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    set (WAMR_BUILD_TARGET "RISCV64")
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
   else ()
@@ -57,6 +65,35 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
   set (WAMR_BUILD_FAST_INTERP 1)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
+  # Enable multiple modules
+  set (WAMR_BUILD_MULTI_MODULE 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
+  # Disable pthread library by default
+  set (WAMR_BUILD_LIB_PTHREAD 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
+  # Disable wasm mini loader by default
+  set (WAMR_BUILD_MINI_LOADER 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_SIMD)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_REF_TYPES)
+  # Disable reference types by default
+  set (WAMR_BUILD_REF_TYPES 0)
+endif ()
+
+if (COLLECT_CODE_COVERAGE EQUAL 1)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+endif ()
+
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
@@ -87,7 +124,7 @@ add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
@@ -95,5 +132,4 @@ install (TARGETS libiwasm DESTINATION lib)
 
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
-target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
-
+target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)

@@ -19,19 +19,30 @@ extern "C" {
 #define VALUE_TYPE_I64 0X7E
 #define VALUE_TYPE_F32 0x7D
 #define VALUE_TYPE_F64 0x7C
+#define VALUE_TYPE_V128 0x7B
+#define VALUE_TYPE_FUNCREF 0x70
+#define VALUE_TYPE_EXTERNREF 0x6F
 #define VALUE_TYPE_VOID 0x40
 /* Used by AOT */
 #define VALUE_TYPE_I1  0x41
-
-/* Table Element Type */
-#define TABLE_ELEM_TYPE_ANY_FUNC 0x70
+/*  Used by loader to represent any type of i32/i64/f32/f64 */
+#define VALUE_TYPE_ANY 0x42
 
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
+
+#define NULL_REF (0xFFFFFFFF)
+
+#define TABLE_MAX_SIZE (1024)
 
 #define INIT_EXPR_TYPE_I32_CONST 0x41
 #define INIT_EXPR_TYPE_I64_CONST 0x42
 #define INIT_EXPR_TYPE_F32_CONST 0x43
 #define INIT_EXPR_TYPE_F64_CONST 0x44
+#define INIT_EXPR_TYPE_V128_CONST 0xFD
+/* = WASM_OP_REF_FUNC */
+#define INIT_EXPR_TYPE_FUNCREF_CONST 0xD2
+/* = WASM_OP_REF_NULL */
+#define INIT_EXPR_TYPE_REFNULL_CONST 0xD0
 #define INIT_EXPR_TYPE_GET_GLOBAL 0x23
 #define INIT_EXPR_TYPE_ERROR 0xff
 
@@ -50,6 +61,13 @@ extern "C" {
 #define SECTION_TYPE_ELEM 9
 #define SECTION_TYPE_CODE 10
 #define SECTION_TYPE_DATA 11
+#if WASM_ENABLE_BULK_MEMORY != 0
+#define SECTION_TYPE_DATACOUNT 12
+#endif
+
+#define SUB_SECTION_TYPE_MODULE 0
+#define SUB_SECTION_TYPE_FUNC   1
+#define SUB_SECTION_TYPE_LOCAL  2
 
 #define IMPORT_KIND_FUNC 0
 #define IMPORT_KIND_TABLE 1
@@ -61,37 +79,49 @@ extern "C" {
 #define EXPORT_KIND_MEMORY 2
 #define EXPORT_KIND_GLOBAL 3
 
-#define BLOCK_TYPE_BLOCK 0
-#define BLOCK_TYPE_LOOP 1
-#define BLOCK_TYPE_IF 2
-#define BLOCK_TYPE_FUNCTION 3
+#define LABEL_TYPE_BLOCK 0
+#define LABEL_TYPE_LOOP 1
+#define LABEL_TYPE_IF 2
+#define LABEL_TYPE_FUNCTION 3
+
+typedef struct WASMModule WASMModule;
+typedef struct WASMFunction WASMFunction;
+typedef struct WASMGlobal WASMGlobal;
+
+typedef union V128 {
+    int8 i8x16[16];
+    int16 i16x8[8];
+    int32 i32x8[4];
+    int64 i64x2[2];
+    float32 f32x4[4];
+    float64 f64x2[2];
+} V128;
 
 typedef union WASMValue {
     int32 i32;
     uint32 u32;
+    uint32 global_index;
+    uint32 ref_index;
     int64 i64;
     uint64 u64;
     float32 f32;
     float64 f64;
     uintptr_t addr;
+    V128 v128;
 } WASMValue;
 
 typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX */
+    /* it actually is instr, in some places, requires constant only */
     uint8 init_expr_type;
-    union {
-        int32 i32;
-        int64 i64;
-        float32 f32;
-        float64 f64;
-        uint32 global_index;
-    } u;
+    WASMValue u;
 } InitializerExpression;
 
 typedef struct WASMType {
-    uint32 param_count;
-    /* only one result is supported currently */
-    uint32 result_count;
+    uint16 param_count;
+    uint16 result_count;
+    uint16 param_cell_num;
+    uint16 ret_cell_num;
     /* types of params and results */
     uint8 types[1];
 } WASMType;
@@ -102,6 +132,7 @@ typedef struct WASMTable {
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
+    bool possible_grow;
 } WASMTable;
 
 typedef struct WASMMemory {
@@ -119,6 +150,11 @@ typedef struct WASMTableImport {
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
+    bool possible_grow;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModule *import_module;
+    WASMTable *import_table_linked;
+#endif
 } WASMTableImport;
 
 typedef struct WASMMemoryImport {
@@ -128,6 +164,10 @@ typedef struct WASMMemoryImport {
     uint32 num_bytes_per_page;
     uint32 init_page_count;
     uint32 max_page_count;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModule *import_module;
+    WASMMemory *import_memory_linked;
+#endif
 } WASMMemoryImport;
 
 typedef struct WASMFunctionImport {
@@ -135,13 +175,19 @@ typedef struct WASMFunctionImport {
     char *field_name;
     /* function type */
     WASMType *func_type;
-    /* function pointer after linked */
+    /* native function pointer after linked */
     void *func_ptr_linked;
     /* signature from registered native symbols */
     const char *signature;
     /* attachment */
     void *attachment;
     bool call_conv_raw;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    WASMModule *import_module;
+    WASMFunction *import_func_linked;
+#endif
+    bool call_conv_wasm_c_api;
+    bool wasm_c_api_with_env;
 } WASMFunctionImport;
 
 typedef struct WASMGlobalImport {
@@ -151,6 +197,13 @@ typedef struct WASMGlobalImport {
     bool is_mutable;
     /* global data after linked */
     WASMValue global_data_linked;
+    bool is_linked;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* imported function pointer after linked */
+    /* TODO: remove if not needed */
+    WASMModule *import_module;
+    WASMGlobal *import_global_linked;
+#endif
 } WASMGlobalImport;
 
 typedef struct WASMImport {
@@ -167,7 +220,10 @@ typedef struct WASMImport {
     } u;
 } WASMImport;
 
-typedef struct WASMFunction {
+struct WASMFunction {
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    char *field_name;
+#endif
     /* the type of function */
     WASMType *func_type;
     uint32 local_count;
@@ -179,7 +235,7 @@ typedef struct WASMFunction {
     uint16 ret_cell_num;
     /* cell num of local variables */
     uint16 local_cell_num;
-    /* offset of each local, including function paramameters
+    /* offset of each local, including function parameters
        and local variables */
     uint16 *local_offsets;
 
@@ -198,13 +254,13 @@ typedef struct WASMFunction {
     uint8 *consts;
     uint32 const_cell_num;
 #endif
-} WASMFunction;
+};
 
-typedef struct WASMGlobal {
+struct WASMGlobal {
     uint8 type;
     bool is_mutable;
     InitializerExpression init_expr;
-} WASMGlobal;
+};
 
 typedef struct WASMExport {
     char *name;
@@ -213,6 +269,12 @@ typedef struct WASMExport {
 } WASMExport;
 
 typedef struct WASMTableSeg {
+    /* 0 to 7 */
+    uint32 mode;
+    /* funcref or externref, elemkind will be considered as funcref */
+    uint32 elem_type;
+    bool is_dropped;
+    /* optional, only for active */
     uint32 table_index;
     InitializerExpression base_offset;
     uint32 function_count;
@@ -223,6 +285,9 @@ typedef struct WASMDataSeg {
     uint32 memory_index;
     InitializerExpression base_offset;
     uint32 data_length;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    bool is_passive;
+#endif
     uint8 *data;
 } WASMDataSeg;
 
@@ -242,6 +307,7 @@ typedef struct WASIArguments {
     uint32 env_count;
     char **argv;
     uint32 argc;
+    int stdio[3];
 } WASIArguments;
 #endif
 
@@ -250,7 +316,7 @@ typedef struct StringNode {
     char *str;
 } StringNode, *StringList;
 
-typedef struct WASMModule {
+struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
        for module loaded from AOT file, this field is
@@ -266,7 +332,12 @@ typedef struct WASMModule {
     uint32 global_count;
     uint32 export_count;
     uint32 table_seg_count;
+    /* data seg count read from data segment section */
     uint32 data_seg_count;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    /* data count read from datacount section */
+    uint32 data_seg_count1;
+#endif
 
     uint32 import_function_count;
     uint32 import_table_count;
@@ -289,15 +360,34 @@ typedef struct WASMModule {
     WASMDataSeg **data_segments;
     uint32 start_function;
 
-    /* __data_end global exported by llvm */
-    uint32 llvm_aux_data_end;
-    /* auxiliary stack bottom, or __heap_base global exported by llvm */
-    uint32 llvm_aux_stack_bottom;
-    /* auxiliary stack size */
-    uint32 llvm_aux_stack_size;
-    /* the index of a global exported by llvm, which is
-       auxiliary stack top pointer */
-    uint32 llvm_aux_stack_global_index;
+    /* the index of auxiliary __data_end global,
+       -1 means unexported */
+    uint32 aux_data_end_global_index;
+    /* auxiliary __data_end exported by wasm app */
+    uint32 aux_data_end;
+
+    /* the index of auxiliary __heap_base global,
+       -1 means unexported */
+    uint32 aux_heap_base_global_index;
+    /* auxiliary __heap_base exported by wasm app */
+    uint32 aux_heap_base;
+
+    /* the index of auxiliary stack top global,
+       -1 means unexported */
+    uint32 aux_stack_top_global_index;
+    /* auxiliary stack bottom resolved */
+    uint32 aux_stack_bottom;
+    /* auxiliary stack size resolved */
+    uint32 aux_stack_size;
+
+    /* the index of malloc/free function,
+       -1 means unexported */
+    uint32 malloc_function;
+    uint32 free_function;
+
+    /* the index of __retain function,
+       -1 means unexported */
+    uint32 retain_function;
 
     /* Whether there is possible memory grow, e.g. memory.grow opcode */
     bool possible_memory_grow;
@@ -308,13 +398,31 @@ typedef struct WASMModule {
     WASIArguments wasi_args;
     bool is_wasi_module;
 #endif
-} WASMModule;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    /* TODO: add mutex for mutli-thread? */
+    bh_list import_module_list_head;
+    bh_list *import_module_list;
+#endif
+};
+
+typedef struct BlockType {
+    /* Block type may be expressed in one of two forms:
+     * either by the type of the single return value or
+     * by a type index of module.
+     */
+    union {
+        uint8 value_type;
+        WASMType *type;
+    } u;
+    bool is_value_type;
+} BlockType;
 
 typedef struct WASMBranchBlock {
-    uint8 block_type;
-    uint8 return_type;
+    uint8 *begin_addr;
     uint8 *target_addr;
     uint32 *frame_sp;
+    uint32 cell_num;
 } WASMBranchBlock;
 
 /* Execution environment, e.g. stack info */
@@ -367,10 +475,18 @@ wasm_value_type_size(uint8 value_type)
     switch (value_type) {
         case VALUE_TYPE_I32:
         case VALUE_TYPE_F32:
+#if WASM_ENABLE_REF_TYPES != 0
+        case VALUE_TYPE_FUNCREF:
+        case VALUE_TYPE_EXTERNREF:
+#endif
             return sizeof(int32);
         case VALUE_TYPE_I64:
         case VALUE_TYPE_F64:
             return sizeof(int64);
+#if WASM_ENABLE_SIMD != 0
+        case VALUE_TYPE_V128:
+            return sizeof(int64) * 2;
+#endif
         default:
             bh_assert(0);
     }
@@ -380,40 +496,35 @@ wasm_value_type_size(uint8 value_type)
 inline static uint16
 wasm_value_type_cell_num(uint8 value_type)
 {
-    switch (value_type) {
-        case VALUE_TYPE_I32:
-        case VALUE_TYPE_F32:
-            return 1;
-        case VALUE_TYPE_I64:
-        case VALUE_TYPE_F64:
-            return 2;
-        default:
-            bh_assert(0);
+    if (value_type == VALUE_TYPE_VOID)
+        return 0;
+    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32
+#if WASM_ENABLE_REF_TYPES != 0
+             || value_type == VALUE_TYPE_FUNCREF
+             || value_type == VALUE_TYPE_EXTERNREF
+#endif
+    )
+        return 1;
+    else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
+        return 2;
+#if WASM_ENABLE_SIMD != 0
+    else if (value_type == VALUE_TYPE_V128)
+        return 4;
+#endif
+    else {
+        bh_assert(0);
     }
     return 0;
 }
 
-inline static uint16
+inline static uint32
 wasm_get_cell_num(const uint8 *types, uint32 type_count)
 {
     uint32 cell_num = 0;
     uint32 i;
     for (i = 0; i < type_count; i++)
         cell_num += wasm_value_type_cell_num(types[i]);
-    return (uint16)cell_num;
-}
-
-inline static uint16
-wasm_type_param_cell_num(const WASMType *type)
-{
-    return wasm_get_cell_num(type->types, type->param_count);
-}
-
-inline static uint16
-wasm_type_return_cell_num(const WASMType *type)
-{
-    return wasm_get_cell_num(type->types + type->param_count,
-                             type->result_count);
+    return cell_num;
 }
 
 inline static bool
@@ -422,8 +533,59 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
     return (type1->param_count == type2->param_count
             && type1->result_count == type2->result_count
             && memcmp(type1->types, type2->types,
-                      type1->param_count + type1->result_count) == 0)
+                      (uint32)(type1->param_count
+                               + type1->result_count)) == 0)
         ? true : false;
+}
+
+inline static uint32
+wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
+                           uint32 cur_type_idx)
+{
+    uint32 i;
+
+    for (i = 0; i < cur_type_idx; i++) {
+        if (wasm_type_equal(types[cur_type_idx], types[i]))
+            return i;
+    }
+    return cur_type_idx;
+}
+
+static inline uint32
+block_type_get_param_types(BlockType *block_type,
+                           uint8 **p_param_types)
+{
+    uint32 param_count = 0;
+    if (!block_type->is_value_type) {
+        WASMType *wasm_type = block_type->u.type;
+        *p_param_types = wasm_type->types;
+        param_count = wasm_type->param_count;
+    }
+    else {
+        *p_param_types = NULL;
+        param_count  = 0;
+    }
+
+    return param_count;
+}
+
+static inline uint32
+block_type_get_result_types(BlockType *block_type,
+                            uint8 **p_result_types)
+{
+    uint32 result_count = 0;
+    if (block_type->is_value_type) {
+        if (block_type->u.value_type != VALUE_TYPE_VOID) {
+            *p_result_types = &block_type->u.value_type;
+            result_count = 1;
+        }
+    }
+    else {
+        WASMType *wasm_type = block_type->u.type;
+        *p_result_types = wasm_type->types + wasm_type->param_count;
+        result_count = wasm_type->result_count;
+    }
+    return result_count;
 }
 
 #ifdef __cplusplus
@@ -431,4 +593,3 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
 #endif
 
 #endif /* end of _WASM_H_ */
-

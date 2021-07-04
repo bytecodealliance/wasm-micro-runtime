@@ -173,20 +173,11 @@ typedef struct host_interface {
  * @return true if success, false otherwise
  */
 bool
-app_manager_host_init(host_interface *interface);
-
-/**
- * Send message to Host
- *
- * @param buf buffer to send
- * @param size size of buffer
- *
- * @return size of buffer sent
- */
+app_manager_host_init(host_interface *intf);
 
 /* Startup app manager */
 void
-app_manager_startup(host_interface *interface);
+app_manager_startup(host_interface *intf);
 
 /* Get queue of current applet */
 void *
@@ -284,8 +275,16 @@ send_error_response_to_host(int mid, int code, const char *msg);
 bool
 bh_applet_check_permission(const char *perm);
 
+/**
+ * Send message to Host
+ *
+ * @param buf buffer to send
+ * @param size size of buffer
+ *
+ * @return size of buffer sent
+ */
 int
-app_manager_host_send_msg(int msg_type, const unsigned char *buf, int size);
+app_manager_host_send_msg(int msg_type, const char *buf, int size);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

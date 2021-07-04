@@ -9,7 +9,7 @@
  * The verbose level of the log system.  Only those verbose logs whose
  * levels are less than or equal to this value are outputed.
  */
-static uint32 log_verbose_level = LOG_LEVEL_WARNING;
+static uint32 log_verbose_level = BH_LOG_LEVEL_WARNING;
 
 void
 bh_log_set_verbose_level(uint32 level)
@@ -26,7 +26,7 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
     uint64 usec;
     uint32 t, h, m, s, mills;
 
-    if (log_level > log_verbose_level)
+    if ((uint32)log_level > log_verbose_level)
         return;
 
     self = os_self_thread();
@@ -41,7 +41,7 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...)
 
     snprintf(buf, sizeof(buf), "%02u:%02u:%02u:%03u", h, m, s, mills);
 
-    os_printf("[%s - %X]: ", buf, (uint32)self);
+    os_printf("[%s - %X]: ", buf, (uint32)(uintptr_t)self);
 
     if (file)
         os_printf("%s, line %d, ", file, line);

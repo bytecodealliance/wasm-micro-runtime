@@ -20,7 +20,7 @@ static exec_mem_free_func_t exec_mem_free_func = NULL;
 static void
 disable_mpu_rasr_xn(void)
 {
-    u32_t index;
+    uint32 index;
     /* Kept the max index as 8 (irrespective of soc) because the sram
        would most likely be set at index 2. */
     for (index = 0U; index < 8; index++) {
@@ -87,6 +87,7 @@ os_free(void *ptr)
 {
 }
 
+#if 0
 struct out_context {
     int count;
 };
@@ -104,22 +105,82 @@ char_out(int c, void *ctx)
 int
 os_vprintf(const char *fmt, va_list ap)
 {
+#if 0
     struct out_context ctx = { 0 };
-    z_vprintk(char_out, &ctx, fmt, ap);
+    cbvprintf(char_out, &ctx, fmt, ap);
     return ctx.count;
+#else
+    vprintk(fmt, ap);
+    return 0;
+#endif
+}
+#endif
+
+int
+os_printf(const char *format, ...)
+{
+    int ret = 0;
+    va_list ap;
+
+    va_start(ap, format);
+#ifndef BH_VPRINTF
+    ret += vprintf(format, ap);
+#else
+    ret += BH_VPRINTF(format, ap);
+#endif
+    va_end(ap);
+
+    return ret;
 }
 
-void *
-os_mmap(void *hint, unsigned int size, int prot, int flags)
+int
+os_vprintf(const char *format, va_list ap)
 {
+#ifndef BH_VPRINTF
+    return vprintf(format, ap);
+#else
+    return BH_VPRINTF(format, ap);
+#endif
+}
+
+#if KERNEL_VERSION_NUMBER <= 0x020400 /* version 2.4.0 */
+void
+abort(void)
+{
+    int i = 0;
+    os_printf("%d\n", 1 / i);
+}
+#endif
+
+#if KERNEL_VERSION_NUMBER <= 0x010E01 /* version 1.14.1 */
+size_t
+strspn(const char *s, const char *accept)
+{
+    os_printf("## unimplemented function %s called", __FUNCTION__);
+    return 0;
+}
+
+size_t
+strcspn(const char *s, const char *reject)
+{
+    os_printf("## unimplemented function %s called", __FUNCTION__);
+    return 0;
+}
+#endif
+
+void *
+os_mmap(void *hint, size_t size, int prot, int flags)
+{
+    if ((uint64)size >= UINT32_MAX)
+        return NULL;
     if (exec_mem_alloc_func)
-        return exec_mem_alloc_func(size);
+        return exec_mem_alloc_func((uint32)size);
     else
         return BH_MALLOC(size);
 }
 
 void
-os_munmap(void *addr, uint32 size)
+os_munmap(void *addr, size_t size)
 {
     if (exec_mem_free_func)
         exec_mem_free_func(addr);
@@ -128,7 +189,7 @@ os_munmap(void *addr, uint32 size)
 }
 
 int
-os_mprotect(void *addr, uint32 size, int prot)
+os_mprotect(void *addr, size_t size, int prot)
 {
     return 0;
 }

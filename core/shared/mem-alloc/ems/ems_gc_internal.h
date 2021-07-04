@@ -29,7 +29,13 @@ typedef struct hmu_struct {
 
 #if BH_ENABLE_GC_VERIFY != 0
 
+#if UINTPTR_MAX > UINT32_MAX
+/* 2 prefix paddings for 64-bit pointer */
+#define GC_OBJECT_PREFIX_PADDING_CNT 2
+#else
+/* 3 prefix paddings for 32-bit pointer */
 #define GC_OBJECT_PREFIX_PADDING_CNT 3
+#endif
 #define GC_OBJECT_SUFFIX_PADDING_CNT 4
 #define GC_OBJECT_PADDING_VALUE (0x12345678)
 
@@ -52,7 +58,7 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
                            const char *file_name, int line_no);
 
 void
-hmu_verify(hmu_t *hmu);
+hmu_verify(void *vheap, hmu_t *hmu);
 
 #define SKIP_OBJ_PREFIX(p) ((void*)((gc_uint8*)(p) + OBJ_PREFIX_SIZE))
 #define SKIP_OBJ_SUFFIX(p) ((void*)((gc_uint8*)(p) + OBJ_SUFFIX_SIZE))
@@ -145,7 +151,9 @@ hmu_verify(hmu_t *hmu);
  * HMU free chunk management
  */
 
+#ifndef HMU_NORMAL_NODE_CNT
 #define HMU_NORMAL_NODE_CNT 32
+#endif
 #define HMU_FC_NORMAL_MAX_SIZE ((HMU_NORMAL_NODE_CNT - 1) << 3)
 #define HMU_IS_FC_NORMAL(size) ((size) < HMU_FC_NORMAL_MAX_SIZE)
 #if HMU_FC_NORMAL_MAX_SIZE >= GC_MAX_HEAP_SIZE
@@ -156,6 +164,10 @@ typedef struct hmu_normal_node {
     hmu_t hmu_header;
     gc_int32 next_offset;
 } hmu_normal_node_t;
+
+typedef struct hmu_normal_list {
+    hmu_normal_node_t *next;
+} hmu_normal_list_t;
 
 static inline hmu_normal_node_t *
 get_hmu_normal_node_next(hmu_normal_node_t *node)
@@ -195,10 +207,14 @@ typedef struct gc_heap_struct {
 
     korp_mutex lock;
 
-    hmu_normal_node_t kfc_normal_list[HMU_NORMAL_NODE_CNT];
+    hmu_normal_list_t kfc_normal_list[HMU_NORMAL_NODE_CNT];
 
     /* order in kfc_tree is: size[left] <= size[cur] < size[right]*/
     hmu_tree_node_t kfc_tree_root;
+
+    /* whether heap is corrupted, e.g. the hmu nodes are modified
+       by user */
+    bool is_heap_corrupted;
 
     gc_size_t init_size;
     gc_size_t highmark_size;
@@ -209,7 +225,7 @@ typedef struct gc_heap_struct {
  * MISC internal used APIs
  */
 
-void
+bool
 gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size);
 
 int

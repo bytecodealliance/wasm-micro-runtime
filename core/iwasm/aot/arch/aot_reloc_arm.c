@@ -56,7 +56,7 @@ void __aeabi_f2iz();
 void __aeabi_f2d();
 
 static SymbolMap target_sym_map[] = {
-    REG_COMMON_SYMBOLS,
+    REG_COMMON_SYMBOLS
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
     REG_SYM(__divdi3),
     REG_SYM(__udivdi3),
@@ -118,22 +118,32 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
+#define BUILD_TARGET_ARM_DEFAULT "armv4"
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
-    char *build_target = BUILD_TARGET;
-    char *p = target_buf, *p_end;
-    snprintf(target_buf, target_buf_size, "%s", build_target);
-    p_end = p + strlen(target_buf);
-    while (p < p_end) {
-        if (*p >= 'A' && *p <= 'Z')
-            *p++ += 'a' - 'A';
-        else
-            p++;
+    const char * s =  BUILD_TARGET;
+    size_t s_size = sizeof(BUILD_TARGET);
+    char *d = target_buf;
+
+    /* Set to "armv4" by default if sub version isn't specified */
+    if (strcmp(s, "ARM") == 0) {
+        s = BUILD_TARGET_ARM_DEFAULT;
+        s_size = sizeof(BUILD_TARGET_ARM_DEFAULT);
     }
-    if (!strcmp(target_buf, "arm"))
-        snprintf(target_buf, target_buf_size, "armv4");
+    if(target_buf_size < s_size){
+        s_size = target_buf_size;
+    }
+    while (--s_size) {
+        if (*s >= 'A' && *s <= 'Z')
+            *d++ = *s++ + 'a' - 'A';
+        else
+            *d++ = *s++ ;
+    }
+    /* Ensure the string is null byte ('\0') terminated */
+    *d = '\0';
 }
+#undef BUILD_TARGET_ARM_DEFAULT
 
 uint32
 get_plt_item_size()

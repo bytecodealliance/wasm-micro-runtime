@@ -26,9 +26,13 @@ typedef struct WASMInterpFrame {
   /* Instruction pointer of the bytecode array.  */
   uint8 *ip;
 
+#if WASM_ENABLE_PERF_PROFILING != 0
+  uint64 time_started;
+#endif
+
 #if WASM_ENABLE_FAST_INTERP != 0
-  /* return offset of current frame.
-    the callee will put return value here */
+  /* return offset of the first return value of current frame.
+    the callee will put return values here continuously */
   uint32 ret_offset;
   uint32 *lp;
   uint32 operand[1];

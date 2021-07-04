@@ -15,7 +15,11 @@
     && !defined(BUILD_TARGET_THUMB) \
     && !defined(BUILD_TARGET_THUMB_VFP) \
     && !defined(BUILD_TARGET_MIPS) \
-    && !defined(BUILD_TARGET_XTENSA)
+    && !defined(BUILD_TARGET_XTENSA) \
+    && !defined(BUILD_TARGET_RISCV64_LP64D) \
+    && !defined(BUILD_TARGET_RISCV64_LP64) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32D) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32)
 #if defined(__x86_64__) || defined(__x86_64)
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
@@ -34,6 +38,10 @@
 #define BUILD_TARGET_MIPS
 #elif defined(__XTENSA__)
 #define BUILD_TARGET_XTENSA
+#elif defined(__riscv) && (__riscv_xlen == 64)
+#define BUILD_TARGET_RISCV64_LP64D
+#elif defined(__riscv) && (__riscv_xlen == 32)
+#define BUILD_TARGET_RISCV32_ILP32D
 #else
 #error "Build target isn't set"
 #endif
@@ -43,12 +51,8 @@
 #define BH_DEBUG 0
 #endif
 
-enum {
-    /* Memory allocator ems */
-    MEM_ALLOCATOR_EMS = 0,
-    /* Memory allocator tlsf */
-    MEM_ALLOCATOR_TLSF
-};
+#define MEM_ALLOCATOR_EMS  0
+#define MEM_ALLOCATOR_TLSF 1
 
 /* Default memory allocator */
 #define DEFAULT_MEM_ALLOCATOR MEM_ALLOCATOR_EMS
@@ -62,7 +66,7 @@ enum {
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 1
+#define AOT_CURRENT_VERSION 3
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
@@ -86,6 +90,19 @@ enum {
 #define WASM_ENABLE_LIBC_WASI 0
 #endif
 
+#ifndef WASM_ENABLE_UVWASI
+#define WASM_ENABLE_UVWASI 0
+#endif
+
+/* Default disable libc emcc */
+#ifndef WASM_ENABLE_LIBC_EMCC
+#define WASM_ENABLE_LIBC_EMCC 0
+#endif
+
+#ifndef WASM_ENABLE_LIB_PTHREAD
+#define WASM_ENABLE_LIB_PTHREAD 0
+#endif
+
 #ifndef WASM_ENABLE_BASE_LIB
 #define WASM_ENABLE_BASE_LIB 0
 #endif
@@ -94,25 +111,51 @@ enum {
 #define WASM_ENABLE_APP_FRAMEWORK 0
 #endif
 
+/* Bulk memory operation */
+#ifndef WASM_ENABLE_BULK_MEMORY
+#define WASM_ENABLE_BULK_MEMORY 0
+#endif
+
+/* Shared memory */
+#ifndef WASM_ENABLE_SHARED_MEMORY
+#define WASM_ENABLE_SHARED_MEMORY 0
+#endif
+
+/* Thread manager */
+#ifndef WASM_ENABLE_THREAD_MGR
+#define WASM_ENABLE_THREAD_MGR 0
+#endif
+
 /* WASM log system */
 #ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1
 #endif
 
-#if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64)
-#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 1
+#ifndef WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS
+#if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64) \
+    || defined(BUILD_TARGET_AARCH64)
+#define WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS 1
 #else
-#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 0
+#define WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS 0
+#endif
 #endif
 
 /* WASM Interpreter labels-as-values feature */
+#ifndef WASM_ENABLE_LABELS_AS_VALUES
+#ifdef __GNUC__
 #define WASM_ENABLE_LABELS_AS_VALUES 1
+#else
+#define WASM_ENABLE_LABELS_AS_VALUES 0
+#endif
+#endif
+
+/* Enable fast interpreter or not */
+#ifndef WASM_ENABLE_FAST_INTERP
+#define WASM_ENABLE_FAST_INTERP 0
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
-#define WASM_ENABLE_ABS_LABEL_ADDR 1
 #define WASM_DEBUG_PREPROCESSOR 0
-#else
-#define WASM_ENABLE_ABS_LABEL_ADDR 0
 #endif
 
 /* Enable opcode counter or not */
@@ -120,11 +163,51 @@ enum {
 #define WASM_ENABLE_OPCODE_COUNTER 0
 #endif
 
-/* Heap and stack profiling */
-#define BH_ENABLE_MEMORY_PROFILING 0
+/* Support a module with dependency, other modules */
+#ifndef WASM_ENABLE_MULTI_MODULE
+#define WASM_ENABLE_MULTI_MODULE 0
+#endif
+
+/* Enable wasm mini loader or not */
+#ifndef WASM_ENABLE_MINI_LOADER
+#define WASM_ENABLE_MINI_LOADER 0
+#endif
+
+/* Disable boundary check with hardware trap or not,
+ * enable it by default if it is supported */
+#ifndef WASM_DISABLE_HW_BOUND_CHECK
+#define WASM_DISABLE_HW_BOUND_CHECK 0
+#endif
+
+/* Disable SIMD unless it is manualy enabled somewhere */
+#ifndef WASM_ENABLE_SIMD
+#define WASM_ENABLE_SIMD 0
+#endif
+
+/* Memory profiling */
+#ifndef WASM_ENABLE_MEMORY_PROFILING
+#define WASM_ENABLE_MEMORY_PROFILING 0
+#endif
+
+/* Memory tracing */
+#ifndef WASM_ENABLE_MEMORY_TRACING
+#define WASM_ENABLE_MEMORY_TRACING 0
+#endif
+
+/* Performance profiling */
+#ifndef WASM_ENABLE_PERF_PROFILING
+#define WASM_ENABLE_PERF_PROFILING 0
+#endif
+
+/* Dump call stack */
+#ifndef WASM_ENABLE_DUMP_CALL_STACK
+#define WASM_ENABLE_DUMP_CALL_STACK 0
+#endif
 
 /* Heap verification */
+#ifndef BH_ENABLE_GC_VERIFY
 #define BH_ENABLE_GC_VERIFY 0
+#endif
 
 /* Max app number of all modules */
 #define MAX_APP_INSTALLATIONS 3
@@ -153,12 +236,9 @@ enum {
 /* The max percentage of global heap that app memory space can grow */
 #define APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT 1 / 3
 
-/* Default base offset of app heap space */
-#define DEFAULT_APP_HEAP_BASE_OFFSET (1 * BH_GB)
-
 /* Default min/max heap size of each app */
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
-#define APP_HEAP_SIZE_MIN (2 * 1024)
+#define APP_HEAP_SIZE_MIN (256)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 
 /* Default wasm stack size of each app */
@@ -167,24 +247,53 @@ enum {
 #else
 #define DEFAULT_WASM_STACK_SIZE (12 * 1024)
 #endif
+/* Min auxilliary stack size of each wasm thread */
+#define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
 /* Default/min/max stack size of each app thread */
-#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS)
-#define APP_THREAD_STACK_SIZE_DEFAULT (20 * 1024)
-#define APP_THREAD_STACK_SIZE_MIN (16 * 1024)
-#define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
+#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
+    && !defined(BH_PLATFORM_ESP_IDF) && !defined(BH_PLATFORM_OPENRTOS)
+#define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
+#define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #else
 #define APP_THREAD_STACK_SIZE_DEFAULT (6 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (4 * 1024)
-#define APP_THREAD_STACK_SIZE_MAX (256 * 1024)
+#endif
+#if !defined(APP_THREAD_STACK_SIZE_MAX)
+#define APP_THREAD_STACK_SIZE_MAX (8 * 1024 * 1024)
 #endif
 
+/* Reserved bytes to the native thread stack boundary, throw native
+   stack overflow exception if the guard boudary is reached */
+#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
+
+/* Guard page count for stack overflow check with hardware trap */
+#define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
+
 /* Default wasm block address cache size and conflict list size */
+#ifndef BLOCK_ADDR_CACHE_SIZE
 #define BLOCK_ADDR_CACHE_SIZE 64
+#endif
 #define BLOCK_ADDR_CONFLICT_SIZE 2
 
 #ifndef WASM_ENABLE_SPEC_TEST
 #define WASM_ENABLE_SPEC_TEST 0
+#endif
+
+/* Default max thread num per cluster. Can be overwrite by
+    wasm_runtime_set_max_thread_num */
+#define CLUSTER_MAX_THREAD_NUM 4
+
+#ifndef WASM_ENABLE_TAIL_CALL
+#define WASM_ENABLE_TAIL_CALL 0
+#endif
+
+#ifndef WASM_ENABLE_CUSTOM_NAME_SECTION
+#define WASM_ENABLE_CUSTOM_NAME_SECTION 0
+#endif
+
+#ifndef WASM_ENABLE_REF_TYPES
+#define WASM_ENABLE_REF_TYPES 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

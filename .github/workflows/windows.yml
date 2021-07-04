@@ -1,0 +1,63 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: Windows
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the main branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: clone uvwasi library
+      run: |
+        cd core/deps
+        git clone https://github.com/nodejs/uvwasi.git
+    - name: Build iwasm [default]
+      run: |
+        cd product-mini/platforms/windows
+        mkdir build && cd build
+        cmake ..
+        cmake --build . --config Release
+        cd .. && rm -force -r build
+    - name: Build iwasm [aot only]
+      run: |
+        cd product-mini/platforms/windows
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0
+        cmake --build . --config Release
+        cd .. && rm -force -r build
+    - name: Build iwasm [interp only]
+      run: |
+        cd product-mini/platforms/windows
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_AOT=0
+        cmake --build . --config Release
+        cd .. && rm -force -r build
+    - name: Build iwasm [tail call]
+      run: |
+        cd product-mini/platforms/windows
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_TAIL_CALL=1
+        cmake --build . --config Release
+        cd .. && rm -force -r build
+    - name: Build iwasm [custom name section]
+      run: |
+        cd product-mini/platforms/windows
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
+        cmake --build . --config Release
+        cd .. && rm -force -r build
+

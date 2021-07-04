@@ -6,12 +6,14 @@
 #include "bh_vector.h"
 
 static uint8*
-alloc_vector_data(uint32 length, uint32 size_elem)
+alloc_vector_data(size_t length, size_t size_elem)
 {
     uint64 total_size = ((uint64)size_elem) * length;
     uint8 *data;
 
-    if (total_size > UINT32_MAX) {
+    if (length > UINT32_MAX
+        || size_elem > UINT32_MAX
+        || total_size > UINT32_MAX) {
         return NULL;
     }
 
@@ -23,11 +25,11 @@ alloc_vector_data(uint32 length, uint32 size_elem)
 }
 
 static bool
-extend_vector(Vector *vector, uint32 length)
+extend_vector(Vector *vector, size_t length)
 {
     uint8 *data;
 
-    if (length <= vector->max_elements)
+    if (length <= vector->max_elems)
         return true;
 
     if (length < vector->size_elem * 3 / 2)
@@ -37,15 +39,15 @@ extend_vector(Vector *vector, uint32 length)
         return false;
     }
 
-    memcpy(data, vector->data, vector->size_elem * vector->max_elements);
+    memcpy(data, vector->data, vector->size_elem * vector->max_elems);
     BH_FREE(vector->data);
     vector->data = data;
-    vector->max_elements = length;
+    vector->max_elems = length;
     return true;
 }
 
 bool
-bh_vector_init(Vector *vector, uint32 init_length, uint32 size_elem)
+bh_vector_init(Vector *vector, size_t init_length, size_t size_elem)
 {
     if (!vector) {
         LOG_ERROR("Init vector failed: vector is NULL.\n");
@@ -62,8 +64,8 @@ bh_vector_init(Vector *vector, uint32 init_length, uint32 size_elem)
     }
 
     vector->size_elem = size_elem;
-    vector->max_elements = init_length;
-    vector->num_elements = 0;
+    vector->max_elems = init_length;
+    vector->num_elems = 0;
     return true;
 }
 
@@ -75,7 +77,7 @@ bh_vector_set(Vector *vector, uint32 index, const void *elem_buf)
         return false;
     }
 
-    if (index >= vector->num_elements) {
+    if (index >= vector->num_elems) {
         LOG_ERROR("Set vector elem failed: invalid elem index.\n");
         return false;
     }
@@ -92,7 +94,7 @@ bool bh_vector_get(const Vector *vector, uint32 index, void *elem_buf)
         return false;
     }
 
-    if (index >= vector->num_elements) {
+    if (index >= vector->num_elems) {
         LOG_ERROR("Get vector elem failed: invalid elem index.\n");
         return false;
     }
@@ -104,7 +106,7 @@ bool bh_vector_get(const Vector *vector, uint32 index, void *elem_buf)
 
 bool bh_vector_insert(Vector *vector, uint32 index, const void *elem_buf)
 {
-    uint32 i;
+    size_t i;
     uint8 *p;
 
     if (!vector || !elem_buf) {
@@ -112,24 +114,24 @@ bool bh_vector_insert(Vector *vector, uint32 index, const void *elem_buf)
         return false;
     }
 
-    if (index >= vector->num_elements) {
+    if (index >= vector->num_elems) {
         LOG_ERROR("Insert vector elem failed: invalid elem index.\n");
         return false;
     }
 
-    if (!extend_vector(vector, vector->num_elements + 1)) {
+    if (!extend_vector(vector, vector->num_elems + 1)) {
         LOG_ERROR("Insert vector elem failed: extend vector failed.\n");
         return false;
     }
 
-    p = vector->data + vector->size_elem * vector->num_elements;
-    for (i = vector->num_elements - 1; i > index; i--) {
+    p = vector->data + vector->size_elem * vector->num_elems;
+    for (i = vector->num_elems - 1; i > index; i--) {
         memcpy(p, p - vector->size_elem, vector->size_elem);
         p -= vector->size_elem;
     }
 
     memcpy(p, elem_buf, vector->size_elem);
-    vector->num_elements++;
+    vector->num_elems++;
     return true;
 }
 
@@ -140,14 +142,14 @@ bool bh_vector_append(Vector *vector, const void *elem_buf)
         return false;
     }
 
-    if (!extend_vector(vector, vector->num_elements + 1)) {
+    if (!extend_vector(vector, vector->num_elems + 1)) {
         LOG_ERROR("Append ector elem failed: extend vector failed.\n");
         return false;
     }
 
-    memcpy(vector->data + vector->size_elem * vector->num_elements,
+    memcpy(vector->data + vector->size_elem * vector->num_elems,
            elem_buf, vector->size_elem);
-    vector->num_elements++;
+    vector->num_elems++;
     return true;
 }
 
@@ -162,7 +164,7 @@ bh_vector_remove(Vector *vector, uint32 index, void *old_elem_buf)
         return false;
     }
 
-    if (index >= vector->num_elements) {
+    if (index >= vector->num_elems) {
         LOG_ERROR("Remove vector elem failed: invalid elem index.\n");
         return false;
     }
@@ -173,19 +175,19 @@ bh_vector_remove(Vector *vector, uint32 index, void *old_elem_buf)
         memcpy(old_elem_buf, p, vector->size_elem);
     }
 
-    for (i = index; i < vector->num_elements - 1; i++) {
+    for (i = index; i < vector->num_elems - 1; i++) {
         memcpy(p, p + vector->size_elem, vector->size_elem);
         p += vector->size_elem;
     }
 
-    vector->num_elements--;
+    vector->num_elems--;
     return true;
 }
 
-uint32
+size_t
 bh_vector_size(const Vector *vector)
 {
-    return vector ? vector->num_elements : 0;
+    return vector ? vector->num_elems : 0;
 }
 
 bool

@@ -15,12 +15,32 @@
 #include "../interpreter/wasm_loader.h"
 #endif
 
+#define XMM_PLT_PREFIX "__xmm@"
+#define REAL_PLT_PREFIX "__real@"
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
-    if (error_buf != NULL)
-        snprintf(error_buf, error_buf_size, "%s", string);
+    if (error_buf != NULL) {
+        snprintf(error_buf, error_buf_size,
+                 "AOT module load failed: %s", string);
+    }
+}
+
+static void
+set_error_buf_v(char *error_buf, uint32 error_buf_size,
+                const char *format, ...)
+{
+    va_list args;
+    char buf[128];
+
+    if (error_buf != NULL) {
+        va_start(args, format);
+        vsnprintf(buf, sizeof(buf), format, args);
+        va_end(args);
+        snprintf(error_buf, error_buf_size,
+                 "AOT module load failed: %s", buf);
+    }
 }
 
 #define exchange_uint8(p_data) (void)0
@@ -48,6 +68,11 @@ exchange_uint32(uint8 *p_data)
 static void
 exchange_uint64(uint8 *pData)
 {
+    uint32 value;
+
+    value = *(uint32 *)pData;
+    *(uint32 *)pData = *(uint32 *)(pData + 4);
+    *(uint32 *)(pData + 4) = value;
     exchange_uint32(pData);
     exchange_uint32(pData + 4);
 }
@@ -59,13 +84,23 @@ static union {
 
 #define is_little_endian() (__ue.b == 1)
 
-#define CHECK_BUF(buf, buf_end, length) do {                \
-    if (buf + length > buf_end) {                           \
-      set_error_buf(error_buf, error_buf_size,              \
-                    "Read data failed: unexpected end.");   \
-      goto fail;                                            \
-    }                                                       \
-  } while (0)
+static bool
+check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
+          char *error_buf, uint32 error_buf_size)
+{
+    if (buf + length > buf_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpect end");
+        return false;
+    }
+    return true;
+}
+
+#define CHECK_BUF(buf, buf_end, length) do {    \
+  if (!check_buf(buf, buf_end, length,          \
+                 error_buf, error_buf_size)) {  \
+      goto fail;                                \
+  }                                             \
+} while (0)
 
 static uint8*
 align_ptr(const uint8 *p, uint32 b)
@@ -128,6 +163,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define BIN_TYPE_ELF32B 1           /* 32-bit big endian */
 #define BIN_TYPE_ELF64L 2           /* 64-bit little endian */
 #define BIN_TYPE_ELF64B 3           /* 64-bit big endian */
+#define BIN_TYPE_COFF64 6           /* 64-bit little endian */
 
 /* Legal values for e_type (object file type). */
 #define E_TYPE_NONE     0           /* No file type */
@@ -146,21 +182,36 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_MACHINE_MIPS_X   51       /* Stanford MIPS-X */
 #define E_MACHINE_X86_64   62       /* AMD x86-64 architecture */
 #define E_MACHINE_XTENSA   94       /* Tensilica Xtensa Architecture */
+#define E_MACHINE_WIN_X86_64 0x8664 /* Windowx x86-64 architecture */
 
 /* Legal values for e_version */
 #define E_VERSION_CURRENT  1        /* Current version */
+
+static void *
+loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
+{
+    void *mem;
+
+    if (size >= UINT32_MAX
+        || !(mem = wasm_runtime_malloc((uint32)size))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "allocate memory failed");
+        return NULL;
+    }
+
+    memset(mem, 0, (uint32)size);
+    return mem;
+}
 
 static char*
 const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
                      char* error_buf, uint32 error_buf_size)
 {
     HashMap *set = module->const_str_set;
-    char *c_str = wasm_runtime_malloc((uint32)len + 1), *value;
+    char *c_str, *value;
 
-    if (!c_str) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(c_str = loader_malloc((uint32)len + 1,
+                                error_buf, error_buf_size))) {
         return NULL;
     }
 
@@ -174,8 +225,7 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 
     if (!bh_hash_map_insert(set, c_str, c_str)) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "insert string to hash map failed.");
+                      "insert string to hash map failed");
         wasm_runtime_free(c_str);
         return NULL;
     }
@@ -191,6 +241,7 @@ get_aot_file_target(AOTTargetInfo *target_info,
     char *machine_type = NULL;
     switch (target_info->e_machine) {
         case E_MACHINE_X86_64:
+        case E_MACHINE_WIN_X86_64:
             machine_type = "x86_64";
             break;
         case E_MACHINE_386:
@@ -207,18 +258,15 @@ get_aot_file_target(AOTTargetInfo *target_info,
             machine_type = "xtensa";
             break;
         default:
-            if (error_buf)
-                snprintf(error_buf, error_buf_size,
-                         "AOT module load failed: unknown machine type %d.",
-                         target_info->e_machine);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "unknown machine type %d",
+                            target_info->e_machine);
             return false;
     }
     if (strncmp(target_info->arch, machine_type, strlen(machine_type))) {
-        if (error_buf)
-            snprintf(error_buf, error_buf_size,
-                     "AOT module load failed: "
-                     "machine type (%s) isn't consistent with target type (%s).",
-                     machine_type, target_info->arch);
+        set_error_buf_v(error_buf, error_buf_size,
+                    "machine type (%s) isn't consistent with target type (%s)",
+                    machine_type, target_info->arch);
         return false;
     }
     snprintf(target_buf, target_buf_size, "%s", target_info->arch);
@@ -237,13 +285,10 @@ check_machine_info(AOTTargetInfo *target_info,
                              error_buf, error_buf_size))
         return false;
 
-    if (strcmp(target_expected, target_got)) {
-        if (error_buf) {
-          snprintf(error_buf, error_buf_size,
-                  "AOT module load failed: invalid target type, "
-                  "expected %s but got %s.",
-                  target_expected, target_got);
-        }
+    if (strncmp(target_expected, target_got, strlen(target_expected))) {
+        set_error_buf_v(error_buf, error_buf_size,
+                        "invalid target type, expected %s but got %s",
+                        target_expected, target_got);
         return false;
     }
 
@@ -271,39 +316,35 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
 
     if (p != buf_end) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: invalid section size.");
+                      "invalid section size");
         return false;
     }
 
     /* Check target endian type */
     is_target_little_endian = target_info.bin_type & 1 ? false : true;
     if (is_little_endian() != is_target_little_endian) {
-        if (error_buf)
-          snprintf(error_buf, error_buf_size,
-                   "AOT module load failed: "
-                   "invalid target endian type, expected %s but got %s.",
-                   is_little_endian() ? "little endian" : "big endian",
-                   is_target_little_endian ? "little endian" : "big endian");
+        set_error_buf_v(error_buf, error_buf_size,
+                        "invalid target endian type, expected %s but got %s",
+                        is_little_endian() ? "little endian" : "big endian",
+                        is_target_little_endian ? "little endian" : "big endian");
         return false;
     }
 
     /* Check target bit width */
     is_target_64_bit = target_info.bin_type & 2 ? true : false;
     if ((sizeof(void*) == 8 ? true : false) != is_target_64_bit) {
-        if (error_buf)
-          snprintf(error_buf, error_buf_size,
-                   "AOT module load failed: "
-                   "invalid target bit width, expected %s but got %s.",
-                   sizeof(void*) == 8 ? "64-bit" : "32-bit",
-                   is_target_64_bit ? "64-bit" : "32-bit");
+        set_error_buf_v(error_buf, error_buf_size,
+                        "invalid target bit width, expected %s but got %s",
+                        sizeof(void*) == 8 ? "64-bit" : "32-bit",
+                        is_target_64_bit ? "64-bit" : "32-bit");
         return false;
     }
 
     /* Check target elf file type */
     if (target_info.e_type != E_TYPE_REL) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: invalid object file type, "
-                      "expected relocatable file type but got others.");
+                      "invalid object file type, "
+                      "expected relocatable file type but got others");
         return false;
     }
 
@@ -314,13 +355,21 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
 
     if (target_info.e_version != E_VERSION_CURRENT) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: invalid elf file version.");
+                      "invalid elf file version");
         return false;
     }
 
     return true;
 fail:
     return false;
+}
+
+static void
+destroy_import_memories(AOTImportMemory *import_memories,
+                        bool is_jit_mode)
+{
+    if (!is_jit_mode)
+        wasm_runtime_free(import_memories);
 }
 
 static void
@@ -348,33 +397,34 @@ load_mem_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Allocate memory */
     size = sizeof(AOTMemInitData *) * (uint64)module->mem_init_data_count;
-    if (size >= UINT32_MAX
-        || !(module->mem_init_data_list =
-             data_list = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(module->mem_init_data_list = data_list =
+                loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(data_list, 0, size);
 
     /* Create each memory data segment */
     for (i = 0; i < module->mem_init_data_count; i++) {
         uint32 init_expr_type, byte_count;
         uint64 init_expr_value;
+        uint32 is_passive;
+        uint32 memory_index;
+
+        read_uint32(buf, buf_end, is_passive);
+        read_uint32(buf, buf_end, memory_index);
         read_uint32(buf, buf_end, init_expr_type);
         read_uint64(buf, buf_end, init_expr_value);
         read_uint32(buf, buf_end, byte_count);
         size = offsetof(AOTMemInitData, bytes) + (uint64)byte_count;
-        if (size >= UINT32_MAX
-            || !(data_list[i] = wasm_runtime_malloc((uint32)size))) {
-            set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "allocate memory failed.");
+        if (!(data_list[i] = loader_malloc
+                    (size, error_buf, error_buf_size))) {
             return false;
         }
 
+#if WASM_ENABLE_BULK_MEMORY != 0
+        /* is_passive and memory_index is only used in bulk memory mode */
+        data_list[i]->is_passive = (bool)is_passive;
+        data_list[i]->memory_index = memory_index;
+#endif
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
         data_list[i]->byte_count = byte_count;
@@ -393,11 +443,28 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end,
                  AOTModule *module,
                  char *error_buf, uint32 error_buf_size)
 {
+    uint32 i;
+    uint64 total_size;
     const uint8 *buf = *p_buf;
 
-    read_uint32(buf, buf_end, module->num_bytes_per_page);
-    read_uint32(buf, buf_end, module->mem_init_page_count);
-    read_uint32(buf, buf_end, module->mem_max_page_count);
+    read_uint32(buf, buf_end, module->import_memory_count);
+    /* We don't support import_memory_count > 0 currently */
+    bh_assert(module->import_memory_count == 0);
+
+    read_uint32(buf, buf_end, module->memory_count);
+    total_size = sizeof(AOTMemory) * (uint64)module->memory_count;
+    if (!(module->memories =
+            loader_malloc(total_size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    for (i = 0; i < module->memory_count; i++) {
+        read_uint32(buf, buf_end, module->memories[i].memory_flags);
+        read_uint32(buf, buf_end, module->memories[i].num_bytes_per_page);
+        read_uint32(buf, buf_end, module->memories[i].mem_init_page_count);
+        read_uint32(buf, buf_end, module->memories[i].mem_max_page_count);
+    }
+
     read_uint32(buf, buf_end, module->mem_init_data_count);
 
     /* load memory init data list */
@@ -410,6 +477,20 @@ load_memory_info(const uint8 **p_buf, const uint8 *buf_end,
     return true;
 fail:
     return false;
+}
+
+static void
+destroy_import_tables(AOTImportTable *import_tables, bool is_jit_mode)
+{
+    if (!is_jit_mode)
+        wasm_runtime_free(import_tables);
+}
+
+static void
+destroy_tables(AOTTable *tables, bool is_jit_mode)
+{
+    if (!is_jit_mode)
+        wasm_runtime_free(tables);
 }
 
 static void
@@ -426,6 +507,71 @@ destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count,
 }
 
 static bool
+load_import_table_list(const uint8 **p_buf,
+                       const uint8 *buf_end,
+                       AOTModule *module,
+                       char *error_buf,
+                       uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    AOTImportTable *import_table;
+    uint64 size;
+    uint32 i, possible_grow;
+
+    /* Allocate memory */
+    size = sizeof(AOTImportTable) * (uint64)module->import_table_count;
+    if (!(module->import_tables = import_table =
+            loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    /* keep sync with aot_emit_table_info() aot_emit_aot_file */
+    for (i = 0; i < module->import_table_count; i++, import_table++) {
+        read_uint32(buf, buf_end, import_table->table_init_size);
+        read_uint32(buf, buf_end, import_table->table_max_size);
+        read_uint32(buf, buf_end, possible_grow);
+        import_table->possible_grow = (possible_grow & 0x1);
+    }
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
+load_table_list(const uint8 **p_buf, const uint8 *buf_end,
+                AOTModule *module, char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    AOTTable *table;
+    uint64 size;
+    uint32 i, possible_grow;
+
+    /* Allocate memory */
+    size = sizeof(AOTTable) * (uint64)module->table_count;
+    if (!(module->tables = table =
+                loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    /* Create each table data segment */
+    for (i = 0; i < module->table_count; i++, table++) {
+        read_uint32(buf, buf_end, table->elem_type);
+        read_uint32(buf, buf_end, table->table_flags);
+        read_uint32(buf, buf_end, table->table_init_size);
+        read_uint32(buf, buf_end, table->table_max_size);
+        read_uint32(buf, buf_end, possible_grow);
+        table->possible_grow = (possible_grow & 0x1);
+    }
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
 load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
                           AOTModule *module,
                           char *error_buf, uint32 error_buf_size)
@@ -437,40 +583,39 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Allocate memory */
     size = sizeof(AOTTableInitData *) * (uint64)module->table_init_data_count;
-    if (size >= UINT32_MAX
-        || !(module->table_init_data_list =
-             data_list = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(module->table_init_data_list = data_list =
+                loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
-    memset(data_list, 0, size);
-
     /* Create each table data segment */
     for (i = 0; i < module->table_init_data_count; i++) {
-        uint32 init_expr_type, func_index_count;
+        uint32 mode, elem_type;
+        uint32 table_index, init_expr_type, func_index_count;
         uint64 init_expr_value, size1;
 
+        read_uint32(buf, buf_end, mode);
+        read_uint32(buf, buf_end, elem_type);
+        read_uint32(buf, buf_end, table_index);
         read_uint32(buf, buf_end, init_expr_type);
         read_uint64(buf, buf_end, init_expr_value);
         read_uint32(buf, buf_end, func_index_count);
 
         size1 = sizeof(uint32) * (uint64)func_index_count;
         size = offsetof(AOTTableInitData, func_indexes) + size1;
-        if (size >= UINT32_MAX
-            || !(data_list[i] = wasm_runtime_malloc((uint32)size))) {
-            set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "allocate memory failed.");
+        if (!(data_list[i] = loader_malloc
+                    (size, error_buf, error_buf_size))) {
             return false;
         }
 
+        data_list[i]->mode = mode;
+        data_list[i]->elem_type = elem_type;
+        data_list[i]->is_dropped = false;
+        data_list[i]->table_index = table_index;
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
         data_list[i]->func_index_count = func_index_count;
-        read_byte_array(buf, buf_end, data_list[i]->func_indexes, size1);
+        read_byte_array(buf, buf_end, data_list[i]->func_indexes, (uint32)size1);
     }
 
     *p_buf = buf;
@@ -486,7 +631,17 @@ load_table_info(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *buf = *p_buf;
 
-    read_uint32(buf, buf_end, module->table_size);
+    read_uint32(buf, buf_end, module->import_table_count);
+    if (module->import_table_count > 0
+        && !load_import_table_list(&buf, buf_end, module, error_buf,
+                                   error_buf_size))
+        return false;
+
+    read_uint32(buf, buf_end, module->table_count);
+    if (module->table_count > 0
+        && !load_table_list(&buf, buf_end, module, error_buf, error_buf_size))
+        return false;
+
     read_uint32(buf, buf_end, module->table_init_data_count);
 
     /* load table init data list */
@@ -525,37 +680,48 @@ load_func_types(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Allocate memory */
     size = sizeof(AOTFuncType *) * (uint64)module->func_type_count;
-    if (size >= UINT32_MAX
-        || !(module->func_types = func_types = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(module->func_types = func_types = loader_malloc
+                (size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(func_types, 0, size);
 
     /* Create each function type */
     for (i = 0; i < module->func_type_count; i++) {
         uint32 param_count, result_count;
+        uint32 param_cell_num, ret_cell_num;
         uint64 size1;
 
         read_uint32(buf, buf_end, param_count);
         read_uint32(buf, buf_end, result_count);
 
-        size1 = (uint64)param_count + (uint64)result_count;
-        size = offsetof(AOTFuncType, types) + size1;
-        if (size >= UINT32_MAX
-            || !(func_types[i] = wasm_runtime_malloc((uint32)size))) {
+        if (param_count > UINT16_MAX || result_count > UINT16_MAX) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "allocate memory failed.");
+                          "param count or result count too large");
             return false;
         }
 
-        func_types[i]->param_count = param_count;
-        func_types[i]->result_count = result_count;
+        size1 = (uint64)param_count + (uint64)result_count;
+        size = offsetof(AOTFuncType, types) + size1;
+        if (!(func_types[i] = loader_malloc
+                    (size, error_buf, error_buf_size))) {
+            return false;
+        }
+
+        func_types[i]->param_count = (uint16)param_count;
+        func_types[i]->result_count = (uint16)result_count;
         read_byte_array(buf, buf_end, func_types[i]->types, (uint32)size1);
+
+        param_cell_num = wasm_get_cell_num(func_types[i]->types, param_count);
+        ret_cell_num = wasm_get_cell_num(func_types[i]->types + param_count,
+                                         result_count);
+        if (param_cell_num > UINT16_MAX || ret_cell_num > UINT16_MAX) {
+            set_error_buf(error_buf, error_buf_size,
+                          "param count or result count too large");
+            return false;
+        }
+
+        func_types[i]->param_cell_num = (uint16)param_cell_num;
+        func_types[i]->ret_cell_num = (uint16)ret_cell_num;
     }
 
     *p_buf = buf;
@@ -600,19 +766,16 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
     AOTImportGlobal *import_globals;
     uint64 size;
     uint32 i, data_offset = 0;
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+    WASMGlobalImport tmp_global;
+#endif
 
     /* Allocate memory */
     size = sizeof(AOTImportGlobal) * (uint64)module->import_global_count;
-    if (size >= UINT32_MAX
-        || !(module->import_globals =
-             import_globals = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(module->import_globals = import_globals =
+                loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(import_globals, 0, size);
 
     /* Create each import global */
     for (i = 0; i < module->import_global_count; i++) {
@@ -621,6 +784,22 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         read_uint8(buf, buf_end, import_globals[i].is_mutable);
         read_string(buf, buf_end, import_globals[i].module_name);
         read_string(buf, buf_end, import_globals[i].global_name);
+
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+        if (wasm_native_lookup_libc_builtin_global(
+                            import_globals[i].module_name,
+                            import_globals[i].global_name,
+                            &tmp_global)) {
+            if (tmp_global.type != import_globals[i].type
+                || tmp_global.is_mutable != import_globals[i].is_mutable) {
+                set_error_buf(error_buf, error_buf_size,
+                              "incompatible import type");
+                return false;
+            }
+            import_globals[i].global_data_linked =
+                            tmp_global.global_data_linked;
+        }
+#endif
 
         import_globals[i].size = wasm_value_type_size(import_globals[i].type);
         import_globals[i].data_offset = data_offset;
@@ -675,15 +854,10 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Allocate memory */
     size = sizeof(AOTGlobal) * (uint64)module->global_count;
-    if (size >= UINT32_MAX
-        || !(module->globals = globals = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(module->globals = globals = loader_malloc
+                (size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(globals, 0, size);
 
     if (module->import_global_count > 0) {
         last_import_global =
@@ -695,14 +869,22 @@ load_globals(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each global */
     for (i = 0; i < module->global_count; i++) {
         uint16 init_expr_type;
-        uint64 init_expr_value;
 
         read_uint8(buf, buf_end, globals[i].type);
         read_uint8(buf, buf_end, globals[i].is_mutable);
         read_uint16(buf, buf_end, init_expr_type);
-        read_uint64(buf, buf_end, init_expr_value);
+
+        if (init_expr_type != INIT_EXPR_TYPE_V128_CONST) {
+            read_uint64(buf, buf_end, globals[i].init_expr.u.i64);
+        }
+        else {
+            uint64 *i64x2 = (uint64 *)globals[i].init_expr.u.v128.i64x2;
+            CHECK_BUF(buf, buf_end, sizeof(uint64) * 2);
+            wasm_runtime_read_v128(buf, &i64x2[0], &i64x2[1]);
+            buf += sizeof(uint64) * 2;
+        }
+
         globals[i].init_expr.init_expr_type = (uint8)init_expr_type;
-        globals[i].init_expr.u.i64 = (int64)init_expr_value;
 
         globals[i].size = wasm_value_type_size(globals[i].type);
         globals[i].data_offset = data_offset;
@@ -757,24 +939,16 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Allocate memory */
     size = sizeof(AOTImportFunc) * (uint64)module->import_func_count;
-    if (size >= UINT32_MAX
-        || !(module->import_funcs =
-             import_funcs = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(module->import_funcs = import_funcs =
+                loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(import_funcs, 0, size);
 
     /* Create each import func */
     for (i = 0; i < module->import_func_count; i++) {
         read_uint16(buf, buf_end, import_funcs[i].func_type_index);
         if (import_funcs[i].func_type_index >= module->func_type_count) {
-            set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "invalid function type index.");
+            set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
         import_funcs[i].func_type = module->func_types[import_funcs[i].func_type_index];
@@ -783,15 +957,12 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end,
 
         module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
-        if (!(import_funcs[i].func_ptr_linked =
+        import_funcs[i].func_ptr_linked =
                     wasm_native_resolve_symbol(module_name, field_name,
                                                import_funcs[i].func_type,
                                                &import_funcs[i].signature,
                                                &import_funcs[i].attachment,
-                                               &import_funcs[i].call_conv_raw))) {
-            LOG_WARNING("warning: fail to link import function (%s, %s)\n",
-                        module_name, field_name);
-        }
+                                               &import_funcs[i].call_conv_raw);
 
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
@@ -851,16 +1022,10 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Allocate memory */
     size = sizeof(AOTObjectDataSection) * (uint64)module->data_section_count;
-    if (size >= UINT32_MAX
-        || !(module->data_sections =
-             data_sections = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (!(module->data_sections = data_sections =
+                loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
-
-    memset(data_sections, 0, size);
 
     /* Create each data section */
     for (i = 0; i < module->data_section_count; i++) {
@@ -877,17 +1042,20 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
         read_uint32(buf, buf_end, data_sections[i].size);
 
         /* Allocate memory for data */
-        if (!(data_sections[i].data =
+        if (data_sections[i].size > 0
+            && !(data_sections[i].data =
                     os_mmap(NULL, data_sections[i].size, map_prot, map_flags))) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "allocate memory failed.");
+                          "allocate memory failed");
             return false;
         }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS) \
+    && !defined(BH_PLATFORM_DARWIN)
         /* address must be in the first 2 Gigabytes of
            the process address space */
         bh_assert((uintptr_t)data_sections[i].data < INT32_MAX);
+#endif
 #endif
 
         read_byte_array(buf, buf_end,
@@ -942,19 +1110,20 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 
     /* check start function index */
     if (module->start_func_index != (uint32)-1
-        && (module->start_func_index < module->import_func_count
-            || module->start_func_index >= module->import_func_count
+        && (module->start_func_index >= module->import_func_count
                                            + module->func_count)) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
                       "invalid start function index");
         return false;
     }
 
-    read_uint32(p, p_end, module->llvm_aux_data_end);
-    read_uint32(p, p_end, module->llvm_aux_stack_bottom);
-    read_uint32(p, p_end, module->llvm_aux_stack_size);
-    read_uint32(p, p_end, module->llvm_aux_stack_global_index);
+    read_uint32(p, p_end, module->aux_data_end_global_index);
+    read_uint32(p, p_end, module->aux_data_end);
+    read_uint32(p, p_end, module->aux_heap_base_global_index);
+    read_uint32(p, p_end, module->aux_heap_base);
+    read_uint32(p, p_end, module->aux_stack_top_global_index);
+    read_uint32(p, p_end, module->aux_stack_bottom);
+    read_uint32(p, p_end, module->aux_stack_size);
 
     if (!load_object_data_sections_info(&p, p_end, module,
                                         error_buf, error_buf_size))
@@ -962,7 +1131,6 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
 
     if (p != p_end) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
                       "invalid init data section size");
         return false;
     }
@@ -982,10 +1150,11 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
 
     if (module->func_count > 0 && buf_end == buf) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: invalid code size.");
+                      "invalid code size");
         return false;
     }
 
+    /* The layout is: literal size + literal + code (with plt table) */
     read_uint32(buf, buf_end, module->literal_size);
 
     /* literal data is at begining of the text section */
@@ -1011,12 +1180,32 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    RUNTIME_FUNCTION *rtl_func_table;
+    AOTUnwindInfo *unwind_info;
+    uint32 unwind_info_offset = module->code_size - sizeof(AOTUnwindInfo);
+    uint32 unwind_code_offset = unwind_info_offset - PLT_ITEM_SIZE;
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    unwind_info= (AOTUnwindInfo *)((uint8*)module->code + module->code_size
+                                   - sizeof(AOTUnwindInfo));
+    unwind_info->Version = 1;
+    unwind_info->Flags = UNW_FLAG_NHANDLER;
+    *(uint32*)&unwind_info->UnwindCode[0] = unwind_code_offset;
+
+    size = sizeof(RUNTIME_FUNCTION) * (uint64)module->func_count;
+    if (size > 0
+        && !(rtl_func_table = module->rtl_func_table =
+                loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+#endif
 
     size = sizeof(void*) * (uint64)module->func_count;
-    if (size >= UINT32_MAX
-        || !(module->func_ptrs = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: allocate memory failed.");
+    if (size > 0
+        && !(module->func_ptrs = loader_malloc
+                    (size, error_buf, error_buf_size))) {
         return false;
     }
 
@@ -1031,8 +1220,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
         }
         if (text_offset >= module->code_size) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "invalid function code offset.");
+                          "invalid function code offset");
             return false;
         }
         module->func_ptrs[i] = (uint8*)module->code + text_offset;
@@ -1040,39 +1228,61 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void*)((uintptr_t)module->func_ptrs[i] | 1);
 #endif
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+        rtl_func_table[i].BeginAddress = (DWORD)text_offset;
+        if (i > 0) {
+            rtl_func_table[i - 1].EndAddress = rtl_func_table[i].BeginAddress;
+        }
+        rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
+#endif
     }
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    if (module->func_count > 0) {
+        rtl_func_table[module->func_count - 1].EndAddress =
+                    (DWORD)(module->code_size - get_plt_table_size());
+
+        if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
+                                 (DWORD64)(uintptr_t)module->code)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "add dynamic function table failed");
+            return false;
+        }
+        module->rtl_func_table_registered = true;
+    }
+#endif
 
     /* Set start function when function pointers are resolved */
     if (module->start_func_index != (uint32)-1) {
-        module->start_function =
-            module->func_ptrs[module->start_func_index
-                              - module->import_func_count];
+        if (module->start_func_index >= module->import_func_count)
+            module->start_function =
+                module->func_ptrs[module->start_func_index
+                            - module->import_func_count];
+        else
+            /* TODO: fix start function can be import function issue */
+            module->start_function = NULL;
     }
     else {
         module->start_function = NULL;
     }
 
     size = sizeof(uint32) * (uint64)module->func_count;
-    if (size >= UINT32_MAX
-        || !(module->func_type_indexes = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: allocate memory failed.");
+    if (size > 0
+        && !(module->func_type_indexes = loader_malloc
+                    (size, error_buf, error_buf_size))) {
         return false;
     }
 
     for (i = 0; i < module->func_count; i++) {
         read_uint32(p, p_end, module->func_type_indexes[i]);
         if (module->func_type_indexes[i] >= module->func_type_count) {
-            set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "invalid function type index.");
+            set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
     }
 
     if (p != buf_end) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
                       "invalid function section size");
         return false;
     }
@@ -1083,46 +1293,41 @@ fail:
 }
 
 static void
-destroy_export_funcs(AOTExportFunc *export_funcs, bool is_jit_mode)
+destroy_exports(AOTExport *exports, bool is_jit_mode)
 {
     if (!is_jit_mode)
-        wasm_runtime_free(export_funcs);
+        wasm_runtime_free(exports);
 }
 
 static bool
-load_export_funcs(const uint8 **p_buf, const uint8 *buf_end,
-                  AOTModule *module,
-                  char *error_buf, uint32 error_buf_size)
+load_exports(const uint8 **p_buf, const uint8 *buf_end,
+             AOTModule *module, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
-    AOTExportFunc *export_funcs;
+    AOTExport *exports;
     uint64 size;
     uint32 i;
 
     /* Allocate memory */
-    size = sizeof(AOTExportFunc) * (uint64)module->export_func_count;
-    if (size >= UINT32_MAX
-        || !(module->export_funcs =
-             export_funcs = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    size = sizeof(AOTExport) * (uint64)module->export_count;
+    if (!(module->exports = exports =
+                loader_malloc(size, error_buf, error_buf_size))) {
         return false;
     }
 
-    memset(export_funcs, 0, size);
-
-    /* Create each export func */
-    for (i = 0; i < module->export_func_count; i++) {
-        read_uint32(buf, buf_end, export_funcs[i].func_index);
-        if (export_funcs[i].func_index >=
+    /* Create each export */
+    for (i = 0; i < module->export_count; i++) {
+        read_uint32(buf, buf_end, exports[i].index);
+        read_uint8(buf, buf_end, exports[i].kind);
+        read_string(buf, buf_end, exports[i].name);
+#if 0 /* TODO: check kind and index */
+        if (export_funcs[i].index >=
               module->func_count + module->import_func_count) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "function index is out of range.");
+                          "function index is out of range");
             return false;
         }
-        read_string(buf, buf_end, export_funcs[i].func_name);
+#endif
     }
 
     *p_buf = buf;
@@ -1139,14 +1344,13 @@ load_export_section(const uint8 *buf, const uint8 *buf_end,
     const uint8 *p = buf, *p_end = buf_end;
 
     /* load export functions */
-    read_uint32(p, p_end, module->export_func_count);
-    if (module->export_func_count > 0
-        && !load_export_funcs(&p, p_end, module, error_buf, error_buf_size))
+    read_uint32(p, p_end, module->export_count);
+    if (module->export_count > 0
+        && !load_exports(&p, p_end, module, error_buf, error_buf_size))
         return false;
 
     if (p != p_end) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
                       "invalid export section size");
         return false;
     }
@@ -1165,12 +1369,13 @@ get_data_section_addr(AOTModule *module, const char *section_name,
     uint32 i;
     AOTObjectDataSection *data_section = module->data_sections;
 
-    for (i = 0; i < module->data_section_count; i++, data_section++)
+    for (i = 0; i < module->data_section_count; i++, data_section++) {
         if (!strcmp(data_section->name, section_name)) {
             if (p_data_size)
                 *p_data_size = data_section->size;
             return data_section->data;
         }
+    }
 
     return NULL;
 }
@@ -1198,6 +1403,54 @@ is_literal_relocation(const char *reloc_sec_name)
     return !strcmp(reloc_sec_name, ".rela.literal");
 }
 
+#if defined(BH_PLATFORM_WINDOWS)
+static bool
+str2uint32(const char *buf, uint32 *p_res)
+{
+    uint32 res = 0, val;
+    const char *buf_end = buf + 8;
+    char ch;
+
+    while (buf < buf_end) {
+        ch = *buf++;
+        if (ch >= '0' && ch <= '9')
+            val = ch - '0';
+        else if (ch >= 'a' && ch <= 'f')
+            val = ch - 'a' + 0xA;
+        else if (ch >= 'A' && ch <= 'F')
+            val = ch - 'A' + 0xA;
+        else
+            return false;
+        res = (res << 4) | val;
+    }
+    *p_res = res;
+    return true;
+}
+
+static bool
+str2uint64(const char *buf, uint64 *p_res)
+{
+    uint64 res = 0, val;
+    const char *buf_end = buf + 16;
+    char ch;
+
+    while (buf < buf_end) {
+        ch = *buf++;
+        if (ch >= '0' && ch <= '9')
+            val = ch - '0';
+        else if (ch >= 'a' && ch <= 'f')
+            val = ch - 'a' + 0xA;
+        else if (ch >= 'A' && ch <= 'F')
+            val = ch - 'A' + 0xA;
+        else
+            return false;
+        res = (res << 4) | val;
+    }
+    *p_res = res;
+    return true;
+}
+#endif
+
 static bool
 do_text_relocation(AOTModule *module,
                    AOTRelocationGroup *group,
@@ -1207,13 +1460,16 @@ do_text_relocation(AOTModule *module,
     uint8 *aot_text = is_literal ? module->literal : module->code;
     uint32 aot_text_size = is_literal ? module->literal_size : module->code_size;
     uint32 i, func_index, symbol_len;
+#if defined(BH_PLATFORM_WINDOWS)
+    uint32 xmm_plt_index = 0, real_plt_index = 0, float_plt_index = 0;
+#endif
     char symbol_buf[128]  = { 0 }, *symbol, *p;
     void *symbol_addr;
     AOTRelocation *relocation = group->relocations;
 
     if (group->relocation_count > 0 && !aot_text) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: invalid text relocation count.");
+                      "invalid text relocation count");
         return false;
     }
 
@@ -1223,10 +1479,8 @@ do_text_relocation(AOTModule *module,
         if (symbol_len + 1 <= sizeof(symbol_buf))
             symbol = symbol_buf;
         else {
-            if (!(symbol = wasm_runtime_malloc(symbol_len + 1))) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "allocate memory failed.");
+            if (!(symbol = loader_malloc(symbol_len + 1,
+                                         error_buf, error_buf_size))) {
                 return false;
             }
         }
@@ -1237,11 +1491,8 @@ do_text_relocation(AOTModule *module,
             p = symbol + strlen(AOT_FUNC_PREFIX);
             if (*p == '\0'
                 || (func_index = (uint32)atoi(p)) > module->func_count) {
-                if (error_buf != NULL)
-                    snprintf(error_buf, error_buf_size,
-                             "AOT module load failed: "
-                             "invalid import symbol %s.",
-                             symbol);
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid import symbol %s", symbol);
                 goto check_symbol_fail;
             }
             symbol_addr = module->func_ptrs[func_index];
@@ -1250,28 +1501,85 @@ do_text_relocation(AOTModule *module,
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data")
+                 || !strcmp(symbol, ".rdata")
                  || !strcmp(symbol, ".rodata")
                  /* ".rodata.cst4/8/16/.." */
                  || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))) {
             symbol_addr = get_data_section_addr(module, symbol, NULL);
             if (!symbol_addr) {
-                if (error_buf != NULL)
-                    snprintf(error_buf, error_buf_size,
-                             "AOT module load failed: "
-                             "invalid data section (%s).",
-                             symbol);
+                set_error_buf_v(error_buf, error_buf_size,
+                                "invalid data section (%s)", symbol);
                 goto check_symbol_fail;
             }
         }
         else if (!strcmp(symbol, ".literal")) {
             symbol_addr = module->literal;
         }
+#if defined(BH_PLATFORM_WINDOWS)
+        /* Relocation for symbols which start with "__xmm@" or "__real@" and
+           end with the xmm value or real value. In Windows PE file, the data
+           is stored in some individual ".rdata" sections. We simply create
+           extra plt data, parse the values from the symbols and stored them
+           into the extra plt data. */
+        else if (!strcmp(group->section_name, ".text")
+                 && !strncmp(symbol, XMM_PLT_PREFIX, strlen(XMM_PLT_PREFIX))
+                 && strlen(symbol) == strlen(XMM_PLT_PREFIX) + 32) {
+            char xmm_buf[17] = { 0 };
+
+            symbol_addr = module->extra_plt_data + xmm_plt_index * 16;
+            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
+                        symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
+            if (!str2uint64(xmm_buf, (uint64*)symbol_addr)) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+
+            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
+                        symbol + strlen(XMM_PLT_PREFIX), 16);
+            if (!str2uint64(xmm_buf, (uint64*)((uint8*)symbol_addr + 8))) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+            xmm_plt_index++;
+        }
+        else if (!strcmp(group->section_name, ".text")
+                 && !strncmp(symbol, REAL_PLT_PREFIX, strlen(REAL_PLT_PREFIX))
+                 && strlen(symbol) == strlen(REAL_PLT_PREFIX) + 16) {
+            char real_buf[17] = { 0 };
+
+            symbol_addr = module->extra_plt_data + module->xmm_plt_count * 16
+                          + real_plt_index * 8;
+            bh_memcpy_s(real_buf, sizeof(real_buf),
+                        symbol + strlen(REAL_PLT_PREFIX), 16);
+            if (!str2uint64(real_buf, (uint64*)symbol_addr)) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+            real_plt_index++;
+        }
+        else if (!strcmp(group->section_name, ".text")
+                 && !strncmp(symbol, REAL_PLT_PREFIX, strlen(REAL_PLT_PREFIX))
+                 && strlen(symbol) == strlen(REAL_PLT_PREFIX) + 8) {
+            char float_buf[9] = { 0 };
+
+            symbol_addr = module->extra_plt_data + module->xmm_plt_count * 16
+                          + module->real_plt_count * 8 + float_plt_index * 4;
+            bh_memcpy_s(float_buf, sizeof(float_buf),
+                        symbol + strlen(REAL_PLT_PREFIX), 8);
+            if (!str2uint32(float_buf, (uint32*)symbol_addr)) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "resolve symbol %s failed", symbol);
+                goto check_symbol_fail;
+            }
+            float_plt_index++;
+        }
+#endif /* end of defined(BH_PLATFORM_WINDOWS) */
         else if (!(symbol_addr = resolve_target_sym(symbol, &symbol_index))) {
-            if (error_buf != NULL)
-                snprintf(error_buf, error_buf_size,
-                         "AOT module load failed: "
-                         "resolve symbol %s failed.",
-                         symbol);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "resolve symbol %s failed", symbol);
             goto check_symbol_fail;
         }
 
@@ -1314,18 +1622,21 @@ do_data_relocation(AOTModule *module,
     else if (!strncmp(group->section_name, ".rel.", 5)) {
         data_section_name = group->section_name + strlen(".rel");
     }
+    else if (!strcmp(group->section_name, ".rdata")) {
+        data_section_name = group->section_name;
+    }
     else {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "invalid data relocation section name.");
+                      "invalid data relocation section name");
         return false;
     }
 
     data_addr = get_data_section_addr(module, data_section_name,
                                       &data_size);
+
     if (group->relocation_count > 0 && !data_addr) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: invalid data relocation count.");
+                      "invalid data relocation count");
         return false;
     }
 
@@ -1335,11 +1646,8 @@ do_data_relocation(AOTModule *module,
             symbol_addr = module->code;
         }
         else {
-            if (error_buf != NULL)
-                snprintf(error_buf, error_buf_size,
-                         "AOT module load failed: "
-                         "invalid relocation symbol %s.",
-                         symbol);
+            set_error_buf_v(error_buf, error_buf_size,
+                            "invalid relocation symbol %s", symbol);
             return false;
         }
 
@@ -1388,12 +1696,12 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 {
     AOTRelocationGroup *groups = NULL, *group;
     uint32 symbol_count = 0;
-    uint32 group_count = 0, i, j, func_index, func_type_index;
+    uint32 group_count = 0, i, j;
     uint64 size;
     uint32 *symbol_offsets, total_string_len;
     uint8 *symbol_buf, *symbol_buf_end;
+    int map_prot, map_flags;
     bool ret = false;
-    AOTExportFunc *export_func;
 
     read_uint32(buf, buf_end, symbol_count);
 
@@ -1411,24 +1719,119 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                                symbol_offsets, symbol_count,
                                error_buf, error_buf_size)) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "validate symbol table failed.");
+                      "validate symbol table failed");
         goto fail;
     }
+
+#if defined(BH_PLATFORM_WINDOWS)
+    buf = symbol_buf_end;
+    read_uint32(buf, buf_end, group_count);
+
+    for (i = 0; i < group_count; i++) {
+        uint32 name_index, relocation_count;
+        uint16 group_name_len;
+        uint8 *group_name;
+
+        /* section name address is 4 bytes aligned. */
+        buf = (uint8*)align_ptr(buf, sizeof(uint32));
+        read_uint32(buf, buf_end, name_index);
+
+        if (name_index >= symbol_count) {
+            set_error_buf(error_buf, error_buf_size,
+                          "symbol index out of range");
+            goto fail;
+        }
+
+        group_name = symbol_buf + symbol_offsets[name_index];
+        group_name_len = *(uint16 *)group_name;
+        group_name += sizeof(uint16);
+
+        read_uint32(buf, buf_end, relocation_count);
+
+        for (j = 0; j < relocation_count; j++) {
+            AOTRelocation relocation = { 0 };
+            uint32 symbol_index, offset32, addend32;
+            uint16 symbol_name_len;
+            uint8 *symbol_name;
+
+            if (sizeof(void *) == 8) {
+                read_uint64(buf, buf_end, relocation.relocation_offset);
+                read_uint64(buf, buf_end, relocation.relocation_addend);
+            }
+            else {
+                read_uint32(buf, buf_end, offset32);
+                relocation.relocation_offset = (uint64)offset32;
+                read_uint32(buf, buf_end, addend32);
+                relocation.relocation_addend = (uint64)addend32;
+            }
+            read_uint32(buf, buf_end, relocation.relocation_type);
+            read_uint32(buf, buf_end, symbol_index);
+
+            if (symbol_index >= symbol_count) {
+                set_error_buf(error_buf, error_buf_size,
+                              "symbol index out of range");
+                goto fail;
+            }
+
+            symbol_name = symbol_buf + symbol_offsets[symbol_index];
+            symbol_name_len = *(uint16 *)symbol_name;
+            symbol_name += sizeof(uint16);
+
+            char group_name_buf[128] = { 0 };
+            char symbol_name_buf[128] = { 0 };
+            memcpy(group_name_buf, group_name, group_name_len);
+            memcpy(symbol_name_buf, symbol_name, symbol_name_len);
+
+            if (group_name_len == strlen(".text")
+                && !strncmp(group_name, ".text", strlen(".text"))) {
+                if (symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                    && !strncmp(symbol_name, XMM_PLT_PREFIX,
+                                strlen(XMM_PLT_PREFIX))) {
+                    module->xmm_plt_count++;
+                }
+                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
+                         && !strncmp(symbol_name, REAL_PLT_PREFIX,
+                                     strlen(REAL_PLT_PREFIX))) {
+                    module->real_plt_count++;
+                }
+                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 8
+                         && !strncmp(symbol_name, REAL_PLT_PREFIX,
+                                     strlen(REAL_PLT_PREFIX))) {
+                    module->float_plt_count++;
+                }
+            }
+        }
+    }
+
+    /* Allocate memory for extra plt data */
+    size = sizeof(uint64) * 2 * module->xmm_plt_count
+           + sizeof(uint64) * module->real_plt_count
+           + sizeof(uint32) * module->float_plt_count;
+    if (size > 0) {
+        map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+        /* aot code and data in x86_64 must be in range 0 to 2G due to
+           relocation for R_X86_64_32/32S/PC32 */
+        map_flags = MMAP_MAP_32BIT;
+
+        if (size > UINT32_MAX
+            || !(module->extra_plt_data = os_mmap(NULL, (uint32)size,
+                                                  map_prot, map_flags))) {
+            set_error_buf(error_buf, error_buf_size, "mmap memory failed");
+            goto fail;
+        }
+        module->extra_plt_data_size = (uint32)size;
+    }
+#endif /* end of defined(BH_PLATFORM_WINDOWS) */
 
     buf = symbol_buf_end;
     read_uint32(buf, buf_end, group_count);
 
     /* Allocate memory for relocation groups */
     size = sizeof(AOTRelocationGroup) * (uint64)group_count;
-    if (size >= UINT32_MAX || !(groups = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
+    if (size > 0
+        && !(groups = loader_malloc(size, error_buf, error_buf_size))) {
         goto fail;
     }
-
-    memset(groups, 0, size);
 
     /* Load each relocation group */
     for (i = 0, group = groups; i < group_count; i++, group++) {
@@ -1443,8 +1846,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         if (name_index >= symbol_count) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "symbol index out of range.");
+                          "symbol index out of range");
             goto fail;
         }
 
@@ -1462,17 +1864,11 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         /* Allocate memory for relocations */
         size = sizeof(AOTRelocation) * (uint64)group->relocation_count;
-        if (size >= UINT32_MAX
-            || !(group->relocations = relocation =
-                 wasm_runtime_malloc((uint32)size))) {
-            set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "allocate memory failed.");
+        if (!(group->relocations = relocation =
+                    loader_malloc(size, error_buf, error_buf_size))) {
             ret = false;
             goto fail;
         }
-
-        memset(group->relocations, 0, size);
 
         /* Load each relocation */
         for (j = 0; j < group->relocation_count; j++, relocation++) {
@@ -1496,8 +1892,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
             if (symbol_index >= symbol_count) {
                 set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "symbol index out of range.");
+                              "symbol index out of range");
                 goto fail;
             }
 
@@ -1514,29 +1909,49 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         if (!strcmp(group->section_name, ".rel.text")
             || !strcmp(group->section_name, ".rela.text")
-            || !strcmp(group->section_name, ".rela.literal")) {
+            || !strcmp(group->section_name, ".rela.literal")
+#ifdef BH_PLATFORM_WINDOWS
+            || !strcmp(group->section_name, ".text")
+#endif
+            ) {
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
-                return false;
+                goto fail;
         }
         else {
             if (!do_data_relocation(module, group, error_buf, error_buf_size))
-                return false;
+                goto fail;
         }
     }
 
-    export_func = module->export_funcs;
-    for (i = 0; i < module->export_func_count; i++, export_func++) {
-        func_index = export_func->func_index - module->import_func_count;
-        if (func_index >= module->func_count) {
-            set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: "
-                          "invalid export function index.");
-            ret = false;
-            goto fail;
+    /* Set read only for AOT code and some data sections */
+    map_prot = MMAP_PROT_READ | MMAP_PROT_EXEC;
+
+    if (module->code) {
+        /* The layout is: literal size + literal + code (with plt table) */
+        uint8 *mmap_addr = module->literal - sizeof(uint32);
+        uint32 total_size = sizeof(uint32)
+                            + module->literal_size + module->code_size;
+        os_mprotect(mmap_addr, total_size, map_prot);
+    }
+
+    map_prot = MMAP_PROT_READ;
+
+#if defined(BH_PLATFORM_WINDOWS)
+    if (module->extra_plt_data) {
+        os_mprotect(module->extra_plt_data, module->extra_plt_data_size,
+                    map_prot);
+    }
+#endif
+
+    for (i = 0; i < module->data_section_count; i++) {
+        AOTObjectDataSection *data_section = module->data_sections + i;
+        if (!strcmp(data_section->name, ".rdata")
+            || !strcmp(data_section->name, ".rodata")
+            /* ".rodata.cst4/8/16/.." */
+            || !strncmp(data_section->name, ".rodata.cst",
+                        strlen(".rodata.cst"))) {
+            os_mprotect(data_section->data, data_section->size, map_prot);
         }
-        func_type_index = module->func_type_indexes[func_index];
-        export_func->func_type = module->func_types[func_type_index];
-        export_func->func_ptr = module->func_ptrs[func_index];
     }
 
     ret = true;
@@ -1549,6 +1964,7 @@ fail:
         wasm_runtime_free(groups);
     }
 
+    (void)map_flags;
     return ret;
 }
 
@@ -1559,6 +1975,9 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     AOTSection *section = sections;
     const uint8 *buf, *buf_end;
     uint32 last_section_type = (uint32)-1, section_type;
+    uint32 i, func_index, func_type_index;
+    AOTFuncType *func_type;
+    AOTExport *exports;
 
     while (section) {
         buf = section->section_body;
@@ -1570,7 +1989,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
             || (last_section_type != (uint32)-1
                 && section_type != last_section_type + 1)) {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: invalid section order.");
+                          "invalid section order");
             return false;
         }
         last_section_type = section_type;
@@ -1605,6 +2024,10 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                              error_buf, error_buf_size))
                     return false;
                 break;
+            default:
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid aot section type");
+                return false;
         }
 
         section = section->next;
@@ -1612,39 +2035,120 @@ load_from_sections(AOTModule *module, AOTSection *sections,
 
     if (last_section_type != AOT_SECTION_TYPE_RELOCATION) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: section missing.");
+                      "section missing");
         return false;
+    }
+
+    /* Resolve malloc and free function */
+    module->malloc_func_index = (uint32)-1;
+    module->free_func_index = (uint32)-1;
+    module->retain_func_index = (uint32)-1;
+
+    exports = module->exports;
+    for (i = 0; i < module->export_count; i++) {
+        if (exports[i].kind == EXPORT_KIND_FUNC
+            && exports[i].index >= module->import_func_count) {
+            if (!strcmp(exports[i].name, "malloc")) {
+                func_index = exports[i].index - module->import_func_count;
+                func_type_index = module->func_type_indexes[func_index];
+                func_type = module->func_types[func_type_index];
+                if (func_type->param_count == 1
+                    && func_type->result_count == 1
+                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[1] == VALUE_TYPE_I32) {
+                    bh_assert(module->malloc_func_index == (uint32)-1);
+                    module->malloc_func_index = func_index;
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
+                }
+            }
+            else if (!strcmp(exports[i].name, "__new")) {
+                func_index = exports[i].index - module->import_func_count;
+                func_type_index = module->func_type_indexes[func_index];
+                func_type = module->func_types[func_type_index];
+                if (func_type->param_count == 2
+                    && func_type->result_count == 1
+                    && func_type->types[0] == VALUE_TYPE_I32
+                    && func_type->types[1] == VALUE_TYPE_I32
+                    && func_type->types[2] == VALUE_TYPE_I32) {
+                    uint32 j;
+                    WASMExport *export_tmp;
+
+                    bh_assert(module->malloc_func_index == (uint32)-1);
+                    module->malloc_func_index = func_index;
+                    LOG_VERBOSE("Found malloc function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
+
+                    /* resolve retain function.
+                        If not find, reset malloc function index */
+                    export_tmp = module->exports;
+                    for (j = 0; j < module->export_count; j++, export_tmp++) {
+                        if ((export_tmp->kind == EXPORT_KIND_FUNC)
+                            && (!strcmp(export_tmp->name, "__retain")
+                                || !strcmp(export_tmp->name, "__pin"))) {
+                            func_index = export_tmp->index
+                                            - module->import_func_count;
+                            func_type_index =
+                                        module->func_type_indexes[func_index];
+                            func_type = module->func_types[func_type_index];
+                            if (func_type->param_count == 1
+                                && func_type->result_count == 1
+                                && func_type->types[0] == VALUE_TYPE_I32
+                                && func_type->types[1] == VALUE_TYPE_I32) {
+                                bh_assert(
+                                    module->retain_func_index == (uint32)-1);
+                                module->retain_func_index = export_tmp->index;
+                                LOG_VERBOSE(
+                                    "Found retain function, name: %s, index: %u",
+                                    export_tmp->name, export_tmp->index);
+                                break;
+                            }
+                        }
+                    }
+                    if (j == module->export_count) {
+                        module->malloc_func_index = (uint32)-1;
+                        LOG_VERBOSE("Can't find retain function,"
+                                    "reset malloc function index to -1");
+                    }
+                }
+            }
+            else if ((!strcmp(exports[i].name, "free"))
+                     || (!strcmp(exports[i].name, "__release"))
+                     || (!strcmp(exports[i].name, "__unpin"))) {
+                func_index = exports[i].index - module->import_func_count;
+                func_type_index = module->func_type_indexes[func_index];
+                func_type = module->func_types[func_type_index];
+                if (func_type->param_count == 1
+                    && func_type->result_count == 0
+                    && func_type->types[0] == VALUE_TYPE_I32) {
+                    bh_assert(module->free_func_index == (uint32)-1);
+                    module->free_func_index = func_index;
+                    LOG_VERBOSE("Found free function, name: %s, index: %u",
+                                exports[i].name, exports[i].index);
+                }
+            }
+        }
     }
 
     /* Flush data cache before executing AOT code,
      * otherwise unpredictable behavior can occur. */
     os_dcache_flush();
 
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    wasm_runtime_dump_module_mem_consumption((WASMModuleCommon*)module);
+#endif
     return true;
 }
-
-#if BH_ENABLE_MEMORY_PROFILING != 0
-static void aot_free(void *ptr)
-{
-    wasm_runtime_free(ptr);
-}
-#else
-#define aot_free wasm_runtime_free
-#endif
 
 static AOTModule*
 create_module(char *error_buf, uint32 error_buf_size)
 {
-    AOTModule *module = wasm_runtime_malloc(sizeof(AOTModule));
+    AOTModule *module =
+        loader_malloc(sizeof(AOTModule), error_buf, error_buf_size);
 
     if (!module) {
-        set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "allocate memory failed.");
         return NULL;
     }
-
-    memset(module, 0, sizeof(AOTModule));
 
     module->module_type = Wasm_Module_AoT;
 
@@ -1653,10 +2157,9 @@ create_module(char *error_buf, uint32 error_buf_size)
                                    (HashFunc)wasm_string_hash,
                                    (KeyEqualFunc)wasm_string_equal,
                                    NULL,
-                                   aot_free))) {
+                                   wasm_runtime_free))) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: "
-                      "create const string set failed.");
+                      "create const string set failed");
         wasm_runtime_free(module);
         return NULL;
     }
@@ -1717,10 +2220,9 @@ create_sections(const uint8 *buf, uint32 size,
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
 
-            if (!(section = wasm_runtime_malloc(sizeof(AOTSection)))) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "allocate memory failed.");
+            if (!(section =
+                    loader_malloc(sizeof(AOTSection),
+                                  error_buf, error_buf_size))) {
                 goto fail;
             }
 
@@ -1747,14 +2249,16 @@ create_sections(const uint8 *buf, uint32 size,
                                                 map_prot, map_flags))) {
                         wasm_runtime_free(section);
                         set_error_buf(error_buf, error_buf_size,
-                                      "AOT module load failed: "
-                                      "mmap memory failed.");
+                                      "mmap memory failed");
                         goto fail;
                     }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS) \
+    && !defined(BH_PLATFORM_DARWIN)
                     /* address must be in the first 2 Gigabytes of
                        the process address space */
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
+#endif
 #endif
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
@@ -1781,14 +2285,14 @@ create_sections(const uint8 *buf, uint32 size,
         }
         else {
             set_error_buf(error_buf, error_buf_size,
-                          "AOT module load failed: invalid section id.");
+                          "invalid section id");
             goto fail;
         }
     }
 
     if (!section_list) {
         set_error_buf(error_buf, error_buf_size,
-                      "AOT module load failed: create section list failed.");
+                      "create section list failed");
         return false;
     }
 
@@ -1872,25 +2376,39 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     AOTModule *module;
 
     /* Allocate memory for module */
-    if (!(module = wasm_runtime_malloc(sizeof(AOTModule)))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "Allocate memory for AOT module failed.");
+    if (!(module =
+            loader_malloc(sizeof(AOTModule), error_buf, error_buf_size))) {
         return NULL;
     }
 
-    memset(module, 0, sizeof(AOTModule));
-
     module->module_type = Wasm_Module_AoT;
-    module->num_bytes_per_page = comp_data->num_bytes_per_page;
-    module->mem_init_page_count = comp_data->mem_init_page_count;
-    module->mem_max_page_count = comp_data->mem_max_page_count;
+
+    module->import_memory_count = comp_data->import_memory_count;
+    module->import_memories = comp_data->import_memories;
+
+    module->memory_count = comp_data->memory_count;
+    if (module->memory_count) {
+        size = sizeof(AOTMemory) * (uint64)module->memory_count;
+        if (!(module->memories =
+                loader_malloc(size, error_buf, error_buf_size))) {
+            goto fail1;
+        }
+
+        bh_memcpy_s(module->memories, (uint32)size,
+                    comp_data->memories, (uint32)size);
+    }
 
     module->mem_init_data_list = comp_data->mem_init_data_list;
     module->mem_init_data_count = comp_data->mem_init_data_count;
 
+    module->import_table_count = comp_data->import_table_count;
+    module->import_tables = comp_data->import_tables;
+
+    module->table_count = comp_data->table_count;
+    module->tables = comp_data->tables;
+
     module->table_init_data_list = comp_data->table_init_data_list;
     module->table_init_data_count = comp_data->table_init_data_count;
-    module->table_size = comp_data->table_size;
 
     module->func_type_count = comp_data->func_type_count;
     module->func_types = comp_data->func_types;
@@ -1913,64 +2431,61 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Allocate memory for function pointers */
     size = (uint64)module->func_count * sizeof(void *);
-    if (size >= UINT32_MAX
-        || !(module->func_ptrs = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "Create func ptrs fail.");
-        goto fail1;
+    if (size > 0
+        && !(module->func_ptrs =
+                loader_malloc(size, error_buf, error_buf_size))) {
+        goto fail2;
     }
 
     /* Resolve function addresses */
     bh_assert(comp_ctx->exec_engine);
-    memset(module->func_ptrs, 0, (uint32)size);
     for (i = 0; i < comp_data->func_count; i++) {
         snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
         if (!(module->func_ptrs[i] =
                     (void *)LLVMGetFunctionAddress(comp_ctx->exec_engine,
                                                    func_name))) {
             set_error_buf(error_buf, error_buf_size,
-                          "Get function address fail.");
-            goto fail2;
+                          "get function address failed");
+            goto fail3;
         }
     }
 
     /* Allocation memory for function type indexes */
     size = (uint64)module->func_count * sizeof(uint32);
-    if (size >= UINT32_MAX
-        || !(module->func_type_indexes = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "Create func type indexes fail.");
-        goto fail2;
+    if (size > 0
+        && !(module->func_type_indexes =
+                loader_malloc(size, error_buf, error_buf_size))) {
+        goto fail3;
     }
-    memset(module->func_type_indexes, 0, (uint32)size);
     for (i = 0; i < comp_data->func_count; i++)
         module->func_type_indexes[i] = comp_data->funcs[i]->func_type_index;
 
-    module->export_func_count = comp_data->export_func_count;
-    module->export_funcs = comp_data->export_funcs;
-
-    /* Set export function pointers */
-    for (i = 0; i < module->export_func_count; i++) {
-        module->export_funcs[i].func_ptr =
-            module->func_ptrs[module->export_funcs[i].func_index
-                              - module->import_func_count];
-    }
+    module->export_count = comp_data->wasm_module->export_count;
+    module->exports = comp_data->wasm_module->exports;
 
     module->start_func_index = comp_data->start_func_index;
     if (comp_data->start_func_index != (uint32)-1) {
-        bh_assert(comp_data->start_func_index >= module->import_func_count
-                  && comp_data->start_func_index < module->import_func_count
-                                                   + module->func_count);
-        module->start_function =
-            module->func_ptrs[comp_data->start_func_index
-                              - module->import_func_count];
-    }
-    else {
-        module->start_function = NULL;
+        bh_assert(comp_data->start_func_index < module->import_func_count
+                                                + module->func_count);
+        /* TODO: fix issue that start func cannot be import func */
+        if (comp_data->start_func_index >= module->import_func_count) {
+            module->start_function =
+                module->func_ptrs[comp_data->start_func_index
+                                  - module->import_func_count];
+        }
     }
 
-    module->llvm_aux_data_end = comp_data->llvm_aux_data_end;
-    module->llvm_aux_stack_bottom = comp_data->llvm_aux_stack_bottom;
-    module->llvm_aux_stack_size = comp_data->llvm_aux_stack_size;
-    module->llvm_aux_stack_global_index = comp_data->llvm_aux_stack_global_index;
+    module->malloc_func_index = comp_data->malloc_func_index;
+    module->free_func_index = comp_data->free_func_index;
+    module->retain_func_index = comp_data->retain_func_index;
+
+    module->aux_data_end_global_index = comp_data->aux_data_end_global_index;
+    module->aux_data_end = comp_data->aux_data_end;
+    module->aux_heap_base_global_index = comp_data->aux_heap_base_global_index;
+    module->aux_heap_base = comp_data->aux_heap_base;
+    module->aux_stack_top_global_index = comp_data->aux_stack_top_global_index;
+    module->aux_stack_bottom = comp_data->aux_stack_bottom;
+    module->aux_stack_size = comp_data->aux_stack_size;
 
     module->code = NULL;
     module->code_size = 0;
@@ -1987,8 +2502,12 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     return module;
 
+fail3:
+    if (module->func_ptrs)
+        wasm_runtime_free(module->func_ptrs);
 fail2:
-    wasm_runtime_free(module->func_ptrs);
+    if (module->memory_count > 0)
+        wasm_runtime_free(module->memories);
 fail1:
     wasm_runtime_free(module);
     return NULL;
@@ -2013,6 +2532,26 @@ aot_convert_wasm_module(WASMModule *wasm_module,
     }
 
     option.is_jit_mode = true;
+#if WASM_ENABLE_BULK_MEMORY != 0
+    option.enable_bulk_memory = true;
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0
+    option.enable_thread_mgr = true;
+#endif
+#if WASM_ENABLE_TAIL_CALL != 0
+    option.enable_tail_call = true;
+#endif
+#if WASM_ENABLE_SIMD != 0
+    option.enable_simd = true;
+#endif
+#if WASM_ENABLE_REF_TYPES != 0
+    option.enable_ref_types = true;
+#endif
+    option.enable_aux_stack_check = true;
+#if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
+    option.enable_aux_stack_frame = true;
+#endif
+
     comp_ctx = aot_create_comp_context(comp_data, &option);
     if (!comp_ctx) {
         aot_last_error = aot_get_last_error();
@@ -2058,10 +2597,24 @@ aot_unload(AOTModule *module)
         wasm_loader_unload(module->wasm_module);
 #endif
 
+    if (module->import_memories)
+        destroy_import_memories(module->import_memories,
+                                module->is_jit_mode);
+
+    if (module->memories)
+        wasm_runtime_free(module->memories);
+
     if (module->mem_init_data_list)
         destroy_mem_init_data_list(module->mem_init_data_list,
                                    module->mem_init_data_count,
                                    module->is_jit_mode);
+
+    if (module->import_tables)
+        destroy_import_tables(module->import_tables,
+                              module->is_jit_mode);
+
+    if (module->tables)
+        destroy_tables(module->tables, module->is_jit_mode);
 
     if (module->table_init_data_list)
         destroy_table_init_data_list(module->table_init_data_list,
@@ -2085,9 +2638,9 @@ aot_unload(AOTModule *module)
         destroy_import_funcs(module->import_funcs,
                              module->is_jit_mode);
 
-    if (module->export_funcs)
-        destroy_export_funcs(module->export_funcs,
-                             module->is_jit_mode);
+    if (module->exports)
+        destroy_exports(module->exports,
+                        module->is_jit_mode);
 
     if (module->func_type_indexes)
         wasm_runtime_free(module->func_type_indexes);
@@ -2099,10 +2652,26 @@ aot_unload(AOTModule *module)
         bh_hash_map_destroy(module->const_str_set);
 
     if (module->code) {
-        uint8 *mmap_addr = module->literal - sizeof(module->literal_size);
-        uint32 total_size = sizeof(module->literal_size) + module->literal_size + module->code_size;
+        /* The layout is: literal size + literal + code (with plt table) */
+        uint8 *mmap_addr = module->literal - sizeof(uint32);
+        uint32 total_size = sizeof(uint32)
+                            + module->literal_size + module->code_size;
         os_munmap(mmap_addr, total_size);
     }
+
+#if defined(BH_PLATFORM_WINDOWS)
+    if (module->extra_plt_data) {
+        os_munmap(module->extra_plt_data, module->extra_plt_data_size);
+    }
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    if (module->rtl_func_table) {
+        if (module->rtl_func_table_registered)
+            RtlDeleteFunctionTable(module->rtl_func_table);
+        wasm_runtime_free(module->rtl_func_table);
+    }
+#endif
 
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,

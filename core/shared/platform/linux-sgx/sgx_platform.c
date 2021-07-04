@@ -5,10 +5,7 @@
 
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
-
-#if WASM_ENABLE_AOT != 0
 #include "sgx_rsrv_mem_mngr.h"
-#endif
 
 #define FIXED_BUFFER_SIZE (1<<9)
 
@@ -82,50 +79,70 @@ int os_vprintf(const char * format, va_list arg)
     return 0;
 }
 
-void* os_mmap(void *hint, unsigned int size, int prot, int flags)
+char *strcpy(char *dest, const char *src)
 {
-#if WASM_ENABLE_AOT != 0
+    const unsigned char *s = src;
+    unsigned char *d = dest;
+
+    while ((*d++ = *s++));
+    return dest;
+}
+
+void* os_mmap(void *hint, size_t size, int prot, int flags)
+{
     int mprot = 0;
-    unsigned alignedSize = (size+4095) & (unsigned)~4095; //Page aligned
+    uint64 aligned_size, page_size;
     void* ret = NULL;
     sgx_status_t st = 0;
 
-    ret = sgx_alloc_rsrv_mem(alignedSize);
+    page_size = getpagesize();
+    aligned_size = (size + page_size - 1) & ~(page_size - 1);
+
+    if (aligned_size >= UINT32_MAX)
+        return NULL;
+
+    ret = sgx_alloc_rsrv_mem(aligned_size);
     if (ret == NULL) {
-        os_printf("os_mmap(size=%d, alignedSize=%d, prot=0x%x) failed.",size, alignedSize, prot);
+        os_printf("os_mmap(size=%u, aligned size=%lu, prot=0x%x) failed.",
+                  size, aligned_size, prot);
         return NULL;
     }
+
     if (prot & MMAP_PROT_READ)
         mprot |= SGX_PROT_READ;
     if (prot & MMAP_PROT_WRITE)
         mprot |= SGX_PROT_WRITE;
     if (prot & MMAP_PROT_EXEC)
         mprot |= SGX_PROT_EXEC;
-    st = sgx_tprotect_rsrv_mem(ret, alignedSize, mprot);
-    if (st != SGX_SUCCESS){
-        os_printf("os_mmap(size=%d,prot=0x%x) failed to set protect.",size, prot);
-        sgx_free_rsrv_mem(ret, alignedSize);
+
+    st = sgx_tprotect_rsrv_mem(ret, aligned_size, mprot);
+    if (st != SGX_SUCCESS) {
+        os_printf("os_mmap(size=%u, prot=0x%x) failed to set protect.",
+                  size, prot);
+        sgx_free_rsrv_mem(ret, aligned_size);
         return NULL;
     }
 
     return ret;
-#else
-    return NULL;
-#endif
 }
 
-void os_munmap(void *addr, uint32 size)
+void os_munmap(void *addr, size_t size)
 {
-#if WASM_ENABLE_AOT != 0
-    sgx_free_rsrv_mem(addr, size);
-#endif
+    uint64 aligned_size, page_size;
+
+    page_size = getpagesize();
+    aligned_size = (size + page_size - 1) & ~(page_size - 1);
+    sgx_free_rsrv_mem(addr, aligned_size);
 }
 
-int os_mprotect(void *addr, uint32 size, int prot)
+int os_mprotect(void *addr, size_t size, int prot)
 {
-#if WASM_ENABLE_AOT != 0
     int mprot = 0;
     sgx_status_t st = 0;
+    uint64 aligned_size, page_size;
+
+    page_size = getpagesize();
+    aligned_size = (size + page_size - 1) & ~(page_size - 1);
 
     if (prot & MMAP_PROT_READ)
         mprot |= SGX_PROT_READ;
@@ -133,14 +150,12 @@ int os_mprotect(void *addr, uint32 size, int prot)
         mprot |= SGX_PROT_WRITE;
     if (prot & MMAP_PROT_EXEC)
         mprot |= SGX_PROT_EXEC;
-    st = sgx_tprotect_rsrv_mem(addr, size, mprot);
+    st = sgx_tprotect_rsrv_mem(addr, aligned_size, mprot);
     if (st != SGX_SUCCESS)
-        os_printf("os_mprotect(addr=0x%lx,size=%d,prot=0x%x) failed.", addr, size, prot);
+        os_printf("os_mprotect(addr=0x%"PRIx64", size=%u, prot=0x%x) failed.",
+                  (uintptr_t)addr, size, prot);
 
     return (st == SGX_SUCCESS? 0:-1);
-#else
-    return -1;
-#endif
 }
 
 void

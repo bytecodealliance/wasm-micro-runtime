@@ -348,4 +348,4 @@ static void btn_event_cb(wgl_obj_t btn, wgl_event_t event)
 
 ```
 
-Currently supported widgets include button, label, list and check box and more wigdet would be provided in future.
+Currently supported widgets include button, label, list and check box and more widgets would be provided in future.

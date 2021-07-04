@@ -6,6 +6,8 @@
 SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= SIM
 SGX_ARCH ?= x64
+SGX_DEBUG ?= 0
+SPEC_TEST ?= 0
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -32,9 +34,9 @@ endif
 endif
 
 ifeq ($(SGX_DEBUG), 1)
-		SGX_COMMON_CFLAGS += -O0 -g
+	SGX_COMMON_CFLAGS += -O0 -g
 else
-		SGX_COMMON_CFLAGS += -O2
+	SGX_COMMON_CFLAGS += -O2
 endif
 
 ######## App Settings ########
@@ -55,15 +57,15 @@ App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
 #   Prerelease - Macro NDEBUG and EDEBUG enabled.
 #   Release - Macro NDEBUG enabled.
 ifeq ($(SGX_DEBUG), 1)
-		App_C_Flags += -DDEBUG -UNDEBUG -UEDEBUG
+	App_C_Flags += -DDEBUG -UNDEBUG -UEDEBUG
 else ifeq ($(SGX_PRERELEASE), 1)
-		App_C_Flags += -DNDEBUG -DEDEBUG -UDEBUG
+	App_C_Flags += -DNDEBUG -DEDEBUG -UDEBUG
 else
-		App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
+	App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
 App_Cpp_Flags := $(App_C_Flags) -std=c++11
-App_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread
+App_Link_Flags := $(SGX_COMMON_CFLAGS) libvmlib_untrusted.a -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread
 
 ifneq ($(SGX_MODE), HW)
 	App_Link_Flags += -lsgx_uae_service_sim
@@ -73,7 +75,7 @@ endif
 
 App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
 
-App_Name := app
+App_Name := iwasm
 
 ######## Enclave Settings ########
 
@@ -89,15 +91,25 @@ Crypto_Library_Name := sgx_tcrypto
 WAMR_ROOT := $(CURDIR)/../../../../
 
 Enclave_Cpp_Files := Enclave/Enclave.cpp
+
 Enclave_Include_Paths := -IEnclave -I$(WAMR_ROOT)/core/iwasm/include \
-                         -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+                         -I$(WAMR_ROOT)/core/shared/utils \
+                         -I$(WAMR_ROOT)/core/shared/platform/linux-sgx \
+                         -I$(SGX_SDK)/include \
+                         -I$(SGX_SDK)/include/tlibc \
+                         -I$(SGX_SDK)/include/stlport
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths)
+ifeq ($(SPEC_TEST), 1)
+	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
+else
+	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=0
+endif
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
     libvmlib.a \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_pthread -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0
@@ -140,7 +152,10 @@ endif
 ######## App Objects ########
 
 App/Enclave_u.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
+	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl \
+		--search-path ../Enclave \
+		--search-path $(SGX_SDK)/include \
+		--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
 	@echo "GEN  =>  $@"
 
 App/Enclave_u.o: App/Enclave_u.c
@@ -151,7 +166,11 @@ App/%.o: App/%.cpp
 	@$(CXX) $(App_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
-$(App_Name): App/Enclave_u.o $(App_Cpp_Objects)
+libvmlib_untrusted.a: ../build/libvmlib_untrusted.a
+	@cp $< $@
+	@echo "CP $@  <=  $<"
+
+$(App_Name): App/Enclave_u.o $(App_Cpp_Objects) libvmlib_untrusted.a
 	@$(CXX) $^ -o $@ $(App_Link_Flags)
 	@echo "LINK =>  $@"
 
@@ -159,7 +178,10 @@ $(App_Name): App/Enclave_u.o $(App_Cpp_Objects)
 ######## Enclave Objects ########
 
 Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
+	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl \
+		--search-path ../Enclave \
+		--search-path $(SGX_SDK)/include \
+		--search-path $(WAMR_ROOT)/core/shared/platform/linux-sgx
 	@echo "GEN  =>  $@"
 
 Enclave/Enclave_t.o: Enclave/Enclave_t.c
@@ -185,4 +207,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
+	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.* libvmlib.a libvmlib_untrusted.a

@@ -14,9 +14,27 @@ mem_allocator_t mem_allocator_create(void *mem, uint32_t size)
     return gc_init_with_pool((char *) mem, size);
 }
 
+mem_allocator_t
+mem_allocator_create_with_struct_and_pool(void *struct_buf,
+                                          uint32_t struct_buf_size,
+                                          void *pool_buf,
+                                          uint32_t pool_buf_size)
+{
+    return gc_init_with_struct_and_pool((char *)struct_buf,
+                                        struct_buf_size,
+                                        pool_buf,
+                                        pool_buf_size);
+}
+
 void mem_allocator_destroy(mem_allocator_t allocator)
 {
     gc_destroy_with_pool((gc_handle_t) allocator);
+}
+
+uint32
+mem_allocator_get_heap_struct_size()
+{
+    return gc_get_heap_struct_size();
 }
 
 void *
@@ -39,22 +57,16 @@ void mem_allocator_free(mem_allocator_t allocator, void *ptr)
 
 int
 mem_allocator_migrate(mem_allocator_t allocator,
-                      mem_allocator_t allocator_old)
+                      char *pool_buf_new, uint32 pool_buf_size)
 {
     return gc_migrate((gc_handle_t) allocator,
-                      (gc_handle_t) allocator_old);
+                      pool_buf_new, pool_buf_size);
 }
 
-int
-mem_allocator_reinit_lock(mem_allocator_t allocator)
+bool
+mem_allocator_is_heap_corrupted(mem_allocator_t allocator)
 {
-    return gc_reinit_lock((gc_handle_t) allocator);
-}
-
-void
-mem_allocator_destroy_lock(mem_allocator_t allocator)
-{
-    gc_destroy_lock((gc_handle_t) allocator);
+    return gc_is_heap_corrupted((gc_handle_t) allocator);
 }
 
 #else /* else of DEFAULT_MEM_ALLOCATOR */
@@ -167,20 +179,6 @@ mem_allocator_migrate(mem_allocator_t allocator,
 {
     return tlsf_migrate((mem_allocator_tlsf *) allocator,
                         (mem_allocator_tlsf *) allocator_old);
-}
-
-int
-mem_allocator_init_lock(mem_allocator_t allocator)
-{
-    mem_allocator_tlsf *allocator_tlsf = (mem_allocator_tlsf *)allocator;
-    return os_mutex_init(&allocator_tlsf->lock);
-}
-
-void
-mem_allocator_destroy_lock(mem_allocator_t allocator)
-{
-    mem_allocator_tlsf *allocator_tlsf = (mem_allocator_tlsf *)allocator;
-    os_mutex_destroy(&allocator_tlsf->lock);
 }
 
 #endif /* end of DEFAULT_MEM_ALLOCATOR */

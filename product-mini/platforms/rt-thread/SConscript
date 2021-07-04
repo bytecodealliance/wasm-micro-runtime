@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2021, RT-Thread Development Team
+#
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
+from building import *
+
+cwd     = GetCurrentDir()
+
+
+src = Glob('*.c')
+
+CPPPATH = [cwd]
+
+group = DefineGroup('iwasm_entry', src, depend = ['PKG_USING_WAMR'], CPPPATH = CPPPATH)
+
+Return('group')

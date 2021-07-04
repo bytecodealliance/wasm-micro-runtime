@@ -31,9 +31,14 @@ endif ()
 # Set default options
 
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set (WAMR_BUILD_TARGET "AARCH64")
+    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+        set (WAMR_BUILD_TARGET "RISCV64")
+    elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
         # Build as X86_64 by default in 64-bit platform
         set (WAMR_BUILD_TARGET "X86_64")
     else ()
@@ -45,6 +50,11 @@ endif ()
 ################ optional according to settings ################
 if (WAMR_BUILD_INTERP EQUAL 1 OR WAMR_BUILD_JIT EQUAL 1)
     include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
+endif ()
+
+if (WAMR_BUILD_TARGET MATCHES "RISCV.*" AND WAMR_BUILD_AOT EQUAL 1)
+    set (WAMR_BUILD_AOT 0)
+    message ("-- WAMR AOT disabled as it isn't supported by riscv currently")
 endif ()
 
 if (WAMR_BUILD_AOT EQUAL 1)
@@ -65,22 +75,40 @@ if (WAMR_BUILD_LIBC_BUILTIN EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
 endif ()
 
-if (WAMR_BUILD_LIBC_WASI EQUAL 1)
+if (WAMR_BUILD_LIBC_UVWASI EQUAL 1)
+    include (${IWASM_DIR}/libraries/libc-uvwasi/libc_uvwasi.cmake)
+elseif (WAMR_BUILD_LIBC_WASI EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
 endif ()
 
+if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
+    include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
+    # Enable the dependent feature if lib pthread is enabled
+    set (WAMR_BUILD_THREAD_MGR 1)
+    set (WAMR_BUILD_BULK_MEMORY 1)
+    set (WAMR_BUILD_SHARED_MEMORY 1)
+endif ()
+
+if (WAMR_BUILD_THREAD_MGR EQUAL 1)
+    include (${IWASM_DIR}/libraries/thread-mgr/thread_mgr.cmake)
+endif ()
+
+if (WAMR_BUILD_LIBC_EMCC EQUAL 1)
+    include (${IWASM_DIR}/libraries/libc-emcc/libc_emcc.cmake)
+endif()
+
 ####################### Common sources #######################
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
-                                     -Wall -Wno-unused-parameter -Wno-pedantic")
+if (NOT MSVC)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections \
+                                         -Wall -Wno-unused-parameter -Wno-pedantic")
+endif ()
 
 # include the build config template file
 include (${CMAKE_CURRENT_LIST_DIR}/config_common.cmake)
 
-include_directories (${SHARED_DIR}/include
-                     ${IWASM_DIR}/include)
+include_directories (${IWASM_DIR}/include)
 
 file (GLOB header
-    ${SHARED_DIR}/include/*.h
     ${IWASM_DIR}/include/*.h
 )
 LIST (APPEND RUNTIME_LIB_HEADER_LIST ${header})
@@ -106,6 +134,9 @@ set (source_all
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}
     ${APP_MGR_SOURCE}
+    ${LIB_PTHREAD_SOURCE}
+    ${THREAD_MGR_SOURCE}
+    ${LIBC_EMCC_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

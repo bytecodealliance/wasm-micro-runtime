@@ -5,25 +5,11 @@
 
 #include "ems_gc_internal.h"
 
-gc_handle_t
-gc_init_with_pool(char *buf, gc_size_t buf_size)
+static gc_handle_t
+gc_init_internal(gc_heap_t *heap, char *base_addr, gc_size_t heap_max_size)
 {
-    char *buf_end = buf + buf_size;
-    char *buf_aligned = (char*) (((uintptr_t) buf + 7) & (uintptr_t)~7);
-    char *base_addr = buf_aligned + sizeof(gc_heap_t);
-    gc_heap_t *heap = (gc_heap_t*) buf_aligned;
-    gc_size_t heap_max_size;
-    hmu_normal_node_t *p = NULL;
     hmu_tree_node_t *root = NULL, *q = NULL;
-    int i = 0, ret;
-
-    if (buf_size < 1024) {
-        os_printf("[GC_ERROR]heap_init_size(%d) < 1024\n", buf_size);
-        return NULL;
-    }
-
-    base_addr = (char*) (((uintptr_t) base_addr + 7) & (uintptr_t)~7) + GC_HEAD_PADDING;
-    heap_max_size = (uint32)(buf_end - base_addr) & (uint32)~7;
+    int ret;
 
     memset(heap, 0, sizeof *heap);
     memset(base_addr, 0, heap_max_size);
@@ -42,14 +28,6 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     heap->total_free_size = heap->current_size;
     heap->highmark_size = 0;
 
-    for (i = 0; i < HMU_NORMAL_NODE_CNT; i++) {
-        /* make normal node look like a FC*/
-        p = &heap->kfc_normal_list[i];
-        memset(p, 0, sizeof *p);
-        hmu_set_ut(&p->hmu_header, HMU_FC);
-        hmu_set_size(&p->hmu_header, sizeof *p);
-    }
-
     root = &heap->kfc_tree_root;
     memset(root, 0, sizeof *root);
     root->size = sizeof *root;
@@ -66,24 +44,109 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     q->parent = root;
     q->size = heap->current_size;
 
-    bh_assert(root->size <= HMU_FC_NORMAL_MAX_SIZE
-              && HMU_FC_NORMAL_MAX_SIZE < q->size);
+    bh_assert(root->size <= HMU_FC_NORMAL_MAX_SIZE);
 
-#if BH_ENABLE_MEMORY_PROFILING != 0
-    os_printf("heap is successfully initialized with max_size=%u.\n",
-              heap_max_size);
-#endif
     return heap;
+}
+
+gc_handle_t
+gc_init_with_pool(char *buf, gc_size_t buf_size)
+{
+    char *buf_end = buf + buf_size;
+    char *buf_aligned = (char*)(((uintptr_t) buf + 7) & (uintptr_t)~7);
+    char *base_addr = buf_aligned + sizeof(gc_heap_t);
+    gc_heap_t *heap = (gc_heap_t*)buf_aligned;
+    gc_size_t heap_max_size;
+
+    if (buf_size < APP_HEAP_SIZE_MIN) {
+        os_printf("[GC_ERROR]heap init buf size (%u) < %u\n",
+                  buf_size, APP_HEAP_SIZE_MIN);
+        return NULL;
+    }
+
+    base_addr = (char*) (((uintptr_t) base_addr + 7) & (uintptr_t)~7) + GC_HEAD_PADDING;
+    heap_max_size = (uint32)(buf_end - base_addr) & (uint32)~7;
+
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    os_printf("Heap created, total size: %u\n", buf_size);
+    os_printf("   heap struct size: %u\n", sizeof(gc_heap_t));
+    os_printf("   actual heap size: %u\n", heap_max_size);
+    os_printf("   padding bytes: %u\n",
+              buf_size - sizeof(gc_heap_t) - heap_max_size);
+#endif
+    return gc_init_internal(heap, base_addr, heap_max_size);
+}
+
+gc_handle_t
+gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
+                             char *pool_buf, gc_size_t pool_buf_size)
+{
+    gc_heap_t *heap = (gc_heap_t*)struct_buf;
+    char *base_addr = pool_buf + GC_HEAD_PADDING;
+    char *pool_buf_end = pool_buf + pool_buf_size;
+    gc_size_t heap_max_size;
+
+    if ((((uintptr_t)struct_buf) & 7) != 0) {
+        os_printf("[GC_ERROR]heap init struct buf not 8-byte aligned\n");
+        return NULL;
+    }
+
+    if (struct_buf_size < sizeof(gc_handle_t)) {
+        os_printf("[GC_ERROR]heap init struct buf size (%u) < %zu\n",
+                  struct_buf_size, sizeof(gc_handle_t));
+        return NULL;
+    }
+
+    if ((((uintptr_t)pool_buf) & 7) != 0) {
+        os_printf("[GC_ERROR]heap init pool buf not 8-byte aligned\n");
+        return NULL;
+    }
+
+    if (pool_buf_size < APP_HEAP_SIZE_MIN) {
+        os_printf("[GC_ERROR]heap init buf size (%u) < %u\n",
+                  pool_buf_size, APP_HEAP_SIZE_MIN);
+        return NULL;
+    }
+
+    heap_max_size = (uint32)(pool_buf_end - base_addr) & (uint32)~7;
+
+#if WASM_ENABLE_MEMORY_TRACING != 0
+    os_printf("Heap created, total size: %u\n",
+              struct_buf_size + pool_buf_size);
+    os_printf("   heap struct size: %u\n", sizeof(gc_heap_t));
+    os_printf("   actual heap size: %u\n", heap_max_size);
+    os_printf("   padding bytes: %u\n",
+              pool_buf_size - heap_max_size);
+#endif
+    return gc_init_internal(heap, base_addr, heap_max_size);
 }
 
 int
 gc_destroy_with_pool(gc_handle_t handle)
 {
     gc_heap_t *heap = (gc_heap_t *) handle;
+#if BH_ENABLE_GC_VERIFY != 0
+    hmu_t *cur = (hmu_t*)heap->base_addr;
+    hmu_t *end = (hmu_t*)((char*)heap->base_addr + heap->current_size);
+    if (!heap->is_heap_corrupted
+        && (hmu_t*)((char *)cur + hmu_get_size(cur)) != end) {
+        os_printf("Memory leak detected:\n");
+        gci_dump(heap);
+#if WASM_ENABLE_SPEC_TEST != 0
+        while (1);
+#endif
+    }
+#endif
     os_mutex_destroy(&heap->lock);
     memset(heap->base_addr, 0, heap->current_size);
     memset(heap, 0, sizeof(gc_heap_t));
     return GC_SUCCESS;
+}
+
+uint32
+gc_get_heap_struct_size()
+{
+    return sizeof(gc_heap_t);
 }
 
 static void
@@ -94,21 +157,34 @@ adjust_ptr(uint8 **p_ptr, intptr_t offset)
 }
 
 int
-gc_migrate(gc_handle_t handle, gc_handle_t handle_old)
+gc_migrate(gc_handle_t handle,
+           char *pool_buf_new, gc_size_t pool_buf_size)
 {
-    gc_heap_t *heap = (gc_heap_t *) handle;
-    intptr_t offset = (uint8*)handle - (uint8*)handle_old;
+    gc_heap_t *heap = (gc_heap_t *)handle;
+    char *base_addr_new = pool_buf_new + GC_HEAD_PADDING;
+    char *pool_buf_end = pool_buf_new + pool_buf_size;
+    intptr_t offset = (uint8*)base_addr_new - (uint8*)heap->base_addr;
     hmu_t *cur = NULL, *end = NULL;
     hmu_tree_node_t *tree_node;
-    gc_size_t size;
+    gc_size_t heap_max_size, size;
 
-    os_mutex_init(&heap->lock);
+    if ((((uintptr_t)pool_buf_new) & 7) != 0) {
+        os_printf("[GC_ERROR]heap migrate pool buf not 8-byte aligned\n");
+        return GC_ERROR;
+    }
+
+    heap_max_size = (uint32)(pool_buf_end - base_addr_new) & (uint32)~7;
+
+    if (pool_buf_end < base_addr_new
+        || heap_max_size < heap->current_size) {
+        os_printf("[GC_ERROR]heap migrate invlaid pool buf size\n");
+        return GC_ERROR;
+    }
 
     if (offset == 0)
         return 0;
 
-    heap->heap_id = (gc_handle_t)heap;
-    heap->base_addr += offset;
+    heap->base_addr = (uint8*)base_addr_new;
     adjust_ptr((uint8**)&heap->kfc_tree_root.left, offset);
     adjust_ptr((uint8**)&heap->kfc_tree_root.right, offset);
     adjust_ptr((uint8**)&heap->kfc_tree_root.parent, offset);
@@ -120,11 +196,14 @@ gc_migrate(gc_handle_t handle, gc_handle_t handle_old)
         size = hmu_get_size(cur);
         bh_assert(size > 0);
 
-        if (!HMU_IS_FC_NORMAL(size)) {
+        if (hmu_get_ut(cur) == HMU_FC && !HMU_IS_FC_NORMAL(size)) {
             tree_node = (hmu_tree_node_t *)cur;
             adjust_ptr((uint8**)&tree_node->left, offset);
             adjust_ptr((uint8**)&tree_node->right, offset);
-            adjust_ptr((uint8**)&tree_node->parent, offset);
+            if (tree_node->parent != &heap->kfc_tree_root)
+                /* The root node belongs to heap structure,
+                   it is fixed part and isn't changed. */
+                adjust_ptr((uint8**)&tree_node->parent, offset);
         }
         cur = (hmu_t*)((char *)cur + size);
     }
@@ -133,18 +212,12 @@ gc_migrate(gc_handle_t handle, gc_handle_t handle_old)
     return 0;
 }
 
-int
-gc_reinit_lock(gc_handle_t handle)
+bool
+gc_is_heap_corrupted(gc_handle_t handle)
 {
-    gc_heap_t *heap = (gc_heap_t *) handle;
-    return os_mutex_init(&heap->lock);
-}
+    gc_heap_t *heap = (gc_heap_t *)handle;
 
-void
-gc_destroy_lock(gc_handle_t handle)
-{
-    gc_heap_t *heap = (gc_heap_t *) handle;
-    os_mutex_destroy(&heap->lock);
+    return heap->is_heap_corrupted ? true : false;
 }
 
 #if BH_ENABLE_GC_VERIFY != 0
@@ -156,9 +229,8 @@ gci_verify_heap(gc_heap_t *heap)
     bh_assert(heap && gci_is_heap_valid(heap));
     cur = (hmu_t *)heap->base_addr;
     end = (hmu_t *)(heap->base_addr + heap->current_size);
-    while(cur < end)
-    {
-        hmu_verify(cur);
+    while(cur < end) {
+        hmu_verify(heap, cur);
         cur = (hmu_t *)((gc_uint8*)cur + hmu_get_size(cur));
     }
     bh_assert(cur == end);

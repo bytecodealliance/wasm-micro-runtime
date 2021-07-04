@@ -1,8 +1,8 @@
 // Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://github.com/CraneStation/wasmtime/blob/master/LICENSE for license information.
+// See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
 //
 // Significant parts of this file are derived from cloudabi-utils. See
-// https://github.com/CraneStation/wasmtime/blob/master/lib/wasi/sandboxed-system-primitives/src/LICENSE
+// https://github.com/bytecodealliance/wasmtime/blob/main/lib/wasi/sandboxed-system-primitives/src/LICENSE
 // for license information.
 //
 // The upstream file contains the following copyright notice:
@@ -10,34 +10,8 @@
 // Copyright (c) 2016-2018 Nuxi, https://nuxi.nl/
 
 #include "ssp_config.h"
-
-#include <sys/types.h>
-
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/uio.h>
-
-#include <assert.h>
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-
-#include <wasmtime_ssp.h>
-
+#include "bh_platform.h"
+#include "wasmtime_ssp.h"
 #include "locking.h"
 #include "numeric_limits.h"
 #include "posix.h"
@@ -45,9 +19,6 @@
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
-
-#include "bh_common.h"
-#include "bh_assert.h"
 
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.
@@ -252,16 +223,18 @@ struct fd_prestat {
   const char *dir;
 };
 
-void fd_prestats_init(
+bool fd_prestats_init(
     struct fd_prestats *pt
 ) {
-  rwlock_init(&pt->lock);
+  if (!rwlock_init(&pt->lock))
+    return false;
   pt->prestats = NULL;
   pt->size = 0;
   pt->used = 0;
 #if defined(WASMTIME_SSP_STATIC_CURFDS)
   prestats = pt;
 #endif
+  return true;
 }
 
 // Grows the preopened resource table to a required lower bound and a
@@ -359,16 +332,18 @@ struct fd_entry {
   __wasi_rights_t rights_inheriting;
 };
 
-void fd_table_init(
+bool fd_table_init(
     struct fd_table *ft
 ) {
-  rwlock_init(&ft->lock);
+  if (!rwlock_init(&ft->lock))
+    return false;
   ft->entries = NULL;
   ft->size = 0;
   ft->used = 0;
 #if defined(WASMTIME_SSP_STATIC_CURFDS)
   curfds = ft;
 #endif
+  return true;
 }
 
 // Looks up a file descriptor table entry by number and required rights.
@@ -598,17 +573,22 @@ bool fd_table_insert_existing(
 ) {
   __wasi_filetype_t type;
   __wasi_rights_t rights_base, rights_inheriting;
-  if (fd_determine_type_rights(out, &type, &rights_base, &rights_inheriting) !=
-      0)
+  struct fd_object *fo;
+  __wasi_errno_t error;
+
+  if (fd_determine_type_rights(out, &type, &rights_base,
+                               &rights_inheriting) != 0)
     return false;
 
-  struct fd_object *fo;
-  __wasi_errno_t error = fd_object_new(type, &fo);
+  error = fd_object_new(type, &fo);
   if (error != 0)
     return false;
   fo->number = out;
   if (type == __WASI_FILETYPE_DIRECTORY) {
-    mutex_init(&fo->directory.lock);
+    if (!mutex_init(&fo->directory.lock)) {
+      fd_object_release(fo);
+      return false;
+    }
     fo->directory.handle = NULL;
   }
 
@@ -671,13 +651,17 @@ static __wasi_errno_t fd_table_insert_fd(
 ) REQUIRES_UNLOCKED(ft->lock) {
   struct fd_object *fo;
   __wasi_errno_t error = fd_object_new(type, &fo);
+
   if (error != 0) {
     close(in);
     return error;
   }
   fo->number = in;
   if (type == __WASI_FILETYPE_DIRECTORY) {
-    mutex_init(&fo->directory.lock);
+    if (!mutex_init(&fo->directory.lock)) {
+      fd_object_release(fo);
+      return (__wasi_errno_t)-1;
+    }
     fo->directory.handle = NULL;
   }
   return fd_table_insert(ft, fo, rights_base, rights_inheriting, out);
@@ -1253,7 +1237,29 @@ __wasi_errno_t wasmtime_ssp_fd_write(
   if (error != 0)
     return error;
 
+#ifndef BH_VPRINTF
   ssize_t len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+#else
+  ssize_t len = 0;
+  /* redirect stdout/stderr output to BH_VPRINTF function */
+  if (fd_number(fo) == 1 || fd_number(fo) == 2) {
+    int i;
+    const struct iovec *iov1 = (const struct iovec *)iov;
+
+    for (i = 0; i < (int)iovcnt; i++, iov1++) {
+      if (iov1->iov_len > 0 && iov1->iov_base) {
+        char format[16];
+
+        /* make up format string "%.ns" */
+        snprintf(format, sizeof(format), "%%.%ds", (int)iov1->iov_len);
+        len += (ssize_t)os_printf(format, iov1->iov_base);
+      }
+    }
+  }
+  else {
+    len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+  }
+#endif /* end of BH_VPRINTF */
   fd_object_release(fo);
   if (len < 0)
     return convert_errno(errno);
@@ -1668,7 +1674,8 @@ static __wasi_errno_t path_get_nofollow(
 static void path_put(
     struct path_access *pa
 ) UNLOCKS(pa->fd_object->refcount) {
-  wasm_runtime_free(pa->path_start);
+  if (pa->path_start)
+    wasm_runtime_free(pa->path_start);
   if (fd_number(pa->fd_object) != pa->fd)
     close(pa->fd);
   fd_object_release(pa->fd_object);
@@ -1918,9 +1925,9 @@ __wasi_errno_t wasmtime_ssp_path_open(
     }
 
     if (S_ISDIR(sb.st_mode))
-      rights_base |= RIGHTS_DIRECTORY_BASE;
+      rights_base |= (__wasi_rights_t)RIGHTS_DIRECTORY_BASE;
     else if (S_ISREG(sb.st_mode))
-      rights_base |= RIGHTS_REGULAR_FILE_BASE;
+      rights_base |= (__wasi_rights_t)RIGHTS_REGULAR_FILE_BASE;
   }
 
   return fd_table_insert_fd(curfds, nfd, type, rights_base & max_base,
@@ -2153,7 +2160,11 @@ static void convert_timestamp(
     struct timespec *out
 ) {
   // Store sub-second remainder.
+#ifndef __APPLE__
   out->tv_nsec = (__syscall_slong_t)(in % 1000000000);
+#else
+  out->tv_nsec = (long)(in % 1000000000);
+#endif
   in /= 1000000000;
 
   // Clamp to the maximum in case it would overflow our system's time_t.
@@ -2471,9 +2482,14 @@ __wasi_errno_t wasmtime_ssp_poll_oneoff(
           // Sleeping to an absolute point in time can only be done
           // by waiting on a condition variable.
           struct mutex mutex;
-          mutex_init(&mutex);
           struct cond cond;
-          cond_init_realtime(&cond);
+
+          if (!mutex_init(&mutex))
+            return -1;
+          if (!cond_init_realtime(&cond)) {
+            mutex_destroy(&mutex);
+            return -1;
+          }
           mutex_lock(&mutex);
           cond_timedwait(&cond, &mutex, in[0].u.clock.timeout, true);
           mutex_unlock(&mutex);
@@ -2649,11 +2665,17 @@ __wasi_errno_t wasmtime_ssp_poll_oneoff(
   return error;
 }
 
+#if 0
+/**
+ * We throw exception in libc-wasi wrapper function wasi_proc_exit()
+ * but not call this function.
+ */
 void wasmtime_ssp_proc_exit(
     __wasi_exitcode_t rval
 ) {
   _Exit((int32)rval);
 }
+#endif
 
 __wasi_errno_t wasmtime_ssp_proc_raise(
     __wasi_signal_t sig
@@ -2823,7 +2845,7 @@ __wasi_errno_t wasmtime_ssp_args_get(
   char *argv_buf
 ) {
   for (size_t i = 0; i < argv_environ->argc; ++i) {
-    argv[i] = argv_buf + (argv_environ->argv[i] - argv_environ->argv_buf);
+    argv[i] = argv_buf + (argv_environ->argv_list[i] - argv_environ->argv_buf);
   }
   argv[argv_environ->argc] = NULL;
   bh_memcpy_s(argv_buf, (uint32)argv_environ->argv_buf_size,
@@ -2851,7 +2873,7 @@ __wasi_errno_t wasmtime_ssp_environ_get(
   char *environ_buf
 ) {
   for (size_t i = 0; i < argv_environ->environ_count; ++i) {
-    environ[i] = environ_buf + (argv_environ->environ[i] - argv_environ->environ_buf);
+    environ[i] = environ_buf + (argv_environ->environ_list[i] - argv_environ->environ_buf);
   }
   environ[argv_environ->environ_count] = NULL;
   bh_memcpy_s(environ_buf, (uint32)argv_environ->environ_buf_size,
@@ -2872,76 +2894,26 @@ __wasi_errno_t wasmtime_ssp_environ_sizes_get(
 }
 
 bool argv_environ_init(struct argv_environ_values *argv_environ,
-                       const size_t *argv_offsets, size_t argv_offsets_len,
-                       const char *argv_buf, size_t argv_buf_len,
-                       const size_t *environ_offsets, size_t environ_offsets_len,
-                       const char *environ_buf, size_t environ_buf_len)
+                       char *argv_buf, size_t argv_buf_size,
+                       char **argv_list, size_t argc,
+                       char *environ_buf, size_t environ_buf_size,
+                       char **environ_list, size_t environ_count)
 {
-    uint64 total_size;
-    size_t i;
-
     memset(argv_environ, 0, sizeof(struct argv_environ_values));
 
-    argv_environ->argc = argv_offsets_len;
-    argv_environ->argv_buf_size = argv_buf_len;
-
-    total_size = sizeof(char *) * (uint64)argv_offsets_len;
-    if (total_size >= UINT32_MAX
-        || !(argv_environ->argv = wasm_runtime_malloc((uint32)total_size)))
-        return false;
-
-
-    if (argv_buf_len >= UINT32_MAX
-        || !(argv_environ->argv_buf = wasm_runtime_malloc((uint32)argv_buf_len)))
-        goto fail1;
-
-    for (i = 0; i < argv_offsets_len; ++i) {
-        argv_environ->argv[i] = argv_environ->argv_buf + argv_offsets[i];
-    }
-    bh_memcpy_s(argv_environ->argv_buf, (uint32)argv_buf_len,
-                argv_buf, (uint32)argv_buf_len);
-
-    argv_environ->environ_count = environ_offsets_len;
-    argv_environ->environ_buf_size = environ_buf_len;
-
-    total_size = sizeof(char *) * (uint64)environ_offsets_len;
-    if (total_size >= UINT32_MAX
-        || !(argv_environ->environ = wasm_runtime_malloc((uint32)total_size)))
-        goto fail2;
-
-    if (environ_buf_len >= UINT32_MAX
-        || !(argv_environ->environ_buf = wasm_runtime_malloc((uint32)environ_buf_len)))
-        goto fail3;
-
-    for (i = 0; i < environ_offsets_len; ++i) {
-        argv_environ->environ[i] = argv_environ->environ_buf + environ_offsets[i];
-    }
-    bh_memcpy_s(argv_environ->environ_buf, (uint32)environ_buf_len,
-                environ_buf, (uint32)environ_buf_len);
-
+    argv_environ->argv_buf = argv_buf;
+    argv_environ->argv_buf_size = argv_buf_size;
+    argv_environ->argv_list = argv_list;
+    argv_environ->argc = argc;
+    argv_environ->environ_buf = environ_buf;
+    argv_environ->environ_buf_size = environ_buf_size;
+    argv_environ->environ_list = environ_list;
+    argv_environ->environ_count = environ_count;
     return true;
-
-fail3:
-    wasm_runtime_free(argv_environ->environ);
-fail2:
-    wasm_runtime_free(argv_environ->argv_buf);
-fail1:
-    wasm_runtime_free(argv_environ->argv);
-
-    memset(argv_environ, 0, sizeof(struct argv_environ_values));
-    return false;
 }
 
 void argv_environ_destroy(struct argv_environ_values *argv_environ)
 {
-    if (argv_environ->argv_buf)
-        wasm_runtime_free(argv_environ->argv_buf);
-    if (argv_environ->argv)
-        wasm_runtime_free(argv_environ->argv);
-    if (argv_environ->environ_buf)
-        wasm_runtime_free(argv_environ->environ_buf);
-    if (argv_environ->environ)
-        wasm_runtime_free(argv_environ->environ);
 }
 
 void fd_table_destroy(struct fd_table *ft)
@@ -2952,6 +2924,7 @@ void fd_table_destroy(struct fd_table *ft)
                 fd_object_release(ft->entries[i].object);
             }
         }
+        rwlock_destroy(&ft->lock);
         wasm_runtime_free(ft->entries);
     }
 }
@@ -2964,6 +2937,7 @@ void fd_prestats_destroy(struct fd_prestats *pt)
                 wasm_runtime_free((void*)pt->prestats[i].dir);
             }
         }
+        rwlock_destroy(&pt->lock);
         wasm_runtime_free(pt->prestats);
     }
 }

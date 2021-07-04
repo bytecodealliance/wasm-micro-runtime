@@ -5,16 +5,27 @@
 
 #include "aot_reloc.h"
 
-#define R_X86_64_64     1   /* Direct 64 bit  */
-#define R_X86_64_PC32   2   /* PC relative 32 bit signed */
-#define R_X86_64_PLT32  4   /* 32 bit PLT address */
-#define R_X86_64_32     10  /* Direct 32 bit zero extended */
-#define R_X86_64_32S    11  /* Direct 32 bit sign extended */
+#if !defined(BH_PLATFORM_WINDOWS)
+#define R_X86_64_64    1  /* Direct 64 bit  */
+#define R_X86_64_PC32  2  /* PC relative 32 bit signed */
+#define R_X86_64_PLT32 4  /* 32 bit PLT address */
+#define R_X86_64_32    10 /* Direct 32 bit zero extended */
+#define R_X86_64_32S   11 /* Direct 32 bit sign extended */
+#else
+#ifndef IMAGE_REL_AMD64_ADDR64
+#define IMAGE_REL_AMD64_ADDR64 1 /* The 64-bit VA of the relocation target */
+#define IMAGE_REL_AMD64_ADDR32 2 /* The 32-bit VA of the relocation target */
+#define IMAGE_REL_AMD64_REL32  4 /* The 32-bit relative address from
+                                    the byte following the relocation*/
+#endif
+#endif
 
-void __divdi3();
-void __udivdi3();
-void __moddi3();
-void __umoddi3();
+#if defined(BH_PLATFORM_WINDOWS)
+#pragma function (floor)
+#pragma function (ceil)
+#pragma function (floorf)
+#pragma function (ceilf)
+#endif
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
@@ -50,15 +61,22 @@ get_plt_item_size()
 uint32
 get_plt_table_size()
 {
-    return get_plt_item_size() * (sizeof(target_sym_map) / sizeof(SymbolMap));
+    uint32 size = get_plt_item_size()
+                  * (sizeof(target_sym_map) / sizeof(SymbolMap));
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    size += get_plt_item_size() + sizeof(AOTUnwindInfo);
+#endif
+    return size;
 }
 
 void
 init_plt_table(uint8 *plt)
 {
     uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
+    uint8 *p;
+
     for (i = 0; i < num; i++) {
-        uint8 *p = plt;
+        p = plt;
         /* mov symbol_addr, rax */
         *p++ = 0x48;
         *p++ = 0xB8;
@@ -69,6 +87,18 @@ init_plt_table(uint8 *plt)
         *p++ = 0xE0;
         plt += get_plt_item_size();
     }
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    p = plt;
+    /* mov exception_handler, rax */
+    *p++ = 0x48;
+	*p++ = 0xB8;
+    *(uint64*)p = 0;/*(uint64)(uintptr_t)aot_exception_handler;*/
+    p += sizeof(uint64);
+    /* jmp rax */
+	*p++ = 0xFF;
+	*p++ = 0xE0;
+#endif
 }
 
 static bool
@@ -93,7 +123,11 @@ apply_relocation(AOTModule *module,
                  char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
+#if !defined(BH_PLATFORM_WINDOWS)
         case R_X86_64_64:
+#else
+        case IMAGE_REL_AMD64_ADDR64:
+#endif
         {
             intptr_t value;
 
@@ -103,6 +137,29 @@ apply_relocation(AOTModule *module,
                 = (uint8*)symbol_addr + reloc_addend + value;   /* S + A */
             break;
         }
+#if defined(BH_PLATFORM_WINDOWS)
+        case IMAGE_REL_AMD64_ADDR32:
+        {
+            int32 value;
+            uintptr_t target_addr;
+
+            CHECK_RELOC_OFFSET(sizeof(void *));
+            value = *(int32*)(target_section_addr + (uint32)reloc_offset);
+            target_addr = (uintptr_t)symbol_addr + reloc_addend + value;
+            if ((int32)target_addr != target_addr) {
+                set_error_buf(
+                  error_buf, error_buf_size,
+                  "AOT module load failed: "
+                  "relocation truncated to fit IMAGE_REL_AMD64_ADDR32 failed. "
+                  "Try using wamrc with --size-level=1 option.");
+                return false;
+            }
+
+            *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
+            break;
+        }
+#endif
+#if !defined(BH_PLATFORM_WINDOWS)
         case R_X86_64_PC32:
         {
             intptr_t target_addr = (intptr_t)   /* S + A - P */
@@ -147,7 +204,12 @@ apply_relocation(AOTModule *module,
             *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
             break;
         }
+#endif
+#if !defined(BH_PLATFORM_WINDOWS)
         case R_X86_64_PLT32:
+#else
+        case IMAGE_REL_AMD64_REL32:
+#endif
         {
             uint8 *plt;
             intptr_t target_addr = 0;
@@ -167,14 +229,21 @@ apply_relocation(AOTModule *module,
                                - (target_section_addr + reloc_offset));
             }
 
+#if defined(BH_PLATFORM_WINDOWS)
+            target_addr -= sizeof(int32);
+#endif
             if ((int32)target_addr != target_addr) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
-                              "relocation truncated to fit R_X86_64_PC32 failed. "
+                              "relocation truncated to fit "
+#if !defined(BH_PLATFORM_WINDOWS)
+                              "R_X86_64_PLT32 failed. "
+#else
+                              "IMAGE_REL_AMD64_32 failed."
+#endif
                               "Try using wamrc with --size-level=1 option.");
                 return false;
             }
-
             *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
             break;
         }

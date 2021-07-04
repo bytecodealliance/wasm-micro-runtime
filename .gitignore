@@ -1,10 +1,14 @@
+
+.vs
 .vscode
 **/*build/
-core/deps/lv_drivers
-core/deps/llvm
-core/deps/lvgl
+core/deps/**
 core/shared/mem-alloc/tlsf
+core/app-framework/wgl
 
 wamr-sdk/out/
 wamr-sdk/runtime/build_runtime_sdk/
 test-tools/host-tool/bin/
+product-mini/app-samples/hello-world/test.wasm
+
+build_out

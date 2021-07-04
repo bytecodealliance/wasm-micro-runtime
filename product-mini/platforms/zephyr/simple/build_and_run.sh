@@ -5,20 +5,24 @@
 
 X86_TARGET="x86"
 STM32_TARGET="stm32"
-QEMU_CORTEX_A53="qemu_cortex_a53"
-XTENSA_QEMU_TARGET="xtensa-qemu"
 ESP32_TARGET="esp32"
+QEMU_CORTEX_A53="qemu_cortex_a53"
+QEMU_XTENSA_TARGET="qemu_xtensa"
+QEMU_RISCV64_TARGET="qemu_riscv64"
+QEMU_RISCV32_TARGET="qemu_riscv32"
 
 usage ()
 {
         echo "USAGE:"
-        echo "$0 $X86_TARGET|$STM32_TARGET|$QEMU_CORTEX_A53|$XTENSA_QEMU_TARGET|$ESP32_TARGET"
+        echo "$0 $X86_TARGET|$STM32_TARGET|$ESP32_TARGET|$QEMU_CORTEX_A53|$QEMU_XTENSA_TARGET|$QEMU_RISCV64_TARGET|$QEMU_RISCV32_TARGET"
         echo "Example:"
         echo "        $0 $X86_TARGET"
         echo "        $0 $STM32_TARGET"
-        echo "        $0 $QEMU_CORTEX_A53"
-        echo "        $0 $XTENSA_QEMU_TARGET"
         echo "        $0 $ESP32_TARGET"
+        echo "        $0 $QEMU_CORTEX_A53"
+        echo "        $0 $QEMU_XTENSA_TARGET"
+        echo "        $0 $QEMU_RISCV64_TARGET"
+        echo "        $0 $QEMU_RISCV32_TARGET"
         exit 1
 }
 
@@ -43,13 +47,6 @@ case $TARGET in
                            -DWAMR_BUILD_TARGET=THUMBV7
                 west flash
                 ;;
-        $XTENSA_QEMU_TARGET)
-                west build -b qemu_xtensa \
-                           . -p always -- \
-                           -DCONF_FILE=prj_qemu_xtensa.conf \
-                           -DWAMR_BUILD_TARGET=XTENSA
-                west build -t run
-                ;;
         $ESP32_TARGET)
                 # suppose you have set environment variable ESP_IDF_PATH
                 west build -b esp32 \
@@ -61,11 +58,34 @@ case $TARGET in
                 # the real name accordingly
                 west flash --esp-device /dev/ttyUSB1
                 ;;
+        $QEMU_XTENSA_TARGET)
+                west build -b qemu_xtensa \
+                           . -p always -- \
+                           -DCONF_FILE=prj_qemu_xtensa.conf \
+                           -DWAMR_BUILD_TARGET=XTENSA
+                west build -t run
+                ;;
         $QEMU_CORTEX_A53)
                 west build -b qemu_cortex_a53 \
                            . -p always -- \
                            -DCONF_FILE=prj_qemu_cortex_a53.conf \
                            -DWAMR_BUILD_TARGET=AARCH64
+                west build -t run
+                ;;
+        $QEMU_RISCV64_TARGET)
+                west build -b qemu_riscv64 \
+                            . -p always -- \
+                            -DCONF_FILE=prj_qemu_riscv64.conf \
+                            -DWAMR_BUILD_TARGET=RISCV64_LP64 \
+                            -DWAMR_BUILD_AOT=0
+                west build -t run
+                ;;
+        $QEMU_RISCV32_TARGET)
+                west build -b qemu_riscv32 \
+                            . -p always -- \
+                            -DCONF_FILE=prj_qemu_riscv32.conf \
+                            -DWAMR_BUILD_TARGET=RISCV32_ILP32 \
+                            -DWAMR_BUILD_AOT=0
                 west build -t run
                 ;;
         *)

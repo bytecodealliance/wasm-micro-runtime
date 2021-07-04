@@ -8,13 +8,9 @@
 
 #define bh_assert(v) do {                                   \
     if (!(v)) {                                             \
-        int _count;                                         \
         printf("\nASSERTION FAILED: %s, at %s, line %d\n",  \
                #v, __FILE__, __LINE__);                     \
-        _count = printf(" ");                               \
-        /* divived by 0 to make it abort */                 \
-        printf("%d\n", _count / (_count - 1));              \
-        while (1);                                          \
+        abort();                                            \
     }                                                       \
   } while (0)
 
@@ -235,7 +231,7 @@ int os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
                      unsigned int stack_size)
 {
     return os_thread_create_with_prio(p_tid, start, arg, stack_size,
-    BH_THREAD_DEFAULT_PRIORITY);
+                                      BH_THREAD_DEFAULT_PRIORITY);
 }
 
 int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
@@ -257,6 +253,9 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 
     memset(tid, 0, sizeof(os_thread_obj));
 
+    if (stack_size < APP_THREAD_STACK_SIZE_MIN)
+        stack_size = APP_THREAD_STACK_SIZE_MIN;
+
     /* Create and initialize thread data */
     thread_data_size = offsetof(os_thread_data, stack) + stack_size;
     if (!(thread_data = BH_MALLOC(thread_data_size))) {
@@ -270,9 +269,9 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     thread_data->tid = tid;
 
     /* Create the thread */
-    if (!((tid = k_thread_create(tid, (k_thread_stack_t *) thread_data->stack,
-            stack_size, os_thread_wrapper, start, arg, thread_data, prio, 0,
-            K_NO_WAIT)))) {
+    if (!((tid = k_thread_create(tid, (k_thread_stack_t *)thread_data->stack,
+                                 stack_size, os_thread_wrapper, start, arg,
+                                 thread_data, prio, 0, K_NO_WAIT)))) {
         BH_FREE(tid);
         BH_FREE(thread_data);
         return BHT_ERROR;
@@ -289,7 +288,7 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 
 korp_tid os_self_thread()
 {
-    return (korp_tid) k_current_get();
+    return (korp_tid)k_current_get();
 }
 
 int os_thread_join(korp_tid thread, void **value_ptr)
@@ -350,14 +349,19 @@ int os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-void os_mutex_lock(korp_mutex *mutex)
+int os_mutex_lock(korp_mutex *mutex)
 {
-    k_mutex_lock(mutex, K_FOREVER);
+    return k_mutex_lock(mutex, K_FOREVER);
 }
 
-void os_mutex_unlock(korp_mutex *mutex)
+int os_mutex_unlock(korp_mutex *mutex)
 {
+#if KERNEL_VERSION_NUMBER >= 0x020200 /* version 2.2.0 */
+    return k_mutex_unlock(mutex);
+#else
     k_mutex_unlock(mutex);
+    return 0;
+#endif
 }
 
 int os_cond_init(korp_cond *cond)
@@ -424,13 +428,26 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
     return os_cond_wait_internal(cond, mutex, false, 0);
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds)
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
 
-    if (useconds == BHT_WAIT_FOREVER)
+    if (useconds == BHT_WAIT_FOREVER) {
         return os_cond_wait_internal(cond, mutex, false, 0);
-    else
-        return os_cond_wait_internal(cond, mutex, true, useconds / 1000);
+    }
+    else {
+        uint64 mills_64 = useconds / 1000;
+        int32 mills;
+
+        if (mills_64 < (uint64)INT32_MAX) {
+            mills = (int32)mills_64;
+        }
+        else {
+            mills = INT32_MAX;
+            os_printf("Warning: os_cond_reltimedwait exceeds limit, "
+                      "set to max timeout instead\n");
+        }
+        return os_cond_wait_internal(cond, mutex, true, mills);
+    }
 }
 
 int os_cond_signal(korp_cond *cond)
@@ -442,5 +459,15 @@ int os_cond_signal(korp_cond *cond)
     k_mutex_unlock(&cond->wait_list_lock);
 
     return BHT_OK;
+}
+
+uint8 *os_thread_get_stack_boundary()
+{
+#if defined(CONFIG_THREAD_STACK_INFO)
+    korp_tid thread = k_current_get();
+    return (uint8*)thread->stack_info.start;
+#else
+    return NULL;
+#endif
 }
 

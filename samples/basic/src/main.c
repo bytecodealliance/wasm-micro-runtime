@@ -6,6 +6,7 @@
 
 #include "wasm_export.h"
 #include "bh_read_file.h"
+#include "bh_getopt.h"
 
 int intToStr(int x, char* str, int str_len, int digit);
 int get_pow(int x, int y);
@@ -32,7 +33,7 @@ int main(int argc, char *argv_main[])
     wasm_function_inst_t func = NULL;
     wasm_function_inst_t func2 = NULL;
     char * native_buffer = NULL;
-    int32_t wasm_buffer = 0;
+    uint32_t wasm_buffer = 0;
 
     RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
@@ -61,7 +62,7 @@ int main(int argc, char *argv_main[])
     // Note: the array must be static defined since runtime
     //            will keep it after registration
     // For the function signature specifications, goto the link:
-    // https://github.com/bytecodealliance/wasm-micro-runtime/blob/master/doc/export_native_api.md
+    // https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
 
     static NativeSymbol native_symbols[] =
     {

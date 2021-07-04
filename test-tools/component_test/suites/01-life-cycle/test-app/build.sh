@@ -20,11 +20,11 @@ OUT_FILE=${i%.*}.wasm
                         -Wno-int-conversion \
                         -I${APP_FRAMEWORK_DIR}/include \
                         -I${DEPS_DIR} \
-                        --target=wasm32 -O3 -z stack-size=4096 -Wl,--initial-memory=65536 \
-                        --sysroot=${SDK_DIR}/app-sdk/libc-builtin-sysroot       \
-                        -L${APP_FRAMEWORK_DIR}/lib -lapp_framework      \
-                        -Wl,--allow-undefined-file=${SDK_DIR}/app-sdk/libc-builtin-sysroot/share/defined-symbols.txt        \
-                        -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
+                        -O3 -z stack-size=4096 -Wl,--initial-memory=65536 \
+                        --sysroot=${SDK_DIR}/app-sdk/libc-builtin-sysroot \
+                        -L${APP_FRAMEWORK_DIR}/lib -lapp_framework \
+                        -Wl,--allow-undefined-file=${SDK_DIR}/app-sdk/libc-builtin-sysroot/share/defined-symbols.txt \
+                        -Wl,--strip-all,--no-entry -nostdlib \
                         -Wl,--export=on_init -Wl,--export=on_destroy \
                         -Wl,--export=on_request -Wl,--export=on_response \
                         -Wl,--export=on_sensor_event -Wl,--export=on_timer_callback \

@@ -7,13 +7,16 @@
 #define _AOT_LLVM_H_
 
 #include "aot.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/Object.h"
 #include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Analysis.h"
+#include "llvm-c/Transforms/Utils.h"
 #include "llvm-c/Transforms/Scalar.h"
+#include "llvm-c/Transforms/Vectorize.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,6 +33,8 @@ typedef struct AOTValue {
   LLVMValueRef value;
   /* VALUE_TYPE_I32/I64/F32/F64/VOID */
   uint8 type;
+  bool is_local;
+  uint32 local_idx;
 } AOTValue;
 
 /**
@@ -46,10 +51,8 @@ typedef struct AOTBlock {
 
   /* Block index */
   uint32 block_index;
-  /* BLOCK_TYPE_BLOCK/LOOP/IF/FUNCTION */
-  uint32 block_type;
-  /* VALUE_TYPE_I32/I64/F32/F64/VOID */
-  uint8 return_type;
+  /* LABEL_TYPE_BLOCK/LOOP/IF/FUNCTION */
+  uint32 label_type;
   /* Whether it is reachable */
   bool is_reachable;
   /* Whether skip translation of wasm else branch */
@@ -70,8 +73,16 @@ typedef struct AOTBlock {
   /* WASM operation stack */
   AOTValueStack value_stack;
 
-  /* Return value of this block, a PHI node */
-  LLVMValueRef return_value_phi;
+  /* Param count/types/PHIs of this block */
+  uint32 param_count;
+  uint8 *param_types;
+  LLVMValueRef *param_phis;
+  LLVMValueRef *else_param_phis;
+
+  /* Result count/types/PHIs of this block */
+  uint32 result_count;
+  uint8 *result_types;
+  LLVMValueRef *result_phis;
 } AOTBlock;
 
 /**
@@ -84,6 +95,24 @@ typedef struct AOTBlockStack {
   uint32 block_index[3];
 } AOTBlockStack;
 
+typedef struct AOTCheckedAddr {
+  struct AOTCheckedAddr *next;
+  uint32 local_idx;
+  uint32 offset;
+  uint32 bytes;
+} AOTCheckedAddr, *AOTCheckedAddrList;
+
+typedef struct AOTMemInfo {
+  LLVMValueRef mem_base_addr;
+  LLVMValueRef mem_data_size_addr;
+  LLVMValueRef mem_cur_page_count_addr;
+  LLVMValueRef mem_bound_check_1byte;
+  LLVMValueRef mem_bound_check_2bytes;
+  LLVMValueRef mem_bound_check_4bytes;
+  LLVMValueRef mem_bound_check_8bytes;
+  LLVMValueRef mem_bound_check_16bytes;
+} AOTMemInfo;
+
 typedef struct AOTFuncContext {
   AOTFunc *aot_func;
   LLVMValueRef func;
@@ -91,26 +120,23 @@ typedef struct AOTFuncContext {
 
   LLVMValueRef exec_env;
   LLVMValueRef aot_inst;
-  LLVMValueRef table_base;
   LLVMValueRef argv_buf;
+  LLVMValueRef native_stack_bound;
+  LLVMValueRef aux_stack_bound;
+  LLVMValueRef aux_stack_bottom;
+  LLVMValueRef last_alloca;
+  LLVMValueRef func_ptrs;
 
-  LLVMValueRef heap_base_offset;
-  LLVMValueRef mem_base_addr;
-  LLVMValueRef total_mem_size;
-  LLVMValueRef mem_bound_check_1byte;
-  LLVMValueRef mem_bound_check_2bytes;
-  LLVMValueRef mem_bound_check_4bytes;
-  LLVMValueRef mem_bound_check_8bytes;
+  AOTMemInfo *mem_info;
 
   LLVMValueRef cur_exception;
 
   bool mem_space_unchanged;
+  AOTCheckedAddrList checked_addr_list;
 
-  LLVMBasicBlockRef *exception_blocks;
   LLVMBasicBlockRef got_exception_block;
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
-  LLVMValueRef func_ptrs;
   LLVMValueRef func_type_indexes;
   LLVMValueRef locals[1];
 } AOTFuncContext;
@@ -126,14 +152,26 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef void_type;
 
   LLVMTypeRef int8_ptr_type;
+  LLVMTypeRef int8_pptr_type;
   LLVMTypeRef int16_ptr_type;
   LLVMTypeRef int32_ptr_type;
   LLVMTypeRef int64_ptr_type;
   LLVMTypeRef float32_ptr_type;
   LLVMTypeRef float64_ptr_type;
-  LLVMTypeRef void_ptr_type;
+
+  LLVMTypeRef v128_type;
+  LLVMTypeRef v128_ptr_type;
+  LLVMTypeRef i8x16_vec_type;
+  LLVMTypeRef i16x8_vec_type;
+  LLVMTypeRef i32x4_vec_type;
+  LLVMTypeRef i64x2_vec_type;
+  LLVMTypeRef f32x4_vec_type;
+  LLVMTypeRef f64x2_vec_type;
 
   LLVMTypeRef meta_data_type;
+
+  LLVMTypeRef funcref_type;
+  LLVMTypeRef externref_type;
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {
@@ -142,10 +180,20 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i64_zero;
     LLVMValueRef f32_zero;
     LLVMValueRef f64_zero;
+    LLVMValueRef v128_zero;
+    LLVMValueRef i8x16_vec_zero;
+    LLVMValueRef i16x8_vec_zero;
+    LLVMValueRef i32x4_vec_zero;
+    LLVMValueRef i64x2_vec_zero;
+    LLVMValueRef f32x4_vec_zero;
+    LLVMValueRef f64x2_vec_zero;
     LLVMValueRef i32_one;
     LLVMValueRef i32_two;
     LLVMValueRef i32_three;
     LLVMValueRef i32_four;
+    LLVMValueRef i32_five;
+    LLVMValueRef i32_six;
+    LLVMValueRef i32_seven;
     LLVMValueRef i32_eight;
     LLVMValueRef i32_neg_one;
     LLVMValueRef i64_neg_one;
@@ -155,6 +203,7 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32_32;
     LLVMValueRef i64_63;
     LLVMValueRef i64_64;
+    LLVMValueRef ref_null;
 } AOTLLVMConsts;
 
 /**
@@ -170,10 +219,35 @@ typedef struct AOTCompContext {
   LLVMTargetMachineRef target_machine;
   char *target_cpu;
   char target_arch[16];
+  unsigned pointer_size;
 
   /* LLVM execution engine required by JIT */
   LLVMExecutionEngineRef exec_engine;
   bool is_jit_mode;
+
+  /* Bulk memory feature */
+  bool enable_bulk_memory;
+
+  /* Bounday Check */
+  bool enable_bound_check;
+
+  /* 128-bit SIMD */
+  bool enable_simd;
+
+  /* Auxiliary stack overflow/underflow check */
+  bool enable_aux_stack_check;
+
+  /* Generate auxiliary stack frame */
+  bool enable_aux_stack_frame;
+
+  /* Thread Manager */
+  bool enable_thread_mgr;
+
+  /* Tail Call */
+  bool enable_tail_call;
+
+  /* Reference Types */
+  bool enable_ref_types;
 
   /* Whether optimize the JITed code */
   bool optimize;
@@ -213,9 +287,18 @@ typedef struct AOTCompOption{
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool enable_bulk_memory;
+    bool enable_thread_mgr;
+    bool enable_tail_call;
+    bool enable_simd;
+    bool enable_ref_types;
+    bool enable_aux_stack_check;
+    bool enable_aux_stack_frame;
+    bool is_sgx_platform;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
+    uint32 bounds_checks;
 } AOTCompOption, *aot_comp_option_t;
 
 AOTCompContext *
@@ -257,6 +340,43 @@ aot_block_destroy(AOTBlock *block);
 
 LLVMTypeRef
 wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type);
+
+bool
+aot_checked_addr_list_add(AOTFuncContext *func_ctx,
+                          uint32 local_idx, uint32 offset, uint32 bytes);
+
+void
+aot_checked_addr_list_del(AOTFuncContext *func_ctx, uint32 local_idx);
+
+bool
+aot_checked_addr_list_find(AOTFuncContext *func_ctx,
+                           uint32 local_idx, uint32 offset, uint32 bytes);
+
+void
+aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
+
+bool
+aot_build_zero_function_ret(AOTCompContext *comp_ctx,
+                            AOTFuncType *func_type);
+
+LLVMValueRef
+aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                        const char *name,
+                        LLVMTypeRef ret_type,
+                        LLVMTypeRef *param_types,
+                        int param_count,
+                        ...);
+
+LLVMValueRef
+aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
+                          const char *name,
+                          LLVMTypeRef ret_type,
+                          LLVMTypeRef *param_types,
+                          int param_count,
+                          va_list param_value_list);
+
+bool
+aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

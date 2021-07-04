@@ -124,3 +124,9 @@ bool watchdog_startup()
 #endif
     return true;
 }
+
+void watchdog_destroy()
+{
+    bh_queue_exit_loop_run(watchdog_queue);
+    bh_queue_destroy(watchdog_queue);
+}

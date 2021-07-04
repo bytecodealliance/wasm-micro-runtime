@@ -34,12 +34,7 @@ include (${SHARED_DIR}/mem-alloc/mem_alloc.cmake)
 include (${CJSON_DIR}/cjson.cmake)
 include (${SHARED_DIR}/coap/lib_coap.cmake)
 
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
-endif ()
-
-add_definitions(-Wall -Wno-pointer-sign -DMALLOC_MEMORY_FROM_SYSTEM)
+add_definitions(-Wall -Wno-pointer-sign)
 
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/src
@@ -47,7 +42,6 @@ include_directories(
 )
 
 file (GLOB_RECURSE HOST_TOOL_SRC src/*.c)
-
 
 SET(SOURCES
     ${HOST_TOOL_SRC}
@@ -57,6 +51,6 @@ SET(SOURCES
     ${CJSON_SOURCE}
     ${LIB_HOST_AGENT_SOURCE}
     )
-    
+
 add_executable(host_tool ${SOURCES})
 target_link_libraries(host_tool pthread)

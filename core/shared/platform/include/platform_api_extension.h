@@ -69,6 +69,22 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 int os_thread_join(korp_tid thread, void **retval);
 
 /**
+ * Detach the thread specified by thread
+ *
+ * @param thread the thread to detach
+ *
+ * @return return 0 if success
+ */
+int os_thread_detach(korp_tid);
+
+/**
+ * Exit current thread
+ *
+ * @param retval the return value of the current thread
+ */
+void os_thread_exit(void *retval);
+
+/**
  * Suspend execution of the calling thread for (at least)
  * usec microseconds
  *
@@ -122,7 +138,7 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex);
  *
  * @return 0 if success
  */
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, int useconds);
+int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
 
 /**
  * Signals the condition variable

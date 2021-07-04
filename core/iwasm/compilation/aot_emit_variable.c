@@ -4,6 +4,7 @@
  */
 
 #include "aot_emit_variable.h"
+#include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 
 #define CHECK_LOCAL(idx) do {                               \
@@ -30,6 +31,7 @@ aot_compile_op_get_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     char name[32];
     LLVMValueRef value;
+    AOTValue *aot_value;
 
     CHECK_LOCAL(local_idx);
 
@@ -42,6 +44,10 @@ aot_compile_op_get_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     PUSH(value, get_local_type(func_ctx, local_idx));
+
+    aot_value = func_ctx->block_stack.block_list_end->value_stack.value_list_end;
+    aot_value->is_local = true;
+    aot_value->local_idx = local_idx;
     return true;
 
 fail:
@@ -65,6 +71,7 @@ aot_compile_op_set_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
+    aot_checked_addr_list_del(func_ctx, local_idx);
     return true;
 
 fail:
@@ -92,6 +99,7 @@ aot_compile_op_tee_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     PUSH(value, type);
+    aot_checked_addr_list_del(func_ctx, local_idx);
     return true;
 
 fail:
@@ -100,15 +108,16 @@ fail:
 
 static bool
 compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-               uint32 global_idx, bool is_set)
+               uint32 global_idx, bool is_set, bool is_aux_stack)
 {
     AOTCompData *comp_data = comp_ctx->comp_data;
     uint32 import_global_count = comp_data->import_global_count;
-    uint32 global_base_offset = offsetof(AOTModuleInstance,
-                                         global_table_data.bytes);
+    uint32 global_base_offset =
+        offsetof(AOTModuleInstance, global_table_data.bytes)
+        + sizeof(AOTMemoryInstance) * comp_ctx->comp_data->memory_count;
     uint32 global_offset;
     uint8 global_type;
-    LLVMValueRef offset, global_ptr, global;
+    LLVMValueRef offset, global_ptr, global, res;
     LLVMTypeRef ptr_type = NULL;
 
     bh_assert(global_idx < import_global_count + comp_data->global_count);
@@ -134,6 +143,8 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     switch (global_type) {
         case VALUE_TYPE_I32:
+        case VALUE_TYPE_EXTERNREF:
+        case VALUE_TYPE_FUNCREF:
             ptr_type = comp_ctx->basic_types.int32_ptr_type;
             break;
         case VALUE_TYPE_I64:
@@ -145,8 +156,11 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         case VALUE_TYPE_F64:
             ptr_type = comp_ctx->basic_types.float64_ptr_type;
             break;
+        case VALUE_TYPE_V128:
+            ptr_type = comp_ctx->basic_types.v128_ptr_type;
+            break;
         default:
-            bh_assert(0);
+            bh_assert("unknown type");
             break;
     }
 
@@ -162,14 +176,74 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build load failed.");
             return false;
         }
+        /* All globals' data is 4-byte aligned */
+        LLVMSetAlignment(global, 4);
         PUSH(global, global_type);
     }
     else {
         POP(global, global_type);
-        if (!LLVMBuildStore(comp_ctx->builder, global, global_ptr)) {
+
+        if (is_aux_stack && comp_ctx->enable_aux_stack_check) {
+            LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
+            LLVMBasicBlockRef check_overflow_succ, check_underflow_succ;
+            LLVMValueRef cmp;
+
+            /* Add basic blocks */
+            if (!(check_overflow_succ =
+                        LLVMAppendBasicBlockInContext(comp_ctx->context,
+                                                      func_ctx->func,
+                                                      "check_overflow_succ"))) {
+                aot_set_last_error("llvm add basic block failed.");
+                return false;
+            }
+            LLVMMoveBasicBlockAfter(check_overflow_succ, block_curr);
+
+            if (!(check_underflow_succ =
+                        LLVMAppendBasicBlockInContext(comp_ctx->context,
+                                                      func_ctx->func,
+                                                      "check_underflow_succ"))) {
+                aot_set_last_error("llvm add basic block failed.");
+                return false;
+            }
+            LLVMMoveBasicBlockAfter(check_underflow_succ, check_overflow_succ);
+
+            /* Check aux stack overflow */
+            if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntULE,
+                                      global, func_ctx->aux_stack_bound,
+                                      "cmp"))) {
+                aot_set_last_error("llvm build icmp failed.");
+                return false;
+            }
+            if (!aot_emit_exception(comp_ctx, func_ctx,
+                                    EXCE_AUX_STACK_OVERFLOW,
+                                    true, cmp, check_overflow_succ)) {
+                return false;
+            }
+
+            /* Check aux stack underflow */
+            LLVMPositionBuilderAtEnd(comp_ctx->builder, check_overflow_succ);
+            if (!(cmp = LLVMBuildICmp(comp_ctx->builder, LLVMIntUGT,
+                                      global, func_ctx->aux_stack_bottom,
+                                      "cmp"))) {
+                aot_set_last_error("llvm build icmp failed.");
+                return false;
+            }
+            if (!aot_emit_exception(comp_ctx, func_ctx,
+                                    EXCE_AUX_STACK_UNDERFLOW,
+                                    true, cmp, check_underflow_succ)) {
+                return false;
+            }
+
+            LLVMPositionBuilderAtEnd(comp_ctx->builder, check_underflow_succ);
+        }
+
+        if (!(res = LLVMBuildStore(comp_ctx->builder,
+                                   global, global_ptr))) {
             aot_set_last_error("llvm build store failed.");
             return false;
         }
+        /* All globals' data is 4-byte aligned */
+        LLVMSetAlignment(res, 4);
     }
 
     return true;
@@ -181,13 +255,13 @@ bool
 aot_compile_op_get_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 global_idx)
 {
-    return compile_global(comp_ctx, func_ctx, global_idx, false);
+    return compile_global(comp_ctx, func_ctx, global_idx, false, false);
 }
 
 bool
 aot_compile_op_set_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          uint32 global_idx)
+                          uint32 global_idx, bool is_aux_stack)
 {
-    return compile_global(comp_ctx, func_ctx, global_idx, true);
+    return compile_global(comp_ctx, func_ctx, global_idx, true, is_aux_stack);
 }
 

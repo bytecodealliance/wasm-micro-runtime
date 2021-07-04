@@ -23,7 +23,7 @@
 
 extern void init_sensor_framework();
 extern void exit_sensor_framework();
-extern int aee_host_msg_callback(void *msg, uint16_t msg_len);
+extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
 
 int uart_char_cnt = 0;
 
@@ -74,7 +74,7 @@ host_interface interface = {
 
 timer_ctx_t timer_ctx;
 
-static char global_heap_buf[370 * 1024] = { 0 };
+static char global_heap_buf[368 * 1024] = { 0 };
 
 static NativeSymbol native_symbols[] = {
     EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),

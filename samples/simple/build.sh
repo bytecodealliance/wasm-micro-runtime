@@ -1,3 +1,8 @@
+#
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+
 #!/bin/bash
 
 CURR_DIR=$PWD
@@ -148,11 +153,12 @@ OUT_FILE=${i%.*}.wasm
         --target=wasm32 -O3 -z stack-size=4096 -Wl,--initial-memory=65536 \
         --sysroot=${WAMR_DIR}/wamr-sdk/out/$PROFILE/app-sdk/libc-builtin-sysroot  \
         -Wl,--allow-undefined-file=${WAMR_DIR}/wamr-sdk/out/$PROFILE/app-sdk/libc-builtin-sysroot/share/defined-symbols.txt \
-        -Wl,--no-threads,--strip-all,--no-entry -nostdlib \
+        -Wl,--strip-all,--no-entry -nostdlib \
         -Wl,--export=on_init -Wl,--export=on_destroy \
         -Wl,--export=on_request -Wl,--export=on_response \
         -Wl,--export=on_sensor_event -Wl,--export=on_timer_callback \
         -Wl,--export=on_connection_data \
+        -Wl,--export=__heap_base -Wl,--export=__data_end \
         -o ${OUT_DIR}/wasm-apps/${OUT_FILE} ${APP_SRC}
 if [ -f ${OUT_DIR}/wasm-apps/${OUT_FILE} ]; then
         echo "build ${OUT_FILE} success"
