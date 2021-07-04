@@ -3,31 +3,22 @@
 ## Section 1. Guiding Principle
 
 The WebAssembly Micro Runtime (WAMR) project is part of the 
-
 Bytecode Alliance (BA) which operates transparently, openly, 
-
 collaboratively, and ethically. Project proposals, timelines, and status 
-
 must not merely be open, but also easily visible to outsiders.
 
 ## Section 2. Project Governance under Bytecode Alliance
 
 Technical leadership for the WAMR projects within the Bytecode Alliance 
-
 is delegated to the projects through the project charter. Though the BA TSC 
-
 will not interfere with day-to-day discussions, votes or meetings of the PTSC,
-
 the BA TSC may request additional amendments to the PTSC charter when 
-
 there is misalignment between the project charter and the BA mission and values.
 
 
 
 The PTSC structure described in this document may be overhauled as part of 
-
 establishing a BA TSC in order to adhere to constraints or requirements that 
-
 TSC will impose on project-level governance.
 
 ## Section 3. Establishment of the PTSC
