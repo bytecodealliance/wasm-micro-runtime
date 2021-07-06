@@ -130,6 +130,18 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 - **[workload](./samples/workload/README.md)**: Demonstrating how to build and run some complex workloads, e.g. tensorflow-lite, XNNPACK, wasm-av1, meshoptimizer and bwa.
 
 
+Project Technical Steering Committee
+====================================
+The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC. 
+The current TSC members:
+- [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
+- [qinxk-inter](https://github.com/qinxk-inter) - **Xiaokang Qin**， <xiaokang.qxk@antgroup.com>
+- [wei-tang](https://github.com/wei-tang) - **Wei Tang**， <tangwei.tang@antgroup.com>
+- [wenyongh](https://github.com/wenyongh) - **Wenyong Huang**， <wenyong.huang@intel.com>
+- [xujuntwt95329](https://github.com/xujuntwt95329) - **Jun Xu**， <Jun1.Xu@intel.com>
+- [xwang98](https://github.com/xwang98) - **Xin Wang**， <xin.wang@intel.com>
+
+
 License
 =======
 WAMR uses the same license as LLVM: the `Apache 2.0 license` with the LLVM
