@@ -150,6 +150,15 @@ typedef struct WASMExportMemInstance {
 } WASMExportMemInstance;
 #endif
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+struct WASMFrame {
+    void *instance;
+    uint32 module_offset;
+    uint32 func_index;
+    uint32 func_offset;
+};
+#endif
+
 struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
        WASM bytecode binary, this field is Wasm_Module_Bytecode;
@@ -208,6 +217,10 @@ struct WASMModuleInstance {
 
     /* The exception buffer of wasm interpreter for current thread. */
     char cur_exception[128];
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    Vector *frames;
+#endif
 
     /* The custom data that can be set/get by
      * wasm_set_custom_data/wasm_get_custom_data */

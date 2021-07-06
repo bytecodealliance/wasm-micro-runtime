@@ -86,8 +86,16 @@ struct wasm_ref_t {
     uint32 obj;
 };
 
+struct wasm_frame_t {
+    wasm_instance_t *instance;
+    uint32 module_offset;
+    uint32 func_index;
+    uint32 func_offset;
+};
+
 struct wasm_trap_t {
     wasm_byte_vec_t *message;
+    Vector *frames;
 };
 
 struct wasm_func_t {

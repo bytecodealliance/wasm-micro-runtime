@@ -2135,19 +2135,82 @@ extern void
 wasm_set_ref_types_flag(bool enable);
 #endif
 
+typedef struct AOTFileMap {
+    uint8 *wasm_file_buf;
+    uint32 wasm_file_size;
+    uint8 *aot_file_buf;
+    uint32 aot_file_size;
+    struct AOTFileMap *next;
+} AOTFileMap;
+
+static bool aot_compile_wasm_file_inited = false;
+static AOTFileMap *aot_file_maps = NULL;
+static korp_mutex aot_file_map_lock;
+
+bool
+aot_compile_wasm_file_init()
+{
+    if (aot_compile_wasm_file_inited) {
+        return true;
+    }
+
+    if (BHT_OK != os_mutex_init(&aot_file_map_lock)) {
+        return false;
+    }
+
+    aot_file_maps = NULL;
+    aot_compile_wasm_file_inited = true;
+    return true;
+}
+
+void
+aot_compile_wasm_file_destroy()
+{
+    AOTFileMap *file_map = aot_file_maps, *file_map_next;
+
+    if (!aot_compile_wasm_file_inited) {
+        return;
+    }
+
+    while (file_map) {
+        file_map_next = file_map->next;
+
+        wasm_runtime_free(file_map->wasm_file_buf);
+        wasm_runtime_free(file_map->aot_file_buf);
+        wasm_runtime_free(file_map);
+
+        file_map = file_map_next;
+    }
+
+    aot_file_maps = NULL;
+    os_mutex_destroy(&aot_file_map_lock);
+    aot_compile_wasm_file_inited = false;
+}
+
+static void
+set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
+{
+    if (error_buf != NULL) {
+        snprintf(error_buf, error_buf_size,
+                 "WASM module load failed: %s", string);
+    }
+}
+
 uint8*
 aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
                       uint32 opt_level, uint32 size_level,
+                      char *error_buf, uint32 error_buf_size,
                       uint32 *p_aot_file_size)
 {
-    WASMModuleCommon *wasm_module = NULL;
+    WASMModule *wasm_module = NULL;
     AOTCompData *comp_data = NULL;
     AOTCompContext *comp_ctx = NULL;
     RuntimeInitArgs init_args;
     AOTCompOption option = { 0 };
+    AOTFileMap *file_map = NULL, *file_map_next;
+    uint8 *wasm_file_buf_cloned = NULL;
     uint8 *aot_file_buf = NULL;
     uint32 aot_file_size;
-    char error_buf[128];
 
     option.is_jit_mode = false;
     option.opt_level = opt_level;
@@ -2155,7 +2218,6 @@ aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
     option.output_format = AOT_FORMAT_FILE;
     /* default value, enable or disable depends on the platform */
     option.bounds_checks = 2;
-    option.enable_simd = true;
     option.enable_aux_stack_check = true;
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
@@ -2187,46 +2249,94 @@ aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
 
-    /* load WASM module */
-    if (!(wasm_module = (WASMModuleCommon*)
-                        wasm_load(wasm_file_buf, wasm_file_size,
-                                  error_buf, sizeof(error_buf)))) {
-        os_printf("%s\n", error_buf);
-        aot_set_last_error(error_buf);
-        return NULL;
+    os_mutex_lock(&aot_file_map_lock);
+
+    /* lookup the file maps */
+    file_map = aot_file_maps;
+    while (file_map) {
+        file_map_next = file_map->next;
+
+        if (wasm_file_size == file_map->wasm_file_size
+            && memcmp(wasm_file_buf, file_map->wasm_file_buf,
+                      wasm_file_size) == 0) {
+            os_mutex_unlock(&aot_file_map_lock);
+            /* found */
+            *p_aot_file_size = file_map->aot_file_size;
+            return file_map->aot_file_buf;
+        }
+
+        file_map = file_map_next;
     }
 
-    if (!(comp_data = aot_create_comp_data((WASMModule*)wasm_module))) {
-        os_printf("%s\n", aot_get_last_error());
+    /* not found, initialize file map and clone wasm file */
+    if (!(file_map = wasm_runtime_malloc(sizeof(AOTFileMap)))
+        || !(wasm_file_buf_cloned = wasm_runtime_malloc(wasm_file_size))) {
+        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
         goto fail1;
     }
 
-    if (!(comp_ctx = aot_create_comp_context(comp_data, &option))) {
-        os_printf("%s\n", aot_get_last_error());
+    bh_memcpy_s(wasm_file_buf_cloned, wasm_file_size,
+                wasm_file_buf, wasm_file_size);
+    memset(file_map, 0, sizeof(AOTFileMap));
+    file_map->wasm_file_buf = wasm_file_buf_cloned;
+    file_map->wasm_file_size = wasm_file_size;
+
+    /* load WASM module */
+    if (!(wasm_module = wasm_load(wasm_file_buf, wasm_file_size,
+                                  error_buf, sizeof(error_buf)))) {
+        goto fail1;
+    }
+
+    if (!(comp_data = aot_create_comp_data(wasm_module))) {
+        set_error_buf(error_buf, error_buf_size, aot_get_last_error());
         goto fail2;
     }
 
-    if (!aot_compile_wasm(comp_ctx)) {
-        os_printf("%s\n", aot_get_last_error());
+    if (!(comp_ctx = aot_create_comp_context(comp_data, &option))) {
+        set_error_buf(error_buf, error_buf_size, aot_get_last_error());
         goto fail3;
+    }
+
+    if (!aot_compile_wasm(comp_ctx)) {
+        set_error_buf(error_buf, error_buf_size, aot_get_last_error());
+        goto fail4;
     }
 
     if (!(aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data,
                                                &aot_file_size))) {
-        os_printf("%s\n", aot_get_last_error());
-        goto fail3;
+        set_error_buf(error_buf, error_buf_size, aot_get_last_error());
+        goto fail4;
+    }
+
+    file_map->aot_file_buf = aot_file_buf;
+    file_map->aot_file_size = aot_file_size;
+
+    if (!aot_file_maps)
+        aot_file_maps = file_map;
+    else {
+        file_map->next = aot_file_maps;
+        aot_file_maps = file_map;
     }
 
     *p_aot_file_size = aot_file_size;
 
-fail3:
+fail4:
     /* Destroy compiler context */
     aot_destroy_comp_context(comp_ctx);
-fail2:
+fail3:
   /* Destroy compile data */
     aot_destroy_comp_data(comp_data);
+fail2:
+    wasm_unload(wasm_module);
 fail1:
-    wasm_runtime_unload(wasm_module);
+    if (!aot_file_buf) {
+        if (wasm_file_buf_cloned)
+            wasm_runtime_free(wasm_file_buf_cloned);
+        if (file_map)
+            wasm_runtime_free(file_map);
+    }
+
+    os_mutex_unlock(&aot_file_map_lock);
 
     return aot_file_buf;
 }
