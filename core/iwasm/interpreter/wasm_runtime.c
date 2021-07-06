@@ -1580,6 +1580,14 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->exec_env_singleton)
         wasm_exec_env_destroy(module_inst->exec_env_singleton);
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (module_inst->frames) {
+        bh_vector_destroy(module_inst->frames);
+        wasm_runtime_free(module_inst->frames);
+        module_inst->frames = NULL;
+    }
+#endif
+
     wasm_runtime_free(module_inst);
 }
 
@@ -1925,7 +1933,7 @@ wasm_validate_app_addr(WASMModuleInstance *module_inst,
     memory_data_size = memory->num_bytes_per_page * memory->cur_page_count;
 
     /* integer overflow check */
-    if (app_offset + size < app_offset) {
+    if (app_offset > UINT32_MAX - size) {
         goto fail;
     }
 
@@ -1949,7 +1957,7 @@ wasm_validate_native_addr(WASMModuleInstance *module_inst,
     }
 
     /* integer overflow check */
-    if (addr + size < addr) {
+    if ((uintptr_t)addr > UINTPTR_MAX - size) {
         goto fail;
     }
 
@@ -2421,19 +2429,59 @@ void
 wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
 {
     WASMModuleInstance *module_inst =
-        (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
-    WASMInterpFrame *cur_frame =
-        wasm_exec_env_get_cur_frame(exec_env);
-    WASMFunctionInstance *func_inst;
-    WASMExportFuncInstance *export_func;
-    const char *func_name = NULL;
-    uint32 n, i;
+      (WASMModuleInstance *)wasm_exec_env_get_module_inst(exec_env);
+    WASMInterpFrame *first_frame,
+      *cur_frame = wasm_exec_env_get_cur_frame(exec_env);
+    uint32 n = 0;
 
+    /* release previous stack frame */
+    if (module_inst->frames) {
+        bh_vector_destroy(module_inst->frames);
+        wasm_runtime_free(module_inst->frames);
+        module_inst->frames = NULL;
+    }
+
+    /* count frames includes a function */
+    first_frame = cur_frame;
+    while (cur_frame) {
+        if (cur_frame->function) {
+            n++;
+        }
+        cur_frame = cur_frame->prev_frame;
+    }
+
+    if (!(module_inst->frames = runtime_malloc(
+            (uint64)sizeof(Vector), module_inst->cur_exception, 128))) {
+        return;
+    }
+
+    if (!bh_vector_init(module_inst->frames, n, sizeof(struct WASMFrame))) {
+        wasm_runtime_free(module_inst->frames);
+        module_inst->frames = NULL;
+        return;
+    }
+
+    cur_frame = first_frame;
+    n = 0;
     os_printf("\n");
-    for (n = 0; cur_frame && cur_frame->function; n++) {
-        func_name = NULL;
-        func_inst = cur_frame->function;
+    while (cur_frame) {
+        struct WASMFrame frame = { 0 };
+        WASMFunctionInstance *func_inst = cur_frame->function;
+        const char *func_name = NULL;
 
+        if (!func_inst) {
+            cur_frame = cur_frame->prev_frame;
+            continue;
+        }
+
+        /* place holder, will overwrite it in wasm_c_api */
+        frame.instance = module_inst;
+        frame.module_offset = 0;
+        frame.func_index = func_inst - module_inst->functions;
+        frame.func_offset =
+          cur_frame->ip ? cur_frame->ip - func_inst->u.func->code : 0;
+
+        /* look for the function name */
         if (func_inst->is_import_func) {
             func_name = func_inst->u.func_import->field_name;
         }
@@ -2444,8 +2492,10 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
             /* if custom name section is not generated,
                 search symbols from export table */
             if (!func_name) {
+                uint32 i;
                 for (i = 0; i < module_inst->export_func_count; i++) {
-                    export_func = module_inst->export_functions + i;
+                    WASMExportFuncInstance *export_func =
+                      module_inst->export_functions + i;
                     if (export_func->function == func_inst) {
                         func_name = export_func->name;
                         break;
@@ -2462,7 +2512,11 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
             os_printf("#%02d %s \n", n, func_name);
         }
 
+        /* keep print */
+        bh_vector_append(module_inst->frames, &frame);
+
         cur_frame = cur_frame->prev_frame;
+        n++;
     }
     os_printf("\n");
 }

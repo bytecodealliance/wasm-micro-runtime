@@ -1896,7 +1896,7 @@ aot_validate_app_addr(AOTModuleInstance *module_inst,
     }
 
     /* integer overflow check */
-    if(app_offset + size < app_offset) {
+    if(app_offset > UINT32_MAX - size) {
         goto fail;
     }
 
@@ -1920,7 +1920,7 @@ aot_validate_native_addr(AOTModuleInstance *module_inst,
     }
 
     /* integer overflow check */
-    if (addr + size < addr) {
+    if ((uintptr_t)addr > UINTPTR_MAX - size) {
         goto fail;
     }
 
