@@ -5,7 +5,9 @@ CORE_ROOT := wamr/core
 IWASM_ROOT := wamr/core/iwasm
 SHARED_ROOT := wamr/core/shared
 
-ifeq ($(CONFIG_ARCH_ARMV7M),y)
+ifeq ($(CONFIG_ARCH_ARMV7A),y)
+WAMR_BUILD_TARGET := THUMBV7A
+else ifeq ($(CONFIG_ARCH_ARMV7M),y)
 WAMR_BUILD_TARGET := THUMBV7EM
 else ifeq ($(CONFIG_ARCH_ARMV8M),y)
 WAMR_BUILD_TARGET := THUMBV8M
@@ -15,6 +17,10 @@ else ifeq ($(CONFIG_ARCH_X86_64),y)
 WAMR_BUILD_TARGET := X86_64
 else ifeq ($(CONFIG_ARCH_XTENSA),y)
 WAMR_BUILD_TARGET := XTENSA
+else ifeq ($(CONFIG_ARCH_RV64GC),y)
+WAMR_BUILD_TARGET := RISCV64
+else ifeq ($(CONFIG_ARCH_RV32IM),y)
+WAMR_BUILD_TARGET := RISCV32
 else ifeq ($(CONFIG_ARCH_SIM),y)
 ifeq ($(CONFIG_SIM_M32),y)
 WAMR_BUILD_TARGET := X86_32
@@ -23,7 +29,7 @@ WAMR_BUILD_TARGET := X86_64
 endif
 ifeq ($(CONFIG_HOST_MACOS),y)
 # Note: invokeNative_em64.s needs BH_PLATFORM_DARWIN
-CFLAGS += -DBH_PLATFORM_DARWIN
+AFLAGS += -DBH_PLATFORM_DARWIN
 endif
 endif
 
@@ -60,8 +66,36 @@ else ifeq (${WAMR_BUILD_TARGET}, XTENSA)
   CFLAGS += -DBUILD_TARGET_XTENSA
   INVOKE_NATIVE := invokeNative_xtensa.s
   AOT_RELOC := aot_reloc_xtensa.c
+else ifeq (${WAMR_BUILD_TARGET}, RISCV64)
+
+ifeq (${CONFIG_ARCH_FPU},y)
+  $(error riscv64 lp64f is unsupported)
+else ifeq (${CONFIG_ARCH_DPFPU}, y)
+  CFLAGS += -DBUILD_TARGET_RISCV64_LP64D
+  INVOKE_NATIVE += invokeNative_riscv64_lp64d.s
 else
-  $(error Build target don't support)
+  CFLAGS += -DBUILD_TARGET_RISCV64_LP64
+  INVOKE_NATIVE += invokeNative_riscv64_lp64.s
+endif
+
+  AOT_RELOC :=
+
+else ifeq (${WAMR_BUILD_TARGET}, RISCV32)
+
+ifeq (${CONFIG_ARCH_FPU}, y)
+  $(error riscv32 ilp32f is unsupported)
+else ifeq (${CONFIG_ARCH_DPFPU}, y)
+  CFLAGS += -DBUILD_TARGET_RISCV64_ILP32D
+  INVOKE_NATIVE += invokeNative_riscv32_ilp32d.s
+else
+  CFLAGS += -DBUILD_TARGET_RISCV64_ILP32
+  INVOKE_NATIVE += invokeNative_riscv32_ilp32.s
+endif
+
+  AOT_RELOC :=
+
+else
+  $(error Build target is unsupported)
 endif
 
 ifeq (${CONFIG_INTERPRETERS_WAMR_LOG},y)
@@ -180,6 +214,7 @@ CSRCS += nuttx_platform.c \
          bh_read_file.c \
          runtime_timer.c \
          libc_builtin_wrapper.c \
+         wasm_application.c \
          wasm_runtime_common.c \
          wasm_native.c \
          wasm_exec_env.c \

@@ -14,6 +14,8 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
     switch (wasm_type) {
         case VALUE_TYPE_I32:
+        case VALUE_TYPE_FUNCREF:
+        case VALUE_TYPE_EXTERNREF:
             return llvm_types->int32_type;
         case VALUE_TYPE_I64:
             return llvm_types->int64_type;
@@ -21,12 +23,12 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
             return llvm_types->float32_type;
         case VALUE_TYPE_F64:
             return llvm_types->float64_type;
-#if WASM_ENABLE_SIMD != 0
         case VALUE_TYPE_V128:
             return llvm_types->i64x2_vec_type;
-#endif
         case VALUE_TYPE_VOID:
             return llvm_types->void_type;
+        default:
+            break;
     }
     return NULL;
 }
@@ -492,34 +494,6 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static bool
-create_table_base(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    AOTCompData *comp_data = comp_ctx->comp_data;
-    uint64 module_inst_mem_inst_size =
-        (uint64)comp_data->memory_count * sizeof(AOTMemoryInstance);
-    LLVMValueRef offset;
-
-    offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data.bytes)
-                       + module_inst_mem_inst_size
-                       + comp_ctx->comp_data->global_data_size);
-    func_ctx->table_base = LLVMBuildInBoundsGEP(comp_ctx->builder,
-                                                func_ctx->aot_inst,
-                                                &offset, 1,
-                                                "table_base_tmp");
-    if (!func_ctx->table_base) {
-        aot_set_last_error("llvm build in bounds gep failed.");
-        return false;
-    }
-    func_ctx->table_base = LLVMBuildBitCast(comp_ctx->builder, func_ctx->table_base,
-                                            INT32_PTR_TYPE, "table_base");
-    if (!func_ctx->table_base) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
-    return true;
-}
-
-static bool
 create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
@@ -810,11 +784,13 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             case VALUE_TYPE_F64:
                 local_value = F64_ZERO;
                 break;
-#if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
                 local_value = V128_ZERO;
                 break;
-#endif
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                local_value = REF_NULL;
+                break;
             default:
                 bh_assert(0);
                 break;
@@ -851,10 +827,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Create base addr, end addr, data size of mem, heap */
     if (!create_memory_info(comp_ctx, func_ctx, int8_ptr_type, func_index))
-        goto fail;
-
-    /* Load table base */
-    if (!create_table_base(comp_ctx, func_ctx))
         goto fail;
 
     /* Load current exception */
@@ -943,6 +915,12 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->meta_data_type = LLVMMetadataTypeInContext(context);
 
     basic_types->int8_ptr_type = LLVMPointerType(basic_types->int8_type, 0);
+
+    if (basic_types->int8_ptr_type) {
+        basic_types->int8_pptr_type =
+          LLVMPointerType(basic_types->int8_ptr_type, 0);
+    }
+
     basic_types->int16_ptr_type = LLVMPointerType(basic_types->int16_type, 0);
     basic_types->int32_ptr_type = LLVMPointerType(basic_types->int32_type, 0);
     basic_types->int64_ptr_type = LLVMPointerType(basic_types->int64_type, 0);
@@ -959,7 +937,11 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->v128_type = basic_types->i64x2_vec_type;
     basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
 
+    basic_types->funcref_type = LLVMInt32TypeInContext(context);
+    basic_types->externref_type = LLVMInt32TypeInContext(context);
+
     return (basic_types->int8_ptr_type
+            && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type
             && basic_types->int32_ptr_type
             && basic_types->int64_ptr_type
@@ -971,7 +953,9 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
             && basic_types->i64x2_vec_type
             && basic_types->f32x4_vec_type
             && basic_types->f64x2_vec_type
-            && basic_types->meta_data_type) ? true : false;
+            && basic_types->meta_data_type
+            && basic_types->funcref_type
+            && basic_types->externref_type) ? true : false;
 }
 
 static bool
@@ -1014,6 +998,7 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
     consts->i32_32 = I32_CONST(32);
     consts->i64_63 = I64_CONST(63);
     consts->i64_64 = I64_CONST(64);
+    consts->ref_null = I32_CONST(NULL_REF);
 
     return (consts->i8_zero
             && consts->i32_zero
@@ -1041,7 +1026,8 @@ aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
             && consts->i32_31
             && consts->i32_32
             && consts->i64_63
-            && consts->i64_64) ? true : false;
+            && consts->i64_64
+            && consts->ref_null) ? true : false;
 }
 
 typedef struct ArchItem {
@@ -1107,7 +1093,8 @@ static ArchItem valid_archs[] = {
 static const char *valid_abis[] = {
     "gnu",
     "eabi",
-    "gnueabihf"
+    "gnueabihf",
+    "msvc"
 };
 
 static void
@@ -1244,6 +1231,9 @@ aot_create_comp_context(AOTCompData *comp_data,
     if (option->enable_tail_call)
         comp_ctx->enable_tail_call = true;
 
+    if (option->enable_ref_types)
+        comp_ctx->enable_ref_types = true;
+
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
 
@@ -1335,9 +1325,32 @@ aot_create_comp_context(AOTCompData *comp_data,
 
         if (arch) {
             /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
-            const char *vendor_sys = "-pc-linux-";
-            if (!abi)
-                abi = "gnu";
+            const char *vendor_sys;
+            char *default_triple = LLVMGetDefaultTargetTriple();
+
+            if (!default_triple) {
+                aot_set_last_error("llvm get default target triple failed.");
+                goto fail;
+            }
+
+            if (strstr(default_triple, "windows")) {
+                vendor_sys = "-pc-windows-";
+                if (!abi)
+                    abi = "msvc";
+            }
+            else if (strstr(default_triple, "win32")) {
+                vendor_sys = "-pc-win32-";
+                if (!abi)
+                    abi = "msvc";
+            }
+            else {
+                vendor_sys = "-pc-linux-";
+                if (!abi)
+                    abi = "gnu";
+            }
+
+            LLVMDisposeMessage(default_triple);
+
             bh_assert(strlen(arch) + strlen(vendor_sys) + strlen(abi) < sizeof(triple_buf));
             memcpy(triple_buf, arch, strlen(arch));
             memcpy(triple_buf + strlen(arch), vendor_sys, strlen(vendor_sys));
@@ -1472,7 +1485,8 @@ aot_create_comp_context(AOTCompData *comp_data,
     }
 
     if (option->enable_simd
-        && strcmp(comp_ctx->target_arch, "x86_64") != 0) {
+        && strcmp(comp_ctx->target_arch, "x86_64") != 0
+        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
         /* Disable simd if it isn't supported by target arch */
         option->enable_simd = false;
     }
@@ -1520,7 +1534,9 @@ aot_create_comp_context(AOTCompData *comp_data,
     LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
     LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
     LLVMAddJumpThreadingPass(comp_ctx->pass_mgr);
+#if LLVM_VERSION_MAJOR < 12
     LLVMAddConstantPropagationPass(comp_ctx->pass_mgr);
+#endif
     LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
 
     if (!option->is_jit_mode) {
@@ -1528,8 +1544,12 @@ aot_create_comp_context(AOTCompData *comp_data,
         LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
         LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
-        LLVMAddGVNPass(comp_ctx->pass_mgr);
-        LLVMAddLICMPass(comp_ctx->pass_mgr);
+        if (!option->enable_thread_mgr) {
+            /* These two passes may destroy the volatile semantics,
+                disable them when building as multi-thread mode */
+            LLVMAddGVNPass(comp_ctx->pass_mgr);
+            LLVMAddLICMPass(comp_ctx->pass_mgr);
+        }
         LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
         LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
@@ -1560,10 +1580,7 @@ aot_create_comp_context(AOTCompData *comp_data,
     }
 
     /* set exec_env data type to int8** */
-    if (!(comp_ctx->exec_env_type = LLVMPointerType(INT8_PTR_TYPE, 0))) {
-        aot_set_last_error("llvm get pointer type failed.");
-        goto fail;
-    }
+    comp_ctx->exec_env_type = comp_ctx->basic_types.int8_pptr_type;
 
     /* set aot_inst data type to int8* */
     comp_ctx->aot_inst_type = INT8_PTR_TYPE;
@@ -1821,11 +1838,13 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
             case VALUE_TYPE_F64:
                 ret = LLVMBuildRet(comp_ctx->builder, F64_ZERO);
                 break;
-#if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
                 ret = LLVMBuildRet(comp_ctx->builder, V128_ZERO);
                 break;
-#endif
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                ret = LLVMBuildRet(comp_ctx->builder, REF_NULL);
+                break;
             default:
                 bh_assert(0);
         }

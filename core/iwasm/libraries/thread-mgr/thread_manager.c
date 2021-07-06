@@ -328,6 +328,7 @@ WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasm_module_t module = wasm_exec_env_get_module(exec_env);
     wasm_module_inst_t new_module_inst;
     WASMExecEnv *new_exec_env;
@@ -341,6 +342,13 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
         wasm_runtime_instantiate_internal(module, true, 8192,
                                           0, NULL, 0))) {
         return NULL;
+    }
+
+    if (module_inst) {
+        /* Set custom_data to new module instance */
+        wasm_runtime_set_custom_data_internal(
+            new_module_inst,
+            wasm_runtime_get_custom_data(module_inst));
     }
 
     new_exec_env = wasm_exec_env_create_internal(
@@ -495,20 +503,18 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (exec_env->jmpbuf_stack_top) {
-        WASMJmpBuf *jmpbuf_node;
-
         /* Store the return value in exec_env */
         exec_env->thread_ret_value = retval;
         exec_env->suspend_flags.flags |= 0x08;
 
-        /* Free all jmpbuf_node except the last one */
+#ifndef BH_PLATFORM_WINDOWS
+        /* Pop all jmpbuf_node except the last one */
         while (exec_env->jmpbuf_stack_top->prev) {
-            jmpbuf_node = wasm_exec_env_pop_jmpbuf(exec_env);
-            wasm_runtime_free(jmpbuf_node);
+            wasm_exec_env_pop_jmpbuf(exec_env);
         }
-        jmpbuf_node = exec_env->jmpbuf_stack_top;
-        os_longjmp(jmpbuf_node->jmpbuf, 1);
+        os_longjmp(exec_env->jmpbuf_stack_top->jmpbuf, 1);
         return;
+#endif
     }
 #endif
 
@@ -653,6 +659,32 @@ void
 wasm_cluster_spread_exception(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
 
     traverse_list(&cluster->exec_env_list, set_exception_visitor, exec_env);
+}
+
+static void
+set_custom_data_visitor(void *node, void *user_data)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
+
+    wasm_runtime_set_custom_data_internal(module_inst, user_data);
+}
+
+void
+wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
+                                void *custom_data)
+{
+    WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
+    WASMCluster *cluster = NULL;
+    bh_assert(exec_env);
+
+    cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+
+    traverse_list(&cluster->exec_env_list,
+                  set_custom_data_visitor,
+                  custom_data);
 }

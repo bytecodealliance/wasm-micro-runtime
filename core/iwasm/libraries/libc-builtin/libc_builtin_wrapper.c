@@ -28,6 +28,10 @@ wasm_runtime_get_llvm_stack(wasm_module_inst_t module);
 void
 wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 
+uint32
+wasm_runtime_module_realloc(wasm_module_inst_t module, uint32 ptr,
+                            uint32 size, void **p_native_addr);
+
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
@@ -357,6 +361,21 @@ handle_1_to_9:
                 break;
             }
 
+            case 'f': {
+                float64 f64;
+                char buf[16], *s;
+
+                /* Make 8-byte aligned */
+                ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
+                CHECK_VA_ARG(ap, float64);
+                f64 = _va_arg(ap, float64);
+                snprintf(buf, sizeof(buf), "%f", f64);
+                s = buf;
+                while (*s)
+                    out((int) (*s++), ctx);
+                break;
+            }
+
             default:
                 out((int) '%', ctx);
                 out((int) *fmt, ctx);
@@ -653,7 +672,11 @@ strcpy_wrapper(wasm_exec_env_t exec_env, char *dst, const char *src)
     if (!validate_native_addr(dst, len))
         return 0;
 
+#ifndef BH_PLATFORM_WINDOWS
     strncpy(dst, src, len);
+#else
+    strncpy_s(dst, len, src, len);
+#endif
     return addr_native_to_app(dst);
 }
 
@@ -667,7 +690,11 @@ strncpy_wrapper(wasm_exec_env_t exec_env,
     if (!validate_native_addr(dst, size))
         return 0;
 
+#ifndef BH_PLATFORM_WINDOWS
     strncpy(dst, src, size);
+#else
+    strncpy_s(dst, size, src, size);
+#endif
     return addr_native_to_app(dst);
 }
 
@@ -702,6 +729,14 @@ calloc_wrapper(wasm_exec_env_t exec_env, uint32 nmemb, uint32 size)
     }
 
     return ret_offset;
+}
+
+static uint32
+realloc_wrapper(wasm_exec_env_t exec_env, uint32 ptr, uint32 new_size)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    return wasm_runtime_module_realloc(module_inst, ptr, new_size, NULL);
 }
 
 static void
@@ -1092,6 +1127,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(strncmp, "(**~)i"),
     REG_NATIVE_FUNC(strncpy, "(**~)i"),
     REG_NATIVE_FUNC(malloc, "(i)i"),
+    REG_NATIVE_FUNC(realloc, "(ii)i"),
     REG_NATIVE_FUNC(calloc, "(ii)i"),
     REG_NATIVE_FUNC(strdup, "($)i"),
     /* clang may introduce __strdup */

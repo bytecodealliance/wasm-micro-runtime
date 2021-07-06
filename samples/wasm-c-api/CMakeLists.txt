@@ -31,10 +31,10 @@ if(NOT DEFINED WAMR_BUILD_INTERP)
 endif()
 
 if(NOT DEFINED WAMR_BUILD_AOT)
-  set(WAMR_BUILD_AOT 0)
+  set(WAMR_BUILD_AOT 1)
 endif()
 
-if(NOT DEFINED WAMR_BUILD_JOT)
+if(NOT DEFINED WAMR_BUILD_JIT)
   set(WAMR_BUILD_JIT 0)
 endif()
 
@@ -43,7 +43,7 @@ set(WAMR_BUILD_LIBC_WASI 0)
 set(WAMR_BUILD_MULTI_MODULE 1)
 
 if(NOT DEFINED WAMR_BUILD_FAST_INTERP)
-  set(WAMR_BUILD_FAST_INTERP 0)
+  set(WAMR_BUILD_FAST_INTERP 1)
 endif()
 
 if (NOT MSVC)
@@ -68,6 +68,7 @@ add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 if (MSVC)
   target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
 endif()
+target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 ################################################
 
 ################  application related  ################
@@ -86,29 +87,66 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set(MM_UTIL src/utils/multi_module_utils.c)
 # build executable for each .c
-file(GLOB SOURCES src/*.c)
-foreach(SRC ${SOURCES})
-  get_filename_component(APPNAME ${SRC} NAME_WE)
+set(EXAMPLES
+  hello
+  callback
+  global
+  reflect
+  trap
+  callback_chain
+)
 
-  add_executable(${APPNAME} ${SRC} ${UNCOMMON_SHARED_SOURCE} ${MM_UTIL})
-  target_include_directories(${APPNAME} PRIVATE ${UNCOMMON_SHARED_DIR})
-  target_link_libraries(${APPNAME} vmlib -lpthread -lm)
+foreach(EX ${EXAMPLES})
+  set(SRC ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.c)
+
+  add_executable(${EX} ${SRC} ${UNCOMMON_SHARED_SOURCE} ${MM_UTIL})
+  target_include_directories(${EX} PRIVATE ${UNCOMMON_SHARED_DIR})
+  target_link_libraries(${EX} vmlib -lpthread -lm)
   if (MSVC)
-    target_compile_definitions(${APPNAME} PRIVATE WASM_API_EXTERN=)
+    target_compile_definitions(${EX} PRIVATE WASM_API_EXTERN=)
+  endif()
+
+  # wat to wasm
+  set(WAT ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.wat)
+
+  add_custom_target(${EX}_WASM
+    COMMAND ${WAT2WASM} ${WAT} -o ${PROJECT_BINARY_DIR}/${EX}.wasm
+    DEPENDS ${WAT}
+    BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.wasm
+    VERBATIM
+  )
+  add_dependencies(${EX} ${EX}_WASM)
+
+  # generate .aot file
+  if(${WAMR_BUILD_AOT} EQUAL 1)
+    if(EXISTS ${WAMRC})
+      add_custom_target(${EX}_AOT
+        COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
+          ${PROJECT_BINARY_DIR}/${EX}.wasm
+        DEPENDS ${EX}_WASM
+        BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
+        VERBATIM
+        COMMENT "generate a aot file ${PROJECT_BINARY_DIR}/${EX}.aot"
+      )
+      add_dependencies(${EX} ${EX}_AOT)
+    endif()
   endif()
 endforeach()
 
-# wat to wasm
-file(GLOB WAT_FILES src/*.wat)
-foreach(WAT_FILE ${WAT_FILES})
-  get_filename_component(WATNAME ${WAT_FILE} NAME_WE)
-
-  add_custom_target(${WATNAME}_WASM ALL
-    COMMAND ${WAT2WASM} ${WAT_FILE} -o ${PROJECT_BINARY_DIR}/${WATNAME}.wasm
-    DEPENDS ${WAT_FILE}
-    BYPRODUCTS ${PROJECT_BINARY_DIR}/${WATNAME}.wasm
-    VERBATIM
-    SOURCES ${WAT_FILE}
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  find_program(VALGRIND
+    valgrind
+    REQUIRED
   )
-endforeach()
-################################################
+
+  if(VALGRIND)
+    foreach(EX ${EXAMPLES})
+      add_custom_target(${EX}_LEAK_TEST
+        COMMAND ${VALGRIND} --tool=memcheck --leak-check=yes ./${EX}
+        DEPENDS ${EX} ${EX}_WASM
+        VERBATIM
+        COMMENT "run a leak check on ${EX}"
+      )
+    endforeach()
+  endif (VALGRIND)
+endif (CMAKE_BUILD_TYPE STREQUAL "Debug")

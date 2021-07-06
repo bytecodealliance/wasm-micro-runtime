@@ -116,6 +116,10 @@ typedef struct WASMExecEnv {
     WASMJmpBuf *jmpbuf_stack_top;
 #endif
 
+#if WASM_ENABLE_REF_TYPES != 0
+    uint16 nested_calling_depth;
+#endif
+
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     uint32 max_wasm_stack_used;
 #endif

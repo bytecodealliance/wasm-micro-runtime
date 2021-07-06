@@ -285,7 +285,7 @@ check_machine_info(AOTTargetInfo *target_info,
                              error_buf, error_buf_size))
         return false;
 
-    if (strcmp(target_expected, target_got)) {
+    if (strncmp(target_expected, target_got, strlen(target_expected))) {
         set_error_buf_v(error_buf, error_buf_size,
                         "invalid target type, expected %s but got %s",
                         target_expected, target_got);
@@ -507,13 +507,46 @@ destroy_table_init_data_list(AOTTableInitData **data_list, uint32 count,
 }
 
 static bool
+load_import_table_list(const uint8 **p_buf,
+                       const uint8 *buf_end,
+                       AOTModule *module,
+                       char *error_buf,
+                       uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    AOTImportTable *import_table;
+    uint64 size;
+    uint32 i, possible_grow;
+
+    /* Allocate memory */
+    size = sizeof(AOTImportTable) * (uint64)module->import_table_count;
+    if (!(module->import_tables = import_table =
+            loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    /* keep sync with aot_emit_table_info() aot_emit_aot_file */
+    for (i = 0; i < module->import_table_count; i++, import_table++) {
+        read_uint32(buf, buf_end, import_table->table_init_size);
+        read_uint32(buf, buf_end, import_table->table_max_size);
+        read_uint32(buf, buf_end, possible_grow);
+        import_table->possible_grow = (possible_grow & 0x1);
+    }
+
+    *p_buf = buf;
+    return true;
+fail:
+    return false;
+}
+
+static bool
 load_table_list(const uint8 **p_buf, const uint8 *buf_end,
                 AOTModule *module, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTTable *table;
     uint64 size;
-    uint32 i;
+    uint32 i, possible_grow;
 
     /* Allocate memory */
     size = sizeof(AOTTable) * (uint64)module->table_count;
@@ -528,6 +561,8 @@ load_table_list(const uint8 **p_buf, const uint8 *buf_end,
         read_uint32(buf, buf_end, table->table_flags);
         read_uint32(buf, buf_end, table->table_init_size);
         read_uint32(buf, buf_end, table->table_max_size);
+        read_uint32(buf, buf_end, possible_grow);
+        table->possible_grow = (possible_grow & 0x1);
     }
 
     *p_buf = buf;
@@ -555,9 +590,12 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* Create each table data segment */
     for (i = 0; i < module->table_init_data_count; i++) {
+        uint32 mode, elem_type;
         uint32 table_index, init_expr_type, func_index_count;
         uint64 init_expr_value, size1;
 
+        read_uint32(buf, buf_end, mode);
+        read_uint32(buf, buf_end, elem_type);
         read_uint32(buf, buf_end, table_index);
         read_uint32(buf, buf_end, init_expr_type);
         read_uint64(buf, buf_end, init_expr_value);
@@ -570,6 +608,9 @@ load_table_init_data_list(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
 
+        data_list[i]->mode = mode;
+        data_list[i]->elem_type = elem_type;
+        data_list[i]->is_dropped = false;
         data_list[i]->table_index = table_index;
         data_list[i]->offset.init_expr_type = (uint8)init_expr_type;
         data_list[i]->offset.u.i64 = (int64)init_expr_value;
@@ -591,13 +632,14 @@ load_table_info(const uint8 **p_buf, const uint8 *buf_end,
     const uint8 *buf = *p_buf;
 
     read_uint32(buf, buf_end, module->import_table_count);
-    /* We don't support import_table_count > 0 currently */
-    bh_assert(module->import_table_count == 0);
+    if (module->import_table_count > 0
+        && !load_import_table_list(&buf, buf_end, module, error_buf,
+                                   error_buf_size))
+        return false;
 
     read_uint32(buf, buf_end, module->table_count);
     if (module->table_count > 0
-        && !load_table_list(&buf, buf_end, module,
-                            error_buf, error_buf_size))
+        && !load_table_list(&buf, buf_end, module, error_buf, error_buf_size))
         return false;
 
     read_uint32(buf, buf_end, module->table_init_data_count);
@@ -1000,7 +1042,8 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
         read_uint32(buf, buf_end, data_sections[i].size);
 
         /* Allocate memory for data */
-        if (!(data_sections[i].data =
+        if (data_sections[i].size > 0
+            && !(data_sections[i].data =
                     os_mmap(NULL, data_sections[i].size, map_prot, map_flags))) {
             set_error_buf(error_buf, error_buf_size,
                           "allocate memory failed");
@@ -1137,6 +1180,27 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     const uint8 *p = buf, *p_end = buf_end;
     uint32 i;
     uint64 size, text_offset;
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    RUNTIME_FUNCTION *rtl_func_table;
+    AOTUnwindInfo *unwind_info;
+    uint32 unwind_info_offset = module->code_size - sizeof(AOTUnwindInfo);
+    uint32 unwind_code_offset = unwind_info_offset - PLT_ITEM_SIZE;
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    unwind_info= (AOTUnwindInfo *)((uint8*)module->code + module->code_size
+                                   - sizeof(AOTUnwindInfo));
+    unwind_info->Version = 1;
+    unwind_info->Flags = UNW_FLAG_NHANDLER;
+    *(uint32*)&unwind_info->UnwindCode[0] = unwind_code_offset;
+
+    size = sizeof(RUNTIME_FUNCTION) * (uint64)module->func_count;
+    if (size > 0
+        && !(rtl_func_table = module->rtl_func_table =
+                loader_malloc(size, error_buf, error_buf_size))) {
+        return false;
+    }
+#endif
 
     size = sizeof(void*) * (uint64)module->func_count;
     if (size > 0
@@ -1164,7 +1228,29 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void*)((uintptr_t)module->func_ptrs[i] | 1);
 #endif
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+        rtl_func_table[i].BeginAddress = (DWORD)text_offset;
+        if (i > 0) {
+            rtl_func_table[i - 1].EndAddress = rtl_func_table[i].BeginAddress;
+        }
+        rtl_func_table[i].UnwindInfoAddress = (DWORD)unwind_info_offset;
+#endif
     }
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    if (module->func_count > 0) {
+        rtl_func_table[module->func_count - 1].EndAddress =
+                    (DWORD)(module->code_size - get_plt_table_size());
+
+        if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
+                                 (DWORD64)(uintptr_t)module->code)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "add dynamic function table failed");
+            return false;
+        }
+        module->rtl_func_table_registered = true;
+    }
+#endif
 
     /* Set start function when function pointers are resolved */
     if (module->start_func_index != (uint32)-1) {
@@ -2458,9 +2544,14 @@ aot_convert_wasm_module(WASMModule *wasm_module,
 #if WASM_ENABLE_SIMD != 0
     option.enable_simd = true;
 #endif
+#if WASM_ENABLE_REF_TYPES != 0
+    option.enable_ref_types = true;
+#endif
+    option.enable_aux_stack_check = true;
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
     option.enable_aux_stack_frame = true;
 #endif
+
     comp_ctx = aot_create_comp_context(comp_data, &option);
     if (!comp_ctx) {
         aot_last_error = aot_get_last_error();
@@ -2571,6 +2662,14 @@ aot_unload(AOTModule *module)
 #if defined(BH_PLATFORM_WINDOWS)
     if (module->extra_plt_data) {
         os_munmap(module->extra_plt_data, module->extra_plt_data_size);
+    }
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    if (module->rtl_func_table) {
+        if (module->rtl_func_table_registered)
+            RtlDeleteFunctionTable(module->rtl_func_table);
+        wasm_runtime_free(module->rtl_func_table);
     }
 #endif
 

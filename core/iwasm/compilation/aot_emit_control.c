@@ -616,8 +616,10 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Handle block result values */
     CREATE_RESULT_VALUE_PHIS(block);
     for (i = 0; i < block->result_count; i++) {
+        value = NULL;
         result_index = block->result_count - 1 - i;
         POP(value, block->result_types[result_index]);
+        bh_assert(value);
         ADD_TO_RESULT_PHIS(block, value, result_index);
     }
 

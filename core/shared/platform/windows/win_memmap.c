@@ -5,81 +5,133 @@
 
 #include "platform_api_vmcore.h"
 
-void * os_mmap(void *hint, size_t size, int prot, int flags)
+#define TRACE_MEMMAP 0
+
+static DWORD
+access_to_win32_flags(int prot)
 {
-    DWORD AllocType = MEM_RESERVE | MEM_COMMIT;
-    DWORD flProtect = PAGE_NOACCESS;
+    DWORD protect = PAGE_NOACCESS;
+
+    if (prot & MMAP_PROT_EXEC) {
+        if (prot & MMAP_PROT_WRITE)
+            protect = PAGE_EXECUTE_READWRITE;
+        else
+            protect = PAGE_EXECUTE_READ;
+    }
+    else if (prot & MMAP_PROT_WRITE) {
+        protect = PAGE_READWRITE;
+    }
+    else if (prot & MMAP_PROT_READ) {
+        protect = PAGE_READONLY;
+    }
+
+    return protect;
+}
+
+void *
+os_mmap(void *hint, size_t size, int prot, int flags)
+{
+    DWORD alloc_type = MEM_RESERVE;
+    DWORD protect;
     size_t request_size, page_size;
     void *addr;
 
-    page_size = getpagesize();
+    page_size = os_getpagesize();
     request_size = (size + page_size - 1) & ~(page_size - 1);
 
     if (request_size < size)
         /* integer overflow */
         return NULL;
 
-    if (request_size == 0)
-        request_size = page_size;
-
-    if (prot & MMAP_PROT_EXEC) {
-        if (prot & MMAP_PROT_WRITE)
-            flProtect = PAGE_EXECUTE_READWRITE;
-        else
-            flProtect = PAGE_EXECUTE_READ;
+    protect = access_to_win32_flags(prot);
+    if (protect != PAGE_NOACCESS) {
+        alloc_type |= MEM_COMMIT;
     }
-    else if (prot & MMAP_PROT_WRITE)
-        flProtect = PAGE_READWRITE;
-    else if (prot & MMAP_PROT_READ)
-        flProtect = PAGE_READONLY;
 
+    addr = VirtualAlloc((LPVOID)hint, request_size, alloc_type, protect);
 
-    addr = VirtualAlloc((LPVOID)hint, request_size, AllocType,
-                        flProtect);
+#if TRACE_MEMMAP != 0
+    printf("Map memory, request_size: %zu, alloc_type: 0x%x, "
+           "protect: 0x%x, ret: %p\n",
+           request_size, alloc_type, protect, addr);
+#endif
     return addr;
 }
 
 void
 os_munmap(void *addr, size_t size)
 {
-    size_t page_size = getpagesize();
+    size_t page_size = os_getpagesize();
     size_t request_size = (size + page_size - 1) & ~(page_size - 1);
 
     if (addr) {
-        if (VirtualFree(addr, 0, MEM_RELEASE) == 0) {
-            if (VirtualFree(addr, size, MEM_DECOMMIT) == 0) {
-                os_printf("os_munmap error addr:%p, size:0x%lx, errno:%d\n",
-                          addr, request_size, errno);
-            }
+        if (!VirtualFree(addr, request_size, MEM_DECOMMIT)) {
+            printf("warning: os_munmap decommit pages failed, "
+                   "addr: %p, request_size: %zu, errno: %d\n",
+                   addr, request_size, errno);
+            return;
+        }
+
+        if (!VirtualFree(addr, 0, MEM_RELEASE)) {
+            printf("warning: os_munmap release pages failed, "
+                   "addr: %p, size: %zu, errno:%d\n",
+                   addr, request_size, errno);
         }
     }
+#if TRACE_MEMMAP != 0
+    printf("Unmap memory, addr: %p, request_size: %zu\n",
+           addr, request_size);
+#endif
+}
+
+void *
+os_mem_commit(void *addr, size_t size, int flags)
+{
+    DWORD protect = access_to_win32_flags(flags);
+    size_t page_size = os_getpagesize();
+    size_t request_size = (size + page_size - 1) & ~(page_size - 1);
+
+    if (!addr)
+        return NULL;
+
+#if TRACE_MEMMAP != 0
+    printf("Commit memory, addr: %p, request_size: %zu, protect: 0x%x\n",
+           addr, request_size, protect);
+#endif
+    return VirtualAlloc((LPVOID)addr, request_size, MEM_COMMIT, protect);
+}
+
+void
+os_mem_decommit(void *addr, size_t size)
+{
+    size_t page_size = os_getpagesize();
+    size_t request_size = (size + page_size - 1) & ~(page_size - 1);
+
+    if (!addr)
+        return;
+
+#if TRACE_MEMMAP != 0
+    printf("Decommit memory, addr: %p, request_size: %zu\n",
+           addr, request_size);
+#endif
+    VirtualFree((LPVOID)addr, request_size, MEM_DECOMMIT);
 }
 
 int
 os_mprotect(void *addr, size_t size, int prot)
 {
-    DWORD AllocType = MEM_RESERVE | MEM_COMMIT;
-    DWORD flProtect = PAGE_NOACCESS;
+    DWORD protect;
+    size_t page_size = os_getpagesize();
+    size_t request_size = (size + page_size - 1) & ~(page_size - 1);
 
     if (!addr)
         return 0;
 
-    if (prot & MMAP_PROT_EXEC) {
-        if (prot & MMAP_PROT_WRITE)
-            flProtect = PAGE_EXECUTE_READWRITE;
-        else
-            flProtect = PAGE_EXECUTE_READ;
-    }
-    else if (prot & MMAP_PROT_WRITE)
-        flProtect = PAGE_READWRITE;
-    else if (prot & MMAP_PROT_READ)
-        flProtect = PAGE_READONLY;
-
-    return VirtualProtect((LPVOID)addr, size, flProtect, NULL);
+    protect = access_to_win32_flags(prot);
+#if TRACE_MEMMAP != 0
+    printf("Mprotect memory, addr: %p, request_size: %zu, protect: 0x%x\n",
+           addr, request_size, protect);
+#endif
+    return VirtualProtect((LPVOID)addr, request_size, protect, NULL);
 }
 
-void
-os_dcache_flush(void)
-{
-
-}

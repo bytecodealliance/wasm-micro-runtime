@@ -231,7 +231,7 @@ int os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
                      unsigned int stack_size)
 {
     return os_thread_create_with_prio(p_tid, start, arg, stack_size,
-    BH_THREAD_DEFAULT_PRIORITY);
+                                      BH_THREAD_DEFAULT_PRIORITY);
 }
 
 int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
@@ -253,6 +253,9 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 
     memset(tid, 0, sizeof(os_thread_obj));
 
+    if (stack_size < APP_THREAD_STACK_SIZE_MIN)
+        stack_size = APP_THREAD_STACK_SIZE_MIN;
+
     /* Create and initialize thread data */
     thread_data_size = offsetof(os_thread_data, stack) + stack_size;
     if (!(thread_data = BH_MALLOC(thread_data_size))) {
@@ -266,9 +269,9 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     thread_data->tid = tid;
 
     /* Create the thread */
-    if (!((tid = k_thread_create(tid, (k_thread_stack_t *) thread_data->stack,
-            stack_size, os_thread_wrapper, start, arg, thread_data, prio, 0,
-            K_NO_WAIT)))) {
+    if (!((tid = k_thread_create(tid, (k_thread_stack_t *)thread_data->stack,
+                                 stack_size, os_thread_wrapper, start, arg,
+                                 thread_data, prio, 0, K_NO_WAIT)))) {
         BH_FREE(tid);
         BH_FREE(thread_data);
         return BHT_ERROR;
@@ -285,7 +288,7 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 
 korp_tid os_self_thread()
 {
-    return (korp_tid) k_current_get();
+    return (korp_tid)k_current_get();
 }
 
 int os_thread_join(korp_tid thread, void **value_ptr)

@@ -34,7 +34,7 @@ typedef void (*ValueDestroyFunc)(void *key);
 
 /* traverse callback function:
    auto called when traverse every hash element */
-typedef void (*TraverseCallbackFunc)(void *key, void *value);
+typedef void (*TraverseCallbackFunc)(void *key, void *value, void *user_data);
 
 /**
  * Create a hash map.
@@ -150,14 +150,16 @@ bh_hash_map_get_elem_struct_size();
  * Traverse the hash map and call the callback function
  *
  * @param map the hash map to traverse
- * @callback the function to be called for every element
+ * @param callback the function to be called for every element
+ * @param user_data the argument to be passed to the callback function
  *
  * @return true if success, false otherwise
  * Note: if the hash map has lock, the map will be locked during traverse,
  *       keep the callback function as simple as possible.
  */
 bool
-bh_hash_map_traverse(HashMap *map, TraverseCallbackFunc callback);
+bh_hash_map_traverse(HashMap *map, TraverseCallbackFunc callback,
+                     void *user_data);
 
 #ifdef __cplusplus
 }

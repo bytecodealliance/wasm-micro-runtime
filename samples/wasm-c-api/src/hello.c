@@ -4,14 +4,6 @@
 #include <inttypes.h>
 
 #include "wasm_c_api.h"
-#include "wasm_export.h"
-#include "bh_platform.h"
-
-extern bool
-reader(const char *module_name, uint8 **p_buffer, uint32 *p_size);
-
-extern void
-destroyer(uint8 *buffer, uint32 size);
 
 #define own
 
@@ -26,8 +18,6 @@ own wasm_trap_t* hello_callback(
 
 
 int main(int argc, const char* argv[]) {
-  wasm_runtime_set_module_reader(reader, destroyer);
-
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
@@ -51,6 +41,7 @@ int main(int argc, const char* argv[]) {
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
+    fclose(file);
     return 1;
   }
   fclose(file);
@@ -93,6 +84,7 @@ int main(int argc, const char* argv[]) {
     printf("> Error accessing exports!\n");
     return 1;
   }
+
   const wasm_func_t* run_func = wasm_extern_as_func(exports.data[0]);
   if (run_func == NULL) {
     printf("> Error accessing export!\n");

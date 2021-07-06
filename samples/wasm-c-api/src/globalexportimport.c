@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,6 +67,7 @@ wasm_module_t * create_module_from_file(wasm_store_t* store, const char * filena
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
+    fclose(file);
     return NULL;
   }
   // Compile.

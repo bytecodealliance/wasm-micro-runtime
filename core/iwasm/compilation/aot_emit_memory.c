@@ -657,7 +657,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     POP_I32(delta);
 
-    /* Function type of wasm_runtime_enlarge_memory() */
+    /* Function type of aot_enlarge_memory() */
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
     ret_type = INT8_TYPE;
@@ -673,14 +673,14 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             aot_set_last_error("llvm add pointer type failed.");
             return false;
         }
-        if (!(value = I64_CONST((uint64)(uintptr_t)wasm_runtime_enlarge_memory))
+        if (!(value = I64_CONST((uint64)(uintptr_t)aot_enlarge_memory))
             || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
             return false;
         }
     }
     else {
-        char *func_name = "wasm_runtime_enlarge_memory";
+        char *func_name = "aot_enlarge_memory";
         /* AOT mode, delcare the function */
         if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name))
             && !(func = LLVMAddFunction(comp_ctx->module,
@@ -690,7 +690,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-    /* Call function wasm_runtime_enlarge_memory() */
+    /* Call function aot_enlarge_memory() */
     param_values[0] = func_ctx->aot_inst;
     param_values[1] = delta;
     if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func,
@@ -715,35 +715,6 @@ fail:
     return false;
 }
 
-#define GET_AOT_FUNCTION(name, argc) do {                               \
-    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
-                                       argc, false))) {                 \
-        aot_set_last_error("llvm add function type failed.");           \
-        return false;                                                   \
-    }                                                                   \
-    if (comp_ctx->is_jit_mode) {                                        \
-        /* JIT mode, call the function directly */                      \
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
-            aot_set_last_error("llvm add pointer type failed.");        \
-            return false;                                               \
-        }                                                               \
-        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
-            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
-            aot_set_last_error("create LLVM value failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-    else {                                                              \
-        char *func_name = #name;                                        \
-        /* AOT mode, delcare the function */                            \
-        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
-            && !(func = LLVMAddFunction(comp_ctx->module,               \
-                                        func_name, func_type))) {       \
-            aot_set_last_error("llvm add function failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-  } while (0)
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 

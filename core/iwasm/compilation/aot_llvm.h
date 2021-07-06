@@ -7,6 +7,7 @@
 #define _AOT_LLVM_H_
 
 #include "aot.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Core.h"
@@ -119,7 +120,6 @@ typedef struct AOTFuncContext {
 
   LLVMValueRef exec_env;
   LLVMValueRef aot_inst;
-  LLVMValueRef table_base;
   LLVMValueRef argv_buf;
   LLVMValueRef native_stack_bound;
   LLVMValueRef aux_stack_bound;
@@ -152,6 +152,7 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef void_type;
 
   LLVMTypeRef int8_ptr_type;
+  LLVMTypeRef int8_pptr_type;
   LLVMTypeRef int16_ptr_type;
   LLVMTypeRef int32_ptr_type;
   LLVMTypeRef int64_ptr_type;
@@ -168,6 +169,9 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef f64x2_vec_type;
 
   LLVMTypeRef meta_data_type;
+
+  LLVMTypeRef funcref_type;
+  LLVMTypeRef externref_type;
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {
@@ -199,6 +203,7 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32_32;
     LLVMValueRef i64_63;
     LLVMValueRef i64_64;
+    LLVMValueRef ref_null;
 } AOTLLVMConsts;
 
 /**
@@ -240,6 +245,9 @@ typedef struct AOTCompContext {
 
   /* Tail Call */
   bool enable_tail_call;
+
+  /* Reference Types */
+  bool enable_ref_types;
 
   /* Whether optimize the JITed code */
   bool optimize;
@@ -283,6 +291,7 @@ typedef struct AOTCompOption{
     bool enable_thread_mgr;
     bool enable_tail_call;
     bool enable_simd;
+    bool enable_ref_types;
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
     bool is_sgx_platform;

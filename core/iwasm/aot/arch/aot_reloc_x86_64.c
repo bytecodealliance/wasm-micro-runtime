@@ -12,10 +12,12 @@
 #define R_X86_64_32    10 /* Direct 32 bit zero extended */
 #define R_X86_64_32S   11 /* Direct 32 bit sign extended */
 #else
+#ifndef IMAGE_REL_AMD64_ADDR64
 #define IMAGE_REL_AMD64_ADDR64 1 /* The 64-bit VA of the relocation target */
 #define IMAGE_REL_AMD64_ADDR32 2 /* The 32-bit VA of the relocation target */
 #define IMAGE_REL_AMD64_REL32  4 /* The 32-bit relative address from
                                     the byte following the relocation*/
+#endif
 #endif
 
 #if defined(BH_PLATFORM_WINDOWS)
@@ -59,15 +61,22 @@ get_plt_item_size()
 uint32
 get_plt_table_size()
 {
-    return get_plt_item_size() * (sizeof(target_sym_map) / sizeof(SymbolMap));
+    uint32 size = get_plt_item_size()
+                  * (sizeof(target_sym_map) / sizeof(SymbolMap));
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    size += get_plt_item_size() + sizeof(AOTUnwindInfo);
+#endif
+    return size;
 }
 
 void
 init_plt_table(uint8 *plt)
 {
     uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
+    uint8 *p;
+
     for (i = 0; i < num; i++) {
-        uint8 *p = plt;
+        p = plt;
         /* mov symbol_addr, rax */
         *p++ = 0x48;
         *p++ = 0xB8;
@@ -78,6 +87,18 @@ init_plt_table(uint8 *plt)
         *p++ = 0xE0;
         plt += get_plt_item_size();
     }
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    p = plt;
+    /* mov exception_handler, rax */
+    *p++ = 0x48;
+	*p++ = 0xB8;
+    *(uint64*)p = 0;/*(uint64)(uintptr_t)aot_exception_handler;*/
+    p += sizeof(uint64);
+    /* jmp rax */
+	*p++ = 0xFF;
+	*p++ = 0xE0;
+#endif
 }
 
 static bool

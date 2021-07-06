@@ -47,11 +47,11 @@ typedef enum WASMOpcode {
     /* parametric instructions */
     WASM_OP_DROP          = 0x1a, /* drop */
     WASM_OP_SELECT        = 0x1b, /* select */
+    WASM_OP_SELECT_T      = 0x1c, /* select t */
 
-    WASM_OP_UNUSED_0x1c   = 0x1c,
-    WASM_OP_UNUSED_0x1d   = 0x1d,
-    WASM_OP_UNUSED_0x1e   = 0x1e,
-    WASM_OP_UNUSED_0x1f   = 0x1f,
+    WASM_OP_GET_GLOBAL_64 = 0x1d,
+    WASM_OP_SET_GLOBAL_64 = 0x1e,
+    WASM_OP_SET_GLOBAL_AUX_STACK = 0x1f,
 
     /* variable instructions */
     WASM_OP_GET_LOCAL     = 0x20, /* get_local */
@@ -60,9 +60,9 @@ typedef enum WASMOpcode {
     WASM_OP_GET_GLOBAL    = 0x23, /* get_global */
     WASM_OP_SET_GLOBAL    = 0x24, /* set_global */
 
-    WASM_OP_GET_GLOBAL_64 = 0x25,
-    WASM_OP_SET_GLOBAL_64 = 0x26,
-    WASM_OP_SET_GLOBAL_AUX_STACK = 0x27,
+    WASM_OP_TABLE_GET     = 0x25, /* table.get */
+    WASM_OP_TABLE_SET     = 0x26, /* table.set */
+    WASM_OP_UNUSED_0x27   = 0x27,
 
     /* memory instructions */
     WASM_OP_I32_LOAD      = 0x28, /* i32.load */
@@ -256,10 +256,16 @@ typedef enum WASMOpcode {
     EXT_OP_COPY_STACK_TOP         = 0xcc,
     EXT_OP_COPY_STACK_TOP_I64     = 0xcd,
     EXT_OP_COPY_STACK_VALUES      = 0xce,
-    EXT_OP_BLOCK                  = 0xcf, /* block with blocktype */
-    EXT_OP_LOOP                   = 0xd0, /* loop with blocktype */
-    EXT_OP_IF                     = 0xd1, /* if with blocktype */
-    WASM_OP_IMPDEP                = 0xd2,
+
+    WASM_OP_IMPDEP                = 0xcf,
+
+    WASM_OP_REF_NULL              = 0xd0, /* ref.null */
+    WASM_OP_REF_IS_NULL           = 0xd1, /* ref.is_null */
+    WASM_OP_REF_FUNC              = 0xd2, /* ref.func */
+
+    EXT_OP_BLOCK                  = 0xd3, /* block with blocktype */
+    EXT_OP_LOOP                   = 0xd4, /* loop with blocktype */
+    EXT_OP_IF                     = 0xd5, /* if with blocktype */
 
     /* Post-MVP extend op prefix */
     WASM_OP_MISC_PREFIX           = 0xfc,
@@ -276,15 +282,16 @@ typedef enum WASMMiscEXTOpcode {
     WASM_OP_I64_TRUNC_SAT_U_F32   = 0x05,
     WASM_OP_I64_TRUNC_SAT_S_F64   = 0x06,
     WASM_OP_I64_TRUNC_SAT_U_F64   = 0x07,
-#if WASM_ENABLE_BULK_MEMORY != 0
     WASM_OP_MEMORY_INIT           = 0x08,
     WASM_OP_DATA_DROP             = 0x09,
     WASM_OP_MEMORY_COPY           = 0x0a,
     WASM_OP_MEMORY_FILL           = 0x0b,
     WASM_OP_TABLE_INIT            = 0x0c,
     WASM_OP_ELEM_DROP             = 0x0d,
-    WASM_OP_TABLE_COPY            = 0x0e
-#endif
+    WASM_OP_TABLE_COPY            = 0x0e,
+    WASM_OP_TABLE_GROW            = 0x0f,
+    WASM_OP_TABLE_SIZE            = 0x10,
+    WASM_OP_TABLE_FILL            = 0x11,
 } WASMMiscEXTOpcode;
 
 typedef enum WASMSimdEXTOpcode {
@@ -594,15 +601,6 @@ typedef enum WASMAtomicEXTOpcode {
 }
 #endif
 
-/* Opcode prefix controlled by features */
-#if WASM_ENABLE_SHARED_MEMORY != 0
-#define DEF_ATOMIC_PREFIX_HANDLE(_name)                      \
-  _name[WASM_OP_ATOMIC_PREFIX] =                             \
-    HANDLE_OPCODE (WASM_OP_ATOMIC_PREFIX);   /* 0xfe */
-#else
-#define DEF_ATOMIC_PREFIX_HANDLE(_name)
-#endif
-
 /*
  * Macro used to generate computed goto tables for the C interpreter.
  */
@@ -638,18 +636,18 @@ static type _name[WASM_INSTRUCTION_NUM] = {                  \
   HANDLE_OPCODE (WASM_OP_UNUSED_0x19),   /* 0x19 */          \
   HANDLE_OPCODE (WASM_OP_DROP),          /* 0x1a */          \
   HANDLE_OPCODE (WASM_OP_SELECT),        /* 0x1b */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x1c),   /* 0x1c */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x1d),   /* 0x1d */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x1e),   /* 0x1e */          \
-  HANDLE_OPCODE (WASM_OP_UNUSED_0x1f),   /* 0x1f */          \
+  HANDLE_OPCODE (WASM_OP_SELECT_T),      /* 0x1c */          \
+  HANDLE_OPCODE (WASM_OP_GET_GLOBAL_64), /* 0x1d */          \
+  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_64), /* 0x1e */          \
+  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_AUX_STACK), /* 0x1f */   \
   HANDLE_OPCODE (WASM_OP_GET_LOCAL),     /* 0x20 */          \
   HANDLE_OPCODE (WASM_OP_SET_LOCAL),     /* 0x21 */          \
   HANDLE_OPCODE (WASM_OP_TEE_LOCAL),     /* 0x22 */          \
   HANDLE_OPCODE (WASM_OP_GET_GLOBAL),    /* 0x23 */          \
   HANDLE_OPCODE (WASM_OP_SET_GLOBAL),    /* 0x24 */          \
-  HANDLE_OPCODE (WASM_OP_GET_GLOBAL_64), /* 0x25 */          \
-  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_64), /* 0x26 */          \
-  HANDLE_OPCODE (WASM_OP_SET_GLOBAL_AUX_STACK), /* 0x27 */   \
+  HANDLE_OPCODE (WASM_OP_TABLE_GET),     /* 0x25 */          \
+  HANDLE_OPCODE (WASM_OP_TABLE_SET),     /* 0x26 */          \
+  HANDLE_OPCODE (WASM_OP_UNUSED_0x27),   /* 0x27 */          \
   HANDLE_OPCODE (WASM_OP_I32_LOAD),      /* 0x28 */          \
   HANDLE_OPCODE (WASM_OP_I64_LOAD),      /* 0x29 */          \
   HANDLE_OPCODE (WASM_OP_F32_LOAD),      /* 0x2a */          \
@@ -817,14 +815,19 @@ static type _name[WASM_INSTRUCTION_NUM] = {                  \
   HANDLE_OPCODE (EXT_OP_COPY_STACK_TOP),     /* 0xcc */      \
   HANDLE_OPCODE (EXT_OP_COPY_STACK_TOP_I64), /* 0xcd */      \
   HANDLE_OPCODE (EXT_OP_COPY_STACK_VALUES),  /* 0xce */      \
-  HANDLE_OPCODE (EXT_OP_BLOCK),              /* 0xcf */      \
-  HANDLE_OPCODE (EXT_OP_LOOP),               /* 0xd0 */      \
-  HANDLE_OPCODE (EXT_OP_IF),                 /* 0xd1 */      \
-  HANDLE_OPCODE (WASM_OP_IMPDEP),            /* 0xd2 */      \
+  HANDLE_OPCODE (WASM_OP_IMPDEP),            /* 0xcf */      \
+  HANDLE_OPCODE (WASM_OP_REF_NULL),          /* 0xd0 */      \
+  HANDLE_OPCODE (WASM_OP_REF_IS_NULL),       /* 0xd1 */      \
+  HANDLE_OPCODE (WASM_OP_REF_FUNC),          /* 0xd2 */      \
+  HANDLE_OPCODE (EXT_OP_BLOCK),              /* 0xd3 */      \
+  HANDLE_OPCODE (EXT_OP_LOOP),               /* 0xd4 */      \
+  HANDLE_OPCODE (EXT_OP_IF),                 /* 0xd5 */      \
 };                                                           \
 do {                                                         \
   _name[WASM_OP_MISC_PREFIX] =                               \
     HANDLE_OPCODE (WASM_OP_MISC_PREFIX);     /* 0xfc */      \
-  DEF_ATOMIC_PREFIX_HANDLE(_name)                            \
+  _name[WASM_OP_ATOMIC_PREFIX] =                             \
+    HANDLE_OPCODE (WASM_OP_ATOMIC_PREFIX);   /* 0xfe */      \
 } while (0)
 #endif /* end of _WASM_OPCODE_H */
+

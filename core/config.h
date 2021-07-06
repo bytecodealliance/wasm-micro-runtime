@@ -66,7 +66,7 @@
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 2
+#define AOT_CURRENT_VERSION 3
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
@@ -267,6 +267,9 @@
    stack overflow exception if the guard boudary is reached */
 #define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
 
+/* Guard page count for stack overflow check with hardware trap */
+#define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
+
 /* Default wasm block address cache size and conflict list size */
 #ifndef BLOCK_ADDR_CACHE_SIZE
 #define BLOCK_ADDR_CACHE_SIZE 64
@@ -287,6 +290,10 @@
 
 #ifndef WASM_ENABLE_CUSTOM_NAME_SECTION
 #define WASM_ENABLE_CUSTOM_NAME_SECTION 0
+#endif
+
+#ifndef WASM_ENABLE_REF_TYPES
+#define WASM_ENABLE_REF_TYPES 0
 #endif
 
 #endif /* end of _CONFIG_H_ */

@@ -12,7 +12,7 @@
 
 
 #ifndef WASM_RUNTIME_API_EXTERN
-#if defined(MSVC)
+#if defined(_MSC_BUILD )
     #if defined(COMPILING_WASM_RUNTIME_API)
         #define WASM_RUNTIME_API_EXTERN __declspec(dllexport)
     #else
@@ -314,6 +314,14 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(wasm_module_t module);
 
 WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_args_ex(wasm_module_t module,
+                           const char *dir_list[], uint32_t dir_count,
+                           const char *map_dir_list[], uint32_t map_dir_count,
+                           const char *env[], uint32_t env_count,
+                           char *argv[], int argc,
+                           int stdinfd, int stdoutfd, int stderrfd);
+
+WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args(wasm_module_t module,
                            const char *dir_list[], uint32_t dir_count,
                            const char *map_dir_list[], uint32_t map_dir_count,
@@ -391,6 +399,27 @@ wasm_runtime_create_exec_env(wasm_module_inst_t module_inst,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
+
+/**
+ * Initialize thread environment.
+ * Note:
+ *   If developer creates a child thread by himself to call the
+ *   the wasm function in that thread, he should call this API
+ *   firstly before calling the wasm function and then call
+ *   wasm_runtime_destroy_thread_env() after calling the wasm
+ *   function. If the thread is created from the runtime API,
+ *   it is unnecessary to call these two APIs.
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_init_thread_env();
+
+/**
+ * Destroy thread environment
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_thread_env();
 
 /**
  * Get WASM module instance from execution environment
@@ -474,7 +503,9 @@ wasm_runtime_call_wasm_v(wasm_exec_env_t exec_env,
  *
  * @param module_inst the WASM module instance
  * @param argc the number of arguments
- * @param argv the arguments array
+ * @param argv the arguments array, if the main function has return value,
+ *   *(int*)argv stores the return value of the called main function after
+ *   this function returns.
  *
  * @return true if the main function is called, false otherwise and exception
  *   will be thrown, the caller can call wasm_runtime_get_exception to get
@@ -533,6 +564,9 @@ wasm_runtime_clear_exception(wasm_module_inst_t module_inst);
 
 /**
  * Set custom data to WASM module instance.
+ * Note:
+ *  If WAMR_BUILD_LIB_PTHREAD is enabled, this API
+ *  will spread the custom data to all threads
  *
  * @param module_inst the WASM module instance
  * @param custom_data the custom data to be set
@@ -848,6 +882,45 @@ wasm_runtime_spawn_thread(wasm_exec_env_t exec_env, wasm_thread_t *tid,
  */
 WASM_RUNTIME_API_EXTERN int32_t
 wasm_runtime_join_thread(wasm_thread_t tid, void **retval);
+
+/**
+ * Map external object to an internal externref index: if the index
+ *   has been created, return it, otherwise create the index.
+ *
+ * @param module_inst the WASM module instance that the extern object
+ *        belongs to
+ * @param extern_obj the external object to be mapped
+ * @param p_externref_idx return externref index of the external object
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_obj2ref(wasm_module_inst_t module_inst,
+                       void *extern_obj, uint32_t *p_externref_idx);
+
+/**
+ * Retrieve the external object from an internal externref index
+ *
+ * @param externref_idx the externref index to retrieve
+ * @param p_extern_obj return the mapped external object of
+ *        the externref index
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_ref2obj(uint32_t externref_idx, void **p_extern_obj);
+
+/**
+ * Retain an extern object which is mapped to the internal externref
+ *   so that the object won't be cleaned during extern object reclaim
+ *   if it isn't used.
+ *
+ * @param externref_idx the externref index of an external object
+ *        to retain
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_externref_retain(uint32_t externref_idx);
 
 /**
  * dump the call stack

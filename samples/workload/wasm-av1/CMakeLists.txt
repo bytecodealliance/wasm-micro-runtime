@@ -58,19 +58,19 @@ include(ExternalProject)
 ################ HEADERS ################
 ExternalProject_Add(headers_from_emcc
    PREFIX headers
-   SOURCE_DIR "$ENV{EMSDK}/upstream/emscripten/system/"
+   SOURCE_DIR "$ENV{EM_CACHE}/sysroot/include"
    CONFIGURE_COMMAND ""
    BUILD_COMMAND  ""
    INSTALL_COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys
                      && ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/bits
                      # copy emscripten pthread related header files
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/pthread.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/signal.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/netdb.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/sys/wait.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/sys/socket.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/pthread.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/signal.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/netdb.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/sys/wait.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/sys/socket.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
                      # copy emscripten setjmp headers
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/include/libc/setjmp.h ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/setjmp.h
+                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/setjmp.h ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/setjmp.h
                      && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/lib/libc/musl/arch/emscripten/bits/setjmp.h ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/bits/setjmp.h
 )
 

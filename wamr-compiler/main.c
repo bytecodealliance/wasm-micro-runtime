@@ -9,6 +9,12 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 
+
+#if WASM_ENABLE_REF_TYPES != 0
+extern void
+wasm_set_ref_types_flag(bool enable);
+#endif
+
 static int
 print_help()
 {
@@ -47,6 +53,7 @@ print_help()
   printf("                              currently 128-bit SIMD is only supported for x86-64 target,\n");
   printf("                              and by default it is enabled in x86-64 target and disabled\n");
   printf("                              in other targets\n");
+  printf("  --enable-ref-types        Enable the post-MVP reference types feature\n");
   printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
   printf("  --enable-dump-call-stack  Enable stack trace feature\n");
   printf("  --enable-perf-profiling   Enable function performance profiling\n");
@@ -166,6 +173,9 @@ main(int argc, char *argv[])
     else if (!strcmp(argv[0], "--disable-simd")) {
         option.enable_simd = false;
     }
+    else if (!strcmp(argv[0], "--enable-ref-types")) {
+        option.enable_ref_types = true;
+    }
     else if (!strcmp(argv[0], "--disable-aux-stack-check")) {
         option.enable_aux_stack_check = false;
     }
@@ -186,6 +196,10 @@ main(int argc, char *argv[])
     option.size_level = 1;
     option.is_sgx_platform = true;
   }
+
+#if WASM_ENABLE_REF_TYPES != 0
+  wasm_set_ref_types_flag(option.enable_ref_types);
+#endif
 
   wasm_file_name = argv[0];
 

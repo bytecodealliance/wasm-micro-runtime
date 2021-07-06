@@ -135,6 +135,15 @@ Currently we only profile the memory consumption of module, module_instance and 
 >
 > and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt.
 
+#### **Enable reference types feature**
+- **WAMR_BUILD_REF_TYPES**=1/0, default to disable if not set
+
+#### **Exclude WAMR application entry functions**
+- **WAMR_DISABLE_APP_ENTRY**=1/0, default to disable if not set
+
+> Note: The WAMR application entry (`core/iwasm/common/wasm_application.c`) encapsulate some common process to instantiate, execute the wasm functions and print the results. Some platform related APIs are used in these functions, so you can enable this flag to exclude this file if your platform doesn't support those APIs.
+> *Don't enable this flag if you are building `product-mini`*
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -445,14 +454,15 @@ Docker
 
 Make sure you have Docker installed on your machine: [macOS](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/) or [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
 
-Build the Docker image:
+Build *iwasm* with the Docker image:
 
 ``` Bash
-docker build --rm -f "Dockerfile" -t wamr:latest .
+$ cd ci
+$ ./build_wamr.sh
+$ ls ../build_out/
 ```
-Run the image in interactive mode:
-``` Bash
-docker run --rm -it wamr:latest
-```
-You'll now enter the container at `/root`.
 
+*build_wamr.sh* will generate *linux* compatible libraries ( libiwasm.so and
+libvmlib.a ) and an executable binary (*iwasm*) and copy *iwasm* to
+*build_out*. All original generated files are still under
+*product-mini/platforms/linux/build*.
