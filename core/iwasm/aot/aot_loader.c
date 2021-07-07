@@ -1505,6 +1505,7 @@ do_text_relocation(AOTModule *module,
             symbol_addr = module->code;
         }
         else if (!strcmp(symbol, ".data")
+                 || !strcmp(symbol, ".sdata")
                  || !strcmp(symbol, ".rdata")
                  || !strcmp(symbol, ".rodata")
                  /* ".rodata.cst4/8/16/.." */
