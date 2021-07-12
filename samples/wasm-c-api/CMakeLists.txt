@@ -62,7 +62,6 @@ if (NOT MSVC)
 endif()
 # build out vmlib
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(WAMRC ${WAMR_ROOT_DIR}/wamr-compiler/build/wamrc)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
@@ -82,6 +81,17 @@ find_program(WAT2WASM
 
 if(NOT WAT2WASM)
   message(SEND_ERROR "can not find wat2wasm")
+endif()
+
+## locate wamrc
+find_program(WAMRC
+  wamrc
+  PATHS ${WAMR_ROOT_DIR}/wamr-compiler/build/
+  REQUIRED
+)
+
+if(NOT WAMRC)
+  message(SEND_ERROR "can not find wamrc")
 endif()
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)

@@ -6,13 +6,16 @@ name: Linux
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the main branch
 on:
+  # triggers on every branch
   push:
-    branches: [ main ]
+    paths-ignore:
+    - 'doc/**'
+  # triggers on every PR
   pull_request:
-    branches: [ main ]
+    paths-ignore:
+    - 'doc/**'
 
 jobs:
-
   build:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -84,27 +87,80 @@ jobs:
         cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
         make
         cd .. && rm -rf build
+    - name: Cache LLVM libraries
+      uses: actions/cache@v2
+      id: cache_llvm
+      env:
+        cache-name: llvm_libraries
+      with:
+        path: ./core/deps/llvm
+        key: ${{ runner.os }}-build-${{env.cache-name}}
+        restore-keys: ${{ runner.os }}-build-${{env.cache-name}}
+    - name: Build llvm and clang from source
+      if: steps.cache_llvm.outputs.cache-hit != 'true'
+      run: |
+        cd wamr-compiler
+        ./build_llvm.sh
+    - name: Build wamrc
+      run: |
+        cd wamr-compiler
+        mkdir build && cd build
+        cmake ..
+        make
+        cd ..
     - name: download and install wasi-sdk
       run: |
         cd /opt
-        wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-8/wasi-sdk-8.0-linux.tar.gz
-        tar -xzf wasi-sdk-8.0-linux.tar.gz
-        mv wasi-sdk-8.0 wasi-sdk
+        wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
+        tar -xzf wasi-sdk-12.0-linux.tar.gz
+        mv wasi-sdk-12.0 wasi-sdk
+        rm wasi-sdk-12.0-linux.tar.gz
     - name: download and install wabt
       run: |
         cd /opt
-        wget https://github.com/WebAssembly/wabt/releases/download/1.0.19/wabt-1.0.19-ubuntu.tar.gz
-        tar -xzf wabt-1.0.19-ubuntu.tar.gz
-        mv wabt-1.0.19 wabt
+        wget https://github.com/WebAssembly/wabt/releases/download/1.0.23/wabt-1.0.23-ubuntu.tar.gz
+        tar -xzf wabt-1.0.23-ubuntu.tar.gz
+        mv wabt-1.0.23 wabt
+        rm wabt-1.0.23-ubuntu.tar.gz
     - name: Build Sample [wasm-c-api]
       run: |
         cd samples/wasm-c-api
         mkdir build && cd build
         cmake ..
         make
-        ./hello
-        ./global
         ./callback
+        ./callback_chain
+        ./global
+        ./hello
+        ./reflect
+        ./trap
+        cd .. && rm -r build
+    - name: Build Sample [wasm-c-api] [Jit]
+      run: |
+        cd samples/wasm-c-api
+        mkdir build && cd build
+        cmake -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 ..
+        make
+        ./callback
+        ./callback_chain
+        ./global
+        ./hello
+        ./reflect
+        ./trap
+        cd .. && rm -r build
+    - name: Build Sample [wasm-c-api] [Aot]
+      run: |
+        cd samples/wasm-c-api
+        mkdir build && cd build
+        cmake -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 ..
+        make
+        ./callback
+        ./callback_chain
+        ./global
+        ./hello
+        ./reflect
+        ./trap
+        cd .. && rm -r build
     - name: Build Sample [basic]
       run: |
         cd samples/basic

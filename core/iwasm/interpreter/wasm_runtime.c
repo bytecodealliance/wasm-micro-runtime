@@ -1159,6 +1159,13 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst,
     }
 #endif
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (!(module_inst->frames = runtime_malloc((uint64)sizeof(Vector),
+                                               error_buf, error_buf_size))) {
+        goto fail;
+    }
+#endif
+
     /* Instantiate global firstly to get the mutable data size */
     global_count = module->import_global_count + module->global_count;
     if (global_count
@@ -2434,13 +2441,6 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
       *cur_frame = wasm_exec_env_get_cur_frame(exec_env);
     uint32 n = 0;
 
-    /* release previous stack frame */
-    if (module_inst->frames) {
-        bh_vector_destroy(module_inst->frames);
-        wasm_runtime_free(module_inst->frames);
-        module_inst->frames = NULL;
-    }
-
     /* count frames includes a function */
     first_frame = cur_frame;
     while (cur_frame) {
@@ -2450,14 +2450,9 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
         cur_frame = cur_frame->prev_frame;
     }
 
-    if (!(module_inst->frames = runtime_malloc(
-            (uint64)sizeof(Vector), module_inst->cur_exception, 128))) {
-        return;
-    }
-
-    if (!bh_vector_init(module_inst->frames, n, sizeof(struct WASMFrame))) {
-        wasm_runtime_free(module_inst->frames);
-        module_inst->frames = NULL;
+    /* release previous stack frames and create new ones */
+    if (!bh_vector_destroy(module_inst->frames)
+        || !bh_vector_init(module_inst->frames, n, sizeof(WASMCApiFrame))) {
         return;
     }
 
@@ -2465,7 +2460,7 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
     n = 0;
     os_printf("\n");
     while (cur_frame) {
-        struct WASMFrame frame = { 0 };
+        WASMCApiFrame frame = { 0 };
         WASMFunctionInstance *func_inst = cur_frame->function;
         const char *func_name = NULL;
 

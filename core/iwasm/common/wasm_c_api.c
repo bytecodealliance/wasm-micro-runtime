@@ -1435,6 +1435,12 @@ wasm_trap_new_internal(WASMModuleInstanceCommon *inst_comm_rt,
         trap->frames = ((WASMModuleInstance *)inst_comm_rt)->frames;
     }
 #endif
+
+#if WASM_ENABLE_AOT != 0
+    if (inst_comm_rt->module_type == Wasm_Module_AoT) {
+        trap->frames = ((AOTModuleInstance *)inst_comm_rt)->frames.ptr;
+    }
+#endif
 #endif /* WASM_ENABLE_DUMP_CALL_STACK != 0 */
 
     /* allow a NULL frames list */
