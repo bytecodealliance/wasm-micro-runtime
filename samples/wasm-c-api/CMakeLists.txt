@@ -31,7 +31,7 @@ if(NOT DEFINED WAMR_BUILD_INTERP)
 endif()
 
 if(NOT DEFINED WAMR_BUILD_AOT)
-  set(WAMR_BUILD_AOT 1)
+  set(WAMR_BUILD_AOT 0)
 endif()
 
 if(NOT DEFINED WAMR_BUILD_JIT)
@@ -62,7 +62,6 @@ if (NOT MSVC)
 endif()
 # build out vmlib
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(WAMRC ${WAMR_ROOT_DIR}/wamr-compiler/build/wamrc)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
@@ -84,6 +83,19 @@ if(NOT WAT2WASM)
   message(SEND_ERROR "can not find wat2wasm")
 endif()
 
+if(${WAMR_BUILD_AOT} EQUAL 1)
+  ## locate wamrc
+  find_program(WAMRC
+    wamrc
+    PATHS ${WAMR_ROOT_DIR}/wamr-compiler/build/
+  )
+
+  if(NOT WAMRC)
+    message(SEND_ERROR "can not find wamrc.  refer to \
+        https://github.com/bytecodealliance/wasm-micro-runtime#build-wamrc-aot-compiler"
+    )
+  endif()
+endif()
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set(MM_UTIL src/utils/multi_module_utils.c)
@@ -120,17 +132,15 @@ foreach(EX ${EXAMPLES})
 
   # generate .aot file
   if(${WAMR_BUILD_AOT} EQUAL 1)
-    if(EXISTS ${WAMRC})
-      add_custom_target(${EX}_AOT
-        COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
-          ${PROJECT_BINARY_DIR}/${EX}.wasm
-        DEPENDS ${EX}_WASM
-        BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
-        VERBATIM
-        COMMENT "generate a aot file ${PROJECT_BINARY_DIR}/${EX}.aot"
-      )
-      add_dependencies(${EX} ${EX}_AOT)
-    endif()
+    add_custom_target(${EX}_AOT
+      COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
+        ${PROJECT_BINARY_DIR}/${EX}.wasm
+      DEPENDS ${EX}_WASM
+      BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
+      VERBATIM
+      COMMENT "generate a aot file ${PROJECT_BINARY_DIR}/${EX}.aot"
+    )
+    add_dependencies(${EX} ${EX}_AOT)
   endif()
 endforeach()
 

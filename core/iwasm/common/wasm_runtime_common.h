@@ -336,6 +336,14 @@ typedef struct WASMMemoryInstanceCommon {
 typedef package_type_t PackageType;
 typedef wasm_section_t WASMSection, AOTSection;
 
+typedef struct wasm_frame_t {
+    /*  wasm_instance_t */
+    void *instance;
+    uint32 module_offset;
+    uint32 func_index;
+    uint32 func_offset;
+} WASMCApiFrame;
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init(void);

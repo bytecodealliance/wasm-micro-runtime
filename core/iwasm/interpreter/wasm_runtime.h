@@ -150,15 +150,6 @@ typedef struct WASMExportMemInstance {
 } WASMExportMemInstance;
 #endif
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-struct WASMFrame {
-    void *instance;
-    uint32 module_offset;
-    uint32 func_index;
-    uint32 func_offset;
-};
-#endif
-
 struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
        WASM bytecode binary, this field is Wasm_Module_Bytecode;
