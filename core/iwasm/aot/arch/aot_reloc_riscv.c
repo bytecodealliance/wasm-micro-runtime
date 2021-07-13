@@ -5,7 +5,10 @@
 
 #include "aot_reloc.h"
 
-#define R_RISCV_CALL 18
+#define R_RISCV_CALL     18
+#define R_RISCV_CALL_PLT 19
+
+#define RV_OPCODE_SW 0x23
 
 static SymbolMap target_sym_map[] = { REG_COMMON_SYMBOLS };
 
@@ -28,6 +31,61 @@ get_target_symbol_map(uint32 *sym_num)
     return target_sym_map;
 }
 
+/* Get a val from given address */
+static uint32
+rv_get_val(uint16_t *addr)
+{
+    uint32_t ret;
+    ret = *addr | (*(addr + 1)) << 16;
+    return ret;
+}
+
+/* Set a val to given address */
+static void
+rv_set_val(uint16 *addr, uint32_t val)
+{
+    *addr = (val & 0xffff);
+    *(addr + 1) = (val >> 16);
+
+    asm volatile("fence.i");
+}
+
+/* Add a val to given address */
+static void
+rv_add_val(uint16 *addr, uint32_t val)
+{
+    uint32_t cur = rv_get_val(addr);
+    rv_set_val(addr, cur + val);
+}
+
+/**
+ * Get imm_hi and imm_lo from given integer
+ *
+ * @param long given integer, signed 32bit
+ * @param imm_hi signed 20bit
+ * @param imm_lo signed 12bit
+ *
+ */
+static void
+rv_calc_imm(long offset, long *imm_hi, long *imm_lo)
+{
+    long lo;
+    long hi = offset / 4096;
+    long r = offset % 4096;
+
+    if (2047 < r) {
+        hi++;
+    }
+    else if (r < -2048) {
+        hi--;
+    }
+
+    lo = offset - (hi * 4096);
+
+    *imm_lo = lo;
+    *imm_hi = hi;
+}
+
 uint32
 get_plt_table_size()
 {
@@ -40,33 +98,42 @@ init_plt_table(uint8 *plt)
 
 bool
 apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
+                 uint8 *target_section_addr,
+                 uint32 target_section_size,
+                 uint64 reloc_offset,
+                 uint64 reloc_addend,
+                 uint32 reloc_type,
+                 void *symbol_addr,
+                 int32 symbol_index,
+                 char *error_buf,
+                 uint32 error_buf_size)
 {
-    uint8 *P = target_section_addr + reloc_offset;
-    uint32 hi20, lo12;
-
-    hi20 = (uint32)((unsigned long)symbol_addr & 0xfffff000);
-    lo12 = (uint32)(((unsigned long)symbol_addr & 0xfff) << 20);
-
     switch (reloc_type) {
         case R_RISCV_CALL:
-            if ((uint32)(uintptr_t)symbol_addr != (uintptr_t)symbol_addr) {
-                if (error_buf != NULL) {
-                    snprintf(
-                      error_buf, error_buf_size,
-                      "Jump address exceeds 32-bit address space (0-4GB).");
-                }
-                return false;
-            }
+        case R_RISCV_CALL_PLT:
+        {
+            uint8 *P = target_section_addr + reloc_offset;
+            long offset = (uint8 *)symbol_addr - P;
+            long imm_hi;
+            long imm_lo;
 
-            /* lui  t0, hi20 */
-            *(uint32 *)(P + 0) = (uint32)hi20 | 0x2b7;
-            /* jalr ra, lo12(t0) */
-            *(uint32 *)(P + 4) = (uint32)lo12 | 0x280e7;
-            break;
+            rv_calc_imm(offset, &imm_hi, &imm_lo);
+
+            rv_add_val((uint16_t *)P, (imm_hi << 12));
+            if ((rv_get_val((uint16_t *)(P + 4)) & 0x7f) == RV_OPCODE_SW) {
+                /* Adjust imm for SW : S-type */
+
+                uint32_t val = (((int32_t)imm_lo >> 5) << 25)
+                               + (((int32_t)imm_lo & 0x1f) << 7);
+
+                rv_add_val((uint16_t *)(P + 4), val);
+            }
+            else {
+                /* Adjust imm for MV(ADDI)/JALR : I-type */
+
+                rv_add_val((uint16_t *)(P + 4), ((int32_t)imm_lo << 20));
+            }
+        } break;
 
         default:
             if (error_buf != NULL)
@@ -76,6 +143,5 @@ apply_relocation(AOTModule *module,
                          reloc_type);
             return false;
     }
-
     return true;
 }
