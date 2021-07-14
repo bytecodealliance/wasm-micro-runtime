@@ -93,6 +93,8 @@ typedef enum {
     Package_Type_Unknown = 0xFFFF
 } package_type_t;
 
+#ifndef MEM_ALLOC_OPTION_DEFINED
+#define MEM_ALLOC_OPTION_DEFINED
 /* Memory allocator type */
 typedef enum {
     /* pool mode, allocate memory from user defined heap buffer */
@@ -117,6 +119,7 @@ typedef union MemAllocOption {
         void *free_func;
     } allocator;
 } MemAllocOption;
+#endif
 
 /* WASM runtime initialize arguments */
 typedef struct RuntimeInitArgs {

@@ -145,6 +145,37 @@ WASM_DECLARE_OWN(engine)
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new(void);
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 
+#ifndef MEM_ALLOC_OPTION_DEFINED
+#define MEM_ALLOC_OPTION_DEFINED
+/* same definition from wasm_export.h */
+/* Memory allocator type */
+typedef enum {
+    /* pool mode, allocate memory from user defined heap buffer */
+    Alloc_With_Pool = 0,
+    /* user allocator mode, allocate memory from user defined
+       malloc function */
+    Alloc_With_Allocator,
+    /* system allocator mode, allocate memory from system allocator,
+       or, platform's os_malloc function */
+    Alloc_With_System_Allocator,
+} mem_alloc_type_t;
+
+/* Memory allocator option */
+typedef union MemAllocOption {
+    struct {
+        void *heap_buf;
+        uint32_t heap_size;
+    } pool;
+    struct {
+        void *malloc_func;
+        void *realloc_func;
+        void *free_func;
+    } allocator;
+} MemAllocOption;
+#endif
+
+WASM_API_EXTERN own wasm_engine_t *
+wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts);
 
 // Store
 

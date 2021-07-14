@@ -2463,6 +2463,7 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
         WASMCApiFrame frame = { 0 };
         WASMFunctionInstance *func_inst = cur_frame->function;
         const char *func_name = NULL;
+        const uint8 *func_code_base = NULL;
 
         if (!func_inst) {
             cur_frame = cur_frame->prev_frame;
@@ -2473,8 +2474,14 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
         frame.instance = module_inst;
         frame.module_offset = 0;
         frame.func_index = func_inst - module_inst->functions;
-        frame.func_offset =
-          cur_frame->ip ? cur_frame->ip - func_inst->u.func->code : 0;
+
+        func_code_base = wasm_get_func_code(func_inst);
+        if (!cur_frame->ip || !func_code_base) {
+            frame.func_offset = 0;
+        }
+        else {
+            frame.func_offset = cur_frame->ip - func_code_base;
+        }
 
         /* look for the function name */
         if (func_inst->is_import_func) {

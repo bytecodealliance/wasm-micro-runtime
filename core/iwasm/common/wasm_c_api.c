@@ -264,14 +264,29 @@ aot_compile_wasm_file_init();
 void
 aot_compile_wasm_file_destroy();
 
-uint8*
-aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
-                      uint32 opt_level, uint32 size_level,
-                      char *error_buf, uint32 error_buf_size,
+uint8 *
+aot_compile_wasm_file(const uint8 *wasm_file_buf,
+                      uint32 wasm_file_size,
+                      uint32 opt_level,
+                      uint32 size_level,
+                      char *error_buf,
+                      uint32 error_buf_size,
                       uint32 *p_aot_file_size);
 #endif
 
 /* Runtime Environment */
+own wasm_config_t *
+wasm_config_new(void)
+{
+    return NULL;
+}
+
+void
+wasm_config_delete(own wasm_config_t *config)
+{
+    (void)config;
+}
+
 static void
 wasm_engine_delete_internal(wasm_engine_t *engine)
 {
@@ -351,7 +366,7 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
 /* global engine instance */
 static wasm_engine_t *singleton_engine = NULL;
 
-wasm_engine_t *
+own wasm_engine_t *
 wasm_engine_new()
 {
     if (!singleton_engine) {
@@ -361,7 +376,14 @@ wasm_engine_new()
     return singleton_engine;
 }
 
-wasm_engine_t *
+own wasm_engine_t *
+wasm_engine_new_with_config(own wasm_config_t *config)
+{
+    (void)config;
+    return wasm_engine_new();
+}
+
+own wasm_engine_t *
 wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
 {
     if (!singleton_engine) {
