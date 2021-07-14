@@ -8,6 +8,8 @@
 #define R_RISCV_CALL     18
 #define R_RISCV_CALL_PLT 19
 #define R_RISCV_HI20     26
+#define R_RISCV_LO12_I   27
+#define R_RISCV_LO12_S   28
 
 #define RV_OPCODE_SW 0x23
 
@@ -109,43 +111,62 @@ apply_relocation(AOTModule *module,
                  char *error_buf,
                  uint32 error_buf_size)
 {
+    long imm_hi;
+    long imm_lo;
+    uint8 *addr = target_section_addr + reloc_offset;
+
     switch (reloc_type) {
         case R_RISCV_CALL:
         case R_RISCV_CALL_PLT:
         {
-            uint8 *P = target_section_addr + reloc_offset;
-            long offset = (uint8 *)symbol_addr - P;
-            long imm_hi;
-            long imm_lo;
-
+            long offset = (uint8 *)symbol_addr - addr;
             rv_calc_imm(offset, &imm_hi, &imm_lo);
 
-            rv_add_val((uint16_t *)P, (imm_hi << 12));
-            if ((rv_get_val((uint16_t *)(P + 4)) & 0x7f) == RV_OPCODE_SW) {
+            rv_add_val((uint16 *)addr, (imm_hi << 12));
+            if ((rv_get_val((uint16 *)(addr + 4)) & 0x7f) == RV_OPCODE_SW) {
                 /* Adjust imm for SW : S-type */
 
-                uint32_t val = (((int32_t)imm_lo >> 5) << 25)
-                               + (((int32_t)imm_lo & 0x1f) << 7);
+                uint32 val = (((int32)imm_lo >> 5) << 25)
+                               + (((int32)imm_lo & 0x1f) << 7);
 
-                rv_add_val((uint16_t *)(P + 4), val);
+                rv_add_val((uint16 *)(addr + 4), val);
             }
             else {
                 /* Adjust imm for MV(ADDI)/JALR : I-type */
 
-                rv_add_val((uint16_t *)(P + 4), ((int32_t)imm_lo << 20));
+                rv_add_val((uint16 *)(addr + 4), ((int32)imm_lo << 20));
             }
         } break;
 
         case R_RISCV_HI20:
         {
             long offset = (long)symbol_addr;
-            long imm_hi;
-            long imm_lo;
             uint8 *addr = target_section_addr + reloc_offset;
             uint32 insn = rv_get_val((uint16 *)addr);
             rv_calc_imm(offset, &imm_hi, &imm_lo);
             insn = (insn & 0x00000fff) | (imm_hi << 12);
             rv_set_val((uint16*)addr, insn);
+        } break;
+
+        case R_RISCV_LO12_I:
+        {
+            long offset = (long)symbol_addr;
+            uint8 *addr = target_section_addr + reloc_offset;
+            uint32 insn = rv_get_val((uint16 *)addr);
+            rv_calc_imm(offset, &imm_hi, &imm_lo);
+            insn = (insn & 0x000fffff) | (imm_lo << 20);
+            rv_set_val((uint16*)addr, insn);
+        } break;
+
+        case R_RISCV_LO12_S:
+        {
+            long offset = (long)symbol_addr;
+            uint8 *addr = target_section_addr + reloc_offset;
+            rv_calc_imm(offset, &imm_hi, &imm_lo);
+            uint32 val =
+              (((int32)imm_lo >> 5) << 25) +
+              (((int32)imm_lo & 0x1f) << 7);
+            rv_add_val((uint16*)addr, val);
         } break;
 
         default:
