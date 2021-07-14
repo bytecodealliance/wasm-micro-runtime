@@ -7,6 +7,7 @@
 
 #define R_RISCV_CALL     18
 #define R_RISCV_CALL_PLT 19
+#define R_RISCV_HI20     26
 
 #define RV_OPCODE_SW 0x23
 
@@ -133,6 +134,18 @@ apply_relocation(AOTModule *module,
 
                 rv_add_val((uint16_t *)(P + 4), ((int32_t)imm_lo << 20));
             }
+        } break;
+
+        case R_RISCV_HI20:
+        {
+            long offset = (long)symbol_addr;
+            long imm_hi;
+            long imm_lo;
+            uint8 *addr = target_section_addr + reloc_offset;
+            uint32 insn = rv_get_val((uint16 *)addr);
+            rv_calc_imm(offset, &imm_hi, &imm_lo);
+            insn = (insn & 0x00000fff) | (imm_hi << 12);
+            rv_set_val((uint16*)addr, insn);
         } break;
 
         default:
