@@ -3428,6 +3428,7 @@ recover_br_info:
     wasm_set_exception(module, "out of bounds memory access");
 
   got_exception:
+    SYNC_ALL_TO_FRAME();
     return;
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
