@@ -768,6 +768,12 @@ is_target_mips(AOTCompContext *comp_ctx)
 }
 
 static bool
+is_target_riscv(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "riscv", 5);
+}
+
+static bool
 is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
 {
     bool ret = false;
@@ -796,6 +802,8 @@ is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
          * so user must specify '--cpu-features=-fp' to wamrc if the target
          * doesn't have or enable Floating-Point Coprocessor Option on xtensa. */
         ret = (!is_f32 || strstr(feature_string, "-fp")) ? true : false;
+    else if (is_target_riscv(comp_ctx))
+        ret = !strstr(feature_string, "+d") ? true : false;
     else
         ret = true;
 

@@ -2776,12 +2776,12 @@ aot_table_copy(AOTModuleInstance *module_inst,
     /* if src_offset >= dst_offset, copy from front to back */
     /* if src_offset < dst_offset, copy from back to front */
     /* merge all together */
-    bh_memcpy_s((uint8 *)(dst_tbl_inst) + offsetof(AOTTableInstance, data)
-                  + dst_offset * sizeof(uint32),
-                (dst_tbl_inst->cur_size - dst_offset) * sizeof(uint32),
-                (uint8 *)(src_tbl_inst) + offsetof(AOTTableInstance, data)
-                  + src_offset * sizeof(uint32),
-                length * sizeof(uint32));
+    bh_memmove_s((uint8 *)(dst_tbl_inst) + offsetof(AOTTableInstance, data)
+                   + dst_offset * sizeof(uint32),
+                 (dst_tbl_inst->cur_size - dst_offset) * sizeof(uint32),
+                 (uint8 *)(src_tbl_inst) + offsetof(AOTTableInstance, data)
+                   + src_offset * sizeof(uint32),
+                 length * sizeof(uint32));
 }
 
 void
