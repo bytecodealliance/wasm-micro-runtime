@@ -36,16 +36,16 @@ get_target_symbol_map(uint32 *sym_num)
 
 /* Get a val from given address */
 static uint32
-rv_get_val(uint16_t *addr)
+rv_get_val(uint16 *addr)
 {
-    uint32_t ret;
+    uint32 ret;
     ret = *addr | (*(addr + 1)) << 16;
     return ret;
 }
 
 /* Set a val to given address */
 static void
-rv_set_val(uint16 *addr, uint32_t val)
+rv_set_val(uint16 *addr, uint32 val)
 {
     *addr = (val & 0xffff);
     *(addr + 1) = (val >> 16);
@@ -55,9 +55,9 @@ rv_set_val(uint16 *addr, uint32_t val)
 
 /* Add a val to given address */
 static void
-rv_add_val(uint16 *addr, uint32_t val)
+rv_add_val(uint16 *addr, uint32 val)
 {
-    uint32_t cur = rv_get_val(addr);
+    uint32 cur = rv_get_val(addr);
     rv_set_val(addr, cur + val);
 }
 
@@ -126,8 +126,8 @@ apply_relocation(AOTModule *module,
             if ((rv_get_val((uint16 *)(addr + 4)) & 0x7f) == RV_OPCODE_SW) {
                 /* Adjust imm for SW : S-type */
 
-                uint32 val = (((int32)imm_lo >> 5) << 25)
-                               + (((int32)imm_lo & 0x1f) << 7);
+                uint32 val =
+                  (((int32)imm_lo >> 5) << 25) + (((int32)imm_lo & 0x1f) << 7);
 
                 rv_add_val((uint16 *)(addr + 4), val);
             }
@@ -136,7 +136,8 @@ apply_relocation(AOTModule *module,
 
                 rv_add_val((uint16 *)(addr + 4), ((int32)imm_lo << 20));
             }
-        } break;
+            break;
+        }
 
         case R_RISCV_HI20:
         {
@@ -145,8 +146,9 @@ apply_relocation(AOTModule *module,
             uint32 insn = rv_get_val((uint16 *)addr);
             rv_calc_imm(offset, &imm_hi, &imm_lo);
             insn = (insn & 0x00000fff) | (imm_hi << 12);
-            rv_set_val((uint16*)addr, insn);
-        } break;
+            rv_set_val((uint16 *)addr, insn);
+            break;
+        }
 
         case R_RISCV_LO12_I:
         {
@@ -155,8 +157,9 @@ apply_relocation(AOTModule *module,
             uint32 insn = rv_get_val((uint16 *)addr);
             rv_calc_imm(offset, &imm_hi, &imm_lo);
             insn = (insn & 0x000fffff) | (imm_lo << 20);
-            rv_set_val((uint16*)addr, insn);
-        } break;
+            rv_set_val((uint16 *)addr, insn);
+            break;
+        }
 
         case R_RISCV_LO12_S:
         {
@@ -164,10 +167,10 @@ apply_relocation(AOTModule *module,
             uint8 *addr = target_section_addr + reloc_offset;
             rv_calc_imm(offset, &imm_hi, &imm_lo);
             uint32 val =
-              (((int32)imm_lo >> 5) << 25) +
-              (((int32)imm_lo & 0x1f) << 7);
-            rv_add_val((uint16*)addr, val);
-        } break;
+              (((int32)imm_lo >> 5) << 25) + (((int32)imm_lo & 0x1f) << 7);
+            rv_add_val((uint16 *)addr, val);
+            break;
+        }
 
         default:
             if (error_buf != NULL)
