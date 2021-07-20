@@ -16,6 +16,7 @@
 #define RV_OPCODE_SW 0x23
 
 void __divdi3();
+void __moddi3();
 void __muldi3();
 void __udivdi3();
 void __umoddi3();
@@ -23,6 +24,7 @@ void __umoddi3();
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
     REG_SYM(__divdi3),
+    REG_SYM(__moddi3),
     REG_SYM(__muldi3),
     REG_SYM(__udivdi3),
     REG_SYM(__umoddi3),
