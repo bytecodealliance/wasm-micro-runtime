@@ -1034,7 +1034,8 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
     /* Create each data section */
     for (i = 0; i < module->data_section_count; i++) {
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
         /* aot code and data in x86_64 must be in range 0 to 2G due to
            relocation for R_X86_64_32/32S/PC32 */
         int map_flags = MMAP_MAP_32BIT;
@@ -2240,7 +2241,8 @@ create_sections(const uint8 *buf, uint32 size,
                 if (section_size > 0) {
                     int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE
                                    | MMAP_PROT_EXEC;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
                     /* aot code and data in x86_64 must be in range 0 to 2G due to
                        relocation for R_X86_64_32/32S/PC32 */
                     int map_flags = MMAP_MAP_32BIT;

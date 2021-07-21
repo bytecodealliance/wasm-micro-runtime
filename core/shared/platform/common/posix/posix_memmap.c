@@ -44,8 +44,57 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     if (flags & MMAP_MAP_FIXED)
         map_flags |= MAP_FIXED;
 
+#if defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
+    /* As AOT relocation in RISCV64 may require that the code/data mapped
+     * is in range 0 to 2GB, we try to map the memory with hint address
+     * (mmap's first argument) to meet the requirement.
+     */
+    if (!hint && !(flags & MMAP_MAP_FIXED) && (flags & MMAP_MAP_32BIT)) {
+        uint8 *stack_addr = (uint8*)&map_prot;
+        uint8 *text_addr = (uint8*)os_mmap;
+        /* hint address begins with 1MB */
+        static uint8 *hint_addr = (uint8 *)(uintptr_t)BH_MB;
+
+        if ((hint_addr - text_addr >= 0
+             && hint_addr - text_addr < 100 * BH_MB)
+            || (text_addr - hint_addr >= 0
+                && text_addr - hint_addr < 100 * BH_MB)) {
+            /* hint address is possibly in text section, skip it */
+            hint_addr += 100 * BH_MB;
+        }
+
+        if ((hint_addr - stack_addr >= 0
+             && hint_addr - stack_addr < 8 * BH_MB)
+            || (stack_addr - hint_addr >= 0
+                && stack_addr - hint_addr < 8 * BH_MB)) {
+            /* hint address is possibly in native stack area, skip it */
+            hint_addr += 8 * BH_MB;
+        }
+
+        /* try 10 times, step with 1MB each time */
+        for (i = 0;
+             i < 10 && hint_addr < (uint8 *)(uintptr_t)(2ULL * BH_GB);
+             i++) {
+            addr = mmap(hint_addr, request_size, map_prot, map_flags, -1, 0);
+            if (addr != MAP_FAILED) {
+                if (addr > (uint8 *)(uintptr_t)(2ULL * BH_GB)) {
+                    /* unmap and try again if the mapped address doesn't
+                     * meet the requirement */
+                    os_munmap(addr, request_size);
+                }
+                else {
+                    /* reset next hint address */
+                    hint_addr += request_size;
+                    return addr;
+                }
+            }
+            hint_addr += BH_MB;
+        }
+    }
+#endif
+
     /* try 5 times */
-    for (i = 0; i < 5; i ++) {
+    for (i = 0; i < 5; i++) {
         addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
         if (addr != MAP_FAILED)
             break;

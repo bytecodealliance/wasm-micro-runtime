@@ -16,6 +16,7 @@
 #define RV_OPCODE_SW 0x23
 
 void __divdi3();
+void __moddi3();
 void __muldi3();
 void __udivdi3();
 void __umoddi3();
@@ -23,6 +24,7 @@ void __umoddi3();
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
     REG_SYM(__divdi3),
+    REG_SYM(__moddi3),
     REG_SYM(__muldi3),
     REG_SYM(__udivdi3),
     REG_SYM(__umoddi3),
@@ -233,7 +235,7 @@ apply_relocation(AOTModule *module,
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
             if (val != (intptr_t)((uint8 *)symbol_addr - addr)) {
-                if (reloc_type == R_RISCV_CALL_PLT && symbol_index >= 0) {
+                if (symbol_index >= 0) {
                     /* Call runtime function by plt code */
                     symbol_addr = (uint8*)module->code + module->code_size
                                   - get_plt_table_size()
