@@ -1674,7 +1674,7 @@ wasm_set_wasi_root_dir(const char *root_dir)
     if (!(path = realpath(root_dir, resolved_path)))
         return false;
 
-    strncpy(wasi_root_dir, path, sizeof(wasi_root_dir));
+    snprintf(wasi_root_dir, sizeof(wasi_root_dir), "%s", path);
     return true;
 }
 

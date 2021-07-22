@@ -27,7 +27,8 @@ extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
 
 int uart_char_cnt = 0;
 
-static void uart_irq_callback(struct device *dev)
+static void uart_irq_callback(const struct device *dev,
+                              void *user_data)
 {
     unsigned char ch;
 
@@ -35,9 +36,10 @@ static void uart_irq_callback(struct device *dev)
         uart_char_cnt++;
         aee_host_msg_callback(&ch, 1);
     }
+    (void)user_data;
 }
 
-struct device *uart_dev = NULL;
+const struct device *uart_dev = NULL;
 
 static bool host_init()
 {

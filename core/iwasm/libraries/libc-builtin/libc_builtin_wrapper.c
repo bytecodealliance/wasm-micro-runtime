@@ -1068,6 +1068,28 @@ __cxa_throw_wrapper(wasm_exec_env_t exec_env,
     wasm_runtime_set_exception(module_inst, buf);
 }
 
+struct timespec_app {
+    int64 tv_sec;
+    int32 tv_nsec;
+};
+
+static uint32
+clock_gettime_wrapper(wasm_exec_env_t exec_env,
+                      uint32 clk_id, struct timespec_app *ts_app)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    uint64 time;
+
+    if (!validate_native_addr(ts_app, sizeof(struct timespec_app)))
+        return (uint32)-1;
+
+    time = os_time_get_boot_microsecond();
+    ts_app->tv_sec = time / 1000000;
+    ts_app->tv_nsec = (time % 1000000) * 1000;
+
+    return (uint32)0;
+}
+
 #if WASM_ENABLE_SPEC_TEST != 0
 static void
 print_wrapper(wasm_exec_env_t exec_env)
@@ -1167,6 +1189,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(__cxa_allocate_exception, "(i)i"),
     REG_NATIVE_FUNC(__cxa_begin_catch, "(*)"),
     REG_NATIVE_FUNC(__cxa_throw, "(**i)"),
+    REG_NATIVE_FUNC(clock_gettime, "(i*)i"),
 };
 
 #if WASM_ENABLE_SPEC_TEST != 0
