@@ -1752,6 +1752,7 @@ is_data_section(LLVMSectionIteratorRef sec_itr, char *section_name)
     uint32 relocation_count = 0;
 
     return (!strcmp(section_name, ".data")
+            || !strcmp(section_name, ".sdata")
             || !strcmp(section_name, ".rodata")
             /* ".rodata.cst4/8/16/.." */
             || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst"))
@@ -1970,10 +1971,13 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         relocation->relocation_type = (uint32)type;
         relocation->symbol_name = (char *)LLVMGetSymbolName(rel_sym);
 
-        /* for ".LCPIxxx" relocation, transform the symbol name to real
-         * section name and set addend to the symbol address */
+        /* for ".LCPIxxx", ".LJTIxxx" and ".LBBxxx" relocation,
+         * transform the symbol name to real section name and set
+         * addend to the offset of the symbol in the real section */
         if (relocation->symbol_name
-            && str_starts_with(relocation->symbol_name, ".LCPI")) {
+            && (str_starts_with(relocation->symbol_name, ".LCPI")
+                || str_starts_with(relocation->symbol_name, ".LJTI")
+                || str_starts_with(relocation->symbol_name, ".LBB"))) {
             /* change relocation->relocation_addend and relocation->symbol_name */
             LLVMSectionIteratorRef contain_section;
             if (!(contain_section
@@ -2012,6 +2016,8 @@ is_relocation_section_name(char *section_name)
             || !strcmp(section_name, ".rela.literal")
             || !strcmp(section_name, ".rela.data")
             || !strcmp(section_name, ".rel.data")
+            || !strcmp(section_name, ".rela.sdata")
+            || !strcmp(section_name, ".rel.sdata")
             || !strcmp(section_name, ".rela.rodata")
             || !strcmp(section_name, ".rel.rodata")
             /* ".rela.rodata.cst4/8/16/.." */
