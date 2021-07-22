@@ -1395,7 +1395,8 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
                 if (section->section_type == AOT_SECTION_TYPE_TEXT) {
                     int map_prot =
                         MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D) || defined(BUILD_TARGET_RISCV64_LP64)
                     /* aot code and data in x86_64 must be in range 0 to 2G due to
                        relocation for R_X86_64_32/32S/PC32 */
                     int map_flags = MMAP_MAP_32BIT;
