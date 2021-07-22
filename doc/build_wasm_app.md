@@ -236,11 +236,14 @@ wamrc supports a number of compilation options through the command line argument
 wamrc --help
 Usage: wamrc [options] -o output_file wasm_file
   --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>
-                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips.
+                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips,
+                                     riscv64, riscv32.
                               Default is host arch, e.g. x86_64
                             <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.
                             Use --target=help to list supported targets
-  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, etc. (default: gnu)
+  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, msvc, etc.
+                              Default is gnu if target isn't riscv64 or riscv32
+                              For target riscv64 and riscv32, default is lp64d and ilp32d
                             Use --target-abi=help to list all the ABI supported
   --cpu=<cpu>               Set the target CPU (default: host CPU, e.g. skylake)
                             Use --cpu=help to list all the CPU supported
@@ -263,10 +266,16 @@ Usage: wamrc [options] -o output_file wasm_file
                               llvmir-opt     Optimized LLVM IR
   --enable-bulk-memory      Enable the post-MVP bulk memory feature
   --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and
-  --enable-tail-call        Enable the post-MVP tail call feature
                             thread-mgr will be enabled automatically
-  --enable-simd             Enable the post-MVP 128-bit SIMD feature
+  --enable-tail-call        Enable the post-MVP tail call feature
+  --disable-simd            Disable the post-MVP 128-bit SIMD feature:
+                              currently 128-bit SIMD is only supported for x86-64 target,
+                              and by default it is enabled in x86-64 target and disabled
+                              in other targets
+  --enable-ref-types        Enable the post-MVP reference types feature
+  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check
   --enable-dump-call-stack  Enable stack trace feature
+  --enable-perf-profiling   Enable function performance profiling
   -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log
 Examples: wamrc -o test.aot test.wasm
           wamrc --target=i386 -o test.aot test.wasm
