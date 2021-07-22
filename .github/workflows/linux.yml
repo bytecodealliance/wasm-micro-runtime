@@ -29,63 +29,63 @@ jobs:
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake ..
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [Classic interp]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_FAST_INTERP=0
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [Multi module]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_MULTI_MODULE=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [lib-pthread]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [aot only]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [interp only]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_AOT=0
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [memory profiling]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_MEMORY_PROFILING=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [tail call]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_TAIL_CALL=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [custom name section]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Cache LLVM libraries
       uses: actions/cache@v2
@@ -106,7 +106,7 @@ jobs:
         cd wamr-compiler
         mkdir build && cd build
         cmake ..
-        make
+        make -j $(nproc)
         cd ..
     - name: download and install wasi-sdk
       run: |
@@ -127,7 +127,7 @@ jobs:
         cd samples/wasm-c-api
         mkdir build && cd build
         cmake ..
-        make
+        make -j $(nproc)
         ./callback
         ./callback_chain
         ./global
@@ -140,7 +140,7 @@ jobs:
         cd samples/wasm-c-api
         mkdir build && cd build
         cmake -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 ..
-        make
+        make -j $(nproc)
         ./callback
         ./callback_chain
         ./global
@@ -153,7 +153,7 @@ jobs:
         cd samples/wasm-c-api
         mkdir build && cd build
         cmake -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 ..
-        make
+        make -j $(nproc)
         ./callback
         ./callback_chain
         ./global
@@ -171,19 +171,19 @@ jobs:
         cd samples/multi-thread
         mkdir build && cd build
         cmake ..
-        make
+        make -j $(nproc)
         ./iwasm wasm-apps/test.wasm
     - name: Build Sample [multi-module]
       run: |
         cd samples/multi-module
         mkdir build && cd build
         cmake ..
-        make
+        make -j $(nproc)
         ./multi_module
     - name: Build Sample [spawn-thread]
       run: |
         cd samples/spawn-thread
         mkdir build && cd build
         cmake ..
-        make
+        make -j $(nproc)
         ./spawn_thread
