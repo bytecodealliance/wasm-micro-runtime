@@ -1075,12 +1075,12 @@ struct timespec_app {
 
 static uint32
 clock_gettime_wrapper(wasm_exec_env_t exec_env,
-                      uint32 clk_id,
-                      struct timespec_app *ts_app){
+                      uint32 clk_id, struct timespec_app *ts_app)
+{
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint64 time;
 
-    if (!validate_native_addr(ts_app, sizeof(const struct timespec_app)))
+    if (!validate_native_addr(ts_app, sizeof(struct timespec_app)))
         return (uint32)-1;
 
     time = os_time_get_boot_microsecond();
