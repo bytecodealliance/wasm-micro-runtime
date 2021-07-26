@@ -2479,7 +2479,7 @@ wasm_func_call(const wasm_func_t *func,
     param_count = wasm_func_param_arity(func);
     result_count = wasm_func_result_arity(func);
     alloc_count = (param_count > result_count) ? param_count : result_count;
-    if (alloc_count > sizeof(argv_buf) / sizeof(uint64)) {
+    if (alloc_count > (size_t)sizeof(argv_buf) / sizeof(uint64)) {
         if (!(argv = malloc_internal(sizeof(uint64) * alloc_count))) {
             goto failed;
         }

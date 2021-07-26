@@ -339,8 +339,7 @@ static os_thread_local_attribute uint8 *sigalt_stack_base_addr;
 
 #if defined(__clang__)
 #pragma clang optimize off
-#endif
-#if defined(__GNUC__)
+#elif defined(__GNUC__)
 #pragma GCC push_options
 #pragma GCC optimize("O0")
 __attribute__((no_sanitize_address))
@@ -361,11 +360,10 @@ touch_pages(uint8 *stack_min_addr, uint32 page_size)
     }
     return sum;
 }
-#if defined(__GNUC__)
-#pragma GCC pop_options
-#endif
 #if defined(__clang__)
 #pragma clang optimize on
+#elif defined(__GNUC__)
+#pragma GCC pop_options
 #endif
 
 static bool
