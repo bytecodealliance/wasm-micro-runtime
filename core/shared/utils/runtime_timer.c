@@ -19,7 +19,7 @@ typedef struct _app_timer {
     bool is_periodic;
 } app_timer_t;
 
-typedef struct _timer_ctx {
+struct _timer_ctx {
     app_timer_t *app_timers;
     app_timer_t *idle_timers;
     app_timer_t *free_timers;
@@ -33,7 +33,7 @@ typedef struct _timer_ctx {
 
     timer_callback_f timer_callback;
     check_timer_expiry_f refresh_checker;
-} *timer_ctx_t;
+};
 
 uint64
 bh_get_tick_ms()
