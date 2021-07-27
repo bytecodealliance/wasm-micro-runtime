@@ -209,6 +209,10 @@ struct WASMModuleInstance {
     /* The exception buffer of wasm interpreter for current thread. */
     char cur_exception[128];
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    Vector *frames;
+#endif
+
     /* The custom data that can be set/get by
      * wasm_set_custom_data/wasm_get_custom_data */
     void *custom_data;

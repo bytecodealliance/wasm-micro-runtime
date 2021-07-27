@@ -88,6 +88,7 @@ struct wasm_ref_t {
 
 struct wasm_trap_t {
     wasm_byte_vec_t *message;
+    Vector *frames;
 };
 
 struct wasm_func_t {

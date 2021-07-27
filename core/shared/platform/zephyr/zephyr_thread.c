@@ -14,6 +14,55 @@
     }                                                       \
   } while (0)
 
+#if defined(CONFIG_ARM_MPU) || defined(CONFIG_ARC_MPU) \
+    || KERNEL_VERSION_NUMBER > 0x020300 /* version 2.3.0 */
+#define BH_ENABLE_ZEPHYR_MPU_STACK 1
+#elif !defined(BH_ENABLE_ZEPHYR_MPU_STACK)
+#define BH_ENABLE_ZEPHYR_MPU_STACK 0
+#endif
+#if !defined(BH_ZEPHYR_MPU_STACK_SIZE)
+#define BH_ZEPHYR_MPU_STACK_SIZE APP_THREAD_STACK_SIZE_MIN
+#endif
+#if !defined(BH_ZEPHYR_MPU_STACK_COUNT)
+#define BH_ZEPHYR_MPU_STACK_COUNT 4
+#endif
+
+#if BH_ENABLE_ZEPHYR_MPU_STACK != 0
+static K_THREAD_STACK_ARRAY_DEFINE(mpu_stacks,
+                                   BH_ZEPHYR_MPU_STACK_COUNT,
+                                   BH_ZEPHYR_MPU_STACK_SIZE);
+static bool mpu_stack_allocated[BH_ZEPHYR_MPU_STACK_COUNT];
+static struct k_mutex mpu_stack_lock;
+
+static char *mpu_stack_alloc()
+{
+    int i;
+
+    k_mutex_lock(&mpu_stack_lock, K_FOREVER);
+    for (i = 0; i < BH_ZEPHYR_MPU_STACK_COUNT; i++) {
+        if (!mpu_stack_allocated[i]) {
+            mpu_stack_allocated[i] = true;
+            k_mutex_unlock(&mpu_stack_lock);
+            return (char*)mpu_stacks[i];
+        }
+    }
+    k_mutex_unlock(&mpu_stack_lock);
+    return NULL;
+}
+
+static void mpu_stack_free(char *stack)
+{
+    int i;
+
+    k_mutex_lock(&mpu_stack_lock, K_FOREVER);
+    for (i = 0; i < BH_ZEPHYR_MPU_STACK_COUNT; i++) {
+        if ((char *)mpu_stacks[i] == stack)
+            mpu_stack_allocated[i] = false;
+    }
+    k_mutex_unlock(&mpu_stack_lock);
+}
+#endif
+
 typedef struct os_thread_wait_node {
     struct k_sem sem;
     os_thread_wait_list next;
@@ -32,8 +81,12 @@ typedef struct os_thread_data {
     os_thread_wait_list thread_wait_list;
     /* Thread stack size */
     unsigned stack_size;
+#if BH_ENABLE_ZEPHYR_MPU_STACK == 0
     /* Thread stack */
     char stack[1];
+#else
+    char *stack;
+#endif
 } os_thread_data;
 
 typedef struct os_thread_obj {
@@ -164,6 +217,9 @@ int os_thread_sys_init()
     if (is_thread_sys_inited)
         return BHT_OK;
 
+#if BH_ENABLE_ZEPHYR_MPU_STACK != 0
+    k_mutex_init(&mpu_stack_lock);
+#endif
     k_mutex_init(&thread_data_lock);
     k_mutex_init(&thread_obj_lock);
 
@@ -214,6 +270,9 @@ static void os_thread_cleanup(void)
     /* Set flag to true for the next thread creating to
      free the thread object */
     ((os_thread_obj*) thread_data->tid)->to_be_freed = true;
+#if BH_ENABLE_ZEPHYR_MPU_STACK != 0
+    mpu_stack_free(thread_data->stack);
+#endif
     BH_FREE(thread_data);
 }
 
@@ -253,14 +312,17 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 
     memset(tid, 0, sizeof(os_thread_obj));
 
+    /* Create and initialize thread data */
+#if BH_ENABLE_ZEPHYR_MPU_STACK == 0
     if (stack_size < APP_THREAD_STACK_SIZE_MIN)
         stack_size = APP_THREAD_STACK_SIZE_MIN;
-
-    /* Create and initialize thread data */
     thread_data_size = offsetof(os_thread_data, stack) + stack_size;
+#else
+    stack_size = BH_ZEPHYR_MPU_STACK_SIZE;
+    thread_data_size = sizeof(os_thread_data);
+#endif
     if (!(thread_data = BH_MALLOC(thread_data_size))) {
-        BH_FREE(tid);
-        return BHT_ERROR;
+        goto fail1;
     }
 
     memset(thread_data, 0, thread_data_size);
@@ -268,22 +330,36 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     thread_data->stack_size = stack_size;
     thread_data->tid = tid;
 
+#if BH_ENABLE_ZEPHYR_MPU_STACK != 0
+    if (!(thread_data->stack = mpu_stack_alloc())) {
+        goto fail2;
+    }
+#endif
+
     /* Create the thread */
     if (!((tid = k_thread_create(tid, (k_thread_stack_t *)thread_data->stack,
                                  stack_size, os_thread_wrapper, start, arg,
                                  thread_data, prio, 0, K_NO_WAIT)))) {
-        BH_FREE(tid);
-        BH_FREE(thread_data);
-        return BHT_ERROR;
+        goto fail3;
     }
 
     bh_assert(tid == thread_data->tid);
 
     /* Set thread custom data */
     thread_data_list_add(thread_data);
-    thread_obj_list_add((os_thread_obj*) tid);
+    thread_obj_list_add((os_thread_obj*)tid);
     *p_tid = tid;
     return BHT_OK;
+
+fail3:
+#if BH_ENABLE_ZEPHYR_MPU_STACK != 0
+    mpu_stack_free(thread_data->stack);
+fail2:
+#endif
+    BH_FREE(thread_data);
+fail1:
+    BH_FREE(tid);
+    return BHT_ERROR;
 }
 
 korp_tid os_self_thread()

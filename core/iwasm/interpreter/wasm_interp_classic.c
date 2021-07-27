@@ -2785,7 +2785,7 @@ label_pop_csp_n:
           /* if s >= d, copy from front to back */
           /* if s < d, copy from back to front */
           /* merge all together */
-          bh_memcpy_s(
+          bh_memmove_s(
             (uint8 *)(dst_tbl_inst) + offsetof(WASMTableInstance, base_addr)
               + d * sizeof(uint32),
             (dst_tbl_inst->cur_size - d) * sizeof(uint32),
@@ -3371,6 +3371,7 @@ label_pop_csp_n:
     wasm_set_exception(module, "out of bounds memory access");
 
   got_exception:
+    SYNC_ALL_TO_FRAME();
     return;
 
 #if WASM_ENABLE_LABELS_AS_VALUES == 0

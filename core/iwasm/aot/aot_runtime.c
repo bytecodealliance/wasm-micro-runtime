@@ -1061,6 +1061,13 @@ aot_instantiate(AOTModule *module, bool is_sub_inst,
     }
 #endif
 
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (!(module_inst->frames.ptr =
+            runtime_malloc(sizeof(Vector), error_buf, error_buf_size))) {
+        goto fail;
+    }
+#endif
+
     /* Execute __post_instantiate function and start function*/
     if (!execute_post_inst_function(module_inst)
         || !execute_start_function(module_inst)) {
@@ -1128,6 +1135,14 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #if WASM_ENABLE_PERF_PROFILING != 0
     if (module_inst->func_perf_profilings.ptr)
         wasm_runtime_free(module_inst->func_perf_profilings.ptr);
+#endif
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (module_inst->frames.ptr) {
+        bh_vector_destroy(module_inst->frames.ptr);
+        wasm_runtime_free(module_inst->frames.ptr);
+        module_inst->frames.ptr = NULL;
+    }
 #endif
 
     if (module_inst->memories.ptr)
@@ -1896,7 +1911,7 @@ aot_validate_app_addr(AOTModuleInstance *module_inst,
     }
 
     /* integer overflow check */
-    if(app_offset + size < app_offset) {
+    if(app_offset > UINT32_MAX - size) {
         goto fail;
     }
 
@@ -1920,7 +1935,7 @@ aot_validate_native_addr(AOTModuleInstance *module_inst,
     }
 
     /* integer overflow check */
-    if (addr + size < addr) {
+    if ((uintptr_t)addr > UINTPTR_MAX - size) {
         goto fail;
     }
 
@@ -2761,12 +2776,12 @@ aot_table_copy(AOTModuleInstance *module_inst,
     /* if src_offset >= dst_offset, copy from front to back */
     /* if src_offset < dst_offset, copy from back to front */
     /* merge all together */
-    bh_memcpy_s((uint8 *)(dst_tbl_inst) + offsetof(AOTTableInstance, data)
-                  + dst_offset * sizeof(uint32),
-                (dst_tbl_inst->cur_size - dst_offset) * sizeof(uint32),
-                (uint8 *)(src_tbl_inst) + offsetof(AOTTableInstance, data)
-                  + src_offset * sizeof(uint32),
-                length * sizeof(uint32));
+    bh_memmove_s((uint8 *)(dst_tbl_inst) + offsetof(AOTTableInstance, data)
+                   + dst_offset * sizeof(uint32),
+                 (dst_tbl_inst->cur_size - dst_offset) * sizeof(uint32),
+                 (uint8 *)(src_tbl_inst) + offsetof(AOTTableInstance, data)
+                   + src_offset * sizeof(uint32),
+                 length * sizeof(uint32));
 }
 
 void
@@ -2902,7 +2917,8 @@ aot_free_frame(WASMExecEnv *exec_env)
 void
 aot_dump_call_stack(WASMExecEnv *exec_env)
 {
-    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame;
+    AOTFrame *cur_frame = (AOTFrame *)exec_env->cur_frame,
+             *first_frame = cur_frame;
     AOTModuleInstance *module_inst =
             (AOTModuleInstance *)exec_env->module_inst;
     const char *func_name;
@@ -2925,6 +2941,29 @@ aot_dump_call_stack(WASMExecEnv *exec_env)
         n++;
     }
     os_printf("\n");
+
+    /* release previous stack frames and create new ones */
+    if (!bh_vector_destroy(module_inst->frames.ptr)
+        || !bh_vector_init(module_inst->frames.ptr, n,
+                           sizeof(WASMCApiFrame))) {
+        return;
+    }
+
+    cur_frame = first_frame;
+    while (cur_frame) {
+        WASMCApiFrame frame = { 0 };
+        frame.instance = module_inst;
+        frame.module_offset = 0;
+        frame.func_index = cur_frame->func_index;
+        frame.func_offset = 0;
+
+        if (!bh_vector_append(module_inst->frames.ptr, &frame)) {
+            bh_vector_destroy(module_inst->frames.ptr);
+            return;
+        }
+
+        cur_frame = cur_frame->prev_frame;
+    }
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
 

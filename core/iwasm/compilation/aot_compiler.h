@@ -368,18 +368,19 @@ aot_emit_aot_file(AOTCompContext *comp_ctx,
                   AOTCompData *comp_data,
                   const char *file_name);
 
-uint8_t*
+uint8*
 aot_emit_aot_file_buf(AOTCompContext *comp_ctx,
                       AOTCompData *comp_data,
-                      uint32_t *p_aot_file_size);
+                      uint32 *p_aot_file_size);
 
 bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name);
 
-uint8_t*
-aot_compile_wasm_file(const uint8_t *wasm_file_buf, uint32_t wasm_file_size,
-                      uint32_t opt_level, uint32_t size_level,
-                      uint32_t *p_aot_file_size);
+uint8*
+aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
+                      uint32 opt_level, uint32 size_level,
+                      char *error_buf, uint32 error_buf_size,
+                      uint32 *p_aot_file_size);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

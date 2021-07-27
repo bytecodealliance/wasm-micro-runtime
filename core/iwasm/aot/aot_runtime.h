@@ -353,8 +353,11 @@ typedef struct AOTModuleInstance {
     uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
+    uint32 _padding;
+    /* store stacktrace information */
+    AOTPointer frames;
     /* reserved */
-    uint32 reserved[9];
+    uint32 reserved[6];
 
    /*
     * +------------------------------+ <-- memories.ptr
