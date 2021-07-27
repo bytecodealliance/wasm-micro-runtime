@@ -26,7 +26,7 @@ struct ili9340_data {
     struct device *spi_dev;
     struct spi_config spi_config;
 #ifdef DT_ILITEK_ILI9340_0_CS_GPIO_CONTROLLER
-struct spi_cs_control cs_ctrl;
+    struct spi_cs_control cs_ctrl;
 #endif
 };
 
