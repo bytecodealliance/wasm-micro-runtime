@@ -13,7 +13,9 @@
 #include "event.h"
 #include "watchdog.h"
 #include "runtime_lib.h"
+#if WASM_ENABLE_INTERP != 0
 #include "wasm.h"
+#endif
 #if WASM_ENABLE_AOT != 0
 #include "aot_export.h"
 #endif
@@ -162,6 +164,15 @@ module_interface wasm_app_module_interface = {
     wasm_app_module_get_module_data,
     wasm_app_module_on_install_request_byte_arrive
 };
+
+#if WASM_ENABLE_INTERP == 0
+static unsigned
+align_uint(unsigned v, unsigned b)
+{
+    unsigned m = b - 1;
+    return (v + m) & ~m;
+}
+#endif
 
 static void
 exchange_uint32(uint8 *p_data)
@@ -577,7 +588,7 @@ wasm_app_module_install(request_t * msg)
     char m_name[APP_NAME_MAX_LEN] = { 0 };
     char timeout_str[MAX_INT_STR_LEN] = { 0 };
     char heap_size_str[MAX_INT_STR_LEN] = { 0 };
-    char timers_str[MAX_INT_STR_LEN] = { 0 }, err[256];
+    char timers_str[MAX_INT_STR_LEN] = { 0 }, err[128], err_resp[256];
 #if WASM_ENABLE_LIBC_WASI != 0
     char wasi_dir_buf[PATH_MAX] = { 0 };
     const char *wasi_dir_list[] = { wasi_dir_buf };
@@ -651,8 +662,9 @@ wasm_app_module_install(request_t * msg)
             module = wasm_runtime_load_from_sections(aot_file->sections, true,
                                                      err, err_size);
             if (!module) {
-                SEND_ERR_RESPONSE(msg->mid,
-                                  "Install WASM app failed: load WASM file failed.");
+                snprintf(err_resp, sizeof(err_resp),
+                         "Install WASM app failed: %s", err);
+                SEND_ERR_RESPONSE(msg->mid, err_resp);
                 goto fail;
             }
             /* Destroy useless sections from list after load */
@@ -677,8 +689,9 @@ wasm_app_module_install(request_t * msg)
             /* Instantiate the AOT module */
             inst = wasm_runtime_instantiate(module, 0, heap_size, err, err_size);
             if (!inst) {
-                SEND_ERR_RESPONSE(msg->mid,
-                                  "Install WASM app failed: instantiate wasm runtime failed.");
+                snprintf(err_resp, sizeof(err_resp),
+                         "Install WASM app failed: %s", err);
+                SEND_ERR_RESPONSE(msg->mid, err);
                 goto fail;
             }
             break;
@@ -715,8 +728,9 @@ wasm_app_module_install(request_t * msg)
             module = wasm_runtime_load_from_sections(bytecode_file->sections, false,
                                                      err, err_size);
             if (!module) {
-                SEND_ERR_RESPONSE(msg->mid,
-                                  "Install WASM app failed: load WASM file failed.");
+                snprintf(err_resp, sizeof(err_resp),
+                         "Install WASM app failed: %s", err);
+                SEND_ERR_RESPONSE(msg->mid, err_resp);
                 goto fail;
             }
 
@@ -742,8 +756,9 @@ wasm_app_module_install(request_t * msg)
             /* Instantiate the wasm module */
             inst = wasm_runtime_instantiate(module, 0, heap_size, err, err_size);
             if (!inst) {
-                SEND_ERR_RESPONSE(msg->mid,
-                                  "Install WASM app failed: instantiate wasm runtime failed.");
+                snprintf(err_resp, sizeof(err_resp),
+                         "Install WASM app failed: %s", err);
+                SEND_ERR_RESPONSE(msg->mid, err_resp);
                 goto fail;
             }
 
