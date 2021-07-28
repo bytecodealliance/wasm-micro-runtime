@@ -6,7 +6,7 @@
 #ifndef _WASM_C_API_INTERNAL_H
 #define _WASM_C_API_INTERNAL_H
 
-#include "wasm_c_api.h"
+#include "../include/wasm_c_api.h"
 #include "wasm_runtime_common.h"
 
 #ifndef own
@@ -19,9 +19,9 @@
 /* caller needs to take care resource for the vector itself */
 #define DEFAULT_VECTOR_INIT_LENGTH (64)
 
-WASM_DECLARE_VEC(store, *)
-WASM_DECLARE_VEC(module, *)
 WASM_DECLARE_VEC(instance, *)
+WASM_DECLARE_VEC(module, *)
+WASM_DECLARE_VEC(store, *)
 
 /* Runtime Environment */
 struct wasm_engine_t {
@@ -32,6 +32,7 @@ struct wasm_engine_t {
 struct wasm_store_t {
     wasm_module_vec_t *modules;
     wasm_instance_vec_t *instances;
+    Vector *foreigns;
 };
 
 /* Type Representations */
@@ -82,8 +83,25 @@ struct wasm_exporttype_t {
 };
 
 /* Runtime Objects */
+enum wasm_reference_kind {
+    WASM_REF_foreign,
+    WASM_REF_func,
+    WASM_REF_global,
+    WASM_REF_memory,
+    WASM_REF_table,
+};
+
+struct wasm_host_info {
+    void *info;
+    void (*finalizer)(void *);
+};
+
 struct wasm_ref_t {
-    uint32 obj;
+    wasm_store_t *store;
+    enum wasm_reference_kind kind;
+    struct wasm_host_info host_info;
+    uint32 ref_idx_rt;
+    WASMModuleInstanceCommon *inst_comm_rt;
 };
 
 struct wasm_trap_t {
@@ -91,11 +109,22 @@ struct wasm_trap_t {
     Vector *frames;
 };
 
+struct wasm_foreign_t {
+    wasm_store_t *store;
+    enum wasm_reference_kind kind;
+    struct wasm_host_info host_info;
+    int32 ref_cnt;
+    uint32 foreign_idx_rt;
+    WASMModuleInstanceCommon *inst_comm_rt;
+};
+
 struct wasm_func_t {
+    wasm_store_t *store;
     wasm_name_t *module_name;
     wasm_name_t *name;
     uint16 kind;
 
+    struct wasm_host_info host_info;
     wasm_functype_t *type;
 
     bool with_env;
@@ -117,10 +146,12 @@ struct wasm_func_t {
 };
 
 struct wasm_global_t {
+    wasm_store_t *store;
     wasm_name_t *module_name;
     wasm_name_t *name;
     uint16 kind;
 
+    struct wasm_host_info host_info;
     wasm_globaltype_t *type;
     wasm_val_t *init;
     /*
@@ -132,10 +163,12 @@ struct wasm_global_t {
 };
 
 struct wasm_memory_t {
+    wasm_store_t *store;
     wasm_name_t *module_name;
     wasm_name_t *name;
     uint16 kind;
 
+    struct wasm_host_info host_info;
     wasm_memorytype_t *type;
     /*
      * an index in both memory runtime instance lists
@@ -146,10 +179,12 @@ struct wasm_memory_t {
 };
 
 struct wasm_table_t {
+    wasm_store_t *store;
     wasm_name_t *module_name;
     wasm_name_t *name;
     uint16 kind;
 
+    struct wasm_host_info host_info;
     wasm_tabletype_t *type;
     /*
      * an index in both table runtime instance lists
@@ -160,16 +195,49 @@ struct wasm_table_t {
 };
 
 struct wasm_extern_t {
+    wasm_store_t *store;
     wasm_name_t *module_name;
     wasm_name_t *name;
     wasm_externkind_t kind;
-    uint8 data[1];
+    uint8 data[4];
 };
 
 struct wasm_instance_t {
+    wasm_store_t *store;
     wasm_extern_vec_t *imports;
     wasm_extern_vec_t *exports;
+    struct wasm_host_info host_info;
     WASMModuleInstanceCommon *inst_comm_rt;
 };
 
+wasm_ref_t *
+wasm_ref_new_internal(wasm_store_t *store,
+                      enum wasm_reference_kind kind,
+                      uint32 obj_idx_rt,
+                      WASMModuleInstanceCommon *inst_comm_rt);
+
+wasm_foreign_t *
+wasm_foreign_new_internal(wasm_store_t *store,
+                          uint32 foreign_idx_rt,
+                          WASMModuleInstanceCommon *inst_comm_rt);
+
+wasm_func_t *
+wasm_func_new_internal(wasm_store_t *store,
+                       uint16 func_idx_rt,
+                       WASMModuleInstanceCommon *inst_comm_rt);
+
+wasm_global_t *
+wasm_global_new_internal(wasm_store_t *store,
+                         uint16 global_idx_rt,
+                         WASMModuleInstanceCommon *inst_comm_rt);
+
+wasm_memory_t *
+wasm_memory_new_internal(wasm_store_t *store,
+                         uint16 memory_idx_rt,
+                         WASMModuleInstanceCommon *inst_comm_rt);
+
+wasm_table_t *
+wasm_table_new_internal(wasm_store_t *store,
+                        uint16 table_idx_rt,
+                        WASMModuleInstanceCommon *inst_comm_rt);
 #endif /* _WASM_C_API_INTERNAL_H */
