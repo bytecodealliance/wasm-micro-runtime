@@ -137,7 +137,7 @@ foreach(EX ${EXAMPLES})
   # generate .aot file
   if(${WAMR_BUILD_AOT} EQUAL 1)
     add_custom_target(${EX}_AOT
-      COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
+      COMMAND ${WAMRC} --enable-ref-types -o ${PROJECT_BINARY_DIR}/${EX}.aot
         ${PROJECT_BINARY_DIR}/${EX}.wasm
       DEPENDS ${EX}_WASM
       BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot

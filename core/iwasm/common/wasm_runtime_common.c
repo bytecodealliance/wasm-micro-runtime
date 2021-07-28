@@ -4110,7 +4110,7 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
             char trap_message[128] = { 0 };
             bh_memcpy_s(
               trap_message, 127, trap->message->data,
-              (trap->message->size < 127 ? trap->message->size : 127));
+              (trap->message->size < 127 ? (uint32)trap->message->size : 127));
             wasm_runtime_set_exception(module_inst, trap_message);
         }
         else {

@@ -95,7 +95,11 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_INTERP == 0
+  FILE* file = fopen("memory.aot", "rb");
+#else
   FILE* file = fopen("memory.wasm", "rb");
+#endif
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
