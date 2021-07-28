@@ -219,7 +219,7 @@ jobs:
         ./spawn_thread
     - name: Build Sample [ref-types]
       run: |
-        cd sample/ref-types
+        cd samples/ref-types
         mkdir build && cd build
         cmake ..
         make -j $(nproc)
