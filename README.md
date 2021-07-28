@@ -132,7 +132,7 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 
 Project Technical Steering Committee
 ====================================
-The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC.
+The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC. 
 The current TSC members:
 - [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
 - [qinxk-inter](https://github.com/qinxk-inter) - **Xiaokang Qin**， <xiaokang.qxk@antgroup.com>
@@ -153,10 +153,11 @@ Any contributions you make will be under the same license.
 
 # More resources
 
-Check out the [Wiki documents ](../../wiki) for more resources:
+Check out the [Wiki documents ](https://github.com/bytecodealliance/wasm-micro-runtime/wiki) for more resources:
 
-- [Performance and footprint data](../../wiki/Performance)
-- Community news and events
-- Roadmap
+- [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance)
+- [Community news and events](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Events)
+- [Roadmap](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Roadmap)
+- [WAMR TSC meetings](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/TSC-meeting)
 - Technical documents
 
