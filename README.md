@@ -132,7 +132,7 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 
 Project Technical Steering Committee
 ====================================
-The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC. 
+The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC.
 The current TSC members:
 - [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
 - [qinxk-inter](https://github.com/qinxk-inter) - **Xiaokang Qin**， <xiaokang.qxk@antgroup.com>

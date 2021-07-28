@@ -25,6 +25,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
 
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
         offset += offsetof(AOTTableInstance, data);
+        /* avoid loading from current AOTTableInstance */
         offset += sizeof(uint32) * aot_get_imp_tbl_data_slots(imp_tbls + i);
         ++i;
     }
@@ -37,6 +38,7 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     i -= comp_ctx->comp_data->import_table_count;
     while (i < tbl_idx && i < comp_ctx->comp_data->table_count) {
         offset += offsetof(AOTTableInstance, data);
+        /* avoid loading from current AOTTableInstance */
         offset += sizeof(uint32) * aot_get_tbl_data_slots(tbls + i);
         ++i;
     }

@@ -3977,57 +3977,6 @@ wasm_runtime_get_export_table_type(const WASMModuleCommon *module_comm,
       return false;
 }
 
-uint8 *
-wasm_runtime_get_memory_data(const WASMModuleInstanceCommon *module_inst_comm,
-                             uint32 memory_inst_idx)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstance *module_inst =
-          (WASMModuleInstance *)module_inst_comm;
-        WASMMemoryInstance *memory_inst =
-          module_inst->memories[memory_inst_idx];
-        return memory_inst->memory_data;
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (module_inst_comm->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
-        AOTMemoryInstance *memory_inst =
-          ((AOTMemoryInstance**)module_inst->memories.ptr)[memory_inst_idx];
-        return memory_inst->memory_data.ptr;
-    }
-#endif
-    return NULL;
-}
-
-uint32
-wasm_runtime_get_memory_data_size(
-  const WASMModuleInstanceCommon *module_inst_comm,
-  uint32 memory_inst_idx)
-{
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst_comm->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstance *module_inst =
-          (WASMModuleInstance *)module_inst_comm;
-        WASMMemoryInstance *memory_inst =
-          module_inst->memories[memory_inst_idx];
-        return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
-    }
-#endif
-
-#if WASM_ENABLE_AOT != 0
-    if (module_inst_comm->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *module_inst = (AOTModuleInstance *)module_inst_comm;
-        AOTMemoryInstance *memory_inst =
-          ((AOTMemoryInstance**)module_inst->memories.ptr)[memory_inst_idx];
-        return memory_inst->cur_page_count * memory_inst->num_bytes_per_page;
-    }
-#endif
-    return 0;
-}
-
 static inline bool
 argv_to_params(wasm_val_t *out_params,
                const uint32 *argv,
@@ -4058,6 +4007,23 @@ argv_to_params(wasm_val_t *out_params,
                 u32[0] = *argv++;
                 u32[1] = *argv++;
                 break;
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+                param->kind = WASM_ANYREF;
+
+                if (NULL_REF == *argv) {
+                    param->of.ref = NULL;
+                }
+                else {
+                    if (!wasm_externref_ref2obj(*argv,
+                                                (void **)&param->of.ref)) {
+                        return false;
+                    }
+                }
+
+                argv++;
+                break;
+#endif
             default:
                 return false;
         }
@@ -4067,7 +4033,8 @@ argv_to_params(wasm_val_t *out_params,
 }
 
 static inline bool
-results_to_argv(uint32 *out_argv,
+results_to_argv(WASMModuleInstanceCommon *module_inst,
+                uint32 *out_argv,
                 const wasm_val_t *results,
                 WASMType *func_type)
 {
@@ -4087,6 +4054,15 @@ results_to_argv(uint32 *out_argv,
                 *argv++ = u32[0];
                 *argv++ = u32[1];
                 break;
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+                if (!wasm_externref_obj2ref(module_inst, result->of.ref,
+                                            argv)) {
+                    return false;
+                }
+                argv++;
+                break;
+#endif
             default:
                 return false;
         }
@@ -4134,7 +4110,7 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
             char trap_message[128] = { 0 };
             bh_memcpy_s(
               trap_message, 127, trap->message->data,
-              (trap->message->size < 127 ? trap->message->size : 127));
+              (trap->message->size < 127 ? (uint32)trap->message->size : 127));
             wasm_runtime_set_exception(module_inst, trap_message);
         }
         else {
@@ -4152,7 +4128,7 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-    if (!results_to_argv(argv, results, func_type)) {
+    if (!results_to_argv(module_inst, argv, results, func_type)) {
         wasm_runtime_set_exception(module_inst, "unsupported result type");
         goto fail;
     }
