@@ -1727,7 +1727,7 @@ wasm_trap_trace(const wasm_trap_t *trap, own wasm_frame_vec_t *out)
     }
 
     wasm_frame_vec_new_uninitialized(out, trap->frames->num_elems);
-    if (out->size && !out->data) {
+    if (out->size == 0 || !out->data) {
         return;
     }
 
@@ -1752,9 +1752,7 @@ failed:
         }
     }
 
-    if (out->data) {
-        wasm_runtime_free(out->data);
-    }
+    wasm_runtime_free(out->data);
 }
 
 wasm_foreign_t *

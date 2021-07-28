@@ -111,6 +111,7 @@ int main(int argc, const char* argv[]) {
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
+    fclose(file);
     return 1;
   }
   fclose(file);
@@ -145,6 +146,15 @@ int main(int argc, const char* argv[]) {
   wasm_func_t* store_func = get_export_func(&exports, i++);
 
   wasm_module_delete(module);
+
+  if (!memory || !wasm_memory_data(memory)) {
+    printf("> Error getting memory!\n");
+    wasm_extern_vec_delete(&exports);
+    wasm_instance_delete(instance);
+    wasm_store_delete(store);
+    wasm_engine_delete(engine);
+    return 1;
+  }
 
   // Try cloning.
   own wasm_memory_t* copy = wasm_memory_copy(memory);
