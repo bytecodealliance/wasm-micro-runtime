@@ -31,14 +31,14 @@ jobs:
         cmake ..
         make -j $(nproc)
         cd .. && rm -rf build
-    - name: Build iwasm [Classic interp]
+    - name: Build iwasm [classic interp]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_FAST_INTERP=0
         make -j $(nproc)
         cd .. && rm -rf build
-    - name: Build iwasm [Multi module]
+    - name: Build iwasm [multi module]
       run: |
         cd product-mini/platforms/linux
         mkdir build && cd build
@@ -87,6 +87,27 @@ jobs:
         cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
         make -j $(nproc)
         cd .. && rm -rf build
+    - name: Build iwasm [disable hardware boundary check]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_DISABLE_HW_BOUND_CHECK=1
+        make -j $(nproc)
+        cd .. && rm -rf build
+    - name: Build iwasm [reference types]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_REF_TYPES=1
+        make -j $(nproc)
+        cd .. && rm -rf build
+    - name: Build iwasm [128-bit SIMD]
+      run: |
+        cd product-mini/platforms/linux
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_SIMD=1
+        make -j $(nproc)
+        cd .. && rm -rf build
     - name: Cache LLVM libraries
       uses: actions/cache@v2
       id: cache_llvm
@@ -132,7 +153,10 @@ jobs:
         ./callback_chain
         ./global
         ./hello
+        ./hostref
+        ./memory
         ./reflect
+        ./table
         ./trap
         cd .. && rm -r build
     - name: Build Sample [wasm-c-api] [Jit]
@@ -145,7 +169,10 @@ jobs:
         ./callback_chain
         ./global
         ./hello
+        ./hostref
+        ./memory
         ./reflect
+        ./table
         ./trap
         cd .. && rm -r build
     - name: Build Sample [wasm-c-api] [Aot]
@@ -158,7 +185,10 @@ jobs:
         ./callback_chain
         ./global
         ./hello
+        ./hostref
+        ./memory
         ./reflect
+        ./table
         ./trap
         cd .. && rm -r build
     - name: Build Sample [basic]
@@ -187,3 +217,10 @@ jobs:
         cmake ..
         make -j $(nproc)
         ./spawn_thread
+    - name: Build Sample [ref-types]
+      run: |
+        cd samples/ref-types
+        mkdir build && cd build
+        cmake ..
+        make -j $(nproc)
+        ./hello

@@ -130,8 +130,8 @@ failed:                                                                       \
         }                                                                     \
                                                                               \
         if (data) {                                                           \
-            unsigned int size_in_bytes = 0;                                   \
-            size_in_bytes = size * sizeof(wasm_##name##_t);                   \
+            uint32 size_in_bytes = 0;                                         \
+            size_in_bytes = (uint32)(size * sizeof(wasm_##name##_t));         \
             bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);       \
             out->num_elems = size;                                            \
         }                                                                     \
@@ -173,8 +173,8 @@ failed:                                                                       \
         }                                                                     \
                                                                               \
         if (data) {                                                           \
-            unsigned int size_in_bytes = 0;                                   \
-            size_in_bytes = size * sizeof(wasm_##name##_t *);                 \
+            uint32 size_in_bytes = 0;                                         \
+            size_in_bytes = (uint32)(size * sizeof(wasm_##name##_t *));       \
             bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);       \
             out->num_elems = size;                                            \
         }                                                                     \
@@ -434,12 +434,14 @@ wasm_store_delete(wasm_store_t *store)
     for (i = 0; i != store_count; ++i) {
         wasm_store_t *tmp;
 
-        if (!bh_vector_get((Vector *)singleton_engine->stores, i, &tmp)) {
+        if (!bh_vector_get((Vector *)singleton_engine->stores,
+                           (uint32)i, &tmp)) {
             break;
         }
 
         if (tmp == store) {
-            bh_vector_remove((Vector *)singleton_engine->stores, i, NULL);
+            bh_vector_remove((Vector *)singleton_engine->stores,
+                             (uint32)i, NULL);
             break;
         }
     }
@@ -1509,9 +1511,9 @@ wasm_frame_new(wasm_instance_t *instance,
     }
 
     frame->instance = instance;
-    frame->module_offset = module_offset;
+    frame->module_offset = (uint32)module_offset;
     frame->func_index = func_index;
-    frame->func_offset = func_offset;
+    frame->func_offset = (uint32)func_offset;
     return frame;
 }
 
@@ -1787,7 +1789,7 @@ wasm_foreign_new(wasm_store_t *store)
 
     foreign->store = store;
     foreign->kind = WASM_REF_foreign;
-    foreign->foreign_idx_rt = bh_vector_size(store->foreigns);
+    foreign->foreign_idx_rt = (uint32)bh_vector_size(store->foreigns);
     if (!(bh_vector_append(store->foreigns, &foreign))) {
         wasm_runtime_free(foreign);
         return NULL;
@@ -1932,10 +1934,10 @@ wasm_module_validate(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
     if (!store || !binary || binary->size > UINT32_MAX) {
         LOG_ERROR("%s failed", __FUNCTION__);
-        return NULL;
+        return false;
     }
 
-    if ((module_rt = wasm_runtime_load((uint8 *)binary->data, binary->size,
+    if ((module_rt = wasm_runtime_load((uint8 *)binary->data, (uint32)binary->size,
                                        error_buf, 128))) {
         wasm_runtime_unload(module_rt);
         return true;
@@ -3415,7 +3417,7 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
         AOTTableInstance *table_aot =
-          inst_aot->tables.ptr + table->table_idx_rt;
+          (AOTTableInstance*)inst_aot->tables.ptr + table->table_idx_rt;
         if (index >= table_aot->cur_size) {
             return NULL;
         }
@@ -3478,7 +3480,7 @@ wasm_table_set(wasm_table_t *table,
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
         AOTModule *module_aot = (AOTModule *)inst_aot->aot_module.ptr;
         AOTTableInstance *table_aot =
-          inst_aot->tables.ptr + table->table_idx_rt;
+          (AOTTableInstance *)inst_aot->tables.ptr + table->table_idx_rt;
 
         if (index >= table_aot->cur_size) {
             return false;
