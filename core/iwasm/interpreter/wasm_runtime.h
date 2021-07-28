@@ -456,4 +456,3 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env);
 #endif
 
 #endif /* end of _WASM_RUNTIME_H */
-

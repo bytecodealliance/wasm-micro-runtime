@@ -7881,7 +7881,7 @@ fail_data_cnt_sec_require:
 #if WASM_ENABLE_REF_TYPES != 0
                 case WASM_OP_TABLE_INIT:
                 {
-                    uint8 seg_ref_type, tbl_ref_type;
+                    uint8 seg_ref_type = 0, tbl_ref_type = 0;
 
                     if (!wasm_get_ref_types_flag()) {
                         goto unsupported_opcode;

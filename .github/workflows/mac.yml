@@ -26,63 +26,84 @@ jobs:
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake ..
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
-    - name: Build iwasm [Classic interp]
+    - name: Build iwasm [classic interp]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_FAST_INTERP=0
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
-    - name: Build iwasm [Multi module]
+    - name: Build iwasm [multi module]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_MULTI_MODULE=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [lib-pthread]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [aot only]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [interp only]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_AOT=0
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [memory profiling]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_MEMORY_PROFILING=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [tail call]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_TAIL_CALL=1
-        make
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: Build iwasm [custom name section]
       run: |
         cd product-mini/platforms/darwin
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
-        make
+        make -j $(nproc)
+        cd .. && rm -rf build
+    - name: Build iwasm [disable hardware boundary check]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_DISABLE_HW_BOUND_CHECK=1
+        make -j $(nproc)
+        cd .. && rm -rf build
+    - name: Build iwasm [ref types]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_REF_TYPES=1
+        make -j $(nproc)
+        cd .. && rm -rf build
+    - name: Build iwasm [128-bit SIMD]
+      run: |
+        cd product-mini/platforms/darwin
+        mkdir build && cd build
+        cmake .. -DWAMR_BUILD_SIMD=1
+        make -j $(nproc)
         cd .. && rm -rf build
     - name: download and install wabt
       run: |
@@ -96,6 +117,12 @@ jobs:
         mkdir build && cd build
         cmake ..
         make
-        ./hello
-        ./global
         ./callback
+        ./callback_chain
+        ./global
+        ./hello
+        ./hostref
+        ./memory
+        ./reflect
+        ./table
+        ./trap

@@ -573,6 +573,12 @@ WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
   own wasm_trap_t**
 );
 
+// please refer to wasm_runtime_instantiate(...) in core/iwasm/include/wasm_export.h
+WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_with_args(
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_t *const imports[],
+  own wasm_trap_t**, const uint32_t stack_size, const uint32_t heap_size
+);
+
 WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);
 
 
@@ -764,6 +770,7 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #define WASM_REF_VAL(r) {.kind = WASM_ANYREF, .of = {.ref = r}}
 #define WASM_INIT_VAL {.kind = WASM_ANYREF, .of = {.ref = NULL}}
 
+#define KILOBYTE(n) ((n) * 1024)
 
 ///////////////////////////////////////////////////////////////////////////////
 

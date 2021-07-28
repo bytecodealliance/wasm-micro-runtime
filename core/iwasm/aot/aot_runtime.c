@@ -2822,9 +2822,12 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
         return orig_tbl_sz;
     }
 
+    if (tbl_inst->cur_size > UINT32_MAX - inc_entries) {
+        return (uint32)-1;
+    }
+
     entry_count = tbl_inst->cur_size + inc_entries;
-    /* prevent from integer overflow */
-    if (entry_count < tbl_inst->cur_size || entry_count > tbl_inst->max_size) {
+    if (entry_count > tbl_inst->max_size) {
         return (uint32)-1;
     }
 
