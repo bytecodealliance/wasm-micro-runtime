@@ -1989,31 +1989,19 @@ recover_br_info:
 
       HANDLE_OP (WASM_OP_I32_SHL):
       {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_X86_32)
-        DEF_OP_NUMERIC(uint32, uint32, I32, <<);
-#else
         DEF_OP_NUMERIC2(uint32, uint32, I32, <<);
-#endif
         HANDLE_OP_END ();
       }
 
       HANDLE_OP (WASM_OP_I32_SHR_S):
       {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_X86_32)
-        DEF_OP_NUMERIC(int32, uint32, I32, >>);
-#else
         DEF_OP_NUMERIC2(int32, uint32, I32, >>);
-#endif
         HANDLE_OP_END ();
       }
 
       HANDLE_OP (WASM_OP_I32_SHR_U):
       {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_X86_32)
-        DEF_OP_NUMERIC(uint32, uint32, I32, >>);
-#else
         DEF_OP_NUMERIC2(uint32, uint32, I32, >>);
-#endif
         HANDLE_OP_END ();
       }
 
@@ -2140,31 +2128,19 @@ recover_br_info:
 
       HANDLE_OP (WASM_OP_I64_SHL):
       {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_X86_32)
-        DEF_OP_NUMERIC_64(uint64, uint64, I64, <<);
-#else
         DEF_OP_NUMERIC2_64(uint64, uint64, I64, <<);
-#endif
         HANDLE_OP_END ();
       }
 
       HANDLE_OP (WASM_OP_I64_SHR_S):
       {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_X86_32)
-        DEF_OP_NUMERIC_64(int64, uint64, I64, >>);
-#else
         DEF_OP_NUMERIC2_64(int64, uint64, I64, >>);
-#endif
         HANDLE_OP_END ();
       }
 
       HANDLE_OP (WASM_OP_I64_SHR_U):
       {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_X86_32)
-        DEF_OP_NUMERIC_64(uint64, uint64, I64, >>);
-#else
         DEF_OP_NUMERIC2_64(uint64, uint64, I64, >>);
-#endif
         HANDLE_OP_END ();
       }
 
@@ -2195,13 +2171,13 @@ recover_br_info:
 
       HANDLE_OP (WASM_OP_F32_NEG):
       {
-          int32 i32 = (int32)frame_lp[GET_OFFSET()];
+          uint32 u32 = frame_lp[GET_OFFSET()];
+          uint32 sign_bit = u32 & ((uint32)1 << 31);
           addr_ret = GET_OFFSET();
-          int32 sign_bit = i32 & (1 << 31);
           if (sign_bit)
-              frame_lp[addr_ret] = i32 & ~(1 << 31);
+              frame_lp[addr_ret] = u32 & ~((uint32)1 << 31);
           else
-              frame_lp[addr_ret] = (uint32)(i32 | (1 << 31));
+              frame_lp[addr_ret] = u32 | ((uint32)1 << 31);
           HANDLE_OP_END ();
       }
 
@@ -2290,14 +2266,14 @@ recover_br_info:
 
       HANDLE_OP (WASM_OP_F64_NEG):
       {
-          int64 i64 = GET_I64_FROM_ADDR(frame_lp + GET_OFFSET());
-          int64 sign_bit = i64 & (((int64)1) << 63);
+          uint64 u64 = GET_I64_FROM_ADDR(frame_lp + GET_OFFSET());
+          uint64 sign_bit = u64 & (((uint64)1) << 63);
           if (sign_bit)
               PUT_I64_TO_ADDR(frame_lp + GET_OFFSET(),
-                              ((uint64)i64 & ~(((uint64)1) << 63)));
+                              (u64 & ~(((uint64)1) << 63)));
           else
               PUT_I64_TO_ADDR(frame_lp + GET_OFFSET(),
-                              ((uint64)i64 | (((uint64)1) << 63)));
+                              (u64 | (((uint64)1) << 63)));
           HANDLE_OP_END ();
       }
 

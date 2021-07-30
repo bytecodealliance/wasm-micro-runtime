@@ -434,14 +434,14 @@ wasm_store_delete(wasm_store_t *store)
     for (i = 0; i != store_count; ++i) {
         wasm_store_t *tmp;
 
-        if (!bh_vector_get((Vector *)singleton_engine->stores,
-                           (uint32)i, &tmp)) {
+        if (!bh_vector_get((Vector *)singleton_engine->stores, (uint32)i,
+                           &tmp)) {
             break;
         }
 
         if (tmp == store) {
-            bh_vector_remove((Vector *)singleton_engine->stores,
-                             (uint32)i, NULL);
+            bh_vector_remove((Vector *)singleton_engine->stores, (uint32)i,
+                             NULL);
             break;
         }
     }
@@ -1935,8 +1935,8 @@ wasm_module_validate(wasm_store_t *store, const wasm_byte_vec_t *binary)
         return false;
     }
 
-    if ((module_rt = wasm_runtime_load((uint8 *)binary->data, (uint32)binary->size,
-                                       error_buf, 128))) {
+    if ((module_rt = wasm_runtime_load(
+           (uint8 *)binary->data, (uint32)binary->size, error_buf, 128))) {
         wasm_runtime_unload(module_rt);
         return true;
     }
@@ -3415,7 +3415,7 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
     if (table->inst_comm_rt->module_type == Wasm_Module_AoT) {
         AOTModuleInstance *inst_aot = (AOTModuleInstance *)table->inst_comm_rt;
         AOTTableInstance *table_aot =
-          (AOTTableInstance*)inst_aot->tables.ptr + table->table_idx_rt;
+          (AOTTableInstance *)inst_aot->tables.ptr + table->table_idx_rt;
         if (index >= table_aot->cur_size) {
             return NULL;
         }
