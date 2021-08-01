@@ -72,6 +72,10 @@ func (self *Instance) CallFunc(funcName string, argc uint32, args []uint32) erro
 		self.exportsCache[funcName] = _func
 	}
 
+	if !C.wasm_runtime_init_thread_env() {
+		return fmt.Errorf("init thread env Error")
+	}
+
     if !C.wasm_runtime_call_wasm(self._exec_env, _func, C.uint(argc), (*C.uint32_t)(unsafe.Pointer(&args[0]))) {
 		return fmt.Errorf("wasm_runtime_call_wasm Error")
 	}
