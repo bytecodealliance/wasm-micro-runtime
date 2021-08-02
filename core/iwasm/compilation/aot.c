@@ -461,11 +461,11 @@ aot_create_comp_data(WASMModule *module)
       }
       else {
         j = i - module->import_table_count;
-        comp_data->tables[i].elem_type = module->tables[i].elem_type;
-        comp_data->tables[i].table_flags = module->tables[i].flags;
-        comp_data->tables[i].table_init_size = module->tables[i].init_size;
-        comp_data->tables[i].table_max_size = module->tables[i].max_size;
-        comp_data->tables[i].possible_grow = module->tables[i].possible_grow;
+        comp_data->tables[i].elem_type = module->tables[j].elem_type;
+        comp_data->tables[i].table_flags = module->tables[j].flags;
+        comp_data->tables[i].table_init_size = module->tables[j].init_size;
+        comp_data->tables[i].table_max_size = module->tables[j].max_size;
+        comp_data->tables[i].possible_grow = module->tables[j].possible_grow;
       }
     }
   }

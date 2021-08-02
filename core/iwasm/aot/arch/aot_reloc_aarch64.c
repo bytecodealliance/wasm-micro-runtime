@@ -111,8 +111,8 @@ get_plt_table_size()
 }
 
 #define SIGN_EXTEND_TO_INT64(val, bits, val_ext) do { \
-    int64 m = ((int64)1 << (bits - 1));      \
-    val_ext = ((int64)val ^ m) - m;          \
+    int64 m = (int64)((uint64)1 << (bits - 1));       \
+    val_ext = ((int64)val ^ m) - m;                   \
 } while (0)
 
 #define Page(expr) ((expr) & ~0xFFF)

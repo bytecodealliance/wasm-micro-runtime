@@ -42,6 +42,7 @@ set(WAMR_BUILD_LIBC_BUILTIN 1)
 set(WAMR_BUILD_LIBC_WASI 0)
 set(WAMR_BUILD_MULTI_MODULE 1)
 set(WAMR_BUILD_DUMP_CALL_STACK 1)
+set(WAMR_BUILD_REF_TYPES 1)
 
 if(NOT DEFINED WAMR_BUILD_FAST_INTERP)
   set(WAMR_BUILD_FAST_INTERP 1)
@@ -101,12 +102,15 @@ include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 set(MM_UTIL src/utils/multi_module_utils.c)
 # build executable for each .c
 set(EXAMPLES
-  hello
   callback
-  global
-  reflect
-  trap
   callback_chain
+  global
+  hello
+  hostref
+  memory
+  reflect
+  table
+  trap
 )
 
 foreach(EX ${EXAMPLES})
@@ -123,7 +127,7 @@ foreach(EX ${EXAMPLES})
   set(WAT ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.wat)
 
   add_custom_target(${EX}_WASM
-    COMMAND ${WAT2WASM} ${WAT} -o ${PROJECT_BINARY_DIR}/${EX}.wasm
+    COMMAND ${WAT2WASM} ${WAT} --enable-reference-types -o ${PROJECT_BINARY_DIR}/${EX}.wasm
     DEPENDS ${WAT}
     BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.wasm
     VERBATIM
@@ -133,7 +137,7 @@ foreach(EX ${EXAMPLES})
   # generate .aot file
   if(${WAMR_BUILD_AOT} EQUAL 1)
     add_custom_target(${EX}_AOT
-      COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
+      COMMAND ${WAMRC} --enable-ref-types -o ${PROJECT_BINARY_DIR}/${EX}.aot
         ${PROJECT_BINARY_DIR}/${EX}.wasm
       DEPENDS ${EX}_WASM
       BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot

@@ -121,9 +121,9 @@ read_leb(uint8 **p_buf, const uint8 *buf_end,
     }
     else if (sign && maxbits == 32) {
         if (shift < maxbits) {
-            /* Sign extend */
-            result = (((int32)result) << (maxbits - shift))
-                     >> (maxbits - shift);
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
         }
         else {
             /* The top bits should be a sign-extension of the sign bit */
@@ -136,9 +136,9 @@ read_leb(uint8 **p_buf, const uint8 *buf_end,
     }
     else if (sign && maxbits == 64) {
         if (shift < maxbits) {
-            /* Sign extend */
-            result = (((int64)result) << (maxbits - shift))
-                     >> (maxbits - shift);
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
         }
         else {
             /* The top bits should be a sign-extension of the sign bit */
@@ -7881,7 +7881,7 @@ fail_data_cnt_sec_require:
 #if WASM_ENABLE_REF_TYPES != 0
                 case WASM_OP_TABLE_INIT:
                 {
-                    uint8 seg_ref_type, tbl_ref_type;
+                    uint8 seg_ref_type = 0, tbl_ref_type = 0;
 
                     if (!wasm_get_ref_types_flag()) {
                         goto unsupported_opcode;
