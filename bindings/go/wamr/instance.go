@@ -21,10 +21,12 @@ import (
 type Instance struct {
 	_instance C.wasm_module_inst_t
 	_exec_env C.wasm_exec_env_t
+	_module *Module
+	_runtime *WamrRuntime
 	exportsCache map[string]C.wasm_function_inst_t
 }
 
-func NewInstance(module *Module) (*Instance, error) {
+func NewInstance(module *Module, wasmRuntime *WamrRuntime) (*Instance, error) {
 	stackSize := 16 * 8092
 	heapSize := 8092
 
@@ -48,6 +50,8 @@ func NewInstance(module *Module) (*Instance, error) {
 	self := &Instance{
 		_instance: _inst,
 		_exec_env: _env,
+		_module: module,
+		_runtime: wasmRuntime,
 		exportsCache: make(map[string]C.wasm_function_inst_t),
 	}
 

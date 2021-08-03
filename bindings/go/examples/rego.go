@@ -201,7 +201,7 @@ func main() {
 		return
 	}
 
-	instance, err3 := wamr.NewInstance(module)
+	instance, err3 := wamr.NewInstance(module, _runtime)
 	if err3 != nil {
 		fmt.Println(err3, 3)
 		return
