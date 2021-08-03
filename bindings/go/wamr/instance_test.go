@@ -17,7 +17,7 @@ func TestInstance(t *testing.T) {
 	module, err2 := NewModule(wasmBytes)
 	assert.NoError(t, err2)
 
-	_, err3 := NewInstance(module)
+	_, err3 := NewInstance(module, _runtime)
 	assert.NoError(t, err3)
 }
 
@@ -30,7 +30,7 @@ func TestCallFunc(t *testing.T) {
 	module, err2 := NewModule(wasmBytes)
 	assert.NoError(t, err2)
 
-	instance, err3 := NewInstance(module)
+	instance, err3 := NewInstance(module, _runtime)
 	assert.NoError(t, err3)
 
 	args := []uint32{1, 2}
