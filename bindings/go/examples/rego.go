@@ -151,14 +151,14 @@ func (self *Rego) eval(input string) (string, error) {
 		return "", errSetInput
 	}
 	t2 := time.Now();
-	fmt.Println("before eval time cost = %v", time.Since(t1))
+	fmt.Println("before eval time cost = ", time.Since(t1))
 
 	argv[0] = ctxAddr
 	errEval := self._instance.CallFunc("eval", 1, argv)
 	if errEval != nil {
 		return "", errEval
 	}
-	fmt.Println("eval time cost = %v", time.Since(t2))
+	fmt.Println("eval time cost = ", time.Since(t2))
 	t3 := time.Now();
 
 	argv[0] = ctxAddr
@@ -171,7 +171,7 @@ func (self *Rego) eval(input string) (string, error) {
 	if errDumpJson != nil {
 		return "", errDumpJson
 	}
-	fmt.Println("after eval time cost = %v", time.Since(t3))
+	fmt.Println("after eval time cost = ", time.Since(t3))
 
 	return result, nil
 }
@@ -229,11 +229,11 @@ func main() {
 	if errInput != nil {
 		return
 	}
-	fmt.Println("cold start time cost = %v", time.Since(t1))
+	fmt.Println("cold start time cost = ", time.Since(t1))
 	t2 := time.Now();
 
 	for i := 0; i < 100000; i++ {
-		fmt.Println("i = %v", i)
+		fmt.Println("i = ", i)
 		//result, errEval := rego.eval(string(inputBytes))
 		_, errEval := rego.eval(string(inputBytes))
 		if errEval != nil {
@@ -241,7 +241,7 @@ func main() {
 			return
 		}
 	}
-	fmt.Println("eval time cost = %v", time.Since(t2))
+	fmt.Println("eval time cost = ", time.Since(t2))
 
 	return
 }
