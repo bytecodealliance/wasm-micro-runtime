@@ -77,7 +77,7 @@ func (self *Instance) CallFunc(funcName string, argc uint32, args []uint32) erro
 	}
 
     if !C.wasm_runtime_call_wasm(self._exec_env, _func, C.uint(argc), (*C.uint32_t)(unsafe.Pointer(&args[0]))) {
-		return fmt.Errorf("wasm_runtime_call_wasm Error: ", self.GetException())
+		return fmt.Errorf("wasm_runtime_call_wasm Error: %s", string(self.GetException()))
 	}
 
 	return nil

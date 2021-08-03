@@ -28,7 +28,7 @@ func NewModule(wasmBytes []byte) (*Module, error) {
 
 	_m := C.wasm_runtime_load(wasmPtr, C.uint(wasmLen), errorPtr, C.uint(errorLen))
 	if (_m == nil) {
-		return nil, fmt.Errorf("NewModule Error: %v", string(errorBytes))
+		return nil, fmt.Errorf("NewModule Error: %s", string(errorBytes))
 	}
 
 	self := &Module{
