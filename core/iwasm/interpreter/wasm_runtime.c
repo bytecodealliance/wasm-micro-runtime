@@ -2485,14 +2485,14 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
         /* place holder, will overwrite it in wasm_c_api */
         frame.instance = module_inst;
         frame.module_offset = 0;
-        frame.func_index = func_inst - module_inst->functions;
+        frame.func_index = (uint32)(func_inst - module_inst->functions);
 
         func_code_base = wasm_get_func_code(func_inst);
         if (!cur_frame->ip || !func_code_base) {
             frame.func_offset = 0;
         }
         else {
-            frame.func_offset = cur_frame->ip - func_code_base;
+            frame.func_offset = (uint32)(cur_frame->ip - func_code_base);
         }
 
         /* look for the function name */

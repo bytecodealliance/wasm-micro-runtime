@@ -1324,7 +1324,7 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
     uint16 param_count = func_type->param_count;
     uint16 result_count = func_type->result_count;
     const uint8 *types = func_type->types;
-#if BH_PLATFORM_WINDOWS
+#ifdef BH_PLATFORM_WINDOWS
     const char *exce;
     int result;
 #endif

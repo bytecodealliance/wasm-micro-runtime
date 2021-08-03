@@ -823,9 +823,19 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
 bool
 wasm_runtime_init_thread_env()
 {
+#ifdef BH_PLATFORM_WINDOWS
+    if (os_thread_env_init() != 0)
+        return false;
+#endif
+
 #if WASM_ENABLE_AOT != 0
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-    return aot_signal_init();
+    if (!aot_signal_init()) {
+#ifdef BH_PLATFORM_WINDOWS
+        os_thread_env_destroy();
+#endif
+        return false;
+    }
 #endif
 #endif
     return true;
@@ -838,6 +848,10 @@ wasm_runtime_destroy_thread_env()
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     aot_signal_destroy();
 #endif
+#endif
+
+#ifdef BH_PLATFORM_WINDOWS
+    os_thread_env_destroy();
 #endif
 }
 
