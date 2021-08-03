@@ -1140,6 +1140,10 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
 {
     bool ret = false;
 
+	if (!wasm_runtime_init_thread_env()) {
+		return false;
+	}
+
     if (!wasm_runtime_exec_env_check(exec_env)) {
         LOG_ERROR("Invalid exec env stack info.");
         return false;
