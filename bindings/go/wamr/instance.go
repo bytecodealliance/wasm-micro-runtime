@@ -37,7 +37,7 @@ func NewInstance(module *Module) (*Instance, error) {
 
 	_inst := C.wasm_runtime_instantiate(module._module, C.uint(stackSize), C.uint(heapSize), errorPtr, C.uint(errorLen))
 	if (_inst == nil) {
-		return nil, fmt.Errorf("wasm_runtime_instantiate Error: %v", string(errorBytes))
+		return nil, fmt.Errorf("wasm_runtime_instantiate Error: ", string(errorBytes))
 	}
 
     _env := C.wasm_runtime_create_exec_env(_inst, C.uint(stackSize));
@@ -77,7 +77,7 @@ func (self *Instance) CallFunc(funcName string, argc uint32, args []uint32) erro
 	}
 
     if !C.wasm_runtime_call_wasm(self._exec_env, _func, C.uint(argc), (*C.uint32_t)(unsafe.Pointer(&args[0]))) {
-		return fmt.Errorf("wasm_runtime_call_wasm Error")
+		return fmt.Errorf("wasm_runtime_call_wasm Error: ", self.GetException())
 	}
 
 	return nil

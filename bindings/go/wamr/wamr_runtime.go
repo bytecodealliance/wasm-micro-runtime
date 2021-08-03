@@ -7,15 +7,19 @@ package wamr
 #include <stddef.h>
 RuntimeInitArgs init_args;
 void init_wamr_runtime() {
-#if USE_GLOBAL_HEAP_BUF != 0
+#ifdef POOL_ALLOC
+    static char global_heap_buf[256 * 1024] = { 0 };//(256 kB)
+
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
     init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
-#else
+#elif defined(FUNC_ALLOC)
     init_args.mem_alloc_type = Alloc_With_Allocator;
     init_args.mem_alloc_option.allocator.malloc_func = malloc;
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
+#else
+    init_args.mem_alloc_type = Alloc_With_System_Allocator;
 #endif
 	init_args.n_native_symbols = 0;
 	init_args.native_module_name = "env";

@@ -232,7 +232,8 @@ func main() {
 	fmt.Println("cold start time cost = %v", time.Since(t1))
 	t2 := time.Now();
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100000; i++ {
+		fmt.Println("i = %v", i)
 		//result, errEval := rego.eval(string(inputBytes))
 		_, errEval := rego.eval(string(inputBytes))
 		if errEval != nil {
