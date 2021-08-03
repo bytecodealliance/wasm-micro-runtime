@@ -48,7 +48,7 @@ rotl32(uint32 n, uint32 c)
     const uint32 mask = (31);
     c = c % 32;
     c &= mask;
-    return (n<<c) | (n>>( (-c)&mask ));
+    return (n << c) | (n >> ((0 - c) & mask));
 }
 
 static inline uint32
@@ -57,7 +57,7 @@ rotr32(uint32 n, uint32 c)
     const uint32 mask = (31);
     c = c % 32;
     c &= mask;
-    return (n>>c) | (n<<( (-c)&mask ));
+    return (n >> c) | (n << ((0 - c) & mask));
 }
 
 static inline uint64
@@ -66,7 +66,7 @@ rotl64(uint64 n, uint64 c)
     const uint64 mask = (63);
     c = c % 64;
     c &= mask;
-    return (n<<c) | (n>>( (-c)&mask ));
+    return (n << c) | (n >> ((0 - c) & mask));
 }
 
 static inline uint64
@@ -75,7 +75,7 @@ rotr64(uint64 n, uint64 c)
     const uint64 mask = (63);
     c = c % 64;
     c &= mask;
-    return (n>>c) | (n<<( (-c)&mask ));
+    return (n >> c) | (n << ((0 - c) & mask));
 }
 
 static inline double
@@ -455,7 +455,8 @@ LOAD_PTR(void *addr)
 
 #define DEF_OP_MATH(src_type, src_op_type, method) do {             \
     SET_OPERAND(src_op_type, 2,                                     \
-                method(GET_OPERAND(src_type, src_op_type, 0)));     \
+                (src_type)method(GET_OPERAND(src_type,              \
+                                             src_op_type, 0)));     \
     frame_ip += 4;                                                  \
   } while (0)
 
@@ -2229,7 +2230,7 @@ recover_br_info:
         else if (isnan(b))
             *(float32*)(frame_lp + GET_OFFSET()) = b;
         else
-            *(float32*)(frame_lp + GET_OFFSET()) = wa_fmin(a, b);
+            *(float32*)(frame_lp + GET_OFFSET()) = (float32)wa_fmin(a, b);
         HANDLE_OP_END ();
       }
 
@@ -2245,7 +2246,7 @@ recover_br_info:
         else if (isnan(b))
             *(float32*)(frame_lp + GET_OFFSET()) = b;
         else
-            *(float32*)(frame_lp + GET_OFFSET()) = wa_fmax(a, b);
+            *(float32*)(frame_lp + GET_OFFSET()) = (float32)wa_fmax(a, b);
         HANDLE_OP_END ();
       }
 
@@ -2255,7 +2256,8 @@ recover_br_info:
 
         b = *(float32*)(frame_lp + GET_OFFSET());
         a = *(float32*)(frame_lp + GET_OFFSET());
-        *(float32*)(frame_lp + GET_OFFSET()) = (signbit(b) ? -fabs(a) : fabs(a));
+        *(float32*)(frame_lp + GET_OFFSET()) =
+            (float32)(signbit(b) ? -fabs(a) : fabs(a));
         HANDLE_OP_END ();
       }
 
@@ -2606,7 +2608,8 @@ recover_br_info:
           if (offset + bytes > seg_len)
             goto out_of_bounds;
 
-          bh_memcpy_s(maddr, linear_mem_size - addr, data + offset, bytes);
+          bh_memcpy_s(maddr, linear_mem_size - addr,
+                      data + offset, (uint32)bytes);
           break;
         }
         case WASM_OP_DATA_DROP:
@@ -2695,9 +2698,9 @@ recover_br_info:
             bh_memcpy_s(
               (uint8 *)tbl_inst + offsetof(WASMTableInstance, base_addr)
                 + d * sizeof(uint32),
-              (tbl_inst->cur_size - d) * sizeof(uint32),
+              (uint32)((tbl_inst->cur_size - d) * sizeof(uint32)),
               module->module->table_segments[elem_idx].func_indexes + s,
-              n * sizeof(uint32));
+              (uint32)(n * sizeof(uint32)));
             break;
         }
         case WASM_OP_ELEM_DROP:
@@ -2740,10 +2743,10 @@ recover_br_info:
             bh_memmove_s(
               (uint8 *)dst_tbl_inst + offsetof(WASMTableInstance, base_addr)
                 + d * sizeof(uint32),
-              (dst_tbl_inst->cur_size - d) * sizeof(uint32),
+              (uint32)((dst_tbl_inst->cur_size - d) * sizeof(uint32)),
               (uint8 *)src_tbl_inst
                 + offsetof(WASMTableInstance, base_addr) + s * sizeof(uint32),
-              n * sizeof(uint32));
+              (uint32)(n * sizeof(uint32)));
             break;
         }
         case WASM_OP_TABLE_GROW:
