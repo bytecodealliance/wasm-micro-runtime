@@ -4,7 +4,9 @@ import (
 	"gitlab.alipay-inc.com/TNT_Runtime/ant-runtime/bindings/go/wamr"
 	"io/ioutil"
 	"fmt"
-	"time"
+//	"time"
+	"os"
+	"runtime/pprof"
 )
 
 var DATA_JSON = "testdata/data.json"
@@ -96,20 +98,20 @@ func (self *Rego) setData(data string) error {
 
 	err := self._instance.CallFunc("opa_heap_ptr_set", 1, argv)
 	if err != nil {
-		fmt.Println(err, self._instance.GetException())
+		//fmt.Println(err, self._instance.GetException())
 		return err
 	}
 
 	dataPtr, err2 := self.loadJson(data)
 	if err2 != nil {
-		fmt.Println(err, 2)
+		//fmt.Println(err, 2)
 		return err2
 	}
 	self.dataPtr = dataPtr
 
 	err3 := self._instance.CallFunc("opa_heap_ptr_get", 0, argv)
 	if err3 != nil {
-		fmt.Println(err, 3)
+		//fmt.Println(err, 3)
 		return err3
 	}
 	self.dataHeapPtr = argv[0]
@@ -118,7 +120,7 @@ func (self *Rego) setData(data string) error {
 }
 
 func (self *Rego) eval(input string) (string, error) {
-	t1 := time.Now();
+	//t1 := time.Now();
 	argv := make([]uint32, 2)
 	argv[0] = self.dataHeapPtr
 	errPtrSet := self._instance.CallFunc("opa_heap_ptr_set", 1, argv)
@@ -150,16 +152,16 @@ func (self *Rego) eval(input string) (string, error) {
 	if errSetInput != nil {
 		return "", errSetInput
 	}
-	t2 := time.Now();
-	fmt.Println("before eval time cost = ", time.Since(t1))
+	//t2 := time.Now();
+	//fmt.Println("before eval time cost = ", time.Since(t1))
 
 	argv[0] = ctxAddr
 	errEval := self._instance.CallFunc("eval", 1, argv)
 	if errEval != nil {
 		return "", errEval
 	}
-	fmt.Println("eval time cost = ", time.Since(t2))
-	t3 := time.Now();
+	//fmt.Println("eval time cost = ", time.Since(t2))
+	//t3 := time.Now();
 
 	argv[0] = ctxAddr
 	errGetResult := self._instance.CallFunc("opa_eval_ctx_get_result", 1, argv)
@@ -171,13 +173,18 @@ func (self *Rego) eval(input string) (string, error) {
 	if errDumpJson != nil {
 		return "", errDumpJson
 	}
-	fmt.Println("after eval time cost = ", time.Since(t3))
+	//fmt.Println("after eval time cost = ", time.Since(t3))
 
 	return result, nil
 }
 
 func main() {
-	t1 := time.Now();
+	f, _ := os.Create("example.prof")
+	defer f.Close()
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+
+//	t1 := time.Now();
 
 	_runtime := wamr.NewWamrRuntime()
 	_runtime.SetLogLevel(wamr.LOG_LEVEL_FATAL)
@@ -229,11 +236,11 @@ func main() {
 	if errInput != nil {
 		return
 	}
-	fmt.Println("cold start time cost = ", time.Since(t1))
-	t2 := time.Now();
+	//fmt.Println("cold start time cost = ", time.Since(t1))
+//	t2 := time.Now();
 
 	for i := 0; i < 100000; i++ {
-		fmt.Println("i = ", i)
+		//fmt.Println("i = ", i)
 		//result, errEval := rego.eval(string(inputBytes))
 		_, errEval := rego.eval(string(inputBytes))
 		if errEval != nil {
@@ -241,7 +248,7 @@ func main() {
 			return
 		}
 	}
-	fmt.Println("eval time cost = ", time.Since(t2))
+	//fmt.Println("eval time cost = ", time.Since(t2))
 
 	return
 }
