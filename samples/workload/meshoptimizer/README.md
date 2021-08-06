@@ -32,7 +32,7 @@ $ em++ tools/codecbench.cpp src/vertexcodec.cpp src/vertexfilter.cpp \
        src/spatialorder.cpp src/allocator.cpp src/vcacheanalyzer.cpp \
        src/vfetchoptimizer.cpp src/overdrawoptimizer.cpp src/simplifier.cpp \
        src/stripifier.cpp -O3 -msimd128 \
-       -s TOTAL_MEMORY=268435456 -s "EXPORTED_FUNCTIONS=['_main']" \
+       -s TOTAL_MEMORY=268435456 \
        -o codecbench.wasm
 $ ls -l codecbench.wasm
 ```

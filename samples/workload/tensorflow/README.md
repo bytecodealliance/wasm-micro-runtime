@@ -5,8 +5,8 @@ This sample demonstrates how to build [tensorflow](https://github.com/tensorflow
 ```bash
 git clone https://github.com/emscripten-core/emsdk.git
 cd emsdk
-./emsdk install latest
-./emsdk activate latest
+./emsdk install 2.0.12
+./emsdk activate 2.0.12
 ```
 And set up ensdk environment:
 ```bash
@@ -26,4 +26,4 @@ to build tensorflow and run it with iwasm, which basically contains the followin
 - build tf-lite with emcc compiler
 - build iwasm with pthread enable and include libiary under libc-emcc
 - run benchmark model with iwasm:
-  --max-secs 300: means the max training time cost is 5 minutes, you can adjust by yourself
+  --max-secs 300: means the max training time cost is 5 minutes, you can adjust it by yourself

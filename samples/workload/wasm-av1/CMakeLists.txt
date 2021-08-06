@@ -1,77 +1,34 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required (VERSION 2.8...3.16)
 
 project(av1_wasm)
 
-################  WASI-SDK ################
-find_path(WASI_SDK_HOME
-  NAMES wasi-sdk
-  PATHS /opt/
-  REQUIRED
-)
-
-if (NOT WASI_SDK_HOME)
-  message(FATAL_ERROR
-    "can not find wasi-sdk. "
-    "please download it from "
-    "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz "
-    "and install it under /opt/wasi-sdk"
-  )
-endif()
-
-#
-# check clang version
-execute_process(COMMAND
-  ${WASI_SDK_HOME}/wasi-sdk/bin/clang --version
-  OUTPUT_VARIABLE clang_full_version_string
-)
-string(REGEX REPLACE ".*clang version ([0-9]+\\.[0-9]+).*" "\\1"
-  CLANG_VERSION_STRING ${clang_full_version_string}
-)
-message("cur clang version is ${CLANG_VERSION_STRING}")
-if(CLANG_VERSION_STRING VERSION_LESS 11.0)
-  message(FATAL_ERROR
-    "please install latest wai-sdk to get a clang-11 at least"
-  )
-endif()
-
-################  BINARYEN ################
-find_program(WASM_OPT
-    NAMES wasm-opt
-    PATHS /opt/binaryen-version_97/bin /opt/binaryen/bin
-)
-
-if (NOT WASM_OPT)
-  message(FATAL_ERROR
-    "can not find wasm-opt. "
-    "please download it from "
-    "https://github.com/WebAssembly/binaryen/releases/download/version_97/binaryen-version_97-x86_64-linux.tar.gz "
-    "and install it under /opt"
-  )
-endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/preparation.cmake)
 
 #######################################
 include(ExternalProject)
 
 ################ HEADERS ################
+set(EMSDK_SYSTEM_HEADERS "$ENV{EMSDK}/upstream/emscripten/system/include")
+set(EMSDK_LIBC_HEADERS "${EMSDK_SYSTEM_HEADERS}/libc")
 ExternalProject_Add(headers_from_emcc
    PREFIX headers
-   SOURCE_DIR "$ENV{EM_CACHE}/sysroot/include"
+   SOURCE_DIR "${EMSDK_SYSTEM_HEADERS}"
    CONFIGURE_COMMAND ""
    BUILD_COMMAND  ""
    INSTALL_COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys
                      && ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/bits
                      # copy emscripten pthread related header files
-                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/pthread.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/signal.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/netdb.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/sys/wait.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
-                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/sys/socket.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
+                     && ${CMAKE_COMMAND} -E copy ${EMSDK_LIBC_HEADERS}/pthread.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy ${EMSDK_LIBC_HEADERS}/signal.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy ${EMSDK_LIBC_HEADERS}/netdb.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/
+                     && ${CMAKE_COMMAND} -E copy ${EMSDK_LIBC_HEADERS}/sys/wait.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
+                     && ${CMAKE_COMMAND} -E copy ${EMSDK_LIBC_HEADERS}/sys/socket.h ${CMAKE_CURRENT_SOURCE_DIR}/include/pthread/sys/
                      # copy emscripten setjmp headers
-                     && ${CMAKE_COMMAND} -E copy $ENV{EM_CACHE}/sysroot/include/setjmp.h ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/setjmp.h
-                     && ${CMAKE_COMMAND} -E copy $ENV{EMSDK}/upstream/emscripten/system/lib/libc/musl/arch/emscripten/bits/setjmp.h ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/bits/setjmp.h
+                     && ${CMAKE_COMMAND} -E copy ${EMSDK_LIBC_HEADERS}/setjmp.h ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/setjmp.h
+                     && ${CMAKE_COMMAND} -E copy ${EMSDK_SYSTEM_HEADERS}/../lib/libc/musl/arch/emscripten/bits/setjmp.h ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/bits/setjmp.h
 )
 
 ################ av1 ################
