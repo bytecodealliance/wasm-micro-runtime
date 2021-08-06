@@ -23,9 +23,15 @@ void *thread(void* arg)
     wasm_function_inst_t func;
     uint32 argv[2];
 
+    if (!wasm_runtime_init_thread_env()) {
+        printf("failed to initialize thread environment");
+        return NULL;
+    }
+
     func = wasm_runtime_lookup_function(module_inst, "sum", NULL);
     if (!func) {
         printf("failed to lookup function sum");
+        wasm_runtime_destroy_thread_env();
         return NULL;
     }
     argv[0] = thread_arg->start;
@@ -34,9 +40,11 @@ void *thread(void* arg)
     /* call the WASM function */
     if (!wasm_runtime_call_wasm(exec_env, func, 2, argv)) {
         printf("%s\n", wasm_runtime_get_exception(module_inst));
+        wasm_runtime_destroy_thread_env();
         return NULL;
     }
 
+    wasm_runtime_destroy_thread_env();
     return (void *)(uintptr_t)argv[0];
 }
 

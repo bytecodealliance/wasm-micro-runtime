@@ -4,19 +4,10 @@ RUN apt update \
       && apt install -y lsb-release software-properties-common build-essential \
           wget curl git tree zip unzip
 
-#
-# install clang and llvm
-# COPY llvm.sh /tmp
-# RUN apt update \
-#     && apt install -y lsb-release wget software-properties-common build-essential \
-#     && cd /tmp \
-#     && chmod a+x llvm.sh \
-#     && ./llvm.sh 11
-
 ARG WASI_SDK_VER=12
-ARG WABT_VER=1.0.20
+ARG WABT_VER=1.0.23
 ARG CMAKE_VER=3.16.2
-ARG BINARYEN_VER=version_97
+ARG BINARYEN_VER=version_101
 
 #
 # install wasi-sdk
@@ -52,8 +43,8 @@ RUN cd /opt \
     && git clone https://github.com/emscripten-core/emsdk.git \
     && cd emsdk \
     && git pull \
-    && ./emsdk install latest \
-    && ./emsdk activate latest \
+    && ./emsdk install 2.0.12 \
+    && ./emsdk activate 2.0.12 \
     && echo "source /opt/emsdk/emsdk_env.sh" >> /root/.bashrc
 
 #
@@ -72,6 +63,9 @@ COPY ${BAZEL_FILE} /opt/bazelisk/bin/bazelisk
 RUN cd /opt/bazelisk/bin/ \
       && chmod a+x bazelisk \
       && ln -sf /opt/bazelisk/bin/bazelisk /usr/local/bin/bazel
+
+RUN apt update \
+      && apt install -y python2.7-minimal
 
 #
 # Clean up

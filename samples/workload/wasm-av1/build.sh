@@ -17,7 +17,7 @@ fi
 
 set -xe
 
-EMSDK_WASM_DIR="$EM_CACHE/sysroot/lib/wasm32-emscripten"
+EMSDK_WASM_DIR="${EMSDK}/upstream/emscripten/cache/wasm"
 BUILD_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="${BUILD_SCRIPT_DIR}/out"
 WASM_AV1_DIR="${BUILD_SCRIPT_DIR}/wasm-av1"
