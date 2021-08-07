@@ -1090,6 +1090,14 @@ clock_gettime_wrapper(wasm_exec_env_t exec_env,
     return (uint32)0;
 }
 
+static uint64
+clock_wrapper(wasm_exec_env_t exec_env)
+{
+    /* Convert to nano seconds as CLOCKS_PER_SEC in wasi-sdk */
+
+    return os_time_get_boot_microsecond() * 1000;
+}
+
 #if WASM_ENABLE_SPEC_TEST != 0
 static void
 print_wrapper(wasm_exec_env_t exec_env)
@@ -1190,6 +1198,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(__cxa_begin_catch, "(*)"),
     REG_NATIVE_FUNC(__cxa_throw, "(**i)"),
     REG_NATIVE_FUNC(clock_gettime, "(i*)i"),
+    REG_NATIVE_FUNC(clock, "()I"),
 };
 
 #if WASM_ENABLE_SPEC_TEST != 0
