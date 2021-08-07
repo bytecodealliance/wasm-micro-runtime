@@ -1090,7 +1090,7 @@ clock_gettime_wrapper(wasm_exec_env_t exec_env,
     return (uint32)0;
 }
 
-static uint64_t
+static uint64
 clock_wrapper(wasm_exec_env_t exec_env)
 {
     /* Convert to nano seconds as CLOCKS_PER_SEC in wasi-sdk */
