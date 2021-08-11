@@ -116,6 +116,7 @@ typedef struct AOTMemInfo {
 typedef struct AOTFuncContext {
   AOTFunc *aot_func;
   LLVMValueRef func;
+  LLVMTypeRef func_type;
   AOTBlockStack block_stack;
 
   LLVMValueRef exec_env;
@@ -124,6 +125,7 @@ typedef struct AOTFuncContext {
   LLVMValueRef native_stack_bound;
   LLVMValueRef aux_stack_bound;
   LLVMValueRef aux_stack_bottom;
+  LLVMValueRef native_symbol;
   LLVMValueRef last_alloca;
   LLVMValueRef func_ptrs;
 
@@ -221,9 +223,16 @@ typedef struct AOTCompContext {
   char target_arch[16];
   unsigned pointer_size;
 
+  /* Hardware intrinsic compability flags */
+  uint64 flags[8];
+
   /* LLVM execution engine required by JIT */
   LLVMExecutionEngineRef exec_engine;
   bool is_jit_mode;
+
+  /* AOT indirect mode flag & symbol list */
+  bool is_indirect_mode;
+  bh_list native_symbols;
 
   /* Bulk memory feature */
   bool enable_bulk_memory;
@@ -248,6 +257,9 @@ typedef struct AOTCompContext {
 
   /* Reference Types */
   bool enable_ref_types;
+
+  /* Disable LLVM built-in intrinsics */
+  bool disable_llvm_intrinsics;
 
   /* Whether optimize the JITed code */
   bool optimize;
@@ -283,10 +295,12 @@ enum {
 
 typedef struct AOTCompOption{
     bool is_jit_mode;
+    bool is_indirect_mode;
     char *target_arch;
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool is_sgx_platform;
     bool enable_bulk_memory;
     bool enable_thread_mgr;
     bool enable_tail_call;
@@ -294,7 +308,7 @@ typedef struct AOTCompOption{
     bool enable_ref_types;
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
-    bool is_sgx_platform;
+    bool disable_llvm_intrinsics;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
@@ -307,6 +321,9 @@ aot_create_comp_context(AOTCompData *comp_data,
 
 void
 aot_destroy_comp_context(AOTCompContext *comp_ctx);
+
+int32
+aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol);
 
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx);
@@ -361,6 +378,7 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                        const AOTFuncContext *func_ctx,
                         const char *name,
                         LLVMTypeRef ret_type,
                         LLVMTypeRef *param_types,
@@ -369,11 +387,18 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
+                          const AOTFuncContext *func_ctx,
                           const char *name,
                           LLVMTypeRef ret_type,
                           LLVMTypeRef *param_types,
                           int param_count,
                           va_list param_value_list);
+
+LLVMValueRef
+aot_get_func_from_table(const AOTCompContext *comp_ctx,
+                        LLVMValueRef base,
+                        LLVMTypeRef func_type,
+                        int32 index);
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);

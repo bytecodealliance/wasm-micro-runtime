@@ -4,6 +4,7 @@
  */
 
 #include "aot_runtime.h"
+#include "aot_intrinsic.h"
 
 typedef struct {
     const char *symbol_name;
@@ -48,6 +49,40 @@ typedef struct {
 #define REG_AOT_TRACE_SYM()
 #endif
 
+#define REG_INTRINSIC_SYM()               \
+    REG_SYM(aot_intrinsic_fabs_f32),      \
+    REG_SYM(aot_intrinsic_fabs_f64),      \
+    REG_SYM(aot_intrinsic_floor_f32),     \
+    REG_SYM(aot_intrinsic_floor_f64),     \
+    REG_SYM(aot_intrinsic_ceil_f32),      \
+    REG_SYM(aot_intrinsic_ceil_f64),      \
+    REG_SYM(aot_intrinsic_trunc_f32),     \
+    REG_SYM(aot_intrinsic_trunc_f64),     \
+    REG_SYM(aot_intrinsic_rint_f32),      \
+    REG_SYM(aot_intrinsic_rint_f64),      \
+    REG_SYM(aot_intrinsic_sqrt_f32),      \
+    REG_SYM(aot_intrinsic_sqrt_f64),      \
+    REG_SYM(aot_intrinsic_copysign_f32),  \
+    REG_SYM(aot_intrinsic_copysign_f64),  \
+    REG_SYM(aot_intrinsic_fadd_f32),      \
+    REG_SYM(aot_intrinsic_fadd_f64),      \
+    REG_SYM(aot_intrinsic_fsub_f32),      \
+    REG_SYM(aot_intrinsic_fsub_f64),      \
+    REG_SYM(aot_intrinsic_fmul_f32),      \
+    REG_SYM(aot_intrinsic_fmul_f64),      \
+    REG_SYM(aot_intrinsic_fdiv_f32),      \
+    REG_SYM(aot_intrinsic_fdiv_f64),      \
+    REG_SYM(aot_intrinsic_fmin_f32),      \
+    REG_SYM(aot_intrinsic_fmin_f64),      \
+    REG_SYM(aot_intrinsic_fmax_f32),      \
+    REG_SYM(aot_intrinsic_fmax_f64),      \
+    REG_SYM(aot_intrinsic_clz_i32),       \
+    REG_SYM(aot_intrinsic_clz_i64),       \
+    REG_SYM(aot_intrinsic_ctz_i32),       \
+    REG_SYM(aot_intrinsic_ctz_i64),       \
+    REG_SYM(aot_intrinsic_popcnt_i32),    \
+    REG_SYM(aot_intrinsic_popcnt_i64),    \
+
 #define REG_COMMON_SYMBOLS                \
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
@@ -71,7 +106,8 @@ typedef struct {
     REG_BULK_MEMORY_SYM()                 \
     REG_ATOMIC_WAIT_SYM()                 \
     REG_REF_TYPES_SYM()                   \
-    REG_AOT_TRACE_SYM()
+    REG_AOT_TRACE_SYM()                   \
+    REG_INTRINSIC_SYM()                   \
 
 #define CHECK_RELOC_OFFSET(data_size) do {                                  \
     if (!check_reloc_offset(target_section_size, reloc_offset, data_size,   \

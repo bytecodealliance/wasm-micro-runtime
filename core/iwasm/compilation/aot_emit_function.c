@@ -168,10 +168,26 @@ call_aot_invoke_native_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return false;
         }
     }
+    else if (comp_ctx->is_indirect_mode) {
+        int32 func_index;
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+        func_index =
+          aot_get_native_symbol_index(comp_ctx, func_name);
+        if (func_index < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_index))) {
+            return false;
+        }
+    }
     else {
         if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name))
-            && !(func = LLVMAddFunction(comp_ctx->module,
-                                        func_name, func_type))) {
+            && !(func =
+                   LLVMAddFunction(comp_ctx->module, func_name, func_type))) {
             aot_set_last_error("add LLVM function failed.");
             return false;
         }
@@ -547,7 +563,22 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
     }
     else {
-        func = func_ctxes[func_idx - import_func_count]->func;
+        if (comp_ctx->is_indirect_mode) {
+            LLVMTypeRef func_ptr_type;
+
+            if (!(func_ptr_type = LLVMPointerType(
+                    func_ctxes[func_idx - import_func_count]->func_type, 0))) {
+                aot_set_last_error("construct func ptr type failed.");
+                goto fail;
+            }
+            if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->func_ptrs,
+                                                 func_ptr_type, func_idx))) {
+                goto fail;
+            }
+        }
+        else {
+            func = func_ctxes[func_idx - import_func_count]->func;
+        }
         aot_func = func_ctxes[func_idx - import_func_count]->aot_func;
         callee_cell_num = aot_func->param_cell_num + aot_func->local_cell_num + 1;
 
@@ -647,6 +678,22 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (!(func = I64_CONST((uint64)(uintptr_t)aot_call_indirect))
             || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
+            return false;
+        }
+    }
+    else if (comp_ctx->is_indirect_mode) {
+        int32 func_index;
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+        func_index =
+          aot_get_native_symbol_index(comp_ctx, func_name);
+        if (func_index < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_index))) {
             return false;
         }
     }

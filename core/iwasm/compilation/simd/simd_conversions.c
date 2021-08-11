@@ -38,7 +38,7 @@ simd_integer_narrow(AOTCompContext *comp_ctx,
     }
 
     if (!(result =
-            aot_call_llvm_intrinsic(comp_ctx, instrinsic, out_vector_type,
+            aot_call_llvm_intrinsic(comp_ctx, func_ctx, instrinsic, out_vector_type,
                                     param_types, 2, vector1, vector2))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;

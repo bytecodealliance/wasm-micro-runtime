@@ -41,7 +41,7 @@ simd_any_true(AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, intrinsic, element_type,
+    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, element_type,
                                            &vector_type, 1, non_zero))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
@@ -128,7 +128,7 @@ simd_all_true(AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, intrinsic, element_type,
+    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, element_type,
                                            &vector_type, 1, is_zero))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;

@@ -42,6 +42,8 @@ elseif (WAMR_BUILD_TARGET STREQUAL "RISCV32" OR WAMR_BUILD_TARGET STREQUAL "RISC
   add_definitions(-DBUILD_TARGET_RISCV32_ILP32D)
 elseif (WAMR_BUILD_TARGET STREQUAL "RISCV32_ILP32")
   add_definitions(-DBUILD_TARGET_RISCV32_ILP32)
+elseif (WAMR_BUILD_TARGET STREQUAL "ARC")
+  add_definitions(-DBUILD_TARGET_ARC)
 else ()
   message (FATAL_ERROR "-- WAMR build target isn't set")
 endif ()

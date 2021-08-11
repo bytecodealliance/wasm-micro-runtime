@@ -67,6 +67,8 @@ size_t strspn(const char *s, const char *accept);
 size_t strcspn(const char *s, const char *reject);
 
 /* math functions which are not provided by os */
+double atan(double x);
+double atan2(double y, double x);
 double sqrt(double x);
 double floor(double x);
 double ceil(double x);
@@ -83,6 +85,8 @@ float rintf(float x);
 float truncf(float x);
 int signbit(double x);
 int isnan(double x);
+double pow(double x, double y);
+double scalbn(double x, int n);
 
 unsigned long long int strtoull(const char *nptr, char **endptr, int base);
 double strtod(const char *nptr, char **endptr);

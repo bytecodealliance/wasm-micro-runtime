@@ -60,6 +60,8 @@ print_help()
   printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
   printf("  --enable-dump-call-stack  Enable stack trace feature\n");
   printf("  --enable-perf-profiling   Enable function performance profiling\n");
+  printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
+  printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
   printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
   printf("Examples: wamrc -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -187,6 +189,12 @@ main(int argc, char *argv[])
     }
     else if (!strcmp(argv[0], "--enable-perf-profiling")) {
         option.enable_aux_stack_frame = true;
+    }
+    else if (!strcmp(argv[0], "--enable-indirect-mode")) {
+        option.is_indirect_mode = true;
+    }
+    else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
+        option.disable_llvm_intrinsics = true;
     }
     else
       return print_help();

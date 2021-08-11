@@ -35,10 +35,12 @@ enum {
 
 typedef struct AOTCompOption{
     bool is_jit_mode;
+    bool is_indirect_mode;
     char *target_arch;
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool is_sgx_platform;
     bool enable_bulk_memory;
     bool enable_thread_mgr;
     bool enable_tail_call;
@@ -46,7 +48,7 @@ typedef struct AOTCompOption{
     bool enable_ref_types;
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
-    bool is_sgx_platform;
+    bool disable_llvm_intrinsics;
     uint32_t opt_level;
     uint32_t size_level;
     uint32_t output_format;
