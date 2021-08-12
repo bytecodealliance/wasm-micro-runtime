@@ -229,6 +229,12 @@ typedef struct AOTCompData {
   WASMModule *wasm_module;
 } AOTCompData;
 
+typedef struct AOTNativeSymbol {
+  bh_list_link link;
+  const char *symbol;
+  int32 index;
+} AOTNativeSymbol;
+
 AOTCompData*
 aot_create_comp_data(WASMModule *module);
 

@@ -19,7 +19,8 @@
     && !defined(BUILD_TARGET_RISCV64_LP64D) \
     && !defined(BUILD_TARGET_RISCV64_LP64) \
     && !defined(BUILD_TARGET_RISCV32_ILP32D) \
-    && !defined(BUILD_TARGET_RISCV32_ILP32)
+    && !defined(BUILD_TARGET_RISCV32_ILP32) \
+    && !defined(BUILD_TARGET_ARC)
 #if defined(__x86_64__) || defined(__x86_64)
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
@@ -42,6 +43,8 @@
 #define BUILD_TARGET_RISCV64_LP64D
 #elif defined(__riscv) && (__riscv_xlen == 32)
 #define BUILD_TARGET_RISCV32_ILP32D
+#elif defined(__arc__)
+#define BUILD_TARGET_ARC
 #else
 #error "Build target isn't set"
 #endif
@@ -237,7 +240,9 @@
 #define APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT 1 / 3
 
 /* Default min/max heap size of each app */
+#ifndef APP_HEAP_SIZE_DEFAULT
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
+#endif
 #define APP_HEAP_SIZE_MIN (256)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 

@@ -12,6 +12,10 @@
 #include "../aot/aot_runtime.h"
 #endif
 
+#if WASM_ENABLE_AOT != 0
+#include "aot_runtime.h"
+#endif
+
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
@@ -49,6 +53,14 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     exec_env->wasm_stack.s.top_boundary =
         exec_env->wasm_stack.s.bottom + stack_size;
     exec_env->wasm_stack.s.top = exec_env->wasm_stack.s.bottom;
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        AOTModuleInstance *i = (AOTModuleInstance *)module_inst;
+        AOTModule *m = (AOTModule *)i->aot_module.ptr;
+        exec_env->native_symbol = m->native_symbol_list;
+    }
+#endif
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_exec_env_mem_consumption(exec_env);

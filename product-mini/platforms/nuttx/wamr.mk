@@ -35,11 +35,11 @@ endif
 
 WAMR_BUILD_PLATFORM := nuttx
 
-ifeq (${WAMR_BUILD_TARGET}, X86_32)
+ifeq ($(WAMR_BUILD_TARGET), X86_32)
   CFLAGS += -DBUILD_TARGET_X86_32
   INVOKE_NATIVE := invokeNative_ia32.s
   AOT_RELOC := aot_reloc_x86_32.c
-else ifeq (${WAMR_BUILD_TARGET}, X86_64)
+else ifeq ($(WAMR_BUILD_TARGET), X86_64)
   CFLAGS += -DBUILD_TARGET_X86_64
   INVOKE_NATIVE := invokeNative_em64.s
   AOT_RELOC := aot_reloc_x86_64.c
@@ -96,17 +96,18 @@ else
   $(error Build target is unsupported)
 endif
 
-ifeq (${CONFIG_INTERPRETERS_WAMR_LOG},y)
+ifeq ($(CONFIG_INTERPRETERS_WAMR_LOG),y)
 CFLAGS += -DWASM_ENABLE_LOG=1
 else
 CFLAGS += -DWASM_ENABLE_LOG=0
 endif
 
-ifeq (${CONFIG_INTERPRETERS_WAMR_AOT},y)
-CFLAGS += -I${IWASM_ROOT}/aot
+ifeq ($(CONFIG_INTERPRETERS_WAMR_AOT),y)
+CFLAGS += -I$(IWASM_ROOT)/aot
 CFLAGS += -DWASM_ENABLE_AOT=1
 CSRCS += aot_loader.c \
-         ${AOT_RELOC} \
+         $(AOT_RELOC) \
+         aot_intrinsic.c \
          aot_runtime.c
 else
 CFLAGS += -DWASM_ENABLE_AOT=0
@@ -115,7 +116,7 @@ endif
 CFLAGS += -DWASM_ENABLE_INTERP=1
 CSRCS += wasm_runtime.c
 
-ifeq (${CONFIG_INTERPRETERS_WAMR_FAST},y)
+ifeq ($(CONFIG_INTERPRETERS_WAMR_FAST),y)
 CFLAGS += -DWASM_ENABLE_FAST_INTERP=1
 CSRCS += wasm_interp_fast.c
 else
@@ -137,7 +138,7 @@ endif
 ifeq ($(CONFIG_INTERPRETERS_WAMR_THREAD_MGR),y)
 CFLAGS += -DWASM_ENABLE_THREAD_MGR=1
 CSRCS += thread_manager.c
-VPATH += ${IWASM_ROOT}/libraries/thread-mgr
+VPATH += $(IWASM_ROOT)/libraries/thread-mgr
 else
 CFLAGS += -DWASM_ENABLE_THREAD_MGR=0
 endif
@@ -191,9 +192,8 @@ CFLAGS += -I${CORE_ROOT} \
           -I${SHARED_ROOT}/mem-alloc \
           -I${SHARED_ROOT}/platform/nuttx
 
-
-ifeq (${WAMR_BUILD_INTERP}, 1)
-CFLAGS += -I${IWASM_ROOT}/interpreter
+ifeq ($(WAMR_BUILD_INTERP), 1)
+CFLAGS += -I$(IWASM_ROOT)/interpreter
 endif
 
 CSRCS += nuttx_platform.c \
@@ -220,19 +220,19 @@ CSRCS += nuttx_platform.c \
          wasm_memory.c \
          wasm_c_api.c
 
-ASRCS += ${INVOKE_NATIVE}
+ASRCS += $(INVOKE_NATIVE)
 
-VPATH += ${SHARED_ROOT}/platform/nuttx
-VPATH += ${SHARED_ROOT}/platform/common/posix
-VPATH += ${SHARED_ROOT}/mem-alloc
-VPATH += ${SHARED_ROOT}/mem-alloc/ems
-VPATH += ${SHARED_ROOT}/utils
-VPATH += ${SHARED_ROOT}/utils/uncommon
-VPATH += ${IWASM_ROOT}/common
-VPATH += ${IWASM_ROOT}/interpreter
-VPATH += ${IWASM_ROOT}/libraries
-VPATH += ${IWASM_ROOT}/libraries/libc-builtin
-VPATH += ${IWASM_ROOT}/libraries/lib-pthread
-VPATH += ${IWASM_ROOT}/common/arch
-VPATH += ${IWASM_ROOT}/aot
-VPATH += ${IWASM_ROOT}/aot/arch
+VPATH += $(SHARED_ROOT)/platform/nuttx
+VPATH += $(SHARED_ROOT)/platform/common/posix
+VPATH += $(SHARED_ROOT)/mem-alloc
+VPATH += $(SHARED_ROOT)/mem-alloc/ems
+VPATH += $(SHARED_ROOT)/utils
+VPATH += $(SHARED_ROOT)/utils/uncommon
+VPATH += $(IWASM_ROOT)/common
+VPATH += $(IWASM_ROOT)/interpreter
+VPATH += $(IWASM_ROOT)/libraries
+VPATH += $(IWASM_ROOT)/libraries/libc-builtin
+VPATH += $(IWASM_ROOT)/libraries/lib-pthread
+VPATH += $(IWASM_ROOT)/common/arch
+VPATH += $(IWASM_ROOT)/aot
+VPATH += $(IWASM_ROOT)/aot/arch

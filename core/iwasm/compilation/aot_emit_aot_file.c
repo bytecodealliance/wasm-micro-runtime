@@ -791,6 +791,23 @@ get_relocation_section_size(AOTObjectData *obj_data)
 }
 
 static uint32
+get_native_symbol_list_size(AOTCompContext *comp_ctx)
+{
+    uint32 len = 0;
+    AOTNativeSymbol *sym = NULL;
+
+    sym = bh_list_first_elem(&comp_ctx->native_symbols);
+
+    while (sym) {
+        len = align_uint(len, 2);
+        len += get_string_size(sym->symbol);
+        sym = bh_list_elem_next(sym);
+    }
+
+    return len;
+}
+
+static uint32
 get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                   AOTObjectData *obj_data)
 {
@@ -834,6 +851,14 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     /* section id + section size */
     size += (uint32)sizeof(uint32) * 2;
     size += get_relocation_section_size(obj_data);
+
+    if (get_native_symbol_list_size(comp_ctx) > 0) {
+        /* emit only when threre are native symbols */
+        size = align_uint(size, 4);
+        /* section id + section size + sub section id + symbol count */
+        size += (uint32)sizeof(uint32) * 4;
+        size += get_native_symbol_list_size(comp_ctx);
+    }
 
     return size;
 }
@@ -1505,6 +1530,38 @@ aot_emit_relocation_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     return true;
 }
 
+static bool
+aot_emit_native_symbol(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                       AOTCompContext *comp_ctx)
+{
+    uint32 offset = *p_offset;
+    AOTNativeSymbol *sym = NULL;
+
+    if (bh_list_length(&comp_ctx->native_symbols) == 0)
+        /* emit only when threre are native symbols */
+        return true;
+
+    *p_offset = offset = align_uint(offset, 4);
+
+    EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
+    /* sub section id + symbol count + symbol list */
+    EMIT_U32(sizeof(uint32) * 2 + get_native_symbol_list_size(comp_ctx));
+    EMIT_U32(AOT_CUSTOM_SECTION_NATIVE_SYMBOL);
+    EMIT_U32(bh_list_length(&comp_ctx->native_symbols));
+
+    sym = bh_list_first_elem(&comp_ctx->native_symbols);
+
+    while (sym) {
+        offset = align_uint(offset, 2);
+        EMIT_STR(sym->symbol);
+        sym = bh_list_elem_next(sym);
+    }
+
+    *p_offset = offset;
+
+    return true;
+}
+
 typedef uint32 U32;
 typedef int32  I32;
 typedef uint16 U16;
@@ -2164,6 +2221,8 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
 {
     char *err = NULL;
     AOTObjectData *obj_data;
+    LLVMTargetRef target =
+        LLVMGetTargetMachineTarget(comp_ctx->target_machine);
 
     bh_print_time("Begin to emit object file to buffer");
 
@@ -2173,11 +2232,76 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     }
     memset(obj_data, 0, sizeof(AOTObjectData));
 
-    if (LLVMTargetMachineEmitToMemoryBuffer(comp_ctx->target_machine,
-                                            comp_ctx->module,
-                                            LLVMObjectFile,
-                                            &err,
-                                            &obj_data->mem_buf) != 0) {
+    bh_print_time("Begin to emit object file");
+
+    if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
+        /* Emit to assmelby file instead for arc target
+           as it cannot emit to object file */
+        char file_name[] = "wasm-XXXXXX", buf[128];
+        int fd, ret;
+
+        if ((fd = mkstemp(file_name)) <= 0) {
+            aot_set_last_error("make temp file failed.");
+            goto fail;
+        }
+
+        /* close and remove temp file */
+        close(fd);
+        unlink(file_name);
+
+        snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
+        if (LLVMTargetMachineEmitToFile(comp_ctx->target_machine,
+                                        comp_ctx->module,
+                                        buf, LLVMAssemblyFile,
+                                        &err) != 0) {
+            if (err) {
+                LLVMDisposeMessage(err);
+                err = NULL;
+            }
+            aot_set_last_error("emit elf to object file failed.");
+            goto fail;
+        }
+
+        /* call arc gcc to compile assembly file to object file */
+        /* TODO: get arc gcc from environment variable firstly
+                 and check whether the toolchain exists actually */
+        snprintf(buf, sizeof(buf), "%s%s%s%s%s%s",
+                 "/opt/zephyr-sdk/arc-zephyr-elf/bin/arc-zephyr-elf-gcc ",
+                 "-mcpu=arcem -o ", file_name, ".o -c ", file_name, ".s");
+        /* TODO: use try..catch to handle possible exceptions */
+        ret = system(buf);
+        /* remove temp assembly file */
+        snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
+        unlink(buf);
+
+        if (ret != 0) {
+            aot_set_last_error("failed to compile asm file to obj file "
+                               "with arc gcc toolchain.");
+            goto fail;
+        }
+
+        /* create memory buffer from object file */
+        snprintf(buf, sizeof(buf), "%s%s", file_name, ".o");
+        ret = LLVMCreateMemoryBufferWithContentsOfFile(buf,
+                                                       &obj_data->mem_buf,
+                                                       &err);
+        /* remove temp object file */
+        snprintf(buf, sizeof(buf), "%s%s",file_name, ".o");
+        unlink(buf);
+
+        if (ret != 0) {
+            if (err) {
+                LLVMDisposeMessage(err);
+                err = NULL;
+            }
+            aot_set_last_error("create mem buffer with file failed.");
+            goto fail;
+        }
+    }
+    else if (LLVMTargetMachineEmitToMemoryBuffer(comp_ctx->target_machine,
+                                                 comp_ctx->module,
+                                                 LLVMObjectFile, &err,
+                                                 &obj_data->mem_buf) != 0) {
         if (err) {
             LLVMDisposeMessage(err);
             err = NULL;
@@ -2242,7 +2366,8 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx,
         || !aot_emit_text_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_func_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_export_section(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_relocation_section(buf, buf_end, &offset, comp_data, obj_data))
+        || !aot_emit_relocation_section(buf, buf_end, &offset, comp_data, obj_data)
+        || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx))
         goto fail2;
 
 #if 0

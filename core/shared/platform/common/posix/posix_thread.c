@@ -305,7 +305,7 @@ uint8 *os_thread_get_stack_boundary()
         addr += guard_size;
     }
     (void)stack_size;
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) || defined(__NuttX__)
     if ((addr = (uint8*)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
         if (stack_size > max_stack_size)
