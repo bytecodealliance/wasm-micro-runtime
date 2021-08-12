@@ -32,8 +32,8 @@
 #define REQUES_PACKET_VER 1
 #define REQUEST_PACKET_FIX_PART_LEN 18
 #define REQUEST_PACKET_URL_OFFSET REQUEST_PACKET_FIX_PART_LEN
-#define REQUEST_PACKET_URL_LEN  *((uint16*)((char*) buffer + 12))   //!!! to ensure little endian
-#define REQUEST_PACKET_PAYLOAD_LEN *((uint32*)((char*) buffer + 14))   //!!! to ensure little endian
+#define REQUEST_PACKET_URL_LEN  *((uint16*)((char*) buffer + 12))   /* to ensure little endian */
+#define REQUEST_PACKET_PAYLOAD_LEN *((uint32*)((char*) buffer + 14))   /* to ensure little endian */
 #define REQUEST_PACKET_URL(buffer) ((char*) buffer + REQUEST_PACKET_URL_OFFSET)
 #define REQUEST_PACKET_PAYLOAD(buffer)  ((char*) buffer + REQUEST_PACKET_URL_OFFSET + REQUEST_PACKET_URL_LEN(buffer))
 
@@ -46,7 +46,7 @@ pack_request(request_t *request, int *size)
     int len = REQUEST_PACKET_FIX_PART_LEN + url_len + request->payload_len;
     uint16 u16;
     uint32 u32;
-    char * packet;
+    char *packet;
 
     if ((packet = (char*) WA_MALLOC(len)) == NULL)
         return NULL;
@@ -139,7 +139,7 @@ pack_response(response_t *response, int *size)
     int len = RESPONSE_PACKET_FIX_PART_LEN + response->payload_len;
     uint16 u16;
     uint32 u32;
-    char * packet;
+    char *packet;
 
     if ((packet = (char*) WA_MALLOC(len)) == NULL)
         return NULL;
@@ -181,7 +181,7 @@ unpack_response(char *packet, int size, response_t *response)
 
     memcpy(&u32, packet + 12, 4);
     payload_len = ntohl(u32);
-    if (size != ( RESPONSE_PACKET_FIX_PART_LEN + payload_len))
+    if (size != (RESPONSE_PACKET_FIX_PART_LEN + payload_len))
         return NULL;
 
     response->status = *((uint8*) (packet + 1));

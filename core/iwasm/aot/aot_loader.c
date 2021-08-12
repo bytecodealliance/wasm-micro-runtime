@@ -2338,7 +2338,7 @@ resolve_native_symbols(const uint8 *buf, uint32 size, uint32 *p_count,
         }
         else if (section_type > AOT_SECTION_TYPE_SIGANATURE) {
             set_error_buf(error_buf, error_buf_size,
-                          "resolve native symbol fail");
+                          "resolve native symbol failed");
             break;
         }
         p += section_size;

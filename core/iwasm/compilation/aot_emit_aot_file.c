@@ -2263,12 +2263,15 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
         }
 
         /* call arc gcc to compile assembly file to object file */
+        /* TODO: get arc gcc from environment variable firstly
+                 and check whether the toolchain exists actually */
         snprintf(buf, sizeof(buf), "%s%s%s%s%s%s",
                  "/opt/zephyr-sdk/arc-zephyr-elf/bin/arc-zephyr-elf-gcc ",
                  "-mcpu=arcem -o ", file_name, ".o -c ", file_name, ".s");
+        /* TODO: use try..catch to handle possible exceptions */
         ret = system(buf);
         /* remove temp assembly file */
-        snprintf(buf, sizeof(buf), "%s%s",file_name, ".s");
+        snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
         unlink(buf);
 
         if (ret != 0) {
