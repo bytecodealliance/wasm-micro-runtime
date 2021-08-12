@@ -138,7 +138,7 @@ aot_compile_simd_swizzle_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     param_types[0] = V128_i8x16_TYPE;
     param_types[1] = V128_i8x16_TYPE;
     if (!(result = aot_call_llvm_intrinsic(
-            comp_ctx, "llvm.x86.ssse3.pshuf.b.128", V128_i8x16_TYPE,
+            comp_ctx, func_ctx, "llvm.x86.ssse3.pshuf.b.128", V128_i8x16_TYPE,
             param_types, 2, vector, mask))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;

@@ -32,7 +32,7 @@ simd_v128_integer_arith(AOTCompContext *comp_ctx,
     param_types[1] = vector_type;
 
     if (!(result = aot_call_llvm_intrinsic(
-            comp_ctx, is_signed ? intrinsics_s_u[0] : intrinsics_s_u[1],
+            comp_ctx, func_ctx, is_signed ? intrinsics_s_u[0] : intrinsics_s_u[1],
             vector_type, param_types, 2, lhs, rhs))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;

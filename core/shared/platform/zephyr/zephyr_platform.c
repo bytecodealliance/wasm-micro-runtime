@@ -202,6 +202,11 @@ os_dcache_flush()
     key = irq_lock();
     SCB_CleanDCache();
     irq_unlock(key);
+#elif defined(CONFIG_SOC_CVF_EM7D) && defined(CONFIG_ARC_MPU) \
+      && defined (CONFIG_CACHE_FLUSHING)
+    __asm__ __volatile__("sync");
+    z_arc_v2_aux_reg_write(_ARC_V2_DC_FLSH, BIT(0));
+    __asm__ __volatile__("sync");
 #endif
 }
 

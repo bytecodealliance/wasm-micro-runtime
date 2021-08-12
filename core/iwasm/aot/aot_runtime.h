@@ -40,13 +40,19 @@ typedef enum AOTExceptionID {
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
-    AOT_SECTION_TYPE_INIT_DATA,
-    AOT_SECTION_TYPE_TEXT,
-    AOT_SECTION_TYPE_FUNCTION,
-    AOT_SECTION_TYPE_EXPORT,
-    AOT_SECTION_TYPE_RELOCATION,
-    AOT_SECTION_TYPE_SIGANATURE
+    AOT_SECTION_TYPE_INIT_DATA = 1,
+    AOT_SECTION_TYPE_TEXT = 2,
+    AOT_SECTION_TYPE_FUNCTION = 3,
+    AOT_SECTION_TYPE_EXPORT = 4,
+    AOT_SECTION_TYPE_RELOCATION = 5,
+    AOT_SECTION_TYPE_SIGANATURE = 6,
+    AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
+
+typedef enum AOTCustomSectionType {
+    AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
+    AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
+} AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {
     char *name;
@@ -124,6 +130,10 @@ typedef struct AOTModule {
     /* init data */
     uint32 mem_init_data_count;
     AOTMemInitData **mem_init_data_list;
+
+    /* native symobl */
+    uint32 native_symbol_count;
+    void **native_symbol_list;
 
     /* import tables */
     uint32 import_table_count;

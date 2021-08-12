@@ -191,7 +191,7 @@ simd_v128_float_intrinsic(AOTCompContext *comp_ctx,
         goto fail;
     }
 
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, intrinsic, vector_type,
+    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, vector_type,
                                            param_types, 1, number))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
