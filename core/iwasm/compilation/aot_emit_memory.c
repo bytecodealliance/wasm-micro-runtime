@@ -651,6 +651,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
     LLVMValueRef delta, param_values[2], ret_value, func, value;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
+    int32 func_index;
 
     if (!mem_size)
         return false;
@@ -676,6 +677,21 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         if (!(value = I64_CONST((uint64)(uintptr_t)aot_enlarge_memory))
             || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
+            return false;
+        }
+    }
+    else if (comp_ctx->is_indirect_mode) {
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+        func_index =
+          aot_get_native_symbol_index(comp_ctx, "aot_enlarge_memory");
+        if (func_index < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_index))) {
             return false;
         }
     }
@@ -714,7 +730,6 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 fail:
     return false;
 }
-
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 
@@ -924,6 +939,8 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
+    /* TODO: lookup func ptr of "memmove" to call for XIP mode */
+
     if (!(res = LLVMBuildMemMove(comp_ctx->builder, dst_addr, 1,
                                  src_addr, 1, len))) {
         aot_set_last_error("llvm build memmove failed.");
@@ -947,7 +964,13 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    val = LLVMBuildIntCast2(comp_ctx->builder, val, INT8_TYPE, true, "mem_set_value");
+    if (!(val = LLVMBuildIntCast2(comp_ctx->builder, val, INT8_TYPE,
+                                  true, "mem_set_value"))) {
+        aot_set_last_error("llvm build int cast2 failed.");
+        return false;
+    }
+
+    /* TODO: lookup func ptr of "memset" to call for XIP mode */
 
     if (!(res = LLVMBuildMemSet(comp_ctx->builder, dst_addr,
                                 val, len, 1))) {

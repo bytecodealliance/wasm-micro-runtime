@@ -181,6 +181,8 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_MACHINE_IA_64    50       /* Intel Merced */
 #define E_MACHINE_MIPS_X   51       /* Stanford MIPS-X */
 #define E_MACHINE_X86_64   62       /* AMD x86-64 architecture */
+#define E_MACHINE_ARC_COMPACT  93   /* ARC International ARCompact */
+#define E_MACHINE_ARC_COMPACT2 195  /* Synopsys ARCompact V2 */
 #define E_MACHINE_XTENSA   94       /* Tensilica Xtensa Architecture */
 #define E_MACHINE_RISCV    243      /* RISC-V 32/64 */
 #define E_MACHINE_WIN_X86_64 0x8664 /* Windowx x86-64 architecture */
@@ -260,6 +262,10 @@ get_aot_file_target(AOTTargetInfo *target_info,
             break;
         case E_MACHINE_RISCV:
             machine_type = "riscv";
+            break;
+        case E_MACHINE_ARC_COMPACT:
+        case E_MACHINE_ARC_COMPACT2:
+            machine_type = "arc";
             break;
         default:
             set_error_buf_v(error_buf, error_buf_size,
@@ -361,6 +367,90 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
         set_error_buf(error_buf, error_buf_size,
                       "invalid elf file version");
         return false;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static void *
+get_native_symbol_by_name(const char *name)
+{
+    void *func = NULL;
+    uint32 symnum = 0;
+    SymbolMap *sym = NULL;
+
+    sym = get_target_symbol_map(&symnum);
+
+    while (symnum--) {
+        if (strcmp(sym->symbol_name, name) == 0) {
+            func = sym->symbol_addr;
+            break;
+        }
+        sym++;
+    }
+
+    return func;
+}
+
+static bool
+load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
+                           AOTModule *module,
+                           char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 cnt;
+    int32 i;
+    const char *symbol;
+
+    read_uint32(p, p_end, cnt);
+
+    module->native_symbol_count = cnt;
+
+    if (cnt > 0) {
+        module->native_symbol_list = wasm_runtime_malloc(cnt * sizeof(void *));
+        if (module->native_symbol_list == NULL) {
+            set_error_buf(error_buf, error_buf_size,
+                          "malloc native symbol list failed");
+            goto fail;
+        }
+
+        for (i = cnt - 1; i >= 0; i--) {
+            read_string(p, p_end, symbol);
+            module->native_symbol_list[i] = get_native_symbol_by_name(symbol);
+            if (module->native_symbol_list[i] == NULL) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "missing native symbol: %s", symbol);
+                goto fail;
+            }
+        }
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+load_custom_section(const uint8 *buf, const uint8 *buf_end,
+                    AOTModule *module,
+                    char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 sub_section_type;
+
+    read_uint32(p, p_end, sub_section_type);
+    buf = p;
+
+    switch (sub_section_type) {
+        case AOT_CUSTOM_SECTION_NATIVE_SYMBOL:
+            if (!load_native_symbol_section(buf, buf_end, module,
+                                            error_buf, error_buf_size))
+                goto fail;
+            break;
+        default:
+            break;
     }
 
     return true;
@@ -1167,8 +1257,8 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
     module->code = (void*)(buf + module->literal_size);
     module->code_size = (uint32)(buf_end - (uint8*)module->code);
 
-    if (module->code_size > 0) {
-        plt_base = (uint8*)buf_end - get_plt_table_size();
+    if ((module->code_size > 0) && (module->native_symbol_count == 0)) {
+        plt_base = (uint8 *)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
     }
     return true;
@@ -1920,6 +2010,13 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(group->section_name, ".text")
 #endif
             ) {
+            if (module->native_symbol_count > 0) {
+                set_error_buf(error_buf, error_buf_size,
+                              "cannot apply relocation to text section "
+                              "for aot file generated with "
+                              "\"--enable-indirect-mode\" flag");
+                goto fail;
+            }
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
                 goto fail;
         }
@@ -1993,7 +2090,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
         if ((last_section_type == (uint32)-1
              && section_type != AOT_SECTION_TYPE_TARGET_INFO)
             || (last_section_type != (uint32)-1
-                && section_type != last_section_type + 1)) {
+                && (section_type != last_section_type + 1
+                    && section_type != AOT_SECTION_TYPE_CUSTOM))) {
             set_error_buf(error_buf, error_buf_size,
                           "invalid section order");
             return false;
@@ -2030,6 +2128,11 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                              error_buf, error_buf_size))
                     return false;
                 break;
+            case AOT_SECTION_TYPE_CUSTOM:
+                if (!load_custom_section(buf, buf_end, module,
+                                         error_buf, error_buf_size))
+                    return false;
+                break;
             default:
                 set_error_buf(error_buf, error_buf_size,
                               "invalid aot section type");
@@ -2039,7 +2142,8 @@ load_from_sections(AOTModule *module, AOTSection *sections,
         section = section->next;
     }
 
-    if (last_section_type != AOT_SECTION_TYPE_RELOCATION) {
+    if (last_section_type != AOT_SECTION_TYPE_RELOCATION
+        && last_section_type != AOT_SECTION_TYPE_CUSTOM) {
         set_error_buf(error_buf, error_buf_size,
                       "section missing");
         return false;
@@ -2208,21 +2312,69 @@ destroy_sections(AOTSection *section_list, bool destroy_aot_text)
 }
 
 static bool
-create_sections(const uint8 *buf, uint32 size,
+resolve_native_symbols(const uint8 *buf, uint32 size, uint32 *p_count,
+                       char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf + size;
+    uint32 section_type;
+    uint32 section_size = 0;
+
+    p += 8;
+    while (p < p_end) {
+        read_uint32(p, p_end, section_type);
+        if (section_type <= AOT_SECTION_TYPE_SIGANATURE
+            || section_type == AOT_SECTION_TYPE_CUSTOM) {
+            read_uint32(p, p_end, section_size);
+            CHECK_BUF(p, p_end, section_size);
+            if (section_type == AOT_SECTION_TYPE_CUSTOM) {
+                read_uint32(p, p_end, section_type);
+                if (section_type == AOT_CUSTOM_SECTION_NATIVE_SYMBOL) {
+                    /* Read the count of native symbol */
+                    read_uint32(p, p_end, *p_count);
+                    return true;
+                }
+                p -= sizeof(uint32);
+            }
+        }
+        else if (section_type > AOT_SECTION_TYPE_SIGANATURE) {
+            set_error_buf(error_buf, error_buf_size,
+                          "resolve native symbol failed");
+            break;
+        }
+        p += section_size;
+    }
+    return true;
+fail:
+    return false;
+}
+
+static bool
+create_sections(AOTModule *module,
+                const uint8 *buf, uint32 size,
                 AOTSection **p_section_list,
                 char *error_buf, uint32 error_buf_size)
 {
     AOTSection *section_list = NULL, *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size;
+    bool destory_aot_text = false;
+    uint32 native_symbol_count = 0;
     uint32 section_type;
     uint32 section_size;
     uint64 total_size;
     uint8 *aot_text;
 
+    if (!resolve_native_symbols(buf, size, &native_symbol_count,
+                                error_buf, error_buf_size)) {
+        goto fail;
+    }
+
+    module->native_symbol_count = native_symbol_count;
+
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
-        if (section_type < AOT_SECTION_TYPE_SIGANATURE) {
+        if (section_type < AOT_SECTION_TYPE_SIGANATURE
+            || section_type == AOT_SECTION_TYPE_CUSTOM) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
 
@@ -2238,7 +2390,7 @@ create_sections(const uint8 *buf, uint32 size,
             section->section_body_size = section_size;
 
             if (section_type == AOT_SECTION_TYPE_TEXT) {
-                if (section_size > 0) {
+                if ((section_size > 0) && (native_symbol_count == 0)) {
                     int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE
                                    | MMAP_PROT_EXEC;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
@@ -2270,6 +2422,7 @@ create_sections(const uint8 *buf, uint32 size,
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
                     section->section_body = aot_text;
+                    destory_aot_text = true;
 
                     if ((uint32)total_size > section->section_body_size) {
                         memset(aot_text + (uint32)section_size,
@@ -2277,8 +2430,6 @@ create_sections(const uint8 *buf, uint32 size,
                         section->section_body_size = (uint32)total_size;
                     }
                 }
-                else
-                    section->section_body = NULL;
             }
 
             if (!section_list)
@@ -2307,7 +2458,7 @@ create_sections(const uint8 *buf, uint32 size,
     return true;
 fail:
     if (section_list)
-        destroy_sections(section_list, true);
+        destroy_sections(section_list, destory_aot_text);
     return false;
 }
 
@@ -2333,14 +2484,16 @@ load(const uint8 *buf, uint32 size, AOTModule *module,
         return false;
     }
 
-    if (!create_sections(buf, size, &section_list, error_buf, error_buf_size))
+    if (!create_sections(module, buf, size, &section_list,
+                         error_buf, error_buf_size))
         return false;
 
     ret = load_from_sections(module, section_list, error_buf, error_buf_size);
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
-        destroy_sections(section_list, true);
+        destroy_sections(section_list,
+                         module->native_symbol_count == 0 ? true : false);
         /* aot_unload() won't destroy aot text again */
         module->code = NULL;
     }
@@ -2616,6 +2769,9 @@ aot_unload(AOTModule *module)
                                    module->mem_init_data_count,
                                    module->is_jit_mode);
 
+    if (module->native_symbol_list)
+        wasm_runtime_free(module->native_symbol_list);
+
     if (module->import_tables)
         destroy_import_tables(module->import_tables,
                               module->is_jit_mode);
@@ -2658,7 +2814,7 @@ aot_unload(AOTModule *module)
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
 
-    if (module->code) {
+    if (module->code && (module->native_symbol_count == 0)) {
         /* The layout is: literal size + literal + code (with plt table) */
         uint8 *mmap_addr = module->literal - sizeof(uint32);
         uint32 total_size = sizeof(uint32)

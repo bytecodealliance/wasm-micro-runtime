@@ -7,7 +7,7 @@
 #include "aot_compiler.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
-
+#include "../aot/aot_intrinsic.h"
 
 LLVMTypeRef
 wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
@@ -38,7 +38,7 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
  */
 static LLVMValueRef
 aot_add_llvm_func(AOTCompContext *comp_ctx, AOTFuncType *aot_func_type,
-                  uint32 func_index)
+                  uint32 func_index, LLVMTypeRef *p_func_type)
 {
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
@@ -106,6 +106,9 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, AOTFuncType *aot_func_type,
         local_value = LLVMGetParam(func, j++);
         LLVMSetValueName(local_value, "");
     }
+
+    if (p_func_type)
+        *p_func_type = func_type;
 
 fail:
     wasm_runtime_free(param_types);
@@ -604,6 +607,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
     LLVMValueRef aux_stack_bound_offset = I32_SIX, aux_stack_bound_addr;
     LLVMValueRef aux_stack_bottom_offset = I32_SEVEN, aux_stack_bottom_addr;
+    LLVMValueRef native_symbol_offset = I32_EIGHT, native_symbol_addr;
     char local_name[32];
     uint64 size;
     uint32 i, j = 0;
@@ -621,7 +625,8 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     func_ctx->aot_func = func;
 
     /* Add LLVM function */
-    if (!(func_ctx->func = aot_add_llvm_func(comp_ctx, aot_func_type, func_index)))
+    if (!(func_ctx->func = aot_add_llvm_func(comp_ctx, aot_func_type,
+                                             func_index, &func_ctx->func_type)))
         goto fail;
 
     /* Create function's first AOTBlock */
@@ -741,6 +746,27 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    if (!(native_symbol_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &native_symbol_offset, 1, "native_symbol_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->native_symbol =
+            LLVMBuildLoad(comp_ctx->builder, native_symbol_addr,
+                          "native_symbol_tmp"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->native_symbol =
+            LLVMBuildBitCast(comp_ctx->builder, func_ctx->native_symbol,
+                             comp_ctx->exec_env_type, "native_symbol"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+
     for (i = 0; i < aot_func_type->param_count; i++, j++) {
         snprintf(local_name, sizeof(local_name), "l%d", i);
         func_ctx->locals[i] =
@@ -814,7 +840,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     }
     else {
         if (!(func_ctx->last_alloca = LLVMBuildAlloca(comp_ctx->builder, INT8_TYPE,
-                                          "stack_ptr"))) {
+                                                      "stack_ptr"))) {
             aot_set_last_error("llvm build alloca failed.");
             goto fail;
         }
@@ -1089,7 +1115,8 @@ static ArchItem valid_archs[] = {
     { "thumbv8m.main", true },
     { "thumbv8.1m.main", true },
     { "riscv32", true},
-    { "riscv64", true}
+    { "riscv64", true},
+    { "arc", true }
 };
 
 static const char *valid_abis[] = {
@@ -1230,6 +1257,10 @@ aot_create_comp_context(AOTCompData *comp_data,
         goto fail;
     }
 
+    if (BH_LIST_ERROR == bh_list_init(&comp_ctx->native_symbols)) {
+        goto fail;
+    }
+
     if (option->enable_bulk_memory)
         comp_ctx->enable_bulk_memory = true;
 
@@ -1247,6 +1278,12 @@ aot_create_comp_context(AOTCompData *comp_data,
 
     if (option->enable_aux_stack_check)
         comp_ctx->enable_aux_stack_check = true;
+
+    if (option->is_indirect_mode)
+        comp_ctx->is_indirect_mode = true;
+
+    if (option->disable_llvm_intrinsics)
+        comp_ctx->disable_llvm_intrinsics = true;
 
     if (option->is_jit_mode) {
         char *triple_jit = NULL;
@@ -1496,7 +1533,12 @@ aot_create_comp_context(AOTCompData *comp_data,
             goto fail;
         }
 
-        if (!LLVMTargetHasAsmBackend(target)) {
+        /* Report error if target isn't arc and hasn't asm backend.
+           For arc target, as it cannot emit to memory buffer of elf file currently,
+           we let it emit to assembly file instead, and then call arc-gcc to compile
+           asm file to elf file, and read elf file to memory buffer. */
+        if (strncmp(comp_ctx->target_arch, "arc", 3)
+            && !LLVMTargetHasAsmBackend(target)) {
             snprintf(buf, sizeof(buf),
                      "no asm backend for this target (%s).", LLVMGetTargetName(target));
             aot_set_last_error(buf);
@@ -1631,6 +1673,18 @@ aot_create_comp_context(AOTCompData *comp_data,
                 aot_create_func_contexts(comp_data, comp_ctx)))
         goto fail;
 
+    if (cpu) {
+        int len = strlen(cpu) + 1;
+        if (!(comp_ctx->target_cpu = wasm_runtime_malloc(len))) {
+            aot_set_last_error("allocate memory failed");
+            goto fail;
+        }
+        bh_memcpy_s(comp_ctx->target_cpu, len, cpu, len);
+    }
+
+    if (comp_ctx->disable_llvm_intrinsics)
+        aot_intrinsic_fill_capability_flags(comp_ctx);
+
     ret = comp_ctx;
 
 fail:
@@ -1676,7 +1730,63 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
         aot_destroy_func_contexts(comp_ctx->func_ctxes,
                                   comp_ctx->func_ctx_count);
 
+    if (bh_list_length(&comp_ctx->native_symbols) > 0) {
+        AOTNativeSymbol *sym = bh_list_first_elem(&comp_ctx->native_symbols);
+        while (sym) {
+            AOTNativeSymbol *t = bh_list_elem_next(sym);
+            bh_list_remove(&comp_ctx->native_symbols, sym);
+            wasm_runtime_free(sym);
+            sym = t;
+        }
+    }
+
+    if (comp_ctx->target_cpu) {
+        wasm_runtime_free(comp_ctx->target_cpu);
+    }
+
     wasm_runtime_free(comp_ctx);
+}
+
+int32
+aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
+{
+    int32 idx = -1;
+    AOTNativeSymbol *sym = NULL;
+
+    sym = bh_list_first_elem(&comp_ctx->native_symbols);
+
+    /* Lookup an existing symobl record */
+
+    while (sym) {
+        if (strcmp(sym->symbol, symbol) == 0) {
+            idx = sym->index;
+            break;
+        }
+        sym = bh_list_elem_next(sym);
+    }
+
+    /* Given symbol is not exist in list, then we alloc a new index for it */
+
+    if (idx < 0) {
+        sym = wasm_runtime_malloc(sizeof(AOTNativeSymbol));
+
+        if (!sym) {
+            aot_set_last_error("alloc native symbol failed.");
+            return idx;
+        }
+
+        idx = bh_list_length(&comp_ctx->native_symbols);
+        sym->symbol = symbol;
+        sym->index = idx;
+
+        if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {
+            wasm_runtime_free(sym);
+            aot_set_last_error("alloc index for native symbol failed.");
+            return -1;
+        }
+    }
+
+    return idx;
 }
 
 void
@@ -1901,6 +2011,7 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
 
 static LLVMValueRef
 __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                      const AOTFuncContext *func_ctx,
                       const char *name,
                       LLVMTypeRef ret_type,
                       LLVMTypeRef *param_types,
@@ -1909,25 +2020,67 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 {
     LLVMValueRef func, ret;
     LLVMTypeRef func_type;
+    const char *symname;
+    int32 func_idx;
 
-    /* Declare llvm intrinsic function if necessary */
-    if (!(func = LLVMGetNamedFunction(comp_ctx->module, name))) {
-        if (!(func_type = LLVMFunctionType(ret_type, param_types,
-                                           (uint32)param_count, false))) {
-            aot_set_last_error("create LLVM function type failed.");
+    if (comp_ctx->disable_llvm_intrinsics
+        && (aot_intrinsic_check_capability(comp_ctx, name) == false)) {
+        if (func_ctx == NULL) {
+            aot_set_last_error_v("invalid func_ctx for intrinsic: %s", name);
             return NULL;
         }
 
-        if (!(func = LLVMAddFunction(comp_ctx->module, name, func_type))) {
-            aot_set_last_error("add LLVM function failed.");
+        if (!(func_type = LLVMFunctionType(ret_type, param_types,
+                                           (uint32)param_count, false))) {
+            aot_set_last_error("create LLVM intrinsic function type failed.");
             return NULL;
+        }
+        if (!(func_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error(
+              "create LLVM intrinsic function pointer type failed.");
+            return NULL;
+        }
+
+        if (!(symname = aot_intrinsic_get_symbol(name))) {
+            aot_set_last_error_v("runtime intrinsic not implemented: %s\n",
+                                 name);
+            return NULL;
+        }
+
+        func_idx =
+          aot_get_native_symbol_index((AOTCompContext *)comp_ctx, symname);
+        if (func_idx < 0) {
+            aot_set_last_error_v("get runtime intrinsc index failed: %s\n",
+                                 name);
+            return NULL;
+        }
+
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_type, func_idx))) {
+            aot_set_last_error_v("get runtime intrinsc failed: %s\n", name);
+            return NULL;
+        }
+    }
+    else {
+        /* Declare llvm intrinsic function if necessary */
+        if (!(func = LLVMGetNamedFunction(comp_ctx->module, name))) {
+            if (!(func_type = LLVMFunctionType(ret_type, param_types,
+                                               (uint32)param_count, false))) {
+                aot_set_last_error("create LLVM intrinsic function type failed.");
+                return NULL;
+            }
+
+            if (!(func = LLVMAddFunction(comp_ctx->module, name, func_type))) {
+                aot_set_last_error("add LLVM intrinsic function failed.");
+                return NULL;
+            }
         }
     }
 
     /* Call the LLVM intrinsic function */
     if (!(ret = LLVMBuildCall(comp_ctx->builder, func, param_values,
                               (uint32)param_count, "call"))) {
-        aot_set_last_error("llvm build call failed.");
+        aot_set_last_error("llvm build intrinsic call failed.");
         return NULL;
     }
 
@@ -1936,6 +2089,7 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                        const AOTFuncContext *func_ctx,
                         const char *name,
                         LLVMTypeRef ret_type,
                         LLVMTypeRef *param_types,
@@ -1961,7 +2115,7 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
         param_values[i++] = va_arg(argptr, LLVMValueRef);
     va_end(argptr);
 
-    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type, param_types,
+    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, name, ret_type, param_types,
                                 param_count, param_values);
 
     wasm_runtime_free(param_values);
@@ -1971,6 +2125,7 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
+                          const AOTFuncContext *func_ctx,
                           const char *name,
                           LLVMTypeRef ret_type,
                           LLVMTypeRef *param_types,
@@ -1993,10 +2148,46 @@ aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
     while (i < param_count)
         param_values[i++] = va_arg(param_value_list, LLVMValueRef);
 
-    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type, param_types,
+    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, name, ret_type, param_types,
                                 param_count, param_values);
 
     wasm_runtime_free(param_values);
 
     return ret;
+}
+
+LLVMValueRef
+aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
+                        LLVMTypeRef func_type, int32 index)
+{
+    LLVMValueRef func;
+    LLVMValueRef func_addr;
+
+    if (!(func_addr = I32_CONST(index))) {
+        aot_set_last_error("construct function index failed.");
+        goto fail;
+    }
+
+    if (!(func_addr = LLVMBuildInBoundsGEP(comp_ctx->builder, base, &func_addr,
+                                           1, "func_addr"))) {
+        aot_set_last_error("get function addr by index failed.");
+        goto fail;
+    }
+
+    func = LLVMBuildLoad(comp_ctx->builder, func_addr, "func_tmp");
+
+    if (func == NULL) {
+        aot_set_last_error("get function pointer failed.");
+        goto fail;
+    }
+
+    if (!(func = LLVMBuildBitCast(comp_ctx->builder, func, func_type,
+                                  "func"))) {
+        aot_set_last_error("cast function fialed.");
+        goto fail;
+    }
+
+    return func;
+fail:
+    return NULL;
 }

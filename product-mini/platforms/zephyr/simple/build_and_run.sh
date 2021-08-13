@@ -10,11 +10,12 @@ QEMU_CORTEX_A53="qemu_cortex_a53"
 QEMU_XTENSA_TARGET="qemu_xtensa"
 QEMU_RISCV64_TARGET="qemu_riscv64"
 QEMU_RISCV32_TARGET="qemu_riscv32"
+QEMU_ARC_TARGET="qemu_arc"
 
 usage ()
 {
         echo "USAGE:"
-        echo "$0 $X86_TARGET|$STM32_TARGET|$ESP32_TARGET|$QEMU_CORTEX_A53|$QEMU_XTENSA_TARGET|$QEMU_RISCV64_TARGET|$QEMU_RISCV32_TARGET"
+        echo "$0 $X86_TARGET|$STM32_TARGET|$ESP32_TARGET|$QEMU_CORTEX_A53|$QEMU_XTENSA_TARGET|$QEMU_RISCV64_TARGET|$QEMU_RISCV32_TARGET|$QEMU_ARC_TARGET"
         echo "Example:"
         echo "        $0 $X86_TARGET"
         echo "        $0 $STM32_TARGET"
@@ -85,6 +86,14 @@ case $TARGET in
                             . -p always -- \
                             -DCONF_FILE=prj_qemu_riscv32.conf \
                             -DWAMR_BUILD_TARGET=RISCV32_ILP32 \
+                            -DWAMR_BUILD_AOT=0
+                west build -t run
+                ;;
+        $QEMU_ARC_TARGET)
+                west build -b qemu_arc_em \
+                            . -p always -- \
+                            -DCONF_FILE=prj_qemu_arc.conf \
+                            -DWAMR_BUILD_TARGET=ARC \
                             -DWAMR_BUILD_AOT=0
                 west build -t run
                 ;;

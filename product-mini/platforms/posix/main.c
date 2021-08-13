@@ -32,7 +32,9 @@ print_help()
     printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
     printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
-           "                         that runs commands in the form of `FUNC ARG...`\n");
+           "                         that runs commands in the form of \"FUNC ARG...\"\n");
+    printf("  --xip                  Enable XIP (Execution In Place) mode to run AOT file\n"
+           "                         generated with \"--enable-indirect-mode\" flag\n");
 #if WASM_ENABLE_LIBC_WASI != 0
     printf("  --env=<env>            Pass wasi environment variables with \"key=value\"\n");
     printf("                         to the program, for example:\n");
@@ -232,6 +234,7 @@ main(int argc, char *argv[])
     int log_verbose_level = 2;
 #endif
     bool is_repl_mode = false;
+    bool is_xip_mode = false;
 #if WASM_ENABLE_LIBC_WASI != 0
     const char *dir_list[8] = { NULL };
     uint32 dir_list_size = 0;
@@ -258,6 +261,9 @@ main(int argc, char *argv[])
 #endif
         else if (!strcmp(argv[0], "--repl")) {
             is_repl_mode = true;
+        }
+        else if (!strcmp(argv[0], "--xip")) {
+            is_xip_mode = true;
         }
         else if (!strncmp(argv[0], "--stack-size=", 13)) {
             if (argv[0][13] == '\0')
@@ -355,6 +361,24 @@ main(int argc, char *argv[])
             (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
 
+    if (is_xip_mode) {
+        uint8 *wasm_file_mapped;
+        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+        int map_flags = MMAP_MAP_NONE;
+
+        if (!(wasm_file_mapped = os_mmap(NULL, (uint32)wasm_file_size,
+                                             map_prot, map_flags))) {
+            printf("mmap memory failed\n");
+            wasm_runtime_free(wasm_file_buf);
+            goto fail1;
+        }
+
+        bh_memcpy_s(wasm_file_mapped, wasm_file_size,
+                    wasm_file_buf, wasm_file_size);
+        wasm_runtime_free(wasm_file_buf);
+        wasm_file_buf = wasm_file_mapped;
+    }
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
 #endif
@@ -395,7 +419,10 @@ fail3:
 
 fail2:
     /* free the file buffer */
-    wasm_runtime_free(wasm_file_buf);
+    if (!is_xip_mode)
+        wasm_runtime_free(wasm_file_buf);
+    else
+        os_munmap(wasm_file_buf, wasm_file_size);
 
 fail1:
     /* destroy runtime environment */

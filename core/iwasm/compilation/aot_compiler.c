@@ -2111,19 +2111,26 @@ bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
 {
     char *err = NULL;
+    LLVMCodeGenFileType file_type = LLVMObjectFile;
+    LLVMTargetRef target =
+        LLVMGetTargetMachineTarget(comp_ctx->target_machine);
 
     bh_print_time("Begin to emit object file");
 
+    if (!strncmp(LLVMGetTargetName(target), "arc", 3))
+        /* Emit to assmelby file instead for arc target
+           as it cannot emit to object file */
+        file_type = LLVMAssemblyFile;
+
     if (LLVMTargetMachineEmitToFile(comp_ctx->target_machine,
                                     comp_ctx->module,
-                                    file_name,
-                                    LLVMObjectFile,
+                                    file_name, file_type,
                                     &err) != 0) {
         if (err) {
             LLVMDisposeMessage(err);
             err = NULL;
         }
-        aot_set_last_error("emit elf to memory buffer failed.");
+        aot_set_last_error("emit elf to object file failed.");
         return false;
     }
 

@@ -653,7 +653,8 @@ wasm_app_module_install(request_t * msg)
                 AOT_SECTION_TYPE_FUNCTION,
                 AOT_SECTION_TYPE_EXPORT,
                 AOT_SECTION_TYPE_RELOCATION,
-                AOT_SECTION_TYPE_SIGANATURE
+                AOT_SECTION_TYPE_SIGANATURE,
+                AOT_SECTION_TYPE_CUSTOM,
             };
 
             aot_file = &wasm_app_file->u.aot;
@@ -1375,7 +1376,8 @@ wasm_app_module_on_install_request_byte_arrive(uint8 ch,
             /* Notes: integers are always little endian encoded in AOT file */
             if (!is_little_endian())
                 exchange_uint32(p);
-            if (cur_section->section_type < AOT_SECTION_TYPE_SIGANATURE) {
+            if (cur_section->section_type < AOT_SECTION_TYPE_SIGANATURE
+                || cur_section->section_type == AOT_SECTION_TYPE_CUSTOM) {
                 recv_ctx.phase = Phase_AOT_Section_Size;
                 recv_ctx.size_in_phase = 0;
             }

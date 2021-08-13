@@ -2233,7 +2233,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     AOTImportFunc *import_func;
     const char *signature;
     void *attachment;
-    char buf[128];
+    char buf[96];
 
     bh_assert(func_idx < aot_module->import_func_count);
 
@@ -2282,7 +2282,7 @@ aot_call_indirect(WASMExecEnv *exec_env,
     AOTImportFunc *import_func;
     const char *signature = NULL;
     void *attachment = NULL;
-    char buf[128];
+    char buf[96];
     bool ret;
 
     /* this function is called from native code, so exec_env->handle and
