@@ -22,6 +22,7 @@ _invokeNative:
  */
 
         stmfd   sp!, {r4, r5, r6, r7, lr}
+        sub     sp, sp, #4      /* make sp 8 byte aligned */
         mov     ip, r0          /* ip = function ptr */
         mov     r4, r1          /* r4 = argv */
         mov     r5, r2          /* r5 = nstacks */
@@ -79,6 +80,7 @@ call_func:
         mov     sp, r6          /* restore sp */
 
 return:
+        add     sp, sp, #4      /* make sp 8 byte aligned */
         ldmfd   sp!, {r4, r5, r6, r7, lr}
         bx      lr
 
