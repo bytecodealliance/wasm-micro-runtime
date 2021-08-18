@@ -84,7 +84,7 @@ The folder “**app-sdk**” under the profile output directory contains all the
 
 
 
-Refer to [build WASM applications](./doc/build_wasm_app.md) for the details.
+Refer to [build WASM applications](../doc/build_wasm_app.md) for the details.
 
 
 
