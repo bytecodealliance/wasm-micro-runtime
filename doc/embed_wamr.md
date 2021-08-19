@@ -200,7 +200,7 @@ wasm_runtime_module_malloc(wasm_module_inst_t module_inst,
  * size: the size of buffer to be allocated and copy data
  */
 uint32_t
-wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
+wasm_runtime_module_dup_data(wasm_module_inst_t module_inst,
                              const char *src, uint32_t size);
 
 /* free the memory allocated from module memory space */
