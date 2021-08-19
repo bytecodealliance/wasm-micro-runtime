@@ -124,7 +124,7 @@ add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
 install (TARGETS libiwasm DESTINATION lib)
 
-set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
+set_target_properties (libiwasm PROPERTIES OUTPUT_NAME libiwasm)
 
 target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
 
