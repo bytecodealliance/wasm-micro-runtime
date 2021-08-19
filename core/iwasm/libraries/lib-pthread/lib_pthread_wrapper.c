@@ -112,7 +112,7 @@ typedef struct {
     /* table elem index of the app's entry function */
     uint32 elem_index;
     /* arg of the app's entry function */
-    void *arg;
+    uint32 arg;
     wasm_module_inst_t module_inst;
 } ThreadRoutineArgs;
 
@@ -479,17 +479,8 @@ pthread_start_routine(void *arg)
     os_cond_signal(&parent_exec_env->wait_cond);
     os_mutex_unlock(&parent_exec_env->wait_lock);
 
-    if (!validate_native_addr(routine_args->arg, sizeof(uint32))) {
-        /* If there are exceptions, copy the exception to
-            all other instance in this cluster */
-        wasm_cluster_spread_exception(exec_env);
-        wasm_runtime_deinstantiate_internal(module_inst, true);
-        delete_thread_info_node(info_node);
-        return NULL;
-    }
-
     wasm_exec_env_set_thread_info(exec_env);
-    argv[0] = addr_native_to_app(routine_args->arg);
+    argv[0] = routine_args->arg;
 
     if(!wasm_runtime_call_indirect(exec_env,
                                    routine_args->elem_index,
@@ -532,7 +523,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
                        uint32 *thread,      /* thread_handle */
                        const void *attr,    /* not supported */
                        uint32 elem_index,   /* entry function */
-                       void *arg)           /* arguments buffer */
+                       uint32 arg)          /* arguments buffer */
 {
     wasm_module_t module = get_module(exec_env);
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
@@ -1066,7 +1057,7 @@ posix_memalign_wrapper(wasm_exec_env_t exec_env,
     { #func_name, func_name##_wrapper, signature, NULL }
 
 static NativeSymbol native_symbols_lib_pthread[] = {
-    REG_NATIVE_FUNC(pthread_create,         "(**i*)i"),
+    REG_NATIVE_FUNC(pthread_create,         "(**ii)i"),
     REG_NATIVE_FUNC(pthread_join,           "(ii)i"),
     REG_NATIVE_FUNC(pthread_detach,         "(i)i"),
     REG_NATIVE_FUNC(pthread_cancel,         "(i)i"),
