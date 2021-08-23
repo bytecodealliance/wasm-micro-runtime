@@ -1,0 +1,368 @@
+diff --git a/llvm/llvm/include/llvm-c/LLLazyJIT.h b/llvm/llvm/include/llvm-c/LLLazyJIT.h
+new file mode 100644
+index 00000000..361f41e7
+--- /dev/null
++++ b/llvm/llvm/include/llvm-c/LLLazyJIT.h
+@@ -0,0 +1,202 @@
++/*===------- llvm-c/LLLazyJIT.h - OrcV2 LLLazyJIT C bindings ----*- C++ -*-===*\
++|*                                                                            *|
++|* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
++|* Exceptions.                                                                *|
++|* See https://llvm.org/LICENSE.txt for license information.                  *|
++|* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception                    *|
++|*                                                                            *|
++|*===----------------------------------------------------------------------===*|
++|*                                                                            *|
++|* This header declares the C interface to the LLLazyJIT class in             *|
++|* libLLVMOrcJIT.a, which provides a simple MCJIT-like ORC JIT.               *|
++|*                                                                            *|
++|* Many exotic languages can interoperate with C code but have a harder time  *|
++|* with C++ due to name mangling. So in addition to C, this interface enables *|
++|* tools written in such languages.                                           *|
++|*                                                                            *|
++|* Note: This interface is experimental. It is *NOT* stable, and may be       *|
++|*       changed without warning. Only C API usage documentation is           *|
++|*       provided. See the C++ documentation for all higher level ORC API     *|
++|*       details.                                                             *|
++|*                                                                            *|
++\*===----------------------------------------------------------------------===*/
++
++#ifndef LLVM_C_LLLAZYJIT_H
++#define LLVM_C_LLLAZYJIT_H
++
++#include "llvm-c/Error.h"
++#include "llvm-c/Orc.h"
++#include "llvm-c/TargetMachine.h"
++#include "llvm-c/Types.h"
++
++LLVM_C_EXTERN_C_BEGIN
++
++typedef enum {
++    LLVMOrcJITNoDump,
++    LLVMOrcJITDumpFuncs,
++    LLVMOrcJITDumpMods
++} LLVMOrcJITDumpKind;
++
++/**
++ * A reference to an orc::LLLazyJITBuilder instance.
++ */
++typedef struct LLVMOrcOpaqueLLLazyJITBuilder *LLVMOrcLLLazyJITBuilderRef;
++
++/**
++ * A reference to an orc::LLLazyJIT instance.
++ */
++typedef struct LLVMOrcOpaqueLLLazyJIT *LLVMOrcLLLazyJITRef;
++
++/**
++ * Create an LLVMOrcLLLazyJITBuilder.
++ *
++ * The client owns the resulting LLLazyJITBuilder and should dispose of it using
++ * LLVMOrcDisposeLLLazyJITBuilder once they are done with it.
++ */
++LLVMOrcLLLazyJITBuilderRef LLVMOrcCreateLLLazyJITBuilder(void);
++
++/**
++ * Dispose of an LLVMOrcLLLazyJITBuilderRef. This should only be called if
++ * ownership has not been passed to LLVMOrcCreateLLLazyJIT (e.g. because some
++ * error prevented that function from being called).
++ */
++void LLVMOrcDisposeLLLazyJITBuilder(LLVMOrcLLLazyJITBuilderRef Builder);
++
++
++/**
++ * Create an LLLazyJIT instance from an LLLazyJITBuilder.
++ *
++ * This operation takes ownership of the Builder argument: clients should not
++ * dispose of the builder after calling this function (even if the function
++ * returns an error). If a null Builder argument is provided then a
++ * default-constructed LLLazyJITBuilder will be used.
++ *
++ * On success the resulting LLLazyJIT instance is uniquely owned by the client
++ * and automatically manages the memory of all JIT'd code and all modules that
++ * are transferred to it (e.g. via LLVMOrcLLLazyJITAddLLVMIRModule). Disposing
++ * of the LLLazyJIT instance will free all memory managed by the JIT, including
++ * JIT'd code and not-yet compiled modules.
++ */
++LLVMErrorRef LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
++                                    LLVMOrcLLLazyJITBuilderRef Builder);
++
++/**
++ * Dispose of an LLLazyJIT instance.
++ */
++LLVMErrorRef LLVMOrcDisposeLLLazyJIT(LLVMOrcLLLazyJITRef J);
++
++/**
++ * Return a reference to the Main JITDylib.
++ *
++ * The JITDylib is owned by the LLLazyJIT instance. The client is not responsible
++ * for managing its memory.
++ */
++LLVMOrcJITDylibRef LLVMOrcLLLazyJITGetMainJITDylib(LLVMOrcLLLazyJITRef J);
++
++/**
++ * Return the target triple for this LLLazyJIT instance. This string is owned by
++ * the LLLazyJIT instance and should not be freed by the client.
++ */
++const char *LLVMOrcLLLazyJITGetTripleString(LLVMOrcLLLazyJITRef J);
++
++/**
++ * Returns the global prefix character according to the LLLazyJIT's DataLayout.
++ */
++char LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J);
++
++/**
++ * Mangles the given string according to the LLLazyJIT instance's DataLayout,
++ * then interns the result in the SymbolStringPool and returns a reference to
++ * the pool entry. Clients should call LLVMOrcReleaseSymbolStringPoolEntry to
++ * decrement the ref-count on the pool entry once they are finished with this
++ * value.
++ */
++LLVMOrcSymbolStringPoolEntryRef LLVMOrcLLLazyJITMangleAndIntern(
++    LLVMOrcLLLazyJITRef J, const char *UnmangledName);
++
++/**
++ * Add a buffer representing an object file to the given JITDylib in the given
++ * LLLazyJIT instance. This operation transfers ownership of the buffer to the
++ * LLLazyJIT instance. The buffer should not be disposed of or referenced once
++ * this function returns.
++ *
++ * Resources associated with the given object will be tracked by the given
++ * JITDylib's default resource tracker.
++ */
++LLVMErrorRef LLVMOrcLLLazyJITAddObjectFile(LLVMOrcLLLazyJITRef J,
++                                           LLVMOrcJITDylibRef JD,
++                                           LLVMMemoryBufferRef ObjBuffer);
++
++/**
++ * Add a buffer representing an object file to the given ResourceTracker's
++ * JITDylib in the given LLLazyJIT instance. This operation transfers ownership
++ * of the buffer to the LLLazyJIT instance. The buffer should not be disposed of
++ * or referenced once this function returns.
++ *
++ * Resources associated with the given object will be tracked by ResourceTracker
++ * RT.
++ */
++// LLVMErrorRef LLVMOrcLLLazyJITAddObjectFileWithRT(LLVMOrcLLLazyJITRef J,
++//                                              LLVMOrcResourceTrackerRef RT,
++//                                              LLVMMemoryBufferRef ObjBuffer);
++
++/**
++ * Add an IR module to the given JITDylib in the given LLLazyJIT instance. This
++ * operation transfers ownership of the TSM argument to the LLLazyJIT instance.
++ * The TSM argument should not be disposed of or referenced once this
++ * function returns.
++ *
++ * Resources associated with the given Module will be tracked by the given
++ * JITDylib's default resource tracker.
++ */
++LLVMErrorRef LLVMOrcLLLazyJITAddLLVMIRModule(LLVMOrcLLLazyJITRef J,
++                                             LLVMOrcJITDylibRef JD,
++                                             LLVMOrcThreadSafeModuleRef TSM);
++
++/**
++ * Add an IR module to the given ResourceTracker's JITDylib in the given LLLazyJIT
++ * instance. This operation transfers ownership of the TSM argument to the LLLazyJIT
++ * instance. The TSM argument should not be disposed of or referenced once this
++ * function returns.
++ *
++ * Resources associated with the given Module will be tracked by ResourceTracker
++ * RT.
++ */
++// LLVMErrorRef LLVMOrcLLLazyJITAddLLVMIRModuleWithRT(LLVMOrcLLLazyJITRef J,
++//                                                LLVMOrcResourceTrackerRef JD,
++//                                                LLVMOrcThreadSafeModuleRef TSM);
++
++/**
++ * Look up the given symbol in the main JITDylib of the given LLLazyJIT instance.
++ *
++ * This operation does not take ownership of the Name argument.
++ */
++LLVMErrorRef LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J,
++                                    LLVMOrcJITTargetAddress *Result,
++                                    const char *Name);
++
++
++const char *LLVMOrcLLLazyJITGetTripleString(LLVMOrcLLLazyJITRef J);
++
++/**
++ * Set the JITTargetMachineBuilder to be used when constructing the LLJIT
++ * instance. Calling this function is optional: if it is not called then the
++ * LLJITBuilder will use JITTargeTMachineBuilder::detectHost to construct a
++ * JITTargetMachineBuilder.
++ */
++void LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
++    LLVMOrcLLLazyJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMB);
++
++/**
++ * Returns the global prefix character according to the LLJIT's DataLayout.
++ */
++char LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J);
++
++/**
++ * Set LLLazyJIT instance dump kind to dump lazy-compile's modules and functions.
++ */
++void LLVMOrcLLLazyJITSetDumpKind(LLVMOrcLLLazyJITRef J, LLVMOrcJITDumpKind Kind);
++
++LLVM_C_EXTERN_C_END
++
++#endif /* LLVM_C_LLLAZYJIT_H */
+diff --git a/llvm/llvm/lib/ExecutionEngine/Orc/OrcV2CBindings.cpp b/llvm/llvm/lib/ExecutionEngine/Orc/OrcV2CBindings.cpp
+index 5933c2e6..ec958a3c 100644
+--- a/llvm/llvm/lib/ExecutionEngine/Orc/OrcV2CBindings.cpp
++++ b/llvm/llvm/lib/ExecutionEngine/Orc/OrcV2CBindings.cpp
+@@ -7,10 +7,12 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "llvm-c/Orc.h"
++#include "llvm-c/LLLazyJIT.h"
+ #include "llvm-c/TargetMachine.h"
+ 
+ #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
+ #include "llvm/ExecutionEngine/Orc/LLJIT.h"
++#include "llvm/IR/Verifier.h"
+ 
+ using namespace llvm;
+ using namespace llvm::orc;
+@@ -56,8 +58,13 @@ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(JITTargetMachineBuilder,
+ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
+ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJIT, LLVMOrcLLJITRef)
+ 
++DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLLazyJITBuilder, LLVMOrcLLLazyJITBuilderRef)
++DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLLazyJIT, LLVMOrcLLLazyJITRef)
++
+ DEFINE_SIMPLE_CONVERSION_FUNCTIONS(TargetMachine, LLVMTargetMachineRef)
+ 
++static LLVMOrcJITDumpKind OrcLazyDumpKind = LLVMOrcJITDumpKind::LLVMOrcJITNoDump;
++
+ LLVMOrcSymbolStringPoolEntryRef
+ LLVMOrcExecutionSessionIntern(LLVMOrcExecutionSessionRef ES, const char *Name) {
+   return wrap(
+@@ -143,7 +150,7 @@ LLVMErrorRef LLVMOrcJITTargetMachineBuilderDetectHost(
+ }
+ 
+ LLVMOrcJITTargetMachineBuilderRef
+-LLVMOrcJITTargetMachineBuilderFromTargetMachine(LLVMTargetMachineRef TM) {
++LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM) {
+   auto *TemplateTM = unwrap(TM);
+ 
+   auto JTMB =
+@@ -252,3 +259,119 @@ LLVMErrorRef LLVMOrcLLJITLookup(LLVMOrcLLJITRef J,
+   *Result = Sym->getAddress();
+   return LLVMErrorSuccess;
+ }
++
++LLVMOrcJITDylibRef LLVMOrcLLLazyJITGetMainJITDylib(LLVMOrcLLLazyJITRef J) {
++  return wrap(&unwrap(J)->getMainJITDylib());
++}
++
++LLVMOrcLLLazyJITBuilderRef LLVMOrcCreateLLLazyJITBuilder(void) {
++  return wrap(new LLLazyJITBuilder());
++}
++
++void LLVMOrcDisposeLLLazyJITBuilder(LLVMOrcLLLazyJITBuilderRef Builder) {
++  delete unwrap(Builder);
++}
++
++LLVMErrorRef LLVMOrcCreateLLLazyJIT(LLVMOrcLLLazyJITRef *Result,
++                                LLVMOrcLLLazyJITBuilderRef Builder) {
++  assert(Result && "Result can not be null");
++
++  if (!Builder)
++    Builder = LLVMOrcCreateLLLazyJITBuilder();
++
++  auto J = unwrap(Builder)->create();
++  LLVMOrcDisposeLLLazyJITBuilder(Builder);
++
++  if (!J) {
++    Result = 0;
++    return wrap(J.takeError());
++  }
++
++  *Result = wrap(J->release());
++  return LLVMErrorSuccess;
++}
++
++LLVMErrorRef LLVMOrcDisposeLLLazyJIT(LLVMOrcLLLazyJITRef J) {
++  delete unwrap(J);
++  return LLVMErrorSuccess;
++}
++
++void LLVMOrcLLLazyJITSetDumpKind(LLVMOrcLLLazyJITRef J, LLVMOrcJITDumpKind Kind)
++{
++  OrcLazyDumpKind = Kind;
++  unwrap(J)->getIRTransformLayer().setTransform(
++    [&](orc::ThreadSafeModule TSM,
++        const orc::MaterializationResponsibility &R) {
++      TSM.withModuleDo([&](Module &M) {
++        if (verifyModule(M, &dbgs())) {
++          dbgs() << "Bad module: " << &M << "\n";
++          exit(1);
++        }
++        
++        switch (OrcLazyDumpKind) {
++          case LLVMOrcJITDumpKind::LLVMOrcJITNoDump:
++            break;
++
++          case LLVMOrcJITDumpKind::LLVMOrcJITDumpFuncs:
++            printf("[ ");
++
++            for (const auto &F : M) {
++              if (F.isDeclaration())
++                continue;
++
++              if (F.hasName()) {
++                std::string Name(std::string(F.getName()));
++                printf("%s ", Name.c_str());
++              } else
++                printf("<anon> ");
++            }
++
++            printf("]\n");
++            break;
++
++          case LLVMOrcJITDumpKind::LLVMOrcJITDumpMods:
++            outs() << "----- Module Start -----\n" << M
++                   << "----- Module End -----\n";
++            break;
++        }
++      });
++      return TSM;
++    });
++}
++
++LLVMErrorRef LLVMOrcLLLazyJITAddLLVMIRModule(LLVMOrcLLLazyJITRef J,
++                                             LLVMOrcJITDylibRef JD,
++                                             LLVMOrcThreadSafeModuleRef TSM) {
++  return wrap(unwrap(J)->addLazyIRModule(*unwrap(JD), std::move(*unwrap(TSM))));
++}
++
++LLVMErrorRef LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J,
++                                    LLVMOrcJITTargetAddress *Result,
++                                    const char *Name) {
++  assert(Result && "Result can not be null");
++
++  auto Sym = unwrap(J)->lookup(Name);
++  if (!Sym) {
++    *Result = 0;
++    return wrap(Sym.takeError());
++  }
++
++  *Result = Sym->getAddress();
++  return LLVMErrorSuccess;
++}
++
++const char *LLVMOrcLLLazyJITGetTripleString(LLVMOrcLLLazyJITRef J)
++{
++  return unwrap(J)->getTargetTriple().str().c_str();
++}
++
++void LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
++    LLVMOrcLLLazyJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMB)
++{
++  unwrap(Builder)->setJITTargetMachineBuilder(*unwrap(JTMB));
++}
++
++char LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J)
++{
++  return unwrap(J)->getDataLayout().getGlobalPrefix();
++}

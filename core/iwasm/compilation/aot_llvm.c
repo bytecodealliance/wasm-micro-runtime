@@ -1207,13 +1207,105 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
 
 void LLVMAddPromoteMemoryToRegisterPass(LLVMPassManagerRef PM);
 
+#if WASM_ENABLE_LAZY != 0
+void aot_llvm_error_message(const char *debug_msg, LLVMErrorRef error) {
+    char *err_msg = LLVMGetErrorMessage(error);
+    fprintf(stderr, "%s %s\n", debug_msg, err_msg);
+    LLVMDisposeErrorMessage(err_msg);
+}
+
+static bool llvm_orcjit_create(AOTCompContext *comp_ctx)
+{
+    char       *err_msg = NULL;
+    char       *cpu = NULL;
+    char       *features = NULL;
+    char       buf[128] = {0};
+    const char *llvm_triple = NULL;
+
+    LLVMTargetRef llvm_targetref;
+
+    llvm_triple = LLVMGetDefaultTargetTriple();
+
+    if (LLVMGetTargetFromTriple(llvm_triple, &llvm_targetref, &err_msg) != 0)  {
+        snprintf(buf, sizeof(buf),
+                    "failed to get target reference from triple %s.", err_msg);
+        aot_set_last_error(buf);
+        return false;
+    }
+    if (!LLVMTargetHasJIT(llvm_targetref)) {
+        aot_set_last_error("Unspported JIT on this platform.");
+        return false;
+    }
+    cpu = LLVMGetHostCPUName();
+    features = LLVMGetHostCPUFeatures();
+    os_printf("LLVM ORCJIT detected CPU \"%s\", with features \"%s\"\n",
+           cpu, features);
+
+    LLVMTargetMachineRef tm_opt =
+        LLVMCreateTargetMachine(llvm_targetref, llvm_triple, cpu, features,
+                                LLVMCodeGenLevelAggressive,
+                                LLVMRelocDefault,
+                                LLVMCodeModelJITDefault);
+    /*
+     * LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine will dispose
+     * LLVMTargetMachineRef memory.
+     */
+    LLVMTargetMachineRef tm_opt_backup =
+        LLVMCreateTargetMachine(llvm_targetref, llvm_triple, cpu, features,
+                                LLVMCodeGenLevelAggressive,
+                                LLVMRelocDefault,
+                                LLVMCodeModelJITDefault);
+    LLVMDisposeMessage(cpu);
+    cpu = NULL;
+    LLVMDisposeMessage(features);
+    features = NULL;
+
+    LLVMOrcLLLazyJITRef llvm_lazy_orcjit;
+    LLVMOrcJITTargetMachineBuilderRef tm_builder;
+    LLVMOrcLLLazyJITBuilderRef lazyjit_builder;
+    LLVMErrorRef error;
+    LLVMOrcJITDylibDefinitionGeneratorRef main_gen;
+
+    lazyjit_builder = LLVMOrcCreateLLLazyJITBuilder();
+    tm_builder = LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(tm_opt);
+    LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(lazyjit_builder,
+                                                      tm_builder);
+
+    error = LLVMOrcCreateLLLazyJIT(&llvm_lazy_orcjit, lazyjit_builder);
+    if (error) {
+        aot_llvm_error_message("failed to create llvm_lazy_orcjit instance:",
+                            error);
+    }
+
+    error =
+        LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(
+            &main_gen,
+            LLVMOrcLLLazyJITGetGlobalPrefix(llvm_lazy_orcjit),
+            0, NULL);
+
+    if (error) {
+        aot_llvm_error_message("failed to create generator:", error);
+    }
+
+    LLVMOrcJITDylibAddGenerator(
+        LLVMOrcLLLazyJITGetMainJITDylib(llvm_lazy_orcjit),
+        main_gen);
+
+    comp_ctx->lazy_orcjit = llvm_lazy_orcjit;
+    comp_ctx->target_machine = tm_opt_backup;
+    return true;
+}
+#endif /* WASM_ENABLE_LAZY != 0 */
+
 AOTCompContext *
 aot_create_comp_context(AOTCompData *comp_data,
                         aot_comp_option_t option)
 {
     AOTCompContext *comp_ctx, *ret = NULL;
     /*LLVMTypeRef elem_types[8];*/
+#if WASM_ENABLE_LAZY == 0
     struct LLVMMCJITCompilerOptions jit_options;
+#endif
     LLVMTargetRef target;
     char *triple = NULL, *triple_norm, *arch, *abi;
     char *cpu = NULL, *features, buf[128];
@@ -1225,11 +1317,18 @@ aot_create_comp_context(AOTCompData *comp_data,
     LLVMTargetDataRef target_data_ref;
 
     /* Initialize LLVM environment */
+#if WASM_ENABLE_LAZY != 0
+    LLVMInitializeCore(LLVMGetGlobalPassRegistry());
+    LLVMInitializeNativeTarget();
+    LLVMInitializeNativeAsmPrinter();
+    LLVMInitializeNativeAsmParser();
+#else
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
     LLVMInitializeAllTargetMCs();
     LLVMInitializeAllAsmPrinters();
     LLVMLinkInMCJIT();
+#endif
 
     /* Allocate memory */
     if (!(comp_ctx = wasm_runtime_malloc(sizeof(AOTCompContext)))) {
@@ -1241,10 +1340,20 @@ aot_create_comp_context(AOTCompData *comp_data,
     comp_ctx->comp_data = comp_data;
 
     /* Create LLVM context, module and builder */
+#if WASM_ENABLE_LAZY != 0
+    comp_ctx->ts_context = LLVMOrcCreateNewThreadSafeContext();
+    /* Get a reference to the underlying LLVMContext */
+    if (!(comp_ctx->context =
+            LLVMOrcThreadSafeContextGetContext(comp_ctx->ts_context))) {
+        aot_set_last_error("create LLVM ThreadSafeContext failed.");
+        goto fail;
+    }
+#else
     if (!(comp_ctx->context = LLVMContextCreate())) {
         aot_set_last_error("create LLVM context failed.");
         goto fail;
     }
+#endif
 
     if (!(comp_ctx->builder = LLVMCreateBuilderInContext(comp_ctx->context))) {
         aot_set_last_error("create LLVM builder failed.");
@@ -1288,6 +1397,14 @@ aot_create_comp_context(AOTCompData *comp_data,
     if (option->is_jit_mode) {
         char *triple_jit = NULL;
 
+#if WASM_ENABLE_LAZY != 0
+        /* Create LLLazyJIT Instance */
+        if (!llvm_orcjit_create(comp_ctx)) {
+		    aot_set_last_error("create LLVM Lazy JIT Compiler failed.");
+			goto fail;
+		}
+
+#else
         /* Create LLVM execution engine */
         LLVMInitializeMCJITCompilerOptions(&jit_options, sizeof(jit_options));
         jit_options.OptLevel = LLVMCodeGenLevelAggressive;
@@ -1303,15 +1420,28 @@ aot_create_comp_context(AOTCompData *comp_data,
             aot_set_last_error("create LLVM JIT compiler failed.");
             goto fail;
         }
-        comp_ctx->is_jit_mode = true;
         comp_ctx->target_machine =
                 LLVMGetExecutionEngineTargetMachine(comp_ctx->exec_engine);
+#endif
+        comp_ctx->is_jit_mode = true;
+
 #ifndef OS_ENABLE_HW_BOUND_CHECK
         comp_ctx->enable_bound_check = true;
 #else
         comp_ctx->enable_bound_check = false;
 #endif
 
+#if WASM_ENABLE_LAZY != 0
+        if (!(triple_jit =
+                (char *)LLVMOrcLLLazyJITGetTripleString(comp_ctx->lazy_orcjit))) {
+            aot_set_last_error("can not get triple from the target machine");
+            goto fail;
+        }
+
+        /* Save target arch */
+        get_target_arch_from_triple(triple_jit, comp_ctx->target_arch,
+                                    sizeof(comp_ctx->target_arch));
+#else
         if (!(triple_jit =
                 LLVMGetTargetMachineTriple(comp_ctx->target_machine))) {
             aot_set_last_error("can not get triple from the target machine");
@@ -1322,6 +1452,8 @@ aot_create_comp_context(AOTCompData *comp_data,
         get_target_arch_from_triple(triple_jit, comp_ctx->target_arch,
                                     sizeof(comp_ctx->target_arch));
         LLVMDisposeMessage(triple_jit);
+#endif
+
     }
     else {
         /* Create LLVM target machine */
@@ -1706,6 +1838,30 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (!comp_ctx)
         return;
 
+#if WASM_ENABLE_LAZY != 0
+    if (comp_ctx->pass_mgr) {
+        LLVMFinalizeFunctionPassManager(comp_ctx->pass_mgr);
+        LLVMDisposePassManager(comp_ctx->pass_mgr);
+    }
+
+    if (comp_ctx->target_machine && comp_ctx->is_jit_mode)
+        LLVMDisposeTargetMachine(comp_ctx->target_machine);
+
+    if (comp_ctx->builder)
+        LLVMDisposeBuilder(comp_ctx->builder);
+
+    if (comp_ctx->lazy_orcjit) {
+        LLVMOrcDisposeLLLazyJIT(comp_ctx->lazy_orcjit);
+        comp_ctx->lazy_orcjit = NULL;
+    }
+
+    if (comp_ctx->ts_context) {
+        LLVMOrcDisposeThreadSafeContext(comp_ctx->ts_context);
+        comp_ctx->ts_context = NULL;
+    }
+
+    LLVMShutdown();
+#else
     if (comp_ctx->pass_mgr)
         LLVMDisposePassManager(comp_ctx->pass_mgr);
 
@@ -1726,6 +1882,7 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (comp_ctx->context)
         LLVMContextDispose(comp_ctx->context);
 
+#endif
     if (comp_ctx->func_ctxes)
         aot_destroy_func_contexts(comp_ctx->func_ctxes,
                                   comp_ctx->func_ctx_count);

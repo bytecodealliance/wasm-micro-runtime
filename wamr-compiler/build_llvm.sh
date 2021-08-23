@@ -9,6 +9,7 @@ cd ${DEPS_DIR}
 if [ ! -d "llvm" ]; then
   echo "Clone llvm to core/deps/ .."
   git clone --depth 1 --branch release/11.x https://github.com/llvm/llvm-project.git llvm
+  patch -p 1 < llvm_c_api_orcjit.patch
 fi
 
 cd llvm

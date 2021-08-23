@@ -2596,7 +2596,36 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                 loader_malloc(size, error_buf, error_buf_size))) {
         goto fail2;
     }
+#if WASM_ENABLE_LAZY != 0
+    bh_assert(comp_ctx->lazy_orcjit);
 
+    LLVMOrcThreadSafeModuleRef ts_module;
+    LLVMOrcJITDylibRef main_dylib =
+        LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->lazy_orcjit);
+    LLVMErrorRef error;
+    ts_module = LLVMOrcCreateNewThreadSafeModule(comp_ctx->module,
+                                                 comp_ctx->ts_context);
+    if ((error = LLVMOrcLLLazyJITAddLLVMIRModule(comp_ctx->lazy_orcjit,
+                                                 main_dylib, ts_module))) {
+        // If adding the ThreadSafeModule fails then we need to clean it up
+        // ourselves. If adding it succeeds the JIT will manage the memory.
+        LLVMOrcDisposeThreadSafeModule(ts_module);
+        aot_llvm_error_message("Failed to addIRModule: ", error);
+        goto fail2;
+    }
+
+    LLVMOrcJITTargetAddress func_addr = 0;
+    for (i = 0; i < comp_data->func_count; i++) {
+        snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
+        if ((error = LLVMOrcLLLazyJITLookup(comp_ctx->lazy_orcjit,
+                                            &func_addr, func_name))) {
+            aot_llvm_error_message("Cannot lookup: ", error);
+            goto fail3;
+        }
+        module->func_ptrs[i] = (void *)func_addr;
+        func_addr = 0;
+    }
+#else
     /* Resolve function addresses */
     bh_assert(comp_ctx->exec_engine);
     for (i = 0; i < comp_data->func_count; i++) {
@@ -2609,6 +2638,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             goto fail3;
         }
     }
+#endif /* WASM_ENABLE_LAZY != 0 */
 
     /* Allocation memory for function type indexes */
     size = (uint64)module->func_count * sizeof(uint32);
