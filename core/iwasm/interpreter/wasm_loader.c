@@ -4053,42 +4053,33 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
+                /* TODO: shall we ceate a table to be friendly to branch prediction */
                 opcode = read_uint8(p);
-                if (SIMD_i8x16_eq <= opcode
-                    && opcode <= SIMD_f32x4_convert_i32x4_u) {
-                    break;
-                }
-
+                /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h */
                 switch (opcode) {
                     case SIMD_v128_load:
-                    case SIMD_i16x8_load8x8_s:
-                    case SIMD_i16x8_load8x8_u:
-                    case SIMD_i32x4_load16x4_s:
-                    case SIMD_i32x4_load16x4_u:
-                    case SIMD_i64x2_load32x2_s:
-                    case SIMD_i64x2_load32x2_u:
-                    case SIMD_v8x16_load_splat:
-                    case SIMD_v16x8_load_splat:
-                    case SIMD_v32x4_load_splat:
-                    case SIMD_v64x2_load_splat:
+                    case SIMD_v128_load8x8_s:
+                    case SIMD_v128_load8x8_u:
+                    case SIMD_v128_load16x4_s:
+                    case SIMD_v128_load16x4_u:
+                    case SIMD_v128_load32x2_s:
+                    case SIMD_v128_load32x2_u:
+                    case SIMD_v128_load8_splat:
+                    case SIMD_v128_load16_splat:
+                    case SIMD_v128_load32_splat:
+                    case SIMD_v128_load64_splat:
                     case SIMD_v128_store:
-                        skip_leb_uint32(p, p_end); /* align */
-                        skip_leb_uint32(p, p_end); /* offset */
+                        /* memarg align */
+                        skip_leb_uint32(p, p_end);
+                        /* memarg offset*/
+                        skip_leb_uint32(p, p_end);
                         break;
 
                     case SIMD_v128_const:
                     case SIMD_v8x16_shuffle:
+                        /* immByte[16] immLaneId[16] */
                         CHECK_BUF1(p, p_end, 16);
                         p += 16;
-                        break;
-
-                    case SIMD_v8x16_swizzle:
-                    case SIMD_i8x16_splat:
-                    case SIMD_i16x8_splat:
-                    case SIMD_i32x4_splat:
-                    case SIMD_i64x2_splat:
-                    case SIMD_f32x4_splat:
-                    case SIMD_f64x2_splat:
                         break;
 
                     case SIMD_i8x16_extract_lane_s:
@@ -4105,14 +4096,44 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                     case SIMD_f32x4_replace_lane:
                     case SIMD_f64x2_extract_lane:
                     case SIMD_f64x2_replace_lane:
+                        /* ImmLaneId */
                         CHECK_BUF(p, p_end, 1);
                         p++;
                         break;
 
+                    case SIMD_v128_load8_lane:
+                    case SIMD_v128_load16_lane:
+                    case SIMD_v128_load32_lane:
+                    case SIMD_v128_load64_lane:
+                    case SIMD_v128_store8_lane:
+                    case SIMD_v128_store16_lane:
+                    case SIMD_v128_store32_lane:
+                    case SIMD_v128_store64_lane:
+                        /* memarg align */
+                        skip_leb_uint32(p, p_end);
+                        /* memarg offset*/
+                        skip_leb_uint32(p, p_end);
+                        /* ImmLaneId */
+                        CHECK_BUF(p, p_end, 1);
+                        p++;
+                        break;
+
+                    case SIMD_v128_load32_zero:
+                    case SIMD_v128_load64_zero:
+                        /* memarg align */
+                        skip_leb_uint32(p, p_end);
+                        /* memarg offset*/
+                        skip_leb_uint32(p, p_end);
+                        break;
+
                     default:
-                        LOG_WARNING("WASM loader find block addr failed: "
-                                    "invalid opcode fd 0x%02x.", opcode);
-                        return false;
+                        /*
+                         * since latest SIMD specific used almost every value
+                         * from 0x00 to 0xff, the default branch will present all
+                         * opcodes without imm
+                         * https://github.com/WebAssembly/simd/blob/main/proposals/simd/NewOpcodes.md
+                         */
+                        break;
                 }
                 break;
             }
@@ -5685,9 +5706,25 @@ check_simd_memory_access_align(uint8 opcode, uint32 align,
         4, /* store */
     };
 
-    bh_assert(opcode <= SIMD_v128_store);
+    uint8 mem_access_aligns_load_lane[] = {
+        0, 1, 2, 3, /* load lane */
+        0, 1, 2, 3, /* store lane */
+        2, 3 /* store zero */
+    };
 
-    if (align > mem_access_aligns[opcode - SIMD_v128_load]) {
+    if (!((opcode <= SIMD_v128_store)
+          || (SIMD_v128_load8_lane <= opcode
+              && opcode <= SIMD_v128_load64_zero))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "the opcode doesn't include memarg");
+        return false;
+    }
+
+    if ((opcode <= SIMD_v128_store
+         && align > mem_access_aligns[opcode - SIMD_v128_load])
+        || (SIMD_v128_load8_lane <= opcode && opcode <= SIMD_v128_load64_zero
+            && align > mem_access_aligns_load_lane[opcode
+                                                   - SIMD_v128_load8_lane])) {
         set_error_buf(error_buf, error_buf_size,
                       "alignment must not be larger than natural");
         return false;
@@ -5731,6 +5768,24 @@ check_simd_access_lane(uint8 opcode, uint8 lane,
                 goto fail;
             }
             break;
+
+        case SIMD_v128_load8_lane:
+        case SIMD_v128_load16_lane:
+        case SIMD_v128_load32_lane:
+        case SIMD_v128_load64_lane:
+        case SIMD_v128_store8_lane:
+        case SIMD_v128_store16_lane:
+        case SIMD_v128_store32_lane:
+        case SIMD_v128_store64_lane:
+        case SIMD_v128_load32_zero:
+        case SIMD_v128_load64_zero:
+        {
+            uint8 max_lanes[] = { 16, 8, 4, 2, 16, 8, 4, 2, 4, 2 };
+            if (lane >= max_lanes[opcode - SIMD_v128_load8_lane]) {
+                goto fail;
+            }
+            break;
+        }
         default:
             goto fail;
     }
@@ -8038,21 +8093,21 @@ fail_data_cnt_sec_require:
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
             case WASM_OP_SIMD_PREFIX:
             {
-                uint8 lane;
-
                 opcode = read_uint8(p);
+                /* follow the order of enum WASMSimdEXTOpcode in wasm_opcode.h */
                 switch (opcode) {
+                    /* memory instruction */
                     case SIMD_v128_load:
-                    case SIMD_i16x8_load8x8_s:
-                    case SIMD_i16x8_load8x8_u:
-                    case SIMD_i32x4_load16x4_s:
-                    case SIMD_i32x4_load16x4_u:
-                    case SIMD_i64x2_load32x2_s:
-                    case SIMD_i64x2_load32x2_u:
-                    case SIMD_v8x16_load_splat:
-                    case SIMD_v16x8_load_splat:
-                    case SIMD_v32x4_load_splat:
-                    case SIMD_v64x2_load_splat:
+                    case SIMD_v128_load8x8_s:
+                    case SIMD_v128_load8x8_u:
+                    case SIMD_v128_load16x4_s:
+                    case SIMD_v128_load16x4_u:
+                    case SIMD_v128_load32x2_s:
+                    case SIMD_v128_load32x2_u:
+                    case SIMD_v128_load8_splat:
+                    case SIMD_v128_load16_splat:
+                    case SIMD_v128_load32_splat:
+                    case SIMD_v128_load64_splat:
                     {
                         CHECK_MEMORY();
 
@@ -8064,7 +8119,6 @@ fail_data_cnt_sec_require:
 
                         read_leb_uint32(p, p_end, mem_offset); /* offset */
 
-                        /* pop(i32 %i), push(v128 *result) */
                         POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_V128);
                         break;
                     }
@@ -8081,18 +8135,19 @@ fail_data_cnt_sec_require:
 
                         read_leb_uint32(p, p_end, mem_offset); /* offset */
 
-                        /* pop(v128 %value) */
                         POP_V128();
-                        /* pop(i32 %i) */
                         POP_I32();
                         break;
                     }
 
+                    /* basic operation */
                     case SIMD_v128_const:
+                    {
                         CHECK_BUF1(p, p_end, 16);
                         p += 16;
                         PUSH_V128();
                         break;
+                    }
 
                     case SIMD_v8x16_shuffle:
                     {
@@ -8111,122 +8166,87 @@ fail_data_cnt_sec_require:
                     }
 
                     case SIMD_v8x16_swizzle:
+                    {
                         POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
+                    }
 
+                    /* splat operation */
                     case SIMD_i8x16_splat:
                     case SIMD_i16x8_splat:
                     case SIMD_i32x4_splat:
-                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_V128);
-                        break;
                     case SIMD_i64x2_splat:
-                        POP_AND_PUSH(VALUE_TYPE_I64, VALUE_TYPE_V128);
-                        break;
                     case SIMD_f32x4_splat:
-                        POP_AND_PUSH(VALUE_TYPE_F32, VALUE_TYPE_V128);
-                        break;
                     case SIMD_f64x2_splat:
-                        POP_AND_PUSH(VALUE_TYPE_F64, VALUE_TYPE_V128);
+                    {
+                        uint8 pop_type[] = { VALUE_TYPE_I32, VALUE_TYPE_I32,
+                                             VALUE_TYPE_I32, VALUE_TYPE_I64,
+                                             VALUE_TYPE_F32, VALUE_TYPE_F64 };
+                        POP_AND_PUSH(pop_type[opcode - SIMD_i8x16_splat],
+                                     VALUE_TYPE_V128);
                         break;
+                    }
 
+                    /* lane operation */
                     case SIMD_i8x16_extract_lane_s:
                     case SIMD_i8x16_extract_lane_u:
+                    case SIMD_i8x16_replace_lane:
                     case SIMD_i16x8_extract_lane_s:
                     case SIMD_i16x8_extract_lane_u:
-                    case SIMD_i32x4_extract_lane:
-                        CHECK_BUF(p, p_end, 1);
-                        lane = read_uint8(p);
-
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
-                                                    error_buf_size)) {
-                            goto fail;
-                        }
-
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
-                        break;
-                    case SIMD_i64x2_extract_lane:
-                        CHECK_BUF(p, p_end, 1);
-                        lane = read_uint8(p);
-
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
-                                                    error_buf_size)) {
-                            goto fail;
-                        }
-
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I64);
-                        break;
-                    case SIMD_f32x4_extract_lane:
-                        CHECK_BUF(p, p_end, 1);
-                        lane = read_uint8(p);
-
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
-                                                    error_buf_size)) {
-                            goto fail;
-                        }
-
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_F32);
-                        break;
-                    case SIMD_f64x2_extract_lane:
-                        CHECK_BUF(p, p_end, 1);
-                        lane = read_uint8(p);
-
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
-                                                    error_buf_size)) {
-                            goto fail;
-                        }
-
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_F64);
-                        break;
-                    case SIMD_i8x16_replace_lane:
                     case SIMD_i16x8_replace_lane:
+                    case SIMD_i32x4_extract_lane:
                     case SIMD_i32x4_replace_lane:
-                        CHECK_BUF(p, p_end, 1);
-                        lane = read_uint8(p);
-
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
-                                                    error_buf_size)) {
-                            goto fail;
-                        }
-
-                        POP_I32();
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
-                        break;
+                    case SIMD_i64x2_extract_lane:
                     case SIMD_i64x2_replace_lane:
-                        CHECK_BUF(p, p_end, 1);
-                        lane = read_uint8(p);
-
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
-                                                    error_buf_size)) {
-                            goto fail;
-                        }
-
-                        POP_I64();
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
-                        break;
+                    case SIMD_f32x4_extract_lane:
                     case SIMD_f32x4_replace_lane:
-                        CHECK_BUF(p, p_end, 1);
-                        lane = read_uint8(p);
-
-                        if (!check_simd_access_lane(opcode, lane, error_buf,
-                                                    error_buf_size)) {
-                            goto fail;
-                        }
-
-                        POP_F32();
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
-                        break;
+                    case SIMD_f64x2_extract_lane:
                     case SIMD_f64x2_replace_lane:
+                    {
+                        uint8 lane;
+                        /* clang-format off */
+                        uint8 replace[] = {
+                            /*i8x16*/ 0x0, 0x0, VALUE_TYPE_I32,
+                            /*i16x8*/ 0x0, 0x0, VALUE_TYPE_I32,
+                            /*i32x4*/ 0x0, VALUE_TYPE_I32,
+                            /*i64x2*/ 0x0, VALUE_TYPE_I64,
+                            /*f32x4*/ 0x0, VALUE_TYPE_F32,
+                            /*f64x2*/ 0x0, VALUE_TYPE_F64,
+                        };
+                        uint8 push_type[] = {
+                            /*i8x16*/ VALUE_TYPE_I32, VALUE_TYPE_I32,
+                                      VALUE_TYPE_V128,
+                            /*i16x8*/ VALUE_TYPE_I32, VALUE_TYPE_I32,
+                                      VALUE_TYPE_V128,
+                            /*i32x4*/ VALUE_TYPE_I32, VALUE_TYPE_V128,
+                            /*i64x2*/ VALUE_TYPE_I64, VALUE_TYPE_V128,
+                            /*f32x4*/ VALUE_TYPE_F32, VALUE_TYPE_V128,
+                            /*f64x2*/ VALUE_TYPE_F64, VALUE_TYPE_V128,
+                        };
+                        /* clang-format on */
+
                         CHECK_BUF(p, p_end, 1);
                         lane = read_uint8(p);
-
                         if (!check_simd_access_lane(opcode, lane, error_buf,
                                                     error_buf_size)) {
                             goto fail;
                         }
 
-                        POP_F64();
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        if (replace[opcode - SIMD_i8x16_extract_lane_s]) {
+                            if (!(wasm_loader_pop_frame_ref(
+                                  loader_ctx,
+                                  replace[opcode - SIMD_i8x16_extract_lane_s],
+                                  error_buf, error_buf_size)))
+                                goto fail;
+                        }
+
+                        POP_AND_PUSH(
+                          VALUE_TYPE_V128,
+                          push_type[opcode - SIMD_i8x16_extract_lane_s]);
                         break;
+                    }
+
+                    /* i8x16 compare operation */
                     case SIMD_i8x16_eq:
                     case SIMD_i8x16_ne:
                     case SIMD_i8x16_lt_s:
@@ -8237,6 +8257,7 @@ fail_data_cnt_sec_require:
                     case SIMD_i8x16_le_u:
                     case SIMD_i8x16_ge_s:
                     case SIMD_i8x16_ge_u:
+                    /* i16x8 compare operation */
                     case SIMD_i16x8_eq:
                     case SIMD_i16x8_ne:
                     case SIMD_i16x8_lt_s:
@@ -8247,6 +8268,7 @@ fail_data_cnt_sec_require:
                     case SIMD_i16x8_le_u:
                     case SIMD_i16x8_ge_s:
                     case SIMD_i16x8_ge_u:
+                    /* i32x4 compare operation */
                     case SIMD_i32x4_eq:
                     case SIMD_i32x4_ne:
                     case SIMD_i32x4_lt_s:
@@ -8257,122 +8279,318 @@ fail_data_cnt_sec_require:
                     case SIMD_i32x4_le_u:
                     case SIMD_i32x4_ge_s:
                     case SIMD_i32x4_ge_u:
+                    /* f32x4 compare operation */
                     case SIMD_f32x4_eq:
                     case SIMD_f32x4_ne:
                     case SIMD_f32x4_lt:
                     case SIMD_f32x4_gt:
                     case SIMD_f32x4_le:
                     case SIMD_f32x4_ge:
+                    /* f64x2 compare operation */
                     case SIMD_f64x2_eq:
                     case SIMD_f64x2_ne:
                     case SIMD_f64x2_lt:
                     case SIMD_f64x2_gt:
                     case SIMD_f64x2_le:
                     case SIMD_f64x2_ge:
+                    {
                         POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
+                    }
+
+                    /* v128 operation */
+                    case SIMD_v128_not:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_v128_and:
+                    case SIMD_v128_andnot:
+                    case SIMD_v128_or:
+                    case SIMD_v128_xor:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_v128_bitselect:
+                    {
+                        POP_V128();
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_v128_any_true:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
+                        break;
+                    }
+
+                    /* Load Lane Operation */
+                    case SIMD_v128_load8_lane:
+                    case SIMD_v128_load16_lane:
+                    case SIMD_v128_load32_lane:
+                    case SIMD_v128_load64_lane:
+                    case SIMD_v128_store8_lane:
+                    case SIMD_v128_store16_lane:
+                    case SIMD_v128_store32_lane:
+                    case SIMD_v128_store64_lane:
+                    {
+                        uint8 lane;
+
+                        CHECK_MEMORY();
+
+                        read_leb_uint32(p, p_end, align); /* align */
+                        if (!check_simd_memory_access_align(
+                              opcode, align, error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+
+                        read_leb_uint32(p, p_end, mem_offset); /* offset */
+
+                        CHECK_BUF(p, p_end, 1);
+                        lane = read_uint8(p);
+                        if (!check_simd_access_lane(opcode, lane, error_buf,
+                                                    error_buf_size)) {
+                            goto fail;
+                        }
+
+                        POP_V128();
+                        POP_I32();
+                        if (opcode < SIMD_v128_store8_lane) {
+                            PUSH_V128();
+                        }
+                        break;
+                    }
+
+                    case SIMD_v128_load32_zero:
+                    case SIMD_v128_load64_zero:
+                    {
+                        CHECK_MEMORY();
+
+                        read_leb_uint32(p, p_end, align); /* align */
+                        if (!check_simd_memory_access_align(
+                              opcode, align, error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+
+                        read_leb_uint32(p, p_end, mem_offset); /* offset */
+
+                        POP_AND_PUSH(VALUE_TYPE_I32, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    /* Float conversion */
+                    case SIMD_f32x4_demote_f64x2_zero:
+                    case SIMD_f64x2_promote_low_f32x4_zero:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    /* i8x16 Operation */
+                    case SIMD_i8x16_abs:
+                    case SIMD_i8x16_neg:
+                    case SIMD_i8x16_popcnt:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i8x16_all_true:
+                    case SIMD_i8x16_bitmask:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
+                        break;
+                    }
+
+                    case SIMD_i8x16_narrow_i16x8_s:
+                    case SIMD_i8x16_narrow_i16x8_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
 
                     case SIMD_f32x4_ceil:
                     case SIMD_f32x4_floor:
                     case SIMD_f32x4_trunc:
                     case SIMD_f32x4_nearest:
-                    case SIMD_f64x2_ceil:
-                    case SIMD_f64x2_floor:
-                    case SIMD_f64x2_trunc:
-                    case SIMD_f64x2_nearest:
-                    case SIMD_v128_not:
-                    case SIMD_i8x16_abs:
-                    case SIMD_i8x16_neg:
-                    case SIMD_i16x8_abs:
-                    case SIMD_i16x8_neg:
-                    case SIMD_i32x4_abs:
-                    case SIMD_i32x4_neg:
-                    case SIMD_i64x2_neg:
-                    case SIMD_f32x4_abs:
-                    case SIMD_f32x4_neg:
-                    case SIMD_f32x4_sqrt:
-                    case SIMD_f64x2_abs:
-                    case SIMD_f64x2_neg:
-                    case SIMD_f64x2_sqrt:
-                    case SIMD_i16x8_widen_low_i8x16_s:
-                    case SIMD_i16x8_widen_high_i8x16_s:
-                    case SIMD_i16x8_widen_low_i8x16_u:
-                    case SIMD_i16x8_widen_high_i8x16_u:
-                    case SIMD_i32x4_widen_low_i16x8_s:
-                    case SIMD_i32x4_widen_high_i16x8_s:
-                    case SIMD_i32x4_widen_low_i16x8_u:
-                    case SIMD_i32x4_widen_high_i16x8_u:
-                    case SIMD_i32x4_trunc_sat_f32x4_s:
-                    case SIMD_i32x4_trunc_sat_f32x4_u:
-                    case SIMD_f32x4_convert_i32x4_s:
-                    case SIMD_f32x4_convert_i32x4_u:
+                    {
                         POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
-
-                    case SIMD_v128_bitselect:
-                        POP_V128();
-                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
-                        break;
-
-                    case SIMD_i8x16_any_true:
-                    case SIMD_i8x16_all_true:
-                    case SIMD_i8x16_bitmask:
-                    case SIMD_i16x8_any_true:
-                    case SIMD_i16x8_all_true:
-                    case SIMD_i16x8_bitmask:
-                    case SIMD_i32x4_any_true:
-                    case SIMD_i32x4_all_true:
-                    case SIMD_i32x4_bitmask:
-                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
-                        break;
+                    }
 
                     case SIMD_i8x16_shl:
                     case SIMD_i8x16_shr_s:
                     case SIMD_i8x16_shr_u:
-                    case SIMD_i16x8_shl:
-                    case SIMD_i16x8_shr_s:
-                    case SIMD_i16x8_shr_u:
-                    case SIMD_i32x4_shl:
-                    case SIMD_i32x4_shr_s:
-                    case SIMD_i32x4_shr_u:
-                    case SIMD_i64x2_shl:
-                    case SIMD_i64x2_shr_s:
-                    case SIMD_i64x2_shr_u:
+                    {
                         POP_I32();
                         POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
+                    }
 
-                    case SIMD_i8x16_narrow_i16x8_s:
-                    case SIMD_i8x16_narrow_i16x8_u:
-                    case SIMD_i16x8_narrow_i32x4_s:
-                    case SIMD_i16x8_narrow_i32x4_u:
-                    case SIMD_v128_and:
-                    case SIMD_v128_andnot:
-                    case SIMD_v128_or:
-                    case SIMD_v128_xor:
                     case SIMD_i8x16_add:
-                    case SIMD_i8x16_add_saturate_s:
-                    case SIMD_i8x16_add_saturate_u:
+                    case SIMD_i8x16_add_sat_s:
+                    case SIMD_i8x16_add_sat_u:
                     case SIMD_i8x16_sub:
-                    case SIMD_i8x16_sub_saturate_s:
-                    case SIMD_i8x16_sub_saturate_u:
+                    case SIMD_i8x16_sub_sat_s:
+                    case SIMD_i8x16_sub_sat_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_f64x2_ceil:
+                    case SIMD_f64x2_floor:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_i8x16_min_s:
                     case SIMD_i8x16_min_u:
                     case SIMD_i8x16_max_s:
                     case SIMD_i8x16_max_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_f64x2_trunc:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_i8x16_avgr_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i16x8_extadd_pairwise_i8x16_s:
+                    case SIMD_i16x8_extadd_pairwise_i8x16_u:
+                    case SIMD_i32x4_extadd_pairwise_i16x8_s:
+                    case SIMD_i32x4_extadd_pairwise_i16x8_u:
+                    /* i16x8 operation */
+                    case SIMD_i16x8_abs:
+                    case SIMD_i16x8_neg:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i16x8_q15mulr_sat_s:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i16x8_all_true:
+                    case SIMD_i16x8_bitmask:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
+                        break;
+                    }
+
+                    case SIMD_i16x8_narrow_i32x4_s:
+                    case SIMD_i16x8_narrow_i32x4_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i16x8_extend_low_i8x16_s:
+                    case SIMD_i16x8_extend_high_i8x16_s:
+                    case SIMD_i16x8_extend_low_i8x16_u:
+                    case SIMD_i16x8_extend_high_i8x16_u:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i16x8_shl:
+                    case SIMD_i16x8_shr_s:
+                    case SIMD_i16x8_shr_u:
+                    {
+                        POP_I32();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_i16x8_add:
-                    case SIMD_i16x8_add_saturate_s:
-                    case SIMD_i16x8_add_saturate_u:
+                    case SIMD_i16x8_add_sat_s:
+                    case SIMD_i16x8_add_sat_u:
                     case SIMD_i16x8_sub:
-                    case SIMD_i16x8_sub_saturate_s:
-                    case SIMD_i16x8_sub_saturate_u:
+                    case SIMD_i16x8_sub_sat_s:
+                    case SIMD_i16x8_sub_sat_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_f64x2_nearest:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_i16x8_mul:
                     case SIMD_i16x8_min_s:
                     case SIMD_i16x8_min_u:
                     case SIMD_i16x8_max_s:
                     case SIMD_i16x8_max_u:
                     case SIMD_i16x8_avgr_u:
+                    case SIMD_i16x8_extmul_low_i8x16_s:
+                    case SIMD_i16x8_extmul_high_i8x16_s:
+                    case SIMD_i16x8_extmul_low_i8x16_u:
+                    case SIMD_i16x8_extmul_high_i8x16_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    /* i32x4 operation */
+                    case SIMD_i32x4_abs:
+                    case SIMD_i32x4_neg:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i32x4_all_true:
+                    case SIMD_i32x4_bitmask:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
+                        break;
+                    }
+
+                    case SIMD_i32x4_narrow_i64x2_s:
+                    case SIMD_i32x4_narrow_i64x2_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i32x4_extend_low_i16x8_s:
+                    case SIMD_i32x4_extend_high_i16x8_s:
+                    case SIMD_i32x4_extend_low_i16x8_u:
+                    case SIMD_i32x4_extend_high_i16x8_u:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i32x4_shl:
+                    case SIMD_i32x4_shr_s:
+                    case SIMD_i32x4_shr_u:
+                    {
+                        POP_I32();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_i32x4_add:
                     case SIMD_i32x4_sub:
                     case SIMD_i32x4_mul:
@@ -8380,31 +8598,137 @@ fail_data_cnt_sec_require:
                     case SIMD_i32x4_min_u:
                     case SIMD_i32x4_max_s:
                     case SIMD_i32x4_max_u:
+                    case SIMD_i32x4_dot_i16x8_s:
+                    case SIMD_i32x4_avgr_u:
+                    case SIMD_i32x4_extmul_low_i16x8_s:
+                    case SIMD_i32x4_extmul_high_i16x8_s:
+                    case SIMD_i32x4_extmul_low_i16x8_u:
+                    case SIMD_i32x4_extmul_high_i16x8_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    /* i64x2 operation */
+                    case SIMD_i64x2_abs:
+                    case SIMD_i64x2_neg:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i64x2_all_true:
+                    case SIMD_i64x2_bitmask:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_I32);
+                        break;
+                    }
+
+                    case SIMD_i64x2_extend_low_i32x4_s:
+                    case SIMD_i64x2_extend_high_i32x4_s:
+                    case SIMD_i64x2_extend_low_i32x4_u:
+                    case SIMD_i64x2_extend_high_i32x4_u:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    case SIMD_i64x2_shl:
+                    case SIMD_i64x2_shr_s:
+                    case SIMD_i64x2_shr_u:
+                    {
+                        POP_I32();
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_i64x2_add:
                     case SIMD_i64x2_sub:
                     case SIMD_i64x2_mul:
+                    case SIMD_i64x2_eq:
+                    case SIMD_i64x2_ne:
+                    case SIMD_i64x2_lt_s:
+                    case SIMD_i64x2_gt_s:
+                    case SIMD_i64x2_le_s:
+                    case SIMD_i64x2_ge_s:
+                    case SIMD_i64x2_extmul_low_i32x4_s:
+                    case SIMD_i64x2_extmul_high_i32x4_s:
+                    case SIMD_i64x2_extmul_low_i32x4_u:
+                    case SIMD_i64x2_extmul_high_i32x4_u:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    /* f32x4 operation */
+                    case SIMD_f32x4_abs:
+                    case SIMD_f32x4_neg:
+                    case SIMD_f32x4_round:
+                    case SIMD_f32x4_sqrt:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_f32x4_add:
                     case SIMD_f32x4_sub:
                     case SIMD_f32x4_mul:
                     case SIMD_f32x4_div:
                     case SIMD_f32x4_min:
                     case SIMD_f32x4_max:
+                    case SIMD_f32x4_pmin:
+                    case SIMD_f32x4_pmax:
+                    {
+                        POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
+                    /* f64x2 operation */
+                    case SIMD_f64x2_abs:
+                    case SIMD_f64x2_neg:
+                    case SIMD_f64x2_round:
+                    case SIMD_f64x2_sqrt:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
+
                     case SIMD_f64x2_add:
                     case SIMD_f64x2_sub:
                     case SIMD_f64x2_mul:
                     case SIMD_f64x2_div:
                     case SIMD_f64x2_min:
                     case SIMD_f64x2_max:
+                    case SIMD_f64x2_pmin:
+                    case SIMD_f64x2_pmax:
+                    {
                         POP2_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
                         break;
+                    }
+
+                    case SIMD_i32x4_trunc_sat_f32x4_s:
+                    case SIMD_i32x4_trunc_sat_f32x4_u:
+                    case SIMD_f32x4_convert_i32x4_s:
+                    case SIMD_f32x4_convert_i32x4_u:
+                    case SIMD_i32x4_trunc_sat_f64x2_s_zero:
+                    case SIMD_i32x4_trunc_sat_f64x2_u_zero:
+                    case SIMD_f64x2_convert_low_i32x4_s:
+                    case SIMD_f64x2_convert_low_i32x4_u:
+                    {
+                        POP_AND_PUSH(VALUE_TYPE_V128, VALUE_TYPE_V128);
+                        break;
+                    }
 
                     default:
+                    {
                         if (error_buf != NULL) {
                             snprintf(error_buf, error_buf_size,
-                                    "WASM module load failed: "
-                                    "invalid opcode 0xfd %02x.", opcode);
+                                     "WASM module load failed: "
+                                     "invalid opcode 0xfd %02x.",
+                                     opcode);
                         }
                         goto fail;
+                    }
                 }
                 break;
             }

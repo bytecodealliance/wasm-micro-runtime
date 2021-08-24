@@ -13,18 +13,6 @@ extern "C" {
 #endif
 
 bool
-aot_compile_simd_i8x16_any_true(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx);
-
-bool
-aot_compile_simd_i16x8_any_true(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx);
-
-bool
-aot_compile_simd_i32x4_any_true(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx);
-
-bool
 aot_compile_simd_i8x16_all_true(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx);
 
@@ -35,6 +23,14 @@ aot_compile_simd_i16x8_all_true(AOTCompContext *comp_ctx,
 bool
 aot_compile_simd_i32x4_all_true(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i64x2_all_true(AOTCompContext *comp_ctx,
+                                AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_v128_any_true(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
