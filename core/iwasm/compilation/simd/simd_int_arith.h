@@ -44,6 +44,56 @@ aot_compile_simd_i32x4_neg(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 bool
 aot_compile_simd_i64x2_neg(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
+bool
+aot_compile_simd_i8x16_popcnt(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i8x16_cmp(AOTCompContext *comp_ctx,
+                           AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op,
+                           bool is_signed);
+
+bool
+aot_compile_simd_i16x8_cmp(AOTCompContext *comp_ctx,
+                           AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op,
+                           bool is_signed);
+
+bool
+aot_compile_simd_i32x4_cmp(AOTCompContext *comp_ctx,
+                           AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op,
+                           bool is_signed);
+
+bool
+aot_compile_simd_i8x16_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i16x8_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i32x4_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i8x16_avgr_u(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i16x8_avgr_u(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i32x4_avgr_u(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i32x4_dot_i16x8(AOTCompContext *comp_ctx,
+                                 AOTFuncContext *func_ctx);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

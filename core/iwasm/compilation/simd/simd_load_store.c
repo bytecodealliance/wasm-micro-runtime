@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "simd_common.h"
 #include "simd_load_store.h"
 #include "../aot_emit_exception.h"
 #include "../aot_emit_memory.h"
@@ -23,68 +24,23 @@ simd_load(AOTCompContext *comp_ctx,
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
                                             data_length))) {
         HANDLE_FAILURE("aot_check_memory_overflow");
-        goto fail;
+        return NULL;
     }
 
     if (!(maddr = LLVMBuildBitCast(comp_ctx->builder, maddr, ptr_type,
                                    "data_ptr"))) {
         HANDLE_FAILURE("LLVMBuildBitCast");
-        goto fail;
+        return NULL;
     }
 
     if (!(data = LLVMBuildLoad(comp_ctx->builder, maddr, "data"))) {
         HANDLE_FAILURE("LLVMBuildLoad");
-        goto fail;
+        return NULL;
     }
 
     LLVMSetAlignment(data, 1);
 
     return data;
-fail:
-    return NULL;
-}
-
-/* data_length in bytes */
-static LLVMValueRef
-simd_splat(AOTCompContext *comp_ctx,
-           AOTFuncContext *func_ctx,
-           LLVMValueRef element,
-           LLVMTypeRef vectory_type,
-           unsigned lane_count)
-{
-    LLVMValueRef undef, zeros, vector;
-    LLVMTypeRef zeros_type;
-
-    if (!(undef = LLVMGetUndef(vectory_type))) {
-        HANDLE_FAILURE("LLVMGetUndef");
-        goto fail;
-    }
-
-    if (!(zeros_type = LLVMVectorType(I32_TYPE, lane_count))) {
-        HANDLE_FAILURE("LVMVectorType");
-        goto fail;
-    }
-
-    if (!(zeros = LLVMConstNull(zeros_type))) {
-        HANDLE_FAILURE("LLVMConstNull");
-        goto fail;
-    }
-
-    if (!(vector = LLVMBuildInsertElement(comp_ctx->builder, undef, element,
-                                          I32_ZERO, "base"))) {
-        HANDLE_FAILURE("LLVMBuildInsertElement");
-        goto fail;
-    }
-
-    if (!(vector = LLVMBuildShuffleVector(comp_ctx->builder, vector, undef,
-                                          zeros, "vector"))) {
-        HANDLE_FAILURE("LLVMBuildShuffleVector");
-        goto fail;
-    }
-
-    return vector;
-fail:
-    return NULL;
 }
 
 bool
@@ -97,40 +53,10 @@ aot_compile_simd_v128_load(AOTCompContext *comp_ctx,
 
     if (!(result =
             simd_load(comp_ctx, func_ctx, align, offset, 16, V128_PTR_TYPE))) {
-        goto fail;
+        return false;
     }
 
     PUSH_V128(result);
-    return true;
-fail:
-    return false;
-}
-
-bool
-aot_compile_simd_v128_store(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx,
-                            uint32 align,
-                            uint32 offset)
-{
-    LLVMValueRef maddr, value, result;
-
-    POP_V128(value);
-
-    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 16)))
-        return false;
-
-    if (!(maddr = LLVMBuildBitCast(comp_ctx->builder, maddr, V128_PTR_TYPE,
-                                   "data_ptr"))) {
-        HANDLE_FAILURE("LLVMBuildBitCast");
-        goto fail;
-    }
-
-    if (!(result = LLVMBuildStore(comp_ctx->builder, value, maddr))) {
-        HANDLE_FAILURE("LLVMBuildStore");
-        goto fail;
-    }
-
-    LLVMSetAlignment(result, 1);
 
     return true;
 fail:
@@ -140,162 +66,272 @@ fail:
 bool
 aot_compile_simd_load_extend(AOTCompContext *comp_ctx,
                              AOTFuncContext *func_ctx,
-                             uint8 load_opcode,
+                             uint8 opcode,
                              uint32 align,
                              uint32 offset)
 {
     LLVMValueRef sub_vector, result;
-    LLVMTypeRef sub_vector_type, vector_type;
-    bool is_signed;
-    uint32 data_length;
-
-    switch (load_opcode) {
-        case SIMD_i16x8_load8x8_s:
-        case SIMD_i16x8_load8x8_u:
-        {
-            data_length = 8;
-            vector_type = V128_i16x8_TYPE;
-            is_signed = (load_opcode == SIMD_i16x8_load8x8_s);
-
-            if (!(sub_vector_type = LLVMVectorType(INT8_TYPE, 8))) {
-                HANDLE_FAILURE("LLVMVectorType");
-                goto fail;
-            }
-
-            break;
-        }
-        case SIMD_i32x4_load16x4_s:
-        case SIMD_i32x4_load16x4_u:
-        {
-            data_length = 8;
-            vector_type = V128_i32x4_TYPE;
-            is_signed = (load_opcode == SIMD_i32x4_load16x4_s);
-
-            if (!(sub_vector_type = LLVMVectorType(INT16_TYPE, 4))) {
-                HANDLE_FAILURE("LLVMVectorType");
-                goto fail;
-            }
-
-            break;
-        }
-        case SIMD_i64x2_load32x2_s:
-        case SIMD_i64x2_load32x2_u:
-        {
-            data_length = 8;
-            vector_type = V128_i64x2_TYPE;
-            is_signed = (load_opcode == SIMD_i64x2_load32x2_s);
-
-            if (!(sub_vector_type = LLVMVectorType(I32_TYPE, 2))) {
-                HANDLE_FAILURE("LLVMVectorType");
-                goto fail;
-            }
-
-            break;
-        }
-        default:
-        {
-            bh_assert(0);
-            goto fail;
-        }
-    }
+    uint32 opcode_index = opcode - SIMD_v128_load8x8_s;
+    bool signeds[] = { true, false, true, false, true, false };
+    LLVMTypeRef vector_types[] = {
+        V128_i16x8_TYPE, V128_i16x8_TYPE, V128_i32x4_TYPE,
+        V128_i32x4_TYPE, V128_i64x2_TYPE, V128_i64x2_TYPE,
+    };
+    LLVMTypeRef sub_vector_types[] = {
+        LLVMVectorType(INT8_TYPE, 8),  LLVMVectorType(INT8_TYPE, 8),
+        LLVMVectorType(INT16_TYPE, 4), LLVMVectorType(INT16_TYPE, 4),
+        LLVMVectorType(I32_TYPE, 2),   LLVMVectorType(I32_TYPE, 2),
+    };
+    LLVMTypeRef sub_vector_type = sub_vector_types[opcode_index];
 
     /* to vector ptr type */
-    if (!(sub_vector_type = LLVMPointerType(sub_vector_type, 0))) {
+    if (!sub_vector_type
+        || !(sub_vector_type = LLVMPointerType(sub_vector_type, 0))) {
         HANDLE_FAILURE("LLVMPointerType");
-        goto fail;
+        return false;
     }
 
-    if (!(sub_vector = simd_load(comp_ctx, func_ctx, align, offset,
-                                 data_length, sub_vector_type))) {
-        goto fail;
+    if (!(sub_vector = simd_load(comp_ctx, func_ctx, align, offset, 8,
+                                 sub_vector_type))) {
+        return false;
     }
 
-    if (is_signed) {
+    if (signeds[opcode_index]) {
         if (!(result = LLVMBuildSExt(comp_ctx->builder, sub_vector,
-                                     vector_type, "vector"))) {
+                                     vector_types[opcode_index], "vector"))) {
             HANDLE_FAILURE("LLVMBuildSExt");
-            goto fail;
+            return false;
         }
     }
     else {
         if (!(result = LLVMBuildZExt(comp_ctx->builder, sub_vector,
-                                     vector_type, "vector"))) {
+                                     vector_types[opcode_index], "vector"))) {
             HANDLE_FAILURE("LLVMBuildZExt");
-            goto fail;
+            return false;
         }
     }
 
-    if (!(result = LLVMBuildBitCast(comp_ctx->builder, result, V128_i64x2_TYPE,
-                                    "result"))) {
-        HANDLE_FAILURE("LLVMBuildBitCast");
-        goto fail;
-    }
-
-    PUSH_V128(result);
-    return true;
-fail:
-    return false;
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "result");
 }
 
 bool
 aot_compile_simd_load_splat(AOTCompContext *comp_ctx,
                             AOTFuncContext *func_ctx,
-                            uint8 load_opcode,
+                            uint8 opcode,
                             uint32 align,
                             uint32 offset)
 {
+    uint32 opcode_index = opcode - SIMD_v128_load8_splat;
     LLVMValueRef element, result;
-    LLVMTypeRef element_ptr_type, vector_type;
-    unsigned data_length, lane_count;
+    LLVMTypeRef element_ptr_types[] = { INT8_PTR_TYPE, INT16_PTR_TYPE,
+                                        INT32_PTR_TYPE, INT64_PTR_TYPE };
+    uint32 data_lengths[] = { 1, 2, 4, 8 };
+    LLVMValueRef undefs[] = {
+        LLVM_CONST(i8x16_undef),
+        LLVM_CONST(i16x8_undef),
+        LLVM_CONST(i32x4_undef),
+        LLVM_CONST(i64x2_undef),
+    };
+    LLVMValueRef masks[] = {
+        LLVM_CONST(i32x16_zero),
+        LLVM_CONST(i32x8_zero),
+        LLVM_CONST(i32x4_zero),
+        LLVM_CONST(i32x2_zero),
+    };
 
-    switch (load_opcode) {
-        case SIMD_v8x16_load_splat:
-            data_length = 1;
-            lane_count = 16;
-            element_ptr_type = INT8_PTR_TYPE;
-            vector_type = V128_i8x16_TYPE;
-            break;
-        case SIMD_v16x8_load_splat:
-            data_length = 2;
-            lane_count = 8;
-            element_ptr_type = INT16_PTR_TYPE;
-            vector_type = V128_i16x8_TYPE;
-            break;
-        case SIMD_v32x4_load_splat:
-            data_length = 4;
-            lane_count = 4;
-            element_ptr_type = INT32_PTR_TYPE;
-            vector_type = V128_i32x4_TYPE;
-            break;
-        case SIMD_v64x2_load_splat:
-            data_length = 8;
-            lane_count = 2;
-            element_ptr_type = INT64_PTR_TYPE;
-            vector_type = V128_i64x2_TYPE;
-            break;
-        default:
-            bh_assert(0);
-            goto fail;
+    if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
+                              data_lengths[opcode_index],
+                              element_ptr_types[opcode_index]))) {
+        return false;
     }
 
-    if (!(element = simd_load(comp_ctx, func_ctx, align, offset, data_length,
-                              element_ptr_type))) {
-        goto fail;
+    if (!(result =
+            LLVMBuildInsertElement(comp_ctx->builder, undefs[opcode_index],
+                                   element, I32_ZERO, "base"))) {
+        HANDLE_FAILURE("LLVMBuildInsertElement");
+        return false;
     }
 
-    if (!(result = simd_splat(comp_ctx, func_ctx, element, vector_type,
-                              lane_count))) {
-        goto fail;
+    if (!(result = LLVMBuildShuffleVector(comp_ctx->builder, result,
+                                          undefs[opcode_index],
+                                          masks[opcode_index], "vector"))) {
+        HANDLE_FAILURE("LLVMBuildShuffleVector");
+        return false;
     }
 
-    if (!(result = LLVMBuildBitCast(comp_ctx->builder, result, V128_i64x2_TYPE,
-                                    "result"))) {
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "result");
+}
+
+bool
+aot_compile_simd_load_lane(AOTCompContext *comp_ctx,
+                           AOTFuncContext *func_ctx,
+                           uint8 opcode,
+                           uint32 align,
+                           uint32 offset,
+                           uint8 lane_id)
+{
+    LLVMValueRef element, vector;
+    uint32 opcode_index = opcode - SIMD_v128_load8_lane;
+    uint32 data_lengths[] = { 1, 2, 4, 8 };
+    LLVMTypeRef element_ptr_types[] = { INT8_PTR_TYPE, INT16_PTR_TYPE,
+                                        INT32_PTR_TYPE, INT64_PTR_TYPE };
+    LLVMTypeRef vector_types[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
+                                   V128_i32x4_TYPE, V128_i64x2_TYPE };
+    LLVMValueRef lane = simd_lane_id_to_llvm_value(comp_ctx, lane_id);
+
+    if (!(vector = simd_pop_v128_and_bitcast(
+            comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
+        return false;
+    }
+
+    if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
+                              data_lengths[opcode_index],
+                              element_ptr_types[opcode_index]))) {
+        return false;
+    }
+
+    if (!(vector = LLVMBuildInsertElement(comp_ctx->builder, vector, element,
+                                          lane, "dst"))) {
+        HANDLE_FAILURE("LLVMBuildInsertElement");
+        return false;
+    }
+
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, vector, "result");
+}
+
+bool
+aot_compile_simd_load_zero(AOTCompContext *comp_ctx,
+                           AOTFuncContext *func_ctx,
+                           uint8 opcode,
+                           uint32 align,
+                           uint32 offset)
+{
+    LLVMValueRef element, result, mask;
+    uint32 opcode_index = opcode - SIMD_v128_load32_zero;
+    uint32 data_lengths[] = { 4, 8 };
+    LLVMTypeRef element_ptr_types[] = { INT32_PTR_TYPE, INT64_PTR_TYPE };
+    LLVMValueRef zero[] = {
+        LLVM_CONST(i32x4_vec_zero),
+        LLVM_CONST(i64x2_vec_zero),
+    };
+    LLVMValueRef undef[] = {
+        LLVM_CONST(i32x4_undef),
+        LLVM_CONST(i64x2_undef),
+    };
+    uint32 mask_length[] = { 4, 2 };
+    LLVMValueRef mask_element[][4] = {
+        { LLVM_CONST(i32_zero), LLVM_CONST(i32_four), LLVM_CONST(i32_five),
+          LLVM_CONST(i32_six) },
+        { LLVM_CONST(i32_zero), LLVM_CONST(i32_two) },
+    };
+
+    if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
+                              data_lengths[opcode_index],
+                              element_ptr_types[opcode_index]))) {
+        return false;
+    }
+
+    if (!(result =
+            LLVMBuildInsertElement(comp_ctx->builder, undef[opcode_index],
+                                   element, I32_ZERO, "vector"))) {
+        HANDLE_FAILURE("LLVMBuildInsertElement");
+        return false;
+    }
+
+    /* fill in other lanes with zero */
+    if (!(mask = LLVMConstVector(mask_element[opcode_index],
+                                 mask_length[opcode_index]))) {
+        HANDLE_FAILURE("LLConstVector");
+        return false;
+    }
+
+    if (!(result = LLVMBuildShuffleVector(comp_ctx->builder, result,
+                                          zero[opcode_index], mask,
+                                          "fill_in_zero"))) {
+        HANDLE_FAILURE("LLVMBuildShuffleVector");
+        return false;
+    }
+
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "result");
+}
+
+/* data_length in bytes */
+static bool
+simd_store(AOTCompContext *comp_ctx,
+           AOTFuncContext *func_ctx,
+           uint32 align,
+           uint32 offset,
+           uint32 data_length,
+           LLVMValueRef value,
+           LLVMTypeRef value_ptr_type)
+{
+    LLVMValueRef maddr, result;
+
+    if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
+                                            data_length)))
+        return false;
+
+    if (!(maddr = LLVMBuildBitCast(comp_ctx->builder, maddr, value_ptr_type,
+                                   "data_ptr"))) {
         HANDLE_FAILURE("LLVMBuildBitCast");
-        goto fail;
+        return false;
     }
 
-    PUSH_V128(result);
+    if (!(result = LLVMBuildStore(comp_ctx->builder, value, maddr))) {
+        HANDLE_FAILURE("LLVMBuildStore");
+        return false;
+    }
+
+    LLVMSetAlignment(result, 1);
+
     return true;
+}
+
+bool
+aot_compile_simd_v128_store(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx,
+                            uint32 align,
+                            uint32 offset)
+{
+    LLVMValueRef value;
+
+    POP_V128(value);
+
+    return simd_store(comp_ctx, func_ctx, align, offset, 16, value,
+                      V128_PTR_TYPE);
 fail:
     return false;
+}
+
+bool
+aot_compile_simd_store_lane(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx,
+                            uint8 opcode,
+                            uint32 align,
+                            uint32 offset,
+                            uint8 lane_id)
+{
+    LLVMValueRef element, vector;
+    uint32 data_lengths[] = { 1, 2, 4, 8 };
+    LLVMTypeRef element_ptr_types[] = { INT8_PTR_TYPE, INT16_PTR_TYPE,
+                                        INT32_PTR_TYPE, INT64_PTR_TYPE };
+    uint32 opcode_index = opcode - SIMD_v128_store8_lane;
+    LLVMTypeRef vector_types[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
+                                   V128_i32x4_TYPE, V128_i64x2_TYPE };
+    LLVMValueRef lane = simd_lane_id_to_llvm_value(comp_ctx, lane_id);
+
+    if (!(vector = simd_pop_v128_and_bitcast(
+            comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
+        return false;
+    }
+
+    if (!(element = LLVMBuildExtractElement(comp_ctx->builder, vector, lane,
+                                            "element"))) {
+        HANDLE_FAILURE("LLVMBuildExtractElement");
+        return false;
+    }
+
+    return simd_store(comp_ctx, func_ctx, align, offset,
+                      data_lengths[opcode_index], element,
+                      element_ptr_types[opcode_index]);
 }

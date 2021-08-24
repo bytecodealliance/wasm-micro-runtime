@@ -28,6 +28,11 @@ aot_compile_simd_i32x4_compare(AOTCompContext *comp_ctx,
                                IntCond cond);
 
 bool
+aot_compile_simd_i64x2_compare(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx,
+                               IntCond cond);
+
+bool
 aot_compile_simd_f32x4_compare(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx,
                                FloatCond cond);

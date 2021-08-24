@@ -252,6 +252,7 @@ Then build the source codes:
 ``` Bash
 cd core/deps/
 git clone https://github.com/nodejs/uvwasi.git
+
 cd product-mini/platforms/windows/
 mkdir build
 cd build
