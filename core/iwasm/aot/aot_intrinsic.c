@@ -394,10 +394,11 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         return;
 
     if (!strncmp(comp_ctx->target_arch, "thumb", 5)) {
-        if (!strcmp(comp_ctx->target_cpu, "cortex-m4")) {
-            add_f32_common_intrinsics_for_thumb2_fpu(comp_ctx);
+        if (!strcmp(comp_ctx->target_cpu, "cortex-m7")) {}
+        else if (!strcmp(comp_ctx->target_cpu, "cortex-m4")) {
+            add_f64_common_intrinsics_for_thumb2_fpu(comp_ctx);
         }
-        else if (!strcmp(comp_ctx->target_cpu, "cortex-m7")) {
+        else {
             add_f32_common_intrinsics_for_thumb2_fpu(comp_ctx);
             add_f64_common_intrinsics_for_thumb2_fpu(comp_ctx);
         }

@@ -2024,7 +2024,7 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
     int32 func_idx;
 
     if (comp_ctx->disable_llvm_intrinsics
-        && (aot_intrinsic_check_capability(comp_ctx, name) == false)) {
+        && aot_intrinsic_check_capability(comp_ctx, name)) {
         if (func_ctx == NULL) {
             aot_set_last_error_v("invalid func_ctx for intrinsic: %s", name);
             return NULL;
