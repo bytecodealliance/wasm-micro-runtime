@@ -147,9 +147,10 @@ call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
     va_list param_value_list;
     LLVMValueRef ret;
     LLVMTypeRef param_types[4], ret_type = is_f32 ? F32_TYPE : F64_TYPE;
-    int param_count = ((comp_ctx->disable_llvm_intrinsics == false)
-                       || aot_intrinsic_check_capability(comp_ctx, intrinsic))
-                        ? 4 : 2;
+    int param_count = (comp_ctx->disable_llvm_intrinsics
+                       && aot_intrinsic_check_capability(comp_ctx, intrinsic))
+                        ? 2
+                        : 4;
 
     param_types[0] = param_types[1] = ret_type;
     param_types[2] = param_types[3] = MD_TYPE;
