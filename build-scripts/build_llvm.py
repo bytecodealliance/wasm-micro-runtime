@@ -99,11 +99,10 @@ def build_llvm(llvm_dir, platform, backends):
     CONFIG_CMD = f"cmake {compile_options} ../llvm "
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 
-    BUILD_CMD = (
-        f"cmake --build . --parallel {os.cpu_count()}" + " --config Release"
-        if "windows" == platform
-        else ""
+    BUILD_CMD = f"cmake --build . --parallel {os.cpu_count()}" + (
+        " --config Release" if "windows" == platform else ""
     )
+
     subprocess.check_call(shlex.split(BUILD_CMD), cwd=build_dir)
 
     return build_dir
