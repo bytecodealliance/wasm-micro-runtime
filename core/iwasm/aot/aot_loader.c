@@ -2535,6 +2535,13 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     char func_name[32];
     AOTModule *module;
 
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMOrcThreadSafeModuleRef ts_module;
+    LLVMOrcJITDylibRef main_dylib;
+    LLVMErrorRef error;
+    LLVMOrcJITTargetAddress func_addr = 0;
+#endif
+
     /* Allocate memory for module */
     if (!(module =
             loader_malloc(sizeof(AOTModule), error_buf, error_buf_size))) {
@@ -2596,30 +2603,39 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                 loader_malloc(size, error_buf, error_buf_size))) {
         goto fail2;
     }
-#if WASM_ENABLE_LAZY != 0
+
+#if WASM_ENABLE_LAZY_JIT != 0
     bh_assert(comp_ctx->lazy_orcjit);
 
-    LLVMOrcThreadSafeModuleRef ts_module;
-    LLVMOrcJITDylibRef main_dylib =
-        LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->lazy_orcjit);
-    LLVMErrorRef error;
+    main_dylib = LLVMOrcLLLazyJITGetMainJITDylib(comp_ctx->lazy_orcjit);
+    if (!main_dylib) {
+        set_error_buf(error_buf, error_buf_size,
+                      "failed to get dynmaic library reference");
+        goto fail3;
+    }
     ts_module = LLVMOrcCreateNewThreadSafeModule(comp_ctx->module,
                                                  comp_ctx->ts_context);
+    if (!ts_module) {
+        set_error_buf(error_buf, error_buf_size,
+                      "failed to create thread safe module");
+        goto fail3;
+    }
     if ((error = LLVMOrcLLLazyJITAddLLVMIRModule(comp_ctx->lazy_orcjit,
                                                  main_dylib, ts_module))) {
         // If adding the ThreadSafeModule fails then we need to clean it up
         // ourselves. If adding it succeeds the JIT will manage the memory.
         LLVMOrcDisposeThreadSafeModule(ts_module);
-        aot_llvm_error_message("Failed to addIRModule: ", error);
-        goto fail2;
+        aot_handle_llvm_errmsg(error_buf, error_buf_size,
+                               "failed to addIRModule: ", error);
+        goto fail3;
     }
 
-    LLVMOrcJITTargetAddress func_addr = 0;
     for (i = 0; i < comp_data->func_count; i++) {
         snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
         if ((error = LLVMOrcLLLazyJITLookup(comp_ctx->lazy_orcjit,
                                             &func_addr, func_name))) {
-            aot_llvm_error_message("Cannot lookup: ", error);
+            aot_handle_llvm_errmsg(error_buf, error_buf_size,
+                                   "cannot lookup: ", error);
             goto fail3;
         }
         module->func_ptrs[i] = (void *)func_addr;
@@ -2638,7 +2654,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             goto fail3;
         }
     }
-#endif /* WASM_ENABLE_LAZY != 0 */
+#endif /* WASM_ENABLE_LAZY_JIT != 0 */
 
     /* Allocation memory for function type indexes */
     size = (uint64)module->func_count * sizeof(uint32);
