@@ -2613,6 +2613,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                       "failed to get dynmaic library reference");
         goto fail3;
     }
+
     ts_module = LLVMOrcCreateNewThreadSafeModule(comp_ctx->module,
                                                  comp_ctx->ts_context);
     if (!ts_module) {
@@ -2620,6 +2621,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                       "failed to create thread safe module");
         goto fail3;
     }
+
     if ((error = LLVMOrcLLLazyJITAddLLVMIRModule(comp_ctx->lazy_orcjit,
                                                  main_dylib, ts_module))) {
         // If adding the ThreadSafeModule fails then we need to clean it up
