@@ -2624,12 +2624,13 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     if ((error = LLVMOrcLLLazyJITAddLLVMIRModule(comp_ctx->lazy_orcjit,
                                                  main_dylib, ts_module))) {
-        // If adding the ThreadSafeModule fails then we need to clean it up
-        // ourselves. If adding it succeeds the JIT will manage the memory.
-        LLVMOrcDisposeThreadSafeModule(ts_module);
+        /*
+         * If adding the ThreadSafeModule fails then we need to clean it up
+         * ourselves. If adding it succeeds the JIT will manage the memory.
+         */
         aot_handle_llvm_errmsg(error_buf, error_buf_size,
                                "failed to addIRModule: ", error);
-        goto fail3;
+        goto fail4;
     }
 
     for (i = 0; i < comp_data->func_count; i++) {
@@ -2709,6 +2710,11 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 #endif
 
     return module;
+
+#if WASM_ENABLE_LAZY_JIT != 0
+fail4:
+    LLVMOrcDisposeThreadSafeModule(ts_module);
+#endif
 
 fail3:
     if (module->func_ptrs)

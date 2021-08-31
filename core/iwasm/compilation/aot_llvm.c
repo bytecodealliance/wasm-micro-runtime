@@ -1248,7 +1248,7 @@ llvm_orcjit_create(AOTCompContext *comp_ctx)
 
     if (LLVMGetTargetFromTriple(llvm_triple, &llvm_targetref, &err_msg) != 0) {
         snprintf(buf, sizeof(buf),
-                    "failed to get target reference from triple %s.", err_msg);
+                 "failed to get target reference from triple %s.", err_msg);
         LLVMDisposeMessage(err_msg);
         goto fail2;
     }
@@ -1271,7 +1271,7 @@ llvm_orcjit_create(AOTCompContext *comp_ctx)
     }
 
     os_printf("LLVM ORCJIT detected CPU \"%s\", with features \"%s\"\n",
-           cpu, features);
+              cpu, features);
 
     tm_opt =
         LLVMCreateTargetMachine(llvm_targetref, llvm_triple, cpu, features,
