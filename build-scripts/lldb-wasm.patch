@@ -1,5 +1,5 @@
 diff --git a/lldb/include/lldb/Core/Module.h b/lldb/include/lldb/Core/Module.h
-index 9eb7477730c..da74cbba132 100644
+index dd7100c4616c..97d70daadbdc 100644
 --- a/lldb/include/lldb/Core/Module.h
 +++ b/lldb/include/lldb/Core/Module.h
 @@ -41,6 +41,7 @@
@@ -10,7 +10,7 @@ index 9eb7477730c..da74cbba132 100644
  class Function;
  class Log;
  class ObjectFile;
-@@ -862,6 +863,8 @@ public:
+@@ -859,6 +860,8 @@ public:
    /// Update the ArchSpec to a more specific variant.
    bool MergeArchitecture(const ArchSpec &arch_spec);
  
@@ -19,7 +19,7 @@ index 9eb7477730c..da74cbba132 100644
    /// \class LookupInfo Module.h "lldb/Core/Module.h"
    /// A class that encapsulates name lookup information.
    ///
-@@ -991,6 +994,8 @@ protected:
+@@ -985,6 +988,8 @@ protected:
        m_first_file_changed_log : 1; /// See if the module was modified after it
                                      /// was initially opened.
  
@@ -29,10 +29,10 @@ index 9eb7477730c..da74cbba132 100644
    ///
    /// Tries to resolve \a vm_addr as a file address (if \a
 diff --git a/lldb/include/lldb/Core/PluginManager.h b/lldb/include/lldb/Core/PluginManager.h
-index 0ac8308d175..ead3b5d6701 100644
+index be91929c62e1..8d876fc1fa2f 100644
 --- a/lldb/include/lldb/Core/PluginManager.h
 +++ b/lldb/include/lldb/Core/PluginManager.h
-@@ -483,6 +483,17 @@ public:
+@@ -508,6 +508,17 @@ public:
    static bool CreateSettingForStructuredDataPlugin(
        Debugger &debugger, const lldb::OptionValuePropertiesSP &properties_sp,
        ConstString description, bool is_global_property);
@@ -52,7 +52,7 @@ index 0ac8308d175..ead3b5d6701 100644
  } // namespace lldb_private
 diff --git a/lldb/include/lldb/Expression/DWARFEvaluator.h b/lldb/include/lldb/Expression/DWARFEvaluator.h
 new file mode 100644
-index 00000000000..6811cbeae3d
+index 000000000000..6811cbeae3d3
 --- /dev/null
 +++ b/lldb/include/lldb/Expression/DWARFEvaluator.h
 @@ -0,0 +1,110 @@
@@ -168,7 +168,7 @@ index 00000000000..6811cbeae3d
 +#endif // LLDB_EXPRESSION_DWARFEVALUATOR_H
 diff --git a/lldb/include/lldb/Expression/DWARFEvaluatorFactory.h b/lldb/include/lldb/Expression/DWARFEvaluatorFactory.h
 new file mode 100644
-index 00000000000..f3b496c580e
+index 000000000000..f3b496c580e4
 --- /dev/null
 +++ b/lldb/include/lldb/Expression/DWARFEvaluatorFactory.h
 @@ -0,0 +1,56 @@
@@ -229,7 +229,7 @@ index 00000000000..f3b496c580e
 +
 +#endif // LLDB_EXPRESSION_DWARFEVALUATORFACTORY_H
 diff --git a/lldb/include/lldb/Expression/DWARFExpression.h b/lldb/include/lldb/Expression/DWARFExpression.h
-index c7d4e4b1882..1db34744f70 100644
+index 1490ac2d614a..35c741d4e6ba 100644
 --- a/lldb/include/lldb/Expression/DWARFExpression.h
 +++ b/lldb/include/lldb/Expression/DWARFExpression.h
 @@ -120,6 +120,10 @@ public:
@@ -263,10 +263,10 @@ index c7d4e4b1882..1db34744f70 100644
    GetLocationExpression(lldb::addr_t load_function_start,
                          lldb::addr_t addr) const;
 diff --git a/lldb/include/lldb/Target/Process.h b/lldb/include/lldb/Target/Process.h
-index e8dd8847e87..37e1d9e8808 100644
+index aaa2470d2931..c15f2db52fbc 100644
 --- a/lldb/include/lldb/Target/Process.h
 +++ b/lldb/include/lldb/Target/Process.h
-@@ -1476,7 +1476,7 @@ public:
+@@ -1434,7 +1434,7 @@ public:
    ///     vm_addr, \a buf, and \a size updated appropriately. Zero is
    ///     returned in the case of an error.
    virtual size_t ReadMemory(lldb::addr_t vm_addr, void *buf, size_t size,
@@ -276,7 +276,7 @@ index e8dd8847e87..37e1d9e8808 100644
    /// Read of memory from a process.
    ///
 diff --git a/lldb/include/lldb/Target/ProcessTrace.h b/lldb/include/lldb/Target/ProcessTrace.h
-index 53b3e704c17..2ceaf5de4be 100644
+index 7b9d6b13dd6f..9525fc9750fd 100644
 --- a/lldb/include/lldb/Target/ProcessTrace.h
 +++ b/lldb/include/lldb/Target/ProcessTrace.h
 @@ -59,7 +59,7 @@ public:
@@ -289,7 +289,7 @@ index 53b3e704c17..2ceaf5de4be 100644
    size_t DoReadMemory(lldb::addr_t addr, void *buf, size_t size,
                        Status &error) override;
 diff --git a/lldb/include/lldb/lldb-forward.h b/lldb/include/lldb/lldb-forward.h
-index a297a928a3f..80daa420595 100644
+index ad5298151e4a..5a3c0b27a738 100644
 --- a/lldb/include/lldb/lldb-forward.h
 +++ b/lldb/include/lldb/lldb-forward.h
 @@ -74,6 +74,7 @@ class Disassembler;
@@ -301,20 +301,20 @@ index a297a928a3f..80daa420595 100644
  class EmulateInstruction;
  class Environment;
 diff --git a/lldb/include/lldb/lldb-private-interfaces.h b/lldb/include/lldb/lldb-private-interfaces.h
-index df33f8af0e1..1318ea8de8b 100644
+index 2ed083ec8ae9..f4d500d198e8 100644
 --- a/lldb/include/lldb/lldb-private-interfaces.h
 +++ b/lldb/include/lldb/lldb-private-interfaces.h
-@@ -111,6 +111,8 @@ typedef lldb::REPLSP (*REPLCreateInstance)(Status &error,
+@@ -113,6 +113,8 @@ typedef lldb::REPLSP (*REPLCreateInstance)(Status &error,
                                             const char *repl_options);
  typedef int (*ComparisonFunction)(const void *, const void *);
  typedef void (*DebuggerInitializeCallback)(Debugger &debugger);
 +typedef DWARFEvaluatorFactory *(*DWARFEvaluatorFactoryCreateInstance)(
 +    Module *module);
- typedef llvm::Expected<lldb::TraceSP> (*TraceCreateInstance)(
-     const llvm::json::Value &trace_session_file,
-     llvm::StringRef session_file_dir, lldb_private::Debugger &debugger);
+ /// Trace
+ /// \{
+ typedef llvm::Expected<lldb::TraceSP> (*TraceCreateInstanceForSessionFile)(
 diff --git a/lldb/source/Core/Module.cpp b/lldb/source/Core/Module.cpp
-index 1f9987c2165..e4422becdf1 100644
+index 19c97be15066..1647f93ec4f3 100644
 --- a/lldb/source/Core/Module.cpp
 +++ b/lldb/source/Core/Module.cpp
 @@ -16,6 +16,7 @@
@@ -325,7 +325,7 @@ index 1f9987c2165..e4422becdf1 100644
  #include "lldb/Host/FileSystem.h"
  #include "lldb/Host/Host.h"
  #include "lldb/Host/HostInfo.h"
-@@ -1651,3 +1652,9 @@ bool Module::GetIsDynamicLinkEditor() {
+@@ -1659,3 +1660,9 @@ bool Module::GetIsDynamicLinkEditor() {
  
    return false;
  }
@@ -336,10 +336,10 @@ index 1f9987c2165..e4422becdf1 100644
 +  return m_dwarf_evaluator_factory.get();
 +}
 diff --git a/lldb/source/Core/PluginManager.cpp b/lldb/source/Core/PluginManager.cpp
-index 97e1e8d1403..c8aae269f1e 100644
+index fcaa868b083e..59a404d4a7e1 100644
 --- a/lldb/source/Core/PluginManager.cpp
 +++ b/lldb/source/Core/PluginManager.cpp
-@@ -1535,3 +1535,32 @@ bool PluginManager::CreateSettingForStructuredDataPlugin(
+@@ -1597,3 +1597,32 @@ bool PluginManager::CreateSettingForStructuredDataPlugin(
        ConstString("Settings for structured data plug-ins"), properties_sp,
        description, is_global_property);
  }
@@ -373,7 +373,7 @@ index 97e1e8d1403..c8aae269f1e 100644
 +  return GetDWARFEvaluatorFactoryInstances().GetCallbackAtIndex(idx);
 +}
 diff --git a/lldb/source/Core/Value.cpp b/lldb/source/Core/Value.cpp
-index cc8f3f4e261..3a1c1ca7395 100644
+index fb57c0fedf04..f92d6a54de94 100644
 --- a/lldb/source/Core/Value.cpp
 +++ b/lldb/source/Core/Value.cpp
 @@ -538,7 +538,7 @@ Status Value::GetValueAsData(ExecutionContext *exe_ctx, DataExtractor &data,
@@ -386,10 +386,10 @@ index cc8f3f4e261..3a1c1ca7395 100644
              error.SetErrorStringWithFormat(
                  "read memory from 0x%" PRIx64 " failed (%u of %u bytes read)",
 diff --git a/lldb/source/Core/ValueObject.cpp b/lldb/source/Core/ValueObject.cpp
-index bcd76f5a74b..cd3e02406d4 100644
+index 9c1ba99da1d0..b15b214b2a2f 100644
 --- a/lldb/source/Core/ValueObject.cpp
 +++ b/lldb/source/Core/ValueObject.cpp
-@@ -790,7 +790,7 @@ size_t ValueObject::GetPointeeData(DataExtractor &data, uint32_t item_idx,
+@@ -735,7 +735,7 @@ size_t ValueObject::GetPointeeData(DataExtractor &data, uint32_t item_idx,
        if (process) {
          heap_buf_ptr->SetByteSize(bytes);
          size_t bytes_read = process->ReadMemory(
@@ -399,7 +399,7 @@ index bcd76f5a74b..cd3e02406d4 100644
            data.SetData(data_sp);
            return bytes_read;
 diff --git a/lldb/source/Expression/CMakeLists.txt b/lldb/source/Expression/CMakeLists.txt
-index bf94361dd6c..4e76d547aea 100644
+index bf94361dd6c1..4e76d547aeaf 100644
 --- a/lldb/source/Expression/CMakeLists.txt
 +++ b/lldb/source/Expression/CMakeLists.txt
 @@ -1,5 +1,7 @@
@@ -412,7 +412,7 @@ index bf94361dd6c..4e76d547aea 100644
    ExpressionVariable.cpp
 diff --git a/lldb/source/Expression/DWARFEvaluator.cpp b/lldb/source/Expression/DWARFEvaluator.cpp
 new file mode 100644
-index 00000000000..406531a64df
+index 000000000000..06107e136197
 --- /dev/null
 +++ b/lldb/source/Expression/DWARFEvaluator.cpp
 @@ -0,0 +1,1952 @@
@@ -474,8 +474,8 @@ index 00000000000..406531a64df
 +      RegisterValue reg_value;
 +      if (reg_ctx->ReadRegister(reg_info, reg_value)) {
 +        if (reg_value.GetScalarValue(value.GetScalar())) {
-+          value.SetValueType(Value::eValueTypeScalar);
-+          value.SetContext(Value::eContextTypeRegisterInfo,
++          value.SetValueType(Value::ValueType::Scalar);
++          value.SetContext(Value::ContextType::RegisterInfo,
 +                           const_cast<RegisterInfo *>(reg_info));
 +          if (error_ptr)
 +            error_ptr->Clear();
@@ -821,7 +821,7 @@ index 00000000000..406531a64df
 +  // address and whose size is the size of an address on the target machine.
 +  case DW_OP_addr:
 +    stack.push_back(Scalar(opcodes.GetAddress(&offset)));
-+    stack.back().SetValueType(Value::eValueTypeFileAddress);
++    stack.back().SetValueType(Value::ValueType::FileAddress);
 +    // Convert the file address to a load address, so subsequent
 +    // DWARF operators can operate on it.
 +    if (frame)
@@ -880,14 +880,14 @@ index 00000000000..406531a64df
 +    }
 +    Value::ValueType value_type = stack.back().GetValueType();
 +    switch (value_type) {
-+    case Value::eValueTypeHostAddress: {
++    case Value::ValueType::HostAddress: {
 +      void *src = (void *)stack.back().GetScalar().ULongLong();
 +      intptr_t ptr;
 +      ::memcpy(&ptr, src, sizeof(void *));
 +      stack.back().GetScalar() = ptr;
 +      stack.back().ClearContext();
 +    } break;
-+    case Value::eValueTypeFileAddress: {
++    case Value::ValueType::FileAddress: {
 +      auto file_addr = stack.back().GetScalar().ULongLong(LLDB_INVALID_ADDRESS);
 +      if (!module_sp) {
 +        if (error_ptr)
@@ -909,11 +909,11 @@ index 00000000000..406531a64df
 +        return false;
 +      }
 +      stack.back().GetScalar() = load_Addr;
-+      stack.back().SetValueType(Value::eValueTypeLoadAddress);
++      stack.back().SetValueType(Value::ValueType::LoadAddress);
 +      // Fall through to load address code below...
 +    }
 +      LLVM_FALLTHROUGH;
-+    case Value::eValueTypeLoadAddress:
++    case Value::ValueType::LoadAddress:
 +      if (m_exe_ctx) {
 +        if (process) {
 +          lldb::addr_t pointer_addr =
@@ -974,7 +974,7 @@ index 00000000000..406531a64df
 +    uint8_t size = opcodes.GetU8(&offset);
 +    Value::ValueType value_type = stack.back().GetValueType();
 +    switch (value_type) {
-+    case Value::eValueTypeHostAddress: {
++    case Value::ValueType::HostAddress: {
 +      void *src = (void *)stack.back().GetScalar().ULongLong();
 +      intptr_t ptr;
 +      ::memcpy(&ptr, src, sizeof(void *));
@@ -1014,7 +1014,7 @@ index 00000000000..406531a64df
 +      stack.back().GetScalar() = ptr;
 +      stack.back().ClearContext();
 +    } break;
-+    case Value::eValueTypeLoadAddress:
++    case Value::ValueType::LoadAddress:
 +      if (m_exe_ctx) {
 +        if (process) {
 +          lldb::addr_t pointer_addr =
@@ -1848,7 +1848,7 @@ index 00000000000..406531a64df
 +      tmp.ResolveValue(m_exe_ctx) += (uint64_t)breg_offset;
 +      tmp.ClearContext();
 +      stack.push_back(tmp);
-+      stack.back().SetValueType(Value::eValueTypeLoadAddress);
++      stack.back().SetValueType(Value::ValueType::LoadAddress);
 +    } else
 +      return false;
 +  } break;
@@ -1867,7 +1867,7 @@ index 00000000000..406531a64df
 +      tmp.ResolveValue(m_exe_ctx) += (uint64_t)breg_offset;
 +      tmp.ClearContext();
 +      stack.push_back(tmp);
-+      stack.back().SetValueType(Value::eValueTypeLoadAddress);
++      stack.back().SetValueType(Value::ValueType::LoadAddress);
 +    } else
 +      return false;
 +  } break;
@@ -1880,7 +1880,7 @@ index 00000000000..406531a64df
 +          int64_t fbreg_offset = opcodes.GetSLEB128(&offset);
 +          value += fbreg_offset;
 +          stack.push_back(value);
-+          stack.back().SetValueType(Value::eValueTypeLoadAddress);
++          stack.back().SetValueType(Value::ValueType::LoadAddress);
 +        } else
 +          return false;
 +      } else {
@@ -1944,7 +1944,7 @@ index 00000000000..406531a64df
 +        const Value::ValueType curr_piece_source_value_type =
 +            curr_piece_source_value.GetValueType();
 +        switch (curr_piece_source_value_type) {
-+        case Value::eValueTypeLoadAddress:
++        case Value::ValueType::LoadAddress:
 +          if (process) {
 +            if (curr_piece.ResizeData(piece_byte_size) == piece_byte_size) {
 +              lldb::addr_t load_addr =
@@ -1971,8 +1971,8 @@ index 00000000000..406531a64df
 +          }
 +          break;
 +
-+        case Value::eValueTypeFileAddress:
-+        case Value::eValueTypeHostAddress:
++        case Value::ValueType::FileAddress:
++        case Value::ValueType::HostAddress:
 +          if (error_ptr) {
 +            lldb::addr_t addr = curr_piece_source_value.GetScalar().ULongLong(
 +                LLDB_INVALID_ADDRESS);
@@ -1981,14 +1981,14 @@ index 00000000000..406531a64df
 +                ") from %s address 0x%" PRIx64,
 +                piece_byte_size,
 +                curr_piece_source_value.GetValueType() ==
-+                        Value::eValueTypeFileAddress
++                        Value::ValueType::FileAddress
 +                    ? "file"
 +                    : "host",
 +                addr);
 +          }
 +          return false;
 +
-+        case Value::eValueTypeScalar: {
++        case Value::ValueType::Scalar: {
 +          uint32_t bit_size = piece_byte_size * 8;
 +          uint32_t bit_offset = 0;
 +          Scalar &scalar = curr_piece_source_value.GetScalar();
@@ -2055,7 +2055,7 @@ index 00000000000..406531a64df
 +      const uint64_t piece_bit_size = opcodes.GetULEB128(&offset);
 +      const uint64_t piece_bit_offset = opcodes.GetULEB128(&offset);
 +      switch (stack.back().GetValueType()) {
-+      case Value::eValueTypeScalar: {
++      case Value::ValueType::Scalar: {
 +        if (!stack.back().GetScalar().ExtractBitfield(piece_bit_size,
 +                                                      piece_bit_offset)) {
 +          if (error_ptr)
@@ -2068,9 +2068,9 @@ index 00000000000..406531a64df
 +        }
 +      } break;
 +
-+      case Value::eValueTypeFileAddress:
-+      case Value::eValueTypeLoadAddress:
-+      case Value::eValueTypeHostAddress:
++      case Value::ValueType::FileAddress:
++      case Value::ValueType::LoadAddress:
++      case Value::ValueType::HostAddress:
 +        if (error_ptr) {
 +          error_ptr->SetErrorStringWithFormat(
 +              "unable to extract DW_OP_bit_piece(bit_size = %" PRIu64
@@ -2159,7 +2159,7 @@ index 00000000000..406531a64df
 +            "Expression stack needs at least 1 item for DW_OP_stack_value.");
 +      return false;
 +    }
-+    stack.back().SetValueType(Value::eValueTypeScalar);
++    stack.back().SetValueType(Value::ValueType::Scalar);
 +    break;
 +
 +  // OPCODE: DW_OP_convert
@@ -2247,7 +2247,7 @@ index 00000000000..406531a64df
 +      addr_t cfa = id.GetCallFrameAddress();
 +      if (cfa != LLDB_INVALID_ADDRESS) {
 +        stack.push_back(Scalar(cfa));
-+        stack.back().SetValueType(Value::eValueTypeLoadAddress);
++        stack.back().SetValueType(Value::ValueType::LoadAddress);
 +      } else if (error_ptr)
 +        error_ptr->SetErrorString("Stack frame does not include a canonical "
 +                                  "frame address for DW_OP_call_frame_cfa "
@@ -2307,7 +2307,7 @@ index 00000000000..406531a64df
 +    }
 +
 +    stack.back().GetScalar() = tls_load_addr;
-+    stack.back().SetValueType(Value::eValueTypeLoadAddress);
++    stack.back().SetValueType(Value::ValueType::LoadAddress);
 +  } break;
 +
 +  // OPCODE: DW_OP_addrx (DW_OP_GNU_addr_index is the legacy name.)
@@ -2328,7 +2328,7 @@ index 00000000000..406531a64df
 +    lldb::addr_t value =
 +        DWARFExpression::ReadAddressFromDebugAddrSection(dwarf_cu, index);
 +    stack.push_back(Scalar(value));
-+    stack.back().SetValueType(Value::eValueTypeFileAddress);
++    stack.back().SetValueType(Value::ValueType::FileAddress);
 +  } break;
 +
 +  // OPCODE: DW_OP_GNU_const_index
@@ -2370,7 +2370,7 @@ index 00000000000..406531a64df
 +}
 diff --git a/lldb/source/Expression/DWARFEvaluatorFactory.cpp b/lldb/source/Expression/DWARFEvaluatorFactory.cpp
 new file mode 100644
-index 00000000000..c0612641204
+index 000000000000..c0612641204a
 --- /dev/null
 +++ b/lldb/source/Expression/DWARFEvaluatorFactory.cpp
 @@ -0,0 +1,57 @@
@@ -2432,7 +2432,7 @@ index 00000000000..c0612641204
 +                                          object_address_ptr);
 +}
 diff --git a/lldb/source/Expression/DWARFExpression.cpp b/lldb/source/Expression/DWARFExpression.cpp
-index c30fdf565cd..b650871c4c7 100644
+index a10546c1deae..4d13e4642af3 100644
 --- a/lldb/source/Expression/DWARFExpression.cpp
 +++ b/lldb/source/Expression/DWARFExpression.cpp
 @@ -15,6 +15,8 @@
@@ -2455,7 +2455,7 @@ index c30fdf565cd..b650871c4c7 100644
                                  uint32_t index) {
    uint32_t index_size = dwarf_cu->GetAddressByteSize();
    dw_offset_t addr_base = dwarf_cu->GetAddrBase();
-@@ -98,7 +100,7 @@ void DWARFExpression::SetLocationListAddresses(addr_t cu_file_addr,
+@@ -96,7 +98,7 @@ void DWARFExpression::SetLocationListAddresses(addr_t cu_file_addr,
    m_loclist_addresses = LoclistAddresses{cu_file_addr, func_file_addr};
  }
  
@@ -2464,7 +2464,7 @@ index c30fdf565cd..b650871c4c7 100644
  
  void DWARFExpression::SetRegisterKind(RegisterKind reg_kind) {
    m_reg_kind = reg_kind;
-@@ -152,52 +154,6 @@ void DWARFExpression::GetDescription(Stream *s, lldb::DescriptionLevel level,
+@@ -150,52 +152,6 @@ void DWARFExpression::GetDescription(Stream *s, lldb::DescriptionLevel level,
    }
  }
  
@@ -2490,8 +2490,8 @@ index c30fdf565cd..b650871c4c7 100644
 -      RegisterValue reg_value;
 -      if (reg_ctx->ReadRegister(reg_info, reg_value)) {
 -        if (reg_value.GetScalarValue(value.GetScalar())) {
--          value.SetValueType(Value::eValueTypeScalar);
--          value.SetContext(Value::eContextTypeRegisterInfo,
+-          value.SetValueType(Value::ValueType::Scalar);
+-          value.SetContext(Value::ContextType::RegisterInfo,
 -                           const_cast<RegisterInfo *>(reg_info));
 -          if (error_ptr)
 -            error_ptr->Clear();
@@ -2517,7 +2517,7 @@ index c30fdf565cd..b650871c4c7 100644
  /// Return the length in bytes of the set of operands for \p op. No guarantees
  /// are made on the state of \p data after this call.
  static offset_t GetOpcodeDataSize(const DataExtractor &data,
-@@ -911,1669 +867,17 @@ bool DWARFExpression::Evaluate(
+@@ -955,1719 +911,17 @@ bool DWARFExpression::Evaluate(
      const Value *initial_value_ptr, const Value *object_address_ptr,
      Value &result, Status *error_ptr) {
  
@@ -2562,6 +2562,11 @@ index c30fdf565cd..b650871c4c7 100644
 -        !is_signed));
 -  };
 -
+-  // The default kind is a memory location. This is updated by any
+-  // operation that changes this, such as DW_OP_stack_value, and reset
+-  // by composition operations like DW_OP_piece.
+-  LocationDescriptionKind dwarf4_location_description_kind = Memory;
+-
 -  while (opcodes.ValidOffset(offset)) {
 -    const lldb::offset_t op_offset = offset;
 -    const uint8_t op = opcodes.GetU8(&offset);
@@ -2585,7 +2590,7 @@ index c30fdf565cd..b650871c4c7 100644
 -    // address and whose size is the size of an address on the target machine.
 -    case DW_OP_addr:
 -      stack.push_back(Scalar(opcodes.GetAddress(&offset)));
--      stack.back().SetValueType(Value::eValueTypeFileAddress);
+-      stack.back().SetValueType(Value::ValueType::FileAddress);
 -      // Convert the file address to a load address, so subsequent
 -      // DWARF operators can operate on it.
 -      if (frame)
@@ -2644,14 +2649,14 @@ index c30fdf565cd..b650871c4c7 100644
 -      }
 -      Value::ValueType value_type = stack.back().GetValueType();
 -      switch (value_type) {
--      case Value::eValueTypeHostAddress: {
+-      case Value::ValueType::HostAddress: {
 -        void *src = (void *)stack.back().GetScalar().ULongLong();
 -        intptr_t ptr;
 -        ::memcpy(&ptr, src, sizeof(void *));
 -        stack.back().GetScalar() = ptr;
 -        stack.back().ClearContext();
 -      } break;
--      case Value::eValueTypeFileAddress: {
+-      case Value::ValueType::FileAddress: {
 -        auto file_addr = stack.back().GetScalar().ULongLong(
 -            LLDB_INVALID_ADDRESS);
 -        if (!module_sp) {
@@ -2674,10 +2679,13 @@ index c30fdf565cd..b650871c4c7 100644
 -          return false;
 -        }
 -        stack.back().GetScalar() = load_Addr;
--        stack.back().SetValueType(Value::eValueTypeLoadAddress);
--        // Fall through to load address code below...
+-        // Fall through to load address promotion code below.
 -      } LLVM_FALLTHROUGH;
--      case Value::eValueTypeLoadAddress:
+-      case Value::ValueType::Scalar:
+-        // Promote Scalar to LoadAddress and fall through.
+-        stack.back().SetValueType(Value::ValueType::LoadAddress);
+-        LLVM_FALLTHROUGH;
+-      case Value::ValueType::LoadAddress:
 -        if (exe_ctx) {
 -          if (process) {
 -            lldb::addr_t pointer_addr =
@@ -2686,6 +2694,8 @@ index c30fdf565cd..b650871c4c7 100644
 -            lldb::addr_t pointer_value =
 -                process->ReadPointerFromMemory(pointer_addr, error);
 -            if (pointer_value != LLDB_INVALID_ADDRESS) {
+-              if (ABISP abi_sp = process->GetABI())
+-                pointer_value = abi_sp->FixCodeAddress(pointer_value);
 -              stack.back().GetScalar() = pointer_value;
 -              stack.back().ClearContext();
 -            } else {
@@ -2709,8 +2719,10 @@ index c30fdf565cd..b650871c4c7 100644
 -        }
 -        break;
 -
--      default:
--        break;
+-      case Value::ValueType::Invalid:
+-        if (error_ptr)
+-          error_ptr->SetErrorString("Invalid value type for DW_OP_deref.\n");
+-        return false;
 -      }
 -
 -    } break;
@@ -2737,7 +2749,7 @@ index c30fdf565cd..b650871c4c7 100644
 -      uint8_t size = opcodes.GetU8(&offset);
 -      Value::ValueType value_type = stack.back().GetValueType();
 -      switch (value_type) {
--      case Value::eValueTypeHostAddress: {
+-      case Value::ValueType::HostAddress: {
 -        void *src = (void *)stack.back().GetScalar().ULongLong();
 -        intptr_t ptr;
 -        ::memcpy(&ptr, src, sizeof(void *));
@@ -2777,7 +2789,8 @@ index c30fdf565cd..b650871c4c7 100644
 -        stack.back().GetScalar() = ptr;
 -        stack.back().ClearContext();
 -      } break;
--      case Value::eValueTypeLoadAddress:
+-      case Value::ValueType::Scalar:
+-      case Value::ValueType::LoadAddress:
 -        if (exe_ctx) {
 -          if (process) {
 -            lldb::addr_t pointer_addr =
@@ -2817,19 +2830,22 @@ index c30fdf565cd..b650871c4c7 100644
 -            }
 -          } else {
 -            if (error_ptr)
--              error_ptr->SetErrorString("NULL process for DW_OP_deref.\n");
+-              error_ptr->SetErrorString("NULL process for DW_OP_deref_size.\n");
 -            return false;
 -          }
 -        } else {
 -          if (error_ptr)
 -            error_ptr->SetErrorString(
--                "NULL execution context for DW_OP_deref.\n");
+-                "NULL execution context for DW_OP_deref_size.\n");
 -          return false;
 -        }
 -        break;
 -
--      default:
--        break;
+-      case Value::ValueType::FileAddress:
+-      case Value::ValueType::Invalid:
+-        if (error_ptr)
+-          error_ptr->SetErrorString("Invalid value for DW_OP_deref_size.\n");
+-        return false;
 -      }
 -
 -    } break;
@@ -3551,6 +3567,7 @@ index c30fdf565cd..b650871c4c7 100644
 -    case DW_OP_reg29:
 -    case DW_OP_reg30:
 -    case DW_OP_reg31: {
+-      dwarf4_location_description_kind = Register;
 -      reg_num = op - DW_OP_reg0;
 -
 -      if (ReadRegisterValueAsScalar(reg_ctx, reg_kind, reg_num, error_ptr, tmp))
@@ -3563,6 +3580,7 @@ index c30fdf565cd..b650871c4c7 100644
 -    //      ULEB128 literal operand that encodes the register.
 -    // DESCRIPTION: Push the value in register on the top of the stack.
 -    case DW_OP_regx: {
+-      dwarf4_location_description_kind = Register;
 -      reg_num = opcodes.GetULEB128(&offset);
 -      if (ReadRegisterValueAsScalar(reg_ctx, reg_kind, reg_num, error_ptr, tmp))
 -        stack.push_back(tmp);
@@ -3615,7 +3633,7 @@ index c30fdf565cd..b650871c4c7 100644
 -        tmp.ResolveValue(exe_ctx) += (uint64_t)breg_offset;
 -        tmp.ClearContext();
 -        stack.push_back(tmp);
--        stack.back().SetValueType(Value::eValueTypeLoadAddress);
+-        stack.back().SetValueType(Value::ValueType::LoadAddress);
 -      } else
 -        return false;
 -    } break;
@@ -3634,7 +3652,7 @@ index c30fdf565cd..b650871c4c7 100644
 -        tmp.ResolveValue(exe_ctx) += (uint64_t)breg_offset;
 -        tmp.ClearContext();
 -        stack.push_back(tmp);
--        stack.back().SetValueType(Value::eValueTypeLoadAddress);
+-        stack.back().SetValueType(Value::ValueType::LoadAddress);
 -      } else
 -        return false;
 -    } break;
@@ -3647,7 +3665,7 @@ index c30fdf565cd..b650871c4c7 100644
 -            int64_t fbreg_offset = opcodes.GetSLEB128(&offset);
 -            value += fbreg_offset;
 -            stack.push_back(value);
--            stack.back().SetValueType(Value::eValueTypeLoadAddress);
+-            stack.back().SetValueType(Value::ValueType::LoadAddress);
 -          } else
 -            return false;
 -        } else {
@@ -3686,12 +3704,18 @@ index c30fdf565cd..b650871c4c7 100644
 -    // provides a way of describing how large a part of a variable a particular
 -    // DWARF expression refers to.
 -    case DW_OP_piece: {
+-      LocationDescriptionKind piece_locdesc = dwarf4_location_description_kind;
+-      // Reset for the next piece.
+-      dwarf4_location_description_kind = Memory;
+-
 -      const uint64_t piece_byte_size = opcodes.GetULEB128(&offset);
 -
 -      if (piece_byte_size > 0) {
 -        Value curr_piece;
 -
 -        if (stack.empty()) {
+-          UpdateValueTypeFromLocationDescription(
+-              log, dwarf_cu, LocationDescriptionKind::Empty);
 -          // In a multi-piece expression, this means that the current piece is
 -          // not available. Fill with zeros for now by resizing the data and
 -          // appending it
@@ -3707,11 +3731,15 @@ index c30fdf565cd..b650871c4c7 100644
 -          // Extract the current piece into "curr_piece"
 -          Value curr_piece_source_value(stack.back());
 -          stack.pop_back();
+-          UpdateValueTypeFromLocationDescription(log, dwarf_cu, piece_locdesc,
+-                                                 &curr_piece_source_value);
 -
 -          const Value::ValueType curr_piece_source_value_type =
 -              curr_piece_source_value.GetValueType();
 -          switch (curr_piece_source_value_type) {
--          case Value::eValueTypeLoadAddress:
+-          case Value::ValueType::Invalid:
+-            return false;
+-          case Value::ValueType::LoadAddress:
 -            if (process) {
 -              if (curr_piece.ResizeData(piece_byte_size) == piece_byte_size) {
 -                lldb::addr_t load_addr =
@@ -3738,8 +3766,8 @@ index c30fdf565cd..b650871c4c7 100644
 -            }
 -            break;
 -
--          case Value::eValueTypeFileAddress:
--          case Value::eValueTypeHostAddress:
+-          case Value::ValueType::FileAddress:
+-          case Value::ValueType::HostAddress:
 -            if (error_ptr) {
 -              lldb::addr_t addr = curr_piece_source_value.GetScalar().ULongLong(
 -                  LLDB_INVALID_ADDRESS);
@@ -3747,14 +3775,14 @@ index c30fdf565cd..b650871c4c7 100644
 -                  "failed to read memory DW_OP_piece(%" PRIu64
 -                  ") from %s address 0x%" PRIx64,
 -                  piece_byte_size, curr_piece_source_value.GetValueType() ==
--                                           Value::eValueTypeFileAddress
+-                                           Value::ValueType::FileAddress
 -                                       ? "file"
 -                                       : "host",
 -                  addr);
 -            }
 -            return false;
 -
--          case Value::eValueTypeScalar: {
+-          case Value::ValueType::Scalar: {
 -            uint32_t bit_size = piece_byte_size * 8;
 -            uint32_t bit_offset = 0;
 -            Scalar &scalar = curr_piece_source_value.GetScalar();
@@ -3815,15 +3843,25 @@ index c30fdf565cd..b650871c4c7 100644
 -
 -    case DW_OP_bit_piece: // 0x9d ULEB128 bit size, ULEB128 bit offset (DWARF3);
 -      if (stack.size() < 1) {
+-        UpdateValueTypeFromLocationDescription(log, dwarf_cu,
+-                                               LocationDescriptionKind::Empty);
+-        // Reset for the next piece.
+-        dwarf4_location_description_kind = Memory;
 -        if (error_ptr)
 -          error_ptr->SetErrorString(
 -              "Expression stack needs at least 1 item for DW_OP_bit_piece.");
 -        return false;
 -      } else {
+-        UpdateValueTypeFromLocationDescription(
+-            log, dwarf_cu, dwarf4_location_description_kind, &stack.back());
+-        // Reset for the next piece.
+-        dwarf4_location_description_kind = Memory;
 -        const uint64_t piece_bit_size = opcodes.GetULEB128(&offset);
 -        const uint64_t piece_bit_offset = opcodes.GetULEB128(&offset);
 -        switch (stack.back().GetValueType()) {
--        case Value::eValueTypeScalar: {
+-        case Value::ValueType::Invalid:
+-          return false;
+-        case Value::ValueType::Scalar: {
 -          if (!stack.back().GetScalar().ExtractBitfield(piece_bit_size,
 -                                                        piece_bit_offset)) {
 -            if (error_ptr)
@@ -3836,9 +3874,9 @@ index c30fdf565cd..b650871c4c7 100644
 -          }
 -        } break;
 -
--        case Value::eValueTypeFileAddress:
--        case Value::eValueTypeLoadAddress:
--        case Value::eValueTypeHostAddress:
+-        case Value::ValueType::FileAddress:
+-        case Value::ValueType::LoadAddress:
+-        case Value::ValueType::HostAddress:
 -          if (error_ptr) {
 -            error_ptr->SetErrorStringWithFormat(
 -                "unable to extract DW_OP_bit_piece(bit_size = %" PRIu64
@@ -3858,6 +3896,8 @@ index c30fdf565cd..b650871c4c7 100644
 -    // DESCRIPTION: Value is immediately stored in block in the debug info with
 -    // the memory representation of the target.
 -    case DW_OP_implicit_value: {
+-      dwarf4_location_description_kind = Implicit;
+-
 -      const uint32_t len = opcodes.GetULEB128(&offset);
 -      const void *data = opcodes.GetData(&offset, len);
 -
@@ -3871,6 +3911,12 @@ index c30fdf565cd..b650871c4c7 100644
 -      Value result(data, len);
 -      stack.push_back(result);
 -      break;
+-    }
+-
+-    case DW_OP_implicit_pointer: {
+-      dwarf4_location_description_kind = Implicit;
+-      LLDB_ERRORF(error_ptr, "Could not evaluate %s.", DW_OP_value_to_name(op));
+-      return false;
 -    }
 -
 -    // OPCODE: DW_OP_push_object_address
@@ -3944,13 +3990,14 @@ index c30fdf565cd..b650871c4c7 100644
 -    // rather is a constant value.  The value from the top of the stack is the
 -    // value to be used.  This is the actual object value and not the location.
 -    case DW_OP_stack_value:
+-      dwarf4_location_description_kind = Implicit;
 -      if (stack.empty()) {
 -        if (error_ptr)
 -          error_ptr->SetErrorString(
 -              "Expression stack needs at least 1 item for DW_OP_stack_value.");
 -        return false;
 -      }
--      stack.back().SetValueType(Value::eValueTypeScalar);
+-      stack.back().SetValueType(Value::ValueType::Scalar);
 -      break;
 -
 -    // OPCODE: DW_OP_convert
@@ -4038,7 +4085,7 @@ index c30fdf565cd..b650871c4c7 100644
 -        addr_t cfa = id.GetCallFrameAddress();
 -        if (cfa != LLDB_INVALID_ADDRESS) {
 -          stack.push_back(Scalar(cfa));
--          stack.back().SetValueType(Value::eValueTypeLoadAddress);
+-          stack.back().SetValueType(Value::ValueType::LoadAddress);
 -        } else if (error_ptr)
 -          error_ptr->SetErrorString("Stack frame does not include a canonical "
 -                                    "frame address for DW_OP_call_frame_cfa "
@@ -4098,7 +4145,7 @@ index c30fdf565cd..b650871c4c7 100644
 -      }
 -
 -      stack.back().GetScalar() = tls_load_addr;
--      stack.back().SetValueType(Value::eValueTypeLoadAddress);
+-      stack.back().SetValueType(Value::ValueType::LoadAddress);
 -    } break;
 -
 -    // OPCODE: DW_OP_addrx (DW_OP_GNU_addr_index is the legacy name.)
@@ -4118,7 +4165,7 @@ index c30fdf565cd..b650871c4c7 100644
 -      uint64_t index = opcodes.GetULEB128(&offset);
 -      lldb::addr_t value = ReadAddressFromDebugAddrSection(dwarf_cu, index);
 -      stack.push_back(Scalar(value));
--      stack.back().SetValueType(Value::eValueTypeFileAddress);
+-      stack.back().SetValueType(Value::ValueType::FileAddress);
 -    } break;
 -
 -    // OPCODE: DW_OP_GNU_const_index
@@ -4164,25 +4211,28 @@ index c30fdf565cd..b650871c4c7 100644
 -    // or DW_OP_bit_piece opcodes
 -    if (pieces.GetBuffer().GetByteSize()) {
 -      result = pieces;
--    } else {
--      if (error_ptr)
--        error_ptr->SetErrorString("Stack empty after evaluation.");
--      return false;
+-      return true;
 -    }
--  } else {
--    if (log && log->GetVerbose()) {
--      size_t count = stack.size();
--      LLDB_LOGF(log, "Stack after operation has %" PRIu64 " values:",
--                (uint64_t)count);
--      for (size_t i = 0; i < count; ++i) {
--        StreamString new_value;
--        new_value.Printf("[%" PRIu64 "]", (uint64_t)i);
--        stack[i].Dump(&new_value);
--        LLDB_LOGF(log, "  %s", new_value.GetData());
--      }
--    }
--    result = stack.back();
+-    if (error_ptr)
+-      error_ptr->SetErrorString("Stack empty after evaluation.");
+-    return false;
 -  }
+-
+-  UpdateValueTypeFromLocationDescription(
+-      log, dwarf_cu, dwarf4_location_description_kind, &stack.back());
+-
+-  if (log && log->GetVerbose()) {
+-    size_t count = stack.size();
+-    LLDB_LOGF(log,
+-              "Stack after operation has %" PRIu64 " values:", (uint64_t)count);
+-    for (size_t i = 0; i < count; ++i) {
+-      StreamString new_value;
+-      new_value.Printf("[%" PRIu64 "]", (uint64_t)i);
+-      stack[i].Dump(&new_value);
+-      LLDB_LOGF(log, "  %s", new_value.GetData());
+-    }
+-  }
+-  result = stack.back();
 -  return true; // Return true on success
 +  DWARFExpression expr(module_sp, opcodes, dwarf_cu);
 +  expr.SetRegisterKind(reg_kind);
@@ -4199,10 +4249,10 @@ index c30fdf565cd..b650871c4c7 100644
  
  static DataExtractor ToDataExtractor(const llvm::DWARFLocationExpression &loc,
 diff --git a/lldb/source/Interpreter/CommandInterpreter.cpp b/lldb/source/Interpreter/CommandInterpreter.cpp
-index fb503fe0afb..b37c57ec55e 100644
+index 00e9ccb762c3..2137a1ac8324 100644
 --- a/lldb/source/Interpreter/CommandInterpreter.cpp
 +++ b/lldb/source/Interpreter/CommandInterpreter.cpp
-@@ -747,6 +747,24 @@ void CommandInterpreter::LoadCommandDictionary() {
+@@ -759,6 +759,24 @@ void CommandInterpreter::LoadCommandDictionary() {
      }
    }
  
@@ -4228,7 +4278,7 @@ index fb503fe0afb..b37c57ec55e 100644
        new CommandObjectRegexCommand(
            *this, "kdp-remote",
 diff --git a/lldb/source/Plugins/CMakeLists.txt b/lldb/source/Plugins/CMakeLists.txt
-index 3da23eca077..37c67c939ad 100644
+index 9181a4e47675..2be6ec3657c0 100644
 --- a/lldb/source/Plugins/CMakeLists.txt
 +++ b/lldb/source/Plugins/CMakeLists.txt
 @@ -2,6 +2,7 @@ add_subdirectory(ABI)
@@ -4239,7 +4289,7 @@ index 3da23eca077..37c67c939ad 100644
  add_subdirectory(ExpressionParser)
  add_subdirectory(Instruction)
  add_subdirectory(InstrumentationRuntime)
-@@ -31,6 +32,7 @@ set(LLDB_ENUM_PLUGINS "")
+@@ -32,6 +33,7 @@ set(LLDB_ENUM_PLUGINS "")
  # FIXME: ProcessWindowsCommon needs to be initialized after all other process
  # plugins but before ProcessGDBRemote.
  set(LLDB_PROCESS_WINDOWS_PLUGIN "")
@@ -4247,7 +4297,7 @@ index 3da23eca077..37c67c939ad 100644
  set(LLDB_PROCESS_GDB_PLUGIN "")
  
  foreach(p ${LLDB_ALL_PLUGINS})
-@@ -42,6 +44,8 @@ foreach(p ${LLDB_ALL_PLUGINS})
+@@ -43,6 +45,8 @@ foreach(p ${LLDB_ALL_PLUGINS})
      set(LLDB_PROCESS_WINDOWS_PLUGIN "LLDB_PLUGIN(${pStripped})\n")
    elseif(${pStripped} STREQUAL "ProcessGDBRemote")
      set(LLDB_PROCESS_GDB_PLUGIN "LLDB_PLUGIN(${pStripped})\n")
@@ -4258,14 +4308,14 @@ index 3da23eca077..37c67c939ad 100644
    endif()
 diff --git a/lldb/source/Plugins/DWARFEvaluator/CMakeLists.txt b/lldb/source/Plugins/DWARFEvaluator/CMakeLists.txt
 new file mode 100644
-index 00000000000..73fad41e1a7
+index 000000000000..73fad41e1a72
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/CMakeLists.txt
 @@ -0,0 +1 @@
 +add_subdirectory(wasm)
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/CMakeLists.txt b/lldb/source/Plugins/DWARFEvaluator/wasm/CMakeLists.txt
 new file mode 100644
-index 00000000000..e50b1bef7e6
+index 000000000000..e50b1bef7e69
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/CMakeLists.txt
 @@ -0,0 +1,10 @@
@@ -4281,7 +4331,7 @@ index 00000000000..e50b1bef7e6
 +  )
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.cpp b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.cpp
 new file mode 100644
-index 00000000000..e27dfc26922
+index 000000000000..fdda1991d19f
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.cpp
 @@ -0,0 +1,126 @@
@@ -4377,7 +4427,7 @@ index 00000000000..e27dfc26922
 +    /// {addr} is an offset in the module Data section.
 +    lldb::addr_t addr = opcodes.GetAddress(&offset);
 +    stack.push_back(Scalar(addr));
-+    stack.back().SetValueType(Value::eValueTypeLoadAddress);
++    stack.back().SetValueType(Value::ValueType::LoadAddress);
 +  } break;
 +
 +  case DW_OP_fbreg:
@@ -4388,7 +4438,7 @@ index 00000000000..e27dfc26922
 +          // The value is an address in the Wasm Memory space.
 +          int64_t fbreg_offset = opcodes.GetSLEB128(&offset);
 +          stack.push_back(Scalar(value.ULong() + fbreg_offset));
-+          stack.back().SetValueType(Value::eValueTypeLoadAddress);
++          stack.back().SetValueType(Value::ValueType::LoadAddress);
 +        } else
 +          return false;
 +      } else {
@@ -4413,7 +4463,7 @@ index 00000000000..e27dfc26922
 +}
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.h b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.h
 new file mode 100644
-index 00000000000..a01159064a3
+index 000000000000..a01159064a39
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluator.h
 @@ -0,0 +1,47 @@
@@ -4466,7 +4516,7 @@ index 00000000000..a01159064a3
 +#endif // LLDB_SOURCE_PLUGINS_DWARFEVALUATOR_WASM_WASMDWARFEVALUATOR_H
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.cpp b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.cpp
 new file mode 100644
-index 00000000000..d43e96a34d3
+index 000000000000..d43e96a34d37
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.cpp
 @@ -0,0 +1,64 @@
@@ -4536,7 +4586,7 @@ index 00000000000..d43e96a34d3
 +}
 diff --git a/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.h b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.h
 new file mode 100644
-index 00000000000..8a946592a09
+index 000000000000..8a946592a09a
 --- /dev/null
 +++ b/lldb/source/Plugins/DWARFEvaluator/wasm/WasmDWARFEvaluatorFactory.h
 @@ -0,0 +1,55 @@
@@ -4596,23 +4646,27 @@ index 00000000000..8a946592a09
 +
 +#endif // LLDB_SOURCE_PLUGINS_DWARFEVALUATOR_WASM_WASMDWARFEVALUATORFACTORY_H
 diff --git a/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp b/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp
-index ae7e011eaa5..8ca656a1c74 100644
+index ae7e011eaa52..24ea75d1971c 100644
 --- a/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp
 +++ b/lldb/source/Plugins/DynamicLoader/wasm-DYLD/DynamicLoaderWasmDYLD.cpp
-@@ -62,6 +62,11 @@ void DynamicLoaderWasmDYLD::DidAttach() {
+@@ -62,6 +62,15 @@ void DynamicLoaderWasmDYLD::DidAttach() {
    // Ask the process for the list of loaded WebAssembly modules.
    auto error = m_process->LoadModules();
    LLDB_LOG_ERROR(log, std::move(error), "Couldn't load modules: {0}");
-+  //TODO:multi-modules support ?
++
++  // TODO: multi-modules support ?
 +  Target &target = m_process->GetTarget();
 +  const ModuleList &modules = target.GetImages();
 +  ModuleSP module_sp(modules.GetModuleAtIndex(0));
-+  module_sp->PreloadSymbols();
++  // module_sp is nullptr if without libxml2
++  if(module_sp) {
++    module_sp->PreloadSymbols();
++  }
  }
  
  ThreadPlanSP DynamicLoaderWasmDYLD::GetStepThroughTrampolinePlan(Thread &thread,
 diff --git a/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp b/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp
-index 91150fa02eb..6b5078d1f35 100644
+index 5272da9ab33a..abc5523bfd70 100644
 --- a/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp
 +++ b/lldb/source/Plugins/ObjectFile/wasm/ObjectFileWasm.cpp
 @@ -23,6 +23,7 @@
@@ -4623,7 +4677,7 @@ index 91150fa02eb..6b5078d1f35 100644
  
  using namespace lldb;
  using namespace lldb_private;
-@@ -326,6 +327,8 @@ void ObjectFileWasm::CreateSections(SectionList &unified_section_list) {
+@@ -341,6 +342,8 @@ void ObjectFileWasm::CreateSections(SectionList &unified_section_list) {
                      0,              // Alignment of the section
                      0,              // Flags for this section.
                      1));            // Number of host bytes per target byte
@@ -4632,7 +4686,7 @@ index 91150fa02eb..6b5078d1f35 100644
      m_sections_up->AddSection(section_sp);
      unified_section_list.AddSection(section_sp);
    }
-@@ -352,6 +355,7 @@ bool ObjectFileWasm::SetLoadAddress(Target &target, lldb::addr_t load_address,
+@@ -367,6 +370,7 @@ bool ObjectFileWasm::SetLoadAddress(Target &target, lldb::addr_t load_address,
    assert(m_memory_addr == LLDB_INVALID_ADDRESS ||
           m_memory_addr == load_address);
  
@@ -4640,7 +4694,7 @@ index 91150fa02eb..6b5078d1f35 100644
    ModuleSP module_sp = GetModule();
    if (!module_sp)
      return false;
-@@ -366,8 +370,9 @@ bool ObjectFileWasm::SetLoadAddress(Target &target, lldb::addr_t load_address,
+@@ -381,8 +385,9 @@ bool ObjectFileWasm::SetLoadAddress(Target &target, lldb::addr_t load_address,
    const size_t num_sections = section_list->GetSize();
    for (size_t sect_idx = 0; sect_idx < num_sections; ++sect_idx) {
      SectionSP section_sp(section_list->GetSectionAtIndex(sect_idx));
@@ -4652,7 +4706,7 @@ index 91150fa02eb..6b5078d1f35 100644
      }
    }
 diff --git a/lldb/source/Plugins/Platform/CMakeLists.txt b/lldb/source/Plugins/Platform/CMakeLists.txt
-index 5f284e517dc..6084cbc9378 100644
+index 5f284e517dca..6084cbc9378d 100644
 --- a/lldb/source/Plugins/Platform/CMakeLists.txt
 +++ b/lldb/source/Plugins/Platform/CMakeLists.txt
 @@ -15,3 +15,4 @@
@@ -4662,7 +4716,7 @@ index 5f284e517dc..6084cbc9378 100644
 +add_subdirectory(wasm-remote)
 diff --git a/lldb/source/Plugins/Platform/wasm-remote/CMakeLists.txt b/lldb/source/Plugins/Platform/wasm-remote/CMakeLists.txt
 new file mode 100644
-index 00000000000..4a65765a565
+index 000000000000..4a65765a5659
 --- /dev/null
 +++ b/lldb/source/Plugins/Platform/wasm-remote/CMakeLists.txt
 @@ -0,0 +1,10 @@
@@ -4678,7 +4732,7 @@ index 00000000000..4a65765a565
 +  )
 diff --git a/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.cpp b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.cpp
 new file mode 100644
-index 00000000000..f26d11f00e5
+index 000000000000..f26d11f00e5c
 --- /dev/null
 +++ b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.cpp
 @@ -0,0 +1,139 @@
@@ -4824,7 +4878,7 @@ index 00000000000..f26d11f00e5
 \ No newline at end of file
 diff --git a/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.h b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.h
 new file mode 100644
-index 00000000000..f306a79d3f4
+index 000000000000..f306a79d3f4f
 --- /dev/null
 +++ b/lldb/source/Plugins/Platform/wasm-remote/PlatformRemoteWasmServer.h
 @@ -0,0 +1,37 @@
@@ -4867,7 +4921,7 @@ index 00000000000..f306a79d3f4
 +#endif
 \ No newline at end of file
 diff --git a/lldb/source/Plugins/Plugins.def.in b/lldb/source/Plugins/Plugins.def.in
-index bf54598fb2f..b0bd7b9965f 100644
+index bf54598fb2f3..b0bd7b9965fe 100644
 --- a/lldb/source/Plugins/Plugins.def.in
 +++ b/lldb/source/Plugins/Plugins.def.in
 @@ -31,6 +31,7 @@
@@ -4879,7 +4933,7 @@ index bf54598fb2f..b0bd7b9965f 100644
  
  #undef LLDB_PLUGIN
 diff --git a/lldb/source/Plugins/Process/CMakeLists.txt b/lldb/source/Plugins/Process/CMakeLists.txt
-index 91f20ec22ac..dc93dd3bed7 100644
+index bea5bac9eb21..7a0855e02ca2 100644
 --- a/lldb/source/Plugins/Process/CMakeLists.txt
 +++ b/lldb/source/Plugins/Process/CMakeLists.txt
 @@ -18,3 +18,4 @@ add_subdirectory(Utility)
@@ -4888,7 +4942,7 @@ index 91f20ec22ac..dc93dd3bed7 100644
  add_subdirectory(minidump)
 +add_subdirectory(wasm)
 diff --git a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp
-index 3bcf560c4f0..ebf33f13898 100644
+index 12bc7390c729..707ab85e5615 100644
 --- a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp
 +++ b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.cpp
 @@ -285,7 +285,7 @@ bool ProcessElfCore::IsAlive() { return true; }
@@ -4901,7 +4955,7 @@ index 3bcf560c4f0..ebf33f13898 100644
    // in core files we have it all cached our our core file anyway.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h
-index 793f3cda126..b19ddccaf74 100644
+index d8e3cc9ae3e1..f0bf9c4d3b00 100644
 --- a/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h
 +++ b/lldb/source/Plugins/Process/elf-core/ProcessElfCore.h
 @@ -84,7 +84,8 @@ public:
@@ -4915,10 +4969,10 @@ index 793f3cda126..b19ddccaf74 100644
    size_t DoReadMemory(lldb::addr_t addr, void *buf, size_t size,
                        lldb_private::Status &error) override;
 diff --git a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp
-index 0d02acf1b12..cc410db4ce1 100644
+index 6914b37348ea..bb8a056049f3 100644
 --- a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp
 +++ b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp
-@@ -330,6 +330,11 @@ ConstString ProcessGDBRemote::GetPluginName() { return GetPluginNameStatic(); }
+@@ -334,6 +334,11 @@ ConstString ProcessGDBRemote::GetPluginName() { return GetPluginNameStatic(); }
  
  uint32_t ProcessGDBRemote::GetPluginVersion() { return 1; }
  
@@ -4930,7 +4984,7 @@ index 0d02acf1b12..cc410db4ce1 100644
  bool ProcessGDBRemote::ParsePythonTargetDefinition(
      const FileSpec &target_definition_fspec) {
    ScriptInterpreter *interpreter =
-@@ -1624,7 +1629,7 @@ bool ProcessGDBRemote::UpdateThreadList(ThreadList &old_thread_list,
+@@ -1626,7 +1631,7 @@ bool ProcessGDBRemote::DoUpdateThreadList(ThreadList &old_thread_list,
        ThreadSP thread_sp(
            old_thread_list_copy.RemoveThreadByProtocolID(tid, false));
        if (!thread_sp) {
@@ -4939,7 +4993,7 @@ index 0d02acf1b12..cc410db4ce1 100644
          LLDB_LOGV(log, "Making new thread: {0} for thread ID: {1:x}.",
                    thread_sp.get(), thread_sp->GetID());
        } else {
-@@ -1740,7 +1745,7 @@ ThreadSP ProcessGDBRemote::SetThreadStopInfo(
+@@ -1742,7 +1747,7 @@ ThreadSP ProcessGDBRemote::SetThreadStopInfo(
  
        if (!thread_sp) {
          // Create the thread if we need to
@@ -4949,12 +5003,12 @@ index 0d02acf1b12..cc410db4ce1 100644
        }
      }
 diff --git a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h
-index 8e0a04f04eb..6eb46a6d07e 100644
+index fe04cdddd0f5..e4a14c64579a 100644
 --- a/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h
 +++ b/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.h
-@@ -239,6 +239,8 @@ protected:
-   friend class GDBRemoteCommunicationClient;
-   friend class GDBRemoteRegisterContext;
+@@ -237,6 +237,8 @@ protected:
+ 
+   bool SupportsMemoryTagging() override;
  
 +  virtual std::shared_ptr<ThreadGDBRemote> CreateThread(lldb::tid_t tid);
 +
@@ -4962,10 +5016,10 @@ index 8e0a04f04eb..6eb46a6d07e 100644
    enum {
      eBroadcastBitAsyncContinue = (1 << 0),
 diff --git a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp
-index 6f03825cd6c..57e8e0f5634 100644
+index 84548edb5caa..0ae6f7e4a177 100644
 --- a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp
 +++ b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.cpp
-@@ -575,7 +575,7 @@ bool ProcessMachCore::WarnBeforeDetach() const { return false; }
+@@ -596,7 +596,7 @@ bool ProcessMachCore::WarnBeforeDetach() const { return false; }
  
  // Process Memory
  size_t ProcessMachCore::ReadMemory(addr_t addr, void *buf, size_t size,
@@ -4975,7 +5029,7 @@ index 6f03825cd6c..57e8e0f5634 100644
    // in core files we have it all cached our our core file anyway.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h
-index 60463bc44d4..26bfc108f6d 100644
+index db77e96f1072..1c930896c743 100644
 --- a/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h
 +++ b/lldb/source/Plugins/Process/mach-core/ProcessMachCore.h
 @@ -65,7 +65,8 @@ public:
@@ -4989,7 +5043,7 @@ index 60463bc44d4..26bfc108f6d 100644
    size_t DoReadMemory(lldb::addr_t addr, void *buf, size_t size,
                        lldb_private::Status &error) override;
 diff --git a/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp b/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp
-index c001547eefd..aaa0fcf1e61 100644
+index 385557422758..d8bb21581086 100644
 --- a/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp
 +++ b/lldb/source/Plugins/Process/minidump/ProcessMinidump.cpp
 @@ -374,7 +374,7 @@ bool ProcessMinidump::IsAlive() { return true; }
@@ -5002,7 +5056,7 @@ index c001547eefd..aaa0fcf1e61 100644
    // we have it all cached in our dump file anyway.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Plugins/Process/minidump/ProcessMinidump.h b/lldb/source/Plugins/Process/minidump/ProcessMinidump.h
-index 9a68bd43551..bc59908b894 100644
+index 27b0da0047a5..e94ecab430c1 100644
 --- a/lldb/source/Plugins/Process/minidump/ProcessMinidump.h
 +++ b/lldb/source/Plugins/Process/minidump/ProcessMinidump.h
 @@ -69,8 +69,8 @@ public:
@@ -5018,7 +5072,7 @@ index 9a68bd43551..bc59908b894 100644
                        Status &error) override;
 diff --git a/lldb/source/Plugins/Process/wasm/CMakeLists.txt b/lldb/source/Plugins/Process/wasm/CMakeLists.txt
 new file mode 100644
-index 00000000000..61efb933fa6
+index 000000000000..61efb933fa62
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/CMakeLists.txt
 @@ -0,0 +1,12 @@
@@ -5036,10 +5090,10 @@ index 00000000000..61efb933fa6
 +  )
 diff --git a/lldb/source/Plugins/Process/wasm/ProcessWasm.cpp b/lldb/source/Plugins/Process/wasm/ProcessWasm.cpp
 new file mode 100644
-index 00000000000..1b9926ee72b
+index 000000000000..b8ffcac12df2
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ProcessWasm.cpp
-@@ -0,0 +1,260 @@
+@@ -0,0 +1,256 @@
 +//===-- ProcessWasm.cpp ---------------------------------------------------===//
 +//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -5155,7 +5209,7 @@ index 00000000000..1b9926ee72b
 +  assert(packet_len + 1 < (int)sizeof(packet));
 +  UNUSED_IF_ASSERT_DISABLED(packet_len);
 +  StringExtractorGDBRemote response;
-+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response, true) ==
++  if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response, GetInterruptTimeout()) ==
 +      GDBRemoteCommunication::PacketResult::Success) {
 +    if (response.IsNormalResponse()) {
 +      return response.GetHexBytes(llvm::MutableArrayRef<uint8_t>(
@@ -5176,7 +5230,7 @@ index 00000000000..1b9926ee72b
 +  assert(packet_len + 1 < (int)sizeof(packet));
 +  UNUSED_IF_ASSERT_DISABLED(packet_len);
 +  StringExtractorGDBRemote response;
-+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response, true) ==
++  if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response, GetInterruptTimeout()) ==
 +      GDBRemoteCommunication::PacketResult::Success) {
 +    if (response.IsNormalResponse()) {
 +      return response.GetHexBytes(llvm::MutableArrayRef<uint8_t>(
@@ -5193,8 +5247,7 @@ index 00000000000..1b9926ee72b
 +  packet.Printf("qWasmLocal:");
 +  packet.Printf("%d;%d", frame_index, index);
 +  StringExtractorGDBRemote response;
-+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-+                                              false) !=
++  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) !=
 +      GDBRemoteCommunication::PacketResult::Success) {
 +    return false;
 +  }
@@ -5221,8 +5274,7 @@ index 00000000000..1b9926ee72b
 +  packet.PutCString("qWasmGlobal:");
 +  packet.Printf("%d;%d", frame_index, index);
 +  StringExtractorGDBRemote response;
-+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-+                                              false) !=
++  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) !=
 +      GDBRemoteCommunication::PacketResult::Success) {
 +    return false;
 +  }
@@ -5249,8 +5301,7 @@ index 00000000000..1b9926ee72b
 +  packet.PutCString("qWasmStackValue:");
 +  packet.Printf("%d;%d", frame_index, index);
 +  StringExtractorGDBRemote response;
-+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-+                                              false) !=
++  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) !=
 +      GDBRemoteCommunication::PacketResult::Success) {
 +    return false;
 +  }
@@ -5278,8 +5329,7 @@ index 00000000000..1b9926ee72b
 +  packet.Printf("qWasmCallStack:");
 +  packet.Printf("%lx", tid);
 +  StringExtractorGDBRemote response;
-+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-+                                              false) !=
++  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) !=
 +      GDBRemoteCommunication::PacketResult::Success) {
 +    return false;
 +  }
@@ -5302,7 +5352,7 @@ index 00000000000..1b9926ee72b
 +}
 diff --git a/lldb/source/Plugins/Process/wasm/ProcessWasm.h b/lldb/source/Plugins/Process/wasm/ProcessWasm.h
 new file mode 100644
-index 00000000000..6db2c6985ef
+index 000000000000..d3aece7a6554
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ProcessWasm.h
 @@ -0,0 +1,128 @@
@@ -5422,8 +5472,8 @@ index 00000000000..6db2c6985ef
 +
 +private:
 +  friend class UnwindWasm;
-+  process_gdb_remote::GDBRemoteDynamicRegisterInfo &GetRegisterInfo() {
-+    return m_register_info;
++  process_gdb_remote::GDBRemoteDynamicRegisterInfoSP &GetRegisterInfo() {
++    return m_register_info_sp;
 +  }
 +
 +  ProcessWasm(const ProcessWasm &);
@@ -5436,7 +5486,7 @@ index 00000000000..6db2c6985ef
 +#endif // LLDB_SOURCE_PLUGINS_PROCESS_WASM_PROCESSWASM_H
 diff --git a/lldb/source/Plugins/Process/wasm/ThreadWasm.cpp b/lldb/source/Plugins/Process/wasm/ThreadWasm.cpp
 new file mode 100644
-index 00000000000..fa02073e7a5
+index 000000000000..fa02073e7a52
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ThreadWasm.cpp
 @@ -0,0 +1,35 @@
@@ -5477,7 +5527,7 @@ index 00000000000..fa02073e7a5
 +}
 diff --git a/lldb/source/Plugins/Process/wasm/ThreadWasm.h b/lldb/source/Plugins/Process/wasm/ThreadWasm.h
 new file mode 100644
-index 00000000000..0a33c07de99
+index 000000000000..0a33c07de994
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/ThreadWasm.h
 @@ -0,0 +1,41 @@
@@ -5524,7 +5574,7 @@ index 00000000000..0a33c07de99
 +#endif // LLDB_SOURCE_PLUGINS_PROCESS_WASM_THREADWASM_H
 diff --git a/lldb/source/Plugins/Process/wasm/UnwindWasm.cpp b/lldb/source/Plugins/Process/wasm/UnwindWasm.cpp
 new file mode 100644
-index 00000000000..78e41f886e3
+index 000000000000..1a195cb9361a
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/UnwindWasm.cpp
 @@ -0,0 +1,74 @@
@@ -5550,9 +5600,9 @@ index 00000000000..78e41f886e3
 +public:
 +  WasmGDBRemoteRegisterContext(ThreadGDBRemote &thread,
 +                               uint32_t concrete_frame_idx,
-+                               GDBRemoteDynamicRegisterInfo &reg_info,
++                               GDBRemoteDynamicRegisterInfoSP &reg_info_sp,
 +                               uint64_t pc)
-+      : GDBRemoteRegisterContext(thread, concrete_frame_idx, reg_info, false,
++      : GDBRemoteRegisterContext(thread, concrete_frame_idx, reg_info_sp, false,
 +                                 false) {
 +    PrivateSetRegisterValue(0, pc);
 +  }
@@ -5605,7 +5655,7 @@ index 00000000000..78e41f886e3
 \ No newline at end of file
 diff --git a/lldb/source/Plugins/Process/wasm/UnwindWasm.h b/lldb/source/Plugins/Process/wasm/UnwindWasm.h
 new file mode 100644
-index 00000000000..9bd1dac9a98
+index 000000000000..9bd1dac9a98a
 --- /dev/null
 +++ b/lldb/source/Plugins/Process/wasm/UnwindWasm.h
 @@ -0,0 +1,55 @@
@@ -5665,10 +5715,10 @@ index 00000000000..9bd1dac9a98
 +
 +#endif // lldb_UnwindWasm_h_
 diff --git a/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp b/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp
-index afad21af240..753f9d76bea 100644
+index ccaf31317d75..c3ef5aebd46d 100644
 --- a/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp
 +++ b/lldb/source/Plugins/SymbolFile/DWARF/SymbolFileDWARF.cpp
-@@ -3258,8 +3258,13 @@ VariableSP SymbolFileDWARF::ParseVariableDIE(const SymbolContext &sc,
+@@ -3212,8 +3212,13 @@ VariableSP SymbolFileDWARF::ParseVariableDIE(const SymbolContext &sc,
            GetDWARFDeclContext(die).GetQualifiedNameAsConstString().GetCString();
    }
  
@@ -5684,7 +5734,7 @@ index afad21af240..753f9d76bea 100644
      // DWARF doesn't specify if a DW_TAG_variable is a local, global
      // or static variable, so we have to do a little digging:
 diff --git a/lldb/source/Target/Platform.cpp b/lldb/source/Target/Platform.cpp
-index a77ecddfbab..e257f93508f 100644
+index a77ecddfbab6..e257f93508f6 100644
 --- a/lldb/source/Target/Platform.cpp
 +++ b/lldb/source/Target/Platform.cpp
 @@ -1970,6 +1970,12 @@ size_t Platform::GetSoftwareBreakpointTrapOpcode(Target &target,
@@ -5701,10 +5751,10 @@ index a77ecddfbab..e257f93508f 100644
      return 0;
    }
 diff --git a/lldb/source/Target/Process.cpp b/lldb/source/Target/Process.cpp
-index a4eab1aa0b4..86172700084 100644
+index 8ecc66b592ea..f148987915de 100644
 --- a/lldb/source/Target/Process.cpp
 +++ b/lldb/source/Target/Process.cpp
-@@ -2023,7 +2023,8 @@ Status Process::DisableSoftwareBreakpoint(BreakpointSite *bp_site) {
+@@ -1892,7 +1892,8 @@ Status Process::DisableSoftwareBreakpoint(BreakpointSite *bp_site) {
  // code
  //#define VERIFY_MEMORY_READS
  
@@ -5715,11 +5765,11 @@ index a4eab1aa0b4..86172700084 100644
    if (!GetDisableMemoryCache()) {
  #if defined(VERIFY_MEMORY_READS)
 diff --git a/lldb/source/Target/ProcessTrace.cpp b/lldb/source/Target/ProcessTrace.cpp
-index 4f7a5766c35..f5fd481140b 100644
+index c878a2ac4eb9..ad5945b0ad1f 100644
 --- a/lldb/source/Target/ProcessTrace.cpp
 +++ b/lldb/source/Target/ProcessTrace.cpp
-@@ -90,7 +90,7 @@ Status ProcessTrace::DoDestroy() { return Status(); }
- bool ProcessTrace::IsAlive() { return true; }
+@@ -88,7 +88,7 @@ void ProcessTrace::RefreshStateAfterStop() {}
+ Status ProcessTrace::DoDestroy() { return Status(); }
  
  size_t ProcessTrace::ReadMemory(addr_t addr, void *buf, size_t size,
 -                                Status &error) {
