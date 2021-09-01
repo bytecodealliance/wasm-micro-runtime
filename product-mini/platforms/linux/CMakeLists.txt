@@ -107,13 +107,20 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+    # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
+                                          -fno-sanitize=bounds,bounds-strict,alignment \
+                                          -fno-sanitize-recover")
+    endif()
+  else ()
+    # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
+                                          -fno-sanitize=bounds,alignment \
+                                          -fno-sanitize-recover")
+    endif()
   endif ()
-  # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
-                                        -fno-sanitize=bounds,bounds-strict,alignment \
-                                        -fno-sanitize-recover")
-  endif()
 endif ()
 
 # The following flags are to enhance security, but it may impact performance,
