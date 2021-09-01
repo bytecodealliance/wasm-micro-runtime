@@ -2,7 +2,7 @@ set (IWASM_COMPL_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 include_directories(${IWASM_COMPL_DIR})
 
-if (WAMR_BUILD_DEBUG_INFO EQUAL 1)
+if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
     file (GLOB_RECURSE source_all
                     ${IWASM_COMPL_DIR}/*.c
                     ${IWASM_COMPL_DIR}/*.cpp)

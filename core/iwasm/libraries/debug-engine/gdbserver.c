@@ -65,10 +65,15 @@ wasm_launch_gdbserver(char *host, int port)
         return NULL;
     }
 
-    listen_fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
-
+    listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listen_fd < 0) {
         LOG_ERROR("wasm gdb server error: socket() failed");
+        goto fail;
+    }
+
+    ret = fcntl(listen_fd, F_SETFD, FD_CLOEXEC);
+    if(ret < 0) {
+        LOG_ERROR("wasm gdb server error: fcntl() failed on setting FD_CLOEXEC");
         goto fail;
     }
 

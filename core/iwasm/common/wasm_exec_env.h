@@ -20,7 +20,7 @@ struct WASMInterpFrame;
 
 #if WASM_ENABLE_THREAD_MGR != 0
 typedef struct WASMCluster WASMCluster;
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 typedef struct WASMCurrentEnvStatus WASMCurrentEnvStatus;
 #endif
 #endif
@@ -66,9 +66,6 @@ typedef struct WASMExecEnv {
         uint32 flags;
         uintptr_t __padding__;
     } suspend_flags;
-#if WASM_ENABLE_DEBUG_ENGINE != 0
-    WASMCurrentEnvStatus *current_status;
-#endif
 
     /* Auxiliary stack boundary */
     union {
@@ -101,6 +98,10 @@ typedef struct WASMExecEnv {
     /* used to support debugger */
     korp_mutex wait_lock;
     korp_cond wait_cond;
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    WASMCurrentEnvStatus *current_status;
 #endif
 
     /* attachment for native function */

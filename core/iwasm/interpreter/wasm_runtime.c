@@ -16,7 +16,7 @@
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
 
@@ -1829,7 +1829,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     }
     else if (module_inst->malloc_function
              && module_inst->free_function) {
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
         /*TODO: obviously, we can not create debug instance for module malloc here,
         so, just disable the engine here, it is strange, but we now are lack of ways
         to indicate which calls should not be debugged. And we have other
@@ -1841,12 +1841,12 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
                                      module_inst->malloc_function,
                                      module_inst->retain_function,
                                      size, &offset)) {
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
             wasm_debug_set_engine_active(active);
 #endif
             return 0;
         }
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
         wasm_debug_set_engine_active(active);
 #endif
         /* If we use app's malloc function,
@@ -1932,7 +1932,7 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
                  && module_inst->free_function
                  && memory->memory_data <= addr
                  && addr < memory->memory_data_end) {
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
             /*TODO: obviously, we can not create debug instance for module malloc here,
             so, just disable the engine here, it is strange. the wasm's call should be
             marshed to its own thread */
@@ -1942,7 +1942,7 @@ wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
             execute_free_function(module_inst,
                                   module_inst->free_function,
                                   ptr);
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
             wasm_debug_set_engine_active(active);
 #endif
         }

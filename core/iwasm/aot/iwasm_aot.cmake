@@ -31,8 +31,8 @@ else ()
   message (FATAL_ERROR "Build target isn't set")
 endif ()
 
-if (WAMR_BUILD_DEBUG_INFO EQUAL 1)
-  add_definitions(-DWASM_ENABLE_DEBUG_INFO=1)
+if (WAMR_BUILD_DEBUG_AOT EQUAL 1)
+  add_definitions(-DWASM_ENABLE_DEBUG_AOT=1)
   file(GLOB debug_source ${IWASM_AOT_DIR}/debug/*.c)
 endif()
 

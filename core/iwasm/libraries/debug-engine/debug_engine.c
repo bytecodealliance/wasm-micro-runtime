@@ -119,7 +119,7 @@ wasm_debug_control_thread_destroy(WASMDebugObject *debug_object)
 static WASMDebugEngine *g_debug_engine;
 
 static WASMDebugEngine *
-wasm_debug_engin_create()
+wasm_debug_engine_create()
 {
     WASMDebugEngine *engine;
     if (!(engine = wasm_runtime_malloc(sizeof(WASMDebugEngine)))) {
@@ -141,10 +141,10 @@ wasm_debug_engin_create()
 }
 
 bool
-wasm_debug_engin_init(char *ip_addr, int platform_port, int process_port)
+wasm_debug_engine_init(char *ip_addr, int platform_port, int process_port)
 {
     if (g_debug_engine == NULL)
-        g_debug_engine = wasm_debug_engin_create();
+        g_debug_engine = wasm_debug_engine_create();
 
     if (g_debug_engine) {
         process_port -= 1;
@@ -180,10 +180,12 @@ wasm_debug_get_engine_active(void)
 }
 
 void
-wasm_debug_engin_destroy()
+wasm_debug_engine_destroy()
 {
-    wasm_runtime_free(g_debug_engine);
-    g_debug_engine = NULL;
+    if (g_debug_engine) {
+        wasm_runtime_free(g_debug_engine);
+        g_debug_engine = NULL;
+    }
 }
 
 /*A debug Instance is a debug "process" in gdb remote protocol

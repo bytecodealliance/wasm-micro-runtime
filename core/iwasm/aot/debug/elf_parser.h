@@ -6,6 +6,11 @@
 #ifndef _ELF_PARSERE_H_
 #define _ELF_PARSER_H_
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 bool
 is_ELF(void *buf);
 
@@ -14,4 +19,9 @@ is_ELF64(void *buf);
 
 bool
 get_text_section(void *buf, uint64_t *offset, uint64_t *size);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

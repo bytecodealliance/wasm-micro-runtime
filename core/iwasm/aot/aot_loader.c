@@ -14,7 +14,7 @@
 #include "../compilation/aot_llvm.h"
 #include "../interpreter/wasm_loader.h"
 #endif
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/elf_parser.h"
 #include "debug/jit_debug.h"
 #endif
@@ -1235,7 +1235,6 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     return true;
-
 fail:
     return false;
 }
@@ -1261,7 +1260,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
     module->code = (void*)(buf + module->literal_size);
     module->code_size = (uint32)(buf_end - (uint8*)module->code);
 
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     module->elf_size = module->code_size;
 
     if (is_ELF(module->code)) {
@@ -1269,20 +1268,26 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
         */
         uint64 offset;
         uint64 size;
-        char * buf = module->code;
+        char *buf = module->code;
         module->elf_hdr = buf;
-        get_text_section(buf, &offset, &size);
+        if (!get_text_section(buf, &offset, &size)) {
+            set_error_buf(error_buf, error_buf_size, "get text section of ELF failed");
+            return false;
+        }
         module->code = buf + offset;
         module->code_size -= (uint32)offset;
-        initial_jit_debug_engine();
+        if (!init_jit_debug_engine()) {
+            set_error_buf(error_buf, error_buf_size, "init jit debug engine failed");
+            return false;
+        }
     }
 #endif
+
     if ((module->code_size > 0) && (module->native_symbol_count == 0)) {
         plt_base = (uint8 *)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
     }
     return true;
-
 fail:
     return false;
 }
@@ -1471,7 +1476,6 @@ load_export_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     return true;
-
 fail:
     return false;
 }
@@ -2268,8 +2272,11 @@ load_from_sections(AOTModule *module, AOTSection *sections,
     wasm_runtime_dump_module_mem_consumption((WASMModuleCommon*)module);
 #endif
 
-#if WASM_ENABLE_DEBUG_INFO != 0
-    create_jit_code_entry(module->elf_hdr, module->elf_size);
+#if WASM_ENABLE_DEBUG_AOT != 0
+    if (!create_jit_code_entry(module->elf_hdr, module->elf_size)) {
+        set_error_buf(error_buf, error_buf_size, "create jit code entry failed");
+        return false;
+    }
 #endif
     return true;
 }
@@ -2863,9 +2870,10 @@ aot_unload(AOTModule *module)
     if (module->data_sections)
         destroy_object_data_sections(module->data_sections,
                                      module->data_section_count);
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     destroy_jit_code_entry(module->elf_hdr);
 #endif
+
     wasm_runtime_free(module);
 }
 

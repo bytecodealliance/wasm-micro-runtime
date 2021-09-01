@@ -9,7 +9,7 @@
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
 
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/dwarf_extractor.h"
 #endif
 
@@ -638,7 +638,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                                             func, aot_func_type)))
         goto fail;
 
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     func_ctx->debug_func = dwarf_gen_func_info(comp_ctx, func_ctx);
 #endif
 
@@ -1269,7 +1269,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         goto fail;
     }
 
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
         aot_set_last_error("create LLVM Debug Infor builder failed.");
         goto fail;
@@ -1992,8 +1992,8 @@ aot_checked_addr_list_destroy(AOTFuncContext *func_ctx)
 
 bool
 aot_build_zero_function_ret(AOTCompContext *comp_ctx,
-                            AOTFuncType *func_type,
-                            AOTFuncContext *func_ctx)
+                            AOTFuncContext *func_ctx,
+                            AOTFuncType *func_type)
 {
     LLVMValueRef ret = NULL;
 
@@ -2030,10 +2030,9 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
         aot_set_last_error("llvm build ret failed.");
         return false;
     }
-#if WASM_ENABLE_DEBUG_INFO != 0
-    LLVMMetadataRef ReturnLoaction =
-      dwarf_gen_func_ret_location(comp_ctx, func_ctx);
-    LLVMInstructionSetDebugLoc(ret, ReturnLoaction);
+#if WASM_ENABLE_DEBUG_AOT != 0
+    LLVMMetadataRef return_location = dwarf_gen_func_ret_location(comp_ctx, func_ctx);
+    LLVMInstructionSetDebugLoc(ret, return_location);
 #endif
     return true;
 }

@@ -3,7 +3,7 @@
 
 set (DEBUG_ENGINE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-add_definitions (-DWASM_ENABLE_DEBUG_ENGINE=1)
+add_definitions (-DWASM_ENABLE_DEBUG_INTERP=1)
 
 include_directories(${DEBUG_ENGINE_DIR})
 

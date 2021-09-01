@@ -18,7 +18,7 @@
 
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
 #endif
@@ -49,10 +49,12 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
 
     if (os_cond_init(&exec_env->wait_cond) != 0)
         goto fail3;
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
     if (!(exec_env->current_status = wasm_cluster_create_exenv_status()))
         goto fail4;
 #endif
+
 #endif
 
     exec_env->module_inst = module_inst;
@@ -75,7 +77,7 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     return exec_env;
 
 #if WASM_ENABLE_THREAD_MGR != 0
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 fail4:
     os_cond_destroy(&exec_env->wait_cond);
 #endif
@@ -97,7 +99,7 @@ wasm_exec_env_destroy_internal(WASMExecEnv *exec_env)
 #if WASM_ENABLE_THREAD_MGR != 0
     os_mutex_destroy(&exec_env->wait_lock);
     os_cond_destroy(&exec_env->wait_cond);
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_destroy_exenv_status(exec_env->current_status);
 #endif
 #endif
@@ -145,7 +147,7 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
         wasm_exec_env_destroy_internal(exec_env);
         return NULL;
     }
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_debug_instance_create(cluster);
 #endif
 
@@ -161,7 +163,7 @@ wasm_exec_env_destroy(WASMExecEnv *exec_env)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     if (cluster) {
 #if WASM_ENABLE_THREAD_MGR != 0
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
         wasm_cluster_thread_exited(exec_env);
         wasm_debug_instance_destroy(cluster);
 #endif

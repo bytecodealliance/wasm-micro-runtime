@@ -18,7 +18,7 @@
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm-c/Transforms/Vectorize.h"
 
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
 #include "llvm-c/DebugInfo.h"
 #endif
 
@@ -144,7 +144,7 @@ typedef struct AOTFuncContext {
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
   LLVMValueRef func_type_indexes;
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
   LLVMMetadataRef debug_func;
 #endif
   LLVMValueRef locals[1];
@@ -225,7 +225,7 @@ typedef struct AOTCompContext {
   LLVMContextRef context;
   LLVMModuleRef module;
   LLVMBuilderRef builder;
-#if WASM_ENABLE_DEBUG_INFO
+#if WASM_ENABLE_DEBUG_AOT
   LLVMDIBuilderRef debug_builder;
   LLVMMetadataRef debug_file;
   LLVMMetadataRef debug_comp_unit;
@@ -386,8 +386,8 @@ aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
 
 bool
 aot_build_zero_function_ret(AOTCompContext *comp_ctx,
-                            AOTFuncType *func_type,
-                            AOTFuncContext *func_ctx);
+                            AOTFuncContext *func_ctx,
+                            AOTFuncType *func_type);
 
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,

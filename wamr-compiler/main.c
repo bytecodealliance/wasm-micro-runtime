@@ -248,7 +248,7 @@ main(int argc, char *argv[])
     goto fail3;
   }
 
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
   if (!create_dwarf_extractor(comp_data, wasm_file_name)) {
     printf("%s:create dwarf extractor failed\n", wasm_file_name);
   }

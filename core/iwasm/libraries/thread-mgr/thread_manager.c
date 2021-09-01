@@ -484,7 +484,7 @@ fail1:
     return -1;
 }
 
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 WASMCurrentEnvStatus *
 wasm_cluster_create_exenv_status()
 {
@@ -630,7 +630,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
     cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_clear_thread_signal(exec_env);
     wasm_cluster_thread_exited(exec_env);
 #endif
@@ -650,7 +650,7 @@ int32
 wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
 {
     /* Set the termination flag */
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
    wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
    wasm_cluster_thread_exited(exec_env);
 #else

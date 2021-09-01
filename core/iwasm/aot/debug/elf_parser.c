@@ -18,7 +18,6 @@
 #include "bh_log.h"
 #include "elf_parser.h"
 
-
 bool
 is_ELF(void *buf)
 {
@@ -31,7 +30,7 @@ is_ELF(void *buf)
     return false;
 }
 
-bool
+static bool
 is64Bit(Elf32_Ehdr *eh)
 {
     if (eh->e_ident[EI_CLASS] == ELFCLASS64)
@@ -40,7 +39,7 @@ is64Bit(Elf32_Ehdr *eh)
         return false;
 }
 
-bool
+static bool
 is32Bit(Elf32_Ehdr *eh)
 {
     if (eh->e_ident[EI_CLASS] == ELFCLASS32)
@@ -61,9 +60,7 @@ is_ELF64(void *buf)
     return false;
 }
 
-
-
-void
+static void
 read_section_header_table(Elf32_Ehdr *eh, Elf32_Shdr *sh_table[])
 {
     uint32_t i;
@@ -76,7 +73,7 @@ read_section_header_table(Elf32_Ehdr *eh, Elf32_Shdr *sh_table[])
     }
 }
 
-void
+static void
 read_section_header_table64(Elf64_Ehdr *eh, Elf64_Shdr *sh_table[])
 {
     uint32_t i;
@@ -89,17 +86,17 @@ read_section_header_table64(Elf64_Ehdr *eh, Elf64_Shdr *sh_table[])
     }
 }
 
-char *
+static char *
 get_section(Elf32_Ehdr *eh, Elf32_Shdr *section_header)
 {
-    char * buf = (char *)eh;
+    char *buf = (char *)eh;
     return buf + section_header->sh_offset;
 }
 
-char *
+static char *
 get_section64(Elf64_Ehdr *eh, Elf64_Shdr *section_header)
 {
-    char * buf = (char *)eh;
+    char *buf = (char *)eh;
     return buf + section_header->sh_offset;
 }
 
@@ -113,13 +110,11 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
     if (is64Bit(buf)) {
         Elf64_Ehdr *eh = (Elf64_Ehdr *)buf;
         Elf64_Shdr **sh_table = wasm_runtime_malloc(eh->e_shnum * sizeof(Elf64_Shdr *));
-        if(sh_table) {
+        if (sh_table) {
             read_section_header_table64(eh, sh_table);
             sh_str = get_section64(eh, sh_table[eh->e_shstrndx]);
-            for (i= 0; i < eh->e_shnum; i++)
-            {
-                if(!strcmp(sh_str + sh_table[i]->sh_name, ".text"))
-                {
+            for (i= 0; i < eh->e_shnum; i++) {
+                if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
                     sh_table[i]->sh_addr =  (Elf64_Addr)((char *)buf + sh_table[i]->sh_offset);
@@ -129,18 +124,14 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
             }
             wasm_runtime_free(sh_table);
         }
-    }
-
-    if (is32Bit(buf)) {
+    } else if (is32Bit(buf)) {
         Elf32_Ehdr *eh = (Elf32_Ehdr *)buf;
         Elf32_Shdr **sh_table = wasm_runtime_malloc(eh->e_shnum * sizeof(Elf32_Shdr *));
-        if(sh_table) {
+        if (sh_table) {
             read_section_header_table(eh, sh_table);
             sh_str = get_section(eh, sh_table[eh->e_shstrndx]);
-            for (i= 0; i < eh->e_shnum; i++)
-            {
-                if(!strcmp(sh_str + sh_table[i]->sh_name, ".text"))
-                {
+            for (i= 0; i < eh->e_shnum; i++) {
+                if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
                     sh_table[i]->sh_addr = (Elf32_Addr)((char *)buf + sh_table[i]->sh_offset);

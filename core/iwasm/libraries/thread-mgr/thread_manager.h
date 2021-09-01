@@ -15,7 +15,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 #define WAMR_SIG_TRAP  (5)
 #define WAMR_SIG_STOP  (19)
 #define WAMR_SIG_TERM  (15)

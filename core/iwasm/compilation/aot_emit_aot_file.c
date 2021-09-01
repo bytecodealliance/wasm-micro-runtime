@@ -1757,14 +1757,15 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 static bool
 aot_resolve_text(AOTObjectData *obj_data)
 {
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     LLVMBinaryType bin_type = LLVMBinaryGetType(obj_data->binary);
     if (bin_type == LLVMBinaryTypeELF32L || bin_type == LLVMBinaryTypeELF64L) {
         obj_data->text = (char *)LLVMGetBufferStart(obj_data->mem_buf);
         obj_data->text_size = (uint32)LLVMGetBufferSize(obj_data->mem_buf);
     }
-    else {
+    else
 #endif
+    {
         LLVMSectionIteratorRef sec_itr;
         char *name;
 
@@ -1783,9 +1784,7 @@ aot_resolve_text(AOTObjectData *obj_data)
             LLVMMoveToNextSection(sec_itr);
         }
         LLVMDisposeSectionIterator(sec_itr);
-#if WASM_ENABLE_DEBUG_INFO != 0
     }
-#endif
 
     return true;
 }

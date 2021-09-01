@@ -50,7 +50,7 @@ print_help()
 #if WASM_ENABLE_LIB_PTHREAD != 0
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
 #endif
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
     printf("  -g=ip:port             Set the debug sever address, default is debug disabled\n");
 #endif
     return 1;
@@ -244,7 +244,7 @@ main(int argc, char *argv[])
     const char *env_list[8] = { NULL };
     uint32 env_list_size = 0;
 #endif
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
     char * ip_addr = NULL;
     //int platform_port = 0;
     int instance_port = 0;
@@ -330,7 +330,7 @@ main(int argc, char *argv[])
             wasm_runtime_set_max_thread_num(atoi(argv[0] + 14));
         }
 #endif
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
         else if (!strncmp(argv[0], "-g=", 3)) {
             char * port_str = strchr(argv[0] + 3, ':');
             char *port_end;
@@ -367,7 +367,7 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.free_func = free;
 #endif
 
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
     init_args.platform_port = 0;
     init_args.instance_port = instance_port;
     if (ip_addr)

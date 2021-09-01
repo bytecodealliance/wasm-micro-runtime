@@ -12,7 +12,7 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
-#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
 
@@ -851,7 +851,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
 #define CHECK_SUSPEND_FLAGS() do {                                    \
     if (IS_WAMR_TERM_SIG(exec_env->current_status->signal_flag)) {     \
       return;                                                         \
@@ -884,7 +884,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #define HANDLE_OP(opcode) HANDLE_##opcode
 #define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
 
-#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                       \
     do {                                                                      \
         while (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP     \
@@ -902,7 +902,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
 #else   /* else of WASM_ENABLE_LABELS_AS_VALUES */
 #define HANDLE_OP(opcode) case opcode
-#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                       \
     if (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP            \
         && exec_env->current_status->step_count++ == 2) {                     \
@@ -987,21 +987,16 @@ handle_op_block:
         else if (cache_items[1].start_addr == frame_ip) {
           end_addr = cache_items[1].end_addr;
         }
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
         else if (!wasm_loader_find_block_addr(exec_env,
                                               (BlockAddr*)exec_env->block_addr_cache,
                                               frame_ip, (uint8*)-1,
                                               LABEL_TYPE_BLOCK,
                                               &else_addr, &end_addr)) {
-#else
-        else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
-                                              frame_ip, (uint8*)-1,
-                                              LABEL_TYPE_BLOCK,
-                                              &else_addr, &end_addr)) {
-#endif
           wasm_set_exception(module, "find block address failed");
           goto got_exception;
         }
+#endif
         else {
           end_addr = NULL;
         }
@@ -1039,18 +1034,11 @@ handle_op_if:
           else_addr = cache_items[1].else_addr;
           end_addr = cache_items[1].end_addr;
         }
-#if WASM_ENABLE_DEBUG_ENGINE != 0
         else if (!wasm_loader_find_block_addr(exec_env,
                                               (BlockAddr*)exec_env->block_addr_cache,
                                               frame_ip, (uint8*)-1,
                                               LABEL_TYPE_IF,
                                               &else_addr, &end_addr)) {
-#else
-        else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
-                                              frame_ip, (uint8*)-1,
-                                              LABEL_TYPE_IF,
-                                              &else_addr, &end_addr)) {
-#endif
           wasm_set_exception(module, "find block address failed");
           goto got_exception;
         }
@@ -1099,18 +1087,11 @@ handle_op_if:
 label_pop_csp_n:
         POP_CSP_N(depth);
         if (!frame_ip) { /* must be label pushed by WASM_OP_BLOCK */
-#if WASM_ENABLE_DEBUG_ENGINE != 0
           if (!wasm_loader_find_block_addr(exec_env,
                                            (BlockAddr*)exec_env->block_addr_cache,
                                            (frame_csp - 1)->begin_addr, (uint8*)-1,
                                            LABEL_TYPE_BLOCK,
                                            &else_addr, &end_addr)) {
-#else
-          if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
-                                           (frame_csp - 1)->begin_addr, (uint8*)-1,
-                                           LABEL_TYPE_BLOCK,
-                                           &else_addr, &end_addr)) {
-#endif
             wasm_set_exception(module, "find block address failed");
             goto got_exception;
           }
@@ -3255,7 +3236,7 @@ label_pop_csp_n:
         frame_sp = frame->sp;
         frame_csp = frame->csp;
         goto call_func_from_entry;
-#if WASM_ENABLE_DEBUG_ENGINE != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
       HANDLE_OP (DEBUG_OP_BREAK):
       {
         wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);

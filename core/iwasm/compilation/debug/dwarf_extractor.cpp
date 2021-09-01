@@ -26,8 +26,6 @@
 
 #include "llvm/BinaryFormat/Dwarf.h"
 
-
-
 using namespace lldb;
 
 typedef struct dwar_extractor
@@ -36,16 +34,13 @@ typedef struct dwar_extractor
     SBTarget target;
     SBModule module;
 
-}dwar_extractor;
+} dwar_extractor;
 
 #define TO_HANDLE(extractor)  (dwar_extractor_handle_t)(extractor)
 
 #define TO_EXTACTOR(handle)  (dwar_extractor *)(handle)
 
-
 static bool is_debugger_initialized;
-
-
 
 dwar_extractor_handle_t
 create_dwarf_extractor(AOTCompData *comp_data, char * file_name)
@@ -56,22 +51,26 @@ create_dwarf_extractor(AOTCompData *comp_data, char * file_name)
 
     //__attribute__((constructor)) may be better?
     if (!is_debugger_initialized) {
-        SBDebugger::Initialize();
+        SBError error = SBDebugger::InitializeWithErrorHandling();
+        if(error.Fail()) {
+            LOG_ERROR("Init Dwarf Debugger failed");
+            return TO_HANDLE(NULL);
+        }
         is_debugger_initialized = true;
     }
 
     SBError error;
     SBFileSpec exe_file_spec(file_name, true);
 
-    if ( !(extractor = new dwar_extractor()) ) {
+    if (!(extractor = new dwar_extractor()) ) {
         LOG_ERROR("Create Dwarf Extractor error: failed to allocate memory");
-        return TO_HANDLE(extractor);
+        goto fail3;
     }
 
     extractor->debugger = SBDebugger::Create();
     if (!extractor->debugger.IsValid()) {
         LOG_ERROR("Create Dwarf Debugger failed");
-        goto fail;
+        goto fail2;
     }
 
     extractor->target = extractor->debugger.CreateTarget(
@@ -94,8 +93,11 @@ create_dwarf_extractor(AOTCompData *comp_data, char * file_name)
 
 fail1:
     SBDebugger::Destroy(extractor->debugger);
-fail:
+
+fail2:
     wasm_runtime_free(extractor);
+
+fail3:
     return TO_HANDLE(NULL);
 }
 
@@ -109,6 +111,7 @@ destroy_dwarf_extractor(dwar_extractor_handle_t handle)
     SBDebugger::Destroy(extractor->debugger);
     delete extractor;
     SBDebugger::Terminate();
+    is_debugger_initialized = false;
 }
 
 LLVMMetadataRef
@@ -139,6 +142,7 @@ dwarf_gen_file_info(AOTCompContext *comp_ctx)
     }
     return file_info;
 }
+
 #if 0
 void
 dwarf_gen_mock_vm_info(AOTCompContext *comp_ctx)

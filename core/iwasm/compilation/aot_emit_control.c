@@ -8,7 +8,7 @@
 #include "../aot/aot_runtime.h"
 #include "../interpreter/wasm_loader.h"
 
-#if WASM_ENABLE_DEBUG_INFO != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/dwarf_extractor.h"
 #endif
 
@@ -167,10 +167,11 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
     aot_checked_addr_list_destroy(func_ctx);
     bh_assert(block);
 
-#if WASM_ENABLE_DEBUG_INFO != 0
-    LLVMMetadataRef ReturnLoaction = dwarf_gen_location(
+#if WASM_ENABLE_DEBUG_AOT != 0
+    LLVMMetadataRef return_location = dwarf_gen_location(
       comp_ctx, func_ctx,
-      (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
+      (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
+    );
 #endif
     if (block->label_type == LABEL_TYPE_IF
         && block->llvm_else_block
@@ -250,8 +251,8 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
                 aot_set_last_error("llvm build return failed.");
                 goto fail;
             }
-#if WASM_ENABLE_DEBUG_INFO != 0
-            LLVMInstructionSetDebugLoc(ret, ReturnLoaction);
+#if WASM_ENABLE_DEBUG_AOT != 0
+            LLVMInstructionSetDebugLoc(ret, return_location);
 #endif
         }
         else {
@@ -259,8 +260,8 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
                 aot_set_last_error("llvm build return void failed.");
                 goto fail;
             }
-#if WASM_ENABLE_DEBUG_INFO != 0
-            LLVMInstructionSetDebugLoc(ret, ReturnLoaction);
+#if WASM_ENABLE_DEBUG_AOT != 0
+            LLVMInstructionSetDebugLoc(ret, return_location);
 #endif
         }
     }
@@ -396,7 +397,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     memset(block_addr_cache, 0, sizeof(block_addr_cache));
 
     /* Get block info */
-    if (!(wasm_loader_find_block_addr((BlockAddr*)block_addr_cache,
+    if (!(wasm_loader_find_block_addr(NULL, (BlockAddr*)block_addr_cache,
                                       *p_frame_ip, frame_ip_end, (uint8)label_type,
                                       &else_addr, &end_addr))) {
         aot_set_last_error("find block end addr failed.");
@@ -710,7 +711,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     /* Move builder to terminate block */
     SET_BUILDER_POS(terminate_block);
-    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type, func_ctx)) {
+    if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
         goto fail;
     }
 
@@ -1052,10 +1053,11 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     bh_assert(block_func);
     func_type = func_ctx->aot_func->func_type;
 
-#if WASM_ENABLE_DEBUG_INFO != 0
-    LLVMMetadataRef ReturnLoaction = dwarf_gen_location(
+#if WASM_ENABLE_DEBUG_AOT != 0
+    LLVMMetadataRef return_location = dwarf_gen_location(
       comp_ctx, func_ctx,
-      (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
+      (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
+    );
 #endif
     if (block_func->result_count) {
         /* Store extra result values to function parameters */
@@ -1076,8 +1078,8 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build return failed.");
             goto fail;
         }
-#if WASM_ENABLE_DEBUG_INFO != 0 
-        LLVMInstructionSetDebugLoc(ret, ReturnLoaction);
+#if WASM_ENABLE_DEBUG_AOT != 0
+        LLVMInstructionSetDebugLoc(ret, return_location);
 #endif
     }
     else {
@@ -1085,8 +1087,8 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             aot_set_last_error("llvm build return void failed.");
             goto fail;
         }
-#if WASM_ENABLE_DEBUG_INFO != 0
-        LLVMInstructionSetDebugLoc(ret, ReturnLoaction);
+#if WASM_ENABLE_DEBUG_AOT != 0
+        LLVMInstructionSetDebugLoc(ret, return_location);
 #endif
     }
 

@@ -84,7 +84,7 @@ if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
 endif ()
 
-if (WAMR_BUILD_DEBUG_ENGINE EQUAL 1)
+if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
     set (WAMR_BUILD_THREAD_MGR 1)
     include (${IWASM_DIR}/libraries/debug-engine/debug_engine.cmake)
 endif ()
