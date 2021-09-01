@@ -1674,7 +1674,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         goto fail;
 
     if (cpu) {
-        int len = strlen(cpu) + 1;
+        uint32 len = (uint32)strlen(cpu) + 1;
         if (!(comp_ctx->target_cpu = wasm_runtime_malloc(len))) {
             aot_set_last_error("allocate memory failed");
             goto fail;
