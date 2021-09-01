@@ -2235,6 +2235,10 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     bh_print_time("Begin to emit object file");
 
     if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
+#if defined(_WIN32) || defined(_WIN32_)
+        aot_set_last_error("emit object file on Windows is unsupported.");
+        goto fail;
+#else
         /* Emit to assmelby file instead for arc target
            as it cannot emit to object file */
         char file_name[] = "wasm-XXXXXX", buf[128];
@@ -2297,6 +2301,7 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
             aot_set_last_error("create mem buffer with file failed.");
             goto fail;
         }
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
     }
     else if (LLVMTargetMachineEmitToMemoryBuffer(comp_ctx->target_machine,
                                                  comp_ctx->module,
