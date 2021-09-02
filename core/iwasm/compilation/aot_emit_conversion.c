@@ -6,19 +6,37 @@
 #include "aot_emit_conversion.h"
 #include "aot_emit_exception.h"
 #include "aot_emit_numberic.h"
-#include "../aot/aot_runtime.h"
+#include "aot_intrinsic.h"
+#include "aot_runtime.h"
 
 static bool
 trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                   LLVMValueRef operand, LLVMTypeRef dest_type,
+                   LLVMValueRef operand, LLVMTypeRef src_type, LLVMTypeRef dest_type,
                    LLVMValueRef min_value, LLVMValueRef max_value,
                    char *name, bool sign)
 {
     LLVMBasicBlockRef check_nan_succ, check_overflow_succ;
     LLVMValueRef is_less, is_greater, res;
 
-    if (!(res = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO,
-                              operand, operand, "fcmp_is_nan"))) {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+          comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
+        LLVMTypeRef param_types[3];
+        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_UNO, true);
+        param_types[0] = I32_TYPE;
+        param_types[1] = src_type;
+        param_types[2] = src_type;
+        res = aot_call_llvm_intrinsic(
+          comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
+          I32_TYPE, param_types, 3, opcond, operand, operand);
+        res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
+    }
+    else {
+        res = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, operand, operand,
+                            "fcmp_is_nan");
+    }
+
+    if (!res) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
@@ -38,14 +56,50 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              true, res, check_nan_succ)))
         goto fail;
 
-    if (!(is_less = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLE, operand,
-                                  min_value, "fcmp_min_value"))) {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+          comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
+        LLVMTypeRef param_types[3];
+        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_LE, true);
+        param_types[0] = I32_TYPE;
+        param_types[1] = src_type;
+        param_types[2] = src_type;
+        is_less = aot_call_llvm_intrinsic(
+          comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
+          I32_TYPE, param_types, 3, opcond, operand, min_value);
+        is_less =
+          LLVMBuildIntCast(comp_ctx->builder, is_less, INT1_TYPE, "bit_cast");
+    }
+    else {
+        is_less = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLE, operand,
+                                min_value, "fcmp_min_value");
+    }
+
+    if (!is_less) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
 
-    if (!(is_greater = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGE, operand,
-                                     max_value, "fcmp_max_value"))) {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+          comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
+        LLVMTypeRef param_types[3];
+        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_GE, true);
+        param_types[0] = I32_TYPE;
+        param_types[1] = src_type;
+        param_types[2] = src_type;
+        is_greater = aot_call_llvm_intrinsic(
+          comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
+          I32_TYPE, param_types, 3, opcond, operand, max_value);
+        is_greater = LLVMBuildIntCast(comp_ctx->builder, is_greater, INT1_TYPE,
+                                      "bit_cast");
+    }
+    else {
+        is_greater = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGE, operand,
+                                   max_value, "fcmp_min_value");
+    }
+
+    if (!is_greater) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
@@ -71,10 +125,20 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              true, res, check_overflow_succ)))
         goto fail;
 
-    if (sign)
-        res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type, name);
-    else
-        res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type, name);
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx, name)) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = src_type;
+        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, name, dest_type,
+                                      param_types, 1, operand);
+    }
+    else {
+        if (sign)
+            res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type, name);
+        else
+            res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type, name);
+    }
+
     if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
@@ -102,7 +166,7 @@ fail:
 
 static bool
 trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                       LLVMValueRef operand, LLVMTypeRef dest_type,
+                       LLVMValueRef operand, LLVMTypeRef src_type, LLVMTypeRef dest_type,
                        LLVMValueRef min_value, LLVMValueRef max_value,
                        char *name, bool sign)
 {
@@ -181,10 +245,21 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Start to translate check_greater_succ block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_greater_succ);
-    if (sign)
-        res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type, name);
-    else
-        res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type, name);
+
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx, name)) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = src_type;
+        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, name, dest_type,
+                                      param_types, 1, operand);
+    }
+    else {
+        if (sign)
+            res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type, name);
+        else
+            res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type, name);
+    }
+
     if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
@@ -277,11 +352,11 @@ aot_compile_op_i32_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!saturating)
         return trunc_float_to_int(comp_ctx, func_ctx, value,
-                                  I32_TYPE, min_value, max_value,
+                                  F32_TYPE, I32_TYPE, min_value, max_value,
                                   sign ? "i32_trunc_f32_s" : "i32_trunc_f32_u", sign);
     else
         return trunc_sat_float_to_int(comp_ctx, func_ctx, value,
-                                      I32_TYPE, min_value, max_value,
+                                      F32_TYPE, I32_TYPE, min_value, max_value,
                                       sign ? "i32_trunc_sat_f32_s" :
                                       "i32_trunc_sat_f32_u", sign);
 fail:
@@ -308,11 +383,11 @@ aot_compile_op_i32_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!saturating)
         return trunc_float_to_int(comp_ctx, func_ctx, value,
-                                  I32_TYPE, min_value, max_value,
+                                  F64_TYPE, I32_TYPE, min_value, max_value,
                                   sign ? "i32_trunc_f64_s" : "i32_trunc_f64_u", sign);
     else
         return trunc_sat_float_to_int(comp_ctx, func_ctx, value,
-                                      I32_TYPE, min_value, max_value,
+                                      F64_TYPE, I32_TYPE, min_value, max_value,
                                       sign ? "i32_trunc_sat_f64_s" :
                                       "i32_trunc_sat_f64_u", sign);
 fail:
@@ -436,11 +511,11 @@ aot_compile_op_i64_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!saturating)
         return trunc_float_to_int(comp_ctx, func_ctx, value,
-                                  I64_TYPE, min_value, max_value,
+                                  F32_TYPE, I64_TYPE, min_value, max_value,
                                   sign ? "i64_trunc_f32_s" : "i64_trunc_f32_u", sign);
     else
         return trunc_sat_float_to_int(comp_ctx, func_ctx, value,
-                                      I64_TYPE, min_value, max_value,
+                                      F32_TYPE, I64_TYPE, min_value, max_value,
                                       sign ? "i64_trunc_sat_f32_s" :
                                       "i64_trunc_sat_f32_u", sign);
 fail:
@@ -467,11 +542,11 @@ aot_compile_op_i64_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     if (!saturating)
         return trunc_float_to_int(comp_ctx, func_ctx, value,
-                                  I64_TYPE, min_value, max_value,
+                                  F64_TYPE, I64_TYPE, min_value, max_value,
                                   sign ? "i64_trunc_f64_s" : "i64_trunc_f64_u", sign);
     else
         return trunc_sat_float_to_int(comp_ctx, func_ctx, value,
-                                      I64_TYPE, min_value, max_value,
+                                      F64_TYPE, I64_TYPE, min_value, max_value,
                                       sign ? "i64_trunc_sat_f64_s" :
                                       "i64_trunc_sat_f64_u", sign);
 
@@ -487,10 +562,23 @@ aot_compile_op_f32_convert_i32(AOTCompContext *comp_ctx, AOTFuncContext *func_ct
 
     POP_I32(value);
 
-    if (sign)
-        res = LLVMBuildSIToFP(comp_ctx->builder, value, F32_TYPE, "f32_convert_i32_s");
-    else
-        res = LLVMBuildUIToFP(comp_ctx->builder, value, F32_TYPE, "f32_convert_i32_u");
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+          comp_ctx, sign ? "f32_convert_i32_s" : "f32_convert_i32_u")) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = I32_TYPE;
+        res = aot_call_llvm_intrinsic(
+          comp_ctx, func_ctx, sign ? "f32_convert_i32_s" : "f32_convert_i32_u",
+          F32_TYPE, param_types, 1, value);
+    }
+    else {
+        if (sign)
+            res = LLVMBuildSIToFP(comp_ctx->builder, value, F32_TYPE,
+                                  "f32_convert_i32_s");
+        else
+            res = LLVMBuildUIToFP(comp_ctx->builder, value, F32_TYPE,
+                                  "f32_convert_i32_u");
+    }
     if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
@@ -510,10 +598,24 @@ aot_compile_op_f32_convert_i64(AOTCompContext *comp_ctx, AOTFuncContext *func_ct
 
     POP_I64(value);
 
-    if (sign)
-        res = LLVMBuildSIToFP(comp_ctx->builder, value, F32_TYPE, "f32_convert_i64_s");
-    else
-        res = LLVMBuildUIToFP(comp_ctx->builder, value, F32_TYPE, "f32_convert_i64_u");
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+          comp_ctx, sign ? "f32_convert_i64_s" : "f32_convert_i64_u")) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = I64_TYPE;
+        res = aot_call_llvm_intrinsic(
+          comp_ctx, func_ctx, sign ? "f32_convert_i64_s" : "f32_convert_i64_u",
+          F32_TYPE, param_types, 1, value);
+    }
+    else {
+        if (sign)
+            res = LLVMBuildSIToFP(comp_ctx->builder, value, F32_TYPE,
+                                  "f32_convert_i64_s");
+        else
+            res = LLVMBuildUIToFP(comp_ctx->builder, value, F32_TYPE,
+                                  "f32_convert_i64_u");
+    }
+
     if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
@@ -532,7 +634,19 @@ aot_compile_op_f32_demote_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx
 
     POP_F64(value);
 
-    if (!(res = LLVMBuildFPTrunc(comp_ctx->builder, value, F32_TYPE, "f32_demote_f64"))) {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx, "f32_demote_f64")) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = F64_TYPE;
+        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, "f32_demote_f64",
+                                      F32_TYPE, param_types, 1, value);
+    }
+    else {
+        res = LLVMBuildFPTrunc(comp_ctx->builder, value, F32_TYPE,
+                               "f32_demote_f64");
+    }
+
+    if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
     }
@@ -551,10 +665,25 @@ aot_compile_op_f64_convert_i32(AOTCompContext *comp_ctx, AOTFuncContext *func_ct
 
     POP_I32(value);
 
-    if (sign)
-        res = LLVMBuildSIToFP(comp_ctx->builder, value, F64_TYPE, "f64_convert_i32_s");
-    else
-        res = LLVMBuildUIToFP(comp_ctx->builder, value, F64_TYPE, "f64_convert_i32_u");
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+          comp_ctx, sign ? "f64_convert_i32_s" : "f64_convert_i32_u")) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = I32_TYPE;
+
+        res = aot_call_llvm_intrinsic(
+          comp_ctx, func_ctx, sign ? "f64_convert_i32_s" : "f64_convert_i32_u",
+          F64_TYPE, param_types, 1, value);
+    }
+    else {
+        if (sign)
+            res = LLVMBuildSIToFP(comp_ctx->builder, value, F64_TYPE,
+                                  "f64_convert_i32_s");
+        else
+            res = LLVMBuildUIToFP(comp_ctx->builder, value, F64_TYPE,
+                                  "f64_convert_i32_u");
+    }
+
     if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
@@ -574,10 +703,25 @@ aot_compile_op_f64_convert_i64(AOTCompContext *comp_ctx, AOTFuncContext *func_ct
 
     POP_I64(value);
 
-    if (sign)
-        res = LLVMBuildSIToFP(comp_ctx->builder, value, F64_TYPE, "f64_convert_i64_s");
-    else
-        res = LLVMBuildUIToFP(comp_ctx->builder, value, F64_TYPE, "f64_convert_i64_u");
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+          comp_ctx, sign ? "f64_convert_i64_s" : "f64_convert_i64_u")) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = I64_TYPE;
+
+        res = aot_call_llvm_intrinsic(
+          comp_ctx, func_ctx, sign ? "f64_convert_i64_s" : "f64_convert_i64_u",
+          F64_TYPE, param_types, 1, value);
+    }
+    else {
+        if (sign)
+            res = LLVMBuildSIToFP(comp_ctx->builder, value, F64_TYPE,
+                                  "f64_convert_i64_s");
+        else
+            res = LLVMBuildUIToFP(comp_ctx->builder, value, F64_TYPE,
+                                  "f64_convert_i64_u");
+    }
+
     if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
@@ -596,7 +740,19 @@ aot_compile_op_f64_promote_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ct
 
     POP_F32(value);
 
-    if (!(res = LLVMBuildFPExt(comp_ctx->builder, value, F64_TYPE, "f64_promote_f32"))) {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx, "f64_promote_f32")) {
+        LLVMTypeRef param_types[1];
+        param_types[0] = F32_TYPE;
+        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, "f64_promote_f32",
+                                      F64_TYPE, param_types, 1, value);
+    }
+    else {
+        res = LLVMBuildFPExt(comp_ctx->builder, value, F64_TYPE,
+                             "f64_promote_f32");
+    }
+
+    if (!res) {
         aot_set_last_error("llvm build conversion failed.");
         return false;
     }
