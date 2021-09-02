@@ -58,6 +58,19 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "llvm.cttz.i64", "aot_intrinsic_ctz_i64", AOT_INTRINSIC_FLAG_I64_CTZ },
     { "llvm.ctpop.i32", "aot_intrinsic_popcnt_i32", AOT_INTRINSIC_FLAG_I32_POPCNT },
     { "llvm.ctpop.i64", "aot_intrinsic_popcnt_i64", AOT_INTRINSIC_FLAG_I64_POPCNT },
+    { "f64_convert_i32_s", "aot_intrinsic_i32_to_f64", AOT_INTRINSIC_FLAG_I32_TO_F64},
+    { "f64_convert_i32_u", "aot_intrinsic_u32_to_f64", AOT_INTRINSIC_FLAG_U32_TO_F64},
+    { "f32_convert_i32_s", "aot_intrinsic_i32_to_f32", AOT_INTRINSIC_FLAG_I32_TO_F32},
+    { "f32_convert_i32_u", "aot_intrinsic_u32_to_f32", AOT_INTRINSIC_FLAG_U32_TO_F32},
+    { "f64_convert_i64_s", "aot_intrinsic_i64_to_f64", AOT_INTRINSIC_FLAG_I32_TO_F64},
+    { "f64_convert_i64_u", "aot_intrinsic_u64_to_f64", AOT_INTRINSIC_FLAG_U64_TO_F64},
+    { "f32_convert_i64_s", "aot_intrinsic_i64_to_f32", AOT_INTRINSIC_FLAG_I64_TO_F32},
+    { "f32_convert_i64_u", "aot_intrinsic_u64_to_f32", AOT_INTRINSIC_FLAG_U64_TO_F32},
+    { "i32_trunc_f64_u", "aot_intrinsic_f64_to_u32", AOT_INTRINSIC_FLAG_I32_TO_F64},
+    { "f32_demote_f64", "aot_intrinsic_f64_to_f32", AOT_INTRINSIC_FLAG_F64_TO_F32},
+    { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64},
+    { "f32_cmp", "aot_intrinsic_f32_cmp", AOT_INTRINSIC_FLAG_F32_CMP},
+    { "f64_cmp", "aot_intrinsic_f64_cmp", AOT_INTRINSIC_FLAG_F64_CMP},
 };
 
 static const uint32 g_intrinsic_count =
@@ -309,6 +322,170 @@ aot_intrinsic_popcnt_i64(uint64 u)
     return ret;
 }
 
+float32
+aot_intrinsic_i32_to_f32(int32 i)
+{
+    return (float32)i;
+}
+
+float32
+aot_intrinsic_u32_to_f32(uint32 u)
+{
+    return (float32)u;
+}
+
+float64
+aot_intrinsic_i32_to_f64(int32 i)
+{
+    return (float64)i;
+}
+
+float64
+aot_intrinsic_u32_to_f64(uint32 u)
+{
+    return (float64)u;
+}
+
+float32
+aot_intrinsic_i64_to_f32(int64 i)
+{
+    return (float32)i;
+}
+
+float32
+aot_intrinsic_u64_to_f32(uint64 u)
+{
+    return (float32)u;
+}
+
+float64
+aot_intrinsic_i64_to_f64(int64 i)
+{
+    return (float64)i;
+}
+
+float64
+aot_intrinsic_u64_to_f64(uint64 u)
+{
+    return (float64)u;
+}
+
+int32
+aot_intrinsic_f32_to_i32(float32 f)
+{
+    return (int32)f;
+}
+
+uint32
+aot_intrinsic_f32_to_u32(float32 f)
+{
+    return (uint32)f;
+}
+
+int64
+aot_intrinsic_f32_to_i64(float32 f)
+{
+    return (int64)f;
+}
+
+uint64
+aot_intrinsic_f32_to_u64(float32 f)
+{
+    return (uint64)f;
+}
+
+int32
+aot_intrinsic_f64_to_i32(float64 f)
+{
+    return (int32)f;
+}
+
+uint32
+aot_intrinsic_f64_to_u32(float64 f)
+{
+    return (uint32)f;
+}
+
+int64
+aot_intrinsic_f64_to_i64(float64 f)
+{
+    return (int64)f;
+}
+
+uint64
+aot_intrinsic_f64_to_u64(float64 f)
+{
+    return (uint64)f;
+}
+
+float64
+aot_intrinsic_f32_to_f64(float32 f)
+{
+    return (float64)f;
+}
+
+float32
+aot_intrinsic_f64_to_f32(float64 f)
+{
+    return (float32)f;
+}
+
+int32
+aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs)
+{
+    switch (cond) {
+        case FLOAT_LT:
+            return lhs < rhs ? 1 : 0;
+
+        case FLOAT_GT:
+            return lhs > rhs ? 1 : 0;
+
+        case FLOAT_LE:
+            return lhs <= rhs ? 1 : 0;
+
+        case FLOAT_GE:
+            return lhs >= rhs ? 1 : 0;
+
+        case FLOAT_NE:
+            return (isnan(lhs) || isnan(rhs) || lhs != rhs) ? 1 : 0;
+
+        case FLOAT_UNO:
+            return (isnan(lhs) || isnan(rhs)) ? 1 : 0;
+
+        default:
+            break;
+    }
+    return 0;
+}
+
+int32
+aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
+{
+    switch (cond) {
+        case FLOAT_LT:
+            return lhs < rhs ? 1 : 0;
+
+        case FLOAT_GT:
+            return lhs > rhs ? 1 : 0;
+
+        case FLOAT_LE:
+            return lhs <= rhs ? 1 : 0;
+
+        case FLOAT_GE:
+            return lhs >= rhs ? 1 : 0;
+
+        case FLOAT_NE:
+            return (isnan(lhs) || isnan(rhs) || lhs != rhs) ? 1 : 0;
+
+        case FLOAT_UNO:
+            return (isnan(lhs) || isnan(rhs)) ? 1 : 0;
+
+        default:
+            break;
+    }
+    return 0;
+}
+
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic)
 {
@@ -345,6 +522,7 @@ add_f32_common_intrinsics_for_thumb2_fpu(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FMUL);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FDIV);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_SQRT);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CMP);
 }
 
 static void
@@ -356,6 +534,34 @@ add_f64_common_intrinsics_for_thumb2_fpu(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_FMUL);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_FDIV);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_SQRT);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CMP);
+}
+
+static void
+add_common_float_integer_convertion(AOTCompContext *comp_ctx)
+{
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_TO_F32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U32_TO_F32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_TO_F64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U32_TO_F64);
+
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_TO_F32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U64_TO_F32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I64_TO_F64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_U64_TO_F64);
+
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_I32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_U32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_I64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_U64);
+
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_I32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_U32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_I64);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_U64);
+
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TO_F32);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TO_F64);
 }
 
 bool
@@ -401,6 +607,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         else {
             add_f32_common_intrinsics_for_thumb2_fpu(comp_ctx);
             add_f64_common_intrinsics_for_thumb2_fpu(comp_ctx);
+            add_common_float_integer_convertion(comp_ctx);
         }
     }
 }
