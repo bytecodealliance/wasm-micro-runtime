@@ -41,7 +41,8 @@ typedef enum AOTFloatCond {
   FLOAT_LT,
   FLOAT_GT,
   FLOAT_LE,
-  FLOAT_GE
+  FLOAT_GE,
+  FLOAT_UNO
 } AOTFloatCond;
 
 /**
