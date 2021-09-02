@@ -84,6 +84,11 @@ if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     set (WAMR_BUILD_SHARED_MEMORY 1)
 endif ()
 
+if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
+    set (WAMR_BUILD_THREAD_MGR 1)
+    include (${IWASM_DIR}/libraries/debug-engine/debug_engine.cmake)
+endif ()
+
 if (WAMR_BUILD_THREAD_MGR EQUAL 1)
     include (${IWASM_DIR}/libraries/thread-mgr/thread_mgr.cmake)
 endif ()
@@ -132,6 +137,7 @@ set (source_all
     ${LIB_PTHREAD_SOURCE}
     ${THREAD_MGR_SOURCE}
     ${LIBC_EMCC_SOURCE}
+    ${DEBUG_ENGINE_SOURCE}
 )
 
 set (WAMR_RUNTIME_LIB_SOURCE ${source_all})

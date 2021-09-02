@@ -26,6 +26,12 @@ aot_create_comp_data(void *wasm_module);
 void
 aot_destroy_comp_data(aot_comp_data_t comp_data);
 
+#if WASM_ENABLE_DEBUG_AOT != 0
+typedef void * dwar_extractor_handle_t;
+dwar_extractor_handle_t
+create_dwarf_extractor(aot_comp_data_t comp_data, char * file_name);
+#endif
+
 enum {
     AOT_FORMAT_FILE,
     AOT_OBJECT_FILE,

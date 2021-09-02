@@ -20,6 +20,9 @@ struct WASMInterpFrame;
 
 #if WASM_ENABLE_THREAD_MGR != 0
 typedef struct WASMCluster WASMCluster;
+#if WASM_ENABLE_DEBUG_INTERP != 0
+typedef struct WASMCurrentEnvStatus WASMCurrentEnvStatus;
+#endif
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -95,6 +98,10 @@ typedef struct WASMExecEnv {
     /* used to support debugger */
     korp_mutex wait_lock;
     korp_cond wait_cond;
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    WASMCurrentEnvStatus *current_status;
 #endif
 
     /* attachment for native function */

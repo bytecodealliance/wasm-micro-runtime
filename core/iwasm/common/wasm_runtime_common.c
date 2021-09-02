@@ -17,6 +17,9 @@
 #endif
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
+#if WASM_ENABLE_DEBUG_INTERP != 0
+#include "../libraries/debug-engine/debug_engine.h"
+#endif
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "wasm_shared_memory.h"
@@ -220,6 +223,9 @@ wasm_runtime_destroy()
 #endif
 
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_THREAD_MGR != 0)
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_debug_engine_destroy();
+#endif
     thread_manager_destroy();
 #endif
 
@@ -240,6 +246,16 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
         wasm_runtime_memory_destroy();
         return false;
     }
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (strlen(init_args->ip_addr))
+        if (!wasm_debug_engine_init(init_args->ip_addr,
+                                   init_args->platform_port,
+                                   init_args->instance_port)) {
+            wasm_runtime_destroy();
+            return false;
+        }
+#endif
 
     if (init_args->n_native_symbols > 0
         && !wasm_runtime_register_natives(init_args->native_module_name,

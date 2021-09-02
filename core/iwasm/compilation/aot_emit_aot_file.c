@@ -1757,22 +1757,34 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 static bool
 aot_resolve_text(AOTObjectData *obj_data)
 {
-    LLVMSectionIteratorRef sec_itr;
-    char *name;
+#if WASM_ENABLE_DEBUG_AOT != 0
+    LLVMBinaryType bin_type = LLVMBinaryGetType(obj_data->binary);
+    if (bin_type == LLVMBinaryTypeELF32L || bin_type == LLVMBinaryTypeELF64L) {
+        obj_data->text = (char *)LLVMGetBufferStart(obj_data->mem_buf);
+        obj_data->text_size = (uint32)LLVMGetBufferSize(obj_data->mem_buf);
+    }
+    else
+#endif
+    {
+        LLVMSectionIteratorRef sec_itr;
+        char *name;
 
-    if (!(sec_itr = LLVMObjectFileCopySectionIterator(obj_data->binary))) {
-        aot_set_last_error("llvm get section iterator failed.");
-        return false;
-    }
-    while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
-        if ((name = (char *)LLVMGetSectionName(sec_itr)) && !strcmp(name, ".text")) {
-            obj_data->text = (char *)LLVMGetSectionContents(sec_itr);
-            obj_data->text_size = (uint32)LLVMGetSectionSize(sec_itr);
-            break;
+        if (!(sec_itr = LLVMObjectFileCopySectionIterator(obj_data->binary))) {
+            aot_set_last_error("llvm get section iterator failed.");
+            return false;
         }
-        LLVMMoveToNextSection(sec_itr);
+        while (
+          !LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
+            if ((name = (char *)LLVMGetSectionName(sec_itr))
+                && !strcmp(name, ".text")) {
+                obj_data->text = (char *)LLVMGetSectionContents(sec_itr);
+                obj_data->text_size = (uint32)LLVMGetSectionSize(sec_itr);
+                break;
+            }
+            LLVMMoveToNextSection(sec_itr);
+        }
+        LLVMDisposeSectionIterator(sec_itr);
     }
-    LLVMDisposeSectionIterator(sec_itr);
 
     return true;
 }
