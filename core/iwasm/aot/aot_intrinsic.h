@@ -47,6 +47,16 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_I32_CLZ      AOT_INTRINSIC_FLAG(0, 13)
 #define AOT_INTRINSIC_FLAG_I32_CTZ      AOT_INTRINSIC_FLAG(0, 14)
 #define AOT_INTRINSIC_FLAG_I32_POPCNT   AOT_INTRINSIC_FLAG(0, 15)
+#define AOT_INTRINSIC_FLAG_I32_TO_F32   AOT_INTRINSIC_FLAG(0, 16)
+#define AOT_INTRINSIC_FLAG_U32_TO_F32   AOT_INTRINSIC_FLAG(0, 17)
+#define AOT_INTRINSIC_FLAG_I32_TO_F64   AOT_INTRINSIC_FLAG(0, 18)
+#define AOT_INTRINSIC_FLAG_U32_TO_F64   AOT_INTRINSIC_FLAG(0, 19)
+#define AOT_INTRINSIC_FLAG_F32_TO_I32   AOT_INTRINSIC_FLAG(0, 20)
+#define AOT_INTRINSIC_FLAG_F32_TO_U32   AOT_INTRINSIC_FLAG(0, 21)
+#define AOT_INTRINSIC_FLAG_F32_TO_I64   AOT_INTRINSIC_FLAG(0, 22)
+#define AOT_INTRINSIC_FLAG_F32_TO_U64   AOT_INTRINSIC_FLAG(0, 23)
+#define AOT_INTRINSIC_FLAG_F32_TO_F64   AOT_INTRINSIC_FLAG(0, 24)
+#define AOT_INTRINSIC_FLAG_F32_CMP      AOT_INTRINSIC_FLAG(0, 25)
 
 #define AOT_INTRINSIC_FLAG_F64_FADD     AOT_INTRINSIC_FLAG(1, 0)
 #define AOT_INTRINSIC_FLAG_F64_FSUB     AOT_INTRINSIC_FLAG(1, 1)
@@ -64,6 +74,16 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_I64_CLZ      AOT_INTRINSIC_FLAG(1, 13)
 #define AOT_INTRINSIC_FLAG_I64_CTZ      AOT_INTRINSIC_FLAG(1, 14)
 #define AOT_INTRINSIC_FLAG_I64_POPCNT   AOT_INTRINSIC_FLAG(1, 15)
+#define AOT_INTRINSIC_FLAG_I64_TO_F32   AOT_INTRINSIC_FLAG(1, 16)
+#define AOT_INTRINSIC_FLAG_U64_TO_F32   AOT_INTRINSIC_FLAG(1, 17)
+#define AOT_INTRINSIC_FLAG_I64_TO_F64   AOT_INTRINSIC_FLAG(1, 18)
+#define AOT_INTRINSIC_FLAG_U64_TO_F64   AOT_INTRINSIC_FLAG(1, 19)
+#define AOT_INTRINSIC_FLAG_F64_TO_I32   AOT_INTRINSIC_FLAG(1, 20)
+#define AOT_INTRINSIC_FLAG_F64_TO_U32   AOT_INTRINSIC_FLAG(1, 21)
+#define AOT_INTRINSIC_FLAG_F64_TO_I64   AOT_INTRINSIC_FLAG(1, 22)
+#define AOT_INTRINSIC_FLAG_F64_TO_U64   AOT_INTRINSIC_FLAG(1, 23)
+#define AOT_INTRINSIC_FLAG_F64_TO_F32   AOT_INTRINSIC_FLAG(1, 24)
+#define AOT_INTRINSIC_FLAG_F64_CMP      AOT_INTRINSIC_FLAG(1, 25)
 
 float32
 aot_intrinsic_fadd_f32(float32 a, float32 b);
@@ -160,6 +180,66 @@ aot_intrinsic_popcnt_i32(uint32 u);
 
 uint32
 aot_intrinsic_popcnt_i64(uint64 u);
+
+float32
+aot_intrinsic_i32_to_f32(int32 i);
+
+float32
+aot_intrinsic_u32_to_f32(uint32 u);
+
+float64
+aot_intrinsic_i32_to_f64(int32 i);
+
+float64
+aot_intrinsic_u32_to_f64(uint32 u);
+
+float32
+aot_intrinsic_i64_to_f32(int64 i);
+
+float32
+aot_intrinsic_u64_to_f32(uint64 u);
+
+float64
+aot_intrinsic_i64_to_f64(int64 i);
+
+float64
+aot_intrinsic_u64_to_f64(uint64 u);
+
+int32
+aot_intrinsic_f32_to_i32(float32 f);
+
+uint32
+aot_intrinsic_f32_to_u32(float32 f);
+
+int64
+aot_intrinsic_f32_to_i64(float32 f);
+
+uint64
+aot_intrinsic_f32_to_u64(float32 f);
+
+int32
+aot_intrinsic_f64_to_i32(float64 f);
+
+uint32
+aot_intrinsic_f64_to_u32(float64 f);
+
+int64
+aot_intrinsic_f64_to_i64(float64 f);
+
+uint64
+aot_intrinsic_f64_to_u64(float64 f);
+
+float64
+aot_intrinsic_f32_to_f64(float32 f);
+
+float32
+aot_intrinsic_f64_to_f32(float64 f);
+
+int32
+aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs);
+
+int32
+aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs);
 
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic);

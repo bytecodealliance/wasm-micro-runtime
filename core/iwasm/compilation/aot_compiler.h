@@ -13,28 +13,8 @@
 extern "C" {
 #endif
 
-typedef enum IntCond {
-  INT_EQZ = 0,
-  INT_EQ,
-  INT_NE,
-  INT_LT_S,
-  INT_LT_U,
-  INT_GT_S,
-  INT_GT_U,
-  INT_LE_S,
-  INT_LE_U,
-  INT_GE_S,
-  INT_GE_U
-} IntCond;
-
-typedef enum FloatCond {
-  FLOAT_EQ = 0,
-  FLOAT_NE,
-  FLOAT_LT,
-  FLOAT_GT,
-  FLOAT_LE,
-  FLOAT_GE
-} FloatCond;
+typedef AOTIntCond IntCond;
+typedef AOTFloatCond FloatCond;
 
 typedef enum IntArithmetic {
   INT_ADD = 0,
