@@ -8580,26 +8580,27 @@ unsupported_opcode:
         goto re_scan;
 
     func->const_cell_num = loader_ctx->const_cell_num;
-    if (func->const_cell_num > 0
-        && !(func->consts = func_const =
+    if (func->const_cell_num > 0) {
+        if (!(func->consts = func_const =
                 loader_malloc(func->const_cell_num * 4,
-                              error_buf, error_buf_size))) {
-        goto fail;
-    }
-    func_const_end = func->consts + func->const_cell_num * 4;
-    /* reverse the const buf */
-    for (int i = loader_ctx->num_const - 1; i >= 0; i--) {
-        Const *c = (Const*)(loader_ctx->const_buf + i * sizeof(Const));
-        if (c->value_type == VALUE_TYPE_F64
-            || c->value_type == VALUE_TYPE_I64) {
-            bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
-                        &(c->value.f64), (uint32)sizeof(int64));
-            func_const += sizeof(int64);
-        }
-        else {
-            bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
-                        &(c->value.f32), (uint32)sizeof(int32));
-            func_const += sizeof(int32);
+                              error_buf, error_buf_size)))
+            goto fail;
+
+        func_const_end = func->consts + func->const_cell_num * 4;
+        /* reverse the const buf */
+        for (int i = loader_ctx->num_const - 1; i >= 0; i--) {
+            Const *c = (Const*)(loader_ctx->const_buf + i * sizeof(Const));
+            if (c->value_type == VALUE_TYPE_F64
+                || c->value_type == VALUE_TYPE_I64) {
+                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
+                            &(c->value.f64), (uint32)sizeof(int64));
+                func_const += sizeof(int64);
+            }
+            else {
+                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
+                            &(c->value.f32), (uint32)sizeof(int32));
+                func_const += sizeof(int32);
+            }
         }
     }
 
