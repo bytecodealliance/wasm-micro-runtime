@@ -4,7 +4,7 @@
  */
 
 #include "aot_emit_compare.h"
-#include "aot_intrinsic.h"
+#include "../aot/aot_intrinsic.h"
 
 static bool
 int_cond_to_llvm_op(IntCond cond, LLVMIntPredicate *op)
@@ -158,23 +158,25 @@ aot_compile_op_f32_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_F32(rhs);
     POP_F32(lhs);
 
-    if (comp_ctx->disable_llvm_intrinsics && aot_intrinsic_check_capability(comp_ctx, "f32_cmp"))
-    {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx, "f32_cmp")) {
         LLVMTypeRef param_types[3];
         LLVMValueRef opcond = LLVMConstInt(I32_TYPE, cond, true);
         param_types[0] = I32_TYPE;
         param_types[1] = F32_TYPE;
         param_types[2] = F32_TYPE;
-        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, "f32_cmp", I32_TYPE, param_types, 3, opcond, lhs, rhs);
+        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, "f32_cmp", I32_TYPE,
+                                      param_types, 3, opcond, lhs, rhs);
+        if (!res) {
+            goto fail;
+        }
         res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
     }
-    else
-    {
+    else {
         res = LLVMBuildFCmp(comp_ctx->builder, op, lhs, rhs, "f32_cmp");
     }
 
-    if (!res)
-    {
+    if (!res) {
         aot_set_last_error("llvm build compare failed.");
         return false;
     }
@@ -200,23 +202,25 @@ aot_compile_op_f64_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_F64(rhs);
     POP_F64(lhs);
 
-    if (comp_ctx->disable_llvm_intrinsics && aot_intrinsic_check_capability(comp_ctx, "f64_cmp"))
-    {
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx, "f64_cmp")) {
         LLVMTypeRef param_types[3];
         LLVMValueRef opcond = LLVMConstInt(I32_TYPE, cond, true);
         param_types[0] = I32_TYPE;
         param_types[1] = F64_TYPE;
         param_types[2] = F64_TYPE;
-        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, "f64_cmp", I32_TYPE, param_types, 3, opcond, lhs, rhs);
+        res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, "f64_cmp", I32_TYPE,
+                                      param_types, 3, opcond, lhs, rhs);
+        if (!res) {
+            goto fail;
+        }
         res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
     }
-    else
-    {
+    else {
         res = LLVMBuildFCmp(comp_ctx->builder, op, lhs, rhs, "f64_cmp");
     }
 
-    if (!res)
-    {
+    if (!res) {
         aot_set_last_error("llvm build compare failed.");
         return false;
     }
