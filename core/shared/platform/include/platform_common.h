@@ -80,7 +80,12 @@ int BH_VPRINTF(const char *format, va_list ap);
 
 /* Return the offset of the given field in the given type */
 #ifndef offsetof
+/* GCC 4.0 and later has the builtin. */
+#if defined(__GNUC__) && __GNUC__ >= 4
+#define offsetof(Type, field) __builtin_offsetof(Type, field)
+#else
 #define offsetof(Type, field) ((size_t)(&((Type *)0)->field))
+#endif
 #endif
 
 typedef uint8_t uint8;
