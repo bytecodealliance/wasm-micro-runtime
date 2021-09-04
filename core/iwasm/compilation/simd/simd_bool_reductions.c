@@ -51,7 +51,7 @@ simd_all_true(AOTCompContext *comp_ctx,
 
     /* check zero */
     if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
-                                           intrinsic[itype], I1_TYPE,
+                                           intrinsic[itype], INT1_TYPE,
                                            vector_type + itype, 1, result))) {
         goto fail;
     }
@@ -104,7 +104,7 @@ aot_compile_simd_v128_any_true(AOTCompContext *comp_ctx,
     LLVMTypeRef vector_type;
     LLVMValueRef vector, result;
 
-    if (!(vector_type = LLVMVectorType(I1_TYPE, 128))) {
+    if (!(vector_type = LLVMVectorType(INT1_TYPE, 128))) {
         return false;
     }
 
@@ -114,7 +114,7 @@ aot_compile_simd_v128_any_true(AOTCompContext *comp_ctx,
     }
 
     if (!(result = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, "llvm.vector.reduce.or.v128i1", I1_TYPE,
+            comp_ctx, func_ctx, "llvm.vector.reduce.or.v128i1", INT1_TYPE,
             &vector_type, 1, vector))) {
         goto fail;
     }

@@ -243,7 +243,7 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define F32_TYPE comp_ctx->basic_types.float32_type
 #define F64_TYPE comp_ctx->basic_types.float64_type
 #define VOID_TYPE comp_ctx->basic_types.void_type
-#define I1_TYPE comp_ctx->basic_types.int1_type
+#define INT1_TYPE comp_ctx->basic_types.int1_type
 #define INT8_TYPE comp_ctx->basic_types.int8_type
 #define INT16_TYPE comp_ctx->basic_types.int16_type
 #define MD_TYPE comp_ctx->basic_types.meta_data_type
