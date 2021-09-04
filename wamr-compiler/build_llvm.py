@@ -14,6 +14,8 @@ def clone_llvm():
         print("Clone llvm to core/deps/ ..")
         for line in os.popen("git clone --branch release/11.x https://github.com/llvm/llvm-project.git llvm"):
             print(line)
+        for line in os.popen("patch -p 1 < llvm_c_api_orcjit.patch"):
+            print(line)
     else:
         print("llvm source codes already existed")
     return llvm_dir
