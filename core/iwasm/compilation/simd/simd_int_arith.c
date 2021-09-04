@@ -216,7 +216,7 @@ simd_v128_abs(AOTCompContext *comp_ctx,
               LLVMTypeRef vector_type)
 {
     LLVMValueRef vector, result;
-    LLVMTypeRef param_types[] = { vector_type, I1_TYPE };
+    LLVMTypeRef param_types[] = { vector_type, INT1_TYPE };
 
     if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
                                              "vec"))) {
