@@ -25,6 +25,30 @@ typedef WASMExport AOTExport;
 typedef void * dwar_extractor_handle_t;
 #endif
 
+typedef enum AOTIntCond {
+  INT_EQZ = 0,
+  INT_EQ,
+  INT_NE,
+  INT_LT_S,
+  INT_LT_U,
+  INT_GT_S,
+  INT_GT_U,
+  INT_LE_S,
+  INT_LE_U,
+  INT_GE_S,
+  INT_GE_U
+} AOTIntCond;
+
+typedef enum AOTFloatCond {
+  FLOAT_EQ = 0,
+  FLOAT_NE,
+  FLOAT_LT,
+  FLOAT_GT,
+  FLOAT_LE,
+  FLOAT_GE,
+  FLOAT_UNO
+} AOTFloatCond;
+
 /**
  * Import memory
  */

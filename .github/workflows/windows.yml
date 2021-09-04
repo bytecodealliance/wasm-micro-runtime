@@ -30,55 +30,55 @@ jobs:
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake ..
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
     - name: Build iwasm [aot only]
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_AOT=1 -DWAMR_BUILD_INTERP=0
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
     - name: Build iwasm [interp only]
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_AOT=0
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
     - name: Build iwasm [tail call]
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_TAIL_CALL=1
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
     - name: Build iwasm [custom name section]
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_CUSTOM_NAME_SECTION=1
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
     - name: Build iwasm [disable hardware boundary check]
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake .. -DWAMR_DISABLE_HW_BOUND_CHECK=1
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
     - name: Build iwasm [reference types]
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_REF_TYPES=1
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
     - name: Build iwasm [128-bit SIMD]
       run: |
         cd product-mini/platforms/windows
         mkdir build && cd build
         cmake .. -DWAMR_BUILD_SIMD=1
-        cmake --build . --config Release
+        cmake --build . --config Release --parallel 4
         cd .. && rm -force -r build
 
