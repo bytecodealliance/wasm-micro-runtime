@@ -6,8 +6,8 @@
 #include "aot_emit_conversion.h"
 #include "aot_emit_exception.h"
 #include "aot_emit_numberic.h"
-#include "aot_intrinsic.h"
-#include "aot_runtime.h"
+#include "../aot/aot_intrinsic.h"
+#include "../aot/aot_runtime.h"
 
 static bool
 trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -29,6 +29,9 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         res = aot_call_llvm_intrinsic(
           comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
           I32_TYPE, param_types, 3, opcond, operand, operand);
+        if (!res) {
+            goto fail;
+        }
         res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
     }
     else {
@@ -67,6 +70,9 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         is_less = aot_call_llvm_intrinsic(
           comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
           I32_TYPE, param_types, 3, opcond, operand, min_value);
+        if (!is_less) {
+            goto fail;
+        }
         is_less =
           LLVMBuildIntCast(comp_ctx->builder, is_less, INT1_TYPE, "bit_cast");
     }
@@ -91,6 +97,9 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         is_greater = aot_call_llvm_intrinsic(
           comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
           I32_TYPE, param_types, 3, opcond, operand, max_value);
+        if (!is_greater) {
+            goto fail;
+        }
         is_greater = LLVMBuildIntCast(comp_ctx->builder, is_greater, INT1_TYPE,
                                       "bit_cast");
     }
