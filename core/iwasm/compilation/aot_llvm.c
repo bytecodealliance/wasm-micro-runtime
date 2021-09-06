@@ -640,6 +640,10 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
 #if WASM_ENABLE_DEBUG_AOT != 0
     func_ctx->debug_func = dwarf_gen_func_info(comp_ctx, func_ctx);
+    if (!func_ctx->debug_func) {
+        aot_set_last_error("dwarf generate func info failed");
+        goto fail;
+    }
 #endif
 
     aot_block_stack_push(&func_ctx->block_stack, aot_block);
@@ -1281,7 +1285,15 @@ aot_create_comp_context(AOTCompData *comp_data,
       LLVMValueAsMetadata(LLVMConstInt(LLVMInt32Type(), 3, false)));
 
     comp_ctx->debug_file = dwarf_gen_file_info(comp_ctx);
+    if (!comp_ctx->debug_file) {
+        aot_set_last_error("dwarf generate file info failed");
+        goto fail;
+    }
     comp_ctx->debug_comp_unit = dwarf_gen_comp_unit_info(comp_ctx);
+    if (!comp_ctx->debug_comp_unit) {
+        aot_set_last_error("dwarf generate compile unit info failed");
+        goto fail;
+    }
 #endif
 
     if (option->enable_bulk_memory)

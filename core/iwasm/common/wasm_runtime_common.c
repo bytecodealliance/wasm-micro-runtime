@@ -14,6 +14,9 @@
 #endif
 #if WASM_ENABLE_AOT != 0
 #include "../aot/aot_runtime.h"
+#if WASM_ENABLE_AOT_DEBUG != 0
+#include "../aot/debug/jit_debug.h"
+#endif
 #endif
 #if WASM_ENABLE_THREAD_MGR != 0
 #include "../libraries/thread-mgr/thread_manager.h"
@@ -131,20 +134,29 @@ wasm_runtime_env_init()
         goto fail6;
     }
 #endif
+#if WASM_ENABLE_AOT_DEBUG != 0
+    if (!jit_debug_engine_init()) {
+        goto fail7;
+    }
+#endif
 #endif
 
 #if WASM_ENABLE_REF_TYPES != 0
     if (!wasm_externref_map_init()) {
-        goto fail7;
+        goto fail8;
     }
 #endif
 
     return true;
 
 #if WASM_ENABLE_REF_TYPES != 0
-fail7:
+fail8:
 #endif
 #if WASM_ENABLE_AOT != 0
+#if WASM_ENABLE_AOT_DEBUG != 0
+    jit_debug_engine_destroy();
+fail7:
+#endif
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     aot_signal_destroy();
 fail6:
@@ -204,6 +216,9 @@ wasm_runtime_destroy()
 #endif
 
 #if WASM_ENABLE_AOT != 0
+#if WASM_ENABLE_AOT_DEBUG != 0
+    jit_debug_engine_destroy();
+#endif
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     aot_signal_destroy();
 #endif

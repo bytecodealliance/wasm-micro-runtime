@@ -104,12 +104,13 @@ bool
 get_text_section(void *buf, uint64_t *offset, uint64_t *size)
 {
     bool ret = false;
-    uint32_t i;
-    char* sh_str;
+    uint32 i;
+    char *sh_str;
 
     if (is64Bit(buf)) {
         Elf64_Ehdr *eh = (Elf64_Ehdr *)buf;
-        Elf64_Shdr **sh_table = wasm_runtime_malloc(eh->e_shnum * sizeof(Elf64_Shdr *));
+        Elf64_Shdr **sh_table =
+            wasm_runtime_malloc(eh->e_shnum * sizeof(Elf64_Shdr *));
         if (sh_table) {
             read_section_header_table64(eh, sh_table);
             sh_str = get_section64(eh, sh_table[eh->e_shstrndx]);
@@ -117,16 +118,19 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
                 if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
-                    sh_table[i]->sh_addr =  (Elf64_Addr)((char *)buf + sh_table[i]->sh_offset);
+                    sh_table[i]->sh_addr = (Elf64_Addr)(uintptr_t)
+                                           ((char *)buf + sh_table[i]->sh_offset);
                     ret = true;
                     break;
                 }
             }
             wasm_runtime_free(sh_table);
         }
-    } else if (is32Bit(buf)) {
+    }
+    else if (is32Bit(buf)) {
         Elf32_Ehdr *eh = (Elf32_Ehdr *)buf;
-        Elf32_Shdr **sh_table = wasm_runtime_malloc(eh->e_shnum * sizeof(Elf32_Shdr *));
+        Elf32_Shdr **sh_table =
+            wasm_runtime_malloc(eh->e_shnum * sizeof(Elf32_Shdr *));
         if (sh_table) {
             read_section_header_table(eh, sh_table);
             sh_str = get_section(eh, sh_table[eh->e_shstrndx]);
@@ -134,7 +138,8 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
                 if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
-                    sh_table[i]->sh_addr = (Elf32_Addr)((char *)buf + sh_table[i]->sh_offset);
+                    sh_table[i]->sh_addr = (Elf32_Addr)(uintptr_t)
+                                           ((char *)buf + sh_table[i]->sh_offset);
                     ret = true;
                     break;
                 }

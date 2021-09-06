@@ -1830,10 +1830,12 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     else if (module_inst->malloc_function
              && module_inst->free_function) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
-        /*TODO: obviously, we can not create debug instance for module malloc here,
-        so, just disable the engine here, it is strange, but we now are lack of ways
-        to indicate which calls should not be debugged. And we have other
-        execute_xxx_function may need to be taken care of*/
+        /* TODO: obviously, we can not create debug instance for
+         * module malloc here, so, just disable the engine here,
+         * it is strange, but we now are lack of ways to indicate
+         * which calls should not be debugged. And we have other
+         * execute_xxx_function may need to be taken care of
+         */
         bool active = wasm_debug_get_engine_active();
         wasm_debug_set_engine_active(false);
 #endif
@@ -1850,7 +1852,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
         wasm_debug_set_engine_active(active);
 #endif
         /* If we use app's malloc function,
-            the default memory may be changed while memory growing */
+           the default memory may be changed while memory growing */
         memory = module_inst->default_memory;
         addr = offset ? memory->memory_data + offset : NULL;
     }

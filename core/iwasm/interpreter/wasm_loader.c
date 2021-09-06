@@ -3311,10 +3311,10 @@ create_module(char *error_buf, uint32 error_buf_size)
 }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-void
+static void
 record_fast_op(WASMModule *module, uint8 * pos, uint8 orig_op)
 {
-    WASMFastOPCodeNode * fast_op = wasm_runtime_malloc(sizeof(WASMFastOPCodeNode));
+    WASMFastOPCodeNode *fast_op = wasm_runtime_malloc(sizeof(WASMFastOPCodeNode));
     if (fast_op) {
         fast_op->offset = pos - module->load_addr;
         fast_op->orig_op = orig_op;
@@ -3621,7 +3621,6 @@ wasm_loader_unload(WASMModule *module)
              */
             wasm_runtime_free(node);
             /*
-             *
              * the module file reading buffer will be released
              * in runtime_destroy()
              */
@@ -3630,7 +3629,8 @@ wasm_loader_unload(WASMModule *module)
     }
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    WASMFastOPCodeNode * fast_opcode = bh_list_first_elem(&module->fast_opcode_list);
+    WASMFastOPCodeNode *fast_opcode =
+        bh_list_first_elem(&module->fast_opcode_list);
     while(fast_opcode) {
         WASMFastOPCodeNode * next = bh_list_elem_next(fast_opcode);
         wasm_runtime_free(fast_opcode);

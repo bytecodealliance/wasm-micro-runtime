@@ -5,7 +5,9 @@
 
 #ifndef HANDLER_H
 #define HANDLER_H
+
 #include "gdbserver.h"
+
 void
 handle_generay_set(WASMGDBServer *server, char *payload);
 

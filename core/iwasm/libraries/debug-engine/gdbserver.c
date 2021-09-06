@@ -24,6 +24,7 @@
 #include "utils.h"
 
 typedef void (*PacketHandler)(WASMGDBServer *server, char *payload);
+
 struct packet_handler_elem {
     char request;
     PacketHandler handler;

@@ -163,15 +163,22 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
     uint32 i;
     AOTFuncType *func_type;
     LLVMValueRef ret;
+#if WASM_ENABLE_DEBUG_AOT != 0
+    LLVMMetadataRef return_location;
+#endif
 
     aot_checked_addr_list_destroy(func_ctx);
     bh_assert(block);
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-    LLVMMetadataRef return_location = dwarf_gen_location(
+    return_location = dwarf_gen_location(
       comp_ctx, func_ctx,
       (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
     );
+    if (!return_location) {
+        aot_set_last_error("dwarf generate location failed");
+        return false;
+    }
 #endif
     if (block->label_type == LABEL_TYPE_IF
         && block->llvm_else_block
@@ -1049,15 +1056,22 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef ret;
     AOTFuncType *func_type;
     uint32 i, param_index, result_index;
+#if WASM_ENABLE_DEBUG_AOT != 0
+    LLVMMetadataRef return_location;
+#endif
 
     bh_assert(block_func);
     func_type = func_ctx->aot_func->func_type;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-    LLVMMetadataRef return_location = dwarf_gen_location(
+    return_location = dwarf_gen_location(
       comp_ctx, func_ctx,
       (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
     );
+    if (!return_location) {
+        aot_set_last_error("dwarf generate location failed");
+        return false;
+    }
 #endif
     if (block_func->result_count) {
         /* Store extra result values to function parameters */

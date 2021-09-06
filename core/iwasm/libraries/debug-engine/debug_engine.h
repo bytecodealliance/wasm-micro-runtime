@@ -9,6 +9,7 @@
 #include "bh_list.h"
 #include "gdbserver.h"
 #include "thread_manager.h"
+
 typedef enum WASMDebugControlThreadStatus {
     RUNNING,
     STOPPED,
@@ -34,8 +35,8 @@ typedef struct WASMDebugObject {
 
 typedef struct WASMDebugBreakPoint {
     struct WASMDebugBreakPoint *next;
-    uint64_t addr;
-    uint64_t orignal_data;
+    uint64 addr;
+    uint64 orignal_data;
 } WASMDebugBreakPoint;
 
 typedef struct WASMDebugInstance {
@@ -70,8 +71,8 @@ typedef enum WasmAddressType {
     WasmInvalid = 0x03
 } WasmAddressType;
 
-#define WASM_ADDR(type, id, offset)                                           \
-    (((uint64_t)type << 62) | ((uint64_t)0 << 32) | ((uint64_t)offset << 0))
+#define WASM_ADDR(type, id, offset)                                         \
+    (((uint64)type << 62) | ((uint64)0 << 32) | ((uint64)offset << 0))
 
 #define WASM_ADDR_TYPE(addr)   (((addr)&0xC000000000000000) >> 62)
 #define WASM_ADDR_OFFSET(addr) (((addr)&0x00000000FFFFFFFF))
@@ -100,28 +101,27 @@ bool
 wasm_debug_get_engine_active(void);
 
 
-uint64_t
+uint64
 wasm_debug_instance_get_pid(WASMDebugInstance *instance);
 
-uint64_t
+uint64
 wasm_debug_instance_get_tid(WASMDebugInstance *instance);
 
 int
 wasm_debug_instance_get_tids(WASMDebugInstance *instance,
-                             uint64_t tids[],
-                             int len);
+                             uint64 tids[], int len);
 
 void
-wasm_debug_instance_set_cur_thread(WASMDebugInstance *instance, uint64_t tid);
+wasm_debug_instance_set_cur_thread(WASMDebugInstance *instance, uint64 tid);
 
-uint64_t
+uint64
 wasm_debug_instance_get_pc(WASMDebugInstance *instance);
 
-uint64_t
+uint64
 wasm_debug_instance_get_load_addr(WASMDebugInstance *instance);
 
 WASMDebugMemoryInfo *
-wasm_debug_instance_get_memregion(WASMDebugInstance *instance, uint64_t addr);
+wasm_debug_instance_get_memregion(WASMDebugInstance *instance, uint64 addr);
 
 void
 wasm_debug_instance_destroy_memregion(WASMDebugInstance *instance,
@@ -129,43 +129,31 @@ wasm_debug_instance_destroy_memregion(WASMDebugInstance *instance,
 
 bool
 wasm_debug_instance_get_obj_mem(WASMDebugInstance *instance,
-                                 uint64_t addr,
-                                 char *buf,
-                                 uint64_t *size);
+                                 uint64 addr, char *buf, uint64 *size);
 
 bool
 wasm_debug_instance_get_linear_mem(WASMDebugInstance *instance,
-                                   uint64_t addr,
-                                   char *buf,
-                                   uint64_t *size);
+                                   uint64 addr, char *buf, uint64 *size);
 
 bool
 wasm_debug_instance_get_mem(WASMDebugInstance *instance,
-                                 uint64_t addr,
-                                 char *buf,
-                                 uint64_t *size);
+                                 uint64 addr, char *buf, uint64 *size);
 
 bool
 wasm_debug_instance_set_mem(WASMDebugInstance *instance,
-                            uint64_t addr,
-                            char *buf,
-                            uint64_t *size);
+                            uint64 addr, char *buf, uint64 *size);
 
 int
 wasm_debug_instance_get_call_stack_pcs(WASMDebugInstance *instance,
-                                       uint64_t tid,
-                                       uint64_t buf[],
-                                       uint64_t size);
+                                       uint64 tid, uint64 buf[], uint64 size);
 
 bool
 wasm_debug_instance_add_breakpoint(WASMDebugInstance *instance,
-                                   uint64_t addr,
-                                   uint64_t length);
+                                   uint64 addr, uint64 length);
 
 bool
 wasm_debug_instance_remove_breakpoint(WASMDebugInstance *instance,
-                                      uint64_t addr,
-                                      uint64_t length);
+                                      uint64 addr, uint64 length);
 
 bool
 wasm_debug_instance_continue(WASMDebugInstance *instance);
@@ -173,41 +161,33 @@ wasm_debug_instance_continue(WASMDebugInstance *instance);
 bool
 wasm_debug_instance_kill(WASMDebugInstance *instance);
 
-uint64_t
+uint64
 wasm_debug_instance_wait_thread(WASMDebugInstance *instance,
-                                uint64_t tid,
-                                uint32_t *status);
+                                uint64 tid, uint32 *status);
 
 bool
 wasm_debug_instance_singelstep(WASMDebugInstance *instance, uint64 tid);
 
 bool
 wasm_debug_instance_get_local(WASMDebugInstance *instance,
-                              int frame_index,
-                              int local_index,
-                              char buf[],
-                              int *size);
+                              int frame_index, int local_index,
+                              char buf[], int *size);
 
 bool
 wasm_debug_instance_get_global(WASMDebugInstance *instance,
-                               int frame_index,
-                               int global_index,
-                               char buf[],
-                               int *size);
+                               int frame_index, int global_index,
+                               char buf[], int *size);
 
 #if WASM_ENABLE_LIBC_WASI != 0
 bool
 wasm_debug_instance_get_current_object_name(WASMDebugInstance *instance,
-                                            char name_buffer[],
-                                            int len);
+                                            char name_buffer[], int len);
 #endif
 
-uint64_t
+uint64
 wasm_debug_instance_mmap(WASMDebugInstance *instance,
-                         uint32_t size,
-                         int map_port);
+                         uint32 size, int map_port);
 
 bool
-wasm_debug_instance_ummap(WASMDebugInstance *instance, uint64_t addr);
-
+wasm_debug_instance_ummap(WASMDebugInstance *instance, uint64 addr);
 #endif

@@ -606,9 +606,9 @@ typedef enum WASMAtomicEXTOpcode {
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-#define DEF_DEBUG_BREAK_HANDLE(_name)                      \
-  _name[DEBUG_OP_BREAK] =                                         \
-    HANDLE_OPCODE (DEBUG_OP_BREAK);         /* 0xd6 */
+#define DEF_DEBUG_BREAK_HANDLE(_name)                       \
+  _name[DEBUG_OP_BREAK] =                                   \
+    HANDLE_OPCODE (DEBUG_OP_BREAK);     /* 0xd6 */
 #else
 #define DEF_DEBUG_BREAK_HANDLE(_name)
 #endif
