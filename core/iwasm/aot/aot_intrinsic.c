@@ -613,3 +613,5 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
 }
 
 #endif /* WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0 */
+
+#error HERE
