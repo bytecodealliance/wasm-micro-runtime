@@ -19,8 +19,8 @@
 #include "llvm-c/Transforms/Vectorize.h"
 
 #if WASM_ENABLE_LAZY_JIT != 0
+#include "aot_llvm_lazyjit.h"
 #include "llvm-c/Orc.h"
-#include "llvm-c/LLLazyJIT.h"
 #include "llvm-c/Error.h"
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Support.h"
@@ -238,6 +238,7 @@ typedef struct AOTCompContext {
 #if WASM_ENABLE_LAZY_JIT != 0
   LLVMOrcLLLazyJITRef lazy_orcjit;
   LLVMOrcThreadSafeContextRef ts_context;
+  LLVMOrcJITTargetMachineBuilderRef tm_builder;
 #else
   LLVMExecutionEngineRef exec_engine;
 #endif

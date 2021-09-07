@@ -1225,138 +1225,142 @@ aot_handle_llvm_errmsg(char *error_buf,
 static bool 
 llvm_orcjit_create(AOTCompContext *comp_ctx)
 {
-    char       *err_msg = NULL;
-    char       *cpu = NULL;
-    char       *features = NULL;
-    char       buf[128] = {0};
-    char       *llvm_triple = NULL;
+    char *err_msg = NULL;
+    char *cpu = NULL;
+    char *features = NULL;
+    char *llvm_triple = NULL;
+    char buf[128] = {0};
 
     LLVMErrorRef         error;
-    LLVMTargetRef        llvm_targetref;
-    LLVMTargetMachineRef tm_opt;
-    LLVMTargetMachineRef tm_opt2;
-    LLVMOrcLLLazyJITRef  llvm_lazy_orcjit;
-    LLVMOrcJITTargetMachineBuilderRef     tm_builder;
-    LLVMOrcLLLazyJITBuilderRef            lazy_orcjit_builder;
-    LLVMOrcJITDylibDefinitionGeneratorRef main_gen;
+    LLVMTargetRef        llvm_targetref = NULL;
+    LLVMTargetMachineRef tm_opt = NULL;
+    LLVMTargetMachineRef tm_opt2 = NULL;
+    LLVMOrcLLLazyJITRef  lazy_orcjit = NULL;
+    LLVMOrcJITTargetMachineBuilderRef tm_builder = NULL;
+    LLVMOrcLLLazyJITBuilderRef lazy_orcjit_builder = NULL;
+#if LLVM_VERSION_MAJOR < 12
+    LLVMOrcJITDylibDefinitionGeneratorRef main_gen = NULL;
+#else
+    LLVMOrcDefinitionGeneratorRef main_gen = NULL;
+#endif
 
     llvm_triple = LLVMGetDefaultTargetTriple();
     if (llvm_triple == NULL) {
         snprintf(buf, sizeof(buf), "failed to get default target triple.");
-        goto fail1;
+        goto fail;
     }
 
     if (LLVMGetTargetFromTriple(llvm_triple, &llvm_targetref, &err_msg) != 0) {
         snprintf(buf, sizeof(buf),
                  "failed to get target reference from triple %s.", err_msg);
         LLVMDisposeMessage(err_msg);
-        goto fail2;
+        goto fail;
     }
 
     if (!LLVMTargetHasJIT(llvm_targetref)) {
         snprintf(buf, sizeof(buf), "unspported JIT on this platform.");
-        goto fail2;
+        goto fail;
     }
 
     cpu = LLVMGetHostCPUName();
     if (cpu == NULL) {
         snprintf(buf, sizeof(buf), "failed to get host cpu information.");
-        goto fail2;
+        goto fail;
     }
 
     features = LLVMGetHostCPUFeatures();
     if (features == NULL) {
         snprintf(buf, sizeof(buf), "failed to get host cpu features.");
-        goto fail3;
+        goto fail;
     }
 
-    os_printf("LLVM ORCJIT detected CPU \"%s\", with features \"%s\"\n",
-              cpu, features);
+    LOG_VERBOSE("LLVM ORCJIT detected CPU \"%s\", with features \"%s\"\n",
+                cpu, features);
 
-    tm_opt =
-        LLVMCreateTargetMachine(llvm_targetref, llvm_triple, cpu, features,
-                                LLVMCodeGenLevelAggressive,
-                                LLVMRelocDefault,
-                                LLVMCodeModelJITDefault);
+    tm_opt = LLVMCreateTargetMachine(llvm_targetref, llvm_triple,
+                                     cpu, features,
+                                     LLVMCodeGenLevelAggressive,
+                                     LLVMRelocDefault,
+                                     LLVMCodeModelJITDefault);
     if (!tm_opt) {
         snprintf(buf, sizeof(buf), "failed to create target machine.");
-        goto fail4;
+        goto fail;
     }
 
-    tm_opt2 =
-        LLVMCreateTargetMachine(llvm_targetref, llvm_triple, cpu, features,
-                                LLVMCodeGenLevelAggressive,
-                                LLVMRelocDefault,
-                                LLVMCodeModelJITDefault);
+    tm_opt2 = LLVMCreateTargetMachine(llvm_targetref, llvm_triple,
+                                      cpu, features,
+                                      LLVMCodeGenLevelAggressive,
+                                      LLVMRelocDefault,
+                                      LLVMCodeModelJITDefault);
     if (!tm_opt2) {
         snprintf(buf, sizeof(buf), "failed to create target machine2.");
-        goto fail5;
+        goto fail;
     }
 
     /* if success, it will dispose tm_opt2 memory. */
     tm_builder = LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(tm_opt2);
     if (!tm_builder) {
         snprintf(buf, sizeof(buf), "failed to create target machine builder.");
-        goto fail6;
+        goto fail;
     }
+    tm_opt2 = NULL;
 
     lazy_orcjit_builder = LLVMOrcCreateLLLazyJITBuilder();
     if (!lazy_orcjit_builder) {
         snprintf(buf, sizeof(buf), "failed to create lazy jit builder.");
-        LLVMOrcDisposeJITTargetMachineBuilder(tm_builder);
-        goto fail5;
+        goto fail;
     }
 
     LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(lazy_orcjit_builder,
                                                       tm_builder);
 
     /* if success, it will dispose lazy_orcjit_builder memory */
-    if ((error = 
-            LLVMOrcCreateLLLazyJIT(&llvm_lazy_orcjit, lazy_orcjit_builder))) {
+    error = LLVMOrcCreateLLLazyJIT(&lazy_orcjit, lazy_orcjit_builder);
+    if (error) {
         aot_handle_llvm_errmsg(buf, sizeof(buf), 
-                "failed to create llvm lazy orcjit instance", error);
-        LLVMOrcDisposeLLLazyJITBuilder(lazy_orcjit_builder);
-        LLVMOrcDisposeJITTargetMachineBuilder(tm_builder);
-        goto fail5;
+                               "failed to create llvm lazy orcjit instance",
+                               error);
+        goto fail;
     }
+    lazy_orcjit_builder = NULL;
 
-    error =
-        LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(
-            &main_gen,
-            LLVMOrcLLLazyJITGetGlobalPrefix(llvm_lazy_orcjit),
-            0, NULL);
-
+    error = LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(
+                &main_gen, LLVMOrcLLLazyJITGetGlobalPrefix(lazy_orcjit),
+                0, NULL);
     if (error) {
         aot_handle_llvm_errmsg(buf, sizeof(buf), 
                 "failed to create dynmaic library search generator", error);
-        LLVMOrcDisposeLLLazyJIT(llvm_lazy_orcjit);
-        LLVMOrcDisposeJITTargetMachineBuilder(tm_builder);
-        goto fail5;
+        goto fail;
     }
 
-    LLVMOrcJITDylibAddGenerator(
-        LLVMOrcLLLazyJITGetMainJITDylib(llvm_lazy_orcjit),
-        main_gen);
+    LLVMOrcJITDylibAddGenerator(LLVMOrcLLLazyJITGetMainJITDylib(lazy_orcjit),
+                                main_gen);
 
-    comp_ctx->lazy_orcjit = llvm_lazy_orcjit;
+    comp_ctx->lazy_orcjit = lazy_orcjit;
     comp_ctx->target_machine = tm_opt;
+    comp_ctx->tm_builder = tm_builder;
+    LLVMDisposeMessage(llvm_triple);
     LLVMDisposeMessage(cpu);
-    cpu = NULL;
     LLVMDisposeMessage(features);
-    features = NULL;
     return true;
 
-fail6:
-    LLVMDisposeTargetMachine(tm_opt2);
-fail5:
-    LLVMDisposeTargetMachine(tm_opt);
-fail4:
-    LLVMDisposeMessage(features);
-fail3:
-    LLVMDisposeMessage(cpu);
-fail2:
-    LLVMDisposeMessage(llvm_triple);
-fail1:
+fail:
+    if (lazy_orcjit)
+        LLVMOrcDisposeLLLazyJIT(lazy_orcjit);
+    if (tm_builder)
+        LLVMOrcDisposeJITTargetMachineBuilder(tm_builder);
+    if (lazy_orcjit_builder)
+        LLVMOrcDisposeLLLazyJITBuilder(lazy_orcjit_builder);
+    if (tm_opt2)
+        LLVMDisposeTargetMachine(tm_opt2);
+    if (tm_opt)
+        LLVMDisposeTargetMachine(tm_opt);
+    if (features)
+        LLVMDisposeMessage(features);
+    if (cpu)
+        LLVMDisposeMessage(cpu);
+    if (llvm_triple)
+        LLVMDisposeMessage(llvm_triple);
     aot_set_last_error(buf);
     return false;
 }
@@ -1367,7 +1371,6 @@ aot_create_comp_context(AOTCompData *comp_data,
                         aot_comp_option_t option)
 {
     AOTCompContext *comp_ctx, *ret = NULL;
-    /*LLVMTypeRef elem_types[8];*/
 #if WASM_ENABLE_LAZY_JIT == 0
     struct LLVMMCJITCompilerOptions jit_options;
 #endif
@@ -1907,33 +1910,29 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (!comp_ctx)
         return;
 
-#if WASM_ENABLE_LAZY_JIT != 0
     if (comp_ctx->pass_mgr) {
         LLVMFinalizeFunctionPassManager(comp_ctx->pass_mgr);
         LLVMDisposePassManager(comp_ctx->pass_mgr);
     }
 
+#if WASM_ENABLE_LAZY_JIT != 0
     if (comp_ctx->target_machine && comp_ctx->is_jit_mode)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);
 
     if (comp_ctx->builder)
         LLVMDisposeBuilder(comp_ctx->builder);
 
-    if (comp_ctx->lazy_orcjit) {
+    if (comp_ctx->lazy_orcjit)
         LLVMOrcDisposeLLLazyJIT(comp_ctx->lazy_orcjit);
-        comp_ctx->lazy_orcjit = NULL;
-    }
 
-    if (comp_ctx->ts_context) {
+    if (comp_ctx->ts_context)
         LLVMOrcDisposeThreadSafeContext(comp_ctx->ts_context);
-        comp_ctx->ts_context = NULL;
-    }
+
+    if (comp_ctx->tm_builder)
+        LLVMOrcDisposeJITTargetMachineBuilder(comp_ctx->tm_builder);
 
     LLVMShutdown();
 #else
-    if (comp_ctx->pass_mgr)
-        LLVMDisposePassManager(comp_ctx->pass_mgr);
-
     if (comp_ctx->target_machine && !comp_ctx->is_jit_mode)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);
 
@@ -1950,7 +1949,6 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 
     if (comp_ctx->context)
         LLVMContextDispose(comp_ctx->context);
-
 #endif
 
     if (comp_ctx->func_ctxes)
