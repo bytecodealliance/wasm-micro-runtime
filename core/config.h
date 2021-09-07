@@ -75,10 +75,17 @@
 #define WASM_ENABLE_JIT 0
 #endif
 
+#ifndef WASM_ENABLE_LAZY_JIT
+#define WASM_ENABLE_LAZY_JIT 0
+#endif
+
 #if (WASM_ENABLE_AOT == 0) && (WASM_ENABLE_JIT != 0)
-/* JIT can only be enabled when AOT is enabled */
+/* LazyJIT or MCJIT can only be enabled when AOT is enabled */
 #undef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
+
+#undef WASM_ENABLE_LAZY_JIT
+#define WASM_ENABLE_LAZY_JIT 0
 #endif
 
 #ifndef WASM_ENABLE_WAMR_COMPILER
