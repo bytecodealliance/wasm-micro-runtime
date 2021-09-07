@@ -25,6 +25,8 @@
 #define BUILD_TARGET "armv6"
 #elif defined(RTT_WAMR_BUILD_TARGET_ARMV4)
 #define BUILD_TARGET "armv4"
+#elif defined(RTT_WAMR_BUILD_TARGET_X86_32)
+#define BUILD_TARGET "X86_32"
 #else
 #error "unsupported aot platform."
 #endif

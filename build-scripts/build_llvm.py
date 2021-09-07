@@ -140,7 +140,10 @@ def main():
     print(f"========== Build LLVM for {platform} ==========\n")
 
     llvm_repo_and_branch = {
-        "arc": {"repo": "https://github.com/llvm/llvm-project.git", "branch": "main"},
+        "arc": {
+            "repo": "https://github.com/llvm/llvm-project.git",
+            "branch": "release/13.x"
+        },
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
             "branch": "xtensa_release_11.0.0",
