@@ -373,18 +373,17 @@ int iwasm(int argc, char **argv)
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
 
-    fail3:
+fail3:
     /* unload the module */
     wasm_runtime_unload(wasm_module);
 
-    fail2:
+fail2:
     /* free the file buffer */
     rt_free(wasm_file_buf);
 
-    fail1:
+fail1:
     /* destroy runtime environment */
     wasm_runtime_destroy();
     return 0;
 }
 MSH_CMD_EXPORT(iwasm, Embeded VM of WebAssembly);
-
