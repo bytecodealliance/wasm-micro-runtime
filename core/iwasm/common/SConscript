@@ -18,6 +18,8 @@ if rtconfig.ARCH == 'arm':
         src += ['arch/invokeNative_thumb.s']
     elif re.match('^cortex-a.*', rtconfig.CPU):
         src += ['arch/invokeNative_arm.s']
+elif rtconfig.ARCH == 'ia32':
+    src += ['arch/invokeNative_ia32.s']
 
 CPPPATH = [cwd, cwd + '/../include']
 
