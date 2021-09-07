@@ -16,7 +16,7 @@ LLVMOrcDisposeLLJITBuilder(LLVMOrcLLJITBuilderRef Builder);
 
 LLVMErrorRef
 LLVMOrcCreateLLJIT(LLVMOrcLLJITRef *Result,
-                       LLVMOrcLLJITBuilderRef Builder);
+                   LLVMOrcLLJITBuilderRef Builder);
 
 LLVMErrorRef
 LLVMOrcDisposeLLJIT(LLVMOrcLLJITRef J);
@@ -125,3 +125,4 @@ LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J)
 {
     return LLVMOrcLLJITGetGlobalPrefix(J);
 }
+

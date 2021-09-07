@@ -74,3 +74,4 @@ LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J);
 #endif
 
 #endif /* end of AOT_LLVM_LAZYJIT_H */
+
