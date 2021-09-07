@@ -180,12 +180,10 @@ void os_munmap(void *addr, size_t size)
     rt_free(addr);
 }
 
-#ifdef OS_ENABLE_HW_BOUND_CHECK
 int os_mprotect(void *addr, size_t size, int prot)
 {
     return 0;
 }
-#endif
 
 void os_dcache_flush(void)
 {

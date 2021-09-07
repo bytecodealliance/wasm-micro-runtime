@@ -11,14 +11,11 @@ from building import *
 
 Import('rtconfig')
 
-src = Split('''
-''')
+src  = []
 objs = []
 cwd  = GetCurrentDir()
 
 IWASM_INC_DIR = os.path.join(cwd, '..', 'core', 'iwasm', 'include')
-
-# include_directories (${IWASM_DIR}/include)
 
 CPPPATH = [IWASM_INC_DIR]
 
@@ -48,11 +45,10 @@ if rtconfig.ARCH == 'arm':
         print('[WAMR] using armv4')
         CPPDEFINES += ['BUILD_TARGET_ARM']
         CPPDEFINES += ['RTT_WAMR_BUILD_TARGET_ARMV4']
+elif rtconfig.ARCH == 'ia32':
+   CPPDEFINES += ['BUILD_TARGET_X86_32', 'RTT_WAMR_BUILD_TARGET_X86_32']
 else:
     print("[WAMR] unknown arch", rtconfig.ARCH)
-
-
-LIBS = ['m']
 
 if GetDepend(['WAMR_BUILD_INTERP']):
     CPPDEFINES += ['WASM_ENABLE_INTERP=1']
@@ -114,8 +110,8 @@ if GetDepend(['WAMR_BUILD_TAIL_CALL']):
     CPPDEFINES += ['WASM_ENABLE_TAIL_CALL=1']
     print('[WAMR] Tail call enabledd')
 
+LIBS = ['m']
 
-group = DefineGroup('wamr_config_common', src, depend = ['PKG_USING_WAMR'], CPPPATH = CPPPATH, CPPDEFINES = CPPDEFINES, LIBS = LIBS)
+group = DefineGroup('wamr', src, depend = ['PKG_USING_WAMR'], CPPPATH = CPPPATH, CPPDEFINES = CPPDEFINES, LIBS = LIBS)
 
 Return('group')
-

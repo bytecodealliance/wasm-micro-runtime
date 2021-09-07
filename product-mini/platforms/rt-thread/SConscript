@@ -6,13 +6,9 @@
 
 from building import *
 
-cwd     = GetCurrentDir()
-
-
+cwd = GetCurrentDir()
 src = Glob('*.c')
 
-CPPPATH = [cwd]
-
-group = DefineGroup('iwasm_entry', src, depend = ['PKG_USING_WAMR'], CPPPATH = CPPPATH)
+group = DefineGroup('iwasm', src, depend = ['PKG_USING_WAMR'])
 
 Return('group')
