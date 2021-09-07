@@ -18,6 +18,14 @@
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm-c/Transforms/Vectorize.h"
 
+#if WASM_ENABLE_LAZY_JIT != 0
+#include "aot_llvm_lazyjit.h"
+#include "llvm-c/Orc.h"
+#include "llvm-c/Error.h"
+#include "llvm-c/Initialization.h"
+#include "llvm-c/Support.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -227,7 +235,13 @@ typedef struct AOTCompContext {
   uint64 flags[8];
 
   /* LLVM execution engine required by JIT */
+#if WASM_ENABLE_LAZY_JIT != 0
+  LLVMOrcLLLazyJITRef lazy_orcjit;
+  LLVMOrcThreadSafeContextRef ts_context;
+  LLVMOrcJITTargetMachineBuilderRef tm_builder;
+#else
   LLVMExecutionEngineRef exec_engine;
+#endif
   bool is_jit_mode;
 
   /* AOT indirect mode flag & symbol list */
@@ -402,6 +416,14 @@ aot_get_func_from_table(const AOTCompContext *comp_ctx,
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
+
+#if WASM_ENABLE_LAZY_JIT != 0
+void 
+aot_handle_llvm_errmsg(char *error_buf,
+                       uint32 error_buf_size,
+                       const char *string,
+                       LLVMErrorRef error);
+#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */
