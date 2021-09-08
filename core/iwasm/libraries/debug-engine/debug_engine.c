@@ -218,7 +218,7 @@ wasm_debug_instance_create(WASMCluster *cluster)
 
     exec_env = bh_list_first_elem(&cluster->exec_env_list);
 
-    /* exec_evn is created.but handle may not be set yet. */
+    /* exec_evn is created, but handle may not be set yet. */
     instance->current_tid = exec_env ? exec_env->handle : 0;
 
     instance->control_thread->port =
@@ -696,13 +696,17 @@ wasm_debug_instance_add_breakpoint(WASMDebugInstance *instance,
                 return false;
             }
             breakpoint->addr = offset;
-            //TODO: how about if more the one breakpoints set at the same addr?
-            bh_memcpy_s(&breakpoint->orignal_data, sizeof(break_instr),
+            /* TODO: how to if more than one breakpoints are set
+                     at the same addr? */
+            bh_memcpy_s(&breakpoint->orignal_data,
+                        (uint32)sizeof(break_instr),
                         module_inst->module->load_addr + offset,
-                        sizeof(break_instr));
+                        (uint32)sizeof(break_instr));
 
             bh_memcpy_s(module_inst->module->load_addr + offset,
-                        sizeof(break_instr), break_instr, sizeof(break_instr));
+                        (uint32)sizeof(break_instr),
+                        break_instr,
+                        (uint32)sizeof(break_instr));
 
             bh_list_insert(&instance->break_point_list, breakpoint);
             return true;
@@ -740,10 +744,12 @@ wasm_debug_instance_remove_breakpoint(WASMDebugInstance *instance,
                 WASMDebugBreakPoint *next_break =
                   bh_list_elem_next(breakpoint);
                 if (breakpoint->addr == offset) {
-                    //TODO: how about if more the one breakpoints set at the same addr?
+                    /* TODO: how to if more than one breakpoints are set
+                       at the same addr? */
                     bh_memcpy_s(module_inst->module->load_addr + offset,
-                                sizeof(break_instr), &breakpoint->orignal_data,
-                                sizeof(break_instr));
+                                (uint32)sizeof(break_instr),
+                                &breakpoint->orignal_data,
+                                (uint32)sizeof(break_instr));
                     bh_list_remove(&instance->break_point_list, breakpoint);
                     wasm_runtime_free(breakpoint);
                 }
@@ -951,8 +957,8 @@ wasm_debug_instance_mmap(WASMDebugInstance *instance,
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
 
-    /*TODO: malloc in wasi libc maybe not be thread safe, we hope LLDB will
-    always ask for memory when threads stopped */
+    /* TODO: malloc in wasi libc maybe not be thread safe, we hope LLDB will
+             always ask for memory when threads stopped */
     offset = wasm_runtime_module_malloc((wasm_module_inst_t)module_inst, size,
                                         &native_addr);
     if (!offset)

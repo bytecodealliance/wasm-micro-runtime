@@ -129,7 +129,7 @@ wasm_debug_instance_destroy_memregion(WASMDebugInstance *instance,
 
 bool
 wasm_debug_instance_get_obj_mem(WASMDebugInstance *instance,
-                                 uint64 addr, char *buf, uint64 *size);
+                                uint64 addr, char *buf, uint64 *size);
 
 bool
 wasm_debug_instance_get_linear_mem(WASMDebugInstance *instance,
@@ -137,7 +137,7 @@ wasm_debug_instance_get_linear_mem(WASMDebugInstance *instance,
 
 bool
 wasm_debug_instance_get_mem(WASMDebugInstance *instance,
-                                 uint64 addr, char *buf, uint64 *size);
+                            uint64 addr, char *buf, uint64 *size);
 
 bool
 wasm_debug_instance_set_mem(WASMDebugInstance *instance,
