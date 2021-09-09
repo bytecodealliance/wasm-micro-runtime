@@ -21,6 +21,7 @@ char *
 mem2hex(char *mem, char *buf, int count)
 {
     unsigned char ch;
+
     for (int i = 0; i < count; i++) {
         ch = *(mem++);
         *buf++ = hexchars[ch >> 4];
@@ -34,6 +35,7 @@ char *
 hex2mem(char *buf, char *mem, int count)
 {
     unsigned char ch;
+
     for (int i = 0; i < count; i++) {
         ch = hex(*buf++) << 4;
         ch = ch + hex(*buf++);

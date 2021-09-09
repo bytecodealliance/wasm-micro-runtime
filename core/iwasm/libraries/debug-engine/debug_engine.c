@@ -34,12 +34,19 @@ static void *
 control_thread_routine(void *arg)
 {
     WASMDebugObject *debug_object = (WASMDebugObject *)arg;
+
     LOG_WARNING("control thread of debug objet %p start at %s:%d\n",
                 debug_object, debug_object->control_thread->ip_addr,
                 debug_object->control_thread->port);
+
     debug_object->control_thread->server =
       wasm_launch_gdbserver(debug_object->control_thread->ip_addr,
                             debug_object->control_thread->port);
+    if (!debug_object->control_thread->server) {
+        LOG_ERROR("Failed to create debug server\n");
+        return NULL;
+    }
+
     debug_object->control_thread->server->thread =
       debug_object->control_thread;
 
@@ -245,11 +252,13 @@ wasm_cluster_get_debug_instance(WASMDebugEngine *engine, WASMCluster *cluster)
 void
 wasm_debug_instance_destroy(WASMCluster *cluster)
 {
+    WASMDebugInstance *instance = NULL;
+
     if (!g_debug_engine) {
         return;
     }
-    WASMDebugInstance *instance =
-      wasm_cluster_get_debug_instance(g_debug_engine, cluster);
+
+    instance = wasm_cluster_get_debug_instance(g_debug_engine, cluster);
     if (instance) {
         wasm_debug_control_thread_destroy((WASMDebugObject *)instance);
         bh_list_remove(&g_debug_engine->debug_instance_list, instance);
@@ -261,6 +270,7 @@ static WASMExecEnv *
 wasm_debug_instance_get_current_env(WASMDebugInstance *instance)
 {
     WASMExecEnv *exec_env = NULL;
+
     if (instance) {
         exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
         while (exec_env) {
@@ -281,8 +291,10 @@ wasm_debug_instance_get_current_object_name(WASMDebugInstance *instance,
     WASMExecEnv *exec_env;
     WASIArguments *wasi_args;
     WASMModuleInstance *module_inst;
+
     if (!instance)
         return false;
+
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     if (!exec_env)
         return false;
@@ -327,8 +339,10 @@ wasm_debug_instance_get_tids(WASMDebugInstance *instance,
 {
     WASMExecEnv *exec_env;
     int i = 0;
+
     if (!instance)
         return 0;
+
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env && i < len) {
         tids[i++] = exec_env->handle;
@@ -344,6 +358,7 @@ wasm_debug_instance_wait_thread(WASMDebugInstance *instance,
 {
     WASMExecEnv *exec_env;
     WASMExecEnv *last_exec_env = NULL;
+
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env) {
         last_exec_env = exec_env;
@@ -381,7 +396,8 @@ wasm_debug_instance_get_pc(WASMDebugInstance *instance)
         return 0;
 
     exec_env = wasm_debug_instance_get_current_env(instance);
-    if (exec_env->cur_frame->ip != NULL) {
+    if ((exec_env->cur_frame != NULL)
+        && (exec_env->cur_frame->ip != NULL)) {
         WASMModuleInstance *module_inst =
           (WASMModuleInstance *)exec_env->module_inst;
         return WASM_ADDR(
@@ -398,10 +414,12 @@ wasm_debug_instance_get_load_addr(WASMDebugInstance *instance)
 
     if (!instance)
         return WASM_ADDR(WasmInvalid, 0, 0);
+
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     if (exec_env) {
         return WASM_ADDR(WasmObj, instance->id, 0);
     }
+
     return WASM_ADDR(WasmInvalid, 0, 0);
 }
 
@@ -444,6 +462,7 @@ wasm_debug_instance_get_memregion(WASMDebugInstance *instance, uint64 addr)
             break;
         case WasmMemory: {
             memory = module_inst->default_memory;
+
             if (memory) {
                 num_bytes_per_page = memory->num_bytes_per_page;
                 linear_mem_size = num_bytes_per_page * memory->cur_page_count;
@@ -624,6 +643,7 @@ wasm_exec_env_get_instance(WASMExecEnv *exec_env)
 {
     WASMDebugInstance *instance = NULL;
     bh_assert(g_debug_engine);
+
     instance = bh_list_first_elem(&g_debug_engine->debug_instance_list);
     while (instance) {
         if (instance->cluster == exec_env->cluster)
