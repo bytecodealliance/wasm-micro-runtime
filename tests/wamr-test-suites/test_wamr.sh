@@ -322,7 +322,7 @@ function spec_test()
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
         if [ ! -f ${WAT2WASM} ]; then
-            if [ ! -f /tmp/wabt-1.0.23-linux.tar.gz ]; then
+            if [ ! -f /tmp/wabt-1.0.23-ubuntu.tar.gz ]; then
                 wget \
                     https://github.com/WebAssembly/wabt/releases/download/1.0.23/wabt-1.0.23-ubuntu.tar.gz \
                     -P /tmp
