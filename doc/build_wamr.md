@@ -199,7 +199,7 @@ make
 ```
 
 
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT and LazyJIT are disabled. 
+By default in Linux, the interpreter, AOT and WASI are enabled, and JIT and LazyJIT are disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
 To enable WASM JIT, firstly we should build LLVM:
