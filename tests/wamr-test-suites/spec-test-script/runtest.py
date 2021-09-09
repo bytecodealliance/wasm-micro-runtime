@@ -979,24 +979,27 @@ def create_tmpfiles(wast_name):
     if not os.path.exists(temp_file_directory):
         os.mkdir(temp_file_directory)
 
+    def makefile(name):
+        open(name, "w").close()
+
     # create temporal file with particular name
     temp_wast_file = os.path.join(temp_file_directory, ""+ wast_name + ".wast")
     if not os.path.exists(temp_wast_file):
-        os.mknod(temp_wast_file)
+        makefile(temp_wast_file)
     tempfiles.append(temp_wast_file)
 
     # now we define the same file name as wast for wasm & aot
     wasm_file = wast_name +".wasm"
     temp_wasm_file = os.path.join(temp_file_directory, wasm_file)
     if not os.path.exists(temp_wasm_file):
-        os.mknod(temp_wasm_file)
+        makefile(temp_wasm_file)
     tempfiles.append(temp_wasm_file)
 
     if test_aot:
         aot_file = wast_name +".aot"
         temp_aot_file =os.path.join(temp_file_directory, aot_file)
         if not os.path.exists(temp_aot_file):
-            os.mknod(temp_aot_file)
+            makefile(temp_aot_file)
         tempfiles.append(temp_aot_file)
 
     # add these temp file to temporal repo, will be deleted when finishing the test
