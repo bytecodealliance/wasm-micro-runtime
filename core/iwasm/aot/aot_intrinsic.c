@@ -514,7 +514,7 @@ add_intrinsic_capability(AOTCompContext *comp_ctx, uint64 flag)
 }
 
 static void
-add_f32_common_intrinsics_for_thumb2_fpu(AOTCompContext *comp_ctx)
+add_f32_common_intrinsics(AOTCompContext *comp_ctx)
 {
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FABS);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FADD);
@@ -526,7 +526,7 @@ add_f32_common_intrinsics_for_thumb2_fpu(AOTCompContext *comp_ctx)
 }
 
 static void
-add_f64_common_intrinsics_for_thumb2_fpu(AOTCompContext *comp_ctx)
+add_f64_common_intrinsics(AOTCompContext *comp_ctx)
 {
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_FABS);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_FADD);
@@ -602,13 +602,22 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
     if (!strncmp(comp_ctx->target_arch, "thumb", 5)) {
         if (!strcmp(comp_ctx->target_cpu, "cortex-m7")) {}
         else if (!strcmp(comp_ctx->target_cpu, "cortex-m4")) {
-            add_f64_common_intrinsics_for_thumb2_fpu(comp_ctx);
+            add_f64_common_intrinsics(comp_ctx);
         }
         else {
-            add_f32_common_intrinsics_for_thumb2_fpu(comp_ctx);
-            add_f64_common_intrinsics_for_thumb2_fpu(comp_ctx);
+            add_f32_common_intrinsics(comp_ctx);
+            add_f64_common_intrinsics(comp_ctx);
             add_common_float_integer_convertion(comp_ctx);
         }
+    }
+    else if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
+        /* 
+         * Note: Use builtin intrinsics since hardware float operation
+         * will cause rodata relocation
+         */
+        add_f32_common_intrinsics(comp_ctx);
+        add_f64_common_intrinsics(comp_ctx);
+        add_common_float_integer_convertion(comp_ctx);
     }
 }
 
