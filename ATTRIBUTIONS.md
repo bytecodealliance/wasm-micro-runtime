@@ -63,3 +63,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 ### zephyr
 
 [LICENSE](./samples/gui/wasm-runtime-wgl/src/platform/zephyr/LICENSE)
+
+### wac
+
+[LICENSE](./tests/wamr-test-suites/spec-test-script/LICENSE)
