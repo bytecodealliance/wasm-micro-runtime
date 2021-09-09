@@ -418,7 +418,7 @@ bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 #if WASM_ENABLE_LAZY_JIT != 0
-void 
+void
 aot_handle_llvm_errmsg(char *error_buf,
                        uint32 error_buf_size,
                        const char *string,

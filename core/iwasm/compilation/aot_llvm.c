@@ -1208,7 +1208,7 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
 void LLVMAddPromoteMemoryToRegisterPass(LLVMPassManagerRef PM);
 
 #if WASM_ENABLE_LAZY_JIT != 0
-void 
+void
 aot_handle_llvm_errmsg(char *error_buf,
                        uint32 error_buf_size,
                        const char *string,
@@ -1222,7 +1222,7 @@ aot_handle_llvm_errmsg(char *error_buf,
     LLVMDisposeErrorMessage(err_msg);
 }
 
-static bool 
+static bool
 llvm_orcjit_create(AOTCompContext *comp_ctx)
 {
     char *err_msg = NULL;
@@ -1317,7 +1317,7 @@ llvm_orcjit_create(AOTCompContext *comp_ctx)
     /* if success, it will dispose lazy_orcjit_builder memory */
     error = LLVMOrcCreateLLLazyJIT(&lazy_orcjit, lazy_orcjit_builder);
     if (error) {
-        aot_handle_llvm_errmsg(buf, sizeof(buf), 
+        aot_handle_llvm_errmsg(buf, sizeof(buf),
                                "failed to create llvm lazy orcjit instance",
                                error);
         goto fail;
@@ -1328,7 +1328,7 @@ llvm_orcjit_create(AOTCompContext *comp_ctx)
                 &main_gen, LLVMOrcLLLazyJITGetGlobalPrefix(lazy_orcjit),
                 0, NULL);
     if (error) {
-        aot_handle_llvm_errmsg(buf, sizeof(buf), 
+        aot_handle_llvm_errmsg(buf, sizeof(buf),
                 "failed to create dynmaic library search generator", error);
         goto fail;
     }
