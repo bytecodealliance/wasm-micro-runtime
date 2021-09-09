@@ -142,6 +142,11 @@ class Runner():
             except OSError:
                 pass
             self.p = None
+            self.stdin.close()
+            if self.stdin != self.stdout:
+                self.stdout.close()
+            self.stdin = None
+            self.stdout = None
             sys.exc_clear()
 
 def assert_prompt(runner, prompts, timeout, is_need_execute_result):
