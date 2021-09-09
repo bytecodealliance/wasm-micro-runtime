@@ -105,6 +105,9 @@ class Runner():
             [outs,_,_] = select([self.stdout], [], [], 1)
             if self.stdout in outs:
                 new_data = self.stdout.read(1)
+                if not new_data:
+                    # EOF on macOS ends up here.
+                    break
                 new_data = new_data.decode("utf-8") if IS_PY_3 else new_data
                 #print("new_data: '%s'" % new_data)
                 debug(new_data)
