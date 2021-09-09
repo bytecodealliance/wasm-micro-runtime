@@ -14,6 +14,7 @@ void
 pktbuf_insert(WASMGDBServer *gdbserver, const uint8_t *buf, ssize_t len)
 {
     WasmDebugPacket *pkt = &gdbserver->pkt;
+
     if ((unsigned long)(pkt->end + len) >= sizeof(pkt->buf)) {
         LOG_ERROR("Packet buffer overflow");
         exit(-2);
@@ -48,6 +49,7 @@ read_data_once(WASMGDBServer *gdbserver)
 {
     ssize_t nread;
     uint8_t buf[4096];
+
     nread = read(gdbserver->socket_fd, buf, sizeof(buf));
     if (nread <= 0) {
         LOG_ERROR("Connection closed");
@@ -61,6 +63,7 @@ void
 write_data_raw(WASMGDBServer *gdbserver, const uint8_t *data, ssize_t len)
 {
     ssize_t nwritten;
+
     nwritten = write(gdbserver->socket_fd, data, len);
     if (nwritten < 0) {
         LOG_ERROR("Write error\n");
@@ -139,6 +142,7 @@ bool
 skip_to_packet_start(WASMGDBServer *gdbserver)
 {
     ssize_t end = -1;
+
     for (size_t i = 0; i < gdbserver->pkt.end; ++i)
         if (gdbserver->pkt.buf[i] == '$') {
             end = i;

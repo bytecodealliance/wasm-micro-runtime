@@ -24,6 +24,7 @@
 #include "utils.h"
 
 typedef void (*PacketHandler)(WASMGDBServer *server, char *payload);
+
 struct packet_handler_elem {
     char request;
     PacketHandler handler;
@@ -38,15 +39,15 @@ static struct packet_handler_elem packet_handler_table[255] = {
     DEL_HANDLER('?', handle_threadstop_request),
     DEL_HANDLER('H', handle_set_current_thread),
     DEL_HANDLER('p', handle_get_register),
-    DEL_HANDLER('j', handle_get_json_requst),
+    DEL_HANDLER('j', handle_get_json_request),
     DEL_HANDLER('m', handle_get_read_memory),
     DEL_HANDLER('M', handle_get_write_memory),
     DEL_HANDLER('x', handle_get_read_binary_memory),
     DEL_HANDLER('Z', handle_add_break),
     DEL_HANDLER('z', handle_remove_break),
-    DEL_HANDLER('c', handle_contiue_requst),
-    DEL_HANDLER('k', handle_kill_requst),
-    DEL_HANDLER('_', handle____requst),
+    DEL_HANDLER('c', handle_continue_request),
+    DEL_HANDLER('k', handle_kill_request),
+    DEL_HANDLER('_', handle____request),
 };
 
 WASMGDBServer *

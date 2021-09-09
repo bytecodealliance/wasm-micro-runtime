@@ -5,6 +5,7 @@
 
 #ifndef _GDB_SERVER_H
 #define _GDB_SERVER_H
+
 #include <stdbool.h>
 
 #define PACKET_BUF_SIZE 0x8000

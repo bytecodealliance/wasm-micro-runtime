@@ -3,21 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#ifndef _ELF_PARSER_H_
-#define _ELF_PARSER_H_
+#ifndef _JIT_DEBUG_H_
+#define _JIT_DEBUG_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 bool
-init_jit_debug_engine();
-
-bool
-create_jit_code_entry(const uint8 *symfile_addr, uint64 symfile_size);
+jit_debug_engine_init();
 
 void
-destroy_jit_code_entry(const uint8 *symfile_addr);
+jit_debug_engine_destroy();
+
+bool
+jit_code_entry_create(const uint8 *symfile_addr, uint64 symfile_size);
+
+void
+jit_code_entry_destroy(const uint8 *symfile_addr);
 
 #ifdef __cplusplus
 }

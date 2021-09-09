@@ -16,16 +16,20 @@
 
 #define MAX_PACKET_SIZE (0x20000)
 static char tmpbuf[MAX_PACKET_SIZE];
+
 void
 handle_generay_set(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
+
     args = strchr(payload, ':');
     if (args)
         *args++ = '\0';
+
     name = payload;
     LOG_VERBOSE("%s:%s\n", __FUNCTION__, payload);
+
     if (!strcmp(name, "StartNoAckMode")) {
         server->noack = true;
         write_packet(server, "OK");
@@ -45,8 +49,10 @@ static void
 process_xfer(WASMGDBServer *server, const char *name, char *args)
 {
     const char *mode = args;
+
     args = strchr(args, ':');
     *args++ = '\0';
+
     if (!strcmp(name, "libraries") && !strcmp(mode, "read")) {
         //TODO: how to get current wasm file name?
         uint64_t addr = wasm_debug_instance_get_load_addr(
@@ -77,6 +83,7 @@ porcess_wasm_local(WASMGDBServer *server, char *args)
     char buf[16];
     int size = 16;
     bool ret;
+
     sprintf(tmpbuf, "E01");
     if (sscanf(args, "%d;%d", &frame_index, &local_index) == 2) {
         ret = wasm_debug_instance_get_local(
@@ -97,6 +104,7 @@ porcess_wasm_global(WASMGDBServer *server, char *args)
     char buf[16];
     int size = 16;
     bool ret;
+
     sprintf(tmpbuf, "E01");
     if (sscanf(args, "%d;%d", &frame_index, &global_index) == 2) {
         ret = wasm_debug_instance_get_global(
@@ -114,11 +122,13 @@ handle_generay_query(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
+
     args = strchr(payload, ':');
     if (args)
         *args++ = '\0';
     name = payload;
     LOG_VERBOSE("%s:%s\n", __FUNCTION__, payload);
+
     if (!strcmp(name, "C")) {
         uint64_t pid, tid;
         pid = wasm_debug_instance_get_pid(
@@ -305,6 +315,7 @@ handle_v_packet(WASMGDBServer *server, char *payload)
         *args++ = '\0';
     name = payload;
     LOG_VERBOSE("%s:%s\n", __FUNCTION__, payload);
+
     if (!strcmp("Cont?", name))
         write_packet(server, "vCont;c;C;s;S;");
 
@@ -358,6 +369,7 @@ void
 handle_get_register(WASMGDBServer *server, char *payload)
 {
     int i = strtol(payload, NULL, 16);
+
     if (i != 0) {
         write_packet(server, "E01");
         return;
@@ -370,9 +382,10 @@ handle_get_register(WASMGDBServer *server, char *payload)
 }
 
 void
-handle_get_json_requst(WASMGDBServer *server, char *payload)
+handle_get_json_request(WASMGDBServer *server, char *payload)
 {
     char *args;
+
     args = strchr(payload, ':');
     if (args)
         *args++ = '\0';
@@ -390,6 +403,7 @@ handle_get_read_memory(WASMGDBServer *server, char *payload)
 {
     size_t maddr, mlen;
     bool ret;
+
     sprintf(tmpbuf, "%s", "");
     if (sscanf(payload, "%zx,%zx", &maddr, &mlen) == 2) {
         if (mlen * 2 > MAX_PACKET_SIZE) {
@@ -417,6 +431,7 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
     int offset, act_len;
     char *buff;
     bool ret;
+
     sprintf(tmpbuf, "%s", "");
     if (sscanf(payload, "%zx,%zx:%n", &maddr, &mlen, &offset) == 2) {
         payload += offset;
@@ -441,6 +456,7 @@ void
 handle_add_break(WASMGDBServer *server, char *payload)
 {
     size_t type, addr, length;
+
     if (sscanf(payload, "%zx,%zx,%zx", &type, &addr, &length) == 3) {
         if (type == eBreakpointSoftware) {
             bool ret = wasm_debug_instance_add_breakpoint(
@@ -460,6 +476,7 @@ void
 handle_remove_break(WASMGDBServer *server, char *payload)
 {
     size_t type, addr, length;
+
     if (sscanf(payload, "%zx,%zx,%zx", &type, &addr, &length) == 3) {
         if (type == eBreakpointSoftware) {
             bool ret = wasm_debug_instance_remove_breakpoint(
@@ -476,7 +493,7 @@ handle_remove_break(WASMGDBServer *server, char *payload)
 }
 
 void
-handle_contiue_requst(WASMGDBServer *server, char *payload)
+handle_continue_request(WASMGDBServer *server, char *payload)
 {
     uint64_t tid;
     uint32_t status;
@@ -494,10 +511,11 @@ handle_contiue_requst(WASMGDBServer *server, char *payload)
 }
 
 void
-handle_kill_requst(WASMGDBServer *server, char *payload)
+handle_kill_request(WASMGDBServer *server, char *payload)
 {
     uint64_t tid;
     uint32_t status;
+
     wasm_debug_instance_kill(
       (WASMDebugInstance *)server->thread->debug_instance);
 
@@ -551,9 +569,11 @@ static void
 handle_free(WASMGDBServer *server, char *payload)
 {
     uint64_t addr;
+    bool ret;
+
     sprintf(tmpbuf, "%s", "E03");
     addr = strtol(payload, NULL, 16);
-    bool ret;
+
     ret = wasm_debug_instance_ummap(
       (WASMDebugInstance *)server->thread->debug_instance, addr);
     if (ret) {
@@ -563,9 +583,10 @@ handle_free(WASMGDBServer *server, char *payload)
 }
 
 void
-handle____requst(WASMGDBServer *server, char *payload)
+handle____request(WASMGDBServer *server, char *payload)
 {
     char *args;
+
     if (payload[0] == 'M') {
         args = payload + 1;
         handle_malloc(server, args);

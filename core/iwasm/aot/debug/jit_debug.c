@@ -30,7 +30,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-// This must be kept in sync with gdb/gdb/jit.h .
+/* This must be kept in sync with gdb/gdb/jit.h */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,11 +55,13 @@ typedef struct JITDescriptor {
     JITCodeEntry *first_entry_;
 } JITDescriptor;
 
-//LLVM has already define this.
+/* LLVM has already define this */
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
-// GDB will place breakpoint into this function.
-// To prevent GCC from inlining or removing it we place noinline attribute
-// and inline assembler statement inside.
+/**
+ * GDB will place breakpoint into this function.
+ * To prevent GCC from inlining or removing it we place noinline attribute
+ * and inline assembler statement inside.
+ */
 void __attribute__((noinline)) __jit_debug_register_code();
 
 void __attribute__((noinline)) __jit_debug_register_code()
@@ -68,9 +70,11 @@ void __attribute__((noinline)) __jit_debug_register_code()
     *(char *)&x = '\0';
 }
 
-// GDB will inspect contents of this descriptor.
-// Static initialization is necessary to prevent GDB from seeing
-// uninitialized descriptor.
+/**
+ * GDB will inspect contents of this descriptor.
+ * Static initialization is necessary to prevent GDB from seeing
+ * uninitialized descriptor.
+ */
 
 JITDescriptor __jit_debug_descriptor = { 1, JIT_NOACTION, NULL, NULL };
 #else
@@ -78,8 +82,11 @@ extern void __jit_debug_register_code();
 extern JITDescriptor __jit_debug_descriptor;
 #endif
 
-// Call __jit_debug_register_code indirectly via global variable.
-// This gives the debugger an easy way to inject custom code to handle the events.
+/**
+ * Call __jit_debug_register_code indirectly via global variable.
+ * This gives the debugger an easy way to inject custom code to
+ * handle the events.
+ */
 void (*__jit_debug_register_code_ptr)() = __jit_debug_register_code;
 
 #ifdef __cplusplus
@@ -87,7 +94,7 @@ void (*__jit_debug_register_code_ptr)() = __jit_debug_register_code;
 #endif
 
 typedef struct WASMJITDebugEngine {
-    korp_mutex jit_entry_mutex;
+    korp_mutex jit_entry_lock;
     bh_list jit_entry_list;
 } WASMJITDebugEngine;
 
@@ -98,55 +105,16 @@ typedef struct WASMJITEntryNode {
 
 static WASMJITDebugEngine *jit_debug_engine;
 
-static bool
-wasm_jit_debug_engine_create()
-{
-    if (!(jit_debug_engine = wasm_runtime_malloc(sizeof(WASMJITDebugEngine)))) {
-        LOG_ERROR("WASM Debug Engine error: failed to allocate memory");
-        return false;
-    }
-    memset(jit_debug_engine, 0, sizeof(WASMJITDebugEngine));
-    return true;
-}
-
-static void
-wasm_jit_debug_engine_destroy()
-{
-    if (jit_debug_engine) {
-        wasm_runtime_free(jit_debug_engine);
-        jit_debug_engine = NULL;
-    }
-}
-
-bool
-init_jit_debug_engine()
-{
-    if (jit_debug_engine) {
-        return true;
-    }
-    if (!wasm_jit_debug_engine_create()) {
-        return false;
-    }
-    if (os_mutex_init(&jit_debug_engine->jit_entry_mutex) != 0) {
-        wasm_jit_debug_engine_destroy();
-        return false;
-    }
-    bh_list_init(&jit_debug_engine->jit_entry_list);
-    return true;
-}
-
 static JITCodeEntry *
 CreateJITCodeEntryInternal(const uint8 *symfile_addr, uint64 symfile_size)
 {
     JITCodeEntry *entry;
 
-    if (!jit_debug_engine)
-        return NULL;
+    os_mutex_lock(&jit_debug_engine->jit_entry_lock);
 
-    os_mutex_lock(&jit_debug_engine->jit_entry_mutex);
     if (!(entry = wasm_runtime_malloc(sizeof(JITCodeEntry)))) {
         LOG_ERROR("WASM JIT Debug Engine error: failed to allocate memory");
-        os_mutex_unlock(&jit_debug_engine->jit_entry_mutex);
+        os_mutex_unlock(&jit_debug_engine->jit_entry_lock);
         return NULL;
     }
     entry->symfile_addr_ = symfile_addr;
@@ -163,38 +131,88 @@ CreateJITCodeEntryInternal(const uint8 *symfile_addr, uint64 symfile_size)
     __jit_debug_descriptor.action_flag_ = JIT_REGISTER_FN;
 
     (*__jit_debug_register_code_ptr)();
-    os_mutex_unlock(&jit_debug_engine->jit_entry_mutex);
+
+    os_mutex_unlock(&jit_debug_engine->jit_entry_lock);
     return entry;
 }
 
 static void
 DestroyJITCodeEntryInternal(JITCodeEntry *entry)
 {
-    if (!jit_debug_engine)
-        return;
-    os_mutex_lock(&jit_debug_engine->jit_entry_mutex);
+    os_mutex_lock(&jit_debug_engine->jit_entry_lock);
+
     if (entry->prev_ != NULL) {
         entry->prev_->next_ = entry->next_;
     }
-    else { __jit_debug_descriptor.first_entry_ = entry->next_; }
+    else {
+        __jit_debug_descriptor.first_entry_ = entry->next_;
+    }
+
     if (entry->next_ != NULL) {
         entry->next_->prev_ = entry->prev_;
     }
+
     __jit_debug_descriptor.relevant_entry_ = entry;
     __jit_debug_descriptor.action_flag_ = JIT_UNREGISTER_FN;
     (*__jit_debug_register_code_ptr)();
+
     wasm_runtime_free(entry);
-    os_mutex_unlock(&jit_debug_engine->jit_entry_mutex);
+
+    os_mutex_unlock(&jit_debug_engine->jit_entry_lock);
 }
 
 bool
-create_jit_code_entry(const uint8 *symfile_addr, uint64 symfile_size)
+jit_debug_engine_init()
+{
+    if (jit_debug_engine) {
+        return true;
+    }
+
+    if (!(jit_debug_engine =
+                wasm_runtime_malloc(sizeof(WASMJITDebugEngine)))) {
+        LOG_ERROR("WASM JIT Debug Engine error: failed to allocate memory");
+        return false;
+    }
+    memset(jit_debug_engine, 0, sizeof(WASMJITDebugEngine));
+
+    if (os_mutex_init(&jit_debug_engine->jit_entry_lock) != 0) {
+        wasm_runtime_free(jit_debug_engine);
+        jit_debug_engine = NULL;
+        return false;
+    }
+
+    bh_list_init(&jit_debug_engine->jit_entry_list);
+    return true;
+}
+
+void
+jit_debug_engine_destroy()
+{
+    if (jit_debug_engine) {
+        WASMJITEntryNode *node, *node_next;
+
+        /* Destroy all nodes */
+        node = bh_list_first_elem(&jit_debug_engine->jit_entry_list);
+        while (node) {
+            node_next = bh_list_elem_next(node);
+            DestroyJITCodeEntryInternal(node->entry);
+            bh_list_remove(&jit_debug_engine->jit_entry_list, node);
+            wasm_runtime_free(node);
+            node = node_next;
+        }
+
+        /* Destroy JIT Debug Engine */
+        os_mutex_destroy(&jit_debug_engine->jit_entry_lock);
+        wasm_runtime_free(jit_debug_engine);
+        jit_debug_engine = NULL;
+    }
+}
+
+bool
+jit_code_entry_create(const uint8 *symfile_addr, uint64 symfile_size)
 {
     JITCodeEntry *entry;
     WASMJITEntryNode *node;
-
-    if (!jit_debug_engine)
-        return false;
 
     if (!(node = wasm_runtime_malloc(sizeof(WASMJITEntryNode)))) {
         LOG_ERROR("WASM JIT Debug Engine error: failed to allocate memory");
@@ -209,29 +227,27 @@ create_jit_code_entry(const uint8 *symfile_addr, uint64 symfile_size)
     }
 
     node->entry = entry;
+    os_mutex_lock(&jit_debug_engine->jit_entry_lock);
     bh_list_insert(&jit_debug_engine->jit_entry_list, node);
-
+    os_mutex_unlock(&jit_debug_engine->jit_entry_lock);
     return true;
 }
 
 void
-destroy_jit_code_entry(const uint8 *symfile_addr)
+jit_code_entry_destroy(const uint8 *symfile_addr)
 {
     WASMJITEntryNode *node;
-
-    if (!jit_debug_engine)
-        return;
 
     node = bh_list_first_elem(&jit_debug_engine->jit_entry_list);
     while (node) {
         WASMJITEntryNode *next_node = bh_list_elem_next(node);
         if (node->entry->symfile_addr_ == symfile_addr) {
             DestroyJITCodeEntryInternal(node->entry);
+            os_mutex_lock(&jit_debug_engine->jit_entry_lock);
             bh_list_remove(&jit_debug_engine->jit_entry_list, node);
+            os_mutex_unlock(&jit_debug_engine->jit_entry_lock);
             wasm_runtime_free(node);
         }
         node = next_node;
     }
-
-    wasm_jit_debug_engine_destroy();
 }

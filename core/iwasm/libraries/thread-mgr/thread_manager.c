@@ -489,6 +489,7 @@ WASMCurrentEnvStatus *
 wasm_cluster_create_exenv_status()
 {
     WASMCurrentEnvStatus *status;
+
     if (!(status = wasm_runtime_malloc(sizeof(WASMCurrentEnvStatus)))) {
         goto fail;
     }
@@ -501,6 +502,7 @@ wasm_cluster_create_exenv_status()
     status->signal_flag = 0;
     status->running_status = 0;
     return status;
+
 fail2:
     os_mutex_destroy(&status->wait_lock);
 fail1:
@@ -519,7 +521,8 @@ wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status)
 
 inline static bool
 wasm_cluster_thread_is_running(WASMExecEnv *exec_env) {
-   return exec_env->current_status->running_status == STATUS_RUNNING || exec_env->current_status->running_status == STATUS_STEP;
+   return exec_env->current_status->running_status == STATUS_RUNNING
+          || exec_env->current_status->running_status == STATUS_STEP;
 }
 
 void
@@ -533,7 +536,8 @@ wasm_cluster_wait_thread_status(WASMExecEnv *exec_env, uint32 * status)
 {
     os_mutex_lock(&exec_env->current_status->wait_lock);
     while (wasm_cluster_thread_is_running(exec_env)) {
-        os_cond_wait(&exec_env->current_status->wait_cond, &exec_env->current_status->wait_lock);
+        os_cond_wait(&exec_env->current_status->wait_cond,
+                     &exec_env->current_status->wait_lock);
     }
     *status = exec_env->current_status->signal_flag;
     os_mutex_unlock(&exec_env->current_status->wait_lock);
@@ -578,7 +582,6 @@ void wasm_cluster_thread_exited(WASMExecEnv *exec_env)
     os_cond_signal(&exec_env->current_status->wait_cond);
 
 }
-
 
 void wasm_cluster_thread_continue(WASMExecEnv *exec_env)
 {

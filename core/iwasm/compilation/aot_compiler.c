@@ -155,6 +155,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
   float32 f32_const;
   float64 f64_const;
   AOTFuncType *func_type = NULL;
+#if WASM_ENABLE_DEBUG_AOT != 0
+  LLVMMetadataRef location;
+#endif
 
   /* Start to translate the opcodes */
   LLVMPositionBuilderAtEnd(comp_ctx->builder,
@@ -164,10 +167,14 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
     opcode = *frame_ip++;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-    LLVMMetadataRef location = dwarf_gen_location(
+    location = dwarf_gen_location(
       comp_ctx, func_ctx,
       (frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
     );
+    if (!location) {
+        aot_set_last_error("dwarf generate location failed");
+        return false;
+    }
     LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
 #endif
 

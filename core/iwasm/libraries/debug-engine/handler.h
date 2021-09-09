@@ -5,7 +5,9 @@
 
 #ifndef HANDLER_H
 #define HANDLER_H
+
 #include "gdbserver.h"
+
 void
 handle_generay_set(WASMGDBServer *server, char *payload);
 
@@ -25,7 +27,7 @@ void
 handle_get_register(WASMGDBServer *server, char *payload);
 
 void
-handle_get_json_requst(WASMGDBServer *server, char *payload);
+handle_get_json_request(WASMGDBServer *server, char *payload);
 
 void
 handle_get_read_binary_memory(WASMGDBServer *server, char *payload);
@@ -43,11 +45,11 @@ void
 handle_remove_break(WASMGDBServer *server, char *payload);
 
 void
-handle_contiue_requst(WASMGDBServer *server, char *payload);
+handle_continue_request(WASMGDBServer *server, char *payload);
 
 void
-handle_kill_requst(WASMGDBServer *server, char *payload);
+handle_kill_request(WASMGDBServer *server, char *payload);
 
 void
-handle____requst(WASMGDBServer *server, char *payload);
+handle____request(WASMGDBServer *server, char *payload);
 #endif

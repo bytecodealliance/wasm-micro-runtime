@@ -1264,22 +1264,18 @@ load_text_section(const uint8 *buf, const uint8 *buf_end,
     module->elf_size = module->code_size;
 
     if (is_ELF(module->code)) {
-        /* Now code point to an ELF object, we pull it down to .text section
-        */
+        /* Now code points to an ELF object, we pull it down to .text section */
         uint64 offset;
         uint64 size;
         char *buf = module->code;
         module->elf_hdr = buf;
         if (!get_text_section(buf, &offset, &size)) {
-            set_error_buf(error_buf, error_buf_size, "get text section of ELF failed");
+            set_error_buf(error_buf, error_buf_size,
+                          "get text section of ELF failed");
             return false;
         }
         module->code = buf + offset;
         module->code_size -= (uint32)offset;
-        if (!init_jit_debug_engine()) {
-            set_error_buf(error_buf, error_buf_size, "init jit debug engine failed");
-            return false;
-        }
     }
 #endif
 
@@ -2273,7 +2269,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
 #endif
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-    if (!create_jit_code_entry(module->elf_hdr, module->elf_size)) {
+    if (!jit_code_entry_create(module->elf_hdr, module->elf_size)) {
         set_error_buf(error_buf, error_buf_size, "create jit code entry failed");
         return false;
     }
@@ -2925,7 +2921,7 @@ aot_unload(AOTModule *module)
         destroy_object_data_sections(module->data_sections,
                                      module->data_section_count);
 #if WASM_ENABLE_DEBUG_AOT != 0
-    destroy_jit_code_entry(module->elf_hdr);
+    jit_code_entry_destroy(module->elf_hdr);
 #endif
 
     wasm_runtime_free(module);

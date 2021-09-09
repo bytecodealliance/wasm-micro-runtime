@@ -852,15 +852,15 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 
 #if WASM_ENABLE_THREAD_MGR != 0
 #if WASM_ENABLE_DEBUG_INTERP != 0
-#define CHECK_SUSPEND_FLAGS() do {                                    \
-    if (IS_WAMR_TERM_SIG(exec_env->current_status->signal_flag)) {     \
-      return;                                                         \
-    }                                                                 \
-    if (IS_WAMR_STOP_SIG(exec_env->current_status->signal_flag)) {     \
-      SYNC_ALL_TO_FRAME();                                           \
-      wasm_cluster_thread_stopped(exec_env);                          \
-      wasm_cluster_thread_waiting_run(exec_env);                         \
-    }                                                                 \
+#define CHECK_SUSPEND_FLAGS() do {                                  \
+    if (IS_WAMR_TERM_SIG(exec_env->current_status->signal_flag)) {  \
+      return;                                                       \
+    }                                                               \
+    if (IS_WAMR_STOP_SIG(exec_env->current_status->signal_flag)) {  \
+      SYNC_ALL_TO_FRAME();                                          \
+      wasm_cluster_thread_stopped(exec_env);                        \
+      wasm_cluster_thread_waiting_run(exec_env);                    \
+    }                                                               \
   } while (0)
 #else
 #define CHECK_SUSPEND_FLAGS() do {                      \
@@ -869,10 +869,10 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
             /* terminate current thread */              \
             return;                                     \
         }                                               \
-/* TODO: support suspend and breakpoint */      \
         while (exec_env->suspend_flags.flags & 0x02){   \
+            /* suspend current thread */                \
             os_cond_wait(&exec_env->wait_cond,          \
-                          &exec_env->wait_lock);         \
+                         &exec_env->wait_lock);         \
         }                                               \
     }                                                   \
   } while (0)
@@ -3241,7 +3241,7 @@ label_pop_csp_n:
       {
         wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);
         exec_env->suspend_flags.flags |= 2;
-        frame_ip --;
+        frame_ip--;
         SYNC_ALL_TO_FRAME();
         CHECK_SUSPEND_FLAGS();
         HANDLE_OP_END ();
@@ -3389,7 +3389,7 @@ label_pop_csp_n:
 
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame*)frame);
 #if WASM_ENABLE_THREAD_MGR != 0
-          CHECK_SUSPEND_FLAGS();
+        CHECK_SUSPEND_FLAGS();
 #endif
       }
       HANDLE_OP_END ();
