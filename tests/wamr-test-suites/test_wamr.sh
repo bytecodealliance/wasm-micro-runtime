@@ -40,6 +40,7 @@ SGX_OPT=""
 # enable reference-types and bulk-memory by default
 # as they are finished and merged into spec
 ENABLE_REF_TYPES=1
+PLATFORM=$(uname -s | tr A-Z a-z)
 
 while getopts ":s:cabt:m:MCpSxr" opt
 do
@@ -145,8 +146,8 @@ if [[ ${SGX_OPT} == "--sgx" ]];then
     readonly IWASM_LINUX_ROOT_DIR="${WAMR_DIR}/product-mini/platforms/linux-sgx"
     readonly IWASM_CMD="${WAMR_DIR}/product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 else
-    readonly IWASM_LINUX_ROOT_DIR="${WAMR_DIR}/product-mini/platforms/linux"
-    readonly IWASM_CMD="${WAMR_DIR}/product-mini/platforms/linux/build/iwasm"
+    readonly IWASM_LINUX_ROOT_DIR="${WAMR_DIR}/product-mini/platforms/${PLATFORM}"
+    readonly IWASM_CMD="${WAMR_DIR}/product-mini/platforms/${PLATFORM}/build/iwasm"
 fi
 
 readonly WAMRC_CMD="${WAMR_DIR}/wamr-compiler/build/wamrc"
@@ -322,14 +323,26 @@ function spec_test()
         echo "download a binary release and install"
         local WAT2WASM=${WORK_DIR}/wabt/out/gcc/Release/wat2wasm
         if [ ! -f ${WAT2WASM} ]; then
-            if [ ! -f /tmp/wabt-1.0.23-linux.tar.gz ]; then
+            case ${PLATFORM} in
+                linux)
+                    WABT_PLATFORM=ubuntu
+                    ;;
+                darwin)
+                    WABT_PLATFORM=macos
+                    ;;
+                *)
+                    echo "wabt platform for ${PLATFORM} in unknown"
+                    exit 1
+                    ;;
+            esac
+            if [ ! -f /tmp/wabt-1.0.23-${WABT_PLATFORM}.tar.gz ]; then
                 wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.23/wabt-1.0.23-ubuntu.tar.gz \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.23/wabt-1.0.23-${WABT_PLATFORM}.tar.gz \
                     -P /tmp
             fi
 
             cd /tmp \
-            && tar zxf wabt-1.0.23-ubuntu.tar.gz \
+            && tar zxf wabt-1.0.23-${WABT_PLATFORM}.tar.gz \
             && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
             && install wabt-1.0.23/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
             && cd -
@@ -469,7 +482,7 @@ function build_iwasm_with_cfg()
         && make clean \
         && make SPEC_TEST=1
     else
-        cd ${WAMR_DIR}/product-mini/platforms/linux \
+        cd ${WAMR_DIR}/product-mini/platforms/${PLATFORM} \
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
