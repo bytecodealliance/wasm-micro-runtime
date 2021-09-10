@@ -18,7 +18,8 @@ DEBUG set -xevu
 readonly SPEC_TEST_DIR="spec/test/core"
 readonly WAST2WASM_CMD="./wabt/out/gcc/Release/wat2wasm"
 readonly WAMRC_CMD="../../../wamr-compiler/build/wamrc"
-IWASM_CMD="../../../product-mini/platforms/linux/build/iwasm"
+PLATFORM=$(uname -s | tr A-Z a-z)
+IWASM_CMD="../../../product-mini/platforms/${PLATFORM}/build/iwasm"
 
 # "imports" and "linking" are only avilable when enabling multi modules
 # "comments" is for runtest.py
