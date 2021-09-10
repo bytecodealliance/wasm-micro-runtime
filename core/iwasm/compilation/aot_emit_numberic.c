@@ -815,8 +815,17 @@ is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
          * so user must specify '--cpu-features=-fp' to wamrc if the target
          * doesn't have or enable Floating-Point Coprocessor Option on xtensa. */
         ret = (!is_f32 || strstr(feature_string, "-fp")) ? true : false;
-    else if (is_target_riscv(comp_ctx))
-        ret = !strstr(feature_string, "+d") ? true : false;
+    else if (is_target_riscv(comp_ctx)) {
+        /*
+         * Note: Use builtin intrinsics since hardware float operation
+         * will cause rodata relocation, this will try to use hardware
+         * float unit (by return false) but handled by software finally
+         */
+        if (comp_ctx->disable_llvm_intrinsics)
+            ret = false;
+        else
+            ret = !strstr(feature_string, "+d") ? true : false;
+    }
     else
         ret = true;
 
