@@ -4117,6 +4117,13 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
+    if (func_type->result_count > 4
+        && !(results = wasm_runtime_malloc(sizeof(wasm_val_t)
+                                           * func_type->result_count))) {
+        wasm_runtime_set_exception(module_inst, "allocate memory failed");
+        goto fail;
+    }
+
     if (!with_env) {
         wasm_func_callback_t callback = (wasm_func_callback_t)func_ptr;
         trap = callback(params, results);
@@ -4141,13 +4148,6 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
               module_inst, "native function throw unknown exception");
         }
         wasm_trap_delete(trap);
-        goto fail;
-    }
-
-    if (func_type->result_count > 4
-        && !(results = wasm_runtime_malloc(sizeof(wasm_val_t)
-                                           * func_type->result_count))) {
-        wasm_runtime_set_exception(module_inst, "allocate memory failed");
         goto fail;
     }
 
