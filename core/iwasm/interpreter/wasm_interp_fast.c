@@ -879,7 +879,7 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
                              WASMFunctionInstance *cur_func,
                              WASMInterpFrame *prev_frame)
 {
-   WASMModuleInstance *sub_module_inst = cur_func->import_module_inst;
+    WASMModuleInstance *sub_module_inst = cur_func->import_module_inst;
     WASMFunctionInstance *sub_func_inst = cur_func->import_func_inst;
     WASMFunctionImport *func_import = cur_func->u.func_import;
     uint8 *ip = prev_frame->ip;
@@ -3286,8 +3286,21 @@ recover_br_info:
     /* Only do the copy when it's called from interpreter.  */
     {
       WASMInterpFrame *outs_area = wasm_exec_env_wasm_stack_top(exec_env);
-      outs_area->lp = outs_area->operand + cur_func->const_cell_num;
-      for (int i = 0; i < cur_func->param_count; i++) {
+      int i;
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+      if (cur_func->is_import_func) {
+          outs_area->lp = outs_area->operand
+                          + (cur_func->import_func_inst
+                             ? cur_func->import_func_inst->const_cell_num
+                             : 0);
+      }
+      else
+#endif
+      {
+          outs_area->lp = outs_area->operand + cur_func->const_cell_num;
+      }
+      for (i = 0; i < cur_func->param_count; i++) {
         if (cur_func->param_types[i] == VALUE_TYPE_I64
           || cur_func->param_types[i] == VALUE_TYPE_F64) {
             PUT_I64_TO_ADDR(outs_area->lp,
