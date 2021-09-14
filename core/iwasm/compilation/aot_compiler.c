@@ -171,10 +171,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
       comp_ctx, func_ctx,
       (frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
     );
-    if (!location) {
-        aot_set_last_error("dwarf generate location failed");
-        return false;
-    }
     LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
 #endif
 
