@@ -21,7 +21,6 @@
 #endif
 
 static NativeSymbolsList g_native_symbols_list = NULL;
-static NativeSymbolsList g_native_symbols_list_end = NULL;
 
 uint32
 get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis);
@@ -75,7 +74,13 @@ check_symbol_signature(const WASMType *type, const char *signature)
 
     for (i = 0; i < type->param_count; i++) {
         sig = *p++;
-        if (sig == sig_map[type->types[i] - VALUE_TYPE_F64])
+        if ((type->types[i] >= VALUE_TYPE_F64
+             && type->types[i] <= VALUE_TYPE_I32
+             && sig == sig_map[type->types[i] - VALUE_TYPE_F64])
+#if WASM_ENABLE_REF_TYPES != 0
+            || (sig == 'i' && type->types[i] == VALUE_TYPE_EXTERNREF)
+#endif
+           )
             /* normal parameter */
             continue;
 
@@ -287,15 +292,10 @@ register_natives(const char *module_name,
     node->native_symbols = native_symbols;
     node->n_native_symbols = n_native_symbols;
     node->call_conv_raw = call_conv_raw;
-    node->next = NULL;
 
-    if (g_native_symbols_list_end) {
-        g_native_symbols_list_end->next = node;
-        g_native_symbols_list_end = node;
-    }
-    else {
-        g_native_symbols_list = g_native_symbols_list_end = node;
-    }
+    /* Add to list head */
+    node->next = g_native_symbols_list;
+    g_native_symbols_list = node;
 
 #if ENABLE_SORT_DEBUG != 0
     gettimeofday(&start, NULL);
@@ -417,5 +417,5 @@ wasm_native_destroy()
         node = node_next;
     }
 
-    g_native_symbols_list = g_native_symbols_list_end = NULL;
+    g_native_symbols_list = NULL;
 }

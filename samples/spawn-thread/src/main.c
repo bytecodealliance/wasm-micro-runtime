@@ -23,9 +23,16 @@ void *thread(void* arg)
     wasm_function_inst_t func;
     uint32 argv[2];
 
+    if (!wasm_runtime_init_thread_env()) {
+        printf("failed to initialize thread environment");
+        return NULL;
+    }
+
     func = wasm_runtime_lookup_function(module_inst, "sum", NULL);
     if (!func) {
         printf("failed to lookup function sum");
+        wasm_runtime_destroy_thread_env();
+        return NULL;
     }
     argv[0] = thread_arg->start;
     argv[1] = thread_arg->length;
@@ -33,9 +40,11 @@ void *thread(void* arg)
     /* call the WASM function */
     if (!wasm_runtime_call_wasm(exec_env, func, 2, argv)) {
         printf("%s\n", wasm_runtime_get_exception(module_inst));
+        wasm_runtime_destroy_thread_env();
         return NULL;
     }
 
+    wasm_runtime_destroy_thread_env();
     return (void *)(uintptr_t)argv[0];
 }
 
@@ -49,6 +58,7 @@ void *wamr_thread_cb(wasm_exec_env_t exec_env, void *arg)
     func = wasm_runtime_lookup_function(module_inst, "sum", NULL);
     if (!func) {
         printf("failed to lookup function sum");
+        return NULL;
     }
     argv[0] = thread_arg->start;
     argv[1] = thread_arg->length;
@@ -66,7 +76,7 @@ int main(int argc, char *argv[])
 {
     char *wasm_file = "wasm-apps/test.wasm";
     uint8 *wasm_file_buf = NULL;
-    uint32 wasm_file_size, wasm_argv[2], i;
+    uint32 wasm_file_size, wasm_argv[2], i, threads_created;
     uint32 stack_size = 16 * 1024, heap_size = 16 * 1024;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
@@ -123,6 +133,7 @@ int main(int argc, char *argv[])
     func = wasm_runtime_lookup_function(wasm_module_inst, "sum", NULL);
     if (!func) {
         printf("failed to lookup function sum");
+        goto fail5;
     }
     wasm_argv[0] = 0;
     wasm_argv[1] = THREAD_NUM * 10;
@@ -159,17 +170,20 @@ int main(int argc, char *argv[])
 
         if (0 != pthread_create(&tid[i], NULL, thread, &thread_arg[i])) {
             printf("failed to create thread.\n");
+            wasm_runtime_destroy_spawned_exec_env(new_exec_env);
             break;
         }
     }
 
+    threads_created = i;
+
     sum = 0;
     memset(result, 0, sizeof(uint32) * THREAD_NUM);
-    for (i = 0; i < THREAD_NUM; i++) {
+    for (i = 0; i < threads_created; i++) {
         pthread_join(tid[i], (void **)&result[i]);
         sum += result[i];
         /* destroy the spawned exec_env */
-        if (thread_arg[0].exec_env)
+        if (thread_arg[i].exec_env)
             wasm_runtime_destroy_spawned_exec_env(thread_arg[i].exec_env);
     }
 
@@ -191,15 +205,18 @@ int main(int argc, char *argv[])
         }
     }
 
+    threads_created = i;
+
     sum = 0;
     memset(result, 0, sizeof(uint32) * THREAD_NUM);
-    for (i = 0; i < THREAD_NUM; i++) {
+    for (i = 0; i < threads_created; i++) {
         wasm_runtime_join_thread(wasm_tid[i], (void**)&result[i]);
         sum += result[i];
         /* No need to destroy the spawned exec_env */
     }
     printf("[spwan_thread]sum result: %d\n", sum);
 
+fail5:
     wasm_runtime_destroy_exec_env(exec_env);
 
 fail4:
@@ -217,4 +234,5 @@ fail2:
 fail1:
     /* destroy runtime environment */
     wasm_runtime_destroy();
+    return 0;
 }

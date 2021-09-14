@@ -311,13 +311,16 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
     uint32 dir_list_size = *(uint32 *)args++;
     char **env_list = *(char ***)args++;
     uint32 env_list_size = *(uint32 *)args++;
+    int stdinfd = *(int *)args++;
+    int stdoutfd = *(int *)args++;
+    int stderrfd = *(int *)args++;
     char **wasi_argv = *(char ***)args++;
     char *p, *p1;
     uint32 wasi_argc = *(uint32 *)args++;
     uint64 total_size = 0;
     int32 i, str_len;
 
-    bh_assert(argc == 7);
+    bh_assert(argc == 10);
 
     total_size += sizeof(char *) * (uint64)dir_list_size
                   + sizeof(char *) * (uint64)env_list_size
@@ -382,14 +385,17 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
         p += sizeof(char *) * wasi_argc;
     }
 
-    wasm_runtime_set_wasi_args(enclave_module->module,
-                               (const char **)enclave_module->wasi_dir_list,
-                               dir_list_size,
-                               NULL, 0,
-                               (const char **)enclave_module->wasi_env_list,
-                               env_list_size,
-                               enclave_module->wasi_argv,
-                               enclave_module->wasi_argc);
+    wasm_runtime_set_wasi_args_ex(enclave_module->module,
+                                  (const char **)enclave_module->wasi_dir_list,
+                                  dir_list_size,
+                                  NULL, 0,
+                                  (const char **)enclave_module->wasi_env_list,
+                                  env_list_size,
+                                  enclave_module->wasi_argv,
+                                  enclave_module->wasi_argc,
+                                  (stdinfd != -1) ? stdinfd : 0,
+                                  (stdoutfd != -1) ? stdoutfd : 1,
+                                  (stderrfd != -1) ? stderrfd : 2);
 
     *args_org = true;
 }

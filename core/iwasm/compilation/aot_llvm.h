@@ -7,6 +7,7 @@
 #define _AOT_LLVM_H_
 
 #include "aot.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Core.h"
@@ -16,6 +17,14 @@
 #include "llvm-c/Transforms/Utils.h"
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm-c/Transforms/Vectorize.h"
+
+#if WASM_ENABLE_LAZY_JIT != 0
+#include "aot_llvm_lazyjit.h"
+#include "llvm-c/Orc.h"
+#include "llvm-c/Error.h"
+#include "llvm-c/Initialization.h"
+#include "llvm-c/Support.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,6 +112,7 @@ typedef struct AOTCheckedAddr {
 
 typedef struct AOTMemInfo {
   LLVMValueRef mem_base_addr;
+  LLVMValueRef mem_data_size_addr;
   LLVMValueRef mem_cur_page_count_addr;
   LLVMValueRef mem_bound_check_1byte;
   LLVMValueRef mem_bound_check_2bytes;
@@ -114,14 +124,18 @@ typedef struct AOTMemInfo {
 typedef struct AOTFuncContext {
   AOTFunc *aot_func;
   LLVMValueRef func;
+  LLVMTypeRef func_type;
   AOTBlockStack block_stack;
 
   LLVMValueRef exec_env;
   LLVMValueRef aot_inst;
-  LLVMValueRef table_base;
   LLVMValueRef argv_buf;
   LLVMValueRef native_stack_bound;
+  LLVMValueRef aux_stack_bound;
+  LLVMValueRef aux_stack_bottom;
+  LLVMValueRef native_symbol;
   LLVMValueRef last_alloca;
+  LLVMValueRef func_ptrs;
 
   AOTMemInfo *mem_info;
 
@@ -130,7 +144,6 @@ typedef struct AOTFuncContext {
   bool mem_space_unchanged;
   AOTCheckedAddrList checked_addr_list;
 
-  LLVMBasicBlockRef *exception_blocks;
   LLVMBasicBlockRef got_exception_block;
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
@@ -149,6 +162,7 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef void_type;
 
   LLVMTypeRef int8_ptr_type;
+  LLVMTypeRef int8_pptr_type;
   LLVMTypeRef int16_ptr_type;
   LLVMTypeRef int32_ptr_type;
   LLVMTypeRef int64_ptr_type;
@@ -165,6 +179,9 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef f64x2_vec_type;
 
   LLVMTypeRef meta_data_type;
+
+  LLVMTypeRef funcref_type;
+  LLVMTypeRef externref_type;
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {
@@ -184,6 +201,9 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32_two;
     LLVMValueRef i32_three;
     LLVMValueRef i32_four;
+    LLVMValueRef i32_five;
+    LLVMValueRef i32_six;
+    LLVMValueRef i32_seven;
     LLVMValueRef i32_eight;
     LLVMValueRef i32_neg_one;
     LLVMValueRef i64_neg_one;
@@ -193,6 +213,7 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32_32;
     LLVMValueRef i64_63;
     LLVMValueRef i64_64;
+    LLVMValueRef ref_null;
 } AOTLLVMConsts;
 
 /**
@@ -210,9 +231,22 @@ typedef struct AOTCompContext {
   char target_arch[16];
   unsigned pointer_size;
 
+  /* Hardware intrinsic compability flags */
+  uint64 flags[8];
+
   /* LLVM execution engine required by JIT */
+#if WASM_ENABLE_LAZY_JIT != 0
+  LLVMOrcLLLazyJITRef lazy_orcjit;
+  LLVMOrcThreadSafeContextRef ts_context;
+  LLVMOrcJITTargetMachineBuilderRef tm_builder;
+#else
   LLVMExecutionEngineRef exec_engine;
+#endif
   bool is_jit_mode;
+
+  /* AOT indirect mode flag & symbol list */
+  bool is_indirect_mode;
+  bh_list native_symbols;
 
   /* Bulk memory feature */
   bool enable_bulk_memory;
@@ -223,11 +257,23 @@ typedef struct AOTCompContext {
   /* 128-bit SIMD */
   bool enable_simd;
 
+  /* Auxiliary stack overflow/underflow check */
+  bool enable_aux_stack_check;
+
+  /* Generate auxiliary stack frame */
+  bool enable_aux_stack_frame;
+
   /* Thread Manager */
   bool enable_thread_mgr;
 
   /* Tail Call */
   bool enable_tail_call;
+
+  /* Reference Types */
+  bool enable_ref_types;
+
+  /* Disable LLVM built-in intrinsics */
+  bool disable_llvm_intrinsics;
 
   /* Whether optimize the JITed code */
   bool optimize;
@@ -263,15 +309,20 @@ enum {
 
 typedef struct AOTCompOption{
     bool is_jit_mode;
+    bool is_indirect_mode;
     char *target_arch;
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool is_sgx_platform;
     bool enable_bulk_memory;
     bool enable_thread_mgr;
     bool enable_tail_call;
     bool enable_simd;
-    bool is_sgx_platform;
+    bool enable_ref_types;
+    bool enable_aux_stack_check;
+    bool enable_aux_stack_frame;
+    bool disable_llvm_intrinsics;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
@@ -284,6 +335,9 @@ aot_create_comp_context(AOTCompData *comp_data,
 
 void
 aot_destroy_comp_context(AOTCompContext *comp_ctx);
+
+int32
+aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol);
 
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx);
@@ -338,6 +392,7 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                        const AOTFuncContext *func_ctx,
                         const char *name,
                         LLVMTypeRef ret_type,
                         LLVMTypeRef *param_types,
@@ -346,14 +401,29 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
+                          const AOTFuncContext *func_ctx,
                           const char *name,
                           LLVMTypeRef ret_type,
                           LLVMTypeRef *param_types,
                           int param_count,
                           va_list param_value_list);
 
+LLVMValueRef
+aot_get_func_from_table(const AOTCompContext *comp_ctx,
+                        LLVMValueRef base,
+                        LLVMTypeRef func_type,
+                        int32 index);
+
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
+
+#if WASM_ENABLE_LAZY_JIT != 0
+void
+aot_handle_llvm_errmsg(char *error_buf,
+                       uint32 error_buf_size,
+                       const char *string,
+                       LLVMErrorRef error);
+#endif
 
 #ifdef __cplusplus
 } /* end of extern "C" */

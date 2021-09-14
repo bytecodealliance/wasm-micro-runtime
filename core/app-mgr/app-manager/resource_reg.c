@@ -136,7 +136,8 @@ void * am_dispatch_request(request_t *request)
 }
 
 bool am_register_resource(const char *url,
-        void (*request_handler)(request_t *, void *), uint32 register_id)
+                          void (*request_handler)(request_t *, void *),
+                          uint32 register_id)
 {
     app_res_register_t * r = g_resources;
     int register_num = 0;
@@ -158,7 +159,7 @@ bool am_register_resource(const char *url,
     if (register_num >= RESOURCE_REGISTRATION_NUM_MAX)
         return false;
 
-    r = (app_res_register_t *) APP_MGR_MALLOC(sizeof(app_res_register_t));
+    r = (app_res_register_t *)APP_MGR_MALLOC(sizeof(app_res_register_t));
     if (r == NULL)
         return false;
 

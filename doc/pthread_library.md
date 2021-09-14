@@ -57,7 +57,7 @@ To build this C program into WebAssembly app with libc-builtin, you can use this
 
 You can also build this program with WASI, but we need to make some changes to wasi-sysroot:
 
-1. disable malloc / free of wasi as they don't support shared memory
+1. disable malloc/free of wasi, as they are not atomic operations:
     ``` bash
     /opt/wasi-sdk/bin/llvm-ar -d /opt/wasi-sdk/share/wasi-sysroot/lib/wasm32-wasi/libc.a dlmalloc.o
     ```
@@ -76,6 +76,18 @@ Then build the program with this command:
     -Wl,--export=__heap_base,--export=__data_end    \
     main.c -o test.wasm
 # -Wl,--no-check-features: the errno.o in wasi-sysroot is not compatible with pthread feature, pass this option to avoid errors
+```
+
+**Build with EMCC**
+
+EMCC's `-pthread` option is not compatible with standalone mode, we need to pass `-mbulk-memory -matomics` to the compiler and `--shared-memory,--no-check-features` to linker manually
+
+``` bash
+emcc -O3 -mbulk-memory -matomics -s MALLOC="none"   \
+     -Wl,--export=__data_end,--export=__heap_base   \
+     -Wl,--shared-memory,--no-check-features        \
+     -s ERROR_ON_UNDEFINED_SYMBOLS=0                \
+     main.c -o test.wasm
 ```
 
 **Build AoT module**

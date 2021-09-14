@@ -383,7 +383,7 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Get block info */
     if (!(wasm_loader_find_block_addr((BlockAddr*)block_addr_cache,
                                       *p_frame_ip, frame_ip_end, (uint8)label_type,
-                                      &else_addr, &end_addr, NULL, 0))) {
+                                      &else_addr, &end_addr))) {
         aot_set_last_error("find block end addr failed.");
         return false;
     }
@@ -616,8 +616,10 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Handle block result values */
     CREATE_RESULT_VALUE_PHIS(block);
     for (i = 0; i < block->result_count; i++) {
+        value = NULL;
         result_index = block->result_count - 1 - i;
         POP(value, block->result_types[result_index]);
+        bh_assert(value);
         ADD_TO_RESULT_PHIS(block, value, result_index);
     }
 
@@ -640,8 +642,7 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMBasicBlockRef terminate_block;
 
     /* Offset of suspend_flags */
-    offset = I32_CONST(5);
-    CHECK_LLVM_CONST(offset);
+    offset = I32_FIVE;
 
     if (!(terminate_addr =
                 LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,

@@ -35,15 +35,20 @@ enum {
 
 typedef struct AOTCompOption{
     bool is_jit_mode;
+    bool is_indirect_mode;
     char *target_arch;
     char *target_abi;
     char *target_cpu;
     char *cpu_features;
+    bool is_sgx_platform;
     bool enable_bulk_memory;
     bool enable_thread_mgr;
     bool enable_tail_call;
     bool enable_simd;
-    bool is_sgx_platform;
+    bool enable_ref_types;
+    bool enable_aux_stack_check;
+    bool enable_aux_stack_frame;
+    bool disable_llvm_intrinsics;
     uint32_t opt_level;
     uint32_t size_level;
     uint32_t output_format;
@@ -73,6 +78,18 @@ aot_emit_aot_file(aot_comp_context_t comp_ctx,
 
 void
 aot_destroy_aot_file(uint8_t *aot_file);
+
+bool
+aot_compile_wasm_file_init();
+
+uint8_t*
+aot_compile_wasm_file(const uint8_t *wasm_file_buf, uint32_t wasm_file_size,
+                      uint32_t opt_level, uint32_t size_level,
+                      char *error_buf, uint32_t error_buf_size,
+                      uint32_t *p_aot_file_size);
+
+void
+aot_compile_wasm_file_destroy();
 
 char*
 aot_get_last_error();

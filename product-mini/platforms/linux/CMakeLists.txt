@@ -15,9 +15,14 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 set (CMAKE_C_STANDARD 99)
 
 # Set WAMR_BUILD_TARGET, currently values supported:
-# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    set (WAMR_BUILD_TARGET "AARCH64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    set (WAMR_BUILD_TARGET "RISCV64")
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Build as X86_64 by default in 64-bit platform
     set (WAMR_BUILD_TARGET "X86_64")
   else ()
@@ -76,8 +81,13 @@ if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_SIMD)
-  # Disable SIMD by default
-  set (WAMR_BUILD_SIMD 0)
+  # Enable SIMD by default
+  set (WAMR_BUILD_SIMD 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_REF_TYPES)
+  # Disable reference types by default
+  set (WAMR_BUILD_REF_TYPES 0)
 endif ()
 
 if (COLLECT_CODE_COVERAGE EQUAL 1)
@@ -97,6 +107,19 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mindirect-branch-register")
+    # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
+                                          -fno-sanitize=bounds,bounds-strict,alignment \
+                                          -fno-sanitize-recover")
+    endif()
+  else ()
+    # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WAMR_BUILD_JIT EQUAL 1)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
+                                          -fno-sanitize=bounds,alignment \
+                                          -fno-sanitize-recover")
+    endif()
   endif ()
 endif ()
 
@@ -114,7 +137,7 @@ add_executable (iwasm main.c ${UNCOMMON_SHARED_SOURCE})
 
 install (TARGETS iwasm DESTINATION bin)
 
-target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+target_link_libraries (iwasm vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 
 add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
@@ -122,4 +145,4 @@ install (TARGETS libiwasm DESTINATION lib)
 
 set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
-target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)

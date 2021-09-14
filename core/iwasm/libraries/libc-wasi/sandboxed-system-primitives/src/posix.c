@@ -1237,7 +1237,29 @@ __wasi_errno_t wasmtime_ssp_fd_write(
   if (error != 0)
     return error;
 
+#ifndef BH_VPRINTF
   ssize_t len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+#else
+  ssize_t len = 0;
+  /* redirect stdout/stderr output to BH_VPRINTF function */
+  if (fd_number(fo) == 1 || fd_number(fo) == 2) {
+    int i;
+    const struct iovec *iov1 = (const struct iovec *)iov;
+
+    for (i = 0; i < (int)iovcnt; i++, iov1++) {
+      if (iov1->iov_len > 0 && iov1->iov_base) {
+        char format[16];
+
+        /* make up format string "%.ns" */
+        snprintf(format, sizeof(format), "%%.%ds", (int)iov1->iov_len);
+        len += (ssize_t)os_printf(format, iov1->iov_base);
+      }
+    }
+  }
+  else {
+    len = writev(fd_number(fo), (const struct iovec *)iov, (int)iovcnt);
+  }
+#endif /* end of BH_VPRINTF */
   fd_object_release(fo);
   if (len < 0)
     return convert_errno(errno);
@@ -1652,7 +1674,8 @@ static __wasi_errno_t path_get_nofollow(
 static void path_put(
     struct path_access *pa
 ) UNLOCKS(pa->fd_object->refcount) {
-  wasm_runtime_free(pa->path_start);
+  if (pa->path_start)
+    wasm_runtime_free(pa->path_start);
   if (fd_number(pa->fd_object) != pa->fd)
     close(pa->fd);
   fd_object_release(pa->fd_object);
@@ -2137,8 +2160,8 @@ static void convert_timestamp(
     struct timespec *out
 ) {
   // Store sub-second remainder.
-#ifndef __APPLE__
-  out->tv_nsec = (__syscall_slong_t)(in % 1000000000);
+#if defined(__SYSCALL_SLONG_TYPE)
+  out->tv_nsec = (__SYSCALL_SLONG_TYPE)(in % 1000000000);
 #else
   out->tv_nsec = (long)(in % 1000000000);
 #endif

@@ -56,16 +56,18 @@ typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
 
+#define os_thread_local_attribute __thread
+
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) \
     || defined(BUILD_TARGET_AMD_64) \
-    || defined(BUILD_TARGET_AARCH64)
+    || defined(BUILD_TARGET_AARCH64) \
+    || defined(BUILD_TARGET_RISCV64_LP64D) \
+    || defined(BUILD_TARGET_RISCV64_LP64)
 
 #include <setjmp.h>
 
 #define OS_ENABLE_HW_BOUND_CHECK
-
-#define os_thread_local_attribute __thread
 
 typedef jmp_buf korp_jmpbuf;
 
@@ -77,14 +79,16 @@ typedef jmp_buf korp_jmpbuf;
 
 typedef void (*os_signal_handler)(void *sig_addr);
 
-int os_signal_init(os_signal_handler handler);
+int os_thread_signal_init(os_signal_handler handler);
 
-void os_signal_destroy();
+void os_thread_signal_destroy();
+
+bool os_thread_signal_inited();
 
 void os_signal_unmask();
 
 void os_sigreturn();
-#endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64 */
+#endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
 #ifdef __cplusplus

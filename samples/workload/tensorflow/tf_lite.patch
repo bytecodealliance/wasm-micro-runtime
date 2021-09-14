@@ -1,5 +1,5 @@
 diff --git a/tensorflow/lite/tools/make/Makefile b/tensorflow/lite/tools/make/Makefile
-index c7ddff5844..17146868f7 100644
+index c7ddff58440..ebfebaead35 100644
 --- a/tensorflow/lite/tools/make/Makefile
 +++ b/tensorflow/lite/tools/make/Makefile
 @@ -48,11 +48,7 @@ INCLUDES += -I/usr/local/include
@@ -19,14 +19,14 @@ index c7ddff5844..17146868f7 100644
  endif # ifeq ($(HOST_OS),$(TARGET))
  endif
  
-+BUILD_WITH_SIMD ?= false
-+ifeq ($(BUILD_WITH_SIMD), true)
-+CFLAGS+=-msimd128
-+CXXFLAGS+=-msimd128
-+endif
++CFLAGS+=-msimd128 -mbulk-memory -matomics
++CXXFLAGS+=-msimd128 -mbulk-memory -matomics
 +
-+LIBFLAGS += -s TOTAL_STACK=1048576 \
-+            -Wl,--export=__data_end -Wl,--export=__heap_base \
++LIBFLAGS += -s TOTAL_STACK=1048576 -s MALLOC="none" \
++            -s INITIAL_MEMORY=16777216 \
++            -s MAXIMUM_MEMORY=167772160 \
++            -s ALLOW_MEMORY_GROWTH=1 \
++            -Wl,--export=__data_end -Wl,--export=__heap_base,--shared-memory,--no-check-features \
 +            -s ERROR_ON_UNDEFINED_SYMBOLS=0
 +
  # This library is the main target for this makefile. It will contain a minimal
@@ -64,7 +64,7 @@ index c7ddff5844..17146868f7 100644
  MINIMAL_OBJS := $(addprefix $(OBJDIR), \
  $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(MINIMAL_SRCS))))
 diff --git a/tensorflow/lite/tools/make/targets/linux_makefile.inc b/tensorflow/lite/tools/make/targets/linux_makefile.inc
-index 222cef9e5f..eea89a38f0 100644
+index 222cef9e5ff..eea89a38f01 100644
 --- a/tensorflow/lite/tools/make/targets/linux_makefile.inc
 +++ b/tensorflow/lite/tools/make/targets/linux_makefile.inc
 @@ -2,12 +2,10 @@

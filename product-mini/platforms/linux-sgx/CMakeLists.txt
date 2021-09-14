@@ -67,6 +67,11 @@ if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
   set (WAMR_BUILD_LIB_PTHREAD 1)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_SIMD)
+  # Disable SIMD by default
+  set (WAMR_BUILD_SIMD 0)
+endif ()
+
 if (COLLECT_CODE_COVERAGE EQUAL 1)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif ()

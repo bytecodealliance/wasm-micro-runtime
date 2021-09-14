@@ -8,6 +8,19 @@
 #define R_ARM_THM_CALL  10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
 #define R_ARM_THM_JMP24 30  /* B.W */
 
+void __ltdf2();
+void __adddf3();
+void __eqdf2();
+void __unorddf2();
+void __muldf3();
+void __subdf3();
+void __gedf2();
+void __ledf2();
+void __fixunsdfsi();
+void __floatunsidf();
+void __fixdfsi();
+void __nedf2();
+void __floatsidf();
 void __divdi3();
 void __udivdi3();
 void __moddi3();
@@ -32,6 +45,7 @@ void __aeabi_d2lz();
 void __aeabi_l2d();
 void __aeabi_f2ulz();
 void __aeabi_ul2d();
+void __aeabi_ui2d();
 void __aeabi_d2ulz();
 void __aeabi_idiv();
 void __aeabi_uidiv();
@@ -46,7 +60,9 @@ void __aeabi_dcmplt();
 void __aeabi_dcmpun();
 void __aeabi_dcmple();
 void __aeabi_dcmpge();
+void __aeabi_dcmpgt();
 void __aeabi_d2iz();
+void __aeabi_d2uiz();
 void __aeabi_fcmplt();
 void __aeabi_fcmpun();
 void __aeabi_fcmple();
@@ -57,6 +73,19 @@ void __aeabi_f2d();
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
+    REG_SYM(__ltdf2),
+    REG_SYM(__adddf3),
+    REG_SYM(__eqdf2),
+    REG_SYM(__unorddf2),
+    REG_SYM(__muldf3),
+    REG_SYM(__subdf3),
+    REG_SYM(__gedf2),
+    REG_SYM(__ledf2),
+    REG_SYM(__fixunsdfsi),
+    REG_SYM(__floatunsidf),
+    REG_SYM(__fixdfsi),
+    REG_SYM(__nedf2),
+    REG_SYM(__floatsidf),
     REG_SYM(__divdi3),
     REG_SYM(__udivdi3),
     REG_SYM(__umoddi3),
@@ -80,6 +109,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_l2d),
     REG_SYM(__aeabi_f2ulz),
     REG_SYM(__aeabi_ul2d),
+    REG_SYM(__aeabi_ui2d),
     REG_SYM(__aeabi_d2ulz),
     REG_SYM(__aeabi_idiv),
     REG_SYM(__aeabi_uidiv),
@@ -94,7 +124,9 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_dcmpun),
     REG_SYM(__aeabi_dcmple),
     REG_SYM(__aeabi_dcmpge),
+    REG_SYM(__aeabi_dcmpgt),
     REG_SYM(__aeabi_d2iz),
+    REG_SYM(__aeabi_d2uiz),
     REG_SYM(__aeabi_fcmplt),
     REG_SYM(__aeabi_fcmpun),
     REG_SYM(__aeabi_fcmple),

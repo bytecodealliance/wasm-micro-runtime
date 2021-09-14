@@ -7,7 +7,7 @@
 #include "bh_log.h"
 #include "wasm_export.h"
 #include "../interpreter/wasm.h"
-#ifndef _DEFAULT_SOURCE
+#if !defined(_DEFAULT_SOURCE) && !defined(BH_PLATFORM_LINUX_SGX)
 #include "sys/syscall.h"
 #endif
 
@@ -267,7 +267,7 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
 {
     if (buffer == NULL)
         return -1;
-#ifdef _DEFAULT_SOURCE
+#if defined(_DEFAULT_SOURCE) || defined(BH_PLATFORM_LINUX_SGX)
     return getentropy(buffer, length);
 #else
     return syscall(SYS_getrandom, buffer, length, 0);
@@ -508,6 +508,18 @@ emscripten_notify_memory_growth_wrapper(wasm_exec_env_t exec_env, int i)
     (void)i;
 }
 
+static void
+emscripten_thread_sleep_wrapper(wasm_exec_env_t exec_env, double timeout_ms)
+{
+    uint64 ms = (uint64)timeout_ms;
+    uint64 sec = ms / 1000, us = (ms % 1000) * 1000;
+
+    if (sec > 0)
+        sleep(sec);
+    if (us > 0)
+        usleep(us);
+}
+
 #endif /* end of BH_PLATFORM_LINUX_SGX */
 
 #define REG_NATIVE_FUNC(func_name, signature)  \
@@ -543,6 +555,7 @@ static NativeSymbol native_symbols_libc_emcc[] = {
     REG_NATIVE_FUNC(__sys_getcwd, "(*~)i"),
     REG_NATIVE_FUNC(__sys_uname, "(*)i"),
     REG_NATIVE_FUNC(emscripten_notify_memory_growth, "(i)"),
+    REG_NATIVE_FUNC(emscripten_thread_sleep, "(F)"),
 #endif /* end of BH_PLATFORM_LINUX_SGX */
 };
 

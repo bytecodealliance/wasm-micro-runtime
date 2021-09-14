@@ -69,7 +69,7 @@ simd_build_bitmask(const AOTCompContext *comp_ctx,
     }
 
     param_types[0] = vector_ext_type;
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, intrinsic, I32_TYPE,
+    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, I32_TYPE,
                                            param_types, 1, result))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;

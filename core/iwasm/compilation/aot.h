@@ -21,6 +21,30 @@ typedef InitializerExpression AOTInitExpr;
 typedef WASMType AOTFuncType;
 typedef WASMExport AOTExport;
 
+typedef enum AOTIntCond {
+  INT_EQZ = 0,
+  INT_EQ,
+  INT_NE,
+  INT_LT_S,
+  INT_LT_U,
+  INT_GT_S,
+  INT_GT_U,
+  INT_LE_S,
+  INT_LE_U,
+  INT_GE_S,
+  INT_GE_U
+} AOTIntCond;
+
+typedef enum AOTFloatCond {
+  FLOAT_EQ = 0,
+  FLOAT_NE,
+  FLOAT_LT,
+  FLOAT_GT,
+  FLOAT_LE,
+  FLOAT_GE,
+  FLOAT_UNO
+} AOTFloatCond;
+
 /**
  * Import memory
  */
@@ -71,6 +95,7 @@ typedef struct AOTImportTable {
   uint32 table_flags;
   uint32 table_init_size;
   uint32 table_max_size;
+  bool possible_grow;
 } AOTImportTable;
 
 /**
@@ -81,12 +106,19 @@ typedef struct AOTTable {
   uint32 table_flags;
   uint32 table_init_size;
   uint32 table_max_size;
+  bool possible_grow;
 } AOTTable;
 
 /**
  * A segment of table init data
  */
 typedef struct AOTTableInitData {
+  /* 0 to 7 */
+  uint32 mode;
+  /* funcref or externref, elemkind will be considered as funcref */
+  uint32 elem_type;
+  bool is_dropped;
+  /* optional, only for active */
   uint32 table_index;
   /* Start address of init data */
   AOTInitExpr offset;
@@ -140,6 +172,8 @@ typedef struct AOTImportFunc {
   /* attachment */
   void *attachment;
   bool call_conv_raw;
+  bool call_conv_wasm_c_api;
+  bool wasm_c_api_with_env;
 } AOTImportFunc;
 
 /**
@@ -219,6 +253,12 @@ typedef struct AOTCompData {
   WASMModule *wasm_module;
 } AOTCompData;
 
+typedef struct AOTNativeSymbol {
+  bh_list_link link;
+  const char *symbol;
+  int32 index;
+} AOTNativeSymbol;
+
 AOTCompData*
 aot_create_comp_data(WASMModule *module);
 
@@ -234,7 +274,7 @@ aot_set_last_error(const char *error);
 void
 aot_set_last_error_v(const char *format, ...);
 
-#if BH_DEBUG == 1
+#if BH_DEBUG != 0
 #define HANDLE_FAILURE(callee) do {                          \
     aot_set_last_error_v("call %s failed in %s:%d", (callee),\
                          __FUNCTION__, __LINE__);            \
@@ -244,6 +284,18 @@ aot_set_last_error_v(const char *format, ...);
     aot_set_last_error_v("call %s failed", (callee));        \
   } while (0)
 #endif
+
+static inline uint32
+aot_get_tbl_data_slots(const AOTTable *tbl)
+{
+    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+}
+
+static inline uint32
+aot_get_imp_tbl_data_slots(const AOTImportTable *tbl)
+{
+    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+}
 
 #ifdef __cplusplus
 } /* end of extern "C" */

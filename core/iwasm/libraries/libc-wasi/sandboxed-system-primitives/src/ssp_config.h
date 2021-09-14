@@ -14,7 +14,7 @@
 
 #include <stdlib.h>
 
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__FreeBSD__) || defined(__APPLE__) || (defined(ANDROID) && __ANDROID_API__ < 28)
 #define CONFIG_HAS_ARC4RANDOM_BUF 1
 #else
 #define CONFIG_HAS_ARC4RANDOM_BUF 0
@@ -86,9 +86,9 @@
 #endif
 
 #ifdef __APPLE__
-#define st_atimespec st_atim
-#define st_mtimespec st_mtim
-#define st_ctimespec st_ctim
+#define st_atim st_atimespec
+#define st_ctim st_ctimespec
+#define st_mtim st_mtimespec
 #endif
 
 #ifdef __APPLE__

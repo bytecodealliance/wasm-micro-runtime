@@ -29,7 +29,13 @@ typedef struct hmu_struct {
 
 #if BH_ENABLE_GC_VERIFY != 0
 
+#if UINTPTR_MAX > UINT32_MAX
+/* 2 prefix paddings for 64-bit pointer */
+#define GC_OBJECT_PREFIX_PADDING_CNT 2
+#else
+/* 3 prefix paddings for 32-bit pointer */
 #define GC_OBJECT_PREFIX_PADDING_CNT 3
+#endif
 #define GC_OBJECT_SUFFIX_PADDING_CNT 4
 #define GC_OBJECT_PADDING_VALUE (0x12345678)
 
@@ -82,16 +88,16 @@ hmu_verify(void *vheap, hmu_t *hmu);
  * hmu bit operation
  */
 
-#define SETBIT(v, offset) (v) |= (1 << (offset))
-#define GETBIT(v, offset) ((v) & (1 << (offset)) ? 1 : 0)
-#define CLRBIT(v, offset) (v) &= (uint32)(~(1 << (offset)))
+#define SETBIT(v, offset) (v) |= ((uint32)1 << (offset))
+#define GETBIT(v, offset) ((v) & ((uint32)1 << (offset)) ? 1 : 0)
+#define CLRBIT(v, offset) (v) &= (~((uint32)1 << (offset)))
 
 #define SETBITS(v, offset, size, value) do {        \
-    (v) &= (uint32)(~(((1 << size) - 1) << offset));\
-    (v) |= (uint32)(value << offset);               \
+    (v) &= ~((((uint32)1 << size) - 1) << offset);  \
+    (v) |= ((uint32)value << offset);               \
   } while(0)
-#define CLRBITS(v, offset, size) (v) &= ~(((1 << size) - 1) << offset)
-#define GETBITS(v, offset, size) (((v) & ((uint32)(((1 << size) - 1) << offset))) >> offset)
+#define CLRBITS(v, offset, size) (v) &= ~((((uint32)1 << size) - 1) << offset)
+#define GETBITS(v, offset, size) (((v) & (((((uint32)1 << size) - 1) << offset))) >> offset)
 
 /**
  * gc object layout definition

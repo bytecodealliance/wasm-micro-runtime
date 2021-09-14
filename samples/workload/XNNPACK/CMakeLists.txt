@@ -20,15 +20,14 @@ include(ExternalProject)
 ExternalProject_Add(xnnpack
     PREFIX xnnpack
     GIT_REPOSITORY https://github.com/google/XNNPACK.git
-    GIT_TAG        2da0de89960b829c6fae74204a102db524e73047
+    GIT_TAG        90f520b6482bb99ac1bbfb71be1382f6c9b83241
     GIT_PROGRESS   ON
     SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
-    UPDATE_COMMAND git checkout .bazelrc BUILD.bazel emscripten.bzl
+    UPDATE_COMMAND git checkout .
                    && git apply ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack.patch
-                   && cmake -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/toolchain ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/toolchain
     CONFIGURE_COMMAND ""
     BUILD_COMMAND  cd ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
-                   && bazel build -c opt --sandbox_writable_path=$ENV{HOME} --config=emscripten_wasm
+                   && bazel --output_user_root=build_user_output build -c opt --config=wasm
                         //:qs8_gemm_bench.wasm
                         //:qs8_requantization_bench.wasm
                         //:qu8_gemm_bench.wasm
@@ -53,6 +52,7 @@ ExternalProject_Add(xnnpack
                         //:f32_sigmoid_bench.wasm
                         //:f32_spmm_bench.wasm
                         //:f32_softmax_bench.wasm
+                        //:f32_velu_bench.wasm
                         //:f32_vscaleexpminusmax_bench.wasm
                         //:f32_vscaleextexp_bench.wasm
                         //:f32_vsqrt_bench.wasm
@@ -64,6 +64,7 @@ ExternalProject_Add(xnnpack
                         //:channel_shuffle_bench.wasm
                         //:convolution_bench.wasm
                         //:deconvolution_bench.wasm
+                        //:elu_bench.wasm
                         //:floor_bench.wasm
                         //:global_average_pooling_bench.wasm
                         //:hardswish_bench.wasm
@@ -73,30 +74,18 @@ ExternalProject_Add(xnnpack
                         //:softmax_bench.wasm
                         //:square_root_bench.wasm
                         //:truncation_bench.wasm
-                        //:fp32_mobilenet_v1.wasm
-                        //:fp16_mobilenet_v1.wasm
-                        //:qs8_mobilenet_v1.wasm
-                        //:qs8_mobilenet_v2.wasm
-                        //:fp32_mobilenet_v2.wasm
-                        //:fp16_mobilenet_v2.wasm
-                        //:fp32_mobilenet_v3_large.wasm
-                        //:fp16_mobilenet_v3_large.wasm
-                        //:fp32_mobilenet_v3_small.wasm
-                        //:fp16_mobilenet_v3_small.wasm
                         //:f32_dwconv_e2e_bench.wasm
                         //:f32_gemm_e2e_bench.wasm
+                        //:qs8_gemm_e2e_bench.wasm
                         //:end2end_bench.wasm
-                        //:f32_exp_eval.wasm
-                        //:f32_expminus_eval.wasm
-                        //:f32_extexp_eval.wasm
-                        //:f32_roundne_eval.wasm
-                        //:f32_roundd_eval.wasm
-                        //:f32_roundu_eval.wasm
-                        //:f32_roundz_eval.wasm
-                        //:f32_sigmoid_eval.wasm
-                        //:f32_sqrt_eval.wasm
+                        //:f32_exp_ulp_eval.wasm
+                        //:f32_expminus_ulp_eval.wasm
+                        //:f32_expm1minus_ulp_eval.wasm
+                        //:f32_extexp_ulp_eval.wasm
+                        //:f32_sigmoid_ulp_eval.wasm
+                        //:f32_sqrt_ulp_eval.wasm
                         #--sandbox_debug
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E create_symlink
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
                       ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/bazel-out/wasm-opt/bin/
                       ${CMAKE_CURRENT_SOURCE_DIR}/build/wasm-opt
 )

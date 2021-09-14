@@ -151,9 +151,11 @@ wasm_cluster_create(WASMExecEnv *exec_env)
     }
 
     cluster->stack_size = aux_stack_size / (cluster_max_thread_num + 1);
-    if (cluster->stack_size == 0) {
+    if (cluster->stack_size < WASM_THREAD_AUX_STACK_SIZE_MIN) {
         goto fail;
     }
+    /* Make stack size 16-byte aligned */
+    cluster->stack_size = cluster->stack_size & (~15);
 
     /* Set initial aux stack top to the instance and
         aux stack boundary to the main exec_env */
@@ -279,10 +281,54 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
     return ret;
 }
 
+static WASMExecEnv *
+wasm_cluster_search_exec_env(WASMCluster *cluster,
+                             WASMModuleInstanceCommon *module_inst)
+{
+    WASMExecEnv *node = NULL;
+
+    os_mutex_lock(&cluster->lock);
+    node = bh_list_first_elem(&cluster->exec_env_list);
+    while (node) {
+        if (node->module_inst == module_inst) {
+            os_mutex_unlock(&cluster->lock);
+            return node;
+        }
+        node = bh_list_elem_next(node);
+    }
+
+    os_mutex_unlock(&cluster->lock);
+    return NULL;
+}
+
+/* search the global cluster list to find if the given
+    module instance have a corresponding exec_env */
+WASMExecEnv *
+wasm_clusters_search_exec_env(WASMModuleInstanceCommon *module_inst)
+{
+    WASMCluster *cluster = NULL;
+    WASMExecEnv *exec_env = NULL;
+
+    os_mutex_lock(&cluster_list_lock);
+    cluster = bh_list_first_elem(cluster_list);
+    while (cluster) {
+        exec_env = wasm_cluster_search_exec_env(cluster, module_inst);
+        if (exec_env) {
+            os_mutex_unlock(&cluster_list_lock);
+            return exec_env;
+        }
+        cluster = bh_list_elem_next(cluster);
+    }
+
+    os_mutex_unlock(&cluster_list_lock);
+    return NULL;
+}
+
 WASMExecEnv *
 wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasm_module_t module = wasm_exec_env_get_module(exec_env);
     wasm_module_inst_t new_module_inst;
     WASMExecEnv *new_exec_env;
@@ -296,6 +342,13 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
         wasm_runtime_instantiate_internal(module, true, 8192,
                                           0, NULL, 0))) {
         return NULL;
+    }
+
+    if (module_inst) {
+        /* Set custom_data to new module instance */
+        wasm_runtime_set_custom_data_internal(
+            new_module_inst,
+            wasm_runtime_get_custom_data(module_inst));
     }
 
     new_exec_env = wasm_exec_env_create_internal(
@@ -339,8 +392,7 @@ wasm_cluster_destroy_spawned_exec_env(WASMExecEnv *exec_env)
     bh_assert(cluster != NULL);
 
     /* Free aux stack space */
-    free_aux_stack(cluster,
-                   exec_env->aux_stack_boundary + cluster->stack_size);
+    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
     wasm_cluster_del_exec_env(cluster, exec_env);
     wasm_exec_env_destroy_internal(exec_env);
 
@@ -366,8 +418,7 @@ thread_manager_start_routine(void *arg)
 
     /* Routine exit */
     /* Free aux stack space */
-    free_aux_stack(cluster,
-                   exec_env->aux_stack_boundary + cluster->stack_size);
+    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
     /* Remove and destroy exec_env */
@@ -452,20 +503,18 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (exec_env->jmpbuf_stack_top) {
-        WASMJmpBuf *jmpbuf_node;
-
         /* Store the return value in exec_env */
         exec_env->thread_ret_value = retval;
         exec_env->suspend_flags.flags |= 0x08;
 
-        /* Free all jmpbuf_node except the last one */
+#ifndef BH_PLATFORM_WINDOWS
+        /* Pop all jmpbuf_node except the last one */
         while (exec_env->jmpbuf_stack_top->prev) {
-            jmpbuf_node = wasm_exec_env_pop_jmpbuf(exec_env);
-            wasm_runtime_free(jmpbuf_node);
+            wasm_exec_env_pop_jmpbuf(exec_env);
         }
-        jmpbuf_node = exec_env->jmpbuf_stack_top;
-        os_longjmp(jmpbuf_node->jmpbuf, 1);
+        os_longjmp(exec_env->jmpbuf_stack_top->jmpbuf, 1);
         return;
+#endif
     }
 #endif
 
@@ -474,8 +523,7 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
     /* App exit the thread, free the resources before exit native thread */
     /* Free aux stack space */
-    free_aux_stack(cluster,
-                   exec_env->aux_stack_boundary + cluster->stack_size);
+    free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
     /* Remove and destroy exec_env */
@@ -611,6 +659,32 @@ void
 wasm_cluster_spread_exception(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
 
     traverse_list(&cluster->exec_env_list, set_exception_visitor, exec_env);
+}
+
+static void
+set_custom_data_visitor(void *node, void *user_data)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMModuleInstanceCommon *module_inst = get_module_inst(curr_exec_env);
+
+    wasm_runtime_set_custom_data_internal(module_inst, user_data);
+}
+
+void
+wasm_cluster_spread_custom_data(WASMModuleInstanceCommon *module_inst,
+                                void *custom_data)
+{
+    WASMExecEnv *exec_env = wasm_clusters_search_exec_env(module_inst);
+    WASMCluster *cluster = NULL;
+    bh_assert(exec_env);
+
+    cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+
+    traverse_list(&cluster->exec_env_list,
+                  set_custom_data_visitor,
+                  custom_data);
 }

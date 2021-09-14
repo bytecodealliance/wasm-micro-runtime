@@ -37,7 +37,7 @@ no_abort:
     sub rsp, rdx
 
 ; store stack args
-    lea r9, qword ptr [rax + rcx * 8 + 64]
+    lea r9, qword ptr [rax + rcx * 8 + 56]
     sub r9, rsp ; offset
 cycle:
     push qword ptr [rsp + r9]

@@ -183,9 +183,13 @@ get_mem_info_size(AOTCompData *comp_data)
 static uint32
 get_table_init_data_size(AOTTableInitData *table_init_data)
 {
-    /* table_index + init expr type (4 bytes) + init expr value (8 bytes)
-       + func index count (4 bytes) + func indexes */
-    return (uint32)(sizeof(uint32) + sizeof(uint32)
+    /*
+     * mode (4 bytes), elem_type (4 bytes), do not need is_dropped field
+     *
+     * table_index(4 bytes) + init expr type (4 bytes) + init expr value (8 bytes)
+     * + func index count (4 bytes) + func indexes
+     */
+    return (uint32)(sizeof(uint32) * 2 + sizeof(uint32) + sizeof(uint32)
                     + sizeof(uint64) + sizeof(uint32)
                     + sizeof(uint32) * table_init_data->func_index_count);
 }
@@ -194,8 +198,23 @@ static uint32
 get_table_init_data_list_size(AOTTableInitData **table_init_data_list,
                               uint32 table_init_data_count)
 {
+    /*
+     * ------------------------------
+     * | table_init_data_count
+     * ------------------------------
+     * |                     | U32 mode
+     * | AOTTableInitData[N] | U32 elem_type
+     * |                     | U32 table_index
+     * |                     | U32 offset.init_expr_type
+     * |                     | U64 offset.u.i64
+     * |                     | U32 func_index_count
+     * |                     | U32[func_index_count]
+     * ------------------------------
+     */
     AOTTableInitData **table_init_data = table_init_data_list;
     uint32 size = 0, i;
+
+    size = (uint32)sizeof(uint32);
 
     for (i = 0; i < table_init_data_count; i++, table_init_data++) {
         size = align_uint(size, 4);
@@ -207,27 +226,66 @@ get_table_init_data_list_size(AOTTableInitData **table_init_data_list,
 static uint32
 get_import_table_size(AOTCompData *comp_data)
 {
-    /* currently we only emit import_table_count = 0 */
-    return sizeof(uint32);
+    /*
+     * ------------------------------
+     * | import_table_count
+     * ------------------------------
+     * |                  | U32 table_init_size
+     * |                  | ----------------------
+     * | AOTImpotTable[N] | U32 table_init_size
+     * |                  | ----------------------
+     * |                  | U32 possible_grow (convenient than U8)
+     * ------------------------------
+     */
+    return (uint32)(sizeof(uint32)
+                    + comp_data->import_table_count
+                        * (sizeof(uint32) * 3));
 }
 
 static uint32
 get_table_size(AOTCompData *comp_data)
 {
-    /* table_count + table_count * (elem_type + table_flags
-     *                              + init_size + max_size) */
+    /*
+     * ------------------------------
+     * | table_count
+     * ------------------------------
+     * |             | U32 elem_type
+     * | AOTTable[N] | U32 table_flags
+     * |             | U32 table_init_size
+     * |             | U32 table_max_size
+     * |             | U32 possible_grow (convenient than U8)
+     * ------------------------------
+     */
     return (uint32)(sizeof(uint32)
-                    + comp_data->table_count * sizeof(uint32) * 4);
+                    + comp_data->table_count
+                        * (sizeof(uint32) * 5));
 }
 
 static uint32
 get_table_info_size(AOTCompData *comp_data)
 {
-    /* import_table size + table_size
-       + init data count + init data list */
-    return get_import_table_size(comp_data)
-           + get_table_size(comp_data)
-           + (uint32)sizeof(uint32)
+    /*
+     * ------------------------------
+     * | import_table_count
+     * ------------------------------
+     * |
+     * | AOTImportTable[import_table_count]
+     * |
+     * ------------------------------
+     * | table_count
+     * ------------------------------
+     * |
+     * | AOTTable[table_count]
+     * |
+     * ------------------------------
+     * | table_init_data_count
+     * ------------------------------
+     * |
+     * | AOTTableInitData*[table_init_data_count]
+     * |
+     * ------------------------------
+     */
+    return get_import_table_size(comp_data) + get_table_size(comp_data)
            + get_table_init_data_list_size(comp_data->table_init_data_list,
                                            comp_data->table_init_data_count);
 }
@@ -733,6 +791,23 @@ get_relocation_section_size(AOTObjectData *obj_data)
 }
 
 static uint32
+get_native_symbol_list_size(AOTCompContext *comp_ctx)
+{
+    uint32 len = 0;
+    AOTNativeSymbol *sym = NULL;
+
+    sym = bh_list_first_elem(&comp_ctx->native_symbols);
+
+    while (sym) {
+        len = align_uint(len, 2);
+        len += get_string_size(sym->symbol);
+        sym = bh_list_elem_next(sym);
+    }
+
+    return len;
+}
+
+static uint32
 get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                   AOTObjectData *obj_data)
 {
@@ -776,6 +851,14 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     /* section id + section size */
     size += (uint32)sizeof(uint32) * 2;
     size += get_relocation_section_size(obj_data);
+
+    if (get_native_symbol_list_size(comp_ctx) > 0) {
+        /* emit only when threre are native symbols */
+        size = align_uint(size, 4);
+        /* section id + section size + sub section id + symbol count */
+        size += (uint32)sizeof(uint32) * 4;
+        size += get_native_symbol_list_size(comp_ctx);
+    }
 
     return size;
 }
@@ -1014,10 +1097,18 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
     *p_offset = offset = align_uint(offset, 4);
 
-    /* Emit import table count, only emit 0 currently.
-       TODO: emit the actual import table count and
-             the full import table info. */
-    EMIT_U32(0);
+    /* Emit import table count */
+    EMIT_U32(comp_data->import_table_count);
+    /* Emit table items */
+    for (i = 0; i < comp_data->import_table_count; i++) {
+        /* TODO:
+         * EMIT_STR(comp_data->import_tables[i].module_name );
+         * EMIT_STR(comp_data->import_tables[i].table_name);
+         */
+        EMIT_U32(comp_data->import_tables[i].table_init_size);
+        EMIT_U32(comp_data->import_tables[i].table_max_size);
+        EMIT_U32(comp_data->import_tables[i].possible_grow & 0x000000FF);
+    }
 
     /* Emit table count */
     EMIT_U32(comp_data->table_count);
@@ -1027,6 +1118,7 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_U32(comp_data->tables[i].table_flags);
         EMIT_U32(comp_data->tables[i].table_init_size);
         EMIT_U32(comp_data->tables[i].table_max_size);
+        EMIT_U32(comp_data->tables[i].possible_grow & 0x000000FF);
     }
 
     /* Emit table init data count */
@@ -1034,6 +1126,8 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     /* Emit table init data items */
     for (i = 0; i < comp_data->table_init_data_count; i++) {
         offset = align_uint(offset, 4);
+        EMIT_U32(init_datas[i]->mode);
+        EMIT_U32(init_datas[i]->elem_type);
         EMIT_U32(init_datas[i]->table_index);
         EMIT_U32(init_datas[i]->offset.init_expr_type);
         EMIT_U64(init_datas[i]->offset.u.i64);
@@ -1436,6 +1530,38 @@ aot_emit_relocation_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     return true;
 }
 
+static bool
+aot_emit_native_symbol(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                       AOTCompContext *comp_ctx)
+{
+    uint32 offset = *p_offset;
+    AOTNativeSymbol *sym = NULL;
+
+    if (bh_list_length(&comp_ctx->native_symbols) == 0)
+        /* emit only when threre are native symbols */
+        return true;
+
+    *p_offset = offset = align_uint(offset, 4);
+
+    EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
+    /* sub section id + symbol count + symbol list */
+    EMIT_U32(sizeof(uint32) * 2 + get_native_symbol_list_size(comp_ctx));
+    EMIT_U32(AOT_CUSTOM_SECTION_NATIVE_SYMBOL);
+    EMIT_U32(bh_list_length(&comp_ctx->native_symbols));
+
+    sym = bh_list_first_elem(&comp_ctx->native_symbols);
+
+    while (sym) {
+        offset = align_uint(offset, 2);
+        EMIT_STR(sym->symbol);
+        sym = bh_list_elem_next(sym);
+    }
+
+    *p_offset = offset;
+
+    return true;
+}
+
 typedef uint32 U32;
 typedef int32  I32;
 typedef uint16 U16;
@@ -1675,16 +1801,25 @@ aot_resolve_literal(AOTObjectData *obj_data)
 }
 
 static bool
-is_data_section(char *section_name)
+get_relocations_count(LLVMSectionIteratorRef sec_itr, uint32 *p_count);
+
+static bool
+is_data_section(LLVMSectionIteratorRef sec_itr, char *section_name)
 {
+    uint32 relocation_count = 0;
+
     return (!strcmp(section_name, ".data")
+            || !strcmp(section_name, ".sdata")
             || !strcmp(section_name, ".rodata")
             /* ".rodata.cst4/8/16/.." */
-            || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst")));
+            || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst"))
+            || (!strcmp(section_name, ".rdata")
+                && get_relocations_count(sec_itr, &relocation_count)
+                && relocation_count > 0));
 }
 
-static uint32
-get_object_data_sections_count(AOTObjectData *obj_data)
+static bool
+get_object_data_sections_count(AOTObjectData *obj_data, uint32 *p_count)
 {
     LLVMSectionIteratorRef sec_itr;
     char *name;
@@ -1692,18 +1827,19 @@ get_object_data_sections_count(AOTObjectData *obj_data)
 
     if (!(sec_itr = LLVMObjectFileCopySectionIterator(obj_data->binary))) {
         aot_set_last_error("llvm get section iterator failed.");
-        return 0;
+        return false;
     }
     while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
         if ((name = (char *)LLVMGetSectionName(sec_itr))
-            && (is_data_section(name))) {
+            && (is_data_section(sec_itr, name))) {
             count++;
         }
         LLVMMoveToNextSection(sec_itr);
     }
     LLVMDisposeSectionIterator(sec_itr);
 
-    return count;
+    *p_count = count;
+    return true;
 }
 
 static bool
@@ -1712,8 +1848,12 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
     LLVMSectionIteratorRef sec_itr;
     char *name;
     AOTObjectDataSection *data_section;
-    uint32 sections_count = get_object_data_sections_count(obj_data);
+    uint32 sections_count;
     uint32 size;
+
+    if (!get_object_data_sections_count(obj_data, &sections_count)) {
+        return false;
+    }
 
     if (sections_count > 0) {
         size = (uint32)sizeof(AOTObjectDataSection) * sections_count;
@@ -1728,10 +1868,9 @@ aot_resolve_object_data_sections(AOTObjectData *obj_data)
             aot_set_last_error("llvm get section iterator failed.");
             return false;
         }
-        while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary,
-                                                     sec_itr)) {
+        while (!LLVMObjectFileIsSectionIteratorAtEnd(obj_data->binary, sec_itr)) {
             if ((name = (char *)LLVMGetSectionName(sec_itr))
-                && (is_data_section(name))) {
+                && (is_data_section(sec_itr, name))) {
                 data_section->name = name;
                 data_section->data = (uint8 *)LLVMGetSectionContents(sec_itr);
                 data_section->size = (uint32)LLVMGetSectionSize(sec_itr);
@@ -1751,16 +1890,18 @@ aot_resolve_functions(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     AOTObjectFunc *func;
     LLVMSymbolIteratorRef sym_itr;
     char *name, *prefix = AOT_FUNC_PREFIX;
-    uint32 func_index;
+    uint32 func_index, total_size;
 
     /* allocate memory for aot function */
     obj_data->func_count = comp_ctx->comp_data->func_count;
-    if (!(obj_data->funcs
-                = wasm_runtime_malloc((uint32)sizeof(AOTObjectFunc) * obj_data->func_count))) {
-        aot_set_last_error("allocate memory for functions failed.");
-        return false;
+    if (obj_data->func_count) {
+        total_size = (uint32)sizeof(AOTObjectFunc) * obj_data->func_count;
+        if (!(obj_data->funcs = wasm_runtime_malloc(total_size))) {
+            aot_set_last_error("allocate memory for functions failed.");
+            return false;
+        }
+        memset(obj_data->funcs, 0, total_size);
     }
-    memset(obj_data->funcs, 0, sizeof(AOTObjectFunc) * obj_data->func_count);
 
     if (!(sym_itr = LLVMObjectFileCopySymbolIterator(obj_data->binary))) {
         aot_set_last_error("llvm get symbol iterator failed.");
@@ -1887,10 +2028,13 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         relocation->relocation_type = (uint32)type;
         relocation->symbol_name = (char *)LLVMGetSymbolName(rel_sym);
 
-        /* for ".LCPIxxx" relocation, transform the symbol name to real
-         * section name and set addend to the symbol address */
+        /* for ".LCPIxxx", ".LJTIxxx" and ".LBBxxx" relocation,
+         * transform the symbol name to real section name and set
+         * addend to the offset of the symbol in the real section */
         if (relocation->symbol_name
-            && str_starts_with(relocation->symbol_name, ".LCPI")) {
+            && (str_starts_with(relocation->symbol_name, ".LCPI")
+                || str_starts_with(relocation->symbol_name, ".LJTI")
+                || str_starts_with(relocation->symbol_name, ".LBB"))) {
             /* change relocation->relocation_addend and relocation->symbol_name */
             LLVMSectionIteratorRef contain_section;
             if (!(contain_section
@@ -1929,6 +2073,8 @@ is_relocation_section_name(char *section_name)
             || !strcmp(section_name, ".rela.literal")
             || !strcmp(section_name, ".rela.data")
             || !strcmp(section_name, ".rel.data")
+            || !strcmp(section_name, ".rela.sdata")
+            || !strcmp(section_name, ".rel.sdata")
             || !strcmp(section_name, ".rela.rodata")
             || !strcmp(section_name, ".rel.rodata")
             /* ".rela.rodata.cst4/8/16/.." */
@@ -1947,7 +2093,7 @@ is_relocation_section(LLVMSectionIteratorRef sec_itr)
     if (name) {
         if (is_relocation_section_name(name))
             return true;
-        else if (!strncmp(name, ".text", strlen(".text"))
+        else if ((!strcmp(name, ".text") || !strcmp(name, ".rdata"))
                  && get_relocations_count(sec_itr, &count) && count > 0)
             return true;
     }
@@ -2075,6 +2221,8 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
 {
     char *err = NULL;
     AOTObjectData *obj_data;
+    LLVMTargetRef target =
+        LLVMGetTargetMachineTarget(comp_ctx->target_machine);
 
     bh_print_time("Begin to emit object file to buffer");
 
@@ -2084,11 +2232,81 @@ aot_obj_data_create(AOTCompContext *comp_ctx)
     }
     memset(obj_data, 0, sizeof(AOTObjectData));
 
-    if (LLVMTargetMachineEmitToMemoryBuffer(comp_ctx->target_machine,
-                                            comp_ctx->module,
-                                            LLVMObjectFile,
-                                            &err,
-                                            &obj_data->mem_buf) != 0) {
+    bh_print_time("Begin to emit object file");
+
+    if (!strncmp(LLVMGetTargetName(target), "arc", 3)) {
+#if defined(_WIN32) || defined(_WIN32_)
+        aot_set_last_error("emit object file on Windows is unsupported.");
+        goto fail;
+#else
+        /* Emit to assmelby file instead for arc target
+           as it cannot emit to object file */
+        char file_name[] = "wasm-XXXXXX", buf[128];
+        int fd, ret;
+
+        if ((fd = mkstemp(file_name)) <= 0) {
+            aot_set_last_error("make temp file failed.");
+            goto fail;
+        }
+
+        /* close and remove temp file */
+        close(fd);
+        unlink(file_name);
+
+        snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
+        if (LLVMTargetMachineEmitToFile(comp_ctx->target_machine,
+                                        comp_ctx->module,
+                                        buf, LLVMAssemblyFile,
+                                        &err) != 0) {
+            if (err) {
+                LLVMDisposeMessage(err);
+                err = NULL;
+            }
+            aot_set_last_error("emit elf to object file failed.");
+            goto fail;
+        }
+
+        /* call arc gcc to compile assembly file to object file */
+        /* TODO: get arc gcc from environment variable firstly
+                 and check whether the toolchain exists actually */
+        snprintf(buf, sizeof(buf), "%s%s%s%s%s%s",
+                 "/opt/zephyr-sdk/arc-zephyr-elf/bin/arc-zephyr-elf-gcc ",
+                 "-mcpu=arcem -o ", file_name, ".o -c ", file_name, ".s");
+        /* TODO: use try..catch to handle possible exceptions */
+        ret = system(buf);
+        /* remove temp assembly file */
+        snprintf(buf, sizeof(buf), "%s%s", file_name, ".s");
+        unlink(buf);
+
+        if (ret != 0) {
+            aot_set_last_error("failed to compile asm file to obj file "
+                               "with arc gcc toolchain.");
+            goto fail;
+        }
+
+        /* create memory buffer from object file */
+        snprintf(buf, sizeof(buf), "%s%s", file_name, ".o");
+        ret = LLVMCreateMemoryBufferWithContentsOfFile(buf,
+                                                       &obj_data->mem_buf,
+                                                       &err);
+        /* remove temp object file */
+        snprintf(buf, sizeof(buf), "%s%s",file_name, ".o");
+        unlink(buf);
+
+        if (ret != 0) {
+            if (err) {
+                LLVMDisposeMessage(err);
+                err = NULL;
+            }
+            aot_set_last_error("create mem buffer with file failed.");
+            goto fail;
+        }
+#endif /* end of defined(_WIN32) || defined(_WIN32_) */
+    }
+    else if (LLVMTargetMachineEmitToMemoryBuffer(comp_ctx->target_machine,
+                                                 comp_ctx->module,
+                                                 LLVMObjectFile, &err,
+                                                 &obj_data->mem_buf) != 0) {
         if (err) {
             LLVMDisposeMessage(err);
             err = NULL;
@@ -2125,20 +2343,17 @@ fail:
     return NULL;
 }
 
-bool
-aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                  const char *file_name)
+uint8*
+aot_emit_aot_file_buf(AOTCompContext *comp_ctx,
+                      AOTCompData *comp_data,
+                      uint32 *p_aot_file_size)
 {
     AOTObjectData *obj_data = aot_obj_data_create(comp_ctx);
     uint8 *aot_file_buf, *buf, *buf_end;
     uint32 aot_file_size, offset = 0;
-    bool ret = false;
-    FILE *file;
 
     if (!obj_data)
-        return false;
-
-    bh_print_time("Begin to emit AOT file");
+        return NULL;
 
     aot_file_size = get_aot_file_size(comp_ctx, comp_data, obj_data);
 
@@ -2156,7 +2371,8 @@ aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         || !aot_emit_text_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_func_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_export_section(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_relocation_section(buf, buf_end, &offset, comp_data, obj_data))
+        || !aot_emit_relocation_section(buf, buf_end, &offset, comp_data, obj_data)
+        || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx))
         goto fail2;
 
 #if 0
@@ -2168,25 +2384,52 @@ aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         goto fail2;
     }
 
-    /* write buffer to file */
-    if (!(file = fopen(file_name, "wb"))) {
-        aot_set_last_error("open or create aot file failed.");
-        goto fail2;
-    }
-    if (!fwrite(aot_file_buf, aot_file_size, 1, file)) {
-        aot_set_last_error("write to aot file failed.");
-        goto fail3;
-    }
+    *p_aot_file_size = aot_file_size;
 
-    ret = true;
-
-fail3:
-    fclose(file);
+    aot_obj_data_destroy(obj_data);
+    return aot_file_buf;
 
 fail2:
     wasm_runtime_free(aot_file_buf);
 
 fail1:
     aot_obj_data_destroy(obj_data);
+    return NULL;
+}
+
+bool
+aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                  const char *file_name)
+{
+    uint8 *aot_file_buf;
+    uint32 aot_file_size;
+    bool ret = false;
+    FILE *file;
+
+    bh_print_time("Begin to emit AOT file");
+
+    if (!(aot_file_buf = aot_emit_aot_file_buf(comp_ctx, comp_data,
+                                               &aot_file_size))) {
+        return false;
+    }
+
+    /* write buffer to file */
+    if (!(file = fopen(file_name, "wb"))) {
+        aot_set_last_error("open or create aot file failed.");
+        goto fail1;
+    }
+    if (!fwrite(aot_file_buf, aot_file_size, 1, file)) {
+        aot_set_last_error("write to aot file failed.");
+        goto fail2;
+    }
+
+    ret = true;
+
+fail2:
+    fclose(file);
+
+fail1:
+    wasm_runtime_free(aot_file_buf);
+
     return ret;
 }

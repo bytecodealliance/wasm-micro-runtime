@@ -32,18 +32,27 @@ typedef enum AOTExceptionID {
     EXCE_CALL_UNLINKED_IMPORT_FUNC,
     EXCE_NATIVE_STACK_OVERFLOW,
     EXCE_UNALIGNED_ATOMIC,
+    EXCE_AUX_STACK_OVERFLOW,
+    EXCE_AUX_STACK_UNDERFLOW,
+    EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
     EXCE_NUM,
 } AOTExceptionID;
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
-    AOT_SECTION_TYPE_INIT_DATA,
-    AOT_SECTION_TYPE_TEXT,
-    AOT_SECTION_TYPE_FUNCTION,
-    AOT_SECTION_TYPE_EXPORT,
-    AOT_SECTION_TYPE_RELOCATION,
-    AOT_SECTION_TYPE_SIGANATURE
+    AOT_SECTION_TYPE_INIT_DATA = 1,
+    AOT_SECTION_TYPE_TEXT = 2,
+    AOT_SECTION_TYPE_FUNCTION = 3,
+    AOT_SECTION_TYPE_EXPORT = 4,
+    AOT_SECTION_TYPE_RELOCATION = 5,
+    AOT_SECTION_TYPE_SIGANATURE = 6,
+    AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
+
+typedef enum AOTCustomSectionType {
+    AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
+    AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
+} AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {
     char *name;
@@ -85,6 +94,28 @@ typedef struct AOTFunctionInstance {
     } u;
 } AOTFunctionInstance;
 
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+typedef struct AOTUnwindInfo {
+    uint8 Version       : 3;
+    uint8 Flags         : 5;
+    uint8 SizeOfProlog;
+    uint8 CountOfCodes;
+    uint8 FrameRegister : 4;
+    uint8 FrameOffset   : 4;
+    struct {
+        struct {
+            uint8 CodeOffset;
+            uint8 UnwindOp : 4;
+            uint8 OpInfo   : 4;
+        };
+        uint16 FrameOffset;
+    } UnwindCode[1];
+} AOTUnwindInfo;
+
+/* size of mov instruction and jmp instruction */
+#define PLT_ITEM_SIZE 12
+#endif
+
 typedef struct AOTModule {
     uint32 module_type;
 
@@ -99,6 +130,10 @@ typedef struct AOTModule {
     /* init data */
     uint32 mem_init_data_count;
     AOTMemInitData **mem_init_data_list;
+
+    /* native symobl */
+    uint32 native_symbol_count;
+    void **native_symbol_list;
 
     /* import tables */
     uint32 import_table_count;
@@ -158,6 +193,25 @@ typedef struct AOTModule {
     /* literal for AOTed code, NULL for JIT mode */
     uint8 *literal;
     uint32 literal_size;
+
+#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
+    && defined(BH_PLATFORM_WINDOWS)
+    /* extra plt data area for __xmm and __real constants
+       in Windows platform, NULL for JIT mode */
+    uint8 *extra_plt_data;
+    uint32 extra_plt_data_size;
+    uint32 xmm_plt_count;
+    uint32 real_plt_count;
+    uint32 float_plt_count;
+#endif
+
+#if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+    /* dynamic function table to be added by RtlAddFunctionTable(),
+       used to unwind the call stack and register exception handler
+       for AOT functions */
+    RUNTIME_FUNCTION *rtl_func_table;
+    bool rtl_func_table_registered;
+#endif
 
     /* data sections in AOT object file, including .data, .rodata
      * and .rodata.cstN. NULL for JIT mode. */
@@ -238,6 +292,22 @@ typedef struct AOTMemoryInstance {
     MemBound mem_bound_check_16bytes;
 } AOTMemoryInstance;
 
+typedef struct AOTTableInstance {
+    uint32 cur_size;
+    /*
+     * only grow in the range of [:max_size)
+     * if the table is growable, max_size equals to its declared maximum size
+     * otherwise, max_size equals to its declared minimum size
+     */
+    uint32 max_size;
+    /*
+     * +------------------------------+  <--- data
+     * | ref.func[] or ref.extern[]
+     * +------------------------------+
+     */
+    uint32 data[1];
+} AOTTableInstance;
+
 typedef struct AOTModuleInstance {
     uint32 module_type;
 
@@ -247,9 +317,17 @@ typedef struct AOTModuleInstance {
 
     /* global and table info */
     uint32 global_data_size;
-    uint32 table_size;
+    /*
+     * the count of AOTTableInstance.
+     * it includes imported tables and local tables.
+     *
+     * TODO: for now we treate imported table like a local table
+     */
+    uint32 table_count;
+   /* points to global_data */
     AOTPointer global_data;
-    AOTPointer table_data;
+    /* points to AOTTableInstance[] */
+    AOTPointer tables;
 
     /* funciton pointer array */
     AOTPointer func_ptrs;
@@ -275,15 +353,31 @@ typedef struct AOTModuleInstance {
     AOTPointer aot_module;
     /* WASI context */
     AOTPointer wasi_ctx;
+    /* function performance profiling info list */
+    AOTPointer func_perf_profilings;
+
+    AOTPointer exec_env_singleton;
 
     /* others */
     uint32 temp_ret;
     uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
+    uint32 _padding;
+    /* store stacktrace information */
+    AOTPointer frames;
     /* reserved */
-    uint32 reserved[11];
+    uint32 reserved[6];
 
+   /*
+    * +------------------------------+ <-- memories.ptr
+    * | #0 AOTMemoryInstance
+    * +------------------------------+ <-- global_data.ptr
+    * | global data
+    * +------------------------------+ <-- tables.ptr
+    * | AOTTableInstance[table_count]
+    * +------------------------------+
+    */
     union {
         uint64 _make_it_8_byte_aligned_;
         AOTMemoryInstance memory_instances[1];
@@ -310,6 +404,24 @@ typedef struct AOTTargetInfo {
     /* Arch name */
     char arch[16];
 } AOTTargetInfo;
+
+typedef struct AOTFuncPerfProfInfo
+{
+    /* total execution time */
+    uint64 total_exec_time;
+    /* total execution count */
+    uint32 total_exec_cnt;
+} AOTFuncPerfProfInfo;
+
+/* AOT auxiliary call stack */
+typedef struct AOTFrame {
+    struct AOTFrame *prev_frame;
+    uint32 func_index;
+#if WASM_ENABLE_PERF_PROFILING != 0
+    uint64 time_started;
+    AOTFuncPerfProfInfo *func_perf_prof_info;
+#endif
+} AOTFrame;
 
 /**
  * Load a AOT module from aot file buffer
@@ -425,6 +537,10 @@ bool
 aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
                                       AOTFunctionInstance *function,
                                       unsigned argc, uint32 argv[]);
+
+bool
+aot_create_exec_env_singleton(AOTModuleInstance *module_inst);
+
 /**
  * Set AOT module instance exception with exception string
  *
@@ -461,6 +577,10 @@ aot_clear_exception(AOTModuleInstance *module_inst);
 uint32
 aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr);
+
+uint32
+aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr,
+                   uint32 size, void **p_native_addr);
 
 void
 aot_module_free(AOTModuleInstance *module_inst, uint32 ptr);
@@ -521,8 +641,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
 
 bool
 aot_call_indirect(WASMExecEnv *exec_env,
-                  bool check_func_type, uint32 func_type_idx,
-                  uint32 table_elem_idx,
+                  uint32 tbl_idx, uint32 table_elem_idx,
                   uint32 argc, uint32 *argv);
 
 uint32
@@ -568,6 +687,44 @@ aot_get_module_mem_consumption(const AOTModule *module,
 void
 aot_get_module_inst_mem_consumption(const AOTModuleInstance *module_inst,
                                     WASMModuleInstMemConsumption *mem_conspn);
+
+#if WASM_ENABLE_REF_TYPES != 0
+void
+aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx);
+
+void
+aot_table_init(AOTModuleInstance *module_inst,
+               uint32 tbl_idx, uint32 tbl_seg_idx,
+               uint32 length, uint32 src_offset, uint32 dst_offset);
+
+void
+aot_table_copy(AOTModuleInstance *module_inst,
+               uint32 src_tbl_idx, uint32 dst_tbl_idx,
+               uint32 length, uint32 src_offset, uint32 dst_offset);
+
+void
+aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx,
+               uint32 length, uint32 val, uint32 data_offset);
+
+uint32
+aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
+               uint32 inc_entries, uint32 init_val);
+#endif
+
+AOTTableInstance *
+aot_next_tbl_inst(const AOTTableInstance *tbl_inst);
+
+bool
+aot_alloc_frame(WASMExecEnv *exec_env, uint32 func_index);
+
+void
+aot_free_frame(WASMExecEnv *exec_env);
+
+void
+aot_dump_call_stack(WASMExecEnv *exec_env);
+
+void
+aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

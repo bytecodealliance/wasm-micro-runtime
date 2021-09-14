@@ -9,16 +9,25 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 
+
+#if WASM_ENABLE_REF_TYPES != 0
+extern void
+wasm_set_ref_types_flag(bool enable);
+#endif
+
 static int
 print_help()
 {
   printf("Usage: wamrc [options] -o output_file wasm_file\n");
   printf("  --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>\n");
-  printf("                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips.\n");
+  printf("                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips,\n");
+  printf("                                     riscv64, riscv32.\n");
   printf("                              Default is host arch, e.g. x86_64\n");
   printf("                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.\n");
   printf("                            Use --target=help to list supported targets\n");
-  printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, etc. (default: gnu)\n");
+  printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, msvc, etc.\n");
+  printf("                              Default is gnu if target isn't riscv64 or riscv32\n");
+  printf("                              For target riscv64 and riscv32, default is lp64d and ilp32d\n");
   printf("                            Use --target-abi=help to list all the ABI supported\n");
   printf("  --cpu=<cpu>               Set the target CPU (default: host CPU, e.g. skylake)\n");
   printf("                            Use --cpu=help to list all the CPU supported\n");
@@ -41,9 +50,18 @@ print_help()
   printf("                              llvmir-opt     Optimized LLVM IR\n");
   printf("  --enable-bulk-memory      Enable the post-MVP bulk memory feature\n");
   printf("  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and\n");
-  printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
   printf("                            thread-mgr will be enabled automatically\n");
-  printf("  --enable-simd             Enable the post-MVP 128-bit SIMD feature\n");
+  printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
+  printf("  --disable-simd            Disable the post-MVP 128-bit SIMD feature:\n");
+  printf("                              currently 128-bit SIMD is only supported for x86-64 target,\n");
+  printf("                              and by default it is enabled in x86-64 target and disabled\n");
+  printf("                              in other targets\n");
+  printf("  --enable-ref-types        Enable the post-MVP reference types feature\n");
+  printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
+  printf("  --enable-dump-call-stack  Enable stack trace feature\n");
+  printf("  --enable-perf-profiling   Enable function performance profiling\n");
+  printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
+  printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
   printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
   printf("Examples: wamrc -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -71,7 +89,8 @@ main(int argc, char *argv[])
   option.output_format = AOT_FORMAT_FILE;
   /* default value, enable or disable depends on the platform */
   option.bounds_checks = 2;
-  option.enable_simd = false;
+  option.enable_simd = true;
+  option.enable_aux_stack_check = true;
 
   /* Process options.  */
   for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -153,7 +172,29 @@ main(int argc, char *argv[])
         option.enable_tail_call = true;
     }
     else if (!strcmp(argv[0], "--enable-simd")) {
+        /* obsolete option, kept for compatibility */
         option.enable_simd = true;
+    }
+    else if (!strcmp(argv[0], "--disable-simd")) {
+        option.enable_simd = false;
+    }
+    else if (!strcmp(argv[0], "--enable-ref-types")) {
+        option.enable_ref_types = true;
+    }
+    else if (!strcmp(argv[0], "--disable-aux-stack-check")) {
+        option.enable_aux_stack_check = false;
+    }
+    else if (!strcmp(argv[0], "--enable-dump-call-stack")) {
+        option.enable_aux_stack_frame = true;
+    }
+    else if (!strcmp(argv[0], "--enable-perf-profiling")) {
+        option.enable_aux_stack_frame = true;
+    }
+    else if (!strcmp(argv[0], "--enable-indirect-mode")) {
+        option.is_indirect_mode = true;
+    }
+    else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
+        option.disable_llvm_intrinsics = true;
     }
     else
       return print_help();
@@ -166,6 +207,10 @@ main(int argc, char *argv[])
     option.size_level = 1;
     option.is_sgx_platform = true;
   }
+
+#if WASM_ENABLE_REF_TYPES != 0
+  wasm_set_ref_types_flag(option.enable_ref_types);
+#endif
 
   wasm_file_name = argv[0];
 

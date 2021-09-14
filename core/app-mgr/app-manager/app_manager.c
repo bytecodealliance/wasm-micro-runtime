@@ -32,8 +32,8 @@ void app_manager_post_applets_update_event()
         return;
 
     if (!(attr_cont = attr_container_create("All Applets"))) {
-        app_manager_printf(
-                "Post applets update event failed: allocate memory failed.");
+        app_manager_printf("Post applets update event failed: "
+                           "allocate memory failed.");
         return;
     }
 
@@ -46,8 +46,8 @@ void app_manager_post_applets_update_event()
     }
 
     if (!(attr_container_set_int(&attr_cont, "num", num))) {
-        app_manager_printf(
-                "Post applets update event failed: set attr container key failed.");
+        app_manager_printf("Post applets update event failed: "
+                           "set attr container key failed.");
         goto fail;
     }
 
@@ -57,14 +57,14 @@ void app_manager_post_applets_update_event()
         i++;
         snprintf(buf, sizeof(buf), "%s%d", "applet", i);
         if (!(attr_container_set_string(&attr_cont, buf, m_data->module_name))) {
-            app_manager_printf(
-                    "Post applets update event failed: set attr applet name key failed.");
+            app_manager_printf("Post applets update event failed: "
+                               "set attr applet name key failed.");
             goto fail;
         }
         snprintf(buf, sizeof(buf), "%s%d", "heap", i);
         if (!(attr_container_set_int(&attr_cont, buf, m_data->heap_size))) {
-            app_manager_printf(
-                    "Post applets update event failed: set attr heap key failed.");
+            app_manager_printf("Post applets update event failed: "
+                               "set attr heap key failed.");
             goto fail;
         }
         m_data = m_data->next;
@@ -114,7 +114,7 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
     attr_cont = attr_container_create("Applets Info");
     if (!attr_cont) {
         SEND_ERR_RESPONSE(msg->mid,
-                "Query Applets failed: allocate memory failed.");
+                          "Query Applets failed: allocate memory failed.");
         return false;
     }
 
@@ -128,7 +128,7 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
 
     if (name == NULL && !(attr_container_set_int(&attr_cont, "num", num))) {
         SEND_ERR_RESPONSE(msg->mid,
-                "Query Applets failed: set attr container key failed.");
+                          "Query Applets failed: set attr container key failed.");
         goto fail;
     }
 
@@ -142,26 +142,31 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
             if (!(attr_container_set_string(&attr_cont, buf,
                     m_data->module_name))) {
                 SEND_ERR_RESPONSE(msg->mid,
-                        "Query Applets failed: set attr container key failed.");
+                                  "Query Applets failed: "
+                                  "set attr container key failed.");
                 goto fail;
             }
             snprintf(buf, sizeof(buf), "%s%d", "heap", i);
             if (!(attr_container_set_int(&attr_cont, buf, m_data->heap_size))) {
                 SEND_ERR_RESPONSE(msg->mid,
-                        "Query Applets failed: set attr container heap key failed.");
+                                  "Query Applets failed: "
+                                  "set attr container heap key failed.");
                 goto fail;
             }
-        } else if (!strcmp(name, m_data->module_name)) {
+        }
+        else if (!strcmp(name, m_data->module_name)) {
             found = true;
             if (!(attr_container_set_string(&attr_cont, "name",
                     m_data->module_name))) {
                 SEND_ERR_RESPONSE(msg->mid,
-                        "Query Applet failed: set attr container key failed.");
+                                  "Query Applet failed: "
+                                  "set attr container key failed.");
                 goto fail;
             }
             if (!(attr_container_set_int(&attr_cont, "heap", m_data->heap_size))) {
                 SEND_ERR_RESPONSE(msg->mid,
-                        "Query Applet failed: set attr container heap key failed.");
+                                  "Query Applet failed: "
+                                  "set attr container heap key failed.");
                 goto fail;
             }
         }
@@ -266,7 +271,7 @@ static void app_manager_queue_callback(void *message, void *arg)
                 goto fail;
             }
             if (g_module_interfaces[module_type]
-                    && g_module_interfaces[module_type]->module_install) {
+                && g_module_interfaces[module_type]->module_install) {
                 if (!g_module_interfaces[module_type]->module_install(request))
                     goto fail;
             }
@@ -276,14 +281,13 @@ static void app_manager_queue_callback(void *message, void *arg)
             module_type = get_module_type(request->url + offset);
             if (module_type == -1) {
                 SEND_ERR_RESPONSE(mid,
-                        "Uninstall Applet failed: invalid module type.");
+                                  "Uninstall Applet failed: invalid module type.");
                 goto fail;
             }
 
             if (g_module_interfaces[module_type]
                     && g_module_interfaces[module_type]->module_uninstall) {
-                if (!g_module_interfaces[module_type]->module_uninstall(
-                        request))
+                if (!g_module_interfaces[module_type]->module_uninstall(request))
                     goto fail;
             }
         }
@@ -292,18 +296,19 @@ static void app_manager_queue_callback(void *message, void *arg)
             char name[APP_NAME_MAX_LEN] = { 0 };
             char *properties = request->url + offset;
             find_key_value(properties, strlen(properties), "name", name,
-                    sizeof(name) - 1, '&');
+                           sizeof(name) - 1, '&');
             if (strlen(name) > 0)
                 app_manager_query_applets(request, name);
             else
                 app_manager_query_applets(request, NULL);
-        } else {
+        }
+        else {
             SEND_ERR_RESPONSE(mid, "Invalid request of applet: invalid action");
         }
     }
     /* Event Register/Unregister */
     else if ((offset = check_url_start(request->url, strlen(request->url),
-            "/event/")) > 0) {
+                                       "/event/")) > 0) {
         char url_buf[256] = { 0 };
 
         strncpy(url_buf, request->url + offset, sizeof(url_buf) - 1);
@@ -313,11 +318,12 @@ static void app_manager_queue_callback(void *message, void *arg)
             goto fail;
         }
         send_error_response_to_host(mid, CONTENT_2_05, NULL); /* OK */
-    } else {
+    }
+    else {
         int i;
         for (i = 0; i < Module_Max; i++) {
             if (g_module_interfaces[i]
-                    && g_module_interfaces[i]->module_handle_host_url) {
+                && g_module_interfaces[i]->module_handle_host_url) {
                 if (g_module_interfaces[i]->module_handle_host_url(request))
                     break;
             }
@@ -325,10 +331,8 @@ static void app_manager_queue_callback(void *message, void *arg)
 
     }
 
-    fail:
-
+fail:
     return;
-
 }
 
 static void module_interfaces_init()
@@ -360,7 +364,7 @@ void app_manager_startup(host_interface *interface)
 
     am_register_resource("/app/", targeted_app_request_handler, ID_APP_MGR);
 
-    /*/app/ and /event/ are both processed by applet_mgt_reqeust_handler*/
+    /* /app/ and /event/ are both processed by applet_mgt_reqeust_handler */
     am_register_resource("/applet", applet_mgt_reqeust_handler, ID_APP_MGR);
     am_register_resource("/event/", applet_mgt_reqeust_handler, ID_APP_MGR);
 
@@ -368,6 +372,12 @@ void app_manager_startup(host_interface *interface)
 
     /* Enter loop run */
     bh_queue_enter_loop_run(g_app_mgr_queue, app_manager_queue_callback, NULL);
+
+    /* Destroy registered resources */
+    am_cleanup_registeration(ID_APP_MGR);
+
+    /* Destroy watchdog */
+    watchdog_destroy();
 
 fail2:
     module_data_list_destroy();

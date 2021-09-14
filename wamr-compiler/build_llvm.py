@@ -12,7 +12,7 @@ def clone_llvm():
     llvm_dir = Path("llvm")
     if(llvm_dir.exists() == False):
         print("Clone llvm to core/deps/ ..")
-        for line in os.popen("git clone --branch release/10.x https://github.com/llvm/llvm-project.git llvm"):
+        for line in os.popen("git clone --branch release/11.x https://github.com/llvm/llvm-project.git llvm"):
             print(line)
     else:
         print("llvm source codes already existed")
@@ -66,7 +66,7 @@ def main():
         cmd = 'cmake ../llvm \
                 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
                 -DCMAKE_BUILD_TYPE:STRING="Release" \
-                -DLLVM_TARGETS_TO_BUILD:STRING="X86;ARM;AArch64;Mips" \
+                -DLLVM_TARGETS_TO_BUILD:STRING="X86;ARM;AArch64;Mips;RISCV" \
                 -DLLVM_INCLUDE_GO_TESTS=OFF \
                 -DLLVM_INCLUDE_TOOLS=OFF \
                 -DLLVM_INCLUDE_UTILS=OFF \

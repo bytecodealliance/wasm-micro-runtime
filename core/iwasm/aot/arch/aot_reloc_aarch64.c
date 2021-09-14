@@ -60,7 +60,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
     char *d = target_buf;
 
     /* Set to "aarch64v8" by default if sub version isn't specified */
-    if (strcmp(s, "AARACH64") == 0) {
+    if (strcmp(s, "AARCH64") == 0) {
         s = BUILD_TARGET_AARCH64_DEFAULT;
         s_size = sizeof(BUILD_TARGET_AARCH64_DEFAULT);
     }
@@ -111,8 +111,8 @@ get_plt_table_size()
 }
 
 #define SIGN_EXTEND_TO_INT64(val, bits, val_ext) do { \
-    int64 m = ((int64)1 << (bits - 1));      \
-    val_ext = ((int64)val ^ m) - m;          \
+    int64 m = (int64)((uint64)1 << (bits - 1));       \
+    val_ext = ((int64)val ^ m) - m;                   \
 } while (0)
 
 #define Page(expr) ((expr) & ~0xFFF)
@@ -385,4 +385,3 @@ overflow_check_fail:
                   "target address out of range.");
     return false;
 }
-

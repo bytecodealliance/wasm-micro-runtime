@@ -68,9 +68,15 @@ wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
                             const uint8 *code_end_addr,
                             uint8 block_type,
                             uint8 **p_else_addr,
-                            uint8 **p_end_addr,
-                            char *error_buf,
-                            uint32 error_buf_size);
+                            uint8 **p_end_addr);
+
+#if WASM_ENABLE_REF_TYPES != 0
+void
+wasm_set_ref_types_flag(bool enable);
+
+bool
+wasm_get_ref_types_flag();
+#endif
 
 #ifdef __cplusplus
 }

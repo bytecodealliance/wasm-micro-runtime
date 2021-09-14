@@ -83,7 +83,7 @@ aot_compile_simd_i8x16_arith(AOTCompContext *comp_ctx,
 
     return simd_v128_integer_arith(comp_ctx, func_ctx, arith_op, lhs, rhs);
 fail:
-    return NULL;
+    return false;
 }
 
 bool
@@ -105,7 +105,7 @@ aot_compile_simd_i16x8_arith(AOTCompContext *comp_ctx,
 
     return simd_v128_integer_arith(comp_ctx, func_ctx, arith_op, lhs, rhs);
 fail:
-    return NULL;
+    return false;
 }
 
 bool
@@ -127,7 +127,7 @@ aot_compile_simd_i32x4_arith(AOTCompContext *comp_ctx,
 
     return simd_v128_integer_arith(comp_ctx, func_ctx, arith_op, lhs, rhs);
 fail:
-    return NULL;
+    return false;
 }
 
 bool

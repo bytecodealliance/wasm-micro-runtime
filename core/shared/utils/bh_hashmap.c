@@ -307,7 +307,8 @@ bh_hash_map_get_elem_struct_size()
 }
 
 bool
-bh_hash_map_traverse(HashMap *map, TraverseCallbackFunc callback)
+bh_hash_map_traverse(HashMap *map, TraverseCallbackFunc callback,
+                     void *user_data)
 {
     uint32 index;
     HashMapElem *elem, *next;
@@ -325,7 +326,7 @@ bh_hash_map_traverse(HashMap *map, TraverseCallbackFunc callback)
         elem = map->elements[index];
         while (elem) {
             next = elem->next;
-            callback(elem->key, elem->value);
+            callback(elem->key, elem->value, user_data);
             elem = next;
         }
     }

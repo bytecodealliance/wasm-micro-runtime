@@ -15,7 +15,12 @@
     && !defined(BUILD_TARGET_THUMB) \
     && !defined(BUILD_TARGET_THUMB_VFP) \
     && !defined(BUILD_TARGET_MIPS) \
-    && !defined(BUILD_TARGET_XTENSA)
+    && !defined(BUILD_TARGET_XTENSA) \
+    && !defined(BUILD_TARGET_RISCV64_LP64D) \
+    && !defined(BUILD_TARGET_RISCV64_LP64) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32D) \
+    && !defined(BUILD_TARGET_RISCV32_ILP32) \
+    && !defined(BUILD_TARGET_ARC)
 #if defined(__x86_64__) || defined(__x86_64)
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
@@ -34,6 +39,12 @@
 #define BUILD_TARGET_MIPS
 #elif defined(__XTENSA__)
 #define BUILD_TARGET_XTENSA
+#elif defined(__riscv) && (__riscv_xlen == 64)
+#define BUILD_TARGET_RISCV64_LP64D
+#elif defined(__riscv) && (__riscv_xlen == 32)
+#define BUILD_TARGET_RISCV32_ILP32D
+#elif defined(__arc__)
+#define BUILD_TARGET_ARC
 #else
 #error "Build target isn't set"
 #endif
@@ -58,16 +69,23 @@
 #endif
 
 #define AOT_MAGIC_NUMBER 0x746f6100
-#define AOT_CURRENT_VERSION 2
+#define AOT_CURRENT_VERSION 3
 
 #ifndef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
 #endif
 
+#ifndef WASM_ENABLE_LAZY_JIT
+#define WASM_ENABLE_LAZY_JIT 0
+#endif
+
 #if (WASM_ENABLE_AOT == 0) && (WASM_ENABLE_JIT != 0)
-/* JIT can only be enabled when AOT is enabled */
+/* LazyJIT or MCJIT can only be enabled when AOT is enabled */
 #undef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
+
+#undef WASM_ENABLE_LAZY_JIT
+#define WASM_ENABLE_LAZY_JIT 0
 #endif
 
 #ifndef WASM_ENABLE_WAMR_COMPILER
@@ -80,6 +98,10 @@
 
 #ifndef WASM_ENABLE_LIBC_WASI
 #define WASM_ENABLE_LIBC_WASI 0
+#endif
+
+#ifndef WASM_ENABLE_UVWASI
+#define WASM_ENABLE_UVWASI 0
 #endif
 
 /* Default disable libc emcc */
@@ -119,17 +141,22 @@
 #define WASM_ENABLE_LOG 1
 #endif
 
-#if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64)
-#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 1
+#ifndef WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS
+#if defined(BUILD_TARGET_X86_32) || defined(BUILD_TARGET_X86_64) \
+    || defined(BUILD_TARGET_AARCH64)
+#define WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS 1
 #else
-#define WASM_CPU_SUPPORTS_UNALIGNED_64BIT_ACCESS 0
+#define WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS 0
+#endif
 #endif
 
 /* WASM Interpreter labels-as-values feature */
+#ifndef WASM_ENABLE_LABELS_AS_VALUES
 #ifdef __GNUC__
 #define WASM_ENABLE_LABELS_AS_VALUES 1
 #else
 #define WASM_ENABLE_LABELS_AS_VALUES 0
+#endif
 #endif
 
 /* Enable fast interpreter or not */
@@ -138,10 +165,7 @@
 #endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
-#define WASM_ENABLE_ABS_LABEL_ADDR 1
 #define WASM_DEBUG_PREPROCESSOR 0
-#else
-#define WASM_ENABLE_ABS_LABEL_ADDR 0
 #endif
 
 /* Enable opcode counter or not */
@@ -180,6 +204,16 @@
 #define WASM_ENABLE_MEMORY_TRACING 0
 #endif
 
+/* Performance profiling */
+#ifndef WASM_ENABLE_PERF_PROFILING
+#define WASM_ENABLE_PERF_PROFILING 0
+#endif
+
+/* Dump call stack */
+#ifndef WASM_ENABLE_DUMP_CALL_STACK
+#define WASM_ENABLE_DUMP_CALL_STACK 0
+#endif
+
 /* Heap verification */
 #ifndef BH_ENABLE_GC_VERIFY
 #define BH_ENABLE_GC_VERIFY 0
@@ -213,8 +247,10 @@
 #define APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT 1 / 3
 
 /* Default min/max heap size of each app */
+#ifndef APP_HEAP_SIZE_DEFAULT
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
-#define APP_HEAP_SIZE_MIN (512)
+#endif
+#define APP_HEAP_SIZE_MIN (256)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 
 /* Default wasm stack size of each app */
@@ -223,6 +259,8 @@
 #else
 #define DEFAULT_WASM_STACK_SIZE (12 * 1024)
 #endif
+/* Min auxilliary stack size of each wasm thread */
+#define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
 /* Default/min/max stack size of each app thread */
 #if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
@@ -240,6 +278,9 @@
 /* Reserved bytes to the native thread stack boundary, throw native
    stack overflow exception if the guard boudary is reached */
 #define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
+
+/* Guard page count for stack overflow check with hardware trap */
+#define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
 
 /* Default wasm block address cache size and conflict list size */
 #ifndef BLOCK_ADDR_CACHE_SIZE
@@ -261,6 +302,10 @@
 
 #ifndef WASM_ENABLE_CUSTOM_NAME_SECTION
 #define WASM_ENABLE_CUSTOM_NAME_SECTION 0
+#endif
+
+#ifndef WASM_ENABLE_REF_TYPES
+#define WASM_ENABLE_REF_TYPES 0
 #endif
 
 #endif /* end of _CONFIG_H_ */
