@@ -175,10 +175,6 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
       comp_ctx, func_ctx,
       (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
     );
-    if (!return_location) {
-        aot_set_last_error("dwarf generate location failed");
-        return false;
-    }
 #endif
     if (block->label_type == LABEL_TYPE_IF
         && block->llvm_else_block
@@ -1068,10 +1064,6 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
       comp_ctx, func_ctx,
       (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
     );
-    if (!return_location) {
-        aot_set_last_error("dwarf generate location failed");
-        return false;
-    }
 #endif
     if (block_func->result_count) {
         /* Store extra result values to function parameters */

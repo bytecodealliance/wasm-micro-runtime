@@ -14,7 +14,7 @@
 #endif
 #if WASM_ENABLE_AOT != 0
 #include "../aot/aot_runtime.h"
-#if WASM_ENABLE_AOT_DEBUG != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
 #include "../aot/debug/jit_debug.h"
 #endif
 #endif
@@ -134,7 +134,7 @@ wasm_runtime_env_init()
         goto fail6;
     }
 #endif
-#if WASM_ENABLE_AOT_DEBUG != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     if (!jit_debug_engine_init()) {
         goto fail7;
     }
@@ -153,7 +153,7 @@ wasm_runtime_env_init()
 fail8:
 #endif
 #if WASM_ENABLE_AOT != 0
-#if WASM_ENABLE_AOT_DEBUG != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     jit_debug_engine_destroy();
 fail7:
 #endif
@@ -216,7 +216,7 @@ wasm_runtime_destroy()
 #endif
 
 #if WASM_ENABLE_AOT != 0
-#if WASM_ENABLE_AOT_DEBUG != 0
+#if WASM_ENABLE_DEBUG_AOT != 0
     jit_debug_engine_destroy();
 #endif
 #ifdef OS_ENABLE_HW_BOUND_CHECK

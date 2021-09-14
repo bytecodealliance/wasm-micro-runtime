@@ -640,10 +640,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
 #if WASM_ENABLE_DEBUG_AOT != 0
     func_ctx->debug_func = dwarf_gen_func_info(comp_ctx, func_ctx);
-    if (!func_ctx->debug_func) {
-        aot_set_last_error("dwarf generate func info failed");
-        goto fail;
-    }
 #endif
 
     aot_block_stack_push(&func_ctx->block_stack, aot_block);
