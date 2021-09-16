@@ -10,12 +10,12 @@
 
 // A function to be called from Wasm code.
 own wasm_trap_t* callback(
-  const wasm_val_t args[], wasm_val_t results[]
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n> ");
   printf("> %p\n",
-    args[0].of.ref ? wasm_ref_get_host_info(args[0].of.ref) : NULL);
-  wasm_val_copy(&results[0], &args[0]);
+    args->data[0].of.ref ? wasm_ref_get_host_info(args->data[0].of.ref) : NULL);
+  wasm_val_copy(&results->data[0], &args->data[0]);
   return NULL;
 }
 
@@ -47,19 +47,21 @@ wasm_table_t* get_export_table(const wasm_extern_vec_t* exports, size_t i) {
 
 own wasm_ref_t* call_v_r(const wasm_func_t* func) {
   printf("call_v_r... "); fflush(stdout);
-  wasm_val_t rs[] = { WASM_INIT_VAL };
-  if (wasm_func_call(func, NULL, rs)) {
+  wasm_val_vec_t rs;
+  wasm_val_vec_new_uninitialized(&rs, 1);
+  if (wasm_func_call(func, NULL, &rs)) {
     printf("> Error calling function!\n");
     exit(1);
   }
   printf("okay\n");
-  return rs[0].of.ref;
+  return rs.data[0].of.ref;
 }
 
 void call_r_v(const wasm_func_t* func, wasm_ref_t* ref) {
   printf("call_r_v... "); fflush(stdout);
-  wasm_val_t vs[1] = { WASM_REF_VAL(ref) };
-  if (wasm_func_call(func, vs, NULL)) {
+  wasm_val_vec_t vs;
+  wasm_val_vec_new(&vs, 1, (wasm_val_t []){ WASM_REF_VAL(ref) });
+  if (wasm_func_call(func, &vs, NULL)) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -68,20 +70,22 @@ void call_r_v(const wasm_func_t* func, wasm_ref_t* ref) {
 
 own wasm_ref_t* call_r_r(const wasm_func_t* func, wasm_ref_t* ref) {
   printf("call_r_r... "); fflush(stdout);
-  wasm_val_t vs[1] = { WASM_REF_VAL(ref) };
-  wasm_val_t rs[1] = { WASM_INIT_VAL };
-  if (wasm_func_call(func, vs, rs)) {
+  wasm_val_vec_t vs, rs;
+  wasm_val_vec_new(&vs, 1, (wasm_val_t []){ WASM_REF_VAL(ref) });
+  wasm_val_vec_new_uninitialized(&rs, 1);
+  if (wasm_func_call(func, &vs, &rs)) {
     printf("> Error calling function!\n");
     exit(1);
   }
   printf("okay\n");
-  return rs[0].of.ref;
+  return rs.data[0].of.ref;
 }
 
 void call_ir_v(const wasm_func_t* func, int32_t i, wasm_ref_t* ref) {
   printf("call_ir_v... "); fflush(stdout);
-  wasm_val_t vs[2] = { WASM_I32_VAL(i), WASM_REF_VAL(ref) };
-  if (wasm_func_call(func, vs, NULL)) {
+  wasm_val_vec_t vs;
+  wasm_val_vec_new(&vs, 2, (wasm_val_t []){ WASM_I32_VAL(i), WASM_REF_VAL(ref) });
+  if (wasm_func_call(func, &vs, NULL)) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -90,14 +94,15 @@ void call_ir_v(const wasm_func_t* func, int32_t i, wasm_ref_t* ref) {
 
 own wasm_ref_t* call_i_r(const wasm_func_t* func, int32_t i) {
   printf("call_i_r... "); fflush(stdout);
-  wasm_val_t vs[1] = { WASM_I32_VAL(i) };
-  wasm_val_t rs[1] = { WASM_INIT_VAL };
-  if (wasm_func_call(func, vs, rs)) {
+  wasm_val_vec_t vs, rs;
+  wasm_val_vec_new(&vs, 1, (wasm_val_t []){ WASM_I32_VAL(i) });
+  wasm_val_vec_new_uninitialized(&rs, 1);
+  if (wasm_func_call(func, &vs, &rs)) {
     printf("> Error calling function!\n");
     exit(1);
   }
   printf("okay\n");
-  return rs[0].of.ref;
+  return rs.data[0].of.ref;
 }
 
 void
@@ -164,9 +169,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(callback_func) };
+  wasm_extern_vec_t imports;
+  wasm_extern_vec_new(&imports, 1, (wasm_extern_t* []) { wasm_func_as_extern(callback_func) });
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
