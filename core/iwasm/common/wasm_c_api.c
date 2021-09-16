@@ -2739,8 +2739,8 @@ failed:
 
 wasm_trap_t *
 wasm_func_call(const wasm_func_t *func,
-               const wasm_val_t params[],
-               wasm_val_t results[])
+               const wasm_val_vec_t *params,
+               wasm_val_vec_t *results)
 {
     /* parameters count as if all are uint32 */
     /* a int64 or float64 parameter means 2 */
@@ -2804,7 +2804,7 @@ wasm_func_call(const wasm_func_t *func,
 
     /* copy parametes */
     if (param_count
-        && !(argc = params_to_argv(func->inst_comm_rt, params,
+        && !(argc = params_to_argv(func->inst_comm_rt, params->data,
                                    wasm_functype_params(func->type),
                                    param_count, argv))) {
         goto failed;
@@ -2826,9 +2826,11 @@ wasm_func_call(const wasm_func_t *func,
     /* copy results */
     if (result_count) {
         if (!(argc = argv_to_results(argv, wasm_functype_results(func->type),
-                                     result_count, results))) {
+                                     result_count, results->data))) {
             goto failed;
         }
+        results->num_elems = result_count;
+        results->size = result_count;
     }
 
     if (argv != argv_buf)
@@ -4261,7 +4263,7 @@ failed:
 wasm_instance_t *
 wasm_instance_new(wasm_store_t *store,
                   const wasm_module_t *module,
-                  const wasm_extern_t *const imports[],
+                  const wasm_extern_vec_t *imports,
                   own wasm_trap_t **traps)
 {
     return wasm_instance_new_with_args(store, module, imports, traps,
@@ -4271,7 +4273,7 @@ wasm_instance_new(wasm_store_t *store,
 wasm_instance_t *
 wasm_instance_new_with_args(wasm_store_t *store,
                             const wasm_module_t *module,
-                            const wasm_extern_t *const imports[],
+                            const wasm_extern_vec_t *imports,
                             own wasm_trap_t **traps,
                             const uint32 stack_size,
                             const uint32 heap_size)
@@ -4305,7 +4307,7 @@ wasm_instance_new_with_args(wasm_store_t *store,
 
             if (import_count) {
                 uint32 actual_link_import_count = interp_link(
-                  instance, MODULE_INTERP(module), (wasm_extern_t **)imports);
+                  instance, MODULE_INTERP(module), (wasm_extern_t **)imports->data);
                 /* make sure a complete import list */
                 if ((int32)import_count < 0
                     || import_count != actual_link_import_count) {
@@ -4327,7 +4329,7 @@ wasm_instance_new_with_args(wasm_store_t *store,
 
             if (import_count) {
                 import_count = aot_link(instance, MODULE_AOT(module),
-                                        (wasm_extern_t **)imports);
+                                        (wasm_extern_t **)imports->data);
                 if ((int32)import_count < 0) {
                     goto failed;
                 }
@@ -4356,8 +4358,8 @@ wasm_instance_new_with_args(wasm_store_t *store,
     }
 
     /* fill with inst */
-    for (i = 0; imports && i < (uint32)import_count; ++i) {
-        wasm_extern_t *import = (wasm_extern_t *)imports[i];
+    for (i = 0; imports && imports->data && i < (uint32)import_count; ++i) {
+        wasm_extern_t *import = imports->data[i];
         switch (import->kind) {
             case WASM_EXTERN_FUNC:
                 wasm_extern_as_func(import)->inst_comm_rt =
