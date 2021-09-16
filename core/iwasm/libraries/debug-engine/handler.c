@@ -327,7 +327,7 @@ handle_v_packet(WASMGDBServer *server, char *payload)
                 uint64_t tid = strtol(numstring, NULL, 16);
                 wasm_debug_instance_set_cur_thread(
                   (WASMDebugInstance *)server->thread->debug_instance, tid);
-                wasm_debug_instance_singelstep(
+                wasm_debug_instance_singlestep(
                   (WASMDebugInstance *)server->thread->debug_instance, tid);
                 tid = wasm_debug_instance_wait_thread(
                   (WASMDebugInstance *)server->thread->debug_instance, tid,

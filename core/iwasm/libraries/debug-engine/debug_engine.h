@@ -166,7 +166,7 @@ wasm_debug_instance_wait_thread(WASMDebugInstance *instance,
                                 uint64 tid, uint32 *status);
 
 bool
-wasm_debug_instance_singelstep(WASMDebugInstance *instance, uint64 tid);
+wasm_debug_instance_singlestep(WASMDebugInstance *instance, uint64 tid);
 
 bool
 wasm_debug_instance_get_local(WASMDebugInstance *instance,

@@ -35,7 +35,7 @@ control_thread_routine(void *arg)
 {
     WASMDebugObject *debug_object = (WASMDebugObject *)arg;
 
-    LOG_WARNING("control thread of debug objet %p start at %s:%d\n",
+    LOG_WARNING("control thread of debug object %p start at %s:%d\n",
                 debug_object, debug_object->control_thread->ip_addr,
                 debug_object->control_thread->port);
 
@@ -64,7 +64,7 @@ control_thread_routine(void *arg)
         os_mutex_unlock(&debug_object->control_thread->wait_lock);
     }
 
-    LOG_VERBOSE("control thread of debug objet %p stop\n", debug_object);
+    LOG_VERBOSE("control thread of debug object %p stop\n", debug_object);
     return NULL;
 }
 
@@ -107,7 +107,7 @@ static void
 wasm_debug_control_thread_destroy(WASMDebugObject *debug_object)
 {
     WASMDebugControlThread *control_thread = debug_object->control_thread;
-    LOG_VERBOSE("control thread of debug objet %p stop at %s:%d\n",
+    LOG_VERBOSE("control thread of debug object %p stop at %s:%d\n",
                 debug_object, debug_object->control_thread->ip_addr,
                 debug_object->control_thread->port);
     os_mutex_lock(&control_thread->wait_lock);
@@ -819,7 +819,7 @@ wasm_debug_instance_kill(WASMDebugInstance *instance)
 }
 
 bool
-wasm_debug_instance_singelstep(WASMDebugInstance *instance, uint64 tid)
+wasm_debug_instance_singlestep(WASMDebugInstance *instance, uint64 tid)
 {
     WASMExecEnv *exec_env;
 
