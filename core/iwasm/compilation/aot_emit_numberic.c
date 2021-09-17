@@ -36,10 +36,17 @@
     LLVMMoveBasicBlockAfter(block, LLVMGetInsertBlock(comp_ctx->builder)); \
 } while (0)
 
-#define IS_CONST_ZERO(val)                                                 \
-    (LLVMIsConstant(val)                                                   \
-     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0)             \
+#if LLVM_VERSION_NUMBER >= 12
+#define IS_CONST_ZERO(val)                                                    \
+    (!LLVMIsUndef(val) && !LLVMIsPoison(val) && LLVMIsConstant(val)           \
+     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0)                \
          || (!is_i32 && (int64)LLVMConstIntGetSExtValue(val) == 0)))
+#else
+#define IS_CONST_ZERO(val)                                                    \
+    (!LLVMIsUndef(val) && LLVMIsConstant(val)                                 \
+     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0)                \
+         || (!is_i32 && (int64)LLVMConstIntGetSExtValue(val) == 0)))
+#endif
 
 #define CHECK_INT_OVERFLOW(type) do {                                      \
     LLVMValueRef cmp_min_int, cmp_neg_one;                                 \
@@ -398,6 +405,18 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_INT(right);
     POP_INT(left);
+
+    if (LLVMIsUndef(right) || LLVMIsUndef(left)
+#if LLVM_VERSION_NUMBER >= 12
+        || LLVMIsPoison(right) || LLVMIsPoison(left)
+#endif
+    ) {
+        if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_INTEGER_OVERFLOW,
+                                 false, NULL, NULL))) {
+            goto fail;
+        }
+        return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
+    }
 
     if (LLVMIsConstant(right)) {
         int64 right_val = (int64)LLVMConstIntGetSExtValue(right);

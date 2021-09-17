@@ -35,34 +35,80 @@ bool
 aot_compile_simd_f64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f32x4_round(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f64x2_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f64x2_round(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_ceil(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f32x4_sqrt(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f64x2_ceil(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f64x2_sqrt(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_floor(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f32x4_ceil(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f64x2_floor(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f64x2_ceil(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f32x4_floor(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f64x2_trunc(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f64x2_floor(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_nearest(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f32x4_trunc(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f64x2_nearest(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_f64x2_trunc(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_f32x4_nearest(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_f64x2_nearest(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_f32x4_min_max(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx,
+                               bool run_min);
+
+bool
+aot_compile_simd_f64x2_min_max(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx,
+                               bool run_min);
+
+bool
+aot_compile_simd_f32x4_pmin_pmax(AOTCompContext *comp_ctx,
+                                 AOTFuncContext *func_ctx,
+                                 bool run_min);
+
+bool
+aot_compile_simd_f64x2_pmin_pmax(AOTCompContext *comp_ctx,
+                                 AOTFuncContext *func_ctx,
+                                 bool run_min);
+
+bool
+aot_compile_simd_f64x2_demote(AOTCompContext *comp_ctx,
+                              AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_f32x4_promote(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
