@@ -9,11 +9,11 @@
 
 // A function to be called from Wasm code.
 own wasm_trap_t* neg_callback(
-  const wasm_val_t args[], wasm_val_t results[]
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n");
-  results[0].kind = WASM_I32;
-  results[0].of.i32 = -args[0].of.i32;
+  results->data[0].kind = WASM_I32;
+  results->data[0].of.i32 = -args->data[0].of.i32;
   return NULL;
 }
 
@@ -49,18 +49,20 @@ void check_table(wasm_table_t* table, int32_t i, bool expect_set) {
 }
 
 void check_call(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
-  wasm_val_t args[2] = { WASM_I32_VAL(arg1), WASM_I32_VAL(arg2) };
-  wasm_val_t results[1] = { WASM_INIT_VAL };
-  if (wasm_func_call(func, args, results) || results[0].of.i32 != expected) {
+  wasm_val_vec_t args, results;
+  wasm_val_vec_new(&args, 2, (wasm_val_t []){ WASM_I32_VAL(arg1), WASM_I32_VAL(arg2) });
+  wasm_val_vec_new(&results, 1, (wasm_val_t []){ WASM_INIT_VAL });
+  if (wasm_func_call(func, &args, &results) || results.data[0].of.i32 != expected) {
     printf("> Error on result\n");
     exit(1);
   }
 }
 
 void check_trap(wasm_func_t* func, int32_t arg1, int32_t arg2) {
-  wasm_val_t args[2] = { WASM_I32_VAL(arg1), WASM_I32_VAL(arg2) };
-  wasm_val_t results[1] = { WASM_INIT_VAL };
-  own wasm_trap_t* trap = wasm_func_call(func, args, results);
+  wasm_val_vec_t args, results;
+  wasm_val_vec_new(&args, 2, (wasm_val_t []){ WASM_I32_VAL(arg1), WASM_I32_VAL(arg2) });
+  wasm_val_vec_new(&results, 1, (wasm_val_t []){ WASM_INIT_VAL });
+  own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
   if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);

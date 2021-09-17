@@ -6,11 +6,10 @@
 #ifndef _AOT_INTRINSIC_H
 #define _AOT_INTRINSIC_H
 
+#include "aot_runtime.h"
 #if WASM_ENABLE_WAMR_COMPILER != 0
 #include "aot_llvm.h"
 #endif
-
-#include "aot_runtime.h"
 
 #ifdef __cplusplus
 extern "C" {
