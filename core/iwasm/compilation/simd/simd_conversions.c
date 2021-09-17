@@ -405,7 +405,7 @@ aot_compile_simd_i32x4_trunc_sat_f64x2(AOTCompContext *comp_ctx,
                                        AOTFuncContext *func_ctx,
                                        bool is_signed)
 {
-    LLVMValueRef result, mask;
+    LLVMValueRef result, zero, mask;
     LLVMTypeRef out_vector_type;
     LLVMValueRef lanes[] = {
         LLVM_CONST(i32_zero),
@@ -425,16 +425,20 @@ aot_compile_simd_i32x4_trunc_sat_f64x2(AOTCompContext *comp_ctx,
                                   V128_f64x2_TYPE, out_vector_type))) {
         return false;
     }
+    
+    if (!(zero = LLVMConstNull(out_vector_type))) {
+        HANDLE_FAILURE("LLVMConstNull");
+        return false;
+    }
 
     /* v2i32 -> v4i32 */
-    if (!(mask = LLVMConstVector(lanes, 2))) {
+    if (!(mask = LLVMConstVector(lanes, 4))) {
         HANDLE_FAILURE("LLVMConstVector");
         return false;
     }
 
-    if (!(result =
-            LLVMBuildShuffleVector(comp_ctx->builder, result,
-                                   LLVM_CONST(i32x4_zero), mask, "extend"))) {
+    if (!(result = LLVMBuildShuffleVector(comp_ctx->builder, result, zero,
+                                          mask, "extend"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
         return false;
     }
@@ -454,7 +458,7 @@ simd_integer_convert(AOTCompContext *comp_ctx,
     result = is_signed ? LLVMBuildSIToFP(comp_ctx->builder, vector,
                                          out_vector_type, "converted")
                        : LLVMBuildUIToFP(comp_ctx->builder, vector,
-                                         V128_f32x4_TYPE, "converted");
+                                         out_vector_type, "converted");
     if (!result) {
         HANDLE_FAILURE("LLVMBuildSIToFP/LLVMBuildUIToFP");
     }
@@ -515,9 +519,8 @@ aot_compile_simd_f64x2_convert_i32x4(AOTCompContext *comp_ctx,
         return false;
     }
 
-    if (!(result = LLVMBuildShuffleVector(comp_ctx->builder, result,
-                                          LLVM_CONST(f64x2_vec_zero), mask,
-                                          "trunc"))) {
+    if (!(result = LLVMBuildShuffleVector(comp_ctx->builder, result, result,
+                                          mask, "trunc"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
         return false;
     }
@@ -534,10 +537,6 @@ simd_extadd_pairwise(AOTCompContext *comp_ctx,
 {
     LLVMValueRef vector, even_mask, odd_mask, sub_vector_even, sub_vector_odd,
       result;
-
-    LLVMValueRef zero = V128_i16x8_TYPE == in_vector_type
-                          ? LLVM_CONST(i8x16_vec_zero)
-                          : LLVM_CONST(i16x8_vec_zero);
 
     LLVMValueRef even_element[] = {
         LLVM_CONST(i32_zero),   LLVM_CONST(i32_two),      LLVM_CONST(i32_four),
@@ -568,9 +567,9 @@ simd_extadd_pairwise(AOTCompContext *comp_ctx,
 
     /* shuffle a <16xi8> vector to two <8xi8> vectors */
     if (!(sub_vector_even = LLVMBuildShuffleVector(
-            comp_ctx->builder, vector, zero, even_mask, "pick_even"))
+            comp_ctx->builder, vector, vector, even_mask, "pick_even"))
         || !(sub_vector_odd = LLVMBuildShuffleVector(
-               comp_ctx->builder, vector, zero, odd_mask, "pick_odd"))) {
+               comp_ctx->builder, vector, vector, odd_mask, "pick_odd"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
         return false;
     }

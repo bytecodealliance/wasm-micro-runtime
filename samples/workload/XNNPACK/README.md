@@ -5,20 +5,7 @@ This sample demonstrates how to build [XNNPACK](https://github.com/google/XNNPAC
 
 ## Installation toolchains
 
-- **bazel**. Please install bazel from [latest release](https://github.com/bazelbuild/bazel/releases)
-
-- **emsdk**. Please install [emsdk](https://github.com/emscripten-core/emsdk) to /opt/emsdk:
-```bash
-cd /opt
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk
-./emsdk install latest
-./emsdk activate latest
-```
-And set up ensdk environment:
-```bash
-source /opt/emsdk/emsdk_env.sh
-```
+please refer to [installation instructions](../README.md).
 
 ## Build XNNPACK
 

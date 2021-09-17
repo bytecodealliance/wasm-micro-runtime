@@ -5,8 +5,8 @@ This sample demonstrates how to build [tensorflow](https://github.com/tensorflow
 ```bash
 git clone https://github.com/emscripten-core/emsdk.git
 cd emsdk
-./emsdk install 2.0.12
-./emsdk activate 2.0.12
+./emsdk install 2.0.26
+./emsdk activate 2.0.26
 ```
 And set up ensdk environment:
 ```bash

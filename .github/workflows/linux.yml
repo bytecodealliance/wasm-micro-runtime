@@ -34,17 +34,13 @@ jobs:
         key: ${{ matrix.os }}-build-${{env.cache-name}}
         restore-keys: ${{ matrix.os }}-build-${{env.cache-name}}
     - name: Build llvm and clang from source
+      id: build_llvm
       if: steps.cache_llvm.outputs.cache-hit != 'true'
       run: |
         cd wamr-compiler
         ./build_llvm.sh
         cd ../core/deps/llvm/build/
         make package
-    - name: Upload llvm libraries
-      uses: actions/upload-artifact@v2
-      with:
-        name: llvm_libraries-${{ matrix.os }}
-        path: ./core/deps/llvm/build/LLVM-13.0.0-Linux.tar.gz
 
   build_wamrc:
     needs: build_llvm_libraries
@@ -55,11 +51,18 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
-    - name: Download llvm libraries
-      uses: actions/download-artifact@v2
+    - name: Get LLVM libraries
+      id: cache_llvm
+      uses: actions/cache@v2
+      env:
+        cache-name: llvm_libraries
       with:
-        name: llvm_libraries-${{ matrix.os }}
-        path: ./core/deps/llvm/build
+        path: ./core/deps/llvm/build/LLVM-13.0.0-Linux.tar.gz
+        key: ${{ matrix.os }}-build-${{env.cache-name}}
+        restore-keys: ${{ matrix.os }}-build-${{env.cache-name}}
+    - name: Quit if cache miss
+      if: steps.cache_llvm.outputs.cache-hit != 'true'
+      run: exit 1
     - name: Extract the LLVM package
       run: tar xf LLVM-13.0.0-Linux.tar.gz --strip-components=1
       working-directory: ./core/deps/llvm/build
@@ -73,6 +76,7 @@ jobs:
       with:
         name: wamrc_bin-${{ matrix.os }}
         path: ./wamr-compiler/build/wamrc
+        retention-days: 1
 
   build_iwasm:
     needs: build_llvm_libraries
@@ -100,11 +104,18 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
-    - name: Download llvm libraries
-      uses: actions/download-artifact@v2
+    - name: Get LLVM libraries
+      id: cache_llvm
+      uses: actions/cache@v2
+      env:
+        cache-name: llvm_libraries
       with:
-        name: llvm_libraries-${{ matrix.os }}
-        path: ./core/deps/llvm/build
+        path: ./core/deps/llvm/build/LLVM-13.0.0-Linux.tar.gz
+        key: ${{ matrix.os }}-build-${{env.cache-name}}
+        restore-keys: ${{ matrix.os }}-build-${{env.cache-name}}
+    - name: Quit if cache miss
+      if: steps.cache_llvm.outputs.cache-hit != 'true'
+      run: exit 1
     - name: Extract the LLVM package
       run: tar xf LLVM-13.0.0-Linux.tar.gz --strip-components=1
       working-directory: ./core/deps/llvm/build
@@ -131,11 +142,18 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
-    - name: Download llvm libraries
-      uses: actions/download-artifact@v2
+    - name: Get LLVM libraries
+      id: cache_llvm
+      uses: actions/cache@v2
+      env:
+        cache-name: llvm_libraries
       with:
-        name: llvm_libraries-${{ matrix.os }}
-        path: ./core/deps/llvm/build
+        path: ./core/deps/llvm/build/LLVM-13.0.0-Linux.tar.gz
+        key: ${{ matrix.os }}-build-${{env.cache-name}}
+        restore-keys: ${{ matrix.os }}-build-${{env.cache-name}}
+    - name: Quit if cache miss
+      if: steps.cache_llvm.outputs.cache-hit != 'true'
+      run: exit 1
     - name: Extract the LLVM package
       run: tar xf LLVM-13.0.0-Linux.tar.gz --strip-components=1
       working-directory: ./core/deps/llvm/build
