@@ -28,11 +28,7 @@ typedef enum IntArithmetic {
 
 typedef enum V128Arithmetic {
   V128_ADD = 0,
-  V128_ADD_SATURATE_S,
-  V128_ADD_SATURATE_U,
   V128_SUB,
-  V128_SUB_SATURATE_S,
-  V128_SUB_SATURATE_U,
   V128_MUL,
   V128_DIV,
   V128_NEG,
@@ -52,7 +48,7 @@ typedef enum V128Bitwise {
   V128_ANDNOT,
   V128_OR,
   V128_XOR,
-  V128_BITSELECT
+  V128_BITSELECT,
 } V128Bitwise;
 
 typedef enum IntShift {
@@ -79,7 +75,7 @@ typedef enum FloatArithmetic {
   FLOAT_MUL,
   FLOAT_DIV,
   FLOAT_MIN,
-  FLOAT_MAX
+  FLOAT_MAX,
 } FloatArithmetic;
 
 static inline bool
@@ -246,27 +242,29 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define F64_CONST(v) LLVMConstReal(F64_TYPE, v)
 #define I8_CONST(v) LLVMConstInt(INT8_TYPE, v, true)
 
-#define I8_ZERO     (comp_ctx->llvm_consts.i8_zero)
-#define I32_ZERO    (comp_ctx->llvm_consts.i32_zero)
-#define I64_ZERO    (comp_ctx->llvm_consts.i64_zero)
-#define F32_ZERO    (comp_ctx->llvm_consts.f32_zero)
-#define F64_ZERO    (comp_ctx->llvm_consts.f64_zero)
-#define I32_ONE     (comp_ctx->llvm_consts.i32_one)
-#define I32_TWO     (comp_ctx->llvm_consts.i32_two)
-#define I32_THREE   (comp_ctx->llvm_consts.i32_three)
-#define I32_FOUR    (comp_ctx->llvm_consts.i32_four)
-#define I32_FIVE    (comp_ctx->llvm_consts.i32_five)
-#define I32_SIX     (comp_ctx->llvm_consts.i32_six)
-#define I32_SEVEN   (comp_ctx->llvm_consts.i32_seven)
-#define I32_EIGHT   (comp_ctx->llvm_consts.i32_eight)
-#define I32_NEG_ONE (comp_ctx->llvm_consts.i32_neg_one)
-#define I64_NEG_ONE (comp_ctx->llvm_consts.i64_neg_one)
-#define I32_MIN     (comp_ctx->llvm_consts.i32_min)
-#define I64_MIN     (comp_ctx->llvm_consts.i64_min)
-#define I32_31     (comp_ctx->llvm_consts.i32_31)
-#define I32_32     (comp_ctx->llvm_consts.i32_32)
-#define I64_63     (comp_ctx->llvm_consts.i64_63)
-#define I64_64     (comp_ctx->llvm_consts.i64_64)
+#define LLVM_CONST(name) (comp_ctx->llvm_consts.name)
+#define I8_ZERO     LLVM_CONST(i8_zero)
+#define I32_ZERO    LLVM_CONST(i32_zero)
+#define I64_ZERO    LLVM_CONST(i64_zero)
+#define F32_ZERO    LLVM_CONST(f32_zero)
+#define F64_ZERO    LLVM_CONST(f64_zero)
+#define I32_ONE     LLVM_CONST(i32_one)
+#define I32_TWO     LLVM_CONST(i32_two)
+#define I32_THREE   LLVM_CONST(i32_three)
+#define I32_FOUR    LLVM_CONST(i32_four)
+#define I32_FIVE    LLVM_CONST(i32_five)
+#define I32_SIX     LLVM_CONST(i32_six)
+#define I32_SEVEN   LLVM_CONST(i32_seven)
+#define I32_EIGHT   LLVM_CONST(i32_eight)
+#define I32_NEG_ONE LLVM_CONST(i32_neg_one)
+#define I64_NEG_ONE LLVM_CONST(i64_neg_one)
+#define I32_MIN     LLVM_CONST(i32_min)
+#define I64_MIN     LLVM_CONST(i64_min)
+#define I32_31      LLVM_CONST(i32_31)
+#define I32_32      LLVM_CONST(i32_32)
+#define I64_63      LLVM_CONST(i64_63)
+#define I64_64      LLVM_CONST(i64_64)
+#define REF_NULL    I32_NEG_ONE
 
 #define V128_TYPE       comp_ctx->basic_types.v128_type
 #define V128_PTR_TYPE   comp_ctx->basic_types.v128_ptr_type
@@ -277,15 +275,12 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define V128_f32x4_TYPE comp_ctx->basic_types.f32x4_vec_type
 #define V128_f64x2_TYPE comp_ctx->basic_types.f64x2_vec_type
 
-#define V128_ZERO       (comp_ctx->llvm_consts.v128_zero)
-#define V128_i8x16_ZERO (comp_ctx->llvm_consts.i8x16_vec_zero)
-#define V128_i16x8_ZERO (comp_ctx->llvm_consts.i16x8_vec_zero)
-#define V128_i32x4_ZERO (comp_ctx->llvm_consts.i32x4_vec_zero)
-#define V128_i64x2_ZERO (comp_ctx->llvm_consts.i64x2_vec_zero)
-#define V128_f32x4_ZERO (comp_ctx->llvm_consts.f32x4_vec_zero)
-#define V128_f64x2_ZERO (comp_ctx->llvm_consts.f64x2_vec_zero)
-
-#define REF_NULL        (comp_ctx->llvm_consts.i32_neg_one)
+#define V128_i8x16_ZERO LLVM_CONST(i8x16_vec_zero)
+#define V128_i16x8_ZERO LLVM_CONST(i16x8_vec_zero)
+#define V128_i32x4_ZERO LLVM_CONST(i32x4_vec_zero)
+#define V128_i64x2_ZERO LLVM_CONST(i64x2_vec_zero)
+#define V128_f32x4_ZERO LLVM_CONST(f32x4_vec_zero)
+#define V128_f64x2_ZERO LLVM_CONST(f64x2_vec_zero)
 
 #define TO_V128_i8x16(v) LLVMBuildBitCast(comp_ctx->builder, v, \
                                           V128_i8x16_TYPE, "i8x16_val")

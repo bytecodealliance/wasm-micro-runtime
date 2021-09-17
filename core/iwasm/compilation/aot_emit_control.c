@@ -435,6 +435,20 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
     else if (label_type == LABEL_TYPE_IF) {
         POP_COND(value);
+
+        if (LLVMIsUndef(value)
+#if LLVM_VERSION_NUMBER >= 12
+            || LLVMIsPoison(value)
+#endif
+        ) {
+            if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_INTEGER_OVERFLOW,
+                                     false, NULL, NULL))) {
+                goto fail;
+            }
+            return aot_handle_next_reachable_block(comp_ctx, func_ctx,
+                                                   p_frame_ip);
+        }
+
         if (!LLVMIsConstant(value)) {
             /* Compare value is not constant, create condition br IR */
             /* Create entry block */
@@ -791,6 +805,19 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #endif
 
     POP_COND(value_cmp);
+
+    if (LLVMIsUndef(value_cmp)
+#if LLVM_VERSION_NUMBER >= 12
+        || LLVMIsPoison(value_cmp)
+#endif
+    ) {
+        if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_INTEGER_OVERFLOW,
+                                 false, NULL, NULL))) {
+            goto fail;
+        }
+        return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
+    }
+
     if (!LLVMIsConstant(value_cmp)) {
         /* Compare value is not constant, create condition br IR */
         if (!(block_dst = get_target_block(func_ctx, br_depth))) {
@@ -917,6 +944,19 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #endif
 
     POP_I32(value_cmp);
+
+    if (LLVMIsUndef(value_cmp)
+#if LLVM_VERSION_NUMBER >= 12
+        || LLVMIsPoison(value_cmp)
+#endif
+    ) {
+        if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_INTEGER_OVERFLOW,
+                                 false, NULL, NULL))) {
+            goto fail;
+        }
+        return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
+    }
+
     if (!LLVMIsConstant(value_cmp)) {
         /* Compare value is not constant, create switch IR */
         for (i = 0; i <= br_count; i++) {

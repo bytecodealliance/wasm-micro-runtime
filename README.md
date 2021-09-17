@@ -77,8 +77,6 @@ For **Windows**：
 ```shell
 cd wamr-compiler
 python build_llvm.py
-open LLVM.sln in wasm-micro-runtime\core\deps\llvm\win32build with Visual Studio
-build LLVM.sln Release
 mkdir build && cd build
 cmake ..
 cmake --build . --config Release

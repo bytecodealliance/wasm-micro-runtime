@@ -126,8 +126,16 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I32(addr);
 
+    /*
+     * Note: not throw the integer-overflow-exception here since it must
+     * have been thrown when converting float to integer before
+     */
     /* return addres directly if constant offset and inside memory space */
-    if (LLVMIsConstant(addr)) {
+    if (LLVMIsConstant(addr) && !LLVMIsUndef(addr)
+#if LLVM_VERSION_NUMBER >= 12
+        && !LLVMIsPoison(addr)
+#endif
+    ) {
         uint64 mem_offset = (uint64)LLVMConstIntGetZExtValue(addr)
                              + (uint64)offset;
         uint32 num_bytes_per_page =
@@ -764,8 +772,16 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
+    /*
+     * Note: not throw the integer-overflow-exception here since it must
+     * have been thrown when converting float to integer before
+     */
     /* return addres directly if constant offset and inside memory space */
-    if (LLVMIsConstant(offset) && LLVMIsConstant(bytes)) {
+    if (!LLVMIsUndef(offset) && !LLVMIsUndef(bytes)
+#if LLVM_VERSION_NUMBER >= 12
+        && !LLVMIsPoison(offset) && !LLVMIsPoison(bytes)
+#endif
+        && LLVMIsConstant(offset) && LLVMIsConstant(bytes)) {
         uint64 mem_offset = (uint64)LLVMConstIntGetZExtValue(offset);
         uint64 mem_len = (uint64)LLVMConstIntGetZExtValue(bytes);
         uint32 num_bytes_per_page =
