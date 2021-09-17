@@ -20,10 +20,10 @@ simd_all_true(AOTCompContext *comp_ctx,
               AOTFuncContext *func_ctx,
               enum integer_all_true itype)
 {
-    LLVMValueRef vector, zero, result;
+    LLVMValueRef vector, result;
+    LLVMTypeRef vector_i1_type;
     LLVMTypeRef vector_type[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
                                   V128_i32x4_TYPE, V128_i64x2_TYPE };
-    LLVMTypeRef element_type[] = { INT8_TYPE, INT16_TYPE, I32_TYPE, I64_TYPE };
     uint32 lanes[] = { 16, 8, 4, 2 };
     const char *intrinsic[] = {
         "llvm.vector.reduce.and.v16i1",
@@ -31,6 +31,17 @@ simd_all_true(AOTCompContext *comp_ctx,
         "llvm.vector.reduce.and.v4i1",
         "llvm.vector.reduce.and.v2i1",
     };
+    LLVMValueRef zero[] = {
+        LLVM_CONST(i8x16_vec_zero),
+        LLVM_CONST(i16x8_vec_zero),
+        LLVM_CONST(i32x4_vec_zero),
+        LLVM_CONST(i64x2_vec_zero),
+    };
+
+    if (!(vector_i1_type = LLVMVectorType(INT1_TYPE, lanes[itype]))) {
+        HANDLE_FAILURE("LLVMVectorType");
+        goto fail;
+    }
 
     if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
                                              vector_type[itype], "vector"))) {
@@ -38,13 +49,8 @@ simd_all_true(AOTCompContext *comp_ctx,
     }
 
     /* compare with zero */
-    if (!(zero = simd_build_splat_const_integer_vector(
-            comp_ctx, element_type[itype], 0, lanes[itype]))) {
-        goto fail;
-    }
-
-    if (!(result = LLVMBuildICmp(comp_ctx->builder, LLVMIntNE, vector, zero,
-                                 "ne_zero"))) {
+    if (!(result = LLVMBuildICmp(comp_ctx->builder, LLVMIntNE, vector,
+                                 zero[itype], "ne_zero"))) {
         HANDLE_FAILURE("LLVMBuildICmp");
         goto fail;
     }
@@ -52,7 +58,7 @@ simd_all_true(AOTCompContext *comp_ctx,
     /* check zero */
     if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
                                            intrinsic[itype], INT1_TYPE,
-                                           vector_type + itype, 1, result))) {
+                                           &vector_i1_type, 1, result))) {
         goto fail;
     }
 
