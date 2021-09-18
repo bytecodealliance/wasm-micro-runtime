@@ -160,6 +160,14 @@ aot_compile_simd_i32x4_compare(AOTCompContext *comp_ctx,
     return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i32x4_TYPE);
 }
 
+bool
+aot_compile_simd_i64x2_compare(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx,
+                               IntCond cond)
+{
+    return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i64x2_TYPE);
+}
+
 static bool
 float_vector_compare(AOTCompContext *comp_ctx,
                      AOTFuncContext *func_ctx,

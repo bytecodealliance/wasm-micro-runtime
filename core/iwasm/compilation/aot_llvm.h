@@ -178,6 +178,8 @@ typedef struct AOTLLVMTypes {
   LLVMTypeRef f32x4_vec_type;
   LLVMTypeRef f64x2_vec_type;
 
+  LLVMTypeRef i1x2_vec_type;
+
   LLVMTypeRef meta_data_type;
 
   LLVMTypeRef funcref_type;
@@ -185,18 +187,13 @@ typedef struct AOTLLVMTypes {
 } AOTLLVMTypes;
 
 typedef struct AOTLLVMConsts {
+    LLVMValueRef i1_zero;
+    LLVMValueRef i1_one;
     LLVMValueRef i8_zero;
     LLVMValueRef i32_zero;
     LLVMValueRef i64_zero;
     LLVMValueRef f32_zero;
     LLVMValueRef f64_zero;
-    LLVMValueRef v128_zero;
-    LLVMValueRef i8x16_vec_zero;
-    LLVMValueRef i16x8_vec_zero;
-    LLVMValueRef i32x4_vec_zero;
-    LLVMValueRef i64x2_vec_zero;
-    LLVMValueRef f32x4_vec_zero;
-    LLVMValueRef f64x2_vec_zero;
     LLVMValueRef i32_one;
     LLVMValueRef i32_two;
     LLVMValueRef i32_three;
@@ -205,6 +202,13 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32_six;
     LLVMValueRef i32_seven;
     LLVMValueRef i32_eight;
+    LLVMValueRef i32_nine;
+    LLVMValueRef i32_ten;
+    LLVMValueRef i32_eleven;
+    LLVMValueRef i32_twelve;
+    LLVMValueRef i32_thirteen;
+    LLVMValueRef i32_fourteen;
+    LLVMValueRef i32_fifteen;
     LLVMValueRef i32_neg_one;
     LLVMValueRef i64_neg_one;
     LLVMValueRef i32_min;
@@ -213,7 +217,22 @@ typedef struct AOTLLVMConsts {
     LLVMValueRef i32_32;
     LLVMValueRef i64_63;
     LLVMValueRef i64_64;
-    LLVMValueRef ref_null;
+    LLVMValueRef i8x16_vec_zero;
+    LLVMValueRef i16x8_vec_zero;
+    LLVMValueRef i32x4_vec_zero;
+    LLVMValueRef i64x2_vec_zero;
+    LLVMValueRef f32x4_vec_zero;
+    LLVMValueRef f64x2_vec_zero;
+    LLVMValueRef i8x16_undef;
+    LLVMValueRef i16x8_undef;
+    LLVMValueRef i32x4_undef;
+    LLVMValueRef i64x2_undef;
+    LLVMValueRef f32x4_undef;
+    LLVMValueRef f64x2_undef;
+    LLVMValueRef i32x16_zero;
+    LLVMValueRef i32x8_zero;
+    LLVMValueRef i32x4_zero;
+    LLVMValueRef i32x2_zero;
 } AOTLLVMConsts;
 
 /**
@@ -393,7 +412,7 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
                         const AOTFuncContext *func_ctx,
-                        const char *name,
+                        const char *intrinsic,
                         LLVMTypeRef ret_type,
                         LLVMTypeRef *param_types,
                         int param_count,
@@ -402,7 +421,7 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 LLVMValueRef
 aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
                           const AOTFuncContext *func_ctx,
-                          const char *name,
+                          const char *intrinsic,
                           LLVMTypeRef ret_type,
                           LLVMTypeRef *param_types,
                           int param_count,

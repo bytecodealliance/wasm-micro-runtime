@@ -811,7 +811,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                 local_value = F64_ZERO;
                 break;
             case VALUE_TYPE_V128:
-                local_value = V128_ZERO;
+                local_value = V128_i64x2_ZERO;
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
@@ -963,6 +963,8 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->v128_type = basic_types->i64x2_vec_type;
     basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
 
+    basic_types->i1x2_vec_type = LLVMVectorType(basic_types->int1_type, 2);
+
     basic_types->funcref_type = LLVMInt32TypeInContext(context);
     basic_types->externref_type = LLVMInt32TypeInContext(context);
 
@@ -979,6 +981,7 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
             && basic_types->i64x2_vec_type
             && basic_types->f32x4_vec_type
             && basic_types->f64x2_vec_type
+            && basic_types->i1x2_vec_type
             && basic_types->meta_data_type
             && basic_types->funcref_type
             && basic_types->externref_type) ? true : false;
@@ -987,73 +990,89 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
 static bool
 aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
 {
-    LLVMValueRef i64_consts[2];
+#define CREATE_I1_CONST(name, value)                                          \
+    if (!(consts->i1_##name =                                                 \
+            LLVMConstInt(comp_ctx->basic_types.int1_type, value, true)))      \
+        return false;
 
-    consts->i8_zero = I8_CONST(0);
-    consts->i32_zero = I32_CONST(0);
-    consts->i64_zero = I64_CONST(0);
-    consts->f32_zero = F32_CONST(0);
-    consts->f64_zero = F64_CONST(0);
+    CREATE_I1_CONST(zero, 0)
+    CREATE_I1_CONST(one, 1)
+#undef CREATE_I1_CONST
 
-    if (consts->i64_zero) {
-        i64_consts[0] = i64_consts[1] = consts->i64_zero;
-        consts->v128_zero = consts->i64x2_vec_zero =
-                                    LLVMConstVector(i64_consts, 2);
-        if (consts->i64x2_vec_zero) {
-            consts->i8x16_vec_zero = TO_V128_i8x16(consts->i64x2_vec_zero);
-            consts->i16x8_vec_zero = TO_V128_i16x8(consts->i64x2_vec_zero);
-            consts->i32x4_vec_zero = TO_V128_i32x4(consts->i64x2_vec_zero);
-            consts->f32x4_vec_zero = TO_V128_f32x4(consts->i64x2_vec_zero);
-            consts->f64x2_vec_zero = TO_V128_f64x2(consts->i64x2_vec_zero);
-        }
+    if (!(consts->i8_zero = I8_CONST(0)))
+        return false;
+
+    if (!(consts->f32_zero = F32_CONST(0)))
+        return false;
+
+    if (!(consts->f64_zero = F64_CONST(0)))
+        return false;
+
+#define CREATE_I32_CONST(name, value)                                         \
+    if (!(consts->i32_##name = LLVMConstInt(I32_TYPE, value, true)))          \
+        return false;
+
+    CREATE_I32_CONST(min, (uint32)INT32_MIN)
+    CREATE_I32_CONST(neg_one, (uint32)-1)
+    CREATE_I32_CONST(zero, 0)
+    CREATE_I32_CONST(one, 1)
+    CREATE_I32_CONST(two, 2)
+    CREATE_I32_CONST(three, 3)
+    CREATE_I32_CONST(four, 4)
+    CREATE_I32_CONST(five, 5)
+    CREATE_I32_CONST(six, 6)
+    CREATE_I32_CONST(seven, 7)
+    CREATE_I32_CONST(eight, 8)
+    CREATE_I32_CONST(nine, 9)
+    CREATE_I32_CONST(ten, 10)
+    CREATE_I32_CONST(eleven, 11)
+    CREATE_I32_CONST(twelve, 12)
+    CREATE_I32_CONST(thirteen, 13)
+    CREATE_I32_CONST(fourteen, 14)
+    CREATE_I32_CONST(fifteen, 15)
+    CREATE_I32_CONST(31, 31)
+    CREATE_I32_CONST(32, 32)
+#undef CREATE_I32_CONST
+
+#define CREATE_I64_CONST(name, value)                                         \
+    if (!(consts->i64_##name = LLVMConstInt(I64_TYPE, value, true)))          \
+        return false;
+
+    CREATE_I64_CONST(min, (uint64)INT64_MIN)
+    CREATE_I64_CONST(neg_one, (uint64)-1)
+    CREATE_I64_CONST(zero, 0)
+    CREATE_I64_CONST(63, 63)
+    CREATE_I64_CONST(64, 64)
+#undef CREATE_I64_CONST
+
+#define CREATE_V128_CONST(name, type)                                         \
+    if (!(consts->name##_vec_zero = LLVMConstNull(type)))                     \
+        return false;                                                         \
+    if (!(consts->name##_undef = LLVMGetUndef(type)))                         \
+        return false;
+
+    CREATE_V128_CONST(i8x16, V128_i8x16_TYPE)
+    CREATE_V128_CONST(i16x8, V128_i16x8_TYPE)
+    CREATE_V128_CONST(i32x4, V128_i32x4_TYPE)
+    CREATE_V128_CONST(i64x2, V128_i64x2_TYPE)
+    CREATE_V128_CONST(f32x4, V128_f32x4_TYPE)
+    CREATE_V128_CONST(f64x2, V128_f64x2_TYPE)
+#undef CREATE_V128_CONST
+
+#define CREATE_VEC_ZERO_MASK(slot)                                            \
+    {                                                                         \
+        LLVMTypeRef type = LLVMVectorType(I32_TYPE, slot);                    \
+        if (!type || !(consts->i32x##slot##_zero = LLVMConstNull(type)))      \
+            return false;                                                     \
     }
 
-    consts->i32_one = I32_CONST(1);
-    consts->i32_two = I32_CONST(2);
-    consts->i32_three = I32_CONST(3);
-    consts->i32_four = I32_CONST(4);
-    consts->i32_five = I32_CONST(5);
-    consts->i32_six = I32_CONST(6);
-    consts->i32_seven = I32_CONST(7);
-    consts->i32_eight = I32_CONST(8);
-    consts->i32_neg_one = I32_CONST((uint32)-1);
-    consts->i64_neg_one = I64_CONST((uint64)-1);
-    consts->i32_min = I32_CONST((uint32)INT32_MIN);
-    consts->i64_min = I64_CONST((uint64)INT64_MIN);
-    consts->i32_31 = I32_CONST(31);
-    consts->i32_32 = I32_CONST(32);
-    consts->i64_63 = I64_CONST(63);
-    consts->i64_64 = I64_CONST(64);
-    consts->ref_null = I32_CONST(NULL_REF);
+    CREATE_VEC_ZERO_MASK(16)
+    CREATE_VEC_ZERO_MASK(8)
+    CREATE_VEC_ZERO_MASK(4)
+    CREATE_VEC_ZERO_MASK(2)
+#undef CREATE_VEC_ZERO_MASK
 
-    return (consts->i8_zero
-            && consts->i32_zero
-            && consts->i64_zero
-            && consts->f32_zero
-            && consts->f64_zero
-            && consts->i8x16_vec_zero
-            && consts->i16x8_vec_zero
-            && consts->i32x4_vec_zero
-            && consts->i64x2_vec_zero
-            && consts->f32x4_vec_zero
-            && consts->f64x2_vec_zero
-            && consts->i32_one
-            && consts->i32_two
-            && consts->i32_three
-            && consts->i32_four
-            && consts->i32_five
-            && consts->i32_six
-            && consts->i32_seven
-            && consts->i32_eight
-            && consts->i32_neg_one
-            && consts->i64_neg_one
-            && consts->i32_min
-            && consts->i64_min
-            && consts->i32_31
-            && consts->i32_32
-            && consts->i64_63
-            && consts->i64_64
-            && consts->ref_null) ? true : false;
+    return true;
 }
 
 typedef struct ArchItem {
@@ -2213,7 +2232,8 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
                 ret = LLVMBuildRet(comp_ctx->builder, F64_ZERO);
                 break;
             case VALUE_TYPE_V128:
-                ret = LLVMBuildRet(comp_ctx->builder, V128_ZERO);
+                ret =
+                  LLVMBuildRet(comp_ctx->builder, LLVM_CONST(i64x2_vec_zero));
                 break;
             case VALUE_TYPE_FUNCREF:
             case VALUE_TYPE_EXTERNREF:
@@ -2315,7 +2335,7 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
                         const AOTFuncContext *func_ctx,
-                        const char *name,
+                        const char *intrinsic,
                         LLVMTypeRef ret_type,
                         LLVMTypeRef *param_types,
                         int param_count,
@@ -2340,8 +2360,8 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
         param_values[i++] = va_arg(argptr, LLVMValueRef);
     va_end(argptr);
 
-    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, name, ret_type, param_types,
-                                param_count, param_values);
+    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, ret_type,
+                                param_types, param_count, param_values);
 
     wasm_runtime_free(param_values);
 
@@ -2351,7 +2371,7 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 LLVMValueRef
 aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
                           const AOTFuncContext *func_ctx,
-                          const char *name,
+                          const char *intrinsic,
                           LLVMTypeRef ret_type,
                           LLVMTypeRef *param_types,
                           int param_count,
@@ -2373,8 +2393,8 @@ aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
     while (i < param_count)
         param_values[i++] = va_arg(param_value_list, LLVMValueRef);
 
-    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, name, ret_type, param_types,
-                                param_count, param_values);
+    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, ret_type,
+                                param_types, param_count, param_values);
 
     wasm_runtime_free(param_values);
 

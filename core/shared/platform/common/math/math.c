@@ -534,7 +534,8 @@ static double freebsd_atan2(double y, double x)
 		case 0:
 		case 1: return y; 	/* atan(+-0,+anything)=+-0 */
 		case 2: return  pi+tiny;/* atan(+0,-anything) = pi */
-		case 3: return -pi-tiny;/* atan(-0,-anything) =-pi */
+		case 3:
+		default: return -pi-tiny;/* atan(-0,-anything) =-pi */
 	    }
 	}
     /* when x = 0 */
@@ -547,14 +548,16 @@ static double freebsd_atan2(double y, double x)
 		    case 0: return  pi_o_4+tiny;/* atan(+INF,+INF) */
 		    case 1: return -pi_o_4-tiny;/* atan(-INF,+INF) */
 		    case 2: return  3.0*pi_o_4+tiny;/*atan(+INF,-INF)*/
-		    case 3: return -3.0*pi_o_4-tiny;/*atan(-INF,-INF)*/
+		    case 3:
+		    default: return -3.0*pi_o_4-tiny;/*atan(-INF,-INF)*/
 		}
 	    } else {
 		switch(m) {
 		    case 0: return  zero  ;	/* atan(+...,+INF) */
 		    case 1: return -zero  ;	/* atan(-...,+INF) */
 		    case 2: return  pi+tiny  ;	/* atan(+...,-INF) */
-		    case 3: return -pi-tiny  ;	/* atan(-...,-INF) */
+		    case 3:
+		    default: return -pi-tiny  ;	/* atan(-...,-INF) */
 		}
 	    }
 	}

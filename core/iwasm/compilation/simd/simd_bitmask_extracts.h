@@ -13,17 +13,23 @@ extern "C" {
 #endif
 
 bool
-aot_compile_simd_i8x16_bitmask(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_i8x16_bitmask(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_i16x8_bitmask(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_i16x8_bitmask(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_i32x4_bitmask(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
+aot_compile_simd_i32x4_bitmask(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
+
+bool
+aot_compile_simd_i64x2_bitmask(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
 
 #endif /* end of _SIMD_BITMASK_EXTRACTS_H_ */
-
