@@ -5,8 +5,6 @@
 #
 
 readonly BUILD_CONTENT="/tmp/build_content"
-readonly WASI_SDK_VER=12
-readonly WASI_SDK_FILE="wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz"
 readonly WABT_VER=1.0.23
 readonly WABT_FILE="wabt-${WABT_VER}-ubuntu.tar.gz"
 readonly CMAKE_VER=3.16.2
@@ -26,17 +24,6 @@ function install_deps() {
   apt update
   apt install -y lsb-release wget software-properties-common \
       build-essential git tree zip unzip
-}
-
-#
-# install wasi-sdk
-function install_wasi-sdk() {
-  if [[ ! -f ${WASI_SDK_FILE} ]]; then
-    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/${WASI_SDK_FILE}
-  fi
-
-  tar zxf ${WASI_SDK_FILE} -C /opt
-  ln -sf /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk
 }
 
 #
@@ -70,8 +57,8 @@ function install_emsdk() {
   git clone https://github.com/emscripten-core/emsdk.git
   cd emsdk
   git pull
-  ./emsdk install 2.0.12
-  ./emsdk activate 2.0.12
+  ./emsdk install 2.0.26
+  ./emsdk activate 2.0.26
   echo "source /opt/emsdk/emsdk_env.sh" >> "${HOME}"/.bashrc
 }
 

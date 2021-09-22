@@ -52,9 +52,10 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
 
 #define check_call(func, type, expected) \
   { \
-    wasm_val_t results[1]; \
-    wasm_func_call(func, NULL, results); \
-    check(results[0], type, expected); \
+    wasm_val_vec_t results; \
+    wasm_val_vec_new_uninitialized(&results, 1); \
+    wasm_func_call(func, NULL, &results); \
+    check(results.data[0], type, expected); \
   }
 
 wasm_module_t * create_module_from_file(wasm_store_t* store, const char * filename)
@@ -146,16 +147,18 @@ int main(int argc, const char* argv[]) {
 
   // Modify variables through calls and check again.
   printf("Modify the variable to 77.0...\n");
-  wasm_val_t args77[] = { {.kind = WASM_F32, .of = {.f32 = 77.}} };
-  wasm_func_call(set_var_f32_export, args77, NULL); //Call to module export
+  wasm_val_vec_t args77;
+  wasm_val_vec_new(&args77, 1, (wasm_val_t []){ {.kind = WASM_F32, .of = {.f32 = 77.0}} });
+  wasm_func_call(set_var_f32_export, &args77, NULL); //Call to module export
   check_call(get_var_f32_export, f32, 77.0);          //Call to module export
   check_global(var_f32_export, f32, 77.0);    //Failed here, still 37
   check_call(get_var_f32_import, f32, 77.0); //Call to module import  Failed here, still 37
 
 
   printf("Modify the variable to 78.0...\n");
-  wasm_val_t args78[] = { {.kind = WASM_F32, .of = {.f32 = 78.0}} };
-  wasm_func_call(set_var_f32_import, args78, NULL);
+  wasm_val_vec_t args78;
+  wasm_val_vec_new(&args78, 1, (wasm_val_t []){ {.kind = WASM_F32, .of = {.f32 = 78.0}} });
+  wasm_func_call(set_var_f32_import, &args78, NULL);
   check_global(var_f32_export, f32, 78.0);
   check_call(get_var_f32_export, f32, 78.0); //Call to module export Failed here, still 77
   check_call(get_var_f32_import, f32, 78.0); //Call to module import

@@ -5,6 +5,8 @@ cmake_minimum_required (VERSION 3.0)
 
 project(bwa_wasm C)
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/preparation.cmake)
+
 ################ LIBZ ################
 set(LIBZ_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../libz)
 add_library(z_wasm STATIC
@@ -86,16 +88,15 @@ set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME bwa.wasm)
 
 target_include_directories(${PROJECT_NAME}
   PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/SSE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/pthread
+    ${WASI_SDK_HOME}/share/wasi-sysroot/include/libc/musl
+    ${WASI_SDK_HOME}/share/wasi-sysroot/include/sse
 )
 
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
     USE_MALLOC_WRAPPERS
     __SSE__ __SSE2__ __SSE4_1__
-    _WASI_EMULATED_MMAN _WASI_EMULATED_SIGNAL
+    _WASI_EMULATED_MMAN _WASI_EMULATED_SIGNAL _WASI_EMULATED_PROCESS_CLOCKS
 )
 
 target_compile_options(${PROJECT_NAME}
@@ -112,16 +113,7 @@ target_link_options(${PROJECT_NAME}
     LINKER:-z,stack-size=1048576
 )
 
-target_link_libraries(${PROJECT_NAME} z_wasm)
-
-find_program(WASM_OPT
-    NAMES wasm-opt
-    PATHS /opt/binaryen-version_97/bin /opt/binaryen/bin
-)
-
-if (NOT WASM_OPT)
-  message(WARNING "can not find wasm-opt and will not optimize any wasm module")
-endif()
+target_link_libraries(${PROJECT_NAME} z_wasm wasi-emulated-process-clocks)
 
 add_custom_target(bwa_wasm_opt ALL
   COMMAND

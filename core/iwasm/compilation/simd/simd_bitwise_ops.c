@@ -86,7 +86,7 @@ fail:
 
 /* v128.or(v128.and(v1, c), v128.and(v2, v128.not(c))) */
 static bool
-v128_bitwise_bit_select(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
+v128_bitwise_bitselect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef vector1, vector2, vector3, result;
 
@@ -138,7 +138,7 @@ aot_compile_simd_v128_bitwise(AOTCompContext *comp_ctx,
         case V128_NOT:
             return v128_bitwise_not(comp_ctx, func_ctx);
         case V128_BITSELECT:
-            return v128_bitwise_bit_select(comp_ctx, func_ctx);
+            return v128_bitwise_bitselect(comp_ctx, func_ctx);
         default:
             bh_assert(0);
             return false;
