@@ -1,6 +1,6 @@
 # WAMR source debugging
 
-WAMR supports source level debugging based on DWARF, source map is not supported.
+WAMR supports source level debugging based on DWARF (normally used in C/C++/Rust), source map (normally used in AssemblyScript) is not supported.
 
 ## Build wasm application with debug information
 To debug your application, you need to compile them with debug information. You can use `-g` option when compiling the source code if you are using wasi-sdk (also work for emcc and rustc):
@@ -23,12 +23,21 @@ cmake .. -DWAMR_BUILD_DEBUG_INTERP=1
 make
 ```
 
-2. execute iwasm with debug engine enabled
+2. Execute iwasm with debug engine enabled
 ``` bash
 iwasm -g=127.0.0.1:1234 test.wasm
 ```
 
-3. launch lldb and connect to iwasm
+3. Build customized lldb (assume you have already built llvm)
+``` bash
+cd ${WAMR_ROOT}/core/deps/llvm
+git apply ../../../../build-scripts/lldb-wasm.patch
+mkdir build && cd build
+cmake ../llvm -DLLVM_ENABLE_PROJECTS="clang,lldb"
+make -j $(nproc)
+```
+
+4. Launch customized lldb and connect to iwasm
 ``` bash
 lldb
 (lldb) gdb-remote 127.0.0.1:1234
