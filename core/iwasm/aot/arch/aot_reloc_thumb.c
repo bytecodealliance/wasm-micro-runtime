@@ -153,7 +153,7 @@ get_target_symbol_map(uint32 *sym_num)
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
-    const char * s =  BUILD_TARGET;
+    const char *s = BUILD_TARGET;
     size_t s_size = sizeof(BUILD_TARGET);
     char *d = target_buf;
 

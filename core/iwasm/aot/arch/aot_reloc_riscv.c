@@ -77,7 +77,7 @@ rv_set_val(uint16 *addr, uint32 val)
     *addr = (val & 0xffff);
     *(addr + 1) = (val >> 16);
 
-    asm volatile("fence.i");
+    __asm__ volatile("fence.i");
 }
 
 /* Add a val to given address */
