@@ -33,16 +33,18 @@ iwasm -g=127.0.0.1:1234 test.wasm
 cd ${WAMR_ROOT}/core/deps/llvm
 git apply ../../../../build-scripts/lldb-wasm.patch
 mkdir build && cd build
-cmake ../llvm -DLLVM_ENABLE_PROJECTS="clang,lldb"
+cmake ../llvm -DLLVM_ENABLE_PROJECTS="clang,lldb" -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly"
 make -j $(nproc)
 ```
 
 4. Launch customized lldb and connect to iwasm
 ``` bash
 lldb
-(lldb) gdb-remote 127.0.0.1:1234
+(lldb) process connect -p wasm connect://127.0.0.1:1234
 ```
 Then you can use lldb commands to debug your applications. Please refer to [lldb document](https://lldb.llvm.org/use/tutorial.html) for command usage.
+
+> Known issue: `step over` on some function may be treated as `step in`, it will be fixed later.
 
 ## Debugging with AoT
 
