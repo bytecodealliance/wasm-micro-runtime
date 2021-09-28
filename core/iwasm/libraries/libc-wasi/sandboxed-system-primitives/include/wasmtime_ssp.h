@@ -35,10 +35,9 @@ _Static_assert(_Alignof(int16_t) == 2, "non-wasi data layout");
 _Static_assert(_Alignof(uint16_t) == 2, "non-wasi data layout");
 _Static_assert(_Alignof(int32_t) == 4, "non-wasi data layout");
 _Static_assert(_Alignof(uint32_t) == 4, "non-wasi data layout");
-#if 0
 _Static_assert(_Alignof(int64_t) == 8, "non-wasi data layout");
 _Static_assert(_Alignof(uint64_t) == 8, "non-wasi data layout");
-#endif
+_Static_assert(_Alignof(void*) == 4, "non-wasi data layout");
 
 typedef uint8_t __wasi_advice_t;
 #define __WASI_ADVICE_NORMAL     (0)
@@ -58,6 +57,8 @@ typedef uint64_t __wasi_device_t;
 
 typedef uint64_t __wasi_dircookie_t;
 #define __WASI_DIRCOOKIE_START (0)
+
+typedef uint32_t __wasi_drinamlen_t;
 
 typedef uint16_t __wasi_errno_t;
 #define __WASI_ESUCCESS        (0)
@@ -179,7 +180,7 @@ typedef uint16_t __wasi_fstflags_t;
 
 typedef uint64_t __wasi_inode_t;
 
-typedef uint32_t __wasi_linkcount_t;
+typedef uint64_t __wasi_linkcount_t;
 
 typedef uint32_t __wasi_lookupflags_t;
 #define __WASI_LOOKUP_SYMLINK_FOLLOW (0x00000001)
@@ -195,35 +196,38 @@ typedef uint16_t __wasi_riflags_t;
 #define __WASI_SOCK_RECV_WAITALL (0x0002)
 
 typedef uint64_t __wasi_rights_t;
-#define __WASI_RIGHT_FD_DATASYNC             (0x0000000000000001)
-#define __WASI_RIGHT_FD_READ                 (0x0000000000000002)
-#define __WASI_RIGHT_FD_SEEK                 (0x0000000000000004)
-#define __WASI_RIGHT_FD_FDSTAT_SET_FLAGS     (0x0000000000000008)
-#define __WASI_RIGHT_FD_SYNC                 (0x0000000000000010)
-#define __WASI_RIGHT_FD_TELL                 (0x0000000000000020)
-#define __WASI_RIGHT_FD_WRITE                (0x0000000000000040)
-#define __WASI_RIGHT_FD_ADVISE               (0x0000000000000080)
-#define __WASI_RIGHT_FD_ALLOCATE             (0x0000000000000100)
-#define __WASI_RIGHT_PATH_CREATE_DIRECTORY   (0x0000000000000200)
-#define __WASI_RIGHT_PATH_CREATE_FILE        (0x0000000000000400)
-#define __WASI_RIGHT_PATH_LINK_SOURCE        (0x0000000000000800)
-#define __WASI_RIGHT_PATH_LINK_TARGET        (0x0000000000001000)
-#define __WASI_RIGHT_PATH_OPEN               (0x0000000000002000)
-#define __WASI_RIGHT_FD_READDIR              (0x0000000000004000)
-#define __WASI_RIGHT_PATH_READLINK           (0x0000000000008000)
-#define __WASI_RIGHT_PATH_RENAME_SOURCE      (0x0000000000010000)
-#define __WASI_RIGHT_PATH_RENAME_TARGET      (0x0000000000020000)
-#define __WASI_RIGHT_PATH_FILESTAT_GET       (0x0000000000040000)
-#define __WASI_RIGHT_PATH_FILESTAT_SET_SIZE  (0x0000000000080000)
-#define __WASI_RIGHT_PATH_FILESTAT_SET_TIMES (0x0000000000100000)
-#define __WASI_RIGHT_FD_FILESTAT_GET         (0x0000000000200000)
-#define __WASI_RIGHT_FD_FILESTAT_SET_SIZE    (0x0000000000400000)
-#define __WASI_RIGHT_FD_FILESTAT_SET_TIMES   (0x0000000000800000)
-#define __WASI_RIGHT_PATH_SYMLINK            (0x0000000001000000)
-#define __WASI_RIGHT_PATH_REMOVE_DIRECTORY   (0x0000000002000000)
-#define __WASI_RIGHT_PATH_UNLINK_FILE        (0x0000000004000000)
-#define __WASI_RIGHT_POLL_FD_READWRITE       (0x0000000008000000)
-#define __WASI_RIGHT_SOCK_SHUTDOWN           (0x0000000010000000)
+
+// Observe that WASI defines rights in the plural form
+// TODO - re-factor to use RIGHTS instead of RIGHT
+#define __WASI_RIGHT_FD_DATASYNC ((__wasi_rights_t)(1 << 0))
+#define __WASI_RIGHT_FD_READ ((__wasi_rights_t)(1 << 1))
+#define __WASI_RIGHT_FD_SEEK ((__wasi_rights_t)(1 << 2))
+#define __WASI_RIGHT_FD_FDSTAT_SET_FLAGS ((__wasi_rights_t)(1 << 3))
+#define __WASI_RIGHT_FD_SYNC ((__wasi_rights_t)(1 << 4))
+#define __WASI_RIGHT_FD_TELL ((__wasi_rights_t)(1 << 5))
+#define __WASI_RIGHT_FD_WRITE ((__wasi_rights_t)(1 << 6))
+#define __WASI_RIGHT_FD_ADVISE ((__wasi_rights_t)(1 << 7))
+#define __WASI_RIGHT_FD_ALLOCATE ((__wasi_rights_t)(1 << 8))
+#define __WASI_RIGHT_PATH_CREATE_DIRECTORY ((__wasi_rights_t)(1 << 9))
+#define __WASI_RIGHT_PATH_CREATE_FILE ((__wasi_rights_t)(1 << 10))
+#define __WASI_RIGHT_PATH_LINK_SOURCE ((__wasi_rights_t)(1 << 11))
+#define __WASI_RIGHT_PATH_LINK_TARGET ((__wasi_rights_t)(1 << 12))
+#define __WASI_RIGHT_PATH_OPEN ((__wasi_rights_t)(1 << 13))
+#define __WASI_RIGHT_FD_READDIR ((__wasi_rights_t)(1 << 14))
+#define __WASI_RIGHT_PATH_READLINK ((__wasi_rights_t)(1 << 15))
+#define __WASI_RIGHT_PATH_RENAME_SOURCE ((__wasi_rights_t)(1 << 16))
+#define __WASI_RIGHT_PATH_RENAME_TARGET ((__wasi_rights_t)(1 << 17))
+#define __WASI_RIGHT_PATH_FILESTAT_GET ((__wasi_rights_t)(1 << 18))
+#define __WASI_RIGHT_PATH_FILESTAT_SET_SIZE ((__wasi_rights_t)(1 << 19))
+#define __WASI_RIGHT_PATH_FILESTAT_SET_TIMES ((__wasi_rights_t)(1 << 20))
+#define __WASI_RIGHT_FD_FILESTAT_GET ((__wasi_rights_t)(1 << 21))
+#define __WASI_RIGHT_FD_FILESTAT_SET_SIZE ((__wasi_rights_t)(1 << 22))
+#define __WASI_RIGHT_FD_FILESTAT_SET_TIMES ((__wasi_rights_t)(1 << 23))
+#define __WASI_RIGHT_PATH_SYMLINK ((__wasi_rights_t)(1 << 24))
+#define __WASI_RIGHT_PATH_REMOVE_DIRECTORY ((__wasi_rights_t)(1 << 25))
+#define __WASI_RIGHT_PATH_UNLINK_FILE ((__wasi_rights_t)(1 << 26))
+#define __WASI_RIGHT_POLL_FD_READWRITE ((__wasi_rights_t)(1 << 27))
+#define __WASI_RIGHT_SOCK_SHUTDOWN ((__wasi_rights_t)(1 << 28))
 
 typedef uint16_t __wasi_roflags_t;
 #define __WASI_SOCK_RECV_DATA_TRUNCATED (0x0001)
@@ -289,15 +293,15 @@ struct argv_environ_values;
 typedef struct __wasi_dirent_t {
     __wasi_dircookie_t d_next;
     __wasi_inode_t d_ino;
-    uint32_t d_namlen;
+    __wasi_dirnamlen_t d_namlen;
     __wasi_filetype_t d_type;
 } __wasi_dirent_t __attribute__((aligned(8)));
+_Static_assert(sizeof(__wasi_dirent_t) == 24, "non-wasi data layout");
+_Static_assert(_Alignof(__wasi_dirent_t) == 8, "non-wasi data layout");
 _Static_assert(offsetof(__wasi_dirent_t, d_next) == 0, "non-wasi data layout");
 _Static_assert(offsetof(__wasi_dirent_t, d_ino) == 8, "non-wasi data layout");
 _Static_assert(offsetof(__wasi_dirent_t, d_namlen) == 16, "non-wasi data layout");
 _Static_assert(offsetof(__wasi_dirent_t, d_type) == 20, "non-wasi data layout");
-_Static_assert(sizeof(__wasi_dirent_t) == 24, "non-wasi data layout");
-_Static_assert(_Alignof(__wasi_dirent_t) == 8, "non-wasi data layout");
 
 typedef struct __wasi_event_t {
     __wasi_userdata_t userdata;
@@ -322,32 +326,20 @@ _Static_assert(
 _Static_assert(sizeof(__wasi_event_t) == 32, "non-wasi data layout");
 _Static_assert(_Alignof(__wasi_event_t) == 8, "non-wasi data layout");
 
+typedef union __wasi_prestat_u_t {
+    __wasi_prestat_dir_t dir;
+} __wasi_prestat_u_t;
 typedef struct __wasi_prestat_t {
-    __wasi_preopentype_t pr_type;
-    union __wasi_prestat_u {
-        struct __wasi_prestat_u_dir_t {
-            size_t pr_name_len;
-        } dir;
-    } u;
+    uint8_t tag;
+    __wasi_prestat_u_t u;
 } __wasi_prestat_t;
-_Static_assert(offsetof(__wasi_prestat_t, pr_type) == 0, "non-wasi data layout");
-_Static_assert(sizeof(void *) != 4 ||
-    offsetof(__wasi_prestat_t, u.dir.pr_name_len) == 4, "non-wasi data layout");
-_Static_assert(sizeof(void *) != 8 ||
-    offsetof(__wasi_prestat_t, u.dir.pr_name_len) == 8, "non-wasi data layout");
-_Static_assert(sizeof(void *) != 4 ||
-    sizeof(__wasi_prestat_t) == 8, "non-wasi data layout");
-_Static_assert(sizeof(void *) != 8 ||
-    sizeof(__wasi_prestat_t) == 16, "non-wasi data layout");
-_Static_assert(sizeof(void *) != 4 ||
-    _Alignof(__wasi_prestat_t) == 4, "non-wasi data layout");
-_Static_assert(sizeof(void *) != 8 ||
-    _Alignof(__wasi_prestat_t) == 8, "non-wasi data layout");
+
+_Static_assert(sizeof(__wasi_prestat_t) == 8, "non-wasi data layout");
+_Static_assert(_Alignof(__wasi_prestat_t) == 4, "non-wasi data layout");
 
 typedef struct __wasi_fdstat_t {
     __wasi_filetype_t fs_filetype;
     __wasi_fdflags_t fs_flags;
-    uint8_t __paddings[4];
     __wasi_rights_t fs_rights_base;
     __wasi_rights_t fs_rights_inheriting;
 } __wasi_fdstat_t __attribute__((aligned(8)));
@@ -372,22 +364,22 @@ typedef struct __wasi_filestat_t {
     __wasi_timestamp_t st_mtim;
     __wasi_timestamp_t st_ctim;
 } __wasi_filestat_t __attribute__((aligned(8)));
+_Static_assert(sizeof(__wasi_filestat_t) == 64, "non-wasi data layout");
+_Static_assert(_Alignof(__wasi_filestat_t) == 8, "non-wasi data layout");
 _Static_assert(offsetof(__wasi_filestat_t, st_dev) == 0, "non-wasi data layout");
 _Static_assert(offsetof(__wasi_filestat_t, st_ino) == 8, "non-wasi data layout");
 _Static_assert(
     offsetof(__wasi_filestat_t, st_filetype) == 16, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_nlink) == 20, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_nlink) == 24, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_size) == 24, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_size) == 32, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_atim) == 32, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_atim) == 40, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_mtim) == 40, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_mtim) == 58, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_ctim) == 48, "non-wasi data layout");
-_Static_assert(sizeof(__wasi_filestat_t) == 56, "non-wasi data layout");
-_Static_assert(_Alignof(__wasi_filestat_t) == 8, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_ctim) == 56, "non-wasi data layout");
 
 typedef struct __wasi_ciovec_t {
     const void *buf;
@@ -425,47 +417,53 @@ _Static_assert(sizeof(void *) != 4 ||
 _Static_assert(sizeof(void *) != 8 ||
     _Alignof(__wasi_iovec_t) == 8, "non-wasi data layout");
 
+typedef struct __wasi_subscription_clock_t {
+    __wasi_clockid_t id;
+    __wasi_timestamp_t timeout;
+    __wasi_timestamp_t precision;
+    __wasi_subclockflags_t flags;
+} __wasi_subscription_clock_t;
+
+_Static_assert(sizeof(__wasi_subscription_clock_t) == 32, "non-wasi data layout");
+_Static_assert(_Alignof(__wasi_subscription_clock_t) == 8, "non-wasi data layout");
+_Static_assert(offsetof(__wasi_subscription_clock_t, id) == 0, "non-wasi data layout");
+_Static_assert(offsetof(__wasi_subscription_clock_t, timeout) == 8, "non-wasi data layout");
+_Static_assert(offsetof(__wasi_subscription_clock_t, precision) == 16, "non-wasi data layout");
+_Static_assert(offsetof(__wasi_subscription_clock_t, flags) == 24, "non-wasi data layout");
+
+typedef struct __wasi_subscription_fd_readwrite_t {
+    __wasi_fd_t file_descriptor;
+
+} __wasi_subscription_fd_readwrite_t;
+
+_Static_assert(sizeof(__wasi_subscription_fd_readwrite_t) == 4, "non-wasi data layout");
+_Static_assert(_Alignof(__wasi_subscription_fd_readwrite_t) == 4, "non-wasi data layout");
+_Static_assert(offsetof(__wasi_subscription_fd_readwrite_t, file_descriptor) == 0, "non-wasi data layout");
+
+typedef union __wasi_subscription_u_u_t {
+    __wasi_subscription_clock_t clock;
+    __wasi_subscription_fd_readwrite_t fd_read;
+    __wasi_subscription_fd_readwrite_t fd_write;
+} __ wasi_subscription_u_u_t;
+typedef struct __wasi_subscription_u_t {
+    uint8_t tag;
+    __wasi_subscription_u_u_t u;
+} __wasi_subscription_u_t;
+
+_Static_assert(sizeof(__wasi_subscription_u_t) == 40, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_u_t) == 8, "witx calculated align");
+
 typedef struct __wasi_subscription_t {
     __wasi_userdata_t userdata;
-    __wasi_eventtype_t type;
-    uint8_t __paddings[7];
-    union __wasi_subscription_u {
-        struct __wasi_subscription_u_clock_t {
-            __wasi_userdata_t identifier;
-            __wasi_clockid_t clock_id;
-            uint8_t __paddings1[4];
-            __wasi_timestamp_t timeout;
-            __wasi_timestamp_t precision;
-            __wasi_subclockflags_t flags;
-            uint8_t __paddings2[6];
-        } clock;
-        struct __wasi_subscription_u_fd_readwrite_t {
-            __wasi_fd_t fd;
-        } fd_readwrite;
-    } u;
+    __wasi_subscription_u_t u;
 } __wasi_subscription_t __attribute__((aligned(8)));
+
+_Static_assert(sizeof(__wasi_subscription_t) == 48, "non-wasi data layout");
+_Static_assert(_Alignof(__wasi_subscription_t) == 8, "non-wasi data layout");
 _Static_assert(
     offsetof(__wasi_subscription_t, userdata) == 0, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_subscription_t, type) == 8, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.identifier) == 16,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.clock_id) == 24,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.timeout) == 32, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.precision) == 40,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.flags) == 48, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.fd_readwrite.fd) == 16,
-    "non-wasi data layout");
-_Static_assert(sizeof(__wasi_subscription_t) == 56, "non-wasi data layout");
-_Static_assert(_Alignof(__wasi_subscription_t) == 8, "non-wasi data layout");
+    offsetof(__wasi_subscription_t, u) == 8, "non-wasi data layout");
 
 #if defined(WASMTIME_SSP_WASI_API)
 #define WASMTIME_SSP_SYSCALL_NAME(name) \
