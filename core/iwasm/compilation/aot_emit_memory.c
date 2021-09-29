@@ -897,7 +897,7 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* If memory.init failed, return this function
         so the runtime can catch the exception */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, mem_init_fail);
-    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+    if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
         goto fail;
     }
 
@@ -1231,7 +1231,7 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* If atomic wait failed, return this function
         so the runtime can catch the exception */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, wait_fail);
-    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+    if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
         goto fail;
     }
 

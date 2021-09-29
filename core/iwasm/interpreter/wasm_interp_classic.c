@@ -12,6 +12,9 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
+#include "../libraries/thread-mgr/thread_manager.h"
+#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -848,27 +851,70 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
+#define CHECK_SUSPEND_FLAGS() do {                                  \
+    if (IS_WAMR_TERM_SIG(exec_env->current_status->signal_flag)) {  \
+      return;                                                       \
+    }                                                               \
+    if (IS_WAMR_STOP_SIG(exec_env->current_status->signal_flag)) {  \
+      SYNC_ALL_TO_FRAME();                                          \
+      wasm_cluster_thread_stopped(exec_env);                        \
+      wasm_cluster_thread_waiting_run(exec_env);                    \
+    }                                                               \
+  } while (0)
+#else
 #define CHECK_SUSPEND_FLAGS() do {                      \
     if (exec_env->suspend_flags.flags != 0) {           \
         if (exec_env->suspend_flags.flags & 0x01) {     \
             /* terminate current thread */              \
             return;                                     \
         }                                               \
-        /* TODO: support suspend and breakpoint */      \
+        while (exec_env->suspend_flags.flags & 0x02){   \
+            /* suspend current thread */                \
+            os_cond_wait(&exec_env->wait_cond,          \
+                         &exec_env->wait_lock);         \
+        }                                               \
     }                                                   \
   } while (0)
+#endif
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 
 #define HANDLE_OP(opcode) HANDLE_##opcode
 #define FETCH_OPCODE_AND_DISPATCH() goto *handle_table[*frame_ip++]
+
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
+#define HANDLE_OP_END()                                                       \
+    do {                                                                      \
+        while (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP     \
+               && exec_env->current_status->step_count++ == 1) {              \
+            exec_env->current_status->step_count = 0;                         \
+            SYNC_ALL_TO_FRAME();                                              \
+            wasm_cluster_thread_stopped(exec_env);                            \
+            wasm_cluster_thread_waiting_run(exec_env);                        \
+        }                                                                     \
+        goto *handle_table[*frame_ip++];                                      \
+    } while (0)
+#else
 #define HANDLE_OP_END() FETCH_OPCODE_AND_DISPATCH()
+#endif
 
 #else   /* else of WASM_ENABLE_LABELS_AS_VALUES */
-
 #define HANDLE_OP(opcode) case opcode
+#if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
+#define HANDLE_OP_END()                                                       \
+    if (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP            \
+        && exec_env->current_status->step_count++ == 2) {                     \
+        exec_env->current_status->step_count = 0;                             \
+        SYNC_ALL_TO_FRAME();                                                  \
+        wasm_cluster_thread_stopped(exec_env);                                \
+        wasm_cluster_thread_waiting_run(exec_env);                            \
+    }                                                                         \
+    continue
+#else
 #define HANDLE_OP_END() continue
+#endif
 
 #endif  /* end of WASM_ENABLE_LABELS_AS_VALUES */
 
@@ -941,6 +987,16 @@ handle_op_block:
         else if (cache_items[1].start_addr == frame_ip) {
           end_addr = cache_items[1].end_addr;
         }
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        else if (!wasm_loader_find_block_addr(exec_env,
+                                              (BlockAddr*)exec_env->block_addr_cache,
+                                              frame_ip, (uint8*)-1,
+                                              LABEL_TYPE_BLOCK,
+                                              &else_addr, &end_addr)) {
+          wasm_set_exception(module, "find block address failed");
+          goto got_exception;
+        }
+#endif
         else {
           end_addr = NULL;
         }
@@ -978,7 +1034,8 @@ handle_op_if:
           else_addr = cache_items[1].else_addr;
           end_addr = cache_items[1].end_addr;
         }
-        else if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
+        else if (!wasm_loader_find_block_addr(exec_env,
+                                              (BlockAddr*)exec_env->block_addr_cache,
                                               frame_ip, (uint8*)-1,
                                               LABEL_TYPE_IF,
                                               &else_addr, &end_addr)) {
@@ -1030,7 +1087,8 @@ handle_op_if:
 label_pop_csp_n:
         POP_CSP_N(depth);
         if (!frame_ip) { /* must be label pushed by WASM_OP_BLOCK */
-          if (!wasm_loader_find_block_addr((BlockAddr*)exec_env->block_addr_cache,
+          if (!wasm_loader_find_block_addr(exec_env,
+                                           (BlockAddr*)exec_env->block_addr_cache,
                                            (frame_csp - 1)->begin_addr, (uint8*)-1,
                                            LABEL_TYPE_BLOCK,
                                            &else_addr, &end_addr)) {
@@ -3178,7 +3236,17 @@ label_pop_csp_n:
         frame_sp = frame->sp;
         frame_csp = frame->csp;
         goto call_func_from_entry;
-
+#if WASM_ENABLE_DEBUG_INTERP != 0
+      HANDLE_OP (DEBUG_OP_BREAK):
+      {
+        wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);
+        exec_env->suspend_flags.flags |= 2;
+        frame_ip--;
+        SYNC_ALL_TO_FRAME();
+        CHECK_SUSPEND_FLAGS();
+        HANDLE_OP_END ();
+      }
+#endif
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
       default:
         wasm_set_exception(module, "unsupported opcode");
@@ -3320,6 +3388,9 @@ label_pop_csp_n:
         PUSH_CSP(LABEL_TYPE_FUNCTION, cell_num, frame_ip_end - 1);
 
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame*)frame);
+#if WASM_ENABLE_THREAD_MGR != 0
+        CHECK_SUSPEND_FLAGS();
+#endif
       }
       HANDLE_OP_END ();
     }

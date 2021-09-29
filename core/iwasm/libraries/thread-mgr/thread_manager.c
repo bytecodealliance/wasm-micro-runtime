@@ -484,6 +484,119 @@ fail1:
     return -1;
 }
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+WASMCurrentEnvStatus *
+wasm_cluster_create_exenv_status()
+{
+    WASMCurrentEnvStatus *status;
+
+    if (!(status = wasm_runtime_malloc(sizeof(WASMCurrentEnvStatus)))) {
+        goto fail;
+    }
+    if (os_mutex_init(&status->wait_lock) != 0)
+        goto fail1;
+
+    if (os_cond_init(&status->wait_cond) != 0)
+        goto fail2;
+    status->step_count = 0;
+    status->signal_flag = 0;
+    status->running_status = 0;
+    return status;
+
+fail2:
+    os_mutex_destroy(&status->wait_lock);
+fail1:
+    wasm_runtime_free(status);
+fail:
+    return NULL;
+}
+
+void
+wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status)
+{
+    os_mutex_destroy(&status->wait_lock);
+    os_cond_destroy(&status->wait_cond);
+    wasm_runtime_free(status);
+}
+
+inline static bool
+wasm_cluster_thread_is_running(WASMExecEnv *exec_env) {
+   return exec_env->current_status->running_status == STATUS_RUNNING
+          || exec_env->current_status->running_status == STATUS_STEP;
+}
+
+void
+wasm_cluster_clear_thread_signal(WASMExecEnv *exec_env)
+{
+    exec_env->current_status->signal_flag = 0;
+}
+
+void
+wasm_cluster_wait_thread_status(WASMExecEnv *exec_env, uint32 * status)
+{
+    os_mutex_lock(&exec_env->current_status->wait_lock);
+    while (wasm_cluster_thread_is_running(exec_env)) {
+        os_cond_wait(&exec_env->current_status->wait_cond,
+                     &exec_env->current_status->wait_lock);
+    }
+    *status = exec_env->current_status->signal_flag;
+    os_mutex_unlock(&exec_env->current_status->wait_lock);
+}
+
+void
+wasm_cluster_thread_send_signal(WASMExecEnv *exec_env, uint32 signo)
+{
+    exec_env->current_status->signal_flag = signo;
+}
+
+void
+wasm_cluster_thread_stopped(WASMExecEnv *exec_env)
+{
+    exec_env->current_status->running_status = STATUS_STOP;
+    os_cond_signal(&exec_env->current_status->wait_cond);
+}
+
+void
+wasm_cluster_thread_waiting_run(WASMExecEnv *exec_env)
+{
+    os_mutex_lock(&exec_env->wait_lock);
+    while (!wasm_cluster_thread_is_running(exec_env)) {
+        os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock);
+    }
+    os_mutex_unlock(&exec_env->wait_lock);
+}
+
+void
+wasm_cluster_send_signal_all(WASMCluster *cluster, uint32 signo)
+{
+    WASMExecEnv *exec_env = bh_list_first_elem(&cluster->exec_env_list);
+    while (exec_env) {
+        wasm_cluster_thread_send_signal(exec_env, signo);
+        exec_env = bh_list_elem_next(exec_env);
+    }
+}
+
+void wasm_cluster_thread_exited(WASMExecEnv *exec_env)
+{
+    exec_env->current_status->running_status = STATUS_EXIT;
+    os_cond_signal(&exec_env->current_status->wait_cond);
+
+}
+
+void wasm_cluster_thread_continue(WASMExecEnv *exec_env)
+{
+    wasm_cluster_clear_thread_signal(exec_env);
+    exec_env->current_status->running_status = STATUS_RUNNING;
+    os_cond_signal(&exec_env->wait_cond);
+}
+
+void wasm_cluster_thread_step(WASMExecEnv *exec_env)
+{
+    exec_env->current_status->running_status = STATUS_STEP;
+    os_cond_signal(&exec_env->wait_cond);
+}
+#endif
+
 int32
 wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
 {
@@ -520,7 +633,10 @@ wasm_cluster_exit_thread(WASMExecEnv *exec_env, void *retval)
 
     cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
-
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_cluster_clear_thread_signal(exec_env);
+    wasm_cluster_thread_exited(exec_env);
+#endif
     /* App exit the thread, free the resources before exit native thread */
     /* Free aux stack space */
     free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
@@ -537,8 +653,13 @@ int32
 wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
 {
     /* Set the termination flag */
+#if WASM_ENABLE_DEBUG_INTERP != 0
+   wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
+   wasm_cluster_thread_exited(exec_env);
+#else
     exec_env->suspend_flags.flags |= 0x01;
-    return 0;
+#endif
+   return 0;
 }
 
 static void
@@ -621,6 +742,7 @@ void
 wasm_cluster_resume_thread(WASMExecEnv *exec_env)
 {
     exec_env->suspend_flags.flags &= ~0x02;
+    os_cond_signal(&exec_env->wait_cond);
 }
 
 static void

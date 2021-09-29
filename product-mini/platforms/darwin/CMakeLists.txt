@@ -82,6 +82,17 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
   set (WAMR_BUILD_SIMD 1)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_DEBUG_INTERP)
+  # Disable Debug feature by default
+  set (WAMR_BUILD_DEBUG_INTERP 0)
+endif ()
+
+if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
+  set (WAMR_BUILD_FAST_INTERP 0)
+  set (WAMR_BUILD_MINI_LOADER 0)
+  set (WAMR_BUILD_SIMD 0)
+endif ()
+
 set (CMAKE_SHARED_LINKER_FLAGS "-Wl,-U,_get_ext_lib_export_apis")
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 

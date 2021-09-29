@@ -248,6 +248,12 @@ main(int argc, char *argv[])
     goto fail3;
   }
 
+#if WASM_ENABLE_DEBUG_AOT != 0
+  if (!create_dwarf_extractor(comp_data, wasm_file_name)) {
+    printf("%s:create dwarf extractor failed\n", wasm_file_name);
+  }
+#endif
+
   bh_print_time("Begin to create compile context");
 
   if (!(comp_ctx = aot_create_comp_context(comp_data,

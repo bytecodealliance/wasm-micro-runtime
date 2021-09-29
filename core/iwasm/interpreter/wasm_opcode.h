@@ -267,6 +267,10 @@ typedef enum WASMOpcode {
     EXT_OP_LOOP                   = 0xd4, /* loop with blocktype */
     EXT_OP_IF                     = 0xd5, /* if with blocktype */
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    DEBUG_OP_BREAK                = 0xd6, /* debug break point */
+#endif
+
     /* Post-MVP extend op prefix */
     WASM_OP_MISC_PREFIX           = 0xfc,
     WASM_OP_SIMD_PREFIX           = 0xfd,
@@ -673,6 +677,14 @@ typedef enum WASMAtomicEXTOpcode {
 }
 #endif
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+#define DEF_DEBUG_BREAK_HANDLE(_name)                       \
+  _name[DEBUG_OP_BREAK] =                                   \
+    HANDLE_OPCODE (DEBUG_OP_BREAK);     /* 0xd6 */
+#else
+#define DEF_DEBUG_BREAK_HANDLE(_name)
+#endif
+
 /*
  * Macro used to generate computed goto tables for the C interpreter.
  */
@@ -900,6 +912,7 @@ do {                                                         \
     HANDLE_OPCODE (WASM_OP_MISC_PREFIX);     /* 0xfc */      \
   _name[WASM_OP_ATOMIC_PREFIX] =                             \
     HANDLE_OPCODE (WASM_OP_ATOMIC_PREFIX);   /* 0xfe */      \
+  DEF_DEBUG_BREAK_HANDLE(_name)                              \
 } while (0)
 #endif /* end of _WASM_OPCODE_H */
 

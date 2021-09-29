@@ -62,8 +62,10 @@ wasm_loader_unload(WASMModule *module);
  *
  * @return true if success, false otherwise
  */
+
 bool
-wasm_loader_find_block_addr(BlockAddr *block_addr_cache,
+wasm_loader_find_block_addr(WASMExecEnv *exec_env,
+                            BlockAddr *block_addr_cache,
                             const uint8 *start_addr,
                             const uint8 *code_end_addr,
                             uint8 block_type,
