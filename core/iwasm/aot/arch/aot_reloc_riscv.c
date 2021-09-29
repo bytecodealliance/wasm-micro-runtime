@@ -267,7 +267,7 @@ apply_relocation(AOTModule *module,
 
         case R_RISCV_HI20:
         {
-            val = (int32)(intptr_t)(symbol_addr + reloc_addend);
+            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
             if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend)) {
@@ -284,7 +284,7 @@ apply_relocation(AOTModule *module,
 
         case R_RISCV_LO12_I:
         {
-            val = (int32)(intptr_t)(symbol_addr + reloc_addend);
+            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
             if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend)) {
@@ -301,7 +301,7 @@ apply_relocation(AOTModule *module,
 
         case R_RISCV_LO12_S:
         {
-            val = (int32)(intptr_t)(symbol_addr + reloc_addend);
+            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
             if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend)) {

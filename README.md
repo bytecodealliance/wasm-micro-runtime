@@ -68,7 +68,7 @@ Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compile
 cd wamr-compiler
 ./build_llvm.sh (or "./build_llvm_xtensa.sh" to support xtensa target)
 mkdir build && cd build
-cmake .. (or "cmake .. -DWAMR_BUILD_TARGET=darwin" for MacOS)
+cmake .. (or "cmake .. -DWAMR_BUILD_PLATFORM=darwin" for MacOS)
 make
 # wamrc is generated under current directory
 ```
