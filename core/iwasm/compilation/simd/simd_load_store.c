@@ -82,7 +82,11 @@ aot_compile_simd_load_extend(AOTCompContext *comp_ctx,
         LLVMVectorType(INT16_TYPE, 4), LLVMVectorType(INT16_TYPE, 4),
         LLVMVectorType(I32_TYPE, 2),   LLVMVectorType(I32_TYPE, 2),
     };
-    LLVMTypeRef sub_vector_type = sub_vector_types[opcode_index];
+    LLVMTypeRef sub_vector_type;
+
+    bh_assert(opcode_index < 6);
+
+    sub_vector_type = sub_vector_types[opcode_index];
 
     /* to vector ptr type */
     if (!sub_vector_type
@@ -139,6 +143,8 @@ aot_compile_simd_load_splat(AOTCompContext *comp_ctx,
         LLVM_CONST(i32x2_zero),
     };
 
+    bh_assert(opcode_index < 4);
+
     if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
                               data_lengths[opcode_index],
                               element_ptr_types[opcode_index]))) {
@@ -178,6 +184,8 @@ aot_compile_simd_load_lane(AOTCompContext *comp_ctx,
     LLVMTypeRef vector_types[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
                                    V128_i32x4_TYPE, V128_i64x2_TYPE };
     LLVMValueRef lane = simd_lane_id_to_llvm_value(comp_ctx, lane_id);
+
+    bh_assert(opcode_index < 4);
 
     if (!(vector = simd_pop_v128_and_bitcast(
             comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
@@ -224,6 +232,8 @@ aot_compile_simd_load_zero(AOTCompContext *comp_ctx,
           LLVM_CONST(i32_six) },
         { LLVM_CONST(i32_zero), LLVM_CONST(i32_two) },
     };
+
+    bh_assert(opcode_index < 2);
 
     if (!(element = simd_load(comp_ctx, func_ctx, align, offset,
                               data_lengths[opcode_index],
@@ -319,6 +329,8 @@ aot_compile_simd_store_lane(AOTCompContext *comp_ctx,
     LLVMTypeRef vector_types[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
                                    V128_i32x4_TYPE, V128_i64x2_TYPE };
     LLVMValueRef lane = simd_lane_id_to_llvm_value(comp_ctx, lane_id);
+
+    bh_assert(opcode_index < 4);
 
     if (!(vector = simd_pop_v128_and_bitcast(
             comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
