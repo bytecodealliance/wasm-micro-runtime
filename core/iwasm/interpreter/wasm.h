@@ -316,6 +316,13 @@ typedef struct StringNode {
     char *str;
 } StringNode, *StringList;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+typedef struct WASMFastOPCodeNode {
+    struct WASMFastOPCodeNode *next;
+    uint64 offset;
+    uint8 orig_op;
+} WASMFastOPCodeNode;
+#endif
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -403,6 +410,13 @@ struct WASMModule {
     /* TODO: add mutex for mutli-thread? */
     bh_list import_module_list_head;
     bh_list *import_module_list;
+#endif
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0
+    bh_list fast_opcode_list;
+    uint8 *buf_code;
+    uint8 *load_addr;
+    uint64 load_size;
+    uint64 buf_code_size;
 #endif
 };
 

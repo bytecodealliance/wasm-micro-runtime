@@ -109,7 +109,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Create return IR */
         AOTFuncType *aot_func_type = func_ctx->aot_func->func_type;
-        if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+        if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
             return false;
         }
 

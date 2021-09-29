@@ -32,6 +32,9 @@
 #include "../interpreter/wasm_opcode.h"
 #include <errno.h>
 
+#if WASM_ENABLE_DEBUG_AOT != 0
+#include "debug/dwarf_extractor.h"
+#endif
 
 #define CHECK_BUF(buf, buf_end, length) do {                \
   if (buf + length > buf_end) {                             \
@@ -153,6 +156,9 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
   float32 f32_const;
   float64 f64_const;
   AOTFuncType *func_type = NULL;
+#if WASM_ENABLE_DEBUG_AOT != 0
+  LLVMMetadataRef location;
+#endif
 
   /* Start to translate the opcodes */
   LLVMPositionBuilderAtEnd(comp_ctx->builder,
@@ -160,6 +166,15 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                    ->llvm_entry_block);
   while (frame_ip < frame_ip_end) {
     opcode = *frame_ip++;
+
+#if WASM_ENABLE_DEBUG_AOT != 0
+    location = dwarf_gen_location(
+      comp_ctx, func_ctx,
+      (frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
+    );
+    LLVMSetCurrentDebugLocation2(comp_ctx->builder, location);
+#endif
+
     switch (opcode) {
       case WASM_OP_UNREACHABLE:
         if (!aot_compile_op_unreachable(comp_ctx, func_ctx, &frame_ip))
@@ -2438,6 +2453,10 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
   LLVMDumpModule(comp_ctx->module);
   /* Clear error no, LLVMDumpModule may set errno */
   errno = 0;
+#endif
+
+#if WASM_ENABLE_DEBUG_AOT != 0
+  LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
 
   bh_print_time("Begin to verify LLVM module");

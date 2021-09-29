@@ -25,6 +25,9 @@
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Support.h"
 #endif
+#if WASM_ENABLE_DEBUG_AOT != 0
+#include "llvm-c/DebugInfo.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -148,6 +151,9 @@ typedef struct AOTFuncContext {
   LLVMBasicBlockRef func_return_block;
   LLVMValueRef exception_id_phi;
   LLVMValueRef func_type_indexes;
+#if WASM_ENABLE_DEBUG_AOT != 0
+  LLVMMetadataRef debug_func;
+#endif
   LLVMValueRef locals[1];
 } AOTFuncContext;
 
@@ -245,6 +251,11 @@ typedef struct AOTCompContext {
   LLVMContextRef context;
   LLVMModuleRef module;
   LLVMBuilderRef builder;
+#if WASM_ENABLE_DEBUG_AOT
+  LLVMDIBuilderRef debug_builder;
+  LLVMMetadataRef debug_file;
+  LLVMMetadataRef debug_comp_unit;
+#endif
   LLVMTargetMachineRef target_machine;
   char *target_cpu;
   char target_arch[16];
@@ -407,6 +418,7 @@ aot_checked_addr_list_destroy(AOTFuncContext *func_ctx);
 
 bool
 aot_build_zero_function_ret(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx,
                             AOTFuncType *func_type);
 
 LLVMValueRef

@@ -35,7 +35,7 @@ create_func_return_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
         /* Create return IR */
         LLVMPositionBuilderAtEnd(comp_ctx->builder, func_ctx->func_return_block);
-        if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+        if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
             return false;
         }
     }
@@ -313,7 +313,7 @@ call_aot_alloc_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* If frame alloc failed, return this function
         so the runtime can catch the exception */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, frame_alloc_fail);
-    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+    if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
         return false;
     }
 

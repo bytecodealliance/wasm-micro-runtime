@@ -28,6 +28,7 @@ iwasm VM core
 - [Multiple modules as dependencies](./doc/multi_module.md), ref to [sample](samples/multi-module)
 - [Thread management and pthread library](./doc/pthread_library.md), ref to [sample](samples/multi-thread)
 - [Linux SGX (Intel Software Guard Extension) support](./doc/linux_sgx.md)
+- [Source debugging](./doc/source_debugging.md)
 
 ### post-MVP features
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)

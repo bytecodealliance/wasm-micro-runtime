@@ -254,6 +254,10 @@ typedef struct AOTModule {
     WASIArguments wasi_args;
     bool is_wasi_module;
 #endif
+#if WASM_ENABLE_DEBUG_AOT != 0
+    void *elf_hdr;
+    uint32 elf_size;
+#endif
 } AOTModule;
 
 typedef union {
