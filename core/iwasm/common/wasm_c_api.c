@@ -2804,9 +2804,10 @@ wasm_func_call(const wasm_func_t *func,
 
     /* copy parametes */
     if (param_count
-        && !(argc = params_to_argv(func->inst_comm_rt, params->data,
-                                   wasm_functype_params(func->type),
-                                   param_count, argv))) {
+        && (!params
+            || !(argc = params_to_argv(func->inst_comm_rt, params->data,
+                                       wasm_functype_params(func->type),
+                                       param_count, argv)))) {
         goto failed;
     }
 
@@ -2825,8 +2826,9 @@ wasm_func_call(const wasm_func_t *func,
 
     /* copy results */
     if (result_count) {
-        if (!(argc = argv_to_results(argv, wasm_functype_results(func->type),
-                                     result_count, results->data))) {
+        if (!results
+            || !(argc = argv_to_results(argv, wasm_functype_results(func->type),
+                                        result_count, results->data))) {
             goto failed;
         }
         results->num_elems = result_count;

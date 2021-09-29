@@ -902,9 +902,6 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
             wast_tempfile, "-o", wasm_tempfile ]
 
     # optional arguments
-    if opts.simd:
-        cmd.append("--enable-simd")
-
     if opts.ref_types:
         cmd.append("--enable-reference-types")
         cmd.append("--enable-bulk-memory")
