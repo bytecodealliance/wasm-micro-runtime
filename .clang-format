@@ -58,3 +58,4 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AllowAllArgumentsOnNextLine: false
 PointerAlignment: Right
 SpaceAroundPointerQualifiers: After
+SortIncludes: false
