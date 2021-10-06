@@ -24,7 +24,7 @@ extern "C" {
 #define VALUE_TYPE_EXTERNREF 0x6F
 #define VALUE_TYPE_VOID 0x40
 /* Used by AOT */
-#define VALUE_TYPE_I1  0x41
+#define VALUE_TYPE_I1 0x41
 /*  Used by loader to represent any type of i32/i64/f32/f64 */
 #define VALUE_TYPE_ANY 0x42
 
@@ -66,8 +66,8 @@ extern "C" {
 #endif
 
 #define SUB_SECTION_TYPE_MODULE 0
-#define SUB_SECTION_TYPE_FUNC   1
-#define SUB_SECTION_TYPE_LOCAL  2
+#define SUB_SECTION_TYPE_FUNC 1
+#define SUB_SECTION_TYPE_LOCAL 2
 
 #define IMPORT_KIND_FUNC 0
 #define IMPORT_KIND_TABLE 1
@@ -449,7 +449,7 @@ typedef struct WASMBranchBlock {
  * @return the aligned value
  */
 inline static unsigned
-align_uint (unsigned v, unsigned b)
+align_uint(unsigned v, unsigned b)
 {
     unsigned m = b - 1;
     return (v + m) & ~m;
@@ -462,7 +462,7 @@ inline static uint32
 wasm_string_hash(const char *str)
 {
     unsigned h = (unsigned)strlen(str);
-    const uint8 *p = (uint8*)str;
+    const uint8 *p = (uint8 *)str;
     const uint8 *end = p + h;
 
     while (p != end)
@@ -547,9 +547,10 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
     return (type1->param_count == type2->param_count
             && type1->result_count == type2->result_count
             && memcmp(type1->types, type2->types,
-                      (uint32)(type1->param_count
-                               + type1->result_count)) == 0)
-        ? true : false;
+                      (uint32)(type1->param_count + type1->result_count))
+                   == 0)
+               ? true
+               : false;
 }
 
 inline static uint32
@@ -566,8 +567,7 @@ wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
 }
 
 static inline uint32
-block_type_get_param_types(BlockType *block_type,
-                           uint8 **p_param_types)
+block_type_get_param_types(BlockType *block_type, uint8 **p_param_types)
 {
     uint32 param_count = 0;
     if (!block_type->is_value_type) {
@@ -577,15 +577,14 @@ block_type_get_param_types(BlockType *block_type,
     }
     else {
         *p_param_types = NULL;
-        param_count  = 0;
+        param_count = 0;
     }
 
     return param_count;
 }
 
 static inline uint32
-block_type_get_result_types(BlockType *block_type,
-                            uint8 **p_result_types)
+block_type_get_result_types(BlockType *block_type, uint8 **p_result_types)
 {
     uint32 result_count = 0;
     if (block_type->is_value_type) {

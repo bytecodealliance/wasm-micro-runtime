@@ -14,8 +14,12 @@ llvm-dwarfdump-12 test.wasm
 ```
 
 ## Debugging with interpreter
+1. Install dependent libraries
+``` bash
+apt update && apt install cmake make g++ libxml2-dev -y
+```
 
-1. Build iwasm with source debugging feature
+2. Build iwasm with source debugging feature
 ``` bash
 cd ${WAMR_ROOT}/product-mini/platforms/linux
 mkdir build && cd build
@@ -23,21 +27,21 @@ cmake .. -DWAMR_BUILD_DEBUG_INTERP=1
 make
 ```
 
-2. Execute iwasm with debug engine enabled
+3. Execute iwasm with debug engine enabled
 ``` bash
 iwasm -g=127.0.0.1:1234 test.wasm
 ```
 
-3. Build customized lldb (assume you have already built llvm)
+4. Build customized lldb (assume you have already cloned llvm)
 ``` bash
 cd ${WAMR_ROOT}/core/deps/llvm
-git apply ../../../../build-scripts/lldb-wasm.patch
-mkdir build && cd build
-cmake ../llvm -DLLVM_ENABLE_PROJECTS="clang,lldb" -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly"
+git apply ../../../build-scripts/lldb-wasm.patch
+mkdir build_lldb && cd build_lldb
+cmake -DCMAKE_BUILD_TYPE:STRING="Release" -DLLVM_ENABLE_PROJECTS="clang;lldb" -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" -DLLVM_ENABLE_LIBXML2:BOOL=ON ../llvm
 make -j $(nproc)
 ```
 
-4. Launch customized lldb and connect to iwasm
+5. Launch customized lldb and connect to iwasm
 ``` bash
 lldb
 (lldb) process connect -p wasm connect://127.0.0.1:1234

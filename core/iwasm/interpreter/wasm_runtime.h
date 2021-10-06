@@ -247,7 +247,7 @@ typedef struct WASMSubModInstNode {
  *
  * @return the code block of the function
  */
-static inline uint8*
+static inline uint8 *
 wasm_get_func_code(WASMFunctionInstance *func)
 {
 #if WASM_ENABLE_FAST_INTERP == 0
@@ -264,34 +264,33 @@ wasm_get_func_code(WASMFunctionInstance *func)
  *
  * @return the code block end of the function
  */
-static inline uint8*
+static inline uint8 *
 wasm_get_func_code_end(WASMFunctionInstance *func)
 {
 #if WASM_ENABLE_FAST_INTERP == 0
-    return func->is_import_func
-             ? NULL : func->u.func->code + func->u.func->code_size;
+    return func->is_import_func ? NULL
+                                : func->u.func->code + func->u.func->code_size;
 #else
     return func->is_import_func
-             ? NULL
-             : func->u.func->code_compiled + func->u.func->code_compiled_size;
+               ? NULL
+               : func->u.func->code_compiled + func->u.func->code_compiled_size;
 #endif
 }
 
 WASMModule *
-wasm_load(const uint8 *buf, uint32 size,
-          char *error_buf, uint32 error_buf_size);
+wasm_load(const uint8 *buf, uint32 size, char *error_buf,
+          uint32 error_buf_size);
 
 WASMModule *
-wasm_load_from_sections(WASMSection *section_list,
-                        char *error_buf, uint32_t error_buf_size);
+wasm_load_from_sections(WASMSection *section_list, char *error_buf,
+                        uint32_t error_buf_size);
 
 void
 wasm_unload(WASMModule *module);
 
 WASMModuleInstance *
-wasm_instantiate(WASMModule *module, bool is_sub_inst,
-                 uint32 stack_size, uint32 heap_size,
-                 char *error_buf, uint32 error_buf_size);
+wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
+                 uint32 heap_size, char *error_buf, uint32 error_buf_size);
 
 void
 wasm_dump_perf_profiling(const WASMModuleInstance *module_inst);
@@ -300,8 +299,8 @@ void
 wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst);
 
 WASMFunctionInstance *
-wasm_lookup_function(const WASMModuleInstance *module_inst,
-                     const char *name, const char *signature);
+wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name,
+                     const char *signature);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 WASMGlobalInstance *
@@ -315,8 +314,7 @@ wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name);
 #endif
 
 bool
-wasm_call_function(WASMExecEnv *exec_env,
-                   WASMFunctionInstance *function,
+wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
                    unsigned argc, uint32 argv[]);
 
 bool
@@ -330,7 +328,7 @@ wasm_create_exec_env_singleton(WASMModuleInstance *module_inst);
 void
 wasm_set_exception(WASMModuleInstance *module, const char *exception);
 
-const char*
+const char *
 wasm_get_exception(WASMModuleInstance *module);
 
 uint32
@@ -345,38 +343,32 @@ void
 wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr);
 
 uint32
-wasm_module_dup_data(WASMModuleInstance *module_inst,
-                     const char *src, uint32 size);
+wasm_module_dup_data(WASMModuleInstance *module_inst, const char *src,
+                     uint32 size);
 
 bool
-wasm_validate_app_addr(WASMModuleInstance *module_inst,
-                       uint32 app_offset, uint32 size);
+wasm_validate_app_addr(WASMModuleInstance *module_inst, uint32 app_offset,
+                       uint32 size);
 
 bool
-wasm_validate_app_str_addr(WASMModuleInstance *module_inst,
-                           uint32 app_offset);
+wasm_validate_app_str_addr(WASMModuleInstance *module_inst, uint32 app_offset);
 
 bool
-wasm_validate_native_addr(WASMModuleInstance *module_inst,
-                          void *native_ptr, uint32 size);
+wasm_validate_native_addr(WASMModuleInstance *module_inst, void *native_ptr,
+                          uint32 size);
 
 void *
-wasm_addr_app_to_native(WASMModuleInstance *module_inst,
-                        uint32 app_offset);
+wasm_addr_app_to_native(WASMModuleInstance *module_inst, uint32 app_offset);
 
 uint32
-wasm_addr_native_to_app(WASMModuleInstance *module_inst,
-                        void *native_ptr);
+wasm_addr_native_to_app(WASMModuleInstance *module_inst, void *native_ptr);
 
 bool
-wasm_get_app_addr_range(WASMModuleInstance *module_inst,
-                        uint32 app_offset,
-                        uint32 *p_app_start_offset,
-                        uint32 *p_app_end_offset);
+wasm_get_app_addr_range(WASMModuleInstance *module_inst, uint32 app_offset,
+                        uint32 *p_app_start_offset, uint32 *p_app_end_offset);
 
 bool
-wasm_get_native_addr_range(WASMModuleInstance *module_inst,
-                           uint8_t *native_ptr,
+wasm_get_native_addr_range(WASMModuleInstance *module_inst, uint8_t *native_ptr,
                            uint8_t **p_native_start_addr,
                            uint8_t **p_native_end_addr);
 
@@ -384,19 +376,15 @@ bool
 wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count);
 
 bool
-wasm_call_indirect(WASMExecEnv *exec_env,
-                   uint32_t tbl_idx,
-                   uint32_t element_indices,
-                   uint32_t argc, uint32_t argv[]);
+wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
+                   uint32_t element_indices, uint32_t argc, uint32_t argv[]);
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-wasm_set_aux_stack(WASMExecEnv *exec_env,
-                   uint32 start_offset, uint32 size);
+wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
 
 bool
-wasm_get_aux_stack(WASMExecEnv *exec_env,
-                   uint32 *start_offset, uint32 *size);
+wasm_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
 #endif
 
 void
@@ -427,13 +415,12 @@ wasm_elem_is_declarative(uint32 mode)
 }
 
 bool
-wasm_enlarge_table(WASMModuleInstance *module_inst,
-                   uint32 table_idx, uint32 inc_entries, uint32 init_val);
+wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
+                   uint32 inc_entries, uint32 init_val);
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
 
 static inline WASMTableInstance *
-wasm_get_table_inst(const WASMModuleInstance *module_inst,
-                    const uint32 tbl_idx)
+wasm_get_table_inst(const WASMModuleInstance *module_inst, const uint32 tbl_idx)
 {
     /* careful, it might be a table in another module */
     WASMTableInstance *tbl_inst = module_inst->tables[tbl_idx];
