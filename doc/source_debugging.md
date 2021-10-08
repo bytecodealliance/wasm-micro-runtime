@@ -36,7 +36,7 @@ iwasm -g=127.0.0.1:1234 test.wasm
 ``` bash
 cd ${WAMR_ROOT}/core/deps/llvm
 git apply ../../../build-scripts/lldb-wasm.patch
-mkdir build_lldb && cd build_lldb
+mkdir build-lldb && cd build-lldb
 cmake -DCMAKE_BUILD_TYPE:STRING="Release" -DLLVM_ENABLE_PROJECTS="clang;lldb" -DLLVM_TARGETS_TO_BUILD:STRING="X86;WebAssembly" -DLLVM_ENABLE_LIBXML2:BOOL=ON ../llvm
 make -j $(nproc)
 ```

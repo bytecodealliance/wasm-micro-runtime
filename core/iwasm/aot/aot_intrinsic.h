@@ -22,14 +22,15 @@ extern "C" {
  *   - The lower 48 bits are the intrinsic capability mask
  */
 
-#define AOT_INTRINSIC_FLAG(group, number)                                     \
+#define AOT_INTRINSIC_FLAG(group, number) \
     ((((uint64)(group & 0xffffLL)) << 48) | ((uint64)1 << number))
 
 #define AOT_INTRINSIC_FLAG_MASK (0x0000ffffffffffffLL)
 
-#define AOT_INTRINSIC_GET_GROUP_FROM_FLAG(flag)                               \
+#define AOT_INTRINSIC_GET_GROUP_FROM_FLAG(flag) \
     ((((uint64)flag) >> 48) & 0xffffLL)
 
+/* clang-format off */
 #define AOT_INTRINSIC_FLAG_F32_FADD     AOT_INTRINSIC_FLAG(0, 0)
 #define AOT_INTRINSIC_FLAG_F32_FSUB     AOT_INTRINSIC_FLAG(0, 1)
 #define AOT_INTRINSIC_FLAG_F32_FMUL     AOT_INTRINSIC_FLAG(0, 2)
@@ -83,6 +84,7 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_F64_TO_U64   AOT_INTRINSIC_FLAG(1, 23)
 #define AOT_INTRINSIC_FLAG_F64_TO_F32   AOT_INTRINSIC_FLAG(1, 24)
 #define AOT_INTRINSIC_FLAG_F64_CMP      AOT_INTRINSIC_FLAG(1, 25)
+/* clang-format on */
 
 float32
 aot_intrinsic_fadd_f32(float32 a, float32 b);

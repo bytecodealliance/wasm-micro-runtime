@@ -17,7 +17,7 @@
 #define ENABLE_SORT_DEBUG 0
 
 #if ENABLE_SORT_DEBUG != 0
-#include<sys/time.h>
+#include <sys/time.h>
 #endif
 
 static NativeSymbolsList g_native_symbols_list = NULL;
@@ -80,7 +80,7 @@ check_symbol_signature(const WASMType *type, const char *signature)
 #if WASM_ENABLE_REF_TYPES != 0
             || (sig == 'i' && type->types[i] == VALUE_TYPE_EXTERNREF)
 #endif
-           )
+        )
             /* normal parameter */
             continue;
 
@@ -91,8 +91,7 @@ check_symbol_signature(const WASMType *type, const char *signature)
         if (sig == '*') {
             /* it is a pointer */
             if (i + 1 < type->param_count
-                && type->types[i + 1] == VALUE_TYPE_I32
-                && *p == '~') {
+                && type->types[i + 1] == VALUE_TYPE_I32 && *p == '~') {
                 /* pointer length followed */
                 i++;
                 p++;
@@ -132,8 +131,8 @@ sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
 
     for (i = 0; i < n_native_symbols - 1; i++) {
         for (j = i + 1; j < n_native_symbols; j++) {
-            if (strcmp(native_symbols[i].symbol,
-                       native_symbols[j].symbol) > 0) {
+            if (strcmp(native_symbols[i].symbol, native_symbols[j].symbol)
+                > 0) {
                 temp = native_symbols[i];
                 native_symbols[i] = native_symbols[j];
                 native_symbols[j] = temp;
@@ -143,7 +142,7 @@ sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
 }
 #else
 static void
-swap_symbol(NativeSymbol* left, NativeSymbol* right)
+swap_symbol(NativeSymbol *left, NativeSymbol *right)
 {
     NativeSymbol temp = *left;
     *left = *right;
@@ -151,7 +150,7 @@ swap_symbol(NativeSymbol* left, NativeSymbol* right)
 }
 
 static void
-quick_sort_symbols(NativeSymbol* native_symbols, int left, int right)
+quick_sort_symbols(NativeSymbol *native_symbols, int left, int right)
 {
     NativeSymbol base_symbol;
     int pin_left = left;
@@ -164,8 +163,8 @@ quick_sort_symbols(NativeSymbol* native_symbols, int left, int right)
     base_symbol = native_symbols[left];
     while (left < right) {
         while (left < right
-               && strcmp(native_symbols[right].symbol,
-                         base_symbol.symbol) > 0) {
+               && strcmp(native_symbols[right].symbol, base_symbol.symbol)
+                      > 0) {
             right--;
         }
 
@@ -175,8 +174,7 @@ quick_sort_symbols(NativeSymbol* native_symbols, int left, int right)
         }
 
         while (left < right
-               && strcmp(native_symbols[left].symbol,
-                         base_symbol.symbol) < 0) {
+               && strcmp(native_symbols[left].symbol, base_symbol.symbol) < 0) {
             left++;
         }
 
@@ -216,7 +214,7 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
     return NULL;
 }
 
-void*
+void *
 wasm_native_resolve_symbol(const char *module_name, const char *field_name,
                            const WASMType *func_type, const char **p_signature,
                            void **p_attachment, bool *p_call_conv_raw)
@@ -229,15 +227,14 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
     while (node) {
         node_next = node->next;
         if (!strcmp(node->module_name, module_name)) {
-            if ((func_ptr = lookup_symbol(node->native_symbols,
-                                          node->n_native_symbols,
-                                          field_name, &signature, &attachment))
+            if ((func_ptr =
+                     lookup_symbol(node->native_symbols, node->n_native_symbols,
+                                   field_name, &signature, &attachment))
                 || (field_name[0] == '_'
-                    && (func_ptr = lookup_symbol(node->native_symbols,
-                                                 node->n_native_symbols,
-                                                 field_name + 1,
-                                                 &signature, &attachment))))
-            break;
+                    && (func_ptr = lookup_symbol(
+                            node->native_symbols, node->n_native_symbols,
+                            field_name + 1, &signature, &attachment))))
+                break;
         }
         node = node_next;
     }
@@ -246,7 +243,8 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
         if (signature && signature[0] != '\0') {
             /* signature is not empty, check its format */
             if (!check_symbol_signature(func_type, signature)) {
-#if WASM_ENABLE_WAMR_COMPILER == 0 /* Output warning except running aot compiler */
+#if WASM_ENABLE_WAMR_COMPILER == 0
+                /* Output warning except running aot compiler */
                 LOG_WARNING("failed to check signature '%s' and resolve "
                             "pointer params for import function (%s %s)\n",
                             signature, module_name, field_name);
@@ -270,10 +268,8 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
 }
 
 static bool
-register_natives(const char *module_name,
-                 NativeSymbol *native_symbols,
-                 uint32 n_native_symbols,
-                 bool call_conv_raw)
+register_natives(const char *module_name, NativeSymbol *native_symbols,
+                 uint32 n_native_symbols, bool call_conv_raw)
 {
     NativeSymbolsNode *node;
 #if ENABLE_SORT_DEBUG != 0
@@ -309,10 +305,10 @@ register_natives(const char *module_name,
 
 #if ENABLE_SORT_DEBUG != 0
     gettimeofday(&end, NULL);
-    timer = 1000000 * (end.tv_sec - start.tv_sec)
-            + (end.tv_usec - start.tv_usec);
-    LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us",
-              module_name, n_native_symbols, timer);
+    timer =
+        1000000 * (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec);
+    LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us", module_name,
+              n_native_symbols, timer);
 #endif
     return true;
 }
@@ -322,7 +318,8 @@ wasm_native_register_natives(const char *module_name,
                              NativeSymbol *native_symbols,
                              uint32 n_native_symbols)
 {
-    return register_natives(module_name, native_symbols, n_native_symbols, false);
+    return register_natives(module_name, native_symbols, n_native_symbols,
+                            false);
 }
 
 bool
@@ -330,7 +327,8 @@ wasm_native_register_natives_raw(const char *module_name,
                                  NativeSymbol *native_symbols,
                                  uint32 n_native_symbols)
 {
-    return register_natives(module_name, native_symbols, n_native_symbols, true);
+    return register_natives(module_name, native_symbols, n_native_symbols,
+                            true);
 }
 
 bool
@@ -341,41 +339,40 @@ wasm_native_init()
 
 #if WASM_ENABLE_LIBC_BUILTIN != 0
     n_native_symbols = get_libc_builtin_export_apis(&native_symbols);
-    if (!wasm_native_register_natives("env",
-                                      native_symbols, n_native_symbols))
+    if (!wasm_native_register_natives("env", native_symbols, n_native_symbols))
         return false;
 #endif /* WASM_ENABLE_LIBC_BUILTIN */
 
 #if WASM_ENABLE_SPEC_TEST
     n_native_symbols = get_spectest_export_apis(&native_symbols);
-    if (!wasm_native_register_natives("spectest",
-                                      native_symbols, n_native_symbols))
+    if (!wasm_native_register_natives("spectest", native_symbols,
+                                      n_native_symbols))
         return false;
 #endif /* WASM_ENABLE_SPEC_TEST */
 
 #if WASM_ENABLE_LIBC_WASI != 0
     n_native_symbols = get_libc_wasi_export_apis(&native_symbols);
-    if (!wasm_native_register_natives("wasi_unstable",
-                                      native_symbols, n_native_symbols))
+    if (!wasm_native_register_natives("wasi_unstable", native_symbols,
+                                      n_native_symbols))
         return false;
-    if (!wasm_native_register_natives("wasi_snapshot_preview1",
-                                      native_symbols, n_native_symbols))
+    if (!wasm_native_register_natives("wasi_snapshot_preview1", native_symbols,
+                                      n_native_symbols))
         return false;
 #endif
 
 #if WASM_ENABLE_BASE_LIB != 0
     n_native_symbols = get_base_lib_export_apis(&native_symbols);
     if (n_native_symbols > 0
-        && !wasm_native_register_natives("env",
-                                         native_symbols, n_native_symbols))
+        && !wasm_native_register_natives("env", native_symbols,
+                                         n_native_symbols))
         return false;
 #endif
 
 #if WASM_ENABLE_APP_FRAMEWORK != 0
     n_native_symbols = get_ext_lib_export_apis(&native_symbols);
     if (n_native_symbols > 0
-        && !wasm_native_register_natives("env",
-                                         native_symbols, n_native_symbols))
+        && !wasm_native_register_natives("env", native_symbols,
+                                         n_native_symbols))
         return false;
 #endif
 
@@ -385,16 +382,16 @@ wasm_native_init()
 
     n_native_symbols = get_lib_pthread_export_apis(&native_symbols);
     if (n_native_symbols > 0
-        && !wasm_native_register_natives("env",
-                                         native_symbols, n_native_symbols))
+        && !wasm_native_register_natives("env", native_symbols,
+                                         n_native_symbols))
         return false;
 #endif
 
 #if WASM_ENABLE_LIBC_EMCC != 0
     n_native_symbols = get_libc_emcc_export_apis(&native_symbols);
     if (n_native_symbols > 0
-        && !wasm_native_register_natives("env",
-                                         native_symbols, n_native_symbols))
+        && !wasm_native_register_natives("env", native_symbols,
+                                         n_native_symbols))
         return false;
 #endif /* WASM_ENABLE_LIBC_EMCC */
 

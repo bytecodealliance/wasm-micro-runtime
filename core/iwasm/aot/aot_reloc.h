@@ -3,15 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#ifndef _AOT_RELOC_H_
+#define _AOT_RELOC_H_
+
 #include "aot_runtime.h"
 #include "aot_intrinsic.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
     const char *symbol_name;
     void *symbol_addr;
 } SymbolMap;
 
-#define REG_SYM(symbol) { #symbol, (void*)symbol }
+/* clang-format off */
+#define REG_SYM(symbol) { #symbol, (void *)symbol }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 #define REG_BULK_MEMORY_SYM()             \
@@ -122,10 +130,11 @@ typedef struct {
     REG_AOT_TRACE_SYM()                   \
     REG_INTRINSIC_SYM()                   \
 
-#define CHECK_RELOC_OFFSET(data_size) do {                                  \
-    if (!check_reloc_offset(target_section_size, reloc_offset, data_size,   \
-                            error_buf, error_buf_size))                     \
-        return false;                                                       \
+#define CHECK_RELOC_OFFSET(data_size) do {              \
+    if (!check_reloc_offset(target_section_size,        \
+                            reloc_offset, data_size,    \
+                            error_buf, error_buf_size)) \
+        return false;                                   \
   } while (0)
 
 SymbolMap *
@@ -146,4 +155,10 @@ apply_relocation(AOTModule *module,
                  uint64 reloc_offset, uint64 reloc_addend,
                  uint32 reloc_type, void *symbol_addr, int32 symbol_index,
                  char *error_buf, uint32 error_buf_size);
+/* clang-format off */
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* end of _AOT_RELOC_H_ */

@@ -11,43 +11,30 @@ typedef struct {
     uint64 flag;
 } aot_intrinsic;
 
+/* clang-format off */
 static const aot_intrinsic g_intrinsic_mapping[] = {
-    { "llvm.experimental.constrained.fadd.f32", "aot_intrinsic_fadd_f32",
-      AOT_INTRINSIC_FLAG_F32_FADD },
-    { "llvm.experimental.constrained.fadd.f64", "aot_intrinsic_fadd_f64",
-      AOT_INTRINSIC_FLAG_F64_FADD },
-    { "llvm.experimental.constrained.fsub.f32", "aot_intrinsic_fsub_f32",
-      AOT_INTRINSIC_FLAG_F32_FSUB },
-    { "llvm.experimental.constrained.fsub.f64", "aot_intrinsic_fsub_f64",
-      AOT_INTRINSIC_FLAG_F64_FSUB },
-    { "llvm.experimental.constrained.fmul.f32", "aot_intrinsic_fmul_f32",
-      AOT_INTRINSIC_FLAG_F32_FMUL },
-    { "llvm.experimental.constrained.fmul.f64", "aot_intrinsic_fmul_f64",
-      AOT_INTRINSIC_FLAG_F64_FMUL },
-    { "llvm.experimental.constrained.fdiv.f32", "aot_intrinsic_fdiv_f32",
-      AOT_INTRINSIC_FLAG_F32_FDIV },
-    { "llvm.experimental.constrained.fdiv.f64", "aot_intrinsic_fdiv_f64",
-      AOT_INTRINSIC_FLAG_F64_FDIV },
+    { "llvm.experimental.constrained.fadd.f32", "aot_intrinsic_fadd_f32", AOT_INTRINSIC_FLAG_F32_FADD },
+    { "llvm.experimental.constrained.fadd.f64", "aot_intrinsic_fadd_f64", AOT_INTRINSIC_FLAG_F64_FADD },
+    { "llvm.experimental.constrained.fsub.f32", "aot_intrinsic_fsub_f32", AOT_INTRINSIC_FLAG_F32_FSUB },
+    { "llvm.experimental.constrained.fsub.f64", "aot_intrinsic_fsub_f64", AOT_INTRINSIC_FLAG_F64_FSUB },
+    { "llvm.experimental.constrained.fmul.f32", "aot_intrinsic_fmul_f32", AOT_INTRINSIC_FLAG_F32_FMUL },
+    { "llvm.experimental.constrained.fmul.f64", "aot_intrinsic_fmul_f64", AOT_INTRINSIC_FLAG_F64_FMUL },
+    { "llvm.experimental.constrained.fdiv.f32", "aot_intrinsic_fdiv_f32", AOT_INTRINSIC_FLAG_F32_FDIV },
+    { "llvm.experimental.constrained.fdiv.f64", "aot_intrinsic_fdiv_f64", AOT_INTRINSIC_FLAG_F64_FDIV },
     { "llvm.fabs.f32", "aot_intrinsic_fabs_f32", AOT_INTRINSIC_FLAG_F32_FABS },
     { "llvm.fabs.f64", "aot_intrinsic_fabs_f64", AOT_INTRINSIC_FLAG_F64_FABS },
     { "llvm.ceil.f32", "aot_intrinsic_ceil_f32", AOT_INTRINSIC_FLAG_F32_CEIL },
     { "llvm.ceil.f64", "aot_intrinsic_ceil_f64", AOT_INTRINSIC_FLAG_F64_CEIL },
-    { "llvm.floor.f32", "aot_intrinsic_floor_f32",
-      AOT_INTRINSIC_FLAG_F32_FLOOR },
-    { "llvm.floor.f64", "aot_intrinsic_floor_f64",
-      AOT_INTRINSIC_FLAG_F64_FLOOR },
-    { "llvm.trunc.f32", "aot_intrinsic_trunc_f32",
-      AOT_INTRINSIC_FLAG_F32_TRUNC },
-    { "llvm.trunc.f64", "aot_intrinsic_trunc_f64",
-      AOT_INTRINSIC_FLAG_F64_TRUNC },
+    { "llvm.floor.f32", "aot_intrinsic_floor_f32", AOT_INTRINSIC_FLAG_F32_FLOOR },
+    { "llvm.floor.f64", "aot_intrinsic_floor_f64", AOT_INTRINSIC_FLAG_F64_FLOOR },
+    { "llvm.trunc.f32", "aot_intrinsic_trunc_f32", AOT_INTRINSIC_FLAG_F32_TRUNC },
+    { "llvm.trunc.f64", "aot_intrinsic_trunc_f64", AOT_INTRINSIC_FLAG_F64_TRUNC },
     { "llvm.rint.f32", "aot_intrinsic_rint_f32", AOT_INTRINSIC_FLAG_F32_RINT },
     { "llvm.rint.f64", "aot_intrinsic_rint_f64", AOT_INTRINSIC_FLAG_F64_RINT },
     { "llvm.sqrt.f32", "aot_intrinsic_sqrt_f32", AOT_INTRINSIC_FLAG_F32_SQRT },
     { "llvm.sqrt.f64", "aot_intrinsic_sqrt_f64", AOT_INTRINSIC_FLAG_F64_SQRT },
-    { "llvm.copysign.f32", "aot_intrinsic_copysign_f32",
-      AOT_INTRINSIC_FLAG_F32_COPYSIGN },
-    { "llvm.copysign.f64", "aot_intrinsic_copysign_f64",
-      AOT_INTRINSIC_FLAG_F64_COPYSIGN },
+    { "llvm.copysign.f32", "aot_intrinsic_copysign_f32", AOT_INTRINSIC_FLAG_F32_COPYSIGN },
+    { "llvm.copysign.f64", "aot_intrinsic_copysign_f64", AOT_INTRINSIC_FLAG_F64_COPYSIGN },
     { "llvm.minnum.f32", "aot_intrinsic_fmin_f32", AOT_INTRINSIC_FLAG_F32_MIN },
     { "llvm.minnum.f64", "aot_intrinsic_fmin_f64", AOT_INTRINSIC_FLAG_F64_MIN },
     { "llvm.maxnum.f32", "aot_intrinsic_fmax_f32", AOT_INTRINSIC_FLAG_F32_MAX },
@@ -58,23 +45,24 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "llvm.cttz.i64", "aot_intrinsic_ctz_i64", AOT_INTRINSIC_FLAG_I64_CTZ },
     { "llvm.ctpop.i32", "aot_intrinsic_popcnt_i32", AOT_INTRINSIC_FLAG_I32_POPCNT },
     { "llvm.ctpop.i64", "aot_intrinsic_popcnt_i64", AOT_INTRINSIC_FLAG_I64_POPCNT },
-    { "f64_convert_i32_s", "aot_intrinsic_i32_to_f64", AOT_INTRINSIC_FLAG_I32_TO_F64},
-    { "f64_convert_i32_u", "aot_intrinsic_u32_to_f64", AOT_INTRINSIC_FLAG_U32_TO_F64},
-    { "f32_convert_i32_s", "aot_intrinsic_i32_to_f32", AOT_INTRINSIC_FLAG_I32_TO_F32},
-    { "f32_convert_i32_u", "aot_intrinsic_u32_to_f32", AOT_INTRINSIC_FLAG_U32_TO_F32},
-    { "f64_convert_i64_s", "aot_intrinsic_i64_to_f64", AOT_INTRINSIC_FLAG_I32_TO_F64},
-    { "f64_convert_i64_u", "aot_intrinsic_u64_to_f64", AOT_INTRINSIC_FLAG_U64_TO_F64},
-    { "f32_convert_i64_s", "aot_intrinsic_i64_to_f32", AOT_INTRINSIC_FLAG_I64_TO_F32},
-    { "f32_convert_i64_u", "aot_intrinsic_u64_to_f32", AOT_INTRINSIC_FLAG_U64_TO_F32},
-    { "i32_trunc_f64_u", "aot_intrinsic_f64_to_u32", AOT_INTRINSIC_FLAG_I32_TO_F64},
-    { "f32_demote_f64", "aot_intrinsic_f64_to_f32", AOT_INTRINSIC_FLAG_F64_TO_F32},
-    { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64},
-    { "f32_cmp", "aot_intrinsic_f32_cmp", AOT_INTRINSIC_FLAG_F32_CMP},
-    { "f64_cmp", "aot_intrinsic_f64_cmp", AOT_INTRINSIC_FLAG_F64_CMP},
+    { "f64_convert_i32_s", "aot_intrinsic_i32_to_f64", AOT_INTRINSIC_FLAG_I32_TO_F64 },
+    { "f64_convert_i32_u", "aot_intrinsic_u32_to_f64", AOT_INTRINSIC_FLAG_U32_TO_F64 },
+    { "f32_convert_i32_s", "aot_intrinsic_i32_to_f32", AOT_INTRINSIC_FLAG_I32_TO_F32 },
+    { "f32_convert_i32_u", "aot_intrinsic_u32_to_f32", AOT_INTRINSIC_FLAG_U32_TO_F32 },
+    { "f64_convert_i64_s", "aot_intrinsic_i64_to_f64", AOT_INTRINSIC_FLAG_I32_TO_F64 },
+    { "f64_convert_i64_u", "aot_intrinsic_u64_to_f64", AOT_INTRINSIC_FLAG_U64_TO_F64 },
+    { "f32_convert_i64_s", "aot_intrinsic_i64_to_f32", AOT_INTRINSIC_FLAG_I64_TO_F32 },
+    { "f32_convert_i64_u", "aot_intrinsic_u64_to_f32", AOT_INTRINSIC_FLAG_U64_TO_F32 },
+    { "i32_trunc_f64_u", "aot_intrinsic_f64_to_u32", AOT_INTRINSIC_FLAG_I32_TO_F64 },
+    { "f32_demote_f64", "aot_intrinsic_f64_to_f32", AOT_INTRINSIC_FLAG_F64_TO_F32 },
+    { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64 },
+    { "f32_cmp", "aot_intrinsic_f32_cmp", AOT_INTRINSIC_FLAG_F32_CMP },
+    { "f64_cmp", "aot_intrinsic_f64_cmp", AOT_INTRINSIC_FLAG_F64_CMP },
 };
+/* clang-format on */
 
 static const uint32 g_intrinsic_count =
-  sizeof(g_intrinsic_mapping) / sizeof(aot_intrinsic);
+    sizeof(g_intrinsic_mapping) / sizeof(aot_intrinsic);
 
 float32
 aot_intrinsic_fadd_f32(float32 a, float32 b)
@@ -223,7 +211,7 @@ float64
 aot_intrinsic_fmin_f64(float64 a, float64 b)
 {
     float64 c = fmin(a, b);
-    if (c==0 && a==b)
+    if (c == 0 && a == b)
         return signbit(a) ? a : b;
     return c;
 }
@@ -243,7 +231,7 @@ float64
 aot_intrinsic_fmax_f64(float64 a, float64 b)
 {
     float64 c = fmax(a, b);
-    if (c==0 && a==b)
+    if (c == 0 && a == b)
         return signbit(a) ? b : a;
     return c;
 }
@@ -600,7 +588,8 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         return;
 
     if (!strncmp(comp_ctx->target_arch, "thumb", 5)) {
-        if (!strcmp(comp_ctx->target_cpu, "cortex-m7")) {}
+        if (!strcmp(comp_ctx->target_cpu, "cortex-m7")) {
+        }
         else if (!strcmp(comp_ctx->target_cpu, "cortex-m4")) {
             add_f64_common_intrinsics(comp_ctx);
         }
@@ -611,7 +600,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         }
     }
     else if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
-        /* 
+        /*
          * Note: Use builtin intrinsics since hardware float operation
          * will cause rodata relocation
          */

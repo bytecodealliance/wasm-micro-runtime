@@ -5,12 +5,14 @@
 
 #include "aot_reloc.h"
 
-#define R_MIPS_32       2   /* Direct 32 bit */
-#define R_MIPS_26       4   /* Direct 26 bit shifted */
+#define R_MIPS_32 2 /* Direct 32 bit */
+#define R_MIPS_26 4 /* Direct 26 bit shifted */
 
+/* clang-format off */
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
 };
+/* clang-format on */
 
 SymbolMap *
 get_target_symbol_map(uint32 *sym_num)
@@ -44,11 +46,10 @@ get_plt_table_size()
 }
 
 bool
-apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
+apply_relocation(AOTModule *module, uint8 *target_section_addr,
+                 uint32 target_section_size, uint64 reloc_offset,
+                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
         /* TODO: implement relocation for mips */
@@ -66,4 +67,3 @@ apply_relocation(AOTModule *module,
 
     return true;
 }
-

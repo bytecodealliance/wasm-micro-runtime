@@ -5,9 +5,10 @@
 
 #include "aot_reloc.h"
 
-#define R_XTENSA_32        1   /* Direct 32 bit */
-#define R_XTENSA_SLOT0_OP  20  /* PC relative */
+#define R_XTENSA_32 1        /* Direct 32 bit */
+#define R_XTENSA_SLOT0_OP 20 /* PC relative */
 
+/* clang-format off */
 /* for soft-float */
 void __floatsidf();
 void __divdf3();
@@ -38,9 +39,9 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__muldi3),
 
     REG_SYM(__modsi3),
-
     REG_SYM(__divdi3),
 };
+/* clang-format on */
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -81,9 +82,9 @@ get_plt_table_size()
 }
 
 static bool
-check_reloc_offset(uint32 target_section_size,
-                   uint64 reloc_offset, uint32 reloc_data_size,
-                   char *error_buf, uint32 error_buf_size)
+check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
+                   uint32 reloc_data_size, char *error_buf,
+                   uint32 error_buf_size)
 {
     if (!(reloc_offset < (uint64)target_section_size
           && reloc_offset + reloc_data_size <= (uint64)target_section_size)) {
@@ -106,18 +107,18 @@ put_imm16_to_addr(int16 imm16, int16 *addr)
     int8 bytes[8];
     int32 *addr_aligned1, *addr_aligned2;
 
-    addr_aligned1 = (int32*)((intptr_t)addr & ~3);
+    addr_aligned1 = (int32 *)((intptr_t)addr & ~3);
 
     if ((intptr_t)addr % 4 != 3) {
-        *(int32*)bytes = *addr_aligned1;
-        *(int16*)(bytes + ((intptr_t)addr % 4)) = imm16;
+        *(int32 *)bytes = *addr_aligned1;
+        *(int16 *)(bytes + ((intptr_t)addr % 4)) = imm16;
         memcpy(addr_aligned1, bytes, 4);
     }
     else {
-        addr_aligned2 = (int32*)(((intptr_t)addr + 3) & ~3);
-        *(int32*)bytes = *addr_aligned1;
-        *(int32*)(bytes + 4) = *addr_aligned2;
-        *(int16*)(bytes + 3) = imm16;
+        addr_aligned2 = (int32 *)(((intptr_t)addr + 3) & ~3);
+        *(int32 *)bytes = *addr_aligned1;
+        *(int32 *)(bytes + 4) = *addr_aligned2;
+        *(int16 *)(bytes + 3) = imm16;
         memcpy(addr_aligned1, bytes, 8);
     }
 }
@@ -142,11 +143,10 @@ typedef union {
 } l32r_insn_t;
 
 bool
-apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
+apply_relocation(AOTModule *module, uint8 *target_section_addr,
+                 uint32 target_section_size, uint64 reloc_offset,
+                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
         case R_XTENSA_32:
@@ -161,19 +161,20 @@ apply_relocation(AOTModule *module,
                 return false;
             }
             CHECK_RELOC_OFFSET(4);
-            initial_addend = *(int32*)insn_addr;
-            *(uint8**)insn_addr
-                = (uint8*)symbol_addr + initial_addend + reloc_addend;
+            initial_addend = *(int32 *)insn_addr;
+            *(uint8 **)insn_addr =
+                (uint8 *)symbol_addr + initial_addend + reloc_addend;
             break;
         }
 
         case R_XTENSA_SLOT0_OP:
         {
             uint8 *insn_addr = target_section_addr + reloc_offset;
-            /* Currently only l32r instruction generates R_XTENSA_SLOT0_OP relocation */
+            /* Currently only l32r instruction generates R_XTENSA_SLOT0_OP
+             * relocation */
             l32r_insn_t *l32r_insn = (l32r_insn_t *)insn_addr;
             uint8 *reloc_addr;
-            int32 relative_offset/*, initial_addend */;
+            int32 relative_offset /*, initial_addend */;
             int16 imm16;
 
             CHECK_RELOC_OFFSET(3); /* size of l32r instruction */
@@ -184,7 +185,7 @@ apply_relocation(AOTModule *module,
             initial_addend = (int32)imm16 << 2;
             */
 
-            reloc_addr = (uint8*)symbol_addr + reloc_addend;
+            reloc_addr = (uint8 *)symbol_addr + reloc_addend;
 
             if ((intptr_t)reloc_addr & 3) {
                 set_error_buf(error_buf, error_buf_size,
@@ -193,9 +194,9 @@ apply_relocation(AOTModule *module,
                 return false;
             }
 
-            relative_offset = (int32)
-                              ((intptr_t)reloc_addr -
-                               (((intptr_t)insn_addr + 3) & ~(intptr_t)3));
+            relative_offset =
+                (int32)((intptr_t)reloc_addr
+                        - (((intptr_t)insn_addr + 3) & ~(intptr_t)3));
             /* relative_offset += initial_addend; */
 
             /* check relative offset boundary */
@@ -228,4 +229,3 @@ apply_relocation(AOTModule *module,
 
     return true;
 }
-

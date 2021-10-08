@@ -114,12 +114,13 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
         if (sh_table) {
             read_section_header_table64(eh, sh_table);
             sh_str = get_section64(eh, sh_table[eh->e_shstrndx]);
-            for (i= 0; i < eh->e_shnum; i++) {
+            for (i = 0; i < eh->e_shnum; i++) {
                 if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
-                    sh_table[i]->sh_addr = (Elf64_Addr)(uintptr_t)
-                                           ((char *)buf + sh_table[i]->sh_offset);
+                    sh_table[i]->sh_addr =
+                        (Elf64_Addr)(uintptr_t)((char *)buf
+                                                + sh_table[i]->sh_offset);
                     ret = true;
                     break;
                 }
@@ -134,12 +135,13 @@ get_text_section(void *buf, uint64_t *offset, uint64_t *size)
         if (sh_table) {
             read_section_header_table(eh, sh_table);
             sh_str = get_section(eh, sh_table[eh->e_shstrndx]);
-            for (i= 0; i < eh->e_shnum; i++) {
+            for (i = 0; i < eh->e_shnum; i++) {
                 if (!strcmp(sh_str + sh_table[i]->sh_name, ".text")) {
                     *offset = sh_table[i]->sh_offset;
                     *size = sh_table[i]->sh_size;
-                    sh_table[i]->sh_addr = (Elf32_Addr)(uintptr_t)
-                                           ((char *)buf + sh_table[i]->sh_offset);
+                    sh_table[i]->sh_addr =
+                        (Elf32_Addr)(uintptr_t)((char *)buf
+                                                + sh_table[i]->sh_offset);
                     ret = true;
                     break;
                 }

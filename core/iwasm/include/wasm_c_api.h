@@ -1,7 +1,7 @@
 // WebAssembly C API
 
-#ifndef WASM_H
-#define WASM_H
+#ifndef _WASM_C_API_H_
+#define _WASM_C_API_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -11,11 +11,11 @@
 
 #ifndef WASM_API_EXTERN
 #if defined(_MSC_BUILD)
-    #if defined(COMPILING_WASM_RUNTIME_API)
-        #define WASM_API_EXTERN __declspec(dllexport)
-    #else
-        #define WASM_API_EXTERN __declspec(dllimport)
-    #endif
+#if defined(COMPILING_WASM_RUNTIME_API)
+#define WASM_API_EXTERN __declspec(dllexport)
+#else
+#define WASM_API_EXTERN __declspec(dllimport)
+#endif
 #else
 #define WASM_API_EXTERN
 #endif
@@ -24,6 +24,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* clang-format off */
 
 ///////////////////////////////////////////////////////////////////////////////
 // Auxiliaries
@@ -776,8 +778,10 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 
 #undef own
 
+/* clang-format on */
+
 #ifdef __cplusplus
-}  // extern "C"
+} // extern "C"
 #endif
 
-#endif  // #ifdef WASM_H
+#endif // #ifdef _WASM_C_API_H_
