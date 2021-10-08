@@ -57,7 +57,6 @@ extern "C" {
 #define STORE_PTR(addr, ptr) do {               \
     *(void**)addr = (void*)ptr;                 \
   } while (0)
-#define LOAD_PTR(addr) (*(void**)(addr))
 
 #else  /* WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0 */
 
