@@ -852,7 +852,7 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
 }
 
 bool
-wasm_runtime_init_thread_env()
+wasm_runtime_init_thread_env(void)
 {
 #ifdef BH_PLATFORM_WINDOWS
     if (os_thread_env_init() != 0)
@@ -873,7 +873,7 @@ wasm_runtime_init_thread_env()
 }
 
 void
-wasm_runtime_destroy_thread_env()
+wasm_runtime_destroy_thread_env(void)
 {
 #if WASM_ENABLE_AOT != 0
 #ifdef OS_ENABLE_HW_BOUND_CHECK

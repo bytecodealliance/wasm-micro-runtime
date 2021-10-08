@@ -421,13 +421,13 @@ wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
  * @return true if success, false otherwise
  */
 WASM_RUNTIME_API_EXTERN bool
-wasm_runtime_init_thread_env();
+wasm_runtime_init_thread_env(void);
 
 /**
  * Destroy thread environment
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_destroy_thread_env();
+wasm_runtime_destroy_thread_env(void);
 
 /**
  * Get WASM module instance from execution environment
