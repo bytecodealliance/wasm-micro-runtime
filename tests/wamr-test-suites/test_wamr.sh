@@ -278,7 +278,7 @@ function spec_test()
     # restore from XX_ignore_cases.patch
     # resotre branch
     git checkout -B master
-    git reset --hard f9770eb75117cac0c878feaa5eaf4a4d9dda61f5
+    git reset --hard 397399a70565609bf142d211891724e21bffd01f
     git apply ../../spec-test-script/ignore_cases.patch
 
     # udpate thread cases
@@ -291,7 +291,7 @@ function spec_test()
         # fetch spec for threads proposal
         git fetch threads
         git reset --hard HEAD
-        git checkout threads/master
+        git checkout threads/main
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
     fi
@@ -335,16 +335,16 @@ function spec_test()
                     exit 1
                     ;;
             esac
-            if [ ! -f /tmp/wabt-1.0.23-${WABT_PLATFORM}.tar.gz ]; then
+            if [ ! -f /tmp/wabt-1.0.24-${WABT_PLATFORM}.tar.gz ]; then
                 wget \
-                    https://github.com/WebAssembly/wabt/releases/download/1.0.23/wabt-1.0.23-${WABT_PLATFORM}.tar.gz \
+                    https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-${WABT_PLATFORM}.tar.gz \
                     -P /tmp
             fi
 
             cd /tmp \
-            && tar zxf wabt-1.0.23-${WABT_PLATFORM}.tar.gz \
+            && tar zxf wabt-1.0.24-${WABT_PLATFORM}.tar.gz \
             && mkdir -p ${WORK_DIR}/wabt/out/gcc/Release/ \
-            && install wabt-1.0.23/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
+            && install wabt-1.0.24/bin/wa* ${WORK_DIR}/wabt/out/gcc/Release/ \
             && cd -
         fi
     else
@@ -356,12 +356,7 @@ function spec_test()
         echo "upate wabt"
         cd wabt
         git pull
-        if [[ ${ENABLE_SIMD} == 0 ]]; then
-            # Use latest version of wabt if simd cases are not tested
-            git reset --hard c6cd63316ac53208900cda4d1089a22618b85256
-        else
-            git reset --hard origin/main
-        fi
+        git reset --hard origin/main
         cd ..
         make -C wabt gcc-release
     fi

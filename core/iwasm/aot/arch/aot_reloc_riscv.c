@@ -5,25 +5,29 @@
 
 #include "aot_reloc.h"
 
-#define R_RISCV_32       1
-#define R_RISCV_64       2
-#define R_RISCV_CALL     18
+#define R_RISCV_32 1
+#define R_RISCV_64 2
+#define R_RISCV_CALL 18
 #define R_RISCV_CALL_PLT 19
-#define R_RISCV_HI20     26
-#define R_RISCV_LO12_I   27
-#define R_RISCV_LO12_S   28
+#define R_RISCV_HI20 26
+#define R_RISCV_LO12_I 27
+#define R_RISCV_LO12_S 28
 
 #define RV_OPCODE_SW 0x23
 
+/* clang-format off */
 void __divdi3();
 void __moddi3();
 void __muldi3();
 void __udivdi3();
 void __umoddi3();
+/* clang-format on */
 
 static SymbolMap target_sym_map[] = {
+    /* clang-format off */
     REG_COMMON_SYMBOLS
     REG_SYM(__divdi3),
+    /* clang-format on */
     REG_SYM(__moddi3),
     REG_SYM(__muldi3),
     REG_SYM(__udivdi3),
@@ -132,20 +136,20 @@ init_plt_table(uint8 *plt)
     for (i = 0; i < num; i++) {
         p = plt;
         /* auipc t1, 0 */
-        *(uint16*)p = 0x0317;
+        *(uint16 *)p = 0x0317;
         p += 2;
-        *(uint16*)p = 0x0000;
+        *(uint16 *)p = 0x0000;
         p += 2;
         /* ld t1, 8(t1) */
-        *(uint16*)p = 0x3303;
+        *(uint16 *)p = 0x3303;
         p += 2;
-        *(uint16*)p = 0x00C3;
+        *(uint16 *)p = 0x00C3;
         p += 2;
         /* jr t1 */
-        *(uint16*)p = 0x8302;
+        *(uint16 *)p = 0x8302;
         p += 2;
         /* nop */
-        *(uint16*)p = 0x0001;
+        *(uint16 *)p = 0x0001;
         p += 2;
         bh_memcpy_s(p, 8, &target_sym_map[i].symbol_addr, 8);
         p += 8;
@@ -159,15 +163,15 @@ typedef struct RelocTypeStrMap {
     char *reloc_str;
 } RelocTypeStrMap;
 
-#define RELOC_TYPE_MAP(reloc_type) { reloc_type, #reloc_type }
+#define RELOC_TYPE_MAP(reloc_type) \
+    {                              \
+        reloc_type, #reloc_type    \
+    }
 
 static RelocTypeStrMap reloc_type_str_maps[] = {
-    RELOC_TYPE_MAP(R_RISCV_32),
-    RELOC_TYPE_MAP(R_RISCV_CALL),
-    RELOC_TYPE_MAP(R_RISCV_CALL_PLT),
-    RELOC_TYPE_MAP(R_RISCV_HI20),
-    RELOC_TYPE_MAP(R_RISCV_LO12_I),
-    RELOC_TYPE_MAP(R_RISCV_LO12_S),
+    RELOC_TYPE_MAP(R_RISCV_32),       RELOC_TYPE_MAP(R_RISCV_CALL),
+    RELOC_TYPE_MAP(R_RISCV_CALL_PLT), RELOC_TYPE_MAP(R_RISCV_HI20),
+    RELOC_TYPE_MAP(R_RISCV_LO12_I),   RELOC_TYPE_MAP(R_RISCV_LO12_S),
 };
 
 static const char *
@@ -175,7 +179,8 @@ reloc_type_to_str(uint32 reloc_type)
 {
     uint32 i;
 
-    for (i = 0; i < sizeof(reloc_type_str_maps) / sizeof(RelocTypeStrMap); i++) {
+    for (i = 0; i < sizeof(reloc_type_str_maps) / sizeof(RelocTypeStrMap);
+         i++) {
         if (reloc_type_str_maps[i].reloc_type == reloc_type)
             return reloc_type_str_maps[i].reloc_str;
     }
@@ -184,9 +189,9 @@ reloc_type_to_str(uint32 reloc_type)
 }
 
 static bool
-check_reloc_offset(uint32 target_section_size,
-                   uint64 reloc_offset, uint32 reloc_data_size,
-                   char *error_buf, uint32 error_buf_size)
+check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
+                   uint32 reloc_data_size, char *error_buf,
+                   uint32 error_buf_size)
 {
     if (!(reloc_offset < (uint64)target_section_size
           && reloc_offset + reloc_data_size <= (uint64)target_section_size)) {
@@ -198,11 +203,10 @@ check_reloc_offset(uint32 target_section_size,
 }
 
 bool
-apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend, uint32 reloc_type,
-                 void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
+apply_relocation(AOTModule *module, uint8 *target_section_addr,
+                 uint32 target_section_size, uint64 reloc_offset,
+                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     int32 val, imm_hi, imm_lo, insn;
     uint8 *addr = target_section_addr + reloc_offset;
@@ -211,7 +215,8 @@ apply_relocation(AOTModule *module,
     switch (reloc_type) {
         case R_RISCV_32:
         {
-            uint32 val_32 = (uint32)(uintptr_t)((uint8 *)symbol_addr + reloc_addend);
+            uint32 val_32 =
+                (uint32)(uintptr_t)((uint8 *)symbol_addr + reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
             if (val_32 != (uintptr_t)((uint8 *)symbol_addr + reloc_addend)) {
@@ -223,7 +228,8 @@ apply_relocation(AOTModule *module,
         }
         case R_RISCV_64:
         {
-            uint64 val_64 = (uint64)(uintptr_t)((uint8 *)symbol_addr + reloc_addend);
+            uint64 val_64 =
+                (uint64)(uintptr_t)((uint8 *)symbol_addr + reloc_addend);
             CHECK_RELOC_OFFSET(sizeof(uint64));
             bh_memcpy_s(addr, 8, &val_64, 8);
             break;
@@ -237,10 +243,10 @@ apply_relocation(AOTModule *module,
             if (val != (intptr_t)((uint8 *)symbol_addr - addr)) {
                 if (symbol_index >= 0) {
                     /* Call runtime function by plt code */
-                    symbol_addr = (uint8*)module->code + module->code_size
+                    symbol_addr = (uint8 *)module->code + module->code_size
                                   - get_plt_table_size()
                                   + get_plt_item_size() * symbol_index;
-                    val = (int32)(intptr_t)((uint8*)symbol_addr - addr);
+                    val = (int32)(intptr_t)((uint8 *)symbol_addr - addr);
                 }
             }
 
@@ -253,8 +259,8 @@ apply_relocation(AOTModule *module,
             rv_add_val((uint16 *)addr, (imm_hi << 12));
             if ((rv_get_val((uint16 *)(addr + 4)) & 0x7f) == RV_OPCODE_SW) {
                 /* Adjust imm for SW : S-type */
-                val =
-                  (((int32)imm_lo >> 5) << 25) + (((int32)imm_lo & 0x1f) << 7);
+                val = (((int32)imm_lo >> 5) << 25)
+                      + (((int32)imm_lo & 0x1f) << 7);
 
                 rv_add_val((uint16 *)(addr + 4), val);
             }
@@ -310,8 +316,7 @@ apply_relocation(AOTModule *module,
 
             addr = target_section_addr + reloc_offset;
             rv_calc_imm(val, &imm_hi, &imm_lo);
-            val =
-              (((int32)imm_lo >> 5) << 25) + (((int32)imm_lo & 0x1f) << 7);
+            val = (((int32)imm_lo >> 5) << 25) + (((int32)imm_lo & 0x1f) << 7);
             rv_add_val((uint16 *)addr, val);
             break;
         }

@@ -10,14 +10,13 @@
 #include <stdbool.h>
 #include "lib_export.h"
 
-
 #ifndef WASM_RUNTIME_API_EXTERN
-#if defined(_MSC_BUILD )
-    #if defined(COMPILING_WASM_RUNTIME_API)
-        #define WASM_RUNTIME_API_EXTERN __declspec(dllexport)
-    #else
-        #define WASM_RUNTIME_API_EXTERN __declspec(dllimport)
-    #endif
+#if defined(_MSC_BUILD)
+#if defined(COMPILING_WASM_RUNTIME_API)
+#define WASM_RUNTIME_API_EXTERN __declspec(dllexport)
+#else
+#define WASM_RUNTIME_API_EXTERN __declspec(dllimport)
+#endif
 #else
 #define WASM_RUNTIME_API_EXTERN
 #endif
@@ -26,6 +25,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* clang-format off */
 
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
@@ -48,12 +49,11 @@ extern "C" {
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
 
-#define native_raw_return_type(type, args) type *raw_ret = (type*)(args)
+#define native_raw_return_type(type, args) type *raw_ret = (type *)(args)
 
-#define native_raw_get_arg(type, name, args) type name = *((type*)(args++))
+#define native_raw_get_arg(type, name, args) type name = *((type *)(args++))
 
 #define native_raw_set_return(val) *raw_ret = (val)
-
 
 #ifndef WASM_MODULE_T_DEFINED
 #define WASM_MODULE_T_DEFINED
@@ -158,14 +158,14 @@ enum wasm_valkind_enum {
 struct wasm_ref_t;
 
 typedef struct wasm_val_t {
-  wasm_valkind_t kind;
-  union {
-    int32_t i32;
-    int64_t i64;
-    float f32;
-    double f64;
-    struct wasm_ref_t* ref;
-  } of;
+    wasm_valkind_t kind;
+    union {
+        int32_t i32;
+        int64_t i64;
+        float f32;
+        double f64;
+        struct wasm_ref_t *ref;
+    } of;
 } wasm_val_t;
 #endif
 
@@ -652,10 +652,11 @@ wasm_runtime_validate_app_addr(wasm_module_inst_t module_inst,
 
 /**
  * Similar to wasm_runtime_validate_app_addr(), except that the size parameter
- * is not provided. This function validates the app string address, check whether it
- * belongs to WASM module instance's address space, or in its heap space or
- * memory space. Moreover, it checks whether it is the offset of a string that
- * is end with '\0'.
+ * is not provided. This function validates the app string address, check
+ * whether it belongs to WASM module instance's address space, or in its heap
+ * space or memory space. Moreover, it checks whether it is the offset of a
+ * string that is end with '\0'.
+ *
  * @param module_inst the WASM module instance
  * @param app_str_offset the app address of the string to validate, which is a
  *        relative address
@@ -724,12 +725,15 @@ wasm_runtime_get_app_addr_range(wasm_module_inst_t module_inst,
                                 uint32_t *p_app_end_offset);
 
 /**
- * Get the native address range (absolute address) that a native address belongs to
+ * Get the native address range (absolute address) that a native address
+ * belongs to
  *
  * @param module_inst the WASM module instance
  * @param native_ptr the native address to retrieve
- * @param p_native_start_addr buffer to output the native start address if not NULL
- * @param p_native_end_addr buffer to output the native end address if not NULL
+ * @param p_native_start_addr buffer to output the native start address
+ *        if not NULL
+ * @param p_native_end_addr buffer to output the native end address
+ *        if not NULL
  *
  * @return true if success, false otherwise.
  */
@@ -740,31 +744,31 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
                                    uint8_t **p_native_end_addr);
 
 /**
-  * Register native functions with same module name
-  *
-  * @param module_name the module name of the native functions
-  * @param native_symbols specifies an array of NativeSymbol structures which
-  *        contain the names, function pointers and signatures
-  *        Note: WASM runtime will not allocate memory to clone the data, so
-  *              user must ensure the array can be used forever
-  *        Meanings of letters in function signature:
-  *          'i': the parameter is i32 type
-  *          'I': the parameter is i64 type
-  *          'f': the parameter is f32 type
-  *          'F': the parameter is f64 type
-  *          '*': the parameter is a pointer (i32 in WASM), and runtime will
-  *               auto check its boundary before calling the native function.
-  *               If it is followed by '~', the checked length of the pointer
-  *               is gotten from the following parameter, if not, the checked
-  *               length of the pointer is 1.
-  *          '~': the parameter is the pointer's length with i32 type, and must
-  *               follow after '*'
-  *          '$': the parameter is a string (i32 in WASM), and runtime will
-  *               auto check its boundary before calling the native function
-  * @param n_native_symbols specifies the number of native symbols in the array
-  *
-  * @return true if success, false otherwise
-  */
+ * Register native functions with same module name
+ *
+ * @param module_name the module name of the native functions
+ * @param native_symbols specifies an array of NativeSymbol structures which
+ *        contain the names, function pointers and signatures
+ *        Note: WASM runtime will not allocate memory to clone the data, so
+ *              user must ensure the array can be used forever
+ *        Meanings of letters in function signature:
+ *          'i': the parameter is i32 type
+ *          'I': the parameter is i64 type
+ *          'f': the parameter is f32 type
+ *          'F': the parameter is f64 type
+ *          '*': the parameter is a pointer (i32 in WASM), and runtime will
+ *               auto check its boundary before calling the native function.
+ *               If it is followed by '~', the checked length of the pointer
+ *               is gotten from the following parameter, if not, the checked
+ *               length of the pointer is 1.
+ *          '~': the parameter is the pointer's length with i32 type, and must
+ *               follow after '*'
+ *          '$': the parameter is a string (i32 in WASM), and runtime will
+ *               auto check its boundary before calling the native function
+ * @param n_native_symbols specifies the number of native symbols in the array
+ *
+ * @return true if success, false otherwise
+ */
 WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_register_natives(const char *module_name,
                               NativeSymbol *native_symbols,
@@ -773,7 +777,7 @@ wasm_runtime_register_natives(const char *module_name,
 /**
  * Register native functions with same module name, similar to
  *   wasm_runtime_register_natives, the difference is that runtime passes raw
- * arguments to native API, which means that the native API should be defined as:
+ * arguments to native API, which means that the native API should be defined as
  *   void foo(wasm_exec_env_t exec_env, uint64 *args);
  * and native API should extract arguments one by one from args array with macro
  *   native_raw_get_arg
@@ -802,8 +806,7 @@ wasm_runtime_get_function_attachment(wasm_exec_env_t exec_env);
  * @param user_data the user data to be set
  */
 WASM_RUNTIME_API_EXTERN void
-wasm_runtime_set_user_data(wasm_exec_env_t exec_env,
-                           void *user_data);
+wasm_runtime_set_user_data(wasm_exec_env_t exec_env, void *user_data);
 /**
  * Get the user data within execution environment.
  *
@@ -835,7 +838,7 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_dump_perf_profiling(wasm_module_inst_t module_inst);
 
 /* wasm thread callback function type */
-typedef void* (*wasm_thread_callback_t)(wasm_exec_env_t, void *);
+typedef void *(*wasm_thread_callback_t)(wasm_exec_env_t, void *);
 /* wasm thread type */
 typedef uintptr_t wasm_thread_t;
 
@@ -937,6 +940,8 @@ wasm_externref_retain(uint32_t externref_idx);
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_dump_call_stack(wasm_exec_env_t exec_env);
+
+/* clang-format on */
 
 #ifdef __cplusplus
 }

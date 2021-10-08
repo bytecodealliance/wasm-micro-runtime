@@ -27,8 +27,8 @@ WASMExecEnv *
 wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
                               uint32 stack_size)
 {
-    uint64 total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom)
-                        + (uint64)stack_size;
+    uint64 total_size =
+        offsetof(WASMExecEnv, wasm_stack.s.bottom) + (uint64)stack_size;
     WASMExecEnv *exec_env;
 
     if (total_size >= UINT32_MAX
@@ -122,22 +122,23 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
     if (!exec_env)
         return NULL;
 
-    /* Set the aux_stack_boundary and aux_stack_bottom */
 #if WASM_ENABLE_INTERP != 0
+    /* Set the aux_stack_boundary and aux_stack_bottom */
     if (module_inst->module_type == Wasm_Module_Bytecode) {
         WASMModule *module = ((WASMModuleInstance *)module_inst)->module;
         exec_env->aux_stack_bottom.bottom = module->aux_stack_bottom;
-        exec_env->aux_stack_boundary.boundary = module->aux_stack_bottom
-                                                - module->aux_stack_size;
+        exec_env->aux_stack_boundary.boundary =
+            module->aux_stack_bottom - module->aux_stack_size;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
+    /* Set the aux_stack_boundary and aux_stack_bottom */
     if (module_inst->module_type == Wasm_Module_AoT) {
         AOTModule *module =
             (AOTModule *)(((AOTModuleInstance *)module_inst)->aot_module.ptr);
         exec_env->aux_stack_bottom.bottom = module->aux_stack_bottom;
-        exec_env->aux_stack_boundary.boundary = module->aux_stack_bottom
-                                                - module->aux_stack_size;
+        exec_env->aux_stack_boundary.boundary =
+            module->aux_stack_bottom - module->aux_stack_size;
     }
 #endif
 
@@ -150,8 +151,8 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_debug_instance_create(cluster);
 #endif
+#endif /* end of WASM_ENABLE_THREAD_MGR */
 
-#endif
     return exec_env;
 }
 
@@ -162,16 +163,15 @@ wasm_exec_env_destroy(WASMExecEnv *exec_env)
     /* Terminate all sub-threads */
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     if (cluster) {
-#if WASM_ENABLE_THREAD_MGR != 0
 #if WASM_ENABLE_DEBUG_INTERP != 0
         wasm_cluster_thread_exited(exec_env);
         wasm_debug_instance_destroy(cluster);
 #endif
-#endif
         wasm_cluster_terminate_all_except_self(cluster, exec_env);
         wasm_cluster_del_exec_env(cluster, exec_env);
     }
-#endif
+#endif /* end of WASM_ENABLE_THREAD_MGR */
+
     wasm_exec_env_destroy_internal(exec_env);
 }
 
@@ -224,4 +224,3 @@ wasm_exec_env_pop_jmpbuf(WASMExecEnv *exec_env)
     return NULL;
 }
 #endif
-

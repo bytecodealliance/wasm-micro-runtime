@@ -12,14 +12,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * Copyright (C) 2021 Ant Group.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "bh_log.h"
 #include "bh_platform.h"
-#include "wasm_runtime.h"
+#include "../../interpreter/wasm_runtime.h"
 
 #include <stdio.h>
 #include <assert.h>
@@ -35,11 +35,13 @@
 extern "C" {
 #endif
 
-typedef enum {
+/* clang-format off */
+typedef enum JITAction {
     JIT_NOACTION = 0,
     JIT_REGISTER_FN,
     JIT_UNREGISTER_FN
 } JITAction;
+/* clang-format on */
 
 typedef struct JITCodeEntry {
     struct JITCodeEntry *next_;
@@ -78,7 +80,8 @@ void __attribute__((noinline)) __jit_debug_register_code()
 
 JITDescriptor __jit_debug_descriptor = { 1, JIT_NOACTION, NULL, NULL };
 #else
-extern void __jit_debug_register_code();
+extern void
+__jit_debug_register_code();
 extern JITDescriptor __jit_debug_descriptor;
 #endif
 
@@ -168,8 +171,7 @@ jit_debug_engine_init()
         return true;
     }
 
-    if (!(jit_debug_engine =
-                wasm_runtime_malloc(sizeof(WASMJITDebugEngine)))) {
+    if (!(jit_debug_engine = wasm_runtime_malloc(sizeof(WASMJITDebugEngine)))) {
         LOG_ERROR("WASM JIT Debug Engine error: failed to allocate memory");
         return false;
     }
