@@ -24,6 +24,8 @@ typedef struct WASMDebugEngine {
     bool active;
 } WASMDebugEngine;
 
+static WASMDebugEngine *g_debug_engine;
+
 static bool
 should_stop(WASMDebugControlThread *control_thread)
 {
@@ -33,69 +35,112 @@ should_stop(WASMDebugControlThread *control_thread)
 static void *
 control_thread_routine(void *arg)
 {
-    WASMDebugObject *debug_object = (WASMDebugObject *)arg;
+    WASMDebugInstance *debug_inst = (WASMDebugInstance *)arg;
+    WASMDebugControlThread *control_thread = NULL;
+    WASMCluster *cluster = NULL;
+    WASMExecEnv *exec_env;
+    bh_assert(debug_inst);
+
+    control_thread = debug_inst->control_thread;
+    bh_assert(control_thread);
+
+    cluster = debug_inst->cluster;
+    bh_assert(cluster);
+
+    exec_env = bh_list_first_elem(&cluster->exec_env_list);
+    bh_assert(exec_env);
+
+    os_mutex_lock(&exec_env->wait_lock);
+
+    control_thread->status = RUNNING;
+
+    debug_inst->id = g_debug_engine->debug_instance_list.len + 1;
+
+    control_thread->debug_engine = g_debug_engine;
+    control_thread->debug_instance = debug_inst;
+    strcpy(control_thread->ip_addr, g_debug_engine->ip_addr);
+    control_thread->port =
+        g_debug_engine->process_base_port + debug_inst->id;
 
     LOG_WARNING("control thread of debug object %p start at %s:%d\n",
-                debug_object, debug_object->control_thread->ip_addr,
-                debug_object->control_thread->port);
+                debug_inst, control_thread->ip_addr, control_thread->port);
 
-    debug_object->control_thread->server =
-      wasm_launch_gdbserver(debug_object->control_thread->ip_addr,
-                            debug_object->control_thread->port);
-    if (!debug_object->control_thread->server) {
+    control_thread->server =
+      wasm_launch_gdbserver(control_thread->ip_addr, control_thread->port);
+    if (!control_thread->server) {
         LOG_ERROR("Failed to create debug server\n");
+        os_cond_signal(&exec_env->wait_cond);
+        os_mutex_unlock(&exec_env->wait_lock);
         return NULL;
     }
 
-    debug_object->control_thread->server->thread =
-      debug_object->control_thread;
+    control_thread->server->thread = control_thread;
+
+    /* control thread ready, notify main thread */
+    os_cond_signal(&exec_env->wait_cond);
+    os_mutex_unlock(&exec_env->wait_lock);
 
     while (true) {
-        os_mutex_lock(&debug_object->control_thread->wait_lock);
-        if (!should_stop(debug_object->control_thread)) {
-            if (!wasm_gdbserver_handle_packet(
-                  debug_object->control_thread->server))
-                debug_object->control_thread->status = STOPPED;
+        os_mutex_lock(&control_thread->wait_lock);
+        if (!should_stop(control_thread)) {
+            if (!wasm_gdbserver_handle_packet(control_thread->server)) {
+                control_thread->status = STOPPED;
+            }
         }
         else {
-            os_mutex_unlock(&debug_object->control_thread->wait_lock);
+            os_mutex_unlock(&control_thread->wait_lock);
             break;
         }
-        os_mutex_unlock(&debug_object->control_thread->wait_lock);
+        os_mutex_unlock(&control_thread->wait_lock);
     }
 
-    LOG_VERBOSE("control thread of debug object %p stop\n", debug_object);
+    LOG_VERBOSE("control thread of debug object %p stop\n", debug_inst);
     return NULL;
 }
 
 static WASMDebugControlThread *
-wasm_debug_control_thread_create(WASMDebugObject *debug_object)
+wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
 {
     WASMDebugControlThread *control_thread;
+    WASMCluster *cluster = debug_instance->cluster;
+    WASMExecEnv *exec_env;
+    bh_assert(cluster);
+
+    exec_env = bh_list_first_elem(&cluster->exec_env_list);
+    bh_assert(exec_env);
 
     if (!(control_thread =
             wasm_runtime_malloc(sizeof(WASMDebugControlThread)))) {
         LOG_ERROR("WASM Debug Engine error: failed to allocate memory");
         return NULL;
     }
+    memset(control_thread, 0, sizeof(WASMDebugControlThread));
 
     if (os_mutex_init(&control_thread->wait_lock) != 0)
         goto fail;
 
-    if (os_cond_init(&control_thread->wait_cond) != 0)
-        goto fail1;
+    debug_instance->control_thread = control_thread;
 
-    control_thread->status = RUNNING;
+    os_mutex_lock(&exec_env->wait_lock);
 
     if (0 != os_thread_create(&control_thread->tid, control_thread_routine,
-                              debug_object, APP_THREAD_STACK_SIZE_MAX)) {
-        goto fail2;
+                              debug_instance, APP_THREAD_STACK_SIZE_MAX)) {
+        os_mutex_unlock(&control_thread->wait_lock);
+        goto fail1;
     }
+
+    /* wait until the debug control thread ready */
+    os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock);
+    os_mutex_unlock(&exec_env->wait_lock);
+    if (!control_thread->server)
+        goto fail1;
+
+    /* create control thread success, append debug instance to debug engine */
+    bh_list_insert(&g_debug_engine->debug_instance_list, debug_instance);
+    wasm_cluster_send_signal_all(debug_instance->cluster, WAMR_SIG_STOP);
 
     return control_thread;
 
-fail2:
-    os_cond_destroy(&control_thread->wait_cond);
 fail1:
     os_mutex_destroy(&control_thread->wait_lock);
 fail:
@@ -104,26 +149,22 @@ fail:
 }
 
 static void
-wasm_debug_control_thread_destroy(WASMDebugObject *debug_object)
+wasm_debug_control_thread_destroy(WASMDebugInstance *debug_instance)
 {
-    WASMDebugControlThread *control_thread = debug_object->control_thread;
+    WASMDebugControlThread *control_thread = debug_instance->control_thread;
     LOG_VERBOSE("control thread of debug object %p stop at %s:%d\n",
-                debug_object, debug_object->control_thread->ip_addr,
-                debug_object->control_thread->port);
-    os_mutex_lock(&control_thread->wait_lock);
+                debug_instance, control_thread->ip_addr,
+                control_thread->port);
     control_thread->status = STOPPED;
+    os_mutex_lock(&control_thread->wait_lock);
     wasm_close_gdbserver(control_thread->server);
     os_mutex_unlock(&control_thread->wait_lock);
-    os_cond_signal(&control_thread->wait_cond);
     os_thread_join(control_thread->tid, NULL);
     wasm_runtime_free(control_thread->server);
 
     os_mutex_destroy(&control_thread->wait_lock);
-    os_cond_destroy(&control_thread->wait_cond);
     wasm_runtime_free(control_thread);
 }
-
-static WASMDebugEngine *g_debug_engine;
 
 static WASMDebugEngine *
 wasm_debug_engine_create()
@@ -215,24 +256,20 @@ wasm_debug_instance_create(WASMCluster *cluster)
         return NULL;
     }
     memset(instance, 0, sizeof(WASMDebugInstance));
-    instance->cluster = cluster;
-    instance->control_thread =
-      wasm_debug_control_thread_create((WASMDebugObject *)instance);
-    instance->control_thread->debug_engine = (WASMDebugObject *)g_debug_engine;
-    instance->control_thread->debug_instance = (WASMDebugObject *)instance;
-    strcpy(instance->control_thread->ip_addr, g_debug_engine->ip_addr);
-    instance->id = g_debug_engine->debug_instance_list.len + 1;
-
-    exec_env = bh_list_first_elem(&cluster->exec_env_list);
-
-    /* exec_evn is created, but handle may not be set yet. */
-    instance->current_tid = exec_env ? exec_env->handle : 0;
-
-    instance->control_thread->port =
-      g_debug_engine->process_base_port + instance->id;
     bh_list_init(&instance->break_point_list);
-    bh_list_insert(&g_debug_engine->debug_instance_list, instance);
-    wasm_cluster_send_signal_all(instance->cluster, WAMR_SIG_STOP);
+
+    instance->cluster = cluster;
+    exec_env = bh_list_first_elem(&cluster->exec_env_list);
+    bh_assert(exec_env);
+
+    instance->current_tid = exec_env->handle;
+
+    if (!wasm_debug_control_thread_create(instance)) {
+        LOG_ERROR("WASM Debug Engine error: failed to create control thread");
+        wasm_runtime_free(instance);
+        return NULL;
+    }
+
     return instance;
 }
 
@@ -249,6 +286,22 @@ wasm_cluster_get_debug_instance(WASMDebugEngine *engine, WASMCluster *cluster)
     return instance;
 }
 
+static void
+wasm_debug_instance_destroy_breakpoints(WASMDebugInstance *instance)
+{
+    WASMDebugBreakPoint *breakpoint, *next_bp;
+
+    breakpoint = bh_list_first_elem(&instance->break_point_list);
+    while (breakpoint) {
+        next_bp = bh_list_elem_next(breakpoint);
+
+        bh_list_remove(&instance->break_point_list, breakpoint);
+        wasm_runtime_free(breakpoint);
+
+        breakpoint = next_bp;
+    }
+}
+
 void
 wasm_debug_instance_destroy(WASMCluster *cluster)
 {
@@ -260,8 +313,13 @@ wasm_debug_instance_destroy(WASMCluster *cluster)
 
     instance = wasm_cluster_get_debug_instance(g_debug_engine, cluster);
     if (instance) {
-        wasm_debug_control_thread_destroy((WASMDebugObject *)instance);
+        /* destroy control thread */
+        wasm_debug_control_thread_destroy(instance);
         bh_list_remove(&g_debug_engine->debug_instance_list, instance);
+
+        /* destroy all breakpoints */
+        wasm_debug_instance_destroy_breakpoints(instance);
+
         wasm_runtime_free(instance);
     }
 }
@@ -444,6 +502,7 @@ wasm_debug_instance_get_memregion(WASMDebugInstance *instance, uint64 addr)
         LOG_ERROR("WASM Debug Engine error: failed to allocate memory");
         return NULL;
     }
+    memset(mem_info, 0, sizeof(WASMDebugMemoryInfo));
     mem_info->start = WASM_ADDR(WasmInvalid, 0, 0);
     mem_info->size = 0;
     mem_info->name[0] = '\0';
@@ -715,6 +774,7 @@ wasm_debug_instance_add_breakpoint(WASMDebugInstance *instance,
                   "WASM Debug Engine error: failed to allocate memory");
                 return false;
             }
+            memset(breakpoint, 0, sizeof(WASMDebugBreakPoint));
             breakpoint->addr = offset;
             /* TODO: how to if more than one breakpoints are set
                      at the same addr? */
@@ -872,6 +932,10 @@ wasm_debug_instance_get_local(WASMDebugInstance *instance,
         return false;
 
     param_count = cur_func->param_count;
+
+    if (local_index >= param_count + cur_func->local_count)
+        return false;
+
     local_offset = cur_func->local_offsets[local_index];
     if (local_index < param_count)
         local_type = cur_func->param_types[local_index];
@@ -928,6 +992,11 @@ wasm_debug_instance_get_global(WASMDebugInstance *instance,
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
     global_data = module_inst->global_data;
     globals = module_inst->globals;
+
+    if ((global_index < 0)
+        || ((uint32)global_index >= module_inst->global_count)) {
+        return false;
+    }
     global = globals + global_index;
 
 #if WASM_ENABLE_MULTI_MODULE == 0

@@ -15,33 +15,34 @@ pktbuf_insert(WASMGDBServer *gdbserver, const uint8_t *buf, ssize_t len)
 {
     WasmDebugPacket *pkt = &gdbserver->pkt;
 
-    if ((unsigned long)(pkt->end + len) >= sizeof(pkt->buf)) {
+    if ((unsigned long)(pkt->size + len) >= sizeof(pkt->buf)) {
         LOG_ERROR("Packet buffer overflow");
         exit(-2);
     }
-    memcpy(pkt->buf + pkt->end, buf, len);
-    pkt->end += len;
+
+    memcpy(pkt->buf + pkt->size, buf, len);
+    pkt->size += len;
 }
 
 void
-pktbuf_erase_head(WASMGDBServer *gdbserver, ssize_t end)
+pktbuf_erase_head(WASMGDBServer *gdbserver, ssize_t index)
 {
     WasmDebugPacket *pkt = &gdbserver->pkt;
-    memmove(pkt->buf, pkt->buf + end, pkt->end - end);
-    pkt->end -= end;
+    memmove(pkt->buf, pkt->buf + index, pkt->size - index);
+    pkt->size -= index;
 }
 
 void
-inbuf_erase_head(WASMGDBServer *gdbserver, ssize_t end)
+inbuf_erase_head(WASMGDBServer *gdbserver, ssize_t index)
 {
-    pktbuf_erase_head(gdbserver, end);
+    pktbuf_erase_head(gdbserver, index);
 }
 
 void
 pktbuf_clear(WASMGDBServer *gdbserver)
 {
     WasmDebugPacket *pkt = &gdbserver->pkt;
-    pkt->end = 0;
+    pkt->size = 0;
 }
 
 int
@@ -112,10 +113,17 @@ write_binary_packet(WASMGDBServer *gdbserver,
 {
     uint8_t *buf;
     ssize_t pfx_num_chars = strlen(pfx);
-    ssize_t buf_num_bytes = 0;
+    ssize_t buf_num_bytes = 0, total_size;
     int i;
 
-    buf = malloc(2 * num_bytes + pfx_num_chars);
+    total_size = 2 * num_bytes + pfx_num_chars;
+    buf = wasm_runtime_malloc(total_size);
+    if (!buf) {
+        LOG_ERROR("Failed to allocate memory for binary packet");
+        return;
+    }
+
+    memset(buf, 0, total_size);
     memcpy(buf, pfx, pfx_num_chars);
     buf_num_bytes += pfx_num_chars;
 
@@ -135,28 +143,31 @@ write_binary_packet(WASMGDBServer *gdbserver,
         }
     }
     write_packet_bytes(gdbserver, buf, buf_num_bytes);
-    free(buf);
+    wasm_runtime_free(buf);
 }
 
 bool
 skip_to_packet_start(WASMGDBServer *gdbserver)
 {
-    ssize_t end = -1;
+    ssize_t start_index = -1, i;
 
-    for (size_t i = 0; i < gdbserver->pkt.end; ++i)
+    for (i = 0; i < gdbserver->pkt.size; ++i) {
         if (gdbserver->pkt.buf[i] == '$') {
-            end = i;
+            start_index = i;
             break;
         }
+    }
 
-    if (end < 0) {
+    if (start_index < 0) {
         pktbuf_clear(gdbserver);
         return false;
     }
 
-    pktbuf_erase_head(gdbserver, end);
-    bh_assert(1 <= gdbserver->pkt.end);
+    pktbuf_erase_head(gdbserver, start_index);
+
+    bh_assert(1 <= gdbserver->pkt.size);
     bh_assert('$' == gdbserver->pkt.buf[0]);
+
     return true;
 }
 
@@ -164,7 +175,7 @@ bool
 read_packet(WASMGDBServer *gdbserver)
 {
     while (!skip_to_packet_start(gdbserver)) {
-        if(read_data_once(gdbserver) < 0)
+        if (read_data_once(gdbserver) < 0)
             return false;
     }
     if (!gdbserver->noack)
