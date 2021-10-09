@@ -20,7 +20,7 @@ enum GDBStoppointType {
 };
 typedef struct WasmDebugPacket {
     unsigned char buf[PACKET_BUF_SIZE];
-    unsigned int end;
+    unsigned int size;
 } WasmDebugPacket;
 
 struct WASMDebugControlThread;

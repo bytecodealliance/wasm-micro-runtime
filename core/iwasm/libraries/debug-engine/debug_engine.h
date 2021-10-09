@@ -15,23 +15,19 @@ typedef enum WASMDebugControlThreadStatus {
     STOPPED,
 } WASMDebugControlThreadStatus;
 
-struct WASMDebugObject;
+struct WASMDebugEngine;
+struct WASMDebugInstance;
+
 typedef struct WASMDebugControlThread {
     WASMGDBServer *server;
     korp_tid tid;
     korp_mutex wait_lock;
-    korp_cond wait_cond;
     char ip_addr[128];
     int port;
     WASMDebugControlThreadStatus status;
-    struct WASMDebugObject *debug_engine;
-    struct WASMDebugObject *debug_instance;
+    struct WASMDebugEngine *debug_engine;
+    struct WASMDebugInstance *debug_instance;
 } WASMDebugControlThread;
-
-typedef struct WASMDebugObject {
-    struct WASMDebugObject *next;
-    WASMDebugControlThread *control_thread;
-} WASMDebugObject;
 
 typedef struct WASMDebugBreakPoint {
     struct WASMDebugBreakPoint *next;

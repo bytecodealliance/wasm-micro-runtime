@@ -66,6 +66,8 @@ wasm_launch_gdbserver(char *host, int port)
         return NULL;
     }
 
+    memset(server, 0, sizeof(WASMGDBServer));
+
     listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listen_fd < 0) {
         LOG_ERROR("wasm gdb server error: socket() failed");
@@ -114,7 +116,7 @@ wasm_launch_gdbserver(char *host, int port)
     return server;
 
 fail:
-    if (listen_fd > 0) {
+    if (listen_fd >= 0) {
         shutdown(listen_fd, SHUT_RDWR);
         close(listen_fd);
     }
@@ -143,26 +145,41 @@ handler_packet(WASMGDBServer *server, char request, char *payload)
         packet_handler_table[(int)request].handler(server, payload);
 }
 
+/**
+ * The packet layout is:
+ *   '$' + payload + '#' + checksum(2bytes)
+ *                    ^
+ *                    packetend_ptr
+ */
 static void
 process_packet(WASMGDBServer *server)
 {
     uint8_t *inbuf = server->pkt.buf;
-    int inbuf_size = server->pkt.end;
+    int inbuf_size = server->pkt.size;
     uint8_t *packetend_ptr = (uint8_t *)memchr(inbuf, '#', inbuf_size);
     int packetend = packetend_ptr - inbuf;
-    bh_assert('$' == inbuf[0]);
     char request = inbuf[1];
-    char *payload = (char *)&inbuf[2];
+    char *payload = NULL;
+    uint8_t checksum = 0;
+
+    if (packetend == 1) {
+        LOG_VERBOSE("receive empty request, ignore it\n");
+        return;
+    }
+
+    bh_assert('$' == inbuf[0]);
     inbuf[packetend] = '\0';
 
-    uint8_t checksum = 0;
     for (int i = 1; i < packetend; i++)
         checksum += inbuf[i];
     bh_assert(checksum
               == (hex(inbuf[packetend + 1]) << 4 | hex(inbuf[packetend + 2])));
 
+    payload = (char *)&inbuf[2];
+
     LOG_VERBOSE("receive request:%c %s\n", request, payload);
     handler_packet(server, request, payload);
+
     inbuf_erase_head(server, packetend + 3);
 }
 
