@@ -24,12 +24,12 @@ def clone_llvm(dst_dir, llvm_repo, llvm_branch):
         GIT_CLONE_CMD = f"git clone --depth 1 --branch {llvm_branch} {llvm_repo} llvm"
         subprocess.check_output(shlex.split(GIT_CLONE_CMD), cwd=dst_dir)
     else:
-        print(f"There is an LLVM local repo in {llvm_dir}, keep using it")
+        print(f"There is an LLVM local repo in {llvm_dir}, clean and keep using it")
 
     return llvm_dir
 
 
-def build_llvm(llvm_dir, platform, backends):
+def build_llvm(llvm_dir, platform, backends, projects):
     LLVM_COMPILE_OPTIONS = [
         '-DCMAKE_BUILD_TYPE:STRING="Release"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
@@ -42,7 +42,6 @@ def build_llvm(llvm_dir, platform, backends):
         "-DLLVM_CCACHE_BUILD:BOOL=OFF",
         "-DLLVM_ENABLE_BINDINGS:BOOL=OFF",
         "-DLLVM_ENABLE_IDE:BOOL=OFF",
-        "-DLLVM_ENABLE_LIBXML2:BOOL=OFF",
         "-DLLVM_ENABLE_TERMINFO:BOOL=OFF",
         "-DLLVM_ENABLE_ZLIB:BOOL=OFF",
         "-DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF",
@@ -50,11 +49,11 @@ def build_llvm(llvm_dir, platform, backends):
         "-DLLVM_INCLUDE_EXAMPLES:BOOL=OFF",
         "-DLLVM_INCLUDE_UTILS:BOOL=OFF",
         "-DLLVM_INCLUDE_TESTS:BOOL=OFF",
-        "-DLLVM_INCLUDE_TOOLS:BOOL=OFF",
+        "-DLLVM_BUILD_TESTS:BOOL=OFF",
         "-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON",
     ]
 
-    LLVM_EXTRA_COMPILER_OPTIONS = {
+    LLVM_EXTRA_COMPILE_OPTIONS = {
         "arc": [
             '-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD:STRING="ARC"',
             "-DLLVM_ENABLE_LIBICUUC:BOOL=OFF",
@@ -70,9 +69,23 @@ def build_llvm(llvm_dir, platform, backends):
     }
 
     LLVM_TARGETS_TO_BUILD = [
-        "-DLLVM_TARGETS_TO_BUILD:STRING=" + ";".join(backends)
+        '-DLLVM_TARGETS_TO_BUILD:STRING="' + ";".join(backends) + '"'
         if backends
         else '-DLLVM_TARGETS_TO_BUILD:STRING="AArch64;ARM;Mips;RISCV;X86"'
+    ]
+
+    LLVM_PROJECTS_TO_BUILD = [
+        '-DLLVM_ENABLE_PROJECTS:STRING="' + ";".join(projects) + '"' if projects else ""
+    ]
+
+    # lldb project requires libxml2
+    LLVM_LIBXML2_OPTION = [
+        "-DLLVM_ENABLE_LIBXML2:BOOL=" + ("ON" if "lldb" in projects else "OFF")
+    ]
+
+    # enabling LLVM_INCLUDE_TOOLS will increase ~300M to the final package
+    LLVM_INCLUDE_TOOLS_OPTION = [
+        "-DLLVM_INCLUDE_TOOLS:BOOL=ON" if projects else "-DLLVM_INCLUDE_TOOLS:BOOL=OFF"
     ]
 
     if not llvm_dir.exists():
@@ -90,19 +103,24 @@ def build_llvm(llvm_dir, platform, backends):
 
     compile_options = " ".join(
         LLVM_COMPILE_OPTIONS
-        + LLVM_EXTRA_COMPILER_OPTIONS.get(
-            platform, LLVM_EXTRA_COMPILER_OPTIONS["default"]
+        + LLVM_LIBXML2_OPTION
+        + LLVM_EXTRA_COMPILE_OPTIONS.get(
+            platform, LLVM_EXTRA_COMPILE_OPTIONS["default"]
         )
         + LLVM_TARGETS_TO_BUILD
+        + LLVM_PROJECTS_TO_BUILD
+        + LLVM_INCLUDE_TOOLS_OPTION
     )
 
-    CONFIG_CMD = f"cmake {compile_options} ../llvm "
+    CONFIG_CMD = f"cmake {compile_options} ../llvm " + (
+        "-A x64" if "windows" == platform else ""
+    )
+    print(f"{CONFIG_CMD}")
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 
-    BUILD_CMD = f"cmake --build . --parallel {os.cpu_count()}" + (
+    BUILD_CMD = f"cmake --build . --target package --parallel {os.cpu_count()}" + (
         " --config Release" if "windows" == platform else ""
     )
-
     subprocess.check_call(shlex.split(BUILD_CMD), cwd=build_dir)
 
     return build_dir
@@ -120,10 +138,28 @@ def main():
         "--arch",
         nargs="+",
         type=str,
-        choices=["AArch64", "ARC", "ARM", "Mips", "RISCV", "X86", "Xtensa"],
+        choices=[
+            "AArch64",
+            "ARC",
+            "ARM",
+            "Mips",
+            "RISCV",
+            "WebAssembly",
+            "X86",
+            "Xtensa",
+        ],
         help="identify LLVM supported backends, separate by space, like '--arch ARM Mips X86'",
     )
+    parser.add_argument(
+        "--project",
+        nargs="+",
+        type=str,
+        default="",
+        choices=["clang", "lldb"],
+        help="identify extra LLVM projects, separate by space, like '--project clang lldb'",
+    )
     options = parser.parse_args()
+    print(f"options={options}")
 
     # if the "platform" is not identified in the command line option,
     # detect it
@@ -142,7 +178,7 @@ def main():
     llvm_repo_and_branch = {
         "arc": {
             "repo": "https://github.com/llvm/llvm-project.git",
-            "branch": "release/13.x"
+            "branch": "release/13.x",
         },
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
@@ -168,7 +204,7 @@ def main():
 
     print()
     print(f"==================== BUILD LLVM ====================")
-    build_llvm(llvm_dir, platform, options.arch)
+    build_llvm(llvm_dir, platform, options.arch, options.project)
 
     print()
 

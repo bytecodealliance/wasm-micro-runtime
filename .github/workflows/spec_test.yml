@@ -1,0 +1,97 @@
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+name: Spec tests on non-windows
+
+on:
+  # will be triggered on PR events
+  pull_request:
+    paths:
+      - "core/iwasm/**"
+  # allow to be triggered manually
+  workflow_dispatch:
+
+# Cancel any in-flight jobs for the same PR/branch so there's only one active
+# at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LLVM_CACHE_SUFFIX: "build-llvm_libraries"
+
+jobs:
+  cancel_previous:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Cancel Workflow Action
+        uses: styfle/cancel-workflow-action@0.6.0
+        with:
+          access_token: ${{ github.token }}
+
+  build_llvm_libraries:
+    needs: cancel_previous
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Cache LLVM libraries
+        id: cache_llvm
+        uses: actions/cache@v2
+        with:
+          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+          restore-keys: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+
+      - name: Build llvm and clang from source
+        id: build_llvm
+        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
+        run: /usr/bin/env python3 ./build_llvm.py  --arch X86 WebAssembly
+        working-directory: build-scripts
+
+      - name: package LLVM
+        if: ${{ steps.build_llvm.conclusion == 'success' }}
+        run: mv LLVM-13.0.0-*.tar.gz LLVM-13.0.0.tar.gz
+        working-directory: core/deps/llvm/build/
+
+  spec_test_on_ubuntu_2004:
+    needs: build_llvm_libraries
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        test_option: [
+            # DEFAULT
+            "-s spec",
+            # SIMD
+            "-s spec -S",
+            # THREAD
+            "-s spec -p",
+            # MULTI_MODULES
+            "-s spec -M",
+          ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Get LLVM libraries
+        id: cache_llvm
+        uses: actions/cache@v2
+        with:
+          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+          restore-keys: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
+
+      - name: Quit if cache miss
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
+      - name: Extract the LLVM package
+        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
+        working-directory: ./core/deps/llvm/build
+
+      - name: install Ninja
+        run: sudo apt install -y ninja-build
+
+      - name: run spec tests
+        run: ./test_wamr.sh ${{ matrix.test_option }}
+        working-directory: ./tests/wamr-test-suites

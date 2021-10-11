@@ -12,3 +12,4 @@ test-tools/host-tool/bin/
 product-mini/app-samples/hello-world/test.wasm
 
 build_out
+tests/wamr-test-suites/workspace
