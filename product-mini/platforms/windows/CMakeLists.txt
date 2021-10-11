@@ -15,6 +15,8 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 set (CMAKE_C_STANDARD 99)
 
+add_definitions(-DCOMPILING_WASM_RUNTIME_API=1)
+
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]", "MIPS", "XTENSA"
 if (NOT DEFINED WAMR_BUILD_TARGET)
@@ -91,7 +93,7 @@ include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
-set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
 
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
@@ -122,8 +124,7 @@ add_library (libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
 
 install (TARGETS libiwasm DESTINATION lib)
 
-set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
+set_target_properties (libiwasm PROPERTIES OUTPUT_NAME libiwasm)
 
 target_link_libraries (libiwasm ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS})
 
-target_compile_definitions(libiwasm PRIVATE COMPILING_WASM_RUNTIME_API=1)

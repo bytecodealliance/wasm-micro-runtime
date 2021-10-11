@@ -7,13 +7,19 @@
 #include "aot_compiler.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
+#include "../aot/aot_intrinsic.h"
 
+#if WASM_ENABLE_DEBUG_AOT != 0
+#include "debug/dwarf_extractor.h"
+#endif
 
 LLVMTypeRef
 wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
 {
     switch (wasm_type) {
         case VALUE_TYPE_I32:
+        case VALUE_TYPE_FUNCREF:
+        case VALUE_TYPE_EXTERNREF:
             return llvm_types->int32_type;
         case VALUE_TYPE_I64:
             return llvm_types->int64_type;
@@ -21,12 +27,12 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
             return llvm_types->float32_type;
         case VALUE_TYPE_F64:
             return llvm_types->float64_type;
-#if WASM_ENABLE_SIMD != 0
         case VALUE_TYPE_V128:
             return llvm_types->i64x2_vec_type;
-#endif
         case VALUE_TYPE_VOID:
             return llvm_types->void_type;
+        default:
+            break;
     }
     return NULL;
 }
@@ -36,7 +42,7 @@ wasm_type_to_llvm_type(AOTLLVMTypes *llvm_types, uint8 wasm_type)
  */
 static LLVMValueRef
 aot_add_llvm_func(AOTCompContext *comp_ctx, AOTFuncType *aot_func_type,
-                  uint32 func_index)
+                  uint32 func_index, LLVMTypeRef *p_func_type)
 {
     LLVMValueRef func = NULL;
     LLVMTypeRef *param_types, ret_type, func_type;
@@ -104,6 +110,9 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, AOTFuncType *aot_func_type,
         local_value = LLVMGetParam(func, j++);
         LLVMSetValueName(local_value, "");
     }
+
+    if (p_func_type)
+        *p_func_type = func_type;
 
 fail:
     wasm_runtime_free(param_types);
@@ -492,34 +501,6 @@ create_memory_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 }
 
 static bool
-create_table_base(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
-{
-    AOTCompData *comp_data = comp_ctx->comp_data;
-    uint64 module_inst_mem_inst_size =
-        (uint64)comp_data->memory_count * sizeof(AOTMemoryInstance);
-    LLVMValueRef offset;
-
-    offset = I32_CONST(offsetof(AOTModuleInstance, global_table_data.bytes)
-                       + module_inst_mem_inst_size
-                       + comp_ctx->comp_data->global_data_size);
-    func_ctx->table_base = LLVMBuildInBoundsGEP(comp_ctx->builder,
-                                                func_ctx->aot_inst,
-                                                &offset, 1,
-                                                "table_base_tmp");
-    if (!func_ctx->table_base) {
-        aot_set_last_error("llvm build in bounds gep failed.");
-        return false;
-    }
-    func_ctx->table_base = LLVMBuildBitCast(comp_ctx->builder, func_ctx->table_base,
-                                            INT32_PTR_TYPE, "table_base");
-    if (!func_ctx->table_base) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
-    }
-    return true;
-}
-
-static bool
 create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef offset;
@@ -628,6 +609,9 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;
     LLVMValueRef argv_buf_offset = I32_THREE, argv_buf_addr;
     LLVMValueRef stack_bound_offset = I32_FOUR, stack_bound_addr;
+    LLVMValueRef aux_stack_bound_offset = I32_SIX, aux_stack_bound_addr;
+    LLVMValueRef aux_stack_bottom_offset = I32_SEVEN, aux_stack_bottom_addr;
+    LLVMValueRef native_symbol_offset = I32_EIGHT, native_symbol_addr;
     char local_name[32];
     uint64 size;
     uint32 i, j = 0;
@@ -645,13 +629,18 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     func_ctx->aot_func = func;
 
     /* Add LLVM function */
-    if (!(func_ctx->func = aot_add_llvm_func(comp_ctx, aot_func_type, func_index)))
+    if (!(func_ctx->func = aot_add_llvm_func(comp_ctx, aot_func_type,
+                                             func_index, &func_ctx->func_type)))
         goto fail;
 
     /* Create function's first AOTBlock */
     if (!(aot_block = aot_create_func_block(comp_ctx, func_ctx,
                                             func, aot_func_type)))
         goto fail;
+
+#if WASM_ENABLE_DEBUG_AOT != 0
+    func_ctx->debug_func = dwarf_gen_func_info(comp_ctx, func_ctx);
+#endif
 
     aot_block_stack_push(&func_ctx->block_stack, aot_block);
 
@@ -718,6 +707,74 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail;
     }
 
+    /* Get aux stack boundary address */
+    if (!(aux_stack_bound_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &aux_stack_bound_offset, 1,
+                                 "aux_stack_bound_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(aux_stack_bound_addr =
+            LLVMBuildBitCast(comp_ctx->builder,
+                             aux_stack_bound_addr,
+                             INT32_PTR_TYPE, "aux_stack_bound_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->aux_stack_bound =
+            LLVMBuildLoad(comp_ctx->builder,
+                          aux_stack_bound_addr, "aux_stack_bound"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    /* Get aux stack bottom address */
+    if (!(aux_stack_bottom_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &aux_stack_bottom_offset, 1,
+                                 "aux_stack_bottom_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(aux_stack_bottom_addr =
+            LLVMBuildBitCast(comp_ctx->builder,
+                             aux_stack_bottom_addr,
+                             INT32_PTR_TYPE, "aux_stack_bottom_ptr"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+    if (!(func_ctx->aux_stack_bottom =
+            LLVMBuildLoad(comp_ctx->builder,
+                          aux_stack_bottom_addr, "aux_stack_bottom"))) {
+        aot_set_last_error("llvm build load failed");
+        goto fail;
+    }
+
+    if (!(native_symbol_addr =
+            LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                 &native_symbol_offset, 1, "native_symbol_addr"))) {
+        aot_set_last_error("llvm build in bounds gep failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->native_symbol =
+            LLVMBuildLoad(comp_ctx->builder, native_symbol_addr,
+                          "native_symbol_tmp"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+
+    if (!(func_ctx->native_symbol =
+            LLVMBuildBitCast(comp_ctx->builder, func_ctx->native_symbol,
+                             comp_ctx->exec_env_type, "native_symbol"))) {
+        aot_set_last_error("llvm build bit cast failed");
+        goto fail;
+    }
+
     for (i = 0; i < aot_func_type->param_count; i++, j++) {
         snprintf(local_name, sizeof(local_name), "l%d", i);
         func_ctx->locals[i] =
@@ -761,11 +818,13 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
             case VALUE_TYPE_F64:
                 local_value = F64_ZERO;
                 break;
-#if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
-                local_value = V128_ZERO;
+                local_value = V128_i64x2_ZERO;
                 break;
-#endif
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                local_value = REF_NULL;
+                break;
             default:
                 bh_assert(0);
                 break;
@@ -789,7 +848,7 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     }
     else {
         if (!(func_ctx->last_alloca = LLVMBuildAlloca(comp_ctx->builder, INT8_TYPE,
-                                          "stack_ptr"))) {
+                                                      "stack_ptr"))) {
             aot_set_last_error("llvm build alloca failed.");
             goto fail;
         }
@@ -802,10 +861,6 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
     /* Create base addr, end addr, data size of mem, heap */
     if (!create_memory_info(comp_ctx, func_ctx, int8_ptr_type, func_index))
-        goto fail;
-
-    /* Load table base */
-    if (!create_table_base(comp_ctx, func_ctx))
         goto fail;
 
     /* Load current exception */
@@ -894,6 +949,12 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->meta_data_type = LLVMMetadataTypeInContext(context);
 
     basic_types->int8_ptr_type = LLVMPointerType(basic_types->int8_type, 0);
+
+    if (basic_types->int8_ptr_type) {
+        basic_types->int8_pptr_type =
+          LLVMPointerType(basic_types->int8_ptr_type, 0);
+    }
+
     basic_types->int16_ptr_type = LLVMPointerType(basic_types->int16_type, 0);
     basic_types->int32_ptr_type = LLVMPointerType(basic_types->int32_type, 0);
     basic_types->int64_ptr_type = LLVMPointerType(basic_types->int64_type, 0);
@@ -910,7 +971,13 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
     basic_types->v128_type = basic_types->i64x2_vec_type;
     basic_types->v128_ptr_type = LLVMPointerType(basic_types->v128_type, 0);
 
+    basic_types->i1x2_vec_type = LLVMVectorType(basic_types->int1_type, 2);
+
+    basic_types->funcref_type = LLVMInt32TypeInContext(context);
+    basic_types->externref_type = LLVMInt32TypeInContext(context);
+
     return (basic_types->int8_ptr_type
+            && basic_types->int8_pptr_type
             && basic_types->int16_ptr_type
             && basic_types->int32_ptr_type
             && basic_types->int64_ptr_type
@@ -922,71 +989,98 @@ aot_set_llvm_basic_types(AOTLLVMTypes *basic_types, LLVMContextRef context)
             && basic_types->i64x2_vec_type
             && basic_types->f32x4_vec_type
             && basic_types->f64x2_vec_type
-            && basic_types->meta_data_type) ? true : false;
+            && basic_types->i1x2_vec_type
+            && basic_types->meta_data_type
+            && basic_types->funcref_type
+            && basic_types->externref_type) ? true : false;
 }
 
 static bool
 aot_create_llvm_consts(AOTLLVMConsts *consts, AOTCompContext *comp_ctx)
 {
-    LLVMValueRef i64_consts[2];
+#define CREATE_I1_CONST(name, value)                                          \
+    if (!(consts->i1_##name =                                                 \
+            LLVMConstInt(comp_ctx->basic_types.int1_type, value, true)))      \
+        return false;
 
-    consts->i8_zero = I8_CONST(0);
-    consts->i32_zero = I32_CONST(0);
-    consts->i64_zero = I64_CONST(0);
-    consts->f32_zero = F32_CONST(0);
-    consts->f64_zero = F64_CONST(0);
+    CREATE_I1_CONST(zero, 0)
+    CREATE_I1_CONST(one, 1)
+#undef CREATE_I1_CONST
 
-    if (consts->i64_zero) {
-        i64_consts[0] = i64_consts[1] = consts->i64_zero;
-        consts->v128_zero = consts->i64x2_vec_zero =
-                                    LLVMConstVector(i64_consts, 2);
-        if (consts->i64x2_vec_zero) {
-            consts->i8x16_vec_zero = TO_V128_i8x16(consts->i64x2_vec_zero);
-            consts->i16x8_vec_zero = TO_V128_i16x8(consts->i64x2_vec_zero);
-            consts->i32x4_vec_zero = TO_V128_i32x4(consts->i64x2_vec_zero);
-            consts->f32x4_vec_zero = TO_V128_f32x4(consts->i64x2_vec_zero);
-            consts->f64x2_vec_zero = TO_V128_f64x2(consts->i64x2_vec_zero);
-        }
+    if (!(consts->i8_zero = I8_CONST(0)))
+        return false;
+
+    if (!(consts->f32_zero = F32_CONST(0)))
+        return false;
+
+    if (!(consts->f64_zero = F64_CONST(0)))
+        return false;
+
+#define CREATE_I32_CONST(name, value)                                         \
+    if (!(consts->i32_##name = LLVMConstInt(I32_TYPE, value, true)))          \
+        return false;
+
+    CREATE_I32_CONST(min, (uint32)INT32_MIN)
+    CREATE_I32_CONST(neg_one, (uint32)-1)
+    CREATE_I32_CONST(zero, 0)
+    CREATE_I32_CONST(one, 1)
+    CREATE_I32_CONST(two, 2)
+    CREATE_I32_CONST(three, 3)
+    CREATE_I32_CONST(four, 4)
+    CREATE_I32_CONST(five, 5)
+    CREATE_I32_CONST(six, 6)
+    CREATE_I32_CONST(seven, 7)
+    CREATE_I32_CONST(eight, 8)
+    CREATE_I32_CONST(nine, 9)
+    CREATE_I32_CONST(ten, 10)
+    CREATE_I32_CONST(eleven, 11)
+    CREATE_I32_CONST(twelve, 12)
+    CREATE_I32_CONST(thirteen, 13)
+    CREATE_I32_CONST(fourteen, 14)
+    CREATE_I32_CONST(fifteen, 15)
+    CREATE_I32_CONST(31, 31)
+    CREATE_I32_CONST(32, 32)
+#undef CREATE_I32_CONST
+
+#define CREATE_I64_CONST(name, value)                                         \
+    if (!(consts->i64_##name = LLVMConstInt(I64_TYPE, value, true)))          \
+        return false;
+
+    CREATE_I64_CONST(min, (uint64)INT64_MIN)
+    CREATE_I64_CONST(neg_one, (uint64)-1)
+    CREATE_I64_CONST(zero, 0)
+    CREATE_I64_CONST(63, 63)
+    CREATE_I64_CONST(64, 64)
+#undef CREATE_I64_CONST
+
+#define CREATE_V128_CONST(name, type)                                         \
+    if (!(consts->name##_vec_zero = LLVMConstNull(type)))                     \
+        return false;                                                         \
+    if (!(consts->name##_undef = LLVMGetUndef(type)))                         \
+        return false;
+
+    CREATE_V128_CONST(i8x16, V128_i8x16_TYPE)
+    CREATE_V128_CONST(i16x8, V128_i16x8_TYPE)
+    CREATE_V128_CONST(i32x4, V128_i32x4_TYPE)
+    CREATE_V128_CONST(i64x2, V128_i64x2_TYPE)
+    CREATE_V128_CONST(f32x4, V128_f32x4_TYPE)
+    CREATE_V128_CONST(f64x2, V128_f64x2_TYPE)
+#undef CREATE_V128_CONST
+
+#define CREATE_VEC_ZERO_MASK(slot)                                            \
+    {                                                                         \
+        LLVMTypeRef type = LLVMVectorType(I32_TYPE, slot);                    \
+        if (!type || !(consts->i32x##slot##_zero = LLVMConstNull(type)))      \
+            return false;                                                     \
     }
 
-    consts->i32_one = I32_CONST(1);
-    consts->i32_two = I32_CONST(2);
-    consts->i32_three = I32_CONST(3);
-    consts->i32_four = I32_CONST(4);
-    consts->i32_eight = I32_CONST(8);
-    consts->i32_neg_one = I32_CONST((uint32)-1);
-    consts->i64_neg_one = I64_CONST((uint64)-1);
-    consts->i32_min = I32_CONST((uint32)INT32_MIN);
-    consts->i64_min = I64_CONST((uint64)INT64_MIN);
-    consts->i32_31 = I32_CONST(31);
-    consts->i32_32 = I32_CONST(32);
-    consts->i64_63 = I64_CONST(63);
-    consts->i64_64 = I64_CONST(64);
+    CREATE_VEC_ZERO_MASK(16)
+    CREATE_VEC_ZERO_MASK(8)
+    CREATE_VEC_ZERO_MASK(4)
+    CREATE_VEC_ZERO_MASK(2)
+#undef CREATE_VEC_ZERO_MASK
 
-    return (consts->i8_zero
-            && consts->i32_zero
-            && consts->i64_zero
-            && consts->f32_zero
-            && consts->f64_zero
-            && consts->i8x16_vec_zero
-            && consts->i16x8_vec_zero
-            && consts->i32x4_vec_zero
-            && consts->i64x2_vec_zero
-            && consts->f32x4_vec_zero
-            && consts->f64x2_vec_zero
-            && consts->i32_one
-            && consts->i32_two
-            && consts->i32_three
-            && consts->i32_four
-            && consts->i32_eight
-            && consts->i32_neg_one
-            && consts->i64_neg_one
-            && consts->i32_min
-            && consts->i64_min
-            && consts->i32_31
-            && consts->i32_32
-            && consts->i64_63
-            && consts->i64_64) ? true : false;
+    return true;
 }
 
 typedef struct ArchItem {
@@ -1046,13 +1140,23 @@ static ArchItem valid_archs[] = {
     { "thumbv8r", true },
     { "thumbv8m.base", true },
     { "thumbv8m.main", true },
-    { "thumbv8.1m.main", true }
+    { "thumbv8.1m.main", true },
+    { "riscv32", true},
+    { "riscv64", true},
+    { "arc", true }
 };
 
 static const char *valid_abis[] = {
     "gnu",
     "eabi",
-    "gnueabihf"
+    "gnueabihf",
+    "msvc",
+    "ilp32",
+    "ilp32f",
+    "ilp32d",
+    "lp64",
+    "lp64f",
+    "lp64d"
 };
 
 static void
@@ -1130,29 +1234,197 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
 
 void LLVMAddPromoteMemoryToRegisterPass(LLVMPassManagerRef PM);
 
+#if WASM_ENABLE_LAZY_JIT != 0
+void
+aot_handle_llvm_errmsg(char *error_buf,
+                       uint32 error_buf_size,
+                       const char *string,
+                       LLVMErrorRef error)
+{
+    char *err_msg = LLVMGetErrorMessage(error);
+    if (error_buf != NULL) {
+        snprintf(error_buf, error_buf_size,
+                 "%s: %s", string, err_msg);
+    }
+    LLVMDisposeErrorMessage(err_msg);
+}
+
+static bool
+llvm_orcjit_create(AOTCompContext *comp_ctx)
+{
+    char *err_msg = NULL;
+    char *cpu = NULL;
+    char *features = NULL;
+    char *llvm_triple = NULL;
+    char buf[128] = {0};
+
+    LLVMErrorRef         error;
+    LLVMTargetRef        llvm_targetref = NULL;
+    LLVMTargetMachineRef tm_opt = NULL;
+    LLVMTargetMachineRef tm_opt2 = NULL;
+    LLVMOrcLLLazyJITRef  lazy_orcjit = NULL;
+    LLVMOrcJITTargetMachineBuilderRef tm_builder = NULL;
+    LLVMOrcLLLazyJITBuilderRef lazy_orcjit_builder = NULL;
+#if LLVM_VERSION_MAJOR < 12
+    LLVMOrcJITDylibDefinitionGeneratorRef main_gen = NULL;
+#else
+    LLVMOrcDefinitionGeneratorRef main_gen = NULL;
+#endif
+
+    llvm_triple = LLVMGetDefaultTargetTriple();
+    if (llvm_triple == NULL) {
+        snprintf(buf, sizeof(buf), "failed to get default target triple.");
+        goto fail;
+    }
+
+    if (LLVMGetTargetFromTriple(llvm_triple, &llvm_targetref, &err_msg) != 0) {
+        snprintf(buf, sizeof(buf),
+                 "failed to get target reference from triple %s.", err_msg);
+        LLVMDisposeMessage(err_msg);
+        goto fail;
+    }
+
+    if (!LLVMTargetHasJIT(llvm_targetref)) {
+        snprintf(buf, sizeof(buf), "unspported JIT on this platform.");
+        goto fail;
+    }
+
+    cpu = LLVMGetHostCPUName();
+    if (cpu == NULL) {
+        snprintf(buf, sizeof(buf), "failed to get host cpu information.");
+        goto fail;
+    }
+
+    features = LLVMGetHostCPUFeatures();
+    if (features == NULL) {
+        snprintf(buf, sizeof(buf), "failed to get host cpu features.");
+        goto fail;
+    }
+
+    LOG_VERBOSE("LLVM ORCJIT detected CPU \"%s\", with features \"%s\"\n",
+                cpu, features);
+
+    tm_opt = LLVMCreateTargetMachine(llvm_targetref, llvm_triple,
+                                     cpu, features,
+                                     LLVMCodeGenLevelAggressive,
+                                     LLVMRelocDefault,
+                                     LLVMCodeModelJITDefault);
+    if (!tm_opt) {
+        snprintf(buf, sizeof(buf), "failed to create target machine.");
+        goto fail;
+    }
+
+    tm_opt2 = LLVMCreateTargetMachine(llvm_targetref, llvm_triple,
+                                      cpu, features,
+                                      LLVMCodeGenLevelAggressive,
+                                      LLVMRelocDefault,
+                                      LLVMCodeModelJITDefault);
+    if (!tm_opt2) {
+        snprintf(buf, sizeof(buf), "failed to create target machine2.");
+        goto fail;
+    }
+
+    /* if success, it will dispose tm_opt2 memory. */
+    tm_builder = LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(tm_opt2);
+    if (!tm_builder) {
+        snprintf(buf, sizeof(buf), "failed to create target machine builder.");
+        goto fail;
+    }
+    tm_opt2 = NULL;
+
+    lazy_orcjit_builder = LLVMOrcCreateLLLazyJITBuilder();
+    if (!lazy_orcjit_builder) {
+        snprintf(buf, sizeof(buf), "failed to create lazy jit builder.");
+        goto fail;
+    }
+
+    LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(lazy_orcjit_builder,
+                                                      tm_builder);
+
+    /* if success, it will dispose lazy_orcjit_builder memory */
+    error = LLVMOrcCreateLLLazyJIT(&lazy_orcjit, lazy_orcjit_builder);
+    if (error) {
+        aot_handle_llvm_errmsg(buf, sizeof(buf),
+                               "failed to create llvm lazy orcjit instance",
+                               error);
+        goto fail;
+    }
+    lazy_orcjit_builder = NULL;
+
+    error = LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(
+                &main_gen, LLVMOrcLLLazyJITGetGlobalPrefix(lazy_orcjit),
+                0, NULL);
+    if (error) {
+        aot_handle_llvm_errmsg(buf, sizeof(buf),
+                "failed to create dynmaic library search generator", error);
+        goto fail;
+    }
+
+    LLVMOrcJITDylibAddGenerator(LLVMOrcLLLazyJITGetMainJITDylib(lazy_orcjit),
+                                main_gen);
+
+    comp_ctx->lazy_orcjit = lazy_orcjit;
+    comp_ctx->target_machine = tm_opt;
+    comp_ctx->tm_builder = tm_builder;
+    LLVMDisposeMessage(llvm_triple);
+    LLVMDisposeMessage(cpu);
+    LLVMDisposeMessage(features);
+    return true;
+
+fail:
+    if (lazy_orcjit)
+        LLVMOrcDisposeLLLazyJIT(lazy_orcjit);
+    if (tm_builder)
+        LLVMOrcDisposeJITTargetMachineBuilder(tm_builder);
+    if (lazy_orcjit_builder)
+        LLVMOrcDisposeLLLazyJITBuilder(lazy_orcjit_builder);
+    if (tm_opt2)
+        LLVMDisposeTargetMachine(tm_opt2);
+    if (tm_opt)
+        LLVMDisposeTargetMachine(tm_opt);
+    if (features)
+        LLVMDisposeMessage(features);
+    if (cpu)
+        LLVMDisposeMessage(cpu);
+    if (llvm_triple)
+        LLVMDisposeMessage(llvm_triple);
+    aot_set_last_error(buf);
+    return false;
+}
+#endif /* WASM_ENABLE_LAZY_JIT != 0 */
+
 AOTCompContext *
 aot_create_comp_context(AOTCompData *comp_data,
                         aot_comp_option_t option)
 {
     AOTCompContext *comp_ctx, *ret = NULL;
-    /*LLVMTypeRef elem_types[8];*/
+#if WASM_ENABLE_LAZY_JIT == 0
     struct LLVMMCJITCompilerOptions jit_options;
+#endif
+
     LLVMTargetRef target;
     char *triple = NULL, *triple_norm, *arch, *abi;
     char *cpu = NULL, *features, buf[128];
     char *triple_norm_new = NULL, *cpu_new = NULL;
     char *err = NULL, *fp_round= "round.tonearest", *fp_exce = "fpexcept.strict";
-    char triple_buf[32] = {0};
+    char triple_buf[32] = { 0 }, features_buf[128] = { 0 };
     uint32 opt_level, size_level;
     LLVMCodeModel code_model;
     LLVMTargetDataRef target_data_ref;
 
     /* Initialize LLVM environment */
+#if WASM_ENABLE_LAZY_JIT != 0
+    LLVMInitializeCore(LLVMGetGlobalPassRegistry());
+    LLVMInitializeNativeTarget();
+    LLVMInitializeNativeAsmPrinter();
+    LLVMInitializeNativeAsmParser();
+#else
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
     LLVMInitializeAllTargetMCs();
     LLVMInitializeAllAsmPrinters();
     LLVMLinkInMCJIT();
+#endif
 
     /* Allocate memory */
     if (!(comp_ctx = wasm_runtime_malloc(sizeof(AOTCompContext)))) {
@@ -1164,10 +1436,24 @@ aot_create_comp_context(AOTCompData *comp_data,
     comp_ctx->comp_data = comp_data;
 
     /* Create LLVM context, module and builder */
+#if WASM_ENABLE_LAZY_JIT != 0
+    comp_ctx->ts_context = LLVMOrcCreateNewThreadSafeContext();
+    if (!comp_ctx->ts_context) {
+        aot_set_last_error("create LLVM ThreadSafeContext failed.");
+        return NULL;
+    }
+    /* Get a reference to the underlying LLVMContext */
+    if (!(comp_ctx->context =
+            LLVMOrcThreadSafeContextGetContext(comp_ctx->ts_context))) {
+        aot_set_last_error("get context from LLVM ThreadSafeContext failed.");
+        goto fail;
+    }
+#else
     if (!(comp_ctx->context = LLVMContextCreate())) {
         aot_set_last_error("create LLVM context failed.");
         goto fail;
     }
+#endif
 
     if (!(comp_ctx->builder = LLVMCreateBuilderInContext(comp_ctx->context))) {
         aot_set_last_error("create LLVM builder failed.");
@@ -1180,6 +1466,33 @@ aot_create_comp_context(AOTCompData *comp_data,
         goto fail;
     }
 
+    if (BH_LIST_ERROR == bh_list_init(&comp_ctx->native_symbols)) {
+        goto fail;
+    }
+
+#if WASM_ENABLE_DEBUG_AOT != 0
+    if (!(comp_ctx->debug_builder = LLVMCreateDIBuilder(comp_ctx->module))) {
+        aot_set_last_error("create LLVM Debug Infor builder failed.");
+        goto fail;
+    }
+
+    LLVMAddModuleFlag(
+      comp_ctx->module, LLVMModuleFlagBehaviorWarning, "Debug Info Version",
+      strlen("Debug Info Version"),
+      LLVMValueAsMetadata(LLVMConstInt(LLVMInt32Type(), 3, false)));
+
+    comp_ctx->debug_file = dwarf_gen_file_info(comp_ctx);
+    if (!comp_ctx->debug_file) {
+        aot_set_last_error("dwarf generate file info failed");
+        goto fail;
+    }
+    comp_ctx->debug_comp_unit = dwarf_gen_comp_unit_info(comp_ctx);
+    if (!comp_ctx->debug_comp_unit) {
+        aot_set_last_error("dwarf generate compile unit info failed");
+        goto fail;
+    }
+#endif
+
     if (option->enable_bulk_memory)
         comp_ctx->enable_bulk_memory = true;
 
@@ -1189,12 +1502,32 @@ aot_create_comp_context(AOTCompData *comp_data,
     if (option->enable_tail_call)
         comp_ctx->enable_tail_call = true;
 
+    if (option->enable_ref_types)
+        comp_ctx->enable_ref_types = true;
+
     if (option->enable_aux_stack_frame)
         comp_ctx->enable_aux_stack_frame = true;
+
+    if (option->enable_aux_stack_check)
+        comp_ctx->enable_aux_stack_check = true;
+
+    if (option->is_indirect_mode)
+        comp_ctx->is_indirect_mode = true;
+
+    if (option->disable_llvm_intrinsics)
+        comp_ctx->disable_llvm_intrinsics = true;
 
     if (option->is_jit_mode) {
         char *triple_jit = NULL;
 
+#if WASM_ENABLE_LAZY_JIT != 0
+        /* Create LLLazyJIT Instance */
+        if (!llvm_orcjit_create(comp_ctx)) {
+		    aot_set_last_error("create LLVM Lazy JIT Compiler failed.");
+			goto fail;
+		}
+
+#else
         /* Create LLVM execution engine */
         LLVMInitializeMCJITCompilerOptions(&jit_options, sizeof(jit_options));
         jit_options.OptLevel = LLVMCodeGenLevelAggressive;
@@ -1210,15 +1543,28 @@ aot_create_comp_context(AOTCompData *comp_data,
             aot_set_last_error("create LLVM JIT compiler failed.");
             goto fail;
         }
-        comp_ctx->is_jit_mode = true;
         comp_ctx->target_machine =
                 LLVMGetExecutionEngineTargetMachine(comp_ctx->exec_engine);
+#endif
+        comp_ctx->is_jit_mode = true;
+
 #ifndef OS_ENABLE_HW_BOUND_CHECK
         comp_ctx->enable_bound_check = true;
 #else
         comp_ctx->enable_bound_check = false;
 #endif
 
+#if WASM_ENABLE_LAZY_JIT != 0
+        if (!(triple_jit =
+                (char *)LLVMOrcLLLazyJITGetTripleString(comp_ctx->lazy_orcjit))) {
+            aot_set_last_error("can not get triple from the target machine");
+            goto fail;
+        }
+
+        /* Save target arch */
+        get_target_arch_from_triple(triple_jit, comp_ctx->target_arch,
+                                    sizeof(comp_ctx->target_arch));
+#else
         if (!(triple_jit =
                 LLVMGetTargetMachineTriple(comp_ctx->target_machine))) {
             aot_set_last_error("can not get triple from the target machine");
@@ -1229,6 +1575,7 @@ aot_create_comp_context(AOTCompData *comp_data,
         get_target_arch_from_triple(triple_jit, comp_ctx->target_arch,
                                     sizeof(comp_ctx->target_arch));
         LLVMDisposeMessage(triple_jit);
+#endif
     }
     else {
         /* Create LLVM target machine */
@@ -1275,11 +1622,42 @@ aot_create_comp_context(AOTCompData *comp_data,
             goto fail;
         }
 
+        /* Set default abi for riscv target */
+        if (arch && !strncmp(arch, "riscv", 5) && !abi) {
+            if (!strcmp(arch, "riscv64"))
+                abi = "lp64d";
+            else
+                abi = "ilp32d";
+        }
+
         if (arch) {
             /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
-            const char *vendor_sys = "-pc-linux-";
-            if (!abi)
-                abi = "gnu";
+            const char *vendor_sys;
+            char *default_triple = LLVMGetDefaultTargetTriple();
+
+            if (!default_triple) {
+                aot_set_last_error("llvm get default target triple failed.");
+                goto fail;
+            }
+
+            if (strstr(default_triple, "windows")) {
+                vendor_sys = "-pc-windows-";
+                if (!abi)
+                    abi = "msvc";
+            }
+            else if (strstr(default_triple, "win32")) {
+                vendor_sys = "-pc-win32-";
+                if (!abi)
+                    abi = "msvc";
+            }
+            else {
+                vendor_sys = "-pc-linux-";
+                if (!abi)
+                    abi = "gnu";
+            }
+
+            LLVMDisposeMessage(default_triple);
+
             bh_assert(strlen(arch) + strlen(vendor_sys) + strlen(abi) < sizeof(triple_buf));
             memcpy(triple_buf, arch, strlen(arch));
             memcpy(triple_buf + strlen(arch), vendor_sys, strlen(vendor_sys));
@@ -1321,6 +1699,29 @@ aot_create_comp_context(AOTCompData *comp_data,
                     "target isn't specified for cpu %s.", cpu);
             aot_set_last_error(buf);
             goto fail;
+        }
+
+        /* Add module flag and cpu feature for riscv target */
+        if (arch && !strncmp(arch, "riscv", 5)) {
+            LLVMMetadataRef meta_target_abi;
+
+            if (!(meta_target_abi = LLVMMDStringInContext2(comp_ctx->context,
+                                                           abi, strlen(abi)))) {
+                aot_set_last_error("create metadata string failed.");
+                goto fail;
+            }
+            LLVMAddModuleFlag(comp_ctx->module, LLVMModuleFlagBehaviorError,
+                          "target-abi", strlen("target-abi"), meta_target_abi);
+
+            if (!strcmp(abi, "lp64d") || !strcmp(abi, "ilp32d")) {
+                if (features) {
+                    snprintf(features_buf, sizeof(features_buf),
+                             "%s%s", features, ",+d");
+                    features = features_buf;
+                }
+                else
+                    features = "+d";
+            }
         }
 
         if (!features)
@@ -1386,7 +1787,12 @@ aot_create_comp_context(AOTCompData *comp_data,
             goto fail;
         }
 
-        if (!LLVMTargetHasAsmBackend(target)) {
+        /* Report error if target isn't arc and hasn't asm backend.
+           For arc target, as it cannot emit to memory buffer of elf file currently,
+           we let it emit to assembly file instead, and then call arc-gcc to compile
+           asm file to elf file, and read elf file to memory buffer. */
+        if (strncmp(comp_ctx->target_arch, "arc", 3)
+            && !LLVMTargetHasAsmBackend(target)) {
             snprintf(buf, sizeof(buf),
                      "no asm backend for this target (%s).", LLVMGetTargetName(target));
             aot_set_last_error(buf);
@@ -1414,7 +1820,8 @@ aot_create_comp_context(AOTCompData *comp_data,
     }
 
     if (option->enable_simd
-        && strcmp(comp_ctx->target_arch, "x86_64") != 0) {
+        && strcmp(comp_ctx->target_arch, "x86_64") != 0
+        && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0) {
         /* Disable simd if it isn't supported by target arch */
         option->enable_simd = false;
     }
@@ -1462,7 +1869,9 @@ aot_create_comp_context(AOTCompData *comp_data,
     LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
     LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
     LLVMAddJumpThreadingPass(comp_ctx->pass_mgr);
+#if LLVM_VERSION_MAJOR < 12
     LLVMAddConstantPropagationPass(comp_ctx->pass_mgr);
+#endif
     LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
 
     if (!option->is_jit_mode) {
@@ -1470,8 +1879,12 @@ aot_create_comp_context(AOTCompData *comp_data,
         LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
         LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
-        LLVMAddGVNPass(comp_ctx->pass_mgr);
-        LLVMAddLICMPass(comp_ctx->pass_mgr);
+        if (!option->enable_thread_mgr) {
+            /* These two passes may destroy the volatile semantics,
+                disable them when building as multi-thread mode */
+            LLVMAddGVNPass(comp_ctx->pass_mgr);
+            LLVMAddLICMPass(comp_ctx->pass_mgr);
+        }
         LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
         LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
@@ -1502,10 +1915,7 @@ aot_create_comp_context(AOTCompData *comp_data,
     }
 
     /* set exec_env data type to int8** */
-    if (!(comp_ctx->exec_env_type = LLVMPointerType(INT8_PTR_TYPE, 0))) {
-        aot_set_last_error("llvm get pointer type failed.");
-        goto fail;
-    }
+    comp_ctx->exec_env_type = comp_ctx->basic_types.int8_pptr_type;
 
     /* set aot_inst data type to int8* */
     comp_ctx->aot_inst_type = INT8_PTR_TYPE;
@@ -1516,6 +1926,18 @@ aot_create_comp_context(AOTCompData *comp_data,
         && !(comp_ctx->func_ctxes =
                 aot_create_func_contexts(comp_data, comp_ctx)))
         goto fail;
+
+    if (cpu) {
+        uint32 len = (uint32)strlen(cpu) + 1;
+        if (!(comp_ctx->target_cpu = wasm_runtime_malloc(len))) {
+            aot_set_last_error("allocate memory failed");
+            goto fail;
+        }
+        bh_memcpy_s(comp_ctx->target_cpu, len, cpu, len);
+    }
+
+    if (comp_ctx->disable_llvm_intrinsics)
+        aot_intrinsic_fill_capability_flags(comp_ctx);
 
     ret = comp_ctx;
 
@@ -1538,9 +1960,29 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     if (!comp_ctx)
         return;
 
-    if (comp_ctx->pass_mgr)
+    if (comp_ctx->pass_mgr) {
+        LLVMFinalizeFunctionPassManager(comp_ctx->pass_mgr);
         LLVMDisposePassManager(comp_ctx->pass_mgr);
+    }
 
+#if WASM_ENABLE_LAZY_JIT != 0
+    if (comp_ctx->target_machine && comp_ctx->is_jit_mode)
+        LLVMDisposeTargetMachine(comp_ctx->target_machine);
+
+    if (comp_ctx->builder)
+        LLVMDisposeBuilder(comp_ctx->builder);
+
+    if (comp_ctx->lazy_orcjit)
+        LLVMOrcDisposeLLLazyJIT(comp_ctx->lazy_orcjit);
+
+    if (comp_ctx->ts_context)
+        LLVMOrcDisposeThreadSafeContext(comp_ctx->ts_context);
+
+    if (comp_ctx->tm_builder)
+        LLVMOrcDisposeJITTargetMachineBuilder(comp_ctx->tm_builder);
+
+    LLVMShutdown();
+#else
     if (comp_ctx->target_machine && !comp_ctx->is_jit_mode)
         LLVMDisposeTargetMachine(comp_ctx->target_machine);
 
@@ -1557,12 +1999,69 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 
     if (comp_ctx->context)
         LLVMContextDispose(comp_ctx->context);
+#endif
 
     if (comp_ctx->func_ctxes)
         aot_destroy_func_contexts(comp_ctx->func_ctxes,
                                   comp_ctx->func_ctx_count);
 
+    if (bh_list_length(&comp_ctx->native_symbols) > 0) {
+        AOTNativeSymbol *sym = bh_list_first_elem(&comp_ctx->native_symbols);
+        while (sym) {
+            AOTNativeSymbol *t = bh_list_elem_next(sym);
+            bh_list_remove(&comp_ctx->native_symbols, sym);
+            wasm_runtime_free(sym);
+            sym = t;
+        }
+    }
+
+    if (comp_ctx->target_cpu) {
+        wasm_runtime_free(comp_ctx->target_cpu);
+    }
+
     wasm_runtime_free(comp_ctx);
+}
+
+int32
+aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
+{
+    int32 idx = -1;
+    AOTNativeSymbol *sym = NULL;
+
+    sym = bh_list_first_elem(&comp_ctx->native_symbols);
+
+    /* Lookup an existing symobl record */
+
+    while (sym) {
+        if (strcmp(sym->symbol, symbol) == 0) {
+            idx = sym->index;
+            break;
+        }
+        sym = bh_list_elem_next(sym);
+    }
+
+    /* Given symbol is not exist in list, then we alloc a new index for it */
+
+    if (idx < 0) {
+        sym = wasm_runtime_malloc(sizeof(AOTNativeSymbol));
+
+        if (!sym) {
+            aot_set_last_error("alloc native symbol failed.");
+            return idx;
+        }
+
+        idx = bh_list_length(&comp_ctx->native_symbols);
+        sym->symbol = symbol;
+        sym->index = idx;
+
+        if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {
+            wasm_runtime_free(sym);
+            aot_set_last_error("alloc index for native symbol failed.");
+            return -1;
+        }
+    }
+
+    return idx;
 }
 
 void
@@ -1745,6 +2244,7 @@ aot_checked_addr_list_destroy(AOTFuncContext *func_ctx)
 
 bool
 aot_build_zero_function_ret(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx,
                             AOTFuncType *func_type)
 {
     LLVMValueRef ret = NULL;
@@ -1763,11 +2263,14 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
             case VALUE_TYPE_F64:
                 ret = LLVMBuildRet(comp_ctx->builder, F64_ZERO);
                 break;
-#if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
-                ret = LLVMBuildRet(comp_ctx->builder, V128_ZERO);
+                ret =
+                  LLVMBuildRet(comp_ctx->builder, LLVM_CONST(i64x2_vec_zero));
                 break;
-#endif
+            case VALUE_TYPE_FUNCREF:
+            case VALUE_TYPE_EXTERNREF:
+                ret = LLVMBuildRet(comp_ctx->builder, REF_NULL);
+                break;
             default:
                 bh_assert(0);
         }
@@ -1780,11 +2283,16 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx,
         aot_set_last_error("llvm build ret failed.");
         return false;
     }
+#if WASM_ENABLE_DEBUG_AOT != 0
+    LLVMMetadataRef return_location = dwarf_gen_func_ret_location(comp_ctx, func_ctx);
+    LLVMInstructionSetDebugLoc(ret, return_location);
+#endif
     return true;
 }
 
 static LLVMValueRef
 __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
+                      const AOTFuncContext *func_ctx,
                       const char *name,
                       LLVMTypeRef ret_type,
                       LLVMTypeRef *param_types,
@@ -1793,25 +2301,67 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 {
     LLVMValueRef func, ret;
     LLVMTypeRef func_type;
+    const char *symname;
+    int32 func_idx;
 
-    /* Declare llvm intrinsic function if necessary */
-    if (!(func = LLVMGetNamedFunction(comp_ctx->module, name))) {
-        if (!(func_type = LLVMFunctionType(ret_type, param_types,
-                                           (uint32)param_count, false))) {
-            aot_set_last_error("create LLVM function type failed.");
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(comp_ctx, name)) {
+        if (func_ctx == NULL) {
+            aot_set_last_error_v("invalid func_ctx for intrinsic: %s", name);
             return NULL;
         }
 
-        if (!(func = LLVMAddFunction(comp_ctx->module, name, func_type))) {
-            aot_set_last_error("add LLVM function failed.");
+        if (!(func_type = LLVMFunctionType(ret_type, param_types,
+                                           (uint32)param_count, false))) {
+            aot_set_last_error("create LLVM intrinsic function type failed.");
             return NULL;
+        }
+        if (!(func_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error(
+              "create LLVM intrinsic function pointer type failed.");
+            return NULL;
+        }
+
+        if (!(symname = aot_intrinsic_get_symbol(name))) {
+            aot_set_last_error_v("runtime intrinsic not implemented: %s\n",
+                                 name);
+            return NULL;
+        }
+
+        func_idx =
+          aot_get_native_symbol_index((AOTCompContext *)comp_ctx, symname);
+        if (func_idx < 0) {
+            aot_set_last_error_v("get runtime intrinsc index failed: %s\n",
+                                 name);
+            return NULL;
+        }
+
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_type, func_idx))) {
+            aot_set_last_error_v("get runtime intrinsc failed: %s\n", name);
+            return NULL;
+        }
+    }
+    else {
+        /* Declare llvm intrinsic function if necessary */
+        if (!(func = LLVMGetNamedFunction(comp_ctx->module, name))) {
+            if (!(func_type = LLVMFunctionType(ret_type, param_types,
+                                               (uint32)param_count, false))) {
+                aot_set_last_error("create LLVM intrinsic function type failed.");
+                return NULL;
+            }
+
+            if (!(func = LLVMAddFunction(comp_ctx->module, name, func_type))) {
+                aot_set_last_error("add LLVM intrinsic function failed.");
+                return NULL;
+            }
         }
     }
 
     /* Call the LLVM intrinsic function */
     if (!(ret = LLVMBuildCall(comp_ctx->builder, func, param_values,
                               (uint32)param_count, "call"))) {
-        aot_set_last_error("llvm build call failed.");
+        aot_set_last_error("llvm build intrinsic call failed.");
         return NULL;
     }
 
@@ -1820,7 +2370,8 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
-                        const char *name,
+                        const AOTFuncContext *func_ctx,
+                        const char *intrinsic,
                         LLVMTypeRef ret_type,
                         LLVMTypeRef *param_types,
                         int param_count,
@@ -1845,8 +2396,8 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
         param_values[i++] = va_arg(argptr, LLVMValueRef);
     va_end(argptr);
 
-    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type, param_types,
-                                param_count, param_values);
+    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, ret_type,
+                                param_types, param_count, param_values);
 
     wasm_runtime_free(param_values);
 
@@ -1855,7 +2406,8 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 
 LLVMValueRef
 aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
-                          const char *name,
+                          const AOTFuncContext *func_ctx,
+                          const char *intrinsic,
                           LLVMTypeRef ret_type,
                           LLVMTypeRef *param_types,
                           int param_count,
@@ -1877,10 +2429,46 @@ aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
     while (i < param_count)
         param_values[i++] = va_arg(param_value_list, LLVMValueRef);
 
-    ret = __call_llvm_intrinsic(comp_ctx, name, ret_type, param_types,
-                                param_count, param_values);
+    ret = __call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, ret_type,
+                                param_types, param_count, param_values);
 
     wasm_runtime_free(param_values);
 
     return ret;
+}
+
+LLVMValueRef
+aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
+                        LLVMTypeRef func_type, int32 index)
+{
+    LLVMValueRef func;
+    LLVMValueRef func_addr;
+
+    if (!(func_addr = I32_CONST(index))) {
+        aot_set_last_error("construct function index failed.");
+        goto fail;
+    }
+
+    if (!(func_addr = LLVMBuildInBoundsGEP(comp_ctx->builder, base, &func_addr,
+                                           1, "func_addr"))) {
+        aot_set_last_error("get function addr by index failed.");
+        goto fail;
+    }
+
+    func = LLVMBuildLoad(comp_ctx->builder, func_addr, "func_tmp");
+
+    if (func == NULL) {
+        aot_set_last_error("get function pointer failed.");
+        goto fail;
+    }
+
+    if (!(func = LLVMBuildBitCast(comp_ctx->builder, func, func_type,
+                                  "func"))) {
+        aot_set_last_error("cast function fialed.");
+        goto fail;
+    }
+
+    return func;
+fail:
+    return NULL;
 }

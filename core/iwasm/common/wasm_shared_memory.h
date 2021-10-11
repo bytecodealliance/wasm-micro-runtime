@@ -37,7 +37,7 @@ wasm_shared_memory_init();
 void
 wasm_shared_memory_destroy();
 
-WASMSharedMemNode*
+WASMSharedMemNode *
 wasm_module_get_shared_memory(WASMModuleCommon *module);
 
 int32
@@ -46,10 +46,10 @@ shared_memory_inc_reference(WASMModuleCommon *module);
 int32
 shared_memory_dec_reference(WASMModuleCommon *module);
 
-WASMMemoryInstanceCommon*
+WASMMemoryInstanceCommon *
 shared_memory_get_memory_inst(WASMSharedMemNode *node);
 
-WASMSharedMemNode*
+WASMSharedMemNode *
 shared_memory_set_memory_inst(WASMModuleCommon *module,
                               WASMMemoryInstanceCommon *memory);
 
@@ -58,8 +58,8 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
                          uint64 expect, int64 timeout, bool wait64);
 
 uint32
-wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module,
-                           void *address, uint32 count);
+wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
+                           uint32 count);
 
 #ifdef __cplusplus
 }

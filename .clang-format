@@ -1,5 +1,6 @@
+# using [clang-formt-12 options](https://releases.llvm.org/12.0.0/tools/clang/docs/ClangFormatStyleOptions.html)
 RawStringFormats:
-  - Language:        Cpp
+  - Language: Cpp
     Delimiters:
       - c
       - C
@@ -13,35 +14,23 @@ RawStringFormats:
       - h
       - hpp
     CanonicalDelimiter: ''
-    BasedOnStyle:    google
-  - Language:        TextProto
-    Delimiters:
-      - pb
-      - PB
-      - proto
-      - PROTO
-    EnclosingFunctions:
-      - EqualsProto
-      - EquivToProto
-      - PARSE_PARTIAL_TEXT_PROTO
-      - PARSE_TEST_PROTO
-      - PARSE_TEXT_PROTO
-      - ParseTextOrDie
-      - ParseTextProtoOrDie
-    CanonicalDelimiter: ''
-    BasedOnStyle:    google
+    BasedOnStyle:    Mozilla
 
 Language: Cpp
 BasedOnStyle: Mozilla
+# 6.1
 IndentWidth: 4
+ContinuationIndentWidth: 4
+# 6.2
+TabWidth: 4
+UseTab: Never
+# 6.3
+ColumnLimit: 80
+# 6.9
 AlignAfterOpenBracket: Align
-AllowAllArgumentsOnNextLine: false
-AlignConsecutiveMacros: true
-AllowShortBlocksOnASingleLine: true
-AlwaysBreakAfterReturnType: All
 BinPackArguments: true
-BinPackParameters: false
-BreakBeforeBinaryOperators: NonAssignment
+BinPackParameters: true
+# 6.10
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: true
@@ -60,104 +49,13 @@ BraceWrapping:
   SplitEmptyFunction: true
   SplitEmptyRecord: false
   SplitEmptyNamespace: true
-ColumnLimit: 79
-ContinuationIndentWidth: 2
-DerivePointerAlignment: false
-IncludeBlocks: Regroup
-IncludeCategories:
-  - Regex: '^"(llvm|llvm-c|clang|clang-c)/'
-    Priority: 2
-  - Regex: '^(<|"(gtest|gmock|isl|json)/)'
-    Priority: 1
-  - Regex: ".*"
-    Priority: 3
-IndentPPDirectives: None
-KeepEmptyLinesAtTheStartOfBlocks: false
-NamespaceIndentation: None
+# 6.27
+BreakBeforeBinaryOperators: NonAssignment
+
+# additional
+AlignEscapedNewlines: Left
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
 PointerAlignment: Right
-ReflowComments: false
-SortIncludes:   false
-Standard: Auto
-StatementMacros:
-  - Q_UNUSED
-  - QT_REQUIRE_VERSION
-
-# AccessModifierOffset: -2
-# AlignConsecutiveAssignments: false
-# AlignConsecutiveDeclarations: false
-# AlignEscapedNewlines: Right
-# AlignOperands:   true
-# AlignTrailingComments: true
-# AllowAllConstructorInitializersOnNextLine: true
-# AllowAllParametersOfDeclarationOnNextLine: false
-# AllowShortCaseLabelsOnASingleLine: false
-# AllowShortFunctionsOnASingleLine: Inline
-# AllowShortLambdasOnASingleLine: All
-# AllowShortIfStatementsOnASingleLine: Never
-# AllowShortLoopsOnASingleLine: false
-# AlwaysBreakAfterDefinitionReturnType: TopLevel
-# AlwaysBreakAfterReturnType: TopLevel
-# AlwaysBreakBeforeMultilineStrings: false
-# AlwaysBreakTemplateDeclarations: Yes
-# BreakBeforeInheritanceComma: false
-# BreakInheritanceList: BeforeComma
-# BreakBeforeTernaryOperators: true
-# BreakConstructorInitializersBeforeComma: false
-# BreakConstructorInitializers: BeforeComma
-# BreakAfterJavaFieldAnnotations: false
-# BreakStringLiterals: true
-# CommentPragmas:  '^ IWYU pragma:'
-# CompactNamespaces: false
-# ConstructorInitializerAllOnOneLineOrOnePerLine: false
-# ConstructorInitializerIndentWidth: 2
-# Cpp11BracedListStyle: false
-# DisableFormat:   false
-# ExperimentalAutoDetectBinPacking: false
-# FixNamespaceComments: false
-# ForEachMacros:
-#   - foreach
-#   - Q_FOREACH
-#   - BOOST_FOREACH
-# IncludeIsMainRegex: '(Test)?$'
-# IndentCaseLabels: true
-# IndentWrappedFunctionNames: false
-# JavaScriptQuotes: Leave
-# JavaScriptWrapImports: true
-# KeepEmptyLinesAtTheStartOfBlocks: true
-# MacroBlockBegin: ''
-# MacroBlockEnd:   ''
-# MaxEmptyLinesToKeep: 1
-# ObjCBinPackProtocolList: Auto
-# ObjCBlockIndentWidth: 2
-# ObjCSpaceAfterProperty: true
-# ObjCSpaceBeforeProtocolList: false
-# PenaltyBreakAssignment: 2
-# PenaltyBreakBeforeFirstCallParameter: 19
-# PenaltyBreakComment: 300
-# PenaltyBreakFirstLessLess: 120
-# PenaltyBreakString: 1000
-# PenaltyBreakTemplateDeclaration: 10
-# PenaltyExcessCharacter: 1000000
-# PenaltyReturnTypeOnItsOwnLine: 200
-# SortIncludes:    true
-# SortUsingDeclarations: true
-# SpaceAfterCStyleCast: false
-# SpaceAfterLogicalNot: false
-# SpaceAfterTemplateKeyword: false
-# SpaceBeforeAssignmentOperators: true
-# SpaceBeforeCpp11BracedList: false
-# SpaceBeforeCtorInitializerColon: true
-# SpaceBeforeInheritanceColon: true
-# SpaceBeforeParens: ControlStatements
-# SpaceBeforeRangeBasedForLoopColon: true
-# SpaceInEmptyParentheses: false
-# SpacesBeforeTrailingComments: 1
-# SpacesInAngles:  false
-# SpacesInContainerLiterals: true
-# SpacesInCStyleCastParentheses: false
-# SpacesInParentheses: false
-# SpacesInSquareBrackets: false
-# TabWidth:        4
-# UseTab:          Never
-# ...
-
+SpaceAroundPointerQualifiers: After
+SortIncludes: false

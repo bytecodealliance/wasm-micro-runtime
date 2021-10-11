@@ -7,6 +7,7 @@
 #include "aot_emit_exception.h"
 #include "aot_emit_control.h"
 #include "../aot/aot_runtime.h"
+#include "../aot/aot_intrinsic.h"
 
 #include <stdarg.h>
 
@@ -35,10 +36,17 @@
     LLVMMoveBasicBlockAfter(block, LLVMGetInsertBlock(comp_ctx->builder)); \
 } while (0)
 
-#define IS_CONST_ZERO(val)                                                 \
-    (LLVMIsConstant(val)                                                   \
-     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0)             \
+#if LLVM_VERSION_NUMBER >= 12
+#define IS_CONST_ZERO(val)                                                    \
+    (!LLVMIsUndef(val) && !LLVMIsPoison(val) && LLVMIsConstant(val)           \
+     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0)                \
          || (!is_i32 && (int64)LLVMConstIntGetSExtValue(val) == 0)))
+#else
+#define IS_CONST_ZERO(val)                                                    \
+    (!LLVMIsUndef(val) && LLVMIsConstant(val)                                 \
+     && ((is_i32 && (int32)LLVMConstIntGetZExtValue(val) == 0)                \
+         || (!is_i32 && (int64)LLVMConstIntGetSExtValue(val) == 0)))
+#endif
 
 #define CHECK_INT_OVERFLOW(type) do {                                      \
     LLVMValueRef cmp_min_int, cmp_neg_one;                                 \
@@ -138,6 +146,7 @@
 /* Call llvm constrained floating-point intrinsic */
 static LLVMValueRef
 call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
+                                                   AOTFuncContext *func_ctx,
                                                    bool is_f32,
                                                    const char *intrinsic,
                                                    ...)
@@ -145,14 +154,19 @@ call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
     va_list param_value_list;
     LLVMValueRef ret;
     LLVMTypeRef param_types[4], ret_type = is_f32 ? F32_TYPE : F64_TYPE;
+    int param_count = (comp_ctx->disable_llvm_intrinsics
+                       && aot_intrinsic_check_capability(comp_ctx, intrinsic))
+                        ? 2
+                        : 4;
 
     param_types[0] = param_types[1] = ret_type;
     param_types[2] = param_types[3] = MD_TYPE;
 
     va_start(param_value_list, intrinsic);
 
-    ret = aot_call_llvm_intrinsic_v(comp_ctx, intrinsic, ret_type, param_types,
-                                    4, param_value_list);
+    ret =
+      aot_call_llvm_intrinsic_v(comp_ctx, func_ctx, intrinsic, ret_type,
+                                param_types, param_count, param_value_list);
 
     va_end(param_value_list);
 
@@ -162,6 +176,7 @@ call_llvm_float_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
 /* Call llvm constrained libm-equivalent intrinsic */
 static LLVMValueRef
 call_llvm_libm_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
+                                                  AOTFuncContext *func_ctx,
                                                   bool is_f32,
                                                   const char *intrinsic,
                                                   ...)
@@ -175,7 +190,7 @@ call_llvm_libm_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
 
     va_start(param_value_list, intrinsic);
 
-    ret = aot_call_llvm_intrinsic_v(comp_ctx, intrinsic, ret_type, param_types,
+    ret = aot_call_llvm_intrinsic_v(comp_ctx, func_ctx, intrinsic, ret_type, param_types,
                                     3, param_value_list);
 
     va_end(param_value_list);
@@ -185,6 +200,7 @@ call_llvm_libm_experimental_constrained_intrinsic(AOTCompContext *comp_ctx,
 
 static LLVMValueRef
 compile_op_float_min_max(AOTCompContext *comp_ctx,
+                         AOTFuncContext *func_ctx,
                          bool is_f32,
                          LLVMValueRef left,
                          LLVMValueRef right,
@@ -230,8 +246,9 @@ compile_op_float_min_max(AOTCompContext *comp_ctx,
         return NULL;
     }
 
-    if (!(cmp = aot_call_llvm_intrinsic(comp_ctx, intrinsic, ret_type,
-                                        param_types, 2, left, right)))
+    if (!(cmp =
+            aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, ret_type,
+                                    param_types, 2, left, right)))
         return NULL;
 
     if (!(cmp = LLVMBuildSelect(comp_ctx->builder,
@@ -266,13 +283,14 @@ typedef enum BitCountType {
   POP_CNT64
 } BitCountType;
 
-static char *bit_cnt_llvm_intrinsic[] = { "llvm.ctlz.i32",
-                                          "llvm.ctlz.i64",
-                                          "llvm.cttz.i32",
-                                          "llvm.cttz.i64",
-                                          "llvm.ctpop.i32",
-                                          "llvm.ctpop.i64",
-                                        };
+static char *bit_cnt_llvm_intrinsic[] = {
+    "llvm.ctlz.i32",
+    "llvm.ctlz.i64",
+    "llvm.cttz.i32",
+    "llvm.cttz.i64",
+    "llvm.ctpop.i32",
+    "llvm.ctpop.i64",
+};
 
 static bool
 aot_compile_int_bit_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -290,6 +308,7 @@ aot_compile_int_bit_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Call the LLVM intrinsic function */
     if (type < POP_CNT32)
         DEF_INT_UNARY_OP(aot_call_llvm_intrinsic(comp_ctx,
+                                                 func_ctx,
                                                  bit_cnt_llvm_intrinsic[type],
                                                  ret_type,
                                                  param_types,
@@ -299,6 +318,7 @@ aot_compile_int_bit_count(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          NULL);
     else
         DEF_INT_UNARY_OP(aot_call_llvm_intrinsic(comp_ctx,
+                                                 func_ctx,
                                                  bit_cnt_llvm_intrinsic[type],
                                                  ret_type,
                                                  param_types,
@@ -385,6 +405,18 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_INT(right);
     POP_INT(left);
+
+    if (LLVMIsUndef(right) || LLVMIsUndef(left)
+#if LLVM_VERSION_NUMBER >= 12
+        || LLVMIsPoison(right) || LLVMIsPoison(left)
+#endif
+    ) {
+        if (!(aot_emit_exception(comp_ctx, func_ctx, EXCE_INTEGER_OVERFLOW,
+                                 false, NULL, NULL))) {
+            goto fail;
+        }
+        return aot_handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
+    }
 
     if (LLVMIsConstant(right)) {
         int64 right_val = (int64)LLVMConstIntGetSExtValue(right);
@@ -768,6 +800,12 @@ is_target_mips(AOTCompContext *comp_ctx)
 }
 
 static bool
+is_target_riscv(AOTCompContext *comp_ctx)
+{
+    return !strncmp(comp_ctx->target_arch, "riscv", 5);
+}
+
+static bool
 is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
 {
     bool ret = false;
@@ -796,6 +834,17 @@ is_targeting_soft_float(AOTCompContext *comp_ctx, bool is_f32)
          * so user must specify '--cpu-features=-fp' to wamrc if the target
          * doesn't have or enable Floating-Point Coprocessor Option on xtensa. */
         ret = (!is_f32 || strstr(feature_string, "-fp")) ? true : false;
+    else if (is_target_riscv(comp_ctx)) {
+        /*
+         * Note: Use builtin intrinsics since hardware float operation
+         * will cause rodata relocation, this will try to use hardware
+         * float unit (by return false) but handled by software finally
+         */
+        if (comp_ctx->disable_llvm_intrinsics)
+            ret = false;
+        else
+            ret = !strstr(feature_string, "+d") ? true : false;
+    }
     else
         ret = true;
 
@@ -815,6 +864,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             else
                 DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    func_ctx,
                                     is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fadd.f32"
@@ -832,6 +882,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             else
                 DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    func_ctx,
                                     is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fsub.f32"
@@ -849,6 +900,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             else
                 DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    func_ctx,
                                     is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fmul.f32"
@@ -866,6 +918,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             else
                 DEF_FP_BINARY_OP(call_llvm_float_experimental_constrained_intrinsic(
                                     comp_ctx,
+                                    func_ctx,
                                     is_f32,
                                     (is_f32
                                      ? "llvm.experimental.constrained.fdiv.f32"
@@ -878,6 +931,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return true;
         case FLOAT_MIN:
             DEF_FP_BINARY_OP(compile_op_float_min_max(comp_ctx,
+                                                      func_ctx,
                                                       is_f32,
                                                       left,
                                                       right,
@@ -886,6 +940,7 @@ compile_op_float_arithmetic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return true;
         case FLOAT_MAX:
             DEF_FP_BINARY_OP(compile_op_float_min_max(comp_ctx,
+                                                      func_ctx,
                                                       is_f32,
                                                       left,
                                                       right,
@@ -904,6 +959,7 @@ fail:
 
 static LLVMValueRef
 call_llvm_float_math_intrinsic(AOTCompContext *comp_ctx,
+                               AOTFuncContext *func_ctx,
                                bool is_f32,
                                const char *intrinsic,
                                ...)
@@ -916,8 +972,8 @@ call_llvm_float_math_intrinsic(AOTCompContext *comp_ctx,
 
     va_start(param_value_list, intrinsic);
 
-    ret = aot_call_llvm_intrinsic_v(comp_ctx, intrinsic, ret_type, &param_type,
-                                    1, param_value_list);
+    ret = aot_call_llvm_intrinsic_v(comp_ctx, func_ctx, intrinsic, ret_type,
+                                    &param_type, 1, param_value_list);
 
     va_end(param_value_list);
 
@@ -931,6 +987,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     switch (math_op) {
         case FLOAT_ABS:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   func_ctx,
                                                    is_f32,
                                                    is_f32 ? "llvm.fabs.f32" :
                                                             "llvm.fabs.f64",
@@ -944,6 +1001,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         case FLOAT_CEIL:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   func_ctx,
                                                    is_f32,
                                                    is_f32 ? "llvm.ceil.f32" :
                                                             "llvm.ceil.f64",
@@ -952,6 +1010,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return true;
         case FLOAT_FLOOR:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   func_ctx,
                                                    is_f32,
                                                    is_f32 ? "llvm.floor.f32":
                                                             "llvm.floor.f64",
@@ -960,6 +1019,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return true;
         case FLOAT_TRUNC:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   func_ctx,
                                                    is_f32,
                                                    is_f32 ? "llvm.trunc.f32" :
                                                             "llvm.trunc.f64",
@@ -968,6 +1028,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             return true;
         case FLOAT_NEAREST:
             DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   func_ctx,
                                                    is_f32,
                                                    is_f32 ? "llvm.rint.f32" :
                                                             "llvm.rint.f64",
@@ -975,8 +1036,10 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             NULL);
             return true;
         case FLOAT_SQRT:
-            if (is_targeting_soft_float(comp_ctx, is_f32))
+            if (is_targeting_soft_float(comp_ctx, is_f32)
+                || comp_ctx->disable_llvm_intrinsics)
                 DEF_FP_UNARY_OP(call_llvm_float_math_intrinsic(comp_ctx,
+                                                   func_ctx,
                                                    is_f32,
                                                    is_f32 ? "llvm.sqrt.f32" :
                                                             "llvm.sqrt.f64",
@@ -985,6 +1048,7 @@ compile_op_float_math(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             else
                 DEF_FP_UNARY_OP(call_llvm_libm_experimental_constrained_intrinsic(
                                            comp_ctx,
+                                           func_ctx,
                                            is_f32,
                                            (is_f32
                                             ? "llvm.experimental.constrained.sqrt.f32"
@@ -1014,6 +1078,7 @@ compile_float_copysign(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     param_types[0] = param_types[1] = ret_type = is_f32 ? F32_TYPE : F64_TYPE;
 
     DEF_FP_BINARY_OP(aot_call_llvm_intrinsic(comp_ctx,
+                                             func_ctx,
                                              is_f32 ? "llvm.copysign.f32" :
                                                       "llvm.copysign.f64",
                                              ret_type,

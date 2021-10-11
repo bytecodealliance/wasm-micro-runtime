@@ -8,121 +8,112 @@
 #include "../aot_emit_exception.h"
 #include "../../aot/aot_runtime.h"
 
+enum integer_shift {
+    e_shift_i8x16,
+    e_shift_i16x8,
+    e_shift_i32x4,
+    e_shift_i64x2,
+};
+
 static bool
 simd_shift(AOTCompContext *comp_ctx,
            AOTFuncContext *func_ctx,
            IntShift shift_op,
-           LLVMTypeRef vector_type,
-           LLVMTypeRef element_type,
-           unsigned lane_width)
+           enum integer_shift itype)
 {
-    LLVMValueRef vector, offset, width, undef, zeros, result;
-    LLVMTypeRef zeros_type;
+    LLVMValueRef vector, offset, result = NULL;
+    LLVMTypeRef vector_type[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
+                                  V128_i32x4_TYPE, V128_i64x2_TYPE };
+    LLVMTypeRef element_type[] = { INT8_TYPE, INT16_TYPE, I32_TYPE, I64_TYPE };
+
+    LLVMValueRef undef[] = { LLVM_CONST(i8x16_undef), LLVM_CONST(i16x8_undef),
+                             LLVM_CONST(i32x4_undef),
+                             LLVM_CONST(i64x2_undef) };
+    LLVMValueRef mask[] = { LLVM_CONST(i8x16_vec_zero),
+                            LLVM_CONST(i16x8_vec_zero),
+                            LLVM_CONST(i32x4_vec_zero),
+                            LLVM_CONST(i64x2_vec_zero) };
+    LLVMValueRef lane_bits[] = {
+        LLVM_CONST(i32_eight),
+        LLVMConstInt(I32_TYPE, 16, true),
+        LLVMConstInt(I32_TYPE, 32, true),
+        LLVMConstInt(I32_TYPE, 64, true),
+    };
 
     POP_I32(offset);
 
-    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
-                                             "vec"))) {
-        goto fail;
+    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
+                                             vector_type[itype], "vec"))) {
+        return false;
     }
 
-    if (!(width = LLVMConstInt(I32_TYPE, lane_width, true))) {
-        HANDLE_FAILURE("LLVMConstInt");
-        goto fail;
+    /* offset mod LaneBits */
+    if (!lane_bits[itype]
+        || !(offset = LLVMBuildSRem(comp_ctx->builder, offset,
+                                    lane_bits[itype], "offset_fix"))) {
+        HANDLE_FAILURE("LLVMBuildSRem");
+        return false;
+    }
+
+    /* change type */
+    if (itype < e_shift_i32x4) {
+        offset = LLVMBuildTrunc(comp_ctx->builder, offset, element_type[itype],
+                                "offset_trunc");
+    }
+    else if (itype == e_shift_i64x2) {
+        offset = LLVMBuildZExt(comp_ctx->builder, offset, element_type[itype],
+                               "offset_ext");
+    }
+
+    if (!offset) {
+        HANDLE_FAILURE("LLVMBuildZext/LLVMBuildTrunc");
+        return false;
+    }
+
+    /* splat to a vector */
+    if (!(offset =
+            LLVMBuildInsertElement(comp_ctx->builder, undef[itype], offset,
+                                   I32_ZERO, "offset_vector_base"))) {
+        HANDLE_FAILURE("LLVMBuildInsertElement");
+        return false;
     }
 
     if (!(offset =
-            LLVMBuildURem(comp_ctx->builder, offset, width, "remainder"))) {
-        HANDLE_FAILURE("LLVMBuildURem");
-        goto fail;
-    }
-
-    if (I64_TYPE == element_type) {
-        if (!(offset = LLVMBuildZExt(comp_ctx->builder, offset, element_type,
-                                     "offset_scalar"))) {
-            HANDLE_FAILURE("LLVMBuildZExt");
-            goto fail;
-        }
-    }
-    else {
-        if (!(offset = LLVMBuildTruncOrBitCast(
-                comp_ctx->builder, offset, element_type, "offset_scalar"))) {
-            HANDLE_FAILURE("LLVMBuildTrunc");
-            goto fail;
-        }
-    }
-
-    /* create a vector with offset */
-    if (!(undef = LLVMGetUndef(vector_type))) {
-        HANDLE_FAILURE("LLVMGetUndef");
-        goto fail;
-    }
-
-    if (!(zeros_type = LLVMVectorType(I32_TYPE, 128 / lane_width))) {
-        HANDLE_FAILURE("LVMVectorType");
-        goto fail;
-    }
-
-    if (!(zeros = LLVMConstNull(zeros_type))) {
-        HANDLE_FAILURE("LLVMConstNull");
-        goto fail;
-    }
-
-    if (!(offset = LLVMBuildInsertElement(comp_ctx->builder, undef, offset,
-                                          I32_ZERO, "base_vector"))) {
-        HANDLE_FAILURE("LLVMBuildInsertElement");
-        goto fail;
-    }
-
-    if (!(offset = LLVMBuildShuffleVector(comp_ctx->builder, offset, undef,
-                                          zeros, "offset_vector"))) {
+            LLVMBuildShuffleVector(comp_ctx->builder, offset, undef[itype],
+                                   mask[itype], "offset_vector"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
-        goto fail;
+        return false;
     }
 
     switch (shift_op) {
         case INT_SHL:
         {
-            if (!(result =
-                    LLVMBuildShl(comp_ctx->builder, vector, offset, "shl"))) {
-                HANDLE_FAILURE("LLVMBuildShl");
-                goto fail;
-            }
+            result = LLVMBuildShl(comp_ctx->builder, vector, offset, "shl");
             break;
         }
         case INT_SHR_S:
         {
-            if (!(result = LLVMBuildAShr(comp_ctx->builder, vector, offset,
-                                         "ashr"))) {
-                HANDLE_FAILURE("LLVMBuildAShr");
-                goto fail;
-            }
+            result = LLVMBuildAShr(comp_ctx->builder, vector, offset, "ashr");
             break;
         }
         case INT_SHR_U:
         {
-            if (!(result = LLVMBuildLShr(comp_ctx->builder, vector, offset,
-                                         "lshr"))) {
-                HANDLE_FAILURE("LLVMBuildLShr");
-                goto fail;
-            }
+            result = LLVMBuildLShr(comp_ctx->builder, vector, offset, "lshr");
             break;
         }
         default:
         {
-            bh_assert(0);
-            goto fail;
+            break;
         }
     }
 
-    if (!(result = LLVMBuildBitCast(comp_ctx->builder, result, V128_i64x2_TYPE,
-                                    "result"))) {
-        HANDLE_FAILURE("LLVMBuildBitCast");
+    if (!result) {
+        HANDLE_FAILURE("LLVMBuildShl/LLVMBuildLShr/LLVMBuildAShr");
         goto fail;
     }
 
-    PUSH_V128(result);
-    return true;
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, result, "result");
+
 fail:
     return false;
 }
@@ -132,8 +123,7 @@ aot_compile_simd_i8x16_shift(AOTCompContext *comp_ctx,
                              AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
-    return simd_shift(comp_ctx, func_ctx, shift_op, V128_i8x16_TYPE, INT8_TYPE,
-                      8);
+    return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i8x16);
 }
 
 bool
@@ -141,8 +131,7 @@ aot_compile_simd_i16x8_shift(AOTCompContext *comp_ctx,
                              AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
-    return simd_shift(comp_ctx, func_ctx, shift_op, V128_i16x8_TYPE,
-                      INT16_TYPE, 16);
+    return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i16x8);
 }
 
 bool
@@ -150,8 +139,7 @@ aot_compile_simd_i32x4_shift(AOTCompContext *comp_ctx,
                              AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
-    return simd_shift(comp_ctx, func_ctx, shift_op, V128_i32x4_TYPE, I32_TYPE,
-                      32);
+    return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i32x4);
 }
 
 bool
@@ -159,6 +147,5 @@ aot_compile_simd_i64x2_shift(AOTCompContext *comp_ctx,
                              AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
-    return simd_shift(comp_ctx, func_ctx, shift_op, V128_i64x2_TYPE, I64_TYPE,
-                      64);
+    return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i64x2);
 }

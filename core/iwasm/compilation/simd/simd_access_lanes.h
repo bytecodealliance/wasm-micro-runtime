@@ -82,6 +82,26 @@ aot_compile_simd_replace_f64x2(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx,
                                uint8 lane_id);
 
+bool
+aot_compile_simd_load8_lane(AOTCompContext *comp_ctx,
+                            AOTFuncContext *func_ctx,
+                            uint8 lane_id);
+
+bool
+aot_compile_simd_load16_lane(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx,
+                             uint8 lane_id);
+
+bool
+aot_compile_simd_load32_lane(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx,
+                             uint8 lane_id);
+
+bool
+aot_compile_simd_load64_lane(AOTCompContext *comp_ctx,
+                             AOTFuncContext *func_ctx,
+                             uint8 lane_id);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

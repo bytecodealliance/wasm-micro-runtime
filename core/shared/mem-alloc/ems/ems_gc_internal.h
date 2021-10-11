@@ -88,16 +88,16 @@ hmu_verify(void *vheap, hmu_t *hmu);
  * hmu bit operation
  */
 
-#define SETBIT(v, offset) (v) |= (1 << (offset))
-#define GETBIT(v, offset) ((v) & (1 << (offset)) ? 1 : 0)
-#define CLRBIT(v, offset) (v) &= (uint32)(~(1 << (offset)))
+#define SETBIT(v, offset) (v) |= ((uint32)1 << (offset))
+#define GETBIT(v, offset) ((v) & ((uint32)1 << (offset)) ? 1 : 0)
+#define CLRBIT(v, offset) (v) &= (~((uint32)1 << (offset)))
 
 #define SETBITS(v, offset, size, value) do {        \
-    (v) &= (uint32)(~(((1 << size) - 1) << offset));\
-    (v) |= (uint32)(value << offset);               \
+    (v) &= ~((((uint32)1 << size) - 1) << offset);  \
+    (v) |= ((uint32)value << offset);               \
   } while(0)
-#define CLRBITS(v, offset, size) (v) &= ~(((1 << size) - 1) << offset)
-#define GETBITS(v, offset, size) (((v) & ((uint32)(((1 << size) - 1) << offset))) >> offset)
+#define CLRBITS(v, offset, size) (v) &= ~((((uint32)1 << size) - 1) << offset)
+#define GETBITS(v, offset, size) (((v) & (((((uint32)1 << size) - 1) << offset))) >> offset)
 
 /**
  * gc object layout definition

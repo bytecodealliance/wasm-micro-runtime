@@ -126,8 +126,16 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_I32(addr);
 
+    /*
+     * Note: not throw the integer-overflow-exception here since it must
+     * have been thrown when converting float to integer before
+     */
     /* return addres directly if constant offset and inside memory space */
-    if (LLVMIsConstant(addr)) {
+    if (LLVMIsConstant(addr) && !LLVMIsUndef(addr)
+#if LLVM_VERSION_NUMBER >= 12
+        && !LLVMIsPoison(addr)
+#endif
+    ) {
         uint64 mem_offset = (uint64)LLVMConstIntGetZExtValue(addr)
                              + (uint64)offset;
         uint32 num_bytes_per_page =
@@ -651,13 +659,14 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     LLVMValueRef mem_size = get_memory_curr_page_count(comp_ctx, func_ctx);
     LLVMValueRef delta, param_values[2], ret_value, func, value;
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
+    int32 func_index;
 
     if (!mem_size)
         return false;
 
     POP_I32(delta);
 
-    /* Function type of wasm_runtime_enlarge_memory() */
+    /* Function type of aot_enlarge_memory() */
     param_types[0] = INT8_PTR_TYPE;
     param_types[1] = I32_TYPE;
     ret_type = INT8_TYPE;
@@ -673,14 +682,29 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             aot_set_last_error("llvm add pointer type failed.");
             return false;
         }
-        if (!(value = I64_CONST((uint64)(uintptr_t)wasm_runtime_enlarge_memory))
+        if (!(value = I64_CONST((uint64)(uintptr_t)aot_enlarge_memory))
             || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {
             aot_set_last_error("create LLVM value failed.");
             return false;
         }
     }
+    else if (comp_ctx->is_indirect_mode) {
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+        func_index =
+          aot_get_native_symbol_index(comp_ctx, "aot_enlarge_memory");
+        if (func_index < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_index))) {
+            return false;
+        }
+    }
     else {
-        char *func_name = "wasm_runtime_enlarge_memory";
+        char *func_name = "aot_enlarge_memory";
         /* AOT mode, delcare the function */
         if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name))
             && !(func = LLVMAddFunction(comp_ctx->module,
@@ -690,7 +714,7 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         }
     }
 
-    /* Call function wasm_runtime_enlarge_memory() */
+    /* Call function aot_enlarge_memory() */
     param_values[0] = func_ctx->aot_inst;
     param_values[1] = delta;
     if (!(ret_value = LLVMBuildCall(comp_ctx->builder, func,
@@ -714,36 +738,6 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 fail:
     return false;
 }
-
-#define GET_AOT_FUNCTION(name, argc) do {                               \
-    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
-                                       argc, false))) {                 \
-        aot_set_last_error("llvm add function type failed.");           \
-        return false;                                                   \
-    }                                                                   \
-    if (comp_ctx->is_jit_mode) {                                        \
-        /* JIT mode, call the function directly */                      \
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
-            aot_set_last_error("llvm add pointer type failed.");        \
-            return false;                                               \
-        }                                                               \
-        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
-            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
-            aot_set_last_error("create LLVM value failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-    else {                                                              \
-        char *func_name = #name;                                        \
-        /* AOT mode, delcare the function */                            \
-        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
-            && !(func = LLVMAddFunction(comp_ctx->module,               \
-                                        func_name, func_type))) {       \
-            aot_set_last_error("llvm add function failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-  } while (0)
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 
@@ -778,8 +772,16 @@ check_bulk_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
+    /*
+     * Note: not throw the integer-overflow-exception here since it must
+     * have been thrown when converting float to integer before
+     */
     /* return addres directly if constant offset and inside memory space */
-    if (LLVMIsConstant(offset) && LLVMIsConstant(bytes)) {
+    if (!LLVMIsUndef(offset) && !LLVMIsUndef(bytes)
+#if LLVM_VERSION_NUMBER >= 12
+        && !LLVMIsPoison(offset) && !LLVMIsPoison(bytes)
+#endif
+        && LLVMIsConstant(offset) && LLVMIsConstant(bytes)) {
         uint64 mem_offset = (uint64)LLVMConstIntGetZExtValue(offset);
         uint64 mem_len = (uint64)LLVMConstIntGetZExtValue(bytes);
         uint32 num_bytes_per_page =
@@ -895,7 +897,7 @@ aot_compile_op_memory_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* If memory.init failed, return this function
         so the runtime can catch the exception */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, mem_init_fail);
-    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+    if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
         goto fail;
     }
 
@@ -953,6 +955,8 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
+    /* TODO: lookup func ptr of "memmove" to call for XIP mode */
+
     if (!(res = LLVMBuildMemMove(comp_ctx->builder, dst_addr, 1,
                                  src_addr, 1, len))) {
         aot_set_last_error("llvm build memmove failed.");
@@ -976,7 +980,13 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    val = LLVMBuildIntCast2(comp_ctx->builder, val, INT8_TYPE, true, "mem_set_value");
+    if (!(val = LLVMBuildIntCast2(comp_ctx->builder, val, INT8_TYPE,
+                                  true, "mem_set_value"))) {
+        aot_set_last_error("llvm build int cast2 failed.");
+        return false;
+    }
+
+    /* TODO: lookup func ptr of "memset" to call for XIP mode */
 
     if (!(res = LLVMBuildMemSet(comp_ctx->builder, dst_addr,
                                 val, len, 1))) {
@@ -1221,7 +1231,7 @@ aot_compile_op_atomic_wait(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* If atomic wait failed, return this function
         so the runtime can catch the exception */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, wait_fail);
-    if (!aot_build_zero_function_ret(comp_ctx, aot_func_type)) {
+    if (!aot_build_zero_function_ret(comp_ctx, func_ctx, aot_func_type)) {
         goto fail;
     }
 

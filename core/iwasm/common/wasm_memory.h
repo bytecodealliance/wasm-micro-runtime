@@ -25,4 +25,3 @@ wasm_runtime_memory_destroy();
 #endif
 
 #endif /* end of _WASM_MEMORY_H */
-

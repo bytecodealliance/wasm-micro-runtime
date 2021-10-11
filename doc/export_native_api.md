@@ -85,7 +85,7 @@ The function signature field in **NativeSymbol** structure is a string for descr
 
 Each letter in the "()" represents a parameter type, and the one following after ")" represents the return value type. The meaning of each letter:
 
-- '**i**': i32 
+- '**i**': i32 or externref (for externref, developer should use `wasm_externref_obj2ref()` to map host object to externref index firstly)
 - '**I**': i64 
 - '**f**': f32
 - '**F**': f64

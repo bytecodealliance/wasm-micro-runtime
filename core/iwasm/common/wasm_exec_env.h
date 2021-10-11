@@ -20,6 +20,9 @@ struct WASMInterpFrame;
 
 #if WASM_ENABLE_THREAD_MGR != 0
 typedef struct WASMCluster WASMCluster;
+#if WASM_ENABLE_DEBUG_INTERP != 0
+typedef struct WASMCurrentEnvStatus WASMCurrentEnvStatus;
+#endif
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -37,8 +40,10 @@ typedef struct WASMExecEnv {
     /* Previous thread's exec env of a WASM module instance. */
     struct WASMExecEnv *prev;
 
-    /* Note: field module_inst, argv_buf and native_stack_boundary
-             are used by AOTed code, don't change the places of them */
+    /* Note: field module_inst, argv_buf, native_stack_boundary,
+       suspend_flags, aux_stack_boundary, aux_stack_bottom, and
+       native_symbol are used by AOTed code, don't change the
+       places of them */
 
     /* The WASM module instance of current thread */
     struct WASMModuleInstanceCommon *module_inst;
@@ -52,10 +57,9 @@ typedef struct WASMExecEnv {
        exception. */
     uint8 *native_stack_boundary;
 
-#if WASM_ENABLE_THREAD_MGR != 0
-    /* Used to terminate or suspend the interpreter
-        bit 0: need terminate
-        bit 1: need suspend
+    /* Used to terminate or suspend current thread
+        bit 0: need to terminate
+        bit 1: need to suspend
         bit 2: need to go into breakpoint
         bit 3: return from pthread_exit */
     union {
@@ -63,11 +67,29 @@ typedef struct WASMExecEnv {
         uintptr_t __padding__;
     } suspend_flags;
 
+    /* Auxiliary stack boundary */
+    union {
+        uint32 boundary;
+        uintptr_t __padding__;
+    } aux_stack_boundary;
+
+    /* Auxiliary stack bottom */
+    union {
+        uint32 bottom;
+        uintptr_t __padding__;
+    } aux_stack_bottom;
+
+#if WASM_ENABLE_AOT != 0
+    /* Native symbol list, reserved */
+    void **native_symbol;
+#endif
+
+#if WASM_ENABLE_THREAD_MGR != 0
     /* thread return value */
     void *thread_ret_value;
 
     /* Must be provided by thread library */
-    void* (*thread_start_routine)(void *);
+    void *(*thread_start_routine)(void *);
     void *thread_arg;
 
     /* pointer to the cluster */
@@ -78,8 +100,9 @@ typedef struct WASMExecEnv {
     korp_cond wait_cond;
 #endif
 
-    /* Aux stack boundary */
-    uint32 aux_stack_boundary;
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    WASMCurrentEnvStatus *current_status;
+#endif
 
     /* attachment for native function */
     void *attachment;
@@ -98,6 +121,10 @@ typedef struct WASMExecEnv {
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMJmpBuf *jmpbuf_stack_top;
+#endif
+
+#if WASM_ENABLE_REF_TYPES != 0
+    uint16 nested_calling_depth;
 #endif
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
@@ -165,8 +192,8 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     {
-        uint32 wasm_stack_used = exec_env->wasm_stack.s.top
-                                 - exec_env->wasm_stack.s.bottom;
+        uint32 wasm_stack_used =
+            exec_env->wasm_stack.s.top - exec_env->wasm_stack.s.bottom;
         if (wasm_stack_used > exec_env->max_wasm_stack_used)
             exec_env->max_wasm_stack_used = wasm_stack_used;
     }
@@ -188,7 +215,7 @@ wasm_exec_env_free_wasm_frame(WASMExecEnv *exec_env, void *prev_top)
  *
  * @return the current WASM stack top pointer
  */
-static inline void*
+static inline void *
 wasm_exec_env_wasm_stack_top(WASMExecEnv *exec_env)
 {
     return exec_env->wasm_stack.s.top;
@@ -214,7 +241,7 @@ wasm_exec_env_set_cur_frame(WASMExecEnv *exec_env,
  *
  * @return the current frame pointer
  */
-static inline struct WASMInterpFrame*
+static inline struct WASMInterpFrame *
 wasm_exec_env_get_cur_frame(WASMExecEnv *exec_env)
 {
     return exec_env->cur_frame;
@@ -225,7 +252,6 @@ wasm_exec_env_get_module_inst(WASMExecEnv *exec_env);
 
 void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env);
-
 
 #if WASM_ENABLE_THREAD_MGR != 0
 void *

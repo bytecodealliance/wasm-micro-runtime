@@ -79,12 +79,12 @@ static char **
 split_string(char *str, int *count)
 {
     char **res = NULL;
-    char *p;
+    char *p, *next_token;
     int idx = 0;
 
     /* split string and append tokens to 'res' */
     do {
-        p = strtok(str, " ");
+        p = strtok_s(str, " ", &next_token);
         str = NULL;
         res = (char **)realloc(res, sizeof(char *) * (uint32)(idx + 1));
         if (res == NULL) {
@@ -118,7 +118,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
    size_t n;
 
    while ((printf("webassembly> "),
-          cmd = fgets(buffer, sizeof(buffer), stdin)) != -1) {
+           cmd = fgets(buffer, sizeof(buffer), stdin)) != NULL) {
        bh_assert(cmd);
        n = strlen(cmd);
        if (cmd[n - 1] == '\n') {
@@ -185,8 +185,8 @@ module_reader_callback(const char *module_name, uint8 **p_buffer,
                        uint32 *p_size)
 {
     const char *format = "%s/%s.wasm";
-    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name) +
-             strlen(".wasm") + 1;
+    uint32 sz = (uint32)(strlen(module_search_path) + strlen("/")
+                         + strlen(module_name) + strlen(".wasm") + 1);
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
         return false;

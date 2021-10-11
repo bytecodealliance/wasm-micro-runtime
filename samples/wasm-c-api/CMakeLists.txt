@@ -13,7 +13,9 @@ endif()
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
+
 ################  runtime settings  ################
+
 string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 if (APPLE)
   add_definitions(-DBH_PLATFORM_DARWIN)
@@ -24,7 +26,23 @@ set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 # WAMR features switch
-set(WAMR_BUILD_TARGET "X86_64")
+
+# Set WAMR_BUILD_TARGET, currently values supported:
+# "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
+# "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
+if (NOT DEFINED WAMR_BUILD_TARGET)
+  if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    set (WAMR_BUILD_TARGET "AARCH64")
+  elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    set (WAMR_BUILD_TARGET "RISCV64")
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Build as X86_64 by default in 64-bit platform
+    set (WAMR_BUILD_TARGET "X86_64")
+  else ()
+    # Build as X86_32 by default in 32-bit platform
+    set (WAMR_BUILD_TARGET "X86_32")
+  endif ()
+endif ()
 
 if(NOT DEFINED WAMR_BUILD_INTERP)
   set(WAMR_BUILD_INTERP 1)
@@ -34,16 +52,18 @@ if(NOT DEFINED WAMR_BUILD_AOT)
   set(WAMR_BUILD_AOT 0)
 endif()
 
-if(NOT DEFINED WAMR_BUILD_JOT)
+if(NOT DEFINED WAMR_BUILD_JIT)
   set(WAMR_BUILD_JIT 0)
 endif()
 
 set(WAMR_BUILD_LIBC_BUILTIN 1)
 set(WAMR_BUILD_LIBC_WASI 0)
 set(WAMR_BUILD_MULTI_MODULE 1)
+set(WAMR_BUILD_DUMP_CALL_STACK 1)
+set(WAMR_BUILD_REF_TYPES 1)
 
 if(NOT DEFINED WAMR_BUILD_FAST_INTERP)
-  set(WAMR_BUILD_FAST_INTERP 0)
+  set(WAMR_BUILD_FAST_INTERP 1)
 endif()
 
 if (NOT MSVC)
@@ -61,13 +81,13 @@ if (NOT MSVC)
 endif()
 # build out vmlib
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(WAMRC ${WAMR_ROOT_DIR}/wamr-compiler/build/wamrc)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 add_library(vmlib STATIC ${WAMR_RUNTIME_LIB_SOURCE})
 if (MSVC)
   target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
 endif()
+target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
 ################################################
 
 ################  application related  ################
@@ -82,33 +102,84 @@ if(NOT WAT2WASM)
   message(SEND_ERROR "can not find wat2wasm")
 endif()
 
+if(${WAMR_BUILD_AOT} EQUAL 1)
+  ## locate wamrc
+  find_program(WAMRC
+    wamrc
+    PATHS ${WAMR_ROOT_DIR}/wamr-compiler/build/
+  )
+
+  if(NOT WAMRC)
+    message(SEND_ERROR "can not find wamrc.  refer to \
+        https://github.com/bytecodealliance/wasm-micro-runtime#build-wamrc-aot-compiler"
+    )
+  endif()
+endif()
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set(MM_UTIL src/utils/multi_module_utils.c)
 # build executable for each .c
-file(GLOB SOURCES src/*.c)
-foreach(SRC ${SOURCES})
-  get_filename_component(APPNAME ${SRC} NAME_WE)
+set(EXAMPLES
+  callback
+  callback_chain
+  global
+  hello
+  hostref
+  memory
+  reflect
+  table
+  trap
+)
 
-  add_executable(${APPNAME} ${SRC} ${UNCOMMON_SHARED_SOURCE} ${MM_UTIL})
-  target_include_directories(${APPNAME} PRIVATE ${UNCOMMON_SHARED_DIR})
-  target_link_libraries(${APPNAME} vmlib -lpthread -lm)
+foreach(EX ${EXAMPLES})
+  set(SRC ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.c)
+
+  add_executable(${EX} ${SRC} ${UNCOMMON_SHARED_SOURCE} ${MM_UTIL})
+  target_include_directories(${EX} PRIVATE ${UNCOMMON_SHARED_DIR})
+  target_link_libraries(${EX} vmlib -lpthread -lm)
   if (MSVC)
-    target_compile_definitions(${APPNAME} PRIVATE WASM_API_EXTERN=)
+    target_compile_definitions(${EX} PRIVATE WASM_API_EXTERN=)
+  endif()
+
+  # wat to wasm
+  set(WAT ${CMAKE_CURRENT_LIST_DIR}/src/${EX}.wat)
+
+  add_custom_target(${EX}_WASM
+    COMMAND ${WAT2WASM} ${WAT} --enable-reference-types -o ${PROJECT_BINARY_DIR}/${EX}.wasm
+    DEPENDS ${WAT}
+    BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.wasm
+    VERBATIM
+  )
+  add_dependencies(${EX} ${EX}_WASM)
+
+  # generate .aot file
+  if(${WAMR_BUILD_AOT} EQUAL 1)
+    add_custom_target(${EX}_AOT
+      COMMAND ${WAMRC} --enable-ref-types -o ${PROJECT_BINARY_DIR}/${EX}.aot
+        ${PROJECT_BINARY_DIR}/${EX}.wasm
+      DEPENDS ${EX}_WASM
+      BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot
+      VERBATIM
+      COMMENT "generate a aot file ${PROJECT_BINARY_DIR}/${EX}.aot"
+    )
+    add_dependencies(${EX} ${EX}_AOT)
   endif()
 endforeach()
 
-# wat to wasm
-file(GLOB WAT_FILES src/*.wat)
-foreach(WAT_FILE ${WAT_FILES})
-  get_filename_component(WATNAME ${WAT_FILE} NAME_WE)
-
-  add_custom_target(${WATNAME}_WASM ALL
-    COMMAND ${WAT2WASM} ${WAT_FILE} -o ${PROJECT_BINARY_DIR}/${WATNAME}.wasm
-    DEPENDS ${WAT_FILE}
-    BYPRODUCTS ${PROJECT_BINARY_DIR}/${WATNAME}.wasm
-    VERBATIM
-    SOURCES ${WAT_FILE}
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  find_program(VALGRIND
+    valgrind
+    REQUIRED
   )
-endforeach()
-################################################
+
+  if(VALGRIND)
+    foreach(EX ${EXAMPLES})
+      add_custom_target(${EX}_LEAK_TEST
+        COMMAND ${VALGRIND} --tool=memcheck --leak-check=yes ./${EX}
+        DEPENDS ${EX} ${EX}_WASM
+        VERBATIM
+        COMMENT "run a leak check on ${EX}"
+      )
+    endforeach()
+  endif (VALGRIND)
+endif (CMAKE_BUILD_TYPE STREQUAL "Debug")

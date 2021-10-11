@@ -19,8 +19,9 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
 
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
 
-- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, RISCV64 and MIPS.
-  - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. Both \<sub-arch> and "_VFP" are optional, e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, ARC, RISCV32, RISCV64 and MIPS.
+  - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. Both \<sub-arch> and "_VFP" are optional, e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+  - For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. \<sub-arch> is optional, e.g. AARCH64, AARCH64V8, AARCH64V8.1 and so on.
   - For RISCV64, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV64, RISCV64_LP64D and RISCV64_LP64: RISCV64 and RISCV64_LP64D are identical, using [LP64D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (LP64 with hardware floating-point calling convention for FLEN=64). And RISCV64_LP64 uses [LP64](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
   - For RISCV32, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV32, RISCV32_ILP32D and RISCV32_ILP32: RISCV32 and RISCV32_ILP32D are identical, using [ILP32D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=64). And RISCV32_ILP32 uses [ILP32](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
 
@@ -40,6 +41,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, default to disable if not set
+- **WAMR_BUILD_LAZY_JIT**=1/0, default to disable if not set
 
 #### **Configure LIBC**
 
@@ -135,6 +137,15 @@ Currently we only profile the memory consumption of module, module_instance and 
 >
 > and then use `cmake -DWAMR_BH_VPRINTF=my_vprintf ..` to pass the callback function, or add `BH_VPRINTF=my_vprintf` macro for the compiler, e.g. add line `add_defintions(-DBH_VPRINTF=my_vprintf)` in CMakeListst.txt.
 
+#### **Enable reference types feature**
+- **WAMR_BUILD_REF_TYPES**=1/0, default to disable if not set
+
+#### **Exclude WAMR application entry functions**
+- **WAMR_DISABLE_APP_ENTRY**=1/0, default to disable if not set
+
+> Note: The WAMR application entry (`core/iwasm/common/wasm_application.c`) encapsulate some common process to instantiate, execute the wasm functions and print the results. Some platform related APIs are used in these functions, so you can enable this flag to exclude this file if your platform doesn't support those APIs.
+> *Don't enable this flag if you are building `product-mini`*
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -188,8 +199,8 @@ make
 ```
 
 
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
-set to X86_64 or X86_32 depending on the platform's bitwidth.
+By default in Linux, the interpreter, AOT and WASI are enabled, and JIT and LazyJIT are disabled.
+And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
 To enable WASM JIT, firstly we should build LLVM:
 
@@ -206,6 +217,11 @@ cd build
 cmake .. -DWAMR_BUILD_JIT=1
 make
 ```
+
+Moreover, pass arguments `-DWAMR_BUILD_JIT=1` and `-DWAMR_BUILD_LAZY_JIT=1` together to cmake to enable WASM Lazy JIT.
+If Lazy JIT is enabled, then jit function bodies in the module will not be compiled until they are first called,
+so compile time reduces significantly.
+
 
 Linux SGX (Intel Software Guard Extension)
 -------------------------
@@ -242,6 +258,7 @@ Then build the source codes:
 ``` Bash
 cd core/deps/
 git clone https://github.com/nodejs/uvwasi.git
+
 cd product-mini/platforms/windows/
 mkdir build
 cd build
@@ -445,14 +462,15 @@ Docker
 
 Make sure you have Docker installed on your machine: [macOS](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/) or [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
 
-Build the Docker image:
+Build *iwasm* with the Docker image:
 
 ``` Bash
-docker build --rm -f "Dockerfile" -t wamr:latest .
+$ cd ci
+$ ./build_wamr.sh
+$ ls ../build_out/
 ```
-Run the image in interactive mode:
-``` Bash
-docker run --rm -it wamr:latest
-```
-You'll now enter the container at `/root`.
 
+*build_wamr.sh* will generate *linux* compatible libraries ( libiwasm.so and
+libvmlib.a ) and an executable binary (*iwasm*) and copy *iwasm* to
+*build_out*. All original generated files are still under
+*product-mini/platforms/linux/build*.

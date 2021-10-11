@@ -20,22 +20,29 @@ extern "C" {
 #define VALUE_TYPE_F32 0x7D
 #define VALUE_TYPE_F64 0x7C
 #define VALUE_TYPE_V128 0x7B
+#define VALUE_TYPE_FUNCREF 0x70
+#define VALUE_TYPE_EXTERNREF 0x6F
 #define VALUE_TYPE_VOID 0x40
 /* Used by AOT */
-#define VALUE_TYPE_I1  0x41
+#define VALUE_TYPE_I1 0x41
 /*  Used by loader to represent any type of i32/i64/f32/f64 */
 #define VALUE_TYPE_ANY 0x42
 
-/* Table Element Type */
-#define TABLE_ELEM_TYPE_ANY_FUNC 0x70
-
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
+
+#define NULL_REF (0xFFFFFFFF)
+
+#define TABLE_MAX_SIZE (1024)
 
 #define INIT_EXPR_TYPE_I32_CONST 0x41
 #define INIT_EXPR_TYPE_I64_CONST 0x42
 #define INIT_EXPR_TYPE_F32_CONST 0x43
 #define INIT_EXPR_TYPE_F64_CONST 0x44
 #define INIT_EXPR_TYPE_V128_CONST 0xFD
+/* = WASM_OP_REF_FUNC */
+#define INIT_EXPR_TYPE_FUNCREF_CONST 0xD2
+/* = WASM_OP_REF_NULL */
+#define INIT_EXPR_TYPE_REFNULL_CONST 0xD0
 #define INIT_EXPR_TYPE_GET_GLOBAL 0x23
 #define INIT_EXPR_TYPE_ERROR 0xff
 
@@ -59,8 +66,8 @@ extern "C" {
 #endif
 
 #define SUB_SECTION_TYPE_MODULE 0
-#define SUB_SECTION_TYPE_FUNC   1
-#define SUB_SECTION_TYPE_LOCAL  2
+#define SUB_SECTION_TYPE_FUNC 1
+#define SUB_SECTION_TYPE_LOCAL 2
 
 #define IMPORT_KIND_FUNC 0
 #define IMPORT_KIND_TABLE 1
@@ -105,6 +112,7 @@ typedef union WASMValue {
 
 typedef struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX */
+    /* it actually is instr, in some places, requires constant only */
     uint8 init_expr_type;
     WASMValue u;
 } InitializerExpression;
@@ -124,6 +132,7 @@ typedef struct WASMTable {
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
+    bool possible_grow;
 } WASMTable;
 
 typedef struct WASMMemory {
@@ -141,6 +150,7 @@ typedef struct WASMTableImport {
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
+    bool possible_grow;
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
     WASMTable *import_table_linked;
@@ -176,6 +186,8 @@ typedef struct WASMFunctionImport {
     WASMModule *import_module;
     WASMFunction *import_func_linked;
 #endif
+    bool call_conv_wasm_c_api;
+    bool wasm_c_api_with_env;
 } WASMFunctionImport;
 
 typedef struct WASMGlobalImport {
@@ -257,6 +269,12 @@ typedef struct WASMExport {
 } WASMExport;
 
 typedef struct WASMTableSeg {
+    /* 0 to 7 */
+    uint32 mode;
+    /* funcref or externref, elemkind will be considered as funcref */
+    uint32 elem_type;
+    bool is_dropped;
+    /* optional, only for active */
     uint32 table_index;
     InitializerExpression base_offset;
     uint32 function_count;
@@ -289,6 +307,7 @@ typedef struct WASIArguments {
     uint32 env_count;
     char **argv;
     uint32 argc;
+    int stdio[3];
 } WASIArguments;
 #endif
 
@@ -297,6 +316,13 @@ typedef struct StringNode {
     char *str;
 } StringNode, *StringList;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+typedef struct WASMFastOPCodeNode {
+    struct WASMFastOPCodeNode *next;
+    uint64 offset;
+    uint8 orig_op;
+} WASMFastOPCodeNode;
+#endif
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -385,6 +411,13 @@ struct WASMModule {
     bh_list import_module_list_head;
     bh_list *import_module_list;
 #endif
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0
+    bh_list fast_opcode_list;
+    uint8 *buf_code;
+    uint8 *load_addr;
+    uint64 load_size;
+    uint64 buf_code_size;
+#endif
 };
 
 typedef struct BlockType {
@@ -416,7 +449,7 @@ typedef struct WASMBranchBlock {
  * @return the aligned value
  */
 inline static unsigned
-align_uint (unsigned v, unsigned b)
+align_uint(unsigned v, unsigned b)
 {
     unsigned m = b - 1;
     return (v + m) & ~m;
@@ -429,7 +462,7 @@ inline static uint32
 wasm_string_hash(const char *str)
 {
     unsigned h = (unsigned)strlen(str);
-    const uint8 *p = (uint8*)str;
+    const uint8 *p = (uint8 *)str;
     const uint8 *end = p + h;
 
     while (p != end)
@@ -456,6 +489,10 @@ wasm_value_type_size(uint8 value_type)
     switch (value_type) {
         case VALUE_TYPE_I32:
         case VALUE_TYPE_F32:
+#if WASM_ENABLE_REF_TYPES != 0
+        case VALUE_TYPE_FUNCREF:
+        case VALUE_TYPE_EXTERNREF:
+#endif
             return sizeof(int32);
         case VALUE_TYPE_I64:
         case VALUE_TYPE_F64:
@@ -475,11 +512,14 @@ wasm_value_type_cell_num(uint8 value_type)
 {
     if (value_type == VALUE_TYPE_VOID)
         return 0;
-    else if (value_type == VALUE_TYPE_I32
-             || value_type == VALUE_TYPE_F32)
+    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32
+#if WASM_ENABLE_REF_TYPES != 0
+             || value_type == VALUE_TYPE_FUNCREF
+             || value_type == VALUE_TYPE_EXTERNREF
+#endif
+    )
         return 1;
-    else if (value_type == VALUE_TYPE_I64
-             || value_type == VALUE_TYPE_F64)
+    else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
         return 2;
 #if WASM_ENABLE_SIMD != 0
     else if (value_type == VALUE_TYPE_V128)
@@ -507,9 +547,10 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
     return (type1->param_count == type2->param_count
             && type1->result_count == type2->result_count
             && memcmp(type1->types, type2->types,
-                      (uint32)(type1->param_count
-                               + type1->result_count)) == 0)
-        ? true : false;
+                      (uint32)(type1->param_count + type1->result_count))
+                   == 0)
+               ? true
+               : false;
 }
 
 inline static uint32
@@ -526,8 +567,7 @@ wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
 }
 
 static inline uint32
-block_type_get_param_types(BlockType *block_type,
-                           uint8 **p_param_types)
+block_type_get_param_types(BlockType *block_type, uint8 **p_param_types)
 {
     uint32 param_count = 0;
     if (!block_type->is_value_type) {
@@ -537,15 +577,14 @@ block_type_get_param_types(BlockType *block_type,
     }
     else {
         *p_param_types = NULL;
-        param_count  = 0;
+        param_count = 0;
     }
 
     return param_count;
 }
 
 static inline uint32
-block_type_get_result_types(BlockType *block_type,
-                            uint8 **p_result_types)
+block_type_get_result_types(BlockType *block_type, uint8 **p_result_types)
 {
     uint32 result_count = 0;
     if (block_type->is_value_type) {

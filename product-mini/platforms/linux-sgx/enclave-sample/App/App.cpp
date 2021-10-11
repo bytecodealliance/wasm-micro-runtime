@@ -97,11 +97,12 @@ enclave_init(sgx_enclave_id_t *p_eid)
      */
     /* try to get the token saved in $HOME */
     home_dir = getpwuid(getuid())->pw_dir;
+    size_t home_dir_len = home_dir ? strlen(home_dir) : 0;
 
     if (home_dir != NULL &&
-        (strlen(home_dir) + strlen("/") + sizeof(TOKEN_FILENAME) + 1) <= MAX_PATH) {
+        home_dir_len <= MAX_PATH - 1 - sizeof(TOKEN_FILENAME) - strlen("/")) {
         /* compose the token path */
-        strncpy(token_path, home_dir, strlen(home_dir));
+        strncpy(token_path, home_dir, MAX_PATH);
         strncat(token_path, "/", strlen("/"));
         strncat(token_path, TOKEN_FILENAME, sizeof(TOKEN_FILENAME) + 1);
     }
@@ -549,20 +550,24 @@ static bool
 set_wasi_args(void *wasm_module,
               const char **dir_list, uint32_t dir_list_size,
               const char **env_list, uint32_t env_list_size,
+              int stdinfd, int stdoutfd, int stderrfd,
               char **argv, uint32_t argc)
 {
-    uint64_t ecall_args[7];
+    uint64_t ecall_args[10];
 
     ecall_args[0] = (uint64_t)(uintptr_t)wasm_module;
     ecall_args[1] = (uint64_t)(uintptr_t)dir_list;
     ecall_args[2] = dir_list_size;
     ecall_args[3] = (uint64_t)(uintptr_t)env_list;
     ecall_args[4] = env_list_size;
-    ecall_args[5] = (uint64_t)(uintptr_t)argv;
-    ecall_args[6] = argc;
+    ecall_args[5] = stdinfd;
+    ecall_args[6] = stdoutfd;
+    ecall_args[7] = stderrfd;
+    ecall_args[8] = (uint64_t)(uintptr_t)argv;
+    ecall_args[9] = argc;
     if (SGX_SUCCESS != ecall_handle_command(g_eid, CMD_SET_WASI_ARGS,
                                             (uint8_t *)ecall_args,
-                                            sizeof(uint64_t) * 7)) {
+                                            sizeof(uint64_t) * 10)) {
         printf("Call ecall_handle_command() failed.\n");
     }
 
@@ -701,7 +706,7 @@ main(int argc, char *argv[])
 
     /* Set wasi arguments */
     if (!set_wasi_args(wasm_module, dir_list, dir_list_size,
-                       env_list, env_list_size, argv, argc)) {
+                       env_list, env_list_size, 0, 1, 2, argv, argc)) {
         printf("%s\n", "set wasi arguments failed.\n");
         goto fail3;
     }
@@ -756,6 +761,7 @@ wamr_pal_init(const struct wamr_pal_attr *args)
         std::cout << "Fail to initialize enclave." << std::endl;
         return 1;
     }
+    return 0;
 }
 
 int
@@ -771,6 +777,9 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
     uint32_t max_thread_num = 4;
     char *wasm_files[16];
     void *wasm_module_inst[16];
+    int stdinfd = -1;
+    int stdoutfd = -1;
+    int stderrfd = -1;
 
     int argc = 2;
     char *argv[argc] = { (char*)"./iwasm", (char *)args->argv[0] };
@@ -792,6 +801,12 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
 
     for (i = 0; i < len; ++i) {
         wasm_files[i] = (char *)args->argv[i];
+    }
+
+    if (args->stdio != NULL) {
+        stdinfd = args->stdio->stdin_fd;
+        stdoutfd = args->stdio->stdout_fd;
+        stderrfd = args->stdio->stderr_fd;
     }
 
     /* Init runtime */
@@ -832,7 +847,9 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
 
         /* Set wasi arguments */
         if (!set_wasi_args(wasm_module, dir_list, dir_list_size,
-                           env_list, env_list_size, argv, argc)) {
+                           env_list, env_list_size,
+                           stdinfd, stdoutfd, stderrfd,
+                           argv, argc)) {
             printf("%s\n", "set wasi arguments failed.\n");
             unload_module(wasm_module);
             free(wasm_file_buf);

@@ -28,6 +28,10 @@ wasm_runtime_get_llvm_stack(wasm_module_inst_t module);
 void
 wasm_runtime_set_llvm_stack(wasm_module_inst_t module, uint32 llvm_stack);
 
+uint32
+wasm_runtime_module_realloc(wasm_module_inst_t module, uint32 ptr,
+                            uint32 size, void **p_native_addr);
+
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
@@ -357,6 +361,21 @@ handle_1_to_9:
                 break;
             }
 
+            case 'f': {
+                float64 f64;
+                char buf[16], *s;
+
+                /* Make 8-byte aligned */
+                ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
+                CHECK_VA_ARG(ap, float64);
+                f64 = _va_arg(ap, float64);
+                snprintf(buf, sizeof(buf), "%f", f64);
+                s = buf;
+                while (*s)
+                    out((int) (*s++), ctx);
+                break;
+            }
+
             default:
                 out((int) '%', ctx);
                 out((int) *fmt, ctx);
@@ -647,13 +666,17 @@ static uint32
 strcpy_wrapper(wasm_exec_env_t exec_env, char *dst, const char *src)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    uint32 len = strlen(src) + 1;
+    uint32 len = (uint32)strlen(src) + 1;
 
     /* src has been checked by runtime */
     if (!validate_native_addr(dst, len))
         return 0;
 
+#ifndef BH_PLATFORM_WINDOWS
     strncpy(dst, src, len);
+#else
+    strncpy_s(dst, len, src, len);
+#endif
     return addr_native_to_app(dst);
 }
 
@@ -667,7 +690,11 @@ strncpy_wrapper(wasm_exec_env_t exec_env,
     if (!validate_native_addr(dst, size))
         return 0;
 
+#ifndef BH_PLATFORM_WINDOWS
     strncpy(dst, src, size);
+#else
+    strncpy_s(dst, size, src, size);
+#endif
     return addr_native_to_app(dst);
 }
 
@@ -704,6 +731,14 @@ calloc_wrapper(wasm_exec_env_t exec_env, uint32 nmemb, uint32 size)
     return ret_offset;
 }
 
+static uint32
+realloc_wrapper(wasm_exec_env_t exec_env, uint32 ptr, uint32 new_size)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+
+    return wasm_runtime_module_realloc(module_inst, ptr, new_size, NULL);
+}
+
 static void
 free_wrapper(wasm_exec_env_t exec_env, void *ptr)
 {
@@ -712,7 +747,7 @@ free_wrapper(wasm_exec_env_t exec_env, void *ptr)
     if (!validate_native_addr(ptr, sizeof(uint32)))
         return;
 
-    return module_free(addr_native_to_app(ptr));
+    module_free(addr_native_to_app(ptr));
 }
 
 static int32
@@ -1033,6 +1068,36 @@ __cxa_throw_wrapper(wasm_exec_env_t exec_env,
     wasm_runtime_set_exception(module_inst, buf);
 }
 
+struct timespec_app {
+    int64 tv_sec;
+    int32 tv_nsec;
+};
+
+static uint32
+clock_gettime_wrapper(wasm_exec_env_t exec_env,
+                      uint32 clk_id, struct timespec_app *ts_app)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    uint64 time;
+
+    if (!validate_native_addr(ts_app, sizeof(struct timespec_app)))
+        return (uint32)-1;
+
+    time = os_time_get_boot_microsecond();
+    ts_app->tv_sec = time / 1000000;
+    ts_app->tv_nsec = (time % 1000000) * 1000;
+
+    return (uint32)0;
+}
+
+static uint64
+clock_wrapper(wasm_exec_env_t exec_env)
+{
+    /* Convert to nano seconds as CLOCKS_PER_SEC in wasi-sdk */
+
+    return os_time_get_boot_microsecond() * 1000;
+}
+
 #if WASM_ENABLE_SPEC_TEST != 0
 static void
 print_wrapper(wasm_exec_env_t exec_env)
@@ -1092,6 +1157,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(strncmp, "(**~)i"),
     REG_NATIVE_FUNC(strncpy, "(**~)i"),
     REG_NATIVE_FUNC(malloc, "(i)i"),
+    REG_NATIVE_FUNC(realloc, "(ii)i"),
     REG_NATIVE_FUNC(calloc, "(ii)i"),
     REG_NATIVE_FUNC(strdup, "($)i"),
     /* clang may introduce __strdup */
@@ -1131,6 +1197,8 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(__cxa_allocate_exception, "(i)i"),
     REG_NATIVE_FUNC(__cxa_begin_catch, "(*)"),
     REG_NATIVE_FUNC(__cxa_throw, "(**i)"),
+    REG_NATIVE_FUNC(clock_gettime, "(i*)i"),
+    REG_NATIVE_FUNC(clock, "()I"),
 };
 
 #if WASM_ENABLE_SPEC_TEST != 0

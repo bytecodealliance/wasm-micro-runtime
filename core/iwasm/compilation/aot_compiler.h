@@ -13,28 +13,8 @@
 extern "C" {
 #endif
 
-typedef enum IntCond {
-  INT_EQZ = 0,
-  INT_EQ,
-  INT_NE,
-  INT_LT_S,
-  INT_LT_U,
-  INT_GT_S,
-  INT_GT_U,
-  INT_LE_S,
-  INT_LE_U,
-  INT_GE_S,
-  INT_GE_U
-} IntCond;
-
-typedef enum FloatCond {
-  FLOAT_EQ = 0,
-  FLOAT_NE,
-  FLOAT_LT,
-  FLOAT_GT,
-  FLOAT_LE,
-  FLOAT_GE
-} FloatCond;
+typedef AOTIntCond IntCond;
+typedef AOTFloatCond FloatCond;
 
 typedef enum IntArithmetic {
   INT_ADD = 0,
@@ -48,11 +28,7 @@ typedef enum IntArithmetic {
 
 typedef enum V128Arithmetic {
   V128_ADD = 0,
-  V128_ADD_SATURATE_S,
-  V128_ADD_SATURATE_U,
   V128_SUB,
-  V128_SUB_SATURATE_S,
-  V128_SUB_SATURATE_U,
   V128_MUL,
   V128_DIV,
   V128_NEG,
@@ -72,7 +48,7 @@ typedef enum V128Bitwise {
   V128_ANDNOT,
   V128_OR,
   V128_XOR,
-  V128_BITSELECT
+  V128_BITSELECT,
 } V128Bitwise;
 
 typedef enum IntShift {
@@ -99,8 +75,36 @@ typedef enum FloatArithmetic {
   FLOAT_MUL,
   FLOAT_DIV,
   FLOAT_MIN,
-  FLOAT_MAX
+  FLOAT_MAX,
 } FloatArithmetic;
+
+static inline bool
+check_type_compatible(uint8 src_type, uint8 dst_type)
+{
+  if (src_type == dst_type) {
+      return true;
+  }
+
+  /* ext i1 to i32 */
+  if (src_type == VALUE_TYPE_I1 && dst_type == VALUE_TYPE_I32) {
+      return true;
+  }
+
+  /* i32 <==> func.ref, i32 <==> extern.ref */
+  if (src_type == VALUE_TYPE_I32
+      && (dst_type == VALUE_TYPE_EXTERNREF
+          || dst_type == VALUE_TYPE_FUNCREF)) {
+      return true;
+  }
+
+  if (dst_type == VALUE_TYPE_I32
+      && (src_type == VALUE_TYPE_FUNCREF
+          || src_type == VALUE_TYPE_EXTERNREF)) {
+      return true;
+  }
+
+  return false;
+}
 
 #define CHECK_STACK() do {                                  \
     if (!func_ctx->block_stack.block_list_end) {            \
@@ -119,11 +123,8 @@ typedef enum FloatArithmetic {
     CHECK_STACK();                                          \
     aot_value = aot_value_stack_pop                         \
       (&func_ctx->block_stack.block_list_end->value_stack); \
-    if ((value_type != VALUE_TYPE_I32                       \
-         && aot_value->type != value_type)                  \
-        || (value_type == VALUE_TYPE_I32                    \
-            && (aot_value->type != VALUE_TYPE_I32           \
-                && aot_value->type != VALUE_TYPE_I1))) {    \
+    if (!check_type_compatible(aot_value->type,             \
+                               value_type)) {               \
       aot_set_last_error("invalid WASM stack data type.");  \
       wasm_runtime_free(aot_value);                         \
       goto fail;                                            \
@@ -131,12 +132,23 @@ typedef enum FloatArithmetic {
     if (aot_value->type == value_type)                      \
       llvm_value = aot_value->value;                        \
     else {                                                  \
-      bh_assert(aot_value->type == VALUE_TYPE_I1);          \
-      if (!(llvm_value = LLVMBuildZExt(comp_ctx->builder,   \
-            aot_value->value, I32_TYPE, "i1toi32"))) {      \
-        aot_set_last_error("invalid WASM stack data type.");\
-        wasm_runtime_free(aot_value);                       \
-        goto fail;                                          \
+      if (aot_value->type == VALUE_TYPE_I1) {               \
+        if (!(llvm_value = LLVMBuildZExt(comp_ctx->builder, \
+              aot_value->value, I32_TYPE, "i1toi32"))) {    \
+          aot_set_last_error("invalid WASM stack "          \
+                             "data type.");                 \
+          wasm_runtime_free(aot_value);                     \
+          goto fail;                                        \
+        }                                                   \
+      }                                                     \
+      else {                                                \
+        bh_assert(aot_value->type == VALUE_TYPE_I32         \
+          || aot_value->type == VALUE_TYPE_FUNCREF          \
+          || aot_value->type == VALUE_TYPE_EXTERNREF);      \
+        bh_assert(value_type == VALUE_TYPE_I32              \
+          || value_type == VALUE_TYPE_FUNCREF               \
+          || value_type == VALUE_TYPE_EXTERNREF);           \
+        llvm_value = aot_value->value;                      \
       }                                                     \
     }                                                       \
     wasm_runtime_free(aot_value);                           \
@@ -147,6 +159,8 @@ typedef enum FloatArithmetic {
 #define POP_F32(v) POP(v, VALUE_TYPE_F32)
 #define POP_F64(v) POP(v, VALUE_TYPE_F64)
 #define POP_V128(v) POP(v, VALUE_TYPE_V128)
+#define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
+#define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
 
 #define POP_COND(llvm_value) do {                           \
     AOTValue *aot_value;                                    \
@@ -198,6 +212,8 @@ typedef enum FloatArithmetic {
 #define PUSH_F64(v) PUSH(v, VALUE_TYPE_F64)
 #define PUSH_V128(v) PUSH(v, VALUE_TYPE_V128)
 #define PUSH_COND(v) PUSH(v, VALUE_TYPE_I1)
+#define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
+#define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
 
 #define TO_LLVM_TYPE(wasm_type) \
     wasm_type_to_llvm_type(&comp_ctx->basic_types, wasm_type)
@@ -217,6 +233,8 @@ typedef enum FloatArithmetic {
 #define INT64_PTR_TYPE comp_ctx->basic_types.int64_ptr_type
 #define F32_PTR_TYPE comp_ctx->basic_types.float32_ptr_type
 #define F64_PTR_TYPE comp_ctx->basic_types.float64_ptr_type
+#define FUNC_REF_TYPE comp_ctx->basic_types.funcref_type
+#define EXTERN_REF_TYPE comp_ctx->basic_types.externref_type
 
 #define I32_CONST(v) LLVMConstInt(I32_TYPE, v, true)
 #define I64_CONST(v) LLVMConstInt(I64_TYPE, v, true)
@@ -224,24 +242,29 @@ typedef enum FloatArithmetic {
 #define F64_CONST(v) LLVMConstReal(F64_TYPE, v)
 #define I8_CONST(v) LLVMConstInt(INT8_TYPE, v, true)
 
-#define I8_ZERO     (comp_ctx->llvm_consts.i8_zero)
-#define I32_ZERO    (comp_ctx->llvm_consts.i32_zero)
-#define I64_ZERO    (comp_ctx->llvm_consts.i64_zero)
-#define F32_ZERO    (comp_ctx->llvm_consts.f32_zero)
-#define F64_ZERO    (comp_ctx->llvm_consts.f64_zero)
-#define I32_ONE     (comp_ctx->llvm_consts.i32_one)
-#define I32_TWO     (comp_ctx->llvm_consts.i32_two)
-#define I32_THREE   (comp_ctx->llvm_consts.i32_three)
-#define I32_FOUR    (comp_ctx->llvm_consts.i32_four)
-#define I32_EIGHT   (comp_ctx->llvm_consts.i32_eight)
-#define I32_NEG_ONE (comp_ctx->llvm_consts.i32_neg_one)
-#define I64_NEG_ONE (comp_ctx->llvm_consts.i64_neg_one)
-#define I32_MIN     (comp_ctx->llvm_consts.i32_min)
-#define I64_MIN     (comp_ctx->llvm_consts.i64_min)
-#define I32_31     (comp_ctx->llvm_consts.i32_31)
-#define I32_32     (comp_ctx->llvm_consts.i32_32)
-#define I64_63     (comp_ctx->llvm_consts.i64_63)
-#define I64_64     (comp_ctx->llvm_consts.i64_64)
+#define LLVM_CONST(name) (comp_ctx->llvm_consts.name)
+#define I8_ZERO     LLVM_CONST(i8_zero)
+#define I32_ZERO    LLVM_CONST(i32_zero)
+#define I64_ZERO    LLVM_CONST(i64_zero)
+#define F32_ZERO    LLVM_CONST(f32_zero)
+#define F64_ZERO    LLVM_CONST(f64_zero)
+#define I32_ONE     LLVM_CONST(i32_one)
+#define I32_TWO     LLVM_CONST(i32_two)
+#define I32_THREE   LLVM_CONST(i32_three)
+#define I32_FOUR    LLVM_CONST(i32_four)
+#define I32_FIVE    LLVM_CONST(i32_five)
+#define I32_SIX     LLVM_CONST(i32_six)
+#define I32_SEVEN   LLVM_CONST(i32_seven)
+#define I32_EIGHT   LLVM_CONST(i32_eight)
+#define I32_NEG_ONE LLVM_CONST(i32_neg_one)
+#define I64_NEG_ONE LLVM_CONST(i64_neg_one)
+#define I32_MIN     LLVM_CONST(i32_min)
+#define I64_MIN     LLVM_CONST(i64_min)
+#define I32_31      LLVM_CONST(i32_31)
+#define I32_32      LLVM_CONST(i32_32)
+#define I64_63      LLVM_CONST(i64_63)
+#define I64_64      LLVM_CONST(i64_64)
+#define REF_NULL    I32_NEG_ONE
 
 #define V128_TYPE       comp_ctx->basic_types.v128_type
 #define V128_PTR_TYPE   comp_ctx->basic_types.v128_ptr_type
@@ -252,13 +275,12 @@ typedef enum FloatArithmetic {
 #define V128_f32x4_TYPE comp_ctx->basic_types.f32x4_vec_type
 #define V128_f64x2_TYPE comp_ctx->basic_types.f64x2_vec_type
 
-#define V128_ZERO       (comp_ctx->llvm_consts.v128_zero)
-#define V128_i8x16_ZERO (comp_ctx->llvm_consts.i8x16_vec_zero)
-#define V128_i16x8_ZERO (comp_ctx->llvm_consts.i16x8_vec_zero)
-#define V128_i32x4_ZERO (comp_ctx->llvm_consts.i32x4_vec_zero)
-#define V128_i64x2_ZERO (comp_ctx->llvm_consts.i64x2_vec_zero)
-#define V128_f32x4_ZERO (comp_ctx->llvm_consts.f32x4_vec_zero)
-#define V128_f64x2_ZERO (comp_ctx->llvm_consts.f64x2_vec_zero)
+#define V128_i8x16_ZERO LLVM_CONST(i8x16_vec_zero)
+#define V128_i16x8_ZERO LLVM_CONST(i16x8_vec_zero)
+#define V128_i32x4_ZERO LLVM_CONST(i32x4_vec_zero)
+#define V128_i64x2_ZERO LLVM_CONST(i64x2_vec_zero)
+#define V128_f32x4_ZERO LLVM_CONST(f32x4_vec_zero)
+#define V128_f64x2_ZERO LLVM_CONST(f64x2_vec_zero)
 
 #define TO_V128_i8x16(v) LLVMBuildBitCast(comp_ctx->builder, v, \
                                           V128_i8x16_TYPE, "i8x16_val")
@@ -280,6 +302,36 @@ typedef enum FloatArithmetic {
     }                                                   \
   } while (0)
 
+#define GET_AOT_FUNCTION(name, argc) do {                               \
+    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
+                                       argc, false))) {                 \
+        aot_set_last_error("llvm add function type failed.");           \
+        return false;                                                   \
+    }                                                                   \
+    if (comp_ctx->is_jit_mode) {                                        \
+        /* JIT mode, call the function directly */                      \
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
+            aot_set_last_error("llvm add pointer type failed.");        \
+            return false;                                               \
+        }                                                               \
+        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
+            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
+            aot_set_last_error("create LLVM value failed.");            \
+            return false;                                               \
+        }                                                               \
+    }                                                                   \
+    else {                                                              \
+        char *func_name = #name;                                        \
+        /* AOT mode, delcare the function */                            \
+        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
+            && !(func = LLVMAddFunction(comp_ctx->module,               \
+                                        func_name, func_type))) {       \
+            aot_set_last_error("llvm add function failed.");            \
+            return false;                                               \
+        }                                                               \
+    }                                                                   \
+  } while (0)
+
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx);
 
@@ -291,8 +343,19 @@ aot_emit_aot_file(AOTCompContext *comp_ctx,
                   AOTCompData *comp_data,
                   const char *file_name);
 
+uint8*
+aot_emit_aot_file_buf(AOTCompContext *comp_ctx,
+                      AOTCompData *comp_data,
+                      uint32 *p_aot_file_size);
+
 bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name);
+
+uint8*
+aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
+                      uint32 opt_level, uint32 size_level,
+                      char *error_buf, uint32 error_buf_size,
+                      uint32 *p_aot_file_size);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

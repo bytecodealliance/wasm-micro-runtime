@@ -10,8 +10,8 @@
 extern "C" {
 #endif
 
-#include "../../../config.h"
 #include "platform_internal.h"
+#include "../../../config.h"
 
 #define BH_MAX_THREAD 32
 
@@ -33,9 +33,18 @@ extern "C" {
 #define BH_FREE os_free
 #endif
 
-#if defined(MSVC)
-__declspec(dllimport) void *BH_MALLOC(unsigned int size);
-__declspec(dllimport) void BH_FREE(void *ptr);
+#ifndef BH_TIME_T_MAX
+#define BH_TIME_T_MAX LONG_MAX
+#endif
+
+#if defined(_MSC_BUILD)
+#if defined(COMPILING_WASM_RUNTIME_API)
+__declspec(dllexport) void *BH_MALLOC(unsigned int size);
+__declspec(dllexport) void BH_FREE(void *ptr);
+#else
+__declspec(dllimport) void* BH_MALLOC(unsigned int size);
+__declspec(dllimport) void BH_FREE(void* ptr);
+#endif
 #else
 void *BH_MALLOC(unsigned int size);
 void BH_FREE(void *ptr);
@@ -71,7 +80,12 @@ int BH_VPRINTF(const char *format, va_list ap);
 
 /* Return the offset of the given field in the given type */
 #ifndef offsetof
+/* GCC 4.0 and later has the builtin. */
+#if defined(__GNUC__) && __GNUC__ >= 4
+#define offsetof(Type, field) __builtin_offsetof(Type, field)
+#else
 #define offsetof(Type, field) ((size_t)(&((Type *)0)->field))
+#endif
 #endif
 
 typedef uint8_t uint8;
