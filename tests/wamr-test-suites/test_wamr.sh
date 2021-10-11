@@ -614,13 +614,15 @@ function trigger()
 
 # if collect code coverage, ignore -s, test all test cases.
 if [[ $TEST_CASE_ARR && $COLLECT_CODE_COVERAGE != 1 ]];then
-    trigger
+    trigger || (echo "TEST FAILED"; exit 1)
 else
     # test all suite, ignore polybench because of long time cost
     TEST_CASE_ARR=("sightglass" "spec" "wasi" "malformed" "standalone")
-    trigger
+    trigger || (echo "TEST FAILED"; exit 1)
     # Add more suites here
 fi
 
 echo -e "\033[32mTest finish. Reports are under ${REPORT_DIR} \033[0m"
 DEBUG set +xEevuo pipefail
+echo "TEST SUCCESSFUL"
+exit 0
