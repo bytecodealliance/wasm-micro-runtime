@@ -14,7 +14,6 @@
 #include "llvm-c/LLJIT.h"
 #endif
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,13 +48,11 @@ char
 LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J);
 
 LLVMErrorRef
-LLVMOrcLLLazyJITAddLLVMIRModule(LLVMOrcLLLazyJITRef J,
-                                LLVMOrcJITDylibRef JD,
+LLVMOrcLLLazyJITAddLLVMIRModule(LLVMOrcLLLazyJITRef J, LLVMOrcJITDylibRef JD,
                                 LLVMOrcThreadSafeModuleRef TSM);
 
 LLVMErrorRef
-LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J,
-                       LLVMOrcJITTargetAddress *Result,
+LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J, LLVMOrcJITTargetAddress *Result,
                        const char *Name);
 
 const char *
@@ -63,8 +60,7 @@ LLVMOrcLLLazyJITGetTripleString(LLVMOrcLLLazyJITRef J);
 
 void
 LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
-                        LLVMOrcLLLazyJITBuilderRef Builder,
-                        LLVMOrcJITTargetMachineBuilderRef JTMB);
+    LLVMOrcLLLazyJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMB);
 
 char
 LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J);
@@ -74,4 +70,3 @@ LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J);
 #endif
 
 #endif /* end of AOT_LLVM_LAZYJIT_H */
-

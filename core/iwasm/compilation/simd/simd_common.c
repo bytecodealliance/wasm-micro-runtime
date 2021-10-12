@@ -7,8 +7,7 @@
 
 LLVMValueRef
 simd_pop_v128_and_bitcast(const AOTCompContext *comp_ctx,
-                          const AOTFuncContext *func_ctx,
-                          LLVMTypeRef vec_type,
+                          const AOTFuncContext *func_ctx, LLVMTypeRef vec_type,
                           const char *name)
 {
     LLVMValueRef number;
@@ -16,7 +15,7 @@ simd_pop_v128_and_bitcast(const AOTCompContext *comp_ctx,
     POP_V128(number);
 
     if (!(number =
-            LLVMBuildBitCast(comp_ctx->builder, number, vec_type, name))) {
+              LLVMBuildBitCast(comp_ctx->builder, number, vec_type, name))) {
         HANDLE_FAILURE("LLVMBuildBitCast");
         goto fail;
     }
@@ -28,8 +27,7 @@ fail:
 
 bool
 simd_bitcast_and_push_v128(const AOTCompContext *comp_ctx,
-                           const AOTFuncContext *func_ctx,
-                           LLVMValueRef vector,
+                           const AOTFuncContext *func_ctx, LLVMValueRef vector,
                            const char *name)
 {
     if (!(vector = LLVMBuildBitCast(comp_ctx->builder, vector, V128_i64x2_TYPE,
@@ -66,8 +64,7 @@ simd_lane_id_to_llvm_value(AOTCompContext *comp_ctx, uint8 lane_id)
 LLVMValueRef
 simd_build_const_integer_vector(const AOTCompContext *comp_ctx,
                                 const LLVMTypeRef element_type,
-                                const int *element_value,
-                                uint32 length)
+                                const int *element_value, uint32 length)
 {
     LLVMValueRef vector = NULL;
     LLVMValueRef *elements;
@@ -79,7 +76,7 @@ simd_build_const_integer_vector(const AOTCompContext *comp_ctx,
 
     for (i = 0; i < length; i++) {
         if (!(elements[i] =
-                LLVMConstInt(element_type, element_value[i], true))) {
+                  LLVMConstInt(element_type, element_value[i], true))) {
             HANDLE_FAILURE("LLVMConstInst");
             goto fail;
         }
@@ -98,8 +95,7 @@ fail:
 LLVMValueRef
 simd_build_splat_const_integer_vector(const AOTCompContext *comp_ctx,
                                       const LLVMTypeRef element_type,
-                                      const int64 element_value,
-                                      uint32 length)
+                                      const int64 element_value, uint32 length)
 {
     LLVMValueRef vector = NULL, element;
     LLVMValueRef *elements;
@@ -131,8 +127,7 @@ fail:
 LLVMValueRef
 simd_build_splat_const_float_vector(const AOTCompContext *comp_ctx,
                                     const LLVMTypeRef element_type,
-                                    const float element_value,
-                                    uint32 length)
+                                    const float element_value, uint32 length)
 {
     LLVMValueRef vector = NULL, element;
     LLVMValueRef *elements;

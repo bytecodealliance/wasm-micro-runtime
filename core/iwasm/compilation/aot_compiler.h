@@ -17,142 +17,144 @@ typedef AOTIntCond IntCond;
 typedef AOTFloatCond FloatCond;
 
 typedef enum IntArithmetic {
-  INT_ADD = 0,
-  INT_SUB,
-  INT_MUL,
-  INT_DIV_S,
-  INT_DIV_U,
-  INT_REM_S,
-  INT_REM_U
+    INT_ADD = 0,
+    INT_SUB,
+    INT_MUL,
+    INT_DIV_S,
+    INT_DIV_U,
+    INT_REM_S,
+    INT_REM_U
 } IntArithmetic;
 
 typedef enum V128Arithmetic {
-  V128_ADD = 0,
-  V128_SUB,
-  V128_MUL,
-  V128_DIV,
-  V128_NEG,
-  V128_MIN,
-  V128_MAX,
+    V128_ADD = 0,
+    V128_SUB,
+    V128_MUL,
+    V128_DIV,
+    V128_NEG,
+    V128_MIN,
+    V128_MAX,
 } V128Arithmetic;
 
 typedef enum IntBitwise {
-  INT_AND = 0,
-  INT_OR,
-  INT_XOR,
+    INT_AND = 0,
+    INT_OR,
+    INT_XOR,
 } IntBitwise;
 
 typedef enum V128Bitwise {
-  V128_NOT,
-  V128_AND,
-  V128_ANDNOT,
-  V128_OR,
-  V128_XOR,
-  V128_BITSELECT,
+    V128_NOT,
+    V128_AND,
+    V128_ANDNOT,
+    V128_OR,
+    V128_XOR,
+    V128_BITSELECT,
 } V128Bitwise;
 
 typedef enum IntShift {
-  INT_SHL = 0,
-  INT_SHR_S,
-  INT_SHR_U,
-  INT_ROTL,
-  INT_ROTR
+    INT_SHL = 0,
+    INT_SHR_S,
+    INT_SHR_U,
+    INT_ROTL,
+    INT_ROTR
 } IntShift;
 
 typedef enum FloatMath {
-  FLOAT_ABS = 0,
-  FLOAT_NEG,
-  FLOAT_CEIL,
-  FLOAT_FLOOR,
-  FLOAT_TRUNC,
-  FLOAT_NEAREST,
-  FLOAT_SQRT
+    FLOAT_ABS = 0,
+    FLOAT_NEG,
+    FLOAT_CEIL,
+    FLOAT_FLOOR,
+    FLOAT_TRUNC,
+    FLOAT_NEAREST,
+    FLOAT_SQRT
 } FloatMath;
 
 typedef enum FloatArithmetic {
-  FLOAT_ADD = 0,
-  FLOAT_SUB,
-  FLOAT_MUL,
-  FLOAT_DIV,
-  FLOAT_MIN,
-  FLOAT_MAX,
+    FLOAT_ADD = 0,
+    FLOAT_SUB,
+    FLOAT_MUL,
+    FLOAT_DIV,
+    FLOAT_MIN,
+    FLOAT_MAX,
 } FloatArithmetic;
 
 static inline bool
 check_type_compatible(uint8 src_type, uint8 dst_type)
 {
-  if (src_type == dst_type) {
-      return true;
-  }
+    if (src_type == dst_type) {
+        return true;
+    }
 
-  /* ext i1 to i32 */
-  if (src_type == VALUE_TYPE_I1 && dst_type == VALUE_TYPE_I32) {
-      return true;
-  }
+    /* ext i1 to i32 */
+    if (src_type == VALUE_TYPE_I1 && dst_type == VALUE_TYPE_I32) {
+        return true;
+    }
 
-  /* i32 <==> func.ref, i32 <==> extern.ref */
-  if (src_type == VALUE_TYPE_I32
-      && (dst_type == VALUE_TYPE_EXTERNREF
-          || dst_type == VALUE_TYPE_FUNCREF)) {
-      return true;
-  }
+    /* i32 <==> func.ref, i32 <==> extern.ref */
+    if (src_type == VALUE_TYPE_I32
+        && (dst_type == VALUE_TYPE_EXTERNREF
+            || dst_type == VALUE_TYPE_FUNCREF)) {
+        return true;
+    }
 
-  if (dst_type == VALUE_TYPE_I32
-      && (src_type == VALUE_TYPE_FUNCREF
-          || src_type == VALUE_TYPE_EXTERNREF)) {
-      return true;
-  }
+    if (dst_type == VALUE_TYPE_I32
+        && (src_type == VALUE_TYPE_FUNCREF
+            || src_type == VALUE_TYPE_EXTERNREF)) {
+        return true;
+    }
 
-  return false;
+    return false;
 }
 
-#define CHECK_STACK() do {                                  \
-    if (!func_ctx->block_stack.block_list_end) {            \
-      aot_set_last_error("WASM block stack underflow.");    \
-      goto fail;                                            \
-    }                                                       \
-    if (!func_ctx->block_stack.block_list_end->             \
-                    value_stack.value_list_end) {           \
-      aot_set_last_error("WASM data stack underflow.");     \
-      goto fail;                                            \
-    }                                                       \
-  } while (0)
+#define CHECK_STACK()                                          \
+    do {                                                       \
+        if (!func_ctx->block_stack.block_list_end) {           \
+            aot_set_last_error("WASM block stack underflow."); \
+            goto fail;                                         \
+        }                                                      \
+        if (!func_ctx->block_stack.block_list_end->value_stack \
+                 .value_list_end) {                            \
+            aot_set_last_error("WASM data stack underflow.");  \
+            goto fail;                                         \
+        }                                                      \
+    } while (0)
 
-#define POP(llvm_value, value_type) do {                    \
-    AOTValue *aot_value;                                    \
-    CHECK_STACK();                                          \
-    aot_value = aot_value_stack_pop                         \
-      (&func_ctx->block_stack.block_list_end->value_stack); \
-    if (!check_type_compatible(aot_value->type,             \
-                               value_type)) {               \
-      aot_set_last_error("invalid WASM stack data type.");  \
-      wasm_runtime_free(aot_value);                         \
-      goto fail;                                            \
-    }                                                       \
-    if (aot_value->type == value_type)                      \
-      llvm_value = aot_value->value;                        \
-    else {                                                  \
-      if (aot_value->type == VALUE_TYPE_I1) {               \
-        if (!(llvm_value = LLVMBuildZExt(comp_ctx->builder, \
-              aot_value->value, I32_TYPE, "i1toi32"))) {    \
-          aot_set_last_error("invalid WASM stack "          \
-                             "data type.");                 \
-          wasm_runtime_free(aot_value);                     \
-          goto fail;                                        \
-        }                                                   \
-      }                                                     \
-      else {                                                \
-        bh_assert(aot_value->type == VALUE_TYPE_I32         \
-          || aot_value->type == VALUE_TYPE_FUNCREF          \
-          || aot_value->type == VALUE_TYPE_EXTERNREF);      \
-        bh_assert(value_type == VALUE_TYPE_I32              \
-          || value_type == VALUE_TYPE_FUNCREF               \
-          || value_type == VALUE_TYPE_EXTERNREF);           \
-        llvm_value = aot_value->value;                      \
-      }                                                     \
-    }                                                       \
-    wasm_runtime_free(aot_value);                           \
-  } while (0)
+#define POP(llvm_value, value_type)                                          \
+    do {                                                                     \
+        AOTValue *aot_value;                                                 \
+        CHECK_STACK();                                                       \
+        aot_value = aot_value_stack_pop(                                     \
+            &func_ctx->block_stack.block_list_end->value_stack);             \
+        if (!check_type_compatible(aot_value->type, value_type)) {           \
+            aot_set_last_error("invalid WASM stack data type.");             \
+            wasm_runtime_free(aot_value);                                    \
+            goto fail;                                                       \
+        }                                                                    \
+        if (aot_value->type == value_type)                                   \
+            llvm_value = aot_value->value;                                   \
+        else {                                                               \
+            if (aot_value->type == VALUE_TYPE_I1) {                          \
+                if (!(llvm_value =                                           \
+                          LLVMBuildZExt(comp_ctx->builder, aot_value->value, \
+                                        I32_TYPE, "i1toi32"))) {             \
+                    aot_set_last_error("invalid WASM stack "                 \
+                                       "data type.");                        \
+                    wasm_runtime_free(aot_value);                            \
+                    goto fail;                                               \
+                }                                                            \
+            }                                                                \
+            else {                                                           \
+                bh_assert(aot_value->type == VALUE_TYPE_I32                  \
+                          || aot_value->type == VALUE_TYPE_FUNCREF           \
+                          || aot_value->type == VALUE_TYPE_EXTERNREF);       \
+                bh_assert(value_type == VALUE_TYPE_I32                       \
+                          || value_type == VALUE_TYPE_FUNCREF                \
+                          || value_type == VALUE_TYPE_EXTERNREF);            \
+                llvm_value = aot_value->value;                               \
+            }                                                                \
+        }                                                                    \
+        wasm_runtime_free(aot_value);                                        \
+    } while (0)
 
 #define POP_I32(v) POP(v, VALUE_TYPE_I32)
 #define POP_I64(v) POP(v, VALUE_TYPE_I64)
@@ -162,49 +164,50 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
 #define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
 
-#define POP_COND(llvm_value) do {                           \
-    AOTValue *aot_value;                                    \
-    CHECK_STACK();                                          \
-    aot_value = aot_value_stack_pop                         \
-      (&func_ctx->block_stack.block_list_end->value_stack); \
-    if (aot_value->type != VALUE_TYPE_I1                    \
-        && aot_value->type != VALUE_TYPE_I32) {             \
-      aot_set_last_error("invalid WASM stack data type.");  \
-      wasm_runtime_free(aot_value);                         \
-      goto fail;                                            \
-    }                                                       \
-    if (aot_value->type == VALUE_TYPE_I1)                   \
-      llvm_value = aot_value->value;                        \
-    else {                                                  \
-      if (!(llvm_value = LLVMBuildICmp(comp_ctx->builder,   \
-                    LLVMIntNE, aot_value->value, I32_ZERO,  \
-                    "i1_cond"))){                           \
-        aot_set_last_error("llvm build trunc failed.");     \
-        wasm_runtime_free(aot_value);                       \
-        goto fail;                                          \
-      }                                                     \
-    }                                                       \
-    wasm_runtime_free(aot_value);                           \
-  } while (0)
+#define POP_COND(llvm_value)                                                   \
+    do {                                                                       \
+        AOTValue *aot_value;                                                   \
+        CHECK_STACK();                                                         \
+        aot_value = aot_value_stack_pop(                                       \
+            &func_ctx->block_stack.block_list_end->value_stack);               \
+        if (aot_value->type != VALUE_TYPE_I1                                   \
+            && aot_value->type != VALUE_TYPE_I32) {                            \
+            aot_set_last_error("invalid WASM stack data type.");               \
+            wasm_runtime_free(aot_value);                                      \
+            goto fail;                                                         \
+        }                                                                      \
+        if (aot_value->type == VALUE_TYPE_I1)                                  \
+            llvm_value = aot_value->value;                                     \
+        else {                                                                 \
+            if (!(llvm_value =                                                 \
+                      LLVMBuildICmp(comp_ctx->builder, LLVMIntNE,              \
+                                    aot_value->value, I32_ZERO, "i1_cond"))) { \
+                aot_set_last_error("llvm build trunc failed.");                \
+                wasm_runtime_free(aot_value);                                  \
+                goto fail;                                                     \
+            }                                                                  \
+        }                                                                      \
+        wasm_runtime_free(aot_value);                                          \
+    } while (0)
 
-#define PUSH(llvm_value, value_type) do {                   \
-    AOTValue *aot_value;                                    \
-    if (!func_ctx->block_stack.block_list_end) {            \
-      aot_set_last_error("WASM block stack underflow.");    \
-      goto fail;                                            \
-    }                                                       \
-    aot_value = wasm_runtime_malloc(sizeof(AOTValue));      \
-    if (!aot_value) {                                       \
-      aot_set_last_error("allocate memory failed.");        \
-      goto fail;                                            \
-    }                                                       \
-    memset(aot_value, 0, sizeof(AOTValue));                 \
-    aot_value->type = value_type;                           \
-    aot_value->value = llvm_value;                          \
-    aot_value_stack_push                                    \
-        (&func_ctx->block_stack.block_list_end->value_stack,\
-         aot_value);                                        \
-  } while (0)
+#define PUSH(llvm_value, value_type)                                        \
+    do {                                                                    \
+        AOTValue *aot_value;                                                \
+        if (!func_ctx->block_stack.block_list_end) {                        \
+            aot_set_last_error("WASM block stack underflow.");              \
+            goto fail;                                                      \
+        }                                                                   \
+        aot_value = wasm_runtime_malloc(sizeof(AOTValue));                  \
+        if (!aot_value) {                                                   \
+            aot_set_last_error("allocate memory failed.");                  \
+            goto fail;                                                      \
+        }                                                                   \
+        memset(aot_value, 0, sizeof(AOTValue));                             \
+        aot_value->type = value_type;                                       \
+        aot_value->value = llvm_value;                                      \
+        aot_value_stack_push(                                               \
+            &func_ctx->block_stack.block_list_end->value_stack, aot_value); \
+    } while (0)
 
 #define PUSH_I32(v) PUSH(v, VALUE_TYPE_I32)
 #define PUSH_I64(v) PUSH(v, VALUE_TYPE_I64)
@@ -243,31 +246,31 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define I8_CONST(v) LLVMConstInt(INT8_TYPE, v, true)
 
 #define LLVM_CONST(name) (comp_ctx->llvm_consts.name)
-#define I8_ZERO     LLVM_CONST(i8_zero)
-#define I32_ZERO    LLVM_CONST(i32_zero)
-#define I64_ZERO    LLVM_CONST(i64_zero)
-#define F32_ZERO    LLVM_CONST(f32_zero)
-#define F64_ZERO    LLVM_CONST(f64_zero)
-#define I32_ONE     LLVM_CONST(i32_one)
-#define I32_TWO     LLVM_CONST(i32_two)
-#define I32_THREE   LLVM_CONST(i32_three)
-#define I32_FOUR    LLVM_CONST(i32_four)
-#define I32_FIVE    LLVM_CONST(i32_five)
-#define I32_SIX     LLVM_CONST(i32_six)
-#define I32_SEVEN   LLVM_CONST(i32_seven)
-#define I32_EIGHT   LLVM_CONST(i32_eight)
+#define I8_ZERO LLVM_CONST(i8_zero)
+#define I32_ZERO LLVM_CONST(i32_zero)
+#define I64_ZERO LLVM_CONST(i64_zero)
+#define F32_ZERO LLVM_CONST(f32_zero)
+#define F64_ZERO LLVM_CONST(f64_zero)
+#define I32_ONE LLVM_CONST(i32_one)
+#define I32_TWO LLVM_CONST(i32_two)
+#define I32_THREE LLVM_CONST(i32_three)
+#define I32_FOUR LLVM_CONST(i32_four)
+#define I32_FIVE LLVM_CONST(i32_five)
+#define I32_SIX LLVM_CONST(i32_six)
+#define I32_SEVEN LLVM_CONST(i32_seven)
+#define I32_EIGHT LLVM_CONST(i32_eight)
 #define I32_NEG_ONE LLVM_CONST(i32_neg_one)
 #define I64_NEG_ONE LLVM_CONST(i64_neg_one)
-#define I32_MIN     LLVM_CONST(i32_min)
-#define I64_MIN     LLVM_CONST(i64_min)
-#define I32_31      LLVM_CONST(i32_31)
-#define I32_32      LLVM_CONST(i32_32)
-#define I64_63      LLVM_CONST(i64_63)
-#define I64_64      LLVM_CONST(i64_64)
-#define REF_NULL    I32_NEG_ONE
+#define I32_MIN LLVM_CONST(i32_min)
+#define I64_MIN LLVM_CONST(i64_min)
+#define I32_31 LLVM_CONST(i32_31)
+#define I32_32 LLVM_CONST(i32_32)
+#define I64_63 LLVM_CONST(i64_63)
+#define I64_64 LLVM_CONST(i64_64)
+#define REF_NULL I32_NEG_ONE
 
-#define V128_TYPE       comp_ctx->basic_types.v128_type
-#define V128_PTR_TYPE   comp_ctx->basic_types.v128_ptr_type
+#define V128_TYPE comp_ctx->basic_types.v128_type
+#define V128_PTR_TYPE comp_ctx->basic_types.v128_ptr_type
 #define V128_i8x16_TYPE comp_ctx->basic_types.i8x16_vec_type
 #define V128_i16x8_TYPE comp_ctx->basic_types.i16x8_vec_type
 #define V128_i32x4_TYPE comp_ctx->basic_types.i32x4_vec_type
@@ -282,55 +285,57 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
 #define V128_f32x4_ZERO LLVM_CONST(f32x4_vec_zero)
 #define V128_f64x2_ZERO LLVM_CONST(f64x2_vec_zero)
 
-#define TO_V128_i8x16(v) LLVMBuildBitCast(comp_ctx->builder, v, \
-                                          V128_i8x16_TYPE, "i8x16_val")
-#define TO_V128_i16x8(v) LLVMBuildBitCast(comp_ctx->builder, v, \
-                                          V128_i16x8_TYPE, "i16x8_val")
-#define TO_V128_i32x4(v) LLVMBuildBitCast(comp_ctx->builder, v, \
-                                          V128_i32x4_TYPE, "i32x4_val")
-#define TO_V128_i64x2(v) LLVMBuildBitCast(comp_ctx->builder, v, \
-                                          V128_i64x2_TYPE, "i64x2_val")
-#define TO_V128_f32x4(v) LLVMBuildBitCast(comp_ctx->builder, v, \
-                                          V128_f32x4_TYPE, "f32x4_val")
-#define TO_V128_f64x2(v) LLVMBuildBitCast(comp_ctx->builder, v, \
-                                          V128_f64x2_TYPE, "f64x2_val")
+#define TO_V128_i8x16(v) \
+    LLVMBuildBitCast(comp_ctx->builder, v, V128_i8x16_TYPE, "i8x16_val")
+#define TO_V128_i16x8(v) \
+    LLVMBuildBitCast(comp_ctx->builder, v, V128_i16x8_TYPE, "i16x8_val")
+#define TO_V128_i32x4(v) \
+    LLVMBuildBitCast(comp_ctx->builder, v, V128_i32x4_TYPE, "i32x4_val")
+#define TO_V128_i64x2(v) \
+    LLVMBuildBitCast(comp_ctx->builder, v, V128_i64x2_TYPE, "i64x2_val")
+#define TO_V128_f32x4(v) \
+    LLVMBuildBitCast(comp_ctx->builder, v, V128_f32x4_TYPE, "f32x4_val")
+#define TO_V128_f64x2(v) \
+    LLVMBuildBitCast(comp_ctx->builder, v, V128_f64x2_TYPE, "f64x2_val")
 
-#define CHECK_LLVM_CONST(v) do {                        \
-    if (!v) {                                           \
-      aot_set_last_error("create llvm const failed.");  \
-      goto fail;                                        \
-    }                                                   \
-  } while (0)
+#define CHECK_LLVM_CONST(v)                                  \
+    do {                                                     \
+        if (!v) {                                            \
+            aot_set_last_error("create llvm const failed."); \
+            goto fail;                                       \
+        }                                                    \
+    } while (0)
 
-#define GET_AOT_FUNCTION(name, argc) do {                               \
-    if (!(func_type = LLVMFunctionType(ret_type, param_types,           \
-                                       argc, false))) {                 \
-        aot_set_last_error("llvm add function type failed.");           \
-        return false;                                                   \
-    }                                                                   \
-    if (comp_ctx->is_jit_mode) {                                        \
-        /* JIT mode, call the function directly */                      \
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
-            aot_set_last_error("llvm add pointer type failed.");        \
-            return false;                                               \
-        }                                                               \
-        if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
-            || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
-            aot_set_last_error("create LLVM value failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-    else {                                                              \
-        char *func_name = #name;                                        \
-        /* AOT mode, delcare the function */                            \
-        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
-            && !(func = LLVMAddFunction(comp_ctx->module,               \
-                                        func_name, func_type))) {       \
-            aot_set_last_error("llvm add function failed.");            \
-            return false;                                               \
-        }                                                               \
-    }                                                                   \
-  } while (0)
+#define GET_AOT_FUNCTION(name, argc)                                        \
+    do {                                                                    \
+        if (!(func_type =                                                   \
+                  LLVMFunctionType(ret_type, param_types, argc, false))) {  \
+            aot_set_last_error("llvm add function type failed.");           \
+            return false;                                                   \
+        }                                                                   \
+        if (comp_ctx->is_jit_mode) {                                        \
+            /* JIT mode, call the function directly */                      \
+            if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
+                aot_set_last_error("llvm add pointer type failed.");        \
+                return false;                                               \
+            }                                                               \
+            if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
+                || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
+                aot_set_last_error("create LLVM value failed.");            \
+                return false;                                               \
+            }                                                               \
+        }                                                                   \
+        else {                                                              \
+            char *func_name = #name;                                        \
+            /* AOT mode, delcare the function */                            \
+            if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
+                && !(func = LLVMAddFunction(comp_ctx->module, func_name,    \
+                                            func_type))) {                  \
+                aot_set_last_error("llvm add function failed.");            \
+                return false;                                               \
+            }                                                               \
+        }                                                                   \
+    } while (0)
 
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx);
@@ -339,27 +344,23 @@ bool
 aot_emit_llvm_file(AOTCompContext *comp_ctx, const char *file_name);
 
 bool
-aot_emit_aot_file(AOTCompContext *comp_ctx,
-                  AOTCompData *comp_data,
+aot_emit_aot_file(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                   const char *file_name);
 
-uint8*
-aot_emit_aot_file_buf(AOTCompContext *comp_ctx,
-                      AOTCompData *comp_data,
+uint8 *
+aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                       uint32 *p_aot_file_size);
 
 bool
 aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name);
 
-uint8*
+uint8 *
 aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
-                      uint32 opt_level, uint32 size_level,
-                      char *error_buf, uint32 error_buf_size,
-                      uint32 *p_aot_file_size);
+                      uint32 opt_level, uint32 size_level, char *error_buf,
+                      uint32 error_buf_size, uint32 *p_aot_file_size);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
 
 #endif /* end of _AOT_COMPILER_H_ */
-

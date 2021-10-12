@@ -83,8 +83,7 @@ write_hex(WASMGDBServer *gdbserver, unsigned long hex)
 }
 
 void
-write_packet_bytes(WASMGDBServer *gdbserver,
-                   const uint8_t *data,
+write_packet_bytes(WASMGDBServer *gdbserver, const uint8_t *data,
                    size_t num_bytes)
 {
     uint8_t checksum;
@@ -106,10 +105,8 @@ write_packet(WASMGDBServer *gdbserver, const char *data)
 }
 
 void
-write_binary_packet(WASMGDBServer *gdbserver,
-                    const char *pfx,
-                    const uint8_t *data,
-                    ssize_t num_bytes)
+write_binary_packet(WASMGDBServer *gdbserver, const char *pfx,
+                    const uint8_t *data, ssize_t num_bytes)
 {
     uint8_t *buf;
     ssize_t pfx_num_chars = strlen(pfx);

@@ -10,8 +10,7 @@
 #include "../../aot/aot_runtime.h"
 
 bool
-aot_compile_simd_v128_const(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx,
+aot_compile_simd_v128_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             const uint8 *imm_bytes)
 {
     uint64 imm1, imm2;
@@ -26,8 +25,8 @@ aot_compile_simd_v128_const(AOTCompContext *comp_ctx,
     }
 
     if (!(agg1 =
-            LLVMBuildInsertElement(comp_ctx->builder, LLVM_CONST(i64x2_undef),
-                                   first_long, I32_ZERO, "agg1"))) {
+              LLVMBuildInsertElement(comp_ctx->builder, LLVM_CONST(i64x2_undef),
+                                     first_long, I32_ZERO, "agg1"))) {
         HANDLE_FAILURE("LLVMBuildInsertElement");
         goto fail;
     }
@@ -51,8 +50,7 @@ fail:
 }
 
 bool
-aot_compile_simd_splat(AOTCompContext *comp_ctx,
-                       AOTFuncContext *func_ctx,
+aot_compile_simd_splat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                        uint8 opcode)
 {
     uint32 opcode_index = opcode - SIMD_i8x16_splat;
@@ -63,9 +61,8 @@ aot_compile_simd_splat(AOTCompContext *comp_ctx,
         LLVM_CONST(f32x4_undef), LLVM_CONST(f64x2_undef),
     };
     LLVMValueRef masks[] = {
-        LLVM_CONST(i32x16_zero), LLVM_CONST(i32x8_zero),
-        LLVM_CONST(i32x4_zero),  LLVM_CONST(i32x2_zero),
-        LLVM_CONST(i32x4_zero),  LLVM_CONST(i32x2_zero),
+        LLVM_CONST(i32x16_zero), LLVM_CONST(i32x8_zero), LLVM_CONST(i32x4_zero),
+        LLVM_CONST(i32x2_zero),  LLVM_CONST(i32x4_zero), LLVM_CONST(i32x2_zero),
     };
 
     switch (opcode) {
@@ -75,7 +72,7 @@ aot_compile_simd_splat(AOTCompContext *comp_ctx,
             POP_I32(input);
             /* trunc i32 %input to i8 */
             value =
-              LLVMBuildTrunc(comp_ctx->builder, input, INT8_TYPE, "trunc");
+                LLVMBuildTrunc(comp_ctx->builder, input, INT8_TYPE, "trunc");
             break;
         }
         case SIMD_i16x8_splat:
@@ -84,7 +81,7 @@ aot_compile_simd_splat(AOTCompContext *comp_ctx,
             POP_I32(input);
             /* trunc i32 %input to i16 */
             value =
-              LLVMBuildTrunc(comp_ctx->builder, input, INT16_TYPE, "trunc");
+                LLVMBuildTrunc(comp_ctx->builder, input, INT16_TYPE, "trunc");
             break;
         }
         case SIMD_i32x4_splat:
@@ -118,23 +115,21 @@ aot_compile_simd_splat(AOTCompContext *comp_ctx,
     }
 
     /* insertelement <n x ty> undef, ty %value, i32 0 */
-    if (!(base =
-            LLVMBuildInsertElement(comp_ctx->builder, undefs[opcode_index],
-                                   value, I32_ZERO, "base"))) {
+    if (!(base = LLVMBuildInsertElement(comp_ctx->builder, undefs[opcode_index],
+                                        value, I32_ZERO, "base"))) {
         HANDLE_FAILURE("LLVMBuildInsertElement");
         goto fail;
     }
 
     /* shufflevector <ty1> %base, <ty2> undef, <n x i32> zeroinitializer */
     if (!(new_vector = LLVMBuildShuffleVector(
-            comp_ctx->builder, base, undefs[opcode_index], masks[opcode_index],
-            "new_vector"))) {
+              comp_ctx->builder, base, undefs[opcode_index],
+              masks[opcode_index], "new_vector"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
         goto fail;
     }
 
-    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, new_vector,
-                                      "result");
+    return simd_bitcast_and_push_v128(comp_ctx, func_ctx, new_vector, "result");
 fail:
     return false;
 }

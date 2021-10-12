@@ -16,8 +16,7 @@ enum integer_all_true {
 };
 
 static bool
-simd_all_true(AOTCompContext *comp_ctx,
-              AOTFuncContext *func_ctx,
+simd_all_true(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
               enum integer_all_true itype)
 {
     LLVMValueRef vector, result;
@@ -56,14 +55,14 @@ simd_all_true(AOTCompContext *comp_ctx,
     }
 
     /* check zero */
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx,
-                                           intrinsic[itype], INT1_TYPE,
-                                           &vector_i1_type, 1, result))) {
+    if (!(result =
+              aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic[itype],
+                                      INT1_TYPE, &vector_i1_type, 1, result))) {
         goto fail;
     }
 
     if (!(result =
-            LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE, "to_i32"))) {
+              LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE, "to_i32"))) {
         HANDLE_FAILURE("LLVMBuildZExt");
         goto fail;
     }
@@ -120,13 +119,13 @@ aot_compile_simd_v128_any_true(AOTCompContext *comp_ctx,
     }
 
     if (!(result = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, "llvm.vector.reduce.or.v128i1", INT1_TYPE,
-            &vector_type, 1, vector))) {
+              comp_ctx, func_ctx, "llvm.vector.reduce.or.v128i1", INT1_TYPE,
+              &vector_type, 1, vector))) {
         goto fail;
     }
 
     if (!(result =
-            LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE, "to_i32"))) {
+              LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE, "to_i32"))) {
         HANDLE_FAILURE("LLVMBuildZExt");
         goto fail;
     }

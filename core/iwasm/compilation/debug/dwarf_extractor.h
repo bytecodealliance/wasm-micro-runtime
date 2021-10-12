@@ -11,8 +11,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 typedef unsigned int LLDBLangType;
-#define LLDB_TO_LLVM_LANG_TYPE(lldb_lang_type)                                \
+#define LLDB_TO_LLVM_LANG_TYPE(lldb_lang_type) \
     (LLVMDWARFSourceLanguage)(((lldb_lang_type) > 0 ? (lldb_lang_type)-1 : 1))
 
 struct AOTCompData;
@@ -35,22 +36,19 @@ LLVMMetadataRef
 dwarf_gen_comp_unit_info(AOTCompContext *comp_ctx);
 
 LLVMMetadataRef
-dwarf_gen_func_info(AOTCompContext *comp_ctx, AOTFuncContext  *func_ctx);
+dwarf_gen_func_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 LLVMMetadataRef
-dwarf_gen_location(AOTCompContext *comp_ctx,
-                   AOTFuncContext *func_ctx,
+dwarf_gen_location(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    uint64_t vm_offset);
 
 LLVMMetadataRef
-dwarf_gen_func_ret_location(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx);
+dwarf_gen_func_ret_location(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 void
-dwarf_get_func_name(AOTCompContext *comp_ctx,
-                    AOTFuncContext *func_ctx,
-                    char *name,
-                    int len);
+dwarf_get_func_name(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                    char *name, int len);
+
 #ifdef __cplusplus
 }
 #endif

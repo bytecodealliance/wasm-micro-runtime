@@ -1,5 +1,7 @@
-// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM
+// Exceptions. See
+// https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license
+// information.
 //
 // Significant parts of this file are derived from cloudabi-utils. See
 // https://github.com/bytecodealliance/wasmtime/blob/main/lib/wasi/sandboxed-system-primitives/src/LICENSE
@@ -12,7 +14,8 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
-void random_buf(void *, size_t);
+void
+random_buf(void *, size_t);
 uintmax_t random_uniform(uintmax_t);
 
 #endif

@@ -1,5 +1,7 @@
-// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM
+// Exceptions. See
+// https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license
+// information.
 //
 // Significant parts of this file are derived from cloudabi-utils. See
 // https://github.com/bytecodealliance/wasmtime/blob/main/lib/wasi/sandboxed-system-primitives/src/LICENSE
@@ -11,6 +13,8 @@
 
 #ifndef RIGHTS_H
 #define RIGHTS_H
+
+/* clang-format off */
 
 #define RIGHTS_ALL                                                         \
   (__WASI_RIGHT_FD_DATASYNC | __WASI_RIGHT_FD_READ |                       \
@@ -79,5 +83,7 @@
    __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET |      \
    __WASI_RIGHT_POLL_FD_READWRITE)
 #define RIGHTS_TTY_INHERITING 0
+
+/* clang-format on */
 
 #endif

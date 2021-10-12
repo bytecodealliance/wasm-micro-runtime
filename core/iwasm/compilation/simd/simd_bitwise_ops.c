@@ -8,8 +8,7 @@
 #include "../../aot/aot_runtime.h"
 
 static bool
-v128_bitwise_two_component(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
+v128_bitwise_two_component(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            V128Bitwise bitwise_op)
 {
     LLVMValueRef vector1, vector2, result;
@@ -27,7 +26,7 @@ v128_bitwise_two_component(AOTCompContext *comp_ctx,
             break;
         case V128_OR:
             if (!(result =
-                    LLVMBuildOr(comp_ctx->builder, vector1, vector2, "or"))) {
+                      LLVMBuildOr(comp_ctx->builder, vector1, vector2, "or"))) {
                 HANDLE_FAILURE("LLVMBuildAnd");
                 goto fail;
             }
@@ -95,7 +94,7 @@ v128_bitwise_bitselect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     POP_V128(vector1);
 
     if (!(vector1 =
-            LLVMBuildAnd(comp_ctx->builder, vector1, vector3, "a_and_c"))) {
+              LLVMBuildAnd(comp_ctx->builder, vector1, vector3, "a_and_c"))) {
         HANDLE_FAILURE("LLVMBuildAdd");
         goto fail;
     }
@@ -106,13 +105,13 @@ v128_bitwise_bitselect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     if (!(vector2 =
-            LLVMBuildAnd(comp_ctx->builder, vector2, vector3, "b_and_c"))) {
+              LLVMBuildAnd(comp_ctx->builder, vector2, vector3, "b_and_c"))) {
         HANDLE_FAILURE("LLVMBuildAdd");
         goto fail;
     }
 
     if (!(result =
-            LLVMBuildOr(comp_ctx->builder, vector1, vector2, "a_or_b"))) {
+              LLVMBuildOr(comp_ctx->builder, vector1, vector2, "a_or_b"))) {
         HANDLE_FAILURE("LLVMBuildOr");
         goto fail;
     }
@@ -126,8 +125,7 @@ fail:
 
 bool
 aot_compile_simd_v128_bitwise(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              V128Bitwise bitwise_op)
+                              AOTFuncContext *func_ctx, V128Bitwise bitwise_op)
 {
     switch (bitwise_op) {
         case V128_AND:

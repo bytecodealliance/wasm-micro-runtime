@@ -7,11 +7,9 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 
-
 uint64
 get_tbl_inst_offset(const AOTCompContext *comp_ctx,
-                    const AOTFuncContext *func_ctx,
-                    uint32 tbl_idx)
+                    const AOTFuncContext *func_ctx, uint32 tbl_idx)
 {
     uint64 offset = 0, i = 0;
     AOTImportTable *imp_tbls = comp_ctx->comp_data->import_tables;
@@ -19,9 +17,9 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
 
     /* from the head of AOTModuleInstance */
     offset =
-      offsetof(AOTModuleInstance, global_table_data.bytes)
-      + (uint64)comp_ctx->comp_data->memory_count * sizeof(AOTMemoryInstance)
-      + comp_ctx->comp_data->global_data_size;
+        offsetof(AOTModuleInstance, global_table_data.bytes)
+        + (uint64)comp_ctx->comp_data->memory_count * sizeof(AOTMemoryInstance)
+        + comp_ctx->comp_data->global_data_size;
 
     while (i < tbl_idx && i < comp_ctx->comp_data->import_table_count) {
         offset += offsetof(AOTTableInstance, data);
@@ -49,14 +47,13 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
 #if WASM_ENABLE_REF_TYPES != 0
 
 LLVMValueRef
-aot_compile_get_tbl_inst(AOTCompContext *comp_ctx,
-                         AOTFuncContext *func_ctx,
+aot_compile_get_tbl_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
     LLVMValueRef offset, tbl_inst;
 
     if (!(offset =
-            I64_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)))) {
+              I64_CONST(get_tbl_inst_offset(comp_ctx, func_ctx, tbl_idx)))) {
         HANDLE_FAILURE("LLVMConstInt");
         goto fail;
     }
@@ -73,8 +70,7 @@ fail:
 }
 
 bool
-aot_compile_op_elem_drop(AOTCompContext *comp_ctx,
-                         AOTFuncContext *func_ctx,
+aot_compile_op_elem_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_seg_idx)
 {
     LLVMTypeRef param_types[2], ret_type, func_type, func_ptr_type;
@@ -95,7 +91,7 @@ aot_compile_op_elem_drop(AOTCompContext *comp_ctx,
 
     /* "" means return void */
     if (!(ret_value =
-            LLVMBuildCall(comp_ctx->builder, func, param_values, 2, ""))) {
+              LLVMBuildCall(comp_ctx->builder, func, param_values, 2, ""))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
     }
@@ -106,10 +102,8 @@ fail:
 }
 
 static bool
-aot_check_table_access(AOTCompContext *comp_ctx,
-                       AOTFuncContext *func_ctx,
-                       uint32 tbl_idx,
-                       LLVMValueRef elem_idx)
+aot_check_table_access(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       uint32 tbl_idx, LLVMValueRef elem_idx)
 {
     LLVMValueRef offset, tbl_sz, cmp_elem_idx;
     LLVMBasicBlockRef check_elem_idx_succ;
@@ -147,7 +141,7 @@ aot_check_table_access(AOTCompContext *comp_ctx,
 
     /* Throw exception if elem index >= table size */
     if (!(check_elem_idx_succ = LLVMAppendBasicBlockInContext(
-            comp_ctx->context, func_ctx->func, "check_elem_idx_succ"))) {
+              comp_ctx->context, func_ctx->func, "check_elem_idx_succ"))) {
         aot_set_last_error("llvm add basic block failed.");
         goto fail;
     }
@@ -166,8 +160,7 @@ fail:
 }
 
 bool
-aot_compile_op_table_get(AOTCompContext *comp_ctx,
-                         AOTFuncContext *func_ctx,
+aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
     LLVMValueRef elem_idx, offset, table_elem, func_idx;
@@ -198,14 +191,14 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx,
     }
 
     /* Load function index */
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx,
-                                    1, "table_elem"))) {
+    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx, 1,
+                                    "table_elem"))) {
         HANDLE_FAILURE("LLVMBuildNUWAdd");
         goto fail;
     }
 
     if (!(func_idx =
-            LLVMBuildLoad(comp_ctx->builder, table_elem, "func_idx"))) {
+              LLVMBuildLoad(comp_ctx->builder, table_elem, "func_idx"))) {
         HANDLE_FAILURE("LLVMBuildLoad");
         goto fail;
     }
@@ -218,8 +211,7 @@ fail:
 }
 
 bool
-aot_compile_op_table_set(AOTCompContext *comp_ctx,
-                         AOTFuncContext *func_ctx,
+aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 tbl_idx)
 {
     LLVMValueRef val, elem_idx, offset, table_elem;
@@ -251,8 +243,8 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx,
     }
 
     /* Load function index */
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx,
-                                    1, "table_elem"))) {
+    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx, 1,
+                                    "table_elem"))) {
         HANDLE_FAILURE("LLVMBuildGEP");
         goto fail;
     }
@@ -268,10 +260,8 @@ fail:
 }
 
 bool
-aot_compile_op_table_init(AOTCompContext *comp_ctx,
-                          AOTFuncContext *func_ctx,
-                          uint32 tbl_idx,
-                          uint32 tbl_seg_idx)
+aot_compile_op_table_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 tbl_idx, uint32 tbl_seg_idx)
 
 {
     LLVMValueRef func, param_values[6], value;
@@ -318,10 +308,8 @@ fail:
 }
 
 bool
-aot_compile_op_table_copy(AOTCompContext *comp_ctx,
-                          AOTFuncContext *func_ctx,
-                          uint32 src_tbl_idx,
-                          uint32 dst_tbl_idx)
+aot_compile_op_table_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                          uint32 src_tbl_idx, uint32 dst_tbl_idx)
 {
     LLVMTypeRef param_types[6], ret_type, func_type, func_ptr_type;
     LLVMValueRef func, param_values[6], value;
@@ -367,8 +355,7 @@ fail:
 }
 
 bool
-aot_compile_op_table_size(AOTCompContext *comp_ctx,
-                          AOTFuncContext *func_ctx,
+aot_compile_op_table_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 tbl_idx)
 {
     LLVMValueRef offset, tbl_sz;
@@ -404,8 +391,7 @@ fail:
 }
 
 bool
-aot_compile_op_table_grow(AOTCompContext *comp_ctx,
-                          AOTFuncContext *func_ctx,
+aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 tbl_idx)
 {
     LLVMTypeRef param_types[4], ret_type, func_type, func_ptr_type;
@@ -445,8 +431,7 @@ fail:
 }
 
 bool
-aot_compile_op_table_fill(AOTCompContext *comp_ctx,
-                          AOTFuncContext *func_ctx,
+aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                           uint32 tbl_idx)
 {
     LLVMTypeRef param_types[5], ret_type, func_type, func_ptr_type;

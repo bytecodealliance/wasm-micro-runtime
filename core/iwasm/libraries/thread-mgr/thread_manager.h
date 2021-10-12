@@ -16,30 +16,28 @@
 extern "C" {
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
-#define WAMR_SIG_TRAP  (5)
-#define WAMR_SIG_STOP  (19)
-#define WAMR_SIG_TERM  (15)
-#define WAMR_SIG_SINGSTEP  (0x1ff)
+#define WAMR_SIG_TRAP (5)
+#define WAMR_SIG_STOP (19)
+#define WAMR_SIG_TERM (15)
+#define WAMR_SIG_SINGSTEP (0x1ff)
 
 #define STATUS_RUNNING (0)
-#define STATUS_STOP    (1)
-#define STATUS_EXIT   (2)
-#define STATUS_STEP   (3)
+#define STATUS_STOP (1)
+#define STATUS_EXIT (2)
+#define STATUS_STEP (3)
 
-#define IS_WAMR_TERM_SIG(signo) \
-    ((signo) == WAMR_SIG_TERM)
+#define IS_WAMR_TERM_SIG(signo) ((signo) == WAMR_SIG_TERM)
 
 #define IS_WAMR_STOP_SIG(signo) \
     ((signo) == WAMR_SIG_STOP || (signo) == WAMR_SIG_TRAP)
 
-typedef struct WASMCurrentEnvStatus
-{
-    uint64 signal_flag:32;
-    uint64 step_count:16;
-    uint64 running_status:16;
+typedef struct WASMCurrentEnvStatus {
+    uint64 signal_flag : 32;
+    uint64 step_count : 16;
+    uint64 running_status : 16;
     korp_mutex wait_lock;
     korp_cond wait_cond;
-}WASMCurrentEnvStatus;
+} WASMCurrentEnvStatus;
 
 WASMCurrentEnvStatus *
 wasm_cluster_create_exenv_status();
@@ -57,7 +55,7 @@ void
 wasm_cluster_thread_waiting_run(WASMExecEnv *exec_env);
 
 void
-wasm_cluster_wait_thread_status(WASMExecEnv *exec_env, uint32 * status);
+wasm_cluster_wait_thread_status(WASMExecEnv *exec_env, uint32 *status);
 
 void
 wasm_cluster_thread_exited(WASMExecEnv *exec_env);
@@ -72,8 +70,7 @@ void
 wasm_cluster_thread_step(WASMExecEnv *exec_env);
 
 #endif
-typedef struct WASMCluster
-{
+typedef struct WASMCluster {
     struct WASMCluster *next;
 
     korp_mutex lock;
@@ -89,7 +86,8 @@ typedef struct WASMCluster
     bool *stack_segment_occupied;
 } WASMCluster;
 
-void wasm_cluster_set_max_thread_num(uint32 num);
+void
+wasm_cluster_set_max_thread_num(uint32 num);
 
 bool
 thread_manager_init();
@@ -106,14 +104,13 @@ void
 wasm_cluster_destroy(WASMCluster *cluster);
 
 /* Get the cluster of the current exec_env */
-WASMCluster*
+WASMCluster *
 wasm_exec_env_get_cluster(WASMExecEnv *exec_env);
 
 int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
                            wasm_module_inst_t module_inst,
-                           void* (*thread_routine)(void *),
-                           void *arg);
+                           void *(*thread_routine)(void *), void *arg);
 
 int32
 wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val);

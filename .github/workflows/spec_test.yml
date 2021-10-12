@@ -6,6 +6,7 @@ on:
   # will be triggered on PR events
   pull_request:
     paths:
+      - "core/config.h"
       - "core/iwasm/**"
       - "core/shared/**"
       - "wamr-compiler/**"
@@ -13,6 +14,7 @@ on:
   # will be triggered on push events
   push:
     paths:
+      - "core/config.h"
       - "core/iwasm/**"
       - "core/shared/**"
       - "wamr-compiler/**"

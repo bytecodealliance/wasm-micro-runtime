@@ -23,25 +23,25 @@ int_cond_to_llvm_op(IntCond cond, LLVMIntPredicate *op)
         case INT_LT_S:
             *op = LLVMIntSLT;
             break;
-        case  INT_LT_U:
+        case INT_LT_U:
             *op = LLVMIntULT;
             break;
         case INT_GT_S:
             *op = LLVMIntSGT;
             break;
-        case  INT_GT_U:
+        case INT_GT_U:
             *op = LLVMIntUGT;
             break;
         case INT_LE_S:
             *op = LLVMIntSLE;
             break;
-        case  INT_LE_U:
+        case INT_LE_U:
             *op = LLVMIntULE;
             break;
         case INT_GE_S:
             *op = LLVMIntSGE;
             break;
-        case  INT_GE_U:
+        case INT_GE_U:
             *op = LLVMIntUGE;
             break;
         default:
@@ -230,4 +230,3 @@ aot_compile_op_f64_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
-

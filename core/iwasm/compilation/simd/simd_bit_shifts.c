@@ -16,10 +16,8 @@ enum integer_shift {
 };
 
 static bool
-simd_shift(AOTCompContext *comp_ctx,
-           AOTFuncContext *func_ctx,
-           IntShift shift_op,
-           enum integer_shift itype)
+simd_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+           IntShift shift_op, enum integer_shift itype)
 {
     LLVMValueRef vector, offset, result = NULL;
     LLVMTypeRef vector_type[] = { V128_i8x16_TYPE, V128_i16x8_TYPE,
@@ -27,8 +25,7 @@ simd_shift(AOTCompContext *comp_ctx,
     LLVMTypeRef element_type[] = { INT8_TYPE, INT16_TYPE, I32_TYPE, I64_TYPE };
 
     LLVMValueRef undef[] = { LLVM_CONST(i8x16_undef), LLVM_CONST(i16x8_undef),
-                             LLVM_CONST(i32x4_undef),
-                             LLVM_CONST(i64x2_undef) };
+                             LLVM_CONST(i32x4_undef), LLVM_CONST(i64x2_undef) };
     LLVMValueRef mask[] = { LLVM_CONST(i8x16_vec_zero),
                             LLVM_CONST(i16x8_vec_zero),
                             LLVM_CONST(i32x4_vec_zero),
@@ -49,8 +46,8 @@ simd_shift(AOTCompContext *comp_ctx,
 
     /* offset mod LaneBits */
     if (!lane_bits[itype]
-        || !(offset = LLVMBuildSRem(comp_ctx->builder, offset,
-                                    lane_bits[itype], "offset_fix"))) {
+        || !(offset = LLVMBuildSRem(comp_ctx->builder, offset, lane_bits[itype],
+                                    "offset_fix"))) {
         HANDLE_FAILURE("LLVMBuildSRem");
         return false;
     }
@@ -72,15 +69,15 @@ simd_shift(AOTCompContext *comp_ctx,
 
     /* splat to a vector */
     if (!(offset =
-            LLVMBuildInsertElement(comp_ctx->builder, undef[itype], offset,
-                                   I32_ZERO, "offset_vector_base"))) {
+              LLVMBuildInsertElement(comp_ctx->builder, undef[itype], offset,
+                                     I32_ZERO, "offset_vector_base"))) {
         HANDLE_FAILURE("LLVMBuildInsertElement");
         return false;
     }
 
     if (!(offset =
-            LLVMBuildShuffleVector(comp_ctx->builder, offset, undef[itype],
-                                   mask[itype], "offset_vector"))) {
+              LLVMBuildShuffleVector(comp_ctx->builder, offset, undef[itype],
+                                     mask[itype], "offset_vector"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
         return false;
     }
@@ -119,32 +116,28 @@ fail:
 }
 
 bool
-aot_compile_simd_i8x16_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i8x16_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
     return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i8x16);
 }
 
 bool
-aot_compile_simd_i16x8_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i16x8_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
     return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i16x8);
 }
 
 bool
-aot_compile_simd_i32x4_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i32x4_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
     return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i32x4);
 }
 
 bool
-aot_compile_simd_i64x2_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i64x2_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op)
 {
     return simd_shift(comp_ctx, func_ctx, shift_op, e_shift_i64x2);

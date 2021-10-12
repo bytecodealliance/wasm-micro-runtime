@@ -1,5 +1,7 @@
-// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM
+// Exceptions. See
+// https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license
+// information.
 //
 // Significant parts of this file are derived from cloudabi-utils. See
 // https://github.com/bytecodealliance/wasmtime/blob/main/lib/wasi/sandboxed-system-primitives/src/LICENSE
@@ -32,13 +34,13 @@
 #define LOCKS_SHARED(...) LOCK_ANNOTATE(shared_lock_function(__VA_ARGS__))
 
 #define TRYLOCKS_EXCLUSIVE(...) \
-  LOCK_ANNOTATE(exclusive_trylock_function(__VA_ARGS__))
+    LOCK_ANNOTATE(exclusive_trylock_function(__VA_ARGS__))
 #define TRYLOCKS_SHARED(...) LOCK_ANNOTATE(shared_trylock_function(__VA_ARGS__))
 
 #define UNLOCKS(...) LOCK_ANNOTATE(unlock_function(__VA_ARGS__))
 
 #define REQUIRES_EXCLUSIVE(...) \
-  LOCK_ANNOTATE(exclusive_locks_required(__VA_ARGS__))
+    LOCK_ANNOTATE(exclusive_locks_required(__VA_ARGS__))
 #define REQUIRES_SHARED(...) LOCK_ANNOTATE(shared_locks_required(__VA_ARGS__))
 #define REQUIRES_UNLOCKED(...) LOCK_ANNOTATE(locks_excluded(__VA_ARGS__))
 
@@ -50,8 +52,10 @@ struct LOCKABLE mutex {
     pthread_mutex_t object;
 };
 
+/* clang-format off */
 #define MUTEX_INITIALIZER \
-  { PTHREAD_MUTEX_INITIALIZER }
+    { PTHREAD_MUTEX_INITIALIZER }
+/* clang-format on */
 
 static inline bool
 mutex_init(struct mutex *lock) REQUIRES_UNLOCKED(*lock)
@@ -117,14 +121,15 @@ rwlock_destroy(struct rwlock *lock) UNLOCKS(*lock) NO_LOCK_ANALYSIS
 
 struct LOCKABLE cond {
     pthread_cond_t object;
-#if !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK || \
-    !CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
+#if !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK \
+    || !CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
     clockid_t clock;
 #endif
 };
 
 static inline bool
-cond_init_monotonic(struct cond *cond) {
+cond_init_monotonic(struct cond *cond)
+{
     bool ret = false;
 #if CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK
     pthread_condattr_t attr;
@@ -147,8 +152,8 @@ fail:
     ret = true;
 #endif
 
-#if !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK || \
-    !CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
+#if !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK \
+    || !CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
     cond->clock = CLOCK_MONOTONIC;
 #endif
     return ret;
@@ -159,28 +164,29 @@ cond_init_realtime(struct cond *cond)
 {
     if (pthread_cond_init(&cond->object, NULL) != 0)
         return false;
-#if !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK || \
-    !CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
+#if !CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK \
+    || !CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
     cond->clock = CLOCK_REALTIME;
 #endif
     return true;
 }
 
 static inline void
-cond_destroy(struct cond *cond) {
+cond_destroy(struct cond *cond)
+{
     pthread_cond_destroy(&cond->object);
 }
 
 static inline void
-cond_signal(struct cond *cond) {
+cond_signal(struct cond *cond)
+{
     pthread_cond_signal(&cond->object);
 }
 
 #if !CONFIG_HAS_CLOCK_NANOSLEEP
 static inline bool
-cond_timedwait(struct cond *cond, struct mutex *lock,
-               uint64_t timeout, bool abstime)
-    REQUIRES_EXCLUSIVE(*lock) NO_LOCK_ANALYSIS
+cond_timedwait(struct cond *cond, struct mutex *lock, uint64_t timeout,
+               bool abstime) REQUIRES_EXCLUSIVE(*lock) NO_LOCK_ANALYSIS
 {
     int ret;
     struct timespec ts = {
@@ -220,8 +226,8 @@ cond_timedwait(struct cond *cond, struct mutex *lock,
     else {
 #if CONFIG_HAS_PTHREAD_COND_TIMEDWAIT_RELATIVE_NP
         /* Implementation supports relative timeouts. */
-        ret = pthread_cond_timedwait_relative_np(&cond->object,
-                                                 &lock->object, &ts);
+        ret = pthread_cond_timedwait_relative_np(&cond->object, &lock->object,
+                                                 &ts);
         bh_assert((ret == 0 || ret == ETIMEDOUT)
                   && "pthread_cond_timedwait_relative_np() failed");
         return ret == ETIMEDOUT;

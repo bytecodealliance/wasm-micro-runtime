@@ -47,8 +47,8 @@ simd_build_bitmask(const AOTCompContext *comp_ctx,
 
     /* fill every bit in a lange with its sign bit */
     if (!(ashr_distance = simd_build_splat_const_integer_vector(
-            comp_ctx, element_type[itype], lane_bits[itype] - 1,
-            lanes[itype]))) {
+              comp_ctx, element_type[itype], lane_bits[itype] - 1,
+              lanes[itype]))) {
         goto fail;
     }
 
@@ -64,8 +64,8 @@ simd_build_bitmask(const AOTCompContext *comp_ctx,
     }
 
     if (e_bitmask_i64x2 != itype) {
-        if (!(vector = LLVMBuildSExt(comp_ctx->builder, vector,
-                                     vector_ext_type, "zext_to_i64"))) {
+        if (!(vector = LLVMBuildSExt(comp_ctx->builder, vector, vector_ext_type,
+                                     "zext_to_i64"))) {
             goto fail;
         }
     }
@@ -74,25 +74,25 @@ simd_build_bitmask(const AOTCompContext *comp_ctx,
         mask_element[i] = 0x1 << i;
     }
 
-    if (!(mask = simd_build_const_integer_vector(
-            comp_ctx, I64_TYPE, mask_element, lanes[itype]))) {
+    if (!(mask = simd_build_const_integer_vector(comp_ctx, I64_TYPE,
+                                                 mask_element, lanes[itype]))) {
         goto fail;
     }
 
     if (!(vector =
-            LLVMBuildAnd(comp_ctx->builder, vector, mask, "mask_bits"))) {
+              LLVMBuildAnd(comp_ctx->builder, vector, mask, "mask_bits"))) {
         HANDLE_FAILURE("LLVMBuildAnd");
         goto fail;
     }
 
     if (!(result =
-            aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic[itype],
-                                    I64_TYPE, &vector_ext_type, 1, vector))) {
+              aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic[itype],
+                                      I64_TYPE, &vector_ext_type, 1, vector))) {
         goto fail;
     }
 
     if (!(result =
-            LLVMBuildTrunc(comp_ctx->builder, result, I32_TYPE, "to_i32"))) {
+              LLVMBuildTrunc(comp_ctx->builder, result, I32_TYPE, "to_i32"))) {
         HANDLE_FAILURE("LLVMBuildTrunc");
         goto fail;
     }

@@ -17,14 +17,12 @@ is_target_x86(AOTCompContext *comp_ctx)
 
 LLVMValueRef
 simd_pop_v128_and_bitcast(const AOTCompContext *comp_ctx,
-                          const AOTFuncContext *func_ctx,
-                          LLVMTypeRef vec_type,
+                          const AOTFuncContext *func_ctx, LLVMTypeRef vec_type,
                           const char *name);
 
 bool
 simd_bitcast_and_push_v128(const AOTCompContext *comp_ctx,
-                           const AOTFuncContext *func_ctx,
-                           LLVMValueRef vector,
+                           const AOTFuncContext *func_ctx, LLVMValueRef vector,
                            const char *name);
 
 LLVMValueRef
@@ -33,18 +31,15 @@ simd_lane_id_to_llvm_value(AOTCompContext *comp_ctx, uint8 lane_id);
 LLVMValueRef
 simd_build_const_integer_vector(const AOTCompContext *comp_ctx,
                                 const LLVMTypeRef element_type,
-                                const int *element_value,
-                                uint32 length);
+                                const int *element_value, uint32 length);
 
 LLVMValueRef
 simd_build_splat_const_integer_vector(const AOTCompContext *comp_ctx,
                                       const LLVMTypeRef element_type,
-                                      const int64 element_value,
-                                      uint32 length);
+                                      const int64 element_value, uint32 length);
 
 LLVMValueRef
 simd_build_splat_const_float_vector(const AOTCompContext *comp_ctx,
                                     const LLVMTypeRef element_type,
-                                    const float element_value,
-                                    uint32 length);
+                                    const float element_value, uint32 length);
 #endif /* _SIMD_COMMON_H_ */

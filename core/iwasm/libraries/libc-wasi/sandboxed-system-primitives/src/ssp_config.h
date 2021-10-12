@@ -1,5 +1,7 @@
-// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM
+// Exceptions. See
+// https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license
+// information.
 //
 // Significant parts of this file are derived from cloudabi-utils. See
 // https://github.com/bytecodealliance/wasmtime/blob/main/lib/wasi/sandboxed-system-primitives/src/LICENSE
@@ -14,7 +16,8 @@
 
 #include <stdlib.h>
 
-#if defined(__FreeBSD__) || defined(__APPLE__) || (defined(ANDROID) && __ANDROID_API__ < 28)
+#if defined(__FreeBSD__) || defined(__APPLE__) \
+    || (defined(ANDROID) && __ANDROID_API__ < 28)
 #define CONFIG_HAS_ARC4RANDOM_BUF 1
 #else
 #define CONFIG_HAS_ARC4RANDOM_BUF 0
@@ -22,10 +25,9 @@
 
 // On Linux, prefer to use getrandom, though it isn't available in
 // GLIBC before 2.25.
-#if defined(__linux__) && \
-    (!defined(__GLIBC__) || \
-     __GLIBC__ > 2 || \
-     (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
+#if defined(__linux__)                       \
+    && (!defined(__GLIBC__) || __GLIBC__ > 2 \
+        || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
 #define CONFIG_HAS_GETRANDOM 1
 #else
 #define CONFIG_HAS_GETRANDOM 0

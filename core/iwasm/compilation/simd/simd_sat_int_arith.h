@@ -15,20 +15,17 @@ extern "C" {
 bool
 aot_compile_simd_i8x16_saturate(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx,
-                                V128Arithmetic arith_op,
-                                bool is_signed);
+                                V128Arithmetic arith_op, bool is_signed);
 
 bool
 aot_compile_simd_i16x8_saturate(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx,
-                                V128Arithmetic arith_op,
-                                bool is_signed);
+                                V128Arithmetic arith_op, bool is_signed);
 
 bool
 aot_compile_simd_i32x4_saturate(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx,
-                                V128Arithmetic arith_op,
-                                bool is_signed);
+                                V128Arithmetic arith_op, bool is_signed);
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
