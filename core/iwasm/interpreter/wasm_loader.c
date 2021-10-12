@@ -3456,6 +3456,8 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf,
         return NULL;
     }
 
+    printf("Hello world!\n");
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     module->load_addr = (uint8 *)buf;
     module->load_size = size;
