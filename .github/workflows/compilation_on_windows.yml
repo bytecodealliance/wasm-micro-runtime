@@ -11,6 +11,13 @@ on:
       - "ci/**"
       - "doc/**"
       - "test-tools/**"
+  # will be triggered on push events
+  push:
+    paths-ignore:
+      - "assembly-script/**"
+      - "ci/**"
+      - "doc/**"
+      - "test-tools/**"
   # allow to be triggered manually
   workflow_dispatch:
 
