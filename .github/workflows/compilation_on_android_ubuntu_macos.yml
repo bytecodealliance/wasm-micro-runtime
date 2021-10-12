@@ -11,6 +11,13 @@ on:
       - "ci/**"
       - "doc/**"
       - "test-tools/**"
+  # will be triggered on push events
+  push:
+    paths-ignore:
+      - "assembly-script/**"
+      - "ci/**"
+      - "doc/**"
+      - "test-tools/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -176,7 +183,7 @@ jobs:
         run: |
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
   build_iwasm:
@@ -304,7 +311,7 @@ jobs:
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options_run_mode }} ${{ matrix.make_options_feature }}
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_samples_wasm_c_api:
@@ -381,7 +388,7 @@ jobs:
         run: |
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
       - name: Build Sample [wasm-c-api]
@@ -389,7 +396,7 @@ jobs:
         run: |
           mkdir build && cd build
           cmake .. ${{ matrix.make_options }}
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
           ./callback
           ./callback_chain
           ./global
@@ -466,7 +473,7 @@ jobs:
         run: |
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
         working-directory: wamr-compiler
 
       - name: Build Sample [basic]
@@ -482,7 +489,7 @@ jobs:
           cd samples/multi-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
           ./iwasm wasm-apps/test.wasm
 
       - name: Build Sample [multi-module]
@@ -491,7 +498,7 @@ jobs:
           cd samples/multi-module
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
           ./multi_module
 
       - name: Build Sample [spawn-thread]
@@ -500,7 +507,7 @@ jobs:
           cd samples/spawn-thread
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
           ./spawn_thread
 
       - name: Build Sample [ref-types]
@@ -509,5 +516,5 @@ jobs:
           cd samples/ref-types
           mkdir build && cd build
           cmake ..
-          cmake --build . --config Release
+          cmake --build . --config Release --parallel 4
           ./hello

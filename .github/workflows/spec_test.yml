@@ -10,6 +10,13 @@ on:
       - "core/shared/**"
       - "wamr-compiler/**"
       - "product-mini/**"
+  # will be triggered on push events
+  push:
+    paths:
+      - "core/iwasm/**"
+      - "core/shared/**"
+      - "wamr-compiler/**"
+      - "product-mini/**"
   # allow to be triggered manually
   workflow_dispatch:
 
