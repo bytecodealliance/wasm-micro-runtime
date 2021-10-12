@@ -4230,6 +4230,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 {
     char error_buf[128] = { 0 };
     uint32 import_count = 0;
+    bool import_count_verified = false;
     wasm_instance_t *instance = NULL;
     uint32 i = 0;
     bool processed = false;
@@ -4265,6 +4266,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                     goto failed;
                 }
             }
+            import_count_verified = true;
         }
 #endif
 
@@ -4285,6 +4287,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                     goto failed;
                 }
             }
+            import_count_verified = true;
         }
 #endif
 
@@ -4292,7 +4295,7 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
          * a wrong combination of module filetype and compilation flags
          * also leads to below branch
          */
-        if (!import_count) {
+        if (!import_count_verified) {
             goto failed;
         }
     }
