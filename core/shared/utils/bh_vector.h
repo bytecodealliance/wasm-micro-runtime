@@ -122,4 +122,3 @@ bh_vector_destroy(Vector *vector);
 #endif
 
 #endif /* endof _WASM_VECTOR_H */
-

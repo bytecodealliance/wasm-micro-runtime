@@ -18,6 +18,7 @@ static char **app_argv;
 
 #define MODULE_PATH ("--module-path=")
 
+/* clang-format off */
 static int
 print_help()
 {
@@ -55,6 +56,7 @@ print_help()
 #endif
     return 1;
 }
+/* clang-format on */
 
 static void *
 app_instance_main(wasm_module_inst_t module_inst)
@@ -194,8 +196,8 @@ module_reader_callback(const char *module_name, uint8 **p_buffer,
                        uint32 *p_size)
 {
     const char *format = "%s/%s.wasm";
-    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name) +
-             strlen(".wasm") + 1;
+    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
+             + strlen(".wasm") + 1;
     char *wasm_file_name = BH_MALLOC(sz);
     if (!wasm_file_name) {
         return false;
@@ -245,12 +247,12 @@ main(int argc, char *argv[])
     uint32 env_list_size = 0;
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    char * ip_addr = NULL;
-    //int platform_port = 0;
+    char *ip_addr = NULL;
+    /* int platform_port = 0; */
     int instance_port = 0;
 #endif
 
-    /* Process options.  */
+    /* Process options. */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
@@ -332,7 +334,7 @@ main(int argc, char *argv[])
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
         else if (!strncmp(argv[0], "-g=", 3)) {
-            char * port_str = strchr(argv[0] + 3, ':');
+            char *port_str = strchr(argv[0] + 3, ':');
             char *port_end;
             if (port_str == NULL)
                 return print_help();
@@ -386,7 +388,7 @@ main(int argc, char *argv[])
 
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf =
-            (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
+              (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
 
     if (is_xip_mode) {
@@ -394,15 +396,15 @@ main(int argc, char *argv[])
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
         int map_flags = MMAP_MAP_NONE;
 
-        if (!(wasm_file_mapped = os_mmap(NULL, (uint32)wasm_file_size,
-                                             map_prot, map_flags))) {
+        if (!(wasm_file_mapped =
+                  os_mmap(NULL, (uint32)wasm_file_size, map_prot, map_flags))) {
             printf("mmap memory failed\n");
             wasm_runtime_free(wasm_file_buf);
             goto fail1;
         }
 
-        bh_memcpy_s(wasm_file_mapped, wasm_file_size,
-                    wasm_file_buf, wasm_file_size);
+        bh_memcpy_s(wasm_file_mapped, wasm_file_size, wasm_file_buf,
+                    wasm_file_size);
         wasm_runtime_free(wasm_file_buf);
         wasm_file_buf = wasm_file_mapped;
     }
@@ -425,8 +427,8 @@ main(int argc, char *argv[])
 
     /* instantiate the module */
     if (!(wasm_module_inst =
-            wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
-                                     error_buf, sizeof(error_buf)))) {
+              wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
+                                       error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail3;
     }

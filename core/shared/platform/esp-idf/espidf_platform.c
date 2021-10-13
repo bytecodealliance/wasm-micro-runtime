@@ -6,7 +6,6 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
-
 int errno = 0;
 
 int
@@ -27,7 +26,8 @@ bh_platform_destroy()
     os_thread_sys_destroy();
 }
 
-int os_printf(const char *format, ...)
+int
+os_printf(const char *format, ...)
 {
     int ret = 0;
     va_list ap;
@@ -66,8 +66,7 @@ os_mprotect(void *addr, size_t size, int prot)
 
 void
 os_dcache_flush()
-{
-}
+{}
 
 int
 atoi(const char *nptr)
@@ -112,11 +111,10 @@ memmove(void *dest, const void *src, size_t n)
             *d++ = *s++;
     }
     else {
-        const char *lasts = s + (n-1);
-        char *lastd = d + (n-1);
+        const char *lasts = s + (n - 1);
+        char *lastd = d + (n - 1);
         while (n--)
             *lastd-- = *lasts--;
     }
     return dest;
 }
-

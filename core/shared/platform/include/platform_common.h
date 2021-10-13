@@ -42,24 +42,27 @@ extern "C" {
 __declspec(dllexport) void *BH_MALLOC(unsigned int size);
 __declspec(dllexport) void BH_FREE(void *ptr);
 #else
-__declspec(dllimport) void* BH_MALLOC(unsigned int size);
-__declspec(dllimport) void BH_FREE(void* ptr);
+__declspec(dllimport) void *BH_MALLOC(unsigned int size);
+__declspec(dllimport) void BH_FREE(void *ptr);
 #endif
 #else
-void *BH_MALLOC(unsigned int size);
-void BH_FREE(void *ptr);
+void *
+BH_MALLOC(unsigned int size);
+void
+BH_FREE(void *ptr);
 #endif
 
 #if defined(BH_VPRINTF)
 #if defined(MSVC)
 __declspec(dllimport) int BH_VPRINTF(const char *format, va_list ap);
 #else
-int BH_VPRINTF(const char *format, va_list ap);
+int
+BH_VPRINTF(const char *format, va_list ap);
 #endif
 #endif
 
 #ifndef NULL
-#define NULL (void*)0
+#define NULL (void *)0
 #endif
 
 #ifndef __cplusplus
@@ -99,8 +102,7 @@ typedef double float64;
 typedef uint64_t uint64;
 typedef int64_t int64;
 
-typedef void* (*thread_start_routine_t)(void*);
-
+typedef void *(*thread_start_routine_t)(void *);
 
 #ifdef __cplusplus
 }

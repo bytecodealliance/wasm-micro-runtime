@@ -13,7 +13,7 @@ extern "C" {
 #include "bh_platform.h"
 
 struct bh_queue_node;
-typedef struct bh_queue_node * bh_message_t;
+typedef struct bh_queue_node *bh_message_t;
 struct bh_queue;
 typedef struct bh_queue bh_queue;
 
@@ -45,25 +45,30 @@ bh_queue_create();
 void
 bh_queue_destroy(bh_queue *queue);
 
-char * bh_message_payload(bh_message_t message);
-uint32 bh_message_payload_len(bh_message_t message);
-int bh_message_type(bh_message_t message);
+char *
+bh_message_payload(bh_message_t message);
+uint32
+bh_message_payload_len(bh_message_t message);
+int
+bh_message_type(bh_message_t message);
 
-bh_message_t bh_new_msg(unsigned short tag, void *body, unsigned int len,
-                        void * handler);
-void bh_free_msg(bh_message_t msg);
-bool bh_post_msg(bh_queue *queue, unsigned short tag, void *body,
-                 unsigned int len);
-bool bh_post_msg2(bh_queue *queue, bh_message_t msg);
+bh_message_t
+bh_new_msg(unsigned short tag, void *body, unsigned int len, void *handler);
+void
+bh_free_msg(bh_message_t msg);
+bool
+bh_post_msg(bh_queue *queue, unsigned short tag, void *body, unsigned int len);
+bool
+bh_post_msg2(bh_queue *queue, bh_message_t msg);
 
-bh_message_t bh_get_msg(bh_queue *queue, uint64 timeout_us);
+bh_message_t
+bh_get_msg(bh_queue *queue, uint64 timeout_us);
 
 unsigned
 bh_queue_get_message_count(bh_queue *queue);
 
 void
-bh_queue_enter_loop_run(bh_queue *queue,
-                        bh_queue_handle_msg_callback handle_cb,
+bh_queue_enter_loop_run(bh_queue *queue, bh_queue_handle_msg_callback handle_cb,
                         void *arg);
 void
 bh_queue_exit_loop_run(bh_queue *queue);
@@ -73,4 +78,3 @@ bh_queue_exit_loop_run(bh_queue *queue);
 #endif
 
 #endif /* #ifndef _BH_QUEUE_H */
-

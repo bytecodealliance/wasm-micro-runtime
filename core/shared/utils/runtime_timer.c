@@ -12,7 +12,7 @@
 #endif
 
 typedef struct _app_timer {
-    struct _app_timer * next;
+    struct _app_timer *next;
     uint32 id;
     uint32 interval;
     uint64 expiry;
@@ -81,13 +81,13 @@ remove_timer_from(timer_ctx_t ctx, uint32 timer_id, bool active_list)
         if (t->id == timer_id) {
             if (prev == NULL) {
                 *head = t->next;
-                PRINT("removed timer [%d] at head from list %d\n",
-                      t->id, active_list);
+                PRINT("removed timer [%d] at head from list %d\n", t->id,
+                      active_list);
             }
             else {
                 prev->next = t->next;
-                PRINT("removed timer [%d] after [%d] from list %d\n",
-                      t->id, prev->id, active_list);
+                PRINT("removed timer [%d] after [%d] from list %d\n", t->id,
+                      prev->id, active_list);
             }
             os_mutex_unlock(&ctx->mutex);
 
@@ -143,8 +143,8 @@ reschedule_timer(timer_ctx_t ctx, app_timer_t *timer)
             else {
                 timer->next = t;
                 prev->next = timer;
-                PRINT("rescheduled timer [%d] after [%d]\n",
-                      timer->id, prev->id);
+                PRINT("rescheduled timer [%d] after [%d]\n", timer->id,
+                      prev->id);
             }
 
             goto out;
@@ -158,8 +158,8 @@ reschedule_timer(timer_ctx_t ctx, app_timer_t *timer)
     if (prev) {
         /* insert to the list end */
         prev->next = timer;
-        PRINT("rescheduled timer [%d] at end, after [%d]\n",
-              timer->id, prev->id);
+        PRINT("rescheduled timer [%d] at end, after [%d]\n", timer->id,
+              prev->id);
     }
     else {
         /* insert at the begin */
@@ -213,8 +213,8 @@ release_timer_list(app_timer_t **p_list)
 
 timer_ctx_t
 create_timer_ctx(timer_callback_f timer_handler,
-                 check_timer_expiry_f expiery_checker,
-                 int prealloc_num, unsigned int owner)
+                 check_timer_expiry_f expiery_checker, int prealloc_num,
+                 unsigned int owner)
 {
     timer_ctx_t ctx = (timer_ctx_t)BH_MALLOC(sizeof(struct _timer_ctx));
 
@@ -229,7 +229,7 @@ create_timer_ctx(timer_callback_f timer_handler,
     ctx->owner = owner;
 
     while (prealloc_num > 0) {
-        app_timer_t *timer = (app_timer_t*)BH_MALLOC(sizeof(app_timer_t));
+        app_timer_t *timer = (app_timer_t *)BH_MALLOC(sizeof(app_timer_t));
 
         if (timer == NULL)
             goto cleanup;
@@ -283,7 +283,7 @@ timer_ctx_get_owner(timer_ctx_t ctx)
 }
 
 void
-add_idle_timer(timer_ctx_t ctx, app_timer_t * timer)
+add_idle_timer(timer_ctx_t ctx, app_timer_t *timer)
 {
     os_mutex_lock(&ctx->mutex);
     timer->next = ctx->idle_timers;
@@ -292,8 +292,7 @@ add_idle_timer(timer_ctx_t ctx, app_timer_t * timer)
 }
 
 uint32
-sys_create_timer(timer_ctx_t ctx, int interval, bool is_period,
-                 bool auto_start)
+sys_create_timer(timer_ctx_t ctx, int interval, bool is_period, bool auto_start)
 {
     app_timer_t *timer;
 
@@ -307,7 +306,7 @@ sys_create_timer(timer_ctx_t ctx, int interval, bool is_period,
         }
     }
     else {
-        timer = (app_timer_t*)BH_MALLOC(sizeof(app_timer_t));
+        timer = (app_timer_t *)BH_MALLOC(sizeof(app_timer_t));
         if (timer == NULL)
             return (uint32)-1;
     }
@@ -333,7 +332,7 @@ bool
 sys_timer_cancel(timer_ctx_t ctx, uint32 timer_id)
 {
     bool from_active;
-    app_timer_t * t = remove_timer(ctx, timer_id, &from_active);
+    app_timer_t *t = remove_timer(ctx, timer_id, &from_active);
 
     if (t == NULL)
         return false;
@@ -348,7 +347,7 @@ bool
 sys_timer_destroy(timer_ctx_t ctx, uint32 timer_id)
 {
     bool from_active;
-    app_timer_t * t = remove_timer(ctx, timer_id, &from_active);
+    app_timer_t *t = remove_timer(ctx, timer_id, &from_active);
 
     if (t == NULL)
         return false;
@@ -362,7 +361,7 @@ sys_timer_destroy(timer_ctx_t ctx, uint32 timer_id)
 bool
 sys_timer_restart(timer_ctx_t ctx, uint32 timer_id, int interval)
 {
-    app_timer_t * t = remove_timer(ctx, timer_id, NULL);
+    app_timer_t *t = remove_timer(ctx, timer_id, NULL);
 
     if (t == NULL)
         return false;
@@ -376,7 +375,8 @@ sys_timer_restart(timer_ctx_t ctx, uint32 timer_id, int interval)
 }
 
 /*
- * API called by the timer manager from another thread or the kernel timer handler
+ * API called by the timer manager from another thread or the kernel timer
+ * handler
  */
 
 /**
@@ -467,4 +467,3 @@ cleanup_app_timers(timer_ctx_t ctx)
 
     os_mutex_unlock(&ctx->mutex);
 }
-

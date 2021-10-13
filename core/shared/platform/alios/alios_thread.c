@@ -6,14 +6,16 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+/* clang-format off */
 #define bh_assert(v) do {                                   \
-     if (!(v)) {                                            \
-       printf("\nASSERTION FAILED: %s, at %s, line %d\n",   \
-              #v, __FILE__, __LINE__);                      \
-       aos_reboot();                                        \
-       while (1);                                           \
-     }                                                      \
-  } while (0)
+    if (!(v)) {                                             \
+        printf("\nASSERTION FAILED: %s, at %s, line %d\n",  \
+               #v, __FILE__, __LINE__);                     \
+        aos_reboot();                                       \
+        while (1);                                          \
+    }                                                       \
+} while (0)
+/* clang-format on */
 
 struct os_thread_data;
 typedef struct os_thread_wait_node {
@@ -138,8 +140,8 @@ os_thread_wrapper(void *arg)
 }
 
 int
-os_thread_create(korp_tid *p_tid, thread_start_routine_t start,
-                 void *arg, unsigned int stack_size)
+os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
+                 unsigned int stack_size)
 {
     return os_thread_create_with_prio(p_tid, start, arg, stack_size,
                                       BH_THREAD_DEFAULT_PRIORITY);
@@ -170,13 +172,12 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     if (aos_mutex_new(&thread_data->wait_list_lock))
         goto fail2;
 
-    snprintf(thread_name, sizeof(thread_name), "%s%d",
-            "wasm-thread-", ++thread_name_index);
+    snprintf(thread_name, sizeof(thread_name), "%s%d", "wasm-thread-",
+             ++thread_name_index);
 
     /* Create the thread */
-    if (aos_task_new_ext((aos_task_t*)thread_data, thread_name,
-                          os_thread_wrapper, thread_data,
-                          stack_size, prio))
+    if (aos_task_new_ext((aos_task_t *)thread_data, thread_name,
+                         os_thread_wrapper, thread_data, stack_size, prio))
         goto fail3;
 
     aos_msleep(10);
@@ -199,7 +200,7 @@ os_self_thread()
 }
 
 int
-os_thread_join (korp_tid thread, void **value_ptr)
+os_thread_join(korp_tid thread, void **value_ptr)
 {
     (void)value_ptr;
     os_thread_data *thread_data, *curr_thread_data;
@@ -209,7 +210,7 @@ os_thread_join (korp_tid thread, void **value_ptr)
     curr_thread_data->wait_node.next = NULL;
 
     /* Get thread data */
-    thread_data = (os_thread_data*)thread;
+    thread_data = (os_thread_data *)thread;
 
     aos_mutex_lock(&thread_data->wait_list_lock, AOS_WAIT_FOREVER);
     if (!thread_data->thread_wait_list)
@@ -272,8 +273,8 @@ os_cond_destroy(korp_cond *cond)
 }
 
 static int
-os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
-                      bool timed, uint32 mills)
+os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
+                      uint32 mills)
 {
     os_thread_wait_node *node = &thread_data_current()->wait_node;
 
@@ -352,9 +353,9 @@ os_cond_signal(korp_cond *cond)
     return BHT_OK;
 }
 
-uint8 *os_thread_get_stack_boundary()
+uint8 *
+os_thread_get_stack_boundary()
 {
     /* TODO: get alios stack boundary */
     return NULL;
 }
-

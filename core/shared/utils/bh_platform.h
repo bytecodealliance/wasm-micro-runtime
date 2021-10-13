@@ -18,8 +18,6 @@
 #include "bh_vector.h"
 #include "runtime_timer.h"
 
-
-
 /**
  * WA_MALLOC/WA_FREE need to be redefined for both
  * runtime native and WASM app respectively.
@@ -38,4 +36,3 @@
 #endif
 
 #endif /* #ifndef _BH_PLATFORM_H */
-

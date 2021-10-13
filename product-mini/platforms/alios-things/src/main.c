@@ -24,10 +24,10 @@ static char **app_argv;
  * @return true if the main function is called, false otherwise.
  */
 bool
-wasm_application_execute_main(wasm_module_inst_t module_inst,
-                              int32_t argc, char *argv[]);
+wasm_application_execute_main(wasm_module_inst_t module_inst, int32_t argc,
+                              char *argv[]);
 
-static void*
+static void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
     const char *exception;
@@ -40,7 +40,8 @@ app_instance_main(wasm_module_inst_t module_inst)
 
 static char global_heap_buf[256 * 1024] = { 0 };
 
-void iwasm_main(void *arg1)
+void
+iwasm_main(void *arg1)
 {
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
@@ -52,7 +53,7 @@ void iwasm_main(void *arg1)
     int log_verbose_level = 2;
 #endif
 
-    (void) arg1;
+    (void)arg1;
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
@@ -71,22 +72,19 @@ void iwasm_main(void *arg1)
 #endif
 
     /* load WASM byte buffer from byte buffer of include file */
-    wasm_file_buf = (uint8*) wasm_test_file;
+    wasm_file_buf = (uint8 *)wasm_test_file;
     wasm_file_size = sizeof(wasm_test_file);
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
-            error_buf, sizeof(error_buf)))) {
+                                          error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail1;
     }
 
     /* instantiate the module */
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      8 * 1024,
-                                                      8 * 1024,
-                                                      error_buf,
-                                                      sizeof(error_buf)))) {
+    if (!(wasm_module_inst = wasm_runtime_instantiate(
+              wasm_module, 8 * 1024, 8 * 1024, error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail2;
     }
@@ -108,10 +106,10 @@ fail1:
 #define DEFAULT_THREAD_STACKSIZE (6 * 1024)
 #define DEFAULT_THREAD_PRIORITY 50
 
-bool iwasm_init(void)
+bool
+iwasm_init(void)
 {
-    int ret = aos_task_new("wasm-main", iwasm_main, NULL,
-    DEFAULT_THREAD_STACKSIZE);
+    int ret =
+        aos_task_new("wasm-main", iwasm_main, NULL, DEFAULT_THREAD_STACKSIZE);
     return ret == 0 ? true : false;
 }
-

@@ -34,13 +34,14 @@ typedef aos_mutex_t korp_mutex;
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
-  aos_mutex_t wait_list_lock;
-  os_thread_wait_list thread_wait_list;
+    aos_mutex_t wait_list_lock;
+    os_thread_wait_list thread_wait_list;
 } korp_cond;
 
-#define os_printf  printf
+#define os_printf printf
 #define os_vprintf vprintf
 
+/* clang-format off */
 /* math functions which are not provided by os*/
 double sqrt(double x);
 double floor(double x);
@@ -58,6 +59,6 @@ float rintf(float x);
 float truncf(float x);
 int signbit(double x);
 int isnan(double x);
+/* clang-format on */
 
 #endif /* end of _BH_PLATFORM_H */
-

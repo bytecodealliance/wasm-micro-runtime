@@ -50,21 +50,19 @@ os_mmap(void *hint, size_t size, int prot, int flags)
      * (mmap's first argument) to meet the requirement.
      */
     if (!hint && !(flags & MMAP_MAP_FIXED) && (flags & MMAP_MAP_32BIT)) {
-        uint8 *stack_addr = (uint8*)&map_prot;
-        uint8 *text_addr = (uint8*)os_mmap;
+        uint8 *stack_addr = (uint8 *)&map_prot;
+        uint8 *text_addr = (uint8 *)os_mmap;
         /* hint address begins with 1MB */
         static uint8 *hint_addr = (uint8 *)(uintptr_t)BH_MB;
 
-        if ((hint_addr - text_addr >= 0
-             && hint_addr - text_addr < 100 * BH_MB)
+        if ((hint_addr - text_addr >= 0 && hint_addr - text_addr < 100 * BH_MB)
             || (text_addr - hint_addr >= 0
                 && text_addr - hint_addr < 100 * BH_MB)) {
             /* hint address is possibly in text section, skip it */
             hint_addr += 100 * BH_MB;
         }
 
-        if ((hint_addr - stack_addr >= 0
-             && hint_addr - stack_addr < 8 * BH_MB)
+        if ((hint_addr - stack_addr >= 0 && hint_addr - stack_addr < 8 * BH_MB)
             || (stack_addr - hint_addr >= 0
                 && stack_addr - hint_addr < 8 * BH_MB)) {
             /* hint address is possibly in native stack area, skip it */
@@ -72,8 +70,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         }
 
         /* try 10 times, step with 1MB each time */
-        for (i = 0;
-             i < 10 && hint_addr < (uint8 *)(uintptr_t)(2ULL * BH_GB);
+        for (i = 0; i < 10 && hint_addr < (uint8 *)(uintptr_t)(2ULL * BH_GB);
              i++) {
             addr = mmap(hint_addr, request_size, map_prot, map_flags, -1, 0);
             if (addr != MAP_FAILED) {
@@ -114,7 +111,7 @@ os_munmap(void *addr, size_t size)
 
     if (addr) {
         if (munmap(addr, request_size)) {
-            os_printf("os_munmap error addr:%p, size:0x%"PRIx64", errno:%d\n",
+            os_printf("os_munmap error addr:%p, size:0x%" PRIx64 ", errno:%d\n",
                       addr, request_size, errno);
         }
     }
@@ -144,5 +141,4 @@ os_mprotect(void *addr, size_t size, int prot)
 
 void
 os_dcache_flush(void)
-{
-}
+{}

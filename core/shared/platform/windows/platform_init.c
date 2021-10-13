@@ -60,6 +60,4 @@ os_getpagesize()
 
 void
 os_dcache_flush(void)
-{
-}
-
+{}

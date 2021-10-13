@@ -30,7 +30,6 @@ extern "C" {
  * 2. To build the app-mgr and app-framework, you must implement it
  */
 
-
 /**
  * Ceates a thread
  *
@@ -41,8 +40,9 @@ extern "C" {
  *
  * @return 0 if success.
  */
-int os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
-                     unsigned int stack_size);
+int
+os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
+                 unsigned int stack_size);
 
 /**
  * Creates a thread with priority
@@ -55,8 +55,9 @@ int os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
  *
  * @return 0 if success.
  */
-int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
-                               void *arg, unsigned int stack_size, int prio);
+int
+os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
+                           void *arg, unsigned int stack_size, int prio);
 
 /**
  * Waits for the thread specified by thread to terminate
@@ -66,7 +67,8 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
  *
  * @return return 0 if success
  */
-int os_thread_join(korp_tid thread, void **retval);
+int
+os_thread_join(korp_tid thread, void **retval);
 
 /**
  * Detach the thread specified by thread
@@ -82,7 +84,8 @@ int os_thread_detach(korp_tid);
  *
  * @param retval the return value of the current thread
  */
-void os_thread_exit(void *retval);
+void
+os_thread_exit(void *retval);
 
 /**
  * Initialize current thread environment if current thread
@@ -90,12 +93,14 @@ void os_thread_exit(void *retval);
  *
  * @return 0 if success, -1 otherwise
  */
-int os_thread_env_init();
+int
+os_thread_env_init();
 
 /**
  * Destroy current thread environment
  */
-void os_thread_env_destroy();
+void
+os_thread_env_destroy();
 
 /**
  * Suspend execution of the calling thread for (at least)
@@ -103,7 +108,8 @@ void os_thread_env_destroy();
  *
  * @return 0 if success, -1 otherwise
  */
-int os_usleep(uint32 usec);
+int
+os_usleep(uint32 usec);
 
 /**
  * Creates a recursive mutex
@@ -112,7 +118,8 @@ int os_usleep(uint32 usec);
  *
  * @return 0 if success
  */
-int os_recursive_mutex_init(korp_mutex *mutex);
+int
+os_recursive_mutex_init(korp_mutex *mutex);
 
 /**
  * This function creates a condition variable
@@ -121,7 +128,8 @@ int os_recursive_mutex_init(korp_mutex *mutex);
  *
  * @return 0 if success
  */
-int os_cond_init(korp_cond *cond);
+int
+os_cond_init(korp_cond *cond);
 
 /**
  * This function destroys condition variable
@@ -130,7 +138,8 @@ int os_cond_init(korp_cond *cond);
  *
  * @return 0 if success
  */
-int os_cond_destroy(korp_cond *cond);
+int
+os_cond_destroy(korp_cond *cond);
 
 /**
  * Wait a condition variable.
@@ -140,7 +149,8 @@ int os_cond_destroy(korp_cond *cond);
  *
  * @return 0 if success
  */
-int os_cond_wait(korp_cond *cond, korp_mutex *mutex);
+int
+os_cond_wait(korp_cond *cond, korp_mutex *mutex);
 
 /**
  * Wait a condition varible or return if time specified passes.
@@ -151,7 +161,8 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex);
  *
  * @return 0 if success
  */
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
+int
+os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
 
 /**
  * Signals the condition variable
@@ -160,7 +171,8 @@ int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
  *
  * @return 0 if success
  */
-int os_cond_signal(korp_cond *cond);
+int
+os_cond_signal(korp_cond *cond);
 
 #ifdef __cplusplus
 }

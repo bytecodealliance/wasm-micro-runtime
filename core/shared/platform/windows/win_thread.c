@@ -47,11 +47,16 @@ static os_thread_data supervisor_thread_data;
 /* Thread data key */
 static DWORD thread_data_key;
 
-int os_sem_init(korp_sem* sem);
-int os_sem_destroy(korp_sem* sem);
-int os_sem_wait(korp_sem* sem);
-int os_sem_reltimed_wait(korp_sem* sem, uint64 useconds);
-int os_sem_signal(korp_sem* sem);
+int
+os_sem_init(korp_sem *sem);
+int
+os_sem_destroy(korp_sem *sem);
+int
+os_sem_wait(korp_sem *sem);
+int
+os_sem_reltimed_wait(korp_sem *sem, uint64 useconds);
+int
+os_sem_signal(korp_sem *sem);
 
 int
 os_thread_sys_init()
@@ -141,8 +146,7 @@ os_thread_cleanup(void *retval)
     BH_FREE(thread_data);
 }
 
-static unsigned __stdcall
-os_thread_wrapper(void *arg)
+static unsigned __stdcall os_thread_wrapper(void *arg)
 {
     os_thread_data *thread_data = arg;
     os_thread_data *parent = thread_data->parent;
@@ -202,9 +206,8 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
         goto fail3;
 
     os_mutex_lock(&parent->wait_lock);
-    if (!_beginthreadex(NULL, stack_size,
-                        os_thread_wrapper, thread_data,
-                        0, NULL)) {
+    if (!_beginthreadex(NULL, stack_size, os_thread_wrapper, thread_data, 0,
+                        NULL)) {
         os_mutex_unlock(&parent->wait_lock);
         goto fail4;
     }
@@ -371,7 +374,7 @@ os_sem_wait(korp_sem *sem)
 
     if (ret == WAIT_OBJECT_0)
         return BHT_OK;
-    else if(ret == WAIT_TIMEOUT)
+    else if (ret == WAIT_TIMEOUT)
         return (int)WAIT_TIMEOUT;
     else /* WAIT_FAILED or others */
         return BHT_ERROR;
@@ -404,7 +407,7 @@ os_sem_reltimed_wait(korp_sem *sem, uint64 useconds)
 
     if (ret == WAIT_OBJECT_0)
         return BHT_OK;
-    else if(ret == WAIT_TIMEOUT)
+    else if (ret == WAIT_TIMEOUT)
         return (int)WAIT_TIMEOUT;
     else /* WAIT_FAILED or others */
         return BHT_ERROR;
@@ -414,8 +417,7 @@ int
 os_sem_signal(korp_sem *sem)
 {
     bh_assert(sem);
-    return ReleaseSemaphore(*sem, 1, NULL) != FALSE
-           ? BHT_OK: BHT_ERROR;
+    return ReleaseSemaphore(*sem, 1, NULL) != FALSE ? BHT_OK : BHT_ERROR;
 }
 
 int
@@ -478,8 +480,8 @@ os_cond_destroy(korp_cond *cond)
 }
 
 static int
-os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
-                      bool timed, uint64 useconds)
+os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
+                      uint64 useconds)
 {
     os_thread_wait_node *node = &thread_data_current()->wait_node;
 
@@ -567,7 +569,7 @@ os_thread_get_stack_boundary()
     GetCurrentThreadStackLimits(&low_limit, &high_limit);
     /* 4 pages are set unaccessible by system, we reserved
        one more page at least for safety */
-    thread_stack_boundary = (uint8*)(uintptr_t)low_limit + page_size * 5;
+    thread_stack_boundary = (uint8 *)(uintptr_t)low_limit + page_size * 5;
     return thread_stack_boundary;
 }
 
@@ -601,4 +603,3 @@ os_thread_signal_inited()
     return thread_signal_inited;
 }
 #endif
-

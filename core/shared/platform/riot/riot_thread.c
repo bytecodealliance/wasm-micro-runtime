@@ -9,19 +9,21 @@
 
 #include <panic.h>
 
+/* clang-format off */
 #define bh_assert(v) do {                                   \
      if (!(v)) {                                            \
        printf("\nASSERTION FAILED: %s, at %s, line %d\n",   \
               #v, __FILE__, __LINE__);                      \
-       core_panic(0,0/*expr_string*/);                           \
+       core_panic(0, 0/*expr_string*/);                     \
        while (1);                                           \
      }                                                      \
-  } while (0)
+} while (0)
+/* clang-format on */
 
 struct os_thread_data;
 typedef struct os_thread_wait_node {
     sema_t sem;
-    void * ret;
+    void *ret;
     os_thread_wait_list next;
 } os_thread_wait_node;
 
@@ -63,7 +65,8 @@ static mutex_t thread_data_lock;
 /* Thread data list */
 static os_thread_data *thread_data_list = NULL;
 
-static void thread_data_list_add(os_thread_data *thread_data)
+static void
+thread_data_list_add(os_thread_data *thread_data)
 {
     mutex_lock(&thread_data_lock);
     if (!thread_data_list)
@@ -86,7 +89,8 @@ static void thread_data_list_add(os_thread_data *thread_data)
     mutex_unlock(&thread_data_lock);
 }
 
-static void thread_data_list_remove(os_thread_data *thread_data)
+static void
+thread_data_list_remove(os_thread_data *thread_data)
 {
     mutex_lock(&thread_data_lock);
     if (thread_data_list) {
@@ -153,7 +157,7 @@ thread_data_current()
 static void
 os_thread_cleanup(void)
 {
-    //TODO Check this (Join sema trigger, cleanup of thread_data)
+    // TODO Check this (Join sema trigger, cleanup of thread_data)
     os_thread_data *thread_data = thread_data_current();
     bh_assert(thread_data != NULL);
     mutex_lock(&thread_data->wait_list_lock);
@@ -177,7 +181,7 @@ static void *
 os_thread_wrapper(void *thread_data)
 {
     /* Set thread custom data */
-    os_thread_data * t = (os_thread_data*) thread_data;
+    os_thread_data *t = (os_thread_data *)thread_data;
     t->tid = thread_getpid();
     thread_data_list_add(t);
 
@@ -187,13 +191,13 @@ os_thread_wrapper(void *thread_data)
     os_thread_cleanup(); // internal structures and joiners
 
     BH_FREE(thread_data);
-    sched_task_exit();// stop thread //clean
-    return NULL; //never reached
+    sched_task_exit(); // stop thread //clean
+    return NULL;       // never reached
 }
 
 int
-os_thread_create(korp_tid *p_tid, thread_start_routine_t start,
-                 void *arg, unsigned int stack_size)
+os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
+                 unsigned int stack_size)
 {
     return os_thread_create_with_prio(p_tid, start, arg, stack_size,
                                       BH_THREAD_DEFAULT_PRIORITY);
@@ -223,8 +227,8 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     thread_data->arg = arg;
 
     /* Create the thread &*/
-    if (!((tid = thread_create( thread_data->stack,
-            stack_size,prio,0, os_thread_wrapper, thread_data,"WASM")))) {
+    if (!((tid = thread_create(thread_data->stack, stack_size, prio, 0,
+                               os_thread_wrapper, thread_data, "WASM")))) {
         BH_FREE(thread_data);
         return BHT_ERROR;
     }
@@ -240,15 +244,14 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 korp_tid
 os_self_thread()
 {
-    return (korp_tid) thread_getpid();
+    return (korp_tid)thread_getpid();
 }
 
 int
-os_thread_join (korp_tid thread, void **value_ptr)
+os_thread_join(korp_tid thread, void **value_ptr)
 {
     // will test if thread is still working,
     // wait if it is
-//     (void) value_ptr;
     os_thread_data *thread_data;
     os_thread_wait_node node;
 
@@ -257,8 +260,8 @@ os_thread_join (korp_tid thread, void **value_ptr)
 
     /* Get thread data */
     thread_data = thread_data_list_lookup(thread);
-    if(thread_data == NULL){
-        //thread not found
+    if (thread_data == NULL) {
+        // thread not found
         sema_destroy(&node.sem);
         return BHT_ERROR;
     }
@@ -277,21 +280,20 @@ os_thread_join (korp_tid thread, void **value_ptr)
     mutex_unlock(&thread_data->wait_list_lock);
 
     sema_wait(&node.sem);
-    //get the return value pointer conted may not be availible after return
-    if(value_ptr) (* value_ptr) = node.ret;
+    // get the return value pointer conted may not be availible after return
+    if (value_ptr)
+        (*value_ptr) = node.ret;
     /* Wait some time for the thread to be actually terminated */
-//  TODO:   k_sleep(100);
+    //  TODO:   k_sleep(100);
 
-    //TODO: bump target prio to make it finish and free its resources
+    // TODO: bump target prio to make it finish and free its resources
     thread_yield();
 
-    //node has done its job
+    // node has done its job
     sema_destroy(&node.sem);
 
     return BHT_OK;
 }
-
-
 
 // int vm_mutex_trylock(korp_mutex *mutex)
 // {
@@ -308,7 +310,7 @@ os_mutex_init(korp_mutex *mutex)
 int
 os_mutex_destroy(korp_mutex *mutex)
 {
-    (void) mutex;
+    (void)mutex;
     return BHT_OK;
 }
 
@@ -316,15 +318,14 @@ int
 os_mutex_lock(korp_mutex *mutex)
 {
     mutex_lock(mutex);
-    return 0; //Riot mutexes do not return until success
+    return 0; // Riot mutexes do not return until success
 }
 
 int
 os_mutex_unlock(korp_mutex *mutex)
 {
     mutex_unlock(mutex);
-    return 0; //Riot mutexes do not return until success
-
+    return 0; // Riot mutexes do not return until success
 }
 
 int
@@ -338,13 +339,13 @@ os_cond_init(korp_cond *cond)
 int
 os_cond_destroy(korp_cond *cond)
 {
-    (void) cond;
+    (void)cond;
     return BHT_OK;
 }
 
 static int
-os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
-                      bool timed, uint64 useconds)
+os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
+                      uint64 useconds)
 {
     os_thread_wait_node *node;
 
@@ -369,10 +370,10 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
 
     /* Unlock mutex, wait sem and lock mutex again */
     mutex_unlock(mutex);
-    if(timed)
+    if (timed)
         sema_wait(&node->sem);
     else
-        sema_wait_timed(&node->sem,useconds);
+        sema_wait_timed(&node->sem, useconds);
     mutex_lock(mutex);
 
     /* Remove wait node from wait list */
@@ -401,8 +402,8 @@ os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 int
 os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
-    return os_cond_wait_internal(cond, mutex,
-                                 (useconds != BHT_WAIT_FOREVER), useconds);
+    return os_cond_wait_internal(cond, mutex, (useconds != BHT_WAIT_FOREVER),
+                                 useconds);
 }
 
 int
@@ -417,11 +418,12 @@ os_cond_signal(korp_cond *cond)
     return BHT_OK;
 }
 
-uint8 *os_thread_get_stack_boundary()
+uint8 *
+os_thread_get_stack_boundary()
 {
 #if defined(DEVELHELP) || defined(SCHED_TEST_STACK) \
     || defined(MODULE_MPU_STACK_GUARD)
-    return (uint8*)thread_get_active()->stack_start;
+    return (uint8 *)thread_get_active()->stack_start;
 #else
     return NULL;
 #endif

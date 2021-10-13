@@ -8,7 +8,8 @@
 #include "wasm_export.h"
 #include "bh_platform.h"
 
-void ecall_iwasm_test()
+void
+ecall_iwasm_test()
 {
     ocall_print(" Prepare to invoke sgx_open ... ==>\n\n");
 
@@ -76,7 +77,7 @@ void ecall_iwasm_test()
             02 :  - O_RDWR */
     /** 1. open **/
     fd = open(file, O_RDWR);
-    if (fd !=-1) {
+    if (fd != -1) {
         ocall_print("\tOperation open test_open.txt success.\n");
     }
 
@@ -107,7 +108,7 @@ void ecall_iwasm_test()
         ocall_print("\tOperation fdatasync success.\n");
     }
 
-     /** isatty **/
+    /** isatty **/
     ret = isatty(fd);
     if (ret == 0) {
         ocall_print("\tOperation fisatty success.\n");
@@ -140,7 +141,7 @@ void ecall_iwasm_test()
     p_dirent = readdir(dirp);
     if (p_dirent != NULL) {
         ocall_print("\tOperation readdir success.\t");
-        ocall_print(p_dirent -> d_name);
+        ocall_print(p_dirent->d_name);
         ocall_print("\n");
     }
 
@@ -158,7 +159,7 @@ void ecall_iwasm_test()
 
     /** closedir **/
     ret = closedir(dirp);
-    if (ret == 0 ) {
+    if (ret == 0) {
         ocall_print("\tOperation closedir success. \n");
     }
     /* 2. close */
@@ -192,7 +193,7 @@ void ecall_iwasm_test()
     ret = renameat(AT_FDCWD, rlt_dir_path, AT_FDCWD, rlt_dir_path_new);
     if (ret == 0) {
         ocall_print("\tOperation renameat ./tmp to "
-        "./tmp_new success. \n");
+                    "./tmp_new success. \n");
     }
     renameat(AT_FDCWD, rlt_dir_path_new, AT_FDCWD, rlt_dir_path);
 
@@ -220,7 +221,7 @@ void ecall_iwasm_test()
     ret = symlinkat(file, AT_FDCWD, file_sf_ln);
     if (ret == 0) {
         ocall_print("\tOperation symlinkat from test.txt "
-        "to text_sf_ln.txt success. \n");
+                    "to text_sf_ln.txt success. \n");
     }
     /** readlinkat **/
     total_size = readlinkat(AT_FDCWD, file_sf_ln, buf, sizeof(buf));
@@ -336,22 +337,23 @@ void ecall_iwasm_test()
     close(fd);
 
     /** getopt **/
-    while((ret = getopt(argc, argv, "f:abc")) != -1){ //get option from the getopt() method
-      switch(ret){
-         //For option i, r, l, print that these are options
-         case 'a':
-         case 'b':
-         case 'c':
-            ocall_print("\tGiven Option operation success. \n");
-            break;
-         case 'f': //here f is used for some file name
-            ocall_print("\tGiven File operation success.\n");
-            break;
-         case '?': //used for some unknown options
-            ocall_print("\tunknown option trigger success.\n");
-            break;
-      }
-   }
+    while ((ret = getopt(argc, argv, "f:abc"))
+           != -1) { // get option from the getopt() method
+        switch (ret) {
+            // For option i, r, l, print that these are options
+            case 'a':
+            case 'b':
+            case 'c':
+                ocall_print("\tGiven Option operation success. \n");
+                break;
+            case 'f': // here f is used for some file name
+                ocall_print("\tGiven File operation success.\n");
+                break;
+            case '?': // used for some unknown options
+                ocall_print("\tunknown option trigger success.\n");
+                break;
+        }
+    }
 
     /** sched_yield **/
     ret = sched_yield();
