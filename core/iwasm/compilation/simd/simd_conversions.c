@@ -10,10 +10,8 @@
 #include "../../aot/aot_runtime.h"
 
 static bool
-simd_integer_narrow_x86(AOTCompContext *comp_ctx,
-                        AOTFuncContext *func_ctx,
-                        LLVMTypeRef in_vector_type,
-                        LLVMTypeRef out_vector_type,
+simd_integer_narrow_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                        LLVMTypeRef in_vector_type, LLVMTypeRef out_vector_type,
                         const char *instrinsic)
 {
     LLVMValueRef vector1, vector2, result;
@@ -44,13 +42,9 @@ enum integer_sat_type {
 };
 
 static LLVMValueRef
-simd_saturate(AOTCompContext *comp_ctx,
-              AOTFuncContext *func_ctx,
-              enum integer_sat_type itype,
-              LLVMValueRef vector,
-              LLVMValueRef min,
-              LLVMValueRef max,
-              bool is_signed)
+simd_saturate(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+              enum integer_sat_type itype, LLVMValueRef vector,
+              LLVMValueRef min, LLVMValueRef max, bool is_signed)
 {
     LLVMValueRef result;
     LLVMTypeRef vector_type;
@@ -101,13 +95,13 @@ simd_saturate(AOTCompContext *comp_ctx,
     }
 
     if (!(result = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx,
-            is_signed ? smin_intrinsic[itype] : umin_intrinsic[itype],
-            param_types[itype][0], param_types[itype], 2, vector, max))
+              comp_ctx, func_ctx,
+              is_signed ? smin_intrinsic[itype] : umin_intrinsic[itype],
+              param_types[itype][0], param_types[itype], 2, vector, max))
         || !(result = aot_call_llvm_intrinsic(
-               comp_ctx, func_ctx,
-               is_signed ? smax_intrinsic[itype] : umax_intrinsic[itype],
-               param_types[itype][0], param_types[itype], 2, result, min))) {
+                 comp_ctx, func_ctx,
+                 is_signed ? smax_intrinsic[itype] : umax_intrinsic[itype],
+                 param_types[itype][0], param_types[itype], 2, result, min))) {
         return NULL;
     }
 
@@ -115,10 +109,8 @@ simd_saturate(AOTCompContext *comp_ctx,
 }
 
 static bool
-simd_integer_narrow_common(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           enum integer_sat_type itype,
-                           bool is_signed)
+simd_integer_narrow_common(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           enum integer_sat_type itype, bool is_signed)
 {
     LLVMValueRef vec1, vec2, min, max, mask, result;
     LLVMTypeRef in_vector_type[] = { V128_i16x8_TYPE, V128_i32x4_TYPE,
@@ -152,17 +144,17 @@ simd_integer_narrow_common(AOTCompContext *comp_ctx,
 
     if (!(vec2 = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
                                            in_vector_type[itype], "vec2"))
-        || !(vec1 = simd_pop_v128_and_bitcast(
-               comp_ctx, func_ctx, in_vector_type[itype], "vec1"))) {
+        || !(vec1 = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
+                                              in_vector_type[itype], "vec1"))) {
         return false;
     }
 
     if (!(max = simd_build_splat_const_integer_vector(
-            comp_ctx, min_max_type[itype],
-            is_signed ? smax[itype] : umax[itype], length[itype]))
+              comp_ctx, min_max_type[itype],
+              is_signed ? smax[itype] : umax[itype], length[itype]))
         || !(min = simd_build_splat_const_integer_vector(
-               comp_ctx, min_max_type[itype],
-               is_signed ? smin[itype] : umin[itype], length[itype]))) {
+                 comp_ctx, min_max_type[itype],
+                 is_signed ? smin[itype] : umin[itype], length[itype]))) {
         return false;
     }
 
@@ -200,14 +192,13 @@ simd_integer_narrow_common(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i8x16_narrow_i16x8(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool is_signed)
+                                    AOTFuncContext *func_ctx, bool is_signed)
 {
     if (is_target_x86(comp_ctx)) {
         return simd_integer_narrow_x86(
-          comp_ctx, func_ctx, V128_i16x8_TYPE, V128_i8x16_TYPE,
-          is_signed ? "llvm.x86.sse2.packsswb.128"
-                    : "llvm.x86.sse2.packuswb.128");
+            comp_ctx, func_ctx, V128_i16x8_TYPE, V128_i8x16_TYPE,
+            is_signed ? "llvm.x86.sse2.packsswb.128"
+                      : "llvm.x86.sse2.packuswb.128");
     }
     else {
         return simd_integer_narrow_common(comp_ctx, func_ctx, e_sat_i16x8,
@@ -217,8 +208,7 @@ aot_compile_simd_i8x16_narrow_i16x8(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool is_signed)
+                                    AOTFuncContext *func_ctx, bool is_signed)
 {
     if (is_target_x86(comp_ctx)) {
         return simd_integer_narrow_x86(comp_ctx, func_ctx, V128_i32x4_TYPE,
@@ -234,8 +224,7 @@ aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i32x4_narrow_i64x2(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool is_signed)
+                                    AOTFuncContext *func_ctx, bool is_signed)
 {
     /* TODO: x86 intrinsics */
     return simd_integer_narrow_common(comp_ctx, func_ctx, e_sat_i64x2,
@@ -249,12 +238,9 @@ enum integer_extend_type {
 };
 
 static LLVMValueRef
-simd_integer_extension(AOTCompContext *comp_ctx,
-                       AOTFuncContext *func_ctx,
-                       enum integer_extend_type itype,
-                       LLVMValueRef vector,
-                       bool lower_half,
-                       bool is_signed)
+simd_integer_extension(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                       enum integer_extend_type itype, LLVMValueRef vector,
+                       bool lower_half, bool is_signed)
 {
     LLVMValueRef mask, sub_vector, result;
     LLVMValueRef bits[] = {
@@ -308,8 +294,7 @@ simd_integer_extension(AOTCompContext *comp_ctx,
 static bool
 simd_integer_extension_wrapper(AOTCompContext *comp_ctx,
                                AOTFuncContext *func_ctx,
-                               enum integer_extend_type itype,
-                               bool lower_half,
+                               enum integer_extend_type itype, bool lower_half,
                                bool is_signed)
 {
     LLVMValueRef vector, result;
@@ -332,8 +317,7 @@ simd_integer_extension_wrapper(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i16x8_extend_i8x16(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool lower_half,
+                                    AOTFuncContext *func_ctx, bool lower_half,
                                     bool is_signed)
 {
     return simd_integer_extension_wrapper(comp_ctx, func_ctx, e_ext_i8x16,
@@ -342,8 +326,7 @@ aot_compile_simd_i16x8_extend_i8x16(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i32x4_extend_i16x8(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool lower_half,
+                                    AOTFuncContext *func_ctx, bool lower_half,
                                     bool is_signed)
 {
     return simd_integer_extension_wrapper(comp_ctx, func_ctx, e_ext_i16x8,
@@ -352,8 +335,7 @@ aot_compile_simd_i32x4_extend_i16x8(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i64x2_extend_i32x4(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool lower_half,
+                                    AOTFuncContext *func_ctx, bool lower_half,
                                     bool is_signed)
 {
     return simd_integer_extension_wrapper(comp_ctx, func_ctx, e_ext_i32x4,
@@ -361,17 +343,15 @@ aot_compile_simd_i64x2_extend_i32x4(AOTCompContext *comp_ctx,
 }
 
 static LLVMValueRef
-simd_trunc_sat(AOTCompContext *comp_ctx,
-               AOTFuncContext *func_ctx,
-               const char *intrinsics,
-               LLVMTypeRef in_vector_type,
+simd_trunc_sat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+               const char *intrinsics, LLVMTypeRef in_vector_type,
                LLVMTypeRef out_vector_type)
 {
     LLVMValueRef vector, result;
     LLVMTypeRef param_types[] = { in_vector_type };
 
-    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
-                                             in_vector_type, "vector"))) {
+    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, in_vector_type,
+                                             "vector"))) {
         return false;
     }
 
@@ -386,8 +366,7 @@ simd_trunc_sat(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i32x4_trunc_sat_f32x4(AOTCompContext *comp_ctx,
-                                       AOTFuncContext *func_ctx,
-                                       bool is_signed)
+                                       AOTFuncContext *func_ctx, bool is_signed)
 {
     LLVMValueRef result;
     if (!(result = simd_trunc_sat(comp_ctx, func_ctx,
@@ -402,8 +381,7 @@ aot_compile_simd_i32x4_trunc_sat_f32x4(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i32x4_trunc_sat_f64x2(AOTCompContext *comp_ctx,
-                                       AOTFuncContext *func_ctx,
-                                       bool is_signed)
+                                       AOTFuncContext *func_ctx, bool is_signed)
 {
     LLVMValueRef result, zero, mask;
     LLVMTypeRef out_vector_type;
@@ -425,7 +403,7 @@ aot_compile_simd_i32x4_trunc_sat_f64x2(AOTCompContext *comp_ctx,
                                   V128_f64x2_TYPE, out_vector_type))) {
         return false;
     }
-    
+
     if (!(zero = LLVMConstNull(out_vector_type))) {
         HANDLE_FAILURE("LLVMConstNull");
         return false;
@@ -437,8 +415,8 @@ aot_compile_simd_i32x4_trunc_sat_f64x2(AOTCompContext *comp_ctx,
         return false;
     }
 
-    if (!(result = LLVMBuildShuffleVector(comp_ctx->builder, result, zero,
-                                          mask, "extend"))) {
+    if (!(result = LLVMBuildShuffleVector(comp_ctx->builder, result, zero, mask,
+                                          "extend"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
         return false;
     }
@@ -447,10 +425,8 @@ aot_compile_simd_i32x4_trunc_sat_f64x2(AOTCompContext *comp_ctx,
 }
 
 static LLVMValueRef
-simd_integer_convert(AOTCompContext *comp_ctx,
-                     AOTFuncContext *func_ctx,
-                     bool is_signed,
-                     LLVMValueRef vector,
+simd_integer_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                     bool is_signed, LLVMValueRef vector,
                      LLVMTypeRef out_vector_type)
 
 {
@@ -468,8 +444,7 @@ simd_integer_convert(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_f32x4_convert_i32x4(AOTCompContext *comp_ctx,
-                                     AOTFuncContext *func_ctx,
-                                     bool is_signed)
+                                     AOTFuncContext *func_ctx, bool is_signed)
 {
     LLVMValueRef vector, result;
 
@@ -488,8 +463,7 @@ aot_compile_simd_f32x4_convert_i32x4(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_f64x2_convert_i32x4(AOTCompContext *comp_ctx,
-                                     AOTFuncContext *func_ctx,
-                                     bool is_signed)
+                                     AOTFuncContext *func_ctx, bool is_signed)
 {
     LLVMValueRef vector, mask, result;
     LLVMValueRef lanes[] = {
@@ -529,14 +503,12 @@ aot_compile_simd_f64x2_convert_i32x4(AOTCompContext *comp_ctx,
 }
 
 static bool
-simd_extadd_pairwise(AOTCompContext *comp_ctx,
-                     AOTFuncContext *func_ctx,
-                     LLVMTypeRef in_vector_type,
-                     LLVMTypeRef out_vector_type,
+simd_extadd_pairwise(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                     LLVMTypeRef in_vector_type, LLVMTypeRef out_vector_type,
                      bool is_signed)
 {
     LLVMValueRef vector, even_mask, odd_mask, sub_vector_even, sub_vector_odd,
-      result;
+        result;
 
     LLVMValueRef even_element[] = {
         LLVM_CONST(i32_zero),   LLVM_CONST(i32_two),      LLVM_CONST(i32_four),
@@ -554,8 +526,8 @@ simd_extadd_pairwise(AOTCompContext *comp_ctx,
     /* assumption about i16x8 from i8x16 and i32x4 from i16x8 */
     uint8 mask_length = V128_i16x8_TYPE == out_vector_type ? 8 : 4;
 
-    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
-                                             in_vector_type, "vector"))) {
+    if (!(vector = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, in_vector_type,
+                                             "vector"))) {
         return false;
     }
 
@@ -567,9 +539,9 @@ simd_extadd_pairwise(AOTCompContext *comp_ctx,
 
     /* shuffle a <16xi8> vector to two <8xi8> vectors */
     if (!(sub_vector_even = LLVMBuildShuffleVector(
-            comp_ctx->builder, vector, vector, even_mask, "pick_even"))
+              comp_ctx->builder, vector, vector, even_mask, "pick_even"))
         || !(sub_vector_odd = LLVMBuildShuffleVector(
-               comp_ctx->builder, vector, vector, odd_mask, "pick_odd"))) {
+                 comp_ctx->builder, vector, vector, odd_mask, "pick_odd"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
         return false;
     }
@@ -577,22 +549,22 @@ simd_extadd_pairwise(AOTCompContext *comp_ctx,
     /* sext/zext <8xi8> to <8xi16> */
     if (is_signed) {
         if (!(sub_vector_even =
-                LLVMBuildSExt(comp_ctx->builder, sub_vector_even,
-                              out_vector_type, "even_sext"))
+                  LLVMBuildSExt(comp_ctx->builder, sub_vector_even,
+                                out_vector_type, "even_sext"))
             || !(sub_vector_odd =
-                   LLVMBuildSExt(comp_ctx->builder, sub_vector_odd,
-                                 out_vector_type, "odd_sext"))) {
+                     LLVMBuildSExt(comp_ctx->builder, sub_vector_odd,
+                                   out_vector_type, "odd_sext"))) {
             HANDLE_FAILURE("LLVMBuildSExt");
             return false;
         }
     }
     else {
         if (!(sub_vector_even =
-                LLVMBuildZExt(comp_ctx->builder, sub_vector_even,
-                              out_vector_type, "even_zext"))
+                  LLVMBuildZExt(comp_ctx->builder, sub_vector_even,
+                                out_vector_type, "even_zext"))
             || !(sub_vector_odd =
-                   LLVMBuildZExt(comp_ctx->builder, sub_vector_odd,
-                                 out_vector_type, "odd_zext"))) {
+                     LLVMBuildZExt(comp_ctx->builder, sub_vector_odd,
+                                   out_vector_type, "odd_zext"))) {
             HANDLE_FAILURE("LLVMBuildZExt");
             return false;
         }
@@ -706,10 +678,8 @@ enum integer_extmul_type {
 };
 
 static bool
-simd_integer_extmul(AOTCompContext *comp_ctx,
-                    AOTFuncContext *func_ctx,
-                    bool lower_half,
-                    bool is_signed,
+simd_integer_extmul(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                    bool lower_half, bool is_signed,
                     enum integer_extmul_type itype)
 {
     LLVMValueRef vec1, vec2, result;
@@ -726,8 +696,8 @@ simd_integer_extmul(AOTCompContext *comp_ctx,
 
     if (!(vec1 = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
                                            in_vector_type[itype], "vec1"))
-        || !(vec2 = simd_pop_v128_and_bitcast(
-               comp_ctx, func_ctx, in_vector_type[itype], "vec2"))) {
+        || !(vec2 = simd_pop_v128_and_bitcast(comp_ctx, func_ctx,
+                                              in_vector_type[itype], "vec2"))) {
         return false;
     }
 
@@ -747,8 +717,7 @@ simd_integer_extmul(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i16x8_extmul_i8x16(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool lower_half,
+                                    AOTFuncContext *func_ctx, bool lower_half,
                                     bool is_signed)
 {
     return simd_integer_extmul(comp_ctx, func_ctx, lower_half, is_signed,
@@ -757,8 +726,7 @@ aot_compile_simd_i16x8_extmul_i8x16(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i32x4_extmul_i16x8(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool lower_half,
+                                    AOTFuncContext *func_ctx, bool lower_half,
                                     bool is_signed)
 {
     return simd_integer_extmul(comp_ctx, func_ctx, lower_half, is_signed,
@@ -767,8 +735,7 @@ aot_compile_simd_i32x4_extmul_i16x8(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_i64x2_extmul_i32x4(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx,
-                                    bool lower_half,
+                                    AOTFuncContext *func_ctx, bool lower_half,
                                     bool is_signed)
 {
     return simd_integer_extmul(comp_ctx, func_ctx, lower_half, is_signed,

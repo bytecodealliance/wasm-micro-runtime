@@ -14,8 +14,7 @@ extern "C" {
 
 bool
 aot_compile_simd_v128_bitwise(AOTCompContext *comp_ctx,
-                              AOTFuncContext *func_ctx,
-                              V128Bitwise bitwise_op);
+                              AOTFuncContext *func_ctx, V128Bitwise bitwise_op);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

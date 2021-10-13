@@ -86,10 +86,8 @@ fail:
 }
 
 static bool
-interger_vector_compare(AOTCompContext *comp_ctx,
-                        AOTFuncContext *func_ctx,
-                        IntCond cond,
-                        LLVMTypeRef vector_type)
+interger_vector_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                        IntCond cond, LLVMTypeRef vector_type)
 {
     LLVMValueRef vec1, vec2, result;
     LLVMIntPredicate int_pred;
@@ -110,14 +108,14 @@ interger_vector_compare(AOTCompContext *comp_ctx,
     }
     /* icmp <N x iX> %vec1, %vec2 */
     if (!(result =
-            LLVMBuildICmp(comp_ctx->builder, int_pred, vec1, vec2, "cmp"))) {
+              LLVMBuildICmp(comp_ctx->builder, int_pred, vec1, vec2, "cmp"))) {
         HANDLE_FAILURE("LLVMBuildICmp");
         goto fail;
     }
 
     /* sext <N x i1> %result to <N x iX> */
     if (!(result =
-            LLVMBuildSExt(comp_ctx->builder, result, vector_type, "ext"))) {
+              LLVMBuildSExt(comp_ctx->builder, result, vector_type, "ext"))) {
         HANDLE_FAILURE("LLVMBuildSExt");
         goto fail;
     }
@@ -138,41 +136,35 @@ fail:
 
 bool
 aot_compile_simd_i8x16_compare(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               IntCond cond)
+                               AOTFuncContext *func_ctx, IntCond cond)
 {
     return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i8x16_TYPE);
 }
 
 bool
 aot_compile_simd_i16x8_compare(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               IntCond cond)
+                               AOTFuncContext *func_ctx, IntCond cond)
 {
     return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i16x8_TYPE);
 }
 
 bool
 aot_compile_simd_i32x4_compare(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               IntCond cond)
+                               AOTFuncContext *func_ctx, IntCond cond)
 {
     return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i32x4_TYPE);
 }
 
 bool
 aot_compile_simd_i64x2_compare(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               IntCond cond)
+                               AOTFuncContext *func_ctx, IntCond cond)
 {
     return interger_vector_compare(comp_ctx, func_ctx, cond, V128_i64x2_TYPE);
 }
 
 static bool
-float_vector_compare(AOTCompContext *comp_ctx,
-                     AOTFuncContext *func_ctx,
-                     FloatCond cond,
-                     LLVMTypeRef vector_type,
+float_vector_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                     FloatCond cond, LLVMTypeRef vector_type,
                      LLVMTypeRef result_type)
 {
     LLVMValueRef vec1, vec2, result;
@@ -194,14 +186,14 @@ float_vector_compare(AOTCompContext *comp_ctx,
     }
     /* fcmp <N x iX> %vec1, %vec2 */
     if (!(result =
-            LLVMBuildFCmp(comp_ctx->builder, real_pred, vec1, vec2, "cmp"))) {
+              LLVMBuildFCmp(comp_ctx->builder, real_pred, vec1, vec2, "cmp"))) {
         HANDLE_FAILURE("LLVMBuildFCmp");
         goto fail;
     }
 
     /* sext <N x i1> %result to <N x iX> */
     if (!(result =
-            LLVMBuildSExt(comp_ctx->builder, result, result_type, "ext"))) {
+              LLVMBuildSExt(comp_ctx->builder, result, result_type, "ext"))) {
         HANDLE_FAILURE("LLVMBuildSExt");
         goto fail;
     }
@@ -222,8 +214,7 @@ fail:
 
 bool
 aot_compile_simd_f32x4_compare(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               FloatCond cond)
+                               AOTFuncContext *func_ctx, FloatCond cond)
 {
     return float_vector_compare(comp_ctx, func_ctx, cond, V128_f32x4_TYPE,
                                 V128_i32x4_TYPE);
@@ -231,8 +222,7 @@ aot_compile_simd_f32x4_compare(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_f64x2_compare(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               FloatCond cond)
+                               AOTFuncContext *func_ctx, FloatCond cond)
 {
     return float_vector_compare(comp_ctx, func_ctx, cond, V128_f64x2_TYPE,
                                 V128_i64x2_TYPE);

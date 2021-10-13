@@ -15,34 +15,33 @@
 static char *block_name_prefix[] = { "block", "loop", "if" };
 static char *block_name_suffix[] = { "begin", "else", "end" };
 
+/* clang-format off */
 enum {
     LABEL_BEGIN = 0,
     LABEL_ELSE,
     LABEL_END
 };
+/* clang-format on */
 
 static void
-format_block_name(char *name, uint32 name_size,
-                  uint32 block_index, uint32 label_type,
-                  uint32 label_id)
+format_block_name(char *name, uint32 name_size, uint32 block_index,
+                  uint32 label_type, uint32 label_id)
 {
     if (label_type != LABEL_TYPE_FUNCTION)
-        snprintf(name, name_size, "%s%d%s%s",
-                 block_name_prefix[label_type], block_index,
-                 "_", block_name_suffix[label_id]);
+        snprintf(name, name_size, "%s%d%s%s", block_name_prefix[label_type],
+                 block_index, "_", block_name_suffix[label_id]);
     else
         snprintf(name, name_size, "%s", "func_end");
 }
 
-#define CREATE_BLOCK(new_llvm_block, name) do {         \
-    if (!(new_llvm_block =                              \
-      LLVMAppendBasicBlockInContext(comp_ctx->context,  \
-                                    func_ctx->func,     \
-                                    name))) {           \
-      aot_set_last_error("add LLVM basic block failed.");\
-      goto fail;                                        \
-    }                                                   \
-  } while (0)
+#define CREATE_BLOCK(new_llvm_block, name)                      \
+    do {                                                        \
+        if (!(new_llvm_block = LLVMAppendBasicBlockInContext(   \
+                  comp_ctx->context, func_ctx->func, name))) {  \
+            aot_set_last_error("add LLVM basic block failed."); \
+            goto fail;                                          \
+        }                                                       \
+    } while (0)
 
 #define CURR_BLOCK() LLVMGetInsertBlock(comp_ctx->builder)
 
@@ -55,76 +54,79 @@ format_block_name(char *name, uint32 name_size,
 #define MOVE_BLOCK_BEFORE(llvm_block, llvm_block_before) \
     LLVMMoveBasicBlockBefore(llvm_block, llvm_block_before)
 
-#define BUILD_BR(llvm_block) do {                       \
-    if (!LLVMBuildBr(comp_ctx->builder, llvm_block)) {  \
-      aot_set_last_error("llvm build br failed.");      \
-      goto fail;                                        \
-    }                                                   \
-  } while (0)
+#define BUILD_BR(llvm_block)                               \
+    do {                                                   \
+        if (!LLVMBuildBr(comp_ctx->builder, llvm_block)) { \
+            aot_set_last_error("llvm build br failed.");   \
+            goto fail;                                     \
+        }                                                  \
+    } while (0)
 
-#define BUILD_COND_BR(value_if, block_then, block_else) do {\
-    if (!LLVMBuildCondBr(comp_ctx->builder, value_if,       \
-                         block_then, block_else)) {         \
-      aot_set_last_error("llvm build cond br failed.");     \
-      goto fail;                                            \
-    }                                                       \
-  } while (0)
+#define BUILD_COND_BR(value_if, block_then, block_else)               \
+    do {                                                              \
+        if (!LLVMBuildCondBr(comp_ctx->builder, value_if, block_then, \
+                             block_else)) {                           \
+            aot_set_last_error("llvm build cond br failed.");         \
+            goto fail;                                                \
+        }                                                             \
+    } while (0)
 
 #define SET_BUILDER_POS(llvm_block) \
     LLVMPositionBuilderAtEnd(comp_ctx->builder, llvm_block)
 
-#define CREATE_RESULT_VALUE_PHIS(block) do {                        \
-    if (block->result_count && !block->result_phis) {               \
-      uint32 i;                                                     \
-      uint64 size;                                                  \
-      LLVMBasicBlockRef block_curr = CURR_BLOCK();                  \
-      /* Allocate memory */                                         \
-      size = sizeof(LLVMValueRef) * (uint64)block->result_count;    \
-      if (size >= UINT32_MAX                                        \
-          || !(block->result_phis =                                 \
-                 wasm_runtime_malloc((uint32)size))) {              \
-        aot_set_last_error("allocate memory failed.");              \
-        goto fail;                                                  \
-      }                                                             \
-      SET_BUILDER_POS(block->llvm_end_block);                       \
-      for (i = 0; i < block->result_count; i++) {                   \
-        if (!(block->result_phis[i] =                               \
-                LLVMBuildPhi(comp_ctx->builder,                     \
-                             TO_LLVM_TYPE(block->result_types[i]),  \
-                             "phi"))) {                             \
-          aot_set_last_error("llvm build phi failed.");             \
-          goto fail;                                                \
-        }                                                           \
-      }                                                             \
-      SET_BUILDER_POS(block_curr);                                  \
-    }                                                               \
-  } while (0)
+#define CREATE_RESULT_VALUE_PHIS(block)                                    \
+    do {                                                                   \
+        if (block->result_count && !block->result_phis) {                  \
+            uint32 i;                                                      \
+            uint64 size;                                                   \
+            LLVMBasicBlockRef block_curr = CURR_BLOCK();                   \
+            /* Allocate memory */                                          \
+            size = sizeof(LLVMValueRef) * (uint64)block->result_count;     \
+            if (size >= UINT32_MAX                                         \
+                || !(block->result_phis =                                  \
+                         wasm_runtime_malloc((uint32)size))) {             \
+                aot_set_last_error("allocate memory failed.");             \
+                goto fail;                                                 \
+            }                                                              \
+            SET_BUILDER_POS(block->llvm_end_block);                        \
+            for (i = 0; i < block->result_count; i++) {                    \
+                if (!(block->result_phis[i] = LLVMBuildPhi(                \
+                          comp_ctx->builder,                               \
+                          TO_LLVM_TYPE(block->result_types[i]), "phi"))) { \
+                    aot_set_last_error("llvm build phi failed.");          \
+                    goto fail;                                             \
+                }                                                          \
+            }                                                              \
+            SET_BUILDER_POS(block_curr);                                   \
+        }                                                                  \
+    } while (0)
 
-#define ADD_TO_RESULT_PHIS(block, value, idx) do {                        \
-    LLVMBasicBlockRef block_curr = CURR_BLOCK();                          \
-    LLVMTypeRef phi_ty = LLVMTypeOf(block->result_phis[idx]);             \
-    LLVMTypeRef value_ty = LLVMTypeOf(value);                             \
-    bh_assert(LLVMGetTypeKind(phi_ty) == LLVMGetTypeKind(value_ty));      \
-    bh_assert(LLVMGetTypeContext(phi_ty)                                  \
-              == LLVMGetTypeContext(value_ty));                           \
-    LLVMAddIncoming(block->result_phis[idx], &value, &block_curr, 1);     \
-    (void)phi_ty;                                                         \
-    (void)value_ty;                                                       \
- } while (0)
+#define ADD_TO_RESULT_PHIS(block, value, idx)                                  \
+    do {                                                                       \
+        LLVMBasicBlockRef block_curr = CURR_BLOCK();                           \
+        LLVMTypeRef phi_ty = LLVMTypeOf(block->result_phis[idx]);              \
+        LLVMTypeRef value_ty = LLVMTypeOf(value);                              \
+        bh_assert(LLVMGetTypeKind(phi_ty) == LLVMGetTypeKind(value_ty));       \
+        bh_assert(LLVMGetTypeContext(phi_ty) == LLVMGetTypeContext(value_ty)); \
+        LLVMAddIncoming(block->result_phis[idx], &value, &block_curr, 1);      \
+        (void)phi_ty;                                                          \
+        (void)value_ty;                                                        \
+    } while (0)
 
-#define BUILD_ICMP(op, left, right, res, name) do {     \
-    if (!(res = LLVMBuildICmp(comp_ctx->builder, op,    \
-                              left, right, name))) {    \
-        aot_set_last_error("llvm build icmp failed.");  \
-        goto fail;                                      \
-    }                                                   \
-  } while (0)
+#define BUILD_ICMP(op, left, right, res, name)                                \
+    do {                                                                      \
+        if (!(res =                                                           \
+                  LLVMBuildICmp(comp_ctx->builder, op, left, right, name))) { \
+            aot_set_last_error("llvm build icmp failed.");                    \
+            goto fail;                                                        \
+        }                                                                     \
+    } while (0)
 
-#define ADD_TO_PARAM_PHIS(block, value, idx) do {            \
-    LLVMBasicBlockRef block_curr = CURR_BLOCK();             \
-    LLVMAddIncoming(block->param_phis[idx],                  \
-                    &value, &block_curr, 1);                 \
-  } while (0)
+#define ADD_TO_PARAM_PHIS(block, value, idx)                             \
+    do {                                                                 \
+        LLVMBasicBlockRef block_curr = CURR_BLOCK();                     \
+        LLVMAddIncoming(block->param_phis[idx], &value, &block_curr, 1); \
+    } while (0)
 
 static LLVMBasicBlockRef
 find_next_llvm_end_block(AOTBlock *block)
@@ -135,7 +137,7 @@ find_next_llvm_end_block(AOTBlock *block)
     return block ? block->llvm_end_block : NULL;
 }
 
-static AOTBlock*
+static AOTBlock *
 get_target_block(AOTFuncContext *func_ctx, uint32 br_depth)
 {
     uint32 i = br_depth;
@@ -153,8 +155,7 @@ get_target_block(AOTFuncContext *func_ctx, uint32 br_depth)
 }
 
 static bool
-handle_next_reachable_block(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx,
+handle_next_reachable_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             uint8 **p_frame_ip)
 {
     AOTBlock *block = func_ctx->block_stack.block_list_end;
@@ -172,12 +173,10 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
 
 #if WASM_ENABLE_DEBUG_AOT != 0
     return_location = dwarf_gen_location(
-      comp_ctx, func_ctx,
-      (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
-    );
+        comp_ctx, func_ctx,
+        (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
 #endif
-    if (block->label_type == LABEL_TYPE_IF
-        && block->llvm_else_block
+    if (block->label_type == LABEL_TYPE_IF && block->llvm_else_block
         && *p_frame_ip <= block->wasm_code_else) {
         /* Clear value stack and start to translate else branch */
         aot_value_stack_destroy(&block->value_stack);
@@ -194,8 +193,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
         block = aot_block_stack_pop(&func_ctx->block_stack);
 
         if (block->label_type == LABEL_TYPE_IF) {
-            if (block->llvm_else_block
-                && !block->skip_wasm_code_else
+            if (block->llvm_else_block && !block->skip_wasm_code_else
                 && *p_frame_ip <= block->wasm_code_else) {
                 /* Clear value stack and start to translate else branch */
                 aot_value_stack_destroy(&block->value_stack);
@@ -237,9 +235,9 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
             /* Store extra return values to function parameters */
             if (i != 0) {
                 uint32 param_index = func_type->param_count + i;
-                if (!LLVMBuildStore(comp_ctx->builder,
-                                    block->result_phis[i],
-                                    LLVMGetParam(func_ctx->func, param_index))) {
+                if (!LLVMBuildStore(
+                        comp_ctx->builder, block->result_phis[i],
+                        LLVMGetParam(func_ctx->func, param_index))) {
                     aot_set_last_error("llvm build store failed.");
                     goto fail;
                 }
@@ -250,7 +248,7 @@ handle_next_reachable_block(AOTCompContext *comp_ctx,
         if (block->result_count) {
             /* Return the first return value */
             if (!(ret =
-                    LLVMBuildRet(comp_ctx->builder, block->result_phis[0]))) {
+                      LLVMBuildRet(comp_ctx->builder, block->result_phis[0]))) {
                 aot_set_last_error("llvm build return failed.");
                 goto fail;
             }
@@ -293,8 +291,7 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
             return false;
         }
 
-        if (block->label_type == LABEL_TYPE_IF
-            && !block->skip_wasm_code_else
+        if (block->label_type == LABEL_TYPE_IF && !block->skip_wasm_code_else
             && !(block->else_param_phis = wasm_runtime_malloc((uint32)size))) {
             wasm_runtime_free(block->param_phis);
             block->param_phis = NULL;
@@ -306,27 +303,24 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
         for (i = 0; i < block->param_count; i++) {
             SET_BUILDER_POS(block->llvm_entry_block);
             snprintf(name, sizeof(name), "%s%d_phi%d",
-                     block_name_prefix[block->label_type],
-                     block->block_index, i);
-            if (!(block->param_phis[i] =
-                    LLVMBuildPhi(comp_ctx->builder,
-                                 TO_LLVM_TYPE(block->param_types[i]),
-                                 name))) {
+                     block_name_prefix[block->label_type], block->block_index,
+                     i);
+            if (!(block->param_phis[i] = LLVMBuildPhi(
+                      comp_ctx->builder, TO_LLVM_TYPE(block->param_types[i]),
+                      name))) {
                 aot_set_last_error("llvm build phi failed.");
                 goto fail;
             }
 
             if (block->label_type == LABEL_TYPE_IF
-                && !block->skip_wasm_code_else
-                && block->llvm_else_block) {
+                && !block->skip_wasm_code_else && block->llvm_else_block) {
                 /* Build else param phis */
                 SET_BUILDER_POS(block->llvm_else_block);
-                snprintf(name, sizeof(name), "else%d_phi%d",
-                         block->block_index, i);
-                if (!(block->else_param_phis[i] =
-                    LLVMBuildPhi(comp_ctx->builder,
-                                 TO_LLVM_TYPE(block->param_types[i]),
-                                 name))) {
+                snprintf(name, sizeof(name), "else%d_phi%d", block->block_index,
+                         i);
+                if (!(block->else_param_phis[i] = LLVMBuildPhi(
+                          comp_ctx->builder,
+                          TO_LLVM_TYPE(block->param_types[i]), name))) {
                     aot_set_last_error("llvm build phi failed.");
                     goto fail;
                 }
@@ -345,8 +339,8 @@ push_aot_block_to_stack_and_pass_params(AOTCompContext *comp_ctx,
                 && !block->skip_wasm_code_else) {
                 if (block->llvm_else_block) {
                     /* has else branch, add to else param phis */
-                    LLVMAddIncoming(block->else_param_phis[param_index],
-                                    &value, &block_curr, 1);
+                    LLVMAddIncoming(block->else_param_phis[param_index], &value,
+                                    &block_curr, 1);
                 }
                 else {
                     /* no else branch, add to result phis */
@@ -381,8 +375,8 @@ fail:
 
 bool
 aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                     uint8 **p_frame_ip, uint8 *frame_ip_end,
-                     uint32 label_type, uint32 param_count, uint8 *param_types,
+                     uint8 **p_frame_ip, uint8 *frame_ip_end, uint32 label_type,
+                     uint32 param_count, uint8 *param_types,
                      uint32 result_count, uint8 *result_types)
 {
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
@@ -400,9 +394,9 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     memset(block_addr_cache, 0, sizeof(block_addr_cache));
 
     /* Get block info */
-    if (!(wasm_loader_find_block_addr(NULL, (BlockAddr*)block_addr_cache,
-                                      *p_frame_ip, frame_ip_end, (uint8)label_type,
-                                      &else_addr, &end_addr))) {
+    if (!(wasm_loader_find_block_addr(
+            NULL, (BlockAddr *)block_addr_cache, *p_frame_ip, frame_ip_end,
+            (uint8)label_type, &else_addr, &end_addr))) {
         aot_set_last_error("find block end addr failed.");
         return false;
     }
@@ -436,11 +430,10 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     block->block_index = func_ctx->block_stack.block_index[label_type];
     func_ctx->block_stack.block_index[label_type]++;
 
-    if (label_type == LABEL_TYPE_BLOCK
-        || label_type == LABEL_TYPE_LOOP) {
+    if (label_type == LABEL_TYPE_BLOCK || label_type == LABEL_TYPE_LOOP) {
         /* Create block */
-        format_block_name(name, sizeof(name),
-                          block->block_index, label_type, LABEL_BEGIN);
+        format_block_name(name, sizeof(name), block->block_index, label_type,
+                          LABEL_BEGIN);
         CREATE_BLOCK(block->llvm_entry_block, name);
         MOVE_BLOCK_AFTER_CURR(block->llvm_entry_block);
         /* Jump to the entry block */
@@ -471,23 +464,24 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         if (!LLVMIsConstant(value)) {
             /* Compare value is not constant, create condition br IR */
             /* Create entry block */
-            format_block_name(name, sizeof(name),
-                              block->block_index, label_type, LABEL_BEGIN);
+            format_block_name(name, sizeof(name), block->block_index,
+                              label_type, LABEL_BEGIN);
             CREATE_BLOCK(block->llvm_entry_block, name);
             MOVE_BLOCK_AFTER_CURR(block->llvm_entry_block);
 
             /* Create end block */
-            format_block_name(name, sizeof(name),
-                              block->block_index, label_type, LABEL_END);
+            format_block_name(name, sizeof(name), block->block_index,
+                              label_type, LABEL_END);
             CREATE_BLOCK(block->llvm_end_block, name);
             MOVE_BLOCK_AFTER(block->llvm_end_block, block->llvm_entry_block);
 
             if (else_addr) {
                 /* Create else block */
-                format_block_name(name, sizeof(name),
-                                  block->block_index, label_type, LABEL_ELSE);
+                format_block_name(name, sizeof(name), block->block_index,
+                                  label_type, LABEL_ELSE);
                 CREATE_BLOCK(block->llvm_else_block, name);
-                MOVE_BLOCK_AFTER(block->llvm_else_block, block->llvm_entry_block);
+                MOVE_BLOCK_AFTER(block->llvm_else_block,
+                                 block->llvm_entry_block);
                 /* Create condition br IR */
                 BUILD_COND_BR(value, block->llvm_entry_block,
                               block->llvm_else_block);
@@ -498,7 +492,8 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                               block->llvm_end_block);
                 block->is_reachable = true;
             }
-            if (!push_aot_block_to_stack_and_pass_params(comp_ctx, func_ctx, block))
+            if (!push_aot_block_to_stack_and_pass_params(comp_ctx, func_ctx,
+                                                         block))
                 goto fail;
             /* Start to translate if branch of BLOCK if */
             SET_BUILDER_POS(block->llvm_entry_block);
@@ -509,13 +504,14 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    BLOCK if cannot be reached */
                 block->skip_wasm_code_else = true;
                 /* Create entry block */
-                format_block_name(name, sizeof(name),
-                                  block->block_index, label_type, LABEL_BEGIN);
+                format_block_name(name, sizeof(name), block->block_index,
+                                  label_type, LABEL_BEGIN);
                 CREATE_BLOCK(block->llvm_entry_block, name);
                 MOVE_BLOCK_AFTER_CURR(block->llvm_entry_block);
                 /* Jump to the entry block */
                 BUILD_BR(block->llvm_entry_block);
-                if (!push_aot_block_to_stack_and_pass_params(comp_ctx, func_ctx, block))
+                if (!push_aot_block_to_stack_and_pass_params(comp_ctx, func_ctx,
+                                                             block))
                     goto fail;
                 /* Start to translate the if branch */
                 SET_BUILDER_POS(block->llvm_entry_block);
@@ -525,13 +521,14 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    BLOCK if cannot be reached */
                 if (else_addr) {
                     /* Create else block */
-                    format_block_name(name, sizeof(name),
-                                      block->block_index, label_type, LABEL_ELSE);
+                    format_block_name(name, sizeof(name), block->block_index,
+                                      label_type, LABEL_ELSE);
                     CREATE_BLOCK(block->llvm_else_block, name);
                     MOVE_BLOCK_AFTER_CURR(block->llvm_else_block);
                     /* Jump to the else block */
                     BUILD_BR(block->llvm_else_block);
-                    if (!push_aot_block_to_stack_and_pass_params(comp_ctx, func_ctx, block))
+                    if (!push_aot_block_to_stack_and_pass_params(
+                            comp_ctx, func_ctx, block))
                         goto fail;
                     /* Start to translate the else branch */
                     SET_BUILDER_POS(block->llvm_else_block);
@@ -571,16 +568,15 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
     if (block->label_type != LABEL_TYPE_IF
-        || (!block->skip_wasm_code_else
-            && !block->llvm_else_block)) {
+        || (!block->skip_wasm_code_else && !block->llvm_else_block)) {
         aot_set_last_error("Invalid WASM block type.");
         return false;
     }
 
     /* Create end block if needed */
     if (!block->llvm_end_block) {
-        format_block_name(name, sizeof(name),
-                          block->block_index, block->label_type, LABEL_END);
+        format_block_name(name, sizeof(name), block->block_index,
+                          block->label_type, LABEL_END);
         CREATE_BLOCK(block->llvm_end_block, name);
         if (block->llvm_else_block)
             MOVE_BLOCK_AFTER(block->llvm_end_block, block->llvm_else_block);
@@ -601,8 +597,7 @@ aot_compile_op_else(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Jump to end block */
     BUILD_BR(block->llvm_end_block);
 
-    if (!block->skip_wasm_code_else
-        && block->llvm_else_block) {
+    if (!block->skip_wasm_code_else && block->llvm_else_block) {
         /* Clear value stack, recover param values
          * and start to translate else branch.
          */
@@ -639,8 +634,8 @@ aot_compile_op_end(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Create the end block */
     if (!block->llvm_end_block) {
-        format_block_name(name, sizeof(name),
-                          block->block_index, block->label_type, LABEL_END);
+        format_block_name(name, sizeof(name), block->block_index,
+                          block->label_type, LABEL_END);
         CREATE_BLOCK(block->llvm_end_block, name);
         if ((next_llvm_end_block = find_next_llvm_end_block(block)))
             MOVE_BLOCK_BEFORE(block->llvm_end_block, next_llvm_end_block);
@@ -678,22 +673,20 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     offset = I32_FIVE;
 
     if (!(terminate_addr =
-                LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
-                                     &offset, 1, "terminate_addr"))) {
+              LLVMBuildInBoundsGEP(comp_ctx->builder, func_ctx->exec_env,
+                                   &offset, 1, "terminate_addr"))) {
         aot_set_last_error("llvm build in bounds gep failed");
         return false;
     }
     if (!(terminate_addr =
-                LLVMBuildBitCast(comp_ctx->builder,
-                                 terminate_addr,
-                                 INT32_PTR_TYPE, "terminate_addr_ptr"))) {
+              LLVMBuildBitCast(comp_ctx->builder, terminate_addr,
+                               INT32_PTR_TYPE, "terminate_addr_ptr"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
 
-    if (!(terminate_flags =
-                LLVMBuildLoad(comp_ctx->builder,
-                              terminate_addr, "terminate_flags"))) {
+    if (!(terminate_flags = LLVMBuildLoad(comp_ctx->builder, terminate_addr,
+                                          "terminate_flags"))) {
         aot_set_last_error("llvm build bit cast failed");
         return false;
     }
@@ -716,9 +709,8 @@ check_suspend_flags(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     CREATE_BLOCK(terminate_block, "terminate");
     MOVE_BLOCK_AFTER_CURR(terminate_block);
 
-    if (!(flag =
-            LLVMBuildAnd(comp_ctx->builder, terminate_flags,
-                         I32_ONE, "termination_flag"))) {
+    if (!(flag = LLVMBuildAnd(comp_ctx->builder, terminate_flags, I32_ONE,
+                              "termination_flag"))) {
         aot_set_last_error("llvm build AND failed");
         return false;
     }
@@ -777,9 +769,8 @@ aot_compile_op_br(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Dest block is Block/If/Function block */
         /* Create the end block */
         if (!block_dst->llvm_end_block) {
-            format_block_name(name, sizeof(name),
-                              block_dst->block_index, block_dst->label_type,
-                              LABEL_END);
+            format_block_name(name, sizeof(name), block_dst->block_index,
+                              block_dst->label_type, LABEL_END);
             CREATE_BLOCK(block_dst->llvm_end_block, name);
             if ((next_llvm_end_block = find_next_llvm_end_block(block_dst)))
                 MOVE_BLOCK_BEFORE(block_dst->llvm_end_block,
@@ -880,9 +871,8 @@ aot_compile_op_br_if(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             /* Dest block is Block/If/Function block */
             /* Create the end block */
             if (!block_dst->llvm_end_block) {
-                format_block_name(name, sizeof(name),
-                                  block_dst->block_index, block_dst->label_type,
-                                  LABEL_END);
+                format_block_name(name, sizeof(name), block_dst->block_index,
+                                  block_dst->label_type, LABEL_END);
                 CREATE_BLOCK(block_dst->llvm_end_block, name);
                 if ((next_llvm_end_block = find_next_llvm_end_block(block_dst)))
                     MOVE_BLOCK_BEFORE(block_dst->llvm_end_block,
@@ -941,8 +931,7 @@ fail:
 
 bool
 aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                        uint32 *br_depths, uint32 br_count,
-                        uint8 **p_frame_ip)
+                        uint32 *br_depths, uint32 br_count, uint8 **p_frame_ip)
 {
     uint32 i, j;
     LLVMValueRef value_switch, value_cmp, value_case, value, *values = NULL;
@@ -989,17 +978,17 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 if (!target_block->llvm_end_block) {
                     format_block_name(name, sizeof(name),
                                       target_block->block_index,
-                                      target_block->label_type,
-                                      LABEL_END);
+                                      target_block->label_type, LABEL_END);
                     CREATE_BLOCK(target_block->llvm_end_block, name);
                     if ((next_llvm_end_block =
-                                find_next_llvm_end_block(target_block)))
+                             find_next_llvm_end_block(target_block)))
                         MOVE_BLOCK_BEFORE(target_block->llvm_end_block,
                                           next_llvm_end_block);
                 }
                 /* Handle result values */
                 if (target_block->result_count) {
-                    size = sizeof(LLVMValueRef) * (uint64)target_block->result_count;
+                    size = sizeof(LLVMValueRef)
+                           * (uint64)target_block->result_count;
                     if (size >= UINT32_MAX
                         || !(values = wasm_runtime_malloc((uint32)size))) {
                         aot_set_last_error("allocate memory failed.");
@@ -1024,7 +1013,8 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             else {
                 /* Handle Loop parameters */
                 if (target_block->param_count) {
-                    size = sizeof(LLVMValueRef) * (uint64)target_block->param_count;
+                    size = sizeof(LLVMValueRef)
+                           * (uint64)target_block->param_count;
                     if (size >= UINT32_MAX
                         || !(values = wasm_runtime_malloc((uint32)size))) {
                         aot_set_last_error("allocate memory failed.");
@@ -1061,8 +1051,8 @@ aot_compile_op_br_table(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             if (!target_block)
                 return false;
             target_llvm_block = target_block->label_type != LABEL_TYPE_LOOP
-                                ? target_block->llvm_end_block
-                                : target_block->llvm_entry_block;
+                                    ? target_block->llvm_end_block
+                                    : target_block->llvm_entry_block;
             LLVMAddCase(value_switch, value_case, target_llvm_block);
         }
 
@@ -1101,9 +1091,8 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 #if WASM_ENABLE_DEBUG_AOT != 0
     return_location = dwarf_gen_location(
-      comp_ctx, func_ctx,
-      (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code
-    );
+        comp_ctx, func_ctx,
+        (*p_frame_ip - 1) - comp_ctx->comp_data->wasm_module->buf_code);
 #endif
     if (block_func->result_count) {
         /* Store extra result values to function parameters */
@@ -1111,8 +1100,7 @@ aot_compile_op_return(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             result_index = block_func->result_count - 1 - i;
             POP(value, block_func->result_types[result_index]);
             param_index = func_type->param_count + result_index;
-            if (!LLVMBuildStore(comp_ctx->builder,
-                                value,
+            if (!LLVMBuildStore(comp_ctx->builder, value,
                                 LLVMGetParam(func_ctx->func, param_index))) {
                 aot_set_last_error("llvm build store failed.");
                 goto fail;
@@ -1144,12 +1132,11 @@ fail:
 }
 
 bool
-aot_compile_op_unreachable(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
+aot_compile_op_unreachable(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            uint8 **p_frame_ip)
 {
-    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_UNREACHABLE,
-                            false, NULL, NULL))
+    if (!aot_emit_exception(comp_ctx, func_ctx, EXCE_UNREACHABLE, false, NULL,
+                            NULL))
         return false;
 
     return handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
@@ -1157,8 +1144,7 @@ aot_compile_op_unreachable(AOTCompContext *comp_ctx,
 
 bool
 aot_handle_next_reachable_block(AOTCompContext *comp_ctx,
-                                AOTFuncContext *func_ctx,
-                                uint8 **p_frame_ip)
+                                AOTFuncContext *func_ctx, uint8 **p_frame_ip)
 {
     return handle_next_reachable_block(comp_ctx, func_ctx, p_frame_ip);
 }

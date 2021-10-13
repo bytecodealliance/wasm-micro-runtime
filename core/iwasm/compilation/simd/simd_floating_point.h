@@ -13,13 +13,11 @@ extern "C" {
 #endif
 
 bool
-aot_compile_simd_f32x4_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_f32x4_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              FloatArithmetic arith_op);
 
 bool
-aot_compile_simd_f64x2_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_f64x2_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              FloatArithmetic arith_op);
 
 bool
@@ -43,20 +41,16 @@ aot_compile_simd_f64x2_round(AOTCompContext *comp_ctx,
                              AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_sqrt(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx);
+aot_compile_simd_f32x4_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f64x2_sqrt(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx);
+aot_compile_simd_f64x2_sqrt(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f32x4_ceil(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx);
+aot_compile_simd_f32x4_ceil(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_f64x2_ceil(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx);
+aot_compile_simd_f64x2_ceil(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool
 aot_compile_simd_f32x4_floor(AOTCompContext *comp_ctx,
@@ -84,23 +78,19 @@ aot_compile_simd_f64x2_nearest(AOTCompContext *comp_ctx,
 
 bool
 aot_compile_simd_f32x4_min_max(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               bool run_min);
+                               AOTFuncContext *func_ctx, bool run_min);
 
 bool
 aot_compile_simd_f64x2_min_max(AOTCompContext *comp_ctx,
-                               AOTFuncContext *func_ctx,
-                               bool run_min);
+                               AOTFuncContext *func_ctx, bool run_min);
 
 bool
 aot_compile_simd_f32x4_pmin_pmax(AOTCompContext *comp_ctx,
-                                 AOTFuncContext *func_ctx,
-                                 bool run_min);
+                                 AOTFuncContext *func_ctx, bool run_min);
 
 bool
 aot_compile_simd_f64x2_pmin_pmax(AOTCompContext *comp_ctx,
-                                 AOTFuncContext *func_ctx,
-                                 bool run_min);
+                                 AOTFuncContext *func_ctx, bool run_min);
 
 bool
 aot_compile_simd_f64x2_demote(AOTCompContext *comp_ctx,

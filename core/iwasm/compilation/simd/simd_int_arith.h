@@ -13,23 +13,19 @@ extern "C" {
 #endif
 
 bool
-aot_compile_simd_i8x16_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i8x16_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic cond);
 
 bool
-aot_compile_simd_i16x8_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i16x8_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic cond);
 
 bool
-aot_compile_simd_i32x4_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i32x4_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic cond);
 
 bool
-aot_compile_simd_i64x2_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i64x2_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic cond);
 
 bool
@@ -49,22 +45,16 @@ aot_compile_simd_i8x16_popcnt(AOTCompContext *comp_ctx,
                               AOTFuncContext *func_ctx);
 
 bool
-aot_compile_simd_i8x16_cmp(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           V128Arithmetic arith_op,
-                           bool is_signed);
+aot_compile_simd_i8x16_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op, bool is_signed);
 
 bool
-aot_compile_simd_i16x8_cmp(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           V128Arithmetic arith_op,
-                           bool is_signed);
+aot_compile_simd_i16x8_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op, bool is_signed);
 
 bool
-aot_compile_simd_i32x4_cmp(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           V128Arithmetic arith_op,
-                           bool is_signed);
+aot_compile_simd_i32x4_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op, bool is_signed);
 
 bool
 aot_compile_simd_i8x16_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);

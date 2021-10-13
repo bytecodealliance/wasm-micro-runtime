@@ -11,6 +11,7 @@
 #include "sys/syscall.h"
 #endif
 
+/* clang-format off */
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
@@ -34,15 +35,15 @@
 
 #define module_free(offset) \
     wasm_runtime_module_free(module_inst, offset)
+/* clang-format on */
 
 extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env,
-                           uint32 element_idx,
+wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32 element_idx,
                            uint32 argc, uint32 argv[]);
 
 static void
-invoke_viiii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx,
-                     int arg0, int arg1, int arg2, int arg3)
+invoke_viiii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx, int arg0,
+                     int arg1, int arg2, int arg3)
 {
     uint32 argv[4];
     bool ret;
@@ -56,8 +57,8 @@ invoke_viiii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx,
 }
 
 static void
-invoke_viii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx,
-                    int arg0, int arg1, int arg2)
+invoke_viii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx, int arg0,
+                    int arg1, int arg2)
 {
     uint32 argv[4];
     bool ret;
@@ -70,8 +71,8 @@ invoke_viii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx,
 }
 
 static void
-invoke_vii_wrapper(wasm_exec_env_t exec_env,
-                   uint32 elem_idx, int arg0, int arg1)
+invoke_vii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx, int arg0,
+                   int arg1)
 {
     uint32 argv[4];
     bool ret;
@@ -83,8 +84,7 @@ invoke_vii_wrapper(wasm_exec_env_t exec_env,
 }
 
 static void
-invoke_vi_wrapper(wasm_exec_env_t exec_env,
-                  uint32 elem_idx, int arg0)
+invoke_vi_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx, int arg0)
 {
     uint32 argv[4];
     bool ret;
@@ -95,8 +95,8 @@ invoke_vi_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int
-invoke_iii_wrapper(wasm_exec_env_t exec_env,
-                   uint32 elem_idx, int arg0, int arg1)
+invoke_iii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx, int arg0,
+                   int arg1)
 {
     uint32 argv[4];
     bool ret;
@@ -108,8 +108,7 @@ invoke_iii_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int
-invoke_ii_wrapper(wasm_exec_env_t exec_env,
-                  uint32 elem_idx, int arg0)
+invoke_ii_wrapper(wasm_exec_env_t exec_env, uint32 elem_idx, int arg0)
 {
     uint32 argv[4];
     bool ret;
@@ -144,8 +143,8 @@ struct stat_emcc {
 };
 
 static int
-open_wrapper(wasm_exec_env_t exec_env, const char *pathname,
-             int flags, int mode)
+open_wrapper(wasm_exec_env_t exec_env, const char *pathname, int flags,
+             int mode)
 {
     if (pathname == NULL)
         return -1;
@@ -153,8 +152,7 @@ open_wrapper(wasm_exec_env_t exec_env, const char *pathname,
 }
 
 static int
-__sys_read_wrapper(wasm_exec_env_t exec_env,
-                   int fd, void *buf, uint32 count)
+__sys_read_wrapper(wasm_exec_env_t exec_env, int fd, void *buf, uint32 count)
 {
     return read(fd, buf, count);
 }
@@ -183,15 +181,14 @@ statbuf_native2app(const struct stat *statbuf_native,
 }
 
 static int
-__sys_stat64_wrapper(wasm_exec_env_t exec_env,
-                     const char *pathname,
+__sys_stat64_wrapper(wasm_exec_env_t exec_env, const char *pathname,
                      struct stat_emcc *statbuf_app)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     int ret;
     struct stat statbuf;
 
-    if (!validate_native_addr((void*)statbuf_app, sizeof(struct stat_emcc)))
+    if (!validate_native_addr((void *)statbuf_app, sizeof(struct stat_emcc)))
         return -1;
 
     if (pathname == NULL)
@@ -204,14 +201,14 @@ __sys_stat64_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int
-__sys_fstat64_wrapper(wasm_exec_env_t exec_env,
-                      int fd, struct stat_emcc *statbuf_app)
+__sys_fstat64_wrapper(wasm_exec_env_t exec_env, int fd,
+                      struct stat_emcc *statbuf_app)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     int ret;
     struct stat statbuf;
 
-    if (!validate_native_addr((void*)statbuf_app, sizeof(struct stat_emcc)))
+    if (!validate_native_addr((void *)statbuf_app, sizeof(struct stat_emcc)))
         return -1;
 
     if (fd <= 0)
@@ -224,16 +221,15 @@ __sys_fstat64_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int
-mmap_wrapper(wasm_exec_env_t exec_env,
-             void *addr, int length, int prot, int flags,
-             int fd, int64 offset)
+mmap_wrapper(wasm_exec_env_t exec_env, void *addr, int length, int prot,
+             int flags, int fd, int64 offset)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     uint32 buf_offset;
     char *buf;
     int size_read;
 
-    buf_offset = module_malloc(length, (void**)&buf);
+    buf_offset = module_malloc(length, (void **)&buf);
     if (buf_offset == 0)
         return -1;
 
@@ -275,16 +271,14 @@ getentropy_wrapper(wasm_exec_env_t exec_env, void *buffer, uint32 length)
 }
 
 static int
-setjmp_wrapper(wasm_exec_env_t exec_env,
-               void *jmp_buf)
+setjmp_wrapper(wasm_exec_env_t exec_env, void *jmp_buf)
 {
     os_printf("setjmp() called\n");
     return 0;
 }
 
 static void
-longjmp_wrapper(wasm_exec_env_t exec_env,
-               void *jmp_buf, int val)
+longjmp_wrapper(wasm_exec_env_t exec_env, void *jmp_buf, int val)
 {
     os_printf("longjmp() called\n");
 }
@@ -305,9 +299,7 @@ get_free_file_slot()
 }
 
 static int
-fopen_wrapper(wasm_exec_env_t exec_env,
-              const char *pathname,
-              const char *mode)
+fopen_wrapper(wasm_exec_env_t exec_env, const char *pathname, const char *mode)
 {
     FILE *file;
     int file_id;
@@ -327,8 +319,8 @@ fopen_wrapper(wasm_exec_env_t exec_env,
 }
 
 static uint32
-fread_wrapper(wasm_exec_env_t exec_env,
-              void *ptr, uint32 size, uint32 nmemb, int file_id)
+fread_wrapper(wasm_exec_env_t exec_env, void *ptr, uint32 size, uint32 nmemb,
+              int file_id)
 {
     FILE *file;
 
@@ -343,8 +335,7 @@ fread_wrapper(wasm_exec_env_t exec_env,
 }
 
 static int
-fseeko_wrapper(wasm_exec_env_t exec_env,
-               int file_id, int64 offset, int whence)
+fseeko_wrapper(wasm_exec_env_t exec_env, int file_id, int64 offset, int whence)
 {
     FILE *file;
 
@@ -359,9 +350,8 @@ fseeko_wrapper(wasm_exec_env_t exec_env,
 }
 
 static uint32
-emcc_fwrite_wrapper(wasm_exec_env_t exec_env,
-                    const void *ptr, uint32 size, uint32 nmemb,
-                    int file_id)
+emcc_fwrite_wrapper(wasm_exec_env_t exec_env, const void *ptr, uint32 size,
+                    uint32 nmemb, int file_id)
 {
     FILE *file;
 
@@ -403,8 +393,7 @@ fclose_wrapper(wasm_exec_env_t exec_env, int file_id)
 }
 
 static int
-__sys_mkdir_wrapper(wasm_exec_env_t exec_env,
-                    const char *pathname, int mode)
+__sys_mkdir_wrapper(wasm_exec_env_t exec_env, const char *pathname, int mode)
 {
     if (!pathname)
         return -1;
@@ -522,8 +511,10 @@ emscripten_thread_sleep_wrapper(wasm_exec_env_t exec_env, double timeout_ms)
 
 #endif /* end of BH_PLATFORM_LINUX_SGX */
 
-#define REG_NATIVE_FUNC(func_name, signature)  \
+/* clang-format off */
+#define REG_NATIVE_FUNC(func_name, signature) \
     { #func_name, func_name##_wrapper, signature, NULL }
+/* clang-format off */
 
 static NativeSymbol native_symbols_libc_emcc[] = {
     REG_NATIVE_FUNC(invoke_viiii, "(iiiii)"),

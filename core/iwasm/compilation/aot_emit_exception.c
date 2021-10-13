@@ -8,9 +8,7 @@
 
 bool
 aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                   int32 exception_id,
-                   bool is_cond_br,
-                   LLVMValueRef cond_br_if,
+                   int32 exception_id, bool is_cond_br, LLVMValueRef cond_br_if,
                    LLVMBasicBlockRef cond_br_else_block)
 {
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
@@ -24,10 +22,8 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Create got_exception block if needed */
     if (!func_ctx->got_exception_block) {
-        if (!(func_ctx->got_exception_block =
-                LLVMAppendBasicBlockInContext(comp_ctx->context,
-                                              func_ctx->func,
-                                              "got_exception"))) {
+        if (!(func_ctx->got_exception_block = LLVMAppendBasicBlockInContext(
+                  comp_ctx->context, func_ctx->func, "got_exception"))) {
             aot_set_last_error("add LLVM basic block failed.");
             return false;
         }
@@ -37,7 +33,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Create exection id phi */
         if (!(func_ctx->exception_id_phi = LLVMBuildPhi(
-                comp_ctx->builder, I32_TYPE, "exception_id_phi"))) {
+                  comp_ctx->builder, I32_TYPE, "exception_id_phi"))) {
             aot_set_last_error("llvm build phi failed.");
             return false;
         }
@@ -48,8 +44,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         ret_type = VOID_TYPE;
 
         /* Create function type */
-        if (!(func_type = LLVMFunctionType(ret_type, param_types,
-                                           2, false))) {
+        if (!(func_type = LLVMFunctionType(ret_type, param_types, 2, false))) {
             aot_set_last_error("create LLVM function type failed.");
             return false;
         }
@@ -62,7 +57,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
             /* Create LLVM function with const function pointer */
             if (!(func_const =
-                    I64_CONST((uint64)(uintptr_t)aot_set_exception_with_id))
+                      I64_CONST((uint64)(uintptr_t)aot_set_exception_with_id))
                 || !(func = LLVMConstIntToPtr(func_const, func_ptr_type))) {
                 aot_set_last_error("create LLVM value failed.");
                 return false;
@@ -76,13 +71,13 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             }
 
             func_index = aot_get_native_symbol_index(
-                      comp_ctx, "aot_set_exception_with_id");
+                comp_ctx, "aot_set_exception_with_id");
             if (func_index < 0) {
                 return false;
             }
             if (!(func =
-                    aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
-                                            func_ptr_type, func_index))) {
+                      aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                              func_ptr_type, func_index))) {
                 return false;
             }
         }
@@ -101,8 +96,7 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         /* Call the aot_set_exception_with_id() function */
         param_values[0] = func_ctx->aot_inst;
         param_values[1] = func_ctx->exception_id_phi;
-        if (!LLVMBuildCall(comp_ctx->builder, func, param_values,
-                           2, "")) {
+        if (!LLVMBuildCall(comp_ctx->builder, func, param_values, 2, "")) {
             aot_set_last_error("llvm build call failed.");
             return false;
         }
@@ -130,7 +124,8 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     else {
         /* Create condition br */
         if (!LLVMBuildCondBr(comp_ctx->builder, cond_br_if,
-                             func_ctx->got_exception_block, cond_br_else_block)) {
+                             func_ctx->got_exception_block,
+                             cond_br_else_block)) {
             aot_set_last_error("llvm build cond br failed.");
             return false;
         }
@@ -142,4 +137,3 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
-

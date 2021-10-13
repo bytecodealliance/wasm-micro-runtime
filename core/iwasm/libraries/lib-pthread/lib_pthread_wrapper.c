@@ -12,13 +12,14 @@
 
 #define WAMR_PTHREAD_KEYS_MAX 32
 
+/* clang-format off */
 #define get_module(exec_env) \
     wasm_exec_env_get_module(exec_env)
 
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
-#define get_thread_arg(exec_env)    \
+#define get_thread_arg(exec_env) \
     wasm_exec_env_get_thread_arg(exec_env)
 
 #define get_wasi_ctx(module_inst) \
@@ -35,10 +36,10 @@
 
 #define addr_native_to_app(ptr) \
     wasm_runtime_addr_native_to_app(module_inst, ptr)
+/* clang-format on */
 
 extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env,
-                           uint32 element_indices,
+wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32 element_indices,
                            uint32 argc, uint32 argv[]);
 
 enum {
@@ -95,7 +96,7 @@ typedef struct ThreadInfoNode {
     /* type can be [THREAD | MUTEX | CONDITION] */
     uint32 type;
     /* Thread status, this variable should be volatile
-        as its value may be changed in different threads */
+       as its value may be changed in different threads */
     volatile uint32 status;
     bool joinable;
     union {
@@ -161,8 +162,7 @@ lib_pthread_init()
     if (0 != os_mutex_init(&thread_global_lock))
         return false;
     bh_list_init(&cluster_info_list);
-    if (!wasm_cluster_register_destroy_callback(
-            lib_pthread_destroy_callback)) {
+    if (!wasm_cluster_register_destroy_callback(lib_pthread_destroy_callback)) {
         os_mutex_destroy(&thread_global_lock);
         return false;
     }
@@ -175,7 +175,7 @@ lib_pthread_destroy()
     os_mutex_destroy(&thread_global_lock);
 }
 
-static ClusterInfoNode*
+static ClusterInfoNode *
 get_cluster_info(WASMCluster *cluster)
 {
     ClusterInfoNode *node;
@@ -195,30 +195,30 @@ get_cluster_info(WASMCluster *cluster)
     return NULL;
 }
 
-static KeyData*
+static KeyData *
 key_data_list_lookup(wasm_exec_env_t exec_env, int32 key)
 {
     ClusterInfoNode *node;
-    WASMCluster *cluster =
-        wasm_exec_env_get_cluster(exec_env);
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
 
     if ((node = get_cluster_info(cluster))) {
         return (key >= 0 && key < WAMR_PTHREAD_KEYS_MAX
                 && node->key_data_list[key].is_created)
-               ? &(node->key_data_list[key]) : NULL;
+                   ? &(node->key_data_list[key])
+                   : NULL;
     }
 
     return NULL;
 }
 
-/* Lookup the thread key value node for a thread,
-    create a new one if failed
-   This design will reduce the memory usage. If the thread doesn't use
-    the local storage, it will not occupy memory space
-*/
-static int32*
-key_value_list_lookup_or_create(wasm_exec_env_t exec_env,
-                                ClusterInfoNode *info, int32 key)
+/**
+ * Lookup the thread key value node for a thread, create a new one if failed
+ * This design will reduce the memory usage. If the thread doesn't use the
+ * local storage, it will not occupy memory space.
+ */
+static int32 *
+key_value_list_lookup_or_create(wasm_exec_env_t exec_env, ClusterInfoNode *info,
+                                int32 key)
 {
     KeyData *key_node;
     ThreadKeyValueNode *data;
@@ -296,9 +296,7 @@ call_key_destructor(wasm_exec_env_t exec_env)
                 uint32 argv[1];
 
                 argv[0] = value;
-                wasm_runtime_call_indirect(exec_env,
-                                           destructor_index,
-                                           1, argv);
+                wasm_runtime_call_indirect(exec_env, destructor_index, 1, argv);
             }
         }
     }
@@ -325,7 +323,7 @@ destroy_thread_key_value_list(bh_list *list)
     }
 }
 
-static ClusterInfoNode*
+static ClusterInfoNode *
 create_cluster_info(WASMCluster *cluster)
 {
     ClusterInfoNode *node;
@@ -346,12 +344,9 @@ create_cluster_info(WASMCluster *cluster)
     }
 
     node->cluster = cluster;
-    if (!(node->thread_info_map =
-            bh_hash_map_create(32, true,
-                               (HashFunc)thread_handle_hash,
-                               (KeyEqualFunc)thread_handle_equal,
-                               NULL,
-                               thread_info_destroy))) {
+    if (!(node->thread_info_map = bh_hash_map_create(
+              32, true, (HashFunc)thread_handle_hash,
+              (KeyEqualFunc)thread_handle_equal, NULL, thread_info_destroy))) {
         os_mutex_destroy(&node->key_data_list_lock);
         wasm_runtime_free(node);
         return NULL;
@@ -395,13 +390,12 @@ delete_thread_info_node(ThreadInfoNode *thread_info)
 {
     ClusterInfoNode *node;
     bool ret;
-    WASMCluster *cluster =
-        wasm_exec_env_get_cluster(thread_info->exec_env);
+    WASMCluster *cluster = wasm_exec_env_get_cluster(thread_info->exec_env);
 
     if ((node = get_cluster_info(cluster))) {
         ret = bh_hash_map_remove(node->thread_info_map,
-                                 (void *)(uintptr_t)thread_info->handle,
-                                 NULL, NULL);
+                                 (void *)(uintptr_t)thread_info->handle, NULL,
+                                 NULL);
         (void)ret;
     }
 
@@ -412,8 +406,7 @@ static bool
 append_thread_info_node(ThreadInfoNode *thread_info)
 {
     ClusterInfoNode *node;
-    WASMCluster *cluster =
-        wasm_exec_env_get_cluster(thread_info->exec_env);
+    WASMCluster *cluster = wasm_exec_env_get_cluster(thread_info->exec_env);
 
     if (!(node = get_cluster_info(cluster))) {
         if (!(node = create_cluster_info(cluster))) {
@@ -430,7 +423,7 @@ append_thread_info_node(ThreadInfoNode *thread_info)
     return true;
 }
 
-static ThreadInfoNode*
+static ThreadInfoNode *
 get_thread_info(wasm_exec_env_t exec_env, uint32 handle)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
@@ -453,7 +446,7 @@ allocate_handle()
     return id;
 }
 
-static void*
+static void *
 pthread_start_routine(void *arg)
 {
     wasm_exec_env_t exec_env = (wasm_exec_env_t)arg;
@@ -482,9 +475,8 @@ pthread_start_routine(void *arg)
     wasm_exec_env_set_thread_info(exec_env);
     argv[0] = routine_args->arg;
 
-    if(!wasm_runtime_call_indirect(exec_env,
-                                   routine_args->elem_index,
-                                   1, argv)) {
+    if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
+                                    argv)) {
         if (wasm_runtime_get_exception(module_inst))
             wasm_cluster_spread_exception(exec_env);
     }
@@ -498,8 +490,8 @@ pthread_start_routine(void *arg)
     wasm_runtime_free(routine_args);
 
     /* if the thread is joinable, store the result in its info node,
-        if the other threads join this thread after exited, then we
-        can return the stored result */
+       if the other threads join this thread after exited, then we
+       can return the stored result */
     if (!info_node->joinable) {
         delete_thread_info_node(info_node);
     }
@@ -520,10 +512,10 @@ pthread_start_routine(void *arg)
 
 static int
 pthread_create_wrapper(wasm_exec_env_t exec_env,
-                       uint32 *thread,      /* thread_handle */
-                       const void *attr,    /* not supported */
-                       uint32 elem_index,   /* entry function */
-                       uint32 arg)          /* arguments buffer */
+                       uint32 *thread,    /* thread_handle */
+                       const void *attr,  /* not supported */
+                       uint32 elem_index, /* entry function */
+                       uint32 arg)        /* arguments buffer */
 {
     wasm_module_t module = get_module(exec_env);
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
@@ -539,15 +531,13 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     bh_assert(module);
     bh_assert(module_inst);
 
-    if (!(new_module_inst =
-            wasm_runtime_instantiate_internal(module, true, 8192, 0,
-                                              NULL, 0)))
+    if (!(new_module_inst = wasm_runtime_instantiate_internal(
+              module, true, 8192, 0, NULL, 0)))
         return -1;
 
     /* Set custom_data to new module instance */
     wasm_runtime_set_custom_data_internal(
-        new_module_inst,
-        wasm_runtime_get_custom_data(module_inst));
+        new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
 #if WASM_ENABLE_LIBC_WASI != 0
     wasi_ctx = get_wasi_ctx(module_inst);
@@ -575,17 +565,16 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     routine_args->module_inst = new_module_inst;
 
     os_mutex_lock(&exec_env->wait_lock);
-    ret = wasm_cluster_create_thread(exec_env, new_module_inst,
-                                     pthread_start_routine,
-                                     (void *)routine_args);
+    ret = wasm_cluster_create_thread(
+        exec_env, new_module_inst, pthread_start_routine, (void *)routine_args);
     if (ret != 0) {
         os_mutex_unlock(&exec_env->wait_lock);
         goto fail;
     }
 
     /* Wait for the thread routine to assign the exec_env to
-        thread_info_node, otherwise the exec_env in the thread
-        info node may be NULL in the next pthread API call */
+       thread_info_node, otherwise the exec_env in the thread
+       info node may be NULL in the next pthread API call */
     os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock);
     os_mutex_unlock(&exec_env->wait_lock);
 
@@ -618,10 +607,10 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
     module_inst = get_module_inst(exec_env);
 
     /* validate addr, we can use current thread's
-        module instance here as the memory is shared */
+       module instance here as the memory is shared */
     if (!validate_app_addr(retval_offset, sizeof(int32))) {
         /* Join failed, but we don't want to terminate all threads,
-            do not spread exception here */
+           do not spread exception here */
         wasm_runtime_set_exception(module_inst, NULL);
         return -1;
     }
@@ -645,14 +634,14 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
         /* if the thread has exited, return stored results */
 
         /* this thread must be joinable, otherwise the
-            info_node should be destroyed once exit */
+           info_node should be destroyed once exit */
         bh_assert(node->joinable);
         join_ret = 0;
         ret = node->u.ret;
     }
 
     if (retval_offset != 0)
-        *(uint32*)retval = (uint32)(uintptr_t)ret;
+        *(uint32 *)retval = (uint32)(uintptr_t)ret;
 
     return join_ret;
 }
@@ -699,7 +688,7 @@ pthread_self_wrapper(wasm_exec_env_t exec_env)
 {
     ThreadRoutineArgs *args = get_thread_arg(exec_env);
     /* If thread_arg is NULL, it's the exec_env of the main thread,
-        return id 0 to app */
+       return id 0 to app */
     if (!args)
         return 0;
 
@@ -717,8 +706,8 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && !defined(BH_PLATFORM_WINDOWS)
     /* If hardware bound check enabled, don't deinstantiate module inst
-        and thread info node here for AoT module, as they will be freed
-        in pthread_start_routine */
+       and thread info node here for AoT module, as they will be freed
+       in pthread_start_routine */
     if (exec_env->jmpbuf_stack_top) {
         wasm_cluster_exit_thread(exec_env, (void *)(uintptr_t)retval_offset);
     }
@@ -773,7 +762,7 @@ pthread_mutex_init_wrapper(wasm_exec_env_t exec_env, uint32 *mutex, void *attr)
 
     /* Return the mutex handle to app */
     if (mutex)
-        *(uint32*)mutex = info_node->handle;
+        *(uint32 *)mutex = info_node->handle;
 
     return 0;
 
@@ -790,7 +779,7 @@ fail1:
 static int32
 pthread_mutex_lock_wrapper(wasm_exec_env_t exec_env, uint32 *mutex)
 {
-    ThreadInfoNode* info_node = get_thread_info(exec_env, *mutex);
+    ThreadInfoNode *info_node = get_thread_info(exec_env, *mutex);
     if (!info_node || info_node->type != T_MUTEX)
         return -1;
 
@@ -800,7 +789,7 @@ pthread_mutex_lock_wrapper(wasm_exec_env_t exec_env, uint32 *mutex)
 static int32
 pthread_mutex_unlock_wrapper(wasm_exec_env_t exec_env, uint32 *mutex)
 {
-    ThreadInfoNode* info_node = get_thread_info(exec_env, *mutex);
+    ThreadInfoNode *info_node = get_thread_info(exec_env, *mutex);
     if (!info_node || info_node->type != T_MUTEX)
         return -1;
 
@@ -811,7 +800,7 @@ static int32
 pthread_mutex_destroy_wrapper(wasm_exec_env_t exec_env, uint32 *mutex)
 {
     int32 ret_val;
-    ThreadInfoNode* info_node = get_thread_info(exec_env, *mutex);
+    ThreadInfoNode *info_node = get_thread_info(exec_env, *mutex);
     if (!info_node || info_node->type != T_MUTEX)
         return -1;
 
@@ -852,7 +841,7 @@ pthread_cond_init_wrapper(wasm_exec_env_t exec_env, uint32 *cond, void *attr)
 
     /* Return the cond handle to app */
     if (cond)
-        *(uint32*)cond = info_node->handle;
+        *(uint32 *)cond = info_node->handle;
 
     return 0;
 
@@ -882,9 +871,10 @@ pthread_cond_wait_wrapper(wasm_exec_env_t exec_env, uint32 *cond, uint32 *mutex)
     return os_cond_wait(cond_info_node->u.cond, mutex_info_node->u.mutex);
 }
 
-/* Currently we don't support struct timespec in built-in libc,
-    so the pthread_cond_timedwait use useconds instead
-*/
+/**
+ * Currently we don't support struct timespec in built-in libc,
+ * so the pthread_cond_timedwait use useconds instead
+ */
 static int32
 pthread_cond_timedwait_wrapper(wasm_exec_env_t exec_env, uint32 *cond,
                                uint32 *mutex, uint64 useconds)
@@ -906,7 +896,7 @@ pthread_cond_timedwait_wrapper(wasm_exec_env_t exec_env, uint32 *cond,
 static int32
 pthread_cond_signal_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
 {
-    ThreadInfoNode* info_node = get_thread_info(exec_env, *cond);
+    ThreadInfoNode *info_node = get_thread_info(exec_env, *cond);
     if (!info_node || info_node->type != T_COND)
         return -1;
 
@@ -917,7 +907,7 @@ static int32
 pthread_cond_destroy_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
 {
     int32 ret_val;
-    ThreadInfoNode* info_node = get_thread_info(exec_env, *cond);
+    ThreadInfoNode *info_node = get_thread_info(exec_env, *cond);
     if (!info_node || info_node->type != T_COND)
         return -1;
 
@@ -939,7 +929,7 @@ pthread_key_create_wrapper(wasm_exec_env_t exec_env, int32 *key,
 
     if (!info) {
         /* The user may call pthread_key_create in main thread,
-            in this case the cluster info hasn't been created */
+           in this case the cluster info hasn't been created */
         if (!(info = create_cluster_info(cluster))) {
             return -1;
         }
@@ -1037,46 +1027,50 @@ pthread_key_delete_wrapper(wasm_exec_env_t exec_env, int32 key)
     return 0;
 }
 
-/* Currently the memory allocator doesn't support alloc specific aligned
-    space, we wrap posix_memalign to simply malloc memory */
+/**
+ * Currently the memory allocator doesn't support alloc specific aligned
+ * space, we wrap posix_memalign to simply malloc memory
+ */
 static int32
-posix_memalign_wrapper(wasm_exec_env_t exec_env,
-                       void **memptr, int32 align, int32 size)
+posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
+                       int32 size)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     void *p = NULL;
 
-    *((int32 *)memptr) = module_malloc(size, (void**)&p);
+    *((int32 *)memptr) = module_malloc(size, (void **)&p);
     if (!p)
         return -1;
 
     return 0;
 }
 
-#define REG_NATIVE_FUNC(func_name, signature)  \
+/* clang-format off */
+#define REG_NATIVE_FUNC(func_name, signature) \
     { #func_name, func_name##_wrapper, signature, NULL }
+/* clang-format on */
 
 static NativeSymbol native_symbols_lib_pthread[] = {
-    REG_NATIVE_FUNC(pthread_create,         "(**ii)i"),
-    REG_NATIVE_FUNC(pthread_join,           "(ii)i"),
-    REG_NATIVE_FUNC(pthread_detach,         "(i)i"),
-    REG_NATIVE_FUNC(pthread_cancel,         "(i)i"),
-    REG_NATIVE_FUNC(pthread_self,           "()i"),
-    REG_NATIVE_FUNC(pthread_exit,           "(i)"),
-    REG_NATIVE_FUNC(pthread_mutex_init,     "(**)i"),
-    REG_NATIVE_FUNC(pthread_mutex_lock,     "(*)i"),
-    REG_NATIVE_FUNC(pthread_mutex_unlock,   "(*)i"),
-    REG_NATIVE_FUNC(pthread_mutex_destroy,  "(*)i"),
-    REG_NATIVE_FUNC(pthread_cond_init,      "(**)i"),
-    REG_NATIVE_FUNC(pthread_cond_wait,      "(**)i"),
+    REG_NATIVE_FUNC(pthread_create, "(**ii)i"),
+    REG_NATIVE_FUNC(pthread_join, "(ii)i"),
+    REG_NATIVE_FUNC(pthread_detach, "(i)i"),
+    REG_NATIVE_FUNC(pthread_cancel, "(i)i"),
+    REG_NATIVE_FUNC(pthread_self, "()i"),
+    REG_NATIVE_FUNC(pthread_exit, "(i)"),
+    REG_NATIVE_FUNC(pthread_mutex_init, "(**)i"),
+    REG_NATIVE_FUNC(pthread_mutex_lock, "(*)i"),
+    REG_NATIVE_FUNC(pthread_mutex_unlock, "(*)i"),
+    REG_NATIVE_FUNC(pthread_mutex_destroy, "(*)i"),
+    REG_NATIVE_FUNC(pthread_cond_init, "(**)i"),
+    REG_NATIVE_FUNC(pthread_cond_wait, "(**)i"),
     REG_NATIVE_FUNC(pthread_cond_timedwait, "(**I)i"),
-    REG_NATIVE_FUNC(pthread_cond_signal,    "(*)i"),
-    REG_NATIVE_FUNC(pthread_cond_destroy,   "(*)i"),
-    REG_NATIVE_FUNC(pthread_key_create,     "(*i)i"),
-    REG_NATIVE_FUNC(pthread_setspecific,    "(ii)i"),
-    REG_NATIVE_FUNC(pthread_getspecific,    "(i)i"),
-    REG_NATIVE_FUNC(pthread_key_delete,     "(i)i"),
-    REG_NATIVE_FUNC(posix_memalign,         "(*ii)i"),
+    REG_NATIVE_FUNC(pthread_cond_signal, "(*)i"),
+    REG_NATIVE_FUNC(pthread_cond_destroy, "(*)i"),
+    REG_NATIVE_FUNC(pthread_key_create, "(*i)i"),
+    REG_NATIVE_FUNC(pthread_setspecific, "(ii)i"),
+    REG_NATIVE_FUNC(pthread_getspecific, "(i)i"),
+    REG_NATIVE_FUNC(pthread_key_delete, "(i)i"),
+    REG_NATIVE_FUNC(posix_memalign, "(*ii)i"),
 };
 
 uint32

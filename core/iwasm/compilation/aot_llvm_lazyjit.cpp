@@ -15,8 +15,7 @@ void
 LLVMOrcDisposeLLJITBuilder(LLVMOrcLLJITBuilderRef Builder);
 
 LLVMErrorRef
-LLVMOrcCreateLLJIT(LLVMOrcLLJITRef *Result,
-                   LLVMOrcLLJITBuilderRef Builder);
+LLVMOrcCreateLLJIT(LLVMOrcLLJITRef *Result, LLVMOrcLLJITBuilderRef Builder);
 
 LLVMErrorRef
 LLVMOrcDisposeLLJIT(LLVMOrcLLJITRef J);
@@ -31,13 +30,11 @@ char
 LLVMOrcLLJITGetGlobalPrefix(LLVMOrcLLJITRef J);
 
 LLVMErrorRef
-LLVMOrcLLJITAddLLVMIRModule(LLVMOrcLLJITRef J,
-                            LLVMOrcJITDylibRef JD,
+LLVMOrcLLJITAddLLVMIRModule(LLVMOrcLLJITRef J, LLVMOrcJITDylibRef JD,
                             LLVMOrcThreadSafeModuleRef TSM);
 
 LLVMErrorRef
-LLVMOrcLLJITLookup(LLVMOrcLLJITRef J,
-                   LLVMOrcJITTargetAddress *Result,
+LLVMOrcLLJITLookup(LLVMOrcLLJITRef J, LLVMOrcJITTargetAddress *Result,
                    const char *Name);
 
 const char *
@@ -45,8 +42,7 @@ LLVMOrcLLJITGetTripleString(LLVMOrcLLJITRef J);
 
 void
 LLVMOrcLLJITBuilderSetJITTargetMachineBuilder(
-                        LLVMOrcLLJITBuilderRef Builder,
-                        LLVMOrcJITTargetMachineBuilderRef JTMB);
+    LLVMOrcLLJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMB);
 
 char
 LLVMOrcLLJITGetGlobalPrefix(LLVMOrcLLJITRef J);
@@ -91,16 +87,14 @@ LLVMOrcDisposeLLLazyJIT(LLVMOrcLLLazyJITRef J)
 }
 
 LLVMErrorRef
-LLVMOrcLLLazyJITAddLLVMIRModule(LLVMOrcLLLazyJITRef J,
-                                LLVMOrcJITDylibRef JD,
+LLVMOrcLLLazyJITAddLLVMIRModule(LLVMOrcLLLazyJITRef J, LLVMOrcJITDylibRef JD,
                                 LLVMOrcThreadSafeModuleRef TSM)
 {
     return LLVMOrcLLJITAddLLVMIRModule(J, JD, TSM);
 }
 
 LLVMErrorRef
-LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J,
-                       LLVMOrcJITTargetAddress *Result,
+LLVMOrcLLLazyJITLookup(LLVMOrcLLLazyJITRef J, LLVMOrcJITTargetAddress *Result,
                        const char *Name)
 {
     return LLVMOrcLLJITLookup(J, Result, Name);
@@ -114,8 +108,7 @@ LLVMOrcLLLazyJITGetTripleString(LLVMOrcLLLazyJITRef J)
 
 void
 LLVMOrcLLLazyJITBuilderSetJITTargetMachineBuilder(
-                    LLVMOrcLLLazyJITBuilderRef Builder,
-                    LLVMOrcJITTargetMachineBuilderRef JTMB)
+    LLVMOrcLLLazyJITBuilderRef Builder, LLVMOrcJITTargetMachineBuilderRef JTMB)
 {
     return LLVMOrcLLJITBuilderSetJITTargetMachineBuilder(Builder, JTMB);
 }
@@ -125,4 +118,3 @@ LLVMOrcLLLazyJITGetGlobalPrefix(LLVMOrcLLLazyJITRef J)
 {
     return LLVMOrcLLJITGetGlobalPrefix(J);
 }
-

@@ -28,8 +28,7 @@ extern "C" LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
                                  LLVMMCJITCompilerOptions *PassedOptions,
-                                 size_t SizeOfPassedOptions,
-                                 char **OutError);
+                                 size_t SizeOfPassedOptions, char **OutError);
 
 extern "C" bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
@@ -38,23 +37,21 @@ LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
                                  LLVMMCJITCompilerOptions *PassedOptions,
-                                 size_t SizeOfPassedOptions,
-                                 char **OutError)
+                                 size_t SizeOfPassedOptions, char **OutError)
 {
     LLVMMCJITCompilerOptions options;
     // If the user passed a larger sized options struct, then they were compiled
     // against a newer LLVM. Tell them that something is wrong.
     if (SizeOfPassedOptions > sizeof(options)) {
-        *OutError = strdup(
-                "Refusing to use options struct that is larger than my own; assuming "
-                "LLVM library mismatch.");
+        *OutError = strdup("Refusing to use options struct that is larger than "
+                           "my own; assuming LLVM library mismatch.");
         return 1;
     }
 
     // Defend against the user having an old version of the API by ensuring that
-    // any fields they didn't see are cleared. We must defend against fields being
-    // set to the bitwise equivalent of zero, and assume that this means "do the
-    // default" as if that option hadn't been available.
+    // any fields they didn't see are cleared. We must defend against fields
+    // being set to the bitwise equivalent of zero, and assume that this means
+    // "do the default" as if that option hadn't been available.
     LLVMInitializeMCJITCompilerOptions(&options, sizeof(options));
     memcpy(&options, PassedOptions, SizeOfPassedOptions);
 
@@ -68,8 +65,9 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
         for (auto &F : *Mod) {
             auto Attrs = F.getAttributes();
             StringRef Value = options.NoFramePointerElim ? "all" : "none";
-            Attrs = Attrs.addAttribute(F.getContext(), AttributeList::FunctionIndex,
-                    "frame-pointer", Value);
+            Attrs =
+                Attrs.addAttribute(F.getContext(), AttributeList::FunctionIndex,
+                                   "frame-pointer", Value);
             F.setAttributes(Attrs);
         }
     }
@@ -88,15 +86,15 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
 
     EngineBuilder builder(std::move(Mod));
     builder.setEngineKind(EngineKind::JIT)
-           .setErrorStr(&Error)
-           .setMCPU(mcpu)
-           .setOptLevel((CodeGenOpt::Level)options.OptLevel)
-           .setTargetOptions(targetOptions);
+        .setErrorStr(&Error)
+        .setMCPU(mcpu)
+        .setOptLevel((CodeGenOpt::Level)options.OptLevel)
+        .setTargetOptions(targetOptions);
     if (Optional<CodeModel::Model> CM = unwrap(options.CodeModel, JIT))
         builder.setCodeModel(*CM);
     if (options.MCJMM)
         builder.setMCJITMemoryManager(
-                std::unique_ptr<RTDyldMemoryManager>(unwrap(options.MCJMM)));
+            std::unique_ptr<RTDyldMemoryManager>(unwrap(options.MCJMM)));
     if (ExecutionEngine *JIT = builder.create()) {
         *OutJIT = wrap(JIT);
         return 0;
@@ -116,16 +114,16 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
     llvm::SmallVector<std::string, 1> targetAttributes;
     llvm::Triple targetTriple(arch_c_str, "", "");
     auto targetMachine =
-      std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
-        targetTriple, "", std::string(cpu_c_str), targetAttributes));
+        std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
+            targetTriple, "", std::string(cpu_c_str), targetAttributes));
     if (!targetMachine) {
         return false;
     }
 
     const llvm::Triple::ArchType targetArch =
-      targetMachine->getTargetTriple().getArch();
+        targetMachine->getTargetTriple().getArch();
     const llvm::MCSubtargetInfo *subTargetInfo =
-      targetMachine->getMCSubtargetInfo();
+        targetMachine->getMCSubtargetInfo();
     if (subTargetInfo == nullptr) {
         return false;
     }
@@ -145,4 +143,3 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
     return true;
 #endif /* WASM_ENABLE_SIMD */
 }
-

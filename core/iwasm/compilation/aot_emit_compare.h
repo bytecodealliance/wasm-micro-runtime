@@ -28,10 +28,8 @@ bool
 aot_compile_op_f64_compare(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                            FloatCond cond);
 
-
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
 
 #endif /* end of _AOT_EMIT_COMPARE_H_ */
-

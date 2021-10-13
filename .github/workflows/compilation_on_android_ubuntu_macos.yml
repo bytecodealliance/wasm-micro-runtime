@@ -399,6 +399,7 @@ jobs:
           cmake --build . --config Release --parallel 4
           ./callback
           ./callback_chain
+          ./empty_imports
           ./global
           ./hello
           ./hostref

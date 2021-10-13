@@ -9,16 +9,14 @@
 #include "../../aot/aot_runtime.h"
 
 static bool
-simd_sat_int_arith(AOTCompContext *comp_ctx,
-                   AOTFuncContext *func_ctx,
-                   LLVMTypeRef vector_type,
-                   const char *intrinsics)
+simd_sat_int_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                   LLVMTypeRef vector_type, const char *intrinsics)
 {
     LLVMValueRef lhs, rhs, result;
     LLVMTypeRef param_types[2];
 
     if (!(rhs =
-            simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
+              simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
         || !(lhs = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
                                              "lhs"))) {
         return false;
@@ -28,8 +26,8 @@ simd_sat_int_arith(AOTCompContext *comp_ctx,
     param_types[1] = vector_type;
 
     if (!(result =
-            aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsics,
-                                    vector_type, param_types, 2, lhs, rhs))) {
+              aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsics,
+                                      vector_type, param_types, 2, lhs, rhs))) {
         HANDLE_FAILURE("LLVMBuildCall");
         return false;
     }
@@ -40,8 +38,7 @@ simd_sat_int_arith(AOTCompContext *comp_ctx,
 bool
 aot_compile_simd_i8x16_saturate(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx,
-                                V128Arithmetic arith_op,
-                                bool is_signed)
+                                V128Arithmetic arith_op, bool is_signed)
 {
     char *intrinsics[][2] = {
         { "llvm.sadd.sat.v16i8", "llvm.uadd.sat.v16i8" },
@@ -56,8 +53,7 @@ aot_compile_simd_i8x16_saturate(AOTCompContext *comp_ctx,
 bool
 aot_compile_simd_i16x8_saturate(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx,
-                                V128Arithmetic arith_op,
-                                bool is_signed)
+                                V128Arithmetic arith_op, bool is_signed)
 {
     char *intrinsics[][2] = {
         { "llvm.sadd.sat.v8i16", "llvm.uadd.sat.v8i16" },
@@ -72,8 +68,7 @@ aot_compile_simd_i16x8_saturate(AOTCompContext *comp_ctx,
 bool
 aot_compile_simd_i32x4_saturate(AOTCompContext *comp_ctx,
                                 AOTFuncContext *func_ctx,
-                                V128Arithmetic arith_op,
-                                bool is_signed)
+                                V128Arithmetic arith_op, bool is_signed)
 {
     char *intrinsics[][2] = {
         { "llvm.sadd.sat.v4i32", "llvm.uadd.sat.v4i32" },

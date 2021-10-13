@@ -12,12 +12,8 @@
 
 /* data_length in bytes */
 static LLVMValueRef
-simd_load(AOTCompContext *comp_ctx,
-          AOTFuncContext *func_ctx,
-          uint32 align,
-          uint32 offset,
-          uint32 data_length,
-          LLVMTypeRef ptr_type)
+simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
+          uint32 offset, uint32 data_length, LLVMTypeRef ptr_type)
 {
     LLVMValueRef maddr, data;
 
@@ -44,15 +40,13 @@ simd_load(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_simd_v128_load(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           uint32 align,
-                           uint32 offset)
+aot_compile_simd_v128_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           uint32 align, uint32 offset)
 {
     LLVMValueRef result;
 
-    if (!(result =
-            simd_load(comp_ctx, func_ctx, align, offset, 16, V128_PTR_TYPE))) {
+    if (!(result = simd_load(comp_ctx, func_ctx, align, offset, 16,
+                             V128_PTR_TYPE))) {
         return false;
     }
 
@@ -64,11 +58,8 @@ fail:
 }
 
 bool
-aot_compile_simd_load_extend(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
-                             uint8 opcode,
-                             uint32 align,
-                             uint32 offset)
+aot_compile_simd_load_extend(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             uint8 opcode, uint32 align, uint32 offset)
 {
     LLVMValueRef sub_vector, result;
     uint32 opcode_index = opcode - SIMD_v128_load8x8_s;
@@ -119,11 +110,8 @@ aot_compile_simd_load_extend(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_simd_load_splat(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx,
-                            uint8 opcode,
-                            uint32 align,
-                            uint32 offset)
+aot_compile_simd_load_splat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                            uint8 opcode, uint32 align, uint32 offset)
 {
     uint32 opcode_index = opcode - SIMD_v128_load8_splat;
     LLVMValueRef element, result;
@@ -152,8 +140,8 @@ aot_compile_simd_load_splat(AOTCompContext *comp_ctx,
     }
 
     if (!(result =
-            LLVMBuildInsertElement(comp_ctx->builder, undefs[opcode_index],
-                                   element, I32_ZERO, "base"))) {
+              LLVMBuildInsertElement(comp_ctx->builder, undefs[opcode_index],
+                                     element, I32_ZERO, "base"))) {
         HANDLE_FAILURE("LLVMBuildInsertElement");
         return false;
     }
@@ -169,11 +157,8 @@ aot_compile_simd_load_splat(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_simd_load_lane(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           uint8 opcode,
-                           uint32 align,
-                           uint32 offset,
+aot_compile_simd_load_lane(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           uint8 opcode, uint32 align, uint32 offset,
                            uint8 lane_id)
 {
     LLVMValueRef element, vector;
@@ -188,7 +173,7 @@ aot_compile_simd_load_lane(AOTCompContext *comp_ctx,
     bh_assert(opcode_index < 4);
 
     if (!(vector = simd_pop_v128_and_bitcast(
-            comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
+              comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
         return false;
     }
 
@@ -208,11 +193,8 @@ aot_compile_simd_load_lane(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_simd_load_zero(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           uint8 opcode,
-                           uint32 align,
-                           uint32 offset)
+aot_compile_simd_load_zero(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           uint8 opcode, uint32 align, uint32 offset)
 {
     LLVMValueRef element, result, mask;
     uint32 opcode_index = opcode - SIMD_v128_load32_zero;
@@ -242,8 +224,8 @@ aot_compile_simd_load_zero(AOTCompContext *comp_ctx,
     }
 
     if (!(result =
-            LLVMBuildInsertElement(comp_ctx->builder, undef[opcode_index],
-                                   element, I32_ZERO, "vector"))) {
+              LLVMBuildInsertElement(comp_ctx->builder, undef[opcode_index],
+                                     element, I32_ZERO, "vector"))) {
         HANDLE_FAILURE("LLVMBuildInsertElement");
         return false;
     }
@@ -267,12 +249,8 @@ aot_compile_simd_load_zero(AOTCompContext *comp_ctx,
 
 /* data_length in bytes */
 static bool
-simd_store(AOTCompContext *comp_ctx,
-           AOTFuncContext *func_ctx,
-           uint32 align,
-           uint32 offset,
-           uint32 data_length,
-           LLVMValueRef value,
+simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
+           uint32 offset, uint32 data_length, LLVMValueRef value,
            LLVMTypeRef value_ptr_type)
 {
     LLVMValueRef maddr, result;
@@ -298,10 +276,8 @@ simd_store(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_simd_v128_store(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx,
-                            uint32 align,
-                            uint32 offset)
+aot_compile_simd_v128_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                            uint32 align, uint32 offset)
 {
     LLVMValueRef value;
 
@@ -314,11 +290,8 @@ fail:
 }
 
 bool
-aot_compile_simd_store_lane(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx,
-                            uint8 opcode,
-                            uint32 align,
-                            uint32 offset,
+aot_compile_simd_store_lane(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                            uint8 opcode, uint32 align, uint32 offset,
                             uint8 lane_id)
 {
     LLVMValueRef element, vector;
@@ -333,7 +306,7 @@ aot_compile_simd_store_lane(AOTCompContext *comp_ctx,
     bh_assert(opcode_index < 4);
 
     if (!(vector = simd_pop_v128_and_bitcast(
-            comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
+              comp_ctx, func_ctx, vector_types[opcode_index], "src"))) {
         return false;
     }
 

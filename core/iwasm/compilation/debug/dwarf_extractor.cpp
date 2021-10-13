@@ -28,31 +28,30 @@
 
 using namespace lldb;
 
-typedef struct dwar_extractor
-{
+typedef struct dwar_extractor {
     SBDebugger debugger;
     SBTarget target;
     SBModule module;
 
 } dwar_extractor;
 
-#define TO_HANDLE(extractor)  (dwar_extractor_handle_t)(extractor)
+#define TO_HANDLE(extractor) (dwar_extractor_handle_t)(extractor)
 
-#define TO_EXTACTOR(handle)  (dwar_extractor *)(handle)
+#define TO_EXTACTOR(handle) (dwar_extractor *)(handle)
 
 static bool is_debugger_initialized;
 
 dwar_extractor_handle_t
-create_dwarf_extractor(AOTCompData *comp_data, char * file_name)
+create_dwarf_extractor(AOTCompData *comp_data, char *file_name)
 {
     char *arch = NULL;
     char *platform = NULL;
-    dwar_extractor * extractor = NULL;
+    dwar_extractor *extractor = NULL;
 
     //__attribute__((constructor)) may be better?
     if (!is_debugger_initialized) {
         SBError error = SBDebugger::InitializeWithErrorHandling();
-        if(error.Fail()) {
+        if (error.Fail()) {
             LOG_ERROR("Init Dwarf Debugger failed");
             return TO_HANDLE(NULL);
         }
@@ -62,7 +61,7 @@ create_dwarf_extractor(AOTCompData *comp_data, char * file_name)
     SBError error;
     SBFileSpec exe_file_spec(file_name, true);
 
-    if (!(extractor = new dwar_extractor()) ) {
+    if (!(extractor = new dwar_extractor())) {
         LOG_ERROR("Create Dwarf Extractor error: failed to allocate memory");
         goto fail3;
     }
@@ -74,7 +73,7 @@ create_dwarf_extractor(AOTCompData *comp_data, char * file_name)
     }
 
     extractor->target = extractor->debugger.CreateTarget(
-      file_name, arch, platform, false, error);
+        file_name, arch, platform, false, error);
 
     if (!error.Success()) {
         LOG_ERROR("Create Dwarf target failed:%s", error.GetCString());
@@ -89,7 +88,7 @@ create_dwarf_extractor(AOTCompData *comp_data, char * file_name)
     extractor->module = extractor->target.FindModule(exe_file_spec);
     comp_data->extractor = TO_HANDLE(extractor);
 
-    return TO_HANDLE(extractor); 
+    return TO_HANDLE(extractor);
 
 fail1:
     SBDebugger::Destroy(extractor->debugger);
@@ -104,7 +103,7 @@ fail3:
 void
 destroy_dwarf_extractor(dwar_extractor_handle_t handle)
 {
-    dwar_extractor * extractor = TO_EXTACTOR(handle);
+    dwar_extractor *extractor = TO_EXTACTOR(handle);
     if (!extractor)
         return;
     extractor->debugger.DeleteTarget(extractor->target);
@@ -129,8 +128,7 @@ dwarf_gen_file_info(AOTCompContext *comp_ctx)
     units_number = extractor->module.GetNumCompileUnits();
 
     if (units_number > 0) {
-        SBCompileUnit compile_unit =
-          extractor->module.GetCompileUnitAtIndex(0);
+        SBCompileUnit compile_unit = extractor->module.GetCompileUnitAtIndex(0);
         auto filespec = compile_unit.GetFileSpec();
         file_name = filespec.GetFilename();
         dir_name = filespec.GetDirectory();
@@ -205,30 +203,26 @@ dwarf_gen_comp_unit_info(AOTCompContext *comp_ctx)
     units_number = extractor->module.GetNumCompileUnits();
 
     if (units_number > 0) {
-        SBCompileUnit compile_unit =
-          extractor->module.GetCompileUnitAtIndex(0);
+        SBCompileUnit compile_unit = extractor->module.GetCompileUnitAtIndex(0);
         auto lang_type = compile_unit.GetLanguage();
 
         comp_unit = LLVMDIBuilderCreateCompileUnit(
-          comp_ctx->debug_builder, LLDB_TO_LLVM_LANG_TYPE(lang_type),
-          comp_ctx->debug_file, "ant compiler", 12, 0, NULL, 0, 1, NULL, 0,
-          LLVMDWARFEmissionFull, 0, 0, 0, "/", 1, "", 0);
+            comp_ctx->debug_builder, LLDB_TO_LLVM_LANG_TYPE(lang_type),
+            comp_ctx->debug_file, "ant compiler", 12, 0, NULL, 0, 1, NULL, 0,
+            LLVMDWARFEmissionFull, 0, 0, 0, "/", 1, "", 0);
     }
     return comp_unit;
 }
-
 
 bool
 dwarf_get_func_info(dwar_extractor_handle_t handle, uint64_t offset)
 {
     dwar_extractor *extractor = TO_EXTACTOR(handle);
     auto sbaddr = extractor->target.ResolveFileAddress(offset);
-    SBSymbolContext sc(
-                sbaddr.GetSymbolContext(eSymbolContextFunction));
+    SBSymbolContext sc(sbaddr.GetSymbolContext(eSymbolContextFunction));
     if (sc.IsValid()) {
         SBFunction function(sc.GetFunction());
         if (function.IsValid()) {
-            
         }
     }
 }
@@ -236,42 +230,41 @@ dwarf_get_func_info(dwar_extractor_handle_t handle, uint64_t offset)
 static LLVMDWARFTypeEncoding
 lldb_get_basic_type_encoding(BasicType basic_type)
 {
-    LLVMDWARFTypeEncoding  encoding = 0;
-    switch (basic_type)
-    {
-    case eBasicTypeUnsignedChar:
-        encoding = llvm::dwarf::DW_ATE_unsigned_char;
-        break;
-    case eBasicTypeSignedChar:
-        encoding = llvm::dwarf::DW_ATE_signed_char;
-        break;
-    case eBasicTypeUnsignedInt:
-    case eBasicTypeUnsignedLong:
-    case eBasicTypeUnsignedLongLong:
-    case eBasicTypeUnsignedWChar:
-    case eBasicTypeUnsignedInt128:
-    case eBasicTypeUnsignedShort:
-        encoding = llvm::dwarf::DW_ATE_unsigned;
-        break;
-    case eBasicTypeInt:
-    case eBasicTypeLong:
-    case eBasicTypeLongLong:
-    case eBasicTypeWChar:
-    case eBasicTypeInt128:
-    case eBasicTypeShort:
-        encoding = llvm::dwarf::DW_ATE_signed;
-        break;
-    case eBasicTypeBool:
-        encoding = llvm::dwarf::DW_ATE_boolean;
-        break;
-    case eBasicTypeHalf:
-    case eBasicTypeFloat:
-    case eBasicTypeDouble:
-    case eBasicTypeLongDouble:
-        encoding = llvm::dwarf::DW_ATE_float;
-        break;
-    default:
-        break;
+    LLVMDWARFTypeEncoding encoding = 0;
+    switch (basic_type) {
+        case eBasicTypeUnsignedChar:
+            encoding = llvm::dwarf::DW_ATE_unsigned_char;
+            break;
+        case eBasicTypeSignedChar:
+            encoding = llvm::dwarf::DW_ATE_signed_char;
+            break;
+        case eBasicTypeUnsignedInt:
+        case eBasicTypeUnsignedLong:
+        case eBasicTypeUnsignedLongLong:
+        case eBasicTypeUnsignedWChar:
+        case eBasicTypeUnsignedInt128:
+        case eBasicTypeUnsignedShort:
+            encoding = llvm::dwarf::DW_ATE_unsigned;
+            break;
+        case eBasicTypeInt:
+        case eBasicTypeLong:
+        case eBasicTypeLongLong:
+        case eBasicTypeWChar:
+        case eBasicTypeInt128:
+        case eBasicTypeShort:
+            encoding = llvm::dwarf::DW_ATE_signed;
+            break;
+        case eBasicTypeBool:
+            encoding = llvm::dwarf::DW_ATE_boolean;
+            break;
+        case eBasicTypeHalf:
+        case eBasicTypeFloat:
+        case eBasicTypeDouble:
+        case eBasicTypeLongDouble:
+            encoding = llvm::dwarf::DW_ATE_float;
+            break;
+        default:
+            break;
     }
     return encoding;
 }
@@ -288,21 +281,22 @@ lldb_type_to_type_dbi(AOTCompContext *comp_ctx, SBType &type)
     if (basic_type != eBasicTypeInvalid) {
         encoding = lldb_get_basic_type_encoding(basic_type);
         type_info = LLVMDIBuilderCreateBasicType(
-          DIB, type.GetName(), strlen(type.GetName()), bit_size, encoding,
-          LLVMDIFlagZero);
+            DIB, type.GetName(), strlen(type.GetName()), bit_size, encoding,
+            LLVMDIFlagZero);
     }
     else if (type.IsPointerType()) {
         SBType pointee_type = type.GetPointeeType();
         type_info = LLVMDIBuilderCreatePointerType(
-          DIB, lldb_type_to_type_dbi(comp_ctx, pointee_type), bit_size, 0, 0,
-          "", 0);
+            DIB, lldb_type_to_type_dbi(comp_ctx, pointee_type), bit_size, 0, 0,
+            "", 0);
     }
 
     return type_info;
 }
 
 static LLVMMetadataRef
-lldb_function_to_function_dbi(AOTCompContext *comp_ctx, SBSymbolContext &sc, AOTFuncContext *func_ctx)
+lldb_function_to_function_dbi(AOTCompContext *comp_ctx, SBSymbolContext &sc,
+                              AOTFuncContext *func_ctx)
 {
     SBFunction function(sc.GetFunction());
     const char *function_name = function.GetName();
@@ -314,13 +308,11 @@ lldb_function_to_function_dbi(AOTCompContext *comp_ctx, SBSymbolContext &sc, AOT
 
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
-    
-    
+
     LLVMDIBuilderRef DIB = comp_ctx->debug_builder;
     LLVMMetadataRef File = comp_ctx->debug_file;
 
     LLVMMetadataRef ParamTypes[num_function_args + 1];
-
 
     ParamTypes[0] = lldb_type_to_type_dbi(comp_ctx, return_type);
 
@@ -330,78 +322,81 @@ lldb_function_to_function_dbi(AOTCompContext *comp_ctx, SBSymbolContext &sc, AOT
             function_args.GetTypeAtIndex(function_arg_idx);
 
         if (function_arg_type.IsValid()) {
-            ParamTypes[function_arg_idx + 1] = lldb_type_to_type_dbi(comp_ctx, function_arg_type);
+            ParamTypes[function_arg_idx + 1] =
+                lldb_type_to_type_dbi(comp_ctx, function_arg_type);
         }
     }
 
-    LLVMMetadataRef FunctionTy =
-      LLVMDIBuilderCreateSubroutineType(DIB, File, ParamTypes, num_function_args + 1, LLVMDIFlagZero);
-    
+    LLVMMetadataRef FunctionTy = LLVMDIBuilderCreateSubroutineType(
+        DIB, File, ParamTypes, num_function_args + 1, LLVMDIFlagZero);
+
     auto line_entry = sc.GetLineEntry();
     LLVMMetadataRef ReplaceableFunctionMetadata =
-      LLVMDIBuilderCreateReplaceableCompositeType(
-        DIB, 0x15, function_name, strlen(function_name), File, File,
-        line_entry.GetLine(), 0, 0, 0, LLVMDIFlagFwdDecl, "", 0);
+        LLVMDIBuilderCreateReplaceableCompositeType(
+            DIB, 0x15, function_name, strlen(function_name), File, File,
+            line_entry.GetLine(), 0, 0, 0, LLVMDIFlagFwdDecl, "", 0);
 
-    LLVMMetadataRef FunctionMetadata =
-      LLVMDIBuilderCreateFunction(DIB, File, function_name, strlen(function_name), link_name, strlen(link_name),
-                                  File, line_entry.GetLine(), FunctionTy, true, true, line_entry.GetLine(), LLVMDIFlagZero, false);
- 
-    LLVMMetadataReplaceAllUsesWith(ReplaceableFunctionMetadata, FunctionMetadata);
+    LLVMMetadataRef FunctionMetadata = LLVMDIBuilderCreateFunction(
+        DIB, File, function_name, strlen(function_name), link_name,
+        strlen(link_name), File, line_entry.GetLine(), FunctionTy, true, true,
+        line_entry.GetLine(), LLVMDIFlagZero, false);
+
+    LLVMMetadataReplaceAllUsesWith(ReplaceableFunctionMetadata,
+                                   FunctionMetadata);
 
     LLVMSetSubprogram(func_ctx->func, FunctionMetadata);
 
-    LLVMMetadataRef ParamExpression = LLVMDIBuilderCreateExpression(DIB, NULL, 0);
-    auto variable_list = function.GetBlock().GetVariables(extractor->target, true, false,false);
-    if (num_function_args != variable_list.GetSize())
-    {
-        LOG_ERROR("function args number dismatch!:value number=%d, function args=%d", variable_list.GetSize(), num_function_args);
+    LLVMMetadataRef ParamExpression =
+        LLVMDIBuilderCreateExpression(DIB, NULL, 0);
+    auto variable_list =
+        function.GetBlock().GetVariables(extractor->target, true, false, false);
+    if (num_function_args != variable_list.GetSize()) {
+        LOG_ERROR(
+            "function args number dismatch!:value number=%d, function args=%d",
+            variable_list.GetSize(), num_function_args);
     }
 
     LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
-              comp_ctx->context, line_entry.GetLine(), 0, FunctionMetadata, NULL);
-    
-    //TODO:change to void *  or WasmExenv * ？
-    LLVMMetadataRef voidtype = LLVMDIBuilderCreateBasicType(DIB, "void", 4, 0, 0, LLVMDIFlagZero);
-    LLVMMetadataRef voidpionter = LLVMDIBuilderCreatePointerType(DIB, voidtype, 64, 0, 0, "void *", 6);
+        comp_ctx->context, line_entry.GetLine(), 0, FunctionMetadata, NULL);
+
+    // TODO:change to void *  or WasmExenv * ？
+    LLVMMetadataRef voidtype =
+        LLVMDIBuilderCreateBasicType(DIB, "void", 4, 0, 0, LLVMDIFlagZero);
+    LLVMMetadataRef voidpionter =
+        LLVMDIBuilderCreatePointerType(DIB, voidtype, 64, 0, 0, "void *", 6);
 
     LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
-              DIB, FunctionMetadata, "exenv",
-              5, 1,
-              File, //starts form 1, and 1 is exenv,
-              line_entry.GetLine(), voidpionter, true,
-              LLVMDIFlagZero);
-    LLVMValueRef Param =
-              LLVMGetParam(func_ctx->func, 0);
-    LLVMBasicBlockRef block_curr =
-              LLVMGetEntryBasicBlock(func_ctx->func);
-    LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
-                                             ParamExpression, ParamLocation,
-                                             block_curr);
+        DIB, FunctionMetadata, "exenv", 5, 1,
+        File, // starts form 1, and 1 is exenv,
+        line_entry.GetLine(), voidpionter, true, LLVMDIFlagZero);
+    LLVMValueRef Param = LLVMGetParam(func_ctx->func, 0);
+    LLVMBasicBlockRef block_curr = LLVMGetEntryBasicBlock(func_ctx->func);
+    LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar, ParamExpression,
+                                     ParamLocation, block_curr);
 
-    for (uint32_t function_arg_idx = 0; function_arg_idx < variable_list.GetSize();
-         ++function_arg_idx) {
+    for (uint32_t function_arg_idx = 0;
+         function_arg_idx < variable_list.GetSize(); ++function_arg_idx) {
         SBValue variable(variable_list.GetValueAtIndex(function_arg_idx));
         if (variable.IsValid()) {
             SBDeclaration dec(variable.GetDeclaration());
             auto valtype = variable.GetType();
             LLVMMetadataRef ParamLocation = LLVMDIBuilderCreateDebugLocation(
-              comp_ctx->context, dec.GetLine(), dec.GetColumn(),
-              FunctionMetadata, NULL);
+                comp_ctx->context, dec.GetLine(), dec.GetColumn(),
+                FunctionMetadata, NULL);
             LLVMMetadataRef ParamVar = LLVMDIBuilderCreateParameterVariable(
-              DIB, FunctionMetadata, variable.GetName(),
-              strlen(variable.GetName()), function_arg_idx + 1 + 1,
-              File, //starts form 1, and 1 is exenv,
-              dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
-              LLVMDIFlagZero);
+                DIB, FunctionMetadata, variable.GetName(),
+                strlen(variable.GetName()), function_arg_idx + 1 + 1,
+                File, // starts form 1, and 1 is exenv,
+                dec.GetLine(), ParamTypes[function_arg_idx + 1], true,
+                LLVMDIFlagZero);
             LLVMValueRef Param =
-              LLVMGetParam(func_ctx->func, function_arg_idx + 1);
+                LLVMGetParam(func_ctx->func, function_arg_idx + 1);
             LLVMDIBuilderInsertDbgValueAtEnd(DIB, Param, ParamVar,
                                              ParamExpression, ParamLocation,
                                              block_curr);
         }
     }
-    
+
     return FunctionMetadata;
 }
 
@@ -413,7 +408,6 @@ dwarf_gen_func_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     uint64_t vm_offset;
     AOTFunc *func = func_ctx->aot_func;
 
-
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
         return NULL;
 
@@ -424,8 +418,8 @@ dwarf_gen_func_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     vm_offset = func->code - comp_ctx->comp_data->wasm_module->buf_code;
 
     auto sbaddr = extractor->target.ResolveFileAddress(vm_offset);
-    SBSymbolContext sc(
-                sbaddr.GetSymbolContext(eSymbolContextFunction | eSymbolContextLineEntry));
+    SBSymbolContext sc(sbaddr.GetSymbolContext(eSymbolContextFunction
+                                               | eSymbolContextLineEntry));
     if (sc.IsValid()) {
         SBFunction function(sc.GetFunction());
         if (function.IsValid()) {
@@ -436,10 +430,8 @@ dwarf_gen_func_info(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 }
 
 void
-dwarf_get_func_name(AOTCompContext *comp_ctx,
-                    AOTFuncContext *func_ctx,
-                    char *name,
-                    int len)
+dwarf_get_func_name(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                    char *name, int len)
 {
     LLVMMetadataRef func_info = NULL;
     dwar_extractor *extractor;
@@ -449,7 +441,7 @@ dwarf_get_func_name(AOTCompContext *comp_ctx,
     name[0] = '\0';
 
     if (!(extractor = TO_EXTACTOR(comp_ctx->comp_data->extractor)))
-        return ;
+        return;
 
     // A code address in DWARF for WebAssembly is the offset of an
     // instruction relative within the Code section of the WebAssembly file.
@@ -469,8 +461,7 @@ dwarf_get_func_name(AOTCompContext *comp_ctx,
 }
 
 LLVMMetadataRef
-dwarf_gen_location(AOTCompContext *comp_ctx,
-                   AOTFuncContext *func_ctx,
+dwarf_gen_location(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    uint64_t vm_offset)
 {
     LLVMMetadataRef location_info = NULL;
@@ -484,7 +475,7 @@ dwarf_gen_location(AOTCompContext *comp_ctx,
     SBSymbolContext sc(sbaddr.GetSymbolContext(eSymbolContextFunction
                                                | eSymbolContextLineEntry));
     if (sc.IsValid()) {
-        //TODO:need to check if the vm_offset is belong to
+        // TODO:need to check if the vm_offset is belong to
         SBFunction function(sc.GetFunction());
         if (function.IsValid()) {
             uint64_t start = func_ctx->aot_func->code
@@ -495,12 +486,13 @@ dwarf_gen_location(AOTCompContext *comp_ctx,
             if (function.GetStartAddress().GetOffset() <= start
                 && end <= function.GetEndAddress().GetOffset()) {
                 auto line_entry = sc.GetLineEntry();
-                location_info =
-                  LLVMDIBuilderCreateDebugLocation(
+                location_info = LLVMDIBuilderCreateDebugLocation(
                     comp_ctx->context, line_entry.GetLine(),
                     line_entry.GetColumn(), func_ctx->debug_func, NULL);
-                 //LOG_VERBOSE("Gen the location l:%d, c:%d at %lx", line_entry.GetLine(), line_entry.GetColumn(), vm_offset);
-            } else 
+                // LOG_VERBOSE("Gen the location l:%d, c:%d at %lx",
+                // line_entry.GetLine(), line_entry.GetColumn(), vm_offset);
+            }
+            else
                 LOG_WARNING("the offset and function is not matched");
         }
     }
@@ -523,8 +515,9 @@ dwarf_gen_func_ret_location(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     // instruction relative within the Code section of the WebAssembly file.
     // For this reason Section::GetFileAddress() must return zero for the
     // Code section. (refert to ObjectFileWasm.cpp)
-    vm_offset = (func->code + func->code_size -1) - comp_ctx->comp_data->wasm_module->buf_code;
-    location_info =  dwarf_gen_location(comp_ctx, func_ctx, vm_offset);
+    vm_offset = (func->code + func->code_size - 1)
+                - comp_ctx->comp_data->wasm_module->buf_code;
+    location_info = dwarf_gen_location(comp_ctx, func_ctx, vm_offset);
 
     return location_info;
 }

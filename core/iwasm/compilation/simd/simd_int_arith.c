@@ -9,15 +9,13 @@
 #include "../../aot/aot_runtime.h"
 
 static bool
-simd_integer_arith(AOTCompContext *comp_ctx,
-                   AOTFuncContext *func_ctx,
-                   V128Arithmetic arith_op,
-                   LLVMTypeRef vector_type)
+simd_integer_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                   V128Arithmetic arith_op, LLVMTypeRef vector_type)
 {
     LLVMValueRef lhs, rhs, result = NULL;
 
     if (!(rhs =
-            simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
+              simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
         || !(lhs = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
                                              "lhs"))) {
         return false;
@@ -47,32 +45,28 @@ simd_integer_arith(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_simd_i8x16_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i8x16_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic arith_op)
 {
     return simd_integer_arith(comp_ctx, func_ctx, arith_op, V128_i8x16_TYPE);
 }
 
 bool
-aot_compile_simd_i16x8_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i16x8_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic arith_op)
 {
     return simd_integer_arith(comp_ctx, func_ctx, arith_op, V128_i16x8_TYPE);
 }
 
 bool
-aot_compile_simd_i32x4_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i32x4_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic arith_op)
 {
     return simd_integer_arith(comp_ctx, func_ctx, arith_op, V128_i32x4_TYPE);
 }
 
 bool
-aot_compile_simd_i64x2_arith(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i64x2_arith(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              V128Arithmetic arith_op)
 {
     return simd_integer_arith(comp_ctx, func_ctx, arith_op, V128_i64x2_TYPE);
@@ -84,7 +78,7 @@ simd_neg(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, LLVMTypeRef type)
     LLVMValueRef vector, result;
 
     if (!(vector =
-            simd_pop_v128_and_bitcast(comp_ctx, func_ctx, type, "vector"))) {
+              simd_pop_v128_and_bitcast(comp_ctx, func_ctx, type, "vector"))) {
         return false;
     }
 
@@ -141,17 +135,14 @@ aot_compile_simd_i8x16_popcnt(AOTCompContext *comp_ctx,
 }
 
 static bool
-simd_v128_cmp(AOTCompContext *comp_ctx,
-              AOTFuncContext *func_ctx,
-              LLVMTypeRef vector_type,
-              V128Arithmetic arith_op,
-              bool is_signed)
+simd_v128_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+              LLVMTypeRef vector_type, V128Arithmetic arith_op, bool is_signed)
 {
     LLVMValueRef lhs, rhs, result;
     LLVMIntPredicate op;
 
     if (!(rhs =
-            simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
+              simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type, "rhs"))
         || !(lhs = simd_pop_v128_and_bitcast(comp_ctx, func_ctx, vector_type,
                                              "lhs"))) {
         return false;
@@ -170,7 +161,7 @@ simd_v128_cmp(AOTCompContext *comp_ctx,
     }
 
     if (!(result =
-            LLVMBuildSelect(comp_ctx->builder, result, lhs, rhs, "select"))) {
+              LLVMBuildSelect(comp_ctx->builder, result, lhs, rhs, "select"))) {
         HANDLE_FAILURE("LLVMBuildSelect");
         return false;
     }
@@ -179,30 +170,24 @@ simd_v128_cmp(AOTCompContext *comp_ctx,
 }
 
 bool
-aot_compile_simd_i8x16_cmp(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           V128Arithmetic arith_op,
-                           bool is_signed)
+aot_compile_simd_i8x16_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op, bool is_signed)
 {
     return simd_v128_cmp(comp_ctx, func_ctx, V128_i8x16_TYPE, arith_op,
                          is_signed);
 }
 
 bool
-aot_compile_simd_i16x8_cmp(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           V128Arithmetic arith_op,
-                           bool is_signed)
+aot_compile_simd_i16x8_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op, bool is_signed)
 {
     return simd_v128_cmp(comp_ctx, func_ctx, V128_i16x8_TYPE, arith_op,
                          is_signed);
 }
 
 bool
-aot_compile_simd_i32x4_cmp(AOTCompContext *comp_ctx,
-                           AOTFuncContext *func_ctx,
-                           V128Arithmetic arith_op,
-                           bool is_signed)
+aot_compile_simd_i32x4_cmp(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           V128Arithmetic arith_op, bool is_signed)
 {
     return simd_v128_cmp(comp_ctx, func_ctx, V128_i32x4_TYPE, arith_op,
                          is_signed);
@@ -210,10 +195,8 @@ aot_compile_simd_i32x4_cmp(AOTCompContext *comp_ctx,
 
 /* llvm.abs.* */
 static bool
-simd_v128_abs(AOTCompContext *comp_ctx,
-              AOTFuncContext *func_ctx,
-              char *intrinsic,
-              LLVMTypeRef vector_type)
+simd_v128_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+              char *intrinsic, LLVMTypeRef vector_type)
 {
     LLVMValueRef vector, result;
     LLVMTypeRef param_types[] = { vector_type, INT1_TYPE };
@@ -236,29 +219,25 @@ simd_v128_abs(AOTCompContext *comp_ctx,
 bool
 aot_compile_simd_i8x16_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v16i8",
-                         V128_i8x16_TYPE);
+    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v16i8", V128_i8x16_TYPE);
 }
 
 bool
 aot_compile_simd_i16x8_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v8i16",
-                         V128_i16x8_TYPE);
+    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v8i16", V128_i16x8_TYPE);
 }
 
 bool
 aot_compile_simd_i32x4_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v4i32",
-                         V128_i32x4_TYPE);
+    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v4i32", V128_i32x4_TYPE);
 }
 
 bool
 aot_compile_simd_i64x2_abs(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
-    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v2i64",
-                         V128_i64x2_TYPE);
+    return simd_v128_abs(comp_ctx, func_ctx, "llvm.abs.v2i64", V128_i64x2_TYPE);
 }
 
 enum integer_avgr_u {
@@ -270,8 +249,7 @@ enum integer_avgr_u {
 /* TODO: try int_x86_mmx_pavg_b and int_x86_mmx_pavg_w */
 /* (v1 + v2 + 1) / 2 */
 static bool
-simd_v128_avg(AOTCompContext *comp_ctx,
-              AOTFuncContext *func_ctx,
+simd_v128_avg(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
               enum integer_avgr_u itype)
 {
     LLVMValueRef lhs, rhs, ones, result;
@@ -324,8 +302,8 @@ simd_v128_avg(AOTCompContext *comp_ctx,
         return false;
     }
 
-    if (!(result = LLVMBuildTrunc(comp_ctx->builder, result,
-                                  vector_type[itype], "to_orig_type"))) {
+    if (!(result = LLVMBuildTrunc(comp_ctx->builder, result, vector_type[itype],
+                                  "to_orig_type"))) {
         HANDLE_FAILURE("LLVMBuildTrunc");
         return false;
     }
@@ -406,8 +384,8 @@ aot_compile_simd_i32x4_dot_i16x8(AOTCompContext *comp_ctx,
         return false;
     }
 
-    if (!(zero =
-            simd_build_splat_const_integer_vector(comp_ctx, I32_TYPE, 0, 8))) {
+    if (!(zero = simd_build_splat_const_integer_vector(comp_ctx, I32_TYPE, 0,
+                                                       8))) {
         return false;
     }
 
