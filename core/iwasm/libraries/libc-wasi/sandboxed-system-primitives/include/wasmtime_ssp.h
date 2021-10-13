@@ -181,7 +181,7 @@ typedef uint16_t __wasi_fstflags_t;
 
 typedef uint64_t __wasi_inode_t;
 
-typedef uint64_t __wasi_linkcount_t;
+typedef uint64_t __wasi_linkcount_t __attribute__((aligned(8))); 
 
 typedef uint32_t __wasi_lookupflags_t;
 #define __WASI_LOOKUP_SYMLINK_FOLLOW (0x00000001)
