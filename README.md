@@ -27,6 +27,8 @@ iwasm VM core
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
 - [Multiple modules as dependencies](./doc/multi_module.md), ref to [sample](samples/multi-module)
 - [Thread management and pthread library](./doc/pthread_library.md), ref to [sample](samples/multi-thread)
+- [Linux SGX (Intel Software Guard Extension) support](./doc/linux_sgx.md)
+- [Source debugging](./doc/source_debugging.md)
 
 ### post-MVP features
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
@@ -48,7 +50,7 @@ The iwasm supports the following architectures:
 - AArch64 (Cortex-A57 and Cortex-A53 are tested)
 - MIPS
 - XTENSA
-- RISCV64, RISCV32 (interpreter only)
+- RISCV64, RISCV32 (RISC-V LP64 and RISC-V LP64D are tested)
 
 Following platforms are supported. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
@@ -67,7 +69,7 @@ Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compile
 cd wamr-compiler
 ./build_llvm.sh (or "./build_llvm_xtensa.sh" to support xtensa target)
 mkdir build && cd build
-cmake .. (or "cmake .. -DWAMR_BUILD_TARGET=darwin" for MacOS)
+cmake .. (or "cmake .. -DWAMR_BUILD_PLATFORM=darwin" for MacOS)
 make
 # wamrc is generated under current directory
 ```
@@ -76,8 +78,6 @@ For **Windows**：
 ```shell
 cd wamr-compiler
 python build_llvm.py
-open LLVM.sln in wasm-micro-runtime\core\deps\llvm\win32build with Visual Studio
-build LLVM.sln Release
 mkdir build && cd build
 cmake ..
 cmake --build . --config Release
@@ -132,15 +132,15 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 
 Project Technical Steering Committee
 ====================================
-The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC. 
+The [WAMR PTSC Charter](./TSC_Charter.md) governs the operations of the project TSC.
 The current TSC members:
 - [lum1n0us](https://github.com/lum1n0us) - **Liang He**， <liang.he@intel.com>
+- [no1wudi](https://github.com/no1wudi) **Qi Huang**, <huangqi3@xiaomi.com>
 - [qinxk-inter](https://github.com/qinxk-inter) - **Xiaokang Qin**， <xiaokang.qxk@antgroup.com>
 - [wei-tang](https://github.com/wei-tang) - **Wei Tang**， <tangwei.tang@antgroup.com>
 - [wenyongh](https://github.com/wenyongh) - **Wenyong Huang**， <wenyong.huang@intel.com>
 - [xujuntwt95329](https://github.com/xujuntwt95329) - **Jun Xu**， <Jun1.Xu@intel.com>
-- [xwang98](https://github.com/xwang98) - **Xin Wang**， <xin.wang@intel.com>
-
+- [xwang98](https://github.com/xwang98) - **Xin Wang**， <xin.wang@intel.com> (chair)
 
 License
 =======
@@ -153,10 +153,11 @@ Any contributions you make will be under the same license.
 
 # More resources
 
-Check out the [Wiki documents ](../../wiki) for more resources:
+Check out the [Wiki documents ](https://github.com/bytecodealliance/wasm-micro-runtime/wiki) for more resources:
 
-- [Performance and footprint data](../../wiki/Performance)
-- Community news and events
-- Roadmap
+- [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance)
+- [Community news and events](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Events)
+- [Roadmap](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Roadmap)
+- [WAMR TSC meetings](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/TSC-meeting)
 - Technical documents
 

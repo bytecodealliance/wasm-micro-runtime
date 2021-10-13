@@ -7,8 +7,7 @@
 
 static bool
 pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
-                          LLVMValueRef *p_value,
-                          bool is_32, uint8 *p_type)
+                          LLVMValueRef *p_value, bool is_32, uint8 *p_type)
 {
     AOTValue *aot_value;
     uint8 type;
@@ -22,14 +21,14 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    aot_value = aot_value_stack_pop
-        (&func_ctx->block_stack.block_list_end->value_stack);
+    aot_value =
+        aot_value_stack_pop(&func_ctx->block_stack.block_list_end->value_stack);
     type = aot_value->type;
 
     if (aot_value->type == VALUE_TYPE_I1) {
         if (!(aot_value->value =
-                    LLVMBuildZExt(comp_ctx->builder, aot_value->value,
-                                  I32_TYPE, "val_s_ext"))) {
+                  LLVMBuildZExt(comp_ctx->builder, aot_value->value, I32_TYPE,
+                                "val_s_ext"))) {
             aot_set_last_error("llvm build sign ext failed.");
             return false;
         }
@@ -55,15 +54,13 @@ pop_value_from_wasm_stack(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* !is_32: i64, f64 */
-    if (!is_32
-        && !(type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64)) {
+    if (!is_32 && !(type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64)) {
         aot_set_last_error("invalid WASM stack data type.");
         return false;
     }
 
     return true;
 }
-
 
 bool
 aot_compile_op_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -84,8 +81,10 @@ aot_compile_op_select(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_COND(cond);
 
-    if (!pop_value_from_wasm_stack(comp_ctx, func_ctx, &val2, is_select_32, &val2_type)
-        || !pop_value_from_wasm_stack(comp_ctx, func_ctx, &val1, is_select_32, &val1_type))
+    if (!pop_value_from_wasm_stack(comp_ctx, func_ctx, &val2, is_select_32,
+                                   &val2_type)
+        || !pop_value_from_wasm_stack(comp_ctx, func_ctx, &val1, is_select_32,
+                                      &val1_type))
         return false;
 
     if (val1_type != val2_type) {
@@ -93,9 +92,8 @@ aot_compile_op_select(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    if (!(selected = LLVMBuildSelect(comp_ctx->builder,
-                                     cond, val1, val2,
-                                     "select"))) {
+    if (!(selected =
+              LLVMBuildSelect(comp_ctx->builder, cond, val1, val2, "select"))) {
         aot_set_last_error("llvm build select failed.");
         return false;
     }
@@ -107,4 +105,3 @@ aot_compile_op_select(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 fail:
     return false;
 }
-

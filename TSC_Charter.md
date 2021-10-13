@@ -2,23 +2,23 @@
 
 ## Section 1. Guiding Principle
 
-The WebAssembly Micro Runtime (WAMR) project is part of the 
-Bytecode Alliance (BA) which operates transparently, openly, 
-collaboratively, and ethically. Project proposals, timelines, and status 
+The WebAssembly Micro Runtime (WAMR) project is part of the
+Bytecode Alliance (BA) which operates transparently, openly,
+collaboratively, and ethically. Project proposals, timelines, and status
 must not merely be open, but also easily visible to outsiders.
 
 ## Section 2. Project Governance under Bytecode Alliance
 
-Technical leadership for the WAMR projects within the Bytecode Alliance 
-is delegated to the projects through the project charter. Though the BA TSC 
+Technical leadership for the WAMR projects within the Bytecode Alliance
+is delegated to the projects through the project charter. Though the BA TSC
 will not interfere with day-to-day discussions, votes or meetings of the PTSC,
-the BA TSC may request additional amendments to the PTSC charter when 
+the BA TSC may request additional amendments to the PTSC charter when
 there is misalignment between the project charter and the BA mission and values.
 
 
 
-The PTSC structure described in this document may be overhauled as part of 
-establishing a BA TSC in order to adhere to constraints or requirements that 
+The PTSC structure described in this document may be overhauled as part of
+establishing a BA TSC in order to adhere to constraints or requirements that
 TSC will impose on project-level governance.
 
 ## Section 3. Establishment of the PTSC
@@ -26,7 +26,7 @@ TSC will impose on project-level governance.
 PTSC memberships are not time-limited. There is no maximum size of the PTSC.
 The size is expected to vary in order to ensure adequate coverage of important
 areas of expertise, balanced with the ability to make decisions efficiently.
-The PTSC must have at least four members. 
+The PTSC must have at least four members.
 
 There is no specific set of requirements or qualifications for PTSC
 membership beyond these rules. The PTSC may add additional members to the
@@ -77,11 +77,11 @@ The PTSC will define WAMR project’s release vehicles.
 
 ## Section 5. WAMR Project Operations
 
-The PTSC will establish and maintain a development process for the WAMR 
+The PTSC will establish and maintain a development process for the WAMR
 project. The development process will establish guidelines
 for how the developers and community will operate. It will, for example,
 establish appropriate timelines for PTSC review (e.g. agenda items must be
-published at least a certain number of hours in advance of a PTSC 
+published at least a certain number of hours in advance of a PTSC
 meeting).
 
 The PTSC and entire technical community will follow any processes as may
@@ -106,7 +106,7 @@ the candidate's election. Elections shall be done within the projects by
 the Collaborators active in the project.
 
 The PTSC will elect from amongst voting PTSC members a PTSC Chairperson to
-work on building an agenda for PTSC meetings. The PTSC shall hold annual 
+work on building an agenda for PTSC meetings. The PTSC shall hold annual
 
 elections to select a PTSC Chairperson; there are no limits on the number
 of terms a PTSC Chairperson may serve.

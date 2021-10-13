@@ -6,30 +6,34 @@
 #include "aot_reloc.h"
 
 #if !defined(BH_PLATFORM_WINDOWS)
-#define R_X86_64_64    1  /* Direct 64 bit  */
-#define R_X86_64_PC32  2  /* PC relative 32 bit signed */
-#define R_X86_64_PLT32 4  /* 32 bit PLT address */
-#define R_X86_64_32    10 /* Direct 32 bit zero extended */
-#define R_X86_64_32S   11 /* Direct 32 bit sign extended */
+#define R_X86_64_64 1    /* Direct 64 bit  */
+#define R_X86_64_PC32 2  /* PC relative 32 bit signed */
+#define R_X86_64_PLT32 4 /* 32 bit PLT address */
+#define R_X86_64_32 10   /* Direct 32 bit zero extended */
+#define R_X86_64_32S 11  /* Direct 32 bit sign extended */
 #else
 #ifndef IMAGE_REL_AMD64_ADDR64
 #define IMAGE_REL_AMD64_ADDR64 1 /* The 64-bit VA of the relocation target */
 #define IMAGE_REL_AMD64_ADDR32 2 /* The 32-bit VA of the relocation target */
+/* clang-format off */
 #define IMAGE_REL_AMD64_REL32  4 /* The 32-bit relative address from
                                     the byte following the relocation*/
+/* clang-format on */
 #endif
 #endif
 
 #if defined(BH_PLATFORM_WINDOWS)
-#pragma function (floor)
-#pragma function (ceil)
-#pragma function (floorf)
-#pragma function (ceilf)
+#pragma function(floor)
+#pragma function(ceil)
+#pragma function(floorf)
+#pragma function(ceilf)
 #endif
 
+/* clang-format off */
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
 };
+/* clang-format on */
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -61,8 +65,8 @@ get_plt_item_size()
 uint32
 get_plt_table_size()
 {
-    uint32 size = get_plt_item_size()
-                  * (sizeof(target_sym_map) / sizeof(SymbolMap));
+    uint32 size =
+        get_plt_item_size() * (sizeof(target_sym_map) / sizeof(SymbolMap));
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
     size += get_plt_item_size() + sizeof(AOTUnwindInfo);
 #endif
@@ -80,7 +84,7 @@ init_plt_table(uint8 *plt)
         /* mov symbol_addr, rax */
         *p++ = 0x48;
         *p++ = 0xB8;
-        *(uint64*)p = (uint64)(uintptr_t)target_sym_map[i].symbol_addr;
+        *(uint64 *)p = (uint64)(uintptr_t)target_sym_map[i].symbol_addr;
         p += sizeof(uint64);
         /* jmp rax */
         *p++ = 0xFF;
@@ -92,19 +96,19 @@ init_plt_table(uint8 *plt)
     p = plt;
     /* mov exception_handler, rax */
     *p++ = 0x48;
-	*p++ = 0xB8;
-    *(uint64*)p = 0;/*(uint64)(uintptr_t)aot_exception_handler;*/
+    *p++ = 0xB8;
+    *(uint64 *)p = 0; /*(uint64)(uintptr_t)aot_exception_handler;*/
     p += sizeof(uint64);
     /* jmp rax */
-	*p++ = 0xFF;
-	*p++ = 0xE0;
+    *p++ = 0xFF;
+    *p++ = 0xE0;
 #endif
 }
 
 static bool
-check_reloc_offset(uint32 target_section_size,
-                   uint64 reloc_offset, uint32 reloc_data_size,
-                   char *error_buf, uint32 error_buf_size)
+check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
+                   uint32 reloc_data_size, char *error_buf,
+                   uint32 error_buf_size)
 {
     if (!(reloc_offset < (uint64)target_section_size
           && reloc_offset + reloc_data_size <= (uint64)target_section_size)) {
@@ -116,11 +120,10 @@ check_reloc_offset(uint32 target_section_size,
 }
 
 bool
-apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
+apply_relocation(AOTModule *module, uint8 *target_section_addr,
+                 uint32 target_section_size, uint64 reloc_offset,
+                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
 #if !defined(BH_PLATFORM_WINDOWS)
@@ -131,10 +134,10 @@ apply_relocation(AOTModule *module,
         {
             intptr_t value;
 
-            CHECK_RELOC_OFFSET(sizeof(void*));
-            value = *(intptr_t*)(target_section_addr + (uint32)reloc_offset);
-            *(uint8**)(target_section_addr + reloc_offset)
-                = (uint8*)symbol_addr + reloc_addend + value;   /* S + A */
+            CHECK_RELOC_OFFSET(sizeof(void *));
+            value = *(intptr_t *)(target_section_addr + (uint32)reloc_offset);
+            *(uint8 **)(target_section_addr + reloc_offset) =
+                (uint8 *)symbol_addr + reloc_addend + value; /* S + A */
             break;
         }
 #if defined(BH_PLATFORM_WINDOWS)
@@ -144,14 +147,14 @@ apply_relocation(AOTModule *module,
             uintptr_t target_addr;
 
             CHECK_RELOC_OFFSET(sizeof(void *));
-            value = *(int32*)(target_section_addr + (uint32)reloc_offset);
+            value = *(int32 *)(target_section_addr + (uint32)reloc_offset);
             target_addr = (uintptr_t)symbol_addr + reloc_addend + value;
             if ((int32)target_addr != target_addr) {
-                set_error_buf(
-                  error_buf, error_buf_size,
-                  "AOT module load failed: "
-                  "relocation truncated to fit IMAGE_REL_AMD64_ADDR32 failed. "
-                  "Try using wamrc with --size-level=1 option.");
+                set_error_buf(error_buf, error_buf_size,
+                              "AOT module load failed: "
+                              "relocation truncated to fit "
+                              "IMAGE_REL_AMD64_ADDR32 failed. "
+                              "Try using wamrc with --size-level=1 option.");
                 return false;
             }
 
@@ -162,20 +165,21 @@ apply_relocation(AOTModule *module,
 #if !defined(BH_PLATFORM_WINDOWS)
         case R_X86_64_PC32:
         {
-            intptr_t target_addr = (intptr_t)   /* S + A - P */
-                                   ((uint8*)symbol_addr + reloc_addend
-                                    - (target_section_addr + reloc_offset));
+            intptr_t target_addr = (intptr_t) /* S + A - P */
+                ((uint8 *)symbol_addr + reloc_addend
+                 - (target_section_addr + reloc_offset));
 
             CHECK_RELOC_OFFSET(sizeof(int32));
             if ((int32)target_addr != target_addr) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "relocation truncated to fit R_X86_64_PC32 failed. "
-                              "Try using wamrc with --size-level=1 option.");
+                set_error_buf(
+                    error_buf, error_buf_size,
+                    "AOT module load failed: "
+                    "relocation truncated to fit R_X86_64_PC32 failed. "
+                    "Try using wamrc with --size-level=1 option.");
                 return false;
             }
 
-            *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
+            *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
             break;
         }
         case R_X86_64_32:
@@ -183,7 +187,7 @@ apply_relocation(AOTModule *module,
         {
             char buf[128];
             uintptr_t target_addr = (uintptr_t) /* S + A */
-                                    ((uint8*)symbol_addr + reloc_addend);
+                ((uint8 *)symbol_addr + reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(int32));
 
@@ -192,16 +196,16 @@ apply_relocation(AOTModule *module,
                 || (reloc_type == R_X86_64_32S
                     && (int32)target_addr != (int64)target_addr)) {
                 snprintf(buf, sizeof(buf),
-                        "AOT module load failed: "
-                        "relocation truncated to fit %s failed. "
-                        "Try using wamrc with --size-level=1 option.",
-                        reloc_type == R_X86_64_32
-                        ? "R_X86_64_32" : "R_X86_64_32S");
+                         "AOT module load failed: "
+                         "relocation truncated to fit %s failed. "
+                         "Try using wamrc with --size-level=1 option.",
+                         reloc_type == R_X86_64_32 ? "R_X86_64_32"
+                                                   : "R_X86_64_32S");
                 set_error_buf(error_buf, error_buf_size, buf);
                 return false;
             }
 
-            *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
+            *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
             break;
         }
 #endif
@@ -217,16 +221,16 @@ apply_relocation(AOTModule *module,
             CHECK_RELOC_OFFSET(sizeof(int32));
 
             if (symbol_index >= 0) {
-                plt = (uint8*)module->code + module->code_size - get_plt_table_size()
+                plt = (uint8 *)module->code + module->code_size
+                      - get_plt_table_size()
                       + get_plt_item_size() * symbol_index;
-                target_addr = (intptr_t)   /* L + A - P */
-                              (plt + reloc_addend
-                               - (target_section_addr + reloc_offset));
+                target_addr = (intptr_t) /* L + A - P */
+                    (plt + reloc_addend - (target_section_addr + reloc_offset));
             }
             else {
-                target_addr = (intptr_t)   /* L + A - P */
-                              ((uint8*)symbol_addr + reloc_addend
-                               - (target_section_addr + reloc_offset));
+                target_addr = (intptr_t) /* L + A - P */
+                    ((uint8 *)symbol_addr + reloc_addend
+                     - (target_section_addr + reloc_offset));
             }
 
 #if defined(BH_PLATFORM_WINDOWS)
@@ -244,7 +248,7 @@ apply_relocation(AOTModule *module,
                               "Try using wamrc with --size-level=1 option.");
                 return false;
             }
-            *(int32*)(target_section_addr + reloc_offset) = (int32)target_addr;
+            *(int32 *)(target_section_addr + reloc_offset) = (int32)target_addr;
             break;
         }
 
@@ -259,4 +263,3 @@ apply_relocation(AOTModule *module,
 
     return true;
 }
-

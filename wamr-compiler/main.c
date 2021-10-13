@@ -20,11 +20,14 @@ print_help()
 {
   printf("Usage: wamrc [options] -o output_file wasm_file\n");
   printf("  --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>\n");
-  printf("                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips.\n");
+  printf("                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips,\n");
+  printf("                                     riscv64, riscv32.\n");
   printf("                              Default is host arch, e.g. x86_64\n");
   printf("                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.\n");
   printf("                            Use --target=help to list supported targets\n");
-  printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, etc. (default: gnu)\n");
+  printf("  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, msvc, etc.\n");
+  printf("                              Default is gnu if target isn't riscv64 or riscv32\n");
+  printf("                              For target riscv64 and riscv32, default is lp64d and ilp32d\n");
   printf("                            Use --target-abi=help to list all the ABI supported\n");
   printf("  --cpu=<cpu>               Set the target CPU (default: host CPU, e.g. skylake)\n");
   printf("                            Use --cpu=help to list all the CPU supported\n");
@@ -57,6 +60,8 @@ print_help()
   printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
   printf("  --enable-dump-call-stack  Enable stack trace feature\n");
   printf("  --enable-perf-profiling   Enable function performance profiling\n");
+  printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
+  printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
   printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
   printf("Examples: wamrc -o test.aot test.wasm\n");
   printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -185,6 +190,12 @@ main(int argc, char *argv[])
     else if (!strcmp(argv[0], "--enable-perf-profiling")) {
         option.enable_aux_stack_frame = true;
     }
+    else if (!strcmp(argv[0], "--enable-indirect-mode")) {
+        option.is_indirect_mode = true;
+    }
+    else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
+        option.disable_llvm_intrinsics = true;
+    }
     else
       return print_help();
   }
@@ -236,6 +247,12 @@ main(int argc, char *argv[])
     printf("%s\n", aot_get_last_error());
     goto fail3;
   }
+
+#if WASM_ENABLE_DEBUG_AOT != 0
+  if (!create_dwarf_extractor(comp_data, wasm_file_name)) {
+    printf("%s:create dwarf extractor failed\n", wasm_file_name);
+  }
+#endif
 
   bh_print_time("Begin to create compile context");
 

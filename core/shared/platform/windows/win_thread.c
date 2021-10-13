@@ -289,6 +289,62 @@ os_thread_exit(void *retval)
 }
 
 int
+os_thread_env_init()
+{
+    os_thread_data *thread_data = TlsGetValue(thread_data_key);
+
+    if (thread_data)
+        /* Already created */
+        return BHT_OK;
+
+    if (!(thread_data = BH_MALLOC(sizeof(os_thread_data))))
+        return BHT_ERROR;
+
+    memset(thread_data, 0, sizeof(os_thread_data));
+    thread_data->thread_id = GetCurrentThreadId();
+
+    if (os_sem_init(&thread_data->wait_node.sem) != BHT_OK)
+        goto fail1;
+
+    if (os_mutex_init(&thread_data->wait_lock) != BHT_OK)
+        goto fail2;
+
+    if (os_cond_init(&thread_data->wait_cond) != BHT_OK)
+        goto fail3;
+
+    if (!TlsSetValue(thread_data_key, thread_data))
+        goto fail4;
+
+    return BHT_OK;
+
+fail4:
+    os_cond_destroy(&thread_data->wait_cond);
+fail3:
+    os_mutex_destroy(&thread_data->wait_lock);
+fail2:
+    os_sem_destroy(&thread_data->wait_node.sem);
+fail1:
+    BH_FREE(thread_data);
+    return BHT_ERROR;
+}
+
+void
+os_thread_env_destroy()
+{
+    os_thread_data *thread_data = TlsGetValue(thread_data_key);
+
+    /* Note that supervisor_thread_data's resources will be destroyed
+       by os_thread_sys_destroy() */
+    if (thread_data && thread_data != &supervisor_thread_data) {
+        TlsSetValue(thread_data_key, NULL);
+        os_cond_destroy(&thread_data->wait_cond);
+        os_mutex_destroy(&thread_data->wait_lock);
+        os_sem_destroy(&thread_data->wait_node.sem);
+        BH_FREE(thread_data);
+    }
+}
+
+int
 os_sem_init(korp_sem *sem)
 {
     bh_assert(sem);

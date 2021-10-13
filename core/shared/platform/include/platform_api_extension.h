@@ -85,10 +85,23 @@ int os_thread_detach(korp_tid);
 void os_thread_exit(void *retval);
 
 /**
+ * Initialize current thread environment if current thread
+ * is created by developer but not runtime
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int os_thread_env_init();
+
+/**
+ * Destroy current thread environment
+ */
+void os_thread_env_destroy();
+
+/**
  * Suspend execution of the calling thread for (at least)
  * usec microseconds
  *
- * @param return 0 if success, -1 otherwise
+ * @return 0 if success, -1 otherwise
  */
 int os_usleep(uint32 usec);
 

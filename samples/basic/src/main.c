@@ -24,7 +24,7 @@ int main(int argc, char *argv_main[])
     static char global_heap_buf[512 * 1024];
     char *buffer, error_buf[128];
     int opt;
-    char * wasm_path;
+    char * wasm_path = NULL;
 
     wasm_module_t module = NULL;
     wasm_module_inst_t module_inst = NULL;
@@ -148,7 +148,8 @@ int main(int argc, char *argv_main[])
         goto fail;
     }
 
-    float ret_val = *(float*)argv;
+    float ret_val;
+    memcpy(&ret_val, argv, sizeof(float));
     printf("Native finished calling wasm function generate_float(), returned a float value: %ff\n", ret_val );
 
     // Next we will pass a buffer to the WASM function
@@ -157,7 +158,7 @@ int main(int argc, char *argv_main[])
     // must allocate buffer from wasm instance memory space (never use pointer from host runtime)
     wasm_buffer = wasm_runtime_module_malloc(module_inst, 100, (void**)&native_buffer);
 
-    *(float*)argv2 = ret_val;   // the first argument
+    memcpy(argv2, &ret_val, sizeof(float)); // the first argument
     argv2[1] = wasm_buffer;     // the second argument is the wasm buffer address
     argv2[2] = 100;             //  the third argument is the wasm buffer size
     argv2[3] = 3;               //  the last argument is the digits after decimal point for converting float to string

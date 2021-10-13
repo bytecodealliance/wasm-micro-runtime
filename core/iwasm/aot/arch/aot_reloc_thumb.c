@@ -5,9 +5,10 @@
 
 #include "aot_reloc.h"
 
-#define R_ARM_THM_CALL  10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
-#define R_ARM_THM_JMP24 30  /* B.W */
+#define R_ARM_THM_CALL 10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
+#define R_ARM_THM_JMP24 30 /* B.W */
 
+/* clang-format off */
 void __ltdf2();
 void __adddf3();
 void __eqdf2();
@@ -45,6 +46,7 @@ void __aeabi_d2lz();
 void __aeabi_l2d();
 void __aeabi_f2ulz();
 void __aeabi_ul2d();
+void __aeabi_ui2d();
 void __aeabi_d2ulz();
 void __aeabi_idiv();
 void __aeabi_uidiv();
@@ -59,18 +61,23 @@ void __aeabi_dcmplt();
 void __aeabi_dcmpun();
 void __aeabi_dcmple();
 void __aeabi_dcmpge();
+void __aeabi_dcmpgt();
 void __aeabi_d2iz();
+void __aeabi_d2uiz();
 void __aeabi_fcmplt();
 void __aeabi_fcmpun();
 void __aeabi_fcmple();
 void __aeabi_fcmpge();
 void __aeabi_f2iz();
 void __aeabi_f2d();
+/* clang-format on */
 
 static SymbolMap target_sym_map[] = {
+    /* clang-format off */
     REG_COMMON_SYMBOLS
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
     REG_SYM(__ltdf2),
+    /* clang-format on */
     REG_SYM(__adddf3),
     REG_SYM(__eqdf2),
     REG_SYM(__unorddf2),
@@ -106,6 +113,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_l2d),
     REG_SYM(__aeabi_f2ulz),
     REG_SYM(__aeabi_ul2d),
+    REG_SYM(__aeabi_ui2d),
     REG_SYM(__aeabi_d2ulz),
     REG_SYM(__aeabi_idiv),
     REG_SYM(__aeabi_uidiv),
@@ -120,7 +128,9 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__aeabi_dcmpun),
     REG_SYM(__aeabi_dcmple),
     REG_SYM(__aeabi_dcmpge),
+    REG_SYM(__aeabi_dcmpgt),
     REG_SYM(__aeabi_d2iz),
+    REG_SYM(__aeabi_d2uiz),
     REG_SYM(__aeabi_fcmplt),
     REG_SYM(__aeabi_fcmpun),
     REG_SYM(__aeabi_fcmple),
@@ -147,7 +157,7 @@ get_target_symbol_map(uint32 *sym_num)
 void
 get_current_target(char *target_buf, uint32 target_buf_size)
 {
-    const char * s =  BUILD_TARGET;
+    const char *s = BUILD_TARGET;
     size_t s_size = sizeof(BUILD_TARGET);
     char *d = target_buf;
 
@@ -156,14 +166,14 @@ get_current_target(char *target_buf, uint32 target_buf_size)
         s = BUILD_TARGET_THUMB_V4T;
         s_size = sizeof(BUILD_TARGET_THUMB_V4T);
     }
-    if(target_buf_size < s_size){
+    if (target_buf_size < s_size) {
         s_size = target_buf_size;
     }
     while (--s_size) {
         if (*s >= 'A' && *s <= 'Z')
             *d++ = *s++ + 'a' - 'A';
         else
-            *d++ = *s++ ;
+            *d++ = *s++;
     }
     /* Ensure the string is null byte ('\0') terminated */
     *d = '\0';
@@ -188,7 +198,7 @@ init_plt_table(uint8 *plt)
 {
     uint32 i, num = sizeof(target_sym_map) / sizeof(SymbolMap);
     for (i = 0; i < num; i++) {
-        uint16 *p = (uint16*)plt;
+        uint16 *p = (uint16 *)plt;
         /* nop */
         *p++ = 0xbf00;
         /* push {r4} */
@@ -206,15 +216,15 @@ init_plt_table(uint8 *plt)
         /* nop */
         *p++ = 0xbf00;
         /* symbol addr */
-        *(uint32*)p = (uint32)(uintptr_t)target_sym_map[i].symbol_addr;
+        *(uint32 *)p = (uint32)(uintptr_t)target_sym_map[i].symbol_addr;
         plt += get_plt_item_size();
     }
 }
 
 static bool
-check_reloc_offset(uint32 target_section_size,
-                   uint64 reloc_offset, uint32 reloc_data_size,
-                   char *error_buf, uint32 error_buf_size)
+check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
+                   uint32 reloc_data_size, char *error_buf,
+                   uint32 error_buf_size)
 {
     if (!(reloc_offset < (uint64)target_section_size
           && reloc_offset + reloc_data_size <= (uint64)target_section_size)) {
@@ -226,11 +236,10 @@ check_reloc_offset(uint32 target_section_size,
 }
 
 bool
-apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
+apply_relocation(AOTModule *module, uint8 *target_section_addr,
+                 uint32 target_section_size, uint64 reloc_offset,
+                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
         case R_ARM_THM_CALL:
@@ -244,7 +253,7 @@ apply_relocation(AOTModule *module,
 
             CHECK_RELOC_OFFSET(sizeof(int32));
 
-            reloc_addr = (int16*)(target_section_addr + reloc_offset);
+            reloc_addr = (int16 *)(target_section_addr + reloc_offset);
             initial_addend_0 = (*reloc_addr) & 0x7FF;
             initial_addend_1 = (*(reloc_addr + 1)) & 0x7FF;
             sign = (initial_addend_0 & 0x400) ? true : false;
@@ -257,16 +266,20 @@ apply_relocation(AOTModule *module,
                  * Suppose the symbol address is in +-4MB relative
                  * to the relocation address.
                  */
-                /* operation: ((S + A) | T) - P  where S is symbol address and T is 1 */
-                result = (int32)(((intptr_t)((uint8*)symbol_addr + reloc_addend) | 1)
-                                 - (intptr_t)(target_section_addr + reloc_offset));
+                /* operation: ((S + A) | T) - P  where S is symbol address
+                   and T is 1 */
+                result =
+                    (int32)(((intptr_t)((uint8 *)symbol_addr + reloc_addend)
+                             | 1)
+                            - (intptr_t)(target_section_addr + reloc_offset));
             }
             else {
                 if (reloc_addend > 0) {
-                     set_error_buf(error_buf, error_buf_size,
-                                   "AOT module load failed: relocate to plt table "
-                                   "with reloc addend larger than 0 is unsupported.");
-                     return false;
+                    set_error_buf(
+                        error_buf, error_buf_size,
+                        "AOT module load failed: relocate to plt table "
+                        "with reloc addend larger than 0 is unsupported.");
+                    return false;
                 }
 
                 /* Symbol address is not an AOT function,
@@ -274,11 +287,14 @@ apply_relocation(AOTModule *module,
                  * beyond of the +-4MB space. Apply relocation with
                  * the PLT which branch to the target symbol address.
                  */
-                /* operation: ((S + A) | T) - P  where S is PLT address and T is 1 */
-                uint8 *plt = (uint8*)module->code + module->code_size - get_plt_table_size()
+                /* operation: ((S + A) | T) - P  where S is PLT address
+                   and T is 1 */
+                uint8 *plt = (uint8 *)module->code + module->code_size
+                             - get_plt_table_size()
                              + get_plt_item_size() * symbol_index + 1;
-                result = (int32)(((intptr_t)plt | 1)
-                                 - (intptr_t)(target_section_addr + reloc_offset));
+                result =
+                    (int32)(((intptr_t)plt | 1)
+                            - (intptr_t)(target_section_addr + reloc_offset));
             }
 
             result += initial_addend;
@@ -310,4 +326,3 @@ apply_relocation(AOTModule *module,
     }
     return true;
 }
-

@@ -13,6 +13,7 @@ cwd     = GetCurrentDir()
 src = Split('''
 aot_loader.c
 aot_runtime.c
+aot_intrinsic.c
 ''')
 
 if rtconfig.ARCH == 'arm':
@@ -20,7 +21,8 @@ if rtconfig.ARCH == 'arm':
         src += ['arch/aot_reloc_thumb.c']
     elif re.match('^cortex-a.*', rtconfig.CPU):
         src += ['arch/aot_reloc_arm.c']
-
+elif rtconfig.ARCH == 'ia32':
+    src += ['arch/aot_reloc_x86_32.c']
 
 CPPPATH = [cwd, cwd + '/../include']
 

@@ -750,7 +750,7 @@ static void output_event(request_t *obj)
 
 int main(int argc, char *argv[])
 {
-    int ret;
+    int ret = -1;
     imrt_link_recv_context_t recv_ctx = { 0 };
     char buffer[BUF_SIZE] = { 0 };
     uint32_t last_check = 0, total_elpased_ms = 0;

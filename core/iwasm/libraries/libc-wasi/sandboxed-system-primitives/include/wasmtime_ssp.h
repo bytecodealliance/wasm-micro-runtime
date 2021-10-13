@@ -1,6 +1,8 @@
 /*
- * Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
- * See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+ * Part of the Wasmtime Project, under the Apache License v2.0 with
+ * LLVM Exceptions. See
+ *   https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE
+ * for license information.
  *
  * This file declares an interface similar to WASI, but augmented to expose
  * some implementation details such as the curfds arguments that we pass
@@ -12,6 +14,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
+/* clang-format off */
 
 #ifdef __cplusplus
 #ifndef _Static_assert
@@ -27,7 +31,6 @@
 #endif /* _Noreturn */
 extern "C" {
 #endif
-
 
 _Static_assert(_Alignof(int8_t) == 1, "non-wasi data layout");
 _Static_assert(_Alignof(uint8_t) == 1, "non-wasi data layout");
@@ -891,5 +894,6 @@ __wasi_errno_t wasmtime_ssp_sched_yield(void)
 
 #undef WASMTIME_SSP_SYSCALL_NAME
 
-#endif
+/* clang-format on */
 
+#endif /* end of WASMTIME_SSP_H */

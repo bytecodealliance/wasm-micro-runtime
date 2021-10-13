@@ -6,6 +6,7 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+/* clang-format off */
 #if !defined(BUILD_TARGET_X86_64) \
     && !defined(BUILD_TARGET_AMD_64) \
     && !defined(BUILD_TARGET_AARCH64) \
@@ -19,7 +20,9 @@
     && !defined(BUILD_TARGET_RISCV64_LP64D) \
     && !defined(BUILD_TARGET_RISCV64_LP64) \
     && !defined(BUILD_TARGET_RISCV32_ILP32D) \
-    && !defined(BUILD_TARGET_RISCV32_ILP32)
+    && !defined(BUILD_TARGET_RISCV32_ILP32) \
+    && !defined(BUILD_TARGET_ARC)
+/* clang-format on */
 #if defined(__x86_64__) || defined(__x86_64)
 #define BUILD_TARGET_X86_64
 #elif defined(__amd64__) || defined(__amd64)
@@ -42,6 +45,8 @@
 #define BUILD_TARGET_RISCV64_LP64D
 #elif defined(__riscv) && (__riscv_xlen == 32)
 #define BUILD_TARGET_RISCV32_ILP32D
+#elif defined(__arc__)
+#define BUILD_TARGET_ARC
 #else
 #error "Build target isn't set"
 #endif
@@ -51,7 +56,7 @@
 #define BH_DEBUG 0
 #endif
 
-#define MEM_ALLOCATOR_EMS  0
+#define MEM_ALLOCATOR_EMS 0
 #define MEM_ALLOCATOR_TLSF 1
 
 /* Default memory allocator */
@@ -72,10 +77,17 @@
 #define WASM_ENABLE_JIT 0
 #endif
 
+#ifndef WASM_ENABLE_LAZY_JIT
+#define WASM_ENABLE_LAZY_JIT 0
+#endif
+
 #if (WASM_ENABLE_AOT == 0) && (WASM_ENABLE_JIT != 0)
-/* JIT can only be enabled when AOT is enabled */
+/* LazyJIT or MCJIT can only be enabled when AOT is enabled */
 #undef WASM_ENABLE_JIT
 #define WASM_ENABLE_JIT 0
+
+#undef WASM_ENABLE_LAZY_JIT
+#define WASM_ENABLE_LAZY_JIT 0
 #endif
 
 #ifndef WASM_ENABLE_WAMR_COMPILER
@@ -237,7 +249,9 @@
 #define APP_MEMORY_MAX_GLOBAL_HEAP_PERCENT 1 / 3
 
 /* Default min/max heap size of each app */
+#ifndef APP_HEAP_SIZE_DEFAULT
 #define APP_HEAP_SIZE_DEFAULT (8 * 1024)
+#endif
 #define APP_HEAP_SIZE_MIN (256)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 
@@ -251,13 +265,16 @@
 #define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
 /* Default/min/max stack size of each app thread */
-#if !defined(BH_PLATFORM_ZEPHYR) && !defined(BH_PLATFORM_ALIOS_THINGS) \
-    && !defined(BH_PLATFORM_ESP_IDF) && !defined(BH_PLATFORM_OPENRTOS)
-#define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
-#define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
-#else
+#if defined(BH_PLATFORM_ZEPHYR) || defined(BH_PLATFORM_ALIOS_THINGS) \
+    || defined(BH_PLATFORM_ESP_IDF) || defined(BH_PLATFORM_OPENRTOS)
 #define APP_THREAD_STACK_SIZE_DEFAULT (6 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (4 * 1024)
+#elif defined(PTHREAD_STACK_DEFAULT) && defined(PTHREAD_STACK_MIN)
+#define APP_THREAD_STACK_SIZE_DEFAULT PTHREAD_STACK_DEFAULT
+#define APP_THREAD_STACK_SIZE_MIN PTHREAD_STACK_MIN
+#else
+#define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
+#define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #endif
 #if !defined(APP_THREAD_STACK_SIZE_MAX)
 #define APP_THREAD_STACK_SIZE_MAX (8 * 1024 * 1024)
@@ -297,4 +314,3 @@
 #endif
 
 #endif /* end of _CONFIG_H_ */
-

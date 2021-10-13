@@ -17,8 +17,8 @@ get_memory_data(uint32_t offset, uint32_t length);
 
 static bool
 call_wasm_function(uint32_t export_id,
-                   const wasm_val_t *args,
-                   wasm_val_t *results,
+                   const wasm_val_vec_t *args,
+                   wasm_val_vec_t *results,
                    const char *name);
 
 /************************ IMPORTED FUNCTIONS **************************/
@@ -49,7 +49,7 @@ enum EXPORT_ITEM_NAME {
 };
 
 #define DEFINE_FUNCTION(name)                                                 \
-    wasm_trap_t *STUB_##name(const wasm_val_t args[], wasm_val_t results[])
+  wasm_trap_t *STUB_##name(const wasm_val_vec_t* args, wasm_val_vec_t* results)
 
 #define DEFINE_EMPTY_FUNCTION(name)                                           \
     DEFINE_FUNCTION(name)                                                     \
@@ -61,16 +61,17 @@ enum EXPORT_ITEM_NAME {
 
 DEFINE_FUNCTION(get_pairs)
 {
-    wasm_val_t ret[1] = { WASM_INIT_VAL };
-    call_wasm_function(e_malloc, (wasm_val_t[]){ WASM_I32_VAL(24) }, ret,
-                       "malloc");
+    wasm_val_vec_t arg, ret;
+    wasm_val_vec_new(&ret, 1, (wasm_val_t []){ WASM_INIT_VAL });
+    wasm_val_vec_new(&arg, 1, (wasm_val_t []){ WASM_I32_VAL(24) });
+    call_wasm_function(e_malloc, &arg, &ret, "malloc");
     return NULL;
 }
 
 DEFINE_FUNCTION(log)
 {
-    wasm_val_t offset = args[0];
-    wasm_val_t length = args[1];
+    wasm_val_t offset = args->data[0];
+    wasm_val_t length = args->data[1];
     const byte_t *data = NULL;
 
     printf("[WASM -> NATIVE] calling back %s\n", __FUNCTION__);
@@ -90,32 +91,6 @@ DEFINE_FUNCTION(log)
 
     printf("[WASM_LOG] %s\n", data);
     return NULL;
-}
-
-static inline void
-create_import_function_list(wasm_store_t *store,
-                            const wasm_extern_t *import_function_list[])
-{
-#define IMPORT_FUNCTION_VARIABLE_NAME(name, ...)                              \
-    own wasm_func_t *function_##name = NULL;
-    IMPORT_FUNCTION_LIST(IMPORT_FUNCTION_VARIABLE_NAME)
-#undef IMPORT_FUNCTION_VARIABLE_NAME
-
-#define CREATE_WASM_FUNCTION(name, index, CREATE_FUNC_TYPE)                   \
-    {                                                                         \
-        own wasm_functype_t *type = CREATE_FUNC_TYPE;                         \
-        if (!(function_##name = wasm_func_new(store, type, STUB_##name))) {   \
-            printf("> Error creating new function\n");                        \
-        }                                                                     \
-        wasm_functype_delete(type);                                           \
-    }
-    IMPORT_FUNCTION_LIST(CREATE_WASM_FUNCTION)
-#undef CREATE_WASM_FUNCTION
-
-#define ADD_TO_FUNCTION_LIST(name, index, ...)                                \
-    import_function_list[index] = wasm_func_as_extern(function_##name);
-    IMPORT_FUNCTION_LIST(ADD_TO_FUNCTION_LIST)
-#undef CREATE_IMPORT_FUNCTION
 }
 
 /**********************************************************************/
@@ -146,8 +121,8 @@ get_memory_data(uint32_t offset, uint32_t length)
 
 static bool
 call_wasm_function(uint32_t export_id,
-                   const wasm_val_t *args,
-                   wasm_val_t *results,
+                   const wasm_val_vec_t *args,
+                   wasm_val_vec_t *results,
                    const char *name)
 {
     const wasm_func_t *function;
@@ -221,18 +196,47 @@ main(int argc, const char *argv[])
 
     // Instantiate.
     printf("Instantiating module...\n");
-    const wasm_extern_t *imports[10] = { 0 };
 
     // Create external functions.
     printf("Creating callback...\n");
-    create_import_function_list(store, imports);
+#define IMPORT_FUNCTION_VARIABLE_NAME(name, ...)                              \
+    own wasm_func_t *function_##name = NULL;
+    IMPORT_FUNCTION_LIST(IMPORT_FUNCTION_VARIABLE_NAME)
+#undef IMPORT_FUNCTION_VARIABLE_NAME
+
+    wasm_extern_vec_t imports;
+    wasm_extern_vec_new_uninitialized(&imports, 10);
+
+#define CREATE_WASM_FUNCTION(name, index, CREATE_FUNC_TYPE)                   \
+    {                                                                         \
+        own wasm_functype_t *type = CREATE_FUNC_TYPE;                         \
+        if (!(function_##name = wasm_func_new(store, type, STUB_##name))) {   \
+            printf("> Error creating new function\n");                        \
+            return 1;                                                         \
+        }                                                                     \
+        wasm_functype_delete(type);                                           \
+    }
+    IMPORT_FUNCTION_LIST(CREATE_WASM_FUNCTION)
+#undef CREATE_WASM_FUNCTION
+
+#define ADD_TO_FUNCTION_LIST(name, index, ...)                                \
+    imports.data[index] = wasm_func_as_extern(function_##name);               \
+    imports.num_elems += 1;
+    IMPORT_FUNCTION_LIST(ADD_TO_FUNCTION_LIST)
+#undef CREATE_IMPORT_FUNCTION
+
 
     own wasm_instance_t *instance =
-      wasm_instance_new(store, module, imports, NULL);
+      wasm_instance_new(store, module, &imports, NULL);
     if (!instance) {
         printf("> Error instantiating module!\n");
         return 1;
     }
+
+#define DESTROY_WASM_FUNCITON(name, index, ...)                               \
+    wasm_func_delete(function_##name);
+    IMPORT_FUNCTION_LIST(DESTROY_WASM_FUNCITON)
+#undef DESTROY_WASM_FUNCITON
 
     // Extract export.
     printf("Extracting export...\n");

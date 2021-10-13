@@ -5,17 +5,19 @@
 
 #include "aot_reloc.h"
 
-#define R_386_32        1   /* Direct 32 bit  */
-#define R_386_PC32      2   /* PC relative 32 bit */
+#define R_386_32 1   /* Direct 32 bit  */
+#define R_386_PC32 2 /* PC relative 32 bit */
 
 #if !defined(_WIN32) && !defined(_WIN32_)
+/* clang-format off */
 void __divdi3();
 void __udivdi3();
 void __moddi3();
 void __umoddi3();
+/* clang-format on */
 #else
-#pragma function (floor)
-#pragma function (ceil)
+#pragma function(floor)
+#pragma function(ceil)
 
 static int64
 __divdi3(int64 a, int64 b)
@@ -42,6 +44,7 @@ __umoddi3(uint64 a, uint64 b)
 }
 #endif
 
+/* clang-format off */
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
     /* compiler-rt symbols that come from compiler(e.g. gcc) */
@@ -50,6 +53,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__moddi3),
     REG_SYM(__umoddi3)
 };
+/* clang-format on */
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -84,9 +88,9 @@ init_plt_table(uint8 *plt)
 }
 
 static bool
-check_reloc_offset(uint32 target_section_size,
-                   uint64 reloc_offset, uint32 reloc_data_size,
-                   char *error_buf, uint32 error_buf_size)
+check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
+                   uint32 reloc_data_size, char *error_buf,
+                   uint32 error_buf_size)
 {
     if (!(reloc_offset < (uint64)target_section_size
           && reloc_offset + reloc_data_size <= (uint64)target_section_size)) {
@@ -98,21 +102,20 @@ check_reloc_offset(uint32 target_section_size,
 }
 
 bool
-apply_relocation(AOTModule *module,
-                 uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
-                 uint32 reloc_type, void *symbol_addr, int32 symbol_index,
-                 char *error_buf, uint32 error_buf_size)
+apply_relocation(AOTModule *module, uint8 *target_section_addr,
+                 uint32 target_section_size, uint64 reloc_offset,
+                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
         case R_386_32:
         {
             intptr_t value;
 
-            CHECK_RELOC_OFFSET(sizeof(void*));
-            value = *(intptr_t*)(target_section_addr + (uint32)reloc_offset);
-            *(uint8**)(target_section_addr + reloc_offset)
-                = (uint8*)symbol_addr + reloc_addend + value;   /* S + A */
+            CHECK_RELOC_OFFSET(sizeof(void *));
+            value = *(intptr_t *)(target_section_addr + (uint32)reloc_offset);
+            *(uint8 **)(target_section_addr + reloc_offset) =
+                (uint8 *)symbol_addr + reloc_addend + value; /* S + A */
             break;
         }
 
@@ -120,12 +123,12 @@ apply_relocation(AOTModule *module,
         {
             int32 value;
 
-            CHECK_RELOC_OFFSET(sizeof(void*));
-            value = *(int32*)(target_section_addr + (uint32)reloc_offset);
-            *(uint32*)(target_section_addr + (uint32)reloc_offset) = (uint32)
-                ((uint8*)symbol_addr + (uint32)reloc_addend
-                 - (uint8*)(target_section_addr + (uint32)reloc_offset)
-                 + value);  /* S + A - P */
+            CHECK_RELOC_OFFSET(sizeof(void *));
+            value = *(int32 *)(target_section_addr + (uint32)reloc_offset);
+            *(uint32 *)(target_section_addr + (uint32)reloc_offset) =
+                (uint32)((uint8 *)symbol_addr + (uint32)reloc_addend
+                         - (uint8 *)(target_section_addr + (uint32)reloc_offset)
+                         + value); /* S + A - P */
             break;
         }
 
@@ -139,4 +142,3 @@ apply_relocation(AOTModule *module,
     }
     return true;
 }
-

@@ -9,18 +9,18 @@
 
 // A function to be called from Wasm code.
 own wasm_trap_t* callback(
-  const wasm_val_t args[], wasm_val_t results[]
+  const wasm_val_vec_t *args, wasm_val_vec_t *results
 ) {
   printf("Calling back...\n> ");
   printf("> %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32"\n",
-    args[0].of.i32, args[1].of.i64,
-    args[2].of.i64, args[3].of.i32);
+    args->data[0].of.i32, args->data[1].of.i64,
+    args->data[2].of.i64, args->data[3].of.i32);
   printf("\n");
 
-  wasm_val_copy(&results[0], &args[3]);
-  wasm_val_copy(&results[1], &args[1]);
-  wasm_val_copy(&results[2], &args[2]);
-  wasm_val_copy(&results[3], &args[0]);
+  wasm_val_copy(&results->data[0], &args->data[3]);
+  wasm_val_copy(&results->data[1], &args->data[1]);
+  wasm_val_copy(&results->data[2], &args->data[2]);
+  wasm_val_copy(&results->data[3], &args->data[0]);
   return NULL;
 }
 
@@ -91,9 +91,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(callback_func) };
+  wasm_extern_vec_t imports;
+  wasm_extern_vec_new(&imports, 1, (wasm_extern_t *[]) { wasm_func_as_extern(callback_func) });
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -120,13 +121,14 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t args[4] = {
-    WASM_I32_VAL(1), WASM_I64_VAL(2), WASM_I64_VAL(3), WASM_I32_VAL(4)
-  };
-  wasm_val_t results[4] = {
-    WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL
-  };
-  if (wasm_func_call(run_func, args, results)) {
+  wasm_val_vec_t args, results;
+  wasm_val_vec_new(&args, 4, (wasm_val_t []){
+      WASM_I32_VAL(1), WASM_I64_VAL(2), WASM_I64_VAL(3), WASM_I32_VAL(4)
+   });
+  wasm_val_vec_new(&results, 4, (wasm_val_t []) {
+      WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL
+  });
+  if (wasm_func_call(run_func, &args, &results)) {
     printf("> Error calling function!\n");
     return 1;
   }
@@ -136,12 +138,12 @@ int main(int argc, const char* argv[]) {
   // Print result.
   printf("Printing result...\n");
   printf("> %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32"\n",
-    results[0].of.i32, results[1].of.i64, results[2].of.i64, results[3].of.i32);
+    results.data[0].of.i32, results.data[1].of.i64, results.data[2].of.i64, results.data[3].of.i32);
 
-  assert(results[0].of.i32 == 1);
-  assert(results[1].of.i64 == 2);
-  assert(results[2].of.i64 == 3);
-  assert(results[3].of.i32 == 4);
+  assert(results.data[0].of.i32 == 1);
+  assert(results.data[1].of.i64 == 2);
+  assert(results.data[2].of.i64 == 3);
+  assert(results.data[3].of.i32 == 4);
 
   // Shut down.
   printf("Shutting down...\n");
