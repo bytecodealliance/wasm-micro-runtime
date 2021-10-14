@@ -163,9 +163,24 @@ index b9fa438c..a5711dd3 100644
  ;; 1 elem segment declared, 2 given
  (assert_malformed
 diff --git a/test/core/elem.wast b/test/core/elem.wast
-index 1ea2b061..f5440e07 100644
+index 1ea2b061..8eded377 100644
 --- a/test/core/elem.wast
 +++ b/test/core/elem.wast
+@@ -12,10 +12,10 @@
+   (elem 0x0 (i32.const 0) $f $f)
+   (elem 0x000 (offset (i32.const 0)))
+   (elem 0 (offset (i32.const 0)) $f $f)
+-  (elem $t (i32.const 0))
+-  (elem $t (i32.const 0) $f $f)
+-  (elem $t (offset (i32.const 0)))
+-  (elem $t (offset (i32.const 0)) $f $f)
++  (elem (i32.const 0))
++  (elem (i32.const 0) $f $f)
++  (elem (offset (i32.const 0)))
++  (elem (offset (i32.const 0)) $f $f)
+ )
+ 
+ ;; Basic use
 @@ -354,6 +354,7 @@
  (assert_return (invoke $module1 "call-8") (i32.const 65))
  (assert_return (invoke $module1 "call-9") (i32.const 66))
