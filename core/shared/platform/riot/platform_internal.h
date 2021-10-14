@@ -7,12 +7,12 @@
 #ifndef _PLATFORM_INTERNAL_H
 #define _PLATFORM_INTERNAL_H
 
-//Riot includes core
+/* Riot includes core */
 #include <sched.h>
 #include <thread.h>
 #include <mutex.h>
 
-//Riot includes sys
+/* Riot includes sys */
 #include <sema.h>
 
 #include <inttypes.h>
@@ -39,19 +39,20 @@ typedef thread_t korp_thread;
 typedef kernel_pid_t korp_tid;
 typedef mutex_t korp_mutex;
 
-// typedef sema_t korp_sem;
+/* typedef sema_t korp_sem; */
 
 struct os_thread_wait_node;
 typedef struct os_thread_wait_node *os_thread_wait_list;
 typedef struct korp_cond {
-     mutex_t wait_list_lock;
-     os_thread_wait_list thread_wait_list;
+    mutex_t wait_list_lock;
+    os_thread_wait_list thread_wait_list;
 } korp_cond;
 
-#define os_printf  printf
+#define os_printf printf
 #define os_vprintf vprintf
 
 #if WA_MATH
+/* clang-format off */
 /* math functions which are not provided by os*/
 double sqrt(double x);
 double floor(double x);
@@ -69,7 +70,7 @@ float rintf(float x);
 float truncf(float x);
 int signbit(double x);
 int isnan(double x);
+/* clang-format on */
 #endif
 
 #endif /* end of _BH_PLATFORM_H */
-

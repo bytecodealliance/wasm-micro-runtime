@@ -45,9 +45,12 @@ typedef struct korp_cond {
     os_thread_wait_list thread_wait_list;
 } korp_cond;
 
-int os_printf(const char *format, ...);
-int os_vprintf(const char *format, va_list ap);
+int
+os_printf(const char *format, ...);
+int
+os_vprintf(const char *format, va_list ap);
 
+/* clang-format off */
 /* math functions which are not provided by os */
 double sqrt(double x);
 double floor(double x);
@@ -93,5 +96,6 @@ uint32_t htonl(uint32_t hostlong);
 uint16_t htons(uint16_t hostshort);
 uint32_t ntohl(uint32_t netlong);
 uint16_t ntohs(uint16_t netshort);
+/* clang-format on */
 
 #endif

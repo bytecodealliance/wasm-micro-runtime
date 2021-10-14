@@ -6,9 +6,9 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
-uint8 *os_thread_get_stack_boundary()
+uint8 *
+os_thread_get_stack_boundary()
 {
     /* TODO: implement os_thread_get_stack_boundary */
     return NULL;
 }
-

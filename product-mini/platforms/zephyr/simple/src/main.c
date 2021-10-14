@@ -57,10 +57,10 @@ static char **app_argv;
  * @return true if the main function is called, false otherwise.
  */
 bool
-wasm_application_execute_main(wasm_module_inst_t module_inst,
-                              int argc, char *argv[]);
+wasm_application_execute_main(wasm_module_inst_t module_inst, int argc,
+                              char *argv[]);
 
-static void*
+static void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
     const char *exception;
@@ -69,15 +69,15 @@ app_instance_main(wasm_module_inst_t module_inst)
     unsigned argv[2] = { 0 };
 
     if (wasm_runtime_lookup_function(module_inst, "main", NULL)
-        || wasm_runtime_lookup_function(module_inst,
-                                        "__main_argc_argv", NULL)) {
+        || wasm_runtime_lookup_function(module_inst, "__main_argc_argv",
+                                        NULL)) {
         LOG_VERBOSE("Calling main funciton\n");
         wasm_application_execute_main(module_inst, app_argc, app_argv);
     }
-    else if ((func = wasm_runtime_lookup_function(module_inst,
-                                                  "app_main", NULL))) {
-        exec_env = wasm_runtime_create_exec_env(module_inst,
-                                                CONFIG_APP_HEAP_SIZE);
+    else if ((func = wasm_runtime_lookup_function(module_inst, "app_main",
+                                                  NULL))) {
+        exec_env =
+            wasm_runtime_create_exec_env(module_inst, CONFIG_APP_HEAP_SIZE);
         if (!exec_env) {
             os_printf("Create exec env failed\n");
             return NULL;
@@ -110,15 +110,17 @@ static char global_heap_buf[CONFIG_GLOBAL_HEAP_BUF_SIZE] = { 0 };
 /*
 esp32_technical_reference_manual:
 "
-The capacity of Internal SRAM 1 is 128 KB. Either CPU can read and write this memory at addresses
-0x3FFE_0000 ~ 0x3FFF_FFFF of the data bus, and also at addresses 0x400A_0000 ~ 0x400B_FFFF of the
-instruction bus.
+The capacity of Internal SRAM 1 is 128 KB. Either CPU can read and write this
+memory at addresses 0x3FFE_0000 ~ 0x3FFF_FFFF of the data bus, and also at
+addresses 0x400A_0000 ~ 0x400B_FFFF of the instruction bus.
 "
 
-The custom linker script defines dram0_1_seg and map it to 0x400A_0000 ~ 0x400B_FFFF for instruction bus access.
-Here we define the buffer that will be placed to dram0_1_seg.
+The custom linker script defines dram0_1_seg and map it to 0x400A_0000 ~
+0x400B_FFFF for instruction bus access. Here we define the buffer that will be
+placed to dram0_1_seg.
 */
-static char esp32_executable_memory_buf[100 * 1024] __attribute__((section (".aot_code_buf"))) = { 0 };
+static char esp32_executable_memory_buf[100 * 1024]
+    __attribute__((section(".aot_code_buf"))) = { 0 };
 
 /* the poll allocator for executable memory */
 static mem_allocator_t esp32_exec_mem_pool_allocator;
@@ -127,8 +129,8 @@ static int
 esp32_exec_mem_init()
 {
     if (!(esp32_exec_mem_pool_allocator =
-                mem_allocator_create(esp32_executable_memory_buf,
-                                     sizeof(esp32_executable_memory_buf))))
+              mem_allocator_create(esp32_executable_memory_buf,
+                                   sizeof(esp32_executable_memory_buf))))
         return -1;
 
     return 0;
@@ -153,7 +155,8 @@ esp32_exec_mem_free(void *addr)
 }
 #endif /* end of #ifdef CONFIG_BOARD_ESP32 */
 
-void iwasm_main(void *arg1, void *arg2, void *arg3)
+void
+iwasm_main(void *arg1, void *arg2, void *arg3)
 {
     int start, end;
     start = k_uptime_get_32();
@@ -167,9 +170,9 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
     int log_verbose_level = 2;
 #endif
 
-    (void) arg1;
-    (void) arg2;
-    (void) arg3;
+    (void)arg1;
+    (void)arg2;
+    (void)arg3;
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
@@ -198,7 +201,7 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
 #endif
 
     /* load WASM byte buffer from byte buffer of include file */
-    wasm_file_buf = (uint8*) wasm_test_file;
+    wasm_file_buf = (uint8 *)wasm_test_file;
     wasm_file_size = sizeof(wasm_test_file);
 
     /* load WASM module */
@@ -213,11 +216,9 @@ void iwasm_main(void *arg1, void *arg2, void *arg3)
     }
 
     /* instantiate the module */
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      CONFIG_APP_STACK_SIZE,
-                                                      CONFIG_APP_HEAP_SIZE,
-                                                      error_buf,
-                                                      sizeof(error_buf)))) {
+    if (!(wasm_module_inst = wasm_runtime_instantiate(
+              wasm_module, CONFIG_APP_STACK_SIZE, CONFIG_APP_HEAP_SIZE,
+              error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail2;
     }
@@ -253,16 +254,16 @@ fail1:
 K_THREAD_STACK_DEFINE(iwasm_main_thread_stack, MAIN_THREAD_STACK_SIZE);
 static struct k_thread iwasm_main_thread;
 
-bool iwasm_init(void)
+bool
+iwasm_init(void)
 {
-    k_tid_t tid = k_thread_create(&iwasm_main_thread, iwasm_main_thread_stack,
-                                  MAIN_THREAD_STACK_SIZE,
-                                  iwasm_main, NULL, NULL, NULL,
-                                  MAIN_THREAD_PRIORITY, 0, K_NO_WAIT);
+    k_tid_t tid = k_thread_create(
+        &iwasm_main_thread, iwasm_main_thread_stack, MAIN_THREAD_STACK_SIZE,
+        iwasm_main, NULL, NULL, NULL, MAIN_THREAD_PRIORITY, 0, K_NO_WAIT);
     return tid ? true : false;
 }
-void main(void)
+void
+main(void)
 {
     iwasm_init();
 }
-

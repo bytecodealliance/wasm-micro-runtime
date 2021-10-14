@@ -14,7 +14,7 @@
 static int app_argc;
 static char **app_argv;
 
-static void*
+static void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
     const char *exception;
@@ -27,7 +27,8 @@ app_instance_main(wasm_module_inst_t module_inst)
 
 static char global_heap_buf[CONFIG_GLOBAL_HEAP_BUF_SIZE] = { 0 };
 
-void iwasm_main(void)
+void
+iwasm_main(void)
 {
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
@@ -60,7 +61,7 @@ void iwasm_main(void)
 #endif
 
     /* load WASM byte buffer from byte buffer of include file */
-    wasm_file_buf = (uint8*)wasm_test_file;
+    wasm_file_buf = (uint8 *)wasm_test_file;
     wasm_file_size = sizeof(wasm_test_file);
 
     /* load WASM module */
@@ -73,11 +74,9 @@ void iwasm_main(void)
     os_printf("### wasm runtime load module success.\n");
 
     /* instantiate the module */
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      CONFIG_APP_STACK_SIZE,
-                                                      CONFIG_APP_HEAP_SIZE,
-                                                      error_buf,
-                                                      sizeof(error_buf)))) {
+    if (!(wasm_module_inst = wasm_runtime_instantiate(
+              wasm_module, CONFIG_APP_STACK_SIZE, CONFIG_APP_HEAP_SIZE,
+              error_buf, sizeof(error_buf)))) {
         os_printf("%s\n", error_buf);
         goto fail2;
     }

@@ -29,9 +29,8 @@ disable_mpu_rasr_xn(void)
             MPU->RASR |= ~MPU_RASR_XN_Msk;
         }
     }
-
 }
-#endif  /* end of CONFIG_ARM_MPU */
+#endif /* end of CONFIG_ARM_MPU */
 #endif
 
 static int
@@ -84,8 +83,7 @@ os_realloc(void *ptr, unsigned size)
 
 void
 os_free(void *ptr)
-{
-}
+{}
 
 #if 0
 struct out_context {
@@ -203,17 +201,17 @@ os_dcache_flush()
     SCB_CleanDCache();
     irq_unlock(key);
 #elif defined(CONFIG_SOC_CVF_EM7D) && defined(CONFIG_ARC_MPU) \
-      && defined (CONFIG_CACHE_FLUSHING)
+    && defined(CONFIG_CACHE_FLUSHING)
     __asm__ __volatile__("sync");
     z_arc_v2_aux_reg_write(_ARC_V2_DC_FLSH, BIT(0));
     __asm__ __volatile__("sync");
 #endif
 }
 
-void set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
-                             exec_mem_free_func_t free_func)
+void
+set_exec_mem_alloc_func(exec_mem_alloc_func_t alloc_func,
+                        exec_mem_free_func_t free_func)
 {
     exec_mem_alloc_func = alloc_func;
     exec_mem_free_func = free_func;
 }
-

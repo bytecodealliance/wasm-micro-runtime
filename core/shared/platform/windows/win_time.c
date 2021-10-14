@@ -13,4 +13,3 @@ os_time_get_boot_microsecond()
 
     return ((uint64)ts.tv_sec) * 1000 * 1000 + ((uint64)ts.tv_nsec) / 1000;
 }
-

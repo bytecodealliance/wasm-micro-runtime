@@ -9,19 +9,22 @@
 #include <stdio.h>
 #include <string.h>
 
-char* optarg = NULL;
+char *optarg = NULL;
 int optind = 1;
 
-int getopt(int argc, char *const argv[], const char *optstring)
+int
+getopt(int argc, char *const argv[], const char *optstring)
 {
     static int sp = 1;
     int opt;
     char *p;
 
     if (sp == 1) {
-        if ((optind >= argc) || (argv[optind][0] != '-') || (argv[optind][1] == 0)){
+        if ((optind >= argc) || (argv[optind][0] != '-')
+            || (argv[optind][1] == 0)) {
             return -1;
-        } else if (!strcmp(argv[optind], "--")) {
+        }
+        else if (!strcmp(argv[optind], "--")) {
             optind++;
             return -1;
         }
@@ -31,24 +34,26 @@ int getopt(int argc, char *const argv[], const char *optstring)
     p = strchr(optstring, opt);
     if (opt == ':' || p == NULL) {
         printf("illegal option : '-%c'\n", opt);
-        if ( argv[optind][++sp] == '\0') {
-            optind ++;
+        if (argv[optind][++sp] == '\0') {
+            optind++;
             sp = 1;
         }
         return ('?');
     }
-    if (p[1]  == ':') {
+    if (p[1] == ':') {
         if (argv[optind][sp + 1] != '\0')
             optarg = &argv[optind++][sp + 1];
         else if (++optind >= argc) {
             printf("option '-%c' requires an argument :\n", opt);
             sp = 1;
             return ('?');
-        } else {
+        }
+        else {
             optarg = argv[optind++];
         }
         sp = 1;
-    } else {
+    }
+    else {
         if (argv[optind][++sp] == '\0') {
             sp = 1;
             optind++;

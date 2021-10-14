@@ -44,5 +44,4 @@ typedef rt_int16_t int16_t;
 typedef rt_uint64_t uint64_t;
 typedef rt_int64_t int64_t;
 
-
-#endif //RTTHREAD_PLATFORM_INTERNAL_H
+#endif /* RTTHREAD_PLATFORM_INTERNAL_H */

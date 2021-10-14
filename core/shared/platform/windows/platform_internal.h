@@ -53,15 +53,17 @@ typedef struct korp_cond {
     os_thread_wait_list thread_wait_list;
 } korp_cond;
 
-unsigned os_getpagesize();
-void *os_mem_commit(void *ptr, size_t size, int flags);
-void os_mem_decommit(void *ptr, size_t size);
+unsigned
+os_getpagesize();
+void *
+os_mem_commit(void *ptr, size_t size, int flags);
+void
+os_mem_decommit(void *ptr, size_t size);
 
 #define os_thread_local_attribute __declspec(thread)
 
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
-#if defined(BUILD_TARGET_X86_64) \
-    || defined(BUILD_TARGET_AMD_64)
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 
 #include <setjmp.h>
 
@@ -72,11 +74,14 @@ typedef jmp_buf korp_jmpbuf;
 #define os_setjmp setjmp
 #define os_longjmp longjmp
 
-int os_thread_signal_init();
+int
+os_thread_signal_init();
 
-void os_thread_signal_destroy();
+void
+os_thread_signal_destroy();
 
-bool os_thread_signal_inited();
+bool
+os_thread_signal_inited();
 
 #define os_signal_unmask() (void)0
 #define os_sigreturn() (void)0
@@ -89,4 +94,3 @@ bool os_thread_signal_inited();
 #endif
 
 #endif /* end of _PLATFORM_INTERNAL_H */
-

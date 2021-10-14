@@ -15,6 +15,7 @@ static char **app_argv;
 
 #define MODULE_PATH ("--module-path=")
 
+/* clang-format off */
 static int
 print_help()
 {
@@ -47,6 +48,7 @@ print_help()
 #endif
     return 1;
 }
+/* clang-format on */
 
 static void *
 app_instance_main(wasm_module_inst_t module_inst)
@@ -113,37 +115,37 @@ split_string(char *str, int *count)
 static void *
 app_instance_repl(wasm_module_inst_t module_inst)
 {
-   char buffer[4096];
-   char *cmd;
-   size_t n;
+    char buffer[4096];
+    char *cmd;
+    size_t n;
 
-   while ((printf("webassembly> "),
-           cmd = fgets(buffer, sizeof(buffer), stdin)) != NULL) {
-       bh_assert(cmd);
-       n = strlen(cmd);
-       if (cmd[n - 1] == '\n') {
-           if (n == 1)
-               continue;
-           else
-               cmd[n - 1] = '\0';
-       }
-       if (!strcmp(cmd, "__exit__")) {
-           printf("exit repl mode\n");
-           break;
-       }
-       app_argv = split_string(cmd, &app_argc);
-       if (app_argv == NULL) {
-           LOG_ERROR("Wasm prepare param failed: split string failed.\n");
-           break;
-       }
-       if (app_argc != 0) {
-           wasm_application_execute_func(module_inst, app_argv[0],
-                                         app_argc - 1, app_argv + 1);
-       }
-       free(app_argv);
-   }
+    while ((printf("webassembly> "), cmd = fgets(buffer, sizeof(buffer), stdin))
+           != NULL) {
+        bh_assert(cmd);
+        n = strlen(cmd);
+        if (cmd[n - 1] == '\n') {
+            if (n == 1)
+                continue;
+            else
+                cmd[n - 1] = '\0';
+        }
+        if (!strcmp(cmd, "__exit__")) {
+            printf("exit repl mode\n");
+            break;
+        }
+        app_argv = split_string(cmd, &app_argc);
+        if (app_argv == NULL) {
+            LOG_ERROR("Wasm prepare param failed: split string failed.\n");
+            break;
+        }
+        if (app_argc != 0) {
+            wasm_application_execute_func(module_inst, app_argv[0],
+                                          app_argc - 1, app_argv + 1);
+        }
+        free(app_argv);
+    }
 
-   return NULL;
+    return NULL;
 }
 
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -175,7 +177,7 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 static char *
 handle_module_path(const char *module_path)
 {
-    // next character after =
+    /* next character after '=' */
     return (strchr(module_path, '=')) + 1;
 }
 
@@ -235,7 +237,7 @@ main(int argc, char *argv[])
     uint32 env_list_size = 0;
 #endif
 
-    /* Process options.  */
+    /* Process options. */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
@@ -348,7 +350,7 @@ main(int argc, char *argv[])
 
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf =
-            (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
+              (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -369,8 +371,8 @@ main(int argc, char *argv[])
 
     /* instantiate the module */
     if (!(wasm_module_inst =
-            wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
-                                     error_buf, sizeof(error_buf)))) {
+              wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
+                                       error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail3;
     }

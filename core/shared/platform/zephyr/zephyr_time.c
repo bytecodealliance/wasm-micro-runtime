@@ -10,4 +10,3 @@ os_time_get_boot_microsecond()
 {
     return k_uptime_get() * 1000;
 }
-

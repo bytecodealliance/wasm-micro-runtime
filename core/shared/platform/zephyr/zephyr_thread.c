@@ -6,13 +6,15 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+/* clang-format off */
 #define bh_assert(v) do {                                   \
     if (!(v)) {                                             \
         printf("\nASSERTION FAILED: %s, at %s, line %d\n",  \
                #v, __FILE__, __LINE__);                     \
         abort();                                            \
     }                                                       \
-  } while (0)
+} while (0)
+/* clang-format on */
 
 #if defined(CONFIG_ARM_MPU) || defined(CONFIG_ARC_MPU) \
     || KERNEL_VERSION_NUMBER > 0x020300 /* version 2.3.0 */
@@ -28,13 +30,13 @@
 #endif
 
 #if BH_ENABLE_ZEPHYR_MPU_STACK != 0
-static K_THREAD_STACK_ARRAY_DEFINE(mpu_stacks,
-                                   BH_ZEPHYR_MPU_STACK_COUNT,
+static K_THREAD_STACK_ARRAY_DEFINE(mpu_stacks, BH_ZEPHYR_MPU_STACK_COUNT,
                                    BH_ZEPHYR_MPU_STACK_SIZE);
 static bool mpu_stack_allocated[BH_ZEPHYR_MPU_STACK_COUNT];
 static struct k_mutex mpu_stack_lock;
 
-static char *mpu_stack_alloc()
+static char *
+mpu_stack_alloc()
 {
     int i;
 
@@ -43,14 +45,15 @@ static char *mpu_stack_alloc()
         if (!mpu_stack_allocated[i]) {
             mpu_stack_allocated[i] = true;
             k_mutex_unlock(&mpu_stack_lock);
-            return (char*)mpu_stacks[i];
+            return (char *)mpu_stacks[i];
         }
     }
     k_mutex_unlock(&mpu_stack_lock);
     return NULL;
 }
 
-static void mpu_stack_free(char *stack)
+static void
+mpu_stack_free(char *stack)
 {
     int i;
 
@@ -114,7 +117,8 @@ static struct k_mutex thread_obj_lock;
 /* Thread object list */
 static os_thread_obj *thread_obj_list = NULL;
 
-static void thread_data_list_add(os_thread_data *thread_data)
+static void
+thread_data_list_add(os_thread_data *thread_data)
 {
     k_mutex_lock(&thread_data_lock, K_FOREVER);
     if (!thread_data_list)
@@ -137,7 +141,8 @@ static void thread_data_list_add(os_thread_data *thread_data)
     k_mutex_unlock(&thread_data_lock);
 }
 
-static void thread_data_list_remove(os_thread_data *thread_data)
+static void
+thread_data_list_remove(os_thread_data *thread_data)
 {
     k_mutex_lock(&thread_data_lock, K_FOREVER);
     if (thread_data_list) {
@@ -174,7 +179,8 @@ thread_data_list_lookup(k_tid_t tid)
     return NULL;
 }
 
-static void thread_obj_list_add(os_thread_obj *thread_obj)
+static void
+thread_obj_list_add(os_thread_obj *thread_obj)
 {
     k_mutex_lock(&thread_obj_lock, K_FOREVER);
     if (!thread_obj_list)
@@ -187,7 +193,8 @@ static void thread_obj_list_add(os_thread_obj *thread_obj)
     k_mutex_unlock(&thread_obj_lock);
 }
 
-static void thread_obj_list_reclaim()
+static void
+thread_obj_list_reclaim()
 {
     os_thread_obj *p, *p_prev;
     k_mutex_lock(&thread_obj_lock, K_FOREVER);
@@ -199,12 +206,14 @@ static void thread_obj_list_reclaim()
                 thread_obj_list = p->next;
                 BH_FREE(p);
                 p = thread_obj_list;
-            } else { /* p is not the head of list */
+            }
+            else { /* p is not the head of list */
                 p_prev->next = p->next;
                 BH_FREE(p);
                 p = p_prev->next;
             }
-        } else {
+        }
+        else {
             p_prev = p;
             p = p->next;
         }
@@ -212,7 +221,8 @@ static void thread_obj_list_reclaim()
     k_mutex_unlock(&thread_obj_lock);
 }
 
-int os_thread_sys_init()
+int
+os_thread_sys_init()
 {
     if (is_thread_sys_inited)
         return BHT_OK;
@@ -233,7 +243,8 @@ int os_thread_sys_init()
     return BHT_OK;
 }
 
-void os_thread_sys_destroy(void)
+void
+os_thread_sys_destroy(void)
 {
     if (is_thread_sys_inited) {
         is_thread_sys_inited = false;
@@ -247,7 +258,8 @@ thread_data_current()
     return thread_data_list_lookup(tid);
 }
 
-static void os_thread_cleanup(void)
+static void
+os_thread_cleanup(void)
 {
     os_thread_data *thread_data = thread_data_current();
 
@@ -269,32 +281,35 @@ static void os_thread_cleanup(void)
     thread_data_list_remove(thread_data);
     /* Set flag to true for the next thread creating to
      free the thread object */
-    ((os_thread_obj*) thread_data->tid)->to_be_freed = true;
+    ((os_thread_obj *)thread_data->tid)->to_be_freed = true;
 #if BH_ENABLE_ZEPHYR_MPU_STACK != 0
     mpu_stack_free(thread_data->stack);
 #endif
     BH_FREE(thread_data);
 }
 
-static void os_thread_wrapper(void *start, void *arg, void *thread_data)
+static void
+os_thread_wrapper(void *start, void *arg, void *thread_data)
 {
     /* Set thread custom data */
-    ((os_thread_data*) thread_data)->tid = k_current_get();
+    ((os_thread_data *)thread_data)->tid = k_current_get();
     thread_data_list_add(thread_data);
 
-    ((thread_start_routine_t) start)(arg);
+    ((thread_start_routine_t)start)(arg);
     os_thread_cleanup();
 }
 
-int os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
-                     unsigned int stack_size)
+int
+os_thread_create(korp_tid *p_tid, thread_start_routine_t start, void *arg,
+                 unsigned int stack_size)
 {
     return os_thread_create_with_prio(p_tid, start, arg, stack_size,
                                       BH_THREAD_DEFAULT_PRIORITY);
 }
 
-int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
-                               void *arg, unsigned int stack_size, int prio)
+int
+os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
+                           void *arg, unsigned int stack_size, int prio)
 {
     korp_tid tid;
     os_thread_data *thread_data;
@@ -347,7 +362,7 @@ int os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
 
     /* Set thread custom data */
     thread_data_list_add(thread_data);
-    thread_obj_list_add((os_thread_obj*)tid);
+    thread_obj_list_add((os_thread_obj *)tid);
     *p_tid = tid;
     return BHT_OK;
 
@@ -362,14 +377,16 @@ fail1:
     return BHT_ERROR;
 }
 
-korp_tid os_self_thread()
+korp_tid
+os_self_thread()
 {
     return (korp_tid)k_current_get();
 }
 
-int os_thread_join(korp_tid thread, void **value_ptr)
+int
+os_thread_join(korp_tid thread, void **value_ptr)
 {
-    (void) value_ptr;
+    (void)value_ptr;
     os_thread_data *thread_data;
     os_thread_wait_node *node;
 
@@ -407,30 +424,35 @@ int os_thread_join(korp_tid thread, void **value_ptr)
     return BHT_OK;
 }
 
-int os_mutex_init(korp_mutex *mutex)
+int
+os_mutex_init(korp_mutex *mutex)
 {
     k_mutex_init(mutex);
     return BHT_OK;
 }
 
-int os_recursive_mutex_init(korp_mutex *mutex)
+int
+os_recursive_mutex_init(korp_mutex *mutex)
 {
     k_mutex_init(mutex);
     return BHT_OK;
 }
 
-int os_mutex_destroy(korp_mutex *mutex)
+int
+os_mutex_destroy(korp_mutex *mutex)
 {
-    (void) mutex;
+    (void)mutex;
     return BHT_OK;
 }
 
-int os_mutex_lock(korp_mutex *mutex)
+int
+os_mutex_lock(korp_mutex *mutex)
 {
     return k_mutex_lock(mutex, K_FOREVER);
 }
 
-int os_mutex_unlock(korp_mutex *mutex)
+int
+os_mutex_unlock(korp_mutex *mutex)
 {
 #if KERNEL_VERSION_NUMBER >= 0x020200 /* version 2.2.0 */
     return k_mutex_unlock(mutex);
@@ -440,21 +462,23 @@ int os_mutex_unlock(korp_mutex *mutex)
 #endif
 }
 
-int os_cond_init(korp_cond *cond)
+int
+os_cond_init(korp_cond *cond)
 {
     k_mutex_init(&cond->wait_list_lock);
     cond->thread_wait_list = NULL;
     return BHT_OK;
 }
 
-int os_cond_destroy(korp_cond *cond)
+int
+os_cond_destroy(korp_cond *cond)
 {
-    (void) cond;
+    (void)cond;
     return BHT_OK;
 }
 
-static int os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
-                                 bool timed, int mills)
+static int
+os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed, int mills)
 {
     os_thread_wait_node *node;
 
@@ -499,12 +523,14 @@ static int os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
     return BHT_OK;
 }
 
-int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
+int
+os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 {
     return os_cond_wait_internal(cond, mutex, false, 0);
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
+int
+os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
 
     if (useconds == BHT_WAIT_FOREVER) {
@@ -526,7 +552,8 @@ int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
     }
 }
 
-int os_cond_signal(korp_cond *cond)
+int
+os_cond_signal(korp_cond *cond)
 {
     /* Signal the head wait node of wait list */
     k_mutex_lock(&cond->wait_list_lock, K_FOREVER);
@@ -537,13 +564,13 @@ int os_cond_signal(korp_cond *cond)
     return BHT_OK;
 }
 
-uint8 *os_thread_get_stack_boundary()
+uint8 *
+os_thread_get_stack_boundary()
 {
 #if defined(CONFIG_THREAD_STACK_INFO)
     korp_tid thread = k_current_get();
-    return (uint8*)thread->stack_info.start;
+    return (uint8 *)thread->stack_info.start;
 #else
     return NULL;
 #endif
 }
-

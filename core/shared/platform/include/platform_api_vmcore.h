@@ -25,23 +25,28 @@ extern "C" {
  *
  * @return 0 if success
  */
-int bh_platform_init(void);
+int
+bh_platform_init(void);
 
 /**
  * Destroy the platform internal resources if needed,
  * this function is called by wasm_runtime_destroy()
  */
-void bh_platform_destroy(void);
+void
+bh_platform_destroy(void);
 
 /**
  ******** memory allocator APIs **********
  */
 
-void *os_malloc(unsigned size);
+void *
+os_malloc(unsigned size);
 
-void *os_realloc(void *ptr, unsigned size);
+void *
+os_realloc(void *ptr, unsigned size);
 
-void os_free(void *ptr);
+void
+os_free(void *ptr);
 
 /**
  * Note: the above APIs can simply return NULL if wasm runtime
@@ -49,28 +54,32 @@ void os_free(void *ptr);
  *       Refer to wasm_runtime_full_init().
  */
 
+int
+os_printf(const char *format, ...);
 
-int os_printf(const char *format, ...);
-
-int os_vprintf(const char *format, va_list ap);
+int
+os_vprintf(const char *format, va_list ap);
 
 /**
  * Get microseconds after boot.
  */
-uint64 os_time_get_boot_microsecond(void);
+uint64
+os_time_get_boot_microsecond(void);
 
 /**
  * Get current thread id.
  * Implementation optional: Used by runtime for logging only.
  */
-korp_tid os_self_thread(void);
+korp_tid
+os_self_thread(void);
 
 /**
  * Get current thread's stack boundary address, used for runtime
  * to check the native stack overflow. Return NULL if it is not
  * easy to implement, but may have potential issue.
  */
-uint8 *os_thread_get_stack_boundary(void);
+uint8 *
+os_thread_get_stack_boundary(void);
 
 /**
  ************** mutext APIs ***********
@@ -78,14 +87,17 @@ uint8 *os_thread_get_stack_boundary(void);
  *  app-mgr: Must be implemented
  */
 
-int os_mutex_init(korp_mutex *mutex);
+int
+os_mutex_init(korp_mutex *mutex);
 
-int os_mutex_destroy(korp_mutex *mutex);
+int
+os_mutex_destroy(korp_mutex *mutex);
 
-int os_mutex_lock(korp_mutex *mutex);
+int
+os_mutex_lock(korp_mutex *mutex);
 
-int os_mutex_unlock(korp_mutex *mutex);
-
+int
+os_mutex_unlock(korp_mutex *mutex);
 
 /**************************************************
  *                    Section 2                   *
@@ -110,9 +122,12 @@ enum {
     MMAP_MAP_FIXED = 2
 };
 
-void *os_mmap(void *hint, size_t size, int prot, int flags);
-void os_munmap(void *addr, size_t size);
-int os_mprotect(void *addr, size_t size, int prot);
+void *
+os_mmap(void *hint, size_t size, int prot, int flags);
+void
+os_munmap(void *addr, size_t size);
+int
+os_mprotect(void *addr, size_t size, int prot);
 
 /**
  * Flush cpu data cache, in some CPUs, after applying relocation to the
@@ -120,7 +135,8 @@ int os_mprotect(void *addr, size_t size, int prot);
  * which may cause unexpected behaviour when executing the AOT code.
  * Implement this function if required, or just leave it empty.
  */
-void os_dcache_flush(void);
+void
+os_dcache_flush(void);
 
 #ifdef __cplusplus
 }
