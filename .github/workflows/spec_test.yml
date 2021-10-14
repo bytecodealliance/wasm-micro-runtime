@@ -11,6 +11,8 @@ on:
       - "core/shared/**"
       - "wamr-compiler/**"
       - "product-mini/**"
+      - "tests/wamr-test-suites/spec-test-script/**"
+      - "tests/wamr-test-suites/test_wamr.sh"
   # will be triggered on push events
   push:
     paths:
@@ -19,6 +21,8 @@ on:
       - "core/shared/**"
       - "wamr-compiler/**"
       - "product-mini/**"
+      - "tests/wamr-test-suites/spec-test-script/**"
+      - "tests/wamr-test-suites/test_wamr.sh"
   # allow to be triggered manually
   workflow_dispatch:
 
