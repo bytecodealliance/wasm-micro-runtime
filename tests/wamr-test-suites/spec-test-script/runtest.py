@@ -901,10 +901,9 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
             "--no-check",
             wast_tempfile, "-o", wasm_tempfile ]
 
-    # optional arguments
-    if opts.ref_types:
-        cmd.append("--enable-reference-types")
-        cmd.append("--enable-bulk-memory")
+    # remove reference-type and bulk-memory enabling options since a WABT
+    # commit 30c1e983d30b33a8004b39fd60cbd64477a7956c
+    # Enable reference types by default (#1729)
 
     log("Running: %s" % " ".join(cmd))
     try:
