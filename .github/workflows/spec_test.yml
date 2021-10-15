@@ -33,7 +33,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  DEFAULT_TEST_OPTIONS: "-s spec"
   LLVM_CACHE_SUFFIX: "build-llvm_libraries"
+  MULTI_MODULES_TEST_OPTIONS: "-s spec -M"
+  SIMD_TEST_OPTIONS: "-s spec -S"
+  THREADS_TEST_OPTIONS: "-s spec -p"
+  X86_32_TARGET_TEST_OPTIONS: "-m x86_32"
 
 jobs:
   cancel_previous:
@@ -70,21 +75,12 @@ jobs:
         run: mv LLVM-13.0.0-*.tar.gz LLVM-13.0.0.tar.gz
         working-directory: core/deps/llvm/build/
 
-  spec_test_on_ubuntu_2004:
+  spec_test_default:
     needs: build_llvm_libraries
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        test_option: [
-            # DEFAULT
-            "-s spec",
-            # SIMD
-            "-s spec -S",
-            # THREAD
-            "-s spec -p",
-            # MULTI_MODULES
-            "-s spec -M",
-          ]
+        test_option: [ $DEFAULT_TEST_OPTIONS, $SIMD_TEST_OPTIONS ]
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -110,4 +106,72 @@ jobs:
 
       - name: run spec tests
         run: ./test_wamr.sh ${{ matrix.test_option }}
+        working-directory: ./tests/wamr-test-suites
+
+  spec_test_extra:
+    needs: build_llvm_libraries
+    if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        test_option: [ $MULTI_MODULES_TEST_OPTIONS, $THREADS_TEST_OPTIONS ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Get LLVM libraries
+        id: cache_llvm
+        uses: actions/cache@v2
+        with:
+          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+          restore-keys: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+
+      - name: Quit if cache miss
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
+      - name: Extract the LLVM package
+        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
+        working-directory: ./core/deps/llvm/build
+
+      - name: install Ninja
+        run: sudo apt install -y ninja-build
+
+      - name: run spec tests
+        run: ./test_wamr.sh ${{ matrix.test_option }}
+        working-directory: ./tests/wamr-test-suites
+
+  spec_test_x86_32:
+    if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
+    needs: build_llvm_libraries
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        test_option: [ $DEFAULT_TEST_OPTIONS, $THREADS_TEST_OPTIONS ]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Get LLVM libraries
+        id: cache_llvm
+        uses: actions/cache@v2
+        with:
+          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+          restore-keys: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+
+      - name: Quit if cache miss
+        if: steps.cache_llvm.outputs.cache-hit != 'true'
+        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
+
+      - name: Extract the LLVM package
+        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
+        working-directory: ./core/deps/llvm/build
+
+      - name: install Ninja and x32 support libraries
+        run: sudo apt install -y g++-multilib libgcc-9-dev lib32gcc-9-dev ninja-build
+
+      - name: run spec tests
+        run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }}
         working-directory: ./tests/wamr-test-suites

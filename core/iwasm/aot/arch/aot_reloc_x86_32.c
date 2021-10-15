@@ -7,6 +7,7 @@
 
 #define R_386_32 1   /* Direct 32 bit  */
 #define R_386_PC32 2 /* PC relative 32 bit */
+#define R_386_PLT32 4 /* 32bit address ProcedureLinkageTable */
 
 #if !defined(_WIN32) && !defined(_WIN32_)
 /* clang-format off */
@@ -119,6 +120,11 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             break;
         }
 
+        /*
+         * Handle R_386_PLT32 like R_386_PC32 since it should be able to reach
+         * any 32 bit address
+         */
+        case R_386_PLT32:
         case R_386_PC32:
         {
             int32 value;
