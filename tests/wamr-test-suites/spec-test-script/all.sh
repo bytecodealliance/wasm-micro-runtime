@@ -134,6 +134,10 @@ if [[ ${SGX_OPT} ]];then
     fi
 fi
 
+if [[ ${TARGET} == "i386" ]]; then
+  IGNORE_LIST+=("float_exprs")
+fi
+
 declare -i COUNTER=0
 for wast in $(find ${SPEC_TEST_DIR} -name "*.wast" -type f | sort -n); do
     # remove a prefix spec/test/core/
