@@ -584,6 +584,11 @@ function trigger()
             ;;
 
             "jit")
+                if [[ ${TARGET} == "X86_32" ]]; then
+                    echo "does not support an X86_32 target in JIT mode, bypass"
+                    continue
+                fi
+
                 echo "work in jit mode"
                 # jit
                 BUILD_FLAGS="$JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"

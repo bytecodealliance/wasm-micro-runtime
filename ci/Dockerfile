@@ -8,9 +8,12 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asian/Shanghai
 
 RUN apt update \
-  && apt install -y apt-transport-https ca-certificates gnupg \
-      tzdata lsb-release software-properties-common build-essential \
-      apt-utils curl wget git tree unzip zip vim
+  && apt install -y apt-transport-https apt-utils build-essential \
+      ca-certificates curl g++-multilib git gnupg \
+      libgcc-9-dev lib32gcc-9-dev lsb-release \
+      ninja-build  ocaml ocamlbuild python2.7 \
+      software-properties-common tree tzdata \
+      unzip url valgrind vim wget zip
 
 #
 # CMAKE (https://apt.kitware.com/)
@@ -33,7 +36,7 @@ RUN cd /opt/emsdk \
 
 #
 #install wabt
-ARG WABT_VER=1.0.23
+ARG WABT_VER=1.0.24
 RUN wget -c https://github.com/WebAssembly/wabt/releases/download/${WABT_VER}/wabt-${WABT_VER}-ubuntu.tar.gz -P /opt
 RUN tar xf /opt/wabt-${WABT_VER}-ubuntu.tar.gz -C /opt \
   && ln -fs /opt/wabt-${WABT_VER} /opt/wabt
@@ -58,16 +61,6 @@ RUN chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
 
 # set path
 RUN echo "PATH=/opt/clang_llvm/bin:/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk:${PATH}" >> /root/.bashrc
-
-#
-# install
-RUN apt update \
-  && apt install -y ninja-build python2.7 valgrind
-
-#
-# ocaml
-RUN apt update \
-  && apt install -y ocaml ocamlbuild
 
 #
 # PS
