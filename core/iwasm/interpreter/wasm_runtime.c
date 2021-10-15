@@ -1826,10 +1826,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     if (!addr) {
         if (memory->heap_handle
             && mem_allocator_is_heap_corrupted(memory->heap_handle)) {
-            LOG_ERROR("Error: app heap is corrupted, if the wasm file "
-                      "is compiled by wasi-sdk-12.0 or larger version, "
-                      "please add -Wl,--export=malloc -Wl,--export=free "
-                      " to export malloc and free functions.");
+            wasm_runtime_show_app_heap_corrupted_prompt();
             wasm_set_exception(module_inst, "app heap corrupted");
         }
         else {
@@ -2057,6 +2054,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     uint8 *new_memory_data, *memory_data, *heap_data_old;
     uint32 heap_size, total_size_old, total_page_count;
     uint64 total_size;
+    bool ret = true;
 
     if (!memory)
         return false;
@@ -2090,6 +2088,13 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     }
 #endif
 
+    if (heap_size > 0) {
+        if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
+            wasm_runtime_show_app_heap_corrupted_prompt();
+            return false;
+        }
+    }
+
     if (!(new_memory_data =
               wasm_runtime_realloc(memory_data, (uint32)total_size))) {
         if (!(new_memory_data = wasm_runtime_malloc((uint32)total_size))) {
@@ -2111,7 +2116,9 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
                                       + (new_memory_data - memory_data),
                                   heap_size)
             != 0) {
-            return false;
+            /* Don't return here as memory->memory_data is obsolete and
+               must be updated to be correctly used later. */
+            ret = false;
         }
     }
 
@@ -2122,7 +2129,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->memory_data_end =
         memory->memory_data + memory->num_bytes_per_page * total_page_count;
 
-    return true;
+    return ret;
 }
 
 #if WASM_ENABLE_REF_TYPES != 0

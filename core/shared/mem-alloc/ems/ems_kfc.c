@@ -183,6 +183,11 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     if (offset == 0)
         return 0;
 
+    if (heap->is_heap_corrupted) {
+        os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+        return GC_ERROR;
+    }
+
     heap->base_addr = (uint8 *)base_addr_new;
     adjust_ptr((uint8 **)&heap->kfc_tree_root.left, offset);
     adjust_ptr((uint8 **)&heap->kfc_tree_root.right, offset);
@@ -193,7 +198,12 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
 
     while (cur < end) {
         size = hmu_get_size(cur);
-        bh_assert(size > 0);
+
+        if (size <= 0 || size > (uint8 *)end - (uint8 *)cur) {
+            os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+            heap->is_heap_corrupted = true;
+            return GC_ERROR;
+        }
 
         if (hmu_get_ut(cur) == HMU_FC && !HMU_IS_FC_NORMAL(size)) {
             tree_node = (hmu_tree_node_t *)cur;
@@ -207,7 +217,12 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
         cur = (hmu_t *)((char *)cur + size);
     }
 
-    bh_assert(cur == end);
+    if (cur != end) {
+        os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
+        heap->is_heap_corrupted = true;
+        return GC_ERROR;
+    }
+
     return 0;
 }
 

@@ -839,6 +839,9 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
                                  uint32 argc, uint32 *argv, bool with_env,
                                  void *wasm_c_api_env);
 
+void
+wasm_runtime_show_app_heap_corrupted_prompt();
+
 #ifdef __cplusplus
 }
 #endif

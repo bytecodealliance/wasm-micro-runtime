@@ -1770,10 +1770,7 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
     if (!addr) {
         if (memory_inst->heap_handle.ptr
             && mem_allocator_is_heap_corrupted(memory_inst->heap_handle.ptr)) {
-            LOG_ERROR("Error: app heap is corrupted, if the wasm file "
-                      "is compiled by wasi-sdk-12.0 or larger version, "
-                      "please add -Wl,--export=malloc -Wl,--export=free "
-                      " to export malloc and free functions.");
+            wasm_runtime_show_app_heap_corrupted_prompt();
             aot_set_exception(module_inst, "app heap corrupted");
         }
         else {
@@ -2014,6 +2011,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     uint32 total_page_count, total_size_old, heap_size;
     uint64 total_size;
     uint8 *memory_data_old, *heap_data_old, *memory_data, *heap_data;
+    bool ret = true;
 
     if (!memory_inst)
         return false;
@@ -2051,6 +2049,13 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
     }
 #endif
 
+    if (heap_size > 0) {
+        if (mem_allocator_is_heap_corrupted(memory_inst->heap_handle.ptr)) {
+            wasm_runtime_show_app_heap_corrupted_prompt();
+            return false;
+        }
+    }
+
     if (!(memory_data =
               wasm_runtime_realloc(memory_data_old, (uint32)total_size))) {
         if (!(memory_data = wasm_runtime_malloc((uint32)total_size))) {
@@ -2076,7 +2081,9 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
                                   (char *)heap_data_old
                                       + (memory_data - memory_data_old),
                                   heap_size)) {
-            return false;
+            /* Don't return here as memory->memory_data is obsolete and
+               must be updated to be correctly used later. */
+            ret = false;
         }
     }
 
@@ -2098,7 +2105,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         memory_inst->mem_bound_check_8bytes.u32[0] = (uint32)total_size - 8;
         memory_inst->mem_bound_check_16bytes.u32[0] = (uint32)total_size - 16;
     }
-    return true;
+    return ret;
 }
 #else /* else of OS_ENABLE_HW_BOUND_CHECK */
 bool
