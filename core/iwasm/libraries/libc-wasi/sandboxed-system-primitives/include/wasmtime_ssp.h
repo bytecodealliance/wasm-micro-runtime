@@ -9,6 +9,12 @@
  * around to avoid storing them in TLS.
  */
 
+/**
+ * The defitions of type, macro and structure in this file should be
+ * consistent with those in wasi-libc:
+ * https://github.com/WebAssembly/wasi-libc/blob/main/libc-bottom-half/headers/public/wasi/api.h
+ */
+
 #ifndef WASMTIME_SSP_H
 #define WASMTIME_SSP_H
 
@@ -201,8 +207,10 @@ typedef uint16_t __wasi_riflags_t;
 
 typedef uint64_t __wasi_rights_t;
 
-// Observe that WASI defines rights in the plural form
-// TODO - re-factor to use RIGHTS instead of RIGHT
+/**
+ * Observe that WASI defines rights in the plural form
+ * TODO: refactor to use RIGHTS instead of RIGHT
+ */
 #define __WASI_RIGHT_FD_DATASYNC ((__wasi_rights_t)(1 << 0))
 #define __WASI_RIGHT_FD_READ ((__wasi_rights_t)(1 << 1))
 #define __WASI_RIGHT_FD_SEEK ((__wasi_rights_t)(1 << 2))
