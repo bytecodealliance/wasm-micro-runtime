@@ -4213,7 +4213,7 @@ fail:
 }
 
 void
-show_app_heap_corrupted_prompt()
+wasm_runtime_show_app_heap_corrupted_prompt()
 {
     LOG_ERROR("Error: app heap is corrupted, if the wasm file "
               "is compiled by wasi-sdk-12.0 or higher version, "

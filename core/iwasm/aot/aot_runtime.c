@@ -1770,7 +1770,7 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
     if (!addr) {
         if (memory_inst->heap_handle.ptr
             && mem_allocator_is_heap_corrupted(memory_inst->heap_handle.ptr)) {
-            show_app_heap_corrupted_prompt();
+            wasm_runtime_show_app_heap_corrupted_prompt();
             aot_set_exception(module_inst, "app heap corrupted");
         }
         else {
@@ -2051,7 +2051,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 
     if (heap_size > 0) {
         if (mem_allocator_is_heap_corrupted(memory_inst->heap_handle.ptr)) {
-            show_app_heap_corrupted_prompt();
+            wasm_runtime_show_app_heap_corrupted_prompt();
             return false;
         }
     }

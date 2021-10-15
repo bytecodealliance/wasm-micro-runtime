@@ -1826,7 +1826,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
     if (!addr) {
         if (memory->heap_handle
             && mem_allocator_is_heap_corrupted(memory->heap_handle)) {
-            show_app_heap_corrupted_prompt();
+            wasm_runtime_show_app_heap_corrupted_prompt();
             wasm_set_exception(module_inst, "app heap corrupted");
         }
         else {
@@ -2090,7 +2090,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     if (heap_size > 0) {
         if (mem_allocator_is_heap_corrupted(memory->heap_handle)) {
-            show_app_heap_corrupted_prompt();
+            wasm_runtime_show_app_heap_corrupted_prompt();
             return false;
         }
     }
