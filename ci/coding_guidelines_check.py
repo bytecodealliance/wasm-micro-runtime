@@ -4,11 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 import argparse
-import json
-import os
 import re
 import pathlib
-import queue
 import re
 import shlex
 import shutil
@@ -31,16 +28,12 @@ EXCLUDE_PATHS = [
     "**/doc/",
     "**/samples/wasm-c-api/src/",
     "**/samples/workload/",
-    "**/test-tools/",
-    "**/wamr-sdk/",
-    "**/wamr-dev/",
-    "**/wamr-dev-simd/",
+    "**/test-tools/wasi-sdk/",
+    "**/tests/wamr-test-suites/workspace/" "**/wamr-sdk/",
 ]
 
 C_SUFFIXES = [".c", ".cpp", ".h"]
-VALID_DIR_NAME = r"([a-zA-Z0-9]+\-*)+[a-zA-Z0-9]*"
 INVALID_DIR_NAME_SEGMENT = r"([a-zA-Z0-9]+\_[a-zA-Z0-9]+)"
-VALID_FILE_NAME = r"\.?([a-zA-Z0-9]+\_*)+[a-zA-Z0-9]*\.*\w*"
 INVALID_FILE_NAME_SEGMENT = r"([a-zA-Z0-9]+\-[a-zA-Z0-9]+)"
 
 
@@ -98,6 +91,26 @@ def run_clang_format(file_path: pathlib, root: pathlib) -> bool:
 
 
 def run_clang_format_diff(root: pathlib, commits: str) -> bool:
+    """
+    Use `clang-format-12` and `git-clang-format-12` to check code
+    format of the PR, which specificed a commit range. It is required to
+    format code before `git commit` or when failed the PR check.
+
+    ``` shell
+    cd path/to/wamr/root
+    clang-format-12 --style file -i path/to/file
+    ```
+
+    There is a comment to disable formatter temporarily when feeling
+    somewhere not readable and friendly.
+
+    ``` cc
+    /* clang-format off */
+    code snippets
+    /* clang-format on */
+    ```
+
+    """
     try:
         before, after = commits.split("..")
         after = after if after else "HEAD"
@@ -123,11 +136,7 @@ def run_clang_format_diff(root: pathlib, commits: str) -> bool:
         for summary in [x for x in diff_content if x.startswith("diff --git")]:
             # b/path/to/file -> path/to/file
             with_invalid_format = re.split("\s+", summary)[-1][2:]
-            print(
-                f"--- {with_invalid_format} failed on code style checking. "
-                "it is required to format modification with "
-                "'clang-format-12 --style file -i path/to/files'."
-            )
+            print(f"--- {with_invalid_format} failed on code style checking.")
         else:
             return False
     except subprocess.subprocess.CalledProcessError:
@@ -139,30 +148,17 @@ def run_aspell(file_path: pathlib, root: pathlib) -> bool:
 
 
 def check_dir_name(path: pathlib, root: pathlib) -> bool:
-    # since we don't want to check the path beyond root.
-    # we hope "-" only will be used in a dir name as separators
-    found = False
-    for path_part in path.relative_to(root).parts:
-        m = re.search(INVALID_DIR_NAME_SEGMENT, path_part)
-        if m:
-            print(
-                f"--- found a character '_' in {m.groups()} in {path}, "
-                "it is required to replace '_' with '-'."
-            )
-            found = True
-    else:
-        return not found
+    m = re.search(INVALID_DIR_NAME_SEGMENT, path.relative_to(root))
+    if m:
+        print(f"--- found a character '_' in {m.groups()} in {path}")
+
+    return not m
 
 
 def check_file_name(path: pathlib) -> bool:
-    # since we don't want to check the path beyond root.
-    # we hope "_" only will be used in a file name as separators
     m = re.search(INVALID_FILE_NAME_SEGMENT, path.stem)
     if m:
-        print(
-            f"--- found a character '-' in {m.groups()} in {path}, "
-            "it is required to replace '-' with '_'."
-        )
+        print(f"--- found a character '-' in {m.groups()} in {path}")
 
     return not m
 
@@ -180,6 +176,11 @@ def parse_commits_range(root: pathlib, commits: str) -> list:
 
 
 def analysis_new_item_name(root: pathlib, commit: str) -> bool:
+    """
+    For any file name in the repo, it is required to use '_' to replace '-'.
+
+    For any directory name in the repo,  it is required to use '-' to replace '_'.
+    """
     GIT_SHOW_CMD = f"git show --oneline --name-status --diff-filter A {commit}"
     try:
         invalid_items = True
@@ -238,9 +239,11 @@ def process_entire_pr(root: pathlib, commits: str) -> bool:
 
     found = False
     if not analysis_new_item_name(root, commits):
+        print(f"{analysis_new_item_name.__doc__}")
         found = True
 
     if not run_clang_format_diff(root, commits):
+        print(f"{run_clang_format_diff.__doc__}")
         found = True
 
     return not found
