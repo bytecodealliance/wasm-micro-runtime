@@ -96,15 +96,16 @@ def run_clang_format_diff(root: pathlib, commits: str) -> bool:
     """
     Use `clang-format-12` and `git-clang-format-12` to check code
     format of the PR, which specificed a commit range. It is required to
-    format code before `git commit` or when failed the PR check.
+    format code before `git commit` or when failed the PR check:
 
     ``` shell
     cd path/to/wamr/root
     clang-format-12 --style file -i path/to/file
     ```
 
-    There is a comment to disable formatter temporarily when feeling
-    somewhere not readable and friendly.
+    The code wrapped by `/* clang-format off */` and `/* clang-format on */`
+    will not be formatted, you shall use them when the formatted code is not
+    readable or friendly:
 
     ``` cc
     /* clang-format off */
