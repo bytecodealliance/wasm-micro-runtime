@@ -17,19 +17,20 @@ GIT_CLANG_FORMAT_CMD = "git-clang-format-12"
 
 # glob style patterns
 EXCLUDE_PATHS = [
-    "**/.git/",
-    "**/.github/",
-    "**/.vscode/",
-    "**/assembly-script/",
-    "**/build/",
-    "**/build-scripts/",
-    "**/ci/",
-    "**/core/deps/",
-    "**/doc/",
-    "**/samples/wasm-c-api/src/",
-    "**/samples/workload/",
-    "**/test-tools/wasi-sdk/",
-    "**/tests/wamr-test-suites/workspace/" "**/wamr-sdk/",
+    "**/.git/*",
+    "**/.github/*",
+    "**/.vscode/*",
+    "**/assembly-script/*",
+    "**/build/*",
+    "**/build-scripts/*",
+    "**/ci/*",
+    "**/core/deps/*",
+    "**/doc/*",
+    "**/samples/wasm-c-api/src/*.*",
+    "**/samples/workload/*",
+    "**/test-tools/wasi-sdk/*",
+    "**/tests/wamr-test-suites/workspace/*",
+    "**/wamr-sdk/*",
 ]
 
 C_SUFFIXES = [".c", ".cpp", ".h"]
@@ -45,7 +46,8 @@ def locate_command(command: str) -> bool:
     return True
 
 
-def is_excluded(path: pathlib) -> bool:
+def is_excluded(path: str) -> bool:
+    path = pathlib.Path(path).resolve()
     for exclude_path in EXCLUDE_PATHS:
         if path.match(exclude_path):
             return True
@@ -133,12 +135,15 @@ def run_clang_format_diff(root: pathlib, commits: str) -> bool:
             return True
 
         diff_content = stdout.split("\n")
+        found = False
         for summary in [x for x in diff_content if x.startswith("diff --git")]:
             # b/path/to/file -> path/to/file
             with_invalid_format = re.split("\s+", summary)[-1][2:]
-            print(f"--- {with_invalid_format} failed on code style checking.")
+            if not is_excluded(with_invalid_format):
+                print(f"--- {with_invalid_format} failed on code style checking.")
+                found = True
         else:
-            return False
+            return not found
     except subprocess.subprocess.CalledProcessError:
         return False
 
@@ -148,7 +153,7 @@ def run_aspell(file_path: pathlib, root: pathlib) -> bool:
 
 
 def check_dir_name(path: pathlib, root: pathlib) -> bool:
-    m = re.search(INVALID_DIR_NAME_SEGMENT, path.relative_to(root))
+    m = re.search(INVALID_DIR_NAME_SEGMENT, str(path.relative_to(root)))
     if m:
         print(f"--- found a character '_' in {m.groups()} in {path}")
 
@@ -205,8 +210,6 @@ def analysis_new_item_name(root: pathlib, commit: str) -> bool:
 
             new_item = match.group(1)
             new_item = pathlib.Path(new_item).resolve()
-            if is_excluded(new_item):
-                continue
 
             if new_item.is_file():
                 if not check_file_name(new_item):
