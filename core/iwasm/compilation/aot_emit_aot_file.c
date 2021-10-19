@@ -424,17 +424,6 @@ get_import_func_info_size(AOTCompData *comp_data)
 }
 
 static uint32
-get_object_data_section_size(AOTObjectDataSection *data_section)
-{
-    /* name + size + data */
-    uint32 size = get_string_size(data_section->name);
-    size = align_uint(size, 4);
-    size += (uint32)sizeof(uint32);
-    size += data_section->size;
-    return size;
-}
-
-static uint32
 get_object_data_sections_size(AOTObjectDataSection *data_sections,
                               uint32 data_sections_count)
 {
@@ -442,8 +431,12 @@ get_object_data_sections_size(AOTObjectDataSection *data_sections,
     uint32 size = 0, i;
 
     for (i = 0; i < data_sections_count; i++, data_section++) {
+        /* name + size + data */
         size = align_uint(size, 2);
-        size += get_object_data_section_size(data_section);
+        size += get_string_size(data_section->name);
+        size = align_uint(size, 4);
+        size += (uint32)sizeof(uint32);
+        size += data_section->size;
     }
     return size;
 }

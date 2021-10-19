@@ -17,6 +17,7 @@ void __umoddi3();
 void __divsi3();
 void __udivsi3();
 void __modsi3();
+void __umodsi3();
 void __udivmoddi4();
 void __clzsi2();
 void __fixsfdi();
@@ -68,6 +69,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__divsi3),
     REG_SYM(__udivsi3),
     REG_SYM(__modsi3),
+    REG_SYM(__umodsi3),
     REG_SYM(__udivmoddi4),
     REG_SYM(__clzsi2),
     REG_SYM(__fixsfdi),
