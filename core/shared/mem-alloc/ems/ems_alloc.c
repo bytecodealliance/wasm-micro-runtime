@@ -235,12 +235,12 @@ gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
         return true;
     }
 
-    /* big block*/
+    /* big block */
     node = (hmu_tree_node_t *)hmu;
     node->size = size;
     node->left = node->right = node->parent = NULL;
 
-    /* find proper node to link this new node to*/
+    /* find proper node to link this new node to */
     root = &heap->kfc_tree_root;
     tp = root;
     bh_assert(tp->size < size);
@@ -253,7 +253,7 @@ gci_add_fc(gc_heap_t *heap, hmu_t *hmu, gc_size_t size)
             }
             tp = tp->right;
         }
-        else { /* tp->size >= size*/
+        else { /* tp->size >= size */
             if (!tp->left) {
                 tp->left = node;
                 node->parent = tp;
@@ -759,7 +759,7 @@ gci_dump(gc_heap_t *heap)
         else if (ut == HMU_FC)
             inuse = 'F';
 
-        if (size == 0) {
+        if (size == 0 || size > (uint8 *)end - (uint8 *)cur) {
             os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
             heap->is_heap_corrupted = true;
             return;
@@ -779,5 +779,8 @@ gci_dump(gc_heap_t *heap)
         i++;
     }
 
-    bh_assert(cur == end);
+    if (cur != end) {
+        os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
+        heap->is_heap_corrupted = true;
+    }
 }

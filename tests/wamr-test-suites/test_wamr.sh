@@ -290,7 +290,8 @@ function spec_test()
 
         # fetch spec for threads proposal
         git fetch threads
-        git reset --hard HEAD
+        # [interpreter] Threading (#179) Fri Aug 6 18:02:59 2021 +0200
+        git reset --hard 0d115b494d640eb0c1c352941fd14ca0bad926d3
         git checkout threads/main
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
@@ -583,6 +584,11 @@ function trigger()
             ;;
 
             "jit")
+                if [[ ${TARGET} == "X86_32" ]]; then
+                    echo "does not support an X86_32 target in JIT mode, bypass"
+                    continue
+                fi
+
                 echo "work in jit mode"
                 # jit
                 BUILD_FLAGS="$JIT_COMPILE_FLAGS $EXTRA_COMPILE_FLAGS"
