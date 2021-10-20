@@ -52,6 +52,7 @@ typedef enum AOTSectionType {
 typedef enum AOTCustomSectionType {
     AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
     AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
+    AOT_CUSTOM_SECTION_NAME = 3,
 } AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {
@@ -133,7 +134,7 @@ typedef struct AOTModule {
     uint32 mem_init_data_count;
     AOTMemInitData **mem_init_data_list;
 
-    /* native symobl */
+    /* native symbol */
     uint32 native_symbol_count;
     void **native_symbol_list;
 
@@ -153,7 +154,7 @@ typedef struct AOTModule {
     uint32 func_type_count;
     AOTFuncType **func_types;
 
-    /* import global varaible info */
+    /* import global variable info */
     uint32 import_global_count;
     AOTImportGlobal *import_globals;
 
@@ -223,6 +224,8 @@ typedef struct AOTModule {
     /* constant string set */
     HashMap *const_str_set;
 
+    StringList const_str_list;
+
     /* the index of auxiliary __data_end global,
        -1 means unexported */
     uint32 aux_data_end_global_index;
@@ -259,6 +262,10 @@ typedef struct AOTModule {
 #if WASM_ENABLE_DEBUG_AOT != 0
     void *elf_hdr;
     uint32 elf_size;
+#endif
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const char **aux_func_name;
+    uint32 aux_func_name_count;
 #endif
 } AOTModule;
 
@@ -335,7 +342,7 @@ typedef struct AOTModuleInstance {
     /* points to AOTTableInstance[] */
     AOTPointer tables;
 
-    /* funciton pointer array */
+    /* function pointer array */
     AOTPointer func_ptrs;
     /* function type indexes */
     AOTPointer func_type_indexes;

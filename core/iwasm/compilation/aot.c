@@ -515,6 +515,12 @@ aot_create_comp_data(WASMModule *module)
     if (comp_data->func_count && !(comp_data->funcs = aot_create_funcs(module)))
         goto fail;
 
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    /* Create custom name section */
+    comp_data->name_section_buf = module->name_section_buf;
+    comp_data->name_section_buf_end = module->name_section_buf_end;
+#endif
+
     /* Create aux data/heap/stack information */
     comp_data->aux_data_end_global_index = module->aux_data_end_global_index;
     comp_data->aux_data_end = module->aux_data_end;

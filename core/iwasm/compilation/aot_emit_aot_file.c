@@ -854,6 +854,16 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         size += get_native_symbol_list_size(comp_ctx);
     }
 
+#if (WASM_ENABLE_CUSTOM_NAME_SECTION != 0) && (WASM_ENABLE_DUMP_CALL_STACK != 0)
+    if (comp_ctx->enable_aux_stack_frame) {
+        /* custom name section */
+        size = align_uint(size, 4);
+        /* section id + section size + sub section id */
+        size += (uint32)sizeof(uint32) * 3;
+        size += comp_data->name_section_buf_end - comp_data->name_section_buf;
+    }
+#endif
+
     return size;
 }
 
@@ -1568,6 +1578,34 @@ aot_emit_native_symbol(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     return true;
 }
 
+static bool
+aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                      AOTCompData *comp_data, AOTCompContext *comp_ctx)
+{
+#if (WASM_ENABLE_CUSTOM_NAME_SECTION != 0) && (WASM_ENABLE_DUMP_CALL_STACK != 0)
+    if (comp_ctx->enable_aux_stack_frame) {
+        uint32 offset = *p_offset;
+        uint32 custom_section_size = 0;
+
+        *p_offset = offset = align_uint(offset, 4);
+        custom_section_size =
+            comp_data->name_section_buf_end - comp_data->name_section_buf;
+
+        EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
+        /* sub section id + name section size */
+        EMIT_U32(sizeof(uint32) * 1 + custom_section_size);
+        EMIT_U32(AOT_CUSTOM_SECTION_NAME);
+        bh_memcpy_s((uint8 *)(buf + offset), buf_end - buf,
+                    comp_data->name_section_buf, custom_section_size);
+        offset += custom_section_size;
+
+        *p_offset = offset;
+    }
+#endif
+
+    return true;
+}
+
 typedef uint32 U32;
 typedef int32 I32;
 typedef uint16 U16;
@@ -1977,7 +2015,7 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
     bool has_addend = str_starts_with(group->section_name, ".rela");
     uint8 *rela_content = NULL;
 
-    /* calculate relocations count and allcate memory */
+    /* calculate relocations count and allocate memory */
     if (!get_relocations_count(rel_sec, &group->relocation_count))
         return false;
     if (group->relocation_count == 0) {
@@ -2153,7 +2191,7 @@ aot_resolve_object_relocation_groups(AOTObjectData *obj_data)
     char *name;
     uint32 size;
 
-    /* calculate relocation groups count and allcate memory */
+    /* calculate relocation groups count and allocate memory */
     if (!get_relocation_groups_count(obj_data, &group_count))
         return false;
 
@@ -2391,7 +2429,8 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         || !aot_emit_export_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_relocation_section(buf, buf_end, &offset, comp_data,
                                         obj_data)
-        || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx))
+        || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx)
+        || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx))
         goto fail2;
 
 #if 0

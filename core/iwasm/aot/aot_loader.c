@@ -165,6 +165,91 @@ GET_U64_FROM_ADDR(uint32 *addr)
         p += str_len;                                                   \
     } while (0)
 
+static bool
+read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
+         uint64 *p_result, char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    uint64 result = 0;
+    uint32 shift = 0;
+    uint32 offset = 0, bcnt = 0;
+    uint64 byte;
+
+    while (true) {
+        /* uN or SN must not exceed ceil(N/7) bytes */
+        if (bcnt + 1 > (maxbits + 6) / 7) {
+            set_error_buf(error_buf, error_buf_size,
+                          "integer representation too long");
+            return false;
+        }
+
+        CHECK_BUF(buf, buf_end, offset + 1);
+        byte = buf[offset];
+        offset += 1;
+        result |= ((byte & 0x7f) << shift);
+        shift += 7;
+        bcnt += 1;
+        if ((byte & 0x80) == 0) {
+            break;
+        }
+    }
+
+    if (!sign && maxbits == 32 && shift >= maxbits) {
+        /* The top bits set represent values > 32 bits */
+        if (((uint8)byte) & 0xf0)
+            goto fail_integer_too_large;
+    }
+    else if (sign && maxbits == 32) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x8;
+            int top_bits = ((uint8)byte) & 0xf0;
+            if ((sign_bit_set && top_bits != 0x70)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+    else if (sign && maxbits == 64) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x1;
+            int top_bits = ((uint8)byte) & 0xfe;
+
+            if ((sign_bit_set && top_bits != 0x7e)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+
+    *p_buf += offset;
+    *p_result = result;
+    return true;
+
+fail_integer_too_large:
+    set_error_buf(error_buf, error_buf_size, "integer too large");
+fail:
+    return false;
+}
+
+#define read_leb_uint32(p, p_end, res)                                   \
+    do {                                                                 \
+        uint64 res64;                                                    \
+        if (!read_leb((uint8 **)&p, p_end, 32, false, &res64, error_buf, \
+                      error_buf_size))                                   \
+            goto fail;                                                   \
+        res = (uint32)res64;                                             \
+    } while (0)
+
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
 #define BIN_TYPE_ELF32B 1 /* 32-bit big endian */
@@ -209,6 +294,118 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 
     memset(mem, 0, (uint32)size);
     return mem;
+}
+
+static bool
+check_utf8_str(const uint8 *str, uint32 len)
+{
+    /* The valid ranges are taken from page 125, below link
+       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
+    const uint8 *p = str, *p_end = str + len;
+    uint8 chr;
+
+    while (p < p_end) {
+        chr = *p;
+        if (chr < 0x80) {
+            p++;
+        }
+        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
+            if (p[1] < 0x80 || p[1] > 0xBF) {
+                return false;
+            }
+            p += 2;
+        }
+        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
+            if (chr == 0xE0) {
+                if (p[1] < 0xA0 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xED) {
+                if (p[1] < 0x80 || p[1] > 0x9F || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xE1 && chr <= 0xEF) {
+                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 3;
+        }
+        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
+            if (chr == 0xF0) {
+                if (p[1] < 0x90 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xF1 && chr <= 0xF3) {
+                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xF4) {
+                if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 4;
+        }
+        else {
+            return false;
+        }
+    }
+    return (p == p_end);
+}
+
+static char *
+const_str_list_insert(const uint8 *str, uint32 len, AOTModule *module,
+                      char *error_buf, uint32 error_buf_size)
+{
+    StringNode *node, *node_next;
+
+    if (!check_utf8_str(str, len)) {
+        set_error_buf(error_buf, error_buf_size, "invalid UTF-8 encoding");
+        return NULL;
+    }
+
+    /* Search const str list */
+    node = module->const_str_list;
+    while (node) {
+        node_next = node->next;
+        if (strlen(node->str) == len && !memcmp(node->str, str, len))
+            break;
+        node = node_next;
+    }
+
+    if (node) {
+        return node->str;
+    }
+
+    if (!(node = loader_malloc(sizeof(StringNode) + len + 1, error_buf,
+                               error_buf_size))) {
+        return NULL;
+    }
+
+    node->str = ((char *)node) + sizeof(StringNode);
+    bh_memcpy_s(node->str, len + 1, str, len);
+    node->str[len] = '\0';
+
+    if (!module->const_str_list) {
+        /* set as head */
+        module->const_str_list = node;
+        node->next = NULL;
+    }
+    else {
+        /* insert it */
+        node->next = module->const_str_list;
+        module->const_str_list = node;
+    }
+
+    return node->str;
 }
 
 static char *
@@ -435,6 +632,123 @@ fail:
 }
 
 static bool
+load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
+                  char *error_buf, uint32 error_buf_size)
+{
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const uint8 *p = buf, *p_end = buf_end;
+    const char **aux_func_name;
+    uint32 name_type, subsection_size;
+    uint32 previous_name_type = 0;
+    uint32 num_func_name;
+    uint32 func_index;
+    uint32 previous_func_index = ~0U;
+    uint32 func_name_len;
+    uint32 name_index;
+    int i = 0;
+    uint32 name_len;
+    uint64 size;
+
+    if (p >= p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    read_leb_uint32(p, p_end, name_len);
+
+    if (name_len == 0 || p + name_len > p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    if (!check_utf8_str(p, name_len)) {
+        set_error_buf(error_buf, error_buf_size, "invalid UTF-8 encoding");
+        return false;
+    }
+
+    if (memcmp(p, "name", 4) != 0) {
+        set_error_buf(error_buf, error_buf_size, "invalid custom name section");
+        return false;
+    }
+    p += name_len;
+
+    while (p < p_end) {
+        read_leb_uint32(p, p_end, name_type);
+        if (i != 0) {
+            if (name_type == previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "duplicate sub-section");
+                return false;
+            }
+            if (name_type < previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "out-of-order sub-section");
+                return false;
+            }
+        }
+        previous_name_type = name_type;
+        read_leb_uint32(p, p_end, subsection_size);
+        CHECK_BUF(p, p_end, subsection_size);
+        switch (name_type) {
+            case SUB_SECTION_TYPE_FUNC:
+                if (subsection_size) {
+                    read_leb_uint32(p, p_end, num_func_name);
+                    module->aux_func_name_count = num_func_name;
+                    /* Allocate memory */
+                    size =
+                        sizeof(char **) * (uint64)module->aux_func_name_count;
+                    if (!(module->aux_func_name = aux_func_name =
+                              loader_malloc(size, error_buf, error_buf_size))) {
+                        return false;
+                    }
+
+                    for (name_index = 0; name_index < num_func_name;
+                         name_index++) {
+                        read_leb_uint32(p, p_end, func_index);
+                        if (func_index == previous_func_index) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "duplicate function name");
+                            return false;
+                        }
+                        if (func_index < previous_func_index
+                            && previous_func_index != ~0U) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "out-of-order function index ");
+                            return false;
+                        }
+                        previous_func_index = func_index;
+                        read_leb_uint32(p, p_end, func_name_len);
+                        CHECK_BUF(p, p_end, func_name_len);
+                        *(aux_func_name + name_index) =
+                            const_str_list_insert(p, func_name_len, module,
+                                                  error_buf, error_buf_size);
+#if 1
+                        LOG_DEBUG("name_index %d -> aux_func_name = %s",
+                                  name_index, *(aux_func_name + name_index));
+#endif
+                        p += func_name_len;
+                    }
+                }
+                break;
+            case SUB_SECTION_TYPE_MODULE: /* TODO: Parse for module subsection
+                                           */
+            case SUB_SECTION_TYPE_LOCAL:  /* TODO: Parse for local subsection */
+            default:
+                p = p + subsection_size;
+                break;
+        }
+        i++;
+    }
+
+    return true;
+fail:
+    return false;
+#else
+    return true;
+#endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
+}
+
+static bool
 load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     char *error_buf, uint32 error_buf_size)
 {
@@ -448,6 +762,11 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         case AOT_CUSTOM_SECTION_NATIVE_SYMBOL:
             if (!load_native_symbol_section(buf, buf_end, module, error_buf,
                                             error_buf_size))
+                goto fail;
+            break;
+        case AOT_CUSTOM_SECTION_NAME:
+            if (!load_name_section(buf, buf_end, module, error_buf,
+                                   error_buf_size))
                 goto fail;
             break;
         default:
@@ -1233,7 +1552,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     /* The layout is: literal size + literal + code (with plt table) */
     read_uint32(buf, buf_end, module->literal_size);
 
-    /* literal data is at begining of the text section */
+    /* literal data is at beginning of the text section */
     module->literal = (uint8 *)buf;
     module->code = (void *)(buf + module->literal_size);
     module->code_size = (uint32)(buf_end - (uint8 *)module->code);
@@ -2336,7 +2655,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
 {
     AOTSection *section_list = NULL, *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size;
-    bool destory_aot_text = false;
+    bool destroy_aot_text = false;
     uint32 native_symbol_count = 0;
     uint32 section_type;
     uint32 section_size;
@@ -2403,7 +2722,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
                     section->section_body = aot_text;
-                    destory_aot_text = true;
+                    destroy_aot_text = true;
 
                     if ((uint32)total_size > section->section_body_size) {
                         memset(aot_text + (uint32)section_size, 0,
@@ -2437,7 +2756,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     return true;
 fail:
     if (section_list)
-        destroy_sections(section_list, destory_aot_text);
+        destroy_sections(section_list, destroy_aot_text);
     return false;
 }
 
@@ -2839,6 +3158,15 @@ aot_unload(AOTModule *module)
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
 
+    if (module->const_str_list) {
+        StringNode *node = module->const_str_list, *node_next;
+        while (node) {
+            node_next = node->next;
+            wasm_runtime_free(node);
+            node = node_next;
+        }
+    }
+
     if (module->code && (module->native_symbol_count == 0)) {
         /* The layout is: literal size + literal + code (with plt table) */
         uint8 *mmap_addr = module->literal - sizeof(uint32);
@@ -2866,6 +3194,12 @@ aot_unload(AOTModule *module)
                                      module->data_section_count);
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
+#endif
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if (module->aux_func_name) {
+        wasm_runtime_free(module->aux_func_name);
+    }
 #endif
 
     wasm_runtime_free(module);

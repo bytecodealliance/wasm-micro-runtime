@@ -239,6 +239,12 @@ typedef struct AOTCompData {
     uint32 func_count;
     AOTFunc **funcs;
 
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    /* Custom name sections */
+    const uint8 *name_section_buf;
+    const uint8 *name_section_buf_end;
+#endif
+
     uint32 global_data_size;
 
     uint32 start_func_index;
