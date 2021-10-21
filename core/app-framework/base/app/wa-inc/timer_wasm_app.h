@@ -14,7 +14,7 @@ extern "C" {
 
 /* board producer define user_timer */
 struct user_timer;
-typedef struct user_timer * user_timer_t;
+typedef struct user_timer *user_timer_t;
 
 /**
  * @typedef on_user_timer_update_f
@@ -43,15 +43,17 @@ typedef void (*on_user_timer_update_f)(user_timer_t timer);
  *
  * @return the timer created if success, NULL otherwise
  */
-user_timer_t api_timer_create(int interval, bool is_period, bool auto_start,
-        on_user_timer_update_f on_timer_update);
+user_timer_t
+api_timer_create(int interval, bool is_period, bool auto_start,
+                 on_user_timer_update_f on_timer_update);
 
 /**
  * @brief Cancel timer.
  *
  * @param timer the timer to cancel
  */
-void api_timer_cancel(user_timer_t timer);
+void
+api_timer_cancel(user_timer_t timer);
 
 /**
  * @brief Restart timer.
@@ -59,7 +61,8 @@ void api_timer_cancel(user_timer_t timer);
  * @param timer the timer to cancel
  * @param interval the timer interval
  */
-void api_timer_restart(user_timer_t timer, int interval);
+void
+api_timer_restart(user_timer_t timer, int interval);
 
 #ifdef __cplusplus
 }

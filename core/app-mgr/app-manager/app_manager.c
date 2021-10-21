@@ -14,13 +14,14 @@
 /* Queue of app manager */
 static bh_queue *g_app_mgr_queue;
 
-void*
+void *
 get_app_manager_queue()
 {
     return g_app_mgr_queue;
 }
 
-void app_manager_post_applets_update_event()
+void
+app_manager_post_applets_update_event()
 {
     module_data *m_data;
     attr_container_t *attr_cont;
@@ -56,7 +57,8 @@ void app_manager_post_applets_update_event()
         char buf[32];
         i++;
         snprintf(buf, sizeof(buf), "%s%d", "applet", i);
-        if (!(attr_container_set_string(&attr_cont, buf, m_data->module_name))) {
+        if (!(attr_container_set_string(&attr_cont, buf,
+                                        m_data->module_name))) {
             app_manager_printf("Post applets update event failed: "
                                "set attr applet name key failed.");
             goto fail;
@@ -73,7 +75,7 @@ void app_manager_post_applets_update_event()
     memset(&msg, 0, sizeof(msg));
     msg.url = url;
     msg.action = COAP_EVENT;
-    msg.payload = (char*) attr_cont;
+    msg.payload = (char *)attr_cont;
     send_request_to_host(&msg);
 
     app_manager_printf("Post applets update event success!\n");
@@ -84,7 +86,8 @@ fail:
     attr_container_destroy(attr_cont);
 }
 
-static int get_applets_count()
+static int
+get_applets_count()
 {
     module_data *m_data;
     int num = 0;
@@ -103,7 +106,8 @@ static int get_applets_count()
 }
 
 /* Query fw apps info if name = NULL, otherwise query specify app */
-static bool app_manager_query_applets(request_t *msg, const char *name)
+static bool
+app_manager_query_applets(request_t *msg, const char *name)
 {
     module_data *m_data;
     attr_container_t *attr_cont;
@@ -127,8 +131,8 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
     }
 
     if (name == NULL && !(attr_container_set_int(&attr_cont, "num", num))) {
-        SEND_ERR_RESPONSE(msg->mid,
-                          "Query Applets failed: set attr container key failed.");
+        SEND_ERR_RESPONSE(
+            msg->mid, "Query Applets failed: set attr container key failed.");
         goto fail;
     }
 
@@ -140,10 +144,9 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
             i++;
             snprintf(buf, sizeof(buf), "%s%d", "applet", i);
             if (!(attr_container_set_string(&attr_cont, buf,
-                    m_data->module_name))) {
-                SEND_ERR_RESPONSE(msg->mid,
-                                  "Query Applets failed: "
-                                  "set attr container key failed.");
+                                            m_data->module_name))) {
+                SEND_ERR_RESPONSE(msg->mid, "Query Applets failed: "
+                                            "set attr container key failed.");
                 goto fail;
             }
             snprintf(buf, sizeof(buf), "%s%d", "heap", i);
@@ -157,13 +160,13 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
         else if (!strcmp(name, m_data->module_name)) {
             found = true;
             if (!(attr_container_set_string(&attr_cont, "name",
-                    m_data->module_name))) {
-                SEND_ERR_RESPONSE(msg->mid,
-                                  "Query Applet failed: "
-                                  "set attr container key failed.");
+                                            m_data->module_name))) {
+                SEND_ERR_RESPONSE(msg->mid, "Query Applet failed: "
+                                            "set attr container key failed.");
                 goto fail;
             }
-            if (!(attr_container_set_int(&attr_cont, "heap", m_data->heap_size))) {
+            if (!(attr_container_set_int(&attr_cont, "heap",
+                                         m_data->heap_size))) {
                 SEND_ERR_RESPONSE(msg->mid,
                                   "Query Applet failed: "
                                   "set attr container heap key failed.");
@@ -176,15 +179,15 @@ static bool app_manager_query_applets(request_t *msg, const char *name)
 
     if (name != NULL && !found) {
         SEND_ERR_RESPONSE(msg->mid,
-                "Query Applet failed: the app is not found.");
+                          "Query Applet failed: the app is not found.");
         goto fail;
     }
 
     len = attr_container_get_serialize_length(attr_cont);
 
     make_response_for_request(msg, response);
-    set_response(response, CONTENT_2_05,
-    FMT_ATTR_CONTAINER, (char*) attr_cont, len);
+    set_response(response, CONTENT_2_05, FMT_ATTR_CONTAINER, (char *)attr_cont,
+                 len);
     send_response_to_host(response);
 
     ret = true;
@@ -197,7 +200,8 @@ fail:
     return ret;
 }
 
-void applet_mgt_reqeust_handler(request_t *request, void *unused)
+void
+applet_mgt_reqeust_handler(request_t *request, void *unused)
 {
     bh_message_t msg;
     /* deep copy, but not use app self heap, but use global heap */
@@ -216,13 +220,14 @@ void applet_mgt_reqeust_handler(request_t *request, void *unused)
 }
 
 /* return -1 for error */
-static int get_module_type(char *kv_str)
+static int
+get_module_type(char *kv_str)
 {
     int module_type = -1;
     char type_str[16] = { 0 };
 
     find_key_value(kv_str, strlen(kv_str), "type", type_str,
-            sizeof(type_str) - 1, '&');
+                   sizeof(type_str) - 1, '&');
 
     if (strlen(type_str) == 0)
         module_type = Module_WASM_App;
@@ -240,34 +245,37 @@ static int get_module_type(char *kv_str)
 
 /* Queue callback of App Manager */
 
-static void app_manager_queue_callback(void *message, void *arg)
+static void
+app_manager_queue_callback(void *message, void *arg)
 {
-    request_t *request = (request_t *) bh_message_payload((bh_message_t)message);
+    request_t *request = (request_t *)bh_message_payload((bh_message_t)message);
     int mid = request->mid, module_type, offset;
 
     (void)arg;
 
-    if ((offset = check_url_start(request->url, strlen(request->url), "/applet"))
-            > 0) {
+    if ((offset =
+             check_url_start(request->url, strlen(request->url), "/applet"))
+        > 0) {
         module_type = get_module_type(request->url + offset);
 
         if (module_type == -1) {
             SEND_ERR_RESPONSE(mid,
-                    "Applet Management failed: invalid module type.");
+                              "Applet Management failed: invalid module type.");
             goto fail;
         }
 
         /* Install Applet */
         if (request->action == COAP_PUT) {
             if (get_applets_count() >= MAX_APP_INSTALLATIONS) {
-                SEND_ERR_RESPONSE(mid,
-                        "Install Applet failed: exceed max app installations.");
+                SEND_ERR_RESPONSE(
+                    mid,
+                    "Install Applet failed: exceed max app installations.");
                 goto fail;
             }
 
             if (!request->payload) {
                 SEND_ERR_RESPONSE(mid,
-                        "Install Applet failed: invalid payload.");
+                                  "Install Applet failed: invalid payload.");
                 goto fail;
             }
             if (g_module_interfaces[module_type]
@@ -280,14 +288,15 @@ static void app_manager_queue_callback(void *message, void *arg)
         else if (request->action == COAP_DELETE) {
             module_type = get_module_type(request->url + offset);
             if (module_type == -1) {
-                SEND_ERR_RESPONSE(mid,
-                                  "Uninstall Applet failed: invalid module type.");
+                SEND_ERR_RESPONSE(
+                    mid, "Uninstall Applet failed: invalid module type.");
                 goto fail;
             }
 
             if (g_module_interfaces[module_type]
-                    && g_module_interfaces[module_type]->module_uninstall) {
-                if (!g_module_interfaces[module_type]->module_uninstall(request))
+                && g_module_interfaces[module_type]->module_uninstall) {
+                if (!g_module_interfaces[module_type]->module_uninstall(
+                        request))
                     goto fail;
             }
         }
@@ -308,7 +317,8 @@ static void app_manager_queue_callback(void *message, void *arg)
     }
     /* Event Register/Unregister */
     else if ((offset = check_url_start(request->url, strlen(request->url),
-                                       "/event/")) > 0) {
+                                       "/event/"))
+             > 0) {
         char url_buf[256] = { 0 };
 
         strncpy(url_buf, request->url + offset, sizeof(url_buf) - 1);
@@ -328,14 +338,14 @@ static void app_manager_queue_callback(void *message, void *arg)
                     break;
             }
         }
-
     }
 
 fail:
     return;
 }
 
-static void module_interfaces_init()
+static void
+module_interfaces_init()
 {
     int i;
     for (i = 0; i < Module_Max; i++) {
@@ -344,7 +354,8 @@ static void module_interfaces_init()
     }
 }
 
-void app_manager_startup(host_interface *interface)
+void
+app_manager_startup(host_interface *interface)
 {
     module_interfaces_init();
 
@@ -390,21 +401,20 @@ fail1:
 
 module_interface *g_module_interfaces[Module_Max] = {
 #if ENABLE_MODULE_JEFF != 0
-        &jeff_module_interface,
+    &jeff_module_interface,
 #else
-        NULL,
+    NULL,
 #endif
 
 #if ENABLE_MODULE_WASM_APP != 0
-        &wasm_app_module_interface,
+    &wasm_app_module_interface,
 #else
-        NULL,
+    NULL,
 #endif
 
 #if ENABLE_MODULE_WASM_LIB != 0
-        &wasm_lib_module_interface
+    &wasm_lib_module_interface
 #else
-        NULL
+    NULL
 #endif
 };
-

@@ -28,10 +28,8 @@ wasm_cb_native_call(int32 func_id, uint32 *argv, uint32 argc);
 void
 wasm_list_native_call(int32 func_id, uint32 *argv, uint32 argc);
 
-
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* end of _GUI_API_H_ */

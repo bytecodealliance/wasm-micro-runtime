@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      
+
       # github.event.pull_request.base.label = ${{github.repository}}/${{github.base_ref}}
       - name: Run Coding Guidelines Checks
         run: /usr/bin/env python3 ./ci/coding_guidelines_check.py --commits ${{ github.event.pull_request.base.sha }}..HEAD

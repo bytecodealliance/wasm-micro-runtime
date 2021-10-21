@@ -20,7 +20,8 @@ DEFINE_WGL_NATIVE_WRAPPER(lv_label_create_wrapper)
     wgl_native_get_arg(uint32, copy_obj_id);
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    res = wgl_native_wigdet_create(WIDGET_TYPE_LABEL, par_obj_id, copy_obj_id, module_inst);
+    res = wgl_native_wigdet_create(WIDGET_TYPE_LABEL, par_obj_id, copy_obj_id,
+                                   module_inst);
     wgl_native_set_return(res);
 }
 
@@ -73,24 +74,22 @@ DEFINE_WGL_NATIVE_WRAPPER(lv_label_get_text_wrapper)
     wgl_native_set_return(buffer_offset);
 }
 
+/* clang-format off */
 static WGLNativeFuncDef label_native_func_defs[] = {
-    { LABEL_FUNC_ID_CREATE,           lv_label_create_wrapper,          2,  false },
-    { LABEL_FUNC_ID_SET_TEXT,         lv_label_set_text_wrapper,        3,  true },
-    { LABEL_FUNC_ID_GET_TEXT_LENGTH,  lv_label_get_text_length_wrapper, 1,  true },
-    { LABEL_FUNC_ID_GET_TEXT,         lv_label_get_text_wrapper,        3,  true },
+    { LABEL_FUNC_ID_CREATE, lv_label_create_wrapper, 2, false },
+    { LABEL_FUNC_ID_SET_TEXT, lv_label_set_text_wrapper, 3, true },
+    { LABEL_FUNC_ID_GET_TEXT_LENGTH, lv_label_get_text_length_wrapper, 1, true },
+    { LABEL_FUNC_ID_GET_TEXT, lv_label_get_text_wrapper, 3, true },
 };
+/* clang-format on */
 
 /*************** Native Interface to Wasm App ***********/
 void
-wasm_label_native_call(wasm_exec_env_t exec_env,
-                       int32 func_id, uint32 *argv, uint32 argc)
+wasm_label_native_call(wasm_exec_env_t exec_env, int32 func_id, uint32 *argv,
+                       uint32 argc)
 {
     uint32 size = sizeof(label_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(exec_env,
-                         label_native_func_defs,
-                         size,
-                         func_id,
-                         argv,
+    wgl_native_func_call(exec_env, label_native_func_defs, size, func_id, argv,
                          argc);
 }

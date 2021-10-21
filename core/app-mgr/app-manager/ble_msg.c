@@ -5,7 +5,7 @@
 
 #if 0
 
-#define BLUETOOTH_INTERFACE_ADVERTISMENT_DATA_LENGTH   31
+#define BLUETOOTH_INTERFACE_ADVERTISMENT_DATA_LENGTH 31
 /* ble_device_info */
 typedef struct ble_device_info {
 

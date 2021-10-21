@@ -1,7 +1,7 @@
 /*
-* Copyright (C) 2019 Intel Corporation.  All rights reserved.
-* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-*/
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
 
 #include "wasm_app.h"
 #include "wa-inc/timer_wasm_app.h"
@@ -9,7 +9,8 @@
 
 int num = 0;
 
-void publish_overheat_event()
+void
+publish_overheat_event()
 {
     attr_container_t *event;
 
@@ -19,7 +20,7 @@ void publish_overheat_event()
     printf("###app publish event begin ###\n");
 
     api_publish_event("alert/overheat", FMT_ATTR_CONTAINER, event,
-            attr_container_get_serialize_length(event));
+                      attr_container_get_serialize_length(event));
 
     printf("###app publish event end ###\n");
 
@@ -27,13 +28,15 @@ void publish_overheat_event()
 }
 
 /* Timer callback */
-void timer1_update(user_timer_t timer)
+void
+timer1_update(user_timer_t timer)
 {
     printf("Timer update %d\n", num++);
     publish_overheat_event();
 }
 
-void start_timer()
+void
+start_timer()
 {
     user_timer_t timer;
 
@@ -42,12 +45,15 @@ void start_timer()
     api_timer_restart(timer, 1000);
 }
 
-void on_init()
+void
+on_init()
 {
     start_timer();
 }
 
-void on_destroy()
+void
+on_destroy()
 {
-    /* real destroy work including killing timer and closing sensor is accomplished in wasm app library version of on_destroy() */
+    /* real destroy work including killing timer and closing sensor is
+     * accomplished in wasm app library version of on_destroy() */
 }

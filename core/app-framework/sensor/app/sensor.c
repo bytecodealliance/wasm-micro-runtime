@@ -8,7 +8,7 @@
 #include "sensor_api.h"
 
 typedef struct _sensor {
-    struct _sensor * next;
+    struct _sensor *next;
     char *name;
     uint32 handle;
     void (*sensor_callback)(sensor_t, attr_container_t *, void *);
@@ -17,16 +17,16 @@ typedef struct _sensor {
 
 static sensor_t g_sensors = NULL;
 
-sensor_t sensor_open(const char* name, int index,
-        sensor_event_handler_f sensor_event_handler,
-        void *user_data)
+sensor_t
+sensor_open(const char *name, int index,
+            sensor_event_handler_f sensor_event_handler, void *user_data)
 {
     uint32 id = wasm_sensor_open(name, index);
     if (id == -1)
         return NULL;
 
-    //create local node for holding the user callback
-    sensor_t sensor = (sensor_t) malloc(sizeof(struct _sensor));
+    // create local node for holding the user callback
+    sensor_t sensor = (sensor_t)malloc(sizeof(struct _sensor));
     if (sensor == NULL)
         return NULL;
 
@@ -43,7 +43,8 @@ sensor_t sensor_open(const char* name, int index,
 
     if (g_sensors == NULL) {
         g_sensors = sensor;
-    } else {
+    }
+    else {
         sensor->next = g_sensors;
         g_sensors = sensor;
     }
@@ -51,7 +52,8 @@ sensor_t sensor_open(const char* name, int index,
     return sensor;
 }
 
-bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg)
+bool
+sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg)
 {
     char *buffer = (char *)cfg;
     int len = attr_container_get_serialize_length(cfg);
@@ -59,13 +61,15 @@ bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg)
     return wasm_sensor_config_with_attr_container(sensor->handle, buffer, len);
 }
 
-bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay)
+bool
+sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay)
 {
     bool ret = wasm_sensor_config(sensor->handle, interval, bit_cfg, delay);
     return ret;
 }
 
-bool sensor_close(sensor_t sensor)
+bool
+sensor_close(sensor_t sensor)
 {
     wasm_sensor_close(sensor->handle);
 
@@ -76,13 +80,15 @@ bool sensor_close(sensor_t sensor)
         if (s == sensor) {
             if (prev == NULL) {
                 g_sensors = s->next;
-            } else {
+            }
+            else {
                 prev->next = s->next;
             }
             free(s->name);
             free(s);
             return true;
-        } else {
+        }
+        else {
             prev = s;
             s = s->next;
         }
@@ -97,9 +103,10 @@ bool sensor_close(sensor_t sensor)
  *
  */
 
-void on_sensor_event(uint32 sensor_id, char * buffer, int len)
+void
+on_sensor_event(uint32 sensor_id, char *buffer, int len)
 {
-    attr_container_t * sensor_data = (attr_container_t *) buffer;
+    attr_container_t *sensor_data = (attr_container_t *)buffer;
 
     // lookup the sensor and call the handlers
     sensor_t s = g_sensors;
