@@ -24,37 +24,40 @@ typedef union jvalue {
     double d;
 } jvalue;
 
-
-
-static inline int16_t get_int16(const char *buf)
+static inline int16_t
+get_int16(const char *buf)
 {
     int16_t ret;
     bh_memcpy_s(&ret, sizeof(int16_t), buf, sizeof(int16_t));
     return ret;
 }
 
-static inline uint16_t get_uint16(const char *buf)
+static inline uint16_t
+get_uint16(const char *buf)
 {
     return get_int16(buf);
 }
 
-static inline int32_t get_int32(const char *buf)
+static inline int32_t
+get_int32(const char *buf)
 {
     int32_t ret;
     bh_memcpy_s(&ret, sizeof(int32_t), buf, sizeof(int32_t));
     return ret;
 }
 
-static inline uint32_t get_uint32(const char *buf)
+static inline uint32_t
+get_uint32(const char *buf)
 {
     return get_int32(buf);
 }
 
-char* attr_container_get_attr_begin(const attr_container_t *attr_cont,
-                                    uint32_t *p_total_length,
-                                    uint16_t *p_attr_num);
+char *
+attr_container_get_attr_begin(const attr_container_t *attr_cont,
+                              uint32_t *p_total_length, uint16_t *p_attr_num);
 
-cJSON *attr2json(const attr_container_t *attr_cont)
+cJSON *
+attr2json(const attr_container_t *attr_cont)
 {
     uint32_t total_length;
     uint16_t attr_num, i, j, type;
@@ -87,91 +90,95 @@ cJSON *attr2json(const attr_container_t *attr_cont)
         type = *p++;
 
         switch (type) {
-        case ATTR_TYPE_SHORT:
-            bh_memcpy_s(&value.s, sizeof(int16_t), p, sizeof(int16_t));
-            if (NULL == (obj = cJSON_CreateNumber(value.s)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            /* another approach: cJSON_AddNumberToObject(root, key, value.s) */
-            p += 2;
-            break;
-        case ATTR_TYPE_INT:
-            bh_memcpy_s(&value.i, sizeof(int32_t), p, sizeof(int32_t));
-            if (NULL == (obj = cJSON_CreateNumber(value.i)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p += 4;
-            break;
-        case ATTR_TYPE_INT64:
-            bh_memcpy_s(&value.j, sizeof(uint64_t), p, sizeof(uint64_t));
-            if (NULL == (obj = cJSON_CreateNumber(value.j)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p += 8;
-            break;
-        case ATTR_TYPE_BYTE:
-            bh_memcpy_s(&value.b, 1, p, 1);
-            if (NULL == (obj = cJSON_CreateNumber(value.b)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p++;
-            break;
-        case ATTR_TYPE_UINT16:
-            bh_memcpy_s(&value.c, sizeof(uint16_t), p, sizeof(uint16_t));
-            if (NULL == (obj = cJSON_CreateNumber(value.c)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p += 2;
-            break;
-        case ATTR_TYPE_FLOAT:
-            bh_memcpy_s(&value.f, sizeof(float), p, sizeof(float));
-            if (NULL == (obj = cJSON_CreateNumber(value.f)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p += 4;
-            break;
-        case ATTR_TYPE_DOUBLE:
-            bh_memcpy_s(&value.d, sizeof(double), p, sizeof(double));
-            if (NULL == (obj = cJSON_CreateNumber(value.d)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p += 8;
-            break;
-        case ATTR_TYPE_BOOLEAN:
-            bh_memcpy_s(&value.z, 1, p, 1);
-            if (NULL == (obj = cJSON_CreateBool(value.z)))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p++;
-            break;
-        case ATTR_TYPE_STRING:
-            if (NULL == (obj = cJSON_CreateString(p + sizeof(uint16_t))))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            p += sizeof(uint16_t) + get_uint16(p);
-            break;
-        case ATTR_TYPE_BYTEARRAY:
-            if (NULL == (obj = cJSON_CreateArray()))
-                goto fail;
-            cJSON_AddItemToObject(root, key, obj);
-            for (j = 0; j < get_uint32(p); j++) {
-                cJSON *item = cJSON_CreateNumber(*(p + sizeof(uint32_t) + j));
-                if (item == NULL)
+            case ATTR_TYPE_SHORT:
+                bh_memcpy_s(&value.s, sizeof(int16_t), p, sizeof(int16_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.s)))
                     goto fail;
-                cJSON_AddItemToArray(obj, item);
-            }
-            p += sizeof(uint32_t) + get_uint32(p);
-            break;
+                cJSON_AddItemToObject(root, key, obj);
+                /* another approach: cJSON_AddNumberToObject(root, key, value.s)
+                 */
+                p += 2;
+                break;
+            case ATTR_TYPE_INT:
+                bh_memcpy_s(&value.i, sizeof(int32_t), p, sizeof(int32_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.i)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += 4;
+                break;
+            case ATTR_TYPE_INT64:
+                bh_memcpy_s(&value.j, sizeof(uint64_t), p, sizeof(uint64_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.j)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += 8;
+                break;
+            case ATTR_TYPE_BYTE:
+                bh_memcpy_s(&value.b, 1, p, 1);
+                if (NULL == (obj = cJSON_CreateNumber(value.b)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p++;
+                break;
+            case ATTR_TYPE_UINT16:
+                bh_memcpy_s(&value.c, sizeof(uint16_t), p, sizeof(uint16_t));
+                if (NULL == (obj = cJSON_CreateNumber(value.c)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += 2;
+                break;
+            case ATTR_TYPE_FLOAT:
+                bh_memcpy_s(&value.f, sizeof(float), p, sizeof(float));
+                if (NULL == (obj = cJSON_CreateNumber(value.f)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += 4;
+                break;
+            case ATTR_TYPE_DOUBLE:
+                bh_memcpy_s(&value.d, sizeof(double), p, sizeof(double));
+                if (NULL == (obj = cJSON_CreateNumber(value.d)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += 8;
+                break;
+            case ATTR_TYPE_BOOLEAN:
+                bh_memcpy_s(&value.z, 1, p, 1);
+                if (NULL == (obj = cJSON_CreateBool(value.z)))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p++;
+                break;
+            case ATTR_TYPE_STRING:
+                if (NULL == (obj = cJSON_CreateString(p + sizeof(uint16_t))))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                p += sizeof(uint16_t) + get_uint16(p);
+                break;
+            case ATTR_TYPE_BYTEARRAY:
+                if (NULL == (obj = cJSON_CreateArray()))
+                    goto fail;
+                cJSON_AddItemToObject(root, key, obj);
+                for (j = 0; j < get_uint32(p); j++) {
+                    cJSON *item =
+                        cJSON_CreateNumber(*(p + sizeof(uint32_t) + j));
+                    if (item == NULL)
+                        goto fail;
+                    cJSON_AddItemToArray(obj, item);
+                }
+                p += sizeof(uint32_t) + get_uint32(p);
+                break;
         }
     }
 
     return root;
 
-    fail: cJSON_Delete(root);
+fail:
+    cJSON_Delete(root);
     return NULL;
 }
 
-attr_container_t *json2attr(const cJSON *json_obj)
+attr_container_t *
+json2attr(const cJSON *json_obj)
 {
     attr_container_t *attr_cont;
     cJSON *item;
@@ -187,20 +194,24 @@ attr_container_t *json2attr(const cJSON *json_obj)
 
         if (cJSON_IsNumber(item)) {
             attr_container_set_double(&attr_cont, item->string,
-                    item->valuedouble);
-        } else if (cJSON_IsTrue(item)) {
+                                      item->valuedouble);
+        }
+        else if (cJSON_IsTrue(item)) {
             attr_container_set_bool(&attr_cont, item->string, true);
-        } else if (cJSON_IsFalse(item)) {
+        }
+        else if (cJSON_IsFalse(item)) {
             attr_container_set_bool(&attr_cont, item->string, false);
-        } else if (cJSON_IsString(item)) {
+        }
+        else if (cJSON_IsString(item)) {
             attr_container_set_string(&attr_cont, item->string,
-                    item->valuestring);
-        } else if (cJSON_IsArray(item)) {
+                                      item->valuestring);
+        }
+        else if (cJSON_IsArray(item)) {
             int8_t *array;
             int i = 0, len = sizeof(int8_t) * cJSON_GetArraySize(item);
             cJSON *array_item;
 
-            if (0 == len || NULL == (array = (int8_t *) malloc(len)))
+            if (0 == len || NULL == (array = (int8_t *)malloc(len)))
                 goto fail;
             memset(array, 0, len);
 
@@ -210,24 +221,26 @@ attr_container_t *json2attr(const cJSON *json_obj)
                 if (!cJSON_IsNumber(array_item))
                     break;
                 /* TODO: if array_item->valuedouble > 127 or < -128 */
-                array[i++] = (int8_t) array_item->valuedouble;
+                array[i++] = (int8_t)array_item->valuedouble;
             }
             if (i > 0)
                 attr_container_set_bytearray(&attr_cont, item->string, array,
-                        i);
+                                             i);
             free(array);
         }
     }
 
     return attr_cont;
 
-    fail: attr_container_destroy(attr_cont);
+fail:
+    attr_container_destroy(attr_cont);
     return NULL;
 }
 
 int g_mid = 0;
 
-int gen_random_id()
+int
+gen_random_id()
 {
     static bool init = false;
     int r;
@@ -283,7 +296,8 @@ read_file_to_buffer(const char *filename, int *ret_size)
     return buffer;
 }
 
-int wirte_buffer_to_file(const char *filename, const char *buffer, int size)
+int
+wirte_buffer_to_file(const char *filename, const char *buffer, int size)
 {
     int file, ret;
 

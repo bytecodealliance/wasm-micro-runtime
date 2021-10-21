@@ -10,6 +10,4 @@
          implemented by both [app] and [native] worlds */
 #include "bh_platform.h"
 
-
 #endif /* end of _NATIVE_INTERFACE_H */
-

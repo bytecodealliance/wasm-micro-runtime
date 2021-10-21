@@ -8,7 +8,8 @@
 #include "wasm_export.h"
 #include "bh_assert.h"
 
-extern void module_request_handler(request_t *request, void *user_data);
+extern void
+module_request_handler(request_t *request, void *user_data);
 
 bool
 wasm_response_send(wasm_exec_env_t exec_env, char *buffer, int size)
@@ -33,8 +34,8 @@ wasm_register_resource(wasm_exec_env_t exec_env, char *url)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
     if (url != NULL) {
-        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
-                                                        module_inst);
+        unsigned int mod_id =
+            app_manager_get_module_id(Module_WASM_App, module_inst);
         bh_assert(mod_id != ID_NONE);
         am_register_resource(url, module_request_handler, mod_id);
     }
@@ -54,8 +55,8 @@ wasm_post_request(wasm_exec_env_t exec_env, char *buffer, int size)
         // TODO: add permission check, ensure app can't do harm
 
         // set sender to help dispatch the response to the sender ap
-        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
-                                                        module_inst);
+        unsigned int mod_id =
+            app_manager_get_module_id(Module_WASM_App, module_inst);
         bh_assert(mod_id != ID_NONE);
         req->sender = mod_id;
 
@@ -74,11 +75,10 @@ wasm_sub_event(wasm_exec_env_t exec_env, char *url)
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
     if (url != NULL) {
-        unsigned int mod_id = app_manager_get_module_id(Module_WASM_App,
-                                                        module_inst);
+        unsigned int mod_id =
+            app_manager_get_module_id(Module_WASM_App, module_inst);
 
         bh_assert(mod_id != ID_NONE);
         am_register_event(url, mod_id);
     }
 }
-

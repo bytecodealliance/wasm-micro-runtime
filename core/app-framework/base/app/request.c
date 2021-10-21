@@ -13,13 +13,11 @@
 
 #define TRANSACTION_TIMEOUT_MS 5000
 
-typedef enum {
-    Reg_Event, Reg_Request
-} reg_type_t;
+typedef enum { Reg_Event, Reg_Request } reg_type_t;
 
 typedef struct _res_register {
     struct _res_register *next;
-    const char * url;
+    const char *url;
     reg_type_t reg_type;
     void (*request_handler)(request_t *);
 } res_register_t;
@@ -32,13 +30,14 @@ typedef struct transaction {
     void *user_data;
 } transaction_t;
 
-static res_register_t * g_resources = NULL;
+static res_register_t *g_resources = NULL;
 
 static transaction_t *g_transactions = NULL;
 
 static user_timer_t g_trans_timer = NULL;
 
-static transaction_t *transaction_find(int mid)
+static transaction_t *
+transaction_find(int mid)
 {
     transaction_t *t = g_transactions;
 
@@ -55,7 +54,8 @@ static transaction_t *transaction_find(int mid)
  * new transaction is added to the tail of the list, so the list
  * is sorted by expiry time naturally.
  */
-static void transaction_add(transaction_t *trans)
+static void
+transaction_add(transaction_t *trans)
 {
     transaction_t *t;
 
@@ -73,7 +73,8 @@ static void transaction_add(transaction_t *trans)
     }
 }
 
-static void transaction_remove(transaction_t *trans)
+static void
+transaction_remove(transaction_t *trans)
 {
     transaction_t *prev = NULL, *current = g_transactions;
 
@@ -93,15 +94,17 @@ static void transaction_remove(transaction_t *trans)
     }
 }
 
-static bool is_event_type(request_t * req)
+static bool
+is_event_type(request_t *req)
 {
     return req->action == COAP_EVENT;
 }
 
-static bool register_url_handler(const char *url,
-        request_handler_f request_handler, reg_type_t reg_type)
+static bool
+register_url_handler(const char *url, request_handler_f request_handler,
+                     reg_type_t reg_type)
 {
-    res_register_t * r = g_resources;
+    res_register_t *r = g_resources;
 
     while (r) {
         if (reg_type == r->reg_type && strcmp(r->url, url) == 0) {
@@ -111,7 +114,7 @@ static bool register_url_handler(const char *url,
         r = r->next;
     }
 
-    r = (res_register_t *) malloc(sizeof(res_register_t));
+    r = (res_register_t *)malloc(sizeof(res_register_t));
     if (r == NULL)
         return false;
 
@@ -137,13 +140,15 @@ static bool register_url_handler(const char *url,
     return true;
 }
 
-bool api_register_resource_handler(const char *url,
-                                   request_handler_f request_handler)
+bool
+api_register_resource_handler(const char *url,
+                              request_handler_f request_handler)
 {
     return register_url_handler(url, request_handler, Reg_Request);
 }
 
-static void transaction_timeout_handler(user_timer_t timer)
+static void
+transaction_timeout_handler(user_timer_t timer)
 {
     transaction_t *cur, *expired = NULL;
     unsigned int elpased_ms, now = wasm_get_sys_tick_ms();
@@ -164,7 +169,8 @@ static void transaction_timeout_handler(user_timer_t timer)
             cur->next = expired;
             expired = cur;
             cur = g_transactions;
-        } else {
+        }
+        else {
             break;
         }
     }
@@ -186,27 +192,30 @@ static void transaction_timeout_handler(user_timer_t timer)
         unsigned int elpased_ms, ms_to_expiry, now = wasm_get_sys_tick_ms();
         if (now < g_transactions->time) {
             elpased_ms = now + (0xFFFFFFFF - g_transactions->time) + 1;
-        } else {
+        }
+        else {
             elpased_ms = now - g_transactions->time;
         }
         ms_to_expiry = TRANSACTION_TIMEOUT_MS - elpased_ms;
         api_timer_restart(g_trans_timer, ms_to_expiry);
-    } else {
+    }
+    else {
         api_timer_cancel(g_trans_timer);
         g_trans_timer = NULL;
     }
 }
 
-void api_send_request(request_t * request, response_handler_f response_handler,
-        void * user_data)
+void
+api_send_request(request_t *request, response_handler_f response_handler,
+                 void *user_data)
 {
     int size;
     char *buffer;
     transaction_t *trans;
 
-    if ((trans = (transaction_t *) malloc(sizeof(transaction_t))) == NULL) {
+    if ((trans = (transaction_t *)malloc(sizeof(transaction_t))) == NULL) {
         printf(
-                "send request: allocate memory for request transaction failed!\n");
+            "send request: allocate memory for request transaction failed!\n");
         return;
     }
 
@@ -228,9 +237,8 @@ void api_send_request(request_t * request, response_handler_f response_handler,
     if (trans == g_transactions) {
         /* assert(g_trans_timer == NULL); */
         if (g_trans_timer == NULL) {
-            g_trans_timer = api_timer_create(TRANSACTION_TIMEOUT_MS,
-            false,
-            true, transaction_timeout_handler);
+            g_trans_timer = api_timer_create(TRANSACTION_TIMEOUT_MS, false,
+                                             true, transaction_timeout_handler);
         }
     }
 
@@ -241,11 +249,13 @@ void api_send_request(request_t * request, response_handler_f response_handler,
 
 /*
  *
- *  APIs for the native layers to callback for request/response arrived to this app
+ *  APIs for the native layers to callback for request/response arrived to this
+ * app
  *
  */
 
-void on_response(char * buffer, int size)
+void
+on_response(char *buffer, int size)
 {
     response_t response[1];
     transaction_t *trans;
@@ -262,7 +272,8 @@ void on_response(char * buffer, int size)
 
     /*
      * When the 1st transaction get response:
-     * 1. If the 2nd trans exist, restart the timer according to its expiry time;
+     * 1. If the 2nd trans exist, restart the timer according to its expiry
+     * time;
      * 2. Otherwise, stop the timer since there is no more transactions;
      */
     if (trans == g_transactions) {
@@ -270,12 +281,14 @@ void on_response(char * buffer, int size)
             unsigned int elpased_ms, ms_to_expiry, now = wasm_get_sys_tick_ms();
             if (now < trans->next->time) {
                 elpased_ms = now + (0xFFFFFFFF - trans->next->time) + 1;
-            } else {
+            }
+            else {
                 elpased_ms = now - trans->next->time;
             }
             ms_to_expiry = TRANSACTION_TIMEOUT_MS - elpased_ms;
             api_timer_restart(g_trans_timer, ms_to_expiry);
-        } else {
+        }
+        else {
             api_timer_cancel(g_trans_timer);
             g_trans_timer = NULL;
         }
@@ -285,7 +298,8 @@ void on_response(char * buffer, int size)
     transaction_remove(trans);
 }
 
-void on_request(char *buffer, int size)
+void
+on_request(char *buffer, int size)
 {
     request_t request[1];
     bool is_event;
@@ -300,9 +314,9 @@ void on_request(char *buffer, int size)
 
     while (r) {
         if ((is_event && r->reg_type == Reg_Event)
-                || (!is_event && r->reg_type == Reg_Request)) {
+            || (!is_event && r->reg_type == Reg_Request)) {
             if (check_url_start(request->url, strlen(request->url), r->url)
-                    > 0) {
+                > 0) {
                 r->request_handler(request);
                 return;
             }
@@ -314,10 +328,11 @@ void on_request(char *buffer, int size)
     printf("on_request: exit. no service handler\n");
 }
 
-void api_response_send(response_t *response)
+void
+api_response_send(response_t *response)
 {
     int size;
-    char * buffer = pack_response(response, &size);
+    char *buffer = pack_response(response, &size);
     if (buffer == NULL)
         return;
 
@@ -327,12 +342,13 @@ void api_response_send(response_t *response)
 
 /// event api
 
-bool api_publish_event(const char *url, int fmt, void *payload, int payload_len)
+bool
+api_publish_event(const char *url, int fmt, void *payload, int payload_len)
 {
     int size;
     request_t request[1];
     init_request(request, (char *)url, COAP_EVENT, fmt, payload, payload_len);
-    char * buffer = pack_request(request, &size);
+    char *buffer = pack_request(request, &size);
     if (buffer == NULL)
         return false;
     wasm_post_request(buffer, size);
@@ -342,8 +358,8 @@ bool api_publish_event(const char *url, int fmt, void *payload, int payload_len)
     return true;
 }
 
-bool api_subscribe_event(const char * url, request_handler_f handler)
+bool
+api_subscribe_event(const char *url, request_handler_f handler)
 {
     return register_url_handler(url, handler, Reg_Event);
 }
-

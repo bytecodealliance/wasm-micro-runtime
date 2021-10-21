@@ -22,7 +22,7 @@ static korp_mutex g_timer_ctx_list_mutex;
 void
 wasm_timer_callback(timer_id_t id, unsigned int mod_id)
 {
-    module_data* module = module_data_list_lookup_id(mod_id);
+    module_data *module = module_data_list_lookup_id(mod_id);
     if (module == NULL)
         return;
 
@@ -40,7 +40,8 @@ wasm_timer_callback(timer_id_t id, unsigned int mod_id)
  * the module from module id. It is for avoiding that situation.
  */
 
-void * thread_modulers_timer_check(void * arg)
+void *
+thread_modulers_timer_check(void *arg)
 {
     uint32 ms_to_expiry;
     uint64 us_to_wait;
@@ -48,8 +49,8 @@ void * thread_modulers_timer_check(void * arg)
     while (timer_thread_run) {
         ms_to_expiry = (uint32)-1;
         os_mutex_lock(&g_timer_ctx_list_mutex);
-        timer_ctx_node_t* elem = (timer_ctx_node_t*)
-                                 bh_list_first_elem(&g_timer_ctx_list);
+        timer_ctx_node_t *elem =
+            (timer_ctx_node_t *)bh_list_first_elem(&g_timer_ctx_list);
         while (elem) {
             uint32 next = check_app_timers(elem->timer_ctx);
             if (next != (uint32)-1) {
@@ -57,7 +58,7 @@ void * thread_modulers_timer_check(void * arg)
                     ms_to_expiry = next;
             }
 
-            elem = (timer_ctx_node_t*) bh_list_elem_next(elem);
+            elem = (timer_ctx_node_t *)bh_list_elem_next(elem);
         }
         os_mutex_unlock(&g_timer_ctx_list_mutex);
 
@@ -93,8 +94,8 @@ init_wasm_timer()
        would recursive lock the mutex */
     os_recursive_mutex_init(&g_timer_ctx_list_mutex);
 
-    os_thread_create(&tm_tid, thread_modulers_timer_check,
-                     NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+    os_thread_create(&tm_tid, thread_modulers_timer_check, NULL,
+                     BH_APPLET_PRESERVED_STACK_SIZE);
 }
 
 void
@@ -106,15 +107,15 @@ exit_wasm_timer()
 timer_ctx_t
 create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
 {
-    timer_ctx_t ctx = create_timer_ctx(wasm_timer_callback,
-                                       wakeup_modules_timer_thread,
-                                       prealloc_num, module_id);
+    timer_ctx_t ctx =
+        create_timer_ctx(wasm_timer_callback, wakeup_modules_timer_thread,
+                         prealloc_num, module_id);
 
     if (ctx == NULL)
         return NULL;
 
-    timer_ctx_node_t * node = (timer_ctx_node_t*)
-                              wasm_runtime_malloc(sizeof(timer_ctx_node_t));
+    timer_ctx_node_t *node =
+        (timer_ctx_node_t *)wasm_runtime_malloc(sizeof(timer_ctx_node_t));
     if (node == NULL) {
         destroy_timer_ctx(ctx);
         return NULL;
@@ -132,11 +133,10 @@ create_wasm_timer_ctx(unsigned int module_id, int prealloc_num)
 void
 destroy_module_timer_ctx(unsigned int module_id)
 {
-    timer_ctx_node_t* elem;
+    timer_ctx_node_t *elem;
 
     os_mutex_lock(&g_timer_ctx_list_mutex);
-    elem = (timer_ctx_node_t*)
-           bh_list_first_elem(&g_timer_ctx_list);
+    elem = (timer_ctx_node_t *)bh_list_first_elem(&g_timer_ctx_list);
     while (elem) {
         if (timer_ctx_get_owner(elem->timer_ctx) == module_id) {
             bh_list_remove(&g_timer_ctx_list, elem);
@@ -145,7 +145,7 @@ destroy_module_timer_ctx(unsigned int module_id)
             break;
         }
 
-        elem = (timer_ctx_node_t*) bh_list_elem_next(elem);
+        elem = (timer_ctx_node_t *)bh_list_elem_next(elem);
     }
     os_mutex_unlock(&g_timer_ctx_list_mutex);
 }
@@ -153,16 +153,15 @@ destroy_module_timer_ctx(unsigned int module_id)
 timer_ctx_t
 get_wasm_timer_ctx(wasm_module_inst_t module_inst)
 {
-    module_data * m = app_manager_get_module_data(Module_WASM_App,
-                                                  module_inst);
+    module_data *m = app_manager_get_module_data(Module_WASM_App, module_inst);
     if (m == NULL)
         return NULL;
     return m->timer_ctx;
 }
 
 timer_id_t
-wasm_create_timer(wasm_exec_env_t exec_env,
-                  int interval, bool is_period, bool auto_start)
+wasm_create_timer(wasm_exec_env_t exec_env, int interval, bool is_period,
+                  bool auto_start)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     timer_ctx_t timer_ctx = get_wasm_timer_ctx(module_inst);
@@ -189,8 +188,7 @@ wasm_timer_cancel(wasm_exec_env_t exec_env, timer_id_t timer_id)
 }
 
 void
-wasm_timer_restart(wasm_exec_env_t exec_env,
-                   timer_id_t timer_id, int interval)
+wasm_timer_restart(wasm_exec_env_t exec_env, timer_id_t timer_id, int interval)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     timer_ctx_t timer_ctx = get_wasm_timer_ctx(module_inst);
@@ -203,4 +201,3 @@ wasm_get_sys_tick_ms(wasm_exec_env_t exec_env)
 {
     return (uint32)bh_get_tick_ms();
 }
-

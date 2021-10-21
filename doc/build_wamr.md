@@ -302,7 +302,7 @@ Zephyr
 You need to download the Zephyr source code first and embed WAMR into it.
 ``` Bash
 git clone https://github.com/zephyrproject-rtos/zephyr.git
-source ../zephyr-env.sh
+source zephyr/zephyr-env.sh
 cd <wamr_root_dir>/product-mini/platforms/zephyr/simple
 # Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
 ./build_and_run.sh x86

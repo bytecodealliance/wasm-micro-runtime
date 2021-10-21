@@ -12,8 +12,8 @@
 extern "C" {
 #endif
 
-#define FMT_ATTR_CONTAINER  99
-#define FMT_APP_RAW_BINARY  98
+#define FMT_ATTR_CONTAINER 99
+#define FMT_APP_RAW_BINARY 98
 
 /* the request structure */
 typedef struct request {
@@ -32,10 +32,10 @@ typedef struct request {
     // payload of the request, currently only support attr_container_t type
     void *payload;
 
-    //length in bytes of the payload
+    // length in bytes of the payload
     int payload_len;
 
-    //sender of the request
+    // sender of the request
     unsigned long sender;
 } request_t;
 
@@ -53,21 +53,21 @@ typedef struct response {
     // payload of the response,
     void *payload;
 
-    //length in bytes of the payload
+    // length in bytes of the payload
     int payload_len;
 
-    //receiver of the response
+    // receiver of the response
     unsigned long reciever;
 } response_t;
 
 int
-check_url_start(const char* url, int url_len, const char * leading_str);
+check_url_start(const char *url, int url_len, const char *leading_str);
 
 bool
-match_url(char * pattern, char * matched);
+match_url(char *pattern, char *matched);
 
 char *
-find_key_value(char * buffer, int buffer_len, char * key, char * value,
+find_key_value(char *buffer, int buffer_len, char *key, char *value,
                int value_len, char delimiter);
 
 request_t *
@@ -77,10 +77,10 @@ void
 request_cleaner(request_t *request);
 
 response_t *
-clone_response(response_t * response);
+clone_response(response_t *response);
 
 void
-response_cleaner(response_t * response);
+response_cleaner(response_t *response);
 
 /**
  * @brief Set fields of response.
@@ -96,8 +96,8 @@ response_cleaner(response_t * response);
  * @warning the response pointer MUST NOT be NULL
  */
 response_t *
-set_response(response_t * response, int status, int fmt,
-             const char *payload, int payload_len);
+set_response(response_t *response, int status, int fmt, const char *payload,
+             int payload_len);
 
 /**
  * @brief Make a response for a request.
@@ -110,7 +110,7 @@ set_response(response_t * response, int status, int fmt,
  * @warning the request and response pointers MUST NOT be NULL
  */
 response_t *
-make_response_for_request(request_t * request, response_t * response);
+make_response_for_request(request_t *request, response_t *response);
 
 /**
  * @brief Initialize a request.
@@ -127,27 +127,26 @@ make_response_for_request(request_t * request, response_t * response);
  * @warning the request pointer MUST NOT be NULL
  */
 request_t *
-init_request(request_t * request, char *url, int action, int fmt,
-             void *payload, int payload_len);
+init_request(request_t *request, char *url, int action, int fmt, void *payload,
+             int payload_len);
 
 char *
-pack_request(request_t *request, int * size);
+pack_request(request_t *request, int *size);
 
 request_t *
-unpack_request(char * packet, int size, request_t * request);
+unpack_request(char *packet, int size, request_t *request);
 
 char *
-pack_response(response_t *response, int * size);
+pack_response(response_t *response, int *size);
 
 response_t *
-unpack_response(char * packet, int size, response_t * response);
+unpack_response(char *packet, int size, response_t *response);
 
 void
-free_req_resp_packet(char * packet);
+free_req_resp_packet(char *packet);
 
 char *
 wa_strdup(const char *str);
-
 
 #ifdef __cplusplus
 }

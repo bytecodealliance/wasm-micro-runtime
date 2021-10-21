@@ -12,15 +12,17 @@
 extern "C" {
 #endif
 
-int udp_open(uint16 port);
+int
+udp_open(uint16 port);
 
-int udp_send(int sock, struct sockaddr *dest, const char *data, int size);
+int
+udp_send(int sock, struct sockaddr *dest, const char *data, int size);
 
-int udp_recv(int sock, char *buffer, int buf_size);
+int
+udp_recv(int sock, char *buffer, int buf_size);
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif
