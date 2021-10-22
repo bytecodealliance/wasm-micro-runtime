@@ -847,7 +847,6 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         size += get_native_symbol_list_size(comp_ctx);
     }
 
-#if (WASM_ENABLE_CUSTOM_NAME_SECTION != 0) && (WASM_ENABLE_DUMP_CALL_STACK != 0)
     if (comp_ctx->enable_aux_stack_frame) {
         /* custom name section */
         size = align_uint(size, 4);
@@ -855,7 +854,6 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         size += (uint32)sizeof(uint32) * 3;
         size += comp_data->name_section_buf_end - comp_data->name_section_buf;
     }
-#endif
 
     return size;
 }
@@ -1575,7 +1573,6 @@ static bool
 aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                       AOTCompData *comp_data, AOTCompContext *comp_ctx)
 {
-#if (WASM_ENABLE_CUSTOM_NAME_SECTION != 0) && (WASM_ENABLE_DUMP_CALL_STACK != 0)
     if (comp_ctx->enable_aux_stack_frame) {
         uint32 offset = *p_offset;
         uint32 custom_section_size = 0;
@@ -1594,7 +1591,6 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
         *p_offset = offset;
     }
-#endif
 
     return true;
 }

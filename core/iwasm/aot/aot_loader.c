@@ -362,53 +362,6 @@ check_utf8_str(const uint8 *str, uint32 len)
 }
 
 static char *
-const_str_list_insert(const uint8 *str, uint32 len, AOTModule *module,
-                      char *error_buf, uint32 error_buf_size)
-{
-    StringNode *node, *node_next;
-
-    if (!check_utf8_str(str, len)) {
-        set_error_buf(error_buf, error_buf_size, "invalid UTF-8 encoding");
-        return NULL;
-    }
-
-    /* Search const str list */
-    node = module->const_str_list;
-    while (node) {
-        node_next = node->next;
-        if (strlen(node->str) == len && !memcmp(node->str, str, len))
-            break;
-        node = node_next;
-    }
-
-    if (node) {
-        return node->str;
-    }
-
-    if (!(node = loader_malloc(sizeof(StringNode) + len + 1, error_buf,
-                               error_buf_size))) {
-        return NULL;
-    }
-
-    node->str = ((char *)node) + sizeof(StringNode);
-    bh_memcpy_s(node->str, len + 1, str, len);
-    node->str[len] = '\0';
-
-    if (!module->const_str_list) {
-        /* set as head */
-        module->const_str_list = node;
-        node->next = NULL;
-    }
-    else {
-        /* insert it */
-        node->next = module->const_str_list;
-        module->const_str_list = node;
-    }
-
-    return node->str;
-}
-
-static char *
 const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
                      char *error_buf, uint32 error_buf_size)
 {
@@ -637,7 +590,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *p = buf, *p_end = buf_end;
-    const char **aux_func_name;
+    const char **aux_func_names;
     uint32 name_type, subsection_size;
     uint32 previous_name_type = 0;
     uint32 num_func_name;
@@ -697,7 +650,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     /* Allocate memory */
                     size =
                         sizeof(char **) * (uint64)module->aux_func_name_count;
-                    if (!(module->aux_func_name = aux_func_name =
+                    if (!(module->aux_func_names = aux_func_names =
                               loader_malloc(size, error_buf, error_buf_size))) {
                         return false;
                     }
@@ -719,10 +672,10 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                         previous_func_index = func_index;
                         read_leb_uint32(p, p_end, func_name_len);
                         CHECK_BUF(p, p_end, func_name_len);
-                        *(aux_func_name + name_index) =
-                            const_str_list_insert(p, func_name_len, module,
+                        *(aux_func_names + name_index) =
+                            const_str_set_insert(p, func_name_len, module,
                                                   error_buf, error_buf_size);
-#if 1
+#if 0
                         LOG_DEBUG("name_index %d -> aux_func_name = %s",
                                   name_index, *(aux_func_name + name_index));
 #endif
@@ -3158,15 +3111,6 @@ aot_unload(AOTModule *module)
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
 
-    if (module->const_str_list) {
-        StringNode *node = module->const_str_list, *node_next;
-        while (node) {
-            node_next = node->next;
-            wasm_runtime_free(node);
-            node = node_next;
-        }
-    }
-
     if (module->code && (module->native_symbol_count == 0)) {
         /* The layout is: literal size + literal + code (with plt table) */
         uint8 *mmap_addr = module->literal - sizeof(uint32);
@@ -3197,8 +3141,8 @@ aot_unload(AOTModule *module)
 #endif
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-    if (module->aux_func_name) {
-        wasm_runtime_free(module->aux_func_name);
+    if (module->aux_func_names) {
+        wasm_runtime_free(module->aux_func_names);
     }
 #endif
 

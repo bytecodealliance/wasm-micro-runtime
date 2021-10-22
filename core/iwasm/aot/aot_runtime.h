@@ -224,8 +224,6 @@ typedef struct AOTModule {
     /* constant string set */
     HashMap *const_str_set;
 
-    StringList const_str_list;
-
     /* the index of auxiliary __data_end global,
        -1 means unexported */
     uint32 aux_data_end_global_index;
@@ -264,7 +262,7 @@ typedef struct AOTModule {
     uint32 elf_size;
 #endif
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-    const char **aux_func_name;
+    const char **aux_func_names;
     uint32 aux_func_name_count;
 #endif
 } AOTModule;

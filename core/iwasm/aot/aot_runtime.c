@@ -2823,8 +2823,8 @@ get_func_name_from_index(const AOTModuleInstance *module_inst,
     AOTModule *module = module_inst->aot_module.ptr;
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-    if (module->aux_func_name && func_index < module->aux_func_name_count) {
-        return *(module->aux_func_name + func_index);
+    if (module->aux_func_names && func_index < module->aux_func_name_count) {
+        return *(module->aux_func_names + func_index);
     }
 #endif
 
