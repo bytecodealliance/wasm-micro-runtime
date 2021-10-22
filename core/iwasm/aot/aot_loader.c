@@ -649,11 +649,9 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     read_leb_uint32(p, p_end, num_func_name);
                     module->aux_func_name_count = num_func_name;
                     /* Allocate memory */
-                    size =
-                            sizeof(uint32) * (uint64)module->aux_func_name_count;
+                    size = sizeof(uint32) * (uint64)module->aux_func_name_count;
                     if (!(aux_func_indexes = module->aux_func_indexes =
-                            loader_malloc(size, error_buf,
-                                          error_buf_size))) {
+                              loader_malloc(size, error_buf, error_buf_size))) {
                         return false;
                     }
                     size =
