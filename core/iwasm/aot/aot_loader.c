@@ -590,6 +590,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *p = buf, *p_end = buf_end;
+    uint32 *aux_func_indexes;
     const char **aux_func_names;
     uint32 name_type, subsection_size;
     uint32 previous_name_type = 0;
@@ -649,8 +650,15 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     module->aux_func_name_count = num_func_name;
                     /* Allocate memory */
                     size =
+                            sizeof(uint32) * (uint64)module->aux_func_name_count;
+                    if (!(aux_func_indexes = module->aux_func_indexes =
+                            loader_malloc(size, error_buf,
+                                          error_buf_size))) {
+                        return false;
+                    }
+                    size =
                         sizeof(char **) * (uint64)module->aux_func_name_count;
-                    if (!(module->aux_func_names = aux_func_names =
+                    if (!(aux_func_names = module->aux_func_names =
                               loader_malloc(size, error_buf, error_buf_size))) {
                         return false;
                     }
@@ -672,9 +680,10 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                         previous_func_index = func_index;
                         read_leb_uint32(p, p_end, func_name_len);
                         CHECK_BUF(p, p_end, func_name_len);
+                        *(aux_func_indexes + name_index) = func_index;
                         *(aux_func_names + name_index) =
                             const_str_set_insert(p, func_name_len, module,
-                                                  error_buf, error_buf_size);
+                                                 error_buf, error_buf_size);
 #if 0
                         LOG_DEBUG("name_index %d -> aux_func_name = %s",
                                   name_index, *(aux_func_name + name_index));
@@ -3141,6 +3150,9 @@ aot_unload(AOTModule *module)
 #endif
 
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if (module->aux_func_indexes) {
+        wasm_runtime_free(module->aux_func_indexes);
+    }
     if (module->aux_func_names) {
         wasm_runtime_free(module->aux_func_names);
     }
