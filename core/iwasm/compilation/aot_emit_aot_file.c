@@ -1545,7 +1545,7 @@ aot_emit_native_symbol(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     AOTNativeSymbol *sym = NULL;
 
     if (bh_list_length(&comp_ctx->native_symbols) == 0)
-        /* emit only when threre are native symbols */
+        /* emit only when there are native symbols */
         return true;
 
     *p_offset = offset = align_uint(offset, 4);
