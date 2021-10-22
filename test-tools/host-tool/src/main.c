@@ -17,7 +17,7 @@
 #include "coap_ext.h"
 #include "cJSON.h"
 #include "app_manager_export.h" /* for Module_WASM_App */
-#include "host_link.h" /* for REQUEST_PACKET */
+#include "host_link.h"          /* for REQUEST_PACKET */
 #include "transport.h"
 
 #define BUF_SIZE 1024
@@ -105,7 +105,8 @@ extern int g_mid;
 extern unsigned char leading[2];
 
 /* -1 fail, 0 success */
-static int send_request(request_t *request, uint16_t msg_type)
+static int
+send_request(request_t *request, uint16_t msg_type)
 {
     char *req_p;
     int req_size, req_size_n, ret = -1;
@@ -119,12 +120,12 @@ static int send_request(request_t *request, uint16_t msg_type)
 
     /* message type */
     msg_type = htons(msg_type);
-    if (!host_tool_send_data(g_conn_fd, (char *) &msg_type, sizeof(msg_type)))
+    if (!host_tool_send_data(g_conn_fd, (char *)&msg_type, sizeof(msg_type)))
         goto ret;
 
     /* payload length */
     req_size_n = htonl(req_size);
-    if (!host_tool_send_data(g_conn_fd, (char *) &req_size_n,
+    if (!host_tool_send_data(g_conn_fd, (char *)&req_size_n,
                              sizeof(req_size_n)))
         goto ret;
 
@@ -144,7 +145,8 @@ ret:
 /**
  * return: 0: success, others: fail
  */
-static int install(inst_info *info)
+static int
+install(inst_info *info)
 {
     request_t request[1] = { 0 };
     char *app_file_buf;
@@ -155,25 +157,25 @@ static int install(inst_info *info)
 
     if (info->module_type != NULL && url_remain_space > 0)
         snprintf(url + strlen(url), url_remain_space, "&type=%s",
-                info->module_type);
+                 info->module_type);
 
     if (info->heap_size > 0 && url_remain_space > 0)
         snprintf(url + strlen(url), url_remain_space, "&heap=%d",
-                info->heap_size);
+                 info->heap_size);
 
     if (info->timers > 0 && url_remain_space > 0)
         snprintf(url + strlen(url), url_remain_space, "&timers=%d",
-                info->timers);
+                 info->timers);
 
     if (info->watchdog_interval > 0 && url_remain_space > 0)
         snprintf(url + strlen(url), url_remain_space, "&wd=%d",
-                info->watchdog_interval);
+                 info->watchdog_interval);
 
     if ((app_file_buf = read_file_to_buffer(info->file, &app_size)) == NULL)
         return -1;
 
-    init_request(request, url, COAP_PUT, FMT_APP_RAW_BINARY,
-                 app_file_buf, app_size);
+    init_request(request, url, COAP_PUT, FMT_APP_RAW_BINARY, app_file_buf,
+                 app_size);
     request->mid = gen_random_id();
 
     if (info->module_type == NULL || strcmp(info->module_type, "wasm") == 0)
@@ -186,7 +188,8 @@ static int install(inst_info *info)
     return ret;
 }
 
-static int uninstall(uninst_info *info)
+static int
+uninstall(uninst_info *info)
 {
     request_t request[1] = { 0 };
     char url[URL_MAX_LEN] = { 0 };
@@ -197,14 +200,14 @@ static int uninstall(uninst_info *info)
         snprintf(url + strlen(url), url_remain_space, "&type=%s",
                  info->module_type);
 
-    init_request(request, url, COAP_DELETE, FMT_ATTR_CONTAINER,
-                 NULL, 0);
+    init_request(request, url, COAP_DELETE, FMT_ATTR_CONTAINER, NULL, 0);
     request->mid = gen_random_id();
 
     return send_request(request, REQUEST_PACKET);
 }
 
-static int query(query_info *info)
+static int
+query(query_info *info)
 {
     request_t request[1] = { 0 };
     char url[URL_MAX_LEN] = { 0 };
@@ -220,7 +223,8 @@ static int query(query_info *info)
     return send_request(request, REQUEST_PACKET);
 }
 
-static int request(req_info *info)
+static int
+request(req_info *info)
 {
     request_t request[1] = { 0 };
     attr_container_t *payload = NULL;
@@ -232,7 +236,8 @@ static int request(req_info *info)
         int payload_file_size;
 
         if ((payload_file = read_file_to_buffer(info->json_payload_file,
-                                                &payload_file_size)) == NULL)
+                                                &payload_file_size))
+            == NULL)
             return -1;
 
         if (NULL == (json = cJSON_Parse(payload_file))) {
@@ -251,8 +256,8 @@ static int request(req_info *info)
         free(payload_file);
     }
 
-    init_request(request, (char *)info->url, info->action,
-                 FMT_ATTR_CONTAINER, payload, payload_len);
+    init_request(request, (char *)info->url, info->action, FMT_ATTR_CONTAINER,
+                 payload, payload_len);
     request->mid = gen_random_id();
 
     ret = send_request(request, REQUEST_PACKET);
@@ -268,7 +273,8 @@ fail:
  * TODO: currently only support 1 url.
  * how to handle multiple responses and set process's exit code?
  */
-static int subscribe(reg_info *info)
+static int
+subscribe(reg_info *info)
 {
     request_t request[1] = { 0 };
     int ret = -1;
@@ -293,15 +299,15 @@ static int subscribe(reg_info *info)
     char url[URL_MAX_LEN] = { 0 };
     char *prefix = info->urls[0] == '/' ? "/event" : "/event/";
     snprintf(url, URL_MAX_LEN, "%s%s", prefix, info->urls);
-    init_request(request, url, COAP_PUT, FMT_ATTR_CONTAINER,
-                 NULL, 0);
+    init_request(request, url, COAP_PUT, FMT_ATTR_CONTAINER, NULL, 0);
     request->mid = gen_random_id();
     ret = send_request(request, REQUEST_PACKET);
 #endif
     return ret;
 }
 
-static int unsubscribe(unreg_info *info)
+static int
+unsubscribe(unreg_info *info)
 {
     request_t request[1] = { 0 };
     int ret = -1;
@@ -325,15 +331,15 @@ static int unsubscribe(unreg_info *info)
 #else
     char url[URL_MAX_LEN] = { 0 };
     snprintf(url, URL_MAX_LEN, "%s%s", "/event/", info->urls);
-    init_request(request, url, COAP_DELETE, FMT_ATTR_CONTAINER,
-                 NULL, 0);
+    init_request(request, url, COAP_DELETE, FMT_ATTR_CONTAINER, NULL, 0);
     request->mid = gen_random_id();
     ret = send_request(request, REQUEST_PACKET);
 #endif
     return ret;
 }
 
-static int init()
+static int
+init()
 {
     if (g_connection_mode == CONNECTION_MODE_TCP) {
         int fd;
@@ -353,12 +359,14 @@ static int init()
     return -1;
 }
 
-static void deinit()
+static void
+deinit()
 {
     close(g_conn_fd);
 }
 
-static int parse_action(const char *str)
+static int
+parse_action(const char *str)
 {
     if (strcasecmp(str, "PUT") == 0)
         return COAP_PUT;
@@ -371,70 +379,55 @@ static int parse_action(const char *str)
     return -1;
 }
 
+/* clang-format off */
 static void showUsage()
 {
-    printf("\n");
-    printf("Usage:\n\thost_tool -i|-u|-q|-r|-s|-d ...\n\n");
+    printf("Usages:\n");
+    printf("  host_tool -i|-u|-q|-r|-s|-d ...\n");
+    printf("  host_tool -i <App Name> -f <App File>\n"
+           "            [--type=<App Type>]\n"
+           "            [--heap=<Heap Size>]\n"
+           "            [--timers=<Timers Number>]\n"
+           "            [--watchdog=<Watchdog Interval>]\n"
+           "            [<Control Options> ...] \n");
+    printf("  host_tool -u <App Name> [<Control Options> ...]\n");
+    printf("  host_tool -q [<App Name>] [<Control Options> ...]\n");
+    printf("  host_tool -r <Resource URL> -A <Action> [-p <Payload File>] [<Control Options> ...]\n");
+    printf("  host_tool -s <Event URLs> [<Control Options> ...]\n");
+    printf("  host_tool -d <Event URLs> [<Control Options> ...]\n");
 
-    printf("\thost_tool -i <App Name> -f <App File>\n"
-            "\t\t [--type=<App Type>]\n"
-            "\t\t [--heap=<Heap Size>]\n"
-            "\t\t [--timers=<Timers Number>]\n"
-            "\t\t [--watchdog=<Watchdog Interval>]\n"
-            "\t\t [<Control Options> ...] \n");
-    printf("\thost_tool -u <App Name> [<Control Options> ...]\n");
-    printf("\thost_tool -q[<App Name>][<Control Options> ...]\n");
-    printf(
-            "\thost_tool -r <Resource URL> -A <Action> [-p <Payload File>] [<Control Options> ...]\n");
-    printf("\thost_tool -s <Event URLs> [<Control Options> ...]\n");
-    printf("\thost_tool -d <Event URLs> [<Control Options> ...]\n\n");
+    printf("\nGeneral Options:\n");
+    printf("  -i, --install                           Install an application\n");
+    printf("  -u, --uninstall                         Uninstall an application\n");
+    printf("  -q, --query                             Query all applications\n");
+    printf("  -r, --request                           Send a request\n");
+    printf("  -s, --register                          Register event(s)\n");
+    printf("  -d, --deregister                        De-register event(s)\n");
+    printf("  -f, --file                              Specify app binary file path\n");
+    printf("  -A, --action                            Specify action of the request\n");
+    printf("  -p, --payload                           Specify payload of the request\n");
 
-    printf(
-            "\t-i, --install                           Install an application\n");
-    printf(
-            "\t-u, --uninstall                         Uninstall an application\n");
-    printf(
-            "\t-q, --query                             Query all applications\n");
-    printf("\t-r, --request                           Send a request\n");
-    printf("\t-s, --register                          Register event(s)\n");
-    printf("\t-d, --deregister                        De-register event(s)\n");
-    printf(
-            "\t-f, --file                              Specify app binary file path\n");
-    printf(
-            "\t-A, --action                            Specify action of the request\n");
-    printf(
-            "\t-p, --payload                           Specify payload of the request\n");
-    printf("\n");
-
-    printf("\n\tControl Options:\n");
-    printf(" \t-S <Address>|--address=<Address>          Set server address, default to 127.0.0.1\n");
-    printf(" \t-P <Port>|--port=<Port>                   Set server port, default to 8888\n");
-    printf(" \t-D <Device>|--uart=<Device>               Set uart device, default to /dev/ttyS2\n");
-    printf(" \t-B <Baudrate>|--baudrate=<Baudrate>       Set uart device baudrate, default to 115200\n");
-
-    printf(
-            "\t-t <timeout>|--timeout=<timeout>          Operation timeout in ms, default to 5000\n");
-    printf(
-            "\t-a <alive_time>|--alive=<alive_time>      Alive time in ms after last operation done, default to 0\n");
-    printf(
-            "\t-o <output_file>|--output=<output_file>   Redirect the output to output a file\n");
-    printf(
-            "\t-U <udp_port>|--udp=<udp_port>            Redirect the output to an UDP port in local machine\n");
+    printf("\nControl Options:\n");
+    printf("  -S <Address>|--address=<Address>        Set server address, default to 127.0.0.1\n");
+    printf("  -P <Port>|--port=<Port>                 Set server port, default to 8888\n");
+    printf("  -D <Device>|--uart=<Device>             Set uart device, default to /dev/ttyS2\n");
+    printf("  -B <Baudrate>|--baudrate=<Baudrate>     Set uart device baudrate, default to 115200\n");
+    printf("  -t <timeout>|--timeout=<timeout>        Operation timeout in ms, default to 5000\n");
+    printf("  -a <alive_time>|--alive=<alive_time>    Alive time in ms after last operation done, default to 0\n");
+    printf("  -o <output_file>|--output=<output_file> Redirect the output to output a file\n");
+    printf("  -U <udp_port>|--udp=<udp_port>          Redirect the output to an UDP port in local machine\n");
 
     printf("\nNotes:\n");
-    printf("\t<App Name>=name of the application\n");
-    printf("\t<App File>=path of the application binary file in wasm format\n");
-    printf(
-            "\t<Resource URL>=resource descriptor, such as /app/<App Name>/res1 or /res1\n");
-    printf(
-            "\t<Event URLs>=event url list separated by ',', such as /event1,/event2,/event3\n");
-    printf(
-            "\t<Action>=action of the request, can be PUT, GET, DELETE or POST (case insensitive)\n");
-    printf("\t<Payload File>=path of the payload file in json format\n");
-    printf("\t<App Type>=Type of app. Can be 'wasm'(default) or 'jeff'\n");
-    printf("\t<Heap Size>=Heap size of app.\n");
-    printf("\t<Timers Number>=Max timers number app can use.\n");
-    printf("\t<Watchdog Interval>=Watchdog interval in ms.\n");
+    printf("  <App Name>=name of the application\n");
+    printf("  <App File>=path of the application binary file in wasm format\n");
+    printf("  <Resource URL>=resource descriptor, such as /app/<App Name>/res1 or /res1\n");
+    printf("  <Event URLs>=event url list separated by ',', such as /event1,/event2,/event3\n");
+    printf("  <Action>=action of the request, can be PUT, GET, DELETE or POST (case insensitive)\n");
+    printf("  <Payload File>=path of the payload file in json format\n");
+    printf("  <App Type>=Type of app. Can be 'wasm'(default) or 'jeff'\n");
+    printf("  <Heap Size>=Heap size of app.\n");
+    printf("  <Timers Number>=Max timers number app can use.\n");
+    printf("  <Watchdog Interval>=Watchdog interval in ms.\n");
 }
 
 #define CHECK_DUPLICATE_OPERATION do {  \

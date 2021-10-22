@@ -56,7 +56,7 @@ typedef struct wasm_data {
     /* thread list mapped with this WASM module */
     korp_tid thread_id;
     /* for easily access the containing module data */
-    module_data* m_data;
+    module_data *m_data;
     /* is bytecode or aot */
     bool is_bytecode;
     /* sections of wasm bytecode or aot file */
@@ -109,16 +109,18 @@ typedef struct wasm_app_file_t {
 extern module_interface wasm_app_module_interface;
 
 typedef void (*message_type_handler_t)(module_data *m_data, bh_message_t msg);
-extern bool wasm_register_msg_callback(int msg_type,
-        message_type_handler_t message_handler);
+extern bool
+wasm_register_msg_callback(int msg_type,
+                           message_type_handler_t message_handler);
 
 typedef void (*resource_cleanup_handler_t)(uint32 module_id);
-extern bool wasm_register_cleanup_callback(resource_cleanup_handler_t handler);
+extern bool
+wasm_register_cleanup_callback(resource_cleanup_handler_t handler);
 
 /**
  * Set WASI root dir for modules. On each wasm app installation, a sub dir named
- * with the app's name will be created autamically. That wasm app can only access
- * this sub dir.
+ * with the app's name will be created autamically. That wasm app can only
+ * access this sub dir.
  *
  * @param root_dir the root dir to set
  * @return true for success, false otherwise

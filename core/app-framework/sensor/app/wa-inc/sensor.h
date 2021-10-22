@@ -30,8 +30,8 @@ typedef struct _sensor *sensor_t;
  * @see sensor_open
  */
 typedef void (*sensor_event_handler_f)(sensor_t sensor,
-                                     attr_container_t *sensor_event,
-                                     void *user_data);
+                                       attr_container_t *sensor_event,
+                                       void *user_data);
 
 /*
  *****************
@@ -49,10 +49,9 @@ typedef void (*sensor_event_handler_f)(sensor_t sensor,
  *
  * @return the sensor opened if success, NULL otherwise
  */
-sensor_t sensor_open(const char* name,
-                     int index,
-                     sensor_event_handler_f handler,
-                     void *user_data);
+sensor_t
+sensor_open(const char *name, int index, sensor_event_handler_f handler,
+            void *user_data);
 
 /**
  * @brief Configure sensor with interval/bit_cfg/delay values.
@@ -64,7 +63,8 @@ sensor_t sensor_open(const char* name,
  *
  * @return true if success, false otherwise
  */
-bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
+bool
+sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
 
 /**
  * @brief Configure sensor with attr_container_t object.
@@ -74,7 +74,8 @@ bool sensor_config(sensor_t sensor, int interval, int bit_cfg, int delay);
  *
  * @return true if success, false otherwise
  */
-bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
+bool
+sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
 
 /**
  * @brief Close sensor.
@@ -83,7 +84,8 @@ bool sensor_config_with_attr_container(sensor_t sensor, attr_container_t *cfg);
  *
  * @return true if success, false otherwise
  */
-bool sensor_close(sensor_t sensor);
+bool
+sensor_close(sensor_t sensor);
 
 #ifdef __cplusplus
 }

@@ -11,7 +11,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-int tcp_open(char *address, uint16 port)
+int
+tcp_open(char *address, uint16 port)
 {
     int sock, ret;
     struct sockaddr_in servaddr;
@@ -25,7 +26,7 @@ int tcp_open(char *address, uint16 port)
     if (sock == -1)
         return -1;
 
-    ret = connect(sock, (struct sockaddr*)&servaddr, sizeof(servaddr));
+    ret = connect(sock, (struct sockaddr *)&servaddr, sizeof(servaddr));
     if (ret == -1) {
         close(sock);
         return -1;
@@ -40,12 +41,14 @@ int tcp_open(char *address, uint16 port)
     return sock;
 }
 
-int tcp_send(int sock, const char *data, int size)
+int
+tcp_send(int sock, const char *data, int size)
 {
     return send(sock, data, size, 0);
 }
 
-int tcp_recv(int sock, char *buffer, int buf_size)
+int
+tcp_recv(int sock, char *buffer, int buf_size)
 {
     return recv(sock, buffer, buf_size, 0);
 }

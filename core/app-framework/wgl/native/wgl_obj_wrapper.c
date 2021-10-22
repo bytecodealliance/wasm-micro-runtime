@@ -10,7 +10,6 @@
 #include "wgl_native_utils.h"
 #include "wgl.h"
 
-
 typedef struct {
     bh_list_link l;
 
@@ -42,24 +41,24 @@ static korp_mutex task_handler_lock;
 
 static korp_cond task_handler_cond;
 
-static void app_mgr_object_event_callback(module_data *m_data, bh_message_t msg)
+static void
+app_mgr_object_event_callback(module_data *m_data, bh_message_t msg)
 {
     uint32 argv[2];
     wasm_function_inst_t func_on_object_event;
     bh_assert(WIDGET_EVENT_WASM == bh_message_type(msg));
-    wasm_data *wasm_app_data = (wasm_data*)m_data->internal_data;
+    wasm_data *wasm_app_data = (wasm_data *)m_data->internal_data;
     wasm_module_inst_t inst = wasm_app_data->wasm_module_inst;
-    object_event_t *object_event
-                       = (object_event_t *)bh_message_payload(msg);
+    object_event_t *object_event = (object_event_t *)bh_message_payload(msg);
 
     if (object_event == NULL)
         return;
 
-    func_on_object_event = wasm_runtime_lookup_function(inst, "_on_widget_event",
-                                                        "(i32i32)");
+    func_on_object_event =
+        wasm_runtime_lookup_function(inst, "_on_widget_event", "(i32i32)");
     if (!func_on_object_event)
-        func_on_object_event = wasm_runtime_lookup_function(inst, "on_widget_event",
-                                                            "(i32i32)");
+        func_on_object_event =
+            wasm_runtime_lookup_function(inst, "on_widget_event", "(i32i32)");
     if (!func_on_object_event) {
         printf("Cannot find function on_widget_event\n");
         return;
@@ -71,14 +70,14 @@ static void app_mgr_object_event_callback(module_data *m_data, bh_message_t msg)
                                 2, argv)) {
         const char *exception = wasm_runtime_get_exception(inst);
         bh_assert(exception);
-        printf(":Got exception running wasm code: %s\n",
-                exception);
+        printf(":Got exception running wasm code: %s\n", exception);
         wasm_runtime_clear_exception(inst);
         return;
     }
 }
 
-static void cleanup_object_list(uint32 module_id)
+static void
+cleanup_object_list(uint32 module_id)
 {
     object_node_t *elem;
 
@@ -89,8 +88,8 @@ static void cleanup_object_list(uint32 module_id)
         elem = (object_node_t *)bh_list_first_elem(&g_object_list);
         while (elem) {
             /* delete the leaf node belongs to the module firstly */
-            if (module_id == elem->module_id &&
-                lv_obj_count_children(elem->obj) == 0) {
+            if (module_id == elem->module_id
+                && lv_obj_count_children(elem->obj) == 0) {
                 object_node_t *next = (object_node_t *)bh_list_elem_next(elem);
 
                 found = true;
@@ -98,7 +97,8 @@ static void cleanup_object_list(uint32 module_id)
                 bh_list_remove(&g_object_list, elem);
                 wasm_runtime_free(elem);
                 elem = next;
-            } else {
+            }
+            else {
                 elem = (object_node_t *)bh_list_elem_next(elem);
             }
         }
@@ -110,7 +110,8 @@ static void cleanup_object_list(uint32 module_id)
     os_mutex_unlock(&g_object_list_mutex);
 }
 
-static bool init_object_event_callback_framework()
+static bool
+init_object_event_callback_framework()
 {
     if (!wasm_register_cleanup_callback(cleanup_object_list)) {
         goto fail;
@@ -127,7 +128,8 @@ fail:
     return false;
 }
 
-bool wgl_native_validate_object(int32 obj_id, lv_obj_t **obj)
+bool
+wgl_native_validate_object(int32 obj_id, lv_obj_t **obj)
 {
     object_node_t *elem;
 
@@ -141,7 +143,7 @@ bool wgl_native_validate_object(int32 obj_id, lv_obj_t **obj)
             os_mutex_unlock(&g_object_list_mutex);
             return true;
         }
-        elem = (object_node_t *) bh_list_elem_next(elem);
+        elem = (object_node_t *)bh_list_elem_next(elem);
     }
 
     os_mutex_unlock(&g_object_list_mutex);
@@ -149,11 +151,12 @@ bool wgl_native_validate_object(int32 obj_id, lv_obj_t **obj)
     return false;
 }
 
-bool wgl_native_add_object(lv_obj_t *obj, uint32 module_id, uint32 *obj_id)
+bool
+wgl_native_add_object(lv_obj_t *obj, uint32 module_id, uint32 *obj_id)
 {
     object_node_t *node;
 
-    node = (object_node_t *) wasm_runtime_malloc(sizeof(object_node_t));
+    node = (object_node_t *)wasm_runtime_malloc(sizeof(object_node_t));
 
     if (node == NULL)
         return false;
@@ -178,11 +181,12 @@ bool wgl_native_add_object(lv_obj_t *obj, uint32 module_id, uint32 *obj_id)
     return true;
 }
 
-static void _obj_del_recursive(lv_obj_t *obj)
+static void
+_obj_del_recursive(lv_obj_t *obj)
 {
     object_node_t *elem;
-    lv_obj_t * i;
-    lv_obj_t * i_next;
+    lv_obj_t *i;
+    lv_obj_t *i_next;
 
     i = lv_ll_get_head(&(obj->child_ll));
 
@@ -207,16 +211,17 @@ static void _obj_del_recursive(lv_obj_t *obj)
             os_mutex_unlock(&g_object_list_mutex);
             return;
         }
-        elem = (object_node_t *) bh_list_elem_next(elem);
+        elem = (object_node_t *)bh_list_elem_next(elem);
     }
 
     os_mutex_unlock(&g_object_list_mutex);
 }
 
-static void _obj_clean_recursive(lv_obj_t *obj)
+static void
+_obj_clean_recursive(lv_obj_t *obj)
 {
-    lv_obj_t * i;
-    lv_obj_t * i_next;
+    lv_obj_t *i;
+    lv_obj_t *i_next;
 
     i = lv_ll_get_head(&(obj->child_ll));
 
@@ -232,7 +237,8 @@ static void _obj_clean_recursive(lv_obj_t *obj)
     }
 }
 
-static void post_widget_msg_to_module(object_node_t *object_node, lv_event_t event)
+static void
+post_widget_msg_to_module(object_node_t *object_node, lv_event_t event)
 {
     module_data *module = module_data_list_lookup_id(object_node->module_id);
     object_event_t *object_event;
@@ -248,13 +254,12 @@ static void post_widget_msg_to_module(object_node_t *object_node, lv_event_t eve
     object_event->obj_id = object_node->obj_id;
     object_event->event = event;
 
-    bh_post_msg(module->queue,
-                WIDGET_EVENT_WASM,
-                object_event,
+    bh_post_msg(module->queue, WIDGET_EVENT_WASM, object_event,
                 sizeof(*object_event));
 }
 
-static void internal_lv_obj_event_cb(lv_obj_t *obj, lv_event_t event)
+static void
+internal_lv_obj_event_cb(lv_obj_t *obj, lv_event_t event)
 {
     object_node_t *elem;
 
@@ -267,13 +272,14 @@ static void internal_lv_obj_event_cb(lv_obj_t *obj, lv_event_t event)
             os_mutex_unlock(&g_object_list_mutex);
             return;
         }
-        elem = (object_node_t *) bh_list_elem_next(elem);
+        elem = (object_node_t *)bh_list_elem_next(elem);
     }
 
     os_mutex_unlock(&g_object_list_mutex);
 }
 
-static void* lv_task_handler_thread_routine (void *arg)
+static void *
+lv_task_handler_thread_routine(void *arg)
 {
     os_mutex_lock(&task_handler_lock);
 
@@ -287,7 +293,8 @@ static void* lv_task_handler_thread_routine (void *arg)
     return NULL;
 }
 
-void wgl_init(void)
+void
+wgl_init(void)
 {
     korp_tid tid;
 
@@ -306,13 +313,12 @@ void wgl_init(void)
     init_object_event_callback_framework();
 
     /* new a thread, call lv_task_handler periodically */
-    os_thread_create(&tid,
-                     lv_task_handler_thread_routine,
-                     NULL,
+    os_thread_create(&tid, lv_task_handler_thread_routine, NULL,
                      BH_APPLET_PRESERVED_STACK_SIZE);
 }
 
-void wgl_exit(void)
+void
+wgl_exit(void)
 {
     lv_task_handler_thread_run = false;
     os_cond_destroy(&task_handler_cond);
@@ -371,7 +377,8 @@ DEFINE_WGL_NATIVE_WRAPPER(lv_obj_align_wrapper)
 
     /* validate the base object id if not equal to 0 */
     if (base_obj_id != 0 && !wgl_native_validate_object(base_obj_id, &base)) {
-        wasm_runtime_set_exception(module_inst, "align with invalid base object.");
+        wasm_runtime_set_exception(module_inst,
+                                   "align with invalid base object.");
         return;
     }
 
@@ -388,24 +395,20 @@ DEFINE_WGL_NATIVE_WRAPPER(lv_obj_set_event_cb_wrapper)
 /* ------------------------------------------------------------------------- */
 
 static WGLNativeFuncDef obj_native_func_defs[] = {
-    { OBJ_FUNC_ID_DEL,         lv_obj_del_wrapper,            1,  true },
-    { OBJ_FUNC_ID_DEL_ASYNC,   lv_obj_del_async_wrapper,      1,  true },
-    { OBJ_FUNC_ID_CLEAN,       lv_obj_clean_wrapper,          1,  true },
-    { OBJ_FUNC_ID_ALIGN,       lv_obj_align_wrapper,          5,  true },
-    { OBJ_FUNC_ID_SET_EVT_CB,  lv_obj_set_event_cb_wrapper,   1,  true },
+    { OBJ_FUNC_ID_DEL, lv_obj_del_wrapper, 1, true },
+    { OBJ_FUNC_ID_DEL_ASYNC, lv_obj_del_async_wrapper, 1, true },
+    { OBJ_FUNC_ID_CLEAN, lv_obj_clean_wrapper, 1, true },
+    { OBJ_FUNC_ID_ALIGN, lv_obj_align_wrapper, 5, true },
+    { OBJ_FUNC_ID_SET_EVT_CB, lv_obj_set_event_cb_wrapper, 1, true },
 };
 
 /*************** Native Interface to Wasm App ***********/
 void
-wasm_obj_native_call(wasm_exec_env_t exec_env,
-                     int32 func_id, uint32 *argv, uint32 argc)
+wasm_obj_native_call(wasm_exec_env_t exec_env, int32 func_id, uint32 *argv,
+                     uint32 argc)
 {
     uint32 size = sizeof(obj_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(exec_env,
-                         obj_native_func_defs,
-                         size,
-                         func_id,
-                         argv,
+    wgl_native_func_call(exec_env, obj_native_func_defs, size, func_id, argv,
                          argc);
 }

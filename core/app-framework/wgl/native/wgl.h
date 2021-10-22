@@ -10,8 +10,10 @@
 extern "C" {
 #endif
 
-void wgl_init(void);
-void wgl_exit(void);
+void
+wgl_init(void);
+void
+wgl_exit(void);
 
 #ifdef __cplusplus
 }

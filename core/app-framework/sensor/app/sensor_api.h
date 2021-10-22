@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 uint32
-wasm_sensor_open(const char* name, int instance);
+wasm_sensor_open(const char *name, int instance);
 
 bool
 wasm_sensor_config(uint32 sensor, int interval, int bit_cfg, int delay);
@@ -29,4 +29,3 @@ wasm_sensor_close(uint32 sensor);
 #endif
 
 #endif /* end of _SENSOR_API_H_ */
-

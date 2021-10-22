@@ -22,7 +22,8 @@ extern "C" {
  *
  * @warning the return object should be deleted with cJSON_Delete by caller
  */
-cJSON *attr2json(const attr_container_t *attr);
+cJSON *
+attr2json(const attr_container_t *attr);
 
 /**
  * @brief Convert cJSON object to attribute container object.
@@ -33,14 +34,16 @@ cJSON *attr2json(const attr_container_t *attr);
  *
  * @warning the return object should be deleted with attr_container_destroy
  */
-attr_container_t *json2attr(const cJSON *json);
+attr_container_t *
+json2attr(const cJSON *json);
 
 /**
  * @brief Generate a random 32 bit integer.
  *
  * @return the generated random integer
  */
-int gen_random_id();
+int
+gen_random_id();
 
 /**
  * @brief Read file content to buffer.
@@ -48,11 +51,13 @@ int gen_random_id();
  * @param filename the file name to read
  * @param ret_size pointer of integer to save file size once return success
  *
- * @return the created buffer which contains file content if not NULL, NULL means fail
+ * @return the created buffer which contains file content if not NULL, NULL
+ * means fail
  *
  * @warning the return buffer should be deleted with free by caller
  */
-char *read_file_to_buffer(const char *filename, int *ret_size);
+char *
+read_file_to_buffer(const char *filename, int *ret_size);
 
 /**
  * @brief Write buffer content to file.
@@ -63,7 +68,8 @@ char *read_file_to_buffer(const char *filename, int *ret_size);
  *
  * @return < 0 means fail, > 0 means the number of bytes actually written
  */
-int wirte_buffer_to_file(const char *filename, const char *buffer, int size);
+int
+wirte_buffer_to_file(const char *filename, const char *buffer, int size);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

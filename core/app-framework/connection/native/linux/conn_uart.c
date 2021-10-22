@@ -9,7 +9,8 @@
 #include <termios.h>
 #include <unistd.h>
 
-static int parse_baudrate(int baud)
+static int
+parse_baudrate(int baud)
 {
     switch (baud) {
         case 9600:
@@ -53,7 +54,8 @@ static int parse_baudrate(int baud)
     }
 }
 
-int uart_open(char* device, int baudrate)
+int
+uart_open(char *device, int baudrate)
 {
     int uart_fd;
     struct termios uart_term;
@@ -88,12 +90,14 @@ int uart_open(char* device, int baudrate)
     return uart_fd;
 }
 
-int uart_send(int fd, const char *data, int size)
+int
+uart_send(int fd, const char *data, int size)
 {
     return write(fd, data, size);
 }
 
-int uart_recv(int fd, char *buffer, int buf_size)
+int
+uart_recv(int fd, char *buffer, int buf_size)
 {
     return read(fd, buffer, buf_size);
 }

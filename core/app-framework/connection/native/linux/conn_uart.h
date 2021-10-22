@@ -12,15 +12,17 @@
 extern "C" {
 #endif
 
-int uart_open(char* device, int baudrate);
+int
+uart_open(char *device, int baudrate);
 
-int uart_send(int fd, const char *data, int size);
+int
+uart_send(int fd, const char *data, int size);
 
-int uart_recv(int fd, char *buffer, int buf_size);
+int
+uart_recv(int fd, char *buffer, int buf_size);
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif
