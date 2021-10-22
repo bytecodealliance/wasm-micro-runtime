@@ -65,14 +65,12 @@ done
 
 
 if [ ! -f "/opt/wasi-sdk/bin/clang" ]; then
-        echo "Can't find wasi-sdk under /opt/wasi-sdk"
-        echo "You can download wasi-sdk from here:"
-        echo ""
-        echo "https://github.com/CraneStation/wasi-sdk/releases/tag/wasi-sdk-7"
-        echo ""
-        echo "please install it to the default path for your convenience"
-        echo ""
-        exit 1
+    echo "Intall wasi-sdk.." &&
+    rm -fr wasi-sdk-* /opt/wasi-sdk &&
+    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz &&
+    tar -zxf wasi-sdk-12.0-linux.tar.gz &&
+    mv wasi-sdk-12.0 /opt/wasi-sdk &&
+    rm -f wasi-sdk-12.0-linux.tar.gz
 fi
 
 
@@ -190,7 +188,10 @@ if [ -n "$out" ]; then
 fi
 if [ "${LIBC_SUPPORT}" = "WASI" ]; then
     echo "using wasi toolchain"
-    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE}  -DCONFIG_PATH=${wamr_config_cmake_file}  -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
+    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
+         -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \
+         -DCONFIG_PATH=${wamr_config_cmake_file} \
+         -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
 else
     echo "using builtin libc toolchain"
     cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
