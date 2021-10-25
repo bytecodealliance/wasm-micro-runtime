@@ -26,23 +26,6 @@
     } while (0)
 
 static bool
-check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length)
-{
-    if (buf + length > buf_end) {
-        aot_set_last_error("unexpect end");
-        return false;
-    }
-    return true;
-}
-
-#define CHECK_BUF(buf, buf_end, length)         \
-    do {                                        \
-        if (!check_buf(buf, buf_end, length)) { \
-            goto fail;                          \
-        }                                       \
-    } while (0)
-
-static bool
 check_utf8_str(const uint8 *str, uint32 len)
 {
     /* The valid ranges are taken from page 125, below link
@@ -106,89 +89,6 @@ check_utf8_str(const uint8 *str, uint32 len)
     }
     return (p == p_end);
 }
-
-static bool
-read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
-         uint64 *p_result)
-{
-    const uint8 *buf = *p_buf;
-    uint64 result = 0;
-    uint32 shift = 0;
-    uint32 offset = 0, bcnt = 0;
-    uint64 byte;
-
-    while (true) {
-        /* uN or SN must not exceed ceil(N/7) bytes */
-        if (bcnt + 1 > (maxbits + 6) / 7) {
-            aot_set_last_error("integer representation too long");
-            return false;
-        }
-
-        CHECK_BUF(buf, buf_end, offset + 1);
-        byte = buf[offset];
-        offset += 1;
-        result |= ((byte & 0x7f) << shift);
-        shift += 7;
-        bcnt += 1;
-        if ((byte & 0x80) == 0) {
-            break;
-        }
-    }
-
-    if (!sign && maxbits == 32 && shift >= maxbits) {
-        /* The top bits set represent values > 32 bits */
-        if (((uint8)byte) & 0xf0)
-            goto fail_integer_too_large;
-    }
-    else if (sign && maxbits == 32) {
-        if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
-            if ((uint8)byte & 0x40)
-                result |= (~((uint64)0)) << shift;
-        }
-        else {
-            /* The top bits should be a sign-extension of the sign bit */
-            bool sign_bit_set = ((uint8)byte) & 0x8;
-            int top_bits = ((uint8)byte) & 0xf0;
-            if ((sign_bit_set && top_bits != 0x70)
-                || (!sign_bit_set && top_bits != 0))
-                goto fail_integer_too_large;
-        }
-    }
-    else if (sign && maxbits == 64) {
-        if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
-            if ((uint8)byte & 0x40)
-                result |= (~((uint64)0)) << shift;
-        }
-        else {
-            /* The top bits should be a sign-extension of the sign bit */
-            bool sign_bit_set = ((uint8)byte) & 0x1;
-            int top_bits = ((uint8)byte) & 0xfe;
-
-            if ((sign_bit_set && top_bits != 0x7e)
-                || (!sign_bit_set && top_bits != 0))
-                goto fail_integer_too_large;
-        }
-    }
-
-    *p_buf += offset;
-    *p_result = result;
-    return true;
-
-fail_integer_too_large:
-    aot_set_last_error("integer too large");
-fail:
-    return false;
-}
-
-#define read_leb_uint32(p, p_end, res)                         \
-    do {                                                       \
-        uint64 res64;                                          \
-        if (!read_leb((uint8 **)&p, p_end, 32, false, &res64)) \
-            goto fail;                                         \
-        res = (uint32)res64;                                   \
-    } while (0)
 
 /* Internal function in object file */
 typedef struct AOTObjectFunc {
@@ -1150,6 +1050,91 @@ static union {
         uint32 str_len = (uint32)strlen(s); \
         EMIT_U16(str_len);                  \
         EMIT_BUF(s, str_len);               \
+    } while (0)
+
+static bool
+read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
+         uint64 *p_result)
+{
+    const uint8 *buf = *p_buf;
+    uint64 result = 0;
+    uint32 shift = 0;
+    uint32 offset = 0, bcnt = 0;
+    uint64 byte;
+
+    while (true) {
+        /* uN or SN must not exceed ceil(N/7) bytes */
+        if (bcnt + 1 > (maxbits + 6) / 7) {
+            aot_set_last_error("integer representation too long");
+            return false;
+        }
+
+        if (buf + offset + 1 > buf_end) {
+            aot_set_last_error("unexpected end of section or function");
+            return false;
+        }
+        byte = buf[offset];
+        offset += 1;
+        result |= ((byte & 0x7f) << shift);
+        shift += 7;
+        bcnt += 1;
+        if ((byte & 0x80) == 0) {
+            break;
+        }
+    }
+
+    if (!sign && maxbits == 32 && shift >= maxbits) {
+        /* The top bits set represent values > 32 bits */
+        if (((uint8)byte) & 0xf0)
+            goto fail_integer_too_large;
+    }
+    else if (sign && maxbits == 32) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x8;
+            int top_bits = ((uint8)byte) & 0xf0;
+            if ((sign_bit_set && top_bits != 0x70)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+    else if (sign && maxbits == 64) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x1;
+            int top_bits = ((uint8)byte) & 0xfe;
+
+            if ((sign_bit_set && top_bits != 0x7e)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+
+    *p_buf += offset;
+    *p_result = result;
+    return true;
+
+fail_integer_too_large:
+    aot_set_last_error("integer too large");
+    return false;
+}
+
+#define read_leb_uint32(p, p_end, res)                         \
+    do {                                                       \
+        uint64 res64;                                          \
+        if (!read_leb((uint8 **)&p, p_end, 32, false, &res64)) \
+            goto fail;                                         \
+        res = (uint32)res64;                                   \
     } while (0)
 
 static uint32
