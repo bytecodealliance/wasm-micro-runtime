@@ -165,91 +165,6 @@ GET_U64_FROM_ADDR(uint32 *addr)
         p += str_len;                                                   \
     } while (0)
 
-static bool
-read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
-         uint64 *p_result, char *error_buf, uint32 error_buf_size)
-{
-    const uint8 *buf = *p_buf;
-    uint64 result = 0;
-    uint32 shift = 0;
-    uint32 offset = 0, bcnt = 0;
-    uint64 byte;
-
-    while (true) {
-        /* uN or SN must not exceed ceil(N/7) bytes */
-        if (bcnt + 1 > (maxbits + 6) / 7) {
-            set_error_buf(error_buf, error_buf_size,
-                          "integer representation too long");
-            return false;
-        }
-
-        CHECK_BUF(buf, buf_end, offset + 1);
-        byte = buf[offset];
-        offset += 1;
-        result |= ((byte & 0x7f) << shift);
-        shift += 7;
-        bcnt += 1;
-        if ((byte & 0x80) == 0) {
-            break;
-        }
-    }
-
-    if (!sign && maxbits == 32 && shift >= maxbits) {
-        /* The top bits set represent values > 32 bits */
-        if (((uint8)byte) & 0xf0)
-            goto fail_integer_too_large;
-    }
-    else if (sign && maxbits == 32) {
-        if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
-            if ((uint8)byte & 0x40)
-                result |= (~((uint64)0)) << shift;
-        }
-        else {
-            /* The top bits should be a sign-extension of the sign bit */
-            bool sign_bit_set = ((uint8)byte) & 0x8;
-            int top_bits = ((uint8)byte) & 0xf0;
-            if ((sign_bit_set && top_bits != 0x70)
-                || (!sign_bit_set && top_bits != 0))
-                goto fail_integer_too_large;
-        }
-    }
-    else if (sign && maxbits == 64) {
-        if (shift < maxbits) {
-            /* Sign extend, second highest bit is the sign bit */
-            if ((uint8)byte & 0x40)
-                result |= (~((uint64)0)) << shift;
-        }
-        else {
-            /* The top bits should be a sign-extension of the sign bit */
-            bool sign_bit_set = ((uint8)byte) & 0x1;
-            int top_bits = ((uint8)byte) & 0xfe;
-
-            if ((sign_bit_set && top_bits != 0x7e)
-                || (!sign_bit_set && top_bits != 0))
-                goto fail_integer_too_large;
-        }
-    }
-
-    *p_buf += offset;
-    *p_result = result;
-    return true;
-
-fail_integer_too_large:
-    set_error_buf(error_buf, error_buf_size, "integer too large");
-fail:
-    return false;
-}
-
-#define read_leb_uint32(p, p_end, res)                                   \
-    do {                                                                 \
-        uint64 res64;                                                    \
-        if (!read_leb((uint8 **)&p, p_end, 32, false, &res64, error_buf, \
-                      error_buf_size))                                   \
-            goto fail;                                                   \
-        res = (uint32)res64;                                             \
-    } while (0)
-
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
 #define BIN_TYPE_ELF32B 1 /* 32-bit big endian */
@@ -597,7 +512,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     uint32 num_func_name;
     uint32 func_index;
     uint32 previous_func_index = ~0U;
-    uint32 func_name_len;
+    uint16 func_name_len;
     uint32 name_index;
     int i = 0;
     uint32 name_len;
@@ -608,7 +523,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         return false;
     }
 
-    read_leb_uint32(p, p_end, name_len);
+    read_uint32(p, p_end, name_len);
 
     if (name_len == 0 || p + name_len > p_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
@@ -627,7 +542,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     p += name_len;
 
     while (p < p_end) {
-        read_leb_uint32(p, p_end, name_type);
+        read_uint32(p, p_end, name_type);
         if (i != 0) {
             if (name_type == previous_name_type) {
                 set_error_buf(error_buf, error_buf_size,
@@ -641,12 +556,12 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
             }
         }
         previous_name_type = name_type;
-        read_leb_uint32(p, p_end, subsection_size);
+        read_uint32(p, p_end, subsection_size);
         CHECK_BUF(p, p_end, subsection_size);
         switch (name_type) {
             case SUB_SECTION_TYPE_FUNC:
                 if (subsection_size) {
-                    read_leb_uint32(p, p_end, num_func_name);
+                    read_uint32(p, p_end, num_func_name);
                     module->aux_func_name_count = num_func_name;
                     /* Allocate memory */
                     size = sizeof(uint32) * (uint64)module->aux_func_name_count;
@@ -663,7 +578,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 
                     for (name_index = 0; name_index < num_func_name;
                          name_index++) {
-                        read_leb_uint32(p, p_end, func_index);
+                        read_uint32(p, p_end, func_index);
                         if (func_index == previous_func_index) {
                             set_error_buf(error_buf, error_buf_size,
                                           "duplicate function name");
@@ -676,17 +591,12 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                             return false;
                         }
                         previous_func_index = func_index;
-                        read_leb_uint32(p, p_end, func_name_len);
-                        CHECK_BUF(p, p_end, func_name_len);
                         *(aux_func_indexes + name_index) = func_index;
-                        *(aux_func_names + name_index) =
-                            const_str_set_insert(p, func_name_len, module,
-                                                 error_buf, error_buf_size);
+                        read_string(p, p_end, *(aux_func_names + name_index));
 #if 0
-                        LOG_DEBUG("name_index %d -> aux_func_name = %s",
-                                  name_index, *(aux_func_name + name_index));
+                        LOG_DEBUG("func_index %u -> aux_func_name = %s\n",
+                                  func_index, *(aux_func_names + name_index));
 #endif
-                        p += func_name_len;
                     }
                 }
                 break;

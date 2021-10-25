@@ -587,5 +587,8 @@ aot_destroy_comp_data(AOTCompData *comp_data)
     if (comp_data->funcs)
         aot_destroy_funcs(comp_data->funcs, comp_data->func_count);
 
+    if (comp_data->aot_name_section_buf)
+        wasm_runtime_free(comp_data->aot_name_section_buf);
+
     wasm_runtime_free(comp_data);
 }

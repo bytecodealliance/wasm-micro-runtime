@@ -242,6 +242,8 @@ typedef struct AOTCompData {
     /* Custom name sections */
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;
+    uint8 *aot_name_section_buf;
+    uint32 aot_name_section_size;
 
     uint32 global_data_size;
 
