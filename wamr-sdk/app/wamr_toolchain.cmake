@@ -14,11 +14,11 @@ ELSE ()
 ENDIF ()
 
 
-SET (CMAKE_C_FLAGS                  "-v -nostdlib -z stack-size=4096"   CACHE INTERNAL "")
+SET (CMAKE_C_FLAGS                  "-nostdlib -z stack-size=4096"   CACHE INTERNAL "")
 SET (CMAKE_C_COMPILER_TARGET        "wasm32")
 SET (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 
-SET (CMAKE_CXX_FLAGS                "-v -nostdlib -z stack-size=4096"   CACHE INTERNAL "")
+SET (CMAKE_CXX_FLAGS                "-nostdlib -z stack-size=4096"   CACHE INTERNAL "")
 SET (CMAKE_CXX_COMPILER_TARGET      "wasm32")
 SET (CMAKE_CXX_COMPILER             "${WASI_SDK_DIR}/bin/clang++")
 
