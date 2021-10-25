@@ -1,19 +1,21 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-SET(CMAKE_SYSTEM_NAME Linux)
-SET(CMAKE_SYSTEM_PROCESSOR wasm32)
-SET (CMAKE_SYSROOT                  ${CMAKE_CURRENT_LIST_DIR}/libc-builtin-sysroot)
+SET (CMAKE_SYSTEM_NAME Linux)
+SET (CMAKE_SYSTEM_PROCESSOR wasm32)
+SET (CMAKE_SYSROOT ${CMAKE_CURRENT_LIST_DIR}/libc-builtin-sysroot)
 
-if (NOT DEFINED WASI_SDK_DIR)
-    SET (WASI_SDK_DIR               "/opt/wasi-sdk")
-endif ()
+IF (NOT (DEFINED WASI_SDK_DIR OR DEFINED CACHE{WASI_SDK_DIR}))
+  MESSAGE(STATUS "WASI_SDK_DIR is not defined")
+ELSE ()
+  MESSAGE(STATUS "WASI_SDK_DIR=${WASI_SDK_DIR}")
+ENDIF ()
 
-SET (CMAKE_C_FLAGS                  "-nostdlib -z stack-size=4096"   CACHE INTERNAL "")
+SET (CMAKE_C_FLAGS                  "-v -nostdlib -z stack-size=4096"   CACHE INTERNAL "")
 SET (CMAKE_C_COMPILER_TARGET        "wasm32")
 SET (CMAKE_C_COMPILER               "${WASI_SDK_DIR}/bin/clang")
 
-SET (CMAKE_CXX_FLAGS                "-nostdlib -z stack-size=4096"   CACHE INTERNAL "")
+SET (CMAKE_CXX_FLAGS                "-v -nostdlib -z stack-size=4096"   CACHE INTERNAL "")
 SET (CMAKE_CXX_COMPILER_TARGET      "wasm32")
 SET (CMAKE_CXX_COMPILER             "${WASI_SDK_DIR}/bin/clang++")
 
