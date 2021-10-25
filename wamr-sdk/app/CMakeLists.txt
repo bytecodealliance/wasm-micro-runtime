@@ -12,7 +12,7 @@ endif ()
 
 if (NOT DEFINED CONFIG_PATH)
     set (CONFIG_PATH       ${CMAKE_CURRENT_LIST_DIR}/../wamr_config_default.cmake)
-    message(STATUS, "CONFIG_PATH  set to ${CONFIG_PATH} ")
+    message(STATUS "CONFIG_PATH  set to ${CONFIG_PATH} ")
 endif ()
 
 if (NOT EXISTS "${CONFIG_PATH}")
