@@ -32,3 +32,7 @@ SET (CMAKE_OBJDUMP "${WASI_SDK_DIR}/bin/llvm-dwarfdump"              CACHE INTER
 SET (CMAKE_RANLIB  "${WASI_SDK_DIR}/bin/llvm-ranlib"                 CACHE INTERNAL "")
 SET (CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS},--allow-undefined-file=${CMAKE_SYSROOT}/share/defined-symbols.txt" CACHE INTERNAL "")
+
+IF (NOT DEFINED OUT_DIR)
+  SET (OUT_DIR "${CMAKE_CURRENT_LIST_DIR}/../out/${WAMR_BUILD_SDK_PROFILE}")
+ENDIF ()
