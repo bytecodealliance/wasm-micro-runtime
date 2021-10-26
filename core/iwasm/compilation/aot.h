@@ -239,6 +239,12 @@ typedef struct AOTCompData {
     uint32 func_count;
     AOTFunc **funcs;
 
+    /* Custom name sections */
+    const uint8 *name_section_buf;
+    const uint8 *name_section_buf_end;
+    uint8 *aot_name_section_buf;
+    uint32 aot_name_section_size;
+
     uint32 global_data_size;
 
     uint32 start_func_index;

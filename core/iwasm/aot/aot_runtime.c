@@ -2816,11 +2816,40 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 static const char *
+lookup_func_name(const char **func_names, uint32 *func_indexes,
+                 uint32 func_index_count, uint32 func_index)
+{
+    int64 low = 0, mid;
+    int64 high = func_index_count - 1;
+
+    while (low <= high) {
+        mid = (low + high) / 2;
+        if (func_index == func_indexes[mid]) {
+            return func_names[mid];
+        }
+        else if (func_index < func_indexes[mid])
+            high = mid - 1;
+        else
+            low = mid + 1;
+    }
+
+    return NULL;
+}
+
+static const char *
 get_func_name_from_index(const AOTModuleInstance *module_inst,
                          uint32 func_index)
 {
     const char *func_name = NULL;
     AOTModule *module = module_inst->aot_module.ptr;
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if ((func_name =
+             lookup_func_name(module->aux_func_names, module->aux_func_indexes,
+                              module->aux_func_name_count, func_index))) {
+        return func_name;
+    }
+#endif
 
     if (func_index < module->import_func_count) {
         func_name = module->import_funcs[func_index].func_name;
