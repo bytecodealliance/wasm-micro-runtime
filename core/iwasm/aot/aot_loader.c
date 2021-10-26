@@ -435,6 +435,133 @@ fail:
 }
 
 static bool
+load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
+                  char *error_buf, uint32 error_buf_size)
+{
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 *aux_func_indexes;
+    const char **aux_func_names;
+    uint32 name_type, subsection_size;
+    uint32 previous_name_type = 0;
+    uint32 num_func_name;
+    uint32 func_index;
+    uint32 previous_func_index = ~0U;
+    uint32 name_index;
+    int i = 0;
+    uint32 name_len;
+    uint64 size;
+
+    if (p >= p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    read_uint32(p, p_end, name_len);
+
+    if (name_len != 4 || p + name_len > p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    if (memcmp(p, "name", 4) != 0) {
+        set_error_buf(error_buf, error_buf_size, "invalid custom name section");
+        return false;
+    }
+    p += name_len;
+
+    while (p < p_end) {
+        read_uint32(p, p_end, name_type);
+        if (i != 0) {
+            if (name_type == previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "duplicate sub-section");
+                return false;
+            }
+            if (name_type < previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "out-of-order sub-section");
+                return false;
+            }
+        }
+        previous_name_type = name_type;
+        read_uint32(p, p_end, subsection_size);
+        CHECK_BUF(p, p_end, subsection_size);
+        switch (name_type) {
+            case SUB_SECTION_TYPE_FUNC:
+                if (subsection_size) {
+                    read_uint32(p, p_end, num_func_name);
+                    if (num_func_name
+                        > module->import_func_count + module->func_count) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "function name count out of bounds");
+                        return false;
+                    }
+                    module->aux_func_name_count = num_func_name;
+
+                    /* Allocate memory */
+                    size = sizeof(uint32) * (uint64)module->aux_func_name_count;
+                    if (!(aux_func_indexes = module->aux_func_indexes =
+                              loader_malloc(size, error_buf, error_buf_size))) {
+                        return false;
+                    }
+                    size =
+                        sizeof(char **) * (uint64)module->aux_func_name_count;
+                    if (!(aux_func_names = module->aux_func_names =
+                              loader_malloc(size, error_buf, error_buf_size))) {
+                        return false;
+                    }
+
+                    for (name_index = 0; name_index < num_func_name;
+                         name_index++) {
+                        read_uint32(p, p_end, func_index);
+                        if (name_index != 0
+                            && func_index == previous_func_index) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "duplicate function name");
+                            return false;
+                        }
+                        if (name_index != 0
+                            && func_index < previous_func_index) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "out-of-order function index ");
+                            return false;
+                        }
+                        if (func_index
+                            >= module->import_func_count + module->func_count) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "function index out of bounds");
+                            return false;
+                        }
+                        previous_func_index = func_index;
+                        *(aux_func_indexes + name_index) = func_index;
+                        read_string(p, p_end, *(aux_func_names + name_index));
+#if 0
+                        LOG_DEBUG("func_index %u -> aux_func_name = %s\n",
+                               func_index, *(aux_func_names + name_index));
+#endif
+                    }
+                }
+                break;
+            case SUB_SECTION_TYPE_MODULE: /* TODO: Parse for module subsection
+                                           */
+            case SUB_SECTION_TYPE_LOCAL:  /* TODO: Parse for local subsection */
+            default:
+                p = p + subsection_size;
+                break;
+        }
+        i++;
+    }
+
+    return true;
+fail:
+    return false;
+#else
+    return true;
+#endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
+}
+
+static bool
 load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     char *error_buf, uint32 error_buf_size)
 {
@@ -448,6 +575,11 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         case AOT_CUSTOM_SECTION_NATIVE_SYMBOL:
             if (!load_native_symbol_section(buf, buf_end, module, error_buf,
                                             error_buf_size))
+                goto fail;
+            break;
+        case AOT_CUSTOM_SECTION_NAME:
+            if (!load_name_section(buf, buf_end, module, error_buf,
+                                   error_buf_size))
                 goto fail;
             break;
         default:
@@ -1233,7 +1365,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     /* The layout is: literal size + literal + code (with plt table) */
     read_uint32(buf, buf_end, module->literal_size);
 
-    /* literal data is at begining of the text section */
+    /* literal data is at beginning of the text section */
     module->literal = (uint8 *)buf;
     module->code = (void *)(buf + module->literal_size);
     module->code_size = (uint32)(buf_end - (uint8 *)module->code);
@@ -2336,7 +2468,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
 {
     AOTSection *section_list = NULL, *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size;
-    bool destory_aot_text = false;
+    bool destroy_aot_text = false;
     uint32 native_symbol_count = 0;
     uint32 section_type;
     uint32 section_size;
@@ -2403,7 +2535,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
                     section->section_body = aot_text;
-                    destory_aot_text = true;
+                    destroy_aot_text = true;
 
                     if ((uint32)total_size > section->section_body_size) {
                         memset(aot_text + (uint32)section_size, 0,
@@ -2437,7 +2569,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     return true;
 fail:
     if (section_list)
-        destroy_sections(section_list, destory_aot_text);
+        destroy_sections(section_list, destroy_aot_text);
     return false;
 }
 
@@ -2866,6 +2998,15 @@ aot_unload(AOTModule *module)
                                      module->data_section_count);
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
+#endif
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if (module->aux_func_indexes) {
+        wasm_runtime_free(module->aux_func_indexes);
+    }
+    if (module->aux_func_names) {
+        wasm_runtime_free(module->aux_func_names);
+    }
 #endif
 
     wasm_runtime_free(module);

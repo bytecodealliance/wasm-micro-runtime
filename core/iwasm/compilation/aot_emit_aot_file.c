@@ -25,6 +25,71 @@
         }                                                  \
     } while (0)
 
+static bool
+check_utf8_str(const uint8 *str, uint32 len)
+{
+    /* The valid ranges are taken from page 125, below link
+       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
+    const uint8 *p = str, *p_end = str + len;
+    uint8 chr;
+
+    while (p < p_end) {
+        chr = *p;
+        if (chr < 0x80) {
+            p++;
+        }
+        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
+            if (p[1] < 0x80 || p[1] > 0xBF) {
+                return false;
+            }
+            p += 2;
+        }
+        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
+            if (chr == 0xE0) {
+                if (p[1] < 0xA0 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xED) {
+                if (p[1] < 0x80 || p[1] > 0x9F || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xE1 && chr <= 0xEF) {
+                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 3;
+        }
+        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
+            if (chr == 0xF0) {
+                if (p[1] < 0x90 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xF1 && chr <= 0xF3) {
+                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xF4) {
+                if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 4;
+        }
+        else {
+            return false;
+        }
+    }
+    return (p == p_end);
+}
+
 /* Internal function in object file */
 typedef struct AOTObjectFunc {
     char *func_name;
@@ -795,6 +860,9 @@ get_native_symbol_list_size(AOTCompContext *comp_ctx)
 }
 
 static uint32
+get_name_section_size(AOTCompData *comp_data);
+
+static uint32
 get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                   AOTObjectData *obj_data)
 {
@@ -840,11 +908,20 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size += get_relocation_section_size(obj_data);
 
     if (get_native_symbol_list_size(comp_ctx) > 0) {
-        /* emit only when threre are native symbols */
+        /* emit only when there are native symbols */
         size = align_uint(size, 4);
         /* section id + section size + sub section id + symbol count */
         size += (uint32)sizeof(uint32) * 4;
         size += get_native_symbol_list_size(comp_ctx);
+    }
+
+    if (comp_ctx->enable_aux_stack_frame) {
+        /* custom name section */
+        size = align_uint(size, 4);
+        /* section id + section size + sub section id */
+        size += (uint32)sizeof(uint32) * 3;
+        size += (comp_data->aot_name_section_size =
+                     get_name_section_size(comp_data));
     }
 
     return size;
@@ -974,6 +1051,205 @@ static union {
         EMIT_U16(str_len);                  \
         EMIT_BUF(s, str_len);               \
     } while (0)
+
+static bool
+read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
+         uint64 *p_result)
+{
+    const uint8 *buf = *p_buf;
+    uint64 result = 0;
+    uint32 shift = 0;
+    uint32 offset = 0, bcnt = 0;
+    uint64 byte;
+
+    while (true) {
+        /* uN or SN must not exceed ceil(N/7) bytes */
+        if (bcnt + 1 > (maxbits + 6) / 7) {
+            aot_set_last_error("integer representation too long");
+            return false;
+        }
+
+        if (buf + offset + 1 > buf_end) {
+            aot_set_last_error("unexpected end of section or function");
+            return false;
+        }
+        byte = buf[offset];
+        offset += 1;
+        result |= ((byte & 0x7f) << shift);
+        shift += 7;
+        bcnt += 1;
+        if ((byte & 0x80) == 0) {
+            break;
+        }
+    }
+
+    if (!sign && maxbits == 32 && shift >= maxbits) {
+        /* The top bits set represent values > 32 bits */
+        if (((uint8)byte) & 0xf0)
+            goto fail_integer_too_large;
+    }
+    else if (sign && maxbits == 32) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x8;
+            int top_bits = ((uint8)byte) & 0xf0;
+            if ((sign_bit_set && top_bits != 0x70)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+    else if (sign && maxbits == 64) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x1;
+            int top_bits = ((uint8)byte) & 0xfe;
+
+            if ((sign_bit_set && top_bits != 0x7e)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+
+    *p_buf += offset;
+    *p_result = result;
+    return true;
+
+fail_integer_too_large:
+    aot_set_last_error("integer too large");
+    return false;
+}
+
+#define read_leb_uint32(p, p_end, res)                         \
+    do {                                                       \
+        uint64 res64;                                          \
+        if (!read_leb((uint8 **)&p, p_end, 32, false, &res64)) \
+            goto fail;                                         \
+        res = (uint32)res64;                                   \
+    } while (0)
+
+static uint32
+get_name_section_size(AOTCompData *comp_data)
+{
+    const uint8 *p = comp_data->name_section_buf,
+                *p_end = comp_data->name_section_buf_end;
+    uint8 *buf, *buf_end;
+    uint32 name_type, subsection_size;
+    uint32 previous_name_type = 0;
+    uint32 num_func_name;
+    uint32 func_index;
+    uint32 previous_func_index = ~0U;
+    uint32 func_name_len;
+    uint32 name_index;
+    int i = 0;
+    uint32 name_len;
+    uint32 offset = 0;
+    uint32 max_aot_buf_size = 0;
+
+    if (p >= p_end) {
+        aot_set_last_error("unexpected end");
+        return 0;
+    }
+
+    max_aot_buf_size = 4 * (p_end - p);
+    if (!(buf = comp_data->aot_name_section_buf =
+              wasm_runtime_malloc(max_aot_buf_size))) {
+        aot_set_last_error("allocate memory for custom name section failed.");
+        return 0;
+    }
+    buf_end = buf + max_aot_buf_size;
+
+    read_leb_uint32(p, p_end, name_len);
+    offset = align_uint(offset, 4);
+    EMIT_U32(name_len);
+
+    if (name_len == 0 || p + name_len > p_end) {
+        aot_set_last_error("unexpected end");
+        return 0;
+    }
+
+    if (!check_utf8_str(p, name_len)) {
+        aot_set_last_error("invalid UTF-8 encoding");
+        return 0;
+    }
+
+    if (memcmp(p, "name", 4) != 0) {
+        aot_set_last_error("invalid custom name section");
+        return 0;
+    }
+    EMIT_BUF(p, name_len);
+    p += name_len;
+
+    while (p < p_end) {
+        read_leb_uint32(p, p_end, name_type);
+        if (i != 0) {
+            if (name_type == previous_name_type) {
+                aot_set_last_error("duplicate sub-section");
+                return 0;
+            }
+            if (name_type < previous_name_type) {
+                aot_set_last_error("out-of-order sub-section");
+                return 0;
+            }
+        }
+        previous_name_type = name_type;
+        read_leb_uint32(p, p_end, subsection_size);
+        switch (name_type) {
+            case SUB_SECTION_TYPE_FUNC:
+                if (subsection_size) {
+                    offset = align_uint(offset, 4);
+                    EMIT_U32(name_type);
+                    EMIT_U32(subsection_size);
+
+                    read_leb_uint32(p, p_end, num_func_name);
+                    EMIT_U32(num_func_name);
+
+                    for (name_index = 0; name_index < num_func_name;
+                         name_index++) {
+                        read_leb_uint32(p, p_end, func_index);
+                        offset = align_uint(offset, 4);
+                        EMIT_U32(func_index);
+                        if (func_index == previous_func_index) {
+                            aot_set_last_error("duplicate function name");
+                            return 0;
+                        }
+                        if (func_index < previous_func_index
+                            && previous_func_index != ~0U) {
+                            aot_set_last_error("out-of-order function index ");
+                            return 0;
+                        }
+                        previous_func_index = func_index;
+                        read_leb_uint32(p, p_end, func_name_len);
+                        offset = align_uint(offset, 2);
+                        EMIT_U16(func_name_len);
+                        EMIT_BUF(p, func_name_len);
+                        p += func_name_len;
+                    }
+                }
+                break;
+            case SUB_SECTION_TYPE_MODULE: /* TODO: Parse for module subsection
+                                           */
+            case SUB_SECTION_TYPE_LOCAL:  /* TODO: Parse for local subsection */
+            default:
+                p = p + subsection_size;
+                break;
+        }
+        i++;
+    }
+
+    return offset;
+fail:
+    return 0;
+}
 
 static bool
 aot_emit_file_header(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
@@ -1537,7 +1813,7 @@ aot_emit_native_symbol(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     AOTNativeSymbol *sym = NULL;
 
     if (bh_list_length(&comp_ctx->native_symbols) == 0)
-        /* emit only when threre are native symbols */
+        /* emit only when there are native symbols */
         return true;
 
     *p_offset = offset = align_uint(offset, 4);
@@ -1557,6 +1833,30 @@ aot_emit_native_symbol(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     }
 
     *p_offset = offset;
+
+    return true;
+}
+
+static bool
+aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                      AOTCompData *comp_data, AOTCompContext *comp_ctx)
+{
+    if (comp_ctx->enable_aux_stack_frame) {
+        uint32 offset = *p_offset;
+
+        *p_offset = offset = align_uint(offset, 4);
+
+        EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
+        /* sub section id + name section size */
+        EMIT_U32(sizeof(uint32) * 1 + comp_data->aot_name_section_size);
+        EMIT_U32(AOT_CUSTOM_SECTION_NAME);
+        bh_memcpy_s((uint8 *)(buf + offset), buf_end - buf,
+                    comp_data->aot_name_section_buf,
+                    comp_data->aot_name_section_size);
+        offset += comp_data->aot_name_section_size;
+
+        *p_offset = offset;
+    }
 
     return true;
 }
@@ -1970,7 +2270,7 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
     bool has_addend = str_starts_with(group->section_name, ".rela");
     uint8 *rela_content = NULL;
 
-    /* calculate relocations count and allcate memory */
+    /* calculate relocations count and allocate memory */
     if (!get_relocations_count(rel_sec, &group->relocation_count))
         return false;
     if (group->relocation_count == 0) {
@@ -2146,7 +2446,7 @@ aot_resolve_object_relocation_groups(AOTObjectData *obj_data)
     char *name;
     uint32 size;
 
-    /* calculate relocation groups count and allcate memory */
+    /* calculate relocation groups count and allocate memory */
     if (!get_relocation_groups_count(obj_data, &group_count))
         return false;
 
@@ -2384,7 +2684,8 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         || !aot_emit_export_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_relocation_section(buf, buf_end, &offset, comp_data,
                                         obj_data)
-        || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx))
+        || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx)
+        || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx))
         goto fail2;
 
 #if 0
