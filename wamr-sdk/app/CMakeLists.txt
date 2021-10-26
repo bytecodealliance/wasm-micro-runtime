@@ -21,8 +21,9 @@ endif ()
 
 include(${CONFIG_PATH})
 
-
-set (OUT_DIR      "${CMAKE_CURRENT_LIST_DIR}/../out/${WAMR_BUILD_SDK_PROFILE}")
+if (NOT DEFINED OUT_DIR)
+    set (OUT_DIR      "${CMAKE_CURRENT_LIST_DIR}/../out/${WAMR_BUILD_SDK_PROFILE}")
+endif ()
 set (APP_SDK_DIR  "${OUT_DIR}/app-sdk")
 
 if (DEFINED EXTRA_SDK_INCLUDE_PATH)
