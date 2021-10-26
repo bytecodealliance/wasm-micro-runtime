@@ -211,71 +211,6 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     return mem;
 }
 
-static bool
-check_utf8_str(const uint8 *str, uint32 len)
-{
-    /* The valid ranges are taken from page 125, below link
-       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
-    const uint8 *p = str, *p_end = str + len;
-    uint8 chr;
-
-    while (p < p_end) {
-        chr = *p;
-        if (chr < 0x80) {
-            p++;
-        }
-        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
-            if (p[1] < 0x80 || p[1] > 0xBF) {
-                return false;
-            }
-            p += 2;
-        }
-        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
-            if (chr == 0xE0) {
-                if (p[1] < 0xA0 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xED) {
-                if (p[1] < 0x80 || p[1] > 0x9F || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xE1 && chr <= 0xEF) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 3;
-        }
-        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
-            if (chr == 0xF0) {
-                if (p[1] < 0x90 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr >= 0xF1 && chr <= 0xF3) {
-                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            else if (chr == 0xF4) {
-                if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
-                    || p[3] < 0x80 || p[3] > 0xBF) {
-                    return false;
-                }
-            }
-            p += 4;
-        }
-        else {
-            return false;
-        }
-    }
-    return (p == p_end);
-}
-
 static char *
 const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
                      char *error_buf, uint32 error_buf_size)
@@ -512,7 +447,6 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     uint32 num_func_name;
     uint32 func_index;
     uint32 previous_func_index = ~0U;
-    uint16 func_name_len;
     uint32 name_index;
     int i = 0;
     uint32 name_len;
@@ -525,13 +459,8 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 
     read_uint32(p, p_end, name_len);
 
-    if (name_len == 0 || p + name_len > p_end) {
+    if (name_len != 4 || p + name_len > p_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
-        return false;
-    }
-
-    if (!check_utf8_str(p, name_len)) {
-        set_error_buf(error_buf, error_buf_size, "invalid UTF-8 encoding");
         return false;
     }
 
@@ -562,7 +491,14 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
             case SUB_SECTION_TYPE_FUNC:
                 if (subsection_size) {
                     read_uint32(p, p_end, num_func_name);
+                    if (num_func_name
+                        > module->import_func_count + module->func_count) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "function name count out of bounds");
+                        return false;
+                    }
                     module->aux_func_name_count = num_func_name;
+
                     /* Allocate memory */
                     size = sizeof(uint32) * (uint64)module->aux_func_name_count;
                     if (!(aux_func_indexes = module->aux_func_indexes =
@@ -579,15 +515,22 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                     for (name_index = 0; name_index < num_func_name;
                          name_index++) {
                         read_uint32(p, p_end, func_index);
-                        if (func_index == previous_func_index) {
+                        if (name_index != 0
+                            && func_index == previous_func_index) {
                             set_error_buf(error_buf, error_buf_size,
                                           "duplicate function name");
                             return false;
                         }
-                        if (func_index < previous_func_index
-                            && previous_func_index != ~0U) {
+                        if (name_index != 0
+                            && func_index < previous_func_index) {
                             set_error_buf(error_buf, error_buf_size,
                                           "out-of-order function index ");
+                            return false;
+                        }
+                        if (func_index
+                            >= module->import_func_count + module->func_count) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "function index out of bounds");
                             return false;
                         }
                         previous_func_index = func_index;
@@ -595,7 +538,7 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                         read_string(p, p_end, *(aux_func_names + name_index));
 #if 0
                         LOG_DEBUG("func_index %u -> aux_func_name = %s\n",
-                                  func_index, *(aux_func_names + name_index));
+                               func_index, *(aux_func_names + name_index));
 #endif
                     }
                 }
