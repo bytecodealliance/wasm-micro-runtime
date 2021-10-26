@@ -391,7 +391,7 @@ static void showUsage()
            "            [--watchdog=<Watchdog Interval>]\n"
            "            [<Control Options> ...] \n");
     printf("  host_tool -u <App Name> [<Control Options> ...]\n");
-    printf("  host_tool -q [<App Name>] [<Control Options> ...]\n");
+    printf("  host_tool -q[<App Name>] [<Control Options> ...]\n");
     printf("  host_tool -r <Resource URL> -A <Action> [-p <Payload File>] [<Control Options> ...]\n");
     printf("  host_tool -s <Event URLs> [<Control Options> ...]\n");
     printf("  host_tool -d <Event URLs> [<Control Options> ...]\n");
