@@ -49,38 +49,12 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-  build_llvm_libraries:
-    needs: cancel_previous
-    runs-on: ubuntu-20.04
-    steps:
-      - name: checkout
-        uses: actions/checkout@v2
-
-      - name: Cache LLVM libraries
-        id: cache_llvm
-        uses: actions/cache@v2
-        with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
-          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Build llvm and clang from source
-        id: build_llvm
-        if: ${{ steps.cache_llvm.outputs.cache-hit != 'true' }}
-        run: /usr/bin/env python3 ./build_llvm.py  --arch X86 WebAssembly
-        working-directory: build-scripts
-
-      - name: package LLVM
-        if: ${{ steps.build_llvm.conclusion == 'success' }}
-        run: mv LLVM-13.0.0-*.tar.gz LLVM-13.0.0.tar.gz
-        working-directory: core/deps/llvm/build/
-
   spec_test_default:
-    needs: build_llvm_libraries
+    needs: cancel_previous
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        test_option: [ $DEFAULT_TEST_OPTIONS, $SIMD_TEST_OPTIONS ]
+        test_option: [$DEFAULT_TEST_OPTIONS, $SIMD_TEST_OPTIONS]
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -89,17 +63,13 @@ jobs:
         id: cache_llvm
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: steps.cache_llvm.outputs.cache-hit != 'true'
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Extract the LLVM package
-        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
-        working-directory: ./core/deps/llvm/build
 
       - name: install Ninja
         run: sudo apt install -y ninja-build
@@ -109,12 +79,12 @@ jobs:
         working-directory: ./tests/wamr-test-suites
 
   spec_test_extra:
-    needs: build_llvm_libraries
+    needs: cancel_previous
     if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        test_option: [ $MULTI_MODULES_TEST_OPTIONS, $THREADS_TEST_OPTIONS ]
+        test_option: [$MULTI_MODULES_TEST_OPTIONS, $THREADS_TEST_OPTIONS]
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -123,17 +93,17 @@ jobs:
         id: cache_llvm
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
         if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Extract the LLVM package
-        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
-        working-directory: ./core/deps/llvm/build
 
       - name: install Ninja
         run: sudo apt install -y ninja-build
@@ -144,11 +114,11 @@ jobs:
 
   spec_test_x86_32:
     if: ${{ endsWith(github.repository, 'wasm-micro-runtime') }}
-    needs: build_llvm_libraries
+    needs: cancel_previous
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        test_option: [ $DEFAULT_TEST_OPTIONS, $THREADS_TEST_OPTIONS ]
+        test_option: [$DEFAULT_TEST_OPTIONS, $THREADS_TEST_OPTIONS]
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -157,17 +127,17 @@ jobs:
         id: cache_llvm
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
         if: steps.cache_llvm.outputs.cache-hit != 'true'
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Extract the LLVM package
-        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
-        working-directory: ./core/deps/llvm/build
 
       - name: install Ninja and x32 support libraries
         run: sudo apt install -y g++-multilib libgcc-9-dev lib32gcc-9-dev ninja-build
