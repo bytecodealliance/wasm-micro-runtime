@@ -34,7 +34,7 @@ concurrency:
 
 env:
   DEFAULT_TEST_OPTIONS: "-s spec"
-  LLVM_CACHE_SUFFIX: "build-llvm_libraries"
+  LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
   MULTI_MODULES_TEST_OPTIONS: "-s spec -M"
   SIMD_TEST_OPTIONS: "-s spec -S"
   THREADS_TEST_OPTIONS: "-s spec -p"
