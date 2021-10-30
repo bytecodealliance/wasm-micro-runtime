@@ -208,7 +208,7 @@ function unit_test()
 
         # keep going and do not care if it is success or not
         make -ki clean | true
-        cmake ${compile_flag} ${WORK_DIR}/../../unit && make
+        cmake ${compile_flag} ${WORK_DIR}/../../unit && make -j 4
         if [ "$?" != 0 ];then
             echo -e "\033[31mbuild unit test failed, you may need to change wamr into dev/aot branch and ensure llvm is built \033[0m"
             exit 1
@@ -311,7 +311,7 @@ function spec_test()
 
         echo "compile the reference intepreter"
         pushd interpreter
-        make opt
+        make opt -j 4
         popd
 
         git apply ../../spec-test-script/simd_ignore_cases.patch
@@ -359,7 +359,7 @@ function spec_test()
         git pull
         git reset --hard origin/main
         cd ..
-        make -C wabt gcc-release
+        make -C wabt gcc-release -j 4
     fi
 
     ln -sf ${WORK_DIR}/../spec-test-script/all.sh .
@@ -473,7 +473,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make
+        && make -j 4
         cd ${WAMR_DIR}/product-mini/platforms/linux-sgx/enclave-sample \
         && make clean \
         && make SPEC_TEST=1
@@ -482,7 +482,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make
+        && make -j 4
     fi
 
     if [ "$?" != 0 ];then
@@ -506,7 +506,7 @@ function build_wamrc()
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
         && cmake .. \
-        && make
+        && make -j 4
 }
 
 ### Need to add a test suite?
