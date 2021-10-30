@@ -30,6 +30,7 @@ make
 3. Execute iwasm with debug engine enabled
 ``` bash
 iwasm -g=127.0.0.1:1234 test.wasm
+# Use port = 0 to allow a random assigned debug port
 ```
 
 4. Build customized lldb (assume you have already cloned llvm)
