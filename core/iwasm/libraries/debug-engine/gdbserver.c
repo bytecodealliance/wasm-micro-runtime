@@ -104,7 +104,7 @@ wasm_launch_gdbserver(char *host, int port)
         goto fail;
     }
 
-    LOG_VERBOSE("Listening on %s:%d\n", host, ntohs(addr.sin_port));
+    LOG_WARNING("Listening on %s:%d\n", host, ntohs(addr.sin_port));
 
     ret = listen(listen_fd, 1);
     if (ret < 0) {
