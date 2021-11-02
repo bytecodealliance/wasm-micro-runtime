@@ -215,29 +215,44 @@ static char *
 const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
                      char *error_buf, uint32 error_buf_size)
 {
-    HashMap *set = module->const_str_set;
-    char *c_str, *value;
+    char *c_str = (char *)str, *value;
 
-    if (!(c_str = loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
-        return NULL;
+    /* Insert string into set if load from sections */
+    if (module->is_load_from_sections) {
+        HashMap *set = module->const_str_set;
+
+        if (!(c_str =
+                  loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
+            return NULL;
+        }
+
+        bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+        c_str[len] = '\0';
+
+        if ((value = bh_hash_map_find(set, c_str))) {
+            wasm_runtime_free(c_str);
+            return value;
+        }
+
+        if (!bh_hash_map_insert(set, c_str, c_str)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "insert string to hash map failed");
+            wasm_runtime_free(c_str);
+            return NULL;
+        }
+    }
+    /* If load from file buffer and is relocation mode */
+    else if (module->native_symbol_count == 0) {
+        /* Convert string to '\0' in place */
+        value = c_str - sizeof(uint16);
+        c_str = memmove(value, c_str, len);
+        c_str[len] = '\0';   
+        printf("Len:%s,%d\n",c_str, len);
     }
 
-    bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
-    c_str[len] = '\0';
+    /* Direct return this string if in indirect mode */
 
-    if ((value = bh_hash_map_find(set, c_str))) {
-        wasm_runtime_free(c_str);
-        return value;
-    }
-
-    if (!bh_hash_map_insert(set, c_str, c_str)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "insert string to hash map failed");
-        wasm_runtime_free(c_str);
-        return NULL;
-    }
-
-    return c_str;
+    return (char *)c_str;
 }
 
 static bool
@@ -2195,6 +2210,19 @@ load_from_sections(AOTModule *module, AOTSection *sections, char *error_buf,
     AOTFuncType *func_type;
     AOTExport *exports;
 
+    /* Constant string set only used while load from sections */
+
+    if (module->is_load_from_sections) {
+        if (!(module->const_str_set = bh_hash_map_create(
+                  32, false, (HashFunc)wasm_string_hash,
+                  (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
+            set_error_buf(error_buf, error_buf_size,
+                          "create const string set failed");
+            wasm_runtime_free(module);
+            return NULL;
+        }
+    }
+
     while (section) {
         buf = section->section_body;
         buf_end = buf + section->section_body_size;
@@ -2379,14 +2407,11 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     module->module_type = Wasm_Module_AoT;
 
-    if (!(module->const_str_set = bh_hash_map_create(
-              32, false, (HashFunc)wasm_string_hash,
-              (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "create const string set failed");
-        wasm_runtime_free(module);
-        return NULL;
-    }
+    /* Create string set while load from sections */
+    module->const_str_set = NULL;
+
+    /* Load from file buffer by default */
+    module->is_load_from_sections = false;
 
     return module;
 }
@@ -2399,6 +2424,8 @@ aot_load_from_sections(AOTSection *section_list, char *error_buf,
 
     if (!module)
         return NULL;
+
+    module->is_load_from_sections = true;
 
     if (!load_from_sections(module, section_list, error_buf, error_buf_size)) {
         aot_unload(module);

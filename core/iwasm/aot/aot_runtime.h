@@ -197,6 +197,8 @@ typedef struct AOTModule {
     uint8 *literal;
     uint32 literal_size;
 
+    bool is_load_from_sections;
+
 #if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
     && defined(BH_PLATFORM_WINDOWS)
     /* extra plt data area for __xmm and __real constants

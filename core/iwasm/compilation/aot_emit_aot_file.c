@@ -25,6 +25,12 @@
         }                                                  \
     } while (0)
 
+/*
+ * In indirect (aka XIP) mode, we will emit string with an extra '\0'.
+ */
+
+static bool is_indirect_mode = false;
+
 static bool
 check_utf8_str(const uint8 *str, uint32 len)
 {
@@ -179,8 +185,9 @@ get_file_header_size()
 static uint32
 get_string_size(const char *s)
 {
-    /* string size (2 bytes) + string content without '\0' */
-    return (uint32)sizeof(uint16) + (uint32)strlen(s);
+    /* string size (2 bytes) + string content with '\0' */
+    return (uint32)sizeof(uint16) + (uint32)strlen(s)
+           + (is_indirect_mode ? 1 : 0);
 }
 
 static uint32
@@ -1043,11 +1050,12 @@ static union {
         offset += len;                \
     } while (0)
 
-#define EMIT_STR(s)                         \
-    do {                                    \
-        uint32 str_len = (uint32)strlen(s); \
-        EMIT_U16(str_len);                  \
-        EMIT_BUF(s, str_len);               \
+/* Emit string with '\0' */
+#define EMIT_STR(s)                                                      \
+    do {                                                                 \
+        uint32 str_len = (uint32)strlen(s) + (is_indirect_mode ? 1 : 0); \
+        EMIT_U16(str_len);                                               \
+        EMIT_BUF(s, str_len);                                            \
     } while (0)
 
 static bool
@@ -2661,6 +2669,8 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
 
     if (!obj_data)
         return NULL;
+
+    is_indirect_mode = comp_ctx->is_indirect_mode;
 
     aot_file_size = get_aot_file_size(comp_ctx, comp_data, obj_data);
 
