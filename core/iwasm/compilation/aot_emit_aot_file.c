@@ -711,8 +711,7 @@ get_relocation_symbol_size(AOTRelocation *relocation,
     CHECK_SIZE(index);
 
     if (is_new) {
-        size += (uint32)sizeof(uint16);
-        size += (uint32)strlen(relocation->symbol_name);
+        size += get_string_size(relocation->symbol_name);
         size = align_uint(size, 2);
     }
 
@@ -748,8 +747,7 @@ get_relocation_group_symbol_size(AOTRelocationGroup *relocation_group,
     CHECK_SIZE(index);
 
     if (is_new) {
-        size += (uint32)sizeof(uint16);
-        size += (uint32)strlen(relocation_group->section_name);
+        size += get_string_size(relocation_group->section_name);
         size = align_uint(size, 2);
     }
 
@@ -790,7 +788,7 @@ get_symbol_size_from_symbol_list(AOTSymbolList *symbol_list)
     sym = symbol_list->head;
     while (sym) {
         /* (uint16)str_len + str */
-        size += (uint32)sizeof(uint16) + sym->str_len;
+        size += get_string_size(sym->symbol);
         size = align_uint(size, 2);
         sym = sym->next;
     }
@@ -1727,7 +1725,7 @@ aot_emit_relocation_symbol_table(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     while (sym) {
         EMIT_U32(symbol_offset);
         /* string_len + str[0 .. string_len - 1] */
-        symbol_offset += (uint32)sizeof(uint16) + sym->str_len;
+        symbol_offset += get_string_size(sym->symbol);
         symbol_offset = align_uint(symbol_offset, 2);
         sym = sym->next;
     }
