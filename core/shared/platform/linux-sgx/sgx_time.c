@@ -28,8 +28,16 @@ ocall_clock_nanosleep(int *p_ret, unsigned clock_id, int flags,
 uint64
 os_time_get_boot_microsecond()
 {
-    /* TODO */
+#ifndef SGX_DISABLE_WASI
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return 0;
+    }
+
+    return ((uint64)ts.tv_sec) * 1000 * 1000 + ((uint64)ts.tv_nsec) / 1000;
+#else
     return 0;
+#endif
 }
 
 #ifndef SGX_DISABLE_WASI
