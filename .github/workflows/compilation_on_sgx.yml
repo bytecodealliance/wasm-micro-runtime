@@ -455,5 +455,5 @@ jobs:
         if: ${{ matrix.light == 'green' }}
         run: |
           source /opt/intel/sgxsdk/environment
-          ./test_wamr.sh -x -p -s spec -t ${{ matrix.running_mode }}
+          ./test_wamr.sh -x -p -s spec -P -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
