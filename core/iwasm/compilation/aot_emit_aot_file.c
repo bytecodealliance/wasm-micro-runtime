@@ -177,10 +177,12 @@ get_file_header_size()
 }
 
 static uint32
-get_string_size(const char *s)
+get_string_size(AOTCompContext *comp_ctx, const char *s)
 {
-    /* string size (2 bytes) + string content without '\0' */
-    return (uint32)sizeof(uint16) + (uint32)strlen(s);
+    /* string size (2 bytes) + string content */
+    return (uint32)sizeof(uint16) + (uint32)strlen(s) +
+           /* emit string with '\0' only in XIP mode */
+           (comp_ctx->is_indirect_mode ? 1 : 0);
 }
 
 static uint32
@@ -388,18 +390,19 @@ get_func_type_info_size(AOTCompData *comp_data)
 }
 
 static uint32
-get_import_global_size(AOTImportGlobal *import_global)
+get_import_global_size(AOTCompContext *comp_ctx, AOTImportGlobal *import_global)
 {
     /* type (1 byte) + is_mutable (1 byte) + module_name + global_name */
-    uint32 size =
-        (uint32)sizeof(uint8) * 2 + get_string_size(import_global->module_name);
+    uint32 size = (uint32)sizeof(uint8) * 2
+                  + get_string_size(comp_ctx, import_global->module_name);
     size = align_uint(size, 2);
-    size += get_string_size(import_global->global_name);
+    size += get_string_size(comp_ctx, import_global->global_name);
     return size;
 }
 
 static uint32
-get_import_globals_size(AOTImportGlobal *import_globals,
+get_import_globals_size(AOTCompContext *comp_ctx,
+                        AOTImportGlobal *import_globals,
                         uint32 import_global_count)
 {
     AOTImportGlobal *import_global = import_globals;
@@ -407,17 +410,17 @@ get_import_globals_size(AOTImportGlobal *import_globals,
 
     for (i = 0; i < import_global_count; i++, import_global++) {
         size = align_uint(size, 2);
-        size += get_import_global_size(import_global);
+        size += get_import_global_size(comp_ctx, import_global);
     }
     return size;
 }
 
 static uint32
-get_import_global_info_size(AOTCompData *comp_data)
+get_import_global_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* import global count + import globals */
     return (uint32)sizeof(uint32)
-           + get_import_globals_size(comp_data->import_globals,
+           + get_import_globals_size(comp_ctx, comp_data->import_globals,
                                      comp_data->import_global_count);
 }
 
@@ -456,40 +459,42 @@ get_global_info_size(AOTCompData *comp_data)
 }
 
 static uint32
-get_import_func_size(AOTImportFunc *import_func)
+get_import_func_size(AOTCompContext *comp_ctx, AOTImportFunc *import_func)
 {
     /* type index (2 bytes) + module_name + func_name */
-    uint32 size =
-        (uint32)sizeof(uint16) + get_string_size(import_func->module_name);
+    uint32 size = (uint32)sizeof(uint16)
+                  + get_string_size(comp_ctx, import_func->module_name);
     size = align_uint(size, 2);
-    size += get_string_size(import_func->func_name);
+    size += get_string_size(comp_ctx, import_func->func_name);
     return size;
 }
 
 static uint32
-get_import_funcs_size(AOTImportFunc *import_funcs, uint32 import_func_count)
+get_import_funcs_size(AOTCompContext *comp_ctx, AOTImportFunc *import_funcs,
+                      uint32 import_func_count)
 {
     AOTImportFunc *import_func = import_funcs;
     uint32 size = 0, i;
 
     for (i = 0; i < import_func_count; i++, import_func++) {
         size = align_uint(size, 2);
-        size += get_import_func_size(import_func);
+        size += get_import_func_size(comp_ctx, import_func);
     }
     return size;
 }
 
 static uint32
-get_import_func_info_size(AOTCompData *comp_data)
+get_import_func_info_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* import func count + import funcs */
     return (uint32)sizeof(uint32)
-           + get_import_funcs_size(comp_data->import_funcs,
+           + get_import_funcs_size(comp_ctx, comp_data->import_funcs,
                                    comp_data->import_func_count);
 }
 
 static uint32
-get_object_data_sections_size(AOTObjectDataSection *data_sections,
+get_object_data_sections_size(AOTCompContext *comp_ctx,
+                              AOTObjectDataSection *data_sections,
                               uint32 data_sections_count)
 {
     AOTObjectDataSection *data_section = data_sections;
@@ -498,7 +503,7 @@ get_object_data_sections_size(AOTObjectDataSection *data_sections,
     for (i = 0; i < data_sections_count; i++, data_section++) {
         /* name + size + data */
         size = align_uint(size, 2);
-        size += get_string_size(data_section->name);
+        size += get_string_size(comp_ctx, data_section->name);
         size = align_uint(size, 4);
         size += (uint32)sizeof(uint32);
         size += data_section->size;
@@ -507,16 +512,18 @@ get_object_data_sections_size(AOTObjectDataSection *data_sections,
 }
 
 static uint32
-get_object_data_section_info_size(AOTObjectData *obj_data)
+get_object_data_section_info_size(AOTCompContext *comp_ctx,
+                                  AOTObjectData *obj_data)
 {
     /* data sections count + data sections */
     return (uint32)sizeof(uint32)
-           + get_object_data_sections_size(obj_data->data_sections,
+           + get_object_data_sections_size(comp_ctx, obj_data->data_sections,
                                            obj_data->data_sections_count);
 }
 
 static uint32
-get_init_data_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
+get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                           AOTObjectData *obj_data)
 {
     uint32 size = 0;
 
@@ -529,13 +536,13 @@ get_init_data_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
     size += get_func_type_info_size(comp_data);
 
     size = align_uint(size, 4);
-    size += get_import_global_info_size(comp_data);
+    size += get_import_global_info_size(comp_ctx, comp_data);
 
     size = align_uint(size, 4);
     size += get_global_info_size(comp_data);
 
     size = align_uint(size, 4);
-    size += get_import_func_info_size(comp_data);
+    size += get_import_func_info_size(comp_ctx, comp_data);
 
     /* func count + start func index */
     size = align_uint(size, 4);
@@ -544,7 +551,7 @@ get_init_data_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
     /* aux data/heap/stack data */
     size += sizeof(uint32) * 7;
 
-    size += get_object_data_section_info_size(obj_data);
+    size += get_object_data_section_info_size(comp_ctx, obj_data);
     return size;
 }
 
@@ -571,32 +578,33 @@ get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
 }
 
 static uint32
-get_export_size(AOTExport *export)
+get_export_size(AOTCompContext *comp_ctx, AOTExport *export)
 {
     /* export index + export kind + 1 byte padding + export name */
     return (uint32)sizeof(uint32) + sizeof(uint8) + 1
-           + get_string_size(export->name);
+           + get_string_size(comp_ctx, export->name);
 }
 
 static uint32
-get_exports_size(AOTExport *exports, uint32 export_count)
+get_exports_size(AOTCompContext *comp_ctx, AOTExport *exports,
+                 uint32 export_count)
 {
     AOTExport *export = exports;
     uint32 size = 0, i;
 
     for (i = 0; i < export_count; i++, export ++) {
         size = align_uint(size, 4);
-        size += get_export_size(export);
+        size += get_export_size(comp_ctx, export);
     }
     return size;
 }
 
 static uint32
-get_export_section_size(AOTCompData *comp_data)
+get_export_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
 {
     /* export count + exports */
     return (uint32)sizeof(uint32)
-           + get_exports_size(comp_data->wasm_module->exports,
+           + get_exports_size(comp_ctx, comp_data->wasm_module->exports,
                               comp_data->wasm_module->export_count);
 }
 
@@ -700,7 +708,7 @@ get_relocation_symbol_index(const char *symbol_name, bool *is_new,
 }
 
 static uint32
-get_relocation_symbol_size(AOTRelocation *relocation,
+get_relocation_symbol_size(AOTCompContext *comp_ctx, AOTRelocation *relocation,
                            AOTSymbolList *symbol_list)
 {
     uint32 size = 0, index = 0;
@@ -711,7 +719,7 @@ get_relocation_symbol_size(AOTRelocation *relocation,
     CHECK_SIZE(index);
 
     if (is_new) {
-        size += get_string_size(relocation->symbol_name);
+        size += get_string_size(comp_ctx, relocation->symbol_name);
         size = align_uint(size, 2);
     }
 
@@ -720,14 +728,16 @@ get_relocation_symbol_size(AOTRelocation *relocation,
 }
 
 static uint32
-get_relocations_symbol_size(AOTRelocation *relocations, uint32 relocation_count,
+get_relocations_symbol_size(AOTCompContext *comp_ctx,
+                            AOTRelocation *relocations, uint32 relocation_count,
                             AOTSymbolList *symbol_list)
 {
     AOTRelocation *relocation = relocations;
     uint32 size = 0, curr_size, i;
 
     for (i = 0; i < relocation_count; i++, relocation++) {
-        curr_size = get_relocation_symbol_size(relocation, symbol_list);
+        curr_size =
+            get_relocation_symbol_size(comp_ctx, relocation, symbol_list);
         CHECK_SIZE(curr_size);
 
         size += curr_size;
@@ -736,7 +746,8 @@ get_relocations_symbol_size(AOTRelocation *relocations, uint32 relocation_count,
 }
 
 static uint32
-get_relocation_group_symbol_size(AOTRelocationGroup *relocation_group,
+get_relocation_group_symbol_size(AOTCompContext *comp_ctx,
+                                 AOTRelocationGroup *relocation_group,
                                  AOTSymbolList *symbol_list)
 {
     uint32 size = 0, index = 0, curr_size;
@@ -747,15 +758,15 @@ get_relocation_group_symbol_size(AOTRelocationGroup *relocation_group,
     CHECK_SIZE(index);
 
     if (is_new) {
-        size += get_string_size(relocation_group->section_name);
+        size += get_string_size(comp_ctx, relocation_group->section_name);
         size = align_uint(size, 2);
     }
 
     relocation_group->name_index = index;
 
-    curr_size = get_relocations_symbol_size(relocation_group->relocations,
-                                            relocation_group->relocation_count,
-                                            symbol_list);
+    curr_size = get_relocations_symbol_size(
+        comp_ctx, relocation_group->relocations,
+        relocation_group->relocation_count, symbol_list);
     CHECK_SIZE(curr_size);
     size += curr_size;
 
@@ -763,7 +774,8 @@ get_relocation_group_symbol_size(AOTRelocationGroup *relocation_group,
 }
 
 static uint32
-get_relocation_groups_symbol_size(AOTRelocationGroup *relocation_groups,
+get_relocation_groups_symbol_size(AOTCompContext *comp_ctx,
+                                  AOTRelocationGroup *relocation_groups,
                                   uint32 relocation_group_count,
                                   AOTSymbolList *symbol_list)
 {
@@ -771,8 +783,8 @@ get_relocation_groups_symbol_size(AOTRelocationGroup *relocation_groups,
     uint32 size = 0, curr_size, i;
 
     for (i = 0; i < relocation_group_count; i++, relocation_group++) {
-        curr_size =
-            get_relocation_group_symbol_size(relocation_group, symbol_list);
+        curr_size = get_relocation_group_symbol_size(comp_ctx, relocation_group,
+                                                     symbol_list);
         CHECK_SIZE(curr_size);
         size += curr_size;
     }
@@ -780,7 +792,8 @@ get_relocation_groups_symbol_size(AOTRelocationGroup *relocation_groups,
 }
 
 static uint32
-get_symbol_size_from_symbol_list(AOTSymbolList *symbol_list)
+get_symbol_size_from_symbol_list(AOTCompContext *comp_ctx,
+                                 AOTSymbolList *symbol_list)
 {
     AOTSymbolNode *sym;
     uint32 size = 0;
@@ -788,7 +801,7 @@ get_symbol_size_from_symbol_list(AOTSymbolList *symbol_list)
     sym = symbol_list->head;
     while (sym) {
         /* (uint16)str_len + str */
-        size += get_string_size(sym->symbol);
+        size += get_string_size(comp_ctx, sym->symbol);
         size = align_uint(size, 2);
         sym = sym->next;
     }
@@ -797,7 +810,8 @@ get_symbol_size_from_symbol_list(AOTSymbolList *symbol_list)
 }
 
 static uint32
-get_relocation_section_symbol_size(AOTObjectData *obj_data)
+get_relocation_section_symbol_size(AOTCompContext *comp_ctx,
+                                   AOTObjectData *obj_data)
 {
     AOTRelocationGroup *relocation_groups = obj_data->relocation_groups;
     uint32 relocation_group_count = obj_data->relocation_group_count;
@@ -807,11 +821,12 @@ get_relocation_section_symbol_size(AOTObjectData *obj_data)
        get symbol size from symbol list directly in the second calculation */
     if (obj_data->symbol_list.len > 0) {
         symbol_table_size =
-            get_symbol_size_from_symbol_list(&obj_data->symbol_list);
+            get_symbol_size_from_symbol_list(comp_ctx, &obj_data->symbol_list);
     }
     else {
         symbol_table_size = get_relocation_groups_symbol_size(
-            relocation_groups, relocation_group_count, &obj_data->symbol_list);
+            comp_ctx, relocation_groups, relocation_group_count,
+            &obj_data->symbol_list);
     }
     CHECK_SIZE(symbol_table_size);
     string_count = obj_data->symbol_list.len;
@@ -823,13 +838,13 @@ get_relocation_section_symbol_size(AOTObjectData *obj_data)
 }
 
 static uint32
-get_relocation_section_size(AOTObjectData *obj_data)
+get_relocation_section_size(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
 {
     AOTRelocationGroup *relocation_groups = obj_data->relocation_groups;
     uint32 relocation_group_count = obj_data->relocation_group_count;
     uint32 symbol_table_size = 0;
 
-    symbol_table_size = get_relocation_section_symbol_size(obj_data);
+    symbol_table_size = get_relocation_section_symbol_size(comp_ctx, obj_data);
     CHECK_SIZE(symbol_table_size);
     symbol_table_size = align_uint(symbol_table_size, 4);
 
@@ -850,7 +865,7 @@ get_native_symbol_list_size(AOTCompContext *comp_ctx)
 
     while (sym) {
         len = align_uint(len, 2);
-        len += get_string_size(sym->symbol);
+        len += get_string_size(comp_ctx, sym->symbol);
         sym = bh_list_elem_next(sym);
     }
 
@@ -879,7 +894,7 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size = align_uint(size, 4);
     /* section id + section size */
     size += (uint32)sizeof(uint32) * 2;
-    size += get_init_data_section_size(comp_data, obj_data);
+    size += get_init_data_section_size(comp_ctx, comp_data, obj_data);
 
     /* text section */
     size = align_uint(size, 4);
@@ -897,13 +912,13 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     size = align_uint(size, 4);
     /* section id + section size */
     size += (uint32)sizeof(uint32) * 2;
-    size += get_export_section_size(comp_data);
+    size += get_export_section_size(comp_ctx, comp_data);
 
     /* relocation section */
     size = align_uint(size, 4);
     /* section id + section size */
     size += (uint32)sizeof(uint32) * 2;
-    size += get_relocation_section_size(obj_data);
+    size += get_relocation_section_size(comp_ctx, obj_data);
 
     if (get_native_symbol_list_size(comp_ctx) > 0) {
         /* emit only when there are native symbols */
@@ -1043,11 +1058,19 @@ static union {
         offset += len;                \
     } while (0)
 
-#define EMIT_STR(s)                         \
-    do {                                    \
-        uint32 str_len = (uint32)strlen(s); \
-        EMIT_U16(str_len);                  \
-        EMIT_BUF(s, str_len);               \
+#define EMIT_STR(s)                                   \
+    do {                                              \
+        uint32 str_len = (uint32)strlen(s);           \
+        if (str_len > INT16_MAX) {                    \
+            aot_set_last_error("emit string failed: " \
+                               "string too long");    \
+            return false;                             \
+        }                                             \
+        if (comp_ctx->is_indirect_mode)               \
+            /* emit '\0' only in XIP mode */          \
+            str_len++;                                \
+        EMIT_U16(str_len);                            \
+        EMIT_BUF(s, str_len);                         \
     } while (0)
 
 static bool
@@ -1359,7 +1382,8 @@ aot_emit_mem_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 static bool
 aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                    AOTCompData *comp_data, AOTObjectData *obj_data)
+                    AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                    AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i, j;
     AOTTableInitData **init_datas = comp_data->table_init_data_list;
@@ -1446,7 +1470,8 @@ aot_emit_func_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 static bool
 aot_emit_import_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                            AOTCompData *comp_data, AOTObjectData *obj_data)
+                            AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                            AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i;
     AOTImportGlobal *import_global = comp_data->import_globals;
@@ -1464,7 +1489,8 @@ aot_emit_import_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_STR(import_global->global_name);
     }
 
-    if (offset - *p_offset != get_import_global_info_size(comp_data)) {
+    if (offset - *p_offset
+        != get_import_global_info_size(comp_ctx, comp_data)) {
         aot_set_last_error("emit import global info failed.");
         return false;
     }
@@ -1508,7 +1534,8 @@ aot_emit_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 static bool
 aot_emit_import_func_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                          AOTCompData *comp_data, AOTObjectData *obj_data)
+                          AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                          AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i;
     AOTImportFunc *import_func = comp_data->import_funcs;
@@ -1525,7 +1552,7 @@ aot_emit_import_func_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_STR(import_func->func_name);
     }
 
-    if (offset - *p_offset != get_import_func_info_size(comp_data)) {
+    if (offset - *p_offset != get_import_func_info_size(comp_ctx, comp_data)) {
         aot_set_last_error("emit import function info failed.");
         return false;
     }
@@ -1537,6 +1564,7 @@ aot_emit_import_func_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 static bool
 aot_emit_object_data_section_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                                  AOTCompContext *comp_ctx,
                                   AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i;
@@ -1554,7 +1582,8 @@ aot_emit_object_data_section_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         EMIT_BUF(data_section->data, data_section->size);
     }
 
-    if (offset - *p_offset != get_object_data_section_info_size(obj_data)) {
+    if (offset - *p_offset
+        != get_object_data_section_info_size(comp_ctx, obj_data)) {
         aot_set_last_error("emit object data section info failed.");
         return false;
     }
@@ -1569,7 +1598,8 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                            AOTCompContext *comp_ctx, AOTCompData *comp_data,
                            AOTObjectData *obj_data)
 {
-    uint32 section_size = get_init_data_section_size(comp_data, obj_data);
+    uint32 section_size =
+        get_init_data_section_size(comp_ctx, comp_data, obj_data);
     uint32 offset = *p_offset;
 
     *p_offset = offset = align_uint(offset, 4);
@@ -1578,13 +1608,14 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(section_size);
 
     if (!aot_emit_mem_info(buf, buf_end, &offset, comp_ctx, comp_data, obj_data)
-        || !aot_emit_table_info(buf, buf_end, &offset, comp_data, obj_data)
+        || !aot_emit_table_info(buf, buf_end, &offset, comp_ctx, comp_data,
+                                obj_data)
         || !aot_emit_func_type_info(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_import_global_info(buf, buf_end, &offset, comp_data,
-                                        obj_data)
+        || !aot_emit_import_global_info(buf, buf_end, &offset, comp_ctx,
+                                        comp_data, obj_data)
         || !aot_emit_global_info(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_import_func_info(buf, buf_end, &offset, comp_data,
-                                      obj_data))
+        || !aot_emit_import_func_info(buf, buf_end, &offset, comp_ctx,
+                                      comp_data, obj_data))
         return false;
 
     offset = align_uint(offset, 4);
@@ -1599,7 +1630,8 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(comp_data->aux_stack_bottom);
     EMIT_U32(comp_data->aux_stack_size);
 
-    if (!aot_emit_object_data_section_info(buf, buf_end, &offset, obj_data))
+    if (!aot_emit_object_data_section_info(buf, buf_end, &offset, comp_ctx,
+                                           obj_data))
         return false;
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
@@ -1678,9 +1710,10 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 static bool
 aot_emit_export_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                        AOTCompData *comp_data, AOTObjectData *obj_data)
+                        AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                        AOTObjectData *obj_data)
 {
-    uint32 section_size = get_export_section_size(comp_data);
+    uint32 section_size = get_export_section_size(comp_ctx, comp_data);
     AOTExport *export = comp_data->wasm_module->exports;
     uint32 export_count = comp_data->wasm_module->export_count;
     uint32 i, offset = *p_offset;
@@ -1711,6 +1744,7 @@ aot_emit_export_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 static bool
 aot_emit_relocation_symbol_table(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                                 AOTCompContext *comp_ctx,
                                  AOTCompData *comp_data,
                                  AOTObjectData *obj_data)
 {
@@ -1725,7 +1759,7 @@ aot_emit_relocation_symbol_table(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     while (sym) {
         EMIT_U32(symbol_offset);
         /* string_len + str[0 .. string_len - 1] */
-        symbol_offset += get_string_size(sym->symbol);
+        symbol_offset += get_string_size(comp_ctx, sym->symbol);
         symbol_offset = align_uint(symbol_offset, 2);
         sym = sym->next;
     }
@@ -1748,9 +1782,10 @@ aot_emit_relocation_symbol_table(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
 static bool
 aot_emit_relocation_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
-                            AOTCompData *comp_data, AOTObjectData *obj_data)
+                            AOTCompContext *comp_ctx, AOTCompData *comp_data,
+                            AOTObjectData *obj_data)
 {
-    uint32 section_size = get_relocation_section_size(obj_data);
+    uint32 section_size = get_relocation_section_size(comp_ctx, obj_data);
     uint32 i, offset = *p_offset;
     AOTRelocationGroup *relocation_group = obj_data->relocation_groups;
 
@@ -1762,7 +1797,7 @@ aot_emit_relocation_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(AOT_SECTION_TYPE_RELOCATION);
     EMIT_U32(section_size);
 
-    aot_emit_relocation_symbol_table(buf, buf_end, &offset, comp_data,
+    aot_emit_relocation_symbol_table(buf, buf_end, &offset, comp_ctx, comp_data,
                                      obj_data);
 
     offset = align_uint(offset, 4);
@@ -2679,9 +2714,10 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                                        comp_data, obj_data)
         || !aot_emit_text_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_func_section(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_export_section(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_relocation_section(buf, buf_end, &offset, comp_data,
-                                        obj_data)
+        || !aot_emit_export_section(buf, buf_end, &offset, comp_ctx, comp_data,
+                                    obj_data)
+        || !aot_emit_relocation_section(buf, buf_end, &offset, comp_ctx,
+                                        comp_data, obj_data)
         || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx)
         || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx))
         goto fail2;
