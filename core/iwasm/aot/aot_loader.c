@@ -214,6 +214,7 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     HashMap *set = module->const_str_set;
     char *c_str, *value;
 
+    /* Create const string set if it isn't created */
     if (!set
         && !(set = module->const_str_set = bh_hash_map_create(
                  32, false, (HashFunc)wasm_string_hash,
