@@ -270,7 +270,10 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint16(p, p_end, str_len);
         CHECK_BUF(p, p_end, str_len);
 
-        if (p[str_len - 1] == '\0') {
+        if (str_len == 0) {
+            str = "";
+        }
+        else if (p[str_len - 1] == '\0') {
             /* The string is terminated with '\0', use it directly */
             str = (char *)p;
         }

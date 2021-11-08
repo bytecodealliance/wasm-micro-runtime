@@ -170,9 +170,23 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 
 static char *
 const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
-                      char *error_buf, uint32 error_buf_size)
+                      bool is_load_from_file_buf, char *error_buf,
+                      uint32 error_buf_size)
 {
     StringNode *node, *node_next;
+
+    if (len == 0) {
+        return "";
+    }
+    else if (is_load_from_file_buf) {
+        /* As the file buffer can be referred to after loading, we use
+           the previous byte of leb encoded size to adjust the string:
+           move string 1 byte backward and then append '\0' */
+        char *c_str = (char *)str - 1;
+        bh_memmove_s(c_str, len + 1, c_str + 1, len);
+        c_str[len] = '\0';
+        return c_str;
+    }
 
     /* Search const str list */
     node = module->const_str_list;
@@ -640,7 +654,8 @@ load_memory(const uint8 **p_buf, const uint8 *buf_end, WASMMemory *memory,
 
 static bool
 load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
-                    char *error_buf, uint32 error_buf_size)
+                    bool is_load_from_file_buf, char *error_buf,
+                    uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end, *p_old;
     uint32 import_count, name_len, type_index, i, u32, flags;
@@ -650,16 +665,6 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     WASMImport *import_memories = NULL, *import_globals = NULL;
     char *sub_module_name, *field_name;
     uint8 u8, kind;
-
-    /* insert builtin module names into const str list */
-    if (!const_str_list_insert((uint8 *)"env", 3, module, error_buf,
-                               error_buf_size)
-        || !const_str_list_insert((uint8 *)"wasi_unstable", 13, module,
-                                  error_buf, error_buf_size)
-        || !const_str_list_insert((uint8 *)"wasi_snapshot_preview1", 22, module,
-                                  error_buf, error_buf_size)) {
-        return false;
-    }
 
     read_leb_uint32(p, p_end, import_count);
 
@@ -757,7 +762,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
             if (!(sub_module_name = const_str_list_insert(
-                      p, name_len, module, error_buf, error_buf_size))) {
+                      p, name_len, module, is_load_from_file_buf, error_buf,
+                      error_buf_size))) {
                 return false;
             }
             p += name_len;
@@ -766,7 +772,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
             if (!(field_name = const_str_list_insert(
-                      p, name_len, module, error_buf, error_buf_size))) {
+                      p, name_len, module, is_load_from_file_buf, error_buf,
+                      error_buf_size))) {
                 return false;
             }
             p += name_len;
@@ -1146,7 +1153,8 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
 static bool
 load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
-                    char *error_buf, uint32 error_buf_size)
+                    bool is_load_from_file_buf, char *error_buf,
+                    uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 export_count, i, j, index;
@@ -1177,7 +1185,8 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
 
             if (!(export->name = const_str_list_insert(
-                      p, str_len, module, error_buf, error_buf_size))) {
+                      p, str_len, module, is_load_from_file_buf, error_buf,
+                      error_buf_size))) {
                 return false;
             }
 
@@ -1648,7 +1657,8 @@ load_start_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static bool
 handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
-                    char *error_buf, uint32 error_buf_size)
+                    bool is_load_from_file_buf, char *error_buf,
+                    uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 name_type, subsection_size;
@@ -1686,9 +1696,10 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                             func_index -= module->import_count;
                             bh_assert(func_index < module->function_count);
                             if (!(module->functions[func_index]->field_name =
-                                      const_str_list_insert(p, func_name_len,
-                                                            module, error_buf,
-                                                            error_buf_size))) {
+                                      const_str_list_insert(
+                                          p, func_name_len, module,
+                                          is_load_from_file_buf, error_buf,
+                                          error_buf_size))) {
                                 return false;
                             }
                         }
@@ -1707,14 +1718,13 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     }
 
     return true;
-fail:
-    return false;
 }
 #endif
 
 static bool
 load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
-                  char *error_buf, uint32 error_buf_size)
+                  bool is_load_from_file_buf, char *error_buf,
+                  uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 name_len;
@@ -1728,7 +1738,8 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     if (memcmp(p, "name", 4) == 0) {
         p += name_len;
-        handle_name_section(p, p_end, module, error_buf, error_buf_size);
+        handle_name_section(p, p_end, module, is_load_from_file_buf, error_buf,
+                            error_buf_size);
     }
 #endif
     LOG_VERBOSE("Load custom section success.\n");
@@ -1785,7 +1796,8 @@ static void **handle_table;
 #endif
 
 static bool
-load_from_sections(WASMModule *module, WASMSection *sections, char *error_buf,
+load_from_sections(WASMModule *module, WASMSection *sections,
+                   bool is_load_from_file_buf, char *error_buf,
                    uint32 error_buf_size)
 {
     WASMExport *export;
@@ -1821,7 +1833,8 @@ load_from_sections(WASMModule *module, WASMSection *sections, char *error_buf,
         switch (section->section_type) {
             case SECTION_TYPE_USER:
                 /* unsupported user section, ignore it. */
-                if (!load_user_section(buf, buf_end, module, error_buf,
+                if (!load_user_section(buf, buf_end, module,
+                                       is_load_from_file_buf, error_buf,
                                        error_buf_size))
                     return false;
                 break;
@@ -1831,7 +1844,8 @@ load_from_sections(WASMModule *module, WASMSection *sections, char *error_buf,
                     return false;
                 break;
             case SECTION_TYPE_IMPORT:
-                if (!load_import_section(buf, buf_end, module, error_buf,
+                if (!load_import_section(buf, buf_end, module,
+                                         is_load_from_file_buf, error_buf,
                                          error_buf_size))
                     return false;
                 break;
@@ -1856,7 +1870,8 @@ load_from_sections(WASMModule *module, WASMSection *sections, char *error_buf,
                     return false;
                 break;
             case SECTION_TYPE_EXPORT:
-                if (!load_export_section(buf, buf_end, module, error_buf,
+                if (!load_export_section(buf, buf_end, module,
+                                         is_load_from_file_buf, error_buf,
                                          error_buf_size))
                     return false;
                 break;
@@ -2174,7 +2189,8 @@ wasm_loader_load_from_sections(WASMSection *section_list, char *error_buf,
     if (!module)
         return NULL;
 
-    if (!load_from_sections(module, section_list, error_buf, error_buf_size)) {
+    if (!load_from_sections(module, section_list, false, error_buf,
+                            error_buf_size)) {
         wasm_loader_unload(module);
         return NULL;
     }
@@ -2329,7 +2345,7 @@ load(const uint8 *buf, uint32 size, WASMModule *module, char *error_buf,
     }
 
     if (!create_sections(buf, size, &section_list, error_buf, error_buf_size)
-        || !load_from_sections(module, section_list, error_buf,
+        || !load_from_sections(module, section_list, true, error_buf,
                                error_buf_size)) {
         destroy_sections(section_list);
         return false;
