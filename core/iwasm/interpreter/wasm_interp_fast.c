@@ -3658,7 +3658,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
                       cur_wasm_func->const_cell_num);
 
-            /* Initialize the local varialbes */
+            /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
 

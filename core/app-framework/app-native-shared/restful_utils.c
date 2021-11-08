@@ -20,22 +20,27 @@
  * 4. attr-containers of our own
  * 5. customized serialization for request/response
  *
- * Now we choose the #5 mainly because we need to quickly get the URL for dispatching
- * and sometimes we want to change the URL in the original packet. the request format:
- * fixed part: version: (1 byte), code (1 byte), fmt(2 byte), mid (4 bytes), sender_id(4 bytes),  url_len(2 bytes), payload_len(4bytes)
- * dynamic part: url (bytes in url_len), payload
+ * Now we choose the #5 mainly because we need to quickly get the URL for
+ * dispatching and sometimes we want to change the URL in the original packet.
+ * the request format: fixed part: version: (1 byte), code (1 byte), fmt(2
+ * byte), mid (4 bytes), sender_id(4 bytes),  url_len(2 bytes),
+ * payload_len(4bytes) dynamic part: url (bytes in url_len), payload
  *
  * response format:
- * fixed part: (1 byte), code (1 byte), fmt(2 byte), mid (4 bytes), sender_id(4 bytes),   payload_len(4bytes)
- * dynamic part: payload
+ * fixed part: (1 byte), code (1 byte), fmt(2 byte), mid (4 bytes), sender_id(4
+ * bytes),   payload_len(4bytes) dynamic part: payload
  */
 #define REQUES_PACKET_VER 1
 #define REQUEST_PACKET_FIX_PART_LEN 18
 #define REQUEST_PACKET_URL_OFFSET REQUEST_PACKET_FIX_PART_LEN
-#define REQUEST_PACKET_URL_LEN  *((uint16*)((char*) buffer + 12))   /* to ensure little endian */
-#define REQUEST_PACKET_PAYLOAD_LEN *((uint32*)((char*) buffer + 14))   /* to ensure little endian */
-#define REQUEST_PACKET_URL(buffer) ((char*) buffer + REQUEST_PACKET_URL_OFFSET)
-#define REQUEST_PACKET_PAYLOAD(buffer)  ((char*) buffer + REQUEST_PACKET_URL_OFFSET + REQUEST_PACKET_URL_LEN(buffer))
+#define REQUEST_PACKET_URL_LEN \
+    *((uint16 *)((char *)buffer + 12)) /* to ensure little endian */
+#define REQUEST_PACKET_PAYLOAD_LEN \
+    *((uint32 *)((char *)buffer + 14)) /* to ensure little endian */
+#define REQUEST_PACKET_URL(buffer) ((char *)buffer + REQUEST_PACKET_URL_OFFSET)
+#define REQUEST_PACKET_PAYLOAD(buffer)          \
+    ((char *)buffer + REQUEST_PACKET_URL_OFFSET \
+     + REQUEST_PACKET_URL_LEN(buffer))
 
 #define RESPONSE_PACKET_FIX_PART_LEN 16
 
@@ -48,17 +53,17 @@ pack_request(request_t *request, int *size)
     uint32 u32;
     char *packet;
 
-    if ((packet = (char*) WA_MALLOC(len)) == NULL)
+    if ((packet = (char *)WA_MALLOC(len)) == NULL)
         return NULL;
 
     /* TODO: ensure little endian for words and dwords */
     *packet = REQUES_PACKET_VER;
-    *((uint8*) (packet + 1)) = request->action;
+    *((uint8 *)(packet + 1)) = request->action;
 
     u16 = htons(request->fmt);
     memcpy(packet + 2, &u16, 2);
 
-    u32  = htonl(request->mid);
+    u32 = htonl(request->mid);
     memcpy(packet + 4, &u32, 4);
 
     u32 = htonl(request->sender);
@@ -72,7 +77,7 @@ pack_request(request_t *request, int *size)
 
     strcpy(packet + REQUEST_PACKET_URL_OFFSET, request->url);
     memcpy(packet + REQUEST_PACKET_URL_OFFSET + url_len, request->payload,
-            request->payload_len);
+           request->payload_len);
 
     *size = len;
     return packet;
@@ -111,7 +116,7 @@ unpack_request(char *packet, int size, request_t *request)
         return NULL;
     }
 
-    request->action = *((uint8*) (packet + 1));
+    request->action = *((uint8 *)(packet + 1));
 
     memcpy(&u16, packet + 2, 2);
     request->fmt = ntohs(u16);
@@ -141,12 +146,12 @@ pack_response(response_t *response, int *size)
     uint32 u32;
     char *packet;
 
-    if ((packet = (char*) WA_MALLOC(len)) == NULL)
+    if ((packet = (char *)WA_MALLOC(len)) == NULL)
         return NULL;
 
     /* TODO: ensure little endian for words and dwords */
     *packet = REQUES_PACKET_VER;
-    *((uint8*) (packet + 1)) = response->status;
+    *((uint8 *)(packet + 1)) = response->status;
 
     u16 = htons(response->fmt);
     memcpy(packet + 2, &u16, 2);
@@ -161,7 +166,7 @@ pack_response(response_t *response, int *size)
     memcpy(packet + 12, &u32, 4);
 
     memcpy(packet + RESPONSE_PACKET_FIX_PART_LEN, response->payload,
-            response->payload_len);
+           response->payload_len);
 
     *size = len;
     return packet;
@@ -184,7 +189,7 @@ unpack_response(char *packet, int size, response_t *response)
     if (size != (RESPONSE_PACKET_FIX_PART_LEN + payload_len))
         return NULL;
 
-    response->status = *((uint8*) (packet + 1));
+    response->status = *((uint8 *)(packet + 1));
 
     memcpy(&u16, packet + 2, 2);
     response->fmt = ntohs(u16);
@@ -208,7 +213,7 @@ request_t *
 clone_request(request_t *request)
 {
     /* deep clone */
-    request_t *req = (request_t *) WA_MALLOC(sizeof(request_t));
+    request_t *req = (request_t *)WA_MALLOC(sizeof(request_t));
     if (req == NULL)
         return NULL;
 
@@ -278,7 +283,7 @@ clone_response(response_t *response)
     clone->reciever = response->reciever;
     clone->payload_len = response->payload_len;
     if (clone->payload_len) {
-        clone->payload = (char *) WA_MALLOC(response->payload_len);
+        clone->payload = (char *)WA_MALLOC(response->payload_len);
         if (!clone->payload)
             goto fail;
         memcpy(clone->payload, response->payload, response->payload_len);
@@ -296,8 +301,8 @@ fail:
 }
 
 response_t *
-set_response(response_t *response, int status, int fmt,
-             const char *payload, int payload_len)
+set_response(response_t *response, int status, int fmt, const char *payload,
+             int payload_len)
 {
     response->payload = (void *)payload;
     response->payload_len = payload_len;
@@ -307,8 +312,7 @@ set_response(response_t *response, int status, int fmt,
 }
 
 response_t *
-make_response_for_request(request_t *request,
-                          response_t *response)
+make_response_for_request(request_t *request, response_t *response)
 {
     response->mid = request->mid;
     response->reciever = request->sender;
@@ -319,8 +323,8 @@ make_response_for_request(request_t *request,
 static unsigned int mid = 0;
 
 request_t *
-init_request(request_t *request, char *url, int action, int fmt,
-             void *payload, int payload_len)
+init_request(request_t *request, char *url, int action, int fmt, void *payload,
+             int payload_len)
 {
     request->url = url;
     request->action = action;
@@ -334,10 +338,10 @@ init_request(request_t *request, char *url, int action, int fmt,
 
 /*
  check if the "url" is starting with "leading_str"
- return: 0 - not match; >0 - the offset of matched url, include any "/" at the end
- notes:
- 1. it ensures the leading_str "/abc" can pass "/abc/cde" and "/abc/, but fail "/ab" and "/abcd".
- leading_str "/abc/" can pass "/abc"
+ return: 0 - not match; >0 - the offset of matched url, include any "/" at the
+ end notes:
+ 1. it ensures the leading_str "/abc" can pass "/abc/cde" and "/abc/, but fail
+ "/ab" and "/abcd". leading_str "/abc/" can pass "/abc"
  2. it omit the '/' at the first char
  3. it ensure the leading_str "/abc" can pass "/abc?cde
  */
@@ -425,7 +429,6 @@ match_url(char *pattern, char *matched)
             return true;
 
         return false;
-
     }
     else if (pattern[len - 1] == '*') {
         if (pattern[len - 2] == '/') {
@@ -468,9 +471,9 @@ find_key_value(char *buffer, int buffer_len, char *key, char *value,
         if (0 == strncmp(p, key, key_len) && p[key_len] == '=') {
             p += (key_len + 1);
             remaining -= (key_len + 1);
-            char * v = value;
+            char *v = value;
             memset(value, 0, value_len);
-            value_len--;  /* ensure last char is 0 */
+            value_len--; /* ensure last char is 0 */
             while (*p != delimiter && remaining > 0 && value_len > 0) {
                 *v++ = *p++;
                 remaining--;

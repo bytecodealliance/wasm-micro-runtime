@@ -283,7 +283,7 @@ void on_destroy()
 
 ## GUI API
 
-The API's is listed in header file ```core/app-framework/wgl/app/wa-inc/wgl.h``` which is implemented based on open soure 2D graphic library [LittlevGL](https://docs.littlevgl.com/en/html/index.html).
+The API's is listed in header file ```core/app-framework/wgl/app/wa-inc/wgl.h``` which is implemented based on open source 2D graphic library [LittlevGL](https://docs.littlevgl.com/en/html/index.html).
 
 ``` C
 static void btn_event_cb(wgl_obj_t btn, wgl_event_t event);

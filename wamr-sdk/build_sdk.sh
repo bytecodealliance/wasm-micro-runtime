@@ -8,6 +8,7 @@ wamr_root_dir=${sdk_root}/..
 out_dir=${sdk_root}/out
 profile_path=${out_dir}/profile.cmake
 wamr_config_cmake_file=""
+wasi_sdk_home="/opt/wasi-sdk"
 # libc support, default builtin-libc
 LIBC_SUPPORT="BUILTIN"
 CM_DEXTRA_SDK_INCLUDE_PATH=""
@@ -27,11 +28,12 @@ usage ()
     echo " -c, clean"
     echo " -d, debug mode"
     echo " -i, enter menu config settings"
+    echo " -w [wasi-sdk installation path] it will be '/opt/wasi-sdk' if not set"
     exit 1
 }
 
 
-while getopts "e:x:n:t:icd" opt
+while getopts "e:x:n:t:icdw:" opt
 do
     case $opt in
         n)
@@ -55,6 +57,11 @@ do
         i)
         MENUCONFIG="TRUE"
         ;;
+        w)
+        if [[ -n "${OPTARG}" ]]; then
+            wasi_sdk_home=$(realpath "${OPTARG}")
+        fi
+        ;;
         ?)
         echo "Unknown arg: $arg"
         usage
@@ -64,15 +71,11 @@ do
 done
 
 
-if [ ! -f "/opt/wasi-sdk/bin/clang" ]; then
-        echo "Can't find wasi-sdk under /opt/wasi-sdk"
-        echo "You can download wasi-sdk from here:"
-        echo ""
-        echo "https://github.com/CraneStation/wasi-sdk/releases/tag/wasi-sdk-7"
-        echo ""
-        echo "please install it to the default path for your convenience"
-        echo ""
-        exit 1
+if [ ! -f "${wasi_sdk_home}/bin/clang" ]; then
+    echo "Can not find clang under \"${wasi_sdk_home}/bin\"."
+    exit 1
+else
+    echo "Found WASI_SDK HOME ${wasi_sdk_home}"
 fi
 
 
@@ -190,12 +193,17 @@ if [ -n "$out" ]; then
 fi
 if [ "${LIBC_SUPPORT}" = "WASI" ]; then
     echo "using wasi toolchain"
-    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH -DWAMR_BUILD_SDK_PROFILE=${PROFILE}  -DCONFIG_PATH=${wamr_config_cmake_file}  -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
+    cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
+         -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \
+         -DCONFIG_PATH=${wamr_config_cmake_file} \
+         -DWASI_SDK_DIR="${wasi_sdk_home}" \
+         -DCMAKE_TOOLCHAIN_FILE=../wasi_toolchain.cmake
 else
     echo "using builtin libc toolchain"
     cmake .. $CM_DEXTRA_SDK_INCLUDE_PATH \
          -DWAMR_BUILD_SDK_PROFILE=${PROFILE} \
          -DCONFIG_PATH=${wamr_config_cmake_file} \
+         -DWASI_SDK_DIR="${wasi_sdk_home}" \
          -DCMAKE_TOOLCHAIN_FILE=../wamr_toolchain.cmake
 fi
 [ $? -eq 0 ] || exit $?

@@ -20,7 +20,7 @@ extern "C" {
 #define ID_HOST -3
 #define ID_APP_MGR -2
 /* Invalid module ID */
-#define ID_NONE (uint32)-1
+#define ID_NONE ((uint32)-1)
 
 struct attr_container_t;
 
@@ -40,7 +40,10 @@ typedef enum QUEUE_MSG_TYPE {
 } QUEUE_MSG_TYPE;
 
 typedef enum {
-    Module_Jeff, Module_WASM_App, Module_WASM_Lib, Module_Max
+    Module_Jeff,
+    Module_WASM_App,
+    Module_WASM_Lib,
+    Module_Max
 } Module_Type;
 
 struct module_data;
@@ -111,12 +114,13 @@ typedef module_data *(*module_get_module_data_func)(void *inst);
  *
  * @param ch the byte to be received and handled
  * @param total_size total size of the request
- * @param received_total_size currently received total size when the function return
+ * @param received_total_size currently received total size when
+ *        the function return
  *
  * @return true if success, false otherwise
  */
-typedef bool (*module_on_install_request_byte_arrive_func) (
-        uint8 ch, int total_size, int *received_total_size);
+typedef bool (*module_on_install_request_byte_arrive_func)(
+    uint8 ch, int total_size, int *received_total_size);
 
 /* Interfaces of each module */
 typedef struct module_interface {
@@ -148,7 +152,7 @@ typedef bool (*host_init_func)(void);
  *
  * @return size of the data sent in bytes
  */
-typedef int (*host_send_fun)(void * ctx, const char *buf, int size);
+typedef int (*host_send_fun)(void *ctx, const char *buf, int size);
 
 /**
  * @typedef host_destroy_fun
@@ -191,22 +195,22 @@ app_manager_get_module_name(uint32 module_type, void *module_inst);
 void *
 app_manager_get_module_heap(uint32 module_type, void *module_inst);
 
-void*
+void *
 get_app_manager_queue();
 
-module_data*
+module_data *
 app_manager_get_module_data(uint32 module_type, void *module_inst);
 
 unsigned int
 app_manager_get_module_id(uint32 module_type, void *module_inst);
 
-module_data*
+module_data *
 app_manager_lookup_module_data(const char *name);
 
-module_data*
+module_data *
 module_data_list_lookup(const char *module_name);
 
-module_data*
+module_data *
 module_data_list_lookup_id(unsigned int module_id);
 
 void
@@ -214,9 +218,11 @@ app_manager_post_applets_update_event();
 
 bool
 am_register_resource(const char *url,
-        void (*request_handler)(request_t *, void *), uint32 register_id);
+                     void (*request_handler)(request_t *, void *),
+                     uint32 register_id);
 
-void am_cleanup_registeration(uint32 register_id);
+void
+am_cleanup_registeration(uint32 register_id);
 
 bool
 am_register_event(const char *url, uint32_t reg_client);
@@ -224,13 +230,17 @@ am_register_event(const char *url, uint32_t reg_client);
 bool
 am_unregister_event(const char *url, uint32_t reg_client);
 
-void am_publish_event(request_t * event);
+void
+am_publish_event(request_t *event);
 
-void * am_dispatch_request(request_t *request);
+void *
+am_dispatch_request(request_t *request);
 
-void am_send_response(response_t *response);
+void
+am_send_response(response_t *response);
 
-void module_request_handler(request_t *request, void *user_data);
+void
+module_request_handler(request_t *request, void *user_data);
 
 /**
  * Send request message to host
@@ -291,4 +301,3 @@ app_manager_host_send_msg(int msg_type, const char *buf, int size);
 #endif
 
 #endif
-

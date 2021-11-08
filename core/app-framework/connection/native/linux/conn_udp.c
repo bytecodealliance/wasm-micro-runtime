@@ -11,7 +11,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-int udp_open(uint16 port)
+int
+udp_open(uint16 port)
 {
     int sock, ret;
     struct sockaddr_in addr;
@@ -25,7 +26,7 @@ int udp_open(uint16 port)
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(port);
 
-    ret = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+    ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
     if (ret == -1) {
         close(sock);
         return -1;
@@ -40,20 +41,18 @@ int udp_open(uint16 port)
     return sock;
 }
 
-int udp_send(int sock, struct sockaddr *dest, const char *data, int size)
+int
+udp_send(int sock, struct sockaddr *dest, const char *data, int size)
 {
     return sendto(sock, data, size, MSG_CONFIRM, dest, sizeof(*dest));
 }
 
-int udp_recv(int sock, char *buffer, int buf_size)
+int
+udp_recv(int sock, char *buffer, int buf_size)
 {
     struct sockaddr_in remaddr;
     socklen_t addrlen = sizeof(remaddr);
 
-    return recvfrom(sock,
-                    buffer,
-                    buf_size,
-                    0,
-                    (struct sockaddr *)&remaddr,
+    return recvfrom(sock, buffer, buf_size, 0, (struct sockaddr *)&remaddr,
                     &addrlen);
 }

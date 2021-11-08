@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-ARG VARIANT=need_to_assign
+ARG VARIANT=focal
 FROM ubuntu:${VARIANT}
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -13,7 +13,7 @@ RUN apt update \
       libgcc-9-dev lib32gcc-9-dev lsb-release \
       ninja-build  ocaml ocamlbuild python2.7 \
       software-properties-common tree tzdata \
-      unzip url valgrind vim wget zip
+      unzip valgrind vim wget zip
 
 #
 # CMAKE (https://apt.kitware.com/)

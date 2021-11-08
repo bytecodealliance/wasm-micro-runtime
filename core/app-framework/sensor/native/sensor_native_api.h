@@ -14,16 +14,14 @@ extern "C" {
 #endif
 
 bool
-wasm_sensor_config(wasm_exec_env_t exec_env,
-                   uint32 sensor, int interval,
+wasm_sensor_config(wasm_exec_env_t exec_env, uint32 sensor, int interval,
                    int bit_cfg, int delay);
 uint32
-wasm_sensor_open(wasm_exec_env_t exec_env,
-                 char *name, int instance);
+wasm_sensor_open(wasm_exec_env_t exec_env, char *name, int instance);
 
 bool
-wasm_sensor_config_with_attr_container(wasm_exec_env_t exec_env,
-                                       uint32 sensor, char *buffer, int len);
+wasm_sensor_config_with_attr_container(wasm_exec_env_t exec_env, uint32 sensor,
+                                       char *buffer, int len);
 
 bool
 wasm_sensor_close(wasm_exec_env_t exec_env, uint32 sensor);
@@ -33,4 +31,3 @@ wasm_sensor_close(wasm_exec_env_t exec_env, uint32 sensor);
 #endif
 
 #endif /* end of _SENSOR_NATIVE_API_H_ */
-

@@ -12,7 +12,7 @@ endif ()
 
 if (NOT DEFINED CONFIG_PATH)
     set (CONFIG_PATH       ${CMAKE_CURRENT_LIST_DIR}/../wamr_config_default.cmake)
-    message(STATUS, "CONFIG_PATH  set to ${CONFIG_PATH} ")
+    message(STATUS "CONFIG_PATH  set to ${CONFIG_PATH} ")
 endif ()
 
 if (NOT EXISTS "${CONFIG_PATH}")
@@ -21,8 +21,9 @@ endif ()
 
 include(${CONFIG_PATH})
 
-
-set (OUT_DIR      "${CMAKE_CURRENT_LIST_DIR}/../out/${WAMR_BUILD_SDK_PROFILE}")
+if (NOT DEFINED OUT_DIR)
+    set (OUT_DIR      "${CMAKE_CURRENT_LIST_DIR}/../out/${WAMR_BUILD_SDK_PROFILE}")
+endif ()
 set (APP_SDK_DIR  "${OUT_DIR}/app-sdk")
 
 if (DEFINED EXTRA_SDK_INCLUDE_PATH)

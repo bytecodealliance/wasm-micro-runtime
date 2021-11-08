@@ -153,16 +153,12 @@ GET_U64_FROM_ADDR(uint32 *addr)
         p += len;                            \
     } while (0)
 
-#define read_string(p, p_end, str)                                      \
-    do {                                                                \
-        uint16 str_len;                                                 \
-        read_uint16(p, p_end, str_len);                                 \
-        CHECK_BUF(p, p_end, str_len);                                   \
-        if (!(str = const_str_set_insert(p, str_len, module, error_buf, \
-                                         error_buf_size))) {            \
-            goto fail;                                                  \
-        }                                                               \
-        p += str_len;                                                   \
+#define read_string(p, p_end, str)                                \
+    do {                                                          \
+        if (!(str = load_string((uint8 **)&p, p_end, module,      \
+                                is_load_from_file_buf, error_buf, \
+                                error_buf_size)))                 \
+            goto fail;                                            \
     } while (0)
 
 /* Legal values for bin_type */
@@ -218,6 +214,17 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     HashMap *set = module->const_str_set;
     char *c_str, *value;
 
+    /* Create const string set if it isn't created */
+    if (!set
+        && !(set = module->const_str_set = bh_hash_map_create(
+                 32, false, (HashFunc)wasm_string_hash,
+                 (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "create const string set failed");
+        return NULL;
+    }
+
+    /* Lookup const string set, use the string if found */
     if (!(c_str = loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
         return NULL;
     }
@@ -238,6 +245,64 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     }
 
     return c_str;
+}
+
+static char *
+load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
+            bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
+{
+    uint8 *p = *p_buf;
+    const uint8 *p_end = buf_end;
+    char *str;
+    uint16 str_len;
+
+    CHECK_BUF(p, p_end, 1);
+    if (*p & 0x80) {
+        /* The string has been adjusted */
+        str = (char *)++p;
+        /* Ensure the whole string is in range */
+        do {
+            CHECK_BUF(p, p_end, 1);
+        } while (*p++ != '\0');
+    }
+    else {
+        /* The string hasn't been adjusted */
+        read_uint16(p, p_end, str_len);
+        CHECK_BUF(p, p_end, str_len);
+
+        if (str_len == 0) {
+            str = "";
+        }
+        else if (p[str_len - 1] == '\0') {
+            /* The string is terminated with '\0', use it directly */
+            str = (char *)p;
+        }
+        else if (is_load_from_file_buf) {
+            /* As the file buffer can be referred to after loading,
+               we use the 2 bytes of size to adjust the string:
+               mark the flag with the highest bit of size[0],
+               move string 1 byte backward and then append '\0' */
+            *(p - 2) |= 0x80;
+            bh_memmove_s(p - 1, (uint32)(str_len + 1), p, (uint32)str_len);
+            p[str_len - 1] = '\0';
+            str = (char *)(p - 1);
+        }
+        else {
+            /* Load from sections, the file buffer cannot be reffered to
+               after loading, we must create another string and insert it
+               into const string set */
+            if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
+                                             error_buf, error_buf_size))) {
+                goto fail;
+            }
+        }
+        p += str_len;
+    }
+
+    *p_buf = p;
+    return str;
+fail:
+    return NULL;
 }
 
 static bool
@@ -398,8 +463,8 @@ get_native_symbol_by_name(const char *name)
 
 static bool
 load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
-                           AOTModule *module, char *error_buf,
-                           uint32 error_buf_size)
+                           AOTModule *module, bool is_load_from_file_buf,
+                           char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 cnt;
@@ -435,8 +500,137 @@ fail:
 }
 
 static bool
+load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
+                  bool is_load_from_file_buf, char *error_buf,
+                  uint32 error_buf_size)
+{
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 *aux_func_indexes;
+    const char **aux_func_names;
+    uint32 name_type, subsection_size;
+    uint32 previous_name_type = 0;
+    uint32 num_func_name;
+    uint32 func_index;
+    uint32 previous_func_index = ~0U;
+    uint32 name_index;
+    int i = 0;
+    uint32 name_len;
+    uint64 size;
+
+    if (p >= p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    read_uint32(p, p_end, name_len);
+
+    if (name_len != 4 || p + name_len > p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    if (memcmp(p, "name", 4) != 0) {
+        set_error_buf(error_buf, error_buf_size, "invalid custom name section");
+        return false;
+    }
+    p += name_len;
+
+    while (p < p_end) {
+        read_uint32(p, p_end, name_type);
+        if (i != 0) {
+            if (name_type == previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "duplicate sub-section");
+                return false;
+            }
+            if (name_type < previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "out-of-order sub-section");
+                return false;
+            }
+        }
+        previous_name_type = name_type;
+        read_uint32(p, p_end, subsection_size);
+        CHECK_BUF(p, p_end, subsection_size);
+        switch (name_type) {
+            case SUB_SECTION_TYPE_FUNC:
+                if (subsection_size) {
+                    read_uint32(p, p_end, num_func_name);
+                    if (num_func_name
+                        > module->import_func_count + module->func_count) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "function name count out of bounds");
+                        return false;
+                    }
+                    module->aux_func_name_count = num_func_name;
+
+                    /* Allocate memory */
+                    size = sizeof(uint32) * (uint64)module->aux_func_name_count;
+                    if (!(aux_func_indexes = module->aux_func_indexes =
+                              loader_malloc(size, error_buf, error_buf_size))) {
+                        return false;
+                    }
+                    size =
+                        sizeof(char **) * (uint64)module->aux_func_name_count;
+                    if (!(aux_func_names = module->aux_func_names =
+                              loader_malloc(size, error_buf, error_buf_size))) {
+                        return false;
+                    }
+
+                    for (name_index = 0; name_index < num_func_name;
+                         name_index++) {
+                        read_uint32(p, p_end, func_index);
+                        if (name_index != 0
+                            && func_index == previous_func_index) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "duplicate function name");
+                            return false;
+                        }
+                        if (name_index != 0
+                            && func_index < previous_func_index) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "out-of-order function index ");
+                            return false;
+                        }
+                        if (func_index
+                            >= module->import_func_count + module->func_count) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "function index out of bounds");
+                            return false;
+                        }
+                        previous_func_index = func_index;
+                        *(aux_func_indexes + name_index) = func_index;
+                        read_string(p, p_end, *(aux_func_names + name_index));
+#if 0
+                        LOG_DEBUG("func_index %u -> aux_func_name = %s\n",
+                               func_index, *(aux_func_names + name_index));
+#endif
+                    }
+                }
+                break;
+            case SUB_SECTION_TYPE_MODULE: /* TODO: Parse for module subsection
+                                           */
+            case SUB_SECTION_TYPE_LOCAL:  /* TODO: Parse for local subsection */
+            default:
+                p = p + subsection_size;
+                break;
+        }
+        i++;
+    }
+
+    return true;
+fail:
+    return false;
+#else
+    return true;
+#endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
+}
+
+static bool
 load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
-                    char *error_buf, uint32 error_buf_size)
+                    bool is_load_from_file_buf, char *error_buf,
+                    uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 sub_section_type;
@@ -446,8 +640,14 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 
     switch (sub_section_type) {
         case AOT_CUSTOM_SECTION_NATIVE_SYMBOL:
-            if (!load_native_symbol_section(buf, buf_end, module, error_buf,
+            if (!load_native_symbol_section(buf, buf_end, module,
+                                            is_load_from_file_buf, error_buf,
                                             error_buf_size))
+                goto fail;
+            break;
+        case AOT_CUSTOM_SECTION_NAME:
+            if (!load_name_section(buf, buf_end, module, is_load_from_file_buf,
+                                   error_buf, error_buf_size))
                 goto fail;
             break;
         default:
@@ -845,7 +1045,8 @@ destroy_import_globals(AOTImportGlobal *import_globals, bool is_jit_mode)
 
 static bool
 load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
-                    AOTModule *module, char *error_buf, uint32 error_buf_size)
+                    AOTModule *module, bool is_load_from_file_buf,
+                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTImportGlobal *import_globals;
@@ -899,8 +1100,8 @@ fail:
 
 static bool
 load_import_global_info(const uint8 **p_buf, const uint8 *buf_end,
-                        AOTModule *module, char *error_buf,
-                        uint32 error_buf_size)
+                        AOTModule *module, bool is_load_from_file_buf,
+                        char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
 
@@ -908,8 +1109,8 @@ load_import_global_info(const uint8 **p_buf, const uint8 *buf_end,
 
     /* load import globals */
     if (module->import_global_count > 0
-        && !load_import_globals(&buf, buf_end, module, error_buf,
-                                error_buf_size))
+        && !load_import_globals(&buf, buf_end, module, is_load_from_file_buf,
+                                error_buf, error_buf_size))
         return false;
 
     *p_buf = buf;
@@ -1009,7 +1210,8 @@ destroy_import_funcs(AOTImportFunc *import_funcs, bool is_jit_mode)
 
 static bool
 load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-                  char *error_buf, uint32 error_buf_size)
+                  bool is_load_from_file_buf, char *error_buf,
+                  uint32 error_buf_size)
 {
     const char *module_name, *field_name;
     const uint8 *buf = *p_buf;
@@ -1058,7 +1260,8 @@ fail:
 
 static bool
 load_import_func_info(const uint8 **p_buf, const uint8 *buf_end,
-                      AOTModule *module, char *error_buf, uint32 error_buf_size)
+                      AOTModule *module, bool is_load_from_file_buf,
+                      char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
 
@@ -1066,7 +1269,8 @@ load_import_func_info(const uint8 **p_buf, const uint8 *buf_end,
 
     /* load import funcs */
     if (module->import_func_count > 0
-        && !load_import_funcs(&buf, buf_end, module, error_buf, error_buf_size))
+        && !load_import_funcs(&buf, buf_end, module, is_load_from_file_buf,
+                              error_buf, error_buf_size))
         return false;
 
     *p_buf = buf;
@@ -1089,8 +1293,8 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
 
 static bool
 load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
-                          AOTModule *module, char *error_buf,
-                          uint32 error_buf_size)
+                          AOTModule *module, bool is_load_from_file_buf,
+                          char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTObjectDataSection *data_sections;
@@ -1148,8 +1352,8 @@ fail:
 
 static bool
 load_object_data_sections_info(const uint8 **p_buf, const uint8 *buf_end,
-                               AOTModule *module, char *error_buf,
-                               uint32 error_buf_size)
+                               AOTModule *module, bool is_load_from_file_buf,
+                               char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
 
@@ -1157,7 +1361,8 @@ load_object_data_sections_info(const uint8 **p_buf, const uint8 *buf_end,
 
     /* load object data sections */
     if (module->data_section_count > 0
-        && !load_object_data_sections(&buf, buf_end, module, error_buf,
+        && !load_object_data_sections(&buf, buf_end, module,
+                                      is_load_from_file_buf, error_buf,
                                       error_buf_size))
         return false;
 
@@ -1169,18 +1374,19 @@ fail:
 
 static bool
 load_init_data_section(const uint8 *buf, const uint8 *buf_end,
-                       AOTModule *module, char *error_buf,
-                       uint32 error_buf_size)
+                       AOTModule *module, bool is_load_from_file_buf,
+                       char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
 
     if (!load_memory_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_table_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_func_type_info(&p, p_end, module, error_buf, error_buf_size)
-        || !load_import_global_info(&p, p_end, module, error_buf,
-                                    error_buf_size)
+        || !load_import_global_info(&p, p_end, module, is_load_from_file_buf,
+                                    error_buf, error_buf_size)
         || !load_global_info(&p, p_end, module, error_buf, error_buf_size)
-        || !load_import_func_info(&p, p_end, module, error_buf, error_buf_size))
+        || !load_import_func_info(&p, p_end, module, is_load_from_file_buf,
+                                  error_buf, error_buf_size))
         return false;
 
     /* load function count and start function index */
@@ -1204,7 +1410,8 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
     read_uint32(p, p_end, module->aux_stack_bottom);
     read_uint32(p, p_end, module->aux_stack_size);
 
-    if (!load_object_data_sections_info(&p, p_end, module, error_buf,
+    if (!load_object_data_sections_info(&p, p_end, module,
+                                        is_load_from_file_buf, error_buf,
                                         error_buf_size))
         return false;
 
@@ -1233,7 +1440,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     /* The layout is: literal size + literal + code (with plt table) */
     read_uint32(buf, buf_end, module->literal_size);
 
-    /* literal data is at begining of the text section */
+    /* literal data is at beginning of the text section */
     module->literal = (uint8 *)buf;
     module->code = (void *)(buf + module->literal_size);
     module->code_size = (uint32)(buf_end - (uint8 *)module->code);
@@ -1394,7 +1601,7 @@ destroy_exports(AOTExport *exports, bool is_jit_mode)
 
 static bool
 load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-             char *error_buf, uint32 error_buf_size)
+             bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTExport *exports;
@@ -1431,14 +1638,16 @@ fail:
 
 static bool
 load_export_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
-                    char *error_buf, uint32 error_buf_size)
+                    bool is_load_from_file_buf, char *error_buf,
+                    uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
 
     /* load export functions */
     read_uint32(p, p_end, module->export_count);
     if (module->export_count > 0
-        && !load_exports(&p, p_end, module, error_buf, error_buf_size))
+        && !load_exports(&p, p_end, module, is_load_from_file_buf, error_buf,
+                         error_buf_size))
         return false;
 
     if (p != p_end) {
@@ -1771,8 +1980,8 @@ fail:
 
 static bool
 load_relocation_section(const uint8 *buf, const uint8 *buf_end,
-                        AOTModule *module, char *error_buf,
-                        uint32 error_buf_size)
+                        AOTModule *module, bool is_load_from_file_buf,
+                        char *error_buf, uint32 error_buf_size)
 {
     AOTRelocationGroup *groups = NULL, *group;
     uint32 symbol_count = 0;
@@ -1916,7 +2125,6 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     for (i = 0, group = groups; i < group_count; i++, group++) {
         AOTRelocation *relocation;
         uint32 name_index;
-        uint16 str_len;
         uint8 *name_addr;
 
         /* section name address is 4 bytes aligned. */
@@ -1930,13 +2138,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         }
 
         name_addr = symbol_buf + symbol_offsets[name_index];
-        str_len = *(uint16 *)name_addr;
-
-        if (!(group->section_name = const_str_set_insert(
-                  name_addr + sizeof(uint16), (int32)str_len, module, error_buf,
-                  error_buf_size))) {
-            goto fail;
-        }
+        read_string(name_addr, buf_end, group->section_name);
 
         read_uint32(buf, buf_end, group->relocation_count);
 
@@ -1951,7 +2153,6 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         /* Load each relocation */
         for (j = 0; j < group->relocation_count; j++, relocation++) {
             uint32 symbol_index;
-            uint16 str_len;
             uint8 *symbol_addr;
 
             if (sizeof(void *) == 8) {
@@ -1975,13 +2176,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             }
 
             symbol_addr = symbol_buf + symbol_offsets[symbol_index];
-            str_len = *(uint16 *)symbol_addr;
-
-            if (!(relocation->symbol_name = const_str_set_insert(
-                      symbol_addr + sizeof(uint16), (int32)str_len, module,
-                      error_buf, error_buf_size))) {
-                goto fail;
-            }
+            read_string(symbol_addr, buf_end, relocation->symbol_name);
         }
 
         if (!strcmp(group->section_name, ".rel.text")
@@ -2053,7 +2248,8 @@ fail:
 }
 
 static bool
-load_from_sections(AOTModule *module, AOTSection *sections, char *error_buf,
+load_from_sections(AOTModule *module, AOTSection *sections,
+                   bool is_load_from_file_buf, char *error_buf,
                    uint32 error_buf_size)
 {
     AOTSection *section = sections;
@@ -2084,7 +2280,8 @@ load_from_sections(AOTModule *module, AOTSection *sections, char *error_buf,
                     return false;
                 break;
             case AOT_SECTION_TYPE_INIT_DATA:
-                if (!load_init_data_section(buf, buf_end, module, error_buf,
+                if (!load_init_data_section(buf, buf_end, module,
+                                            is_load_from_file_buf, error_buf,
                                             error_buf_size))
                     return false;
                 break;
@@ -2099,17 +2296,20 @@ load_from_sections(AOTModule *module, AOTSection *sections, char *error_buf,
                     return false;
                 break;
             case AOT_SECTION_TYPE_EXPORT:
-                if (!load_export_section(buf, buf_end, module, error_buf,
+                if (!load_export_section(buf, buf_end, module,
+                                         is_load_from_file_buf, error_buf,
                                          error_buf_size))
                     return false;
                 break;
             case AOT_SECTION_TYPE_RELOCATION:
-                if (!load_relocation_section(buf, buf_end, module, error_buf,
+                if (!load_relocation_section(buf, buf_end, module,
+                                             is_load_from_file_buf, error_buf,
                                              error_buf_size))
                     return false;
                 break;
             case AOT_SECTION_TYPE_CUSTOM:
-                if (!load_custom_section(buf, buf_end, module, error_buf,
+                if (!load_custom_section(buf, buf_end, module,
+                                         is_load_from_file_buf, error_buf,
                                          error_buf_size))
                     return false;
                 break;
@@ -2247,15 +2447,6 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     module->module_type = Wasm_Module_AoT;
 
-    if (!(module->const_str_set = bh_hash_map_create(
-              32, false, (HashFunc)wasm_string_hash,
-              (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "create const string set failed");
-        wasm_runtime_free(module);
-        return NULL;
-    }
-
     return module;
 }
 
@@ -2268,7 +2459,8 @@ aot_load_from_sections(AOTSection *section_list, char *error_buf,
     if (!module)
         return NULL;
 
-    if (!load_from_sections(module, section_list, error_buf, error_buf_size)) {
+    if (!load_from_sections(module, section_list, false, error_buf,
+                            error_buf_size)) {
         aot_unload(module);
         return NULL;
     }
@@ -2336,7 +2528,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
 {
     AOTSection *section_list = NULL, *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size;
-    bool destory_aot_text = false;
+    bool destroy_aot_text = false;
     uint32 native_symbol_count = 0;
     uint32 section_type;
     uint32 section_size;
@@ -2403,7 +2595,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
                     section->section_body = aot_text;
-                    destory_aot_text = true;
+                    destroy_aot_text = true;
 
                     if ((uint32)total_size > section->section_body_size) {
                         memset(aot_text + (uint32)section_size, 0,
@@ -2437,7 +2629,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     return true;
 fail:
     if (section_list)
-        destroy_sections(section_list, destory_aot_text);
+        destroy_sections(section_list, destroy_aot_text);
     return false;
 }
 
@@ -2467,7 +2659,8 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
                          error_buf_size))
         return false;
 
-    ret = load_from_sections(module, section_list, error_buf, error_buf_size);
+    ret = load_from_sections(module, section_list, true, error_buf,
+                             error_buf_size);
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
@@ -2866,6 +3059,15 @@ aot_unload(AOTModule *module)
                                      module->data_section_count);
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
+#endif
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if (module->aux_func_indexes) {
+        wasm_runtime_free(module->aux_func_indexes);
+    }
+    if (module->aux_func_names) {
+        wasm_runtime_free(module->aux_func_names);
+    }
 #endif
 
     wasm_runtime_free(module);

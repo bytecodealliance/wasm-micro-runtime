@@ -1128,10 +1128,10 @@ print_f64_wrapper(wasm_exec_env_t exec_env, double f64)
 }
 #endif /* WASM_ENABLE_SPEC_TEST */
 
-#define REG_NATIVE_FUNC(func_name, signature)            \
-    {                                                    \
-#func_name, func_name##_wrapper, signature, NULL \
-    }
+/* clang-format off */
+#define REG_NATIVE_FUNC(func_name, signature) \
+    { #func_name, func_name##_wrapper, signature, NULL }
+/* clang-format on */
 
 static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(printf, "($*)i"),

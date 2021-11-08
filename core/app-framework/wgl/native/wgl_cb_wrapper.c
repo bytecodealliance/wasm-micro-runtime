@@ -20,7 +20,8 @@ DEFINE_WGL_NATIVE_WRAPPER(lv_cb_create_wrapper)
     wgl_native_get_arg(uint32, copy_obj_id);
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    res = wgl_native_wigdet_create(WIDGET_TYPE_CB, par_obj_id, copy_obj_id, module_inst);
+    res = wgl_native_wigdet_create(WIDGET_TYPE_CB, par_obj_id, copy_obj_id,
+                                   module_inst);
     wgl_native_set_return(res);
 }
 
@@ -63,7 +64,7 @@ DEFINE_WGL_NATIVE_WRAPPER(lv_cb_get_text_length_wrapper)
     (void)exec_env;
 
     text = lv_cb_get_text(cb);
-    wgl_native_set_return(text ? strlen(text): 0);
+    wgl_native_set_return(text ? strlen(text) : 0);
 }
 
 DEFINE_WGL_NATIVE_WRAPPER(lv_cb_get_text_wrapper)
@@ -89,24 +90,20 @@ DEFINE_WGL_NATIVE_WRAPPER(lv_cb_get_text_wrapper)
 }
 
 static WGLNativeFuncDef cb_native_func_defs[] = {
-    { CB_FUNC_ID_CREATE,            lv_cb_create_wrapper,            2,  false },
-    { CB_FUNC_ID_SET_TEXT,          lv_cb_set_text_wrapper,          3,  true },
-    { CB_FUNC_ID_SET_STATIC_TEXT,   lv_cb_set_static_text_wrapper,   3,  true },
-    { CB_FUNC_ID_GET_TEXT_LENGTH,   lv_cb_get_text_length_wrapper,   1,  true },
-    { CB_FUNC_ID_GET_TEXT,          lv_cb_get_text_wrapper,          3,  true },
+    { CB_FUNC_ID_CREATE, lv_cb_create_wrapper, 2, false },
+    { CB_FUNC_ID_SET_TEXT, lv_cb_set_text_wrapper, 3, true },
+    { CB_FUNC_ID_SET_STATIC_TEXT, lv_cb_set_static_text_wrapper, 3, true },
+    { CB_FUNC_ID_GET_TEXT_LENGTH, lv_cb_get_text_length_wrapper, 1, true },
+    { CB_FUNC_ID_GET_TEXT, lv_cb_get_text_wrapper, 3, true },
 };
 
 /*************** Native Interface to Wasm App ***********/
 void
-wasm_cb_native_call(wasm_exec_env_t exec_env,
-                    int32 func_id, uint32 *argv, uint32 argc)
+wasm_cb_native_call(wasm_exec_env_t exec_env, int32 func_id, uint32 *argv,
+                    uint32 argc)
 {
     uint32 size = sizeof(cb_native_func_defs) / sizeof(WGLNativeFuncDef);
 
-    wgl_native_func_call(exec_env,
-                         cb_native_func_defs,
-                         size,
-                         func_id,
-                         argv,
+    wgl_native_func_call(exec_env, cb_native_func_defs, size, func_id, argv,
                          argc);
 }

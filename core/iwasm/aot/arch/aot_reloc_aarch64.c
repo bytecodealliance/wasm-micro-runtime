@@ -224,7 +224,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             /* S + A */
             X = (int64)S + A;
 
-            /* No need to check overflow for this reloction type */
+            /* No need to check overflow for this relocation type */
             switch (reloc_type) {
                 case R_AARCH64_MOVW_UABS_G0:
                     if (X < 0 || X >= (1LL << 16))
@@ -324,7 +324,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             /* S + A */
             X = (int64)S + A;
 
-            /* No need to check overflow for this reloction type */
+            /* No need to check overflow for this relocation type */
 
             /* write the imm12 back to instruction */
             *(int32 *)P = (insn & 0xFFC003FF) | ((int32)((X & 0xFFF) << 10));
@@ -354,7 +354,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             /* S + A */
             X = (int64)S + A;
 
-            /* No need to check overflow for this reloction type */
+            /* No need to check overflow for this relocation type */
 
             /* write the imm12 back to instruction */
             switch (reloc_type) {

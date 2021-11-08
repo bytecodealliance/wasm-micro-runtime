@@ -1,6 +1,8 @@
 
 .vs
 .vscode
+/.idea
+**/cmake-build-*/
 **/*build/
 core/deps/**
 core/shared/mem-alloc/tlsf

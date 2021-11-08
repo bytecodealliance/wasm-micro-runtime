@@ -59,10 +59,12 @@ control_thread_routine(void *arg)
     control_thread->debug_engine = g_debug_engine;
     control_thread->debug_instance = debug_inst;
     strcpy(control_thread->ip_addr, g_debug_engine->ip_addr);
-    control_thread->port = g_debug_engine->process_base_port + debug_inst->id;
+    control_thread->port =
+        (g_debug_engine->process_base_port == 0)
+            ? 0
+            : g_debug_engine->process_base_port + debug_inst->id;
 
-    LOG_WARNING("control thread of debug object %p start at %s:%d\n",
-                debug_inst, control_thread->ip_addr, control_thread->port);
+    LOG_WARNING("control thread of debug object %p start\n", debug_inst);
 
     control_thread->server =
         wasm_launch_gdbserver(control_thread->ip_addr, control_thread->port);
@@ -152,8 +154,7 @@ static void
 wasm_debug_control_thread_destroy(WASMDebugInstance *debug_instance)
 {
     WASMDebugControlThread *control_thread = debug_instance->control_thread;
-    LOG_VERBOSE("control thread of debug object %p stop at %s:%d\n",
-                debug_instance, control_thread->ip_addr, control_thread->port);
+    LOG_VERBOSE("control thread of debug object %p stop\n", debug_instance);
     control_thread->status = STOPPED;
     os_mutex_lock(&control_thread->wait_lock);
     wasm_close_gdbserver(control_thread->server);
@@ -201,7 +202,7 @@ wasm_debug_engine_init(char *ip_addr, int platform_port, int process_port)
         g_debug_engine->platform_port =
             platform_port > 0 ? platform_port : 1234;
         g_debug_engine->process_base_port =
-            process_port > 0 ? process_port : 6169;
+            (process_port > 0) ? process_port : 0;
         if (ip_addr)
             sprintf(g_debug_engine->ip_addr, "%s", ip_addr);
         else

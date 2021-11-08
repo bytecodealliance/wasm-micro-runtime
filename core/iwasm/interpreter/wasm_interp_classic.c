@@ -3643,7 +3643,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             frame->csp_boundary =
                 frame->csp_bottom + cur_wasm_func->max_block_num;
 
-            /* Initialize the local varialbes */
+            /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
 

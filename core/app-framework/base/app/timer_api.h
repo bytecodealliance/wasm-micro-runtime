@@ -34,4 +34,3 @@ wasm_get_sys_tick_ms(void);
 #endif
 
 #endif /* end of _TIMER_API_H_ */
-

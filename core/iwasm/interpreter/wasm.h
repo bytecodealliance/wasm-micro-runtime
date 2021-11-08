@@ -418,6 +418,11 @@ struct WASMModule {
     uint64 load_size;
     uint64 buf_code_size;
 #endif
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const uint8 *name_section_buf;
+    const uint8 *name_section_buf_end;
+#endif
 };
 
 typedef struct BlockType {

@@ -28,11 +28,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  AOT_BUILD_OPTIONS:            "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
+  AOT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
   CLASSIC_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
-  FAST_INTERP_BUILD_OPTIONS:    "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
-  JIT_BUILD_OPTIONS:            "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
-  LAZY_JIT_BUILD_OPTIONS:       "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
+  FAST_INTERP_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=0 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_LAZY_JIT=0"
+  JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0"
+  LAZY_JIT_BUILD_OPTIONS: "-DWAMR_BUILD_AOT=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=1"
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
 
 jobs:
@@ -118,9 +118,13 @@ jobs:
         if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ${{ matrix.os }}-${{env.LLVM_CACHE_SUFFIX }}
 
       - name: Build llvm and clang from source on ubuntu
         id: build_llvm_ubuntu
@@ -133,11 +137,6 @@ jobs:
         if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' && matrix.os == 'macos-latest' }}
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
         working-directory: build-scripts
-
-      - name: package LLVM
-        if: ${{ matrix.light == 'green' && (steps.build_llvm_ubuntu.conclusion == 'success' || steps.build_llvm_macos.conclusion == 'success')}}
-        run: mv LLVM-13.0.0-*.tar.gz LLVM-13.0.0.tar.gz
-        working-directory: core/deps/llvm/build/
 
   build_wamrc:
     needs: [build_llvm_libraries, check_repo]
@@ -165,18 +164,17 @@ jobs:
         if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
         if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Extract the LLVM package
-        if: ${{ matrix.light == 'green' }}
-        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
-        working-directory: ./core/deps/llvm/build
 
       - name: Build wamrc
         if: ${{ matrix.light == 'green' }}
@@ -293,18 +291,17 @@ jobs:
         if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
         if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Extract the LLVM package
-        if: ${{ matrix.light == 'green' }}
-        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
-        working-directory: ./core/deps/llvm/build
 
       - name: Build iwasm
         if: ${{ matrix.light == 'green' }}
@@ -362,18 +359,17 @@ jobs:
         if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
         if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Extract the LLVM package
-        if: ${{ matrix.light == 'green' }}
-        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
-        working-directory: ./core/deps/llvm/build
 
       - name: download and install wabt
         if: ${{ matrix.light == 'green' }}
@@ -440,18 +436,17 @@ jobs:
         if: ${{ matrix.light == 'green' }}
         uses: actions/cache@v2
         with:
-          path: ./core/deps/llvm/build/LLVM-13.0.0.tar.gz
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-          restore-keys: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
       - name: Quit if cache miss
         if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Extract the LLVM package
-        if: ${{ matrix.light == 'green' }}
-        run: tar xf LLVM-13.0.0.tar.gz --strip-components=1
-        working-directory: ./core/deps/llvm/build
 
       - name: download and install wasi-sdk
         if: ${{ matrix.light == 'green' }}

@@ -29,4 +29,3 @@ wasm_sub_event(const char *url);
 #endif
 
 #endif /* end of _REQ_RESP_API_H_ */
-
