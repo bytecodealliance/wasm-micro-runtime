@@ -412,7 +412,8 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        running_mode: ["classic-interp", "fast-interp"]
+        running_mode: ["classic-interp", "fast-interp", "aot"]
+        test_option: ["-x -p -s spec -P", "-x -p -s spec -S -P"]
         include:
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
@@ -455,5 +456,5 @@ jobs:
         if: ${{ matrix.light == 'green' }}
         run: |
           source /opt/intel/sgxsdk/environment
-          ./test_wamr.sh -x -p -s spec -P -t ${{ matrix.running_mode }}
+          ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
         working-directory: ./tests/wamr-test-suites
