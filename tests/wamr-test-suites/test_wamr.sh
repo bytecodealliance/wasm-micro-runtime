@@ -13,14 +13,15 @@ DEBUG set -xEevuo pipefail
 function help()
 {
     echo "test_wamr.sh [options]"
-    echo "-s {suite_name} test only one suite (spec)"
     echo "-c clean previous test results, not start test"
     echo "-b use the wabt binary release package instead of compiling from the source code"
-    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
-    echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
     echo "-M enable the multi module feature"
+    echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
+    echo "-P run the spec test parallelly"
     echo "-p enable multi thread feature"
     echo "-S enable SIMD"
+    echo "-s {suite_name} test only one suite (spec)"
+    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
     echo "-x test SGX"
 }
 
@@ -41,8 +42,9 @@ SGX_OPT=""
 # as they are finished and merged into spec
 ENABLE_REF_TYPES=1
 PLATFORM=$(uname -s | tr A-Z a-z)
+PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxr" opt
+while getopts ":s:cabt:m:MCpSxP" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -113,6 +115,9 @@ do
         x)
         echo "test SGX"
         SGX_OPT="--sgx"
+        ;;
+        P)
+        PARALLELISM=1
         ;;
         ?)
         help
@@ -307,12 +312,6 @@ function spec_test()
 
         git fetch simd
         git checkout simd/main -- test/core/simd
-        git checkout simd/main -- interpreter
-
-        echo "compile the reference intepreter"
-        pushd interpreter
-        make opt -j 4
-        popd
 
         git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
@@ -362,7 +361,7 @@ function spec_test()
         make -C wabt gcc-release -j 4
     fi
 
-    ln -sf ${WORK_DIR}/../spec-test-script/all.sh .
+    ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
 
     local ARGS_FOR_SPEC_TEST=""
@@ -398,8 +397,12 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="-t -m ${TARGET} "
     fi
 
+    if [[ ${PARALLELISM} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--parl "
+    fi
+
     cd ${WORK_DIR}
-    ./all.sh ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
+    python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
     [[ ${PIPESTATUS[0]} -ne 0 ]] && exit 1
     cd -
 
