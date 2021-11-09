@@ -879,7 +879,7 @@ static bool
 execute_post_inst_function(WASMModuleInstance *module_inst)
 {
     WASMFunctionInstance *post_inst_func = NULL;
-    WASMType *post_inst_func_type;
+    WASMFuncType *post_inst_func_type;
     uint32 i;
 
     for (i = 0; i < module_inst->export_func_count; i++)
@@ -908,7 +908,7 @@ static bool
 execute_memory_init_function(WASMModuleInstance *module_inst)
 {
     WASMFunctionInstance *memory_init_func = NULL;
-    WASMType *memory_init_func_type;
+    WASMFuncType *memory_init_func_type;
     uint32 i;
 
     for (i = 0; i < module_inst->export_func_count; i++)
@@ -2291,9 +2291,16 @@ wasm_get_module_mem_consumption(const WASMModule *module,
 
     mem_conspn->types_size = sizeof(WASMType *) * module->type_count;
     for (i = 0; i < module->type_count; i++) {
-        WASMType *type = module->types[i];
-        size = offsetof(WASMType, types)
+#if WASM_ENABLE_GC == 0
+        WASMFuncType *type = (WASMFuncType *)module->types[i];
+        size = offsetof(WASMFuncType, types)
                + sizeof(uint8) * (type->param_count + type->result_count);
+#else
+        /* TODO, calculate the size of func/struct/array type */
+        WASMFuncType *type = (WASMFuncType *)module->types[i];
+        size = offsetof(WASMFuncType, types)
+               + sizeof(uint8) * (type->param_count + type->result_count);
+#endif
         mem_conspn->types_size += size;
     }
 
@@ -2303,7 +2310,7 @@ wasm_get_module_mem_consumption(const WASMModule *module,
         sizeof(WASMFunction *) * module->function_count;
     for (i = 0; i < module->function_count; i++) {
         WASMFunction *func = module->functions[i];
-        WASMType *type = func->func_type;
+        WASMFuncType *type = func->func_type;
         size = sizeof(WASMFunction) + func->local_count
                + sizeof(uint16) * (type->param_count + func->local_count);
 #if WASM_ENABLE_FAST_INTERP != 0

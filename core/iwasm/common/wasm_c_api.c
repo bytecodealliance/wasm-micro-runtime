@@ -515,7 +515,7 @@ wasm_valtype_kind(const wasm_valtype_t *val_type)
 }
 
 static wasm_functype_t *
-wasm_functype_new_internal(WASMType *type_rt)
+wasm_functype_new_internal(WASMFuncType *type_rt)
 {
     wasm_functype_t *type = NULL;
     wasm_valtype_t *param_type = NULL, *result_type = NULL;
@@ -531,7 +531,7 @@ wasm_functype_new_internal(WASMType *type_rt)
 
     type->extern_kind = WASM_EXTERN_FUNC;
 
-    /* WASMType->types[0 : type_rt->param_count) -> type->params */
+    /* WASMFuncType->types[0 : type_rt->param_count) -> type->params */
     INIT_VEC(type->params, wasm_valtype_vec_new_uninitialized,
              type_rt->param_count);
     for (i = 0; i < type_rt->param_count; ++i) {
@@ -545,8 +545,8 @@ wasm_functype_new_internal(WASMType *type_rt)
         }
     }
 
-    /* WASMType->types[type_rt->param_count : type_rt->result_count) ->
-     * type->results */
+    /* WASMFuncType->types[type_rt->param_count : type_rt->result_count) ->
+       type->results */
     INIT_VEC(type->results, wasm_valtype_vec_new_uninitialized,
              type_rt->result_count);
     for (i = 0; i < type_rt->result_count; ++i) {
@@ -1578,10 +1578,8 @@ wasm_trap_new_internal(WASMModuleInstanceCommon *inst_comm_rt,
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       also leads to below branch */
     if (!error_info && !(error_info = default_error_info)) {
         return NULL;
     }
@@ -1842,7 +1840,7 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
     pkg_type = get_package_type((uint8 *)binary->data, (uint32)binary->size);
 
     /* whether the combination of compilation flags are compatable with the
-     * package type */
+       package type */
     {
         bool result = false;
 #if WASM_ENABLE_INTERP != 0
@@ -1992,10 +1990,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                    + import_memory_count;
 
     wasm_importtype_vec_new_uninitialized(out, import_count);
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       also leads to below branch */
     if (!out->data) {
         return;
     }
@@ -2005,7 +2001,7 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
 
         if (i < import_func_count) {
             wasm_functype_t *type = NULL;
-            WASMType *type_rt = NULL;
+            WASMFuncType *type_rt = NULL;
 
 #if WASM_ENABLE_INTERP != 0
             if ((*module)->module_type == Wasm_Module_Bytecode) {
@@ -2228,10 +2224,8 @@ wasm_module_exports(const wasm_module_t *module, wasm_exporttype_vec_t *out)
 #endif
 
     wasm_exporttype_vec_new_uninitialized(out, export_count);
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       also leads to below branch */
     if (!out->data) {
         return;
     }
@@ -2260,13 +2254,13 @@ wasm_module_exports(const wasm_module_t *module, wasm_exporttype_vec_t *out)
             goto failed;
         }
 
-        /* WASMExport -> (WASMType, (uint8, bool)) -> (wasm_functype_t,
-         * wasm_globaltype_t) -> wasm_externtype_t*/
+        /* WASMExport -> (WASMFuncType, (uint8, bool)) ->
+           (wasm_functype_t, wasm_globaltype_t) -> wasm_externtype_t */
         switch (export->kind) {
             case EXPORT_KIND_FUNC:
             {
                 wasm_functype_t *type = NULL;
-                WASMType *type_rt;
+                WASMFuncType *type_rt;
 
                 if (!wasm_runtime_get_export_func_type(*module, export,
                                                        &type_rt)) {
@@ -2434,7 +2428,7 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
                        WASMModuleInstanceCommon *inst_comm_rt)
 {
     wasm_func_t *func = NULL;
-    WASMType *type_rt = NULL;
+    WASMFuncType *type_rt = NULL;
 
     bh_assert(singleton_engine);
 
@@ -2463,8 +2457,8 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
 
 #if WASM_ENABLE_AOT != 0
     if (inst_comm_rt->module_type == Wasm_Module_AoT) {
-        /* use same index to trace the function type in AOTFuncType **func_types
-         */
+        /* use same index to trace the function type in
+           AOTFuncType **func_types */
         AOTModule *module_aot =
             ((AOTModuleInstance *)inst_comm_rt)->aot_module.ptr;
         if (func_idx_rt < module_aot->import_func_count) {
@@ -2472,17 +2466,15 @@ wasm_func_new_internal(wasm_store_t *store, uint16 func_idx_rt,
         }
         else {
             type_rt =
-                module_aot->func_types[module_aot->func_type_indexes
-                                           [func_idx_rt
-                                            - module_aot->import_func_count]];
+                (WASMFuncType *)module_aot
+                    ->types[module_aot->func_type_indexes
+                                [func_idx_rt - module_aot->import_func_count]];
         }
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       also leads to below branch */
     if (!type_rt) {
         goto failed;
     }
@@ -2757,10 +2749,8 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       also leads to below branch */
     if (!func_comm_rt) {
         goto failed;
     }
@@ -3058,10 +3048,8 @@ wasm_global_set(wasm_global_t *global, const wasm_val_t *v)
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     UNREACHABLE();
 }
 
@@ -3090,10 +3078,8 @@ wasm_global_get(const wasm_global_t *global, wasm_val_t *out)
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     UNREACHABLE();
 }
 
@@ -3153,10 +3139,8 @@ wasm_global_new_internal(wasm_store_t *store, uint16 global_idx_rt,
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     if (!init) {
         goto failed;
     }
@@ -3281,10 +3265,8 @@ wasm_table_new_internal(wasm_store_t *store, uint16 table_idx_rt,
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     if (!init_flag) {
         goto failed;
     }
@@ -3391,10 +3373,8 @@ wasm_table_get(const wasm_table_t *table, wasm_table_size_t index)
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * also leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       also leads to below branch */
     if (func_idx_rt == NULL_REF) {
         return NULL;
     }
@@ -3456,10 +3436,8 @@ wasm_table_set(wasm_table_t *table, wasm_table_size_t index,
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     if (!p_func_idx_rt) {
         return false;
     }
@@ -3509,10 +3487,8 @@ wasm_table_size(const wasm_table_t *table)
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     return 0;
 }
 
@@ -3618,10 +3594,8 @@ wasm_memory_new_internal(wasm_store_t *store, uint16 memory_idx_rt,
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     if (!init_flag) {
         goto failed;
     }
@@ -3688,10 +3662,8 @@ wasm_memory_data(wasm_memory_t *memory)
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     return NULL;
 }
 
@@ -3720,10 +3692,8 @@ wasm_memory_data_size(const wasm_memory_t *memory)
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     return 0;
 }
 
@@ -3752,10 +3722,8 @@ wasm_memory_size(const wasm_memory_t *memory)
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     return 0;
 }
 
@@ -4291,10 +4259,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         }
 #endif
 
-        /*
-         * a wrong combination of module filetype and compilation flags
-         * also leads to below branch
-         */
+        /* a wrong combination of module filetype and compilation flags
+           also leads to below branch */
         if (!import_count_verified) {
             goto failed;
         }
@@ -4376,10 +4342,8 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
     }
 #endif
 
-    /*
-     * a wrong combination of module filetype and compilation flags
-     * leads to below branch
-     */
+    /* a wrong combination of module filetype and compilation flags
+       leads to below branch */
     if (!processed) {
         goto failed;
     }
