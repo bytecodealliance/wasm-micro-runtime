@@ -586,7 +586,8 @@ aot_create_func_context(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                         AOTFunc *func, uint32 func_index)
 {
     AOTFuncContext *func_ctx;
-    AOTFuncType *aot_func_type = comp_data->func_types[func->func_type_index];
+    AOTFuncType *aot_func_type =
+        (AOTFuncType *)comp_data->types[func->func_type_index];
     AOTBlock *aot_block;
     LLVMTypeRef int8_ptr_type, int32_ptr_type;
     LLVMValueRef aot_inst_offset = I32_TWO, aot_inst_addr;

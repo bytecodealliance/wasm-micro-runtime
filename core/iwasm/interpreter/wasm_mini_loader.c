@@ -320,7 +320,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     uint32 param_cell_num, ret_cell_num;
     uint64 total_size;
     uint8 flag;
-    WASMType *type;
+    WASMFuncType *type;
 
     read_leb_uint32(p, p_end, type_count);
 
@@ -349,7 +349,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
             bh_assert(param_count <= UINT16_MAX && result_count <= UINT16_MAX);
 
-            total_size = offsetof(WASMType, types)
+            total_size = offsetof(WASMFuncType, types)
                          + sizeof(uint8) * (uint64)(param_count + result_count);
             if (!(type = module->types[i] =
                       loader_malloc(total_size, error_buf, error_buf_size))) {
@@ -415,7 +415,7 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint32 declare_type_index = 0;
-    WASMType *declare_func_type = NULL;
+    WASMFuncType *declare_func_type = NULL;
     WASMFunction *linked_func = NULL;
     const char *linked_signature = NULL;
     void *linked_attachment = NULL;
@@ -864,7 +864,7 @@ static bool
 init_function_local_offsets(WASMFunction *func, char *error_buf,
                             uint32 error_buf_size)
 {
-    WASMType *param_type = func->func_type;
+    WASMFuncType *param_type = func->func_type;
     uint32 param_count = param_type->param_count;
     uint8 *param_types = param_type->types;
     uint32 local_count = func->local_count;
@@ -1630,7 +1630,7 @@ load_start_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
-    WASMType *type;
+    WASMFuncType *type;
     uint32 start_function;
 
     read_leb_uint32(p, p_end, start_function);
@@ -1810,7 +1810,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     uint32 aux_stack_top = (uint32)-1, global_index, func_index, i;
     uint32 aux_data_end_global_index = (uint32)-1;
     uint32 aux_heap_base_global_index = (uint32)-1;
-    WASMType *func_type;
+    WASMFuncType *func_type;
 
     /* Find code and function sections if have */
     while (section) {
@@ -4676,7 +4676,7 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     uint32 i;
     BranchBlock *block = loader_ctx->frame_csp - 1;
     BlockType *block_type = &block->block_type;
-    WASMType *wasm_type = block_type->u.type;
+    WASMFuncType *func_type = block_type->u.type;
     uint32 param_count = block_type->u.type->param_count;
     int16 condition_offset = 0;
     bool disable_emit = false;
@@ -4700,14 +4700,14 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
 
     /* POP original parameter out */
     for (i = 0; i < param_count; i++) {
-        POP_OFFSET_TYPE(wasm_type->types[param_count - i - 1]);
+        POP_OFFSET_TYPE(func_type->types[param_count - i - 1]);
         wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
     }
     frame_offset = loader_ctx->frame_offset;
 
     /* Get each param's cell num and src offset */
     for (i = 0; i < param_count; i++) {
-        cell = (uint8)wasm_value_type_cell_num(wasm_type->types[i]);
+        cell = (uint8)wasm_value_type_cell_num(func_type->types[i]);
         cells[i] = cell;
         src_offsets[i] = *frame_offset;
         frame_offset += cell;
@@ -4718,8 +4718,8 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     /* Part a) */
     emit_uint32(loader_ctx, is_if_block ? param_count + 1 : param_count);
     /* Part b) */
-    emit_uint32(loader_ctx, is_if_block ? wasm_type->param_cell_num + 1
-                                        : wasm_type->param_cell_num);
+    emit_uint32(loader_ctx, is_if_block ? func_type->param_cell_num + 1
+                                        : func_type->param_cell_num);
     /* Part c) */
     for (i = 0; i < param_count; i++)
         emit_byte(loader_ctx, cells[i]);
@@ -4735,7 +4735,7 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     /* Part e) */
     /* Push to dynamic space. The push will emit the dst offset. */
     for (i = 0; i < param_count; i++)
-        PUSH_OFFSET_TYPE(wasm_type->types[i]);
+        PUSH_OFFSET_TYPE(func_type->types[i]);
     if (is_if_block)
         PUSH_OFFSET_TYPE(VALUE_TYPE_I32);
 
@@ -4916,10 +4916,10 @@ re_scan:
 
                 /* Pop block parameters from stack */
                 if (BLOCK_HAS_PARAM(block_type)) {
-                    WASMType *wasm_type = block_type.u.type;
+                    WASMFuncType *func_type = block_type.u.type;
                     for (i = 0; i < block_type.u.type->param_count; i++)
                         POP_TYPE(
-                            wasm_type->types[wasm_type->param_count - i - 1]);
+                            func_type->types[func_type->param_count - i - 1]);
                 }
 
                 PUSH_CSP(LABEL_TYPE_BLOCK + (opcode - WASM_OP_BLOCK),
@@ -5197,7 +5197,7 @@ re_scan:
             case WASM_OP_RETURN_CALL:
 #endif
             {
-                WASMType *func_type;
+                WASMFuncType *func_type;
                 uint32 func_idx;
                 int32 idx;
 
@@ -5266,7 +5266,7 @@ re_scan:
 #endif
             {
                 int32 idx;
-                WASMType *func_type;
+                WASMFuncType *func_type;
                 uint32 type_idx, table_idx;
 
                 bh_assert(module->import_table_count + module->table_count > 0);

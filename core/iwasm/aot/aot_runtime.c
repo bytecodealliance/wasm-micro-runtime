@@ -815,7 +815,7 @@ create_export_funcs(AOTModuleInstance *module_inst, AOTModule *module,
                         export_func->func_index - module->import_func_count;
                     ftype_index = module->func_type_indexes[func_index];
                     export_func->u.func.func_type =
-                        module->func_types[ftype_index];
+                        (WASMFuncType *)module->types[ftype_index];
                     export_func->u.func.func_ptr =
                         module->func_ptrs[func_index];
                 }
@@ -1294,7 +1294,7 @@ aot_signal_destroy()
 
 static bool
 invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
-                                  const WASMType *func_type,
+                                  const WASMFuncType *func_type,
                                   const char *signature, void *attachment,
                                   uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
@@ -2180,28 +2180,6 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
 bool
-aot_is_wasm_type_equal(AOTModuleInstance *module_inst, uint32 type1_idx,
-                       uint32 type2_idx)
-{
-    WASMType *type1, *type2;
-    AOTModule *module = (AOTModule *)module_inst->aot_module.ptr;
-
-    if (type1_idx >= module->func_type_count
-        || type2_idx >= module->func_type_count) {
-        aot_set_exception(module_inst, "type index out of bounds");
-        return false;
-    }
-
-    if (type1_idx == type2_idx)
-        return true;
-
-    type1 = module->func_types[type1_idx];
-    type2 = module->func_types[type2_idx];
-
-    return wasm_type_equal(type1, type2);
-}
-
-bool
 aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
                   uint32 *argv)
 {
@@ -2210,7 +2188,7 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
     uint32 *func_type_indexes = (uint32 *)module_inst->func_type_indexes.ptr;
     uint32 func_type_idx = func_type_indexes[func_idx];
-    AOTFuncType *func_type = aot_module->func_types[func_type_idx];
+    AOTFuncType *func_type = (AOTFuncType *)aot_module->types[func_type_idx];
     void **func_ptrs = (void **)module_inst->func_ptrs.ptr;
     void *func_ptr = func_ptrs[func_idx];
     AOTImportFunc *import_func;
@@ -2291,7 +2269,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 
     func_type_idx = func_type_indexes[func_idx];
-    func_type = aot_module->func_types[func_type_idx];
+    func_type = (AOTFuncType *)aot_module->types[func_type_idx];
 
     if (!(func_ptr = func_ptrs[func_idx])) {
         bh_assert(func_idx < aot_module->import_func_count);
@@ -2552,11 +2530,18 @@ aot_get_module_mem_consumption(const AOTModule *module,
 
     mem_conspn->module_struct_size = sizeof(AOTModule);
 
-    mem_conspn->types_size = sizeof(AOTFuncType *) * module->func_type_count;
-    for (i = 0; i < module->func_type_count; i++) {
-        AOTFuncType *type = module->func_types[i];
+    mem_conspn->types_size = sizeof(AOTFuncType *) * module->type_count;
+    for (i = 0; i < module->type_count; i++) {
+#if WASM_ENABLE_GC == 0
+        AOTFuncType *type = (AOTFuncType *)module->types[i];
         size = offsetof(AOTFuncType, types)
                + sizeof(uint8) * (type->param_count + type->result_count);
+#else
+        /* TODO, calculate the size of func/struct/array type */
+        AOTFuncType *type = (AOTFuncType *)module->types[i];
+        size = offsetof(AOTFuncType, types)
+               + sizeof(uint8) * (type->param_count + type->result_count);
+#endif
         mem_conspn->types_size += size;
     }
 

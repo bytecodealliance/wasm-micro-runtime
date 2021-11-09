@@ -250,8 +250,8 @@ aot_create_func_types(const WASMModule *module)
     /* Create each function type */
     for (i = 0; i < module->type_count; i++) {
         size = offsetof(AOTFuncType, types)
-               + (uint64)module->types[i]->param_count
-               + (uint64)module->types[i]->result_count;
+               + (uint64)((WASMFuncType *)module->types[i])->param_count
+               + (uint64)((WASMFuncType *)module->types[i])->result_count;
         if (size >= UINT32_MAX
             || !(func_types[i] = wasm_runtime_malloc((uint32)size))) {
             aot_set_last_error("allocate memory failed.");
@@ -296,7 +296,7 @@ aot_create_import_funcs(const WASMModule *module)
         import_funcs[i].call_conv_wasm_c_api = false;
         /* Resolve function type index */
         for (j = 0; j < module->type_count; j++)
-            if (import_func->func_type == module->types[j]) {
+            if (import_func->func_type == (WASMFuncType *)module->types[j]) {
                 import_funcs[i].func_type_index = j;
                 break;
             }
@@ -345,7 +345,7 @@ aot_create_funcs(const WASMModule *module)
 
         /* Resolve function type index */
         for (j = 0; j < module->type_count; j++)
-            if (func->func_type == module->types[j]) {
+            if (func->func_type == (WASMFuncType *)module->types[j]) {
                 funcs[i]->func_type_index = j;
                 break;
             }
@@ -499,9 +499,9 @@ aot_create_comp_data(WASMModule *module)
     comp_data->global_data_size = import_global_data_size + global_data_size;
 
     /* Create function types */
-    comp_data->func_type_count = module->type_count;
-    if (comp_data->func_type_count
-        && !(comp_data->func_types = aot_create_func_types(module)))
+    comp_data->type_count = module->type_count;
+    if (comp_data->type_count
+        && !(comp_data->types = (AOTType **)aot_create_func_types(module)))
         goto fail;
 
     /* Create import functions */
@@ -577,9 +577,9 @@ aot_destroy_comp_data(AOTCompData *comp_data)
     if (comp_data->globals)
         wasm_runtime_free(comp_data->globals);
 
-    if (comp_data->func_types)
-        aot_destroy_func_types(comp_data->func_types,
-                               comp_data->func_type_count);
+    if (comp_data->types)
+        aot_destroy_func_types((AOTFuncType **)comp_data->types,
+                               comp_data->type_count);
 
     if (comp_data->import_funcs)
         wasm_runtime_free(comp_data->import_funcs);

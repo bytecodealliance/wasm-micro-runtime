@@ -53,7 +53,7 @@ static WASMFunctionInstanceCommon *
 resolve_function(const WASMModuleInstanceCommon *module_inst, const char *name);
 
 static bool
-check_main_func_type(const WASMType *type)
+check_main_func_type(const WASMFuncType *type)
 {
     if (!(type->param_count == 0 || type->param_count == 2)
         || type->result_count > 1) {
@@ -85,7 +85,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
                               char *argv[])
 {
     WASMFunctionInstanceCommon *func;
-    WASMType *func_type = NULL;
+    WASMFuncType *func_type = NULL;
     uint32 argc1 = 0, argv1[2] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
@@ -359,7 +359,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                               const char *name, int32 argc, char *argv[])
 {
     WASMFunctionInstanceCommon *func;
-    WASMType *type = NULL;
+    WASMFuncType *type = NULL;
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
     int32 i, p, module_type;
     uint64 total_size;

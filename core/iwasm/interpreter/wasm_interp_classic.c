@@ -1018,7 +1018,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(EXT_OP_BLOCK)
             {
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                cell_num = wasm_types[type_index]->ret_cell_num;
+                cell_num =
+                    ((WASMFuncType *)wasm_types[type_index])->ret_cell_num;
                 goto handle_op_block;
             }
 
@@ -1055,7 +1056,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(EXT_OP_LOOP)
             {
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                cell_num = wasm_types[type_index]->param_cell_num;
+                cell_num =
+                    ((WASMFuncType *)wasm_types[type_index])->param_cell_num;
                 goto handle_op_loop;
             }
 
@@ -1071,7 +1073,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(EXT_OP_IF)
             {
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                cell_num = wasm_types[type_index]->ret_cell_num;
+                cell_num =
+                    ((WASMFuncType *)wasm_types[type_index])->ret_cell_num;
                 goto handle_op_if;
             }
 
@@ -1238,7 +1241,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_RETURN_CALL_INDIRECT)
 #endif
             {
-                WASMType *cur_type, *cur_func_type;
+                WASMFuncType *cur_type, *cur_func_type;
                 WASMTableInstance *tbl_inst;
                 uint32 tbl_idx;
 #if WASM_ENABLE_TAIL_CALL != 0
@@ -1256,7 +1259,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                  */
                 read_leb_uint32(frame_ip, frame_ip_end, tidx);
                 bh_assert(tidx < module->module->type_count);
-                cur_type = wasm_types[tidx];
+                cur_type = (WASMFuncType *)wasm_types[tidx];
 
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 bh_assert(tbl_idx < module->table_count);
@@ -1292,7 +1295,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     cur_func_type = cur_func->u.func_import->func_type;
                 else
                     cur_func_type = cur_func->u.func->func_type;
-                if (!wasm_type_equal(cur_type, cur_func_type)) {
+                if (!wasm_type_equal((WASMType *)cur_type,
+                                     (WASMType *)cur_func_type)) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
@@ -1362,6 +1366,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 (void)vec_len;
                 HANDLE_OP_END();
             }
+
             HANDLE_OP(WASM_OP_TABLE_GET)
             {
                 uint32 tbl_idx, elem_idx;
@@ -1428,6 +1433,78 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 #endif /* WASM_ENABLE_REF_TYPES */
+
+#if WASM_ENABLE_GC != 0
+            HANDLE_OP(WASM_OP_CALL_REF) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_RETURN_CALL_REF) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_FUNC_BIND) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_LET) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_REF_EQ) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_REF_AS_NON_NULL) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_BR_ON_NULL) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_BR_ON_NON_NULL) { HANDLE_OP_END(); }
+
+            HANDLE_OP(WASM_OP_GC_PREFIX)
+            {
+                uint32 opcode1;
+
+                read_leb_uint32(frame_ip, frame_ip_end, opcode1);
+                opcode = (uint8)opcode1;
+
+                /* TODO */
+                switch (opcode) {
+                    case WASM_OP_STRUCT_NEW_WITH_RTT:
+                    case WASM_OP_STRUCT_NEW_DEFAULT_WITH_RTT:
+                    case WASM_OP_STRUCT_GET:
+                    case WASM_OP_STRUCT_GET_S:
+                    case WASM_OP_STRUCT_GET_U:
+                    case WASM_OP_STRUCT_SET:
+
+                    case WASM_OP_ARRAY_NEW_WITH_RTT:
+                    case WASM_OP_ARRAY_NEW_DEFAULT_WITH_RTT:
+                    case WASM_OP_ARRAY_GET:
+                    case WASM_OP_ARRAY_GET_S:
+                    case WASM_OP_ARRAY_GET_U:
+                    case WASM_OP_ARRAY_SET:
+                    case WASM_OP_ARRAY_LEN:
+
+                    case WASM_OP_I31_NEW:
+                    case WASM_OP_I31_GET_S:
+                    case WASM_OP_I31_GET_U:
+
+                    case WASM_OP_RTT_CANON:
+                    case WASM_OP_RTT_SUB:
+
+                    case WASM_OP_REF_TEST:
+                    case WASM_OP_REF_CAST:
+                    case WASM_OP_BR_ON_CAST:
+                    case WASM_OP_BR_ON_CAST_FAIL:
+
+                    case WASM_OP_REF_IS_FUNC:
+                    case WASM_OP_REF_IS_DATA:
+                    case WASM_OP_REF_IS_I31:
+                    case WASM_OP_REF_AS_FUNC:
+                    case WASM_OP_REF_AS_DATA:
+                    case WASM_OP_REF_AS_I31:
+
+                    case WASM_OP_BR_ON_FUNC:
+                    case WASM_OP_BR_ON_DATA:
+                    case WASM_OP_BR_ON_I31:
+                    case WASM_OP_BR_ON_NON_FUNC:
+                    case WASM_OP_BR_ON_NON_DATA:
+                    case WASM_OP_BR_ON_NON_I31:
+                        break;
+                }
+                HANDLE_OP_END();
+            }
+#endif
 
             /* variable instructions */
             HANDLE_OP(WASM_OP_GET_LOCAL)
@@ -3514,11 +3591,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
-        HANDLE_OP(WASM_OP_UNUSED_0x06)
-        HANDLE_OP(WASM_OP_UNUSED_0x07)
-        HANDLE_OP(WASM_OP_UNUSED_0x08)
-        HANDLE_OP(WASM_OP_UNUSED_0x09)
-        HANDLE_OP(WASM_OP_UNUSED_0x0a)
+        /* Exception handling opcodes */
+        HANDLE_OP(WASM_OP_TRY)
+        HANDLE_OP(WASM_OP_CATCH)
+        HANDLE_OP(WASM_OP_THROW)
+        HANDLE_OP(WASM_OP_RETHROW)
+        HANDLE_OP(WASM_OP_DELEGATE)
+        HANDLE_OP(WASM_OP_CATCH_ALL)
 #if WASM_ENABLE_TAIL_CALL == 0
         HANDLE_OP(WASM_OP_RETURN_CALL)
         HANDLE_OP(WASM_OP_RETURN_CALL_INDIRECT)
@@ -3534,19 +3613,29 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(WASM_OP_REF_IS_NULL)
         HANDLE_OP(WASM_OP_REF_FUNC)
 #endif
-        HANDLE_OP(WASM_OP_UNUSED_0x14)
-        HANDLE_OP(WASM_OP_UNUSED_0x15)
-        HANDLE_OP(WASM_OP_UNUSED_0x16)
-        HANDLE_OP(WASM_OP_UNUSED_0x17)
-        HANDLE_OP(WASM_OP_UNUSED_0x18)
-        HANDLE_OP(WASM_OP_UNUSED_0x19)
-        HANDLE_OP(WASM_OP_UNUSED_0x27)
-        /* Used by fast interpreter */
+#if WASM_ENABLE_GC == 0
+        HANDLE_OP(WASM_OP_CALL_REF)
+        HANDLE_OP(WASM_OP_RETURN_CALL_REF)
+        HANDLE_OP(WASM_OP_FUNC_BIND)
+        HANDLE_OP(WASM_OP_LET)
+        HANDLE_OP(WASM_OP_REF_EQ)
+        HANDLE_OP(WASM_OP_REF_AS_NON_NULL)
+        HANDLE_OP(WASM_OP_BR_ON_NULL)
+        HANDLE_OP(WASM_OP_BR_ON_NON_NULL)
+        HANDLE_OP(WASM_OP_GC_PREFIX)
+#endif
+#if WASM_ENABLE_DEBUG_INTERP == 0
+        HANDLE_OP(DEBUG_OP_BREAK)
+#endif
+        /* Fast interpreter extended opcodes */
         HANDLE_OP(EXT_OP_SET_LOCAL_FAST_I64)
         HANDLE_OP(EXT_OP_TEE_LOCAL_FAST_I64)
         HANDLE_OP(EXT_OP_COPY_STACK_TOP)
         HANDLE_OP(EXT_OP_COPY_STACK_TOP_I64)
         HANDLE_OP(EXT_OP_COPY_STACK_VALUES)
+        /* Unused opcodes */
+        HANDLE_OP(WASM_OP_UNUSED_0x0a)
+        HANDLE_OP(WASM_OP_UNUSED_0x27)
         {
             wasm_set_exception(module, "unsupported opcode");
             goto got_exception;
@@ -3607,7 +3696,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         else {
             WASMFunction *cur_wasm_func = cur_func->u.func;
-            WASMType *func_type;
+            WASMFuncType *func_type;
 
             func_type = cur_wasm_func->func_type;
 

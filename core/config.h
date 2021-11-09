@@ -322,4 +322,12 @@
 #define WASM_ENABLE_REF_TYPES 0
 #endif
 
+#ifndef WASM_ENABLE_GC
+#define WASM_ENABLE_GC 0
+#endif
+
+#ifndef GC_REFTYPE_MAP_SIZE_DEFAULT
+#define GC_REFTYPE_MAP_SIZE_DEFAULT 64
+#endif
+
 #endif /* end of _CONFIG_H_ */

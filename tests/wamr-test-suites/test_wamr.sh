@@ -19,7 +19,8 @@ function help()
     echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
     echo "-P run the spec test parallelly"
     echo "-p enable multi thread feature"
-    echo "-S enable SIMD"
+    echo "-G enable GC feature"
+    echo "-S enable SIMD feature"
     echo "-s {suite_name} test only one suite (spec)"
     echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
     echo "-x test SGX"
@@ -35,6 +36,7 @@ ENABLE_MULTI_MODULE=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
+ENABLE_GC=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
@@ -44,7 +46,7 @@ ENABLE_REF_TYPES=1
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxP" opt
+while getopts ":s:cabt:m:MCpSxPG" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -115,6 +117,10 @@ do
         x)
         echo "test SGX"
         SGX_OPT="--sgx"
+        ;;
+        G)
+        echo "enable GC feature"
+        ENABLE_GC=1
         ;;
         P)
         PARALLELISM=1
@@ -314,6 +320,25 @@ function spec_test()
         git checkout simd/main -- test/core/simd
 
         git apply ../../spec-test-script/simd_ignore_cases.patch
+    fi
+
+    # update GC cases
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        echo "checkout spec for GC proposal"
+
+        # check spec test cases for GC
+        if [[ -z $(git remote | grep "\<gc\>") ]]; then
+            git remote add gc https://github.com/WebAssembly/gc.git
+        fi
+
+        git restore . && git clean -ffd .
+        git fetch gc
+        git checkout -B gc_spec --track gc/master
+
+        echo "compile the reference intepreter"
+        pushd interpreter
+        make opt
+        popd
     fi
 
     popd
@@ -549,6 +574,12 @@ function trigger()
         # multi-module and bulk memory
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+    fi
+
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
     fi
 

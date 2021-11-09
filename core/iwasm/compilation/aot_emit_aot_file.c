@@ -385,8 +385,8 @@ get_func_type_info_size(AOTCompData *comp_data)
 {
     /* func type count + func type list */
     return (uint32)sizeof(uint32)
-           + get_func_types_size(comp_data->func_types,
-                                 comp_data->func_type_count);
+           + get_func_types_size((AOTFuncType **)comp_data->types,
+                                 comp_data->type_count);
 }
 
 static uint32
@@ -1444,13 +1444,13 @@ aot_emit_func_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                         AOTCompData *comp_data, AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i;
-    AOTFuncType **func_types = comp_data->func_types;
+    AOTFuncType **func_types = (AOTFuncType **)comp_data->types;
 
     *p_offset = offset = align_uint(offset, 4);
 
-    EMIT_U32(comp_data->func_type_count);
+    EMIT_U32(comp_data->type_count);
 
-    for (i = 0; i < comp_data->func_type_count; i++) {
+    for (i = 0; i < comp_data->type_count; i++) {
         offset = align_uint(offset, 4);
         EMIT_U32(func_types[i]->param_count);
         EMIT_U32(func_types[i]->result_count);
