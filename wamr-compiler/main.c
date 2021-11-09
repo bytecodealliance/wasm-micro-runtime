@@ -84,6 +84,7 @@ main(int argc, char *argv[])
     char error_buf[128];
     int log_verbose_level = 2;
     bool sgx_mode = false;
+    int exit_status = EXIT_FAILURE;
 
     option.opt_level = 3;
     option.size_level = 3;
@@ -296,6 +297,7 @@ main(int argc, char *argv[])
     bh_print_time("Compile end");
 
     printf("Compile success, file %s was generated.\n", out_file_name);
+    exit_status = EXIT_SUCCESS;
 
 fail5:
     /* Destroy compiler context */
@@ -318,5 +320,5 @@ fail1:
     wasm_runtime_destroy();
 
     bh_print_time("wamrc return");
-    return 0;
+    return exit_status;
 }
