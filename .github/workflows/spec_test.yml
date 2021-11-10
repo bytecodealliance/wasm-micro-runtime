@@ -33,12 +33,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DEFAULT_TEST_OPTIONS: "-s spec"
+  DEFAULT_TEST_OPTIONS: "-s spec -P"
   LLVM_CACHE_SUFFIX: "build-llvm_libraries_ex"
-  MULTI_MODULES_TEST_OPTIONS: "-s spec -M"
-  SIMD_TEST_OPTIONS: "-s spec -S"
-  THREADS_TEST_OPTIONS: "-s spec -p"
-  X86_32_TARGET_TEST_OPTIONS: "-m x86_32"
+  MULTI_MODULES_TEST_OPTIONS: "-s spec -M -P"
+  SIMD_TEST_OPTIONS: "-s spec -S -P"
+  THREADS_TEST_OPTIONS: "-s spec -p -P"
+  X86_32_TARGET_TEST_OPTIONS: "-m x86_32 -P"
 
 jobs:
   cancel_previous:

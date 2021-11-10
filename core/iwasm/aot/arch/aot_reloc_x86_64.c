@@ -225,12 +225,13 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                       - get_plt_table_size()
                       + get_plt_item_size() * symbol_index;
                 target_addr = (intptr_t) /* L + A - P */
-                    (plt + reloc_addend - (target_section_addr + reloc_offset));
+                    ((uintptr_t)plt + reloc_addend
+                     - (uintptr_t)(target_section_addr + reloc_offset));
             }
             else {
                 target_addr = (intptr_t) /* L + A - P */
-                    ((uint8 *)symbol_addr + reloc_addend
-                     - (target_section_addr + reloc_offset));
+                    ((uintptr_t)symbol_addr + reloc_addend
+                     - (uintptr_t)(target_section_addr + reloc_offset));
             }
 
 #if defined(BH_PLATFORM_WINDOWS)

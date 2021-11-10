@@ -172,6 +172,9 @@ handle_generay_query(WASMGDBServer *server, char *payload)
 
         write_packet(server, tmpbuf);
     }
+    if (!strcmp(name, "ModuleInfo")) {
+        write_packet(server, "");
+    }
     if (!strcmp(name, "GetWorkingDir")) {
         if (getcwd(tmpbuf, PATH_MAX))
             write_packet(server, tmpbuf);
