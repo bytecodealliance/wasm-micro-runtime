@@ -238,7 +238,7 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
 bool
 apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
@@ -269,7 +269,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 /* operation: ((S + A) | T) - P  where S is symbol address
                    and T is 1 */
                 result =
-                    (int32)(((intptr_t)((uint8 *)symbol_addr + reloc_addend)
+                    (int32)(((intptr_t)((uintptr_t)symbol_addr
+                                        + (intptr_t)reloc_addend)
                              | 1)
                             - (intptr_t)(target_section_addr + reloc_offset));
             }
