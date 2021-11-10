@@ -42,15 +42,18 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     page_size = (uint64)getpagesize();
     request_size = (size + page_size - 1) & ~(page_size - 1);
 
+#ifndef __APPLE__ /* huge page isn't supported on MacOS */
     if (request_size >= HUGE_PAGE_SIZE)
+        /* apply one extra huge page */
         request_size += HUGE_PAGE_SIZE;
+#endif
 
     if ((size_t)request_size < size)
         /* integer overflow */
         return NULL;
 
     if (request_size > 16 * (uint64)UINT32_MAX)
-        /* At most 16 G is allowed */
+        /* at most 16 G is allowed */
         return NULL;
 
     if (prot & MMAP_PROT_READ)
@@ -117,7 +120,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         }
     }
     else
-#endif
+#endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
     {
         /* try 5 times */
         for (i = 0; i < 5; i++) {
@@ -141,6 +144,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
               addr, request_size, total_size_mmapped, total_size_munmapped);
 #endif
 
+#ifndef __APPLE__ /* huge page isn't supported on MacOS */
     if (request_size > HUGE_PAGE_SIZE) {
         uintptr_t huge_start, huge_end;
         size_t prefix_size = 0, suffix_size = HUGE_PAGE_SIZE;
@@ -151,6 +155,8 @@ os_mmap(void *hint, size_t size, int prot, int flags)
             prefix_size += huge_start - (uintptr_t)addr;
             suffix_size -= huge_start - (uintptr_t)addr;
         }
+
+        /* unmap one extra huge page */
 
         if (prefix_size > 0) {
             munmap(addr, prefix_size);
@@ -189,6 +195,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
             }
         }
     }
+#endif /* end of __APPLE__ */
 
     return addr;
 }
