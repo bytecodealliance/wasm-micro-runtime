@@ -138,6 +138,15 @@
 #define WASM_ENABLE_THREAD_MGR 0
 #endif
 
+/* Source debugging */
+#ifndef WASM_ENABLE_DEBUG_INTERP
+#define WASM_ENABLE_DEBUG_INTERP 0
+#endif
+
+#ifndef WASM_ENABLE_DEBUG_AOT
+#define WASM_ENABLE_DEBUG_AOT 0
+#endif
+
 /* WASM log system */
 #ifndef WASM_ENABLE_LOG
 #define WASM_ENABLE_LOG 1

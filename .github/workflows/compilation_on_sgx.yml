@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-name: compilation on android, ubuntu-18.04, ubuntu-20.04, macos-latest
+name: CI on SGX
 
 on:
   # will be triggered on PR events
@@ -42,7 +42,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04, macos-latest]
+        os: [ubuntu-20.04]
     steps:
       - name: Cancel Workflow Action
         uses: styfle/cancel-workflow-action@0.6.0
@@ -56,22 +56,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04, macos-latest]
+        os: [ubuntu-20.04]
     outputs:
-      traffic_light_on_ubuntu_1804: ${{ steps.do_check_on_ubuntu_1804.outputs.light }}
       traffic_light_on_ubuntu_2004: ${{ steps.do_check_on_ubuntu_2004.outputs.light }}
-      traffic_light_on_macos_latest: ${{ steps.do_check_on_macos_latest.outputs.light }}
     steps:
-      - name: do_check_on_ubuntu_1804
-        id: do_check_on_ubuntu_1804
-        if: ${{ matrix.os == 'ubuntu-18.04' }}
-        run: |
-          if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
-          else
-            echo "::set-output name=light::red"
-          fi
-
       - name: do_check_on_ubuntu_2004
         id: do_check_on_ubuntu_2004
         if: ${{ matrix.os == 'ubuntu-20.04' }}
@@ -82,29 +70,15 @@ jobs:
             echo "::set-output name=light::green"
           fi
 
-      - name: do_check_on_macos_latest
-        id: do_check_on_macos_latest
-        if: ${{ matrix.os == 'macos-latest' }}
-        run: |
-          if [[ ${{ github.repository }} == */wasm-micro-runtime ]]; then
-            echo "::set-output name=light::green"
-          else
-            echo "::set-output name=light::red"
-          fi
-
   build_llvm_libraries:
     needs: check_repo
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04, macos-latest]
+        os: [ubuntu-20.04]
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light_on_macos_latest }}
     steps:
       - name: light status
         run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
@@ -126,63 +100,11 @@ jobs:
             ./core/deps/llvm/build/share
           key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
 
-      - name: Build llvm and clang from source on ubuntu
+      - name: Build llvm and clang from source
         id: build_llvm_ubuntu
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' && matrix.os != 'macos-latest' }}
+        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
         run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly --project clang lldb
         working-directory: build-scripts
-
-      - name: Build llvm and clang from source on macos
-        id: build_llvm_macos
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' && matrix.os == 'macos-latest' }}
-        run: /usr/bin/env python3 ./build_llvm.py --arch X86 WebAssembly
-        working-directory: build-scripts
-
-  build_wamrc:
-    needs: [build_llvm_libraries, check_repo]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-18.04, ubuntu-20.04, macos-latest]
-        include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
-          - os: ubuntu-20.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light_on_macos_latest }}
-    steps:
-      - name: light status
-        run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
-
-      - name: checkout
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/checkout@v2
-
-      - name: Get LLVM libraries
-        id: cache_llvm
-        if: ${{ matrix.light == 'green' }}
-        uses: actions/cache@v2
-        with:
-          path: |
-            ./core/deps/llvm/build/bin
-            ./core/deps/llvm/build/include
-            ./core/deps/llvm/build/lib
-            ./core/deps/llvm/build/libexec
-            ./core/deps/llvm/build/share
-          key: ${{ matrix.os }}-${{ env.LLVM_CACHE_SUFFIX }}
-
-      - name: Quit if cache miss
-        if: ${{ matrix.light == 'green' && steps.cache_llvm.outputs.cache-hit != 'true' }}
-        run: echo "::error::can not get prebuilt llvm libraries" && exit 1
-
-      - name: Build wamrc
-        if: ${{ matrix.light == 'green' }}
-        run: |
-          mkdir build && cd build
-          cmake ..
-          cmake --build . --config Release --parallel 4
-        working-directory: wamr-compiler
 
   build_iwasm:
     needs: [build_llvm_libraries, check_repo]
@@ -193,15 +115,17 @@ jobs:
             # Running mode
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $JIT_BUILD_OPTIONS,
-            $LAZY_JIT_BUILD_OPTIONS,
+            # doesn't support
+            # $JIT_BUILD_OPTIONS,
+            # $LAZY_JIT_BUILD_OPTIONS,
             $AOT_BUILD_OPTIONS,
           ]
         make_options_feature: [
             # Features
             "-DWAMR_BUILD_CUSTOM_NAME_SECTION=1",
-            "-DWAMR_BUILD_DEBUG_AOT=1",
-            "-DWAMR_BUILD_DEBUG_INTERP=1",
+            # doesn't support
+            # "-DWAMR_BUILD_DEBUG_AOT=1",
+            # "-DWAMR_BUILD_DEBUG_INTERP=1",
             "-DWAMR_BUILD_DUMP_CALL_STACK=1",
             "-DWAMR_BUILD_LIB_PTHREAD=1",
             "-DWAMR_BUILD_MINI_LOADER=1",
@@ -209,78 +133,41 @@ jobs:
             "-DWAMR_BUILD_MULTI_MODULE=1",
             "-DWAMR_BUILD_PERF_PROFILING=1",
             "-DWAMR_BUILD_REF_TYPES=1",
-            "-DWAMR_BUILD_SIMD=1",
+            # doesn't support
+            # "-DWAMR_BUILD_SIMD=1",
             "-DWAMR_BUILD_TAIL_CALL=1",
             "-DWAMR_DISABLE_HW_BOUND_CHECK=1",
           ]
-        os: [ubuntu-18.04, ubuntu-20.04, macos-latest]
-        platform: [android, linux, darwin]
+        os: [ubuntu-20.04]
+        platform: [linux-sgx]
         exclude:
-          # uncompatiable os and platform
-          # ubuntu can not go with darwin
-          - os: ubuntu-18.04
-            platform: darwin
-          - os: ubuntu-20.04
-            platform: darwin
-          # macos can not go with android, linux
-          - os: macos-latest
-            platform: android
-          - os: macos-latest
-            platform: linux
-          # uncompatiable feature and platform
-          - os: macos-latest
-            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
-          - os: macos-latest
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           # uncompatiable mode and feature
           # MULTI_MODULE only on INTERP mode
-          - make_options_run_mode: $JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          - make_options_run_mode: $LAZY_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MULTI_MODULE=1"
-          # SIMD only on JIT/AOT mode
-          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_SIMD=1"
-          # DEBUG_INTERP only on CLASSIC INTERP mode
-          - make_options_run_mode: $AOT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
-          - make_options_run_mode: $JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
-          - make_options_run_mode: $LAZY_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
-          # DEBUG_AOT only on JIT/AOT mode
-          - make_options_run_mode: $CLASSIC_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
-          - make_options_run_mode: $FAST_INTERP_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
-          # TODO: DEBUG_AOT on JIT
-          - make_options_run_mode: $JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
-          - make_options_run_mode: $LAZY_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
           # MINI_LOADER only on INTERP mode
           - make_options_run_mode: $AOT_BUILD_OPTIONS
             make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          - make_options_run_mode: $JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
-          - make_options_run_mode: $LAZY_JIT_BUILD_OPTIONS
-            make_options_feature: "-DWAMR_BUILD_MINI_LOADER=1"
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light_on_macos_latest }}
     steps:
       - name: light status
         run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
+
+      - name: install SGX SDK and necessary libraries
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          mkdir -p /opt/intel 
+          cd /opt/intel
+          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
+          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+          sudo apt update
+          sudo apt install -y libsgx-launch libsgx-urts
+          source /opt/intel/sgxsdk/environment
 
       - name: checkout
         if: ${{ matrix.light == 'green' }}
@@ -312,7 +199,7 @@ jobs:
         working-directory: product-mini/platforms/${{ matrix.platform }}
 
   build_samples_wasm_c_api:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
+    needs: [build_iwasm, build_llvm_libraries, check_repo]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -320,32 +207,17 @@ jobs:
             # Running mode
             $CLASSIC_INTERP_BUILD_OPTIONS,
             $FAST_INTERP_BUILD_OPTIONS,
-            $JIT_BUILD_OPTIONS,
-            $LAZY_JIT_BUILD_OPTIONS,
-            $AOT_BUILD_OPTIONS,
+            # doesn't support
+            #$JIT_BUILD_OPTIONS,
+            #$LAZY_JIT_BUILD_OPTIONS,
+            #$AOT_BUILD_OPTIONS,
           ]
-        os: [ubuntu-18.04, ubuntu-20.04, macos-latest]
+        os: [ubuntu-20.04]
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
             wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
             wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light_on_macos_latest }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz
-        exclude:
-          # TODO: a .aot compatiable problem
-          - os: macos-latest
-            make_options: $JIT_BUILD_OPTIONS
-          - os: macos-latest
-            make_options: $AOT_BUILD_OPTIONS
-          - os: macos-latest
-            make_options: $LAZY_JIT_BUILD_OPTIONS
     steps:
       - name: light status
         run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
@@ -379,6 +251,20 @@ jobs:
           sudo tar -xzf wabt-1.0.24-*.tar.gz
           sudo mv wabt-1.0.24 wabt
 
+      - name: install SGX SDK and necessary libraries
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          mkdir -p /opt/intel 
+          cd /opt/intel
+          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
+          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+          sudo apt update
+          sudo apt install -y libsgx-launch libsgx-urts
+          source /opt/intel/sgxsdk/environment
+
       - name: Build wamrc
         if: ${{ matrix.light == 'green' }}
         run: |
@@ -406,23 +292,15 @@ jobs:
         working-directory: samples/wasm-c-api
 
   build_samples_others:
-    needs: [build_iwasm, build_llvm_libraries, build_wamrc, check_repo]
+    needs: [build_iwasm, build_llvm_libraries, check_repo]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-18.04
-            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_1804 }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
           - os: ubuntu-20.04
             light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
             wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz
             wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-ubuntu.tar.gz
-          - os: macos-latest
-            light: ${{ needs.check_repo.outputs.traffic_light_on_macos_latest }}
-            wasi_sdk_release: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz
-            wabt_release: https://github.com/WebAssembly/wabt/releases/download/1.0.24/wabt-1.0.24-macos.tar.gz
     steps:
       - name: light status
         run: echo "matrix.os=${{ matrix.os }}, light=${{ matrix.light }}"
@@ -463,6 +341,20 @@ jobs:
           sudo wget ${{ matrix.wabt_release }}
           sudo tar -xzf wabt-1.0.24-*.tar.gz
           sudo mv wabt-1.0.24 wabt
+
+      - name: install SGX SDK and necessary libraries
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          mkdir -p /opt/intel 
+          cd /opt/intel
+          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
+          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+          sudo apt update
+          sudo apt install -y libsgx-launch libsgx-urts
+          source /opt/intel/sgxsdk/environment
 
       - name: Build wamrc
         if: ${{ matrix.light == 'green' }}
@@ -514,3 +406,55 @@ jobs:
           cmake ..
           cmake --build . --config Release --parallel 4
           ./hello
+
+  spec_test_default:
+    needs: [build_iwasm, build_llvm_libraries, check_repo]
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        running_mode: ["classic-interp", "fast-interp", "aot"]
+        test_option: ["-x -p -s spec -P", "-x -p -s spec -S -P"]
+        include:
+          - os: ubuntu-20.04
+            light: ${{ needs.check_repo.outputs.traffic_light_on_ubuntu_2004 }}
+    steps:
+      - name: checkout
+        if: ${{ matrix.light == 'green' }}
+        uses: actions/checkout@v2
+
+      - name: Get LLVM libraries
+        if: ${{ matrix.light == 'green' }}
+        id: cache_llvm
+        uses: actions/cache@v2
+        with:
+          path: |
+            ./core/deps/llvm/build/bin
+            ./core/deps/llvm/build/include
+            ./core/deps/llvm/build/lib
+            ./core/deps/llvm/build/libexec
+            ./core/deps/llvm/build/share
+          key: ubuntu-20.04-${{ env.LLVM_CACHE_SUFFIX }}
+
+      - name: install Ninja
+        if: ${{ matrix.light == 'green' }}
+        run: sudo apt install -y ninja-build
+
+      - name: install SGX SDK and necessary libraries
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          mkdir -p /opt/intel 
+          cd /opt/intel
+          wget https://download.01.org/intel-sgx/sgx-linux/2.15/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.100.3.bin
+          chmod +x sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'yes' | ./sgx_linux_x64_sdk_2.15.100.3.bin
+          echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/intel-sgx.list
+          wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | sudo apt-key add -
+          sudo apt update
+          sudo apt install -y libsgx-launch libsgx-urts
+
+      - name: run spec tests
+        if: ${{ matrix.light == 'green' }}
+        run: |
+          source /opt/intel/sgxsdk/environment
+          ./test_wamr.sh ${{ matrix.test_option }} -t ${{ matrix.running_mode }}
+        working-directory: ./tests/wamr-test-suites

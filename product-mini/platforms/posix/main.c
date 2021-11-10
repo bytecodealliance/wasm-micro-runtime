@@ -53,6 +53,7 @@ print_help()
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     printf("  -g=ip:port             Set the debug sever address, default is debug disabled\n");
+    printf("                           if port is 0, then a random port will be used\n");
 #endif
     return 1;
 }

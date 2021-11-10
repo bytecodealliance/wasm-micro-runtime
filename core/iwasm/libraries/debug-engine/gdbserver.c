@@ -56,6 +56,7 @@ wasm_launch_gdbserver(char *host, int port)
     int listen_fd = -1;
     const int one = 1;
     struct sockaddr_in addr;
+    socklen_t socklen;
     int ret;
     int sockt_fd = 0;
 
@@ -87,7 +88,6 @@ wasm_launch_gdbserver(char *host, int port)
         goto fail;
     }
 
-    LOG_VERBOSE("Listening on %s:%d\n", host, port);
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr(host);
     addr.sin_port = htons(port);
@@ -97,6 +97,14 @@ wasm_launch_gdbserver(char *host, int port)
         LOG_ERROR("wasm gdb server error: bind() failed");
         goto fail;
     }
+
+    socklen = sizeof(addr);
+    if (getsockname(listen_fd, (void *)&addr, &socklen) == -1) {
+        LOG_ERROR("%s", strerror(errno));
+        goto fail;
+    }
+
+    LOG_WARNING("Listening on %s:%d\n", host, ntohs(addr.sin_port));
 
     ret = listen(listen_fd, 1);
     if (ret < 0) {

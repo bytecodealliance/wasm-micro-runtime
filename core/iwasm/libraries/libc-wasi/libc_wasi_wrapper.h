@@ -41,7 +41,6 @@ typedef __wasi_riflags_t wasi_riflags_t;
 typedef __wasi_roflags_t wasi_roflags_t;
 typedef __wasi_siflags_t wasi_siflags_t;
 typedef __wasi_sdflags_t wasi_sdflags_t;
-typedef __wasi_dircookie_t wasi_dircookie_t;
 typedef __wasi_preopentype_t wasi_preopentype_t;
 
 #ifdef __cplusplus

@@ -13,15 +13,16 @@ DEBUG set -xEevuo pipefail
 function help()
 {
     echo "test_wamr.sh [options]"
-    echo "-s {suite_name} test only one suite (spec)"
     echo "-c clean previous test results, not start test"
-    echo "-b use the wabt binary release package instead of compiling from the source code"
-    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
+    echo "-s {suite_name} test only one suite (spec)"
     echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
+    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
     echo "-M enable the multi module feature"
     echo "-p enable multi thread feature"
     echo "-S enable SIMD"
     echo "-x test SGX"
+    echo "-b use the wabt binary release package instead of compiling from the source code"
+    echo "-P run the spec test parallelly"
 }
 
 OPT_PARSED=""
@@ -41,8 +42,9 @@ SGX_OPT=""
 # as they are finished and merged into spec
 ENABLE_REF_TYPES=1
 PLATFORM=$(uname -s | tr A-Z a-z)
+PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxr" opt
+while getopts ":s:cabt:m:MCpSxP" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -113,6 +115,9 @@ do
         x)
         echo "test SGX"
         SGX_OPT="--sgx"
+        ;;
+        P)
+        PARALLELISM=1
         ;;
         ?)
         help
@@ -208,7 +213,7 @@ function unit_test()
 
         # keep going and do not care if it is success or not
         make -ki clean | true
-        cmake ${compile_flag} ${WORK_DIR}/../../unit && make
+        cmake ${compile_flag} ${WORK_DIR}/../../unit && make -j 4
         if [ "$?" != 0 ];then
             echo -e "\033[31mbuild unit test failed, you may need to change wamr into dev/aot branch and ensure llvm is built \033[0m"
             exit 1
@@ -307,12 +312,6 @@ function spec_test()
 
         git fetch simd
         git checkout simd/main -- test/core/simd
-        git checkout simd/main -- interpreter
-
-        echo "compile the reference intepreter"
-        pushd interpreter
-        make opt
-        popd
 
         git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
@@ -359,10 +358,10 @@ function spec_test()
         git pull
         git reset --hard origin/main
         cd ..
-        make -C wabt gcc-release
+        make -C wabt gcc-release -j 4
     fi
 
-    ln -sf ${WORK_DIR}/../spec-test-script/all.sh .
+    ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
 
     local ARGS_FOR_SPEC_TEST=""
@@ -398,8 +397,12 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="-t -m ${TARGET} "
     fi
 
+    if [[ ${PARALLELISM} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--parl "
+    fi
+
     cd ${WORK_DIR}
-    ./all.sh ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
+    python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
     [[ ${PIPESTATUS[0]} -ne 0 ]] && exit 1
     cd -
 
@@ -473,7 +476,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make
+        && make -j 4
         cd ${WAMR_DIR}/product-mini/platforms/linux-sgx/enclave-sample \
         && make clean \
         && make SPEC_TEST=1
@@ -482,7 +485,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make
+        && make -j 4
     fi
 
     if [ "$?" != 0 ];then
@@ -506,7 +509,7 @@ function build_wamrc()
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
         && cmake .. \
-        && make
+        && make -j 4
 }
 
 ### Need to add a test suite?

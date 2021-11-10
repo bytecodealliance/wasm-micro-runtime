@@ -99,7 +99,7 @@ def build_llvm(llvm_dir, platform, backends, projects):
     lib_llvm_core_library = build_dir.joinpath("lib/libLLVMCore.a").resolve()
     if lib_llvm_core_library.exists():
         print(f"Please remove {build_dir} manually and try again")
-        return
+        return build_dir
 
     compile_options = " ".join(
         LLVM_COMPILE_OPTIONS
@@ -124,6 +124,28 @@ def build_llvm(llvm_dir, platform, backends, projects):
     subprocess.check_call(shlex.split(BUILD_CMD), cwd=build_dir)
 
     return build_dir
+
+
+def repackage_llvm(llvm_dir):
+    build_dir = llvm_dir.joinpath("./build").resolve()
+
+    packs = [f for f in build_dir.glob("LLVM-13*.tar.gz")]
+    if len(packs) > 1:
+        raise Exception("Find more than one LLVM-13*.tar.gz")
+
+    if not packs:
+        return
+
+    llvm_package = packs[0].name
+    # mv build/LLVM-13.0.0*.gz .
+    shutil.move(str(build_dir.joinpath(llvm_package).resolve()), str(llvm_dir))
+    # rm -r build
+    shutil.rmtree(str(build_dir))
+    # mkdir build
+    build_dir.mkdir()
+    # tar xf ./LLVM-13.0.0-*.tar.gz --strip-components=1 --directory=build
+    CMD = f"tar xf {llvm_dir.joinpath(llvm_package).resolve()} --strip-components=1 --directory={build_dir}"
+    subprocess.check_call(shlex.split(CMD), cwd=llvm_dir)
 
 
 def main():
@@ -198,16 +220,24 @@ def main():
     current_dir = current_file.parent.resolve()
     deps_dir = current_dir.joinpath("../core/deps").resolve()
 
-    print(f"==================== CLONE LLVM ====================")
-    llvm_info = llvm_repo_and_branch.get(platform, llvm_repo_and_branch["default"])
-    llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
+    try:
+        print(f"==================== CLONE LLVM ====================")
+        llvm_info = llvm_repo_and_branch.get(platform, llvm_repo_and_branch["default"])
+        llvm_dir = clone_llvm(deps_dir, llvm_info["repo"], llvm_info["branch"])
 
-    print()
-    print(f"==================== BUILD LLVM ====================")
-    build_llvm(llvm_dir, platform, options.arch, options.project)
+        print()
+        print(f"==================== BUILD LLVM ====================")
+        build_llvm(llvm_dir, platform, options.arch, options.project)
 
-    print()
+        print()
+        print(f"==================== PACKAGE LLVM ====================")
+        repackage_llvm(llvm_dir)
+
+        print()
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(0 if main() else 1)

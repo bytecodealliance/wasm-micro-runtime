@@ -1075,6 +1075,7 @@ if __name__ == "__main__":
     if test_aot:
         (t3fd, aot_tempfile) = tempfile.mkstemp(suffix=".aot")
 
+    ret_code = 0
     try:
         log("################################################")
         log("### Testing %s" % opts.test_file.name)
@@ -1262,9 +1263,10 @@ if __name__ == "__main__":
                 raise Exception("unrecognized form '%s...'" % form[0:40])
     except Exception as e:
         traceback.print_exc()
-        raise Exception("catch an exception {}".format(e))
+        print("THE FINAL EXCEPTION IS {}".format(e))
+        ret_code = 101
     else:
-        sys.exit(0)
+        ret_code = 0
     finally:
         if not opts.no_cleanup:
             log("Removing tempfiles")
@@ -1285,3 +1287,5 @@ if __name__ == "__main__":
             log("### End testing %s" % opts.test_file.name)
         else:
             log("Leaving tempfiles: %s" % ([wast_tempfile, wasm_tempfile]))
+
+        sys.exit(ret_code)
