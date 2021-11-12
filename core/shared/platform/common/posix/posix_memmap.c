@@ -112,30 +112,25 @@ os_mmap(void *hint, size_t size, int prot, int flags)
                     os_munmap(addr, request_size);
                 }
                 else {
-                    /* reset next hint address */
+                    /* success, reset next hint address */
                     hint_addr += request_size;
                     break;
                 }
             }
             hint_addr += BH_MB;
         }
-        if (addr == MAP_FAILED) {
-            /* try 5 times to map normal memory (not in range 0 - 2GB) */
-            for (i = 0; i < 5; i++) {
-                addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
-                if (addr != MAP_FAILED)
-                    break;
-            }
-        }
-    }
-#else  /* else of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
-    /* try 5 times */
-    for (i = 0; i < 5; i++) {
-        addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
-        if (addr != MAP_FAILED)
-            break;
     }
 #endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
+
+    /* memory has't been mapped or was mapped failed previously */
+    if (addr == MAP_FAILED) {
+        /* try 5 times */
+        for (i = 0; i < 5; i++) {
+            addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
+            if (addr != MAP_FAILED)
+                break;
+        }
+    }
 
     if (addr == MAP_FAILED) {
 #if BH_ENABLE_TRACE_MMAP != 0
