@@ -65,6 +65,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__divdi3),
     /* clang-format on */
     REG_SYM(__udivdi3),
+    REG_SYM(__moddi3),
     REG_SYM(__umoddi3),
     REG_SYM(__divsi3),
     REG_SYM(__udivsi3),
