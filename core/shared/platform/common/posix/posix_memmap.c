@@ -36,13 +36,14 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     int map_prot = PROT_NONE;
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE;
     uint64 request_size, page_size;
-    uint8 *addr = NULL;
+    uint8 *addr = MAP_FAILED;
     uint32 i;
 
     page_size = (uint64)getpagesize();
     request_size = (size + page_size - 1) & ~(page_size - 1);
 
-#ifndef __APPLE__ /* huge page isn't supported on MacOS */
+#if !defined(__APPLE__) && !defined(__NuttX__)
+    /* huge page isn't supported on MacOS and NuttX */
     if (request_size >= HUGE_PAGE_SIZE)
         /* apply one extra huge page */
         request_size += HUGE_PAGE_SIZE;
@@ -118,17 +119,23 @@ os_mmap(void *hint, size_t size, int prot, int flags)
             }
             hint_addr += BH_MB;
         }
-    }
-    else
-#endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
-    {
-        /* try 5 times */
-        for (i = 0; i < 5; i++) {
-            addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
-            if (addr != MAP_FAILED)
-                break;
+        if (addr == MAP_FAILED) {
+            /* try 5 times to map normal memory (not in range 0 - 2GB) */
+            for (i = 0; i < 5; i++) {
+                addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
+                if (addr != MAP_FAILED)
+                    break;
+            }
         }
     }
+#else  /* else of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
+    /* try 5 times */
+    for (i = 0; i < 5; i++) {
+        addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
+        if (addr != MAP_FAILED)
+            break;
+    }
+#endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
 
     if (addr == MAP_FAILED) {
 #if BH_ENABLE_TRACE_MMAP != 0
@@ -144,7 +151,8 @@ os_mmap(void *hint, size_t size, int prot, int flags)
               addr, request_size, total_size_mmapped, total_size_munmapped);
 #endif
 
-#ifndef __APPLE__ /* huge page isn't supported on MacOS */
+#if !defined(__APPLE__) && !defined(__NuttX__)
+    /* huge page isn't supported on MacOS and NuttX */
     if (request_size > HUGE_PAGE_SIZE) {
         uintptr_t huge_start, huge_end;
         size_t prefix_size = 0, suffix_size = HUGE_PAGE_SIZE;
