@@ -54,6 +54,7 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
+    bool disable_llvm_lto;
     uint32_t opt_level;
     uint32_t size_level;
     uint32_t output_format;

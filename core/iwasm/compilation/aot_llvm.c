@@ -1482,6 +1482,12 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (option->disable_llvm_intrinsics)
         comp_ctx->disable_llvm_intrinsics = true;
 
+    if (option->disable_llvm_lto)
+        comp_ctx->disable_llvm_lto = true;
+
+    comp_ctx->opt_level = option->opt_level;
+    comp_ctx->size_level = option->size_level;
+
     if (option->is_jit_mode) {
         char *triple_jit = NULL;
 
