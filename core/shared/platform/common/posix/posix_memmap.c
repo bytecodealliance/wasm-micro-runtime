@@ -198,7 +198,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
             }
         }
     }
-#endif /* end of __APPLE__ */
+#endif /* end of __APPLE__ || __NuttX__ */
 
     return addr;
 }
