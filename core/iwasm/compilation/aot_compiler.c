@@ -2548,11 +2548,42 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
     bh_print_time("Begin to run function optimization passes");
 
+    /* Run function pass manager */
     if (comp_ctx->optimize) {
         LLVMInitializeFunctionPassManager(comp_ctx->pass_mgr);
         for (i = 0; i < comp_ctx->func_ctx_count; i++)
             LLVMRunFunctionPassManager(comp_ctx->pass_mgr,
                                        comp_ctx->func_ctxes[i]->func);
+    }
+
+    /* Run common pass manager */
+    if (comp_ctx->optimize && !comp_ctx->is_jit_mode
+        && !comp_ctx->disable_llvm_lto) {
+        LLVMPassManagerRef common_pass_mgr = NULL;
+        LLVMPassManagerBuilderRef pass_mgr_builder = NULL;
+
+        if (!(common_pass_mgr = LLVMCreatePassManager())) {
+            aot_set_last_error("create pass manager failed");
+            return false;
+        }
+
+        if (!(pass_mgr_builder = LLVMPassManagerBuilderCreate())) {
+            aot_set_last_error("create pass manager builder failed");
+            LLVMDisposePassManager(common_pass_mgr);
+            return false;
+        }
+
+        LLVMPassManagerBuilderSetOptLevel(pass_mgr_builder,
+                                          comp_ctx->opt_level);
+        LLVMPassManagerBuilderPopulateModulePassManager(pass_mgr_builder,
+                                                        common_pass_mgr);
+        LLVMPassManagerBuilderPopulateLTOPassManager(
+            pass_mgr_builder, common_pass_mgr, true, true);
+
+        LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
+
+        LLVMDisposePassManager(common_pass_mgr);
+        LLVMPassManagerBuilderDispose(pass_mgr_builder);
     }
 
     return true;
