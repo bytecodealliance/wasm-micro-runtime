@@ -9,7 +9,7 @@
 
 //#define LOG_LEVEL CONFIG_DISPLAY_LOG_LEVEL
 //#include <logging/log.h>
-//LOG_MODULE_REGISTER(display_ili9340);
+// LOG_MODULE_REGISTER(display_ili9340);
 #define LOG_ERR printf
 #define LOG_DBG printf
 #define LOG_WRN printf
@@ -39,7 +39,7 @@ static void
 ili9340_exit_sleep(struct ili9340_data *data)
 {
     ili9340_transmit(data, ILI9340_CMD_EXIT_SLEEP, NULL, 0);
-    //k_sleep(Z_TIMEOUT_MS(120));
+    // k_sleep(Z_TIMEOUT_MS(120));
 }
 
 int
@@ -53,20 +53,22 @@ ili9340_init()
         return -EPERM;
     }
     data->spi_config.frequency = DT_ILITEK_ILI9340_0_SPI_MAX_FREQUENCY;
-    data->spi_config.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8); //SPI_OP_MODE_MASTER | SPI_WORD_SET(8);
+    data->spi_config.operation =
+        SPI_OP_MODE_MASTER
+        | SPI_WORD_SET(8); // SPI_OP_MODE_MASTER | SPI_WORD_SET(8);
     data->spi_config.slave = DT_ILITEK_ILI9340_0_BASE_ADDRESS;
 
 #ifdef DT_ILITEK_ILI9340_0_CS_GPIO_CONTROLLER
     data->cs_ctrl.gpio_dev =
-    device_get_binding(DT_ILITEK_ILI9340_0_CS_GPIO_CONTROLLER);
+        device_get_binding(DT_ILITEK_ILI9340_0_CS_GPIO_CONTROLLER);
     data->cs_ctrl.gpio_pin = DT_ILITEK_ILI9340_0_CS_GPIO_PIN;
     data->cs_ctrl.delay = 0;
     data->spi_config.cs = &(data->cs_ctrl);
 #else
     data->spi_config.cs = NULL;
 #endif
-    data->reset_gpio = device_get_binding(
-        DT_ILITEK_ILI9340_0_RESET_GPIOS_CONTROLLER);
+    data->reset_gpio =
+        device_get_binding(DT_ILITEK_ILI9340_0_RESET_GPIOS_CONTROLLER);
     if (data->reset_gpio == NULL) {
         return -EPERM;
     }
@@ -74,8 +76,8 @@ ili9340_init()
     gpio_pin_configure(data->reset_gpio, DT_ILITEK_ILI9340_0_RESET_GPIOS_PIN,
                        GPIO_OUTPUT);
 
-    data->command_data_gpio = device_get_binding(
-                                DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_CONTROLLER);
+    data->command_data_gpio =
+        device_get_binding(DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_CONTROLLER);
     if (data->command_data_gpio == NULL) {
         return -EPERM;
     }
@@ -101,9 +103,8 @@ ili9340_init()
 }
 
 static void
-ili9340_set_mem_area(struct ili9340_data *data,
-                     const uint16_t x, const uint16_t y,
-                     const uint16_t w, const uint16_t h)
+ili9340_set_mem_area(struct ili9340_data *data, const uint16_t x,
+                     const uint16_t y, const uint16_t w, const uint16_t h)
 {
     uint16_t spi_data[2];
 
@@ -120,8 +121,8 @@ static int
 ili9340_write(const struct device *dev, const uint16_t x, const uint16_t y,
               const struct display_buffer_descriptor *desc, const void *buf)
 {
-    struct ili9340_data *data = (struct ili9340_data *) &ili9340_data1;
-    const uint8_t *write_data_start = (uint8_t *) buf;
+    struct ili9340_data *data = (struct ili9340_data *)&ili9340_data1;
+    const uint8_t *write_data_start = (uint8_t *)buf;
     struct spi_buf tx_buf;
     struct spi_buf_set tx_bufs;
     uint16_t write_cnt;
@@ -136,11 +137,12 @@ ili9340_write(const struct device *dev, const uint16_t x, const uint16_t y,
     if (desc->pitch > desc->width) {
         write_h = 1U;
         nbr_of_writes = desc->height;
-    } else {
+    }
+    else {
         write_h = desc->height;
         nbr_of_writes = 1U;
     }
-    ili9340_transmit(data, ILI9340_CMD_MEM_WRITE, (void *) write_data_start,
+    ili9340_transmit(data, ILI9340_CMD_MEM_WRITE, (void *)write_data_start,
                      3 * desc->width * write_h);
 
     tx_bufs.buffers = &tx_buf;
@@ -148,7 +150,7 @@ ili9340_write(const struct device *dev, const uint16_t x, const uint16_t y,
 
     write_data_start += (3 * desc->pitch);
     for (write_cnt = 1U; write_cnt < nbr_of_writes; ++write_cnt) {
-        tx_buf.buf = (void *) write_data_start;
+        tx_buf.buf = (void *)write_data_start;
         tx_buf.len = 3 * desc->width * write_h;
         spi_transceive(data->spi_dev, &data->spi_config, &tx_bufs, NULL);
         write_data_start += (3 * desc->pitch);
@@ -241,22 +243,23 @@ ili9340_get_capabilities(const struct device *dev,
 }
 
 void
-ili9340_transmit(struct ili9340_data *data, uint8_t cmd,
-                 void *tx_data, size_t tx_len)
+ili9340_transmit(struct ili9340_data *data, uint8_t cmd, void *tx_data,
+                 size_t tx_len)
 {
     struct spi_buf tx_buf = { .buf = &cmd, .len = 1 };
     struct spi_buf_set tx_bufs = { .buffers = &tx_buf, .count = 1 };
 
-    data = (struct ili9340_data *) &ili9340_data1;
-    gpio_pin_set(data->command_data_gpio, DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
-                   ILI9340_CMD_DATA_PIN_COMMAND);
+    data = (struct ili9340_data *)&ili9340_data1;
+    gpio_pin_set(data->command_data_gpio,
+                 DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
+                 ILI9340_CMD_DATA_PIN_COMMAND);
     spi_transceive(data->spi_dev, &data->spi_config, &tx_bufs, NULL);
     if (tx_data != NULL) {
         tx_buf.buf = tx_data;
         tx_buf.len = tx_len;
         gpio_pin_set(data->command_data_gpio,
-        DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
-        ILI9340_CMD_DATA_PIN_DATA);
+                     DT_ILITEK_ILI9340_0_CMD_DATA_GPIOS_PIN,
+                     ILI9340_CMD_DATA_PIN_DATA);
         spi_transceive(data->spi_dev, &data->spi_config, &tx_bufs, NULL);
     }
 }

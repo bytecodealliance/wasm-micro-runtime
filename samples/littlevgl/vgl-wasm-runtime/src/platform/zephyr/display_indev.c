@@ -12,10 +12,11 @@
 #define MONITOR_HOR_RES 320
 #define MONITOR_VER_RES 240
 #ifndef MONITOR_ZOOM
-#define MONITOR_ZOOM        1
+#define MONITOR_ZOOM 1
 #endif
 
-extern int ili9340_init();
+extern int
+ili9340_init();
 
 static int lcd_initialized = 0;
 
@@ -32,15 +33,14 @@ display_init(void)
 }
 
 void
-display_flush(wasm_exec_env_t exec_env,
-              int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-              lv_color_t *color)
+display_flush(wasm_exec_env_t exec_env, int32_t x1, int32_t y1, int32_t x2,
+              int32_t y2, lv_color_t *color)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     struct display_buffer_descriptor desc;
 
-    if (!wasm_runtime_validate_native_addr(module_inst,
-                                           color, sizeof(lv_color_t)))
+    if (!wasm_runtime_validate_native_addr(module_inst, color,
+                                           sizeof(lv_color_t)))
         return;
 
     uint16_t w = x2 - x1 + 1;
@@ -56,27 +56,23 @@ display_flush(wasm_exec_env_t exec_env,
 }
 
 void
-display_fill(wasm_exec_env_t exec_env,
-             int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-             lv_color_t *color)
-{
-}
+display_fill(wasm_exec_env_t exec_env, int32_t x1, int32_t y1, int32_t x2,
+             int32_t y2, lv_color_t *color)
+{}
 
 void
-display_map(wasm_exec_env_t exec_env,
-            int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-            const lv_color_t *color)
-{
-}
+display_map(wasm_exec_env_t exec_env, int32_t x1, int32_t y1, int32_t x2,
+            int32_t y2, const lv_color_t *color)
+{}
 
 bool
 display_input_read(wasm_exec_env_t exec_env, void *data)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    lv_indev_data_t *lv_data = (lv_indev_data_t*)data;
+    lv_indev_data_t *lv_data = (lv_indev_data_t *)data;
 
-    if (!wasm_runtime_validate_native_addr(module_inst,
-                                           lv_data, sizeof(lv_indev_data_t)))
+    if (!wasm_runtime_validate_native_addr(module_inst, lv_data,
+                                           sizeof(lv_indev_data_t)))
         return false;
 
     return touchscreen_read(lv_data);
@@ -84,19 +80,17 @@ display_input_read(wasm_exec_env_t exec_env, void *data)
 
 void
 display_deinit(wasm_exec_env_t exec_env)
-{
-}
+{}
 
 void
-display_vdb_write(wasm_exec_env_t exec_env,
-                  void *buf, lv_coord_t buf_w, lv_coord_t x, lv_coord_t y,
-                  lv_color_t *color, lv_opa_t opa)
+display_vdb_write(wasm_exec_env_t exec_env, void *buf, lv_coord_t buf_w,
+                  lv_coord_t x, lv_coord_t y, lv_color_t *color, lv_opa_t opa)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    uint8_t *buf_xy = (uint8_t*)buf + 3 * x + 3 * y * buf_w;
+    uint8_t *buf_xy = (uint8_t *)buf + 3 * x + 3 * y * buf_w;
 
-    if (!wasm_runtime_validate_native_addr(module_inst,
-                                           color, sizeof(lv_color_t)))
+    if (!wasm_runtime_validate_native_addr(module_inst, color,
+                                           sizeof(lv_color_t)))
         return;
 
     *buf_xy = color->red;
@@ -109,4 +103,3 @@ time_get_ms(wasm_exec_env_t exec_env)
 {
     return k_uptime_get_32();
 }
-

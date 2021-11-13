@@ -10,17 +10,20 @@
 #include "bh_log.h"
 #include "wasm_export.h"
 
-extern int iwasm_main();
+extern int
+iwasm_main();
 
-void main(void)
+void
+main(void)
 {
     iwasm_main();
-    for(;;){
+    for (;;) {
         k_sleep(Z_TIMEOUT_MS(1000));
     }
 }
 
-int time_get_ms()
+int
+time_get_ms()
 {
     return k_uptime_get_32();
 }

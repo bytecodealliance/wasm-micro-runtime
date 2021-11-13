@@ -61,7 +61,7 @@ main()
     RuntimeInitArgs init_args = { 0 };
     char error_buf[128] = { 0 };
     /* parameters and return values */
-    char* args[1] = { 0 };
+    char *args[1] = { 0 };
 
     uint8 *file_buf = NULL;
     uint32 file_buf_size = 0;
@@ -93,17 +93,16 @@ main()
 
     /* load mC and let WAMR load mA and mB */
     printf("- wasm_runtime_load\n");
-    if (!(module = wasm_runtime_load(file_buf, file_buf_size,
-                                          error_buf, sizeof(error_buf)))) {
+    if (!(module = wasm_runtime_load(file_buf, file_buf_size, error_buf,
+                                     sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto RELEASE_BINARY;
     }
 
     /* instantiate the module */
     printf("- wasm_runtime_instantiate\n");
-    if (!(module_inst =
-            wasm_runtime_instantiate(module, stack_size, heap_size,
-                                     error_buf, sizeof(error_buf)))) {
+    if (!(module_inst = wasm_runtime_instantiate(
+              module, stack_size, heap_size, error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto UNLOAD_MODULE;
     }
