@@ -110,8 +110,9 @@ typedef struct {
     REG_SYM(aot_call_indirect),           \
     REG_SYM(aot_enlarge_memory),          \
     REG_SYM(aot_set_exception),           \
-    {"memset", (void*)aot_memset},        \
-    {"memmove", (void*)aot_memmove},      \
+    { "memset", (void*)aot_memset },      \
+    { "memmove", (void*)aot_memmove },    \
+    { "memcpy", (void*)aot_memmove },     \
     REG_SYM(fmin),                        \
     REG_SYM(fminf),                       \
     REG_SYM(fmax),                        \
@@ -152,7 +153,7 @@ get_current_target(char *target_buf, uint32 target_buf_size);
 bool
 apply_relocation(AOTModule *module,
                  uint8 *target_section_addr, uint32 target_section_size,
-                 uint64 reloc_offset, uint64 reloc_addend,
+                 uint64 reloc_offset, int64 reloc_addend,
                  uint32 reloc_type, void *symbol_addr, int32 symbol_index,
                  char *error_buf, uint32 error_buf_size);
 /* clang-format off */
