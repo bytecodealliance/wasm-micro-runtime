@@ -5,7 +5,7 @@
 
 #include "aot_reloc.h"
 
-#define R_ARM_ABS32 2  /* Direct 32 bit */
+#define R_ARM_ABS32 2      /* Direct 32 bit */
 #define R_ARM_THM_CALL 10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
 #define R_ARM_THM_JMP24 30 /* B.W */
 

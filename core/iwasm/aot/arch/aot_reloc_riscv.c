@@ -41,7 +41,6 @@ static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
     REG_SYM(__divdi3),
     REG_SYM(__divsi3),
-    /* clang-format on */
 #if __riscv_xlen == 32
     REG_SYM(__fixdfdi),
     REG_SYM(__fixsfdi),
@@ -64,6 +63,7 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__udivsi3),
     REG_SYM(__umoddi3),
     REG_SYM(__umodsi3),
+    /* clang-format on */
 };
 
 static void
