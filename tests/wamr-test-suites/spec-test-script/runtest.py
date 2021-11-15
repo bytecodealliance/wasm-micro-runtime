@@ -946,6 +946,11 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
         cmd.append("--enable-ref-types")
         cmd.append("--enable-bulk-memory")
 
+    # disable llvm link time optimization as it might convert
+    # code of tail call into code of dead loop, and stack overflow
+    # exception isn't thrown in several cases
+    cmd.append("--disable-llvm-lto")
+
     cmd += ["-o", aot_tempfile, wasm_tempfile]
 
     log("Running: %s" % " ".join(cmd))
