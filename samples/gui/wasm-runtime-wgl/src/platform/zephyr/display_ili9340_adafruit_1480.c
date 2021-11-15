@@ -6,7 +6,8 @@
 
 #include "display_ili9340.h"
 
-void ili9340_lcd_init(struct ili9340_data *data)
+void
+ili9340_lcd_init(struct ili9340_data *data)
 {
     u8_t tx_data[15];
 
@@ -24,11 +25,11 @@ void ili9340_lcd_init(struct ili9340_data *data)
     ili9340_transmit(data, ILI9340_CMD_VCOM_CTRL_2, tx_data, 1);
 
     tx_data[0] =
-    ILI9340_DATA_MEM_ACCESS_CTRL_MV | ILI9340_DATA_MEM_ACCESS_CTRL_BGR;
+        ILI9340_DATA_MEM_ACCESS_CTRL_MV | ILI9340_DATA_MEM_ACCESS_CTRL_BGR;
     ili9340_transmit(data, ILI9340_CMD_MEM_ACCESS_CTRL, tx_data, 1);
 
-    tx_data[0] = ILI9340_DATA_PIXEL_FORMAT_MCU_18_BIT |
-    ILI9340_DATA_PIXEL_FORMAT_RGB_18_BIT;
+    tx_data[0] = ILI9340_DATA_PIXEL_FORMAT_MCU_18_BIT
+                 | ILI9340_DATA_PIXEL_FORMAT_RGB_18_BIT;
     ili9340_transmit(data, ILI9340_CMD_PIXEL_FORMAT_SET, tx_data, 1);
 
     tx_data[0] = 0x00;

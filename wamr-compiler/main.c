@@ -62,6 +62,7 @@ print_help()
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
+    printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -197,6 +198,9 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
             option.disable_llvm_intrinsics = true;
+        }
+        else if (!strcmp(argv[0], "--disable-llvm-lto")) {
+            option.disable_llvm_lto = true;
         }
         else
             return print_help();

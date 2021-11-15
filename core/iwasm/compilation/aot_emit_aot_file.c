@@ -2351,16 +2351,16 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         /* parse relocation addend from reloction content */
         if (has_addend) {
             if (is_binary_32bit) {
-                uint32 addend =
-                    (uint32)(((struct elf32_rela *)rela_content)->r_addend);
+                int32 addend =
+                    (int32)(((struct elf32_rela *)rela_content)->r_addend);
                 if (is_binary_little_endian != is_little_endian())
                     exchange_uint32((uint8 *)&addend);
-                relocation->relocation_addend = (uint64)addend;
+                relocation->relocation_addend = (int64)addend;
                 rela_content += sizeof(struct elf32_rela);
             }
             else {
-                uint64 addend =
-                    (uint64)(((struct elf64_rela *)rela_content)->r_addend);
+                int64 addend =
+                    (int64)(((struct elf64_rela *)rela_content)->r_addend);
                 if (is_binary_little_endian != is_little_endian())
                     exchange_uint64((uint8 *)&addend);
                 relocation->relocation_addend = addend;

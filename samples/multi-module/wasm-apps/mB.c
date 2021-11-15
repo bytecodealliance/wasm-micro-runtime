@@ -13,4 +13,3 @@ call_A()
 {
     return A();
 }
-
