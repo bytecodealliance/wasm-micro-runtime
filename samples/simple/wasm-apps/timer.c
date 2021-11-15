@@ -10,12 +10,14 @@
 static int num = 0;
 
 /* Timer callback */
-void timer1_update(user_timer_t timer)
+void
+timer1_update(user_timer_t timer)
 {
     printf("Timer update %d\n", num++);
 }
 
-void on_init()
+void
+on_init()
 {
     user_timer_t timer;
 
@@ -24,7 +26,8 @@ void on_init()
     api_timer_restart(timer, 1000);
 }
 
-void on_destroy()
+void
+on_destroy()
 {
     /* real destroy work including killing timer and closing sensor is
        accomplished in wasm app library version of on_destroy() */

@@ -1,6 +1,6 @@
 /**
  * @file XPT2046.c
-*/
+ */
 /*********************
  *      INCLUDES
  *********************/
@@ -30,7 +30,8 @@
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static void xpt2046_corr(int16_t * x, int16_t * y);
+static void
+xpt2046_corr(int16_t *x, int16_t *y);
 #if 0
 static void xpt2046_avg(int16_t * x, int16_t * y);
 #endif
@@ -63,17 +64,19 @@ lv_indev_data_t touch_point;
 lv_indev_data_t last_touch_point;
 
 #define TOUCH_READ_THREAD_STACK_SIZE 4096
-static K_THREAD_STACK_DEFINE(touch_read_thread_stack, TOUCH_READ_THREAD_STACK_SIZE);
+static K_THREAD_STACK_DEFINE(touch_read_thread_stack,
+                             TOUCH_READ_THREAD_STACK_SIZE);
 static struct k_thread touch_thread_data;
 static struct k_sem sem_touch_read;
 
-K_MUTEX_DEFINE( spi_display_touch_mutex);
+K_MUTEX_DEFINE(spi_display_touch_mutex);
 
 int cnt = 0;
 int touch_read_times = 0;
 int last_pen_interrupt_time = 0;
-void xpt2046_pen_gpio_callback(struct device *port, struct gpio_callback *cb,
-        u32_t pins)
+void
+xpt2046_pen_gpio_callback(struct device *port, struct gpio_callback *cb,
+                          u32_t pins)
 {
     cnt++;
     if ((k_uptime_get_32() - last_pen_interrupt_time) > 500) {
@@ -81,10 +84,10 @@ void xpt2046_pen_gpio_callback(struct device *port, struct gpio_callback *cb,
         touch_read_times++;
         last_pen_interrupt_time = k_uptime_get_32();
     }
-
 }
 
-void disable_pen_interrupt()
+void
+disable_pen_interrupt()
 {
     int ret = 0;
     ret = gpio_disable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
@@ -92,7 +95,8 @@ void disable_pen_interrupt()
         printf("gpio_pin_configure GPIO_INPUT failed\n");
     }
 }
-void enable_pen_interrupt()
+void
+enable_pen_interrupt()
 {
     int ret = 0;
     ret = gpio_enable_callback(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN);
@@ -101,7 +105,8 @@ void enable_pen_interrupt()
     }
 }
 
-void touch_screen_read_thread()
+void
+touch_screen_read_thread()
 {
     int i;
     bool ret = false;
@@ -118,12 +123,11 @@ void touch_screen_read_thread()
             ret = xpt2046_read(&touch_point);
             if (ret) {
                 if ((abs(last_touch_point.point.x - touch_point.point.x) < 4)
-                        && (abs(last_touch_point.point.y - touch_point.point.y)
-                                < 4)) {
+                    && (abs(last_touch_point.point.y - touch_point.point.y)
+                        < 4)) {
                     break;
                 }
                 last_touch_point = touch_point;
-
             }
         }
         enable_pen_interrupt();
@@ -131,7 +135,8 @@ void touch_screen_read_thread()
     }
 }
 
-void xpt2046_init(void)
+void
+xpt2046_init(void)
 {
     int ret;
     input_dev = device_get_binding(XPT2046_SPI_DEVICE_NAME);
@@ -140,7 +145,7 @@ void xpt2046_init(void)
         printf("device not found.  Aborting test.");
         return;
     }
-    memset((void *) &touch_point, 0, sizeof(lv_indev_data_t));
+    memset((void *)&touch_point, 0, sizeof(lv_indev_data_t));
 
     spi_conf_xpt2046.frequency = XPT2046_SPI_MAX_FREQUENCY;
     spi_conf_xpt2046.operation = SPI_OP_MODE_MASTER | SPI_WORD_SET(8);
@@ -171,8 +176,7 @@ void xpt2046_init(void)
     /* Setup GPIO input */
     ret = gpio_pin_configure(xpt2046_pen_gpio_dev, XPT2046_PEN_GPIO_PIN,
                              (GPIO_INPUT | GPIO_INT_ENABLE | GPIO_INT_EDGE
-                              | GPIO_INT_LOW_0 | GPIO_INT_DEBOUNCE)
-                            );
+                              | GPIO_INT_LOW_0 | GPIO_INT_DEBOUNCE));
     if (ret) {
         printk("Error configuring pin %d!\n", XPT2046_PEN_GPIO_PIN);
     }
@@ -194,8 +198,7 @@ void xpt2046_init(void)
 
     k_thread_create(&touch_thread_data, touch_read_thread_stack,
                     TOUCH_READ_THREAD_STACK_SIZE, touch_screen_read_thread,
-                    NULL, NULL, NULL, 5,
-                    0, K_NO_WAIT);
+                    NULL, NULL, NULL, 5, 0, K_NO_WAIT);
     printf("xpt2046_init ok \n");
 }
 
@@ -204,7 +207,8 @@ void xpt2046_init(void)
  * @param data store the read data here
  * @return false: because no ore data to be read
  */
-bool xpt2046_read(lv_indev_data_t * data)
+bool
+xpt2046_read(lv_indev_data_t *data)
 {
     static int16_t last_x = 0;
     static int16_t last_y = 0;
@@ -258,7 +262,8 @@ bool xpt2046_read(lv_indev_data_t * data)
 /**********************
  *   STATIC FUNCTIONS
  **********************/
-static void xpt2046_corr(int16_t * x, int16_t * y)
+static void
+xpt2046_corr(int16_t *x, int16_t *y)
 {
 #if XPT2046_XY_SWAP != 0
     int16_t swap_tmp;
@@ -278,10 +283,10 @@ static void xpt2046_corr(int16_t * x, int16_t * y)
         (*y) = 0;
 
     (*x) = (uint32_t)((uint32_t)(*x) * XPT2046_HOR_RES)
-            / (XPT2046_X_MAX - XPT2046_X_MIN);
+           / (XPT2046_X_MAX - XPT2046_X_MIN);
 
     (*y) = (uint32_t)((uint32_t)(*y) * XPT2046_VER_RES)
-            / (XPT2046_Y_MAX - XPT2046_Y_MIN);
+           / (XPT2046_Y_MAX - XPT2046_Y_MIN);
 
 #if XPT2046_X_INV != 0
     (*x) = XPT2046_HOR_RES - (*x);
@@ -290,7 +295,6 @@ static void xpt2046_corr(int16_t * x, int16_t * y)
 #if XPT2046_Y_INV != 0
     (*y) = XPT2046_VER_RES - (*y);
 #endif
-
 }
 
 #if 0
@@ -323,7 +327,8 @@ static void xpt2046_avg(int16_t * x, int16_t * y)
 }
 #endif
 
-bool touchscreen_read(lv_indev_data_t * data)
+bool
+touchscreen_read(lv_indev_data_t *data)
 {
     /*Store the collected data*/
     data->point.x = last_touch_point.point.x;

@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-int sum(int start, int length)
+int
+sum(int start, int length)
 {
     int sum = 0, i;
 

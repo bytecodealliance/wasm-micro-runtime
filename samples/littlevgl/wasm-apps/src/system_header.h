@@ -5,4 +5,5 @@
 
 #include <stdio.h>
 
-uint32_t time_get_ms(void);
+uint32_t
+time_get_ms(void);

@@ -13,33 +13,35 @@ static int num = 0;
 static user_timer_t g_timer;
 static connection_t *g_conn = NULL;
 
-void on_data1(connection_t *conn,
-              conn_event_type_t type,
-              const char *data,
-              uint32 len,
-              void *user_data)
+void
+on_data1(connection_t *conn, conn_event_type_t type, const char *data,
+         uint32 len, void *user_data)
 {
     if (type == CONN_EVENT_TYPE_DATA) {
-        char message[64] = {0};
+        char message[64] = { 0 };
         memcpy(message, data, len);
         printf("Client got a message from server -> %s\n", message);
-    } else if (type == CONN_EVENT_TYPE_DISCONNECT) {
+    }
+    else if (type == CONN_EVENT_TYPE_DISCONNECT) {
         printf("connection is close by server!\n");
-    } else {
+    }
+    else {
         printf("error: got unknown event type!!!\n");
     }
 }
 
 /* Timer callback */
-void timer1_update(user_timer_t timer)
+void
+timer1_update(user_timer_t timer)
 {
-    char message[64] = {0};
+    char message[64] = { 0 };
     /* Reply to server */
     snprintf(message, sizeof(message), "Hello %d", num++);
     api_send_on_connection(g_conn, message, strlen(message));
 }
 
-void my_close_handler(request_t * request)
+void
+my_close_handler(request_t *request)
 {
     response_t response[1];
 
@@ -53,7 +55,8 @@ void my_close_handler(request_t * request)
     api_response_send(response);
 }
 
-void on_init()
+void
+on_init()
 {
     user_timer_t timer;
     attr_container_t *args;
@@ -78,7 +81,8 @@ void on_init()
     api_timer_restart(timer, 1000);
 }
 
-void on_destroy()
+void
+on_destroy()
 {
     /* real destroy work including killing timer and closing sensor is
        accomplished in wasm app library version of on_destroy() */
