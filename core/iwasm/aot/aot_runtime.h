@@ -64,7 +64,7 @@ typedef struct AOTObjectDataSection {
 /* Relocation info */
 typedef struct AOTRelocation {
     uint64 relocation_offset;
-    uint64 relocation_addend;
+    int64 relocation_addend;
     uint32 relocation_type;
     char *symbol_name;
     /* index in the symbol offset field */

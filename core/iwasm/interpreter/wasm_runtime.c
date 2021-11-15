@@ -2124,7 +2124,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     memory->memory_data = new_memory_data;
     memory->cur_page_count = total_page_count;
-    memory->heap_data = heap_data_old + (new_memory_data - memory_data);
+    memory->heap_data = new_memory_data + (heap_data_old - memory_data);
     memory->heap_data_end = memory->heap_data + heap_size;
     memory->memory_data_end =
         memory->memory_data + memory->num_bytes_per_page * total_page_count;
