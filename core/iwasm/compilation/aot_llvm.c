@@ -162,10 +162,15 @@ aot_create_func_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Set block data */
     aot_block->label_type = LABEL_TYPE_FUNCTION;
     aot_block->param_count = param_count;
-    memcpy(aot_block->param_types, aot_func_type->types, param_count);
+    if (param_count) {
+        bh_memcpy_s(aot_block->param_types, param_count, aot_func_type->types,
+                    param_count);
+    }
     aot_block->result_count = result_count;
-    memcpy(aot_block->result_types, aot_func_type->types + param_count,
-           result_count);
+    if (result_count) {
+        bh_memcpy_s(aot_block->result_types, result_count,
+                    aot_func_type->types + param_count, result_count);
+    }
     aot_block->wasm_code_end = func->code + func->code_size;
 
     /* Add function entry block */
