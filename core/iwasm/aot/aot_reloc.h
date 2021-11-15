@@ -110,8 +110,9 @@ typedef struct {
     REG_SYM(aot_call_indirect),           \
     REG_SYM(aot_enlarge_memory),          \
     REG_SYM(aot_set_exception),           \
-    {"memset", (void*)aot_memset},        \
-    {"memmove", (void*)aot_memmove},      \
+    { "memset", (void*)aot_memset },      \
+    { "memmove", (void*)aot_memmove },    \
+    { "memcpy", (void*)aot_memmove },     \
     REG_SYM(fmin),                        \
     REG_SYM(fminf),                       \
     REG_SYM(fmax),                        \
