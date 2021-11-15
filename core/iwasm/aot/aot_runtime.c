@@ -2087,7 +2087,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         }
     }
 
-    heap_data = heap_data_old + (memory_data - memory_data_old);
+    heap_data = memory_data + (heap_data_old - memory_data_old);
     memory_inst->heap_data.ptr = heap_data;
     memory_inst->heap_data_end.ptr = heap_data + heap_size;
 

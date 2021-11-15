@@ -325,6 +325,23 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
                 return false;                                               \
             }                                                               \
         }                                                                   \
+        else if (comp_ctx->is_indirect_mode) {                              \
+            int32 func_index;                                               \
+            if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
+                aot_set_last_error("create LLVM function type failed.");    \
+                return false;                                               \
+            }                                                               \
+                                                                            \
+            func_index = aot_get_native_symbol_index(comp_ctx, #name);      \
+            if (func_index < 0) {                                           \
+                return false;                                               \
+            }                                                               \
+            if (!(func = aot_get_func_from_table(                           \
+                      comp_ctx, func_ctx->native_symbol, func_ptr_type,     \
+                      func_index))) {                                       \
+                return false;                                               \
+            }                                                               \
+        }                                                                   \
         else {                                                              \
             char *func_name = #name;                                        \
             /* AOT mode, delcare the function */                            \

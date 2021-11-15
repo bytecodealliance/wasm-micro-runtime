@@ -45,11 +45,16 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void init_sensor_framework();
-extern void exit_sensor_framework();
-extern void exit_connection_framework();
-extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
-extern bool init_connection_framework();
+extern void
+init_sensor_framework();
+extern void
+exit_sensor_framework();
+extern void
+exit_connection_framework();
+extern int
+aee_host_msg_callback(void *msg, uint32_t msg_len);
+extern bool
+init_connection_framework();
 
 #ifndef CONNECTION_UART
 int listenfd = -1;
@@ -63,7 +68,8 @@ int uartfd = -1;
 static bool server_mode = false;
 
 // Function designed for chat between client and server.
-void* func(void* arg)
+void *
+func(void *arg)
 {
     char buff[MAX];
     int n;
@@ -77,7 +83,8 @@ void* func(void* arg)
         if (sockfd == -1) {
             printf("socket creation failed...\n");
             return NULL;
-        } else
+        }
+        else
             printf("Socket successfully created..\n");
         bzero(&servaddr, sizeof(servaddr));
         // assign IP, PORT
@@ -86,11 +93,12 @@ void* func(void* arg)
         servaddr.sin_port = htons(port);
 
         // connect the client socket to server socket
-        if (connect(sockfd, (SA*) &servaddr, sizeof(servaddr)) != 0) {
+        if (connect(sockfd, (SA *)&servaddr, sizeof(servaddr)) != 0) {
             printf("connection with the server failed...\n");
             sleep(10);
             continue;
-        } else {
+        }
+        else {
             printf("connected to the server..\n");
         }
 
@@ -101,7 +109,7 @@ void* func(void* arg)
             // read the message from client and copy it in buffer
             n = read(sockfd, buff, sizeof(buff));
             // print buffer which contains the client contents
-            //fprintf(stderr, "recieved %d bytes from host: %s", n, buff);
+            // fprintf(stderr, "recieved %d bytes from host: %s", n, buff);
 
             // socket disconnected
             if (n <= 0)
@@ -115,12 +123,14 @@ void* func(void* arg)
     close(sockfd);
 }
 
-static bool host_init()
+static bool
+host_init()
 {
     return true;
 }
 
-int host_send(void * ctx, const char *buf, int size)
+int
+host_send(void *ctx, const char *buf, int size)
 {
     int ret;
 
@@ -139,7 +149,8 @@ int host_send(void * ctx, const char *buf, int size)
     return -1;
 }
 
-void host_destroy()
+void
+host_destroy()
 {
     if (server_mode)
         close(listenfd);
@@ -149,13 +160,16 @@ void host_destroy()
     pthread_mutex_unlock(&sock_lock);
 }
 
+/* clang-format off */
 host_interface interface = {
-                             .init = host_init,
-                             .send = host_send,
-                             .destroy = host_destroy
-                           };
+    .init = host_init,
+    .send = host_send,
+    .destroy = host_destroy
+};
+/* clang-format on */
 
-void* func_server_mode(void* arg)
+void *
+func_server_mode(void *arg)
 {
     int clilent;
     struct sockaddr_in serv_addr, cli_addr;
@@ -175,14 +189,14 @@ void* func_server_mode(void* arg)
     }
 
     /* Initialize socket structure */
-    bzero((char *) &serv_addr, sizeof(serv_addr));
+    bzero((char *)&serv_addr, sizeof(serv_addr));
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(port);
 
     /* Now bind the host address using bind() call.*/
-    if (bind(listenfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+    if (bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("ERROR on binding");
         exit(1);
     }
@@ -193,7 +207,7 @@ void* func_server_mode(void* arg)
     while (1) {
         pthread_mutex_lock(&sock_lock);
 
-        sockfd = accept(listenfd, (struct sockaddr *) &cli_addr, &clilent);
+        sockfd = accept(listenfd, (struct sockaddr *)&cli_addr, &clilent);
 
         pthread_mutex_unlock(&sock_lock);
 
@@ -227,7 +241,8 @@ void* func_server_mode(void* arg)
 }
 
 #else
-static int parse_baudrate(int baud)
+static int
+parse_baudrate(int baud)
 {
     switch (baud) {
         case 9600:
@@ -270,7 +285,8 @@ static int parse_baudrate(int baud)
             return -1;
     }
 }
-static bool uart_init(const char *device, int baudrate, int *fd)
+static bool
+uart_init(const char *device, int baudrate, int *fd)
 {
     int uart_fd;
     struct termios uart_term;
@@ -301,7 +317,8 @@ static bool uart_init(const char *device, int baudrate, int *fd)
     return true;
 }
 
-static void *func_uart_mode(void *arg)
+static void *
+func_uart_mode(void *arg)
 {
     int n;
     char buff[MAX];
@@ -328,7 +345,8 @@ static void *func_uart_mode(void *arg)
     return NULL;
 }
 
-static int uart_send(void * ctx, const char *buf, int size)
+static int
+uart_send(void *ctx, const char *buf, int size)
 {
     int ret;
 
@@ -337,17 +355,24 @@ static int uart_send(void * ctx, const char *buf, int size)
     return ret;
 }
 
-static void uart_destroy()
+static void
+uart_destroy()
 {
     close(uartfd);
 }
 
-static host_interface interface = { .send = uart_send, .destroy = uart_destroy };
+/* clang-format off */
+static host_interface interface = {
+    .send = uart_send,
+    .destroy = uart_destroy
+};
+/* clang-format on */
 
 #endif
 
 static char global_heap_buf[270 * 1024] = { 0 };
 
+/* clang-format off */
 static void showUsage()
 {
 #ifndef CONNECTION_UART
@@ -369,24 +394,26 @@ static void showUsage()
      printf("\t<Baudrate> represents the UART device baudrate and the default is 115200\n");
 #endif
 }
+/* clang-format on */
 
-static bool parse_args(int argc, char *argv[])
+static bool
+parse_args(int argc, char *argv[])
 {
     int c;
 
     while (1) {
         int optIndex = 0;
-        static struct option longOpts[] = { 
+        static struct option longOpts[] = {
 #ifndef CONNECTION_UART
-            { "server_mode",    no_argument,       NULL, 's' },
-            { "host_address",   required_argument, NULL, 'a' },
-            { "port",           required_argument, NULL, 'p' },
+            { "server_mode", no_argument, NULL, 's' },
+            { "host_address", required_argument, NULL, 'a' },
+            { "port", required_argument, NULL, 'p' },
 #else
-            { "uart",           required_argument, NULL, 'u' },
-            { "baudrate",       required_argument, NULL, 'b' },
+            { "uart", required_argument, NULL, 'u' },
+            { "baudrate", required_argument, NULL, 'b' },
 #endif
-            { "help",           required_argument, NULL, 'h' },
-            { 0, 0, 0, 0 } 
+            { "help", required_argument, NULL, 'h' },
+            { 0, 0, 0, 0 }
         };
 
         c = getopt_long(argc, argv, "sa:p:u:b:h", longOpts, &optIndex);
@@ -429,17 +456,20 @@ static bool parse_args(int argc, char *argv[])
 }
 
 /**
- * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
+ * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics
+ * library
  */
-static void hal_init(void)
+static void
+hal_init(void)
 {
-    /* Use the 'monitor' driver which creates window on PC's monitor to simulate a display*/
+    /* Use the 'monitor' driver which creates window on PC's monitor to simulate
+     * a display*/
     monitor_init();
 
     /*Create a display buffer*/
     static lv_disp_buf_t disp_buf1;
-    static lv_color_t buf1_1[480*10];
-    lv_disp_buf_init(&disp_buf1, buf1_1, NULL, 480*10);
+    static lv_color_t buf1_1[480 * 10];
+    lv_disp_buf_init(&disp_buf1, buf1_1, NULL, 480 * 10);
 
     /*Create a display*/
     lv_disp_drv_t disp_drv;
@@ -454,17 +484,20 @@ static void hal_init(void)
     lv_disp_drv_register(&disp_drv);
 
     /* Add the mouse as input device
-    * Use the 'mouse' driver which reads the PC's mouse*/
+     * Use the 'mouse' driver which reads the PC's mouse*/
     mouse_init();
     lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);          /*Basic initialization*/
+    lv_indev_drv_init(&indev_drv); /*Basic initialization*/
     indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = mouse_read;         /*This function will be called periodically (by the library) to get the mouse position and state*/
+    indev_drv.read_cb =
+        mouse_read; /*This function will be called periodically (by the library)
+                       to get the mouse position and state*/
     lv_indev_drv_register(&indev_drv);
 }
 
 // Driver function
-int iwasm_main(int argc, char *argv[])
+int
+iwasm_main(int argc, char *argv[])
 {
     RuntimeInitArgs init_args;
     korp_tid tid;
@@ -500,11 +533,12 @@ int iwasm_main(int argc, char *argv[])
 #ifndef CONNECTION_UART
     if (server_mode)
         os_thread_create(&tid, func_server_mode, NULL,
-        BH_APPLET_PRESERVED_STACK_SIZE);
+                         BH_APPLET_PRESERVED_STACK_SIZE);
     else
         os_thread_create(&tid, func, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
 #else
-    os_thread_create(&tid, func_uart_mode, NULL, BH_APPLET_PRESERVED_STACK_SIZE);
+    os_thread_create(&tid, func_uart_mode, NULL,
+                     BH_APPLET_PRESERVED_STACK_SIZE);
 #endif
 
     app_manager_startup(&interface);

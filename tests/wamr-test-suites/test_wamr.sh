@@ -14,16 +14,16 @@ function help()
 {
     echo "test_wamr.sh [options]"
     echo "-c clean previous test results, not start test"
-    echo "-b use the wabt binary release package instead of compiling from the source code"
-    echo "-M enable the multi module feature"
-    echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
-    echo "-P run the spec test parallelly"
-    echo "-p enable multi thread feature"
-    echo "-G enable GC feature"
-    echo "-S enable SIMD feature"
     echo "-s {suite_name} test only one suite (spec)"
+    echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
     echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
+    echo "-M enable the multi module feature"
+    echo "-p enable multi thread feature"
+    echo "-S enable SIMD feature"
+    echo "-G enable GC feature"
     echo "-x test SGX"
+    echo "-b use the wabt binary release package instead of compiling from the source code"
+    echo "-P run the spec test parallelly"
 }
 
 OPT_PARSED=""

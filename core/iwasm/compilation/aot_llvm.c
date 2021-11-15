@@ -162,10 +162,15 @@ aot_create_func_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Set block data */
     aot_block->label_type = LABEL_TYPE_FUNCTION;
     aot_block->param_count = param_count;
-    memcpy(aot_block->param_types, aot_func_type->types, param_count);
+    if (param_count) {
+        bh_memcpy_s(aot_block->param_types, param_count, aot_func_type->types,
+                    param_count);
+    }
     aot_block->result_count = result_count;
-    memcpy(aot_block->result_types, aot_func_type->types + param_count,
-           result_count);
+    if (result_count) {
+        bh_memcpy_s(aot_block->result_types, result_count,
+                    aot_func_type->types + param_count, result_count);
+    }
     aot_block->wasm_code_end = func->code + func->code_size;
 
     /* Add function entry block */
@@ -1482,6 +1487,12 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->disable_llvm_intrinsics)
         comp_ctx->disable_llvm_intrinsics = true;
+
+    if (option->disable_llvm_lto)
+        comp_ctx->disable_llvm_lto = true;
+
+    comp_ctx->opt_level = option->opt_level;
+    comp_ctx->size_level = option->size_level;
 
     if (option->is_jit_mode) {
         char *triple_jit = NULL;

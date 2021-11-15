@@ -10,15 +10,17 @@
 #include "bh_log.h"
 #include "wasm_export.h"
 
-extern void display_init(void);
-extern int iwasm_main();
+extern void
+display_init(void);
+extern int
+iwasm_main();
 
-void main(void)
+void
+main(void)
 {
     display_init();
     iwasm_main();
-    for(;;){
+    for (;;) {
         k_sleep(Z_TIMEOUT_MS(1000));
     }
 }
-

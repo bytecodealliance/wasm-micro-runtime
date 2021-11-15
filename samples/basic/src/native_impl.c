@@ -8,12 +8,12 @@
 #include "math.h"
 
 extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env,
-                           uint32_t element_indices,
+wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32_t element_indices,
                            uint32_t argc, uint32_t argv[]);
 
 // The first parameter is not exec_env because it is invoked by native funtions
-void reverse(char * str, int len)
+void
+reverse(char *str, int len)
 {
     int i = 0, j = len - 1, temp;
     while (i < j) {
@@ -32,11 +32,12 @@ void reverse(char * str, int len)
 // digit is the number of digits required in the output.
 // If digit is more than the number of digits in x,
 // then 0s are added at the beginning.
-int intToStr(wasm_exec_env_t exec_env, int x, char* str, int str_len, int digit)
+int
+intToStr(wasm_exec_env_t exec_env, int x, char *str, int str_len, int digit)
 {
     int i = 0;
 
-    printf ("calling into native function: %s\n", __FUNCTION__);
+    printf("calling into native function: %s\n", __FUNCTION__);
 
     while (x) {
         // native is responsible for checking the str_len overflow
@@ -64,8 +65,10 @@ int intToStr(wasm_exec_env_t exec_env, int x, char* str, int str_len, int digit)
     return i;
 }
 
-int get_pow(wasm_exec_env_t exec_env, int x, int y) {
-    printf ("calling into native function: %s\n", __FUNCTION__);
+int
+get_pow(wasm_exec_env_t exec_env, int x, int y)
+{
+    printf("calling into native function: %s\n", __FUNCTION__);
     return (int)pow(x, y);
 }
 
