@@ -17,21 +17,53 @@
 
 /* clang-format off */
 void __divdi3();
+void __divsi3();
+void __fixdfdi();
+void __fixsfdi();
+void __fixunsdfdi();
+void __fixunssfdi();
+void __floatdidf();
+void __floatdisf();
+void __floatundidf();
+void __floatundisf();
 void __moddi3();
+void __modsi3();
 void __muldi3();
+void __mulsi3();
 void __udivdi3();
+void __udivsi3();
 void __umoddi3();
+void __umodsi3();
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
     /* clang-format off */
     REG_COMMON_SYMBOLS
     REG_SYM(__divdi3),
-    /* clang-format on */
+    REG_SYM(__divsi3),
+#if __riscv_xlen == 32
+    REG_SYM(__fixdfdi),
+    REG_SYM(__fixsfdi),
+#endif
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__fixunssfdi),
+#if __riscv_xlen == 32
+    REG_SYM(__floatdidf),
+    REG_SYM(__floatdisf),
+    REG_SYM(__floatundidf),
+    REG_SYM(__floatundisf),
+#endif
     REG_SYM(__moddi3),
+    REG_SYM(__modsi3),
     REG_SYM(__muldi3),
+#if __riscv_xlen == 32
+    REG_SYM(__mulsi3),
+#endif
     REG_SYM(__udivdi3),
+    REG_SYM(__udivsi3),
     REG_SYM(__umoddi3),
+    REG_SYM(__umodsi3),
+    /* clang-format on */
 };
 
 static void
