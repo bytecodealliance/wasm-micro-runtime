@@ -76,6 +76,8 @@ extern "C" {
 /* = WASM_OP_REF_NULL */
 #define INIT_EXPR_TYPE_REFNULL_CONST 0xD0
 #define INIT_EXPR_TYPE_GET_GLOBAL 0x23
+#define INIT_EXPR_TYPE_RTT_CANON 0x30
+#define INIT_EXPR_TYPE_RTT_SUB 0x31
 #define INIT_EXPR_TYPE_ERROR 0xff
 
 #define WASM_MAGIC_NUMBER 0x6d736100
@@ -133,6 +135,16 @@ typedef union V128 {
     float64 f64x2[2];
 } V128;
 
+typedef struct RttSubInitInfo {
+    /* Which opcode to init the parent type of rtt.sub,
+       currently it can only be rtt.canon */
+    uint8 parent_init_expr_type;
+    /* The type index of rtt.canon */
+    uint32 parent_type_idx;
+    /* The type index of rtt.sub */
+    uint32 sub_type_idx;
+} RttSubInitInfo;
+
 typedef union WASMValue {
     int32 i32;
     uint32 u32;
@@ -142,13 +154,15 @@ typedef union WASMValue {
     uint64 u64;
     float32 f32;
     float64 f64;
-    uintptr_t addr;
     V128 v128;
+#if WASM_ENABLE_GC != 0
+    RttSubInitInfo rttsub;
+#endif
 } WASMValue;
 
 typedef struct InitializerExpression {
-    /* type of INIT_EXPR_TYPE_XXX */
-    /* it actually is instr, in some places, requires constant only */
+    /* type of INIT_EXPR_TYPE_XXX, which is an instruction of
+       constant expression */
     uint8 init_expr_type;
     WASMValue u;
 } InitializerExpression;
@@ -248,7 +262,14 @@ typedef union WASMRefType {
 } WASMRefType;
 
 typedef struct WASMRefTypeMap {
+    /**
+     * The type index of a type array, which only stores
+     * the first byte of the type, e.g. WASMFuncType.types,
+     * WASMStructType.fields
+     */
     uint16 index;
+    /* The full type info if the type cannot be described
+       with one byte */
     WASMRefType *ref_type;
 } WASMRefTypeMap;
 #endif /* end of WASM_ENABLE_GC */
@@ -301,7 +322,9 @@ typedef struct WASMFuncType {
     WASMRefTypeMap *ref_type_maps;
 #endif
 
-    /* types of params and results */
+    /* types of params and results, only store the first byte
+     * of the type, if it cannot be described with one byte,
+     * then the full type info is stored in ref_type_maps */
     uint8 types[1];
 } WASMFuncType;
 
@@ -331,6 +354,10 @@ typedef struct WASMStructType {
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
 
+    /* Field info, note that fields[i]->field_type only stores
+     * the first byte of the field type, if it cannot be described
+     * with one byte, then the full field type info is stored in
+     * ref_type_maps */
     WASMStructFieldType fields[1];
 } WASMStructType;
 
@@ -346,17 +373,24 @@ typedef struct WASMArrayType {
     uint16 ref_count;
 
     uint16 elem_flags;
-    WASMRefType elem_type;
+    uint8 elem_type;
+    /* The full elem type info if the elem type cannot be
+       described with one byte */
+    WASMRefType *elem_ref_type;
 } WASMArrayType;
 #endif
 
 typedef struct WASMTable {
     uint8 elem_type;
-    uint32 flags;
+    /* 0: no max size, not shared, 1: hax max size, 2: shared */
+    uint8 flags;
+    bool possible_grow;
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
-    bool possible_grow;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
 } WASMTable;
 
 typedef struct WASMMemory {
@@ -370,11 +404,15 @@ typedef struct WASMTableImport {
     char *module_name;
     char *field_name;
     uint8 elem_type;
-    uint32 flags;
+    /* 0: no max size, 1: has max size */
+    uint8 flags;
+    bool possible_grow;
     uint32 init_size;
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
-    bool possible_grow;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
     WASMTable *import_table_linked;
@@ -419,9 +457,12 @@ typedef struct WASMGlobalImport {
     char *field_name;
     uint8 type;
     bool is_mutable;
+    bool is_linked;
     /* global data after linked */
     WASMValue global_data_linked;
-    bool is_linked;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* imported function pointer after linked */
     /* TODO: remove if not needed */
@@ -483,6 +524,9 @@ struct WASMFunction {
 struct WASMGlobal {
     uint8 type;
     bool is_mutable;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
     InitializerExpression init_expr;
 };
 
