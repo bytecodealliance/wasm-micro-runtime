@@ -389,7 +389,7 @@ typedef struct WASMTable {
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
 #if WASM_ENABLE_GC != 0
-    WASMRefType *ref_type;
+    WASMRefType *elem_ref_type;
 #endif
 } WASMTable;
 
@@ -411,7 +411,7 @@ typedef struct WASMTableImport {
     /* specified if (flags & 1), else it is 0x10000 */
     uint32 max_size;
 #if WASM_ENABLE_GC != 0
-    WASMRefType *ref_type;
+    WASMRefType *elem_ref_type;
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
@@ -760,28 +760,30 @@ wasm_string_equal(const char *s1, const char *s2)
 
 /**
  * Return the byte size of value type.
- *
  */
 inline static uint32
 wasm_value_type_size(uint8 value_type)
 {
-    switch (value_type) {
-        case VALUE_TYPE_I32:
-        case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES != 0
-        case VALUE_TYPE_FUNCREF:
-        case VALUE_TYPE_EXTERNREF:
-#endif
-            return sizeof(int32);
-        case VALUE_TYPE_I64:
-        case VALUE_TYPE_F64:
-            return sizeof(int64);
+    if (value_type == VALUE_TYPE_VOID)
+        return 0;
+    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32)
+        return sizeof(int32);
+    else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
+        return sizeof(int64);
 #if WASM_ENABLE_SIMD != 0
-        case VALUE_TYPE_V128:
-            return sizeof(int64) * 2;
+    else if (value_type == VALUE_TYPE_V128)
+        return sizeof(int64) * 2;
 #endif
-        default:
-            bh_assert(0);
+#if WASM_ENABLE_GC != 0
+    else if (value_type >= (uint8)REF_TYPE_DATAREF
+             && value_type <= (uint8)REF_TYPE_FUNCREF)
+        return sizeof(uintptr_t);
+#elif WASM_ENABLE_REF_TYPES != 0
+    else if (value_type == VALUE_TYPE_FUNCREF || VALUE_TYPE == VALUE_TYPE_EXTERNREF)
+        return sizeof(uint32);
+#endif
+    else {
+        bh_assert(0);
     }
     return 0;
 }
@@ -789,35 +791,7 @@ wasm_value_type_size(uint8 value_type)
 inline static uint16
 wasm_value_type_cell_num(uint8 value_type)
 {
-    if (value_type == VALUE_TYPE_VOID)
-        return 0;
-    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32)
-        return 1;
-    else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
-        return 2;
-#if WASM_ENABLE_SIMD != 0
-    else if (value_type == VALUE_TYPE_V128)
-        return 4;
-#endif
-#if WASM_ENABLE_REF_TYPES != 0
-    else if (value_type == VALUE_TYPE_FUNCREF
-             || value_type == VALUE_TYPE_EXTERNREF)
-        return 1;
-#if 0
-        /* TODO: Use pointer to store reference types */
-        return sizeof(uintptr_t) / 4;
-#endif
-#endif
-#if WASM_ENABLE_GC != 0
-    else if (value_type >= (uint8)REF_TYPE_DATAREF
-             && value_type <= (uint8)REF_TYPE_FUNCREF)
-        /* Use pointer to store reference types */
-        return sizeof(uintptr_t) / 4;
-#endif
-    else {
-        bh_assert(0);
-    }
-    return 0;
+    return wasm_value_type_size(value_type) / 4;
 }
 
 inline static uint32
