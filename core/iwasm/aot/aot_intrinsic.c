@@ -58,6 +58,13 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64 },
     { "f32_cmp", "aot_intrinsic_f32_cmp", AOT_INTRINSIC_FLAG_F32_CMP },
     { "f64_cmp", "aot_intrinsic_f64_cmp", AOT_INTRINSIC_FLAG_F64_CMP },
+    /* FIXME: Drop to load/store on some target without hardware atomic instruction support
+     * It's dangerous on SMP platform
+     */
+    { "aot_intrinsic_atomic_load", NULL, AOT_INTRINSIC_FLAG_ATOMIC_LOAD },
+    { "aot_intrinsic_atomic_store", NULL, AOT_INTRINSIC_FLAG_ATOMIC_STORE },
+    { "aot_intrinsic_cmpxchg_4", "aot_intrinsic_cmpxchg_4", AOT_INTRINSIC_FLAG_CMPXCHG_4 },
+    { "aot_intrinsic_cmpxchg_8", "aot_intrinsic_cmpxchg_8", AOT_INTRINSIC_FLAG_CMPXCHG_8 },
 };
 /* clang-format on */
 
@@ -474,6 +481,32 @@ aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
     return 0;
 }
 
+int32
+aot_intrinsic_cmpxchg_4(int32 *ptr, int32 expected, int32 desired, int success,
+                        int failure)
+{
+    int32 ret = *ptr;
+#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_X86_32) \
+    && !defined(BUILD_TARGET_AMD64)
+    __atomic_compare_exchange_4(ptr, &expected, desired, false, success,
+                                failure);
+#endif
+    return ret;
+}
+
+int64
+aot_intrinsic_cmpxchg_8(int64 *ptr, int64 expected, int64 desired, int success,
+                        int failure)
+{
+    int64 ret = *ptr;
+#if !defined(BUILD_TARGET_X86_64) && !defined(BUILD_TARGET_X86_32) \
+    && !defined(BUILD_TARGET_AMD64)
+    __atomic_compare_exchange_8(ptr, &expected, desired, false, success,
+                                failure);
+#endif
+    return ret;
+}
+
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic)
 {
@@ -607,6 +640,20 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_f32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
         add_common_float_integer_convertion(comp_ctx);
+        char *mac = LLVMGetTargetMachineFeatureString(comp_ctx->target_machine);
+        if (mac) {
+            if (!strstr(mac, "+a")) {
+                /* Target don't support hardware atomic instruction */
+                add_intrinsic_capability(comp_ctx,
+                                         AOT_INTRINSIC_FLAG_ATOMIC_LOAD);
+                add_intrinsic_capability(comp_ctx,
+                                         AOT_INTRINSIC_FLAG_ATOMIC_STORE);
+                add_intrinsic_capability(comp_ctx,
+                                         AOT_INTRINSIC_FLAG_CMPXCHG_4);
+                add_intrinsic_capability(comp_ctx,
+                                         AOT_INTRINSIC_FLAG_CMPXCHG_8);
+            }
+        }
     }
 }
 
