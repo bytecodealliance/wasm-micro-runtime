@@ -45,8 +45,7 @@ is_32bit_type(uint8 type)
 {
     if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
 #if WASM_ENABLE_REF_TYPES != 0
-        || (wasm_get_ref_types_flag()
-            && (type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF))
+        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF)
 #endif
     )
         return true;
@@ -268,10 +267,6 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_REF_TYPES != 0
         case INIT_EXPR_TYPE_FUNCREF_CONST:
         {
-            if (!wasm_get_ref_types_flag()) {
-                return false;
-            }
-
             bh_assert(type == VALUE_TYPE_FUNCREF);
             read_leb_uint32(p, p_end, init_expr->u.ref_index);
             break;
@@ -279,10 +274,6 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
         case INIT_EXPR_TYPE_REFNULL_CONST:
         {
             uint8 reftype;
-
-            if (!wasm_get_ref_types_flag()) {
-                return false;
-            }
 
             CHECK_BUF(p, p_end, 1);
             reftype = read_uint8(p);
@@ -459,8 +450,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     declare_elem_type = read_uint8(p);
     bh_assert(VALUE_TYPE_FUNCREF == declare_elem_type
 #if WASM_ENABLE_REF_TYPES != 0
-              || (wasm_get_ref_types_flag()
-                  && VALUE_TYPE_EXTERNREF == declare_elem_type)
+              || VALUE_TYPE_EXTERNREF == declare_elem_type
 #endif
     );
 
@@ -585,8 +575,7 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
     table->elem_type = read_uint8(p);
     bh_assert((VALUE_TYPE_FUNCREF == table->elem_type)
 #if WASM_ENABLE_REF_TYPES != 0
-              || (wasm_get_ref_types_flag()
-                  && VALUE_TYPE_EXTERNREF == table->elem_type)
+              || VALUE_TYPE_EXTERNREF == table->elem_type
 #endif
     );
 
@@ -709,12 +698,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     if (flags & 1)
                         read_leb_uint32(p, p_end, u32);
                     module->import_table_count++;
-                    bh_assert(
-#if WASM_ENABLE_REF_TYPES != 0
-                        wasm_get_ref_types_flag() ||
+#if WASM_ENABLE_REF_TYPES == 0
+                    bh_assert(module->import_table_count <= 1);
 #endif
-                        module->import_table_count <= 1);
-
                     break;
 
                 case IMPORT_KIND_MEMORY: /* import memory */
@@ -988,9 +974,8 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 type = read_uint8(p_code);
                 bh_assert((type >= VALUE_TYPE_F64 && type <= VALUE_TYPE_I32)
 #if WASM_ENABLE_REF_TYPES != 0
-                          || (wasm_get_ref_types_flag()
-                              && (type == VALUE_TYPE_FUNCREF
-                                  || type == VALUE_TYPE_EXTERNREF))
+                          || type == VALUE_TYPE_FUNCREF
+                          || type == VALUE_TYPE_EXTERNREF
 #endif
                 );
                 for (k = 0; k < sub_local_count; k++) {
@@ -1034,11 +1019,9 @@ load_table_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     WASMTable *table;
 
     read_leb_uint32(p, p_end, table_count);
-    bh_assert(
-#if WASM_ENABLE_REF_TYPES != 0
-        wasm_get_ref_types_flag() ||
+#if WASM_ENABLE_REF_TYPES == 0
+    bh_assert(module->import_table_count + table_count <= 1);
 #endif
-        module->import_table_count + table_count <= 1);
 
     if (table_count) {
         module->table_count = table_count;
@@ -1234,13 +1217,11 @@ static bool
 check_table_index(const WASMModule *module, uint32 table_index, char *error_buf,
                   uint32 error_buf_size)
 {
-    if (
-#if WASM_ENABLE_REF_TYPES != 0
-        !wasm_get_ref_types_flag() &&
-#endif
-        table_index != 0) {
+#if WASM_ENABLE_REF_TYPES == 0
+    if (table_index != 0) {
         return false;
     }
+#endif
 
     if (table_index >= module->import_table_count + module->table_count) {
         return false;
@@ -1315,21 +1296,15 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
         InitializerExpression init_expr = { 0 };
 
 #if WASM_ENABLE_REF_TYPES != 0
-        if (!wasm_get_ref_types_flag()) {
+        if (!use_init_expr) {
             read_leb_uint32(p, p_end, function_index);
         }
         else {
-            if (!use_init_expr) {
-                read_leb_uint32(p, p_end, function_index);
-            }
-            else {
-                if (!load_init_expr(&p, p_end, &init_expr,
-                                    table_segment->elem_type, error_buf,
-                                    error_buf_size))
-                    return false;
+            if (!load_init_expr(&p, p_end, &init_expr, table_segment->elem_type,
+                                error_buf, error_buf_size))
+                return false;
 
-                function_index = init_expr.u.ref_index;
-            }
+            function_index = init_expr.u.ref_index;
         }
 #else
         read_leb_uint32(p, p_end, function_index);
@@ -1373,111 +1348,100 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
             bh_assert(p < p_end);
 
 #if WASM_ENABLE_REF_TYPES != 0
-            if (wasm_get_ref_types_flag()) {
-                read_leb_uint32(p, p_end, table_segment->mode);
-                /* last three bits */
-                table_segment->mode = table_segment->mode & 0x07;
-                switch (table_segment->mode) {
-                    /* elemkind/elemtype + active */
-                    case 0:
-                    case 4:
-                        table_segment->elem_type = VALUE_TYPE_FUNCREF;
-                        table_segment->table_index = 0;
+            read_leb_uint32(p, p_end, table_segment->mode);
+            /* last three bits */
+            table_segment->mode = table_segment->mode & 0x07;
+            switch (table_segment->mode) {
+                /* elemkind/elemtype + active */
+                case 0:
+                case 4:
+                    table_segment->elem_type = VALUE_TYPE_FUNCREF;
+                    table_segment->table_index = 0;
 
-                        if (!check_table_index(module,
-                                               table_segment->table_index,
-                                               error_buf, error_buf_size))
-                            return false;
-
-                        if (!load_init_expr(
-                                &p, p_end, &table_segment->base_offset,
-                                VALUE_TYPE_I32, error_buf, error_buf_size))
-                            return false;
-
-                        if (!load_func_index_vec(
-                                &p, p_end, module, table_segment,
-                                table_segment->mode == 0 ? false : true,
-                                error_buf, error_buf_size))
-                            return false;
-                        break;
-                    /* elemkind + passive/declarative */
-                    case 1:
-                    case 3:
-                        if (!load_elem_type(&p, p_end,
-                                            &table_segment->elem_type, true,
-                                            error_buf, error_buf_size))
-                            return false;
-                        if (!load_func_index_vec(&p, p_end, module,
-                                                 table_segment, false,
-                                                 error_buf, error_buf_size))
-                            return false;
-                        break;
-                    /* elemkind/elemtype + table_idx + active */
-                    case 2:
-                    case 6:
-                        if (!load_table_index(&p, p_end, module,
-                                              &table_segment->table_index,
-                                              error_buf, error_buf_size))
-                            return false;
-                        if (!load_init_expr(
-                                &p, p_end, &table_segment->base_offset,
-                                VALUE_TYPE_I32, error_buf, error_buf_size))
-                            return false;
-                        if (!load_elem_type(
-                                &p, p_end, &table_segment->elem_type,
-                                table_segment->mode == 2 ? true : false,
-                                error_buf, error_buf_size))
-                            return false;
-                        if (!load_func_index_vec(
-                                &p, p_end, module, table_segment,
-                                table_segment->mode == 2 ? false : true,
-                                error_buf, error_buf_size))
-                            return false;
-                        break;
-                    case 5:
-                    case 7:
-                        if (!load_elem_type(&p, p_end,
-                                            &table_segment->elem_type, false,
-                                            error_buf, error_buf_size))
-                            return false;
-                        if (!load_func_index_vec(&p, p_end, module,
-                                                 table_segment, true, error_buf,
-                                                 error_buf_size))
-                            return false;
-                        break;
-                    default:
+                    if (!check_table_index(module, table_segment->table_index,
+                                           error_buf, error_buf_size))
                         return false;
-                }
+
+                    if (!load_init_expr(&p, p_end, &table_segment->base_offset,
+                                        VALUE_TYPE_I32, error_buf,
+                                        error_buf_size))
+                        return false;
+
+                    if (!load_func_index_vec(&p, p_end, module, table_segment,
+                                             table_segment->mode == 0 ? false
+                                                                      : true,
+                                             error_buf, error_buf_size))
+                        return false;
+                    break;
+                /* elemkind + passive/declarative */
+                case 1:
+                case 3:
+                    if (!load_elem_type(&p, p_end, &table_segment->elem_type,
+                                        true, error_buf, error_buf_size))
+                        return false;
+                    if (!load_func_index_vec(&p, p_end, module, table_segment,
+                                             false, error_buf, error_buf_size))
+                        return false;
+                    break;
+                /* elemkind/elemtype + table_idx + active */
+                case 2:
+                case 6:
+                    if (!load_table_index(&p, p_end, module,
+                                          &table_segment->table_index,
+                                          error_buf, error_buf_size))
+                        return false;
+                    if (!load_init_expr(&p, p_end, &table_segment->base_offset,
+                                        VALUE_TYPE_I32, error_buf,
+                                        error_buf_size))
+                        return false;
+                    if (!load_elem_type(&p, p_end, &table_segment->elem_type,
+                                        table_segment->mode == 2 ? true : false,
+                                        error_buf, error_buf_size))
+                        return false;
+                    if (!load_func_index_vec(&p, p_end, module, table_segment,
+                                             table_segment->mode == 2 ? false
+                                                                      : true,
+                                             error_buf, error_buf_size))
+                        return false;
+                    break;
+                case 5:
+                case 7:
+                    if (!load_elem_type(&p, p_end, &table_segment->elem_type,
+                                        false, error_buf, error_buf_size))
+                        return false;
+                    if (!load_func_index_vec(&p, p_end, module, table_segment,
+                                             true, error_buf, error_buf_size))
+                        return false;
+                    break;
+                default:
+                    return false;
             }
-            else
+#else
+            read_leb_uint32(p, p_end, table_index);
+            bh_assert(table_index
+                      < module->import_table_count + module->table_count);
+
+            table_segment->table_index = table_index;
+
+            /* initialize expression */
+            if (!load_init_expr(&p, p_end, &(table_segment->base_offset),
+                                VALUE_TYPE_I32, error_buf, error_buf_size))
+                return false;
+
+            read_leb_uint32(p, p_end, function_count);
+            table_segment->function_count = function_count;
+            total_size = sizeof(uint32) * (uint64)function_count;
+            if (total_size > 0
+                && !(table_segment->func_indexes = (uint32 *)loader_malloc(
+                         total_size, error_buf, error_buf_size))) {
+                return false;
+            }
+
+            if (!load_func_index_vec(&p, p_end, module, table_segment,
+                                     table_segment->mode == 0 ? false : true,
+                                     error_buf, error_buf_size))
+                return false;
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
-            {
-                read_leb_uint32(p, p_end, table_index);
-                bh_assert(table_index
-                          < module->import_table_count + module->table_count);
-
-                table_segment->table_index = table_index;
-
-                /* initialize expression */
-                if (!load_init_expr(&p, p_end, &(table_segment->base_offset),
-                                    VALUE_TYPE_I32, error_buf, error_buf_size))
-                    return false;
-
-                read_leb_uint32(p, p_end, function_count);
-                table_segment->function_count = function_count;
-                total_size = sizeof(uint32) * (uint64)function_count;
-                if (total_size > 0
-                    && !(table_segment->func_indexes = (uint32 *)loader_malloc(
-                             total_size, error_buf, error_buf_size))) {
-                    return false;
-                }
-
-                if (!load_func_index_vec(&p, p_end, module, table_segment,
-                                         table_segment->mode == 0 ? false
-                                                                  : true,
-                                         error_buf, error_buf_size))
-                    return false;
-            }
         }
     }
 
@@ -2605,41 +2569,21 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 break;
 #if WASM_ENABLE_REF_TYPES != 0
             case WASM_OP_SELECT_T:
-                if (!wasm_get_ref_types_flag()) {
-                    return false;
-                }
-
                 skip_leb_uint32(p, p_end); /* vec length */
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* typeidx */
                 break;
             case WASM_OP_TABLE_GET:
             case WASM_OP_TABLE_SET:
-                if (!wasm_get_ref_types_flag()) {
-                    return false;
-                }
-
                 skip_leb_uint32(p, p_end); /* table index */
                 break;
             case WASM_OP_REF_NULL:
-                if (!wasm_get_ref_types_flag()) {
-                    return false;
-                }
-
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* type */
                 break;
             case WASM_OP_REF_IS_NULL:
-                if (!wasm_get_ref_types_flag()) {
-                    return false;
-                }
-
                 break;
             case WASM_OP_REF_FUNC:
-                if (!wasm_get_ref_types_flag()) {
-                    return false;
-                }
-
                 skip_leb_uint32(p, p_end); /* func index */
                 break;
 #endif /* WASM_ENABLE_REF_TYPES */
@@ -2872,27 +2816,18 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if WASM_ENABLE_REF_TYPES != 0
                     case WASM_OP_TABLE_INIT:
                     case WASM_OP_TABLE_COPY:
-                        if (!wasm_get_ref_types_flag()) {
-                            return false;
-                        }
                         /* tableidx */
                         skip_leb_uint32(p, p_end);
                         /* elemidx */
                         skip_leb_uint32(p, p_end);
                         break;
                     case WASM_OP_ELEM_DROP:
-                        if (!wasm_get_ref_types_flag()) {
-                            return false;
-                        }
                         /* elemidx */
                         skip_leb_uint32(p, p_end);
                         break;
                     case WASM_OP_TABLE_SIZE:
                     case WASM_OP_TABLE_GROW:
                     case WASM_OP_TABLE_FILL:
-                        if (!wasm_get_ref_types_flag()) {
-                            return false;
-                        }
                         skip_leb_uint32(p, p_end); /* table idx */
                         break;
 #endif /* WASM_ENABLE_REF_TYPES */
@@ -4486,8 +4421,7 @@ is_value_type(uint8 type)
     if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_I64
         || type == VALUE_TYPE_F32 || type == VALUE_TYPE_F64
 #if WASM_ENABLE_REF_TYPES != 0
-        || (wasm_get_ref_types_flag()
-            && (type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF))
+        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
     )
         return true;
@@ -5274,14 +5208,7 @@ re_scan:
                 read_leb_uint32(p, p_end, type_idx);
 
 #if WASM_ENABLE_REF_TYPES != 0
-                if (!wasm_get_ref_types_flag()) {
-                    CHECK_BUF(p, p_end, 1);
-                    table_idx = read_uint8(p);
-                }
-                else {
-                    read_leb_uint32(p, p_end, table_idx);
-                }
-
+                read_leb_uint32(p, p_end, table_idx);
 #else
                 CHECK_BUF(p, p_end, 1);
                 table_idx = read_uint8(p);
@@ -5478,10 +5405,6 @@ re_scan:
             {
                 uint8 vec_len, ref_type;
 
-                if (!wasm_get_ref_types_flag()) {
-                    goto fail;
-                }
-
                 read_leb_uint32(p, p_end, vec_len);
                 if (!vec_len) {
                     set_error_buf(error_buf, error_buf_size,
@@ -5557,11 +5480,6 @@ re_scan:
                 uint8 decl_ref_type;
                 uint32 table_idx;
 
-                if (!wasm_get_ref_types_flag()) {
-                    goto fail;
-                    ;
-                }
-
                 read_leb_uint32(p, p_end, table_idx);
                 if (!get_table_elem_type(module, table_idx, &decl_ref_type,
                                          error_buf, error_buf_size))
@@ -5591,11 +5509,6 @@ re_scan:
             {
                 uint8 ref_type;
 
-                if (!wasm_get_ref_types_flag()) {
-                    goto fail;
-                    ;
-                }
-
                 CHECK_BUF(p, p_end, 1);
                 ref_type = read_uint8(p);
                 if (ref_type != VALUE_TYPE_FUNCREF
@@ -5612,11 +5525,6 @@ re_scan:
             }
             case WASM_OP_REF_IS_NULL:
             {
-                if (!wasm_get_ref_types_flag()) {
-                    goto fail;
-                    ;
-                }
-
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (!wasm_loader_pop_frame_ref_offset(loader_ctx,
                                                       VALUE_TYPE_FUNCREF,
@@ -5641,11 +5549,6 @@ re_scan:
             case WASM_OP_REF_FUNC:
             {
                 uint32 func_idx = 0;
-                if (!wasm_get_ref_types_flag()) {
-                    goto fail;
-                    ;
-                }
-
                 read_leb_uint32(p, p_end, func_idx);
 
                 if (!check_function_index(module, func_idx, error_buf,
@@ -6399,10 +6302,6 @@ re_scan:
                         uint8 seg_ref_type, tbl_ref_type;
                         uint32 table_seg_idx, table_idx;
 
-                        if (!wasm_get_ref_types_flag()) {
-                            goto fail;
-                        }
-
                         read_leb_uint32(p, p_end, table_seg_idx);
                         read_leb_uint32(p, p_end, table_idx);
 
@@ -6434,10 +6333,6 @@ re_scan:
                     case WASM_OP_ELEM_DROP:
                     {
                         uint32 table_seg_idx;
-                        if (!wasm_get_ref_types_flag()) {
-                            goto fail;
-                        }
-
                         read_leb_uint32(p, p_end, table_seg_idx);
                         if (!get_table_seg_elem_type(module, table_seg_idx,
                                                      NULL, error_buf,
@@ -6452,10 +6347,6 @@ re_scan:
                     {
                         uint8 src_ref_type, dst_ref_type;
                         uint32 src_tbl_idx, dst_tbl_idx;
-
-                        if (!wasm_get_ref_types_flag()) {
-                            goto fail;
-                        }
 
                         read_leb_uint32(p, p_end, src_tbl_idx);
                         if (!get_table_elem_type(module, src_tbl_idx,
@@ -6487,9 +6378,6 @@ re_scan:
                     case WASM_OP_TABLE_SIZE:
                     {
                         uint32 table_idx;
-                        if (!wasm_get_ref_types_flag()) {
-                            goto fail;
-                        }
 
                         read_leb_uint32(p, p_end, table_idx);
                         /* TODO: shall we create a new function to check
@@ -6510,10 +6398,6 @@ re_scan:
                     {
                         uint8 decl_ref_type;
                         uint32 table_idx;
-
-                        if (!wasm_get_ref_types_flag()) {
-                            goto fail;
-                        }
 
                         read_leb_uint32(p, p_end, table_idx);
                         if (!get_table_elem_type(module, table_idx,
@@ -6759,19 +6643,3 @@ fail:
 #endif
     return return_value;
 }
-
-#if WASM_ENABLE_REF_TYPES != 0
-static bool ref_types_flag = true;
-
-void
-wasm_set_ref_types_flag(bool enable)
-{
-    ref_types_flag = enable;
-}
-
-bool
-wasm_get_ref_types_flag()
-{
-    return ref_types_flag;
-}
-#endif

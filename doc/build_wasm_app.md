@@ -269,7 +269,7 @@ Usage: wamrc [options] -o output_file wasm_file
                               object         Native object file
                               llvmir-unopt   Unoptimized LLVM IR
                               llvmir-opt     Optimized LLVM IR
-  --enable-bulk-memory      Enable the post-MVP bulk memory feature
+  --disable-bulk-memory     Disable the MVP bulk memory feature
   --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and
                             thread-mgr will be enabled automatically
   --enable-tail-call        Enable the post-MVP tail call feature
@@ -277,7 +277,7 @@ Usage: wamrc [options] -o output_file wasm_file
                               currently 128-bit SIMD is only supported for x86-64 target,
                               and by default it is enabled in x86-64 target and disabled
                               in other targets
-  --enable-ref-types        Enable the post-MVP reference types feature
+  --disable-ref-types       Disable the MVP reference types feature
   --disable-aux-stack-check Disable auxiliary stack overflow/underflow check
   --enable-dump-call-stack  Enable stack trace feature
   --enable-perf-profiling   Enable function performance profiling
