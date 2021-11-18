@@ -779,7 +779,8 @@ wasm_value_type_size(uint8 value_type)
              && value_type <= (uint8)REF_TYPE_FUNCREF)
         return sizeof(uintptr_t);
 #elif WASM_ENABLE_REF_TYPES != 0
-    else if (value_type == VALUE_TYPE_FUNCREF || VALUE_TYPE == VALUE_TYPE_EXTERNREF)
+    else if (value_type == VALUE_TYPE_FUNCREF
+             || value_type == VALUE_TYPE_EXTERNREF)
         return sizeof(uint32);
 #endif
     else {

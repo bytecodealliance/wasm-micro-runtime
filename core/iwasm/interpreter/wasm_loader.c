@@ -218,8 +218,7 @@ type2str(uint8 type)
 static bool
 is_32bit_type(uint8 type)
 {
-    if (type == VALUE_TYPE_I32
-        || type == VALUE_TYPE_F32
+    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
 #if WASM_ENABLE_GC != 0
         || (sizeof(uintptr_t) == 4 && wasm_is_type_reftype(type))
 #elif WASM_ENABLE_REF_TYPES != 0
@@ -1852,7 +1851,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return false;
     }
-#else /* else of WASM_ENABLE_GC */
+#else  /* else of WASM_ENABLE_GC */
     if (!resolve_value_type(&p, p_end, parent_module, &need_ref_type_map,
                             &ref_type, false, error_buf, error_buf_size)) {
         return false;
@@ -2192,7 +2191,7 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return false;
     }
-#else /* else of WASM_ENABLE_GC */
+#else  /* else of WASM_ENABLE_GC */
     if (!resolve_value_type(&p, p_end, module, &need_ref_type_map, &ref_type,
                             false, error_buf, error_buf_size)) {
         return false;
