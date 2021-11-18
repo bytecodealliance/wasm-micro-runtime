@@ -135,6 +135,7 @@ typedef union V128 {
     float64 f64x2[2];
 } V128;
 
+#if WASM_ENABLE_GC != 0
 typedef struct RttSubInitInfo {
     /* Which opcode to init the parent type of rtt.sub,
        currently it can only be rtt.canon */
@@ -144,6 +145,7 @@ typedef struct RttSubInitInfo {
     /* The type index of rtt.sub */
     uint32 sub_type_idx;
 } RttSubInitInfo;
+#endif
 
 typedef union WASMValue {
     int32 i32;
@@ -156,7 +158,7 @@ typedef union WASMValue {
     float64 f64;
     V128 v128;
 #if WASM_ENABLE_GC != 0
-    RttSubInitInfo rttsub;
+    RttSubInitInfo rtt_sub;
 #endif
 } WASMValue;
 

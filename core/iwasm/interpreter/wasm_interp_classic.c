@@ -1340,7 +1340,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 HANDLE_OP_END();
             }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             HANDLE_OP(WASM_OP_SELECT_T)
             {
                 uint32 vec_len;
@@ -1432,7 +1432,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 PUSH_I32(func_idx);
                 HANDLE_OP_END();
             }
-#endif /* WASM_ENABLE_REF_TYPES */
+#endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
 
 #if WASM_ENABLE_GC != 0
             HANDLE_OP(WASM_OP_CALL_REF) { HANDLE_OP_END(); }
@@ -1514,7 +1514,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (local_type) {
                     case VALUE_TYPE_I32:
                     case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
                     case VALUE_TYPE_FUNCREF:
                     case VALUE_TYPE_EXTERNREF:
 #endif
@@ -1550,7 +1550,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (local_type) {
                     case VALUE_TYPE_I32:
                     case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
                     case VALUE_TYPE_FUNCREF:
                     case VALUE_TYPE_EXTERNREF:
 #endif
@@ -1588,7 +1588,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (local_type) {
                     case VALUE_TYPE_I32:
                     case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
                     case VALUE_TYPE_FUNCREF:
                     case VALUE_TYPE_EXTERNREF:
 #endif
@@ -3046,7 +3046,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         break;
                     }
 #endif /* WASM_ENABLE_BULK_MEMORY */
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
                     case WASM_OP_TABLE_INIT:
                     {
                         uint32 tbl_idx, elem_idx;
@@ -3224,7 +3224,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         break;
                     }
-#endif /* WASM_ENABLE_REF_TYPES */
+#endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
                     default:
                         wasm_set_exception(module, "unsupported opcode");
                         goto got_exception;
@@ -3605,7 +3605,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_SHARED_MEMORY == 0
         HANDLE_OP(WASM_OP_ATOMIC_PREFIX)
 #endif
-#if WASM_ENABLE_REF_TYPES == 0
+#if (WASM_ENABLE_GC == 0) && (WASM_ENABLE_REF_TYPES == 0)
         HANDLE_OP(WASM_OP_SELECT_T)
         HANDLE_OP(WASM_OP_TABLE_GET)
         HANDLE_OP(WASM_OP_TABLE_SET)
