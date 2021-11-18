@@ -210,8 +210,8 @@ parser.add_argument('--sgx', action='store_true',
 parser.add_argument('--simd', default=False, action='store_true',
         help="Enable SIMD")
 
-parser.add_argument('--ref_types', default=False, action='store_true',
-        help="Enable Reference types")
+parser.add_argument('--multi-thread', default=False, action='store_true',
+        help="Enable Multi-thread")
 
 parser.add_argument('--verbose', default=False, action='store_true',
         help='show more logs')
@@ -939,12 +939,11 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
     if opts.sgx:
         cmd.append("-sgx")
 
-    if opts.simd:
-        cmd.append("--enable-simd")
+    if not opts.simd:
+        cmd.append("--disable-simd")
 
-    if opts.ref_types:
-        cmd.append("--enable-ref-types")
-        cmd.append("--enable-bulk-memory")
+    if opts.multi_thread:
+        cmd.append("--enable-multi-thread")
 
     # disable llvm link time optimization as it might convert
     # code of tail call into code of dead loop, and stack overflow

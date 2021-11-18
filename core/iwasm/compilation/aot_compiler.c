@@ -106,6 +106,28 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
         res = (int64)res64;                              \
     } while (0)
 
+/**
+ * Since Wamrc uses a full feature Wasm loader,
+ * add a post-validator here to run checks according
+ * to options, like enable_tail_call, enable_ref_types,
+ * and so on.
+ */
+static bool
+aot_validate_wasm(AOTCompContext *comp_ctx)
+{
+    if (!comp_ctx->enable_ref_types) {
+        /* Doesn't support multiple tables unless enabling reference type */
+        if (comp_ctx->comp_data->import_table_count
+                + comp_ctx->comp_data->table_count
+            > 1) {
+            aot_set_last_error("multiple tables");
+            return false;
+        }
+    }
+
+    return true;
+}
+
 #define COMPILE_ATOMIC_RMW(OP, NAME)                      \
     case WASM_OP_ATOMIC_RMW_I32_##NAME:                   \
         bytes = 4;                                        \
@@ -976,7 +998,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint32)opcode1;
 
-                /* TODO: --enable-bulk-memory ? */
+#if WASM_ENABLE_BULK_MEMORY != 0
+                if (WASM_OP_MEMORY_INIT <= opcode
+                    && opcode <= WASM_OP_MEMORY_FILL
+                    && !comp_ctx->enable_bulk_memory) {
+                    goto unsupport_bulk_memory;
+                }
+#endif
 
 #if WASM_ENABLE_REF_TYPES != 0
                 if (WASM_OP_TABLE_INIT <= opcode && opcode <= WASM_OP_TABLE_FILL
@@ -2457,7 +2485,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     }
 
                     default:
-                        aot_set_last_error("unsupported opcode");
+                        aot_set_last_error("unsupported SIMD opcode");
                         return false;
                 }
                 break;
@@ -2488,14 +2516,21 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 #if WASM_ENABLE_SIMD != 0
 unsupport_simd:
     aot_set_last_error("SIMD instruction was found, "
-                       "try adding --enable-simd option?");
+                       "try removing --disable-simd option");
     return false;
 #endif
 
 #if WASM_ENABLE_REF_TYPES != 0
 unsupport_ref_types:
     aot_set_last_error("reference type instruction was found, "
-                       "try adding --enable-ref-types option?");
+                       "try removing --disable-ref-types option");
+    return false;
+#endif
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+unsupport_bulk_memory:
+    aot_set_last_error("bulk memory instruction was found, "
+                       "try removing --disable-bulk-memory option");
     return false;
 #endif
 
@@ -2509,6 +2544,10 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     char *msg = NULL;
     bool ret;
     uint32 i;
+
+    if (!aot_validate_wasm(comp_ctx)) {
+        return false;
+    }
 
     bh_print_time("Begin to compile WASM bytecode to LLVM IR");
 
@@ -2636,11 +2675,6 @@ aot_emit_object_file(AOTCompContext *comp_ctx, char *file_name)
     return true;
 }
 
-#if WASM_ENABLE_REF_TYPES != 0
-extern void
-wasm_set_ref_types_flag(bool enable);
-#endif
-
 typedef struct AOTFileMap {
     uint8 *wasm_file_buf;
     uint32 wasm_file_size;
@@ -2741,10 +2775,6 @@ aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
 #endif
 #if (WASM_ENABLE_PERF_PROFILING != 0) || (WASM_ENABLE_DUMP_CALL_STACK != 0)
     option.enable_aux_stack_frame = true;
-#endif
-
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_set_ref_types_flag(option.enable_ref_types);
 #endif
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
