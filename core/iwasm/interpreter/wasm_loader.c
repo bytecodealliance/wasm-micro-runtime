@@ -6149,12 +6149,8 @@ get_table_seg_elem_type(const WASMModule *module, uint32 table_seg_idx,
                         uint32 error_buf_size)
 {
     if (table_seg_idx >= module->table_seg_count) {
-#if WASM_ENABLE_REF_TYPES != 0
         set_error_buf_v(error_buf, error_buf_size, "unknown elem segment %u",
                         table_seg_idx);
-#else
-        set_error_buf(error_buf, error_buf_size, "unknown table segment");
-#endif
         return false;
     }
 
