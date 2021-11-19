@@ -555,7 +555,8 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
                     init_expr->u.rtt_sub.parent_init_expr_type =
                         INIT_EXPR_TYPE_RTT_CANON;
                     init_expr->u.rtt_sub.parent_type_idx = u32;
-                    read_leb_uint32(p, p_end, init_expr->u.rtt_sub.sub_type_idx);
+                    read_leb_uint32(p, p_end,
+                                    init_expr->u.rtt_sub.sub_type_idx);
                 }
             }
             break;
@@ -1263,6 +1264,13 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 CHECK_BUF(p, p_end, 1);
                 type->types[param_count + j] = read_uint8(p);
             }
+            for (j = 0; j < param_count + result_count; j++) {
+                if (!is_value_type(type->types[j])) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "unknown value type");
+                    return false;
+                }
+            }
 
             param_cell_num = wasm_get_cell_num(type->types, param_count);
             ret_cell_num =
@@ -1837,9 +1845,14 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return false;
     }
-#else  /* else of WASM_ENABLE_GC */
+#else /* else of WASM_ENABLE_GC */
     if (!resolve_value_type(&p, p_end, parent_module, &need_ref_type_map,
                             &ref_type, false, error_buf, error_buf_size)) {
+        return false;
+    }
+    if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "non-defaultable element type");
         return false;
     }
     declare_elem_type = ref_type.ref_type;
@@ -1850,6 +1863,11 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
     }
+#if TRACE_WASM_LOADER != 0
+    os_printf("import table type: ");
+    wasm_dump_value_type(declare_elem_type, table->elem_ref_type);
+    os_printf("\n");
+#endif
 #endif /* end of WASM_ENABLE_GC */
 
     read_leb_uint32(p, p_end, declare_max_size_flag);
@@ -2101,6 +2119,11 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
             return false;
         }
     }
+#if TRACE_WASM_LOADER != 0
+    os_printf("import global type: ");
+    wasm_dump_value_type(declare_type, global->ref_type);
+    os_printf("\n");
+#endif
     CHECK_BUF(p, p_end, 1);
     declare_mutable = read_uint8(p);
 #endif
@@ -2176,9 +2199,14 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return false;
     }
-#else  /* else of WASM_ENABLE_GC */
+#else /* else of WASM_ENABLE_GC */
     if (!resolve_value_type(&p, p_end, module, &need_ref_type_map, &ref_type,
                             false, error_buf, error_buf_size)) {
+        return false;
+    }
+    if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "non-defaultable element type");
         return false;
     }
     table->elem_type = ref_type.ref_type;
@@ -2189,6 +2217,11 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
             return false;
         }
     }
+#if TRACE_WASM_LOADER != 0
+    os_printf("table type: ");
+    wasm_dump_value_type(table->elem_type, table->elem_ref_type);
+    os_printf("\n");
+#endif
 #endif /* end of WASM_ENABLE_GC */
 
     p_org = p;
@@ -2871,6 +2904,11 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     return false;
                 }
             }
+#if TRACE_WASM_LOADER != 0
+            os_printf("global type: ");
+            wasm_dump_value_type(global->type, global->ref_type);
+            os_printf("\n");
+#endif
             CHECK_BUF(p, p_end, 1);
             mutable = read_uint8(p);
 #endif /* end of WASM_ENABLE_GC */
