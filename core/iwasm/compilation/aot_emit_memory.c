@@ -962,13 +962,51 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    /* TODO: lookup func ptr of "memmove" to call for XIP mode */
+    if (comp_ctx->is_indirect_mode) {
+        LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+        LLVMValueRef func, params[3];
 
-    if (!(res = LLVMBuildMemMove(comp_ctx->builder, dst_addr, 1, src_addr, 1,
-                                 len))) {
-        aot_set_last_error("llvm build memmove failed.");
-        return false;
+        param_types[0] = INT32_PTR_TYPE;
+        param_types[1] = INT32_PTR_TYPE;
+        param_types[2] = I32_TYPE;
+        ret_type = INT32_PTR_TYPE;
+
+        if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function pointer type failed.");
+            return false;
+        }
+
+        int32 func_idx = aot_get_native_symbol_index(comp_ctx, "memmove");
+        if (func_idx < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_idx))) {
+            return false;
+        }
+
+        params[0] = dst_addr;
+        params[1] = src_addr;
+        params[2] = len;
+        if (!(res = LLVMBuildCall(comp_ctx->builder, func, params, 3,
+                                  "call memmove"))) {
+            aot_set_last_error("llvm build memmove failed.");
+            return false;
+        }
     }
+    else {
+        if (!(res = LLVMBuildMemMove(comp_ctx->builder, dst_addr, 1, src_addr,
+                                     1, len))) {
+            aot_set_last_error("llvm build memmove failed.");
+            return false;
+        }
+    }
+
     return true;
 fail:
     return false;
@@ -992,11 +1030,49 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    /* TODO: lookup func ptr of "memset" to call for XIP mode */
+    if (comp_ctx->is_indirect_mode) {
+        LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+        LLVMValueRef func, params[3];
 
-    if (!(res = LLVMBuildMemSet(comp_ctx->builder, dst_addr, val, len, 1))) {
-        aot_set_last_error("llvm build memset failed.");
-        return false;
+        param_types[0] = INT32_PTR_TYPE;
+        param_types[1] = I32_TYPE;
+        param_types[2] = I32_TYPE;
+        ret_type = INT32_PTR_TYPE;
+
+        if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function pointer type failed.");
+            return false;
+        }
+
+        int32 func_idx = aot_get_native_symbol_index(comp_ctx, "memset");
+        if (func_idx < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_idx))) {
+            return false;
+        }
+
+        params[0] = dst_addr;
+        params[1] = val;
+        params[2] = len;
+        if (!(res = LLVMBuildCall(comp_ctx->builder, func, params, 3,
+                                  "call memset"))) {
+            aot_set_last_error("llvm build memset failed.");
+            return false;
+        }
+    }
+    else {
+        if (!(res =
+                  LLVMBuildMemSet(comp_ctx->builder, dst_addr, val, len, 1))) {
+            aot_set_last_error("llvm build memset failed.");
+            return false;
+        }
     }
     return true;
 fail:
