@@ -1260,10 +1260,10 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
                 break;
         }
 
-        if (!(result =
-                  LLVMBuildAtomicCmpXchg(comp_ctx->builder, maddr, expect,
-                                         value, LLVMAtomicOrderingNotAtomic,
-                                         LLVMAtomicOrderingNotAtomic, true))) {
+        if (!(result = LLVMBuildAtomicCmpXchg(
+                  comp_ctx->builder, maddr, expect, value,
+                  LLVMAtomicOrderingSequentiallyConsistent,
+                  LLVMAtomicOrderingSequentiallyConsistent, true))) {
             goto fail;
         }
 
