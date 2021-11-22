@@ -653,6 +653,7 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
                 add_intrinsic_capability(comp_ctx,
                                          AOT_INTRINSIC_FLAG_CMPXCHG_8);
             }
+            LLVMDisposeMessage(mac);
         }
     }
 }

@@ -965,6 +965,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (comp_ctx->is_indirect_mode) {
         LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
         LLVMValueRef func, params[3];
+        int32 func_idx;
 
         param_types[0] = INT32_PTR_TYPE;
         param_types[1] = INT32_PTR_TYPE;
@@ -981,7 +982,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             return false;
         }
 
-        int32 func_idx = aot_get_native_symbol_index(comp_ctx, "memmove");
+        func_idx = aot_get_native_symbol_index(comp_ctx, "memmove");
         if (func_idx < 0) {
             return false;
         }
@@ -1033,6 +1034,7 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (comp_ctx->is_indirect_mode) {
         LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
         LLVMValueRef func, params[3];
+        int32 func_idx;
 
         param_types[0] = INT32_PTR_TYPE;
         param_types[1] = I32_TYPE;
@@ -1049,7 +1051,7 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             return false;
         }
 
-        int32 func_idx = aot_get_native_symbol_index(comp_ctx, "memset");
+        func_idx = aot_get_native_symbol_index(comp_ctx, "memset");
         if (func_idx < 0) {
             return false;
         }
@@ -1214,10 +1216,16 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
         param_values[0] = maddr;
         param_values[1] = expect;
         param_values[2] = value;
-        param_values[3] =
-            I32_CONST((int)LLVMAtomicOrderingSequentiallyConsistent);
-        param_values[4] =
-            I32_CONST((int)LLVMAtomicOrderingSequentiallyConsistent);
+        if (!(param_values[3] =
+                  I32_CONST((int)LLVMAtomicOrderingSequentiallyConsistent))) {
+            aot_set_last_error("llvm build aotmic flags failed.");
+            goto fail;
+        }
+        if (!(param_values[4] =
+                  I32_CONST((int)LLVMAtomicOrderingSequentiallyConsistent))) {
+            aot_set_last_error("llvm build aotmic flags failed.");
+            goto fail;
+        }
 
         if (!(result = LLVMBuildCall(comp_ctx->builder, func, param_values, 5,
                                      "call_cmpxchg"))) {
