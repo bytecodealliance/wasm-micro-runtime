@@ -295,7 +295,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
     }
     CHECK_BUF(p, p_end, 1);
     end_byte = read_uint8(p);
-    bh_assert(end_byte == 0x0b);
+    bh_assert(end_byte == WASM_OP_END);
     *p_buf = p;
 
     (void)end_byte;

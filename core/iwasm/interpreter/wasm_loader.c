@@ -543,7 +543,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
             init_expr->init_expr_type = flag;
             read_leb_uint32(p, p_end, init_expr->u.u32);
             CHECK_BUF(p, p_end, 1);
-            if (*p != 0x0b) {
+            if (*p != WASM_OP_END) {
                 if (*p != WASM_OP_GC_PREFIX)
                     goto fail_type_mismatch;
                 p++;
@@ -573,7 +573,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
     }
     CHECK_BUF(p, p_end, 1);
     end_byte = read_uint8(p);
-    if (end_byte != 0x0b)
+    if (end_byte != WASM_OP_END)
         goto fail_type_mismatch;
     *p_buf = p;
     return true;
