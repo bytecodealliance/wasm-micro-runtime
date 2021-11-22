@@ -11,6 +11,11 @@
 #include "../aot/aot_runtime.h"
 #endif
 
+#if defined(_WIN32) || defined(_WIN32_)
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+#endif
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -86,6 +91,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
 {
     WASMFunctionInstanceCommon *func;
     WASMType *func_type = NULL;
+    WASMExecEnv *exec_env = NULL;
     uint32 argc1 = 0, argv1[2] = { 0 };
     uint32 total_argv_size = 0;
     uint64 total_size;
@@ -95,6 +101,12 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     uint32 *argv_offsets, module_type;
     bool ret, is_import_func = true;
 
+    wasm_runtime_set_exception(module_inst, NULL);
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (!exec_env) {
+        return false;
+    }
+
 #if WASM_ENABLE_LIBC_WASI != 0
     if (wasm_runtime_is_wasi_mode(module_inst)) {
         /* In wasi mode, we should call function named "_start"
@@ -102,8 +114,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
            the actual main function. Directly call main function
            may cause exception thrown. */
         if ((func = wasm_runtime_lookup_wasi_start_function(module_inst)))
-            return wasm_runtime_create_exec_env_and_call_wasm(module_inst, func,
-                                                              0, NULL);
+            return wasm_runtime_call_wasm(exec_env, func, 0, NULL);
         /* If no start function was found, we execute
            the main function as normal */
     }
@@ -177,8 +188,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
             (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
     }
 
-    ret = wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, argc1,
-                                                     argv1);
+    ret = wasm_runtime_call_wasm(exec_env, func, argc1, argv1);
     if (ret && func_type->result_count > 0 && argc > 0 && argv)
         /* copy the return value */
         *(int *)argv = (int)argv1[0];
@@ -354,13 +364,46 @@ union ieee754_double {
     } ieee;
 };
 
+#if WASM_ENABLE_REF_TYPES != 0
+static int32
+type_size_in_double_world(uint8 type)
+{
+    uint32 size_in_db = 0;
+
+    if (VALUE_TYPE_I32 == type || VALUE_TYPE_F32 == type
+        || VALUE_TYPE_FUNCREF == type) {
+        size_in_db++;
+    }
+    else if (VALUE_TYPE_I64 == type || VALUE_TYPE_F64 == type) {
+        size_in_db += 2;
+    }
+#if WASM_ENABLE_SIMD != 0
+    else if (VALUE_TYPE_V128 == type) {
+        size_in_db += 4;
+    }
+#endif
+    else if (VALUE_TYPE_EXTERNREF == type) {
+        size_in_db += sizeof(uintptr_t) / sizeof(uint32);
+    }
+    else {
+        bh_assert(0);
+    }
+
+    return size_in_db;
+}
+#endif
+
 bool
 wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                               const char *name, int32 argc, char *argv[])
 {
     WASMFunctionInstanceCommon *func;
     WASMType *type = NULL;
+    WASMExecEnv *exec_env = NULL;
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
+#if WASM_ENABLE_REF_TYPES != 0
+    uint32 param_size_in_double_world = 0, result_size_in_double_world = 0;
+#endif
     int32 i, p, module_type;
     uint64 total_size;
     const char *exception;
@@ -404,8 +447,22 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
+#if WASM_ENABLE_REF_TYPES != 0
+    for (i = 0; i < type->param_count; i++) {
+        param_size_in_double_world += type_size_in_double_world(type->types[i]);
+    }
+    for (i = 0; i < type->result_count; i++) {
+        result_size_in_double_world +=
+            type_size_in_double_world(type->types[type->param_count + i]);
+    }
+    argc1 = param_size_in_double_world;
+    cell_num = (param_size_in_double_world >= result_size_in_double_world)
+                   ? param_size_in_double_world
+                   : result_size_in_double_world;
+#else
     argc1 = type->param_cell_num;
     cell_num = (argc1 > type->ret_cell_num) ? argc1 : type->ret_cell_num;
+#endif
 
     total_size = sizeof(uint32) * (uint64)(cell_num > 2 ? cell_num : 2);
     if ((!(argv1 = runtime_malloc((uint32)total_size, module_inst, NULL, 0)))) {
@@ -518,8 +575,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
-                if (strncmp(argv[i], "null", 4) == 0
-                    || strncmp(argv[i], "NULL", 4) == 0) {
+                if (strncasecmp(argv[i], "null", 4) == 0) {
                     argv1[p++] = NULL_REF;
                 }
                 else {
@@ -529,23 +585,27 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             }
             case VALUE_TYPE_EXTERNREF:
             {
-                if (strncmp(argv[i], "null", 4) == 0
-                    || strncmp(argv[i], "NULL", 4) == 0) {
+#ifdef BUILD_TARGET_X86_32
+                if (strncasecmp(argv[i], "null", 4) == 0) {
                     argv1[p++] = NULL_REF;
                 }
                 else {
-                    uint64 val = strtoull(argv[i], &endptr, 0);
-                    void *extern_obj = (void *)(uintptr_t)val;
-                    uint32 externref_idx;
-
-                    if (!wasm_externref_obj2ref(module_inst, extern_obj,
-                                                &externref_idx)) {
-                        wasm_runtime_set_exception(
-                            module_inst, "map extern object to ref failed");
-                        goto fail;
-                    }
-                    argv1[p++] = externref_idx;
+                    argv1[p++] = strtoul(argv[i], &endptr, 0);
                 }
+#else
+                union {
+                    uintptr_t val;
+                    uint32 parts[2];
+                } u;
+                if (strncasecmp(argv[i], "null", 4) == 0) {
+                    u.val = NULL_REF;
+                }
+                else {
+                    u.val = strtoull(argv[i], &endptr, 0);
+                }
+                argv1[p++] = u.parts[0];
+                argv1[p++] = u.parts[1];
+#endif
                 break;
             }
 #endif /* WASM_ENABLE_REF_TYPES */
@@ -560,11 +620,14 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             goto fail;
         }
     }
-    bh_assert(p == (int32)argc1);
 
     wasm_runtime_set_exception(module_inst, NULL);
-    if (!wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, argc1,
-                                                    argv1)) {
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (!exec_env) {
+        goto fail;
+    }
+
+    if (!wasm_runtime_call_wasm(exec_env, func, argc1, argv1)) {
         goto fail;
     }
 
@@ -628,15 +691,23 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             }
             case VALUE_TYPE_EXTERNREF:
             {
-                if (argv1[k] != NULL_REF) {
-                    void *extern_obj = NULL;
-                    bool ret = wasm_externref_ref2obj(argv1[k], &extern_obj);
-                    bh_assert(ret);
-                    (void)ret;
-                    os_printf("%p:ref.extern", extern_obj);
+                if (argv1[k] != 0 && NULL_REF != argv1[k]) {
+#ifdef BUILD_TARGET_X86_32
+                    os_printf("%p:ref.extern", argv1[k]);
+#else
+                    union {
+                        uintptr_t val;
+                        uint32 parts[2];
+                    } u;
+                    u.parts[0] = argv1[k];
+                    u.parts[1] = argv1[k + 1];
+                    k += 2;
+                    os_printf("%p:ref.extern", (void *)u.val);
+#endif
                 }
                 else
                     os_printf("extern:ref.null");
+
                 k++;
                 break;
             }

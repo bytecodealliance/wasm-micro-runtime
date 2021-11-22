@@ -1296,7 +1296,8 @@ static bool
 invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                                   const WASMType *func_type,
                                   const char *signature, void *attachment,
-                                  uint32 *argv, uint32 argc, uint32 *argv_ret)
+                                  bool aot_call_flag, uint32 *argv, uint32 argc,
+                                  uint32 *argv_ret)
 {
     AOTModuleInstance *module_inst = (AOTModuleInstance *)exec_env->module_inst;
     WASMExecEnv **p_aot_exec_env = &aot_exec_env;
@@ -1351,15 +1352,15 @@ invoke_native_with_hw_bound_check(WASMExecEnv *exec_env, void *func_ptr,
                 ret = aot_get_exception(module_inst) ? false : true;
             }
             else {
-                ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                                 signature, attachment, argv,
-                                                 argc, argv_ret);
+                ret = wasm_runtime_invoke_native(
+                    exec_env, func_ptr, func_type, signature, attachment,
+                    aot_call_flag, argv, argc, argv_ret);
             }
         }
         else {
-            ret = wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                             signature, attachment, argv, argc,
-                                             argv_ret);
+            ret = wasm_runtime_invoke_native(
+                exec_env, func_ptr, func_type, signature, attachment,
+                aot_call_flag, argv, argc, argv_ret);
         }
 #ifdef BH_PLATFORM_WINDOWS
         if ((exce = aot_get_exception(module_inst))
@@ -1450,7 +1451,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #endif
 
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
-                                     func_type, NULL, NULL, argv1, argc, argv);
+                                     func_type, NULL, NULL, true, argv1, argc,
+                                     argv);
 
         if (!ret || aot_get_exception(module_inst)) {
             if (argv1 != argv1_buf)
@@ -1514,7 +1516,8 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 #endif
 
         ret = invoke_native_internal(exec_env, function->u.func.func_ptr,
-                                     func_type, NULL, NULL, argv, argc, argv);
+                                     func_type, NULL, NULL, true, argv, argc,
+                                     argv);
 
         if (clear_wasi_proc_exit_exception(module_inst))
             ret = true;
@@ -1557,15 +1560,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_prepare_call_function(exec_env, func);
-#endif
-
     ret = aot_call_function(exec_env, func, argc, argv);
-
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_finalize_call_function(exec_env, func, ret, argv);
-#endif
 
     /* don't destroy the exec_env if it's searched from the cluster */
     if (!existing_exec_env)
@@ -2238,8 +2233,8 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
         return wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                          signature, attachment, argv, argc,
-                                          argv);
+                                          signature, attachment, false, argv,
+                                          argc, argv);
     }
     else {
         signature = import_func->signature;
@@ -2353,7 +2348,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         }
 
         ret = invoke_native_internal(exec_env, func_ptr, func_type, signature,
-                                     attachment, argv1, argc, argv);
+                                     attachment, true, argv1, argc, argv);
         if (!ret || aot_get_exception(module_inst)) {
             if (argv1 != argv1_buf)
                 wasm_runtime_free(argv1);
@@ -2397,7 +2392,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
     else {
         ret = invoke_native_internal(exec_env, func_ptr, func_type, signature,
-                                     attachment, argv, argc, argv);
+                                     attachment, true, argv, argc, argv);
         if (clear_wasi_proc_exit_exception(module_inst))
             return true;
         return ret;

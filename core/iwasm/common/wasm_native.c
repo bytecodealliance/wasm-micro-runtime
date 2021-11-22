@@ -78,7 +78,7 @@ check_symbol_signature(const WASMType *type, const char *signature)
              && type->types[i] <= VALUE_TYPE_I32
              && sig == sig_map[type->types[i] - VALUE_TYPE_F64])
 #if WASM_ENABLE_REF_TYPES != 0
-            || (sig == 'i' && type->types[i] == VALUE_TYPE_EXTERNREF)
+            || (sig == 'I' && type->types[i] == VALUE_TYPE_EXTERNREF)
 #endif
         )
             /* normal parameter */

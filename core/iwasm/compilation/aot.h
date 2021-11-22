@@ -96,6 +96,7 @@ typedef struct AOTMemInitData {
 typedef struct AOTImportTable {
     char *module_name;
     char *table_name;
+    uint32 elem_type;
     uint32 table_flags;
     uint32 table_init_size;
     uint32 table_max_size;

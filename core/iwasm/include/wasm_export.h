@@ -155,16 +155,17 @@ enum wasm_valkind_enum {
 
 #ifndef WASM_VAL_T_DEFINED
 #define WASM_VAL_T_DEFINED
-struct wasm_ref_t;
 
 typedef struct wasm_val_t {
     wasm_valkind_t kind;
     union {
+        /* also represent a function index */
         int32_t i32;
         int64_t i64;
         float f32;
         double f64;
-        struct wasm_ref_t *ref;
+        /* represent a foreign object, aka externref in .wat */
+        uintptr_t foreign;
     } of;
 } wasm_val_t;
 #endif

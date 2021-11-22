@@ -798,7 +798,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     else if (!func_import->call_conv_raw) {
         ret = wasm_runtime_invoke_native(
             exec_env, func_import->func_ptr_linked, func_import->func_type,
-            func_import->signature, func_import->attachment, frame->lp,
+            func_import->signature, func_import->attachment, false, frame->lp,
             cur_func->param_cell_num, argv_ret);
     }
     else {

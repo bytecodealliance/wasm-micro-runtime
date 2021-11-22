@@ -116,7 +116,7 @@ endif()
 # wat to wasm
 file(GLOB WAT_FILE src/hello.wat)
 add_custom_target(hello_wasm ALL
-  COMMAND ${WAT2WASM} ${WAT_FILE} -o ${PROJECT_BINARY_DIR}/hello.wasm
+  COMMAND ${WAT2WASM} ${WAT_FILE} --enable-reference-types -o ${PROJECT_BINARY_DIR}/hello.wasm
   DEPENDS ${WAT_FILE}
   BYPRODUCTS ${PROJECT_BINARY_DIR}/hello.wasm
   VERBATIM
