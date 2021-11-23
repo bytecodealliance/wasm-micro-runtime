@@ -240,6 +240,7 @@ void
 wasm_cluster_cancel_all_callbacks()
 {
     traverse_list(destroy_callback_list, free_node_visitor, NULL);
+    bh_list_init(destroy_callback_list);
 }
 
 WASMCluster *
