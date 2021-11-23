@@ -181,7 +181,7 @@ wasm_dump_array_type(const WASMArrayType *type)
 
     if (type->elem_flags & 1)
         os_printf("(mut ");
-    wasm_dump_value_type(type->elem_type.ref_type, &type->elem_type);
+    wasm_dump_value_type(type->elem_type, type->elem_ref_type);
     if (type->elem_flags & 1)
         os_printf(")");
     os_printf("\n");
@@ -269,8 +269,8 @@ wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2)
     if (type1->elem_flags != type2->elem_flags)
         return false;
 
-    if (!wasm_reftype_equal(type1->elem_type.ref_type, &type1->elem_type,
-                            type2->elem_type.ref_type, &type2->elem_type))
+    if (!wasm_reftype_equal(type1->elem_type, type1->elem_ref_type,
+                            type2->elem_type, type2->elem_ref_type))
         return false;
 
     return true;
@@ -421,15 +421,15 @@ wasm_array_type_is_subtype_of(const WASMArrayType *type1,
     if (type1->elem_flags & 1) {
         /* The elem is mutable in both types: the storage types
            must be the same */
-        return wasm_reftype_equal(type1->elem_type.ref_type, &type1->elem_type,
-                                  type2->elem_type.ref_type, &type2->elem_type);
+        return wasm_reftype_equal(type1->elem_type, type1->elem_ref_type,
+                                  type2->elem_type, type2->elem_ref_type);
     }
     else {
         /* The elem is immutable in both types: their storage types
            must be in (covariant) subtype relation (depth subtyping) */
         return wasm_reftype_is_subtype_of(
-            type1->elem_type.ref_type, &type1->elem_type,
-            type2->elem_type.ref_type, &type2->elem_type, types, type_count);
+            type1->elem_type, type1->elem_ref_type, type2->elem_type,
+            type2->elem_ref_type, types, type_count);
     }
     return false;
 }
@@ -680,8 +680,9 @@ wasm_is_reftype_supers_of_rttn_non_nullable(uint8 type_super,
                                             uint32 n_of_sub,
                                             uint32 type_idx_of_sub)
 {
-    /* (ref (rtt n i)) <: [ (ref (rtt n i), (ref (rtt i),
-                            (ref null (rtt n i), eqref, anyref ] */
+    /* (ref (rtt n i)) <: [ (ref (rtt n i), (ref (rtt i)),
+     *                      (ref null (rtt n i)), (ref null (rtt i),
+     *                      eqref, anyref ] */
 
     if (type_super == REF_TYPE_HT_NON_NULLABLE) {
         /* super type is (ref (rtt n i)) */
@@ -696,8 +697,8 @@ wasm_is_reftype_supers_of_rttn_non_nullable(uint8 type_super,
     }
 
     /* super type is (ref null (rtt n i), eqref or anyref */
-    return wasm_is_reftype_supers_of_rtt_nullable(type_super, ref_type_super,
-                                                  type_idx_of_sub);
+    return wasm_is_reftype_supers_of_rttn_nullable(type_super, ref_type_super,
+                                                   n_of_sub, type_idx_of_sub);
 }
 
 bool
@@ -799,8 +800,8 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
         }
         else if (wasm_is_refheaptype_rttn(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref (rtt n i)), the super type can be:
-                 (ref (rtt n i), (ref (rtt i), (ref null (rtt i)),
-                 eqref and data ref */
+                 (ref (rtt n i), (ref (rtt i), (ref null (rtt n i ),
+                 (ref null (rtt i)), eqref and data ref */
             return wasm_is_reftype_supers_of_rttn_non_nullable(
                 type2, ref_type2, ref_type1->ref_ht_rttn.n,
                 ref_type1->ref_ht_rttn.type_idx);

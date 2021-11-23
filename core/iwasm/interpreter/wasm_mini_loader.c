@@ -295,7 +295,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
     }
     CHECK_BUF(p, p_end, 1);
     end_byte = read_uint8(p);
-    bh_assert(end_byte == 0x0b);
+    bh_assert(end_byte == WASM_OP_END);
     *p_buf = p;
 
     (void)end_byte;
@@ -471,7 +471,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     /* now we believe all declaration are ok */
     table->elem_type = declare_elem_type;
     table->init_size = declare_init_size;
-    table->flags = declare_max_size_flag;
+    table->flags = (uint8)declare_max_size_flag;
     table->max_size = declare_max_size;
     return true;
 }
@@ -569,6 +569,7 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
            char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
+    uint32 flags;
 
     CHECK_BUF(p, p_end, 1);
     /* 0x70 or 0x6F */
@@ -580,10 +581,11 @@ load_table(const uint8 **p_buf, const uint8 *buf_end, WASMTable *table,
     );
 
     p_org = p;
-    read_leb_uint32(p, p_end, table->flags);
+    read_leb_uint32(p, p_end, flags);
     bh_assert(p - p_org <= 1);
-    bh_assert(table->flags <= 1);
+    bh_assert(flags <= 1);
     (void)p_org;
+    table->flags = (uint8)flags;
 
     read_leb_uint32(p, p_end, table->init_size);
     if (table->flags == 1) {
