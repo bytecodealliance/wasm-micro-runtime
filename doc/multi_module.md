@@ -98,7 +98,7 @@ When building an executable, only the entry point (_start) and symbols with the 
 
 In the example, another linked command option *--export-all* is used.
 
-> with more detail, please refer to [WebAssembly lld port][https://lld.llvm.org/WebAssembly.html]
+> with more detail, please refer to [WebAssembly lld port](https://lld.llvm.org/WebAssembly.html)
 
 Here is an example how to compile a *.c* to a *.wasm* with clang. Since there is no *start* function, we use *--no-entry* option.
 

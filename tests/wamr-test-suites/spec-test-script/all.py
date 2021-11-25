@@ -49,7 +49,7 @@ def ignore_the_case(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
-    reference_type_flag=True,
+    multi_thread_flag=False,
     simd_flag=False,
 ):
     if case_name in ["comments", "inline-module", "names"]:
@@ -98,7 +98,7 @@ def test_case(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
-    reference_type_flag=True,
+    multi_thread_flag=False,
     simd_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
@@ -112,7 +112,7 @@ def test_case(
         aot_flag,
         sgx_flag,
         multi_module_flag,
-        reference_type_flag,
+        multi_thread_flag,
         simd_flag,
     ):
         return True
@@ -130,8 +130,8 @@ def test_case(
         CMD.append("--aot-target")
         CMD.append(target)
 
-    if reference_type_flag:
-        CMD.append("--ref_types")
+    if multi_thread_flag:
+        CMD.append("--multi-thread")
 
     if sgx_flag:
         CMD.append("--sgx")
@@ -193,7 +193,7 @@ def test_suite(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
-    reference_type_flag=True,
+    multi_thread_flag=False,
     simd_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
@@ -215,7 +215,7 @@ def test_suite(
                 aot_flag,
                 sgx_flag,
                 multi_module_flag,
-                reference_type_flag,
+                multi_thread_flag,
                 simd_flag,
                 clean_up_flag,
                 verbose_flag,
@@ -237,7 +237,7 @@ def test_suite_parallelly(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
-    reference_type_flag=True,
+    multi_thread_flag=False,
     simd_flag=False,
     clean_up_flag=False,
     verbose_flag=False,
@@ -264,7 +264,7 @@ def test_suite_parallelly(
                     aot_flag,
                     sgx_flag,
                     multi_module_flag,
-                    reference_type_flag,
+                    multi_thread_flag,
                     simd_flag,
                     clean_up_flag,
                     verbose_flag,
@@ -310,11 +310,11 @@ def main():
         help="Specify Target ",
     )
     parser.add_argument(
-        "-r",
+        "-p",
         action="store_true",
         default=False,
-        dest="reference_type_flag",
-        help="Running with the Reference-type feature",
+        dest="multi_thread_flag",
+        help="Running with the Multi-Thread feature",
     )
     parser.add_argument(
         "-S",
@@ -338,18 +338,18 @@ def main():
         help="Running with SGX environment",
     )
     parser.add_argument(
-        "--parl",
-        action="store_true",
-        default=False,
-        dest="parl_flag",
-        help="To run whole test suite parallelly",
-    )
-    parser.add_argument(
         "--no_clean_up",
         action="store_false",
         default=True,
         dest="clean_up_flag",
         help="Does not remove tmpfiles. But it will be enabled while running parallelly",
+    )
+    parser.add_argument(
+        "--parl",
+        action="store_true",
+        default=False,
+        dest="parl_flag",
+        help="To run whole test suite parallelly",
     )
     parser.add_argument(
         "--quiet",
@@ -385,7 +385,7 @@ def main():
                 options.aot_flag,
                 options.sgx_flag,
                 options.multi_module_flag,
-                options.reference_type_flag,
+                options.multi_thread_flag,
                 options.simd_flag,
                 options.clean_up_flag,
                 options.verbose_flag,
@@ -401,7 +401,7 @@ def main():
                 options.aot_flag,
                 options.sgx_flag,
                 options.multi_module_flag,
-                options.reference_type_flag,
+                options.multi_thread_flag,
                 options.simd_flag,
                 options.clean_up_flag,
                 options.verbose_flag,
@@ -417,7 +417,7 @@ def main():
                     options.aot_flag,
                     options.sgx_flag,
                     options.multi_module_flag,
-                    options.reference_type_flag,
+                    options.multi_thread_flag,
                     options.simd_flag,
                     options.clean_up_flag,
                     options.verbose_flag,
