@@ -21,10 +21,27 @@ typedef struct WASMDebugEngine {
     int platform_port;
     int process_base_port;
     bh_list debug_instance_list;
+    korp_mutex instance_list_lock;
     bool active;
 } WASMDebugEngine;
 
 static WASMDebugEngine *g_debug_engine;
+
+static uint32 current_instance_id = 1;
+
+static uint32
+allocate_instance_id()
+{
+    uint32 id;
+
+    bh_assert(g_debug_engine);
+
+    os_mutex_lock(&g_debug_engine->instance_list_lock);
+    id = current_instance_id++;
+    os_mutex_unlock(&g_debug_engine->instance_list_lock);
+
+    return id;
+}
 
 static bool
 should_stop(WASMDebugControlThread *control_thread)
@@ -54,7 +71,7 @@ control_thread_routine(void *arg)
 
     control_thread->status = RUNNING;
 
-    debug_inst->id = g_debug_engine->debug_instance_list.len + 1;
+    debug_inst->id = allocate_instance_id();
 
     control_thread->debug_engine = g_debug_engine;
     control_thread->debug_instance = debug_inst;
@@ -137,8 +154,11 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
     if (!control_thread->server)
         goto fail1;
 
+    os_mutex_lock(&g_debug_engine->instance_list_lock);
     /* create control thread success, append debug instance to debug engine */
     bh_list_insert(&g_debug_engine->debug_instance_list, debug_instance);
+    os_mutex_unlock(&g_debug_engine->instance_list_lock);
+
     wasm_cluster_send_signal_all(debug_instance->cluster, WAMR_SIG_STOP);
 
     return control_thread;
@@ -177,6 +197,15 @@ wasm_debug_engine_create()
     }
     memset(engine, 0, sizeof(WASMDebugEngine));
 
+    if (os_mutex_init(&engine->instance_list_lock) != 0) {
+        wasm_runtime_free(engine);
+        LOG_ERROR("WASM Debug Engine error: failed to init mutex");
+        return NULL;
+    }
+
+    /* reset current instance id */
+    current_instance_id = 1;
+
     /* TODO: support Wasm platform in LLDB */
     /*
     engine->control_thread =
@@ -189,6 +218,16 @@ wasm_debug_engine_create()
 
     bh_list_init(&engine->debug_instance_list);
     return engine;
+}
+
+void
+wasm_debug_engine_destroy()
+{
+    if (g_debug_engine) {
+        os_mutex_destroy(&g_debug_engine->instance_list_lock);
+        wasm_runtime_free(g_debug_engine);
+        g_debug_engine = NULL;
+    }
 }
 
 bool
@@ -230,15 +269,6 @@ wasm_debug_get_engine_active(void)
     return false;
 }
 
-void
-wasm_debug_engine_destroy()
-{
-    if (g_debug_engine) {
-        wasm_runtime_free(g_debug_engine);
-        g_debug_engine = NULL;
-    }
-}
-
 /* A debug Instance is a debug "process" in gdb remote protocol
    and bound to a runtime cluster */
 WASMDebugInstance *
@@ -276,13 +306,19 @@ wasm_debug_instance_create(WASMCluster *cluster)
 static WASMDebugInstance *
 wasm_cluster_get_debug_instance(WASMDebugEngine *engine, WASMCluster *cluster)
 {
-    WASMDebugInstance *instance =
-        bh_list_first_elem(&engine->debug_instance_list);
+    WASMDebugInstance *instance;
+
+    os_mutex_lock(&g_debug_engine->instance_list_lock);
+    instance = bh_list_first_elem(&engine->debug_instance_list);
     while (instance) {
-        if (instance->cluster == cluster)
+        if (instance->cluster == cluster) {
+            os_mutex_unlock(&g_debug_engine->instance_list_lock);
             return instance;
+        }
         instance = bh_list_elem_next(instance);
     }
+    os_mutex_unlock(&g_debug_engine->instance_list_lock);
+
     return instance;
 }
 
@@ -315,7 +351,10 @@ wasm_debug_instance_destroy(WASMCluster *cluster)
     if (instance) {
         /* destroy control thread */
         wasm_debug_control_thread_destroy(instance);
+
+        os_mutex_lock(&g_debug_engine->instance_list_lock);
         bh_list_remove(&g_debug_engine->debug_instance_list, instance);
+        os_mutex_unlock(&g_debug_engine->instance_list_lock);
 
         /* destroy all breakpoints */
         wasm_debug_instance_destroy_breakpoints(instance);
@@ -700,12 +739,15 @@ wasm_exec_env_get_instance(WASMExecEnv *exec_env)
     WASMDebugInstance *instance = NULL;
     bh_assert(g_debug_engine);
 
+    os_mutex_lock(&g_debug_engine->instance_list_lock);
     instance = bh_list_first_elem(&g_debug_engine->debug_instance_list);
     while (instance) {
         if (instance->cluster == exec_env->cluster)
             break;
         instance = bh_list_elem_next(instance);
     }
+
+    os_mutex_unlock(&g_debug_engine->instance_list_lock);
     return instance;
 }
 
