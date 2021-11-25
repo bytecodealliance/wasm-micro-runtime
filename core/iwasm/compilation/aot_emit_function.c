@@ -717,32 +717,19 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 }
 
                 if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx_const,
-<<<<<<< HEAD
-                            &func)) {
-=======
                                         &func)) {
->>>>>>> refactor_lazy_jit
                     goto fail;
                 }
 
                 if (!(func_ptr_type = LLVMPointerType(
-<<<<<<< HEAD
-                                func_ctxes[func_idx - import_func_count]->func_type,
-                                0))) {
-=======
                           func_ctxes[func_idx - import_func_count]->func_type,
                           0))) {
->>>>>>> refactor_lazy_jit
                     aot_set_last_error("construct func ptr type failed.");
                     goto fail;
                 }
 
                 if (!(func = LLVMBuildBitCast(comp_ctx->builder, func,
-<<<<<<< HEAD
-                                func_ptr_type, "aot_func"))) {
-=======
                                               func_ptr_type, "aot_func"))) {
->>>>>>> refactor_lazy_jit
                     aot_set_last_error("llvm bit cast failed.");
                     goto fail;
                 }
