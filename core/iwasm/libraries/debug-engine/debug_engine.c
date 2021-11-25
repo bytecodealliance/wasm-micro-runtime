@@ -198,6 +198,7 @@ wasm_debug_engine_create()
     memset(engine, 0, sizeof(WASMDebugEngine));
 
     if (os_mutex_init(&engine->instance_list_lock) != 0) {
+        wasm_runtime_free(engine);
         LOG_ERROR("WASM Debug Engine error: failed to init mutex");
         return NULL;
     }
