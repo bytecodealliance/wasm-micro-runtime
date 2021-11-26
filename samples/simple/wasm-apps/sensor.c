@@ -9,14 +9,15 @@
 static sensor_t sensor = NULL;
 
 /* Sensor event callback*/
-void sensor_event_handler(sensor_t sensor, attr_container_t *event,
-                          void *user_data)
+void
+sensor_event_handler(sensor_t sensor, attr_container_t *event, void *user_data)
 {
     printf("### app get sensor event\n");
     attr_container_dump(event);
 }
 
-void on_init()
+void
+on_init()
 {
     char *user_data;
     attr_container_t *config;
@@ -39,7 +40,8 @@ void on_init()
      */
 }
 
-void on_destroy()
+void
+on_destroy()
 {
     if (NULL != sensor) {
         sensor_config(sensor, 0, 0, 0);

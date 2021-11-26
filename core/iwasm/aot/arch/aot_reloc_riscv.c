@@ -17,21 +17,53 @@
 
 /* clang-format off */
 void __divdi3();
+void __divsi3();
+void __fixdfdi();
+void __fixsfdi();
+void __fixunsdfdi();
+void __fixunssfdi();
+void __floatdidf();
+void __floatdisf();
+void __floatundidf();
+void __floatundisf();
 void __moddi3();
+void __modsi3();
 void __muldi3();
+void __mulsi3();
 void __udivdi3();
+void __udivsi3();
 void __umoddi3();
+void __umodsi3();
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
     /* clang-format off */
     REG_COMMON_SYMBOLS
     REG_SYM(__divdi3),
-    /* clang-format on */
+    REG_SYM(__divsi3),
+#if __riscv_xlen == 32
+    REG_SYM(__fixdfdi),
+    REG_SYM(__fixsfdi),
+#endif
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__fixunssfdi),
+#if __riscv_xlen == 32
+    REG_SYM(__floatdidf),
+    REG_SYM(__floatdisf),
+    REG_SYM(__floatundidf),
+    REG_SYM(__floatundisf),
+#endif
     REG_SYM(__moddi3),
+    REG_SYM(__modsi3),
     REG_SYM(__muldi3),
+#if __riscv_xlen == 32
+    REG_SYM(__mulsi3),
+#endif
     REG_SYM(__udivdi3),
+    REG_SYM(__udivsi3),
     REG_SYM(__umoddi3),
+    REG_SYM(__umodsi3),
+    /* clang-format on */
 };
 
 static void
@@ -205,7 +237,7 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
 bool
 apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     int32 val, imm_hi, imm_lo, insn;
@@ -216,10 +248,10 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_RISCV_32:
         {
             uint32 val_32 =
-                (uint32)(uintptr_t)((uint8 *)symbol_addr + reloc_addend);
+                (uint32)((uintptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val_32 != (uintptr_t)((uint8 *)symbol_addr + reloc_addend)) {
+            if (val_32 != ((uintptr_t)symbol_addr + (intptr_t)reloc_addend)) {
                 goto fail_addr_out_of_range;
             }
 
@@ -229,7 +261,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_RISCV_64:
         {
             uint64 val_64 =
-                (uint64)(uintptr_t)((uint8 *)symbol_addr + reloc_addend);
+                (uint64)((uintptr_t)symbol_addr + (intptr_t)reloc_addend);
             CHECK_RELOC_OFFSET(sizeof(uint64));
             bh_memcpy_s(addr, 8, &val_64, 8);
             break;
@@ -273,10 +305,10 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
         case R_RISCV_HI20:
         {
-            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend);
+            val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend)) {
+            if (val != ((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
                 goto fail_addr_out_of_range;
             }
 
@@ -290,10 +322,10 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
         case R_RISCV_LO12_I:
         {
-            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend);
+            val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend)) {
+            if (val != (intptr_t)symbol_addr + (intptr_t)reloc_addend) {
                 goto fail_addr_out_of_range;
             }
 
@@ -307,10 +339,10 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
         case R_RISCV_LO12_S:
         {
-            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend);
+            val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend)) {
+            if (val != ((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
                 goto fail_addr_out_of_range;
             }
 

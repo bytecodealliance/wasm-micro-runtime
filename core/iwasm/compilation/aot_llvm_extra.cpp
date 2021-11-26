@@ -33,6 +33,9 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
 extern "C" bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
+extern "C" void
+aot_func_disable_tce(LLVMValueRef func);
+
 LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
@@ -142,4 +145,15 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
     (void)cpu_c_str;
     return true;
 #endif /* WASM_ENABLE_SIMD */
+}
+
+void
+aot_func_disable_tce(LLVMValueRef func)
+{
+    Function *F = unwrap<Function>(func);
+    auto Attrs = F->getAttributes();
+
+    Attrs = Attrs.addAttribute(F->getContext(), AttributeList::FunctionIndex,
+                               "disable-tail-calls", "true");
+    F->setAttributes(Attrs);
 }

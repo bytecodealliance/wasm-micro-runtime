@@ -199,7 +199,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     while (cur < end) {
         size = hmu_get_size(cur);
 
-        if (size <= 0 || size > (uint8 *)end - (uint8 *)cur) {
+        if (size <= 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
             os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
             heap->is_heap_corrupted = true;
             return GC_ERROR;
