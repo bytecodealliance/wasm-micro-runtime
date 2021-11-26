@@ -2234,6 +2234,9 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
             }
             CHECK_BUF1(p, p_end, 1);
             read_leb_uint32(p, p_end, section_size);
+            if (section_size >= size) {
+                return false;
+            }
             CHECK_BUF1(p, p_end, section_size);
 
             if (!(section = loader_malloc(sizeof(WASMSection), error_buf,
