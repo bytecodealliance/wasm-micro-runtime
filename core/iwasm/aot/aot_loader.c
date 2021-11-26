@@ -2709,7 +2709,7 @@ typedef struct OrcJitThreadArg {
 } OrcJitThreadArg;
 
 static bool orcjit_stop_compiling = false;
-static pthread_t orcjit_threads[WASM_LAZY_JIT_COMPILE_THREAD_NUM];
+static korp_tid orcjit_threads[WASM_LAZY_JIT_COMPILE_THREAD_NUM];
 static OrcJitThreadArg orcjit_thread_args[WASM_LAZY_JIT_COMPILE_THREAD_NUM];
 
 static void *
@@ -2751,7 +2751,7 @@ orcjit_stop_compile_threads()
     uint32 i;
     orcjit_stop_compiling = true;
     for (i = 0; i < WASM_LAZY_JIT_COMPILE_THREAD_NUM; i++) {
-        pthread_join(orcjit_threads[i], NULL);
+        os_thread_join(orcjit_threads[i], NULL);
     }
 }
 #endif
@@ -2835,8 +2835,9 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         orcjit_thread_args[i].module = module;
         orcjit_thread_args[i].group_idx = i;
         orcjit_thread_args[i].group_stride = WASM_LAZY_JIT_COMPILE_THREAD_NUM;
-        if (pthread_create(&orcjit_threads[i], NULL, orcjit_thread_callback,
-                           (void *)&orcjit_thread_args[i])
+        if (os_thread_create(&orcjit_threads[i], orcjit_thread_callback,
+                             (void *)&orcjit_thread_args[i],
+                             APP_THREAD_STACK_SIZE_DEFAULT)
             != 0) {
             uint32 j;
 
@@ -2844,7 +2845,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                           "create orcjit compile thread failed");
             orcjit_stop_compiling = true;
             for (j = 0; j < i; j++) {
-                pthread_join(orcjit_threads[j], NULL);
+                os_thread_join(orcjit_threads[j], NULL);
             }
             goto fail3;
         }
