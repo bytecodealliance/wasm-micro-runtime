@@ -1036,8 +1036,15 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         LLVMValueRef func, params[3];
         int32 func_idx;
 
+        if (!(dst_addr =
+                  LLVMBuildBitCast(comp_ctx->builder, dst_addr, INT32_PTR_TYPE,
+                                   "memset dst addr cast type"))) {
+            aot_set_last_error("llvm cast memset dst addr type failed.");
+            return false;
+        }
+
         param_types[0] = INT32_PTR_TYPE;
-        param_types[1] = I32_TYPE;
+        param_types[1] = INT8_TYPE;
         param_types[2] = I32_TYPE;
         ret_type = INT32_PTR_TYPE;
 
