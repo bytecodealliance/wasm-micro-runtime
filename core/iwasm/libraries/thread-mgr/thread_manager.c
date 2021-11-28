@@ -5,6 +5,10 @@
 
 #include "thread_manager.h"
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+#include "debug_engine.h"
+#endif
+
 typedef struct {
     bh_list_link l;
     void (*destroy_cb)(WASMCluster *);
@@ -488,31 +492,18 @@ wasm_cluster_create_exenv_status()
     WASMCurrentEnvStatus *status;
 
     if (!(status = wasm_runtime_malloc(sizeof(WASMCurrentEnvStatus)))) {
-        goto fail;
+        return NULL;
     }
-    if (os_mutex_init(&status->wait_lock) != 0)
-        goto fail1;
 
-    if (os_cond_init(&status->wait_cond) != 0)
-        goto fail2;
     status->step_count = 0;
     status->signal_flag = 0;
     status->running_status = 0;
     return status;
-
-fail2:
-    os_mutex_destroy(&status->wait_lock);
-fail1:
-    wasm_runtime_free(status);
-fail:
-    return NULL;
 }
 
 void
 wasm_cluster_destroy_exenv_status(WASMCurrentEnvStatus *status)
 {
-    os_mutex_destroy(&status->wait_lock);
-    os_cond_destroy(&status->wait_cond);
     wasm_runtime_free(status);
 }
 
@@ -530,28 +521,31 @@ wasm_cluster_clear_thread_signal(WASMExecEnv *exec_env)
 }
 
 void
-wasm_cluster_wait_thread_status(WASMExecEnv *exec_env, uint32 *status)
-{
-    os_mutex_lock(&exec_env->current_status->wait_lock);
-    while (wasm_cluster_thread_is_running(exec_env)) {
-        os_cond_wait(&exec_env->current_status->wait_cond,
-                     &exec_env->current_status->wait_lock);
-    }
-    *status = exec_env->current_status->signal_flag;
-    os_mutex_unlock(&exec_env->current_status->wait_lock);
-}
-
-void
 wasm_cluster_thread_send_signal(WASMExecEnv *exec_env, uint32 signo)
 {
     exec_env->current_status->signal_flag = signo;
+}
+
+static void
+notify_debug_instance(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster;
+
+    cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+
+    os_mutex_lock(&cluster->debug_inst->wait_lock);
+    os_cond_signal(&cluster->debug_inst->wait_cond);
+    os_mutex_unlock(&cluster->debug_inst->wait_lock);
 }
 
 void
 wasm_cluster_thread_stopped(WASMExecEnv *exec_env)
 {
     exec_env->current_status->running_status = STATUS_STOP;
-    os_cond_signal(&exec_env->current_status->wait_cond);
+    notify_debug_instance(exec_env);
+    /* TODO: signal debug instance's wait_cond */
+    // os_cond_signal(&exec_env->current_status->wait_cond);
 }
 
 void
@@ -578,7 +572,9 @@ void
 wasm_cluster_thread_exited(WASMExecEnv *exec_env)
 {
     exec_env->current_status->running_status = STATUS_EXIT;
-    os_cond_signal(&exec_env->current_status->wait_cond);
+    notify_debug_instance(exec_env);
+    /* TODO: signal debug instance's wait_cond */
+    // os_cond_signal(&exec_env->current_status->wait_cond);
 }
 
 void
@@ -595,7 +591,14 @@ wasm_cluster_thread_step(WASMExecEnv *exec_env)
     exec_env->current_status->running_status = STATUS_STEP;
     os_cond_signal(&exec_env->wait_cond);
 }
-#endif
+
+void
+wasm_cluster_set_debug_inst(WASMCluster *cluster, WASMDebugInstance *inst)
+{
+    cluster->debug_inst = inst;
+}
+
+#endif /* end of WASM_ENABLE_DEBUG_INTERP */
 
 int32
 wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)

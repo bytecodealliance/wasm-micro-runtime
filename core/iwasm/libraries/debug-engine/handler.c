@@ -261,6 +261,10 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     if (args && (!strcmp(name, "WasmGlobal"))) {
         porcess_wasm_global(server, args);
     }
+
+    if (!strcmp(name, "Offsets")) {
+        write_packet(server, "");
+    }
 }
 
 static void

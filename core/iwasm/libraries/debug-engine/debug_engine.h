@@ -42,6 +42,8 @@ typedef struct WASMDebugInstance {
     WASMCluster *cluster;
     uint32 id;
     korp_tid current_tid;
+    korp_mutex wait_lock;
+    korp_cond wait_cond;
 } WASMDebugInstance;
 
 typedef enum WASMDebugEventKind {
