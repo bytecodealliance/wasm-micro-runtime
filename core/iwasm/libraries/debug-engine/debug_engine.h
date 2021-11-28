@@ -162,6 +162,9 @@ uint64
 wasm_debug_instance_wait_thread(WASMDebugInstance *instance, uint64 tid,
                                 uint32 *status);
 
+uint32
+wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, uint64 tid);
+
 bool
 wasm_debug_instance_singlestep(WASMDebugInstance *instance, uint64 tid);
 

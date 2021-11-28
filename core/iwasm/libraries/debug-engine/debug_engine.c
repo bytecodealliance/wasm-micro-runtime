@@ -444,18 +444,22 @@ wasm_debug_instance_get_tids(WASMDebugInstance *instance, uint64 tids[],
                              int len)
 {
     WASMExecEnv *exec_env;
-    int i = 0;
+    int i = 0, threads_num = 0;
 
     if (!instance)
         return 0;
 
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env && i < len) {
-        tids[i++] = exec_env->handle;
+        /* Some threads may not be ready */
+        if (exec_env->handle != 0) {
+            tids[i++] = exec_env->handle;
+            threads_num++;
+        }
         exec_env = bh_list_elem_next(exec_env);
     }
-    LOG_VERBOSE("find %d tids\n", i);
-    return i;
+    LOG_VERBOSE("find %d tids\n", threads_num);
+    return threads_num;
 }
 
 static WASMExecEnv *
@@ -494,6 +498,22 @@ wasm_debug_instance_wait_thread(WASMDebugInstance *instance, uint64 tid,
     instance->current_tid = exec_env->handle;
     *status = exec_env->current_status->signal_flag;
     return exec_env->handle;
+}
+
+uint32
+wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, uint64 tid)
+{
+    WASMExecEnv *exec_env = NULL;
+
+    exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
+    while (exec_env) {
+        if (exec_env->handle == tid) {
+            return exec_env->current_status->signal_flag;
+        }
+        exec_env = bh_list_elem_next(exec_env);
+    }
+
+    return 0;
 }
 
 void
