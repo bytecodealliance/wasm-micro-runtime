@@ -57,8 +57,6 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_F32_TO_U64   AOT_INTRINSIC_FLAG(0, 23)
 #define AOT_INTRINSIC_FLAG_F32_TO_F64   AOT_INTRINSIC_FLAG(0, 24)
 #define AOT_INTRINSIC_FLAG_F32_CMP      AOT_INTRINSIC_FLAG(0, 25)
-#define AOT_INTRINSIC_FLAG_CMPXCHG_4    AOT_INTRINSIC_FLAG(0, 26)
-#define AOT_INTRINSIC_FLAG_ATOMIC_LOAD  AOT_INTRINSIC_FLAG(0, 27)
 
 #define AOT_INTRINSIC_FLAG_F64_FADD     AOT_INTRINSIC_FLAG(1, 0)
 #define AOT_INTRINSIC_FLAG_F64_FSUB     AOT_INTRINSIC_FLAG(1, 1)
@@ -86,8 +84,6 @@ extern "C" {
 #define AOT_INTRINSIC_FLAG_F64_TO_U64   AOT_INTRINSIC_FLAG(1, 23)
 #define AOT_INTRINSIC_FLAG_F64_TO_F32   AOT_INTRINSIC_FLAG(1, 24)
 #define AOT_INTRINSIC_FLAG_F64_CMP      AOT_INTRINSIC_FLAG(1, 25)
-#define AOT_INTRINSIC_FLAG_CMPXCHG_8    AOT_INTRINSIC_FLAG(1, 26)
-#define AOT_INTRINSIC_FLAG_ATOMIC_STORE AOT_INTRINSIC_FLAG(1, 27)
 
 /* clang-format on */
 
@@ -246,14 +242,6 @@ aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs);
 
 int32
 aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs);
-
-int32
-aot_intrinsic_cmpxchg_4(int32 *ptr, int32 expected, int32 desired, int success,
-                        int failure);
-
-int64
-aot_intrinsic_cmpxchg_8(int64 *ptr, int64 expected, int64 desired, int success,
-                        int failure);
 
 const char *
 aot_intrinsic_get_symbol(const char *llvm_intrinsic);

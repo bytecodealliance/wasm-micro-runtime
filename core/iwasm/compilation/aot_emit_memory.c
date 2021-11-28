@@ -344,12 +344,7 @@ fail:
         }                                                                  \
         LLVMSetAlignment(value, 1 << align);                               \
         LLVMSetVolatile(value, true);                                      \
-        LLVMSetOrdering(value,                                             \
-                        (comp_ctx->is_indirect_mode                        \
-                         && aot_intrinsic_check_capability(                \
-                             comp_ctx, "aot_intrinsic_atomic_load"))       \
-                            ? LLVMAtomicOrderingNotAtomic                  \
-                            : LLVMAtomicOrderingSequentiallyConsistent);   \
+        LLVMSetOrdering(value, LLVMAtomicOrderingSequentiallyConsistent);  \
     } while (0)
 
 #define BUILD_ATOMIC_STORE(align)                                          \
@@ -364,12 +359,7 @@ fail:
         }                                                                  \
         LLVMSetAlignment(res, 1 << align);                                 \
         LLVMSetVolatile(res, true);                                        \
-        LLVMSetOrdering(value,                                             \
-                        (comp_ctx->is_indirect_mode                        \
-                         && aot_intrinsic_check_capability(                \
-                             comp_ctx, "aot_intrinsic_atomic_store"))      \
-                            ? LLVMAtomicOrderingNotAtomic                  \
-                            : LLVMAtomicOrderingSequentiallyConsistent);   \
+        LLVMSetOrdering(value, LLVMAtomicOrderingSequentiallyConsistent);  \
     } while (0)
 #endif
 
@@ -1180,116 +1170,46 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
     if (!check_memory_alignment(comp_ctx, func_ctx, maddr, align))
         return false;
 
-    if (comp_ctx->is_indirect_mode
-        && aot_intrinsic_check_capability(
-            comp_ctx, bytes == 8 ? "aot_intrinsic_cmpxchg_8"
-                                 : "aot_intrinsic_cmpxchg_4")) {
-
-        LLVMValueRef func, param_values[5];
-        LLVMTypeRef func_type, func_ptr_type, ret_type, param_types[5];
-
-        switch (bytes) {
-            case 8:
-                BUILD_PTR_CAST(INT64_PTR_TYPE);
-                break;
-            case 4:
-            case 2:
-            case 1:
-                BUILD_PTR_CAST(INT32_PTR_TYPE);
-                if (op_type == VALUE_TYPE_I64) {
-                    BUILD_TRUNC(value, I32_TYPE);
-                    BUILD_TRUNC(expect, I32_TYPE);
-                }
-                break;
-            default:
-                bh_assert(0);
-                break;
-        }
-
-        param_types[0] = bytes == 8 ? INT64_PTR_TYPE : INT32_PTR_TYPE;
-        param_types[1] = bytes == 8 ? I64_TYPE : I32_TYPE;
-        param_types[2] = bytes == 8 ? I64_TYPE : I32_TYPE;
-        param_types[3] = I32_TYPE;
-        param_types[4] = I32_TYPE;
-        ret_type = bytes == 8 ? I64_TYPE : I32_TYPE;
-
-        if (bytes == 8) {
-            GET_AOT_FUNCTION(aot_intrinsic_cmpxchg_8, 5);
-        }
-        else {
-            GET_AOT_FUNCTION(aot_intrinsic_cmpxchg_4, 5);
-        }
-
-        param_values[0] = maddr;
-        param_values[1] = expect;
-        param_values[2] = value;
-        if (!(param_values[3] =
-                  I32_CONST((int)LLVMAtomicOrderingSequentiallyConsistent))) {
-            aot_set_last_error("llvm build aotmic flags failed.");
-            goto fail;
-        }
-        if (!(param_values[4] =
-                  I32_CONST((int)LLVMAtomicOrderingSequentiallyConsistent))) {
-            aot_set_last_error("llvm build aotmic flags failed.");
-            goto fail;
-        }
-
-        if (!(result = LLVMBuildCall(comp_ctx->builder, func, param_values, 5,
-                                     "call_cmpxchg"))) {
-            goto fail;
-        }
-
-        /* Truncate result to target */
-
-        if (bytes == 2) {
-            BUILD_TRUNC(result, INT16_TYPE);
-        }
-        else if (bytes == 1) {
-            BUILD_TRUNC(result, INT8_TYPE);
-        }
+    switch (bytes) {
+        case 8:
+            BUILD_PTR_CAST(INT64_PTR_TYPE);
+            break;
+        case 4:
+            BUILD_PTR_CAST(INT32_PTR_TYPE);
+            if (op_type == VALUE_TYPE_I64) {
+                BUILD_TRUNC(value, I32_TYPE);
+                BUILD_TRUNC(expect, I32_TYPE);
+            }
+            break;
+        case 2:
+            BUILD_PTR_CAST(INT16_PTR_TYPE);
+            BUILD_TRUNC(value, INT16_TYPE);
+            BUILD_TRUNC(expect, INT16_TYPE);
+            break;
+        case 1:
+            BUILD_PTR_CAST(INT8_PTR_TYPE);
+            BUILD_TRUNC(value, INT8_TYPE);
+            BUILD_TRUNC(expect, INT8_TYPE);
+            break;
+        default:
+            bh_assert(0);
+            break;
     }
-    else {
-        switch (bytes) {
-            case 8:
-                BUILD_PTR_CAST(INT64_PTR_TYPE);
-                break;
-            case 4:
-                BUILD_PTR_CAST(INT32_PTR_TYPE);
-                if (op_type == VALUE_TYPE_I64) {
-                    BUILD_TRUNC(value, I32_TYPE);
-                    BUILD_TRUNC(expect, I32_TYPE);
-                }
-                break;
-            case 2:
-                BUILD_PTR_CAST(INT16_PTR_TYPE);
-                BUILD_TRUNC(value, INT16_TYPE);
-                BUILD_TRUNC(expect, INT16_TYPE);
-                break;
-            case 1:
-                BUILD_PTR_CAST(INT8_PTR_TYPE);
-                BUILD_TRUNC(value, INT8_TYPE);
-                BUILD_TRUNC(expect, INT8_TYPE);
-                break;
-            default:
-                bh_assert(0);
-                break;
-        }
 
-        if (!(result = LLVMBuildAtomicCmpXchg(
-                  comp_ctx->builder, maddr, expect, value,
-                  LLVMAtomicOrderingSequentiallyConsistent,
-                  LLVMAtomicOrderingSequentiallyConsistent, true))) {
-            goto fail;
-        }
+    if (!(result = LLVMBuildAtomicCmpXchg(
+              comp_ctx->builder, maddr, expect, value,
+              LLVMAtomicOrderingSequentiallyConsistent,
+              LLVMAtomicOrderingSequentiallyConsistent, true))) {
+        goto fail;
+    }
 
-        LLVMSetVolatile(result, true);
+    LLVMSetVolatile(result, true);
 
-        /* CmpXchg return {i32, i1} structure,
-           we need to extrack the previous_value from the structure */
-        if (!(result = LLVMBuildExtractValue(comp_ctx->builder, result, 0,
-                                             "previous_value"))) {
-            goto fail;
-        }
+    /* CmpXchg return {i32, i1} structure,
+       we need to extrack the previous_value from the structure */
+    if (!(result = LLVMBuildExtractValue(comp_ctx->builder, result, 0,
+                                         "previous_value"))) {
+        goto fail;
     }
 
     if (op_type == VALUE_TYPE_I32) {
