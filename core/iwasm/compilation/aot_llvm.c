@@ -1332,63 +1332,66 @@ orc_lazyjit_create(AOTCompContext *comp_ctx, uint32 func_count)
        LLVMOrcCreateLLJIT(), here we should not dispose it again */
     orc_lazyjit_builder = NULL;
 
-    orc_execution_session = LLVMOrcLLJITGetExecutionSession(orc_lazyjit);
-    if (!orc_execution_session) {
-        aot_set_last_error("failed to get orc execution session");
-        goto fail;
-    }
+    if (func_count > 0) {
+        orc_execution_session = LLVMOrcLLJITGetExecutionSession(orc_lazyjit);
+        if (!orc_execution_session) {
+            aot_set_last_error("failed to get orc execution session");
+            goto fail;
+        }
 
-    err = LLVMOrcCreateLocalLazyCallThroughManager(
-        llvm_triple, orc_execution_session, 0, &orc_call_through_mgr);
-    if (err) {
-        aot_handle_llvm_errmsg("failed to create orc call through manager",
-                               err);
-        goto fail;
-    }
+        err = LLVMOrcCreateLocalLazyCallThroughManager(
+            llvm_triple, orc_execution_session, 0, &orc_call_through_mgr);
+        if (err) {
+            aot_handle_llvm_errmsg("failed to create orc call through manager",
+                                   err);
+            goto fail;
+        }
 
-    orc_indirect_stub_mgr = LLVMOrcCreateLocalIndirectStubsManager(llvm_triple);
-    if (!orc_indirect_stub_mgr) {
-        aot_set_last_error("failed to create orc indirect stub manager");
-        goto fail;
-    }
+        orc_indirect_stub_mgr =
+            LLVMOrcCreateLocalIndirectStubsManager(llvm_triple);
+        if (!orc_indirect_stub_mgr) {
+            aot_set_last_error("failed to create orc indirect stub manager");
+            goto fail;
+        }
 
-    if (!(orc_symbol_map_pairs = wasm_runtime_malloc(
-              sizeof(LLVMOrcCSymbolAliasMapPair) * func_count))) {
-        aot_set_last_error("failed to allocate memory");
-        goto fail;
-    }
-    memset(orc_symbol_map_pairs, 0,
-           sizeof(LLVMOrcCSymbolAliasMapPair) * func_count);
-
-    for (i = 0; i < func_count; i++) {
-        snprintf(func_name, sizeof(func_name), "orcjit_%s%d", AOT_FUNC_PREFIX,
-                 i);
-        orc_symbol_map_pairs[i].Name =
-            LLVMOrcExecutionSessionIntern(orc_execution_session, func_name);
-        snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
-        orc_symbol_map_pairs[i].Entry.Name =
-            LLVMOrcExecutionSessionIntern(orc_execution_session, func_name);
-        orc_symbol_map_pairs[i].Entry.Flags.GenericFlags =
-            LLVMJITSymbolGenericFlagsExported
-            | LLVMJITSymbolGenericFlagsCallable;
-        orc_symbol_map_pairs[i].Entry.Flags.TargetFlags =
-            LLVMJITSymbolGenericFlagsExported
-            | LLVMJITSymbolGenericFlagsCallable;
-
-        if (!orc_symbol_map_pairs[i].Name
-            || !orc_symbol_map_pairs[i].Entry.Name) {
+        if (!(orc_symbol_map_pairs = wasm_runtime_malloc(
+                  sizeof(LLVMOrcCSymbolAliasMapPair) * func_count))) {
             aot_set_last_error("failed to allocate memory");
             goto fail;
         }
-    }
+        memset(orc_symbol_map_pairs, 0,
+               sizeof(LLVMOrcCSymbolAliasMapPair) * func_count);
 
-    orc_material_unit =
-        LLVMOrcLazyReexports(orc_call_through_mgr, orc_indirect_stub_mgr,
-                             LLVMOrcLLJITGetMainJITDylib(orc_lazyjit),
-                             orc_symbol_map_pairs, func_count);
-    if (!orc_material_unit) {
-        aot_set_last_error("failed to orc re-exports");
-        goto fail;
+        for (i = 0; i < func_count; i++) {
+            snprintf(func_name, sizeof(func_name), "orcjit_%s%d",
+                     AOT_FUNC_PREFIX, i);
+            orc_symbol_map_pairs[i].Name =
+                LLVMOrcExecutionSessionIntern(orc_execution_session, func_name);
+            snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
+            orc_symbol_map_pairs[i].Entry.Name =
+                LLVMOrcExecutionSessionIntern(orc_execution_session, func_name);
+            orc_symbol_map_pairs[i].Entry.Flags.GenericFlags =
+                LLVMJITSymbolGenericFlagsExported
+                | LLVMJITSymbolGenericFlagsCallable;
+            orc_symbol_map_pairs[i].Entry.Flags.TargetFlags =
+                LLVMJITSymbolGenericFlagsExported
+                | LLVMJITSymbolGenericFlagsCallable;
+
+            if (!orc_symbol_map_pairs[i].Name
+                || !orc_symbol_map_pairs[i].Entry.Name) {
+                aot_set_last_error("failed to allocate memory");
+                goto fail;
+            }
+        }
+
+        orc_material_unit =
+            LLVMOrcLazyReexports(orc_call_through_mgr, orc_indirect_stub_mgr,
+                                 LLVMOrcLLJITGetMainJITDylib(orc_lazyjit),
+                                 orc_symbol_map_pairs, func_count);
+        if (!orc_material_unit) {
+            aot_set_last_error("failed to orc re-exports");
+            goto fail;
+        }
     }
 
     comp_ctx->orc_lazyjit = orc_lazyjit;
@@ -1503,22 +1506,25 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         goto fail;
     }
 #else
-    if (!(comp_ctx->modules = wasm_runtime_malloc(sizeof(LLVMModuleRef)
-                                                  * comp_data->func_count))) {
-        aot_set_last_error("allocate memory failed.");
-        goto fail;
-    }
-    memset(comp_ctx->modules, 0, sizeof(LLVMModuleRef) * comp_data->func_count);
-    for (i = 0; i < comp_data->func_count; i++) {
-        char module_name[32];
-        snprintf(module_name, sizeof(module_name), "WASM Module %d", i);
-        /* Create individual modules for each aot function, note:
-             different from non LAZY JIT mode, no need to dispose them,
-             they will be disposed when the thread safe context is disposed */
-        if (!(comp_ctx->modules[i] = LLVMModuleCreateWithNameInContext(
-                  module_name, comp_ctx->context))) {
-            aot_set_last_error("create LLVM module failed.");
+    if (comp_data->func_count > 0) {
+        if (!(comp_ctx->modules = wasm_runtime_malloc(
+                  sizeof(LLVMModuleRef) * comp_data->func_count))) {
+            aot_set_last_error("allocate memory failed.");
             goto fail;
+        }
+        memset(comp_ctx->modules, 0,
+               sizeof(LLVMModuleRef) * comp_data->func_count);
+        for (i = 0; i < comp_data->func_count; i++) {
+            char module_name[32];
+            snprintf(module_name, sizeof(module_name), "WASM Module %d", i);
+            /* Create individual modules for each aot function, note:
+               different from non LAZY JIT mode, no need to dispose them,
+               they will be disposed when the thread safe context is disposed */
+            if (!(comp_ctx->modules[i] = LLVMModuleCreateWithNameInContext(
+                      module_name, comp_ctx->context))) {
+                aot_set_last_error("create LLVM module failed.");
+                goto fail;
+            }
         }
     }
 #endif

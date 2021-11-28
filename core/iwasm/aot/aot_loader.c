@@ -2704,8 +2704,8 @@ typedef struct OrcJitThreadArg {
     AOTCompData *comp_data;
     AOTCompContext *comp_ctx;
     AOTModule *module;
-    uint32 group_idx;
-    uint32 group_stride;
+    int32 group_idx;
+    int32 group_stride;
 } OrcJitThreadArg;
 
 static bool orcjit_stop_compiling = false;
@@ -2722,9 +2722,9 @@ orcjit_thread_callback(void *arg)
     AOTCompContext *comp_ctx = thread_arg->comp_ctx;
     AOTModule *module = thread_arg->module;
     char func_name[32];
-    uint32 i;
+    int32 i;
 
-    for (i = thread_arg->group_idx; i < comp_data->func_count;
+    for (i = thread_arg->group_idx; i < (int32)comp_data->func_count;
          i += thread_arg->group_stride) {
         if (!module->func_ptrs[i]) {
             snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
@@ -2739,6 +2739,24 @@ orcjit_thread_callback(void *arg)
         }
         if (orcjit_stop_compiling) {
             break;
+        }
+    }
+
+    /* Try to compile functions that haven't been compiled by other threads */
+    for (i = (int32)comp_data->func_count - 1; i > 0; i--) {
+        if (orcjit_stop_compiling) {
+            break;
+        }
+        if (!module->func_ptrs[i]) {
+            snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX, i);
+            if ((error = LLVMOrcLLJITLookup(comp_ctx->orc_lazyjit, &func_addr,
+                                            func_name))) {
+                char *err_msg = LLVMGetErrorMessage(error);
+                os_printf("failed to compile orc jit function: %s", err_msg);
+                LLVMDisposeErrorMessage(err_msg);
+                break;
+            }
+            module->func_ptrs[i] = (void *)func_addr;
         }
     }
 
@@ -2833,7 +2851,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         orcjit_thread_args[i].comp_data = comp_data;
         orcjit_thread_args[i].comp_ctx = comp_ctx;
         orcjit_thread_args[i].module = module;
-        orcjit_thread_args[i].group_idx = i;
+        orcjit_thread_args[i].group_idx = (int32)i;
         orcjit_thread_args[i].group_stride = WASM_LAZY_JIT_COMPILE_THREAD_NUM;
         if (os_thread_create(&orcjit_threads[i], orcjit_thread_callback,
                              (void *)&orcjit_thread_args[i],
