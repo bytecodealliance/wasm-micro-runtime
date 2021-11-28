@@ -225,7 +225,11 @@ endif()
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
 # Disalbe rtti to works with LLVM
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+if (MSVC)
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+else()
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+endif()
 
 add_library (vmlib
              ${PLATFORM_SHARED_SOURCE}
