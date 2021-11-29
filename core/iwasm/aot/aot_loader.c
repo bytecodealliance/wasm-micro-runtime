@@ -2499,6 +2499,11 @@ resolve_native_symbols(const uint8 *buf, uint32 size, uint32 *p_count,
         if (section_type <= AOT_SECTION_TYPE_SIGANATURE
             || section_type == AOT_SECTION_TYPE_CUSTOM) {
             read_uint32(p, p_end, section_size);
+            if (section_size >= size) {
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid section size");
+                goto fail;
+            }
             CHECK_BUF(p, p_end, section_size);
             if (section_type == AOT_SECTION_TYPE_CUSTOM) {
                 read_uint32(p, p_end, section_type);
