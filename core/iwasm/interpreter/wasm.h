@@ -322,6 +322,7 @@ typedef struct WASMFuncType {
 #if WASM_ENABLE_GC != 0
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
+    WASMRefTypeMap *result_ref_type_maps;
 #endif
 
     /* types of params and results, only store the first byte
@@ -707,7 +708,12 @@ typedef struct BlockType {
      * by a type index of module.
      */
     union {
-        uint8 value_type;
+        struct {
+            uint8 type;
+#if WASM_ENABLE_GC != 0
+            WASMRefTypeMap ref_type_map;
+#endif
+        } value_type;
         WASMFuncType *type;
     } u;
     bool is_value_type;
@@ -841,36 +847,83 @@ wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
     return cur_type_idx;
 }
 
+#if WASM_ENABLE_GC == 0
 static inline uint32
 block_type_get_param_types(BlockType *block_type, uint8 **p_param_types)
+#else
+static inline uint32
+block_type_get_param_types(BlockType *block_type, uint8 **p_param_types,
+                           WASMRefTypeMap **p_param_reftype_maps,
+                           uint32 *p_param_reftype_map_count)
+#endif
 {
     uint32 param_count = 0;
     if (!block_type->is_value_type) {
         WASMFuncType *func_type = block_type->u.type;
         *p_param_types = func_type->types;
         param_count = func_type->param_count;
+#if WASM_ENABLE_GC != 0
+        *p_param_reftype_maps = func_type->ref_type_maps;
+        *p_param_reftype_map_count =
+            func_type->result_ref_type_maps - func_type->ref_type_maps;
+#endif
     }
     else {
         *p_param_types = NULL;
         param_count = 0;
+#if WASM_ENABLE_GC != 0
+        *p_param_reftype_maps = NULL;
+        *p_param_reftype_map_count = 0;
+#endif
     }
 
     return param_count;
 }
 
+#if WASM_ENABLE_GC == 0
 static inline uint32
 block_type_get_result_types(BlockType *block_type, uint8 **p_result_types)
+#else
+static inline uint32
+block_type_get_result_types(BlockType *block_type, uint8 **p_result_types,
+                            WASMRefTypeMap **p_result_reftype_maps,
+                            uint32 *p_result_reftype_map_count)
+#endif
 {
     uint32 result_count = 0;
+#if WASM_ENABLE_GC != 0
+    uint8 type;
+#endif
+
     if (block_type->is_value_type) {
-        if (block_type->u.value_type != VALUE_TYPE_VOID) {
-            *p_result_types = &block_type->u.value_type;
+        if (block_type->u.value_type.type != VALUE_TYPE_VOID) {
+            *p_result_types = &block_type->u.value_type.type;
+#if WASM_ENABLE_GC != 0
+            type = block_type->u.value_type.type;
+            if (!(type == (uint8)REF_TYPE_HT_NULLABLE
+                  || type == (uint8)REF_TYPE_HT_NON_NULLABLE
+                  || type == (uint8)REF_TYPE_RTTN
+                  || type == (uint8)REF_TYPE_RTT)) {
+                *p_result_reftype_maps = NULL;
+                *p_result_reftype_map_count = 0;
+            }
+            else {
+                *p_result_reftype_maps = &block_type->u.value_type.ref_type_map;
+                *p_result_reftype_map_count = 1;
+            }
+#endif
             result_count = 1;
         }
     }
     else {
         WASMFuncType *func_type = block_type->u.type;
         *p_result_types = func_type->types + func_type->param_count;
+#if WASM_ENABLE_GC != 0
+        *p_result_reftype_maps = func_type->result_ref_type_maps;
+        *p_result_reftype_map_count =
+            func_type->ref_type_map_count
+            - (func_type->result_ref_type_maps - func_type->ref_type_maps);
+#endif
         result_count = func_type->result_count;
     }
     return result_count;
