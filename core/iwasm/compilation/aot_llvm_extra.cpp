@@ -118,8 +118,6 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
     return 1;
 }
 
-namespace {
-
 class ExpandMemoryOpPass : public llvm::ModulePass
 {
   public:
@@ -142,7 +140,6 @@ class ExpandMemoryOpPass : public llvm::ModulePass
         AU.addRequired<TargetTransformInfoWrapperPass>();
     }
 };
-}
 
 char ExpandMemoryOpPass::ID = 0;
 
