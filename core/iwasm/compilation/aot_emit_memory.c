@@ -359,7 +359,7 @@ fail:
         }                                                                  \
         LLVMSetAlignment(res, 1 << align);                                 \
         LLVMSetVolatile(res, true);                                        \
-        LLVMSetOrdering(value, LLVMAtomicOrderingSequentiallyConsistent);  \
+        LLVMSetOrdering(res, LLVMAtomicOrderingSequentiallyConsistent);    \
     } while (0)
 #endif
 
@@ -1199,7 +1199,7 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
     if (!(result = LLVMBuildAtomicCmpXchg(
               comp_ctx->builder, maddr, expect, value,
               LLVMAtomicOrderingSequentiallyConsistent,
-              LLVMAtomicOrderingSequentiallyConsistent, true))) {
+              LLVMAtomicOrderingSequentiallyConsistent, false))) {
         goto fail;
     }
 
