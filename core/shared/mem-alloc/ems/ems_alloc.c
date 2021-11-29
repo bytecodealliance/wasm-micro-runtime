@@ -759,7 +759,7 @@ gci_dump(gc_heap_t *heap)
         else if (ut == HMU_FC)
             inuse = 'F';
 
-        if (size == 0 || size > (uint8 *)end - (uint8 *)cur) {
+        if (size == 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
             os_printf("[GC_ERROR]Heap is corrupted, heap dump failed.\n");
             heap->is_heap_corrupted = true;
             return;

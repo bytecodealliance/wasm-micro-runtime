@@ -763,7 +763,7 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 &(globals[init_expr->u.global_index].initial_value),
                 sizeof(globals[init_expr->u.global_index].initial_value));
         }
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
         else if (init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST) {
             global->initial_value.u32 = (uint32)NULL_REF;
         }
@@ -879,7 +879,7 @@ static bool
 execute_post_inst_function(WASMModuleInstance *module_inst)
 {
     WASMFunctionInstance *post_inst_func = NULL;
-    WASMType *post_inst_func_type;
+    WASMFuncType *post_inst_func_type;
     uint32 i;
 
     for (i = 0; i < module_inst->export_func_count; i++)
@@ -908,7 +908,7 @@ static bool
 execute_memory_init_function(WASMModuleInstance *module_inst)
 {
     WASMFunctionInstance *memory_init_func = NULL;
-    WASMType *memory_init_func_type;
+    WASMFuncType *memory_init_func_type;
     uint32 i;
 
     for (i = 0; i < module_inst->export_func_count; i++)
@@ -1222,7 +1222,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             switch (global->type) {
                 case VALUE_TYPE_I32:
                 case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC == 0) && (WASM_ENABLE_REF_TYPES != 0)
                 case VALUE_TYPE_FUNCREF:
                 case VALUE_TYPE_EXTERNREF:
 #endif
@@ -1236,6 +1236,12 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                                 &global->initial_value.i64, sizeof(int64));
                     global_data += sizeof(int64);
                     break;
+#if WASM_ENABLE_GC != 0
+                case VALUE_TYPE_FUNCREF:
+                case VALUE_TYPE_EXTERNREF:
+                    /* TODO */
+                    break;
+#endif
                 default:
                     bh_assert(0);
             }
@@ -1299,7 +1305,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         if (base_offset > memory_size) {
             LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
                       memory_size);
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds memory access");
 #else
@@ -1314,7 +1320,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         if (base_offset + length > memory_size) {
             LOG_DEBUG("base_offset(%d) + length(%d) > memory_size(%d)",
                       base_offset, length, memory_size);
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds memory access");
 #else
@@ -1341,7 +1347,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         WASMTableInstance *table = module_inst->tables[table_seg->table_index];
         bh_assert(table);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
         if (table->elem_type != VALUE_TYPE_FUNCREF
             && table->elem_type != VALUE_TYPE_EXTERNREF) {
             set_error_buf(error_buf, error_buf_size,
@@ -1358,7 +1364,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 #endif
         bh_assert(table_data);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
         if (!wasm_elem_is_active(table_seg->mode))
             continue;
 #endif
@@ -1368,7 +1374,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
             || table_seg->base_offset.init_expr_type
                    == INIT_EXPR_TYPE_GET_GLOBAL
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             || table_seg->base_offset.init_expr_type
                    == INIT_EXPR_TYPE_FUNCREF_CONST
             || table_seg->base_offset.init_expr_type
@@ -1401,7 +1407,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         if ((uint32)table_seg->base_offset.u.i32 > table->cur_size) {
             LOG_DEBUG("base_offset(%d) > table->cur_size(%d)",
                       table_seg->base_offset.u.i32, table->cur_size);
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds table access");
 #else
@@ -1416,7 +1422,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         if ((uint32)table_seg->base_offset.u.i32 + length > table->cur_size) {
             LOG_DEBUG("base_offset(%d) + length(%d)> table->cur_size(%d)",
                       table_seg->base_offset.u.i32, length, table->cur_size);
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             set_error_buf(error_buf, error_buf_size,
                           "out of bounds table access");
 #else
@@ -1561,7 +1567,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->global_data)
         wasm_runtime_free(module_inst->global_data);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC == 0) && (WASM_ENABLE_REF_TYPES != 0)
     wasm_externref_cleanup((WASMModuleInstanceCommon *)module_inst);
 #endif
 
@@ -1683,13 +1689,13 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
     }
 #endif
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC == 0) && (WASM_ENABLE_REF_TYPES != 0)
     wasm_runtime_prepare_call_function(exec_env, func);
 #endif
 
     ret = wasm_call_function(exec_env, func, argc, argv);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC == 0) && (WASM_ENABLE_REF_TYPES != 0)
     wasm_runtime_finalize_call_function(exec_env, func, ret, argv);
 #endif
 
@@ -2124,7 +2130,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     memory->memory_data = new_memory_data;
     memory->cur_page_count = total_page_count;
-    memory->heap_data = heap_data_old + (new_memory_data - memory_data);
+    memory->heap_data = new_memory_data + (heap_data_old - memory_data);
     memory->heap_data_end = memory->heap_data + heap_size;
     memory->memory_data_end =
         memory->memory_data + memory->num_bytes_per_page * total_page_count;
@@ -2132,7 +2138,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     return ret;
 }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
                    uint32 inc_entries, uint32 init_val)
@@ -2170,7 +2176,7 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
     table_inst->cur_size = entry_count;
     return true;
 }
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+#endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
 
 bool
 wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
@@ -2291,9 +2297,16 @@ wasm_get_module_mem_consumption(const WASMModule *module,
 
     mem_conspn->types_size = sizeof(WASMType *) * module->type_count;
     for (i = 0; i < module->type_count; i++) {
-        WASMType *type = module->types[i];
-        size = offsetof(WASMType, types)
+#if WASM_ENABLE_GC == 0
+        WASMFuncType *type = (WASMFuncType *)module->types[i];
+        size = offsetof(WASMFuncType, types)
                + sizeof(uint8) * (type->param_count + type->result_count);
+#else
+        /* TODO, calculate the size of func/struct/array type */
+        WASMFuncType *type = (WASMFuncType *)module->types[i];
+        size = offsetof(WASMFuncType, types)
+               + sizeof(uint8) * (type->param_count + type->result_count);
+#endif
         mem_conspn->types_size += size;
     }
 
@@ -2303,7 +2316,7 @@ wasm_get_module_mem_consumption(const WASMModule *module,
         sizeof(WASMFunction *) * module->function_count;
     for (i = 0; i < module->function_count; i++) {
         WASMFunction *func = module->functions[i];
-        WASMType *type = func->func_type;
+        WASMFuncType *type = func->func_type;
         size = sizeof(WASMFunction) + func->local_count
                + sizeof(uint16) * (type->param_count + func->local_count);
 #if WASM_ENABLE_FAST_INTERP != 0

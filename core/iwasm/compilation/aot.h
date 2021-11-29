@@ -18,7 +18,12 @@ extern "C" {
 #define AOT_FUNC_PREFIX "aot_func#"
 
 typedef InitializerExpression AOTInitExpr;
-typedef WASMType AOTFuncType;
+typedef WASMType AOTType;
+typedef WASMFuncType AOTFuncType;
+#if WASM_ENABLE_GC != 0
+typedef WASMStructType AOTStructType;
+typedef WASMArrayType AOTArrayType;
+#endif
 typedef WASMExport AOTExport;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
@@ -228,8 +233,8 @@ typedef struct AOTCompData {
     AOTGlobal *globals;
 
     /* Function types */
-    uint32 func_type_count;
-    AOTFuncType **func_types;
+    uint32 type_count;
+    AOTType **types;
 
     /* Import functions */
     uint32 import_func_count;

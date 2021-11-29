@@ -9,7 +9,8 @@
 static pthread_mutex_t mutex;
 static pthread_cond_t cond;
 
-static void *thread(void *arg)
+static void *
+thread(void *arg)
 {
     int *num = (int *)arg;
 
@@ -29,7 +30,8 @@ static void *thread(void *arg)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     pthread_t tid;
     int num = 0, ret = -1;

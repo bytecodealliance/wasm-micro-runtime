@@ -64,7 +64,7 @@ typedef struct AOTObjectDataSection {
 /* Relocation info */
 typedef struct AOTRelocation {
     uint64 relocation_offset;
-    uint64 relocation_addend;
+    int64 relocation_addend;
     uint32 relocation_type;
     char *symbol_name;
     /* index in the symbol offset field */
@@ -150,9 +150,9 @@ typedef struct AOTModule {
     uint32 table_init_data_count;
     AOTTableInitData **table_init_data_list;
 
-    /* function type info */
-    uint32 func_type_count;
-    AOTFuncType **func_types;
+    /* type info */
+    uint32 type_count;
+    AOTType **types;
 
     /* import global variable info */
     uint32 import_global_count;
@@ -197,8 +197,7 @@ typedef struct AOTModule {
     uint8 *literal;
     uint32 literal_size;
 
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
     /* extra plt data area for __xmm and __real constants
        in Windows platform, NULL for JIT mode */
     uint8 *extra_plt_data;
@@ -621,19 +620,6 @@ aot_get_native_addr_range(AOTModuleInstance *module_inst, uint8 *native_ptr,
 
 bool
 aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
-
-/**
- * Compare whether two wasm types are equal according to the indexs
- *
- * @param module_inst the AOT module instance
- * @param type1_idx index of the first wasm type
- * @param type2_idx index of the second wasm type
- *
- * @return true if equal, false otherwise
- */
-bool
-aot_is_wasm_type_equal(AOTModuleInstance *module_inst, uint32 type1_idx,
-                       uint32 type2_idx);
 
 /**
  * Invoke native function from aot code

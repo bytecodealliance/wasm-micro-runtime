@@ -145,7 +145,7 @@ typedef union {
 bool
 apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
@@ -162,8 +162,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             }
             CHECK_RELOC_OFFSET(4);
             initial_addend = *(int32 *)insn_addr;
-            *(uint8 **)insn_addr =
-                (uint8 *)symbol_addr + initial_addend + reloc_addend;
+            *(uintptr_t *)insn_addr = (uintptr_t)symbol_addr + initial_addend
+                                      + (intptr_t)reloc_addend;
             break;
         }
 
@@ -185,7 +185,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             initial_addend = (int32)imm16 << 2;
             */
 
-            reloc_addr = (uint8 *)symbol_addr + reloc_addend;
+            reloc_addr =
+                (uint8 *)((uintptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             if ((intptr_t)reloc_addr & 3) {
                 set_error_buf(error_buf, error_buf_size,

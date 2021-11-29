@@ -59,6 +59,12 @@ if (WAMR_BUILD_AOT EQUAL 1)
     endif ()
 endif ()
 
+if (WAMR_BUILD_GC EQUAL 1)
+    include (${IWASM_DIR}/common/gc/iwasm_gc.cmake)
+    # Enable the dependent feature if GC is enabled
+    set (WAMR_BUILD_REF_TYPES 1)
+endif ()
+
 if (WAMR_BUILD_APP_FRAMEWORK EQUAL 1)
     include (${APP_FRAMEWORK_DIR}/app_framework.cmake)
     include (${SHARED_DIR}/coap/lib_coap.cmake)
@@ -130,6 +136,7 @@ set (source_all
     ${IWASM_COMMON_SOURCE}
     ${IWASM_INTERP_SOURCE}
     ${IWASM_AOT_SOURCE}
+    ${IWASM_GC_SOURCE}
     ${IWASM_COMPL_SOURCE}
     ${WASM_APP_LIB_SOURCE_ALL}
     ${NATIVE_INTERFACE_SOURCE}

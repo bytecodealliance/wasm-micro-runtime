@@ -1071,11 +1071,11 @@ wasm_runtime_get_user_data(WASMExecEnv *exec_env)
     return exec_env->user_data;
 }
 
-WASMType *
+WASMFuncType *
 wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
                                uint32 module_type)
 {
-    WASMType *type = NULL;
+    WASMFuncType *type = NULL;
 
 #if WASM_ENABLE_INTERP != 0
     if (module_type == Wasm_Module_Bytecode) {
@@ -1119,7 +1119,7 @@ wasm_runtime_reclaim_externref(WASMExecEnv *exec_env,
                                uint32 *argv)
 {
     uint32 i = 0, cell_num = 0;
-    WASMType *func_type = wasm_runtime_get_function_type(
+    WASMFuncType *func_type = wasm_runtime_get_function_type(
         function, exec_env->module_inst->module_type);
     bh_assert(func_type);
 
@@ -1191,8 +1191,8 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
 }
 
 static uint32
-parse_args_to_uint32_array(WASMType *type, uint32 num_args, wasm_val_t *args,
-                           uint32 *out_argv)
+parse_args_to_uint32_array(WASMFuncType *type, uint32 num_args,
+                           wasm_val_t *args, uint32 *out_argv)
 {
     uint32 i, p;
 
@@ -1242,7 +1242,7 @@ parse_args_to_uint32_array(WASMType *type, uint32 num_args, wasm_val_t *args,
 }
 
 static uint32
-parse_uint32_array_to_results(WASMType *type, uint32 argc, uint32 *argv,
+parse_uint32_array_to_results(WASMFuncType *type, uint32 argc, uint32 *argv,
                               wasm_val_t *out_results)
 {
     uint32 i, p;
@@ -1304,7 +1304,7 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
                          uint32 num_args, wasm_val_t args[])
 {
     uint32 argc, *argv, ret_num, cell_num, total_size, module_type;
-    WASMType *type;
+    WASMFuncType *type;
     bool ret = false;
 
     module_type = exec_env->module_inst->module_type;
@@ -1361,7 +1361,7 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          uint32 num_args, ...)
 {
     wasm_val_t *args = NULL;
-    WASMType *type = NULL;
+    WASMFuncType *type = NULL;
     bool ret = false;
     uint32 i = 0, module_type;
     va_list vargs;
@@ -2384,9 +2384,9 @@ wasm_runtime_register_natives_raw(const char *module_name,
 
 bool
 wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
-                               const WASMType *func_type, const char *signature,
-                               void *attachment, uint32 *argv, uint32 argc,
-                               uint32 *argv_ret)
+                               const WASMFuncType *func_type,
+                               const char *signature, void *attachment,
+                               uint32 *argv, uint32 argc, uint32 *argv_ret)
 {
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     typedef void (*NativeRawFuncPtr)(WASMExecEnv *, uint64 *);
@@ -2536,7 +2536,7 @@ static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           const WASMType *func_type, const char *signature,
+                           const WASMFuncType *func_type, const char *signature,
                            void *attachment, uint32 *argv, uint32 argc,
                            uint32 *argv_ret)
 {
@@ -2947,10 +2947,12 @@ typedef int32 (*Int32FuncPtr)(GenericFunctionPointer f, uint32 *, uint32);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer f, uint32 *, uint32);
 
 static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
-static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)(uintptr_t)invokeNative;
+static Float64FuncPtr invokeNative_Float64 =
+    (Float64FuncPtr)(uintptr_t)invokeNative;
+static Float32FuncPtr invokeNative_Float32 =
+    (Float32FuncPtr)(uintptr_t)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
@@ -2961,7 +2963,7 @@ word_copy(uint32 *dest, uint32 *src, unsigned num)
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           const WASMType *func_type, const char *signature,
+                           const WASMFuncType *func_type, const char *signature,
                            void *attachment, uint32 *argv, uint32 argc,
                            uint32 *argv_ret)
 {
@@ -3177,7 +3179,7 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           const WASMType *func_type, const char *signature,
+                           const WASMFuncType *func_type, const char *signature,
                            void *attachment, uint32 *argv, uint32 argc,
                            uint32 *argv_ret)
 {
@@ -3855,7 +3857,7 @@ wasm_runtime_dump_call_stack(WASMExecEnv *exec_env)
 
 bool
 wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
-                                  const WASMExport *export, WASMType **out)
+                                  const WASMExport *export, WASMFuncType **out)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_comm->module_type == Wasm_Module_Bytecode) {
@@ -3878,13 +3880,14 @@ wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,
         AOTModule *module = (AOTModule *)module_comm;
 
         if (export->index < module->import_func_count) {
-            *out = module->func_types[module->import_funcs[export->index]
-                                          .func_type_index];
+            *out = (WASMFuncType *)
+                       module->types[module->import_funcs[export->index]
+                                         .func_type_index];
         }
         else {
-            *out = module->func_types
-                       [module->func_type_indexes[export->index
-                                                  - module->import_func_count]];
+            *out = (WASMFuncType *)module
+                       ->types[module->func_type_indexes
+                                   [export->index - module->import_func_count]];
         }
         return true;
     }
@@ -4040,7 +4043,8 @@ wasm_runtime_get_export_table_type(const WASMModuleCommon *module_comm,
 }
 
 static inline bool
-argv_to_params(wasm_val_t *out_params, const uint32 *argv, WASMType *func_type)
+argv_to_params(wasm_val_t *out_params, const uint32 *argv,
+               WASMFuncType *func_type)
 {
     wasm_val_t *param = out_params;
     uint32 i = 0, *u32;
@@ -4094,7 +4098,7 @@ argv_to_params(wasm_val_t *out_params, const uint32 *argv, WASMType *func_type)
 
 static inline bool
 results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
-                const wasm_val_t *results, WASMType *func_type)
+                const wasm_val_t *results, WASMFuncType *func_type)
 {
     const wasm_val_t *result = results;
     uint32 *argv = out_argv, *u32, i;
@@ -4131,7 +4135,7 @@ results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
 
 bool
 wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
-                                 void *func_ptr, WASMType *func_type,
+                                 void *func_ptr, WASMFuncType *func_type,
                                  uint32 argc, uint32 *argv, bool with_env,
                                  void *wasm_c_api_env)
 {

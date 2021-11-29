@@ -19,7 +19,8 @@ function help()
     echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
     echo "-M enable the multi module feature"
     echo "-p enable multi thread feature"
-    echo "-S enable SIMD"
+    echo "-S enable SIMD feature"
+    echo "-G enable GC feature"
     echo "-x test SGX"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-P run the spec test parallelly"
@@ -35,16 +36,14 @@ ENABLE_MULTI_MODULE=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
+ENABLE_GC=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
-# enable reference-types and bulk-memory by default
-# as they are finished and merged into spec
-ENABLE_REF_TYPES=1
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxP" opt
+while getopts ":s:cabt:m:MCpSxPG" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -104,9 +103,6 @@ do
         p)
         echo "enable multi thread feature"
         ENABLE_MULTI_THREAD=1
-        # Disable reference-types when multi-thread is enabled
-        echo "disable reference-types for multi thread"
-        ENABLE_REF_TYPES=0
         ;;
         S)
         echo "enable SIMD feature"
@@ -115,6 +111,10 @@ do
         x)
         echo "test SGX"
         SGX_OPT="--sgx"
+        ;;
+        G)
+        echo "enable GC feature"
+        ENABLE_GC=1
         ;;
         P)
         PARALLELISM=1
@@ -162,7 +162,6 @@ readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
@@ -170,7 +169,6 @@ readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
@@ -179,15 +177,13 @@ readonly JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE}"
+    -DWAMR_BUILD_SPEC_TEST=1"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly COMPILE_FLAGS=(
@@ -316,6 +312,25 @@ function spec_test()
         git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
 
+    # update GC cases
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        echo "checkout spec for GC proposal"
+
+        # check spec test cases for GC
+        if [[ -z $(git remote | grep "\<gc\>") ]]; then
+            git remote add gc https://github.com/WebAssembly/gc.git
+        fi
+
+        git restore . && git clean -ffd .
+        git fetch gc
+        git checkout -B gc_spec --track gc/master
+
+        echo "compile the reference intepreter"
+        pushd interpreter
+        make opt
+        popd
+    fi
+
     popd
     echo $(pwd)
 
@@ -387,9 +402,8 @@ function spec_test()
         fi
     fi
 
-    # reference type in all mode
-    if [[ ${ENABLE_REF_TYPES} == 1 ]]; then
-        ARGS_FOR_SPEC_TEST+="-r "
+    if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
+          ARGS_FOR_SPEC_TEST+="-p "
     fi
 
     # require warmc only in aot mode
@@ -536,19 +550,31 @@ function collect_coverage()
 function trigger()
 {
     local EXTRA_COMPILE_FLAGS=""
+    # default enabled features
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+
+    if [[ ${ENABLE_MULTI_MODULE} == 1 ]];then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=0"
+    fi
+
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_PTHREAD=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=0"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
     fi
 
     if [[ ${ENABLE_SIMD} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=0"
     fi
 
-    if [[ ${ENABLE_REF_TYPES} == 1 ]]; then
-        # spec test cases for reference type depends on
-        # multi-module and bulk memory
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_GC=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
     fi
 

@@ -395,7 +395,7 @@ void
 wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module,
                                      WASMModuleInstMemConsumption *mem_conspn);
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
 static inline bool
 wasm_elem_is_active(uint32 mode)
 {
@@ -417,7 +417,7 @@ wasm_elem_is_declarative(uint32 mode)
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
                    uint32 inc_entries, uint32 init_val);
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+#endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
 
 static inline WASMTableInstance *
 wasm_get_table_inst(const WASMModuleInstance *module_inst, const uint32 tbl_idx)

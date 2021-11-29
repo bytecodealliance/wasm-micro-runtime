@@ -385,8 +385,8 @@ get_func_type_info_size(AOTCompData *comp_data)
 {
     /* func type count + func type list */
     return (uint32)sizeof(uint32)
-           + get_func_types_size(comp_data->func_types,
-                                 comp_data->func_type_count);
+           + get_func_types_size((AOTFuncType **)comp_data->types,
+                                 comp_data->type_count);
 }
 
 static uint32
@@ -1444,13 +1444,13 @@ aot_emit_func_type_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
                         AOTCompData *comp_data, AOTObjectData *obj_data)
 {
     uint32 offset = *p_offset, i;
-    AOTFuncType **func_types = comp_data->func_types;
+    AOTFuncType **func_types = (AOTFuncType **)comp_data->types;
 
     *p_offset = offset = align_uint(offset, 4);
 
-    EMIT_U32(comp_data->func_type_count);
+    EMIT_U32(comp_data->type_count);
 
-    for (i = 0; i < comp_data->func_type_count; i++) {
+    for (i = 0; i < comp_data->type_count; i++) {
         offset = align_uint(offset, 4);
         EMIT_U32(func_types[i]->param_count);
         EMIT_U32(func_types[i]->result_count);
@@ -2351,16 +2351,16 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         /* parse relocation addend from reloction content */
         if (has_addend) {
             if (is_binary_32bit) {
-                uint32 addend =
-                    (uint32)(((struct elf32_rela *)rela_content)->r_addend);
+                int32 addend =
+                    (int32)(((struct elf32_rela *)rela_content)->r_addend);
                 if (is_binary_little_endian != is_little_endian())
                     exchange_uint32((uint8 *)&addend);
-                relocation->relocation_addend = (uint64)addend;
+                relocation->relocation_addend = (int64)addend;
                 rela_content += sizeof(struct elf32_rela);
             }
             else {
-                uint64 addend =
-                    (uint64)(((struct elf64_rela *)rela_content)->r_addend);
+                int64 addend =
+                    (int64)(((struct elf64_rela *)rela_content)->r_addend);
                 if (is_binary_little_endian != is_little_endian())
                     exchange_uint64((uint8 *)&addend);
                 relocation->relocation_addend = addend;

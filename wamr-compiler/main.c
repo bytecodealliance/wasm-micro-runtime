@@ -9,11 +9,6 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 
-#if WASM_ENABLE_REF_TYPES != 0
-extern void
-wasm_set_ref_types_flag(bool enable);
-#endif
-
 /* clang-format off */
 static int
 print_help()
@@ -48,7 +43,7 @@ print_help()
     printf("                              object         Native object file\n");
     printf("                              llvmir-unopt   Unoptimized LLVM IR\n");
     printf("                              llvmir-opt     Optimized LLVM IR\n");
-    printf("  --enable-bulk-memory      Enable the post-MVP bulk memory feature\n");
+    printf("  --disable-bulk-memory     Disable the MVP bulk memory feature\n");
     printf("  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and\n");
     printf("                            thread-mgr will be enabled automatically\n");
     printf("  --enable-tail-call        Enable the post-MVP tail call feature\n");
@@ -56,12 +51,13 @@ print_help()
     printf("                              currently 128-bit SIMD is only supported for x86-64 target,\n");
     printf("                              and by default it is enabled in x86-64 target and disabled\n");
     printf("                              in other targets\n");
-    printf("  --enable-ref-types        Enable the post-MVP reference types feature\n");
+    printf("  --disable-ref-types       Disable the MVP reference types feature\n");
     printf("  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check\n");
     printf("  --enable-dump-call-stack  Enable stack trace feature\n");
     printf("  --enable-perf-profiling   Enable function performance profiling\n");
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
+    printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -93,6 +89,8 @@ main(int argc, char *argv[])
     option.bounds_checks = 2;
     option.enable_simd = true;
     option.enable_aux_stack_check = true;
+    option.enable_bulk_memory = true;
+    option.enable_ref_types = true;
 
     /* Process options */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
@@ -163,12 +161,13 @@ main(int argc, char *argv[])
             if (log_verbose_level < 0 || log_verbose_level > 5)
                 return print_help();
         }
-        else if (!strcmp(argv[0], "--enable-bulk-memory")) {
-            option.enable_bulk_memory = true;
+        else if (!strcmp(argv[0], "--disable-bulk-memory")) {
+            option.enable_bulk_memory = false;
         }
         else if (!strcmp(argv[0], "--enable-multi-thread")) {
             option.enable_bulk_memory = true;
             option.enable_thread_mgr = true;
+            option.enable_ref_types = false;
         }
         else if (!strcmp(argv[0], "--enable-tail-call")) {
             option.enable_tail_call = true;
@@ -180,8 +179,8 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--disable-simd")) {
             option.enable_simd = false;
         }
-        else if (!strcmp(argv[0], "--enable-ref-types")) {
-            option.enable_ref_types = true;
+        else if (!strcmp(argv[0], "--disable-ref-types")) {
+            option.enable_ref_types = false;
         }
         else if (!strcmp(argv[0], "--disable-aux-stack-check")) {
             option.enable_aux_stack_check = false;
@@ -198,6 +197,9 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--disable-llvm-intrinsics")) {
             option.disable_llvm_intrinsics = true;
         }
+        else if (!strcmp(argv[0], "--disable-llvm-lto")) {
+            option.disable_llvm_lto = true;
+        }
         else
             return print_help();
     }
@@ -209,10 +211,6 @@ main(int argc, char *argv[])
         option.size_level = 1;
         option.is_sgx_platform = true;
     }
-
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_set_ref_types_flag(option.enable_ref_types);
-#endif
 
     wasm_file_name = argv[0];
 

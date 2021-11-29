@@ -164,7 +164,7 @@ middle_endian_convert(uint32 insn)
 bool
 apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
@@ -172,7 +172,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         {
             uint32 insn = LOAD_I32(target_section_addr + reloc_offset);
             int32 addend, value;
-            uintptr_t S, A, P;
+            uintptr_t S, P;
+            intptr_t A;
 
             CHECK_RELOC_OFFSET(sizeof(void *));
 
@@ -190,7 +191,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
             /* (S + A) - P */
             S = (uintptr_t)(uint8 *)symbol_addr;
-            A = (uintptr_t)reloc_addend;
+            A = (intptr_t)reloc_addend;
             P = (uintptr_t)(target_section_addr + reloc_offset);
             P &= (uintptr_t)~3;
             value = (int32)(S + A + addend - P);
@@ -214,7 +215,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             CHECK_RELOC_OFFSET(sizeof(void *));
 
             /* (S + A) */
-            insn = (uint32)(uintptr_t)((uint8 *)symbol_addr + reloc_addend);
+            insn = (uint32)((uintptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             if (reloc_type == R_ARC_32_ME)
                 /* Convert to middle endian */
