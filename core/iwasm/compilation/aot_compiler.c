@@ -2538,6 +2538,7 @@ fail:
     return false;
 }
 
+/* Check whether does the target support hardware atomic instructions */
 static bool
 aot_has_atomics(AOTCompContext *comp_ctx)
 {
@@ -2556,11 +2557,13 @@ aot_has_atomics(AOTCompContext *comp_ctx)
     return ret;
 }
 
+/* Check whether does the target need to expand switch to if/else */
 static bool
 aot_has_lower_switch(AOTCompContext *comp_ctx)
 {
     bool ret = false;
 
+    /* IR switch/case will cause .rodata relocation on riscv */
     if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
         ret = true;
     }
