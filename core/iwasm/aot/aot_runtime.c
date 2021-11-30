@@ -885,7 +885,7 @@ execute_post_inst_function(AOTModuleInstance *module_inst)
         return true;
 
     return aot_create_exec_env_and_call_function(module_inst, post_inst_func, 0,
-                                                 NULL, false);
+                                                 NULL);
 }
 
 static bool
@@ -929,7 +929,7 @@ execute_memory_init_function(AOTModuleInstance *module_inst)
         return true;
 
     return aot_create_exec_env_and_call_function(module_inst, memory_init_func,
-                                                 0, NULL, false);
+                                                 0, NULL);
 }
 #endif
 
@@ -1536,7 +1536,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 bool
 aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
                                       AOTFunctionInstance *func, unsigned argc,
-                                      uint32 argv[], bool enable_debug)
+                                      uint32 argv[])
 {
     WASMExecEnv *exec_env = NULL, *existing_exec_env = NULL;
     bool ret;
@@ -1555,12 +1555,6 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
             aot_set_exception(module_inst, "allocate memory failed");
             return false;
         }
-    }
-
-    if (enable_debug) {
-#if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
-        wasm_runtime_start_debug_instance(exec_env);
-#endif
     }
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -1693,11 +1687,11 @@ execute_malloc_function(AOTModuleInstance *module_inst,
 #endif
     {
         ret = aot_create_exec_env_and_call_function(module_inst, malloc_func,
-                                                    argc, argv, false);
+                                                    argc, argv);
 
         if (retain_func && ret) {
-            ret = aot_create_exec_env_and_call_function(
-                module_inst, retain_func, 1, argv, false);
+            ret = aot_create_exec_env_and_call_function(module_inst,
+                                                        retain_func, 1, argv);
         }
     }
 
@@ -1723,7 +1717,7 @@ execute_free_function(AOTModuleInstance *module_inst,
 #endif
     {
         return aot_create_exec_env_and_call_function(module_inst, free_func, 1,
-                                                     argv, false);
+                                                     argv);
     }
 }
 

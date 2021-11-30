@@ -544,8 +544,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
 bool
 aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
                                       AOTFunctionInstance *function,
-                                      unsigned argc, uint32 argv[],
-                                      bool enable_debug);
+                                      unsigned argc, uint32 argv[]);
 
 bool
 aot_create_exec_env_singleton(AOTModuleInstance *module_inst);
