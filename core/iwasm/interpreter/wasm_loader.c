@@ -5464,7 +5464,8 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
      * of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
     if (return_count == 1) {
         uint8 cell = (uint8)wasm_value_type_cell_num(return_types[0]);
-        if (block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
+        if (cell <= 2 /* V128 isn't supported whose cell num is 4 */
+            && block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
             /* insert op_copy before else opcode */
             if (opcode == WASM_OP_ELSE)
                 skip_label();

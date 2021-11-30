@@ -81,6 +81,10 @@
 #define WASM_ENABLE_LAZY_JIT 0
 #endif
 
+#ifndef WASM_LAZY_JIT_COMPILE_THREAD_NUM
+#define WASM_LAZY_JIT_COMPILE_THREAD_NUM 4
+#endif
+
 #if (WASM_ENABLE_AOT == 0) && (WASM_ENABLE_JIT != 0)
 /* LazyJIT or MCJIT can only be enabled when AOT is enabled */
 #undef WASM_ENABLE_JIT
