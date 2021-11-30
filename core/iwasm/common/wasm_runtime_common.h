@@ -496,7 +496,7 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
 /* See wasm_export.h for description */
-WASM_RUNTIME_API_EXTERN bool
+WASM_RUNTIME_API_EXTERN uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env);
 #endif
 

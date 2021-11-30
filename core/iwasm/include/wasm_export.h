@@ -423,9 +423,9 @@ wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
  *
  * @param exec_env the execution environment to start debug instance
  *
- * @return true if success, false otherwise.
+ * @return debug port if success, 0 otherwise.
  */
-WASM_RUNTIME_API_EXTERN bool
+WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_start_debug_instance(wasm_exec_env_t exec_env);
 
 /**

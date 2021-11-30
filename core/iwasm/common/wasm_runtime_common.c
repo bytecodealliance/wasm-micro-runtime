@@ -295,7 +295,7 @@ get_package_type(const uint8 *buf, uint32 size)
 }
 
 #if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
-bool
+uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
@@ -303,14 +303,14 @@ wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
 
     if (cluster->debug_inst) {
         LOG_WARNING("Cluster already bind to a debug instance");
-        return true;
+        return cluster->debug_inst->control_thread->port;
     }
 
     if (wasm_debug_instance_create(cluster)) {
-        return true;
+        return cluster->debug_inst->control_thread->port;
     }
 
-    return false;
+    return 0;
 }
 #endif
 

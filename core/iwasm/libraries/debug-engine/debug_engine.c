@@ -75,7 +75,8 @@ control_thread_routine(void *arg)
     LOG_WARNING("control thread of debug object %p start\n", debug_inst);
 
     control_thread->server =
-        wasm_launch_gdbserver(control_thread->ip_addr, control_thread->port);
+        wasm_create_gdbserver(control_thread->ip_addr, &control_thread->port);
+
     if (!control_thread->server) {
         LOG_ERROR("Failed to create debug server\n");
         os_cond_signal(&debug_inst->wait_cond);
@@ -85,9 +86,20 @@ control_thread_routine(void *arg)
 
     control_thread->server->thread = control_thread;
 
-    /* control thread ready, notify main thread */
+    /*
+     * wasm gdbserver created, the execution thread
+     *  doesn't need to wait for the debugger connection,
+     *  so we wake up the execution thread before listen
+     */
     os_cond_signal(&debug_inst->wait_cond);
     os_mutex_unlock(&debug_inst->wait_lock);
+
+    /* wait lldb client to connect */
+    if (!wasm_gdbserver_listen(control_thread->server)) {
+        LOG_ERROR("Failed while connecting debugger\n");
+        wasm_runtime_free(control_thread->server);
+        return NULL;
+    }
 
     while (true) {
         os_mutex_lock(&control_thread->wait_lock);
