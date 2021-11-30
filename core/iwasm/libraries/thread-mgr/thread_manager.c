@@ -231,6 +231,11 @@ wasm_cluster_destroy(WASMCluster *cluster)
         wasm_runtime_free(cluster->stack_tops);
     if (cluster->stack_segment_occupied)
         wasm_runtime_free(cluster->stack_segment_occupied);
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_debug_instance_destroy(cluster);
+#endif
+
     wasm_runtime_free(cluster);
 }
 
@@ -533,6 +538,10 @@ notify_debug_instance(WASMExecEnv *exec_env)
 
     cluster = wasm_exec_env_get_cluster(exec_env);
     bh_assert(cluster);
+
+    if (!cluster->debug_inst) {
+        return;
+    }
 
     os_mutex_lock(&cluster->debug_inst->wait_lock);
     os_cond_signal(&cluster->debug_inst->wait_cond);

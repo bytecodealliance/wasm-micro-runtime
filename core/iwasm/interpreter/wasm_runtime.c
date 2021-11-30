@@ -1680,6 +1680,9 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         }
 
 #if WASM_ENABLE_THREAD_MGR != 0
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        wasm_runtime_start_debug_instance(exec_env);
+#endif
     }
 #endif
 

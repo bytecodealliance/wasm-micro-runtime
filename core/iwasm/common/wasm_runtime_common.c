@@ -294,6 +294,26 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+#if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
+bool
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+
+    if (cluster->debug_inst) {
+        LOG_WARNING("Cluster already bind to a debug instance");
+        return true;
+    }
+
+    if (wasm_debug_instance_create(cluster)) {
+        return true;
+    }
+
+    return false;
+}
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 static module_reader reader;
 static module_destroyer destroyer;

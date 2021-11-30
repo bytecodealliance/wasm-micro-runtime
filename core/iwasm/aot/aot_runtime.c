@@ -1557,6 +1557,10 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
+#if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
+    wasm_runtime_start_debug_instance(exec_env);
+#endif
+
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_runtime_prepare_call_function(exec_env, func);
 #endif

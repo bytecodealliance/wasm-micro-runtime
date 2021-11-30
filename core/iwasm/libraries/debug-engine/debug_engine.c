@@ -103,7 +103,7 @@ control_thread_routine(void *arg)
         os_mutex_unlock(&control_thread->wait_lock);
     }
 
-    LOG_VERBOSE("control thread of debug object %p stop\n", debug_inst);
+    LOG_VERBOSE("control thread of debug object [%p] stopped\n", debug_inst);
     return NULL;
 }
 
@@ -111,8 +111,6 @@ static WASMDebugControlThread *
 wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
 {
     WASMDebugControlThread *control_thread;
-    WASMCluster *cluster = debug_instance->cluster;
-    bh_assert(cluster);
 
     if (!(control_thread =
               wasm_runtime_malloc(sizeof(WASMDebugControlThread)))) {
@@ -161,7 +159,8 @@ static void
 wasm_debug_control_thread_destroy(WASMDebugInstance *debug_instance)
 {
     WASMDebugControlThread *control_thread = debug_instance->control_thread;
-    LOG_VERBOSE("control thread of debug object %p stop\n", debug_instance);
+    LOG_VERBOSE("stopping control thread of debug object [%p]\n",
+                debug_instance);
     control_thread->status = STOPPED;
     os_mutex_lock(&control_thread->wait_lock);
     wasm_close_gdbserver(control_thread->server);
@@ -485,12 +484,14 @@ wasm_debug_instance_wait_thread(WASMDebugInstance *instance, uint64 tid,
     WASMExecEnv *exec_env = NULL;
 
     os_mutex_lock(&instance->wait_lock);
-    while ((exec_env = get_stopped_thread(instance->cluster)) == NULL) {
+    while ((instance->cluster->exec_env_list.len != 0)
+           && ((exec_env = get_stopped_thread(instance->cluster)) == NULL)) {
         os_cond_wait(&instance->wait_cond, &instance->wait_lock);
     }
     os_mutex_unlock(&instance->wait_lock);
 
-    if (!exec_env) {
+    /* If cluster has no exec_env, then this whole cluster is exiting */
+    if (instance->cluster->exec_env_list.len == 0) {
         *status = 0;
         return 0;
     }
