@@ -1451,13 +1451,13 @@ wasm_runtime_create_exec_env_and_call_wasm(
     if (module_inst->module_type == Wasm_Module_Bytecode)
         ret = wasm_create_exec_env_and_call_function(
             (WASMModuleInstance *)module_inst, (WASMFunctionInstance *)function,
-            argc, argv);
+            argc, argv, true);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
         ret = aot_create_exec_env_and_call_function(
             (AOTModuleInstance *)module_inst, (AOTFunctionInstance *)function,
-            argc, argv);
+            argc, argv, true);
 #endif
     return ret;
 }
