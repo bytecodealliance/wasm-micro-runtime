@@ -1368,7 +1368,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                                                          frame_ip))
                             return false;
                         frame_ip += 16;
-                        func_ctx->has_op_v128_const = true;
                         break;
                     }
 
@@ -2539,39 +2538,6 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_LAZY_JIT != 0
-static LLVMErrorRef
-apply_pass_mgr(void *ctx, LLVMModuleRef module)
-{
-    LLVMPassManagerRef pass_mgr = LLVMCreatePassManager();
-
-    if (!pass_mgr)
-        return NULL;
-
-    LLVMAddPromoteMemoryToRegisterPass(pass_mgr);
-    LLVMAddInstructionCombiningPass(pass_mgr);
-    LLVMAddCFGSimplificationPass(pass_mgr);
-    LLVMAddJumpThreadingPass(pass_mgr);
-#if LLVM_VERSION_MAJOR < 12
-    LLVMAddConstantPropagationPass(pass_mgr);
-#endif
-    LLVMAddIndVarSimplifyPass(pass_mgr);
-
-    LLVMRunPassManager(pass_mgr, module);
-
-    LLVMDisposePassManager(pass_mgr);
-    return NULL;
-}
-
-static LLVMErrorRef
-apply_ir_transform(void *ctx, LLVMOrcThreadSafeModuleRef *module_inout,
-                   LLVMOrcMaterializationResponsibilityRef material_resp)
-{
-    LLVMOrcThreadSafeModuleWithModuleDo(*module_inout, apply_pass_mgr, ctx);
-    return NULL;
-}
-#endif /* end of WASM_ENABLE_LAZY_JIT */
-
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
@@ -2650,20 +2616,8 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
                                        comp_ctx->func_ctxes[i]->func);
         }
 #else
-        /* Enable lazy optimization, run pass manager for module
-           only when it is to be compiled */
-        LLVMOrcIRTransformLayerRef ir_trans_layer =
-            LLVMOrcLLJITGetIRTransformLayer(comp_ctx->orc_lazyjit);
-        LLVMOrcIRTransformLayerSetTransform(ir_trans_layer, apply_ir_transform,
-                                            comp_ctx->pass_mgr);
         for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-            if (comp_ctx->func_ctxes[i]->has_op_v128_const) {
-                /* The LLVM lazy optimization may run failed if the
-                   module has opcode SIMD_v128_const, so here we run
-                   pass manager first */
-                LLVMRunPassManager(comp_ctx->pass_mgr,
-                                   comp_ctx->func_ctxes[i]->module);
-            }
+            LLVMRunPassManager(comp_ctx->pass_mgr, comp_ctx->modules[i]);
         }
 #endif /* end of WASM_ENABLE_LAZY_JIT */
     }
@@ -2730,7 +2684,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
                                                orc_main_dylib,
                                                orc_thread_safe_module))) {
             /* If adding the ThreadSafeModule fails then we need to clean it up
-               ourselves, otherwise the orc jit will manage the memory. */
+               by ourselves, otherwise the orc jit will manage the memory. */
             LLVMOrcDisposeThreadSafeModule(orc_thread_safe_module);
             aot_handle_llvm_errmsg("failed to addIRModule", err);
             return false;

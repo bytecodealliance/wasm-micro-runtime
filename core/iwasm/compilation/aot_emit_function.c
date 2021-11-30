@@ -702,9 +702,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #if WASM_ENABLE_LAZY_JIT == 0
             func = func_ctxes[func_idx - import_func_count]->func;
 #else
-            /* For LAZY JIT, each function belongs to its own module,
-               we call aot_lookup_orcjit_func to get the func pointer */
             if (func_ctxes[func_idx - import_func_count] == func_ctx) {
+                /* recursive call */
                 func = func_ctx->func;
             }
             else {
@@ -716,6 +715,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     goto fail;
                 }
 
+                /* For LAZY JIT, each function belongs to its own module,
+                   we call aot_lookup_orcjit_func to get the func pointer */
                 if (!lookup_orcjit_func(comp_ctx, func_ctx, func_idx_const,
                                         &func)) {
                     goto fail;

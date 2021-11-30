@@ -2700,6 +2700,7 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
 
 #if WASM_ENABLE_JIT != 0
 #if WASM_ENABLE_LAZY_JIT != 0
+/* Orc JIT thread arguments */
 typedef struct OrcJitThreadArg {
     AOTCompData *comp_data;
     AOTCompContext *comp_ctx;
@@ -2724,6 +2725,7 @@ orcjit_thread_callback(void *arg)
     char func_name[32];
     int32 i;
 
+    /* Compile wasm functions of this group */
     for (i = thread_arg->group_idx; i < (int32)comp_data->func_count;
          i += thread_arg->group_stride) {
         if (!module->func_ptrs[i]) {
@@ -2735,6 +2737,12 @@ orcjit_thread_callback(void *arg)
                 LLVMDisposeErrorMessage(err_msg);
                 break;
             }
+            /**
+             * No need to lock the func_ptr[func_idx] here as it is basic
+             * data type, the load/store for it can be finished by one cpu
+             * instruction, and there can be only one cpu instruction
+             * loading/storing at the same time.
+             */
             module->func_ptrs[i] = (void *)func_addr;
         }
         if (orcjit_stop_compiling) {
@@ -2861,6 +2869,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
 
             set_error_buf(error_buf, error_buf_size,
                           "create orcjit compile thread failed");
+            /* Terminate the threads created */
             orcjit_stop_compiling = true;
             for (j = 0; j < i; j++) {
                 os_thread_join(orcjit_threads[j], NULL);
@@ -2965,6 +2974,7 @@ fail4:
 
 fail3:
 #if WASM_ENABLE_LAZY_JIT != 0
+    /* Terminate all threads before free module->func_ptrs */
     orcjit_stop_compile_threads();
 #endif
     if (module->func_ptrs)

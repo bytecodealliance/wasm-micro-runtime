@@ -185,6 +185,12 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
     AOTModule *aot_module = (AOTModule *)aot_inst->aot_module.ptr;
     void **func_ptrs = (void **)aot_inst->func_ptrs.ptr;
 
+    /**
+     * No need to lock the func_ptr[func_idx] here as it is basic
+     * data type, the load/store for it can be finished by one cpu
+     * instruction, and there can be only one cpu instruction
+     * loading/storing at the same time.
+     */
     if (func_ptrs[func_idx])
         return func_ptrs[func_idx];
 

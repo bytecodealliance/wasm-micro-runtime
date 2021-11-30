@@ -151,7 +151,6 @@ typedef struct AOTFuncContext {
     LLVMValueRef cur_exception;
 
     bool mem_space_unchanged;
-    bool has_op_v128_const;
     AOTCheckedAddrList checked_addr_list;
 
     LLVMBasicBlockRef got_exception_block;
