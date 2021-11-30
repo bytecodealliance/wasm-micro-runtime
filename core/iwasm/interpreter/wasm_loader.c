@@ -47,7 +47,7 @@ static bool
 check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
           char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length > buf_end) {
+    if (buf + length < buf || buf + length > buf_end) {
         set_error_buf(error_buf, error_buf_size,
                       "unexpected end of section or function");
         return false;
@@ -59,7 +59,7 @@ static bool
 check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
            char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length > buf_end) {
+    if (buf + length < buf || buf + length > buf_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
         return false;
     }
@@ -1034,7 +1034,6 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     bool linked_call_conv_raw = false;
     bool is_native_symbol = false;
 
-    CHECK_BUF(p, p_end, 1);
     read_leb_uint32(p, p_end, declare_type_index);
     *p_buf = p;
 
@@ -3335,7 +3334,6 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
                 }
                 last_section_index = section_index;
             }
-            CHECK_BUF1(p, p_end, 1);
             read_leb_uint32(p, p_end, section_size);
             CHECK_BUF1(p, p_end, section_size);
 
