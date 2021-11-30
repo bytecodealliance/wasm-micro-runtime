@@ -94,16 +94,7 @@ Then you can use lldb commands to debug both wamr runtime and your wasm applicat
 
 There are three steps to enable debugging in embedders
 
-1. Enable source debugging features during building
-
-    You can use `-DWAMR_BUILD_DEBUG_INTERP=1` during cmake configuration
-
-    Or you can set it directly in `cmake` files:
-    ``` cmake
-    set (WAMR_BUILD_DEBUG_INTERP 1)
-    ```
-
-2. Set the debug parameters when initializing the runtime environment:
+1. Set the debug parameters when initializing the runtime environment:
     ``` c
     RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
@@ -121,7 +112,7 @@ There are three steps to enable debugging in embedders
     }
     ```
 
-3. Use `wasm_runtime_start_debug_instance` to create the debug instance:
+2. Use `wasm_runtime_start_debug_instance` to create the debug instance:
     ``` c
     /*
         initialization, loading and instantiating
@@ -129,6 +120,15 @@ There are three steps to enable debugging in embedders
     */
     exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
     uint32_t debug_port = wasm_runtime_start_debug_instance();
+    ```
+
+3. Enable source debugging features during building
+
+    You can use `-DWAMR_BUILD_DEBUG_INTERP=1` during cmake configuration
+
+    Or you can set it directly in `cmake` files:
+    ``` cmake
+    set (WAMR_BUILD_DEBUG_INTERP 1)
     ```
 
 ### Attentions
