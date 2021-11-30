@@ -553,8 +553,6 @@ wasm_cluster_thread_stopped(WASMExecEnv *exec_env)
 {
     exec_env->current_status->running_status = STATUS_STOP;
     notify_debug_instance(exec_env);
-    /* TODO: signal debug instance's wait_cond */
-    // os_cond_signal(&exec_env->current_status->wait_cond);
 }
 
 void
@@ -582,8 +580,6 @@ wasm_cluster_thread_exited(WASMExecEnv *exec_env)
 {
     exec_env->current_status->running_status = STATUS_EXIT;
     notify_debug_instance(exec_env);
-    /* TODO: signal debug instance's wait_cond */
-    // os_cond_signal(&exec_env->current_status->wait_cond);
 }
 
 void

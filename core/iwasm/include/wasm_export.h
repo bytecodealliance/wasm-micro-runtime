@@ -414,7 +414,7 @@ wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
  *   The debug instance will be destroyed during destroying the
  *   execution environment, developers don't need to destroy it
  *   manually.
- *   If this the cluster of this execution environment has already
+ *   If the cluster of this execution environment has already
  *   been bound to a debug instance, this function will return true
  *   directly.
  *   If developer spawns some exec_env by wasm_runtime_spawn_exec_env,

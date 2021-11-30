@@ -321,25 +321,6 @@ fail1:
     return NULL;
 }
 
-static WASMDebugInstance *
-wasm_cluster_get_debug_instance(WASMDebugEngine *engine, WASMCluster *cluster)
-{
-    WASMDebugInstance *instance;
-
-    os_mutex_lock(&g_debug_engine->instance_list_lock);
-    instance = bh_list_first_elem(&engine->debug_instance_list);
-    while (instance) {
-        if (instance->cluster == cluster) {
-            os_mutex_unlock(&g_debug_engine->instance_list_lock);
-            return instance;
-        }
-        instance = bh_list_elem_next(instance);
-    }
-    os_mutex_unlock(&g_debug_engine->instance_list_lock);
-
-    return instance;
-}
-
 static void
 wasm_debug_instance_destroy_breakpoints(WASMDebugInstance *instance)
 {
@@ -365,7 +346,7 @@ wasm_debug_instance_destroy(WASMCluster *cluster)
         return;
     }
 
-    instance = wasm_cluster_get_debug_instance(g_debug_engine, cluster);
+    instance = cluster->debug_inst;
     if (instance) {
         /* destroy control thread */
         wasm_debug_control_thread_destroy(instance);
@@ -381,6 +362,7 @@ wasm_debug_instance_destroy(WASMCluster *cluster)
         os_cond_destroy(&instance->wait_cond);
 
         wasm_runtime_free(instance);
+        cluster->debug_inst = NULL;
     }
 }
 
