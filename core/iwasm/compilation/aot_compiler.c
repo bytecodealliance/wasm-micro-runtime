@@ -2538,18 +2538,18 @@ fail:
     return false;
 }
 
-/* Check whether does the target support hardware atomic instructions */
+/* Check whether the target supports hardware atomic instructions */
 static bool
-aot_has_atomics(AOTCompContext *comp_ctx)
+aot_require_lower_atomic_pass(AOTCompContext *comp_ctx)
 {
-    bool ret = true;
+    bool ret = false;
     if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
         char *feature =
             LLVMGetTargetMachineFeatureString(comp_ctx->target_machine);
 
         if (feature) {
             if (!strstr(feature, "+a")) {
-                ret = false;
+                ret = true;
             }
             LLVMDisposeMessage(feature);
         }
@@ -2557,9 +2557,9 @@ aot_has_atomics(AOTCompContext *comp_ctx)
     return ret;
 }
 
-/* Check whether does the target need to expand switch to if/else */
+/* Check whether the target needs to expand switch to if/else */
 static bool
-aot_has_lower_switch(AOTCompContext *comp_ctx)
+aot_require_lower_switch_pass(AOTCompContext *comp_ctx)
 {
     bool ret = false;
 
@@ -2668,10 +2668,10 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
         aot_add_expand_memory_op_pass(common_pass_mgr);
 
-        if (!aot_has_atomics(comp_ctx))
+        if (aot_require_lower_atomic_pass(comp_ctx))
             LLVMAddLowerAtomicPass(common_pass_mgr);
 
-        if (aot_has_lower_switch(comp_ctx))
+        if (aot_require_lower_switch_pass(comp_ctx))
             LLVMAddLowerSwitchPass(common_pass_mgr);
 
         LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
