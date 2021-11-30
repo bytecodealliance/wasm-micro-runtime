@@ -1,5 +1,16 @@
-WebAssembly Micro Runtime
+WebAssembly Micro Runtime for QNX on ARMv7
 =========================
+
+___
+
+## About QNX Arm7 port
+This is fork of [Bytecodealliance WAMR](https://github.com/bytecodealliance/wasm-micro-runtime), adapted to run on QNX on Armv7.
+
+This fork does not currently support WASI, instead WAMR build-in mini-libc must be used.
+
+___
+
+
 [Build WAMR VM core](./doc/build_wamr.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export native function](./doc/export_native_api.md) | [Build WASM applications](./doc/build_wasm_app.md) | [Samples](https://github.com/bytecodealliance/wasm-micro-runtime#samples)
 
 **A [Bytecode Alliance][BA] project**
