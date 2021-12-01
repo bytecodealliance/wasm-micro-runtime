@@ -127,8 +127,13 @@ bh_hash_map_find(HashMap *map, void *key)
     HashMapElem *elem;
     void *value;
 
-    if (!map || !key) {
-        LOG_ERROR("HashMap find elem failed: map or key is NULL.\n");
+    if (!map) {
+        LOG_ERROR("HashMap find elem failed: map is NULL.\n");
+        return NULL;
+    }
+
+    if (!key) {
+        LOG_VERBOSE("HashMap find elem failed: key is NULL.\n");
         return NULL;
     }
 
