@@ -2617,6 +2617,11 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     uint32 local_count, local_set_count, sub_local_count;
     uint8 type;
     WASMFunction *func;
+#if WASM_ENABLE_GC != 0
+    bool need_ref_type_map;
+    WASMRefType ref_type;
+    uint32 ref_type_map_count = 0, t = 0;
+#endif
 
     read_leb_uint32(p, p_end, func_count);
 
@@ -2664,6 +2669,9 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             read_leb_uint32(p_code, buf_code_end, local_set_count);
             p_code_save = p_code;
 
+#if WASM_ENABLE_GC != 0
+            ref_type_map_count = 0;
+#endif
             /* Calculate total local count */
             for (j = 0; j < local_set_count; j++) {
                 read_leb_uint32(p_code, buf_code_end, sub_local_count);
@@ -2671,10 +2679,26 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                     set_error_buf(error_buf, error_buf_size, "too many locals");
                     return false;
                 }
+#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p_code, buf_code_end, 1);
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
                 local_count += sub_local_count;
+#else
+                if (!resolve_value_type(&p_code, buf_code_end, module,
+                                        &need_ref_type_map, &ref_type, false,
+                                        error_buf, error_buf_size)) {
+                    return false;
+                }
+                if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "non-defaultable element type");
+                    return false;
+                }
+                local_count += sub_local_count;
+                if (need_ref_type_map)
+                    ref_type_map_count += sub_local_count;
+#endif
             }
 
             /* Alloc memory, layout: function structure + local types */
@@ -2685,6 +2709,17 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                       loader_malloc(total_size, error_buf, error_buf_size))) {
                 return false;
             }
+#if WASM_ENABLE_GC != 0
+            if (ref_type_map_count > 0) {
+                total_size =
+                    sizeof(WASMRefTypeMap) * (uint64)ref_type_map_count;
+                if (!(func->local_ref_type_maps = loader_malloc(
+                          total_size, error_buf, error_buf_size))) {
+                    return false;
+                }
+                func->local_ref_type_map_count = ref_type_map_count;
+            }
+#endif
 
             /* Set function type, local count, code size and code body */
             func->func_type = (WASMFuncType *)module->types[type_index];
@@ -2717,21 +2752,10 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                     return false;
                 }
                 CHECK_BUF(p_code, buf_code_end, 1);
+#if WASM_ENABLE_GC == 0
                 /* 0x7F/0x7E/0x7D/0x7C */
                 type = read_uint8(p_code);
-                if ((type < VALUE_TYPE_F64 || type > VALUE_TYPE_I32)
-#if WASM_ENABLE_SIMD != 0
-#if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
-                    && type != VALUE_TYPE_V128
-#endif
-#endif
-#if WASM_ENABLE_GC != 0
-                    && !wasm_is_type_reftype(type)
-#elif WASM_ENABLE_REF_TYPES != 0
-                    && type != VALUE_TYPE_FUNCREF
-                    && type != VALUE_TYPE_EXTERNREF
-#endif
-                ) {
+                if (!is_value_type(type)) {
                     if (type == VALUE_TYPE_V128)
                         set_error_buf(error_buf, error_buf_size,
                                       "v128 value type requires simd feature");
@@ -2740,15 +2764,62 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                         set_error_buf(error_buf, error_buf_size,
                                       "ref value type requires "
                                       "reference types feature");
+                    else if (type >= REF_TYPE_DATAREF
+                             && type <= REF_TYPE_ANYREF)
+                        set_error_buf(error_buf, error_buf_size,
+                                      "GC value type requires GC feature");
                     else
                         set_error_buf_v(error_buf, error_buf_size,
                                         "invalid local type 0x%02X", type);
                     return false;
                 }
+#else
+                if (!resolve_value_type(&p_code, buf_code_end, module,
+                                        &need_ref_type_map, &ref_type, false,
+                                        error_buf, error_buf_size)) {
+                    return false;
+                }
+                if (need_ref_type_map) {
+                    WASMRefType *ref_type_tmp;
+                    if (!(ref_type_tmp = reftype_set_insert(
+                              module->ref_type_set, &ref_type, error_buf,
+                              error_buf_size))) {
+                        return false;
+                    }
+                    for (k = 0; k < sub_local_count; k++) {
+                        func->local_ref_type_maps[t + k].ref_type =
+                            ref_type_tmp;
+                        func->local_ref_type_maps[t + k].index =
+                            local_type_index + k;
+                    }
+                    t += sub_local_count;
+                }
+                type = ref_type.ref_type;
+#endif
                 for (k = 0; k < sub_local_count; k++) {
                     func->local_types[local_type_index++] = type;
                 }
             }
+
+            bh_assert(local_type_index == func->local_count);
+#if WASM_ENABLE_GC != 0
+            bh_assert(t == func->local_ref_type_map_count);
+#if TRACE_WASM_LOADER != 0
+            os_printf("func %d, local types: [");
+            k = 0;
+            for (j = 0; j < func->local_count; j++) {
+                WASMRefType *ref_type_tmp = NULL;
+                if (wasm_is_type_multi_byte_type(func->local_types[j])) {
+                    bh_assert(j == func->local_ref_type_maps[k].index);
+                    ref_type_tmp = func->local_ref_type_maps[k++].ref_type;
+                }
+                wasm_dump_value_type(func->local_types[j], ref_type_tmp);
+                if (j < func->local_count - 1)
+                    os_printf(" ");
+            }
+            os_printf("]\n");
+#endif
+#endif
 
             func->param_cell_num = func->func_type->param_cell_num;
             func->ret_cell_num = func->func_type->ret_cell_num;
@@ -4373,6 +4444,11 @@ wasm_loader_unload(WASMModule *module)
                     wasm_runtime_free(module->functions[i]->code_compiled);
                 if (module->functions[i]->consts)
                     wasm_runtime_free(module->functions[i]->consts);
+#endif
+#if WASM_ENABLE_GC != 0
+                if (module->functions[i]->local_ref_type_maps)
+                    wasm_runtime_free(
+                        module->functions[i]->local_ref_type_maps);
 #endif
                 wasm_runtime_free(module->functions[i]);
             }
@@ -6899,9 +6975,10 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     int32 i, available_stack_cell;
     uint16 cell_num;
 #if WASM_ENABLE_GC != 0
-    WASMRefTypeMap *frame_reftype_map, *reftype_maps, *reftype_map;
+    WASMRefTypeMap *frame_reftype_map;
+    WASMRefTypeMap *reftype_maps = NULL, *reftype_map = NULL;
     WASMRefType *ref_type;
-    uint32 reftype_map_count;
+    uint32 reftype_map_count = 0;
     int32 available_reftype_map;
     bool is_type_multi_byte;
 #endif
@@ -7970,13 +8047,7 @@ re_scan:
                 }
 
                 if (available_stack_cell > 0) {
-                    if (*(loader_ctx->frame_ref - 1) == REF_I32
-                        || *(loader_ctx->frame_ref - 1) == REF_F32
-#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
-                        || *(loader_ctx->frame_ref - 1) == REF_FUNCREF
-                        || *(loader_ctx->frame_ref - 1) == REF_EXTERNREF
-#endif
-                    ) {
+                    if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -7987,8 +8058,7 @@ re_scan:
                             loader_ctx->dynamic_offset--;
 #endif
                     }
-                    else if (*(loader_ctx->frame_ref - 1) == REF_I64_1
-                             || *(loader_ctx->frame_ref - 1) == REF_F64_1) {
+                    else if (is_64bit_type(*(loader_ctx->frame_ref - 1))) {
                         loader_ctx->frame_ref -= 2;
                         loader_ctx->stack_cell_num -= 2;
 #if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)

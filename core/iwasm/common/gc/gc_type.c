@@ -126,7 +126,8 @@ wasm_dump_func_type(const WASMFuncType *type)
         else
             ref_type = NULL;
         wasm_dump_value_type(type->types[i], ref_type);
-        os_printf(" ");
+        if (i < type->param_count - 1)
+            os_printf(" ");
     }
 
     os_printf("] -> [");
@@ -140,7 +141,8 @@ wasm_dump_func_type(const WASMFuncType *type)
         else
             ref_type = NULL;
         wasm_dump_value_type(type->types[i], ref_type);
-        os_printf(" ");
+        if (i < type->param_count + type->result_count - 1)
+            os_printf(" ");
     }
 
     os_printf("]\n");

@@ -496,6 +496,10 @@ struct WASMFunction {
     WASMFuncType *func_type;
     uint32 local_count;
     uint8 *local_types;
+#if WASM_ENABLE_GC != 0
+    uint16 local_ref_type_map_count;
+    WASMRefTypeMap *local_ref_type_maps;
+#endif
 
     /* cell num of parameters */
     uint16 param_cell_num;
