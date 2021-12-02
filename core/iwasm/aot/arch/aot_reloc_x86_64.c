@@ -122,7 +122,7 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
 bool
 apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  uint32 target_section_size, uint64 reloc_offset,
-                 uint64 reloc_addend, uint32 reloc_type, void *symbol_addr,
+                 int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
     switch (reloc_type) {
@@ -136,8 +136,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 
             CHECK_RELOC_OFFSET(sizeof(void *));
             value = *(intptr_t *)(target_section_addr + (uint32)reloc_offset);
-            *(uint8 **)(target_section_addr + reloc_offset) =
-                (uint8 *)symbol_addr + reloc_addend + value; /* S + A */
+            *(uintptr_t *)(target_section_addr + reloc_offset) =
+                (uintptr_t)symbol_addr + reloc_addend + value; /* S + A */
             break;
         }
 #if defined(BH_PLATFORM_WINDOWS)
@@ -166,8 +166,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_X86_64_PC32:
         {
             intptr_t target_addr = (intptr_t) /* S + A - P */
-                ((uint8 *)symbol_addr + reloc_addend
-                 - (target_section_addr + reloc_offset));
+                ((uintptr_t)symbol_addr + reloc_addend
+                 - (uintptr_t)(target_section_addr + reloc_offset));
 
             CHECK_RELOC_OFFSET(sizeof(int32));
             if ((int32)target_addr != target_addr) {
@@ -186,8 +186,8 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_X86_64_32S:
         {
             char buf[128];
-            uintptr_t target_addr = (uintptr_t) /* S + A */
-                ((uint8 *)symbol_addr + reloc_addend);
+            uintptr_t target_addr = /* S + A */
+                (uintptr_t)symbol_addr + reloc_addend;
 
             CHECK_RELOC_OFFSET(sizeof(int32));
 

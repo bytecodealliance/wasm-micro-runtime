@@ -17,6 +17,7 @@
 #include "llvm-c/Transforms/Utils.h"
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm-c/Transforms/Vectorize.h"
+#include "llvm-c/Transforms/PassManagerBuilder.h"
 
 #if WASM_ENABLE_LAZY_JIT != 0
 #include "aot_llvm_lazyjit.h"
@@ -304,8 +305,14 @@ typedef struct AOTCompContext {
     /* Disable LLVM built-in intrinsics */
     bool disable_llvm_intrinsics;
 
+    /* Disable LLVM link time optimization */
+    bool disable_llvm_lto;
+
     /* Whether optimize the JITed code */
     bool optimize;
+
+    uint32 opt_level;
+    uint32 size_level;
 
     /* LLVM pass manager to optimize the JITed code */
     LLVMPassManagerRef pass_mgr;
@@ -352,6 +359,7 @@ typedef struct AOTCompOption {
     bool enable_aux_stack_check;
     bool enable_aux_stack_frame;
     bool disable_llvm_intrinsics;
+    bool disable_llvm_lto;
     uint32 opt_level;
     uint32 size_level;
     uint32 output_format;
@@ -436,6 +444,9 @@ aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
+
+void
+aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 
 #if WASM_ENABLE_LAZY_JIT != 0
 void

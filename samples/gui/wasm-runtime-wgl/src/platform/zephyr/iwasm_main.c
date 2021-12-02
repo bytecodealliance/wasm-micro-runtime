@@ -16,13 +16,20 @@
 #include "display.h"
 #include "lvgl.h"
 
-extern void init_sensor_framework();
-extern void exit_sensor_framework();
-extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
-extern bool touchscreen_read(lv_indev_data_t * data);
-extern int ili9340_init();
-extern void xpt2046_init(void);
-extern void wgl_init();
+extern void
+init_sensor_framework();
+extern void
+exit_sensor_framework();
+extern int
+aee_host_msg_callback(void *msg, uint32_t msg_len);
+extern bool
+touchscreen_read(lv_indev_data_t *data);
+extern int
+ili9340_init();
+extern void
+xpt2046_init(void);
+extern void
+wgl_init();
 
 #include <zephyr.h>
 #include <drivers/uart.h>
@@ -30,7 +37,8 @@ extern void wgl_init();
 
 int uart_char_cnt = 0;
 
-static void uart_irq_callback(struct device *dev)
+static void
+uart_irq_callback(struct device *dev)
 {
     unsigned char ch;
 
@@ -42,7 +50,8 @@ static void uart_irq_callback(struct device *dev)
 
 struct device *uart_dev = NULL;
 
-static bool host_init()
+static bool
+host_init()
 {
     uart_dev = device_get_binding(HOST_DEVICE_COMM_UART_NAME);
     if (!uart_dev) {
@@ -54,7 +63,8 @@ static bool host_init()
     return true;
 }
 
-int host_send(void * ctx, const char *buf, int size)
+int
+host_send(void *ctx, const char *buf, int size)
 {
     if (!uart_dev)
         return 0;
@@ -65,15 +75,17 @@ int host_send(void * ctx, const char *buf, int size)
     return size;
 }
 
-void host_destroy()
-{
-}
+void
+host_destroy()
+{}
 
+/* clang-format off */
 host_interface interface = {
     .init = host_init,
     .send = host_send,
     .destroy = host_destroy
 };
+/* clang-format on */
 
 timer_ctx_t timer_ctx;
 
@@ -81,9 +93,8 @@ static char global_heap_buf[270 * 1024] = { 0 };
 
 static uint8_t color_copy[320 * 10 * 3];
 
-static void display_flush(lv_disp_drv_t *disp_drv,
-                          const lv_area_t *area,
-                          lv_color_t *color)
+static void
+display_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color)
 {
     u16_t w = area->x2 - area->x1 + 1;
     u16_t h = area->y2 - area->y1 + 1;
@@ -102,20 +113,23 @@ static void display_flush(lv_disp_drv_t *disp_drv,
         color_p[i * 3 + 2] = color->ch.blue;
     }
 
-    display_write(NULL, area->x1, area->y1, &desc, (void *) color_p);
+    display_write(NULL, area->x1, area->y1, &desc, (void *)color_p);
 
     lv_disp_flush_ready(disp_drv); /* in v5.3 is lv_flush_ready */
 }
 
-static bool display_input_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
+static bool
+display_input_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
 {
     return touchscreen_read(data);
 }
 
 /**
- * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics library
+ * Initialize the Hardware Abstraction Layer (HAL) for the Littlev graphics
+ * library
  */
-static void hal_init(void)
+static void
+hal_init(void)
 {
     xpt2046_init();
     ili9340_init();
@@ -123,12 +137,12 @@ static void hal_init(void)
 
     /*Create a display buffer*/
     static lv_disp_buf_t disp_buf1;
-    static lv_color_t buf1_1[320*10];
-    lv_disp_buf_init(&disp_buf1, buf1_1, NULL, 320*10);
+    static lv_color_t buf1_1[320 * 10];
+    lv_disp_buf_init(&disp_buf1, buf1_1, NULL, 320 * 10);
 
     /*Create a display*/
     lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);            /*Basic initialization*/
+    lv_disp_drv_init(&disp_drv); /*Basic initialization*/
     disp_drv.buffer = &disp_buf1;
     disp_drv.flush_cb = display_flush;
     //    disp_drv.hor_res = 200;
@@ -136,13 +150,14 @@ static void hal_init(void)
     lv_disp_drv_register(&disp_drv);
 
     lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);          /*Basic initialization*/
+    lv_indev_drv_init(&indev_drv); /*Basic initialization*/
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = display_input_read;
     lv_indev_drv_register(&indev_drv);
 }
 
-int iwasm_main()
+int
+iwasm_main()
 {
     RuntimeInitArgs init_args;
     host_init();

@@ -422,9 +422,14 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Init aot block data */
     block->label_type = label_type;
     block->param_count = param_count;
-    memcpy(block->param_types, param_types, param_count);
+    if (param_count) {
+        bh_memcpy_s(block->param_types, param_count, param_types, param_count);
+    }
     block->result_count = result_count;
-    memcpy(block->result_types, result_types, result_count);
+    if (result_count) {
+        bh_memcpy_s(block->result_types, result_count, result_types,
+                    result_count);
+    }
     block->wasm_code_else = else_addr;
     block->wasm_code_end = end_addr;
     block->block_index = func_ctx->block_stack.block_index[label_type];
