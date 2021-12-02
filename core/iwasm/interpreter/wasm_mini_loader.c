@@ -1959,6 +1959,18 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         break;
                     }
                 }
+                if (!aux_stack_top_global) {
+                    /* Auxiliary stack global isn't found, it must be unused
+                       in the wasm app, as if it is used, the global must be
+                       defined. Here we set it to __heap_base global and set
+                       its size to 0. */
+                    aux_stack_top_global = aux_heap_base_global;
+                    aux_stack_top = aux_heap_base;
+                    module->aux_stack_top_global_index =
+                        module->aux_heap_base_global_index;
+                    module->aux_stack_bottom = aux_stack_top;
+                    module->aux_stack_size = 0;
+                }
                 break;
             }
         }
@@ -2002,7 +2014,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                 export->name, export->index);
 
                     /* resolve retain function.
-                        If not find, reset malloc function index */
+                       If not found, reset malloc function index */
                     export_tmp = module->exports;
                     for (j = 0; j < module->export_count; j++, export_tmp++) {
                         if ((export_tmp->kind == EXPORT_KIND_FUNC)
