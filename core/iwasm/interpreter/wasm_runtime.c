@@ -1830,7 +1830,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
             wasm_set_exception(module_inst, "app heap corrupted");
         }
         else {
-            LOG_ERROR("alloc %d bytes memory failed", size);
+            LOG_WARNING("alloc %d bytes memory failed", size);
         }
         return 0;
     }
