@@ -1130,9 +1130,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (!is_sub_inst) {
         os_mutex_lock(&module->ref_count_lock);
         if (module->ref_count != 0) {
-            LOG_WARNING("multiple instance referencing the same module may "
-                        "cause unexpected behaviour during debugging");
+            LOG_WARNING(
+                "warning: multiple instances referencing the same module may "
+                "cause unexpected behaviour during debugging");
         }
+        module->ref_count++;
         os_mutex_unlock(&module->ref_count_lock);
     }
 #endif
@@ -1532,16 +1534,16 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 #endif
     (void)global_data_end;
 
+    return module_inst;
+
+fail:
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (!is_sub_inst) {
         os_mutex_lock(&module->ref_count_lock);
-        module->ref_count++;
+        module->ref_count--;
         os_mutex_unlock(&module->ref_count_lock);
     }
 #endif
-
-    return module_inst;
-fail:
     wasm_deinstantiate(module_inst, false);
     return NULL;
 }
