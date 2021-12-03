@@ -5406,6 +5406,10 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
     if (ctx) {
         if (ctx->frame_ref_bottom)
             wasm_runtime_free(ctx->frame_ref_bottom);
+#if WASM_ENABLE_GC != 0
+        if (ctx->frame_reftype_map_bottom)
+            wasm_runtime_free(ctx->frame_reftype_map_bottom);
+#endif
         if (ctx->frame_csp_bottom) {
 #if WASM_ENABLE_FAST_INTERP != 0
             free_all_label_patch_lists(ctx->frame_csp_bottom, ctx->csp_num);
@@ -5625,6 +5629,10 @@ check_stack_pop(WASMLoaderContext *ctx, uint8 type, char *error_buf,
                                        ctx->ref_type_tmp,
                                        (const WASMType **)ctx->module->types,
                                        ctx->module->type_count)) {
+            uint32 ref_type_struct_size =
+                wasm_reftype_struct_size(stack_top_ref_type);
+            bh_memcpy_s(ctx->ref_type_tmp, (uint32)sizeof(WASMRefType),
+                        stack_top_ref_type, ref_type_struct_size);
             return true;
         }
     }
@@ -6481,11 +6489,26 @@ fail:
             goto fail;                                                        \
     } while (0)
 
+#define TEMPLATE_PUSH_REF(Type)                                                \
+    do {                                                                       \
+        if (!wasm_loader_push_frame_ref_offset(loader_ctx, Type, disable_emit, \
+                                               operand_offset, error_buf,      \
+                                               error_buf_size))                \
+            goto fail;                                                         \
+    } while (0)
+
 #define TEMPLATE_POP(Type)                                                   \
     do {                                                                     \
         if (!wasm_loader_pop_frame_ref_offset(loader_ctx, VALUE_TYPE_##Type, \
                                               error_buf, error_buf_size))    \
             goto fail;                                                       \
+    } while (0)
+
+#define TEMPLATE_POP_REF(Type)                                             \
+    do {                                                                   \
+        if (!wasm_loader_pop_frame_ref_offset(loader_ctx, Type, error_buf, \
+                                              error_buf_size))             \
+            goto fail;                                                     \
     } while (0)
 
 #define PUSH_OFFSET_TYPE(type)                                              \
@@ -6529,11 +6552,25 @@ fail:
             goto fail;                                                  \
     } while (0)
 
+#define TEMPLATE_PUSH_REF(Type)                                       \
+    do {                                                              \
+        if (!(wasm_loader_push_frame_ref(loader_ctx, Type, error_buf, \
+                                         error_buf_size)))            \
+            goto fail;                                                \
+    } while (0)
+
 #define TEMPLATE_POP(Type)                                             \
     do {                                                               \
         if (!(wasm_loader_pop_frame_ref(loader_ctx, VALUE_TYPE_##Type, \
                                         error_buf, error_buf_size)))   \
             goto fail;                                                 \
+    } while (0)
+
+#define TEMPLATE_POP_REF(Type)                                       \
+    do {                                                             \
+        if (!(wasm_loader_pop_frame_ref(loader_ctx, Type, error_buf, \
+                                        error_buf_size)))            \
+            goto fail;                                               \
     } while (0)
 
 #define POP_AND_PUSH(type_pop, type_push)                              \
@@ -6561,6 +6598,8 @@ fail:
 #define PUSH_V128() TEMPLATE_PUSH(V128)
 #define PUSH_FUNCREF() TEMPLATE_PUSH(FUNCREF)
 #define PUSH_EXTERNREF() TEMPLATE_PUSH(EXTERNREF)
+#define PUSH_REF(Type) TEMPLATE_PUSH_REF(Type)
+#define POP_REF(Type) TEMPLATE_POP_REF(Type)
 
 #define POP_I32() TEMPLATE_POP(I32)
 #define POP_F32() TEMPLATE_POP(F32)
@@ -7174,7 +7213,10 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
     frame_ref = loader_ctx->frame_ref;
 #if WASM_ENABLE_GC != 0
     frame_reftype_map = loader_ctx->frame_reftype_map;
-    return_reftype_map = return_reftype_maps + return_reftype_map_count - 1;
+    return_reftype_map =
+        return_reftype_map_count
+            ? return_reftype_maps + return_reftype_map_count - 1
+            : NULL;
 #endif
     for (i = (int32)return_count - 1; i >= 0; i--) {
         uint8 type = return_types[i];
@@ -8047,6 +8089,16 @@ re_scan:
                 }
 
                 if (available_stack_cell > 0) {
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(
+                            *(loader_ctx->frame_ref - 1))) {
+                        bh_assert((int32)(loader_ctx->reftype_map_num
+                                          - cur_block->reftype_map_num)
+                                  > 0);
+                        loader_ctx->frame_reftype_map--;
+                        loader_ctx->reftype_map_num--;
+                    }
+#endif
                     if (is_32bit_type(*(loader_ctx->frame_ref - 1))) {
                         loader_ctx->frame_ref--;
                         loader_ctx->stack_cell_num--;
@@ -9114,10 +9166,37 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_byte(loader_ctx, ((uint8)opcode1));
 #endif
-                /* TODO */
                 switch (opcode1) {
                     case WASM_OP_STRUCT_NEW_WITH_RTT:
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s %02x %02x", "unsupported opcode",
+                                        WASM_OP_GC_PREFIX, opcode1);
+                        goto fail;
+
                     case WASM_OP_STRUCT_NEW_DEFAULT_WITH_RTT:
+                    {
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_STRUCT) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "invalid type");
+                            goto fail;
+                        }
+
+                        wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false,
+                                                  0, type_idx);
+                        POP_REF(ref_type.ref_type);
+
+                        wasm_set_refheaptype_typeidx(&ref_type.ref_ht_typeidx,
+                                                     false, type_idx);
+                        PUSH_REF(ref_type.ref_type);
+                        break;
+                    }
+
                     case WASM_OP_STRUCT_GET:
                     case WASM_OP_STRUCT_GET_S:
                     case WASM_OP_STRUCT_GET_U:
@@ -9134,9 +9213,36 @@ re_scan:
                     case WASM_OP_I31_NEW:
                     case WASM_OP_I31_GET_S:
                     case WASM_OP_I31_GET_U:
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s %02x %02x", "unsupported opcode",
+                                        WASM_OP_GC_PREFIX, opcode1);
+                        goto fail;
 
                     case WASM_OP_RTT_CANON:
+                    {
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false,
+                                                  0, type_idx);
+                        PUSH_REF(ref_type.ref_type);
+                        break;
+                    }
+
                     case WASM_OP_RTT_SUB:
+                    {
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false,
+                                                  0, type_idx);
+                        POP_REF(ref_type.ref_type);
+                        break;
+                    }
 
                     case WASM_OP_REF_TEST:
                     case WASM_OP_REF_CAST:
@@ -9158,7 +9264,10 @@ re_scan:
                     case WASM_OP_BR_ON_NON_I31:
 
                     default:
-                        return false;
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s %02x %02x", "unsupported opcode",
+                                        WASM_OP_GC_PREFIX, opcode1);
+                        goto fail;
                 }
                 break;
             }
