@@ -1147,6 +1147,13 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     /* Allocate the memory */
     if (!(module_inst = runtime_malloc(sizeof(WASMModuleInstance), error_buf,
                                        error_buf_size))) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        if (!is_sub_inst) {
+            os_mutex_lock(&module->ref_count_lock);
+            module->ref_count--;
+            os_mutex_unlock(&module->ref_count_lock);
+        }
+#endif
         return NULL;
     }
 
@@ -1537,13 +1544,6 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     return module_inst;
 
 fail:
-#if WASM_ENABLE_DEBUG_INTERP != 0
-    if (!is_sub_inst) {
-        os_mutex_lock(&module->ref_count_lock);
-        module->ref_count--;
-        os_mutex_unlock(&module->ref_count_lock);
-    }
-#endif
     wasm_deinstantiate(module_inst, false);
     return NULL;
 }

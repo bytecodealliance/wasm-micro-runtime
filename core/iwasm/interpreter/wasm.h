@@ -424,7 +424,7 @@ struct WASMModule {
      * Count how many instances reference this module. When source
      * debugging feature enabled, the debugger may modify the code
      * section of the module, so we need to report a warning if user
-     * create several instance based on the same module
+     * create several instances based on the same module
      *
      * Sub_instances created by lib-pthread or spawn API will not
      * influence or check the ref count
