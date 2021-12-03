@@ -132,7 +132,7 @@ There are three steps to enable debugging in embedders
     ```
 
 ### Attentions
-- Debugging `multi-thread wasm module` is not supported, if your wasm module use pthread APIs (see [pthread_library.md](./pthread_library.md)), or the embedder use `wasm_runtime_spawn_thread` to create new wasm threads, then there may be **un-expected behaviour** during debugging.
+- Debugging `multi-thread wasm module` is not supported, if your wasm module use pthread APIs (see [pthread_library.md](./pthread_library.md)), or the embedder use `wasm_runtime_spawn_thread` to create new wasm threads, then there may be **unexpected behaviour** during debugging.
 
     > Note: This attention is about "wasm thread" rather than native threads. Executing wasm functions in several different native threads will **not** affect the normal behaviour of debugging feature.
 

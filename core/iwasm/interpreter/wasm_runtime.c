@@ -1126,6 +1126,17 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (!module)
         return NULL;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (!is_sub_inst) {
+        os_mutex_lock(&module->ref_count_lock);
+        if (module->ref_count != 0) {
+            LOG_WARNING("multiple instance referencing the same module may "
+                        "cause unexpected behaviour during debugging");
+        }
+        os_mutex_unlock(&module->ref_count_lock);
+    }
+#endif
+
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
     if (heap_size > APP_HEAP_SIZE_MAX)
@@ -1520,6 +1531,15 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         (WASMModuleInstanceCommon *)module_inst);
 #endif
     (void)global_data_end;
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (!is_sub_inst) {
+        os_mutex_lock(&module->ref_count_lock);
+        module->ref_count++;
+        os_mutex_unlock(&module->ref_count_lock);
+    }
+#endif
+
     return module_inst;
 fail:
     wasm_deinstantiate(module_inst, false);
@@ -1574,6 +1594,14 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         bh_vector_destroy(module_inst->frames);
         wasm_runtime_free(module_inst->frames);
         module_inst->frames = NULL;
+    }
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (!is_sub_inst) {
+        os_mutex_lock(&module_inst->module->ref_count_lock);
+        module_inst->module->ref_count--;
+        os_mutex_unlock(&module_inst->module->ref_count_lock);
     }
 #endif
 
