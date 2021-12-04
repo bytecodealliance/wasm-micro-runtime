@@ -407,6 +407,10 @@ WASM_RUNTIME_API_EXTERN PackageType
 get_package_type(const uint8 *buf, uint32 size);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_xip_file(const uint8 *buf, uint32 size);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleCommon *
 wasm_runtime_load(const uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size);

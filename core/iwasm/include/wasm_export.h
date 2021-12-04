@@ -236,6 +236,17 @@ WASM_RUNTIME_API_EXTERN package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
 
 /**
+ * Check whether a file is an AOT XIP (Execution In Place) file
+ *
+ * @param buf the package buffer
+ * @param size the package buffer size
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_xip_file(const uint8_t *buf, uint32_t size);
+
+/**
  * It is a callback for WAMR providing by embedding to load a module file
  * into a buffer
  */
