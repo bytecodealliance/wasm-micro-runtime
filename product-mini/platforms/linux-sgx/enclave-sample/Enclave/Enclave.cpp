@@ -129,11 +129,14 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     uint32 error_buf_size = *(uint32 *)args++;
     uint64 total_size = sizeof(EnclaveModule) + (uint64)wasm_file_size;
     EnclaveModule *enclave_module;
-    bool is_xip_file;
+    bool is_xip_file = false;
 
     bh_assert(argc == 4);
 
+#if WASM_ENABLE_AOT != 0
     is_xip_file = wasm_runtime_is_xip_file((uint8 *)wasm_file, wasm_file_size);
+#endif
+
     if (!is_xip_file) {
         if (total_size >= UINT32_MAX
             || !(enclave_module = (EnclaveModule *)wasm_runtime_malloc(

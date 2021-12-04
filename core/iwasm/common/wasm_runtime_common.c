@@ -294,6 +294,7 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+#if WASM_ENABLE_AOT != 0
 static uint8 *
 align_ptr(const uint8 *p, uint32 b)
 {
@@ -349,6 +350,7 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 
     return false;
 }
+#endif /* end of WASM_ENABLE_AOT */
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 static module_reader reader;

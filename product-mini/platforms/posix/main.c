@@ -387,6 +387,7 @@ main(int argc, char *argv[])
               (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
 
+#if WASM_ENABLE_AOT != 0
     if (wasm_runtime_is_xip_file(wasm_file_buf, wasm_file_size)) {
         uint8 *wasm_file_mapped;
         int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
@@ -405,6 +406,7 @@ main(int argc, char *argv[])
         wasm_file_buf = wasm_file_mapped;
         is_xip_file = true;
     }
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
