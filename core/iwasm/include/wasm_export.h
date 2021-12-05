@@ -788,6 +788,7 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
  *          'I': the parameter is i64 type
  *          'f': the parameter is f32 type
  *          'F': the parameter is f64 type
+ *          'r': the parameter is externref type, it should be a uintptr_t in host
  *          '*': the parameter is a pointer (i32 in WASM), and runtime will
  *               auto check its boundary before calling the native function.
  *               If it is followed by '~', the checked length of the pointer

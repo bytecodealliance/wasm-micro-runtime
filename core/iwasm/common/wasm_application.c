@@ -11,11 +11,6 @@
 #include "../aot/aot_runtime.h"
 #endif
 
-#if defined(_WIN32) || defined(_WIN32_)
-#define strncasecmp _strnicmp
-#define strcasecmp _stricmp
-#endif
-
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -101,9 +96,10 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     uint32 *argv_offsets, module_type;
     bool ret, is_import_func = true;
 
-    wasm_runtime_set_exception(module_inst, NULL);
     exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
     if (!exec_env) {
+        wasm_runtime_set_exception(module_inst,
+                                   "create singleton exec_env failed");
         return false;
     }
 
@@ -364,35 +360,6 @@ union ieee754_double {
     } ieee;
 };
 
-#if WASM_ENABLE_REF_TYPES != 0
-static int32
-type_size_in_double_world(uint8 type)
-{
-    uint32 size_in_db = 0;
-
-    if (VALUE_TYPE_I32 == type || VALUE_TYPE_F32 == type
-        || VALUE_TYPE_FUNCREF == type) {
-        size_in_db++;
-    }
-    else if (VALUE_TYPE_I64 == type || VALUE_TYPE_F64 == type) {
-        size_in_db += 2;
-    }
-#if WASM_ENABLE_SIMD != 0
-    else if (VALUE_TYPE_V128 == type) {
-        size_in_db += 4;
-    }
-#endif
-    else if (VALUE_TYPE_EXTERNREF == type) {
-        size_in_db += sizeof(uintptr_t) / sizeof(uint32);
-    }
-    else {
-        bh_assert(0);
-    }
-
-    return size_in_db;
-}
-#endif
-
 bool
 wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                               const char *name, int32 argc, char *argv[])
@@ -449,11 +416,12 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 
 #if WASM_ENABLE_REF_TYPES != 0
     for (i = 0; i < type->param_count; i++) {
-        param_size_in_double_world += type_size_in_double_world(type->types[i]);
+        param_size_in_double_world +=
+            wasm_value_type_cell_num_outside(type->types[i]);
     }
     for (i = 0; i < type->result_count; i++) {
-        result_size_in_double_world +=
-            type_size_in_double_world(type->types[type->param_count + i]);
+        result_size_in_double_world += wasm_value_type_cell_num_outside(
+            type->types[type->param_count + i]);
     }
     argc1 = param_size_in_double_world;
     cell_num = (param_size_in_double_world >= result_size_in_double_world)
@@ -576,7 +544,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             case VALUE_TYPE_FUNCREF:
             {
                 if (strncasecmp(argv[i], "null", 4) == 0) {
-                    argv1[p++] = NULL_REF;
+                    argv1[p++] = (uint32)-1;
                 }
                 else {
                     argv1[p++] = (uint32)strtoul(argv[i], &endptr, 0);
@@ -585,9 +553,9 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             }
             case VALUE_TYPE_EXTERNREF:
             {
-#ifdef BUILD_TARGET_X86_32
+#if UINTPTR_MAX == UINT32_MAX
                 if (strncasecmp(argv[i], "null", 4) == 0) {
-                    argv1[p++] = NULL_REF;
+                    argv1[p++] = (uint32)-1;
                 }
                 else {
                     argv1[p++] = strtoul(argv[i], &endptr, 0);
@@ -598,7 +566,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                     uint32 parts[2];
                 } u;
                 if (strncasecmp(argv[i], "null", 4) == 0) {
-                    u.val = NULL_REF;
+                    u.val = (uintptr_t)-1;
                 }
                 else {
                     u.val = strtoull(argv[i], &endptr, 0);
@@ -622,8 +590,14 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
 
     wasm_runtime_set_exception(module_inst, NULL);
+#if WASM_ENABLE_REF_TYPES == 0
+    bh_assert(p == (int32)argc1);
+#endif
+
     exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
     if (!exec_env) {
+        wasm_runtime_set_exception(module_inst,
+                                   "create singleton exec_env failed");
         goto fail;
     }
 
@@ -679,10 +653,10 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 os_printf("%.7g:f64", u.val);
                 break;
             }
-#if WASM_ENABLE_REF_TYPES
+#if WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
-                if (argv1[k] != NULL_REF)
+                if (argv1[k] != NULL_REF && argv1[k] != (uint32)-1)
                     os_printf("%u:ref.func", argv1[k]);
                 else
                     os_printf("func:ref.null");
@@ -691,24 +665,26 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             }
             case VALUE_TYPE_EXTERNREF:
             {
-                if (argv1[k] != 0 && NULL_REF != argv1[k]) {
-#ifdef BUILD_TARGET_X86_32
+#if UINTPTR_MAX == UINT32_MAX
+                if (argv1[k] != 0 && NULL_REF != argv1[k]
+                    && argv1[k] != (uint32)-1) {
                     os_printf("%p:ref.extern", argv1[k]);
-#else
-                    union {
-                        uintptr_t val;
-                        uint32 parts[2];
-                    } u;
-                    u.parts[0] = argv1[k];
-                    u.parts[1] = argv1[k + 1];
-                    k += 2;
-                    os_printf("%p:ref.extern", (void *)u.val);
-#endif
+                    k++;
                 }
+#else
+                union {
+                    uintptr_t val;
+                    uint32 parts[2];
+                } u;
+                u.parts[0] = argv1[k];
+                u.parts[1] = argv1[k + 1];
+                k += 2;
+                if (u.val && u.val != NULL_REF && u.val != (uintptr_t)-1) {
+                    os_printf("%p:ref.extern", (void *)u.val);
+                }
+#endif
                 else
                     os_printf("extern:ref.null");
-
-                k++;
                 break;
             }
 #endif
