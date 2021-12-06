@@ -119,7 +119,7 @@ There are three steps to enable debugging in embedders
         ...
     */
     exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
-    uint32_t debug_port = wasm_runtime_start_debug_instance();
+    uint32_t debug_port = wasm_runtime_start_debug_instance(exec_env);
     ```
 
 3. Enable source debugging features during building
@@ -137,3 +137,9 @@ There are three steps to enable debugging in embedders
     > Note: This attention is about "wasm thread" rather than native threads. Executing wasm functions in several different native threads will **not** affect the normal behaviour of debugging feature.
 
 - When using source debugging features, **don't** create multiple `wasm_instance` from the same `wasm_module`, because the debugger may change the bytecode (set/unset breakpoints) of the `wasm_module`. If you do need several instance from the same bytecode, you need to copy the bytecode to a new butter, then load a new `wasm_module`, and then instantiate the new wasm module to get the new instance.
+
+- If you are running `lldb` on non-linux platforms, please use `platform select remote-linux` command in lldb before connecting to the runtime:
+    ```
+    (lldb) platform select remote-linux
+    (lldb) process connect -p wasm connect://127.0.0.1:1234
+    ```
