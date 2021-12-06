@@ -55,7 +55,7 @@ static bool
 check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
           char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length > buf_end) {
+    if (buf + length < buf || buf + length > buf_end) {
         set_error_buf(error_buf, error_buf_size,
                       "unexpected end of section or function");
         return false;
@@ -67,7 +67,7 @@ static bool
 check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
            char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length > buf_end) {
+    if (buf + length < buf || buf + length > buf_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
         return false;
     }
@@ -1747,7 +1747,6 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     bool linked_call_conv_raw = false;
     bool is_native_symbol = false;
 
-    CHECK_BUF(p, p_end, 1);
     read_leb_uint32(p, p_end, declare_type_index);
     *p_buf = p;
 
@@ -3901,6 +3900,18 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         break;
                     }
                 }
+                if (!aux_stack_top_global) {
+                    /* Auxiliary stack global isn't found, it must be unused
+                       in the wasm app, as if it is used, the global must be
+                       defined. Here we set it to __heap_base global and set
+                       its size to 0. */
+                    aux_stack_top_global = aux_heap_base_global;
+                    aux_stack_top = aux_heap_base;
+                    module->aux_stack_top_global_index =
+                        module->aux_heap_base_global_index;
+                    module->aux_stack_bottom = aux_stack_top;
+                    module->aux_stack_size = 0;
+                }
                 break;
             }
         }
@@ -3945,7 +3956,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                 export->name, export->index);
 
                     /* resolve retain function.
-                        If not find, reset malloc function index */
+                       If not found, reset malloc function index */
                     export_tmp = module->exports;
                     for (j = 0; j < module->export_count; j++, export_tmp++) {
                         if ((export_tmp->kind == EXPORT_KIND_FUNC)
@@ -4096,6 +4107,10 @@ create_module(char *error_buf, uint32 error_buf_size)
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     bh_list_init(&module->fast_opcode_list);
+    if (os_mutex_init(&module->ref_count_lock) != 0) {
+        wasm_runtime_free(module);
+        return NULL;
+    }
 #endif
     return module;
 }
@@ -4205,7 +4220,6 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
                 }
                 last_section_index = section_index;
             }
-            CHECK_BUF1(p, p_end, 1);
             read_leb_uint32(p, p_end, section_size);
             CHECK_BUF1(p, p_end, section_size);
 
@@ -4439,6 +4453,7 @@ wasm_loader_unload(WASMModule *module)
         wasm_runtime_free(fast_opcode);
         fast_opcode = next;
     }
+    os_mutex_destroy(&module->ref_count_lock);
 #endif
 
     wasm_runtime_free(module);

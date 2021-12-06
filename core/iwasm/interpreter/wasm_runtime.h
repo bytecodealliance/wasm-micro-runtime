@@ -320,7 +320,8 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 bool
 wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *function,
-                                       unsigned argc, uint32 argv[]);
+                                       unsigned argc, uint32 argv[],
+                                       bool enable_debug);
 
 bool
 wasm_create_exec_env_singleton(WASMModuleInstance *module_inst);

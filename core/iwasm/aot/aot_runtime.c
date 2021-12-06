@@ -1774,7 +1774,7 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
             aot_set_exception(module_inst, "app heap corrupted");
         }
         else {
-            aot_set_exception(module_inst, "out of memory");
+            LOG_WARNING("warning: allocate %u bytes memory failed", size);
         }
         return 0;
     }

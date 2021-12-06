@@ -17,10 +17,11 @@ function help()
     echo "-s {suite_name} test only one suite (spec)"
     echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
     echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
-    echo "-M enable the multi module feature"
+    echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
     echo "-S enable SIMD feature"
     echo "-G enable GC feature"
+    echo "-X enable XIP feature"
     echo "-x test SGX"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-P run the spec test parallelly"
@@ -37,13 +38,14 @@ ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
 ENABLE_GC=0
+ENABLE_XIP=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxPG" opt
+while getopts ":s:cabt:m:MCpSXxPG" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -107,6 +109,10 @@ do
         S)
         echo "enable SIMD feature"
         ENABLE_SIMD=1
+        ;;
+        X)
+        echo "enable XIP feature"
+        ENABLE_XIP=1
         ;;
         x)
         echo "test SGX"
@@ -403,7 +409,11 @@ function spec_test()
     fi
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
-          ARGS_FOR_SPEC_TEST+="-p "
+        ARGS_FOR_SPEC_TEST+="-p "
+    fi
+
+    if [[ ${ENABLE_XIP} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="-X "
     fi
 
     # require warmc only in aot mode
