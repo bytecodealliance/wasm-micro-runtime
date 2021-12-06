@@ -216,8 +216,6 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* fill table with element segment content */
     for (i = 0; i < module->table_init_data_count; i++) {
-        AOTTableInstance *tbl_inst;
-
         table_seg = module->table_init_data_list[i];
 
 #if WASM_ENABLE_REF_TYPES != 0

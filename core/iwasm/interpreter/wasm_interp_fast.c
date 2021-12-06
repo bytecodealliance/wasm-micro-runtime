@@ -1347,7 +1347,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_TABLE_SET)
             {
-                uint32 tbl_idx, elem_idx, val;
+                uint32 tbl_idx, elem_idx, elem_val;
                 WASMTableInstance *tbl_inst;
 
                 tbl_idx = read_uint32(frame_ip);
@@ -1355,14 +1355,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
-                val = POP_I32();
+                elem_val = POP_I32();
                 elem_idx = POP_I32();
                 if (elem_idx >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "out of bounds table access");
                     goto got_exception;
                 }
 
-                ((uint32 *)tbl_inst->base_addr)[elem_idx] = val;
+                ((uint32 *)tbl_inst->base_addr)[elem_idx] = elem_val;
                 HANDLE_OP_END();
             }
 
@@ -1374,9 +1374,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_REF_IS_NULL)
             {
-                uint32 val;
-                val = POP_I32();
-                PUSH_I32(val == NULL_REF ? 1 : 0);
+                uint32 ref_val;
+                ref_val = POP_I32();
+                PUSH_I32(ref_val == NULL_REF ? 1 : 0);
                 HANDLE_OP_END();
             }
 
@@ -2954,17 +2954,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_MEMORY_FILL:
                     {
-                        uint32 dst, len;
-                        uint8 val, *mdst;
+                        uint32 dst, len, fill_val;
+                        uint8 *mdst;
 
                         len = POP_I32();
-                        val = POP_I32();
+                        fill_val = POP_I32();
                         dst = POP_I32();
 
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 
-                        memset(mdst, val, len);
-
+                        memset(mdst, fill_val, len);
                         break;
                     }
 #endif /* WASM_ENABLE_BULK_MEMORY */
@@ -3116,7 +3115,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_TABLE_FILL:
                     {
-                        uint32 tbl_idx, n, val, i;
+                        uint32 tbl_idx, n, elem_val, i;
                         WASMTableInstance *tbl_inst;
 
                         tbl_idx = read_uint32(frame_ip);
@@ -3125,7 +3124,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
                         n = POP_I32();
-                        val = POP_I32();
+                        elem_val = POP_I32();
                         i = POP_I32();
 
                         if (i + n > tbl_inst->cur_size) {
@@ -3135,7 +3134,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         for (; n != 0; i++, n--) {
-                            ((uint32 *)(tbl_inst->base_addr))[i] = val;
+                            ((uint32 *)(tbl_inst->base_addr))[i] = elem_val;
                         }
 
                         break;

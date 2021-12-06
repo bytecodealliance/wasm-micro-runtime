@@ -45,7 +45,7 @@ is_32bit_type(uint8 type)
 {
     if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
 #if WASM_ENABLE_REF_TYPES != 0
-        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF)
+        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
     )
         return true;
@@ -4707,10 +4707,10 @@ fail:
 #endif
 
 /* set current block's stack polymorphic state */
-#define SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(flag)         \
-    do {                                                    \
-        BranchBlock *cur_block = loader_ctx->frame_csp - 1; \
-        cur_block->is_stack_polymorphic = flag;             \
+#define SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(flag)          \
+    do {                                                     \
+        BranchBlock *_cur_block = loader_ctx->frame_csp - 1; \
+        _cur_block->is_stack_polymorphic = flag;             \
     } while (0)
 
 #define BLOCK_HAS_PARAM(block_type) \
@@ -4732,7 +4732,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;
     uint32 param_count, local_count, global_count;
     uint8 *param_types, *local_types, local_type, global_type;
-    BlockType func_type;
+    BlockType func_block_type;
     uint16 *local_offsets, local_offset;
     uint32 count, i, local_idx, global_idx, u32, align, mem_offset;
     int32 i32, i32_const = 0;
@@ -4761,8 +4761,8 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     param_count = func->func_type->param_count;
     param_types = func->func_type->types;
 
-    func_type.is_value_type = false;
-    func_type.u.type = func->func_type;
+    func_block_type.is_value_type = false;
+    func_block_type.u.type = func->func_type;
 
     local_count = func->local_count;
     local_types = func->local_types;
@@ -4786,7 +4786,7 @@ re_scan:
     }
 #endif
 
-    PUSH_CSP(LABEL_TYPE_FUNCTION, func_type, p);
+    PUSH_CSP(LABEL_TYPE_FUNCTION, func_block_type, p);
 
     while (p < p_end) {
         opcode = *p++;
@@ -4830,7 +4830,7 @@ re_scan:
                      * 0x40/0x7F/0x7E/0x7D/0x7C, take it as the type of
                      * the single return value. */
                     block_type.is_value_type = true;
-                    block_type.u.value_type = value_type;
+                    block_type.u.value_type.type = value_type;
                 }
                 else {
                     uint32 type_index;
@@ -4998,28 +4998,28 @@ re_scan:
                  * fail */
                 if (cur_block->label_type == LABEL_TYPE_IF
                     && !cur_block->else_addr) {
-                    uint32 param_count = 0, ret_count = 0;
-                    uint8 *param_types = NULL, *ret_types = NULL;
-                    BlockType *block_type = &cur_block->block_type;
-                    if (block_type->is_value_type) {
-                        if (block_type->u.value_type != VALUE_TYPE_VOID) {
-                            ret_count = 1;
-                            ret_types = &block_type->u.value_type;
+                    uint32 block_param_count = 0, block_ret_count = 0;
+                    uint8 *block_param_types = NULL, *block_ret_types = NULL;
+                    BlockType *cur_block_type = &cur_block->block_type;
+                    if (cur_block_type->is_value_type) {
+                        if (cur_block_type->u.value_type.type != VALUE_TYPE_VOID) {
+                            block_ret_count = 1;
+                            block_ret_types = &cur_block_type->u.value_type.type;
                         }
                     }
                     else {
-                        param_count = block_type->u.type->param_count;
-                        ret_count = block_type->u.type->result_count;
-                        param_types = block_type->u.type->types;
-                        ret_types = block_type->u.type->types + param_count;
+                        block_param_count = cur_block_type->u.type->param_count;
+                        block_ret_count = cur_block_type->u.type->result_count;
+                        block_param_types = cur_block_type->u.type->types;
+                        block_ret_types = cur_block_type->u.type->types + block_param_count;
                     }
                     bh_assert(
-                        param_count == ret_count
-                        && (!param_count
-                            || !memcmp(param_types, ret_types, param_count)));
-                    (void)ret_types;
-                    (void)ret_count;
-                    (void)param_types;
+                        block_param_count == block_ret_count
+                        && (!block_param_count
+                            || !memcmp(block_param_types, block_ret_types, block_param_count)));
+                    (void)block_ret_types;
+                    (void)block_ret_count;
+                    (void)block_param_types;
                 }
 
                 POP_CSP();
@@ -6597,25 +6597,28 @@ re_scan:
         goto re_scan;
 
     func->const_cell_num = loader_ctx->const_cell_num;
-    if (func->const_cell_num > 0
-        && !(func->consts = func_const = loader_malloc(
-                 func->const_cell_num * 4, error_buf, error_buf_size))) {
-        goto fail;
-    }
-    func_const_end = func->consts + func->const_cell_num * 4;
-    /* reverse the const buf */
-    for (int i = loader_ctx->num_const - 1; i >= 0; i--) {
-        Const *c = (Const *)(loader_ctx->const_buf + i * sizeof(Const));
-        if (c->value_type == VALUE_TYPE_F64
-            || c->value_type == VALUE_TYPE_I64) {
-            bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
+    if (func->const_cell_num > 0) {
+        int32 j;
+
+        if (!(func->consts = func_const = loader_malloc(
+                 func->const_cell_num * 4, error_buf, error_buf_size)))
+           goto fail;
+
+        func_const_end = func->consts + func->const_cell_num * 4;
+        /* reverse the const buf */
+        for (j = loader_ctx->num_const - 1; j >= 0; j--) {
+            Const *c = (Const *)(loader_ctx->const_buf + j * sizeof(Const));
+            if (c->value_type == VALUE_TYPE_F64
+                    || c->value_type == VALUE_TYPE_I64) {
+                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
                         &(c->value.f64), (uint32)sizeof(int64));
-            func_const += sizeof(int64);
-        }
-        else {
-            bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
+                func_const += sizeof(int64);
+            }
+            else {
+                bh_memcpy_s(func_const, (uint32)(func_const_end - func_const),
                         &(c->value.f32), (uint32)sizeof(int32));
-            func_const += sizeof(int32);
+                func_const += sizeof(int32);
+            }
         }
     }
 
