@@ -900,7 +900,7 @@ execute_post_inst_function(WASMModuleInstance *module_inst)
         return true;
 
     return wasm_create_exec_env_and_call_function(module_inst, post_inst_func,
-                                                  0, NULL);
+                                                  0, NULL, false);
 }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
@@ -929,7 +929,7 @@ execute_memory_init_function(WASMModuleInstance *module_inst)
         return true;
 
     return wasm_create_exec_env_and_call_function(module_inst, memory_init_func,
-                                                  0, NULL);
+                                                  0, NULL, false);
 }
 #endif
 
@@ -944,7 +944,8 @@ execute_start_function(WASMModuleInstance *module_inst)
     bh_assert(!func->is_import_func && func->param_cell_num == 0
               && func->ret_cell_num == 0);
 
-    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL);
+    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL,
+                                                  false);
 }
 
 static bool
@@ -972,11 +973,11 @@ execute_malloc_function(WASMModuleInstance *module_inst,
     }
 
     ret = wasm_create_exec_env_and_call_function(module_inst, malloc_func, argc,
-                                                 argv);
+                                                 argv, false);
 
     if (retain_func && ret) {
         ret = wasm_create_exec_env_and_call_function(module_inst, retain_func,
-                                                     1, argv);
+                                                     1, argv, false);
     }
 
     if (ret)
@@ -992,7 +993,7 @@ execute_free_function(WASMModuleInstance *module_inst,
 
     argv[0] = offset;
     return wasm_create_exec_env_and_call_function(module_inst, free_func, 1,
-                                                  argv);
+                                                  argv, false);
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -1125,6 +1126,19 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (!module)
         return NULL;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (!is_sub_inst) {
+        os_mutex_lock(&module->ref_count_lock);
+        if (module->ref_count != 0) {
+            LOG_WARNING(
+                "warning: multiple instances referencing the same module may "
+                "cause unexpected behaviour during debugging");
+        }
+        module->ref_count++;
+        os_mutex_unlock(&module->ref_count_lock);
+    }
+#endif
+
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
     if (heap_size > APP_HEAP_SIZE_MAX)
@@ -1133,6 +1147,13 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     /* Allocate the memory */
     if (!(module_inst = runtime_malloc(sizeof(WASMModuleInstance), error_buf,
                                        error_buf_size))) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        if (!is_sub_inst) {
+            os_mutex_lock(&module->ref_count_lock);
+            module->ref_count--;
+            os_mutex_unlock(&module->ref_count_lock);
+        }
+#endif
         return NULL;
     }
 
@@ -1519,7 +1540,9 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         (WASMModuleInstanceCommon *)module_inst);
 #endif
     (void)global_data_end;
+
     return module_inst;
+
 fail:
     wasm_deinstantiate(module_inst, false);
     return NULL;
@@ -1573,6 +1596,14 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         bh_vector_destroy(module_inst->frames);
         wasm_runtime_free(module_inst->frames);
         module_inst->frames = NULL;
+    }
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (!is_sub_inst) {
+        os_mutex_lock(&module_inst->module->ref_count_lock);
+        module_inst->module->ref_count--;
+        os_mutex_unlock(&module_inst->module->ref_count_lock);
     }
 #endif
 
@@ -1661,7 +1692,8 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 bool
 wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *func,
-                                       unsigned argc, uint32 argv[])
+                                       unsigned argc, uint32 argv[],
+                                       bool enable_debug)
 {
     WASMExecEnv *exec_env;
     bool ret;
@@ -1680,6 +1712,11 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         }
 
 #if WASM_ENABLE_THREAD_MGR != 0
+        if (enable_debug) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+            wasm_runtime_start_debug_instance(exec_env);
+#endif
+        }
     }
 #endif
 
