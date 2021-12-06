@@ -2190,6 +2190,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(group->section_name, ".text")
 #endif
         ) {
+#if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX) \
+    && !defined(BH_PLATFORM_DARWIN)
             if (module->native_symbol_count > 0) {
                 set_error_buf(error_buf, error_buf_size,
                               "cannot apply relocation to text section "
@@ -2197,6 +2199,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                               "\"--enable-indirect-mode\" flag");
                 goto fail;
             }
+#endif
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
                 goto fail;
         }

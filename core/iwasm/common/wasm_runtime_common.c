@@ -294,6 +294,64 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+#if WASM_ENABLE_AOT != 0
+static uint8 *
+align_ptr(const uint8 *p, uint32 b)
+{
+    uintptr_t v = (uintptr_t)p;
+    uintptr_t m = b - 1;
+    return (uint8 *)((v + m) & ~m);
+}
+
+#define CHECK_BUF(buf, buf_end, length)                   \
+    do {                                                  \
+        if (buf + length < buf || buf + length > buf_end) \
+            return false;                                 \
+    } while (0)
+
+#define read_uint32(p, p_end, res)                 \
+    do {                                           \
+        p = (uint8 *)align_ptr(p, sizeof(uint32)); \
+        CHECK_BUF(p, p_end, sizeof(uint32));       \
+        res = *(uint32 *)p;                        \
+        p += sizeof(uint32);                       \
+    } while (0)
+
+bool
+wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
+{
+    const uint8 *p = buf, *p_end = buf + size;
+    uint32 section_type, sub_section_type, section_size;
+
+    if (get_package_type(buf, size) != Wasm_Module_AoT)
+        return false;
+
+    CHECK_BUF(p, p_end, 8);
+    p += 8;
+    while (p < p_end) {
+        read_uint32(p, p_end, section_type);
+        read_uint32(p, p_end, section_size);
+        CHECK_BUF(p, p_end, section_size);
+
+        if (section_type == AOT_SECTION_TYPE_CUSTOM) {
+            read_uint32(p, p_end, sub_section_type);
+            if (sub_section_type == AOT_CUSTOM_SECTION_NATIVE_SYMBOL) {
+                return true;
+            }
+            else {
+                p -= sizeof(uint32);
+            }
+        }
+        else if (section_type >= AOT_SECTION_TYPE_SIGANATURE) {
+            return false;
+        }
+        p += section_size;
+    }
+
+    return false;
+}
+#endif /* end of WASM_ENABLE_AOT */
+
 #if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
 uint32
 wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
