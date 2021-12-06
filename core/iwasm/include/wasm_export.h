@@ -409,6 +409,26 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
 /**
+ * Start debug instance based on given execution environment.
+ * Note:
+ *   The debug instance will be destroyed during destroying the
+ *   execution environment, developers don't need to destroy it
+ *   manually.
+ *   If the cluster of this execution environment has already
+ *   been bound to a debug instance, this function will return true
+ *   directly.
+ *   If developer spawns some exec_env by wasm_runtime_spawn_exec_env,
+ *   don't need to call this function for every spawned exec_env as
+ *   they are sharing the same cluster with the main exec_env.
+ *
+ * @param exec_env the execution environment to start debug instance
+ *
+ * @return debug port if success, 0 otherwise.
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_start_debug_instance(wasm_exec_env_t exec_env);
+
+/**
  * Initialize thread environment.
  * Note:
  *   If developer creates a child thread by himself to call the

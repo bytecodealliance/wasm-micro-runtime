@@ -39,6 +39,8 @@ typedef struct WASMCurrentEnvStatus {
     korp_cond wait_cond;
 } WASMCurrentEnvStatus;
 
+typedef struct WASMDebugInstance WASMDebugInstance;
+
 WASMCurrentEnvStatus *
 wasm_cluster_create_exenv_status();
 
@@ -69,6 +71,9 @@ wasm_cluster_thread_send_signal(WASMExecEnv *exec_env, uint32 signo);
 void
 wasm_cluster_thread_step(WASMExecEnv *exec_env);
 
+void
+wasm_cluster_set_debug_inst(WASMCluster *cluster, WASMDebugInstance *inst);
+
 #endif
 typedef struct WASMCluster {
     struct WASMCluster *next;
@@ -84,6 +89,9 @@ typedef struct WASMCluster {
     uint32 stack_size;
     /* Record which segments are occupied */
     bool *stack_segment_occupied;
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    WASMDebugInstance *debug_inst;
+#endif
 } WASMCluster;
 
 void

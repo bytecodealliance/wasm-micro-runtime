@@ -494,6 +494,12 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          uint32 num_results, wasm_val_t *results,
                          uint32 num_args, ...);
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env);
+#endif
+
 /**
  * Call a function reference of a given WASM runtime instance with
  * arguments.
