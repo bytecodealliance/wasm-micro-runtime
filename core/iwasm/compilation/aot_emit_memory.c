@@ -6,6 +6,7 @@
 #include "aot_emit_memory.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
+#include "aot_intrinsic.h"
 
 #define BUILD_ICMP(op, left, right, res, name)                                \
     do {                                                                      \
@@ -951,13 +952,66 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    /* TODO: lookup func ptr of "memmove" to call for XIP mode */
+    if (comp_ctx->is_indirect_mode) {
+        LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+        LLVMValueRef func, params[3];
+        int32 func_idx;
 
-    if (!(res = LLVMBuildMemMove(comp_ctx->builder, dst_addr, 1, src_addr, 1,
-                                 len))) {
-        aot_set_last_error("llvm build memmove failed.");
-        return false;
+        if (!(dst_addr =
+                  LLVMBuildBitCast(comp_ctx->builder, dst_addr, INT32_PTR_TYPE,
+                                   "memmove dst addr cast type"))) {
+            aot_set_last_error("llvm cast memmove dst addr type failed.");
+            return false;
+        }
+
+        if (!(src_addr =
+                  LLVMBuildBitCast(comp_ctx->builder, src_addr, INT32_PTR_TYPE,
+                                   "memmove src addr cast type"))) {
+            aot_set_last_error("llvm cast memmove src addr type failed.");
+            return false;
+        }
+
+        param_types[0] = INT32_PTR_TYPE;
+        param_types[1] = INT32_PTR_TYPE;
+        param_types[2] = I32_TYPE;
+        ret_type = INT32_PTR_TYPE;
+
+        if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function pointer type failed.");
+            return false;
+        }
+
+        func_idx = aot_get_native_symbol_index(comp_ctx, "memmove");
+        if (func_idx < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_idx))) {
+            return false;
+        }
+
+        params[0] = dst_addr;
+        params[1] = src_addr;
+        params[2] = len;
+        if (!(res = LLVMBuildCall(comp_ctx->builder, func, params, 3,
+                                  "call memmove"))) {
+            aot_set_last_error("llvm build memmove failed.");
+            return false;
+        }
     }
+    else {
+        if (!(res = LLVMBuildMemMove(comp_ctx->builder, dst_addr, 1, src_addr,
+                                     1, len))) {
+            aot_set_last_error("llvm build memmove failed.");
+            return false;
+        }
+    }
+
     return true;
 fail:
     return false;
@@ -981,11 +1035,57 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
         return false;
     }
 
-    /* TODO: lookup func ptr of "memset" to call for XIP mode */
+    if (comp_ctx->is_indirect_mode) {
+        LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+        LLVMValueRef func, params[3];
+        int32 func_idx;
 
-    if (!(res = LLVMBuildMemSet(comp_ctx->builder, dst_addr, val, len, 1))) {
-        aot_set_last_error("llvm build memset failed.");
-        return false;
+        if (!(dst_addr =
+                  LLVMBuildBitCast(comp_ctx->builder, dst_addr, INT32_PTR_TYPE,
+                                   "memset dst addr cast type"))) {
+            aot_set_last_error("llvm cast memset dst addr type failed.");
+            return false;
+        }
+
+        param_types[0] = INT32_PTR_TYPE;
+        param_types[1] = INT8_TYPE;
+        param_types[2] = I32_TYPE;
+        ret_type = INT32_PTR_TYPE;
+
+        if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function pointer type failed.");
+            return false;
+        }
+
+        func_idx = aot_get_native_symbol_index(comp_ctx, "memset");
+        if (func_idx < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_idx))) {
+            return false;
+        }
+
+        params[0] = dst_addr;
+        params[1] = val;
+        params[2] = len;
+        if (!(res = LLVMBuildCall(comp_ctx->builder, func, params, 3,
+                                  "call memset"))) {
+            aot_set_last_error("llvm build memset failed.");
+            return false;
+        }
+    }
+    else {
+        if (!(res =
+                  LLVMBuildMemSet(comp_ctx->builder, dst_addr, val, len, 1))) {
+            aot_set_last_error("llvm build memset failed.");
+            return false;
+        }
     }
     return true;
 fail:
@@ -1127,16 +1227,20 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
     }
 
     if (op_type == VALUE_TYPE_I32) {
-        if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE,
-                                     "result_i32"))) {
-            goto fail;
+        if (LLVMTypeOf(result) != I32_TYPE) {
+            if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE,
+                                         "result_i32"))) {
+                goto fail;
+            }
         }
         PUSH_I32(result);
     }
     else {
-        if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I64_TYPE,
-                                     "result_i64"))) {
-            goto fail;
+        if (LLVMTypeOf(result) != I64_TYPE) {
+            if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I64_TYPE,
+                                         "result_i64"))) {
+                goto fail;
+            }
         }
         PUSH_I64(result);
     }

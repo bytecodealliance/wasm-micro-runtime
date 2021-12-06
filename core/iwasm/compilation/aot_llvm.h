@@ -445,6 +445,9 @@ aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
+void
+aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
+
 #if WASM_ENABLE_LAZY_JIT != 0
 void
 aot_handle_llvm_errmsg(char *error_buf, uint32 error_buf_size,

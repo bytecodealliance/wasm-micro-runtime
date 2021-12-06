@@ -1913,7 +1913,8 @@ struct coff_hdr {
 #define IMAGE_FILE_MACHINE_I386 0x014c
 #define IMAGE_FILE_MACHINE_IA64 0x0200
 
-#define AOT_COFF_BIN_TYPE 6
+#define AOT_COFF32_BIN_TYPE 4 /* 32-bit little endian */
+#define AOT_COFF64_BIN_TYPE 6 /* 64-bit little endian */
 
 #define EI_NIDENT 16
 
@@ -2029,8 +2030,11 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         obj_data->target_info.e_version = 1;
         obj_data->target_info.e_flags = 0;
 
-        if (coff_header->u16Machine == IMAGE_FILE_MACHINE_AMD64)
-            obj_data->target_info.bin_type = AOT_COFF_BIN_TYPE;
+        if (coff_header->u16Machine == IMAGE_FILE_MACHINE_AMD64
+            || coff_header->u16Machine == IMAGE_FILE_MACHINE_IA64)
+            obj_data->target_info.bin_type = AOT_COFF64_BIN_TYPE;
+        else if (coff_header->u16Machine == IMAGE_FILE_MACHINE_I386)
+            obj_data->target_info.bin_type = AOT_COFF32_BIN_TYPE;
     }
     else if (bin_type == LLVMBinaryTypeELF32L
              || bin_type == LLVMBinaryTypeELF32B) {

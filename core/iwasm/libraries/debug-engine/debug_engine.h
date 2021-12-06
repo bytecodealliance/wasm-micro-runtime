@@ -42,6 +42,8 @@ typedef struct WASMDebugInstance {
     WASMCluster *cluster;
     uint32 id;
     korp_tid current_tid;
+    korp_mutex wait_lock;
+    korp_cond wait_cond;
 } WASMDebugInstance;
 
 typedef enum WASMDebugEventKind {
@@ -159,6 +161,9 @@ wasm_debug_instance_kill(WASMDebugInstance *instance);
 uint64
 wasm_debug_instance_wait_thread(WASMDebugInstance *instance, uint64 tid,
                                 uint32 *status);
+
+uint32
+wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, uint64 tid);
 
 bool
 wasm_debug_instance_singlestep(WASMDebugInstance *instance, uint64 tid);

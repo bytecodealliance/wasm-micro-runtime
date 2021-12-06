@@ -90,7 +90,7 @@ static bool
 check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
           char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length > buf_end) {
+    if (buf + length < buf || buf + length > buf_end) {
         set_error_buf(error_buf, error_buf_size, "unexpect end");
         return false;
     }
@@ -166,6 +166,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define BIN_TYPE_ELF32B 1 /* 32-bit big endian */
 #define BIN_TYPE_ELF64L 2 /* 64-bit little endian */
 #define BIN_TYPE_ELF64B 3 /* 64-bit big endian */
+#define BIN_TYPE_COFF32 4 /* 32-bit little endian */
 #define BIN_TYPE_COFF64 6 /* 64-bit little endian */
 
 /* Legal values for e_type (object file type). */
@@ -188,7 +189,8 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_MACHINE_ARC_COMPACT2 195  /* Synopsys ARCompact V2 */
 #define E_MACHINE_XTENSA 94         /* Tensilica Xtensa Architecture */
 #define E_MACHINE_RISCV 243         /* RISC-V 32/64 */
-#define E_MACHINE_WIN_X86_64 0x8664 /* Windowx x86-64 architecture */
+#define E_MACHINE_WIN_I386 0x14c    /* Windows i386 architecture */
+#define E_MACHINE_WIN_X86_64 0x8664 /* Windows x86-64 architecture */
 
 /* Legal values for e_version */
 #define E_VERSION_CURRENT 1 /* Current version */
@@ -317,6 +319,7 @@ get_aot_file_target(AOTTargetInfo *target_info, char *target_buf,
             machine_type = "x86_64";
             break;
         case E_MACHINE_386:
+        case E_MACHINE_WIN_I386:
             machine_type = "i386";
             break;
         case E_MACHINE_ARM:
@@ -2187,6 +2190,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(group->section_name, ".text")
 #endif
         ) {
+#if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX) \
+    && !defined(BH_PLATFORM_DARWIN)
             if (module->native_symbol_count > 0) {
                 set_error_buf(error_buf, error_buf_size,
                               "cannot apply relocation to text section "
@@ -2194,6 +2199,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                               "\"--enable-indirect-mode\" flag");
                 goto fail;
             }
+#endif
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
                 goto fail;
         }

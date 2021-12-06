@@ -407,6 +407,10 @@ WASM_RUNTIME_API_EXTERN PackageType
 get_package_type(const uint8 *buf, uint32 size);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_xip_file(const uint8 *buf, uint32 size);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleCommon *
 wasm_runtime_load(const uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size);
@@ -493,6 +497,12 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          WASMFunctionInstanceCommon *function,
                          uint32 num_results, wasm_val_t *results,
                          uint32 num_args, ...);
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env);
+#endif
 
 /**
  * Call a function reference of a given WASM runtime instance with
