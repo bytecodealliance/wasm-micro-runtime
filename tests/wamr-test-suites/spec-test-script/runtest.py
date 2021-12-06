@@ -210,6 +210,9 @@ parser.add_argument('--sgx', action='store_true',
 parser.add_argument('--simd', default=False, action='store_true',
         help="Enable SIMD")
 
+parser.add_argument('--xip', default=False, action='store_true',
+        help="Enable XIP")
+
 parser.add_argument('--multi-thread', default=False, action='store_true',
         help="Enable Multi-thread")
 
@@ -941,6 +944,10 @@ def compile_wasm_to_aot(wasm_tempfile, aot_tempfile, runner, opts, r):
 
     if not opts.simd:
         cmd.append("--disable-simd")
+
+    if opts.xip:
+        cmd.append("--enable-indirect-mode")
+        cmd.append("--disable-llvm-intrinsics")
 
     if opts.multi_thread:
         cmd.append("--enable-multi-thread")

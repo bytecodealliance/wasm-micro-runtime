@@ -25,14 +25,14 @@ set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
                  string);
 }
 
-#define CHECK_BUF(buf, buf_end, length)     \
-    do {                                    \
-        bh_assert(buf + length <= buf_end); \
+#define CHECK_BUF(buf, buf_end, length)                            \
+    do {                                                           \
+        bh_assert(buf + length >= buf && buf + length <= buf_end); \
     } while (0)
 
-#define CHECK_BUF1(buf, buf_end, length)    \
-    do {                                    \
-        bh_assert(buf + length <= buf_end); \
+#define CHECK_BUF1(buf, buf_end, length)                           \
+    do {                                                           \
+        bh_assert(buf + length >= buf && buf + length <= buf_end); \
     } while (0)
 
 #define skip_leb(p) while (*p++ & 0x80)
@@ -45,7 +45,7 @@ is_32bit_type(uint8 type)
 {
     if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_F32
 #if WASM_ENABLE_REF_TYPES != 0
-        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF)
+        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
 #endif
     )
         return true;
@@ -412,7 +412,6 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     void *linked_attachment = NULL;
     bool linked_call_conv_raw = false;
 
-    CHECK_BUF(p, p_end, 1);
     read_leb_uint32(p, p_end, declare_type_index);
     *p_buf = p;
 
@@ -1960,6 +1959,18 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                         break;
                     }
                 }
+                if (!aux_stack_top_global) {
+                    /* Auxiliary stack global isn't found, it must be unused
+                       in the wasm app, as if it is used, the global must be
+                       defined. Here we set it to __heap_base global and set
+                       its size to 0. */
+                    aux_stack_top_global = aux_heap_base_global;
+                    aux_stack_top = aux_heap_base;
+                    module->aux_stack_top_global_index =
+                        module->aux_heap_base_global_index;
+                    module->aux_stack_bottom = aux_stack_top;
+                    module->aux_stack_size = 0;
+                }
                 break;
             }
         }
@@ -2003,7 +2014,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
                                 export->name, export->index);
 
                     /* resolve retain function.
-                        If not find, reset malloc function index */
+                       If not found, reset malloc function index */
                     export_tmp = module->exports;
                     for (j = 0; j < module->export_count; j++, export_tmp++) {
                         if ((export_tmp->kind == EXPORT_KIND_FUNC)
@@ -2232,7 +2243,6 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
                           || last_section_index < section_index);
                 last_section_index = section_index;
             }
-            CHECK_BUF1(p, p_end, 1);
             read_leb_uint32(p, p_end, section_size);
             CHECK_BUF1(p, p_end, section_size);
 

@@ -52,6 +52,8 @@ typedef struct EnclaveModule {
     uint32 wasi_env_list_size;
     char **wasi_argv;
     uint32 wasi_argc;
+    bool is_xip_file;
+    uint32 total_size_mapped;
 } EnclaveModule;
 
 #if WASM_ENABLE_SPEC_TEST == 0
@@ -127,28 +129,57 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     uint32 error_buf_size = *(uint32 *)args++;
     uint64 total_size = sizeof(EnclaveModule) + (uint64)wasm_file_size;
     EnclaveModule *enclave_module;
+    bool is_xip_file = false;
 
     bh_assert(argc == 4);
 
-    if (total_size >= UINT32_MAX
-        || !(enclave_module =
-                 (EnclaveModule *)wasm_runtime_malloc((uint32)total_size))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
-                      "allocate memory failed.");
-        *(void **)args_org = NULL;
-        return;
+#if WASM_ENABLE_AOT != 0
+    is_xip_file = wasm_runtime_is_xip_file((uint8 *)wasm_file, wasm_file_size);
+#endif
+
+    if (!is_xip_file) {
+        if (total_size >= UINT32_MAX
+            || !(enclave_module = (EnclaveModule *)wasm_runtime_malloc(
+                     (uint32)total_size))) {
+            set_error_buf(error_buf, error_buf_size,
+                          "WASM module load failed: "
+                          "allocate memory failed.");
+            *(void **)args_org = NULL;
+            return;
+        }
+        memset(enclave_module, 0, (uint32)total_size);
+    }
+    else {
+        int map_prot = MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
+        int map_flags = MMAP_MAP_NONE;
+
+        if (total_size >= UINT32_MAX
+            || !(enclave_module = (EnclaveModule *)os_mmap(
+                     NULL, (uint32)total_size, map_prot, map_flags))) {
+            set_error_buf(error_buf, error_buf_size,
+                          "WASM module load failed: mmap memory failed.");
+            *(void **)args_org = NULL;
+            return;
+        }
+        memset(enclave_module, 0, (uint32)total_size);
+        enclave_module->is_xip_file = true;
+        enclave_module->total_size_mapped = (uint32)total_size;
     }
 
-    memset(enclave_module, 0, (uint32)total_size);
     enclave_module->wasm_file = (uint8 *)enclave_module + sizeof(EnclaveModule);
     bh_memcpy_s(enclave_module->wasm_file, wasm_file_size, wasm_file,
                 wasm_file_size);
+    if (is_xip_file) {
+        enclave_module->is_xip_file = true;
+    }
 
     if (!(enclave_module->module =
               wasm_runtime_load(enclave_module->wasm_file, wasm_file_size,
                                 error_buf, error_buf_size))) {
-        wasm_runtime_free(enclave_module);
+        if (!is_xip_file)
+            wasm_runtime_free(enclave_module);
+        else
+            os_munmap(enclave_module, (uint32)total_size);
         *(void **)args_org = NULL;
         return;
     }
@@ -170,7 +201,10 @@ handle_cmd_unload_module(uint64 *args, uint32 argc)
         wasm_runtime_free(enclave_module->wasi_arg_buf);
 
     wasm_runtime_unload(enclave_module->module);
-    wasm_runtime_free(enclave_module);
+    if (!enclave_module->is_xip_file)
+        wasm_runtime_free(enclave_module);
+    else
+        os_munmap(enclave_module, enclave_module->total_size_mapped);
 
     LOG_VERBOSE("Unload module success.\n");
 }

@@ -6,6 +6,7 @@
 #include "aot_emit_memory.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
+#include "aot_intrinsic.h"
 
 #define BUILD_ICMP(op, left, right, res, name)                                \
     do {                                                                      \
@@ -1224,16 +1225,20 @@ aot_compile_op_atomic_cmpxchg(AOTCompContext *comp_ctx,
     }
 
     if (op_type == VALUE_TYPE_I32) {
-        if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE,
-                                     "result_i32"))) {
-            goto fail;
+        if (LLVMTypeOf(result) != I32_TYPE) {
+            if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I32_TYPE,
+                                         "result_i32"))) {
+                goto fail;
+            }
         }
         PUSH_I32(result);
     }
     else {
-        if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I64_TYPE,
-                                     "result_i64"))) {
-            goto fail;
+        if (LLVMTypeOf(result) != I64_TYPE) {
+            if (!(result = LLVMBuildZExt(comp_ctx->builder, result, I64_TYPE,
+                                         "result_i64"))) {
+                goto fail;
+            }
         }
         PUSH_I64(result);
     }
