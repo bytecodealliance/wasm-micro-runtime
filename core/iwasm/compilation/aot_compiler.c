@@ -2687,6 +2687,32 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     }
 #endif
 
+    if (comp_ctx->optimize && comp_ctx->is_indirect_mode) {
+        LLVMPassManagerRef common_pass_mgr = NULL;
+
+        if (!(common_pass_mgr = LLVMCreatePassManager())) {
+            aot_set_last_error("create pass manager failed");
+            return false;
+        }
+
+        aot_add_expand_memory_op_pass(common_pass_mgr);
+
+        if (aot_require_lower_atomic_pass(comp_ctx))
+            LLVMAddLowerAtomicPass(common_pass_mgr);
+
+        if (aot_require_lower_switch_pass(comp_ctx))
+            LLVMAddLowerSwitchPass(common_pass_mgr);
+
+#if WASM_ENABLE_LAZY_JIT == 0
+        LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
+#else
+        for (i = 0; i < comp_ctx->func_ctx_count; i++)
+            LLVMRunPassManager(common_pass_mgr, comp_ctx->modules[i]);
+#endif
+
+        LLVMDisposePassManager(common_pass_mgr);
+    }
+
 #if 0
 #if WASM_ENABLE_LAZY_JIT == 0
     LLVMDumpModule(comp_ctx->module);
@@ -2724,27 +2750,6 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
     }
 #endif
-
-    if (comp_ctx->optimize && comp_ctx->is_indirect_mode) {
-        LLVMPassManagerRef common_pass_mgr = NULL;
-
-        if (!(common_pass_mgr = LLVMCreatePassManager())) {
-            aot_set_last_error("create pass manager failed");
-            return false;
-        }
-
-        aot_add_expand_memory_op_pass(common_pass_mgr);
-
-        if (aot_require_lower_atomic_pass(comp_ctx))
-            LLVMAddLowerAtomicPass(common_pass_mgr);
-
-        if (aot_require_lower_switch_pass(comp_ctx))
-            LLVMAddLowerSwitchPass(common_pass_mgr);
-
-        LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
-
-        LLVMDisposePassManager(common_pass_mgr);
-    }
 
     return true;
 }
