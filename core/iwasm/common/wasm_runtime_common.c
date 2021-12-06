@@ -352,6 +352,26 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 }
 #endif /* end of WASM_ENABLE_AOT */
 
+#if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
+uint32
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+
+    if (cluster->debug_inst) {
+        LOG_WARNING("Cluster already bind to a debug instance");
+        return cluster->debug_inst->control_thread->port;
+    }
+
+    if (wasm_debug_instance_create(cluster)) {
+        return cluster->debug_inst->control_thread->port;
+    }
+
+    return 0;
+}
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 static module_reader reader;
 static module_destroyer destroyer;
@@ -1489,7 +1509,7 @@ wasm_runtime_create_exec_env_and_call_wasm(
     if (module_inst->module_type == Wasm_Module_Bytecode)
         ret = wasm_create_exec_env_and_call_function(
             (WASMModuleInstance *)module_inst, (WASMFunctionInstance *)function,
-            argc, argv);
+            argc, argv, true);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)

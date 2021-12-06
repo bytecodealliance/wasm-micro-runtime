@@ -33,7 +33,10 @@ typedef struct WASMGDBServer {
 } WASMGDBServer;
 
 WASMGDBServer *
-wasm_launch_gdbserver(char *addr, int port);
+wasm_create_gdbserver(char *addr, int *port);
+
+bool
+wasm_gdbserver_listen(WASMGDBServer *server);
 
 void
 wasm_close_gdbserver(WASMGDBServer *server);
