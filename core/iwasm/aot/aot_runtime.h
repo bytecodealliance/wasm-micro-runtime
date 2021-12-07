@@ -246,6 +246,9 @@ typedef struct AOTModule {
     /* is jit mode or not */
     bool is_jit_mode;
 
+    /* is indirect mode or not */
+    bool is_indirect_mode;
+
 #if WASM_ENABLE_JIT != 0
     WASMModule *wasm_module;
     AOTCompContext *comp_ctx;
