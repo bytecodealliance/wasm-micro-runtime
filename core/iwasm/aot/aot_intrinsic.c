@@ -421,14 +421,12 @@ aot_intrinsic_f64_to_f32(float64 f)
     return (float32)f;
 }
 
-/* The epsilon value is from https://www.cplusplus.com/reference/cfloat/ */
-
 int32
 aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs)
 {
     switch (cond) {
         case FLOAT_EQ:
-            return fabsf(lhs - rhs) <= 1e-5f ? 1 : 0;
+            return (float32)fabs(lhs - rhs) <= WA_FLT_EPSILON ? 1 : 0;
 
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
@@ -459,7 +457,7 @@ aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
 {
     switch (cond) {
         case FLOAT_EQ:
-            return fabs(lhs - rhs) <= 1e-9 ? 1 : 0;
+            return fabs(lhs - rhs) <= WA_DBL_EPSILON ? 1 : 0;
 
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
