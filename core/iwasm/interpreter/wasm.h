@@ -419,6 +419,20 @@ struct WASMModule {
     uint64 buf_code_size;
 #endif
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    /**
+     * Count how many instances reference this module. When source
+     * debugging feature enabled, the debugger may modify the code
+     * section of the module, so we need to report a warning if user
+     * create several instances based on the same module
+     *
+     * Sub_instances created by lib-pthread or spawn API will not
+     * influence or check the ref count
+     */
+    uint32 ref_count;
+    korp_mutex ref_count_lock;
+#endif
+
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;

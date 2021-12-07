@@ -148,9 +148,6 @@ wasm_exec_env_create(struct WASMModuleInstanceCommon *module_inst,
         wasm_exec_env_destroy_internal(exec_env);
         return NULL;
     }
-#if WASM_ENABLE_DEBUG_INTERP != 0
-    wasm_debug_instance_create(cluster);
-#endif
 #endif /* end of WASM_ENABLE_THREAD_MGR */
 
     return exec_env;
@@ -165,7 +162,6 @@ wasm_exec_env_destroy(WASMExecEnv *exec_env)
     if (cluster) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
         wasm_cluster_thread_exited(exec_env);
-        wasm_debug_instance_destroy(cluster);
 #endif
         wasm_cluster_terminate_all_except_self(cluster, exec_env);
         wasm_cluster_del_exec_env(cluster, exec_env);

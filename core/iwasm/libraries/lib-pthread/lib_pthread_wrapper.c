@@ -332,7 +332,7 @@ create_cluster_info(WASMCluster *cluster)
     if (!(node = wasm_runtime_malloc(sizeof(ClusterInfoNode)))) {
         return NULL;
     }
-    memset(node, 0, sizeof(WASMCluster));
+    memset(node, 0, sizeof(ClusterInfoNode));
 
     node->thread_list = &node->thread_list_head;
     ret = bh_list_init(node->thread_list);
