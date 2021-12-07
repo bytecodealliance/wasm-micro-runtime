@@ -1,0 +1,11 @@
+version: '2.0'
+
+services:
+  web_portal:
+    build: ./wasm_django
+    network_mode: "host"
+    depends_on:
+      - 'device_server'
+  device_server:
+    build: ./wasm_django/server
+    network_mode: "host"
