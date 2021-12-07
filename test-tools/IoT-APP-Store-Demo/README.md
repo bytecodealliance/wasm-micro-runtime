@@ -36,12 +36,7 @@ Wasm application management portal for WAMR
 1. Download WAMR runtime from [help](http://localhost/help/) page
     > NOTE: You need to start the server before accessing this link!
 
-2. Install libsdl2
-``` bash
-sudo apt install libsdl2-2.0-0:i386
-```
-
-3. Start a WAMR runtime from localhost
+2. Start a WAMR runtime from localhost
     ``` bash
     ./simple
     ```
