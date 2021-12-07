@@ -1,6 +1,6 @@
 FROM python:3.5
 
 WORKDIR /app
-ADD wasm_server.py /app
+ADD server/wasm_server.py /app/server/
 
-ENTRYPOINT ["python", "wasm_server.py"]
+ENTRYPOINT ["python", "server/wasm_server.py"]
