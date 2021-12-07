@@ -224,7 +224,8 @@ acquire_wait_info(void *address, bool create)
     AtomicWaitInfo *wait_info = NULL;
     bh_list_status ret;
 
-    wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
+    if (address)
+        wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
 
     if (!create)
         return wait_info;
