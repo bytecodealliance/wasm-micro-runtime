@@ -6,6 +6,7 @@ services:
     network_mode: "host"
     depends_on:
       - 'device_server'
+    restart: always
     volumes:
       - store:/app/static/upload/
   device_server:
@@ -13,6 +14,7 @@ services:
       context: ./wasm_django
       dockerfile: ./server/Dockerfile
     network_mode: "host"
+    restart: always
     volumes:
       - store:/app/static/upload/
 
