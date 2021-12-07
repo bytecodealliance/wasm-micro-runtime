@@ -37,7 +37,7 @@
 
 /* The epsilon value is from https://www.cplusplus.com/reference/cfloat/ */
 
-#define WA_FLT_EPSILON  1e-5f
-#define WA_DBL_EPSILON  1e-9
+#define WA_FLT_EPSILON 1e-5f
+#define WA_DBL_EPSILON 1e-9
 
 #endif /* #ifndef _BH_PLATFORM_H */
