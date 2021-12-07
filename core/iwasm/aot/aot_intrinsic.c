@@ -5,8 +5,6 @@
 
 #include "aot_intrinsic.h"
 
-#include <float.h>
-
 typedef struct {
     const char *llvm_intrinsic;
     const char *native_intrinsic;
@@ -423,12 +421,14 @@ aot_intrinsic_f64_to_f32(float64 f)
     return (float32)f;
 }
 
+/* The epsilon value is from https://www.cplusplus.com/reference/cfloat/ */
+
 int32
 aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs)
 {
     switch (cond) {
         case FLOAT_EQ:
-            return fabsf(lhs - rhs) <= __FLT_EPSILON__ ? 1 : 0;
+            return fabsf(lhs - rhs) <= 1e-5f ? 1 : 0;
 
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
@@ -459,7 +459,7 @@ aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
 {
     switch (cond) {
         case FLOAT_EQ:
-            return fabs(lhs - rhs) <= __DBL_EPSILON__ ? 1 : 0;
+            return fabs(lhs - rhs) <= 1e-9 ? 1 : 0;
 
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
