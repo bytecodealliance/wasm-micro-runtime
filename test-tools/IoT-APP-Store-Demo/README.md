@@ -38,6 +38,7 @@ Wasm application management portal for WAMR
 
 2. Start a WAMR runtime from localhost
     ``` bash
+    chmod +x simple
     ./simple
     ```
     or from other computers
