@@ -426,7 +426,7 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     if (target_info.e_type != E_TYPE_REL && target_info.e_type != E_TYPE_XIP) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid object file type, "
-                      "expected relocatable file type but got others");
+                      "expected relocatable or XIP file type but got others");
         return false;
     }
 
