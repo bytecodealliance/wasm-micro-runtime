@@ -477,8 +477,6 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
 
     read_uint32(p, p_end, cnt);
 
-    module->native_symbol_count = cnt;
-
     if (cnt > 0) {
         module->native_symbol_list = wasm_runtime_malloc(cnt * sizeof(void *));
         if (module->native_symbol_list == NULL) {
@@ -1468,7 +1466,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     }
 #endif
 
-    if ((module->code_size > 0) && (module->native_symbol_count == 0)) {
+    if ((module->code_size > 0) && !module->is_indirect_mode) {
         plt_base = (uint8 *)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
     }
