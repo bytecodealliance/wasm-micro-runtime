@@ -119,6 +119,71 @@ handle_cmd_destroy_runtime()
     LOG_VERBOSE("Destroy runtime success.\n");
 }
 
+static uint8 *
+align_ptr(const uint8 *p, uint32 b)
+{
+    uintptr_t v = (uintptr_t)p;
+    uintptr_t m = b - 1;
+    return (uint8 *)((v + m) & ~m);
+}
+
+#define AOT_SECTION_TYPE_TARGET_INFO 0
+#define AOT_SECTION_TYPE_SIGANATURE 6
+#define E_TYPE_XIP 4
+
+#define CHECK_BUF(buf, buf_end, length)                   \
+    do {                                                  \
+        if (buf + length < buf || buf + length > buf_end) \
+            return false;                                 \
+    } while (0)
+
+#define read_uint16(p, p_end, res)                 \
+    do {                                           \
+        p = (uint8 *)align_ptr(p, sizeof(uint16)); \
+        CHECK_BUF(p, p_end, sizeof(uint16));       \
+        res = *(uint16 *)p;                        \
+        p += sizeof(uint16);                       \
+    } while (0)
+
+#define read_uint32(p, p_end, res)                 \
+    do {                                           \
+        p = (uint8 *)align_ptr(p, sizeof(uint32)); \
+        CHECK_BUF(p, p_end, sizeof(uint32));       \
+        res = *(uint32 *)p;                        \
+        p += sizeof(uint32);                       \
+    } while (0)
+
+static bool
+is_xip_file(const uint8 *buf, uint32 size)
+{
+    const uint8 *p = buf, *p_end = buf + size;
+    uint32 section_type, section_size;
+    uint16 e_type;
+
+    if (get_package_type(buf, size) != Wasm_Module_AoT)
+        return false;
+    CHECK_BUF(p, p_end, 8);
+    p += 8;
+    while (p < p_end) {
+        read_uint32(p, p_end, section_type);
+        read_uint32(p, p_end, section_size);
+        CHECK_BUF(p, p_end, section_size);
+
+        if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
+            p += 4;
+            read_uint16(p, p_end, e_type);
+            if (e_type == E_TYPE_XIP) {
+                return true;
+            }
+        }
+        else if (section_type >= AOT_SECTION_TYPE_SIGANATURE) {
+            return false;
+        }
+        p += section_size;
+    }
+    return false;
+}
+
 static void
 handle_cmd_load_module(uint64 *args, uint32 argc)
 {
@@ -129,15 +194,10 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     uint32 error_buf_size = *(uint32 *)args++;
     uint64 total_size = sizeof(EnclaveModule) + (uint64)wasm_file_size;
     EnclaveModule *enclave_module;
-    bool is_xip_file = false;
 
     bh_assert(argc == 4);
 
-#if WASM_ENABLE_AOT != 0
-    is_xip_file = wasm_runtime_is_xip_file((uint8 *)wasm_file, wasm_file_size);
-#endif
-
-    if (!is_xip_file) {
+    if (!is_xip_file((uint8 *)wasm_file, wasm_file_size)) {
         if (total_size >= UINT32_MAX
             || !(enclave_module = (EnclaveModule *)wasm_runtime_malloc(
                      (uint32)total_size))) {
