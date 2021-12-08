@@ -174,6 +174,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_TYPE_REL 1  /* Relocatable file */
 #define E_TYPE_EXEC 2 /* Executable file */
 #define E_TYPE_DYN 3  /* Shared object file */
+#define E_TYPE_XIP 4  /* eXecute In Place file */
 
 /* Legal values for e_machine (architecture).  */
 #define E_MACHINE_386 3             /* Intel 80386 */
@@ -422,10 +423,10 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     /* Check target elf file type */
-    if (target_info.e_type != E_TYPE_REL) {
+    if (target_info.e_type != E_TYPE_REL && target_info.e_type != E_TYPE_XIP) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid object file type, "
-                      "expected relocatable file type but got others");
+                      "expected relocatable or XIP file type but got others");
         return false;
     }
 
@@ -475,8 +476,6 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
     const char *symbol;
 
     read_uint32(p, p_end, cnt);
-
-    module->native_symbol_count = cnt;
 
     if (cnt > 0) {
         module->native_symbol_list = wasm_runtime_malloc(cnt * sizeof(void *));
@@ -1467,7 +1466,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     }
 #endif
 
-    if ((module->code_size > 0) && (module->native_symbol_count == 0)) {
+    if ((module->code_size > 0) && !module->is_indirect_mode) {
         plt_base = (uint8 *)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
     }
@@ -2192,7 +2191,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         ) {
 #if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX) \
     && !defined(BH_PLATFORM_DARWIN)
-            if (module->native_symbol_count > 0) {
+            if (module->is_indirect_mode) {
                 set_error_buf(error_buf, error_buf_size,
                               "cannot apply relocation to text section "
                               "for aot file generated with "
@@ -2492,33 +2491,36 @@ destroy_sections(AOTSection *section_list, bool destroy_aot_text)
 }
 
 static bool
-resolve_native_symbols(const uint8 *buf, uint32 size, uint32 *p_count,
-                       char *error_buf, uint32 error_buf_size)
+resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
+                     char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf + size;
     uint32 section_type;
     uint32 section_size = 0;
+    uint16 e_type = 0;
 
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
         if (section_type <= AOT_SECTION_TYPE_SIGANATURE
-            || section_type == AOT_SECTION_TYPE_CUSTOM) {
+            || section_type == AOT_SECTION_TYPE_TARGET_INFO) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
-            if (section_type == AOT_SECTION_TYPE_CUSTOM) {
-                read_uint32(p, p_end, section_type);
-                if (section_type == AOT_CUSTOM_SECTION_NATIVE_SYMBOL) {
-                    /* Read the count of native symbol */
-                    read_uint32(p, p_end, *p_count);
-                    return true;
+            if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
+                p += 4;
+                read_uint16(p, p_end, e_type);
+                if (e_type == E_TYPE_XIP) {
+                    *p_mode = true;
                 }
-                p -= sizeof(uint32);
+                else {
+                    *p_mode = false;
+                }
+                break;
             }
         }
         else if (section_type > AOT_SECTION_TYPE_SIGANATURE) {
             set_error_buf(error_buf, error_buf_size,
-                          "resolve native symbol failed");
+                          "resolve execute mode failed");
             break;
         }
         p += section_size;
@@ -2536,18 +2538,18 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     AOTSection *section_list = NULL, *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size;
     bool destroy_aot_text = false;
-    uint32 native_symbol_count = 0;
+    bool is_indirect_mode = false;
     uint32 section_type;
     uint32 section_size;
     uint64 total_size;
     uint8 *aot_text;
 
-    if (!resolve_native_symbols(buf, size, &native_symbol_count, error_buf,
-                                error_buf_size)) {
+    if (!resolve_execute_mode(buf, size, &is_indirect_mode, error_buf,
+                              error_buf_size)) {
         goto fail;
     }
 
-    module->native_symbol_count = native_symbol_count;
+    module->is_indirect_mode = is_indirect_mode;
 
     p += 8;
     while (p < p_end) {
@@ -2568,7 +2570,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
             section->section_body_size = section_size;
 
             if (section_type == AOT_SECTION_TYPE_TEXT) {
-                if ((section_size > 0) && (native_symbol_count == 0)) {
+                if ((section_size > 0) && !module->is_indirect_mode) {
                     int map_prot =
                         MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
@@ -2671,8 +2673,7 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
-        destroy_sections(section_list,
-                         module->native_symbol_count == 0 ? true : false);
+        destroy_sections(section_list, module->is_indirect_mode ? false : true);
         /* aot_unload() won't destroy aot text again */
         module->code = NULL;
     }
@@ -3039,7 +3040,7 @@ aot_unload(AOTModule *module)
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
 
-    if (module->code && (module->native_symbol_count == 0)) {
+    if (module->code && !module->is_indirect_mode) {
         /* The layout is: literal size + literal + code (with plt table) */
         uint8 *mmap_addr = module->literal - sizeof(uint32);
         uint32 total_size =
