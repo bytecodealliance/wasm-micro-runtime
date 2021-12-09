@@ -1,22 +1,9 @@
 # WAMR reference-types introduction
 
-WebAssembly [reference-types](https://github.com/WebAssembly/reference-types) proposal introduces the new type `externref` and makes it easier and more efficient to interoperate with host environment, allowing host references to be represented directly by type externref. And WASM modules can talk about host references directly, rather than requiring external glue code running in the host.
+WebAssembly [reference-types](https://github.com/WebAssembly/reference-types) proposal introduces two new types `funcref` and `externref`. With `externref`, It is easier and more efficient to interoperate with host environment. Host references are able to be represented directly by type `externref`.
 
-WAMR implements the reference-types proposal, allowing developer to pass the host object to WASM application and then restore and access the host object in native lib. In WAMR internal, the external host object is represented as externref index with `uint32` type, developer must firstly map the host object of `void *` type to the externref index, and then pass the index to the function to called as the function's externref argument.
+WAMR has implemented the reference-types proposal. WAMR allows a native method to pass a host object to a WASM application as an `externref` parameter or receives a host object from a WASM application as an `externref` result. Internally, WAMR won't try to parse or dereference `externref`. It is an opaque type.
 
-Currently WAMR provides APIs as below:
-```C
-bool
-wasm_externref_obj2ref(wasm_module_inst_t module_inst,
-                       void *extern_obj, uint32_t *p_externref_idx);
-
-WASM_RUNTIME_API_EXTERN bool
-wasm_externref_ref2obj(uint32_t externref_idx, void **p_extern_obj);
-
-WASM_RUNTIME_API_EXTERN bool
-wasm_externref_retain(uint32 externref_idx);
-```
-
-The `wasm_externref_obj2ref()` API is used to map the host object to the externref index, and the `wasm_externref_ref2obj()` API is used to retrieve the original host object mapped. The `wasm_externref_retain()` API is to retain the host object if we don't want the object to be cleaned when it isn't used during externref object reclaim.
+The restriction of using `externref` in a native method is the host object has to be the value of a `unintptr_t` variable. In other words, it takes **8 bytes** on 64-bit machine and **4 bytes** on 32-bit machines. Please keep that in mind especially when calling `wasm_runtime_call_wasm`.
 
 Please ref to the [sample](../samples/ref-types) for more details.
