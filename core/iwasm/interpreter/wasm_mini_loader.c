@@ -60,6 +60,25 @@ is_64bit_type(uint8 type)
     return false;
 }
 
+static bool
+is_value_type(uint8 type)
+{
+    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_I64
+        || type == VALUE_TYPE_F32 || type == VALUE_TYPE_F64
+#if WASM_ENABLE_REF_TYPES != 0
+        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
+#endif
+    )
+        return true;
+    return false;
+}
+
+static bool
+is_byte_a_type(uint8 type)
+{
+    return is_value_type(type) || (type == VALUE_TYPE_VOID);
+}
+
 static void
 read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
          uint64 *p_result, char *error_buf, uint32 error_buf_size)
@@ -1442,6 +1461,8 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
         }
     }
 
+    (void)table_index;
+    (void)function_count;
     bh_assert(p == p_end);
     LOG_VERBOSE("Load table segment section success.\n");
     return true;
@@ -4417,25 +4438,6 @@ fail:
     do {                                                                   \
         bh_assert(module->import_memory_count + module->memory_count > 0); \
     } while (0)
-
-static bool
-is_value_type(uint8 type)
-{
-    if (type == VALUE_TYPE_I32 || type == VALUE_TYPE_I64
-        || type == VALUE_TYPE_F32 || type == VALUE_TYPE_F64
-#if WASM_ENABLE_REF_TYPES != 0
-        || type == VALUE_TYPE_FUNCREF || type == VALUE_TYPE_EXTERNREF
-#endif
-    )
-        return true;
-    return false;
-}
-
-static bool
-is_byte_a_type(uint8 type)
-{
-    return is_value_type(type) || (type == VALUE_TYPE_VOID);
-}
 
 static bool
 wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,

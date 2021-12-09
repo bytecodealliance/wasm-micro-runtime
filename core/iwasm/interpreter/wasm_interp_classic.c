@@ -3168,15 +3168,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (opcode) {
                     case WASM_OP_ATOMIC_NOTIFY:
                     {
-                        uint32 count, ret;
+                        uint32 notify_count, ret;
 
-                        count = POP_I32();
+                        notify_count = POP_I32();
                         addr = POP_I32();
                         CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 4, maddr);
                         CHECK_ATOMIC_MEMORY_ACCESS();
 
                         ret = wasm_runtime_atomic_notify(
-                            (WASMModuleInstanceCommon *)module, maddr, count);
+                            (WASMModuleInstanceCommon *)module, maddr, notify_count);
                         bh_assert((int32)ret >= 0);
 
                         PUSH_I32(ret);
@@ -3185,7 +3185,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_ATOMIC_WAIT32:
                     {
                         uint64 timeout;
-                        uint32 expect, addr, ret;
+                        uint32 expect, ret;
 
                         timeout = POP_I64();
                         expect = POP_I32();

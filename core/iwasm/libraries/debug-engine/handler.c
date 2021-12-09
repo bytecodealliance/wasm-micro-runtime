@@ -222,11 +222,11 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         WASMDebugMemoryInfo *mem_info = wasm_debug_instance_get_memregion(
             (WASMDebugInstance *)server->thread->debug_instance, addr);
         if (mem_info) {
-            char name[256];
-            mem2hex(mem_info->name, name, strlen(mem_info->name));
+            char name_buf[256];
+            mem2hex(mem_info->name, name_buf, strlen(mem_info->name));
             sprintf(tmpbuf, "start:%lx;size:%lx;permissions:%s;name:%s;",
                     (uint64)mem_info->start, mem_info->size,
-                    mem_info->permisson, name);
+                    mem_info->permisson, name_buf);
             write_packet(server, tmpbuf);
             wasm_debug_instance_destroy_memregion(
                 (WASMDebugInstance *)server->thread->debug_instance, mem_info);
