@@ -1236,7 +1236,7 @@ wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
         size = sizeof(uint32) * func_type->ret_cell_num;
     }
 
-    if (!(new_argv = wasm_runtime_malloc(size))) {
+    if (!(new_argv = runtime_malloc(size, exec_env->module_inst, NULL, 0))) {
         return false;
     }
 
@@ -1322,6 +1322,7 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
 #endif
 
             if (!wasm_externref_ref2obj(argv[argv_i], &externref_obj)) {
+                wasm_runtime_free(argv);
                 return false;
             }
 
@@ -3284,6 +3285,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                         goto fail;
                     argv_ret[0] = externref_idx;
                 }
+                break;
             }
 #endif
             default:
@@ -3423,26 +3425,21 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                 break;
 #if WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
+            {
+                uint32 externref_idx = *argv++;
                 if (is_aot_func) {
-                    argv1[j++] = *argv++;
+                    argv1[j++] = externref_idx;
                 }
                 else {
-                    uint32 externref_idx = *argv++;
-                    if (is_aot_func) {
-                        argv1[j++] = (uintptr_t)externref_idx;
-                    }
-                    else {
-                        void *externref_obj;
+                    void *externref_obj;
 
-                        if (!wasm_externref_ref2obj(externref_idx,
-                                                    &externref_obj))
-                            goto fail;
+                    if (!wasm_externref_ref2obj(externref_idx, &externref_obj))
+                        goto fail;
 
-                        argv1[j++] = (uintptr_t)externref_obj;
-                    }
-                    break;
+                    argv1[j++] = (uintptr_t)externref_obj;
                 }
                 break;
+            }
 #endif
             default:
                 bh_assert(0);
@@ -3724,7 +3721,6 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                         ints[n_ints++] = externref_idx;
                     else
                         stacks[n_stacks++] = externref_idx;
-                    break;
                 }
                 else {
                     void *externref_obj;
@@ -3736,8 +3732,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                         ints[n_ints++] = (uintptr_t)externref_obj;
                     else
                         stacks[n_stacks++] = (uintptr_t)externref_obj;
-                    break;
                 }
+                break;
             }
 #endif
 #if WASM_ENABLE_SIMD != 0
@@ -4062,15 +4058,24 @@ bool
 wasm_externref_obj2ref(WASMModuleInstanceCommon *module_inst, void *extern_obj,
                        uint32 *p_externref_idx)
 {
-    LookupExtObj_UserData lookup_user_data;
+    LookupExtObj_UserData lookup_user_data = { 0 };
     ExternRefMapNode *node;
     uint32 externref_idx;
 
-    if (NULL_REF == (uint32)(uintptr_t)extern_obj) {
+    /*
+     * to catch a parameter from `wasm_application_execute_func`,
+     * which represents a string 'null'
+     */
+#if UINTPTR_MAX == UINT32_MAX
+    if ((uint32)-1 == (uintptr_t)extern_obj) {
+#else
+    if ((uint64)-1LL == (uintptr_t)extern_obj) {
+#endif
         *p_externref_idx = NULL_REF;
         return true;
     }
 
+    /* in a wrapper, extern_obj could be any value */
     lookup_user_data.node.extern_obj = extern_obj;
     lookup_user_data.node.module_inst = module_inst;
     lookup_user_data.found = false;
@@ -4122,6 +4127,7 @@ wasm_externref_ref2obj(uint32 externref_idx, void **p_extern_obj)
 {
     ExternRefMapNode *node;
 
+    /* catch a `ref.null` vairable */
     if (externref_idx == NULL_REF) {
         *p_extern_obj = NULL;
         return true;
@@ -4595,12 +4601,12 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     wasm_val_vec_t params_vec, results_vec;
 
     if (func_type->param_count > 16) {
-        if (!(params = wasm_runtime_malloc(sizeof(wasm_val_t)
-                                           * func_type->param_count))) {
+        if (!(params =
+                  runtime_malloc(sizeof(wasm_val_t) * func_type->param_count,
+                                 module_inst, NULL, 0))) {
             wasm_runtime_set_exception(module_inst, "allocate memory failed");
             return false;
         }
-        memset(params, 0, sizeof(wasm_val_t) * func_type->param_count);
     }
 
     if (!argv_to_params(params, argv, func_type)) {
@@ -4609,12 +4615,12 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     }
 
     if (func_type->result_count > 4) {
-        if (!(results = wasm_runtime_malloc(sizeof(wasm_val_t)
-                                            * func_type->result_count))) {
+        if (!(results =
+                  runtime_malloc(sizeof(wasm_val_t) * func_type->result_count,
+                                 module_inst, NULL, 0))) {
             wasm_runtime_set_exception(module_inst, "allocate memory failed");
             goto fail;
         }
-        memset(results, 0, sizeof(wasm_val_t) * func_type->result_count);
     }
 
     params_vec.data = params;
