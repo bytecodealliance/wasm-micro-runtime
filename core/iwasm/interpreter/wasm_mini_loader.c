@@ -1245,7 +1245,6 @@ check_table_index(const WASMModule *module, uint32 table_index, char *error_buf,
     return true;
 }
 
-#if WASM_ENABLE_REF_TYPES != 0
 static bool
 load_table_index(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
                  uint32 *p_table_index, char *error_buf, uint32 error_buf_size)
@@ -1263,6 +1262,7 @@ load_table_index(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     return true;
 }
 
+#if WASM_ENABLE_REF_TYPES != 0
 static bool
 load_elem_type(const uint8 **p_buf, const uint8 *buf_end, uint32 *p_elem_type,
                bool elemkind_zero, char *error_buf, uint32 error_buf_size)
@@ -1433,28 +1433,18 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                     return false;
             }
 #else
-            read_leb_uint32(p, p_end, table_index);
-            bh_assert(table_index
-                      < module->import_table_count + module->table_count);
-
-            table_segment->table_index = table_index;
-
-            /* initialize expression */
-            if (!load_init_expr(&p, p_end, &(table_segment->base_offset),
+            /*
+             * like:      00  41 05 0b               04 00 01 00 01
+             * for: (elem 0   (offset (i32.const 5)) $f1 $f2 $f1 $f2)
+             */
+            if (!load_table_index(&p, p_end, module,
+                                  &table_segment->table_index, error_buf,
+                                  error_buf_size))
+                return false;
+            if (!load_init_expr(&p, p_end, &table_segment->base_offset,
                                 VALUE_TYPE_I32, error_buf, error_buf_size))
                 return false;
-
-            read_leb_uint32(p, p_end, function_count);
-            table_segment->function_count = function_count;
-            total_size = sizeof(uint32) * (uint64)function_count;
-            if (total_size > 0
-                && !(table_segment->func_indexes = (uint32 *)loader_malloc(
-                         total_size, error_buf, error_buf_size))) {
-                return false;
-            }
-
-            if (!load_func_index_vec(&p, p_end, module, table_segment,
-                                     table_segment->mode == 0 ? false : true,
+            if (!load_func_index_vec(&p, p_end, module, table_segment, false,
                                      error_buf, error_buf_size))
                 return false;
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
