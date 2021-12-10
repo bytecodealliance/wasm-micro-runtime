@@ -311,35 +311,35 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
         if (!(func_type =                                                   \
                   LLVMFunctionType(ret_type, param_types, argc, false))) {  \
             aot_set_last_error("llvm add function type failed.");           \
-            return false;                                                   \
+            goto fail;                                                      \
         }                                                                   \
         if (comp_ctx->is_jit_mode) {                                        \
             /* JIT mode, call the function directly */                      \
             if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
                 aot_set_last_error("llvm add pointer type failed.");        \
-                return false;                                               \
+                goto fail;                                                  \
             }                                                               \
             if (!(value = I64_CONST((uint64)(uintptr_t)name))               \
                 || !(func = LLVMConstIntToPtr(value, func_ptr_type))) {     \
                 aot_set_last_error("create LLVM value failed.");            \
-                return false;                                               \
+                goto fail;                                                  \
             }                                                               \
         }                                                                   \
         else if (comp_ctx->is_indirect_mode) {                              \
             int32 func_index;                                               \
             if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {         \
                 aot_set_last_error("create LLVM function type failed.");    \
-                return false;                                               \
+                goto fail;                                                  \
             }                                                               \
                                                                             \
             func_index = aot_get_native_symbol_index(comp_ctx, #name);      \
             if (func_index < 0) {                                           \
-                return false;                                               \
+                goto fail;                                                  \
             }                                                               \
             if (!(func = aot_get_func_from_table(                           \
                       comp_ctx, func_ctx->native_symbol, func_ptr_type,     \
                       func_index))) {                                       \
-                return false;                                               \
+                goto fail;                                                  \
             }                                                               \
         }                                                                   \
         else {                                                              \
@@ -349,7 +349,7 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
                 && !(func = LLVMAddFunction(comp_ctx->module, func_name,    \
                                             func_type))) {                  \
                 aot_set_last_error("llvm add function failed.");            \
-                return false;                                               \
+                goto fail;                                                  \
             }                                                               \
         }                                                                   \
     } while (0)

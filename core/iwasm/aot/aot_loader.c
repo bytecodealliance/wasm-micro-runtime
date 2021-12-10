@@ -1454,14 +1454,14 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         /* Now code points to an ELF object, we pull it down to .text section */
         uint64 offset;
         uint64 size;
-        char *buf = module->code;
-        module->elf_hdr = buf;
-        if (!get_text_section(buf, &offset, &size)) {
+        char *code_buf = module->code;
+        module->elf_hdr = code_buf;
+        if (!get_text_section(code_buf, &offset, &size)) {
             set_error_buf(error_buf, error_buf_size,
                           "get text section of ELF failed");
             return false;
         }
-        module->code = buf + offset;
+        module->code = code_buf + offset;
         module->code_size -= (uint32)offset;
     }
 #endif
