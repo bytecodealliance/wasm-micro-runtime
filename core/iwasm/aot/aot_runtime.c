@@ -216,8 +216,6 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* fill table with element segment content */
     for (i = 0; i < module->table_init_data_count; i++) {
-        AOTTableInstance *tbl_inst;
-
         table_seg = module->table_init_data_list[i];
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -1403,6 +1401,16 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
+
+    if (argc < func_type->param_cell_num) {
+        char buf[128];
+        snprintf(buf, sizeof(buf),
+                 "invalid argument count %u, must be no smaller than %u", argc,
+                 func_type->param_cell_num);
+        aot_set_exception(module_inst, buf);
+        return false;
+    }
+    argc = func_type->param_cell_num;
 
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);

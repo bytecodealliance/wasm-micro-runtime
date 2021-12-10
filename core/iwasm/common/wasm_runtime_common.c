@@ -56,6 +56,8 @@ static void
 wasm_runtime_destroy_registered_module_list();
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
+#define E_TYPE_XIP 4
+
 #if WASM_ENABLE_REF_TYPES != 0
 /* Initialize externref hashmap */
 static bool
@@ -309,6 +311,14 @@ align_ptr(const uint8 *p, uint32 b)
             return false;                                 \
     } while (0)
 
+#define read_uint16(p, p_end, res)                 \
+    do {                                           \
+        p = (uint8 *)align_ptr(p, sizeof(uint16)); \
+        CHECK_BUF(p, p_end, sizeof(uint16));       \
+        res = *(uint16 *)p;                        \
+        p += sizeof(uint16);                       \
+    } while (0)
+
 #define read_uint32(p, p_end, res)                 \
     do {                                           \
         p = (uint8 *)align_ptr(p, sizeof(uint32)); \
@@ -321,7 +331,8 @@ bool
 wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
 {
     const uint8 *p = buf, *p_end = buf + size;
-    uint32 section_type, sub_section_type, section_size;
+    uint32 section_type, section_size;
+    uint16 e_type;
 
     if (get_package_type(buf, size) != Wasm_Module_AoT)
         return false;
@@ -333,13 +344,11 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
         read_uint32(p, p_end, section_size);
         CHECK_BUF(p, p_end, section_size);
 
-        if (section_type == AOT_SECTION_TYPE_CUSTOM) {
-            read_uint32(p, p_end, sub_section_type);
-            if (sub_section_type == AOT_CUSTOM_SECTION_NATIVE_SYMBOL) {
+        if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
+            p += 4;
+            read_uint16(p, p_end, e_type);
+            if (e_type == E_TYPE_XIP) {
                 return true;
-            }
-            else {
-                p -= sizeof(uint32);
             }
         }
         else if (section_type >= AOT_SECTION_TYPE_SIGANATURE) {
