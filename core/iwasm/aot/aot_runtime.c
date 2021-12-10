@@ -2301,7 +2301,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         signature = import_func->signature;
         if (import_func->call_conv_raw) {
             attachment = import_func->attachment;
-            return wasm_runtime_invoke_native_raw(exec_env, func_ptr, true,
+            return wasm_runtime_invoke_native_raw(exec_env, func_ptr, false,
                                                   func_type, signature,
                                                   attachment, argv, argc, argv);
         }
@@ -2389,7 +2389,7 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
     else {
         ret = invoke_native_internal(
-            exec_env, func_ptr, func_idx < aot_module->import_func_count,
+            exec_env, func_ptr, func_idx >= aot_module->import_func_count,
             func_type, signature, attachment, argv, argc, argv);
         if (clear_wasi_proc_exit_exception(module_inst))
             return true;

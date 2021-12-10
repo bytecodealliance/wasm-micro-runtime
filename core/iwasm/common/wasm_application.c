@@ -656,7 +656,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
-                if (argv1[k] != NULL_REF && argv1[k] != (uint32)-1)
+                if (argv1[k] != NULL_REF)
                     os_printf("%u:ref.func", argv1[k]);
                 else
                     os_printf("func:ref.null");
@@ -666,11 +666,11 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             case VALUE_TYPE_EXTERNREF:
             {
 #if UINTPTR_MAX == UINT32_MAX
-                if (argv1[k] != 0 && NULL_REF != argv1[k]
-                    && argv1[k] != (uint32)-1) {
-                    os_printf("%p:ref.extern", argv1[k]);
-                    k++;
-                }
+                if (argv1[k] != 0 && argv1[k] != (uint32)-1)
+                    os_printf("%p:ref.extern", (void *)argv1[k]);
+                else
+                    os_printf("extern:ref.null");
+                k++;
 #else
                 union {
                     uintptr_t val;
@@ -679,12 +679,11 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 u.parts[0] = argv1[k];
                 u.parts[1] = argv1[k + 1];
                 k += 2;
-                if (u.val && u.val != NULL_REF && u.val != (uintptr_t)-1LL) {
+                if (u.val && u.val != (uintptr_t)-1LL)
                     os_printf("%p:ref.extern", (void *)u.val);
-                }
-#endif
                 else
                     os_printf("extern:ref.null");
+#endif
                 break;
             }
 #endif
