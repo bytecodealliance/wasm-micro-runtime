@@ -520,6 +520,8 @@ wasm_value_type_size(uint8 value_type)
         case VALUE_TYPE_V128:
             return sizeof(int64) * 2;
 #endif
+        case VALUE_TYPE_VOID:
+            return 0;
         default:
             bh_assert(0);
     }
