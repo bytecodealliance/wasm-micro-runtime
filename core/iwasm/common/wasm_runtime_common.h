@@ -526,11 +526,6 @@ wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
                            uint32 argc, uint32 argv[]);
 
 bool
-wasm_runtime_create_exec_env_and_call_wasm(
-    WASMModuleInstanceCommon *module_inst, WASMFunctionInstanceCommon *function,
-    uint32 argc, uint32 argv[]);
-
-bool
 wasm_runtime_create_exec_env_singleton(WASMModuleInstanceCommon *module_inst);
 
 WASMExecEnv *
@@ -790,15 +785,15 @@ wasm_runtime_register_natives_raw(const char *module_name,
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           const WASMType *func_type, const char *signature,
-                           void *attachment, uint32 *argv, uint32 argc,
-                           uint32 *ret);
+                           bool is_aot_func, const WASMType *func_type,
+                           const char *signature, void *attachment,
+                           uint32 *argv, uint32 argc, uint32 *ret);
 
 bool
 wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
-                               const WASMType *func_type, const char *signature,
-                               void *attachment, uint32 *argv, uint32 argc,
-                               uint32 *ret);
+                               bool is_aot_func, const WASMType *func_type,
+                               const char *signature, void *attachment,
+                               uint32 *argv, uint32 argc, uint32 *ret);
 
 void
 wasm_runtime_read_v128(const uint8 *bytes, uint64 *ret1, uint64 *ret2);
@@ -812,16 +807,6 @@ wasm_runtime_dump_module_inst_mem_consumption(
 
 void
 wasm_runtime_dump_exec_env_mem_consumption(const WASMExecEnv *exec_env);
-
-#if WASM_ENABLE_REF_TYPES != 0
-void
-wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
-                                   WASMFunctionInstanceCommon *function);
-void
-wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
-                                    WASMFunctionInstanceCommon *function,
-                                    bool ret, uint32 *argv);
-#endif
 
 bool
 wasm_runtime_get_export_func_type(const WASMModuleCommon *module_comm,

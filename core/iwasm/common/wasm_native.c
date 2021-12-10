@@ -54,10 +54,29 @@ uint32
 get_libc_emcc_export_apis(NativeSymbol **p_libc_emcc_apis);
 
 static bool
+compare_type_with_signautre(uint8 type, const char signature)
+{
+    const char num_sig_map[] = { 'F', 'f', 'I', 'i' };
+
+    if (VALUE_TYPE_F64 <= type && type <= VALUE_TYPE_I32
+        && signature == num_sig_map[type - VALUE_TYPE_F64]) {
+        return true;
+    }
+
+#if WASM_ENABLE_REF_TYPES != 0
+    if ('r' == signature && type == VALUE_TYPE_EXTERNREF)
+        return true;
+#endif
+
+    /* TODO: a v128 parameter */
+    return false;
+}
+
+static bool
 check_symbol_signature(const WASMType *type, const char *signature)
 {
     const char *p = signature, *p_end;
-    char sig_map[] = { 'F', 'f', 'I', 'i' }, sig;
+    char sig;
     uint32 i = 0;
 
     if (!p || strlen(p) < 2)
@@ -74,16 +93,12 @@ check_symbol_signature(const WASMType *type, const char *signature)
 
     for (i = 0; i < type->param_count; i++) {
         sig = *p++;
-        if ((type->types[i] >= VALUE_TYPE_F64
-             && type->types[i] <= VALUE_TYPE_I32
-             && sig == sig_map[type->types[i] - VALUE_TYPE_F64])
-#if WASM_ENABLE_REF_TYPES != 0
-            || (sig == 'i' && type->types[i] == VALUE_TYPE_EXTERNREF)
-#endif
-        )
-            /* normal parameter */
+
+        /* a f64/f32/i64/i32/externref parameter */
+        if (compare_type_with_signautre(type->types[i], sig))
             continue;
 
+        /* a pointer/string paramter */
         if (type->types[i] != VALUE_TYPE_I32)
             /* pointer and string must be i32 type */
             return false;
@@ -112,8 +127,12 @@ check_symbol_signature(const WASMType *type, const char *signature)
     if (type->result_count) {
         if (p >= p_end)
             return false;
-        if (*p++ != sig_map[type->types[i] - VALUE_TYPE_F64])
+
+        /* result types includes: f64,f32,i64,i32,externref */
+        if (!compare_type_with_signautre(type->types[i], *p))
             return false;
+
+        p++;
     }
 
     if (*p != '\0')
