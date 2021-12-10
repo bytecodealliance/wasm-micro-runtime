@@ -53,6 +53,8 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f64_convert_i64_u", "aot_intrinsic_u64_to_f64", AOT_INTRINSIC_FLAG_U64_TO_F64 },
     { "f32_convert_i64_s", "aot_intrinsic_i64_to_f32", AOT_INTRINSIC_FLAG_I64_TO_F32 },
     { "f32_convert_i64_u", "aot_intrinsic_u64_to_f32", AOT_INTRINSIC_FLAG_U64_TO_F32 },
+    { "i32_trunc_f32_u", "aot_intrinsic_f32_to_u32", AOT_INTRINSIC_FLAG_F32_TO_U32 },
+    { "i32_trunc_f32_s", "aot_intrinsic_f32_to_i32", AOT_INTRINSIC_FLAG_F32_TO_I32 },
     { "i32_trunc_f64_u", "aot_intrinsic_f64_to_u32", AOT_INTRINSIC_FLAG_F64_TO_U32 },
     { "i32_trunc_f64_s", "aot_intrinsic_f64_to_i32", AOT_INTRINSIC_FLAG_F64_TO_I32 },
     { "f32_demote_f64", "aot_intrinsic_f64_to_f32", AOT_INTRINSIC_FLAG_F64_TO_F32 },
@@ -423,6 +425,9 @@ int32
 aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs)
 {
     switch (cond) {
+        case FLOAT_EQ:
+            return (float32)fabs(lhs - rhs) <= WA_FLT_EPSILON ? 1 : 0;
+
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
 
@@ -451,6 +456,9 @@ int32
 aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
 {
     switch (cond) {
+        case FLOAT_EQ:
+            return fabs(lhs - rhs) <= WA_DBL_EPSILON ? 1 : 0;
+
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
 

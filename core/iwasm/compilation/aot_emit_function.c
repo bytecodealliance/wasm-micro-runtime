@@ -345,6 +345,8 @@ call_aot_free_frame_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     }
 
     return true;
+fail:
+    return false;
 }
 #endif /* end of (WASM_ENABLE_DUMP_CALL_STACK != 0) \
                  || (WASM_ENABLE_PERF_PROFILING != 0) */
