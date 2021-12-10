@@ -143,6 +143,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
 {
     switch (reloc_type) {
         case R_AARCH64_CALL26:
+        case R_AARCH64_JUMP26:
         {
             void *S, *P = (void *)(target_section_addr + reloc_offset);
             int64 X, A, initial_addend;

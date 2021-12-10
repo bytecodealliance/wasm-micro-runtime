@@ -520,6 +520,8 @@ wasm_value_type_size(uint8 value_type)
         case VALUE_TYPE_V128:
             return sizeof(int64) * 2;
 #endif
+        case VALUE_TYPE_VOID:
+            return 0;
         default:
             bh_assert(0);
     }
@@ -529,25 +531,7 @@ wasm_value_type_size(uint8 value_type)
 inline static uint16
 wasm_value_type_cell_num(uint8 value_type)
 {
-    if (value_type == VALUE_TYPE_VOID)
-        return 0;
-    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32
-#if WASM_ENABLE_REF_TYPES != 0
-             || value_type == VALUE_TYPE_FUNCREF
-             || value_type == VALUE_TYPE_EXTERNREF
-#endif
-    )
-        return 1;
-    else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
-        return 2;
-#if WASM_ENABLE_SIMD != 0
-    else if (value_type == VALUE_TYPE_V128)
-        return 4;
-#endif
-    else {
-        bh_assert(0);
-    }
-    return 0;
+    return wasm_value_type_size(value_type) / 4;
 }
 
 inline static uint32

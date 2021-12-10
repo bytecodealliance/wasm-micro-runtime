@@ -99,6 +99,8 @@ typedef struct {
     REG_SYM(aot_intrinsic_i64_to_f64),    \
     REG_SYM(aot_intrinsic_u64_to_f64),    \
     REG_SYM(aot_intrinsic_f64_to_f32),    \
+    REG_SYM(aot_intrinsic_f32_to_i32),    \
+    REG_SYM(aot_intrinsic_f32_to_u32),    \
     REG_SYM(aot_intrinsic_f64_to_i32),    \
     REG_SYM(aot_intrinsic_f64_to_u32),    \
     REG_SYM(aot_intrinsic_f32_to_f64),    \

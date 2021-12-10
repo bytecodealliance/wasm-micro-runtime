@@ -29,6 +29,7 @@ EXCLUDE_PATHS = [
     "**/samples/wasm-c-api/src/*.*",
     "**/samples/workload/*",
     "**/test-tools/wasi-sdk/*",
+    "**/test-tools/IoT-APP-Store-Demo/*",
     "**/tests/wamr-test-suites/workspace/*",
     "**/wamr-sdk/*",
 ]
