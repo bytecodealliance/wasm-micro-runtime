@@ -10,6 +10,14 @@
 #include "../common/wasm_runtime_common.h"
 #include "thread_manager.h"
 
+#if WASM_ENABLE_INTERP != 0
+#include "wasm_runtime.h"
+#endif
+
+#if WASM_ENABLE_AOT != 0
+#include "aot_runtime.h"
+#endif
+
 #define WAMR_PTHREAD_KEYS_MAX 32
 
 /* clang-format off */
@@ -523,6 +531,7 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     ThreadInfoNode *info_node = NULL;
     ThreadRoutineArgs *routine_args = NULL;
     uint32 thread_handle;
+    uint32 stack_size = 8192;
     int32 ret = -1;
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIContext *wasi_ctx;
@@ -531,8 +540,22 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     bh_assert(module);
     bh_assert(module_inst);
 
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        stack_size =
+            ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        stack_size =
+            ((AOTModuleInstance *)module_inst)->default_wasm_stack_size;
+    }
+#endif
+
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, true, 8192, 0, NULL, 0)))
+              module, true, stack_size, 0, NULL, 0)))
         return -1;
 
     /* Set custom_data to new module instance */
