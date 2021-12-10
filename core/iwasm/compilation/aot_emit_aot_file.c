@@ -1911,11 +1911,15 @@ struct coff_hdr {
     U16 u16Characs;
 };
 
+#define E_TYPE_REL 1
+#define E_TYPE_XIP 4
+
 #define IMAGE_FILE_MACHINE_AMD64 0x8664
 #define IMAGE_FILE_MACHINE_I386 0x014c
 #define IMAGE_FILE_MACHINE_IA64 0x0200
 
-#define AOT_COFF_BIN_TYPE 6
+#define AOT_COFF32_BIN_TYPE 4 /* 32-bit little endian */
+#define AOT_COFF64_BIN_TYPE 6 /* 64-bit little endian */
 
 #define EI_NIDENT 16
 
@@ -2026,13 +2030,22 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             return false;
         }
         coff_header = (struct coff_hdr *)elf_buf;
-        obj_data->target_info.e_type = 1;
+
+        /* Emit eXecute In Place file type while in indirect mode */
+        if (comp_ctx->is_indirect_mode)
+            obj_data->target_info.e_type = E_TYPE_XIP;
+        else
+            obj_data->target_info.e_type = E_TYPE_REL;
+
         obj_data->target_info.e_machine = coff_header->u16Machine;
         obj_data->target_info.e_version = 1;
         obj_data->target_info.e_flags = 0;
 
-        if (coff_header->u16Machine == IMAGE_FILE_MACHINE_AMD64)
-            obj_data->target_info.bin_type = AOT_COFF_BIN_TYPE;
+        if (coff_header->u16Machine == IMAGE_FILE_MACHINE_AMD64
+            || coff_header->u16Machine == IMAGE_FILE_MACHINE_IA64)
+            obj_data->target_info.bin_type = AOT_COFF64_BIN_TYPE;
+        else if (coff_header->u16Machine == IMAGE_FILE_MACHINE_I386)
+            obj_data->target_info.bin_type = AOT_COFF32_BIN_TYPE;
     }
     else if (bin_type == LLVMBinaryTypeELF32L
              || bin_type == LLVMBinaryTypeELF32B) {
@@ -2045,6 +2058,11 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf32_ehdr *)elf_buf;
+
+        /* Emit eXecute In Place file type while in indirect mode */
+        if (comp_ctx->is_indirect_mode)
+            elf_header->e_type = E_TYPE_XIP;
+
         SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
         SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
         SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);
@@ -2061,6 +2079,11 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf64_ehdr *)elf_buf;
+
+        /* Emit eXecute In Place file type while in indirect mode */
+        if (comp_ctx->is_indirect_mode)
+            elf_header->e_type = E_TYPE_XIP;
+
         SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
         SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
         SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);

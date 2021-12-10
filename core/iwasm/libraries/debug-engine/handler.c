@@ -17,6 +17,9 @@
 #define MAX_PACKET_SIZE (0x20000)
 static char tmpbuf[MAX_PACKET_SIZE];
 
+static void
+send_thread_stop_status(WASMGDBServer *server, uint32_t status, uint64_t tid);
+
 void
 handle_generay_set(WASMGDBServer *server, char *payload)
 {
@@ -219,11 +222,11 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         WASMDebugMemoryInfo *mem_info = wasm_debug_instance_get_memregion(
             (WASMDebugInstance *)server->thread->debug_instance, addr);
         if (mem_info) {
-            char name[256];
-            mem2hex(mem_info->name, name, strlen(mem_info->name));
+            char name_buf[256];
+            mem2hex(mem_info->name, name_buf, strlen(mem_info->name));
             sprintf(tmpbuf, "start:%lx;size:%lx;permissions:%s;name:%s;",
                     (uint64)mem_info->start, mem_info->size,
-                    mem_info->permisson, name);
+                    mem_info->permisson, name_buf);
             write_packet(server, tmpbuf);
             wasm_debug_instance_destroy_memregion(
                 (WASMDebugInstance *)server->thread->debug_instance, mem_info);
@@ -260,6 +263,20 @@ handle_generay_query(WASMGDBServer *server, char *payload)
 
     if (args && (!strcmp(name, "WasmGlobal"))) {
         porcess_wasm_global(server, args);
+    }
+
+    if (!strcmp(name, "Offsets")) {
+        write_packet(server, "");
+    }
+
+    if (!strncmp(name, "ThreadStopInfo", strlen("ThreadStopInfo"))) {
+        int32 prefix_len = strlen("ThreadStopInfo");
+        uint64 tid = strtol(name + prefix_len, NULL, 16);
+
+        uint32 status = wasm_debug_instance_get_thread_status(
+            server->thread->debug_instance, tid);
+
+        send_thread_stop_status(server, status, tid);
     }
 }
 
@@ -332,19 +349,32 @@ handle_v_packet(WASMGDBServer *server, char *payload)
         write_packet(server, "vCont;c;C;s;S;");
 
     if (!strcmp("Cont", name)) {
-        if (args && args[0] == 's') {
-            char *numstring = strchr(args, ':');
-            if (numstring) {
-                *numstring++ = '\0';
-                uint64_t tid = strtol(numstring, NULL, 16);
-                wasm_debug_instance_set_cur_thread(
-                    (WASMDebugInstance *)server->thread->debug_instance, tid);
-                wasm_debug_instance_singlestep(
-                    (WASMDebugInstance *)server->thread->debug_instance, tid);
-                tid = wasm_debug_instance_wait_thread(
-                    (WASMDebugInstance *)server->thread->debug_instance, tid,
-                    &status);
-                send_thread_stop_status(server, status, tid);
+        if (args) {
+            if (args[0] == 's' || args[0] == 'c') {
+                char *numstring = strchr(args, ':');
+                if (numstring) {
+                    *numstring++ = '\0';
+                    uint64_t tid = strtol(numstring, NULL, 16);
+                    wasm_debug_instance_set_cur_thread(
+                        (WASMDebugInstance *)server->thread->debug_instance,
+                        tid);
+
+                    if (args[0] == 's') {
+                        wasm_debug_instance_singlestep(
+                            (WASMDebugInstance *)server->thread->debug_instance,
+                            tid);
+                    }
+                    else {
+                        wasm_debug_instance_continue(
+                            (WASMDebugInstance *)
+                                server->thread->debug_instance);
+                    }
+
+                    tid = wasm_debug_instance_wait_thread(
+                        (WASMDebugInstance *)server->thread->debug_instance,
+                        tid, &status);
+                    send_thread_stop_status(server, status, tid);
+                }
             }
         }
     }

@@ -51,6 +51,7 @@ def ignore_the_case(
     multi_module_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
+    xip_flag=False,
 ):
     if case_name in ["comments", "inline-module", "names"]:
         return True
@@ -100,6 +101,7 @@ def test_case(
     multi_module_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
+    xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
 ):
@@ -114,6 +116,7 @@ def test_case(
         multi_module_flag,
         multi_thread_flag,
         simd_flag,
+        xip_flag,
     ):
         return True
 
@@ -138,6 +141,9 @@ def test_case(
 
     if simd_flag:
         CMD.append("--simd")
+
+    if xip_flag:
+        CMD.append("--xip")
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")
@@ -195,6 +201,7 @@ def test_suite(
     multi_module_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
+    xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
 ):
@@ -217,6 +224,7 @@ def test_suite(
                 multi_module_flag,
                 multi_thread_flag,
                 simd_flag,
+                xip_flag,
                 clean_up_flag,
                 verbose_flag,
             )
@@ -239,6 +247,7 @@ def test_suite_parallelly(
     multi_module_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
+    xip_flag=False,
     clean_up_flag=False,
     verbose_flag=False,
 ):
@@ -266,6 +275,7 @@ def test_suite_parallelly(
                     multi_module_flag,
                     multi_thread_flag,
                     simd_flag,
+                    xip_flag,
                     clean_up_flag,
                     verbose_flag,
                 ],
@@ -322,6 +332,13 @@ def main():
         default=False,
         dest="simd_flag",
         help="Running with the SIMD feature",
+    )
+    parser.add_argument(
+        "-X",
+        action="store_true",
+        default=False,
+        dest="xip_flag",
+        help="Running with the XIP feature",
     )
     parser.add_argument(
         "-t",
@@ -387,6 +404,7 @@ def main():
                 options.multi_module_flag,
                 options.multi_thread_flag,
                 options.simd_flag,
+                options.xip_flag,
                 options.clean_up_flag,
                 options.verbose_flag,
             )
@@ -403,6 +421,7 @@ def main():
                 options.multi_module_flag,
                 options.multi_thread_flag,
                 options.simd_flag,
+                options.xip_flag,
                 options.clean_up_flag,
                 options.verbose_flag,
             )
@@ -419,6 +438,7 @@ def main():
                     options.multi_module_flag,
                     options.multi_thread_flag,
                     options.simd_flag,
+                    options.xip_flag,
                     options.clean_up_flag,
                     options.verbose_flag,
                 )

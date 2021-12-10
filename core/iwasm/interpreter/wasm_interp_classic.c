@@ -256,18 +256,19 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         --frame_csp;               \
     } while (0)
 
-#define POP_CSP_N(n)                                            \
-    do {                                                        \
-        uint32 *frame_sp_old = frame_sp;                        \
-        uint32 cell_num = 0;                                    \
-        POP_CSP_CHECK_OVERFLOW(n + 1);                          \
-        frame_csp -= n;                                         \
-        frame_ip = (frame_csp - 1)->target_addr;                \
-        /* copy arity values of block */                        \
-        frame_sp = (frame_csp - 1)->frame_sp;                   \
-        cell_num = (frame_csp - 1)->cell_num;                   \
-        word_copy(frame_sp, frame_sp_old - cell_num, cell_num); \
-        frame_sp += cell_num;                                   \
+#define POP_CSP_N(n)                                         \
+    do {                                                     \
+        uint32 *frame_sp_old = frame_sp;                     \
+        uint32 cell_num_to_copy;                             \
+        POP_CSP_CHECK_OVERFLOW(n + 1);                       \
+        frame_csp -= n;                                      \
+        frame_ip = (frame_csp - 1)->target_addr;             \
+        /* copy arity values of block */                     \
+        frame_sp = (frame_csp - 1)->frame_sp;                \
+        cell_num_to_copy = (frame_csp - 1)->cell_num;        \
+        word_copy(frame_sp, frame_sp_old - cell_num_to_copy, \
+                  cell_num_to_copy);                         \
+        frame_sp += cell_num_to_copy;                        \
     } while (0)
 
 /* Pop the given number of elements from the given frame's stack.  */
@@ -367,11 +368,11 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         PUSH_##src_op_type(cval);                       \
     } while (0)
 
-#define DEF_OP_EQZ(src_op_type)         \
-    do {                                \
-        int32 val;                      \
-        val = POP_##src_op_type() == 0; \
-        PUSH_I32(val);                  \
+#define DEF_OP_EQZ(src_op_type)             \
+    do {                                    \
+        int32 pop_val;                      \
+        pop_val = POP_##src_op_type() == 0; \
+        PUSH_I32(pop_val);                  \
     } while (0)
 
 #define DEF_OP_CMP(src_type, src_op_type, cond) \
@@ -434,9 +435,9 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 
 #define DEF_OP_MATH(src_type, src_op_type, method) \
     do {                                           \
-        src_type val;                              \
-        val = POP_##src_op_type();                 \
-        PUSH_##src_op_type(method(val));           \
+        src_type src_val;                          \
+        src_val = POP_##src_op_type();             \
+        PUSH_##src_op_type(method(src_val));       \
     } while (0)
 
 #define TRUNC_FUNCTION(func_name, src_type, dst_type, signed_type)  \
@@ -1384,7 +1385,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_TABLE_SET)
             {
-                uint32 tbl_idx, elem_idx, val;
+                uint32 tbl_idx, elem_idx, elem_val;
                 WASMTableInstance *tbl_inst;
 
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
@@ -1392,14 +1393,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
-                val = POP_I32();
+                elem_val = POP_I32();
                 elem_idx = POP_I32();
                 if (elem_idx >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "out of bounds table access");
                     goto got_exception;
                 }
 
-                ((uint32 *)(tbl_inst->base_addr))[elem_idx] = val;
+                ((uint32 *)(tbl_inst->base_addr))[elem_idx] = elem_val;
                 HANDLE_OP_END();
             }
 
@@ -1414,9 +1415,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_REF_IS_NULL)
             {
-                uint32 val;
-                val = POP_I32();
-                PUSH_I32(val == NULL_REF ? 1 : 0);
+                uint32 ref_val;
+                ref_val = POP_I32();
+                PUSH_I32(ref_val == NULL_REF ? 1 : 0);
                 HANDLE_OP_END();
             }
 
@@ -2955,16 +2956,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_MEMORY_FILL:
                     {
                         uint32 dst, len;
-                        uint8 val, *mdst;
+                        uint8 fill_val, *mdst;
                         frame_ip++;
 
                         len = POP_I32();
-                        val = POP_I32();
+                        fill_val = POP_I32();
                         dst = POP_I32();
 
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 
-                        memset(mdst, val, len);
+                        memset(mdst, fill_val, len);
 
                         break;
                     }
@@ -3119,7 +3120,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_TABLE_FILL:
                     {
-                        uint32 tbl_idx, n, val, i;
+                        uint32 tbl_idx, n, fill_val;
                         WASMTableInstance *tbl_inst;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
@@ -3128,7 +3129,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
                         n = POP_I32();
-                        val = POP_I32();
+                        fill_val = POP_I32();
                         i = POP_I32();
 
                         /* TODO: what if the element is not passive? */
@@ -3142,7 +3143,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         for (; n != 0; i++, n--) {
-                            ((uint32 *)(tbl_inst->base_addr))[i] = val;
+                            ((uint32 *)(tbl_inst->base_addr))[i] = fill_val;
                         }
 
                         break;
@@ -3167,15 +3168,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (opcode) {
                     case WASM_OP_ATOMIC_NOTIFY:
                     {
-                        uint32 count, ret;
+                        uint32 notify_count, ret;
 
-                        count = POP_I32();
+                        notify_count = POP_I32();
                         addr = POP_I32();
                         CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 4, maddr);
                         CHECK_ATOMIC_MEMORY_ACCESS();
 
                         ret = wasm_runtime_atomic_notify(
-                            (WASMModuleInstanceCommon *)module, maddr, count);
+                            (WASMModuleInstanceCommon *)module, maddr,
+                            notify_count);
                         bh_assert((int32)ret >= 0);
 
                         PUSH_I32(ret);
@@ -3184,7 +3186,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_ATOMIC_WAIT32:
                     {
                         uint64 timeout;
-                        uint32 expect, addr, ret;
+                        uint32 expect, ret;
 
                         timeout = POP_I64();
                         expect = POP_I32();
@@ -3708,13 +3710,15 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
        frame here.  */
     unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
 
-    if (argc != function->param_cell_num) {
+    if (argc < function->param_cell_num) {
         char buf[128];
-        snprintf(buf, sizeof(buf), "invalid argument count %d, expected %d",
-                 argc, function->param_cell_num);
+        snprintf(buf, sizeof(buf),
+                 "invalid argument count %u, must be no smaller than %u", argc,
+                 function->param_cell_num);
         wasm_set_exception(module_inst, buf);
         return;
     }
+    argc = function->param_cell_num;
 
     if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
         wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,

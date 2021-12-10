@@ -224,7 +224,8 @@ acquire_wait_info(void *address, bool create)
     AtomicWaitInfo *wait_info = NULL;
     bh_list_status ret;
 
-    wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
+    if (address)
+        wait_info = (AtomicWaitInfo *)bh_hash_map_find(wait_map, address);
 
     if (!create)
         return wait_info;
@@ -282,10 +283,10 @@ destroy_wait_info(void *wait_info)
 }
 
 static void
-release_wait_info(HashMap *wait_map, AtomicWaitInfo *wait_info, void *address)
+release_wait_info(HashMap *wait_map_, AtomicWaitInfo *wait_info, void *address)
 {
     if (wait_info->wait_list->len == 0) {
-        bh_hash_map_remove(wait_map, address, NULL, NULL);
+        bh_hash_map_remove(wait_map_, address, NULL, NULL);
         destroy_wait_info(wait_info);
     }
 }

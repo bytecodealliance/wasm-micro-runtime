@@ -51,16 +51,17 @@ static struct packet_handler_elem packet_handler_table[255] = {
 };
 
 WASMGDBServer *
-wasm_launch_gdbserver(char *host, int port)
+wasm_create_gdbserver(char *host, int *port)
 {
     int listen_fd = -1;
     const int one = 1;
     struct sockaddr_in addr;
     socklen_t socklen;
     int ret;
-    int sockt_fd = 0;
 
     WASMGDBServer *server;
+
+    bh_assert(port);
 
     if (!(server = wasm_runtime_malloc(sizeof(WASMGDBServer)))) {
         LOG_ERROR("wasm gdb server error: failed to allocate memory");
@@ -90,7 +91,7 @@ wasm_launch_gdbserver(char *host, int port)
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr(host);
-    addr.sin_port = htons(port);
+    addr.sin_port = htons(*port);
 
     ret = bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr));
     if (ret < 0) {
@@ -103,25 +104,12 @@ wasm_launch_gdbserver(char *host, int port)
         LOG_ERROR("%s", strerror(errno));
         goto fail;
     }
+    LOG_WARNING("Debug server listening on %s:%d\n", host,
+                ntohs(addr.sin_port));
 
-    LOG_WARNING("Listening on %s:%d\n", host, ntohs(addr.sin_port));
-
-    ret = listen(listen_fd, 1);
-    if (ret < 0) {
-        LOG_ERROR("wasm gdb server error: listen() failed");
-        goto fail;
-    }
-
+    *port = ntohs(addr.sin_port);
     server->listen_fd = listen_fd;
 
-    sockt_fd = accept(listen_fd, NULL, NULL);
-    if (sockt_fd < 0) {
-        LOG_ERROR("wasm gdb server error: accept() failed");
-        goto fail;
-    }
-    LOG_VERBOSE("accept gdb client");
-    server->socket_fd = sockt_fd;
-    server->noack = false;
     return server;
 
 fail:
@@ -132,6 +120,35 @@ fail:
     if (server)
         wasm_runtime_free(server);
     return NULL;
+}
+
+bool
+wasm_gdbserver_listen(WASMGDBServer *server)
+{
+    int ret;
+    int sockt_fd = 0;
+
+    ret = listen(server->listen_fd, 1);
+    if (ret < 0) {
+        LOG_ERROR("wasm gdb server error: listen() failed");
+        goto fail;
+    }
+
+    sockt_fd = accept(server->listen_fd, NULL, NULL);
+    if (sockt_fd < 0) {
+        LOG_ERROR("wasm gdb server error: accept() failed");
+        goto fail;
+    }
+
+    LOG_VERBOSE("accept gdb client");
+    server->socket_fd = sockt_fd;
+    server->noack = false;
+    return true;
+
+fail:
+    shutdown(server->listen_fd, SHUT_RDWR);
+    close(server->listen_fd);
+    return false;
 }
 
 void

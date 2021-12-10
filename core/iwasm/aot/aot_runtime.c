@@ -216,8 +216,6 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* fill table with element segment content */
     for (i = 0; i < module->table_init_data_count; i++) {
-        AOTTableInstance *tbl_inst;
-
         table_seg = module->table_init_data_list[i];
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -1404,6 +1402,16 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
 
+    if (argc < func_type->param_cell_num) {
+        char buf[128];
+        snprintf(buf, sizeof(buf),
+                 "invalid argument count %u, must be no smaller than %u", argc,
+                 func_type->param_cell_num);
+        aot_set_exception(module_inst, buf);
+        return false;
+    }
+    argc = func_type->param_cell_num;
+
 #if WASM_ENABLE_LAZY_JIT != 0
     if (!function->u.func.func_ptr) {
         AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
@@ -1785,7 +1793,7 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
             aot_set_exception(module_inst, "app heap corrupted");
         }
         else {
-            aot_set_exception(module_inst, "out of memory");
+            LOG_WARNING("warning: allocate %u bytes memory failed", size);
         }
         return 0;
     }
