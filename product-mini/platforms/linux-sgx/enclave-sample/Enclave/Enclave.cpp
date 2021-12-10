@@ -194,7 +194,6 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     uint32 error_buf_size = *(uint32 *)args++;
     uint64 total_size = sizeof(EnclaveModule) + (uint64)wasm_file_size;
     EnclaveModule *enclave_module;
-    bool is_xip_file = false;
 
     bh_assert(argc == 4);
 
