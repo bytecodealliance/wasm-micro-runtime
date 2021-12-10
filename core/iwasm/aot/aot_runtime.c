@@ -2235,9 +2235,9 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     }
     else {
         signature = import_func->signature;
-        return wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                              signature, attachment, argv, argc,
-                                              argv);
+        return wasm_runtime_invoke_native_raw(exec_env, func_ptr, false,
+                                              func_type, signature, attachment,
+                                              argv, argc, argv);
     }
 }
 
@@ -2301,9 +2301,9 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
         signature = import_func->signature;
         if (import_func->call_conv_raw) {
             attachment = import_func->attachment;
-            return wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                                  signature, attachment, argv,
-                                                  argc, argv);
+            return wasm_runtime_invoke_native_raw(exec_env, func_ptr, true,
+                                                  func_type, signature,
+                                                  attachment, argv, argc, argv);
         }
     }
 

@@ -566,7 +566,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                     uint32 parts[2];
                 } u;
                 if (strncasecmp(argv[i], "null", 4) == 0) {
-                    u.val = (uintptr_t)-1;
+                    u.val = (uintptr_t)-1LL;
                 }
                 else {
                     u.val = strtoull(argv[i], &endptr, 0);
@@ -679,7 +679,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 u.parts[0] = argv1[k];
                 u.parts[1] = argv1[k + 1];
                 k += 2;
-                if (u.val && u.val != NULL_REF && u.val != (uintptr_t)-1) {
+                if (u.val && u.val != NULL_REF && u.val != (uintptr_t)-1LL) {
                     os_printf("%p:ref.extern", (void *)u.val);
                 }
 #endif
