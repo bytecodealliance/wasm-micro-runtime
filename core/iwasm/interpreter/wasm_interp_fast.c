@@ -3097,7 +3097,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         CHECK_ATOMIC_MEMORY_ACCESS(4);
 
                         ret = wasm_runtime_atomic_notify(
-                            (WASMModuleInstanceCommon *)module, maddr, notify_count);
+                            (WASMModuleInstanceCommon *)module, maddr,
+                            notify_count);
                         bh_assert((int32)ret >= 0);
 
                         PUSH_I32(ret);
