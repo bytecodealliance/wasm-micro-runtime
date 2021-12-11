@@ -5646,7 +5646,7 @@ check_stack_pop(WASMLoaderContext *ctx, uint8 type, char *error_buf,
                                        ctx->module->type_count)) {
             if (wasm_is_type_multi_byte_type(stack_top_type)) {
                 uint32 ref_type_struct_size =
-                           wasm_reftype_struct_size(stack_top_ref_type);
+                    wasm_reftype_struct_size(stack_top_ref_type);
                 bh_memcpy_s(ctx->ref_type_tmp, (uint32)sizeof(WASMRefType),
                             stack_top_ref_type, ref_type_struct_size);
             }
@@ -5891,9 +5891,9 @@ fail:
 static bool
 wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 {
-    if (!(ctx->p_code_compiled = wasm_runtime_malloc(ctx->code_compiled_size)))
+    if (!(ctx->p_code_compiled =
+              loader_malloc(ctx->code_compiled_size, NULL, 0)))
         return false;
-    memset(ctx->p_code_compiled, 0, ctx->code_compiled_size);
     ctx->p_code_compiled_end = ctx->p_code_compiled + ctx->code_compiled_size;
 
     /* clean up frame ref */
@@ -6657,7 +6657,8 @@ reserve_block_ret(WASMLoaderContext *loader_ctx, uint8 opcode,
      * of EXT_OP_COPY_STACK_VALUES for interpreter performance. */
     if (return_count == 1) {
         uint8 cell = (uint8)wasm_value_type_cell_num(return_types[0]);
-        if (block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
+        if (cell <= 2 /* V128 isn't supported whose cell num is 4 */
+            && block->dynamic_offset != *(loader_ctx->frame_offset - cell)) {
             /* insert op_copy before else opcode */
             if (opcode == WASM_OP_ELSE)
                 skip_label();
@@ -7098,8 +7099,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     available_reftype_map =
         (int32)(loader_ctx->reftype_map_num
                 - (loader_ctx->frame_csp - 1)->reftype_map_num);
-    reftype_map = reftype_maps ?
-                  reftype_maps + reftype_map_count - 1 : NULL;
+    reftype_map = reftype_maps ? reftype_maps + reftype_map_count - 1 : NULL;
 #endif
 
     /* Check stack top values match target block type */
@@ -7447,8 +7447,8 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              uint32 error_buf_size)
 {
     uint8 *p = func->code, *p_end = func->code + func->code_size, *p_org;
-    uint32 param_count, ret_count, local_count, global_count;
-    uint8 *param_types, *ret_types, *local_types, local_type, global_type;
+    uint32 param_count, local_count, global_count;
+    uint8 *param_types, *local_types, local_type, global_type;
     BlockType func_block_type;
     uint16 *local_offsets, local_offset;
     uint32 type_idx, func_idx, local_idx, global_idx, table_idx;
@@ -7741,20 +7741,24 @@ re_scan:
                     BlockType *cur_block_type = &cur_block->block_type;
 
                     if (cur_block_type->is_value_type) {
-                        if (cur_block_type->u.value_type.type != VALUE_TYPE_VOID) {
+                        if (cur_block_type->u.value_type.type
+                            != VALUE_TYPE_VOID) {
                             block_ret_count = 1;
-                            block_ret_types = &cur_block_type->u.value_type.type;
+                            block_ret_types =
+                                &cur_block_type->u.value_type.type;
                         }
                     }
                     else {
                         block_param_count = cur_block_type->u.type->param_count;
                         block_ret_count = cur_block_type->u.type->result_count;
                         block_param_types = cur_block_type->u.type->types;
-                        block_ret_types = cur_block_type->u.type->types + block_param_count;
+                        block_ret_types =
+                            cur_block_type->u.type->types + block_param_count;
                     }
                     if (block_param_count != block_ret_count
                         || (block_param_count
-                            && memcmp(block_param_types, block_ret_types, block_param_count))) {
+                            && memcmp(block_param_types, block_ret_types,
+                                      block_param_count))) {
                         set_error_buf(error_buf, error_buf_size,
                                       "type mismatch: else branch missing");
                         goto fail;
@@ -7822,13 +7826,12 @@ re_scan:
 
             case WASM_OP_BR_TABLE:
             {
+                uint8 *ret_types = NULL;
+                uint32 ret_count = 0;
 #if WASM_ENABLE_GC != 0
                 WASMRefTypeMap *ret_reftype_maps = NULL;
                 uint32 ret_reftype_map_count;
 #endif
-
-                ret_types = NULL;
-                ret_count = 0;
 
                 read_leb_uint32(p, p_end, count);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -8396,9 +8399,8 @@ re_scan:
                 }
 #else
                 if (!resolve_value_type((const uint8 **)&p, p_end, module,
-                                        &need_ref_type_map,
-                                        &wasm_ref_type, false, error_buf,
-                                        error_buf_size)) {
+                                        &need_ref_type_map, &wasm_ref_type,
+                                        false, error_buf, error_buf_size)) {
                     goto fail;
                 }
                 ref_type = wasm_ref_type.ref_type;
@@ -9213,8 +9215,8 @@ re_scan:
                             goto fail;
                         }
 
-                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn, false,
-                                                  0, type_idx);
+                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
+                                                  false, 0, type_idx);
                         POP_REF(wasm_ref_type.ref_type);
 
                         if (opcode1 == WASM_OP_STRUCT_NEW_WITH_RTT) {
@@ -9271,8 +9273,8 @@ re_scan:
                             }
                         }
 
-                        wasm_set_refheaptype_typeidx(&wasm_ref_type.ref_ht_typeidx,
-                                                     false, type_idx);
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, false, type_idx);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     }
@@ -9311,8 +9313,8 @@ re_scan:
                                               error_buf_size)) {
                             goto fail;
                         }
-                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn, false,
-                                                  0, type_idx);
+                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
+                                                  false, 0, type_idx);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     }
@@ -9324,8 +9326,8 @@ re_scan:
                                               error_buf_size)) {
                             goto fail;
                         }
-                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn, false,
-                                                  0, type_idx);
+                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
+                                                  false, 0, type_idx);
                         POP_REF(wasm_ref_type.ref_type);
                         break;
                     }
@@ -9349,20 +9351,22 @@ re_scan:
                         break;
                     case WASM_OP_REF_AS_FUNC:
                         POP_REF(REF_TYPE_ANYREF);
-                        wasm_set_refheaptype_common(&wasm_ref_type.ref_ht_common,
-                                                    false, HEAP_TYPE_FUNC);
+                        wasm_set_refheaptype_common(
+                            &wasm_ref_type.ref_ht_common, false,
+                            HEAP_TYPE_FUNC);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     case WASM_OP_REF_AS_DATA:
                         POP_REF(REF_TYPE_ANYREF);
-                        wasm_set_refheaptype_common(&wasm_ref_type.ref_ht_common,
-                                                    false, HEAP_TYPE_DATA);
+                        wasm_set_refheaptype_common(
+                            &wasm_ref_type.ref_ht_common, false,
+                            HEAP_TYPE_DATA);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     case WASM_OP_REF_AS_I31:
                         POP_REF(REF_TYPE_ANYREF);
-                        wasm_set_refheaptype_common(&wasm_ref_type.ref_ht_common,
-                                                    false, HEAP_TYPE_I31);
+                        wasm_set_refheaptype_common(
+                            &wasm_ref_type.ref_ht_common, false, HEAP_TYPE_I31);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
 

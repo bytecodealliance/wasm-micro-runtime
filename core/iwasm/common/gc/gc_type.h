@@ -309,24 +309,23 @@ wasm_reftype_dup(const WASMRefType *ref_type);
 
 /* Set fields of RefHeapType_TypeIdx */
 void
-wasm_set_refheaptype_typeidx(RefHeapType_TypeIdx *ref_ht_typeidx,
-                             bool nullable, int32 type_idx);
+wasm_set_refheaptype_typeidx(RefHeapType_TypeIdx *ref_ht_typeidx, bool nullable,
+                             int32 type_idx);
 
 /* Set fields of RefHeapType_RttN */
 void
-wasm_set_refheaptype_rttn(RefHeapType_RttN *ref_ht_rttn,
-                          bool nullable, uint32 n,
-                          uint32 type_idx);
+wasm_set_refheaptype_rttn(RefHeapType_RttN *ref_ht_rttn, bool nullable,
+                          uint32 n, uint32 type_idx);
 
 /* Set fields of RefHeapType_Rtt */
 void
-wasm_set_refheaptype_rtt(RefHeapType_Rtt *ref_ht_rtt,
-                         bool nullable, uint32 type_idx);
+wasm_set_refheaptype_rtt(RefHeapType_Rtt *ref_ht_rtt, bool nullable,
+                         uint32 type_idx);
 
 /* Set fields of RefHeapType_Common */
 void
-wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common,
-                            bool nullable, int32 heap_type);
+wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common, bool nullable,
+                            int32 heap_type);
 
 /* Create a new hash set of reference type */
 HashMap *

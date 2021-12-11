@@ -477,7 +477,10 @@ wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
  * @param exec_env the execution environment to call the function,
  *   which must be created from wasm_create_exec_env()
  * @param function the function to call
- * @param argc the number of arguments
+ * @param argc total cell number that the function parameters occupy,
+ *   a cell is a slot of the uint32 array argv[], e.g. i32/f32 argument
+ *   occupies one cell, i64/f64 argument occupies two cells, note that
+ *   it might be different from the parameter number of the function
  * @param argv the arguments. If the function has return value,
  *   the first (or first two in case 64-bit return value) element of
  *   argv stores the return value of the called WASM function after this

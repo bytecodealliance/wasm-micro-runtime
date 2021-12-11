@@ -1402,6 +1402,16 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
 
+    if (argc < func_type->param_cell_num) {
+        char buf[128];
+        snprintf(buf, sizeof(buf),
+                 "invalid argument count %u, must be no smaller than %u", argc,
+                 func_type->param_cell_num);
+        aot_set_exception(module_inst, buf);
+        return false;
+    }
+    argc = func_type->param_cell_num;
+
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 

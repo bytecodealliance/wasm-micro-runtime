@@ -1005,20 +1005,21 @@ wasm_reftype_dup(const WASMRefType *ref_type)
 }
 
 void
-wasm_set_refheaptype_typeidx(RefHeapType_TypeIdx *ref_ht_typeidx,
-                             bool nullable, int32 type_idx)
+wasm_set_refheaptype_typeidx(RefHeapType_TypeIdx *ref_ht_typeidx, bool nullable,
+                             int32 type_idx)
 {
-    ref_ht_typeidx->ref_type = nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_typeidx->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
     ref_ht_typeidx->nullable = nullable;
     ref_ht_typeidx->type_idx = type_idx;
 }
 
 void
-wasm_set_refheaptype_rttn(RefHeapType_RttN *ref_ht_rttn,
-                          bool nullable, uint32 n,
-                          uint32 type_idx)
+wasm_set_refheaptype_rttn(RefHeapType_RttN *ref_ht_rttn, bool nullable,
+                          uint32 n, uint32 type_idx)
 {
-    ref_ht_rttn->ref_type = nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_rttn->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
     ref_ht_rttn->nullable = nullable;
     ref_ht_rttn->rtt_type = HEAP_TYPE_RTTN;
     ref_ht_rttn->n = n;
@@ -1026,20 +1027,22 @@ wasm_set_refheaptype_rttn(RefHeapType_RttN *ref_ht_rttn,
 }
 
 void
-wasm_set_refheaptype_rtt(RefHeapType_Rtt *ref_ht_rtt,
-                         bool nullable, uint32 type_idx)
+wasm_set_refheaptype_rtt(RefHeapType_Rtt *ref_ht_rtt, bool nullable,
+                         uint32 type_idx)
 {
-    ref_ht_rtt->ref_type = nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_rtt->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
     ref_ht_rtt->nullable = nullable;
     ref_ht_rtt->rtt_type = HEAP_TYPE_RTT;
     ref_ht_rtt->type_idx = type_idx;
 }
 
 void
-wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common,
-                            bool nullable, int32 heap_type)
+wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common, bool nullable,
+                            int32 heap_type)
 {
-    ref_ht_common->ref_type = nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_common->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
     ref_ht_common->nullable = nullable;
     ref_ht_common->heap_type = heap_type;
 }
