@@ -149,17 +149,17 @@ static void dump_buf(uint8 *buf, uint32 size, char *title)
 #endif
 
 static bool
-is_32bit_binary(LLVMBinaryRef binary)
+is_32bit_binary(const AOTObjectData *obj_data)
 {
-    LLVMBinaryType type = LLVMBinaryGetType(binary);
-    return (type == LLVMBinaryTypeELF32L || type == LLVMBinaryTypeELF32B);
+    /* bit 1: 0 is 32-bit, 1 is 64-bit */
+    return obj_data->target_info.bin_type & 2 ? false : true;
 }
 
 static bool
-is_little_endian_binary(LLVMBinaryRef binary)
+is_little_endian_binary(const AOTObjectData *obj_data)
 {
-    LLVMBinaryType type = LLVMBinaryGetType(binary);
-    return (type == LLVMBinaryTypeELF32L || type == LLVMBinaryTypeELF64L);
+    /* bit 0: 0 is little-endian, 1 is big-endian */
+    return obj_data->target_info.bin_type & 1 ? false : true;
 }
 
 static bool
@@ -568,7 +568,7 @@ get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
     /* text offsets + function type indexs */
     uint32 size = 0;
 
-    if (is_32bit_binary(obj_data->binary))
+    if (is_32bit_binary(obj_data))
         size = (uint32)sizeof(uint32) * comp_data->func_count;
     else
         size = (uint32)sizeof(uint64) * comp_data->func_count;
@@ -852,7 +852,7 @@ get_relocation_section_size(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     return (uint32)sizeof(uint32) + symbol_table_size
            + get_relocation_groups_size(relocation_groups,
                                         relocation_group_count,
-                                        is_32bit_binary(obj_data->binary));
+                                        is_32bit_binary(obj_data));
 }
 
 static uint32
@@ -1181,7 +1181,7 @@ get_name_section_size(AOTCompData *comp_data)
         return 0;
     }
 
-    max_aot_buf_size = 4 * (p_end - p);
+    max_aot_buf_size = 4 * (uint32)(p_end - p);
     if (!(buf = comp_data->aot_name_section_buf =
               wasm_runtime_malloc(max_aot_buf_size))) {
         aot_set_last_error("allocate memory for custom name section failed.");
@@ -1689,7 +1689,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(section_size);
 
     for (i = 0; i < obj_data->func_count; i++, func++) {
-        if (is_32bit_binary(obj_data->binary))
+        if (is_32bit_binary(obj_data))
             EMIT_U32(func->text_offset);
         else
             EMIT_U64(func->text_offset);
@@ -1816,7 +1816,7 @@ aot_emit_relocation_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         /* emit each relocation */
         for (j = 0; j < relocation_group->relocation_count; j++, relocation++) {
             offset = align_uint(offset, 4);
-            if (is_32bit_binary(obj_data->binary)) {
+            if (is_32bit_binary(obj_data)) {
                 EMIT_U32(relocation->relocation_offset);
                 EMIT_U32(relocation->relocation_addend);
             }
@@ -1883,9 +1883,9 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         /* sub section id + name section size */
         EMIT_U32(sizeof(uint32) * 1 + comp_data->aot_name_section_size);
         EMIT_U32(AOT_CUSTOM_SECTION_NAME);
-        bh_memcpy_s((uint8 *)(buf + offset), buf_end - buf,
+        bh_memcpy_s((uint8 *)(buf + offset), (uint32)(buf_end - buf),
                     comp_data->aot_name_section_buf,
-                    comp_data->aot_name_section_size);
+                    (uint32)comp_data->aot_name_section_size);
         offset += comp_data->aot_name_section_size;
 
         *p_offset = offset;
@@ -2321,8 +2321,8 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
     LLVMRelocationIteratorRef rel_itr;
     AOTRelocation *relocation = group->relocations;
     uint32 size;
-    bool is_binary_32bit = is_32bit_binary(obj_data->binary);
-    bool is_binary_little_endian = is_little_endian_binary(obj_data->binary);
+    bool is_binary_32bit = is_32bit_binary(obj_data);
+    bool is_binary_little_endian = is_little_endian_binary(obj_data);
     bool has_addend = str_starts_with(group->section_name, ".rela");
     uint8 *rela_content = NULL;
 
