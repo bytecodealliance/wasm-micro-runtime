@@ -268,7 +268,7 @@ typedef struct AOTCompData {
 
 typedef struct AOTNativeSymbol {
     bh_list_link link;
-    const char *symbol;
+    char symbol[32];
     int32 index;
 } AOTNativeSymbol;
 

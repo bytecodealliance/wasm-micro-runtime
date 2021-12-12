@@ -2031,7 +2031,7 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
         }
 
         idx = bh_list_length(&comp_ctx->native_symbols);
-        sym->symbol = symbol;
+        snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
         sym->index = idx;
 
         if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {
