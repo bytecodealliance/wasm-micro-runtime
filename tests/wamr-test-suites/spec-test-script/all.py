@@ -25,6 +25,7 @@ IWASM_CMD = "../../../product-mini/platforms/linux/build/iwasm"
 IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 SPEC_TEST_DIR = "spec/test/core"
 WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
+SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 
 
@@ -104,6 +105,7 @@ def test_case(
     xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
+    gc_flag=False,
 ):
     case_path = pathlib.Path(case_path).resolve()
     case_name = case_path.stem
@@ -122,7 +124,7 @@ def test_case(
 
     CMD = ["python2.7", "runtest.py"]
     CMD.append("--wast2wasm")
-    CMD.append(WAST2WASM_CMD)
+    CMD.append(WAST2WASM_CMD if not gc_flag else SPEC_INTERPRETER_CMD)
     CMD.append("--interpreter")
     CMD.append(IWASM_CMD if not sgx_flag else IWASM_SGX_CMD)
     CMD.append("--aot-compiler")
@@ -148,7 +150,12 @@ def test_case(
     if not clean_up_flag:
         CMD.append("--no_cleanup")
 
-    CMD.append(case_path)
+    if gc_flag:
+        CMD.append("--gc")
+        CMD.append("--loader-only")
+
+    CMD.append(str(case_path))
+
     print(f"============> run {case_name} ", end="")
     with subprocess.Popen(
         CMD,
@@ -204,6 +211,7 @@ def test_suite(
     xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
+    gc_flag=False,
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
@@ -227,6 +235,7 @@ def test_suite(
                 xip_flag,
                 clean_up_flag,
                 verbose_flag,
+                gc_flag,
             )
             successful_case += 1
         except Exception:
@@ -250,6 +259,7 @@ def test_suite_parallelly(
     xip_flag=False,
     clean_up_flag=False,
     verbose_flag=False,
+    gc_flag=False,
 ):
 
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
@@ -278,6 +288,7 @@ def test_suite_parallelly(
                     xip_flag,
                     clean_up_flag,
                     verbose_flag,
+                    gc_flag,
                 ],
             )
 
@@ -376,6 +387,13 @@ def main():
         help="Close real time output while running cases, only show last words of failed ones",
     )
     parser.add_argument(
+        "--gc",
+        action="store_true",
+        default=False,
+        dest="gc_flag",
+        help="Running with GC feature",
+    )
+    parser.add_argument(
         "cases",
         metavar="path_to__case",
         type=str,
@@ -407,6 +425,7 @@ def main():
                 options.xip_flag,
                 options.clean_up_flag,
                 options.verbose_flag,
+                options.gc_flag,
             )
             end = time.time_ns()
             print(
@@ -424,6 +443,7 @@ def main():
                 options.xip_flag,
                 options.clean_up_flag,
                 options.verbose_flag,
+                options.gc_flag,
             )
             end = time.time_ns()
             print(f"It takes {((end - start) / 1000000):,} ms to run test_suite")
@@ -441,6 +461,7 @@ def main():
                     options.xip_flag,
                     options.clean_up_flag,
                     options.verbose_flag,
+                    options.gc_flag,
                 )
             else:
                 ret = True

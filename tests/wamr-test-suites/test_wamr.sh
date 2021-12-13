@@ -425,8 +425,13 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="--parl "
     fi
 
+    if [[ ${ENABLE_GC} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--gc "
+    fi
+
     cd ${WORK_DIR}
     python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
+
     [[ ${PIPESTATUS[0]} -ne 0 ]] && exit 1
     cd -
 
