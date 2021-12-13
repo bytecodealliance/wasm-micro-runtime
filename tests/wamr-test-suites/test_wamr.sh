@@ -279,8 +279,12 @@ function spec_test()
     # restore from XX_ignore_cases.patch
     # resotre branch
     git checkout -B master
-    git reset --hard 397399a70565609bf142d211891724e21bffd01f
+    # [spec] Fix instruction table (#1402) Thu Dec 2 17:21:54 2021 +0100
+    git reset --hard 2460ad02b51fb5ed5824f44de287a8638b19a5f8
     git apply ../../spec-test-script/ignore_cases.patch
+    if [[ ${ENABLE_SIMD} == 1 ]]; then
+        git apply ../../spec-test-script/simd_ignore_cases.patch
+    fi
 
     # udpate thread cases
     if [ ${ENABLE_MULTI_THREAD} == 1 ]; then
@@ -296,20 +300,6 @@ function spec_test()
         git checkout threads/main
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
-    fi
-
-    # udpate SIMD cases
-    if [[ ${ENABLE_SIMD} == 1 ]]; then
-        echo "checkout spec for SIMD proposal"
-        # check spec test cases for simd
-        if [[ -z $(git remote | grep "\<simd\>") ]]; then
-            git remote add simd https://github.com/WebAssembly/simd.git
-        fi
-
-        git fetch simd
-        git checkout simd/main -- test/core/simd
-
-        git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
 
     popd
