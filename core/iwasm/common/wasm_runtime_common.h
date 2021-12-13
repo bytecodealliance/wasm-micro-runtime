@@ -785,15 +785,15 @@ wasm_runtime_register_natives_raw(const char *module_name,
 
 bool
 wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
-                           bool is_aot_func, const WASMType *func_type,
-                           const char *signature, void *attachment,
-                           uint32 *argv, uint32 argc, uint32 *ret);
+                           const WASMType *func_type, const char *signature,
+                           void *attachment, uint32 *argv, uint32 argc,
+                           uint32 *ret);
 
 bool
 wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
-                               bool is_aot_func, const WASMType *func_type,
-                               const char *signature, void *attachment,
-                               uint32 *argv, uint32 argc, uint32 *ret);
+                               const WASMType *func_type, const char *signature,
+                               void *attachment, uint32 *argv, uint32 argc,
+                               uint32 *ret);
 
 void
 wasm_runtime_read_v128(const uint8 *bytes, uint64 *ret1, uint64 *ret2);
