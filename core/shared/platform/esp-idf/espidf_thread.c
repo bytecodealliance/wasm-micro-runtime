@@ -144,6 +144,25 @@ os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 }
 
 int
+os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
+{
+    int ret;
+    struct timespec abstime;
+
+    if (useconds == BHT_WAIT_FOREVER)
+        ret = pthread_cond_wait(cond, mutex);
+    else {
+        msec_nsec_to_abstime(&abstime, useconds);
+        ret = pthread_cond_timedwait(cond, mutex, &abstime);
+    }
+
+    if (ret != BHT_OK && ret != ETIMEDOUT)
+        return BHT_ERROR;
+
+    return ret;
+}
+
+int
 os_cond_signal(korp_cond *cond)
 {
     return pthread_cond_signal(cond);

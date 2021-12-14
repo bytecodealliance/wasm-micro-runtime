@@ -39,3 +39,8 @@ os_thread_get_stack_boundary(void)
 {
     return NULL;
 }
+
+int
+os_usleep(uint32 usec) {
+    return usleep(usec);
+}
