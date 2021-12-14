@@ -19,6 +19,7 @@
 #include <pthread.h>
 
 #include "esp_pthread.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
