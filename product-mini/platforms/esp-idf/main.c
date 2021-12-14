@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "wasm_export.h"
+#include "aot_export.h"
 #include "bh_platform.h"
 #include "platform_api_vmcore.h"
 #include "test_wasm.h"
@@ -48,7 +49,7 @@ iwasm_main(void *arg)
     // initialize runtime environment
     if (!wasm_runtime_full_init(&init_args)) {
         printf("Init runtime failed.\n");
-        goto fail3;
+        return NULL;
     }
 
     // load WASM byte buffer from byte buffer of include file
@@ -60,7 +61,6 @@ iwasm_main(void *arg)
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_buf_size,
                                           error_buf, sizeof(error_buf)))) {
         printf("Error in wasm_runtime_load: %s\n", error_buf);
-        puts(error_buf);
         goto fail2;
     }
 
@@ -87,7 +87,6 @@ fail2:
     printf("wasm_runtime_unload\n");
     wasm_runtime_unload(wasm_module);
 
-fail3:
     // destroy runtime environment
     printf("wasm_runtime_destroy\n");
     wasm_runtime_destroy();

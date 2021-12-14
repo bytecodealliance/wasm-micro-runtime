@@ -1126,6 +1126,7 @@ static ArchItem valid_archs[] = {
 static const char *valid_abis[] = {
     "gnu",
     "eabi",
+    "espidf",
     "gnueabihf",
     "msvc",
     "ilp32",
@@ -1620,7 +1621,10 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 goto fail;
             }
 
-            if (strstr(default_triple, "windows")) {
+            if (strstr(arch, "xtensa") && abi && strstr(abi, "espidf")) {
+                vendor_sys = "-esp-";
+            }
+            else if (strstr(default_triple, "windows")) {
                 vendor_sys = "-pc-windows-";
                 if (!abi)
                     abi = "msvc";
