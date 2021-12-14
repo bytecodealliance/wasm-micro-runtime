@@ -1689,11 +1689,19 @@ resolve_target_sym(const char *symbol, int32 *p_index)
     if (!(target_sym_map = get_target_symbol_map(&num)))
         return NULL;
 
-    for (i = 0; i < num; i++)
-        if (!strcmp(target_sym_map[i].symbol_name, symbol)) {
+    for (i = 0; i < num; i++) {
+        if (!strcmp(target_sym_map[i].symbol_name, symbol)
+#if defined(_WIN32) || defined(_WIN32_)
+            /* In Win32, the symbol name of function added by
+               LLVMAddFunction() is prefixed by '_', ignore it */
+            || (strlen(symbol) > 1 && symbol[0] == '_'
+                && !strcmp(target_sym_map[i].symbol_name, symbol + 1))
+#endif
+        ) {
             *p_index = (int32)i;
             return target_sym_map[i].symbol_addr;
         }
+    }
     return NULL;
 }
 
