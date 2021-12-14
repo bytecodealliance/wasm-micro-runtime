@@ -41,6 +41,7 @@ os_thread_get_stack_boundary(void)
 }
 
 int
-os_usleep(uint32 usec) {
+os_usleep(uint32 usec)
+{
     return usleep(usec);
 }
