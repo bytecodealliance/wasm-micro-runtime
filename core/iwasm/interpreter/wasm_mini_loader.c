@@ -4825,7 +4825,7 @@ re_scan:
                      * 0x40/0x7F/0x7E/0x7D/0x7C, take it as the type of
                      * the single return value. */
                     block_type.is_value_type = true;
-                    block_type.u.value_type = value_type;
+                    block_type.u.value_type.type = value_type;
                 }
                 else {
                     uint32 type_index;
@@ -4997,9 +4997,11 @@ re_scan:
                     uint8 *block_param_types = NULL, *block_ret_types = NULL;
                     BlockType *cur_block_type = &cur_block->block_type;
                     if (cur_block_type->is_value_type) {
-                        if (cur_block_type->u.value_type != VALUE_TYPE_VOID) {
+                        if (cur_block_type->u.value_type.type
+                            != VALUE_TYPE_VOID) {
                             block_ret_count = 1;
-                            block_ret_types = &cur_block_type->u.value_type;
+                            block_ret_types =
+                                &cur_block_type->u.value_type.type;
                         }
                     }
                     else {

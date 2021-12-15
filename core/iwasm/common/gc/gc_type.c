@@ -126,7 +126,8 @@ wasm_dump_func_type(const WASMFuncType *type)
         else
             ref_type = NULL;
         wasm_dump_value_type(type->types[i], ref_type);
-        os_printf(" ");
+        if (i < (uint32)type->param_count - 1)
+            os_printf(" ");
     }
 
     os_printf("] -> [");
@@ -140,7 +141,8 @@ wasm_dump_func_type(const WASMFuncType *type)
         else
             ref_type = NULL;
         wasm_dump_value_type(type->types[i], ref_type);
-        os_printf(" ");
+        if (i < (uint32)type->param_count + type->result_count - 1)
+            os_printf(" ");
     }
 
     os_printf("]\n");
@@ -479,6 +481,33 @@ wasm_reftype_size(uint8 type)
         return 0;
     }
 
+    return 0;
+}
+
+uint32
+wasm_reftype_struct_size(const WASMRefType *ref_type)
+{
+    if (wasm_is_reftype_htref_nullable(ref_type->ref_type)
+        || wasm_is_reftype_htref_non_nullable(ref_type->ref_type)) {
+        if (wasm_is_refheaptype_rttn(&ref_type->ref_ht_common)) {
+            return (uint32)sizeof(RefHeapType_RttN);
+        }
+        else if (wasm_is_refheaptype_rtt(&ref_type->ref_ht_common)) {
+            return (uint32)sizeof(RefHeapType_Rtt);
+        }
+        else if (wasm_is_refheaptype_common(&ref_type->ref_ht_common)
+                 || wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common)) {
+            return (uint32)sizeof(RefHeapType_Common);
+        }
+    }
+    else if (wasm_is_reftype_rttnref(ref_type->ref_type)) {
+        return (uint32)sizeof(RefRttNType);
+    }
+    else if (wasm_is_reftype_rttref(ref_type->ref_type)) {
+        return (uint32)sizeof(RefRttType);
+    }
+
+    bh_assert(0);
     return 0;
 }
 
@@ -973,6 +1002,49 @@ wasm_reftype_dup(const WASMRefType *ref_type)
 
     bh_assert(0);
     return NULL;
+}
+
+void
+wasm_set_refheaptype_typeidx(RefHeapType_TypeIdx *ref_ht_typeidx, bool nullable,
+                             int32 type_idx)
+{
+    ref_ht_typeidx->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_typeidx->nullable = nullable;
+    ref_ht_typeidx->type_idx = type_idx;
+}
+
+void
+wasm_set_refheaptype_rttn(RefHeapType_RttN *ref_ht_rttn, bool nullable,
+                          uint32 n, uint32 type_idx)
+{
+    ref_ht_rttn->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_rttn->nullable = nullable;
+    ref_ht_rttn->rtt_type = HEAP_TYPE_RTTN;
+    ref_ht_rttn->n = n;
+    ref_ht_rttn->type_idx = type_idx;
+}
+
+void
+wasm_set_refheaptype_rtt(RefHeapType_Rtt *ref_ht_rtt, bool nullable,
+                         uint32 type_idx)
+{
+    ref_ht_rtt->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_rtt->nullable = nullable;
+    ref_ht_rtt->rtt_type = HEAP_TYPE_RTT;
+    ref_ht_rtt->type_idx = type_idx;
+}
+
+void
+wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common, bool nullable,
+                            int32 heap_type)
+{
+    ref_ht_common->ref_type =
+        nullable ? REF_TYPE_HT_NULLABLE : REF_TYPE_HT_NON_NULLABLE;
+    ref_ht_common->nullable = nullable;
+    ref_ht_common->heap_type = heap_type;
 }
 
 HashMap *
