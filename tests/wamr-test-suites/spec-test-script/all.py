@@ -204,70 +204,59 @@ def test_suite(
     xip_flag=False,
     clean_up_flag=True,
     verbose_flag=True,
+    parl_flag=False,
 ):
     suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
     if not suite_path.exists():
         print(f"can not find spec test cases at {suite_path}")
         return False
 
-    case_list = sorted(suite_path.glob("**/*.wast"))
+    case_list = sorted(suite_path.glob("*.wast"))
+    if simd_flag:
+        simd_case_list = sorted(suite_path.glob("simd/*.wast"))
+        case_list.extend(simd_case_list)
+
     case_count = len(case_list)
     failed_case = 0
     successful_case = 0
-    for case_path in case_list:
-        try:
-            test_case(
-                str(case_path),
-                target,
-                aot_flag,
-                sgx_flag,
-                multi_module_flag,
-                multi_thread_flag,
-                simd_flag,
-                xip_flag,
-                clean_up_flag,
-                verbose_flag,
-            )
-            successful_case += 1
-        except Exception:
-            failed_case += 1
-            break
 
-    print(
-        f"IN ALL {case_count} cases: {successful_case} PASS, {failed_case} FAIL, {case_count - successful_case - failed_case} SKIP"
-    )
+    if parl_flag:
+        print(f"----- Run the whole spec test suite on {mp.cpu_count()} cores -----")
+        with mp.Pool() as pool:
+            results = {}
+            for case_path in case_list:
+                results[case_path.stem] = pool.apply_async(
+                    test_case,
+                    [
+                        str(case_path),
+                        target,
+                        aot_flag,
+                        sgx_flag,
+                        multi_module_flag,
+                        multi_thread_flag,
+                        simd_flag,
+                        xip_flag,
+                        clean_up_flag,
+                        verbose_flag,
+                    ],
+                )
 
-    return 0 == failed_case
-
-
-def test_suite_parallelly(
-    target,
-    aot_flag=False,
-    sgx_flag=False,
-    multi_module_flag=False,
-    multi_thread_flag=False,
-    simd_flag=False,
-    xip_flag=False,
-    clean_up_flag=False,
-    verbose_flag=False,
-):
-
-    suite_path = pathlib.Path(SPEC_TEST_DIR).resolve()
-    if not suite_path.exists():
-        print(f"can not find spec test cases at {suite_path}")
-        return False
-
-    case_list = sorted(suite_path.glob("**/*.wast"))
-    case_count = len(case_list)
-    failed_case = 0
-    successful_case = 0
-    print(f"----- Run the whole spec test suite on {mp.cpu_count()} cores -----")
-    with mp.Pool() as pool:
-        results = {}
+            for case_name, result in results.items():
+                try:
+                    # 5 min / case
+                    result.wait(300)
+                    if not result.successful():
+                        failed_case += 1
+                    else:
+                        successful_case += 1
+                except mp.TimeoutError:
+                    print(f"{case_name} meets TimeoutError")
+                    failed_case += 1
+    else:
+        print(f"----- Run the whole spec test suite -----")
         for case_path in case_list:
-            results[case_path.stem] = pool.apply_async(
-                test_case,
-                [
+            try:
+                test_case(
                     str(case_path),
                     target,
                     aot_flag,
@@ -278,20 +267,11 @@ def test_suite_parallelly(
                     xip_flag,
                     clean_up_flag,
                     verbose_flag,
-                ],
-            )
-
-        for case_name, result in results.items():
-            try:
-                # 5 min / case
-                result.wait(300)
-                if not result.successful():
-                    failed_case += 1
-                else:
-                    successful_case += 1
-            except mp.TimeoutError:
-                print(f"{case_name} meets TimeoutError")
+                )
+                successful_case += 1
+            except Exception:
                 failed_case += 1
+                break
 
     print(
         f"IN ALL {case_count} cases: {successful_case} PASS, {failed_case} FAIL, {case_count - successful_case - failed_case} SKIP"
@@ -396,37 +376,23 @@ def main():
             options.clean_up_flag = False
             options.verbose_flag = False
 
-            start = time.time_ns()
-            ret = test_suite_parallelly(
-                options.target,
-                options.aot_flag,
-                options.sgx_flag,
-                options.multi_module_flag,
-                options.multi_thread_flag,
-                options.simd_flag,
-                options.xip_flag,
-                options.clean_up_flag,
-                options.verbose_flag,
-            )
-            end = time.time_ns()
-            print(
-                f"It takes {((end - start) / 1000000):,} ms to run test_suite_parallelly"
-            )
-        else:
-            start = time.time_ns()
-            ret = test_suite(
-                options.target,
-                options.aot_flag,
-                options.sgx_flag,
-                options.multi_module_flag,
-                options.multi_thread_flag,
-                options.simd_flag,
-                options.xip_flag,
-                options.clean_up_flag,
-                options.verbose_flag,
-            )
-            end = time.time_ns()
-            print(f"It takes {((end - start) / 1000000):,} ms to run test_suite")
+        start = time.time_ns()
+        ret = test_suite(
+            options.target,
+            options.aot_flag,
+            options.sgx_flag,
+            options.multi_module_flag,
+            options.multi_thread_flag,
+            options.simd_flag,
+            options.xip_flag,
+            options.clean_up_flag,
+            options.verbose_flag,
+            options.parl_flag,
+        )
+        end = time.time_ns()
+        print(
+            f"It takes {((end - start) / 1000000):,} ms to run test_suite {'parallelly' if options.parl_flag else ''}"
+        )
     else:
         try:
             for case in options.cases:
