@@ -1813,7 +1813,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_simd) {
         char *tmp;
-        bool ret;
+        bool check_simd_ret;
 
         comp_ctx->enable_simd = true;
 
@@ -1822,9 +1822,10 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
-        ret = aot_check_simd_compatibility(comp_ctx->target_arch, tmp);
+        check_simd_ret =
+            aot_check_simd_compatibility(comp_ctx->target_arch, tmp);
         LLVMDisposeMessage(tmp);
-        if (!ret) {
+        if (!check_simd_ret) {
             aot_set_last_error("SIMD compatibility check failed, "
                                "try adding --cpu=<cpu> to specify a cpu "
                                "or adding --disable-simd to disable SIMD");
