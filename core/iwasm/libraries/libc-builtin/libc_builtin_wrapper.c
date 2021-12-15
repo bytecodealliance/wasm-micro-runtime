@@ -1161,7 +1161,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(strtol, "($*i)i"),
     REG_NATIVE_FUNC(strtoul, "($*i)i"),
     REG_NATIVE_FUNC(memchr, "(*ii)i"),
-    REG_NATIVE_FUNC(strncasecmp, "($$i)"),
+    REG_NATIVE_FUNC(strncasecmp, "($$i)i"),
     REG_NATIVE_FUNC(strspn, "($$)i"),
     REG_NATIVE_FUNC(strcspn, "($$)i"),
     REG_NATIVE_FUNC(strstr, "($$)i"),
