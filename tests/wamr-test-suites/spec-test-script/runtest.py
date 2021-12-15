@@ -219,6 +219,12 @@ parser.add_argument('--multi-thread', default=False, action='store_true',
 parser.add_argument('--verbose', default=False, action='store_true',
         help='show more logs')
 
+parser.add_argument('--loader-only', default=False, action='store_true',
+        help='test with module loader only')
+
+parser.add_argument('--gc', default=False, action='store_true',
+        help='Test with GC')
+
 # regex patterns of tests to skip
 C_SKIP_TESTS = ()
 PY_SKIP_TESTS = (
@@ -899,10 +905,11 @@ def compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
     log("Compiling WASM to '%s'" % wasm_tempfile)
 
     # default arguments
-    cmd = [opts.wast2wasm,
-            "--enable-thread",
-            "--no-check",
-            wast_tempfile, "-o", wasm_tempfile ]
+    if opts.gc:
+        cmd = [opts.wast2wasm, "-u", "-d", wast_tempfile, "-o", wasm_tempfile]
+    else:
+        cmd = [opts.wast2wasm, "--enable-thread", "--no-check",
+               wast_tempfile, "-o", wasm_tempfile ]
 
     # remove reference-type and bulk-memory enabling options since a WABT
     # commit 30c1e983d30b33a8004b39fd60cbd64477a7956c
@@ -1101,13 +1108,19 @@ if __name__ == "__main__":
             elif skip_test(form, SKIP_TESTS):
                 log("Skipping test: %s" % form[0:60])
             elif re.match("^\(assert_trap\s+\(module", form):
+                if opts.loader_only:
+                    continue
                 if test_aot:
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
                 else:
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
             elif re.match("^\(assert_exhaustion\\b.*", form):
+                if opts.loader_only:
+                    continue
                 test_assert_exhaustion(r, opts, form)
             elif re.match("^\(assert_unlinkable\\b.*", form):
+                if opts.loader_only:
+                    continue
                 if test_aot:
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
                 else:
@@ -1178,6 +1191,8 @@ if __name__ == "__main__":
                 log("ignoring assert_return_.*_nan")
                 pass
             elif re.match(".*\(invoke\s+\$\\b.*", form):
+                if opts.loader_only:
+                    continue
                 # invoke a particular named module's function
                 if form.startswith("(assert_return"):
                     test_assert_return(r,opts,form)
@@ -1195,6 +1210,9 @@ if __name__ == "__main__":
                         if not compile_wast_to_wasm(form, temp_files[0], temp_files[1], opts):
                             raise Exception("compile wast to wasm failed")
 
+                        if opts.loader_only:
+                            continue
+
                         if test_aot:
                             r = compile_wasm_to_aot(temp_files[1], temp_files[2], True, opts, r)
                             try:
@@ -1209,6 +1227,9 @@ if __name__ == "__main__":
                 else:
                     if not compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
                         raise Exception("compile wast to wasm failed")
+
+                    if opts.loader_only:
+                        continue
 
                     if test_aot:
                         r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)
@@ -1231,11 +1252,17 @@ if __name__ == "__main__":
                                     (repr(exc), r.buf))
 
             elif re.match("^\(assert_return\\b.*", form):
+                if opts.loader_only:
+                    continue
                 assert(r), "iwasm repl runtime should be not null"
                 test_assert_return(r, opts, form)
             elif re.match("^\(assert_trap\\b.*", form):
+                if opts.loader_only:
+                    continue
                 test_assert_trap(r, opts, form)
             elif re.match("^\(invoke\\b.*", form):
+                if opts.loader_only:
+                    continue
                 assert(r), "iwasm repl runtime should be not null"
                 do_invoke(r, opts, form)
             elif re.match("^\(assert_invalid\\b.*", form):
@@ -1243,8 +1270,6 @@ if __name__ == "__main__":
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
                 else:
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
-
-
             elif re.match("^\(register\\b.*", form):
                 # get module's new name from the register cmd
                 name_new =re.split('\"',re.search('\".*\"',form).group(0))[1]
