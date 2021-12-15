@@ -1069,6 +1069,7 @@ static ArchItem valid_archs[] = {
     { "i386", false },
     { "xtensa", false },
     { "mips", true },
+    { "mipsel", false },
     { "aarch64v8", false },
     { "aarch64v8.1", false },
     { "aarch64v8.2", false },
