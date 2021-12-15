@@ -493,23 +493,26 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
 
         for (i = cnt - 1; i >= 0; i--) {
             read_string(p, p_end, symbol);
-            if (!strncmp(symbol, "i32_const#", strlen("i32_const#"))) {
+            if (!strncmp(symbol, "i32#", 4)) {
                 uint32 u32;
-                if (!str2uint32(symbol + strlen("i32_const#"), &u32)) {
+                if (!str2uint32(symbol + 4, &u32)) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "resolve symbol %s failed", symbol);
                     goto fail;
                 }
                 *(uint32 *)(&module->native_symbol_list[i]) = u32;
             }
-            else if (!strncmp(symbol, "i64_const#", strlen("i64_const#"))) {
+            else if (!strncmp(symbol, "i64#", 4)) {
                 uint64 u64;
-                if (!str2uint64(symbol + strlen("i64_const#"), &u64)) {
+                if (!str2uint64(symbol + 4, &u64)) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "resolve symbol %s failed", symbol);
                     goto fail;
                 }
                 *(uint64 *)(&module->native_symbol_list[i]) = u64;
+            }
+            else if (!strncmp(symbol, "__ignore", 8)) {
+                continue;
             }
             else {
                 module->native_symbol_list[i] =
