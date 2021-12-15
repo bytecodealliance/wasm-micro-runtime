@@ -3342,6 +3342,7 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
                 if (last_section_index != (uint8)-1
                     && (section_index <= last_section_index)) {
                     set_error_buf(error_buf, error_buf_size,
+                                  "unexpected content after last section or "
                                   "junk after last section");
                     return false;
                 }
