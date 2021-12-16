@@ -2004,6 +2004,30 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     wasm_runtime_free(comp_ctx);
 }
 
+static bool
+insert_native_symbol(AOTCompContext *comp_ctx, const char *symbol, int32 idx)
+{
+    AOTNativeSymbol *sym = wasm_runtime_malloc(sizeof(AOTNativeSymbol));
+
+    if (!sym) {
+        aot_set_last_error("alloc native symbol failed.");
+        return false;
+    }
+
+    memset(sym, 0, sizeof(AOTNativeSymbol));
+    bh_assert(strlen(symbol) <= sizeof(sym->symbol));
+    snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
+    sym->index = idx;
+
+    if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {
+        wasm_runtime_free(sym);
+        aot_set_last_error("insert native symbol to list failed.");
+        return false;
+    }
+
+    return true;
+}
+
 int32
 aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
 {
@@ -2025,21 +2049,29 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
     /* Given symbol is not exist in list, then we alloc a new index for it */
 
     if (idx < 0) {
-        sym = wasm_runtime_malloc(sizeof(AOTNativeSymbol));
-
-        if (!sym) {
-            aot_set_last_error("alloc native symbol failed.");
-            return idx;
+        if (comp_ctx->pointer_size == sizeof(uint32)
+            && !strncmp(symbol, "f64#", 4)) {
+            idx = bh_list_length(&comp_ctx->native_symbols);
+            /* Add 4 bytes padding on 32-bit target to make sure that
+               the f64 const is stored on 8-byte aligned address */
+            if ((idx & 1) && !strncmp(comp_ctx->target_arch, "i386", 4)) {
+                if (!insert_native_symbol(comp_ctx, "__ignore", idx)) {
+                    return -1;
+                }
+            }
         }
 
         idx = bh_list_length(&comp_ctx->native_symbols);
-        sym->symbol = symbol;
-        sym->index = idx;
-
-        if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {
-            wasm_runtime_free(sym);
-            aot_set_last_error("alloc index for native symbol failed.");
+        if (!insert_native_symbol(comp_ctx, symbol, idx)) {
             return -1;
+        }
+
+        if (comp_ctx->pointer_size == sizeof(uint32)
+            && !strncmp(symbol, "f64#", 4)) {
+            /* f64 const occupies 2 pointer slots on 32-bit target */
+            if (!insert_native_symbol(comp_ctx, "__ignore", idx + 1)) {
+                return -1;
+            }
         }
     }
 
@@ -2444,4 +2476,62 @@ aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
     return func;
 fail:
     return NULL;
+}
+
+LLVMValueRef
+aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
+                          const WASMValue *value, uint8 value_type)
+{
+    LLVMValueRef const_index, const_addr, const_value;
+    LLVMTypeRef const_ptr_type;
+    char buf[128] = { 0 };
+    int32 index;
+
+    switch (value_type) {
+        case VALUE_TYPE_F32:
+            /* Store the raw int bits of f32 const as a hex string */
+            snprintf(buf, sizeof(buf), "f32#%08X", value->i32);
+            const_ptr_type = F32_PTR_TYPE;
+            break;
+        case VALUE_TYPE_F64:
+            /* Store the raw int bits of f64 const as a hex string */
+            snprintf(buf, sizeof(buf), "f64#%016" PRIx64, value->i64);
+            const_ptr_type = F64_PTR_TYPE;
+            break;
+        default:
+            bh_assert(0);
+            return NULL;
+    }
+
+    /* Load f32/f64 const from exec_env->native_symbol[index] */
+
+    index = aot_get_native_symbol_index(comp_ctx, buf);
+    if (index < 0) {
+        return NULL;
+    }
+
+    if (!(const_index = I32_CONST(index))) {
+        aot_set_last_error("construct const index failed.");
+        return NULL;
+    }
+
+    if (!(const_addr = LLVMBuildInBoundsGEP(
+              comp_ctx->builder, base, &const_index, 1, "const_addr_tmp"))) {
+        aot_set_last_error("get const addr by index failed.");
+        return NULL;
+    }
+
+    if (!(const_addr = LLVMBuildBitCast(comp_ctx->builder, const_addr,
+                                        const_ptr_type, "const_addr"))) {
+        aot_set_last_error("cast const fialed.");
+        return NULL;
+    }
+
+    if (!(const_value =
+              LLVMBuildLoad(comp_ctx->builder, const_addr, "const_value"))) {
+        aot_set_last_error("load const failed.");
+        return NULL;
+    }
+
+    return const_value;
 }
