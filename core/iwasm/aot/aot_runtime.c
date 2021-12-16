@@ -1403,7 +1403,7 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     bool ret;
 
     if (argc < func_type->param_cell_num) {
-        char buf[128];
+        char buf[108];
         snprintf(buf, sizeof(buf),
                  "invalid argument count %u, must be no smaller than %u", argc,
                  func_type->param_cell_num);

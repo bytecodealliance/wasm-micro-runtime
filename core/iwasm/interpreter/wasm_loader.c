@@ -456,7 +456,6 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
         case INIT_EXPR_TYPE_V128_CONST:
         {
-            uint8 flag;
             uint64 high, low;
 
             if (type != VALUE_TYPE_V128)

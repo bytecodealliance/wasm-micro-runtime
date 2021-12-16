@@ -32,7 +32,7 @@ aot_compile_op_get_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     char name[32];
     LLVMValueRef value;
-    AOTValue *aot_value;
+    AOTValue *aot_value_top;
 
     CHECK_LOCAL(local_idx);
 
@@ -45,10 +45,10 @@ aot_compile_op_get_local(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     PUSH(value, get_local_type(func_ctx, local_idx));
 
-    aot_value =
+    aot_value_top =
         func_ctx->block_stack.block_list_end->value_stack.value_list_end;
-    aot_value->is_local = true;
-    aot_value->local_idx = local_idx;
+    aot_value_top->is_local = true;
+    aot_value_top->local_idx = local_idx;
     return true;
 
 fail:
