@@ -2014,6 +2014,7 @@ insert_native_symbol(AOTCompContext *comp_ctx, const char *symbol, int32 idx)
     }
 
     memset(sym, 0, sizeof(AOTNativeSymbol));
+    bh_assert(strlen(symbol) <= sizeof(sym->symbol));
     snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
     sym->index = idx;
 
@@ -2486,26 +2487,22 @@ aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
     int32 index;
 
     switch (value_type) {
-        case VALUE_TYPE_I32:
-            snprintf(buf, sizeof(buf), "i32#%08X", value->i32);
-            const_ptr_type = INT32_PTR_TYPE;
-            break;
-        case VALUE_TYPE_I64:
-            snprintf(buf, sizeof(buf), "i64#%016" PRIx64, value->i64);
-            const_ptr_type = INT64_PTR_TYPE;
-            break;
         case VALUE_TYPE_F32:
-            snprintf(buf, sizeof(buf), "i32#%08X", value->i32);
+            /* Store the raw int bits of f32 const as a hex string */
+            snprintf(buf, sizeof(buf), "f32#%08X", value->i32);
             const_ptr_type = F32_PTR_TYPE;
             break;
         case VALUE_TYPE_F64:
-            snprintf(buf, sizeof(buf), "i64#%016" PRIx64, value->i64);
+            /* Store the raw int bits of f64 const as a hex string */
+            snprintf(buf, sizeof(buf), "f64#%016" PRIx64, value->i64);
             const_ptr_type = F64_PTR_TYPE;
             break;
         default:
             bh_assert(0);
             return NULL;
     }
+
+    /* Load f32/f64 const from exec_env->native_symbol[index] */
 
     index = aot_get_native_symbol_index(comp_ctx, buf);
     if (index < 0) {

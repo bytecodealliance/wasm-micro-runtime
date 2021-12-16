@@ -493,8 +493,9 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
 
         for (i = cnt - 1; i >= 0; i--) {
             read_string(p, p_end, symbol);
-            if (!strncmp(symbol, "i32#", 4)) {
+            if (!strncmp(symbol, "f32#", 4)) {
                 uint32 u32;
+                /* Resolve the raw int bits of f32 const */
                 if (!str2uint32(symbol + 4, &u32)) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "resolve symbol %s failed", symbol);
@@ -502,8 +503,9 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
                 }
                 *(uint32 *)(&module->native_symbol_list[i]) = u32;
             }
-            else if (!strncmp(symbol, "i64#", 4)) {
+            else if (!strncmp(symbol, "f64#", 4)) {
                 uint64 u64;
+                /* Resolve the raw int bits of f64 const */
                 if (!str2uint64(symbol + 4, &u64)) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "resolve symbol %s failed", symbol);
@@ -512,6 +514,8 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
                 *(uint64 *)(&module->native_symbol_list[i]) = u64;
             }
             else if (!strncmp(symbol, "__ignore", 8)) {
+                /* Padding bytes to make f64 on 8-byte aligned address,
+                   or it is the second 32-bit slot in 32-bit system */
                 continue;
             }
             else {
