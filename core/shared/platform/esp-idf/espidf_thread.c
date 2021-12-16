@@ -31,8 +31,8 @@ os_thread_wrapper(void *arg)
 korp_tid
 os_self_thread(void)
 {
-    // only allowed if this is a thread, xTaskCreate is not enough
-    // look at product_mini for how to use this
+    /* only allowed if this is a thread, xTaskCreate is not enough look at
+     * product_mini for how to use this*/
     return pthread_self();
 }
 
@@ -141,6 +141,43 @@ int
 os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 {
     return pthread_cond_wait(cond, mutex);
+}
+
+static void
+msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
+{
+    struct timeval tv;
+    time_t tv_sec_new;
+    long int tv_nsec_new;
+
+    gettimeofday(&tv, NULL);
+
+    tv_sec_new = (time_t)(tv.tv_sec + usec / 1000000);
+    if (tv_sec_new >= tv.tv_sec) {
+        ts->tv_sec = tv_sec_new;
+    }
+    else {
+        /* integer overflow */
+        ts->tv_sec = BH_TIME_T_MAX;
+        os_printf("Warning: os_cond_reltimedwait exceeds limit, "
+                  "set to max timeout instead\n");
+    }
+
+    tv_nsec_new = (long int)(tv.tv_usec * 1000 + (usec % 1000000) * 1000);
+    if (tv.tv_usec * 1000 >= tv.tv_usec && tv_nsec_new >= tv.tv_usec * 1000) {
+        ts->tv_nsec = tv_nsec_new;
+    }
+    else {
+        /* integer overflow */
+        ts->tv_nsec = LONG_MAX;
+        os_printf("Warning: os_cond_reltimedwait exceeds limit, "
+                  "set to max timeout instead\n");
+    }
+
+    if (ts->tv_nsec >= 1000000000L && ts->tv_sec < BH_TIME_T_MAX) {
+        ts->tv_sec++;
+        ts->tv_nsec -= 1000000000L;
+    }
 }
 
 int

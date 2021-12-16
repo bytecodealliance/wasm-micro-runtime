@@ -7,7 +7,9 @@ project(wamr_on_esp32c3)
 
 enable_language(ASM)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif ()
 
 if("${IDF_TARGET}" STREQUAL "")
     message(FATAL_ERROR "You need to set IDF_TARGET to your target string")
@@ -36,11 +38,27 @@ else()
 endif()
 
 set(WAMR_BUILD_PLATFORM "esp-idf")
-set(WAMR_BUILD_INTERP 1)
-set(WAMR_BUILD_FAST_INTERP 0)
-set(WAMR_BUILD_AOT 0)
-set(WAMR_BUILD_LIBC_BUILTIN 1)
-set(WAMR_BUILD_APP_FRAMEWORK 0)
+
+if (NOT DEFINED WAMR_BUILD_INTERP)
+  set (WAMR_BUILD_INTERP 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
+  set (WAMR_BUILD_FAST_INTERP 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_AOT)
+  set (WAMR_BUILD_AOT 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
+  set (WAMR_BUILD_LIBC_BUILTIN 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_APP_FRAMEWORK)
+  set (WAMR_BUILD_APP_FRAMEWORK 0)
+endif ()
+
 
 # Set the compile time variable so that the right binary is selected
 add_compile_options(-DWAMR_BUILD_INTERP=${WAMR_BUILD_INTERP})

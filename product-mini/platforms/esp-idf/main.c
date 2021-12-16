@@ -8,7 +8,6 @@
 #include "wasm_export.h"
 #include "aot_export.h"
 #include "bh_platform.h"
-#include "platform_api_vmcore.h"
 #include "test_wasm.h"
 
 static void *
@@ -29,14 +28,14 @@ iwasm_main(void *arg)
 
     printf("about to set up the stuff\n");
 
-    // setup variables for instantiating and running the wasm module
+    /* setup variables for instantiating and running the wasm module */
     uint8_t *wasm_file_buf = NULL;
     unsigned wasm_file_buf_size = 0;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     char error_buf[128];
 
-    // configure memory allocation
+    /* configure memory allocation */
     RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
@@ -46,22 +45,22 @@ iwasm_main(void *arg)
     init_args.mem_alloc_option.allocator.free_func = (void *)os_free;
 
     printf("wasm_runtime_full_init\n");
-    // initialize runtime environment
+    /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
         printf("Init runtime failed.\n");
         return NULL;
     }
 
-    // load WASM byte buffer from byte buffer of include file
+    /* load WASM byte buffer from byte buffer of include file */
     printf("use an internal test file, that's going to output Hello World\n");
     wasm_file_buf = (uint8_t *)wasm_test_file;
     wasm_file_buf_size = sizeof(wasm_test_file);
 
-    // load WASM module
+    /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_buf_size,
                                           error_buf, sizeof(error_buf)))) {
         printf("Error in wasm_runtime_load: %s\n", error_buf);
-        goto fail2;
+        goto fail1;
     }
 
     printf("about to call wasm_runtime_instantiate\n");
@@ -70,24 +69,24 @@ iwasm_main(void *arg)
                                        32 * 1024,              // heap size
                                        error_buf, sizeof(error_buf)))) {
         printf("Error while instantiating: %s\n", error_buf);
-        goto fail1;
+        goto fail2;
     }
 
     printf("run main() of the application\n");
     void *ret = app_instance_main(wasm_module_inst);
     assert(!ret);
 
-fail1:
-    // destroy the module instance
+    /* destroy the module instance */
     printf("wasm_runtime_deinstantiate\n");
     wasm_runtime_deinstantiate(wasm_module_inst);
 
 fail2:
-    // unload the module
+    /* unload the module */
     printf("wasm_runtime_unload\n");
     wasm_runtime_unload(wasm_module);
 
-    // destroy runtime environment
+fail1:
+    /* destroy runtime environment */
     printf("wasm_runtime_destroy\n");
     wasm_runtime_destroy();
 

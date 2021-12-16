@@ -19,7 +19,14 @@ bh_platform_destroy()
 int
 os_printf(const char *format, ...)
 {
-    return printf(format);
+    int ret = 0;
+    va_list ap;
+
+    va_start(ap, format);
+    ret += vprintf(format, ap);
+    va_end(ap);
+
+    return ret;
 }
 
 int

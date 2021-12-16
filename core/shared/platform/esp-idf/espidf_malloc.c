@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
@@ -6,16 +11,16 @@ os_malloc(unsigned size)
 {
     void *buf_origin;
     void *buf_fixed;
-    uint32 *addr_field;
+    uintptr_t *addr_field;
 
-    buf_origin = malloc(size + 8 + sizeof(uint32));
+    buf_origin = malloc(size + 8 + sizeof(uintptr_t));
     buf_fixed = buf_origin + sizeof(void *);
-    if ((uint32)buf_fixed & 0x7) {
-        buf_fixed = (void *)((size_t)(buf_fixed + 8) & (~7));
+    if ((uintptr_t)buf_fixed & (uintptr_t)0x7) {
+        buf_fixed = (void *)((uintptr_t)(buf_fixed + 8) & (~(uintptr_t)7));
     }
 
-    addr_field = buf_fixed - sizeof(uint32);
-    *addr_field = (uint32)buf_origin;
+    addr_field = buf_fixed - sizeof(uintptr_t);
+    *addr_field = (uintptr_t)buf_origin;
 
     return buf_fixed;
 }
@@ -26,24 +31,25 @@ os_realloc(void *ptr, unsigned size)
     void *mem_origin;
     void *mem_new;
     void *mem_new_fixed;
-    int *addr_field;
+    uintptr_t *addr_field;
 
     if (!ptr) {
         return NULL;
     }
 
-    addr_field = ptr - sizeof(uint32);
+    addr_field = ptr - sizeof(uintptr_t);
     mem_origin = (void *)(*addr_field);
-    mem_new = realloc(mem_origin, size + 8 + sizeof(uint32));
+    mem_new = realloc(mem_origin, size + 8 + sizeof(uintptr_t));
 
     if (mem_origin != mem_new) {
-        mem_new_fixed = mem_new + sizeof(uint32);
+        mem_new_fixed = mem_new + sizeof(uintptr_t);
         if ((uint32)mem_new_fixed & 0x7) {
-            mem_new_fixed = (void *)((uint32)(mem_new_fixed + 8) & (~7));
+            mem_new_fixed =
+                (void *)((uintptr_t)(mem_new + 8) & (~(uintptr_t)7));
         }
 
-        addr_field = mem_new_fixed - sizeof(uint32);
-        *addr_field = (uint32)mem_new;
+        addr_field = mem_new_fixed - sizeof(uintptr_t);
+        *addr_field = (uintptr_t)mem_new;
 
         return mem_new_fixed;
     }
@@ -55,10 +61,10 @@ void
 os_free(void *ptr)
 {
     void *mem_origin;
-    uint32 *addr_field;
+    uintptr *addr_field;
 
     if (ptr) {
-        addr_field = ptr - sizeof(uint32);
+        addr_field = ptr - sizeof(uintptr_t);
         mem_origin = (void *)(*addr_field);
 
         free(mem_origin);

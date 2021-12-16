@@ -464,13 +464,13 @@ ESP-IDF
 -------------------------
 WAMR integrates with ESP-IDF both for the XTENSA and RISC-V chips (esp32x and esp32c3 respectively). 
 
-In order to use this, you need version at least version 4.3.1 of ESP-IDF. 
+In order to use this, you need at least version 4.3.1 of ESP-IDF.
 If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
 A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
 The demo builds WAMR for ESP-IDF and runs a small wasm program. 
-In order to run it for you're specific Espressif chip, edit the ['build.sh'](/product-mini/platforms/esp-idf/build.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
-Before compiling it is also necessary to calls ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
+In order to run it for your specific Espressif chip, edit the ['build.sh'](/product-mini/platforms/esp-idf/build.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 Docker
 -------------------------
