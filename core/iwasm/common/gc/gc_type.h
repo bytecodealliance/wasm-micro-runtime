@@ -327,6 +327,11 @@ void
 wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common, bool nullable,
                             int32 heap_type);
 
+/* Find the related reftype in reftype map array with index */
+WASMRefType *
+wasm_reftype_map_find(WASMRefTypeMap *ref_type_maps, uint32 ref_type_map_count,
+                      uint32 index_to_find);
+
 /* Create a new hash set of reference type */
 HashMap *
 wasm_reftype_set_create(uint32 size);

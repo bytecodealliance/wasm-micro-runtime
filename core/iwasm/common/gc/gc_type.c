@@ -1047,6 +1047,29 @@ wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common, bool nullable,
     ref_ht_common->heap_type = heap_type;
 }
 
+WASMRefType *
+wasm_reftype_map_find(WASMRefTypeMap *ref_type_maps, uint32 ref_type_map_count,
+                      uint32 index_to_find)
+{
+    int low = 0, mid;
+    int high = (int32)ref_type_map_count - 1;
+    uint32 index;
+
+    while (low <= high) {
+        mid = (low + high) / 2;
+        index = ref_type_maps[mid].index;
+        if (index_to_find == index) {
+            return ref_type_maps[mid].ref_type;
+        }
+        else if (index_to_find < index)
+            high = mid - 1;
+        else
+            low = mid + 1;
+    }
+
+    return NULL;
+}
+
 HashMap *
 wasm_reftype_set_create(uint32 size)
 {
