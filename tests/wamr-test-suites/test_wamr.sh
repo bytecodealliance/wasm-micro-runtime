@@ -17,9 +17,10 @@ function help()
     echo "-s {suite_name} test only one suite (spec)"
     echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
     echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
-    echo "-M enable the multi module feature"
+    echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
-    echo "-S enable SIMD"
+    echo "-S enable SIMD feature"
+    echo "-X enable XIP feature"
     echo "-x test SGX"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-P run the spec test parallelly"
@@ -35,13 +36,14 @@ ENABLE_MULTI_MODULE=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
+ENABLE_XIP=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxP" opt
+while getopts ":s:cabt:m:MCpSXxP" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -105,6 +107,10 @@ do
         S)
         echo "enable SIMD feature"
         ENABLE_SIMD=1
+        ;;
+        X)
+        echo "enable XIP feature"
+        ENABLE_XIP=1
         ;;
         x)
         echo "test SGX"
@@ -273,8 +279,12 @@ function spec_test()
     # restore from XX_ignore_cases.patch
     # resotre branch
     git checkout -B master
-    git reset --hard 397399a70565609bf142d211891724e21bffd01f
+    # [spec] Fix instruction table (#1402) Thu Dec 2 17:21:54 2021 +0100
+    git reset --hard 2460ad02b51fb5ed5824f44de287a8638b19a5f8
     git apply ../../spec-test-script/ignore_cases.patch
+    if [[ ${ENABLE_SIMD} == 1 ]]; then
+        git apply ../../spec-test-script/simd_ignore_cases.patch
+    fi
 
     # udpate thread cases
     if [ ${ENABLE_MULTI_THREAD} == 1 ]; then
@@ -290,20 +300,6 @@ function spec_test()
         git checkout threads/main
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
-    fi
-
-    # udpate SIMD cases
-    if [[ ${ENABLE_SIMD} == 1 ]]; then
-        echo "checkout spec for SIMD proposal"
-        # check spec test cases for simd
-        if [[ -z $(git remote | grep "\<simd\>") ]]; then
-            git remote add simd https://github.com/WebAssembly/simd.git
-        fi
-
-        git fetch simd
-        git checkout simd/main -- test/core/simd
-
-        git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
 
     popd
@@ -378,7 +374,11 @@ function spec_test()
     fi
 
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
-          ARGS_FOR_SPEC_TEST+="-p "
+        ARGS_FOR_SPEC_TEST+="-p "
+    fi
+
+    if [[ ${ENABLE_XIP} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="-X "
     fi
 
     # require warmc only in aot mode

@@ -7,7 +7,7 @@
 
 #include "bh_log.h"
 #include "gdbserver.h"
-#include "platform_api_extension.h"
+#include "bh_platform.h"
 #include "wasm_interp.h"
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
@@ -21,10 +21,27 @@ typedef struct WASMDebugEngine {
     int platform_port;
     int process_base_port;
     bh_list debug_instance_list;
+    korp_mutex instance_list_lock;
     bool active;
 } WASMDebugEngine;
 
 static WASMDebugEngine *g_debug_engine;
+
+static uint32 current_instance_id = 1;
+
+static uint32
+allocate_instance_id()
+{
+    uint32 id;
+
+    bh_assert(g_debug_engine);
+
+    os_mutex_lock(&g_debug_engine->instance_list_lock);
+    id = current_instance_id++;
+    os_mutex_unlock(&g_debug_engine->instance_list_lock);
+
+    return id;
+}
 
 static bool
 should_stop(WASMDebugControlThread *control_thread)
@@ -37,24 +54,15 @@ control_thread_routine(void *arg)
 {
     WASMDebugInstance *debug_inst = (WASMDebugInstance *)arg;
     WASMDebugControlThread *control_thread = NULL;
-    WASMCluster *cluster = NULL;
-    WASMExecEnv *exec_env;
-    bh_assert(debug_inst);
 
     control_thread = debug_inst->control_thread;
     bh_assert(control_thread);
 
-    cluster = debug_inst->cluster;
-    bh_assert(cluster);
-
-    exec_env = bh_list_first_elem(&cluster->exec_env_list);
-    bh_assert(exec_env);
-
-    os_mutex_lock(&exec_env->wait_lock);
+    os_mutex_lock(&debug_inst->wait_lock);
 
     control_thread->status = RUNNING;
 
-    debug_inst->id = g_debug_engine->debug_instance_list.len + 1;
+    debug_inst->id = allocate_instance_id();
 
     control_thread->debug_engine = g_debug_engine;
     control_thread->debug_instance = debug_inst;
@@ -67,19 +75,31 @@ control_thread_routine(void *arg)
     LOG_WARNING("control thread of debug object %p start\n", debug_inst);
 
     control_thread->server =
-        wasm_launch_gdbserver(control_thread->ip_addr, control_thread->port);
+        wasm_create_gdbserver(control_thread->ip_addr, &control_thread->port);
+
     if (!control_thread->server) {
         LOG_ERROR("Failed to create debug server\n");
-        os_cond_signal(&exec_env->wait_cond);
-        os_mutex_unlock(&exec_env->wait_lock);
+        os_cond_signal(&debug_inst->wait_cond);
+        os_mutex_unlock(&debug_inst->wait_lock);
         return NULL;
     }
 
     control_thread->server->thread = control_thread;
 
-    /* control thread ready, notify main thread */
-    os_cond_signal(&exec_env->wait_cond);
-    os_mutex_unlock(&exec_env->wait_lock);
+    /*
+     * wasm gdbserver created, the execution thread
+     *  doesn't need to wait for the debugger connection,
+     *  so we wake up the execution thread before listen
+     */
+    os_cond_signal(&debug_inst->wait_cond);
+    os_mutex_unlock(&debug_inst->wait_lock);
+
+    /* wait lldb client to connect */
+    if (!wasm_gdbserver_listen(control_thread->server)) {
+        LOG_ERROR("Failed while connecting debugger\n");
+        wasm_runtime_free(control_thread->server);
+        return NULL;
+    }
 
     while (true) {
         os_mutex_lock(&control_thread->wait_lock);
@@ -95,7 +115,7 @@ control_thread_routine(void *arg)
         os_mutex_unlock(&control_thread->wait_lock);
     }
 
-    LOG_VERBOSE("control thread of debug object %p stop\n", debug_inst);
+    LOG_VERBOSE("control thread of debug object [%p] stopped\n", debug_inst);
     return NULL;
 }
 
@@ -103,12 +123,6 @@ static WASMDebugControlThread *
 wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
 {
     WASMDebugControlThread *control_thread;
-    WASMCluster *cluster = debug_instance->cluster;
-    WASMExecEnv *exec_env;
-    bh_assert(cluster);
-
-    exec_env = bh_list_first_elem(&cluster->exec_env_list);
-    bh_assert(exec_env);
 
     if (!(control_thread =
               wasm_runtime_malloc(sizeof(WASMDebugControlThread)))) {
@@ -122,23 +136,26 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
 
     debug_instance->control_thread = control_thread;
 
-    os_mutex_lock(&exec_env->wait_lock);
+    os_mutex_lock(&debug_instance->wait_lock);
 
     if (0
         != os_thread_create(&control_thread->tid, control_thread_routine,
                             debug_instance, APP_THREAD_STACK_SIZE_MAX)) {
-        os_mutex_unlock(&control_thread->wait_lock);
+        os_mutex_unlock(&debug_instance->wait_lock);
         goto fail1;
     }
 
     /* wait until the debug control thread ready */
-    os_cond_wait(&exec_env->wait_cond, &exec_env->wait_lock);
-    os_mutex_unlock(&exec_env->wait_lock);
+    os_cond_wait(&debug_instance->wait_cond, &debug_instance->wait_lock);
+    os_mutex_unlock(&debug_instance->wait_lock);
     if (!control_thread->server)
         goto fail1;
 
+    os_mutex_lock(&g_debug_engine->instance_list_lock);
     /* create control thread success, append debug instance to debug engine */
     bh_list_insert(&g_debug_engine->debug_instance_list, debug_instance);
+    os_mutex_unlock(&g_debug_engine->instance_list_lock);
+
     wasm_cluster_send_signal_all(debug_instance->cluster, WAMR_SIG_STOP);
 
     return control_thread;
@@ -154,7 +171,8 @@ static void
 wasm_debug_control_thread_destroy(WASMDebugInstance *debug_instance)
 {
     WASMDebugControlThread *control_thread = debug_instance->control_thread;
-    LOG_VERBOSE("control thread of debug object %p stop\n", debug_instance);
+    LOG_VERBOSE("stopping control thread of debug object [%p]\n",
+                debug_instance);
     control_thread->status = STOPPED;
     os_mutex_lock(&control_thread->wait_lock);
     wasm_close_gdbserver(control_thread->server);
@@ -177,6 +195,15 @@ wasm_debug_engine_create()
     }
     memset(engine, 0, sizeof(WASMDebugEngine));
 
+    if (os_mutex_init(&engine->instance_list_lock) != 0) {
+        wasm_runtime_free(engine);
+        LOG_ERROR("WASM Debug Engine error: failed to init mutex");
+        return NULL;
+    }
+
+    /* reset current instance id */
+    current_instance_id = 1;
+
     /* TODO: support Wasm platform in LLDB */
     /*
     engine->control_thread =
@@ -189,6 +216,16 @@ wasm_debug_engine_create()
 
     bh_list_init(&engine->debug_instance_list);
     return engine;
+}
+
+void
+wasm_debug_engine_destroy()
+{
+    if (g_debug_engine) {
+        os_mutex_destroy(&g_debug_engine->instance_list_lock);
+        wasm_runtime_free(g_debug_engine);
+        g_debug_engine = NULL;
+    }
 }
 
 bool
@@ -230,15 +267,6 @@ wasm_debug_get_engine_active(void)
     return false;
 }
 
-void
-wasm_debug_engine_destroy()
-{
-    if (g_debug_engine) {
-        wasm_runtime_free(g_debug_engine);
-        g_debug_engine = NULL;
-    }
-}
-
 /* A debug Instance is a debug "process" in gdb remote protocol
    and bound to a runtime cluster */
 WASMDebugInstance *
@@ -256,6 +284,15 @@ wasm_debug_instance_create(WASMCluster *cluster)
         return NULL;
     }
     memset(instance, 0, sizeof(WASMDebugInstance));
+
+    if (os_mutex_init(&instance->wait_lock) != 0) {
+        goto fail1;
+    }
+
+    if (os_cond_init(&instance->wait_cond) != 0) {
+        goto fail2;
+    }
+
     bh_list_init(&instance->break_point_list);
 
     instance->cluster = cluster;
@@ -267,23 +304,21 @@ wasm_debug_instance_create(WASMCluster *cluster)
     if (!wasm_debug_control_thread_create(instance)) {
         LOG_ERROR("WASM Debug Engine error: failed to create control thread");
         wasm_runtime_free(instance);
-        return NULL;
+        goto fail3;
     }
 
-    return instance;
-}
+    wasm_cluster_set_debug_inst(cluster, instance);
 
-static WASMDebugInstance *
-wasm_cluster_get_debug_instance(WASMDebugEngine *engine, WASMCluster *cluster)
-{
-    WASMDebugInstance *instance =
-        bh_list_first_elem(&engine->debug_instance_list);
-    while (instance) {
-        if (instance->cluster == cluster)
-            return instance;
-        instance = bh_list_elem_next(instance);
-    }
     return instance;
+
+fail3:
+    os_cond_destroy(&instance->wait_cond);
+fail2:
+    os_mutex_destroy(&instance->wait_lock);
+fail1:
+    wasm_runtime_free(instance);
+
+    return NULL;
 }
 
 static void
@@ -311,16 +346,23 @@ wasm_debug_instance_destroy(WASMCluster *cluster)
         return;
     }
 
-    instance = wasm_cluster_get_debug_instance(g_debug_engine, cluster);
+    instance = cluster->debug_inst;
     if (instance) {
         /* destroy control thread */
         wasm_debug_control_thread_destroy(instance);
+
+        os_mutex_lock(&g_debug_engine->instance_list_lock);
         bh_list_remove(&g_debug_engine->debug_instance_list, instance);
+        os_mutex_unlock(&g_debug_engine->instance_list_lock);
 
         /* destroy all breakpoints */
         wasm_debug_instance_destroy_breakpoints(instance);
 
+        os_mutex_destroy(&instance->wait_lock);
+        os_cond_destroy(&instance->wait_cond);
+
         wasm_runtime_free(instance);
+        cluster->debug_inst = NULL;
     }
 }
 
@@ -395,47 +437,78 @@ wasm_debug_instance_get_tids(WASMDebugInstance *instance, uint64 tids[],
                              int len)
 {
     WASMExecEnv *exec_env;
-    int i = 0;
+    int i = 0, threads_num = 0;
 
     if (!instance)
         return 0;
 
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env && i < len) {
-        tids[i++] = exec_env->handle;
+        /* Some threads may not be ready */
+        if (exec_env->handle != 0) {
+            tids[i++] = exec_env->handle;
+            threads_num++;
+        }
         exec_env = bh_list_elem_next(exec_env);
     }
-    LOG_VERBOSE("find %d tids\n", i);
-    return i;
+    LOG_VERBOSE("find %d tids\n", threads_num);
+    return threads_num;
+}
+
+static WASMExecEnv *
+get_stopped_thread(WASMCluster *cluster)
+{
+    WASMExecEnv *exec_env;
+
+    exec_env = bh_list_first_elem(&cluster->exec_env_list);
+    while (exec_env) {
+        if (exec_env->current_status->running_status != STATUS_RUNNING) {
+            return exec_env;
+        }
+        exec_env = bh_list_elem_next(exec_env);
+    }
+
+    return NULL;
 }
 
 uint64
 wasm_debug_instance_wait_thread(WASMDebugInstance *instance, uint64 tid,
                                 uint32 *status)
 {
-    WASMExecEnv *exec_env;
-    WASMExecEnv *last_exec_env = NULL;
+    WASMExecEnv *exec_env = NULL;
+
+    os_mutex_lock(&instance->wait_lock);
+    while ((instance->cluster->exec_env_list.len != 0)
+           && ((exec_env = get_stopped_thread(instance->cluster)) == NULL)) {
+        os_cond_wait(&instance->wait_cond, &instance->wait_lock);
+    }
+    os_mutex_unlock(&instance->wait_lock);
+
+    /* If cluster has no exec_env, then this whole cluster is exiting */
+    if (instance->cluster->exec_env_list.len == 0) {
+        *status = 0;
+        return 0;
+    }
+
+    instance->current_tid = exec_env->handle;
+    *status = exec_env->current_status->signal_flag;
+    return exec_env->handle;
+}
+
+uint32
+wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, uint64 tid)
+{
+    WASMExecEnv *exec_env = NULL;
 
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env) {
-        last_exec_env = exec_env;
-        if (instance->current_tid != 0
-            && last_exec_env->handle == instance->current_tid) {
-            break;
+        if (exec_env->handle == tid) {
+            return exec_env->current_status->signal_flag;
         }
         exec_env = bh_list_elem_next(exec_env);
     }
 
-    if (last_exec_env) {
-        wasm_cluster_wait_thread_status(last_exec_env, status);
-        if (instance->current_tid == 0)
-            instance->current_tid = last_exec_env->handle;
-        return last_exec_env->handle;
-    }
-    else {
-        *status = ~0;
-        return 0;
-    }
+    return 0;
 }
 
 void
@@ -700,12 +773,15 @@ wasm_exec_env_get_instance(WASMExecEnv *exec_env)
     WASMDebugInstance *instance = NULL;
     bh_assert(g_debug_engine);
 
+    os_mutex_lock(&g_debug_engine->instance_list_lock);
     instance = bh_list_first_elem(&g_debug_engine->debug_instance_list);
     while (instance) {
         if (instance->cluster == exec_env->cluster)
             break;
         instance = bh_list_elem_next(instance);
     }
+
+    os_mutex_unlock(&g_debug_engine->instance_list_lock);
     return instance;
 }
 

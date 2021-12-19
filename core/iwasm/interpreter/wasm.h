@@ -419,6 +419,20 @@ struct WASMModule {
     uint64 buf_code_size;
 #endif
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    /**
+     * Count how many instances reference this module. When source
+     * debugging feature enabled, the debugger may modify the code
+     * section of the module, so we need to report a warning if user
+     * create several instances based on the same module
+     *
+     * Sub_instances created by lib-pthread or spawn API will not
+     * influence or check the ref count
+     */
+    uint32 ref_count;
+    korp_mutex ref_count_lock;
+#endif
+
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;
@@ -506,6 +520,8 @@ wasm_value_type_size(uint8 value_type)
         case VALUE_TYPE_V128:
             return sizeof(int64) * 2;
 #endif
+        case VALUE_TYPE_VOID:
+            return 0;
         default:
             bh_assert(0);
     }
@@ -515,25 +531,7 @@ wasm_value_type_size(uint8 value_type)
 inline static uint16
 wasm_value_type_cell_num(uint8 value_type)
 {
-    if (value_type == VALUE_TYPE_VOID)
-        return 0;
-    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32
-#if WASM_ENABLE_REF_TYPES != 0
-             || value_type == VALUE_TYPE_FUNCREF
-             || value_type == VALUE_TYPE_EXTERNREF
-#endif
-    )
-        return 1;
-    else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
-        return 2;
-#if WASM_ENABLE_SIMD != 0
-    else if (value_type == VALUE_TYPE_V128)
-        return 4;
-#endif
-    else {
-        bh_assert(0);
-    }
-    return 0;
+    return wasm_value_type_size(value_type) / 4;
 }
 
 inline static uint32

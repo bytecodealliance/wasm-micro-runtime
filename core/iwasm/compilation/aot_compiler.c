@@ -2538,6 +2538,39 @@ fail:
     return false;
 }
 
+/* Check whether the target supports hardware atomic instructions */
+static bool
+aot_require_lower_atomic_pass(AOTCompContext *comp_ctx)
+{
+    bool ret = false;
+    if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
+        char *feature =
+            LLVMGetTargetMachineFeatureString(comp_ctx->target_machine);
+
+        if (feature) {
+            if (!strstr(feature, "+a")) {
+                ret = true;
+            }
+            LLVMDisposeMessage(feature);
+        }
+    }
+    return ret;
+}
+
+/* Check whether the target needs to expand switch to if/else */
+static bool
+aot_require_lower_switch_pass(AOTCompContext *comp_ctx)
+{
+    bool ret = false;
+
+    /* IR switch/case will cause .rodata relocation on riscv */
+    if (!strncmp(comp_ctx->target_arch, "riscv", 5)) {
+        ret = true;
+    }
+
+    return ret;
+}
+
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
@@ -2623,6 +2656,27 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
         LLVMDisposePassManager(common_pass_mgr);
         LLVMPassManagerBuilderDispose(pass_mgr_builder);
+    }
+
+    if (comp_ctx->optimize && comp_ctx->is_indirect_mode) {
+        LLVMPassManagerRef common_pass_mgr = NULL;
+
+        if (!(common_pass_mgr = LLVMCreatePassManager())) {
+            aot_set_last_error("create pass manager failed");
+            return false;
+        }
+
+        aot_add_expand_memory_op_pass(common_pass_mgr);
+
+        if (aot_require_lower_atomic_pass(comp_ctx))
+            LLVMAddLowerAtomicPass(common_pass_mgr);
+
+        if (aot_require_lower_switch_pass(comp_ctx))
+            LLVMAddLowerSwitchPass(common_pass_mgr);
+
+        LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
+
+        LLVMDisposePassManager(common_pass_mgr);
     }
 
     return true;

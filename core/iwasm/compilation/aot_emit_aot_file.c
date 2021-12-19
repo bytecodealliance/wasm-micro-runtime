@@ -149,17 +149,17 @@ static void dump_buf(uint8 *buf, uint32 size, char *title)
 #endif
 
 static bool
-is_32bit_binary(LLVMBinaryRef binary)
+is_32bit_binary(const AOTObjectData *obj_data)
 {
-    LLVMBinaryType type = LLVMBinaryGetType(binary);
-    return (type == LLVMBinaryTypeELF32L || type == LLVMBinaryTypeELF32B);
+    /* bit 1: 0 is 32-bit, 1 is 64-bit */
+    return obj_data->target_info.bin_type & 2 ? false : true;
 }
 
 static bool
-is_little_endian_binary(LLVMBinaryRef binary)
+is_little_endian_binary(const AOTObjectData *obj_data)
 {
-    LLVMBinaryType type = LLVMBinaryGetType(binary);
-    return (type == LLVMBinaryTypeELF32L || type == LLVMBinaryTypeELF64L);
+    /* bit 0: 0 is little-endian, 1 is big-endian */
+    return obj_data->target_info.bin_type & 1 ? false : true;
 }
 
 static bool
@@ -568,7 +568,7 @@ get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
     /* text offsets + function type indexs */
     uint32 size = 0;
 
-    if (is_32bit_binary(obj_data->binary))
+    if (is_32bit_binary(obj_data))
         size = (uint32)sizeof(uint32) * comp_data->func_count;
     else
         size = (uint32)sizeof(uint64) * comp_data->func_count;
@@ -852,7 +852,7 @@ get_relocation_section_size(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     return (uint32)sizeof(uint32) + symbol_table_size
            + get_relocation_groups_size(relocation_groups,
                                         relocation_group_count,
-                                        is_32bit_binary(obj_data->binary));
+                                        is_32bit_binary(obj_data));
 }
 
 static uint32
@@ -1181,7 +1181,7 @@ get_name_section_size(AOTCompData *comp_data)
         return 0;
     }
 
-    max_aot_buf_size = 4 * (p_end - p);
+    max_aot_buf_size = 4 * (uint32)(p_end - p);
     if (!(buf = comp_data->aot_name_section_buf =
               wasm_runtime_malloc(max_aot_buf_size))) {
         aot_set_last_error("allocate memory for custom name section failed.");
@@ -1689,7 +1689,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U32(section_size);
 
     for (i = 0; i < obj_data->func_count; i++, func++) {
-        if (is_32bit_binary(obj_data->binary))
+        if (is_32bit_binary(obj_data))
             EMIT_U32(func->text_offset);
         else
             EMIT_U64(func->text_offset);
@@ -1816,7 +1816,7 @@ aot_emit_relocation_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         /* emit each relocation */
         for (j = 0; j < relocation_group->relocation_count; j++, relocation++) {
             offset = align_uint(offset, 4);
-            if (is_32bit_binary(obj_data->binary)) {
+            if (is_32bit_binary(obj_data)) {
                 EMIT_U32(relocation->relocation_offset);
                 EMIT_U32(relocation->relocation_addend);
             }
@@ -1883,9 +1883,9 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         /* sub section id + name section size */
         EMIT_U32(sizeof(uint32) * 1 + comp_data->aot_name_section_size);
         EMIT_U32(AOT_CUSTOM_SECTION_NAME);
-        bh_memcpy_s((uint8 *)(buf + offset), buf_end - buf,
+        bh_memcpy_s((uint8 *)(buf + offset), (uint32)(buf_end - buf),
                     comp_data->aot_name_section_buf,
-                    comp_data->aot_name_section_size);
+                    (uint32)comp_data->aot_name_section_size);
         offset += comp_data->aot_name_section_size;
 
         *p_offset = offset;
@@ -1909,11 +1909,15 @@ struct coff_hdr {
     U16 u16Characs;
 };
 
+#define E_TYPE_REL 1
+#define E_TYPE_XIP 4
+
 #define IMAGE_FILE_MACHINE_AMD64 0x8664
 #define IMAGE_FILE_MACHINE_I386 0x014c
 #define IMAGE_FILE_MACHINE_IA64 0x0200
 
-#define AOT_COFF_BIN_TYPE 6
+#define AOT_COFF32_BIN_TYPE 4 /* 32-bit little endian */
+#define AOT_COFF64_BIN_TYPE 6 /* 64-bit little endian */
 
 #define EI_NIDENT 16
 
@@ -2024,13 +2028,22 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
             return false;
         }
         coff_header = (struct coff_hdr *)elf_buf;
-        obj_data->target_info.e_type = 1;
+
+        /* Emit eXecute In Place file type while in indirect mode */
+        if (comp_ctx->is_indirect_mode)
+            obj_data->target_info.e_type = E_TYPE_XIP;
+        else
+            obj_data->target_info.e_type = E_TYPE_REL;
+
         obj_data->target_info.e_machine = coff_header->u16Machine;
         obj_data->target_info.e_version = 1;
         obj_data->target_info.e_flags = 0;
 
-        if (coff_header->u16Machine == IMAGE_FILE_MACHINE_AMD64)
-            obj_data->target_info.bin_type = AOT_COFF_BIN_TYPE;
+        if (coff_header->u16Machine == IMAGE_FILE_MACHINE_AMD64
+            || coff_header->u16Machine == IMAGE_FILE_MACHINE_IA64)
+            obj_data->target_info.bin_type = AOT_COFF64_BIN_TYPE;
+        else if (coff_header->u16Machine == IMAGE_FILE_MACHINE_I386)
+            obj_data->target_info.bin_type = AOT_COFF32_BIN_TYPE;
     }
     else if (bin_type == LLVMBinaryTypeELF32L
              || bin_type == LLVMBinaryTypeELF32B) {
@@ -2043,6 +2056,11 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf32_ehdr *)elf_buf;
+
+        /* Emit eXecute In Place file type while in indirect mode */
+        if (comp_ctx->is_indirect_mode)
+            elf_header->e_type = E_TYPE_XIP;
+
         SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
         SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
         SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);
@@ -2059,6 +2077,11 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         }
 
         elf_header = (struct elf64_ehdr *)elf_buf;
+
+        /* Emit eXecute In Place file type while in indirect mode */
+        if (comp_ctx->is_indirect_mode)
+            elf_header->e_type = E_TYPE_XIP;
+
         SET_TARGET_INFO(e_type, e_type, uint16, is_little_bin);
         SET_TARGET_INFO(e_machine, e_machine, uint16, is_little_bin);
         SET_TARGET_INFO(e_version, e_version, uint32, is_little_bin);
@@ -2298,8 +2321,8 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
     LLVMRelocationIteratorRef rel_itr;
     AOTRelocation *relocation = group->relocations;
     uint32 size;
-    bool is_binary_32bit = is_32bit_binary(obj_data->binary);
-    bool is_binary_little_endian = is_little_endian_binary(obj_data->binary);
+    bool is_binary_32bit = is_32bit_binary(obj_data);
+    bool is_binary_little_endian = is_little_endian_binary(obj_data);
     bool has_addend = str_starts_with(group->section_name, ".rela");
     uint8 *rela_content = NULL;
 

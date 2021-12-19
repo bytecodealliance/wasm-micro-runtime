@@ -236,6 +236,17 @@ WASM_RUNTIME_API_EXTERN package_type_t
 get_package_type(const uint8_t *buf, uint32_t size);
 
 /**
+ * Check whether a file is an AOT XIP (Execution In Place) file
+ *
+ * @param buf the package buffer
+ * @param size the package buffer size
+ *
+ * @return true if success, false otherwise
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_xip_file(const uint8_t *buf, uint32_t size);
+
+/**
  * It is a callback for WAMR providing by embedding to load a module file
  * into a buffer
  */
@@ -409,6 +420,26 @@ WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_exec_env(wasm_exec_env_t exec_env);
 
 /**
+ * Start debug instance based on given execution environment.
+ * Note:
+ *   The debug instance will be destroyed during destroying the
+ *   execution environment, developers don't need to destroy it
+ *   manually.
+ *   If the cluster of this execution environment has already
+ *   been bound to a debug instance, this function will return true
+ *   directly.
+ *   If developer spawns some exec_env by wasm_runtime_spawn_exec_env,
+ *   don't need to call this function for every spawned exec_env as
+ *   they are sharing the same cluster with the main exec_env.
+ *
+ * @param exec_env the execution environment to start debug instance
+ *
+ * @return debug port if success, 0 otherwise.
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_runtime_start_debug_instance(wasm_exec_env_t exec_env);
+
+/**
  * Initialize thread environment.
  * Note:
  *   If developer creates a child thread by himself to call the
@@ -446,7 +477,10 @@ wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
  * @param exec_env the execution environment to call the function,
  *   which must be created from wasm_create_exec_env()
  * @param function the function to call
- * @param argc the number of arguments
+ * @param argc total cell number that the function parameters occupy,
+ *   a cell is a slot of the uint32 array argv[], e.g. i32/f32 argument
+ *   occupies one cell, i64/f64 argument occupies two cells, note that
+ *   it might be different from the parameter number of the function
  * @param argv the arguments. If the function has return value,
  *   the first (or first two in case 64-bit return value) element of
  *   argv stores the return value of the called WASM function after this

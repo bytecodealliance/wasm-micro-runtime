@@ -135,7 +135,6 @@ typedef struct AOTModule {
     AOTMemInitData **mem_init_data_list;
 
     /* native symbol */
-    uint32 native_symbol_count;
     void **native_symbol_list;
 
     /* import tables */
@@ -197,8 +196,7 @@ typedef struct AOTModule {
     uint8 *literal;
     uint32 literal_size;
 
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
     /* extra plt data area for __xmm and __real constants
        in Windows platform, NULL for JIT mode */
     uint8 *extra_plt_data;
@@ -246,6 +244,9 @@ typedef struct AOTModule {
 
     /* is jit mode or not */
     bool is_jit_mode;
+
+    /* is indirect mode or not */
+    bool is_indirect_mode;
 
 #if WASM_ENABLE_JIT != 0
     WASMModule *wasm_module;
