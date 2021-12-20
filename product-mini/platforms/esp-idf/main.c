@@ -6,7 +6,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "wasm_export.h"
-#include "aot_export.h"
 #include "bh_platform.h"
 #include "test_wasm.h"
 
@@ -25,20 +24,17 @@ void *
 iwasm_main(void *arg)
 {
     (void)arg; /* unused */
-
-    printf("about to set up the stuff\n");
-
     /* setup variables for instantiating and running the wasm module */
     uint8_t *wasm_file_buf = NULL;
     unsigned wasm_file_buf_size = 0;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     char error_buf[128];
+    void *ret;
+    RuntimeInitArgs init_args;
 
     /* configure memory allocation */
-    RuntimeInitArgs init_args;
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
-
     init_args.mem_alloc_type = Alloc_With_Allocator;
     init_args.mem_alloc_option.allocator.malloc_func = (void *)os_malloc;
     init_args.mem_alloc_option.allocator.realloc_func = (void *)os_realloc;
@@ -73,7 +69,7 @@ iwasm_main(void *arg)
     }
 
     printf("run main() of the application\n");
-    void *ret = app_instance_main(wasm_module_inst);
+    ret = app_instance_main(wasm_module_inst);
     assert(!ret);
 
     /* destroy the module instance */
