@@ -36,6 +36,12 @@ extern "C" {
 #define BH_PLATFORM_WINDOWS
 #endif
 
+#ifdef _MSC_VER
+#ifndef PATH_MAX
+#define PATH_MAX MAX_PATH
+#endif
+#endif /* #ifdef _MSC_VER */
+
 /* Stack size of applet threads's native part.  */
 #define BH_APPLET_PRESERVED_STACK_SIZE (32 * 1024)
 

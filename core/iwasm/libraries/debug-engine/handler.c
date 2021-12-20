@@ -177,7 +177,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         write_packet(server, "");
     }
     if (!strcmp(name, "GetWorkingDir")) {
-        if (getcwd(tmpbuf, 260))
+        if (getcwd(tmpbuf, PATH_MAX))
             write_packet(server, tmpbuf);
     }
     if (!strcmp(name, "QueryGDBServer")) {
@@ -614,7 +614,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance, size,
             map_port);
         if (addr) {
-            sprintf(tmpbuf, "%" PRIx64 "", addr);
+            sprintf(tmpbuf, "%" PRIx64, addr);
         }
     }
     write_packet(server, tmpbuf);

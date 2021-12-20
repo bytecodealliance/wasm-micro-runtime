@@ -87,6 +87,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
 {
     struct sockaddr addr_tmp;
     unsigned int len = sizeof(struct sockaddr);
+
     *sock = accept(server_sock, (struct sockaddr *)&addr_tmp, &len);
 
     if (*sock < 0) {
