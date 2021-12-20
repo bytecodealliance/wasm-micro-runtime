@@ -385,7 +385,7 @@ wasm_debug_instance_get_current_env(WASMDebugInstance *instance)
 #if WASM_ENABLE_LIBC_WASI != 0
 bool
 wasm_debug_instance_get_current_object_name(WASMDebugInstance *instance,
-                                            char name_buffer[], int len)
+                                            char name_buffer[], uint32 len)
 {
     WASMExecEnv *exec_env;
     WASIArguments *wasi_args;
@@ -402,7 +402,8 @@ wasm_debug_instance_get_current_object_name(WASMDebugInstance *instance,
     wasi_args = &module_inst->module->wasi_args;
     if (wasi_args && wasi_args->argc > 0) {
         char *argv_name = wasi_args->argv[0];
-        int name_len = strlen(argv_name);
+        uint32 name_len = (int32)strlen(argv_name);
+
         printf("the module name is %s\n", argv_name);
         if (len - 1 >= name_len)
             strcpy(name_buffer, argv_name);
@@ -446,7 +447,7 @@ wasm_debug_instance_get_tids(WASMDebugInstance *instance, uint64 tids[],
     while (exec_env && i < len) {
         /* Some threads may not be ready */
         if (exec_env->handle != 0) {
-            tids[i++] = exec_env->handle;
+            tids[i++] = (uint64)(exec_env->handle);
             threads_num++;
         }
         exec_env = bh_list_elem_next(exec_env);
@@ -491,8 +492,8 @@ wasm_debug_instance_wait_thread(WASMDebugInstance *instance, uint64 tid,
     }
 
     instance->current_tid = exec_env->handle;
-    *status = exec_env->current_status->signal_flag;
-    return exec_env->handle;
+    *status = (uint32)exec_env->current_status->signal_flag;
+    return (uint64)exec_env->handle;
 }
 
 uint32
@@ -502,8 +503,8 @@ wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, uint64 tid)
 
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env) {
-        if (exec_env->handle == tid) {
-            return exec_env->current_status->signal_flag;
+        if ((uint64)exec_env->handle == tid) {
+            return (uint32)exec_env->current_status->signal_flag;
         }
         exec_env = bh_list_elem_next(exec_env);
     }
@@ -514,7 +515,7 @@ wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, uint64 tid)
 void
 wasm_debug_instance_set_cur_thread(WASMDebugInstance *instance, uint64 tid)
 {
-    instance->current_tid = tid;
+    instance->current_tid = (korp_tid)tid;
 }
 
 uint64
@@ -785,20 +786,20 @@ wasm_exec_env_get_instance(WASMExecEnv *exec_env)
     return instance;
 }
 
-int
+uint32
 wasm_debug_instance_get_call_stack_pcs(WASMDebugInstance *instance, uint64 tid,
                                        uint64 buf[], uint64 size)
 {
     WASMExecEnv *exec_env;
     struct WASMInterpFrame *frame;
-    uint64 i = 0;
+    uint32 i = 0;
 
     if (!instance)
         return 0;
 
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     while (exec_env) {
-        if (exec_env->handle == tid) {
+        if ((uint64)exec_env->handle == tid) {
             WASMModuleInstance *module_inst =
                 (WASMModuleInstance *)exec_env->module_inst;
             frame = exec_env->cur_frame;
@@ -960,7 +961,7 @@ wasm_debug_instance_singlestep(WASMDebugInstance *instance, uint64 tid)
         return false;
 
     while (exec_env) {
-        if (exec_env->handle == tid || tid == (uint64)~0) {
+        if ((uint64)exec_env->handle == tid || tid == (uint64)~0) {
             wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_SINGSTEP);
             wasm_cluster_thread_step(exec_env);
         }

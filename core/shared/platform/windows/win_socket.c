@@ -30,11 +30,17 @@ init_winsock()
     return BHT_OK;
 }
 
+void
+deinit_winsock()
+{
+    if (is_winsock_inited) {
+        WSACleanup();
+    }
+}
+
 int
 os_socket_create(bh_socket_t *sock, int tcp_or_udp)
 {
-    init_winsock();
-
     if (!sock) {
         return BHT_ERROR;
     }

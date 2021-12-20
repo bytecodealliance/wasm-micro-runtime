@@ -245,7 +245,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     if (args && (!strcmp(name, "WasmCallStack"))) {
         uint64 tid = strtoll(args, NULL, 16);
         uint64 buf[1024 / sizeof(uint64)];
-        uint64 count = wasm_debug_instance_get_call_stack_pcs(
+        uint32 count = wasm_debug_instance_get_call_stack_pcs(
             (WASMDebugInstance *)server->thread->debug_instance, tid, buf,
             1024 / sizeof(uint64));
         if (count > 0) {

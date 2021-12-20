@@ -140,7 +140,7 @@ bool
 wasm_debug_instance_set_mem(WASMDebugInstance *instance, uint64 addr, char *buf,
                             uint64 *size);
 
-int
+uint32
 wasm_debug_instance_get_call_stack_pcs(WASMDebugInstance *instance, uint64 tid,
                                        uint64 buf[], uint64 size);
 
@@ -179,7 +179,7 @@ wasm_debug_instance_get_global(WASMDebugInstance *instance, int frame_index,
 #if WASM_ENABLE_LIBC_WASI != 0
 bool
 wasm_debug_instance_get_current_object_name(WASMDebugInstance *instance,
-                                            char name_buffer[], int len);
+                                            char name_buffer[], uint32 len);
 #endif
 
 uint64
