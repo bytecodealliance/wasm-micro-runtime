@@ -64,8 +64,9 @@ read_leb(const uint8 *buf, const uint8 *buf_end, uint32 *p_offset,
         }
         bcnt += 1;
     }
-    if (bcnt > (((maxbits + 8) >> 3) - (maxbits + 8))) {
-        aot_set_last_error("read leb failed: unsigned leb overflow.");
+    if (bcnt > (maxbits + 6) / 7) {
+        aot_set_last_error("read leb failed: "
+                           "integer representation too long");
         return false;
     }
     if (sign && (shift < maxbits) && (byte & 0x40)) {
