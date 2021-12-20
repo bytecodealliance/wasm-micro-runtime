@@ -14,7 +14,7 @@ init_winsock()
     WSADATA wsaData;
 
     if (!is_winsock_inited) {
-        if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) {
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
             os_printf("winsock init failed");
             return BHT_ERROR;
         }
@@ -89,11 +89,12 @@ os_socket_listen(bh_socket_t socket, int max_client)
 }
 
 int
-os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr, unsigned int *addrlen)
+os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
+                 unsigned int *addrlen)
 {
     struct sockaddr addr_tmp;
     unsigned int len = sizeof(struct sockaddr);
-    *sock = accept(server_sock, (struct sockaddr*)&addr_tmp, &len);
+    *sock = accept(server_sock, (struct sockaddr *)&addr_tmp, &len);
 
     if (*sock < 0) {
         os_printf("socket accept failed with error %d\n", WSAGetLastError());

@@ -106,7 +106,8 @@ porcess_wasm_global(WASMGDBServer *server, char *args)
     bool ret;
 
     sprintf(tmpbuf, "E01");
-    if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &global_index) == 2) {
+    if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &global_index)
+        == 2) {
         ret = wasm_debug_instance_get_global(
             (WASMDebugInstance *)server->thread->debug_instance, frame_index,
             global_index, buf, &size);
@@ -136,7 +137,8 @@ handle_generay_query(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance);
         tid = wasm_debug_instance_get_tid(
             (WASMDebugInstance *)server->thread->debug_instance);
-        snprintf(tmpbuf, sizeof(tmpbuf), "QCp%" PRIx64 ".%" PRIx64 "", pid, tid);
+        snprintf(tmpbuf, sizeof(tmpbuf), "QCp%" PRIx64 ".%" PRIx64 "", pid,
+                 tid);
         write_packet(server, tmpbuf);
     }
     if (!strcmp(name, "Supported")) {
@@ -191,7 +193,8 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         // arch-vendor-os-env(format)
         mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
         sprintf(tmpbuf,
-                "pid:%" PRIx64 ";parent-pid:%" PRIx64 ";vendor:Ant;ostype:wasi;arch:wasm32;"
+                "pid:%" PRIx64 ";parent-pid:%" PRIx64
+                ";vendor:Ant;ostype:wasi;arch:wasm32;"
                 "triple:%s;endian:little;ptrsize:4;",
                 pid, pid, triple);
 
@@ -218,7 +221,9 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         if (mem_info) {
             char name_buf[256];
             mem2hex(mem_info->name, name_buf, strlen(mem_info->name));
-            sprintf(tmpbuf, "start:%" PRIx64 ";size:%" PRIx64 ";permissions:%s;name:%s;",
+            sprintf(tmpbuf,
+                    "start:%" PRIx64 ";size:%" PRIx64
+                    ";permissions:%s;name:%s;",
                     (uint64)mem_info->start, mem_info->size,
                     mem_info->permisson, name_buf);
             write_packet(server, tmpbuf);
@@ -297,8 +302,8 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid)
     }
 
     // TODO: how name a wasm thread?
-    len +=
-        sprintf(tmpbuf, "T%02xthread:%" PRIx64 ";name:%s;", gdb_status, tid, "nobody");
+    len += sprintf(tmpbuf, "T%02xthread:%" PRIx64 ";name:%s;", gdb_status, tid,
+                   "nobody");
     if (tids_number > 0) {
         len += sprintf(tmpbuf + len, "threads:");
         while (i < tids_number) {
@@ -313,16 +318,16 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid)
     pc_string[8 * 2] = '\0';
 
     if (status == WAMR_SIG_TRAP) {
-        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
-                       pc_string, "breakpoint");
+        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;",
+                       pc, pc_string, "breakpoint");
     }
     else if (status == WAMR_SIG_SINGSTEP) {
-        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
-                       pc_string, "trace");
+        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;",
+                       pc, pc_string, "trace");
     }
     else if (status > 0) {
-        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
-                       pc_string, "signal");
+        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;",
+                       pc, pc_string, "signal");
     }
     write_packet(server, tmpbuf);
 }
@@ -473,7 +478,8 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
     bool ret;
 
     sprintf(tmpbuf, "%s", "");
-    if (sscanf(payload, "%" SCNx64 ",%" SCNx64 ":%n", &maddr, &mlen, &offset) == 2) {
+    if (sscanf(payload, "%" SCNx64 ",%" SCNx64 ":%n", &maddr, &mlen, &offset)
+        == 2) {
         payload += offset;
         hex_len = strlen(payload);
         act_len = hex_len / 2 < mlen ? hex_len / 2 : mlen;
