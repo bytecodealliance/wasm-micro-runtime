@@ -554,8 +554,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 break;
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
-            snprintf(buf, sizeof(buf), "invalid input argument %" PRId32 ": %s", i,
-                     argv[i]);
+            snprintf(buf, sizeof(buf), "invalid input argument %" PRId32 ": %s",
+                     i, argv[i]);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
