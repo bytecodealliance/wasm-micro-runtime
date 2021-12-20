@@ -85,7 +85,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef mem_base_addr, mem_check_bound;
     LLVMBasicBlockRef block_curr = LLVMGetInsertBlock(comp_ctx->builder);
     LLVMBasicBlockRef check_succ;
-    AOTValue *aot_value;
+    AOTValue *aot_value_top;
     uint32 local_idx_of_aot_value = 0;
     bool is_target_64bit, is_local_of_aot_value = false;
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -114,13 +114,13 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
     }
 
-    aot_value =
+    aot_value_top =
         func_ctx->block_stack.block_list_end->value_stack.value_list_end;
-    if (aot_value) {
-        /* aot_value is freed in the following POP_I32(addr),
+    if (aot_value_top) {
+        /* aot_value_top is freed in the following POP_I32(addr),
            so save its fields here for further use */
-        is_local_of_aot_value = aot_value->is_local;
-        local_idx_of_aot_value = aot_value->local_idx;
+        is_local_of_aot_value = aot_value_top->is_local;
+        local_idx_of_aot_value = aot_value_top->local_idx;
     }
 
     POP_I32(addr);
