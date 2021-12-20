@@ -164,6 +164,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 
     if (!strcmp(name, "HostInfo")) {
+        // Todo: change vendor to Intel for outside tree？
         mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
         sprintf(tmpbuf,
                 "vendor:Ant;ostype:wasi;arch:wasm32;"
@@ -282,9 +283,10 @@ handle_generay_query(WASMGDBServer *server, char *payload)
 static void
 send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid)
 {
-    int32 tids_number, len = 0, i = 0;
+    int32 len = 0;
     uint64 tids[20], pc;
     char pc_string[17];
+    uint32 tids_number, i = 0;
     uint32 gdb_status = status;
 
     if (status == 0) {
