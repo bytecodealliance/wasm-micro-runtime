@@ -10,16 +10,17 @@
 extern "C" {
 #endif
 
+/* clang-format off */
 typedef char            int8_t;
 typedef short int       int16_t;
 typedef int             int32_t;
-typedef long int        int64_t;
+typedef long long int   int64_t;
 
 /* Unsigned.  */
-typedef unsigned char	    uint8_t;
-typedef unsigned short int  uint16_t;
-typedef unsigned int	    uint32_t;
-typedef unsigned long int   uint64_t;
+typedef unsigned char	        uint8_t;
+typedef unsigned short int      uint16_t;
+typedef unsigned int	        uint32_t;
+typedef unsigned long long int  uint64_t;
 
 typedef __INTPTR_TYPE__		intptr_t;
 typedef __UINTPTR_TYPE__	uintptr_t;
@@ -40,6 +41,7 @@ typedef __UINTPTR_TYPE__	uintptr_t;
 # define UINT16_MAX		(65535)
 # define UINT32_MAX		(4294967295U)
 # define UINT64_MAX		(__UINT64_C(18446744073709551615))
+/* clang-format on */
 
 #ifdef __cplusplus
 }

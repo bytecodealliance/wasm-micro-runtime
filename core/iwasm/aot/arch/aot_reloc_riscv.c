@@ -357,7 +357,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             if (error_buf != NULL)
                 snprintf(error_buf, error_buf_size,
                          "Load relocation section failed: "
-                         "invalid relocation type %d.",
+                         "invalid relocation type %" PRIu32 ".",
                          reloc_type);
             return false;
     }
