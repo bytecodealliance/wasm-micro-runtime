@@ -11,6 +11,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import unittest
 
 CLANG_FORMAT_CMD = "clang-format-12"
 GIT_CLANG_FORMAT_CMD = "git-clang-format-12"
@@ -155,7 +156,7 @@ def run_aspell(file_path: pathlib, root: pathlib) -> bool:
 
 
 def check_dir_name(path: pathlib, root: pathlib) -> bool:
-    m = re.search(INVALID_DIR_NAME_SEGMENT, str(path.relative_to(root)))
+    m = re.search(INVALID_DIR_NAME_SEGMENT, str(path.relative_to(root).parent))
     if m:
         print(f"--- found a character '_' in {m.groups()} in {path}")
 
@@ -269,6 +270,31 @@ def main() -> int:
         return False
 
     return process_entire_pr(wamr_root, options.commits)
+
+
+# run with python3 -m unitest ci/coding_guidelines_check.py
+class TestCheck(unittest.TestCase):
+    def test_check_dir_name_failed(self):
+        root = pathlib.Path("/root/Workspace/")
+        new_file_path = root.joinpath("core/shared/platform/esp_idf/espid_memmap.c")
+        self.assertFalse(check_dir_name(new_file_path, root))
+
+    def test_check_dir_name_pass(self):
+        root = pathlib.Path("/root/Workspace/")
+        new_file_path = root.joinpath("core/shared/platform/esp-idf/espid_memmap.c")
+        self.assertTrue(check_dir_name(new_file_path, root))
+
+    def test_check_file_name_failed(self):
+        new_file_path = pathlib.Path(
+            "/root/Workspace/core/shared/platform/esp-idf/espid-memmap.c"
+        )
+        self.assertFalse(check_file_name(new_file_path))
+
+    def test_check_file_name_pass(self):
+        new_file_path = pathlib.Path(
+            "/root/Workspace/core/shared/platform/esp-idf/espid_memmap.c"
+        )
+        self.assertTrue(check_file_name(new_file_path))
 
 
 if __name__ == "__main__":

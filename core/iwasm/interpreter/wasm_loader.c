@@ -493,7 +493,6 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
         /* v128.const */
         case INIT_EXPR_TYPE_V128_CONST:
         {
-            uint8 flag;
             uint64 high, low;
 
             if (type != VALUE_TYPE_V128)

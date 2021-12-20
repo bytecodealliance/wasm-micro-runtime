@@ -417,7 +417,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         char *endptr = NULL;
         bh_assert(argv[i] != NULL);
         if (argv[i][0] == '\0') {
-            snprintf(buf, sizeof(buf), "invalid input argument %d", i);
+            snprintf(buf, sizeof(buf), "invalid input argument %" PRId32, i);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
@@ -554,8 +554,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 break;
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
-            snprintf(buf, sizeof(buf), "invalid input argument %d: %s", i,
-                     argv[i]);
+            snprintf(buf, sizeof(buf), "invalid input argument %" PRId32 ": %s",
+                     i, argv[i]);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
@@ -573,7 +573,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         switch (type->types[type->param_count + j]) {
             case VALUE_TYPE_I32:
             {
-                os_printf("0x%x:i32", argv1[k]);
+                os_printf("0x%" PRIx32 ":i32", argv1[k]);
                 k++;
                 break;
             }
@@ -586,16 +586,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 u.parts[0] = argv1[k];
                 u.parts[1] = argv1[k + 1];
                 k += 2;
-#ifdef PRIx64
                 os_printf("0x%" PRIx64 ":i64", u.val);
-#else
-                char buf[16];
-                if (sizeof(long) == 4)
-                    snprintf(buf, sizeof(buf), "%s", "0x%llx:i64");
-                else
-                    snprintf(buf, sizeof(buf), "%s", "0x%lx:i64");
-                os_printf(buf, u.val);
-#endif
                 break;
             }
             case VALUE_TYPE_F32:
@@ -645,17 +636,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             case VALUE_TYPE_V128:
             {
                 uint64 *v = (uint64 *)(argv1 + k);
-#if defined(PRIx64)
                 os_printf("<0x%016" PRIx64 " 0x%016" PRIx64 ">:v128", *v,
                           *(v + 1));
-#else
-                if (4 == sizeof(long)) {
-                    os_printf("<0x%016llx 0x%016llx>:v128", *v, *(v + 1));
-                }
-                else {
-                    os_printf("<0x%016lx 0x%016lx>:v128", *v, *(v + 1));
-                }
-#endif /* PRIx64 */
                 k += 4;
                 break;
             }

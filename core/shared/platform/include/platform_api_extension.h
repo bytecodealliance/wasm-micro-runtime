@@ -31,7 +31,7 @@ extern "C" {
  */
 
 /**
- * Ceates a thread
+ * Creates a thread
  *
  * @param p_tid  [OUTPUT] the pointer of tid
  * @param start  main routine of the thread
