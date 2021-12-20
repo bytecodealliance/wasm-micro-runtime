@@ -1096,7 +1096,8 @@ wasm_debug_instance_get_global(WASMDebugInstance *instance, int32 frame_index,
 }
 
 uint64
-wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size, int32 map_port)
+wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size,
+                         int32 map_port)
 {
     WASMExecEnv *exec_env;
     WASMModuleInstance *module_inst;
