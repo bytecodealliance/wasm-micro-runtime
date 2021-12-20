@@ -495,9 +495,10 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
 void
 handle_add_break(WASMGDBServer *server, char *payload)
 {
-    size_t type, addr, length;
+    size_t type, length;
+    uint64 addr;
 
-    if (sscanf(payload, "%zx,%zx,%zx", &type, &addr, &length) == 3) {
+    if (sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length) == 3) {
         if (type == eBreakpointSoftware) {
             bool ret = wasm_debug_instance_add_breakpoint(
                 (WASMDebugInstance *)server->thread->debug_instance, addr,
@@ -515,9 +516,10 @@ handle_add_break(WASMGDBServer *server, char *payload)
 void
 handle_remove_break(WASMGDBServer *server, char *payload)
 {
-    size_t type, addr, length;
+    size_t type, length;
+    uint64 addr;
 
-    if (sscanf(payload, "%zx,%zx,%zx", &type, &addr, &length) == 3) {
+    if (sscanf(payload, "%zx,%" SCNx64 ",%zx", &type, &addr, &length) == 3) {
         if (type == eBreakpointSoftware) {
             bool ret = wasm_debug_instance_remove_breakpoint(
                 (WASMDebugInstance *)server->thread->debug_instance, addr,
