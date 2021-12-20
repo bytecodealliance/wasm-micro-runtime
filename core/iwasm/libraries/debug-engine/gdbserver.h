@@ -6,7 +6,7 @@
 #ifndef _GDB_SERVER_H
 #define _GDB_SERVER_H
 
-#include <stdbool.h>
+#include "bh_platform.h"
 
 #define PACKET_BUF_SIZE 0x8000
 
@@ -20,20 +20,20 @@ enum GDBStoppointType {
 };
 typedef struct WasmDebugPacket {
     unsigned char buf[PACKET_BUF_SIZE];
-    unsigned int size;
+    uint32 size;
 } WasmDebugPacket;
 
 struct WASMDebugControlThread;
 typedef struct WASMGDBServer {
-    int listen_fd;
-    int socket_fd;
+    int32 listen_fd;
+    int32 socket_fd;
     WasmDebugPacket pkt;
     bool noack;
     struct WASMDebugControlThread *thread;
 } WASMGDBServer;
 
 WASMGDBServer *
-wasm_create_gdbserver(char *addr, int *port);
+wasm_create_gdbserver(const char *host, uint32 *port);
 
 bool
 wasm_gdbserver_listen(WASMGDBServer *server);

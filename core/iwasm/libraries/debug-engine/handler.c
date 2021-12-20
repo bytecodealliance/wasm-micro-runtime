@@ -3,12 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include <bh_log.h>
-#include <handler.h>
-#include <limits.h>
-#include <string.h>
-#include <unistd.h>
-
+#include "bh_platform.h"
+#include "handler.h"
 #include "debug_engine.h"
 #include "packets.h"
 #include "utils.h"
@@ -18,7 +14,7 @@
 static char tmpbuf[MAX_PACKET_SIZE];
 
 static void
-send_thread_stop_status(WASMGDBServer *server, uint32_t status, uint64_t tid);
+send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid);
 
 void
 handle_generay_set(WASMGDBServer *server, char *payload)
@@ -59,7 +55,7 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
 
     if (!strcmp(name, "libraries") && !strcmp(mode, "read")) {
         // TODO: how to get current wasm file name?
-        uint64_t addr = wasm_debug_instance_get_load_addr(
+        uint64 addr = wasm_debug_instance_get_load_addr(
             (WASMDebugInstance *)server->thread->debug_instance);
 #if WASM_ENABLE_LIBC_WASI != 0
         char objname[128];
@@ -67,12 +63,12 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
             (WASMDebugInstance *)server->thread->debug_instance, objname, 128);
         sprintf(tmpbuf,
                 "l<library-list><library name=\"%s\"><section "
-                "address=\"0x%lx\"/></library></library-list>",
+                "address=\"0x%" PRIx64 "\"/></library></library-list>",
                 objname, addr);
 #else
         sprintf(tmpbuf,
                 "l<library-list><library name=\"%s\"><section "
-                "address=\"0x%lx\"/></library></library-list>",
+                "address=\"0x%" PRIx64 "\"/></library></library-list>",
                 "nobody.wasm", addr);
 #endif
         write_packet(server, tmpbuf);
@@ -82,14 +78,14 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
 void
 porcess_wasm_local(WASMGDBServer *server, char *args)
 {
-    int frame_index;
-    int local_index;
+    int32 frame_index;
+    int32 local_index;
     char buf[16];
-    int size = 16;
+    int32 size = 16;
     bool ret;
 
     sprintf(tmpbuf, "E01");
-    if (sscanf(args, "%d;%d", &frame_index, &local_index) == 2) {
+    if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &local_index) == 2) {
         ret = wasm_debug_instance_get_local(
             (WASMDebugInstance *)server->thread->debug_instance, frame_index,
             local_index, buf, &size);
@@ -103,14 +99,14 @@ porcess_wasm_local(WASMGDBServer *server, char *args)
 void
 porcess_wasm_global(WASMGDBServer *server, char *args)
 {
-    int frame_index;
-    int global_index;
+    int32 frame_index;
+    int32 global_index;
     char buf[16];
-    int size = 16;
+    int32 size = 16;
     bool ret;
 
     sprintf(tmpbuf, "E01");
-    if (sscanf(args, "%d;%d", &frame_index, &global_index) == 2) {
+    if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &global_index) == 2) {
         ret = wasm_debug_instance_get_global(
             (WASMDebugInstance *)server->thread->debug_instance, frame_index,
             global_index, buf, &size);
@@ -126,6 +122,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
+    char triple[256];
 
     args = strchr(payload, ':');
     if (args)
@@ -134,16 +131,16 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     LOG_VERBOSE("%s:%s\n", __FUNCTION__, payload);
 
     if (!strcmp(name, "C")) {
-        uint64_t pid, tid;
+        uint64 pid, tid;
         pid = wasm_debug_instance_get_pid(
             (WASMDebugInstance *)server->thread->debug_instance);
         tid = wasm_debug_instance_get_tid(
             (WASMDebugInstance *)server->thread->debug_instance);
-        snprintf(tmpbuf, sizeof(tmpbuf), "QCp%lx.%lx", pid, tid);
+        snprintf(tmpbuf, sizeof(tmpbuf), "QCp%" PRIx64 ".%" PRIx64 "", pid, tid);
         write_packet(server, tmpbuf);
     }
     if (!strcmp(name, "Supported")) {
-        sprintf(tmpbuf, "qXfer:libraries:read+;PacketSize=%x;",
+        sprintf(tmpbuf, "qXfer:libraries:read+;PacketSize=%" PRIx32 ";",
                 MAX_PACKET_SIZE);
         write_packet(server, tmpbuf);
     }
@@ -165,8 +162,6 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 
     if (!strcmp(name, "HostInfo")) {
-        // Todo: change vendor to Intel for outside tree？
-        char triple[256];
         mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
         sprintf(tmpbuf,
                 "vendor:Ant;ostype:wasi;arch:wasm32;"
@@ -179,7 +174,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         write_packet(server, "");
     }
     if (!strcmp(name, "GetWorkingDir")) {
-        if (getcwd(tmpbuf, PATH_MAX))
+        if (getcwd(tmpbuf, 260))
             write_packet(server, tmpbuf);
     }
     if (!strcmp(name, "QueryGDBServer")) {
@@ -190,14 +185,13 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
     if (!strcmp(name, "ProcessInfo")) {
         // Todo: process id parent-pid
-        uint64_t pid;
+        uint64 pid;
         pid = wasm_debug_instance_get_pid(
             (WASMDebugInstance *)server->thread->debug_instance);
-        char triple[256];
         // arch-vendor-os-env(format)
         mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
         sprintf(tmpbuf,
-                "pid:%lx;parent-pid:%lx;vendor:Ant;ostype:wasi;arch:wasm32;"
+                "pid:%" PRIx64 ";parent-pid:%" PRIx64 ";vendor:Ant;ostype:wasi;arch:wasm32;"
                 "triple:%s;endian:little;ptrsize:4;",
                 pid, pid, triple);
 
@@ -218,13 +212,13 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 
     if (args && (!strcmp(name, "MemoryRegionInfo"))) {
-        uint64_t addr = strtol(args, NULL, 16);
+        uint64 addr = strtoll(args, NULL, 16);
         WASMDebugMemoryInfo *mem_info = wasm_debug_instance_get_memregion(
             (WASMDebugInstance *)server->thread->debug_instance, addr);
         if (mem_info) {
             char name_buf[256];
             mem2hex(mem_info->name, name_buf, strlen(mem_info->name));
-            sprintf(tmpbuf, "start:%lx;size:%lx;permissions:%s;name:%s;",
+            sprintf(tmpbuf, "start:%" PRIx64 ";size:%" PRIx64 ";permissions:%s;name:%s;",
                     (uint64)mem_info->start, mem_info->size,
                     mem_info->permisson, name_buf);
             write_packet(server, tmpbuf);
@@ -244,13 +238,13 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 
     if (args && (!strcmp(name, "WasmCallStack"))) {
-        uint64_t tid = strtol(args, NULL, 16);
-        uint64_t buf[1024 / sizeof(uint64_t)];
-        uint64_t count = wasm_debug_instance_get_call_stack_pcs(
+        uint64 tid = strtoll(args, NULL, 16);
+        uint64 buf[1024 / sizeof(uint64)];
+        uint64 count = wasm_debug_instance_get_call_stack_pcs(
             (WASMDebugInstance *)server->thread->debug_instance, tid, buf,
-            1024 / sizeof(uint64_t));
+            1024 / sizeof(uint64));
         if (count > 0) {
-            mem2hex((char *)buf, tmpbuf, count * sizeof(uint64_t));
+            mem2hex((char *)buf, tmpbuf, count * sizeof(uint64));
             write_packet(server, tmpbuf);
         }
         else
@@ -271,7 +265,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
 
     if (!strncmp(name, "ThreadStopInfo", strlen("ThreadStopInfo"))) {
         int32 prefix_len = strlen("ThreadStopInfo");
-        uint64 tid = strtol(name + prefix_len, NULL, 16);
+        uint64 tid = strtoll(name + prefix_len, NULL, 16);
 
         uint32 status = wasm_debug_instance_get_thread_status(
             server->thread->debug_instance, tid);
@@ -281,12 +275,12 @@ handle_generay_query(WASMGDBServer *server, char *payload)
 }
 
 static void
-send_thread_stop_status(WASMGDBServer *server, uint32_t status, uint64_t tid)
+send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid)
 {
-    int tids_number, len = 0, i = 0;
-    uint64_t tids[20];
+    int32 tids_number, len = 0, i = 0;
+    uint64 tids[20], pc;
     char pc_string[17];
-    uint32_t gdb_status = status;
+    uint32 gdb_status = status;
 
     if (status == 0) {
         sprintf(tmpbuf, "W%02x", status);
@@ -295,7 +289,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32_t status, uint64_t tid)
     }
     tids_number = wasm_debug_instance_get_tids(
         (WASMDebugInstance *)server->thread->debug_instance, tids, 20);
-    uint64_t pc = wasm_debug_instance_get_pc(
+    pc = wasm_debug_instance_get_pc(
         (WASMDebugInstance *)server->thread->debug_instance);
 
     if (status == WAMR_SIG_SINGSTEP) {
@@ -304,14 +298,14 @@ send_thread_stop_status(WASMGDBServer *server, uint32_t status, uint64_t tid)
 
     // TODO: how name a wasm thread?
     len +=
-        sprintf(tmpbuf, "T%02xthread:%lx;name:%s;", gdb_status, tid, "nobody");
+        sprintf(tmpbuf, "T%02xthread:%" PRIx64 ";name:%s;", gdb_status, tid, "nobody");
     if (tids_number > 0) {
         len += sprintf(tmpbuf + len, "threads:");
         while (i < tids_number) {
             if (i == tids_number - 1)
-                len += sprintf(tmpbuf + len, "%lx;", tids[i]);
+                len += sprintf(tmpbuf + len, "%" PRIx64 ";", tids[i]);
             else
-                len += sprintf(tmpbuf + len, "%lx,", tids[i]);
+                len += sprintf(tmpbuf + len, "%" PRIx64 ",", tids[i]);
             i++;
         }
     }
@@ -319,15 +313,15 @@ send_thread_stop_status(WASMGDBServer *server, uint32_t status, uint64_t tid)
     pc_string[8 * 2] = '\0';
 
     if (status == WAMR_SIG_TRAP) {
-        len += sprintf(tmpbuf + len, "thread-pcs:%lx;00:%s,reason:%s;", pc,
+        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
                        pc_string, "breakpoint");
     }
     else if (status == WAMR_SIG_SINGSTEP) {
-        len += sprintf(tmpbuf + len, "thread-pcs:%lx;00:%s,reason:%s;", pc,
+        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
                        pc_string, "trace");
     }
     else if (status > 0) {
-        len += sprintf(tmpbuf + len, "thread-pcs:%lx;00:%s,reason:%s;", pc,
+        len += sprintf(tmpbuf + len, "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
                        pc_string, "signal");
     }
     write_packet(server, tmpbuf);
@@ -338,7 +332,8 @@ handle_v_packet(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
-    uint32_t status;
+    uint32 status;
+
     args = strchr(payload, ';');
     if (args)
         *args++ = '\0';
@@ -353,8 +348,10 @@ handle_v_packet(WASMGDBServer *server, char *payload)
             if (args[0] == 's' || args[0] == 'c') {
                 char *numstring = strchr(args, ':');
                 if (numstring) {
+                    uint64 tid;
+
                     *numstring++ = '\0';
-                    uint64_t tid = strtol(numstring, NULL, 16);
+                    tid = strtoll(numstring, NULL, 16);
                     wasm_debug_instance_set_cur_thread(
                         (WASMDebugInstance *)server->thread->debug_instance,
                         tid);
@@ -383,9 +380,9 @@ handle_v_packet(WASMGDBServer *server, char *payload)
 void
 handle_threadstop_request(WASMGDBServer *server, char *payload)
 {
-    uint64_t tid = wasm_debug_instance_get_tid(
+    uint64 tid = wasm_debug_instance_get_tid(
         (WASMDebugInstance *)server->thread->debug_instance);
-    uint32_t status;
+    uint32 status;
 
     tid = wasm_debug_instance_wait_thread(
         (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
@@ -398,8 +395,7 @@ handle_set_current_thread(WASMGDBServer *server, char *payload)
 {
     LOG_VERBOSE("%s:%s\n", __FUNCTION__, payload, payload);
     if ('g' == *payload++) {
-        uint64_t tid;
-        tid = strtol(payload, NULL, 16);
+        uint64 tid = strtoll(payload, NULL, 16);
         if (tid > 0)
             wasm_debug_instance_set_cur_thread(
                 (WASMDebugInstance *)server->thread->debug_instance, tid);
@@ -410,13 +406,14 @@ handle_set_current_thread(WASMGDBServer *server, char *payload)
 void
 handle_get_register(WASMGDBServer *server, char *payload)
 {
-    int i = strtol(payload, NULL, 16);
+    uint64 regdata;
+    int32 i = strtol(payload, NULL, 16);
 
     if (i != 0) {
         write_packet(server, "E01");
         return;
     }
-    uint64_t regdata = wasm_debug_instance_get_pc(
+    regdata = wasm_debug_instance_get_pc(
         (WASMDebugInstance *)server->thread->debug_instance);
     mem2hex((void *)&regdata, tmpbuf, 8);
     tmpbuf[8 * 2] = '\0';
@@ -443,11 +440,11 @@ handle_get_read_binary_memory(WASMGDBServer *server, char *payload)
 void
 handle_get_read_memory(WASMGDBServer *server, char *payload)
 {
-    size_t maddr, mlen;
+    uint64 maddr, mlen;
     bool ret;
 
     sprintf(tmpbuf, "%s", "");
-    if (sscanf(payload, "%zx,%zx", &maddr, &mlen) == 2) {
+    if (sscanf(payload, "%" SCNx64 ",%" SCNx64, &maddr, &mlen) == 2) {
         if (mlen * 2 > MAX_PACKET_SIZE) {
             LOG_ERROR("Buffer overflow!");
             mlen = MAX_PACKET_SIZE / 2;
@@ -469,13 +466,14 @@ handle_get_read_memory(WASMGDBServer *server, char *payload)
 void
 handle_get_write_memory(WASMGDBServer *server, char *payload)
 {
-    size_t maddr, mlen, hex_len;
-    int offset, act_len;
+    size_t hex_len;
+    int32 offset, act_len;
+    uint64 maddr, mlen;
     char *buff;
     bool ret;
 
     sprintf(tmpbuf, "%s", "");
-    if (sscanf(payload, "%zx,%zx:%n", &maddr, &mlen, &offset) == 2) {
+    if (sscanf(payload, "%" SCNx64 ",%" SCNx64 ":%n", &maddr, &mlen, &offset) == 2) {
         payload += offset;
         hex_len = strlen(payload);
         act_len = hex_len / 2 < mlen ? hex_len / 2 : mlen;
@@ -537,8 +535,8 @@ handle_remove_break(WASMGDBServer *server, char *payload)
 void
 handle_continue_request(WASMGDBServer *server, char *payload)
 {
-    uint64_t tid;
-    uint32_t status;
+    uint64 tid;
+    uint32 status;
 
     wasm_debug_instance_continue(
         (WASMDebugInstance *)server->thread->debug_instance);
@@ -555,8 +553,8 @@ handle_continue_request(WASMGDBServer *server, char *payload)
 void
 handle_kill_request(WASMGDBServer *server, char *payload)
 {
-    uint64_t tid;
-    uint32_t status;
+    uint64 tid;
+    uint32 status;
 
     wasm_debug_instance_kill(
         (WASMDebugInstance *)server->thread->debug_instance);
@@ -574,9 +572,8 @@ static void
 handle_malloc(WASMGDBServer *server, char *payload)
 {
     char *args;
-    uint64_t size;
-    int map_port = MMAP_PROT_NONE;
-    uint64_t addr;
+    uint64 addr, size;
+    int32 map_port = MMAP_PROT_NONE;
 
     sprintf(tmpbuf, "%s", "E03");
 
@@ -589,7 +586,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
         return;
     }
 
-    size = strtol(payload, NULL, 16);
+    size = strtoll(payload, NULL, 16);
     if (size > 0) {
         while (*args) {
             if (*args == 'r') {
@@ -607,7 +604,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance, size,
             map_port);
         if (addr) {
-            sprintf(tmpbuf, "%lx", addr);
+            sprintf(tmpbuf, "%" PRIx64 "", addr);
         }
     }
     write_packet(server, tmpbuf);
@@ -616,11 +613,11 @@ handle_malloc(WASMGDBServer *server, char *payload)
 static void
 handle_free(WASMGDBServer *server, char *payload)
 {
-    uint64_t addr;
+    uint64 addr;
     bool ret;
 
     sprintf(tmpbuf, "%s", "E03");
-    addr = strtol(payload, NULL, 16);
+    addr = strtoll(payload, NULL, 16);
 
     ret = wasm_debug_instance_ummap(
         (WASMDebugInstance *)server->thread->debug_instance, addr);

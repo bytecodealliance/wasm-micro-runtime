@@ -174,6 +174,34 @@ os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
 int
 os_cond_signal(korp_cond *cond);
 
+typedef int bh_socket_t;
+typedef unsigned int socklen_t;
+
+int
+os_socket_create(bh_socket_t *sock, int tcp_or_udp);
+
+int
+os_socket_bind(bh_socket_t socket, const char *addr, int *port);
+
+int
+os_socket_listen(bh_socket_t socket, int max_client);
+
+int
+os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
+                 unsigned int *addrlen);
+
+int
+os_socket_recv(bh_socket_t socket, void *buf, unsigned int len);
+
+int
+os_socket_send(bh_socket_t socket, void *buf, unsigned int len);
+
+int
+os_socket_close(bh_socket_t socket);
+
+int
+os_socket_shutdown(bh_socket_t socket);
+
 #ifdef __cplusplus
 }
 #endif

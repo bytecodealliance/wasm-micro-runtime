@@ -11,6 +11,9 @@ os_thread_sys_init();
 void
 os_thread_sys_destroy();
 
+extern int
+init_winsock();
+
 int
 bh_platform_init()
 {
