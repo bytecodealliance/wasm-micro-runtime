@@ -105,22 +105,22 @@ typedef int64_t int64;
 typedef void *(*thread_start_routine_t)(void *);
 
 #ifndef PRId32
-#define PRId32     "d"
+#define PRId32 "d"
 #endif
 #ifndef PRIi32
-#define PRIi32     "i"
+#define PRIi32 "i"
 #endif
 #ifndef PRIu32
-#define PRIu32     "u"
+#define PRIu32 "u"
 #endif
 #ifndef PRIx32
-#define PRIx32     "x"
+#define PRIx32 "x"
 #endif
 #ifndef PRIX32
-#define PRIX32     "X"
+#define PRIX32 "X"
 #endif
 
-#ifndef __PRI64_PREFIX 
+#ifndef __PRI64_PREFIX
 #if UINTPTR_MAX == UINT64_MAX
 #define __PRI64_PREFIX "l"
 #define __PRIPTR_PREFIX "l"
@@ -131,19 +131,19 @@ typedef void *(*thread_start_routine_t)(void *);
 #endif
 
 #ifndef PRId64
-# define PRId64    __PRI64_PREFIX "d"
+#define PRId64 __PRI64_PREFIX "d"
 #endif
 #ifndef PRIu64
-#define PRIu64     __PRI64_PREFIX "u"
+#define PRIu64 __PRI64_PREFIX "u"
 #endif
 #ifndef PRIx64
-#define PRIx64     __PRI64_PREFIX "x"
+#define PRIx64 __PRI64_PREFIX "x"
 #endif
 #ifndef PRIX64
-#define PRIX64     __PRI64_PREFIX "X"
+#define PRIX64 __PRI64_PREFIX "X"
 #endif
 #ifndef PRIXPTR
-# define PRIXPTR  __PRIPTR_PREFIX "X"
+#define PRIXPTR __PRIPTR_PREFIX "X"
 #endif
 
 #ifdef __cplusplus
