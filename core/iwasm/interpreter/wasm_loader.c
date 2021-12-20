@@ -456,7 +456,6 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
         case INIT_EXPR_TYPE_V128_CONST:
         {
-            uint8 flag;
             uint64 high, low;
 
             if (type != VALUE_TYPE_V128)
@@ -3342,6 +3341,7 @@ create_sections(const uint8 *buf, uint32 size, WASMSection **p_section_list,
                 if (last_section_index != (uint8)-1
                     && (section_index <= last_section_index)) {
                     set_error_buf(error_buf, error_buf_size,
+                                  "unexpected content after last section or "
                                   "junk after last section");
                     return false;
                 }

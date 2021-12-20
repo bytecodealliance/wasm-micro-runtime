@@ -61,6 +61,8 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64 },
     { "f32_cmp", "aot_intrinsic_f32_cmp", AOT_INTRINSIC_FLAG_F32_CMP },
     { "f64_cmp", "aot_intrinsic_f64_cmp", AOT_INTRINSIC_FLAG_F64_CMP },
+    { "f32.const", NULL, AOT_INTRINSIC_FLAG_F32_CONST},
+    { "f64.const", NULL, AOT_INTRINSIC_FLAG_F64_CONST},
 };
 /* clang-format on */
 
@@ -616,6 +618,13 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_f32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
         add_common_float_integer_convertion(comp_ctx);
+    }
+    else {
+        /*
+         * Use constant value table by default
+         */
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
     }
 }
 
