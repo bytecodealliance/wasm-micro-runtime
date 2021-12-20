@@ -37,11 +37,9 @@ static struct packet_handler_elem packet_handler_table[255] = {
 };
 
 WASMGDBServer *
-wasm_create_gdbserver(const char *host, uint32 *port)
+wasm_create_gdbserver(const char *host, int32 *port)
 {
     int32 listen_fd = -1;
-    socklen_t socklen;
-    int32 ret;
 
     WASMGDBServer *server;
 

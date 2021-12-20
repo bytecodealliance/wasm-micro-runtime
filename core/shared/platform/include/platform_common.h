@@ -165,9 +165,6 @@ typedef void *(*thread_start_routine_t)(void *);
 #ifndef SCNx32
 #define SCNx32 "x"
 #endif
-#ifndef SCNX32
-#define SCNX32 "X"
-#endif
 
 #ifndef SCNd64
 #define SCNd64 __PRI64_PREFIX "d"
@@ -177,9 +174,6 @@ typedef void *(*thread_start_routine_t)(void *);
 #endif
 #ifndef SCNx64
 #define SCNx64 __PRI64_PREFIX "x"
-#endif
-#ifndef SCNX64
-#define SCNX64 __PRI64_PREFIX "X"
 #endif
 #ifndef SCNxPTR
 #define SCNxPTR __PRIPTR_PREFIX "x"

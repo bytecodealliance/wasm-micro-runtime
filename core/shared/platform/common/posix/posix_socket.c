@@ -6,35 +6,11 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
-#include <winsock2.h>
-
-/* link with Ws2_32.lib */
-#pragma comment(lib, "ws2_32.lib")
-
-static bool is_winsock_inited = false;
-
-int
-init_winsock()
-{
-    WSADATA wsaData;
-
-    if (!is_winsock_inited) {
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-            os_printf("winsock init failed");
-            return BHT_ERROR;
-        }
-
-        is_winsock_inited = true;
-    }
-
-    return BHT_OK;
-}
+#include <arpa/inet.h>
 
 int
 os_socket_create(bh_socket_t *sock, int tcp_or_udp)
 {
-    init_winsock();
-
     if (!sock) {
         return BHT_ERROR;
     }
@@ -53,11 +29,25 @@ int
 os_socket_bind(bh_socket_t socket, const char *host, int *port)
 {
     struct sockaddr_in addr;
+    struct linger ling;
     socklen_t socklen;
     int ret;
 
     assert(host);
     assert(port);
+
+    ling.l_onoff = 1;
+    ling.l_linger = 0;
+
+    ret = fcntl(socket, F_SETFD, FD_CLOEXEC);
+    if (ret < 0) {
+        goto fail;
+    }
+
+    ret = setsockopt(socket, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
+    if (ret < 0) {
+        goto fail;
+    }
 
     addr.sin_addr.s_addr = inet_addr(host);
     addr.sin_port = htons(*port);
@@ -70,7 +60,6 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
 
     socklen = sizeof(addr);
     if (getsockname(socket, (void *)&addr, &socklen) == -1) {
-        os_printf("getsockname failed with error %d\n", WSAGetLastError());
         goto fail;
     }
 
@@ -86,7 +75,6 @@ int
 os_socket_listen(bh_socket_t socket, int max_client)
 {
     if (listen(socket, max_client) != 0) {
-        os_printf("socket listen failed with error %d\n", WSAGetLastError());
         return BHT_ERROR;
     }
 
@@ -99,11 +87,9 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
 {
     struct sockaddr addr_tmp;
     unsigned int len = sizeof(struct sockaddr);
-
     *sock = accept(server_sock, (struct sockaddr *)&addr_tmp, &len);
 
     if (*sock < 0) {
-        os_printf("socket accept failed with error %d\n", WSAGetLastError());
         return BHT_ERROR;
     }
 
@@ -125,13 +111,13 @@ os_socket_send(bh_socket_t socket, const void *buf, unsigned int len)
 int
 os_socket_close(bh_socket_t socket)
 {
-    closesocket(socket);
+    close(socket);
     return BHT_OK;
 }
 
 int
 os_socket_shutdown(bh_socket_t socket)
 {
-    shutdown(socket, SD_BOTH);
+    shutdown(socket, O_RDWR);
     return BHT_OK;
 }

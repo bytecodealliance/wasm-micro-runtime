@@ -145,7 +145,7 @@ skip_to_packet_start(WASMGDBServer *gdbserver)
 {
     ssize_t start_index = -1, i;
 
-    for (i = 0; i < gdbserver->pkt.size; ++i) {
+    for (i = 0; i < (ssize_t)gdbserver->pkt.size; ++i) {
         if (gdbserver->pkt.buf[i] == '$') {
             start_index = i;
             break;

@@ -194,7 +194,7 @@ int
 os_socket_recv(bh_socket_t socket, void *buf, unsigned int len);
 
 int
-os_socket_send(bh_socket_t socket, void *buf, unsigned int len);
+os_socket_send(bh_socket_t socket, const void *buf, unsigned int len);
 
 int
 os_socket_close(bh_socket_t socket);
