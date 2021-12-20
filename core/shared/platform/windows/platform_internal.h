@@ -56,6 +56,8 @@ typedef struct korp_cond {
     os_thread_wait_list thread_wait_list;
 } korp_cond;
 
+typedef int bh_socket_t;
+
 unsigned
 os_getpagesize();
 void *
