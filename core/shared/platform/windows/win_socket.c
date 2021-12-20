@@ -6,8 +6,6 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
-#include <winsock2.h>
-
 /* link with Ws2_32.lib */
 #pragma comment(lib, "ws2_32.lib")
 
@@ -59,8 +57,7 @@ int
 os_socket_bind(bh_socket_t socket, const char *host, int *port)
 {
     struct sockaddr_in addr;
-    socklen_t socklen;
-    int ret;
+    int socklen, ret;
 
     assert(host);
     assert(port);

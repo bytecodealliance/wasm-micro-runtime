@@ -27,6 +27,7 @@
 #include <process.h>
 #include <Windows.h>
 #include <BaseTsd.h>
+#include <winsock2.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,7 +63,7 @@ typedef struct korp_cond {
     os_thread_wait_list thread_wait_list;
 } korp_cond;
 
-typedef int bh_socket_t;
+typedef SOCKET bh_socket_t;
 
 unsigned
 os_getpagesize();
