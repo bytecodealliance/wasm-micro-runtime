@@ -104,6 +104,12 @@ typedef int64_t int64;
 
 typedef void *(*thread_start_routine_t)(void *);
 
+#ifndef bh_socket_t
+/* If no socket defined on current platform,
+    give a fake definition to make the compiler happy */
+#define bh_socket_t int
+#endif
+
 /* Format specifiers macros in case
     they are not provided by compiler */
 #ifndef __PRI64_PREFIX

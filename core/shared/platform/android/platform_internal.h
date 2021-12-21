@@ -58,7 +58,7 @@ typedef pthread_t korp_thread;
 
 #define os_thread_local_attribute __thread
 
-typedef int bh_socket_t;
+#define bh_socket_t int
 
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
