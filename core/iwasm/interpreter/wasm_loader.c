@@ -7721,19 +7721,33 @@ fail:
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
 static bool
 get_table_elem_type(const WASMModule *module, uint32 table_idx,
-                    uint8 *p_elem_type, char *error_buf, uint32 error_buf_size)
+                    uint8 *p_elem_type, void **p_ref_type, char *error_buf,
+                    uint32 error_buf_size)
 {
     if (!check_table_index(module, table_idx, error_buf, error_buf_size)) {
         return false;
     }
 
-    if (p_elem_type) {
-        if (table_idx < module->import_table_count)
+    if (table_idx < module->import_table_count) {
+        if (p_elem_type)
             *p_elem_type = module->import_tables[table_idx].u.table.elem_type;
-        else
+#if WASM_ENABLE_GC != 0
+        if (p_ref_type)
+            *((WASMRefType **)p_ref_type) =
+                module->import_tables[table_idx].u.table.elem_ref_type;
+#endif
+    }
+    else {
+        if (p_elem_type)
             *p_elem_type =
                 module->tables[module->import_table_count + table_idx]
                     .elem_type;
+#if WASM_ENABLE_GC != 0
+        if (p_ref_type)
+            *((WASMRefType **)p_ref_type) =
+                module->tables[module->import_table_count + table_idx]
+                    .elem_ref_type;
+#endif
     }
     return true;
 }
@@ -8682,11 +8696,27 @@ re_scan:
             case WASM_OP_TABLE_SET:
             {
                 uint8 decl_ref_type;
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+#endif
 
                 read_leb_uint32(p, p_end, table_idx);
                 if (!get_table_elem_type(module, table_idx, &decl_ref_type,
+#if WASM_ENABLE_GC != 0
+                                         (void **)&ref_type,
+#else
+                                         NULL,
+#endif
                                          error_buf, error_buf_size))
                     goto fail;
+
+#if WASM_ENABLE_GC != 0
+                if (wasm_is_type_multi_byte_type(decl_ref_type)) {
+                    bh_assert(ref_type);
+                    bh_memcpy_s(&wasm_ref_type, (uint32)sizeof(WASMRefType),
+                                ref_type, wasm_reftype_struct_size(ref_type));
+                }
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_uint32(loader_ctx, table_idx);
@@ -9070,6 +9100,10 @@ re_scan:
 
             case WASM_OP_GET_GLOBAL:
             {
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+#endif
+
                 p_org = p - 1;
                 read_leb_uint32(p, p_end, global_idx);
                 if (global_idx >= global_count) {
@@ -9084,6 +9118,19 @@ re_scan:
                               ->globals[global_idx
                                         - module->import_global_count]
                               .type;
+#if WASM_ENABLE_GC != 0
+                ref_type =
+                    global_idx < module->import_global_count
+                        ? module->import_globals[global_idx].u.global.ref_type
+                        : module
+                              ->globals[global_idx
+                                        - module->import_global_count]
+                              .ref_type;
+                if (wasm_is_type_multi_byte_type(global_type)) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), ref_type,
+                                wasm_reftype_struct_size(ref_type));
+                }
+#endif
 
                 PUSH_TYPE(global_type);
 
@@ -9112,6 +9159,9 @@ re_scan:
             case WASM_OP_SET_GLOBAL:
             {
                 bool is_mutable = false;
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+#endif
 
                 p_org = p - 1;
                 read_leb_uint32(p, p_end, global_idx);
@@ -9140,6 +9190,19 @@ re_scan:
                               ->globals[global_idx
                                         - module->import_global_count]
                               .type;
+#if WASM_ENABLE_GC != 0
+                ref_type =
+                    global_idx < module->import_global_count
+                        ? module->import_globals[global_idx].u.global.ref_type
+                        : module
+                              ->globals[global_idx
+                                        - module->import_global_count]
+                              .ref_type;
+                if (wasm_is_type_multi_byte_type(global_type)) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), ref_type,
+                                wasm_reftype_struct_size(ref_type));
+                }
+#endif
 
                 POP_TYPE(global_type);
 
@@ -9601,10 +9664,11 @@ re_scan:
                         if (module->types[type_idx]->type_flag
                             != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "invalid type");
+                                          "unkown struct type");
                             goto fail;
                         }
 
+                        /* POP (rtt n $t) */
                         wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
                                                   false, 0, type_idx);
                         POP_REF(wasm_ref_type.ref_type);
@@ -9663,6 +9727,7 @@ re_scan:
                             }
                         }
 
+                        /* PUSH struct obj, (ref $t) */
                         wasm_set_refheaptype_typeidx(
                             &wasm_ref_type.ref_ht_typeidx, false, type_idx);
                         PUSH_REF(wasm_ref_type.ref_type);
@@ -9675,7 +9740,7 @@ re_scan:
                     case WASM_OP_STRUCT_SET:
                     {
                         WASMStructType *struct_type;
-                        WASMRefType *ref_type;
+                        WASMRefType *ref_type = NULL;
                         uint32 field_idx;
                         uint8 field_type;
 
@@ -9687,19 +9752,15 @@ re_scan:
                         if (module->types[type_idx]->type_flag
                             != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "invalid type");
+                                          "unknown struct type");
                             goto fail;
                         }
                         struct_type = (WASMStructType *)module->types[type_idx];
 
-                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
-                                                  false, 0, type_idx);
-                        POP_REF(wasm_ref_type.ref_type);
-
                         read_leb_uint32(p, p_end, field_idx);
                         if (field_idx >= struct_type->field_count) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "unknown field");
+                                          "unknown struct field");
                             goto fail;
                         }
 
@@ -9712,37 +9773,172 @@ re_scan:
                                               "type mismatch");
                                 goto fail;
                             }
-                            else {
-                                field_type = VALUE_TYPE_I32;
-                            }
+                        }
+                        else {
+                            field_type = VALUE_TYPE_I32;
                         }
                         if (wasm_is_type_multi_byte_type(field_type)) {
                             ref_type = wasm_reftype_map_find(
                                 struct_type->ref_type_maps,
                                 struct_type->ref_type_map_count, field_idx);
                             bh_assert(ref_type);
-                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
-                                        ref_type,
-                                        wasm_reftype_struct_size(ref_type));
                         }
-                        if (opcode1 != WASM_OP_STRUCT_SET)
-                            PUSH_REF(field_type);
-                        else
+                        if (opcode1 == WASM_OP_STRUCT_SET) {
+                            /* POP field */
+                            if (wasm_is_type_multi_byte_type(field_type)) {
+                                bh_memcpy_s(&wasm_ref_type,
+                                            (uint32)sizeof(WASMRefType),
+                                            ref_type,
+                                            wasm_reftype_struct_size(ref_type));
+                            }
                             POP_REF(field_type);
+                            /* POP struct obj, (ref null $t) */
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                            POP_REF(wasm_ref_type.ref_type);
+                        }
+                        else {
+                            /* POP struct obj, (ref null $t) */
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                            POP_REF(wasm_ref_type.ref_type);
+                            /* PUSH field */
+                            bh_memcpy_s(&wasm_ref_type,
+                                        (uint32)sizeof(WASMRefType), ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                            PUSH_REF(field_type);
+                        }
                         break;
                     }
 
                     case WASM_OP_ARRAY_NEW_WITH_RTT:
                     case WASM_OP_ARRAY_NEW_DEFAULT_WITH_RTT:
+                    {
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_ARRAY) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unkown array type");
+                            goto fail;
+                        }
+
+                        /* POP (rtt n $t) */
+                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
+                                                  false, 0, type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        /* length */
+                        POP_I32();
+
+                        if (opcode1 == WASM_OP_ARRAY_NEW_WITH_RTT) {
+                            WASMArrayType *array_type =
+                                (WASMArrayType *)module->types[type_idx];
+                            if (wasm_is_type_multi_byte_type(
+                                    array_type->elem_type)) {
+                                bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                            array_type->elem_ref_type,
+                                            wasm_reftype_struct_size(
+                                                array_type->elem_ref_type));
+                            }
+                            POP_REF(array_type->elem_type);
+                        }
+
+                        /* PUSH array obj, (ref $t) */
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, false, type_idx);
+                        PUSH_REF(wasm_ref_type.ref_type);
+                        break;
+                    }
+
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
                     case WASM_OP_ARRAY_SET:
+                    {
+                        uint8 elem_type;
+                        WASMArrayType *array_type;
+                        WASMRefType *ref_type = NULL;
+
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_ARRAY) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unkown array type");
+                            goto fail;
+                        }
+                        array_type = (WASMArrayType *)module->types[type_idx];
+
+                        elem_type = array_type->elem_type;
+                        if (elem_type != PACKED_TYPE_I8
+                            && elem_type != PACKED_TYPE_I16) {
+                            if (opcode1 != WASM_OP_ARRAY_GET_S
+                                && opcode1 != WASM_OP_ARRAY_GET_U) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "type mismatch");
+                                goto fail;
+                            }
+                        }
+                        else {
+                            elem_type = VALUE_TYPE_I32;
+                        }
+                        ref_type = array_type->elem_ref_type;
+
+                        if (opcode1 == WASM_OP_ARRAY_SET) {
+                            /* POP elem to set */
+                            if (wasm_is_type_multi_byte_type(elem_type)) {
+                                bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                            ref_type,
+                                            wasm_reftype_struct_size(ref_type));
+                            }
+                            POP_REF(elem_type);
+                        }
+                        /* elem idx */
+                        POP_I32();
+                        /* POP array obj, (ref null $t) */
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        if (opcode1 == WASM_OP_ARRAY_GET) {
+                            /* PUSH elem */
+                            if (wasm_is_type_multi_byte_type(elem_type)) {
+                                bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                            ref_type,
+                                            wasm_reftype_struct_size(ref_type));
+                            }
+                            PUSH_REF(elem_type);
+                        }
+                        break;
+                    }
+
                     case WASM_OP_ARRAY_LEN:
-                        set_error_buf_v(error_buf, error_buf_size,
-                                        "%s %02x %02x", "unsupported opcode",
-                                        WASM_OP_GC_PREFIX, opcode1);
-                        goto fail;
+                    {
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_ARRAY) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unkown array type");
+                            goto fail;
+                        }
+
+                        /* POP array obj, (ref null $t) */
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        /* length */
+                        PUSH_I32();
+                        break;
+                    }
 
                     case WASM_OP_I31_NEW:
                         read_leb_int32(p, p_end, i32_const);
@@ -9850,9 +10046,9 @@ re_scan:
                         }
 
                         /* Get the stack top elem */
-                        if (!wasm_loader_get_frame_ref_top(loader_ctx, &type2,
-                                                           &ref_type2, error_buf,
-                                                           error_buf_size)) {
+                        if (!wasm_loader_get_frame_ref_top(
+                                loader_ctx, &type2, &ref_type2, error_buf,
+                                error_buf_size)) {
                             goto fail;
                         }
 
@@ -9881,8 +10077,7 @@ re_scan:
                         /* Push back the original stack top elem */
                         if (wasm_is_type_multi_byte_type(type2)) {
                             bh_memcpy_s(&wasm_ref_type,
-                                        (uint32)sizeof(WASMRefType),
-                                        ref_type2,
+                                        (uint32)sizeof(WASMRefType), ref_type2,
                                         wasm_reftype_struct_size(ref_type2));
                         }
                         PUSH_REF(type2);
@@ -10135,7 +10330,7 @@ re_scan:
                         read_leb_uint32(p, p_end, table_idx);
 
                         if (!get_table_elem_type(module, table_idx,
-                                                 &tbl_ref_type, error_buf,
+                                                 &tbl_ref_type, NULL, error_buf,
                                                  error_buf_size))
                             goto fail;
 
@@ -10178,13 +10373,13 @@ re_scan:
 
                         read_leb_uint32(p, p_end, src_tbl_idx);
                         if (!get_table_elem_type(module, src_tbl_idx,
-                                                 &src_ref_type, error_buf,
+                                                 &src_ref_type, NULL, error_buf,
                                                  error_buf_size))
                             goto fail;
 
                         read_leb_uint32(p, p_end, dst_tbl_idx);
                         if (!get_table_elem_type(module, dst_tbl_idx,
-                                                 &dst_ref_type, error_buf,
+                                                 &dst_ref_type, NULL, error_buf,
                                                  error_buf_size))
                             goto fail;
 
@@ -10208,7 +10403,7 @@ re_scan:
                         read_leb_uint32(p, p_end, table_idx);
                         /* TODO: shall we create a new function to check
                                  table idx instead of using below function? */
-                        if (!get_table_elem_type(module, table_idx, NULL,
+                        if (!get_table_elem_type(module, table_idx, NULL, NULL,
                                                  error_buf, error_buf_size))
                             goto fail;
 
@@ -10226,8 +10421,8 @@ re_scan:
 
                         read_leb_uint32(p, p_end, table_idx);
                         if (!get_table_elem_type(module, table_idx,
-                                                 &decl_ref_type, error_buf,
-                                                 error_buf_size))
+                                                 &decl_ref_type, NULL,
+                                                 error_buf, error_buf_size))
                             goto fail;
 
                         if (opcode1 == WASM_OP_TABLE_GROW) {
