@@ -26,6 +26,8 @@
 #include <malloc.h>
 #include <process.h>
 #include <Windows.h>
+#include <BaseTsd.h>
+#include <winsock2.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,11 +37,19 @@ extern "C" {
 #define BH_PLATFORM_WINDOWS
 #endif
 
+#ifdef _MSC_VER
+#ifndef PATH_MAX
+#define PATH_MAX MAX_PATH
+#endif
+#endif /* #ifdef _MSC_VER */
+
 /* Stack size of applet threads's native part.  */
 #define BH_APPLET_PRESERVED_STACK_SIZE (32 * 1024)
 
 /* Default thread priority */
 #define BH_THREAD_DEFAULT_PRIORITY 0
+
+typedef SSIZE_T ssize_t;
 
 typedef void *korp_thread;
 typedef void *korp_tid;
@@ -52,6 +62,8 @@ typedef struct korp_cond {
     korp_mutex wait_list_lock;
     os_thread_wait_list thread_wait_list;
 } korp_cond;
+
+#define bh_socket_t SOCKET
 
 unsigned
 os_getpagesize();

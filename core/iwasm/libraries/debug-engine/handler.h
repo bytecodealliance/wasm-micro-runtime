@@ -8,6 +8,12 @@
 
 #include "gdbserver.h"
 
+int
+wasm_debug_handler_init();
+
+void
+wasm_debug_handler_deinit();
+
 void
 handle_generay_set(WASMGDBServer *server, char *payload);
 
