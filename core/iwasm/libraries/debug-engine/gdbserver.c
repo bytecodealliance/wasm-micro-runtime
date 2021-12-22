@@ -137,30 +137,30 @@ process_packet(WASMGDBServer *server)
     uint8 *inbuf = server->pkt.buf;
     int32 inbuf_size = server->pkt.size;
     uint8 *packetend_ptr = (uint8 *)memchr(inbuf, '#', inbuf_size);
-    int32 packetend = (int32)(uintptr_t)(packetend_ptr - inbuf);
+    int32 packet_size = (int32)(uintptr_t)(packetend_ptr - inbuf);
     char request = inbuf[1];
     char *payload = NULL;
     uint8 checksum = 0;
 
-    if (packetend == 1) {
+    if (packet_size == 1) {
         LOG_VERBOSE("receive empty request, ignore it\n");
         return;
     }
 
     bh_assert('$' == inbuf[0]);
-    inbuf[packetend] = '\0';
+    inbuf[packet_size] = '\0';
 
-    for (int i = 1; i < packetend; i++)
+    for (int i = 1; i < packet_size; i++)
         checksum += inbuf[i];
     bh_assert(checksum
-              == (hex(inbuf[packetend + 1]) << 4 | hex(inbuf[packetend + 2])));
+              == (hex(inbuf[packet_size + 1]) << 4 | hex(inbuf[packet_size + 2])));
 
     payload = (char *)&inbuf[2];
 
     LOG_VERBOSE("receive request:%c %s\n", request, payload);
     handler_packet(server, request, payload);
 
-    inbuf_erase_head(server, packetend + 3);
+    inbuf_erase_head(server, packet_size + 3);
 }
 
 bool

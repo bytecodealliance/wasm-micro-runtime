@@ -651,9 +651,6 @@ handle_malloc(WASMGDBServer *server, char *payload)
     uint64 addr, size;
     int32 map_port = MMAP_PROT_NONE;
 
-    os_mutex_lock(&tmpbuf_lock);
-    snprintf(tmpbuf, sizeof(tmpbuf), "%s", "E03");
-
     args = strstr(payload, ",");
     if (args) {
         *args++ = '\0';
@@ -662,6 +659,9 @@ handle_malloc(WASMGDBServer *server, char *payload)
         LOG_ERROR("Payload parse error during handle malloc");
         return;
     }
+
+    os_mutex_lock(&tmpbuf_lock);
+    snprintf(tmpbuf, sizeof(tmpbuf), "%s", "E03");
 
     size = strtoll(payload, NULL, 16);
     if (size > 0) {

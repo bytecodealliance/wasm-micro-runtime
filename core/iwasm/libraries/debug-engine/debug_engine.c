@@ -527,7 +527,7 @@ wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, korp_tid tid)
 void
 wasm_debug_instance_set_cur_thread(WASMDebugInstance *instance, korp_tid tid)
 {
-    instance->current_tid = (korp_tid)(korp_tid)tid;
+    instance->current_tid = tid;
 }
 
 uint64
