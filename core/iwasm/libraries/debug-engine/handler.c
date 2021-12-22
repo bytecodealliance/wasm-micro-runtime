@@ -12,6 +12,19 @@
 
 #define MAX_PACKET_SIZE (0x20000)
 static char tmpbuf[MAX_PACKET_SIZE];
+static korp_mutex tmpbuf_lock;
+
+int
+wasm_debug_handler_init()
+{
+    return os_mutex_init(&tmpbuf_lock);
+}
+
+void
+wasm_debug_handler_deinit()
+{
+    os_mutex_destroy(&tmpbuf_lock);
+}
 
 static void
 send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid);
@@ -57,6 +70,7 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
         // TODO: how to get current wasm file name?
         uint64 addr = wasm_debug_instance_get_load_addr(
             (WASMDebugInstance *)server->thread->debug_instance);
+        os_mutex_lock(&tmpbuf_lock);
 #if WASM_ENABLE_LIBC_WASI != 0
         char objname[128];
         wasm_debug_instance_get_current_object_name(
@@ -72,6 +86,7 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
                 "nobody.wasm", addr);
 #endif
         write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
     }
 }
 
@@ -84,6 +99,7 @@ porcess_wasm_local(WASMGDBServer *server, char *args)
     int32 size = 16;
     bool ret;
 
+    os_mutex_lock(&tmpbuf_lock);
     sprintf(tmpbuf, "E01");
     if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &local_index) == 2) {
         ret = wasm_debug_instance_get_local(
@@ -94,6 +110,7 @@ porcess_wasm_local(WASMGDBServer *server, char *args)
         }
     }
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 void
@@ -105,6 +122,7 @@ porcess_wasm_global(WASMGDBServer *server, char *args)
     int32 size = 16;
     bool ret;
 
+    os_mutex_lock(&tmpbuf_lock);
     sprintf(tmpbuf, "E01");
     if (sscanf(args, "%" PRId32 ";%" PRId32, &frame_index, &global_index)
         == 2) {
@@ -116,6 +134,7 @@ porcess_wasm_global(WASMGDBServer *server, char *args)
         }
     }
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 void
@@ -137,14 +156,19 @@ handle_generay_query(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance);
         tid = wasm_debug_instance_get_tid(
             (WASMDebugInstance *)server->thread->debug_instance);
+
+        os_mutex_lock(&tmpbuf_lock);
         snprintf(tmpbuf, sizeof(tmpbuf), "QCp%" PRIx64 ".%" PRIx64 "", pid,
                  tid);
         write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
     }
     if (!strcmp(name, "Supported")) {
+        os_mutex_lock(&tmpbuf_lock);
         sprintf(tmpbuf, "qXfer:libraries:read+;PacketSize=%" PRIx32 ";",
                 MAX_PACKET_SIZE);
         write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
     }
 
     if (!strcmp(name, "Xfer")) {
@@ -166,19 +190,23 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     if (!strcmp(name, "HostInfo")) {
         // Todo: change vendor to Intel for outside tree？
         mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
+
+        os_mutex_lock(&tmpbuf_lock);
         sprintf(tmpbuf,
                 "vendor:Ant;ostype:wasi;arch:wasm32;"
                 "triple:%s;endian:little;ptrsize:4;",
                 triple);
-
         write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
     }
     if (!strcmp(name, "ModuleInfo")) {
         write_packet(server, "");
     }
     if (!strcmp(name, "GetWorkingDir")) {
+        os_mutex_lock(&tmpbuf_lock);
         if (getcwd(tmpbuf, PATH_MAX))
             write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
     }
     if (!strcmp(name, "QueryGDBServer")) {
         write_packet(server, "");
@@ -193,20 +221,24 @@ handle_generay_query(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance);
         // arch-vendor-os-env(format)
         mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
+
+        os_mutex_lock(&tmpbuf_lock);
         sprintf(tmpbuf,
                 "pid:%" PRIx64 ";parent-pid:%" PRIx64
                 ";vendor:Ant;ostype:wasi;arch:wasm32;"
                 "triple:%s;endian:little;ptrsize:4;",
                 pid, pid, triple);
-
         write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
     }
     if (!strcmp(name, "RegisterInfo0")) {
+        os_mutex_lock(&tmpbuf_lock);
         sprintf(
             tmpbuf,
             "name:pc;alt-name:pc;bitsize:64;offset:0;encoding:uint;format:hex;"
             "set:General Purpose Registers;gcc:16;dwarf:16;generic:pc;");
         write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
     }
     else if (!strncmp(name, "RegisterInfo", strlen("RegisterInfo"))) {
         write_packet(server, "E45");
@@ -222,12 +254,16 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         if (mem_info) {
             char name_buf[256];
             mem2hex(mem_info->name, name_buf, strlen(mem_info->name));
+
+            os_mutex_lock(&tmpbuf_lock);
             sprintf(tmpbuf,
                     "start:%" PRIx64 ";size:%" PRIx64
                     ";permissions:%s;name:%s;",
                     (uint64)mem_info->start, mem_info->size,
                     mem_info->permisson, name_buf);
             write_packet(server, tmpbuf);
+            os_mutex_unlock(&tmpbuf_lock);
+
             wasm_debug_instance_destroy_memregion(
                 (WASMDebugInstance *)server->thread->debug_instance, mem_info);
         }
@@ -250,8 +286,10 @@ handle_generay_query(WASMGDBServer *server, char *payload)
             (WASMDebugInstance *)server->thread->debug_instance, tid, buf,
             1024 / sizeof(uint64));
         if (count > 0) {
+            os_mutex_lock(&tmpbuf_lock);
             mem2hex((char *)buf, tmpbuf, count * sizeof(uint64));
             write_packet(server, tmpbuf);
+            os_mutex_unlock(&tmpbuf_lock);
         }
         else
             write_packet(server, "");
@@ -290,8 +328,10 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid)
     uint32 gdb_status = status;
 
     if (status == 0) {
+        os_mutex_lock(&tmpbuf_lock);
         sprintf(tmpbuf, "W%02x", status);
         write_packet(server, tmpbuf);
+        os_mutex_unlock(&tmpbuf_lock);
         return;
     }
     tids_number = wasm_debug_instance_get_tids(
@@ -303,6 +343,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid)
         gdb_status = WAMR_SIG_TRAP;
     }
 
+    os_mutex_lock(&tmpbuf_lock);
     // TODO: how name a wasm thread?
     len += sprintf(tmpbuf, "T%02xthread:%" PRIx64 ";name:%s;", gdb_status, tid,
                    "nobody");
@@ -332,6 +373,7 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, uint64 tid)
                        pc, pc_string, "signal");
     }
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 void
@@ -422,9 +464,12 @@ handle_get_register(WASMGDBServer *server, char *payload)
     }
     regdata = wasm_debug_instance_get_pc(
         (WASMDebugInstance *)server->thread->debug_instance);
+
+    os_mutex_lock(&tmpbuf_lock);
     mem2hex((void *)&regdata, tmpbuf, 8);
     tmpbuf[8 * 2] = '\0';
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 void
@@ -450,13 +495,17 @@ handle_get_read_memory(WASMGDBServer *server, char *payload)
     uint64 maddr, mlen;
     bool ret;
 
+    os_mutex_lock(&tmpbuf_lock);
     sprintf(tmpbuf, "%s", "");
     if (sscanf(payload, "%" SCNx64 ",%" SCNx64, &maddr, &mlen) == 2) {
+        char *buff;
+
         if (mlen * 2 > MAX_PACKET_SIZE) {
             LOG_ERROR("Buffer overflow!");
             mlen = MAX_PACKET_SIZE / 2;
         }
-        char *buff = wasm_runtime_malloc(mlen);
+
+        buff = wasm_runtime_malloc(mlen);
         if (buff) {
             ret = wasm_debug_instance_get_mem(
                 (WASMDebugInstance *)server->thread->debug_instance, maddr,
@@ -468,6 +517,7 @@ handle_get_read_memory(WASMGDBServer *server, char *payload)
         }
     }
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 void
@@ -479,12 +529,14 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
     char *buff;
     bool ret;
 
+    os_mutex_lock(&tmpbuf_lock);
     sprintf(tmpbuf, "%s", "");
     if (sscanf(payload, "%" SCNx64 ",%" SCNx64 ":%n", &maddr, &mlen, &offset)
         == 2) {
         payload += offset;
         hex_len = strlen(payload);
         act_len = hex_len / 2 < mlen ? hex_len / 2 : mlen;
+
         buff = wasm_runtime_malloc(act_len);
         if (buff) {
             hex2mem(payload, buff, act_len);
@@ -498,6 +550,7 @@ handle_get_write_memory(WASMGDBServer *server, char *payload)
         }
     }
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 void
@@ -585,6 +638,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
     uint64 addr, size;
     int32 map_port = MMAP_PROT_NONE;
 
+    os_mutex_lock(&tmpbuf_lock);
     sprintf(tmpbuf, "%s", "E03");
 
     args = strstr(payload, ",");
@@ -618,6 +672,7 @@ handle_malloc(WASMGDBServer *server, char *payload)
         }
     }
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 static void
@@ -626,6 +681,7 @@ handle_free(WASMGDBServer *server, char *payload)
     uint64 addr;
     bool ret;
 
+    os_mutex_lock(&tmpbuf_lock);
     sprintf(tmpbuf, "%s", "E03");
     addr = strtoll(payload, NULL, 16);
 
@@ -634,7 +690,9 @@ handle_free(WASMGDBServer *server, char *payload)
     if (ret) {
         sprintf(tmpbuf, "%s", "OK");
     }
+
     write_packet(server, tmpbuf);
+    os_mutex_unlock(&tmpbuf_lock);
 }
 
 void

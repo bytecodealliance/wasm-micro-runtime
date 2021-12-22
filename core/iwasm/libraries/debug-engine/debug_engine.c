@@ -223,6 +223,7 @@ void
 wasm_debug_engine_destroy()
 {
     if (g_debug_engine) {
+        wasm_debug_handler_deinit();
         os_mutex_destroy(&g_debug_engine->instance_list_lock);
         wasm_runtime_free(g_debug_engine);
         g_debug_engine = NULL;
@@ -232,8 +233,13 @@ wasm_debug_engine_destroy()
 bool
 wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
 {
-    if (g_debug_engine == NULL)
+    if (wasm_debug_handler_init() != 0) {
+        return false;
+    }
+
+    if (g_debug_engine == NULL) {
         g_debug_engine = wasm_debug_engine_create();
+    }
 
     if (g_debug_engine) {
         process_port -= 1;
@@ -246,6 +252,9 @@ wasm_debug_engine_init(char *ip_addr, int32 platform_port, int32 process_port)
         else
             sprintf(g_debug_engine->ip_addr, "%s", "127.0.0.1");
         g_debug_engine->active = true;
+    }
+    else {
+        wasm_debug_handler_deinit();
     }
 
     return g_debug_engine != NULL ? true : false;
