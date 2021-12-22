@@ -850,9 +850,46 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             else
                 return wasm_is_reftype_supers_of_data(type2);
         }
+        else if (wasm_is_refheaptype_common(&ref_type1->ref_ht_common)) {
+            /* reftype1 is (ref func/extern/any/eq/i31/data), the super type
+               can be itself, or supers of
+               funcref/externref/anyref/eqref/i31ref/dataref */
+            if (wasm_reftype_equal(type1, ref_type1, type2, ref_type2))
+                return true;
+            else {
+                int32 heap_type = ref_type1->ref_ht_common.heap_type;
+                if (heap_type == HEAP_TYPE_ANY) {
+                    /* (ref any) <: anyref */
+                    return type2 == REF_TYPE_ANYREF ? true : false;
+                }
+                else if (heap_type == HEAP_TYPE_EQ) {
+                    /* (ref eq) <: [eqref, anyref] */
+                    return wasm_is_reftype_supers_of_eq(type2);
+                }
+                else if (heap_type == HEAP_TYPE_FUNC) {
+                    /* (ref func) <: [funcref, anyref] */
+                    return wasm_is_reftype_supers_of_func(type2);
+                }
+                else if (heap_type == HEAP_TYPE_EXTERN) {
+                    /* (ref extern) <: [externref, anyref] */
+                    return wasm_is_reftype_supers_of_extern(type2);
+                }
+                else if (heap_type == HEAP_TYPE_I31) {
+                    /* (ref i31) <: [i31ref, eqref, anyref] */
+                    return wasm_is_reftype_supers_of_i31(type2);
+                }
+                else if (heap_type == HEAP_TYPE_DATA) {
+                    /* (ref data) <: [dataref, eqref, anyref] */
+                    return wasm_is_reftype_supers_of_data(type2);
+                }
+                else {
+                    bh_assert(0);
+                }
+            }
+        }
         else {
-            /* (ref null (func/extern/any/eq/i31/data)) have been converted into
-               funcref/externref/anyref/eqref/i31ref/dataref when loading */
+            /* unknown type detected */
+            LOG_ERROR("unknown sub type 0x%02x", type1);
             bh_assert(0);
         }
     }
