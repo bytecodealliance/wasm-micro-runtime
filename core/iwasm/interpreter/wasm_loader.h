@@ -24,8 +24,11 @@ extern "C" {
  * @return return module loaded, NULL if failed
  */
 WASMModule *
-wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf,
-                 uint32 error_buf_size);
+wasm_loader_load(const uint8 *buf, uint32 size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+                 bool main_module,
+#endif
+                 char *error_buf, uint32 error_buf_size);
 
 /**
  * Load a WASM module from a specified WASM section list.

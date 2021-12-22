@@ -647,11 +647,11 @@ adjust_table_max_size(uint32 init_size, uint32 max_size_flag, uint32 *max_size)
 static WASMExport *
 wasm_loader_find_export(const WASMModule *module, const char *module_name,
                         const char *field_name, uint8 export_kind,
-                        uint32 export_index_boundary, char *error_buf,
-                        uint32 error_buf_size)
+                        char *error_buf, uint32 error_buf_size)
 {
     WASMExport *export;
     uint32 i;
+    uint32 export_index_boundary = 0;
 
     for (i = 0, export = module->exports; i < module->export_count;
          ++i, ++export) {
@@ -672,6 +672,27 @@ wasm_loader_find_export(const WASMModule *module, const char *module_name,
         set_error_buf(error_buf, error_buf_size,
                       "unknown import or incompatible import type");
         return NULL;
+    }
+
+    switch (export_kind) {
+        case EXPORT_KIND_FUNC:
+            export_index_boundary =
+                module->import_function_count + module->function_count;
+            break;
+        case EXPORT_KIND_GLOBAL:
+            export_index_boundary =
+                module->import_global_count + module->global_count;
+            break;
+        case EXPORT_KIND_MEMORY:
+            export_index_boundary =
+                module->import_memory_count + module->memory_count;
+            break;
+        case EXPORT_KIND_TABLE:
+            export_index_boundary =
+                module->import_table_count + module->table_count;
+            break;
+        default:
+            bh_assert(0);
     }
 
     if (export->index >= export_index_boundary) {
@@ -704,10 +725,9 @@ wasm_loader_resolve_function(const char *module_name, const char *function_name,
     }
 
     module = (WASMModule *)module_reg;
-    export = wasm_loader_find_export(
-        module, module_name, function_name, EXPORT_KIND_FUNC,
-        module->import_function_count + module->function_count, error_buf,
-        error_buf_size);
+    export =
+        wasm_loader_find_export(module, module_name, function_name,
+                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
     if (!export) {
         return NULL;
     }
@@ -755,10 +775,9 @@ wasm_loader_resolve_table(const char *module_name, const char *table_name,
     }
 
     module = (WASMModule *)module_reg;
-    export = wasm_loader_find_export(
-        module, module_name, table_name, EXPORT_KIND_TABLE,
-        module->table_count + module->import_table_count, error_buf,
-        error_buf_size);
+    export =
+        wasm_loader_find_export(module, module_name, table_name,
+                                EXPORT_KIND_TABLE, error_buf, error_buf_size);
     if (!export) {
         return NULL;
     }
@@ -800,10 +819,9 @@ wasm_loader_resolve_memory(const char *module_name, const char *memory_name,
     }
 
     module = (WASMModule *)module_reg;
-    export = wasm_loader_find_export(
-        module, module_name, memory_name, EXPORT_KIND_MEMORY,
-        module->import_memory_count + module->memory_count, error_buf,
-        error_buf_size);
+    export =
+        wasm_loader_find_export(module, module_name, memory_name,
+                                EXPORT_KIND_MEMORY, error_buf, error_buf_size);
     if (!export) {
         return NULL;
     }
@@ -846,10 +864,9 @@ wasm_loader_resolve_global(const char *module_name, const char *global_name,
     }
 
     module = (WASMModule *)module_reg;
-    export = wasm_loader_find_export(
-        module, module_name, global_name, EXPORT_KIND_GLOBAL,
-        module->import_global_count + module->global_count, error_buf,
-        error_buf_size);
+    export =
+        wasm_loader_find_export(module, module_name, global_name,
+                                EXPORT_KIND_GLOBAL, error_buf, error_buf_size);
     if (!export) {
         return NULL;
     }
@@ -969,7 +986,7 @@ load_depended_module(const WASMModule *parent_module,
     }
 
     sub_module =
-        wasm_loader_load(buffer, buffer_size, error_buf, error_buf_size);
+        wasm_loader_load(buffer, buffer_size, false, error_buf, error_buf_size);
     if (!sub_module) {
         LOG_DEBUG("error: can not load the sub_module %s", sub_module_name);
         /* others will be destroyed in runtime_destroy() */
@@ -3440,9 +3457,62 @@ fail:
     return false;
 }
 
+#if (WASM_ENABLE_MULTI_MODULE != 0) && (WASM_ENABLE_LIBC_WASI != 0)
+/*
+ * refer to
+ * https://github.com/WebAssembly/WASI/blob/main/design/application-abi.md
+ */
+static bool
+check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
+                             char *error_buf, uint32 error_buf_size)
+{
+    WASMExport *start = NULL, *initialize = NULL, *memory = NULL;
+
+    /*
+     * if a module doesn't depends on any library, it imports nothing.
+     * and its `is_wasi_module` flag is false. but still export below entries.
+     */
+
+    if (main_module) {
+        start = wasm_loader_find_export(module, "", "_start", EXPORT_KIND_FUNC,
+                                        error_buf, error_buf_size);
+        if (!start) {
+            /* without _start(), it maybe a reactor which is run via "iwasm -f
+             * XXX reactor" */
+            LOG_VERBOSE("A command should export _start function by default");
+        }
+    }
+    else {
+        initialize =
+            wasm_loader_find_export(module, "", "_initialize", EXPORT_KIND_FUNC,
+                                    error_buf, error_buf_size);
+        if (!initialize) {
+            set_error_buf(
+                error_buf, error_buf_size,
+                "A reactor should export _initialize function by default");
+            return false;
+        }
+    }
+
+    memory = wasm_loader_find_export(module, "", "memory", EXPORT_KIND_MEMORY,
+                                     error_buf, error_buf_size);
+    if (!memory) {
+        set_error_buf(
+            error_buf, error_buf_size,
+            "A module accessing wasi api should export memory by default");
+        return false;
+    }
+
+    return true;
+}
+#endif
+
 WASMModule *
-wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf,
-                 uint32 error_buf_size)
+wasm_loader_load(const uint8 *buf, uint32 size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+                 bool main_module,
+#endif
+                 char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module = create_module(error_buf, error_buf_size);
     if (!module) {
@@ -3457,6 +3527,14 @@ wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf,
     if (!load(buf, size, module, error_buf, error_buf_size)) {
         goto fail;
     }
+
+#if (WASM_ENABLE_MULTI_MODULE != 0) && (WASM_ENABLE_LIBC_WASI != 0)
+    /* do a check about WASI Application ABI */
+    if (!check_wasi_abi_compatibility(module, main_module, error_buf,
+                                      error_buf_size)) {
+        goto fail;
+    }
+#endif
 
     LOG_VERBOSE("Load module success.\n");
     return module;
