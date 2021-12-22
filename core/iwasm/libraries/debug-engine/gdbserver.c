@@ -152,8 +152,9 @@ process_packet(WASMGDBServer *server)
 
     for (int i = 1; i < packet_size; i++)
         checksum += inbuf[i];
-    bh_assert(checksum
-              == (hex(inbuf[packet_size + 1]) << 4 | hex(inbuf[packet_size + 2])));
+    bh_assert(
+        checksum
+        == (hex(inbuf[packet_size + 1]) << 4 | hex(inbuf[packet_size + 2])));
 
     payload = (char *)&inbuf[2];
 
