@@ -39,8 +39,7 @@ static struct packet_handler_elem packet_handler_table[255] = {
 WASMGDBServer *
 wasm_create_gdbserver(const char *host, int32 *port)
 {
-    int32 listen_fd = -1;
-
+    bh_socket_t listen_fd = (bh_socket_t)-1;
     WASMGDBServer *server;
 
     bh_assert(port);
@@ -80,8 +79,8 @@ fail:
 bool
 wasm_gdbserver_listen(WASMGDBServer *server)
 {
+    bh_socket_t sockt_fd = (bh_socket_t)-1;
     int32 ret;
-    int32 sockt_fd = 0;
 
     ret = os_socket_listen(server->listen_fd, 1);
     if (ret != 0) {
@@ -138,7 +137,7 @@ process_packet(WASMGDBServer *server)
     uint8 *inbuf = server->pkt.buf;
     int32 inbuf_size = server->pkt.size;
     uint8 *packetend_ptr = (uint8 *)memchr(inbuf, '#', inbuf_size);
-    int32 packetend = packetend_ptr - inbuf;
+    int32 packetend = (int32)(uintptr_t)(packetend_ptr - inbuf);
     char request = inbuf[1];
     char *payload = NULL;
     uint8 checksum = 0;

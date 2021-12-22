@@ -25,8 +25,8 @@ typedef struct WasmDebugPacket {
 
 struct WASMDebugControlThread;
 typedef struct WASMGDBServer {
-    int32 listen_fd;
-    int32 socket_fd;
+    bh_socket_t listen_fd;
+    bh_socket_t socket_fd;
     WasmDebugPacket pkt;
     bool noack;
     struct WASMDebugControlThread *thread;

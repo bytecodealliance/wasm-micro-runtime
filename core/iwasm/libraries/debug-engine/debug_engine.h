@@ -101,15 +101,15 @@ wasm_debug_get_engine_active(void);
 uint64
 wasm_debug_instance_get_pid(WASMDebugInstance *instance);
 
-uint64
+korp_tid
 wasm_debug_instance_get_tid(WASMDebugInstance *instance);
 
 uint32
-wasm_debug_instance_get_tids(WASMDebugInstance *instance, uint64 tids[],
+wasm_debug_instance_get_tids(WASMDebugInstance *instance, korp_tid tids[],
                              uint32 len);
 
 void
-wasm_debug_instance_set_cur_thread(WASMDebugInstance *instance, uint64 tid);
+wasm_debug_instance_set_cur_thread(WASMDebugInstance *instance, korp_tid tid);
 
 uint64
 wasm_debug_instance_get_pc(WASMDebugInstance *instance);
@@ -141,8 +141,8 @@ wasm_debug_instance_set_mem(WASMDebugInstance *instance, uint64 addr, char *buf,
                             uint64 *size);
 
 uint32
-wasm_debug_instance_get_call_stack_pcs(WASMDebugInstance *instance, uint64 tid,
-                                       uint64 buf[], uint64 size);
+wasm_debug_instance_get_call_stack_pcs(WASMDebugInstance *instance,
+                                       korp_tid tid, uint64 buf[], uint64 size);
 
 bool
 wasm_debug_instance_add_breakpoint(WASMDebugInstance *instance, uint64 addr,
@@ -158,15 +158,16 @@ wasm_debug_instance_continue(WASMDebugInstance *instance);
 bool
 wasm_debug_instance_kill(WASMDebugInstance *instance);
 
-uint64
-wasm_debug_instance_wait_thread(WASMDebugInstance *instance, uint64 tid,
+korp_tid
+wasm_debug_instance_wait_thread(WASMDebugInstance *instance, korp_tid tid,
                                 uint32 *status);
 
 uint32
-wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, uint64 tid);
+wasm_debug_instance_get_thread_status(WASMDebugInstance *instance,
+                                      korp_tid tid);
 
 bool
-wasm_debug_instance_singlestep(WASMDebugInstance *instance, uint64 tid);
+wasm_debug_instance_singlestep(WASMDebugInstance *instance, korp_tid tid);
 
 bool
 wasm_debug_instance_get_local(WASMDebugInstance *instance, int32 frame_index,
