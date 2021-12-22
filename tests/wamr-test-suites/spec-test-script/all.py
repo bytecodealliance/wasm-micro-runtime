@@ -52,12 +52,16 @@ def ignore_the_case(
     multi_module_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
+    gc_flag=False,
     xip_flag=False,
 ):
     if case_name in ["comments", "inline-module", "names"]:
         return True
 
     if not multi_module_flag and case_name in ["imports", "linking"]:
+        return True
+
+    if gc_flag and case_name in ["func_bind"]:
         return True
 
     if "i386" == target and case_name in ["float_exprs"]:
@@ -118,6 +122,7 @@ def test_case(
         multi_module_flag,
         multi_thread_flag,
         simd_flag,
+        gc_flag,
         xip_flag,
     ):
         return True

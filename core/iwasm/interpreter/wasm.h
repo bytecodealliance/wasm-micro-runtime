@@ -57,7 +57,8 @@ extern "C" {
 
 /* Used by AOT */
 #define VALUE_TYPE_I1 0x41
-/*  Used by loader to represent any type of i32/i64/f32/f64 */
+/* Used by loader to represent any type of i32/i64/f32/f64 and
+   reference types, e.g. funcref/externref/anyref/i31ref, etc. */
 #define VALUE_TYPE_ANY 0x42
 
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
@@ -792,7 +793,8 @@ wasm_value_type_size(uint8 value_type)
 {
     if (value_type == VALUE_TYPE_VOID)
         return 0;
-    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32)
+    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32
+             || value_type == VALUE_TYPE_ANY)
         return sizeof(int32);
     else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
         return sizeof(int64);
