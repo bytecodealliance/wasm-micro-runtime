@@ -4,6 +4,10 @@
 /.idea
 **/cmake-build-*/
 **/*build/
+*.obj
+*.a
+*.so
+
 core/deps/**
 core/shared/mem-alloc/tlsf
 core/app-framework/wgl
@@ -12,6 +16,9 @@ wamr-sdk/out/
 wamr-sdk/runtime/build_runtime_sdk/
 test-tools/host-tool/bin/
 product-mini/app-samples/hello-world/test.wasm
+product-mini/platforms/linux-sgx/enclave-sample/App/
+product-mini/platforms/linux-sgx/enclave-sample/Enclave/
+product-mini/platforms/linux-sgx/enclave-sample/iwasm
 
 build_out
 tests/wamr-test-suites/workspace

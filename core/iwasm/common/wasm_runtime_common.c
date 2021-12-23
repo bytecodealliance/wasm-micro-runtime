@@ -1183,7 +1183,7 @@ wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
 }
 
 WASMFunctionInstanceCommon *
-wasm_runtime_lookup_function(WASMModuleInstanceCommon *const module_inst,
+wasm_runtime_lookup_function(WASMModuleInstanceCommon *module_inst,
                              const char *name, const char *signature)
 {
 #if WASM_ENABLE_INTERP != 0
