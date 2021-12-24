@@ -28,7 +28,6 @@ WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
 
-
 class TargetAction(argparse.Action):
     TARGET_MAP = {
         "ARMV7_VFP": "armv7",
@@ -61,7 +60,19 @@ def ignore_the_case(
     if not multi_module_flag and case_name in ["imports", "linking"]:
         return True
 
-    if gc_flag and case_name in ["func_bind"]:
+    # python2.7 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm
+    #     --aot-compiler wamrc --gc --loader-only spec/test/core/br_on_null.wast
+    if gc_flag and case_name in ["br_on_cast", "br_on_cast_fail", "br_on_non",
+                                 "br_on_non_null", "br_on_null",
+                                 "br_table", "call_ref",
+                                 #"data", "elem",
+                                 "global",
+                                 "func_bind", "i31", "let",
+                                 "ref_as_non_null", "ref_cast", "ref_eq",
+                                 "ref_is_null", "ref_null", "ref_test",
+                                 "return_call_ref", "table-sub", "type-equivalence",
+                                 "unreached-valid", "unreached-invalid",
+                                ]:
         return True
 
     if "i386" == target and case_name in ["float_exprs"]:

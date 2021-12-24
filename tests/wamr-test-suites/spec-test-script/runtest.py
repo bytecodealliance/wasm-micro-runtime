@@ -1210,9 +1210,6 @@ if __name__ == "__main__":
                         if not compile_wast_to_wasm(form, temp_files[0], temp_files[1], opts):
                             raise Exception("compile wast to wasm failed")
 
-                        if opts.loader_only:
-                            continue
-
                         if test_aot:
                             r = compile_wasm_to_aot(temp_files[1], temp_files[2], True, opts, r)
                             try:
@@ -1227,9 +1224,6 @@ if __name__ == "__main__":
                 else:
                     if not compile_wast_to_wasm(form, wast_tempfile, wasm_tempfile, opts):
                         raise Exception("compile wast to wasm failed")
-
-                    if opts.loader_only:
-                        continue
 
                     if test_aot:
                         r = compile_wasm_to_aot(wasm_tempfile, aot_tempfile, True, opts, r)

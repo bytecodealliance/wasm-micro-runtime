@@ -676,7 +676,7 @@ wasm_is_reftype_supers_of_rttn_nullable(uint8 type_super,
     /* super type is (ref null (rtt n i) */
     if (type_super == REF_TYPE_HT_NULLABLE
         && wasm_is_refheaptype_rttn(&ref_type_super->ref_ht_common)
-        && ref_type_super->ref_ht_rttn.n == n_of_sub
+        && ref_type_super->ref_ht_rttn.n <= n_of_sub
         && ref_type_super->ref_ht_rttn.type_idx == type_idx_of_sub)
         return true;
 
@@ -716,7 +716,7 @@ wasm_is_reftype_supers_of_rttn_non_nullable(uint8 type_super,
     if (type_super == REF_TYPE_HT_NON_NULLABLE) {
         /* super type is (ref (rtt n i)) */
         if (wasm_is_refheaptype_rttn(&ref_type_super->ref_ht_common)
-            && ref_type_super->ref_ht_rttn.n == n_of_sub
+            && ref_type_super->ref_ht_rttn.n <= n_of_sub
             && ref_type_super->ref_ht_rttn.type_idx == type_idx_of_sub)
             return true;
         /* super type is (ref (rtt i)) */
