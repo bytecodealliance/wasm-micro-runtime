@@ -8494,10 +8494,10 @@ re_scan:
 #endif
             {
                 WASMFuncType *func_type;
+                uint8 type;
                 int32 idx;
 #if WASM_ENABLE_GC != 0
                 WASMRefType *ref_type;
-                uint8 type;
                 int32 j;
 #endif
 
@@ -8625,6 +8625,7 @@ re_scan:
                     SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
                 }
 #endif
+                (void)type;
                 func->has_op_func_call = true;
                 break;
             }
@@ -8777,7 +8778,7 @@ re_scan:
                     }
 #if WASM_ENABLE_SIMD != 0
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
-                    else if (*(loader_ctx->frame_ref - 1) == REF_V128_1) {
+                    else if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_V128) {
                         loader_ctx->frame_ref -= 4;
                         loader_ctx->stack_cell_num -= 4;
                     }
