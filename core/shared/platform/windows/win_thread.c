@@ -562,7 +562,7 @@ GetCurrentThreadStackLimits_Win7(PULONG_PTR p_low_limit,
                                  PULONG_PTR p_high_limit)
 {
     MEMORY_BASIC_INFORMATION mbi;
-    NT_TIB* tib = (NT_TIB*)NtCurrentTeb();
+    NT_TIB *tib = (NT_TIB *)NtCurrentTeb();
 
     if (!tib) {
         os_printf("warning: NtCurrentTeb() failed\n");
