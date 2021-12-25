@@ -3114,7 +3114,7 @@ aot_unload(AOTModule *module)
         wasm_runtime_free(module->aux_func_indexes);
     }
     if (module->aux_func_names) {
-        wasm_runtime_free(module->aux_func_names);
+        wasm_runtime_free((void *)module->aux_func_names);
     }
 #endif
 

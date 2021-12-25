@@ -25,9 +25,9 @@
 #include <stdint.h>
 #include <malloc.h>
 #include <process.h>
+#include <winsock2.h>
 #include <Windows.h>
 #include <BaseTsd.h>
-#include <winsock2.h>
 
 #ifdef __cplusplus
 extern "C" {
