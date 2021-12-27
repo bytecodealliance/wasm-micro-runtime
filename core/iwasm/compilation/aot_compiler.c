@@ -459,8 +459,6 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
             }
             case WASM_OP_REF_FUNC:
             {
-                uint32 func_idx;
-
                 if (!comp_ctx->enable_ref_types) {
                     goto unsupport_ref_types;
                 }

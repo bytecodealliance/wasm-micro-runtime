@@ -556,6 +556,31 @@ os_cond_signal(korp_cond *cond)
 
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
 
+#if _WIN32_WINNT < 0x0602
+static ULONG
+GetCurrentThreadStackLimits_Win7(PULONG_PTR p_low_limit,
+                                 PULONG_PTR p_high_limit)
+{
+    MEMORY_BASIC_INFORMATION mbi;
+    NT_TIB *tib = (NT_TIB *)NtCurrentTeb();
+
+    if (!tib) {
+        os_printf("warning: NtCurrentTeb() failed\n");
+        return -1;
+    }
+
+    *p_high_limit = (ULONG_PTR)tib->StackBase;
+
+    if (VirtualQuery(tib->StackLimit, &mbi, sizeof(mbi))) {
+        *p_low_limit = (ULONG_PTR)mbi.AllocationBase;
+        return 0;
+    }
+
+    os_printf("warning: VirtualQuery() failed\n");
+    return GetLastError();
+}
+#endif
+
 uint8 *
 os_thread_get_stack_boundary()
 {
@@ -566,7 +591,13 @@ os_thread_get_stack_boundary()
         return thread_stack_boundary;
 
     page_size = os_getpagesize();
+#if _WIN32_WINNT >= 0x0602
     GetCurrentThreadStackLimits(&low_limit, &high_limit);
+#else
+    if (0 != GetCurrentThreadStackLimits_Win7(&low_limit, &high_limit)) {
+        return NULL;
+    }
+#endif
     /* 4 pages are set unaccessible by system, we reserved
        one more page at least for safety */
     thread_stack_boundary = (uint8 *)(uintptr_t)low_limit + page_size * 5;
