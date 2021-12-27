@@ -74,7 +74,9 @@ on_destroy()
         sensor_config(sensor2, 0, 0, 0);
     }
 
-    free(user_data);
+    if (NULL != user_data) {
+        free(user_data);
+    }
 
     /* real destroy work including killing timer and closing sensor is
        accomplished in wasm app library version of on_destroy() */
