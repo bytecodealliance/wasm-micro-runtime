@@ -52,7 +52,7 @@ function(COMPILE_WITH_CLANG SOURCE_FILE COMMAND)
   get_filename_component(FILE_NAME ${SOURCE_FILE} NAME_WLE)
 
   set(WASM_MODULE ${FILE_NAME}.wasm)
-  
+
   set(MAIN_TARGET_NAME MODULE_${FILE_NAME})
 
   add_executable(${MAIN_TARGET_NAME} ${SOURCE_FILE})
@@ -64,7 +64,7 @@ function(COMPILE_WITH_CLANG SOURCE_FILE COMMAND)
     message(STATUS "Generating ${WASM_MODULE} as REACTOR...")
     target_link_options(${MAIN_TARGET_NAME} PRIVATE -mexec-model=reactor)
   endif()
-  
+
   if(EXISTS ${WASM2WAT})
     message(STATUS "Dumping ${WASM_MODULE}...")
     set(WASM_WAT ${FILE_NAME}.wat)

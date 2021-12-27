@@ -527,7 +527,6 @@ function trigger()
     local EXTRA_COMPILE_FLAGS=""
     # default enabled features
     EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
-    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIBC_WASI=0"
 
     if [[ ${ENABLE_MULTI_MODULE} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"

@@ -447,7 +447,7 @@ wasm_runtime_deinstantiate(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMFunctionInstanceCommon *
-wasm_runtime_lookup_function(WASMModuleInstanceCommon *module_inst,
+wasm_runtime_lookup_function(WASMModuleInstanceCommon *const module_inst,
                              const char *name, const char *signature);
 
 /* Internal API */

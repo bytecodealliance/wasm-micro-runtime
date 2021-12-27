@@ -100,18 +100,15 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
         return wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, 0,
                                                           NULL);
     }
-    else {
-        wasm_runtime_set_exception(
-            module_inst, "lookup _start function failed, may run with \'-f\'");
-        return false;
-    }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
     if (!(func = wasm_runtime_lookup_function(module_inst, "main", NULL))
         && !(func = wasm_runtime_lookup_function(module_inst,
                                                  "__main_argc_argv", NULL))
         && !(func = wasm_runtime_lookup_function(module_inst, "_main", NULL))) {
-        wasm_runtime_set_exception(module_inst, "lookup main function failed");
+        wasm_runtime_set_exception(
+            module_inst,
+            "lookup the entry point symbol(like _start, _main, _main) failed");
         return false;
     }
 
@@ -244,9 +241,9 @@ resolve_function(WASMModuleInstanceCommon *module_inst, const char *name,
 {
     WASMFunctionInstanceCommon *target_func = NULL;
     WASMModuleInstanceCommon *target_inst = NULL;
-    char *function_name = NULL;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
+    char *function_name = NULL;
     char *orig_name = NULL;
     char *sub_module_name = NULL;
     uint32 length = (uint32)(strlen(name) + 1);
@@ -276,7 +273,7 @@ resolve_function(WASMModuleInstanceCommon *module_inst, const char *name,
         target_inst = module_inst;
     }
 #else
-    function_name = name;
+    const char *function_name = name;
     target_inst = module_inst;
 #endif
 

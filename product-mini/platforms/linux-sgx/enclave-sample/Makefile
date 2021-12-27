@@ -102,7 +102,6 @@ Enclave_Include_Paths := -IEnclave -I$(WAMR_ROOT)/core/iwasm/include \
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths)
 ifeq ($(SPEC_TEST), 1)
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=1
-	Enclave_C_Flags += -DSGX_DISABLE_WASI
 else
 	Enclave_C_Flags += -DWASM_ENABLE_SPEC_TEST=0
 endif

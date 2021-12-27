@@ -1038,19 +1038,14 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
              * reactor instances may assume that _initialize will be called by
              * the environment at most once, and that none of their other
              * exports are accessed before that call.
+             *
+             * let the loader decide how to act if there is no _initialize
+             * in a reactor
              */
             WASMFunctionInstance *initialize =
                 wasm_lookup_function(sub_module_inst, "_initialize", NULL);
-            /* a strong restricttion that a reactor must export a _initialize
-             * function */
-            if (!initialize) {
-                set_error_buf(error_buf, error_buf_size,
-                              "The reactors(sub-modules) must export a "
-                              "_initialize function");
-                goto failed;
-            }
-
-            if (!wasm_create_exec_env_and_call_function(
+            if (initialize
+                && !wasm_create_exec_env_and_call_function(
                     sub_module_inst, initialize, 0, NULL, false)) {
                 set_error_buf(error_buf, error_buf_size,
                               "Call _initialize failed ");

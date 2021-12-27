@@ -3472,6 +3472,9 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
      * if a module doesn't depends on any library, it imports nothing.
      * and its `is_wasi_module` flag is false. but still export below entries.
      */
+    if (!module->is_wasi_module) {
+        return true;
+    }
 
     if (main_module) {
         start = wasm_loader_find_export(module, "", "_start", EXPORT_KIND_FUNC,
