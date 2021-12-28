@@ -16,10 +16,10 @@ uint32
 wasm_sensor_open(const char *name, int instance);
 
 bool
-wasm_sensor_config(uint32 sensor, int interval, int bit_cfg, int delay);
+wasm_sensor_config(uint32 sensor, uint32 interval, int bit_cfg, uint32 delay);
 
 bool
-wasm_sensor_config_with_attr_container(uint32 sensor, char *buffer, int len);
+wasm_sensor_config_with_attr_container(uint32 sensor, char *buffer, uint32 len);
 
 bool
 wasm_sensor_close(uint32 sensor);

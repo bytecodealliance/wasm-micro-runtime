@@ -17,9 +17,9 @@ typedef struct _sys_sensor *sensor_obj_t;
 typedef struct _sensor_client {
     struct _sensor_client *next;
     unsigned int client_id; // the app id
-    int interval;
+    uint32 interval;
     int bit_cfg;
-    int delay;
+    uint32 delay;
     void (*client_callback)(void *client, uint32, attr_container_t *);
 } sensor_client_t;
 
@@ -54,7 +54,7 @@ void
 refresh_read_interval(sensor_obj_t sensor);
 void
 sensor_cleanup_callback(uint32 module_id);
-int
+uint32
 check_sensor_timers();
 void
 reschedule_sensor_read();
