@@ -3466,43 +3466,107 @@ static bool
 check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
                              char *error_buf, uint32 error_buf_size)
 {
-    WASMExport *start = NULL, *initialize = NULL, *memory = NULL;
-
     /*
-     * if a module doesn't depends on any library, it imports nothing.
-     * and its `is_wasi_module` flag is false. but still export below entries.
+     * need to handle:
+     * - non-wasi compatiable modules
+     * - a fake wasi compatiable module
+     * - a command acts as a main_module
+     * - a command acts as a sub_module
+     * - a reactor acts as a main_module
+     * - a reactor acts as a sub_module
+     *
+     * be careful with:
+     * wasi compatiable modules(command/reactor) which don't import any wasi
+     * APIs. usually, a command has to import a "prox_exit" at least. but a
+     * reactor can depend on nothing. At the same time, each has its own entry
+     * point.
+     *
+     * observations:
+     * - clang always injecting either `_start` into a command
+     * - clang always injecting either `_initialize` into a reactor
+     * - `iwasm -f` allows to run a function in the raeactor
+     *
+     * strong assumptions:
+     * - no one will define either `_start` or `_initialize` on purpose
+     * - `_start` should always be `void _start(void)`
+     * - `_initialize` should always be `void _initialize(void)`
      */
-    if (!module->is_wasi_module) {
-        return true;
-    }
 
-    if (main_module) {
-        start = wasm_loader_find_export(module, "", "_start", EXPORT_KIND_FUNC,
-                                        error_buf, error_buf_size);
-        if (!start) {
-            /* without _start(), it maybe a reactor which is run via "iwasm -f
-             * XXX reactor" */
-            LOG_VERBOSE("A command should export _start function by default");
-        }
-    }
-    else {
-        initialize =
-            wasm_loader_find_export(module, "", "_initialize", EXPORT_KIND_FUNC,
+    WASMExport *initialize = NULL, *memory = NULL, *start = NULL;
+
+    /* (func (export "_start") (...) */
+    start = wasm_loader_find_export(module, "", "_start", EXPORT_KIND_FUNC,
                                     error_buf, error_buf_size);
-        if (!initialize) {
-            set_error_buf(
-                error_buf, error_buf_size,
-                "A reactor should export _initialize function by default");
+    if (start) {
+        WASMType *func_type =
+            module->functions[start->index - module->import_function_count]
+                ->func_type;
+        if (func_type->param_count || func_type->result_count) {
+            set_error_buf(error_buf, error_buf_size,
+                          "The builtin _start() is with a wrong signature");
             return false;
         }
     }
+
+    /* (func (export "_initialize") (...) */
+    initialize = wasm_loader_find_export(
+        module, "", "_initialize", EXPORT_KIND_FUNC, error_buf, error_buf_size);
+    if (initialize) {
+        WASMType *func_type =
+            module->functions[initialize->index - module->import_function_count]
+                ->func_type;
+        if (func_type->param_count || func_type->result_count) {
+            set_error_buf(
+                error_buf, error_buf_size,
+                "The builtin _initiazlie() is with a wrong signature");
+            return false;
+        }
+    }
+
+    /* filter out non-wasi compatiable modules */
+    if (!module->is_wasi_module && !start && !initialize) {
+        return true;
+    }
+
+    /* should have one at least */
+    if (module->is_wasi_module && !start && !initialize) {
+        set_error_buf(
+            error_buf, error_buf_size,
+            "A module with WASI apis should be either a command or a reactor");
+        return false;
+    }
+
+    /*
+     * there is at least one of `_start` and `_initialize` in below cases.
+     * according to the assumption, they should be all wasi compatiable
+     */
+
+    /* always can not have both at the same time  */
+    if (start && initialize) {
+        set_error_buf(
+            error_buf, error_buf_size,
+            "Neither a command nor a reactor can have both at the same time");
+        return false;
+    }
+
+    /* filter out commands (with `_start`) cases */
+    if (start && !main_module) {
+        set_error_buf(error_buf, error_buf_size,
+                      "A sub-module should be a reactor with _initialize");
+        return false;
+    }
+
+    /*
+     * it is ok a reactor acts as a main module,
+     * so skip the check about (with `_initialize`)
+     */
 
     memory = wasm_loader_find_export(module, "", "memory", EXPORT_KIND_MEMORY,
                                      error_buf, error_buf_size);
     if (!memory) {
         set_error_buf(
             error_buf, error_buf_size,
-            "A module accessing wasi api should export memory by default");
+            "A module with WASI apis should export memory by default");
         return false;
     }
 
