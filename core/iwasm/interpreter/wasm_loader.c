@@ -3482,8 +3482,8 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
      * point.
      *
      * observations:
-     * - clang always injecting either `_start` into a command
-     * - clang always injecting either `_initialize` into a reactor
+     * - clang always injects `_start` into a command
+     * - clang always injects `_initialize` into a reactor
      * - `iwasm -f` allows to run a function in the raeactor
      *
      * strong assumptions:

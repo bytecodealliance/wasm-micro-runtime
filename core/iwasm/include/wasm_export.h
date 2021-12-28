@@ -395,7 +395,7 @@ wasm_runtime_lookup_wasi_start_function(wasm_module_inst_t module_inst);
  * @return the function instance found, NULL if not found
  */
 WASM_RUNTIME_API_EXTERN wasm_function_inst_t
-wasm_runtime_lookup_function(wasm_module_inst_t module_inst,
+wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
                              const char *name, const char *signature);
 
 /**
