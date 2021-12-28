@@ -229,14 +229,11 @@ handle_cmd_load_module(uint64 *args, uint32 argc)
     enclave_module->wasm_file = (uint8 *)enclave_module + sizeof(EnclaveModule);
     bh_memcpy_s(enclave_module->wasm_file, wasm_file_size, wasm_file,
                 wasm_file_size);
-    if (is_xip_file) {
-        enclave_module->is_xip_file = true;
-    }
 
     if (!(enclave_module->module =
               wasm_runtime_load(enclave_module->wasm_file, wasm_file_size,
                                 error_buf, error_buf_size))) {
-        if (!is_xip_file)
+        if (!enclave_module->is_xip_file)
             wasm_runtime_free(enclave_module);
         else
             os_munmap(enclave_module, (uint32)total_size);
