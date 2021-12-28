@@ -106,9 +106,15 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
         && !(func = wasm_runtime_lookup_function(module_inst,
                                                  "__main_argc_argv", NULL))
         && !(func = wasm_runtime_lookup_function(module_inst, "_main", NULL))) {
+#if WASM_ENABLE_LIBC_WASI != 0
         wasm_runtime_set_exception(
-            module_inst,
-            "lookup the entry point symbol(like _start, _main, _main) failed");
+            module_inst, "lookup the entry point symbol (like _start, main, "
+                         "_main, __main_argc_argv) failed");
+#else
+        wasm_runtime_set_exception(module_inst,
+                                   "lookup the entry point symbol (like main, "
+                                   "_main, __main_argc_argv) failed");
+#endif
         return false;
     }
 
