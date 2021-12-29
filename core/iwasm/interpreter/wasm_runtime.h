@@ -40,11 +40,6 @@ struct WASMMemoryInstance {
     /* The heap created */
     void *heap_handle;
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-    /* to indicate which module instance create it */
-    WASMModuleInstance *owner;
-#endif
-
 #if WASM_ENABLE_SHARED_MEMORY != 0
     /* mutex lock for the memory, used in atomic operation */
     korp_mutex mem_lock;

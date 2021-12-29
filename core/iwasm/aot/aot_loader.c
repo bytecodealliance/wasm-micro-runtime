@@ -1284,7 +1284,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
             || !strcmp(import_funcs[i].module_name, "wasi_snapshot_preview1"))
-            module->is_wasi_module = true;
+            module->import_wasi_api = true;
 #endif
     }
 
@@ -2925,7 +2925,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     module->comp_data = comp_data;
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    module->is_wasi_module = comp_data->wasm_module->is_wasi_module;
+    module->import_wasi_api = comp_data->wasm_module->import_wasi_api;
 #endif
 
     return module;
