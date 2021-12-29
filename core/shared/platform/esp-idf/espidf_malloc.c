@@ -61,7 +61,7 @@ void
 os_free(void *ptr)
 {
     void *mem_origin;
-    uintptr *addr_field;
+    uintptr_t *addr_field;
 
     if (ptr) {
         addr_field = ptr - sizeof(uintptr_t);
