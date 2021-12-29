@@ -306,7 +306,7 @@ WAMR provides some features which can be easily configured by passing options to
 
 Zephyr
 -------------------------
-You need to prepare Zephyr first as described here https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies).
+You need to prepare Zephyr first as described here https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies.
 
 After that you need to point the `ZEPHYR_BASE` variable to e.g. `~/zephyrproject/zephyr`. Also, it is important that you have `west` available for subsequent actions.
 

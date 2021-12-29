@@ -92,9 +92,9 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     bool ret, is_import_func = true;
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    /* In wasi mode, we should call function named "_start"
+    /* In wasi mode, we should call the function named "_start"
        which initializes the wasi envrionment and then calls
-       the actual main function. Directly call main function
+       the actual main function. Directly calling main function
        may cause exception thrown. */
     if ((func = wasm_runtime_lookup_wasi_start_function(module_inst))) {
         return wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, 0,

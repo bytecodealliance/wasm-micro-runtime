@@ -3458,7 +3458,7 @@ fail:
 }
 
 #if (WASM_ENABLE_MULTI_MODULE != 0) && (WASM_ENABLE_LIBC_WASI != 0)
-/*
+/**
  * refer to
  * https://github.com/WebAssembly/WASI/blob/main/design/application-abi.md
  */
@@ -3466,7 +3466,7 @@ static bool
 check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
                              char *error_buf, uint32 error_buf_size)
 {
-    /*
+    /**
      * need to handle:
      * - non-wasi compatiable modules
      * - a fake wasi compatiable module
@@ -3477,7 +3477,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
      *
      * be careful with:
      * wasi compatiable modules(command/reactor) which don't import any wasi
-     * APIs. usually, a command has to import a "prox_exit" at least. but a
+     * APIs. Usually, a command has to import a "prox_exit" at least, but a
      * reactor can depend on nothing. At the same time, each has its own entry
      * point.
      *
@@ -3503,7 +3503,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
                 ->func_type;
         if (func_type->param_count || func_type->result_count) {
             set_error_buf(error_buf, error_buf_size,
-                          "The builtin _start() is with a wrong signature");
+                          "the signature of builtin _start function is wrong");
             return false;
         }
     }
@@ -3518,7 +3518,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
         if (func_type->param_count || func_type->result_count) {
             set_error_buf(
                 error_buf, error_buf_size,
-                "The builtin _initiazlie() is with a wrong signature");
+                "the signature of builtin _initialize function is wrong");
             return false;
         }
     }
@@ -3532,7 +3532,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
     if (module->import_wasi_api && !start && !initialize) {
         set_error_buf(
             error_buf, error_buf_size,
-            "A module with WASI apis should be either a command or a reactor");
+            "a module with WASI apis must be either a command or a reactor");
         return false;
     }
 
@@ -3545,14 +3545,16 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
     if (start && initialize) {
         set_error_buf(
             error_buf, error_buf_size,
-            "Neither a command nor a reactor can have both at the same time");
+            "neither a command nor a reactor can both have _start function "
+            "and _initialize function at the same time");
         return false;
     }
 
     /* filter out commands (with `_start`) cases */
     if (start && !main_module) {
-        set_error_buf(error_buf, error_buf_size,
-                      "A command(with _start) can not be a sud-module");
+        set_error_buf(
+            error_buf, error_buf_size,
+            "a command (with _start function) can not be a sub-module");
         return false;
     }
 
@@ -3564,9 +3566,8 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
     memory = wasm_loader_find_export(module, "", "memory", EXPORT_KIND_MEMORY,
                                      error_buf, error_buf_size);
     if (!memory) {
-        set_error_buf(
-            error_buf, error_buf_size,
-            "A module with WASI apis should export memory by default");
+        set_error_buf(error_buf, error_buf_size,
+                      "a module with WASI apis must export memory by default");
         return false;
     }
 
@@ -3596,7 +3597,7 @@ wasm_loader_load(const uint8 *buf, uint32 size,
     }
 
 #if (WASM_ENABLE_MULTI_MODULE != 0) && (WASM_ENABLE_LIBC_WASI != 0)
-    /* do a check about WASI Application ABI */
+    /* Check the WASI application ABI */
     if (!check_wasi_abi_compatibility(module, main_module, error_buf,
                                       error_buf_size)) {
         goto fail;
