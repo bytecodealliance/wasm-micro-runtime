@@ -3565,9 +3565,8 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
     memory = wasm_loader_find_export(module, "", "memory", EXPORT_KIND_MEMORY,
                                      error_buf, error_buf_size);
     if (!memory) {
-        set_error_buf(
-            error_buf, error_buf_size,
-            "a module with WASI apis must export memory by default");
+        set_error_buf(error_buf, error_buf_size,
+                      "a module with WASI apis must export memory by default");
         return false;
     }
 
