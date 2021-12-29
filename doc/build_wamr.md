@@ -306,15 +306,24 @@ WAMR provides some features which can be easily configured by passing options to
 
 Zephyr
 -------------------------
-You need to download the Zephyr source code first and embed WAMR into it.
+You need to prepare Zephyr first as described here https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies).
+
+After that you need to point the `ZEPHYR_BASE` variable to e.g. `~/zephyrproject/zephyr`. Also, it is important that you have `west` available for subsequent actions.
+
 ``` Bash
-git clone https://github.com/zephyrproject-rtos/zephyr.git
-source zephyr/zephyr-env.sh
 cd <wamr_root_dir>/product-mini/platforms/zephyr/simple
 # Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
 ./build_and_run.sh x86
-
 ```
+
+If you want to use the Espressif toolchain (esp32 or esp32c3), you can most conveniently install it with `west`:
+
+``` Bash
+cd $ZEPHYR_BASE
+west espressif install
+```
+
+After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
 
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
