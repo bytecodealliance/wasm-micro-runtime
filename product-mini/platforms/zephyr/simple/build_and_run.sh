@@ -47,14 +47,16 @@ case $TARGET in
                 west flash
                 ;;
         $ESP32_TARGET)
-                # suppose you have set environment variable ESP_IDF_PATH
+                export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
+                if [[ -z "${ESPRESSIF_TOOLCHAIN_PATH}" ]]; then
+                        echo "Set ESPRESSIF_TOOLCHAIN_PATH to your espressif toolchain"
+                        exit 1
+                fi
                 west build -b esp32 \
                            . -p always -- \
-                           -DESP_IDF_PATH=$ESP_IDF_PATH \
-                           -DWAMR_BUILD_TARGET=XTENSA
-                # suppose the serial port is /dev/ttyUSB1 and you should change to
-                # the real name accordingly
-                west flash --esp-device /dev/ttyUSB1
+                           -DWAMR_BUILD_TARGET=XTENSA                           
+                # west flash will discover the device
+                west flash
                 ;;
         $QEMU_XTENSA_TARGET)
                 west build -b qemu_xtensa \
