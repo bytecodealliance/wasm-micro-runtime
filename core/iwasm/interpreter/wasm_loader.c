@@ -3503,7 +3503,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
                 ->func_type;
         if (func_type->param_count || func_type->result_count) {
             set_error_buf(error_buf, error_buf_size,
-                          "the signature of builtin _start() func is wrong");
+                          "the signature of builtin _start function is wrong");
             return false;
         }
     }
@@ -3518,7 +3518,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
         if (func_type->param_count || func_type->result_count) {
             set_error_buf(
                 error_buf, error_buf_size,
-                "the signature of builtin _initialize() func is wrong");
+                "the signature of builtin _initialize function is wrong");
             return false;
         }
     }
@@ -3545,15 +3545,16 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
     if (start && initialize) {
         set_error_buf(
             error_buf, error_buf_size,
-            "neither a command nor a reactor can both have _start() func "
-            "and _initialize() func at the same time");
+            "neither a command nor a reactor can both have _start function "
+            "and _initialize function at the same time");
         return false;
     }
 
     /* filter out commands (with `_start`) cases */
     if (start && !main_module) {
-        set_error_buf(error_buf, error_buf_size,
-                      "a command (with _start func) can not be a sub-module");
+        set_error_buf(
+            error_buf, error_buf_size,
+            "a command (with _start function) can not be a sub-module");
         return false;
     }
 
