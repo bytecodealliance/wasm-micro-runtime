@@ -14,6 +14,18 @@ index ec740f38..29f9d56e 100644
 +build:wasm --copt=-msimd128
 +build:wasm --crosstool_top=@emsdk//emscripten_toolchain:everything
 +build:wasm --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+diff --git a/BUILD.bazel b/BUILD.bazel
+index 3fc8139f..c893356d 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -11988,7 +11988,6 @@ config_setting(
+     values = {
+         "crosstool_top": "@emsdk//emscripten_toolchain:everything",
+         "cpu": "wasm",
+-        "copt": "-msimd128",
+         "copt": "-mrelaxed-simd",
+     },
+ )
 diff --git a/WORKSPACE b/WORKSPACE
 index c58e76b6..30934678 100644
 --- a/WORKSPACE
@@ -47,10 +59,10 @@ index c58e76b6..30934678 100644
  android_ndk_repository(name = "androidndk")
  
 diff --git a/build_defs.bzl b/build_defs.bzl
-index 2442bed1..b860dfef 100644
+index fbadb400..e496b78d 100644
 --- a/build_defs.bzl
 +++ b/build_defs.bzl
-@@ -414,7 +414,7 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
+@@ -430,7 +430,7 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
              explicitly specified.
      """
      native.cc_binary(
