@@ -614,7 +614,7 @@ os_thread_signal_init()
     bool ret;
 
     if (thread_signal_inited)
-        return true;
+        return 0;
 
     ret = SetThreadStackGuarantee(&StackSizeInBytes);
     if (ret)
