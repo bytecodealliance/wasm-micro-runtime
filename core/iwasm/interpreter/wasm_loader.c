@@ -1753,7 +1753,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (!strcmp(import->u.names.module_name, "wasi_unstable")
                 || !strcmp(import->u.names.module_name,
                            "wasi_snapshot_preview1")) {
-                module->is_wasi_module = true;
+                module->import_wasi_api = true;
                 break;
             }
         }
@@ -3484,7 +3484,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
      * observations:
      * - clang always injects `_start` into a command
      * - clang always injects `_initialize` into a reactor
-     * - `iwasm -f` allows to run a function in the raeactor
+     * - `iwasm -f` allows to run a function in the reactor
      *
      * strong assumptions:
      * - no one will define either `_start` or `_initialize` on purpose
@@ -3524,12 +3524,12 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
     }
 
     /* filter out non-wasi compatiable modules */
-    if (!module->is_wasi_module && !start && !initialize) {
+    if (!module->import_wasi_api && !start && !initialize) {
         return true;
     }
 
     /* should have one at least */
-    if (module->is_wasi_module && !start && !initialize) {
+    if (module->import_wasi_api && !start && !initialize) {
         set_error_buf(
             error_buf, error_buf_size,
             "A module with WASI apis should be either a command or a reactor");
@@ -3552,7 +3552,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
     /* filter out commands (with `_start`) cases */
     if (start && !main_module) {
         set_error_buf(error_buf, error_buf_size,
-                      "A sub-module should be a reactor with _initialize");
+                      "A command(with _start) can not be a sud-module");
         return false;
     }
 

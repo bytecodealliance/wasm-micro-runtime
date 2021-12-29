@@ -851,7 +851,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (!strcmp(import->u.names.module_name, "wasi_unstable")
                 || !strcmp(import->u.names.module_name,
                            "wasi_snapshot_preview1")) {
-                module->is_wasi_module = true;
+                module->import_wasi_api = true;
                 break;
             }
         }
