@@ -851,7 +851,7 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (!strcmp(import->u.names.module_name, "wasi_unstable")
                 || !strcmp(import->u.names.module_name,
                            "wasi_snapshot_preview1")) {
-                module->is_wasi_module = true;
+                module->import_wasi_api = true;
                 break;
             }
         }
@@ -2120,7 +2120,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             }
         }
 
-#if WASM_ENABLE_MULTI_MODULE == 0
         if (module->import_memory_count) {
             memory_import = &module->import_memories[0].u.memory;
             /* Memory init page count cannot be larger than 65536, we don't
@@ -2128,6 +2127,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             memory_import->num_bytes_per_page *= memory_import->init_page_count;
             memory_import->init_page_count = memory_import->max_page_count = 1;
         }
+
         if (module->memory_count) {
             /* Memory init page count cannot be larger than 65536, we don't
                check integer overflow again. */
@@ -2135,7 +2135,6 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             memory->num_bytes_per_page *= memory->init_page_count;
             memory->init_page_count = memory->max_page_count = 1;
         }
-#endif
     }
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
@@ -2159,9 +2158,6 @@ create_module(char *error_buf, uint32 error_buf_size)
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-    module->import_module_list = &module->import_module_list_head;
-#endif
     return module;
 }
 
