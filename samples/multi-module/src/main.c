@@ -9,7 +9,7 @@
 static char *
 build_module_path(const char *module_name)
 {
-    const char *module_search_path = "./wasm-apps";
+    const char *module_search_path = ".";
     const char *format = "%s/%s.wasm";
     int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
              + strlen(".wasm") + 1;
@@ -107,24 +107,36 @@ main()
         goto UNLOAD_MODULE;
     }
 
-    /* call some functions of mC */
+    /* call functions of mC */
     printf("\n----------------------------------------\n");
-    printf("call \"C\", it will return 0xc:i32, ===> ");
-    wasm_application_execute_func(module_inst, "C", 0, &args[0]);
-    printf("call \"call_B\", it will return 0xb:i32, ===> ");
-    wasm_application_execute_func(module_inst, "call_B", 0, &args[0]);
-    printf("call \"call_A\", it will return 0xa:i32, ===>");
-    wasm_application_execute_func(module_inst, "call_A", 0, &args[0]);
+    printf("call \"C1\", it will return 0x1f:i32, ===> ");
+    wasm_application_execute_func(module_inst, "C1", 0, args);
+    printf("call \"C2\", it will call B1() of mB and return 0x15:i32, ===> ");
+    wasm_application_execute_func(module_inst, "C2", 0, args);
+    printf("call \"C3\", it will call A1() of mA and return 0xb:i32, ===> ");
+    wasm_application_execute_func(module_inst, "C3", 0, args);
+    printf("call \"C4\", it will call B2() of mB and call A1() of mA and "
+           "return 0xb:i32, ===> ");
+    wasm_application_execute_func(module_inst, "C4", 0, args);
+    printf(
+        "call \"C5\", it will be failed since it is a export function, ===> ");
+    wasm_application_execute_func(module_inst, "C5", 0, args);
 
-    /* call some functions of mB */
-    printf("call \"mB.B\", it will return 0xb:i32, ===>");
-    wasm_application_execute_func(module_inst, "$mB$B", 0, &args[0]);
-    printf("call \"mB.call_A\", it will return 0xa:i32, ===>");
-    wasm_application_execute_func(module_inst, "$mB$call_A", 0, &args[0]);
+    /* call functions of mB */
+    printf("call \"mB.B1\", it will return 0x15:i32, ===> ");
+    wasm_application_execute_func(module_inst, "$mB$B1", 0, args);
+    printf("call \"mB.B2\", it will call A1() of mA and return 0xb:i32, ===> ");
+    wasm_application_execute_func(module_inst, "$mB$B2", 0, args);
+    printf("call \"mB.B3\", it will be failed since it is a export function, "
+           "===> ");
+    wasm_application_execute_func(module_inst, "$mB$B3", 0, args);
 
-    /* call some functions of mA */
-    printf("call \"mA.A\", it will return 0xa:i32, ===>");
-    wasm_application_execute_func(module_inst, "$mA$A", 0, &args[0]);
+    /* call functions of mA */
+    printf("call \"mA.A1\", it will return 0xb:i32, ===>");
+    wasm_application_execute_func(module_inst, "$mA$A1", 0, args);
+    printf("call \"mA.A2\", it will be failed since it is a export function, "
+           "===> ");
+    wasm_application_execute_func(module_inst, "$mA$A2", 0, args);
     printf("----------------------------------------\n\n");
     ret = true;
 

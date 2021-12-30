@@ -403,7 +403,7 @@ struct WASMModule {
 
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
-    bool is_wasi_module;
+    bool import_wasi_api;
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0

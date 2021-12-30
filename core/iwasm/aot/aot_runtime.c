@@ -1059,7 +1059,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (!module->is_wasi_module) {
+    if (!module->import_wasi_api) {
 #endif
         /* Only execute the memory init function for main instance because
             the data segments will be dropped once initialized.

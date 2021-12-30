@@ -47,7 +47,11 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 WASMModule *
 wasm_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
 {
-    return wasm_loader_load(buf, size, error_buf, error_buf_size);
+    return wasm_loader_load(buf, size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+                            true,
+#endif
+                            error_buf, error_buf_size);
 }
 
 WASMModule *
@@ -105,7 +109,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
         for (i = 0; i < count; i++) {
             if (memories[i]) {
 #if WASM_ENABLE_MULTI_MODULE != 0
-                if (memories[i]->owner != module_inst)
+                if (i < module_inst->module->import_memory_count)
                     continue;
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -384,13 +388,6 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 memories_deinstantiate(module_inst, memories, memory_count);
                 return NULL;
             }
-#if WASM_ENABLE_MULTI_MODULE != 0
-            /* The module of the import memory is a builtin module, and
-               the memory is created by current module, set its owner
-               to current module, so the memory can be destroyed in
-               memories_deinstantiate. */
-            memory->owner = module_inst;
-#endif
         }
     }
 
@@ -404,9 +401,6 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             memories_deinstantiate(module_inst, memories, memory_count);
             return NULL;
         }
-#if WASM_ENABLE_MULTI_MODULE != 0
-        memory->owner = module_inst;
-#endif
     }
 
     if (mem_index == 0) {
@@ -1007,15 +1001,17 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         bh_list_first_elem(module->import_module_list);
 
     while (sub_module_list_node) {
-        WASMSubModInstNode *sub_module_inst_list_node;
+        WASMSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModule *sub_module = (WASMModule *)sub_module_list_node->module;
-        WASMModuleInstance *sub_module_inst =
+        WASMModuleInstance *sub_module_inst = NULL;
+
+        sub_module_inst =
             wasm_instantiate(sub_module, false, stack_size, heap_size,
                              error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
-            return false;
+            goto failed;
         }
 
         sub_module_inst_list_node = runtime_malloc(sizeof(WASMSubModInstNode),
@@ -1023,8 +1019,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
                       sizeof(WASMSubModInstNode));
-            wasm_deinstantiate(sub_module_inst, false);
-            return false;
+            goto failed;
         }
 
         sub_module_inst_list_node->module_inst = sub_module_inst;
@@ -1036,6 +1031,39 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         (void)ret;
 
         sub_module_list_node = bh_list_elem_next(sub_module_list_node);
+
+#if WASM_ENABLE_LIBC_WASI != 0
+        {
+            /*
+             * reactor instances may assume that _initialize will be called by
+             * the environment at most once, and that none of their other
+             * exports are accessed before that call.
+             *
+             * let the loader decide how to act if there is no _initialize
+             * in a reactor
+             */
+            WASMFunctionInstance *initialize =
+                wasm_lookup_function(sub_module_inst, "_initialize", NULL);
+            if (initialize
+                && !wasm_create_exec_env_and_call_function(
+                    sub_module_inst, initialize, 0, NULL, false)) {
+                set_error_buf(error_buf, error_buf_size,
+                              "Call _initialize failed ");
+                goto failed;
+            }
+        }
+#endif
+
+        continue;
+    failed:
+        if (sub_module_inst_list_node) {
+            bh_list_remove(sub_module_inst_list, sub_module_inst_list_node);
+            wasm_runtime_free(sub_module_inst_list_node);
+        }
+
+        if (sub_module_inst)
+            wasm_deinstantiate(sub_module_inst, false);
+        return false;
     }
 
     return true;
@@ -1518,7 +1546,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (!module->is_wasi_module) {
+    if (!module->import_wasi_api) {
 #endif
         /* Only execute the memory init function for main instance because
             the data segments will be dropped once initialized.

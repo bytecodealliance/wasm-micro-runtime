@@ -230,8 +230,6 @@ jobs:
           # uncompatiable feature and platform
           - os: macos-latest
             make_options_feature: "-DWAMR_BUILD_DEBUG_AOT=1"
-          - os: macos-latest
-            make_options_feature: "-DWAMR_BUILD_DEBUG_INTERP=1"
           # uncompatiable mode and feature
           # MULTI_MODULE only on INTERP mode
           - make_options_run_mode: $JIT_BUILD_OPTIONS

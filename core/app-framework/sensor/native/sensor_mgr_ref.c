@@ -88,8 +88,8 @@ static void
 thread_sensor_check(void *arg)
 {
     while (sensor_check_thread_run) {
-        int ms_to_expiry = check_sensor_timers();
-        if (ms_to_expiry == -1)
+        uint32 ms_to_expiry = check_sensor_timers();
+        if (ms_to_expiry == UINT32_MAX)
             ms_to_expiry = 5000;
         os_mutex_lock(&mutex);
         os_cond_reltimedwait(&cond, &mutex, ms_to_expiry * 1000);
