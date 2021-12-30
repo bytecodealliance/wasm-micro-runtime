@@ -12,14 +12,26 @@ void
 os_thread_sys_destroy();
 
 int
+init_winsock();
+
+void
+deinit_winsock();
+
+int
 bh_platform_init()
 {
+    if (init_winsock() != 0) {
+        return -1;
+    }
+
     return os_thread_sys_init();
 }
 
 void
 bh_platform_destroy()
 {
+    deinit_winsock();
+
     os_thread_sys_destroy();
 }
 

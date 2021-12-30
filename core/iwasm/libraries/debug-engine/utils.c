@@ -5,7 +5,9 @@
 
 #include "utils.h"
 
-int
+static const char hexchars[] = "0123456789abcdef";
+
+int32
 hex(char ch)
 {
     if ((ch >= 'a') && (ch <= 'f'))
@@ -18,9 +20,9 @@ hex(char ch)
 }
 
 char *
-mem2hex(char *mem, char *buf, int count)
+mem2hex(char *mem, char *buf, int32 count)
 {
-    unsigned char ch;
+    uint8 ch;
 
     for (int i = 0; i < count; i++) {
         ch = *(mem++);
@@ -32,9 +34,9 @@ mem2hex(char *mem, char *buf, int count)
 }
 
 char *
-hex2mem(char *buf, char *mem, int count)
+hex2mem(char *buf, char *mem, int32 count)
 {
-    unsigned char ch;
+    uint8 ch;
 
     for (int i = 0; i < count; i++) {
         ch = hex(*buf++) << 4;
