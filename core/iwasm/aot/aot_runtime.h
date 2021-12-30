@@ -256,7 +256,7 @@ typedef struct AOTModule {
 
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
-    bool is_wasi_module;
+    bool import_wasi_api;
 #endif
 #if WASM_ENABLE_DEBUG_AOT != 0
     void *elf_hdr;
