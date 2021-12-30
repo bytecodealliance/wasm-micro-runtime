@@ -27,6 +27,7 @@ idf_build_process(${IDF_TARGET}
                 # targets and file generation
                 COMPONENTS ${IDF_TARGET} freertos esptool_py
                 SDKCONFIG ${CMAKE_BINARY_DIR}/sdkconfig
+                SDKCONFIG_DEFAULTS ${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults ${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults.${IDF_TARGET}
                 BUILD_DIR ${CMAKE_BINARY_DIR})
 
 # Set WAMR's build options

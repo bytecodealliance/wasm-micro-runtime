@@ -1,0 +1,29 @@
+#!/bin/bash -e
+
+# Copyright (C) 2019-21 Intel Corporation and others.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+ESP32_TARGET="esp32"
+ESP32C3_TARGET="esp32c3"
+
+usage ()
+{
+        echo "USAGE:"
+        echo "$0 $ESP32_TARGET|$ESP32C3_TARGET"
+        echo "Example:"
+        echo "        $0 $ESP32_TARGET"
+        echo "        $0 $ESP32C3_TARGET"
+        exit 1
+}
+
+if [ $# != 1 ] ; then
+        usage
+fi
+
+TARGET=$1
+
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=$IDF_PATH/tools/cmake/toolchain-${TARGET}.cmake -DIDF_TARGET=${TARGET} -DCMAKE_BUILD_TYPE=Release -GNinja
+cmake --build .
+ninja flash
+
