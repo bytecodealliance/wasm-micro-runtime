@@ -104,6 +104,25 @@ typedef int64_t int64;
 
 typedef void *(*thread_start_routine_t)(void *);
 
+#ifndef bh_socket_t
+/* If no socket defined on current platform,
+    give a fake definition to make the compiler happy */
+#define bh_socket_t int
+#endif
+
+/* Format specifiers macros in case
+    they are not provided by compiler */
+#ifndef __PRI64_PREFIX
+#if UINTPTR_MAX == UINT64_MAX
+#define __PRI64_PREFIX "l"
+#define __PRIPTR_PREFIX "l"
+#else
+#define __PRI64_PREFIX "ll"
+#define __PRIPTR_PREFIX
+#endif
+#endif /* #ifndef __PRI64_PREFIX */
+
+/* Macros for printing format specifiers */
 #ifndef PRId32
 #define PRId32 "d"
 #endif
@@ -120,16 +139,6 @@ typedef void *(*thread_start_routine_t)(void *);
 #define PRIX32 "X"
 #endif
 
-#ifndef __PRI64_PREFIX
-#if UINTPTR_MAX == UINT64_MAX
-#define __PRI64_PREFIX "l"
-#define __PRIPTR_PREFIX "l"
-#else
-#define __PRI64_PREFIX "ll"
-#define __PRIPTR_PREFIX
-#endif
-#endif
-
 #ifndef PRId64
 #define PRId64 __PRI64_PREFIX "d"
 #endif
@@ -142,8 +151,38 @@ typedef void *(*thread_start_routine_t)(void *);
 #ifndef PRIX64
 #define PRIX64 __PRI64_PREFIX "X"
 #endif
+#ifndef PRIxPTR
+#define PRIxPTR __PRIPTR_PREFIX "x"
+#endif
 #ifndef PRIXPTR
 #define PRIXPTR __PRIPTR_PREFIX "X"
+#endif
+
+/* Macros for scanning format specifiers */
+#ifndef SCNd32
+#define SCNd32 "d"
+#endif
+#ifndef SCNi32
+#define SCNi32 "i"
+#endif
+#ifndef SCNu32
+#define SCNu32 "u"
+#endif
+#ifndef SCNx32
+#define SCNx32 "x"
+#endif
+
+#ifndef SCNd64
+#define SCNd64 __PRI64_PREFIX "d"
+#endif
+#ifndef SCNu64
+#define SCNu64 __PRI64_PREFIX "u"
+#endif
+#ifndef SCNx64
+#define SCNx64 __PRI64_PREFIX "x"
+#endif
+#ifndef SCNxPTR
+#define SCNxPTR __PRIPTR_PREFIX "x"
 #endif
 
 #ifdef __cplusplus
