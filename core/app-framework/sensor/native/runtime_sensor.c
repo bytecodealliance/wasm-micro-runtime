@@ -9,7 +9,7 @@
 #include "bh_platform.h"
 
 static sys_sensor_t *g_sys_sensors = NULL;
-static int g_sensor_id_max = 0;
+static uint32 g_sensor_id_max = 0;
 
 static sensor_client_t *
 find_sensor_client(sys_sensor_t *sensor, unsigned int client_id,
@@ -85,8 +85,8 @@ wasm_sensor_callback(void *client, uint32 sensor_id, void *user_data)
 }
 
 bool
-wasm_sensor_config(wasm_exec_env_t exec_env, uint32 sensor, int interval,
-                   int bit_cfg, int delay)
+wasm_sensor_config(wasm_exec_env_t exec_env, uint32 sensor, uint32 interval,
+                   int bit_cfg, uint32 delay)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     attr_container_t *attr_cont;
@@ -115,9 +115,9 @@ wasm_sensor_config(wasm_exec_env_t exec_env, uint32 sensor, int interval,
 
     if (s->config != NULL) {
         attr_cont = attr_container_create("config sensor");
-        attr_container_set_int(&attr_cont, "interval", interval);
+        attr_container_set_int(&attr_cont, "interval", (int)interval);
         attr_container_set_int(&attr_cont, "bit_cfg", bit_cfg);
-        attr_container_set_int(&attr_cont, "delay", delay);
+        attr_container_set_int(&attr_cont, "delay", (int)delay);
         s->config(s, attr_cont);
         attr_container_destroy(attr_cont);
     }
@@ -138,7 +138,7 @@ wasm_sensor_open(wasm_exec_env_t exec_env, char *name, int instance)
         sensor_client_t *c;
         sys_sensor_t *s = find_sys_sensor(name, instance);
         if (s == NULL)
-            return -1;
+            return (uint32)-1;
 
         unsigned int mod_id =
             app_manager_get_module_id(Module_WASM_App, module_inst);
@@ -150,14 +150,14 @@ wasm_sensor_open(wasm_exec_env_t exec_env, char *name, int instance)
         if (c) {
             // the app already opened this sensor
             os_mutex_unlock(&s->lock);
-            return -1;
+            return (uint32)-1;
         }
 
         sensor_client_t *client =
             (sensor_client_t *)wasm_runtime_malloc(sizeof(sensor_client_t));
         if (client == NULL) {
             os_mutex_unlock(&s->lock);
-            return -1;
+            return (uint32)-1;
         }
 
         memset(client, 0, sizeof(sensor_client_t));
@@ -176,7 +176,7 @@ wasm_sensor_open(wasm_exec_env_t exec_env, char *name, int instance)
         return s->sensor_id;
     }
 
-    return -1;
+    return (uint32)-1;
 }
 
 bool
@@ -294,7 +294,7 @@ add_sys_sensor(char *name, char *description, int instance,
     }
 
     g_sensor_id_max++;
-    if (g_sensor_id_max == -1)
+    if (g_sensor_id_max == UINT32_MAX)
         g_sensor_id_max++;
     s->sensor_id = g_sensor_id_max;
 
@@ -366,10 +366,10 @@ find_sensor_client(sys_sensor_t *sensor, unsigned int client_id,
 }
 
 // return the milliseconds to next check
-int
+uint32
 check_sensor_timers()
 {
-    int ms_to_next_check = -1;
+    uint32 ms_to_next_check = UINT32_MAX;
     uint32 now = (uint32)bh_get_tick_ms();
 
     sys_sensor_t *s = g_sys_sensors;
@@ -395,12 +395,12 @@ check_sensor_timers()
 
             s->last_read = now;
 
-            if (ms_to_next_check == -1 || (ms_to_next_check < s->read_interval))
+            if (s->read_interval < ms_to_next_check)
                 ms_to_next_check = s->read_interval;
         }
         else {
-            int remaining = s->read_interval - elpased_ms;
-            if (ms_to_next_check == -1 || (ms_to_next_check < remaining))
+            uint32 remaining = s->read_interval - elpased_ms;
+            if (remaining < ms_to_next_check)
                 ms_to_next_check = remaining;
         }
 

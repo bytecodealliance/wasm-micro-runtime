@@ -2294,13 +2294,13 @@ wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode
-        && ((WASMModuleInstance *)module_inst)->module->is_wasi_module)
+        && ((WASMModuleInstance *)module_inst)->module->import_wasi_api)
         return true;
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT
         && ((AOTModule *)((AOTModuleInstance *)module_inst)->aot_module.ptr)
-               ->is_wasi_module)
+               ->import_wasi_api)
         return true;
 #endif
     return false;

@@ -70,7 +70,7 @@ enclave {
                            [out, size=buf_len]char *buf,
                            unsigned int buf_len);
         int ocall_posix_fallocate(int fd, off_t offset, off_t len);
-        int ocall_poll([out, size=fds_len]void *fds, unsigned nfds,
+        int ocall_poll([in, out, size=fds_len]void *fds, unsigned nfds,
                        int timeout, unsigned int fds_len);
 
         int ocall_getopt(int argc,

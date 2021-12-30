@@ -14,8 +14,8 @@ extern "C" {
 #endif
 
 bool
-wasm_sensor_config(wasm_exec_env_t exec_env, uint32 sensor, int interval,
-                   int bit_cfg, int delay);
+wasm_sensor_config(wasm_exec_env_t exec_env, uint32 sensor, uint32 interval,
+                   int bit_cfg, uint32 delay);
 uint32
 wasm_sensor_open(wasm_exec_env_t exec_env, char *name, int instance);
 

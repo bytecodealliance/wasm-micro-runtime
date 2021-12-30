@@ -6,6 +6,8 @@
 X86_TARGET="x86"
 STM32_TARGET="stm32"
 ESP32_TARGET="esp32"
+ESP32C3_TARGET="esp32c3"
+PARTICLE_ARGON_TARGET="particle_argon"
 QEMU_CORTEX_A53="qemu_cortex_a53"
 QEMU_XTENSA_TARGET="qemu_xtensa"
 QEMU_RISCV64_TARGET="qemu_riscv64"
@@ -15,11 +17,13 @@ QEMU_ARC_TARGET="qemu_arc"
 usage ()
 {
         echo "USAGE:"
-        echo "$0 $X86_TARGET|$STM32_TARGET|$ESP32_TARGET|$QEMU_CORTEX_A53|$QEMU_XTENSA_TARGET|$QEMU_RISCV64_TARGET|$QEMU_RISCV32_TARGET|$QEMU_ARC_TARGET"
+        echo "$0 $X86_TARGET|$STM32_TARGET|$ESP32_TARGET|$ESP32C3_TARGET|$PARTICLE_ARGON_TARGET|$QEMU_CORTEX_A53|$QEMU_XTENSA_TARGET|$QEMU_RISCV64_TARGET|$QEMU_RISCV32_TARGET|$QEMU_ARC_TARGET"
         echo "Example:"
         echo "        $0 $X86_TARGET"
         echo "        $0 $STM32_TARGET"
         echo "        $0 $ESP32_TARGET"
+        echo "        $0 $ESP32C3_TARGET"
+        echo "        $0 $PARTICLE_ARGON_TARGET"
         echo "        $0 $QEMU_CORTEX_A53"
         echo "        $0 $QEMU_XTENSA_TARGET"
         echo "        $0 $QEMU_RISCV64_TARGET"
@@ -47,14 +51,35 @@ case $TARGET in
                 west flash
                 ;;
         $ESP32_TARGET)
-                # suppose you have set environment variable ESP_IDF_PATH
+                export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
+                if [[ -z "${ESPRESSIF_TOOLCHAIN_PATH}" ]]; then
+                        echo "Set ESPRESSIF_TOOLCHAIN_PATH to your espressif toolchain"
+                        exit 1
+                fi
                 west build -b esp32 \
                            . -p always -- \
-                           -DESP_IDF_PATH=$ESP_IDF_PATH \
-                           -DWAMR_BUILD_TARGET=XTENSA
-                # suppose the serial port is /dev/ttyUSB1 and you should change to
-                # the real name accordingly
-                west flash --esp-device /dev/ttyUSB1
+                           -DWAMR_BUILD_TARGET=XTENSA                           
+                # west flash will discover the device
+                west flash
+                ;;
+        $ESP32C3_TARGET)
+                export ZEPHYR_TOOLCHAIN_VARIANT="espressif"
+                if [[ -z "${ESPRESSIF_TOOLCHAIN_PATH}" ]]; then
+                        echo "Set ESPRESSIF_TOOLCHAIN_PATH to your espressif toolchain"
+                        exit 1
+                fi
+                west build -b esp32c3_devkitm \
+                           . -p always -- \
+                           -DWAMR_BUILD_TARGET=RISCV32_ILP32
+                # west flash will discover the device
+                west flash
+                ;;
+        $PARTICLE_ARGON_TARGET)
+                west build -b  particle_argon \
+                           . -p always -- \
+                           -DWAMR_BUILD_TARGET=THUMBV7
+                # west flash will discover the device
+                west flash
                 ;;
         $QEMU_XTENSA_TARGET)
                 west build -b qemu_xtensa \
