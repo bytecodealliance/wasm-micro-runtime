@@ -526,8 +526,10 @@ iwasm_main(int argc, char *argv[])
 
     /* sensor framework */
     init_sensor_framework();
-    // add the sys sensor objects
-    add_sys_sensor("sensor_test", "This is a sensor for test", 0, 1000,
+    /* add the sys sensor objects */
+    add_sys_sensor("sensor_test1", "This is a sensor for test", 0, 1000,
+                   read_test_sensor, config_test_sensor);
+    add_sys_sensor("sensor_test2", "This is a sensor for test", 0, 1000,
                    read_test_sensor, config_test_sensor);
     start_sensor_framework();
 

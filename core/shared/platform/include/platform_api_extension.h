@@ -23,6 +23,11 @@ extern "C" {
  *                                                 *
  ***************************************************/
 
+/****************************************************
+ *                     Section 1                    *
+ *                Multi thread support              *
+ ****************************************************/
+
 /**
  * NOTES:
  * 1. If you are building VM core only, it must be implemented to
@@ -173,6 +178,116 @@ os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
  */
 int
 os_cond_signal(korp_cond *cond);
+
+/****************************************************
+ *                     Section 2                    *
+ *                   Socket support                 *
+ ****************************************************/
+
+/**
+ * NOTES:
+ * Socket APIs are required by source debugging feature.
+ * If you don't need source debugging feature, then no
+ * need to implement these APIs
+ */
+
+/**
+ * Create a socket
+ *
+ * @param sock [OUTPUT] the pointer of socket
+ * @param tcp_or_udp 1 for tcp, 0 for udp
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_create(bh_socket_t *sock, int tcp_or_udp);
+
+/**
+ * Assign the address and port to the socket
+ *
+ * @param socket the socket to bind
+ * @param addr the ip address, only IPv4 supported currently
+ * @param port [INPUT/OUTPUT] the port number, if the value is 0,
+ *             it will use a port assigned by OS. On return it will
+ *             contain the actual bound port number
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_bind(bh_socket_t socket, const char *addr, int *port);
+
+/**
+ * Make the socket as a passive socket to accept incoming connection requests
+ *
+ * @param socket the socket to listen
+ * @param max_client maximum clients
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_listen(bh_socket_t socket, int max_client);
+
+/**
+ * Accept an incoming connection
+ *
+ * @param server_sock the socket to accept new connections
+ * @param sock [OUTPUT] the connected socket
+ * @param addr [OUTPUT] the address of the peer socket. If addr is NULL,
+ *             nothing is filled in, and addrlen will not be used
+ * @param addrlen [INPUT/OUTPUT] the size (in bytes) of the structure
+ *                pointed to by addr, on return it will contain the actual
+ *                size of the peer address
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
+                 unsigned int *addrlen);
+
+/**
+ * Blocking receive message from a socket.
+ *
+ * @param socket the socket to receive message from
+ * @param buf the buffer to store the data
+ * @param len length of the buffer, this API does not guarantee that
+ *            [len] bytes are received
+ *
+ * @return number of bytes received if success, -1 otherwise
+ */
+int
+os_socket_recv(bh_socket_t socket, void *buf, unsigned int len);
+
+/**
+ * Blocking send message on a socket
+ *
+ * @param socket the socket to send message
+ * @param buf the buffer of data to be sent
+ * @param len length of the buffer
+ *
+ * @return number of bytes sent if success, -1 otherwise
+ */
+int
+os_socket_send(bh_socket_t socket, const void *buf, unsigned int len);
+
+/**
+ * Close a socket
+ *
+ * @param socket the socket to be closed
+ *
+ * @return always return 0
+ */
+int
+os_socket_close(bh_socket_t socket);
+
+/**
+ * Shutdown a socket
+ *
+ * @param socket the socket to be shutdown
+ *
+ * @return always return 0
+ */
+int
+os_socket_shutdown(bh_socket_t socket);
 
 #ifdef __cplusplus
 }

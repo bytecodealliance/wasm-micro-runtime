@@ -6,8 +6,6 @@
 #ifndef PACKETS_H
 #define PACKETS_H
 
-#include <stdint.h>
-#include <unistd.h>
 #include "gdbserver.h"
 
 bool

@@ -112,6 +112,7 @@ endif
 ifeq (${WAMR_BUILD_AOT}, 1)
 $(NAME)_SOURCES += ${IWASM_ROOT}/aot/aot_loader.c \
                    ${IWASM_ROOT}/aot/arch/${AOT_RELOC} \
-                   ${IWASM_ROOT}/aot/aot_runtime.c
+                   ${IWASM_ROOT}/aot/aot_runtime.c \
+                   ${IWASM_ROOT}/aot/aot_intrinsic.c
 endif
 
