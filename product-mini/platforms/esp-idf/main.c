@@ -95,7 +95,12 @@ app_main(void)
     pthread_t t;
     int res;
 
-    res = pthread_create(&t, NULL, iwasm_main, (void *)NULL);
+    pthread_attr_t tattr;
+    pthread_attr_init(&tattr);
+    pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_setstacksize(&tattr, 4096);
+
+    res = pthread_create(&t, &tattr, iwasm_main, (void *)NULL);
     assert(res == 0);
 
     res = pthread_join(t, NULL);
