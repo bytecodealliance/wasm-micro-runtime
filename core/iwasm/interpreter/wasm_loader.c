@@ -11109,8 +11109,8 @@ re_scan:
 #endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                        emit_uint32(loader_ctx, src_tbl_idx);
                         emit_uint32(loader_ctx, dst_tbl_idx);
+                        emit_uint32(loader_ctx, src_tbl_idx);
 #endif
                         POP_I32();
                         POP_I32();
