@@ -36,6 +36,13 @@ wasm_func_type_is_subtype_of(const WASMFuncType *type1,
                              const WASMFuncType *type2, const WASMType **types,
                              uint32 type_count);
 
+/* Whether func type1's result types are subtype of
+   func type2's result types */
+bool
+wasm_func_type_result_is_subtype_of(const WASMFuncType *type,
+                                    const WASMFuncType *type2,
+                                    const WASMType **types, uint32 type_count);
+
 /* Operations of struct type */
 
 /* Whether two struct types are equal */

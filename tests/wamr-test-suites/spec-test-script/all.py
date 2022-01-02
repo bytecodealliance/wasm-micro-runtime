@@ -19,6 +19,10 @@ import time
 
 """
 The script itself has to be put under the same directory with the "spec".
+To run single spec case:
+  cd workspace
+  python2.7 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm
+            --aot-compiler wamrc --gc --loader-only spec/test/core/xxx.wast
 """
 
 IWASM_CMD = "../../../product-mini/platforms/linux/build/iwasm"
@@ -60,19 +64,12 @@ def ignore_the_case(
     if not multi_module_flag and case_name in ["imports", "linking"]:
         return True
 
-    # python2.7 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm
-    #     --aot-compiler wamrc --gc --loader-only spec/test/core/br_on_null.wast
-    if gc_flag and case_name in ["br_on_cast", "br_on_cast_fail", "br_on_non",
-                                 "br_on_non_null", "br_on_null",
-                                 "br_table", "call_ref",
-                                 #"data", "elem",
-                                 "global",
-                                 "func_bind", "i31", "let",
-                                 "ref_as_non_null", "ref_cast", "ref_eq",
-                                 "ref_is_null", "ref_null", "ref_test",
-                                 "return_call_ref", "table-sub", "type-equivalence",
-                                 "unreached-valid", "unreached-invalid",
-                                ]:
+    if gc_flag and case_name in [
+            #"br_on_cast", "br_on_cast_fail" : patched, to resolve load_init_expr issue
+            #"br_table": fix br_table issues
+            "func_bind", "let",
+            "type-equivalence",
+            ]:
         return True
 
     if "i386" == target and case_name in ["float_exprs"]:

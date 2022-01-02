@@ -57,12 +57,10 @@ extern "C" {
 
 /* Used by AOT */
 #define VALUE_TYPE_I1 0x41
-/* Used by loader to represent any type of i32/i64/f32/f64/v128 */
+/* Used by loader to represent any type of i32/i64/f32/f64/v128,
+ * and ref, including funcref/externref/anyref/eqref/i31ref/dataref,
+ * (ref null $ht), and (ref $ht) */
 #define VALUE_TYPE_ANY 0x42
-/* Used by loader to represent any type of ref, including
-   funcref/externref/anyref/eqref/i31ref/dataref, (ref null $ht),
-   and (ref $ht), note it is different from REF_TYPE_ANYREF */
-#define REF_TYPE_ANYTHING 0x43
 
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 
@@ -817,8 +815,6 @@ wasm_value_type_size(uint8 value_type)
         return sizeof(int64) * 2;
 #endif
 #if WASM_ENABLE_GC != 0
-    else if (value_type == REF_TYPE_ANYTHING)
-        return sizeof(uint32);
     else if (value_type >= (uint8)REF_TYPE_DATAREF
              && value_type <= (uint8)REF_TYPE_FUNCREF)
         return sizeof(uintptr_t);
