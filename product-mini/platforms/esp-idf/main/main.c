@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2019-21 Intel Corporation and others.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 #include <stdio.h>
@@ -8,6 +8,10 @@
 #include "wasm_export.h"
 #include "bh_platform.h"
 #include "test_wasm.h"
+
+#include "esp_log.h"
+
+#define LOG_TAG "wamr"
 
 static void *
 app_instance_main(wasm_module_inst_t module_inst)
@@ -40,50 +44,87 @@ iwasm_main(void *arg)
     init_args.mem_alloc_option.allocator.realloc_func = (void *)os_realloc;
     init_args.mem_alloc_option.allocator.free_func = (void *)os_free;
 
-    printf("wasm_runtime_full_init\n");
+    ESP_LOGI(LOG_TAG, "Initialize WASM runtime");
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
-        printf("Init runtime failed.\n");
+        ESP_LOGE(LOG_TAG, "Init runtime failed.");
         return NULL;
     }
 
-    /* load WASM byte buffer from byte buffer of include file */
-    printf("use an internal test file, that's going to output Hello World\n");
-    wasm_file_buf = (uint8_t *)wasm_test_file;
-    wasm_file_buf_size = sizeof(wasm_test_file);
+#ifdef WAMR_BUILD_INTERP
+    ESP_LOGI(LOG_TAG, "Run wamr with interpreter");
+
+    wasm_file_buf = (uint8_t *)wasm_test_file_interp;
+    wasm_file_buf_size = sizeof(wasm_test_file_interp);
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_buf_size,
                                           error_buf, sizeof(error_buf)))) {
-        printf("Error in wasm_runtime_load: %s\n", error_buf);
+        ESP_LOGE(LOG_TAG, "Error in wasm_runtime_load: %s", error_buf);
         goto fail1;
     }
 
-    printf("about to call wasm_runtime_instantiate\n");
+    ESP_LOGI(LOG_TAG, "Instantiate WASM runtime");
     if (!(wasm_module_inst =
               wasm_runtime_instantiate(wasm_module, 32 * 1024, // stack size
                                        32 * 1024,              // heap size
                                        error_buf, sizeof(error_buf)))) {
-        printf("Error while instantiating: %s\n", error_buf);
-        goto fail2;
+        ESP_LOGE(LOG_TAG, "Error while instantiating: %s", error_buf);
+        goto fail2interp;
     }
 
-    printf("run main() of the application\n");
+    ESP_LOGI(LOG_TAG, "run main() of the application");
     ret = app_instance_main(wasm_module_inst);
     assert(!ret);
 
     /* destroy the module instance */
-    printf("wasm_runtime_deinstantiate\n");
+    ESP_LOGI(LOG_TAG, "Deinstantiate WASM runtime");
     wasm_runtime_deinstantiate(wasm_module_inst);
 
-fail2:
+fail2interp:
     /* unload the module */
-    printf("wasm_runtime_unload\n");
+    ESP_LOGI(LOG_TAG, "Unload WASM module");
     wasm_runtime_unload(wasm_module);
+#endif
+#ifdef WAMR_BUILD_AOT
+    ESP_LOGI(LOG_TAG, "Run wamr with AoT");
+
+    wasm_file_buf = (uint8_t *)wasm_test_file_aot;
+    wasm_file_buf_size = sizeof(wasm_test_file_aot);
+
+    /* load WASM module */
+    if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_buf_size,
+                                          error_buf, sizeof(error_buf)))) {
+        ESP_LOGE(LOG_TAG, "Error in wasm_runtime_load: %s", error_buf);
+        goto fail1;
+    }
+
+    ESP_LOGI(LOG_TAG, "Instantiate WASM runtime");
+    if (!(wasm_module_inst =
+              wasm_runtime_instantiate(wasm_module, 32 * 1024, // stack size
+                                       32 * 1024,              // heap size
+                                       error_buf, sizeof(error_buf)))) {
+        ESP_LOGE(LOG_TAG, "Error while instantiating: %s", error_buf);
+        goto fail2aot;
+    }
+
+    ESP_LOGI(LOG_TAG, "run main() of the application");
+    ret = app_instance_main(wasm_module_inst);
+    assert(!ret);
+
+    /* destroy the module instance */
+    ESP_LOGI(LOG_TAG, "Deinstantiate WASM runtime");
+    wasm_runtime_deinstantiate(wasm_module_inst);
+
+fail2aot:
+    /* unload the module */
+    ESP_LOGI(LOG_TAG, "Unload WASM module");
+    wasm_runtime_unload(wasm_module);
+#endif
 
 fail1:
     /* destroy runtime environment */
-    printf("wasm_runtime_destroy\n");
+    ESP_LOGI(LOG_TAG, "Destroy WASM runtime");
     wasm_runtime_destroy();
 
     return NULL;
@@ -106,5 +147,5 @@ app_main(void)
     res = pthread_join(t, NULL);
     assert(res == 0);
 
-    printf("Exiting... \n");
+    ESP_LOGI(LOG_TAG, "Exiting...");
 }

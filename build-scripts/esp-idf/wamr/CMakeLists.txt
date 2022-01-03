@@ -3,10 +3,13 @@ if("${IDF_TARGET}" STREQUAL "esp32c3")
     set(WAMR_BUILD_TARGET "RISCV32")
 else()
     set(WAMR_BUILD_TARGET "XTENSA")
-    add_compile_options(-DWAMR_BUILD_TARGET_XTENSA=1)
 endif()
 
 set(WAMR_BUILD_PLATFORM "esp-idf")
+
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif ()
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   set (WAMR_BUILD_INTERP 1)
@@ -17,7 +20,7 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_AOT)
-  set (WAMR_BUILD_AOT 0)
+  set (WAMR_BUILD_AOT 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
@@ -29,8 +32,15 @@ if (NOT DEFINED WAMR_BUILD_APP_FRAMEWORK)
 endif ()
 
 if (NOT CMAKE_BUILD_EARLY_EXPANSION)
-    # Set the compile time variable so that the right binary is selected
-    add_compile_options(-DWAMR_BUILD_INTERP=${WAMR_BUILD_INTERP})
+    if (WAMR_BUILD_TARGET STREQUAL "XTENSA")
+      idf_build_set_property(COMPILE_DEFINITIONS "-DWAMR_BUILD_TARGET_XTENSA" APPEND)
+    endif ()
+    if (WAMR_BUILD_INTERP)
+      idf_build_set_property(COMPILE_DEFINITIONS "-DWAMR_BUILD_INTERP" APPEND)
+    endif ()
+    if (WAMR_BUILD_AOT)
+      idf_build_set_property(COMPILE_DEFINITIONS "-DWAMR_BUILD_AOT" APPEND)
+    endif ()
 
     set(WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../..)
     include(${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)

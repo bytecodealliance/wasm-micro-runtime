@@ -23,7 +23,7 @@ You can build an ESP-IDF project with wasm-micro-runtime as a component:
   ```
 - Develop your project in it's `main` component folder.
 
-You can find an example [here](example/).
+You can find an example [here](../../product-mini/platforms/esp-idf).
 
 - Set target platform: `idf.py set-target esp32c3`
 - Build: `idf.py build`
