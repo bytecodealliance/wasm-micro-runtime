@@ -15,6 +15,9 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         // the originally allocated address
         void *buf_origin =
             heap_caps_malloc(size + 4 + sizeof(uintptr_t), MALLOC_CAP_EXEC);
+        if (!buf_origin) {
+            return NULL;
+        }
         void *buf_fixed = buf_origin + sizeof(void *);
         if ((uintptr_t)buf_fixed & (uintptr_t)0x7) {
             buf_fixed = (void *)((uintptr_t)(buf_fixed + 4) & (~(uintptr_t)7));

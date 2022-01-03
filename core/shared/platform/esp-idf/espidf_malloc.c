@@ -14,6 +14,9 @@ os_malloc(unsigned size)
     uintptr_t *addr_field;
 
     buf_origin = malloc(size + 8 + sizeof(uintptr_t));
+    if (!buf_origin) {
+        return NULL;
+    }
     buf_fixed = buf_origin + sizeof(void *);
     if ((uintptr_t)buf_fixed & (uintptr_t)0x7) {
         buf_fixed = (void *)((uintptr_t)(buf_fixed + 8) & (~(uintptr_t)7));
