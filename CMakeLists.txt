@@ -6,7 +6,7 @@ cmake_minimum_required (VERSION 2.8...3.16)
 project (iwasm)
 # set (CMAKE_VERBOSE_MAKEFILE 1)
 
-set (WAMR_BUILD_PLATFORM "linux")
+string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
