@@ -52,7 +52,7 @@ iwasm_main(void *arg)
         return NULL;
     }
 
-#ifdef WAMR_BUILD_INTERP
+#if WASM_ENABLE_INTERP != 0
     ESP_LOGI(LOG_TAG, "Run wamr with interpreter");
 
     wasm_file_buf = (uint8_t *)wasm_test_file_interp;
@@ -62,7 +62,7 @@ iwasm_main(void *arg)
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_buf_size,
                                           error_buf, sizeof(error_buf)))) {
         ESP_LOGE(LOG_TAG, "Error in wasm_runtime_load: %s", error_buf);
-        goto fail1;
+        goto fail1interp;
     }
 
     ESP_LOGI(LOG_TAG, "Instantiate WASM runtime");
@@ -86,8 +86,10 @@ fail2interp:
     /* unload the module */
     ESP_LOGI(LOG_TAG, "Unload WASM module");
     wasm_runtime_unload(wasm_module);
+
+fail1interp:
 #endif
-#ifdef WAMR_BUILD_AOT
+#if WASM_ENABLE_AOT != 0
     ESP_LOGI(LOG_TAG, "Run wamr with AoT");
 
     wasm_file_buf = (uint8_t *)wasm_test_file_aot;
@@ -97,7 +99,7 @@ fail2interp:
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_buf_size,
                                           error_buf, sizeof(error_buf)))) {
         ESP_LOGE(LOG_TAG, "Error in wasm_runtime_load: %s", error_buf);
-        goto fail1;
+        goto fail1aot;
     }
 
     ESP_LOGI(LOG_TAG, "Instantiate WASM runtime");
@@ -121,9 +123,9 @@ fail2aot:
     /* unload the module */
     ESP_LOGI(LOG_TAG, "Unload WASM module");
     wasm_runtime_unload(wasm_module);
+fail1aot:
 #endif
 
-fail1:
     /* destroy runtime environment */
     ESP_LOGI(LOG_TAG, "Destroy WASM runtime");
     wasm_runtime_destroy();
