@@ -2,6 +2,7 @@
  * Copyright (C) 2019-21 Intel Corporation and others.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

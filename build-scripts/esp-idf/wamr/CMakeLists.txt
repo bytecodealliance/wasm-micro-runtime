@@ -1,3 +1,6 @@
+# Copyright (C) 2021 Intel Corporation and others.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 # Set WAMR's build options
 if("${IDF_TARGET}" STREQUAL "esp32c3")
     set(WAMR_BUILD_TARGET "RISCV32")
