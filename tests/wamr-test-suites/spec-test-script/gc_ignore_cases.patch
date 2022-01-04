@@ -84,26 +84,6 @@ index 1864c1f4..11fddb3a 100644
  
    (table 20 dataref)
  
-diff --git a/test/core/br_table.wast b/test/core/br_table.wast
-index 33932f90..5f5a3221 100644
---- a/test/core/br_table.wast
-+++ b/test/core/br_table.wast
-@@ -1251,6 +1251,7 @@
-     )
-   )
- 
-+  (;
-   (func (export "meet-bottom")
-     (block (result f64)
-       (block (result f32)
-@@ -1312,6 +1313,7 @@
-       )
-     )
-   )
-+  ;)
- )
- 
- (assert_return (invoke "type-i32"))
 diff --git a/test/core/data.wast b/test/core/data.wast
 index 4f339bed..0b5b3e6b 100644
 --- a/test/core/data.wast
@@ -896,21 +876,3 @@ index 0b2d26f7..bdab6a01 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
-diff --git a/test/core/unreached-valid.wast b/test/core/unreached-valid.wast
-index 00252171..07d27886 100644
---- a/test/core/unreached-valid.wast
-+++ b/test/core/unreached-valid.wast
-@@ -46,6 +46,7 @@
- 
- ;; Validation after unreachable
- 
-+(;
- (module
-   (func (export "meet-bottom")
-     (block (result f64)
-@@ -59,4 +60,5 @@
-     (drop)
-   )
- )
-+;)
- 

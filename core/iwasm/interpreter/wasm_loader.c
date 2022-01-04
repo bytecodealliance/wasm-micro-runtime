@@ -7453,13 +7453,6 @@ fail:
         GET_LOCAL_REFTYPE();                                           \
     } while (0)
 
-#define CHECK_BR(depth)                                         \
-    do {                                                        \
-        if (!wasm_loader_check_br(loader_ctx, depth, error_buf, \
-                                  error_buf_size))              \
-            goto fail;                                          \
-    } while (0)
-
 static bool
 check_memory(WASMModule *module, char *error_buf, uint32 error_buf_size)
 {
@@ -7643,7 +7636,7 @@ check_memory_align_equal(uint8 opcode, uint32 align, char *error_buf,
 
 static bool
 wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
-                     char *error_buf, uint32 error_buf_size)
+                     bool is_br_table, char *error_buf, uint32 error_buf_size)
 {
     BranchBlock *target_block, *cur_block;
     BlockType *target_block_type;
@@ -7695,7 +7688,7 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     /* If the stack is in polymorphic state, just clear the stack
      * and then re-push the values to make the stack top values
      * match block type. */
-    if (cur_block->is_stack_polymorphic) {
+    if (cur_block->is_stack_polymorphic && !is_br_table) {
 #if WASM_ENABLE_GC != 0
         int32 j = reftype_map_count - 1;
 #endif
@@ -7753,6 +7746,10 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         is_type_multi_byte = wasm_is_type_multi_byte_type(type);
         ref_type = is_type_multi_byte ? reftype_map->ref_type : NULL;
 #endif
+
+        if (available_stack_cell <= 0 && cur_block->is_stack_polymorphic)
+            break;
+
         if (!check_stack_top_values(loader_ctx, frame_ref, available_stack_cell,
 #if WASM_ENABLE_GC != 0
                                     frame_reftype_map, available_reftype_map,
@@ -7784,14 +7781,18 @@ fail:
 
 static BranchBlock *
 check_branch_block(WASMLoaderContext *loader_ctx, uint8 **p_buf, uint8 *buf_end,
-                   char *error_buf, uint32 error_buf_size)
+                   bool is_br_table, char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf, *p_end = buf_end;
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
     read_leb_uint32(p, p_end, depth);
-    CHECK_BR(depth);
+    if (!wasm_loader_check_br(loader_ctx, depth, is_br_table, error_buf,
+                              error_buf_size)) {
+        goto fail;
+    }
+
     frame_csp_tmp = loader_ctx->frame_csp - depth - 1;
 #if WASM_ENABLE_FAST_INTERP != 0
     emit_br_info(frame_csp_tmp);
@@ -8559,8 +8560,9 @@ re_scan:
 
             case WASM_OP_BR:
             {
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, false,
+                                             error_buf, error_buf_size)))
                     goto fail;
 
                 RESET_STACK();
@@ -8572,8 +8574,9 @@ re_scan:
             {
                 POP_I32();
 
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, false,
+                                             error_buf, error_buf_size)))
                     goto fail;
 
                 break;
@@ -8581,12 +8584,9 @@ re_scan:
 
             case WASM_OP_BR_TABLE:
             {
-                uint8 *ret_types = NULL;
-                uint32 ret_count = 0;
-#if WASM_ENABLE_GC != 0
-                WASMRefTypeMap *ret_reftype_maps = NULL;
-                uint32 ret_reftype_map_count;
-#endif
+                uint32 depth, default_arity, arity = 0;
+                BranchBlock *target_block;
+                BlockType *target_block_type;
 
                 read_leb_uint32(p, p_end, count);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -8594,57 +8594,52 @@ re_scan:
 #endif
                 POP_I32();
 
+                /* Get the default depth and check it */
+                p_org = p;
                 for (i = 0; i <= count; i++) {
-                    if (!(frame_csp_tmp =
-                              check_branch_block(loader_ctx, &p, p_end,
-                                                 error_buf, error_buf_size)))
+                    read_leb_uint32(p, p_end, depth);
+                }
+                if (loader_ctx->csp_num < depth + 1) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "unknown label, "
+                                  "unexpected end of section or function");
+                    goto fail;
+                }
+                p = p_org;
+
+                /* Get the default block's arity */
+                target_block = loader_ctx->frame_csp - (depth + 1);
+                target_block_type = &target_block->block_type;
+                default_arity = block_type_get_arity(target_block_type,
+                                                     target_block->label_type);
+
+                for (i = 0; i <= count; i++) {
+                    p_org = p;
+                    read_leb_uint32(p, p_end, depth);
+                    if (loader_ctx->csp_num < depth + 1) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unknown label, "
+                                      "unexpected end of section or function");
                         goto fail;
-
-                    if (i == 0) {
-                        if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP) {
-#if WASM_ENABLE_GC == 0
-                            ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &ret_types);
-#else
-                            ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &ret_types,
-                                &ret_reftype_maps, &ret_reftype_map_count);
-#endif
-                        }
                     }
-                    else {
-                        uint8 *tmp_ret_types = NULL;
-#if WASM_ENABLE_GC != 0
-                        WASMRefTypeMap *tmp_ret_reftype_maps = NULL;
-                        uint32 tmp_ret_reftype_map_count;
-#endif
-                        uint32 tmp_ret_count = 0;
+                    p = p_org;
 
-                        /* Check whether all table items have the same return
-                         * type */
-                        if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP) {
-#if WASM_ENABLE_GC == 0
-                            tmp_ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &tmp_ret_types);
-#else
-                            tmp_ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &tmp_ret_types,
-                                &tmp_ret_reftype_maps,
-                                &tmp_ret_reftype_map_count);
-#endif
-                        }
+                    /* Get the target block's arity and check it */
+                    target_block = loader_ctx->frame_csp - (depth + 1);
+                    target_block_type = &target_block->block_type;
+                    arity = block_type_get_arity(target_block_type,
+                                                 target_block->label_type);
+                    if (arity != default_arity) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "type mismatch: br_table targets must "
+                                      "all use same result type");
+                        goto fail;
+                    }
 
-                        if (ret_count != tmp_ret_count
-                            || (ret_count
-                                && 0
-                                       != memcmp(ret_types, tmp_ret_types,
-                                                 ret_count))) {
-                            set_error_buf(
-                                error_buf, error_buf_size,
-                                "type mismatch: br_table targets must "
-                                "all use same result type");
-                            goto fail;
-                        }
+                    if (!(frame_csp_tmp =
+                              check_branch_block(loader_ctx, &p, p_end, true,
+                                                 error_buf, error_buf_size))) {
+                        goto fail;
                     }
                 }
 
@@ -9396,7 +9391,7 @@ re_scan:
 
                 if (opcode == WASM_OP_BR_ON_NULL) {
                     if (!(frame_csp_tmp =
-                              check_branch_block(loader_ctx, &p, p_end,
+                              check_branch_block(loader_ctx, &p, p_end, false,
                                                  error_buf, error_buf_size))) {
                         goto fail;
                     }
@@ -9433,8 +9428,9 @@ re_scan:
                                 sizeof(WASMRefType));
                 }
                 PUSH_REF(type);
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size))) {
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, false,
+                                             error_buf, error_buf_size))) {
                     goto fail;
                 }
                 POP_REF(type);
@@ -10697,7 +10693,7 @@ re_scan:
                         }
                         PUSH_REF(type1);
                         if (!(frame_csp_tmp = check_branch_block(
-                                  loader_ctx, &p, p_end, error_buf,
+                                  loader_ctx, &p, p_end, false, error_buf,
                                   error_buf_size))) {
                             goto fail;
                         }
@@ -10729,7 +10725,7 @@ re_scan:
 
                         /* Check branch block */
                         if (!(frame_csp_tmp = check_branch_block(
-                                  loader_ctx, &p, p_end, error_buf,
+                                  loader_ctx, &p, p_end, false, error_buf,
                                   error_buf_size))) {
                             goto fail;
                         }
@@ -10814,7 +10810,7 @@ re_scan:
                                        : HEAP_TYPE_I31));
                         PUSH_REF(wasm_ref_type.ref_type);
                         if (!(frame_csp_tmp = check_branch_block(
-                                  loader_ctx, &p, p_end, error_buf,
+                                  loader_ctx, &p, p_end, false, error_buf,
                                   error_buf_size))) {
                             goto fail;
                         }
@@ -10838,7 +10834,7 @@ re_scan:
                         WASMRefType *ref_type;
 
                         if (!(frame_csp_tmp = check_branch_block(
-                                  loader_ctx, &p, p_end, error_buf,
+                                  loader_ctx, &p, p_end, false, error_buf,
                                   error_buf_size))) {
                             goto fail;
                         }

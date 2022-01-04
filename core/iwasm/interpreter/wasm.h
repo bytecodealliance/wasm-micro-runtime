@@ -965,6 +965,25 @@ block_type_get_result_types(BlockType *block_type, uint8 **p_result_types,
     return result_count;
 }
 
+static inline uint32
+block_type_get_arity(const BlockType *block_type, uint8 label_type)
+{
+    if (label_type == LABEL_TYPE_LOOP) {
+        if (block_type->is_value_type)
+            return 0;
+        else
+            return block_type->u.type->param_count;
+    }
+    else {
+        if (block_type->is_value_type) {
+            return block_type->u.value_type.type != VALUE_TYPE_VOID ? 1 : 0;
+        }
+        else
+            return block_type->u.type->result_count;
+    }
+    return 0;
+}
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
