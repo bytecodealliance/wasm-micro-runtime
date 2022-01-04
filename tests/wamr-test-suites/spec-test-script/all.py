@@ -64,12 +64,7 @@ def ignore_the_case(
     if not multi_module_flag and case_name in ["imports", "linking"]:
         return True
 
-    if gc_flag and case_name in [
-            #"br_on_cast", "br_on_cast_fail" : patched, to resolve load_init_expr issue
-            #"br_table": fix br_table issues
-            "func_bind", "let",
-            "type-equivalence",
-            ]:
+    if gc_flag and case_name in ["func_bind", "let", "type-equivalence"]:
         return True
 
     if "i386" == target and case_name in ["float_exprs"]:
