@@ -1,17 +1,24 @@
-Multiple Modules as Dependencies
-=========================
+# Multiple Modules as Dependencies
 
-It is allowed that one WASM module can *import* *functions*, *globals*, *memories* and *tables* from other modules as its dependencies, and also one module can *export* those entities for other modules to *access* and may *write*.
+A WASM module can _import_ _functions_, _globals_, _memories_ and _tables_ from other modules as dependencies. A module can also _export_ those entities for other modules like a library.
 
-WAMR loads all dependencies recursively according to the *import section* of a module.
+WAMR loads all dependencies recursively according to the _import section_ of a module.
 
-> Currently WAMR only implements the load-time dynamic linking. Please refer to [dynamic linking](https://webassembly.org/docs/dynamic-linking/) for more details.
+> WAMR only implements the load-time dynamic linking. Please refer to [dynamic linking](https://webassembly.org/docs/dynamic-linking/) for more details.
+
+WAMR follows [WASI Command/Reactor Model](https://github.com/WebAssembly/WASI/blob/main/design/application-abi.md#current-unstable-abi). The WASI model separates modules into commands and reactors. A Command is the main module that requires exports of reactors(submodules).
+
+if `WASM_ENABLE_LIBC_WASI` is enabled, any module imports a WASI APIs, like `(import "wasi_snapshot_preview1" "XXX")`, should follow restrictions of the _WASI application ABI_:
+
+- a main module(a command) should include `_start()`
+- a submodule(a reactor) should include `_initialize()`
+- both a command and a reactor should include an exported `memory`
 
 ## Multi-Module Related APIs
 
 ### Register a module
 
-``` c
+```c
 bool
 wasm_runtime_register_module(const char *module_name,
                              wasm_module_t module,
@@ -19,23 +26,23 @@ wasm_runtime_register_module(const char *module_name,
                              uint32_t error_buf_size);
 ```
 
-It is used to register a *module* with a *module_name* to WASM runtime, especially for the root module, which is loaded by `wasm_runtime_load()` and doesn't have a chance to tell runtime its *module name*.
+It is used to register a _module_ with a _module_name_ to WASM runtime, especially for the main module, which is loaded by `wasm_runtime_load()` and doesn't have a chance to tell runtime its _module name_.
 
-Fot all the sub modules, WAMR will get their names and load the .wasm files from the filesystem or stream, so no need to register the sub modules again.
+WAMR will get submodules' names(according to the _import section_ of the main module) and load .wasm files from the filesystem or stream and then register them internally.
 
 ### Find a registered module
 
-``` c
+```c
 wasm_module_t
 wasm_runtime_find_module_registered(
     const char *module_name);
 ```
 
-It is used to check if a module with a given *module_name* has been registered, if yes return the module.
+It is used to check whether a module with a given _module_name_ has been registered before or not. Return the module if yes.
 
 ### Module reader and destroyer
 
-``` c
+```c
 typedef bool (*module_reader)(const char *module_name,
                               uint8_t **p_buffer,
                               uint32_t *p_size);
@@ -48,9 +55,9 @@ wasm_runtime_set_module_reader(const module_reader reader,
                                const module_destroyer destroyer);
 ```
 
-WAMR hopes that the native host or embedding environment loads/unloads the module WASM files by themselves and only passes runtime the binary content without worrying filesystem or storage issues. `module_reader` and `module_destroyer` are two callbacks called when dynamic-loading/unloading the sub modules. Developers must implement the two callbacks by themselves.
+WAMR hopes that the native host or embedding environment loads/unloads the module WASM files by themselves and only passes runtime the binary content without worrying about filesystem or storage issues. `module_reader` and `module_destroyer` are two callbacks called when dynamic-loading/unloading submodules. Developers must implement the two callbacks by themselves.
 
-### Call function of sub module
+### Call function of a submodule
 
 ```c
 wasm_function_inst_t
@@ -59,87 +66,75 @@ wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
                              const char *signature);
 ```
 
-Multi-module allows to lookup the function of sub module and call it. There are two ways to indicate the function *name*:
+Multi-module allows one to look up an exported function of a submodule. There are two ways to indicate the function _name_:
 
-- parent function name only by default, used to lookup the function of parent module
-- sub module name, function name of sub module and two $ symbols, e.g. `$sub_module_name$function_name`, used to lookup function of sub module
+- parent function name only by default, used to look up the function of the parent module
+- submodule name, function name and two $ symbols, e.g. `$submodule_name$function_name`, used to lookup function of submodule
+- `signature` can be NULL
 
 ## Example
 
-### WASM modules
-Suppose we have three C files, *mA.c*, *mB.c* and *mC.c*. Each of them has some exported functions and import some from others except mA.
+### Attributes in C/C++
 
-Undefined symbols can be marked in the source code with the *import_name* clang attribute which means that they are expected to be undefined at static link time. Without the *import_module* clang attribute, undefined symbols will be marked from the *env* module.
+Suppose there are three C files, _mA.c_, _mB.c_ and _mC.c_. Each of them exports functions and imports from others except mA.
 
-``` C
+import/export with two kinds of `__attribute__`:
+
+- `__attribute__((import_module("MODULE_NAME"))) __attribute__((import_name("FUNCTION_NAME")))`. to indicate dependencies of the current module.
+
+- `__attribute__((export_name("FUNCTION_NAME")))`. to expose functions.
+
+```C
 // mA.c
-int A() { return 10; }
+__attribute__((export_name("A1"))) int
+A1()
+{
+    return 11;
+}
 ```
 
-``` C
+```C
 // mB.c
-__attribute__((import_module("mA"))) __attribute__((import_name("A"))) extern int A();
-int B() { return 11; }
-int call_A() { return A(); }
+__attribute__((import_module("mA")))
+__attribute__((import_name("A1"))) extern int
+A1();
+
+__attribute__((export_name("B1"))) int
+B1()
+{
+    return 21;
+}
 ```
 
-``` C
-// mC.c
-__attribute__((import_module("mA"))) __attribute__((import_name("A"))) extern int A();
-__attribute__((import_module("mB"))) __attribute__((import_name("B"))) extern int B();
-int C() { return 12; }
-int call_A() { return A(); }
-int call_B() { return B(); }
+### Compile Options
+
+to generate a wasm module as a command
+
+```
+$ /path/to/wasi-sdk/bin/clang -o command.wasm main_module.c
 ```
 
-By default no undefined symbols are allowed in the final binary. The flag *--allow-undefined* results in a WebAssembly import being defined for each undefined symbol. It is then up to the runtime to provide such symbols.
+to generate a wasm module as a reactor
 
-When building an executable, only the entry point (_start) and symbols with the *export_name* attribute  exported by default. in addition, symbols can be exported via the linker command line using *--export*.
-
-In the example, another linked command option *--export-all* is used.
-
-> with more detail, please refer to [WebAssembly lld port](https://lld.llvm.org/WebAssembly.html)
-
-Here is an example how to compile a *.c* to a *.wasm* with clang. Since there is no *start* function, we use *--no-entry* option.
-
-``` shell
-$ clang --target=wasm32 -nostdlib \
-    -Wl,--no-entry,--allow-undefined,--export-all \
-    -o mA.wasm mA.c
-$ clang --target=wasm32 -nostdlib \
-    -Wl,--no-entry,--allow-undefined,--export-all \
-    -o mB.wasm mB.c
-$ clang --target=wasm32 -nostdlib \
-    -Wl,--no-entry,--allow-undefined,--export-all \
-    -o mC.wasm mC.c
+```
+$ /path/to/wasi-sdk/bin/clang -mexec-model=reactor -o reactor.wasm submodule.c
 ```
 
-put *mA.wasm*, *mB.wasm* and *mC.wasm* in the directory *wasm-apps*
-
-``` shell
-$ # copy mA.wasm, mB.wasm and mC.wasm into wasm-apps
-$ tree wasm-apps/
-wasm-apps/
-├── mA.wasm
-├── mB.wasm
-└── mC.wasm
-```
-
-eventually, their *import relationships* will be like:
+In the above case, _mA_ and _mB_ are reactors(submodules), _mC_ is the command(main module). Their _import relationships_ will be like:
 
 ![import relationships](./pics/multi_module_pic1.png)
 
 ### libvmlib
 
-We need to enable *WAMR_BUILD_MULTI_MODULE* option when building WAMR vmlib. Please ref to [Build WAMR core](./build_wamr.md) for a thoughtful guide.
+We need to enable _WAMR_BUILD_MULTI_MODULE_ option when building WAMR vmlib. Please ref to [Build WAMR core](./build_wamr.md) for a thoughtful guide.
 
 ### code
 
-After all above preparation, we can call some functions from native code with APIs
+After all the preparation, we can call some functions from native code with APIs
 
-first, create two callbacks to load WASM module files into memory and unload them later
+First, create two callbacks to load WASM module files into memory and unload them later
 
-``` c
+```c
 static bool
 module_reader_cb(const char *module_name, uint8 **p_buffer, uint32 *p_size)
 {
@@ -155,74 +150,12 @@ module_destroyer_cb(uint8 *buffer, uint32 size)
 }
 ```
 
-second, create a large buffer and tell WAMR malloc any resource only from this buffer later
+Second, create a large buffer and tell WAMR malloc any resource only from this buffer later.
 
-``` c
+More details
+
+```c
 static char sandbox_memory_space[10 * 1024 * 1024] = { 0 };
 ```
 
-third, put all together
-
-``` c
-int main()
-{
-  /* all malloc() only from the given buffer */
-  init_args.mem_alloc_type = Alloc_With_Pool;
-  init_args.mem_alloc_option.pool.heap_buf = sandbox_memory_space;
-  init_args.mem_alloc_option.pool.heap_size = sizeof(sandbox_memory_space);
-
-  /* initialize runtime environment */
-  wasm_runtime_full_init(&init_args);
-
-  /* set module reader and destroyer */
-  wasm_runtime_set_module_reader(module_reader_cb, module_destroyer_cb);
-
-  /* load WASM byte buffer from WASM bin file */
-  module_reader_cb("mC", &file_buf, &file_buf_size));
-
-  /* load mC and let WAMR load mA and mB */
-  module = wasm_runtime_load(file_buf, file_buf_size,
-                             error_buf, sizeof(error_buf));
-
-  /* instantiate the module */
-  module_inst =
-          wasm_runtime_instantiate(module, stack_size,
-          heap_size, error_buf, sizeof(error_buf)));
-
-
-  printf("call \"C\", it will return 0xc:i32, ===> ");
-  wasm_application_execute_func(module_inst, "C", 0, &args[0]);
-  printf("call \"call_B\", it will return 0xb:i32, ===> ");
-  wasm_application_execute_func(module_inst, "call_B", 0, &args[0]);
-  printf("call \"call_A\", it will return 0xa:i32, ===>");
-  wasm_application_execute_func(module_inst, "call_A", 0, &args[0]);
-
-  /* call some functions of mB */
-  printf("call \"mB.B\", it will return 0xb:i32, ===>");
-  wasm_application_execute_func(module_inst, "$mB$B", 0, &args[0]);
-  printf("call \"mB.call_A\", it will return 0xa:i32, ===>");
-  wasm_application_execute_func(module_inst, "$mB$call_A", 0, &args[0]);
-
-  /* call some functions of mA */
-  printf("call \"mA.A\", it will return 0xa:i32, ===>");
-  wasm_application_execute_func(module_inst, "$mA$A", 0, &args[0]);
-
-  // ...
-}
-```
-
-> please refer to [main.c](../samples/multi_modules/src/main.c)
-
-The output of the main.c will like:
-
-``` shell
-$ ./a.out
-
-call "C", it will return 0xc:i32, ===> 0xc:i32
-call "call_B", it will return 0xb:i32, ===> 0xb:i32
-call "call_A", it will return 0xa:i32, ===>0xa:i32
-call "mB.B", it will return 0xb:i32, ===>0xb:i32
-call "mB.call_A", it will return 0xa:i32, ===>0xa:i32
-call "mA.A", it will return 0xa:i32, ===>0xa:i32
-
-```
+Third, put all together. Please refer to [main.c](../samples/multi_modules/src/main.c)
