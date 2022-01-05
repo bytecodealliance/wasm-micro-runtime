@@ -44,7 +44,13 @@ os_time_get_boot_microsecond(void)
 uint8 *
 os_thread_get_stack_boundary(void)
 {
+#if defined(CONFIG_FREERTOS_USE_TRACE_FACILITY)
+    TaskStatus_t pxTaskStatus;
+    vTaskGetInfo(xTaskGetCurrentTaskHandle(), &pxTaskStatus, pdTRUE, eInvalid);
+    return pxTaskStatus.pxStackBase;
+#else // !defined(CONFIG_FREERTOS_USE_TRACE_FACILITY)
     return NULL;
+#endif
 }
 
 int
