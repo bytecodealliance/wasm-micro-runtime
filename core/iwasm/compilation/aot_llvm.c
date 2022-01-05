@@ -1610,7 +1610,61 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 abi = "ilp32d";
         }
 
-        if (arch) {
+#if defined(__APPLE__) || defined(__MACH__)
+        if (!abi) {
+            /* On MacOS platform, set abi to "gnu" to avoid generating
+               object file of Mach-O binary format which is unsupported */
+            abi = "gnu";
+        }
+#endif
+
+        if (abi) {
+            /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
+            const char *vendor_sys;
+            char *arch1 = arch, default_arch[32] = { 0 };
+
+            if (!arch1) {
+                char *default_triple = LLVMGetDefaultTargetTriple();
+
+                if (!default_triple) {
+                    aot_set_last_error("llvm get default target triple failed.");
+                    goto fail;
+                }
+
+                vendor_sys = strstr(default_triple, "-");
+                bh_assert(vendor_sys);
+                memcpy(default_arch, default_triple, vendor_sys - default_triple);
+                arch1 = default_arch;
+
+                LLVMDisposeMessage(default_triple);
+            }
+
+            /**
+             * Set <vendor>-<sys> according to abi to generate the object file
+             * with the correct file format which might be different from the
+             * default object file format of the host, e.g., generating AOT file
+             * for Windows/MacOS under Linux host, or generating AOT file for
+             * Linux/MacOS under Windows host.
+             */
+            if (!strcmp(abi, "msvc")) {
+                if (!strcmp(arch1, "i386"))
+                    vendor_sys = "-pc-win32-";
+                else
+                    vendor_sys = "-pc-windows-";
+            }
+            else {
+                vendor_sys = "-pc-linux-";
+            }
+
+            bh_assert(strlen(arch1) + strlen(vendor_sys) + strlen(abi)
+                      < sizeof(triple_buf));
+            memcpy(triple_buf, arch1, strlen(arch1));
+            memcpy(triple_buf + strlen(arch1), vendor_sys, strlen(vendor_sys));
+            memcpy(triple_buf + strlen(arch1) + strlen(vendor_sys), abi,
+                    strlen(abi));
+            triple = triple_buf;
+        }
+        else if (arch) {
             /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
             const char *vendor_sys;
             char *default_triple = LLVMGetDefaultTargetTriple();
