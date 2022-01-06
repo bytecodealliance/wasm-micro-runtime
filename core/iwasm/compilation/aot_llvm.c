@@ -1635,13 +1635,15 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 char *default_triple = LLVMGetDefaultTargetTriple();
 
                 if (!default_triple) {
-                    aot_set_last_error("llvm get default target triple failed.");
+                    aot_set_last_error(
+                        "llvm get default target triple failed.");
                     goto fail;
                 }
 
                 vendor_sys = strstr(default_triple, "-");
                 bh_assert(vendor_sys);
-                memcpy(default_arch, default_triple, vendor_sys - default_triple);
+                memcpy(default_arch, default_triple,
+                       vendor_sys - default_triple);
                 arch1 = default_arch;
 
                 LLVMDisposeMessage(default_triple);
@@ -1669,7 +1671,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             memcpy(triple_buf, arch1, strlen(arch1));
             memcpy(triple_buf + strlen(arch1), vendor_sys, strlen(vendor_sys));
             memcpy(triple_buf + strlen(arch1) + strlen(vendor_sys), abi,
-                    strlen(abi));
+                   strlen(abi));
             triple = triple_buf;
         }
         else if (arch) {

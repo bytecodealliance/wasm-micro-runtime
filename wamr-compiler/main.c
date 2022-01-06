@@ -217,8 +217,8 @@ main(int argc, char *argv[])
          */
         if (option.target_abi && !strcmp(option.target_abi, "msvc"))
             option.size_level = 1;
-#if defined(_WIN32) || defined(_WIN32_) \
-    || defined(__APPLE__) || defined(__MACH__)
+#if defined(_WIN32) || defined(_WIN32_) || defined(__APPLE__) \
+    || defined(__MACH__)
         if (!option.target_abi)
             option.size_level = 1;
 #endif
