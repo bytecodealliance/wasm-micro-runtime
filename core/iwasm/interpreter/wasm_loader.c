@@ -1567,7 +1567,8 @@ wasm_loader_resolve_function(const char *module_name, const char *function_name,
 
     /* check function type */
     if (!wasm_type_equal((WASMType *)expected_function_type,
-                         (WASMType *)target_function_type)) {
+                         (WASMType *)target_function_type,
+                         module->types, module->type_count)) {
         LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return NULL;
