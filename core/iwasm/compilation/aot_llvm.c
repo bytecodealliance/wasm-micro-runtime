@@ -1615,6 +1615,14 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             /* On MacOS platform, set abi to "gnu" to avoid generating
                object file of Mach-O binary format which is unsupported */
             abi = "gnu";
+            if (!arch && !cpu && !features) {
+                /* Get CPU name of the host machine to avoid checking
+                   SIMD capability failed */
+                if (!(cpu = cpu_new = LLVMGetHostCPUName())) {
+                    aot_set_last_error("llvm get host cpu name failed.");
+                    goto fail;
+                }
+            }
         }
 #endif
 
