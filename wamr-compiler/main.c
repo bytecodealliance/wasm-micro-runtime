@@ -215,12 +215,16 @@ main(int argc, char *argv[])
          * be able to meet the requirements of some AOT relocation
          * operations.
          */
-        if (option.target_abi && !strcmp(option.target_abi, "msvc"))
+        if (option.target_abi && !strcmp(option.target_abi, "msvc")) {
+            LOG_VERBOSE("Set size level to 1 for Windows AOT file");
             option.size_level = 1;
+        }
 #if defined(_WIN32) || defined(_WIN32_) || defined(__APPLE__) \
     || defined(__MACH__)
-        if (!option.target_abi)
+        if (!option.target_abi) {
+            LOG_VERBOSE("Set size level to 1 for Windows or MacOS AOT file");
             option.size_level = 1;
+        }
 #endif
     }
 
