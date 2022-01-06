@@ -189,8 +189,23 @@ wasm_dump_array_type(const WASMArrayType *type)
     os_printf("\n");
 }
 
-bool
-wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2)
+typedef struct TypeIdxNode {
+    uint32 type_idx1;
+    uint32 type_idx2;
+    struct TypeIdxNode *next;
+} TypeIdxNode, *TypeIdxList;
+
+static bool
+wasm_reftype_equal_recursive(uint8 type1, const WASMRefType *reftype1,
+                             uint8 type2, const WASMRefType *reftype2,
+                             const WASMTypePtr *types, uint32 type_count,
+                             TypeIdxList type_idx_list);
+
+static bool
+wasm_func_type_equal_recursive(const WASMFuncType *type1,
+                               const WASMFuncType *type2,
+                               const WASMTypePtr *types, uint32 type_count,
+                               TypeIdxList type_idx_list)
 {
     uint32 i, j = 0;
 
@@ -214,8 +229,9 @@ wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2)
 
             ref_type1 = type1->ref_type_maps[j].ref_type;
             ref_type2 = type2->ref_type_maps[j].ref_type;
-            if (!wasm_reftype_equal(ref_type1->ref_type, ref_type1,
-                                    ref_type2->ref_type, ref_type2))
+            if (!wasm_reftype_equal_recursive(ref_type1->ref_type, ref_type1,
+                                              ref_type2->ref_type, ref_type2,
+                                              types, type_count, type_idx_list))
                 return false;
 
             j++;
@@ -226,7 +242,18 @@ wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2)
 }
 
 bool
-wasm_struct_type_equal(const WASMStructType *type1, const WASMStructType *type2)
+wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2,
+                     const WASMTypePtr *types, uint32 type_count)
+{
+    return wasm_func_type_equal_recursive(type1, type2, types, type_count,
+                                          NULL);
+}
+
+static bool
+wasm_struct_type_equal_recursive(const WASMStructType *type1,
+                                 const WASMStructType *type2,
+                                 const WASMTypePtr *types, uint32 type_count,
+                                 TypeIdxList type_idx_list)
 {
     uint32 i, j = 0;
 
@@ -251,8 +278,9 @@ wasm_struct_type_equal(const WASMStructType *type1, const WASMStructType *type2)
 
             ref_type1 = type1->ref_type_maps[j].ref_type;
             ref_type2 = type2->ref_type_maps[j].ref_type;
-            if (!wasm_reftype_equal(ref_type1->ref_type, ref_type1,
-                                    ref_type2->ref_type, ref_type2))
+            if (!wasm_reftype_equal_recursive(ref_type1->ref_type, ref_type1,
+                                              ref_type2->ref_type, ref_type2,
+                                              types, type_count, type_idx_list))
                 return false;
 
             j++;
@@ -263,7 +291,18 @@ wasm_struct_type_equal(const WASMStructType *type1, const WASMStructType *type2)
 }
 
 bool
-wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2)
+wasm_struct_type_equal(const WASMStructType *type1, const WASMStructType *type2,
+                       const WASMTypePtr *types, uint32 type_count)
+{
+    return wasm_struct_type_equal_recursive(type1, type2, types, type_count,
+                                            NULL);
+}
+
+static bool
+wasm_array_type_equal_recursive(const WASMArrayType *type1,
+                                const WASMArrayType *type2,
+                                const WASMTypePtr *types, uint32 type_count,
+                                TypeIdxList type_idx_list)
 {
     if (type1 == type2)
         return true;
@@ -271,15 +310,23 @@ wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2)
     if (type1->elem_flags != type2->elem_flags)
         return false;
 
-    if (!wasm_reftype_equal(type1->elem_type, type1->elem_ref_type,
-                            type2->elem_type, type2->elem_ref_type))
-        return false;
-
-    return true;
+    return wasm_reftype_equal_recursive(type1->elem_type, type1->elem_ref_type,
+                                        type2->elem_type, type2->elem_ref_type,
+                                        types, type_count, type_idx_list);
 }
 
 bool
-wasm_type_equal(const WASMType *type1, const WASMType *type2)
+wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2,
+                      const WASMTypePtr *types, uint32 type_count)
+{
+    return wasm_array_type_equal_recursive(type1, type2, types, type_count,
+                                           NULL);
+}
+
+static bool
+wasm_type_equal_recursive(const WASMType *type1, const WASMType *type2,
+                          const WASMTypePtr *types, uint32 type_count,
+                          TypeIdxList type_idx_list)
 {
     if (type1 == type2)
         return true;
@@ -288,23 +335,33 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
         return false;
 
     if (wasm_type_is_func_type(type1))
-        return wasm_func_type_equal((WASMFuncType *)type1,
-                                    (WASMFuncType *)type2);
+        return wasm_func_type_equal_recursive((WASMFuncType *)type1,
+                                              (WASMFuncType *)type2, types,
+                                              type_count, type_idx_list);
     else if (wasm_type_is_struct_type(type1))
-        return wasm_struct_type_equal((WASMStructType *)type1,
-                                      (WASMStructType *)type2);
+        return wasm_struct_type_equal_recursive((WASMStructType *)type1,
+                                                (WASMStructType *)type2, types,
+                                                type_count, type_idx_list);
     else if (wasm_type_is_array_type(type1))
-        return wasm_array_type_equal((WASMArrayType *)type1,
-                                     (WASMArrayType *)type2);
+        return wasm_array_type_equal_recursive((WASMArrayType *)type1,
+                                               (WASMArrayType *)type2, types,
+                                               type_count, type_idx_list);
 
     bh_assert(0);
     return false;
 }
 
 bool
+wasm_type_equal(const WASMType *type1, const WASMType *type2,
+                const WASMTypePtr *types, uint32 type_count)
+{
+    return wasm_type_equal_recursive(type1, type2, types, type_count, NULL);
+}
+
+bool
 wasm_func_type_is_subtype_of(const WASMFuncType *type1,
-                             const WASMFuncType *type2, const WASMType **types,
-                             uint32 type_count)
+                             const WASMFuncType *type2,
+                             const WASMTypePtr *types, uint32 type_count)
 {
     /**
      * The GC proposal overview defines:
@@ -317,13 +374,13 @@ wasm_func_type_is_subtype_of(const WASMFuncType *type1,
      * But from our testing, the spec's interpreter doesn't support it yet,
      * we just check whether the two function types are the same or not.
      */
-    return wasm_func_type_equal(type1, type2);
+    return wasm_func_type_equal(type1, type2, types, type_count);
 }
 
 bool
 wasm_func_type_result_is_subtype_of(const WASMFuncType *type1,
                                     const WASMFuncType *type2,
-                                    const WASMType **types, uint32 type_count)
+                                    const WASMTypePtr *types, uint32 type_count)
 {
     const WASMRefType *ref_type1 = NULL, *ref_type2 = NULL;
     const WASMRefTypeMap *ref_type_map1, *ref_type_map2;
@@ -367,7 +424,7 @@ wasm_func_type_result_is_subtype_of(const WASMFuncType *type1,
 bool
 wasm_struct_type_is_subtype_of(const WASMStructType *type1,
                                const WASMStructType *type2,
-                               const WASMType **types, uint32 type_count)
+                               const WASMTypePtr *types, uint32 type_count)
 {
     const WASMRefType *ref_type1 = NULL, *ref_type2 = NULL;
     uint32 i, j1 = 0, j2 = 0;
@@ -398,7 +455,8 @@ wasm_struct_type_is_subtype_of(const WASMStructType *type1,
                 ref_type1 = type1->ref_type_maps[j1++].ref_type;
                 ref_type2 = type2->ref_type_maps[j2++].ref_type;
                 if (!wasm_reftype_equal(ref_type1->ref_type, ref_type1,
-                                        ref_type2->ref_type, ref_type2))
+                                        ref_type2->ref_type, ref_type2, types,
+                                        type_count))
                     return false;
             }
         }
@@ -421,7 +479,8 @@ wasm_struct_type_is_subtype_of(const WASMStructType *type1,
                     ref_type1 = type1->ref_type_maps[j1++].ref_type;
                     ref_type2 = type2->ref_type_maps[j2++].ref_type;
                     if (!wasm_reftype_equal(ref_type1->ref_type, ref_type1,
-                                            ref_type2->ref_type, ref_type2))
+                                            ref_type2->ref_type, ref_type2,
+                                            types, type_count))
                         return false;
                 }
             }
@@ -452,7 +511,7 @@ wasm_struct_type_is_subtype_of(const WASMStructType *type1,
 bool
 wasm_array_type_is_subtype_of(const WASMArrayType *type1,
                               const WASMArrayType *type2,
-                              const WASMType **types, uint32 type_count)
+                              const WASMTypePtr *types, uint32 type_count)
 {
     /**
      * An array type is a supertype of another array type if:
@@ -468,7 +527,8 @@ wasm_array_type_is_subtype_of(const WASMArrayType *type1,
         /* The elem is mutable in both types: the storage types
            must be the same */
         return wasm_reftype_equal(type1->elem_type, type1->elem_ref_type,
-                                  type2->elem_type, type2->elem_ref_type);
+                                  type2->elem_type, type2->elem_ref_type, types,
+                                  type_count);
     }
     else {
         /* The elem is immutable in both types: their storage types
@@ -482,7 +542,7 @@ wasm_array_type_is_subtype_of(const WASMArrayType *type1,
 
 bool
 wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
-                        const WASMType **types, uint32 type_count)
+                        const WASMTypePtr *types, uint32 type_count)
 {
     if (type1 == type2)
         return true;
@@ -555,9 +615,50 @@ wasm_reftype_struct_size(const WASMRefType *ref_type)
     return 0;
 }
 
-bool
-wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
-                       const RefHeapType_Common *ref_heap_type2)
+/* Recursively check whether two type indexes are equivalent, or,
+   types[type_idx1] is equivalent to types[type_idx2] */
+static bool
+type_idx_equal_recursive(uint32 type_idx1, uint32 type_idx2,
+                         const WASMTypePtr *types, uint32 type_count,
+                         TypeIdxList type_idx_list)
+{
+    TypeIdxNode type_idx_head = { 0 }, *node, *node_end;
+
+    if (type_idx1 == type_idx2)
+        return true;
+
+    if (type_idx1 >= type_count || type_idx2 >= type_count)
+        return false;
+
+    node = node_end = type_idx_list;
+    while (node) {
+        /* If the two type indexes are already in the type idx list,
+           meaning that they must be equal, or endless recursive loop
+           will occur. */
+        if ((node->type_idx1 == type_idx1 && node->type_idx2 == type_idx2)
+            || (node->type_idx1 == type_idx2 && node->type_idx2 == type_idx1))
+            return true;
+        node_end = node;
+        node = node->next;
+    }
+
+    /* Add node to type idx list */
+    type_idx_head.type_idx1 = type_idx1;
+    type_idx_head.type_idx2 = type_idx2;
+    if (!type_idx_list)
+        type_idx_list = &type_idx_head;
+    else
+        node_end->next = &type_idx_head;
+
+    return wasm_type_equal_recursive(types[type_idx1], types[type_idx2], types,
+                                     type_count, type_idx_list);
+}
+
+static bool
+wasm_refheaptype_equal_recursive(const RefHeapType_Common *ref_heap_type1,
+                                 const RefHeapType_Common *ref_heap_type2,
+                                 const WASMTypePtr *types, uint32 type_count,
+                                 TypeIdxList type_idx_list)
 {
     RefHeapType_RttN *ht_rttn1, *ht_rttn2;
     RefHeapType_Rtt *ht_rtt1, *ht_rtt2;
@@ -568,12 +669,20 @@ wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
     if (ref_heap_type1->ref_type != ref_heap_type2->ref_type)
         return false;
 
-    if (ref_heap_type1->heap_type != ref_heap_type2->heap_type)
+    if (ref_heap_type1->heap_type != ref_heap_type2->heap_type) {
+        if (wasm_is_refheaptype_typeidx(ref_heap_type1)
+            && wasm_is_refheaptype_typeidx(ref_heap_type2)) {
+            return type_idx_equal_recursive(ref_heap_type1->heap_type,
+                                            ref_heap_type2->heap_type, types,
+                                            type_count, type_idx_list);
+        }
         return false;
+    }
 
     if (wasm_is_refheaptype_common(ref_heap_type1)
         || wasm_is_refheaptype_typeidx(ref_heap_type1))
-        /* No need to extra info for common types and (type i) */
+        /* No need to check extra info for common types and (type i)
+           as their heap_types are the same */
         return true;
 
     if (wasm_is_refheaptype_rttn(ref_heap_type1)) {
@@ -581,7 +690,9 @@ wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
         ht_rttn2 = (RefHeapType_RttN *)ref_heap_type2;
         /* Check n and i of (rtt n i) */
         return (ht_rttn1->n == ht_rttn2->n
-                && ht_rttn1->type_idx == ht_rttn2->type_idx)
+                && type_idx_equal_recursive(ht_rttn1->type_idx,
+                                            ht_rttn2->type_idx, types,
+                                            type_count, type_idx_list))
                    ? true
                    : false;
     }
@@ -590,7 +701,8 @@ wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
         ht_rtt1 = (RefHeapType_Rtt *)ref_heap_type1;
         ht_rtt2 = (RefHeapType_Rtt *)ref_heap_type2;
         /* Check i of (rtt i) */
-        return (ht_rtt1->type_idx == ht_rtt2->type_idx) ? true : false;
+        return type_idx_equal_recursive(ht_rtt1->type_idx, ht_rtt2->type_idx,
+                                        types, type_count, type_idx_list);
     }
 
     bh_assert(0);
@@ -598,25 +710,62 @@ wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
 }
 
 bool
-wasm_refrttntype_equal(const RefRttNType *ref_rttn_type1,
-                       const RefRttNType *ref_rttn_type2)
+wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
+                       const RefHeapType_Common *ref_heap_type2,
+                       const WASMTypePtr *types, uint32 type_count)
+{
+    return wasm_refheaptype_equal_recursive(ref_heap_type1, ref_heap_type2,
+                                            types, type_count, NULL);
+}
+
+static bool
+wasm_refrttntype_equal_recursive(const RefRttNType *ref_rttn_type1,
+                                 const RefRttNType *ref_rttn_type2,
+                                 const WASMTypePtr *types, uint32 type_count,
+                                 TypeIdxList type_idx_list)
 {
     return (ref_rttn_type1->n == ref_rttn_type2->n
-            && ref_rttn_type1->type_idx == ref_rttn_type2->type_idx)
+            && type_idx_equal_recursive(ref_rttn_type1->type_idx,
+                                        ref_rttn_type2->type_idx, types,
+                                        type_count, type_idx_list))
                ? true
                : false;
 }
 
 bool
-wasm_refrtttype_equal(const RefRttType *ref_rtt_type1,
-                      const RefRttType *ref_rtt_type2)
+wasm_refrttntype_equal(const RefRttNType *ref_rttn_type1,
+                       const RefRttNType *ref_rttn_type2,
+                       const WASMTypePtr *types, uint32 type_count)
 {
-    return (ref_rtt_type1->type_idx == ref_rtt_type2->type_idx) ? true : false;
+    return wasm_refrttntype_equal_recursive(ref_rttn_type1, ref_rttn_type2,
+                                            types, type_count, NULL);
+}
+
+static bool
+wasm_refrtttype_equal_recursive(const RefRttType *ref_rtt_type1,
+                                const RefRttType *ref_rtt_type2,
+                                const WASMTypePtr *types, uint32 type_count,
+                                TypeIdxList type_idx_list)
+{
+    return type_idx_equal_recursive(ref_rtt_type1->type_idx,
+                                    ref_rtt_type2->type_idx, types, type_count,
+                                    type_idx_list);
 }
 
 bool
-wasm_reftype_equal(uint8 type1, const WASMRefType *reftype1, uint8 type2,
-                   const WASMRefType *reftype2)
+wasm_refrtttype_equal(const RefRttType *ref_rtt_type1,
+                      const RefRttType *ref_rtt_type2, const WASMTypePtr *types,
+                      uint32 type_count)
+{
+    return wasm_refrtttype_equal_recursive(ref_rtt_type1, ref_rtt_type2, types,
+                                           type_count, NULL);
+}
+
+static bool
+wasm_reftype_equal_recursive(uint8 type1, const WASMRefType *reftype1,
+                             uint8 type2, const WASMRefType *reftype2,
+                             const WASMTypePtr *types, uint32 type_count,
+                             TypeIdxList type_idx_list)
 {
     /* For (ref null func/extern/any/eq/i31/data), they are same as
        funcref/externref/anyref/eqref/i31ref/dataref and have been
@@ -634,8 +783,9 @@ wasm_reftype_equal(uint8 type1, const WASMRefType *reftype1, uint8 type2,
     if (type1 == (uint8)REF_TYPE_HT_NULLABLE
         || type1 == (uint8)REF_TYPE_HT_NON_NULLABLE) {
         /* (ref null ht) or (ref ht) */
-        return wasm_refheaptype_equal((RefHeapType_Common *)reftype1,
-                                      (RefHeapType_Common *)reftype2);
+        return wasm_refheaptype_equal_recursive(
+            (RefHeapType_Common *)reftype1, (RefHeapType_Common *)reftype2,
+            types, type_count, type_idx_list);
     }
     /* (rtt n i) and (rtt i) have been converted into
        (ref (rtt n i)) and (ref (rtt i)) in wasm/aot loader,
@@ -643,18 +793,29 @@ wasm_reftype_equal(uint8 type1, const WASMRefType *reftype1, uint8 type2,
 #if 0
     else if (type1 == (uint8)REF_TYPE_RTTN) {
         /* (rtt n i) */
-        return wasm_refrttntype_equal((RefRttNType *)reftype1,
-                                      (RefRttNType *)reftype2);
+        return wasm_refrttntype_equal_recursive((RefRttNType *)reftype1,
+                                                (RefRttNType *)reftype2, types,
+                                                type_count, type_idx_list);
     }
     else if (type1 == (uint8)REF_TYPE_RTT) {
         /* (rtt i) */
-        return wasm_refrtttype_equal((RefRttType *)reftype1,
-                                     (RefRttType *)reftype2);
+        return wasm_refrtttype_equal_recursive((RefRttType *)reftype1,
+                                               (RefRttType *)reftype2, types,
+                                               type_count, type_idx_list);
     }
 #endif
 
     bh_assert(0);
     return false;
+}
+
+bool
+wasm_reftype_equal(uint8 type1, const WASMRefType *reftype1, uint8 type2,
+                   const WASMRefType *reftype2, const WASMTypePtr *types,
+                   uint32 type_count)
+{
+    return wasm_reftype_equal_recursive(type1, reftype1, type2, reftype2, types,
+                                        type_count, NULL);
 }
 
 inline static bool
@@ -692,27 +853,32 @@ wasm_is_reftype_supers_of_data(uint8 type)
                : false;
 }
 
-inline static bool
-wasm_is_reftype_supers_of_rtt_nullable(uint8 type_super,
-                                       const WASMRefType *ref_type_super,
-                                       uint32 type_idx_of_sub)
+static bool
+wasm_is_reftype_supers_of_rtt_nullable(
+    uint8 type_super, const WASMRefType *ref_type_super, uint32 type_idx_of_sub,
+    const WASMTypePtr *types, uint32 type_count, TypeIdxList type_idx_list)
 {
     /* (ref null (rtt i)) <: [ (ref null (rtt i), eqref, anyref ] */
 
     /* super type is (ref null (rtt i)) */
     if (type_super == REF_TYPE_HT_NULLABLE
         && wasm_is_refheaptype_rtt(&ref_type_super->ref_ht_common)
-        && ref_type_super->ref_ht_rtt.type_idx == type_idx_of_sub)
+        && type_idx_equal_recursive(ref_type_super->ref_ht_rtt.type_idx,
+                                    type_idx_of_sub, types, type_count,
+                                    type_idx_list))
         return true;
 
     /* super type is eqref or anyref */
     return wasm_is_reftype_supers_of_eq(type_super);
 }
 
-inline static bool
+static bool
 wasm_is_reftype_supers_of_rttn_nullable(uint8 type_super,
                                         const WASMRefType *ref_type_super,
-                                        uint32 n_of_sub, uint32 type_idx_of_sub)
+                                        uint32 n_of_sub, uint32 type_idx_of_sub,
+                                        const WASMTypePtr *types,
+                                        uint32 type_count,
+                                        TypeIdxList type_idx_list)
 {
     /* (ref null (rtt n i)) <: [ (ref null (rtt n i), (ref null (rtt i),
                                  eqref, anyref ] */
@@ -721,37 +887,43 @@ wasm_is_reftype_supers_of_rttn_nullable(uint8 type_super,
     if (type_super == REF_TYPE_HT_NULLABLE
         && wasm_is_refheaptype_rttn(&ref_type_super->ref_ht_common)
         && ref_type_super->ref_ht_rttn.n <= n_of_sub
-        && ref_type_super->ref_ht_rttn.type_idx == type_idx_of_sub)
+        && type_idx_equal_recursive(ref_type_super->ref_ht_rttn.type_idx,
+                                    type_idx_of_sub, types, type_count,
+                                    type_idx_list))
         return true;
 
     /* super type is (ref null (rtt i), eqref or anyref */
     return wasm_is_reftype_supers_of_rtt_nullable(type_super, ref_type_super,
-                                                  type_idx_of_sub);
+                                                  type_idx_of_sub, types,
+                                                  type_count, type_idx_list);
 }
 
-inline static bool
-wasm_is_reftype_supers_of_rtt_non_nullable(uint8 type_super,
-                                           const WASMRefType *ref_type_super,
-                                           uint32 type_idx_of_sub)
+static bool
+wasm_is_reftype_supers_of_rtt_non_nullable(
+    uint8 type_super, const WASMRefType *ref_type_super, uint32 type_idx_of_sub,
+    const WASMTypePtr *types, uint32 type_count, TypeIdxList type_idx_list)
 {
     /* (ref (rtt i)) <: [ (ref (rtt i), (ref null (rtt i), eqref, anyref ] */
 
     /* super type is (ref (rtt i) */
     if (type_super == REF_TYPE_HT_NON_NULLABLE
         && wasm_is_refheaptype_rtt(&ref_type_super->ref_ht_common)
-        && ref_type_super->ref_ht_rtt.type_idx == type_idx_of_sub)
+        && type_idx_equal_recursive(ref_type_super->ref_ht_rtt.type_idx,
+                                    type_idx_of_sub, types, type_count,
+                                    type_idx_list))
         return true;
 
     /* super type is (ref null (rtt i)), eqref or anyref */
     return wasm_is_reftype_supers_of_rtt_nullable(type_super, ref_type_super,
-                                                  type_idx_of_sub);
+                                                  type_idx_of_sub, types,
+                                                  type_count, type_idx_list);
 }
 
-inline static bool
-wasm_is_reftype_supers_of_rttn_non_nullable(uint8 type_super,
-                                            const WASMRefType *ref_type_super,
-                                            uint32 n_of_sub,
-                                            uint32 type_idx_of_sub)
+static bool
+wasm_is_reftype_supers_of_rttn_non_nullable(
+    uint8 type_super, const WASMRefType *ref_type_super, uint32 n_of_sub,
+    uint32 type_idx_of_sub, const WASMTypePtr *types, uint32 type_count,
+    TypeIdxList type_idx_list)
 {
     /* (ref (rtt n i)) <: [ (ref (rtt n i), (ref (rtt i)),
      *                      (ref null (rtt n i)), (ref null (rtt i),
@@ -761,23 +933,28 @@ wasm_is_reftype_supers_of_rttn_non_nullable(uint8 type_super,
         /* super type is (ref (rtt n i)) */
         if (wasm_is_refheaptype_rttn(&ref_type_super->ref_ht_common)
             && ref_type_super->ref_ht_rttn.n <= n_of_sub
-            && ref_type_super->ref_ht_rttn.type_idx == type_idx_of_sub)
+            && type_idx_equal_recursive(ref_type_super->ref_ht_rttn.type_idx,
+                                        type_idx_of_sub, types, type_count,
+                                        type_idx_list))
             return true;
         /* super type is (ref (rtt i)) */
         else if (wasm_is_refheaptype_rtt(&ref_type_super->ref_ht_common)
-                 && ref_type_super->ref_ht_rtt.type_idx == type_idx_of_sub)
+                 && type_idx_equal_recursive(
+                     ref_type_super->ref_ht_rtt.type_idx, type_idx_of_sub,
+                     types, type_count, type_idx_list))
             return true;
     }
 
     /* super type is (ref null (rtt n i), eqref or anyref */
-    return wasm_is_reftype_supers_of_rttn_nullable(type_super, ref_type_super,
-                                                   n_of_sub, type_idx_of_sub);
+    return wasm_is_reftype_supers_of_rttn_nullable(
+        type_super, ref_type_super, n_of_sub, type_idx_of_sub, types,
+        type_count, type_idx_list);
 }
 
 bool
 wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                            uint8 type2, const WASMRefType *ref_type2,
-                           const WASMType **types, uint32 type_count)
+                           const WASMTypePtr *types, uint32 type_count)
 {
     /* (rtt n i) and (rtt i) have been converted into
        (ref (rtt n i)) and (ref (rtt i)) in wasm/aot loader,
@@ -835,22 +1012,24 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             /* reftype1 is (ref null (rtt i)), the super type can be:
                  (ref null (rtt i), eqref and anyref */
             return wasm_is_reftype_supers_of_rtt_nullable(
-                type2, ref_type2, ref_type1->ref_ht_rtt.type_idx);
+                type2, ref_type2, ref_type1->ref_ht_rtt.type_idx, types,
+                type_count, NULL);
         }
         else if (wasm_is_refheaptype_rttn(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref null (rtt n i)), the super type can be:
                  (ref null (rtt n i), (ref null (rtt i)), eqref and anyref */
             return wasm_is_reftype_supers_of_rttn_nullable(
                 type2, ref_type2, ref_type1->ref_ht_rttn.n,
-                ref_type1->ref_ht_rttn.type_idx);
+                ref_type1->ref_ht_rttn.type_idx, types, type_count, NULL);
         }
         else if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref null $t), the super type can be:
                  (ref null $t), dataref, eqref, funcref and anyref */
             if (type2 == REF_TYPE_HT_NULLABLE
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)
-                && ref_type1->ref_ht_typeidx.type_idx
-                       == ref_type2->ref_ht_typeidx.type_idx)
+                && type_idx_equal_recursive(ref_type1->ref_ht_typeidx.type_idx,
+                                            ref_type2->ref_ht_typeidx.type_idx,
+                                            types, type_count, NULL))
                 return true;
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_FUNC)
@@ -869,7 +1048,8 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             /* reftype1 is (ref (rtt i)), the super type can be:
                  (ref (rtt i), (ref null (rtt i)), eqref and anyref */
             return wasm_is_reftype_supers_of_rtt_non_nullable(
-                type2, ref_type2, ref_type1->ref_ht_rtt.type_idx);
+                type2, ref_type2, ref_type1->ref_ht_rtt.type_idx, types,
+                type_count, NULL);
         }
         else if (wasm_is_refheaptype_rttn(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref (rtt n i)), the super type can be:
@@ -877,7 +1057,7 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                  (ref null (rtt i)), eqref and data ref */
             return wasm_is_reftype_supers_of_rttn_non_nullable(
                 type2, ref_type2, ref_type1->ref_ht_rttn.n,
-                ref_type1->ref_ht_rttn.type_idx);
+                ref_type1->ref_ht_rttn.type_idx, types, type_count, NULL);
         }
         else if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
             /* reftype1 is (ref $t), the super type can be:
@@ -885,8 +1065,9 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             if ((type2 == REF_TYPE_HT_NULLABLE
                  || type2 == REF_TYPE_HT_NON_NULLABLE)
                 && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)
-                && ref_type1->ref_ht_typeidx.type_idx
-                       == ref_type2->ref_ht_typeidx.type_idx)
+                && type_idx_equal_recursive(ref_type1->ref_ht_typeidx.type_idx,
+                                            ref_type2->ref_ht_typeidx.type_idx,
+                                            types, type_count, NULL))
                 return true;
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_FUNC) {
@@ -912,7 +1093,8 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             /* reftype1 is (ref func/extern/any/eq/i31/data), the super type
                can be itself, or supers of
                funcref/externref/anyref/eqref/i31ref/dataref */
-            if (wasm_reftype_equal(type1, ref_type1, type2, ref_type2))
+            if (wasm_reftype_equal(type1, ref_type1, type2, ref_type2, types,
+                                   type_count))
                 return true;
             else {
                 int32 heap_type = ref_type1->ref_ht_common.heap_type;
@@ -1027,7 +1209,7 @@ reftype_equal(void *type1, void *type2)
     WASMRefType *reftype2 = (WASMRefType *)type2;
 
     return wasm_reftype_equal(reftype1->ref_type, reftype1, reftype2->ref_type,
-                              reftype2);
+                              reftype2, NULL, 0);
 }
 
 WASMRefType *

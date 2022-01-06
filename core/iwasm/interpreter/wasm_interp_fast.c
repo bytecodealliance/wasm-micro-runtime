@@ -1273,8 +1273,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     cur_func_type = cur_func->u.func_import->func_type;
                 else
                     cur_func_type = cur_func->u.func->func_type;
-                if (!wasm_type_equal((WASMType *)cur_type,
-                                     (WASMType *)cur_func_type)) {
+                if (!wasm_type_equal(
+                        (WASMType *)cur_type, (WASMType *)cur_func_type,
+                        module->module->types, module->module->type_count)) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }

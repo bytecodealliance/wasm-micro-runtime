@@ -28,45 +28,48 @@ wasm_dump_array_type(const WASMArrayType *type);
 
 /* Whether two function types are equal */
 bool
-wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2);
+wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2,
+                     const WASMTypePtr *types, uint32 type_count);
 
 /* Whether func type1 is subtype of func type2 */
 bool
 wasm_func_type_is_subtype_of(const WASMFuncType *type1,
-                             const WASMFuncType *type2, const WASMType **types,
-                             uint32 type_count);
+                             const WASMFuncType *type2,
+                             const WASMTypePtr *types, uint32 type_count);
 
 /* Whether func type1's result types are subtype of
    func type2's result types */
 bool
 wasm_func_type_result_is_subtype_of(const WASMFuncType *type,
                                     const WASMFuncType *type2,
-                                    const WASMType **types, uint32 type_count);
+                                    const WASMTypePtr *types,
+                                    uint32 type_count);
 
 /* Operations of struct type */
 
 /* Whether two struct types are equal */
 bool
-wasm_struct_type_equal(const WASMStructType *type1,
-                       const WASMStructType *type2);
+wasm_struct_type_equal(const WASMStructType *type1, const WASMStructType *type2,
+                       const WASMTypePtr *types, uint32 type_count);
 
 /* Whether struct type1 is subtype of struct type2 */
 bool
 wasm_struct_type_is_subtype_of(const WASMStructType *type1,
                                const WASMStructType *type2,
-                               const WASMType **types, uint32 type_count);
+                               const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of array type */
 
 /* Whether two array types are equal */
 bool
-wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2);
+wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2,
+                      const WASMTypePtr *types, uint32 type_count);
 
 /* Whether array type1 is subtype of array type2 */
 bool
 wasm_array_type_is_subtype_of(const WASMArrayType *type1,
                               const WASMArrayType *type2,
-                              const WASMType **types, uint32 type_count);
+                              const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of wasm type */
 
@@ -93,12 +96,13 @@ wasm_type_is_array_type(const WASMType *type)
 
 /* Whether two wasm types are equal */
 bool
-wasm_type_equal(const WASMType *type1, const WASMType *type2);
+wasm_type_equal(const WASMType *type1, const WASMType *type2,
+                const WASMTypePtr *types, uint32 type_count);
 
 /* Whether wasm type1 is subtype of wasm type2 */
 bool
 wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
-                        const WASMType **types, uint32 type_count);
+                        const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of reference type */
 
@@ -282,32 +286,36 @@ wasm_is_refheaptype_data(const RefHeapType_Common *ref_heap_type)
 /* Whether two ref heap types are equal */
 bool
 wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
-                       const RefHeapType_Common *ref_heap_type2);
+                       const RefHeapType_Common *ref_heap_type2,
+                       const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of ref rttn type */
 
 /* Whether two ref rttn types are equal */
 bool
 wasm_refrttntype_equal(const RefRttNType *ref_rttn_type1,
-                       const RefRttNType *ref_rttn_type2);
+                       const RefRttNType *ref_rttn_type2,
+                       const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of ref rtt type */
 
 /* Whether two ref rtt types are equal */
 bool
 wasm_refrtttype_equal(const RefRttType *ref_rtt_type1,
-                      const RefRttType *ref_rtt_type2);
+                      const RefRttType *ref_rtt_type2, const WASMTypePtr *types,
+                      uint32 type_count);
 
 /* Whether two ref types are equal */
 bool
 wasm_reftype_equal(uint8 type1, const WASMRefType *reftype1, uint8 type2,
-                   const WASMRefType *reftype2);
+                   const WASMRefType *reftype2, const WASMTypePtr *types,
+                   uint32 type_count);
 
 /* Whether ref type1 is subtype of ref type2 */
 bool
 wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *reftype1,
                            uint8 type2, const WASMRefType *reftype2,
-                           const WASMType **types, uint32 type_count);
+                           const WASMTypePtr *types, uint32 type_count);
 
 /* Returns a new reference type which is a duplication of ref_type,
    the caller should use wasm_runtime_free() to free the new ref type */

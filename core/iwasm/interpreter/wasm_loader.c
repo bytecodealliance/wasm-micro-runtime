@@ -532,9 +532,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             if (type != VALUE_TYPE_FUNCREF)
                 goto fail_type_mismatch;
 #else
-            if (!wasm_reftype_is_subtype_of(
-                    type, (WASMRefType *)ref_type, VALUE_TYPE_FUNCREF, NULL,
-                    (const WASMType **)module->types, module->type_count))
+            if (!wasm_reftype_is_subtype_of(type, (WASMRefType *)ref_type,
+                                            VALUE_TYPE_FUNCREF, NULL,
+                                            module->types, module->type_count))
                 goto fail_type_mismatch;
 #endif
             read_leb_uint32(p, p_end, init_expr->u.ref_index);
@@ -571,7 +571,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             }
 
             if (!wasm_reftype_is_subtype_of(type1, &ref_type1, type, ref_type,
-                                            (const WASMType **)module->types,
+                                            module->types,
                                             module->type_count)) {
                 goto fail_type_mismatch;
             }
@@ -1051,17 +1051,22 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
 
     *p_buf = p;
 
+    module->types[type_idx] = (WASMType *)type;
+
     for (i = 0; i < type_idx; i++) {
         /* If there is already a same type created, use it instead */
         if (module->types[i]->type_flag == WASM_TYPE_FUNC
-            && wasm_func_type_equal(type, (WASMFuncType *)module->types[i])) {
-            destroy_func_type(type);
+            && wasm_func_type_equal(type, (WASMFuncType *)module->types[i],
+                                    module->types, type_idx + 1)) {
             if (!check_ref_count(module->types[i]->ref_count, error_buf,
                                  error_buf_size)) {
-                return false;
+                /* In case type is double freed */
+                module->types[type_idx] = NULL;
+                goto fail;
             }
-            module->types[i]->ref_count++;
+            destroy_func_type(type);
             module->types[type_idx] = module->types[i];
+            module->types[i]->ref_count++;
 #if TRACE_WASM_LOADER != 0
             os_printf("type %d is duplicated with type %d\n", type_idx, i);
 #endif
@@ -1069,7 +1074,6 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         }
     }
 
-    module->types[type_idx] = (WASMType *)type;
     return true;
 
 fail:
@@ -1173,18 +1177,22 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
 
     *p_buf = p;
 
+    module->types[type_idx] = (WASMType *)type;
+
     for (i = 0; i < type_idx; i++) {
         /* If there is already a same type created, use it instead */
         if (module->types[i]->type_flag == WASM_TYPE_STRUCT
-            && wasm_struct_type_equal(type,
-                                      (WASMStructType *)module->types[i])) {
-            destroy_struct_type(type);
+            && wasm_struct_type_equal(type, (WASMStructType *)module->types[i],
+                                      module->types, type_idx + 1)) {
             if (!check_ref_count(module->types[i]->ref_count, error_buf,
                                  error_buf_size)) {
-                return false;
+                /* In case type is double freed */
+                module->types[type_idx] = NULL;
+                goto fail;
             }
-            module->types[i]->ref_count++;
+            destroy_struct_type(type);
             module->types[type_idx] = module->types[i];
+            module->types[i]->ref_count++;
 #if TRACE_WASM_LOADER != 0
             os_printf("type %d is duplicated with type %d\n", type_idx, i);
 #endif
@@ -1192,7 +1200,6 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         }
     }
 
-    module->types[type_idx] = (WASMType *)type;
     return true;
 
 fail:
@@ -1248,19 +1255,25 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
     os_printf("type %d = ", type_idx);
     wasm_dump_array_type(type);
 #endif
+
     *p_buf = p;
+
+    module->types[type_idx] = (WASMType *)type;
 
     for (i = 0; i < type_idx; i++) {
         /* If there is already a same type created, use it instead */
         if (module->types[i]->type_flag == WASM_TYPE_ARRAY
-            && wasm_array_type_equal(type, (WASMArrayType *)module->types[i])) {
-            destroy_array_type(type);
+            && wasm_array_type_equal(type, (WASMArrayType *)module->types[i],
+                                     module->types, type_idx + 1)) {
             if (!check_ref_count(module->types[i]->ref_count, error_buf,
                                  error_buf_size)) {
-                return false;
+                /* In case type is double freed */
+                module->types[type_idx] = NULL;
+                goto fail;
             }
-            module->types[i]->ref_count++;
+            destroy_array_type(type);
             module->types[type_idx] = module->types[i];
+            module->types[i]->ref_count++;
 #if TRACE_WASM_LOADER != 0
             os_printf("type %d is duplicated with type %d\n", type_idx, i);
 #endif
@@ -1268,7 +1281,6 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
         }
     }
 
-    module->types[type_idx] = (WASMType *)type;
     return true;
 
 fail:
@@ -1389,6 +1401,25 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             else {
                 set_error_buf(error_buf, error_buf_size, "invalid type flag");
                 return false;
+            }
+        }
+        /* Normalize the type list, check whehter two types in the type list
+           are equivalent, and if yes, free the later one and set it to the
+           former one */
+        for (i = 1; i < type_count - 1; i++) {
+            uint32 j;
+            for (j = i + 1; j < type_count; j++) {
+                if (module->types[j]->ref_count == 1
+                    && wasm_type_equal(module->types[j], module->types[i],
+                                       module->types, type_count)) {
+                    if (!check_ref_count(module->types[i]->ref_count, error_buf,
+                                         error_buf_size)) {
+                        return false;
+                    }
+                    destroy_wasm_type(module->types[j]);
+                    module->types[j] = module->types[i];
+                    module->types[i]->ref_count++;
+                }
             }
         }
 #endif /* end of WASM_ENABLE_GC */
@@ -3100,7 +3131,7 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
                 if (!wasm_type_is_subtype_of(module->types[sub_type_idx],
                                              module->types[parent_type_idx],
-                                             (const WASMType **)module->types,
+                                             module->types,
                                              module->type_count)) {
                     set_error_buf(error_buf, error_buf_size,
                                   "check subtype failed");
@@ -5849,9 +5880,9 @@ check_stack_top_values(WASMLoaderContext *ctx, uint8 *frame_ref,
         bh_assert(reftype_map_num > 0);
         frame_reftype = (frame_reftype_map - 1)->ref_type;
     }
-    if (!wasm_reftype_is_subtype_of(
-            *(frame_ref - 1), frame_reftype, type, ref_type,
-            (const WASMType **)ctx->module->types, ctx->module->type_count)) {
+    if (!wasm_reftype_is_subtype_of(*(frame_ref - 1), frame_reftype, type,
+                                    ref_type, ctx->module->types,
+                                    ctx->module->type_count)) {
         set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
                         "type mismatch: expect ", type2str(type),
                         " but got other");
@@ -5898,8 +5929,7 @@ check_stack_pop(WASMLoaderContext *ctx, uint8 type, char *error_buf,
         }
 
         if (wasm_reftype_is_subtype_of(stack_top_type, stack_top_ref_type, type,
-                                       ctx->ref_type_tmp,
-                                       (const WASMType **)ctx->module->types,
+                                       ctx->ref_type_tmp, ctx->module->types,
                                        ctx->module->type_count)) {
             if (wasm_is_type_multi_byte_type(stack_top_type)) {
                 uint32 ref_type_struct_size =
@@ -8810,8 +8840,7 @@ re_scan:
                     }
 #else
                     if (!wasm_func_type_result_is_subtype_of(
-                            func_type, func->func_type,
-                            (const WASMType **)module->types,
+                            func_type, func->func_type, module->types,
                             module->type_count)) {
                         set_error_buf(
                             error_buf, error_buf_size,
@@ -10569,8 +10598,7 @@ re_scan:
                                 : ref_type->ref_ht_rttn.type_idx;
                         if (!wasm_type_is_subtype_of(
                                 module->types[type_idx],
-                                module->types[type_idx_super],
-                                (const WASMType **)module->types,
+                                module->types[type_idx_super], module->types,
                                 module->type_count)) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
@@ -11030,8 +11058,7 @@ re_scan:
 #else
                         if (!wasm_reftype_is_subtype_of(
                                 seg_type, seg_ref_type, tbl_type, tbl_ref_type,
-                                (const WASMType **)module->types,
-                                module->type_count)) {
+                                module->types, module->type_count)) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
                             goto fail;
@@ -11096,8 +11123,7 @@ re_scan:
 #else
                         if (!wasm_reftype_is_subtype_of(
                                 src_type, src_ref_type, dst_type, dst_ref_type,
-                                (const WASMType **)module->types,
-                                module->type_count)) {
+                                module->types, module->type_count)) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
                             goto fail;

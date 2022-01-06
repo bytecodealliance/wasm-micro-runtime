@@ -280,6 +280,7 @@ typedef struct WASMRefTypeMap {
 
 #if WASM_ENABLE_GC == 0
 typedef struct WASMFuncType WASMType;
+typedef WASMType *WASMTypePtr;
 #else
 /**
  * Common type, store the same fields of
@@ -299,7 +300,7 @@ typedef struct WASMType {
     uint32 type_idx;
 
     uint32 data[1];
-} WASMType;
+} WASMType, *WASMTypePtr;
 #endif /* end of WASM_ENABLE_GC */
 
 /**
@@ -847,7 +848,8 @@ wasm_get_cell_num(const uint8 *types, uint32 type_count)
 
 #if WASM_ENABLE_GC == 0
 inline static bool
-wasm_type_equal(const WASMType *type1, const WASMType *type2)
+wasm_type_equal(const WASMType *type1, const WASMType *type2,
+                const WASMTypePtr *types, uint32 type_count)
 {
     const WASMFuncType *func_type1 = (const WASMFuncType *)type1;
     const WASMFuncType *func_type2 = (const WASMFuncType *)type2;
@@ -859,21 +861,24 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
                    == 0)
                ? true
                : false;
+    (void)types;
+    (void)type_count;
 }
 #else
 /* implemented in ../common/gc */
 bool
-wasm_type_equal(const WASMType *type1, const WASMType *type2);
+wasm_type_equal(const WASMType *type1, const WASMType *type2,
+                const WASMTypePtr *types, uint32 type_count);
 #endif
 
 inline static uint32
-wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
+wasm_get_smallest_type_idx(const WASMTypePtr *types, uint32 type_count,
                            uint32 cur_type_idx)
 {
     uint32 i;
 
     for (i = 0; i < cur_type_idx; i++) {
-        if (wasm_type_equal(types[cur_type_idx], types[i]))
+        if (wasm_type_equal(types[cur_type_idx], types[i], types, type_count))
             return i;
     }
     return cur_type_idx;

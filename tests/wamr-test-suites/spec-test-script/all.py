@@ -64,7 +64,7 @@ def ignore_the_case(
     if not multi_module_flag and case_name in ["imports", "linking"]:
         return True
 
-    if gc_flag and case_name in ["func_bind", "let", "type-equivalence"]:
+    if gc_flag and case_name in ["func_bind", "let"]:
         return True
 
     if "i386" == target and case_name in ["float_exprs"]:
