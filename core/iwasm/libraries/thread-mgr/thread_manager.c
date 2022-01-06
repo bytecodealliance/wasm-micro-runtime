@@ -5,6 +5,13 @@
 
 #include "thread_manager.h"
 
+#if WASM_ENABLE_INTERP != 0
+#include "../interpreter/wasm_runtime.h"
+#endif
+#if WASM_ENABLE_AOT != 0
+#include "../aot/aot_runtime.h"
+#endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #include "debug_engine.h"
 #endif
@@ -341,13 +348,28 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_module_inst_t new_module_inst;
     WASMExecEnv *new_exec_env;
     uint32 aux_stack_start, aux_stack_size;
+    uint32 stack_size = 8192;
 
     if (!module) {
         return NULL;
     }
 
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        stack_size =
+            ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
+    }
+#endif
+
+#if WASM_ENABLE_AOT != 0
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        stack_size =
+            ((AOTModuleInstance *)module_inst)->default_wasm_stack_size;
+    }
+#endif
+
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, true, 8192, 0, NULL, 0))) {
+              module, true, stack_size, 0, NULL, 0))) {
         return NULL;
     }
 
