@@ -79,7 +79,7 @@ main(int argc, char *argv[])
     AOTCompOption option = { 0 };
     char error_buf[128];
     int log_verbose_level = 2;
-    bool sgx_mode = false;
+    bool sgx_mode = false, size_level_set = false;
     int exit_status = EXIT_FAILURE;
 
     option.opt_level = 3;
@@ -133,6 +133,7 @@ main(int argc, char *argv[])
             option.size_level = (uint32)atoi(argv[0] + 13);
             if (option.size_level > 3)
                 option.size_level = 3;
+            size_level_set = true;
         }
         else if (!strcmp(argv[0], "-sgx")) {
             sgx_mode = true;
@@ -206,6 +207,26 @@ main(int argc, char *argv[])
 
     if (argc == 0 || !out_file_name)
         return print_help();
+
+    if (!size_level_set) {
+        /**
+         * Set opt level to 1 by default for Windows and MacOS as
+         * they can not memory map out 0-2GB memory and might not
+         * be able to meet the requirements of some AOT relocation
+         * operations.
+         */
+        if (option.target_abi && !strcmp(option.target_abi, "msvc")) {
+            LOG_VERBOSE("Set size level to 1 for Windows AOT file");
+            option.size_level = 1;
+        }
+#if defined(_WIN32) || defined(_WIN32_) || defined(__APPLE__) \
+    || defined(__MACH__)
+        if (!option.target_abi) {
+            LOG_VERBOSE("Set size level to 1 for Windows or MacOS AOT file");
+            option.size_level = 1;
+        }
+#endif
+    }
 
     if (sgx_mode) {
         option.size_level = 1;

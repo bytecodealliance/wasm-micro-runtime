@@ -16,6 +16,7 @@ static size_t total_size_munmapped = 0;
 
 #define HUGE_PAGE_SIZE (2 * 1024 * 1024)
 
+#if !defined(__APPLE__) && !defined(__NuttX__)
 static inline uintptr_t
 round_up(uintptr_t v, uintptr_t b)
 {
@@ -29,6 +30,7 @@ round_down(uintptr_t v, uintptr_t b)
     uintptr_t m = b - 1;
     return v & ~m;
 }
+#endif
 
 void *
 os_mmap(void *hint, size_t size, int prot, int flags)
