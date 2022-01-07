@@ -55,8 +55,8 @@ if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
-  # Disable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 0)
+  # Enable libc wasi support by default
+  set (WAMR_BUILD_LIBC_WASI 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
@@ -65,7 +65,7 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  # Enable multiple modules
+  # Disable multiple module by default
   set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 
