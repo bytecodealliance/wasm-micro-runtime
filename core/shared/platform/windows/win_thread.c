@@ -601,7 +601,7 @@ os_thread_get_stack_boundary()
 
     page_size = os_getpagesize();
     if (GetCurrentThreadStackLimits_Kernel32) {
-        GetCurrentThreadStackLimits(&low_limit, &high_limit);
+        GetCurrentThreadStackLimits_Kernel32(&low_limit, &high_limit);
     }
     else {
         if (0 != GetCurrentThreadStackLimits_Win7(&low_limit, &high_limit))
