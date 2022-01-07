@@ -3230,14 +3230,14 @@ typedef void (*GenericFunctionPointer)();
 #if defined(__APPLE__) || defined(__MACH__)
 /**
  * Define the return type as 'void' in MacOS, since after converting
- * 'uint64 invokeNative' into 'float64 invokeNative_Float64', the
+ * 'int64 invokeNative' into 'float64 invokeNative_Float64', the
  * return value passing might be invalid, the caller reads the return
  * value from register rax but not xmm0.
  */
 void
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 #else
-uint64
+int64
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
 #endif
 
