@@ -158,4 +158,4 @@ More details
 static char sandbox_memory_space[10 * 1024 * 1024] = { 0 };
 ```
 
-Third, put all together. Please refer to [main.c](../samples/multi_modules/src/main.c)
+Third, put all together. Please refer to [main.c](../samples/multi-module/src/main.c)
