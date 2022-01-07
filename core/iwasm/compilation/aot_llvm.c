@@ -1643,7 +1643,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 vendor_sys = strstr(default_triple, "-");
                 bh_assert(vendor_sys);
                 bh_memcpy_s(default_arch, sizeof(default_arch), default_triple,
-                            vendor_sys - default_triple);
+                            (uint32)(vendor_sys - default_triple));
                 arch1 = default_arch;
 
                 LLVMDisposeMessage(default_triple);
@@ -1668,13 +1668,15 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
             bh_assert(strlen(arch1) + strlen(vendor_sys) + strlen(abi)
                       < sizeof(triple_buf));
-            bh_memcpy_s(triple_buf, sizeof(triple_buf), arch1, strlen(arch1));
+            bh_memcpy_s(triple_buf, (uint32)sizeof(triple_buf), arch1,
+                        (uint32)strlen(arch1));
             bh_memcpy_s(triple_buf + strlen(arch1),
-                        sizeof(triple_buf) - strlen(arch1), vendor_sys,
-                        strlen(vendor_sys));
+                        (uint32)(sizeof(triple_buf) - strlen(arch1)),
+                        vendor_sys, (uint32)strlen(vendor_sys));
             bh_memcpy_s(triple_buf + strlen(arch1) + strlen(vendor_sys),
-                        sizeof(triple_buf) - strlen(arch1) - strlen(vendor_sys),
-                        abi, strlen(abi));
+                        (uint32)(sizeof(triple_buf) - strlen(arch1)
+                                 - strlen(vendor_sys)),
+                        abi, (uint32)strlen(abi));
             triple = triple_buf;
         }
         else if (arch) {
@@ -1707,13 +1709,15 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
             bh_assert(strlen(arch) + strlen(vendor_sys) + strlen(abi)
                       < sizeof(triple_buf));
-            bh_memcpy_s(triple_buf, sizeof(triple_buf), arch, strlen(arch));
+            bh_memcpy_s(triple_buf, (uint32)sizeof(triple_buf), arch,
+                        (uint32)strlen(arch));
             bh_memcpy_s(triple_buf + strlen(arch),
-                        sizeof(triple_buf) - strlen(arch), vendor_sys,
-                        strlen(vendor_sys));
+                        (uint32)(sizeof(triple_buf) - strlen(arch)), vendor_sys,
+                        (uint32)strlen(vendor_sys));
             bh_memcpy_s(triple_buf + strlen(arch) + strlen(vendor_sys),
-                        sizeof(triple_buf) - strlen(arch) - strlen(vendor_sys),
-                        abi, strlen(abi));
+                        (uint32)(sizeof(triple_buf) - strlen(arch)
+                                 - strlen(vendor_sys)),
+                        abi, (uint32)strlen(abi));
             triple = triple_buf;
         }
 
