@@ -3227,8 +3227,19 @@ typedef uint32x4_t __m128i;
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
 typedef void (*GenericFunctionPointer)();
+#if defined(__APPLE__) || defined(__MACH__)
+/**
+ * Define the return type as 'void' in MacOS, since after converting
+ * 'int64 invokeNative' into 'float64 invokeNative_Float64', the
+ * return value passing might be invalid, the caller reads the return
+ * value from register rax but not xmm0.
+ */
+void
+invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
+#else
 int64
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
+#endif
 
 typedef float64 (*Float64FuncPtr)(GenericFunctionPointer, uint64 *, uint64);
 typedef float32 (*Float32FuncPtr)(GenericFunctionPointer, uint64 *, uint64);
