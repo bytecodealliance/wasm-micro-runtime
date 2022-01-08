@@ -235,6 +235,11 @@ main(int argc, char *argv[])
 
     wasm_file_name = argv[0];
 
+    if (!strcmp(wasm_file_name, out_file_name)) {
+        printf("Error: input file and output file are the same");
+        return -1;
+    }
+
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
     init_args.mem_alloc_type = Alloc_With_Allocator;
@@ -256,6 +261,11 @@ main(int argc, char *argv[])
     if (!(wasm_file =
               (uint8 *)bh_read_file_to_buffer(wasm_file_name, &wasm_file_size)))
         goto fail1;
+
+    if (get_package_type(wasm_file, wasm_file_size) != Wasm_Module_Bytecode) {
+        printf("Invalid file type: expected wasm file but got other\n");
+        goto fail2;
+    }
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file, wasm_file_size, error_buf,
