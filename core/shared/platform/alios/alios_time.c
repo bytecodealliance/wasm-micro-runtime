@@ -10,4 +10,3 @@ os_time_get_boot_microsecond()
 {
     return (uint64)aos_now_ms() * 1000;
 }
-

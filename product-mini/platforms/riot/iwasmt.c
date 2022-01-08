@@ -4,19 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-//
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 
 #include <string.h>
 
-// #include "platform_api_extension.h"
 #include "wasm_export.h"
 
 #include <thread.h>
 
-/*provide some test program*/
+/* provide some test program */
 #include "test_wasm.h"
 
 #define DEFAULT_THREAD_STACKSIZE (6 * 1024)
@@ -25,31 +23,31 @@
 static int app_argc;
 static char **app_argv;
 
-static void*
+static void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
     const char *exception;
 
     wasm_application_execute_main(module_inst, app_argc, app_argv);
-    if ((exception = wasm_runtime_get_exception(module_inst))){
+    if ((exception = wasm_runtime_get_exception(module_inst))) {
         puts(exception);
     }
     return NULL;
 }
 
-
 void *
 iwasm_t(void *arg1)
 {
-    wasm_module_t wasm_module = (wasm_module_t) arg1;
+    wasm_module_t wasm_module = (wasm_module_t)arg1;
     wasm_module_inst_t wasm_module_inst = NULL;
     char error_buf[128];
-    
+
     /* instantiate the module */
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module, 8 * 1024,
-        8 * 1024, error_buf, sizeof(error_buf)))) {
+    if (!(wasm_module_inst = wasm_runtime_instantiate(
+              wasm_module, 8 * 1024, 8 * 1024, error_buf, sizeof(error_buf)))) {
         puts(error_buf);
-    }else{
+    }
+    else {
         app_instance_main(wasm_module_inst);
         /* destroy the module instance */
         wasm_runtime_deinstantiate(wasm_module_inst);
@@ -57,10 +55,14 @@ iwasm_t(void *arg1)
     return NULL;
 }
 
+/* choose allocator */
+#define FUNC_ALLOC
+/* #define POOL_ALLOC */
+
 void *
 iwasm_main(void *arg1)
 {
-    (void) arg1; /*unused*/
+    (void)arg1; /* unused */
     uint8_t *wasm_file_buf = NULL;
     unsigned wasm_file_buf_size = 0;
     wasm_module_t wasm_module = NULL;
@@ -68,13 +70,9 @@ iwasm_main(void *arg1)
 
     RuntimeInitArgs init_args;
 
-//chose allocator
-#define FUNC_ALLOC
-//#define POOL_ALLOC
-
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 #ifdef POOL_ALLOC
-    static char global_heap_buf[256 * 1024] = { 0 };//(256 kB)
+    static char global_heap_buf[256 * 1024] = { 0 }; /* 256 kB */
 
     init_args.mem_alloc_type = Alloc_With_Pool;
     init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
@@ -94,17 +92,16 @@ iwasm_main(void *arg1)
         return NULL;
     }
 
-
     /* load WASM byte buffer from byte buffer of include file */
-    wasm_file_buf = (uint8_t *) wasm_test_file;
+    wasm_file_buf = (uint8_t *)wasm_test_file;
     wasm_file_buf_size = sizeof(wasm_test_file);
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_buf_size,
                                           error_buf, sizeof(error_buf)))) {
         puts(error_buf);
-
-    }else{
+    }
+    else {
         iwasm_t(wasm_module);
         wasm_runtime_unload(wasm_module);
     }
@@ -116,14 +113,15 @@ iwasm_main(void *arg1)
 bool
 iwasm_init(void)
 {
-    struct{
-        char *  stack;
-        int  stacksize;
-        uint8_t  priority;
-        int  flags;
+    /* clang-format off */
+    struct {
+        char *stack;
+        int stacksize;
+        uint8_t priority;
+        int flags;
         thread_task_func_t task_func;
-        void *  arg;
-        const char * name;
+        void *arg;
+        const char *name;
     } b = {
         .stacksize = DEFAULT_THREAD_STACKSIZE,
         .priority = 8,
@@ -132,17 +130,20 @@ iwasm_init(void)
         .arg = NULL,
         .name = "simple_wamr"
     };
+    /* clang-format on */
 
-    b.stack=malloc(b.stacksize);
-    kernel_pid_t tpid = thread_create (b.stack, b.stacksize, b.priority, b.flags, b.task_func, b.arg, b.name);
+    b.stack = malloc(b.stacksize);
+    kernel_pid_t tpid = thread_create(b.stack, b.stacksize, b.priority, b.flags,
+                                      b.task_func, b.arg, b.name);
 
-    return tpid != 0 ? true : false;;
+    return tpid != 0 ? true : false;
+    ;
 }
-#define telltruth(X) ((X) ? "true" : "false")
 
+#define telltruth(X) ((X) ? "true" : "false")
 
 int
 main(void)
 {
-    printf("iwasm_initilised: %s\n",telltruth(iwasm_init()));
+    printf("iwasm_initilised: %s\n", telltruth(iwasm_init()));
 }

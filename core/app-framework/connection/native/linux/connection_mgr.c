@@ -76,23 +76,30 @@ static struct epoll_event epoll_events[MAX_EVENTS];
 /* Buffer to receive data */
 static char io_buf[IO_BUF_SIZE];
 
-static uint32 _conn_open(wasm_module_inst_t module_inst,
-                         const char *name, attr_container_t *args);
-static void _conn_close(uint32 handle);
-static int _conn_send(uint32 handle, const char *data, int len);
-static bool _conn_config(uint32 handle, attr_container_t *cfg);
+static uint32
+_conn_open(wasm_module_inst_t module_inst, const char *name,
+           attr_container_t *args);
+static void
+_conn_close(uint32 handle);
+static int
+_conn_send(uint32 handle, const char *data, int len);
+static bool
+_conn_config(uint32 handle, attr_container_t *cfg);
 
+/* clang-format off */
 /*
  * Platform implementation of connection library
  */
 connection_interface_t connection_impl = {
-        ._open = _conn_open,
-        ._close = _conn_close,
-        ._send = _conn_send,
-        ._config = _conn_config
+    ._open = _conn_open,
+    ._close = _conn_close,
+    ._send = _conn_send,
+    ._config = _conn_config
 };
+/* clang-format on */
 
-static void add_connection(sys_connection_t *conn)
+static void
+add_connection(sys_connection_t *conn)
 {
     os_mutex_lock(&g_lock);
 
@@ -104,20 +111,23 @@ static void add_connection(sys_connection_t *conn)
     if (g_connections) {
         conn->next = g_connections;
         g_connections = conn;
-    } else {
+    }
+    else {
         g_connections = conn;
     }
 
     os_mutex_unlock(&g_lock);
 }
 
-#define FREE_CONNECTION(conn) do {      \
-    if (conn->arg)                      \
-        wasm_runtime_free(conn->arg);   \
-    wasm_runtime_free(conn);            \
-} while (0)
+#define FREE_CONNECTION(conn)             \
+    do {                                  \
+        if (conn->arg)                    \
+            wasm_runtime_free(conn->arg); \
+        wasm_runtime_free(conn);          \
+    } while (0)
 
-static int get_app_conns_num(uint32 module_id)
+static int
+get_app_conns_num(uint32 module_id)
 {
     sys_connection_t *conn;
     int num = 0;
@@ -136,7 +146,8 @@ static int get_app_conns_num(uint32 module_id)
     return num;
 }
 
-static sys_connection_t *find_connection(uint32 handle, bool remove_found)
+static sys_connection_t *
+find_connection(uint32 handle, bool remove_found)
 {
     sys_connection_t *conn, *prev = NULL;
 
@@ -148,13 +159,15 @@ static sys_connection_t *find_connection(uint32 handle, bool remove_found)
             if (remove_found) {
                 if (prev != NULL) {
                     prev->next = conn->next;
-                } else {
+                }
+                else {
                     g_connections = conn->next;
                 }
             }
             os_mutex_unlock(&g_lock);
             return conn;
-        } else {
+        }
+        else {
             prev = conn;
             conn = conn->next;
         }
@@ -165,7 +178,8 @@ static sys_connection_t *find_connection(uint32 handle, bool remove_found)
     return NULL;
 }
 
-static void cleanup_connections(uint32 module_id)
+static void
+cleanup_connections(uint32 module_id)
 {
     sys_connection_t *conn, *prev = NULL;
 
@@ -181,12 +195,14 @@ static void cleanup_connections(uint32 module_id)
                 prev->next = conn->next;
                 FREE_CONNECTION(conn);
                 conn = prev->next;
-            } else {
+            }
+            else {
                 g_connections = conn->next;
                 FREE_CONNECTION(conn);
                 conn = g_connections;
             }
-        } else {
+        }
+        else {
             prev = conn;
             conn = conn->next;
         }
@@ -195,7 +211,8 @@ static void cleanup_connections(uint32 module_id)
     os_mutex_unlock(&g_lock);
 }
 
-static conn_type_t get_conn_type(const char *name)
+static conn_type_t
+get_conn_type(const char *name)
 {
     if (strcmp(name, "TCP") == 0)
         return CONN_TYPE_TCP;
@@ -208,14 +225,14 @@ static conn_type_t get_conn_type(const char *name)
 }
 
 /* --- connection lib function --- */
-static uint32 _conn_open(wasm_module_inst_t module_inst,
-                         const char *name, attr_container_t *args)
+static uint32
+_conn_open(wasm_module_inst_t module_inst, const char *name,
+           attr_container_t *args)
 {
     int fd;
     sys_connection_t *conn;
     struct epoll_event ev;
-    uint32 module_id = app_manager_get_module_id(Module_WASM_App,
-                                                 module_inst);
+    uint32 module_id = app_manager_get_module_id(Module_WASM_App, module_inst);
     bh_assert(module_id != ID_NONE);
 
     if (get_app_conns_num(module_id) >= MAX_CONNECTION_PER_APP)
@@ -237,8 +254,8 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
         uint16 port;
 
         /* Check and parse connection parameters */
-        if (!attr_container_contain_key(args, "address") ||
-            !attr_container_contain_key(args, "port"))
+        if (!attr_container_contain_key(args, "address")
+            || !attr_container_contain_key(args, "port"))
             goto fail;
 
         address = attr_container_get_as_string(args, "address");
@@ -247,8 +264,8 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
         /* Connect to TCP server */
         if (!address || (fd = tcp_open(address, port)) == -1)
             goto fail;
-
-    } else if (conn->type == CONN_TYPE_UDP) {
+    }
+    else if (conn->type == CONN_TYPE_UDP) {
         uint16 port;
 
         /* Check and parse connection parameters */
@@ -259,14 +276,14 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
         /* Bind port */
         if ((fd = udp_open(port)) == -1)
             goto fail;
-
-    } else if (conn->type == CONN_TYPE_UART) {
+    }
+    else if (conn->type == CONN_TYPE_UART) {
         char *device;
         int baud;
 
         /* Check and parse connection parameters */
-        if (!attr_container_contain_key(args, "device") ||
-            !attr_container_contain_key(args, "baudrate"))
+        if (!attr_container_contain_key(args, "device")
+            || !attr_container_contain_key(args, "baudrate"))
             goto fail;
         device = attr_container_get_as_string(args, "device");
         baud = attr_container_get_as_int(args, "baudrate");
@@ -274,7 +291,8 @@ static uint32 _conn_open(wasm_module_inst_t module_inst,
         /* Open device */
         if (!device || (fd = uart_open(device, baud)) == -1)
             goto fail;
-    } else {
+    }
+    else {
         goto fail;
     }
 
@@ -299,7 +317,8 @@ fail:
 }
 
 /* --- connection lib function --- */
-static void _conn_close(uint32 handle)
+static void
+_conn_close(uint32 handle)
 {
     sys_connection_t *conn = find_connection(handle, true);
 
@@ -311,7 +330,8 @@ static void _conn_close(uint32 handle)
 }
 
 /* --- connection lib function --- */
-static int _conn_send(uint32 handle, const char *data, int len)
+static int
+_conn_send(uint32 handle, const char *data, int len)
 {
     sys_connection_t *conn = find_connection(handle, false);
 
@@ -333,7 +353,8 @@ static int _conn_send(uint32 handle, const char *data, int len)
 }
 
 /* --- connection lib function --- */
-static bool _conn_config(uint32 handle, attr_container_t *cfg)
+static bool
+_conn_config(uint32 handle, attr_container_t *cfg)
 {
     sys_connection_t *conn = find_connection(handle, false);
 
@@ -346,8 +367,8 @@ static bool _conn_config(uint32 handle, attr_container_t *cfg)
         struct sockaddr_in *addr;
 
         /* Parse remote address/port */
-        if (!attr_container_contain_key(cfg, "address") ||
-            !attr_container_contain_key(cfg, "port"))
+        if (!attr_container_contain_key(cfg, "address")
+            || !attr_container_contain_key(cfg, "port"))
             return false;
         if (!(address = attr_container_get_as_string(cfg, "address")))
             return false;
@@ -365,7 +386,8 @@ static bool _conn_config(uint32 handle, attr_container_t *cfg)
 
             /* Set remote address as connection arg */
             conn->arg = addr;
-        } else {
+        }
+        else {
             addr = (struct sockaddr_in *)conn->arg;
             addr->sin_addr.s_addr = inet_addr(address);
             addr->sin_port = htons(port);
@@ -385,16 +407,16 @@ typedef struct connection_event {
     uint32 len;
 } connection_event_t;
 
-static void connection_event_cleaner(connection_event_t *conn_event)
+static void
+connection_event_cleaner(connection_event_t *conn_event)
 {
     if (conn_event->data != NULL)
         wasm_runtime_free(conn_event->data);
     wasm_runtime_free(conn_event);
 }
 
-static void post_msg_to_module(sys_connection_t *conn,
-                               char *data,
-                               uint32 len)
+static void
+post_msg_to_module(sys_connection_t *conn, char *data, uint32 len)
 {
     module_data *module = module_data_list_lookup_id(conn->module_id);
     char *data_copy = NULL;
@@ -404,7 +426,8 @@ static void post_msg_to_module(sys_connection_t *conn,
     if (module == NULL)
         return;
 
-    conn_data_event = (connection_event_t *)wasm_runtime_malloc(sizeof(*conn_data_event));
+    conn_data_event =
+        (connection_event_t *)wasm_runtime_malloc(sizeof(*conn_data_event));
     if (conn_data_event == NULL)
         return;
 
@@ -422,10 +445,8 @@ static void post_msg_to_module(sys_connection_t *conn,
     conn_data_event->data = data_copy;
     conn_data_event->len = len;
 
-    msg = bh_new_msg(CONNECTION_EVENT_WASM,
-                     conn_data_event,
-                     sizeof(*conn_data_event),
-                     connection_event_cleaner);
+    msg = bh_new_msg(CONNECTION_EVENT_WASM, conn_data_event,
+                     sizeof(*conn_data_event), connection_event_cleaner);
     if (!msg) {
         connection_event_cleaner(conn_data_event);
         return;
@@ -434,7 +455,8 @@ static void post_msg_to_module(sys_connection_t *conn,
     bh_post_msg2(module->queue, msg);
 }
 
-static void* polling_thread_routine (void *arg)
+static void *
+polling_thread_routine(void *arg)
 {
     while (polling_thread_run) {
         int i, n;
@@ -445,8 +467,8 @@ static void* polling_thread_routine (void *arg)
             continue;
 
         for (i = 0; i < n; i++) {
-            sys_connection_t *conn
-                             = (sys_connection_t *)epoll_events[i].data.ptr;
+            sys_connection_t *conn =
+                (sys_connection_t *)epoll_events[i].data.ptr;
 
             if (conn->type == CONN_TYPE_TCP) {
                 int count = tcp_recv(conn->fd, io_buf, IO_BUF_SIZE);
@@ -454,15 +476,18 @@ static void* polling_thread_routine (void *arg)
                     /* Connection is closed by peer */
                     post_msg_to_module(conn, NULL, 0);
                     _conn_close(conn->handle);
-                } else {
+                }
+                else {
                     /* Data is received */
                     post_msg_to_module(conn, io_buf, count);
                 }
-            } else if (conn->type == CONN_TYPE_UDP) {
+            }
+            else if (conn->type == CONN_TYPE_UDP) {
                 int count = udp_recv(conn->fd, io_buf, IO_BUF_SIZE);
                 if (count > 0)
                     post_msg_to_module(conn, io_buf, count);
-            } else if (conn->type == CONN_TYPE_UART) {
+            }
+            else if (conn->type == CONN_TYPE_UART) {
                 int count = uart_recv(conn->fd, io_buf, IO_BUF_SIZE);
                 if (count > 0)
                     post_msg_to_module(conn, io_buf, count);
@@ -473,25 +498,26 @@ static void* polling_thread_routine (void *arg)
     return NULL;
 }
 
-void app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
+void
+app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
 {
     uint32 argv[3];
     wasm_function_inst_t func_on_conn_data;
     bh_assert(CONNECTION_EVENT_WASM == bh_message_type(msg));
-    wasm_data *wasm_app_data = (wasm_data*)m_data->internal_data;
+    wasm_data *wasm_app_data = (wasm_data *)m_data->internal_data;
     wasm_module_inst_t inst = wasm_app_data->wasm_module_inst;
-    connection_event_t *conn_event
-                       = (connection_event_t *)bh_message_payload(msg);
+    connection_event_t *conn_event =
+        (connection_event_t *)bh_message_payload(msg);
     int32 data_offset;
 
     if (conn_event == NULL)
         return;
 
-    func_on_conn_data = wasm_runtime_lookup_function(inst, "_on_connection_data",
-                                                     "(i32i32i32)");
+    func_on_conn_data = wasm_runtime_lookup_function(
+        inst, "_on_connection_data", "(i32i32i32)");
     if (!func_on_conn_data)
-        func_on_conn_data = wasm_runtime_lookup_function(inst, "on_connection_data",
-                                                         "(i32i32i32)");
+        func_on_conn_data = wasm_runtime_lookup_function(
+            inst, "on_connection_data", "(i32i32i32)");
     if (!func_on_conn_data) {
         printf("Cannot find function on_connection_data\n");
         return;
@@ -506,34 +532,31 @@ void app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
                                     3, argv)) {
             const char *exception = wasm_runtime_get_exception(inst);
             bh_assert(exception);
-            printf(":Got exception running wasm code: %s\n",
-                   exception);
+            printf(":Got exception running wasm code: %s\n", exception);
             wasm_runtime_clear_exception(inst);
             return;
         }
-    } else {
-        data_offset = wasm_runtime_module_dup_data(inst,
-                                                   conn_event->data,
+    }
+    else {
+        data_offset = wasm_runtime_module_dup_data(inst, conn_event->data,
                                                    conn_event->len);
         if (data_offset == 0) {
             const char *exception = wasm_runtime_get_exception(inst);
             if (exception) {
-                printf("Got exception running wasm code: %s\n",
-                       exception);
+                printf("Got exception running wasm code: %s\n", exception);
                 wasm_runtime_clear_exception(inst);
             }
             return;
         }
 
         argv[0] = conn_event->handle;
-        argv[1] = (uint32) data_offset;
+        argv[1] = (uint32)data_offset;
         argv[2] = conn_event->len;
         if (!wasm_runtime_call_wasm(wasm_app_data->exec_env, func_on_conn_data,
                                     3, argv)) {
             const char *exception = wasm_runtime_get_exception(inst);
             bh_assert(exception);
-            printf(":Got exception running wasm code: %s\n",
-                   exception);
+            printf(":Got exception running wasm code: %s\n", exception);
             wasm_runtime_clear_exception(inst);
             wasm_runtime_module_free(inst, data_offset);
             return;
@@ -542,7 +565,8 @@ void app_mgr_connection_event_callback(module_data *m_data, bh_message_t msg)
     }
 }
 
-bool init_connection_framework()
+bool
+init_connection_framework()
 {
     korp_tid tid;
 
@@ -560,14 +584,13 @@ bool init_connection_framework()
     }
 
     if (!wasm_register_msg_callback(CONNECTION_EVENT_WASM,
-                               app_mgr_connection_event_callback)) {
+                                    app_mgr_connection_event_callback)) {
         goto fail;
     }
 
-    if (os_thread_create(&tid,
-                         polling_thread_routine,
-                         NULL,
-                         BH_APPLET_PRESERVED_STACK_SIZE) != 0) {
+    if (os_thread_create(&tid, polling_thread_routine, NULL,
+                         BH_APPLET_PRESERVED_STACK_SIZE)
+        != 0) {
         goto fail;
     }
 
@@ -579,7 +602,8 @@ fail:
     return false;
 }
 
-void exit_connection_framework()
+void
+exit_connection_framework()
 {
     polling_thread_run = false;
 }

@@ -47,11 +47,16 @@ static os_thread_data supervisor_thread_data;
 /* Thread data key */
 static DWORD thread_data_key;
 
-int os_sem_init(korp_sem* sem);
-int os_sem_destroy(korp_sem* sem);
-int os_sem_wait(korp_sem* sem);
-int os_sem_reltimed_wait(korp_sem* sem, uint64 useconds);
-int os_sem_signal(korp_sem* sem);
+int
+os_sem_init(korp_sem *sem);
+int
+os_sem_destroy(korp_sem *sem);
+int
+os_sem_wait(korp_sem *sem);
+int
+os_sem_reltimed_wait(korp_sem *sem, uint64 useconds);
+int
+os_sem_signal(korp_sem *sem);
 
 int
 os_thread_sys_init()
@@ -141,8 +146,7 @@ os_thread_cleanup(void *retval)
     BH_FREE(thread_data);
 }
 
-static unsigned __stdcall
-os_thread_wrapper(void *arg)
+static unsigned __stdcall os_thread_wrapper(void *arg)
 {
     os_thread_data *thread_data = arg;
     os_thread_data *parent = thread_data->parent;
@@ -202,9 +206,8 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
         goto fail3;
 
     os_mutex_lock(&parent->wait_lock);
-    if (!_beginthreadex(NULL, stack_size,
-                        os_thread_wrapper, thread_data,
-                        0, NULL)) {
+    if (!_beginthreadex(NULL, stack_size, os_thread_wrapper, thread_data, 0,
+                        NULL)) {
         os_mutex_unlock(&parent->wait_lock);
         goto fail4;
     }
@@ -371,7 +374,7 @@ os_sem_wait(korp_sem *sem)
 
     if (ret == WAIT_OBJECT_0)
         return BHT_OK;
-    else if(ret == WAIT_TIMEOUT)
+    else if (ret == WAIT_TIMEOUT)
         return (int)WAIT_TIMEOUT;
     else /* WAIT_FAILED or others */
         return BHT_ERROR;
@@ -404,7 +407,7 @@ os_sem_reltimed_wait(korp_sem *sem, uint64 useconds)
 
     if (ret == WAIT_OBJECT_0)
         return BHT_OK;
-    else if(ret == WAIT_TIMEOUT)
+    else if (ret == WAIT_TIMEOUT)
         return (int)WAIT_TIMEOUT;
     else /* WAIT_FAILED or others */
         return BHT_ERROR;
@@ -414,8 +417,7 @@ int
 os_sem_signal(korp_sem *sem)
 {
     bh_assert(sem);
-    return ReleaseSemaphore(*sem, 1, NULL) != FALSE
-           ? BHT_OK: BHT_ERROR;
+    return ReleaseSemaphore(*sem, 1, NULL) != FALSE ? BHT_OK : BHT_ERROR;
 }
 
 int
@@ -478,8 +480,8 @@ os_cond_destroy(korp_cond *cond)
 }
 
 static int
-os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex,
-                      bool timed, uint64 useconds)
+os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
+                      uint64 useconds)
 {
     os_thread_wait_node *node = &thread_data_current()->wait_node;
 
@@ -554,6 +556,31 @@ os_cond_signal(korp_cond *cond)
 
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
 
+#if _WIN32_WINNT < 0x0602
+static ULONG
+GetCurrentThreadStackLimits_Win7(PULONG_PTR p_low_limit,
+                                 PULONG_PTR p_high_limit)
+{
+    MEMORY_BASIC_INFORMATION mbi;
+    NT_TIB *tib = (NT_TIB *)NtCurrentTeb();
+
+    if (!tib) {
+        os_printf("warning: NtCurrentTeb() failed\n");
+        return -1;
+    }
+
+    *p_high_limit = (ULONG_PTR)tib->StackBase;
+
+    if (VirtualQuery(tib->StackLimit, &mbi, sizeof(mbi))) {
+        *p_low_limit = (ULONG_PTR)mbi.AllocationBase;
+        return 0;
+    }
+
+    os_printf("warning: VirtualQuery() failed\n");
+    return GetLastError();
+}
+#endif
+
 uint8 *
 os_thread_get_stack_boundary()
 {
@@ -564,10 +591,16 @@ os_thread_get_stack_boundary()
         return thread_stack_boundary;
 
     page_size = os_getpagesize();
+#if _WIN32_WINNT >= 0x0602
     GetCurrentThreadStackLimits(&low_limit, &high_limit);
+#else
+    if (0 != GetCurrentThreadStackLimits_Win7(&low_limit, &high_limit)) {
+        return NULL;
+    }
+#endif
     /* 4 pages are set unaccessible by system, we reserved
        one more page at least for safety */
-    thread_stack_boundary = (uint8*)(uintptr_t)low_limit + page_size * 5;
+    thread_stack_boundary = (uint8 *)(uintptr_t)low_limit + page_size * 5;
     return thread_stack_boundary;
 }
 
@@ -581,7 +614,7 @@ os_thread_signal_init()
     bool ret;
 
     if (thread_signal_inited)
-        return true;
+        return 0;
 
     ret = SetThreadStackGuarantee(&StackSizeInBytes);
     if (ret)
@@ -601,4 +634,3 @@ os_thread_signal_inited()
     return thread_signal_inited;
 }
 #endif
-

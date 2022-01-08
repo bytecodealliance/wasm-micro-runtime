@@ -20,6 +20,9 @@ struct WASMInterpFrame;
 
 #if WASM_ENABLE_THREAD_MGR != 0
 typedef struct WASMCluster WASMCluster;
+#if WASM_ENABLE_DEBUG_INTERP != 0
+typedef struct WASMCurrentEnvStatus WASMCurrentEnvStatus;
+#endif
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -86,7 +89,7 @@ typedef struct WASMExecEnv {
     void *thread_ret_value;
 
     /* Must be provided by thread library */
-    void* (*thread_start_routine)(void *);
+    void *(*thread_start_routine)(void *);
     void *thread_arg;
 
     /* pointer to the cluster */
@@ -95,6 +98,10 @@ typedef struct WASMExecEnv {
     /* used to support debugger */
     korp_mutex wait_lock;
     korp_cond wait_cond;
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    WASMCurrentEnvStatus *current_status;
 #endif
 
     /* attachment for native function */
@@ -185,8 +192,8 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0
     {
-        uint32 wasm_stack_used = exec_env->wasm_stack.s.top
-                                 - exec_env->wasm_stack.s.bottom;
+        uint32 wasm_stack_used =
+            exec_env->wasm_stack.s.top - exec_env->wasm_stack.s.bottom;
         if (wasm_stack_used > exec_env->max_wasm_stack_used)
             exec_env->max_wasm_stack_used = wasm_stack_used;
     }
@@ -208,7 +215,7 @@ wasm_exec_env_free_wasm_frame(WASMExecEnv *exec_env, void *prev_top)
  *
  * @return the current WASM stack top pointer
  */
-static inline void*
+static inline void *
 wasm_exec_env_wasm_stack_top(WASMExecEnv *exec_env)
 {
     return exec_env->wasm_stack.s.top;
@@ -234,7 +241,7 @@ wasm_exec_env_set_cur_frame(WASMExecEnv *exec_env,
  *
  * @return the current frame pointer
  */
-static inline struct WASMInterpFrame*
+static inline struct WASMInterpFrame *
 wasm_exec_env_get_cur_frame(WASMExecEnv *exec_env)
 {
     return exec_env->cur_frame;
@@ -245,7 +252,6 @@ wasm_exec_env_get_module_inst(WASMExecEnv *exec_env);
 
 void
 wasm_exec_env_set_thread_info(WASMExecEnv *exec_env);
-
 
 #if WASM_ENABLE_THREAD_MGR != 0
 void *

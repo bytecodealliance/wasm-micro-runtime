@@ -19,8 +19,8 @@
 #include <poll.h>
 #include <errno.h>
 
-int ocall_open(const char *pathname, int flags,
-               bool has_mode, unsigned mode)
+int
+ocall_open(const char *pathname, int flags, bool has_mode, unsigned mode)
 {
     if (has_mode) {
         return open(pathname, flags, (mode_t)mode);
@@ -30,9 +30,9 @@ int ocall_open(const char *pathname, int flags,
     }
 }
 
-int ocall_openat(int dirfd,
-                 const char *pathname, int flags,
-                 bool has_mode, unsigned mode)
+int
+ocall_openat(int dirfd, const char *pathname, int flags, bool has_mode,
+             unsigned mode)
 {
     if (has_mode) {
         return openat(dirfd, pathname, flags, (mode_t)mode);
@@ -42,12 +42,14 @@ int ocall_openat(int dirfd,
     }
 }
 
-int ocall_close(int fd)
+int
+ocall_close(int fd)
 {
     return close(fd);
 }
 
-ssize_t ocall_read(int fd, void *buf, size_t read_size)
+ssize_t
+ocall_read(int fd, void *buf, size_t read_size)
 {
     if (buf != NULL) {
         return read(fd, buf, read_size);
@@ -57,45 +59,53 @@ ssize_t ocall_read(int fd, void *buf, size_t read_size)
     }
 }
 
-off_t ocall_lseek(int fd, off_t offset, int whence)
+off_t
+ocall_lseek(int fd, off_t offset, int whence)
 {
     return lseek(fd, offset, whence);
 }
 
-int ocall_ftruncate(int fd, off_t length)
+int
+ocall_ftruncate(int fd, off_t length)
 {
     return ftruncate(fd, length);
 }
 
-int ocall_fsync(int fd)
+int
+ocall_fsync(int fd)
 {
     return fsync(fd);
 }
 
-int ocall_fdatasync(int fd)
+int
+ocall_fdatasync(int fd)
 {
     return fdatasync(fd);
 }
 
-int ocall_isatty(int fd)
+int
+ocall_isatty(int fd)
 {
     return isatty(fd);
 }
 
-void ocall_fdopendir(int fd, void **dirp)
+void
+ocall_fdopendir(int fd, void **dirp)
 {
     if (dirp) {
         *(DIR **)dirp = fdopendir(fd);
     }
 }
 
-void *ocall_readdir(void *dirp)
+void *
+ocall_readdir(void *dirp)
 {
     DIR *p_dirp = (DIR *)dirp;
     return readdir(p_dirp);
 }
 
-void ocall_rewinddir(void *dirp)
+void
+ocall_rewinddir(void *dirp)
 {
     DIR *p_dirp = (DIR *)dirp;
     if (p_dirp) {
@@ -103,7 +113,8 @@ void ocall_rewinddir(void *dirp)
     }
 }
 
-void ocall_seekdir(void *dirp, long loc)
+void
+ocall_seekdir(void *dirp, long loc)
 {
     DIR *p_dirp = (DIR *)dirp;
 
@@ -112,7 +123,8 @@ void ocall_seekdir(void *dirp, long loc)
     }
 }
 
-long ocall_telldir(void *dirp)
+long
+ocall_telldir(void *dirp)
 {
     DIR *p_dirp = (DIR *)dirp;
     if (p_dirp) {
@@ -121,7 +133,8 @@ long ocall_telldir(void *dirp)
     return -1;
 }
 
-int ocall_closedir(void* dirp)
+int
+ocall_closedir(void *dirp)
 {
     DIR *p_dirp = (DIR *)dirp;
     if (p_dirp) {
@@ -130,82 +143,91 @@ int ocall_closedir(void* dirp)
     return -1;
 }
 
-int ocall_stat(const char *pathname,
-               void *buf, unsigned int buf_len)
+int
+ocall_stat(const char *pathname, void *buf, unsigned int buf_len)
 {
     return stat(pathname, (struct stat *)buf);
 }
 
-int ocall_fstat(int fd, void *buf, unsigned int buf_len)
+int
+ocall_fstat(int fd, void *buf, unsigned int buf_len)
 {
     return fstat(fd, (struct stat *)buf);
 }
 
-int ocall_fstatat(int dirfd, const char *pathname, void *buf,
-                  unsigned int buf_len, int flags)
+int
+ocall_fstatat(int dirfd, const char *pathname, void *buf, unsigned int buf_len,
+              int flags)
 {
     return fstatat(dirfd, pathname, (struct stat *)buf, flags);
 }
 
-int ocall_mkdirat(int dirfd, const char *pathname, unsigned mode)
+int
+ocall_mkdirat(int dirfd, const char *pathname, unsigned mode)
 {
     return mkdirat(dirfd, pathname, (mode_t)mode);
 }
 
-int ocall_link(const char *oldpath, const char *newpath)
+int
+ocall_link(const char *oldpath, const char *newpath)
 {
     return link(oldpath, newpath);
 }
 
-int ocall_linkat(int olddirfd, const char *oldpath,
-                 int newdirfd, const char *newpath, int flags)
+int
+ocall_linkat(int olddirfd, const char *oldpath, int newdirfd,
+             const char *newpath, int flags)
 {
     return linkat(olddirfd, oldpath, newdirfd, newpath, flags);
 }
 
-int ocall_unlinkat(int dirfd, const char *pathname, int flags)
+int
+ocall_unlinkat(int dirfd, const char *pathname, int flags)
 {
     return unlinkat(dirfd, pathname, flags);
 }
 
-ssize_t ocall_readlinkat(int dirfd, const char *pathname,
-                         char *buf, size_t bufsiz)
+ssize_t
+ocall_readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz)
 {
     return readlinkat(dirfd, pathname, buf, bufsiz);
 }
 
-int ocall_renameat(int olddirfd, const char *oldpath,
-                   int newdirfd, const char *newpath)
+int
+ocall_renameat(int olddirfd, const char *oldpath, int newdirfd,
+               const char *newpath)
 {
     return renameat(olddirfd, oldpath, newdirfd, newpath);
 }
 
-int ocall_symlinkat(const char *target, int newdirfd,
-                    const char *linkpath)
+int
+ocall_symlinkat(const char *target, int newdirfd, const char *linkpath)
 {
     return symlinkat(target, newdirfd, linkpath);
 }
 
-int ocall_ioctl(int fd, unsigned long request,
-                void *arg, unsigned int arg_len)
+int
+ocall_ioctl(int fd, unsigned long request, void *arg, unsigned int arg_len)
 {
     /* support just int *arg temporally */
     return ioctl(fd, request, (int *)arg);
 }
 
-int ocall_fcntl(int fd, int cmd)
+int
+ocall_fcntl(int fd, int cmd)
 {
-  return fcntl(fd, cmd);
+    return fcntl(fd, cmd);
 }
 
-int ocall_fcntl_long(int fd, int cmd, long arg)
+int
+ocall_fcntl_long(int fd, int cmd, long arg)
 {
-  return fcntl(fd, cmd, arg);
+    return fcntl(fd, cmd, arg);
 }
 
-ssize_t ocall_readv(int fd, char *iov_buf,
-                    unsigned int buf_size, int iovcnt,
-                    bool has_offset, off_t offset)
+ssize_t
+ocall_readv(int fd, char *iov_buf, unsigned int buf_size, int iovcnt,
+            bool has_offset, off_t offset)
 {
     struct iovec *iov = (struct iovec *)iov_buf;
     ssize_t ret;
@@ -223,9 +245,9 @@ ssize_t ocall_readv(int fd, char *iov_buf,
     return ret;
 }
 
-ssize_t ocall_writev(int fd, char *iov_buf,
-                     unsigned int buf_size, int iovcnt,
-                     bool has_offset, off_t offset)
+ssize_t
+ocall_writev(int fd, char *iov_buf, unsigned int buf_size, int iovcnt,
+             bool has_offset, off_t offset)
 {
     struct iovec *iov = (struct iovec *)iov_buf;
     int i;
@@ -243,9 +265,10 @@ ssize_t ocall_writev(int fd, char *iov_buf,
     return ret;
 }
 
-int ocall_realpath(const char *path, char *buf, unsigned int buf_len)
+int
+ocall_realpath(const char *path, char *buf, unsigned int buf_len)
 {
-    char* val = NULL;
+    char *val = NULL;
     val = realpath(path, buf);
     if (val != NULL) {
         return 0;
@@ -253,47 +276,53 @@ int ocall_realpath(const char *path, char *buf, unsigned int buf_len)
     return -1;
 }
 
-int ocall_posix_fallocate(int fd, off_t offset, off_t len)
+int
+ocall_posix_fallocate(int fd, off_t offset, off_t len)
 {
     return posix_fallocate(fd, offset, len);
 }
 
-int ocall_poll(void *fds, unsigned nfds, int timeout,
-               unsigned int fds_len)
+int
+ocall_poll(void *fds, unsigned nfds, int timeout, unsigned int fds_len)
 {
     return poll((struct pollfd *)fds, (nfds_t)nfds, timeout);
 }
 
-int ocall_getopt(int argc, char *argv_buf, unsigned int argv_buf_len,
-                 const char *optstring)
+int
+ocall_getopt(int argc, char *argv_buf, unsigned int argv_buf_len,
+             const char *optstring)
 {
     int ret;
     int i;
     char **argv = (char **)argv_buf;
 
-    for (i=0; i < argc; i++) {
+    for (i = 0; i < argc; i++) {
         argv[i] = argv_buf + (uintptr_t)argv[i];
     }
 
     return getopt(argc, argv, optstring);
 }
 
-ssize_t ocall_getrandom(void *buf, size_t buflen, unsigned int flags)
+ssize_t
+ocall_getrandom(void *buf, size_t buflen, unsigned int flags)
 {
     return getrandom(buf, buflen, flags);
 }
 
-int ocall_getentropy(void *buffer, size_t length)
+int
+ocall_getentropy(void *buffer, size_t length)
 {
     return getentropy(buffer, length);
 }
 
-int ocall_sched_yield()
+int
+ocall_sched_yield()
 {
     return sched_yield();
 }
 
-int ocall_get_errno()
+int
+ocall_get_errno()
 {
     return errno;
 }

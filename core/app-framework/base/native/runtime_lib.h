@@ -6,13 +6,17 @@
 #ifndef LIB_BASE_RUNTIME_LIB_H_
 #define LIB_BASE_RUNTIME_LIB_H_
 
-
 #include "runtime_timer.h"
 
-void init_wasm_timer();
-void exit_wasm_timer();
-timer_ctx_t get_wasm_timer_ctx();
-timer_ctx_t create_wasm_timer_ctx(unsigned int module_id, int prealloc_num);
-void destroy_module_timer_ctx(unsigned int module_id);
+void
+init_wasm_timer();
+void
+exit_wasm_timer();
+timer_ctx_t
+get_wasm_timer_ctx();
+timer_ctx_t
+create_wasm_timer_ctx(unsigned int module_id, int prealloc_num);
+void
+destroy_module_timer_ctx(unsigned int module_id);
 
 #endif /* LIB_BASE_RUNTIME_LIB_H_ */

@@ -60,8 +60,8 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
 void
 hmu_verify(void *vheap, hmu_t *hmu);
 
-#define SKIP_OBJ_PREFIX(p) ((void*)((gc_uint8*)(p) + OBJ_PREFIX_SIZE))
-#define SKIP_OBJ_SUFFIX(p) ((void*)((gc_uint8*)(p) + OBJ_SUFFIX_SIZE))
+#define SKIP_OBJ_PREFIX(p) ((void *)((gc_uint8 *)(p) + OBJ_PREFIX_SIZE))
+#define SKIP_OBJ_SUFFIX(p) ((void *)((gc_uint8 *)(p) + OBJ_SUFFIX_SIZE))
 
 #define OBJ_EXTRA_SIZE (HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE)
 
@@ -70,8 +70,8 @@ hmu_verify(void *vheap, hmu_t *hmu);
 #define OBJ_PREFIX_SIZE 0
 #define OBJ_SUFFIX_SIZE 0
 
-#define SKIP_OBJ_PREFIX(p) ((void*)((gc_uint8*)(p) + OBJ_PREFIX_SIZE))
-#define SKIP_OBJ_SUFFIX(p) ((void*)((gc_uint8*)(p) + OBJ_SUFFIX_SIZE))
+#define SKIP_OBJ_PREFIX(p) ((void *)((gc_uint8 *)(p) + OBJ_PREFIX_SIZE))
+#define SKIP_OBJ_SUFFIX(p) ((void *)((gc_uint8 *)(p) + OBJ_SUFFIX_SIZE))
 
 #define OBJ_EXTRA_SIZE (HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE)
 
@@ -81,8 +81,11 @@ hmu_verify(void *vheap, hmu_t *hmu);
 
 #define GC_ALIGN_8(s) (((uint32)(s) + 7) & (uint32)~7)
 
-#define GC_SMALLEST_SIZE GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE + 8)
-#define GC_GET_REAL_SIZE(x) GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE + (((x) > 8) ? (x): 8))
+#define GC_SMALLEST_SIZE \
+    GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE + 8)
+#define GC_GET_REAL_SIZE(x)                                 \
+    GC_ALIGN_8(HMU_SIZE + OBJ_PREFIX_SIZE + OBJ_SUFFIX_SIZE \
+               + (((x) > 8) ? (x) : 8))
 
 /**
  * hmu bit operation
@@ -92,12 +95,17 @@ hmu_verify(void *vheap, hmu_t *hmu);
 #define GETBIT(v, offset) ((v) & ((uint32)1 << (offset)) ? 1 : 0)
 #define CLRBIT(v, offset) (v) &= (~((uint32)1 << (offset)))
 
-#define SETBITS(v, offset, size, value) do {        \
-    (v) &= ~((((uint32)1 << size) - 1) << offset);  \
-    (v) |= ((uint32)value << offset);               \
-  } while(0)
-#define CLRBITS(v, offset, size) (v) &= ~((((uint32)1 << size) - 1) << offset)
-#define GETBITS(v, offset, size) (((v) & (((((uint32)1 << size) - 1) << offset))) >> offset)
+/* clang-format off */
+#define SETBITS(v, offset, size, value)                \
+    do {                                               \
+        (v) &= ~((((uint32)1 << size) - 1) << offset); \
+        (v) |= ((uint32)value << offset);              \
+    } while (0)
+#define CLRBITS(v, offset, size) \
+    (v) &= ~((((uint32)1 << size) - 1) << offset)
+#define GETBITS(v, offset, size) \
+    (((v) & (((((uint32)1 << size) - 1) << offset))) >> offset)
+/* clang-format on */
 
 /**
  * gc object layout definition
@@ -105,30 +113,35 @@ hmu_verify(void *vheap, hmu_t *hmu);
 
 #define HMU_SIZE (sizeof(hmu_t))
 
-#define hmu_to_obj(hmu) (gc_object_t)(SKIP_OBJ_PREFIX((hmu_t*) (hmu) + 1))
-#define obj_to_hmu(obj) ((hmu_t *)((gc_uint8*)(obj) - OBJ_PREFIX_SIZE) - 1)
+#define hmu_to_obj(hmu) (gc_object_t)(SKIP_OBJ_PREFIX((hmu_t *)(hmu) + 1))
+#define obj_to_hmu(obj) ((hmu_t *)((gc_uint8 *)(obj)-OBJ_PREFIX_SIZE) - 1)
 
-#define HMU_UT_SIZE      2
-#define HMU_UT_OFFSET    30
+#define HMU_UT_SIZE 2
+#define HMU_UT_OFFSET 30
 
-#define hmu_get_ut(hmu) GETBITS ((hmu)->header, HMU_UT_OFFSET, HMU_UT_SIZE)
-#define hmu_set_ut(hmu, type) SETBITS ((hmu)->header, HMU_UT_OFFSET, HMU_UT_SIZE, type)
-#define hmu_is_ut_valid(tp) (tp >= HMU_TYPE_MIN && tp <= HMU_TYPE_MAX)
+/* clang-format off */
+#define hmu_get_ut(hmu) \
+    GETBITS((hmu)->header, HMU_UT_OFFSET, HMU_UT_SIZE)
+#define hmu_set_ut(hmu, type) \
+    SETBITS((hmu)->header, HMU_UT_OFFSET, HMU_UT_SIZE, type)
+#define hmu_is_ut_valid(tp) \
+    (tp >= HMU_TYPE_MIN && tp <= HMU_TYPE_MAX)
+/* clang-format on */
 
 /* P in use bit means the previous chunk is in use */
 #define HMU_P_OFFSET 29
 
-#define hmu_mark_pinuse(hmu) SETBIT ((hmu)->header, HMU_P_OFFSET)
-#define hmu_unmark_pinuse(hmu) CLRBIT ((hmu)->header, HMU_P_OFFSET)
-#define hmu_get_pinuse(hmu) GETBIT ((hmu)->header, HMU_P_OFFSET)
+#define hmu_mark_pinuse(hmu) SETBIT((hmu)->header, HMU_P_OFFSET)
+#define hmu_unmark_pinuse(hmu) CLRBIT((hmu)->header, HMU_P_OFFSET)
+#define hmu_get_pinuse(hmu) GETBIT((hmu)->header, HMU_P_OFFSET)
 
-#define HMU_JO_VT_SIZE   27
+#define HMU_JO_VT_SIZE 27
 #define HMU_JO_VT_OFFSET 0
 #define HMU_JO_MB_OFFSET 28
 
-#define hmu_mark_jo(hmu) SETBIT ((hmu)->header, HMU_JO_MB_OFFSET)
-#define hmu_unmark_jo(hmu) CLRBIT ((hmu)->header, HMU_JO_MB_OFFSET)
-#define hmu_is_jo_marked(hmu) GETBIT ((hmu)->header, HMU_JO_MB_OFFSET)
+#define hmu_mark_jo(hmu) SETBIT((hmu)->header, HMU_JO_MB_OFFSET)
+#define hmu_unmark_jo(hmu) CLRBIT((hmu)->header, HMU_JO_MB_OFFSET)
+#define hmu_is_jo_marked(hmu) GETBIT((hmu)->header, HMU_JO_MB_OFFSET)
 
 /**
  * The hmu size is divisible by 8, its lowest 3 bits are 0, so we only
@@ -141,11 +154,13 @@ hmu_verify(void *vheap, hmu_t *hmu);
 
 #define HMU_VO_FB_OFFSET 28
 
-#define hmu_is_vo_freed(hmu) GETBIT ((hmu)->header, HMU_VO_FB_OFFSET)
-#define hmu_unfree_vo(hmu) CLRBIT ((hmu)->header, HMU_VO_FB_OFFSET)
+#define hmu_is_vo_freed(hmu) GETBIT((hmu)->header, HMU_VO_FB_OFFSET)
+#define hmu_unfree_vo(hmu) CLRBIT((hmu)->header, HMU_VO_FB_OFFSET)
 
-#define hmu_get_size(hmu) (GETBITS ((hmu)->header, HMU_SIZE_OFFSET, HMU_SIZE_SIZE) << 3)
-#define hmu_set_size(hmu, size) SETBITS ((hmu)->header, HMU_SIZE_OFFSET, HMU_SIZE_SIZE, ((size) >> 3))
+#define hmu_get_size(hmu) \
+    (GETBITS((hmu)->header, HMU_SIZE_OFFSET, HMU_SIZE_SIZE) << 3)
+#define hmu_set_size(hmu, size) \
+    SETBITS((hmu)->header, HMU_SIZE_OFFSET, HMU_SIZE_SIZE, ((size) >> 3))
 
 /**
  * HMU free chunk management
@@ -173,17 +188,16 @@ static inline hmu_normal_node_t *
 get_hmu_normal_node_next(hmu_normal_node_t *node)
 {
     return node->next_offset
-           ? (hmu_normal_node_t *)((uint8*)node + node->next_offset)
-           : NULL;
+               ? (hmu_normal_node_t *)((uint8 *)node + node->next_offset)
+               : NULL;
 }
 
 static inline void
 set_hmu_normal_node_next(hmu_normal_node_t *node, hmu_normal_node_t *next)
 {
     if (next) {
-        bh_assert((uint8*)next - (uint8*)node < INT32_MAX);
-        node->next_offset = (gc_int32)(intptr_t)
-                            ((uint8*)next - (uint8*)node);
+        bh_assert((uint8 *)next - (uint8 *)node < INT32_MAX);
+        node->next_offset = (gc_int32)(intptr_t)((uint8 *)next - (uint8 *)node);
     }
     else {
         node->next_offset = 0;
@@ -247,4 +261,4 @@ gci_dump(gc_heap_t *heap);
 }
 #endif
 
-#endif
+#endif /* end of _EMS_GC_INTERNAL_H */

@@ -9,18 +9,23 @@
 
 #define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
 
-int ocall_socket(int *p_ret, int domain, int type, int protocol);
-int ocall_getsockopt(int *p_ret, int sockfd, int level, int optname,
-                     void *val_buf, unsigned int val_buf_size,
-                     void *len_buf);
+int
+ocall_socket(int *p_ret, int domain, int type, int protocol);
+int
+ocall_getsockopt(int *p_ret, int sockfd, int level, int optname, void *val_buf,
+                 unsigned int val_buf_size, void *len_buf);
 
-int ocall_sendmsg(ssize_t *p_ret, int sockfd, void *msg_buf,
-                  unsigned int msg_buf_size, int flags);
-int ocall_recvmsg(ssize_t *p_ret, int sockfd, void *msg_buf,
-                  unsigned int msg_buf_size, int flags);
-int ocall_shutdown(int *p_ret, int sockfd, int how);
+int
+ocall_sendmsg(ssize_t *p_ret, int sockfd, void *msg_buf,
+              unsigned int msg_buf_size, int flags);
+int
+ocall_recvmsg(ssize_t *p_ret, int sockfd, void *msg_buf,
+              unsigned int msg_buf_size, int flags);
+int
+ocall_shutdown(int *p_ret, int sockfd, int how);
 
-int socket(int domain, int type, int protocol)
+int
+socket(int domain, int type, int protocol)
 {
     int ret;
 
@@ -35,14 +40,15 @@ int socket(int domain, int type, int protocol)
     return ret;
 }
 
-int getsockopt(int sockfd, int level, int optname,
-               void *optval, socklen_t *optlen)
+int
+getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
     int ret;
     unsigned int val_buf_size = *optlen;
 
-    if (ocall_getsockopt(&ret, sockfd, level, optname, optval,
-                         val_buf_size, (void *)optlen) != SGX_SUCCESS) {
+    if (ocall_getsockopt(&ret, sockfd, level, optname, optval, val_buf_size,
+                         (void *)optlen)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -53,7 +59,8 @@ int getsockopt(int sockfd, int level, int optname,
     return ret;
 }
 
-ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
+ssize_t
+sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
     ssize_t ret;
     int i;
@@ -77,7 +84,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
     if (msg1 == NULL)
         return -1;
 
-    p = (char*)(uintptr_t)sizeof(struct msghdr);
+    p = (char *)(uintptr_t)sizeof(struct msghdr);
 
     if (msg->msg_name != NULL) {
         msg1->msg_name = p;
@@ -106,8 +113,8 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
         }
     }
 
-    if (ocall_sendmsg(&ret, sockfd, (void *)msg1, (uint32)total_size,
-                      flags) != SGX_SUCCESS) {
+    if (ocall_sendmsg(&ret, sockfd, (void *)msg1, (uint32)total_size, flags)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -118,7 +125,8 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
     return ret;
 }
 
-ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags)
+ssize_t
+recvmsg(int sockfd, struct msghdr *msg, int flags)
 {
     ssize_t ret;
     int i;
@@ -144,7 +152,7 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags)
 
     memset(msg1, 0, total_size);
 
-    p = (char*)(uintptr_t)sizeof(struct msghdr);
+    p = (char *)(uintptr_t)sizeof(struct msghdr);
 
     if (msg->msg_name != NULL) {
         msg1->msg_name = p;
@@ -167,8 +175,8 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags)
         }
     }
 
-    if (ocall_recvmsg(&ret, sockfd, (void *)msg1, (uint32)total_size,
-                      flags) != SGX_SUCCESS) {
+    if (ocall_recvmsg(&ret, sockfd, (void *)msg1, (uint32)total_size, flags)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -203,7 +211,8 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags)
     return ret;
 }
 
-int shutdown(int sockfd, int how)
+int
+shutdown(int sockfd, int how)
 {
     int ret;
 
@@ -219,4 +228,3 @@ int shutdown(int sockfd, int how)
 }
 
 #endif
-

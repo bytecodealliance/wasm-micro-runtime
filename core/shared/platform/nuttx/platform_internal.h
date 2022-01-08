@@ -38,7 +38,7 @@ typedef pthread_t korp_thread;
 /* Default thread priority */
 #define BH_THREAD_DEFAULT_PRIORITY 100
 
-#define os_printf  printf
+#define os_printf printf
 #define os_vprintf vprintf
 
 /* On NuttX, time_t is uint32_t */

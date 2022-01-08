@@ -7,10 +7,11 @@
 #include <wasm_export.h>
 
 #define LOGI(...) \
-  ((void)__android_log_print(ANDROID_LOG_INFO, "wasm_jni::", __VA_ARGS__))
+    ((void)__android_log_print(ANDROID_LOG_INFO, "wasm_jni::", __VA_ARGS__))
 
 static void *
-app_instance_main(wasm_module_inst_t module_inst) {
+app_instance_main(wasm_module_inst_t module_inst)
+{
     const char *exception;
 
     wasm_application_execute_main(module_inst, 0, NULL);
@@ -58,20 +59,21 @@ static unsigned char wasm_test_file[] = {
 };
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz) {
+Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz)
+{
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
     RuntimeInitArgs init_args;
     uint wasm_file_size = 0;
     uint8_t *wasm_file_buf = NULL;
-    char error_buf[128] = {0};
+    char error_buf[128] = { 0 };
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
     init_args.mem_alloc_type = Alloc_With_Allocator;
-    init_args.mem_alloc_option.allocator.malloc_func = (void*)malloc;
-    init_args.mem_alloc_option.allocator.realloc_func = (void*)realloc;
-    init_args.mem_alloc_option.allocator.free_func = (void*)free;
+    init_args.mem_alloc_option.allocator.malloc_func = (void *)malloc;
+    init_args.mem_alloc_option.allocator.realloc_func = (void *)realloc;
+    init_args.mem_alloc_option.allocator.free_func = (void *)free;
 
     LOGI("wasm_runtime_full_init");
     /* initialize runtime environment */
@@ -82,7 +84,7 @@ Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz) {
 
     /* load WASM byte buffer from a preinstall WASM bin file */
     LOGI("use an internal test file, gona to output Hello World in logcat\n");
-    wasm_file_buf = (uint8_t*) wasm_test_file;
+    wasm_file_buf = (uint8_t *)wasm_test_file;
     wasm_file_size = sizeof(wasm_test_file);
 
     /* load WASM module */
@@ -96,11 +98,10 @@ Java_com_intel_wasm_api_Runtime_run(JNIEnv *env, jclass thiz) {
 
     /* instantiate the module */
     LOGI("wasm_runtime_instantiate");
-    if (!(wasm_module_inst = wasm_runtime_instantiate(wasm_module,
-                                                      64 * 1024, /* stack size */
-                                                      64 * 1024, /* heap size */
-                                                      error_buf,
-                                                      sizeof(error_buf)))) {
+    if (!(wasm_module_inst =
+              wasm_runtime_instantiate(wasm_module, 64 * 1024, /* stack size */
+                                       64 * 1024,              /* heap size */
+                                       error_buf, sizeof(error_buf)))) {
         LOGI("%s\n", error_buf);
         LOGI("goto fail2\n");
         goto fail2;
@@ -121,7 +122,7 @@ fail2:
 fail1:
     // in our case, we don't need a free, but it is not a typical one
     /* free the file buffer */
-    //bh_free((void *) wasm_file_buf);
+    // bh_free((void *) wasm_file_buf);
 
     /* destroy runtime environment */
     LOGI("wasm_runtime_destroy");

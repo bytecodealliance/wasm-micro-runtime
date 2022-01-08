@@ -33,10 +33,8 @@ typedef enum {
  * @param user_data user data
  */
 typedef void (*on_connection_event_f)(connection_t *conn,
-                                      conn_event_type_t type,
-                                      const char *data,
-                                      uint32 len,
-                                      void *user_data);
+                                      conn_event_type_t type, const char *data,
+                                      uint32 len, void *user_data);
 
 /*
  *****************
@@ -54,17 +52,17 @@ typedef void (*on_connection_event_f)(connection_t *conn,
  *
  * @return the connection or NULL means fail
  */
-connection_t *api_open_connection(const char *name,
-                                  attr_container_t *args,
-                                  on_connection_event_f on_event,
-                                  void *user_data);
+connection_t *
+api_open_connection(const char *name, attr_container_t *args,
+                    on_connection_event_f on_event, void *user_data);
 
 /*
  * @brief Close a connection.
  *
  * @param conn connection
  */
-void api_close_connection(connection_t *conn);
+void
+api_close_connection(connection_t *conn);
 
 /*
  * Send data to the connection in non-blocking manner which returns immediately
@@ -75,7 +73,8 @@ void api_close_connection(connection_t *conn);
  *
  * @return actual length sent, or -1 if fail(maybe underlying buffer is full)
  */
-int api_send_on_connection(connection_t *conn, const char *data, uint32 len);
+int
+api_send_on_connection(connection_t *conn, const char *data, uint32 len);
 
 /*
  * @brief Configure connection.
@@ -85,8 +84,8 @@ int api_send_on_connection(connection_t *conn, const char *data, uint32 len);
  *
  * @return true if success, false otherwise
  */
-bool api_config_connection(connection_t *conn, attr_container_t *cfg);
-
+bool
+api_config_connection(connection_t *conn, attr_container_t *cfg);
 
 #ifdef __cplusplus
 }

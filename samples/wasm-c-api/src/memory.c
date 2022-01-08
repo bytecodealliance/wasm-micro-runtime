@@ -33,8 +33,13 @@ void check(bool success) {
 }
 
 void check_call(wasm_func_t* func, int i, wasm_val_t args[], int32_t expected) {
-  wasm_val_t results[1] = { WASM_INIT_VAL };
-  if (wasm_func_call(func, args, results) || results[0].of.i32 != expected) {
+  wasm_val_vec_t args_vec;
+  wasm_val_vec_t results_vec;
+  if (args)
+    wasm_val_vec_new(&args_vec, i, args);
+  wasm_val_vec_new(&results_vec, 1, (wasm_val_t []){ WASM_INIT_VAL });
+  if (wasm_func_call(func, args ? &args_vec : NULL, &results_vec)
+      || results_vec.data[0].of.i32 != expected) {
     printf("> Error on result\n");
     exit(1);
   }
@@ -55,7 +60,9 @@ void check_call2(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected
 }
 
 void check_ok(wasm_func_t* func, int i, wasm_val_t args[]) {
-  if (wasm_func_call(func, args, NULL)) {
+  wasm_val_vec_t args_vec;
+  wasm_val_vec_new(&args_vec, i, args);
+  if (wasm_func_call(func, &args_vec, NULL)) {
     printf("> Error on result, expected empty\n");
     exit(1);
   }
@@ -67,8 +74,10 @@ void check_ok2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
 }
 
 void check_trap(wasm_func_t* func, int i, wasm_val_t args[]) {
-  wasm_val_t results[1] = { WASM_INIT_VAL };
-  own wasm_trap_t* trap = wasm_func_call(func, args, results);
+  wasm_val_vec_t args_vec, results_vec;
+  wasm_val_vec_new(&args_vec, i, args);
+  wasm_val_vec_new(&results_vec, 1, (wasm_val_t []){ WASM_INIT_VAL });
+  own wasm_trap_t* trap = wasm_func_call(func, &args_vec, &results_vec);
   if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);

@@ -12,4 +12,3 @@ os_time_get_boot_microsecond()
 {
     return xtimer_now_usec64();
 }
-

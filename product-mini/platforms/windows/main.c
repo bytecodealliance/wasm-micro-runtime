@@ -15,6 +15,7 @@ static char **app_argv;
 
 #define MODULE_PATH ("--module-path=")
 
+/* clang-format off */
 static int
 print_help()
 {
@@ -45,8 +46,13 @@ print_help()
 #if WASM_ENABLE_LIB_PTHREAD != 0
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
 #endif
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    printf("  -g=ip:port             Set the debug sever address, default is debug disabled\n");
+    printf("                           if port is 0, then a random port will be used\n");
+#endif
     return 1;
 }
+/* clang-format on */
 
 static void *
 app_instance_main(wasm_module_inst_t module_inst)
@@ -113,37 +119,37 @@ split_string(char *str, int *count)
 static void *
 app_instance_repl(wasm_module_inst_t module_inst)
 {
-   char buffer[4096];
-   char *cmd;
-   size_t n;
+    char buffer[4096];
+    char *cmd;
+    size_t n;
 
-   while ((printf("webassembly> "),
-           cmd = fgets(buffer, sizeof(buffer), stdin)) != NULL) {
-       bh_assert(cmd);
-       n = strlen(cmd);
-       if (cmd[n - 1] == '\n') {
-           if (n == 1)
-               continue;
-           else
-               cmd[n - 1] = '\0';
-       }
-       if (!strcmp(cmd, "__exit__")) {
-           printf("exit repl mode\n");
-           break;
-       }
-       app_argv = split_string(cmd, &app_argc);
-       if (app_argv == NULL) {
-           LOG_ERROR("Wasm prepare param failed: split string failed.\n");
-           break;
-       }
-       if (app_argc != 0) {
-           wasm_application_execute_func(module_inst, app_argv[0],
-                                         app_argc - 1, app_argv + 1);
-       }
-       free(app_argv);
-   }
+    while ((printf("webassembly> "), cmd = fgets(buffer, sizeof(buffer), stdin))
+           != NULL) {
+        bh_assert(cmd);
+        n = strlen(cmd);
+        if (cmd[n - 1] == '\n') {
+            if (n == 1)
+                continue;
+            else
+                cmd[n - 1] = '\0';
+        }
+        if (!strcmp(cmd, "__exit__")) {
+            printf("exit repl mode\n");
+            break;
+        }
+        app_argv = split_string(cmd, &app_argc);
+        if (app_argv == NULL) {
+            LOG_ERROR("Wasm prepare param failed: split string failed.\n");
+            break;
+        }
+        if (app_argc != 0) {
+            wasm_application_execute_func(module_inst, app_argv[0],
+                                          app_argc - 1, app_argv + 1);
+        }
+        free(app_argv);
+    }
 
-   return NULL;
+    return NULL;
 }
 
 #if WASM_ENABLE_LIBC_WASI != 0
@@ -175,7 +181,7 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 static char *
 handle_module_path(const char *module_path)
 {
-    // next character after =
+    /* next character after '=' */
     return (strchr(module_path, '=')) + 1;
 }
 
@@ -234,8 +240,13 @@ main(int argc, char *argv[])
     const char *env_list[8] = { NULL };
     uint32 env_list_size = 0;
 #endif
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    char *ip_addr = NULL;
+    /* int platform_port = 0; */
+    int instance_port = 0;
+#endif
 
-    /* Process options.  */
+    /* Process options. */
     for (argc--, argv++; argc > 0 && argv[0][0] == '-'; argc--, argv++) {
         if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--function")) {
             argc--, argv++;
@@ -312,6 +323,19 @@ main(int argc, char *argv[])
             wasm_runtime_set_max_thread_num(atoi(argv[0] + 14));
         }
 #endif
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        else if (!strncmp(argv[0], "-g=", 3)) {
+            char *port_str = strchr(argv[0] + 3, ':');
+            char *port_end;
+            if (port_str == NULL)
+                return print_help();
+            *port_str = '\0';
+            instance_port = strtoul(port_str + 1, &port_end, 10);
+            if (port_str[1] == '\0' || *port_end != '\0')
+                return print_help();
+            ip_addr = argv[0] + 3;
+        }
+#endif
         else
             return print_help();
     }
@@ -336,6 +360,13 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.free_func = free;
 #endif
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    init_args.platform_port = 0;
+    init_args.instance_port = instance_port;
+    if (ip_addr)
+        strcpy(init_args.ip_addr, ip_addr);
+#endif
+
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
         printf("Init runtime environment failed.\n");
@@ -348,7 +379,7 @@ main(int argc, char *argv[])
 
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf =
-            (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
+              (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -369,8 +400,8 @@ main(int argc, char *argv[])
 
     /* instantiate the module */
     if (!(wasm_module_inst =
-            wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
-                                     error_buf, sizeof(error_buf)))) {
+              wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
+                                       error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail3;
     }

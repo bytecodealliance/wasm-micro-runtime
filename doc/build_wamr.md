@@ -19,7 +19,7 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
 
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
 
-- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, RISCV64 and MIPS.
+- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, ARC, RISCV32, RISCV64 and MIPS.
   - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. Both \<sub-arch> and "_VFP" are optional, e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
   - For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. \<sub-arch> is optional, e.g. AARCH64, AARCH64V8, AARCH64V8.1 and so on.
   - For RISCV64, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV64, RISCV64_LP64D and RISCV64_LP64: RISCV64 and RISCV64_LP64D are identical, using [LP64D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (LP64 with hardware floating-point calling convention for FLEN=64). And RISCV64_LP64 uses [LP64](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
@@ -41,6 +41,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, default to disable if not set
+- **WAMR_BUILD_LAZY_JIT**=1/0, default to disable if not set
 
 #### **Configure LIBC**
 
@@ -145,6 +146,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: The WAMR application entry (`core/iwasm/common/wasm_application.c`) encapsulate some common process to instantiate, execute the wasm functions and print the results. Some platform related APIs are used in these functions, so you can enable this flag to exclude this file if your platform doesn't support those APIs.
 > *Don't enable this flag if you are building `product-mini`*
 
+#### **Enable source debugging features**
+- **WAMR_BUILD_DEBUG_INTERP**=1/0, default to 0 if not set
+> Note: There are some other setup required by source debugging, please refer to [source_debugging.md](./source_debugging.md) for more details.
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -170,6 +175,9 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=$TOOL_CHAIN_FILE  \
 ```
 
 Refer to toolchain sample file [`samples/simple/profiles/arm-interp/toolchain.cmake`](../samples/simple/profiles/arm-interp/toolchain.cmake) for how to build mini product for ARM target architecture.
+
+If you compile for ESP-IDF, make sure to set the right toolchain file for the chip you're using (e.g. `$IDF_PATH/tools/cmake/toolchain-esp32c3.cmake`).
+Note that all ESP-IDF toolchain files live under `$IDF_PATH/tools/cmake/`.
 
 Linux
 -------------------------
@@ -198,8 +206,8 @@ make
 ```
 
 
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
-set to X86_64 or X86_32 depending on the platform's bitwidth.
+By default in Linux, the interpreter, AOT and WASI are enabled, and JIT and LazyJIT are disabled.
+And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
 To enable WASM JIT, firstly we should build LLVM:
 
@@ -216,6 +224,11 @@ cd build
 cmake .. -DWAMR_BUILD_JIT=1
 make
 ```
+
+Moreover, pass arguments `-DWAMR_BUILD_JIT=1` and `-DWAMR_BUILD_LAZY_JIT=1` together to cmake to enable WASM Lazy JIT.
+If Lazy JIT is enabled, then jit function bodies in the module will not be compiled until they are first called,
+so compile time reduces significantly.
+
 
 Linux SGX (Intel Software Guard Extension)
 -------------------------
@@ -252,6 +265,7 @@ Then build the source codes:
 ``` Bash
 cd core/deps/
 git clone https://github.com/nodejs/uvwasi.git
+
 cd product-mini/platforms/windows/
 mkdir build
 cd build
@@ -292,18 +306,24 @@ WAMR provides some features which can be easily configured by passing options to
 
 Zephyr
 -------------------------
-You need to download the Zephyr source code first and embed WAMR into it.
+You need to prepare Zephyr first as described here https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies.
+
+After that you need to point the `ZEPHYR_BASE` variable to e.g. `~/zephyrproject/zephyr`. Also, it is important that you have `west` available for subsequent actions.
+
 ``` Bash
-git clone https://github.com/zephyrproject-rtos/zephyr.git
-cd zephyr/samples/
-cp -a <wamr_root_dir>/product-mini/platforms/zephyr/simple .
-cd simple
-ln -s <wamr_root_dir> wamr
-source ../../zephyr-env.sh
+cd <wamr_root_dir>/product-mini/platforms/zephyr/simple
 # Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
 ./build_and_run.sh x86
-
 ```
+
+If you want to use the Espressif toolchain (esp32 or esp32c3), you can most conveniently install it with `west`:
+
+``` Bash
+cd $ZEPHYR_BASE
+west espressif install
+```
+
+After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
 
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
@@ -448,6 +468,18 @@ $ # lib includes libiwasm.so
 NuttX
 -------------------------
 WAMR is intergrated with NuttX, just enable the WAMR in Kconfig option (Application Configuration/Interpreters).
+
+ESP-IDF
+-------------------------
+WAMR integrates with ESP-IDF both for the XTENSA and RISC-V chips (esp32x and esp32c3 respectively). 
+
+In order to use this, you need at least version 4.3.1 of ESP-IDF.
+If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
+ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
+A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
+The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+In order to run it for your specific Espressif chip, edit the ['build.sh'](/product-mini/platforms/esp-idf/build.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 Docker
 -------------------------

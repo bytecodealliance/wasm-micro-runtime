@@ -27,6 +27,9 @@ iwasm VM core
 - [The mechanism for exporting native API's to WASM applications](./doc/export_native_api.md)
 - [Multiple modules as dependencies](./doc/multi_module.md), ref to [sample](samples/multi-module)
 - [Thread management and pthread library](./doc/pthread_library.md), ref to [sample](samples/multi-thread)
+- [Linux SGX (Intel Software Guard Extension) support](./doc/linux_sgx.md)
+- [Source debugging](./doc/source_debugging.md)
+- [XIP (Execution In Place) support](./doc/xip.md)
 
 ### post-MVP features
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
@@ -67,7 +70,7 @@ Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compile
 cd wamr-compiler
 ./build_llvm.sh (or "./build_llvm_xtensa.sh" to support xtensa target)
 mkdir build && cd build
-cmake .. (or "cmake .. -DWAMR_BUILD_TARGET=darwin" for MacOS)
+cmake .. (or "cmake .. -DWAMR_BUILD_PLATFORM=darwin" for MacOS)
 make
 # wamrc is generated under current directory
 ```
@@ -76,8 +79,6 @@ For **Windows**：
 ```shell
 cd wamr-compiler
 python build_llvm.py
-open LLVM.sln in wasm-micro-runtime\core\deps\llvm\win32build with Visual Studio
-build LLVM.sln Release
 mkdir build && cd build
 cmake ..
 cmake --build . --config Release

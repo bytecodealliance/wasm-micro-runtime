@@ -49,7 +49,7 @@ wasm_native_lookup_libc_builtin_global(const char *module_name,
  *
  * @return the native function pointer if success, NULL otherwise
  */
-void*
+void *
 wasm_native_resolve_symbol(const char *module_name, const char *field_name,
                            const WASMType *func_type, const char **p_signature,
                            void **p_attachment, bool *p_call_conv_raw);
@@ -75,4 +75,3 @@ wasm_native_destroy();
 #endif
 
 #endif /* end of _WASM_NATIVE_H */
-

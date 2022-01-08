@@ -17,10 +17,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     uint32 func_idx, bool tail_call);
 
 bool
-aot_compile_op_call_indirect(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
-                             uint32 type_idx,
-                             uint32 tbl_idx);
+aot_compile_op_call_indirect(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                             uint32 type_idx, uint32 tbl_idx);
 
 bool
 aot_compile_op_ref_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
@@ -29,12 +27,10 @@ bool
 aot_compile_op_ref_is_null(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx);
 
 bool
-aot_compile_op_ref_func(AOTCompContext *comp_ctx,
-                        AOTFuncContext *func_ctx,
+aot_compile_op_ref_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         uint32 func_idx);
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
 
 #endif /* end of _AOT_EMIT_FUNCTION_H_ */
-

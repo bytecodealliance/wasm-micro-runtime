@@ -24,15 +24,12 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 {
     void *mem;
 
-    if (size >= UINT32_MAX
-        || !(mem = wasm_runtime_malloc((uint32)size))) {
+    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
         if (module_inst != NULL) {
-            wasm_runtime_set_exception(module_inst,
-                                       "allocate memory failed");
+            wasm_runtime_set_exception(module_inst, "allocate memory failed");
         }
         else if (error_buf != NULL) {
-            set_error_buf(error_buf, error_buf_size,
-                          "allocate memory failed");
+            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
         }
         return NULL;
     }
@@ -51,30 +48,28 @@ static union {
 /**
  * Implementation of wasm_application_execute_main()
  */
-
-static WASMFunctionInstanceCommon*
-resolve_function(const WASMModuleInstanceCommon *module_inst,
-                 const char *name);
-
 static bool
 check_main_func_type(const WASMType *type)
 {
     if (!(type->param_count == 0 || type->param_count == 2)
-        ||type->result_count > 1) {
-        LOG_ERROR("WASM execute application failed: invalid main function type.\n");
+        || type->result_count > 1) {
+        LOG_ERROR(
+            "WASM execute application failed: invalid main function type.\n");
         return false;
     }
 
     if (type->param_count == 2
         && !(type->types[0] == VALUE_TYPE_I32
-        && type->types[1] == VALUE_TYPE_I32)) {
-        LOG_ERROR("WASM execute application failed: invalid main function type.\n");
+             && type->types[1] == VALUE_TYPE_I32)) {
+        LOG_ERROR(
+            "WASM execute application failed: invalid main function type.\n");
         return false;
     }
 
     if (type->result_count
         && type->types[type->param_count] != VALUE_TYPE_I32) {
-        LOG_ERROR("WASM execute application failed: invalid main function type.\n");
+        LOG_ERROR(
+            "WASM execute application failed: invalid main function type.\n");
         return false;
     }
 
@@ -82,8 +77,8 @@ check_main_func_type(const WASMType *type)
 }
 
 bool
-wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
-                              int32 argc, char *argv[])
+wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
+                              char *argv[])
 {
     WASMFunctionInstanceCommon *func;
     WASMType *func_type = NULL;
@@ -97,41 +92,45 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
     bool ret, is_import_func = true;
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (wasm_runtime_is_wasi_mode(module_inst)) {
-        /* In wasi mode, we should call function named "_start"
-           which initializes the wasi envrionment and then calls
-           the actual main function. Directly call main function
-           may cause exception thrown. */
-        if ((func = wasm_runtime_lookup_wasi_start_function(module_inst)))
-            return wasm_runtime_create_exec_env_and_call_wasm(
-                                            module_inst, func, 0, NULL);
-        /* if no start function is found, we execute
-           the main function as normal */
+    /* In wasi mode, we should call the function named "_start"
+       which initializes the wasi envrionment and then calls
+       the actual main function. Directly calling main function
+       may cause exception thrown. */
+    if ((func = wasm_runtime_lookup_wasi_start_function(module_inst))) {
+        return wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, 0,
+                                                          NULL);
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
-    if (!(func = resolve_function(module_inst, "main"))
-        && !(func = resolve_function(module_inst, "__main_argc_argv"))
-        && !(func = resolve_function(module_inst, "_main"))) {
+    if (!(func = wasm_runtime_lookup_function(module_inst, "main", NULL))
+        && !(func = wasm_runtime_lookup_function(module_inst,
+                                                 "__main_argc_argv", NULL))
+        && !(func = wasm_runtime_lookup_function(module_inst, "_main", NULL))) {
+#if WASM_ENABLE_LIBC_WASI != 0
+        wasm_runtime_set_exception(
+            module_inst, "lookup the entry point symbol (like _start, main, "
+                         "_main, __main_argc_argv) failed");
+#else
         wasm_runtime_set_exception(module_inst,
-                                   "lookup main function failed");
+                                   "lookup the entry point symbol (like main, "
+                                   "_main, __main_argc_argv) failed");
+#endif
         return false;
     }
 
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode) {
-        is_import_func = ((WASMFunctionInstance*)func)->is_import_func;
+        is_import_func = ((WASMFunctionInstance *)func)->is_import_func;
     }
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        is_import_func = ((AOTFunctionInstance*)func)->is_import_func;
+        is_import_func = ((AOTFunctionInstance *)func)->is_import_func;
     }
 #endif
 
     if (is_import_func) {
-        wasm_runtime_set_exception(module_inst,
-                                   "lookup main function failed");
+        wasm_runtime_set_exception(module_inst, "lookup main function failed");
         return false;
     }
 
@@ -157,34 +156,34 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
         total_size = (uint64)total_argv_size + sizeof(int32) * (uint64)argc;
 
         if (total_size >= UINT32_MAX
-            || !(argv_buf_offset =
-                    wasm_runtime_module_malloc(module_inst, (uint32)total_size,
-                                               (void**)&argv_buf))) {
-            wasm_runtime_set_exception(module_inst,
-                                       "allocate memory failed");
+            || !(argv_buf_offset = wasm_runtime_module_malloc(
+                     module_inst, (uint32)total_size, (void **)&argv_buf))) {
+            wasm_runtime_set_exception(module_inst, "allocate memory failed");
             return false;
         }
 
         p = argv_buf;
-        argv_offsets = (uint32*)(p + total_argv_size);
+        argv_offsets = (uint32 *)(p + total_argv_size);
         p_end = p + total_size;
 
         for (i = 0; i < argc; i++) {
-            bh_memcpy_s(p, (uint32)(p_end - p), argv[i], (uint32)(strlen(argv[i]) + 1));
+            bh_memcpy_s(p, (uint32)(p_end - p), argv[i],
+                        (uint32)(strlen(argv[i]) + 1));
             argv_offsets[i] = argv_buf_offset + (uint32)(p - argv_buf);
             p += strlen(argv[i]) + 1;
         }
 
         argc1 = 2;
         argv1[0] = (uint32)argc;
-        argv1[1] = (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
+        argv1[1] =
+            (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
     }
 
-    ret = wasm_runtime_create_exec_env_and_call_wasm(module_inst, func,
-                                                     argc1, argv1);
+    ret = wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, argc1,
+                                                     argv1);
     if (ret && func_type->result_count > 0 && argc > 0 && argv)
         /* copy the return value */
-        *(int*)argv = (int)argv1[0];
+        *(int *)argv = (int)argv1[0];
 
     if (argv_buf_offset)
         wasm_runtime_module_free(module_inst, argv_buf_offset);
@@ -197,7 +196,7 @@ get_sub_module_inst(const WASMModuleInstance *parent_module_inst,
                     const char *sub_module_name)
 {
     WASMSubModInstNode *node =
-      bh_list_first_elem(parent_module_inst->sub_module_inst_list);
+        bh_list_first_elem(parent_module_inst->sub_module_inst_list);
 
     while (node && strcmp(node->module_name, sub_module_name)) {
         node = bh_list_elem_next(node);
@@ -241,22 +240,23 @@ parse_function_name(char *orig_function_name, char **p_module_name,
  * Implementation of wasm_application_execute_func()
  */
 
-static WASMFunctionInstanceCommon*
-resolve_function(const WASMModuleInstanceCommon *module_inst,
-                 const char *name)
+static bool
+resolve_function(WASMModuleInstanceCommon *module_inst, const char *name,
+                 WASMFunctionInstanceCommon **out_func,
+                 WASMModuleInstanceCommon **out_module_inst)
 {
-    uint32 i = 0;
-    WASMFunctionInstanceCommon *ret = NULL;
+    WASMFunctionInstanceCommon *target_func = NULL;
+    WASMModuleInstanceCommon *target_inst = NULL;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
-    WASMModuleInstance *sub_module_inst = NULL;
+    char *function_name = NULL;
     char *orig_name = NULL;
     char *sub_module_name = NULL;
-    char *function_name = NULL;
     uint32 length = (uint32)(strlen(name) + 1);
 
     orig_name = runtime_malloc(sizeof(char) * length, NULL, NULL, 0);
     if (!orig_name) {
-        return NULL;
+        goto LEAVE;
     }
 
     strncpy(orig_name, name, length);
@@ -268,53 +268,33 @@ resolve_function(const WASMModuleInstanceCommon *module_inst,
     LOG_DEBUG("%s -> %s and %s", name, sub_module_name, function_name);
 
     if (sub_module_name) {
-        sub_module_inst = get_sub_module_inst(
-          (WASMModuleInstance *)module_inst, sub_module_name);
-        if (!sub_module_inst) {
+        target_inst = (WASMModuleInstanceCommon *)get_sub_module_inst(
+            (WASMModuleInstance *)module_inst, sub_module_name);
+        if (!target_inst) {
             LOG_DEBUG("can not find a sub module named %s", sub_module_name);
             goto LEAVE;
         }
     }
+    else {
+        target_inst = module_inst;
+    }
 #else
     const char *function_name = name;
+    target_inst = module_inst;
 #endif
 
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        WASMModuleInstance *wasm_inst = (WASMModuleInstance*)module_inst;
-
-#if WASM_ENABLE_MULTI_MODULE != 0
-        wasm_inst = sub_module_inst ? sub_module_inst : wasm_inst;
-#endif /* WASM_ENABLE_MULTI_MODULE */
-
-        for (i = 0; i < wasm_inst->export_func_count; i++) {
-           if (!strcmp(wasm_inst->export_functions[i].name, function_name)) {
-                ret = wasm_inst->export_functions[i].function;
-                break;
-           }
-        }
-    }
-#endif /* WASM_ENABLE_INTERP */
-
-#if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *aot_inst = (AOTModuleInstance*)module_inst;
-        AOTFunctionInstance *export_funcs = (AOTFunctionInstance *)
-                                            aot_inst->export_funcs.ptr;
-        for (i = 0; i < aot_inst->export_func_count; i++) {
-            if (!strcmp(export_funcs[i].func_name, function_name)) {
-                ret = &export_funcs[i];
-                break;
-            }
-        }
-    }
-#endif
+    target_func =
+        wasm_runtime_lookup_function(target_inst, function_name, NULL);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 LEAVE:
-    wasm_runtime_free(orig_name);
+    if (orig_name)
+        wasm_runtime_free(orig_name);
 #endif
-    return ret;
+
+    *out_func = target_func;
+    *out_module_inst = target_inst;
+    return target_func;
 }
 
 union ieee754_float {
@@ -323,14 +303,14 @@ union ieee754_float {
     /* This is the IEEE 754 single-precision format.  */
     union {
         struct {
-            unsigned int negative:1;
-            unsigned int exponent:8;
-            unsigned int mantissa:23;
+            unsigned int negative : 1;
+            unsigned int exponent : 8;
+            unsigned int mantissa : 23;
         } ieee_big_endian;
         struct {
-            unsigned int mantissa:23;
-            unsigned int exponent:8;
-            unsigned int negative:1;
+            unsigned int mantissa : 23;
+            unsigned int exponent : 8;
+            unsigned int negative : 1;
         } ieee_little_endian;
     } ieee;
 };
@@ -341,19 +321,19 @@ union ieee754_double {
     /* This is the IEEE 754 double-precision format.  */
     union {
         struct {
-            unsigned int negative:1;
-            unsigned int exponent:11;
+            unsigned int negative : 1;
+            unsigned int exponent : 11;
             /* Together these comprise the mantissa.  */
-            unsigned int mantissa0:20;
-            unsigned int mantissa1:32;
+            unsigned int mantissa0 : 20;
+            unsigned int mantissa1 : 32;
         } ieee_big_endian;
 
         struct {
             /* Together these comprise the mantissa.  */
-            unsigned int mantissa1:32;
-            unsigned int mantissa0:20;
-            unsigned int exponent:11;
-            unsigned int negative:1;
+            unsigned int mantissa1 : 32;
+            unsigned int mantissa0 : 20;
+            unsigned int exponent : 11;
+            unsigned int negative : 1;
         } ieee_little_endian;
     } ieee;
 };
@@ -362,7 +342,8 @@ bool
 wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                               const char *name, int32 argc, char *argv[])
 {
-    WASMFunctionInstanceCommon *func;
+    WASMFunctionInstanceCommon *target_func;
+    WASMModuleInstanceCommon *target_inst;
     WASMType *type = NULL;
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
     int32 i, p, module_type;
@@ -372,31 +353,15 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 
     bh_assert(argc >= 0);
     LOG_DEBUG("call a function \"%s\" with %d arguments", name, argc);
-    func = resolve_function(module_inst, name);
 
-    if (!func) {
+    if (!resolve_function(module_inst, name, &target_func, &target_inst)) {
         snprintf(buf, sizeof(buf), "lookup function %s failed", name);
         wasm_runtime_set_exception(module_inst, buf);
         goto fail;
     }
 
-#if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        WASMFunctionInstance *wasm_func = (WASMFunctionInstance*)func;
-        if (wasm_func->is_import_func
-#if WASM_ENABLE_MULTI_MODULE != 0
-            && !wasm_func->import_func_inst
-#endif
-        ) {
-            snprintf(buf, sizeof(buf), "lookup function %s failed", name);
-            wasm_runtime_set_exception(module_inst, buf);
-            goto fail;
-        }
-    }
-#endif
-
-    module_type = module_inst->module_type;
-    type = wasm_runtime_get_function_type(func, module_type);
+    module_type = target_inst->module_type;
+    type = wasm_runtime_get_function_type(target_func, module_type);
 
     if (!type) {
         LOG_ERROR("invalid module instance type");
@@ -404,8 +369,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
 
     if (type->param_count != (uint32)argc) {
-        wasm_runtime_set_exception(module_inst,
-                                   "invalid input argument count");
+        wasm_runtime_set_exception(module_inst, "invalid input argument count");
         goto fail;
     }
 
@@ -413,8 +377,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     cell_num = (argc1 > type->ret_cell_num) ? argc1 : type->ret_cell_num;
 
     total_size = sizeof(uint32) * (uint64)(cell_num > 2 ? cell_num : 2);
-    if ((!(argv1 = runtime_malloc((uint32)total_size, module_inst,
-                                  NULL, 0)))) {
+    if ((!(argv1 = runtime_malloc((uint32)total_size, target_inst, NULL, 0)))) {
         goto fail;
     }
 
@@ -423,7 +386,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         char *endptr = NULL;
         bh_assert(argv[i] != NULL);
         if (argv[i][0] == '\0') {
-            snprintf(buf, sizeof(buf), "invalid input argument %d", i);
+            snprintf(buf, sizeof(buf), "invalid input argument %" PRId32, i);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
@@ -433,7 +396,10 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 break;
             case VALUE_TYPE_I64:
             {
-                union { uint64 val; uint32 parts[2]; } u;
+                union {
+                    uint64 val;
+                    uint32 parts[2];
+                } u;
                 u.val = strtoull(argv[i], &endptr, 0);
                 argv1[p++] = u.parts[0];
                 argv1[p++] = u.parts[1];
@@ -469,7 +435,10 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             }
             case VALUE_TYPE_F64:
             {
-                union { float64 val; uint32 parts[2]; } u;
+                union {
+                    float64 val;
+                    uint32 parts[2];
+                } u;
                 u.val = strtod(argv[i], &endptr);
                 if (isnan(u.val)) {
                     if (argv[i][0] == '-') {
@@ -506,11 +475,11 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             {
                 /* it likes 0x123\0x234 or 123\234 */
                 /* retrive first i64 */
-                *(uint64*)(argv1 + p) = strtoull(argv[i], &endptr, 0);
+                *(uint64 *)(argv1 + p) = strtoull(argv[i], &endptr, 0);
                 /* skip \ */
                 endptr++;
                 /* retrive second i64 */
-                *(uint64*)(argv1 + p + 2) = strtoull(endptr, &endptr, 0);
+                *(uint64 *)(argv1 + p + 2) = strtoull(endptr, &endptr, 0);
                 p += 4;
                 break;
             }
@@ -538,10 +507,10 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                     void *extern_obj = (void *)(uintptr_t)val;
                     uint32 externref_idx;
 
-                    if (!wasm_externref_obj2ref(module_inst, extern_obj,
+                    if (!wasm_externref_obj2ref(target_inst, extern_obj,
                                                 &externref_idx)) {
                         wasm_runtime_set_exception(
-                          module_inst, "map extern object to ref failed");
+                            module_inst, "map extern object to ref failed");
                         goto fail;
                     }
                     argv1[p++] = externref_idx;
@@ -554,7 +523,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 break;
         }
         if (endptr && *endptr != '\0' && *endptr != '_') {
-            snprintf(buf, sizeof(buf), "invalid input argument %d: %s",
+            snprintf(buf, sizeof(buf), "invalid input argument %" PRId32 ": %s",
                      i, argv[i]);
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
@@ -563,7 +532,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     bh_assert(p == (int32)argc1);
 
     wasm_runtime_set_exception(module_inst, NULL);
-    if (!wasm_runtime_create_exec_env_and_call_wasm(module_inst, func,
+    if (!wasm_runtime_create_exec_env_and_call_wasm(target_inst, target_func,
                                                     argc1, argv1)) {
         goto fail;
     }
@@ -573,37 +542,34 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         switch (type->types[type->param_count + j]) {
             case VALUE_TYPE_I32:
             {
-                os_printf("0x%x:i32", argv1[k]);
+                os_printf("0x%" PRIx32 ":i32", argv1[k]);
                 k++;
                 break;
             }
             case VALUE_TYPE_I64:
             {
-                union { uint64 val; uint32 parts[2]; } u;
+                union {
+                    uint64 val;
+                    uint32 parts[2];
+                } u;
                 u.parts[0] = argv1[k];
                 u.parts[1] = argv1[k + 1];
                 k += 2;
-#ifdef PRIx64
-                os_printf("0x%"PRIx64":i64", u.val);
-#else
-                char buf[16];
-                if (sizeof(long) == 4)
-                    snprintf(buf, sizeof(buf), "%s", "0x%llx:i64");
-                else
-                    snprintf(buf, sizeof(buf), "%s", "0x%lx:i64");
-                os_printf(buf, u.val);
-#endif
+                os_printf("0x%" PRIx64 ":i64", u.val);
                 break;
             }
             case VALUE_TYPE_F32:
             {
-                os_printf("%.7g:f32", *(float32*)(argv1 + k));
+                os_printf("%.7g:f32", *(float32 *)(argv1 + k));
                 k++;
                 break;
             }
             case VALUE_TYPE_F64:
             {
-                union { float64 val; uint32 parts[2]; } u;
+                union {
+                    float64 val;
+                    uint32 parts[2];
+                } u;
                 u.parts[0] = argv1[k];
                 u.parts[1] = argv1[k + 1];
                 k += 2;
@@ -638,17 +604,9 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
             {
-                uint64 *v = (uint64*)(argv1 + k);
-#if defined(PRIx64)
-                os_printf("<0x%016"PRIx64" 0x%016"PRIx64">:v128", *v, *(v + 1));
-#else
-                if (4 == sizeof(long)) {
-                    os_printf("<0x%016llx 0x%016llx>:v128", *v, *(v + 1));
-                }
-                else {
-                    os_printf("<0x%016lx 0x%016lx>:v128", *v, *(v + 1));
-                }
-#endif /* PRIx64 */
+                uint64 *v = (uint64 *)(argv1 + k);
+                os_printf("<0x%016" PRIx64 " 0x%016" PRIx64 ">:v128", *v,
+                          *(v + 1));
                 k += 4;
                 break;
             }

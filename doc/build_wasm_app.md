@@ -6,6 +6,11 @@ For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to bui
 
 To install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
+The offical *wasi-sdk release* doesn't fully support *latest 128-bit SIMD spec* yet. WARM provides a script in [build-wasi-sdk](../test-tools/build-wasi-sdk/) to generate
+another wasi-sdk with *llvm-13* from source code and installs it at *../test-tools/wasi-sdk*. If you plan to build WASM applications with *latest 128-bit SIMD*, please use it instead of the offical release.
+
+And [sample workloads](../samples/workload) are using the self-compiled wasi-sdk.
+
 For [AssemblyScript](https://github.com/AssemblyScript/assemblyscript), please refer to [AssemblyScript quick start](https://www.assemblyscript.org/quick-start.html) and [AssemblyScript compiler](https://www.assemblyscript.org/compiler.html#command-line-options) for how to install `asc` compiler and build WASM applications.
 
 For Rust, please firstly ref to [Install Rust and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) to install cargo, rustc and rustup, by default they are installed under ~/.cargo/bin, and then run `rustup target add wasm32-wasi` to install wasm32-wasi target for Rust toolchain. To build WASM applications, we can run `cargo build --target wasm32-wasi`, the output files are under `target/wasm32-wasi`.
@@ -264,7 +269,7 @@ Usage: wamrc [options] -o output_file wasm_file
                               object         Native object file
                               llvmir-unopt   Unoptimized LLVM IR
                               llvmir-opt     Optimized LLVM IR
-  --enable-bulk-memory      Enable the post-MVP bulk memory feature
+  --disable-bulk-memory     Disable the MVP bulk memory feature
   --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and
                             thread-mgr will be enabled automatically
   --enable-tail-call        Enable the post-MVP tail call feature
@@ -272,7 +277,7 @@ Usage: wamrc [options] -o output_file wasm_file
                               currently 128-bit SIMD is only supported for x86-64 target,
                               and by default it is enabled in x86-64 target and disabled
                               in other targets
-  --enable-ref-types        Enable the post-MVP reference types feature
+  --disable-ref-types       Disable the MVP reference types feature
   --disable-aux-stack-check Disable auxiliary stack overflow/underflow check
   --enable-dump-call-stack  Enable stack trace feature
   --enable-perf-profiling   Enable function performance profiling

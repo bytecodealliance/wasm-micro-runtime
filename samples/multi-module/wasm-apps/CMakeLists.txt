@@ -1,41 +1,89 @@
-cmake_minimum_required(VERSION 2.8)
+# Copyright (C) 2019 Intel Corporation.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+cmake_minimum_required (VERSION 2.8...3.16)
 project(wasm-apps)
 
-set(CMAKE_VERBOSE_MAKEFILE on)
+message(CHECK_START "Detecting WABT")
+if(NOT (DEFINED WABT_DIR OR DEFINED CACHE{WABT_DIR}))
+  find_path(WABT_DIR
+    wabt
+    PATHS /opt
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
+  )
+  if(DEFINED WABT_DIR)
+    set(WABT_DIR ${WABT_DIR}/wabt)
+  endif()
+endif()
+if(WABT_DIR)
+  message(CHECK_PASS "found")
+else()
+  message(CHECK_FAIL "not found")
+endif()
 
-set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
-set(CLANG_COMMAND "/opt/wasi-sdk/bin/clang")
-
-set(CLANG_FLAGS --target=wasm32 -nostdlib)
-set(CLANG_FLAGS ${CLANG_FLAGS} -Wl,--no-entry,--allow-undefined,--export-all)
-
-set(SOURCE_A ${CMAKE_CURRENT_SOURCE_DIR}/mA.c)
-add_custom_command(
-  OUTPUT mA.wasm
-  COMMENT "Transform mA.C to mA.WASM"
-  COMMAND ${CLANG_COMMAND} ${CLANG_FLAGS} -o mA.wasm ${SOURCE_A}
-  DEPENDS ${SOURCE_A}
-  VERBATIM
+message(CHECK_START "Detecting WASM_OBJDUMP at ${WABT_DIR}")
+find_program(WASM_OBJDUMP
+  wasm-objdump
+  PATHS "${WABT_DIR}/bin"
+  NO_DEFAULT_PATH
+  NO_CMAKE_FIND_ROOT_PATH
 )
+if(WASM_OBJDUMP)
+  message(CHECK_PASS "found")
+else()
+  message(CHECK_FAIL "not found")
+endif()
 
-set(SOURCE_B ${CMAKE_CURRENT_SOURCE_DIR}/mB.c)
-add_custom_command(
-  OUTPUT mB.wasm
-  COMMENT "Transform mB.C to mB.WASM"
-  COMMAND ${CLANG_COMMAND} ${CLANG_FLAGS} -o mB.wasm ${SOURCE_B}
-  DEPENDS ${SOURCE_B}
-  VERBATIM
+message(CHECK_START "Detecting WASM2WAT at ${WABT_DIR}")
+find_program(WASM2WAT
+  wasm2wat
+  PATHS "${WABT_DIR}/bin"
+  NO_DEFAULT_PATH
+  NO_CMAKE_FIND_ROOT_PATH
 )
+if(WASM2WAT)
+  message(CHECK_PASS "found")
+else()
+  message(CHECK_FAIL "not found")
+endif()
 
-set(SOURCE_C ${CMAKE_CURRENT_SOURCE_DIR}/mC.c)
-add_custom_command(
-  OUTPUT mC.wasm
-  COMMENT "Transform mC.C to mC.WASM"
-  COMMAND ${CLANG_COMMAND} ${CLANG_FLAGS} -o mC.wasm ${SOURCE_C}
-  DEPENDS ${SOURCE_C}
-  VERBATIM
-)
+function(COMPILE_WITH_CLANG SOURCE_FILE COMMAND)
+  get_filename_component(FILE_NAME ${SOURCE_FILE} NAME_WLE)
 
-add_custom_target(wasm-modules ALL
-  DEPENDS mA.wasm mB.wasm mC.wasm
-)
+  set(WASM_MODULE ${FILE_NAME}.wasm)
+
+  set(MAIN_TARGET_NAME MODULE_${FILE_NAME})
+
+  add_executable(${MAIN_TARGET_NAME} ${SOURCE_FILE})
+  set_target_properties(${MAIN_TARGET_NAME} PROPERTIES OUTPUT_NAME ${WASM_MODULE})
+
+  if(${COMMAND})
+    message(STATUS "Generating ${WASM_MODULE} as COMMAND...")
+  else()
+    message(STATUS "Generating ${WASM_MODULE} as REACTOR...")
+    target_link_options(${MAIN_TARGET_NAME} PRIVATE -mexec-model=reactor)
+  endif()
+
+  if(EXISTS ${WASM2WAT})
+    message(STATUS "Dumping ${WASM_MODULE}...")
+    set(WASM_WAT ${FILE_NAME}.wat)
+    set(DUMP_TARGET_NAME DUMP_${FILE_NAME})
+    add_custom_command(OUTPUT ${WASM_WAT}
+      COMMAND ${WASM2WAT} --enable-all -o ${WASM_WAT} ${WASM_MODULE}
+      COMMENT "Dumping ${WASM_MODULE}..."
+      DEPENDS ${MAIN_TARGET_NAME}
+    )
+
+    add_custom_target(${DUMP_TARGET_NAME} ALL
+      DEPENDS ${WASM_WAT}
+    )
+  endif()
+endfunction()
+
+compile_with_clang(mA.c OFF)
+compile_with_clang(mB.c OFF)
+compile_with_clang(mC.c ON)
+compile_with_clang(mD.cpp ON)
+compile_with_clang(mE.cpp OFF)
+
