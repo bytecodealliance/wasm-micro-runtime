@@ -1,0 +1,222 @@
+{
+    "name": "wasmide",
+    "displayName": "WasmIDE",
+    "description": "An Integrated Development Environment for WASM",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.59.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "*"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "wasmide.newProject",
+                "title": "Create new project",
+                "category": "New project"
+            },
+            {
+                "command": "wasmide.changeWorkspace",
+                "title": "Change workspace",
+                "category": "Change Workspace"
+            },
+            {
+                "command": "wasmide.build",
+                "title": "WASMIDE:Build Wasm"
+            },
+            {
+                "command": "wasmide.run",
+                "title": "WASMIDE:Run Wasm"
+            },
+            {
+                "command": "wasmide.debug",
+                "title": "WASMIDE:Source Debug"
+            },
+            {
+                "command": "wasmide.openFolder",
+                "title": "WASMIDE:openWorkspace"
+            },
+            {
+                "command": "wasmide.build.toggleStateIncludePath",
+                "title": "Toggle state of path including"
+            },
+            {
+                "command": "wasmide.build.toggleStateExclude",
+                "title": "Toggle state of excluding"
+            },
+            {
+                "command": "wasmide.targetConfig",
+                "title": "Target Configuration"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "wasmide",
+                    "title": "WasmIDE",
+                    "icon": "$(star)"
+                }
+            ]
+        },
+        "views": {
+            "wasmide": [
+                {
+                    "id": "wasmide.views.welcome",
+                    "name": "Quick Access"
+                }
+            ]
+        },
+        "viewsWelcome": [
+            {
+                "view": "wasmide.views.welcome",
+                "contents": "[ Project Management ]\n[$(project)New project](command:wasmide.newProject)\n[$(files)Open project](command:wasmide.openFolder)\n[$(book)Change workspace](command:wasmide.changeWorkspace)\n[$(pencil)Configuration](command:wasmide.targetConfig)"
+            },
+            {
+                "view": "wasmide.views.welcome",
+                "contents": "[ Execution Management ]\n[$(gear)Build](command:wasmide.build)\n[$(run)Run](command:wasmide.run)\n[$(debug-alt) Debug](command:wasmide.debug)"
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "command": "wasmide.build.toggleStateIncludePath",
+                    "alt": "wasmide.build.toggleStateIncludePath",
+                    "group": "config",
+                    "when": "explorerResourceIsFolder"
+                },
+                {
+                    "command": "wasmide.build.toggleStateExclude",
+                    "alt": "wasmide.build.toggleStateExclude",
+                    "group": "config",
+                    "when": "!explorerResourceIsFolder && resourceExtname in ext.supportedFileType"
+                }
+            ]
+        },
+        "debuggers": [
+            {
+                "type": "wamr-debug",
+                "label": "WAMR lldb debugger",
+                "enableBreakpointsFor": {
+                    "languageIds": [
+                        "ada",
+                        "arm",
+                        "asm",
+                        "c",
+                        "cpp",
+                        "crystal",
+                        "d",
+                        "fortan",
+                        "fortran-modern",
+                        "nim",
+                        "objective-c",
+                        "objectpascal",
+                        "pascal",
+                        "rust",
+                        "swift"
+                    ]
+                },
+                "program": "./resource/debug/bin/lldb-vscode",
+                "windows": {
+                    "program": "./resource/debug/bin/lldb-vscode.exe"
+                },
+                "configurationAttributes": {
+                    "attach": {
+                        "properties": {
+                            "sourcePath": {
+                                "type": "string",
+                                "description": "Specify a source path to remap \"./\" to allow full paths to be used when setting breakpoints in binaries that have relative source paths."
+                            },
+                            "sourceMap": {
+                                "type": "array",
+                                "description": "Specify an array of path remappings; each element must itself be a two element array containing a source and destination pathname. Overrides sourcePath.",
+                                "default": []
+                            },
+                            "debuggerRoot": {
+                                "type": "string",
+                                "description": "Specify a working directory to set the debug adaptor to so relative object files can be located."
+                            },
+                            "attachCommands": {
+                                "type": "array",
+                                "description": "Custom commands that are executed instead of attaching to a process ID or to a process by name. These commands may optionally create a new target and must perform an attach. A valid process must exist after these commands complete or the \"attach\" will fail.",
+                                "default": []
+                            },
+                            "initCommands": {
+                                "type": "array",
+                                "description": "Initialization commands executed upon debugger startup.",
+                                "default": []
+                            },
+                            "preRunCommands": {
+                                "type": "array",
+                                "description": "Commands executed just before the program is attached to.",
+                                "default": []
+                            },
+                            "stopCommands": {
+                                "type": "array",
+                                "description": "Commands executed each time the program stops.",
+                                "default": []
+                            },
+                            "exitCommands": {
+                                "type": "array",
+                                "description": "Commands executed at the end of debugging session.",
+                                "default": []
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "wamr-debug",
+                        "request": "attach",
+                        "name": "Debug",
+                        "stopOnEntry": true,
+                        "attachCommands": [
+                            "process connect -p wasm connect://127.0.0.1:1234"
+                        ]
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "WAMR: Attach",
+                        "description": "",
+                        "body": {
+                            "type": "wamr-debug",
+                            "request": "attach",
+                            "name": "${2:Attach}",
+                            "stopOnEntry": true,
+                            "attachCommands": [
+                                "process connect -p wasm connect://${3:127.0.0.1}:${4:1234}"
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
+    },
+    "devDependencies": {
+        "@types/glob": "^7.1.3",
+        "@types/mocha": "^8.2.2",
+        "@types/node": "14.x",
+        "@types/vscode": "^1.54.0",
+        "@typescript-eslint/eslint-plugin": "^4.26.0",
+        "@typescript-eslint/parser": "^4.26.0",
+        "@vscode/webview-ui-toolkit": "^0.8.4",
+        "eslint": "^7.32.0",
+        "glob": "^7.1.7",
+        "mocha": "^8.4.0",
+        "typescript": "^4.3.2",
+        "vscode-test": "^1.5.2"
+    }
+}
