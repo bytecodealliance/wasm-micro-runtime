@@ -1575,8 +1575,10 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
     if (module->func_count > 0) {
+        uint32 plt_table_size =
+            module->is_indirect_mode ? 0 : get_plt_table_size();
         rtl_func_table[module->func_count - 1].EndAddress =
-            (DWORD)(module->code_size - get_plt_table_size());
+            (DWORD)(module->code_size - plt_table_size);
 
         if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
                                  (DWORD64)(uintptr_t)module->code)) {
@@ -2113,19 +2115,29 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             memcpy(group_name_buf, group_name, group_name_len);
             memcpy(symbol_name_buf, symbol_name, symbol_name_len);
 
-            if (group_name_len == strlen(".text")
+            if ((group_name_len == strlen(".text")
+                 || (module->is_indirect_mode
+                     && group_name_len == strlen(".text") + 1))
                 && !strncmp(group_name, ".text", strlen(".text"))) {
-                if (symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                if ((symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                     || (module->is_indirect_mode
+                         && symbol_name_len == strlen(XMM_PLT_PREFIX) + 32 + 1))
                     && !strncmp(symbol_name, XMM_PLT_PREFIX,
                                 strlen(XMM_PLT_PREFIX))) {
                     module->xmm_plt_count++;
                 }
-                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
+                else if ((symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
+                          || (module->is_indirect_mode
+                              && symbol_name_len
+                                     == strlen(REAL_PLT_PREFIX) + 16 + 1))
                          && !strncmp(symbol_name, REAL_PLT_PREFIX,
                                      strlen(REAL_PLT_PREFIX))) {
                     module->real_plt_count++;
                 }
-                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 8
+                else if ((symbol_name_len >= strlen(REAL_PLT_PREFIX) + 8
+                          || (module->is_indirect_mode
+                              && symbol_name_len
+                                     == strlen(REAL_PLT_PREFIX) + 8 + 1))
                          && !strncmp(symbol_name, REAL_PLT_PREFIX,
                                      strlen(REAL_PLT_PREFIX))) {
                     module->float_plt_count++;
@@ -2230,7 +2242,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 #endif
         ) {
 #if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX) \
-    && !defined(BH_PLATFORM_DARWIN)
+    && !defined(BH_PLATFORM_DARWIN) && !defined(BH_PLATFORM_WINDOWS)
             if (module->is_indirect_mode) {
                 set_error_buf(error_buf, error_buf_size,
                               "cannot apply relocation to text section "
