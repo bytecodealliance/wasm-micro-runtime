@@ -352,7 +352,8 @@ aot_apply_new_pass_builder(LLVMModuleRef module,
             break;
     }
 
-    MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+    // MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+    MPM.addPass(PB.buildPerModuleDefaultPipeline(OL, true));
 
     MPM.run(*M, MAM);
 
