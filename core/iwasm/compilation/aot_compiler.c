@@ -2619,6 +2619,10 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
 
     bh_print_time("Begin to run function optimization passes");
 
+#if 1
+    aot_apply_new_pass_builder(comp_ctx->module, comp_ctx->target_machine,
+                               comp_ctx->opt_level);
+#else
     /* Run function pass manager */
     if (comp_ctx->optimize) {
         LLVMInitializeFunctionPassManager(comp_ctx->pass_mgr);
@@ -2656,6 +2660,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         LLVMDisposePassManager(common_pass_mgr);
         LLVMPassManagerBuilderDispose(pass_mgr_builder);
     }
+#endif
 
     if (comp_ctx->optimize && comp_ctx->is_indirect_mode) {
         LLVMPassManagerRef common_pass_mgr = NULL;

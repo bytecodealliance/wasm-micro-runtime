@@ -452,6 +452,11 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 
+void
+aot_apply_new_pass_builder(LLVMModuleRef module,
+                           LLVMTargetMachineRef target_machine,
+                           unsigned opt_level);
+
 #if WASM_ENABLE_LAZY_JIT != 0
 void
 aot_handle_llvm_errmsg(char *error_buf, uint32 error_buf_size,

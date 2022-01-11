@@ -29,24 +29,43 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
+#if LLVM_VERSION_MAJOR >= 12
+#include <llvm/Analysis/AliasAnalysis.h>
+#endif
 #include <cstring>
 
 using namespace llvm;
 
-extern "C" LLVMBool
+extern "C" {
+
+LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
                                  LLVMMCJITCompilerOptions *PassedOptions,
                                  size_t SizeOfPassedOptions, char **OutError);
 
-extern "C" bool
+bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
-extern "C" void
+void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 
-extern "C" void
+void
 aot_func_disable_tce(LLVMValueRef func);
+
+void
+aot_apply_new_pass_builder(LLVMModuleRef module,
+                           LLVMTargetMachineRef target_machine,
+                           unsigned opt_level);
+}
+
+static TargetMachine *
+unwrap(LLVMTargetMachineRef P)
+{
+    return reinterpret_cast<TargetMachine *>(P);
+}
 
 LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
@@ -271,4 +290,76 @@ aot_func_disable_tce(LLVMValueRef func)
     Attrs = Attrs.addAttribute(F->getContext(), AttributeList::FunctionIndex,
                                "disable-tail-calls", "true");
     F->setAttributes(Attrs);
+}
+
+void
+aot_apply_new_pass_builder(LLVMModuleRef module,
+                           LLVMTargetMachineRef target_machine,
+                           unsigned opt_level)
+{
+    Module *M = unwrap(module);
+    TargetMachine *TM = unwrap(target_machine);
+
+    LoopAnalysisManager LAM;
+    FunctionAnalysisManager FAM;
+    CGSCCAnalysisManager CGAM;
+    ModuleAnalysisManager MAM;
+
+    PipelineTuningOptions PTO;
+    PTO.LoopVectorization = true;
+    PTO.SLPVectorization = true;
+
+#if LLVM_VERSION_MAJOR == 12
+    PassBuilder PB(false, TM, PTO);
+#else
+    PassBuilder PB(TM, PTO);
+#endif
+
+    // Register the target library analysis directly and give it a
+    // customized preset TLI.
+    std::unique_ptr<TargetLibraryInfoImpl> TLII(
+        new TargetLibraryInfoImpl(Triple(TM->getTargetTriple())));
+    FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
+
+    // Register the AA manager first so that our version is the one used.
+    AAManager AA = PB.buildDefaultAAPipeline();
+    FAM.registerPass([&] { return std::move(AA); });
+
+    // Register all the basic analyses with the managers.
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    ModulePassManager MPM;
+
+    PassBuilder::OptimizationLevel OL;
+
+    switch (opt_level) {
+        case 0:
+            OL = PassBuilder::OptimizationLevel::O0;
+            break;
+        case 1:
+            OL = PassBuilder::OptimizationLevel::O1;
+            break;
+        case 2:
+            OL = PassBuilder::OptimizationLevel::O2;
+            break;
+        case 3:
+        default:
+            OL = PassBuilder::OptimizationLevel::O3;
+            break;
+    }
+
+    MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+
+    MPM.run(*M, MAM);
+
+    // Set initializer for constant value
+    if (auto *IntrinsicsTable = M->getNamedGlobal("intrinsics")) {
+        IntrinsicsTable->setInitializer(llvm::ConstantPointerNull::get(
+            llvm::cast<llvm::PointerType>(IntrinsicsTable->getValueType())));
+        IntrinsicsTable->setConstant(false);
+    }
 }
