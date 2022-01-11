@@ -29,12 +29,21 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
+#include <llvm/Transforms/Vectorize/LoopVectorize.h>
+#include <llvm/Transforms/Vectorize/LoadStoreVectorizer.h>
+#include <llvm/Transforms/Vectorize/SLPVectorizer.h>
+#include <llvm/Transforms/Scalar/LoopRotation.h>
+#include <llvm/Transforms/Scalar/SimpleLoopUnswitch.h>
+#include <llvm/Transforms/Scalar/LICM.h>
+#include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
 #if LLVM_VERSION_MAJOR >= 12
 #include <llvm/Analysis/AliasAnalysis.h>
 #endif
 #include <cstring>
+
+#include "aot_llvm.h"
 
 using namespace llvm;
 
@@ -56,9 +65,7 @@ void
 aot_func_disable_tce(LLVMValueRef func);
 
 void
-aot_apply_new_pass_builder(LLVMModuleRef module,
-                           LLVMTargetMachineRef target_machine,
-                           unsigned opt_level);
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
 }
 
 static TargetMachine *
@@ -293,12 +300,10 @@ aot_func_disable_tce(LLVMValueRef func)
 }
 
 void
-aot_apply_new_pass_builder(LLVMModuleRef module,
-                           LLVMTargetMachineRef target_machine,
-                           unsigned opt_level)
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 {
-    Module *M = unwrap(module);
-    TargetMachine *TM = unwrap(target_machine);
+    Module *M = unwrap(comp_ctx->module);
+    TargetMachine *TM = unwrap(comp_ctx->target_machine);
 
     LoopAnalysisManager LAM;
     FunctionAnalysisManager FAM;
@@ -308,6 +313,7 @@ aot_apply_new_pass_builder(LLVMModuleRef module,
     PipelineTuningOptions PTO;
     PTO.LoopVectorization = true;
     PTO.SLPVectorization = true;
+    PTO.LoopUnrolling = true;
 
 #if LLVM_VERSION_MAJOR == 12
     PassBuilder PB(false, TM, PTO);
@@ -336,7 +342,7 @@ aot_apply_new_pass_builder(LLVMModuleRef module,
 
     PassBuilder::OptimizationLevel OL;
 
-    switch (opt_level) {
+    switch (comp_ctx->opt_level) {
         case 0:
             OL = PassBuilder::OptimizationLevel::O0;
             break;
@@ -352,26 +358,33 @@ aot_apply_new_pass_builder(LLVMModuleRef module,
             break;
     }
 
-    // MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
-    MPM.addPass(PB.buildPerModuleDefaultPipeline(OL, true));
+    if (comp_ctx->is_jit_mode) {
+        /* Apply normal pipeline for JIT mode, without
+           Vectorize related passes, with LTO */
+        MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+    }
+    else {
+        FunctionPassManager FPM;
 
-    MPM.run(*M, MAM);
+        /* Apply Vectorize related passes for AOT mode */
+        FPM.addPass(LoopVectorizePass());
+        FPM.addPass(SLPVectorizerPass());
+        FPM.addPass(LoadStoreVectorizerPass());
 
-#if 0
-    // Set initializer for constant value
-    if (auto *IntrinsicsTable = M->getNamedGlobal("intrinsics")) {
-        IntrinsicsTable->setInitializer(llvm::ConstantPointerNull::get(
-            llvm::cast<llvm::PointerType>(IntrinsicsTable->getValueType())));
-        IntrinsicsTable->setConstant(false);
+        /*
+        FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
+        FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
+        FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));
+        */
+
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+        /* Apply LTO for AOT mode */
+        if (!comp_ctx->disable_llvm_lto)
+            MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
+        else
+            MPM.addPass(PB.buildPerModuleDefaultPipeline(OL, NULL));
     }
 
-    llvm::legacy::PassManager CodeGenPasses;
-    CodeGenPasses.add(
-        llvm::createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
-
-    // Add LibraryInfo.
-    CodeGenPasses.add(new llvm::TargetLibraryInfoWrapperPass(*TLII));
-
-    CodeGenPasses.run(*M);
-#endif
+    MPM.run(*M, MAM);
 }
