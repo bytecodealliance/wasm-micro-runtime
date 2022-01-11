@@ -356,10 +356,21 @@ aot_apply_new_pass_builder(LLVMModuleRef module,
 
     MPM.run(*M, MAM);
 
+#if 0
     // Set initializer for constant value
     if (auto *IntrinsicsTable = M->getNamedGlobal("intrinsics")) {
         IntrinsicsTable->setInitializer(llvm::ConstantPointerNull::get(
             llvm::cast<llvm::PointerType>(IntrinsicsTable->getValueType())));
         IntrinsicsTable->setConstant(false);
     }
+
+    llvm::legacy::PassManager CodeGenPasses;
+    CodeGenPasses.add(
+        llvm::createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
+
+    // Add LibraryInfo.
+    CodeGenPasses.add(new llvm::TargetLibraryInfoWrapperPass(*TLII));
+
+    CodeGenPasses.run(*M);
+#endif
 }
