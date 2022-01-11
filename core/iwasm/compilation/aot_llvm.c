@@ -500,7 +500,7 @@ create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     offset = I32_CONST(offsetof(AOTModuleInstance, cur_exception));
     func_ctx->cur_exception = LLVMBuildInBoundsGEP(
-        comp_ctx->builder, func_ctx->aot_inst, &offset, 1, "cur_execption");
+        comp_ctx->builder, func_ctx->aot_inst, &offset, 1, "cur_exception");
     if (!func_ctx->cur_exception) {
         aot_set_last_error("llvm build in bounds gep failed.");
         return false;
@@ -1877,6 +1877,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }
+
+        LLVMSetTarget(comp_ctx->module, triple_norm);
     }
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
@@ -1935,6 +1937,11 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
 
     if (!option->is_jit_mode) {
+        /* Put Vectorize passes before GVN/LICM passes as the former
+           might gain more performance improvement and the latter might
+           break the optimizations for the former */
+        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
+        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
         LLVMAddLoopRotatePass(comp_ctx->pass_mgr);
         LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
@@ -1944,11 +1951,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                disable them when building as multi-thread mode */
             LLVMAddGVNPass(comp_ctx->pass_mgr);
             LLVMAddLICMPass(comp_ctx->pass_mgr);
+            LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
+            LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
         }
-        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
-        LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
     }
 
     /* Create metadata for llvm float experimental constrained intrinsics */
