@@ -304,6 +304,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 {
     Module *M = unwrap(comp_ctx->module);
     TargetMachine *TM = unwrap(comp_ctx->target_machine);
+    bool disable_llvm_lto = false;
 
     LoopAnalysisManager LAM;
     FunctionAnalysisManager FAM;
@@ -358,7 +359,15 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
             break;
     }
 
+
     if (comp_ctx->disable_llvm_lto) {
+        disable_llvm_lto = true;
+    }
+#if WASM_ENABLE_SPEC_TEST != 0
+    disable_llvm_lto = true;
+#endif
+
+    if (disable_llvm_lto) {
         uint32 i;
 
         for (i = 0; i < comp_ctx->func_ctx_count; i++) {
@@ -387,11 +396,13 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
-        if (!comp_ctx->disable_llvm_lto)
+        if (!disable_llvm_lto) {
             /* Apply LTO for AOT mode */
             MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
-        else
+        }
+        else {
             MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+        }
     }
 
     MPM.run(*M, MAM);
