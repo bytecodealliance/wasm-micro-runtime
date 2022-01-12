@@ -359,7 +359,6 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
             break;
     }
 
-
     if (comp_ctx->disable_llvm_lto) {
         disable_llvm_lto = true;
     }
