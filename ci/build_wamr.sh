@@ -8,7 +8,6 @@ readonly ROOT=$(realpath "${CURRENT_PATH}/..")
 readonly VARIANT=$(lsb_release -c | awk '{print $2}')
 
 docker build \
-    --build-arg VARIANT=${VARIANT} \
     --memory=4G --cpu-quota=50000 \
     -t wamr_dev_${VARIANT}:0.1 -f "${CURRENT_PATH}"/Dockerfile "${CURRENT_PATH}" \
   && docker run --rm -it \
