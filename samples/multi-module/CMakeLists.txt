@@ -113,7 +113,7 @@ else()
   message(CHECK_FAIL "not found")
 endif()
 
-if(NOT EXISTS ${WASI_SDK_DIR} OR NOT EXISTS ${WASI_TOOLCHAIN_FILE} OR NOT EXISTS ${WASI_SYS_ROOT})
+if((NOT EXISTS ${WASI_SDK_DIR}) OR (NOT EXISTS ${WASI_TOOLCHAIN_FILE}) OR (NOT EXISTS ${WASI_SYS_ROOT}))
   message(FATAL_ERROR "Please set the absolute path of wasi-sdk with \'cmake -DWASI_SDK_HOME=XXX\'")
 else()
   message(STATUS "WASI_SDK_DIR is ${WASI_SDK_DIR}")
