@@ -358,9 +358,17 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
             break;
     }
 
+    if (comp_ctx->disable_llvm_lto) {
+        uint32 i;
+
+        for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+            aot_func_disable_tce(comp_ctx->func_ctxes[i]->func);
+        }
+    }
+
     if (comp_ctx->is_jit_mode) {
         /* Apply normal pipeline for JIT mode, without
-           Vectorize related passes, with LTO */
+           Vectorize related passes, without LTO */
         MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
     }
     else {
@@ -379,11 +387,11 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
-        /* Apply LTO for AOT mode */
         if (!comp_ctx->disable_llvm_lto)
+            /* Apply LTO for AOT mode */
             MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
         else
-            MPM.addPass(PB.buildPerModuleDefaultPipeline(OL, NULL));
+            MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
     }
 
     MPM.run(*M, MAM);
