@@ -51,7 +51,7 @@ RUN rm /opt/clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-20.04.tar.xz
 ARG WASI_SDK_VER=14
 RUN wget -c https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VER}/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -P /opt
 RUN tar xf /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz -C /opt \
-  && ln -fs /opt/was-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk
+  && ln -fs /opt/wasi-sdk-${WASI_SDK_VER}.0 /opt/wasi-sdk
 RUN rm /opt/wasi-sdk-${WASI_SDK_VER}.0-linux.tar.gz
 
 #
