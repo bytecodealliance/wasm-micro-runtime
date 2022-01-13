@@ -1,6 +1,8 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+# tie the ${VARIANT} and a llvm binary release together
+# please find a matched version on https://github.com/llvm/llvm-project/releases
 ARG VARIANT=focal
 FROM ubuntu:${VARIANT}
 
@@ -35,9 +37,14 @@ RUN cd /opt/emsdk \
   && echo "source /opt/emsdk/emsdk_env.sh" >> /root/.bashrc
 
 #
-# install clang and llvm
-RUN cd /tmp && wget https://apt.llvm.org/llvm.sh && chmod a+x llvm.sh
-RUN cd /tmp && ./llvm.sh 12
+# install clang and llvm release
+ARG CLANG_VER=13.0.0
+RUN wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-20.04.tar.xz -P /opt
+RUN cd /opt \
+  && tar xf clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-20.04.tar.xz \
+  && ln -sf clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-20.04 clang-llvm
+RUN rm /opt/clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-20.04.tar.xz
+
 
 #
 # install wasi-sdk
@@ -68,8 +75,8 @@ RUN chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
 RUN apt update && apt install -y clang-format
 
 # set path
-ENV PATH "$PATH:/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk"
-RUN echo "export PATH=/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk:${PATH}" >> /root/.bashrc
+ENV PATH "$PATH:/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk:/opt/clang-llvm/bin"
+RUN echo "export PATH=/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk:/opt/clang-llvm/bin:${PATH}" >> /root/.bashrc
 
 #
 # PS
