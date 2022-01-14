@@ -373,11 +373,9 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
         return NULL;
     }
 
-    if (module_inst) {
-        /* Set custom_data to new module instance */
-        wasm_runtime_set_custom_data_internal(
-            new_module_inst, wasm_runtime_get_custom_data(module_inst));
-    }
+    /* Set custom_data to new module instance */
+    wasm_runtime_set_custom_data_internal(
+        new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
     new_exec_env = wasm_exec_env_create_internal(new_module_inst,
                                                  exec_env->wasm_stack_size);
