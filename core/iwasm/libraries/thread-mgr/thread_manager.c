@@ -344,31 +344,29 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 {
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
-    wasm_module_t module = wasm_exec_env_get_module(exec_env);
+    wasm_module_t module;
     wasm_module_inst_t new_module_inst;
     WASMExecEnv *new_exec_env;
     uint32 aux_stack_start, aux_stack_size;
     uint32 stack_size = 8192;
 
-    if (!module) {
+    if (!module_inst || !(module = wasm_exec_env_get_module(exec_env))) {
         return NULL;
     }
 
-    if (module_inst) {
 #if WASM_ENABLE_INTERP != 0
-        if (module_inst->module_type == Wasm_Module_Bytecode) {
-            stack_size =
-                ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
-        }
+    if (module_inst->module_type == Wasm_Module_Bytecode) {
+        stack_size =
+            ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
+    }
 #endif
 
 #if WASM_ENABLE_AOT != 0
-        if (module_inst->module_type == Wasm_Module_AoT) {
-            stack_size =
-                ((AOTModuleInstance *)module_inst)->default_wasm_stack_size;
-        }
-#endif
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        stack_size =
+            ((AOTModuleInstance *)module_inst)->default_wasm_stack_size;
     }
+#endif
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
               module, true, stack_size, 0, NULL, 0))) {
