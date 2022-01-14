@@ -354,19 +354,21 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
         return NULL;
     }
 
+    if (module_inst) {
 #if WASM_ENABLE_INTERP != 0
-    if (module_inst->module_type == Wasm_Module_Bytecode) {
-        stack_size =
-            ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
-    }
+        if (module_inst->module_type == Wasm_Module_Bytecode) {
+            stack_size =
+                ((WASMModuleInstance *)module_inst)->default_wasm_stack_size;
+        }
 #endif
 
 #if WASM_ENABLE_AOT != 0
-    if (module_inst->module_type == Wasm_Module_AoT) {
-        stack_size =
-            ((AOTModuleInstance *)module_inst)->default_wasm_stack_size;
-    }
+        if (module_inst->module_type == Wasm_Module_AoT) {
+            stack_size =
+                ((AOTModuleInstance *)module_inst)->default_wasm_stack_size;
+        }
 #endif
+    }
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
               module, true, stack_size, 0, NULL, 0))) {
