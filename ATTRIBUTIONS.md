@@ -6,10 +6,11 @@ WAMR project reused some components from other open source project:
 - **contiki-ng**: for the coap protocol implementation
 - **freebsd libm**: used in core/shared/platform/alios/bh_math.c
 - **littlevgl**: for the gui samples and wrapped the wasm graphic layer
-- **llvm**. for the AOT/JIT compilation
-- **wasm-c-api**. to implement the C-APIs of wasm. using headers and sameples
+- **llvm**: for the AOT/JIT compilation
+- **wasm-c-api**: to implement the C-APIs of wasm. using headers and sameples
 - **wasmtime**: for the wasi libc implementation
-- **zephyr**. for several platform specific examples
+- **zephyr**: for several platform specific examples
+- **WebAssembly debugging patch for LLDB**: for extending the ability of LLDB to support wasm debugging
 
 The WAMR fast interpreter is a clean room development. We would acknowledge the inspirations by [WASM3](https://github.com/wasm3/wasm3) open source project for the approach of pre-calculated oprand stack location.
 
@@ -23,6 +24,7 @@ The WAMR fast interpreter is a clean room development. We would acknowledge the 
 | wasm-c-api | ac9b509f4df86e40e56e9b01f3f49afab0100037 | c9d31284651b975f05ac27cee0bab1377560b87e | https://github.com/WebAssembly/wasm-c-api | |
 | wasmtime | unspecified | v0.26.0 | https://github.com/bytecodealliance/wasmtime | |
 | zephyr | unspecified | v2.5.0 | https://www.zephyrproject.org/ | https://www.cvedetails.com/vendor/19255/Zephyrproject.html |
+| WebAssembly debugging patch for LLDB | unspecified | unspecified | https://reviews.llvm.org/D78801 | |
 
 ## Licenses
 

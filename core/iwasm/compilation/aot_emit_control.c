@@ -74,41 +74,41 @@ format_block_name(char *name, uint32 name_size, uint32 block_index,
 #define SET_BUILDER_POS(llvm_block) \
     LLVMPositionBuilderAtEnd(comp_ctx->builder, llvm_block)
 
-#define CREATE_RESULT_VALUE_PHIS(block)                                    \
-    do {                                                                   \
-        if (block->result_count && !block->result_phis) {                  \
-            uint32 i;                                                      \
-            uint64 size;                                                   \
-            LLVMBasicBlockRef block_curr = CURR_BLOCK();                   \
-            /* Allocate memory */                                          \
-            size = sizeof(LLVMValueRef) * (uint64)block->result_count;     \
-            if (size >= UINT32_MAX                                         \
-                || !(block->result_phis =                                  \
-                         wasm_runtime_malloc((uint32)size))) {             \
-                aot_set_last_error("allocate memory failed.");             \
-                goto fail;                                                 \
-            }                                                              \
-            SET_BUILDER_POS(block->llvm_end_block);                        \
-            for (i = 0; i < block->result_count; i++) {                    \
-                if (!(block->result_phis[i] = LLVMBuildPhi(                \
-                          comp_ctx->builder,                               \
-                          TO_LLVM_TYPE(block->result_types[i]), "phi"))) { \
-                    aot_set_last_error("llvm build phi failed.");          \
-                    goto fail;                                             \
-                }                                                          \
-            }                                                              \
-            SET_BUILDER_POS(block_curr);                                   \
-        }                                                                  \
+#define CREATE_RESULT_VALUE_PHIS(block)                                     \
+    do {                                                                    \
+        if (block->result_count && !block->result_phis) {                   \
+            uint32 _i;                                                      \
+            uint64 _size;                                                   \
+            LLVMBasicBlockRef _block_curr = CURR_BLOCK();                   \
+            /* Allocate memory */                                           \
+            _size = sizeof(LLVMValueRef) * (uint64)block->result_count;     \
+            if (_size >= UINT32_MAX                                         \
+                || !(block->result_phis =                                   \
+                         wasm_runtime_malloc((uint32)_size))) {             \
+                aot_set_last_error("allocate memory failed.");              \
+                goto fail;                                                  \
+            }                                                               \
+            SET_BUILDER_POS(block->llvm_end_block);                         \
+            for (_i = 0; _i < block->result_count; _i++) {                  \
+                if (!(block->result_phis[_i] = LLVMBuildPhi(                \
+                          comp_ctx->builder,                                \
+                          TO_LLVM_TYPE(block->result_types[_i]), "phi"))) { \
+                    aot_set_last_error("llvm build phi failed.");           \
+                    goto fail;                                              \
+                }                                                           \
+            }                                                               \
+            SET_BUILDER_POS(_block_curr);                                   \
+        }                                                                   \
     } while (0)
 
 #define ADD_TO_RESULT_PHIS(block, value, idx)                                  \
     do {                                                                       \
-        LLVMBasicBlockRef block_curr = CURR_BLOCK();                           \
+        LLVMBasicBlockRef _block_curr = CURR_BLOCK();                          \
         LLVMTypeRef phi_ty = LLVMTypeOf(block->result_phis[idx]);              \
         LLVMTypeRef value_ty = LLVMTypeOf(value);                              \
         bh_assert(LLVMGetTypeKind(phi_ty) == LLVMGetTypeKind(value_ty));       \
         bh_assert(LLVMGetTypeContext(phi_ty) == LLVMGetTypeContext(value_ty)); \
-        LLVMAddIncoming(block->result_phis[idx], &value, &block_curr, 1);      \
+        LLVMAddIncoming(block->result_phis[idx], &value, &_block_curr, 1);     \
         (void)phi_ty;                                                          \
         (void)value_ty;                                                        \
     } while (0)
@@ -122,10 +122,10 @@ format_block_name(char *name, uint32 name_size, uint32 block_index,
         }                                                                     \
     } while (0)
 
-#define ADD_TO_PARAM_PHIS(block, value, idx)                             \
-    do {                                                                 \
-        LLVMBasicBlockRef block_curr = CURR_BLOCK();                     \
-        LLVMAddIncoming(block->param_phis[idx], &value, &block_curr, 1); \
+#define ADD_TO_PARAM_PHIS(block, value, idx)                              \
+    do {                                                                  \
+        LLVMBasicBlockRef _block_curr = CURR_BLOCK();                     \
+        LLVMAddIncoming(block->param_phis[idx], &value, &_block_curr, 1); \
     } while (0)
 
 static LLVMBasicBlockRef
@@ -422,9 +422,14 @@ aot_compile_op_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Init aot block data */
     block->label_type = label_type;
     block->param_count = param_count;
-    memcpy(block->param_types, param_types, param_count);
+    if (param_count) {
+        bh_memcpy_s(block->param_types, param_count, param_types, param_count);
+    }
     block->result_count = result_count;
-    memcpy(block->result_types, result_types, result_count);
+    if (result_count) {
+        bh_memcpy_s(block->result_types, result_count, result_types,
+                    result_count);
+    }
     block->wasm_code_else = else_addr;
     block->wasm_code_end = end_addr;
     block->block_index = func_ctx->block_stack.block_index[label_type];

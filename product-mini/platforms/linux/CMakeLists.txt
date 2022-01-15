@@ -18,7 +18,7 @@ set (CMAKE_C_STANDARD 99)
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
 # "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
     set (WAMR_BUILD_TARGET "AARCH64")
   elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
     set (WAMR_BUILD_TARGET "RISCV64")
@@ -112,7 +112,7 @@ add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow")
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
 
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")

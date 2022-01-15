@@ -26,7 +26,8 @@ cd ${APPS_ROOT}/increase
 
 rm -rf build
 mkdir build && cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE=${WAMR_DIR}/wamr-sdk/out/gui/app-sdk/wamr_toolchain.cmake
+cmake .. -DCMAKE_TOOLCHAIN_FILE=${WAMR_DIR}/wamr-sdk/out/gui/app-sdk/wamr_toolchain.cmake \
+         -DWASI_SDK_DIR=/opt/wasi-sdk
 make
 [ $? -eq 0 ] || exit $?
 mv ui_increase.wasm ${OUT_DIR}/

@@ -3,22 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "bh_platform.h"
 #include "gdbserver.h"
-
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/poll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#include "bh_log.h"
 #include "handler.h"
 #include "packets.h"
 #include "utils.h"
@@ -51,15 +37,12 @@ static struct packet_handler_elem packet_handler_table[255] = {
 };
 
 WASMGDBServer *
-wasm_launch_gdbserver(char *host, int port)
+wasm_create_gdbserver(const char *host, int32 *port)
 {
-    int listen_fd = -1;
-    const int one = 1;
-    struct sockaddr_in addr;
-    int ret;
-    int sockt_fd = 0;
-
+    bh_socket_t listen_fd = (bh_socket_t)-1;
     WASMGDBServer *server;
+
+    bh_assert(port);
 
     if (!(server = wasm_runtime_malloc(sizeof(WASMGDBServer)))) {
         LOG_ERROR("wasm gdb server error: failed to allocate memory");
@@ -68,74 +51,70 @@ wasm_launch_gdbserver(char *host, int port)
 
     memset(server, 0, sizeof(WASMGDBServer));
 
-    listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listen_fd < 0) {
-        LOG_ERROR("wasm gdb server error: socket() failed");
+    if (0 != os_socket_create(&listen_fd, 1)) {
+        LOG_ERROR("wasm gdb server error: create socket failed");
         goto fail;
     }
 
-    ret = fcntl(listen_fd, F_SETFD, FD_CLOEXEC);
-    if (ret < 0) {
-        LOG_ERROR(
-            "wasm gdb server error: fcntl() failed on setting FD_CLOEXEC");
+    if (0 != os_socket_bind(listen_fd, host, port)) {
+        LOG_ERROR("wasm gdb server error: socket bind failed");
         goto fail;
     }
 
-    ret = setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-    if (ret < 0) {
-        LOG_ERROR("wasm gdb server error: setsockopt() failed");
-        goto fail;
-    }
-
-    LOG_VERBOSE("Listening on %s:%d\n", host, port);
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr(host);
-    addr.sin_port = htons(port);
-
-    ret = bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr));
-    if (ret < 0) {
-        LOG_ERROR("wasm gdb server error: bind() failed");
-        goto fail;
-    }
-
-    ret = listen(listen_fd, 1);
-    if (ret < 0) {
-        LOG_ERROR("wasm gdb server error: listen() failed");
-        goto fail;
-    }
-
+    LOG_WARNING("Debug server listening on %s:%" PRIu32 "\n", host, *port);
     server->listen_fd = listen_fd;
 
-    sockt_fd = accept(listen_fd, NULL, NULL);
-    if (sockt_fd < 0) {
-        LOG_ERROR("wasm gdb server error: accept() failed");
-        goto fail;
-    }
-    LOG_VERBOSE("accept gdb client");
-    server->socket_fd = sockt_fd;
-    server->noack = false;
     return server;
 
 fail:
     if (listen_fd >= 0) {
-        shutdown(listen_fd, SHUT_RDWR);
-        close(listen_fd);
+        os_socket_shutdown(listen_fd);
+        os_socket_close(listen_fd);
     }
     if (server)
         wasm_runtime_free(server);
     return NULL;
 }
 
+bool
+wasm_gdbserver_listen(WASMGDBServer *server)
+{
+    bh_socket_t sockt_fd = (bh_socket_t)-1;
+    int32 ret;
+
+    ret = os_socket_listen(server->listen_fd, 1);
+    if (ret != 0) {
+        LOG_ERROR("wasm gdb server error: socket listen failed");
+        goto fail;
+    }
+
+    os_socket_accept(server->listen_fd, &sockt_fd, NULL, NULL);
+    if (sockt_fd < 0) {
+        LOG_ERROR("wasm gdb server error: socket accept failed");
+        goto fail;
+    }
+
+    LOG_VERBOSE("accept gdb client");
+    server->socket_fd = sockt_fd;
+    server->noack = false;
+    return true;
+
+fail:
+    os_socket_shutdown(server->listen_fd);
+    os_socket_close(server->listen_fd);
+    return false;
+}
+
 void
 wasm_close_gdbserver(WASMGDBServer *server)
 {
     if (server->socket_fd > 0) {
-        shutdown(server->socket_fd, SHUT_RDWR);
-        close(server->socket_fd);
+        os_socket_shutdown(server->socket_fd);
+        os_socket_close(server->socket_fd);
     }
     if (server->listen_fd > 0) {
-        shutdown(server->listen_fd, SHUT_RDWR);
-        close(server->listen_fd);
+        os_socket_shutdown(server->listen_fd);
+        os_socket_close(server->listen_fd);
     }
 }
 
@@ -155,33 +134,34 @@ handler_packet(WASMGDBServer *server, char request, char *payload)
 static void
 process_packet(WASMGDBServer *server)
 {
-    uint8_t *inbuf = server->pkt.buf;
-    int inbuf_size = server->pkt.size;
-    uint8_t *packetend_ptr = (uint8_t *)memchr(inbuf, '#', inbuf_size);
-    int packetend = packetend_ptr - inbuf;
+    uint8 *inbuf = server->pkt.buf;
+    int32 inbuf_size = server->pkt.size;
+    uint8 *packetend_ptr = (uint8 *)memchr(inbuf, '#', inbuf_size);
+    int32 packet_size = (int32)(uintptr_t)(packetend_ptr - inbuf);
     char request = inbuf[1];
     char *payload = NULL;
-    uint8_t checksum = 0;
+    uint8 checksum = 0;
 
-    if (packetend == 1) {
+    if (packet_size == 1) {
         LOG_VERBOSE("receive empty request, ignore it\n");
         return;
     }
 
     bh_assert('$' == inbuf[0]);
-    inbuf[packetend] = '\0';
+    inbuf[packet_size] = '\0';
 
-    for (int i = 1; i < packetend; i++)
+    for (int i = 1; i < packet_size; i++)
         checksum += inbuf[i];
-    bh_assert(checksum
-              == (hex(inbuf[packetend + 1]) << 4 | hex(inbuf[packetend + 2])));
+    bh_assert(
+        checksum
+        == (hex(inbuf[packet_size + 1]) << 4 | hex(inbuf[packet_size + 2])));
 
     payload = (char *)&inbuf[2];
 
     LOG_VERBOSE("receive request:%c %s\n", request, payload);
     handler_packet(server, request, payload);
 
-    inbuf_erase_head(server, packetend + 3);
+    inbuf_erase_head(server, packet_size + 3);
 }
 
 bool

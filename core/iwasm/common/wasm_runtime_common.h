@@ -115,22 +115,22 @@ GET_F64_FROM_ADDR(uint32 *addr)
 /* For STORE opcodes */
 #define STORE_I64(addr, value)                      \
     do {                                            \
-        uintptr_t addr1 = (uintptr_t)(addr);        \
+        uintptr_t addr_ = (uintptr_t)(addr);        \
         union {                                     \
             int64 val;                              \
             uint32 u32[2];                          \
             uint16 u16[4];                          \
             uint8 u8[8];                            \
         } u;                                        \
-        if ((addr1 & (uintptr_t)7) == 0)            \
+        if ((addr_ & (uintptr_t)7) == 0)            \
             *(int64 *)(addr) = (int64)(value);      \
         else {                                      \
             u.val = (int64)(value);                 \
-            if ((addr1 & (uintptr_t)3) == 0) {      \
+            if ((addr_ & (uintptr_t)3) == 0) {      \
                 ((uint32 *)(addr))[0] = u.u32[0];   \
                 ((uint32 *)(addr))[1] = u.u32[1];   \
             }                                       \
-            else if ((addr1 & (uintptr_t)1) == 0) { \
+            else if ((addr_ & (uintptr_t)1) == 0) { \
                 ((uint16 *)(addr))[0] = u.u16[0];   \
                 ((uint16 *)(addr))[1] = u.u16[1];   \
                 ((uint16 *)(addr))[2] = u.u16[2];   \
@@ -146,17 +146,17 @@ GET_F64_FROM_ADDR(uint32 *addr)
 
 #define STORE_U32(addr, value)                    \
     do {                                          \
-        uintptr_t addr1 = (uintptr_t)(addr);      \
+        uintptr_t addr_ = (uintptr_t)(addr);      \
         union {                                   \
             uint32 val;                           \
             uint16 u16[2];                        \
             uint8 u8[4];                          \
         } u;                                      \
-        if ((addr1 & (uintptr_t)3) == 0)          \
+        if ((addr_ & (uintptr_t)3) == 0)          \
             *(uint32 *)(addr) = (uint32)(value);  \
         else {                                    \
             u.val = (uint32)(value);              \
-            if ((addr1 & (uintptr_t)1) == 0) {    \
+            if ((addr_ & (uintptr_t)1) == 0) {    \
                 ((uint16 *)(addr))[0] = u.u16[0]; \
                 ((uint16 *)(addr))[1] = u.u16[1]; \
             }                                     \
@@ -407,6 +407,10 @@ WASM_RUNTIME_API_EXTERN PackageType
 get_package_type(const uint8 *buf, uint32 size);
 
 /* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_is_xip_file(const uint8 *buf, uint32 size);
+
+/* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleCommon *
 wasm_runtime_load(const uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size);
@@ -493,6 +497,12 @@ wasm_runtime_call_wasm_v(WASMExecEnv *exec_env,
                          WASMFunctionInstanceCommon *function,
                          uint32 num_results, wasm_val_t *results,
                          uint32 num_args, ...);
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env);
+#endif
 
 /**
  * Call a function reference of a given WASM runtime instance with

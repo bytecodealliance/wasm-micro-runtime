@@ -59,8 +59,8 @@ gc_init_with_pool(char *buf, gc_size_t buf_size)
     gc_size_t heap_max_size;
 
     if (buf_size < APP_HEAP_SIZE_MIN) {
-        os_printf("[GC_ERROR]heap init buf size (%u) < %u\n", buf_size,
-                  APP_HEAP_SIZE_MIN);
+        os_printf("[GC_ERROR]heap init buf size (%" PRIu32 ") < %" PRIu32 "\n",
+                  buf_size, (uint32)APP_HEAP_SIZE_MIN);
         return NULL;
     }
 
@@ -93,7 +93,7 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
     }
 
     if (struct_buf_size < sizeof(gc_handle_t)) {
-        os_printf("[GC_ERROR]heap init struct buf size (%u) < %zu\n",
+        os_printf("[GC_ERROR]heap init struct buf size (%" PRIu32 ") < %zu\n",
                   struct_buf_size, sizeof(gc_handle_t));
         return NULL;
     }
@@ -104,8 +104,8 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
     }
 
     if (pool_buf_size < APP_HEAP_SIZE_MIN) {
-        os_printf("[GC_ERROR]heap init buf size (%u) < %u\n", pool_buf_size,
-                  APP_HEAP_SIZE_MIN);
+        os_printf("[GC_ERROR]heap init buf size (%" PRIu32 ") < %u\n",
+                  pool_buf_size, APP_HEAP_SIZE_MIN);
         return NULL;
     }
 
@@ -199,7 +199,7 @@ gc_migrate(gc_handle_t handle, char *pool_buf_new, gc_size_t pool_buf_size)
     while (cur < end) {
         size = hmu_get_size(cur);
 
-        if (size <= 0 || size > (uint8 *)end - (uint8 *)cur) {
+        if (size <= 0 || size > (uint32)((uint8 *)end - (uint8 *)cur)) {
             os_printf("[GC_ERROR]Heap is corrupted, heap migrate failed.\n");
             heap->is_heap_corrupted = true;
             return GC_ERROR;

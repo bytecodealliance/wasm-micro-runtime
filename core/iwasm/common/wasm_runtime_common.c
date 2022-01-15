@@ -56,6 +56,8 @@ static void
 wasm_runtime_destroy_registered_module_list();
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
+#define E_TYPE_XIP 4
+
 #if WASM_ENABLE_REF_TYPES != 0
 /* Initialize externref hashmap */
 static bool
@@ -293,6 +295,91 @@ get_package_type(const uint8 *buf, uint32 size)
     }
     return Package_Type_Unknown;
 }
+
+#if WASM_ENABLE_AOT != 0
+static uint8 *
+align_ptr(const uint8 *p, uint32 b)
+{
+    uintptr_t v = (uintptr_t)p;
+    uintptr_t m = b - 1;
+    return (uint8 *)((v + m) & ~m);
+}
+
+#define CHECK_BUF(buf, buf_end, length)                   \
+    do {                                                  \
+        if (buf + length < buf || buf + length > buf_end) \
+            return false;                                 \
+    } while (0)
+
+#define read_uint16(p, p_end, res)                 \
+    do {                                           \
+        p = (uint8 *)align_ptr(p, sizeof(uint16)); \
+        CHECK_BUF(p, p_end, sizeof(uint16));       \
+        res = *(uint16 *)p;                        \
+        p += sizeof(uint16);                       \
+    } while (0)
+
+#define read_uint32(p, p_end, res)                 \
+    do {                                           \
+        p = (uint8 *)align_ptr(p, sizeof(uint32)); \
+        CHECK_BUF(p, p_end, sizeof(uint32));       \
+        res = *(uint32 *)p;                        \
+        p += sizeof(uint32);                       \
+    } while (0)
+
+bool
+wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
+{
+    const uint8 *p = buf, *p_end = buf + size;
+    uint32 section_type, section_size;
+    uint16 e_type;
+
+    if (get_package_type(buf, size) != Wasm_Module_AoT)
+        return false;
+
+    CHECK_BUF(p, p_end, 8);
+    p += 8;
+    while (p < p_end) {
+        read_uint32(p, p_end, section_type);
+        read_uint32(p, p_end, section_size);
+        CHECK_BUF(p, p_end, section_size);
+
+        if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
+            p += 4;
+            read_uint16(p, p_end, e_type);
+            if (e_type == E_TYPE_XIP) {
+                return true;
+            }
+        }
+        else if (section_type >= AOT_SECTION_TYPE_SIGANATURE) {
+            return false;
+        }
+        p += section_size;
+    }
+
+    return false;
+}
+#endif /* end of WASM_ENABLE_AOT */
+
+#if (WASM_ENABLE_THREAD_MGR != 0) && (WASM_ENABLE_DEBUG_INTERP != 0)
+uint32
+wasm_runtime_start_debug_instance(WASMExecEnv *exec_env)
+{
+    WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
+    bh_assert(cluster);
+
+    if (cluster->debug_inst) {
+        LOG_WARNING("Cluster already bind to a debug instance");
+        return cluster->debug_inst->control_thread->port;
+    }
+
+    if (wasm_debug_instance_create(cluster)) {
+        return cluster->debug_inst->control_thread->port;
+    }
+
+    return 0;
+}
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 static module_reader reader;
@@ -1431,7 +1518,7 @@ wasm_runtime_create_exec_env_and_call_wasm(
     if (module_inst->module_type == Wasm_Module_Bytecode)
         ret = wasm_create_exec_env_and_call_function(
             (WASMModuleInstance *)module_inst, (WASMFunctionInstance *)function,
-            argc, argv);
+            argc, argv, true);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
@@ -2207,13 +2294,13 @@ wasm_runtime_is_wasi_mode(WASMModuleInstanceCommon *module_inst)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module_inst->module_type == Wasm_Module_Bytecode
-        && ((WASMModuleInstance *)module_inst)->module->is_wasi_module)
+        && ((WASMModuleInstance *)module_inst)->module->import_wasi_api)
         return true;
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT
         && ((AOTModule *)((AOTModuleInstance *)module_inst)->aot_module.ptr)
-               ->is_wasi_module)
+               ->import_wasi_api)
         return true;
 #endif
     return false;
@@ -2947,10 +3034,12 @@ typedef int32 (*Int32FuncPtr)(GenericFunctionPointer f, uint32 *, uint32);
 typedef void (*VoidFuncPtr)(GenericFunctionPointer f, uint32 *, uint32);
 
 static Int64FuncPtr invokeNative_Int64 = (Int64FuncPtr)invokeNative;
-static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)invokeNative;
-static Float64FuncPtr invokeNative_Float64 = (Float64FuncPtr)invokeNative;
-static Float32FuncPtr invokeNative_Float32 = (Float32FuncPtr)invokeNative;
-static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)invokeNative;
+static Int32FuncPtr invokeNative_Int32 = (Int32FuncPtr)(uintptr_t)invokeNative;
+static Float64FuncPtr invokeNative_Float64 =
+    (Float64FuncPtr)(uintptr_t)invokeNative;
+static Float32FuncPtr invokeNative_Float32 =
+    (Float32FuncPtr)(uintptr_t)invokeNative;
+static VoidFuncPtr invokeNative_Void = (VoidFuncPtr)(uintptr_t)invokeNative;
 
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
@@ -3138,8 +3227,19 @@ typedef uint32x4_t __m128i;
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
 typedef void (*GenericFunctionPointer)();
+#if defined(__APPLE__) || defined(__MACH__)
+/**
+ * Define the return type as 'void' in MacOS, since after converting
+ * 'int64 invokeNative' into 'float64 invokeNative_Float64', the
+ * return value passing might be invalid, the caller reads the return
+ * value from register rax but not xmm0.
+ */
+void
+invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
+#else
 int64
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
+#endif
 
 typedef float64 (*Float64FuncPtr)(GenericFunctionPointer, uint64 *, uint64);
 typedef float32 (*Float32FuncPtr)(GenericFunctionPointer, uint64 *, uint64);

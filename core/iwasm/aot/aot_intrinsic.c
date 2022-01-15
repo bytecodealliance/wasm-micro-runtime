@@ -53,11 +53,16 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f64_convert_i64_u", "aot_intrinsic_u64_to_f64", AOT_INTRINSIC_FLAG_U64_TO_F64 },
     { "f32_convert_i64_s", "aot_intrinsic_i64_to_f32", AOT_INTRINSIC_FLAG_I64_TO_F32 },
     { "f32_convert_i64_u", "aot_intrinsic_u64_to_f32", AOT_INTRINSIC_FLAG_U64_TO_F32 },
-    { "i32_trunc_f64_u", "aot_intrinsic_f64_to_u32", AOT_INTRINSIC_FLAG_I32_TO_F64 },
+    { "i32_trunc_f32_u", "aot_intrinsic_f32_to_u32", AOT_INTRINSIC_FLAG_F32_TO_U32 },
+    { "i32_trunc_f32_s", "aot_intrinsic_f32_to_i32", AOT_INTRINSIC_FLAG_F32_TO_I32 },
+    { "i32_trunc_f64_u", "aot_intrinsic_f64_to_u32", AOT_INTRINSIC_FLAG_F64_TO_U32 },
+    { "i32_trunc_f64_s", "aot_intrinsic_f64_to_i32", AOT_INTRINSIC_FLAG_F64_TO_I32 },
     { "f32_demote_f64", "aot_intrinsic_f64_to_f32", AOT_INTRINSIC_FLAG_F64_TO_F32 },
     { "f64_promote_f32", "aot_intrinsic_f32_to_f64", AOT_INTRINSIC_FLAG_F32_TO_F64 },
     { "f32_cmp", "aot_intrinsic_f32_cmp", AOT_INTRINSIC_FLAG_F32_CMP },
     { "f64_cmp", "aot_intrinsic_f64_cmp", AOT_INTRINSIC_FLAG_F64_CMP },
+    { "f32.const", NULL, AOT_INTRINSIC_FLAG_F32_CONST},
+    { "f64.const", NULL, AOT_INTRINSIC_FLAG_F64_CONST},
 };
 /* clang-format on */
 
@@ -422,6 +427,9 @@ int32
 aot_intrinsic_f32_cmp(AOTFloatCond cond, float32 lhs, float32 rhs)
 {
     switch (cond) {
+        case FLOAT_EQ:
+            return (float32)fabs(lhs - rhs) <= WA_FLT_EPSILON ? 1 : 0;
+
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
 
@@ -450,6 +458,9 @@ int32
 aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
 {
     switch (cond) {
+        case FLOAT_EQ:
+            return fabs(lhs - rhs) <= WA_DBL_EPSILON ? 1 : 0;
+
         case FLOAT_LT:
             return lhs < rhs ? 1 : 0;
 
@@ -607,6 +618,13 @@ aot_intrinsic_fill_capability_flags(AOTCompContext *comp_ctx)
         add_f32_common_intrinsics(comp_ctx);
         add_f64_common_intrinsics(comp_ctx);
         add_common_float_integer_convertion(comp_ctx);
+    }
+    else {
+        /*
+         * Use constant value table by default
+         */
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CONST);
+        add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CONST);
     }
 }
 

@@ -216,8 +216,6 @@ table_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* fill table with element segment content */
     for (i = 0; i < module->table_init_data_count; i++) {
-        AOTTableInstance *tbl_inst;
-
         table_seg = module->table_init_data_list[i];
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -1061,7 +1059,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (!module->is_wasi_module) {
+    if (!module->import_wasi_api) {
 #endif
         /* Only execute the memory init function for main instance because
             the data segments will be dropped once initialized.
@@ -1262,6 +1260,11 @@ aot_exception_handler(EXCEPTION_POINTERS *exce_info)
             return EXCEPTION_CONTINUE_EXECUTION;
         }
     }
+
+    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
+              "exception address: %p, exception information: %p\n",
+              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
+              sig_addr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
@@ -1403,6 +1406,16 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret;
+
+    if (argc < func_type->param_cell_num) {
+        char buf[108];
+        snprintf(buf, sizeof(buf),
+                 "invalid argument count %u, must be no smaller than %u", argc,
+                 func_type->param_cell_num);
+        aot_set_exception(module_inst, buf);
+        return false;
+    }
+    argc = func_type->param_cell_num;
 
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
@@ -1774,7 +1787,7 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
             aot_set_exception(module_inst, "app heap corrupted");
         }
         else {
-            aot_set_exception(module_inst, "out of memory");
+            LOG_WARNING("warning: allocate %u bytes memory failed", size);
         }
         return 0;
     }
@@ -2087,7 +2100,7 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count)
         }
     }
 
-    heap_data = heap_data_old + (memory_data - memory_data_old);
+    heap_data = memory_data + (heap_data_old - memory_data_old);
     memory_inst->heap_data.ptr = heap_data;
     memory_inst->heap_data_end.ptr = heap_data + heap_size;
 
@@ -2816,11 +2829,40 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
 static const char *
+lookup_func_name(const char **func_names, uint32 *func_indexes,
+                 uint32 func_index_count, uint32 func_index)
+{
+    int64 low = 0, mid;
+    int64 high = func_index_count - 1;
+
+    while (low <= high) {
+        mid = (low + high) / 2;
+        if (func_index == func_indexes[mid]) {
+            return func_names[mid];
+        }
+        else if (func_index < func_indexes[mid])
+            high = mid - 1;
+        else
+            low = mid + 1;
+    }
+
+    return NULL;
+}
+
+static const char *
 get_func_name_from_index(const AOTModuleInstance *module_inst,
                          uint32 func_index)
 {
     const char *func_name = NULL;
     AOTModule *module = module_inst->aot_module.ptr;
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if ((func_name =
+             lookup_func_name(module->aux_func_names, module->aux_func_indexes,
+                              module->aux_func_name_count, func_index))) {
+        return func_name;
+    }
+#endif
 
     if (func_index < module->import_func_count) {
         func_name = module->import_funcs[func_index].func_name;

@@ -52,6 +52,7 @@ typedef enum AOTSectionType {
 typedef enum AOTCustomSectionType {
     AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
     AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
+    AOT_CUSTOM_SECTION_NAME = 3,
 } AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {
@@ -63,7 +64,7 @@ typedef struct AOTObjectDataSection {
 /* Relocation info */
 typedef struct AOTRelocation {
     uint64 relocation_offset;
-    uint64 relocation_addend;
+    int64 relocation_addend;
     uint32 relocation_type;
     char *symbol_name;
     /* index in the symbol offset field */
@@ -133,8 +134,7 @@ typedef struct AOTModule {
     uint32 mem_init_data_count;
     AOTMemInitData **mem_init_data_list;
 
-    /* native symobl */
-    uint32 native_symbol_count;
+    /* native symbol */
     void **native_symbol_list;
 
     /* import tables */
@@ -153,7 +153,7 @@ typedef struct AOTModule {
     uint32 func_type_count;
     AOTFuncType **func_types;
 
-    /* import global varaible info */
+    /* import global variable info */
     uint32 import_global_count;
     AOTImportGlobal *import_globals;
 
@@ -196,8 +196,7 @@ typedef struct AOTModule {
     uint8 *literal;
     uint32 literal_size;
 
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
+#if defined(BH_PLATFORM_WINDOWS)
     /* extra plt data area for __xmm and __real constants
        in Windows platform, NULL for JIT mode */
     uint8 *extra_plt_data;
@@ -246,6 +245,9 @@ typedef struct AOTModule {
     /* is jit mode or not */
     bool is_jit_mode;
 
+    /* is indirect mode or not */
+    bool is_indirect_mode;
+
 #if WASM_ENABLE_JIT != 0
     WASMModule *wasm_module;
     AOTCompContext *comp_ctx;
@@ -254,11 +256,16 @@ typedef struct AOTModule {
 
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
-    bool is_wasi_module;
+    bool import_wasi_api;
 #endif
 #if WASM_ENABLE_DEBUG_AOT != 0
     void *elf_hdr;
     uint32 elf_size;
+#endif
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const char **aux_func_names;
+    uint32 *aux_func_indexes;
+    uint32 aux_func_name_count;
 #endif
 } AOTModule;
 
@@ -335,7 +342,7 @@ typedef struct AOTModuleInstance {
     /* points to AOTTableInstance[] */
     AOTPointer tables;
 
-    /* funciton pointer array */
+    /* function pointer array */
     AOTPointer func_ptrs;
     /* function type indexes */
     AOTPointer func_type_indexes;

@@ -20,15 +20,17 @@
 #include <drivers/uart.h>
 #include <device.h>
 
-
-extern void init_sensor_framework();
-extern void exit_sensor_framework();
-extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
+extern void
+init_sensor_framework();
+extern void
+exit_sensor_framework();
+extern int
+aee_host_msg_callback(void *msg, uint32_t msg_len);
 
 int uart_char_cnt = 0;
 
-static void uart_irq_callback(const struct device *dev,
-                              void *user_data)
+static void
+uart_irq_callback(const struct device *dev, void *user_data)
 {
     unsigned char ch;
 
@@ -41,7 +43,8 @@ static void uart_irq_callback(const struct device *dev,
 
 const struct device *uart_dev = NULL;
 
-static bool host_init()
+static bool
+host_init()
 {
     uart_dev = device_get_binding(HOST_DEVICE_COMM_UART_NAME);
     if (!uart_dev) {
@@ -53,7 +56,8 @@ static bool host_init()
     return true;
 }
 
-int host_send(void * ctx, const char *buf, int size)
+int
+host_send(void *ctx, const char *buf, int size)
 {
     if (!uart_dev)
         return 0;
@@ -64,15 +68,17 @@ int host_send(void * ctx, const char *buf, int size)
     return size;
 }
 
-void host_destroy()
-{
-}
+void
+host_destroy()
+{}
 
+/* clang-format off */
 host_interface interface = {
     .init = host_init,
     .send = host_send,
     .destroy = host_destroy
 };
+/* clang-format on */
 
 timer_ctx_t timer_ctx;
 
@@ -87,7 +93,8 @@ static NativeSymbol native_symbols[] = {
     EXPORT_WASM_API_WITH_SIG(time_get_ms, "()i")
 };
 
-int iwasm_main()
+int
+iwasm_main()
 {
     RuntimeInitArgs init_args;
 

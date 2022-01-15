@@ -162,10 +162,15 @@ aot_create_func_block(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* Set block data */
     aot_block->label_type = LABEL_TYPE_FUNCTION;
     aot_block->param_count = param_count;
-    memcpy(aot_block->param_types, aot_func_type->types, param_count);
+    if (param_count) {
+        bh_memcpy_s(aot_block->param_types, param_count, aot_func_type->types,
+                    param_count);
+    }
     aot_block->result_count = result_count;
-    memcpy(aot_block->result_types, aot_func_type->types + param_count,
-           result_count);
+    if (result_count) {
+        bh_memcpy_s(aot_block->result_types, result_count,
+                    aot_func_type->types + param_count, result_count);
+    }
     aot_block->wasm_code_end = func->code + func->code_size;
 
     /* Add function entry block */
@@ -495,7 +500,7 @@ create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     offset = I32_CONST(offsetof(AOTModuleInstance, cur_exception));
     func_ctx->cur_exception = LLVMBuildInBoundsGEP(
-        comp_ctx->builder, func_ctx->aot_inst, &offset, 1, "cur_execption");
+        comp_ctx->builder, func_ctx->aot_inst, &offset, 1, "cur_exception");
     if (!func_ctx->cur_exception) {
         aot_set_last_error("llvm build in bounds gep failed.");
         return false;
@@ -1064,6 +1069,7 @@ static ArchItem valid_archs[] = {
     { "i386", false },
     { "xtensa", false },
     { "mips", true },
+    { "mipsel", false },
     { "aarch64v8", false },
     { "aarch64v8.1", false },
     { "aarch64v8.2", false },
@@ -1482,6 +1488,12 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (option->disable_llvm_intrinsics)
         comp_ctx->disable_llvm_intrinsics = true;
 
+    if (option->disable_llvm_lto)
+        comp_ctx->disable_llvm_lto = true;
+
+    comp_ctx->opt_level = option->opt_level;
+    comp_ctx->size_level = option->size_level;
+
     if (option->is_jit_mode) {
         char *triple_jit = NULL;
 
@@ -1598,7 +1610,76 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 abi = "ilp32d";
         }
 
-        if (arch) {
+#if defined(__APPLE__) || defined(__MACH__)
+        if (!abi) {
+            /* On MacOS platform, set abi to "gnu" to avoid generating
+               object file of Mach-O binary format which is unsupported */
+            abi = "gnu";
+            if (!arch && !cpu && !features) {
+                /* Get CPU name of the host machine to avoid checking
+                   SIMD capability failed */
+                if (!(cpu = cpu_new = LLVMGetHostCPUName())) {
+                    aot_set_last_error("llvm get host cpu name failed.");
+                    goto fail;
+                }
+            }
+        }
+#endif
+
+        if (abi) {
+            /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
+            const char *vendor_sys;
+            char *arch1 = arch, default_arch[32] = { 0 };
+
+            if (!arch1) {
+                char *default_triple = LLVMGetDefaultTargetTriple();
+
+                if (!default_triple) {
+                    aot_set_last_error(
+                        "llvm get default target triple failed.");
+                    goto fail;
+                }
+
+                vendor_sys = strstr(default_triple, "-");
+                bh_assert(vendor_sys);
+                bh_memcpy_s(default_arch, sizeof(default_arch), default_triple,
+                            (uint32)(vendor_sys - default_triple));
+                arch1 = default_arch;
+
+                LLVMDisposeMessage(default_triple);
+            }
+
+            /**
+             * Set <vendor>-<sys> according to abi to generate the object file
+             * with the correct file format which might be different from the
+             * default object file format of the host, e.g., generating AOT file
+             * for Windows/MacOS under Linux host, or generating AOT file for
+             * Linux/MacOS under Windows host.
+             */
+            if (!strcmp(abi, "msvc")) {
+                if (!strcmp(arch1, "i386"))
+                    vendor_sys = "-pc-win32-";
+                else
+                    vendor_sys = "-pc-windows-";
+            }
+            else {
+                vendor_sys = "-pc-linux-";
+            }
+
+            bh_assert(strlen(arch1) + strlen(vendor_sys) + strlen(abi)
+                      < sizeof(triple_buf));
+            bh_memcpy_s(triple_buf, (uint32)sizeof(triple_buf), arch1,
+                        (uint32)strlen(arch1));
+            bh_memcpy_s(triple_buf + strlen(arch1),
+                        (uint32)(sizeof(triple_buf) - strlen(arch1)),
+                        vendor_sys, (uint32)strlen(vendor_sys));
+            bh_memcpy_s(triple_buf + strlen(arch1) + strlen(vendor_sys),
+                        (uint32)(sizeof(triple_buf) - strlen(arch1)
+                                 - strlen(vendor_sys)),
+                        abi, (uint32)strlen(abi));
+            triple = triple_buf;
+        }
+        else if (arch) {
             /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
             const char *vendor_sys;
             char *default_triple = LLVMGetDefaultTargetTriple();
@@ -1628,10 +1709,15 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
             bh_assert(strlen(arch) + strlen(vendor_sys) + strlen(abi)
                       < sizeof(triple_buf));
-            memcpy(triple_buf, arch, strlen(arch));
-            memcpy(triple_buf + strlen(arch), vendor_sys, strlen(vendor_sys));
-            memcpy(triple_buf + strlen(arch) + strlen(vendor_sys), abi,
-                   strlen(abi));
+            bh_memcpy_s(triple_buf, (uint32)sizeof(triple_buf), arch,
+                        (uint32)strlen(arch));
+            bh_memcpy_s(triple_buf + strlen(arch),
+                        (uint32)(sizeof(triple_buf) - strlen(arch)), vendor_sys,
+                        (uint32)strlen(vendor_sys));
+            bh_memcpy_s(triple_buf + strlen(arch) + strlen(vendor_sys),
+                        (uint32)(sizeof(triple_buf) - strlen(arch)
+                                 - strlen(vendor_sys)),
+                        abi, (uint32)strlen(abi));
             triple = triple_buf;
         }
 
@@ -1791,6 +1877,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }
+
+        LLVMSetTarget(comp_ctx->module, triple_norm);
     }
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
@@ -1801,7 +1889,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_simd) {
         char *tmp;
-        bool ret;
+        bool check_simd_ret;
 
         comp_ctx->enable_simd = true;
 
@@ -1810,9 +1898,10 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
-        ret = aot_check_simd_compatibility(comp_ctx->target_arch, tmp);
+        check_simd_ret =
+            aot_check_simd_compatibility(comp_ctx->target_arch, tmp);
         LLVMDisposeMessage(tmp);
-        if (!ret) {
+        if (!check_simd_ret) {
             aot_set_last_error("SIMD compatibility check failed, "
                                "try adding --cpu=<cpu> to specify a cpu "
                                "or adding --disable-simd to disable SIMD");
@@ -1848,6 +1937,11 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
 
     if (!option->is_jit_mode) {
+        /* Put Vectorize passes before GVN/LICM passes as the former
+           might gain more performance improvement and the latter might
+           break the optimizations for the former */
+        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
+        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
         LLVMAddLoopRotatePass(comp_ctx->pass_mgr);
         LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
@@ -1857,11 +1951,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                disable them when building as multi-thread mode */
             LLVMAddGVNPass(comp_ctx->pass_mgr);
             LLVMAddLICMPass(comp_ctx->pass_mgr);
+            LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
+            LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
         }
-        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
-        LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
     }
 
     /* Create metadata for llvm float experimental constrained intrinsics */
@@ -1991,6 +2083,30 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
     wasm_runtime_free(comp_ctx);
 }
 
+static bool
+insert_native_symbol(AOTCompContext *comp_ctx, const char *symbol, int32 idx)
+{
+    AOTNativeSymbol *sym = wasm_runtime_malloc(sizeof(AOTNativeSymbol));
+
+    if (!sym) {
+        aot_set_last_error("alloc native symbol failed.");
+        return false;
+    }
+
+    memset(sym, 0, sizeof(AOTNativeSymbol));
+    bh_assert(strlen(symbol) <= sizeof(sym->symbol));
+    snprintf(sym->symbol, sizeof(sym->symbol), "%s", symbol);
+    sym->index = idx;
+
+    if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {
+        wasm_runtime_free(sym);
+        aot_set_last_error("insert native symbol to list failed.");
+        return false;
+    }
+
+    return true;
+}
+
 int32
 aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
 {
@@ -2012,21 +2128,29 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
     /* Given symbol is not exist in list, then we alloc a new index for it */
 
     if (idx < 0) {
-        sym = wasm_runtime_malloc(sizeof(AOTNativeSymbol));
-
-        if (!sym) {
-            aot_set_last_error("alloc native symbol failed.");
-            return idx;
+        if (comp_ctx->pointer_size == sizeof(uint32)
+            && !strncmp(symbol, "f64#", 4)) {
+            idx = bh_list_length(&comp_ctx->native_symbols);
+            /* Add 4 bytes padding on 32-bit target to make sure that
+               the f64 const is stored on 8-byte aligned address */
+            if ((idx & 1) && !strncmp(comp_ctx->target_arch, "i386", 4)) {
+                if (!insert_native_symbol(comp_ctx, "__ignore", idx)) {
+                    return -1;
+                }
+            }
         }
 
         idx = bh_list_length(&comp_ctx->native_symbols);
-        sym->symbol = symbol;
-        sym->index = idx;
-
-        if (BH_LIST_ERROR == bh_list_insert(&comp_ctx->native_symbols, sym)) {
-            wasm_runtime_free(sym);
-            aot_set_last_error("alloc index for native symbol failed.");
+        if (!insert_native_symbol(comp_ctx, symbol, idx)) {
             return -1;
+        }
+
+        if (comp_ctx->pointer_size == sizeof(uint32)
+            && !strncmp(symbol, "f64#", 4)) {
+            /* f64 const occupies 2 pointer slots on 32-bit target */
+            if (!insert_native_symbol(comp_ctx, "__ignore", idx + 1)) {
+                return -1;
+            }
         }
     }
 
@@ -2431,4 +2555,62 @@ aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
     return func;
 fail:
     return NULL;
+}
+
+LLVMValueRef
+aot_load_const_from_table(AOTCompContext *comp_ctx, LLVMValueRef base,
+                          const WASMValue *value, uint8 value_type)
+{
+    LLVMValueRef const_index, const_addr, const_value;
+    LLVMTypeRef const_ptr_type;
+    char buf[128] = { 0 };
+    int32 index;
+
+    switch (value_type) {
+        case VALUE_TYPE_F32:
+            /* Store the raw int bits of f32 const as a hex string */
+            snprintf(buf, sizeof(buf), "f32#%08" PRIX32, value->i32);
+            const_ptr_type = F32_PTR_TYPE;
+            break;
+        case VALUE_TYPE_F64:
+            /* Store the raw int bits of f64 const as a hex string */
+            snprintf(buf, sizeof(buf), "f64#%016" PRIX64, value->i64);
+            const_ptr_type = F64_PTR_TYPE;
+            break;
+        default:
+            bh_assert(0);
+            return NULL;
+    }
+
+    /* Load f32/f64 const from exec_env->native_symbol[index] */
+
+    index = aot_get_native_symbol_index(comp_ctx, buf);
+    if (index < 0) {
+        return NULL;
+    }
+
+    if (!(const_index = I32_CONST(index))) {
+        aot_set_last_error("construct const index failed.");
+        return NULL;
+    }
+
+    if (!(const_addr = LLVMBuildInBoundsGEP(
+              comp_ctx->builder, base, &const_index, 1, "const_addr_tmp"))) {
+        aot_set_last_error("get const addr by index failed.");
+        return NULL;
+    }
+
+    if (!(const_addr = LLVMBuildBitCast(comp_ctx->builder, const_addr,
+                                        const_ptr_type, "const_addr"))) {
+        aot_set_last_error("cast const fialed.");
+        return NULL;
+    }
+
+    if (!(const_value =
+              LLVMBuildLoad(comp_ctx->builder, const_addr, "const_value"))) {
+        aot_set_last_error("load const failed.");
+        return NULL;
+    }
+
+    return const_value;
 }

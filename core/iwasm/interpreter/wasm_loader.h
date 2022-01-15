@@ -24,8 +24,11 @@ extern "C" {
  * @return return module loaded, NULL if failed
  */
 WASMModule *
-wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf,
-                 uint32 error_buf_size);
+wasm_loader_load(const uint8 *buf, uint32 size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+                 bool main_module,
+#endif
+                 char *error_buf, uint32 error_buf_size);
 
 /**
  * Load a WASM module from a specified WASM section list.
@@ -69,14 +72,6 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                             const uint8 *start_addr, const uint8 *code_end_addr,
                             uint8 block_type, uint8 **p_else_addr,
                             uint8 **p_end_addr);
-
-#if WASM_ENABLE_REF_TYPES != 0
-void
-wasm_set_ref_types_flag(bool enable);
-
-bool
-wasm_get_ref_types_flag();
-#endif
 
 #ifdef __cplusplus
 }

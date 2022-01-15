@@ -146,6 +146,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: The WAMR application entry (`core/iwasm/common/wasm_application.c`) encapsulate some common process to instantiate, execute the wasm functions and print the results. Some platform related APIs are used in these functions, so you can enable this flag to exclude this file if your platform doesn't support those APIs.
 > *Don't enable this flag if you are building `product-mini`*
 
+#### **Enable source debugging features**
+- **WAMR_BUILD_DEBUG_INTERP**=1/0, default to 0 if not set
+> Note: There are some other setup required by source debugging, please refer to [source_debugging.md](./source_debugging.md) for more details.
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -171,6 +175,9 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=$TOOL_CHAIN_FILE  \
 ```
 
 Refer to toolchain sample file [`samples/simple/profiles/arm-interp/toolchain.cmake`](../samples/simple/profiles/arm-interp/toolchain.cmake) for how to build mini product for ARM target architecture.
+
+If you compile for ESP-IDF, make sure to set the right toolchain file for the chip you're using (e.g. `$IDF_PATH/tools/cmake/toolchain-esp32c3.cmake`).
+Note that all ESP-IDF toolchain files live under `$IDF_PATH/tools/cmake/`.
 
 Linux
 -------------------------
@@ -299,15 +306,24 @@ WAMR provides some features which can be easily configured by passing options to
 
 Zephyr
 -------------------------
-You need to download the Zephyr source code first and embed WAMR into it.
+You need to prepare Zephyr first as described here https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies.
+
+After that you need to point the `ZEPHYR_BASE` variable to e.g. `~/zephyrproject/zephyr`. Also, it is important that you have `west` available for subsequent actions.
+
 ``` Bash
-git clone https://github.com/zephyrproject-rtos/zephyr.git
-source zephyr/zephyr-env.sh
 cd <wamr_root_dir>/product-mini/platforms/zephyr/simple
 # Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
 ./build_and_run.sh x86
-
 ```
+
+If you want to use the Espressif toolchain (esp32 or esp32c3), you can most conveniently install it with `west`:
+
+``` Bash
+cd $ZEPHYR_BASE
+west espressif install
+```
+
+After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
 
 Note:
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
@@ -452,6 +468,18 @@ $ # lib includes libiwasm.so
 NuttX
 -------------------------
 WAMR is intergrated with NuttX, just enable the WAMR in Kconfig option (Application Configuration/Interpreters).
+
+ESP-IDF
+-------------------------
+WAMR integrates with ESP-IDF both for the XTENSA and RISC-V chips (esp32x and esp32c3 respectively). 
+
+In order to use this, you need at least version 4.3.1 of ESP-IDF.
+If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
+ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
+A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
+The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+In order to run it for your specific Espressif chip, edit the ['build.sh'](/product-mini/platforms/esp-idf/build.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 Docker
 -------------------------

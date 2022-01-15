@@ -1346,7 +1346,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_TABLE_SET)
             {
-                uint32 tbl_idx, elem_idx, val;
+                uint32 tbl_idx, elem_idx, elem_val;
                 WASMTableInstance *tbl_inst;
 
                 tbl_idx = read_uint32(frame_ip);
@@ -1354,14 +1354,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
-                val = POP_I32();
+                elem_val = POP_I32();
                 elem_idx = POP_I32();
                 if (elem_idx >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "out of bounds table access");
                     goto got_exception;
                 }
 
-                ((uint32 *)tbl_inst->base_addr)[elem_idx] = val;
+                ((uint32 *)tbl_inst->base_addr)[elem_idx] = elem_val;
                 HANDLE_OP_END();
             }
 
@@ -1373,9 +1373,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             HANDLE_OP(WASM_OP_REF_IS_NULL)
             {
-                uint32 val;
-                val = POP_I32();
-                PUSH_I32(val == NULL_REF ? 1 : 0);
+                uint32 ref_val;
+                ref_val = POP_I32();
+                PUSH_I32(ref_val == NULL_REF ? 1 : 0);
                 HANDLE_OP_END();
             }
 
@@ -2885,15 +2885,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_MEMORY_FILL:
                     {
                         uint32 dst, len;
-                        uint8 val, *mdst;
+                        uint8 fill_val, *mdst;
 
                         len = POP_I32();
-                        val = POP_I32();
+                        fill_val = POP_I32();
                         dst = POP_I32();
 
                         CHECK_BULK_MEMORY_OVERFLOW(dst, len, mdst);
 
-                        memset(mdst, val, len);
+                        memset(mdst, fill_val, len);
 
                         break;
                     }
@@ -3045,7 +3045,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_TABLE_FILL:
                     {
-                        uint32 tbl_idx, n, val, i;
+                        uint32 tbl_idx, n, fill_val, i;
                         WASMTableInstance *tbl_inst;
 
                         tbl_idx = read_uint32(frame_ip);
@@ -3054,7 +3054,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
                         n = POP_I32();
-                        val = POP_I32();
+                        fill_val = POP_I32();
                         i = POP_I32();
 
                         if (i + n > tbl_inst->cur_size) {
@@ -3064,7 +3064,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
 
                         for (; n != 0; i++, n--) {
-                            ((uint32 *)(tbl_inst->base_addr))[i] = val;
+                            ((uint32 *)(tbl_inst->base_addr))[i] = fill_val;
                         }
 
                         break;
@@ -3089,15 +3089,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (opcode) {
                     case WASM_OP_ATOMIC_NOTIFY:
                     {
-                        uint32 count, ret;
+                        uint32 notify_count, ret;
 
-                        count = POP_I32();
+                        notify_count = POP_I32();
                         addr = POP_I32();
                         CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 4, maddr);
                         CHECK_ATOMIC_MEMORY_ACCESS(4);
 
                         ret = wasm_runtime_atomic_notify(
-                            (WASMModuleInstanceCommon *)module, maddr, count);
+                            (WASMModuleInstanceCommon *)module, maddr,
+                            notify_count);
                         bh_assert((int32)ret >= 0);
 
                         PUSH_I32(ret);
@@ -3106,7 +3107,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_ATOMIC_WAIT32:
                     {
                         uint64 timeout;
-                        uint32 expect, addr, ret;
+                        uint32 expect, ret;
 
                         timeout = POP_I64();
                         expect = POP_I32();
@@ -3307,6 +3308,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 1, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(1);
 
+                            expect = (uint8)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint32)(*(uint8 *)maddr);
                             if (readv == expect)
@@ -3317,6 +3319,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 2, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(2);
 
+                            expect = (uint16)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint32)LOAD_U16(maddr);
                             if (readv == expect)
@@ -3351,6 +3354,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 1, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(1);
 
+                            expect = (uint8)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint64)(*(uint8 *)maddr);
                             if (readv == expect)
@@ -3361,6 +3365,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 2, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(2);
 
+                            expect = (uint16)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint64)LOAD_U16(maddr);
                             if (readv == expect)
@@ -3371,6 +3376,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 4, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(4);
 
+                            expect = (uint32)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint64)LOAD_U32(maddr);
                             if (readv == expect)
@@ -3658,7 +3664,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
                       cur_wasm_func->const_cell_num);
 
-            /* Initialize the local varialbes */
+            /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
 
@@ -3729,13 +3735,16 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
        frame here.  */
     unsigned frame_size = wasm_interp_interp_frame_size(all_cell_num);
 
-    if (argc != function->param_cell_num) {
+    if (argc < function->param_cell_num) {
         char buf[128];
-        snprintf(buf, sizeof(buf), "invalid argument count %d, expected %d",
-                 argc, function->param_cell_num);
+        snprintf(buf, sizeof(buf),
+                 "invalid argument count %" PRIu32
+                 ", must be no smaller than %" PRIu32,
+                 argc, (uint32)function->param_cell_num);
         wasm_set_exception(module_inst, buf);
         return;
     }
+    argc = function->param_cell_num;
 
     if ((uint8 *)&prev_frame < exec_env->native_stack_boundary) {
         wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,

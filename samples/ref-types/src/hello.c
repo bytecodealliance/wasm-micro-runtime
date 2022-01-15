@@ -14,8 +14,7 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 #endif
 
 static int
-test_write_wrapper(wasm_exec_env_t exec_env,
-                   uint32 externref_idx_of_file,
+test_write_wrapper(wasm_exec_env_t exec_env, uint32 externref_idx_of_file,
                    const char *str, int len)
 {
     FILE *file;
@@ -35,9 +34,11 @@ test_write_wrapper(wasm_exec_env_t exec_env,
     return fprintf(file, buf, str);
 }
 
+/* clang-format off */
 static NativeSymbol native_symbols[] = {
     { "test_write", test_write_wrapper, "(i*~)i", NULL }
 };
+/* clang-format on */
 
 int
 main(int argc, char *argv[])
@@ -88,7 +89,7 @@ main(int argc, char *argv[])
 
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf =
-            (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
+              (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
 
     /* load WASM module */
@@ -100,21 +101,21 @@ main(int argc, char *argv[])
 
     /* instantiate the module */
     if (!(wasm_module_inst =
-            wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
-                                     error_buf, sizeof(error_buf)))) {
+              wasm_runtime_instantiate(wasm_module, stack_size, heap_size,
+                                       error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail3;
     }
 
     /* lookup function instance */
-    if (!(func_inst = wasm_runtime_lookup_function(wasm_module_inst,
-                                                   "test", NULL))) {
+    if (!(func_inst =
+              wasm_runtime_lookup_function(wasm_module_inst, "test", NULL))) {
         printf("%s\n", "lookup function test failed");
         goto fail4;
     }
 
     if (!(exec_env =
-            wasm_runtime_create_exec_env(wasm_module_inst, stack_size))) {
+              wasm_runtime_create_exec_env(wasm_module_inst, stack_size))) {
         printf("%s\n", "create exec env failed");
         goto fail4;
     }

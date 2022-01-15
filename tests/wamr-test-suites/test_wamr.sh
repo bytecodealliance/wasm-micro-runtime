@@ -13,15 +13,17 @@ DEBUG set -xEevuo pipefail
 function help()
 {
     echo "test_wamr.sh [options]"
-    echo "-s {suite_name} test only one suite (spec)"
     echo "-c clean previous test results, not start test"
-    echo "-b use the wabt binary release package instead of compiling from the source code"
-    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
+    echo "-s {suite_name} test only one suite (spec)"
     echo "-m set compile target of iwasm(x86_64\x86_32\armv7_vfp\thumbv7_vfp\riscv64_lp64d\riscv64_lp64)"
-    echo "-M enable the multi module feature"
+    echo "-t set compile type of iwasm(classic-interp\fast-interp\jit\aot)"
+    echo "-M enable multi module feature"
     echo "-p enable multi thread feature"
-    echo "-S enable SIMD"
+    echo "-S enable SIMD feature"
+    echo "-X enable XIP feature"
     echo "-x test SGX"
+    echo "-b use the wabt binary release package instead of compiling from the source code"
+    echo "-P run the spec test parallelly"
 }
 
 OPT_PARSED=""
@@ -34,15 +36,14 @@ ENABLE_MULTI_MODULE=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
+ENABLE_XIP=0
 #unit test case arrary
 TEST_CASE_ARR=()
 SGX_OPT=""
-# enable reference-types and bulk-memory by default
-# as they are finished and merged into spec
-ENABLE_REF_TYPES=1
 PLATFORM=$(uname -s | tr A-Z a-z)
+PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxr" opt
+while getopts ":s:cabt:m:MCpSXxP" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -102,17 +103,21 @@ do
         p)
         echo "enable multi thread feature"
         ENABLE_MULTI_THREAD=1
-        # Disable reference-types when multi-thread is enabled
-        echo "disable reference-types for multi thread"
-        ENABLE_REF_TYPES=0
         ;;
         S)
         echo "enable SIMD feature"
         ENABLE_SIMD=1
         ;;
+        X)
+        echo "enable XIP feature"
+        ENABLE_XIP=1
+        ;;
         x)
         echo "test SGX"
         SGX_OPT="--sgx"
+        ;;
+        P)
+        PARALLELISM=1
         ;;
         ?)
         help
@@ -157,7 +162,6 @@ readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
@@ -165,7 +169,6 @@ readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
@@ -174,15 +177,13 @@ readonly JIT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_AOT=1 \
-    -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE}"
+    -DWAMR_BUILD_SPEC_TEST=1"
 
 readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_TARGET=${TARGET} \
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_SPEC_TEST=1 \
-    -DWAMR_BUILD_MULTI_MODULE=${ENABLE_MULTI_MODULE} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly COMPILE_FLAGS=(
@@ -208,7 +209,7 @@ function unit_test()
 
         # keep going and do not care if it is success or not
         make -ki clean | true
-        cmake ${compile_flag} ${WORK_DIR}/../../unit && make
+        cmake ${compile_flag} ${WORK_DIR}/../../unit && make -j 4
         if [ "$?" != 0 ];then
             echo -e "\033[31mbuild unit test failed, you may need to change wamr into dev/aot branch and ensure llvm is built \033[0m"
             exit 1
@@ -278,8 +279,12 @@ function spec_test()
     # restore from XX_ignore_cases.patch
     # resotre branch
     git checkout -B master
-    git reset --hard 397399a70565609bf142d211891724e21bffd01f
+    # [spec] Fix instruction table (#1402) Thu Dec 2 17:21:54 2021 +0100
+    git reset --hard 2460ad02b51fb5ed5824f44de287a8638b19a5f8
     git apply ../../spec-test-script/ignore_cases.patch
+    if [[ ${ENABLE_SIMD} == 1 ]]; then
+        git apply ../../spec-test-script/simd_ignore_cases.patch
+    fi
 
     # udpate thread cases
     if [ ${ENABLE_MULTI_THREAD} == 1 ]; then
@@ -295,26 +300,6 @@ function spec_test()
         git checkout threads/main
 
         git apply ../../spec-test-script/thread_proposal_ignore_cases.patch
-    fi
-
-    # udpate SIMD cases
-    if [[ ${ENABLE_SIMD} == 1 ]]; then
-        echo "checkout spec for SIMD proposal"
-        # check spec test cases for simd
-        if [[ -z $(git remote | grep "\<simd\>") ]]; then
-            git remote add simd https://github.com/WebAssembly/simd.git
-        fi
-
-        git fetch simd
-        git checkout simd/main -- test/core/simd
-        git checkout simd/main -- interpreter
-
-        echo "compile the reference intepreter"
-        pushd interpreter
-        make opt
-        popd
-
-        git apply ../../spec-test-script/simd_ignore_cases.patch
     fi
 
     popd
@@ -359,10 +344,10 @@ function spec_test()
         git pull
         git reset --hard origin/main
         cd ..
-        make -C wabt gcc-release
+        make -C wabt gcc-release -j 4
     fi
 
-    ln -sf ${WORK_DIR}/../spec-test-script/all.sh .
+    ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
 
     local ARGS_FOR_SPEC_TEST=""
@@ -388,9 +373,12 @@ function spec_test()
         fi
     fi
 
-    # reference type in all mode
-    if [[ ${ENABLE_REF_TYPES} == 1 ]]; then
-        ARGS_FOR_SPEC_TEST+="-r "
+    if [[ ${ENABLE_MULTI_THREAD} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="-p "
+    fi
+
+    if [[ ${ENABLE_XIP} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="-X "
     fi
 
     # require warmc only in aot mode
@@ -398,8 +386,12 @@ function spec_test()
         ARGS_FOR_SPEC_TEST+="-t -m ${TARGET} "
     fi
 
+    if [[ ${PARALLELISM} == 1 ]]; then
+        ARGS_FOR_SPEC_TEST+="--parl "
+    fi
+
     cd ${WORK_DIR}
-    ./all.sh ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
+    python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
     [[ ${PIPESTATUS[0]} -ne 0 ]] && exit 1
     cd -
 
@@ -473,7 +465,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make
+        && make -j 4
         cd ${WAMR_DIR}/product-mini/platforms/linux-sgx/enclave-sample \
         && make clean \
         && make SPEC_TEST=1
@@ -482,7 +474,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make
+        && make -j 4
     fi
 
     if [ "$?" != 0 ];then
@@ -506,7 +498,7 @@ function build_wamrc()
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
         && cmake .. \
-        && make
+        && make -j 4
 }
 
 ### Need to add a test suite?
@@ -533,20 +525,26 @@ function collect_coverage()
 function trigger()
 {
     local EXTRA_COMPILE_FLAGS=""
+    # default enabled features
+    EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+
+    if [[ ${ENABLE_MULTI_MODULE} == 1 ]];then
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=0"
+    fi
+
     if [[ ${ENABLE_MULTI_THREAD} == 1 ]];then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_LIB_PTHREAD=1"
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=0"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
     fi
 
     if [[ ${ENABLE_SIMD} == 1 ]]; then
         EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=1"
-    fi
-
-    if [[ ${ENABLE_REF_TYPES} == 1 ]]; then
-        # spec test cases for reference type depends on
-        # multi-module and bulk memory
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_REF_TYPES=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_MULTI_MODULE=1"
-        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_BULK_MEMORY=1"
+    else
+        EXTRA_COMPILE_FLAGS+=" -DWAMR_BUILD_SIMD=0"
     fi
 
     for t in "${TYPE[@]}"; do

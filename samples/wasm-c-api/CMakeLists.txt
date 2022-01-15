@@ -32,7 +32,7 @@ set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
 # "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
     set (WAMR_BUILD_TARGET "AARCH64")
   elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
     set (WAMR_BUILD_TARGET "RISCV64")
@@ -157,7 +157,7 @@ foreach(EX ${EXAMPLES})
   # generate .aot file
   if(${WAMR_BUILD_AOT} EQUAL 1)
     add_custom_target(${EX}_AOT
-      COMMAND ${WAMRC} --enable-ref-types -o ${PROJECT_BINARY_DIR}/${EX}.aot
+      COMMAND ${WAMRC} -o ${PROJECT_BINARY_DIR}/${EX}.aot
         ${PROJECT_BINARY_DIR}/${EX}.wasm
       DEPENDS ${EX}_WASM
       BYPRODUCTS ${PROJECT_BINARY_DIR}/${EX}.aot

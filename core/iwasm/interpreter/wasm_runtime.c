@@ -47,7 +47,11 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 WASMModule *
 wasm_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
 {
-    return wasm_loader_load(buf, size, error_buf, error_buf_size);
+    return wasm_loader_load(buf, size,
+#if WASM_ENABLE_MULTI_MODULE != 0
+                            true,
+#endif
+                            error_buf, error_buf_size);
 }
 
 WASMModule *
@@ -105,7 +109,7 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
         for (i = 0; i < count; i++) {
             if (memories[i]) {
 #if WASM_ENABLE_MULTI_MODULE != 0
-                if (memories[i]->owner != module_inst)
+                if (i < module_inst->module->import_memory_count)
                     continue;
 #endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
@@ -384,13 +388,6 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                 memories_deinstantiate(module_inst, memories, memory_count);
                 return NULL;
             }
-#if WASM_ENABLE_MULTI_MODULE != 0
-            /* The module of the import memory is a builtin module, and
-               the memory is created by current module, set its owner
-               to current module, so the memory can be destroyed in
-               memories_deinstantiate. */
-            memory->owner = module_inst;
-#endif
         }
     }
 
@@ -404,9 +401,6 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             memories_deinstantiate(module_inst, memories, memory_count);
             return NULL;
         }
-#if WASM_ENABLE_MULTI_MODULE != 0
-        memory->owner = module_inst;
-#endif
     }
 
     if (mem_index == 0) {
@@ -900,7 +894,7 @@ execute_post_inst_function(WASMModuleInstance *module_inst)
         return true;
 
     return wasm_create_exec_env_and_call_function(module_inst, post_inst_func,
-                                                  0, NULL);
+                                                  0, NULL, false);
 }
 
 #if WASM_ENABLE_BULK_MEMORY != 0
@@ -929,7 +923,7 @@ execute_memory_init_function(WASMModuleInstance *module_inst)
         return true;
 
     return wasm_create_exec_env_and_call_function(module_inst, memory_init_func,
-                                                  0, NULL);
+                                                  0, NULL, false);
 }
 #endif
 
@@ -944,7 +938,8 @@ execute_start_function(WASMModuleInstance *module_inst)
     bh_assert(!func->is_import_func && func->param_cell_num == 0
               && func->ret_cell_num == 0);
 
-    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL);
+    return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL,
+                                                  false);
 }
 
 static bool
@@ -972,11 +967,11 @@ execute_malloc_function(WASMModuleInstance *module_inst,
     }
 
     ret = wasm_create_exec_env_and_call_function(module_inst, malloc_func, argc,
-                                                 argv);
+                                                 argv, false);
 
     if (retain_func && ret) {
         ret = wasm_create_exec_env_and_call_function(module_inst, retain_func,
-                                                     1, argv);
+                                                     1, argv, false);
     }
 
     if (ret)
@@ -992,7 +987,7 @@ execute_free_function(WASMModuleInstance *module_inst,
 
     argv[0] = offset;
     return wasm_create_exec_env_and_call_function(module_inst, free_func, 1,
-                                                  argv);
+                                                  argv, false);
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -1006,15 +1001,17 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         bh_list_first_elem(module->import_module_list);
 
     while (sub_module_list_node) {
-        WASMSubModInstNode *sub_module_inst_list_node;
+        WASMSubModInstNode *sub_module_inst_list_node = NULL;
         WASMModule *sub_module = (WASMModule *)sub_module_list_node->module;
-        WASMModuleInstance *sub_module_inst =
+        WASMModuleInstance *sub_module_inst = NULL;
+
+        sub_module_inst =
             wasm_instantiate(sub_module, false, stack_size, heap_size,
                              error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
-            return false;
+            goto failed;
         }
 
         sub_module_inst_list_node = runtime_malloc(sizeof(WASMSubModInstNode),
@@ -1022,8 +1019,7 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
                       sizeof(WASMSubModInstNode));
-            wasm_deinstantiate(sub_module_inst, false);
-            return false;
+            goto failed;
         }
 
         sub_module_inst_list_node->module_inst = sub_module_inst;
@@ -1035,6 +1031,39 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         (void)ret;
 
         sub_module_list_node = bh_list_elem_next(sub_module_list_node);
+
+#if WASM_ENABLE_LIBC_WASI != 0
+        {
+            /*
+             * reactor instances may assume that _initialize will be called by
+             * the environment at most once, and that none of their other
+             * exports are accessed before that call.
+             *
+             * let the loader decide how to act if there is no _initialize
+             * in a reactor
+             */
+            WASMFunctionInstance *initialize =
+                wasm_lookup_function(sub_module_inst, "_initialize", NULL);
+            if (initialize
+                && !wasm_create_exec_env_and_call_function(
+                    sub_module_inst, initialize, 0, NULL, false)) {
+                set_error_buf(error_buf, error_buf_size,
+                              "Call _initialize failed ");
+                goto failed;
+            }
+        }
+#endif
+
+        continue;
+    failed:
+        if (sub_module_inst_list_node) {
+            bh_list_remove(sub_module_inst_list, sub_module_inst_list_node);
+            wasm_runtime_free(sub_module_inst_list_node);
+        }
+
+        if (sub_module_inst)
+            wasm_deinstantiate(sub_module_inst, false);
+        return false;
     }
 
     return true;
@@ -1125,6 +1154,19 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (!module)
         return NULL;
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (!is_sub_inst) {
+        os_mutex_lock(&module->ref_count_lock);
+        if (module->ref_count != 0) {
+            LOG_WARNING(
+                "warning: multiple instances referencing the same module may "
+                "cause unexpected behaviour during debugging");
+        }
+        module->ref_count++;
+        os_mutex_unlock(&module->ref_count_lock);
+    }
+#endif
+
     /* Check heap size */
     heap_size = align_uint(heap_size, 8);
     if (heap_size > APP_HEAP_SIZE_MAX)
@@ -1133,6 +1175,13 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     /* Allocate the memory */
     if (!(module_inst = runtime_malloc(sizeof(WASMModuleInstance), error_buf,
                                        error_buf_size))) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        if (!is_sub_inst) {
+            os_mutex_lock(&module->ref_count_lock);
+            module->ref_count--;
+            os_mutex_unlock(&module->ref_count_lock);
+        }
+#endif
         return NULL;
     }
 
@@ -1497,7 +1546,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 #if WASM_ENABLE_LIBC_WASI != 0
-    if (!module->is_wasi_module) {
+    if (!module->import_wasi_api) {
 #endif
         /* Only execute the memory init function for main instance because
             the data segments will be dropped once initialized.
@@ -1519,7 +1568,9 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         (WASMModuleInstanceCommon *)module_inst);
 #endif
     (void)global_data_end;
+
     return module_inst;
+
 fail:
     wasm_deinstantiate(module_inst, false);
     return NULL;
@@ -1573,6 +1624,14 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         bh_vector_destroy(module_inst->frames);
         wasm_runtime_free(module_inst->frames);
         module_inst->frames = NULL;
+    }
+#endif
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    if (!is_sub_inst) {
+        os_mutex_lock(&module_inst->module->ref_count_lock);
+        module_inst->module->ref_count--;
+        os_mutex_unlock(&module_inst->module->ref_count_lock);
     }
 #endif
 
@@ -1661,7 +1720,8 @@ wasm_call_function(WASMExecEnv *exec_env, WASMFunctionInstance *function,
 bool
 wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
                                        WASMFunctionInstance *func,
-                                       unsigned argc, uint32 argv[])
+                                       unsigned argc, uint32 argv[],
+                                       bool enable_debug)
 {
     WASMExecEnv *exec_env;
     bool ret;
@@ -1680,6 +1740,11 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
         }
 
 #if WASM_ENABLE_THREAD_MGR != 0
+        if (enable_debug) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+            wasm_runtime_start_debug_instance(exec_env);
+#endif
+        }
     }
 #endif
 
@@ -1830,7 +1895,7 @@ wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
             wasm_set_exception(module_inst, "app heap corrupted");
         }
         else {
-            wasm_set_exception(module_inst, "out of memory");
+            LOG_WARNING("warning: allocate %u bytes memory failed", size);
         }
         return 0;
     }
@@ -2124,7 +2189,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 
     memory->memory_data = new_memory_data;
     memory->cur_page_count = total_page_count;
-    memory->heap_data = heap_data_old + (new_memory_data - memory_data);
+    memory->heap_data = new_memory_data + (heap_data_old - memory_data);
     memory->heap_data_end = memory->heap_data + heap_size;
     memory->memory_data_end =
         memory->memory_data + memory->num_bytes_per_page * total_page_count;

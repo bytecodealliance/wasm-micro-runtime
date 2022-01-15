@@ -43,18 +43,22 @@ extern "C" {
 /**
  * Initialize the mouse
  */
-void mouse_init(void);
+void
+mouse_init(void);
 /**
  * Get the current position and state of the mouse
  * @param data store the mouse data here
- * @return false: because the points are not buffered, so no more data to be read
+ * @return false: because the points are not buffered, so no more data to be
+ * read
  */
-bool mouse_read(lv_indev_data_t * data);
+bool
+mouse_read(lv_indev_data_t *data);
 
 /**
  * It will be called from the main SDL thread
  */
-void mouse_handler(SDL_Event *event);
+void
+mouse_handler(SDL_Event *event);
 
 /**********************
  *      MACROS

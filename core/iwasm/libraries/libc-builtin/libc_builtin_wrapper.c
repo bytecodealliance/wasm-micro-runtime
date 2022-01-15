@@ -769,7 +769,7 @@ exit_wrapper(wasm_exec_env_t exec_env, int32 status)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
-    snprintf(buf, sizeof(buf), "env.exit(%i)", status);
+    snprintf(buf, sizeof(buf), "env.exit(%" PRId32 ")", status);
     wasm_runtime_set_exception(module_inst, buf);
 }
 
@@ -1012,7 +1012,7 @@ abort_wrapper(wasm_exec_env_t exec_env, int32 code)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
-    snprintf(buf, sizeof(buf), "env.abort(%i)", code);
+    snprintf(buf, sizeof(buf), "env.abort(%" PRId32 ")", code);
     wasm_runtime_set_exception(module_inst, buf);
 }
 
@@ -1021,7 +1021,7 @@ abortStackOverflow_wrapper(wasm_exec_env_t exec_env, int32 code)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
-    snprintf(buf, sizeof(buf), "env.abortStackOverflow(%i)", code);
+    snprintf(buf, sizeof(buf), "env.abortStackOverflow(%" PRId32 ")", code);
     wasm_runtime_set_exception(module_inst, buf);
 }
 
@@ -1030,7 +1030,7 @@ nullFunc_X_wrapper(wasm_exec_env_t exec_env, int32 code)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     char buf[32];
-    snprintf(buf, sizeof(buf), "env.nullFunc_X(%i)", code);
+    snprintf(buf, sizeof(buf), "env.nullFunc_X(%" PRId32 ")", code);
     wasm_runtime_set_exception(module_inst, buf);
 }
 
@@ -1128,10 +1128,10 @@ print_f64_wrapper(wasm_exec_env_t exec_env, double f64)
 }
 #endif /* WASM_ENABLE_SPEC_TEST */
 
-#define REG_NATIVE_FUNC(func_name, signature)            \
-    {                                                    \
-#func_name, func_name##_wrapper, signature, NULL \
-    }
+/* clang-format off */
+#define REG_NATIVE_FUNC(func_name, signature) \
+    { #func_name, func_name##_wrapper, signature, NULL }
+/* clang-format on */
 
 static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(printf, "($*)i"),
@@ -1161,7 +1161,7 @@ static NativeSymbol native_symbols_libc_builtin[] = {
     REG_NATIVE_FUNC(strtol, "($*i)i"),
     REG_NATIVE_FUNC(strtoul, "($*i)i"),
     REG_NATIVE_FUNC(memchr, "(*ii)i"),
-    REG_NATIVE_FUNC(strncasecmp, "($$i)"),
+    REG_NATIVE_FUNC(strncasecmp, "($$i)i"),
     REG_NATIVE_FUNC(strspn, "($$)i"),
     REG_NATIVE_FUNC(strcspn, "($$)i"),
     REG_NATIVE_FUNC(strstr, "($$)i"),

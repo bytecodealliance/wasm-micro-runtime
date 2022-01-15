@@ -90,7 +90,7 @@ static bool
 check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
           char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length > buf_end) {
+    if (buf + length < buf || buf + length > buf_end) {
         set_error_buf(error_buf, error_buf_size, "unexpect end");
         return false;
     }
@@ -153,16 +153,12 @@ GET_U64_FROM_ADDR(uint32 *addr)
         p += len;                            \
     } while (0)
 
-#define read_string(p, p_end, str)                                      \
-    do {                                                                \
-        uint16 str_len;                                                 \
-        read_uint16(p, p_end, str_len);                                 \
-        CHECK_BUF(p, p_end, str_len);                                   \
-        if (!(str = const_str_set_insert(p, str_len, module, error_buf, \
-                                         error_buf_size))) {            \
-            goto fail;                                                  \
-        }                                                               \
-        p += str_len;                                                   \
+#define read_string(p, p_end, str)                                \
+    do {                                                          \
+        if (!(str = load_string((uint8 **)&p, p_end, module,      \
+                                is_load_from_file_buf, error_buf, \
+                                error_buf_size)))                 \
+            goto fail;                                            \
     } while (0)
 
 /* Legal values for bin_type */
@@ -170,6 +166,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define BIN_TYPE_ELF32B 1 /* 32-bit big endian */
 #define BIN_TYPE_ELF64L 2 /* 64-bit little endian */
 #define BIN_TYPE_ELF64B 3 /* 64-bit big endian */
+#define BIN_TYPE_COFF32 4 /* 32-bit little endian */
 #define BIN_TYPE_COFF64 6 /* 64-bit little endian */
 
 /* Legal values for e_type (object file type). */
@@ -177,6 +174,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_TYPE_REL 1  /* Relocatable file */
 #define E_TYPE_EXEC 2 /* Executable file */
 #define E_TYPE_DYN 3  /* Shared object file */
+#define E_TYPE_XIP 4  /* eXecute In Place file */
 
 /* Legal values for e_machine (architecture).  */
 #define E_MACHINE_386 3             /* Intel 80386 */
@@ -192,7 +190,8 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define E_MACHINE_ARC_COMPACT2 195  /* Synopsys ARCompact V2 */
 #define E_MACHINE_XTENSA 94         /* Tensilica Xtensa Architecture */
 #define E_MACHINE_RISCV 243         /* RISC-V 32/64 */
-#define E_MACHINE_WIN_X86_64 0x8664 /* Windowx x86-64 architecture */
+#define E_MACHINE_WIN_I386 0x14c    /* Windows i386 architecture */
+#define E_MACHINE_WIN_X86_64 0x8664 /* Windows x86-64 architecture */
 
 /* Legal values for e_version */
 #define E_VERSION_CURRENT 1 /* Current version */
@@ -218,6 +217,17 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     HashMap *set = module->const_str_set;
     char *c_str, *value;
 
+    /* Create const string set if it isn't created */
+    if (!set
+        && !(set = module->const_str_set = bh_hash_map_create(
+                 32, false, (HashFunc)wasm_string_hash,
+                 (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "create const string set failed");
+        return NULL;
+    }
+
+    /* Lookup const string set, use the string if found */
     if (!(c_str = loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
         return NULL;
     }
@@ -240,6 +250,64 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
     return c_str;
 }
 
+static char *
+load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
+            bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
+{
+    uint8 *p = *p_buf;
+    const uint8 *p_end = buf_end;
+    char *str;
+    uint16 str_len;
+
+    CHECK_BUF(p, p_end, 1);
+    if (*p & 0x80) {
+        /* The string has been adjusted */
+        str = (char *)++p;
+        /* Ensure the whole string is in range */
+        do {
+            CHECK_BUF(p, p_end, 1);
+        } while (*p++ != '\0');
+    }
+    else {
+        /* The string hasn't been adjusted */
+        read_uint16(p, p_end, str_len);
+        CHECK_BUF(p, p_end, str_len);
+
+        if (str_len == 0) {
+            str = "";
+        }
+        else if (p[str_len - 1] == '\0') {
+            /* The string is terminated with '\0', use it directly */
+            str = (char *)p;
+        }
+        else if (is_load_from_file_buf) {
+            /* As the file buffer can be referred to after loading,
+               we use the 2 bytes of size to adjust the string:
+               mark the flag with the highest bit of size[0],
+               move string 1 byte backward and then append '\0' */
+            *(p - 2) |= 0x80;
+            bh_memmove_s(p - 1, (uint32)(str_len + 1), p, (uint32)str_len);
+            p[str_len - 1] = '\0';
+            str = (char *)(p - 1);
+        }
+        else {
+            /* Load from sections, the file buffer cannot be reffered to
+               after loading, we must create another string and insert it
+               into const string set */
+            if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
+                                             error_buf, error_buf_size))) {
+                goto fail;
+            }
+        }
+        p += str_len;
+    }
+
+    *p_buf = p;
+    return str;
+fail:
+    return NULL;
+}
+
 static bool
 get_aot_file_target(AOTTargetInfo *target_info, char *target_buf,
                     uint32 target_buf_size, char *error_buf,
@@ -252,6 +320,7 @@ get_aot_file_target(AOTTargetInfo *target_info, char *target_buf,
             machine_type = "x86_64";
             break;
         case E_MACHINE_386:
+        case E_MACHINE_WIN_I386:
             machine_type = "i386";
             break;
         case E_MACHINE_ARM:
@@ -354,10 +423,10 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     /* Check target elf file type */
-    if (target_info.e_type != E_TYPE_REL) {
+    if (target_info.e_type != E_TYPE_REL && target_info.e_type != E_TYPE_XIP) {
         set_error_buf(error_buf, error_buf_size,
                       "invalid object file type, "
-                      "expected relocatable file type but got others");
+                      "expected relocatable or XIP file type but got others");
         return false;
     }
 
@@ -397,9 +466,15 @@ get_native_symbol_by_name(const char *name)
 }
 
 static bool
+str2uint32(const char *buf, uint32 *p_res);
+
+static bool
+str2uint64(const char *buf, uint64 *p_res);
+
+static bool
 load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
-                           AOTModule *module, char *error_buf,
-                           uint32 error_buf_size)
+                           AOTModule *module, bool is_load_from_file_buf,
+                           char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 cnt;
@@ -407,8 +482,6 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
     const char *symbol;
 
     read_uint32(p, p_end, cnt);
-
-    module->native_symbol_count = cnt;
 
     if (cnt > 0) {
         module->native_symbol_list = wasm_runtime_malloc(cnt * sizeof(void *));
@@ -420,11 +493,39 @@ load_native_symbol_section(const uint8 *buf, const uint8 *buf_end,
 
         for (i = cnt - 1; i >= 0; i--) {
             read_string(p, p_end, symbol);
-            module->native_symbol_list[i] = get_native_symbol_by_name(symbol);
-            if (module->native_symbol_list[i] == NULL) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "missing native symbol: %s", symbol);
-                goto fail;
+            if (!strncmp(symbol, "f32#", 4)) {
+                uint32 u32;
+                /* Resolve the raw int bits of f32 const */
+                if (!str2uint32(symbol + 4, &u32)) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "resolve symbol %s failed", symbol);
+                    goto fail;
+                }
+                *(uint32 *)(&module->native_symbol_list[i]) = u32;
+            }
+            else if (!strncmp(symbol, "f64#", 4)) {
+                uint64 u64;
+                /* Resolve the raw int bits of f64 const */
+                if (!str2uint64(symbol + 4, &u64)) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "resolve symbol %s failed", symbol);
+                    goto fail;
+                }
+                *(uint64 *)(&module->native_symbol_list[i]) = u64;
+            }
+            else if (!strncmp(symbol, "__ignore", 8)) {
+                /* Padding bytes to make f64 on 8-byte aligned address,
+                   or it is the second 32-bit slot in 32-bit system */
+                continue;
+            }
+            else {
+                module->native_symbol_list[i] =
+                    get_native_symbol_by_name(symbol);
+                if (module->native_symbol_list[i] == NULL) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "missing native symbol: %s", symbol);
+                    goto fail;
+                }
             }
         }
     }
@@ -435,8 +536,137 @@ fail:
 }
 
 static bool
+load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
+                  bool is_load_from_file_buf, char *error_buf,
+                  uint32 error_buf_size)
+{
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 *aux_func_indexes;
+    const char **aux_func_names;
+    uint32 name_type, subsection_size;
+    uint32 previous_name_type = 0;
+    uint32 num_func_name;
+    uint32 func_index;
+    uint32 previous_func_index = ~0U;
+    uint32 name_index;
+    int i = 0;
+    uint32 name_len;
+    uint64 size;
+
+    if (p >= p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    read_uint32(p, p_end, name_len);
+
+    if (name_len != 4 || p + name_len > p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    if (memcmp(p, "name", 4) != 0) {
+        set_error_buf(error_buf, error_buf_size, "invalid custom name section");
+        return false;
+    }
+    p += name_len;
+
+    while (p < p_end) {
+        read_uint32(p, p_end, name_type);
+        if (i != 0) {
+            if (name_type == previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "duplicate sub-section");
+                return false;
+            }
+            if (name_type < previous_name_type) {
+                set_error_buf(error_buf, error_buf_size,
+                              "out-of-order sub-section");
+                return false;
+            }
+        }
+        previous_name_type = name_type;
+        read_uint32(p, p_end, subsection_size);
+        CHECK_BUF(p, p_end, subsection_size);
+        switch (name_type) {
+            case SUB_SECTION_TYPE_FUNC:
+                if (subsection_size) {
+                    read_uint32(p, p_end, num_func_name);
+                    if (num_func_name
+                        > module->import_func_count + module->func_count) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "function name count out of bounds");
+                        return false;
+                    }
+                    module->aux_func_name_count = num_func_name;
+
+                    /* Allocate memory */
+                    size = sizeof(uint32) * (uint64)module->aux_func_name_count;
+                    if (!(aux_func_indexes = module->aux_func_indexes =
+                              loader_malloc(size, error_buf, error_buf_size))) {
+                        return false;
+                    }
+                    size =
+                        sizeof(char **) * (uint64)module->aux_func_name_count;
+                    if (!(aux_func_names = module->aux_func_names =
+                              loader_malloc(size, error_buf, error_buf_size))) {
+                        return false;
+                    }
+
+                    for (name_index = 0; name_index < num_func_name;
+                         name_index++) {
+                        read_uint32(p, p_end, func_index);
+                        if (name_index != 0
+                            && func_index == previous_func_index) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "duplicate function name");
+                            return false;
+                        }
+                        if (name_index != 0
+                            && func_index < previous_func_index) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "out-of-order function index ");
+                            return false;
+                        }
+                        if (func_index
+                            >= module->import_func_count + module->func_count) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "function index out of bounds");
+                            return false;
+                        }
+                        previous_func_index = func_index;
+                        *(aux_func_indexes + name_index) = func_index;
+                        read_string(p, p_end, *(aux_func_names + name_index));
+#if 0
+                        LOG_DEBUG("func_index %u -> aux_func_name = %s\n",
+                               func_index, *(aux_func_names + name_index));
+#endif
+                    }
+                }
+                break;
+            case SUB_SECTION_TYPE_MODULE: /* TODO: Parse for module subsection
+                                           */
+            case SUB_SECTION_TYPE_LOCAL:  /* TODO: Parse for local subsection */
+            default:
+                p = p + subsection_size;
+                break;
+        }
+        i++;
+    }
+
+    return true;
+fail:
+    return false;
+#else
+    return true;
+#endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
+}
+
+static bool
 load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
-                    char *error_buf, uint32 error_buf_size)
+                    bool is_load_from_file_buf, char *error_buf,
+                    uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 sub_section_type;
@@ -446,8 +676,14 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 
     switch (sub_section_type) {
         case AOT_CUSTOM_SECTION_NATIVE_SYMBOL:
-            if (!load_native_symbol_section(buf, buf_end, module, error_buf,
+            if (!load_native_symbol_section(buf, buf_end, module,
+                                            is_load_from_file_buf, error_buf,
                                             error_buf_size))
+                goto fail;
+            break;
+        case AOT_CUSTOM_SECTION_NAME:
+            if (!load_name_section(buf, buf_end, module, is_load_from_file_buf,
+                                   error_buf, error_buf_size))
                 goto fail;
             break;
         default:
@@ -845,7 +1081,8 @@ destroy_import_globals(AOTImportGlobal *import_globals, bool is_jit_mode)
 
 static bool
 load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
-                    AOTModule *module, char *error_buf, uint32 error_buf_size)
+                    AOTModule *module, bool is_load_from_file_buf,
+                    char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTImportGlobal *import_globals;
@@ -899,8 +1136,8 @@ fail:
 
 static bool
 load_import_global_info(const uint8 **p_buf, const uint8 *buf_end,
-                        AOTModule *module, char *error_buf,
-                        uint32 error_buf_size)
+                        AOTModule *module, bool is_load_from_file_buf,
+                        char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
 
@@ -908,8 +1145,8 @@ load_import_global_info(const uint8 **p_buf, const uint8 *buf_end,
 
     /* load import globals */
     if (module->import_global_count > 0
-        && !load_import_globals(&buf, buf_end, module, error_buf,
-                                error_buf_size))
+        && !load_import_globals(&buf, buf_end, module, is_load_from_file_buf,
+                                error_buf, error_buf_size))
         return false;
 
     *p_buf = buf;
@@ -1009,7 +1246,8 @@ destroy_import_funcs(AOTImportFunc *import_funcs, bool is_jit_mode)
 
 static bool
 load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-                  char *error_buf, uint32 error_buf_size)
+                  bool is_load_from_file_buf, char *error_buf,
+                  uint32 error_buf_size)
 {
     const char *module_name, *field_name;
     const uint8 *buf = *p_buf;
@@ -1046,7 +1284,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 #if WASM_ENABLE_LIBC_WASI != 0
         if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
             || !strcmp(import_funcs[i].module_name, "wasi_snapshot_preview1"))
-            module->is_wasi_module = true;
+            module->import_wasi_api = true;
 #endif
     }
 
@@ -1058,7 +1296,8 @@ fail:
 
 static bool
 load_import_func_info(const uint8 **p_buf, const uint8 *buf_end,
-                      AOTModule *module, char *error_buf, uint32 error_buf_size)
+                      AOTModule *module, bool is_load_from_file_buf,
+                      char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
 
@@ -1066,7 +1305,8 @@ load_import_func_info(const uint8 **p_buf, const uint8 *buf_end,
 
     /* load import funcs */
     if (module->import_func_count > 0
-        && !load_import_funcs(&buf, buf_end, module, error_buf, error_buf_size))
+        && !load_import_funcs(&buf, buf_end, module, is_load_from_file_buf,
+                              error_buf, error_buf_size))
         return false;
 
     *p_buf = buf;
@@ -1089,8 +1329,8 @@ destroy_object_data_sections(AOTObjectDataSection *data_sections,
 
 static bool
 load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
-                          AOTModule *module, char *error_buf,
-                          uint32 error_buf_size)
+                          AOTModule *module, bool is_load_from_file_buf,
+                          char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTObjectDataSection *data_sections;
@@ -1148,8 +1388,8 @@ fail:
 
 static bool
 load_object_data_sections_info(const uint8 **p_buf, const uint8 *buf_end,
-                               AOTModule *module, char *error_buf,
-                               uint32 error_buf_size)
+                               AOTModule *module, bool is_load_from_file_buf,
+                               char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
 
@@ -1157,7 +1397,8 @@ load_object_data_sections_info(const uint8 **p_buf, const uint8 *buf_end,
 
     /* load object data sections */
     if (module->data_section_count > 0
-        && !load_object_data_sections(&buf, buf_end, module, error_buf,
+        && !load_object_data_sections(&buf, buf_end, module,
+                                      is_load_from_file_buf, error_buf,
                                       error_buf_size))
         return false;
 
@@ -1169,18 +1410,19 @@ fail:
 
 static bool
 load_init_data_section(const uint8 *buf, const uint8 *buf_end,
-                       AOTModule *module, char *error_buf,
-                       uint32 error_buf_size)
+                       AOTModule *module, bool is_load_from_file_buf,
+                       char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
 
     if (!load_memory_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_table_info(&p, p_end, module, error_buf, error_buf_size)
         || !load_func_type_info(&p, p_end, module, error_buf, error_buf_size)
-        || !load_import_global_info(&p, p_end, module, error_buf,
-                                    error_buf_size)
+        || !load_import_global_info(&p, p_end, module, is_load_from_file_buf,
+                                    error_buf, error_buf_size)
         || !load_global_info(&p, p_end, module, error_buf, error_buf_size)
-        || !load_import_func_info(&p, p_end, module, error_buf, error_buf_size))
+        || !load_import_func_info(&p, p_end, module, is_load_from_file_buf,
+                                  error_buf, error_buf_size))
         return false;
 
     /* load function count and start function index */
@@ -1204,7 +1446,8 @@ load_init_data_section(const uint8 *buf, const uint8 *buf_end,
     read_uint32(p, p_end, module->aux_stack_bottom);
     read_uint32(p, p_end, module->aux_stack_size);
 
-    if (!load_object_data_sections_info(&p, p_end, module, error_buf,
+    if (!load_object_data_sections_info(&p, p_end, module,
+                                        is_load_from_file_buf, error_buf,
                                         error_buf_size))
         return false;
 
@@ -1233,7 +1476,7 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     /* The layout is: literal size + literal + code (with plt table) */
     read_uint32(buf, buf_end, module->literal_size);
 
-    /* literal data is at begining of the text section */
+    /* literal data is at beginning of the text section */
     module->literal = (uint8 *)buf;
     module->code = (void *)(buf + module->literal_size);
     module->code_size = (uint32)(buf_end - (uint8 *)module->code);
@@ -1245,19 +1488,19 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
         /* Now code points to an ELF object, we pull it down to .text section */
         uint64 offset;
         uint64 size;
-        char *buf = module->code;
-        module->elf_hdr = buf;
-        if (!get_text_section(buf, &offset, &size)) {
+        char *code_buf = module->code;
+        module->elf_hdr = code_buf;
+        if (!get_text_section(code_buf, &offset, &size)) {
             set_error_buf(error_buf, error_buf_size,
                           "get text section of ELF failed");
             return false;
         }
-        module->code = buf + offset;
+        module->code = code_buf + offset;
         module->code_size -= (uint32)offset;
     }
 #endif
 
-    if ((module->code_size > 0) && (module->native_symbol_count == 0)) {
+    if ((module->code_size > 0) && !module->is_indirect_mode) {
         plt_base = (uint8 *)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
     }
@@ -1332,8 +1575,10 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
     if (module->func_count > 0) {
+        uint32 plt_table_size =
+            module->is_indirect_mode ? 0 : get_plt_table_size();
         rtl_func_table[module->func_count - 1].EndAddress =
-            (DWORD)(module->code_size - get_plt_table_size());
+            (DWORD)(module->code_size - plt_table_size);
 
         if (!RtlAddFunctionTable(rtl_func_table, module->func_count,
                                  (DWORD64)(uintptr_t)module->code)) {
@@ -1394,7 +1639,7 @@ destroy_exports(AOTExport *exports, bool is_jit_mode)
 
 static bool
 load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-             char *error_buf, uint32 error_buf_size)
+             bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *buf = *p_buf;
     AOTExport *exports;
@@ -1431,14 +1676,16 @@ fail:
 
 static bool
 load_export_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
-                    char *error_buf, uint32 error_buf_size)
+                    bool is_load_from_file_buf, char *error_buf,
+                    uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
 
     /* load export functions */
     read_uint32(p, p_end, module->export_count);
     if (module->export_count > 0
-        && !load_exports(&p, p_end, module, error_buf, error_buf_size))
+        && !load_exports(&p, p_end, module, is_load_from_file_buf, error_buf,
+                         error_buf_size))
         return false;
 
     if (p != p_end) {
@@ -1478,11 +1725,19 @@ resolve_target_sym(const char *symbol, int32 *p_index)
     if (!(target_sym_map = get_target_symbol_map(&num)))
         return NULL;
 
-    for (i = 0; i < num; i++)
-        if (!strcmp(target_sym_map[i].symbol_name, symbol)) {
+    for (i = 0; i < num; i++) {
+        if (!strcmp(target_sym_map[i].symbol_name, symbol)
+#if defined(_WIN32) || defined(_WIN32_)
+            /* In Win32, the symbol name of function added by
+               LLVMAddFunction() is prefixed by '_', ignore it */
+            || (strlen(symbol) > 1 && symbol[0] == '_'
+                && !strcmp(target_sym_map[i].symbol_name, symbol + 1))
+#endif
+        ) {
             *p_index = (int32)i;
             return target_sym_map[i].symbol_addr;
         }
+    }
     return NULL;
 }
 
@@ -1492,7 +1747,6 @@ is_literal_relocation(const char *reloc_sec_name)
     return !strcmp(reloc_sec_name, ".rela.literal");
 }
 
-#if defined(BH_PLATFORM_WINDOWS)
 static bool
 str2uint32(const char *buf, uint32 *p_res)
 {
@@ -1538,7 +1792,6 @@ str2uint64(const char *buf, uint64 *p_res)
     *p_res = res;
     return true;
 }
-#endif
 
 static bool
 do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
@@ -1771,8 +2024,8 @@ fail:
 
 static bool
 load_relocation_section(const uint8 *buf, const uint8 *buf_end,
-                        AOTModule *module, char *error_buf,
-                        uint32 error_buf_size)
+                        AOTModule *module, bool is_load_from_file_buf,
+                        char *error_buf, uint32 error_buf_size)
 {
     AOTRelocationGroup *groups = NULL, *group;
     uint32 symbol_count = 0;
@@ -1829,7 +2082,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
 
         for (j = 0; j < relocation_count; j++) {
             AOTRelocation relocation = { 0 };
-            uint32 symbol_index, offset32, addend32;
+            uint32 symbol_index, offset32;
+            int32 addend32;
             uint16 symbol_name_len;
             uint8 *symbol_name;
 
@@ -1841,7 +2095,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                 read_uint32(buf, buf_end, offset32);
                 relocation.relocation_offset = (uint64)offset32;
                 read_uint32(buf, buf_end, addend32);
-                relocation.relocation_addend = (uint64)addend32;
+                relocation.relocation_addend = (int64)addend32;
             }
             read_uint32(buf, buf_end, relocation.relocation_type);
             read_uint32(buf, buf_end, symbol_index);
@@ -1861,19 +2115,29 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             memcpy(group_name_buf, group_name, group_name_len);
             memcpy(symbol_name_buf, symbol_name, symbol_name_len);
 
-            if (group_name_len == strlen(".text")
+            if ((group_name_len == strlen(".text")
+                 || (module->is_indirect_mode
+                     && group_name_len == strlen(".text") + 1))
                 && !strncmp(group_name, ".text", strlen(".text"))) {
-                if (symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                if ((symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                     || (module->is_indirect_mode
+                         && symbol_name_len == strlen(XMM_PLT_PREFIX) + 32 + 1))
                     && !strncmp(symbol_name, XMM_PLT_PREFIX,
                                 strlen(XMM_PLT_PREFIX))) {
                     module->xmm_plt_count++;
                 }
-                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
+                else if ((symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
+                          || (module->is_indirect_mode
+                              && symbol_name_len
+                                     == strlen(REAL_PLT_PREFIX) + 16 + 1))
                          && !strncmp(symbol_name, REAL_PLT_PREFIX,
                                      strlen(REAL_PLT_PREFIX))) {
                     module->real_plt_count++;
                 }
-                else if (symbol_name_len == strlen(REAL_PLT_PREFIX) + 8
+                else if ((symbol_name_len >= strlen(REAL_PLT_PREFIX) + 8
+                          || (module->is_indirect_mode
+                              && symbol_name_len
+                                     == strlen(REAL_PLT_PREFIX) + 8 + 1))
                          && !strncmp(symbol_name, REAL_PLT_PREFIX,
                                      strlen(REAL_PLT_PREFIX))) {
                     module->float_plt_count++;
@@ -1916,7 +2180,6 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     for (i = 0, group = groups; i < group_count; i++, group++) {
         AOTRelocation *relocation;
         uint32 name_index;
-        uint16 str_len;
         uint8 *name_addr;
 
         /* section name address is 4 bytes aligned. */
@@ -1930,13 +2193,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         }
 
         name_addr = symbol_buf + symbol_offsets[name_index];
-        str_len = *(uint16 *)name_addr;
-
-        if (!(group->section_name = const_str_set_insert(
-                  name_addr + sizeof(uint16), (int32)str_len, module, error_buf,
-                  error_buf_size))) {
-            goto fail;
-        }
+        read_string(name_addr, buf_end, group->section_name);
 
         read_uint32(buf, buf_end, group->relocation_count);
 
@@ -1951,7 +2208,6 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         /* Load each relocation */
         for (j = 0; j < group->relocation_count; j++, relocation++) {
             uint32 symbol_index;
-            uint16 str_len;
             uint8 *symbol_addr;
 
             if (sizeof(void *) == 8) {
@@ -1975,13 +2231,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             }
 
             symbol_addr = symbol_buf + symbol_offsets[symbol_index];
-            str_len = *(uint16 *)symbol_addr;
-
-            if (!(relocation->symbol_name = const_str_set_insert(
-                      symbol_addr + sizeof(uint16), (int32)str_len, module,
-                      error_buf, error_buf_size))) {
-                goto fail;
-            }
+            read_string(symbol_addr, buf_end, relocation->symbol_name);
         }
 
         if (!strcmp(group->section_name, ".rel.text")
@@ -1991,13 +2241,16 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(group->section_name, ".text")
 #endif
         ) {
-            if (module->native_symbol_count > 0) {
+#if !defined(BH_PLATFORM_LINUX) && !defined(BH_PLATFORM_LINUX_SGX) \
+    && !defined(BH_PLATFORM_DARWIN) && !defined(BH_PLATFORM_WINDOWS)
+            if (module->is_indirect_mode) {
                 set_error_buf(error_buf, error_buf_size,
                               "cannot apply relocation to text section "
                               "for aot file generated with "
                               "\"--enable-indirect-mode\" flag");
                 goto fail;
             }
+#endif
             if (!do_text_relocation(module, group, error_buf, error_buf_size))
                 goto fail;
         }
@@ -2053,7 +2306,8 @@ fail:
 }
 
 static bool
-load_from_sections(AOTModule *module, AOTSection *sections, char *error_buf,
+load_from_sections(AOTModule *module, AOTSection *sections,
+                   bool is_load_from_file_buf, char *error_buf,
                    uint32 error_buf_size)
 {
     AOTSection *section = sections;
@@ -2084,7 +2338,8 @@ load_from_sections(AOTModule *module, AOTSection *sections, char *error_buf,
                     return false;
                 break;
             case AOT_SECTION_TYPE_INIT_DATA:
-                if (!load_init_data_section(buf, buf_end, module, error_buf,
+                if (!load_init_data_section(buf, buf_end, module,
+                                            is_load_from_file_buf, error_buf,
                                             error_buf_size))
                     return false;
                 break;
@@ -2099,17 +2354,20 @@ load_from_sections(AOTModule *module, AOTSection *sections, char *error_buf,
                     return false;
                 break;
             case AOT_SECTION_TYPE_EXPORT:
-                if (!load_export_section(buf, buf_end, module, error_buf,
+                if (!load_export_section(buf, buf_end, module,
+                                         is_load_from_file_buf, error_buf,
                                          error_buf_size))
                     return false;
                 break;
             case AOT_SECTION_TYPE_RELOCATION:
-                if (!load_relocation_section(buf, buf_end, module, error_buf,
+                if (!load_relocation_section(buf, buf_end, module,
+                                             is_load_from_file_buf, error_buf,
                                              error_buf_size))
                     return false;
                 break;
             case AOT_SECTION_TYPE_CUSTOM:
-                if (!load_custom_section(buf, buf_end, module, error_buf,
+                if (!load_custom_section(buf, buf_end, module,
+                                         is_load_from_file_buf, error_buf,
                                          error_buf_size))
                     return false;
                 break;
@@ -2247,15 +2505,6 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     module->module_type = Wasm_Module_AoT;
 
-    if (!(module->const_str_set = bh_hash_map_create(
-              32, false, (HashFunc)wasm_string_hash,
-              (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "create const string set failed");
-        wasm_runtime_free(module);
-        return NULL;
-    }
-
     return module;
 }
 
@@ -2268,7 +2517,8 @@ aot_load_from_sections(AOTSection *section_list, char *error_buf,
     if (!module)
         return NULL;
 
-    if (!load_from_sections(module, section_list, error_buf, error_buf_size)) {
+    if (!load_from_sections(module, section_list, false, error_buf,
+                            error_buf_size)) {
         aot_unload(module);
         return NULL;
     }
@@ -2293,33 +2543,36 @@ destroy_sections(AOTSection *section_list, bool destroy_aot_text)
 }
 
 static bool
-resolve_native_symbols(const uint8 *buf, uint32 size, uint32 *p_count,
-                       char *error_buf, uint32 error_buf_size)
+resolve_execute_mode(const uint8 *buf, uint32 size, bool *p_mode,
+                     char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf + size;
     uint32 section_type;
     uint32 section_size = 0;
+    uint16 e_type = 0;
 
     p += 8;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
         if (section_type <= AOT_SECTION_TYPE_SIGANATURE
-            || section_type == AOT_SECTION_TYPE_CUSTOM) {
+            || section_type == AOT_SECTION_TYPE_TARGET_INFO) {
             read_uint32(p, p_end, section_size);
             CHECK_BUF(p, p_end, section_size);
-            if (section_type == AOT_SECTION_TYPE_CUSTOM) {
-                read_uint32(p, p_end, section_type);
-                if (section_type == AOT_CUSTOM_SECTION_NATIVE_SYMBOL) {
-                    /* Read the count of native symbol */
-                    read_uint32(p, p_end, *p_count);
-                    return true;
+            if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
+                p += 4;
+                read_uint16(p, p_end, e_type);
+                if (e_type == E_TYPE_XIP) {
+                    *p_mode = true;
                 }
-                p -= sizeof(uint32);
+                else {
+                    *p_mode = false;
+                }
+                break;
             }
         }
         else if (section_type > AOT_SECTION_TYPE_SIGANATURE) {
             set_error_buf(error_buf, error_buf_size,
-                          "resolve native symbol failed");
+                          "resolve execute mode failed");
             break;
         }
         p += section_size;
@@ -2336,19 +2589,19 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
 {
     AOTSection *section_list = NULL, *section_list_end = NULL, *section;
     const uint8 *p = buf, *p_end = buf + size;
-    bool destory_aot_text = false;
-    uint32 native_symbol_count = 0;
+    bool destroy_aot_text = false;
+    bool is_indirect_mode = false;
     uint32 section_type;
     uint32 section_size;
     uint64 total_size;
     uint8 *aot_text;
 
-    if (!resolve_native_symbols(buf, size, &native_symbol_count, error_buf,
-                                error_buf_size)) {
+    if (!resolve_execute_mode(buf, size, &is_indirect_mode, error_buf,
+                              error_buf_size)) {
         goto fail;
     }
 
-    module->native_symbol_count = native_symbol_count;
+    module->is_indirect_mode = is_indirect_mode;
 
     p += 8;
     while (p < p_end) {
@@ -2369,7 +2622,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
             section->section_body_size = section_size;
 
             if (section_type == AOT_SECTION_TYPE_TEXT) {
-                if ((section_size > 0) && (native_symbol_count == 0)) {
+                if ((section_size > 0) && !module->is_indirect_mode) {
                     int map_prot =
                         MMAP_PROT_READ | MMAP_PROT_WRITE | MMAP_PROT_EXEC;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
@@ -2403,7 +2656,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
                     section->section_body = aot_text;
-                    destory_aot_text = true;
+                    destroy_aot_text = true;
 
                     if ((uint32)total_size > section->section_body_size) {
                         memset(aot_text + (uint32)section_size, 0,
@@ -2437,7 +2690,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
     return true;
 fail:
     if (section_list)
-        destroy_sections(section_list, destory_aot_text);
+        destroy_sections(section_list, destroy_aot_text);
     return false;
 }
 
@@ -2467,12 +2720,12 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
                          error_buf_size))
         return false;
 
-    ret = load_from_sections(module, section_list, error_buf, error_buf_size);
+    ret = load_from_sections(module, section_list, true, error_buf,
+                             error_buf_size);
     if (!ret) {
         /* If load_from_sections() fails, then aot text is destroyed
            in destroy_sections() */
-        destroy_sections(section_list,
-                         module->native_symbol_count == 0 ? true : false);
+        destroy_sections(section_list, module->is_indirect_mode ? false : true);
         /* aot_unload() won't destroy aot text again */
         module->code = NULL;
     }
@@ -2684,7 +2937,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     module->comp_data = comp_data;
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    module->is_wasi_module = comp_data->wasm_module->is_wasi_module;
+    module->import_wasi_api = comp_data->wasm_module->import_wasi_api;
 #endif
 
     return module;
@@ -2839,7 +3092,7 @@ aot_unload(AOTModule *module)
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
 
-    if (module->code && (module->native_symbol_count == 0)) {
+    if (module->code && !module->is_indirect_mode) {
         /* The layout is: literal size + literal + code (with plt table) */
         uint8 *mmap_addr = module->literal - sizeof(uint32);
         uint32 total_size =
@@ -2866,6 +3119,15 @@ aot_unload(AOTModule *module)
                                      module->data_section_count);
 #if WASM_ENABLE_DEBUG_AOT != 0
     jit_code_entry_destroy(module->elf_hdr);
+#endif
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    if (module->aux_func_indexes) {
+        wasm_runtime_free(module->aux_func_indexes);
+    }
+    if (module->aux_func_names) {
+        wasm_runtime_free((void *)module->aux_func_names);
+    }
 #endif
 
     wasm_runtime_free(module);
