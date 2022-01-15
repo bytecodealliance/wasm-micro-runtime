@@ -19,6 +19,7 @@ extern "C" {
 #if WASM_ENABLE_DEBUG_INTERP != 0
 typedef struct WASMDebugInstance WASMDebugInstance;
 #endif
+
 typedef struct WASMCluster {
     struct WASMCluster *next;
 
