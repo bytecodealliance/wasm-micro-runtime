@@ -326,10 +326,18 @@ os_thread_get_stack_boundary()
 #elif defined(__APPLE__) || defined(__NuttX__)
     if ((addr = (uint8 *)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
+
+        /**
+         * Check whether stack_addr is the base or end of the stack,
+         * change it to the base if it is the end of stack.
+         */
+        if (addr <= (uint8 *)&stack_size)
+            addr = addr + stack_size;
+
         if (stack_size > max_stack_size)
-            addr -= max_stack_size;
-        else
-            addr -= stack_size;
+            stack_size = max_stack_size;
+
+        addr -= stack_size;
         /* Reserved 1 guard page at least for safety */
         addr += page_size;
     }
