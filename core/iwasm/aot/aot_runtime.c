@@ -460,6 +460,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
                 num_bytes_per_page, init_page_count, max_page_count);
+    LOG_VERBOSE("  data offset: %u, stack size: %d", module->aux_data_end,
+                module->aux_stack_size);
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     total_size = (uint64)num_bytes_per_page * init_page_count;
