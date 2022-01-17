@@ -638,6 +638,7 @@ clusters_have_exec_env(WASMExecEnv *exec_env)
 
         while (node) {
             if (node == exec_env) {
+                bh_assert(exec_env->cluster == cluster);
                 return true;
             }
             node = bh_list_elem_next(node);
