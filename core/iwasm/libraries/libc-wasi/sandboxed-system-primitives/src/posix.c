@@ -2441,9 +2441,9 @@ wasmtime_ssp_poll_oneoff(
             out[0].error = __WASI_ENOTSUP;
         }
 #else
-        switch (in[0].u.clock.clock_id) {
+        switch (in[0].u.u.clock.clock_id) {
             case __WASI_CLOCK_MONOTONIC:
-                if ((in[0].u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
+                if ((in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
                     != 0) {
                     // TODO(ed): Implement.
                     fputs("Unimplemented absolute sleep on monotonic clock\n",
@@ -2454,12 +2454,12 @@ wasmtime_ssp_poll_oneoff(
                     // Perform relative sleeps on the monotonic clock also using
                     // nanosleep(). This is incorrect, but good enough for now.
                     struct timespec ts;
-                    convert_timestamp(in[0].u.clock.timeout, &ts);
+                    convert_timestamp(in[0].u.u.clock.timeout, &ts);
                     nanosleep(&ts, NULL);
                 }
                 break;
             case __WASI_CLOCK_REALTIME:
-                if ((in[0].u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
+                if ((in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
                     != 0) {
                     // Sleeping to an absolute point in time can only be done
                     // by waiting on a condition variable.
@@ -2473,7 +2473,7 @@ wasmtime_ssp_poll_oneoff(
                         return -1;
                     }
                     mutex_lock(&mutex);
-                    cond_timedwait(&cond, &mutex, in[0].u.clock.timeout, true);
+                    cond_timedwait(&cond, &mutex, in[0].u.u.clock.timeout, true);
                     mutex_unlock(&mutex);
                     mutex_destroy(&mutex);
                     cond_destroy(&cond);
@@ -2481,7 +2481,7 @@ wasmtime_ssp_poll_oneoff(
                 else {
                     // Relative sleeps can be done using nanosleep().
                     struct timespec ts;
-                    convert_timestamp(in[0].u.clock.timeout, &ts);
+                    convert_timestamp(in[0].u.u.clock.timeout, &ts);
                     nanosleep(&ts, NULL);
                 }
                 break;
