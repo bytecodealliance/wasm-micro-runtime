@@ -2473,7 +2473,8 @@ wasmtime_ssp_poll_oneoff(
                         return -1;
                     }
                     mutex_lock(&mutex);
-                    cond_timedwait(&cond, &mutex, in[0].u.u.clock.timeout, true);
+                    cond_timedwait(&cond, &mutex, in[0].u.u.clock.timeout,
+                                   true);
                     mutex_unlock(&mutex);
                     mutex_destroy(&mutex);
                     cond_destroy(&cond);
