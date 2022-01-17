@@ -450,6 +450,8 @@ typedef struct __wasi_subscription_clock_t {
      */
     __wasi_clockid_t clock_id;
 
+    uint8_t __paddings1[4];
+
     /**
      * The absolute or relative timestamp.
      */
@@ -466,7 +468,9 @@ typedef struct __wasi_subscription_clock_t {
      */
     __wasi_subclockflags_t flags;
 
-} __wasi_subscription_clock_t;
+    uint8_t __paddings2[4];
+
+} __wasi_subscription_clock_t __attribute__((aligned(8)));
 
 _Static_assert(sizeof(__wasi_subscription_clock_t) == 32, "witx calculated size");
 _Static_assert(_Alignof(__wasi_subscription_clock_t) == 8, "witx calculated align");
@@ -497,11 +501,12 @@ _Static_assert(offsetof(__wasi_subscription_fd_readwrite_t, fd) == 0, "witx calc
 typedef union __wasi_subscription_u_u_t {
     __wasi_subscription_clock_t clock;
     __wasi_subscription_fd_readwrite_t fd_readwrite;
-} __wasi_subscription_u_u_t;
+} __wasi_subscription_u_u_t ;
+
 typedef struct __wasi_subscription_u_t {
     __wasi_eventtype_t type;
     __wasi_subscription_u_u_t u;
-} __wasi_subscription_u_t;
+} __wasi_subscription_u_t __attribute__((aligned(8)));
 
 _Static_assert(sizeof(__wasi_subscription_u_t) == 40, "witx calculated size");
 _Static_assert(_Alignof(__wasi_subscription_u_t) == 8, "witx calculated align");
