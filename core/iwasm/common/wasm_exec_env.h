@@ -98,6 +98,8 @@ typedef struct WASMExecEnv {
     /* used to support debugger */
     korp_mutex wait_lock;
     korp_cond wait_cond;
+    /* the count of threads which are joining current thread */
+    uint32 wait_count;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
