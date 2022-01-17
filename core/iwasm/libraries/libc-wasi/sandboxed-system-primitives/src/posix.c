@@ -2418,19 +2418,19 @@ wasmtime_ssp_poll_oneoff(
     size_t *nevents) NO_LOCK_ANALYSIS
 {
     // Sleeping.
-    if (nsubscriptions == 1 && in[0].type == __WASI_EVENTTYPE_CLOCK) {
+    if (nsubscriptions == 1 && in[0].u.type == __WASI_EVENTTYPE_CLOCK) {
         out[0] = (__wasi_event_t){
             .userdata = in[0].userdata,
-            .type = in[0].type,
+            .type = in[0].u.type,
         };
 #if CONFIG_HAS_CLOCK_NANOSLEEP
         clockid_t clock_id;
-        if (convert_clockid(in[0].u.clock.clock_id, &clock_id)) {
+        if (convert_clockid(in[0].u.u.clock.clock_id, &clock_id)) {
             struct timespec ts;
-            convert_timestamp(in[0].u.clock.timeout, &ts);
+            convert_timestamp(in[0].u.u.clock.timeout, &ts);
             int ret = clock_nanosleep(
                 clock_id,
-                (in[0].u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME) != 0
+                (in[0].u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME) != 0
                     ? TIMER_ABSTIME
                     : 0,
                 &ts, NULL);
@@ -2519,18 +2519,18 @@ wasmtime_ssp_poll_oneoff(
     const __wasi_subscription_t *clock_subscription = NULL;
     for (size_t i = 0; i < nsubscriptions; ++i) {
         const __wasi_subscription_t *s = &in[i];
-        switch (s->type) {
+        switch (s->u.type) {
             case __WASI_EVENTTYPE_FD_READ:
             case __WASI_EVENTTYPE_FD_WRITE:
             {
                 __wasi_errno_t error =
-                    fd_object_get_locked(&fos[i], ft, s->u.fd_readwrite.fd,
+                    fd_object_get_locked(&fos[i], ft, s->u.u.fd_readwrite.fd,
                                          __WASI_RIGHT_POLL_FD_READWRITE, 0);
                 if (error == 0) {
                     // Proper file descriptor on which we can poll().
                     pfds[i] = (struct pollfd){
                         .fd = fd_number(fos[i]),
-                        .events = s->type == __WASI_EVENTTYPE_FD_READ
+                        .events = s->u.type == __WASI_EVENTTYPE_FD_READ
                                       ? POLLRDNORM
                                       : POLLWRNORM,
                     };
@@ -2542,14 +2542,14 @@ wasmtime_ssp_poll_oneoff(
                     out[(*nevents)++] = (__wasi_event_t){
                         .userdata = s->userdata,
                         .error = error,
-                        .type = s->type,
+                        .type = s->u.type,
                     };
                 }
                 break;
             }
             case __WASI_EVENTTYPE_CLOCK:
                 if (clock_subscription == NULL
-                    && (s->u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
+                    && (s->u.u.clock.flags & __WASI_SUBSCRIPTION_CLOCK_ABSTIME)
                            == 0) {
                     // Relative timeout.
                     fos[i] = NULL;
@@ -2565,7 +2565,7 @@ wasmtime_ssp_poll_oneoff(
                 out[(*nevents)++] = (__wasi_event_t){
                     .userdata = s->userdata,
                     .error = __WASI_ENOSYS,
-                    .type = s->type,
+                    .type = s->u.type,
                 };
                 break;
         }
@@ -2579,7 +2579,7 @@ wasmtime_ssp_poll_oneoff(
         timeout = 0;
     }
     else if (clock_subscription != NULL) {
-        __wasi_timestamp_t ts = clock_subscription->u.clock.timeout / 1000000;
+        __wasi_timestamp_t ts = clock_subscription->u.u.clock.timeout / 1000000;
         timeout = ts > INT_MAX ? -1 : (int)ts;
     }
     else {
@@ -2603,7 +2603,7 @@ wasmtime_ssp_poll_oneoff(
         for (size_t i = 0; i < nsubscriptions; ++i) {
             if (pfds[i].fd >= 0) {
                 __wasi_filesize_t nbytes = 0;
-                if (in[i].type == __WASI_EVENTTYPE_FD_READ) {
+                if (in[i].u.type == __WASI_EVENTTYPE_FD_READ) {
                     int l;
                     if (ioctl(fd_number(fos[i]), FIONREAD, &l) == 0)
                         nbytes = (__wasi_filesize_t)l;
@@ -2622,7 +2622,7 @@ wasmtime_ssp_poll_oneoff(
 #else
                         .error = __WASI_EBADF,
 #endif
-                        .type = in[i].type,
+                        .type = in[i].u.type,
                     };
                 }
                 else if ((pfds[i].revents & POLLERR) != 0) {
@@ -2630,14 +2630,14 @@ wasmtime_ssp_poll_oneoff(
                     out[(*nevents)++] = (__wasi_event_t){
                         .userdata = in[i].userdata,
                         .error = __WASI_EIO,
-                        .type = in[i].type,
+                        .type = in[i].u.type,
                     };
                 }
                 else if ((pfds[i].revents & POLLHUP) != 0) {
                     // End-of-file.
                     out[(*nevents)++] = (__wasi_event_t){
                         .userdata = in[i].userdata,
-                        .type = in[i].type,
+                        .type = in[i].u.type,
                         .u.fd_readwrite.nbytes = nbytes,
                         .u.fd_readwrite.flags =
                             __WASI_EVENT_FD_READWRITE_HANGUP,
@@ -2647,7 +2647,7 @@ wasmtime_ssp_poll_oneoff(
                     // Read or write possible.
                     out[(*nevents)++] = (__wasi_event_t){
                         .userdata = in[i].userdata,
-                        .type = in[i].type,
+                        .type = in[i].u.type,
                         .u.fd_readwrite.nbytes = nbytes,
                     };
                 }
