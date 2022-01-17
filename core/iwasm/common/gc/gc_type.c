@@ -1351,7 +1351,7 @@ HashMap *
 wasm_reftype_set_create(uint32 size)
 {
     HashMap *ref_type_set = bh_hash_map_create(
-        32, false, reftype_hash, reftype_equal, NULL, wasm_runtime_free);
+        size, false, reftype_hash, reftype_equal, NULL, wasm_runtime_free);
 
     return ref_type_set;
 }

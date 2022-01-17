@@ -330,4 +330,7 @@
 #define GC_REFTYPE_MAP_SIZE_DEFAULT 64
 #endif
 
+#ifndef GC_RTTOBJ_MAP_SIZE_DEFAULT
+#define GC_RTTOBJ_MAP_SIZE_DEFAULT 64
+#endif
 #endif /* end of _CONFIG_H_ */

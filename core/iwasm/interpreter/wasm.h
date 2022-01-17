@@ -161,6 +161,7 @@ typedef union WASMValue {
     V128 v128;
 #if WASM_ENABLE_GC != 0
     RttSubInitInfo rtt_sub;
+    void *rtt_obj;
 #endif
 } WASMValue;
 
@@ -327,6 +328,8 @@ typedef struct WASMFuncType {
     uint16 ret_cell_num;
 
 #if WASM_ENABLE_GC != 0
+    uint16 *param_offsets;
+    uint16 total_param_size;
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
     WASMRefTypeMap *result_ref_type_maps;
@@ -712,6 +715,8 @@ struct WASMModule {
 #if WASM_ENABLE_GC != 0
     /* Ref types hash set */
     HashMap *ref_type_set;
+    /* Rtt object hash set */
+    HashMap *rtt_obj_set;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0

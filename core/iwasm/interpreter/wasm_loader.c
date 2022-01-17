@@ -444,6 +444,20 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
     return node->str;
 }
 
+#if WASM_ENABLE_GC != 0
+static bool
+check_type_index(const WASMModule *module, uint32 type_index, char *error_buf,
+                 uint32 error_buf_size)
+{
+    if (type_index >= module->type_count) {
+        set_error_buf_v(error_buf, error_buf_size, "unknown type %d",
+                        type_index);
+        return false;
+    }
+    return true;
+}
+#endif
+
 static bool
 check_function_index(const WASMModule *module, uint32 function_index,
                      char *error_buf, uint32 error_buf_size)
@@ -465,6 +479,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint8 flag, end_byte, *p_float;
     uint32 i;
+#if WASM_ENABLE_GC != 0
+    uint32 type_idx;
+#endif
 
     CHECK_BUF(p, p_end, 1);
     init_expr->init_expr_type = read_uint8(p);
@@ -555,8 +572,8 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             if (type1 != type)
                 goto fail_type_mismatch;
 #else
-            uint32 type_idx;
             WASMRefType ref_type1;
+
             type1 = read_uint8(p);
             if (!is_byte_a_type(type1)) {
                 p--;
@@ -588,6 +605,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
             read_leb_uint32(p, p_end, init_expr->u.global_index);
             global_idx = init_expr->u.global_index;
+#if WASM_ENABLE_GC == 0
             if (global_idx >= module->import_global_count) {
                 /**
                  * Currently, constant expressions occurring as initializers
@@ -604,6 +622,53 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                 "constant expression required");
                 return false;
             }
+#else
+            if (type == REF_TYPE_HT_NON_NULLABLE
+                && wasm_is_refheaptype_rtt(
+                    &((WASMRefType *)ref_type)->ref_ht_common)) {
+                /* global.get instructions for rtt const expressions
+                   are allowed to refer to defined globals */
+                if (global_idx
+                    >= module->import_global_count + module->global_count) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "unknown global %u", global_idx);
+                    return false;
+                }
+            }
+            else {
+                /* global.get instructions for non rtt const expressions
+                   are only allowed to refer to imported globals */
+                if (global_idx >= module->import_global_count) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "unknown global %u", global_idx);
+                    return false;
+                }
+            }
+            if ((global_idx < module->import_global_count
+                 && module->import_globals[global_idx].u.global.is_mutable)
+                || (global_idx >= module->import_global_count
+                    && module->globals[global_idx - module->import_global_count]
+                           .is_mutable)) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "constant expression required");
+                return false;
+            }
+
+            if (global_idx >= module->import_global_count) {
+                WASMGlobal *global =
+                    &module->globals[global_idx - module->import_global_count];
+                if (global->init_expr.init_expr_type != INIT_EXPR_TYPE_RTT_CANON
+                    && global->init_expr.init_expr_type
+                           != INIT_EXPR_TYPE_RTT_SUB) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "constant expression required");
+                    return false;
+                }
+                init_expr->init_expr_type = global->init_expr.init_expr_type;
+                init_expr->u.rtt_obj = global->init_expr.u.rtt_obj;
+                goto resolve_possible_rtt_sub;
+            }
+#endif
             break;
         }
 #if WASM_ENABLE_GC != 0
@@ -612,26 +677,76 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
         {
             CHECK_BUF(p, p_end, 1);
             flag = read_uint8(p);
-            if (flag != INIT_EXPR_TYPE_RTT_CANON)
+            if (flag != INIT_EXPR_TYPE_RTT_CANON) {
                 goto fail_type_mismatch;
+            }
             init_expr->init_expr_type = flag;
-            read_leb_uint32(p, p_end, init_expr->u.u32);
-            CHECK_BUF(p, p_end, 1);
-            if (*p != WASM_OP_END) {
-                if (*p != WASM_OP_GC_PREFIX)
+            read_leb_uint32(p, p_end, type_idx);
+            if (!check_type_index(module, type_idx, error_buf,
+                                  error_buf_size)) {
+                return false;
+            }
+
+            if (!(init_expr->u.rtt_obj =
+                      wasm_rtt_obj_new(module->rtt_obj_set, NULL,
+                                       module->types[type_idx], type_idx))) {
+                set_error_buf(error_buf, error_buf_size,
+                              "create rtt object failed");
+                return false;
+            }
+
+        resolve_possible_rtt_sub:
+            while (1) {
+                CHECK_BUF(p, p_end, 1);
+                if (*p == WASM_OP_END) {
+                    WASMRefType ref_type1;
+                    WASMRttObjectRef rtt_obj =
+                        (WASMRttObjectRef)init_expr->u.rtt_obj;
+                    wasm_set_refheaptype_rttn(&ref_type1.ref_ht_rttn, false,
+                                              rtt_obj->n,
+                                              rtt_obj->defined_type_idx);
+                    if (!wasm_reftype_is_subtype_of(
+                            ref_type1.ref_type, &ref_type1, type, ref_type,
+                            module->types, module->type_count)) {
+                        goto fail_type_mismatch;
+                    }
+                    break;
+                }
+                if (*p != WASM_OP_GC_PREFIX) {
                     goto fail_type_mismatch;
+                }
                 p++;
+
                 CHECK_BUF(p, p_end, 1);
                 flag = read_uint8(p);
-                if (flag == INIT_EXPR_TYPE_RTT_SUB) {
-                    uint32 u32 = init_expr->u.u32;
-                    init_expr->init_expr_type = flag;
-                    init_expr->u.rtt_sub.parent_init_expr_type =
-                        INIT_EXPR_TYPE_RTT_CANON;
-                    init_expr->u.rtt_sub.parent_type_idx = u32;
-                    read_leb_uint32(p, p_end,
-                                    init_expr->u.rtt_sub.sub_type_idx);
+                if (flag != INIT_EXPR_TYPE_RTT_SUB) {
+                    goto fail_type_mismatch;
                 }
+
+                read_leb_uint32(p, p_end, type_idx);
+                if (!check_type_index(module, type_idx, error_buf,
+                                      error_buf_size)) {
+                    return false;
+                }
+
+                if (!wasm_type_is_subtype_of(
+                        module->types[type_idx],
+                        ((WASMRttObjectRef)init_expr->u.rtt_obj)->defined_type,
+                        module->types, module->type_count)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "rtt.sub type mismatch");
+                    return false;
+                }
+
+                if (!(init_expr->u.rtt_obj = wasm_rtt_obj_new(
+                          module->rtt_obj_set, NULL, module->types[type_idx],
+                          type_idx))) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "create rtt object failed");
+                    return false;
+                }
+
+                init_expr->init_expr_type = flag;
             }
             break;
         }
@@ -725,18 +840,6 @@ destroy_wasm_type(WASMType *type)
     else {
         bh_assert(0);
     }
-}
-
-static bool
-check_type_index(const WASMModule *module, uint32 type_index, char *error_buf,
-                 uint32 error_buf_size)
-{
-    if (type_index >= module->type_count) {
-        set_error_buf_v(error_buf, error_buf_size, "unknown type %d",
-                        type_index);
-        return false;
-    }
-    return true;
 }
 
 /* Resolve (ref null ht) or (ref ht) */
@@ -940,7 +1043,8 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     uint32 param_count, result_count, i, j = 0;
     uint32 param_cell_num, ret_cell_num;
     uint32 ref_type_map_count = 0, result_ref_type_map_count = 0;
-    uint64 total_size;
+    uint64 total_size, param_offset;
+    uint16 offset;
     bool need_ref_type_map;
     WASMRefType ref_type;
     WASMFuncType *type = NULL;
@@ -980,6 +1084,8 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
 
     total_size = offsetof(WASMFuncType, types)
                  + sizeof(uint8) * (uint64)(param_count + result_count);
+    total_size = param_offset = align_uint(total_size, 4);
+    total_size += sizeof(uint16) * param_count;
     if (!(type = loader_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
@@ -995,11 +1101,13 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     type->type_idx = type_idx;
     type->param_count = param_count;
     type->result_count = result_count;
+    type->param_offsets = (uint16 *)((uint8 *)type + (uint32)param_offset);
     type->ref_type_map_count = ref_type_map_count;
     type->result_ref_type_maps =
         type->ref_type_maps + ref_type_map_count - result_ref_type_map_count;
     type->ref_count = 1;
 
+    offset = offsetof(WASMFuncObject, param_data);
     for (i = 0; i < param_count; i++) {
         if (!resolve_value_type(&p, p_end, module, &need_ref_type_map,
                                 &ref_type, false, error_buf, error_buf_size)) {
@@ -1014,7 +1122,10 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
                 goto fail;
             }
         }
+        type->param_offsets[i] = offset;
+        offset += wasm_value_type_size(ref_type.ref_type);
     }
+    type->total_param_size = offset;
 
     read_leb_uint32(p, p_end, result_count);
     for (i = 0; i < result_count; i++) {
@@ -3107,43 +3218,17 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 return false;
 
 #if WASM_ENABLE_GC != 0
-            if (INIT_EXPR_TYPE_RTT_CANON == global->init_expr.init_expr_type) {
-                /* check type idx */
-                if (!check_type_index(module, global->init_expr.u.u32,
-                                      error_buf, error_buf_size)) {
-                    return false;
-                }
-                /* Convert global type from (rtt $t) to (rtt 0 $t) */
-                wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false, 0,
-                                          global->init_expr.u.u32);
+            if (INIT_EXPR_TYPE_RTT_CANON == global->init_expr.init_expr_type
+                || INIT_EXPR_TYPE_RTT_SUB == global->init_expr.init_expr_type) {
+                WASMRttObjectRef rtt_obj =
+                    (WASMRttObjectRef)global->init_expr.u.rtt_obj;
+                /* Convert global type from (rtt $t) to (rtt n $t) */
+                wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false,
+                                          rtt_obj->n,
+                                          rtt_obj->defined_type_idx);
                 global->type = ref_type.ref_type;
+                need_ref_type_map = true;
             }
-            else if (INIT_EXPR_TYPE_RTT_SUB
-                     == global->init_expr.init_expr_type) {
-                uint32 parent_type_idx =
-                    global->init_expr.u.rtt_sub.parent_type_idx;
-                uint32 sub_type_idx = global->init_expr.u.rtt_sub.sub_type_idx;
-                /* check type idx and sub type */
-                if (!check_type_index(module, parent_type_idx, error_buf,
-                                      error_buf_size)
-                    || !check_type_index(module, sub_type_idx, error_buf,
-                                         error_buf_size)) {
-                    return false;
-                }
-                if (!wasm_type_is_subtype_of(module->types[sub_type_idx],
-                                             module->types[parent_type_idx],
-                                             module->types,
-                                             module->type_count)) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "check subtype failed");
-                    return false;
-                }
-                /* Convert global type from (rtt $t) to (rtt 1 $t) */
-                wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false, 1,
-                                          sub_type_idx);
-                global->type = ref_type.ref_type;
-            }
-
             if (need_ref_type_map) {
                 if (!(global->ref_type =
                           reftype_set_insert(module->ref_type_set, &ref_type,
@@ -4347,19 +4432,36 @@ create_module(char *error_buf, uint32 error_buf_size)
     if (!(module->ref_type_set =
               wasm_reftype_set_create(GC_REFTYPE_MAP_SIZE_DEFAULT))) {
         set_error_buf(error_buf, error_buf_size, "create reftype map failed");
-        wasm_runtime_free(module);
-        return NULL;
+        goto fail;
+    }
+    if (!(module->rtt_obj_set =
+              wasm_rttobj_set_create(GC_RTTOBJ_MAP_SIZE_DEFAULT))) {
+        set_error_buf(error_buf, error_buf_size, "create rttobj map failed");
+        goto fail;
     }
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     bh_list_init(&module->fast_opcode_list);
     if (os_mutex_init(&module->ref_count_lock) != 0) {
-        wasm_runtime_free(module);
-        return NULL;
+        set_error_buf(error_buf, error_buf_size, "init ref count lock failed");
+        goto fail;
     }
 #endif
+
     return module;
+
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_DEBUG_INTERP != 0
+fail:
+#if WASM_ENABLE_GC != 0
+    if (module->ref_type_set)
+        bh_hash_map_destroy(module->ref_type_set);
+    if (module->rtt_obj_set)
+        bh_hash_map_destroy(module->rtt_obj_set);
+#endif
+    wasm_runtime_free(module);
+    return NULL;
+#endif
 }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0

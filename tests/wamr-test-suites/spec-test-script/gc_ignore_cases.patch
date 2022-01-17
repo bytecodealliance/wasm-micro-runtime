@@ -38,52 +38,6 @@ index 1f76dc13..f4512ade 100644
  
  ;; 2 elem segment declared, 1.5 given
  (assert_malformed
-diff --git a/test/core/br_on_cast.wast b/test/core/br_on_cast.wast
-index 89ebc608..f3613f63 100644
---- a/test/core/br_on_cast.wast
-+++ b/test/core/br_on_cast.wast
-@@ -8,12 +8,12 @@
- 
-   (global $t0 (rtt $t0) (rtt.canon $t0))
-   (global $t0' (rtt $t0) (rtt.canon $t0))
--  (global $t1 (rtt $t1) (rtt.sub $t1 (global.get $t0)))
--  (global $t1' (rtt $t1') (rtt.sub $t1' (global.get $t0)))
--  (global $t2 (rtt $t2) (rtt.sub $t2 (global.get $t1)))
--  (global $t2' (rtt $t2') (rtt.sub $t2' (global.get $t1')))
--  (global $t3 (rtt $t3) (rtt.sub $t3 (global.get $t0)))
--  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.sub $t0 (global.get $t0))))
-+  (global $t1 (rtt $t1) (rtt.sub $t1 (rtt.canon $t0)))
-+  (global $t1' (rtt $t1') (rtt.sub $t1' (rtt.canon $t0)))
-+  (global $t2 (rtt $t2) (rtt.sub $t2 (rtt.canon $t1)))
-+  (global $t2' (rtt $t2') (rtt.sub $t2' (rtt.canon $t1')))
-+  (global $t3 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
-+  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
- 
-   (table 20 dataref)
- 
-diff --git a/test/core/br_on_cast_fail.wast b/test/core/br_on_cast_fail.wast
-index 1864c1f4..11fddb3a 100644
---- a/test/core/br_on_cast_fail.wast
-+++ b/test/core/br_on_cast_fail.wast
-@@ -8,12 +8,12 @@
- 
-   (global $t0 (rtt $t0) (rtt.canon $t0))
-   (global $t0' (rtt $t0) (rtt.canon $t0))
--  (global $t1 (rtt $t1) (rtt.sub $t1 (global.get $t0)))
--  (global $t1' (rtt $t1') (rtt.sub $t1' (global.get $t0)))
--  (global $t2 (rtt $t2) (rtt.sub $t2 (global.get $t1)))
--  (global $t2' (rtt $t2') (rtt.sub $t2' (global.get $t1')))
--  (global $t3 (rtt $t3) (rtt.sub $t3 (global.get $t0)))
--  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.sub $t0 (global.get $t0))))
-+  (global $t1 (rtt $t1) (rtt.sub $t1 (rtt.canon $t0)))
-+  (global $t1' (rtt $t1') (rtt.sub $t1' (rtt.canon $t0)))
-+  (global $t2 (rtt $t2) (rtt.sub $t2 (rtt.canon $t1)))
-+  (global $t2' (rtt $t2') (rtt.sub $t2' (rtt.canon $t1')))
-+  (global $t3 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
-+  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
- 
-   (table 20 dataref)
- 
 diff --git a/test/core/data.wast b/test/core/data.wast
 index 4f339bed..0b5b3e6b 100644
 --- a/test/core/data.wast
@@ -373,29 +327,6 @@ index 85de43d8..6b218e3b 100644
  (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
  (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
 +;)
-diff --git a/test/core/ref_cast.wast b/test/core/ref_cast.wast
-index 9a74a280..af921431 100644
---- a/test/core/ref_cast.wast
-+++ b/test/core/ref_cast.wast
-@@ -8,12 +8,12 @@
- 
-   (global $t0 (rtt $t0) (rtt.canon $t0))
-   (global $t0' (rtt $t0) (rtt.canon $t0))
--  (global $t1 (rtt $t1) (rtt.sub $t1 (global.get $t0)))
--  (global $t1' (rtt $t1') (rtt.sub $t1' (global.get $t0)))
--  (global $t2 (rtt $t2) (rtt.sub $t2 (global.get $t1)))
--  (global $t2' (rtt $t2') (rtt.sub $t2' (global.get $t1')))
--  (global $t3 (rtt $t3) (rtt.sub $t3 (global.get $t0)))
--  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.sub $t0 (global.get $t0))))
-+  (global $t1 (rtt $t1) (rtt.sub $t1 (rtt.canon $t0)))
-+  (global $t1' (rtt $t1') (rtt.sub $t1' (rtt.canon $t0)))
-+  (global $t2 (rtt $t2) (rtt.sub $t2 (rtt.canon $t1)))
-+  (global $t2' (rtt $t2') (rtt.sub $t2' (rtt.canon $t1')))
-+  (global $t3 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
-+  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
- 
-   (table 20 dataref)
- 
 diff --git a/test/core/ref_func.wast b/test/core/ref_func.wast
 index adb5cb78..590f6262 100644
 --- a/test/core/ref_func.wast
@@ -410,29 +341,6 @@ index adb5cb78..590f6262 100644
    (func $g (param $x i32) (result i32)
      (i32.add (local.get $x) (i32.const 1))
    )
-diff --git a/test/core/ref_test.wast b/test/core/ref_test.wast
-index 70129395..9e209aa5 100644
---- a/test/core/ref_test.wast
-+++ b/test/core/ref_test.wast
-@@ -8,12 +8,12 @@
- 
-   (global $t0 (rtt $t0) (rtt.canon $t0))
-   (global $t0' (rtt $t0) (rtt.canon $t0))
--  (global $t1 (rtt $t1) (rtt.sub $t1 (global.get $t0)))
--  (global $t1' (rtt $t1') (rtt.sub $t1' (global.get $t0)))
--  (global $t2 (rtt $t2) (rtt.sub $t2 (global.get $t1)))
--  (global $t2' (rtt $t2') (rtt.sub $t2' (global.get $t1')))
--  (global $t3 (rtt $t3) (rtt.sub $t3 (global.get $t0)))
--  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.sub $t0 (global.get $t0))))
-+  (global $t1 (rtt $t1) (rtt.sub $t1 (rtt.canon $t0)))
-+  (global $t1' (rtt $t1') (rtt.sub $t1' (rtt.canon $t0)))
-+  (global $t2 (rtt $t2) (rtt.sub $t2 (rtt.canon $t1)))
-+  (global $t2' (rtt $t2') (rtt.sub $t2' (rtt.canon $t1')))
-+  (global $t3 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
-+  (global $t4 (rtt $t3) (rtt.sub $t3 (rtt.canon $t0)))
- 
-   (table 20 dataref)
- 
 diff --git a/test/core/select.wast b/test/core/select.wast
 index fbe51be1..bb209d9b 100644
 --- a/test/core/select.wast
