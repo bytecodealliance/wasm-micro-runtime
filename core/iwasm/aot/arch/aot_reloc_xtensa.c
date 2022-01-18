@@ -112,7 +112,7 @@ put_imm16_to_addr(int16 imm16, int16 *addr)
     if ((intptr_t)addr % 4 != 3) {
         *(int32 *)bytes = *addr_aligned1;
         *(int16 *)(bytes + ((intptr_t)addr % 4)) = imm16;
-        memcpy(addr_aligned1, bytes, 4);
+        *addr_aligned1 = *(int32 *)bytes;
     }
     else {
         addr_aligned2 = (int32 *)(((intptr_t)addr + 3) & ~3);

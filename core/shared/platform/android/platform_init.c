@@ -89,6 +89,50 @@ readlinkat(int __dir_fd, const char *__path, char *__buf, size_t __buf_size)
     return -1;
 }
 
+int
+accept4(int __fd, struct sockaddr *__addr, socklen_t *__addr_length,
+        int __flags)
+{
+    API_NOT_SUPPORT_ERROR(accept4, 21);
+    return -1;
+}
+
+int
+dup3(int oldfd, int newfd, int cloexec)
+{
+    API_NOT_SUPPORT_ERROR(dup3, 21);
+    return -1;
+}
+
+int
+pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id)
+{
+    API_NOT_SUPPORT_ERROR(pthread_condattr_setclock, 21);
+    return -1;
+}
+
+int
+epoll_create1(int flags)
+{
+    API_NOT_SUPPORT_ERROR(epoll_create1, 21);
+    return -1;
+}
+
+int
+epoll_pwait(int epfd, struct epoll_event *events, int maxevents, int timeout,
+            const sigset_t *sigmask)
+{
+    API_NOT_SUPPORT_ERROR(epoll_pwait, 21);
+    return -1;
+}
+
+int
+inotify_init1(int flags)
+{
+    API_NOT_SUPPORT_ERROR(inotify_init1, 21);
+    return -1;
+}
+
 #endif
 
 #if __ANDROID_API__ < 23

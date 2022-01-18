@@ -500,7 +500,7 @@ create_cur_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 
     offset = I32_CONST(offsetof(AOTModuleInstance, cur_exception));
     func_ctx->cur_exception = LLVMBuildInBoundsGEP(
-        comp_ctx->builder, func_ctx->aot_inst, &offset, 1, "cur_execption");
+        comp_ctx->builder, func_ctx->aot_inst, &offset, 1, "cur_exception");
     if (!func_ctx->cur_exception) {
         aot_set_last_error("llvm build in bounds gep failed.");
         return false;
@@ -1611,7 +1611,76 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 abi = "ilp32d";
         }
 
-        if (arch) {
+#if defined(__APPLE__) || defined(__MACH__)
+        if (!abi) {
+            /* On MacOS platform, set abi to "gnu" to avoid generating
+               object file of Mach-O binary format which is unsupported */
+            abi = "gnu";
+            if (!arch && !cpu && !features) {
+                /* Get CPU name of the host machine to avoid checking
+                   SIMD capability failed */
+                if (!(cpu = cpu_new = LLVMGetHostCPUName())) {
+                    aot_set_last_error("llvm get host cpu name failed.");
+                    goto fail;
+                }
+            }
+        }
+#endif
+
+        if (abi) {
+            /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
+            const char *vendor_sys;
+            char *arch1 = arch, default_arch[32] = { 0 };
+
+            if (!arch1) {
+                char *default_triple = LLVMGetDefaultTargetTriple();
+
+                if (!default_triple) {
+                    aot_set_last_error(
+                        "llvm get default target triple failed.");
+                    goto fail;
+                }
+
+                vendor_sys = strstr(default_triple, "-");
+                bh_assert(vendor_sys);
+                bh_memcpy_s(default_arch, sizeof(default_arch), default_triple,
+                            (uint32)(vendor_sys - default_triple));
+                arch1 = default_arch;
+
+                LLVMDisposeMessage(default_triple);
+            }
+
+            /**
+             * Set <vendor>-<sys> according to abi to generate the object file
+             * with the correct file format which might be different from the
+             * default object file format of the host, e.g., generating AOT file
+             * for Windows/MacOS under Linux host, or generating AOT file for
+             * Linux/MacOS under Windows host.
+             */
+            if (!strcmp(abi, "msvc")) {
+                if (!strcmp(arch1, "i386"))
+                    vendor_sys = "-pc-win32-";
+                else
+                    vendor_sys = "-pc-windows-";
+            }
+            else {
+                vendor_sys = "-pc-linux-";
+            }
+
+            bh_assert(strlen(arch1) + strlen(vendor_sys) + strlen(abi)
+                      < sizeof(triple_buf));
+            bh_memcpy_s(triple_buf, (uint32)sizeof(triple_buf), arch1,
+                        (uint32)strlen(arch1));
+            bh_memcpy_s(triple_buf + strlen(arch1),
+                        (uint32)(sizeof(triple_buf) - strlen(arch1)),
+                        vendor_sys, (uint32)strlen(vendor_sys));
+            bh_memcpy_s(triple_buf + strlen(arch1) + strlen(vendor_sys),
+                        (uint32)(sizeof(triple_buf) - strlen(arch1)
+                                 - strlen(vendor_sys)),
+                        abi, (uint32)strlen(abi));
+            triple = triple_buf;
+        }
+        else if (arch) {
             /* Construct target triple: <arch>-<vendor>-<sys>-<abi> */
             const char *vendor_sys;
             char *default_triple = LLVMGetDefaultTargetTriple();
@@ -1641,10 +1710,15 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
 
             bh_assert(strlen(arch) + strlen(vendor_sys) + strlen(abi)
                       < sizeof(triple_buf));
-            memcpy(triple_buf, arch, strlen(arch));
-            memcpy(triple_buf + strlen(arch), vendor_sys, strlen(vendor_sys));
-            memcpy(triple_buf + strlen(arch) + strlen(vendor_sys), abi,
-                   strlen(abi));
+            bh_memcpy_s(triple_buf, (uint32)sizeof(triple_buf), arch,
+                        (uint32)strlen(arch));
+            bh_memcpy_s(triple_buf + strlen(arch),
+                        (uint32)(sizeof(triple_buf) - strlen(arch)), vendor_sys,
+                        (uint32)strlen(vendor_sys));
+            bh_memcpy_s(triple_buf + strlen(arch) + strlen(vendor_sys),
+                        (uint32)(sizeof(triple_buf) - strlen(arch)
+                                 - strlen(vendor_sys)),
+                        abi, (uint32)strlen(abi));
             triple = triple_buf;
         }
 
@@ -1804,6 +1878,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             aot_set_last_error("create LLVM target machine failed.");
             goto fail;
         }
+
+        LLVMSetTarget(comp_ctx->module, triple_norm);
     }
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
@@ -1862,6 +1938,11 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
 
     if (!option->is_jit_mode) {
+        /* Put Vectorize passes before GVN/LICM passes as the former
+           might gain more performance improvement and the latter might
+           break the optimizations for the former */
+        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
+        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
         LLVMAddLoopRotatePass(comp_ctx->pass_mgr);
         LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
         LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
@@ -1871,11 +1952,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                disable them when building as multi-thread mode */
             LLVMAddGVNPass(comp_ctx->pass_mgr);
             LLVMAddLICMPass(comp_ctx->pass_mgr);
+            LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
+            LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
         }
-        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
-        LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
     }
 
     /* Create metadata for llvm float experimental constrained intrinsics */

@@ -305,10 +305,11 @@ align_ptr(const uint8 *p, uint32 b)
     return (uint8 *)((v + m) & ~m);
 }
 
-#define CHECK_BUF(buf, buf_end, length)                   \
-    do {                                                  \
-        if (buf + length < buf || buf + length > buf_end) \
-            return false;                                 \
+#define CHECK_BUF(buf, buf_end, length)                      \
+    do {                                                     \
+        if ((uintptr_t)buf + length < (uintptr_t)buf         \
+            || (uintptr_t)buf + length > (uintptr_t)buf_end) \
+            return false;                                    \
     } while (0)
 
 #define read_uint16(p, p_end, res)                 \
@@ -347,9 +348,7 @@ wasm_runtime_is_xip_file(const uint8 *buf, uint32 size)
         if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
             p += 4;
             read_uint16(p, p_end, e_type);
-            if (e_type == E_TYPE_XIP) {
-                return true;
-            }
+            return (e_type == E_TYPE_XIP) ? true : false;
         }
         else if (section_type >= AOT_SECTION_TYPE_SIGANATURE) {
             return false;
@@ -3227,8 +3226,19 @@ typedef uint32x4_t __m128i;
 #endif /* end of WASM_ENABLE_SIMD != 0 */
 
 typedef void (*GenericFunctionPointer)();
+#if defined(__APPLE__) || defined(__MACH__)
+/**
+ * Define the return type as 'void' in MacOS, since after converting
+ * 'int64 invokeNative' into 'float64 invokeNative_Float64', the
+ * return value passing might be invalid, the caller reads the return
+ * value from register rax but not xmm0.
+ */
+void
+invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
+#else
 int64
 invokeNative(GenericFunctionPointer f, uint64 *args, uint64 n_stacks);
+#endif
 
 typedef float64 (*Float64FuncPtr)(GenericFunctionPointer, uint64 *, uint64);
 typedef float32 (*Float32FuncPtr)(GenericFunctionPointer, uint64 *, uint64);
