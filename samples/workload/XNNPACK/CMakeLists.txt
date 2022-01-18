@@ -15,6 +15,7 @@ ExternalProject_Add(xnnpack
     GIT_PROGRESS   ON
     SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack
     UPDATE_COMMAND git checkout .
+                   && git reset --hard 4d738aef36872669e4bba05a4b259149ba8e62e1
                    && cmake -E copy ${CMAKE_CURRENT_SOURCE_DIR}/benchmark.patch ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack/third_party
                    && git apply ${CMAKE_CURRENT_SOURCE_DIR}/xnnpack.patch
     CONFIGURE_COMMAND ""
