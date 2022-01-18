@@ -165,6 +165,19 @@ os_cond_signal(korp_cond *cond)
 }
 
 int
+os_cond_broadcast(korp_cond *cond)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    assert(cond);
+
+    if (pthread_cond_broadcast(cond) != BHT_OK)
+        return BHT_ERROR;
+
+#endif
+    return BHT_OK;
+}
+
+int
 os_thread_join(korp_tid thread, void **value_ptr)
 {
 #ifndef SGX_DISABLE_PTHREAD
