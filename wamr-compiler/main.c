@@ -79,7 +79,7 @@ main(int argc, char *argv[])
     AOTCompOption option = { 0 };
     char error_buf[128];
     int log_verbose_level = 2;
-    bool sgx_mode = false;
+    bool sgx_mode = false, size_level_set = false;
     int exit_status = EXIT_FAILURE;
 
     option.opt_level = 3;
@@ -133,6 +133,7 @@ main(int argc, char *argv[])
             option.size_level = (uint32)atoi(argv[0] + 13);
             if (option.size_level > 3)
                 option.size_level = 3;
+            size_level_set = true;
         }
         else if (!strcmp(argv[0], "-sgx")) {
             sgx_mode = true;
@@ -207,12 +208,37 @@ main(int argc, char *argv[])
     if (argc == 0 || !out_file_name)
         return print_help();
 
+    if (!size_level_set) {
+        /**
+         * Set opt level to 1 by default for Windows and MacOS as
+         * they can not memory map out 0-2GB memory and might not
+         * be able to meet the requirements of some AOT relocation
+         * operations.
+         */
+        if (option.target_abi && !strcmp(option.target_abi, "msvc")) {
+            LOG_VERBOSE("Set size level to 1 for Windows AOT file");
+            option.size_level = 1;
+        }
+#if defined(_WIN32) || defined(_WIN32_) || defined(__APPLE__) \
+    || defined(__MACH__)
+        if (!option.target_abi) {
+            LOG_VERBOSE("Set size level to 1 for Windows or MacOS AOT file");
+            option.size_level = 1;
+        }
+#endif
+    }
+
     if (sgx_mode) {
         option.size_level = 1;
         option.is_sgx_platform = true;
     }
 
     wasm_file_name = argv[0];
+
+    if (!strcmp(wasm_file_name, out_file_name)) {
+        printf("Error: input file and output file are the same");
+        return -1;
+    }
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
 
@@ -235,6 +261,11 @@ main(int argc, char *argv[])
     if (!(wasm_file =
               (uint8 *)bh_read_file_to_buffer(wasm_file_name, &wasm_file_size)))
         goto fail1;
+
+    if (get_package_type(wasm_file, wasm_file_size) != Wasm_Module_Bytecode) {
+        printf("Invalid file type: expected wasm file but got other\n");
+        goto fail2;
+    }
 
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(wasm_file, wasm_file_size, error_buf,

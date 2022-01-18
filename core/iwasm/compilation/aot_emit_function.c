@@ -560,6 +560,10 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             goto fail;
     }
     else {
+        bool recursive_call =
+            (func_ctx == func_ctxes[func_idx - import_func_count]) ? true
+                                                                   : false;
+
         if (comp_ctx->is_indirect_mode) {
             LLVMTypeRef func_ptr_type;
 
@@ -603,7 +607,8 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
         /* Check whether there was exception thrown when executing
            the function */
-        if (!tail_call && !check_exception_thrown(comp_ctx, func_ctx))
+        if (!tail_call && !recursive_call
+            && !check_exception_thrown(comp_ctx, func_ctx))
             goto fail;
     }
 

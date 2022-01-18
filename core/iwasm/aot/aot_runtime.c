@@ -1260,6 +1260,11 @@ aot_exception_handler(EXCEPTION_POINTERS *exce_info)
             return EXCEPTION_CONTINUE_EXECUTION;
         }
     }
+
+    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
+              "exception address: %p, exception information: %p\n",
+              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
+              sig_addr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
