@@ -25,7 +25,8 @@ To run single spec case:
             --aot-compiler wamrc --gc --loader-only spec/test/core/xxx.wast
 """
 
-IWASM_CMD = "../../../product-mini/platforms/linux/build/iwasm"
+PLATFORM_NAME = os.uname().sysname.lower()
+IWASM_CMD = "../../../product-mini/platforms/" + PLATFORM_NAME + "/build/iwasm"
 IWASM_SGX_CMD = "../../../product-mini/platforms/linux-sgx/enclave-sample/iwasm"
 SPEC_TEST_DIR = "spec/test/core"
 WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"

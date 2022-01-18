@@ -141,6 +141,8 @@ class Runner():
                 os.killpg(self.p.pid, signal.SIGTERM)
             except OSError:
                 pass
+            except IOError:
+                pass
             self.p = None
             self.stdin.close()
             if self.stdin != self.stdout:

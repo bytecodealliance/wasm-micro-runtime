@@ -14,6 +14,9 @@ os_malloc(unsigned size)
     uintptr_t *addr_field;
 
     buf_origin = malloc(size + 8 + sizeof(uintptr_t));
+    if (!buf_origin) {
+        return NULL;
+    }
     buf_fixed = buf_origin + sizeof(void *);
     if ((uintptr_t)buf_fixed & (uintptr_t)0x7) {
         buf_fixed = (void *)((uintptr_t)(buf_fixed + 8) & (~(uintptr_t)7));
@@ -34,12 +37,15 @@ os_realloc(void *ptr, unsigned size)
     uintptr_t *addr_field;
 
     if (!ptr) {
-        return NULL;
+        return os_malloc(size);
     }
 
     addr_field = ptr - sizeof(uintptr_t);
     mem_origin = (void *)(*addr_field);
     mem_new = realloc(mem_origin, size + 8 + sizeof(uintptr_t));
+    if (!mem_new) {
+        return NULL;
+    }
 
     if (mem_origin != mem_new) {
         mem_new_fixed = mem_new + sizeof(uintptr_t);
@@ -61,7 +67,7 @@ void
 os_free(void *ptr)
 {
     void *mem_origin;
-    uintptr *addr_field;
+    uintptr_t *addr_field;
 
     if (ptr) {
         addr_field = ptr - sizeof(uintptr_t);
