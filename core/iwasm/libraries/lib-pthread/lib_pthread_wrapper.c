@@ -718,6 +718,15 @@ pthread_self_wrapper(wasm_exec_env_t exec_env)
     return args->info_node->handle;
 }
 
+#if WASM_ENABLE_LIBC_EMCC != 0
+/* emcc use __pthread_self rather than pthread_self */
+static int32
+__pthread_self_wrapper(wasm_exec_env_t exec_env)
+{
+    return pthread_self_wrapper(exec_env);
+}
+#endif
+
 static void
 pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
 {
@@ -927,6 +936,16 @@ pthread_cond_signal_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
 }
 
 static int32
+pthread_cond_broadcast_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
+{
+    ThreadInfoNode *info_node = get_thread_info(exec_env, *cond);
+    if (!info_node || info_node->type != T_COND)
+        return -1;
+
+    return os_cond_broadcast(info_node->u.cond);
+}
+
+static int32
 pthread_cond_destroy_wrapper(wasm_exec_env_t exec_env, uint32 *cond)
 {
     int32 ret_val;
@@ -1088,12 +1107,16 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_cond_wait, "(**)i"),
     REG_NATIVE_FUNC(pthread_cond_timedwait, "(**I)i"),
     REG_NATIVE_FUNC(pthread_cond_signal, "(*)i"),
+    REG_NATIVE_FUNC(pthread_cond_broadcast, "(*)i"),
     REG_NATIVE_FUNC(pthread_cond_destroy, "(*)i"),
     REG_NATIVE_FUNC(pthread_key_create, "(*i)i"),
     REG_NATIVE_FUNC(pthread_setspecific, "(ii)i"),
     REG_NATIVE_FUNC(pthread_getspecific, "(i)i"),
     REG_NATIVE_FUNC(pthread_key_delete, "(i)i"),
     REG_NATIVE_FUNC(posix_memalign, "(*ii)i"),
+#if WASM_ENABLE_LIBC_EMCC != 0
+    REG_NATIVE_FUNC(__pthread_self, "()i"),
+#endif
 };
 
 uint32
