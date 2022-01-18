@@ -64,7 +64,7 @@ RUN rm /opt/wabt-${WABT_VER}-ubuntu.tar.gz
 
 #
 # install bazelisk
-ARG BAZELISK_VER=1.10.1
+ARG BAZELISK_VER=1.11.0
 RUN mkdir /opt/bazelisk
 RUN wget -c https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VER}/bazelisk-linux-amd64 -P /opt/bazelisk
 RUN chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
@@ -75,7 +75,7 @@ RUN chmod a+x /opt/bazelisk/bazelisk-linux-amd64 \
 RUN apt update && apt install -y clang-format
 
 # set path
-ENV PATH "$PATH:/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk:/opt/clang-llvm/bin"
+ENV PATH "/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk:/opt/clang-llvm/bin:$PATH"
 RUN echo "export PATH=/opt/wasi-sdk/bin:/opt/wabt/bin:/opt/binaryen/bin:/opt/bazelisk:/opt/clang-llvm/bin:${PATH}" >> /root/.bashrc
 
 #

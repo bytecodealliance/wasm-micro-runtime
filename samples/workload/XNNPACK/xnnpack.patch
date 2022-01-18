@@ -4,28 +4,16 @@ index ec740f38..29f9d56e 100644
 +++ b/.bazelrc
 @@ -49,4 +49,9 @@ build:ios_fat --watchos_cpus=armv7k
  build:macos --apple_platform_type=macos
- 
+
  build:macos_arm64 --config=macos
 -build:macos_arm64 --cpu=darwin_arm64
 \ No newline at end of file
 +build:macos_arm64 --cpu=darwin_arm64
 +
 +build:wasm --cpu=wasm
-+build:wasm --copt=-msimd128
++build:wasm --features=wasm_simd
 +build:wasm --crosstool_top=@emsdk//emscripten_toolchain:everything
 +build:wasm --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-diff --git a/BUILD.bazel b/BUILD.bazel
-index 3fc8139f..c893356d 100644
---- a/BUILD.bazel
-+++ b/BUILD.bazel
-@@ -11988,7 +11988,6 @@ config_setting(
-     values = {
-         "crosstool_top": "@emsdk//emscripten_toolchain:everything",
-         "cpu": "wasm",
--        "copt": "-msimd128",
-         "copt": "-mrelaxed-simd",
-     },
- )
 diff --git a/WORKSPACE b/WORKSPACE
 index c58e76b6..30934678 100644
 --- a/WORKSPACE
@@ -36,17 +24,17 @@ index c58e76b6..30934678 100644
      urls = ["https://github.com/google/benchmark/archive/master.zip"],
 +    patches = ["@//third_party:benchmark.patch"],
  )
- 
+
  # FP16 library, used for half-precision conversions
 @@ -84,6 +85,19 @@ http_archive(
     ],
  )
- 
+
 +http_archive(
 +  name = "emsdk",
-+  strip_prefix = "emsdk-2.0.26/bazel",
-+  url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/2.0.26.tar.gz",
-+  sha256 = "79e7166aa8eaae6e52cef1363b2d8db795d03684846066bc51f9dcf905dd58ad",
++  strip_prefix = "emsdk-3.1.1/bazel",
++  url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/3.1.1.tar.gz",
++  sha256 = "3a4893f0bb8203469e1197aa235fc49ed6f5dd2d490e9244a6899a8ad860f3e6",
 +)
 +
 +load("@emsdk//:deps.bzl", emsdk_deps = "deps")
@@ -57,7 +45,7 @@ index c58e76b6..30934678 100644
 +
  # Android NDK location and version is auto-detected from $ANDROID_NDK_HOME environment variable
  android_ndk_repository(name = "androidndk")
- 
+
 diff --git a/build_defs.bzl b/build_defs.bzl
 index fbadb400..e496b78d 100644
 --- a/build_defs.bzl
@@ -97,14 +85,14 @@ index 130d5f16..2696ad54 100644
 +        "-Wl,--export=free",
 +        "--oformat=wasm",
      ]
- 
+
  def xnnpack_emscripten_deps():
 diff --git a/third_party/cpuinfo.BUILD b/third_party/cpuinfo.BUILD
 index 128d683e..f6c287c4 100644
 --- a/third_party/cpuinfo.BUILD
 +++ b/third_party/cpuinfo.BUILD
 @@ -343,5 +343,5 @@ config_setting(
- 
+
  config_setting(
      name = "emscripten",
 -    values = {"crosstool_top": "//toolchain:emscripten"},
