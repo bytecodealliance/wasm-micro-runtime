@@ -131,10 +131,11 @@ align_ptr(const uint8 *p, uint32 b)
 #define AOT_SECTION_TYPE_SIGANATURE 6
 #define E_TYPE_XIP 4
 
-#define CHECK_BUF(buf, buf_end, length)                   \
-    do {                                                  \
-        if (buf + length < buf || buf + length > buf_end) \
-            return false;                                 \
+#define CHECK_BUF(buf, buf_end, length)                      \
+    do {                                                     \
+        if ((uintptr_t)buf + length < (uintptr_t)buf         \
+            || (uintptr_t)buf + length > (uintptr_t)buf_end) \
+            return false;                                    \
     } while (0)
 
 #define read_uint16(p, p_end, res)                 \
@@ -162,6 +163,7 @@ is_xip_file(const uint8 *buf, uint32 size)
 
     if (get_package_type(buf, size) != Wasm_Module_AoT)
         return false;
+
     CHECK_BUF(p, p_end, 8);
     p += 8;
     while (p < p_end) {
@@ -172,15 +174,14 @@ is_xip_file(const uint8 *buf, uint32 size)
         if (section_type == AOT_SECTION_TYPE_TARGET_INFO) {
             p += 4;
             read_uint16(p, p_end, e_type);
-            if (e_type == E_TYPE_XIP) {
-                return true;
-            }
+            return (e_type == E_TYPE_XIP) ? true : false;
         }
         else if (section_type >= AOT_SECTION_TYPE_SIGANATURE) {
             return false;
         }
         p += section_size;
     }
+
     return false;
 }
 
