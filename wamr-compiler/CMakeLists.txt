@@ -222,6 +222,10 @@ if (NOT MSVC)
   endif()
 endif()
 
+if (MSVC)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_WINSOCK_DEPRECATED_NO_WARNINGS")
+endif()
+
 # message ("-- CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
 add_library (vmlib

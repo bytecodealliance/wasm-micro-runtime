@@ -441,47 +441,100 @@ _Static_assert(sizeof(void *) != 4 ||
 _Static_assert(sizeof(void *) != 8 ||
     _Alignof(__wasi_iovec_t) == 8, "non-wasi data layout");
 
-typedef struct __wasi_subscription_t {
-    __wasi_userdata_t userdata;
+/**
+ * The contents of a `subscription` when type is `eventtype::clock`.
+ */
+typedef struct __wasi_subscription_clock_t {
+    /**
+     * The clock against which to compare the timestamp.
+     */
+    __wasi_clockid_t clock_id;
+
+    uint8_t __paddings1[4];
+
+    /**
+     * The absolute or relative timestamp.
+     */
+    __wasi_timestamp_t timeout;
+
+    /**
+     * The amount of time that the implementation may wait additionally
+     * to coalesce with other events.
+     */
+    __wasi_timestamp_t precision;
+
+    /**
+     * Flags specifying whether the timeout is absolute or relative
+     */
+    __wasi_subclockflags_t flags;
+
+    uint8_t __paddings2[4];
+
+} __wasi_subscription_clock_t __attribute__((aligned(8)));
+
+_Static_assert(sizeof(__wasi_subscription_clock_t) == 32, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_clock_t) == 8, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_clock_t, clock_id) == 0, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_clock_t, timeout) == 8, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_clock_t, precision) == 16, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_clock_t, flags) == 24, "witx calculated offset");
+
+/**
+ * The contents of a `subscription` when type is type is
+ * `eventtype::fd_read` or `eventtype::fd_write`.
+ */
+typedef struct __wasi_subscription_fd_readwrite_t {
+    /**
+     * The file descriptor on which to wait for it to become ready for reading or writing.
+     */
+    __wasi_fd_t fd;
+
+} __wasi_subscription_fd_readwrite_t;
+
+_Static_assert(sizeof(__wasi_subscription_fd_readwrite_t) == 4, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_fd_readwrite_t) == 4, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_fd_readwrite_t, fd) == 0, "witx calculated offset");
+
+/**
+ * The contents of a `subscription`.
+ */
+typedef union __wasi_subscription_u_u_t {
+    __wasi_subscription_clock_t clock;
+    __wasi_subscription_fd_readwrite_t fd_readwrite;
+} __wasi_subscription_u_u_t ;
+
+typedef struct __wasi_subscription_u_t {
     __wasi_eventtype_t type;
-    uint8_t __paddings[7];
-    union __wasi_subscription_u {
-        struct __wasi_subscription_u_clock_t {
-            __wasi_userdata_t identifier;
-            __wasi_clockid_t clock_id;
-            uint8_t __paddings1[4];
-            __wasi_timestamp_t timeout;
-            __wasi_timestamp_t precision;
-            __wasi_subclockflags_t flags;
-            uint8_t __paddings2[6];
-        } clock;
-        struct __wasi_subscription_u_fd_readwrite_t {
-            __wasi_fd_t fd;
-        } fd_readwrite;
-    } u;
-} __wasi_subscription_t __attribute__((aligned(8)));
-_Static_assert(
-    offsetof(__wasi_subscription_t, userdata) == 0, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, type) == 8, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.identifier) == 16,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.clock_id) == 24,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.timeout) == 32, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.precision) == 40,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.flags) == 48, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.fd_readwrite.fd) == 16,
-    "non-wasi data layout");
-_Static_assert(sizeof(__wasi_subscription_t) == 56, "non-wasi data layout");
-_Static_assert(_Alignof(__wasi_subscription_t) == 8, "non-wasi data layout");
+    __wasi_subscription_u_u_t u;
+} __wasi_subscription_u_t __attribute__((aligned(8)));
+
+_Static_assert(sizeof(__wasi_subscription_u_t) == 40, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_u_t) == 8, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_u_t, u) == 8, "witx calculated union offset");
+_Static_assert(sizeof(__wasi_subscription_u_u_t) == 32, "witx calculated union size");
+_Static_assert(_Alignof(__wasi_subscription_u_u_t) == 8, "witx calculated union align");
+
+/**
+ * Subscription to an event.
+ */
+typedef struct __wasi_subscription_t {
+    /**
+     * User-provided value that is attached to the subscription in the
+     * implementation and returned through `event::userdata`.
+     */
+    __wasi_userdata_t userdata;
+
+    /**
+     * The type of the event to which to subscribe, and its contents
+     */
+    __wasi_subscription_u_t u;
+
+} __wasi_subscription_t;
+
+_Static_assert(sizeof(__wasi_subscription_t) == 48, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_t) == 8, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_t, userdata) == 0, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_t, u) == 8, "witx calculated offset");
 
 #if defined(WASMTIME_SSP_WASI_API)
 #define WASMTIME_SSP_SYSCALL_NAME(name) \

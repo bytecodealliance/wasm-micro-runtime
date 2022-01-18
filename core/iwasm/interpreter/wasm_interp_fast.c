@@ -3308,6 +3308,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 1, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(1);
 
+                            expect = (uint8)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint32)(*(uint8 *)maddr);
                             if (readv == expect)
@@ -3318,6 +3319,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 2, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(2);
 
+                            expect = (uint16)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint32)LOAD_U16(maddr);
                             if (readv == expect)
@@ -3352,6 +3354,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 1, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(1);
 
+                            expect = (uint8)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint64)(*(uint8 *)maddr);
                             if (readv == expect)
@@ -3362,6 +3365,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 2, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(2);
 
+                            expect = (uint16)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint64)LOAD_U16(maddr);
                             if (readv == expect)
@@ -3372,6 +3376,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             CHECK_BULK_MEMORY_OVERFLOW(addr + offset, 4, maddr);
                             CHECK_ATOMIC_MEMORY_ACCESS(4);
 
+                            expect = (uint32)expect;
                             os_mutex_lock(&memory->mem_lock);
                             readv = (uint64)LOAD_U32(maddr);
                             if (readv == expect)
