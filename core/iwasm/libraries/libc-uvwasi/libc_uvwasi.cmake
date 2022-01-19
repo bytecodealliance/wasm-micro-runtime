@@ -3,7 +3,7 @@
 
 set (LIBC_WASI_DIR ${CMAKE_CURRENT_LIST_DIR})
 set (UVWASI_DIR ${CMAKE_CURRENT_LIST_DIR}/../../../deps/uvwasi)
-set (LIBUV_VERSION v1.39.0)
+set (LIBUV_VERSION v1.42.0)
 
 add_definitions (-DWASM_ENABLE_LIBC_WASI=1 -DWASM_ENABLE_UVWASI=1)
 
@@ -21,6 +21,7 @@ if(NOT libuv_POPULATED)
     include_directories("${libuv_SOURCE_DIR}/include")
     add_subdirectory(${libuv_SOURCE_DIR} ${libuv_BINARY_DIR} EXCLUDE_FROM_ALL)
     set (UV_A_LIBS uv_a)
+    set_target_properties(uv_a PROPERTIES POSITION_INDEPENDENT_CODE 1)
 endif()
 
 include_directories(${UVWASI_DIR}/include)

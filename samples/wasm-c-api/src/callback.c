@@ -35,7 +35,7 @@ void wasm_val_print(wasm_val_t val) {
 
 // A function to be called from Wasm code.
 own wasm_trap_t* print_callback(
-  const wasm_val_vec_t *args, wasm_val_vec_t *results
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n> ");
   wasm_val_print(args->data[0]);
@@ -48,7 +48,7 @@ own wasm_trap_t* print_callback(
 
 // A function closure.
 own wasm_trap_t* closure_callback(
-  void* env, const wasm_val_vec_t *args, wasm_val_vec_t *results
+  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   int i = *(int*)env;
   printf("Calling back closure...\n");
@@ -113,11 +113,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-
-  wasm_extern_vec_t imports;
-  wasm_extern_vec_new(&imports, 2, (wasm_extern_t *[]) {
+  wasm_extern_t* externs[] = {
     wasm_func_as_extern(print_func), wasm_func_as_extern(closure_func)
-  });
+  };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
     wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
@@ -147,9 +146,10 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_vec_t args, results;
-  wasm_val_vec_new(&args, 2, (wasm_val_t[]){ WASM_I32_VAL(3), WASM_I32_VAL(4) });
-  wasm_val_vec_new(&results, 1, (wasm_val_t[]) { WASM_INIT_VAL });
+  wasm_val_t as[2] = { WASM_I32_VAL(3), WASM_I32_VAL(4) };
+  wasm_val_t rs[1] = { WASM_INIT_VAL };
+  wasm_val_vec_t args = WASM_ARRAY_VEC(as);
+  wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
   if (wasm_func_call(run_func, &args, &results)) {
     printf("> Error calling function!\n");
     return 1;
@@ -159,7 +159,7 @@ int main(int argc, const char* argv[]) {
 
   // Print result.
   printf("Printing result...\n");
-  printf("> %u\n", results.data[0].of.i32);
+  printf("> %u\n", rs[0].of.i32);
 
   // Shut down.
   printf("Shutting down...\n");

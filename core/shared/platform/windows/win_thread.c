@@ -47,6 +47,10 @@ static os_thread_data supervisor_thread_data;
 /* Thread data key */
 static DWORD thread_data_key;
 
+/* The GetCurrentThreadStackLimits API from "kernel32" */
+static void(WINAPI *GetCurrentThreadStackLimits_Kernel32)(PULONG_PTR,
+                                                          PULONG_PTR) = NULL;
+
 int
 os_sem_init(korp_sem *sem);
 int
@@ -61,6 +65,8 @@ os_sem_signal(korp_sem *sem);
 int
 os_thread_sys_init()
 {
+    HMODULE module;
+
     if (is_thread_sys_inited)
         return BHT_OK;
 
@@ -83,6 +89,11 @@ os_thread_sys_init()
 
     if (!TlsSetValue(thread_data_key, &supervisor_thread_data))
         goto fail4;
+
+    if ((module = GetModuleHandle((LPSTR) "kernel32"))) {
+        *(void **)&GetCurrentThreadStackLimits_Kernel32 =
+            GetProcAddress(module, "GetCurrentThreadStackLimits");
+    }
 
     is_thread_sys_inited = true;
     return BHT_OK;
@@ -556,7 +567,6 @@ os_cond_signal(korp_cond *cond)
 
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
 
-#if _WIN32_WINNT < 0x0602
 static ULONG
 GetCurrentThreadStackLimits_Win7(PULONG_PTR p_low_limit,
                                  PULONG_PTR p_high_limit)
@@ -579,7 +589,6 @@ GetCurrentThreadStackLimits_Win7(PULONG_PTR p_low_limit,
     os_printf("warning: VirtualQuery() failed\n");
     return GetLastError();
 }
-#endif
 
 uint8 *
 os_thread_get_stack_boundary()
@@ -591,13 +600,14 @@ os_thread_get_stack_boundary()
         return thread_stack_boundary;
 
     page_size = os_getpagesize();
-#if _WIN32_WINNT >= 0x0602
-    GetCurrentThreadStackLimits(&low_limit, &high_limit);
-#else
-    if (0 != GetCurrentThreadStackLimits_Win7(&low_limit, &high_limit)) {
-        return NULL;
+    if (GetCurrentThreadStackLimits_Kernel32) {
+        GetCurrentThreadStackLimits_Kernel32(&low_limit, &high_limit);
     }
-#endif
+    else {
+        if (0 != GetCurrentThreadStackLimits_Win7(&low_limit, &high_limit))
+            return NULL;
+    }
+
     /* 4 pages are set unaccessible by system, we reserved
        one more page at least for safety */
     thread_stack_boundary = (uint8 *)(uintptr_t)low_limit + page_size * 5;

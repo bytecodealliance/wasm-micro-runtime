@@ -1748,15 +1748,7 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
     }
 #endif
 
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_prepare_call_function(exec_env, func);
-#endif
-
     ret = wasm_call_function(exec_env, func, argc, argv);
-
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_finalize_call_function(exec_env, func, ret, argv);
-#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
     /* don't destroy the exec_env if it's searched from the cluster */
@@ -1770,9 +1762,14 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
 bool
 wasm_create_exec_env_singleton(WASMModuleInstance *module_inst)
 {
-    WASMExecEnv *exec_env =
-        wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
-                             module_inst->default_wasm_stack_size);
+    WASMExecEnv *exec_env = NULL;
+
+    if (module_inst->exec_env_singleton) {
+        return true;
+    }
+
+    exec_env = wasm_exec_env_create((WASMModuleInstanceCommon *)module_inst,
+                                    module_inst->default_wasm_stack_size);
     if (exec_env)
         module_inst->exec_env_singleton = exec_env;
 
