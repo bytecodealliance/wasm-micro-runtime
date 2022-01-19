@@ -2957,7 +2957,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     if (size > 0
         && !(module->func_type_indexes =
                  loader_malloc(size, error_buf, error_buf_size))) {
-        goto fail3;
+        goto fail4;
     }
     for (i = 0; i < comp_data->func_count; i++)
         module->func_type_indexes[i] = comp_data->funcs[i]->func_type_index;
@@ -2987,7 +2987,7 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
                                     "failed to compile orc jit function: %s",
                                     err_msg);
                     LLVMDisposeErrorMessage(err_msg);
-                    goto fail4;
+                    goto fail5;
                 }
                 module->func_ptrs[comp_data->start_func_index
                                   - module->import_func_count] =
@@ -3028,16 +3028,17 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
     return module;
 
 #if WASM_ENABLE_LAZY_JIT != 0
-fail4:
+fail5:
     if (module->func_type_indexes)
         wasm_runtime_free(module->func_type_indexes);
 #endif
 
-fail3:
+fail4:
 #if WASM_ENABLE_LAZY_JIT != 0
     /* Terminate all threads before free module->func_ptrs */
     orcjit_stop_compile_threads();
 #endif
+fail3:
     if (module->func_ptrs)
         wasm_runtime_free(module->func_ptrs);
 fail2:
