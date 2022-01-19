@@ -85,7 +85,7 @@ init_global_data(uint8 *global_data, uint8 type, WASMValue *initial_value)
     switch (type) {
         case VALUE_TYPE_I32:
         case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES
+#if WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_FUNCREF:
         case VALUE_TYPE_EXTERNREF:
 #endif
@@ -460,6 +460,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
                 num_bytes_per_page, init_page_count, max_page_count);
+    LOG_VERBOSE("  data offset: %u, stack size: %d", module->aux_data_end,
+                module->aux_stack_size);
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     total_size = (uint64)num_bytes_per_page * init_page_count;
@@ -1260,6 +1262,11 @@ aot_exception_handler(EXCEPTION_POINTERS *exce_info)
             return EXCEPTION_CONTINUE_EXECUTION;
         }
     }
+
+    os_printf("Unhandled exception thrown:  exception code: 0x%lx, "
+              "exception address: %p, exception information: %p\n",
+              ExceptionRecord->ExceptionCode, ExceptionRecord->ExceptionAddress,
+              sig_addr);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif /* end of BH_PLATFORM_WINDOWS */
@@ -1576,15 +1583,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_prepare_call_function(exec_env, func);
-#endif
-
     ret = aot_call_function(exec_env, func, argc, argv);
-
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_finalize_call_function(exec_env, func, ret, argv);
-#endif
 
     /* don't destroy the exec_env if it's searched from the cluster */
     if (!existing_exec_env)

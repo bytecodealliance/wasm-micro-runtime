@@ -155,16 +155,17 @@ enum wasm_valkind_enum {
 
 #ifndef WASM_VAL_T_DEFINED
 #define WASM_VAL_T_DEFINED
-struct wasm_ref_t;
 
 typedef struct wasm_val_t {
     wasm_valkind_t kind;
     union {
+        /* also represent a function index */
         int32_t i32;
         int64_t i64;
         float f32;
         double f64;
-        struct wasm_ref_t *ref;
+        /* represent a foreign object, aka externref in .wat */
+        uintptr_t foreign;
     } of;
 } wasm_val_t;
 #endif
@@ -790,6 +791,7 @@ wasm_runtime_get_native_addr_range(wasm_module_inst_t module_inst,
  *          'I': the parameter is i64 type
  *          'f': the parameter is f32 type
  *          'F': the parameter is f64 type
+ *          'r': the parameter is externref type, it should be a uintptr_t in host
  *          '*': the parameter is a pointer (i32 in WASM), and runtime will
  *               auto check its boundary before calling the native function.
  *               If it is followed by '~', the checked length of the pointer

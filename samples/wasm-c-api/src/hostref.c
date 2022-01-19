@@ -47,21 +47,23 @@ wasm_table_t* get_export_table(const wasm_extern_vec_t* exports, size_t i) {
 
 own wasm_ref_t* call_v_r(const wasm_func_t* func) {
   printf("call_v_r... "); fflush(stdout);
-  wasm_val_vec_t rs;
-  wasm_val_vec_new_uninitialized(&rs, 1);
-  if (wasm_func_call(func, NULL, &rs)) {
+  wasm_val_t rs[] = { WASM_INIT_VAL };
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
+  if (wasm_func_call(func, &args, &results)) {
     printf("> Error calling function!\n");
     exit(1);
   }
   printf("okay\n");
-  return rs.data[0].of.ref;
+  return rs[0].of.ref;
 }
 
 void call_r_v(const wasm_func_t* func, wasm_ref_t* ref) {
   printf("call_r_v... "); fflush(stdout);
-  wasm_val_vec_t vs;
-  wasm_val_vec_new(&vs, 1, (wasm_val_t []){ WASM_REF_VAL(ref) });
-  if (wasm_func_call(func, &vs, NULL)) {
+  wasm_val_t vs[1] = { WASM_REF_VAL(ref) };
+  wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  if (wasm_func_call(func, &args, &results)) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -70,22 +72,24 @@ void call_r_v(const wasm_func_t* func, wasm_ref_t* ref) {
 
 own wasm_ref_t* call_r_r(const wasm_func_t* func, wasm_ref_t* ref) {
   printf("call_r_r... "); fflush(stdout);
-  wasm_val_vec_t vs, rs;
-  wasm_val_vec_new(&vs, 1, (wasm_val_t []){ WASM_REF_VAL(ref) });
-  wasm_val_vec_new_uninitialized(&rs, 1);
-  if (wasm_func_call(func, &vs, &rs)) {
+  wasm_val_t vs[1] = { WASM_REF_VAL(ref) };
+  wasm_val_t rs[1] = { WASM_INIT_VAL };
+  wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
+  wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
+  if (wasm_func_call(func, &args, &results)) {
     printf("> Error calling function!\n");
     exit(1);
   }
   printf("okay\n");
-  return rs.data[0].of.ref;
+  return rs[0].of.ref;
 }
 
 void call_ir_v(const wasm_func_t* func, int32_t i, wasm_ref_t* ref) {
   printf("call_ir_v... "); fflush(stdout);
-  wasm_val_vec_t vs;
-  wasm_val_vec_new(&vs, 2, (wasm_val_t []){ WASM_I32_VAL(i), WASM_REF_VAL(ref) });
-  if (wasm_func_call(func, &vs, NULL)) {
+  wasm_val_t vs[2] = { WASM_I32_VAL(i), WASM_REF_VAL(ref) };
+  wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  if (wasm_func_call(func, &args, &results)) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -94,30 +98,29 @@ void call_ir_v(const wasm_func_t* func, int32_t i, wasm_ref_t* ref) {
 
 own wasm_ref_t* call_i_r(const wasm_func_t* func, int32_t i) {
   printf("call_i_r... "); fflush(stdout);
-  wasm_val_vec_t vs, rs;
-  wasm_val_vec_new(&vs, 1, (wasm_val_t []){ WASM_I32_VAL(i) });
-  wasm_val_vec_new_uninitialized(&rs, 1);
-  if (wasm_func_call(func, &vs, &rs)) {
+  wasm_val_t vs[1] = { WASM_I32_VAL(i) };
+  wasm_val_t rs[1] = { WASM_INIT_VAL };
+  wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
+  wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
+  if (wasm_func_call(func, &args, &results)) {
     printf("> Error calling function!\n");
     exit(1);
   }
   printf("okay\n");
-  return rs.data[0].of.ref;
+  return rs[0].of.ref;
 }
 
-void
-check(own wasm_ref_t *actual, const wasm_ref_t *expected, bool release_ref)
-{
-    if (actual != expected
-        && !(actual && expected && wasm_ref_same(actual, expected))) {
-        printf("> Error reading reference, expected %p, got %p\n",
-               expected ? wasm_ref_get_host_info(expected) : NULL,
-               actual ? wasm_ref_get_host_info(actual) : NULL);
-        exit(1);
-    }
-    if (release_ref && actual)
-        wasm_ref_delete(actual);
+void check(own wasm_ref_t* actual, const wasm_ref_t* expected) {
+  if (actual != expected &&
+      !(actual && expected && wasm_ref_same(actual, expected))) {
+    printf("> Error reading reference, expected %p, got %p\n",
+      expected ? wasm_ref_get_host_info(expected) : NULL,
+      actual ? wasm_ref_get_host_info(actual) : NULL);
+    exit(1);
+  }
+  // if (actual) wasm_ref_delete(actual);
 }
+
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -169,8 +172,8 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_vec_t imports;
-  wasm_extern_vec_new(&imports, 1, (wasm_extern_t* []) { wasm_func_as_extern(callback_func) });
+  wasm_extern_t* externs[] = { wasm_func_as_extern(callback_func) };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
     wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
@@ -204,54 +207,61 @@ int main(int argc, const char* argv[]) {
   wasm_ref_set_host_info(host2, (void*)2);
 
   // Some sanity checks.
-  check(NULL, NULL, true);
-  check(wasm_ref_copy(host1), host1, true);
-  check(wasm_ref_copy(host2), host2, true);
+  check(NULL, NULL);
+  wasm_ref_t *host1_cp = wasm_ref_copy(host1);
+  wasm_ref_t *host2_cp = wasm_ref_copy(host2);
+  check(host1_cp, host1);
+  check(host2_cp, host2);
+  wasm_ref_delete(host1_cp);
+  wasm_ref_delete(host2_cp);
 
   own wasm_val_t val;
   val.kind = WASM_ANYREF;
   val.of.ref = wasm_ref_copy(host1);
-  check(wasm_ref_copy(val.of.ref), host1, true);
-  own wasm_ref_t* ref = val.of.ref;
-  check(wasm_ref_copy(ref), host1, true);
+  wasm_ref_t *ref_cp = wasm_ref_copy(val.of.ref);
+  check(ref_cp, host1);
+  check(val.of.ref, host1);
   wasm_ref_delete(val.of.ref);
+  wasm_ref_delete(ref_cp);
 
   // Interact.
   printf("Accessing global...\n");
-  check(call_v_r(global_get), NULL, false);
+  check(call_v_r(global_get), NULL);
   call_r_v(global_set, host1);
-  check(call_v_r(global_get), host1, false);
+  check(call_v_r(global_get), host1);
   call_r_v(global_set, host2);
-  check(call_v_r(global_get), host2, false);
+  check(call_v_r(global_get), host2);
   call_r_v(global_set, NULL);
-  check(call_v_r(global_get), NULL, false);
+  check(call_v_r(global_get), NULL);
 
   wasm_global_get(global, &val);
   assert(val.kind == WASM_ANYREF);
-  check(val.of.ref, NULL, false);
+  assert(val.of.ref == NULL);
   val.of.ref = host2;
   wasm_global_set(global, &val);
-  check(call_v_r(global_get), host2, false);
   wasm_global_get(global, &val);
   assert(val.kind == WASM_ANYREF);
-  check(val.of.ref, host2, false);
+  assert(val.of.ref == host2);
 
   printf("Accessing table...\n");
-  check(call_i_r(table_get, 0), NULL, false);
-  check(call_i_r(table_get, 1), NULL, false);
+  check(call_i_r(table_get, 0), NULL);
+  check(call_i_r(table_get, 1), NULL);
   call_ir_v(table_set, 0, host1);
   call_ir_v(table_set, 1, host2);
-  check(call_i_r(table_get, 0), host1, false);
-  check(call_i_r(table_get, 1), host2, false);
+  check(call_i_r(table_get, 0), host1);
+  check(call_i_r(table_get, 1), host2);
   call_ir_v(table_set, 0, NULL);
-  check(call_i_r(table_get, 0), NULL, false);
+  check(call_i_r(table_get, 0), NULL);
 
-  check(wasm_table_get(table, 2), NULL, false);
+  check(wasm_table_get(table, 2), NULL);
+  wasm_table_set(table, 2, host1);
+  check(call_i_r(table_get, 2), host1);
+  check(wasm_table_get(table, 2), host1);
 
   printf("Accessing function...\n");
-  check(call_r_r(func_call, NULL), NULL, false);
-  check(call_r_r(func_call, host1), host1, false);
-  check(call_r_r(func_call, host2), host2, false);
+  check(call_r_r(func_call, NULL), NULL);
+  check(call_r_r(func_call, host1), host1);
+  check(call_r_r(func_call, host2), host2);
 
   wasm_ref_delete(host1);
   wasm_ref_delete(host2);

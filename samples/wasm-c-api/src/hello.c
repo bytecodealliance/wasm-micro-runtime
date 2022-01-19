@@ -66,9 +66,8 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_vec_t imports;
-  wasm_extern_vec_new(&imports, 1, (wasm_extern_t* []) { wasm_func_as_extern(hello_func) });
-
+  wasm_extern_t* externs[] = { wasm_func_as_extern(hello_func) };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
     wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
@@ -98,7 +97,9 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  if (wasm_func_call(run_func, NULL, NULL)) {
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  if (wasm_func_call(run_func, &args, &results)) {
     printf("> Error calling function!\n");
     return 1;
   }
@@ -114,4 +115,3 @@ int main(int argc, const char* argv[]) {
   printf("Done.\n");
   return 0;
 }
-
