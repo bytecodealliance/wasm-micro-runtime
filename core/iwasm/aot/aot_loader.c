@@ -854,6 +854,7 @@ load_import_table_list(const uint8 **p_buf, const uint8 *buf_end,
 
     /* keep sync with aot_emit_table_info() aot_emit_aot_file */
     for (i = 0; i < module->import_table_count; i++, import_table++) {
+        read_uint32(buf, buf_end, import_table->elem_type);
         read_uint32(buf, buf_end, import_table->table_init_size);
         read_uint32(buf, buf_end, import_table->table_max_size);
         read_uint32(buf, buf_end, possible_grow);
