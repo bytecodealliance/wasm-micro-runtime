@@ -85,7 +85,7 @@ init_global_data(uint8 *global_data, uint8 type, WASMValue *initial_value)
     switch (type) {
         case VALUE_TYPE_I32:
         case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES
+#if WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_FUNCREF:
         case VALUE_TYPE_EXTERNREF:
 #endif
@@ -1572,15 +1572,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_prepare_call_function(exec_env, func);
-#endif
-
     ret = aot_call_function(exec_env, func, argc, argv);
-
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_finalize_call_function(exec_env, func, ret, argv);
-#endif
 
     /* don't destroy the exec_env if it's searched from the cluster */
     if (!existing_exec_env)
