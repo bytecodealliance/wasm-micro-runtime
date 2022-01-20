@@ -20,11 +20,14 @@
 #include "llvm-c/Transforms/PassManagerBuilder.h"
 
 #if WASM_ENABLE_LAZY_JIT != 0
-#include "aot_llvm_lazyjit.h"
 #include "llvm-c/Orc.h"
 #include "llvm-c/Error.h"
-#include "llvm-c/Initialization.h"
 #include "llvm-c/Support.h"
+#include "llvm-c/Initialization.h"
+#include "llvm-c/TargetMachine.h"
+#if LLVM_VERSION_MAJOR >= 12
+#include "llvm-c/LLJIT.h"
+#endif
 #endif
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "llvm-c/DebugInfo.h"
@@ -128,6 +131,9 @@ typedef struct AOTFuncContext {
     AOTFunc *aot_func;
     LLVMValueRef func;
     LLVMTypeRef func_type;
+    /* LLVM module for this function, note that in LAZY JIT mode,
+       each aot function belongs to an individual module */
+    LLVMModuleRef module;
     AOTBlockStack block_stack;
 
     LLVMValueRef exec_env;
@@ -249,7 +255,12 @@ typedef struct AOTCompContext {
 
     /* LLVM variables required to emit LLVM IR */
     LLVMContextRef context;
+#if WASM_ENABLE_LAZY_JIT == 0
+    /* Create one module only for non LAZY JIT mode,
+       for LAZY JIT mode, modules are created, each
+       aot function has its own module */
     LLVMModuleRef module;
+#endif
     LLVMBuilderRef builder;
 #if WASM_ENABLE_DEBUG_AOT
     LLVMDIBuilderRef debug_builder;
@@ -266,12 +277,18 @@ typedef struct AOTCompContext {
 
     /* LLVM execution engine required by JIT */
 #if WASM_ENABLE_LAZY_JIT != 0
-    LLVMOrcLLLazyJITRef lazy_orcjit;
-    LLVMOrcThreadSafeContextRef ts_context;
-    LLVMOrcJITTargetMachineBuilderRef tm_builder;
+    LLVMOrcLLJITRef orc_lazyjit;
+    LLVMOrcMaterializationUnitRef orc_material_unit;
+    LLVMOrcLazyCallThroughManagerRef orc_call_through_mgr;
+    LLVMOrcIndirectStubsManagerRef orc_indirect_stub_mgr;
+    LLVMOrcCSymbolAliasMapPairs orc_symbol_map_pairs;
+    LLVMOrcThreadSafeContextRef orc_thread_safe_context;
+    /* Each aot function has its own module */
+    LLVMModuleRef *modules;
 #else
     LLVMExecutionEngineRef exec_engine;
 #endif
+
     bool is_jit_mode;
 
     /* AOT indirect mode flag & symbol list */
@@ -453,9 +470,19 @@ void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 
 #if WASM_ENABLE_LAZY_JIT != 0
+LLVMOrcJITTargetMachineBuilderRef
+LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM);
+
 void
-aot_handle_llvm_errmsg(char *error_buf, uint32 error_buf_size,
-                       const char *string, LLVMErrorRef error);
+LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
+                                        unsigned num_compile_threads);
+
+void
+aot_handle_llvm_errmsg(const char *string, LLVMErrorRef err);
+
+void *
+aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
+                       uint32 func_idx);
 #endif
 
 #ifdef __cplusplus
