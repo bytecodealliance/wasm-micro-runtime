@@ -164,7 +164,9 @@ static unsigned __stdcall os_thread_wrapper(void *arg)
     void *retval;
     bool result;
 
+#if 0
     os_printf("THREAD CREATED %p\n", thread_data);
+#endif
 
     os_mutex_lock(&parent->wait_lock);
     thread_data->thread_id = GetCurrentThreadId();
