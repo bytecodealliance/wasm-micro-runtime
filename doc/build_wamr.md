@@ -41,7 +41,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, default to disable if not set
-- **WAMR_BUILD_LAZY_JIT**=1/0, default to disable if not set
+- **WAMR_BUILD_LAZY_JIT**=1/0, whether to use Lazy JIT mode or not when *WAMR_BUILD_JIT* is set, default to enable if not set
 
 #### **Configure LIBC**
 
@@ -206,7 +206,7 @@ make
 ```
 
 
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT and LazyJIT are disabled.
+By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
 To enable WASM JIT, firstly we should build LLVM:
@@ -225,10 +225,10 @@ cmake .. -DWAMR_BUILD_JIT=1
 make
 ```
 
-Moreover, pass arguments `-DWAMR_BUILD_JIT=1` and `-DWAMR_BUILD_LAZY_JIT=1` together to cmake to enable WASM Lazy JIT.
-If Lazy JIT is enabled, then jit function bodies in the module will not be compiled until they are first called,
-so compile time reduces significantly.
-
+By default, the Lazy JIT is enabled to speedup the lanuching process and reduce the JIT compilation time
+by creating threads to compile the WASM functions parallely, and for the main thread, the functions in the
+module will not be compiled until they are firstly called and haven't been compiled by the compilation threads.
+To disable it, please pass argument `-DWAMR_BUILD_LAZY_JIT=0` to cmake.
 
 Linux SGX (Intel Software Guard Extension)
 -------------------------

@@ -18,6 +18,7 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Instructions.h>
@@ -42,10 +43,14 @@
 #include <llvm/Analysis/AliasAnalysis.h>
 #endif
 #include <cstring>
+#if WASM_ENABLE_LAZY_JIT != 0
+#include "../aot/aot_runtime.h"
+#endif
 
 #include "aot_llvm.h"
 
 using namespace llvm;
+using namespace llvm::orc;
 
 extern "C" {
 
@@ -288,6 +293,63 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 #endif /* WASM_ENABLE_SIMD */
 }
 
+#if LLVM_VERSION_MAJOR < 12
+LLVMOrcJITTargetMachineBuilderRef
+LLVMOrcJITTargetMachineBuilderFromTargetMachine(LLVMTargetMachineRef TM);
+
+LLVMOrcJITTargetMachineBuilderRef
+LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM)
+{
+    return LLVMOrcJITTargetMachineBuilderFromTargetMachine(TM);
+}
+#endif
+
+#if WASM_ENABLE_LAZY_JIT != 0
+
+DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
+
+void
+LLVMOrcLLJITBuilderSetNumCompileThreads(LLVMOrcLLJITBuilderRef orcjit_builder,
+                                        unsigned num_compile_threads)
+{
+    unwrap(orcjit_builder)->setNumCompileThreads(num_compile_threads);
+}
+
+void *
+aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
+                       uint32 func_idx)
+{
+    char func_name[32], buf[128], *err_msg = NULL;
+    LLVMErrorRef error;
+    LLVMOrcJITTargetAddress func_addr = 0;
+    AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
+    AOTModule *aot_module = (AOTModule *)aot_inst->aot_module.ptr;
+    void **func_ptrs = (void **)aot_inst->func_ptrs.ptr;
+
+    /**
+     * No need to lock the func_ptr[func_idx] here as it is basic
+     * data type, the load/store for it can be finished by one cpu
+     * instruction, and there can be only one cpu instruction
+     * loading/storing at the same time.
+     */
+    if (func_ptrs[func_idx])
+        return func_ptrs[func_idx];
+
+    snprintf(func_name, sizeof(func_name), "%s%d", AOT_FUNC_PREFIX,
+             func_idx - aot_module->import_func_count);
+    if ((error = LLVMOrcLLJITLookup(orc_lazyjit, &func_addr, func_name))) {
+        err_msg = LLVMGetErrorMessage(error);
+        snprintf(buf, sizeof(buf), "failed to lookup orcjit function: %s",
+                 err_msg);
+        aot_set_exception(aot_inst, buf);
+        LLVMDisposeErrorMessage(err_msg);
+        return NULL;
+    }
+    func_ptrs[func_idx] = (void *)func_addr;
+    return (void *)func_addr;
+}
+#endif
+
 void
 aot_func_disable_tce(LLVMValueRef func)
 {
@@ -299,6 +361,7 @@ aot_func_disable_tce(LLVMValueRef func)
     F->setAttributes(Attrs);
 }
 
+#if WASM_ENABLE_JIT == 0
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 {
@@ -406,3 +469,4 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 
     MPM.run(*M, MAM);
 }
+#endif /* end of WASM_ENABLE_JIT == 0 */

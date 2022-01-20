@@ -85,7 +85,7 @@ init_global_data(uint8 *global_data, uint8 type, WASMValue *initial_value)
     switch (type) {
         case VALUE_TYPE_I32:
         case VALUE_TYPE_F32:
-#if WASM_ENABLE_REF_TYPES
+#if WASM_ENABLE_REF_TYPES != 0
         case VALUE_TYPE_FUNCREF:
         case VALUE_TYPE_EXTERNREF:
 #endif
@@ -460,6 +460,8 @@ memory_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
     LOG_VERBOSE("Memory instantiate:");
     LOG_VERBOSE("  page bytes: %u, init pages: %u, max pages: %u",
                 num_bytes_per_page, init_page_count, max_page_count);
+    LOG_VERBOSE("  data offset: %u, stack size: %d", module->aux_data_end,
+                module->aux_stack_size);
     LOG_VERBOSE("  heap offset: %u, heap size: %d\n", heap_offset, heap_size);
 
     total_size = (uint64)num_bytes_per_page * init_page_count;
@@ -1417,6 +1419,17 @@ aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
     }
     argc = func_type->param_cell_num;
 
+#if WASM_ENABLE_LAZY_JIT != 0
+    if (!function->u.func.func_ptr) {
+        AOTModule *aot_module = (AOTModule *)module_inst->aot_module.ptr;
+        if (!(function->u.func.func_ptr =
+                  aot_lookup_orcjit_func(aot_module->comp_ctx->orc_lazyjit,
+                                         module_inst, function->func_index))) {
+            return false;
+        }
+    }
+#endif
+
     /* set thread handle and stack boundary */
     wasm_exec_env_set_thread_info(exec_env);
 
@@ -1570,15 +1583,7 @@ aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
         }
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_prepare_call_function(exec_env, func);
-#endif
-
     ret = aot_call_function(exec_env, func, argc, argv);
-
-#if WASM_ENABLE_REF_TYPES != 0
-    wasm_runtime_finalize_call_function(exec_env, func, ret, argv);
-#endif
 
     /* don't destroy the exec_env if it's searched from the cluster */
     if (!existing_exec_env)
@@ -2305,6 +2310,15 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 
     func_type_idx = func_type_indexes[func_idx];
     func_type = aot_module->func_types[func_type_idx];
+
+#if WASM_ENABLE_LAZY_JIT != 0
+    if (func_idx >= aot_module->import_func_count && !func_ptrs[func_idx]) {
+        if (!(func_ptr = aot_lookup_orcjit_func(
+                  aot_module->comp_ctx->orc_lazyjit, module_inst, func_idx))) {
+            return false;
+        }
+    }
+#endif
 
     if (!(func_ptr = func_ptrs[func_idx])) {
         bh_assert(func_idx < aot_module->import_func_count);

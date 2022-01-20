@@ -32,7 +32,9 @@ os_thread_wrapper(void *arg)
     os_signal_handler handler = targ->signal_handler;
 #endif
 
+#if 0
     os_printf("THREAD CREATED %jx\n", (uintmax_t)(uintptr_t)pthread_self());
+#endif
     BH_FREE(targ);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (os_thread_signal_init(handler) != 0)
@@ -326,10 +328,18 @@ os_thread_get_stack_boundary()
 #elif defined(__APPLE__) || defined(__NuttX__)
     if ((addr = (uint8 *)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
+
+        /**
+         * Check whether stack_addr is the base or end of the stack,
+         * change it to the base if it is the end of stack.
+         */
+        if (addr <= (uint8 *)&stack_size)
+            addr = addr + stack_size;
+
         if (stack_size > max_stack_size)
-            addr -= max_stack_size;
-        else
-            addr -= stack_size;
+            stack_size = max_stack_size;
+
+        addr -= stack_size;
         /* Reserved 1 guard page at least for safety */
         addr += page_size;
     }

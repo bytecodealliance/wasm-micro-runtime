@@ -33,13 +33,10 @@ void check(bool success) {
 }
 
 void check_call(wasm_func_t* func, int i, wasm_val_t args[], int32_t expected) {
-  wasm_val_vec_t args_vec;
-  wasm_val_vec_t results_vec;
-  if (args)
-    wasm_val_vec_new(&args_vec, i, args);
-  wasm_val_vec_new(&results_vec, 1, (wasm_val_t []){ WASM_INIT_VAL });
-  if (wasm_func_call(func, args ? &args_vec : NULL, &results_vec)
-      || results_vec.data[0].of.i32 != expected) {
+  wasm_val_t r[] = {WASM_INIT_VAL};
+  wasm_val_vec_t args_ = {i, args, i, sizeof(wasm_val_t)};
+  wasm_val_vec_t results = WASM_ARRAY_VEC(r);
+  if (wasm_func_call(func, &args_, &results) || r[0].of.i32 != expected) {
     printf("> Error on result\n");
     exit(1);
   }
@@ -60,9 +57,9 @@ void check_call2(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected
 }
 
 void check_ok(wasm_func_t* func, int i, wasm_val_t args[]) {
-  wasm_val_vec_t args_vec;
-  wasm_val_vec_new(&args_vec, i, args);
-  if (wasm_func_call(func, &args_vec, NULL)) {
+  wasm_val_vec_t args_ = {i, args, i, sizeof(wasm_val_t)};
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  if (wasm_func_call(func, &args_, &results)) {
     printf("> Error on result, expected empty\n");
     exit(1);
   }
@@ -74,10 +71,10 @@ void check_ok2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
 }
 
 void check_trap(wasm_func_t* func, int i, wasm_val_t args[]) {
-  wasm_val_vec_t args_vec, results_vec;
-  wasm_val_vec_new(&args_vec, i, args);
-  wasm_val_vec_new(&results_vec, 1, (wasm_val_t []){ WASM_INIT_VAL });
-  own wasm_trap_t* trap = wasm_func_call(func, &args_vec, &results_vec);
+  wasm_val_t r[] = {WASM_INIT_VAL};
+  wasm_val_vec_t args_ = {i, args, i, sizeof(wasm_val_t)};
+  wasm_val_vec_t results = WASM_ARRAY_VEC(r);
+  own wasm_trap_t* trap = wasm_func_call(func, &args_, &results);
   if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
@@ -137,8 +134,9 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  own wasm_instance_t* instance =
-    wasm_instance_new_with_args(store, module, NULL, NULL, KILOBYTE(8), 0);
+  wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+  own wasm_instance_t *instance = wasm_instance_new_with_args(
+      store, module, &imports, NULL, KILOBYTE(32), 0);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -156,15 +154,6 @@ int main(int argc, const char* argv[]) {
 
   wasm_module_delete(module);
 
-  if (!memory || !wasm_memory_data(memory)) {
-    printf("> Error getting memory!\n");
-    wasm_extern_vec_delete(&exports);
-    wasm_instance_delete(instance);
-    wasm_store_delete(store);
-    wasm_engine_delete(engine);
-    return 1;
-  }
-
   // Try cloning.
   own wasm_memory_t* copy = wasm_memory_copy(memory);
   assert(wasm_memory_same(memory, copy));
@@ -172,13 +161,13 @@ int main(int argc, const char* argv[]) {
 
   // Check initial memory.
   printf("Checking memory...\n");
-  check(wasm_memory_size(memory) >= 2);
-  check(wasm_memory_data_size(memory) >= 0x20000);
+  check(wasm_memory_size(memory) == 2);
+  check(wasm_memory_data_size(memory) == 0x20000);
   check(wasm_memory_data(memory)[0] == 0);
   check(wasm_memory_data(memory)[0x1000] == 1);
   check(wasm_memory_data(memory)[0x1003] == 4);
 
-  (void)size_func;
+  check_call0(size_func, 2);
   check_call1(load_func, 0, 0);
   check_call1(load_func, 0x1000, 1);
   check_call1(load_func, 0x1003, 4);
