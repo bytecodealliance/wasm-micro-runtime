@@ -53,9 +53,6 @@ aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 extern "C" void
 aot_func_disable_tce(LLVMValueRef func);
 
-extern "C" void
-aot_set_target_machine_fast_isel(LLVMTargetMachineRef target_machine);
-
 LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
