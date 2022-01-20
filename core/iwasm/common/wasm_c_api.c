@@ -232,7 +232,7 @@ WASM_DEFINE_VEC_OWN(store, wasm_store_delete)
 WASM_DEFINE_VEC_OWN(valtype, wasm_valtype_delete)
 
 /* conflicting declaration between aot_export.h and aot.h */
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0
 bool
 aot_compile_wasm_file_init();
 
@@ -266,7 +266,7 @@ wasm_engine_delete_internal(wasm_engine_t *engine)
         wasm_runtime_free(engine);
     }
 
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0
     aot_compile_wasm_file_destroy();
 #endif
 
@@ -317,7 +317,7 @@ wasm_engine_new_internal(mem_alloc_type_t type, const MemAllocOption *opts)
     bh_log_set_verbose_level(3);
 #endif
 
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0
     if (!aot_compile_wasm_file_init()) {
         goto failed;
     }
@@ -1820,7 +1820,7 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
     char error_buf[128] = { 0 };
     wasm_module_ex_t *module_ex = NULL;
     PackageType pkg_type;
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0
     uint8 *aot_file_buf = NULL;
     uint32 aot_file_size;
 #endif
@@ -1858,7 +1858,7 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
 
     INIT_VEC(module_ex->binary, wasm_byte_vec_new, binary->size, binary->data);
 
-#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0
+#if WASM_ENABLE_AOT != 0 && WASM_ENABLE_JIT != 0 && WASM_ENABLE_LAZY_JIT == 0
     if (Wasm_Module_Bytecode == pkg_type) {
         if (!(aot_file_buf = aot_compile_wasm_file(
                   (uint8 *)module_ex->binary->data,

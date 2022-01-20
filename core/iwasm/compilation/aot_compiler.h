@@ -345,8 +345,8 @@ check_type_compatible(uint8 src_type, uint8 dst_type)
         else {                                                              \
             char *func_name = #name;                                        \
             /* AOT mode, delcare the function */                            \
-            if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name)) \
-                && !(func = LLVMAddFunction(comp_ctx->module, func_name,    \
+            if (!(func = LLVMGetNamedFunction(func_ctx->module, func_name)) \
+                && !(func = LLVMAddFunction(func_ctx->module, func_name,    \
                                             func_type))) {                  \
                 aot_set_last_error("llvm add function failed.");            \
                 goto fail;                                                  \
