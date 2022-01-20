@@ -361,6 +361,7 @@ aot_func_disable_tce(LLVMValueRef func)
     F->setAttributes(Attrs);
 }
 
+#if WASM_ENABLE_JIT == 0
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 {
@@ -468,3 +469,4 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 
     MPM.run(*M, MAM);
 }
+#endif /* end of WASM_ENABLE_JIT == 0 */

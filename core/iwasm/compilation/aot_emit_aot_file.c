@@ -2806,5 +2806,4 @@ fail1:
 
     return ret;
 }
-
-#endif /* end of WASM_ENABLE_JIT */
+#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */
