@@ -98,6 +98,8 @@ typedef struct WASMExecEnv {
     /* used to support debugger */
     korp_mutex wait_lock;
     korp_cond wait_cond;
+    /* the count of threads which are joining current thread */
+    uint32 wait_count;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -121,10 +123,6 @@ typedef struct WASMExecEnv {
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     WASMJmpBuf *jmpbuf_stack_top;
-#endif
-
-#if WASM_ENABLE_REF_TYPES != 0
-    uint16 nested_calling_depth;
 #endif
 
 #if WASM_ENABLE_MEMORY_PROFILING != 0

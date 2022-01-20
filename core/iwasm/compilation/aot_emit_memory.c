@@ -709,9 +709,9 @@ aot_compile_op_memory_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     else {
         char *func_name = "aot_enlarge_memory";
         /* AOT mode, delcare the function */
-        if (!(func = LLVMGetNamedFunction(comp_ctx->module, func_name))
+        if (!(func = LLVMGetNamedFunction(func_ctx->module, func_name))
             && !(func =
-                     LLVMAddFunction(comp_ctx->module, func_name, func_type))) {
+                     LLVMAddFunction(func_ctx->module, func_name, func_type))) {
             aot_set_last_error("llvm add function failed.");
             return false;
         }
@@ -941,6 +941,7 @@ bool
 aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef src, dst, src_addr, dst_addr, len, res;
+    bool call_aot_memmove = false;
 
     POP_I32(len);
     POP_I32(src);
@@ -952,29 +953,23 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    if (comp_ctx->is_indirect_mode) {
+#if WASM_ENABLE_LAZY_JIT != 0
+    call_aot_memmove = true;
+#endif
+    if (comp_ctx->is_indirect_mode)
+        call_aot_memmove = true;
+
+    if (call_aot_memmove) {
         LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
         LLVMValueRef func, params[3];
+#if WASM_ENABLE_LAZY_JIT == 0
         int32 func_idx;
+#endif
 
-        if (!(dst_addr =
-                  LLVMBuildBitCast(comp_ctx->builder, dst_addr, INT32_PTR_TYPE,
-                                   "memmove dst addr cast type"))) {
-            aot_set_last_error("llvm cast memmove dst addr type failed.");
-            return false;
-        }
-
-        if (!(src_addr =
-                  LLVMBuildBitCast(comp_ctx->builder, src_addr, INT32_PTR_TYPE,
-                                   "memmove src addr cast type"))) {
-            aot_set_last_error("llvm cast memmove src addr type failed.");
-            return false;
-        }
-
-        param_types[0] = INT32_PTR_TYPE;
-        param_types[1] = INT32_PTR_TYPE;
+        param_types[0] = INT8_PTR_TYPE;
+        param_types[1] = INT8_PTR_TYPE;
         param_types[2] = I32_TYPE;
-        ret_type = INT32_PTR_TYPE;
+        ret_type = INT8_PTR_TYPE;
 
         if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
             aot_set_last_error("create LLVM function type failed.");
@@ -986,6 +981,7 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
             return false;
         }
 
+#if WASM_ENABLE_LAZY_JIT == 0
         func_idx = aot_get_native_symbol_index(comp_ctx, "memmove");
         if (func_idx < 0) {
             return false;
@@ -994,12 +990,19 @@ aot_compile_op_memory_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
                                              func_ptr_type, func_idx))) {
             return false;
         }
+#else
+        if (!(func = I64_CONST((uint64)(uintptr_t)aot_memmove))
+            || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
+            aot_set_last_error("create LLVM value failed.");
+            return false;
+        }
+#endif
 
         params[0] = dst_addr;
         params[1] = src_addr;
         params[2] = len;
         if (!(res = LLVMBuildCall(comp_ctx->builder, func, params, 3,
-                                  "call memmove"))) {
+                                  "call_memmove"))) {
             aot_set_last_error("llvm build memmove failed.");
             return false;
         }
@@ -1021,6 +1024,8 @@ bool
 aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
 {
     LLVMValueRef val, dst, dst_addr, len, res;
+    LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
+    LLVMValueRef func, params[3];
 
     POP_I32(len);
     POP_I32(val);
@@ -1029,64 +1034,57 @@ aot_compile_op_memory_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx)
     if (!(dst_addr = check_bulk_memory_overflow(comp_ctx, func_ctx, dst, len)))
         return false;
 
-    if (!(val = LLVMBuildIntCast2(comp_ctx->builder, val, INT8_TYPE, true,
-                                  "mem_set_value"))) {
-        aot_set_last_error("llvm build int cast2 failed.");
+    param_types[0] = INT8_PTR_TYPE;
+    param_types[1] = I32_TYPE;
+    param_types[2] = I32_TYPE;
+    ret_type = INT8_PTR_TYPE;
+
+    if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
+        aot_set_last_error("create LLVM function type failed.");
         return false;
     }
 
-    if (comp_ctx->is_indirect_mode) {
-        LLVMTypeRef param_types[3], ret_type, func_type, func_ptr_type;
-        LLVMValueRef func, params[3];
-        int32 func_idx;
+    if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+        aot_set_last_error("create LLVM function pointer type failed.");
+        return false;
+    }
 
-        if (!(dst_addr =
-                  LLVMBuildBitCast(comp_ctx->builder, dst_addr, INT32_PTR_TYPE,
-                                   "memset dst addr cast type"))) {
-            aot_set_last_error("llvm cast memset dst addr type failed.");
+    if (comp_ctx->is_jit_mode) {
+        if (!(func = I64_CONST((uint64)(uintptr_t)aot_memset))
+            || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
+            aot_set_last_error("create LLVM value failed.");
             return false;
         }
-
-        param_types[0] = INT32_PTR_TYPE;
-        param_types[1] = INT8_TYPE;
-        param_types[2] = I32_TYPE;
-        ret_type = INT32_PTR_TYPE;
-
-        if (!(func_type = LLVMFunctionType(ret_type, param_types, 3, false))) {
-            aot_set_last_error("create LLVM function type failed.");
-            return false;
-        }
-
-        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
-            aot_set_last_error("create LLVM function pointer type failed.");
-            return false;
-        }
-
-        func_idx = aot_get_native_symbol_index(comp_ctx, "memset");
-        if (func_idx < 0) {
+    }
+    else if (comp_ctx->is_indirect_mode) {
+        int32 func_index;
+        func_index = aot_get_native_symbol_index(comp_ctx, "memset");
+        if (func_index < 0) {
             return false;
         }
         if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
-                                             func_ptr_type, func_idx))) {
-            return false;
-        }
-
-        params[0] = dst_addr;
-        params[1] = val;
-        params[2] = len;
-        if (!(res = LLVMBuildCall(comp_ctx->builder, func, params, 3,
-                                  "call memset"))) {
-            aot_set_last_error("llvm build memset failed.");
+                                             func_ptr_type, func_index))) {
             return false;
         }
     }
     else {
-        if (!(res =
-                  LLVMBuildMemSet(comp_ctx->builder, dst_addr, val, len, 1))) {
-            aot_set_last_error("llvm build memset failed.");
+        if (!(func = LLVMGetNamedFunction(func_ctx->module, "memset"))
+            && !(func =
+                     LLVMAddFunction(func_ctx->module, "memset", func_type))) {
+            aot_set_last_error("llvm add function failed.");
             return false;
         }
     }
+
+    params[0] = dst_addr;
+    params[1] = val;
+    params[2] = len;
+    if (!(res = LLVMBuildCall(comp_ctx->builder, func, params, 3,
+                              "call_memset"))) {
+        aot_set_last_error("llvm build memset failed.");
+        return false;
+    }
+
     return true;
 fail:
     return false;

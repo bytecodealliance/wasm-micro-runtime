@@ -6,6 +6,8 @@
 #include "aot_compiler.h"
 #include "../aot/aot_runtime.h"
 
+#if WASM_ENABLE_LAZY_JIT == 0
+
 #define PUT_U64_TO_ADDR(addr, value)        \
     do {                                    \
         union {                             \
@@ -1398,6 +1400,7 @@ aot_emit_table_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
          * EMIT_STR(comp_data->import_tables[i].module_name );
          * EMIT_STR(comp_data->import_tables[i].table_name);
          */
+        EMIT_U32(comp_data->import_tables[i].elem_type);
         EMIT_U32(comp_data->import_tables[i].table_init_size);
         EMIT_U32(comp_data->import_tables[i].table_max_size);
         EMIT_U32(comp_data->import_tables[i].possible_grow & 0x000000FF);
@@ -2803,3 +2806,5 @@ fail1:
 
     return ret;
 }
+
+#endif /* end of WASM_ENABLE_JIT */

@@ -47,7 +47,8 @@ static bool
 check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
           char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length < buf || buf + length > buf_end) {
+    if ((uintptr_t)buf + length < (uintptr_t)buf
+        || (uintptr_t)buf + length > (uintptr_t)buf_end) {
         set_error_buf(error_buf, error_buf_size,
                       "unexpected end of section or function");
         return false;
@@ -59,7 +60,8 @@ static bool
 check_buf1(const uint8 *buf, const uint8 *buf_end, uint32 length,
            char *error_buf, uint32 error_buf_size)
 {
-    if (buf + length < buf || buf + length > buf_end) {
+    if ((uintptr_t)buf + length < (uintptr_t)buf
+        || (uintptr_t)buf + length > (uintptr_t)buf_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
         return false;
     }
