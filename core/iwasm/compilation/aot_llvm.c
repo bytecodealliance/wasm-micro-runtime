@@ -1979,7 +1979,9 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
 
+#if WASM_ENABLE_LAZY_JIT == 0
         LLVMSetTarget(comp_ctx->module, triple_norm);
+#endif
     }
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0

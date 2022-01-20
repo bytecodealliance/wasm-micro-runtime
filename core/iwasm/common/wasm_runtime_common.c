@@ -1307,7 +1307,7 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
     uint32 argv_i = 0, result_i = 0, ret_argv_i = 0;
     WASMType *func_type;
 
-    bh_assert(argv && ret_argv);
+    bh_assert((argv && ret_argv) || (argc == 0));
 
     if (argv == ret_argv) {
         return true;
