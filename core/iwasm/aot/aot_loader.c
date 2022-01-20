@@ -2836,6 +2836,7 @@ static void
 orcjit_stop_compile_threads()
 {
     uint32 i;
+
     orcjit_stop_compiling = true;
     for (i = 0; i < WASM_LAZY_JIT_COMPILE_THREAD_NUM; i++) {
         os_thread_join(orcjit_threads[i], NULL);

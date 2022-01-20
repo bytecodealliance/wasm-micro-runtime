@@ -22,7 +22,9 @@ os_thread_wrapper(void *arg)
     thread_start_routine_t start_func = targ->start;
     void *thread_arg = targ->arg;
 
+#if 0
     os_printf("THREAD CREATED %jx\n", (uintmax_t)(uintptr_t)pthread_self());
+#endif
     BH_FREE(targ);
     start_func(thread_arg);
     return NULL;
