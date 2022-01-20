@@ -1515,14 +1515,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
         }
         memset(comp_ctx->modules, 0,
                sizeof(LLVMModuleRef) * comp_data->func_count);
-        if (!(comp_ctx->tmp_ts_modules =
-                  wasm_runtime_malloc(sizeof(LLVMOrcThreadSafeModuleRef)
-                                      * comp_data->func_count))) {
-            aot_set_last_error("allocate memory failed.");
-            goto fail;
-        }
-        memset(comp_ctx->tmp_ts_modules, 0,
-               sizeof(LLVMOrcThreadSafeModuleRef) * comp_data->func_count);
         for (i = 0; i < comp_data->func_count; i++) {
             char module_name[32];
             snprintf(module_name, sizeof(module_name), "WASM Module %d", i);
@@ -2174,16 +2166,6 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 
     if (comp_ctx->modules)
         wasm_runtime_free(comp_ctx->modules);
-
-    if (comp_ctx->tmp_ts_modules) {
-        uint32 i;
-        for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-            if (comp_ctx->tmp_ts_modules[i]) {
-                LLVMOrcDisposeThreadSafeModule(comp_ctx->tmp_ts_modules[i]);
-            }
-        }
-        wasm_runtime_free(comp_ctx->tmp_ts_modules);
-    }
 
     /* Note: don't dispose comp_ctx->context and comp_ctx->modules[i] as
        they are disposed when disposing the thread safe context */

@@ -285,12 +285,6 @@ typedef struct AOTCompContext {
     LLVMOrcThreadSafeContextRef orc_thread_safe_context;
     /* Each aot function has its own module */
     LLVMModuleRef *modules;
-    /**
-     * Save the thread safe modules passed to IRTransform callback,
-     * as LLVM doesn't destroy them after the callback, we destroy
-     * them when destroying AOTCompContext to avoid memory leak
-     */
-    LLVMOrcThreadSafeModuleRef *tmp_ts_modules;
 #else
     LLVMExecutionEngineRef exec_engine;
 #endif

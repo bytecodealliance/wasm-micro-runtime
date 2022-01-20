@@ -2537,7 +2537,6 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_LAZY_JIT == 0
 /* Check whether the target supports hardware atomic instructions */
 static bool
 aot_require_lower_atomic_pass(AOTCompContext *comp_ctx)
@@ -2570,101 +2569,17 @@ aot_require_lower_switch_pass(AOTCompContext *comp_ctx)
 
     return ret;
 }
-#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */
-
-#if WASM_ENABLE_LAZY_JIT != 0
-typedef struct OrcTransformContext {
-    AOTCompContext *comp_ctx;
-    LLVMOrcThreadSafeModuleRef ts_module;
-} OrcTransformContext;
-
-static LLVMErrorRef
-orc_apply_pass_mgr(void *Ctx, LLVMModuleRef module)
-{
-    OrcTransformContext *transform_ctx = (OrcTransformContext *)Ctx;
-    AOTCompContext *comp_ctx = transform_ctx->comp_ctx;
-    LLVMOrcThreadSafeModuleRef ts_module = transform_ctx->ts_module;
-    uint32 i, free_slot = comp_ctx->func_ctx_count;
-    LLVMPassManagerRef pass_mgr;
-    bool ret, found = false;
-    char *msg = NULL;
-
-    /* Collect the thread safe module so as to destroy them when
-       destroying AOTCompContext */
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        if (comp_ctx->tmp_ts_modules[i] == NULL) {
-            free_slot = i;
-            break;
-        }
-    }
-    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
-        if (comp_ctx->tmp_ts_modules[i] == ts_module) {
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
-        bh_assert(free_slot < comp_ctx->func_ctx_count);
-        comp_ctx->tmp_ts_modules[free_slot] = ts_module;
-    }
-
-    ret = LLVMVerifyModule(module, LLVMPrintMessageAction, &msg);
-    if (!ret && msg) {
-        if (msg[0] != '\0') {
-            aot_set_last_error(msg);
-            LLVMDisposeMessage(msg);
-            return NULL;
-        }
-        LLVMDisposeMessage(msg);
-    }
-
-    if (!(pass_mgr = LLVMCreatePassManager())) {
-        return NULL;
-    }
-
-    LLVMAddPromoteMemoryToRegisterPass(pass_mgr);
-    LLVMAddInstructionCombiningPass(pass_mgr);
-    LLVMAddCFGSimplificationPass(pass_mgr);
-    LLVMAddJumpThreadingPass(pass_mgr);
-#if LLVM_VERSION_MAJOR < 12
-    LLVMAddConstantPropagationPass(pass_mgr);
-#endif
-    LLVMAddIndVarSimplifyPass(pass_mgr);
-
-    LLVMRunPassManager(pass_mgr, module);
-
-    LLVMDisposePassManager(pass_mgr);
-    return LLVMErrorSuccess;
-}
-
-static LLVMErrorRef
-orc_transform_callback(void *Ctx, LLVMOrcThreadSafeModuleRef *ModInOut,
-                       LLVMOrcMaterializationResponsibilityRef MR)
-{
-    AOTCompContext *comp_ctx = (AOTCompContext *)Ctx;
-    LLVMOrcThreadSafeModuleRef ts_module = *ModInOut;
-    OrcTransformContext trans_ctx;
-
-    trans_ctx.comp_ctx = comp_ctx;
-    trans_ctx.ts_module = ts_module;
-
-    return LLVMOrcThreadSafeModuleWithModuleDo(ts_module, orc_apply_pass_mgr,
-                                               &trans_ctx);
-}
-#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
 bool
 aot_compile_wasm(AOTCompContext *comp_ctx)
 {
-    uint32 i;
-#if WASM_ENABLE_LAZY_JIT == 0
     char *msg = NULL;
     bool ret;
-#else
+    uint32 i;
+#if WASM_ENABLE_LAZY_JIT != 0
     LLVMErrorRef err;
     LLVMOrcJITDylibRef orc_main_dylib;
     LLVMOrcThreadSafeModuleRef orc_thread_safe_module;
-    LLVMOrcIRTransformLayerRef orc_transform_layer;
 #endif
 
     if (!aot_validate_wasm(comp_ctx)) {
@@ -2695,9 +2610,9 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
     LLVMDIBuilderFinalize(comp_ctx->debug_builder);
 #endif
 
-#if WASM_ENABLE_LAZY_JIT == 0
     bh_print_time("Begin to verify LLVM module");
 
+#if WASM_ENABLE_LAZY_JIT == 0
     ret = LLVMVerifyModule(comp_ctx->module, LLVMPrintMessageAction, &msg);
     if (!ret && msg) {
         if (msg[0] != '\0') {
@@ -2707,18 +2622,39 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         }
         LLVMDisposeMessage(msg);
     }
+#else
+    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+        ret = LLVMVerifyModule(comp_ctx->modules[i], LLVMPrintMessageAction,
+                               &msg);
+        if (!ret && msg) {
+            if (msg[0] != '\0') {
+                aot_set_last_error(msg);
+                LLVMDisposeMessage(msg);
+                return false;
+            }
+            LLVMDisposeMessage(msg);
+        }
+    }
+#endif
 
     bh_print_time("Begin to run function optimization passes");
 
     /* Run function pass manager */
     if (comp_ctx->optimize) {
+#if WASM_ENABLE_LAZY_JIT == 0
         LLVMInitializeFunctionPassManager(comp_ctx->pass_mgr);
         for (i = 0; i < comp_ctx->func_ctx_count; i++) {
             LLVMRunFunctionPassManager(comp_ctx->pass_mgr,
                                        comp_ctx->func_ctxes[i]->func);
         }
+#else
+        for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+            LLVMRunPassManager(comp_ctx->pass_mgr, comp_ctx->modules[i]);
+        }
+#endif /* end of WASM_ENABLE_LAZY_JIT */
     }
 
+#if WASM_ENABLE_LAZY_JIT == 0
     /* Run common pass manager */
     if (comp_ctx->optimize && !comp_ctx->is_jit_mode
         && !comp_ctx->disable_llvm_lto) {
@@ -2748,6 +2684,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         LLVMDisposePassManager(common_pass_mgr);
         LLVMPassManagerBuilderDispose(pass_mgr_builder);
     }
+#endif
 
     if (comp_ctx->optimize && comp_ctx->is_indirect_mode) {
         LLVMPassManagerRef common_pass_mgr = NULL;
@@ -2765,11 +2702,15 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
         if (aot_require_lower_switch_pass(comp_ctx))
             LLVMAddLowerSwitchPass(common_pass_mgr);
 
+#if WASM_ENABLE_LAZY_JIT == 0
         LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
+#else
+        for (i = 0; i < comp_ctx->func_ctx_count; i++)
+            LLVMRunPassManager(common_pass_mgr, comp_ctx->modules[i]);
+#endif
 
         LLVMDisposePassManager(common_pass_mgr);
     }
-#endif /* end of WASM_ENABLE_LAZY_JIT == 0 */
 
 #if 0
 #if WASM_ENABLE_LAZY_JIT == 0
@@ -2807,14 +2748,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             return false;
         }
     }
-
-    orc_transform_layer =
-        LLVMOrcLLJITGetIRTransformLayer(comp_ctx->orc_lazyjit);
-    bh_assert(orc_transform_layer);
-    LLVMOrcIRTransformLayerSetTransform(orc_transform_layer,
-                                        *orc_transform_callback, comp_ctx);
-
-#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
+#endif
 
     return true;
 }
