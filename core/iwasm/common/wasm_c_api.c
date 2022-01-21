@@ -1831,8 +1831,8 @@ wasm_module_new(wasm_store_t *store, const wasm_byte_vec_t *binary)
     INIT_VEC(module_ex->binary, wasm_byte_vec_new, binary->size, binary->data);
 
     module_ex->module_comm_rt = wasm_runtime_load(
-            (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size,
-            error_buf, (uint32)sizeof(error_buf));
+        (uint8 *)module_ex->binary->data, (uint32)module_ex->binary->size,
+        error_buf, (uint32)sizeof(error_buf));
     if (!(module_ex->module_comm_rt)) {
         LOG_ERROR(error_buf);
         goto failed;

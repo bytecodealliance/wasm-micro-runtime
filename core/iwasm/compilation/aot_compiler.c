@@ -2656,12 +2656,11 @@ apply_lto_passes(AOTCompContext *comp_ctx)
         return false;
     }
 
-    LLVMPassManagerBuilderSetOptLevel(pass_mgr_builder,
-                                      comp_ctx->opt_level);
+    LLVMPassManagerBuilderSetOptLevel(pass_mgr_builder, comp_ctx->opt_level);
     LLVMPassManagerBuilderPopulateModulePassManager(pass_mgr_builder,
                                                     common_pass_mgr);
-    LLVMPassManagerBuilderPopulateLTOPassManager(
-            pass_mgr_builder, common_pass_mgr, true, true);
+    LLVMPassManagerBuilderPopulateLTOPassManager(pass_mgr_builder,
+                                                 common_pass_mgr, true, true);
 
 #if WASM_ENABLE_LAZY_JIT == 0
     LLVMRunPassManager(common_pass_mgr, comp_ctx->module);
