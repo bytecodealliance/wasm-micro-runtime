@@ -361,11 +361,10 @@ aot_func_disable_tce(LLVMValueRef func)
     F->setAttributes(Attrs);
 }
 
-#if WASM_ENABLE_JIT == 0
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 {
-    Module *M = unwrap(comp_ctx->module);
+    Module *M;
     TargetMachine *TM = unwrap(comp_ctx->target_machine);
     bool disable_llvm_lto = false;
 
@@ -467,6 +466,15 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
         }
     }
 
+#if WASM_ENABLE_LAZY_JIT == 0
+    M = unwrap(comp_ctx->module);
     MPM.run(*M, MAM);
+#else
+    uint32 i;
+
+    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+        M = unwrap(comp_ctx->modules[i]);
+        MPM.run(*M, MAM);
+    }
+#endif
 }
-#endif /* end of WASM_ENABLE_JIT == 0 */

@@ -331,9 +331,6 @@ typedef struct AOTCompContext {
     uint32 opt_level;
     uint32 size_level;
 
-    /* LLVM pass manager to optimize the JITed code */
-    LLVMPassManagerRef pass_mgr;
-
     /* LLVM floating-point rounding mode metadata */
     LLVMValueRef fp_rounding_mode;
 

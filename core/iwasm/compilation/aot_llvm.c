@@ -2024,48 +2024,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (option->output_format == AOT_LLVMIR_UNOPT_FILE)
         comp_ctx->optimize = false;
 
-#if WASM_ENABLE_LAZY_JIT == 0
-    if (!(comp_ctx->pass_mgr =
-              LLVMCreateFunctionPassManagerForModule(comp_ctx->module))) {
-        aot_set_last_error("create LLVM pass manager failed.");
-        goto fail;
-    }
-#else
-    if (!(comp_ctx->pass_mgr = LLVMCreatePassManager())) {
-        aot_set_last_error("create LLVM pass manager failed.");
-        goto fail;
-    }
-#endif
-
-    LLVMAddPromoteMemoryToRegisterPass(comp_ctx->pass_mgr);
-    LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
-    LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
-    LLVMAddJumpThreadingPass(comp_ctx->pass_mgr);
-#if LLVM_VERSION_MAJOR < 12
-    LLVMAddConstantPropagationPass(comp_ctx->pass_mgr);
-#endif
-    LLVMAddIndVarSimplifyPass(comp_ctx->pass_mgr);
-
-    if (!option->is_jit_mode) {
-        /* Put Vectorize passes before GVN/LICM passes as the former
-           might gain more performance improvement and the latter might
-           break the optimizations for the former */
-        LLVMAddLoopVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddSLPVectorizePass(comp_ctx->pass_mgr);
-        LLVMAddLoopRotatePass(comp_ctx->pass_mgr);
-        LLVMAddLoopUnswitchPass(comp_ctx->pass_mgr);
-        LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
-        LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
-        if (!option->enable_thread_mgr) {
-            /* These two passes may destroy the volatile semantics,
-               disable them when building as multi-thread mode */
-            LLVMAddGVNPass(comp_ctx->pass_mgr);
-            LLVMAddLICMPass(comp_ctx->pass_mgr);
-            LLVMAddInstructionCombiningPass(comp_ctx->pass_mgr);
-            LLVMAddCFGSimplificationPass(comp_ctx->pass_mgr);
-        }
-    }
-
     /* Create metadata for llvm float experimental constrained intrinsics */
     if (!(comp_ctx->fp_rounding_mode = LLVMMDStringInContext(
               comp_ctx->context, fp_round, (uint32)strlen(fp_round)))
@@ -2131,13 +2089,6 @@ aot_destroy_comp_context(AOTCompContext *comp_ctx)
 {
     if (!comp_ctx)
         return;
-
-    if (comp_ctx->pass_mgr) {
-#if WASM_ENABLE_LAZY_JIT == 0
-        LLVMFinalizeFunctionPassManager(comp_ctx->pass_mgr);
-#endif
-        LLVMDisposePassManager(comp_ctx->pass_mgr);
-    }
 
 #if WASM_ENABLE_LAZY_JIT != 0
     if (comp_ctx->orc_symbol_map_pairs)
