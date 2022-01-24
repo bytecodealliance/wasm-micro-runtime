@@ -30,28 +30,54 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
+#include <llvm/Transforms/Vectorize/LoopVectorize.h>
+#include <llvm/Transforms/Vectorize/LoadStoreVectorizer.h>
+#include <llvm/Transforms/Vectorize/SLPVectorizer.h>
+#include <llvm/Transforms/Scalar/LoopRotation.h>
+#include <llvm/Transforms/Scalar/SimpleLoopUnswitch.h>
+#include <llvm/Transforms/Scalar/LICM.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
+#if LLVM_VERSION_MAJOR >= 12
+#include <llvm/Analysis/AliasAnalysis.h>
+#endif
 #include <cstring>
 #if WASM_ENABLE_LAZY_JIT != 0
 #include "../aot/aot_runtime.h"
 #endif
 
+#include "aot_llvm.h"
+
 using namespace llvm;
 using namespace llvm::orc;
 
-extern "C" LLVMBool
+extern "C" {
+
+LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                  LLVMModuleRef M,
                                  LLVMMCJITCompilerOptions *PassedOptions,
                                  size_t SizeOfPassedOptions, char **OutError);
 
-extern "C" bool
+bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
-extern "C" void
+void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
 
-extern "C" void
+void
 aot_func_disable_tce(LLVMValueRef func);
+
+void
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
+}
+
+static TargetMachine *
+unwrap(LLVMTargetMachineRef P)
+{
+    return reinterpret_cast<TargetMachine *>(P);
+}
 
 LLVMBool
 WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
@@ -333,4 +359,122 @@ aot_func_disable_tce(LLVMValueRef func)
     Attrs = Attrs.addAttribute(F->getContext(), AttributeList::FunctionIndex,
                                "disable-tail-calls", "true");
     F->setAttributes(Attrs);
+}
+
+void
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
+{
+    Module *M;
+    TargetMachine *TM = unwrap(comp_ctx->target_machine);
+    bool disable_llvm_lto = false;
+
+    LoopAnalysisManager LAM;
+    FunctionAnalysisManager FAM;
+    CGSCCAnalysisManager CGAM;
+    ModuleAnalysisManager MAM;
+
+    PipelineTuningOptions PTO;
+    PTO.LoopVectorization = true;
+    PTO.SLPVectorization = true;
+    PTO.LoopUnrolling = true;
+
+#if LLVM_VERSION_MAJOR == 12
+    PassBuilder PB(false, TM, PTO);
+#else
+    PassBuilder PB(TM, PTO);
+#endif
+
+    // Register the target library analysis directly and give it a
+    // customized preset TLI.
+    std::unique_ptr<TargetLibraryInfoImpl> TLII(
+        new TargetLibraryInfoImpl(Triple(TM->getTargetTriple())));
+    FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
+
+    // Register the AA manager first so that our version is the one used.
+    AAManager AA = PB.buildDefaultAAPipeline();
+    FAM.registerPass([&] { return std::move(AA); });
+
+    // Register all the basic analyses with the managers.
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    ModulePassManager MPM;
+
+    PassBuilder::OptimizationLevel OL;
+
+    switch (comp_ctx->opt_level) {
+        case 0:
+            OL = PassBuilder::OptimizationLevel::O0;
+            break;
+        case 1:
+            OL = PassBuilder::OptimizationLevel::O1;
+            break;
+        case 2:
+            OL = PassBuilder::OptimizationLevel::O2;
+            break;
+        case 3:
+        default:
+            OL = PassBuilder::OptimizationLevel::O3;
+            break;
+    }
+
+    if (comp_ctx->disable_llvm_lto) {
+        disable_llvm_lto = true;
+    }
+#if WASM_ENABLE_SPEC_TEST != 0
+    disable_llvm_lto = true;
+#endif
+
+    if (disable_llvm_lto) {
+        uint32 i;
+
+        for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+            aot_func_disable_tce(comp_ctx->func_ctxes[i]->func);
+        }
+    }
+
+    if (comp_ctx->is_jit_mode) {
+        /* Apply normal pipeline for JIT mode, without
+           Vectorize related passes, without LTO */
+        MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+    }
+    else {
+        FunctionPassManager FPM;
+
+        /* Apply Vectorize related passes for AOT mode */
+        FPM.addPass(LoopVectorizePass());
+        FPM.addPass(SLPVectorizerPass());
+        FPM.addPass(LoadStoreVectorizerPass());
+
+        /*
+        FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
+        FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
+        FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));
+        */
+
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+        if (!disable_llvm_lto) {
+            /* Apply LTO for AOT mode */
+            MPM.addPass(PB.buildLTODefaultPipeline(OL, NULL));
+        }
+        else {
+            MPM.addPass(PB.buildPerModuleDefaultPipeline(OL));
+        }
+    }
+
+#if WASM_ENABLE_LAZY_JIT == 0
+    M = unwrap(comp_ctx->module);
+    MPM.run(*M, MAM);
+#else
+    uint32 i;
+
+    for (i = 0; i < comp_ctx->func_ctx_count; i++) {
+        M = unwrap(comp_ctx->modules[i]);
+        MPM.run(*M, MAM);
+    }
+#endif
 }
