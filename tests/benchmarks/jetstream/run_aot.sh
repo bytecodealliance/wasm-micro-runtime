@@ -13,9 +13,7 @@ IWASM_CMD=$CUR_DIR/../../../product-mini/platforms/${PLATFORM}/build/iwasm
 
 BENCH_NAME_MAX_LEN=20
 
-SHOOTOUT_CASES="base64 fib2 gimli heapsort matrix memmove nestedloop \
-                nestedloop2 nestedloop3 random seqhash sieve strchr \
-                switch2"
+JETSTREAM_CASES="gcc-loops quicksort HashSet float-mm"
 
 rm -f $REPORT
 touch $REPORT
@@ -36,9 +34,9 @@ echo "Start to run cases, the result is written to report.txt"
 
 #run benchmarks
 cd $OUT_DIR
-echo -en "\t\t\t\t\t  native\tiwasm-interp\n" >> $REPORT
+echo -en "\t\t\t\t\t  native\tiwasm-aot\n" >> $REPORT
 
-for t in $SHOOTOUT_CASES
+for t in $JETSTREAM_CASES
 do
     print_bench_name $t
 
