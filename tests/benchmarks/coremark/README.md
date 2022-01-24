@@ -16,4 +16,4 @@ And then run `./build.sh` to build the source code, file `coremark.exe`, `corema
 
 # Running
 
-Run `./run.sh` to test the benchmark, the native mode, iwasm aot mode, iwasm interpreter mode will be tested respectively.
+Run `./run.sh` to test the benchmark, the native mode, iwasm aot mode and iwasm interpreter mode will be tested respectively.
