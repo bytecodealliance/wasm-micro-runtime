@@ -578,7 +578,6 @@ os_cond_broadcast(korp_cond *cond)
             os_sem_signal(&p->sem);
             p = p->next;
         }
-        os_sem_signal(&cond->thread_wait_list->sem);
     }
 
     os_mutex_unlock(&cond->wait_list_lock);
