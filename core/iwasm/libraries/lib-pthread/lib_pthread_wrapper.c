@@ -718,14 +718,12 @@ pthread_self_wrapper(wasm_exec_env_t exec_env)
     return args->info_node->handle;
 }
 
-#if WASM_ENABLE_LIBC_EMCC != 0
 /* emcc use __pthread_self rather than pthread_self */
 static int32
 __pthread_self_wrapper(wasm_exec_env_t exec_env)
 {
     return pthread_self_wrapper(exec_env);
 }
-#endif
 
 static void
 pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
@@ -1098,6 +1096,7 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_detach, "(i)i"),
     REG_NATIVE_FUNC(pthread_cancel, "(i)i"),
     REG_NATIVE_FUNC(pthread_self, "()i"),
+    REG_NATIVE_FUNC(__pthread_self, "()i"),
     REG_NATIVE_FUNC(pthread_exit, "(i)"),
     REG_NATIVE_FUNC(pthread_mutex_init, "(**)i"),
     REG_NATIVE_FUNC(pthread_mutex_lock, "(*)i"),
@@ -1114,9 +1113,6 @@ static NativeSymbol native_symbols_lib_pthread[] = {
     REG_NATIVE_FUNC(pthread_getspecific, "(i)i"),
     REG_NATIVE_FUNC(pthread_key_delete, "(i)i"),
     REG_NATIVE_FUNC(posix_memalign, "(*ii)i"),
-#if WASM_ENABLE_LIBC_EMCC != 0
-    REG_NATIVE_FUNC(__pthread_self, "()i"),
-#endif
 };
 
 uint32

@@ -80,7 +80,16 @@ Then build the program with this command:
 
 **Build with EMCC**
 
+> Note: This document is based on `emcc 2.0.26`, other version may not work with these commands
+
 EMCC's `-pthread` option is not compatible with standalone mode, we need to pass `-mbulk-memory -matomics` to the compiler and `--shared-memory,--no-check-features` to linker manually
+
+EMCC provides some empty implementation for pthread related APIs, we need to remove them from emcc's libc.
+``` bash
+cd ${emsdk_dir}/upstream/emscripten/cache/sysroot/lib/wasm32-emscripten
+emar d libc.a library_pthread_stub.o
+emranlib libc.a
+```
 
 ``` bash
 emcc -O3 -mbulk-memory -matomics -s MALLOC="none"   \
