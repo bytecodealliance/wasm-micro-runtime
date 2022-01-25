@@ -99,9 +99,9 @@ emcc -O3 -mbulk-memory -matomics -s MALLOC="none"   \
      main.c -o test.wasm
 ```
 
-**Build AoT module**
+**Build AOT module**
 
-You can build the wasm module into AoT module with pthread support, please pass option `--enable-multi-thread` to wamrc:
+You can build the wasm module into AOT module with pthread support, please pass option `--enable-multi-thread` to wamrc:
 ``` bash
 wamrc --enable-multi-thread -o test.aot test.wasm
 ```
@@ -114,7 +114,7 @@ cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
 make
 # Then you can run the wasm module above:
 ./iwasm test.wasm
-# Or the AoT module:
+# Or the AOT module:
 # ./iwasm test.aot
 ```
 
