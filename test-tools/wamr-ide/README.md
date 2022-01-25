@@ -1,4 +1,4 @@
-# WAMR-IDE
+# WAMR-IDE (Experimental)
 
 ## Introduction
 
@@ -62,7 +62,7 @@ The WAMR-IDE is an Integrated Development Environment to develop WebAssembly app
 
 #### `WAMR-IDE` extension contains 2 components as following picture showing. `Project management` and `Execution management`
 
-![wamr_ide_main_menu](../Media/wamr_ide_main_menu.png "wamr-ide main menu")
+![wamr_ide_main_menu](./Media/wamr_ide_main_menu.png "wamr-ide main menu")
 
 ### Project Management
 
