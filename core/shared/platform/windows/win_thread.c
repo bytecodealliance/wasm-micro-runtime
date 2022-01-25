@@ -567,6 +567,24 @@ os_cond_signal(korp_cond *cond)
     return BHT_OK;
 }
 
+int
+os_cond_broadcast(korp_cond *cond)
+{
+    /* Signal all of the wait node of wait list */
+    os_mutex_lock(&cond->wait_list_lock);
+    if (cond->thread_wait_list) {
+        os_thread_wait_node *p = cond->thread_wait_list;
+        while (p) {
+            os_sem_signal(&p->sem);
+            p = p->next;
+        }
+    }
+
+    os_mutex_unlock(&cond->wait_list_lock);
+
+    return BHT_OK;
+}
+
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
 
 static ULONG

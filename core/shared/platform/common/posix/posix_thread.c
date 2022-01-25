@@ -263,6 +263,17 @@ os_cond_signal(korp_cond *cond)
 }
 
 int
+os_cond_broadcast(korp_cond *cond)
+{
+    assert(cond);
+
+    if (pthread_cond_broadcast(cond) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
 os_thread_join(korp_tid thread, void **value_ptr)
 {
     return pthread_join(thread, value_ptr);
