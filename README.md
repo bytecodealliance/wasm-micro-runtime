@@ -6,7 +6,7 @@ WebAssembly Micro Runtime
 
 [BA]: https://bytecodealliance.org/
 
-WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native applications and so on. It includes a few parts as below:
+WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native and so on. It includes a few parts as below:
 - The [**"iwasm" VM core**](./README.md#iwasm-vm-core) to run WASM applications, supporting interpreter mode, AOT mode (Ahead-of-Time compilation) and JIT mode (Just-in-Time compilation)
 
 - The [**"wamrc" AOT compiler**](./README.md#build-wamrc-aot-compiler) to compile WASM file into AOT file for best performance and smaller runtime footprint, which is run by "iwasm" VM Core
@@ -61,7 +61,7 @@ The iwasm supports the following architectures:
 - RISCV64, RISCV32 (RISC-V LP64 and RISC-V LP64D are tested)
 - XTENSA, MIPS, ARC
 
-Following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
+The following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
 - [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android), [Windows](./doc/build_wamr.md#windows)
 - [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx), [RT-Thread](./doc/build_wamr.md#RT-Thread), [ESP-IDF](./doc/build_wamr.md#esp-idf)
