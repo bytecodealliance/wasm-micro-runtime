@@ -9,7 +9,7 @@ WebAssembly Micro Runtime
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native applications and so on. It includes a few parts as below:
 - The [**"iwasm" VM core**](./README.md#iwasm-vm-core) to run WASM applications, supporting interpreter mode, AOT mode (Ahead of Time compilation) and JIT mode (Just-in-Time compilation)
 
-- The [**"wamrc" AOT compiler**](./README.md#build-wamrc-aot-compiler) to compile WASM file into AOT file for best performance and smaller footprint, which is run by "iwasm" VM Core
+- The [**"wamrc" AOT compiler**](./README.md#build-wamrc-aot-compiler) to compile WASM file into AOT file for best performance and smaller runtime footprint, which is run by "iwasm" VM Core
 
 - The [**application framework**](./README.md#application-framework) and the supporting APIs for the WASM applications
 
