@@ -5,7 +5,7 @@ Memory model and memory usage tunning
 
 The memory model of WAMR can be basically described as below:
 
-![WAMR memory model](./pics/wamr_memory_model.png "WAMR memory model")
+<center><img src="./pics/wamr_memory_model.png" width="75%" height="75%"></img></center>
 
 Note:
 - **global heap**: the heap to allocate memory for runtime data structures, including wasm module, wasm module instance, exec env, wasm operand stack and so on. It is initialized by `wasm_runtime_init` or `wasm_runtime_full_init`. And for `wasm_runtime_full_init`, developer can specify the memory allocation mode with `RuntimeInitArgs *init_args`: allocate memory from a user defined byte buffer, from user defined allocation function, or from the platform's os_malloc function. Refer to [wasm_export.h](../core/iwasm/include/wasm_export.h#L98-L141) and [Embedding WAMR guideline](doc/embed_wamr.md#the-runtime-initialization) for more details. And developer can use `wasm_runtime_malloc/wasm_runtime_free` to allocate/free memory from/to the global heap.
