@@ -114,6 +114,9 @@ The 2021 [WebAssembly Open Day](https://www.sofastack.tech/activities/sofa-meetu
 - [Video1](https://www.bilibili.com/video/BV1EZ4y1X7md?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video2](https://www.bilibili.com/video/BV1p44y1J7ag?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video3](https://www.bilibili.com/video/BV1j34y1r7CR?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video4](https://www.bilibili.com/video/BV1gY411p7gx?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0)
 - [Video5](https://www.bilibili.com/video/BV1gS4y1M7kF?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video6](https://www.bilibili.com/video/BV1NF411B79W?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video7](https://www.bilibili.com/video/BV1dL411j7uB?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0) 
 
+Papers
+- [A fast WebAssembly Interpreter design in WASM-Micro-Runtime](https://www.intel.cn/content/www/cn/zh/developer/articles/technical/webassembly-interpreter-design-wasm-micro-runtime.html)
+
 Application framework
 ===================================
 
