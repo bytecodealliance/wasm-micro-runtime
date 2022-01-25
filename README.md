@@ -40,7 +40,7 @@ iwasm VM core
 - [Multi-thread, pthread APIs and thread management](./doc/pthread_library.md), ref to [document](./doc/pthread_library.md) and [sample](samples/multi-thread)
 - [Linux SGX (Intel Software Guard Extension) support](./doc/linux_sgx.md), ref to [document](./doc/linux_sgx.md)
 - [Source debugging support](./doc/source_debugging.md), ref to [document](./doc/source_debugging.md)
-- [WAMR-IDE](./test-tools/wamr-ide) to develop WebAssembly applications with build, run and debug support, ref to [document](./test-tools/wamr-ide)
+- [WAMR-IDE (Experimental)](./test-tools/wamr-ide) to develop WebAssembly applications with build, run and debug support, ref to [document](./test-tools/wamr-ide)
 - [XIP (Execution In Place) support](./doc/xip.md), ref to [document](./doc/xip.md)
 
 ### WASM post-MVP features
@@ -96,7 +96,8 @@ cmake --build . --config Release
 ### Performance and Footprint
 
 - **Performance and footprint data**: checkout [here](./wiki/Performance) for the performance and footprint data.
-- **Memory profiling**: checkout [here](./doc/build_wamr.md#enable-memory-profiling-experiment) for how to profile the memory usage.
+- **Memory usage tunning**: checkout [here](./doc/memory_tune.md) for the memory model and how to tune the memory usage.
+- **Memory usage profiling**: checkout [here](./doc/build_wamr.md#enable-memory-profiling-experiment) for how to profile the memory usage.
 - **Performance profiling**: checkout [here](./doc/build_wamr.md#enable-performance-profiling-experiment) for how to profile the performance.
 - **Benchmarks**: checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream).
 
@@ -112,10 +113,7 @@ WAMR is widely used in a lot areas, here are some cases:
 
 The 2021 [WebAssembly Open Day](https://www.sofastack.tech/activities/sofa-meetup-13) was hold, check out [here](https://www.sofastack.tech/activities/sofa-meetup-13) for the details, and here are the videos:
 - [Video1](https://www.bilibili.com/video/BV1EZ4y1X7md?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video2](https://www.bilibili.com/video/BV1p44y1J7ag?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video3](https://www.bilibili.com/video/BV1j34y1r7CR?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video4](https://www.bilibili.com/video/BV1gY411p7gx?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0)
-- [Video5](https://www.bilibili.com/video/BV1gS4y1M7kF?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video6](https://www.bilibili.com/video/BV1NF411B79W?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video7](https://www.bilibili.com/video/BV1dL411j7uB?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0) 
-
-Papers
-- [A fast WebAssembly Interpreter design in WASM-Micro-Runtime](https://www.intel.cn/content/www/cn/zh/developer/articles/technical/webassembly-interpreter-design-wasm-micro-runtime.html)
+- [Video5](https://www.bilibili.com/video/BV1gS4y1M7kF?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video6](https://www.bilibili.com/video/BV1NF411B79W?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video7](https://www.bilibili.com/video/BV1dL411j7uB?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0)
 
 Application framework
 ===================================
