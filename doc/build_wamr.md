@@ -37,7 +37,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
   NOTE: the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the WASM bytecode code.
 
-#### **Configure AoT and JIT**
+#### **Configure AOT and JIT**
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, default to disable if not set
@@ -99,7 +99,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > Note: if it is enabled, the call stack will be dumped when exception occurs.
 
 > - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
-> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
+> - For AOT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
 
 #### **Enable memory profiling (Experiment)**
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
@@ -213,7 +213,7 @@ To run a wasm file with interpreter mode:
 ```Bash
 iwasm <wasm file>
 ```
-To run a AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
 ```Bash
 wamrc -o <AOT file> <WASM file>
 iwasm <AOT file>
@@ -280,7 +280,7 @@ To run a wasm file with interpreter mode:
 ```Bash
 iwasm <wasm file>
 ```
-To run a AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
 ```Bash
 wamrc -o <AOT file> <WASM file>
 iwasm <AOT file>
@@ -288,7 +288,7 @@ iwasm <AOT file>
 Note:
 For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
 
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AoT, and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AOT, and builtin libc are enabled by default.
 
 Windows
 -------------------------
@@ -314,7 +314,7 @@ To run a wasm file with interpreter mode:
 ```Bash
 iwasm.exe <wasm file>
 ```
-To run a AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
 ```Bash
 wamrc.exe -o <AOT file> <WASM file>
 iwasm.exe <AOT file>
@@ -322,7 +322,7 @@ iwasm.exe <AOT file>
 Note:
 For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
 
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Windows, interpreter, AoT, and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Windows, interpreter, AOT, and builtin libc are enabled by default.
 
 VxWorks
 -------------------------
@@ -376,7 +376,7 @@ west espressif install
 After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
 
 Note:
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
 
 
 AliOS-Things

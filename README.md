@@ -7,7 +7,7 @@ WebAssembly Micro Runtime
 [BA]: https://bytecodealliance.org/
 
 WebAssembly Micro Runtime (WAMR) is a lightweight standalone WebAssembly (WASM) runtime with small footprint, high performance and highly configurable features for applications cross from embedded, IoT, edge to Trusted Execution Environment (TEE), smart contract, cloud native applications and so on. It includes a few parts as below:
-- The [**"iwasm" VM core**](./README.md#iwasm-vm-core) to run WASM applications, supporting interpreter mode, AOT mode (Ahead of Time compilation) and JIT mode (Just-in-Time compilation)
+- The [**"iwasm" VM core**](./README.md#iwasm-vm-core) to run WASM applications, supporting interpreter mode, AOT mode (Ahead-of-Time compilation) and JIT mode (Just-in-Time compilation)
 
 - The [**"wamrc" AOT compiler**](./README.md#build-wamrc-aot-compiler) to compile WASM file into AOT file for best performance and smaller runtime footprint, which is run by "iwasm" VM Core
 
@@ -61,18 +61,18 @@ The iwasm supports the following architectures:
 - RISCV64, RISCV32 (RISC-V LP64 and RISC-V LP64D are tested)
 - XTENSA, MIPS, ARC
 
-Following platforms are supported, click links below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
+Following platforms are supported, click each link below for how to build iwasm on that platform. Refer to [WAMR porting guide](./doc/port_wamr.md) for how to port WAMR to a new platform.
 
 - [Linux](./doc/build_wamr.md#linux),  [Linux SGX (Intel Software Guard Extension)](./doc/linux_sgx.md),  [MacOS](./doc/build_wamr.md#macos),  [Android](./doc/build_wamr.md#android), [Windows](./doc/build_wamr.md#windows)
 - [Zephyr](./doc/build_wamr.md#zephyr),  [AliOS-Things](./doc/build_wamr.md#alios-things),  [VxWorks](./doc/build_wamr.md#vxworks), [NuttX](./doc/build_wamr.md#nuttx), [RT-Thread](./doc/build_wamr.md#RT-Thread), [ESP-IDF](./doc/build_wamr.md#esp-idf)
 
 ### Build iwasm VM core (mini product)
 
-WAMR supports building the iwasm VM core only (no app framework) to the mini product. The WAMR mini product takes the WASM application file name or AoT file name as input and then executes it. For the detailed procedure, please see **[build WAMR VM core](./doc/build_wamr.md)** and **[build and run WASM application](./doc/build_wasm_app.md)**. Also we can click the link of each platform above to see how to build iwasm on it.
+WAMR supports building the iwasm VM core only (no app framework) to the mini product. The WAMR mini product takes the WASM application file name or AOT file name as input and then executes it. For the detailed procedure, please see **[build WAMR VM core](./doc/build_wamr.md)** and **[build and run WASM application](./doc/build_wasm_app.md)**. Also we can click the link of each platform above to see how to build iwasm on it.
 
-### Build wamrc AoT compiler
+### Build wamrc AOT compiler
 
-Both wasm binary file and AoT file are supported by iwasm. The wamrc AoT compiler is to compile wasm binary file to AoT file which can also be run by iwasm. Execute following commands to build **wamrc** compiler for Linux:
+Both wasm binary file and AOT file are supported by iwasm. The wamrc AOT compiler is to compile wasm binary file to AOT file which can also be run by iwasm. Execute following commands to build **wamrc** compiler for Linux:
 
 ```shell
 cd wamr-compiler
@@ -150,7 +150,7 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 
 - [**basic**](./samples/basic): Demonstrating how to use runtime exposed API's to call WASM functions, how to register native functions and call them, and how to call WASM function from native function.
 - **[simple](./samples/simple/README.md)**: The runtime is integrated with most of the WAMR APP libraries, and a few WASM applications are provided for testing the WAMR APP API set. It uses **built-in libc** and executes apps in **interpreter** mode by default.
-- **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittleVGL](https://github.com/lvgl/) 2D user graphic library and the UI application are built into WASM application.  It uses **WASI libc** and executes apps in **AoT mode** by default.
+- **[littlevgl](./samples/littlevgl/README.md)**: Demonstrating the graphic user interface application usage on WAMR. The whole [LittleVGL](https://github.com/lvgl/) 2D user graphic library and the UI application are built into WASM application.  It uses **WASI libc** and executes apps in **AOT mode** by default.
 - **[gui](./samples/gui/README.md)**: Move the [LittleVGL](https://github.com/lvgl/) library into the runtime and define a WASM application interface by wrapping the littlevgl API. It uses **WASI libc** and executes apps in **interpreter** mode by default.
 - **[multi-thread](./samples/multi-thread/)**: Demonstrating how to run wasm application which creates multiple threads to execute wasm functions concurrently, and uses mutex/cond by calling pthread related API's.
 - **[spawn-thread](./samples/spawn-thread)**: Demonstrating how to execute wasm functions of the same wasm application concurrently, in threads created by host embedder or runtime, but not the wasm application itself.

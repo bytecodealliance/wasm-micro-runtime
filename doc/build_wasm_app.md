@@ -270,9 +270,9 @@ $ cmake <same as above>
 You will get ```hello_world``` which is the WASM app binary.
 
 
-# Compile WASM to AoT module
+# Compile WASM to AOT module
 
-Please ensure the wamrc was already generated and available in your shell PATH. Then we can use wamrc to compile WASM app binary to WAMR AoT binary.
+Please ensure the wamrc was already generated and available in your shell PATH. Then we can use wamrc to compile WASM app binary to WAMR AOT binary.
 
 ``` Bash
 wamrc -o test.aot test.wasm
