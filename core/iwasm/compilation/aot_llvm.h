@@ -331,9 +331,6 @@ typedef struct AOTCompContext {
     uint32 opt_level;
     uint32 size_level;
 
-    /* LLVM pass manager to optimize the JITed code */
-    LLVMPassManagerRef pass_mgr;
-
     /* LLVM floating-point rounding mode metadata */
     LLVMValueRef fp_rounding_mode;
 
@@ -468,6 +465,9 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);
 
 void
 aot_add_expand_memory_op_pass(LLVMPassManagerRef pass);
+
+void
+aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx);
 
 #if WASM_ENABLE_LAZY_JIT != 0
 LLVMOrcJITTargetMachineBuilderRef
