@@ -95,11 +95,10 @@ cmake --build . --config Release
 
 ### Performance and Footprint
 
-- **Performance and footprint data**: checkout [here](./wiki/Performance) for the performance and footprint data.
-- **Memory usage tunning**: checkout [here](./doc/memory_tune.md) for the memory model and how to tune the memory usage.
-- **Memory usage profiling**: checkout [here](./doc/build_wamr.md#enable-memory-profiling-experiment) for how to profile the memory usage.
-- **Performance profiling**: checkout [here](./doc/build_wamr.md#enable-performance-profiling-experiment) for how to profile the performance.
-- **Benchmarks**: checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream).
+- [Performance and footprint data](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance): checkout [here](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Performance) for the performance and footprint data
+- [Memory usage tunning](./doc/memory_tune.md): checkout [here](./doc/memory_tune.md) for the memory model and how to tune the memory usage
+- [Memory usage profiling](./doc/build_wamr.md#enable-memory-profiling-experiment): checkout [here](./doc/build_wamr.md#enable-memory-profiling-experiment) for how to profile the memory usage
+- [Benchmarks](./tests/benchmarks): checkout these links for how to run the benchmarks: [PolyBench](./tests/benchmarks/polybench), [CoreMark](./tests/benchmarks/coremark), [Sightglass](./tests/benchmarks/sightglass), [JetStream2](./tests/benchmarks/jetstream)
 
 ### User cases
 
