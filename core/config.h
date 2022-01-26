@@ -98,6 +98,14 @@
 #define WASM_ENABLE_WAMR_COMPILER 0
 #endif
 
+#if WASM_ENABLE_WAMR_COMPILER != 0
+#ifndef WASM_ENABLE_LLVM_LEGACY_PM
+/* Whether to use LLVM legacy pass manager when building wamrc,
+   by default it is disabled and LLVM new pass manager is used */
+#define WASM_ENABLE_LLVM_LEGACY_PM 0
+#endif
+#endif
+
 #ifndef WASM_ENABLE_LIBC_BUILTIN
 #define WASM_ENABLE_LIBC_BUILTIN 0
 #endif

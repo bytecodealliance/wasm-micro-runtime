@@ -36,6 +36,10 @@ add_definitions(-DWASM_ENABLE_CUSTOM_NAME_SECTION=1)
 add_definitions(-DWASM_ENABLE_DUMP_CALL_STACK=1)
 add_definitions(-DWASM_ENABLE_PERF_PROFILING=1)
 
+if (WAMR_BUILD_LLVM_LEGACY_PM EQUAL 1)
+  add_definitions(-DWASM_ENABLE_LLVM_LEGACY_PM=1)
+endif()
+
 # Set WAMR_BUILD_TARGET, currently values supported:
 # "X86_64", "AMD_64", "X86_32", "ARM_32", "MIPS_32", "XTENSA_32"
 if (NOT WAMR_BUILD_TARGET)

@@ -22,3 +22,5 @@ product-mini/platforms/linux-sgx/enclave-sample/iwasm
 
 build_out
 tests/wamr-test-suites/workspace
+
+!/test-tools/wamr-ide/VSCode-Extension/.vscode
