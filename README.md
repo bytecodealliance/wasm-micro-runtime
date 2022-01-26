@@ -110,10 +110,6 @@ WAMR is widely used in a lot areas, here are some cases:
 - [Envoy Proxy](https://github.com/envoyproxy/envoy)
 - [Apache Teaclave](https://teaclave.apache.org/docs/executing-wasm)
 
-The 2021 [WebAssembly Open Day](https://www.sofastack.tech/activities/sofa-meetup-13) was hold, check out [here](https://www.sofastack.tech/activities/sofa-meetup-13) for the details, and here are the videos:
-- [Video1](https://www.bilibili.com/video/BV1EZ4y1X7md?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video2](https://www.bilibili.com/video/BV1p44y1J7ag?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video3](https://www.bilibili.com/video/BV1j34y1r7CR?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video4](https://www.bilibili.com/video/BV1gY411p7gx?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0)
-- [Video5](https://www.bilibili.com/video/BV1gS4y1M7kF?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video6](https://www.bilibili.com/video/BV1NF411B79W?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0), [Video7](https://www.bilibili.com/video/BV1dL411j7uB?from=search&seid=6209423751443457915&spm_id_from=333.337.0.0)
-
 Application framework
 ===================================
 
