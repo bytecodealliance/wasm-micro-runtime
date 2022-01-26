@@ -8,6 +8,9 @@
 
 #include "gdbserver.h"
 
+void
+write_data_raw(WASMGDBServer *gdbserver, const uint8 *data, ssize_t len);
+
 bool
 read_packet(WASMGDBServer *gdbserver);
 

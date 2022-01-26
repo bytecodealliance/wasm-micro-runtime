@@ -284,6 +284,16 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
 {
     bool ret = true;
     bh_assert(exec_env->cluster == cluster);
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    /* Wait for debugger control thread to process the
+        stop event of this thread */
+    if (cluster->debug_inst) {
+        while (cluster->debug_inst->stopped_thread == exec_env) {
+        }
+    }
+#endif
+
     os_mutex_lock(&cluster->lock);
     if (bh_list_remove(&cluster->exec_env_list, exec_env) != 0)
         ret = false;
@@ -564,7 +574,7 @@ notify_debug_instance(WASMExecEnv *exec_env)
     }
 
     os_mutex_lock(&cluster->debug_inst->wait_lock);
-    os_cond_signal(&cluster->debug_inst->wait_cond);
+    on_thread_stop_event(cluster->debug_inst, exec_env);
     os_mutex_unlock(&cluster->debug_inst->wait_lock);
 }
 

@@ -26,8 +26,11 @@ wasm_debug_handler_deinit()
     os_mutex_destroy(&tmpbuf_lock);
 }
 
-static void
-send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid);
+void
+handle_interrupt(WASMGDBServer *server)
+{
+    wasm_debug_instance_interrupt_all_threads(server->thread->debug_instance);
+}
 
 void
 handle_generay_set(WASMGDBServer *server, char *payload)
@@ -322,7 +325,7 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 }
 
-static void
+void
 send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
 {
     int32 len = 0;
@@ -391,7 +394,7 @@ handle_v_packet(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
-    uint32 status;
+    // uint32 status;
 
     args = strchr(payload, ';');
     if (args)
@@ -428,10 +431,10 @@ handle_v_packet(WASMGDBServer *server, char *payload)
                                 server->thread->debug_instance);
                     }
 
-                    tid = wasm_debug_instance_wait_thread(
-                        (WASMDebugInstance *)server->thread->debug_instance,
-                        tid, &status);
-                    send_thread_stop_status(server, status, tid);
+                    // tid = wasm_debug_instance_wait_thread(
+                    //     (WASMDebugInstance *)server->thread->debug_instance,
+                    //     tid, &status);
+                    // send_thread_stop_status(server, status, tid);
                 }
             }
         }
@@ -441,14 +444,30 @@ handle_v_packet(WASMGDBServer *server, char *payload)
 void
 handle_threadstop_request(WASMGDBServer *server, char *payload)
 {
-    korp_tid tid = wasm_debug_instance_get_tid(
-        (WASMDebugInstance *)server->thread->debug_instance);
+    korp_tid tid;
     uint32 status;
+    WASMDebugInstance *debug_inst =
+        (WASMDebugInstance *)server->thread->debug_instance;
+    bh_assert(debug_inst);
 
-    tid = wasm_debug_instance_wait_thread(
-        (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
+    /* According to
+       https://sourceware.org/gdb/onlinedocs/gdb/Packets.html#Packets, the "?"
+       package should be sent when connection is first established to query the
+       reason the target halted */
+    bh_assert(debug_inst->current_state == DBG_LAUNCHING);
+
+    /* Waiting for the stop event */
+    while (!debug_inst->stopped_thread);
+
+    tid = debug_inst->stopped_thread->handle;
+    status = debug_inst->stopped_thread->current_status->signal_flag;
+
+    wasm_debug_instance_set_cur_thread(debug_inst, tid);
 
     send_thread_stop_status(server, status, tid);
+
+    debug_inst->current_state = APP_STOPPED;
+    debug_inst->stopped_thread = NULL;
 }
 
 void
@@ -611,37 +630,36 @@ handle_remove_break(WASMGDBServer *server, char *payload)
 void
 handle_continue_request(WASMGDBServer *server, char *payload)
 {
-    korp_tid tid;
-    uint32 status;
+    // korp_tid tid;
 
     wasm_debug_instance_continue(
         (WASMDebugInstance *)server->thread->debug_instance);
 
-    tid = wasm_debug_instance_get_tid(
-        (WASMDebugInstance *)server->thread->debug_instance);
+    // tid = wasm_debug_instance_get_tid(
+    //     (WASMDebugInstance *)server->thread->debug_instance);
 
-    tid = wasm_debug_instance_wait_thread(
-        (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
+    // tid = wasm_debug_instance_wait_thread(
+    //     (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
 
-    send_thread_stop_status(server, status, tid);
+    // send_thread_stop_status(server, status, tid);
 }
 
 void
 handle_kill_request(WASMGDBServer *server, char *payload)
 {
-    korp_tid tid;
-    uint32 status;
+    // korp_tid tid;
+    // uint32 status;
 
     wasm_debug_instance_kill(
         (WASMDebugInstance *)server->thread->debug_instance);
 
-    tid = wasm_debug_instance_get_tid(
-        (WASMDebugInstance *)server->thread->debug_instance);
+    // tid = wasm_debug_instance_get_tid(
+    //     (WASMDebugInstance *)server->thread->debug_instance);
 
-    tid = wasm_debug_instance_wait_thread(
-        (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
+    // tid = wasm_debug_instance_wait_thread(
+    //     (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
 
-    send_thread_stop_status(server, status, tid);
+    // send_thread_stop_status(server, status, tid);
 }
 
 static void
