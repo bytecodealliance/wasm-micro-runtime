@@ -258,7 +258,12 @@ wasm_gdbserver_handle_packet(WASMGDBServer *server)
         return false;
     }
     else if (n < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+#if defined(BH_PLATFORM_WINDOWS)
+        if (WSAGetLastError() == WSAETIMEDOUT)
+#else
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
+        {
             /* No bytes arrived */
             return true;
         }
