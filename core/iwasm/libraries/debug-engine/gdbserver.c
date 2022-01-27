@@ -281,6 +281,7 @@ wasm_gdbserver_handle_packet(WASMGDBServer *server)
                 process_packet(server);
             }
             else if (ret == 2) {
+                LOG_VERBOSE("Received interrupt package");
                 handle_interrupt(server);
             }
         }

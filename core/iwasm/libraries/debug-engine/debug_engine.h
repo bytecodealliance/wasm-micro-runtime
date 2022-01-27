@@ -55,7 +55,7 @@ typedef struct WASMDebugInstance {
     korp_cond wait_cond;
     /* Last stopped thread, it should be set to NULL when sending
      * out the thread stop reply */
-    volatile WASMExecEnv *stopped_thread;
+    WASMExecEnv *volatile stopped_thread;
     /* Currently status of the debug instance, it will be set to
      * RUNNING when receiving STEP/CONTINUE commands, and set to
      * STOPPED when any thread stopped */
@@ -179,10 +179,6 @@ wasm_debug_instance_continue(WASMDebugInstance *instance);
 
 bool
 wasm_debug_instance_kill(WASMDebugInstance *instance);
-
-korp_tid
-wasm_debug_instance_wait_thread(WASMDebugInstance *instance, korp_tid tid,
-                                uint32 *status);
 
 uint32
 wasm_debug_instance_get_thread_status(WASMDebugInstance *instance,

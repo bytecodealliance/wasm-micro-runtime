@@ -394,7 +394,6 @@ handle_v_packet(WASMGDBServer *server, char *payload)
 {
     const char *name;
     char *args;
-    // uint32 status;
 
     args = strchr(payload, ';');
     if (args)
@@ -430,11 +429,6 @@ handle_v_packet(WASMGDBServer *server, char *payload)
                             (WASMDebugInstance *)
                                 server->thread->debug_instance);
                     }
-
-                    // tid = wasm_debug_instance_wait_thread(
-                    //     (WASMDebugInstance *)server->thread->debug_instance,
-                    //     tid, &status);
-                    // send_thread_stop_status(server, status, tid);
                 }
             }
         }
@@ -630,36 +624,15 @@ handle_remove_break(WASMGDBServer *server, char *payload)
 void
 handle_continue_request(WASMGDBServer *server, char *payload)
 {
-    // korp_tid tid;
-
     wasm_debug_instance_continue(
         (WASMDebugInstance *)server->thread->debug_instance);
-
-    // tid = wasm_debug_instance_get_tid(
-    //     (WASMDebugInstance *)server->thread->debug_instance);
-
-    // tid = wasm_debug_instance_wait_thread(
-    //     (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
-
-    // send_thread_stop_status(server, status, tid);
 }
 
 void
 handle_kill_request(WASMGDBServer *server, char *payload)
 {
-    // korp_tid tid;
-    // uint32 status;
-
     wasm_debug_instance_kill(
         (WASMDebugInstance *)server->thread->debug_instance);
-
-    // tid = wasm_debug_instance_get_tid(
-    //     (WASMDebugInstance *)server->thread->debug_instance);
-
-    // tid = wasm_debug_instance_wait_thread(
-    //     (WASMDebugInstance *)server->thread->debug_instance, tid, &status);
-
-    // send_thread_stop_status(server, status, tid);
 }
 
 static void

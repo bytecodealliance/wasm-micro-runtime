@@ -127,6 +127,7 @@ control_thread_routine(void *arg)
 
                     if (debug_inst->cluster->exec_env_list.len != 1) {
                         debug_inst->stopped_thread = NULL;
+                        os_mutex_unlock(&control_thread->wait_lock);
                         continue;
                     }
                 }
@@ -504,46 +505,6 @@ wasm_debug_instance_get_tids(WASMDebugInstance *instance, korp_tid tids[],
     }
     LOG_VERBOSE("find %d tids\n", threads_num);
     return threads_num;
-}
-
-static WASMExecEnv *
-get_stopped_thread(WASMCluster *cluster)
-{
-    WASMExecEnv *exec_env;
-
-    exec_env = bh_list_first_elem(&cluster->exec_env_list);
-    while (exec_env) {
-        if (exec_env->current_status->running_status != STATUS_RUNNING) {
-            return exec_env;
-        }
-        exec_env = bh_list_elem_next(exec_env);
-    }
-
-    return NULL;
-}
-
-korp_tid
-wasm_debug_instance_wait_thread(WASMDebugInstance *instance, korp_tid tid,
-                                uint32 *status)
-{
-    WASMExecEnv *exec_env = NULL;
-
-    os_mutex_lock(&instance->wait_lock);
-    while ((instance->cluster->exec_env_list.len != 0)
-           && ((exec_env = get_stopped_thread(instance->cluster)) == NULL)) {
-        os_cond_wait(&instance->wait_cond, &instance->wait_lock);
-    }
-    os_mutex_unlock(&instance->wait_lock);
-
-    /* If cluster has no exec_env, then this whole cluster is exiting */
-    if (instance->cluster->exec_env_list.len == 0) {
-        *status = 0;
-        return 0;
-    }
-
-    instance->current_tid = exec_env->handle;
-    *status = (uint32)exec_env->current_status->signal_flag;
-    return exec_env->handle;
 }
 
 uint32

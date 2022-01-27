@@ -287,10 +287,14 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     /* Wait for debugger control thread to process the
-        stop event of this thread */
+       stop event of this thread */
     if (cluster->debug_inst) {
+        /* lock the debug_inst->wait_lock so
+           other threads can't fire stop events */
+        os_mutex_lock(&cluster->debug_inst->wait_lock);
         while (cluster->debug_inst->stopped_thread == exec_env) {
         }
+        os_mutex_unlock(&cluster->debug_inst->wait_lock);
     }
 #endif
 
@@ -457,6 +461,9 @@ thread_manager_start_routine(void *arg)
     free_aux_stack(cluster, exec_env->aux_stack_bottom.bottom);
     /* Detach the native thread here to ensure the resources are freed */
     wasm_cluster_detach_thread(exec_env);
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_cluster_thread_exited(exec_env);
+#endif
     /* Remove and destroy exec_env */
     wasm_cluster_del_exec_env(cluster, exec_env);
     wasm_exec_env_destroy_internal(exec_env);
@@ -754,7 +761,6 @@ wasm_cluster_cancel_thread(WASMExecEnv *exec_env)
     /* Set the termination flag */
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
-    wasm_cluster_thread_exited(exec_env);
 #else
     exec_env->suspend_flags.flags |= 0x01;
 #endif
