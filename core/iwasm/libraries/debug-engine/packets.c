@@ -8,56 +8,6 @@
 #include "gdbserver.h"
 
 void
-pktbuf_insert(WASMGDBServer *gdbserver, const uint8 *buf, ssize_t len)
-{
-    WasmDebugPacket *pkt = &gdbserver->pkt;
-
-    if ((unsigned long)(pkt->size + len) >= sizeof(pkt->buf)) {
-        LOG_ERROR("Packet buffer overflow");
-        exit(-2);
-    }
-
-    memcpy(pkt->buf + pkt->size, buf, len);
-    pkt->size += len;
-}
-
-void
-pktbuf_erase_head(WASMGDBServer *gdbserver, ssize_t index)
-{
-    WasmDebugPacket *pkt = &gdbserver->pkt;
-    memmove(pkt->buf, pkt->buf + index, pkt->size - index);
-    pkt->size -= index;
-}
-
-void
-inbuf_erase_head(WASMGDBServer *gdbserver, ssize_t index)
-{
-    pktbuf_erase_head(gdbserver, index);
-}
-
-void
-pktbuf_clear(WASMGDBServer *gdbserver)
-{
-    WasmDebugPacket *pkt = &gdbserver->pkt;
-    pkt->size = 0;
-}
-
-int32
-read_data_once(WASMGDBServer *gdbserver)
-{
-    ssize_t nread;
-    uint8 buf[4096];
-
-    nread = os_socket_recv(gdbserver->socket_fd, buf, sizeof(buf));
-    if (nread <= 0) {
-        LOG_ERROR("Connection closed");
-        return -1;
-    }
-    pktbuf_insert(gdbserver, buf, nread);
-    return nread;
-}
-
-void
 write_data_raw(WASMGDBServer *gdbserver, const uint8 *data, ssize_t len)
 {
     ssize_t nwritten;
@@ -138,41 +88,4 @@ write_binary_packet(WASMGDBServer *gdbserver, const char *pfx,
     }
     write_packet_bytes(gdbserver, buf, buf_num_bytes);
     wasm_runtime_free(buf);
-}
-
-bool
-skip_to_packet_start(WASMGDBServer *gdbserver)
-{
-    ssize_t start_index = -1, i;
-
-    for (i = 0; i < (ssize_t)gdbserver->pkt.size; ++i) {
-        if (gdbserver->pkt.buf[i] == '$') {
-            start_index = i;
-            break;
-        }
-    }
-
-    if (start_index < 0) {
-        pktbuf_clear(gdbserver);
-        return false;
-    }
-
-    pktbuf_erase_head(gdbserver, start_index);
-
-    bh_assert(1 <= gdbserver->pkt.size);
-    bh_assert('$' == gdbserver->pkt.buf[0]);
-
-    return true;
-}
-
-bool
-read_packet(WASMGDBServer *gdbserver)
-{
-    while (!skip_to_packet_start(gdbserver)) {
-        if (read_data_once(gdbserver) < 0)
-            return false;
-    }
-    if (!gdbserver->noack)
-        write_data_raw(gdbserver, (uint8 *)"+", 1);
-    return true;
 }

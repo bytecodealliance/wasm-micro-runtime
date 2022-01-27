@@ -94,7 +94,7 @@ process_xfer(WASMGDBServer *server, const char *name, char *args)
 }
 
 void
-porcess_wasm_local(WASMGDBServer *server, char *args)
+process_wasm_local(WASMGDBServer *server, char *args)
 {
     int32 frame_index;
     int32 local_index;
@@ -117,7 +117,7 @@ porcess_wasm_local(WASMGDBServer *server, char *args)
 }
 
 void
-porcess_wasm_global(WASMGDBServer *server, char *args)
+process_wasm_global(WASMGDBServer *server, char *args)
 {
     int32 frame_index;
     int32 global_index;
@@ -301,11 +301,11 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 
     if (args && (!strcmp(name, "WasmLocal"))) {
-        porcess_wasm_local(server, args);
+        process_wasm_local(server, args);
     }
 
     if (args && (!strcmp(name, "WasmGlobal"))) {
-        porcess_wasm_global(server, args);
+        process_wasm_global(server, args);
     }
 
     if (!strcmp(name, "Offsets")) {

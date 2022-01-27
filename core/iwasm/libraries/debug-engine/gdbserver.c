@@ -145,18 +145,11 @@ process_packet(WASMGDBServer *server)
     char request;
     char *payload = NULL;
 
-    // if (packet_size == 1) {
-    //     LOG_VERBOSE("receive empty request, ignore it\n");
-    //     return;
-    // }
-
     request = inbuf[0];
     payload = (char *)&inbuf[1];
 
     LOG_VERBOSE("receive request:%c %s\n", request, payload);
     handler_packet(server, request, payload);
-
-    // inbuf_erase_head(server, packet_size + 3);
 }
 
 static inline void
@@ -265,8 +258,14 @@ wasm_gdbserver_handle_packet(WASMGDBServer *server)
         return false;
     }
     else if (n < 0) {
-        /* No bytes arrived */
-        return true;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            /* No bytes arrived */
+            return true;
+        }
+        else {
+            LOG_ERROR("Socket receive error");
+            return false;
+        }
     }
     else {
         int32 i, ret;

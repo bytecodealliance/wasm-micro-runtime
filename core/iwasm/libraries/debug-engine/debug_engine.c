@@ -128,6 +128,9 @@ control_thread_routine(void *arg)
                      * in the cluster, otherwise ignore this event */
                     status = 0;
 
+                    /* By design, all the other threads should stopped at this
+                     * moment, so it is safe to access the exec_env_list.len
+                     * without lock */
                     if (debug_inst->cluster->exec_env_list.len != 1) {
                         debug_inst->stopped_thread = NULL;
                         os_mutex_unlock(&control_thread->wait_lock);
