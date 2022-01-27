@@ -580,9 +580,7 @@ notify_debug_instance(WASMExecEnv *exec_env)
         return;
     }
 
-    os_mutex_lock(&cluster->debug_inst->wait_lock);
     on_thread_stop_event(cluster->debug_inst, exec_env);
-    os_mutex_unlock(&cluster->debug_inst->wait_lock);
 }
 
 void

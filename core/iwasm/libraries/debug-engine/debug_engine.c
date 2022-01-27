@@ -27,7 +27,9 @@ typedef struct WASMDebugEngine {
 void
 on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env)
 {
+    os_mutex_lock(&debug_inst->wait_lock);
     debug_inst->stopped_thread = exec_env;
+    os_mutex_unlock(&debug_inst->wait_lock);
 }
 
 static WASMDebugEngine *g_debug_engine;
