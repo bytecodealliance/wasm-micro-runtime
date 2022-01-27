@@ -116,7 +116,8 @@ control_thread_routine(void *arg)
                 uint32 status;
                 korp_tid tid;
 
-                status = debug_inst->stopped_thread->current_status->signal_flag;
+                status =
+                    debug_inst->stopped_thread->current_status->signal_flag;
                 tid = debug_inst->stopped_thread->handle;
 
                 if (debug_inst->stopped_thread->current_status->running_status

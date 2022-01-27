@@ -451,7 +451,8 @@ handle_threadstop_request(WASMGDBServer *server, char *payload)
     bh_assert(debug_inst->current_state == DBG_LAUNCHING);
 
     /* Waiting for the stop event */
-    while (!debug_inst->stopped_thread);
+    while (!debug_inst->stopped_thread) {
+    }
 
     tid = debug_inst->stopped_thread->handle;
     status = debug_inst->stopped_thread->current_status->signal_flag;
