@@ -131,6 +131,9 @@ control_thread_routine(void *arg)
                     }
                 }
 
+                wasm_debug_instance_set_cur_thread(
+                    debug_inst, debug_inst->stopped_thread->handle);
+
                 send_thread_stop_status(control_thread->server, status, tid);
 
                 debug_inst->current_state = APP_STOPPED;
@@ -574,7 +577,8 @@ wasm_debug_instance_get_pc(WASMDebugInstance *instance)
         return 0;
 
     exec_env = wasm_debug_instance_get_current_env(instance);
-    if ((exec_env->cur_frame != NULL) && (exec_env->cur_frame->ip != NULL)) {
+    if ((exec_env != NULL) && (exec_env->cur_frame != NULL)
+        && (exec_env->cur_frame->ip != NULL)) {
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)exec_env->module_inst;
         return WASM_ADDR(
