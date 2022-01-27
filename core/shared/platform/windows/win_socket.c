@@ -88,7 +88,7 @@ fail:
 int
 os_socket_settimeout(bh_socket_t socket, unsigned long long int timeout_us)
 {
-    DWORD tv = timeout_us / 1000UL;
+    DWORD tv = (DWORD)(timeout_us / 1000UL);
 
     if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv,
                    sizeof(tv))
