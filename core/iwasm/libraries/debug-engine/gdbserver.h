@@ -18,6 +18,7 @@ enum GDBStoppointType {
     eWatchpointRead,
     eWatchpointReadWrite
 };
+
 typedef enum rsp_recv_phase_t {
     Phase_Idle,
     Phase_Payload,
@@ -33,6 +34,7 @@ typedef struct rsp_recv_context_t {
     /* RSP packet should not be too long */
     char receive_buffer[1024];
 } rsp_recv_context_t;
+
 typedef struct WasmDebugPacket {
     unsigned char buf[PACKET_BUF_SIZE];
     uint32 size;
