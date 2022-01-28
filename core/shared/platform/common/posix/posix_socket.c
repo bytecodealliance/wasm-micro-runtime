@@ -72,7 +72,7 @@ fail:
 }
 
 int
-os_socket_settimeout(bh_socket_t socket, unsigned long long int timeout_us)
+os_socket_settimeout(bh_socket_t socket, uint64 timeout_us)
 {
     struct timeval tv;
     tv.tv_sec = timeout_us / 1000000UL;

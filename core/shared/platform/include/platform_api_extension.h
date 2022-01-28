@@ -235,7 +235,7 @@ os_socket_bind(bh_socket_t socket, const char *addr, int *port);
  * @return 0 if success, -1 otherwise
  */
 int
-os_socket_settimeout(bh_socket_t socket, unsigned long long int timeout_us);
+os_socket_settimeout(bh_socket_t socket, uint64 timeout_us);
 
 /**
  * Make the socket as a passive socket to accept incoming connection requests
