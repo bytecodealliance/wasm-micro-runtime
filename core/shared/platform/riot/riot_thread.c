@@ -8,6 +8,8 @@
 #include "platform_api_extension.h"
 
 #include <panic.h>
+#include <sema.h>
+#include <ztimer.h>
 
 /* clang-format off */
 #define bh_assert(v) do {                                   \
@@ -373,7 +375,7 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
     if (timed)
         sema_wait(&node->sem);
     else
-        sema_wait_timed(&node->sem, useconds);
+        sema_wait_timed_ztimer(&node->sem, ZTIMER_USEC, useconds);
     mutex_lock(mutex);
 
     /* Remove wait node from wait list */
