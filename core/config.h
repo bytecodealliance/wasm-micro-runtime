@@ -295,6 +295,9 @@
 #elif defined(PTHREAD_STACK_DEFAULT) && defined(PTHREAD_STACK_MIN)
 #define APP_THREAD_STACK_SIZE_DEFAULT PTHREAD_STACK_DEFAULT
 #define APP_THREAD_STACK_SIZE_MIN PTHREAD_STACK_MIN
+#elif WASM_ENABLE_UVWASI != 0
+#define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
+#define APP_THREAD_STACK_SIZE_MIN (48 * 1024)
 #else
 #define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
@@ -307,7 +310,11 @@
 /* Reserved bytes to the native thread stack boundary, throw native
    stack overflow exception if the guard boudary is reached */
 #ifndef RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY
-#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
+#if WASM_ENABLE_UVWASI != 0
+#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (4096 * 6)
+#else
+#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (1024)
+#endif
 #endif
 
 /* Guard page count for stack overflow check with hardware trap */
