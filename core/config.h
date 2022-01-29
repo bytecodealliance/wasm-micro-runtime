@@ -286,6 +286,8 @@
 #define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
 /* Default/min/max stack size of each app thread */
+#if !(defined(APP_THREAD_STACK_SIZE_DEFAULT) \
+      && defined(APP_THREAD_STACK_SIZE_MIN))
 #if defined(BH_PLATFORM_ZEPHYR) || defined(BH_PLATFORM_ALIOS_THINGS) \
     || defined(BH_PLATFORM_ESP_IDF) || defined(BH_PLATFORM_OPENRTOS)
 #define APP_THREAD_STACK_SIZE_DEFAULT (6 * 1024)
@@ -297,16 +299,21 @@
 #define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #endif
+#endif
 #if !defined(APP_THREAD_STACK_SIZE_MAX)
 #define APP_THREAD_STACK_SIZE_MAX (8 * 1024 * 1024)
 #endif
 
 /* Reserved bytes to the native thread stack boundary, throw native
    stack overflow exception if the guard boudary is reached */
+#ifndef RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY
 #define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
+#endif
 
 /* Guard page count for stack overflow check with hardware trap */
+#ifndef STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT
 #define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
+#endif
 
 /* Default wasm block address cache size and conflict list size */
 #ifndef BLOCK_ADDR_CACHE_SIZE

@@ -77,7 +77,7 @@ os_mem_decommit(void *ptr, size_t size);
 #define strncasecmp _strnicmp
 #define strcasecmp _stricmp
 
-#if WASM_DISABLE_HW_BOUND_CHECK == 0
+#if WASM_DISABLE_HW_BOUND_CHECK == 0 && WASM_ENABLE_AOT != 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 
 #include <setjmp.h>
@@ -102,7 +102,7 @@ os_thread_signal_inited();
 #define os_sigreturn() (void)0
 
 #endif /* end of BUILD_TARGET_X86_64/AMD_64 */
-#endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+#endif /* end of WASM_DISABLE_HW_BOUND_CHECK == 0 && WASM_ENABLE_AOT != 0 */
 
 #ifdef __cplusplus
 }
