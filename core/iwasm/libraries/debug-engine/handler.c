@@ -192,7 +192,8 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 
     if (!strcmp(name, "HostInfo")) {
-        mem2hex("wasm32-wamr-wasi-wasm", triple, strlen("wasm32-wamr-wasi-wasm"));
+        mem2hex("wasm32-wamr-wasi-wasm", triple,
+                strlen("wasm32-wamr-wasi-wasm"));
 
         os_mutex_lock(&tmpbuf_lock);
         snprintf(tmpbuf, sizeof(tmpbuf),
@@ -222,7 +223,8 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         uint64 pid;
         pid = wasm_debug_instance_get_pid(
             (WASMDebugInstance *)server->thread->debug_instance);
-        mem2hex("wasm32-wamr-wasi-wasm", triple, strlen("wasm32-wamr-wasi-wasm"));
+        mem2hex("wasm32-wamr-wasi-wasm", triple,
+                strlen("wasm32-wamr-wasi-wasm"));
 
         os_mutex_lock(&tmpbuf_lock);
         snprintf(tmpbuf, sizeof(tmpbuf),
