@@ -192,12 +192,11 @@ handle_generay_query(WASMGDBServer *server, char *payload)
     }
 
     if (!strcmp(name, "HostInfo")) {
-        // Todo: change vendor to Intel for outside tree？
-        mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
+        mem2hex("wasm32-wamr-wasi-wasm", triple, strlen("wasm32-wamr-wasi-wasm"));
 
         os_mutex_lock(&tmpbuf_lock);
         snprintf(tmpbuf, sizeof(tmpbuf),
-                 "vendor:Ant;ostype:wasi;arch:wasm32;"
+                 "vendor:wamr;ostype:wasi;arch:wasm32;"
                  "triple:%s;endian:little;ptrsize:4;",
                  triple);
         write_packet(server, tmpbuf);
@@ -223,13 +222,12 @@ handle_generay_query(WASMGDBServer *server, char *payload)
         uint64 pid;
         pid = wasm_debug_instance_get_pid(
             (WASMDebugInstance *)server->thread->debug_instance);
-        // arch-vendor-os-env(format)
-        mem2hex("wasm32-Ant-wasi-wasm", triple, strlen("wasm32-Ant-wasi-wasm"));
+        mem2hex("wasm32-wamr-wasi-wasm", triple, strlen("wasm32-wamr-wasi-wasm"));
 
         os_mutex_lock(&tmpbuf_lock);
         snprintf(tmpbuf, sizeof(tmpbuf),
                  "pid:%" PRIx64 ";parent-pid:%" PRIx64
-                 ";vendor:Ant;ostype:wasi;arch:wasm32;"
+                 ";vendor:wamr;ostype:wasi;arch:wasm32;"
                  "triple:%s;endian:little;ptrsize:4;",
                  pid, pid, triple);
         write_packet(server, tmpbuf);
