@@ -1011,7 +1011,7 @@ pthread_setspecific_wrapper(wasm_exec_env_t exec_env, int32 key,
     key_values = key_value_list_lookup_or_create(exec_env, info, key);
     if (!key_values) {
         os_mutex_unlock(&info->key_data_list_lock);
-        return 0;
+        return -1;
     }
 
     key_values[key] = value_offset;
@@ -1028,7 +1028,7 @@ pthread_getspecific_wrapper(wasm_exec_env_t exec_env, int32 key)
     int32 ret, *key_values;
 
     if (!info)
-        return -1;
+        return 0;
 
     os_mutex_lock(&info->key_data_list_lock);
 
