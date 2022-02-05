@@ -516,10 +516,11 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
 
     /* Unlock mutex, wait sem and lock mutex again */
     os_mutex_unlock(mutex);
+    int wait_result;
     if (timed)
-        os_sem_reltimed_wait(&node->sem, useconds);
+        wait_result = os_sem_reltimed_wait(&node->sem, useconds);
     else
-        os_sem_wait(&node->sem);
+        wait_result = os_sem_wait(&node->sem);
     os_mutex_lock(mutex);
 
     /* Remove wait node from wait list */
@@ -535,7 +536,7 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
     }
     os_mutex_unlock(&cond->wait_list_lock);
 
-    return BHT_OK;
+    return wait_result;
 }
 
 int
