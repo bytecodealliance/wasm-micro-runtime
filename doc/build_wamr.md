@@ -324,6 +324,36 @@ For how to build the `JIT` mode and `classic interpreter` mode, please refer to 
 
 WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Windows, interpreter, AOT, and builtin libc are enabled by default.
 
+MinGW
+-------------------------
+
+First make sure the correct CMake package is installed; the following commands
+are valid for the MSYS2 build environment:
+
+```Bash
+pacman -R cmake
+pacman -S mingw-w64-x86_64-cmake
+```
+
+Then follow the build instructions for Windows above, minus cloning uvwasi and
+adding the following arguments for cmake:
+
+```Bash
+cmake .. -G"Unix Makefiles" \
+         -DWAMR_BUILD_LIBC_UVWASI=0 \
+         -DWAMR_BUILD_INVOKE_NATIVE_GENERAL=1 \
+         -DWAMR_DISABLE_HW_BOUND_CHECK=1
+````
+
+Note that WASI will be disabled until further work is done towards full MinGW support.
+
+- uvwasi not building out of the box, though it reportedly supports MinGW.
+- Failing compilation of assembler files, the C version of `invokeNative()` will
+be used instead.
+- Compiler complaining about missing `UnwindInfoAddress` field in `RUNTIME_FUNCTION`
+struct (winnt.h).
+
+
 VxWorks
 -------------------------
 VxWorks 7 SR0620 release is validated.
