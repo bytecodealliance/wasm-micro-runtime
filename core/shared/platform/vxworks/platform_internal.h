@@ -57,7 +57,7 @@ typedef pthread_t korp_thread;
 
 #define os_thread_local_attribute __thread
 
-#if WASM_DISABLE_HW_BOUND_CHECK == 0 && WASM_ENABLE_AOT != 0
+#if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_AARCH64)
 

@@ -61,7 +61,7 @@ typedef pthread_t korp_thread;
 
 #define bh_socket_t int
 
-#if WASM_DISABLE_HW_BOUND_CHECK == 0 && WASM_ENABLE_AOT != 0
+#if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)            \
     || defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
     || defined(BUILD_TARGET_RISCV64_LP64)
@@ -95,7 +95,7 @@ os_signal_unmask();
 void
 os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
-#endif /* end of WASM_DISABLE_HW_BOUND_CHECK == 0 && WASM_ENABLE_AOT != 0 */
+#endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
 
 #ifdef __cplusplus
 }
