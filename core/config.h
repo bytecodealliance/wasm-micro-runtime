@@ -285,7 +285,9 @@
 /* Min auxilliary stack size of each wasm thread */
 #define WASM_THREAD_AUX_STACK_SIZE_MIN (256)
 
-/* Default/min/max stack size of each app thread */
+/* Default/min native stack size of each app thread */
+#if !(defined(APP_THREAD_STACK_SIZE_DEFAULT) \
+      && defined(APP_THREAD_STACK_SIZE_MIN))
 #if defined(BH_PLATFORM_ZEPHYR) || defined(BH_PLATFORM_ALIOS_THINGS) \
     || defined(BH_PLATFORM_ESP_IDF) || defined(BH_PLATFORM_OPENRTOS)
 #define APP_THREAD_STACK_SIZE_DEFAULT (6 * 1024)
@@ -293,20 +295,37 @@
 #elif defined(PTHREAD_STACK_DEFAULT) && defined(PTHREAD_STACK_MIN)
 #define APP_THREAD_STACK_SIZE_DEFAULT PTHREAD_STACK_DEFAULT
 #define APP_THREAD_STACK_SIZE_MIN PTHREAD_STACK_MIN
+#elif WASM_ENABLE_UVWASI != 0
+/* UVWASI requires larger native stack */
+#define APP_THREAD_STACK_SIZE_DEFAULT (64 * 1024)
+#define APP_THREAD_STACK_SIZE_MIN (48 * 1024)
 #else
 #define APP_THREAD_STACK_SIZE_DEFAULT (32 * 1024)
 #define APP_THREAD_STACK_SIZE_MIN (24 * 1024)
 #endif
+#endif /* end of !(defined(APP_THREAD_STACK_SIZE_DEFAULT) \
+                   && defined(APP_THREAD_STACK_SIZE_MIN)) */
+
+/* Max native stack size of each app thread */
 #if !defined(APP_THREAD_STACK_SIZE_MAX)
 #define APP_THREAD_STACK_SIZE_MAX (8 * 1024 * 1024)
 #endif
 
 /* Reserved bytes to the native thread stack boundary, throw native
    stack overflow exception if the guard boudary is reached */
-#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (512)
+#ifndef RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY
+#if WASM_ENABLE_UVWASI != 0
+/* UVWASI requires larger native stack */
+#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (4096 * 6)
+#else
+#define RESERVED_BYTES_TO_NATIVE_STACK_BOUNDARY (1024)
+#endif
+#endif
 
 /* Guard page count for stack overflow check with hardware trap */
+#ifndef STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT
 #define STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT 3
+#endif
 
 /* Default wasm block address cache size and conflict list size */
 #ifndef BLOCK_ADDR_CACHE_SIZE
