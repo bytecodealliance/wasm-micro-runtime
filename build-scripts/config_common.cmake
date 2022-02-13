@@ -198,6 +198,10 @@ endif ()
 if (WAMR_DISABLE_HW_BOUND_CHECK EQUAL 1)
   add_definitions (-DWASM_DISABLE_HW_BOUND_CHECK=1)
   message ("     Hardware boundary check disabled")
+elseif (NOT WAMR_BUILD_AOT EQUAL 1)
+  # Enable memory access boundary check with hardware trap
+  # only when AOT/JIT is enabled
+  add_definitions (-DWASM_DISABLE_HW_BOUND_CHECK=1)
 else ()
   add_definitions (-DWASM_DISABLE_HW_BOUND_CHECK=0)
 endif ()

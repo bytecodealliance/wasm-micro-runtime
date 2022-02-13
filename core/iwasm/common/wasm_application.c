@@ -105,6 +105,9 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
        the actual main function. Directly calling main function
        may cause exception thrown. */
     if ((func = wasm_runtime_lookup_wasi_start_function(module_inst))) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        wasm_runtime_start_debug_instance(exec_env);
+#endif
         return wasm_runtime_call_wasm(exec_env, func, 0, NULL);
     }
 #endif /* end of WASM_ENABLE_LIBC_WASI */
@@ -185,6 +188,10 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
         argv1[1] =
             (uint32)wasm_runtime_addr_native_to_app(module_inst, argv_offsets);
     }
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_runtime_start_debug_instance(exec_env);
+#endif
 
     ret = wasm_runtime_call_wasm(exec_env, func, argc1, argv1);
     if (ret && func_type->result_count > 0 && argc > 0 && argv)
@@ -569,6 +576,10 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                                    "create singleton exec_env failed");
         goto fail;
     }
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    wasm_runtime_start_debug_instance(exec_env);
+#endif
 
     if (!wasm_runtime_call_wasm(exec_env, target_func, argc1, argv1)) {
         goto fail;
