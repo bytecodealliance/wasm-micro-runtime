@@ -95,10 +95,6 @@ mkdir ${OUT_DIR}
 mkdir ${OUT_DIR}/wasm-apps
 
 cd ${WAMR_DIR}/core/shared/mem-alloc
-if [ ! -d "tlsf" ]; then
-    git clone https://github.com/mattconte/tlsf
-fi
-
 
 PROFILE="simple-$PROFILE"
 
