@@ -1629,7 +1629,7 @@ wasm_runtime_call_wasm_a(WASMExecEnv *exec_env,
     }
 
     parse_args_to_uint32_array(type, args, argv);
-    if (!(ret = wasm_runtime_call_wasm(exec_env, function, num_args, argv)))
+    if (!(ret = wasm_runtime_call_wasm(exec_env, function, argc, argv)))
         goto fail2;
 
     parse_uint32_array_to_results(type, argv, results);
