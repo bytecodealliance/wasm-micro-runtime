@@ -80,7 +80,16 @@ Then build the program with this command:
 
 **Build with EMCC**
 
+> Note: This document is based on `emcc 2.0.26`, other version may not work with these commands
+
 EMCC's `-pthread` option is not compatible with standalone mode, we need to pass `-mbulk-memory -matomics` to the compiler and `--shared-memory,--no-check-features` to linker manually
+
+EMCC provides some empty implementation for pthread related APIs, we need to remove them from emcc's libc.
+``` bash
+cd ${emsdk_dir}/upstream/emscripten/cache/sysroot/lib/wasm32-emscripten
+emar d libc.a library_pthread_stub.o
+emranlib libc.a
+```
 
 ``` bash
 emcc -O3 -mbulk-memory -matomics -s MALLOC="none"   \
@@ -90,9 +99,9 @@ emcc -O3 -mbulk-memory -matomics -s MALLOC="none"   \
      main.c -o test.wasm
 ```
 
-**Build AoT module**
+**Build AOT module**
 
-You can build the wasm module into AoT module with pthread support, please pass option `--enable-multi-thread` to wamrc:
+You can build the wasm module into AOT module with pthread support, please pass option `--enable-multi-thread` to wamrc:
 ``` bash
 wamrc --enable-multi-thread -o test.aot test.wasm
 ```
@@ -105,7 +114,7 @@ cmake .. -DWAMR_BUILD_LIB_PTHREAD=1
 make
 # Then you can run the wasm module above:
 ./iwasm test.wasm
-# Or the AoT module:
+# Or the AOT module:
 # ./iwasm test.aot
 ```
 
@@ -165,6 +174,8 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
                            unsigned int useconds);
 
 int pthread_cond_signal(pthread_cond_t *cond);
+
+int pthread_cond_broadcast(pthread_cond_t *cond);
 
 int pthread_cond_destroy(pthread_cond_t *cond);
 

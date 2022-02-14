@@ -2,21 +2,43 @@
 ;; SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 (module
-  ;; import test_write function which is implemented by host
-  (import "env" "test_write"
-    (func $test_write (param externref i32 i32) (result i32)))
+  (type $t0 (func (param i32 externref) (result i32)))
 
-  ;; memory with one page (64KiB).
-  (memory (export "memory") 1)
+  (import "env" "native-cmp-externref"
+    (func $native-cmp-externref (param externref externref) (result i32))
+  )
 
-  (data (i32.const 0x8) "Hello, world!\n")
+  (import "env" "native-chk-externref"
+    (func $native-chk-externref (param i32 externref) (result i32))
+  )
 
-  ;; function that writes string to a given open file handle
-  (func (export "test") (param externref)
-     (local.get 0)
-     (i32.const 0x8)
-     (i32.const 14)
-     (call $test_write)
-     drop
+  (table $t1 8 8 externref)
+  (table $t2 funcref
+    (elem
+      $native-cmp-externref
+      $native-chk-externref
+    )
+  )
+
+  (func (export "set-externref") (param $i i32) (param $r externref)
+    (table.set $t1 (local.get $i) (local.get $r))
+  )
+
+  (func (export "get-externref") (param $i i32) (result externref)
+    (table.get $t1 (local.get $i))
+  )
+
+  (func (export "cmp-externref") (param $i i32) (param $r externref) (result i32)
+    (table.get $t1 (local.get $i))
+    (local.get $r)
+    (call $native-cmp-externref)
+  )
+
+  (func (export "chk-externref") (param $i i32) (param $r externref) (result i32)
+    (call_indirect $t2 (type $t0)
+      (local.get $i)
+      (local.get $r)
+      (i32.const 1)
+    )
   )
 )

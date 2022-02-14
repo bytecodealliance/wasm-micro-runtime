@@ -22,7 +22,7 @@ extern "C" {
 /* Invalid module ID */
 #define ID_NONE ((uint32)-1)
 
-struct attr_container_t;
+struct attr_container;
 
 /* Queue message type */
 typedef enum QUEUE_MSG_TYPE {

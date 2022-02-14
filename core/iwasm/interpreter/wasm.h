@@ -831,6 +831,19 @@ wasm_get_cell_num(const uint8 *types, uint32 type_count)
     return cell_num;
 }
 
+#if WASM_ENABLE_REF_TYPES != 0
+inline static uint16
+wasm_value_type_cell_num_outside(uint8 value_type)
+{
+    if (VALUE_TYPE_EXTERNREF == value_type) {
+        return sizeof(uintptr_t) / sizeof(uint32);
+    }
+    else {
+        return wasm_value_type_cell_num(value_type);
+    }
+}
+#endif
+
 #if WASM_ENABLE_GC == 0
 inline static bool
 wasm_type_equal(const WASMType *type1, const WASMType *type2)

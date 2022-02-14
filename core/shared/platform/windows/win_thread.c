@@ -164,7 +164,9 @@ static unsigned __stdcall os_thread_wrapper(void *arg)
     void *retval;
     bool result;
 
+#if 0
     os_printf("THREAD CREATED %p\n", thread_data);
+#endif
 
     os_mutex_lock(&parent->wait_lock);
     thread_data->thread_id = GetCurrentThreadId();
@@ -514,10 +516,11 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
 
     /* Unlock mutex, wait sem and lock mutex again */
     os_mutex_unlock(mutex);
+    int wait_result;
     if (timed)
-        os_sem_reltimed_wait(&node->sem, useconds);
+        wait_result = os_sem_reltimed_wait(&node->sem, useconds);
     else
-        os_sem_wait(&node->sem);
+        wait_result = os_sem_wait(&node->sem);
     os_mutex_lock(mutex);
 
     /* Remove wait node from wait list */
@@ -533,7 +536,7 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
     }
     os_mutex_unlock(&cond->wait_list_lock);
 
-    return BHT_OK;
+    return wait_result;
 }
 
 int
@@ -560,6 +563,24 @@ os_cond_signal(korp_cond *cond)
     os_mutex_lock(&cond->wait_list_lock);
     if (cond->thread_wait_list)
         os_sem_signal(&cond->thread_wait_list->sem);
+    os_mutex_unlock(&cond->wait_list_lock);
+
+    return BHT_OK;
+}
+
+int
+os_cond_broadcast(korp_cond *cond)
+{
+    /* Signal all of the wait node of wait list */
+    os_mutex_lock(&cond->wait_list_lock);
+    if (cond->thread_wait_list) {
+        os_thread_wait_node *p = cond->thread_wait_list;
+        while (p) {
+            os_sem_signal(&p->sem);
+            p = p->next;
+        }
+    }
+
     os_mutex_unlock(&cond->wait_list_lock);
 
     return BHT_OK;

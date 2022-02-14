@@ -1,16 +1,15 @@
+# wasm-c-api introduction
+
 All samples come from the commit 340fd9528cc3b26d22fe30ee1628c8c3f2b8c53b
-of [wasm-c-api][https://github.com/WebAssembly/wasm-c-api].
+of [wasm-c-api](https://github.com/WebAssembly/wasm-c-api).
 
-Every user should be familiar with *APIs* listed in
-[wasm.h][https://github.com/WebAssembly/wasm-c-api/blob/master/include/wasm.h].
+Developer can learn these *APIs* from
+[wasm.h](https://github.com/WebAssembly/wasm-c-api/blob/master/include/wasm.h).
 
-all [examples][https://github.com/WebAssembly/wasm-c-api/tree/master/example] are
-very helpful for learning.
+And here are [examples](https://github.com/WebAssembly/wasm-c-api/tree/master/example) which
+are helpful.
 
-Currently, we support partial of APIs and are going to support the rest of
-them in next releases.
-
-a summary of unsupported APIs
+Currently WAMR supports most of the APIs, the unsupported APIs are listed as below:
 
 - References
 
@@ -26,7 +25,7 @@ WASM_API_EXTERN void wasm_module_serialize(const wasm_module_t*, own wasm_byte_v
 WASM_API_EXTERN own wasm_module_t* wasm_module_deserialize(wasm_store_t*, const wasm_byte_vec_t*);
 ```
 
-we tend to grow a table or a memory by opcode only and not support growing both
+Currently growing a table or memory by wasm opcode is supported and it is not supported to grow them
 by host-side function callings.
 
 - Table Grow APIs

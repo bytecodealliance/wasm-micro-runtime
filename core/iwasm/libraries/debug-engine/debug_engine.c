@@ -315,7 +315,6 @@ wasm_debug_instance_create(WASMCluster *cluster)
 
     if (!wasm_debug_control_thread_create(instance)) {
         LOG_ERROR("WASM Debug Engine error: failed to create control thread");
-        wasm_runtime_free(instance);
         goto fail3;
     }
 
