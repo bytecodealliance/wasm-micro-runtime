@@ -31,7 +31,9 @@ extern "C" {
 /* Reference Types */
 #define REF_TYPE_FUNCREF VALUE_TYPE_FUNCREF
 #define REF_TYPE_EXTERNREF VALUE_TYPE_EXTERNREF
-#define REF_TYPE_ANYREF 0x6E
+/* extern is renamed back to any, the name extern is kept as
+   an alias in the text format for backwards compatibility */
+#define REF_TYPE_ANYREF VALUE_TYPE_EXTERNREF
 #define REF_TYPE_EQREF 0x6D
 #define REF_TYPE_HT_NULLABLE 0x6C
 #define REF_TYPE_HT_NON_NULLABLE 0x6B
@@ -39,16 +41,18 @@ extern "C" {
 #define REF_TYPE_RTTN 0x69
 #define REF_TYPE_RTT 0x68
 #define REF_TYPE_DATAREF 0x67
+#define REF_TYPE_ARRAYREF 0x66
 
 /* Heap Types */
 #define HEAP_TYPE_FUNC (-0x10)
 #define HEAP_TYPE_EXTERN (-0x11)
-#define HEAP_TYPE_ANY (-0x12)
+#define HEAP_TYPE_ANY (-0x11)
 #define HEAP_TYPE_EQ (-0x13)
 #define HEAP_TYPE_I31 (-0x16)
 #define HEAP_TYPE_RTTN (-0x17)
 #define HEAP_TYPE_RTT (-0x18)
 #define HEAP_TYPE_DATA (-0x19)
+#define HEAP_TYPE_ARRAY (-0x20)
 
 /* Defined Types */
 #define DEFINED_TYPE_FUNC 0x60
@@ -229,8 +233,8 @@ typedef struct RefHeapType_Common {
     /* true if ref_type is REF_TYPE_HT_NULLABLE */
     bool nullable;
     /* Common heap type (not defined type and not rtt type):
-       -0x10 (func), -0x11 (extern), -0x12 (any),
-       -0x13 (eq),   -0x16 (i31),    -0x19 (data) */
+       -0x10 (func), -0x11 (any), -0x13 (eq),
+       -0x16 (i31), -0x19 (data), -0x20 (array) */
     int32 heap_type;
 } RefHeapType_Common;
 
@@ -821,7 +825,7 @@ wasm_value_type_size(uint8 value_type)
         return sizeof(int64) * 2;
 #endif
 #if WASM_ENABLE_GC != 0
-    else if (value_type >= (uint8)REF_TYPE_DATAREF
+    else if (value_type >= (uint8)REF_TYPE_ARRAYREF
              && value_type <= (uint8)REF_TYPE_FUNCREF)
         return sizeof(uintptr_t);
 #elif WASM_ENABLE_REF_TYPES != 0

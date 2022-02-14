@@ -33,9 +33,6 @@ wasm_dump_value_type(uint8 type, const WASMRefType *ref_type)
         case REF_TYPE_FUNCREF:
             os_printf("funcref");
             break;
-        case REF_TYPE_EXTERNREF:
-            os_printf("externref");
-            break;
         case REF_TYPE_ANYREF:
             os_printf("anyref");
             break;
@@ -53,9 +50,6 @@ wasm_dump_value_type(uint8 type, const WASMRefType *ref_type)
                     case HEAP_TYPE_FUNC:
                         os_printf("func");
                         break;
-                    case HEAP_TYPE_EXTERN:
-                        os_printf("extern");
-                        break;
                     case HEAP_TYPE_ANY:
                         os_printf("any");
                         break;
@@ -67,6 +61,9 @@ wasm_dump_value_type(uint8 type, const WASMRefType *ref_type)
                         break;
                     case HEAP_TYPE_DATA:
                         os_printf("data");
+                        break;
+                    case HEAP_TYPE_ARRAY:
+                        os_printf("array");
                         break;
                 }
             }
@@ -103,6 +100,9 @@ wasm_dump_value_type(uint8 type, const WASMRefType *ref_type)
             break;
         case REF_TYPE_DATAREF:
             os_printf("dataref");
+            break;
+        case REF_TYPE_ARRAYREF:
+            os_printf("arrayref");
             break;
         default:
             bh_assert(0);
@@ -572,7 +572,8 @@ wasm_reftype_size(uint8 type)
         return 4;
     else if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64)
         return 8;
-    else if (type >= (uint8)REF_TYPE_DATAREF && type <= (uint8)REF_TYPE_FUNCREF)
+    else if (type >= (uint8)REF_TYPE_ARRAYREF
+             && type <= (uint8)REF_TYPE_FUNCREF)
         return sizeof(uintptr_t);
     else if (type == PACKED_TYPE_I8)
         return 1;
@@ -767,12 +768,12 @@ wasm_reftype_equal_recursive(uint8 type1, const WASMRefType *reftype1,
                              const WASMTypePtr *types, uint32 type_count,
                              TypeIdxList type_idx_list)
 {
-    /* For (ref null func/extern/any/eq/i31/data), they are same as
-       funcref/externref/anyref/eqref/i31ref/dataref and have been
+    /* For (ref null func/any/eq/i31/data), they are same as
+       funcref/anyref/eqref/i31ref/dataref and have been
        converted into to the related one-byte type when loading, so here
        we don't consider the situations again:
-         one is (ref null func/extern/any/eq/i31/data),
-         the other is funcref/externref/anyref/eqref/i31ref/dataref. */
+         one is (ref null func/any/eq/i31/data),
+         the other is funcref/anyref/eqref/i31ref/dataref. */
     if (type1 != type2)
         return false;
 
@@ -831,13 +832,6 @@ wasm_is_reftype_supers_of_func(uint8 type)
 }
 
 inline static bool
-wasm_is_reftype_supers_of_extern(uint8 type)
-{
-    return (type == REF_TYPE_EXTERNREF || type == REF_TYPE_ANYREF) ? true
-                                                                   : false;
-}
-
-inline static bool
 wasm_is_reftype_supers_of_i31(uint8 type)
 {
     return (type == REF_TYPE_I31REF || wasm_is_reftype_supers_of_eq(type))
@@ -849,6 +843,14 @@ inline static bool
 wasm_is_reftype_supers_of_data(uint8 type)
 {
     return (type == REF_TYPE_DATAREF || wasm_is_reftype_supers_of_eq(type))
+               ? true
+               : false;
+}
+
+inline static bool
+wasm_is_reftype_supers_of_array(uint8 type)
+{
+    return (type == REF_TYPE_ARRAYREF || wasm_is_reftype_supers_of_data(type))
                ? true
                : false;
 }
@@ -979,8 +981,6 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
      *   |        |-> dataref -> (ref null $t) -> (ref $t), $t is struct/array
      *   |
      *   |-> funcref -> (ref null $t) -> (ref $t), $t is func
-     *   |
-     *   |-> externref
      */
 
     if (type1 == REF_TYPE_ANYREF) {
@@ -995,10 +995,6 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
         /* func <: [func, any] */
         return wasm_is_reftype_supers_of_func(type2);
     }
-    else if (type1 == REF_TYPE_EXTERNREF) {
-        /* extern <: [extern, any] */
-        return wasm_is_reftype_supers_of_extern(type2);
-    }
     else if (type1 == REF_TYPE_I31REF) {
         /* i31 <: [i31, eq, any] */
         return wasm_is_reftype_supers_of_i31(type2);
@@ -1006,6 +1002,10 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
     else if (type1 == REF_TYPE_DATAREF) {
         /* data <: [data, eq, any] */
         return wasm_is_reftype_supers_of_data(type2);
+    }
+    else if (type1 == REF_TYPE_ARRAYREF) {
+        /* array <: [array, data, eq, any] */
+        return wasm_is_reftype_supers_of_array(type2);
     }
     else if (type1 == REF_TYPE_HT_NULLABLE) {
         if (wasm_is_refheaptype_rtt(&ref_type1->ref_ht_common)) {
@@ -1026,20 +1026,24 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             /* reftype1 is (ref null $t), the super type can be:
                  (ref null $t), dataref, eqref, funcref and anyref */
             if (type2 == REF_TYPE_HT_NULLABLE
-                && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)
-                && type_idx_equal_recursive(ref_type1->ref_ht_typeidx.type_idx,
-                                            ref_type2->ref_ht_typeidx.type_idx,
-                                            types, type_count, NULL))
-                return true;
+                && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
+                return type_idx_equal_recursive(
+                    ref_type1->ref_ht_typeidx.type_idx,
+                    ref_type2->ref_ht_typeidx.type_idx, types, type_count,
+                    NULL);
+            }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_FUNC)
                 return wasm_is_reftype_supers_of_func(type2);
+            else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
+                     == WASM_TYPE_ARRAY)
+                return wasm_is_reftype_supers_of_array(type2);
             else
                 return wasm_is_reftype_supers_of_data(type2);
         }
         else {
-            /* (ref null (func/extern/any/eq/i31/data)) have been converted into
-               funcref/externref/anyref/eqref/i31ref/dataref when loading */
+            /* (ref null (func/any/eq/i31/data)) have been converted into
+               funcref/anyref/eqref/i31ref/dataref when loading */
             bh_assert(0);
         }
     }
@@ -1060,15 +1064,17 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 ref_type1->ref_ht_rttn.type_idx, types, type_count, NULL);
         }
         else if (wasm_is_refheaptype_typeidx(&ref_type1->ref_ht_common)) {
-            /* reftype1 is (ref $t), the super type can be:
-                 (ref $t), (ref null $t), dataref, eqref, funcref and anyref */
+            /* reftype1 is (ref $t), the super type might be:
+                 (ref $t), (ref null $t), arrayref, dataref, eqref,
+                 funcref and anyref */
             if ((type2 == REF_TYPE_HT_NULLABLE
                  || type2 == REF_TYPE_HT_NON_NULLABLE)
-                && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)
-                && type_idx_equal_recursive(ref_type1->ref_ht_typeidx.type_idx,
-                                            ref_type2->ref_ht_typeidx.type_idx,
-                                            types, type_count, NULL))
-                return true;
+                && wasm_is_refheaptype_typeidx(&ref_type2->ref_ht_common)) {
+                return type_idx_equal_recursive(
+                    ref_type1->ref_ht_typeidx.type_idx,
+                    ref_type2->ref_ht_typeidx.type_idx, types, type_count,
+                    NULL);
+            }
             else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
                      == WASM_TYPE_FUNC) {
                 /* the super type is (ref null func) or (ref func) */
@@ -1078,6 +1084,16 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                     return true;
                 /* the super type is funcref or anyref */
                 return wasm_is_reftype_supers_of_func(type2);
+            }
+            else if (types[ref_type1->ref_ht_typeidx.type_idx]->type_flag
+                     == WASM_TYPE_ARRAY) {
+                /* the super type is (ref null array) or (ref array) */
+                if ((type2 == REF_TYPE_HT_NULLABLE
+                     || type2 == REF_TYPE_HT_NON_NULLABLE)
+                    && ref_type2->ref_ht_common.heap_type == HEAP_TYPE_ARRAY)
+                    return true;
+                /* the super type is arrayref, dataref, eqref or anyref */
+                return wasm_is_reftype_supers_of_array(type2);
             }
             else {
                 /* the super type is (ref null data) or (ref data) */
@@ -1090,9 +1106,9 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
             }
         }
         else if (wasm_is_refheaptype_common(&ref_type1->ref_ht_common)) {
-            /* reftype1 is (ref func/extern/any/eq/i31/data), the super type
+            /* reftype1 is (ref func/any/eq/i31/data), the super type
                can be itself, or supers of
-               funcref/externref/anyref/eqref/i31ref/dataref */
+               funcref/anyref/eqref/i31ref/dataref */
             if (wasm_reftype_equal(type1, ref_type1, type2, ref_type2, types,
                                    type_count))
                 return true;
@@ -1110,10 +1126,6 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                     /* (ref func) <: [funcref, anyref] */
                     return wasm_is_reftype_supers_of_func(type2);
                 }
-                else if (heap_type == HEAP_TYPE_EXTERN) {
-                    /* (ref extern) <: [externref, anyref] */
-                    return wasm_is_reftype_supers_of_extern(type2);
-                }
                 else if (heap_type == HEAP_TYPE_I31) {
                     /* (ref i31) <: [i31ref, eqref, anyref] */
                     return wasm_is_reftype_supers_of_i31(type2);
@@ -1121,6 +1133,10 @@ wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *ref_type1,
                 else if (heap_type == HEAP_TYPE_DATA) {
                     /* (ref data) <: [dataref, eqref, anyref] */
                     return wasm_is_reftype_supers_of_data(type2);
+                }
+                else if (heap_type == HEAP_TYPE_ARRAY) {
+                    /* (ref array) <: [arrayref, dataref, eqref, anyref] */
+                    return wasm_is_reftype_supers_of_array(type2);
                 }
                 else {
                     bh_assert(0);

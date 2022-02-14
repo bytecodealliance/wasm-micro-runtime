@@ -207,20 +207,26 @@ type2str(uint8 type)
 {
     char *type_str[] = { "v128", "f64", "f32", "i64", "i32" };
 #if WASM_ENABLE_GC != 0
-    char *type_str_ref[] = { "dataref", "(rtt $t)", "(rtt n $t)",
-                             "i31ref",  "(ref ht)", "(ref null ht)",
-                             "eqref",   "anyref" };
+    char *type_str_ref[] = { "arrayref",      "dataref", "(rtt $t)",
+                             "(rtt n $t)",    "i31ref",  "(ref ht)",
+                             "(ref null ht)", "eqref" };
 #endif
 
     if (type >= VALUE_TYPE_V128 && type <= VALUE_TYPE_I32)
         return type_str[type - VALUE_TYPE_V128];
     else if (type == VALUE_TYPE_FUNCREF)
         return "funcref";
+#if WASM_ENABLE_GC == 0
     else if (type == VALUE_TYPE_EXTERNREF)
         return "externref";
+#else
+    else if (type == VALUE_TYPE_EXTERNREF)
+        /* VALUE_TYPE_EXTERNREF == REF_TYPE_ANYREF */
+        return "anyref";
+#endif
 #if WASM_ENABLE_GC != 0
     else if (wasm_is_type_reftype(type))
-        return type_str_ref[type - REF_TYPE_DATAREF];
+        return type_str_ref[type - REF_TYPE_ARRAYREF];
 #endif
     else
         return "unknown type";
@@ -2955,15 +2961,15 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             if (local_count > 0)
                 func->local_types = (uint8 *)func + sizeof(WASMFunction);
             func->code_size = code_size;
-            /*
-             * we shall make a copy of code body [p_code, p_code + code_size]
-             * when we are worrying about inappropriate releasing behaviour.
-             * all code bodies are actually in a buffer which user allocates in
-             * his embedding environment and we don't have power on them.
-             * it will be like:
-             * code_body_cp = malloc(code_size);
-             * memcpy(code_body_cp, p_code, code_size);
-             * func->code = code_body_cp;
+            /**
+             * We shall make a copy of code body [p_code, p_code + code_size]
+             * as we worry about the inappropriate releasing behaviour.
+             * All code bodies are actually in a buffer which user allocates in
+             * his embedding environment and we don't have the power on them.
+             * It is like:
+             *   code_body_cp = malloc(code_size);
+             *   memcpy(code_body_cp, p_code, code_size);
+             *   func->code = code_body_cp;
              */
             func->code = (uint8 *)p_code;
 
@@ -2995,7 +3001,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                         set_error_buf(error_buf, error_buf_size,
                                       "ref value type requires "
                                       "reference types feature");
-                    else if (type >= REF_TYPE_DATAREF
+                    else if (type >= REF_TYPE_ARRAYREF
                              && type <= REF_TYPE_ANYREF)
                         set_error_buf(error_buf, error_buf_size,
                                       "GC value type requires GC feature");
@@ -6162,10 +6168,11 @@ wasm_loader_pop_nullable_ht(WASMLoaderContext *ctx, uint8 *p_type,
     }
 
     if (type != VALUE_TYPE_ANY /* block isn't in stack polymorphic state */
-        /* stack top isn't (ref null func/extern/eq/i31/data) */
+        /* stack top isn't (ref null func/extern/eq/i31/data/array) */
         && (type != REF_TYPE_FUNCREF && type != REF_TYPE_EXTERNREF
             && type != REF_TYPE_ANYREF && type != REF_TYPE_EQREF
-            && type != REF_TYPE_I31REF && type != REF_TYPE_DATAREF)
+            && type != REF_TYPE_I31REF && type != REF_TYPE_DATAREF
+            && type != REF_TYPE_ARRAYREF)
         /* stack top isn't (ref null ht) */
         && !wasm_is_reftype_htref_nullable(type)
         /* stack top isn't (ref ht) */
@@ -6195,7 +6202,8 @@ wasm_loader_pop_nullable_ht(WASMLoaderContext *ctx, uint8 *p_type,
     /* Convert to related (ref ht) and return */
     if (type == REF_TYPE_FUNCREF || type == REF_TYPE_EXTERNREF
         || type == REF_TYPE_ANYREF || type == REF_TYPE_EQREF
-        || type == REF_TYPE_I31REF || type == REF_TYPE_DATAREF) {
+        || type == REF_TYPE_I31REF || type == REF_TYPE_DATAREF
+        || type == REF_TYPE_ARRAYREF) {
         /* Return (ref func/extern/eq/i31/data) */
         wasm_set_refheaptype_common(&ref_ht_ret->ref_ht_common, false,
                                     HEAP_TYPE_FUNC + (type - REF_TYPE_FUNCREF));
@@ -8304,6 +8312,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 #if WASM_ENABLE_GC != 0
     WASMRefTypeMap *param_reftype_maps, *local_reftype_maps;
     uint32 param_reftype_map_count, local_reftype_map_count;
+    int32 heap_type;
     WASMRefType wasm_ref_type = { 0 };
     bool need_ref_type_map;
 #endif
@@ -8494,7 +8503,7 @@ re_scan:
                      *       (i32.const 1)
                      *       (i32.const 2)
                      *       (if (param i32 i32) (result i32 i32) (local.get 0)
-                     * (then)) (i32.add)
+                     *       (then)) (i32.add)
                      *   )
                      *
                      * So we should emit a copy instruction before the if.
@@ -9709,8 +9718,8 @@ re_scan:
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* If the stack is in polymorphic state, do fake pop and push on
-                    offset stack to keep the depth of offset stack to be the
-                   same with ref stack */
+                   offset stack to keep the depth of offset stack to be the same
+                   with ref stack */
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 if (cur_block->is_stack_polymorphic) {
                     POP_OFFSET_TYPE(local_type);
@@ -10615,22 +10624,7 @@ re_scan:
 
                     case WASM_OP_ARRAY_LEN:
                     {
-                        read_leb_uint32(p, p_end, type_idx);
-                        if (!check_type_index(module, type_idx, error_buf,
-                                              error_buf_size)) {
-                            goto fail;
-                        }
-                        if (module->types[type_idx]->type_flag
-                            != WASM_TYPE_ARRAY) {
-                            set_error_buf(error_buf, error_buf_size,
-                                          "unkown array type");
-                            goto fail;
-                        }
-
-                        /* POP array obj, (ref null $t) */
-                        wasm_set_refheaptype_typeidx(
-                            &wasm_ref_type.ref_ht_typeidx, true, type_idx);
-                        POP_REF(wasm_ref_type.ref_type);
+                        POP_REF(REF_TYPE_ARRAYREF);
                         /* length */
                         PUSH_I32();
                         break;
@@ -10893,27 +10887,45 @@ re_scan:
                     case WASM_OP_REF_IS_FUNC:
                     case WASM_OP_REF_IS_DATA:
                     case WASM_OP_REF_IS_I31:
+                    case WASM_OP_REF_IS_ARRAY:
                         POP_REF(REF_TYPE_ANYREF);
                         PUSH_I32();
                         break;
 
                     case WASM_OP_REF_AS_FUNC:
+                        heap_type = HEAP_TYPE_FUNC;
+                        goto handle_ref_as;
                     case WASM_OP_REF_AS_DATA:
+                        heap_type = HEAP_TYPE_DATA;
+                        goto handle_ref_as;
                     case WASM_OP_REF_AS_I31:
+                        heap_type = HEAP_TYPE_I31;
+                        goto handle_ref_as;
+                    case WASM_OP_REF_AS_ARRAY:
+                        heap_type = HEAP_TYPE_ARRAY;
+                        goto handle_ref_as;
+                    handle_ref_as:
+                    {
                         POP_REF(REF_TYPE_ANYREF);
                         wasm_set_refheaptype_common(
-                            &wasm_ref_type.ref_ht_common, false,
-                            opcode1 == WASM_OP_REF_AS_FUNC
-                                ? HEAP_TYPE_FUNC
-                                : (opcode1 == WASM_OP_REF_AS_DATA
-                                       ? HEAP_TYPE_DATA
-                                       : HEAP_TYPE_I31));
+                            &wasm_ref_type.ref_ht_common, false, heap_type);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
+                    }
 
                     case WASM_OP_BR_ON_FUNC:
+                        heap_type = HEAP_TYPE_FUNC;
+                        goto handle_br_on;
                     case WASM_OP_BR_ON_DATA:
+                        heap_type = HEAP_TYPE_DATA;
+                        goto handle_br_on;
                     case WASM_OP_BR_ON_I31:
+                        heap_type = HEAP_TYPE_I31;
+                        goto handle_br_on;
+                    case WASM_OP_BR_ON_ARRAY:
+                        heap_type = HEAP_TYPE_ARRAY;
+                        goto handle_br_on;
+                    handle_br_on:
                     {
                         uint8 type;
                         WASMRefType *ref_type = NULL;
@@ -10935,12 +10947,7 @@ re_scan:
                         /* Temporarily PUSH (ref func/data/i31), check target
                            block and then POP it */
                         wasm_set_refheaptype_common(
-                            &wasm_ref_type.ref_ht_common, false,
-                            opcode1 == WASM_OP_BR_ON_FUNC
-                                ? HEAP_TYPE_FUNC
-                                : (opcode1 == WASM_OP_BR_ON_DATA
-                                       ? HEAP_TYPE_DATA
-                                       : HEAP_TYPE_I31));
+                            &wasm_ref_type.ref_ht_common, false, heap_type);
                         PUSH_REF(wasm_ref_type.ref_type);
                         if (!(frame_csp_tmp = check_branch_block(
                                   loader_ctx, &p, p_end, false, error_buf,
@@ -10960,8 +10967,18 @@ re_scan:
                     }
 
                     case WASM_OP_BR_ON_NON_FUNC:
+                        heap_type = HEAP_TYPE_FUNC;
+                        goto handle_br_on_non;
                     case WASM_OP_BR_ON_NON_DATA:
+                        heap_type = HEAP_TYPE_DATA;
+                        goto handle_br_on_non;
                     case WASM_OP_BR_ON_NON_I31:
+                        heap_type = HEAP_TYPE_I31;
+                        goto handle_br_on_non;
+                    case WASM_OP_BR_ON_NON_ARRAY:
+                        heap_type = HEAP_TYPE_ARRAY;
+                        goto handle_br_on_non;
+                    handle_br_on_non:
                     {
                         uint8 type;
                         WASMRefType *ref_type;
@@ -10988,12 +11005,7 @@ re_scan:
 
                         /* PUSH (ref func/data/i31) */
                         wasm_set_refheaptype_common(
-                            &wasm_ref_type.ref_ht_common, false,
-                            opcode1 == WASM_OP_BR_ON_NON_FUNC
-                                ? HEAP_TYPE_FUNC
-                                : (opcode1 == WASM_OP_BR_ON_NON_DATA
-                                       ? HEAP_TYPE_DATA
-                                       : HEAP_TYPE_I31));
+                            &wasm_ref_type.ref_ht_common, false, heap_type);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     }

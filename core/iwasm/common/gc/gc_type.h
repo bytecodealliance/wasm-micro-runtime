@@ -110,7 +110,7 @@ wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
 inline static bool
 wasm_is_type_reftype(uint8 type)
 {
-    return (type >= (uint8)REF_TYPE_DATAREF && type <= (uint8)REF_TYPE_FUNCREF)
+    return (type >= (uint8)REF_TYPE_ARRAYREF && type <= (uint8)REF_TYPE_FUNCREF)
                ? true
                : false;
 }
@@ -132,13 +132,6 @@ inline static bool
 wasm_is_reftype_funcref(uint8 type)
 {
     return type == (uint8)REF_TYPE_FUNCREF ? true : false;
-}
-
-/* Whether a reference type is an externref type */
-inline static bool
-wasm_is_reftype_externref(uint8 type)
-{
-    return type == (uint8)REF_TYPE_EXTERNREF ? true : false;
 }
 
 /* Whether a reference type is an anyref type */
@@ -197,6 +190,13 @@ wasm_is_reftype_dataref(uint8 type)
     return type == (uint8)REF_TYPE_DATAREF ? true : false;
 }
 
+/* Whether a reference type is an arrayref type */
+inline static bool
+wasm_is_reftype_arrayref(uint8 type)
+{
+    return type == (uint8)REF_TYPE_ARRAYREF ? true : false;
+}
+
 /* Return the size of a reference type */
 uint32
 wasm_reftype_size(uint8 type);
@@ -228,7 +228,7 @@ wasm_is_refheaptype_rtt(const RefHeapType_Common *ref_heap_type)
     return ref_heap_type->heap_type == (int32)HEAP_TYPE_RTT ? true : false;
 }
 
-/* Whether a ref heap type is a common type: func/extern/any/eq/i31/data,
+/* Whether a ref heap type is a common type: func/any/eq/i31/data,
    not (type i) or (rtt n i) or (rtt i) */
 inline static bool
 wasm_is_refheaptype_common(const RefHeapType_Common *ref_heap_type)
@@ -236,7 +236,8 @@ wasm_is_refheaptype_common(const RefHeapType_Common *ref_heap_type)
     return ((ref_heap_type->heap_type >= (int32)HEAP_TYPE_EQ
              && ref_heap_type->heap_type <= (int32)HEAP_TYPE_FUNC)
             || ref_heap_type->heap_type == (int32)HEAP_TYPE_I31
-            || ref_heap_type->heap_type == (int32)HEAP_TYPE_DATA)
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_DATA
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_ARRAY)
                ? true
                : false;
 }
@@ -246,13 +247,6 @@ inline static bool
 wasm_is_refheaptype_func(const RefHeapType_Common *ref_heap_type)
 {
     return ref_heap_type->heap_type == (int32)HEAP_TYPE_FUNC ? true : false;
-}
-
-/* Whether a ref heap type is an extern type */
-inline static bool
-wasm_is_refheaptype_extern(const RefHeapType_Common *ref_heap_type)
-{
-    return ref_heap_type->heap_type == (int32)HEAP_TYPE_EXTERN ? true : false;
 }
 
 /* Whether a ref heap type is an any type */
@@ -281,6 +275,13 @@ inline static bool
 wasm_is_refheaptype_data(const RefHeapType_Common *ref_heap_type)
 {
     return ref_heap_type->heap_type == (int32)HEAP_TYPE_DATA ? true : false;
+}
+
+/* Whether a ref heap type is an array type */
+inline static bool
+wasm_is_refheaptype_array(const RefHeapType_Common *ref_heap_type)
+{
+    return ref_heap_type->heap_type == (int32)HEAP_TYPE_ARRAY ? true : false;
 }
 
 /* Whether two ref heap types are equal */
