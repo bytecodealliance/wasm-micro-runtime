@@ -56,7 +56,6 @@ struct wasm_globaltype_t {
 
 struct wasm_tabletype_t {
     uint32 extern_kind;
-    /* always be WASM_FUNCREF */
     wasm_valtype_t *val_type;
     wasm_limits_t limits;
 };

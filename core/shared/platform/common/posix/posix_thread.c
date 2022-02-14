@@ -32,7 +32,9 @@ os_thread_wrapper(void *arg)
     os_signal_handler handler = targ->signal_handler;
 #endif
 
+#if 0
     os_printf("THREAD CREATED %jx\n", (uintmax_t)(uintptr_t)pthread_self());
+#endif
     BH_FREE(targ);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (os_thread_signal_init(handler) != 0)
@@ -255,6 +257,17 @@ os_cond_signal(korp_cond *cond)
     assert(cond);
 
     if (pthread_cond_signal(cond) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_cond_broadcast(korp_cond *cond)
+{
+    assert(cond);
+
+    if (pthread_cond_broadcast(cond) != BHT_OK)
         return BHT_ERROR;
 
     return BHT_OK;

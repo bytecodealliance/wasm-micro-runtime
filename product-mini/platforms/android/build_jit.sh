@@ -6,5 +6,5 @@
 rm -fr build && mkdir build
 cd build
 cmake .. -DWAMR_BUILD_JIT=1
-make
+make -j ${nroc}
 cd ..

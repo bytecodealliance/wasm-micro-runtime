@@ -83,9 +83,9 @@ aot_emit_exception(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         }
         else {
             /* Create LLVM function with external function pointer */
-            if (!(func = LLVMGetNamedFunction(comp_ctx->module,
+            if (!(func = LLVMGetNamedFunction(func_ctx->module,
                                               "aot_set_exception_with_id"))
-                && !(func = LLVMAddFunction(comp_ctx->module,
+                && !(func = LLVMAddFunction(func_ctx->module,
                                             "aot_set_exception_with_id",
                                             func_type))) {
                 aot_set_last_error("add LLVM function failed.");

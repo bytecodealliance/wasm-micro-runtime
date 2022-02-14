@@ -9,6 +9,11 @@
 #endif
 
 #if defined(_WIN32) || defined(_WIN32_)
+
+#if defined(__MINGW32__) && !defined(_SH_DENYNO)
+#define _SH_DENYNO 0x40
+#endif
+
 char *
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {

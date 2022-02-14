@@ -37,11 +37,11 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
   NOTE: the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the WASM bytecode code.
 
-#### **Configure AoT and JIT**
+#### **Configure AOT and JIT**
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, default to disable if not set
-- **WAMR_BUILD_LAZY_JIT**=1/0, default to disable if not set
+- **WAMR_BUILD_LAZY_JIT**=1/0, whether to use Lazy JIT mode or not when *WAMR_BUILD_JIT* is set, default to enable if not set
 
 #### **Configure LIBC**
 
@@ -99,7 +99,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > Note: if it is enabled, the call stack will be dumped when exception occurs.
 
 > - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
-> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
+> - For AOT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
 
 #### **Enable memory profiling (Experiment)**
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
@@ -203,13 +203,23 @@ mkdir build
 cd build
 cmake ..
 make
+# iwasm is generated under current directory
 ```
 
-
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT and LazyJIT are disabled.
+By default in Linux, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
 And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-To enable WASM JIT, firstly we should build LLVM:
+To run a wasm file with interpreter mode:
+```Bash
+iwasm <wasm file>
+```
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+```Bash
+wamrc -o <AOT file> <WASM file>
+iwasm <AOT file>
+```
+  
+To enable the `JIT` mode, firstly we should build LLVM:
 
 ``` Bash
 cd product-mini/platforms/linux/
@@ -222,14 +232,23 @@ Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable WASM JIT:
 mkdir build
 cd build
 cmake .. -DWAMR_BUILD_JIT=1
+# or "cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0" to disable LLVM Lazy JIT and enable LLVM MC JIT
 make
 ```
 
-Moreover, pass arguments `-DWAMR_BUILD_JIT=1` and `-DWAMR_BUILD_LAZY_JIT=1` together to cmake to enable WASM Lazy JIT.
-If Lazy JIT is enabled, then jit function bodies in the module will not be compiled until they are first called,
-so compile time reduces significantly.
+By default, the LLVM Orc Lazy JIT is enabled to speedup the lanuching process and reduce the JIT compilation time
+by creating threads to compile the WASM functions parallely, and for the main thread, the functions in the
+module will not be compiled until they are firstly called and haven't been compiled by the compilation threads.
+To disable it and enable LLVM MC JIT instead, please pass argument `-DWAMR_BUILD_LAZY_JIT=0` to cmake.
 
-
+To disable `fast interpreter` and enable `classic interpreter` instead:
+``` Bash
+mkdir build
+cd build
+cmake .. -DWAMR_BUILD_FAST_INTERP=0
+make
+```
+  
 Linux SGX (Intel Software Guard Extension)
 -------------------------
 
@@ -252,9 +271,24 @@ mkdir build
 cd build
 cmake ..
 make
+# iwasm is generated under current directory
+```
+By default in MacOS, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
+And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
+
+To run a wasm file with interpreter mode:
+```Bash
+iwasm <wasm file>
+```
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+```Bash
+wamrc -o <AOT file> <WASM file>
+iwasm <AOT file>
 ```
 Note:
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AoT, and builtin libc are enabled by default.
+For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
+
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AOT, and builtin libc are enabled by default.
 
 Windows
 -------------------------
@@ -271,8 +305,54 @@ mkdir build
 cd build
 cmake ..
 cmake --build . --config Release
+# ./Release/iwasm.exe is generated
 ```
-The executable file is `build/Release/iwasm.exe`
+
+By default in Windows, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
+
+To run a wasm file with interpreter mode:
+```Bash
+iwasm.exe <wasm file>
+```
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+```Bash
+wamrc.exe -o <AOT file> <WASM file>
+iwasm.exe <AOT file>
+```
+Note:
+For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
+
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Windows, interpreter, AOT, and builtin libc are enabled by default.
+
+MinGW
+-------------------------
+
+First make sure the correct CMake package is installed; the following commands
+are valid for the MSYS2 build environment:
+
+```Bash
+pacman -R cmake
+pacman -S mingw-w64-x86_64-cmake
+```
+
+Then follow the build instructions for Windows above, minus cloning uvwasi and
+adding the following arguments for cmake:
+
+```Bash
+cmake .. -G"Unix Makefiles" \
+         -DWAMR_BUILD_LIBC_UVWASI=0 \
+         -DWAMR_BUILD_INVOKE_NATIVE_GENERAL=1 \
+         -DWAMR_DISABLE_HW_BOUND_CHECK=1
+````
+
+Note that WASI will be disabled until further work is done towards full MinGW support.
+
+- uvwasi not building out of the box, though it reportedly supports MinGW.
+- Failing compilation of assembler files, the C version of `invokeNative()` will
+be used instead.
+- Compiler complaining about missing `UnwindInfoAddress` field in `RUNTIME_FUNCTION`
+struct (winnt.h).
+
 
 VxWorks
 -------------------------
@@ -326,7 +406,7 @@ west espressif install
 After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
 
 Note:
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
 
 
 AliOS-Things
