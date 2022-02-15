@@ -4935,6 +4935,8 @@ wasm_loader_unload(WASMModule *module)
 #if WASM_ENABLE_GC != 0
     if (module->ref_type_set)
         bh_hash_map_destroy(module->ref_type_set);
+    if (module->rtt_obj_set)
+        bh_hash_map_destroy(module->rtt_obj_set);
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
