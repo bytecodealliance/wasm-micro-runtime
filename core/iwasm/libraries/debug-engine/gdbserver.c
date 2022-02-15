@@ -132,7 +132,7 @@ wasm_close_gdbserver(WASMGDBServer *server)
 }
 
 static inline void
-handler_packet(WASMGDBServer *server, char request, char *payload)
+handle_packet(WASMGDBServer *server, char request, char *payload)
 {
     if (packet_handler_table[(int)request].handler != NULL)
         packet_handler_table[(int)request].handler(server, payload);
@@ -149,7 +149,7 @@ process_packet(WASMGDBServer *server)
     payload = (char *)&inbuf[1];
 
     LOG_VERBOSE("receive request:%c %s\n", request, payload);
-    handler_packet(server, request, payload);
+    handle_packet(server, request, payload);
 }
 
 static inline void
@@ -158,6 +158,7 @@ push_byte(rsp_recv_context_t *ctx, unsigned char ch, bool checksum)
     if (ctx->receive_index >= sizeof(ctx->receive_buffer)) {
         LOG_ERROR("RSP message buffer overflow");
         bh_assert(false);
+        return;
     }
 
     ctx->receive_buffer[ctx->receive_index++] = ch;

@@ -293,6 +293,8 @@ wasm_cluster_del_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env)
            other threads can't fire stop events */
         os_mutex_lock(&cluster->debug_inst->wait_lock);
         while (cluster->debug_inst->stopped_thread == exec_env) {
+            os_cond_wait(&cluster->debug_inst->wait_cond,
+                         &cluster->debug_inst->wait_lock);
         }
         os_mutex_unlock(&cluster->debug_inst->wait_lock);
     }

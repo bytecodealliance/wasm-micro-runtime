@@ -29,6 +29,12 @@ on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env)
 {
     os_mutex_lock(&debug_inst->wait_lock);
     debug_inst->stopped_thread = exec_env;
+
+    if (debug_inst->current_state == DBG_LAUNCHING) {
+        /* In launching phase, send a signal so that handle_threadstop_request
+         * can be woken up */
+        os_cond_signal(&debug_inst->wait_cond);
+    }
     os_mutex_unlock(&debug_inst->wait_lock);
 }
 
@@ -129,11 +135,13 @@ control_thread_routine(void *arg)
                      * in the cluster, otherwise ignore this event */
                     status = 0;
 
-                    /* By design, all the other threads should stopped at this
-                     * moment, so it is safe to access the exec_env_list.len
-                     * without lock */
+                    /* By design, all the other threads should have been stopped
+                     * at this moment, so it is safe to access the
+                     * exec_env_list.len without lock */
                     if (debug_inst->cluster->exec_env_list.len != 1) {
                         debug_inst->stopped_thread = NULL;
+                        /* The exiting thread may wait for the signal */
+                        os_cond_signal(&debug_inst->wait_cond);
                         os_mutex_unlock(&control_thread->wait_lock);
                         continue;
                     }
@@ -146,6 +154,11 @@ control_thread_routine(void *arg)
 
                 debug_inst->current_state = APP_STOPPED;
                 debug_inst->stopped_thread = NULL;
+
+                if (status == 0) {
+                    /* The exiting thread may wait for the signal */
+                    os_cond_signal(&debug_inst->wait_cond);
+                }
             }
 
             /* Processing incoming requests */
@@ -997,8 +1010,10 @@ wasm_debug_instance_kill(WASMDebugInstance *instance)
         wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
         if (instance->current_state == APP_STOPPED) {
             /* Resume all threads so they can receive the TERM signal */
+            os_mutex_lock(&exec_env->wait_lock);
             exec_env->current_status->running_status = STATUS_RUNNING;
             os_cond_signal(&exec_env->wait_cond);
+            os_mutex_unlock(&exec_env->wait_lock);
         }
         exec_env = bh_list_elem_next(exec_env);
     }
