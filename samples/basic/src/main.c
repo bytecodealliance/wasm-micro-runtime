@@ -123,28 +123,28 @@ main(int argc, char *argv_main[])
         goto fail;
     }
 
-    uint32 argv[4];
-    double arg_d = 0.000101;
-    argv[0] = 10;
-    // the second arg will occupy two array elements
-    memcpy(&argv[1], &arg_d, sizeof(arg_d));
-    *(float *)(argv + 3) = 300.002;
-
     if (!(func = wasm_runtime_lookup_function(module_inst, "generate_float",
                                               NULL))) {
         printf("The generate_float wasm function is not found.\n");
         goto fail;
     }
 
+    wasm_val_t results[1] = { { .kind = WASM_F32, .of.f32 = 0 } };
+    wasm_val_t arguments[3] = {
+        { .kind = WASM_I32, .of.i32 = 10 },
+        { .kind = WASM_F64, .of.f64 = 0.000101 },
+        { .kind = WASM_F32, .of.f32 = 300.002 },
+    };
+
     // pass 4 elements for function arguments
-    if (!wasm_runtime_call_wasm(exec_env, func, 4, argv)) {
+    if (!wasm_runtime_call_wasm_a(exec_env, func, 1, results, 3, arguments)) {
         printf("call wasm function generate_float failed. %s\n",
                wasm_runtime_get_exception(module_inst));
         goto fail;
     }
 
     float ret_val;
-    memcpy(&ret_val, argv, sizeof(float));
+    ret_val = results[0].of.f32;
     printf("Native finished calling wasm function generate_float(), returned a "
            "float value: %ff\n",
            ret_val);
