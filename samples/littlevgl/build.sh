@@ -34,7 +34,7 @@ mkdir ${OUT_DIR}
 cd ${BUILD_DIR}
 if [ ! -d "lvgl" ]; then
         echo "starting download lvgl for v5.3 ..."
-        git clone https://github.com/littlevgl/lvgl.git --branch v5.3
+        git clone https://github.com/lvgl/lvgl.git --branch v5.3
         if [ $? != 0 ];then
             echo "download lvgl repo failed: $?\n"
             exit 2
