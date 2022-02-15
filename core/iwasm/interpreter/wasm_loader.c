@@ -207,20 +207,26 @@ type2str(uint8 type)
 {
     char *type_str[] = { "v128", "f64", "f32", "i64", "i32" };
 #if WASM_ENABLE_GC != 0
-    char *type_str_ref[] = { "dataref", "(rtt $t)", "(rtt n $t)",
-                             "i31ref",  "(ref ht)", "(ref null ht)",
-                             "eqref",   "anyref" };
+    char *type_str_ref[] = { "arrayref",      "dataref", "(rtt $t)",
+                             "(rtt n $t)",    "i31ref",  "(ref ht)",
+                             "(ref null ht)", "eqref" };
 #endif
 
     if (type >= VALUE_TYPE_V128 && type <= VALUE_TYPE_I32)
         return type_str[type - VALUE_TYPE_V128];
     else if (type == VALUE_TYPE_FUNCREF)
         return "funcref";
+#if WASM_ENABLE_GC == 0
     else if (type == VALUE_TYPE_EXTERNREF)
         return "externref";
+#else
+    else if (type == VALUE_TYPE_EXTERNREF)
+        /* VALUE_TYPE_EXTERNREF == REF_TYPE_ANYREF */
+        return "anyref";
+#endif
 #if WASM_ENABLE_GC != 0
     else if (wasm_is_type_reftype(type))
-        return type_str_ref[type - REF_TYPE_DATAREF];
+        return type_str_ref[type - REF_TYPE_ARRAYREF];
 #endif
     else
         return "unknown type";
@@ -446,14 +452,44 @@ const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
     return node->str;
 }
 
+#if WASM_ENABLE_GC != 0
 static bool
-load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
-               InitializerExpression *init_expr, uint8 type, char *error_buf,
-               uint32 error_buf_size)
+check_type_index(const WASMModule *module, uint32 type_index, char *error_buf,
+                 uint32 error_buf_size)
+{
+    if (type_index >= module->type_count) {
+        set_error_buf_v(error_buf, error_buf_size, "unknown type %d",
+                        type_index);
+        return false;
+    }
+    return true;
+}
+#endif
+
+static bool
+check_function_index(const WASMModule *module, uint32 function_index,
+                     char *error_buf, uint32 error_buf_size)
+{
+    if (function_index
+        >= module->import_function_count + module->function_count) {
+        set_error_buf_v(error_buf, error_buf_size, "unknown function %u",
+                        function_index);
+        return false;
+    }
+    return true;
+}
+
+static bool
+load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
+               InitializerExpression *init_expr, uint8 type, void *ref_type,
+               char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint8 flag, end_byte, *p_float;
     uint32 i;
+#if WASM_ENABLE_GC != 0
+    uint32 type_idx;
+#endif
 
     CHECK_BUF(p, p_end, 1);
     init_expr->init_expr_type = read_uint8(p);
@@ -517,20 +553,54 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
         /* ref.func */
         case INIT_EXPR_TYPE_FUNCREF_CONST:
         {
+#if WASM_ENABLE_GC == 0
             if (type != VALUE_TYPE_FUNCREF)
                 goto fail_type_mismatch;
+#else
+            if (!wasm_reftype_is_subtype_of(type, (WASMRefType *)ref_type,
+                                            VALUE_TYPE_FUNCREF, NULL,
+                                            module->types, module->type_count))
+                goto fail_type_mismatch;
+#endif
             read_leb_uint32(p, p_end, init_expr->u.ref_index);
+            if (!check_function_index(module, init_expr->u.ref_index, error_buf,
+                                      error_buf_size)) {
+                return false;
+            }
             break;
         }
         /* ref.null */
         case INIT_EXPR_TYPE_REFNULL_CONST:
         {
-            uint8 reftype;
+            uint8 type1;
 
+#if WASM_ENABLE_GC == 0
             CHECK_BUF(p, p_end, 1);
-            reftype = read_uint8(p);
-            if (reftype != type)
+            type1 = read_uint8(p);
+            if (type1 != type)
                 goto fail_type_mismatch;
+#else
+            WASMRefType ref_type1;
+
+            type1 = read_uint8(p);
+            if (!is_byte_a_type(type1)) {
+                p--;
+                read_leb_uint32(p, p_end, type_idx);
+                if (type_idx >= module->type_count) {
+                    set_error_buf(error_buf, error_buf_size, "unknown type");
+                    return false;
+                }
+                wasm_set_refheaptype_typeidx(&ref_type1.ref_ht_typeidx, false,
+                                             type_idx);
+                type1 = ref_type1.ref_type;
+            }
+
+            if (!wasm_reftype_is_subtype_of(type1, &ref_type1, type, ref_type,
+                                            module->types,
+                                            module->type_count)) {
+                goto fail_type_mismatch;
+            }
+#endif
 
             init_expr->u.ref_index = NULL_REF;
             break;
@@ -539,7 +609,74 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
         /* get_global */
         case INIT_EXPR_TYPE_GET_GLOBAL:
         {
+            uint32 global_idx;
+
             read_leb_uint32(p, p_end, init_expr->u.global_index);
+            global_idx = init_expr->u.global_index;
+#if WASM_ENABLE_GC == 0
+            if (global_idx >= module->import_global_count) {
+                /**
+                 * Currently, constant expressions occurring as initializers
+                 * of globals are further constrained in that contained
+                 * global.get instructions are
+                 * only allowed to refer to imported globals.
+                 */
+                set_error_buf_v(error_buf, error_buf_size, "unknown global %u",
+                                global_idx);
+                return false;
+            }
+            if (module->import_globals[global_idx].u.global.is_mutable) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "constant expression required");
+                return false;
+            }
+#else
+            if (type == REF_TYPE_HT_NON_NULLABLE
+                && wasm_is_refheaptype_rtt(
+                    &((WASMRefType *)ref_type)->ref_ht_common)) {
+                /* global.get instructions for rtt const expressions
+                   are allowed to refer to defined globals */
+                if (global_idx
+                    >= module->import_global_count + module->global_count) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "unknown global %u", global_idx);
+                    return false;
+                }
+            }
+            else {
+                /* global.get instructions for non rtt const expressions
+                   are only allowed to refer to imported globals */
+                if (global_idx >= module->import_global_count) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "unknown global %u", global_idx);
+                    return false;
+                }
+            }
+            if ((global_idx < module->import_global_count
+                 && module->import_globals[global_idx].u.global.is_mutable)
+                || (global_idx >= module->import_global_count
+                    && module->globals[global_idx - module->import_global_count]
+                           .is_mutable)) {
+                set_error_buf_v(error_buf, error_buf_size,
+                                "constant expression required");
+                return false;
+            }
+
+            if (global_idx >= module->import_global_count) {
+                WASMGlobal *global =
+                    &module->globals[global_idx - module->import_global_count];
+                if (global->init_expr.init_expr_type != INIT_EXPR_TYPE_RTT_CANON
+                    && global->init_expr.init_expr_type
+                           != INIT_EXPR_TYPE_RTT_SUB) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "constant expression required");
+                    return false;
+                }
+                init_expr->init_expr_type = global->init_expr.init_expr_type;
+                init_expr->u.rtt_obj = global->init_expr.u.rtt_obj;
+                goto resolve_possible_rtt_sub;
+            }
+#endif
             break;
         }
 #if WASM_ENABLE_GC != 0
@@ -548,26 +685,76 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end,
         {
             CHECK_BUF(p, p_end, 1);
             flag = read_uint8(p);
-            if (flag != INIT_EXPR_TYPE_RTT_CANON)
+            if (flag != INIT_EXPR_TYPE_RTT_CANON) {
                 goto fail_type_mismatch;
+            }
             init_expr->init_expr_type = flag;
-            read_leb_uint32(p, p_end, init_expr->u.u32);
-            CHECK_BUF(p, p_end, 1);
-            if (*p != WASM_OP_END) {
-                if (*p != WASM_OP_GC_PREFIX)
+            read_leb_uint32(p, p_end, type_idx);
+            if (!check_type_index(module, type_idx, error_buf,
+                                  error_buf_size)) {
+                return false;
+            }
+
+            if (!(init_expr->u.rtt_obj =
+                      wasm_rtt_obj_new(module->rtt_obj_set, NULL,
+                                       module->types[type_idx], type_idx))) {
+                set_error_buf(error_buf, error_buf_size,
+                              "create rtt object failed");
+                return false;
+            }
+
+        resolve_possible_rtt_sub:
+            while (1) {
+                CHECK_BUF(p, p_end, 1);
+                if (*p == WASM_OP_END) {
+                    WASMRefType ref_type1;
+                    WASMRttObjectRef rtt_obj =
+                        (WASMRttObjectRef)init_expr->u.rtt_obj;
+                    wasm_set_refheaptype_rttn(&ref_type1.ref_ht_rttn, false,
+                                              rtt_obj->n,
+                                              rtt_obj->defined_type_idx);
+                    if (!wasm_reftype_is_subtype_of(
+                            ref_type1.ref_type, &ref_type1, type, ref_type,
+                            module->types, module->type_count)) {
+                        goto fail_type_mismatch;
+                    }
+                    break;
+                }
+                if (*p != WASM_OP_GC_PREFIX) {
                     goto fail_type_mismatch;
+                }
                 p++;
+
                 CHECK_BUF(p, p_end, 1);
                 flag = read_uint8(p);
-                if (flag == INIT_EXPR_TYPE_RTT_SUB) {
-                    uint32 u32 = init_expr->u.u32;
-                    init_expr->init_expr_type = flag;
-                    init_expr->u.rtt_sub.parent_init_expr_type =
-                        INIT_EXPR_TYPE_RTT_CANON;
-                    init_expr->u.rtt_sub.parent_type_idx = u32;
-                    read_leb_uint32(p, p_end,
-                                    init_expr->u.rtt_sub.sub_type_idx);
+                if (flag != INIT_EXPR_TYPE_RTT_SUB) {
+                    goto fail_type_mismatch;
                 }
+
+                read_leb_uint32(p, p_end, type_idx);
+                if (!check_type_index(module, type_idx, error_buf,
+                                      error_buf_size)) {
+                    return false;
+                }
+
+                if (!wasm_type_is_subtype_of(
+                        module->types[type_idx],
+                        ((WASMRttObjectRef)init_expr->u.rtt_obj)->defined_type,
+                        module->types, module->type_count)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "rtt.sub type mismatch");
+                    return false;
+                }
+
+                if (!(init_expr->u.rtt_obj = wasm_rtt_obj_new(
+                          module->rtt_obj_set, NULL, module->types[type_idx],
+                          type_idx))) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "create rtt object failed");
+                    return false;
+                }
+
+                init_expr->init_expr_type = flag;
             }
             break;
         }
@@ -661,18 +848,6 @@ destroy_wasm_type(WASMType *type)
     else {
         bh_assert(0);
     }
-}
-
-static bool
-check_type_index(const WASMModule *module, uint32 type_index, char *error_buf,
-                 uint32 error_buf_size)
-{
-    if (type_index >= module->type_count) {
-        set_error_buf_v(error_buf, error_buf_size, "unknown type %d",
-                        type_index);
-        return false;
-    }
-    return true;
 }
 
 /* Resolve (ref null ht) or (ref ht) */
@@ -831,7 +1006,7 @@ resolve_value_type(const uint8 **p_buf, const uint8 *buf_end,
         /* type which can be represented by one byte */
         if (!is_value_type(type)
             && !(allow_packed_type && is_packed_type(type))) {
-            set_error_buf(error_buf, error_buf_size, "unknown value type");
+            set_error_buf(error_buf, error_buf_size, "type mismatch");
             return false;
         }
         ref_type->ref_type = type;
@@ -876,7 +1051,8 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     uint32 param_count, result_count, i, j = 0;
     uint32 param_cell_num, ret_cell_num;
     uint32 ref_type_map_count = 0, result_ref_type_map_count = 0;
-    uint64 total_size;
+    uint64 total_size, param_offset;
+    uint16 offset;
     bool need_ref_type_map;
     WASMRefType ref_type;
     WASMFuncType *type = NULL;
@@ -916,6 +1092,8 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
 
     total_size = offsetof(WASMFuncType, types)
                  + sizeof(uint8) * (uint64)(param_count + result_count);
+    total_size = param_offset = align_uint(total_size, 4);
+    total_size += sizeof(uint16) * param_count;
     if (!(type = loader_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
@@ -928,13 +1106,16 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
     }
 
     type->type_flag = WASM_TYPE_FUNC;
+    type->type_idx = type_idx;
     type->param_count = param_count;
     type->result_count = result_count;
+    type->param_offsets = (uint16 *)((uint8 *)type + (uint32)param_offset);
     type->ref_type_map_count = ref_type_map_count;
     type->result_ref_type_maps =
         type->ref_type_maps + ref_type_map_count - result_ref_type_map_count;
     type->ref_count = 1;
 
+    offset = offsetof(WASMFuncObject, param_data);
     for (i = 0; i < param_count; i++) {
         if (!resolve_value_type(&p, p_end, module, &need_ref_type_map,
                                 &ref_type, false, error_buf, error_buf_size)) {
@@ -949,7 +1130,10 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
                 goto fail;
             }
         }
+        type->param_offsets[i] = offset;
+        offset += wasm_value_type_size(ref_type.ref_type);
     }
+    type->total_param_size = offset;
 
     read_leb_uint32(p, p_end, result_count);
     for (i = 0; i < result_count; i++) {
@@ -986,17 +1170,22 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
 
     *p_buf = p;
 
+    module->types[type_idx] = (WASMType *)type;
+
     for (i = 0; i < type_idx; i++) {
         /* If there is already a same type created, use it instead */
         if (module->types[i]->type_flag == WASM_TYPE_FUNC
-            && wasm_func_type_equal(type, (WASMFuncType *)module->types[i])) {
-            destroy_func_type(type);
+            && wasm_func_type_equal(type, (WASMFuncType *)module->types[i],
+                                    module->types, type_idx + 1)) {
             if (!check_ref_count(module->types[i]->ref_count, error_buf,
                                  error_buf_size)) {
-                return false;
+                /* In case type is double freed */
+                module->types[type_idx] = NULL;
+                goto fail;
             }
-            module->types[i]->ref_count++;
+            destroy_func_type(type);
             module->types[type_idx] = module->types[i];
+            module->types[i]->ref_count++;
 #if TRACE_WASM_LOADER != 0
             os_printf("type %d is duplicated with type %d\n", type_idx, i);
 #endif
@@ -1004,7 +1193,6 @@ resolve_func_type(const uint8 **p_buf, const uint8 *buf_end, WASMModule *module,
         }
     }
 
-    module->types[type_idx] = (WASMType *)type;
     return true;
 
 fail:
@@ -1064,6 +1252,7 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
     }
 
     type->type_flag = WASM_TYPE_STRUCT;
+    type->type_idx = type_idx;
     type->field_count = field_count;
     type->ref_type_map_count = ref_type_map_count;
     type->ref_count = 1;
@@ -1107,18 +1296,22 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
 
     *p_buf = p;
 
+    module->types[type_idx] = (WASMType *)type;
+
     for (i = 0; i < type_idx; i++) {
         /* If there is already a same type created, use it instead */
         if (module->types[i]->type_flag == WASM_TYPE_STRUCT
-            && wasm_struct_type_equal(type,
-                                      (WASMStructType *)module->types[i])) {
-            destroy_struct_type(type);
+            && wasm_struct_type_equal(type, (WASMStructType *)module->types[i],
+                                      module->types, type_idx + 1)) {
             if (!check_ref_count(module->types[i]->ref_count, error_buf,
                                  error_buf_size)) {
-                return false;
+                /* In case type is double freed */
+                module->types[type_idx] = NULL;
+                goto fail;
             }
-            module->types[i]->ref_count++;
+            destroy_struct_type(type);
             module->types[type_idx] = module->types[i];
+            module->types[i]->ref_count++;
 #if TRACE_WASM_LOADER != 0
             os_printf("type %d is duplicated with type %d\n", type_idx, i);
 #endif
@@ -1126,7 +1319,6 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         }
     }
 
-    module->types[type_idx] = (WASMType *)type;
     return true;
 
 fail:
@@ -1166,6 +1358,7 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
     }
 
     type->type_flag = WASM_TYPE_ARRAY;
+    type->type_idx = type_idx;
     type->ref_count = 1;
     type->elem_flags = mutable;
     type->elem_type = ref_type.ref_type;
@@ -1181,19 +1374,25 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
     os_printf("type %d = ", type_idx);
     wasm_dump_array_type(type);
 #endif
+
     *p_buf = p;
+
+    module->types[type_idx] = (WASMType *)type;
 
     for (i = 0; i < type_idx; i++) {
         /* If there is already a same type created, use it instead */
         if (module->types[i]->type_flag == WASM_TYPE_ARRAY
-            && wasm_array_type_equal(type, (WASMArrayType *)module->types[i])) {
-            destroy_array_type(type);
+            && wasm_array_type_equal(type, (WASMArrayType *)module->types[i],
+                                     module->types, type_idx + 1)) {
             if (!check_ref_count(module->types[i]->ref_count, error_buf,
                                  error_buf_size)) {
-                return false;
+                /* In case type is double freed */
+                module->types[type_idx] = NULL;
+                goto fail;
             }
-            module->types[i]->ref_count++;
+            destroy_array_type(type);
             module->types[type_idx] = module->types[i];
+            module->types[i]->ref_count++;
 #if TRACE_WASM_LOADER != 0
             os_printf("type %d is duplicated with type %d\n", type_idx, i);
 #endif
@@ -1201,7 +1400,6 @@ resolve_array_type(const uint8 **p_buf, const uint8 *buf_end,
         }
     }
 
-    module->types[type_idx] = (WASMType *)type;
     return true;
 
 fail:
@@ -1281,8 +1479,7 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             }
             for (j = 0; j < param_count + result_count; j++) {
                 if (!is_value_type(type->types[j])) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "unknown value type");
+                    set_error_buf(error_buf, error_buf_size, "type mismatch");
                     return false;
                 }
             }
@@ -1323,6 +1520,25 @@ load_type_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             else {
                 set_error_buf(error_buf, error_buf_size, "invalid type flag");
                 return false;
+            }
+        }
+        /* Normalize the type list, check whehter two types in the type list
+           are equivalent, and if yes, free the later one and set it to the
+           former one */
+        for (i = 1; i < type_count - 1; i++) {
+            uint32 j;
+            for (j = i + 1; j < type_count; j++) {
+                if (module->types[j]->ref_count == 1
+                    && wasm_type_equal(module->types[j], module->types[i],
+                                       module->types, type_count)) {
+                    if (!check_ref_count(module->types[i]->ref_count, error_buf,
+                                         error_buf_size)) {
+                        return false;
+                    }
+                    destroy_wasm_type(module->types[j]);
+                    module->types[j] = module->types[i];
+                    module->types[i]->ref_count++;
+                }
             }
         }
 #endif /* end of WASM_ENABLE_GC */
@@ -1470,7 +1686,8 @@ wasm_loader_resolve_function(const char *module_name, const char *function_name,
 
     /* check function type */
     if (!wasm_type_equal((WASMType *)expected_function_type,
-                         (WASMType *)target_function_type)) {
+                         (WASMType *)target_function_type, module->types,
+                         module->type_count)) {
         LOG_DEBUG("%s.%s failed the type check", module_name, function_name);
         set_error_buf(error_buf, error_buf_size, "incompatible import type");
         return NULL;
@@ -2709,7 +2926,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 }
                 if (wasm_is_reftype_htref_non_nullable(ref_type.ref_type)) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "non-defaultable element type");
+                                  "non-defaultable local type");
                     return false;
                 }
                 local_count += sub_local_count;
@@ -2744,18 +2961,21 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
             if (local_count > 0)
                 func->local_types = (uint8 *)func + sizeof(WASMFunction);
             func->code_size = code_size;
-            /*
-             * we shall make a copy of code body [p_code, p_code + code_size]
-             * when we are worrying about inappropriate releasing behaviour.
-             * all code bodies are actually in a buffer which user allocates in
-             * his embedding environment and we don't have power on them.
-             * it will be like:
-             * code_body_cp = malloc(code_size);
-             * memcpy(code_body_cp, p_code, code_size);
-             * func->code = code_body_cp;
+            /**
+             * We shall make a copy of code body [p_code, p_code + code_size]
+             * as we worry about the inappropriate releasing behaviour.
+             * All code bodies are actually in a buffer which user allocates in
+             * his embedding environment and we don't have the power on them.
+             * It is like:
+             *   code_body_cp = malloc(code_size);
+             *   memcpy(code_body_cp, p_code, code_size);
+             *   func->code = code_body_cp;
              */
             func->code = (uint8 *)p_code;
 
+#if WASM_ENABLE_GC != 0
+            t = 0;
+#endif
             /* Load each local type */
             p_code = p_code_save;
             local_type_index = 0;
@@ -2781,7 +3001,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                         set_error_buf(error_buf, error_buf_size,
                                       "ref value type requires "
                                       "reference types feature");
-                    else if (type >= REF_TYPE_DATAREF
+                    else if (type >= REF_TYPE_ARRAYREF
                              && type <= REF_TYPE_ANYREF)
                         set_error_buf(error_buf, error_buf_size,
                                       "GC value type requires GC feature");
@@ -2822,7 +3042,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 #if WASM_ENABLE_GC != 0
             bh_assert(t == func->local_ref_type_map_count);
 #if TRACE_WASM_LOADER != 0
-            os_printf("func %d, local types: [");
+            os_printf("func %u, local types: [", i);
             k = 0;
             for (j = 0; j < func->local_count; j++) {
                 WASMRefType *ref_type_tmp = NULL;
@@ -2859,19 +3079,6 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     return true;
 fail:
     return false;
-}
-
-static bool
-check_function_index(const WASMModule *module, uint32 function_index,
-                     char *error_buf, uint32 error_buf_size)
-{
-    if (function_index
-        >= module->import_function_count + module->function_count) {
-        set_error_buf_v(error_buf, error_buf_size, "unknown function %d",
-                        function_index);
-        return false;
-    }
-    return true;
 }
 
 static bool
@@ -2999,18 +3206,6 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 return false;
             }
             global->type = ref_type.ref_type;
-            if (need_ref_type_map) {
-                if (!(global->ref_type =
-                          reftype_set_insert(module->ref_type_set, &ref_type,
-                                             error_buf, error_buf_size))) {
-                    return false;
-                }
-            }
-#if TRACE_WASM_LOADER != 0
-            os_printf("global type: ");
-            wasm_dump_value_type(global->type, global->ref_type);
-            os_printf("\n");
-#endif
             CHECK_BUF(p, p_end, 1);
             mutable = read_uint8(p);
 #endif /* end of WASM_ENABLE_GC */
@@ -3020,61 +3215,43 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             global->is_mutable = mutable ? true : false;
 
             /* initialize expression */
-            if (!load_init_expr(&p, p_end, &(global->init_expr), global->type,
+            if (!load_init_expr(module, &p, p_end, &(global->init_expr),
+                                global->type,
+#if WASM_ENABLE_GC == 0
+                                NULL,
+#else
+                                &ref_type,
+#endif
                                 error_buf, error_buf_size))
                 return false;
 
-            if (INIT_EXPR_TYPE_GET_GLOBAL == global->init_expr.init_expr_type) {
-                /**
-                 * Currently, constant expressions occurring as initializers
-                 * of globals are further constrained in that contained
-                 * global.get instructions are
-                 * only allowed to refer to imported globals.
-                 */
-                uint32 target_global_index = global->init_expr.u.global_index;
-                if (target_global_index >= module->import_global_count) {
-                    set_error_buf(error_buf, error_buf_size, "unknown global");
-                    return false;
-                }
-            }
-            else if (INIT_EXPR_TYPE_FUNCREF_CONST
-                     == global->init_expr.init_expr_type) {
-                if (!check_function_index(module, global->init_expr.u.ref_index,
-                                          error_buf, error_buf_size)) {
-                    return false;
-                }
-            }
 #if WASM_ENABLE_GC != 0
-            else if (INIT_EXPR_TYPE_RTT_CANON
-                     == global->init_expr.init_expr_type) {
-                /* check type idx */
-                if (!check_type_index(module, global->init_expr.u.u32,
-                                      error_buf, error_buf_size)) {
-                    return false;
-                }
+            if (INIT_EXPR_TYPE_RTT_CANON == global->init_expr.init_expr_type
+                || INIT_EXPR_TYPE_RTT_SUB == global->init_expr.init_expr_type) {
+                WASMRttObjectRef rtt_obj =
+                    (WASMRttObjectRef)global->init_expr.u.rtt_obj;
+                /* Convert global type from (rtt $t) to (rtt n $t) */
+                wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false,
+                                          rtt_obj->n,
+                                          rtt_obj->defined_type_idx);
+                global->type = ref_type.ref_type;
+                need_ref_type_map = true;
             }
-            else if (INIT_EXPR_TYPE_RTT_SUB
-                     == global->init_expr.init_expr_type) {
-                uint32 parent_type_idx =
-                    global->init_expr.u.rtt_sub.parent_type_idx;
-                uint32 sub_type_idx = global->init_expr.u.rtt_sub.sub_type_idx;
-                /* check type idx and sub type */
-                if (!check_type_index(module, parent_type_idx, error_buf,
-                                      error_buf_size)
-                    || !check_type_index(module, sub_type_idx, error_buf,
-                                         error_buf_size)) {
-                    return false;
-                }
-                if (!wasm_type_is_subtype_of(module->types[sub_type_idx],
-                                             module->types[parent_type_idx],
-                                             (const WASMType **)module->types,
-                                             module->type_count)) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "check subtype failed");
+            if (need_ref_type_map) {
+                if (!(global->ref_type =
+                          reftype_set_insert(module->ref_type_set, &ref_type,
+                                             error_buf, error_buf_size))) {
                     return false;
                 }
             }
 #endif /* end of WASM_ENABLE_GC */
+#if WASM_ENABLE_GC != 0
+#if TRACE_WASM_LOADER != 0
+            os_printf("global type: ");
+            wasm_dump_value_type(global->type, global->ref_type);
+            os_printf("\n");
+#endif
+#endif
         }
     }
 
@@ -3239,25 +3416,64 @@ fail:
 
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
 static bool
-load_elem_type(const uint8 **p_buf, const uint8 *buf_end, uint32 *p_elem_type,
+load_elem_type(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
+               uint32 *p_elem_type,
+#if WASM_ENABLE_GC != 0
+               WASMRefType **p_elem_ref_type,
+#endif
                bool elemkind_zero, char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint8 elem_type;
+#if WASM_ENABLE_GC != 0
+    WASMRefType elem_ref_type;
+    bool need_ref_type_map;
+#endif
 
     CHECK_BUF(p, p_end, 1);
     elem_type = read_uint8(p);
-    if ((elemkind_zero && elem_type != 0)
-        || (!elemkind_zero && elem_type != VALUE_TYPE_FUNCREF
-            && elem_type != VALUE_TYPE_EXTERNREF)) {
-        set_error_buf(error_buf, error_buf_size, "invalid reference type");
-        return false;
+    if (elemkind_zero) {
+        if (elem_type != 0) {
+            set_error_buf(error_buf, error_buf_size,
+                          "invalid reference type or unknown type");
+            return false;
+        }
+        else {
+            *p_elem_type = VALUE_TYPE_FUNCREF;
+            *p_buf = p;
+            return true;
+        }
     }
 
-    if (elemkind_zero)
-        *p_elem_type = VALUE_TYPE_FUNCREF;
-    else
-        *p_elem_type = elem_type;
+#if WASM_ENABLE_GC == 0
+    if (elem_type != VALUE_TYPE_FUNCREF && elem_type != VALUE_TYPE_EXTERNREF) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid reference type or unknown type");
+        return false;
+    }
+    *p_elem_type = elem_type;
+#else
+    p--;
+    if (!resolve_value_type((const uint8 **)&p, p_end, module,
+                            &need_ref_type_map, &elem_ref_type, false,
+                            error_buf, error_buf_size)) {
+        return false;
+    }
+    if (!wasm_is_type_reftype(elem_ref_type.ref_type)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "invalid reference type or unknown type");
+        return false;
+    }
+    *p_elem_type = elem_ref_type.ref_type;
+    if (need_ref_type_map) {
+        if (!(*p_elem_ref_type =
+                  reftype_set_insert(module->ref_type_set, &elem_ref_type,
+                                     error_buf, error_buf_size))) {
+            return false;
+        }
+    }
+#endif
+
     *p_buf = p;
     return true;
 fail:
@@ -3291,7 +3507,13 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
             read_leb_uint32(p, p_end, function_index);
         }
         else {
-            if (!load_init_expr(&p, p_end, &init_expr, table_segment->elem_type,
+            if (!load_init_expr(module, &p, p_end, &init_expr,
+                                table_segment->elem_type,
+#if WASM_ENABLE_GC == 0
+                                NULL,
+#else
+                                table_segment->elem_ref_type,
+#endif
                                 error_buf, error_buf_size))
                 return false;
 
@@ -3359,9 +3581,9 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                     if (!check_table_index(module, table_segment->table_index,
                                            error_buf, error_buf_size))
                         return false;
-                    if (!load_init_expr(&p, p_end, &table_segment->base_offset,
-                                        VALUE_TYPE_I32, error_buf,
-                                        error_buf_size))
+                    if (!load_init_expr(
+                            module, &p, p_end, &table_segment->base_offset,
+                            VALUE_TYPE_I32, NULL, error_buf, error_buf_size))
                         return false;
                     if (!load_func_index_vec(&p, p_end, module, table_segment,
                                              table_segment->mode == 0 ? false
@@ -3372,7 +3594,11 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                 /* elemkind + passive/declarative */
                 case 1:
                 case 3:
-                    if (!load_elem_type(&p, p_end, &table_segment->elem_type,
+                    if (!load_elem_type(module, &p, p_end,
+                                        &table_segment->elem_type,
+#if WASM_ENABLE_GC != 0
+                                        &table_segment->elem_ref_type,
+#endif
                                         true, error_buf, error_buf_size))
                         return false;
                     if (!load_func_index_vec(&p, p_end, module, table_segment,
@@ -3386,11 +3612,15 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                           &table_segment->table_index,
                                           error_buf, error_buf_size))
                         return false;
-                    if (!load_init_expr(&p, p_end, &table_segment->base_offset,
-                                        VALUE_TYPE_I32, error_buf,
-                                        error_buf_size))
+                    if (!load_init_expr(
+                            module, &p, p_end, &table_segment->base_offset,
+                            VALUE_TYPE_I32, NULL, error_buf, error_buf_size))
                         return false;
-                    if (!load_elem_type(&p, p_end, &table_segment->elem_type,
+                    if (!load_elem_type(module, &p, p_end,
+                                        &table_segment->elem_type,
+#if WASM_ENABLE_GC != 0
+                                        &table_segment->elem_ref_type,
+#endif
                                         table_segment->mode == 2 ? true : false,
                                         error_buf, error_buf_size))
                         return false;
@@ -3402,7 +3632,11 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                     break;
                 case 5:
                 case 7:
-                    if (!load_elem_type(&p, p_end, &table_segment->elem_type,
+                    if (!load_elem_type(module, &p, p_end,
+                                        &table_segment->elem_type,
+#if WASM_ENABLE_GC != 0
+                                        &table_segment->elem_ref_type,
+#endif
                                         false, error_buf, error_buf_size))
                         return false;
                     if (!load_func_index_vec(&p, p_end, module, table_segment,
@@ -3423,8 +3657,9 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                   &table_segment->table_index, error_buf,
                                   error_buf_size))
                 return false;
-            if (!load_init_expr(&p, p_end, &table_segment->base_offset,
-                                VALUE_TYPE_I32, error_buf, error_buf_size))
+            if (!load_init_expr(module, &p, p_end, &table_segment->base_offset,
+                                VALUE_TYPE_I32, NULL, error_buf,
+                                error_buf_size))
                 return false;
             if (!load_func_index_vec(&p, p_end, module, table_segment, false,
                                      error_buf, error_buf_size))
@@ -3520,8 +3755,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 #if WASM_ENABLE_BULK_MEMORY != 0
             if (!is_passive)
 #endif
-                if (!load_init_expr(&p, p_end, &init_expr, VALUE_TYPE_I32,
-                                    error_buf, error_buf_size))
+                if (!load_init_expr(module, &p, p_end, &init_expr,
+                                    VALUE_TYPE_I32, NULL, error_buf,
+                                    error_buf_size))
                     return false;
 
             read_leb_uint32(p, p_end, data_seg_len);
@@ -3731,9 +3967,10 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                     }
                 }
                 break;
-            case SUB_SECTION_TYPE_MODULE: /* TODO: Parse for module subsection
-                                           */
-            case SUB_SECTION_TYPE_LOCAL:  /* TODO: Parse for local subsection */
+            case SUB_SECTION_TYPE_MODULE:
+                /* TODO: Parse for module subsection */
+            case SUB_SECTION_TYPE_LOCAL:
+                /* TODO: Parse for local subsection */
             default:
                 p = p + subsection_size;
                 break;
@@ -4203,19 +4440,36 @@ create_module(char *error_buf, uint32 error_buf_size)
     if (!(module->ref_type_set =
               wasm_reftype_set_create(GC_REFTYPE_MAP_SIZE_DEFAULT))) {
         set_error_buf(error_buf, error_buf_size, "create reftype map failed");
-        wasm_runtime_free(module);
-        return NULL;
+        goto fail;
+    }
+    if (!(module->rtt_obj_set =
+              wasm_rttobj_set_create(GC_RTTOBJ_MAP_SIZE_DEFAULT))) {
+        set_error_buf(error_buf, error_buf_size, "create rttobj map failed");
+        goto fail;
     }
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     bh_list_init(&module->fast_opcode_list);
     if (os_mutex_init(&module->ref_count_lock) != 0) {
-        wasm_runtime_free(module);
-        return NULL;
+        set_error_buf(error_buf, error_buf_size, "init ref count lock failed");
+        goto fail;
     }
 #endif
+
     return module;
+
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_DEBUG_INTERP != 0
+fail:
+#if WASM_ENABLE_GC != 0
+    if (module->ref_type_set)
+        bh_hash_map_destroy(module->ref_type_set);
+    if (module->rtt_obj_set)
+        bh_hash_map_destroy(module->rtt_obj_set);
+#endif
+    wasm_runtime_free(module);
+    return NULL;
+#endif
 }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -4681,6 +4935,8 @@ wasm_loader_unload(WASMModule *module)
 #if WASM_ENABLE_GC != 0
     if (module->ref_type_set)
         bh_hash_map_destroy(module->ref_type_set);
+    if (module->rtt_obj_set)
+        bh_hash_map_destroy(module->rtt_obj_set);
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -4873,8 +5129,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
 #if WASM_ENABLE_GC != 0
             case WASM_OP_REF_AS_NON_NULL:
-            case WASM_OP_BR_ON_NULL:
             case WASM_OP_REF_EQ:
+            case WASM_OP_BR_ON_NULL:
             case WASM_OP_BR_ON_NON_NULL:
             case WASM_OP_CALL_REF:
             case WASM_OP_RETURN_CALL_REF:
@@ -5339,20 +5595,6 @@ fail:
     return false;
 }
 
-#define REF_ANY VALUE_TYPE_ANY
-#define REF_I32 VALUE_TYPE_I32
-#define REF_F32 VALUE_TYPE_F32
-#define REF_I64_1 VALUE_TYPE_I64
-#define REF_I64_2 VALUE_TYPE_I64
-#define REF_F64_1 VALUE_TYPE_F64
-#define REF_F64_2 VALUE_TYPE_F64
-#define REF_V128_1 VALUE_TYPE_V128
-#define REF_V128_2 VALUE_TYPE_V128
-#define REF_V128_3 VALUE_TYPE_V128
-#define REF_V128_4 VALUE_TYPE_V128
-#define REF_FUNCREF VALUE_TYPE_FUNCREF
-#define REF_EXTERNREF VALUE_TYPE_EXTERNREF
-
 #if WASM_ENABLE_FAST_INTERP != 0
 
 #if WASM_DEBUG_PREPROCESSOR != 0
@@ -5646,8 +5888,7 @@ static bool
 check_stack_push(WASMLoaderContext *ctx, uint8 type, char *error_buf,
                  uint32 error_buf_size)
 {
-    uint32 cell_num_needed =
-        (type == VALUE_TYPE_ANY) ? 1 : wasm_value_type_cell_num(type);
+    uint32 cell_num_needed = wasm_value_type_cell_num(type);
 
     if (ctx->frame_ref + cell_num_needed > ctx->frame_ref_boundary) {
         /* Increase the frame ref stack */
@@ -5683,8 +5924,7 @@ static bool
 wasm_loader_push_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
                            uint32 error_buf_size)
 {
-    uint32 type_cell_num =
-        (type == VALUE_TYPE_ANY) ? 1 : wasm_value_type_cell_num(type);
+    uint32 type_cell_num = wasm_value_type_cell_num(type);
     uint32 i;
     if (!check_stack_push(ctx, type, error_buf, error_buf_size))
         return false;
@@ -5729,6 +5969,9 @@ check_stack_top_values(WASMLoaderContext *ctx, uint8 *frame_ref,
                        char *error_buf, uint32 error_buf_size)
 {
     int32 type_cell_num = (int32)wasm_value_type_cell_num(type), i;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *frame_reftype = NULL;
+#endif
 
     if (stack_cell_num < type_cell_num) {
         set_error_buf(error_buf, error_buf_size,
@@ -5736,6 +5979,7 @@ check_stack_top_values(WASMLoaderContext *ctx, uint8 *frame_ref,
         return false;
     }
 
+#if WASM_ENABLE_GC == 0
     for (i = 0; i < type_cell_num; i++) {
         if (*(frame_ref - 1 - i) != type) {
             set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
@@ -5744,13 +5988,21 @@ check_stack_top_values(WASMLoaderContext *ctx, uint8 *frame_ref,
             return false;
         }
     }
-
-#if WASM_ENABLE_GC != 0
-    if (wasm_is_type_multi_byte_type(type)) {
-        if (reftype_map_num < 1
-            || !wasm_reftype_equal(*(frame_ref - 1),
-                                   (*(frame_reftype_map - 1)).ref_type, type,
-                                   ref_type)) {
+#else
+    if (wasm_is_type_multi_byte_type(*(frame_ref - 1))) {
+        bh_assert(reftype_map_num > 0);
+        frame_reftype = (frame_reftype_map - 1)->ref_type;
+    }
+    if (!wasm_reftype_is_subtype_of(*(frame_ref - 1), frame_reftype, type,
+                                    ref_type, ctx->module->types,
+                                    ctx->module->type_count)) {
+        set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
+                        "type mismatch: expect ", type2str(type),
+                        " but got other");
+        return false;
+    }
+    for (i = 0; i < type_cell_num - 1; i++) {
+        if (*(frame_ref - 2 - i) != *(frame_ref - 1)) {
             set_error_buf_v(error_buf, error_buf_size, "%s%s%s",
                             "type mismatch: expect ", type2str(type),
                             " but got other");
@@ -5773,9 +6025,10 @@ check_stack_pop(WASMLoaderContext *ctx, uint8 type, char *error_buf,
         (int32)(ctx->reftype_map_num - (ctx->frame_csp - 1)->reftype_map_num);
 #endif
 
-    if (block_stack_cell_num > 0 && *(ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
-        /* the stack top is a value of any type, return success */
-        return true;
+    if (block_stack_cell_num > 0) {
+        if (*(ctx->frame_ref - 1) == VALUE_TYPE_ANY)
+            /* the stack top is a value of any type, return success */
+            return true;
     }
 
 #if WASM_ENABLE_GC != 0
@@ -5789,8 +6042,7 @@ check_stack_pop(WASMLoaderContext *ctx, uint8 type, char *error_buf,
         }
 
         if (wasm_reftype_is_subtype_of(stack_top_type, stack_top_ref_type, type,
-                                       ctx->ref_type_tmp,
-                                       (const WASMType **)ctx->module->types,
+                                       ctx->ref_type_tmp, ctx->module->types,
                                        ctx->module->type_count)) {
             if (wasm_is_type_multi_byte_type(stack_top_type)) {
                 uint32 ref_type_struct_size =
@@ -5811,8 +6063,9 @@ check_stack_pop(WASMLoaderContext *ctx, uint8 type, char *error_buf,
 #if WASM_ENABLE_GC != 0
                                 ctx->ref_type_tmp,
 #endif
-                                error_buf, error_buf_size))
+                                error_buf, error_buf_size)) {
         return false;
+    }
 
     return true;
 }
@@ -5837,6 +6090,12 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     if (!check_stack_pop(ctx, type, error_buf, error_buf_size))
         return false;
 
+    bh_assert(available_stack_cell > 0);
+    if (*(ctx->frame_ref - 1) == VALUE_TYPE_ANY) {
+        type = VALUE_TYPE_ANY;
+        cell_num_to_pop = 1;
+    }
+
     ctx->frame_ref -= cell_num_to_pop;
     ctx->stack_cell_num -= cell_num_to_pop;
 #if WASM_ENABLE_GC != 0
@@ -5848,6 +6107,332 @@ wasm_loader_pop_frame_ref(WASMLoaderContext *ctx, uint8 type, char *error_buf,
 
     return true;
 }
+
+#if WASM_ENABLE_GC != 0
+/* Get the stack top element of current block */
+static bool
+wasm_loader_get_frame_ref_top(WASMLoaderContext *ctx, uint8 *p_type,
+                              WASMRefType **p_ref_type, char *error_buf,
+                              uint32 error_buf_size)
+{
+    BranchBlock *cur_block = ctx->frame_csp - 1;
+    int32 available_stack_cell =
+        (int32)(ctx->stack_cell_num - cur_block->stack_cell_num);
+
+    if (available_stack_cell <= 0) {
+        /* Directly return success if current block is in stack
+           polymorphic state while stack is empty. */
+        if (cur_block->is_stack_polymorphic) {
+            *p_type = VALUE_TYPE_ANY;
+            return true;
+        }
+        else {
+            set_error_buf(
+                error_buf, error_buf_size,
+                "type mismatch: expect data but block stack was empty");
+            return false;
+        }
+    }
+
+    *p_type = *(ctx->frame_ref - 1);
+    if (wasm_is_type_multi_byte_type(*p_type)) {
+        int32 available_reftype_map =
+            (int32)(ctx->reftype_map_num
+                    - (ctx->frame_csp - 1)->reftype_map_num);
+        bh_assert(available_reftype_map > 0);
+        (void)available_reftype_map;
+        *p_ref_type = (ctx->frame_reftype_map - 1)->ref_type;
+    }
+
+    return true;
+}
+
+#if WASM_ENABLE_FAST_INTERP != 0
+static bool
+wasm_loader_pop_frame_ref_offset(WASMLoaderContext *ctx, uint8 type,
+                                 char *error_buf, uint32 error_buf_size);
+#endif
+
+/* Check whether the stack top elem is subtype of (ref null ht),
+   and if yes, pop it and return the converted (ref ht) */
+static bool
+wasm_loader_pop_nullable_ht(WASMLoaderContext *ctx, uint8 *p_type,
+                            WASMRefType *ref_ht_ret, char *error_buf,
+                            uint32 error_buf_size)
+{
+    uint8 type = 0;
+    WASMRefType *ref_type = NULL;
+
+    /* Get stack top element */
+    if (!wasm_loader_get_frame_ref_top(ctx, &type, &ref_type, error_buf,
+                                       error_buf_size)) {
+        return false;
+    }
+
+    if (type != VALUE_TYPE_ANY /* block isn't in stack polymorphic state */
+        /* stack top isn't (ref null func/extern/eq/i31/data/array) */
+        && (type != REF_TYPE_FUNCREF && type != REF_TYPE_EXTERNREF
+            && type != REF_TYPE_ANYREF && type != REF_TYPE_EQREF
+            && type != REF_TYPE_I31REF && type != REF_TYPE_DATAREF
+            && type != REF_TYPE_ARRAYREF)
+        /* stack top isn't (ref null ht) */
+        && !wasm_is_reftype_htref_nullable(type)
+        /* stack top isn't (ref ht) */
+        && !wasm_is_reftype_htref_non_nullable(type)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "type mismatch: expect (ref null ht) but got others");
+        return false;
+    }
+
+    /* POP stack top */
+    if (wasm_is_type_multi_byte_type(type)) {
+        bh_assert(ref_type);
+        bh_memcpy_s(ctx->ref_type_tmp, sizeof(WASMRefType), ref_type,
+                    wasm_reftype_struct_size(ref_type));
+    }
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (!wasm_loader_pop_frame_ref_offset(ctx, type, error_buf,
+                                          error_buf_size)) {
+        return false;
+    }
+#else
+    if (!wasm_loader_pop_frame_ref(ctx, type, error_buf, error_buf_size)) {
+        return false;
+    }
+#endif
+
+    /* Convert to related (ref ht) and return */
+    if (type == REF_TYPE_FUNCREF || type == REF_TYPE_EXTERNREF
+        || type == REF_TYPE_ANYREF || type == REF_TYPE_EQREF
+        || type == REF_TYPE_I31REF || type == REF_TYPE_DATAREF
+        || type == REF_TYPE_ARRAYREF) {
+        /* Return (ref func/extern/eq/i31/data) */
+        wasm_set_refheaptype_common(&ref_ht_ret->ref_ht_common, false,
+                                    HEAP_TYPE_FUNC + (type - REF_TYPE_FUNCREF));
+        type = ref_ht_ret->ref_type;
+    }
+    else if (wasm_is_reftype_htref_nullable(type)
+             || wasm_is_reftype_htref_non_nullable(type)) {
+        bh_memcpy_s(ref_ht_ret, (uint32)sizeof(WASMRefType), ref_type,
+                    wasm_reftype_struct_size(ref_type));
+        /* Convert (ref null ht) to (ref ht) */
+        ref_ht_ret->ref_ht_common.ref_type = REF_TYPE_HT_NON_NULLABLE;
+        ref_ht_ret->ref_ht_common.nullable = false;
+        type = ref_ht_ret->ref_type;
+    }
+    *p_type = type;
+
+    return true;
+}
+
+/* Check whether the stack top elem is dataref or funcref,
+   and if yes, pop it */
+static bool
+wasm_loader_pop_nullable_data_or_func(WASMLoaderContext *ctx, char *error_buf,
+                                      uint32 error_buf_size)
+{
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (!wasm_loader_pop_frame_ref_offset(ctx, REF_TYPE_DATAREF, error_buf,
+                                          error_buf_size)
+        && !wasm_loader_pop_frame_ref_offset(ctx, REF_TYPE_FUNCREF, error_buf,
+                                             error_buf_size)) {
+        return false;
+    }
+#else
+    if (!wasm_loader_pop_frame_ref(ctx, REF_TYPE_DATAREF, error_buf,
+                                   error_buf_size)
+        && !wasm_loader_pop_frame_ref(ctx, REF_TYPE_FUNCREF, error_buf,
+                                      error_buf_size)) {
+        return false;
+    }
+#endif
+
+    return true;
+}
+
+/* Check whether the stack top elem is (ref null? data) or (ref null? func),
+   and if yes, pop it and return the null? flag */
+static bool
+wasm_loader_pop_data_or_func(WASMLoaderContext *ctx, uint8 *p_type,
+                             bool *p_nullable, char *error_buf,
+                             uint32 error_buf_size)
+{
+    uint8 type = 0;
+    WASMRefType *ref_type = NULL;
+
+    if (!wasm_loader_get_frame_ref_top(ctx, &type, &ref_type, error_buf,
+                                       error_buf_size)) {
+        return false;
+    }
+
+    if (wasm_is_reftype_htref_nullable(type)
+        || wasm_is_reftype_htref_non_nullable(type)) {
+        bh_assert(ref_type);
+        /* stack top isn't (ref null func/data) or (ref func/data) */
+        if (ref_type->ref_ht_common.heap_type != HEAP_TYPE_FUNC
+            && ref_type->ref_ht_common.heap_type != HEAP_TYPE_DATA) {
+            set_error_buf(error_buf, error_buf_size,
+                          "type mismatch: expect (ref null? data) or "
+                          "(ref null? func) but got others");
+        }
+    }
+    else if (type != VALUE_TYPE_ANY /* block isn't in stack polymorphic state */
+             /* stack top isn't (ref null func/data) */
+             && (type != REF_TYPE_FUNCREF && type != REF_TYPE_DATAREF)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "type mismatch: expect (ref null? data) or "
+                      "(ref null? func) but got others");
+        return false;
+    }
+
+    /* POP stack top elem */
+    if (wasm_is_type_multi_byte_type(type)) {
+        bh_assert(ref_type);
+        bh_memcpy_s(ctx->ref_type_tmp, (uint32)sizeof(WASMRefType), ref_type,
+                    wasm_reftype_struct_size(ref_type));
+    }
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (!wasm_loader_pop_frame_ref_offset(ctx, type, error_buf,
+                                          error_buf_size)) {
+        return false;
+    }
+#else
+    if (!wasm_loader_pop_frame_ref(ctx, type, error_buf, error_buf_size)) {
+        return false;
+    }
+#endif
+
+    *p_type = type;
+    if (type == REF_TYPE_FUNCREF || type == REF_TYPE_DATAREF) {
+        *p_nullable = true;
+    }
+    else if (wasm_is_reftype_htref_nullable(type)) {
+        *p_nullable = true;
+    }
+    else if (wasm_is_reftype_htref_non_nullable(type)) {
+        *p_nullable = false;
+    }
+
+    return true;
+}
+
+/* Check whether the stack top elem is (ref (rtt n type_idx)) or
+   (ref (rtt type_idx)), and if yes, pop it and return the type
+   and type_idx */
+static bool
+wasm_loader_pop_rttn_or_rtt(WASMLoaderContext *ctx, uint8 *p_type,
+                            int32 *p_type_idx, char *error_buf,
+                            uint32 error_buf_size)
+{
+    uint8 type = 0;
+    WASMRefType *ref_type = NULL;
+    int32 type_idx = -1;
+
+    if (!wasm_loader_get_frame_ref_top(ctx, &type, &ref_type, error_buf,
+                                       error_buf_size)) {
+        return false;
+    }
+
+    if (wasm_is_reftype_htref_nullable(type)
+        || wasm_is_reftype_htref_non_nullable(type)) {
+        bh_assert(ref_type);
+        /* stack top isn't (ref null (rtt n $t)), (ref null (rtt $t),
+           (ref (rtt n $t), or (ref (rtt $t)) */
+        if (!wasm_is_refheaptype_rttn(&ref_type->ref_ht_common)
+            && !wasm_is_refheaptype_rtt(&ref_type->ref_ht_common)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "type mismatch: expect (rtt n? $t) but got others");
+            return false;
+        }
+    }
+    else if (type != VALUE_TYPE_ANY) {
+        set_error_buf(error_buf, error_buf_size,
+                      "type mismatch: expect (rtt n? $t) but got others");
+        return false;
+    }
+
+    /* POP stack top elem */
+    if (wasm_is_type_multi_byte_type(type)) {
+        bh_assert(ref_type);
+        bh_memcpy_s(ctx->ref_type_tmp, sizeof(WASMRefType), ref_type,
+                    wasm_reftype_struct_size(ref_type));
+    }
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (!wasm_loader_pop_frame_ref_offset(ctx, type, error_buf,
+                                          error_buf_size)) {
+        return false;
+    }
+#else
+    if (!wasm_loader_pop_frame_ref(ctx, type, error_buf, error_buf_size)) {
+        return false;
+    }
+#endif
+
+    /* Get type idx */
+    if (wasm_is_reftype_htref_nullable(type)
+        || wasm_is_reftype_htref_non_nullable(type)) {
+        if (wasm_is_refheaptype_rttn(&ref_type->ref_ht_common))
+            type_idx = ref_type->ref_ht_rttn.type_idx;
+        else
+            type_idx = ref_type->ref_ht_rtt.type_idx;
+    }
+
+    *p_type = type;
+    *p_type_idx = type_idx;
+    return true;
+}
+
+/* Check whether the stack top elem is (ref null $t) or (ref $t),
+   and if yes, pop it and return the type_idx */
+static bool
+wasm_loader_pop_nullable_typeidx(WASMLoaderContext *ctx, uint8 *p_type,
+                                 uint32 *p_type_idx, char *error_buf,
+                                 uint32 error_buf_size)
+{
+    uint8 type = 0;
+    int32 type_idx = -1;
+    WASMRefType *ref_type = NULL;
+
+    /* Get stack top element */
+    if (!wasm_loader_get_frame_ref_top(ctx, &type, &ref_type, error_buf,
+                                       error_buf_size)) {
+        return false;
+    }
+
+    if (type != VALUE_TYPE_ANY) {
+        /* stack top isn't (ref null $t) */
+        if (!((wasm_is_reftype_htref_nullable(type)
+               || wasm_is_reftype_htref_non_nullable(type))
+              && wasm_is_refheaptype_typeidx(&ref_type->ref_ht_common))) {
+            set_error_buf(error_buf, error_buf_size,
+                          "type mismatch: expect (ref null $t) but got others");
+            return false;
+        }
+        type_idx = ref_type->ref_ht_typeidx.type_idx;
+
+        bh_memcpy_s(ctx->ref_type_tmp, sizeof(WASMRefType), ref_type,
+                    wasm_reftype_struct_size(ref_type));
+    }
+
+    /* POP stack top */
+#if WASM_ENABLE_FAST_INTERP != 0
+    if (!wasm_loader_pop_frame_ref_offset(ctx, type, error_buf,
+                                          error_buf_size)) {
+        return false;
+    }
+#else
+    if (!wasm_loader_pop_frame_ref(ctx, type, error_buf, error_buf_size)) {
+        return false;
+    }
+#endif
+
+    /* Convert to type_idx and return */
+    *p_type = type;
+    if (type != VALUE_TYPE_ANY)
+        *p_type_idx = (uint32)type_idx;
+    return true;
+}
+#endif /* WASM_ENABLE_GC != 0 */
 
 static bool
 wasm_loader_push_pop_frame_ref(WASMLoaderContext *ctx, uint8 pop_cnt,
@@ -5875,6 +6460,9 @@ wasm_loader_push_frame_csp(WASMLoaderContext *ctx, uint8 label_type,
     ctx->frame_csp->block_type = block_type;
     ctx->frame_csp->start_addr = start_addr;
     ctx->frame_csp->stack_cell_num = ctx->stack_cell_num;
+#if WASM_ENABLE_GC != 0
+    ctx->frame_csp->reftype_map_num = ctx->reftype_map_num;
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
     ctx->frame_csp->dynamic_offset = ctx->dynamic_offset;
     ctx->frame_csp->patch_list = NULL;
@@ -6048,6 +6636,13 @@ wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
     memset(ctx->frame_ref_bottom, 0, ctx->frame_ref_size);
     ctx->frame_ref = ctx->frame_ref_bottom;
     ctx->stack_cell_num = 0;
+
+#if WASM_ENABLE_GC != 0
+    /* clean up reftype map */
+    memset(ctx->frame_reftype_map_bottom, 0, ctx->frame_reftype_map_size);
+    ctx->frame_reftype_map = ctx->frame_reftype_map_bottom;
+    ctx->reftype_map_num = 0;
+#endif
 
     /* clean up frame csp */
     memset(ctx->frame_csp_bottom, 0, ctx->frame_csp_size);
@@ -6438,7 +7033,7 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
                              char *error_buf, uint32 error_buf_size)
 {
     /* if ctx->frame_csp equals ctx->frame_csp_bottom,
-        then current block is the function block */
+       then current block is the function block */
     uint32 depth = ctx->frame_csp > ctx->frame_csp_bottom ? 1 : 0;
     BranchBlock *cur_block = ctx->frame_csp - depth;
     int32 available_stack_cell =
@@ -6968,6 +7563,27 @@ fail:
             goto fail;                                                         \
     } while (0)
 
+#if WASM_ENABLE_GC == 0
+#define GET_LOCAL_REFTYPE() (void)0
+#else
+#define GET_LOCAL_REFTYPE()                                                  \
+    do {                                                                     \
+        if (wasm_is_type_multi_byte_type(local_type)) {                      \
+            WASMRefType *_ref_type;                                          \
+            if (local_idx < param_count)                                     \
+                _ref_type = wasm_reftype_map_find(                           \
+                    param_reftype_maps, param_reftype_map_count, local_idx); \
+            else                                                             \
+                _ref_type = wasm_reftype_map_find(local_reftype_maps,        \
+                                                  local_reftype_map_count,   \
+                                                  local_idx - param_count);  \
+            bh_assert(_ref_type);                                            \
+            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), _ref_type,      \
+                        wasm_reftype_struct_size(_ref_type));                \
+        }                                                                    \
+    } while (0)
+#endif
+
 #define GET_LOCAL_INDEX_TYPE_AND_OFFSET()                              \
     do {                                                               \
         read_leb_uint32(p, p_end, local_idx);                          \
@@ -6979,13 +7595,7 @@ fail:
                          ? param_types[local_idx]                      \
                          : local_types[local_idx - param_count];       \
         local_offset = local_offsets[local_idx];                       \
-    } while (0)
-
-#define CHECK_BR(depth)                                         \
-    do {                                                        \
-        if (!wasm_loader_check_br(loader_ctx, depth, error_buf, \
-                                  error_buf_size))              \
-            goto fail;                                          \
+        GET_LOCAL_REFTYPE();                                           \
     } while (0)
 
 static bool
@@ -7171,7 +7781,7 @@ check_memory_align_equal(uint8 opcode, uint32 align, char *error_buf,
 
 static bool
 wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
-                     char *error_buf, uint32 error_buf_size)
+                     bool is_br_table, char *error_buf, uint32 error_buf_size)
 {
     BranchBlock *target_block, *cur_block;
     BlockType *target_block_type;
@@ -7223,14 +7833,38 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
     /* If the stack is in polymorphic state, just clear the stack
      * and then re-push the values to make the stack top values
      * match block type. */
-    if (cur_block->is_stack_polymorphic) {
+    if (cur_block->is_stack_polymorphic && !is_br_table) {
+#if WASM_ENABLE_GC != 0
+        int32 j = reftype_map_count - 1;
+#endif
         for (i = (int32)arity - 1; i >= 0; i--) {
+#if WASM_ENABLE_GC != 0
+            if (wasm_is_type_multi_byte_type(types[i])) {
+                bh_assert(reftype_maps[j].index == i);
+                bh_memcpy_s(loader_ctx->ref_type_tmp, sizeof(WASMRefType),
+                            reftype_maps[j].ref_type,
+                            wasm_reftype_struct_size(reftype_maps[j].ref_type));
+                j--;
+            }
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
             POP_OFFSET_TYPE(types[i]);
 #endif
             POP_TYPE(types[i]);
         }
+#if WASM_ENABLE_GC != 0
+        j = 0;
+#endif
         for (i = 0; i < (int32)arity; i++) {
+#if WASM_ENABLE_GC != 0
+            if (wasm_is_type_multi_byte_type(types[i])) {
+                bh_assert(reftype_maps[j].index == i);
+                bh_memcpy_s(loader_ctx->ref_type_tmp, sizeof(WASMRefType),
+                            reftype_maps[j].ref_type,
+                            wasm_reftype_struct_size(reftype_maps[j].ref_type));
+                j++;
+            }
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
             bool disable_emit = true;
             int16 operand_offset = 0;
@@ -7257,6 +7891,10 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
         is_type_multi_byte = wasm_is_type_multi_byte_type(type);
         ref_type = is_type_multi_byte ? reftype_map->ref_type : NULL;
 #endif
+
+        if (available_stack_cell <= 0 && cur_block->is_stack_polymorphic)
+            break;
+
         if (!check_stack_top_values(loader_ctx, frame_ref, available_stack_cell,
 #if WASM_ENABLE_GC != 0
                                     frame_reftype_map, available_reftype_map,
@@ -7288,14 +7926,18 @@ fail:
 
 static BranchBlock *
 check_branch_block(WASMLoaderContext *loader_ctx, uint8 **p_buf, uint8 *buf_end,
-                   char *error_buf, uint32 error_buf_size)
+                   bool is_br_table, char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf, *p_end = buf_end;
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
     read_leb_uint32(p, p_end, depth);
-    CHECK_BR(depth);
+    if (!wasm_loader_check_br(loader_ctx, depth, is_br_table, error_buf,
+                              error_buf_size)) {
+        goto fail;
+    }
+
     frame_csp_tmp = loader_ctx->frame_csp - depth - 1;
 #if WASM_ENABLE_FAST_INTERP != 0
     emit_br_info(frame_csp_tmp);
@@ -7320,7 +7962,7 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
     WASMRefTypeMap *frame_reftype_map;
     WASMRefTypeMap *return_reftype_maps = NULL, *return_reftype_map;
     WASMRefType *ref_type;
-    uint32 return_reftype_map_count = 0;
+    uint32 param_count, return_reftype_map_count = 0;
     int32 available_reftype_map =
         (int32)(loader_ctx->reftype_map_num - block->reftype_map_num);
 #endif
@@ -7334,6 +7976,9 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
     return_count = block_type_get_result_types(block_type, &return_types,
                                                &return_reftype_maps,
                                                &return_reftype_map_count);
+    param_count =
+        block_type->is_value_type ? 0 : block_type->u.type->param_count;
+    (void)param_count;
 #endif
     return_cell_num =
         return_count > 0 ? wasm_get_cell_num(return_types, return_count) : 0;
@@ -7342,7 +7987,20 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
      * and then re-push the values to make the stack top values
      * match block type. */
     if (block->is_stack_polymorphic) {
+#if WASM_ENABLE_GC != 0
+        int32 j = return_reftype_map_count - 1;
+#endif
         for (i = (int32)return_count - 1; i >= 0; i--) {
+#if WASM_ENABLE_GC != 0
+            if (wasm_is_type_multi_byte_type(return_types[i])) {
+                bh_assert(return_reftype_maps[j].index == i + param_count);
+                bh_memcpy_s(
+                    loader_ctx->ref_type_tmp, sizeof(WASMRefType),
+                    return_reftype_maps[j].ref_type,
+                    wasm_reftype_struct_size(return_reftype_maps[j].ref_type));
+                j--;
+            }
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
             POP_OFFSET_TYPE(return_types[i]);
 #endif
@@ -7357,7 +8015,20 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
             goto fail;
         }
 
+#if WASM_ENABLE_GC != 0
+        j = 0;
+#endif
         for (i = 0; i < (int32)return_count; i++) {
+#if WASM_ENABLE_GC != 0
+            if (wasm_is_type_multi_byte_type(return_types[i])) {
+                bh_assert(return_reftype_maps[j].index == i + param_count);
+                bh_memcpy_s(
+                    loader_ctx->ref_type_tmp, sizeof(WASMRefType),
+                    return_reftype_maps[j].ref_type,
+                    wasm_reftype_struct_size(return_reftype_maps[j].ref_type));
+                j++;
+            }
+#endif
 #if WASM_ENABLE_FAST_INTERP != 0
             bool disable_emit = true;
             int16 operand_offset = 0;
@@ -7512,6 +8183,18 @@ fail:
 }
 #endif
 
+#if WASM_ENABLE_GC == 0
+#define RESET_REFTYPE_MAP_STACK() (void)0
+#else
+#define RESET_REFTYPE_MAP_STACK()                                            \
+    do {                                                                     \
+        loader_ctx->reftype_map_num =                                        \
+            (loader_ctx->frame_csp - 1)->reftype_map_num;                    \
+        loader_ctx->frame_reftype_map = loader_ctx->frame_reftype_map_bottom \
+                                        + loader_ctx->reftype_map_num;       \
+    } while (0)
+#endif
+
 /* reset the stack to the state of before entering the last block */
 #if WASM_ENABLE_FAST_INTERP != 0
 #define RESET_STACK()                                                     \
@@ -7522,6 +8205,7 @@ fail:
             loader_ctx->frame_ref_bottom + loader_ctx->stack_cell_num;    \
         loader_ctx->frame_offset =                                        \
             loader_ctx->frame_offset_bottom + loader_ctx->stack_cell_num; \
+        RESET_REFTYPE_MAP_STACK();                                        \
     } while (0)
 #else
 #define RESET_STACK()                                                  \
@@ -7530,6 +8214,7 @@ fail:
             (loader_ctx->frame_csp - 1)->stack_cell_num;               \
         loader_ctx->frame_ref =                                        \
             loader_ctx->frame_ref_bottom + loader_ctx->stack_cell_num; \
+        RESET_REFTYPE_MAP_STACK();                                     \
     } while (0)
 #endif
 
@@ -7554,27 +8239,41 @@ fail:
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
 static bool
 get_table_elem_type(const WASMModule *module, uint32 table_idx,
-                    uint8 *p_elem_type, char *error_buf, uint32 error_buf_size)
+                    uint8 *p_elem_type, void **p_ref_type, char *error_buf,
+                    uint32 error_buf_size)
 {
     if (!check_table_index(module, table_idx, error_buf, error_buf_size)) {
         return false;
     }
 
-    if (p_elem_type) {
-        if (table_idx < module->import_table_count)
+    if (table_idx < module->import_table_count) {
+        if (p_elem_type)
             *p_elem_type = module->import_tables[table_idx].u.table.elem_type;
-        else
+#if WASM_ENABLE_GC != 0
+        if (p_ref_type)
+            *((WASMRefType **)p_ref_type) =
+                module->import_tables[table_idx].u.table.elem_ref_type;
+#endif
+    }
+    else {
+        if (p_elem_type)
             *p_elem_type =
                 module->tables[module->import_table_count + table_idx]
                     .elem_type;
+#if WASM_ENABLE_GC != 0
+        if (p_ref_type)
+            *((WASMRefType **)p_ref_type) =
+                module->tables[module->import_table_count + table_idx]
+                    .elem_ref_type;
+#endif
     }
     return true;
 }
 
 static bool
 get_table_seg_elem_type(const WASMModule *module, uint32 table_seg_idx,
-                        uint8 *p_elem_type, char *error_buf,
-                        uint32 error_buf_size)
+                        uint8 *p_elem_type, void **p_elem_ref_type,
+                        char *error_buf, uint32 error_buf_size)
 {
     if (table_seg_idx >= module->table_seg_count) {
         set_error_buf_v(error_buf, error_buf_size, "unknown elem segment %u",
@@ -7585,6 +8284,11 @@ get_table_seg_elem_type(const WASMModule *module, uint32 table_seg_idx,
     if (p_elem_type) {
         *p_elem_type = module->table_segments[table_seg_idx].elem_type;
     }
+#if WASM_ENABLE_GC != 0
+    if (p_elem_ref_type)
+        *((WASMRefType **)p_elem_ref_type) =
+            module->table_segments[table_seg_idx].elem_ref_type;
+#endif
     return true;
 }
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
@@ -7608,6 +8312,9 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     WASMLoaderContext *loader_ctx;
     BranchBlock *frame_csp_tmp;
 #if WASM_ENABLE_GC != 0
+    WASMRefTypeMap *param_reftype_maps, *local_reftype_maps;
+    uint32 param_reftype_map_count, local_reftype_map_count;
+    int32 heap_type;
     WASMRefType wasm_ref_type = { 0 };
     bool need_ref_type_map;
 #endif
@@ -7634,6 +8341,13 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     local_count = func->local_count;
     local_types = func->local_types;
     local_offsets = func->local_offsets;
+
+#if WASM_ENABLE_GC != 0
+    param_reftype_maps = func->func_type->ref_type_maps;
+    param_reftype_map_count = func->func_type->ref_type_map_count;
+    local_reftype_maps = func->local_ref_type_maps;
+    local_reftype_map_count = func->local_ref_type_map_count;
+#endif
 
     if (!(loader_ctx = wasm_loader_ctx_init(func))) {
         set_error_buf(error_buf, error_buf_size, "allocate memory failed");
@@ -7681,21 +8395,15 @@ re_scan:
                 break;
 
             case WASM_OP_IF:
-#if WASM_ENABLE_FAST_INTERP != 0
-                PRESERVE_LOCAL_FOR_BLOCK();
-#endif
-                POP_I32();
-                goto handle_op_block_and_loop;
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
-#if WASM_ENABLE_FAST_INTERP != 0
-                PRESERVE_LOCAL_FOR_BLOCK();
-#endif
-            handle_op_block_and_loop:
             {
                 uint8 value_type;
                 BlockType block_type;
 
+#if WASM_ENABLE_FAST_INTERP != 0
+                PRESERVE_LOCAL_FOR_BLOCK();
+#endif
                 value_type = read_uint8(p);
                 if (is_byte_a_type(value_type)) {
                     /* If the first byte is one of these special values:
@@ -7703,6 +8411,29 @@ re_scan:
                      * the single return value. */
                     block_type.is_value_type = true;
                     block_type.u.value_type.type = value_type;
+#if WASM_ENABLE_GC != 0
+                    if (value_type != VALUE_TYPE_VOID) {
+                        p--;
+                        if (!resolve_value_type((const uint8 **)&p, p_end,
+                                                module, &need_ref_type_map,
+                                                &wasm_ref_type, false,
+                                                error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+                        if (need_ref_type_map) {
+                            block_type.u.value_type.ref_type_map.index = 0;
+                            if (!(block_type.u.value_type.ref_type_map
+                                      .ref_type = reftype_set_insert(
+                                      module->ref_type_set, &wasm_ref_type,
+                                      error_buf, error_buf_size))) {
+                                goto fail;
+                            }
+                        }
+                        /* Set again as the type might be changed, e.g.
+                           (ref null any) to anyref */
+                        block_type.u.value_type.type = wasm_ref_type.ref_type;
+                    }
+#endif
                 }
                 else {
                     uint32 type_index;
@@ -7729,6 +8460,9 @@ re_scan:
                     *(p - 2) = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
 #endif
                 }
+
+                if (opcode == WASM_OP_IF)
+                    POP_I32();
 
                 /* Pop block parameters from stack */
                 if (BLOCK_HAS_PARAM(block_type)) {
@@ -7771,7 +8505,7 @@ re_scan:
                      *       (i32.const 1)
                      *       (i32.const 2)
                      *       (if (param i32 i32) (result i32 i32) (local.get 0)
-                     * (then)) (i32.add)
+                     *       (then)) (i32.add)
                      *   )
                      *
                      * So we should emit a copy instruction before the if.
@@ -7881,28 +8615,35 @@ re_scan:
                     goto fail;
 
                 /* if no else branch, and return types do not match param types,
-                 * fail */
+                   report failure */
                 if (cur_block->label_type == LABEL_TYPE_IF
                     && !cur_block->else_addr) {
                     uint32 block_param_count = 0, block_ret_count = 0;
                     uint8 *block_param_types = NULL, *block_ret_types = NULL;
                     BlockType *cur_block_type = &cur_block->block_type;
+#if WASM_ENABLE_GC != 0
+                    uint32 block_param_reftype_map_count;
+                    uint32 block_ret_reftype_map_count;
+                    WASMRefTypeMap *block_param_reftype_maps;
+                    WASMRefTypeMap *block_ret_reftype_maps;
+#endif
 
-                    if (cur_block_type->is_value_type) {
-                        if (cur_block_type->u.value_type.type
-                            != VALUE_TYPE_VOID) {
-                            block_ret_count = 1;
-                            block_ret_types =
-                                &cur_block_type->u.value_type.type;
-                        }
-                    }
-                    else {
-                        block_param_count = cur_block_type->u.type->param_count;
-                        block_ret_count = cur_block_type->u.type->result_count;
-                        block_param_types = cur_block_type->u.type->types;
-                        block_ret_types =
-                            cur_block_type->u.type->types + block_param_count;
-                    }
+                    block_param_count = block_type_get_param_types(
+                        cur_block_type, &block_param_types
+#if WASM_ENABLE_GC != 0
+                        ,
+                        &block_param_reftype_maps,
+                        &block_param_reftype_map_count
+#endif
+                    );
+                    block_ret_count = block_type_get_result_types(
+                        cur_block_type, &block_ret_types
+#if WASM_ENABLE_GC != 0
+                        ,
+                        &block_ret_reftype_maps, &block_ret_reftype_map_count
+#endif
+                    );
+
                     if (block_param_count != block_ret_count
                         || (block_param_count
                             && memcmp(block_param_types, block_ret_types,
@@ -7911,6 +8652,19 @@ re_scan:
                                       "type mismatch: else branch missing");
                         goto fail;
                     }
+#if WASM_ENABLE_GC != 0
+                    if (block_param_reftype_map_count
+                            != block_ret_reftype_map_count
+                        || (block_param_reftype_map_count
+                            && memcmp(block_param_reftype_maps,
+                                      block_ret_reftype_maps,
+                                      sizeof(WASMRefTypeMap)
+                                          * block_param_reftype_map_count))) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "type mismatch: else branch missing");
+                        goto fail;
+                    }
+#endif
                 }
 
                 POP_CSP();
@@ -7952,8 +8706,9 @@ re_scan:
 
             case WASM_OP_BR:
             {
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, false,
+                                             error_buf, error_buf_size)))
                     goto fail;
 
                 RESET_STACK();
@@ -7965,8 +8720,9 @@ re_scan:
             {
                 POP_I32();
 
-                if (!(frame_csp_tmp = check_branch_block(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, false,
+                                             error_buf, error_buf_size)))
                     goto fail;
 
                 break;
@@ -7974,12 +8730,9 @@ re_scan:
 
             case WASM_OP_BR_TABLE:
             {
-                uint8 *ret_types = NULL;
-                uint32 ret_count = 0;
-#if WASM_ENABLE_GC != 0
-                WASMRefTypeMap *ret_reftype_maps = NULL;
-                uint32 ret_reftype_map_count;
-#endif
+                uint32 depth, default_arity, arity = 0;
+                BranchBlock *target_block;
+                BlockType *target_block_type;
 
                 read_leb_uint32(p, p_end, count);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -7987,57 +8740,52 @@ re_scan:
 #endif
                 POP_I32();
 
+                /* Get the default depth and check it */
+                p_org = p;
                 for (i = 0; i <= count; i++) {
-                    if (!(frame_csp_tmp =
-                              check_branch_block(loader_ctx, &p, p_end,
-                                                 error_buf, error_buf_size)))
+                    read_leb_uint32(p, p_end, depth);
+                }
+                if (loader_ctx->csp_num < depth + 1) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "unknown label, "
+                                  "unexpected end of section or function");
+                    goto fail;
+                }
+                p = p_org;
+
+                /* Get the default block's arity */
+                target_block = loader_ctx->frame_csp - (depth + 1);
+                target_block_type = &target_block->block_type;
+                default_arity = block_type_get_arity(target_block_type,
+                                                     target_block->label_type);
+
+                for (i = 0; i <= count; i++) {
+                    p_org = p;
+                    read_leb_uint32(p, p_end, depth);
+                    if (loader_ctx->csp_num < depth + 1) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unknown label, "
+                                      "unexpected end of section or function");
                         goto fail;
-
-                    if (i == 0) {
-                        if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP) {
-#if WASM_ENABLE_GC == 0
-                            ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &ret_types);
-#else
-                            ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &ret_types,
-                                &ret_reftype_maps, &ret_reftype_map_count);
-#endif
-                        }
                     }
-                    else {
-                        uint8 *tmp_ret_types = NULL;
-#if WASM_ENABLE_GC != 0
-                        WASMRefTypeMap *tmp_ret_reftype_maps = NULL;
-                        uint32 tmp_ret_reftype_map_count;
-#endif
-                        uint32 tmp_ret_count = 0;
+                    p = p_org;
 
-                        /* Check whether all table items have the same return
-                         * type */
-                        if (frame_csp_tmp->label_type != LABEL_TYPE_LOOP) {
-#if WASM_ENABLE_GC == 0
-                            tmp_ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &tmp_ret_types);
-#else
-                            tmp_ret_count = block_type_get_result_types(
-                                &frame_csp_tmp->block_type, &tmp_ret_types,
-                                &tmp_ret_reftype_maps,
-                                &tmp_ret_reftype_map_count);
-#endif
-                        }
+                    /* Get the target block's arity and check it */
+                    target_block = loader_ctx->frame_csp - (depth + 1);
+                    target_block_type = &target_block->block_type;
+                    arity = block_type_get_arity(target_block_type,
+                                                 target_block->label_type);
+                    if (arity != default_arity) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "type mismatch: br_table targets must "
+                                      "all use same result type");
+                        goto fail;
+                    }
 
-                        if (ret_count != tmp_ret_count
-                            || (ret_count
-                                && 0
-                                       != memcmp(ret_types, tmp_ret_types,
-                                                 ret_count))) {
-                            set_error_buf(
-                                error_buf, error_buf_size,
-                                "type mismatch: br_table targets must "
-                                "all use same result type");
-                            goto fail;
-                        }
+                    if (!(frame_csp_tmp =
+                              check_branch_block(loader_ctx, &p, p_end, true,
+                                                 error_buf, error_buf_size))) {
+                        goto fail;
                     }
                 }
 
@@ -8071,33 +8819,83 @@ re_scan:
 #if WASM_ENABLE_TAIL_CALL != 0
             case WASM_OP_RETURN_CALL:
 #endif
+#if WASM_ENABLE_GC != 0
+            case WASM_OP_CALL_REF:
+            case WASM_OP_RETURN_CALL_REF:
+#endif
             {
                 WASMFuncType *func_type;
+                uint8 type;
                 int32 idx;
-
-                read_leb_uint32(p, p_end, func_idx);
-#if WASM_ENABLE_FAST_INTERP != 0
-                /* we need to emit func_idx before arguments */
-                emit_uint32(loader_ctx, func_idx);
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+                int32 j;
 #endif
 
-                if (!check_function_index(module, func_idx, error_buf,
+#if WASM_ENABLE_GC != 0
+                if (opcode == WASM_OP_CALL_REF
+                    || opcode == WASM_OP_RETURN_CALL_REF) {
+                    if (!wasm_loader_pop_nullable_typeidx(loader_ctx, &type,
+                                                          &type_idx, error_buf,
+                                                          error_buf_size)) {
+                        goto fail;
+                    }
+                    if (type == VALUE_TYPE_ANY) {
+                        break;
+                    }
+                    if (!check_type_index(module, type_idx, error_buf,
                                           error_buf_size)) {
-                    goto fail;
+                        goto fail;
+                    }
+                    if (module->types[type_idx]->type_flag != WASM_TYPE_FUNC) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unkown function type");
+                        goto fail;
+                    }
+                    func_type = (WASMFuncType *)module->types[type_idx];
+                }
+                else
+#endif
+                {
+                    read_leb_uint32(p, p_end, func_idx);
+#if WASM_ENABLE_FAST_INTERP != 0
+                    /* we need to emit func_idx before arguments */
+                    emit_uint32(loader_ctx, func_idx);
+#endif
+
+                    if (!check_function_index(module, func_idx, error_buf,
+                                              error_buf_size)) {
+                        goto fail;
+                    }
+
+                    if (func_idx < module->import_function_count)
+                        func_type = module->import_functions[func_idx]
+                                        .u.function.func_type;
+                    else
+                        func_type =
+                            module
+                                ->functions[func_idx
+                                            - module->import_function_count]
+                                ->func_type;
                 }
 
-                if (func_idx < module->import_function_count)
-                    func_type =
-                        module->import_functions[func_idx].u.function.func_type;
-                else
-                    func_type = module
-                                    ->functions[func_idx
-                                                - module->import_function_count]
-                                    ->func_type;
-
                 if (func_type->param_count > 0) {
+#if WASM_ENABLE_GC != 0
+                    j = (int32)(func_type->result_ref_type_maps
+                                - func_type->ref_type_maps - 1);
+#endif
                     for (idx = (int32)(func_type->param_count - 1); idx >= 0;
                          idx--) {
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_multi_byte_type(
+                                func_type->types[idx])) {
+                            ref_type = func_type->ref_type_maps[j].ref_type;
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                            j--;
+                        }
+#endif
                         POP_TYPE(func_type->types[idx]);
 #if WASM_ENABLE_FAST_INTERP != 0
                         POP_OFFSET_TYPE(func_type->types[idx]);
@@ -8105,10 +8903,24 @@ re_scan:
                     }
                 }
 
-#if WASM_ENABLE_TAIL_CALL != 0
-                if (opcode == WASM_OP_CALL) {
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
+                if (opcode == WASM_OP_CALL || opcode == WASM_OP_CALL_REF) {
+#endif
+#if WASM_ENABLE_GC != 0
+                    j = (int32)(func_type->result_ref_type_maps
+                                - func_type->ref_type_maps);
 #endif
                     for (i = 0; i < func_type->result_count; i++) {
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_multi_byte_type(
+                                func_type->types[func_type->param_count + i])) {
+                            ref_type = func_type->ref_type_maps[j].ref_type;
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                            j++;
+                        }
+#endif
                         PUSH_TYPE(func_type->types[func_type->param_count + i]);
 #if WASM_ENABLE_FAST_INTERP != 0
                         /* Here we emit each return value's dynamic_offset. But
@@ -8119,10 +8931,10 @@ re_scan:
                             func_type->types[func_type->param_count + i]);
 #endif
                     }
-#if WASM_ENABLE_TAIL_CALL != 0
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
                 }
                 else {
-                    uint8 type;
+#if WASM_ENABLE_GC == 0
                     if (func_type->result_count
                         != func->func_type->result_count) {
                         set_error_buf_v(error_buf, error_buf_size, "%s%u%s",
@@ -8142,10 +8954,21 @@ re_scan:
                             goto fail;
                         }
                     }
+#else
+                    if (!wasm_func_type_result_is_subtype_of(
+                            func_type, func->func_type, module->types,
+                            module->type_count)) {
+                        set_error_buf(
+                            error_buf, error_buf_size,
+                            "type mismatch: invalid func result types");
+                        goto fail;
+                    }
+#endif
                     RESET_STACK();
                     SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
                 }
 #endif
+                (void)type;
                 func->has_op_func_call = true;
                 break;
             }
@@ -8298,7 +9121,7 @@ re_scan:
                     }
 #if WASM_ENABLE_SIMD != 0
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
-                    else if (*(loader_ctx->frame_ref - 1) == REF_V128_1) {
+                    else if (*(loader_ctx->frame_ref - 1) == VALUE_TYPE_V128) {
                         loader_ctx->frame_ref -= 4;
                         loader_ctx->stack_cell_num -= 4;
                     }
@@ -8341,11 +9164,11 @@ re_scan:
 
                 if (available_stack_cell > 0) {
                     switch (*(loader_ctx->frame_ref - 1)) {
-                        case REF_I32:
-                        case REF_F32:
+                        case VALUE_TYPE_I32:
+                        case VALUE_TYPE_F32:
                             break;
-                        case REF_I64_2:
-                        case REF_F64_2:
+                        case VALUE_TYPE_I64:
+                        case VALUE_TYPE_F64:
 #if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
                             *(p - 1) = WASM_OP_SELECT_64;
 #endif
@@ -8385,7 +9208,7 @@ re_scan:
                             break;
 #if WASM_ENABLE_SIMD != 0
 #if (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0)
-                        case REF_V128_4:
+                        case VALUE_TYPE_V128:
                             break;
 #endif /* (WASM_ENABLE_WAMR_COMPILER != 0) || (WASM_ENABLE_JIT != 0) */
 #endif /* WASM_ENABLE_SIMD != 0 */
@@ -8421,7 +9244,10 @@ re_scan:
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             case WASM_OP_SELECT_T:
             {
-                uint8 vec_len, ref_type;
+                uint8 vec_len, type;
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type = NULL;
+#endif
 
                 read_leb_uint32(p, p_end, vec_len);
                 if (!vec_len) {
@@ -8430,13 +9256,28 @@ re_scan:
                     goto fail;
                 }
 
+#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
-                ref_type = read_uint8(p);
-                if (!is_value_type(ref_type)) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "unknown value type");
+                type = read_uint8(p);
+                if (!is_value_type(type)) {
+                    set_error_buf(error_buf, error_buf_size, "type mismatch");
                     goto fail;
                 }
+#else
+                if (!resolve_value_type((const uint8 **)&p, p_end, module,
+                                        &need_ref_type_map, &wasm_ref_type,
+                                        false, error_buf, error_buf_size)) {
+                    goto fail;
+                }
+                type = wasm_ref_type.ref_type;
+                if (need_ref_type_map) {
+                    if (!(ref_type = reftype_set_insert(
+                              module->ref_type_set, &wasm_ref_type, error_buf,
+                              error_buf_size))) {
+                        goto fail;
+                    }
+                }
+#endif
 
                 POP_I32();
 
@@ -8446,7 +9287,7 @@ re_scan:
                     uint8 *p_code_compiled_tmp =
                         loader_ctx->p_code_compiled - 2;
 
-                    if (ref_type == VALUE_TYPE_V128) {
+                    if (type == VALUE_TYPE_V128) {
 #if (WASM_ENABLE_SIMD == 0) \
     || ((WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0))
                         set_error_buf(error_buf, error_buf_size,
@@ -8455,8 +9296,7 @@ re_scan:
 #endif
                     }
                     else {
-                        if (ref_type == VALUE_TYPE_F64
-                            || ref_type == VALUE_TYPE_I64)
+                        if (type == VALUE_TYPE_F64 || type == VALUE_TYPE_I64)
                             opcode_tmp = WASM_OP_SELECT_64;
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
@@ -8485,16 +9325,23 @@ re_scan:
                 }
 #endif /* WASM_ENABLE_FAST_INTERP != 0 */
 
-#if WASM_ENABLE_FAST_INTERP != 0
-                POP_OFFSET_TYPE(ref_type);
-                POP_TYPE(ref_type);
-                POP_OFFSET_TYPE(ref_type);
-                POP_TYPE(ref_type);
-                PUSH_OFFSET_TYPE(ref_type);
-                PUSH_TYPE(ref_type);
-#else
-                POP2_AND_PUSH(ref_type, ref_type);
-#endif /* WASM_ENABLE_FAST_INTERP != 0 */
+                POP_REF(type);
+
+#if WASM_ENABLE_GC != 0
+                if (need_ref_type_map) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), ref_type,
+                                wasm_reftype_struct_size(ref_type));
+                }
+#endif
+                POP_REF(type);
+
+#if WASM_ENABLE_GC != 0
+                if (need_ref_type_map) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), ref_type,
+                                wasm_reftype_struct_size(ref_type));
+                }
+#endif
+                PUSH_REF(type);
 
                 (void)vec_len;
                 break;
@@ -8506,11 +9353,27 @@ re_scan:
             case WASM_OP_TABLE_SET:
             {
                 uint8 decl_ref_type;
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+#endif
 
                 read_leb_uint32(p, p_end, table_idx);
                 if (!get_table_elem_type(module, table_idx, &decl_ref_type,
+#if WASM_ENABLE_GC != 0
+                                         (void **)&ref_type,
+#else
+                                         NULL,
+#endif
                                          error_buf, error_buf_size))
                     goto fail;
+
+#if WASM_ENABLE_GC != 0
+                if (wasm_is_type_multi_byte_type(decl_ref_type)) {
+                    bh_assert(ref_type);
+                    bh_memcpy_s(&wasm_ref_type, (uint32)sizeof(WASMRefType),
+                                ref_type, wasm_reftype_struct_size(ref_type));
+                }
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_uint32(loader_ctx, table_idx);
@@ -8536,22 +9399,34 @@ re_scan:
             {
                 uint8 ref_type;
 
-#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 ref_type = read_uint8(p);
+#if WASM_ENABLE_GC == 0
                 if (ref_type != VALUE_TYPE_FUNCREF
                     && ref_type != VALUE_TYPE_EXTERNREF) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "unknown value type");
+                    set_error_buf(error_buf, error_buf_size, "type mismatch");
                     goto fail;
                 }
 #else
-                if (!resolve_value_type((const uint8 **)&p, p_end, module,
-                                        &need_ref_type_map, &wasm_ref_type,
-                                        false, error_buf, error_buf_size)) {
-                    goto fail;
+                p--;
+                if (is_byte_a_type(ref_type)) {
+                    if (!resolve_value_type((const uint8 **)&p, p_end, module,
+                                            &need_ref_type_map, &wasm_ref_type,
+                                            false, error_buf, error_buf_size)) {
+                        goto fail;
+                    }
+                    ref_type = wasm_ref_type.ref_type;
                 }
-                ref_type = wasm_ref_type.ref_type;
+                else {
+                    read_leb_uint32(p, p_end, type_idx);
+                    if (!check_type_index(module, type_idx, error_buf,
+                                          error_buf_size)) {
+                        goto fail;
+                    }
+                    wasm_set_refheaptype_typeidx(&wasm_ref_type.ref_ht_typeidx,
+                                                 true, type_idx);
+                    ref_type = wasm_ref_type.ref_type;
+                }
 #endif
 #if WASM_ENABLE_FAST_INTERP != 0
                 PUSH_OFFSET_TYPE(ref_type);
@@ -8561,6 +9436,7 @@ re_scan:
             }
             case WASM_OP_REF_IS_NULL:
             {
+#if WASM_ENABLE_GC == 0
 #if WASM_ENABLE_FAST_INTERP != 0
                 if (!wasm_loader_pop_frame_ref_offset(loader_ctx,
                                                       VALUE_TYPE_FUNCREF,
@@ -8579,11 +9455,18 @@ re_scan:
                     goto fail;
                 }
 #endif
+#else
+                POP_REF(REF_TYPE_ANYREF);
+#endif
                 PUSH_I32();
                 break;
             }
             case WASM_OP_REF_FUNC:
             {
+#if WASM_ENABLE_GC != 0
+                WASMFuncType *type;
+#endif
+
                 read_leb_uint32(p, p_end, func_idx);
 
                 if (!check_function_index(module, func_idx, error_buf,
@@ -8619,7 +9502,21 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_uint32(loader_ctx, func_idx);
 #endif
+#if WASM_ENABLE_GC == 0
                 PUSH_FUNCREF();
+#else
+                if (func_idx < module->import_function_count)
+                    type =
+                        module->import_functions[func_idx].u.function.func_type;
+                else
+                    type = module
+                               ->functions[func_idx
+                                           - module->import_function_count]
+                               ->func_type;
+                wasm_set_refheaptype_typeidx(&wasm_ref_type.ref_ht_typeidx,
+                                             false, type->type_idx);
+                PUSH_REF(wasm_ref_type.ref_type);
+#endif
                 break;
             }
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
@@ -8627,14 +9524,76 @@ re_scan:
 #if WASM_ENABLE_GC != 0
             case WASM_OP_REF_AS_NON_NULL:
             case WASM_OP_BR_ON_NULL:
-            case WASM_OP_REF_EQ:
+            {
+                uint8 type;
+                WASMRefType ref_type;
+
+                /* POP (ref null ht) and get the converted (ref ht) */
+                if (!wasm_loader_pop_nullable_ht(loader_ctx, &type, &ref_type,
+                                                 error_buf, error_buf_size)) {
+                    goto fail;
+                }
+
+                if (opcode == WASM_OP_BR_ON_NULL) {
+                    if (!(frame_csp_tmp =
+                              check_branch_block(loader_ctx, &p, p_end, false,
+                                                 error_buf, error_buf_size))) {
+                        goto fail;
+                    }
+                }
+
+                /* PUSH the converted (ref ht) */
+                if (type != VALUE_TYPE_ANY) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), &ref_type,
+                                sizeof(WASMRefType));
+                }
+                PUSH_REF(type);
+                break;
+            }
+
             case WASM_OP_BR_ON_NON_NULL:
-            case WASM_OP_CALL_REF:
-            case WASM_OP_RETURN_CALL_REF:
+            {
+                uint8 type;
+                WASMRefType ref_type;
+
+                /* POP (ref null ht) and get the converted (ref ht) */
+                if (!wasm_loader_pop_nullable_ht(loader_ctx, &type, &ref_type,
+                                                 error_buf, error_buf_size)) {
+                    goto fail;
+                }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                disable_emit = true;
+#endif
+
+                /* Temporarily PUSH back (ref ht), check brach block and
+                   then POP it */
+                if (type != VALUE_TYPE_ANY) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), &ref_type,
+                                sizeof(WASMRefType));
+                }
+                PUSH_REF(type);
+                if (!(frame_csp_tmp =
+                          check_branch_block(loader_ctx, &p, p_end, false,
+                                             error_buf, error_buf_size))) {
+                    goto fail;
+                }
+                POP_REF(type);
+                break;
+            }
+
+            case WASM_OP_REF_EQ:
+                POP_REF(REF_TYPE_EQREF);
+                POP_REF(REF_TYPE_EQREF);
+                PUSH_I32();
+                break;
+
             case WASM_OP_FUNC_BIND:
             case WASM_OP_LET:
                 /* TODO */
-                break;
+                set_error_buf_v(error_buf, error_buf_size,
+                                "unsupported opcode %02x", opcode);
+                goto fail;
 #endif
 
             case WASM_OP_GET_LOCAL:
@@ -8761,8 +9720,8 @@ re_scan:
                 GET_LOCAL_INDEX_TYPE_AND_OFFSET();
 #if WASM_ENABLE_FAST_INTERP != 0
                 /* If the stack is in polymorphic state, do fake pop and push on
-                    offset stack to keep the depth of offset stack to be the
-                   same with ref stack */
+                   offset stack to keep the depth of offset stack to be the same
+                   with ref stack */
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 if (cur_block->is_stack_polymorphic) {
                     POP_OFFSET_TYPE(local_type);
@@ -8828,6 +9787,10 @@ re_scan:
 
             case WASM_OP_GET_GLOBAL:
             {
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+#endif
+
                 p_org = p - 1;
                 read_leb_uint32(p, p_end, global_idx);
                 if (global_idx >= global_count) {
@@ -8842,6 +9805,19 @@ re_scan:
                               ->globals[global_idx
                                         - module->import_global_count]
                               .type;
+#if WASM_ENABLE_GC != 0
+                ref_type =
+                    global_idx < module->import_global_count
+                        ? module->import_globals[global_idx].u.global.ref_type
+                        : module
+                              ->globals[global_idx
+                                        - module->import_global_count]
+                              .ref_type;
+                if (wasm_is_type_multi_byte_type(global_type)) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), ref_type,
+                                wasm_reftype_struct_size(ref_type));
+                }
+#endif
 
                 PUSH_TYPE(global_type);
 
@@ -8870,6 +9846,9 @@ re_scan:
             case WASM_OP_SET_GLOBAL:
             {
                 bool is_mutable = false;
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+#endif
 
                 p_org = p - 1;
                 read_leb_uint32(p, p_end, global_idx);
@@ -8898,6 +9877,19 @@ re_scan:
                               ->globals[global_idx
                                         - module->import_global_count]
                               .type;
+#if WASM_ENABLE_GC != 0
+                ref_type =
+                    global_idx < module->import_global_count
+                        ? module->import_globals[global_idx].u.global.ref_type
+                        : module
+                              ->globals[global_idx
+                                        - module->import_global_count]
+                              .ref_type;
+                if (wasm_is_type_multi_byte_type(global_type)) {
+                    bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType), ref_type,
+                                wasm_reftype_struct_size(ref_type));
+                }
+#endif
 
                 POP_TYPE(global_type);
 
@@ -9359,10 +10351,11 @@ re_scan:
                         if (module->types[type_idx]->type_flag
                             != WASM_TYPE_STRUCT) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "invalid type");
+                                          "unkown struct type");
                             goto fail;
                         }
 
+                        /* POP (rtt n $t) */
                         wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
                                                   false, 0, type_idx);
                         POP_REF(wasm_ref_type.ref_type);
@@ -9421,6 +10414,7 @@ re_scan:
                             }
                         }
 
+                        /* PUSH struct obj, (ref $t) */
                         wasm_set_refheaptype_typeidx(
                             &wasm_ref_type.ref_ht_typeidx, false, type_idx);
                         PUSH_REF(wasm_ref_type.ref_type);
@@ -9431,22 +10425,218 @@ re_scan:
                     case WASM_OP_STRUCT_GET_S:
                     case WASM_OP_STRUCT_GET_U:
                     case WASM_OP_STRUCT_SET:
+                    {
+                        WASMStructType *struct_type;
+                        WASMRefType *ref_type = NULL;
+                        uint32 field_idx;
+                        uint8 field_type;
+
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_STRUCT) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown struct type");
+                            goto fail;
+                        }
+                        struct_type = (WASMStructType *)module->types[type_idx];
+
+                        read_leb_uint32(p, p_end, field_idx);
+                        if (field_idx >= struct_type->field_count) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unknown struct field");
+                            goto fail;
+                        }
+
+                        if (opcode1 == WASM_OP_STRUCT_SET
+                            && !(struct_type->fields[field_idx].field_flags
+                                 & 1)) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "field is immutable");
+                            goto fail;
+                        }
+
+                        field_type = struct_type->fields[field_idx].field_type;
+                        if (is_packed_type(field_type)) {
+                            if (opcode1 != WASM_OP_STRUCT_GET_S
+                                && opcode1 != WASM_OP_STRUCT_GET_U) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "type mismatch");
+                                goto fail;
+                            }
+                            else {
+                                field_type = VALUE_TYPE_I32;
+                            }
+                        }
+                        if (wasm_is_type_multi_byte_type(field_type)) {
+                            ref_type = wasm_reftype_map_find(
+                                struct_type->ref_type_maps,
+                                struct_type->ref_type_map_count, field_idx);
+                            bh_assert(ref_type);
+                        }
+                        if (opcode1 == WASM_OP_STRUCT_SET) {
+                            /* POP field */
+                            if (wasm_is_type_multi_byte_type(field_type)) {
+                                bh_memcpy_s(&wasm_ref_type,
+                                            (uint32)sizeof(WASMRefType),
+                                            ref_type,
+                                            wasm_reftype_struct_size(ref_type));
+                            }
+                            POP_REF(field_type);
+                            /* POP struct obj, (ref null $t) */
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                            POP_REF(wasm_ref_type.ref_type);
+                        }
+                        else {
+                            /* POP struct obj, (ref null $t) */
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                            POP_REF(wasm_ref_type.ref_type);
+                            /* PUSH field */
+                            if (wasm_is_type_multi_byte_type(field_type)) {
+                                bh_memcpy_s(&wasm_ref_type,
+                                            (uint32)sizeof(WASMRefType),
+                                            ref_type,
+                                            wasm_reftype_struct_size(ref_type));
+                            }
+                            PUSH_REF(field_type);
+                        }
+                        break;
+                    }
 
                     case WASM_OP_ARRAY_NEW_WITH_RTT:
                     case WASM_OP_ARRAY_NEW_DEFAULT_WITH_RTT:
+                    {
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_ARRAY) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unkown array type");
+                            goto fail;
+                        }
+
+                        /* POP (rtt n $t) */
+                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
+                                                  false, 0, type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        /* length */
+                        POP_I32();
+
+                        if (opcode1 == WASM_OP_ARRAY_NEW_WITH_RTT) {
+                            WASMArrayType *array_type =
+                                (WASMArrayType *)module->types[type_idx];
+                            uint8 elem_type = array_type->elem_type;
+
+                            if (wasm_is_type_multi_byte_type(elem_type)) {
+                                bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                            array_type->elem_ref_type,
+                                            wasm_reftype_struct_size(
+                                                array_type->elem_ref_type));
+                            }
+                            if (is_packed_type(elem_type)) {
+                                elem_type = VALUE_TYPE_I32;
+                            }
+                            POP_REF(elem_type);
+                        }
+
+                        /* PUSH array obj, (ref $t) */
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, false, type_idx);
+                        PUSH_REF(wasm_ref_type.ref_type);
+                        break;
+                    }
+
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
                     case WASM_OP_ARRAY_SET:
+                    {
+                        uint8 elem_type;
+                        WASMArrayType *array_type;
+                        WASMRefType *ref_type = NULL;
+
+                        read_leb_uint32(p, p_end, type_idx);
+                        if (!check_type_index(module, type_idx, error_buf,
+                                              error_buf_size)) {
+                            goto fail;
+                        }
+                        if (module->types[type_idx]->type_flag
+                            != WASM_TYPE_ARRAY) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "unkown array type");
+                            goto fail;
+                        }
+                        array_type = (WASMArrayType *)module->types[type_idx];
+
+                        if (opcode1 == WASM_OP_ARRAY_SET
+                            && !(array_type->elem_flags & 1)) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "array is immutable");
+                            goto fail;
+                        }
+
+                        elem_type = array_type->elem_type;
+                        if (is_packed_type(elem_type)) {
+                            if (opcode1 != WASM_OP_ARRAY_GET_S
+                                && opcode1 != WASM_OP_ARRAY_GET_U) {
+                                set_error_buf(error_buf, error_buf_size,
+                                              "type mismatch");
+                                goto fail;
+                            }
+                            else {
+                                elem_type = VALUE_TYPE_I32;
+                            }
+                        }
+                        ref_type = array_type->elem_ref_type;
+
+                        if (opcode1 == WASM_OP_ARRAY_SET) {
+                            /* POP elem to set */
+                            if (wasm_is_type_multi_byte_type(elem_type)) {
+                                bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                            ref_type,
+                                            wasm_reftype_struct_size(ref_type));
+                            }
+                            POP_REF(elem_type);
+                        }
+                        /* elem idx */
+                        POP_I32();
+                        /* POP array obj, (ref null $t) */
+                        wasm_set_refheaptype_typeidx(
+                            &wasm_ref_type.ref_ht_typeidx, true, type_idx);
+                        POP_REF(wasm_ref_type.ref_type);
+                        if (opcode1 != WASM_OP_ARRAY_SET) {
+                            /* PUSH elem */
+                            if (wasm_is_type_multi_byte_type(elem_type)) {
+                                bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                            ref_type,
+                                            wasm_reftype_struct_size(ref_type));
+                            }
+                            PUSH_REF(elem_type);
+                        }
+                        break;
+                    }
+
                     case WASM_OP_ARRAY_LEN:
-                        set_error_buf_v(error_buf, error_buf_size,
-                                        "%s %02x %02x", "unsupported opcode",
-                                        WASM_OP_GC_PREFIX, opcode1);
-                        goto fail;
+                    {
+                        POP_REF(REF_TYPE_ARRAYREF);
+                        /* length */
+                        PUSH_I32();
+                        break;
+                    }
 
                     case WASM_OP_I31_NEW:
-                        read_leb_int32(p, p_end, i32_const);
-                        PUSH_REF(REF_TYPE_I31REF);
+                        POP_I32();
+                        wasm_set_refheaptype_common(
+                            &wasm_ref_type.ref_ht_common, false, HEAP_TYPE_I31);
+                        PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     case WASM_OP_I31_GET_S:
                     case WASM_OP_I31_GET_U:
@@ -9469,69 +10659,358 @@ re_scan:
 
                     case WASM_OP_RTT_SUB:
                     {
+                        uint8 type;
+                        uint32 type_idx_super;
+                        WASMRefType *ref_type = NULL;
+
                         read_leb_uint32(p, p_end, type_idx);
                         if (!check_type_index(module, type_idx, error_buf,
                                               error_buf_size)) {
                             goto fail;
                         }
-                        wasm_set_refheaptype_rttn(&wasm_ref_type.ref_ht_rttn,
-                                                  false, 0, type_idx);
-                        POP_REF(wasm_ref_type.ref_type);
+
+                        /* Get the stack top element */
+                        if (!wasm_loader_get_frame_ref_top(loader_ctx, &type,
+                                                           &ref_type, error_buf,
+                                                           error_buf_size)) {
+                            goto fail;
+                        }
+
+                        if (type == VALUE_TYPE_ANY) {
+                            /* do nothing */
+                            break;
+                        }
+
+                        /* The stack top elem must be (rtt $t) or (rtt n $t) */
+                        if (!(type == REF_TYPE_HT_NON_NULLABLE
+                              && (wasm_is_refheaptype_rtt(
+                                      &ref_type->ref_ht_common)
+                                  || wasm_is_refheaptype_rttn(
+                                      &ref_type->ref_ht_common)))) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "type mismatch");
+                            goto fail;
+                        }
+
+                        /* Check the type index relationship */
+                        type_idx_super =
+                            wasm_is_refheaptype_rtt(&ref_type->ref_ht_common)
+                                ? ref_type->ref_ht_rtt.type_idx
+                                : ref_type->ref_ht_rttn.type_idx;
+                        if (!wasm_type_is_subtype_of(
+                                module->types[type_idx],
+                                module->types[type_idx_super], module->types,
+                                module->type_count)) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "type mismatch");
+                            goto fail;
+                        }
+
+                        /* Pop current stack top element */
+                        bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                    ref_type,
+                                    wasm_reftype_struct_size(ref_type));
+                        POP_REF(ref_type->ref_type);
+
+                        /* Push (rtt (n + 1)? $t) */
+                        if (wasm_is_refheaptype_rtt(&ref_type->ref_ht_common)) {
+                            wasm_set_refheaptype_rtt(&wasm_ref_type.ref_ht_rtt,
+                                                     false, type_idx);
+                        }
+                        else {
+                            wasm_set_refheaptype_rttn(
+                                &wasm_ref_type.ref_ht_rttn, false,
+                                wasm_ref_type.ref_ht_rttn.n + 1, type_idx);
+                        }
+                        PUSH_REF(wasm_ref_type.ref_type);
                         break;
                     }
 
                     case WASM_OP_REF_TEST:
+                    {
+                        uint8 type;
+                        int32 rtt_type_idx;
+
+                        /* POP (ref (rtt n type_idx)) or (ref (rtt type_idx)) */
+                        if (!wasm_loader_pop_rttn_or_rtt(
+                                loader_ctx, &type, &rtt_type_idx, error_buf,
+                                error_buf_size)) {
+                            goto fail;
+                        }
+                        (void)type;
+                        (void)rtt_type_idx;
+                        /* POP (ref null data) or (ref null func) */
+                        if (!wasm_loader_pop_nullable_data_or_func(
+                                loader_ctx, error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+                        PUSH_I32();
+                        break;
+                    }
+
                     case WASM_OP_REF_CAST:
+                    {
+                        uint8 type1, type2;
+                        int32 rtt_type_idx;
+                        bool nullable = false;
+
+                        /* POP (ref (rtt n type_idx)) or (ref (rtt type_idx))
+                           and get the type_idx */
+                        if (!wasm_loader_pop_rttn_or_rtt(
+                                loader_ctx, &type1, &rtt_type_idx, error_buf,
+                                error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* POP (ref null? data) or (ref null? func) and get
+                           the null? flag */
+                        if (!wasm_loader_pop_data_or_func(loader_ctx, &type2,
+                                                          &nullable, error_buf,
+                                                          error_buf_size)) {
+                            goto fail;
+                        }
+                        (void)type2;
+                        /* PUSH (ref null? type_idx) */
+                        if (type1 != VALUE_TYPE_ANY) {
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, nullable,
+                                rtt_type_idx);
+                            type1 = wasm_ref_type.ref_type;
+                        }
+                        PUSH_REF(type1);
+                        break;
+                    }
+
                     case WASM_OP_BR_ON_CAST:
+                    {
+                        uint8 type1, type2;
+                        int32 rtt_type_idx;
+                        WASMRefType *ref_type2 = NULL;
+
+                        /* POP (rtt n type_idx) or (rtt type_idx) and
+                           get the type_idx */
+                        if (!wasm_loader_pop_rttn_or_rtt(
+                                loader_ctx, &type1, &rtt_type_idx, error_buf,
+                                error_buf_size)) {
+                            goto fail;
+                        }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                        disable_emit = true;
+#endif
+
+                        /* Backup the stack top elem */
+                        if (!wasm_loader_get_frame_ref_top(
+                                loader_ctx, &type2, &ref_type2, error_buf,
+                                error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* POP (ref null data) or (ref null func) */
+                        if (!wasm_loader_pop_nullable_data_or_func(
+                                loader_ctx, error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* Temporarily PUSH (ref type_idx) and check
+                           branch block */
+                        if (type1 != VALUE_TYPE_ANY) {
+                            wasm_set_refheaptype_typeidx(
+                                &wasm_ref_type.ref_ht_typeidx, false,
+                                rtt_type_idx);
+                            type1 = wasm_ref_type.ref_type;
+                        }
+                        PUSH_REF(type1);
+                        if (!(frame_csp_tmp = check_branch_block(
+                                  loader_ctx, &p, p_end, false, error_buf,
+                                  error_buf_size))) {
+                            goto fail;
+                        }
+                        POP_REF(type1);
+
+                        /* Push back the original stack top elem */
+                        if (wasm_is_type_multi_byte_type(type2)) {
+                            bh_memcpy_s(&wasm_ref_type,
+                                        (uint32)sizeof(WASMRefType), ref_type2,
+                                        wasm_reftype_struct_size(ref_type2));
+                        }
+                        PUSH_REF(type2);
+                        break;
+                    }
+
                     case WASM_OP_BR_ON_CAST_FAIL:
+                    {
+                        uint8 type;
+                        int32 rtt_type_idx;
+                        WASMRefType *ref_type = NULL;
+
+                        /* POP (rtt n type_idx) or (rtt type_idx) and
+                           get the type_idx */
+                        if (!wasm_loader_pop_rttn_or_rtt(
+                                loader_ctx, &type, &rtt_type_idx, error_buf,
+                                error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* Check branch block */
+                        if (!(frame_csp_tmp = check_branch_block(
+                                  loader_ctx, &p, p_end, false, error_buf,
+                                  error_buf_size))) {
+                            goto fail;
+                        }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                        disable_emit = true;
+#endif
+
+                        /* Backup the stack top elem */
+                        if (!wasm_loader_get_frame_ref_top(loader_ctx, &type,
+                                                           &ref_type, error_buf,
+                                                           error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* POP (ref null data) or (ref null func) */
+                        if (!wasm_loader_pop_nullable_data_or_func(
+                                loader_ctx, error_buf, error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* PUSH back the original stack top */
+                        if (wasm_is_type_multi_byte_type(type)) {
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                        }
+                        PUSH_REF(type);
+                        break;
+                    }
 
                     case WASM_OP_REF_IS_FUNC:
-                        POP_REF(REF_TYPE_ANYREF);
-                        PUSH_I32();
-                        break;
                     case WASM_OP_REF_IS_DATA:
-                        POP_REF(REF_TYPE_DATAREF);
-                        PUSH_I32();
-                        break;
                     case WASM_OP_REF_IS_I31:
-                        POP_REF(REF_TYPE_I31REF);
+                    case WASM_OP_REF_IS_ARRAY:
+                        POP_REF(REF_TYPE_ANYREF);
                         PUSH_I32();
                         break;
+
                     case WASM_OP_REF_AS_FUNC:
-                        POP_REF(REF_TYPE_ANYREF);
-                        wasm_set_refheaptype_common(
-                            &wasm_ref_type.ref_ht_common, false,
-                            HEAP_TYPE_FUNC);
-                        PUSH_REF(wasm_ref_type.ref_type);
-                        break;
+                        heap_type = HEAP_TYPE_FUNC;
+                        goto handle_ref_as;
                     case WASM_OP_REF_AS_DATA:
-                        POP_REF(REF_TYPE_ANYREF);
-                        wasm_set_refheaptype_common(
-                            &wasm_ref_type.ref_ht_common, false,
-                            HEAP_TYPE_DATA);
-                        PUSH_REF(wasm_ref_type.ref_type);
-                        break;
+                        heap_type = HEAP_TYPE_DATA;
+                        goto handle_ref_as;
                     case WASM_OP_REF_AS_I31:
+                        heap_type = HEAP_TYPE_I31;
+                        goto handle_ref_as;
+                    case WASM_OP_REF_AS_ARRAY:
+                        heap_type = HEAP_TYPE_ARRAY;
+                        goto handle_ref_as;
+                    handle_ref_as:
+                    {
                         POP_REF(REF_TYPE_ANYREF);
                         wasm_set_refheaptype_common(
-                            &wasm_ref_type.ref_ht_common, false, HEAP_TYPE_I31);
+                            &wasm_ref_type.ref_ht_common, false, heap_type);
                         PUSH_REF(wasm_ref_type.ref_type);
                         break;
+                    }
 
                     case WASM_OP_BR_ON_FUNC:
-                        /*
-                        wasm_set_refheaptype_common(&ref_type.ref_ht_common,
-                        false, HEAP_TYPE_FUNC); POP_REF(ref_type.type); if
-                        (!(frame_csp_tmp = check_branch_block( loader_ctx, &p,
-                        p_end, error_buf, error_buf_size))) goto fail;
-                        */
-                        break;
-
+                        heap_type = HEAP_TYPE_FUNC;
+                        goto handle_br_on;
                     case WASM_OP_BR_ON_DATA:
+                        heap_type = HEAP_TYPE_DATA;
+                        goto handle_br_on;
                     case WASM_OP_BR_ON_I31:
+                        heap_type = HEAP_TYPE_I31;
+                        goto handle_br_on;
+                    case WASM_OP_BR_ON_ARRAY:
+                        heap_type = HEAP_TYPE_ARRAY;
+                        goto handle_br_on;
+                    handle_br_on:
+                    {
+                        uint8 type;
+                        WASMRefType *ref_type = NULL;
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                        disable_emit = true;
+#endif
+
+                        /* Backup the stack top elem */
+                        if (!wasm_loader_get_frame_ref_top(loader_ctx, &type,
+                                                           &ref_type, error_buf,
+                                                           error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* Check whether the stack top belongs to anyref */
+                        POP_REF(REF_TYPE_ANYREF);
+
+                        /* Temporarily PUSH (ref func/data/i31), check target
+                           block and then POP it */
+                        wasm_set_refheaptype_common(
+                            &wasm_ref_type.ref_ht_common, false, heap_type);
+                        PUSH_REF(wasm_ref_type.ref_type);
+                        if (!(frame_csp_tmp = check_branch_block(
+                                  loader_ctx, &p, p_end, false, error_buf,
+                                  error_buf_size))) {
+                            goto fail;
+                        }
+                        POP_REF(wasm_ref_type.ref_type);
+
+                        /* PUSH back the original stack top elem */
+                        if (wasm_is_type_multi_byte_type(type)) {
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                        }
+                        PUSH_REF(type);
+                        break;
+                    }
+
                     case WASM_OP_BR_ON_NON_FUNC:
+                        heap_type = HEAP_TYPE_FUNC;
+                        goto handle_br_on_non;
                     case WASM_OP_BR_ON_NON_DATA:
+                        heap_type = HEAP_TYPE_DATA;
+                        goto handle_br_on_non;
                     case WASM_OP_BR_ON_NON_I31:
+                        heap_type = HEAP_TYPE_I31;
+                        goto handle_br_on_non;
+                    case WASM_OP_BR_ON_NON_ARRAY:
+                        heap_type = HEAP_TYPE_ARRAY;
+                        goto handle_br_on_non;
+                    handle_br_on_non:
+                    {
+                        uint8 type;
+                        WASMRefType *ref_type;
+
+                        if (!(frame_csp_tmp = check_branch_block(
+                                  loader_ctx, &p, p_end, false, error_buf,
+                                  error_buf_size))) {
+                            goto fail;
+                        }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                        disable_emit = true;
+#endif
+
+                        /* Backup the stack top elem */
+                        if (!wasm_loader_get_frame_ref_top(loader_ctx, &type,
+                                                           &ref_type, error_buf,
+                                                           error_buf_size)) {
+                            goto fail;
+                        }
+
+                        /* Check whether the stack top belongs to anyref */
+                        POP_REF(REF_TYPE_ANYREF);
+
+                        /* PUSH (ref func/data/i31) */
+                        wasm_set_refheaptype_common(
+                            &wasm_ref_type.ref_ht_common, false, heap_type);
+                        PUSH_REF(wasm_ref_type.ref_type);
+                        break;
+                    }
 
                     default:
                         set_error_buf_v(error_buf, error_buf_size,
@@ -9662,26 +11141,48 @@ re_scan:
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
                     case WASM_OP_TABLE_INIT:
                     {
-                        uint8 seg_ref_type = 0, tbl_ref_type = 0;
+                        uint8 seg_type = 0, tbl_type = 0;
+#if WASM_ENABLE_GC != 0
+                        WASMRefType *seg_ref_type = NULL, *tbl_ref_type = NULL;
+#endif
 
                         read_leb_uint32(p, p_end, table_seg_idx);
                         read_leb_uint32(p, p_end, table_idx);
 
-                        if (!get_table_elem_type(module, table_idx,
-                                                 &tbl_ref_type, error_buf,
-                                                 error_buf_size))
+                        if (!get_table_elem_type(module, table_idx, &tbl_type,
+#if WASM_ENABLE_GC != 0
+                                                 (void **)&tbl_ref_type,
+#else
+                                                 NULL,
+#endif
+                                                 error_buf, error_buf_size))
                             goto fail;
 
                         if (!get_table_seg_elem_type(module, table_seg_idx,
-                                                     &seg_ref_type, error_buf,
-                                                     error_buf_size))
+                                                     &seg_type,
+#if WASM_ENABLE_GC != 0
+                                                     (void **)&seg_ref_type,
+#else
+                                                     NULL,
+#endif
+                                                     error_buf, error_buf_size))
                             goto fail;
 
-                        if (seg_ref_type != tbl_ref_type) {
+#if WASM_ENABLE_GC == 0
+                        if (seg_type != tbl_type) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
                             goto fail;
                         }
+#else
+                        if (!wasm_reftype_is_subtype_of(
+                                seg_type, seg_ref_type, tbl_type, tbl_ref_type,
+                                module->types, module->type_count)) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "type mismatch");
+                            goto fail;
+                        }
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
                         emit_uint32(loader_ctx, table_seg_idx);
@@ -9696,7 +11197,7 @@ re_scan:
                     {
                         read_leb_uint32(p, p_end, table_seg_idx);
                         if (!get_table_seg_elem_type(module, table_seg_idx,
-                                                     NULL, error_buf,
+                                                     NULL, NULL, error_buf,
                                                      error_buf_size))
                             goto fail;
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -9706,30 +11207,51 @@ re_scan:
                     }
                     case WASM_OP_TABLE_COPY:
                     {
-                        uint8 src_ref_type, dst_ref_type;
+                        uint8 src_type, dst_type;
+#if WASM_ENABLE_GC != 0
+                        WASMRefType *src_ref_type = NULL, *dst_ref_type = NULL;
+#endif
                         uint32 src_tbl_idx, dst_tbl_idx;
 
-                        read_leb_uint32(p, p_end, src_tbl_idx);
-                        if (!get_table_elem_type(module, src_tbl_idx,
-                                                 &src_ref_type, error_buf,
-                                                 error_buf_size))
-                            goto fail;
-
                         read_leb_uint32(p, p_end, dst_tbl_idx);
-                        if (!get_table_elem_type(module, dst_tbl_idx,
-                                                 &dst_ref_type, error_buf,
-                                                 error_buf_size))
+                        if (!get_table_elem_type(module, dst_tbl_idx, &dst_type,
+#if WASM_ENABLE_GC != 0
+                                                 (void **)&dst_ref_type,
+#else
+                                                 NULL,
+#endif
+                                                 error_buf, error_buf_size))
                             goto fail;
 
-                        if (src_ref_type != dst_ref_type) {
+                        read_leb_uint32(p, p_end, src_tbl_idx);
+                        if (!get_table_elem_type(module, src_tbl_idx, &src_type,
+#if WASM_ENABLE_GC != 0
+                                                 (void **)&src_ref_type,
+#else
+                                                 NULL,
+#endif
+                                                 error_buf, error_buf_size))
+                            goto fail;
+
+#if WASM_ENABLE_GC == 0
+                        if (src_type != dst_type) {
                             set_error_buf(error_buf, error_buf_size,
                                           "type mismatch");
                             goto fail;
                         }
+#else
+                        if (!wasm_reftype_is_subtype_of(
+                                src_type, src_ref_type, dst_type, dst_ref_type,
+                                module->types, module->type_count)) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "type mismatch");
+                            goto fail;
+                        }
+#endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                        emit_uint32(loader_ctx, src_tbl_idx);
                         emit_uint32(loader_ctx, dst_tbl_idx);
+                        emit_uint32(loader_ctx, src_tbl_idx);
 #endif
                         POP_I32();
                         POP_I32();
@@ -9741,7 +11263,7 @@ re_scan:
                         read_leb_uint32(p, p_end, table_idx);
                         /* TODO: shall we create a new function to check
                                  table idx instead of using below function? */
-                        if (!get_table_elem_type(module, table_idx, NULL,
+                        if (!get_table_elem_type(module, table_idx, NULL, NULL,
                                                  error_buf, error_buf_size))
                             goto fail;
 
@@ -9755,13 +11277,27 @@ re_scan:
                     case WASM_OP_TABLE_GROW:
                     case WASM_OP_TABLE_FILL:
                     {
-                        uint8 decl_ref_type;
+                        uint8 decl_type;
+#if WASM_ENABLE_GC != 0
+                        WASMRefType *ref_type = NULL;
+#endif
 
                         read_leb_uint32(p, p_end, table_idx);
-                        if (!get_table_elem_type(module, table_idx,
-                                                 &decl_ref_type, error_buf,
-                                                 error_buf_size))
+                        if (!get_table_elem_type(module, table_idx, &decl_type,
+#if WASM_ENABLE_GC != 0
+                                                 (void **)&ref_type,
+#else
+                                                 NULL,
+#endif
+                                                 error_buf, error_buf_size))
                             goto fail;
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_multi_byte_type(decl_type)) {
+                            bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                        ref_type,
+                                        wasm_reftype_struct_size(ref_type));
+                        }
+#endif
 
                         if (opcode1 == WASM_OP_TABLE_GROW) {
                             if (table_idx < module->import_table_count) {
@@ -9782,9 +11318,9 @@ re_scan:
 
                         POP_I32();
 #if WASM_ENABLE_FAST_INTERP != 0
-                        POP_OFFSET_TYPE(decl_ref_type);
+                        POP_OFFSET_TYPE(decl_type);
 #endif
-                        POP_TYPE(decl_ref_type);
+                        POP_TYPE(decl_type);
                         if (opcode1 == WASM_OP_TABLE_GROW)
                             PUSH_I32();
                         else

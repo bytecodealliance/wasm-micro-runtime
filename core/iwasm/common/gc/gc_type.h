@@ -28,38 +28,48 @@ wasm_dump_array_type(const WASMArrayType *type);
 
 /* Whether two function types are equal */
 bool
-wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2);
+wasm_func_type_equal(const WASMFuncType *type1, const WASMFuncType *type2,
+                     const WASMTypePtr *types, uint32 type_count);
 
 /* Whether func type1 is subtype of func type2 */
 bool
 wasm_func_type_is_subtype_of(const WASMFuncType *type1,
-                             const WASMFuncType *type2, const WASMType **types,
-                             uint32 type_count);
+                             const WASMFuncType *type2,
+                             const WASMTypePtr *types, uint32 type_count);
+
+/* Whether func type1's result types are subtype of
+   func type2's result types */
+bool
+wasm_func_type_result_is_subtype_of(const WASMFuncType *type,
+                                    const WASMFuncType *type2,
+                                    const WASMTypePtr *types,
+                                    uint32 type_count);
 
 /* Operations of struct type */
 
 /* Whether two struct types are equal */
 bool
-wasm_struct_type_equal(const WASMStructType *type1,
-                       const WASMStructType *type2);
+wasm_struct_type_equal(const WASMStructType *type1, const WASMStructType *type2,
+                       const WASMTypePtr *types, uint32 type_count);
 
 /* Whether struct type1 is subtype of struct type2 */
 bool
 wasm_struct_type_is_subtype_of(const WASMStructType *type1,
                                const WASMStructType *type2,
-                               const WASMType **types, uint32 type_count);
+                               const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of array type */
 
 /* Whether two array types are equal */
 bool
-wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2);
+wasm_array_type_equal(const WASMArrayType *type1, const WASMArrayType *type2,
+                      const WASMTypePtr *types, uint32 type_count);
 
 /* Whether array type1 is subtype of array type2 */
 bool
 wasm_array_type_is_subtype_of(const WASMArrayType *type1,
                               const WASMArrayType *type2,
-                              const WASMType **types, uint32 type_count);
+                              const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of wasm type */
 
@@ -86,12 +96,13 @@ wasm_type_is_array_type(const WASMType *type)
 
 /* Whether two wasm types are equal */
 bool
-wasm_type_equal(const WASMType *type1, const WASMType *type2);
+wasm_type_equal(const WASMType *type1, const WASMType *type2,
+                const WASMTypePtr *types, uint32 type_count);
 
 /* Whether wasm type1 is subtype of wasm type2 */
 bool
 wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
-                        const WASMType **types, uint32 type_count);
+                        const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of reference type */
 
@@ -99,7 +110,7 @@ wasm_type_is_subtype_of(const WASMType *type1, const WASMType *type2,
 inline static bool
 wasm_is_type_reftype(uint8 type)
 {
-    return (type >= (uint8)REF_TYPE_DATAREF && type <= (uint8)REF_TYPE_FUNCREF)
+    return (type >= (uint8)REF_TYPE_ARRAYREF && type <= (uint8)REF_TYPE_FUNCREF)
                ? true
                : false;
 }
@@ -121,13 +132,6 @@ inline static bool
 wasm_is_reftype_funcref(uint8 type)
 {
     return type == (uint8)REF_TYPE_FUNCREF ? true : false;
-}
-
-/* Whether a reference type is an externref type */
-inline static bool
-wasm_is_reftype_externref(uint8 type)
-{
-    return type == (uint8)REF_TYPE_EXTERNREF ? true : false;
 }
 
 /* Whether a reference type is an anyref type */
@@ -186,6 +190,13 @@ wasm_is_reftype_dataref(uint8 type)
     return type == (uint8)REF_TYPE_DATAREF ? true : false;
 }
 
+/* Whether a reference type is an arrayref type */
+inline static bool
+wasm_is_reftype_arrayref(uint8 type)
+{
+    return type == (uint8)REF_TYPE_ARRAYREF ? true : false;
+}
+
 /* Return the size of a reference type */
 uint32
 wasm_reftype_size(uint8 type);
@@ -217,7 +228,7 @@ wasm_is_refheaptype_rtt(const RefHeapType_Common *ref_heap_type)
     return ref_heap_type->heap_type == (int32)HEAP_TYPE_RTT ? true : false;
 }
 
-/* Whether a ref heap type is a common type: func/extern/any/eq/i31/data,
+/* Whether a ref heap type is a common type: func/any/eq/i31/data,
    not (type i) or (rtt n i) or (rtt i) */
 inline static bool
 wasm_is_refheaptype_common(const RefHeapType_Common *ref_heap_type)
@@ -225,7 +236,8 @@ wasm_is_refheaptype_common(const RefHeapType_Common *ref_heap_type)
     return ((ref_heap_type->heap_type >= (int32)HEAP_TYPE_EQ
              && ref_heap_type->heap_type <= (int32)HEAP_TYPE_FUNC)
             || ref_heap_type->heap_type == (int32)HEAP_TYPE_I31
-            || ref_heap_type->heap_type == (int32)HEAP_TYPE_DATA)
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_DATA
+            || ref_heap_type->heap_type == (int32)HEAP_TYPE_ARRAY)
                ? true
                : false;
 }
@@ -235,13 +247,6 @@ inline static bool
 wasm_is_refheaptype_func(const RefHeapType_Common *ref_heap_type)
 {
     return ref_heap_type->heap_type == (int32)HEAP_TYPE_FUNC ? true : false;
-}
-
-/* Whether a ref heap type is an extern type */
-inline static bool
-wasm_is_refheaptype_extern(const RefHeapType_Common *ref_heap_type)
-{
-    return ref_heap_type->heap_type == (int32)HEAP_TYPE_EXTERN ? true : false;
 }
 
 /* Whether a ref heap type is an any type */
@@ -272,35 +277,46 @@ wasm_is_refheaptype_data(const RefHeapType_Common *ref_heap_type)
     return ref_heap_type->heap_type == (int32)HEAP_TYPE_DATA ? true : false;
 }
 
+/* Whether a ref heap type is an array type */
+inline static bool
+wasm_is_refheaptype_array(const RefHeapType_Common *ref_heap_type)
+{
+    return ref_heap_type->heap_type == (int32)HEAP_TYPE_ARRAY ? true : false;
+}
+
 /* Whether two ref heap types are equal */
 bool
 wasm_refheaptype_equal(const RefHeapType_Common *ref_heap_type1,
-                       const RefHeapType_Common *ref_heap_type2);
+                       const RefHeapType_Common *ref_heap_type2,
+                       const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of ref rttn type */
 
 /* Whether two ref rttn types are equal */
 bool
 wasm_refrttntype_equal(const RefRttNType *ref_rttn_type1,
-                       const RefRttNType *ref_rttn_type2);
+                       const RefRttNType *ref_rttn_type2,
+                       const WASMTypePtr *types, uint32 type_count);
 
 /* Operations of ref rtt type */
 
 /* Whether two ref rtt types are equal */
 bool
 wasm_refrtttype_equal(const RefRttType *ref_rtt_type1,
-                      const RefRttType *ref_rtt_type2);
+                      const RefRttType *ref_rtt_type2, const WASMTypePtr *types,
+                      uint32 type_count);
 
 /* Whether two ref types are equal */
 bool
 wasm_reftype_equal(uint8 type1, const WASMRefType *reftype1, uint8 type2,
-                   const WASMRefType *reftype2);
+                   const WASMRefType *reftype2, const WASMTypePtr *types,
+                   uint32 type_count);
 
 /* Whether ref type1 is subtype of ref type2 */
 bool
 wasm_reftype_is_subtype_of(uint8 type1, const WASMRefType *reftype1,
                            uint8 type2, const WASMRefType *reftype2,
-                           const WASMType **types, uint32 type_count);
+                           const WASMTypePtr *types, uint32 type_count);
 
 /* Returns a new reference type which is a duplication of ref_type,
    the caller should use wasm_runtime_free() to free the new ref type */
@@ -326,6 +342,11 @@ wasm_set_refheaptype_rtt(RefHeapType_Rtt *ref_ht_rtt, bool nullable,
 void
 wasm_set_refheaptype_common(RefHeapType_Common *ref_ht_common, bool nullable,
                             int32 heap_type);
+
+/* Find the related reftype in reftype map array with index */
+WASMRefType *
+wasm_reftype_map_find(WASMRefTypeMap *ref_type_maps, uint32 ref_type_map_count,
+                      uint32 index_to_find);
 
 /* Create a new hash set of reference type */
 HashMap *

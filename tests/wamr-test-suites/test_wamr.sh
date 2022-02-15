@@ -320,6 +320,7 @@ function spec_test()
         git restore . && git clean -ffd .
         git fetch gc
         git checkout -B gc_spec --track gc/master
+        git apply ../../spec-test-script/gc_ignore_cases.patch
 
         echo "compile the reference intepreter"
         pushd interpreter

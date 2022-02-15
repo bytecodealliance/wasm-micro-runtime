@@ -19,6 +19,10 @@ import time
 
 """
 The script itself has to be put under the same directory with the "spec".
+To run single spec case:
+  cd workspace
+  python2.7 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm
+            --aot-compiler wamrc --gc --loader-only spec/test/core/xxx.wast
 """
 
 PLATFORM_NAME = os.uname().sysname.lower()
@@ -28,7 +32,6 @@ SPEC_TEST_DIR = "spec/test/core"
 WAST2WASM_CMD = "./wabt/out/gcc/Release/wat2wasm"
 SPEC_INTERPRETER_CMD = "spec/interpreter/wasm"
 WAMRC_CMD = "../../../wamr-compiler/build/wamrc"
-
 
 class TargetAction(argparse.Action):
     TARGET_MAP = {
@@ -53,12 +56,16 @@ def ignore_the_case(
     multi_module_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
+    gc_flag=False,
     xip_flag=False,
 ):
     if case_name in ["comments", "inline-module", "names"]:
         return True
 
     if not multi_module_flag and case_name in ["imports", "linking"]:
+        return True
+
+    if gc_flag and case_name in ["func_bind", "let"]:
         return True
 
     if "i386" == target and case_name in ["float_exprs"]:
@@ -119,6 +126,7 @@ def test_case(
         multi_module_flag,
         multi_thread_flag,
         simd_flag,
+        gc_flag,
         xip_flag,
     ):
         return True

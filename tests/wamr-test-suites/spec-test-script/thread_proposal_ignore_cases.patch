@@ -211,3 +211,23 @@ index c3456a61..83fc2815 100644
  (wait $T1)
  (wait $T2)
 +;)
+diff --git a/test/core/unreached-invalid.wast b/test/core/unreached-invalid.wast
+index 6ef4ac55..9a2387a3 100644
+--- a/test/core/unreached-invalid.wast
++++ b/test/core/unreached-invalid.wast
+@@ -535,6 +535,7 @@
+   ))
+   "type mismatch"
+ )
++(; invalid case, the module is fine for the latest spec interpreter
+ (assert_invalid
+   (module (func $type-br_table-label-num-vs-label-num-after-unreachable
+     (block (result f64)
+@@ -549,6 +550,7 @@
+   ))
+   "type mismatch"
+ )
++;)
+ 
+ (assert_invalid
+   (module (func $type-block-value-nested-unreachable-num-vs-void

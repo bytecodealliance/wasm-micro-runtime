@@ -308,19 +308,23 @@ typedef enum WASMGCEXTOpcode {
     WASM_OP_BR_ON_CAST = 0x42,      /* br_on_cast */
     WASM_OP_BR_ON_CAST_FAIL = 0x43, /* br_on_cast_fail */
 
-    WASM_OP_REF_IS_FUNC = 0x50, /* ref.is_func */
-    WASM_OP_REF_IS_DATA = 0x51, /* ref.is_data */
-    WASM_OP_REF_IS_I31 = 0x52,  /* ref.is_i31 */
-    WASM_OP_REF_AS_FUNC = 0x58, /* ref.as_func */
-    WASM_OP_REF_AS_DATA = 0x59, /* ref.as_data */
-    WASM_OP_REF_AS_I31 = 0x5a,  /* ref.as_i31 */
+    WASM_OP_REF_IS_FUNC = 0x50,  /* ref.is_func */
+    WASM_OP_REF_IS_DATA = 0x51,  /* ref.is_data */
+    WASM_OP_REF_IS_I31 = 0x52,   /* ref.is_i31 */
+    WASM_OP_REF_IS_ARRAY = 0x53, /* ref.is_array */
+    WASM_OP_REF_AS_FUNC = 0x58,  /* ref.as_func */
+    WASM_OP_REF_AS_DATA = 0x59,  /* ref.as_data */
+    WASM_OP_REF_AS_I31 = 0x5a,   /* ref.as_i31 */
+    WASM_OP_REF_AS_ARRAY = 0x5b, /* ref.as_array */
 
-    WASM_OP_BR_ON_FUNC = 0x60,     /* br_on_func */
-    WASM_OP_BR_ON_DATA = 0x61,     /* br_on_data */
-    WASM_OP_BR_ON_I31 = 0x62,      /* br_on_i31 */
-    WASM_OP_BR_ON_NON_FUNC = 0x63, /* br_on_non_func */
-    WASM_OP_BR_ON_NON_DATA = 0x64, /* br_on_non_data */
-    WASM_OP_BR_ON_NON_I31 = 0x65,  /* br_on_non_i31 */
+    WASM_OP_BR_ON_FUNC = 0x60,      /* br_on_func */
+    WASM_OP_BR_ON_DATA = 0x61,      /* br_on_data */
+    WASM_OP_BR_ON_I31 = 0x62,       /* br_on_i31 */
+    WASM_OP_BR_ON_NON_FUNC = 0x63,  /* br_on_non_func */
+    WASM_OP_BR_ON_NON_DATA = 0x64,  /* br_on_non_data */
+    WASM_OP_BR_ON_NON_I31 = 0x65,   /* br_on_non_i31 */
+    WASM_OP_BR_ON_ARRAY = 0x66,     /* br_on_array */
+    WASM_OP_BR_ON_NON_ARRAY = 0x67, /* br_on_non_array */
 } WASMGCEXTOpcode;
 
 typedef enum WASMMiscEXTOpcode {

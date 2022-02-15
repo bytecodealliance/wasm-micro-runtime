@@ -1,5 +1,5 @@
 diff --git a/test/core/binary.wast b/test/core/binary.wast
-index ebebd2ea..94873528 100644
+index 1f76dc13..f4512ade 100644
 --- a/test/core/binary.wast
 +++ b/test/core/binary.wast
 @@ -161,7 +161,7 @@
@@ -171,7 +171,7 @@ index 35e8c917..a7a459df 100644
  
  ;; Syntax errors
 diff --git a/test/core/linking.wast b/test/core/linking.wast
-index 994e0f49..d0bfb5f6 100644
+index 85de43d8..6b218e3b 100644
 --- a/test/core/linking.wast
 +++ b/test/core/linking.wast
 @@ -64,6 +64,7 @@
@@ -190,7 +190,7 @@ index 994e0f49..d0bfb5f6 100644
  
  
  (assert_unlinkable
-@@ -165,6 +167,7 @@
+@@ -317,6 +319,7 @@
    )
  )
  
@@ -198,7 +198,7 @@ index 994e0f49..d0bfb5f6 100644
  (assert_return (invoke $Mt "call" (i32.const 2)) (i32.const 4))
  (assert_return (invoke $Nt "Mt.call" (i32.const 2)) (i32.const 4))
  (assert_return (invoke $Nt "call" (i32.const 2)) (i32.const 5))
-@@ -187,6 +190,7 @@
+@@ -339,6 +342,7 @@
  
  (assert_return (invoke $Nt "call" (i32.const 3)) (i32.const -4))
  (assert_trap (invoke $Nt "call" (i32.const 4)) "indirect call type mismatch")
@@ -206,7 +206,7 @@ index 994e0f49..d0bfb5f6 100644
  
  (module $Ot
    (type (func (result i32)))
-@@ -201,6 +205,7 @@
+@@ -353,6 +357,7 @@
    )
  )
  
@@ -214,7 +214,7 @@ index 994e0f49..d0bfb5f6 100644
  (assert_return (invoke $Mt "call" (i32.const 3)) (i32.const 4))
  (assert_return (invoke $Nt "Mt.call" (i32.const 3)) (i32.const 4))
  (assert_return (invoke $Nt "call Mt.call" (i32.const 3)) (i32.const 4))
-@@ -225,6 +230,7 @@
+@@ -377,6 +382,7 @@
  (assert_trap (invoke $Ot "call" (i32.const 0)) "uninitialized element")
  
  (assert_trap (invoke $Ot "call" (i32.const 20)) "undefined element")
@@ -222,7 +222,7 @@ index 994e0f49..d0bfb5f6 100644
  
  (module
    (table (import "Mt" "tab") 0 funcref)
-@@ -263,6 +269,7 @@
+@@ -415,6 +421,7 @@
  
  ;; Unlike in the v1 spec, active element segments stored before an
  ;; out-of-bounds access persist after the instantiation failure.
@@ -230,7 +230,7 @@ index 994e0f49..d0bfb5f6 100644
  (assert_trap
    (module
      (table (import "Mt" "tab") 10 funcref)
-@@ -274,7 +281,9 @@
+@@ -426,7 +433,9 @@
  )
  (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
  (assert_trap (invoke $Mt "call" (i32.const 8)) "uninitialized element")
@@ -240,7 +240,7 @@ index 994e0f49..d0bfb5f6 100644
  (assert_trap
    (module
      (table (import "Mt" "tab") 10 funcref)
-@@ -286,6 +295,7 @@
+@@ -438,6 +447,7 @@
    "out of bounds memory access"
  )
  (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
@@ -248,23 +248,23 @@ index 994e0f49..d0bfb5f6 100644
  
  
  (module $Mtable_ex
-@@ -299,6 +309,7 @@
+@@ -455,6 +465,7 @@
    (table (import "Mtable_ex" "t-extern") 1 externref)
  )
  
 +(;
  (assert_unlinkable
-   (module (table (import "Mtable_ex" "t-func") 1 externref))
+   (module (table (import "Mtable_ex" "t-refnull") 1 (ref null func)))
    "incompatible import type"
-@@ -307,6 +318,7 @@
-   (module (table (import "Mtable_ex" "t-extern") 1 funcref))
+@@ -481,6 +492,7 @@
+   (module (table (import "Mtable_ex" "t-refnull") 1 externref))
    "incompatible import type"
  )
 +;)
  
  
  ;; Memories
-@@ -346,10 +358,12 @@
+@@ -520,10 +532,12 @@
    )
  )
  
@@ -277,7 +277,7 @@ index 994e0f49..d0bfb5f6 100644
  
  (module
    (memory (import "Mm" "mem") 0)
-@@ -372,6 +386,7 @@
+@@ -546,6 +560,7 @@
    )
  )
  
@@ -285,7 +285,7 @@ index 994e0f49..d0bfb5f6 100644
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 1))
  (assert_return (invoke $Pm "grow" (i32.const 2)) (i32.const 1))
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 3))
-@@ -380,6 +395,7 @@
+@@ -554,6 +569,7 @@
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 5))
  (assert_return (invoke $Pm "grow" (i32.const 1)) (i32.const -1))
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 5))
@@ -293,7 +293,7 @@ index 994e0f49..d0bfb5f6 100644
  
  (assert_unlinkable
    (module
-@@ -403,8 +419,10 @@
+@@ -577,8 +593,10 @@
    )
    "out of bounds memory access"
  )
@@ -304,7 +304,7 @@ index 994e0f49..d0bfb5f6 100644
  
  (assert_trap
    (module
-@@ -416,7 +434,9 @@
+@@ -590,7 +608,9 @@
    )
    "out of bounds table access"
  )
@@ -314,7 +314,7 @@ index 994e0f49..d0bfb5f6 100644
  
  ;; Store is modified if the start function traps.
  (module $Ms
-@@ -432,6 +452,7 @@
+@@ -606,6 +626,7 @@
  )
  (register "Ms" $Ms)
  
@@ -322,7 +322,7 @@ index 994e0f49..d0bfb5f6 100644
  (assert_trap
    (module
      (import "Ms" "memory" (memory 1))
-@@ -451,3 +472,4 @@
+@@ -625,3 +646,4 @@
  
  (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
  (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
@@ -342,10 +342,10 @@ index adb5cb78..590f6262 100644
      (i32.add (local.get $x) (i32.const 1))
    )
 diff --git a/test/core/select.wast b/test/core/select.wast
-index 046e6fe2..b6770238 100644
+index fbe51be1..bb209d9b 100644
 --- a/test/core/select.wast
 +++ b/test/core/select.wast
-@@ -324,6 +324,7 @@
+@@ -368,6 +368,7 @@
    (module (func $arity-0 (select (result) (nop) (nop) (i32.const 1))))
    "invalid result arity"
  )
@@ -353,7 +353,7 @@ index 046e6fe2..b6770238 100644
  (assert_invalid
    (module (func $arity-2 (result i32 i32)
      (select (result i32 i32)
-@@ -334,6 +335,7 @@
+@@ -378,6 +379,7 @@
    ))
    "invalid result arity"
  )

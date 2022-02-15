@@ -31,7 +31,9 @@ extern "C" {
 /* Reference Types */
 #define REF_TYPE_FUNCREF VALUE_TYPE_FUNCREF
 #define REF_TYPE_EXTERNREF VALUE_TYPE_EXTERNREF
-#define REF_TYPE_ANYREF 0x6E
+/* extern is renamed back to any, the name extern is kept as
+   an alias in the text format for backwards compatibility */
+#define REF_TYPE_ANYREF VALUE_TYPE_EXTERNREF
 #define REF_TYPE_EQREF 0x6D
 #define REF_TYPE_HT_NULLABLE 0x6C
 #define REF_TYPE_HT_NON_NULLABLE 0x6B
@@ -39,16 +41,18 @@ extern "C" {
 #define REF_TYPE_RTTN 0x69
 #define REF_TYPE_RTT 0x68
 #define REF_TYPE_DATAREF 0x67
+#define REF_TYPE_ARRAYREF 0x66
 
 /* Heap Types */
 #define HEAP_TYPE_FUNC (-0x10)
 #define HEAP_TYPE_EXTERN (-0x11)
-#define HEAP_TYPE_ANY (-0x12)
+#define HEAP_TYPE_ANY (-0x11)
 #define HEAP_TYPE_EQ (-0x13)
 #define HEAP_TYPE_I31 (-0x16)
 #define HEAP_TYPE_RTTN (-0x17)
 #define HEAP_TYPE_RTT (-0x18)
 #define HEAP_TYPE_DATA (-0x19)
+#define HEAP_TYPE_ARRAY (-0x20)
 
 /* Defined Types */
 #define DEFINED_TYPE_FUNC 0x60
@@ -57,7 +61,9 @@ extern "C" {
 
 /* Used by AOT */
 #define VALUE_TYPE_I1 0x41
-/*  Used by loader to represent any type of i32/i64/f32/f64 */
+/* Used by loader to represent any type of i32/i64/f32/f64/v128,
+ * and ref, including funcref/externref/anyref/eqref/i31ref/dataref,
+ * (ref null $ht), and (ref $ht) */
 #define VALUE_TYPE_ANY 0x42
 
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
@@ -159,6 +165,7 @@ typedef union WASMValue {
     V128 v128;
 #if WASM_ENABLE_GC != 0
     RttSubInitInfo rtt_sub;
+    void *rtt_obj;
 #endif
 } WASMValue;
 
@@ -226,8 +233,8 @@ typedef struct RefHeapType_Common {
     /* true if ref_type is REF_TYPE_HT_NULLABLE */
     bool nullable;
     /* Common heap type (not defined type and not rtt type):
-       -0x10 (func), -0x11 (extern), -0x12 (any),
-       -0x13 (eq),   -0x16 (i31),    -0x19 (data) */
+       -0x10 (func), -0x11 (any), -0x13 (eq),
+       -0x16 (i31), -0x19 (data), -0x20 (array) */
     int32 heap_type;
 } RefHeapType_Common;
 
@@ -278,6 +285,7 @@ typedef struct WASMRefTypeMap {
 
 #if WASM_ENABLE_GC == 0
 typedef struct WASMFuncType WASMType;
+typedef WASMType *WASMTypePtr;
 #else
 /**
  * Common type, store the same fields of
@@ -293,9 +301,11 @@ typedef struct WASMType {
     /* How many types are refering to this type
        in module->types array */
     uint16 ref_count;
+    /* The index in type array */
+    uint32 type_idx;
 
     uint32 data[1];
-} WASMType;
+} WASMType, *WASMTypePtr;
 #endif /* end of WASM_ENABLE_GC */
 
 /**
@@ -312,6 +322,8 @@ typedef struct WASMFuncType {
     /* How many types are refering to this type
        in module->types array */
     uint16 ref_count;
+    /* The index in type array */
+    uint32 type_idx;
 #endif
 
     uint16 param_count;
@@ -320,6 +332,8 @@ typedef struct WASMFuncType {
     uint16 ret_cell_num;
 
 #if WASM_ENABLE_GC != 0
+    uint16 *param_offsets;
+    uint16 total_param_size;
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
     WASMRefTypeMap *result_ref_type_maps;
@@ -349,6 +363,8 @@ typedef struct WASMStructType {
     /* How many types are refering to this type
        in module->types array */
     uint16 ref_count;
+    /* The index in type array */
+    uint32 type_idx;
 
     /* total size of this struct object */
     uint32 total_size;
@@ -374,6 +390,8 @@ typedef struct WASMArrayType {
     /* How many types are refering to this type
        in module->types array */
     uint16 ref_count;
+    /* The index in type array */
+    uint32 type_idx;
 
     uint16 elem_flags;
     uint8 elem_type;
@@ -548,6 +566,9 @@ typedef struct WASMTableSeg {
     uint32 mode;
     /* funcref or externref, elemkind will be considered as funcref */
     uint32 elem_type;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *elem_ref_type;
+#endif
     bool is_dropped;
     /* optional, only for active */
     uint32 table_index;
@@ -698,6 +719,8 @@ struct WASMModule {
 #if WASM_ENABLE_GC != 0
     /* Ref types hash set */
     HashMap *ref_type_set;
+    /* Rtt object hash set */
+    HashMap *rtt_obj_set;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -792,7 +815,8 @@ wasm_value_type_size(uint8 value_type)
 {
     if (value_type == VALUE_TYPE_VOID)
         return 0;
-    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32)
+    else if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_F32
+             || value_type == VALUE_TYPE_ANY)
         return sizeof(int32);
     else if (value_type == VALUE_TYPE_I64 || value_type == VALUE_TYPE_F64)
         return sizeof(int64);
@@ -801,7 +825,7 @@ wasm_value_type_size(uint8 value_type)
         return sizeof(int64) * 2;
 #endif
 #if WASM_ENABLE_GC != 0
-    else if (value_type >= (uint8)REF_TYPE_DATAREF
+    else if (value_type >= (uint8)REF_TYPE_ARRAYREF
              && value_type <= (uint8)REF_TYPE_FUNCREF)
         return sizeof(uintptr_t);
 #elif WASM_ENABLE_REF_TYPES != 0
@@ -846,7 +870,8 @@ wasm_value_type_cell_num_outside(uint8 value_type)
 
 #if WASM_ENABLE_GC == 0
 inline static bool
-wasm_type_equal(const WASMType *type1, const WASMType *type2)
+wasm_type_equal(const WASMType *type1, const WASMType *type2,
+                const WASMTypePtr *types, uint32 type_count)
 {
     const WASMFuncType *func_type1 = (const WASMFuncType *)type1;
     const WASMFuncType *func_type2 = (const WASMFuncType *)type2;
@@ -858,21 +883,24 @@ wasm_type_equal(const WASMType *type1, const WASMType *type2)
                    == 0)
                ? true
                : false;
+    (void)types;
+    (void)type_count;
 }
 #else
 /* implemented in ../common/gc */
 bool
-wasm_type_equal(const WASMType *type1, const WASMType *type2);
+wasm_type_equal(const WASMType *type1, const WASMType *type2,
+                const WASMTypePtr *types, uint32 type_count);
 #endif
 
 inline static uint32
-wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
+wasm_get_smallest_type_idx(const WASMTypePtr *types, uint32 type_count,
                            uint32 cur_type_idx)
 {
     uint32 i;
 
     for (i = 0; i < cur_type_idx; i++) {
-        if (wasm_type_equal(types[cur_type_idx], types[i]))
+        if (wasm_type_equal(types[cur_type_idx], types[i], types, type_count))
             return i;
     }
     return cur_type_idx;
@@ -922,42 +950,65 @@ block_type_get_result_types(BlockType *block_type, uint8 **p_result_types,
 #endif
 {
     uint32 result_count = 0;
+    uint8 *result_types = NULL;
 #if WASM_ENABLE_GC != 0
     uint8 type;
+    uint32 result_reftype_map_count = 0;
+    WASMRefTypeMap *result_reftype_maps = NULL;
 #endif
 
     if (block_type->is_value_type) {
         if (block_type->u.value_type.type != VALUE_TYPE_VOID) {
-            *p_result_types = &block_type->u.value_type.type;
+            result_types = &block_type->u.value_type.type;
+            result_count = 1;
 #if WASM_ENABLE_GC != 0
             type = block_type->u.value_type.type;
-            if (!(type == (uint8)REF_TYPE_HT_NULLABLE
-                  || type == (uint8)REF_TYPE_HT_NON_NULLABLE
-                  || type == (uint8)REF_TYPE_RTTN
-                  || type == (uint8)REF_TYPE_RTT)) {
-                *p_result_reftype_maps = NULL;
-                *p_result_reftype_map_count = 0;
-            }
-            else {
-                *p_result_reftype_maps = &block_type->u.value_type.ref_type_map;
-                *p_result_reftype_map_count = 1;
+            if ((type == (uint8)REF_TYPE_HT_NULLABLE
+                 || type == (uint8)REF_TYPE_HT_NON_NULLABLE
+                 || type == (uint8)REF_TYPE_RTTN
+                 || type == (uint8)REF_TYPE_RTT)) {
+                result_reftype_maps = &block_type->u.value_type.ref_type_map;
+                result_reftype_map_count = 1;
             }
 #endif
-            result_count = 1;
         }
     }
     else {
         WASMFuncType *func_type = block_type->u.type;
-        *p_result_types = func_type->types + func_type->param_count;
-#if WASM_ENABLE_GC != 0
-        *p_result_reftype_maps = func_type->result_ref_type_maps;
-        *p_result_reftype_map_count =
-            func_type->ref_type_map_count
-            - (func_type->result_ref_type_maps - func_type->ref_type_maps);
-#endif
+        result_types = func_type->types + func_type->param_count;
         result_count = func_type->result_count;
+#if WASM_ENABLE_GC != 0
+        result_reftype_maps = func_type->result_ref_type_maps;
+        result_reftype_map_count = (uint32)(func_type->ref_type_map_count
+                                            - (func_type->result_ref_type_maps
+                                               - func_type->ref_type_maps));
+#endif
     }
+    *p_result_types = result_types;
+#if WASM_ENABLE_GC != 0
+    *p_result_reftype_maps = result_reftype_maps;
+    *p_result_reftype_map_count = result_reftype_map_count;
+#endif
     return result_count;
+}
+
+static inline uint32
+block_type_get_arity(const BlockType *block_type, uint8 label_type)
+{
+    if (label_type == LABEL_TYPE_LOOP) {
+        if (block_type->is_value_type)
+            return 0;
+        else
+            return block_type->u.type->param_count;
+    }
+    else {
+        if (block_type->is_value_type) {
+            return block_type->u.value_type.type != VALUE_TYPE_VOID ? 1 : 0;
+        }
+        else
+            return block_type->u.type->result_count;
+    }
+    return 0;
 }
 
 #ifdef __cplusplus
