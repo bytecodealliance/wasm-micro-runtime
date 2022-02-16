@@ -87,6 +87,12 @@ endif ()
 if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
     set (WAMR_BUILD_THREAD_MGR 1)
     include (${IWASM_DIR}/libraries/debug-engine/debug_engine.cmake)
+
+    if (WAMR_BUILD_FAST_INTERP EQUAL 1)
+        set (WAMR_BUILD_FAST_INTERP 0)
+        message(STATUS
+                "Debugger doesn't work with fast interpreter, switch to classic interpreter")
+    endif ()
 endif ()
 
 if (WAMR_BUILD_THREAD_MGR EQUAL 1)
@@ -95,7 +101,7 @@ endif ()
 
 if (WAMR_BUILD_LIBC_EMCC EQUAL 1)
     include (${IWASM_DIR}/libraries/libc-emcc/libc_emcc.cmake)
-endif()
+endif ()
 
 ####################### Common sources #######################
 if (NOT MSVC)
