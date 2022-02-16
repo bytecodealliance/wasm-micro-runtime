@@ -146,12 +146,13 @@ process_packet(WASMGDBServer *server)
     char *payload = NULL;
 
     request = inbuf[0];
-    payload = (char *)&inbuf[1];
 
     if (request == '\0') {
         LOG_VERBOSE("ignore empty request");
         return;
     }
+
+    payload = (char *)&inbuf[1];
 
     LOG_VERBOSE("receive request:%c %s\n", request, payload);
     handle_packet(server, request, payload);
