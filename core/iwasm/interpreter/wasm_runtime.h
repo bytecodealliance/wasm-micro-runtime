@@ -65,6 +65,9 @@ struct WASMTableInstance {
     /* just for import, keep the reference here */
     WASMTableInstance *table_inst_linked;
 #endif
+#if WASM_ENABLE_GC != 0
+    WASMRefType *elem_ref_type;
+#endif
     /* Base address */
     uint8 base_addr[1];
 };
@@ -76,6 +79,9 @@ struct WASMGlobalInstance {
     bool is_mutable;
     /* data offset to base_addr of WASMMemoryInstance */
     uint32 data_offset;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
     /* initial value */
     WASMValue initial_value;
 #if WASM_ENABLE_MULTI_MODULE != 0

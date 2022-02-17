@@ -579,6 +579,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             type1 = read_uint8(p);
             if (type1 != type)
                 goto fail_type_mismatch;
+            init_expr->u.ref_index = NULL_REF;
 #else
             WASMRefType ref_type1;
 
@@ -600,9 +601,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                             module->type_count)) {
                 goto fail_type_mismatch;
             }
+            /* Use UINT32_MAX to indicate that it is an null reference */
+            init_expr->u.ref_index = UINT32_MAX;
 #endif
-
-            init_expr->u.ref_index = NULL_REF;
             break;
         }
 #endif /* (WASM_ENABLE_GC !=0) || (WASM_ENABLE_REF_TYPES != 0) */
@@ -3648,7 +3649,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                   "unknown element segment kind");
                     return false;
             }
-#else
+#else  /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
             /*
              * like:      00  41 05 0b               04 00 01 00 01
              * for: (elem 0   (offset (i32.const 5)) $f1 $f2 $f1 $f2)

@@ -68,7 +68,11 @@ extern "C" {
 
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 
+#if WASM_ENABLE_GC == 0
 #define NULL_REF (0xFFFFFFFF)
+#else
+#define NULL_REF (NULL)
+#endif
 
 #define TABLE_MAX_SIZE (1024)
 
@@ -164,7 +168,6 @@ typedef union WASMValue {
     float64 f64;
     V128 v128;
 #if WASM_ENABLE_GC != 0
-    RttSubInitInfo rtt_sub;
     void *rtt_obj;
 #endif
 } WASMValue;
