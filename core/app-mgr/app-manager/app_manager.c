@@ -403,7 +403,7 @@ fail1:
 }
 
 bool
-app_manager_is_started()
+app_manager_is_started(void)
 {
     return g_app_mgr_started;
 }
