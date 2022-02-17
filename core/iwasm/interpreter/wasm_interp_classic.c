@@ -1492,16 +1492,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_REF_IS_FUNC:
                     case WASM_OP_REF_IS_DATA:
                     case WASM_OP_REF_IS_I31:
+                    case WASM_OP_REF_IS_ARRAY:
                     case WASM_OP_REF_AS_FUNC:
                     case WASM_OP_REF_AS_DATA:
                     case WASM_OP_REF_AS_I31:
+                    case WASM_OP_REF_AS_ARRAY:
 
                     case WASM_OP_BR_ON_FUNC:
                     case WASM_OP_BR_ON_DATA:
                     case WASM_OP_BR_ON_I31:
+                    case WASM_OP_BR_ON_ARRAY:
                     case WASM_OP_BR_ON_NON_FUNC:
                     case WASM_OP_BR_ON_NON_DATA:
                     case WASM_OP_BR_ON_NON_I31:
+                    case WASM_OP_BR_ON_NON_ARRAY:
                         break;
                 }
                 HANDLE_OP_END();

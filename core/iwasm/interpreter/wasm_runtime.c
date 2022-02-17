@@ -1163,6 +1163,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     return true;
 }
 
+#if WASM_ENABLE_GC != 0
 static WASMFuncObjectRef
 func_obj_new(WASMModuleInstance *module_inst, uint32 func_idx, char *error_buf,
              uint32 error_buf_size)
@@ -1196,6 +1197,7 @@ func_obj_new(WASMModuleInstance *module_inst, uint32 func_idx, char *error_buf,
 
     return func_obj;
 }
+#endif
 
 /**
  * Instantiate module

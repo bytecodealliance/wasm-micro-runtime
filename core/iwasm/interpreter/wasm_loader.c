@@ -4996,6 +4996,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
             case WASM_OP_IF:
+            {
                 /* block result type: 0x40/0x7F/0x7E/0x7D/0x7C */
                 u8 = read_uint8(p);
                 if (block_nested_depth
@@ -5004,7 +5005,29 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     block_stack[block_nested_depth].else_addr = NULL;
                 }
                 block_nested_depth++;
+                if (is_byte_a_type(u8)) {
+#if WASM_ENABLE_GC != 0
+                    WASMModuleInstance *module_inst =
+                        (WASMModuleInstance *)exec_env->module_inst;
+                    WASMModule *module = module_inst->module;
+                    bool need_ref_type_map;
+                    WASMRefType ref_type;
+                    if (u8 != VALUE_TYPE_VOID) {
+                        p--;
+                        if (!resolve_value_type((const uint8 **)&p, p_end, module,
+                                                &need_ref_type_map, &ref_type,
+                                                false, error_buf, error_buf_size)) {
+                            return false;
+                        }
+                    }
+#endif
+                }
+                else {
+                    p--;
+                    skip_leb_uint32(p, p_end);
+                }
                 break;
+            }
 
             case EXT_OP_BLOCK:
             case EXT_OP_LOOP:
@@ -5097,9 +5120,19 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_RETURN_CALL_INDIRECT:
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
+#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* 0x00 */
+#else
+                skip_leb_uint32(p, p_end); /* talbeidx */
+#endif
                 break;
+
+#if WASM_ENABLE_GC != 0
+            case WASM_OP_CALL_REF:
+            case WASM_OP_RETURN_CALL_REF:
+                break;
+#endif
 
             case WASM_OP_DROP:
             case WASM_OP_SELECT:
@@ -5109,18 +5142,59 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             case WASM_OP_SELECT_T:
+            {
+#if WASM_ENABLE_GC == 0
                 skip_leb_uint32(p, p_end); /* vec length */
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* typeidx */
+#else
+                WASMModuleInstance *module_inst =
+                    (WASMModuleInstance *)exec_env->module_inst;
+                WASMModule *module = module_inst->module;
+                bool need_ref_type_map;
+                WASMRefType ref_type;
+                skip_leb_uint32(p, p_end); /* vec length */
+                if (!resolve_value_type((const uint8 **)&p, p_end, module,
+                                        &need_ref_type_map, &ref_type, false,
+                                        error_buf, error_buf_size)) {
+                    return false;
+                }
+#endif
                 break;
+            }
+
             case WASM_OP_TABLE_GET:
             case WASM_OP_TABLE_SET:
                 skip_leb_uint32(p, p_end); /* table index */
                 break;
             case WASM_OP_REF_NULL:
+            {
+#if WASM_ENABLE_GC == 0
                 CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* type */
+#else
+                WASMModuleInstance *module_inst =
+                    (WASMModuleInstance *)exec_env->module_inst;
+                WASMModule *module = module_inst->module;
+                bool need_ref_type_map;
+                WASMRefType ref_type;
+
+                CHECK_BUF(p, p_end, 1);
+                u8 = read_uint8(p); /* type */
+                p--;
+                if (is_byte_a_type(u8)) {
+                    if (!resolve_value_type((const uint8 **)&p, p_end, module,
+                                            &need_ref_type_map, &ref_type,
+                                            false, error_buf, error_buf_size)) {
+                        return false;
+                    }
+                }
+                else {
+                    skip_leb_uint32(p, p_end);
+                }
+#endif
                 break;
+            }
             case WASM_OP_REF_IS_NULL:
                 break;
             case WASM_OP_REF_FUNC:
@@ -5133,12 +5207,12 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_REF_EQ:
             case WASM_OP_BR_ON_NULL:
             case WASM_OP_BR_ON_NON_NULL:
-            case WASM_OP_CALL_REF:
-            case WASM_OP_RETURN_CALL_REF:
+                break;
             case WASM_OP_FUNC_BIND:
             case WASM_OP_LET:
-                /* TODO */
-                break;
+                set_error_buf_v(error_buf, error_buf_size,
+                                "unsupported opcode %02x", opcode);
+                return false;
 #endif /* WASM_ENABLE_GC */
 
             case WASM_OP_GET_LOCAL:
@@ -5341,50 +5415,71 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
                 read_leb_uint32(p, p_end, opcode1);
 
-                /* TODO */
                 switch (opcode1) {
                     case WASM_OP_STRUCT_NEW_WITH_RTT:
                     case WASM_OP_STRUCT_NEW_DEFAULT_WITH_RTT:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
                     case WASM_OP_STRUCT_GET:
                     case WASM_OP_STRUCT_GET_S:
                     case WASM_OP_STRUCT_GET_U:
                     case WASM_OP_STRUCT_SET:
-
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        skip_leb_uint32(p, p_end); /* fieldidx */
+                        break;
                     case WASM_OP_ARRAY_NEW_WITH_RTT:
                     case WASM_OP_ARRAY_NEW_DEFAULT_WITH_RTT:
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
                     case WASM_OP_ARRAY_SET:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
                     case WASM_OP_ARRAY_LEN:
+                        break;
 
                     case WASM_OP_I31_NEW:
                     case WASM_OP_I31_GET_S:
                     case WASM_OP_I31_GET_U:
+                        break;
 
                     case WASM_OP_RTT_CANON:
                     case WASM_OP_RTT_SUB:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
 
                     case WASM_OP_REF_TEST:
                     case WASM_OP_REF_CAST:
                     case WASM_OP_BR_ON_CAST:
                     case WASM_OP_BR_ON_CAST_FAIL:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
 
                     case WASM_OP_REF_IS_FUNC:
                     case WASM_OP_REF_IS_DATA:
                     case WASM_OP_REF_IS_I31:
+                    case WASM_OP_REF_IS_ARRAY:
                     case WASM_OP_REF_AS_FUNC:
                     case WASM_OP_REF_AS_DATA:
                     case WASM_OP_REF_AS_I31:
+                    case WASM_OP_REF_AS_ARRAY:
+                        break;
 
                     case WASM_OP_BR_ON_FUNC:
                     case WASM_OP_BR_ON_DATA:
                     case WASM_OP_BR_ON_I31:
+                    case WASM_OP_BR_ON_ARRAY:
                     case WASM_OP_BR_ON_NON_FUNC:
                     case WASM_OP_BR_ON_NON_DATA:
                     case WASM_OP_BR_ON_NON_I31:
+                    case WASM_OP_BR_ON_NON_ARRAY:
+                        skip_leb_uint32(p, p_end);
+                        break;
 
                     default:
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s %02x %02x", "unsupported opcode",
+                                        WASM_OP_GC_PREFIX, opcode1);
                         return false;
                 }
                 break;
@@ -5444,6 +5539,9 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         break;
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
                     default:
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s %02x %02x", "unsupported opcode",
+                                        WASM_OP_MISC_PREFIX, opcode1);
                         return false;
                 }
                 break;
