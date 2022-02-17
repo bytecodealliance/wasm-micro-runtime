@@ -9,6 +9,13 @@
 #define BH_ENABLE_TRACE_MMAP 0
 #endif
 
+#ifndef MADV_HUGEPAGE
+#define MADV_HUGEPAGE 14
+#endif
+#ifndef MADV_NOHUGEPAGE
+#define MADV_NOHUGEPAGE 15
+#endif
+
 #if BH_ENABLE_TRACE_MMAP != 0
 static size_t total_size_mmapped = 0;
 static size_t total_size_munmapped = 0;
