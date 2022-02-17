@@ -10,6 +10,7 @@ import pathlib
 import shlex
 import shutil
 import subprocess
+import sysconfig
 import sys
 
 
@@ -114,11 +115,7 @@ def build_llvm(llvm_dir, platform, backends, projects):
 
     CONFIG_CMD = f"cmake {compile_options} ../llvm"
     if "windows" == platform:
-        try:
-            mingw = "mingw" in str(subprocess.check_output("uname")).lower()
-        except FileNotFoundError:
-            mingw = False
-        if mingw:
+        if "mingw" in sysconfig.get_platform().lower():
             CONFIG_CMD += " -G'Unix Makefiles'"
         else:
             CONFIG_CMD += " -A x64"
