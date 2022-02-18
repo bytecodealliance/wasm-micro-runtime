@@ -35,9 +35,14 @@ extern "C" {
     do {                                       \
         *(float64 *)(addr) = (float64)(value); \
     } while (0)
+#define PUT_REF_TO_ADDR(addr, value)        \
+    do {                                    \
+        *(void **)(addr) = (void *)(value); \
+    } while (0)
 
 #define GET_I64_FROM_ADDR(addr) (*(int64 *)(addr))
 #define GET_F64_FROM_ADDR(addr) (*(float64 *)(addr))
+#define GET_REF_FROM_ADDR(addr) (*(void **)(addr))
 
 /* For STORE opcodes */
 #define STORE_I64 PUT_I64_TO_ADDR
@@ -87,6 +92,24 @@ extern "C" {
         addr_u32[0] = u.parts[0];            \
         addr_u32[1] = u.parts[1];            \
     } while (0)
+#if UINTPTR_MAX == UINT64_MAX
+#define PUT_REF_TO_ADDR(addr, value)         \
+    do {                                     \
+        uint32 *addr_u32 = (uint32 *)(addr); \
+        union {                              \
+            void *val;                       \
+            uint32 parts[2];                 \
+        } u;                                 \
+        u.val = (void *)(value);             \
+        addr_u32[0] = u.parts[0];            \
+        addr_u32[1] = u.parts[1];            \
+    } while (0)
+#else
+#define PUT_REF_TO_ADDR(addr, value)        \
+    do {                                    \
+        *(void **)(addr) = (void *)(value); \
+    } while (0)
+#endif
 
 static inline int64
 GET_I64_FROM_ADDR(uint32 *addr)
@@ -111,6 +134,22 @@ GET_F64_FROM_ADDR(uint32 *addr)
     u.parts[1] = addr[1];
     return u.val;
 }
+
+#if UINTPTR_MAX == UINT64_MAX
+static inline void *
+GET_REF_FROM_ADDR(uint32 *addr)
+{
+    union {
+        void *val;
+        uint32 parts[2];
+    } u;
+    u.parts[0] = addr[0];
+    u.parts[1] = addr[1];
+    return u.val;
+}
+#else
+#define GET_REF_FROM_ADDR(addr) (*(void **)(addr))
+#endif
 
 /* For STORE opcodes */
 #define STORE_I64(addr, value)                      \

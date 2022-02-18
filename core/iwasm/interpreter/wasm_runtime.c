@@ -1381,7 +1381,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                                  || wasm_is_refheaptype_rttn(
                                      &global->ref_type->ref_ht_common))) {
                         STORE_PTR((void **)global_data,
-                                  global->initial_value.rtt_obj);
+                                  global->initial_value.gc_obj);
                         global_data += sizeof(void *);
                         break;
                     }

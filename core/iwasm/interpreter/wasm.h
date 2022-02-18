@@ -168,7 +168,7 @@ typedef union WASMValue {
     float64 f64;
     V128 v128;
 #if WASM_ENABLE_GC != 0
-    void *rtt_obj;
+    void *gc_obj;
 #endif
 } WASMValue;
 

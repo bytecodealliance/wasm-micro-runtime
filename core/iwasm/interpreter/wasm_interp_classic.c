@@ -9,6 +9,9 @@
 #include "wasm_opcode.h"
 #include "wasm_loader.h"
 #include "../common/wasm_exec_env.h"
+#if WASM_ENABLE_GC != 0
+#include "../common/gc/gc_object.h"
+#endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -226,6 +229,12 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_sp += 2;                    \
     } while (0)
 
+#define PUSH_REF(value)                   \
+    do {                                  \
+        PUT_REF_TO_ADDR(frame_sp, value); \
+        frame_sp += 2;                    \
+    } while (0)
+
 #define PUSH_CSP(_label_type, cell_num, _target_addr) \
     do {                                              \
         bh_assert(frame_csp < frame->csp_boundary);   \
@@ -244,6 +253,10 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 #define POP_I64() (frame_sp -= 2, GET_I64_FROM_ADDR(frame_sp))
 
 #define POP_F64() (frame_sp -= 2, GET_F64_FROM_ADDR(frame_sp))
+
+#define POP_REF()                                    \
+    (frame_sp -= sizeof(uintptr_t) / sizeof(uint32), \
+     GET_REF_FROM_ADDR(frame_sp))
 
 #define POP_CSP_CHECK_OVERFLOW(n)                      \
     do {                                               \
@@ -1027,6 +1040,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_BLOCK)
             {
                 value_type = *frame_ip++;
+                /* TODO */
                 cell_num = wasm_value_type_cell_num(value_type);
             handle_op_block:
                 cache_index = ((uintptr_t)frame_ip)
@@ -1065,6 +1079,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_LOOP)
             {
                 value_type = *frame_ip++;
+                /* TODO */
                 cell_num = wasm_value_type_cell_num(value_type);
             handle_op_loop:
                 PUSH_CSP(LABEL_TYPE_LOOP, cell_num, frame_ip);
@@ -1082,6 +1097,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_IF)
             {
                 value_type = *frame_ip++;
+                /* TODO */
                 cell_num = wasm_value_type_cell_num(value_type);
             handle_op_if:
                 cache_index = ((uintptr_t)frame_ip)
@@ -1460,7 +1476,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint8)opcode1;
 
-                /* TODO */
                 switch (opcode) {
                     case WASM_OP_STRUCT_NEW_WITH_RTT:
                     case WASM_OP_STRUCT_NEW_DEFAULT_WITH_RTT:
@@ -1468,21 +1483,92 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_STRUCT_GET_S:
                     case WASM_OP_STRUCT_GET_U:
                     case WASM_OP_STRUCT_SET:
+                        wasm_set_exception(module, "unsupported opcode");
+                        goto got_exception;
 
                     case WASM_OP_ARRAY_NEW_WITH_RTT:
+                        wasm_set_exception(module, "unsupported opcode");
+                        goto got_exception;
                     case WASM_OP_ARRAY_NEW_DEFAULT_WITH_RTT:
+                    {
+                        WASMArrayObjectRef array_obj;
+                        WASMRttObjectRef rtt_obj = POP_REF();
+                        uint32 array_len = POP_I32();
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        array_obj =
+                            wasm_array_obj_new(NULL, rtt_obj, array_len, NULL);
+                        if (!array_obj) {
+                            wasm_set_exception(module,
+                                               "create array object failed");
+                            goto got_exception;
+                        }
+                        PUSH_REF(array_obj);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
+                    {
+                        WASMArrayObjectRef array_obj;
+                        WASMValue *array_elem;
+                        WASMArrayType *array_type;
+                        uint32 elem_idx;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_index];
+
+                        elem_idx = POP_I32();
+                        array_obj = POP_REF();
+                        array_elem =
+                            wasm_array_obj_get_elem(array_obj, elem_idx);
+                        if (array_type->elem_type == VALUE_TYPE_I32
+                            || array_type->elem_type == VALUE_TYPE_F32
+                            || array_type->elem_type == PACKED_TYPE_I8
+                            || array_type->elem_type == PACKED_TYPE_I16) {
+                            PUSH_I32(array_elem->i32);
+                        }
+                        else if (array_type->elem_type == VALUE_TYPE_I64
+                                 || array_type->elem_type == VALUE_TYPE_F64) {
+                            PUSH_I64(array_elem->i64);
+                        }
+                        else if (wasm_is_type_reftype(array_type->elem_type)) {
+                            PUSH_REF(array_elem->gc_obj);
+                        }
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_SET:
                     case WASM_OP_ARRAY_LEN:
 
                     case WASM_OP_I31_NEW:
                     case WASM_OP_I31_GET_S:
                     case WASM_OP_I31_GET_U:
+                        wasm_set_exception(module, "unsupported opcode");
+                        goto got_exception;
 
                     case WASM_OP_RTT_CANON:
                     case WASM_OP_RTT_SUB:
+                    {
+                        WASMModule *wasm_module = module->module;
+                        WASMRttObjectRef rtt_obj, rtt_obj_parent = NULL;
+
+                        if (opcode == WASM_OP_RTT_SUB)
+                            rtt_obj_parent = POP_REF();
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+
+                        rtt_obj = wasm_rtt_obj_new(
+                            wasm_module->rtt_obj_set, rtt_obj_parent,
+                            wasm_module->types[type_index], type_index);
+                        if (!rtt_obj) {
+                            wasm_set_exception(module,
+                                               "create rtt object failed");
+                            goto got_exception;
+                        }
+                        PUSH_REF(rtt_obj);
+                        HANDLE_OP_END();
+                    }
 
                     case WASM_OP_REF_TEST:
                     case WASM_OP_REF_CAST:
@@ -1506,7 +1592,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_BR_ON_NON_DATA:
                     case WASM_OP_BR_ON_NON_I31:
                     case WASM_OP_BR_ON_NON_ARRAY:
-                        break;
+                        wasm_set_exception(module, "unsupported opcode");
+                        goto got_exception;
                 }
                 HANDLE_OP_END();
             }
@@ -1520,7 +1607,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (local_type) {
                     case VALUE_TYPE_I32:
                     case VALUE_TYPE_F32:
-#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
                     case VALUE_TYPE_FUNCREF:
                     case VALUE_TYPE_EXTERNREF:
 #endif
@@ -1531,8 +1618,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUSH_I64(GET_I64_FROM_ADDR(frame_lp + local_offset));
                         break;
                     default:
-                        wasm_set_exception(module, "invalid local type");
-                        goto got_exception;
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_reftype(local_type)) {
+                            PUSH_REF(
+                                GET_REF_FROM_ADDR(frame_lp + local_offset));
+                        }
+                        else
+#endif
+                        {
+                            wasm_set_exception(module, "invalid local type");
+                            goto got_exception;
+                        }
                 }
 
                 HANDLE_OP_END();

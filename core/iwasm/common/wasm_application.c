@@ -360,7 +360,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     WASMFuncType *type = NULL;
     WASMExecEnv *exec_env = NULL;
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     uint32 param_size_in_double_world = 0, result_size_in_double_world = 0;
 #endif
     int32 i, p, module_type;
@@ -390,7 +390,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     for (i = 0; i < type->param_count; i++) {
         param_size_in_double_world +=
             wasm_value_type_cell_num_outside(type->types[i]);
@@ -516,19 +516,31 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 break;
             }
 #endif /* WASM_ENABLE_SIMD != 0 */
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
+#if WASM_ENABLE_GC == 0
                 if (strncasecmp(argv[i], "null", 4) == 0) {
                     argv1[p++] = (uint32)-1;
                 }
                 else {
                     argv1[p++] = (uint32)strtoul(argv[i], &endptr, 0);
                 }
+#else
+                if (strncasecmp(argv[i], "null", 4) == 0) {
+                    PUT_REF_TO_ADDR(argv1 + p, NULL_REF);
+                }
+                else {
+                    /* TODO */
+                    bh_assert(0);
+                }
+                p += sizeof(uintptr_t) / sizeof(uint32);
+#endif
                 break;
             }
             case VALUE_TYPE_EXTERNREF:
             {
+#if WASM_ENABLE_GC == 0
 #if UINTPTR_MAX == UINT32_MAX
                 if (strncasecmp(argv[i], "null", 4) == 0) {
                     argv1[p++] = (uint32)-1;
@@ -550,9 +562,19 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 argv1[p++] = u.parts[0];
                 argv1[p++] = u.parts[1];
 #endif
+#else
+                if (strncasecmp(argv[i], "null", 4) == 0) {
+                    PUT_REF_TO_ADDR(argv1 + p, NULL_REF);
+                }
+                else {
+                    /* TODO */
+                    bh_assert(0);
+                }
+                p += sizeof(uintptr_t) / sizeof(uint32);
+#endif
                 break;
             }
-#endif /* WASM_ENABLE_REF_TYPES */
+#endif /* WASM_ENABLE_GC != 0 && WASM_ENABLE_REF_TYPES != 0 */
             default:
                 bh_assert(0);
                 break;
@@ -624,18 +646,34 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 os_printf("%.7g:f64", u.val);
                 break;
             }
-#if WASM_ENABLE_REF_TYPES != 0
+#if WASM_ENABLE_SIMD != 0
+            case VALUE_TYPE_V128:
+            {
+                uint64 *v = (uint64 *)(argv1 + k);
+                os_printf("<0x%016" PRIx64 " 0x%016" PRIx64 ">:v128", *v,
+                          *(v + 1));
+                k += 4;
+                break;
+            }
+#endif /*  WASM_ENABLE_SIMD != 0 */
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_FUNCREF:
             {
+#if WASM_ENABLE_GC == 0
                 if (argv1[k] != NULL_REF)
                     os_printf("%u:ref.func", argv1[k]);
                 else
                     os_printf("func:ref.null");
                 k++;
+#else
+                /* TOOD */
+                bh_assert(0);
+#endif
                 break;
             }
             case VALUE_TYPE_EXTERNREF:
             {
+#if WASM_ENABLE_GC == 0
 #if UINTPTR_MAX == UINT32_MAX
                 if (argv1[k] != 0 && argv1[k] != (uint32)-1)
                     os_printf("%p:ref.extern", (void *)argv1[k]);
@@ -655,19 +693,35 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 else
                     os_printf("extern:ref.null");
 #endif
+#else
+                /* TOOD */
+                bh_assert(0);
+#endif
+                break;
+            }
+#endif /* WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0 */
+#if WASM_ENABLE_GC != 0
+            case REF_TYPE_ARRAYREF:
+            {
+                void *wasm_obj = GET_REF_FROM_ADDR(argv1 + k);
+                k += sizeof(uintptr_t) / sizeof(uint32);
+                if (wasm_obj)
+                    os_printf("ref.array");
+                else
+                    os_printf("ref.null ref.array");
+                break;
+            }
+            case REF_TYPE_DATAREF:
+            {
+                void *wasm_obj = GET_REF_FROM_ADDR(argv1 + k);
+                k += sizeof(uintptr_t) / sizeof(uint32);
+                if (wasm_obj)
+                    os_printf("ref.data");
+                else
+                    os_printf("ref.null ref.data");
                 break;
             }
 #endif
-#if WASM_ENABLE_SIMD != 0
-            case VALUE_TYPE_V128:
-            {
-                uint64 *v = (uint64 *)(argv1 + k);
-                os_printf("<0x%016" PRIx64 " 0x%016" PRIx64 ">:v128", *v,
-                          *(v + 1));
-                k += 4;
-                break;
-            }
-#endif /*  WASM_ENABLE_SIMD != 0 */
             default:
                 bh_assert(0);
                 break;
