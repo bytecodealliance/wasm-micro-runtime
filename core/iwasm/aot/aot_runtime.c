@@ -2431,6 +2431,48 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 }
 
+bool
+aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str_arg,
+                               uint32 app_offset, uint32 size,
+                               void **p_native_addr)
+{
+    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    uint8 *native_addr;
+
+    if (!memory_inst || app_offset >= memory_inst->memory_data_size) {
+        goto fail;
+    }
+
+    native_addr = memory_inst->memory_data.ptr + app_offset;
+
+    if (!is_str_arg) {
+        /* integer overflow check */
+        if (app_offset > UINT32_MAX - size) {
+            goto fail;
+        }
+
+        if (app_offset + size > memory_inst->memory_data_size) {
+            goto fail;
+        }
+    }
+    else {
+        const char *str, *str_end;
+
+        str = (const char *)native_addr;
+        str_end = (const char *)memory_inst->memory_data_end.ptr;
+        while (str < str_end && *str != '\0')
+            str++;
+        if (str == str_end)
+            goto fail;
+    }
+
+    *p_native_addr = (void *)native_addr;
+    return true;
+fail:
+    aot_set_exception(module_inst, "out of bounds memory access");
+    return false;
+}
+
 void *
 aot_memmove(void *dest, const void *src, size_t n)
 {
