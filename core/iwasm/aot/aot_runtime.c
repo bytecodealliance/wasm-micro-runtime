@@ -2432,28 +2432,52 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
 }
 
 /**
- * Check whether the whole app string is inside linear memory,
- * note that the begin address has been checked in AOT code, or,
- * app_str_offset must be smaller than mem_data_size
+ * Check whether the app address and the buf is inside the linear memory,
+ * and convert the app address into native address
  */
 bool
-aot_check_app_str(uint8 *mem_base_addr, uint32 mem_data_size,
-                  uint32 app_str_offset)
+aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str_arg,
+                               uint32 app_offset, uint32 buf_size,
+                               void **p_native_addr)
 {
-    const char *p, *p_end;
+    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    uint8 *native_addr;
 
-    if (app_str_offset >= mem_data_size) {
-        return false;
+    if (!memory_inst) {
+        goto fail;
     }
 
-    p = (const char *)mem_base_addr + app_str_offset;
-    p_end = (const char *)mem_base_addr + mem_data_size;
-    while (p < p_end && *p != '\0')
-        p++;
-    if (p == p_end) {
-        return false;
+    native_addr = memory_inst->memory_data.ptr + app_offset;
+
+    /* No need to check the app_offset and buf_size if memory access
+       boundary check with hardware trap is enabled */
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+    if (app_offset >= memory_inst->memory_data_size) {
+        goto fail;
     }
+
+    if (!is_str_arg) {
+        if (buf_size > memory_inst->memory_data_size - app_offset) {
+            goto fail;
+        }
+    }
+    else {
+        const char *str, *str_end;
+
+        str = (const char *)native_addr;
+        str_end = (const char *)memory_inst->memory_data_end.ptr;
+        while (str < str_end && *str != '\0')
+            str++;
+        if (str == str_end)
+            goto fail;
+    }
+#endif
+
+    *p_native_addr = (void *)native_addr;
     return true;
+fail:
+    aot_set_exception(module_inst, "out of bounds memory access");
+    return false;
 }
 
 void *
