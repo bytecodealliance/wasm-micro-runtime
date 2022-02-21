@@ -648,9 +648,8 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
                   uint32 argc, uint32 *argv);
 
 bool
-aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str_arg,
-                               uint32 app_offset, uint32 size,
-                               void **p_native_addr);
+aot_check_app_str(uint8 *mem_base_addr, uint32 mem_data_size,
+                  uint32 app_str_offset);
 
 uint32
 aot_get_plt_table_size();
