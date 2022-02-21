@@ -2447,7 +2447,7 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str_arg,
         goto fail;
     }
 
-    native_addr = memory_inst->memory_data.ptr + app_offset;
+    native_addr = (uint8 *)memory_inst->memory_data.ptr + app_offset;
 
     /* No need to check the app_offset and buf_size if memory access
        boundary check with hardware trap is enabled */
