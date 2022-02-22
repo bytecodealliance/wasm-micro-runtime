@@ -520,7 +520,7 @@ check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 /**
  * Check whether the app address and its buffer are inside the linear memory,
- * if yes, throw exception
+ * if no, throw exception
  */
 static bool
 check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
@@ -771,7 +771,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         for (i = 0; i < param_count; i++, j++) {
             param_types[j] = TO_LLVM_TYPE(func_type->types[i]);
 
-            /* If the signature can be get, e.g. the signature of the builtin
+            /* If the signature can be gotten, e.g. the signature of the builtin
                native libraries, just check the app offset and buf size, and
                then convert app offset to native addr and call the native func
                directly, no need to call aot_invoke_native to call it */

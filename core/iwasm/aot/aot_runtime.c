@@ -2464,6 +2464,7 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
     else {
         const char *str, *str_end;
 
+        /* The whole string must be in the linear memory */
         str = (const char *)native_addr;
         str_end = (const char *)memory_inst->memory_data_end.ptr;
         while (str < str_end && *str != '\0')
