@@ -143,9 +143,9 @@ void
 wasm_struct_obj_set_field(WASMStructObjectRef struct_obj, uint32 field_idx,
                           WASMValue *value);
 
-WASMValue *
+void
 wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
-                          uint32 field_idx);
+                          uint32 field_idx, bool sign_extend, WASMValue *value);
 
 WASMArrayObjectRef
 wasm_array_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj, uint32 length,
@@ -155,8 +155,9 @@ void
 wasm_array_obj_set_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
                         WASMValue *value);
 
-WASMValue *
-wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx);
+void
+wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
+                        bool sign_extend, WASMValue *value);
 
 /**
  * Return the logarithm of the size of array element.

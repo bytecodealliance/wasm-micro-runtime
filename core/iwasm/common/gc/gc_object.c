@@ -4,6 +4,7 @@
  */
 
 #include "gc_object.h"
+#include "../wasm_runtime_common.h"
 
 static uint32
 rtt_obj_hash(const void *key)
@@ -100,13 +101,83 @@ wasm_struct_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj)
 void
 wasm_struct_obj_set_field(WASMStructObjectRef struct_obj, uint32 field_idx,
                           WASMValue *value)
-{}
-
-WASMValue *
-wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
-                          uint32 field_idx)
 {
-    return NULL;
+    WASMRttObjectRef rtt_obj =
+        (WASMRttObjectRef)wasm_object_header((WASMObjectRef)struct_obj);
+    WASMStructType *struct_type = (WASMStructType *)rtt_obj->defined_type;
+    WASMStructFieldType *field;
+    uint8 field_size, *field_data;
+
+    bh_assert(field_idx < struct_type->field_count);
+
+    field = struct_type->fields + field_idx;
+    field_data = (uint8 *)struct_obj + field->field_offset;
+    field_size = field->field_size;
+
+    if (field_size == 4) {
+        *(int32 *)field_data = value->i32;
+    }
+    else if (field_size == 8) {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_X86_32)
+        *(int64 *)field_data = value->i64;
+#else
+        PUT_I64_TO_ADDR((uint32 *)field_data, value->i64);
+#endif
+    }
+    else if (field_size == 1) {
+        *(int8 *)field_data = (int8)value->i32;
+    }
+    else if (field_size == 2) {
+        *(int16 *)field_data = (int16)value->i32;
+    }
+    else {
+        bh_assert(0);
+    }
+}
+
+void
+wasm_struct_obj_get_field(const WASMStructObjectRef struct_obj,
+                          uint32 field_idx, bool sign_extend, WASMValue *value)
+{
+    WASMRttObjectRef rtt_obj =
+        (WASMRttObjectRef)wasm_object_header((WASMObjectRef)struct_obj);
+    WASMStructType *struct_type = (WASMStructType *)rtt_obj->defined_type;
+    WASMStructFieldType *field;
+    uint8 *field_data, field_size;
+
+    bh_assert(field_idx < struct_type->field_count);
+
+    field = struct_type->fields + field_idx;
+    field_data = (uint8 *)struct_obj + field->field_offset;
+    field_size = field->field_size;
+
+    if (field_size == 4) {
+        value->i32 = *(int32 *)field_data;
+    }
+    else if (field_size == 8) {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
+    || defined(BUILD_TARGET_X86_32)
+        value->i64 = *(int64 *)field_data;
+#else
+        value->i64 = GET_I64_FROM_ADDR((uint32 *)field_data);
+#endif
+    }
+    else if (field_size == 1) {
+        if (sign_extend)
+            value->i32 = (int32)(*(int8 *)field_data);
+        else
+            value->u32 = (uint32)(*(uint8 *)field_data);
+    }
+    else if (field_size == 2) {
+        if (sign_extend)
+            value->i32 = (int32)(*(int8 *)field_data);
+        else
+            value->u32 = (uint32)(*(uint8 *)field_data);
+    }
+    else {
+        bh_assert(0);
+    }
 }
 
 WASMArrayObjectRef
@@ -151,12 +222,49 @@ wasm_array_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj, uint32 length,
 void
 wasm_array_obj_set_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
                         WASMValue *value)
-{}
-
-WASMValue *
-wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx)
 {
-    return NULL;
+    uint8 *elem_data = wasm_array_obj_elem_addr(array_obj, elem_idx);
+    uint32 elem_size = 1 << wasm_array_obj_elem_size_log(array_obj);
+
+    switch (elem_size) {
+        case 1:
+            *(int8 *)elem_data = (int8)value->i32;
+            break;
+        case 2:
+            *(int16 *)elem_data = (int16)value->i32;
+            break;
+        case 4:
+            *(int32 *)elem_data = value->i32;
+            break;
+        case 8:
+            PUT_I64_TO_ADDR((uint32 *)elem_data, value->i64);
+            break;
+    }
+}
+
+void
+wasm_array_obj_get_elem(WASMArrayObjectRef array_obj, uint32 elem_idx,
+                        bool sign_extend, WASMValue *value)
+{
+    uint8 *elem_data = wasm_array_obj_elem_addr(array_obj, elem_idx);
+    uint32 elem_size = 1 << wasm_array_obj_elem_size_log(array_obj);
+
+    switch (elem_size) {
+        case 1:
+            value->i32 = sign_extend ? (int32)(*(int8 *)elem_data)
+                                     : (int32)(uint32)(*(uint8 *)elem_data);
+            break;
+        case 2:
+            value->i32 = sign_extend ? (int32)(*(int16 *)elem_data)
+                                     : (int32)(uint32)(*(uint16 *)elem_data);
+            break;
+        case 4:
+            value->i32 = *(int32 *)elem_data;
+            break;
+        case 8:
+            value->i64 = GET_I64_FROM_ADDR((uint32 *)elem_data);
+            break;
+    }
 }
 
 WASMFuncObjectRef

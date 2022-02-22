@@ -1511,34 +1511,41 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_ARRAY_GET_U:
                     {
                         WASMArrayObjectRef array_obj;
-                        WASMValue *array_elem;
-                        WASMArrayType *array_type;
-                        uint32 elem_idx;
+                        WASMValue array_elem;
+                        uint32 elem_idx, elem_size_log;
 
                         read_leb_uint32(frame_ip, frame_ip_end, type_index);
-                        array_type =
-                            (WASMArrayType *)module->module->types[type_index];
 
                         elem_idx = POP_I32();
                         array_obj = POP_REF();
-                        array_elem =
-                            wasm_array_obj_get_elem(array_obj, elem_idx);
-                        if (array_type->elem_type == VALUE_TYPE_I32
-                            || array_type->elem_type == VALUE_TYPE_F32
-                            || array_type->elem_type == PACKED_TYPE_I8
-                            || array_type->elem_type == PACKED_TYPE_I16) {
-                            PUSH_I32(array_elem->i32);
+
+                        if (!array_obj) {
+                            wasm_set_exception(module, "array object is null");
+                            goto got_exception;
                         }
-                        else if (array_type->elem_type == VALUE_TYPE_I64
-                                 || array_type->elem_type == VALUE_TYPE_F64) {
-                            PUSH_I64(array_elem->i64);
+                        if (elem_idx >= wasm_array_obj_length(array_obj)) {
+                            wasm_set_exception(module,
+                                               "array index out of range");
+                            goto got_exception;
                         }
-                        else if (wasm_is_type_reftype(array_type->elem_type)) {
-                            PUSH_REF(array_elem->gc_obj);
+
+                        wasm_array_obj_get_elem(
+                            array_obj, elem_idx,
+                            opcode == WASM_OP_ARRAY_GET_U ? true : false,
+                            &array_elem);
+                        elem_size_log = wasm_array_obj_elem_size_log(array_obj);
+
+                        if (elem_size_log < 3) {
+                            PUSH_I32(array_elem.i32);
+                        }
+                        else {
+                            PUSH_I64(array_elem.i64);
                         }
                         HANDLE_OP_END();
                     }
                     case WASM_OP_ARRAY_SET:
+                    {
+                    }
                     case WASM_OP_ARRAY_LEN:
 
                     case WASM_OP_I31_NEW:
