@@ -2436,8 +2436,8 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
  * and convert the app address into native address
  */
 bool
-aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str_arg,
-                               uint32 app_offset, uint32 buf_size,
+aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
+                               uint32 app_buf_addr, uint32 app_buf_size,
                                void **p_native_addr)
 {
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
@@ -2447,17 +2447,17 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str_arg,
         goto fail;
     }
 
-    native_addr = (uint8 *)memory_inst->memory_data.ptr + app_offset;
+    native_addr = (uint8 *)memory_inst->memory_data.ptr + app_buf_addr;
 
     /* No need to check the app_offset and buf_size if memory access
        boundary check with hardware trap is enabled */
 #ifndef OS_ENABLE_HW_BOUND_CHECK
-    if (app_offset >= memory_inst->memory_data_size) {
+    if (app_buf_addr >= memory_inst->memory_data_size) {
         goto fail;
     }
 
-    if (!is_str_arg) {
-        if (buf_size > memory_inst->memory_data_size - app_offset) {
+    if (!is_str) {
+        if (app_buf_size > memory_inst->memory_data_size - app_buf_addr) {
             goto fail;
         }
     }
