@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bh_common.h"
 #include "bh_platform.h"
 #include "bh_read_file.h"
 #include "wasm_export.h"
@@ -213,6 +214,8 @@ module_reader_callback(const char *module_name, uint8 **p_buffer,
 static void
 moudle_destroyer(uint8 *buffer, uint32 size)
 {
+    UNUSED(size);
+
     if (!buffer) {
         return;
     }

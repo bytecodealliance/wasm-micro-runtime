@@ -4,6 +4,7 @@
  */
 
 #include "thread_manager.h"
+#include "bh_common.h"
 
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
@@ -249,6 +250,7 @@ wasm_cluster_destroy(WASMCluster *cluster)
 static void
 free_node_visitor(void *node, void *user_data)
 {
+    UNUSED(user_data);
     wasm_runtime_free(node);
 }
 
@@ -852,6 +854,8 @@ static void
 resume_thread_visitor(void *node, void *user_data)
 {
     WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+
+    UNUSED(user_data);
 
     wasm_cluster_resume_thread(curr_exec_env);
 }

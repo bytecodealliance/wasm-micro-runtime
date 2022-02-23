@@ -7,6 +7,7 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "aot_intrinsic.h"
+#include "bh_common.h"
 
 #define BUILD_ICMP(op, left, right, res, name)                                \
     do {                                                                      \
@@ -370,6 +371,11 @@ aot_compile_op_i32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value = NULL;
 
+#if WASM_ENABLE_SHARED_MEMORY == 0
+    UNUSED(align);
+    UNUSED(atomic);
+#endif
+
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
 
@@ -421,6 +427,11 @@ aot_compile_op_i64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         bool atomic)
 {
     LLVMValueRef maddr, value = NULL;
+
+#if WASM_ENABLE_SHARED_MEMORY == 0
+    UNUSED(align);
+    UNUSED(atomic);
+#endif
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, bytes)))
         return false;
@@ -476,6 +487,8 @@ aot_compile_op_f32_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value;
 
+    UNUSED(align);
+
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4)))
         return false;
 
@@ -493,6 +506,8 @@ aot_compile_op_f64_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value;
 
+    UNUSED(align);
+
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 8)))
         return false;
 
@@ -509,6 +524,11 @@ aot_compile_op_i32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 align, uint32 offset, uint32 bytes, bool atomic)
 {
     LLVMValueRef maddr, value;
+
+#if WASM_ENABLE_SHARED_MEMORY == 0
+    UNUSED(align);
+    UNUSED(atomic);
+#endif
 
     POP_I32(value);
 
@@ -548,6 +568,11 @@ aot_compile_op_i64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 align, uint32 offset, uint32 bytes, bool atomic)
 {
     LLVMValueRef maddr, value;
+
+#if WASM_ENABLE_SHARED_MEMORY == 0
+    UNUSED(align);
+    UNUSED(atomic);
+#endif
 
     POP_I64(value);
 
@@ -592,6 +617,8 @@ aot_compile_op_f32_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 {
     LLVMValueRef maddr, value;
 
+    UNUSED(align);
+
     POP_F32(value);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset, 4)))
@@ -609,6 +636,8 @@ aot_compile_op_f64_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                          uint32 align, uint32 offset)
 {
     LLVMValueRef maddr, value;
+
+    UNUSED(align);
 
     POP_F64(value);
 

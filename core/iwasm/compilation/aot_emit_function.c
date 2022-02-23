@@ -8,6 +8,7 @@
 #include "aot_emit_control.h"
 #include "aot_emit_table.h"
 #include "../aot/aot_runtime.h"
+#include "bh_common.h"
 
 #define ADD_BASIC_BLOCK(block, name)                                          \
     do {                                                                      \
@@ -1015,6 +1016,8 @@ call_aot_call_indirect_func(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef func_param_values[6], res = NULL;
     char buf[32], *func_name = "aot_call_indirect";
     uint32 i, cell_num = 0, ret_cell_num, argv_cell_num;
+
+    UNUSED(func_type_idx);
 
     /* prepare function type of aot_call_indirect */
     func_param_types[0] = comp_ctx->exec_env_type; /* exec_env */

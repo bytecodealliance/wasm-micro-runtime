@@ -537,6 +537,8 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     WASIContext *wasi_ctx;
 #endif
 
+    UNUSED(attr);
+
     bh_assert(module);
     bh_assert(module_inst);
 
@@ -769,6 +771,8 @@ pthread_mutex_init_wrapper(wasm_exec_env_t exec_env, uint32 *mutex, void *attr)
     korp_mutex *pmutex;
     ThreadInfoNode *info_node;
 
+    UNUSED(attr);
+
     if (!(pmutex = wasm_runtime_malloc(sizeof(korp_mutex)))) {
         return -1;
     }
@@ -847,6 +851,8 @@ pthread_cond_init_wrapper(wasm_exec_env_t exec_env, uint32 *cond, void *attr)
 {
     korp_cond *pcond;
     ThreadInfoNode *info_node;
+
+    UNUSED(attr);
 
     if (!(pcond = wasm_runtime_malloc(sizeof(korp_cond)))) {
         return -1;
@@ -1077,6 +1083,8 @@ posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     void *p = NULL;
+
+    UNUSED(align);
 
     *((int32 *)memptr) = module_malloc(size, (void **)&p);
     if (!p)

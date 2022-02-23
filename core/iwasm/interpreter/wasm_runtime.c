@@ -1672,6 +1672,7 @@ wasm_lookup_global(const WASMModuleInstance *module_inst, const char *name)
 WASMMemoryInstance *
 wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name)
 {
+    UNUSED(name);
     /**
      * using a strong assumption that one module instance only has
      * one memory instance
@@ -1683,6 +1684,7 @@ wasm_lookup_memory(const WASMModuleInstance *module_inst, const char *name)
 WASMTableInstance *
 wasm_lookup_table(const WASMModuleInstance *module_inst, const char *name)
 {
+    UNUSED(name);
     /**
      * using a strong assumption that one module instance only has
      * one table instance

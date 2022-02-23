@@ -262,6 +262,9 @@ read_i8x16(uint8 *p_buf, char *error_buf, uint32 error_buf_size)
     V128 result;
     uint8 i;
 
+    UNUSED(error_buf);
+    UNUSED(error_buf_size);
+
     for (i = 0; i != 16; ++i) {
         result.i8x16[i] = read_uint8(p_buf);
     }
@@ -655,6 +658,10 @@ wasm_loader_find_export(const WASMModule *module, const char *module_name,
     WASMExport *export;
     uint32 i;
     uint32 export_index_boundary = 0;
+
+#if BH_DEBUG == 0
+    UNUSED(module_name);
+#endif
 
     for (i = 0, export = module->exports; i < module->export_count;
          ++i, ++export) {
@@ -1284,7 +1291,6 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     uint32 declare_max_page_count_flag = 0;
     uint32 declare_init_page_count = 0;
     uint32 declare_max_page_count = 0;
-
 
 #if WASM_ENABLE_MULTI_MODULE == 0
     UNUSED(parent_module);
@@ -4626,6 +4632,9 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
 static WASMLoaderContext *
 wasm_loader_ctx_init(WASMFunction *func)
 {
+#if WASM_ENABLE_FAST_INTERP == 0
+    UNUSED(func);
+#endif
     WASMLoaderContext *loader_ctx =
         loader_malloc(sizeof(WASMLoaderContext), NULL, 0);
     if (!loader_ctx)
