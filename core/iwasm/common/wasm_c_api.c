@@ -1947,6 +1947,10 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
     for (i = 0; i != import_count; ++i) {
         char *module_name_rt = NULL, *field_name_rt = NULL;
 
+        memset(&module_name, 0, sizeof(module_name));
+        memset(&name, 0, sizeof(name));
+        extern_type = NULL;
+
         if (i < import_func_count) {
             wasm_functype_t *type = NULL;
             WASMType *type_rt = NULL;
