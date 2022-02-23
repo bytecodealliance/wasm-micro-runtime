@@ -62,6 +62,7 @@ wasm_runtime_get_wasi_ctx(wasm_module_inst_t module_inst);
 static inline struct fd_table *
 wasi_ctx_get_curfds(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
 {
+    UNUSED(module_inst);
     if (!wasi_ctx)
         return NULL;
     return wasi_ctx->curfds;
@@ -70,6 +71,7 @@ wasi_ctx_get_curfds(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
 static inline struct argv_environ_values *
 wasi_ctx_get_argv_environ(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
 {
+    UNUSED(module_inst);
     if (!wasi_ctx)
         return NULL;
     return wasi_ctx->argv_environ;
@@ -78,6 +80,7 @@ wasi_ctx_get_argv_environ(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
 static inline struct fd_prestats *
 wasi_ctx_get_prestats(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
 {
+    UNUSED(module_inst);
     if (!wasi_ctx)
         return NULL;
     return wasi_ctx->prestats;
@@ -966,6 +969,7 @@ wasi_proc_exit(wasm_exec_env_t exec_env, wasi_exitcode_t rval)
     /* Here throwing exception is just to let wasm app exit,
        the upper layer should clear the exception and return
        as normal */
+    UNUSED(rval);
     wasm_runtime_set_exception(module_inst, "wasi proc exit");
 }
 
@@ -983,6 +987,7 @@ wasi_proc_raise(wasm_exec_env_t exec_env, wasi_signal_t sig)
 static wasi_errno_t
 wasi_random_get(wasm_exec_env_t exec_env, void *buf, uint32 buf_len)
 {
+    UNUSED(exec_env);
     return wasmtime_ssp_random_get(buf, buf_len);
 }
 
@@ -1111,6 +1116,7 @@ wasi_sock_shutdown(wasm_exec_env_t exec_env, wasi_fd_t sock, wasi_sdflags_t how)
 static wasi_errno_t
 wasi_sched_yield(wasm_exec_env_t exec_env)
 {
+    UNUSED(exec_env);
     return wasmtime_ssp_sched_yield();
 }
 

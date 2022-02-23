@@ -175,6 +175,8 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
             return memory;
         }
     }
+#else
+    UNUSED(flags);
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
 
     if (heap_size > 0 && module_inst->module->malloc_function != (uint32)-1
@@ -558,6 +560,7 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 static void
 functions_deinstantiate(WASMFunctionInstance *functions, uint32 count)
 {
+    UNUSED(count);
     if (functions) {
         wasm_runtime_free(functions);
     }
@@ -1090,6 +1093,11 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 {
     WASMModule *module = module_inst->module;
     uint32 i;
+
+#if WASM_ENABLE_SPEC_TEST == 0
+    UNUSED(error_buf);
+    UNUSED(error_buf_size);
+#endif
 
     for (i = 0; i < module->import_function_count; i++) {
         WASMFunctionImport *func =
@@ -1725,6 +1733,10 @@ wasm_create_exec_env_and_call_function(WASMModuleInstance *module_inst,
 {
     WASMExecEnv *exec_env;
     bool ret;
+
+#if WASM_ENABLE_THREAD_MGR == 0
+    UNUSED(enable_debug);
+#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
     WASMExecEnv *existing_exec_env = NULL;

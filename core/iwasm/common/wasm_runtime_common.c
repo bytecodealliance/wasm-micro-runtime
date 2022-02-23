@@ -748,6 +748,8 @@ register_module_with_null_name(WASMModuleCommon *module_common, char *error_buf,
     else
         return NULL;
 #else
+    UNUSED(error_buf);
+    UNUSED(error_buf_size);
     return module_common;
 #endif
 }
@@ -2217,6 +2219,9 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     char *path, resolved_path[PATH_MAX];
     uint32 i;
 
+    UNUSED(map_dir_list);
+    UNUSED(map_dir_count);
+
     if (!(wasi_ctx = runtime_malloc(sizeof(WASIContext), NULL, error_buf,
                                     error_buf_size))) {
         return false;
@@ -2703,6 +2708,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     uint32 *argv_src = argv, i, argc1, ptr_len;
     uint32 arg_i32;
     bool ret = false;
+
+    UNUSED(argc);
 
     argc1 = func_type->param_count;
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
@@ -3639,6 +3646,8 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #else
     int n_fps = 0;
 #endif
+
+    UNUSED(argc);
 
 #if WASM_ENABLE_SIMD == 0
     argc1 = 1 + MAX_REG_FLOATS + (uint32)func_type->param_count + ext_ret_count;
@@ -4583,6 +4592,10 @@ results_to_argv(WASMModuleInstanceCommon *module_inst, uint32 *out_argv,
     uint32 *argv = out_argv, *u32, i;
     uint8 *result_types = func_type->types + func_type->param_count;
 
+#if WASM_ENABLE_REF_TYPES == 0
+    UNUSED(module_inst);
+#endif
+
     for (i = 0; i < func_type->result_count; i++, result++) {
         switch (result_types[i]) {
             case VALUE_TYPE_I32:
@@ -4623,6 +4636,8 @@ wasm_runtime_invoke_c_api_native(WASMModuleInstanceCommon *module_inst,
     wasm_trap_t *trap = NULL;
     bool ret = false;
     wasm_val_vec_t params_vec, results_vec;
+
+    UNUSED(argc);
 
     if (func_type->param_count > 16) {
         if (!(params =

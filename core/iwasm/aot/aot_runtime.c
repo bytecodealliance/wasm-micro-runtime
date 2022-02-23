@@ -2443,6 +2443,12 @@ aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
     AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
     uint8 *native_addr;
 
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    UNUSED(is_str);
+    UNUSED(app_buf_addr);
+    UNUSED(app_buf_size);
+#endif
+
     if (!memory_inst) {
         goto fail;
     }

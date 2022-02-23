@@ -9,6 +9,8 @@
 #include "platform_api_vmcore.h"
 #include "platform_api_extension.h"
 
+#include "bh_common.h"
+
 typedef struct {
     thread_start_routine_t start;
     void *arg;
@@ -53,6 +55,8 @@ os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
 {
     pthread_attr_t tattr;
     thread_wrapper_arg *targ;
+
+    UNUSED(prio);
 
     assert(stack_size > 0);
     assert(tid);
@@ -449,6 +453,8 @@ __attribute__((noreturn)) static void
 signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
 {
     void *sig_addr = sig_info->si_addr;
+
+    UNUSED(sig_ucontext);
 
     mask_signals(SIG_BLOCK);
 

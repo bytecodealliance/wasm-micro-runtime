@@ -9,6 +9,7 @@
 #include "bh_platform.h"
 #include "bh_hashmap.h"
 #include "bh_assert.h"
+#include "bh_common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -574,6 +575,8 @@ wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
                            uint32 cur_type_idx)
 {
     uint32 i;
+
+    UNUSED(type_count);
 
     for (i = 0; i < cur_type_idx; i++) {
         if (wasm_type_equal(types[cur_type_idx], types[i]))

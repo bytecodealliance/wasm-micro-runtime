@@ -10,6 +10,7 @@
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
 #include "../common/wasm_native.h"
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
@@ -1134,6 +1135,11 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint32 declare_elem_type = 0, declare_max_size_flag = 0,
            declare_init_size = 0, declare_max_size = 0;
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+    UNUSED(parent_module);
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *sub_module = NULL;
     WASMTable *linked_table = NULL;
@@ -1278,6 +1284,12 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
     uint32 declare_max_page_count_flag = 0;
     uint32 declare_init_page_count = 0;
     uint32 declare_max_page_count = 0;
+
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+    UNUSED(parent_module);
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *sub_module = NULL;
     WASMMemory *linked_memory = NULL;
@@ -1374,6 +1386,11 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint8 declare_type = 0;
     uint8 declare_mutable = 0;
+
+#if WASM_ENABLE_MULTI_MODULE == 0
+    UNUSED(parent_module);
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *sub_module = NULL;
     WASMGlobal *linked_global = NULL;
@@ -2326,6 +2343,10 @@ load_func_index_vec(const uint8 **p_buf, const uint8 *buf_end,
     uint32 function_count, function_index = 0, i;
     uint64 total_size;
 
+#if WASM_ENABLE_REF_TYPES == 0
+    UNUSED(use_init_expr);
+#endif
+
     read_leb_uint32(p, p_end, function_count);
     table_segment->function_count = function_count;
     total_size = sizeof(uint32) * (uint64)function_count;
@@ -2646,6 +2667,8 @@ load_code_section(const uint8 *buf, const uint8 *buf_end, const uint8 *buf_func,
     const uint8 *p_func = buf_func;
     uint32 func_count = 0, code_count;
 
+    UNUSED(module);
+
     /* code has been loaded in function section, so pass it here, just check
      * whether function and code section have inconsistent lengths */
     read_leb_uint32(p, p_end, code_count);
@@ -2806,6 +2829,12 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 {
     const uint8 *p = buf, *p_end = buf_end;
     uint32 name_len;
+
+    UNUSED(module);
+
+#if WASM_ENABLE_CUSTOM_NAME_SECTION == 0
+    UNUSED(is_load_from_file_buf);
+#endif
 
     if (p >= p_end) {
         set_error_buf(error_buf, error_buf_size, "unexpected end");
@@ -3735,6 +3764,10 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
     uint32 error_buf_size = sizeof(error_buf);
     uint8 opcode, u8;
     BlockAddr block_stack[16] = { { 0 } }, *block;
+
+#if WASM_ENABLE_DEBUG_INTERP == 0
+    UNUSED(exec_env);
+#endif
 
     i = ((uintptr_t)start_addr) & (uintptr_t)(BLOCK_ADDR_CACHE_SIZE - 1);
     block = block_addr_cache + BLOCK_ADDR_CONFLICT_SIZE * i;
@@ -5039,6 +5072,9 @@ preserve_referenced_local(WASMLoaderContext *loader_ctx, uint8 opcode,
     uint32 i = 0;
     int16 preserved_offset = (int16)local_index;
 
+    UNUSED(error_buf);
+    UNUSED(error_buf_size);
+
     *preserved = false;
     while (i < loader_ctx->stack_cell_num) {
         uint8 cur_type = loader_ctx->frame_ref_bottom[i];
@@ -5296,6 +5332,9 @@ wasm_loader_pop_frame_offset(WASMLoaderContext *ctx, uint8 type,
     BranchBlock *cur_block = ctx->frame_csp - depth;
     int32 available_stack_cell =
         (int32)(ctx->stack_cell_num - cur_block->stack_cell_num);
+
+    UNUSED(error_buf);
+    UNUSED(error_buf_size);
 
     /* Directly return success if current block is in stack
      * polymorphic state while stack is empty. */
@@ -6344,6 +6383,10 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
     LOG_OP("\nProcessing func | [%d] params | [%d] locals | [%d] return\n",
            func->param_cell_num, func->local_cell_num, func->ret_cell_num);
+#endif
+
+#if WASM_ENABLE_REF_TYPES == 0
+    UNUSED(cur_func_idx);
 #endif
 
     global_count = module->import_global_count + module->global_count;

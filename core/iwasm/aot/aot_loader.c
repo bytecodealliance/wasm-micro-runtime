@@ -388,6 +388,8 @@ load_target_info_section(const uint8 *buf, const uint8 *buf_end,
     const uint8 *p = buf, *p_end = buf_end;
     bool is_target_little_endian, is_target_64_bit;
 
+    UNUSED(module);
+
     read_uint16(p, p_end, target_info.bin_type);
     read_uint16(p, p_end, target_info.abi_type);
     read_uint16(p, p_end, target_info.e_type);
@@ -660,6 +662,12 @@ load_name_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
 fail:
     return false;
 #else
+    UNUSED(buf);
+    UNUSED(buf_end);
+    UNUSED(module);
+    UNUSED(is_load_from_file_buf);
+    UNUSED(error_buf);
+    UNUSED(error_buf_size);
     return true;
 #endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
 }

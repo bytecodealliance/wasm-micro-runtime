@@ -404,6 +404,7 @@ wasm_runtime_atomic_notify(WASMModuleInstanceCommon *module, void *address,
     uint32 notify_result;
     AtomicWaitInfo *wait_info;
 
+    UNUSED(module);
     /* Nobody wait on this address */
     wait_info = acquire_wait_info(address, false);
     if (!wait_info)

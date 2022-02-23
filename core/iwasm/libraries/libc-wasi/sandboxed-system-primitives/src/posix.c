@@ -214,6 +214,7 @@ wasmtime_ssp_clock_time_get(__wasi_clockid_t clock_id,
                             __wasi_timestamp_t *time)
 {
     clockid_t nclock_id;
+    UNUSED(precision);
     if (!convert_clockid(clock_id, &nclock_id))
         return __WASI_EINVAL;
     struct timespec ts;
@@ -2769,6 +2770,8 @@ wasmtime_ssp_sock_send(
         .msg_iovlen = si_data_len,
     };
 
+    UNUSED(si_flags);
+
     // Attach file descriptors if present.
     __wasi_errno_t error;
 
@@ -2914,7 +2917,9 @@ argv_environ_init(struct argv_environ_values *argv_environ, char *argv_buf,
 
 void
 argv_environ_destroy(struct argv_environ_values *argv_environ)
-{}
+{
+    UNUSED(argv_environ);
+}
 
 void
 fd_table_destroy(struct fd_table *ft)

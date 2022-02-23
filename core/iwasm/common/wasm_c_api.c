@@ -1270,6 +1270,9 @@ wasm_val_to_rt_val(WASMModuleInstanceCommon *inst_comm_rt, uint8 val_type_rt,
                    const wasm_val_t *v, uint8 *data)
 {
     bool ret = true;
+
+    UNUSED(inst_comm_rt);
+
     switch (val_type_rt) {
         case VALUE_TYPE_I32:
             bh_assert(WASM_I32 == v->kind);
@@ -1715,6 +1718,8 @@ wasm_foreign_new_internal(wasm_store_t *store, uint32 foreign_idx_rt,
 {
     wasm_foreign_t *foreign = NULL;
 
+    UNUSED(inst_comm_rt);
+
     if (!store || !store->foreigns)
         return NULL;
 
@@ -1899,6 +1904,7 @@ void
 wasm_module_delete(wasm_module_t *module)
 {
     /* the module will be released when releasing the store */
+    UNUSED(module);
 }
 
 void

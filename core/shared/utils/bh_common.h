@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#define UNUSED(x) (void)(x)
+
 #define bh_memcpy_s(dest, dlen, src, slen)                            \
     do {                                                              \
         int _ret = slen == 0 ? 0 : b_memcpy_s(dest, dlen, src, slen); \
