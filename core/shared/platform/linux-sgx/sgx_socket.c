@@ -227,4 +227,72 @@ shutdown(int sockfd, int how)
     return ret;
 }
 
+int
+os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
+                 unsigned int *addrlen)
+
+{
+    errno = ENOSYS;
+    return -1;
+}
+int
+os_socket_bind(bh_socket_t socket, const char *host, int *port)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+int
+os_socket_close(bh_socket_t socket)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+int
+os_socket_connect(bh_socket_t socket, const char *addr, int port)
+{}
+
+int
+os_socket_create(bh_socket_t *sock, int tcp_or_udp)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+int
+os_socket_inet_network(const char *cp, uint32 *out)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+int
+os_socket_listen(bh_socket_t socket, int max_client)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+int
+os_socket_recv(bh_socket_t socket, void *buf, unsigned int len)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+int
+os_socket_send(bh_socket_t socket, const void *buf, unsigned int len)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
+int
+os_socket_shutdown(bh_socket_t socket)
+{
+    errno = ENOSYS;
+    return -1;
+}
+
 #endif
