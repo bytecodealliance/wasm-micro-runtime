@@ -300,6 +300,21 @@ wasm_func_obj_get_param(const WASMFuncObjectRef func_obj, uint32 param_idx)
     return NULL;
 }
 
+WASMExternrefObjectRef
+wasm_externref_obj_new(void *heap_handle, void *foreign_obj)
+{
+    WASMExternrefObjectRef externref_obj;
+
+    if (!(externref_obj =
+              gc_obj_malloc(heap_handle, sizeof(WASMExternrefObject)))) {
+        return NULL;
+    }
+
+    externref_obj->header = WASM_OBJ_EXTERNREF_OBJ_FLAG;
+    externref_obj->foreign_obj = foreign_obj;
+    return externref_obj;
+}
+
 bool
 wasm_obj_is_subtype_of(WASMObjectRef obj1, WASMObjectRef obj2)
 {

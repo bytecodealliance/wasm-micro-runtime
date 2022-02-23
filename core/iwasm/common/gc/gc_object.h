@@ -58,8 +58,8 @@ typedef struct WASMRttObject {
 typedef struct WASMExternrefObject {
     /* bits[2] must be 1, denotes an externref object */
     WASMObjectHeader header;
-    /* The externref pointer passed from host */
-    void *externref;
+    /* The foreign object passed from host */
+    void *foreign_obj;
 } WASMExternrefObject, *WASMExternrefObjectRef;
 
 /**
@@ -224,21 +224,21 @@ WASMValue *
 wasm_func_obj_get_param(const WASMFuncObjectRef func_obj, uint32 param_idx);
 
 WASMExternrefObjectRef
-wasm_externref_obj_new(void *heap_handle, void *externref);
+wasm_externref_obj_new(void *heap_handle, void *foreign_obj);
 
 inline static void *
 wasm_externref_obj_get_value(const WASMExternrefObjectRef externref_obj)
 {
-    return externref_obj->externref;
+    return externref_obj->foreign_obj;
 }
 
-inline WASMI31ObjectRef
+inline static WASMI31ObjectRef
 wasm_i31_obj_new(uint32 i31_value)
 {
     return (((uintptr_t)i31_value) << 1) | 1;
 }
 
-inline uint32
+inline static uint32
 wasm_i31_obj_get_value(WASMI31ObjectRef i31_obj)
 {
     return (uint32)(((uintptr_t)i31_obj) >> 1);

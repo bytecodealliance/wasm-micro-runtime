@@ -5437,6 +5437,8 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         skip_leb_uint32(p, p_end); /* typeidx */
                         break;
                     case WASM_OP_ARRAY_LEN:
+                        /* TODO: remove this line for latest GC MVP */
+                        skip_leb_uint32(p, p_end);
                         break;
 
                     case WASM_OP_I31_NEW:
@@ -9710,7 +9712,11 @@ re_scan:
                 PUSH_OFFSET_TYPE(local_type);
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
-                if (local_offset < 0x80) {
+                if (local_offset < 0x80
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
 #endif
@@ -9751,7 +9757,11 @@ re_scan:
                         &preserve_local, error_buf, error_buf_size)))
                     goto fail;
 
-                if (local_offset < 256) {
+                if (local_offset < 256
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
                     skip_label();
                     if ((!preserve_local) && (LAST_OP_OUTPUT_I32())) {
                         if (loader_ctx->p_code_compiled)
@@ -9785,7 +9795,11 @@ re_scan:
                 }
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
-                if (local_offset < 0x80) {
+                if (local_offset < 0x80
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
 #endif
@@ -9837,7 +9851,11 @@ re_scan:
                         &preserve_local, error_buf, error_buf_size)))
                     goto fail;
 
-                if (local_offset < 256) {
+                if (local_offset < 256
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
                     skip_label();
                     if (is_32bit_type(local_type)) {
                         emit_label(EXT_OP_TEE_LOCAL_FAST);
@@ -9856,7 +9874,11 @@ re_scan:
                                - wasm_value_type_cell_num(local_type)));
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
-                if (local_offset < 0x80) {
+                if (local_offset < 0x80
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
 #endif
@@ -10726,6 +10748,9 @@ re_scan:
 
                     case WASM_OP_ARRAY_LEN:
                     {
+                        /* TODO: remove this line for latest GC MVP */
+                        read_leb_uint32(p, p_end, type_idx);
+
                         POP_REF(REF_TYPE_ARRAYREF);
                         /* length */
                         PUSH_I32();
