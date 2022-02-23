@@ -2021,6 +2021,16 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                 continue;
             }
 
+            wasm_name_new_from_string(&module_name, module_name_rt);
+            if (strlen(module_name_rt) && !module_name.data) {
+                goto failed;
+            }
+
+            wasm_name_new_from_string(&name, field_name_rt);
+            if (strlen(field_name_rt) && !name.data) {
+                goto failed;
+            }
+
             if (!(type = wasm_globaltype_new_internal(val_type_rt,
                                                       mutability_rt))) {
                 goto failed;
@@ -2112,6 +2122,16 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
 
             if (!module_name_rt || !field_name_rt) {
                 continue;
+            }
+
+            wasm_name_new_from_string(&module_name, module_name_rt);
+            if (strlen(module_name_rt) && !module_name.data) {
+                goto failed;
+            }
+
+            wasm_name_new_from_string(&name, field_name_rt);
+            if (strlen(field_name_rt) && !name.data) {
+                goto failed;
             }
 
             if (!(type = wasm_tabletype_new_internal(elem_type_rt, min_size,
