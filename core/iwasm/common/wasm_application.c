@@ -709,20 +709,21 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                     if (!gc_obj) {
                         os_printf("ref.null");
                     }
+                    else if (wasm_obj_is_array_obj(gc_obj))
+                        os_printf("ref.array");
+                    else if (wasm_obj_is_struct_obj(gc_obj))
+                        os_printf("ref.data");
+                    else if (wasm_obj_is_func_obj(gc_obj))
+                        os_printf("ref.func");
+                    else if (wasm_obj_is_i31_obj(gc_obj))
+                        os_printf("ref.i31");
+                    else if (wasm_obj_is_externref_obj(gc_obj)) {
+                        void *foreign_obj = wasm_externref_obj_get_value(
+                            (WASMExternrefObjectRef)gc_obj);
+                        os_printf("%p:ref.extern", foreign_obj);
+                    }
                     else {
-                        if (wasm_obj_is_array_obj(gc_obj))
-                            os_printf("ref.array");
-                        else if (wasm_obj_is_struct_obj(gc_obj))
-                            os_printf("ref.data");
-                        else if (wasm_obj_is_func_obj(gc_obj))
-                            os_printf("ref.func");
-                        else if (wasm_obj_is_i31_obj(gc_obj))
-                            os_printf("ref.i31");
-                        else if (wasm_obj_is_externref_obj(gc_obj))
-                            os_printf("ref.extern");
-                        else {
-                            bh_assert(0);
-                        }
+                        bh_assert(0);
                     }
                     break;
                 }

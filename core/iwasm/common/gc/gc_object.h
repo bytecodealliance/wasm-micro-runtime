@@ -136,6 +136,14 @@ wasm_rtt_obj_get_inherit_depth(const WASMRttObjectRef rtt_obj)
     return rtt_obj->n;
 }
 
+inline static bool
+wasm_rtt_obj_is_subtype_of(const WASMRttObjectRef rtt_obj1,
+                           const WASMRttObjectRef rtt_obj2)
+{
+    return (rtt_obj1->root == rtt_obj2->root
+           && rtt_obj1->n >= rtt_obj2->n) ? true : false;
+}
+
 WASMStructObjectRef
 wasm_struct_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj);
 
@@ -239,9 +247,12 @@ wasm_i31_obj_new(uint32 i31_value)
 }
 
 inline static uint32
-wasm_i31_obj_get_value(WASMI31ObjectRef i31_obj)
+wasm_i31_obj_get_value(WASMI31ObjectRef i31_obj, bool sign_extend)
 {
-    return (uint32)(((uintptr_t)i31_obj) >> 1);
+    uint32 i31_value = (uint32)(((uintptr_t)i31_obj) >> 1);
+    if (sign_extend && (i31_value & 0x40000000))
+        i31_value |= 0x80000000;
+    return i31_value;
 }
 
 inline static bool
@@ -319,13 +330,30 @@ wasm_obj_is_func_obj(WASMObjectRef obj)
 }
 
 inline static bool
+wasm_obj_is_data_obj(WASMObjectRef obj)
+{
+    WASMRttObjectRef rtt_obj;
+
+    bh_assert(obj);
+
+    if (wasm_obj_is_i31_obj(obj)
+        || (obj->header
+            & (WASM_OBJ_RTT_OBJ_FLAG | WASM_OBJ_EXTERNREF_OBJ_FLAG)))
+        return false;
+
+    rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);
+    return (rtt_obj->type_flag == WASM_TYPE_ARRAY
+            || rtt_obj->type_flag == WASM_TYPE_STRUCT) ? true : false;
+}
+
+inline static bool
 wasm_obj_is_null_obj(WASMObjectRef obj)
 {
     return obj == NULL ? true : false;
 }
 
 bool
-wasm_obj_is_subtype_of(WASMObjectRef obj1, WASMObjectRef obj2);
+wasm_obj_is_instance_of(WASMObjectRef obj, WASMRttObjectRef rtt_obj);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

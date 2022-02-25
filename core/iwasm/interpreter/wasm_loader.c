@@ -4999,27 +4999,11 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             {
                 /* block result type: 0x40/0x7F/0x7E/0x7D/0x7C */
                 u8 = read_uint8(p);
-                if (block_nested_depth
-                    < sizeof(block_stack) / sizeof(BlockAddr)) {
-                    block_stack[block_nested_depth].start_addr = p;
-                    block_stack[block_nested_depth].else_addr = NULL;
-                }
-                block_nested_depth++;
                 if (is_byte_a_type(u8)) {
 #if WASM_ENABLE_GC != 0
-                    WASMModuleInstance *module_inst =
-                        (WASMModuleInstance *)exec_env->module_inst;
-                    WASMModule *module = module_inst->module;
-                    bool need_ref_type_map;
-                    WASMRefType ref_type;
-                    if (u8 != VALUE_TYPE_VOID) {
-                        p--;
-                        if (!resolve_value_type((const uint8 **)&p, p_end,
-                                                module, &need_ref_type_map,
-                                                &ref_type, false, error_buf,
-                                                error_buf_size)) {
-                            return false;
-                        }
+                    if (wasm_is_type_multi_byte_type(u8)) {
+                        /* the possible extra bytes of GC ref type have been
+                           modified to OP_NOP, no need to resolve them again */
                     }
 #endif
                 }
@@ -5027,6 +5011,12 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                     p--;
                     skip_leb_uint32(p, p_end);
                 }
+                if (block_nested_depth
+                    < sizeof(block_stack) / sizeof(BlockAddr)) {
+                    block_stack[block_nested_depth].start_addr = p;
+                    block_stack[block_nested_depth].else_addr = NULL;
+                }
+                block_nested_depth++;
                 break;
             }
 
@@ -5122,7 +5112,6 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
 #if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
-                CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* 0x00 */
 #else
                 skip_leb_uint32(p, p_end); /* talbeidx */
@@ -5144,23 +5133,10 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             case WASM_OP_SELECT_T:
             {
-#if WASM_ENABLE_GC == 0
                 skip_leb_uint32(p, p_end); /* vec length */
-                CHECK_BUF(p, p_end, 1);
-                u8 = read_uint8(p); /* typeidx */
-#else
-                WASMModuleInstance *module_inst =
-                    (WASMModuleInstance *)exec_env->module_inst;
-                WASMModule *module = module_inst->module;
-                bool need_ref_type_map;
-                WASMRefType ref_type;
-                skip_leb_uint32(p, p_end); /* vec length */
-                if (!resolve_value_type((const uint8 **)&p, p_end, module,
-                                        &need_ref_type_map, &ref_type, false,
-                                        error_buf, error_buf_size)) {
-                    return false;
-                }
-#endif
+                u8 = read_uint8(p);        /* type */
+                /* the possible extra bytes of GC ref type have been
+                   modified to OP_NOP, no need to resolve them again */
                 break;
             }
 
@@ -5170,30 +5146,19 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 break;
             case WASM_OP_REF_NULL:
             {
-#if WASM_ENABLE_GC == 0
-                CHECK_BUF(p, p_end, 1);
                 u8 = read_uint8(p); /* type */
-#else
-                WASMModuleInstance *module_inst =
-                    (WASMModuleInstance *)exec_env->module_inst;
-                WASMModule *module = module_inst->module;
-                bool need_ref_type_map;
-                WASMRefType ref_type;
-
-                CHECK_BUF(p, p_end, 1);
-                u8 = read_uint8(p); /* type */
-                p--;
                 if (is_byte_a_type(u8)) {
-                    if (!resolve_value_type((const uint8 **)&p, p_end, module,
-                                            &need_ref_type_map, &ref_type,
-                                            false, error_buf, error_buf_size)) {
-                        return false;
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(u8)) {
+                        /* the possible extra bytes of GC ref type have been
+                           modified to OP_NOP, no need to resolve them again */
                     }
+#endif
                 }
                 else {
+                    p--;
                     skip_leb_uint32(p, p_end);
                 }
-#endif
                 break;
             }
             case WASM_OP_REF_IS_NULL:
@@ -8506,6 +8471,7 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 PRESERVE_LOCAL_FOR_BLOCK();
 #endif
+                CHECK_BUF(p, p_end, 1);
                 value_type = read_uint8(p);
                 if (is_byte_a_type(value_type)) {
                     /* If the first byte is one of these special values:
@@ -8515,6 +8481,7 @@ re_scan:
                     block_type.u.value_type.type = value_type;
 #if WASM_ENABLE_GC != 0
                     if (value_type != VALUE_TYPE_VOID) {
+                        p_org = p;
                         p--;
                         if (!resolve_value_type((const uint8 **)&p, p_end,
                                                 module, &need_ref_type_map,
@@ -8534,6 +8501,13 @@ re_scan:
                         /* Set again as the type might be changed, e.g.
                            (ref null any) to anyref */
                         block_type.u.value_type.type = wasm_ref_type.ref_type;
+                        while (p_org < p) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+                            record_fast_op(module, p_org, *p_org);
+#endif
+                            /* Ignore extra bytes for interpreter */
+                            *p_org++ = WASM_OP_NOP;
+                        }
                     }
 #endif
                 }
@@ -9170,7 +9144,6 @@ re_scan:
             }
 
             case WASM_OP_DROP:
-            case WASM_OP_DROP_64:
             {
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 int32 available_stack_cell =
@@ -9244,7 +9217,6 @@ re_scan:
             }
 
             case WASM_OP_SELECT:
-            case WASM_OP_SELECT_64:
             {
                 uint8 ref_type;
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
@@ -9343,7 +9315,7 @@ re_scan:
                 break;
             }
 
-#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0
             case WASM_OP_SELECT_T:
             {
                 uint8 vec_len, type;
@@ -9366,6 +9338,7 @@ re_scan:
                     goto fail;
                 }
 #else
+                p_org = p + 1;
                 if (!resolve_value_type((const uint8 **)&p, p_end, module,
                                         &need_ref_type_map, &wasm_ref_type,
                                         false, error_buf, error_buf_size)) {
@@ -9379,7 +9352,14 @@ re_scan:
                         goto fail;
                     }
                 }
+                while (p_org < p) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+                    record_fast_op(module, p_org, *p_org);
 #endif
+                    /* Ignore extra bytes for interpreter */
+                    *p_org++ = WASM_OP_NOP;
+                }
+#endif /* end of WASM_ENABLE_GC == 0 */
 
                 POP_I32();
 
@@ -9512,12 +9492,20 @@ re_scan:
 #else
                 p--;
                 if (is_byte_a_type(ref_type)) {
+                    p_org = p + 1;
                     if (!resolve_value_type((const uint8 **)&p, p_end, module,
                                             &need_ref_type_map, &wasm_ref_type,
                                             false, error_buf, error_buf_size)) {
                         goto fail;
                     }
                     ref_type = wasm_ref_type.ref_type;
+                    while (p_org < p) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
+                        /* Ignore extra bytes for interpreter */
+                        *p_org++ = WASM_OP_NOP;
+                    }
                 }
                 else {
                     read_leb_uint32(p, p_end, type_idx);
@@ -9529,7 +9517,8 @@ re_scan:
                                                  true, type_idx);
                     ref_type = wasm_ref_type.ref_type;
                 }
-#endif
+#endif /* end of WASM_ENABLE_GC == 0 */
+
 #if WASM_ENABLE_FAST_INTERP != 0
                 PUSH_OFFSET_TYPE(ref_type);
 #endif

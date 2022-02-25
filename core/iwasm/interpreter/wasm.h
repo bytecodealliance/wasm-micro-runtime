@@ -69,9 +69,12 @@ extern "C" {
 #define DEFAULT_NUM_BYTES_PER_PAGE 65536
 
 #if WASM_ENABLE_GC == 0
+typedef uint32 table_elem_type_t;
 #define NULL_REF (0xFFFFFFFF)
 #else
+typedef void *table_elem_type_t;
 #define NULL_REF (NULL)
+#define REF_CELL_NUM ((uint32)sizeof(uintptr_t)/sizeof(uint32))
 #endif
 
 #define TABLE_MAX_SIZE (1024)
