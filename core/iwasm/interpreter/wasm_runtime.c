@@ -1591,6 +1591,9 @@ fail:
 void
 wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 {
+#if (WASM_ENABLE_LIBC_WASI == 0) || (WASM_ENABLE_DEBUG_INTERP == 0)
+    UNUSED(is_sub_inst);
+#endif
     if (!module_inst)
         return;
 
