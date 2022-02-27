@@ -1162,6 +1162,10 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (!module)
         return NULL;
 
+#if WASM_ENABLE_DEBUG_INTERP == 0
+    UNUSED(is_sub_inst);
+#endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     if (!is_sub_inst) {
         os_mutex_lock(&module->ref_count_lock);
@@ -1708,6 +1712,7 @@ clear_wasi_proc_exit_exception(WASMModuleInstance *module_inst)
     }
     return false;
 #else
+    UNUSED(module_inst);
     return false;
 #endif
 }

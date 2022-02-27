@@ -3624,6 +3624,10 @@ wasm_loader_load(const uint8 *buf, uint32 size,
         return NULL;
     }
 
+#if (WASM_ENABLE_MULTI_MODULE != 0) && (WASM_ENABLE_LIBC_WASI == 0)
+    UNUSED(main_module);
+#endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     module->load_addr = (uint8 *)buf;
     module->load_size = size;

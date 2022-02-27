@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "bh_common.h"
 #include "bh_platform.h"
 #include "wasm_export.h"
 #include "math.h"
@@ -37,6 +38,8 @@ intToStr(wasm_exec_env_t exec_env, int x, char *str, int str_len, int digit)
 {
     int i = 0;
 
+    UNUSED(exec_env);
+
     printf("calling into native function: %s\n", __FUNCTION__);
 
     while (x) {
@@ -68,6 +71,7 @@ intToStr(wasm_exec_env_t exec_env, int x, char *str, int str_len, int digit)
 int
 get_pow(wasm_exec_env_t exec_env, int x, int y)
 {
+    UNUSED(exec_env);
     printf("calling into native function: %s\n", __FUNCTION__);
     return (int)pow(x, y);
 }

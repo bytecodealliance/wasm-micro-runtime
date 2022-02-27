@@ -7,6 +7,7 @@
 #include "wasm_export.h"
 #include "bh_read_file.h"
 #include "bh_getopt.h"
+#include <bits/stdint-uintn.h>
 
 int
 intToStr(int x, char *str, int str_len, int digit);
@@ -103,7 +104,8 @@ main(int argc, char *argv_main[])
         goto fail;
     }
 
-    module = wasm_runtime_load(buffer, buf_size, error_buf, sizeof(error_buf));
+    module = wasm_runtime_load((const uint8_t *)buffer, buf_size, error_buf,
+                               sizeof(error_buf));
     if (!module) {
         printf("Load wasm module failed. error: %s\n", error_buf);
         goto fail;
