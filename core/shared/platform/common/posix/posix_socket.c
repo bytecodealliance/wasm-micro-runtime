@@ -9,6 +9,7 @@
 #include "bh_common.h"
 
 #include <arpa/inet.h>
+#include <unistd.h>
 
 int
 os_socket_create(bh_socket_t *sock, int tcp_or_udp)
@@ -104,7 +105,7 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen)
 {
     struct sockaddr addr_tmp;
-    unsigned int len = sizeof(struct sockaddr);
+    socklen_t len = sizeof(struct sockaddr);
 
     UNUSED(addr);
     UNUSED(addrlen);
