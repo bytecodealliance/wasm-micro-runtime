@@ -63,7 +63,7 @@
 #define CONFIG_HAS_POSIX_FALLOCATE 0
 #endif
 
-#ifndef __APPLE__
+#if  !defined(__APPLE__) && (__GLIBC_MINOR__ >= 31)
 #define CONFIG_HAS_PREADV 1
 #else
 #define CONFIG_HAS_PREADV 0
@@ -81,7 +81,7 @@
 #define CONFIG_HAS_PTHREAD_CONDATTR_SETCLOCK 0
 #endif
 
-#ifndef __APPLE__
+#if  !defined(__APPLE__) && (__GLIBC_MINOR__ >= 31)
 #define CONFIG_HAS_PWRITEV 1
 #else
 #define CONFIG_HAS_PWRITEV 0
