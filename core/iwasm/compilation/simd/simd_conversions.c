@@ -4,6 +4,7 @@
  */
 
 #include "simd_conversions.h"
+#include "bh_common.h"
 #include "simd_common.h"
 #include "../aot_emit_exception.h"
 #include "../aot_emit_numberic.h"
@@ -259,6 +260,8 @@ simd_integer_extension(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              LLVM_CONST(i32x4_undef) };
     uint32 sub_vector_length[] = { 8, 4, 2 };
 
+    UNUSED(func_ctx);
+
     if (!(mask = lower_half ? LLVMConstVector(bits, sub_vector_length[itype])
                             : LLVMConstVector(bits + sub_vector_length[itype],
                                               sub_vector_length[itype]))) {
@@ -431,6 +434,9 @@ simd_integer_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
 {
     LLVMValueRef result;
+
+    UNUSED(func_ctx);
+
     result = is_signed ? LLVMBuildSIToFP(comp_ctx->builder, vector,
                                          out_vector_type, "converted")
                        : LLVMBuildUIToFP(comp_ctx->builder, vector,
