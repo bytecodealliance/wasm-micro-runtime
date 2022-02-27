@@ -870,6 +870,7 @@ clear_wasi_proc_exit_exception(AOTModuleInstance *module_inst)
     }
     return false;
 #else
+    UNUSED(module_inst);
     return false;
 #endif
 }
