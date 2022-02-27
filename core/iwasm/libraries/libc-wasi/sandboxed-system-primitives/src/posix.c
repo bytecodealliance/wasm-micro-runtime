@@ -2870,14 +2870,14 @@ wasmtime_ssp_environ_get(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct argv_environ_values *argv_environ,
 #endif
-    char **environ, char *environ_buf)
+    char **environ_list, char *environ_buf)
 {
     for (size_t i = 0; i < argv_environ->environ_count; ++i) {
-        environ[i] =
+        environ_list[i] =
             environ_buf
             + (argv_environ->environ_list[i] - argv_environ->environ_buf);
     }
-    environ[argv_environ->environ_count] = NULL;
+    environ_list[argv_environ->environ_count] = NULL;
     bh_memcpy_s(environ_buf, (uint32)argv_environ->environ_buf_size,
                 argv_environ->environ_buf,
                 (uint32)argv_environ->environ_buf_size);

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "bh_common.h"
 #include "simd_common.h"
 #include "simd_load_store.h"
 #include "../aot_emit_exception.h"
@@ -16,6 +17,8 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
           uint32 offset, uint32 data_length, LLVMTypeRef ptr_type)
 {
     LLVMValueRef maddr, data;
+
+    UNUSED(align);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
                                             data_length))) {
@@ -254,6 +257,8 @@ simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
            LLVMTypeRef value_ptr_type)
 {
     LLVMValueRef maddr, result;
+
+    UNUSED(align);
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
                                             data_length)))
