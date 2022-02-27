@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "bh_common.h"
 #include "bh_read_file.h"
 #include "wasm_export.h"
 
@@ -38,6 +39,7 @@ reader(const char *module_name, uint8 **p_buffer, uint32 *p_size)
 void
 destroyer(uint8 *buffer, uint32 size)
 {
+    UNUSED(size);
     if (!buffer) {
         return;
     }
