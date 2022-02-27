@@ -6,6 +6,7 @@
 #include "aot_emit_table.h"
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
+#include "bh_common.h"
 
 uint64
 get_tbl_inst_offset(const AOTCompContext *comp_ctx,
@@ -14,6 +15,8 @@ get_tbl_inst_offset(const AOTCompContext *comp_ctx,
     uint64 offset = 0, i = 0;
     AOTImportTable *imp_tbls = comp_ctx->comp_data->import_tables;
     AOTTable *tbls = comp_ctx->comp_data->tables;
+
+    UNUSED(func_ctx);
 
     /* from the head of AOTModuleInstance */
     offset =

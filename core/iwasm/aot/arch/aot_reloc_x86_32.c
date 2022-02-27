@@ -4,6 +4,7 @@
  */
 
 #include "aot_reloc.h"
+#include "bh_common.h"
 
 #define R_386_32 1    /* Direct 32 bit  */
 #define R_386_PC32 2  /* PC relative 32 bit */
@@ -108,6 +109,9 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                  int64 reloc_addend, uint32 reloc_type, void *symbol_addr,
                  int32 symbol_index, char *error_buf, uint32 error_buf_size)
 {
+    UNUSED(module);
+    UNUSED(symbol_index);
+
     switch (reloc_type) {
         case R_386_32:
         {

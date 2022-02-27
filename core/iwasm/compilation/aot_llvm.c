@@ -8,6 +8,7 @@
 #include "aot_emit_exception.h"
 #include "../aot/aot_runtime.h"
 #include "../aot/aot_intrinsic.h"
+#include "bh_common.h"
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 #include "debug/dwarf_extractor.h"
@@ -2418,6 +2419,10 @@ aot_build_zero_function_ret(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             AOTFuncType *func_type)
 {
     LLVMValueRef ret = NULL;
+
+#if WASM_ENABLE_DEBUG_AOT == 0
+    UNUSED(func_ctx);
+#endif
 
     if (func_type->result_count) {
         switch (func_type->types[func_type->param_count]) {
