@@ -4,6 +4,7 @@
  */
 
 #include "simd_common.h"
+#include "bh_common.h"
 
 LLVMValueRef
 simd_pop_v128_and_bitcast(const AOTCompContext *comp_ctx,
@@ -70,6 +71,8 @@ simd_build_const_integer_vector(const AOTCompContext *comp_ctx,
     LLVMValueRef *elements;
     unsigned i;
 
+    UNUSED(comp_ctx);
+
     if (!(elements = wasm_runtime_malloc(sizeof(LLVMValueRef) * length))) {
         return NULL;
     }
@@ -100,6 +103,8 @@ simd_build_splat_const_integer_vector(const AOTCompContext *comp_ctx,
     LLVMValueRef vector = NULL, element;
     LLVMValueRef *elements;
     unsigned i;
+
+    UNUSED(comp_ctx);
 
     if (!(elements = wasm_runtime_malloc(sizeof(LLVMValueRef) * length))) {
         return NULL;
@@ -132,6 +137,8 @@ simd_build_splat_const_float_vector(const AOTCompContext *comp_ctx,
     LLVMValueRef vector = NULL, element;
     LLVMValueRef *elements;
     unsigned i;
+
+    UNUSED(comp_ctx);
 
     if (!(elements = wasm_runtime_malloc(sizeof(LLVMValueRef) * length))) {
         return NULL;
