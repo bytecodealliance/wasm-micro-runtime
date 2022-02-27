@@ -3619,14 +3619,15 @@ wasm_loader_load(const uint8 *buf, uint32 size,
 #endif
                  char *error_buf, uint32 error_buf_size)
 {
-    WASMModule *module = create_module(error_buf, error_buf_size);
-    if (!module) {
-        return NULL;
-    }
 
 #if (WASM_ENABLE_MULTI_MODULE != 0) && (WASM_ENABLE_LIBC_WASI == 0)
     UNUSED(main_module);
 #endif
+
+    WASMModule *module = create_module(error_buf, error_buf_size);
+    if (!module) {
+        return NULL;
+    }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     module->load_addr = (uint8 *)buf;
