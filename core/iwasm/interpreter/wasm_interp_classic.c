@@ -1515,13 +1515,32 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 goto call_func_from_interp;
             }
 
-            HANDLE_OP(WASM_OP_FUNC_BIND) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_FUNC_BIND)
+            HANDLE_OP(WASM_OP_LET)
+            {
+                wasm_set_exception(module, "unsupported opcode");
+                goto got_exception;
+            }
 
-            HANDLE_OP(WASM_OP_LET) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_REF_EQ)
+            {
+                WASMObjectRef gc_obj1, gc_obj2;
+                gc_obj2 = POP_REF();
+                gc_obj1 = POP_REF();
+                val = wasm_obj_equal(gc_obj1, gc_obj2);
+                PUSH_I32(val);
+                HANDLE_OP_END();
+            }
 
-            HANDLE_OP(WASM_OP_REF_EQ) { HANDLE_OP_END(); }
-
-            HANDLE_OP(WASM_OP_REF_AS_NON_NULL) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_REF_AS_NON_NULL)
+            {
+                gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                if (gc_obj == NULL_REF) {
+                    wasm_set_exception(module, "null reference");
+                    goto got_exception;
+                }
+                HANDLE_OP_END();
+            }
 
             HANDLE_OP(WASM_OP_BR_ON_NULL)
             {
@@ -1849,7 +1868,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                         i31_obj = (WASMI31ObjectRef)POP_REF();
                         if (!i31_obj) {
-                            wasm_set_exception(module, "null i31 object");
+                            wasm_set_exception(module, "null i31 reference");
                             goto got_exception;
                         }
                         i31_val = wasm_i31_obj_get_value(
@@ -1898,7 +1917,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         if (gc_obj
                             && (!rtt_obj
                                 || !wasm_obj_is_instance_of(gc_obj, rtt_obj))) {
-                            wasm_set_exception(module, "ref cast failed");
+                            wasm_set_exception(module, "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -1970,7 +1989,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_func_obj(gc_obj)) {
-                            wasm_set_exception(module, "not a function object");
+                            wasm_set_exception(module, "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -1979,7 +1998,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_data_obj(gc_obj)) {
-                            wasm_set_exception(module, "not a data object");
+                            wasm_set_exception(module, "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -1988,7 +2007,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_i31_obj(gc_obj)) {
-                            wasm_set_exception(module, "not an i31 object");
+                            wasm_set_exception(module, "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -1997,7 +2016,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_array_obj(gc_obj)) {
-                            wasm_set_exception(module, "not an array object");
+                            wasm_set_exception(module, "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -2174,8 +2193,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         POP_I64());
                         break;
                     default:
-                        wasm_set_exception(module, "invalid local type");
-                        goto got_exception;
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_reftype(local_type)) {
+                            PUT_REF_TO_ADDR(frame_lp + local_offset, POP_REF());
+                        }
+                        else
+#endif
+                        {
+                            wasm_set_exception(module, "invalid local type");
+                            goto got_exception;
+                        }
                 }
 
                 HANDLE_OP_END();
@@ -3787,8 +3814,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (s + n > dst_tbl_inst->cur_size
-                            || d + n > src_tbl_inst->cur_size) {
+                        if (d + n > dst_tbl_inst->cur_size
+                            || s + n > src_tbl_inst->cur_size) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
@@ -3873,7 +3900,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* TODO: what if the element is dropped? */
 
                         if (i + n > tbl_inst->cur_size) {
-                            /* TODO: verify warning content */
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;

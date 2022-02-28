@@ -1620,11 +1620,11 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                                                error_buf, error_buf_size))) {
                     goto fail;
                 }
-                *((void **)table_data + table_seg->base_offset.u.i32) =
+                *((void **)table_data + table_seg->base_offset.u.i32 + j) =
                     func_obj;
             }
             else {
-                *((void **)table_data + table_seg->base_offset.u.i32) =
+                *((void **)table_data + table_seg->base_offset.u.i32 + j) =
                     NULL_REF;
             }
         }
@@ -1638,8 +1638,14 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
 #if WASM_ENABLE_SPEC_TEST != 0
+#if WASM_ENABLE_GC == 0
     if (stack_size < 48 * 1024)
         stack_size = 48 * 1024;
+#else
+    /* GC spec cases require more wasm operand stack */
+    if (stack_size < 200 * 1024 * 1024)
+        stack_size = 200 * 1024 * 1024;
+#endif
 #endif
     module_inst->default_wasm_stack_size = stack_size;
 

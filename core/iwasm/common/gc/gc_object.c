@@ -347,3 +347,10 @@ wasm_obj_is_instance_of(WASMObjectRef obj, WASMRttObjectRef rtt_obj)
 
     return wasm_rtt_obj_is_subtype_of(rtt_obj_sub, rtt_obj);
 }
+
+bool
+wasm_obj_equal(WASMObjectRef obj1, WASMObjectRef obj2)
+{
+    /* TODO: do we need to compare the internal details of the objects */
+    return obj1 == obj2 ? true : false;
+}

@@ -362,6 +362,9 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     WASMModuleInstanceCommon *target_inst;
     WASMFuncType *type = NULL;
     WASMExecEnv *exec_env = NULL;
+#if WASM_ENABLE_GC != 0
+    WASMRefTypeMap *ref_type_map;
+#endif
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
     uint32 param_size_in_double_world = 0, result_size_in_double_world = 0;
@@ -416,6 +419,9 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
+#if WASM_ENABLE_GC != 0
+    ref_type_map = type->ref_type_maps;
+#endif
     /* Parse arguments */
     for (i = 0, p = 0; i < argc; i++) {
         char *endptr = NULL;
@@ -576,7 +582,9 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                         PUT_REF_TO_ADDR(argv1 + p, gc_obj);
                     }
                     else {
-                        bh_assert(0);
+                        wasm_runtime_set_exception(
+                            module_inst, "unsupported input argument type");
+                        goto fail;
                     }
                     p += sizeof(uintptr_t) / sizeof(uint32);
                     break;
@@ -584,8 +592,9 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                 else
 #endif
                 {
-                    bh_assert(0);
-                    break;
+                    wasm_runtime_set_exception(
+                        module_inst, "unsupported input argument type");
+                    goto fail;
                 }
             }
         }
@@ -595,6 +604,10 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
             wasm_runtime_set_exception(module_inst, buf);
             goto fail;
         }
+#if WASM_ENABLE_GC != 0
+        if (wasm_is_type_multi_byte_type(type->types[type->param_count + i]))
+            ref_type_map++;
+#endif
     }
 
     wasm_runtime_set_exception(module_inst, NULL);
@@ -617,6 +630,9 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
 
+#if WASM_ENABLE_GC != 0
+    ref_type_map = type->result_ref_type_maps;
+#endif
     /* print return value */
     for (j = 0; j < type->result_count; j++) {
         switch (type->types[type->param_count + j]) {
@@ -707,6 +723,12 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                     void *gc_obj = GET_REF_FROM_ADDR(argv1 + k);
                     k += sizeof(uintptr_t) / sizeof(uint32);
                     if (!gc_obj) {
+                        if (type->types[type->param_count + j]
+                            == VALUE_TYPE_EXTERNREF)
+                            os_printf("extern:");
+                        else if (type->types[type->param_count + j]
+                                 == VALUE_TYPE_FUNCREF)
+                            os_printf("func:");
                         os_printf("ref.null");
                     }
                     else if (wasm_obj_is_array_obj(gc_obj))
@@ -737,6 +759,10 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
         }
         if (j < (uint32)(type->result_count - 1))
             os_printf(",");
+#if WASM_ENABLE_GC != 0
+        if (wasm_is_type_multi_byte_type(type->types[type->param_count + j]))
+            ref_type_map++;
+#endif
     }
     os_printf("\n");
 
