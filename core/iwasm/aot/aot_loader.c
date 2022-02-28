@@ -161,6 +161,18 @@ GET_U64_FROM_ADDR(uint32 *addr)
             goto fail;                                            \
     } while (0)
 
+#define csp_read_string(p, p_end, str) do {       \
+    uint16 str_len;                               \
+    read_uint16(p, p_end, str_len);               \
+    CHECK_BUF(p, p_end, str_len);                 \
+    if (!(str = wasm_runtime_records_const_string(\
+                    runtime, (char*)p, str_len,          \
+                    error_buf, error_buf_size))) {\
+        goto fail;                                \
+    }                                             \
+    p += str_len;                                 \
+  } while (0)
+
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
 #define BIN_TYPE_ELF32B 1 /* 32-bit big endian */
@@ -213,34 +225,39 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 {
     HashMap *set = module->const_str_set;
     char *c_str, *value;
+    ConstStrDescription temp_key;
+    ConstStrDescription * key = NULL;
+    uint32 req_size = 0;
 
-    /* Create const string set if it isn't created */
-    if (!set
-        && !(set = module->const_str_set = bh_hash_map_create(
-                 32, false, (HashFunc)wasm_string_hash,
-                 (KeyEqualFunc)wasm_string_equal, NULL, wasm_runtime_free))) {
-        set_error_buf(error_buf, error_buf_size,
-                      "create const string set failed");
-        return NULL;
-    }
+    temp_key.str = (void*)str;
+    temp_key.len = len;
+    temp_key.hash = 0;
 
-    /* Lookup const string set, use the string if found */
-    if (!(c_str = loader_malloc((uint32)len + 1, error_buf, error_buf_size))) {
-        return NULL;
-    }
-
-    bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
-    c_str[len] = '\0';
-
-    if ((value = bh_hash_map_find(set, c_str))) {
-        wasm_runtime_free(c_str);
+    if ((value = bh_hash_map_find(set, &temp_key))) {
         return value;
     }
 
-    if (!bh_hash_map_insert(set, c_str, c_str)) {
+    //req_size = (uint32)len + 1 + CONST_STR_HASHMAP_KEY_HEAD_LEN;
+    //req_size = (req_size > sizeof(ConstStrDescription)) ? req_size : sizeof(ConstStrDescription);
+    req_size = sizeof(ConstStrDescription) + (uint32)len + 1;
+
+    if (!(key = loader_malloc(req_size,
+                                error_buf, error_buf_size))) {
+        return NULL;
+    }
+
+    //c_str = key->data;
+    c_str = (char*)(key + 1);
+    bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+
+    key->str = c_str;
+    key->len = len;
+    key->hash = temp_key.hash;
+
+    if (!bh_hash_map_insert(set, key, c_str)) {
         set_error_buf(error_buf, error_buf_size,
                       "insert string to hash map failed");
-        wasm_runtime_free(c_str);
+        wasm_runtime_free(key);
         return NULL;
     }
 
@@ -1048,9 +1065,10 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
                     AOTModule *module, bool is_load_from_file_buf,
                     char *error_buf, uint32 error_buf_size)
 {
+    WASMRuntime * runtime = module->runtime;
     const uint8 *buf = *p_buf;
     AOTImportGlobal *import_globals;
-    uint64 size;
+    uint64 size = 0;
     uint32 i, data_offset = 0;
 #if WASM_ENABLE_LIBC_BUILTIN != 0
     WASMGlobalImport tmp_global;
@@ -1068,25 +1086,50 @@ load_import_globals(const uint8 **p_buf, const uint8 *buf_end,
         buf = (uint8 *)align_ptr(buf, 2);
         read_uint8(buf, buf_end, import_globals[i].type);
         read_uint8(buf, buf_end, import_globals[i].is_mutable);
-        read_string(buf, buf_end, import_globals[i].module_name);
-        read_string(buf, buf_end, import_globals[i].global_name);
+        //read_uint16(buf, buf_end, name_len);
+        //CHECK_BUF(buf, buf_end, name_len);
+        //if (!(key = wasm_runtime_records_const_string(module->runtime, (const char*)buf, name_len, error_buf, error_buf_size))) {
+        //    return false;
+        //}
+        //import_globals[i].module_name = key;
+        //buf += name_len;
+
+        //read_uint16(buf, buf_end, name_len);
+        //CHECK_BUF(buf, buf_end, name_len);
+        //if (!(key = wasm_runtime_records_const_string(module->runtime, (const char*)buf, name_len, error_buf, error_buf_size))) {
+        //    return false;
+        //}
+        //import_globals[i].global_name = key->str;
+        //buf += name_len;
+        csp_read_string(buf, buf_end, import_globals[i].module_name);
+        csp_read_string(buf, buf_end, import_globals[i].global_name);
+        //import_globals[i].global_name = key->str;
 
 #if WASM_ENABLE_LIBC_BUILTIN != 0
         if (wasm_native_lookup_libc_builtin_global(
-                import_globals[i].module_name, import_globals[i].global_name,
-                &tmp_global)) {
+                            import_globals[i].module_name->str,
+                            import_globals[i].global_name->str,
+                            &tmp_global)) {
             if (tmp_global.type != import_globals[i].type
                 || tmp_global.is_mutable != import_globals[i].is_mutable) {
                 set_error_buf(error_buf, error_buf_size,
                               "incompatible import type");
                 return false;
             }
+            bh_assert(import_globals[i].is_mutable == false);
             import_globals[i].global_data_linked =
                 tmp_global.global_data_linked;
         }
 #endif
 
-        import_globals[i].size = wasm_value_type_size(import_globals[i].type);
+        if (!import_globals[i].is_mutable) {
+            import_globals[i].size = wasm_value_type_size(import_globals[i].type);
+        } else {
+            // mutable import, a pointer will be saved into global data
+            // Note: compiler also should generate global var access instr based on the same offset.
+            import_globals[i].size = sizeof(void*);
+        }
+
         import_globals[i].data_offset = data_offset;
         data_offset += import_globals[i].size;
         module->global_data_size += import_globals[i].size;
@@ -1213,7 +1256,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                   bool is_load_from_file_buf, char *error_buf,
                   uint32 error_buf_size)
 {
-    const char *module_name, *field_name;
+    WASMRuntime * runtime = module->runtime;
     const uint8 *buf = *p_buf;
     AOTImportFunc *import_funcs;
     uint64 size;
@@ -1233,21 +1276,18 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             set_error_buf(error_buf, error_buf_size, "unknown type");
             return false;
         }
-        import_funcs[i].func_type =
-            module->func_types[import_funcs[i].func_type_index];
-        read_string(buf, buf_end, import_funcs[i].module_name);
-        read_string(buf, buf_end, import_funcs[i].func_name);
+        import_funcs[i].func_type = module->func_types[import_funcs[i].func_type_index];
+        csp_read_string(buf, buf_end, import_funcs[i].module_name);
+        csp_read_string(buf, buf_end, import_funcs[i].func_name);
 
-        module_name = import_funcs[i].module_name;
-        field_name = import_funcs[i].func_name;
         import_funcs[i].func_ptr_linked = wasm_native_resolve_symbol(
-            module_name, field_name, import_funcs[i].func_type,
+            import_funcs[i].module_name, &import_funcs[i].func_name, import_funcs[i].func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
 
 #if WASM_ENABLE_LIBC_WASI != 0
-        if (!strcmp(import_funcs[i].module_name, "wasi_unstable")
-            || !strcmp(import_funcs[i].module_name, "wasi_snapshot_preview1"))
+        if (import_funcs[i].module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_wasi_unstable)
+            || import_funcs[i].module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_wasi_snapshot_preview1))
             module->is_wasi_module = true;
 #endif
     }
@@ -1369,6 +1409,83 @@ load_object_data_sections_info(const uint8 **p_buf, const uint8 *buf_end,
     *p_buf = buf;
     return true;
 fail:
+    return false;
+}
+
+static bool
+load_dylink_section(const uint8 *buf, const uint8 *buf_end,
+                    AOTModule *module,
+                    char *error_buf, uint32 error_buf_size)
+{
+    WASMRuntime * runtime = module->runtime;
+    const uint8 *p = buf, *p_end = buf_end;
+    uint32 size = buf_end - buf;
+    WASMDylinkSection * dylink_section = NULL;
+    WASMDylinkSection tmp_dylink_section;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    const ConstStrDescription * key = NULL;
+    AOTModule* dependency_module = NULL;
+#endif
+
+    memset(&tmp_dylink_section, 0, sizeof(WASMDylinkSection));
+
+    if (buf == buf_end)
+        return true;
+
+    if (size < (sizeof(uint32) * 5))
+        return false;
+
+    read_uint32(p, p_end, tmp_dylink_section.memory_size);
+    read_uint32(p, p_end, tmp_dylink_section.memory_alignment);
+    read_uint32(p, p_end, tmp_dylink_section.table_size);
+    read_uint32(p, p_end, tmp_dylink_section.memory_alignment);
+    read_uint32(p, p_end, tmp_dylink_section.needed_dylib_count);
+
+    // calculate the total size which all entries will take.
+    size = tmp_dylink_section.needed_dylib_count * sizeof(ConstStrDescription*);
+    size += sizeof(WASMDylinkSection);
+
+    dylink_section = (WASMDylinkSection*)loader_malloc(size, error_buf, error_buf_size);
+    if (!dylink_section)
+        return false;
+
+    bh_memcpy_s(dylink_section, sizeof(WASMDylinkSection), &tmp_dylink_section,
+                sizeof(WASMDylinkSection));
+
+    for (uint32 i = 0; i < dylink_section->needed_dylib_count; i ++) {
+        csp_read_string(p, p_end, dylink_section->needed_dylib_entries[i]);
+        //read_uint16(p, p_end, name_len);
+        //CHECK_BUF(p, p_end, name_len);
+
+        //key = wasm_runtime_records_const_string(runtime, (const char*)p, name_len, error_buf, error_buf_size);
+        //if (!key) {
+        //    wasm_runtime_free(dylink_section);
+        //    return false;
+        //}
+        //p += name_len;
+        //dylink_section->needed_dylib_entries[i] = key;
+
+        if (!runtime->config.need_load_dependencies)
+            continue;
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+        key = dylink_section->needed_dylib_entries[i];
+        dependency_module = (AOTModule*)load_implicit_dependency_module((const WASMModuleCommon *)module,
+                                                (ConstStrDescription *)key,
+                                                error_buf, error_buf_size);
+        if (!dependency_module) {
+            return false;
+        }
+#endif
+    }
+
+    module->dylink_section = dylink_section;
+
+    return true;
+fail:
+    if (dylink_section)
+        wasm_runtime_free(dylink_section);
+
     return false;
 }
 
@@ -1607,6 +1724,9 @@ load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     AOTExport *exports;
     uint64 size;
     uint32 i;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMRuntime * runtime = module->runtime;
+#endif
 
     /* Allocate memory */
     size = sizeof(AOTExport) * (uint64)module->export_count;
@@ -1620,6 +1740,27 @@ load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         read_uint32(buf, buf_end, exports[i].index);
         read_uint8(buf, buf_end, exports[i].kind);
         read_string(buf, buf_end, exports[i].name);
+        switch (exports[i].kind) {
+            case EXPORT_KIND_FUNC:
+                module->export_func_count++;
+                break;
+            case EXPORT_KIND_GLOBAL:
+                module->export_global_count++;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+                if (!strcmp(exports[i].name, CONST_STR_POOL_STR(runtime, WAMR_CSP_var_stack_pointer)) ||
+                    !strcmp(exports[i].name, CONST_STR_POOL_STR(runtime, WAMR_CSP_var_user_stack_pointer)))
+                    module->export_sp_global_id = i;
+#endif
+                break;
+            case EXPORT_KIND_TABLE:
+                module->export_tab_count++;
+                break;
+            case EXPORT_KIND_MEMORY:
+                module->export_mem_count++;
+                break;
+            default:
+                return false;
+        }
 #if 0 /* TODO: check kind and index */
         if (export_funcs[i].index >=
               module->func_count + module->import_func_count) {
@@ -1631,6 +1772,7 @@ load_exports(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     }
 
     *p_buf = buf;
+
     return true;
 fail:
     return false;
@@ -2280,6 +2422,11 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                                               error_buf_size))
                     return false;
                 break;
+            case AOT_SECTION_TYPE_DYLINK:
+                if (!load_dylink_section(buf, buf_end, module,
+                                              error_buf, error_buf_size))
+                    return false;
+                break;
             case AOT_SECTION_TYPE_INIT_DATA:
                 if (!load_init_data_section(buf, buf_end, module,
                                             is_load_from_file_buf, error_buf,
@@ -2346,7 +2493,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     && func_type->types[0] == VALUE_TYPE_I32
                     && func_type->types[1] == VALUE_TYPE_I32) {
                     bh_assert(module->malloc_func_index == (uint32)-1);
-                    module->malloc_func_index = func_index;
+                    module->malloc_func_index = exports[i].index ;
                     LOG_VERBOSE("Found malloc function, name: %s, index: %u",
                                 exports[i].name, exports[i].index);
                 }
@@ -2363,7 +2510,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                     WASMExport *export_tmp;
 
                     bh_assert(module->malloc_func_index == (uint32)-1);
-                    module->malloc_func_index = func_index;
+                    module->malloc_func_index = exports[i].index;
                     LOG_VERBOSE("Found malloc function, name: %s, index: %u",
                                 exports[i].name, exports[i].index);
 
@@ -2410,7 +2557,7 @@ load_from_sections(AOTModule *module, AOTSection *sections,
                 if (func_type->param_count == 1 && func_type->result_count == 0
                     && func_type->types[0] == VALUE_TYPE_I32) {
                     bh_assert(module->free_func_index == (uint32)-1);
-                    module->free_func_index = func_index;
+                    module->free_func_index = exports[i].index;
                     LOG_VERBOSE("Found free function, name: %s, index: %u",
                                 exports[i].name, exports[i].index);
                 }
@@ -2447,6 +2594,27 @@ create_module(char *error_buf, uint32 error_buf_size)
     }
 
     module->module_type = Wasm_Module_AoT;
+
+    if (!(module->const_str_set =
+                bh_hash_map_create(64, false,
+                                   (HashFunc)const_str_hash,
+                                   (KeyEqualFunc)const_str_equal,
+                                   (ValueDestroyFunc)const_str_destroy_key,
+                                   NULL))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "create const string set failed");
+        wasm_runtime_free(module);
+        return NULL;
+    }
+
+    module->file_buf = NULL;
+    module->runtime = wasm_runtime_get_runtime();
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    // initial dependency related attributes.
+    module->implicit_dependency_modules_hmap = NULL;
+    module->ref_cnt = 0;
+#endif
+    module->module_name = NULL;
 
     return module;
 }
@@ -2485,6 +2653,7 @@ destroy_sections(AOTSection *section_list, bool destroy_aot_text)
     }
 }
 
+#define AOT_HEADER_SIZE (sizeof(uint32) + sizeof(uint32) + sizeof(uint64) + sizeof(uint32))
 static bool
 resolve_native_symbols(const uint8 *buf, uint32 size, uint32 *p_count,
                        char *error_buf, uint32 error_buf_size)
@@ -2493,7 +2662,7 @@ resolve_native_symbols(const uint8 *buf, uint32 size, uint32 *p_count,
     uint32 section_type;
     uint32 section_size = 0;
 
-    p += 8;
+    p += AOT_HEADER_SIZE;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
         if (section_type <= AOT_SECTION_TYPE_SIGANATURE
@@ -2543,7 +2712,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
 
     module->native_symbol_count = native_symbol_count;
 
-    p += 8;
+    p += AOT_HEADER_SIZE;
     while (p < p_end) {
         read_uint32(p, p_end, section_type);
         if (section_type < AOT_SECTION_TYPE_SIGANATURE
@@ -2640,7 +2809,8 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
 {
     const uint8 *buf_end = buf + size;
     const uint8 *p = buf, *p_end = buf_end;
-    uint32 magic_number, version;
+    uint32 magic_number, version, verification;
+    uint64 aot_features = 0, vm_features = 0;
     AOTSection *section_list = NULL;
     bool ret;
 
@@ -2656,8 +2826,24 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
         return false;
     }
 
-    if (!create_sections(module, buf, size, &section_list, error_buf,
-                         error_buf_size))
+    read_uint64(p, p_end, aot_features);
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    vm_features |= AOT_FEATURE_ENABLE_DYNAMIC_LINKING;
+#endif
+    if (aot_features != vm_features) {
+        set_error_buf(error_buf, error_buf_size, "unsupported features exist in VM or AOT file");
+        return false;
+    }
+
+    read_uint32(p, p_end, verification);
+    if (verification != offsetof(AOTModuleInstance, global_table_data.bytes)) {
+        set_error_buf(error_buf, error_buf_size, "AOT file built by imcompatiable AOT compiler");
+        return false;
+    }
+
+    bh_assert((p - buf) == AOT_HEADER_SIZE);
+    if (!create_sections(module, buf, size, &section_list,
+                         error_buf, error_buf_size))
         return false;
 
     ret = load_from_sections(module, section_list, true, error_buf,
@@ -2679,6 +2865,7 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
 fail:
     return false;
 }
+#undef AOT_HEADER_SIZE
 
 AOTModule *
 aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
@@ -2839,10 +3026,15 @@ aot_load_from_comp_data(AOTCompData *comp_data, AOTCompContext *comp_ctx,
         goto fail3;
     }
     for (i = 0; i < comp_data->func_count; i++)
-        module->func_type_indexes[i] = comp_data->funcs[i]->func_type_index;
+        module->func_type_indexes[i] = comp_data->funcs[i].func_type_index;
 
     module->export_count = comp_data->wasm_module->export_count;
     module->exports = comp_data->wasm_module->exports;
+
+    module->export_func_count = comp_data->wasm_module->export_func_count;
+    module->export_tab_count = comp_data->wasm_module->export_tab_count;
+    module->export_mem_count = comp_data->wasm_module->export_mem_count;
+    module->export_global_count = comp_data->wasm_module->export_global_count;
 
     module->start_func_index = comp_data->start_func_index;
     if (comp_data->start_func_index != (uint32)-1) {
@@ -2909,14 +3101,6 @@ aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
     AOTCompOption option = { 0 };
     char *aot_last_error;
 
-    comp_data = aot_create_comp_data(wasm_module);
-    if (!comp_data) {
-        aot_last_error = aot_get_last_error();
-        bh_assert(aot_last_error != NULL);
-        set_error_buf(error_buf, error_buf_size, aot_last_error);
-        return NULL;
-    }
-
     option.is_jit_mode = true;
 #if WASM_ENABLE_BULK_MEMORY != 0
     option.enable_bulk_memory = true;
@@ -2938,12 +3122,27 @@ aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
     option.enable_aux_stack_frame = true;
 #endif
 
-    comp_ctx = aot_create_comp_context(comp_data, &option);
+    comp_ctx = aot_create_comp_context(&option);
     if (!comp_ctx) {
         aot_last_error = aot_get_last_error();
         bh_assert(aot_last_error != NULL);
         set_error_buf(error_buf, error_buf_size, aot_last_error);
+        return NULL;
+    }
+
+    comp_data = aot_create_comp_data(wasm_module, sizeof(void*));
+    if (!comp_data) {
+        aot_last_error = aot_get_last_error();
+        bh_assert(aot_last_error != NULL);
+        set_error_buf(error_buf, error_buf_size, aot_last_error);
         goto fail1;
+    }
+
+    if (!aot_bind_comp_context_data(comp_ctx, comp_data)) {
+        aot_last_error = aot_get_last_error();
+        bh_assert(aot_last_error != NULL);
+        set_error_buf(error_buf, error_buf_size, aot_last_error);
+        goto fail2;
     }
 
     if (!aot_compile_wasm(comp_ctx)) {
@@ -2962,9 +3161,9 @@ aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
     return aot_module;
 
 fail2:
-    aot_destroy_comp_context(comp_ctx);
-fail1:
     aot_destroy_comp_data(comp_data);
+fail1:
+    aot_destroy_comp_context(comp_ctx);
     return NULL;
 }
 #endif
@@ -3070,6 +3269,12 @@ aot_unload(AOTModule *module)
         wasm_runtime_free(module->aux_func_names);
     }
 #endif
+
+    if (module->dylink_section)
+        wasm_runtime_free(module->dylink_section);
+
+    if (module->file_buf)
+        wasm_runtime_free((void*)module->file_buf);
 
     wasm_runtime_free(module);
 }

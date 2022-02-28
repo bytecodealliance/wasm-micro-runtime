@@ -74,6 +74,57 @@ bh_hash_map_create(uint32 size, bool use_lock, HashFunc hash_func,
 }
 
 bool
+bh_hash_map_insert_with_dup(HashMap *map, void *key, void *value)
+{
+    uint32 index;
+    HashMapElem *elem;
+
+    if (!map || !key) {
+        LOG_ERROR("HashMap insert elem failed: map or key is NULL.\n");
+        return false;
+    }
+
+    if (map->lock) {
+        os_mutex_lock(map->lock);
+    }
+
+    index = map->hash_func(key) % map->size;
+    elem = map->elements[index];
+    while (elem) {
+        if (map->key_equal_func(elem->key, key)) {
+            if (elem->value == value)
+                break;
+            else
+                return false;
+        }
+        elem = elem->next;
+    }
+
+    if (!elem) {
+        if (!(elem = BH_MALLOC(sizeof(HashMapElem)))) {
+            LOG_ERROR("HashMap insert elem failed: alloc memory failed.\n");
+            goto fail;
+        }
+
+        elem->key = key;
+        elem->value = value;
+        elem->next = map->elements[index];
+        map->elements[index] = elem;
+    }
+
+    if (map->lock) {
+        os_mutex_unlock(map->lock);
+    }
+    return true;
+
+fail:
+    if (map->lock) {
+        os_mutex_unlock(map->lock);
+    }
+    return false;
+}
+
+bool
 bh_hash_map_insert(HashMap *map, void *key, void *value)
 {
     uint32 index;

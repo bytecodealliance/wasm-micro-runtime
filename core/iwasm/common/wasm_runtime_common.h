@@ -12,6 +12,7 @@
 #include "wasm_native.h"
 #include "../include/wasm_export.h"
 #include "../interpreter/wasm.h"
+#include "wasm_multimodules_program.h"
 #if WASM_ENABLE_LIBC_WASI != 0
 #if WASM_ENABLE_UVWASI == 0
 #include "wasmtime_ssp.h"
@@ -24,6 +25,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
 
@@ -295,6 +297,41 @@ LOAD_I16(void *addr)
 
 #endif /* WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0 */
 
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+typedef struct DependencyModuleInitGlobals {
+    uint32 memory_base;
+    uint32 actual_memory_base;
+    uint32 table_base;
+    uint32 table_alignment;
+    uint32 table_size;
+    uint32 stack_pointer;
+} DependencyModuleInitGlobals;
+
+typedef struct WASMModuleInstanceHead {
+    uint32 module_type;
+
+    // unique instance id in program scope, used to alloc table space currently.
+    uint32 inst_id;
+    WASMRuntime * runtime;
+    WASMProgramInstance * program;
+    HashMap * local_implicit_dependency_modules_name_hmap;
+    DependencyModuleInitGlobals init_globals;
+    // explicit ref count, updated by dlopen/dlclose
+    uint32 exp_ref_cnt;
+    // implicit ref count, updated according to needed library entries
+    uint32 imp_ref_cnt;
+#ifdef TARGET_32
+    uint32 padding_runtime;
+    uint32 padding_program;
+    uint32 padding_dep_hmap;
+#endif
+} WASMModuleInstanceHead;
+#endif
+
+typedef struct WASMProgramCommon {
+    uint8 module_data[1];
+} WASMProgramCommon;
+
 typedef struct WASMModuleCommon {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode, and this structure should
@@ -413,12 +450,38 @@ wasm_runtime_load(const uint8 *buf, uint32 size, char *error_buf,
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleCommon *
+wasm_runtime_load2(const char * name, const uint8 *buf, uint32 size,
+                  char *error_buf, uint32 error_buf_size);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN WASMModuleCommon *
 wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
                                 char *error_buf, uint32 error_buf_size);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(WASMModuleCommon *module);
+
+WASM_RUNTIME_API_EXTERN WASMProgramCommon *
+wasm_runtime_create_program(WASMModuleCommon * module, uint32 stack_size,
+                    uint32 heap_size, uint32 dlopen_mode,
+                    char * error_buf, uint32 error_buf_size);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_program(WASMProgramCommon* program);
+
+/* Internal API */
+/**
+ * load and instantiate a wasm module and its dependencies at runtime.
+ *
+ */
+//uint32
+//wasm_runtime_open_dependencies(wasm_module_inst_t module_inst,
+//                                const char * path, bool is_aot);
+
+uint32
+wasm_runtime_lookup_symbol_from_module(wasm_module_inst_t caller_module,
+                                        uint32 module_slot, const char * symbol);
 
 /* Internal API */
 WASMModuleInstanceCommon *
@@ -430,6 +493,83 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
 void
 wasm_runtime_deinstantiate_internal(WASMModuleInstanceCommon *module_inst,
                                     bool is_sub_inst);
+
+WASMModuleCommon *
+load_dependency_module_internal(module_reader reader, module_destroyer destroyer,
+                     const char *sub_module_name, const uint32 name_len,
+                     const package_type_t module_type, char *error_buf,
+                     uint32 error_buf_size);
+
+inline static uint32
+const_str_hash(ConstStrDescription * key)
+{
+    if (key->hash)
+        return key->hash;
+
+    /* take FNV-1a as hash function*/
+    uint32 hash = 2166136261u;
+    for (uint32 i = 0; i < key->len; i++) {
+        hash ^= (uint8)key->str[i];
+        hash *= 16777619;
+    }
+
+    key->hash = hash;
+    return hash;
+}
+
+inline static bool
+const_str_equal(const ConstStrDescription * key1, const ConstStrDescription * key2)
+{
+    if ((key1->hash != key2->hash) || (key1->len != key2->len))
+        return false;
+
+    return ((strncmp(key1->str, key2->str, key1->len) == 0) ? true : false);
+}
+
+inline static void
+const_str_destroy_key(void *key)
+{
+    if (!key)
+        return;
+
+    if (!((ConstStrDescription*)key)->is_sys_symbol)
+        wasm_runtime_free(key);
+}
+
+inline static void
+const_str_destroy_value(void *value)
+{
+    if (!value)
+        return;
+
+    wasm_runtime_free(value);
+}
+
+inline static void
+const_str_destroy_module(void *module)
+{
+    if (!module)
+        return;
+
+    wasm_runtime_unload((WASMModuleCommon*)module);
+}
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+inline static void
+const_str_destroy_module_inst(void *module_inst)
+{
+    WASMModuleInstanceHead * inst_head = NULL;
+    bool is_sub_inst = true;
+    if (!module_inst)
+        return;
+
+    inst_head = (WASMModuleInstanceHead *)module_inst;
+    if (inst_head->program->root_module_inst == module_inst)
+        is_sub_inst = false;
+
+    wasm_runtime_deinstantiate_internal((WASMModuleInstanceCommon *)module_inst, is_sub_inst);
+}
+#endif
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
@@ -463,6 +603,9 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env);
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
 wasm_runtime_get_module_inst(WASMExecEnv *exec_env);
+
+WASM_RUNTIME_API_EXTERN WASMModuleInstanceCommon *
+wasm_runtime_get_root_module_inst(WASMExecEnv *exec_env);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void *
@@ -531,9 +674,17 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
                               char *argv[]);
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_application_execute_program_main(WASMProgramCommon *program,
+                              int32 argc, char *argv[]);
+
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
+                              const char *name, int32 argc, char *argv[]);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_application_execute_program_func(WASMProgramCommon *program,
                               const char *name, int32 argc, char *argv[]);
 
 /* See wasm_export.h for description */
@@ -544,6 +695,10 @@ wasm_runtime_set_exception(WASMModuleInstanceCommon *module,
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN const char *
 wasm_runtime_get_exception(WASMModuleInstanceCommon *module);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN const char *
+wasm_runtime_get_program_exception(WASMProgramCommon *progam);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN void
@@ -629,7 +784,6 @@ void
 wasm_runtime_set_llvm_stack(WASMModuleInstanceCommon *module_inst,
                             uint32 llvm_stack);
 
-#if WASM_ENABLE_MULTI_MODULE != 0
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_module_reader(const module_reader reader,
                                const module_destroyer destroyer);
@@ -640,6 +794,7 @@ wasm_runtime_get_module_reader();
 module_destroyer
 wasm_runtime_get_module_destroyer();
 
+#if WASM_ENABLE_MULTI_MODULE != 0
 bool
 wasm_runtime_register_module_internal(const char *module_name,
                                       WASMModuleCommon *module,
@@ -669,6 +824,9 @@ wasm_runtime_destroy_loading_module_list();
 
 bool
 wasm_runtime_is_built_in_module(const char *module_name);
+
+bool
+wasm_runtime_is_built_in_module_new(WASMRuntime * runtime, const ConstStrDescription *module_name);
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool

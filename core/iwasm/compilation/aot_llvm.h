@@ -366,8 +366,14 @@ typedef struct AOTCompOption {
     uint32 bounds_checks;
 } AOTCompOption, *aot_comp_option_t;
 
+bool
+aot_bind_comp_context_data(AOTCompContext * comp_ctx, AOTCompData * comp_data);
+
+uint32
+aot_comp_ctx_get_pointer_size(AOTCompContext * comp_ctx);
+
 AOTCompContext *
-aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option);
+aot_create_comp_context(aot_comp_option_t option);
 
 void
 aot_destroy_comp_context(AOTCompContext *comp_ctx);
@@ -441,6 +447,9 @@ aot_call_llvm_intrinsic_v(const AOTCompContext *comp_ctx,
 LLVMValueRef
 aot_get_func_from_table(const AOTCompContext *comp_ctx, LLVMValueRef base,
                         LLVMTypeRef func_type, int32 index);
+
+void
+aot_call_debugtrap_intrinsic(const AOTCompContext *comp_ctx, const AOTFuncContext *func_ctx);
 
 bool
 aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str);

@@ -15,12 +15,12 @@ extern "C" {
 #endif
 
 typedef struct NativeSymbolsNode {
-    struct NativeSymbolsNode *next;
-    const char *module_name;
+    //struct NativeSymbolsNode *next;
+    const ConstStrDescription *module_name;
     NativeSymbol *native_symbols;
     uint32 n_native_symbols;
     bool call_conv_raw;
-} NativeSymbolsNode, *NativeSymbolsList;
+} NativeSymbolsNode, *NativeSymbolsVec;
 
 /**
  * Lookup global variable of a given import global
@@ -50,9 +50,10 @@ wasm_native_lookup_libc_builtin_global(const char *module_name,
  * @return the native function pointer if success, NULL otherwise
  */
 void *
-wasm_native_resolve_symbol(const char *module_name, const char *field_name,
-                           const WASMType *func_type, const char **p_signature,
-                           void **p_attachment, bool *p_call_conv_raw);
+wasm_native_resolve_symbol(const ConstStrDescription *module_name,
+                            const ConstStrDescription ** p_field_name,
+                            const WASMType *func_type, const char **p_signature,
+                            void **p_attachment, bool *p_call_conv_raw);
 
 bool
 wasm_native_register_natives(const char *module_name,
@@ -69,6 +70,9 @@ wasm_native_init();
 
 void
 wasm_native_destroy();
+
+bool
+check_symbol_signature(const WASMType *type, const char *signature);
 
 #ifdef __cplusplus
 }

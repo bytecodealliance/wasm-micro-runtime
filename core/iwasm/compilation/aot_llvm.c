@@ -902,7 +902,7 @@ aot_create_func_contexts(AOTCompData *comp_data, AOTCompContext *comp_ctx)
 
     /* Create each function context */
     for (i = 0; i < comp_data->func_count; i++) {
-        AOTFunc *func = comp_data->funcs[i];
+        AOTFunc *func = comp_data->funcs + i;
         if (!(func_ctxes[i] =
                   aot_create_func_context(comp_data, comp_ctx, func, i))) {
             aot_destroy_func_contexts(func_ctxes, comp_data->func_count);
@@ -1363,8 +1363,28 @@ fail:
 }
 #endif /* WASM_ENABLE_LAZY_JIT != 0 */
 
+bool
+aot_bind_comp_context_data(AOTCompContext * comp_ctx, AOTCompData * comp_data)
+{
+    comp_ctx->comp_data = comp_data;
+    /* Create function context for each function */
+    comp_ctx->func_ctx_count = comp_data->func_count;
+    if (comp_data->func_count > 0
+        && !(comp_ctx->func_ctxes =
+                aot_create_func_contexts(comp_data, comp_ctx)))
+        return false;
+
+    return true;
+}
+
+uint32
+aot_comp_ctx_get_pointer_size(AOTCompContext * comp_ctx)
+{
+    return comp_ctx->pointer_size;
+}
+
 AOTCompContext *
-aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
+aot_create_comp_context(aot_comp_option_t option)
 {
     AOTCompContext *comp_ctx, *ret = NULL;
 #if WASM_ENABLE_LAZY_JIT == 0
@@ -1403,7 +1423,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     }
 
     memset(comp_ctx, 0, sizeof(AOTCompContext));
-    comp_ctx->comp_data = comp_data;
 
     /* Create LLVM context, module and builder */
 #if WASM_ENABLE_LAZY_JIT != 0
@@ -1900,13 +1919,6 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     /* set aot_inst data type to int8* */
     comp_ctx->aot_inst_type = INT8_PTR_TYPE;
 
-    /* Create function context for each function */
-    comp_ctx->func_ctx_count = comp_data->func_count;
-    if (comp_data->func_count > 0
-        && !(comp_ctx->func_ctxes =
-                 aot_create_func_contexts(comp_data, comp_ctx)))
-        goto fail;
-
     if (cpu) {
         uint32 len = (uint32)strlen(cpu) + 1;
         if (!(comp_ctx->target_cpu = wasm_runtime_malloc(len))) {
@@ -2337,7 +2349,7 @@ __call_llvm_intrinsic(const AOTCompContext *comp_ctx,
 
     /* Call the LLVM intrinsic function */
     if (!(ret = LLVMBuildCall(comp_ctx->builder, func, param_values,
-                              (uint32)param_count, "call"))) {
+                              (uint32)param_count, ""))) {
         aot_set_last_error("llvm build intrinsic call failed.");
         return NULL;
     }
@@ -2351,15 +2363,15 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
                         LLVMTypeRef ret_type, LLVMTypeRef *param_types,
                         int param_count, ...)
 {
-    LLVMValueRef *param_values, ret;
+    LLVMValueRef *param_values = NULL, ret = NULL;
     va_list argptr;
     uint64 total_size;
     int i = 0;
 
     /* Create param values */
     total_size = sizeof(LLVMValueRef) * (uint64)param_count;
-    if (total_size >= UINT32_MAX
-        || !(param_values = wasm_runtime_malloc((uint32)total_size))) {
+    if (total_size > 0 && (total_size >= UINT32_MAX
+        || !(param_values = wasm_runtime_malloc((uint32)total_size)))) {
         aot_set_last_error("allocate memory for param values failed.");
         return false;
     }
@@ -2373,9 +2385,16 @@ aot_call_llvm_intrinsic(const AOTCompContext *comp_ctx,
     ret = __call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic, ret_type,
                                 param_types, param_count, param_values);
 
-    wasm_runtime_free(param_values);
+    if (param_values)
+        wasm_runtime_free(param_values);
 
     return ret;
+}
+
+void
+aot_call_debugtrap_intrinsic(const AOTCompContext *comp_ctx, const AOTFuncContext *func_ctx)
+{
+    aot_call_llvm_intrinsic(comp_ctx, func_ctx, "llvm.debugtrap", VOID_TYPE, NULL, 0);
 }
 
 LLVMValueRef

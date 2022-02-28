@@ -53,8 +53,8 @@ function run_case_w_aot() {
         --aot --aot-target ${TARGET} \
         ${SGX_OPT} \
         ${SIMD_OPT} \
-        ${REF_TYPES_OPT}
-    #--no_cleanup
+        ${REF_TYPES_OPT} \
+        --no_cleanup
     if [[ $? != 0 ]]; then
         echo "============> run ${test_case} failed"
         exit 1
@@ -71,8 +71,8 @@ function run_case_wo_aot() {
         --aot-compiler ${WAMRC_CMD} \
         ${SGX_OPT} \
         ${SIMD_OPT} \
-        ${REF_TYPES_OPT}
-    #--no_cleanup
+        ${REF_TYPES_OPT} \
+        --no_cleanup
     if [[ $? != 0 ]]; then
         echo "============> run ${test_case} failed"
         exit 1

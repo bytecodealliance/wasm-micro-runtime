@@ -2001,7 +2001,7 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
     }
 
     for (i = 0; i != import_count; ++i) {
-        char *module_name_rt = NULL, *field_name_rt = NULL;
+        const char *module_name_rt = NULL, *field_name_rt = NULL;
 
         if (i < import_func_count) {
             wasm_functype_t *type = NULL;
@@ -2011,8 +2011,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
             if ((*module)->module_type == Wasm_Module_Bytecode) {
                 WASMImport *import =
                     MODULE_INTERP(module)->import_functions + i;
-                module_name_rt = import->u.names.module_name;
-                field_name_rt = import->u.names.field_name;
+                module_name_rt = (char*)import->u.names.module_name->str;
+                field_name_rt = (char*)import->u.names.field_name->str;
                 type_rt = import->u.function.func_type;
             }
 #endif
@@ -2020,8 +2020,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
 #if WASM_ENABLE_AOT != 0
             if ((*module)->module_type == Wasm_Module_AoT) {
                 AOTImportFunc *import = MODULE_AOT(module)->import_funcs + i;
-                module_name_rt = import->module_name;
-                field_name_rt = import->func_name;
+                module_name_rt = import->module_name->str;
+                field_name_rt = import->func_name->str;
                 type_rt = import->func_type;
             }
 #endif
@@ -2055,8 +2055,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
             if ((*module)->module_type == Wasm_Module_Bytecode) {
                 WASMImport *import = MODULE_INTERP(module)->import_globals
                                      + (i - import_func_count);
-                module_name_rt = import->u.names.module_name;
-                field_name_rt = import->u.names.field_name;
+                module_name_rt = (char*)import->u.names.module_name->str;
+                field_name_rt = (char*)import->u.names.field_name->str;
                 val_type_rt = import->u.global.type;
                 mutability_rt = import->u.global.is_mutable;
             }
@@ -2064,10 +2064,10 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
 
 #if WASM_ENABLE_AOT != 0
             if ((*module)->module_type == Wasm_Module_AoT) {
-                AOTImportGlobal *import = MODULE_AOT(module)->import_globals
-                                          + (i - import_func_count);
-                module_name_rt = import->module_name;
-                field_name_rt = import->global_name;
+                AOTImportGlobal *import =
+                    MODULE_AOT(module)->import_globals + (i - import_func_count);
+                module_name_rt = import->module_name->str;
+                field_name_rt = import->global_name->str;
                 val_type_rt = import->type;
                 mutability_rt = import->is_mutable;
             }
@@ -2094,8 +2094,8 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                 WASMImport *import =
                     MODULE_INTERP(module)->import_memories
                     + (i - import_func_count - import_global_count);
-                module_name_rt = import->u.names.module_name;
-                field_name_rt = import->u.names.field_name;
+                module_name_rt = (char*)import->u.names.module_name->str;
+                field_name_rt = (char*)import->u.names.field_name->str;
                 min_page = import->u.memory.init_page_count;
                 max_page = import->u.memory.max_page_count;
             }
@@ -2143,9 +2143,9 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                 WASMImport *import =
                     MODULE_INTERP(module)->import_tables
                     + (i - import_func_count - import_global_count
-                       - import_memory_count);
-                module_name_rt = import->u.names.module_name;
-                field_name_rt = import->u.names.field_name;
+                    - import_memory_count);
+                module_name_rt = (char*)import->u.names.module_name->str;
+                field_name_rt = (char*)import->u.names.field_name->str;
                 elem_type_rt = import->u.table.elem_type;
                 min_size = import->u.table.init_size;
                 max_size = import->u.table.max_size;
@@ -2745,7 +2745,7 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
                 if (export->kind == EXPORT_KIND_FUNC) {
                     if (export->index == func->func_idx_rt) {
                         func_comm_rt =
-                            (AOTFunctionInstance *)inst_aot->export_funcs.ptr
+                            (AOTExportFunctionInstance *)inst_aot->export_funcs.ptr
                             + export_func_j;
                         ((wasm_func_t *)func)->func_comm_rt = func_comm_rt;
                         break;
@@ -2949,12 +2949,16 @@ interp_global_set(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
         inst_interp->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
 #if WASM_ENABLE_MULTI_MODULE != 0
+    //uint8 *data = global_interp->import_global_inst
+    //                ? global_interp->import_module_inst->global_data
+    //                    + global_interp->import_global_inst->data_offset
+    //                : inst_interp->global_data + global_interp->data_offset;
     uint8 *data = global_interp->import_global_inst
-                      ? global_interp->import_module_inst->global_data
-                            + global_interp->import_global_inst->data_offset
-                      : inst_interp->global_data + global_interp->data_offset;
+                    ? global_interp->import_global_inst->data
+                    : global_interp->data;
 #else
-    uint8 *data = inst_interp->global_data + global_interp->data_offset;
+    //uint8 *data = inst_interp->global_data + global_interp->data_offset;
+    uint8 * data = global_interp->data;
 #endif
 
     return wasm_val_to_rt_val((WASMModuleInstanceCommon *)inst_interp,
@@ -2968,12 +2972,16 @@ interp_global_get(const WASMModuleInstance *inst_interp, uint16 global_idx_rt,
     WASMGlobalInstance *global_interp = inst_interp->globals + global_idx_rt;
     uint8 val_type_rt = global_interp->type;
 #if WASM_ENABLE_MULTI_MODULE != 0
+    //uint8 *data = global_interp->import_global_inst
+    //                ? global_interp->import_module_inst->global_data
+    //                    + global_interp->import_global_inst->data_offset
+    //                : inst_interp->global_data + global_interp->data_offset;
     uint8 *data = global_interp->import_global_inst
-                      ? global_interp->import_module_inst->global_data
-                            + global_interp->import_global_inst->data_offset
-                      : inst_interp->global_data + global_interp->data_offset;
+                    ? global_interp->import_global_inst->data
+                    : global_interp->data;
 #else
-    uint8 *data = inst_interp->global_data + global_interp->data_offset;
+    //uint8 *data = inst_interp->global_data + global_interp->data_offset;
+    uint8 * data = global_interp->data;
 #endif
 
     return rt_val_to_wasm_val(data, val_type_rt, out);
@@ -4357,11 +4365,12 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
 
 #if WASM_ENABLE_AOT != 0
     if (instance->inst_comm_rt->module_type == Wasm_Module_AoT) {
-        uint32 export_cnt =
-            ((AOTModuleInstance *)instance->inst_comm_rt)->export_func_count
-            + ((AOTModuleInstance *)instance->inst_comm_rt)->export_global_count
-            + ((AOTModuleInstance *)instance->inst_comm_rt)->export_tab_count
-            + ((AOTModuleInstance *)instance->inst_comm_rt)->export_mem_count;
+        AOTModule * aot_module = (AOTModule*)((AOTModuleInstance *)instance->inst_comm_rt)->aot_module.ptr;
+        uint32 export_cnt = aot_module->export_count;
+         // ((AOTModuleInstance *)instance->inst_comm_rt)->export_func_count
+         // + ((AOTModuleInstance *)instance->inst_comm_rt)->export_global_count
+         // + ((AOTModuleInstance *)instance->inst_comm_rt)->export_tab_count
+         // + ((AOTModuleInstance *)instance->inst_comm_rt)->export_mem_count;
 
         INIT_VEC(instance->exports, wasm_extern_vec_new_uninitialized,
                  export_cnt);

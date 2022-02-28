@@ -99,13 +99,9 @@ wasm_runtime_env_init()
     if (bh_platform_init() != 0)
         return false;
 
-    if (wasm_native_init() == false) {
-        goto fail1;
-    }
-
 #if WASM_ENABLE_MULTI_MODULE
     if (BHT_OK != os_mutex_init(&registered_module_list_lock)) {
-        goto fail2;
+        goto fail1;
     }
 
     if (BHT_OK != os_mutex_init(&loading_module_list_lock)) {
@@ -171,12 +167,9 @@ fail4:
     os_mutex_destroy(&loading_module_list_lock);
 fail3:
     os_mutex_destroy(&registered_module_list_lock);
-fail2:
-#endif
-    wasm_native_destroy();
 fail1:
     bh_platform_destroy();
-
+#endif
     return false;
 }
 
@@ -197,6 +190,16 @@ wasm_runtime_init()
 
     if (!wasm_runtime_env_init()) {
         wasm_runtime_memory_destroy();
+        return false;
+    }
+
+    if (!wasm_runtime_runtime_init(true, true)) {
+        wasm_runtime_destroy();
+        return false;
+    }
+
+    if (!wasm_native_init()) {
+        wasm_runtime_destroy();
         return false;
     }
 
@@ -240,6 +243,9 @@ wasm_runtime_destroy()
 #endif
 
     wasm_native_destroy();
+
+    wasm_runtime_runtime_destroy();
+
     bh_platform_destroy();
 
     wasm_runtime_memory_destroy();
@@ -253,7 +259,13 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
         return false;
 
     if (!wasm_runtime_env_init()) {
-        wasm_runtime_memory_destroy();
+        wasm_runtime_destroy();
+        return false;
+    }
+
+    if (!wasm_runtime_runtime_init(init_args->standalone,
+                                init_args->auto_ext_name)) {
+        wasm_runtime_destroy();
         return false;
     }
 
@@ -266,6 +278,11 @@ wasm_runtime_full_init(RuntimeInitArgs *init_args)
             return false;
         }
 #endif
+
+    if (!wasm_native_init()) {
+        wasm_runtime_destroy();
+        return false;
+    }
 
     if (init_args->n_native_symbols > 0
         && !wasm_runtime_register_natives(init_args->native_module_name,
@@ -294,29 +311,8 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+
 #if WASM_ENABLE_MULTI_MODULE != 0
-static module_reader reader;
-static module_destroyer destroyer;
-void
-wasm_runtime_set_module_reader(const module_reader reader_cb,
-                               const module_destroyer destroyer_cb)
-{
-    reader = reader_cb;
-    destroyer = destroyer_cb;
-}
-
-module_reader
-wasm_runtime_get_module_reader()
-{
-    return reader;
-}
-
-module_destroyer
-wasm_runtime_get_module_destroyer()
-{
-    return destroyer;
-}
-
 static WASMRegisteredModule *
 wasm_runtime_find_module_registered_by_reference(WASMModuleCommon *module)
 {
@@ -491,12 +487,12 @@ wasm_runtime_destroy_registered_module_list()
         }
 
         /* destroy the file buffer */
-        if (destroyer && reg_module->orig_file_buf) {
-            destroyer(reg_module->orig_file_buf,
-                      reg_module->orig_file_buf_size);
-            reg_module->orig_file_buf = NULL;
-            reg_module->orig_file_buf_size = 0;
-        }
+        //if (destroyer && reg_module->orig_file_buf) {
+        //    destroyer(reg_module->orig_file_buf,
+        //              reg_module->orig_file_buf_size);
+        //    reg_module->orig_file_buf = NULL;
+        //    reg_module->orig_file_buf_size = 0;
+        //}
 
         wasm_runtime_free(reg_module);
         reg_module = next_reg_module;
@@ -600,6 +596,18 @@ wasm_runtime_is_built_in_module(const char *module_name)
             || !strcmp("", module_name));
 }
 
+bool
+wasm_runtime_is_built_in_module_new(WASMRuntime * runtime, const ConstStrDescription *module_name)
+{
+    return (module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_env)
+            || module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_wasi_unstable)
+            || module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_wasi_snapshot_preview1)
+#if WASM_ENABLE_SPEC_TEST != 0
+            || module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_spectest)
+#endif
+            || module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_null));
+}
+
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
 wasm_exec_env_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset,
@@ -664,6 +672,195 @@ register_module_with_null_name(WASMModuleCommon *module_common, char *error_buf,
 #else
     return module_common;
 #endif
+}
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+bool
+read_expected_target_module(module_reader reader, module_destroyer destroyer,
+                            const char *module_name, const uint32 name_len,
+                            const package_type_t expected_module_type,
+                            uint8 ** pbuffer, uint32 * p_buffer_size)
+{
+    PackageType module_type;
+    char * new_module_name = NULL;
+    const char * postfix = NULL;
+    uint32 offset = 0, new_name_len = 0;
+
+    // read file according to original file name
+    if (reader(module_name, pbuffer, p_buffer_size)) {
+        module_type = get_package_type(*pbuffer, *p_buffer_size);
+        if (module_type == expected_module_type) {
+            return true;
+        }
+
+        destroyer(*pbuffer, *p_buffer_size);
+
+        // wouldn't change the extension for user when explicit open a module.
+        return false;
+
+        // change extension name, try again
+        offset = name_len;
+        postfix = strrchr(module_name, '.');
+        if (postfix) {
+            offset = postfix - module_name;
+        }
+
+        new_name_len = offset + sizeof(".wasm") + 1;
+        new_module_name = (char*)wasm_runtime_malloc(new_name_len);
+        memset(new_module_name, 0, new_name_len);
+        memcpy(new_module_name, module_name, offset);
+
+        if (expected_module_type == Wasm_Module_Bytecode)
+            strncat(new_module_name, ".wasm", new_name_len);
+        else
+            strncat(new_module_name, ".aot", new_name_len);
+
+        if (reader(new_module_name, pbuffer, p_buffer_size)) {
+            wasm_runtime_free(new_module_name);
+            return true;
+        }
+
+        destroyer(*pbuffer, *p_buffer_size);
+        wasm_runtime_free(new_module_name);
+        return false;
+    }
+
+    return false;
+}
+
+WASMModuleCommon *
+load_dependency_module_internal(module_reader reader, module_destroyer destroyer,
+                     const char *sub_module_name, const uint32 name_len,
+                     const package_type_t expected_module_type,
+                     char *error_buf,
+                     uint32 error_buf_size)
+{
+    uint8 *buffer = NULL;
+    uint32 buffer_size = 0;
+    WASMModuleCommon * new_module = NULL;
+    PackageType module_type;
+
+    if (!read_expected_target_module(reader, destroyer,
+            sub_module_name, name_len, expected_module_type, &buffer, &buffer_size)) {
+        return NULL;
+    }
+
+    module_type = get_package_type(buffer, buffer_size);
+    if (module_type == Wasm_Module_Bytecode) {
+        new_module =
+            (WASMModuleCommon*)wasm_load(buffer, buffer_size, error_buf, error_buf_size);
+    } else {
+#if WASM_ENABLE_AOT != 0
+        new_module =
+            (WASMModuleCommon*)aot_load_from_aot_file(buffer, buffer_size, error_buf, error_buf_size);
+#endif
+    }
+
+    if (!new_module) {
+        /* others will be destroyed in runtime_destroy() */
+        destroyer(buffer, buffer_size);
+        return NULL;
+    }
+
+    if (module_type == Wasm_Module_Bytecode) {
+        ((WASMModule*)new_module)->file_buf = buffer;
+    } else {
+#if WASM_ENABLE_AOT != 0
+        ((AOTModule*)new_module)->file_buf = buffer;
+#endif
+    }
+
+    return new_module;
+}
+
+WASMModuleInstanceCommon *
+wasm_runtime_instantiate_internal2(WASMProgramCommon * program,
+                                    WASMModuleCommon *module, bool is_sub_inst,
+                                    uint32 stack_size, uint32 heap_size,
+                                    char *error_buf, uint32 error_buf_size);
+
+
+WASMProgramCommon *
+wasm_runtime_create_program(WASMModuleCommon* module, uint32 stack_size,
+                    uint32 heap_size, uint32 dlopen_mode,
+                    char * error_buf, uint32 error_buf_size)
+{
+    WASMModuleInstanceCommon * root_module_inst = NULL;
+    WASMProgramInstance * program = NULL;
+
+    if (!module)
+        return NULL;
+
+    program = wasm_runtime_create_program_internal(error_buf, error_buf_size,
+                                                dlopen_mode);
+    if (!program) {
+        return NULL;
+    }
+
+    root_module_inst = wasm_runtime_instantiate_internal2(
+        (WASMProgramCommon *)program, module, false, stack_size, heap_size, NULL, 0);
+
+    if (!root_module_inst) {
+        wasm_runtime_destroy_program_internal(program);
+        return NULL;
+    }
+
+    wasm_program_set_root_module(program, root_module_inst);
+
+    wasm_program_validate_mode_compatiability(program);
+    return (WASMProgramCommon *)program;
+}
+
+void
+wasm_runtime_destroy_program(WASMProgramCommon* program)
+{
+    if (!program)
+        return;
+
+    wasm_runtime_destroy_program_internal((WASMProgramInstance*)program);
+}
+#endif
+
+WASMModuleCommon *
+wasm_runtime_load2(const char * name,
+                    const uint8 *buf, uint32 size,
+                    char *error_buf, uint32 error_buf_size)
+{
+    WASMModuleCommon *module_common = NULL;
+    WASMRuntime * runtime = wasm_runtime_get_runtime();
+    const ConstStrDescription * key = NULL;
+
+    if (!name || !buf)
+        return NULL;
+
+    key = wasm_runtime_records_const_string(wasm_runtime_get_runtime(),
+                                        name, strlen(name),
+                                        error_buf, error_buf_size);
+    if (!key)
+        return NULL;
+
+    module_common = wasm_runtime_load(buf, size, error_buf, error_buf_size);
+    if (!module_common)
+        return NULL;
+
+    if (module_common->module_type == Wasm_Module_Bytecode)
+        ((WASMModule*)module_common)->module_name = (ConstStrDescription*)key;
+    else {
+#if WASM_ENABLE_AOT != 0
+        ((AOTModule*)module_common)->module_name = (ConstStrDescription*)key;
+#endif
+    }
+
+    if (!runtime->all_loaded_modules)
+        return module_common;
+
+    if (!bh_hash_map_insert_with_dup(runtime->all_loaded_modules,
+                                        (void*)key, (void*)module_common)) {
+        wasm_runtime_unload(module_common);
+        return NULL;
+    }
+
+    return module_common;
 }
 
 WASMModuleCommon *
@@ -742,6 +939,28 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
 }
 
 void
+wasm_runtime_unload2(WASMModuleCommon *module)
+{
+    WASMModuleCommon * old_module = NULL;
+    const ConstStrDescription * key = NULL;
+    ConstStrDescription * old_key = NULL;
+    WASMRuntime * runtime = wasm_runtime_get_runtime();
+
+    if (runtime->all_loaded_modules) {
+        key = ((WASMModule*)module)->module_name;
+
+        bh_hash_map_remove(runtime->all_loaded_modules,
+                            (void*)key,
+                            (void*)&old_key,
+                            (void*)&old_module);
+    }
+
+    // wasm_runtime_free(old_key);
+
+    wasm_runtime_unload(module);
+}
+
+void
 wasm_runtime_unload(WASMModuleCommon *module)
 {
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -768,21 +987,24 @@ wasm_runtime_unload(WASMModuleCommon *module)
 }
 
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
-                                  uint32 stack_size, uint32 heap_size,
-                                  char *error_buf, uint32 error_buf_size)
+wasm_runtime_instantiate_internal2(WASMProgramCommon * program,
+                                    WASMModuleCommon *module, bool is_sub_inst,
+                                    uint32 stack_size, uint32 heap_size,
+                                    char *error_buf, uint32 error_buf_size)
 {
 #if WASM_ENABLE_INTERP != 0
     if (module->module_type == Wasm_Module_Bytecode)
-        return (WASMModuleInstanceCommon *)wasm_instantiate(
-            (WASMModule *)module, is_sub_inst, stack_size, heap_size, error_buf,
-            error_buf_size);
+        return (WASMModuleInstanceCommon*)
+               wasm_instantiate((WASMProgramInstance*)program, (WASMModule*)module, is_sub_inst,
+                                stack_size, heap_size,
+                                error_buf, error_buf_size);
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module->module_type == Wasm_Module_AoT)
-        return (WASMModuleInstanceCommon *)aot_instantiate(
-            (AOTModule *)module, is_sub_inst, stack_size, heap_size, error_buf,
-            error_buf_size);
+        return (WASMModuleInstanceCommon*)
+               aot_instantiate((WASMProgramInstance*)program, (AOTModule*)module, is_sub_inst,
+                               stack_size, heap_size,
+                               error_buf, error_buf_size);
 #endif
     set_error_buf(error_buf, error_buf_size,
                   "Instantiate module failed, invalid module type");
@@ -790,12 +1012,23 @@ wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
 }
 
 WASMModuleInstanceCommon *
-wasm_runtime_instantiate(WASMModuleCommon *module, uint32 stack_size,
-                         uint32 heap_size, char *error_buf,
-                         uint32 error_buf_size)
+wasm_runtime_instantiate_internal(WASMModuleCommon *module, bool is_sub_inst,
+                                  uint32 stack_size, uint32 heap_size,
+                                  char *error_buf, uint32 error_buf_size)
 {
-    return wasm_runtime_instantiate_internal(
-        module, false, stack_size, heap_size, error_buf, error_buf_size);
+    return wasm_runtime_instantiate_internal2(NULL, module, is_sub_inst,
+                                                stack_size, heap_size,
+                                                error_buf, error_buf_size);
+}
+
+WASMModuleInstanceCommon *
+wasm_runtime_instantiate(WASMModuleCommon *module,
+                         uint32 stack_size, uint32 heap_size,
+                         char *error_buf, uint32 error_buf_size)
+{
+    return wasm_runtime_instantiate_internal(module, false,
+                                            stack_size, heap_size,
+                                            error_buf, error_buf_size);
 }
 
 void
@@ -1053,6 +1286,16 @@ wasm_runtime_get_module_inst(WASMExecEnv *exec_env)
     return wasm_exec_env_get_module_inst(exec_env);
 }
 
+WASMModuleInstanceCommon *
+wasm_runtime_get_root_module_inst(WASMExecEnv *exec_env)
+{
+    WASMModuleInstanceCommon * module_inst = wasm_exec_env_get_module_inst(exec_env);
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    module_inst = wasm_program_get_root_module_from_inst(module_inst);
+#endif
+    return module_inst;
+}
+
 void *
 wasm_runtime_get_function_attachment(WASMExecEnv *exec_env)
 {
@@ -1086,7 +1329,7 @@ wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_type == Wasm_Module_AoT) {
-        AOTFunctionInstance *aot_func = (AOTFunctionInstance *)function;
+        AOTExportFunctionInstance *aot_func = (AOTExportFunctionInstance *)function;
         type = aot_func->is_import_func ? aot_func->u.func_import->func_type
                                         : aot_func->u.func.func_type;
     }
@@ -1179,7 +1422,7 @@ wasm_runtime_call_wasm(WASMExecEnv *exec_env,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (exec_env->module_inst->module_type == Wasm_Module_AoT)
-        ret = aot_call_function(exec_env, (AOTFunctionInstance *)function, argc,
+        ret = aot_call_function(exec_env, (AOTExportFunctionInstance *)function, argc,
                                 argv);
 #endif
 
@@ -1436,7 +1679,7 @@ wasm_runtime_create_exec_env_and_call_wasm(
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT)
         ret = aot_create_exec_env_and_call_function(
-            (AOTModuleInstance *)module_inst, (AOTFunctionInstance *)function,
+            (AOTModuleInstance *)module_inst, (AOTExportFunctionInstance *)function,
             argc, argv);
 #endif
     return ret;
@@ -1505,6 +1748,30 @@ wasm_runtime_get_exception(WASMModuleInstanceCommon *module_inst)
 #endif
     return NULL;
 }
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+const char*
+wasm_runtime_get_program_exception(WASMProgramCommon *program_inst)
+{
+    WASMProgramInstance * program = (WASMProgramInstance *)program_inst;
+    WASMModuleInstanceCommon * exception_inst = program->exception_inst;
+
+    if (!exception_inst)
+        return NULL;
+
+#if WASM_ENABLE_INTERP != 0
+    if (exception_inst->module_type == Wasm_Module_Bytecode) {
+        return wasm_get_exception((WASMModuleInstance*)exception_inst);
+    }
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (exception_inst->module_type == Wasm_Module_AoT) {
+        return aot_get_exception((AOTModuleInstance*)exception_inst);
+    }
+#endif
+    return NULL;
+}
+#endif
 
 void
 wasm_runtime_clear_exception(WASMModuleInstanceCommon *module_inst)
@@ -2246,10 +2513,11 @@ wasm_runtime_lookup_wasi_start_function(WASMModuleInstanceCommon *module_inst)
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
-        AOTFunctionInstance *export_funcs =
-            (AOTFunctionInstance *)aot_inst->export_funcs.ptr;
-        for (i = 0; i < aot_inst->export_func_count; i++) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance*)module_inst;
+        AOTModule * aot_module = (AOTModule *)aot_inst->aot_module.ptr;
+        AOTExportFunctionInstance *export_funcs = (AOTExportFunctionInstance *)
+                                            aot_inst->export_funcs.ptr;
+        for (i = 0; i < aot_module->export_func_count; i++) {
             if (!strcmp(export_funcs[i].func_name, "_start")) {
                 AOTFuncType *func_type = export_funcs[i].u.func.func_type;
                 if (func_type->param_count != 0
@@ -3186,7 +3454,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     WASMModuleInstanceCommon *module = wasm_runtime_get_module_inst(exec_env);
     uint64 argv_buf[32], *argv1 = argv_buf, *ints, *stacks, size, arg_i64;
     uint32 *argv_src = argv, i, argc1, n_ints = 0, n_stacks = 0;
-    uint32 arg_i32, ptr_len;
+    uint32 arg_i32; //, ptr_len;
     uint32 result_count = func_type->result_count;
     uint32 ext_ret_count = result_count > 1 ? result_count - 1 : 0;
     bool ret = false;
@@ -3242,6 +3510,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
             {
                 arg_i32 = *argv_src++;
                 arg_i64 = arg_i32;
+#if 0
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -3269,6 +3538,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                             module, arg_i32);
                     }
                 }
+#endif
                 if (n_ints < MAX_REG_INTS)
                     ints[n_ints++] = arg_i64;
                 else
@@ -3376,7 +3646,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     exec_env->attachment = NULL;
 
     ret = !wasm_runtime_get_exception(module) ? true : false;
-fail:
+//fail:
     if (argv1 != argv_buf)
         wasm_runtime_free(argv1);
 
@@ -3719,14 +3989,15 @@ static void
 interp_mark_all_externrefs(WASMModuleInstance *module_inst)
 {
     uint32 i, j, externref_idx, *table_data;
-    uint8 *global_data = module_inst->global_data;
+    //uint8 *global_data = module_inst->global_data;
     WASMGlobalInstance *global;
     WASMTableInstance *table;
 
     global = module_inst->globals;
     for (i = 0; i < module_inst->global_count; i++, global++) {
         if (global->type == VALUE_TYPE_EXTERNREF) {
-            externref_idx = *(uint32 *)(global_data + global->data_offset);
+            //externref_idx = *(uint32*)(global_data + global->data_offset);
+            externref_idx = *(uint32*)(global->data);
             mark_externref(externref_idx);
         }
     }

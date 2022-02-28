@@ -9,6 +9,7 @@
 #include "bh_platform.h"
 #include "bh_hashmap.h"
 #include "bh_assert.h"
+#include "wasm_multimodules_program.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,6 +85,7 @@ extern "C" {
 #define LABEL_TYPE_IF 2
 #define LABEL_TYPE_FUNCTION 3
 
+
 typedef struct WASMModule WASMModule;
 typedef struct WASMFunction WASMFunction;
 typedef struct WASMGlobal WASMGlobal;
@@ -143,7 +145,7 @@ typedef struct WASMMemory {
 } WASMMemory;
 
 typedef struct WASMTableImport {
-    char *module_name;
+    const char *module_name;
     char *field_name;
     uint8 elem_type;
     uint32 flags;
@@ -158,7 +160,7 @@ typedef struct WASMTableImport {
 } WASMTableImport;
 
 typedef struct WASMMemoryImport {
-    char *module_name;
+    const char *module_name;
     char *field_name;
     uint32 flags;
     uint32 num_bytes_per_page;
@@ -171,8 +173,8 @@ typedef struct WASMMemoryImport {
 } WASMMemoryImport;
 
 typedef struct WASMFunctionImport {
-    char *module_name;
-    char *field_name;
+    const ConstStrDescription *module_name;
+    const ConstStrDescription *field_name;
     /* function type */
     WASMType *func_type;
     /* native function pointer after linked */
@@ -191,8 +193,8 @@ typedef struct WASMFunctionImport {
 } WASMFunctionImport;
 
 typedef struct WASMGlobalImport {
-    char *module_name;
-    char *field_name;
+    const ConstStrDescription *module_name;
+    const ConstStrDescription *field_name;
     uint8 type;
     bool is_mutable;
     /* global data after linked */
@@ -214,25 +216,21 @@ typedef struct WASMImport {
         WASMMemoryImport memory;
         WASMGlobalImport global;
         struct {
-            char *module_name;
-            char *field_name;
+            const ConstStrDescription *module_name;
+            const ConstStrDescription *field_name;
         } names;
     } u;
 } WASMImport;
 
 struct WASMFunction {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
-    char *field_name;
+    const char *field_name;
 #endif
     /* the type of function */
     WASMType *func_type;
     uint32 local_count;
     uint8 *local_types;
 
-    /* cell num of parameters */
-    uint16 param_cell_num;
-    /* cell num of return type */
-    uint16 ret_cell_num;
     /* cell num of local variables */
     uint16 local_cell_num;
     /* offset of each local, including function parameters
@@ -263,7 +261,7 @@ struct WASMGlobal {
 };
 
 typedef struct WASMExport {
-    char *name;
+    const char *name;
     uint8 kind;
     uint32 index;
 } WASMExport;
@@ -290,6 +288,20 @@ typedef struct WASMDataSeg {
 #endif
     uint8 *data;
 } WASMDataSeg;
+
+typedef struct WASMDylibEntry {
+    uint32 dylib_name_len;
+    const char * dylib_name_str;
+} WASMDylibEntry;
+
+typedef struct WASMDylinkSection {
+    uint32 memory_size;
+    uint32 memory_alignment;
+    uint32 table_size;
+    uint32 table_alignment;
+    uint32 needed_dylib_count;
+    const ConstStrDescription * needed_dylib_entries[0];
+} WASMDylinkSection;
 
 typedef struct BlockAddr {
     const uint8 *start_addr;
@@ -356,6 +368,11 @@ struct WASMModule {
     WASMImport *import_memories;
     WASMImport *import_globals;
 
+    uint32 export_func_count;
+    uint32 export_global_count;
+    uint32 export_mem_count;
+    uint32 export_tab_count;
+
     WASMType **types;
     WASMImport *imports;
     WASMFunction **functions;
@@ -364,7 +381,8 @@ struct WASMModule {
     WASMGlobal *globals;
     WASMExport *exports;
     WASMTableSeg *table_segments;
-    WASMDataSeg **data_segments;
+    WASMDataSeg *data_segments;
+    WASMDylinkSection *dylink_section;
     uint32 start_function;
 
     /* the index of auxiliary __data_end global,
@@ -399,8 +417,14 @@ struct WASMModule {
     /* Whether there is possible memory grow, e.g. memory.grow opcode */
     bool possible_memory_grow;
 
-    StringList const_str_list;
-
+    WASMRuntime * runtime;
+    const uint8 * file_buf;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    /* directly implicit dependency modules of current module, e.g. dylink section */
+    HashMap *implicit_dependency_modules_hmap;
+    uint32 ref_cnt;
+#endif
+    const ConstStrDescription * module_name;
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
     bool is_wasi_module;

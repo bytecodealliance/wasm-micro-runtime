@@ -15,11 +15,15 @@
 extern "C" {
 #endif
 
+#define AOT_FEATURE_ENABLE_DYNAMIC_LINKING 0x1
+#define AOT_FEATURE_ENABLE_XIP_MODE (0x1 << 1)
+
 #define AOT_FUNC_PREFIX "aot_func#"
 
 typedef InitializerExpression AOTInitExpr;
 typedef WASMType AOTFuncType;
 typedef WASMExport AOTExport;
+struct AOTCompContext;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
 typedef void *dwar_extractor_handle_t;
@@ -136,16 +140,16 @@ typedef struct AOTTableInitData {
  * Import global variable
  */
 typedef struct AOTImportGlobal {
-    char *module_name;
-    char *global_name;
-    /* VALUE_TYPE_I32/I64/F32/F64 */
-    uint8 type;
-    bool is_mutable;
-    uint32 size;
-    /* The data offset of current global in global data */
-    uint32 data_offset;
-    /* global data after linked */
-    WASMValue global_data_linked;
+  const ConstStrDescription *module_name;
+  const ConstStrDescription *global_name;
+  /* VALUE_TYPE_I32/I64/F32/F64 */
+  uint8 type;
+  bool is_mutable;
+  uint32 size;
+  /* The data offset of current global in global data */
+  uint32 data_offset;
+  /* global data after linked */
+  WASMValue global_data_linked;
 } AOTImportGlobal;
 
 /**
@@ -165,19 +169,19 @@ typedef struct AOTGlobal {
  * Import function
  */
 typedef struct AOTImportFunc {
-    char *module_name;
-    char *func_name;
-    AOTFuncType *func_type;
-    uint32 func_type_index;
-    /* function pointer after linked */
-    void *func_ptr_linked;
-    /* signature from registered native symbols */
-    const char *signature;
-    /* attachment */
-    void *attachment;
-    bool call_conv_raw;
-    bool call_conv_wasm_c_api;
-    bool wasm_c_api_with_env;
+  const ConstStrDescription * module_name;
+  const ConstStrDescription *func_name;
+  AOTFuncType *func_type;
+  uint32 func_type_index;
+  /* function pointer after linked */
+  void *func_ptr_linked;
+  /* signature from registered native symbols */
+  const char *signature;
+  /* attachment */
+  void *attachment;
+  bool call_conv_raw;
+  bool call_conv_wasm_c_api;
+  bool wasm_c_api_with_env;
 } AOTImportFunc;
 
 /**
@@ -237,7 +241,7 @@ typedef struct AOTCompData {
 
     /* Functions */
     uint32 func_count;
-    AOTFunc **funcs;
+    AOTFunc * funcs;
 
     /* Custom name sections */
     const uint8 *name_section_buf;
@@ -272,8 +276,8 @@ typedef struct AOTNativeSymbol {
     int32 index;
 } AOTNativeSymbol;
 
-AOTCompData *
-aot_create_comp_data(WASMModule *module);
+AOTCompData*
+aot_create_comp_data(WASMModule *module, uint32 pointer_size);
 
 void
 aot_destroy_comp_data(AOTCompData *comp_data);

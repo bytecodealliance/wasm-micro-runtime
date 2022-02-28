@@ -108,10 +108,12 @@ typedef struct {
     REG_SYM(aot_set_exception_with_id),   \
     REG_SYM(aot_invoke_native),           \
     REG_SYM(aot_call_indirect),           \
+    REG_SYM(aot_call_indirect_with_type), \
     REG_SYM(aot_enlarge_memory),          \
     REG_SYM(aot_set_exception),           \
-    { "memset", (void*)aot_memset },      \
-    { "memmove", (void*)aot_memmove },    \
+    REG_SYM(aot_resolve_function),        \
+    { "memset", (void*)aot_memset},       \
+    { "memmove", (void*)aot_memmove},     \
     { "memcpy", (void*)aot_memmove },     \
     REG_SYM(fmin),                        \
     REG_SYM(fminf),                       \

@@ -173,7 +173,7 @@ static uint32
 get_file_header_size()
 {
     /* magic number (4 bytes) + version (4 bytes) */
-    return sizeof(uint32) + sizeof(uint32);
+    return sizeof(uint32) + sizeof(uint32) + sizeof(uint64) + sizeof(uint32);
 }
 
 static uint32
@@ -394,9 +394,10 @@ get_import_global_size(AOTCompContext *comp_ctx, AOTImportGlobal *import_global)
 {
     /* type (1 byte) + is_mutable (1 byte) + module_name + global_name */
     uint32 size = (uint32)sizeof(uint8) * 2
-                  + get_string_size(comp_ctx, import_global->module_name);
+                  + get_string_size(comp_ctx, import_global->module_name->str);
+
     size = align_uint(size, 2);
-    size += get_string_size(comp_ctx, import_global->global_name);
+    size += get_string_size(comp_ctx, import_global->global_name->str);
     return size;
 }
 
@@ -463,9 +464,10 @@ get_import_func_size(AOTCompContext *comp_ctx, AOTImportFunc *import_func)
 {
     /* type index (2 bytes) + module_name + func_name */
     uint32 size = (uint32)sizeof(uint16)
-                  + get_string_size(comp_ctx, import_func->module_name);
+                  + get_string_size(comp_ctx, import_func->module_name->str);
+
     size = align_uint(size, 2);
-    size += get_string_size(comp_ctx, import_func->func_name);
+    size += get_string_size(comp_ctx, import_func->func_name->str);
     return size;
 }
 
@@ -522,11 +524,37 @@ get_object_data_section_info_size(AOTCompContext *comp_ctx,
 }
 
 static uint32
+get_needed_lib_entries_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
+{
+    uint32 size = (uint32)sizeof(uint32);
+
+    for (uint32 i = 0; i < comp_data->wasm_module->dylink_section->needed_dylib_count; i ++) {
+        bh_assert(comp_data->wasm_module->dylink_section->needed_dylib_entries[i]->len < (((uint32)0x1 << 16) - 1));
+        size = align_uint(size, 2);
+        size += get_string_size(comp_ctx, comp_data->wasm_module->dylink_section->needed_dylib_entries[i]->str);
+        //size += (uint32)sizeof(uint32) +
+        //    comp_data->wasm_module->dylink_section->needed_dylib_entries[i].dylib_name_len;
+    }
+    return size;
+}
+
+static uint32
+get_dylink_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data)
+{
+    if (comp_data->wasm_module->dylink_section)
+        return (uint32)sizeof(uint32) * 4 +
+            get_needed_lib_entries_size(comp_ctx, comp_data);
+    else
+        return 0;
+}
+
+static uint32
 get_init_data_section_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
-                           AOTObjectData *obj_data)
+                            AOTObjectData *obj_data)
 {
     uint32 size = 0;
 
+    size = align_uint(size, 4);
     size += get_mem_info_size(comp_data);
 
     size = align_uint(size, 4);
@@ -889,6 +917,13 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     /* section id + section size */
     size += (uint32)sizeof(uint32) * 2;
     size += get_target_info_section_size();
+
+    /* dylink section */
+    size = align_uint(size, 4);
+    /* section id + section size */
+    size += (uint32)sizeof(uint32) * 2;
+    size += get_dylink_section_size(comp_ctx, comp_data);
+
 
     /* init data section */
     size = align_uint(size, 4);
@@ -1278,6 +1313,11 @@ aot_emit_file_header(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 {
     uint32 offset = *p_offset;
     uint32 aot_curr_version = AOT_CURRENT_VERSION;
+    uint64 features = 0;
+    /*  currently, simply use the offset of field global_table_data in AOTModuleInstance as verifcation
+        TODO: take more field offsets and hash them as verification to monitor the changes to AOTModuleInstance.
+    */
+    uint32 verification = offsetof(AOTModuleInstance, global_table_data.bytes);
 
     EMIT_U8('\0');
     EMIT_U8('a');
@@ -1285,6 +1325,13 @@ aot_emit_file_header(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     EMIT_U8('t');
 
     EMIT_U32(aot_curr_version);
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    features |= AOT_FEATURE_ENABLE_DYNAMIC_LINKING;
+#endif
+    EMIT_U64(features);
+    EMIT_U32(verification);
+
+    bh_assert(offset == get_file_header_size());
 
     *p_offset = offset;
     return true;
@@ -1484,9 +1531,9 @@ aot_emit_import_global_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         offset = align_uint(offset, 2);
         EMIT_U8(import_global->type);
         EMIT_U8(import_global->is_mutable);
-        EMIT_STR(import_global->module_name);
+        EMIT_STR(import_global->module_name->str);
         offset = align_uint(offset, 2);
-        EMIT_STR(import_global->global_name);
+        EMIT_STR(import_global->global_name->str);
     }
 
     if (offset - *p_offset
@@ -1547,9 +1594,9 @@ aot_emit_import_func_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     for (i = 0; i < comp_data->import_func_count; i++, import_func++) {
         offset = align_uint(offset, 2);
         EMIT_U16(import_func->func_type_index);
-        EMIT_STR(import_func->module_name);
+        EMIT_STR(import_func->module_name->str);
         offset = align_uint(offset, 2);
-        EMIT_STR(import_func->func_name);
+        EMIT_STR(import_func->func_name->str);
     }
 
     if (offset - *p_offset != get_import_func_info_size(comp_ctx, comp_data)) {
@@ -1586,6 +1633,38 @@ aot_emit_object_data_section_info(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         != get_object_data_section_info_size(comp_ctx, obj_data)) {
         aot_set_last_error("emit object data section info failed.");
         return false;
+    }
+
+    *p_offset = offset;
+
+    return true;
+}
+
+static bool
+aot_emit_dylink_section(uint8 * buf, uint8 * buf_end, uint32 * p_offset,
+                        AOTCompContext *comp_ctx, AOTCompData * comp_data)
+{
+    uint32 section_size = get_dylink_section_size(comp_ctx, comp_data);
+    uint32 offset = *p_offset;
+
+    *p_offset = offset = align_uint(offset, 4);
+
+    EMIT_U32(AOT_SECTION_TYPE_DYLINK);
+
+    if (!comp_data->wasm_module->dylink_section)
+        EMIT_U32(0);
+    else {
+        EMIT_U32(section_size);
+        EMIT_U32(comp_data->wasm_module->dylink_section->memory_size);
+        EMIT_U32(comp_data->wasm_module->dylink_section->memory_alignment);
+        EMIT_U32(comp_data->wasm_module->dylink_section->table_size);
+        EMIT_U32(comp_data->wasm_module->dylink_section->table_alignment);
+        EMIT_U32(comp_data->wasm_module->dylink_section->needed_dylib_count);
+
+        for (uint32 i = 0; i < comp_data->wasm_module->dylink_section->needed_dylib_count; i ++) {
+            offset = align_uint(offset, 2);
+            EMIT_STR(comp_data->wasm_module->dylink_section->needed_dylib_entries[i]->str);
+        }
     }
 
     *p_offset = offset;
@@ -1681,7 +1760,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     uint32 section_size = get_func_section_size(comp_data, obj_data);
     uint32 i, offset = *p_offset;
     AOTObjectFunc *func = obj_data->funcs;
-    AOTFunc **funcs = comp_data->funcs;
+    AOTFunc *funcs = comp_data->funcs;
 
     *p_offset = offset = align_uint(offset, 4);
 
@@ -1696,7 +1775,7 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
     }
 
     for (i = 0; i < comp_data->func_count; i++)
-        EMIT_U32(funcs[i]->func_type_index);
+        EMIT_U32(funcs[i].func_type_index);
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit function section failed.");
@@ -2708,10 +2787,9 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
     buf_end = buf + aot_file_size;
 
     if (!aot_emit_file_header(buf, buf_end, &offset, comp_data, obj_data)
-        || !aot_emit_target_info_section(buf, buf_end, &offset, comp_data,
-                                         obj_data)
-        || !aot_emit_init_data_section(buf, buf_end, &offset, comp_ctx,
-                                       comp_data, obj_data)
+        || !aot_emit_target_info_section(buf, buf_end, &offset, comp_data, obj_data)
+        || !aot_emit_dylink_section(buf, buf_end, &offset, comp_ctx, comp_data)
+        || !aot_emit_init_data_section(buf, buf_end, &offset, comp_ctx, comp_data, obj_data)
         || !aot_emit_text_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_func_section(buf, buf_end, &offset, comp_data, obj_data)
         || !aot_emit_export_section(buf, buf_end, &offset, comp_ctx, comp_data,

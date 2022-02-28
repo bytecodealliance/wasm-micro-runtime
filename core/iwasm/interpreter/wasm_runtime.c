@@ -10,6 +10,7 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#include "../common/wasm_multimodules_program.h"
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -19,6 +20,11 @@
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
+
+typedef struct LoadingModuleElem {
+    bh_list_link l;
+    WASMModule * module;
+} LoadingModuleElem;
 
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
@@ -44,8 +50,31 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
     }
 }
 
-WASMModule *
-wasm_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
+static void *
+runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
+{
+    void *mem;
+
+    if (size >= UINT32_MAX
+        || !(mem = wasm_runtime_malloc((uint32)size))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "allocate memory failed");
+        return NULL;
+    }
+
+    memset(mem, 0, (uint32)size);
+    return mem;
+}
+
+inline static WASMModuleInstance *
+dylib_entries_map_find(const ConstStrDescription * key, HashMap *map)
+{
+    return bh_hash_map_find(map, (void*)key);
+}
+
+WASMModule*
+wasm_load(const uint8 *buf, uint32 size,
+          char *error_buf, uint32 error_buf_size)
 {
     return wasm_loader_load(buf, size, error_buf, error_buf_size);
 }
@@ -62,20 +91,6 @@ void
 wasm_unload(WASMModule *module)
 {
     wasm_loader_unload(module);
-}
-
-static void *
-runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
-{
-    void *mem;
-
-    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
-        return NULL;
-    }
-
-    memset(mem, 0, (uint32)size);
-    return mem;
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -104,6 +119,11 @@ memories_deinstantiate(WASMModuleInstance *module_inst,
     if (memories) {
         for (i = 0; i < count; i++) {
             if (memories[i]) {
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+                if (module_inst->program &&
+                    module_inst != (WASMModuleInstance*)module_inst->program->root_module_inst)
+                    continue;
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
                 if (memories[i]->owner != module_inst)
                     continue;
@@ -218,8 +238,9 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
 
             /* Adjust __heap_base global value */
             global_idx = module->aux_heap_base_global_index;
-            global_addr = module_inst->global_data
-                          + module_inst->globals[global_idx].data_offset;
+            //global_addr = module_inst->global_data +
+            //              module_inst->globals[global_idx].data_offset;
+            global_addr = module_inst->globals[global_idx].data;
             *(uint32 *)global_addr = aux_heap_base;
             LOG_VERBOSE("Reset __heap_base global to %u", aux_heap_base);
         }
@@ -328,6 +349,32 @@ fail1:
     return NULL;
 }
 
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+static WASMMemoryInstance **
+dependency_memories_instantiate(const WASMModule *module,
+                     WASMModuleInstance *root_module_inst)
+{
+    uint32 memory_count =
+        module->import_memory_count;
+    uint64 total_size;
+    WASMMemoryInstance **memories;
+    WASMProgramInstance * program = root_module_inst->program;
+
+    bh_assert(module->import_memory_count == 1);
+
+    total_size = sizeof(WASMMemoryInstance*) * (uint64)memory_count;
+
+    if (!(memories = runtime_malloc(total_size,
+                                    program->error_buf, program->error_buf_size))) {
+        return NULL;
+    }
+
+    memories[0] = root_module_inst->memories[0];
+
+    return memories;
+}
+#endif
+
 /**
  * Instantiate memories in a module.
  */
@@ -377,6 +424,12 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+            if (module->dylink_section) {
+                num_bytes_per_page = module_inst->init_globals.stack_pointer;
+                init_page_count = 1;
+            }
+#endif
             if (!(memory = memories[mem_index++] = memory_instantiate(
                       module_inst, num_bytes_per_page, init_page_count,
                       max_page_count, actual_heap_size, flags, error_buf,
@@ -442,6 +495,91 @@ tables_deinstantiate(WASMTableInstance **tables, uint32 count)
     }
 }
 
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+static WASMTableInstance **
+dependency_tables_instantiate(const WASMModule *module,
+                    const WASMModuleInstance * module_inst,
+                    WASMModuleInstance *root_module_inst)
+{
+    WASMImport *import;
+    uint32 table_count =
+        module->import_table_count + module->table_count;
+    uint32 table_index = 0, cur_size = 0, max_size = 0;
+    uint64 total_data_size = 0;
+    WASMTableInstance **tables, *table = NULL;
+    WASMProgramInstance * program = module_inst->program;
+
+    // have to establish a table to keep the export function pointer
+    if (!table_count)
+        table_count = 1;
+
+    bh_assert(table_count == 1);
+
+    total_data_size = sizeof(WASMTableInstance*) * (uint64)table_count;
+
+    if (!(tables = runtime_malloc(total_data_size,
+                                  program->error_buf, program->error_buf_size))) {
+        return NULL;
+    }
+
+    /* instantiate tables from import section */
+    import = module->import_tables;
+    for (uint32 i = 0; i < module->import_table_count; i++, import++) {
+        /* it is a built-in table, every module has its own */
+        max_size = import->u.table.possible_grow?
+                import->u.table.max_size:import->u.table.init_size;
+        if (program->config.use_tbl_as_cache) {
+            max_size += module_inst->export_func_count;
+            cur_size = import->u.table.init_size + module_inst->export_func_count;
+        }
+
+        if (max_size > TABLE_SPACE_SLOT_SIZE) {
+            return NULL;
+        }
+
+        total_data_size = offsetof(WASMTableInstance, base_addr);
+        total_data_size += sizeof(uint32) * (uint64)max_size;
+
+        if (!(table = tables[table_index++] = runtime_malloc
+                    (total_data_size , program->error_buf, program->error_buf_size))) {
+            tables_deinstantiate(tables, table_count);
+            return NULL;
+        }
+
+        /* Set all elements to -1 to mark them as uninitialized elements */
+        memset(table, -1, (uint32)total_data_size);
+
+        table->elem_type = import->u.table.elem_type;
+        table->cur_size = cur_size;
+        table->max_size = max_size;
+    }
+
+    if (!table_index && program->config.use_tbl_as_cache) {
+        max_size = module_inst->export_func_count;
+        cur_size = module_inst->export_func_count;
+
+        total_data_size = offsetof(WASMTableInstance, base_addr);
+        total_data_size += sizeof(uint32) * (uint64)max_size;
+
+        if (!(table = tables[table_index++] = runtime_malloc
+                    (total_data_size , program->error_buf, program->error_buf_size))) {
+            tables_deinstantiate(tables, table_count);
+            return NULL;
+        }
+
+        /* Set all elements to -1 to mark them as uninitialized elements */
+        memset(table, -1, (uint32)total_data_size);
+
+        table->elem_type = VALUE_TYPE_FUNCREF;
+        table->cur_size = cur_size;
+        table->max_size = max_size;
+    }
+
+    bh_assert(table_index == table_count);
+    return tables;
+}
+#endif
+
 /**
  * Instantiate tables in a module.
  */
@@ -450,10 +588,15 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                    char *error_buf, uint32 error_buf_size)
 {
     WASMImport *import;
-    uint32 table_index = 0, i,
-           table_count = module->import_table_count + module->table_count;
-    uint64 total_size = sizeof(WASMTableInstance *) * (uint64)table_count;
+    uint32 table_index = 0, i, table_count =
+        module->import_table_count + module->table_count;
+    uint64 total_size = sizeof(WASMTableInstance*) * (uint64)table_count;
+    uint32 cur_size = 0, max_size = 0;
     WASMTableInstance **tables, *table;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMRuntime * runtime = module->runtime;
+    WASMProgramInstance * program = module_inst->program;
+#endif
 
     if (!(tables = runtime_malloc(total_size, error_buf, error_buf_size))) {
         return NULL;
@@ -494,11 +637,33 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
             /* it is a built-in table, every module has its own */
             total_size = offsetof(WASMTableInstance, base_addr);
-            total_size += (uint64)max_size_fixed * sizeof(uint32);
+
+            max_size = max_size_fixed;
+            cur_size = import->u.table.init_size;
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+            if (runtime->config.need_load_dependencies) {
+                if (program->config.use_tbl_as_cache) {
+                    max_size += module_inst->export_func_count;
+                    cur_size += module_inst->export_func_count;
+                }
+                if (module->dylink_section) {
+                    if (wasm_program_is_root_module((WASMModuleInstanceCommon*)module_inst)) {
+                        max_size ++;
+                        cur_size ++;
+                    }
+                }
+
+                if (max_size > TABLE_SPACE_SLOT_SIZE) {
+                    return NULL;
+                }
+            }
+#endif
+            total_size += sizeof(uint32) * max_size;
         }
 
-        if (!(table = tables[table_index++] =
-                  runtime_malloc(total_size, error_buf, error_buf_size))) {
+        if (!(table = tables[table_index++] = runtime_malloc
+                    (total_size , error_buf, error_buf_size))) {
             tables_deinstantiate(tables, table_count);
             return NULL;
         }
@@ -517,8 +682,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
         {
             table->elem_type = import->u.table.elem_type;
-            table->cur_size = import->u.table.init_size;
-            table->max_size = max_size_fixed;
+            table->cur_size = cur_size;
+            table->max_size = max_size;
         }
     }
 
@@ -581,6 +746,10 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         function_count = module->import_function_count + module->function_count;
     uint64 total_size = sizeof(WASMFunctionInstance) * (uint64)function_count;
     WASMFunctionInstance *functions, *function;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMProgramInstance * program = module_inst->program;
+    WASMRuntime * runtime = module->runtime;
+#endif
 
     if (!(functions = runtime_malloc(total_size, error_buf, error_buf_size))) {
         return NULL;
@@ -589,7 +758,9 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate functions from import section */
     function = functions;
     import = module->import_functions;
+
     for (i = 0; i < module->import_function_count; i++, import++) {
+        function->module_inst = module_inst;
         function->is_import_func = true;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -599,37 +770,40 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
             if (function->import_module_inst) {
                 function->import_func_inst =
-                    wasm_lookup_function(function->import_module_inst,
-                                         import->u.function.field_name, NULL);
+                  wasm_lookup_function(function->import_module_inst,
+                                       import->u.function.field_name->str, NULL);
             }
         }
 #endif /* WASM_ENABLE_MULTI_MODULE */
         function->u.func_import = &import->u.function;
-        function->param_cell_num = import->u.function.func_type->param_cell_num;
-        function->ret_cell_num = import->u.function.func_type->ret_cell_num;
-        function->param_count =
-            (uint16)function->u.func_import->func_type->param_count;
-        function->param_types = function->u.func_import->func_type->types;
+        function->func_type = import->u.function.func_type;
         function->local_cell_num = 0;
         function->local_count = 0;
         function->local_types = NULL;
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+        // reset malloc/free/realloc func pointer because it's likely that they are not correct.
+        // will be re-linked in resolving stage later
+        if (program && program->root_module_inst &&
+            (WASMModuleInstance*)program->root_module_inst != module_inst &&
+            program->config.import_memop_mode == FROM_ROOT &&
+            wasm_runtime_is_memop_symbol(runtime, import->u.function.field_name) &&
+            import->u.function.module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_env)) {
+            import->u.function.func_ptr_linked = NULL;
+        }
+#endif
 
         function++;
     }
 
     /* instantiate functions from function section */
     for (i = 0; i < module->function_count; i++) {
+        function->module_inst = module_inst;
         function->is_import_func = false;
         function->u.func = module->functions[i];
-
-        function->param_cell_num = function->u.func->param_cell_num;
-        function->ret_cell_num = function->u.func->ret_cell_num;
+        function->func_type = module->functions[i]->func_type;
         function->local_cell_num = function->u.func->local_cell_num;
-
-        function->param_count =
-            (uint16)function->u.func->func_type->param_count;
         function->local_count = (uint16)function->u.func->local_count;
-        function->param_types = function->u.func->func_type->types;
         function->local_types = function->u.func->local_types;
 
         function->local_offsets = function->u.func->local_offsets;
@@ -693,7 +867,11 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 {
     WASMImport *import;
     uint32 global_data_offset = 0;
-    uint32 i, global_count = module->import_global_count + module->global_count;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMRuntime * runtime = module->runtime;
+#endif
+    uint32 i, global_count =
+        module->import_global_count + module->global_count;
     uint64 total_size = sizeof(WASMGlobalInstance) * (uint64)global_count;
     WASMGlobalInstance *globals, *global;
 
@@ -708,6 +886,8 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         WASMGlobalImport *global_import = &import->u.global;
         global->type = global_import->type;
         global->is_mutable = global_import->is_mutable;
+        global->data = NULL;
+
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (global_import->import_module) {
             if (!(global->import_module_inst = get_sub_module_inst(
@@ -717,7 +897,7 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             }
 
             if (!(global->import_global_inst = wasm_lookup_global(
-                      global->import_module_inst, global_import->field_name))) {
+                    global->import_module_inst, global_import->field_name->str))) {
                 set_error_buf(error_buf, error_buf_size, "unknown global");
                 return NULL;
             }
@@ -731,12 +911,42 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
-            /* native globals share their initial_values in one module */
-            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
-                        &(global_import->global_data_linked),
-                        sizeof(WASMValue));
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+            if (global_import->module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_env)) {
+                if (global_import->field_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_var_stack_pointer)) {
+                    bh_assert(global->is_mutable == true);
+                    global->initial_value.u32 = module_inst->init_globals.stack_pointer;
+                    global_import->is_linked = true;
+                    //global->data = (uint8*)&module_inst->init_globals.stack_pointer;
+                } else if (global_import->field_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_var_memory_base)) {
+                    bh_assert(global->is_mutable == false);
+                    global->initial_value.u32 = module_inst->init_globals.memory_base;
+                    global_import->is_linked = true;
+                } else if (global_import->field_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_var_table_base)) {
+                    bh_assert(global->is_mutable == false);
+                    global->initial_value.u32 = module_inst->init_globals.table_base;
+                    global_import->is_linked = true;
+                } else
+#endif
+                {
+                    // TODO: link other env global variables if exists
+                    /* native globals share their initial_values in one module */
+                    bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                                &(global_import->global_data_linked),
+                                sizeof(WASMValue));
+                }
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+            } else {
+                // TODO: link other non-env global variables if exists
+                // lazy link
+                if (global_import->is_linked)
+                    bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                                    &(global_import->global_data_linked),
+                                    sizeof(WASMValue));
+            }
+#endif
         }
-        global->data_offset = global_data_offset;
+        // global->data_offset = global_data_offset;
         global_data_offset += wasm_value_type_size(global->type);
 
         global++;
@@ -748,7 +958,8 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
         global->type = module->globals[i].type;
         global->is_mutable = module->globals[i].is_mutable;
-        global->data_offset = global_data_offset;
+        // global->data_offset = global_data_offset;
+        global->data = NULL;
 
         global_data_offset += wasm_value_type_size(global->type);
 
@@ -781,20 +992,27 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     return globals;
 }
 
+
 /**
  * Return export function count in module export section.
  */
-static uint32
-get_export_count(const WASMModule *module, uint8 kind)
+static void
+get_export_count(const WASMModule *module, WASMModuleInstance * module_inst)
 {
     WASMExport *export = module->exports;
-    uint32 count = 0, i;
 
-    for (i = 0; i < module->export_count; i++, export ++)
-        if (export->kind == kind)
-            count++;
-
-    return count;
+    for (uint32 i = 0; i < module->export_count; i++, export++) {
+        if (export->kind == EXPORT_KIND_FUNC)
+            module_inst->export_func_count ++;
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
+        else if (export->kind == EXPORT_KIND_TABLE)
+            module_inst->export_tab_count ++;
+        else if (export->kind == EXPORT_KIND_MEMORY)
+            module_inst->export_mem_count ++;
+        else
+            module_inst->export_glob_count ++;
+#endif
+    }
 }
 
 /**
@@ -838,7 +1056,7 @@ export_functions_instantiate(const WASMModule *module,
     return export_funcs;
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
 static void
 export_globals_deinstantiate(WASMExportGlobInstance *globals)
 {
@@ -882,9 +1100,10 @@ execute_post_inst_function(WASMModuleInstance *module_inst)
     WASMType *post_inst_func_type;
     uint32 i;
 
+    // https://github.com/emscripten-core/emscripten/issues/13893
     for (i = 0; i < module_inst->export_func_count; i++)
-        if (!strcmp(module_inst->export_functions[i].name,
-                    "__post_instantiate")) {
+        if (!strcmp(module_inst->export_functions[i].name, "__post_instantiate") ||
+            !strcmp(module_inst->export_functions[i].name, "__wasm_call_ctors")) {
             post_inst_func = module_inst->export_functions[i].function;
             break;
         }
@@ -941,8 +1160,8 @@ execute_start_function(WASMModuleInstance *module_inst)
     if (!func)
         return true;
 
-    bh_assert(!func->is_import_func && func->param_cell_num == 0
-              && func->ret_cell_num == 0);
+    bh_assert(!func->is_import_func && func->func_type->param_cell_num == 0
+              && func->func_type->ret_cell_num == 0);
 
     return wasm_create_exec_env_and_call_function(module_inst, func, 0, NULL);
 }
@@ -1009,8 +1228,8 @@ sub_module_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
         WASMSubModInstNode *sub_module_inst_list_node;
         WASMModule *sub_module = (WASMModule *)sub_module_list_node->module;
         WASMModuleInstance *sub_module_inst =
-            wasm_instantiate(sub_module, false, stack_size, heap_size,
-                             error_buf, error_buf_size);
+                wasm_instantiate(NULL, sub_module, false, stack_size, heap_size,
+                                 error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",
                       sub_module_list_node->module_name);
@@ -1077,7 +1296,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #else
 #if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
-                        func->module_name, func->field_name);
+                        func->module_name->str, func->field_name->str);
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
@@ -1095,7 +1314,7 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
 #else
 #if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_DEBUG("warning: failed to link import global (%s, %s)",
-                      global->module_name, global->field_name);
+                      global->module_name->str, global->field_name->str);
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
@@ -1106,111 +1325,205 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     return true;
 }
 
-/**
- * Instantiate module
- */
-WASMModuleInstance *
-wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
-                 uint32 heap_size, char *error_buf, uint32 error_buf_size)
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+static WASMGlobalInstance *
+dependency_globals_instantiate(const WASMModule *module,
+                    WASMModuleInstance *module_inst,
+                    uint32 *global_data_size_ptr)
+{
+    WASMImport *import;
+    uint32 global_data_offset = 0;
+    uint32 i, global_count =
+        module->import_global_count + module->global_count;
+    uint64 total_size = sizeof(WASMGlobalInstance) * (uint64)global_count;
+    WASMGlobalInstance *globals, *global;
+    WASMRuntime * runtime = module->runtime;
+    WASMProgramInstance * program = module_inst->program;
+
+    if (!(globals = runtime_malloc(total_size,
+                            program->error_buf, program->error_buf_size))) {
+        return NULL;
+    }
+
+    /* instantiate globals from import section */
+    global = globals;
+    import = module->import_globals;
+    for (i = 0; i < module->import_global_count; i++, import++) {
+        WASMGlobalImport *global_import = &import->u.global;
+        global->type = global_import->type;
+        global->is_mutable = global_import->is_mutable;
+        global->data = NULL;
+
+        if (global_import->module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_env)) {
+            if (global_import->field_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_var_stack_pointer)) {
+                if (!wasm_program_link_sp_wasm_globals(program, global, global_import->field_name)) {
+                    set_error_buf(program->error_buf, program->error_buf_size,
+                              "link sp globals failed.");
+                    return NULL;
+                }
+
+            } else if (global_import->field_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_var_memory_base)) {
+                //global_import->is_linked = true;
+                //global_import->global_data_linked.u32 = module_inst->init_globals.memory_base;
+                bh_assert(global->is_mutable == false);
+                global->initial_value.u32 = module_inst->init_globals.memory_base;
+            } else if (global_import->field_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_var_table_base)) {
+                bh_assert(global->is_mutable == false);
+                global->initial_value.u32 = module_inst->init_globals.table_base;
+            } else {
+                // TODO: link other env global variables if exists
+                /* native globals share their initial_values in one module */
+                bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                            &(global_import->global_data_linked),
+                            sizeof(WASMValue));
+            }
+
+        } else if (global_import->module_name == CONST_STR_POOL_DESC(runtime, WAMR_CSP_GOT_func)) {
+                if (!wasm_program_link_got_globals(program,
+                        module_inst, global, global_import->field_name)) {
+                    set_error_buf(program->error_buf, program->error_buf_size,
+                              "link GOT.func globals failed.");
+                    return NULL;
+                }
+        } else {
+            // TODO: link other non-env global variables if exists
+            // lazy link
+        }
+
+        // global->data_offset = global_data_offset;
+        global_data_offset += wasm_value_type_size(global->type);
+
+        global++;
+    }
+
+    /* instantiate globals from global section */
+    for (i = 0; i < module->global_count; i++) {
+        InitializerExpression *init_expr = &(module->globals[i].init_expr);
+
+        global->type = module->globals[i].type;
+        global->is_mutable = module->globals[i].is_mutable;
+        // global->data_offset = global_data_offset;
+        global->data = NULL;
+
+        global_data_offset += wasm_value_type_size(global->type);
+
+        if (init_expr->init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module, init_expr->u.global_index,
+                                        program->error_buf, program->error_buf_size)) {
+                return NULL;
+            }
+
+            bh_memcpy_s(
+              &(global->initial_value), sizeof(WASMValue),
+              &(globals[init_expr->u.global_index].initial_value),
+              sizeof(globals[init_expr->u.global_index].initial_value));
+        }
+#if WASM_ENABLE_REF_TYPES != 0
+        else if (init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST) {
+            global->initial_value.u32 = (uint32)NULL_REF;
+        }
+#endif
+        else {
+            bh_memcpy_s(&(global->initial_value), sizeof(WASMValue),
+                        &(init_expr->u), sizeof(init_expr->u));
+        }
+        global++;
+    }
+
+    bh_assert((uint32)(global - globals) == global_count);
+    *global_data_size_ptr = global_data_offset;
+    (void)module_inst;
+    return globals;
+}
+
+WASMModuleInstance*
+wasm_instantiate_dependency(WASMModule *module, WASMProgramInstance * program,
+                 uint32 stack_size, DependencyModuleInitGlobals * init_globals)
 {
     WASMModuleInstance *module_inst;
     WASMGlobalInstance *globals = NULL, *global;
-    uint32 global_count, global_data_size = 0, i;
+    uint32 global_count, global_data_size = 0, i = 0, table_space_start = 0;
     uint32 base_offset, length;
     uint8 *global_data, *global_data_end;
-#if WASM_ENABLE_MULTI_MODULE != 0
-    bool ret = false;
-#endif
-
-    if (!module)
-        return NULL;
-
-    /* Check heap size */
-    heap_size = align_uint(heap_size, 8);
-    if (heap_size > APP_HEAP_SIZE_MAX)
-        heap_size = APP_HEAP_SIZE_MAX;
 
     /* Allocate the memory */
-    if (!(module_inst = runtime_malloc(sizeof(WASMModuleInstance), error_buf,
-                                       error_buf_size))) {
+    if (!(module_inst = wasm_runtime_malloc(sizeof(WASMModuleInstance)))) {
         return NULL;
     }
+    memset(module_inst, 0, sizeof(WASMModuleInstance));
 
     module_inst->module = module;
+    module_inst->runtime = wasm_runtime_get_runtime();
+    module_inst->program = program;
+    module_inst->inst_id = wasm_program_alloc_module_instance_id(program, (WASMModuleInstanceCommon*)module_inst);
+    module_inst->local_implicit_dependency_modules_name_hmap = NULL;
+    module_inst->exp_ref_cnt = module_inst->imp_ref_cnt = 0;
 
-#if WASM_ENABLE_MULTI_MODULE != 0
-    module_inst->sub_module_inst_list = &module_inst->sub_module_inst_list_head;
-    ret = sub_module_instantiate(module, module_inst, stack_size, heap_size,
-                                 error_buf, error_buf_size);
-    if (!ret) {
-        LOG_DEBUG("build a sub module list failed");
+    if (module_inst->inst_id <= 1)
         goto fail;
-    }
-#endif
 
-#if WASM_ENABLE_DUMP_CALL_STACK != 0
-    if (!(module_inst->frames = runtime_malloc((uint64)sizeof(Vector),
-                                               error_buf, error_buf_size))) {
-        goto fail;
-    }
-#endif
+    memcpy(&module_inst->init_globals, init_globals, sizeof(DependencyModuleInitGlobals));
 
-    /* Instantiate global firstly to get the mutable data size */
     global_count = module->import_global_count + module->global_count;
-    if (global_count
-        && !(globals =
-                 globals_instantiate(module, module_inst, &global_data_size,
-                                     error_buf, error_buf_size))) {
-        goto fail;
-    }
     module_inst->global_count = global_count;
-    module_inst->globals = globals;
 
+    bh_assert(module->memory_count == 0 && module->import_memory_count == 1);
     module_inst->memory_count =
-        module->import_memory_count + module->memory_count;
-    module_inst->table_count = module->import_table_count + module->table_count;
+        module->import_memory_count;
+    module_inst->table_count =
+        module->import_table_count + module->table_count;
     module_inst->function_count =
         module->import_function_count + module->function_count;
 
     /* export */
-    module_inst->export_func_count = get_export_count(module, EXPORT_KIND_FUNC);
-#if WASM_ENABLE_MULTI_MODULE != 0
-    module_inst->export_tab_count = get_export_count(module, EXPORT_KIND_TABLE);
-    module_inst->export_mem_count =
-        get_export_count(module, EXPORT_KIND_MEMORY);
-    module_inst->export_glob_count =
-        get_export_count(module, EXPORT_KIND_GLOBAL);
-#endif
+    get_export_count(module, module_inst);
 
-    if (global_count > 0) {
-        if (!(module_inst->global_data = runtime_malloc(
-                  global_data_size, error_buf, error_buf_size))) {
-            goto fail;
-        }
+    // use root module memory to instantiate
+    module_inst->memories = dependency_memories_instantiate(module, (WASMModuleInstance*)program->root_module_inst);
+
+    /* Initialize the memory data with data segment section */
+    module_inst->default_memory =
+      module_inst->memory_count ? module_inst->memories[0] : NULL;
+
+    if (!module_inst->table_count)
+        module_inst->table_count = 1;
+
+    module_inst->tables = dependency_tables_instantiate(module, module_inst, (WASMModuleInstance*)program->root_module_inst);
+
+
+    module_inst->default_table =
+      module_inst->table_count ? module_inst->tables[0] : NULL;
+
+    table_space_start = wasm_program_alloc_table_space_by_size(module_inst->inst_id, module_inst->default_table->max_size);
+    module_inst->init_globals.table_base = (table_space_start + init_globals->table_alignment - 1) &
+                            (~(init_globals->table_alignment - 1));
+
+    if (module_inst->function_count > 0) {
+        module_inst->functions = functions_instantiate(module, module_inst,
+                                                    program->error_buf, program->error_buf_size);
     }
 
-    /* Instantiate memories/tables/functions */
-    if ((module_inst->memory_count > 0
-         && !(module_inst->memories = memories_instantiate(
-                  module, module_inst, heap_size, error_buf, error_buf_size)))
-        || (module_inst->table_count > 0
-            && !(module_inst->tables = tables_instantiate(
-                     module, module_inst, error_buf, error_buf_size)))
-        || (module_inst->function_count > 0
-            && !(module_inst->functions = functions_instantiate(
-                     module, module_inst, error_buf, error_buf_size)))
-        || (module_inst->export_func_count > 0
-            && !(module_inst->export_functions = export_functions_instantiate(
-                     module, module_inst, module_inst->export_func_count,
-                     error_buf, error_buf_size)))
-#if WASM_ENABLE_MULTI_MODULE != 0
-        || (module_inst->export_glob_count > 0
-            && !(module_inst->export_globals = export_globals_instantiate(
-                     module, module_inst, module_inst->export_glob_count,
-                     error_buf, error_buf_size)))
-#endif
-    ) {
+    if (module_inst->export_func_count > 0) {
+        module_inst->export_functions = export_functions_instantiate(module, module_inst,
+                                                    module_inst->export_func_count,
+                                                    program->error_buf, program->error_buf_size);
+    }
+
+
+    if (global_count
+        && !(globals = dependency_globals_instantiate(module, module_inst,
+                                           &global_data_size))) {
         goto fail;
+    }
+
+    module_inst->globals = globals;
+
+    if (global_count > 0) {
+        if (!(module_inst->global_data = runtime_malloc
+                    (global_data_size, program->error_buf,
+                    program->error_buf_size))) {
+            goto fail;
+        }
     }
 
     if (global_count > 0) {
@@ -1219,6 +1532,302 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         global_data_end = global_data + global_data_size;
         global = globals;
         for (i = 0; i < global_count; i++, global++) {
+            if (!global->data)
+                global->data = global_data;
+
+            switch (global->type) {
+                case VALUE_TYPE_I32:
+                case VALUE_TYPE_F32:
+#if WASM_ENABLE_REF_TYPES != 0
+                case VALUE_TYPE_FUNCREF:
+                case VALUE_TYPE_EXTERNREF:
+#endif
+                    *(int32*)global_data = global->initial_value.i32;
+                    global_data += sizeof(int32);
+                    break;
+                case VALUE_TYPE_I64:
+                case VALUE_TYPE_F64:
+                    bh_memcpy_s(global_data, (uint32)(global_data_end - global_data),
+                                &global->initial_value.i64, sizeof(int64));
+                    global_data += sizeof(int64);
+                    break;
+                default:
+                    bh_assert(0);
+            }
+        }
+        bh_assert(global_data == global_data_end);
+    }
+
+    for (i = 0; i < module->data_seg_count; i++) {
+        WASMMemoryInstance *memory = NULL;
+        uint8 *memory_data = NULL;
+        uint32 memory_size = 0;
+        WASMDataSeg *data_seg = &module->data_segments[i];
+
+#if WASM_ENABLE_BULK_MEMORY != 0
+        if (data_seg->is_passive)
+            continue;
+#endif
+
+        bh_assert(data_seg->memory_index == 0);
+        /* has check it in loader */
+        memory = module_inst->memories[data_seg->memory_index];
+        bh_assert(memory);
+
+        memory_data = memory->memory_data;
+        memory_size = memory->num_bytes_per_page * memory->cur_page_count;
+        bh_assert(memory_data || memory_size == 0);
+
+        bh_assert(data_seg->base_offset.init_expr_type
+                    == INIT_EXPR_TYPE_I32_CONST
+                  || data_seg->base_offset.init_expr_type
+                       == INIT_EXPR_TYPE_GET_GLOBAL);
+
+        if (data_seg->base_offset.init_expr_type
+            == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module,
+                                        data_seg->base_offset.u.global_index,
+                                        program->error_buf, program->error_buf_size)) {
+                goto fail;
+            }
+
+            if (!globals
+                || globals[data_seg->base_offset.u.global_index].type
+                     != VALUE_TYPE_I32) {
+                set_error_buf(program->error_buf, program->error_buf_size,
+                              "data segment does not fit");
+                goto fail;
+            }
+
+            base_offset = globals[data_seg->base_offset.u.global_index]
+                .initial_value.i32;
+        } else {
+            base_offset = (uint32)data_seg->base_offset.u.i32;
+        }
+
+        /* check offset */
+        if (base_offset > memory_size) {
+            LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
+                      memory_size);
+#if WASM_ENABLE_REF_TYPES != 0
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "out of bounds memory access");
+#else
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "data segment does not fit");
+#endif
+            goto fail;
+        }
+
+        /* check offset + length(could be zero) */
+        length = data_seg->data_length;
+        if (base_offset + length > memory_size) {
+            LOG_DEBUG("base_offset(%d) + length(%d) > memory_size(%d)",
+                      base_offset, length, memory_size);
+#if WASM_ENABLE_REF_TYPES != 0
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "out of bounds memory access");
+#else
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "data segment does not fit");
+#endif
+            goto fail;
+        }
+
+        if (memory_data) {
+            bh_memcpy_s(memory_data + base_offset, memory_size - base_offset,
+                        data_seg->data, length);
+        }
+    }
+
+    /* in case there is no table */
+    for (i = 0; module_inst->table_count > 0 && i < module->table_seg_count;
+         i++) {
+        uint32 table_base = 0;
+        WASMTableSeg *table_seg = module->table_segments + i;
+        bh_assert(table_seg->table_index == 0);
+        /* has check it in loader */
+        WASMTableInstance *table = module_inst->tables[table_seg->table_index];
+        bh_assert(table);
+
+#if WASM_ENABLE_REF_TYPES != 0
+        if (table->elem_type != VALUE_TYPE_FUNCREF
+            && table->elem_type != VALUE_TYPE_EXTERNREF) {
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "elements segment does not fit");
+            goto fail;
+        }
+#endif
+
+        uint32 *table_data = (uint32 *)table->base_addr;
+#if WASM_ENABLE_MULTI_MODULE != 0
+        table_data = table->table_inst_linked
+                        ? (uint32 *)table->table_inst_linked->base_addr
+                        : table_data;
+#endif
+        bh_assert(table_data);
+
+#if WASM_ENABLE_REF_TYPES != 0
+        if (!wasm_elem_is_active(table_seg->mode))
+            continue;
+#endif
+
+        /* init vec(funcidx) or vec(expr) */
+        bh_assert(
+          table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
+          || table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
+#if WASM_ENABLE_REF_TYPES != 0
+          || table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_FUNCREF_CONST
+          || table_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST
+#endif
+        );
+
+        if (table_seg->base_offset.init_expr_type
+            == INIT_EXPR_TYPE_GET_GLOBAL) {
+            if (!check_global_init_expr(module,
+                                        table_seg->base_offset.u.global_index,
+                                        program->error_buf, program->error_buf_size)) {
+                goto fail;
+            }
+
+            if (!globals
+                || globals[table_seg->base_offset.u.global_index].type
+                   != VALUE_TYPE_I32) {
+                set_error_buf(program->error_buf, program->error_buf_size,
+                              "elements segment does not fit");
+                goto fail;
+            }
+
+            table_base = globals[table_seg->base_offset.u.global_index].initial_value.i32;
+        }
+
+        /* check offset since length might negative */
+        if (table_base > (module_inst->init_globals.table_base + table->cur_size)) {
+            LOG_DEBUG("base_offset(%d) > table->cur_size(%d)",
+                      table_base, module_inst->init_globals.table_base + table->cur_size);
+#if WASM_ENABLE_REF_TYPES != 0
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "out of bounds table access");
+#else
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "elements segment does not fit");
+#endif
+            goto fail;
+        }
+
+        /* check offset + length(could be zero) */
+        length = table_seg->function_count;
+        if (table_base + length > (module_inst->init_globals.table_base + table->cur_size)) {
+            LOG_DEBUG("base_offset(%d) + length(%d)> table->cur_size(%d)",
+                      table_base, length, module_inst->init_globals.table_base + table->cur_size);
+#if WASM_ENABLE_REF_TYPES != 0
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "out of bounds table access");
+#else
+            set_error_buf(program->error_buf, program->error_buf_size,
+                          "elements segment does not fit");
+#endif
+            goto fail;
+        }
+
+        /**
+         * Check function index in the current module inst for now.
+         * will check the linked table inst owner in future.
+         * so loader check is enough
+         */
+        bh_memcpy_s(
+          table_data + table_base - module_inst->init_globals.table_base,
+          (uint32)((module_inst->init_globals.table_base + table->cur_size - table_base)
+                   * sizeof(uint32)),
+          table_seg->func_indexes, (uint32)(length * sizeof(uint32)));
+    }
+
+    /* module instance type */
+    module_inst->module_type = Wasm_Module_Bytecode;
+
+    /* Initialize the thread related data */
+    if (stack_size == 0)
+        stack_size = DEFAULT_WASM_STACK_SIZE;
+#if WASM_ENABLE_SPEC_TEST != 0
+    if (stack_size < 48 *1024)
+        stack_size = 48 * 1024;
+#endif
+    module_inst->default_wasm_stack_size = stack_size;
+
+    if (module->malloc_function != (uint32)-1) {
+        module_inst->malloc_function =
+            &module_inst->functions[module->malloc_function];
+    }
+
+    if (module->free_function != (uint32)-1) {
+        module_inst->free_function =
+            &module_inst->functions[module->free_function];
+    }
+
+    if (module->retain_function != (uint32)-1) {
+        module_inst->retain_function =
+            &module_inst->functions[module->retain_function];
+    }
+
+    if (module->start_function != (uint32)-1) {
+        /* TODO: fix start function can be import function issue */
+        if (module->start_function >= module->import_function_count)
+            module_inst->start_function =
+                &module_inst->functions[module->start_function];
+    }
+
+    /* Execute __wasm_call_ctors function */
+    // Note: global relocs has to be run by each thread.
+    if (!execute_post_inst_function(module_inst)
+        ||!execute_start_function(module_inst)) {
+        set_error_buf(program->error_buf, program->error_buf_size,
+                      module_inst->cur_exception);
+        goto fail;
+    }
+
+    return module_inst;
+
+fail:
+    wasm_deinstantiate(module_inst, true);
+    return NULL;
+}
+#endif
+
+bool
+init_globals(WASMModule * module, WASMModuleInstance * module_inst,
+            char *error_buf, uint32 error_buf_size)
+{
+    uint32 global_count = 0, global_data_size = 0, i;
+    WASMGlobalInstance *globals = NULL, *global;
+    uint8 *global_data, *global_data_end;
+
+    /* Instantiate global firstly to get the mutable data size */
+    global_count = module->import_global_count + module->global_count;
+    if (global_count
+        && !(globals = globals_instantiate(module, module_inst,
+                                        &global_data_size,
+                                        error_buf, error_buf_size))) {
+        return false;
+    }
+    module_inst->global_count = global_count;
+    module_inst->globals = globals;
+
+    if (global_count > 0) {
+        if (!(module_inst->global_data = runtime_malloc
+                    (global_data_size, error_buf, error_buf_size))) {
+            return false;
+        }
+    }
+
+    if (global_count > 0) {
+        /* Initialize the global data */
+        global_data = module_inst->global_data;
+        global_data_end = global_data + global_data_size;
+        global = globals;
+        for (i = 0; i < global_count; i++, global++) {
+            if (!global->data)
+                global->data = global_data;
+
             switch (global->type) {
                 case VALUE_TYPE_I32:
                 case VALUE_TYPE_F32:
@@ -1242,6 +1851,145 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         }
         bh_assert(global_data == global_data_end);
     }
+    return true;
+}
+
+/**
+ * Instantiate module
+ */
+WASMModuleInstance*
+wasm_instantiate(WASMProgramInstance * program,
+                WASMModule *module, bool is_sub_inst,
+                uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size)
+{
+    WASMModuleInstance *module_inst;
+    uint32 i;
+    uint32 base_offset, length;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bool ret = false;
+#endif
+
+    if (!module)
+        return NULL;
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (program) {
+        error_buf = program->error_buf;
+        error_buf_size = program->error_buf_size;
+    }
+#else
+    if (module->dylink_section)
+        return NULL;
+#endif
+
+    /* Check heap size */
+    heap_size = align_uint(heap_size, 8);
+    if (heap_size > APP_HEAP_SIZE_MAX)
+        heap_size = APP_HEAP_SIZE_MAX;
+
+    /* Allocate the memory */
+    if (!(module_inst = runtime_malloc(sizeof(WASMModuleInstance),
+                                       error_buf, error_buf_size))) {
+        return NULL;
+    }
+
+    module_inst->module = module;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    module_inst->exp_ref_cnt = 0;
+    module_inst->imp_ref_cnt = 1; // be helpful to hold the instance in program lifetime.
+    module_inst->runtime = wasm_runtime_get_runtime();
+    module_inst->local_implicit_dependency_modules_name_hmap = NULL;
+    if (program) {
+        module_inst->program = program;
+        wasm_program_alloc_module_instance_id(program, (WASMModuleInstanceCommon*)module_inst);
+    }
+    module_inst->init_globals.memory_base = 1024;
+    module_inst->init_globals.actual_memory_base = 1024;
+    module_inst->init_globals.table_base = 1; // 0 is reserved for NULL
+    module_inst->init_globals.stack_pointer = 65536;
+#endif
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+    module_inst->sub_module_inst_list =
+      &module_inst->sub_module_inst_list_head;
+    ret = sub_module_instantiate(module, module_inst, stack_size, heap_size,
+                                 error_buf, error_buf_size);
+    if (!ret) {
+        LOG_DEBUG("build a sub module list failed");
+        goto fail;
+    }
+#endif
+
+#if WASM_ENABLE_DUMP_CALL_STACK != 0
+    if (!(module_inst->frames = runtime_malloc((uint64)sizeof(Vector),
+                                               error_buf, error_buf_size))) {
+        goto fail;
+    }
+#endif
+
+    module_inst->memory_count =
+        module->import_memory_count + module->memory_count;
+    module_inst->table_count =
+        module->import_table_count + module->table_count;
+    module_inst->function_count =
+        module->import_function_count + module->function_count;
+
+    /* export */
+    get_export_count(module, module_inst);
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (module->dylink_section) {
+        module_inst->init_globals.table_size = module->dylink_section->table_size +
+            module_inst->export_func_count;
+    }
+#endif
+
+    if (!module->dylink_section) {
+        if (!init_globals(module, module_inst, error_buf, error_buf_size))
+            goto fail;
+    }
+
+    /* Instantiate memories/tables/functions */
+    if ((module_inst->memory_count > 0
+         && !(module_inst->memories =
+                memories_instantiate(module,
+                                     module_inst,
+                                     heap_size, error_buf, error_buf_size)))
+        || (module_inst->table_count > 0
+            && !(module_inst->tables =
+                   tables_instantiate(module,
+                                      module_inst,
+                                      error_buf, error_buf_size)))
+        || (module_inst->function_count > 0
+            && !(module_inst->functions =
+                   functions_instantiate(module,
+                                         module_inst,
+                                         error_buf, error_buf_size)))
+        || (module_inst->export_func_count > 0
+            && !(module_inst->export_functions = export_functions_instantiate(
+                   module, module_inst, module_inst->export_func_count,
+                   error_buf, error_buf_size)))
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
+        || (module_inst->export_glob_count > 0
+            && !(module_inst->export_globals = export_globals_instantiate(
+                   module, module_inst, module_inst->export_glob_count,
+                   error_buf, error_buf_size)))
+#endif
+    ) {
+        goto fail;
+    }
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (module_inst->memory_count)
+        module_inst->init_globals.stack_pointer = module_inst->memories[0]->heap_data -
+            module_inst->memories[0]->memory_data;
+#endif
+
+    if (module->dylink_section) {
+        if (!init_globals(module, module_inst, error_buf, error_buf_size))
+            goto fail;
+    }
 
     if (!check_linked_symbol(module_inst, error_buf, error_buf_size)) {
         goto fail;
@@ -1255,7 +2003,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
         WASMMemoryInstance *memory = NULL;
         uint8 *memory_data = NULL;
         uint32 memory_size = 0;
-        WASMDataSeg *data_seg = module->data_segments[i];
+        WASMDataSeg *data_seg = &module->data_segments[i];
 
 #if WASM_ENABLE_BULK_MEMORY != 0
         if (data_seg->is_passive)
@@ -1282,20 +2030,24 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 goto fail;
             }
 
-            if (!globals
-                || globals[data_seg->base_offset.u.global_index].type
-                       != VALUE_TYPE_I32) {
+            if (!module_inst->globals
+                || module_inst->globals[data_seg->base_offset.u.global_index].type
+                     != VALUE_TYPE_I32) {
                 set_error_buf(error_buf, error_buf_size,
                               "data segment does not fit");
                 goto fail;
             }
 
-            data_seg->base_offset.u.i32 =
-                globals[data_seg->base_offset.u.global_index].initial_value.i32;
+            base_offset = module_inst->globals[data_seg->base_offset.u.global_index]
+                .initial_value.i32;
+            //data_seg->base_offset.u.i32 =
+            //    module_inst->globals[data_seg->base_offset.u.global_index]
+            //    .initial_value.i32;
+        } else {
+            base_offset = (uint32)data_seg->base_offset.u.i32;
         }
 
         /* check offset */
-        base_offset = (uint32)data_seg->base_offset.u.i32;
         if (base_offset > memory_size) {
             LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
                       memory_size);
@@ -1332,7 +2084,13 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 
     /* Initialize the table data with table segment section */
     module_inst->default_table =
-        module_inst->table_count ? module_inst->tables[0] : NULL;
+      module_inst->table_count ? module_inst->tables[0] : NULL;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    bh_assert(!module_inst->program ||
+        (module_inst->program && module_inst->inst_id == 1));
+
+    //wasm_program_alloc_table_space_by_table(module_inst, module_inst->default_table);
+#endif
     /* in case there is no table */
     for (i = 0; module_inst->table_count > 0 && i < module->table_seg_count;
          i++) {
@@ -1384,17 +2142,16 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 goto fail;
             }
 
-            if (!globals
-                || globals[table_seg->base_offset.u.global_index].type
-                       != VALUE_TYPE_I32) {
+            if (!module_inst->globals
+                || module_inst->globals[table_seg->base_offset.u.global_index].type
+                   != VALUE_TYPE_I32) {
                 set_error_buf(error_buf, error_buf_size,
                               "elements segment does not fit");
                 goto fail;
             }
 
             table_seg->base_offset.u.i32 =
-                globals[table_seg->base_offset.u.global_index]
-                    .initial_value.i32;
+              module_inst->globals[table_seg->base_offset.u.global_index].initial_value.i32;
         }
 
         /* check offset since length might negative */
@@ -1514,11 +2271,19 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 #endif
 #endif
 
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (program) {
+        if (!wasm_program_insert_module_inst_by_name(program,
+                                                (WASMModuleInstanceCommon*)module_inst,
+                                                module_inst->module->module_name))
+            goto fail;
+    }
+#endif
+
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_inst_mem_consumption(
         (WASMModuleInstanceCommon *)module_inst);
 #endif
-    (void)global_data_end;
     return module_inst;
 fail:
     wasm_deinstantiate(module_inst, false);
@@ -1530,6 +2295,8 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 {
     if (!module_inst)
         return;
+
+    //printf("module %s deinstantiate internal\n", (module_inst)->module->module_name->str);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     sub_module_deinstantiate(module_inst);
@@ -1554,7 +2321,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
                             module_inst->function_count);
     globals_deinstantiate(module_inst->globals);
     export_functions_deinstantiate(module_inst->export_functions);
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
     export_globals_deinstantiate(module_inst->export_globals);
 #endif
 
@@ -1573,6 +2340,12 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         bh_vector_destroy(module_inst->frames);
         wasm_runtime_free(module_inst->frames);
         module_inst->frames = NULL;
+    }
+#endif
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (module_inst->local_implicit_dependency_modules_name_hmap) {
+        bh_hash_map_destroy(module_inst->local_implicit_dependency_modules_name_hmap);
     }
 #endif
 
@@ -1717,6 +2490,11 @@ wasm_create_exec_env_singleton(WASMModuleInstance *module_inst)
 void
 wasm_set_exception(WASMModuleInstance *module_inst, const char *exception)
 {
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMProgramInstance * program = module_inst->program;
+    if (program)
+        program->exception_inst = (WASMModuleInstanceCommon*)module_inst;
+#endif
     if (exception)
         snprintf(module_inst->cur_exception, sizeof(module_inst->cur_exception),
                  "Exception: %s", exception);
@@ -1739,14 +2517,14 @@ wasm_dump_perf_profiling(const WASMModuleInstance *module_inst)
 {
     WASMExportFuncInstance *export_func;
     WASMFunctionInstance *func_inst;
-    char *func_name;
+    const char *func_name;
     uint32 i, j;
 
     os_printf("Performance profiler data:\n");
     for (i = 0; i < module_inst->function_count; i++) {
         func_inst = module_inst->functions + i;
         if (func_inst->is_import_func) {
-            func_name = func_inst->u.func_import->field_name;
+            func_name = func_inst->u.func_import->field_name->str;
         }
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
         else if (func_inst->u.func->field_name) {
@@ -1783,6 +2561,11 @@ uint32
 wasm_module_malloc(WASMModuleInstance *module_inst, uint32 size,
                    void **p_native_addr)
 {
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMProgramInstance * program = module_inst->program;
+    if (program && program->config.import_memop_mode == FROM_ROOT)
+        module_inst = (WASMModuleInstance *)program->root_module_inst;
+#endif
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint8 *addr = NULL;
     uint32 offset = 0;
@@ -1844,6 +2627,11 @@ uint32
 wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
                     void **p_native_addr)
 {
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMProgramInstance * program = module_inst->program;
+    if (program && program->config.import_memop_mode == FROM_ROOT)
+        module_inst = (WASMModuleInstance *)program->root_module_inst;
+#endif
     WASMMemoryInstance *memory = module_inst->default_memory;
     uint8 *addr = NULL;
 
@@ -1878,6 +2666,12 @@ wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
 void
 wasm_module_free(WASMModuleInstance *module_inst, uint32 ptr)
 {
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    WASMProgramInstance * program = module_inst->program;
+    if (program && program->config.import_memop_mode == FROM_ROOT)
+        module_inst = (WASMModuleInstance *)program->root_module_inst;
+#endif
+
     if (ptr) {
         WASMMemoryInstance *memory = module_inst->default_memory;
         uint8 *addr;
@@ -2132,7 +2926,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     return ret;
 }
 
-#if WASM_ENABLE_REF_TYPES != 0
+//#if WASM_ENABLE_REF_TYPES != 0
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
                    uint32 inc_entries, uint32 init_val)
@@ -2170,7 +2964,7 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
     table_inst->cur_size = entry_count;
     return true;
 }
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
+//#endif /* WASM_ENABLE_REF_TYPES != 0 */
 
 bool
 wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
@@ -2243,9 +3037,11 @@ wasm_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size)
     if (stack_top_idx != (uint32)-1) {
         /* The aux stack top is a wasm global,
             set the initial value for the global */
-        uint8 *global_addr = module_inst->global_data
-                             + module_inst->globals[stack_top_idx].data_offset;
-        *(int32 *)global_addr = start_offset;
+        uint8 *global_addr =
+            module_inst->globals[stack_top_idx].data;
+        //    module_inst->global_data +
+        //    module_inst->globals[stack_top_idx].data_offset;
+        *(int32*)global_addr = start_offset;
         /* The aux stack boundary is a constant value,
             set the value to exec_env */
         exec_env->aux_stack_boundary.boundary = start_offset - size;
@@ -2403,8 +3199,9 @@ wasm_get_module_inst_mem_consumption(const WASMModuleInstance *module_inst,
     if (module_inst->global_count > 0) {
         WASMGlobalInstance *global =
             &module_inst->globals[module_inst->global_count - 1];
-        mem_conspn->globals_size +=
-            global->data_offset + wasm_value_type_size(global->type);
+        //mem_conspn->globals_size += global->data_offset
+        //                            + wasm_value_type_size(global->type);
+        mem_conspn->globals_size += global->data + wasm_value_type_size(global->type) - (uint8 *)module_inst->globals;
     }
 
     mem_conspn->exports_size =
@@ -2474,7 +3271,7 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
 
         /* look for the function name */
         if (func_inst->is_import_func) {
-            func_name = func_inst->u.func_import->field_name;
+            func_name = func_inst->u.func_import->field_name->str;
         }
         else {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0

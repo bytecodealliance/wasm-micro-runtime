@@ -20,7 +20,36 @@
 #include <sys/time.h>
 #endif
 
-static NativeSymbolsList g_native_symbols_list = NULL;
+static NativeSymbolsVec g_native_symbols_vec = NULL;
+static uint32 g_native_libs_count = 0;
+static uint32 g_native_libs_size = 0;
+
+enum {
+#if WASM_ENABLE_LIBC_BUILTIN != 0
+    ID_LIBC_BUILTIN = 0,
+#endif
+#if WASM_ENABLE_SPEC_TEST
+    ID_SPECTEST,
+#endif
+#if WASM_ENABLE_LIBC_WASI != 0
+    ID_LIBC_WASI_UNSTABLE,
+    ID_LIBC_WASI_PREVIEW1,
+#endif
+#if WASM_ENABLE_BASE_LIB != 0
+    ID_BASE_LIB,
+#endif
+#if WASM_ENABLE_APP_FRAMEWORK != 0
+    ID_APP_FRAME,
+#endif
+#if WASM_ENABLE_LIB_PTHREAD != 0
+    ID_PTHREAD,
+#endif
+#if WASM_ENABLE_LIBC_EMCC != 0
+    ID_LIBC_EMCC,
+#endif
+    ID_USER,
+    NODE_COUNT
+};
 
 uint32
 get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis);
@@ -53,7 +82,7 @@ get_lib_pthread_export_apis(NativeSymbol **p_lib_pthread_apis);
 uint32
 get_libc_emcc_export_apis(NativeSymbol **p_libc_emcc_apis);
 
-static bool
+bool
 check_symbol_signature(const WASMType *type, const char *signature)
 {
     const char *p = signature, *p_end;
@@ -121,7 +150,7 @@ check_symbol_signature(const WASMType *type, const char *signature)
 
     return true;
 }
-
+/*
 #if ENABLE_QUICKSORT == 0
 static void
 sort_symbol_ptr(NativeSymbol *native_symbols, uint32 n_native_symbols)
@@ -188,12 +217,12 @@ quick_sort_symbols(NativeSymbol *native_symbols, int left, int right)
     quick_sort_symbols(native_symbols, pin_left, left - 1);
     quick_sort_symbols(native_symbols, left + 1, pin_right);
 }
-#endif /* end of ENABLE_QUICKSORT */
-
+#endif
+*/
 static void *
 lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
-              const char *symbol, const char **p_signature, void **p_attachment)
-{
+              const ConstStrDescription *symbol, const char **p_signature, void **p_attachment)
+{/*
     int low = 0, mid, ret;
     int high = (int32)n_native_symbols - 1;
 
@@ -210,19 +239,78 @@ lookup_symbol(NativeSymbol *native_symbols, uint32 n_native_symbols,
         else
             low = mid + 1;
     }
+*/
+    uint32 i = 0;
+    for (i = 0; i < n_native_symbols; i ++) {
+        NativeSymbol * native_symbol = &native_symbols[i];
+        if (native_symbol->u.symbol == symbol) {
+            *p_signature = native_symbol->signature;
+            *p_attachment = native_symbol->attachment;
+            return native_symbol->func_ptr;
+        }
+    }
 
     return NULL;
 }
 
 void *
-wasm_native_resolve_symbol(const char *module_name, const char *field_name,
-                           const WASMType *func_type, const char **p_signature,
-                           void **p_attachment, bool *p_call_conv_raw)
+wasm_native_resolve_symbol(const ConstStrDescription *module_name,
+                            const ConstStrDescription ** p_field_name,
+                            const WASMType *func_type, const char **p_signature,
+                            void **p_attachment, bool *p_call_conv_raw)
 {
-    NativeSymbolsNode *node, *node_next;
+    WASMRuntime * runtime = wasm_runtime_get_runtime();
+    NativeSymbolsNode *node = NULL;
     const char *signature = NULL;
+    const ConstStrDescription * field_name = *p_field_name;
     void *func_ptr = NULL, *attachment;
+    uint32 field_id =0, first_sym_id = 0, symbol_index = 0;
+    bool pass_check = false;
 
+    if (wasm_runtime_is_system_symbol(runtime, module_name) &&
+        wasm_runtime_is_system_symbol(runtime, field_name)) {
+        for (uint32 i = 0; i < ID_USER; i ++) {
+            node = &g_native_symbols_vec[i];
+            if (node->module_name == module_name) {
+                field_id = wasm_runtime_get_syssymbol_id(runtime, field_name);
+                first_sym_id = wasm_runtime_get_syssymbol_id(runtime, node->native_symbols[0].u.symbol);
+
+                if (field_id < first_sym_id + node->n_native_symbols) {
+                    symbol_index = field_id - first_sym_id;
+                    func_ptr = node->native_symbols[symbol_index].func_ptr;
+                    signature = node->native_symbols[symbol_index].signature;
+                    attachment = node->native_symbols[symbol_index].attachment;
+                    break;
+                }
+            }
+        }
+    } else {
+        for (uint32 i = ID_USER; i < g_native_libs_count; i ++) {
+            node = &g_native_symbols_vec[i];
+            if (node->module_name == module_name) {
+                func_ptr =
+                    lookup_symbol(node->native_symbols, node->n_native_symbols,
+                                   field_name, &signature, &attachment);
+
+                if (func_ptr) {
+                    break;
+                }
+
+                if (field_name->str[0] == '_') {
+                    const ConstStrDescription * new_field_name =
+                        wasm_runtime_records_const_string(runtime, &field_name->str[1], field_name->len - 1, NULL, 0);
+                    func_ptr =
+                        lookup_symbol(node->native_symbols, node->n_native_symbols,
+                                   new_field_name, &signature, &attachment);
+
+                    if (func_ptr)
+                        break;
+                }
+            }
+        }
+    }
+
+#if 0
     node = g_native_symbols_list;
     while (node) {
         node_next = node->next;
@@ -238,18 +326,32 @@ wasm_native_resolve_symbol(const char *module_name, const char *field_name,
         }
         node = node_next;
     }
+#endif
 
     if (func_ptr) {
         if (signature && signature[0] != '\0') {
             /* signature is not empty, check its format */
             if (!check_symbol_signature(func_type, signature)) {
+                // hotfix abort() if launching AS module
+                if (symbol_index && node->native_symbols[++symbol_index].u.symbol == field_name) {
+                    signature = node->native_symbols[symbol_index].signature;
+                    if (check_symbol_signature(func_type, signature)) {
+                        *p_signature = signature;
+                        func_ptr = node->native_symbols[symbol_index].func_ptr;
+                        attachment = node->native_symbols[symbol_index].attachment;
+                        pass_check = true;
+                    }
+                }
+
+                if (!pass_check) {
 #if WASM_ENABLE_WAMR_COMPILER == 0
-                /* Output warning except running aot compiler */
-                LOG_WARNING("failed to check signature '%s' and resolve "
-                            "pointer params for import function (%s %s)\n",
-                            signature, module_name, field_name);
+                    /* Output warning except running aot compiler */
+                    LOG_WARNING("failed to check signature '%s' and resolve "
+                                "pointer params for import function (%s %s)\n",
+                                signature, module_name, field_name);
 #endif
-                return NULL;
+                    return NULL;
+                }
             }
             else
                 /* Save signature for runtime to do pointer check and
@@ -271,28 +373,53 @@ static bool
 register_natives(const char *module_name, NativeSymbol *native_symbols,
                  uint32 n_native_symbols, bool call_conv_raw)
 {
-    NativeSymbolsNode *node;
+    WASMRuntime * runtime = wasm_runtime_get_runtime();
+/*
 #if ENABLE_SORT_DEBUG != 0
     struct timeval start;
     struct timeval end;
     unsigned long timer;
 #endif
-
-    if (!(node = wasm_runtime_malloc(sizeof(NativeSymbolsNode))))
+*/
+    if (!runtime)
         return false;
-#if WASM_ENABLE_MEMORY_TRACING != 0
-    os_printf("Register native, size: %u\n", sizeof(NativeSymbolsNode));
-#endif
 
-    node->module_name = module_name;
-    node->native_symbols = native_symbols;
-    node->n_native_symbols = n_native_symbols;
-    node->call_conv_raw = call_conv_raw;
+    if ((g_native_libs_count + 1) > g_native_libs_size) {
+        g_native_symbols_vec = wasm_runtime_realloc(
+                g_native_symbols_vec, (g_native_libs_size + 2) * sizeof(NativeSymbolsNode));
+        if (!g_native_symbols_vec) {
+            return false;
+        }
 
-    /* Add to list head */
-    node->next = g_native_symbols_list;
-    g_native_symbols_list = node;
+        g_native_libs_size += 2;
+        bh_assert((g_native_libs_count + 2) == g_native_libs_size);
+    }
 
+    const ConstStrDescription * csp_module_name =
+        wasm_runtime_records_const_string(runtime, module_name, strlen(module_name), NULL, 0);
+
+    g_native_symbols_vec[g_native_libs_count].module_name = csp_module_name;
+    g_native_symbols_vec[g_native_libs_count].native_symbols = NULL;
+    g_native_symbols_vec[g_native_libs_count].n_native_symbols = n_native_symbols;
+    g_native_symbols_vec[g_native_libs_count].call_conv_raw = call_conv_raw;
+
+    NativeSymbol * csp_native_symbols = (NativeSymbol*)wasm_runtime_malloc(sizeof(NativeSymbol) * n_native_symbols);
+    if (!csp_native_symbols) {
+        return false;
+    }
+
+    for (uint32 i = 0; i < n_native_symbols; i++) {
+        memcpy(&csp_native_symbols[i], &native_symbols[i], sizeof(NativeSymbol));
+        csp_native_symbols[i].u.symbol =
+            wasm_runtime_records_const_string(runtime, native_symbols[i].u.symbol_str,
+                                        strlen(native_symbols[i].u.symbol_str), NULL, 0);
+    }
+
+    g_native_symbols_vec[g_native_libs_count].native_symbols = csp_native_symbols;
+
+    g_native_libs_count ++;
+
+/*
 #if ENABLE_SORT_DEBUG != 0
     gettimeofday(&start, NULL);
 #endif
@@ -310,6 +437,7 @@ register_natives(const char *module_name, NativeSymbol *native_symbols,
     LOG_ERROR("module_name: %s, nums: %d, sorted used: %ld us", module_name,
               n_native_symbols, timer);
 #endif
+*/
     return true;
 }
 
@@ -334,46 +462,94 @@ wasm_native_register_natives_raw(const char *module_name,
 bool
 wasm_native_init()
 {
+    WASMRuntime * runtime = wasm_runtime_get_runtime();
     NativeSymbol *native_symbols;
-    uint32 n_native_symbols;
+    uint32 n_native_symbols = 0;
+    uint32 n_native_nodes = g_native_libs_size = NODE_COUNT;
+    g_native_libs_count = NODE_COUNT - 1;
+
+    if (!runtime)
+        return false;
+
+    if (n_native_nodes) {
+        g_native_symbols_vec = (NativeSymbolsNode*)wasm_runtime_malloc(
+                                sizeof(NativeSymbolsNode) * n_native_nodes);
+        if (!g_native_symbols_vec)
+            return false;
+
+        memset(g_native_symbols_vec, 0, sizeof(NativeSymbolsNode) * n_native_nodes);
+    }
 
 #if WASM_ENABLE_LIBC_BUILTIN != 0
     n_native_symbols = get_libc_builtin_export_apis(&native_symbols);
-    if (!wasm_native_register_natives("env", native_symbols, n_native_symbols))
-        return false;
-#endif /* WASM_ENABLE_LIBC_BUILTIN */
+    //if (!wasm_native_register_natives(CONST_STR_POOL_DESC(WAMR_CSP_env), native_symbols, n_native_symbols))
+    //    return false;
+    if (n_native_symbols) {
+        for (uint32 i = 0; i < n_native_symbols; i ++)
+            native_symbols[i].u.symbol = CONST_STR_POOL_DESC(runtime, native_symbols[i].u.symbol_key);
 
-#if WASM_ENABLE_SPEC_TEST
+        g_native_symbols_vec[ID_LIBC_BUILTIN].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_env);
+        g_native_symbols_vec[ID_LIBC_BUILTIN].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_LIBC_BUILTIN].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_LIBC_BUILTIN].call_conv_raw = false;
+    }
+#endif
+
+#if WASM_ENABLE_SPEC_TEST != 0
     n_native_symbols = get_spectest_export_apis(&native_symbols);
-    if (!wasm_native_register_natives("spectest", native_symbols,
-                                      n_native_symbols))
-        return false;
-#endif /* WASM_ENABLE_SPEC_TEST */
+    if (n_native_symbols) {
+        for (uint32 i = 0; i < n_native_symbols; i ++)
+            native_symbols[i].u.symbol = CONST_STR_POOL_DESC(runtime, native_symbols[i].u.symbol_key);
+
+        g_native_symbols_vec[ID_SPECTEST].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_spectest);
+        g_native_symbols_vec[ID_SPECTEST].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_SPECTEST].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_SPECTEST].call_conv_raw = false;
+    }
+#endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
     n_native_symbols = get_libc_wasi_export_apis(&native_symbols);
-    if (!wasm_native_register_natives("wasi_unstable", native_symbols,
-                                      n_native_symbols))
-        return false;
-    if (!wasm_native_register_natives("wasi_snapshot_preview1", native_symbols,
-                                      n_native_symbols))
-        return false;
+    if (n_native_symbols) {
+        for (uint32 i = 0; i < n_native_symbols; i ++)
+            native_symbols[i].u.symbol = CONST_STR_POOL_DESC(runtime, native_symbols[i].u.symbol_key);
+
+        g_native_symbols_vec[ID_LIBC_WASI_UNSTABLE].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_wasi_unstable);
+        g_native_symbols_vec[ID_LIBC_WASI_UNSTABLE].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_LIBC_WASI_UNSTABLE].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_LIBC_WASI_UNSTABLE].call_conv_raw = false;
+
+        g_native_symbols_vec[ID_LIBC_WASI_PREVIEW1].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_wasi_snapshot_preview1);
+        g_native_symbols_vec[ID_LIBC_WASI_PREVIEW1].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_LIBC_WASI_PREVIEW1].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_LIBC_WASI_PREVIEW1].call_conv_raw = false;
+    }
 #endif
 
 #if WASM_ENABLE_BASE_LIB != 0
     n_native_symbols = get_base_lib_export_apis(&native_symbols);
-    if (n_native_symbols > 0
-        && !wasm_native_register_natives("env", native_symbols,
-                                         n_native_symbols))
-        return false;
+    if (n_native_symbols) {
+        for (uint32 i = 0; i < n_native_symbols; i ++)
+            native_symbols[i].u.symbol = CONST_STR_POOL_DESC(runtime, native_symbols[i].u.symbol_key);
+
+        g_native_symbols_vec[ID_BASE_LIB].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_env);
+        g_native_symbols_vec[ID_BASE_LIB].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_BASE_LIB].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_BASE_LIB].call_conv_raw = false;
+    }
 #endif
 
 #if WASM_ENABLE_APP_FRAMEWORK != 0
     n_native_symbols = get_ext_lib_export_apis(&native_symbols);
-    if (n_native_symbols > 0
-        && !wasm_native_register_natives("env", native_symbols,
-                                         n_native_symbols))
-        return false;
+    if (n_native_symbols) {
+        for (uint32 i = 0; i < n_native_symbols; i ++)
+            native_symbols[i].u.symbol = CONST_STR_POOL_DESC(runtime, native_symbols[i].u.symbol_key);
+
+        g_native_symbols_vec[ID_APP_FRAME].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_env);
+        g_native_symbols_vec[ID_APP_FRAME].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_APP_FRAME].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_APP_FRAME].call_conv_raw = false;
+    }
 #endif
 
 #if WASM_ENABLE_LIB_PTHREAD != 0
@@ -381,19 +557,29 @@ wasm_native_init()
         return false;
 
     n_native_symbols = get_lib_pthread_export_apis(&native_symbols);
-    if (n_native_symbols > 0
-        && !wasm_native_register_natives("env", native_symbols,
-                                         n_native_symbols))
-        return false;
+    if (n_native_symbols) {
+        for (uint32 i = 0; i < n_native_symbols; i ++)
+            native_symbols[i].u.symbol = CONST_STR_POOL_DESC(runtime, native_symbols[i].u.symbol_key);
+
+        g_native_symbols_vec[ID_PTHREAD].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_env);
+        g_native_symbols_vec[ID_PTHREAD].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_PTHREAD].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_PTHREAD].call_conv_raw = false;
+    }
 #endif
 
 #if WASM_ENABLE_LIBC_EMCC != 0
     n_native_symbols = get_libc_emcc_export_apis(&native_symbols);
-    if (n_native_symbols > 0
-        && !wasm_native_register_natives("env", native_symbols,
-                                         n_native_symbols))
-        return false;
-#endif /* WASM_ENABLE_LIBC_EMCC */
+    if (n_native_symbols) {
+        for (uint32 i = 0; i < n_native_symbols; i ++)
+            native_symbols[i].u.symbol = CONST_STR_POOL_DESC(runtime, native_symbols[i].u.symbol_key);
+
+        g_native_symbols_vec[ID_LIBC_EMCC].module_name = CONST_STR_POOL_DESC(runtime, WAMR_CSP_env);
+        g_native_symbols_vec[ID_LIBC_EMCC].native_symbols = native_symbols;
+        g_native_symbols_vec[ID_LIBC_EMCC].n_native_symbols = n_native_symbols;
+        g_native_symbols_vec[ID_LIBC_EMCC].call_conv_raw = false;
+    }
+#endif
 
     return true;
 }
@@ -401,18 +587,17 @@ wasm_native_init()
 void
 wasm_native_destroy()
 {
-    NativeSymbolsNode *node, *node_next;
-
 #if WASM_ENABLE_LIB_PTHREAD != 0
     lib_pthread_destroy();
 #endif
 
-    node = g_native_symbols_list;
-    while (node) {
-        node_next = node->next;
-        wasm_runtime_free(node);
-        node = node_next;
+    for (uint32 i = ID_USER; i < g_native_libs_count; i ++) {
+        if (g_native_symbols_vec[i].native_symbols)
+            wasm_runtime_free(g_native_symbols_vec[i].native_symbols);
     }
 
-    g_native_symbols_list = NULL;
+    if (g_native_symbols_vec)
+        wasm_runtime_free(g_native_symbols_vec);
+
+    g_native_symbols_vec = NULL;
 }

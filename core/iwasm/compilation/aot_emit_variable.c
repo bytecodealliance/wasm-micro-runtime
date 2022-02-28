@@ -109,6 +109,7 @@ static bool
 compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                uint32 global_idx, bool is_set, bool is_aux_stack)
 {
+    WASMRuntime * runtime = wasm_runtime_get_runtime();
     AOTCompData *comp_data = comp_ctx->comp_data;
     uint32 import_global_count = comp_data->import_global_count;
     uint32 global_base_offset =
@@ -116,8 +117,8 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         + sizeof(AOTMemoryInstance) * comp_ctx->comp_data->memory_count;
     uint32 global_offset;
     uint8 global_type;
-    LLVMValueRef offset, global_ptr, global, res;
-    LLVMTypeRef ptr_type = NULL;
+    LLVMValueRef offset, global_ptr_ptr, global_ptr, global, res;
+    LLVMTypeRef ptr_type = NULL, mutable_ptr_type = NULL;
 
     bh_assert(global_idx < import_global_count + comp_data->global_count);
 
@@ -164,10 +165,46 @@ compile_global(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             break;
     }
 
-    if (!(global_ptr = LLVMBuildBitCast(comp_ctx->builder, global_ptr, ptr_type,
-                                        "global_ptr"))) {
-        aot_set_last_error("llvm build bit cast failed.");
-        return false;
+    // check if import mutable global
+    if (!(global_idx < import_global_count &&
+        comp_data->import_globals[global_idx].is_mutable &&
+        comp_data->import_globals[global_idx].module_name != CONST_STR_POOL_DESC(runtime, WAMR_CSP_GOT_func))) {
+        if (!(global_ptr = LLVMBuildBitCast(comp_ctx->builder, global_ptr,
+                                            ptr_type, "global_ptr"))) {
+            aot_set_last_error("llvm build bit cast failed.");
+            return false;
+        }
+    } else {
+        // if yes, a pointer to origin value is saved in the global data
+        if (comp_ctx->pointer_size == sizeof(uint32))
+            mutable_ptr_type = comp_ctx->basic_types.int32_ptr_type;
+        else
+            mutable_ptr_type = comp_ctx->basic_types.int64_ptr_type;
+
+        if (!(global_ptr_ptr = LLVMBuildBitCast(comp_ctx->builder, global_ptr,
+                                            mutable_ptr_type, "global_ptr_ptr"))) {
+            aot_set_last_error("llvm build bit cast failed.");
+            return false;
+        }
+
+        if (!(global_ptr = LLVMBuildLoad(comp_ctx->builder,
+                                     global_ptr_ptr, "global_ptr"))) {
+            aot_set_last_error("llvm build load failed.");
+            return false;
+        }
+
+        if (!(global_ptr = LLVMBuildIntToPtr(comp_ctx->builder,
+                                global_ptr,
+                                ptr_type, "global_ptr"))) {
+            aot_set_last_error("llvm build bit cast failed.");
+            return false;
+        }
+
+        if (!(global = LLVMBuildLoad(comp_ctx->builder,
+                                     global_ptr, "global"))) {
+            aot_set_last_error("llvm build load failed.");
+            return false;
+        }
     }
 
     if (!is_set) {
