@@ -7,13 +7,20 @@
 #define _LIB_EXPORT_H_
 
 #include <stdint.h>
+#include "ConstStrDesc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+typedef union {
+    const char *symbol_str;
+    const ConstStrDescription * symbol;
+    uint32 symbol_key;
+} NATIVE_SYMBOL_U;
+
 typedef struct NativeSymbol {
-    const char *symbol;
+    NATIVE_SYMBOL_U u;
     void *func_ptr;
     const char *signature;
     /* attachment which can be retrieved in native API by

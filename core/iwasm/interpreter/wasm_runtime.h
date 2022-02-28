@@ -80,7 +80,8 @@ struct WASMGlobalInstance {
     /* mutable or constant */
     bool is_mutable;
     /* data offset to base_addr of WASMMemoryInstance */
-    uint32 data_offset;
+    uint8 * data;
+    // uint32 data_offset;
     /* initial value */
     WASMValue initial_value;
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -91,16 +92,17 @@ struct WASMGlobalInstance {
 };
 
 struct WASMFunctionInstance {
+    /* the owner module instance */
+    WASMModuleInstance * module_inst;
     /* whether it is import function or WASM function */
     bool is_import_func;
-    /* parameter count */
-    uint16 param_count;
+
+    /* function signature*/
+    WASMType * func_type;
+
     /* local variable count, 0 for import function */
     uint16 local_count;
-    /* cell num of parameters */
-    uint16 param_cell_num;
-    /* cell num of return type */
-    uint16 ret_cell_num;
+
     /* cell num of local variables, 0 for import function */
     uint16 local_cell_num;
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -108,15 +110,14 @@ struct WASMFunctionInstance {
     uint16 const_cell_num;
 #endif
     uint16 *local_offsets;
-    /* parameter types */
-    uint8 *param_types;
+
     /* local types, NULL for import function */
     uint8 *local_types;
     union {
         WASMFunctionImport *func_import;
         WASMFunction *func;
     } u;
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
     WASMModuleInstance *import_module_inst;
     WASMFunctionInstance *import_func_inst;
 #endif
@@ -129,13 +130,13 @@ struct WASMFunctionInstance {
 };
 
 typedef struct WASMExportFuncInstance {
-    char *name;
+    const char * name;
     WASMFunctionInstance *function;
 } WASMExportFuncInstance;
 
-#if WASM_ENABLE_MULTI_MODULE != 0
+//#if WASM_ENABLE_MULTI_MODULE != 0
 typedef struct WASMExportGlobInstance {
-    char *name;
+    const char *name;
     WASMGlobalInstance *global;
 } WASMExportGlobInstance;
 
@@ -148,7 +149,7 @@ typedef struct WASMExportMemInstance {
     char *name;
     WASMMemoryInstance *memory;
 } WASMExportMemInstance;
-#endif
+//#endif
 
 struct WASMModuleInstance {
     /* Module instance type, for module instance loaded from
@@ -157,14 +158,26 @@ struct WASMModuleInstance {
        Wasm_Module_AoT, and this structure should be treated as
        AOTModuleInstance structure. */
     uint32 module_type;
-
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    //WASMModuleInstanceHead head;
+    // unique instance id in program scope, used to alloc table space currently.
+    uint32 inst_id;
+    WASMRuntime * runtime;
+    WASMProgramInstance * program;
+    HashMap * local_implicit_dependency_modules_name_hmap;
+    DependencyModuleInitGlobals init_globals;
+    // explicit ref count, updated by dlopen/dlclose
+    uint32 exp_ref_cnt;
+    // implicit ref count, updated according to needed library entries
+    uint32 imp_ref_cnt;
+#endif
     uint32 memory_count;
     uint32 table_count;
     uint32 global_count;
     uint32 function_count;
 
     uint32 export_func_count;
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
     uint32 export_glob_count;
     uint32 export_mem_count;
     uint32 export_tab_count;
@@ -176,7 +189,7 @@ struct WASMModuleInstance {
     WASMFunctionInstance *functions;
 
     WASMExportFuncInstance *export_functions;
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
     WASMExportGlobInstance *export_globals;
     WASMExportMemInstance *export_memories;
     WASMExportTabInstance *export_tables;
@@ -289,8 +302,16 @@ void
 wasm_unload(WASMModule *module);
 
 WASMModuleInstance *
-wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
-                 uint32 heap_size, char *error_buf, uint32 error_buf_size);
+wasm_instantiate(WASMProgramInstance * program,
+                WASMModule *module, bool is_sub_inst,
+                uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size);
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+WASMModuleInstance*
+wasm_instantiate_dependency(WASMModule *module, WASMProgramInstance * program,
+                    uint32 stack_size, DependencyModuleInitGlobals * init_globals);
+#endif
 
 void
 wasm_dump_perf_profiling(const WASMModuleInstance *module_inst);
@@ -413,11 +434,11 @@ wasm_elem_is_declarative(uint32 mode)
 {
     return (mode & 0x3) == 0x3;
 }
+#endif /* WASM_ENABLE_REF_TYPES != 0 */
 
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
                    uint32 inc_entries, uint32 init_val);
-#endif /* WASM_ENABLE_REF_TYPES != 0 */
 
 static inline WASMTableInstance *
 wasm_get_table_inst(const WASMModuleInstance *module_inst, const uint32 tbl_idx)

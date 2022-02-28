@@ -123,7 +123,7 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        is_import_func = ((AOTFunctionInstance *)func)->is_import_func;
+        is_import_func = ((AOTExportFunctionInstance *)func)->is_import_func;
     }
 #endif
 
@@ -187,6 +187,19 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
         wasm_runtime_module_free(module_inst, argv_buf_offset);
     return ret;
 }
+
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+bool
+wasm_application_execute_program_main(WASMProgramCommon *program,
+                              int32 argc, char *argv[])
+{
+    WASMProgramInstance * program_inst = (WASMProgramInstance *)program;
+    if (!program_inst)
+        return false;
+
+    return wasm_application_execute_main((WASMModuleInstanceCommon*)program_inst->root_module_inst, argc, argv);
+}
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
 static WASMModuleInstance *
@@ -294,10 +307,11 @@ resolve_function(const WASMModuleInstanceCommon *module_inst, const char *name)
 
 #if WASM_ENABLE_AOT != 0
     if (module_inst->module_type == Wasm_Module_AoT) {
-        AOTModuleInstance *aot_inst = (AOTModuleInstance *)module_inst;
-        AOTFunctionInstance *export_funcs =
-            (AOTFunctionInstance *)aot_inst->export_funcs.ptr;
-        for (i = 0; i < aot_inst->export_func_count; i++) {
+        AOTModuleInstance *aot_inst = (AOTModuleInstance*)module_inst;
+        AOTModule * aot_module = (AOTModule *)aot_inst->aot_module.ptr;
+        AOTExportFunctionInstance *export_funcs = (AOTExportFunctionInstance *)
+                                            aot_inst->export_funcs.ptr;
+        for (i = 0; i < aot_module->export_func_count; i++) {
             if (!strcmp(export_funcs[i].func_name, function_name)) {
                 ret = &export_funcs[i];
                 break;
@@ -681,3 +695,15 @@ fail:
     os_printf("%s\n", exception);
     return false;
 }
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+bool
+wasm_application_execute_program_func(WASMProgramCommon *program,
+                              const char *name, int32 argc, char *argv[])
+{
+    WASMProgramInstance * program_inst = (WASMProgramInstance *)program;
+    if (!program_inst)
+        return false;
+
+    return wasm_application_execute_func((WASMModuleInstanceCommon*)program_inst->root_module_inst, name, argc, argv);
+}
+#endif

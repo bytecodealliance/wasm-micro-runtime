@@ -5,6 +5,7 @@
 
 #include "libc_wasi_wrapper.h"
 #include "bh_platform.h"
+#include "ConstStrDesc.h"
 #include "wasm_export.h"
 
 void
@@ -104,25 +105,30 @@ wasi_args_get(wasm_exec_env_t exec_env, uint32 *argv_offsets, char *argv_buf)
 
     total_size = sizeof(int32) * ((uint64)argc + 1);
     if (total_size >= UINT32_MAX
-        || !validate_native_addr(argv_offsets, (uint32)total_size)
+        || !validate_app_addr((uint32)(intptr_t)argv_offsets, (uint32)total_size)
         || argv_buf_size >= UINT32_MAX
-        || !validate_native_addr(argv_buf, (uint32)argv_buf_size))
+        || !validate_app_addr((uint32)(intptr_t)argv_buf, (uint32)argv_buf_size))
         return (wasi_errno_t)-1;
+
 
     total_size = sizeof(char *) * ((uint64)argc + 1);
     if (total_size >= UINT32_MAX
         || !(argv = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;
 
-    err = wasmtime_ssp_args_get(argv_environ, argv, argv_buf);
+    char * native_argv_buf = addr_app_to_native((uint32)(intptr_t)argv_buf);
+
+    err = wasmtime_ssp_args_get(argv_environ, argv, native_argv_buf);
     if (err) {
         wasm_runtime_free(argv);
         return err;
     }
 
+    uint32 * native_argv_offsets = addr_app_to_native((uint32)(intptr_t)argv_offsets);
+
     for (i = 0; i < argc; i++)
-        argv_offsets[i] = addr_native_to_app(argv[i]);
-    argv_offsets[argc] = 0;
+        native_argv_offsets[i] = addr_native_to_app(argv[i]);
+    native_argv_offsets[argc] = 0;
 
     wasm_runtime_free(argv);
     return 0;
@@ -141,8 +147,8 @@ wasi_args_sizes_get(wasm_exec_env_t exec_env, uint32 *argc_app,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(argc_app, sizeof(uint32))
-        || !validate_native_addr(argv_buf_size_app, sizeof(uint32)))
+    if (!validate_app_addr((uint32)(intptr_t)argc_app, sizeof(uint32))
+        || !validate_app_addr((uint32)(intptr_t)argv_buf_size_app, sizeof(uint32)))
         return (wasi_errno_t)-1;
 
     argv_environ = wasi_ctx->argv_environ;
@@ -151,8 +157,10 @@ wasi_args_sizes_get(wasm_exec_env_t exec_env, uint32 *argc_app,
     if (err)
         return err;
 
-    *argc_app = (uint32)argc;
-    *argv_buf_size_app = (uint32)argv_buf_size;
+    uint32 * native_argc_app = addr_app_to_native((uint32)(intptr_t)argc_app);
+    uint32 * native_argv_buf_size_app = addr_app_to_native((uint32)(intptr_t)argv_buf_size_app);
+    *native_argc_app = (uint32)argc;
+    *native_argv_buf_size_app = (uint32)argv_buf_size;
     return 0;
 }
 
@@ -163,10 +171,12 @@ wasi_clock_res_get(wasm_exec_env_t exec_env,
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    if (!validate_native_addr(resolution, sizeof(wasi_timestamp_t)))
+    if (!validate_app_addr((uint32)(intptr_t)resolution, sizeof(wasi_timestamp_t)))
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_clock_res_get(clock_id, resolution);
+    wasi_timestamp_t * native_resolution = addr_app_to_native((uint32)(intptr_t)resolution);
+
+    return wasmtime_ssp_clock_res_get(clock_id, native_resolution);
 }
 
 static wasi_errno_t
@@ -177,10 +187,12 @@ wasi_clock_time_get(wasm_exec_env_t exec_env,
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
 
-    if (!validate_native_addr(time, sizeof(wasi_timestamp_t)))
+    if (!validate_app_addr((uint32)(intptr_t)time, sizeof(wasi_timestamp_t)))
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_clock_time_get(clock_id, precision, time);
+    wasi_timestamp_t * native_time = addr_app_to_native((uint32)(intptr_t)time);
+
+    return wasmtime_ssp_clock_time_get(clock_id, precision, native_time);
 }
 
 static wasi_errno_t
@@ -206,9 +218,9 @@ wasi_environ_get(wasm_exec_env_t exec_env, uint32 *environ_offsets,
 
     total_size = sizeof(int32) * ((uint64)environ_count + 1);
     if (total_size >= UINT32_MAX
-        || !validate_native_addr(environ_offsets, (uint32)total_size)
+        || !validate_app_addr((uint32)(intptr_t)environ_offsets, (uint32)total_size)
         || environ_buf_size >= UINT32_MAX
-        || !validate_native_addr(environ_buf, (uint32)environ_buf_size))
+        || !validate_app_addr((uint32)(intptr_t)environ_buf, (uint32)environ_buf_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(char *) * (((uint64)environ_count + 1));
@@ -217,15 +229,18 @@ wasi_environ_get(wasm_exec_env_t exec_env, uint32 *environ_offsets,
         || !(environs = wasm_runtime_malloc((uint32)total_size)))
         return (wasi_errno_t)-1;
 
-    err = wasmtime_ssp_environ_get(argv_environ, environs, environ_buf);
+    char * native_environ_buf = addr_app_to_native((uint32)(intptr_t)environ_buf);
+    err = wasmtime_ssp_environ_get(argv_environ, environs, native_environ_buf);
     if (err) {
         wasm_runtime_free(environs);
         return err;
     }
 
+    char * native_environ_offsets = addr_app_to_native((uint32)(intptr_t)environ_offsets);
+
     for (i = 0; i < environ_count; i++)
-        environ_offsets[i] = addr_native_to_app(environs[i]);
-    environ_offsets[environ_count] = 0;
+        native_environ_offsets[i] = addr_native_to_app(environs[i]);
+    native_environ_offsets[environ_count] = 0;
 
     wasm_runtime_free(environs);
     return 0;
@@ -245,8 +260,8 @@ wasi_environ_sizes_get(wasm_exec_env_t exec_env, uint32 *environ_count_app,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(environ_count_app, sizeof(uint32))
-        || !validate_native_addr(environ_buf_size_app, sizeof(uint32)))
+    if (!validate_app_addr((uint32)(intptr_t)environ_count_app, sizeof(uint32))
+        || !validate_app_addr((uint32)(intptr_t)environ_buf_size_app, sizeof(uint32)))
         return (wasi_errno_t)-1;
 
     err = wasmtime_ssp_environ_sizes_get(argv_environ, &environ_count,
@@ -254,8 +269,11 @@ wasi_environ_sizes_get(wasm_exec_env_t exec_env, uint32 *environ_count_app,
     if (err)
         return err;
 
-    *environ_count_app = (uint32)environ_count;
-    *environ_buf_size_app = (uint32)environ_buf_size;
+    uint32 * native_environ_count_app = addr_app_to_native((uint32)(intptr_t)environ_count_app);
+    uint32 * native_environ_buf_size_app = addr_app_to_native((uint32)(intptr_t)environ_buf_size_app);
+
+    *native_environ_count_app = (uint32)environ_count;
+    *native_environ_buf_size_app = (uint32)environ_buf_size;
 
     return 0;
 }
@@ -273,15 +291,17 @@ wasi_fd_prestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(prestat_app, sizeof(wasi_prestat_app_t)))
+    if (!validate_app_addr((uint32)(intptr_t)prestat_app, sizeof(wasi_prestat_app_t)))
         return (wasi_errno_t)-1;
 
     err = wasmtime_ssp_fd_prestat_get(prestats, fd, &prestat);
     if (err)
         return err;
 
-    prestat_app->pr_type = prestat.pr_type;
-    prestat_app->pr_name_len = (uint32)prestat.u.dir.pr_name_len;
+    wasi_prestat_app_t * native_prestat_app = addr_app_to_native((uint32)(intptr_t)prestat_app);
+
+    native_prestat_app->pr_type = prestat.pr_type;
+    native_prestat_app->pr_name_len = (uint32)prestat.u.dir.pr_name_len;
     return 0;
 }
 
@@ -296,7 +316,12 @@ wasi_fd_prestat_dir_name(wasm_exec_env_t exec_env, wasi_fd_t fd, char *path,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_fd_prestat_dir_name(prestats, fd, path, path_len);
+    if (!validate_app_addr((uint32)(intptr_t)path, path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(intptr_t)path);
+
+    return wasmtime_ssp_fd_prestat_dir_name(prestats, fd, native_path, path_len);
 }
 
 static wasi_errno_t
@@ -343,9 +368,9 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nread_app, (uint32)sizeof(uint32))
+    if (!validate_app_addr((uint32)(intptr_t)nread_app, (uint32)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr(iovec_app, (uint32)total_size))
+        || !validate_app_addr((uint32)(intptr_t)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)iovs_len;
@@ -355,13 +380,15 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
 
     iovec = iovec_begin;
 
-    for (i = 0; i < iovs_len; i++, iovec_app++, iovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+    iovec_app_t * native_iovec_app = addr_app_to_native((uint32)(intptr_t)iovec_app);
+
+    for (i = 0; i < iovs_len; i++, native_iovec_app++, iovec++) {
+        if (!validate_app_addr(native_iovec_app->buf_offset, native_iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        iovec->buf = (void *)addr_app_to_native(iovec_app->buf_offset);
-        iovec->buf_len = iovec_app->buf_len;
+        iovec->buf = (void *)addr_app_to_native(native_iovec_app->buf_offset);
+        iovec->buf_len = native_iovec_app->buf_len;
     }
 
     err = wasmtime_ssp_fd_pread(curfds, fd, iovec_begin, iovs_len, offset,
@@ -369,7 +396,9 @@ wasi_fd_pread(wasm_exec_env_t exec_env, wasi_fd_t fd, iovec_app_t *iovec_app,
     if (err)
         goto fail;
 
-    *nread_app = (uint32)nread;
+    uint32 * native_nread_app = addr_app_to_native((uint32)(intptr_t)nread_app);
+
+    *native_nread_app = (uint32)nread;
 
     /* success */
     err = 0;
@@ -397,9 +426,9 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nwritten_app, (uint32)sizeof(uint32))
+    if (!validate_app_addr((uint32)(intptr_t)nwritten_app, (uint32)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_app_addr((uint32)(intptr_t)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
@@ -409,13 +438,15 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     ciovec = ciovec_begin;
 
-    for (i = 0; i < iovs_len; i++, iovec_app++, ciovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+    iovec_app_t * native_iovec_app = addr_app_to_native((uint32)(intptr_t)iovec_app);
+
+    for (i = 0; i < iovs_len; i++, native_iovec_app++, ciovec++) {
+        if (!validate_app_addr(native_iovec_app->buf_offset, native_iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        ciovec->buf = (char *)addr_app_to_native(iovec_app->buf_offset);
-        ciovec->buf_len = iovec_app->buf_len;
+        ciovec->buf = (char *)addr_app_to_native(native_iovec_app->buf_offset);
+        ciovec->buf_len = native_iovec_app->buf_len;
     }
 
     err = wasmtime_ssp_fd_pwrite(curfds, fd, ciovec_begin, iovs_len, offset,
@@ -423,7 +454,8 @@ wasi_fd_pwrite(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (err)
         goto fail;
 
-    *nwritten_app = (uint32)nwritten;
+    uint32 * native_nwritten_app = addr_app_to_native((uint32)(intptr_t)nwritten_app);
+    *native_nwritten_app = (uint32)nwritten;
 
     /* success */
     err = 0;
@@ -450,9 +482,9 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nread_app, (uint32)sizeof(uint32))
+    if (!validate_app_addr((uint32)(intptr_t)nread_app, (uint32)sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+        || !validate_app_addr((uint32)(intptr_t)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)iovs_len;
@@ -462,20 +494,23 @@ wasi_fd_read(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     iovec = iovec_begin;
 
-    for (i = 0; i < iovs_len; i++, iovec_app++, iovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+    iovec_app_t * native_iovec_app = addr_app_to_native((uint32)(intptr_t)iovec_app);
+
+    for (i = 0; i < iovs_len; i++, native_iovec_app++, iovec++) {
+        if (!validate_app_addr(native_iovec_app->buf_offset, native_iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        iovec->buf = (void *)addr_app_to_native(iovec_app->buf_offset);
-        iovec->buf_len = iovec_app->buf_len;
+        iovec->buf = (void *)addr_app_to_native(native_iovec_app->buf_offset);
+        iovec->buf_len = native_iovec_app->buf_len;
     }
 
     err = wasmtime_ssp_fd_read(curfds, fd, iovec_begin, iovs_len, &nread);
     if (err)
         goto fail;
 
-    *nread_app = (uint32)nread;
+    uint32 * native_nread_app = addr_app_to_native((uint32)(intptr_t)nread_app);
+    *native_nread_app = (uint32)nread;
 
     /* success */
     err = 0;
@@ -510,10 +545,11 @@ wasi_fd_seek(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filedelta_t offset,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(newoffset, sizeof(wasi_filesize_t)))
+    if (!validate_app_addr((uint32)(intptr_t)newoffset, sizeof(wasi_filesize_t)))
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_fd_seek(curfds, fd, offset, whence, newoffset);
+    wasi_filesize_t * native_newoffset = addr_app_to_native((uint32)(intptr_t)newoffset);
+    return wasmtime_ssp_fd_seek(curfds, fd, offset, whence, native_newoffset);
 }
 
 static wasi_errno_t
@@ -526,10 +562,12 @@ wasi_fd_tell(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_filesize_t *newoffset)
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(newoffset, sizeof(wasi_filesize_t)))
+    if (!validate_app_addr((uint32)(intptr_t)newoffset, sizeof(wasi_filesize_t)))
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_fd_tell(curfds, fd, newoffset);
+    wasi_filesize_t * native_newoffset = addr_app_to_native((uint32)(intptr_t)newoffset);
+
+    return wasmtime_ssp_fd_tell(curfds, fd, native_newoffset);
 }
 
 static wasi_errno_t
@@ -545,14 +583,16 @@ wasi_fd_fdstat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(fdstat_app, sizeof(wasi_fdstat_t)))
+    if (!validate_app_addr((uint32)(intptr_t)fdstat_app, sizeof(wasi_fdstat_t)))
         return (wasi_errno_t)-1;
 
     err = wasmtime_ssp_fd_fdstat_get(curfds, fd, &fdstat);
     if (err)
         return err;
 
-    memcpy(fdstat_app, &fdstat, sizeof(wasi_fdstat_t));
+    wasi_fdstat_t * native_fdstat_app = addr_app_to_native((uint32)(intptr_t)fdstat_app);
+
+    memcpy(native_fdstat_app, &fdstat, sizeof(wasi_fdstat_t));
     return 0;
 }
 
@@ -617,9 +657,13 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)iovs_len;
-    if (!validate_native_addr(nwritten_app, (uint32)sizeof(uint32))
-        || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)iovec_app, (uint32)total_size))
+    if (total_size >= UINT32_MAX)
+        return (wasi_errno_t)-1;
+
+    if (!validate_app_addr((uint32)(uintptr_t)nwritten_app, sizeof(uint32)))
+        return (wasi_errno_t)-1;
+
+    if (!validate_app_addr((uint32)(uintptr_t)iovec_app, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)iovs_len;
@@ -629,20 +673,23 @@ wasi_fd_write(wasm_exec_env_t exec_env, wasi_fd_t fd,
 
     ciovec = ciovec_begin;
 
-    for (i = 0; i < iovs_len; i++, iovec_app++, ciovec++) {
-        if (!validate_app_addr(iovec_app->buf_offset, iovec_app->buf_len)) {
+    iovec_app_t * native_iovec_app = addr_app_to_native((uint32)(uintptr_t)iovec_app);
+    uint32 * native_nwritten_app = addr_app_to_native((uint32)(uintptr_t)nwritten_app);
+
+    for (i = 0; i < iovs_len; i++, native_iovec_app++, ciovec++) {
+        if (!validate_app_addr(native_iovec_app->buf_offset, native_iovec_app->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        ciovec->buf = (char *)addr_app_to_native(iovec_app->buf_offset);
-        ciovec->buf_len = iovec_app->buf_len;
+        ciovec->buf = (char *)addr_app_to_native(native_iovec_app->buf_offset);
+        ciovec->buf_len = native_iovec_app->buf_len;
     }
 
     err = wasmtime_ssp_fd_write(curfds, fd, ciovec_begin, iovs_len, &nwritten);
     if (err)
         goto fail;
 
-    *nwritten_app = (uint32)nwritten;
+    *native_nwritten_app = (uint32)nwritten;
 
     /* success */
     err = 0;
@@ -691,7 +738,12 @@ wasi_path_create_directory(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_path_create_directory(curfds, fd, path, path_len);
+    if (!validate_app_addr((uint32)(uintptr_t)path, path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(uintptr_t)path);
+
+    return wasmtime_ssp_path_create_directory(curfds, fd, native_path, path_len);
 }
 
 static wasi_errno_t
@@ -708,8 +760,17 @@ wasi_path_link(wasm_exec_env_t exec_env, wasi_fd_t old_fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_path_link(curfds, prestats, old_fd, old_flags, old_path,
-                                  old_path_len, new_fd, new_path, new_path_len);
+    if (!validate_app_addr((uint32)(uintptr_t)old_path, old_path_len))
+        return (wasi_errno_t)-1;
+
+    if (!validate_app_addr((uint32)(uintptr_t)new_path, new_path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_old_path = addr_app_to_native((uint32)(uintptr_t)old_path);
+    char * native_new_path = addr_app_to_native((uint32)(uintptr_t)new_path);
+
+    return wasmtime_ssp_path_link(curfds, prestats, old_fd, old_flags, native_old_path,
+                                  old_path_len, new_fd, native_new_path, new_path_len);
 }
 
 static wasi_errno_t
@@ -728,14 +789,20 @@ wasi_path_open(wasm_exec_env_t exec_env, wasi_fd_t dirfd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(fd_app, sizeof(wasi_fd_t)))
+    if (!validate_app_addr((uint32)(uintptr_t)path, path_len))
         return (wasi_errno_t)-1;
 
-    err = wasmtime_ssp_path_open(curfds, dirfd, dirflags, path, path_len,
+    if (!validate_app_addr((uint32)(uintptr_t)fd_app, sizeof(wasi_fd_t)))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(uintptr_t)path);
+
+    err = wasmtime_ssp_path_open(curfds, dirfd, dirflags, native_path, path_len,
                                  oflags, fs_rights_base, fs_rights_inheriting,
                                  fs_flags, &fd);
 
-    *fd_app = fd;
+    wasi_fd_t * native_fd_app = addr_app_to_native((uint32)(uintptr_t)fd_app);
+    *native_fd_app = fd;
     return err;
 }
 
@@ -752,14 +819,21 @@ wasi_fd_readdir(wasm_exec_env_t exec_env, wasi_fd_t fd, void *buf,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(bufused_app, sizeof(uint32)))
+    if (!validate_app_addr((uint32)(uintptr_t)buf, buf_len))
         return (wasi_errno_t)-1;
 
-    err = wasmtime_ssp_fd_readdir(curfds, fd, buf, buf_len, cookie, &bufused);
+    if (!validate_app_addr((uint32)(uintptr_t)bufused_app, sizeof(uint32)))
+        return (wasi_errno_t)-1;
+
+    void * native_buf = addr_app_to_native((uint32)(uintptr_t)buf);
+
+    err = wasmtime_ssp_fd_readdir(curfds, fd, native_buf, buf_len, cookie, &bufused);
     if (err)
         return err;
 
-    *bufused_app = (uint32)bufused;
+    uint32 * native_bufused_app = addr_app_to_native((uint32)(uintptr_t)bufused_app);
+
+    *native_bufused_app = (uint32)bufused;
     return 0;
 }
 
@@ -777,15 +851,26 @@ wasi_path_readlink(wasm_exec_env_t exec_env, wasi_fd_t fd, const char *path,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(bufused_app, sizeof(uint32)))
+    if (!validate_app_addr((uint32)(uintptr_t)path, path_len))
         return (wasi_errno_t)-1;
 
-    err = wasmtime_ssp_path_readlink(curfds, fd, path, path_len, buf, buf_len,
+    if (!validate_app_addr((uint32)(uintptr_t)buf, buf_len))
+        return (wasi_errno_t)-1;
+
+    if (!validate_app_addr((uint32)(uintptr_t)bufused_app, sizeof(uint32)))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(uintptr_t)path);
+    void * native_buf = addr_app_to_native((uint32)(uintptr_t)buf);
+
+    err = wasmtime_ssp_path_readlink(curfds, fd, native_path, path_len, native_buf, buf_len,
                                      &bufused);
     if (err)
         return err;
 
-    *bufused_app = (uint32)bufused;
+    uint32 * native_bufused_app = addr_app_to_native((uint32)(uintptr_t)bufused_app);
+
+    *native_bufused_app = (uint32)bufused;
     return 0;
 }
 
@@ -801,8 +886,17 @@ wasi_path_rename(wasm_exec_env_t exec_env, wasi_fd_t old_fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_path_rename(curfds, old_fd, old_path, old_path_len,
-                                    new_fd, new_path, new_path_len);
+    if (!validate_app_addr((uint32)(uintptr_t)old_path, old_path_len))
+        return (wasi_errno_t)-1;
+
+    if (!validate_app_addr((uint32)(uintptr_t)new_path, new_path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_old_path = addr_app_to_native((uint32)(uintptr_t)old_path);
+    char * native_new_path = addr_app_to_native((uint32)(uintptr_t)new_path);
+
+    return wasmtime_ssp_path_rename(curfds, old_fd, native_old_path, old_path_len,
+                                    new_fd, native_new_path, new_path_len);
 }
 
 static wasi_errno_t
@@ -816,10 +910,12 @@ wasi_fd_filestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(filestat, sizeof(wasi_filestat_t)))
+    if (!validate_app_addr((uint32)(uintptr_t)filestat, sizeof(wasi_filestat_t)))
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_fd_filestat_get(curfds, fd, filestat);
+    wasi_filestat_t * native_filestat = addr_app_to_native((uint32)(uintptr_t)filestat);
+
+    return wasmtime_ssp_fd_filestat_get(curfds, fd, native_filestat);
 }
 
 static wasi_errno_t
@@ -864,11 +960,17 @@ wasi_path_filestat_get(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr(filestat, sizeof(wasi_filestat_t)))
+    if (!validate_app_addr((uint32)(uintptr_t)path, path_len))
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_path_filestat_get(curfds, fd, flags, path, path_len,
-                                          filestat);
+    if (!validate_app_addr((uint32)(uintptr_t)filestat, sizeof(wasi_filestat_t)))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(uintptr_t)path);
+    wasi_filestat_t * native_filestat = addr_app_to_native((uint32)(uintptr_t)filestat);
+
+    return wasmtime_ssp_path_filestat_get(curfds, fd, flags, native_path, path_len,
+                                          native_filestat);
 }
 
 static wasi_errno_t
@@ -884,8 +986,13 @@ wasi_path_filestat_set_times(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
+    if (!validate_app_addr((uint32)(uintptr_t)path, path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(uintptr_t)path);
+
     return wasmtime_ssp_path_filestat_set_times(
-        curfds, fd, flags, path, path_len, st_atim, st_mtim, fstflags);
+        curfds, fd, flags, native_path, path_len, st_atim, st_mtim, fstflags);
 }
 
 static wasi_errno_t
@@ -901,8 +1008,17 @@ wasi_path_symlink(wasm_exec_env_t exec_env, const char *old_path,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_path_symlink(curfds, prestats, old_path, old_path_len,
-                                     fd, new_path, new_path_len);
+    if (!validate_app_addr((uint32)(uintptr_t)old_path, old_path_len))
+        return (wasi_errno_t)-1;
+
+    if (!validate_app_addr((uint32)(uintptr_t)new_path, new_path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_old_path = addr_app_to_native((uint32)(uintptr_t)old_path);
+    char * native_new_path = addr_app_to_native((uint32)(uintptr_t)new_path);
+
+    return wasmtime_ssp_path_symlink(curfds, prestats, native_old_path, old_path_len,
+                                     fd, native_new_path, new_path_len);
 }
 
 static wasi_errno_t
@@ -916,7 +1032,12 @@ wasi_path_unlink_file(wasm_exec_env_t exec_env, wasi_fd_t fd, const char *path,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_path_unlink_file(curfds, fd, path, path_len);
+    if (!validate_app_addr((uint32)(uintptr_t)path, path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(uintptr_t)path);
+
+    return wasmtime_ssp_path_unlink_file(curfds, fd, native_path, path_len);
 }
 
 static wasi_errno_t
@@ -930,7 +1051,12 @@ wasi_path_remove_directory(wasm_exec_env_t exec_env, wasi_fd_t fd,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    return wasmtime_ssp_path_remove_directory(curfds, fd, path, path_len);
+    if (!validate_app_addr((uint32)(uintptr_t)path, path_len))
+        return (wasi_errno_t)-1;
+
+    char * native_path = addr_app_to_native((uint32)(uintptr_t)path);
+
+    return wasmtime_ssp_path_remove_directory(curfds, fd, native_path, path_len);
 }
 
 static wasi_errno_t
@@ -946,16 +1072,20 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr((void *)in, sizeof(wasi_subscription_t))
-        || !validate_native_addr(out, sizeof(wasi_event_t))
-        || !validate_native_addr(nevents_app, sizeof(uint32)))
+    if (!validate_app_addr((uint32)(uintptr_t)in, sizeof(wasi_subscription_t))
+        || !validate_app_addr((uint32)(uintptr_t)out, sizeof(wasi_event_t))
+        || !validate_app_addr((uint32)(uintptr_t)nevents_app, sizeof(uint32)))
         return (wasi_errno_t)-1;
 
-    err = wasmtime_ssp_poll_oneoff(curfds, in, out, nsubscriptions, &nevents);
+    wasi_subscription_t * native_in = addr_app_to_native((uint32)(uintptr_t)in);
+    wasi_event_t * native_out = addr_app_to_native((uint32)(uintptr_t)out);
+
+    err = wasmtime_ssp_poll_oneoff(curfds, native_in, native_out, nsubscriptions, &nevents);
     if (err)
         return err;
 
-    *nevents_app = (uint32)nevents;
+    uint32 * native_events_app = addr_app_to_native((uint32)(uintptr_t)nevents_app);
+    *native_events_app = (uint32)nevents;
     return 0;
 }
 
@@ -983,7 +1113,12 @@ wasi_proc_raise(wasm_exec_env_t exec_env, wasi_signal_t sig)
 static wasi_errno_t
 wasi_random_get(wasm_exec_env_t exec_env, void *buf, uint32 buf_len)
 {
-    return wasmtime_ssp_random_get(buf, buf_len);
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    if (!validate_app_addr((uint32)(uintptr_t)buf, buf_len))
+        return (wasi_errno_t)-1;
+
+    void * native_buf = addr_app_to_native((uint32)(uintptr_t)buf);
+    return wasmtime_ssp_random_get(native_buf, buf_len);
 }
 
 static wasi_errno_t
@@ -1004,10 +1139,10 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)ri_data_len;
-    if (!validate_native_addr(ro_datalen_app, (uint32)sizeof(uint32))
-        || !validate_native_addr(ro_flags, (uint32)sizeof(wasi_roflags_t))
+    if (!validate_app_addr((uint32)(uintptr_t)ro_datalen_app, (uint32)sizeof(uint32))
+        || !validate_app_addr((uint32)(uintptr_t)ro_flags, (uint32)sizeof(wasi_roflags_t))
         || total_size >= UINT32_MAX
-        || !validate_native_addr(ri_data, (uint32)total_size))
+        || !validate_app_addr((uint32)(uintptr_t)ri_data, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_iovec_t) * (uint64)ri_data_len;
@@ -1017,21 +1152,25 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
 
     iovec = iovec_begin;
 
-    for (i = 0; i < ri_data_len; i++, ri_data++, iovec++) {
-        if (!validate_app_addr(ri_data->buf_offset, ri_data->buf_len)) {
+    iovec_app_t * native_ri_data = addr_app_to_native((uint32)(uintptr_t)ri_data);
+    for (i = 0; i < ri_data_len; i++, native_ri_data++, iovec++) {
+        if (!validate_app_addr(native_ri_data->buf_offset, native_ri_data->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        iovec->buf = (void *)addr_app_to_native(ri_data->buf_offset);
-        iovec->buf_len = ri_data->buf_len;
+        iovec->buf = (void *)addr_app_to_native(native_ri_data->buf_offset);
+        iovec->buf_len = native_ri_data->buf_len;
     }
 
+    wasi_roflags_t * native_ro_flags = addr_app_to_native((uint32)(uintptr_t)ro_flags);
     err = wasmtime_ssp_sock_recv(curfds, sock, iovec_begin, ri_data_len,
-                                 ri_flags, &ro_datalen, ro_flags);
+                                 ri_flags, &ro_datalen, native_ro_flags);
     if (err)
         goto fail;
 
-    *(uint32 *)ro_datalen_app = (uint32)ro_datalen;
+    uint32 * native_ro_datalen_app = addr_app_to_native((uint32)(uintptr_t)ro_datalen_app);
+
+    *(uint32 *)native_ro_datalen_app = (uint32)ro_datalen;
 
     /* success */
     err = 0;
@@ -1059,9 +1198,9 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
         return (wasi_errno_t)-1;
 
     total_size = sizeof(iovec_app_t) * (uint64)si_data_len;
-    if (!validate_native_addr(so_datalen_app, sizeof(uint32))
+    if (!validate_app_addr((uint32)(uintptr_t)so_datalen_app, sizeof(uint32))
         || total_size >= UINT32_MAX
-        || !validate_native_addr((void *)si_data, (uint32)total_size))
+        || !validate_app_addr((uint32)(uintptr_t)si_data, (uint32)total_size))
         return (wasi_errno_t)-1;
 
     total_size = sizeof(wasi_ciovec_t) * (uint64)si_data_len;
@@ -1071,13 +1210,15 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
 
     ciovec = ciovec_begin;
 
-    for (i = 0; i < si_data_len; i++, si_data++, ciovec++) {
-        if (!validate_app_addr(si_data->buf_offset, si_data->buf_len)) {
+    iovec_app_t * native_si_data = addr_app_to_native((uint32)(uintptr_t)si_data);
+
+    for (i = 0; i < si_data_len; i++, native_si_data++, ciovec++) {
+        if (!validate_app_addr(native_si_data->buf_offset, native_si_data->buf_len)) {
             err = (wasi_errno_t)-1;
             goto fail;
         }
-        ciovec->buf = (char *)addr_app_to_native(si_data->buf_offset);
-        ciovec->buf_len = si_data->buf_len;
+        ciovec->buf = (char *)addr_app_to_native(native_si_data->buf_offset);
+        ciovec->buf_len = native_si_data->buf_len;
     }
 
     err = wasmtime_ssp_sock_send(curfds, sock, ciovec_begin, si_data_len,
@@ -1085,7 +1226,9 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
     if (err)
         goto fail;
 
-    *so_datalen_app = (uint32)so_datalen;
+    uint32 * native_so_datalen_app = addr_app_to_native((uint32)(uintptr_t)so_datalen_app);
+
+    *native_so_datalen_app = (uint32)so_datalen;
 
     /* success */
     err = 0;
@@ -1116,7 +1259,7 @@ wasi_sched_yield(wasm_exec_env_t exec_env)
 
 /* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \
-    { #func_name, wasi_##func_name, signature, NULL }
+    { (NATIVE_SYMBOL_U)(uint32)WAMR_CSP_##func_name, wasi_##func_name, signature, NULL }
 /* clang-format on */
 
 static NativeSymbol native_symbols_libc_wasi[] = {

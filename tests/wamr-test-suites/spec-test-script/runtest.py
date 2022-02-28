@@ -213,6 +213,9 @@ parser.add_argument('--simd', default=False, action='store_true',
 parser.add_argument('--multi-thread', default=False, action='store_true',
         help="Enable Multi-thread")
 
+parser.add_argument('--dlopen', default=False, action='store_true',
+        help="Enable dlopen")
+
 parser.add_argument('--verbose', default=False, action='store_true',
         help='show more logs')
 
@@ -965,15 +968,27 @@ def run_wasm_with_repl(wasm_tempfile, aot_tempfile, opts, r):
     if not test_aot:
         log("Starting interpreter for module '%s'" % wasm_tempfile)
         if opts.verbose:
-            cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", wasm_tempfile]
+            if opts.dlopen:
+                cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--enable-dlopen=0", "--repl", wasm_tempfile]
+            else:
+                cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", wasm_tempfile]
         else:
-            cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
+            if opts.dlopen:
+               cmd = [opts.interpreter, "--heap-size=0", "--enable-dlopen=0", "--repl", wasm_tempfile]
+            else:
+                cmd = [opts.interpreter, "--heap-size=0", "--repl", wasm_tempfile]
     else:
         log("Starting aot for module '%s'" % aot_tempfile)
         if opts.verbose:
-            cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", aot_tempfile]
+            if opts.dlopen:
+                cmd = [opts.interpreter, "--heap-size=0", "--enable-dlopen=0", "-v=5", "--repl", aot_tempfile]
+            else:
+                cmd = [opts.interpreter, "--heap-size=0", "-v=5", "--repl", aot_tempfile]
         else:
-            cmd = [opts.interpreter, "--heap-size=0", "--repl", aot_tempfile]
+            if opts.dlopen:
+                cmd = [opts.interpreter, "--heap-size=0", "--enable-dlopen=0", "--repl", aot_tempfile]
+            else:
+                cmd = [opts.interpreter, "--heap-size=0", "--repl", aot_tempfile]
 
     log("Running: %s" % " ".join(cmd))
     if (r != None):

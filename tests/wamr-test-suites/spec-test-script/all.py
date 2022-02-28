@@ -49,6 +49,7 @@ def ignore_the_case(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
+    dlopen_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
 ):
@@ -98,6 +99,7 @@ def test_case(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
+    dlopen_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
     clean_up_flag=True,
@@ -112,6 +114,7 @@ def test_case(
         aot_flag,
         sgx_flag,
         multi_module_flag,
+        dlopen_flag,
         multi_thread_flag,
         simd_flag,
     ):
@@ -132,6 +135,9 @@ def test_case(
 
     if multi_thread_flag:
         CMD.append("--multi-thread")
+
+    if dlopen_flag:
+        CMD.append("--dlopen")
 
     if sgx_flag:
         CMD.append("--sgx")
@@ -193,6 +199,7 @@ def test_suite(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
+    dlopen_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
     clean_up_flag=True,
@@ -215,6 +222,7 @@ def test_suite(
                 aot_flag,
                 sgx_flag,
                 multi_module_flag,
+                dlopen_flag,
                 multi_thread_flag,
                 simd_flag,
                 clean_up_flag,
@@ -237,6 +245,7 @@ def test_suite_parallelly(
     aot_flag=False,
     sgx_flag=False,
     multi_module_flag=False,
+    dlopen_flag=False,
     multi_thread_flag=False,
     simd_flag=False,
     clean_up_flag=False,
@@ -264,6 +273,7 @@ def test_suite_parallelly(
                     aot_flag,
                     sgx_flag,
                     multi_module_flag,
+                    dlopen_flag,
                     multi_thread_flag,
                     simd_flag,
                     clean_up_flag,
@@ -299,6 +309,13 @@ def main():
         default=False,
         dest="multi_module_flag",
         help="Running with the Multi-Module feature",
+    )
+    parser.add_argument(
+        "-D",
+        action="store_true",
+        default=False,
+        dest="dlopen_flag",
+        help="Running with dlopen feature",
     )
     parser.add_argument(
         "-m",
@@ -385,6 +402,7 @@ def main():
                 options.aot_flag,
                 options.sgx_flag,
                 options.multi_module_flag,
+                options.dlopen_flag,
                 options.multi_thread_flag,
                 options.simd_flag,
                 options.clean_up_flag,
@@ -401,6 +419,7 @@ def main():
                 options.aot_flag,
                 options.sgx_flag,
                 options.multi_module_flag,
+                options.dlopen_flag,
                 options.multi_thread_flag,
                 options.simd_flag,
                 options.clean_up_flag,
@@ -417,6 +436,7 @@ def main():
                     options.aot_flag,
                     options.sgx_flag,
                     options.multi_module_flag,
+                    options.dlopen_flag,
                     options.multi_thread_flag,
                     options.simd_flag,
                     options.clean_up_flag,

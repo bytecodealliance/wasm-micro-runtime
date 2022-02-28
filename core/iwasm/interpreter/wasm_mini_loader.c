@@ -874,7 +874,7 @@ init_function_local_offsets(WASMFunction *func, char *error_buf,
         local_offset += wasm_value_type_cell_num(local_types[i]);
     }
 
-    bh_assert(local_offset == func->param_cell_num + func->local_cell_num);
+    bh_assert(local_offset == func->func_type->param_cell_num + func->local_cell_num);
     return true;
 }
 
@@ -983,8 +983,6 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 }
             }
 
-            func->param_cell_num = func->func_type->param_cell_num;
-            func->ret_cell_num = func->func_type->ret_cell_num;
             func->local_cell_num =
                 wasm_get_cell_num(func->local_types, func->local_count);
 

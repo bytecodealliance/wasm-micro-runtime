@@ -20,6 +20,9 @@
 #define TEMPLATE_READ_VALUE(Type, p) \
     (p += sizeof(Type), *(Type *)(p - sizeof(Type)))
 
+#define CUSTOM_SECTION_DYNAMIC_LINK_SECTION_NAME ("dylink")
+#define CUSTOM_SECTION_DYNAMIC_LINK_NAME_LEN (sizeof("dylink") - 1)
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -345,67 +348,6 @@ check_utf8_str(const uint8 *str, uint32 len)
         }
     }
     return (p == p_end);
-}
-
-static char *
-const_str_list_insert(const uint8 *str, uint32 len, WASMModule *module,
-                      bool is_load_from_file_buf, char *error_buf,
-                      uint32 error_buf_size)
-{
-    StringNode *node, *node_next;
-
-    if (!check_utf8_str(str, len)) {
-        set_error_buf(error_buf, error_buf_size, "invalid UTF-8 encoding");
-        return NULL;
-    }
-
-    if (len == 0) {
-        return "";
-    }
-    else if (is_load_from_file_buf) {
-        /* As the file buffer can be referred to after loading, we use
-           the previous byte of leb encoded size to adjust the string:
-           move string 1 byte backward and then append '\0' */
-        char *c_str = (char *)str - 1;
-        bh_memmove_s(c_str, len + 1, c_str + 1, len);
-        c_str[len] = '\0';
-        return c_str;
-    }
-
-    /* Search const str list */
-    node = module->const_str_list;
-    while (node) {
-        node_next = node->next;
-        if (strlen(node->str) == len && !memcmp(node->str, str, len))
-            break;
-        node = node_next;
-    }
-
-    if (node) {
-        return node->str;
-    }
-
-    if (!(node = loader_malloc(sizeof(StringNode) + len + 1, error_buf,
-                               error_buf_size))) {
-        return NULL;
-    }
-
-    node->str = ((char *)node) + sizeof(StringNode);
-    bh_memcpy_s(node->str, len + 1, str, len);
-    node->str[len] = '\0';
-
-    if (!module->const_str_list) {
-        /* set as head */
-        module->const_str_list = node;
-        node->next = NULL;
-    }
-    else {
-        /* insert it */
-        node->next = module->const_str_list;
-        module->const_str_list = node;
-    }
-
-    return node->str;
 }
 
 static bool
@@ -1018,15 +960,17 @@ delete_loading_module:
 static bool
 load_function_import(const uint8 **p_buf, const uint8 *buf_end,
                      const WASMModule *parent_module,
-                     const char *sub_module_name, const char *function_name,
-                     WASMFunctionImport *function, char *error_buf,
-                     uint32 error_buf_size)
+                     const ConstStrDescription *sub_module_name,
+                     const ConstStrDescription *function_name,
+                     WASMFunctionImport *function,
+                     char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint32 declare_type_index = 0;
     WASMType *declare_func_type = NULL;
     WASMFunction *linked_func = NULL;
 #if WASM_ENABLE_MULTI_MODULE != 0
+    WASMRuntime * runtime = parent_module->runtime;
     WASMModule *sub_module = NULL;
 #endif
     const char *linked_signature = NULL;
@@ -1051,29 +995,34 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
     declare_func_type = parent_module->types[declare_type_index];
 
     /* lookup registered native symbols first */
-    linked_func = wasm_native_resolve_symbol(
-        sub_module_name, function_name, declare_func_type, &linked_signature,
-        &linked_attachment, &linked_call_conv_raw);
+    linked_func = wasm_native_resolve_symbol(sub_module_name,
+                                             &function_name,
+                                             declare_func_type,
+                                             &linked_signature,
+                                             &linked_attachment,
+                                             &linked_call_conv_raw);
     if (linked_func) {
         is_native_symbol = true;
     }
 #if WASM_ENABLE_MULTI_MODULE != 0
     else {
-        if (!wasm_runtime_is_built_in_module(sub_module_name)) {
-            sub_module = load_depended_module(parent_module, sub_module_name,
+        if (!wasm_runtime_is_built_in_module_new(runtime, sub_module_name)) {
+            sub_module = load_depended_module(parent_module, (char*)sub_module_name->str,
                                               error_buf, error_buf_size);
             if (!sub_module) {
                 return false;
             }
         }
-        linked_func = wasm_loader_resolve_function(
-            sub_module_name, function_name, declare_func_type, error_buf,
-            error_buf_size);
+        linked_func = wasm_loader_resolve_function((char*)sub_module_name->str,
+                                                   (char*)function_name->str,
+                                                   declare_func_type,
+                                                   error_buf,
+                                                   error_buf_size);
     }
 #endif
 
-    function->module_name = (char *)sub_module_name;
-    function->field_name = (char *)function_name;
+    function->module_name = sub_module_name;
+    function->field_name = function_name;
     function->func_type = declare_func_type;
     /* func_ptr_linked is for native registered symbol */
     function->func_ptr_linked = is_native_symbol ? linked_func : NULL;
@@ -1343,9 +1292,11 @@ fail:
 
 static bool
 load_global_import(const uint8 **p_buf, const uint8 *buf_end,
-                   const WASMModule *parent_module, char *sub_module_name,
-                   char *global_name, WASMGlobalImport *global, char *error_buf,
-                   uint32 error_buf_size)
+                   const WASMModule *parent_module,
+                   const ConstStrDescription *sub_module_name,
+                   const ConstStrDescription *global_name,
+                   WASMGlobalImport *global,
+                   char *error_buf, uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end;
     uint8 declare_type = 0;
@@ -1367,7 +1318,8 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
 
 #if WASM_ENABLE_LIBC_BUILTIN != 0
     global->is_linked = wasm_native_lookup_libc_builtin_global(
-        sub_module_name, global_name, global);
+                                (char*)sub_module_name->str,
+                                (char*)global_name->str, global);
     if (global->is_linked) {
         if (global->type != declare_type
             || global->is_mutable != declare_mutable) {
@@ -1379,17 +1331,18 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (!global->is_linked
-        && !wasm_runtime_is_built_in_module(sub_module_name)) {
-        sub_module = load_depended_module(parent_module, sub_module_name,
+        && !wasm_runtime_is_built_in_module((char*)sub_module_name->str)) {
+        sub_module = load_depended_module(parent_module, (char*)sub_module_name->str,
                                           error_buf, error_buf_size);
         if (!sub_module) {
             return false;
         }
 
         /* check sub modules */
-        linked_global = wasm_loader_resolve_global(
-            sub_module_name, global_name, declare_type, declare_mutable,
-            error_buf, error_buf_size);
+        linked_global =
+            wasm_loader_resolve_global((char*)sub_module_name->str, (char*)global_name->str,
+                                       declare_type, declare_mutable,
+                                       error_buf, error_buf_size);
         if (linked_global) {
             global->import_module = sub_module;
             global->import_global_linked = linked_global;
@@ -1548,7 +1501,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     WASMImport *import;
     WASMImport *import_functions = NULL, *import_tables = NULL;
     WASMImport *import_memories = NULL, *import_globals = NULL;
-    char *sub_module_name, *field_name;
+    const ConstStrDescription *sub_module_name = NULL;
+    const ConstStrDescription * field_name = NULL;
     uint8 u8, kind;
 
     read_leb_uint32(p, p_end, import_count);
@@ -1651,21 +1605,23 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             /* load module name */
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
-            if (!(sub_module_name = const_str_list_insert(
-                      p, name_len, module, is_load_from_file_buf, error_buf,
-                      error_buf_size))) {
+
+            if (!(sub_module_name = wasm_runtime_records_const_string(module->runtime,
+                    (const char*)p, name_len, error_buf, error_buf_size))) {
                 return false;
             }
+
             p += name_len;
 
             /* load field name */
             read_leb_uint32(p, p_end, name_len);
             CHECK_BUF(p, p_end, name_len);
-            if (!(field_name = const_str_list_insert(
-                      p, name_len, module, is_load_from_file_buf, error_buf,
-                      error_buf_size))) {
+
+            if (!(field_name = wasm_runtime_records_const_string(module->runtime,
+                    (const char*)p, name_len, error_buf, error_buf_size))) {
                 return false;
             }
+
             p += name_len;
 
             CHECK_BUF(p, p_end, 1);
@@ -1686,11 +1642,12 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 case IMPORT_KIND_TABLE: /* import table */
                     bh_assert(import_tables);
                     import = import_tables++;
-                    if (!load_table_import(&p, p_end, module, sub_module_name,
-                                           field_name, &import->u.table,
+                    if (!load_table_import(&p, p_end, module,
+                                           (char*)sub_module_name->str, (char*)field_name->str,
+                                           &import->u.table,
                                            error_buf, error_buf_size)) {
                         LOG_DEBUG("can not import such a table (%s,%s)",
-                                  sub_module_name, field_name);
+                                  (char*)sub_module_name->str, field_name);
                         return false;
                     }
                     break;
@@ -1698,8 +1655,9 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 case IMPORT_KIND_MEMORY: /* import memory */
                     bh_assert(import_memories);
                     import = import_memories++;
-                    if (!load_memory_import(&p, p_end, module, sub_module_name,
-                                            field_name, &import->u.memory,
+                    if (!load_memory_import(&p, p_end, module,
+                                            (char*)sub_module_name->str, (char*)field_name->str,
+                                            &import->u.memory,
                                             error_buf, error_buf_size)) {
                         return false;
                     }
@@ -1728,9 +1686,8 @@ load_import_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #if WASM_ENABLE_LIBC_WASI != 0
         import = module->import_functions;
         for (i = 0; i < module->import_function_count; i++, import++) {
-            if (!strcmp(import->u.names.module_name, "wasi_unstable")
-                || !strcmp(import->u.names.module_name,
-                           "wasi_snapshot_preview1")) {
+            if (!strcmp((char*)import->u.names.module_name->str, "wasi_unstable")
+                || !strcmp((char*)import->u.names.module_name->str, "wasi_snapshot_preview1")) {
                 module->is_wasi_module = true;
                 break;
             }
@@ -1785,7 +1742,7 @@ init_function_local_offsets(WASMFunction *func, char *error_buf,
         local_offset += wasm_value_type_cell_num(local_types[i]);
     }
 
-    bh_assert(local_offset == func->param_cell_num + func->local_cell_num);
+    bh_assert(local_offset == func->func_type->param_cell_num + func->local_cell_num);
     return true;
 }
 
@@ -1934,8 +1891,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
                 }
             }
 
-            func->param_cell_num = func->func_type->param_cell_num;
-            func->ret_cell_num = func->func_type->ret_cell_num;
+
             func->local_cell_num =
                 wasm_get_cell_num(func->local_types, func->local_count);
 
@@ -2138,6 +2094,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     uint32 str_len;
     WASMExport *export;
     const char *name;
+    const ConstStrDescription * key_export_name = NULL;
 
     read_leb_uint32(p, p_end, export_count);
 
@@ -2163,11 +2120,12 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                 }
             }
 
-            if (!(export->name = const_str_list_insert(
-                      p, str_len, module, is_load_from_file_buf, error_buf,
-                      error_buf_size))) {
+            key_export_name = wasm_runtime_records_const_string(module->runtime,
+                            (const char*)p, str_len, error_buf, error_buf_size);
+            if (!key_export_name) {
                 return false;
             }
+            export->name = key_export_name->str;
 
             p += str_len;
             CHECK_BUF(p, p_end, 1);
@@ -2190,6 +2148,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                              report error */
 #endif
 #endif
+                    module->export_func_count ++;
                     break;
                 /* table index */
                 case EXPORT_KIND_TABLE:
@@ -2199,6 +2158,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                       "unknown table");
                         return false;
                     }
+                    module->export_tab_count++;
                     break;
                 /* memory index */
                 case EXPORT_KIND_MEMORY:
@@ -2208,6 +2168,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                       "unknown memory");
                         return false;
                     }
+                    module->export_mem_count++;
                     break;
                 /* global index */
                 case EXPORT_KIND_GLOBAL:
@@ -2217,6 +2178,7 @@ load_export_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                                       "unknown global");
                         return false;
                     }
+                    module->export_global_count++;
                     break;
                 default:
                     set_error_buf(error_buf, error_buf_size,
@@ -2510,9 +2472,9 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 
     if (data_seg_count) {
         module->data_seg_count = data_seg_count;
-        total_size = sizeof(WASMDataSeg *) * (uint64)data_seg_count;
-        if (!(module->data_segments =
-                  loader_malloc(total_size, error_buf, error_buf_size))) {
+        total_size = sizeof(WASMDataSeg) * (uint64)data_seg_count;
+        if (!(module->data_segments = loader_malloc
+                    (total_size, error_buf, error_buf_size))) {
             return false;
         }
 
@@ -2564,10 +2526,7 @@ load_data_segment_section(const uint8 *buf, const uint8 *buf_end,
 
             read_leb_uint32(p, p_end, data_seg_len);
 
-            if (!(dataseg = module->data_segments[i] = loader_malloc(
-                      sizeof(WASMDataSeg), error_buf, error_buf_size))) {
-                return false;
-            }
+            dataseg = &module->data_segments[i];
 
 #if WASM_ENABLE_BULK_MEMORY != 0
             dataseg->is_passive = is_passive;
@@ -2704,6 +2663,7 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
     uint32 previous_func_index = ~0U;
     uint32 func_name_len;
     uint32 name_index;
+    const ConstStrDescription * key_func_name = NULL;
     int i = 0;
 
     if (p >= p_end) {
@@ -2750,20 +2710,19 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                         read_leb_uint32(p, p_end, func_name_len);
                         CHECK_BUF(p, p_end, func_name_len);
                         /* Skip the import functions */
-                        if (func_index >= module->import_count) {
-                            func_index -= module->import_count;
+                        if (func_index >= module->import_function_count) {
+                            func_index -= module->import_function_count;
                             if (func_index >= module->function_count) {
                                 set_error_buf(error_buf, error_buf_size,
                                               "out-of-range function index");
                                 return false;
                             }
-                            if (!(module->functions[func_index]->field_name =
-                                      const_str_list_insert(
-                                          p, func_name_len, module,
-                                          is_load_from_file_buf, error_buf,
-                                          error_buf_size))) {
+                            key_func_name = wasm_runtime_records_const_string(module->runtime,
+                                    (const char*)p, func_name_len, error_buf, error_buf_size);
+                            if (!key_func_name) {
                                 return false;
                             }
+                            module->functions[func_index]->field_name = key_func_name->str;
                         }
                         p += func_name_len;
                     }
@@ -2781,6 +2740,184 @@ handle_name_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 
     return true;
 fail:
+    return false;
+}
+#endif
+
+inline static WASMModule *
+dylib_entries_map_find(ConstStrDescription * key, HashMap *map)
+{
+    return bh_hash_map_find(map, (void*)key);
+}
+
+inline static bool
+dylib_entries_map_insert(const ConstStrDescription * key, const WASMModule * module, HashMap *map)
+{
+    //ConstStrDescription * key = NULL;
+
+    //if (bh_hash_map_find(map, (void*)key)) {
+    //    return true;
+    //}
+
+    //if (!(key = loader_malloc(sizeof(ConstStrDescription),
+    //                            NULL, 0))) {
+    //    return false;
+    //}
+
+    //bh_memcpy_s(key, sizeof(ConstStrDescription), tmp_key, sizeof(ConstStrDescription));
+
+    if (!bh_hash_map_insert_with_dup(map, (void*)key, (void*)module)) {
+        // wasm_runtime_free(key);
+        return false;
+    }
+
+    return true;
+}
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+static bool
+handle_dylink_section(const uint8 *buf, const uint8 *buf_end,
+                    WASMModule *module,
+                    char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *p = buf, *p_end = buf_end;
+    WASMDylinkSection tmp_dylink_section;
+    int32 step = 0;
+    uint32 total_size = 0;
+    uint32 name_len = 0;
+    const ConstStrDescription * key = NULL;
+    WASMRuntime * runtime = module->runtime;
+    WASMModule * dependency_module;
+
+#define DYLINK_SECTION_MIN_SIZE (5)
+
+    if ((p + DYLINK_SECTION_MIN_SIZE) > p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    // read dylink section body
+    //
+    // Field	        Type	Description
+    // memorysize	    varuint32	Size of the memory area the loader
+    //                              should reserve for the module, which will begin at env.__memory_base
+    // memoryalignment	varuint32	The required alignment of the memory area, in bytes, encoded as a power of 2.
+    // tablesize	    varuint32	Size of the table area the loader should
+    //                              reserve for the module, which will begin at env.__table_base
+    // tablealignment	varuint32	The required alignment of the table area, in elements, encoded as a power of 2.
+    // needed_dynlibs_count	    varuint32	Number of needed shared libraries
+    // needed_dynlibs_entries	dynlib_entry*	Repeated dynamic library entries as described below
+
+    // read dylink section base info.
+    while (p < p_end) {
+        switch (step) {
+            case 0:
+                read_leb_uint32(p, p_end, tmp_dylink_section.memory_size);
+                break;
+            case 1:
+                read_leb_uint32(p, p_end, tmp_dylink_section.memory_alignment);
+                break;
+            case 2:
+                read_leb_uint32(p, p_end, tmp_dylink_section.table_size);
+                break;
+            case 3:
+                read_leb_uint32(p, p_end, tmp_dylink_section.table_alignment);
+                break;
+            case 4:
+                read_leb_uint32(p, p_end, tmp_dylink_section.needed_dylib_count);
+                break;
+            default:
+                break;
+        }
+
+        step ++;
+
+        if (step >= 5)
+            break;
+    }
+
+    if (p > p_end) {
+        set_error_buf(error_buf, error_buf_size, "unexpected end");
+        return false;
+    }
+
+    // unsupport to load dependency recursively now
+    // bh_assert(tmp_dylink_section.needed_dylib_count == 0);
+
+    // create current module's dependencies map.
+    /*
+    if (tmp_dylink_section.needed_dylib_count > 0) {
+        if (!module->implicit_dependency_modules_hmap) {
+            module->implicit_dependency_modules_hmap = bh_hash_map_create(8, false,
+                                                    (HashFunc)const_str_hash,
+                                                    (KeyEqualFunc)const_str_equal,
+                                                    NULL,
+                                                    NULL);
+            if (!module->implicit_dependency_modules_hmap) {
+                set_error_buf(error_buf, error_buf_size,
+                        "create local dependencies map failed");
+                return false;
+            }
+        }
+    }
+    */
+    // calculate the total size which all entries will take.
+    total_size = tmp_dylink_section.needed_dylib_count * sizeof(ConstStrDescription*);
+    total_size += sizeof(WASMDylinkSection);
+
+    // alloc the entire memory to contain all data in dylink section,
+    // including base info and name string etc.
+    if (!(module->dylink_section = loader_malloc
+                (total_size, error_buf, error_buf_size))) {
+        return false;
+    }
+
+    bh_memcpy_s(module->dylink_section, sizeof(WASMDylinkSection),
+                &tmp_dylink_section, sizeof(WASMDylinkSection));
+
+    // read entries data
+    // records dylib entries in the module. not be sure if it is necessary
+    // after all we have dependencies map in module already.
+    for (uint32 i = 0; i < tmp_dylink_section.needed_dylib_count; i ++) {
+        read_leb_uint32(p, p_end, name_len);
+
+        // records string into const string pool
+        key = wasm_runtime_records_const_string(module->runtime, (const char*)p, name_len, error_buf, error_buf_size);
+        if (!key) {
+            wasm_runtime_free(module->dylink_section);
+            return false;
+        }
+
+        p += name_len;
+        module->dylink_section->needed_dylib_entries[i] = key;
+
+        //if (dylib_entries_map_find((ConstStrDescription *)key, module->implicit_dependency_modules_hmap))
+        //    continue;
+
+        if (!runtime->config.need_load_dependencies)
+            continue;
+
+        dependency_module = (WASMModule*)load_implicit_dependency_module((const WASMModuleCommon *)module,
+                                                (ConstStrDescription *)key,
+                                                error_buf, error_buf_size);
+        if (!dependency_module) {
+            set_error_buf_v(error_buf, error_buf_size, "unknown import %s",
+                        key->str);
+            return false;
+        }
+
+        // record the dependencies of current module.
+        // if (!dylib_entries_map_insert(key, dependency_module,
+        //        module->implicit_dependency_modules_hmap)) {
+        //    wasm_runtime_free(module->dylink_section);
+        //    return false;
+        //}
+    }
+
+    return true;
+fail:
+    if (module->dylink_section) {
+        wasm_runtime_free(module->dylink_section);
+    }
     return false;
 }
 #endif
@@ -2817,6 +2954,14 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         p += name_len;
         handle_name_section(p, p_end, module, is_load_from_file_buf, error_buf,
                             error_buf_size);
+    }
+#endif
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (name_len == CUSTOM_SECTION_DYNAMIC_LINK_NAME_LEN &&
+        memcmp(p, CUSTOM_SECTION_DYNAMIC_LINK_SECTION_NAME, CUSTOM_SECTION_DYNAMIC_LINK_NAME_LEN) == 0) {
+        p += name_len;
+        if (!handle_dylink_section(p, p_end, module, error_buf, error_buf_size))
+            return false;
     }
 #endif
     LOG_VERBOSE("Load custom section success.\n");
@@ -3227,6 +3372,14 @@ create_module(char *error_buf, uint32 error_buf_size)
 #if WASM_ENABLE_DEBUG_INTERP != 0
     bh_list_init(&module->fast_opcode_list);
 #endif
+    module->runtime = wasm_runtime_get_runtime();
+    module->file_buf = NULL;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    // initial dependency related attributes.
+    module->implicit_dependency_modules_hmap = NULL;
+    module->module_name = NULL;
+    module->ref_cnt = 0;
+#endif
     return module;
 }
 
@@ -3512,21 +3665,18 @@ wasm_loader_unload(WASMModule *module)
     }
 
     if (module->data_segments) {
-        for (i = 0; i < module->data_seg_count; i++) {
-            if (module->data_segments[i])
-                wasm_runtime_free(module->data_segments[i]);
-        }
         wasm_runtime_free(module->data_segments);
     }
 
-    if (module->const_str_list) {
-        StringNode *node = module->const_str_list, *node_next;
-        while (node) {
-            node_next = node->next;
-            wasm_runtime_free(node);
-            node = node_next;
-        }
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (module->dylink_section) {
+        wasm_runtime_free(module->dylink_section);
     }
+
+    if (module->implicit_dependency_modules_hmap) {
+        bh_hash_map_destroy(module->implicit_dependency_modules_hmap);
+    }
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* just release the sub module list */
@@ -3559,6 +3709,10 @@ wasm_loader_unload(WASMModule *module)
         fast_opcode = next;
     }
 #endif
+
+    if (module->file_buf)
+        wasm_runtime_free((void*)module->file_buf);
+
     wasm_runtime_free(module);
 }
 
@@ -4470,8 +4624,8 @@ wasm_loader_ctx_init(WASMFunction *func)
     memset(loader_ctx->const_buf, 0, loader_ctx->const_buf_size);
 
     loader_ctx->start_dynamic_offset = loader_ctx->dynamic_offset =
-        loader_ctx->max_dynamic_offset =
-            func->param_cell_num + func->local_cell_num;
+        loader_ctx->max_dynamic_offset = func->func_type->param_cell_num +
+                                            func->local_cell_num;
 #endif
     return loader_ctx;
 

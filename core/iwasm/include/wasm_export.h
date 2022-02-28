@@ -63,6 +63,10 @@ struct WASMModuleCommon;
 typedef struct WASMModuleCommon *wasm_module_t;
 #endif
 
+/* Instantiated multiple module program */
+struct WASMProgramCommon;
+typedef struct WASMProgramCommon *wasm_program_t;
+
 /* Instantiated WASM module */
 struct WASMModuleInstanceCommon;
 typedef struct WASMModuleInstanceCommon *wasm_module_inst_t;
@@ -138,6 +142,8 @@ typedef struct RuntimeInitArgs {
     int platform_port;
     int instance_port;
 #endif
+    bool standalone;
+    bool auto_ext_name;
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
@@ -299,6 +305,18 @@ WASM_RUNTIME_API_EXTERN wasm_module_t
 wasm_runtime_load(const uint8_t *buf, uint32_t size,
                   char *error_buf, uint32_t error_buf_size);
 
+WASM_RUNTIME_API_EXTERN wasm_module_t
+wasm_runtime_load2(const char * name,
+                    const uint8_t *buf, uint32_t size,
+                    char *error_buf, uint32_t error_buf_size);
+
+WASM_RUNTIME_API_EXTERN wasm_program_t
+wasm_runtime_create_program(wasm_module_t module, uint32_t stack_size, uint32_t heap_size,
+                    uint32 dlopen_mode, char * error_buf, uint32_t error_buf_size);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_destroy_program(wasm_program_t program);
+
 /**
  * Load a WASM module from a specified WASM or AOT section list.
  *
@@ -320,6 +338,8 @@ wasm_runtime_load_from_sections(wasm_section_list_t section_list, bool is_aot,
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_unload(wasm_module_t module);
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_unload2(wasm_module_t module);
 
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_set_wasi_args_ex(wasm_module_t module,
@@ -439,6 +459,9 @@ wasm_runtime_destroy_thread_env(void);
 WASM_RUNTIME_API_EXTERN wasm_module_inst_t
 wasm_runtime_get_module_inst(wasm_exec_env_t exec_env);
 
+WASM_RUNTIME_API_EXTERN wasm_module_inst_t
+wasm_runtime_get_root_module_inst(wasm_exec_env_t exec_env);
+
 /**
  * Call the given WASM function of a WASM module instance with
  * arguments (bytecode and AoT).
@@ -523,6 +546,10 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_main(wasm_module_inst_t module_inst,
                               int32_t argc, char *argv[]);
 
+WASM_RUNTIME_API_EXTERN bool
+wasm_application_execute_program_main(wasm_program_t program_inst,
+                              int32_t argc, char *argv[]);
+
 /**
  * Find the specified function in argv[0] from a WASM module instance
  * and execute that function.
@@ -541,6 +568,10 @@ wasm_application_execute_main(wasm_module_inst_t module_inst,
 WASM_RUNTIME_API_EXTERN bool
 wasm_application_execute_func(wasm_module_inst_t module_inst,
                               const char *name, int32_t argc, char *argv[]);
+
+WASM_RUNTIME_API_EXTERN bool
+wasm_application_execute_program_func(wasm_program_t program_inst,
+                              const char *name, int32_t argc, char *argv[]);
 /**
  * Get exception info of the WASM module instance.
  *
@@ -551,6 +582,8 @@ wasm_application_execute_func(wasm_module_inst_t module_inst,
 WASM_RUNTIME_API_EXTERN const char *
 wasm_runtime_get_exception(wasm_module_inst_t module_inst);
 
+WASM_RUNTIME_API_EXTERN const char *
+wasm_runtime_get_program_exception(wasm_program_t program_inst);
 /**
  * Set exception info of the WASM module instance.
  *

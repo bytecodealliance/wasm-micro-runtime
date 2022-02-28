@@ -2822,14 +2822,19 @@ aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
         goto fail1;
     }
 
-    if (!(comp_data = aot_create_comp_data(wasm_module))) {
+    if (!(comp_ctx = aot_create_comp_context(&option))) {
         set_error_buf(error_buf, error_buf_size, aot_get_last_error());
         goto fail2;
     }
 
-    if (!(comp_ctx = aot_create_comp_context(comp_data, &option))) {
+    if (!(comp_data = aot_create_comp_data(wasm_module, comp_ctx->pointer_size))) {
         set_error_buf(error_buf, error_buf_size, aot_get_last_error());
         goto fail3;
+    }
+
+    if (!aot_bind_comp_context_data(comp_ctx, comp_data)) {
+      set_error_buf(error_buf, error_buf_size, aot_get_last_error());
+      goto fail4;
     }
 
     if (!aot_compile_wasm(comp_ctx)) {
@@ -2855,12 +2860,15 @@ aot_compile_wasm_file(const uint8 *wasm_file_buf, uint32 wasm_file_size,
 
     *p_aot_file_size = aot_file_size;
 
+
 fail4:
+  /* Destroy compile data */
+    aot_destroy_comp_data(comp_data);
+
+fail3:
     /* Destroy compiler context */
     aot_destroy_comp_context(comp_ctx);
-fail3:
-    /* Destroy compile data */
-    aot_destroy_comp_data(comp_data);
+
 fail2:
     wasm_unload(wasm_module);
 fail1:

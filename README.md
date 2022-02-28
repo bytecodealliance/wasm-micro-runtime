@@ -1,3 +1,19 @@
+### Note
+This branch includes an experimental feature, modules dynamic linking and some changes. I'm not convinced all of them will be merged into wamr trunk. And due to the feature needs, this branch is hard to full compatible with trunk,
+especially aot mode, because I have to add a new section, dylink section, and other data to validate the aot file, including feature bit map and aot file compatibility checking etc. I list the changes below:
+- A new feature, modules dynamic linking. based on it, users can dlopen a wasm/aot module, get a func id by dlsym, and call it using call indirect instr.
+- Add a simple string interning implementation: a const string pool. because during modules linking, there are plenty of function/variable name resolving, especially string comparison manipulation. but I only rewrote the places the new feature touchs.
+- Due to new const string pool, I changes the native wrapper functions register and resolving.
+- Optimize calling native function by aot function, I move all address conversion operations from invoke_native into native wrapper, thus, wrapper function is the one has the knowledge which argument needs to do address conversion, and
+all address conversion are gathered at wrapper, it's easy to implement a pre-process to auto-generated wrapper function.
+- Calling function between modules has to do id resolving, this procedure is little bit complicated. firstly, I implemented a runtime builtin function to do it, but performance is poor. So that I added some opts, including some cases
+go to LLVM IR implementation. in addition, a resolving cache is enabled to reduce the resolving cost, for easy to write LLVM IR, the cache is implemented a 16x2 matrix, each rows/cacheline has 2 cache entries to avoid conflict.
+- Current dynamic linking mode, root module could be a regular wasm/aot module, wasi module or AssemblyScript module. iwasm will launch it according to parameter --enable-dlopen.
+- last, this branch has passed single module spec test whatever enable dynamic linking or not, but multi module cases still need a lot of tests and maintain.
+enjoy it.
+
+
+
 WebAssembly Micro Runtime
 =========================
 [Build WAMR VM core](./doc/build_wamr.md) | [Embed WAMR](./doc/embed_wamr.md) | [Export native function](./doc/export_native_api.md) | [Build WASM applications](./doc/build_wasm_app.md) | [Samples](https://github.com/bytecodealliance/wasm-micro-runtime#samples)

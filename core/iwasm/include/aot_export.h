@@ -20,7 +20,7 @@ struct AOTCompContext;
 typedef struct AOTCompContext *aot_comp_context_t;
 
 aot_comp_data_t
-aot_create_comp_data(void *wasm_module);
+aot_create_comp_data(void *wasm_module, uint32 pointer_size);
 
 void
 aot_destroy_comp_data(aot_comp_data_t comp_data);
@@ -61,8 +61,14 @@ typedef struct AOTCompOption {
     uint32_t bounds_checks;
 } AOTCompOption, *aot_comp_option_t;
 
+uint32_t
+aot_comp_ctx_get_pointer_size(aot_comp_context_t comp_ctx);
+
+bool
+aot_bind_comp_context_data(aot_comp_context_t comp_ctx, aot_comp_data_t comp_data);
+
 aot_comp_context_t
-aot_create_comp_context(aot_comp_data_t comp_data, aot_comp_option_t option);
+aot_create_comp_context(aot_comp_option_t option);
 
 void
 aot_destroy_comp_context(aot_comp_context_t comp_ctx);

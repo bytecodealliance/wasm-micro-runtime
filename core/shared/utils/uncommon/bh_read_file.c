@@ -56,6 +56,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     }
 
     *ret_size = file_size;
+    printf("Read file %s to buffer successfully\n", filename);
     return buffer;
 }
 #else /* else of defined(_WIN32) || defined(_WIN32_) */
@@ -107,6 +108,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     }
 
     *ret_size = file_size;
+    printf("Read file %s to buffer successfully\n", filename);
     return buffer;
 }
 #endif /* end of defined(_WIN32) || defined(_WIN32_) */

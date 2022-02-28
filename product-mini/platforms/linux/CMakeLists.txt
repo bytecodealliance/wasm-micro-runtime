@@ -4,6 +4,7 @@
 cmake_minimum_required (VERSION 2.8)
 
 project (iwasm)
+
 # set (CMAKE_VERBOSE_MAKEFILE 1)
 
 set (WAMR_BUILD_PLATFORM "linux")
@@ -55,6 +56,10 @@ if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
   set (WAMR_BUILD_LIBC_BUILTIN 1)
 endif ()
 
+if (NOT DEFINED AS_HARDCODE_ABORT)
+  set (AS_HARDCODE_ABORT 0)
+endif ()
+
 if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
   # Enable libc wasi support by default
   set (WAMR_BUILD_LIBC_WASI 1)
@@ -67,6 +72,17 @@ endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
   # Enable multiple modules
+  set (WAMR_BUILD_MULTI_MODULE 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_DYNAMIC_LINKING)
+  # Eanble dynamic linking
+  set (WAMR_BUILD_DYNAMIC_LINKING 0)
+endif ()
+
+if (WAMR_BUILD_DYNAMIC_LINKING EQUAL 1)
+  set (WAMR_BUILD_AOT 1)
+  set (WAMR_BUILD_INTERP 1)
   set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 

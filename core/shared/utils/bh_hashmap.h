@@ -70,6 +70,20 @@ bool
 bh_hash_map_insert(HashMap *map, void *key, void *value);
 
 /**
+ * Insert an element to the hash map
+ *
+ * @param map the hash map to insert element
+ * @key the key of the element
+ * @value the value of the element
+ *
+ * @return true if success, false otherwise
+ * Note: fail if key is NULL
+ * if duplicated, considered as success.
+ */
+bool
+bh_hash_map_insert_with_dup(HashMap *map, void *key, void *value);
+
+/**
  * Find an element in the hash map
  *
  * @param map the hash map to find element

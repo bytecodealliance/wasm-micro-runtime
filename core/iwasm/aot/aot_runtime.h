@@ -30,6 +30,7 @@ typedef enum AOTExceptionID {
     EXCE_UNDEFINED_ELEMENT,
     EXCE_UNINITIALIZED_ELEMENT,
     EXCE_CALL_UNLINKED_IMPORT_FUNC,
+    EXEC_CALL_UNLINKED_MODULE,
     EXCE_NATIVE_STACK_OVERFLOW,
     EXCE_UNALIGNED_ATOMIC,
     EXCE_AUX_STACK_OVERFLOW,
@@ -40,12 +41,13 @@ typedef enum AOTExceptionID {
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
-    AOT_SECTION_TYPE_INIT_DATA = 1,
-    AOT_SECTION_TYPE_TEXT = 2,
-    AOT_SECTION_TYPE_FUNCTION = 3,
-    AOT_SECTION_TYPE_EXPORT = 4,
-    AOT_SECTION_TYPE_RELOCATION = 5,
-    AOT_SECTION_TYPE_SIGANATURE = 6,
+    AOT_SECTION_TYPE_DYLINK = 1,
+    AOT_SECTION_TYPE_INIT_DATA = 2,
+    AOT_SECTION_TYPE_TEXT = 3 ,
+    AOT_SECTION_TYPE_FUNCTION = 4,
+    AOT_SECTION_TYPE_EXPORT = 5,
+    AOT_SECTION_TYPE_RELOCATION = 6,
+    AOT_SECTION_TYPE_SIGANATURE = 7,
     AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
 
@@ -81,8 +83,8 @@ typedef struct AOTRelocationGroup {
 } AOTRelocationGroup;
 
 /* AOT function instance */
-typedef struct AOTFunctionInstance {
-    char *func_name;
+typedef struct AOTExportFunctionInstance {
+    const char *func_name;
     uint32 func_index;
     bool is_import_func;
     union {
@@ -93,7 +95,7 @@ typedef struct AOTFunctionInstance {
         } func;
         AOTImportFunc *func_import;
     } u;
-} AOTFunctionInstance;
+} AOTExportFunctionInstance;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
 /* clang-format off */
@@ -121,6 +123,8 @@ typedef struct AOTUnwindInfo {
 
 typedef struct AOTModule {
     uint32 module_type;
+
+    WASMDylinkSection * dylink_section;
 
     /* import memories */
     uint32 import_memory_count;
@@ -178,6 +182,10 @@ typedef struct AOTModule {
 
     /* export info */
     uint32 export_count;
+    uint32 export_func_count;
+    uint32 export_global_count;
+    uint32 export_mem_count;
+    uint32 export_tab_count;
     AOTExport *exports;
 
     /* start function index, -1 denotes no start function */
@@ -245,6 +253,16 @@ typedef struct AOTModule {
 
     /* is jit mode or not */
     bool is_jit_mode;
+
+    const uint8 * file_buf;
+    WASMRuntime * runtime;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    /* directly implicit dependency modules of current module, e.g. dylink section */
+    HashMap *implicit_dependency_modules_hmap;
+    uint32 ref_cnt;
+    uint32 export_sp_global_id; // store the export id of stack_pointer after loading, so that no lookup again when linking
+#endif
+    const ConstStrDescription * module_name;
 
 #if WASM_ENABLE_JIT != 0
     WASMModule *wasm_module;
@@ -321,7 +339,28 @@ typedef struct AOTTableInstance {
 
 typedef struct AOTModuleInstance {
     uint32 module_type;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    //WASMModuleInstanceHead head;
+    // unique instance id in program scope, used to alloc table space currently.
+    uint32 inst_id;
+    WASMRuntime * runtime;
+    WASMProgramInstance * program;
 
+    HashMap * local_implicit_dependency_modules_name_hmap;
+    DependencyModuleInitGlobals init_globals;
+
+    // explicit ref count, updated by dlopen/dlclose
+    uint32 exp_ref_cnt;
+    // implicit ref count, updated according to needed library entries
+    uint32 imp_ref_cnt;
+// workround here, for compatiable with aot instance memory layout
+#ifdef TARGET_32
+    uint32 padding_runtime;
+    uint32 padding_program;
+    uint32 padding_imp_hmap;
+#endif
+    uint32 padding_memory_count;
+#endif
     /* memories */
     uint32 memory_count;
     AOTPointer memories;
@@ -339,6 +378,8 @@ typedef struct AOTModuleInstance {
     AOTPointer global_data;
     /* points to AOTTableInstance[] */
     AOTPointer tables;
+    AOTPointer global_table_data_end;
+
 
     /* function pointer array */
     AOTPointer func_ptrs;
@@ -346,14 +387,18 @@ typedef struct AOTModuleInstance {
     AOTPointer func_type_indexes;
 
     /* export info */
-    uint32 export_func_count;
-    uint32 export_global_count;
-    uint32 export_mem_count;
-    uint32 export_tab_count;
+    //uint32 export_func_count;
+    //uint32 export_global_count;
+    //uint32 export_mem_count;
+    //uint32 export_tab_count;
     AOTPointer export_funcs;
     AOTPointer export_globals;
     AOTPointer export_memories;
     AOTPointer export_tables;
+
+    AOTPointer malloc_func;
+    AOTPointer retain_func;
+    AOTPointer free_func;
 
     /* The exception buffer for current thread. */
     char cur_exception[128];
@@ -496,10 +541,15 @@ aot_unload(AOTModule *module);
  *
  * @return return the instantiated AOT module instance, NULL if failed
  */
-AOTModuleInstance *
-aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
-                uint32 heap_size, char *error_buf, uint32 error_buf_size);
-
+AOTModuleInstance*
+aot_instantiate(WASMProgramInstance * program, AOTModule *module, bool is_sub_inst,
+                uint32 stack_size, uint32 heap_size,
+                char *error_buf, uint32 error_buf_size);
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+AOTModuleInstance*
+aot_instantiate_dependency(AOTModule *module, WASMProgramInstance * program,
+                uint32 stack_size, DependencyModuleInitGlobals * init_globals);
+#endif
 /**
  * Deinstantiate a AOT module instance, destroy the resources.
  *
@@ -519,7 +569,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
  *
  * @return the function instance found
  */
-AOTFunctionInstance *
+AOTExportFunctionInstance *
 aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
                     const char *signature);
 /**
@@ -538,12 +588,12 @@ aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
  *   the caller can call aot_get_exception to get exception info.
  */
 bool
-aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
+aot_call_function(WASMExecEnv *exec_env, AOTExportFunctionInstance *function,
                   unsigned argc, uint32 argv[]);
 
 bool
 aot_create_exec_env_and_call_function(AOTModuleInstance *module_inst,
-                                      AOTFunctionInstance *function,
+                                      AOTExportFunctionInstance *function,
                                       unsigned argc, uint32 argv[]);
 
 bool
@@ -645,6 +695,15 @@ bool
 aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
                   uint32 argc, uint32 *argv);
 
+bool
+aot_call_indirect_with_type(WASMExecEnv *exec_env,
+                  uint32 tbl_idx, int32 table_elem_idx, uint32 type_idx,
+                  uint32 argc, uint32 *argv);
+
+bool
+aot_resolve_function(WASMExecEnv *exec_env, uint32 import_func_id,
+                    uint32 argc, uint32 *argv);
+
 uint32
 aot_get_plt_table_size();
 
@@ -724,6 +783,20 @@ aot_dump_call_stack(WASMExecEnv *exec_env);
 
 void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
+
+static inline AOTTableInstance *
+aot_get_table_inst(const AOTModuleInstance *module_inst, uint32 tbl_idx)
+{
+    uint32 i = 0;
+    AOTTableInstance *tbl_inst = (AOTTableInstance *)module_inst->tables.ptr;
+
+    while (i != tbl_idx) {
+        tbl_inst = aot_next_tbl_inst(tbl_inst);
+        ++i;
+    }
+
+    return tbl_inst;
+}
 
 #ifdef __cplusplus
 } /* end of extern "C" */

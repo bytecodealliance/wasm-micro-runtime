@@ -16,6 +16,9 @@
 #define get_module(exec_env) \
     wasm_exec_env_get_module(exec_env)
 
+#define get_root_module_inst(exec_env) \
+    wasm_runtime_get_root_module_inst(exec_env)
+
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
@@ -1035,7 +1038,7 @@ static int32
 posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
                        int32 size)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasm_module_inst_t module_inst = get_root_module_inst(exec_env);
     void *p = NULL;
 
     *((int32 *)memptr) = module_malloc(size, (void **)&p);

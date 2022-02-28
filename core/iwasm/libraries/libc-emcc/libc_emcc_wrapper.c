@@ -15,6 +15,9 @@
 #define get_module_inst(exec_env) \
     wasm_runtime_get_module_inst(exec_env)
 
+#define get_root_module_inst(exec_env) \
+    wasm_runtime_get_root_module_inst(exec_env)
+
 #define validate_app_addr(offset, size) \
     wasm_runtime_validate_app_addr(module_inst, offset, size)
 
@@ -224,7 +227,7 @@ static int
 mmap_wrapper(wasm_exec_env_t exec_env, void *addr, int length, int prot,
              int flags, int fd, int64 offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasm_module_inst_t module_inst = get_root_module_inst(exec_env);
     uint32 buf_offset;
     char *buf;
     int size_read;

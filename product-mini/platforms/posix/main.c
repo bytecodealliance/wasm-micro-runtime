@@ -19,6 +19,16 @@ static char **app_argv;
 #define MODULE_PATH ("--module-path=")
 
 /* clang-format off */
+#if 0
+#if AS_HARDCODE_ABORT != 0
+static void as_abort(int msg, int file, int line, int column)
+{
+    fprintf(stdout, "wamr: as_abort\r\n");
+    exit(1);
+}
+#endif
+#endif
+
 static int
 print_help()
 {
@@ -36,6 +46,18 @@ print_help()
            "                         that runs commands in the form of \"FUNC ARG...\"\n");
     printf("  --xip                  Enable XIP (Execution In Place) mode to run AOT file\n"
            "                         generated with \"--enable-indirect-mode\" flag\n");
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    printf("  --enable-dlopen=n      Enable explictily dynamic module loading\n"
+           "                         n is a 5-bit bitmap, each bit indicates a feature\n"
+           "                         from bits[0] to bits[4], they are:\n"
+           "                         bind mode, currently always lazy binding\n"
+           "                         where memory allocator comes from, 0 - from builtin libc; 1 - from root module\n"
+           "                         if use table space to store module exports function, 0 - no; 1 - yes\n"
+           "                         if root module is a AS module, 0 - no; 1 - yes\n"
+           "                         if enable cache to save symbol resolve result, 0 - no; 1 - yes, currently not supported yet\n"
+           "                         e.g. n = 14 (0b1110), indicates memory from root module, lazy binding, root module is AS module and use table space\n");
+    printf("  --disable-auto-ext     Disable automatically update ext name in AOT mode\n");
+#endif
 #if WASM_ENABLE_LIBC_WASI != 0
     printf("  --env=<env>            Pass wasi environment variables with \"key=value\"\n");
     printf("                         to the program, for example:\n");
@@ -44,7 +66,7 @@ print_help()
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
 #endif
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
     printf("  --module-path=         Indicate a module search path. default is current\n"
            "                         directory('./')\n");
 #endif
@@ -57,8 +79,36 @@ print_help()
 #endif
     return 1;
 }
-/* clang-format on */
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+static void *
+app_instance_program_main(wasm_program_t program, wasm_module_inst_t module_inst)
+{
+    const char *exception;
+    if (program) {
+        wasm_application_execute_program_main(program, app_argc, app_argv);
+        if ((exception = wasm_runtime_get_program_exception(program)))
+            printf("%s\n", exception);
+    } else
+    {
+        wasm_application_execute_main(module_inst, app_argc, app_argv);
+        if ((exception = wasm_runtime_get_exception(module_inst)))
+            printf("%s\n", exception);
+    }
+    return NULL;
+}
 
+static void *
+app_instance_program_func(wasm_program_t program, wasm_module_inst_t module_inst, const char *func_name)
+{
+    if (program)
+        wasm_application_execute_program_func(program, func_name, app_argc - 1,
+                                  app_argv + 1);
+    else
+        wasm_application_execute_func(module_inst, func_name, app_argc - 1,
+                                  app_argv + 1);
+    return NULL;
+}
+#endif
 static void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
@@ -120,6 +170,44 @@ split_string(char *str, int *count)
     }
     return res;
 }
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+static void *
+app_instance_program_repl(wasm_program_t program, wasm_module_inst_t module_inst)
+{
+    char *cmd = NULL;
+    size_t len = 0;
+    ssize_t n;
+    while ((printf("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
+        bh_assert(n > 0);
+        if (cmd[n - 1] == '\n') {
+            if (n == 1)
+                continue;
+            else
+                cmd[n - 1] = '\0';
+        }
+        if (!strcmp(cmd, "__exit__")) {
+            printf("exit repl mode\n");
+            break;
+        }
+        app_argv = split_string(cmd, &app_argc);
+        if (app_argv == NULL) {
+            LOG_ERROR("Wasm prepare param failed: split string failed.\n");
+            break;
+        }
+        if (app_argc != 0) {
+            if (program)
+                wasm_application_execute_program_func(program, app_argv[0],
+                                          app_argc - 1, app_argv + 1);
+            else
+                wasm_application_execute_func(module_inst, app_argv[0],
+                                          app_argc - 1, app_argv + 1);
+        }
+        free(app_argv);
+    }
+    free(cmd);
+    return NULL;
+}
+#endif
 
 static void *
 app_instance_repl(wasm_module_inst_t module_inst)
@@ -182,7 +270,7 @@ static char global_heap_buf[10 * 1024 * 1024] = { 0 };
 #endif
 #endif
 
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
 static char *
 handle_module_path(const char *module_path)
 {
@@ -190,30 +278,77 @@ handle_module_path(const char *module_path)
     return (strchr(module_path, '=')) + 1;
 }
 
-static char *module_search_path = ".";
+static char * module_search_paths = NULL;
 
 static bool
 module_reader_callback(const char *module_name, uint8 **p_buffer,
                        uint32 *p_size)
 {
-    const char *format = "%s/%s.wasm";
-    int sz = strlen(module_search_path) + strlen("/") + strlen(module_name)
-             + strlen(".wasm") + 1;
-    char *wasm_file_name = BH_MALLOC(sz);
-    if (!wasm_file_name) {
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    const char * format = "/%s";
+    const char * format_with_path = "%s/%s";
+#else
+    const char * format = "/%s.wasm";
+    const char * format_with_path = "%s/%s.wasm";
+#endif
+    const char * search_path = module_search_paths;
+    char * file_full_path = NULL;
+    int path_len = 0, buf_size = 0;
+    *p_buffer = NULL;
+    *p_size = 0;
+    while (search_path) {
+        char * end = strchr(search_path, ':');
+        uint32 len = 0;
+        if (end)
+            len = end - search_path;
+        else
+            len = strlen(search_path);
+        path_len = len + strlen("/") + strlen(module_name) +
+             strlen(".wasm") + 1;
+        if (path_len > buf_size) {
+            if (file_full_path)
+                wasm_runtime_free(file_full_path);
+            buf_size = path_len;
+            file_full_path = BH_MALLOC(buf_size);
+            if (!file_full_path) {
         return false;
     }
+        }
 
-    snprintf(wasm_file_name, sz, format, module_search_path, module_name);
+        memset(file_full_path, 0, buf_size);
+        bh_memcpy_s(file_full_path, buf_size, search_path, len);
+        snprintf(file_full_path + len, buf_size - len, format, module_name);
 
-    *p_buffer = (uint8_t *)bh_read_file_to_buffer(wasm_file_name, p_size);
+        *p_buffer = (uint8_t *)bh_read_file_to_buffer(file_full_path, p_size);
 
-    wasm_runtime_free(wasm_file_name);
-    return *p_buffer != NULL;
+        if (*p_buffer)
+            break;
+        if (end) {
+            search_path = end + 1;
+            continue;
+        }
+        search_path = NULL;
+    }
+    if (!search_path) {
+        bh_assert(!*p_buffer);
+        if (!file_full_path) {
+            buf_size = strlen("./") + strlen(module_name) +
+                strlen(".wasm") + 1;
+            file_full_path = BH_MALLOC(buf_size);
+            if (!file_full_path) {
+                return false;
+            }
+        }
+        snprintf(file_full_path, buf_size, format_with_path, ".", module_name);
+        *p_buffer = (uint8_t *)bh_read_file_to_buffer(file_full_path, p_size);
+    }
+    if (file_full_path)
+        wasm_runtime_free(file_full_path);
+    return (*p_buffer != NULL);
 }
 
 static void
-moudle_destroyer(uint8 *buffer, uint32 size)
+module_destroyer_impl(uint8 *buffer, uint32 size)
 {
     if (!buffer) {
         return;
@@ -228,6 +363,7 @@ int
 main(int argc, char *argv[])
 {
     char *wasm_file = NULL;
+    const char * file_name = NULL;
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
@@ -240,7 +376,12 @@ main(int argc, char *argv[])
     int log_verbose_level = 2;
 #endif
     bool is_repl_mode = false;
-    bool is_xip_mode = false;
+	bool is_xip_mode = false;
+    bool is_standalone_mode = true;
+    bool auto_ext_name = true;
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    uint32 dlopen_mode = 0; // lazy binding | from builtin libc
+#endif
 #if WASM_ENABLE_LIBC_WASI != 0
     const char *dir_list[8] = { NULL };
     uint32 dir_list_size = 0;
@@ -273,9 +414,20 @@ main(int argc, char *argv[])
         else if (!strcmp(argv[0], "--repl")) {
             is_repl_mode = true;
         }
-        else if (!strcmp(argv[0], "--xip")) {
+		else if (!strcmp(argv[0], "--xip")) {
             is_xip_mode = true;
         }
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+        else if (!strncmp(argv[0], "--enable-dlopen=", 16)) {
+            if (argv[0][16] == '\0')
+                return print_help();
+            is_standalone_mode = false;
+            dlopen_mode = atoi(argv[0] + 16);
+        }
+        else if (!strcmp(argv[0], "--disable-auto-ext")) {
+            auto_ext_name = false;
+        }
+#endif
         else if (!strncmp(argv[0], "--stack-size=", 13)) {
             if (argv[0][13] == '\0')
                 return print_help();
@@ -318,10 +470,10 @@ main(int argc, char *argv[])
             }
         }
 #endif /* WASM_ENABLE_LIBC_WASI */
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_MULTI_MODULE != 0 || WASM_ENABLE_DYNAMIC_LINKING != 0
         else if (!strncmp(argv[0], MODULE_PATH, strlen(MODULE_PATH))) {
-            module_search_path = handle_module_path(argv[0]);
-            if (!strlen(module_search_path)) {
+            module_search_paths = handle_module_path(argv[0]);
+            if (!strlen(module_search_paths)) {
                 return print_help();
             }
         }
@@ -358,6 +510,8 @@ main(int argc, char *argv[])
     app_argv = argv;
 
     memset(&init_args, 0, sizeof(RuntimeInitArgs));
+    init_args.standalone = is_standalone_mode;
+    init_args.auto_ext_name = auto_ext_name;
 
 #if WASM_ENABLE_GLOBAL_HEAP_POOL != 0
     init_args.mem_alloc_type = Alloc_With_Pool;
@@ -375,6 +529,23 @@ main(int argc, char *argv[])
     init_args.instance_port = instance_port;
     if (ip_addr)
         strcpy(init_args.ip_addr, ip_addr);
+#endif
+
+#if 0
+#if AS_HARDCODE_ABORT != 0
+    static NativeSymbol native_symbols[] =
+    {
+        {
+            {"abort"}, 		// the name of WASM function name
+            as_abort, 			// the native function pointer
+            "(iiii)",			// the function prototype signature, avoid to use i32
+            NULL                // attachment is NULL
+        }
+    };
+    init_args.n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
+    init_args.native_module_name = "env";
+    init_args.native_symbols = native_symbols;
+#endif
 #endif
 
     /* initialize runtime environment */
@@ -411,15 +582,50 @@ main(int argc, char *argv[])
     }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
+    wasm_runtime_set_module_reader(module_reader_callback, module_destroyer_impl);
 #endif
 
+    file_name = strrchr(wasm_file, '/');
+    if (file_name)
+        file_name ++;
+    else
+        file_name = wasm_file;
     /* load WASM module */
-    if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
+    if (!(wasm_module = wasm_runtime_load2(file_name, wasm_file_buf, wasm_file_size,
                                           error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail2;
     }
+#if WASM_ENABLE_DYNAMIC_LINKING != 0
+    if (!is_standalone_mode) {
+        wasm_runtime_set_module_reader(module_reader_callback, module_destroyer_impl);
+        wasm_program_t program = wasm_runtime_create_program(wasm_module,
+                            stack_size, heap_size, dlopen_mode, error_buf, sizeof(error_buf));
+        if (!program) {
+            printf("%s\n", error_buf);
+            return 0;
+        }
+        if (is_repl_mode)
+            app_instance_program_repl(program, NULL);
+        else if (func_name)
+            app_instance_program_func(program, NULL, func_name);
+        else
+            app_instance_program_main(program, NULL);
+
+        printf("%s\n", error_buf);
+
+        wasm_runtime_destroy_program(program);
+
+        /* free the file buffer */
+        if (!is_xip_mode)
+            wasm_runtime_free(wasm_file_buf);
+        else
+            os_munmap(wasm_file_buf, wasm_file_size);
+
+        wasm_runtime_destroy();
+        return 0;
+    }
+#endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
     wasm_runtime_set_wasi_args(wasm_module, dir_list, dir_list_size, NULL, 0,
@@ -446,7 +652,7 @@ main(int argc, char *argv[])
 
 fail3:
     /* unload the module */
-    wasm_runtime_unload(wasm_module);
+     wasm_runtime_unload2(wasm_module);
 
 fail2:
     /* free the file buffer */

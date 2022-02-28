@@ -20,6 +20,7 @@ function help()
     echo "-M enable the multi module feature"
     echo "-p enable multi thread feature"
     echo "-S enable SIMD"
+    echo "-d enable dynamic linking"
     echo "-x test SGX"
     echo "-b use the wabt binary release package instead of compiling from the source code"
     echo "-P run the spec test parallelly"
@@ -32,6 +33,8 @@ TYPE=("classic-interp" "fast-interp" "jit" "aot")
 #default target
 TARGET="X86_64"
 ENABLE_MULTI_MODULE=0
+ENABLE_DYNAMIC_LINKING=0
+ENABLE_DLOPEN=0
 ENABLE_MULTI_THREAD=0
 COLLECT_CODE_COVERAGE=0
 ENABLE_SIMD=0
@@ -41,7 +44,7 @@ SGX_OPT=""
 PLATFORM=$(uname -s | tr A-Z a-z)
 PARALLELISM=0
 
-while getopts ":s:cabt:m:MCpSxP" opt
+while getopts ":s:cabt:m:MdDCpSxP" opt
 do
     OPT_PARSED="TRUE"
     case $opt in
@@ -93,6 +96,15 @@ do
         M)
         echo "enable multi module feature"
         ENABLE_MULTI_MODULE=1
+        ;;
+        d)
+        echo "enable dynamic linking feature"
+        ENABLE_DYNAMIC_LINKING=1
+        ;;
+        D)
+        echo "enable dlopen feature"
+        ENABLE_DYNAMIC_LINKING=1
+        ENABLE_DLOPEN=1
         ;;
         C)
         echo "enable code coverage"
@@ -156,6 +168,7 @@ readonly CLASSIC_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_DYNAMIC_LINKING=${ENABLE_DYNAMIC_LINKING} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly FAST_INTERP_COMPILE_FLAGS="\
@@ -163,6 +176,7 @@ readonly FAST_INTERP_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=1 -DWAMR_BUILD_FAST_INTERP=1 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=0 \
     -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_DYNAMIC_LINKING=${ENABLE_DYNAMIC_LINKING} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 # jit: report linking error if set COLLECT_CODE_COVERAGE,
@@ -178,6 +192,7 @@ readonly AOT_COMPILE_FLAGS="\
     -DWAMR_BUILD_INTERP=0 -DWAMR_BUILD_FAST_INTERP=0 \
     -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_AOT=1 \
     -DWAMR_BUILD_SPEC_TEST=1 \
+    -DWAMR_BUILD_DYNAMIC_LINKING=${ENABLE_DYNAMIC_LINKING} \
     -DCOLLECT_CODE_COVERAGE=${COLLECT_CODE_COVERAGE}"
 
 readonly COMPILE_FLAGS=(
@@ -265,16 +280,16 @@ function spec_test()
     pushd spec
 
     # restore and clean everything
-    git reset --hard HEAD
+    #git reset --hard HEAD
 
     # update basic test cases
     echo "update spec test cases"
-    git fetch origin master
+    #git fetch origin master
     # restore from XX_ignore_cases.patch
     # resotre branch
-    git checkout -B master
-    git reset --hard 397399a70565609bf142d211891724e21bffd01f
-    git apply ../../spec-test-script/ignore_cases.patch
+    #git checkout -B master
+    #git reset --hard 397399a70565609bf142d211891724e21bffd01f
+    #git apply ../../spec-test-script/ignore_cases.patch
 
     # udpate thread cases
     if [ ${ENABLE_MULTI_THREAD} == 1 ]; then
@@ -354,7 +369,7 @@ function spec_test()
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
 
-    local ARGS_FOR_SPEC_TEST=""
+    local ARGS_FOR_SPEC_TEST="--no_clean_up "
 
     # multi-module only enable in interp mode
     if [[ 1 == ${ENABLE_MULTI_MODULE} ]]; then
@@ -384,6 +399,10 @@ function spec_test()
     # require warmc only in aot mode
     if [[ $1 == 'aot' ]]; then
         ARGS_FOR_SPEC_TEST+="-t -m ${TARGET} "
+    fi
+
+    if [[ 1 == ${ENABLE_DLOPEN} ]]; then
+        ARGS_FOR_SPEC_TEST+="-D "
     fi
 
     if [[ ${PARALLELISM} == 1 ]]; then
@@ -474,7 +493,7 @@ function build_iwasm_with_cfg()
         && if [ -d build ]; then rm -rf build/*; else mkdir build; fi \
         && cd build \
         && cmake $* .. \
-        && make -j 4
+        && make -j 12
     fi
 
     if [ "$?" != 0 ];then
@@ -497,8 +516,8 @@ function build_wamrc()
         && ./build_llvm.sh \
         && if [ -d build ]; then rm -r build/*; else mkdir build; fi \
         && cd build \
-        && cmake .. \
-        && make -j 4
+        && cmake .. -DWAMR_BUILD_DYNAMIC_LINKING=${ENABLE_DYNAMIC_LINKING}\
+        && make -j 12
 }
 
 ### Need to add a test suite?

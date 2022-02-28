@@ -220,6 +220,7 @@ main(int argc, char *argv[])
     init_args.mem_alloc_option.allocator.malloc_func = malloc;
     init_args.mem_alloc_option.allocator.realloc_func = realloc;
     init_args.mem_alloc_option.allocator.free_func = free;
+    init_args.standalone = true;
 
     /* initialize runtime environment */
     if (!wasm_runtime_full_init(&init_args)) {
@@ -237,15 +238,27 @@ main(int argc, char *argv[])
         goto fail1;
 
     /* load WASM module */
-    if (!(wasm_module = wasm_runtime_load(wasm_file, wasm_file_size, error_buf,
-                                          sizeof(error_buf)))) {
+    if (!(wasm_module = wasm_runtime_load2(wasm_file_name, wasm_file, wasm_file_size,
+                                            error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail2;
     }
 
-    if (!(comp_data = aot_create_comp_data(wasm_module))) {
+    bh_print_time("Begin to create compile context");
+
+    if (!(comp_ctx = aot_create_comp_context(&option))) {
         printf("%s\n", aot_get_last_error());
         goto fail3;
+    }
+
+    if (!(comp_data = aot_create_comp_data(wasm_module, aot_comp_ctx_get_pointer_size(comp_ctx)))) {
+        printf("%s\n", aot_get_last_error());
+        goto fail4;
+    }
+
+    if (!aot_bind_comp_context_data(comp_ctx, comp_data)) {
+        printf("%s\n", aot_get_last_error());
+        goto fail4;
     }
 
 #if WASM_ENABLE_DEBUG_AOT != 0
@@ -254,12 +267,6 @@ main(int argc, char *argv[])
     }
 #endif
 
-    bh_print_time("Begin to create compile context");
-
-    if (!(comp_ctx = aot_create_comp_context(comp_data, &option))) {
-        printf("%s\n", aot_get_last_error());
-        goto fail4;
-    }
 
     bh_print_time("Begin to compile");
 
@@ -310,8 +317,8 @@ fail3:
     wasm_runtime_unload(wasm_module);
 
 fail2:
-    /* free the file buffer */
-    wasm_runtime_free(wasm_file);
+  /* free the file buffer */
+  // wasm_runtime_free(wasm_file);
 
 fail1:
     /* Destroy runtime environment */

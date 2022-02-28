@@ -144,14 +144,21 @@ wasm_runtime_free_internal(void *ptr)
     }
 }
 
+int malloc_times = 0;
+int realloc_times = 0;
+int free_times = 0;
+
 void *
 wasm_runtime_malloc(unsigned int size)
 {
+    bh_assert(size != 0);
     if (size == 0) {
         LOG_WARNING("warning: wasm_runtime_malloc with size zero\n");
         /* At lease alloc 1 byte to avoid malloc failed */
         size = 1;
     }
+
+    malloc_times ++;
 
     return wasm_runtime_malloc_internal(size);
 }
@@ -159,11 +166,13 @@ wasm_runtime_malloc(unsigned int size)
 void *
 wasm_runtime_realloc(void *ptr, unsigned int size)
 {
+    realloc_times ++;
     return wasm_runtime_realloc_internal(ptr, size);
 }
 
 void
 wasm_runtime_free(void *ptr)
 {
+    free_times ++;
     wasm_runtime_free_internal(ptr);
 }
