@@ -13,6 +13,7 @@
 
 /* Queue of app manager */
 static bh_queue *g_app_mgr_queue;
+static bool g_app_mgr_started;
 
 void *
 get_app_manager_queue()
@@ -381,8 +382,12 @@ app_manager_startup(host_interface *interface)
 
     app_manager_printf("App Manager started.\n");
 
+    g_app_mgr_started = true;
+
     /* Enter loop run */
     bh_queue_enter_loop_run(g_app_mgr_queue, app_manager_queue_callback, NULL);
+
+    g_app_mgr_started = false;
 
     /* Destroy registered resources */
     am_cleanup_registeration(ID_APP_MGR);
@@ -395,6 +400,12 @@ fail2:
 
 fail1:
     bh_queue_destroy(g_app_mgr_queue);
+}
+
+bool
+app_manager_is_started(void)
+{
+    return g_app_mgr_started;
 }
 
 #include "module_config.h"

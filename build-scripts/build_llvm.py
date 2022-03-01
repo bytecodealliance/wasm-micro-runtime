@@ -10,6 +10,7 @@ import pathlib
 import shlex
 import shutil
 import subprocess
+import sysconfig
 import sys
 
 
@@ -112,9 +113,12 @@ def build_llvm(llvm_dir, platform, backends, projects):
         + LLVM_INCLUDE_TOOLS_OPTION
     )
 
-    CONFIG_CMD = f"cmake {compile_options} ../llvm " + (
-        "-A x64" if "windows" == platform else ""
-    )
+    CONFIG_CMD = f"cmake {compile_options} ../llvm"
+    if "windows" == platform:
+        if "mingw" in sysconfig.get_platform().lower():
+            CONFIG_CMD += " -G'Unix Makefiles'"
+        else:
+            CONFIG_CMD += " -A x64"
     print(f"{CONFIG_CMD}")
     subprocess.check_call(shlex.split(CONFIG_CMD), cwd=build_dir)
 

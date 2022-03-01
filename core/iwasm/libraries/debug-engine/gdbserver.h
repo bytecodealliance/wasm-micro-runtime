@@ -18,6 +18,23 @@ enum GDBStoppointType {
     eWatchpointRead,
     eWatchpointReadWrite
 };
+
+typedef enum rsp_recv_phase_t {
+    Phase_Idle,
+    Phase_Payload,
+    Phase_Checksum
+} rsp_recv_phase_t;
+
+/* Remote Serial Protocol Receive Context */
+typedef struct rsp_recv_context_t {
+    rsp_recv_phase_t phase;
+    uint16 receive_index;
+    uint16 size_in_phase;
+    uint8 check_sum;
+    /* RSP packet should not be too long */
+    char receive_buffer[1024];
+} rsp_recv_context_t;
+
 typedef struct WasmDebugPacket {
     unsigned char buf[PACKET_BUF_SIZE];
     uint32 size;
@@ -30,6 +47,7 @@ typedef struct WASMGDBServer {
     WasmDebugPacket pkt;
     bool noack;
     struct WASMDebugControlThread *thread;
+    rsp_recv_context_t *receive_ctx;
 } WASMGDBServer;
 
 WASMGDBServer *
