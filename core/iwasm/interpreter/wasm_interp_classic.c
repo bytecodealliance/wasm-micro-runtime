@@ -1293,6 +1293,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
+                /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 fidx = ((uint32 *)tbl_inst->base_addr)[val];
                 if (fidx == (uint32)-1) {
@@ -1300,15 +1301,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 #else
-        /* clang-format off */
                 func_obj = ((WASMFuncObjectRef *)tbl_inst->base_addr)[val];
                 if (!func_obj) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
                 }
                 fidx = func_obj->func_idx;
-        /* clang-format on */
 #endif
+                /* clang-format on */
 
                 /*
                  * we might be using a table injected by host or
@@ -1498,6 +1498,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
 #if WASM_ENABLE_GC != 0
             HANDLE_OP(WASM_OP_CALL_REF)
+            {
+#if WASM_ENABLE_THREAD_MGR != 0
+                CHECK_SUSPEND_FLAGS();
+#endif
+                func_obj = POP_REF();
+                if (!func_obj) {
+                    wasm_set_exception(module, "null function object");
+                    goto got_exception;
+                }
+
+                cur_func = module->functions + func_obj->func_idx;
+                goto call_func_from_interp;
+            }
+
             HANDLE_OP(WASM_OP_RETURN_CALL_REF)
             {
 #if WASM_ENABLE_THREAD_MGR != 0
@@ -1510,9 +1524,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
 
                 cur_func = module->functions + func_obj->func_idx;
-                if (opcode == WASM_OP_RETURN_CALL_REF)
-                    goto call_func_from_return_call;
-                goto call_func_from_interp;
+                goto call_func_from_return_call;
             }
 
             HANDLE_OP(WASM_OP_FUNC_BIND)
@@ -1903,8 +1915,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                     case WASM_OP_REF_TEST:
                     {
+                        rtt_obj = POP_REF();
                         gc_obj = POP_REF();
-                        val = (gc_obj && wasm_obj_is_rtt_obj(gc_obj)) ? 1 : 0;
+                        if (gc_obj && rtt_obj
+                            && wasm_obj_is_instance_of(gc_obj, rtt_obj))
+                            val = 1;
+                        else
+                            val = 0;
                         PUSH_I32(val);
                         HANDLE_OP_END();
                     }
@@ -1917,7 +1934,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         if (gc_obj
                             && (!rtt_obj
                                 || !wasm_obj_is_instance_of(gc_obj, rtt_obj))) {
-                            wasm_set_exception(module, "gc object cast failure");
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -1989,7 +2007,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_func_obj(gc_obj)) {
-                            wasm_set_exception(module, "gc object cast failure");
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -1998,7 +2017,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_data_obj(gc_obj)) {
-                            wasm_set_exception(module, "gc object cast failure");
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -2007,7 +2027,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_i31_obj(gc_obj)) {
-                            wasm_set_exception(module, "gc object cast failure");
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -2016,7 +2037,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     {
                         gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                         if (!gc_obj || !wasm_obj_is_array_obj(gc_obj)) {
-                            wasm_set_exception(module, "gc object cast failure");
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
                             goto got_exception;
                         }
                         HANDLE_OP_END();
@@ -2266,14 +2288,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
+                /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 PUSH_I32(*(uint32 *)global_addr);
 #else
-        if (!wasm_is_type_reftype(global->type))
-            PUSH_I32(*(uint32 *)global_addr);
-        else
-            PUSH_REF(GET_REF_FROM_ADDR((uint32 *)global_addr));
+                if (!wasm_is_type_reftype(global->type))
+                    PUSH_I32(*(uint32 *)global_addr);
+                else
+                    PUSH_REF(GET_REF_FROM_ADDR((uint32 *)global_addr));
 #endif
+                /* clang-format on */
                 HANDLE_OP_END();
             }
 
@@ -2293,14 +2317,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
+                /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 *(int32 *)global_addr = POP_I32();
 #else
-        if (!wasm_is_type_reftype(global->type))
-            *(int32 *)global_addr = POP_I32();
-        else
-            PUT_REF_TO_ADDR((uint32 *)global_addr, POP_REF());
+                if (!wasm_is_type_reftype(global->type))
+                    *(int32 *)global_addr = POP_I32();
+                else
+                    PUT_REF_TO_ADDR((uint32 *)global_addr, POP_REF());
 #endif
+                /* clang-format on */
                 HANDLE_OP_END();
             }
 

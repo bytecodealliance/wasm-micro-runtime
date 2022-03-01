@@ -218,7 +218,8 @@ wasm_array_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj, uint32 length,
     array_obj->length = (length << 2) | elem_size_log;
     for (i = 0; i < length; i++) {
         if (wasm_is_type_reftype(array_type->elem_type)) {
-            uint32 *elem_addr = (uint32 *)array_obj->elem_data + REF_CELL_NUM * i;
+            uint32 *elem_addr =
+                (uint32 *)array_obj->elem_data + REF_CELL_NUM * i;
             PUT_REF_TO_ADDR(elem_addr, init_value->gc_obj);
         }
         else if (array_type->elem_type == VALUE_TYPE_I32

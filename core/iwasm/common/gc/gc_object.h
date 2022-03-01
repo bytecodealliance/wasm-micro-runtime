@@ -140,8 +140,9 @@ inline static bool
 wasm_rtt_obj_is_subtype_of(const WASMRttObjectRef rtt_obj1,
                            const WASMRttObjectRef rtt_obj2)
 {
-    return (rtt_obj1->root == rtt_obj2->root
-           && rtt_obj1->n >= rtt_obj2->n) ? true : false;
+    return (rtt_obj1->root == rtt_obj2->root && rtt_obj1->n >= rtt_obj2->n)
+               ? true
+               : false;
 }
 
 WASMStructObjectRef
@@ -344,7 +345,9 @@ wasm_obj_is_data_obj(WASMObjectRef obj)
 
     rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);
     return (rtt_obj->type_flag == WASM_TYPE_ARRAY
-            || rtt_obj->type_flag == WASM_TYPE_STRUCT) ? true : false;
+            || rtt_obj->type_flag == WASM_TYPE_STRUCT)
+               ? true
+               : false;
 }
 
 inline static bool
