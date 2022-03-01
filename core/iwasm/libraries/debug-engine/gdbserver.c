@@ -51,6 +51,14 @@ wasm_create_gdbserver(const char *host, int32 *port)
 
     memset(server, 0, sizeof(WASMGDBServer));
 
+    if (!(server->receive_ctx =
+              wasm_runtime_malloc(sizeof(rsp_recv_context_t)))) {
+        LOG_ERROR("wasm gdb server error: failed to allocate memory");
+        goto fail;
+    }
+
+    memset(server->receive_ctx, 0, sizeof(rsp_recv_context_t));
+
     if (0 != os_socket_create(&listen_fd, 1)) {
         LOG_ERROR("wasm gdb server error: create socket failed");
         goto fail;
@@ -71,6 +79,8 @@ fail:
         os_socket_shutdown(listen_fd);
         os_socket_close(listen_fd);
     }
+    if (server->receive_ctx)
+        wasm_runtime_free(server->receive_ctx);
     if (server)
         wasm_runtime_free(server);
     return NULL;
@@ -108,6 +118,9 @@ fail:
 void
 wasm_close_gdbserver(WASMGDBServer *server)
 {
+    if (server->receive_ctx) {
+        wasm_runtime_free(server->receive_ctx);
+    }
     if (server->socket_fd > 0) {
         os_socket_shutdown(server->socket_fd);
         os_socket_close(server->socket_fd);
@@ -119,57 +132,170 @@ wasm_close_gdbserver(WASMGDBServer *server)
 }
 
 static inline void
-handler_packet(WASMGDBServer *server, char request, char *payload)
+handle_packet(WASMGDBServer *server, char request, char *payload)
 {
     if (packet_handler_table[(int)request].handler != NULL)
         packet_handler_table[(int)request].handler(server, payload);
 }
 
-/**
- * The packet layout is:
- *   '$' + payload + '#' + checksum(2bytes)
- *                    ^
- *                    packetend_ptr
- */
 static void
 process_packet(WASMGDBServer *server)
 {
-    uint8 *inbuf = server->pkt.buf;
-    int32 inbuf_size = server->pkt.size;
-    uint8 *packetend_ptr = (uint8 *)memchr(inbuf, '#', inbuf_size);
-    int32 packet_size = (int32)(uintptr_t)(packetend_ptr - inbuf);
-    char request = inbuf[1];
+    uint8 *inbuf = (uint8 *)server->receive_ctx->receive_buffer;
+    char request;
     char *payload = NULL;
-    uint8 checksum = 0;
 
-    if (packet_size == 1) {
-        LOG_VERBOSE("receive empty request, ignore it\n");
+    request = inbuf[0];
+
+    if (request == '\0') {
+        LOG_VERBOSE("ignore empty request");
         return;
     }
 
-    bh_assert('$' == inbuf[0]);
-    inbuf[packet_size] = '\0';
-
-    for (int i = 1; i < packet_size; i++)
-        checksum += inbuf[i];
-    bh_assert(
-        checksum
-        == (hex(inbuf[packet_size + 1]) << 4 | hex(inbuf[packet_size + 2])));
-
-    payload = (char *)&inbuf[2];
+    payload = (char *)&inbuf[1];
 
     LOG_VERBOSE("receive request:%c %s\n", request, payload);
-    handler_packet(server, request, payload);
+    handle_packet(server, request, payload);
+}
 
-    inbuf_erase_head(server, packet_size + 3);
+static inline void
+push_byte(rsp_recv_context_t *ctx, unsigned char ch, bool checksum)
+{
+    if (ctx->receive_index >= sizeof(ctx->receive_buffer)) {
+        LOG_ERROR("RSP message buffer overflow");
+        bh_assert(false);
+        return;
+    }
+
+    ctx->receive_buffer[ctx->receive_index++] = ch;
+
+    if (checksum) {
+        ctx->check_sum += ch;
+    }
+}
+
+/**
+ * The packet layout is:
+ * 1. Normal packet:
+ *   '$' + payload + '#' + checksum(2bytes)
+ *                    ^
+ *                    packetend
+ * 2. Interrupt:
+ *   0x03
+ */
+
+/* return:
+ *  0: incomplete message received
+ *  1: complete message received
+ *  2: interrupt message received
+ */
+static int
+on_rsp_byte_arrive(unsigned char ch, rsp_recv_context_t *ctx)
+{
+    if (ctx->phase == Phase_Idle) {
+        ctx->receive_index = 0;
+        ctx->check_sum = 0;
+
+        if (ch == 0x03) {
+            LOG_VERBOSE("Receive interrupt package");
+            return 2;
+        }
+        else if (ch == '$') {
+            ctx->phase = Phase_Payload;
+        }
+
+        return 0;
+    }
+    else if (ctx->phase == Phase_Payload) {
+        if (ch == '#') {
+            ctx->phase = Phase_Checksum;
+            push_byte(ctx, ch, false);
+        }
+        else {
+            push_byte(ctx, ch, true);
+        }
+
+        return 0;
+    }
+    else if (ctx->phase == Phase_Checksum) {
+        ctx->size_in_phase++;
+        push_byte(ctx, ch, false);
+
+        if (ctx->size_in_phase == 2) {
+            ctx->size_in_phase = 0;
+
+            if ((hex(ctx->receive_buffer[ctx->receive_index - 2]) << 4
+                 | hex(ctx->receive_buffer[ctx->receive_index - 1]))
+                != ctx->check_sum) {
+                LOG_WARNING("RSP package checksum error, ignore it");
+                ctx->phase = Phase_Idle;
+                return 0;
+            }
+            else {
+                /* Change # to \0 */
+                ctx->receive_buffer[ctx->receive_index - 3] = '\0';
+                ctx->phase = Phase_Idle;
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    /* Should never reach here */
+    bh_assert(false);
+    return 0;
 }
 
 bool
 wasm_gdbserver_handle_packet(WASMGDBServer *server)
 {
-    bool ret;
-    ret = read_packet(server);
-    if (ret)
-        process_packet(server);
-    return ret;
+    int32 n;
+    char buf[1024];
+
+    if (os_socket_settimeout(server->socket_fd, 1000) != 0) {
+        LOG_ERROR("Set socket recv timeout failed");
+        return false;
+    }
+
+    n = os_socket_recv(server->socket_fd, buf, sizeof(buf));
+
+    if (n == 0) {
+        LOG_VERBOSE("Debugger disconnected");
+        return false;
+    }
+    else if (n < 0) {
+#if defined(BH_PLATFORM_WINDOWS)
+        if (WSAGetLastError() == WSAETIMEDOUT)
+#else
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
+        {
+            /* No bytes arrived */
+            return true;
+        }
+        else {
+            LOG_ERROR("Socket receive error");
+            return false;
+        }
+    }
+    else {
+        int32 i, ret;
+
+        for (i = 0; i < n; i++) {
+            ret = on_rsp_byte_arrive(buf[i], server->receive_ctx);
+
+            if (ret == 1) {
+                if (!server->noack)
+                    write_data_raw(server, (uint8 *)"+", 1);
+
+                process_packet(server);
+            }
+            else if (ret == 2) {
+                handle_interrupt(server);
+            }
+        }
+    }
+
+    return true;
 }
