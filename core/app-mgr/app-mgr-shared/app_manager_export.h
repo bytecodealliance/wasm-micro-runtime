@@ -183,6 +183,10 @@ app_manager_host_init(host_interface *intf);
 void
 app_manager_startup(host_interface *intf);
 
+/* Return whether app manager is started */
+bool
+app_manager_is_started(void);
+
 /* Get queue of current applet */
 void *
 app_manager_get_module_queue(uint32 module_type, void *module_inst);

@@ -24,6 +24,20 @@ typedef struct WASMDebugEngine {
     bool active;
 } WASMDebugEngine;
 
+void
+on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env)
+{
+    os_mutex_lock(&debug_inst->wait_lock);
+    debug_inst->stopped_thread = exec_env;
+
+    if (debug_inst->current_state == DBG_LAUNCHING) {
+        /* In launching phase, send a signal so that handle_threadstop_request
+         * can be woken up */
+        os_cond_signal(&debug_inst->wait_cond);
+    }
+    os_mutex_unlock(&debug_inst->wait_lock);
+}
+
 static WASMDebugEngine *g_debug_engine;
 
 static uint32 current_instance_id = 1;
@@ -104,6 +118,50 @@ control_thread_routine(void *arg)
     while (true) {
         os_mutex_lock(&control_thread->wait_lock);
         if (!should_stop(control_thread)) {
+            /* send thread stop reply */
+            if (debug_inst->stopped_thread
+                && debug_inst->current_state == APP_RUNNING) {
+                uint32 status;
+                korp_tid tid;
+
+                status =
+                    (uint32)
+                        debug_inst->stopped_thread->current_status->signal_flag;
+                tid = debug_inst->stopped_thread->handle;
+
+                if (debug_inst->stopped_thread->current_status->running_status
+                    == STATUS_EXIT) {
+                    /* If the thread exits, report "W00" if it's the last thread
+                     * in the cluster, otherwise ignore this event */
+                    status = 0;
+
+                    /* By design, all the other threads should have been stopped
+                     * at this moment, so it is safe to access the
+                     * exec_env_list.len without lock */
+                    if (debug_inst->cluster->exec_env_list.len != 1) {
+                        debug_inst->stopped_thread = NULL;
+                        /* The exiting thread may wait for the signal */
+                        os_cond_signal(&debug_inst->wait_cond);
+                        os_mutex_unlock(&control_thread->wait_lock);
+                        continue;
+                    }
+                }
+
+                wasm_debug_instance_set_cur_thread(
+                    debug_inst, debug_inst->stopped_thread->handle);
+
+                send_thread_stop_status(control_thread->server, status, tid);
+
+                debug_inst->current_state = APP_STOPPED;
+                debug_inst->stopped_thread = NULL;
+
+                if (status == 0) {
+                    /* The exiting thread may wait for the signal */
+                    os_cond_signal(&debug_inst->wait_cond);
+                }
+            }
+
+            /* Processing incoming requests */
             if (!wasm_gdbserver_handle_packet(control_thread->server)) {
                 control_thread->status = STOPPED;
             }
@@ -148,8 +206,10 @@ wasm_debug_control_thread_create(WASMDebugInstance *debug_instance)
     /* wait until the debug control thread ready */
     os_cond_wait(&debug_instance->wait_cond, &debug_instance->wait_lock);
     os_mutex_unlock(&debug_instance->wait_lock);
-    if (!control_thread->server)
+    if (!control_thread->server) {
+        os_thread_join(control_thread->tid, NULL);
         goto fail1;
+    }
 
     os_mutex_lock(&g_debug_engine->instance_list_lock);
     /* create control thread success, append debug instance to debug engine */
@@ -467,46 +527,6 @@ wasm_debug_instance_get_tids(WASMDebugInstance *instance, korp_tid tids[],
     return threads_num;
 }
 
-static WASMExecEnv *
-get_stopped_thread(WASMCluster *cluster)
-{
-    WASMExecEnv *exec_env;
-
-    exec_env = bh_list_first_elem(&cluster->exec_env_list);
-    while (exec_env) {
-        if (exec_env->current_status->running_status != STATUS_RUNNING) {
-            return exec_env;
-        }
-        exec_env = bh_list_elem_next(exec_env);
-    }
-
-    return NULL;
-}
-
-korp_tid
-wasm_debug_instance_wait_thread(WASMDebugInstance *instance, korp_tid tid,
-                                uint32 *status)
-{
-    WASMExecEnv *exec_env = NULL;
-
-    os_mutex_lock(&instance->wait_lock);
-    while ((instance->cluster->exec_env_list.len != 0)
-           && ((exec_env = get_stopped_thread(instance->cluster)) == NULL)) {
-        os_cond_wait(&instance->wait_cond, &instance->wait_lock);
-    }
-    os_mutex_unlock(&instance->wait_lock);
-
-    /* If cluster has no exec_env, then this whole cluster is exiting */
-    if (instance->cluster->exec_env_list.len == 0) {
-        *status = 0;
-        return 0;
-    }
-
-    instance->current_tid = exec_env->handle;
-    *status = (uint32)exec_env->current_status->signal_flag;
-    return exec_env->handle;
-}
-
 uint32
 wasm_debug_instance_get_thread_status(WASMDebugInstance *instance, korp_tid tid)
 {
@@ -538,7 +558,8 @@ wasm_debug_instance_get_pc(WASMDebugInstance *instance)
         return 0;
 
     exec_env = wasm_debug_instance_get_current_env(instance);
-    if ((exec_env->cur_frame != NULL) && (exec_env->cur_frame->ip != NULL)) {
+    if ((exec_env != NULL) && (exec_env->cur_frame != NULL)
+        && (exec_env->cur_frame->ip != NULL)) {
         WASMModuleInstance *module_inst =
             (WASMModuleInstance *)exec_env->module_inst;
         return WASM_ADDR(
@@ -935,12 +956,39 @@ wasm_debug_instance_continue(WASMDebugInstance *instance)
     if (!instance)
         return false;
 
+    if (instance->current_state == APP_RUNNING) {
+        LOG_VERBOSE("Already in running state, ignore continue request");
+        return false;
+    }
+
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     if (!exec_env)
         return false;
 
     while (exec_env) {
         wasm_cluster_thread_continue(exec_env);
+        exec_env = bh_list_elem_next(exec_env);
+    }
+
+    instance->current_state = APP_RUNNING;
+
+    return true;
+}
+
+bool
+wasm_debug_instance_interrupt_all_threads(WASMDebugInstance *instance)
+{
+    WASMExecEnv *exec_env;
+
+    if (!instance)
+        return false;
+
+    exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
+    if (!exec_env)
+        return false;
+
+    while (exec_env) {
+        wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);
         exec_env = bh_list_elem_next(exec_env);
     }
     return true;
@@ -960,8 +1008,17 @@ wasm_debug_instance_kill(WASMDebugInstance *instance)
 
     while (exec_env) {
         wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TERM);
+        if (instance->current_state == APP_STOPPED) {
+            /* Resume all threads so they can receive the TERM signal */
+            os_mutex_lock(&exec_env->wait_lock);
+            exec_env->current_status->running_status = STATUS_RUNNING;
+            os_cond_signal(&exec_env->wait_cond);
+            os_mutex_unlock(&exec_env->wait_lock);
+        }
         exec_env = bh_list_elem_next(exec_env);
     }
+
+    instance->current_state = APP_RUNNING;
     return true;
 }
 
@@ -972,6 +1029,11 @@ wasm_debug_instance_singlestep(WASMDebugInstance *instance, korp_tid tid)
 
     if (!instance)
         return false;
+
+    if (instance->current_state == APP_RUNNING) {
+        LOG_VERBOSE("Already in running state, ignore step request");
+        return false;
+    }
 
     exec_env = bh_list_first_elem(&instance->cluster->exec_env_list);
     if (!exec_env)
@@ -984,6 +1046,9 @@ wasm_debug_instance_singlestep(WASMDebugInstance *instance, korp_tid tid)
         }
         exec_env = bh_list_elem_next(exec_env);
     }
+
+    instance->current_state = APP_RUNNING;
+
     return true;
 }
 

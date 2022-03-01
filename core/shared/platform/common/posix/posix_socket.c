@@ -72,6 +72,22 @@ fail:
 }
 
 int
+os_socket_settimeout(bh_socket_t socket, uint64 timeout_us)
+{
+    struct timeval tv;
+    tv.tv_sec = timeout_us / 1000000UL;
+    tv.tv_usec = timeout_us % 1000000UL;
+
+    if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv,
+                   sizeof(tv))
+        != 0) {
+        return BHT_ERROR;
+    }
+
+    return BHT_OK;
+}
+
+int
 os_socket_listen(bh_socket_t socket, int max_client)
 {
     if (listen(socket, max_client) != 0) {

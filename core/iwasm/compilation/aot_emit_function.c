@@ -518,6 +518,111 @@ check_stack_boundary(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     return true;
 }
 
+/**
+ * Check whether the app address and its buffer are inside the linear memory,
+ * if no, throw exception
+ */
+static bool
+check_app_addr_and_convert(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                           bool is_str_arg, LLVMValueRef app_addr,
+                           LLVMValueRef buf_size,
+                           LLVMValueRef *p_native_addr_converted)
+{
+    LLVMTypeRef func_type, func_ptr_type, func_param_types[5];
+    LLVMValueRef func, func_param_values[5], res, native_addr_ptr;
+    char *func_name = "aot_check_app_addr_and_convert";
+
+    /* prepare function type of aot_check_app_addr_and_convert */
+    func_param_types[0] = comp_ctx->aot_inst_type; /* module_inst */
+    func_param_types[1] = INT8_TYPE;               /* is_str_arg */
+    func_param_types[2] = I32_TYPE;                /* app_offset */
+    func_param_types[3] = I32_TYPE;                /* buf_size */
+    func_param_types[4] =
+        comp_ctx->basic_types.int8_pptr_type; /* p_native_addr */
+    if (!(func_type =
+              LLVMFunctionType(INT8_TYPE, func_param_types, 5, false))) {
+        aot_set_last_error("llvm add function type failed.");
+        return false;
+    }
+
+    /* prepare function pointer */
+    if (comp_ctx->is_jit_mode) {
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+
+        /* JIT mode, call the function directly */
+        if (!(func =
+                  I64_CONST((uint64)(uintptr_t)aot_check_app_addr_and_convert))
+            || !(func = LLVMConstIntToPtr(func, func_ptr_type))) {
+            aot_set_last_error("create LLVM value failed.");
+            return false;
+        }
+    }
+    else if (comp_ctx->is_indirect_mode) {
+        int32 func_index;
+        if (!(func_ptr_type = LLVMPointerType(func_type, 0))) {
+            aot_set_last_error("create LLVM function type failed.");
+            return false;
+        }
+        func_index = aot_get_native_symbol_index(comp_ctx, func_name);
+        if (func_index < 0) {
+            return false;
+        }
+        if (!(func = aot_get_func_from_table(comp_ctx, func_ctx->native_symbol,
+                                             func_ptr_type, func_index))) {
+            return false;
+        }
+    }
+    else {
+        if (!(func = LLVMGetNamedFunction(func_ctx->module, func_name))
+            && !(func =
+                     LLVMAddFunction(func_ctx->module, func_name, func_type))) {
+            aot_set_last_error("add LLVM function failed.");
+            return false;
+        }
+    }
+
+    if (!(native_addr_ptr = LLVMBuildBitCast(
+              comp_ctx->builder, func_ctx->argv_buf,
+              comp_ctx->basic_types.int8_pptr_type, "p_native_addr"))) {
+        aot_set_last_error("llvm build bit cast failed.");
+        return false;
+    }
+
+    func_param_values[0] = func_ctx->aot_inst;
+    func_param_values[1] = I8_CONST(is_str_arg);
+    func_param_values[2] = app_addr;
+    func_param_values[3] = buf_size;
+    func_param_values[4] = native_addr_ptr;
+
+    if (!func_param_values[1]) {
+        aot_set_last_error("llvm create const failed.");
+        return false;
+    }
+
+    /* call aot_check_app_addr_and_convert() function */
+    if (!(res = LLVMBuildCall(comp_ctx->builder, func, func_param_values, 5,
+                              "res"))) {
+        aot_set_last_error("llvm build call failed.");
+        return false;
+    }
+
+    /* Check whether exception was thrown when executing the function */
+    if (!check_call_return(comp_ctx, func_ctx, res)) {
+        return false;
+    }
+
+    if (!(*p_native_addr_converted = LLVMBuildLoad(
+              comp_ctx->builder, native_addr_ptr, "native_addr"))) {
+        aot_set_last_error("llvm build load failed.");
+        return false;
+    }
+
+    return true;
+}
+
 bool
 aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                     uint32 func_idx, bool tail_call)
@@ -539,6 +644,7 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     uint32 callee_cell_num;
     uint8 wasm_ret_type;
     uint8 *ext_ret_types = NULL;
+    const char *signature = NULL;
     bool ret = false;
     char buf[32];
 
@@ -557,11 +663,14 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Get function type */
-    if (func_idx < import_func_count)
+    if (func_idx < import_func_count) {
         func_type = import_funcs[func_idx].func_type;
-    else
+        signature = import_funcs[func_idx].signature;
+    }
+    else {
         func_type =
             func_ctxes[func_idx - import_func_count]->aot_func->func_type;
+    }
 
     /* Get param cell number */
     param_cell_num = func_type->param_cell_num;
@@ -659,8 +768,41 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         j = 0;
         param_types[j++] = comp_ctx->exec_env_type;
 
-        for (i = 0; i < param_count; i++)
-            param_types[j++] = TO_LLVM_TYPE(func_type->types[i]);
+        for (i = 0; i < param_count; i++, j++) {
+            param_types[j] = TO_LLVM_TYPE(func_type->types[i]);
+
+            /* If the signature can be gotten, e.g. the signature of the builtin
+               native libraries, just check the app offset and buf size, and
+               then convert app offset to native addr and call the native func
+               directly, no need to call aot_invoke_native to call it */
+            if (signature) {
+                LLVMValueRef native_addr, native_addr_size;
+                if (signature[i + 1] == '*' || signature[i + 1] == '$') {
+                    param_types[j] = INT8_PTR_TYPE;
+                }
+                if (signature[i + 1] == '*') {
+                    if (signature[i + 2] == '~')
+                        native_addr_size = param_values[i + 2];
+                    else
+                        native_addr_size = I32_ONE;
+                    if (!check_app_addr_and_convert(
+                            comp_ctx, func_ctx, false, param_values[j],
+                            native_addr_size, &native_addr)) {
+                        goto fail;
+                    }
+                    param_values[j] = native_addr;
+                }
+                else if (signature[i + 1] == '$') {
+                    native_addr_size = I32_ZERO;
+                    if (!check_app_addr_and_convert(
+                            comp_ctx, func_ctx, true, param_values[j],
+                            native_addr_size, &native_addr)) {
+                        goto fail;
+                    }
+                    param_values[j] = native_addr;
+                }
+            }
+        }
 
         if (func_type->result_count) {
             wasm_ret_type = func_type->types[func_type->param_count];
@@ -671,17 +813,68 @@ aot_compile_op_call(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             ret_type = VOID_TYPE;
         }
 
-        /* call aot_invoke_native() */
-        if (!call_aot_invoke_native_func(
-                comp_ctx, func_ctx, import_func_idx, func_type, param_types + 1,
-                param_values + 1, param_count, param_cell_num, ret_type,
-                wasm_ret_type, &value_ret, &res))
-            goto fail;
+        if (!signature) {
+            /* call aot_invoke_native() */
+            if (!call_aot_invoke_native_func(
+                    comp_ctx, func_ctx, import_func_idx, func_type,
+                    param_types + 1, param_values + 1, param_count,
+                    param_cell_num, ret_type, wasm_ret_type, &value_ret, &res))
+                goto fail;
+            /* Check whether there was exception thrown when executing
+               the function */
+            if (!check_call_return(comp_ctx, func_ctx, res))
+                goto fail;
+        }
+        else { /* call native func directly */
+            LLVMTypeRef native_func_type, func_ptr_type;
+            LLVMValueRef func_ptr;
 
-        /* Check whether there was exception thrown when executing
-           the function */
-        if (!check_call_return(comp_ctx, func_ctx, res))
-            goto fail;
+            if (!(native_func_type = LLVMFunctionType(
+                      ret_type, param_types, param_count + 1, false))) {
+                aot_set_last_error("llvm add function type failed.");
+                goto fail;
+            }
+
+            if (!(func_ptr_type = LLVMPointerType(native_func_type, 0))) {
+                aot_set_last_error("create LLVM function type failed.");
+                goto fail;
+            }
+
+            /* Load function pointer */
+            if (!(func_ptr = LLVMBuildInBoundsGEP(
+                      comp_ctx->builder, func_ctx->func_ptrs, &import_func_idx,
+                      1, "native_func_ptr_tmp"))) {
+                aot_set_last_error("llvm build inbounds gep failed.");
+                goto fail;
+            }
+
+            if (!(func_ptr = LLVMBuildLoad(comp_ctx->builder, func_ptr,
+                                           "native_func_ptr"))) {
+                aot_set_last_error("llvm build load failed.");
+                goto fail;
+            }
+
+            if (!(func = LLVMBuildBitCast(comp_ctx->builder, func_ptr,
+                                          func_ptr_type, "native_func"))) {
+                aot_set_last_error("llvm bit cast failed.");
+                goto fail;
+            }
+
+            /* Call the function */
+            if (!(value_ret = LLVMBuildCall(
+                      comp_ctx->builder, func, param_values,
+                      (uint32)param_count + 1 + ext_ret_count,
+                      (func_type->result_count > 0 ? "call" : "")))) {
+                aot_set_last_error("LLVM build call failed.");
+                goto fail;
+            }
+
+            /* Check whether there was exception thrown when executing
+               the function */
+            if (!check_exception_thrown(comp_ctx, func_ctx)) {
+                goto fail;
+            }
+        }
     }
     else {
         bool recursive_call =

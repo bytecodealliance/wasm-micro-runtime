@@ -2431,6 +2431,56 @@ aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
     }
 }
 
+/**
+ * Check whether the app address and the buf is inside the linear memory,
+ * and convert the app address into native address
+ */
+bool
+aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
+                               uint32 app_buf_addr, uint32 app_buf_size,
+                               void **p_native_addr)
+{
+    AOTMemoryInstance *memory_inst = aot_get_default_memory(module_inst);
+    uint8 *native_addr;
+
+    if (!memory_inst) {
+        goto fail;
+    }
+
+    native_addr = (uint8 *)memory_inst->memory_data.ptr + app_buf_addr;
+
+    /* No need to check the app_offset and buf_size if memory access
+       boundary check with hardware trap is enabled */
+#ifndef OS_ENABLE_HW_BOUND_CHECK
+    if (app_buf_addr >= memory_inst->memory_data_size) {
+        goto fail;
+    }
+
+    if (!is_str) {
+        if (app_buf_size > memory_inst->memory_data_size - app_buf_addr) {
+            goto fail;
+        }
+    }
+    else {
+        const char *str, *str_end;
+
+        /* The whole string must be in the linear memory */
+        str = (const char *)native_addr;
+        str_end = (const char *)memory_inst->memory_data_end.ptr;
+        while (str < str_end && *str != '\0')
+            str++;
+        if (str == str_end)
+            goto fail;
+    }
+#endif
+
+    *p_native_addr = (void *)native_addr;
+    return true;
+fail:
+    aot_set_exception(module_inst, "out of bounds memory access");
+    return false;
+}
+
 void *
 aot_memmove(void *dest, const void *src, size_t n)
 {
