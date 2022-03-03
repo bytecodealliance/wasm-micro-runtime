@@ -34,24 +34,32 @@ static JitCompilerPass compiler_passes[] = {
     REG_PASS(lower_cg),
     REG_PASS(regalloc),
     REG_PASS(codegen),
-    REG_PASS(register_jited_code)
+    REG_PASS(register_jitted_code)
 #undef REG_PASS
 };
 
 /* Number of compiler passes.  */
 #define COMPILER_PASS_NUM (sizeof(compiler_passes) / sizeof(compiler_passes[0]))
 
+#define WASM_ENABLE_FAST_JIT_DUMP 1
+
+#if WASM_ENABLE_FAST_JIT_DUMP == 0
 static const uint8 compiler_passes_without_dump[] = {
     3, 4, 5, 6, 7, 8, 0
 };
-
+#else
 static const uint8 compiler_passes_with_dump[] = {
-    3, 2, 1, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0
+    3, 2, 1, 4, 1, 5, 1, 6, 1, 7, 1, 8, 0
 };
+#endif
 
 /* The exported global data of JIT compiler.  */
 JitGlobals jit_globals = {
+#if WASM_ENABLE_FAST_JIT_DUMP == 0
+    .passes = compiler_passes_without_dump,
+#else
     .passes = compiler_passes_with_dump,
+#endif
     .code_cache_size = 10 * 1024 * 1024
 };
 /* clang-format on */
@@ -130,8 +138,10 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
                               || (!module->possible_memory_grow);
 
     /* Apply compiler passes.  */
-    if (!apply_compiler_passes(cc))
-        ret = true;
+    if (!apply_compiler_passes(cc)) {
+        os_printf("fast jit compilation failed: %s\n", jit_get_last_error(cc));
+        ret = false;
+    }
 
     /* Delete the compilation context.  */
     jit_cc_delete(cc);
@@ -165,6 +175,8 @@ jit_compiler_compile_all(WASMModule *module)
 
         /* Apply compiler passes.  */
         if (!apply_compiler_passes(cc)) {
+            os_printf("fast jit compilation failed: %s\n",
+                      jit_get_last_error(cc));
             ret = false;
             break;
         }
@@ -177,8 +189,8 @@ jit_compiler_compile_all(WASMModule *module)
 }
 
 bool
-jit_call_func_jited(void *exec_env, void *frame,
-                    WASMFunctionInstance *func_inst, void *target)
+jit_interp_switch_to_jitted(void *exec_env, void *frame,
+                            WASMFunctionInstance *func_inst, void *target)
 {
-    return jit_codegen_call_func_jited(exec_env, func_inst, frame, target);
+    return jit_codegen_call_func_jitted(exec_env, func_inst, frame, target);
 }

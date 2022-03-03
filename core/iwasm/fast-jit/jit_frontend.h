@@ -10,6 +10,92 @@
 #include "jit_ir.h"
 #include "../interpreter/wasm_interp.h"
 
+typedef enum IntCond {
+    INT_EQZ = 0,
+    INT_EQ,
+    INT_NE,
+    INT_LT_S,
+    INT_LT_U,
+    INT_GT_S,
+    INT_GT_U,
+    INT_LE_S,
+    INT_LE_U,
+    INT_GE_S,
+    INT_GE_U
+} IntCond;
+
+typedef enum FloatCond {
+    FLOAT_EQ = 0,
+    FLOAT_NE,
+    FLOAT_LT,
+    FLOAT_GT,
+    FLOAT_LE,
+    FLOAT_GE,
+    FLOAT_UNO
+} FloatCond;
+
+typedef enum IntArithmetic {
+    INT_ADD = 0,
+    INT_SUB,
+    INT_MUL,
+    INT_DIV_S,
+    INT_DIV_U,
+    INT_REM_S,
+    INT_REM_U
+} IntArithmetic;
+
+typedef enum V128Arithmetic {
+    V128_ADD = 0,
+    V128_SUB,
+    V128_MUL,
+    V128_DIV,
+    V128_NEG,
+    V128_MIN,
+    V128_MAX,
+} V128Arithmetic;
+
+typedef enum IntBitwise {
+    INT_AND = 0,
+    INT_OR,
+    INT_XOR,
+} IntBitwise;
+
+typedef enum V128Bitwise {
+    V128_NOT,
+    V128_AND,
+    V128_ANDNOT,
+    V128_OR,
+    V128_XOR,
+    V128_BITSELECT,
+} V128Bitwise;
+
+typedef enum IntShift {
+    INT_SHL = 0,
+    INT_SHR_S,
+    INT_SHR_U,
+    INT_ROTL,
+    INT_ROTR
+} IntShift;
+
+typedef enum FloatMath {
+    FLOAT_ABS = 0,
+    FLOAT_NEG,
+    FLOAT_CEIL,
+    FLOAT_FLOOR,
+    FLOAT_TRUNC,
+    FLOAT_NEAREST,
+    FLOAT_SQRT
+} FloatMath;
+
+typedef enum FloatArithmetic {
+    FLOAT_ADD = 0,
+    FLOAT_SUB,
+    FLOAT_MUL,
+    FLOAT_DIV,
+    FLOAT_MIN,
+    FLOAT_MAX,
+} FloatArithmetic;
+
 typedef enum JitExceptionID {
     EXCE_UNREACHABLE = 0,
     EXCE_OUT_OF_MEMORY,
@@ -353,5 +439,31 @@ set_local_f64(JitFrame *frame, int n, JitReg val)
 {
     set_local_i64(frame, n, val);
 }
+
+#define POP(jit_value, value_type)                         \
+    do {                                                   \
+        if (!jit_cc_pop_value(cc, value_type, &jit_value)) \
+            goto fail;                                     \
+    } while (0)
+
+#define POP_I32(v) POP(v, VALUE_TYPE_I32)
+#define POP_I64(v) POP(v, VALUE_TYPE_I64)
+#define POP_F32(v) POP(v, VALUE_TYPE_F32)
+#define POP_F64(v) POP(v, VALUE_TYPE_F64)
+#define POP_FUNCREF(v) POP(v, VALUE_TYPE_FUNCREF)
+#define POP_EXTERNREF(v) POP(v, VALUE_TYPE_EXTERNREF)
+
+#define PUSH(jit_value, value_type)                        \
+    do {                                                   \
+        if (!jit_cc_push_value(cc, value_type, jit_value)) \
+            goto fail;                                     \
+    } while (0)
+
+#define PUSH_I32(v) PUSH(v, VALUE_TYPE_I32)
+#define PUSH_I64(v) PUSH(v, VALUE_TYPE_I64)
+#define PUSH_F32(v) PUSH(v, VALUE_TYPE_F32)
+#define PUSH_F64(v) PUSH(v, VALUE_TYPE_F64)
+#define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
+#define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
 
 #endif

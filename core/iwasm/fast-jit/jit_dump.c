@@ -172,12 +172,13 @@ jit_dump_basic_block(JitCompContext *cc, JitBasicBlock *block)
                                       - (uint8 *)cc->cur_wasm_func->code);
     os_printf("\n");
 
-    if (jit_annl_is_enabled_jited_addr(cc))
+    if (jit_annl_is_enabled_jitted_addr(cc))
         /* Dump assembly.  */
-        jit_codegen_dump_native(*(jit_annl_jited_addr(cc, label)),
-                                label != cc->exit_label ? *(jit_annl_jited_addr(
-                                    cc, *(jit_annl_next_label(cc, label))))
-                                                        : cc->jited_addr_end);
+        jit_codegen_dump_native(
+            *(jit_annl_jitted_addr(cc, label)),
+            label != cc->exit_label
+                ? *(jit_annl_jitted_addr(cc, *(jit_annl_next_label(cc, label))))
+                : cc->jitted_addr_end);
     else
         /* Dump IR.  */
         JIT_FOREACH_INSN(block, insn)

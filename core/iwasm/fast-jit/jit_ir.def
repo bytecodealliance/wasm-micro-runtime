@@ -396,7 +396,7 @@ ANN_LABEL(uint16, end_sp)
 /* The label of the next physically adjacent block.  */
 ANN_LABEL(JitReg, next_label)
 /* Compiled code address of the block.  */
-ANN_LABEL(void *, jited_addr)
+ANN_LABEL(void *, jitted_addr)
 
 #undef ANN_LABEL
 

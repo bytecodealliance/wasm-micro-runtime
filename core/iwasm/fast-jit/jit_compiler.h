@@ -30,8 +30,8 @@ bool
 jit_compiler_compile_all(WASMModule *module);
 
 bool
-jit_call_func_jited(void *exec_env, void *frame,
-                    WASMFunctionInstance *func_inst, void *target);
+jit_interp_switch_to_jitted(void *exec_env, void *frame,
+                            WASMFunctionInstance *func_inst, void *target);
 
 /*
  * Pass declarations:
@@ -80,10 +80,10 @@ bool
 jit_pass_codegen(JitCompContext *cc);
 
 /**
- * Register the jited code so that it can be executed.
+ * Register the jitted code so that it can be executed.
  */
 bool
-jit_pass_register_jited_code(JitCompContext *cc);
+jit_pass_register_jitted_code(JitCompContext *cc);
 
 #ifdef __cplusplus
 }

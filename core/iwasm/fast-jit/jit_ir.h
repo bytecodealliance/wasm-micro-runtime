@@ -838,7 +838,7 @@ typedef struct JitHardRegInfo {
         const uint8 *caller_saved_native;
 
         /* Whether each register is caller-saved in the JITed ABI. */
-        const uint8 *caller_saved_jited;
+        const uint8 *caller_saved_jitted;
     } info[JIT_REG_KIND_L32];
 
     /* The indexes of hard registers of frame pointer, exec_env and cmp. */
@@ -860,8 +860,6 @@ typedef struct JitValue {
     JitReg value;
     /* VALUE_TYPE_I32/I64/F32/F64/VOID */
     uint8 type;
-    bool is_local;
-    uint32 local_idx;
 } JitValue;
 
 /**
@@ -926,8 +924,6 @@ typedef struct JitBlock {
     /* The current Jit Block */
     struct JitCompContext *cc;
 
-    /* Block index */
-    uint32 block_index;
     /* LABEL_TYPE_BLOCK/LOOP/IF/FUNCTION */
     uint32 label_type;
     /* Whether it is reachable */
@@ -950,9 +946,6 @@ typedef struct JitBlock {
     /* WASM operation stack */
     JitValueStack value_stack;
 
-    /* The stack begin offset of current block */
-    uint32 stack_begin;
-
     /* Param count/types/PHIs of this block */
     uint32 param_count;
     uint8 *param_types;
@@ -961,7 +954,8 @@ typedef struct JitBlock {
     uint32 result_count;
     uint8 *result_types;
 
-    JitFrame *frame;
+    /* The begin frame stack pointer of this block */
+    JitValueSlot *frame_sp_begin;
 } JitBlock;
 
 /**
@@ -970,8 +964,6 @@ typedef struct JitBlock {
 typedef struct JitBlockStack {
     JitBlock *block_list_head;
     JitBlock *block_list_end;
-    /* Current block index of each block type */
-    uint32 block_index[3];
 } JitBlockStack;
 
 /**
@@ -1016,15 +1008,15 @@ typedef struct JitCompContext {
     /* The total frame size of current function */
     uint32 total_frame_size;
 
-    /* The offset of jited_return_address in the frame, which is set by
+    /* The offset of jitted_return_address in the frame, which is set by
        the pass frontend and used by the pass codegen. */
-    uint32 jited_return_address_offset;
+    uint32 jitted_return_address_offset;
 
-    /* Begin and end addresses of the jited code produced by the pass
+    /* Begin and end addresses of the jitted code produced by the pass
        codegen and consumed by the region registration after codegen and
        the pass dump. */
-    void *jited_addr_begin;
-    void *jited_addr_end;
+    void *jitted_addr_begin;
+    void *jitted_addr_end;
 
     char last_error[128];
 
@@ -1697,20 +1689,20 @@ jit_cc_is_hreg_caller_saved_native(JitCompContext *cc, JitReg reg)
 }
 
 /**
- * Check whether the given hard register is caller-saved-jited.
+ * Check whether the given hard register is caller-saved-jitted.
  *
  * @param cc the compilation context
  * @param reg the hard register
  *
- * @return true if the hard register is caller-saved-jited
+ * @return true if the hard register is caller-saved-jitted
  */
 static inline bool
-jit_cc_is_hreg_caller_saved_jited(JitCompContext *cc, JitReg reg)
+jit_cc_is_hreg_caller_saved_jitted(JitCompContext *cc, JitReg reg)
 {
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_cc_is_hreg(cc, reg));
-    return !!cc->hreg_info->info[kind].caller_saved_jited[no];
+    return !!cc->hreg_info->info[kind].caller_saved_jitted[no];
 }
 
 /**
@@ -1740,7 +1732,7 @@ jit_cc_exit_basic_block(JitCompContext *cc)
 }
 
 char *
-jit_cc_get_last_error(JitCompContext *cc);
+jit_get_last_error(JitCompContext *cc);
 
 void
 jit_set_last_error(JitCompContext *cc, const char *error);
@@ -1768,6 +1760,12 @@ jit_block_stack_destroy(JitBlockStack *stack);
 
 void
 jit_block_destroy(JitBlock *block);
+
+bool
+jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value);
+
+bool
+jit_cc_pop_value(JitCompContext *cc, uint8 type, JitReg *p_value);
 
 /**
  * Update the control flow graph after successors of blocks are

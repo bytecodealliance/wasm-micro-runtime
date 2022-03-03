@@ -413,7 +413,7 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
         goto fail;
 
     if (!(cc->exception_blocks =
-              jit_malloc(sizeof(JitBasicBlock *) * EXCE_NUM)))
+              jit_calloc(sizeof(JitBasicBlock *) * EXCE_NUM)))
         goto fail;
 
     /* Record the entry and exit labels, whose indexes must be 0 and 1
@@ -1177,7 +1177,7 @@ jit_cc_new_reg(JitCompContext *cc, unsigned kind)
 #undef ANN_REG
 
 char *
-jit_cc_get_last_error(JitCompContext *cc)
+jit_get_last_error(JitCompContext *cc)
 {
     return cc->last_error[0] == '\0' ? "" : cc->last_error;
 }
@@ -1346,6 +1346,103 @@ jit_block_destroy(JitBlock *block)
     if (block->result_types)
         jit_free(block->result_types);
     jit_free(block);
+}
+
+static inline uint8
+to_stack_value_type(uint8 type)
+{
+#if WASM_ENABLE_REF_TYPES != 0
+    if (type == VALUE_TYPE_EXTERNREF || type == VALUE_TYPE_FUNCREF)
+        return VALUE_TYPE_I32;
+#endif
+    return type;
+}
+
+bool
+jit_cc_pop_value(JitCompContext *cc, uint8 type, JitReg *p_value)
+{
+    JitValue *jit_value;
+    JitReg value;
+
+    if (!cc->block_stack.block_list_end) {
+        jit_set_last_error(cc, "WASM block stack underflow");
+        return false;
+    }
+    if (!cc->block_stack.block_list_end->value_stack.value_list_end) {
+        jit_set_last_error(cc, "WASM data stack underflow");
+        return false;
+    }
+
+    jit_value =
+        jit_value_stack_pop(&cc->block_stack.block_list_end->value_stack);
+    bh_assert(jit_value);
+
+    if (jit_value->type != to_stack_value_type(type)) {
+        jit_set_last_error(cc, "invalid WASM stack data type");
+        jit_free(jit_value);
+        return false;
+    }
+
+    switch (jit_value->type) {
+        case VALUE_TYPE_I32:
+            value = pop_i32(cc->jit_frame);
+            break;
+        case VALUE_TYPE_I64:
+            value = pop_i64(cc->jit_frame);
+            break;
+        case VALUE_TYPE_F32:
+            value = pop_f32(cc->jit_frame);
+            break;
+        case VALUE_TYPE_F64:
+            value = pop_f64(cc->jit_frame);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    bh_assert(value = jit_value->value);
+    *p_value = value;
+    jit_free(jit_value);
+    return true;
+}
+
+bool
+jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value)
+{
+    JitValue *jit_value;
+
+    if (!cc->block_stack.block_list_end) {
+        jit_set_last_error(cc, "WASM block stack underflow");
+        return false;
+    }
+
+    if (!(jit_value = jit_calloc(sizeof(JitValue)))) {
+        jit_set_last_error(cc, "allocate memory failed");
+        return false;
+    }
+
+    jit_value->type = to_stack_value_type(type);
+    jit_value->value = value;
+    jit_value_stack_push(&cc->block_stack.block_list_end->value_stack,
+                         jit_value);
+
+    switch (jit_value->type) {
+        case VALUE_TYPE_I32:
+            push_i32(cc->jit_frame, value);
+            break;
+        case VALUE_TYPE_I64:
+            push_i64(cc->jit_frame, value);
+            break;
+        case VALUE_TYPE_F32:
+            push_f32(cc->jit_frame, value);
+            break;
+        case VALUE_TYPE_F64:
+            push_f64(cc->jit_frame, value);
+            break;
+    }
+
+    return true;
 }
 
 bool

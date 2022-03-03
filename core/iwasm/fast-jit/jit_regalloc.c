@@ -648,7 +648,7 @@ clobber_live_regs(RegallocContext *rc, bool is_native, JitInsn *insn)
             JitReg hreg = jit_reg_new(i, j);
             bool caller_saved =
                 (is_native ? jit_cc_is_hreg_caller_saved_native(rc->cc, hreg)
-                           : jit_cc_is_hreg_caller_saved_jited(rc->cc, hreg));
+                           : jit_cc_is_hreg_caller_saved_jitted(rc->cc, hreg));
 
             if (caller_saved && rc->hregs[i][j].vreg)
                 if (!reload_vreg(rc, rc->hregs[i][j].vreg, insn))

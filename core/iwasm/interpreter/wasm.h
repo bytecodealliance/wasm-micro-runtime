@@ -255,7 +255,7 @@ struct WASMFunction {
     uint32 const_cell_num;
 #endif
 #if WASM_ENABLE_FAST_JIT != 0
-    void *jited_code;
+    void *jitted_code;
 #endif
 };
 

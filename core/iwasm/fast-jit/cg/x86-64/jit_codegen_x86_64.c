@@ -20,7 +20,7 @@ static const uint8 hreg_info_I4[3][7] = {
     /* ebp, eax, ebx, ecx, edx, edi, esi */
     { 1, 0, 0, 0, 0, 0, 1 }, /* fixed, esi is freely used */
     { 0, 1, 0, 1, 1, 0, 0 }, /* caller_saved_native */
-    { 0, 1, 0, 1, 1, 1, 0 }  /* caller_saved_jited */
+    { 0, 1, 0, 1, 1, 1, 0 }  /* caller_saved_jitted */
 };
 
 static const uint8 hreg_info_I8[3][16] = {
@@ -31,7 +31,7 @@ static const uint8 hreg_info_I8[3][16] = {
     { 0, 0, 0, 0, 0, 0, 0, 0,
       1, 1, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
     { 0, 0, 0, 0, 0, 0, 0, 0,
-      1, 1, 0, 0, 0, 0, 0, 0 }, /* caller_saved_jited */
+      1, 1, 0, 0, 0, 0, 0, 0 }, /* caller_saved_jitted */
 };
 
 static uint8 hreg_info_F4[3][16] = {
@@ -40,7 +40,7 @@ static uint8 hreg_info_F4[3][16] = {
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jited */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
 
 static uint8 hreg_info_F8[3][16] = {
@@ -49,7 +49,7 @@ static uint8 hreg_info_F8[3][16] = {
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jited */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
 
 static const JitHardRegInfo hreg_info = {
@@ -98,13 +98,14 @@ jit_codegen_get_hreg_info()
 bool
 jit_codegen_gen_native(JitCompContext *cc)
 {
+    jit_set_last_error(cc, "jit_codegen_gen_native failed");
     return false;
 }
 
 bool
 jit_codegen_lower(JitCompContext *cc)
 {
-    return false;
+    return true;
 }
 
 void
@@ -112,8 +113,8 @@ jit_codegen_dump_native(void *begin_addr, void *end_addr)
 {}
 
 bool
-jit_codegen_call_func_jited(void *exec_env, void *frame, void *func_inst,
-                            void *target)
+jit_codegen_call_func_jitted(void *exec_env, void *frame, void *func_inst,
+                             void *target)
 {
     return false;
 }

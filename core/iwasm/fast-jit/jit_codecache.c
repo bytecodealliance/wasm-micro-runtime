@@ -54,7 +54,7 @@ jit_code_cache_free(void *ptr)
 }
 
 bool
-jit_pass_register_jited_code(JitCompContext *cc)
+jit_pass_register_jitted_code(JitCompContext *cc)
 {
     /* TODO */
     return false;

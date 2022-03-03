@@ -2142,8 +2142,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
 #if WASM_ENABLE_FAST_JIT != 0
     if (!jit_compiler_compile_all(module)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "fast jit compilation failed");
+        set_error_buf(error_buf, error_buf_size, "fast jit compilation failed");
         return false;
     }
 #endif

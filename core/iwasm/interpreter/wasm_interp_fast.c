@@ -12,9 +12,6 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
-#if WASM_ENABLE_FAST_JIT != 0
-#include "../fast-jit/jit_compiler.h"
-#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -3787,11 +3784,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
-#if WASM_ENABLE_FAST_JIT == 0
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
-#else
-        jit_call_func_jited(exec_env, frame, function->u.func->jited_code);
-#endif
     }
 
     /* Output the return value to the caller */

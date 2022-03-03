@@ -4,7 +4,7 @@
  */
 
 #include "jit_emit_control.h"
-//#include "jit_emit_exception.h"
+#include "jit_emit_exception.h"
 #include "../jit_frontend.h"
 #include "../interpreter/wasm_loader.h"
 
@@ -19,7 +19,7 @@ enum {
 #define CREATE_BASIC_BLOCK(new_basic_block)                       \
     do {                                                          \
         if (!(new_basic_block = jit_cc_new_basic_block(cc, 0))) { \
-            jit_set_last_error(cc, "add basic block failed.");    \
+            jit_set_last_error(cc, "add basic block failed");     \
             goto fail;                                            \
         }                                                         \
     } while (0)
@@ -29,7 +29,7 @@ enum {
 #define BUILD_BR(target_block)                                     \
     do {                                                           \
         if (!GEN_INSN(JMP, jit_basic_block_label(target_block))) { \
-            jit_set_last_error(cc, "generate jmp insn failed.");   \
+            jit_set_last_error(cc, "generate jmp insn failed");    \
             goto fail;                                             \
         }                                                          \
     } while (0)
@@ -39,7 +39,7 @@ enum {
         if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(I32, 0))          \
             || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(block_then), \
                          jit_basic_block_label(block_else))) {                \
-            jit_set_last_error(cc, "generate cond br failed.");               \
+            jit_set_last_error(cc, "generate cond br failed");                \
             goto fail;                                                        \
         }                                                                     \
     } while (0)
@@ -49,65 +49,16 @@ enum {
         cc->cur_basic_block = basic_block; \
     } while (0)
 
-#if 0
-#define CREATE_RESULT_VALUE_PHIS(block)                                       \
-    do {                                                                      \
-        if (block->result_count && !block->result_phis) {                     \
-            uint32 _i;                                                        \
-            uint64 _size;                                                     \
-            JitBasicBlock *_block_curr = CURR_BASIC_BLOCK();                  \
-            /* Allocate memory */                                             \
-            _size = sizeof(LLVMValueRef) * (uint64)block->result_count;       \
-            if (_size >= UINT32_MAX                                           \
-                || !(block->result_phis =                                     \
-                         wasm_runtime_malloc((uint32)_size))) {               \
-                jit_set_last_error("allocate memory failed.");                \
-                goto fail;                                                    \
-            }                                                                 \
-            SET_BUILDER_POS(block->basic_block_end);                          \
-            for (_i = 0; _i < block->result_count; _i++) {                    \
-                if (!(block->result_phis[_i] = LLVMBuildPhi(                  \
-                          cc->builder, TO_LLVM_TYPE(block->result_types[_i]), \
-                          "phi"))) {                                          \
-                    jit_set_last_error("llvm build phi failed.");             \
-                    goto fail;                                                \
-                }                                                             \
-            }                                                                 \
-            SET_BUILDER_POS(_block_curr);                                     \
-        }                                                                     \
+#define BUILD_ICMP(left, right, res)                            \
+    do {                                                        \
+        if (!(GEN_INSN(CMP, res, left, right))) {               \
+            jit_set_last_error(cc, "generate cmp insn failed"); \
+            goto fail;                                          \
+        }                                                       \
     } while (0)
-
-#define ADD_TO_RESULT_PHIS(block, value, idx)                                  \
-    do {                                                                       \
-        JitBasicBlock *_block_curr = CURR_BASIC_BLOCK();                       \
-        LLVMTypeRef phi_ty = LLVMTypeOf(block->result_phis[idx]);              \
-        LLVMTypeRef value_ty = LLVMTypeOf(value);                              \
-        bh_assert(LLVMGetTypeKind(phi_ty) == LLVMGetTypeKind(value_ty));       \
-        bh_assert(LLVMGetTypeContext(phi_ty) == LLVMGetTypeContext(value_ty)); \
-        LLVMAddIncoming(block->result_phis[idx], &value, &_block_curr, 1);     \
-        (void)phi_ty;                                                          \
-        (void)value_ty;                                                        \
-    } while (0)
-#endif
-
-#define BUILD_ICMP(left, right, res)                             \
-    do {                                                         \
-        if (!(GEN_INSN(CMP, res, left, right))) {                \
-            jit_set_last_error(cc, "generate cmp insn failed."); \
-            goto fail;                                           \
-        }                                                        \
-    } while (0)
-
-#if 0
-#define ADD_TO_PARAM_PHIS(block, value, idx)                              \
-    do {                                                                  \
-        JitBasicBlock *_block_curr = CURR_BASIC_BLOCK();                  \
-        LLVMAddIncoming(block->param_phis[idx], &value, &_block_curr, 1); \
-    } while (0)
-#endif
 
 static JitBasicBlock *
-find_next_jit_end_block(JitBlock *block)
+find_next_basic_block_end(JitBlock *block)
 {
     block = block->prev;
     while (block && !block->basic_block_end)
@@ -126,21 +77,103 @@ get_target_block(JitCompContext *cc, uint32 br_depth)
     }
 
     if (!block) {
-        jit_set_last_error(cc, "WASM block stack underflow.");
+        jit_set_last_error(cc, "WASM block stack underflow");
         return NULL;
     }
     return block;
 }
 
 static bool
+load_block_params(JitCompContext *cc, JitBlock *block)
+{
+    JitFrame *jit_frame = cc->jit_frame;
+    uint32 offset, i;
+    JitReg value;
+
+    /* Restore jit frame's sp to block's sp begin */
+    jit_frame->sp = block->frame_sp_begin;
+    offset = (uint32)(jit_frame->sp - jit_frame->lp) * 4;
+
+    /* Push params to the new block */
+    for (i = 0; i < block->param_count; i++) {
+        switch (block->param_types[i]) {
+            case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+            case VALUE_TYPE_FUNCREF:
+#endif
+                value = gen_load_i32(jit_frame, offset);
+                offset += 4;
+                break;
+            case VALUE_TYPE_I64:
+                value = gen_load_i64(jit_frame, offset);
+                offset += 8;
+                break;
+            case VALUE_TYPE_F32:
+                value = gen_load_f32(jit_frame, offset);
+                offset += 4;
+                break;
+            case VALUE_TYPE_F64:
+                value = gen_load_f64(jit_frame, offset);
+                offset += 8;
+                break;
+        }
+        PUSH(value, block->param_types[i]);
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
+load_block_results(JitCompContext *cc, JitBlock *block)
+{
+    JitFrame *jit_frame = cc->jit_frame;
+    uint32 offset, i;
+    JitReg value;
+
+    /* Restore jit frame's sp to block's current sp */
+    jit_frame->sp = block->frame_sp_begin;
+    offset = (uint32)(jit_frame->sp - jit_frame->lp) * 4;
+
+    /* Push block results to the previous block */
+    for (i = 0; i < block->result_count; i++) {
+        switch (block->result_types[i]) {
+            case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+            case VALUE_TYPE_FUNCREF:
+#endif
+                value = gen_load_i32(jit_frame, offset);
+                offset += 4;
+                break;
+            case VALUE_TYPE_I64:
+                value = gen_load_i64(jit_frame, offset);
+                offset += 8;
+                break;
+            case VALUE_TYPE_F32:
+                value = gen_load_f32(jit_frame, offset);
+                offset += 4;
+                break;
+            case VALUE_TYPE_F64:
+                value = gen_load_f64(jit_frame, offset);
+                offset += 8;
+                break;
+        }
+        PUSH(value, block->result_types[i]);
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
 handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    JitBlock *block = cc->block_stack.block_list_end;
-    JitBlock *block_prev;
+    JitBlock *block = cc->block_stack.block_list_end, *block_prev;
     uint8 *frame_ip = NULL;
-    uint32 i;
-    WASMType *func_type;
-    JitReg ret;
 
     bh_assert(block);
 
@@ -148,13 +181,11 @@ handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
         && *p_frame_ip <= block->wasm_code_else) {
         /* Clear value stack and start to translate else branch */
         jit_value_stack_destroy(&block->value_stack);
-#if 0
-        /* Recover parameters of else branch */
-        for (i = 0; i < block->param_count; i++)
-            PUSH(block->else_param_phis[i], block->param_types[i]);
-#endif
         SET_BUILDER_POS(block->basic_block_else);
-        cc->cur_basic_block = block->basic_block_else;
+        /* Push the block parameters */
+        if (!load_block_params(cc, block)) {
+            goto fail;
+        }
         *p_frame_ip = block->wasm_code_else + 1;
         return true;
     }
@@ -169,6 +200,10 @@ handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
                 /* Clear value stack and start to translate else branch */
                 jit_value_stack_destroy(&block->value_stack);
                 SET_BUILDER_POS(block->basic_block_else);
+                /* Push the block parameters */
+                if (!load_block_params(cc, block)) {
+                    goto fail;
+                }
                 *p_frame_ip = block->wasm_code_else + 1;
                 /* Push back the block */
                 jit_block_stack_push(&cc->block_stack, block);
@@ -196,44 +231,14 @@ handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
 
     /* Pop block, push its return value, and destroy the block */
     block = jit_block_stack_pop(&cc->block_stack);
-#if 0
-    func_type = cc->cur_wasm_func->func_type;
-    for (i = 0; i < block->result_count; i++) {
-        bh_assert(block->result_phis[i]);
-        if (block->label_type != LABEL_TYPE_FUNCTION) {
-            PUSH(block->result_phis[i], block->result_types[i]);
-        }
-        else {
-            /* Store extra return values to function parameters */
-            if (i != 0) {
-                uint32 param_index = func_type->param_count + i;
-                if (!LLVMBuildStore(
-                        cc->builder, block->result_phis[i],
-                        LLVMGetParam(func_ctx->func, param_index))) {
-                    jit_set_last_error("llvm build store failed.");
-                    goto fail;
-                }
-            }
-        }
+    if (block->label_type != LABEL_TYPE_FUNCTION
+        && !load_block_results(cc, block)) {
+        goto fail;
     }
-#endif
-#if 0
+
     if (block->label_type == LABEL_TYPE_FUNCTION) {
-        if (block->result_count) {
-            /* Return the first return value */
-            if (!(ret = LLVMBuildRet(cc->builder, block->result_phis[0]))) {
-                jit_set_last_error("llvm build return failed.");
-                goto fail;
-            }
-        }
-        else {
-            if (!(ret = LLVMBuildRetVoid(cc->builder))) {
-                jit_set_last_error("llvm build return void failed.");
-                goto fail;
-            }
-        }
+        GEN_INSN(RETURN, NEW_CONST(I32, 0));
     }
-#endif
     jit_block_destroy(block);
     return true;
 fail:
@@ -241,106 +246,70 @@ fail:
 }
 
 static bool
-push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block)
+push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
+                                        JitBasicBlock *basic_block_to_translate)
 {
-    uint32 i, param_index;
+    JitFrame *jit_frame = cc->jit_frame;
+    JitValueSlot *frame_sp;
+    JitValue *value_list = NULL, *value_list_end = NULL, *jit_value;
     JitReg value;
-    uint64 size;
-    JitBasicBlock *block_curr = CURR_BASIC_BLOCK();
+    uint32 i, param_index, cell_num;
 
-#if 0
-    if (block->param_count) {
-        size = sizeof(LLVMValueRef) * (uint64)block->param_count;
-        if (size >= UINT32_MAX
-            || !(block->param_phis = wasm_runtime_malloc((uint32)size))) {
-            jit_set_last_error("allocate memory failed.");
-            return false;
-        }
-
-        if (block->label_type == LABEL_TYPE_IF && !block->skip_wasm_code_else
-            && !(block->else_param_phis = wasm_runtime_malloc((uint32)size))) {
-            wasm_runtime_free(block->param_phis);
-            block->param_phis = NULL;
-            jit_set_last_error("allocate memory failed.");
-            return false;
-        }
-
-        /* Create param phis */
-        for (i = 0; i < block->param_count; i++) {
-            SET_BUILDER_POS(block->basic_block_entry);
-            snprintf(name, sizeof(name), "%s%d_phi%d",
-                     block_name_prefix[block->label_type], block->block_index,
-                     i);
-            if (!(block->param_phis[i] = LLVMBuildPhi(
-                      cc->builder, TO_LLVM_TYPE(block->param_types[i]),
-                      name))) {
-                jit_set_last_error("llvm build phi failed.");
-                goto fail;
-            }
-
-            if (block->label_type == LABEL_TYPE_IF
-                && !block->skip_wasm_code_else && block->basic_block_else) {
-                /* Build else param phis */
-                SET_BUILDER_POS(block->basic_block_else);
-                snprintf(name, sizeof(name), "else%d_phi%d", block->block_index,
-                         i);
-                if (!(block->else_param_phis[i] = LLVMBuildPhi(
-                          cc->builder, TO_LLVM_TYPE(block->param_types[i]),
-                          name))) {
-                    jit_set_last_error("llvm build phi failed.");
-                    goto fail;
-                }
-            }
-        }
-        SET_BUILDER_POS(block_curr);
-
-        /* Pop param values from current block's
-         * value stack and add to param phis.
-         */
+    if (block->label_type != LABEL_TYPE_BLOCK) {
+        gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+        /* Pop param values from current block's value stack */
         for (i = 0; i < block->param_count; i++) {
             param_index = block->param_count - 1 - i;
             POP(value, block->param_types[param_index]);
-            ADD_TO_PARAM_PHIS(block, value, param_index);
-            if (block->label_type == LABEL_TYPE_IF
-                && !block->skip_wasm_code_else) {
-                if (block->basic_block_else) {
-                    /* has else branch, add to else param phis */
-                    LLVMAddIncoming(block->else_param_phis[param_index], &value,
-                                    &block_curr, 1);
-                }
-                else {
-                    /* no else branch, add to result phis */
-                    CREATE_RESULT_VALUE_PHIS(block);
-                    ADD_TO_RESULT_PHIS(block, value, param_index);
-                }
+        }
+
+        frame_sp = jit_frame->sp;
+        /* Set block's begin frame sp */
+        block->frame_sp_begin = frame_sp;
+
+        /* Push the new block to block stack */
+        jit_block_stack_push(&cc->block_stack, block);
+
+        /* Start to translate the block */
+        SET_BUILDER_POS(basic_block_to_translate);
+
+        if (!load_block_params(cc, block))
+            return false;
+    }
+    else {
+        cell_num = wasm_get_cell_num(block->param_types, block->param_count);
+        frame_sp = jit_frame->sp - cell_num;
+        /* Set block's begin frame sp */
+        block->frame_sp_begin = frame_sp;
+
+        /* Move values from last block's value stack to
+           new block's value stack */
+        for (i = 0; i < block->param_count; i++) {
+            param_index = block->param_count - 1 - i;
+            jit_value = jit_value_stack_pop(
+                &cc->block_stack.block_list_end->value_stack);
+            if (!value_list) {
+                value_list = value_list_end = jit_value;
+                jit_value->prev = jit_value->next = NULL;
+            }
+            else {
+                value_list_end->next = jit_value;
+                jit_value->prev = value_list_end;
+                jit_value->next = NULL;
             }
         }
-    }
-#endif
+        block->value_stack.value_list_head = value_list;
+        block->value_stack.value_list_end = value_list;
 
-    /* Push the new block to block stack */
-    jit_block_stack_push(&cc->block_stack, block);
+        /* Push the new block to block stack */
+        jit_block_stack_push(&cc->block_stack, block);
 
-#if 0
-    /* Push param phis to the new block */
-    for (i = 0; i < block->param_count; i++) {
-        PUSH(block->param_phis[i], block->param_types[i]);
+        /* Start to translate the block */
+        SET_BUILDER_POS(basic_block_to_translate);
     }
-#endif
 
     return true;
-
 fail:
-#if 0
-    if (block->param_phis) {
-        wasm_runtime_free(block->param_phis);
-        block->param_phis = NULL;
-    }
-    if (block->else_param_phis) {
-        wasm_runtime_free(block->else_param_phis);
-        block->else_param_phis = NULL;
-    }
-#endif
     return false;
 }
 
@@ -352,13 +321,12 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
 {
     BlockAddr block_addr_cache[BLOCK_ADDR_CACHE_SIZE][BLOCK_ADDR_CONFLICT_SIZE];
     JitBlock *block;
-    uint8 *else_addr, *end_addr;
     JitReg value;
-    char name[32];
+    uint8 *else_addr, *end_addr;
 
     /* Check block stack */
     if (!cc->block_stack.block_list_end) {
-        jit_set_last_error(cc, "WASM block stack underflow.");
+        jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }
 
@@ -368,26 +336,23 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
     if (!(wasm_loader_find_block_addr(
             NULL, (BlockAddr *)block_addr_cache, *p_frame_ip, frame_ip_end,
             (uint8)label_type, &else_addr, &end_addr))) {
-        jit_set_last_error(cc, "find block end addr failed.");
+        jit_set_last_error(cc, "find block end addr failed");
         return false;
     }
 
     /* Allocate memory */
-    if (!(block = wasm_runtime_malloc(sizeof(JitBlock)))) {
-        jit_set_last_error(cc, "allocate memory failed.");
+    if (!(block = jit_calloc(sizeof(JitBlock)))) {
+        jit_set_last_error(cc, "allocate memory failed");
         return false;
     }
-    memset(block, 0, sizeof(JitBlock));
-    if (param_count
-        && !(block->param_types = wasm_runtime_malloc(param_count))) {
-        jit_set_last_error(cc, "allocate memory failed.");
+
+    if (param_count && !(block->param_types = jit_calloc(param_count))) {
+        jit_set_last_error(cc, "allocate memory failed");
         goto fail;
     }
-    if (result_count) {
-        if (!(block->result_types = wasm_runtime_malloc(result_count))) {
-            jit_set_last_error(cc, "allocate memory failed.");
-            goto fail;
-        }
+    if (result_count && !(block->result_types = jit_calloc(result_count))) {
+        jit_set_last_error(cc, "allocate memory failed");
+        goto fail;
     }
 
     /* Init jit block data */
@@ -403,61 +368,49 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
     }
     block->wasm_code_else = else_addr;
     block->wasm_code_end = end_addr;
-    block->block_index = cc->block_stack.block_index[label_type];
-    cc->block_stack.block_index[label_type]++;
 
-    if (label_type == LABEL_TYPE_BLOCK || label_type == LABEL_TYPE_LOOP) {
+    if (label_type == LABEL_TYPE_BLOCK) {
+        /* Push the new block to block stack and continue to
+           translate current block */
+        if (!push_jit_block_to_stack_and_pass_params(cc, block,
+                                                     cc->cur_basic_block))
+            goto fail;
+    }
+    else if (label_type == LABEL_TYPE_LOOP) {
         CREATE_BASIC_BLOCK(block->basic_block_entry);
         /* Jump to the entry block */
         BUILD_BR(block->basic_block_entry);
-        if (!push_jit_block_to_stack_and_pass_params(cc, block))
+        if (!push_jit_block_to_stack_and_pass_params(cc, block,
+                                                     block->basic_block_entry))
             goto fail;
-        /* Start to translate the block */
-        SET_BUILDER_POS(block->basic_block_entry);
     }
     else if (label_type == LABEL_TYPE_IF) {
-        // POP_COND(value);
-
-#if 0
-        if (LLVMIsUndef(value)
-#if LLVM_VERSION_NUMBER >= 12
-            || LLVMIsPoison(value)
-#endif
-        ) {
-            if (!(jit_emit_exception(cc, func_ctx, EXCE_INTEGER_OVERFLOW, false,
-                                     NULL, NULL))) {
-                goto fail;
-            }
-            return jit_handle_next_reachable_block(cc, func_ctx, p_frame_ip);
-        }
-#endif
+        POP_I32(value);
 
         if (!jit_reg_is_const_val(value)) {
             /* Compare value is not constant, create condition br IR */
 
             /* Create entry block */
             CREATE_BASIC_BLOCK(block->basic_block_entry);
-            if (else_addr)
-                /* Create else block */
-                CREATE_BASIC_BLOCK(block->basic_block_else);
-            /* Create end block */
-            CREATE_BASIC_BLOCK(block->basic_block_end);
 
             if (else_addr) {
+                /* Create else block */
+                CREATE_BASIC_BLOCK(block->basic_block_else);
                 /* Create condition br IR */
                 BUILD_COND_BR(value, block->basic_block_entry,
                               block->basic_block_else);
             }
             else {
+                /* Create end block */
+                CREATE_BASIC_BLOCK(block->basic_block_end);
                 /* Create condition br IR */
                 BUILD_COND_BR(value, block->basic_block_entry,
                               block->basic_block_end);
                 block->is_reachable = true;
             }
-            if (!push_jit_block_to_stack_and_pass_params(cc, block))
+            if (!push_jit_block_to_stack_and_pass_params(
+                    cc, block, block->basic_block_entry))
                 goto fail;
-            /* Start to translate if branch of BASIC_BLOCK if */
-            SET_BUILDER_POS(block->basic_block_entry);
         }
         else {
             if (jit_cc_get_const_I32(cc, value) != 0) {
@@ -468,10 +421,9 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                 CREATE_BASIC_BLOCK(block->basic_block_entry);
                 /* Jump to the entry block */
                 BUILD_BR(block->basic_block_entry);
-                if (!push_jit_block_to_stack_and_pass_params(cc, block))
+                if (!push_jit_block_to_stack_and_pass_params(
+                        cc, block, block->basic_block_entry))
                     goto fail;
-                /* Start to translate the if branch */
-                SET_BUILDER_POS(block->basic_block_entry);
             }
             else {
                 /* Compare value is not 0, condition is false, if branch of
@@ -481,10 +433,9 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                     CREATE_BASIC_BLOCK(block->basic_block_else);
                     /* Jump to the else block */
                     BUILD_BR(block->basic_block_else);
-                    if (!push_jit_block_to_stack_and_pass_params(cc, block))
+                    if (!push_jit_block_to_stack_and_pass_params(
+                            cc, block, block->basic_block_else))
                         goto fail;
-                    /* Start to translate the else branch */
-                    SET_BUILDER_POS(block->basic_block_else);
                     *p_frame_ip = else_addr + 1;
                 }
                 else {
@@ -496,7 +447,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
         }
     }
     else {
-        jit_set_last_error(cc, "Invalid block type.");
+        jit_set_last_error(cc, "Invalid block type");
         goto fail;
     }
 
@@ -510,19 +461,21 @@ bool
 jit_compile_op_else(JitCompContext *cc, uint8 **p_frame_ip)
 {
     JitBlock *block = cc->block_stack.block_list_end;
-    JitReg value;
-    uint32 i, result_index;
+    JitFrame *jit_frame = cc->jit_frame;
 
     /* Check block */
     if (!block) {
-        jit_set_last_error(cc, "WASM block stack underflow.");
+        jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }
     if (block->label_type != LABEL_TYPE_IF
         || (!block->skip_wasm_code_else && !block->basic_block_else)) {
-        jit_set_last_error(cc, "Invalid WASM block type.");
+        jit_set_last_error(cc, "Invalid WASM block type");
         return false;
     }
+
+    /* Commit register values to stack and local */
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
 
     /* Create end block if needed */
     if (!block->basic_block_end) {
@@ -531,29 +484,16 @@ jit_compile_op_else(JitCompContext *cc, uint8 **p_frame_ip)
 
     block->is_reachable = true;
 
-#if 0
-    /* Comes from the if branch of BASIC_BLOCK if */
-    CREATE_RESULT_VALUE_PHIS(block);
-    for (i = 0; i < block->result_count; i++) {
-        result_index = block->result_count - 1 - i;
-        POP(value, block->result_types[result_index]);
-        ADD_TO_RESULT_PHIS(block, value, result_index);
-    }
-#endif
-
     /* Jump to end block */
     BUILD_BR(block->basic_block_end);
 
     if (!block->skip_wasm_code_else && block->basic_block_else) {
-        /* Clear value stack, recover param values
-         * and start to translate else branch.
-         */
+        /* Clear value stack, recover param values and
+           start to translate else branch. */
         jit_value_stack_destroy(&block->value_stack);
-#if 0
-        for (i = 0; i < block->param_count; i++)
-            PUSH(block->else_param_phis[i], block->param_types[i]);
-#endif
         SET_BUILDER_POS(block->basic_block_else);
+        if (!load_block_params(cc, block))
+            goto fail;
         return true;
     }
 
@@ -567,14 +507,12 @@ fail:
 bool
 jit_compile_op_end(JitCompContext *cc, uint8 **p_frame_ip)
 {
+    JitFrame *jit_frame = cc->jit_frame;
     JitBlock *block;
-    JitReg value;
-    JitBasicBlock *next_basic_block_end;
-    uint32 i, result_index;
 
     /* Check block stack */
     if (!(block = cc->block_stack.block_list_end)) {
-        jit_set_last_error(cc, "WASM block stack underflow.");
+        jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }
 
@@ -583,17 +521,7 @@ jit_compile_op_end(JitCompContext *cc, uint8 **p_frame_ip)
         CREATE_BASIC_BLOCK(block->basic_block_end);
     }
 
-#if 0
-    /* Handle block result values */
-    CREATE_RESULT_VALUE_PHIS(block);
-    for (i = 0; i < block->result_count; i++) {
-        value = NULL;
-        result_index = block->result_count - 1 - i;
-        POP(value, block->result_types[result_index]);
-        bh_assert(value);
-        ADD_TO_RESULT_PHIS(block, value, result_index);
-    }
-#endif
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
 
     /* Jump to the end block */
     BUILD_BR(block->basic_block_end);
@@ -676,10 +604,13 @@ fail:
     return false;
 }
 #endif /* End of WASM_ENABLE_THREAD_MGR */
+#endif
 
 bool
 jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
+    return false;
+#if 0
     JitBlock *block_dst;
     LLVMValueRef value_ret, value_param;
     JitBasicBlock *next_basic_block_end;
@@ -736,11 +667,14 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     return handle_next_reachable_block(cc, func_ctx, p_frame_ip);
 fail:
     return false;
+#endif
 }
 
 bool
 jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
+    return false;
+#if 0
     JitBlock *block_dst;
     LLVMValueRef value_cmp, value, *values = NULL;
     JitBasicBlock *basic_block_else, next_basic_block_end;
@@ -786,8 +720,8 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
             if (block_dst->param_count) {
                 size = sizeof(LLVMValueRef) * (uint64)block_dst->param_count;
                 if (size >= UINT32_MAX
-                    || !(values = wasm_runtime_malloc((uint32)size))) {
-                    jit_set_last_error(cc, "allocate memory failed.");
+                    || !(values = jit_calloc((uint32)size))) {
+                    jit_set_last_error(cc, "allocate memory failed");
                     goto fail;
                 }
                 for (i = 0; i < block_dst->param_count; i++) {
@@ -799,7 +733,7 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
                 for (i = 0; i < block_dst->param_count; i++) {
                     PUSH(values[i], block_dst->param_types[i]);
                 }
-                wasm_runtime_free(values);
+                jit_free(values);
                 values = NULL;
             }
 
@@ -828,8 +762,8 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
             if (block_dst->result_count) {
                 size = sizeof(LLVMValueRef) * (uint64)block_dst->result_count;
                 if (size >= UINT32_MAX
-                    || !(values = wasm_runtime_malloc((uint32)size))) {
-                    jit_set_last_error(cc, "allocate memory failed.");
+                    || !(values = jit_calloc((uint32)size))) {
+                    jit_set_last_error(cc, "allocate memory failed");
                     goto fail;
                 }
                 CREATE_RESULT_VALUE_PHIS(block_dst);
@@ -842,7 +776,7 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
                 for (i = 0; i < block_dst->result_count; i++) {
                     PUSH(values[i], block_dst->result_types[i]);
                 }
-                wasm_runtime_free(values);
+                jit_free(values);
                 values = NULL;
             }
 
@@ -867,14 +801,17 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     return true;
 fail:
     if (values)
-        wasm_runtime_free(values);
+        jit_free(values);
     return false;
+#endif
 }
 
 bool
 jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
                         uint8 **p_frame_ip)
 {
+    return false;
+#if 0
     uint32 i, j;
     LLVMValueRef value_switch, value_cmp, value_case, value, *values = NULL;
     JitBasicBlock *default_basic_block = NULL, target_basic_block;
@@ -932,8 +869,8 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
                     size = sizeof(LLVMValueRef)
                            * (uint64)target_block->result_count;
                     if (size >= UINT32_MAX
-                        || !(values = wasm_runtime_malloc((uint32)size))) {
-                        jit_set_last_error(cc, "allocate memory failed.");
+                        || !(values = jit_calloc((uint32)size))) {
+                        jit_set_last_error(cc, "allocate memory failed");
                         goto fail;
                     }
                     CREATE_RESULT_VALUE_PHIS(target_block);
@@ -946,7 +883,7 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
                     for (j = 0; j < target_block->result_count; j++) {
                         PUSH(values[j], target_block->result_types[j]);
                     }
-                    wasm_runtime_free(values);
+                    jit_free(values);
                 }
                 target_block->is_reachable = true;
                 if (i == br_count)
@@ -958,8 +895,8 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
                     size = sizeof(LLVMValueRef)
                            * (uint64)target_block->param_count;
                     if (size >= UINT32_MAX
-                        || !(values = wasm_runtime_malloc((uint32)size))) {
-                        jit_set_last_error(cc, "allocate memory failed.");
+                        || !(values = jit_calloc((uint32)size))) {
+                        jit_set_last_error(cc, "allocate memory failed");
                         goto fail;
                     }
                     for (j = 0; j < target_block->param_count; j++) {
@@ -971,7 +908,7 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
                     for (j = 0; j < target_block->param_count; j++) {
                         PUSH(values[j], target_block->param_types[j]);
                     }
-                    wasm_runtime_free(values);
+                    jit_free(values);
                 }
                 if (i == br_count)
                     default_basic_block = target_block->basic_block_entry;
@@ -981,7 +918,7 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
         /* Create switch IR */
         if (!(value_switch = LLVMBuildSwitch(cc->builder, value_cmp,
                                              default_basic_block, br_count))) {
-            jit_set_last_error(cc, "llvm build switch failed.");
+            jit_set_last_error(cc, "llvm build switch failed");
             return false;
         }
 
@@ -1011,13 +948,16 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
     }
 fail:
     if (values)
-        wasm_runtime_free(values);
+        jit_free(values);
     return false;
+#endif
 }
 
 bool
 jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
 {
+    return false;
+#if 0
     JitBlock *block_func = func_ctx->block_stack.block_list_head;
     LLVMValueRef value;
     LLVMValueRef ret;
@@ -1042,14 +982,14 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
             param_index = func_type->param_count + result_index;
             if (!LLVMBuildStore(cc->builder, value,
                                 LLVMGetParam(func_ctx->func, param_index))) {
-                jit_set_last_error(cc, "llvm build store failed.");
+                jit_set_last_error(cc, "llvm build store failed");
                 goto fail;
             }
         }
         /* Return the first result value */
         POP(value, block_func->result_types[0]);
         if (!(ret = LLVMBuildRet(cc->builder, value))) {
-            jit_set_last_error(cc, "llvm build return failed.");
+            jit_set_last_error(cc, "llvm build return failed");
             goto fail;
         }
 #if WASM_ENABLE_DEBUG_JIT != 0
@@ -1058,7 +998,7 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
     }
     else {
         if (!(ret = LLVMBuildRetVoid(cc->builder))) {
-            jit_set_last_error(cc, "llvm build return void failed.");
+            jit_set_last_error(cc, "llvm build return void failed");
             goto fail;
         }
 #if WASM_ENABLE_DEBUG_JIT != 0
@@ -1069,16 +1009,14 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
     return handle_next_reachable_block(cc, func_ctx, p_frame_ip);
 fail:
     return false;
-}
 #endif
+}
 
 bool
 jit_compile_op_unreachable(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    /*
-    if (!jit_emit_exception(cc, func_ctx, EXCE_UNREACHABLE, false, NULL, NULL))
+    if (!jit_emit_exception(cc, EXCE_UNREACHABLE, false, 0, NULL))
         return false;
-    */
 
     return handle_next_reachable_block(cc, p_frame_ip);
 }

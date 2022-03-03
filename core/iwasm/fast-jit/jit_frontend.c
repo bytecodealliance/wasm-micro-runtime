@@ -5,7 +5,17 @@
 
 #include "jit_compiler.h"
 #include "jit_frontend.h"
+#include "fe/jit_emit_compare.h"
+#include "fe/jit_emit_const.h"
 #include "fe/jit_emit_control.h"
+#include "fe/jit_emit_conversion.h"
+#include "fe/jit_emit_exception.h"
+#include "fe/jit_emit_function.h"
+#include "fe/jit_emit_memory.h"
+#include "fe/jit_emit_numberic.h"
+#include "fe/jit_emit_parametric.h"
+#include "fe/jit_emit_table.h"
+#include "fe/jit_emit_variable.h"
 #include "../interpreter/wasm_interp.h"
 #include "../interpreter/wasm_opcode.h"
 #include "../common/wasm_exec_env.h"
@@ -189,6 +199,7 @@ jit_pass_lower_fe(JitCompContext *cc)
     return true;
 }
 
+#if 0
 static JitBasicBlock *
 test_fib(JitCompContext *cc)
 {
@@ -232,6 +243,7 @@ test_fib(JitCompContext *cc)
 
     return basic_block_ret;
 }
+#endif
 
 static JitFrame *
 init_func_translation(JitCompContext *cc)
@@ -271,8 +283,8 @@ init_func_translation(JitCompContext *cc)
     cc->jit_frame = jit_frame;
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
     cc->total_frame_size = wasm_interp_interp_frame_size(total_cell_num);
-    cc->jited_return_address_offset =
-        offsetof(WASMInterpFrame, jited_return_addr);
+    cc->jitted_return_address_offset =
+        offsetof(WASMInterpFrame, jitted_return_addr);
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
 
     frame_size = outs_size = cc->total_frame_size;
@@ -369,6 +381,7 @@ create_func_block(JitCompContext *cc)
                     func_type->types + param_count, result_count);
     }
     jit_block->wasm_code_end = cur_func->code + cur_func->code_size;
+    jit_block->frame_sp_begin = cc->jit_frame->sp;
 
     /* Add function entry block */
     if (!(jit_block->basic_block_entry = jit_cc_new_basic_block(cc, 0))) {
@@ -488,6 +501,7 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
             case WASM_OP_IF:
+            {
                 value_type = *frame_ip++;
                 if (value_type == VALUE_TYPE_I32 || value_type == VALUE_TYPE_I64
                     || value_type == VALUE_TYPE_F32
@@ -508,13 +522,8 @@ jit_compile_func(JitCompContext *cc)
                     }
                 }
                 else {
-                    frame_ip--;
-                    read_leb_uint32(frame_ip, frame_ip_end, type_idx);
-                    func_type = cc->cur_wasm_module->types[type_idx];
-                    param_count = func_type->param_count;
-                    param_types = func_type->types;
-                    result_count = func_type->result_count;
-                    result_types = func_type->types + param_count;
+                    jit_set_last_error(cc, "unsupported value type");
+                    return false;
                 }
                 if (!jit_compile_op_block(
                         cc, &frame_ip, frame_ip_end,
@@ -522,6 +531,24 @@ jit_compile_func(JitCompContext *cc)
                         param_count, param_types, result_count, result_types))
                     return false;
                 break;
+            }
+            case EXT_OP_BLOCK:
+            case EXT_OP_LOOP:
+            case EXT_OP_IF:
+            {
+                read_leb_uint32(frame_ip, frame_ip_end, type_idx);
+                func_type = cc->cur_wasm_module->types[type_idx];
+                param_count = func_type->param_count;
+                param_types = func_type->types;
+                result_count = func_type->result_count;
+                result_types = func_type->types + param_count;
+                if (!jit_compile_op_block(
+                        cc, &frame_ip, frame_ip_end,
+                        (uint32)(LABEL_TYPE_BLOCK + opcode - EXT_OP_BLOCK),
+                        param_count, param_types, result_count, result_types))
+                    return false;
+                break;
+            }
 
             case WASM_OP_ELSE:
                 if (!jit_compile_op_else(cc, &frame_ip))
@@ -569,7 +596,6 @@ jit_compile_func(JitCompContext *cc)
                     return false;
                 break;
 
-#if 0
             case WASM_OP_CALL_INDIRECT:
             {
                 uint32 tbl_idx;
@@ -587,8 +613,7 @@ jit_compile_func(JitCompContext *cc)
                     tbl_idx = 0;
                 }
 
-                if (!jit_compile_op_call_indirect(cc, type_idx,
-                                                  tbl_idx))
+                if (!jit_compile_op_call_indirect(cc, type_idx, tbl_idx))
                     return false;
                 break;
             }
@@ -627,8 +652,7 @@ jit_compile_func(JitCompContext *cc)
                     tbl_idx = 0;
                 }
 
-                if (!jit_compile_op_call_indirect(cc, type_idx,
-                                                  tbl_idx))
+                if (!jit_compile_op_call_indirect(cc, type_idx, tbl_idx))
                     return false;
                 if (!jit_compile_op_return(cc, &frame_ip))
                     return false;
@@ -760,6 +784,7 @@ jit_compile_func(JitCompContext *cc)
                 break;
 
             case WASM_OP_GET_GLOBAL:
+            case WASM_OP_GET_GLOBAL_64:
                 read_leb_uint32(frame_ip, frame_ip_end, global_idx);
                 if (!jit_compile_op_get_global(cc, global_idx))
                     return false;
@@ -791,8 +816,8 @@ jit_compile_func(JitCompContext *cc)
             op_i32_load:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
                 read_leb_uint32(frame_ip, frame_ip_end, offset);
-                if (!jit_compile_op_i32_load(cc, align, offset,
-                                             bytes, sign, false))
+                if (!jit_compile_op_i32_load(cc, align, offset, bytes, sign,
+                                             false))
                     return false;
                 break;
 
@@ -817,8 +842,8 @@ jit_compile_func(JitCompContext *cc)
             op_i64_load:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
                 read_leb_uint32(frame_ip, frame_ip_end, offset);
-                if (!jit_compile_op_i64_load(cc, align, offset,
-                                             bytes, sign, false))
+                if (!jit_compile_op_i64_load(cc, align, offset, bytes, sign,
+                                             false))
                     return false;
                 break;
 
@@ -847,8 +872,7 @@ jit_compile_func(JitCompContext *cc)
             op_i32_store:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
                 read_leb_uint32(frame_ip, frame_ip_end, offset);
-                if (!jit_compile_op_i32_store(cc, align, offset,
-                                              bytes, false))
+                if (!jit_compile_op_i32_store(cc, align, offset, bytes, false))
                     return false;
                 break;
 
@@ -866,24 +890,21 @@ jit_compile_func(JitCompContext *cc)
             op_i64_store:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
                 read_leb_uint32(frame_ip, frame_ip_end, offset);
-                if (!jit_compile_op_i64_store(cc, align, offset,
-                                              bytes, false))
+                if (!jit_compile_op_i64_store(cc, align, offset, bytes, false))
                     return false;
                 break;
 
             case WASM_OP_F32_STORE:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
                 read_leb_uint32(frame_ip, frame_ip_end, offset);
-                if (!jit_compile_op_f32_store(cc, align,
-                                              offset))
+                if (!jit_compile_op_f32_store(cc, align, offset))
                     return false;
                 break;
 
             case WASM_OP_F64_STORE:
                 read_leb_uint32(frame_ip, frame_ip_end, align);
                 read_leb_uint32(frame_ip, frame_ip_end, offset);
-                if (!jit_compile_op_f64_store(cc, align,
-                                              offset))
+                if (!jit_compile_op_f64_store(cc, align, offset))
                     return false;
                 break;
 
@@ -939,8 +960,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I32_LE_U:
             case WASM_OP_I32_GE_S:
             case WASM_OP_I32_GE_U:
-                if (!jit_compile_op_i32_compare(
-                        cc, INT_EQZ + opcode - WASM_OP_I32_EQZ))
+                if (!jit_compile_op_i32_compare(cc, INT_EQZ + opcode
+                                                        - WASM_OP_I32_EQZ))
                     return false;
                 break;
 
@@ -955,8 +976,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I64_LE_U:
             case WASM_OP_I64_GE_S:
             case WASM_OP_I64_GE_U:
-                if (!jit_compile_op_i64_compare(
-                        cc, INT_EQZ + opcode - WASM_OP_I64_EQZ))
+                if (!jit_compile_op_i64_compare(cc, INT_EQZ + opcode
+                                                        - WASM_OP_I64_EQZ))
                     return false;
                 break;
 
@@ -966,8 +987,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_F32_GT:
             case WASM_OP_F32_LE:
             case WASM_OP_F32_GE:
-                if (!jit_compile_op_f32_compare(
-                        cc, FLOAT_EQ + opcode - WASM_OP_F32_EQ))
+                if (!jit_compile_op_f32_compare(cc, FLOAT_EQ + opcode
+                                                        - WASM_OP_F32_EQ))
                     return false;
                 break;
 
@@ -977,8 +998,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_F64_GT:
             case WASM_OP_F64_LE:
             case WASM_OP_F64_GE:
-                if (!jit_compile_op_f64_compare(
-                        cc, FLOAT_EQ + opcode - WASM_OP_F64_EQ))
+                if (!jit_compile_op_f64_compare(cc, FLOAT_EQ + opcode
+                                                        - WASM_OP_F64_EQ))
                     return false;
                 break;
 
@@ -1005,16 +1026,15 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I32_REM_S:
             case WASM_OP_I32_REM_U:
                 if (!jit_compile_op_i32_arithmetic(
-                        cc, INT_ADD + opcode - WASM_OP_I32_ADD,
-                        &frame_ip))
+                        cc, INT_ADD + opcode - WASM_OP_I32_ADD, &frame_ip))
                     return false;
                 break;
 
             case WASM_OP_I32_AND:
             case WASM_OP_I32_OR:
             case WASM_OP_I32_XOR:
-                if (!jit_compile_op_i32_bitwise(
-                        cc, INT_SHL + opcode - WASM_OP_I32_AND))
+                if (!jit_compile_op_i32_bitwise(cc, INT_SHL + opcode
+                                                        - WASM_OP_I32_AND))
                     return false;
                 break;
 
@@ -1023,8 +1043,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I32_SHR_U:
             case WASM_OP_I32_ROTL:
             case WASM_OP_I32_ROTR:
-                if (!jit_compile_op_i32_shift(
-                        cc, INT_SHL + opcode - WASM_OP_I32_SHL))
+                if (!jit_compile_op_i32_shift(cc, INT_SHL + opcode
+                                                      - WASM_OP_I32_SHL))
                     return false;
                 break;
 
@@ -1051,16 +1071,15 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I64_REM_S:
             case WASM_OP_I64_REM_U:
                 if (!jit_compile_op_i64_arithmetic(
-                        cc, INT_ADD + opcode - WASM_OP_I64_ADD,
-                        &frame_ip))
+                        cc, INT_ADD + opcode - WASM_OP_I64_ADD, &frame_ip))
                     return false;
                 break;
 
             case WASM_OP_I64_AND:
             case WASM_OP_I64_OR:
             case WASM_OP_I64_XOR:
-                if (!jit_compile_op_i64_bitwise(
-                        cc, INT_SHL + opcode - WASM_OP_I64_AND))
+                if (!jit_compile_op_i64_bitwise(cc, INT_SHL + opcode
+                                                        - WASM_OP_I64_AND))
                     return false;
                 break;
 
@@ -1069,8 +1088,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I64_SHR_U:
             case WASM_OP_I64_ROTL:
             case WASM_OP_I64_ROTR:
-                if (!jit_compile_op_i64_shift(
-                        cc, INT_SHL + opcode - WASM_OP_I64_SHL))
+                if (!jit_compile_op_i64_shift(cc, INT_SHL + opcode
+                                                      - WASM_OP_I64_SHL))
                     return false;
                 break;
 
@@ -1081,9 +1100,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_F32_TRUNC:
             case WASM_OP_F32_NEAREST:
             case WASM_OP_F32_SQRT:
-                if (!jit_compile_op_f32_math(cc,
-                                             FLOAT_ABS + opcode
-                                                 - WASM_OP_F32_ABS))
+                if (!jit_compile_op_f32_math(cc, FLOAT_ABS + opcode
+                                                     - WASM_OP_F32_ABS))
                     return false;
                 break;
 
@@ -1093,9 +1111,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_F32_DIV:
             case WASM_OP_F32_MIN:
             case WASM_OP_F32_MAX:
-                if (!jit_compile_op_f32_arithmetic(cc,
-                                                   FLOAT_ADD + opcode
-                                                       - WASM_OP_F32_ADD))
+                if (!jit_compile_op_f32_arithmetic(cc, FLOAT_ADD + opcode
+                                                           - WASM_OP_F32_ADD))
                     return false;
                 break;
 
@@ -1111,9 +1128,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_F64_TRUNC:
             case WASM_OP_F64_NEAREST:
             case WASM_OP_F64_SQRT:
-                if (!jit_compile_op_f64_math(cc,
-                                             FLOAT_ABS + opcode
-                                                 - WASM_OP_F64_ABS))
+                if (!jit_compile_op_f64_math(cc, FLOAT_ABS + opcode
+                                                     - WASM_OP_F64_ABS))
                     return false;
                 break;
 
@@ -1123,9 +1139,8 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_F64_DIV:
             case WASM_OP_F64_MIN:
             case WASM_OP_F64_MAX:
-                if (!jit_compile_op_f64_arithmetic(cc,
-                                                   FLOAT_ADD + opcode
-                                                       - WASM_OP_F64_ADD))
+                if (!jit_compile_op_f64_arithmetic(cc, FLOAT_ADD + opcode
+                                                           - WASM_OP_F64_ADD))
                     return false;
                 break;
 
@@ -1142,16 +1157,14 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I32_TRUNC_S_F32:
             case WASM_OP_I32_TRUNC_U_F32:
                 sign = (opcode == WASM_OP_I32_TRUNC_S_F32) ? true : false;
-                if (!jit_compile_op_i32_trunc_f32(cc, sign,
-                                                  false))
+                if (!jit_compile_op_i32_trunc_f32(cc, sign, false))
                     return false;
                 break;
 
             case WASM_OP_I32_TRUNC_S_F64:
             case WASM_OP_I32_TRUNC_U_F64:
                 sign = (opcode == WASM_OP_I32_TRUNC_S_F64) ? true : false;
-                if (!jit_compile_op_i32_trunc_f64(cc, sign,
-                                                  false))
+                if (!jit_compile_op_i32_trunc_f64(cc, sign, false))
                     return false;
                 break;
 
@@ -1165,16 +1178,14 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_I64_TRUNC_S_F32:
             case WASM_OP_I64_TRUNC_U_F32:
                 sign = (opcode == WASM_OP_I64_TRUNC_S_F32) ? true : false;
-                if (!jit_compile_op_i64_trunc_f32(cc, sign,
-                                                  false))
+                if (!jit_compile_op_i64_trunc_f32(cc, sign, false))
                     return false;
                 break;
 
             case WASM_OP_I64_TRUNC_S_F64:
             case WASM_OP_I64_TRUNC_U_F64:
                 sign = (opcode == WASM_OP_I64_TRUNC_S_F64) ? true : false;
-                if (!jit_compile_op_i64_trunc_f64(cc, sign,
-                                                  false))
+                if (!jit_compile_op_i64_trunc_f64(cc, sign, false))
                     return false;
                 break;
 
@@ -1288,32 +1299,28 @@ jit_compile_func(JitCompContext *cc)
                     case WASM_OP_I32_TRUNC_SAT_U_F32:
                         sign = (opcode == WASM_OP_I32_TRUNC_SAT_S_F32) ? true
                                                                        : false;
-                        if (!jit_compile_op_i32_trunc_f32(cc,
-                                                          sign, true))
+                        if (!jit_compile_op_i32_trunc_f32(cc, sign, true))
                             return false;
                         break;
                     case WASM_OP_I32_TRUNC_SAT_S_F64:
                     case WASM_OP_I32_TRUNC_SAT_U_F64:
                         sign = (opcode == WASM_OP_I32_TRUNC_SAT_S_F64) ? true
                                                                        : false;
-                        if (!jit_compile_op_i32_trunc_f64(cc,
-                                                          sign, true))
+                        if (!jit_compile_op_i32_trunc_f64(cc, sign, true))
                             return false;
                         break;
                     case WASM_OP_I64_TRUNC_SAT_S_F32:
                     case WASM_OP_I64_TRUNC_SAT_U_F32:
                         sign = (opcode == WASM_OP_I64_TRUNC_SAT_S_F32) ? true
                                                                        : false;
-                        if (!jit_compile_op_i64_trunc_f32(cc,
-                                                          sign, true))
+                        if (!jit_compile_op_i64_trunc_f32(cc, sign, true))
                             return false;
                         break;
                     case WASM_OP_I64_TRUNC_SAT_S_F64:
                     case WASM_OP_I64_TRUNC_SAT_U_F64:
                         sign = (opcode == WASM_OP_I64_TRUNC_SAT_S_F64) ? true
                                                                        : false;
-                        if (!jit_compile_op_i64_trunc_f64(cc,
-                                                          sign, true))
+                        if (!jit_compile_op_i64_trunc_f64(cc, sign, true))
                             return false;
                         break;
 #if WASM_ENABLE_BULK_MEMORY != 0
@@ -1322,8 +1329,7 @@ jit_compile_func(JitCompContext *cc)
                         uint32 seg_index;
                         read_leb_uint32(frame_ip, frame_ip_end, seg_index);
                         frame_ip++;
-                        if (!jit_compile_op_memory_init(cc,
-                                                        seg_index))
+                        if (!jit_compile_op_memory_init(cc, seg_index))
                             return false;
                         break;
                     }
@@ -1331,8 +1337,7 @@ jit_compile_func(JitCompContext *cc)
                     {
                         uint32 seg_index;
                         read_leb_uint32(frame_ip, frame_ip_end, seg_index);
-                        if (!jit_compile_op_data_drop(cc,
-                                                      seg_index))
+                        if (!jit_compile_op_data_drop(cc, seg_index))
                             return false;
                         break;
                     }
@@ -1358,8 +1363,8 @@ jit_compile_func(JitCompContext *cc)
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_seg_idx);
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
-                        if (!jit_compile_op_table_init(cc,
-                                                       tbl_idx, tbl_seg_idx))
+                        if (!jit_compile_op_table_init(cc, tbl_idx,
+                                                       tbl_seg_idx))
                             return false;
                         break;
                     }
@@ -1368,8 +1373,7 @@ jit_compile_func(JitCompContext *cc)
                         uint32 tbl_seg_idx;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_seg_idx);
-                        if (!jit_compile_op_elem_drop(cc,
-                                                      tbl_seg_idx))
+                        if (!jit_compile_op_elem_drop(cc, tbl_seg_idx))
                             return false;
                         break;
                     }
@@ -1379,8 +1383,8 @@ jit_compile_func(JitCompContext *cc)
 
                         read_leb_uint32(frame_ip, frame_ip_end, dst_tbl_idx);
                         read_leb_uint32(frame_ip, frame_ip_end, src_tbl_idx);
-                        if (!jit_compile_op_table_copy(
-                                cc, src_tbl_idx, dst_tbl_idx))
+                        if (!jit_compile_op_table_copy(cc, src_tbl_idx,
+                                                       dst_tbl_idx))
                             return false;
                         break;
                     }
@@ -1389,8 +1393,7 @@ jit_compile_func(JitCompContext *cc)
                         uint32 tbl_idx;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
-                        if (!jit_compile_op_table_grow(cc,
-                                                       tbl_idx))
+                        if (!jit_compile_op_table_grow(cc, tbl_idx))
                             return false;
                         break;
                     }
@@ -1400,8 +1403,7 @@ jit_compile_func(JitCompContext *cc)
                         uint32 tbl_idx;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
-                        if (!jit_compile_op_table_size(cc,
-                                                       tbl_idx))
+                        if (!jit_compile_op_table_size(cc, tbl_idx))
                             return false;
                         break;
                     }
@@ -1410,8 +1412,7 @@ jit_compile_func(JitCompContext *cc)
                         uint32 tbl_idx;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
-                        if (!jit_compile_op_table_fill(cc,
-                                                       tbl_idx))
+                        if (!jit_compile_op_table_fill(cc, tbl_idx))
                             return false;
                         break;
                     }
@@ -1437,20 +1438,18 @@ jit_compile_func(JitCompContext *cc)
                 }
                 switch (opcode) {
                     case WASM_OP_ATOMIC_WAIT32:
-                        if (!jit_compile_op_atomic_wait(cc,
-                                                        VALUE_TYPE_I32, align,
-                                                        offset, 4))
+                        if (!jit_compile_op_atomic_wait(cc, VALUE_TYPE_I32,
+                                                        align, offset, 4))
                             return false;
                         break;
                     case WASM_OP_ATOMIC_WAIT64:
-                        if (!jit_compile_op_atomic_wait(cc,
-                                                        VALUE_TYPE_I64, align,
-                                                        offset, 8))
+                        if (!jit_compile_op_atomic_wait(cc, VALUE_TYPE_I64,
+                                                        align, offset, 8))
                             return false;
                         break;
                     case WASM_OP_ATOMIC_NOTIFY:
-                        if (!jit_compiler_op_atomic_notify(
-                                cc, align, offset, bytes))
+                        if (!jit_compiler_op_atomic_notify(cc, align, offset,
+                                                           bytes))
                             return false;
                         break;
                     case WASM_OP_ATOMIC_I32_LOAD:
@@ -1462,8 +1461,8 @@ jit_compile_func(JitCompContext *cc)
                     case WASM_OP_ATOMIC_I32_LOAD16_U:
                         bytes = 2;
                     op_atomic_i32_load:
-                        if (!jit_compile_op_i32_load(cc, align,
-                                                     offset, bytes, sign, true))
+                        if (!jit_compile_op_i32_load(cc, align, offset, bytes,
+                                                     sign, true))
                             return false;
                         break;
 
@@ -1479,8 +1478,8 @@ jit_compile_func(JitCompContext *cc)
                     case WASM_OP_ATOMIC_I64_LOAD32_U:
                         bytes = 4;
                     op_atomic_i64_load:
-                        if (!jit_compile_op_i64_load(cc, align,
-                                                     offset, bytes, sign, true))
+                        if (!jit_compile_op_i64_load(cc, align, offset, bytes,
+                                                     sign, true))
                             return false;
                         break;
 
@@ -1493,8 +1492,8 @@ jit_compile_func(JitCompContext *cc)
                     case WASM_OP_ATOMIC_I32_STORE16:
                         bytes = 2;
                     op_atomic_i32_store:
-                        if (!jit_compile_op_i32_store(cc, align,
-                                                      offset, bytes, true))
+                        if (!jit_compile_op_i32_store(cc, align, offset, bytes,
+                                                      true))
                             return false;
                         break;
 
@@ -1510,8 +1509,8 @@ jit_compile_func(JitCompContext *cc)
                     case WASM_OP_ATOMIC_I64_STORE32:
                         bytes = 4;
                     op_atomic_i64_store:
-                        if (!jit_compile_op_i64_store(cc, align,
-                                                      offset, bytes, true))
+                        if (!jit_compile_op_i64_store(cc, align, offset, bytes,
+                                                      true))
                             return false;
                         break;
 
@@ -1543,8 +1542,7 @@ jit_compile_func(JitCompContext *cc)
                         bytes = 4;
                         op_type = VALUE_TYPE_I64;
                     op_atomic_cmpxchg:
-                        if (!jit_compile_op_atomic_cmpxchg(cc,
-                                                           op_type, align,
+                        if (!jit_compile_op_atomic_cmpxchg(cc, op_type, align,
                                                            offset, bytes))
                             return false;
                         break;
@@ -1557,9 +1555,8 @@ jit_compile_func(JitCompContext *cc)
                         COMPILE_ATOMIC_RMW(Xchg, XCHG);
 
                     build_atomic_rmw:
-                        if (!jit_compile_op_atomic_rmw(cc,
-                                                       bin_op, op_type, align,
-                                                       offset, bytes))
+                        if (!jit_compile_op_atomic_rmw(cc, bin_op, op_type,
+                                                       align, offset, bytes))
                             return false;
                         break;
 
@@ -1570,7 +1567,6 @@ jit_compile_func(JitCompContext *cc)
                 break;
             }
 #endif /* end of WASM_ENABLE_SHARED_MEMORY */
-#endif
 
             default:
                 jit_set_last_error(cc, "unsupported opcode");
@@ -1578,6 +1574,7 @@ jit_compile_func(JitCompContext *cc)
         }
     }
 
+    (void)func_idx;
     return true;
 
 #if WASM_ENABLE_REF_TYPES != 0
@@ -1612,6 +1609,9 @@ jit_frontend_translate_func(JitCompContext *cc)
         return NULL;
     }
 
+    if (!jit_compile_func(cc)) {
+        return NULL;
+    }
+
     return jit_block->basic_block_entry;
-    /*return test_fib(cc);*/
 }

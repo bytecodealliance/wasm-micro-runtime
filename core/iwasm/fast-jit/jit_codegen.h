@@ -65,13 +65,13 @@ void
 jit_codegen_dump_native(void *begin_addr, void *end_addr);
 
 /**
- * Call jited code
+ * Call jitted code
  *
  * @param exec_env the current exec_env
  */
 bool
-jit_codegen_call_func_jited(void *exec_env, void *frame, void *func_inst,
-                            void *target);
+jit_codegen_call_func_jitted(void *exec_env, void *frame, void *func_inst,
+                             void *target);
 
 #ifdef __cplusplus
 }

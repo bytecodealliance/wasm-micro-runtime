@@ -3231,8 +3231,7 @@ load_from_sections(WASMModule *module, WASMSection *sections,
 
 #if WASM_ENABLE_FAST_JIT != 0
     if (!jit_compiler_compile_all(module)) {
-        set_error_buf(error_buf, error_buf_size,
-                      "fast jit compilation failed");
+        set_error_buf(error_buf, error_buf_size, "fast jit compilation failed");
         return false;
     }
 #endif
@@ -7320,7 +7319,8 @@ re_scan:
                 operand_offset = local_offset;
                 PUSH_OFFSET_TYPE(local_type);
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_FAST_JIT == 0)
                 if (local_offset < 0x80) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
@@ -7395,7 +7395,8 @@ re_scan:
                     POP_OFFSET_TYPE(local_type);
                 }
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_FAST_JIT == 0)
                 if (local_offset < 0x80) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
@@ -7466,7 +7467,8 @@ re_scan:
                              *(loader_ctx->frame_offset
                                - wasm_value_type_cell_num(local_type)));
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_FAST_JIT == 0)
                 if (local_offset < 0x80) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
@@ -7516,7 +7518,6 @@ re_scan:
                 PUSH_TYPE(global_type);
 
 #if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -7524,7 +7525,6 @@ re_scan:
 #endif
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
-#endif
 #else  /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {

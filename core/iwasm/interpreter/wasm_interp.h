@@ -27,7 +27,7 @@ typedef struct WASMInterpFrame {
     uint8 *ip;
 
 #if WASM_ENABLE_FAST_JIT != 0
-    uint8 *jited_return_addr;
+    uint8 *jitted_return_addr;
     uint32 spill_cache[16];
 #endif
 

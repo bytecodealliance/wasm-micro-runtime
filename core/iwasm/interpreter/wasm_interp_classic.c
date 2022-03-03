@@ -3767,8 +3767,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #if WASM_ENABLE_FAST_JIT == 0
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
 #else
-        jit_call_func_jited(exec_env, frame, function,
-                            function->u.func->jited_code);
+        jit_interp_switch_to_jitted(exec_env, frame, function,
+                                    function->u.func->jitted_code);
 #endif
     }
 
