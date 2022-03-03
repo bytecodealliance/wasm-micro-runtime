@@ -4,6 +4,7 @@
  */
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,13 +15,33 @@
 #include <wasi_socket_ext.h>
 #endif
 
+#define WORKER_NUM 5
+
+void *
+run(void *arg)
+{
+    const char *message = "Say Hi from the Server";
+    int new_socket = *(int *)arg;
+
+    printf("[Server] Communicate with the new connection #%u @ 0x%lx... \n",
+           new_socket, pthread_self());
+
+    if (send(new_socket, message, strlen(message), 0) < 0) {
+        perror("Send failed");
+    }
+
+    printf("[Server] Shuting down the new connection #%u... \n", new_socket);
+    shutdown(new_socket, SHUT_RDWR);
+}
+
 int
 main(int argc, char *argv[])
 {
-    int socket_fd = -1, new_socket, addrlen = 0;
+    int socket_fd = -1, addrlen = 0;
     struct sockaddr_in addr = { 0 };
-    const char *message = "Say Hi from the Server";
-    uint32_t connections = 0;
+    unsigned connections = 0;
+    pthread_t workers[WORKER_NUM] = { 0 };
+    int client_sock_fds[WORKER_NUM] = { 0 };
 
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_fd < 0) {
@@ -44,38 +65,30 @@ main(int argc, char *argv[])
         goto fail;
     }
 
-    while (true) {
-        new_socket =
+    while (connections < WORKER_NUM) {
+        client_sock_fds[connections] =
             accept(socket_fd, (struct sockaddr *)&addr, (socklen_t *)&addrlen);
-        if (new_socket < 0) {
+        if (client_sock_fds[connections] < 0) {
             perror("Accept failed");
             break;
         }
 
-        connections++;
-
-#ifndef __wasi__
-        {
-            struct sockaddr client_addr = { 0 };
-            if (getpeername(new_socket, &client_addr, &addrlen) != 0) {
-                perror("Getpeername failed");
-            }
-            else {
-                printf("The connected address is %s\n",
-                       inet_ntoa(((struct sockaddr_in *)&addr)->sin_addr));
-            }
-        }
-#endif
-
-        if (send(new_socket, message, strlen(message), 0) < 0) {
-            perror("Send failed");
-        }
-        printf("[Server] Shuting down the new connection ... \n");
-        shutdown(new_socket, SHUT_RDWR);
-
-        if (connections == 1) {
+        if (pthread_create(&workers[connections], NULL, run,
+                           &client_sock_fds[connections])) {
+            perror("Create a worker thread failed");
+            shutdown(client_sock_fds[connections], SHUT_RDWR);
             break;
         }
+
+        connections++;
+    }
+
+    if (connections == WORKER_NUM) {
+        printf("Achieve maximum amount of connections\n");
+    }
+
+    for (int i = 0; i < WORKER_NUM; i++) {
+        pthread_join(workers[i], NULL);
     }
 
     printf("[Server] Shuting down ... \n");
