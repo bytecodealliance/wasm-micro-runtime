@@ -27,7 +27,8 @@ pthread_create(pthread_t *thread, const void *attr,
 
 int
 pthread_join(pthread_t thread, void **retval)
-    __attribute__((__import_module__("wamr_ext_a"), __import_name__("pthread_join")));
+    __attribute__((__import_module__("wamr_ext_a"),
+                   __import_name__("pthread_join")));
 
 int
 pthread_detach(pthread_t thread)
