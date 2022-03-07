@@ -164,12 +164,14 @@ jit_dump_basic_block(JitCompContext *cc, JitBasicBlock *block)
     os_printf(")\n    ;");
 
     if (jit_annl_is_enabled_begin_bcip(cc))
-        os_printf(" BEGIN_BCIP=%d", *(jit_annl_begin_bcip(cc, label))
-                                        - (uint8 *)cc->cur_wasm_func->code);
+        os_printf(" BEGIN_BCIP=0x%04x",
+                  *(jit_annl_begin_bcip(cc, label))
+                      - (uint8 *)cc->cur_wasm_module->load_addr);
 
     if (jit_annl_is_enabled_end_bcip(cc))
-        os_printf(" END_BCIP=%d", *(jit_annl_end_bcip(cc, label))
-                                      - (uint8 *)cc->cur_wasm_func->code);
+        os_printf(" END_BCIP=0x%04x",
+                  *(jit_annl_end_bcip(cc, label))
+                      - (uint8 *)cc->cur_wasm_module->load_addr);
     os_printf("\n");
 
     if (jit_annl_is_enabled_jitted_addr(cc))

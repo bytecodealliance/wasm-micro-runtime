@@ -412,7 +412,7 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
         || !(exit_block = jit_cc_new_basic_block(cc, 0)))
         goto fail;
 
-    if (!(cc->exception_blocks =
+    if (!(cc->exception_basic_blocks =
               jit_calloc(sizeof(JitBasicBlock *) * EXCE_NUM)))
         goto fail;
 
@@ -476,7 +476,7 @@ jit_cc_destroy(JitCompContext *cc)
     /* Release the instruction hash table.  */
     jit_cc_disable_insn_hash(cc);
 
-    jit_free(cc->exception_blocks);
+    jit_free(cc->exception_basic_blocks);
 
     /* Release entry and exit blocks.  */
     jit_basic_block_delete(jit_cc_entry_basic_block(cc));
@@ -1337,14 +1337,38 @@ jit_block_stack_destroy(JitBlockStack *stack)
     }
 }
 
+bool
+jit_block_add_incoming_insn(JitBlock *block, JitInsn *insn)
+{
+    JitIncomingInsn *incoming_insn;
+
+    if (!(incoming_insn = jit_calloc((uint32)sizeof(JitIncomingInsn))))
+        return false;
+
+    incoming_insn->insn = insn;
+    incoming_insn->next = block->incoming_insns_for_end_bb;
+    block->incoming_insns_for_end_bb = incoming_insn;
+    return true;
+}
+
 void
 jit_block_destroy(JitBlock *block)
 {
+    JitIncomingInsn *incoming_insn, *incoming_insn_next;
+
     jit_value_stack_destroy(&block->value_stack);
     if (block->param_types)
         jit_free(block->param_types);
     if (block->result_types)
         jit_free(block->result_types);
+
+    incoming_insn = block->incoming_insns_for_end_bb;
+    while (incoming_insn) {
+        incoming_insn_next = incoming_insn->next;
+        jit_free(incoming_insn);
+        incoming_insn = incoming_insn_next;
+    }
+
     jit_free(block);
 }
 

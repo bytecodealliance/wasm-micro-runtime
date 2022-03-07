@@ -323,6 +323,14 @@ gen_commit_for_all(JitFrame *frame)
 }
 
 static inline void
+clear_values(JitFrame *frame)
+{
+    size_t total_size =
+        sizeof(JitValueSlot) * (frame->max_locals + frame->max_stacks);
+    memset(frame->lp, 0, total_size);
+}
+
+static inline void
 push_i32(JitFrame *frame, JitReg value)
 {
     frame->sp->reg = value;

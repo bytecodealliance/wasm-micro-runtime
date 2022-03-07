@@ -879,15 +879,15 @@ typedef struct JitValueSlot {
 
     /* The dirty bit of the value slot. It's set if the value in
        register is newer than the value in memory.  */
-    unsigned dirty : 1;
+    uint32 dirty : 1;
 
     /* Whether the new value in register is a reference, which is valid
        only when the dirty bit is set.  */
-    unsigned ref : 1;
+    uint32 ref : 1;
 
     /* Committed reference flag.  0: unknown, 1: not-reference, 2:
        reference.  */
-    unsigned committed_ref : 2;
+    uint32 committed_ref : 2;
 } JitValueSlot;
 
 /* Frame information for translation */
@@ -902,10 +902,10 @@ typedef struct JitFrame {
     struct JitCompContext *cc;
 
     /* Max local slot number.  */
-    unsigned max_locals;
+    uint32 max_locals;
 
     /* Max operand stack slot number.  */
-    unsigned max_stacks;
+    uint32 max_stacks;
 
     /* Stack top pointer */
     JitValueSlot *sp;
@@ -917,6 +917,11 @@ typedef struct JitFrame {
     JitValueSlot lp[1];
 } JitFrame;
 
+typedef struct JitIncomingInsn {
+    struct JitIncomingInsn *next;
+    JitInsn *insn;
+} JitIncomingInsn, *JitIncomingInsnList;
+
 typedef struct JitBlock {
     struct JitBlock *next;
     struct JitBlock *prev;
@@ -926,14 +931,10 @@ typedef struct JitBlock {
 
     /* LABEL_TYPE_BLOCK/LOOP/IF/FUNCTION */
     uint32 label_type;
-    /* Whether it is reachable */
-    bool is_reachable;
-    /* Whether skip translation of wasm else branch */
-    bool skip_wasm_code_else;
 
     /* code of else opcode of this block, if it is a IF block  */
     uint8 *wasm_code_else;
-    /* code end of this block */
+    /* code of end opcode of this block */
     uint8 *wasm_code_end;
 
     /* JIT label points to code begin */
@@ -942,6 +943,11 @@ typedef struct JitBlock {
     JitBasicBlock *basic_block_else;
     /* JIT label points to code end */
     JitBasicBlock *basic_block_end;
+
+    /* Incoming INSN for basic_block_else */
+    JitInsn *incoming_insn_for_else_bb;
+    /* Incoming INSNs for basic_block_end */
+    JitIncomingInsnList incoming_insns_for_end_bb;
 
     /* WASM operation stack */
     JitValueStack value_stack;
@@ -992,7 +998,7 @@ typedef struct JitCompContext {
        be 0 and 1 respectively (see JIT_FOREACH_BLOCK). */
     JitReg entry_label;
     JitReg exit_label;
-    JitBasicBlock *exception_blocks;
+    JitBasicBlock *exception_basic_blocks;
 
     /* The current basic block to generate instructions */
     JitBasicBlock *cur_basic_block;
@@ -1076,9 +1082,9 @@ typedef struct JitCompContext {
 #undef ANN_REG
 
         /* Flags of annotations. */
-#define ANN_LABEL(TYPE, NAME) unsigned _label_##NAME##_enabled : 1;
-#define ANN_INSN(TYPE, NAME) unsigned _insn_##NAME##_enabled : 1;
-#define ANN_REG(TYPE, NAME) unsigned _reg_##NAME##_enabled : 1;
+#define ANN_LABEL(TYPE, NAME) uint32 _label_##NAME##_enabled : 1;
+#define ANN_INSN(TYPE, NAME) uint32 _insn_##NAME##_enabled : 1;
+#define ANN_REG(TYPE, NAME) uint32 _reg_##NAME##_enabled : 1;
 #include "jit_ir.def"
 #undef ANN_LABEL
 #undef ANN_INSN
@@ -1757,6 +1763,9 @@ jit_block_stack_pop(JitBlockStack *stack);
 
 void
 jit_block_stack_destroy(JitBlockStack *stack);
+
+bool
+jit_block_add_incoming_insn(JitBlock *block, JitInsn *insn);
 
 void
 jit_block_destroy(JitBlock *block);

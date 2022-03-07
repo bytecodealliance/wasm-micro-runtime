@@ -8,18 +8,11 @@
 #include "../jit_frontend.h"
 #include "../interpreter/wasm_loader.h"
 
-/* clang-format off */
-enum {
-    LABEL_BEGIN = 0,
-    LABEL_ELSE,
-    LABEL_END
-};
-/* clang-format on */
-
 #define CREATE_BASIC_BLOCK(new_basic_block)                       \
     do {                                                          \
+        bh_assert(!new_basic_block);                              \
         if (!(new_basic_block = jit_cc_new_basic_block(cc, 0))) { \
-            jit_set_last_error(cc, "add basic block failed");     \
+            jit_set_last_error(cc, "create basic block failed");  \
             goto fail;                                            \
         }                                                         \
     } while (0)
@@ -34,19 +27,28 @@ enum {
         }                                                          \
     } while (0)
 
-#define BUILD_COND_BR(value_if, block_then, block_else)                       \
-    do {                                                                      \
-        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(I32, 0))          \
-            || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(block_then), \
-                         jit_basic_block_label(block_else))) {                \
-            jit_set_last_error(cc, "generate cond br failed");                \
-            goto fail;                                                        \
-        }                                                                     \
+#define BUILD_COND_BR(value_if, block_then, block_else)                 \
+    do {                                                                \
+        if (!GEN_INSN(BNE, value_if, jit_basic_block_label(block_then), \
+                      jit_basic_block_label(block_else))) {             \
+            jit_set_last_error(cc, "generate bne insn failed");         \
+            goto fail;                                                  \
+        }                                                               \
     } while (0)
 
 #define SET_BUILDER_POS(basic_block)       \
     do {                                   \
         cc->cur_basic_block = basic_block; \
+    } while (0)
+
+#define SET_BB_BEGIN_BCIP(basic_block, bcip)                                   \
+    do {                                                                       \
+        *(jit_annl_begin_bcip(cc, jit_basic_block_label(basic_block))) = bcip; \
+    } while (0)
+
+#define SET_BB_END_BCIP(basic_block, bcip)                                   \
+    do {                                                                     \
+        *(jit_annl_end_bcip(cc, jit_basic_block_label(basic_block))) = bcip; \
     } while (0)
 
 #define BUILD_ICMP(left, right, res)                            \
@@ -56,15 +58,6 @@ enum {
             goto fail;                                          \
         }                                                       \
     } while (0)
-
-static JitBasicBlock *
-find_next_basic_block_end(JitBlock *block)
-{
-    block = block->prev;
-    while (block && !block->basic_block_end)
-        block = block->prev;
-    return block ? block->basic_block_end : NULL;
-}
 
 static JitBlock *
 get_target_block(JitCompContext *cc, uint32 br_depth)
@@ -90,11 +83,14 @@ load_block_params(JitCompContext *cc, JitBlock *block)
     uint32 offset, i;
     JitReg value;
 
+    /* Clear jit frame's locals and stacks */
+    clear_values(jit_frame);
+
     /* Restore jit frame's sp to block's sp begin */
     jit_frame->sp = block->frame_sp_begin;
-    offset = (uint32)(jit_frame->sp - jit_frame->lp) * 4;
 
-    /* Push params to the new block */
+    /* Load params to new block */
+    offset = (uint32)(jit_frame->sp - jit_frame->lp);
     for (i = 0; i < block->param_count; i++) {
         switch (block->param_types[i]) {
             case VALUE_TYPE_I32:
@@ -103,19 +99,22 @@ load_block_params(JitCompContext *cc, JitBlock *block)
             case VALUE_TYPE_FUNCREF:
 #endif
                 value = gen_load_i32(jit_frame, offset);
-                offset += 4;
+                offset++;
                 break;
             case VALUE_TYPE_I64:
                 value = gen_load_i64(jit_frame, offset);
-                offset += 8;
+                offset += 2;
                 break;
             case VALUE_TYPE_F32:
                 value = gen_load_f32(jit_frame, offset);
-                offset += 4;
+                offset++;
                 break;
             case VALUE_TYPE_F64:
                 value = gen_load_f64(jit_frame, offset);
-                offset += 8;
+                offset += 2;
+                break;
+            default:
+                bh_assert(0);
                 break;
         }
         PUSH(value, block->param_types[i]);
@@ -127,43 +126,340 @@ fail:
 }
 
 static bool
-load_block_results(JitCompContext *cc, JitBlock *block)
+push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
+                                        JitBasicBlock *basic_block, JitReg cond)
 {
     JitFrame *jit_frame = cc->jit_frame;
+    JitValue *value_list_head = NULL, *value_list_end = NULL, *jit_value;
+    JitInsn *insn;
+    JitReg value;
+    uint32 i, param_index, cell_num;
+
+    if (block->label_type == LABEL_TYPE_BLOCK
+        || (block->label_type == LABEL_TYPE_IF && !cond)) {
+        /* Reuse the current basic block and no need to commit values,
+           we just move param values from current block's value stack to
+           the new block's value stack */
+
+        for (i = 0; i < block->param_count; i++) {
+            param_index = block->param_count - 1 - i;
+            jit_value = jit_value_stack_pop(
+                &cc->block_stack.block_list_end->value_stack);
+            if (!value_list_head) {
+                value_list_head = value_list_end = jit_value;
+                jit_value->prev = jit_value->next = NULL;
+            }
+            else {
+                jit_value->prev = NULL;
+                jit_value->next = value_list_head;
+                value_list_head->prev = jit_value;
+                value_list_head = jit_value;
+            }
+        }
+        block->value_stack.value_list_head = value_list_head;
+        block->value_stack.value_list_end = value_list_end;
+
+        /* Save block's begin frame sp */
+        cell_num = wasm_get_cell_num(block->param_types, block->param_count);
+        block->frame_sp_begin = jit_frame->sp - cell_num;
+
+        /* Push the new block to block stack */
+        jit_block_stack_push(&cc->block_stack, block);
+
+        /* Continue to translate current block */
+    }
+    else {
+        /* Commit register values to locals and stacks */
+        gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+
+        /* Pop param values from current block's value stack */
+        for (i = 0; i < block->param_count; i++) {
+            param_index = block->param_count - 1 - i;
+            POP(value, block->param_types[param_index]);
+        }
+
+        /* Clear frame values */
+        clear_values(jit_frame);
+        /* Save block's begin frame sp */
+        block->frame_sp_begin = jit_frame->sp;
+
+        /* Push the new block to block stack */
+        jit_block_stack_push(&cc->block_stack, block);
+
+        if (!cond) { /* LOOP block */
+            BUILD_BR(basic_block);
+        }
+        else { /* IF block with condition br insn */
+            if (!(insn = GEN_INSN(BNE, cond, jit_basic_block_label(basic_block),
+                                  0))) {
+                jit_set_last_error(cc, "generate cond br failed");
+                goto fail;
+            }
+
+            /* Don't create else basic block or end basic block now, just
+               save its incoming BNE insn, and patch the insn's else label
+               when the basic block is lazily created */
+            if (basic_block == block->basic_block_entry) {
+                block->incoming_insn_for_else_bb = insn;
+            }
+            else {
+                if (!jit_block_add_incoming_insn(block, insn)) {
+                    jit_set_last_error(cc, "add incoming insn failed");
+                    goto fail;
+                }
+            }
+        }
+
+        /* Start to translate the block */
+        SET_BUILDER_POS(basic_block);
+
+        /* Push the block parameters */
+        if (!load_block_params(cc, block)) {
+            goto fail;
+        }
+    }
+    return true;
+fail:
+    return false;
+}
+
+static void
+pop_and_pass_block_arities(JitCompContext *cc, JitReg dst_frame_sp,
+                           uint8 *dst_types, uint32 dst_type_count)
+{
+    JitFrame *jit_frame;
     uint32 offset, i;
     JitReg value;
 
-    /* Restore jit frame's sp to block's current sp */
-    jit_frame->sp = block->frame_sp_begin;
-    offset = (uint32)(jit_frame->sp - jit_frame->lp) * 4;
+    jit_frame = cc->jit_frame;
+    offset = wasm_get_cell_num(dst_types, dst_type_count) * 4;
 
-    /* Push block results to the previous block */
-    for (i = 0; i < block->result_count; i++) {
-        switch (block->result_types[i]) {
+    /* pop values from stack and store to dest frame */
+    for (i = 0; i < dst_type_count; i++) {
+        switch (dst_types[i]) {
             case VALUE_TYPE_I32:
 #if WASM_ENABLE_REF_TYPES != 0
             case VALUE_TYPE_EXTERNREF:
             case VALUE_TYPE_FUNCREF:
 #endif
-                value = gen_load_i32(jit_frame, offset);
-                offset += 4;
+                offset -= 4;
+                value = pop_i32(jit_frame);
+                GEN_INSN(STI32, value, dst_frame_sp, NEW_CONST(I32, offset));
                 break;
             case VALUE_TYPE_I64:
-                value = gen_load_i64(jit_frame, offset);
-                offset += 8;
+                offset -= 8;
+                value = pop_i64(jit_frame);
+                GEN_INSN(STI64, value, dst_frame_sp, NEW_CONST(I32, offset));
                 break;
             case VALUE_TYPE_F32:
-                value = gen_load_f32(jit_frame, offset);
-                offset += 4;
+                offset -= 4;
+                value = pop_f32(jit_frame);
+                GEN_INSN(STF32, value, dst_frame_sp, NEW_CONST(I32, offset));
                 break;
             case VALUE_TYPE_F64:
-                value = gen_load_f64(jit_frame, offset);
-                offset += 8;
+                offset -= 8;
+                value = pop_f64(jit_frame);
+                GEN_INSN(STI64, value, dst_frame_sp, NEW_CONST(I32, offset));
+                break;
+            default:
+                bh_assert(0);
                 break;
         }
-        PUSH(value, block->result_types[i]);
+    }
+}
+
+static void
+handle_func_return(JitCompContext *cc, JitBlock *block)
+{
+    JitReg prev_frame, prev_frame_sp;
+
+#if UINTPTR_MAX == UINT64_MAX
+    prev_frame = jit_cc_new_reg_I64(cc);
+    prev_frame_sp = jit_cc_new_reg_I64(cc);
+
+    /* prev_frame = cur_frame->prev_frame */
+    GEN_INSN(LDI64, prev_frame, cc->fp_reg,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
+    GEN_INSN(LDI64, prev_frame_sp, prev_frame,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
+#else
+    prev_frame = jit_cc_new_reg_I32(cc);
+    prev_frame_sp = jit_cc_new_reg_I32(cc);
+
+    /* prev_frame = cur_frame->prev_frame */
+    GEN_INSN(LDI32, prev_frame, cc->fp_reg,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
+    GEN_INSN(LDI32, prev_frame_sp, prev_frame,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
+#endif
+
+    pop_and_pass_block_arities(cc, prev_frame_sp, block->result_types,
+                               block->result_count);
+
+    /* Free stack space of the current frame:
+       exec_env->wasm_stack.s.top = cur_frame */
+#if UINTPTR_MAX == UINT64_MAX
+    GEN_INSN(STI64, cc->fp_reg, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
+#else
+    GEN_INSN(STI32, cc->fp_reg, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
+#endif
+    /* Set the prev_frame as the current frame:
+       exec_env->cur_frame = prev_frame */
+#if UINTPTR_MAX == UINT64_MAX
+    GEN_INSN(STI64, prev_frame, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
+#else
+    GEN_INSN(STI32, prev_frame, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
+#endif
+    /* fp_reg = prev_frame */
+    GEN_INSN(MOV, cc->fp_reg, prev_frame);
+    /* return 0 */
+    GEN_INSN(RETURN, NEW_CONST(I32, 0));
+}
+
+static bool
+handle_op_end(JitCompContext *cc, uint8 **p_frame_ip)
+{
+    JitFrame *jit_frame = cc->jit_frame;
+    JitBlock *block;
+    JitIncomingInsn *incoming_insn;
+    JitInsn *insn;
+
+    /* Check block stack */
+    if (!(block = cc->block_stack.block_list_end)) {
+        jit_set_last_error(cc, "WASM block stack underflow");
+        return false;
     }
 
+    if (!block->incoming_insns_for_end_bb) {
+        /* No other basic blocks jumping to this end, no need to
+           create the end basic block, just continue to translate
+           the following opcodes */
+        if (block->label_type == LABEL_TYPE_FUNCTION) {
+            handle_func_return(cc, block);
+            SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+        }
+
+        /* Pop block and destroy the block */
+        block = jit_block_stack_pop(&cc->block_stack);
+        jit_block_destroy(block);
+        return true;
+    }
+    else {
+        /* Commit register values to locals and stacks */
+        gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+        /* Clear frame values */
+        clear_values(jit_frame);
+
+        /* Create the end basic block */
+        CREATE_BASIC_BLOCK(block->basic_block_end);
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+        SET_BB_BEGIN_BCIP(block->basic_block_end, *p_frame_ip);
+        /* Jump to the end basic block */
+        BUILD_BR(block->basic_block_end);
+
+        /* Patch the INSNs which jump to this basic block */
+        incoming_insn = block->incoming_insns_for_end_bb;
+        while (incoming_insn) {
+            insn = incoming_insn->insn;
+            if (insn->opcode == JIT_OP_JMP) {
+                *(jit_insn_opnd(insn, 0)) =
+                    jit_basic_block_label(block->basic_block_end);
+            }
+            else if (insn->opcode == JIT_OP_BNE) {
+                *(jit_insn_opnd(insn, 1)) =
+                    jit_basic_block_label(block->basic_block_end);
+            }
+            else {
+                bh_assert(0);
+            }
+            incoming_insn = incoming_insn->next;
+        }
+
+        SET_BUILDER_POS(block->basic_block_end);
+
+        if (block->label_type == LABEL_TYPE_FUNCTION) {
+            handle_func_return(cc, block);
+            SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+        }
+
+        /* Pop block and destroy the block */
+        block = jit_block_stack_pop(&cc->block_stack);
+        jit_block_destroy(block);
+        return true;
+    }
+    return true;
+fail:
+    return false;
+}
+
+static bool
+handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
+{
+    JitBlock *block = cc->block_stack.block_list_end;
+    JitFrame *jit_frame = cc->jit_frame;
+    JitInsn *insn;
+
+    /* Check block */
+    if (!block) {
+        jit_set_last_error(cc, "WASM block stack underflow");
+        return false;
+    }
+    if (block->label_type != LABEL_TYPE_IF) {
+        jit_set_last_error(cc, "Invalid WASM block type");
+        return false;
+    }
+
+    if (!block->incoming_insn_for_else_bb) {
+        /* The if branch is handled like OP_BLOCK (cond is const and != 0),
+           just skip the else branch and handle OP_END */
+        *p_frame_ip = block->wasm_code_end + 1;
+        return handle_op_end(cc, p_frame_ip);
+    }
+    else {
+        /* Has else branch and need to translate else branch */
+
+        /* Commit register values to locals and stacks */
+        gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+        /* Clear frame values */
+        clear_values(jit_frame);
+
+        /* Jump to end basic block */
+        if (!(insn = GEN_INSN(JMP, 0))) {
+            jit_set_last_error(cc, "generate jmp insn failed");
+            return false;
+        }
+        if (!jit_block_add_incoming_insn(block, insn)) {
+            jit_set_last_error(cc, "add incoming insn failed");
+            return false;
+        }
+
+        /* Clear value stack, restore param values and
+           start to translate the else branch. */
+        jit_value_stack_destroy(&block->value_stack);
+
+        /* Lazily create else basic block */
+        CREATE_BASIC_BLOCK(block->basic_block_else);
+        SET_BB_END_BCIP(block->basic_block_entry, *p_frame_ip - 1);
+        SET_BB_BEGIN_BCIP(block->basic_block_else, *p_frame_ip);
+
+        /* Patch the insn which conditionly jumps to the else basic block */
+        insn = block->incoming_insn_for_else_bb;
+        *(jit_insn_opnd(insn, 2)) =
+            jit_basic_block_label(block->basic_block_else);
+
+        SET_BUILDER_POS(block->basic_block_else);
+
+        /* Reload block parameters */
+        if (!load_block_params(cc, block)) {
+            return false;
+        }
+
+        return true;
+    }
     return true;
 fail:
     return false;
@@ -173,144 +469,32 @@ static bool
 handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
 {
     JitBlock *block = cc->block_stack.block_list_end, *block_prev;
-    uint8 *frame_ip = NULL;
 
     bh_assert(block);
 
-    if (block->label_type == LABEL_TYPE_IF && block->basic_block_else
-        && *p_frame_ip <= block->wasm_code_else) {
-        /* Clear value stack and start to translate else branch */
-        jit_value_stack_destroy(&block->value_stack);
-        SET_BUILDER_POS(block->basic_block_else);
-        /* Push the block parameters */
-        if (!load_block_params(cc, block)) {
-            goto fail;
-        }
-        *p_frame_ip = block->wasm_code_else + 1;
-        return true;
-    }
-
-    while (block && !block->is_reachable) {
+    do {
         block_prev = block->prev;
-        block = jit_block_stack_pop(&cc->block_stack);
 
-        if (block->label_type == LABEL_TYPE_IF) {
-            if (block->basic_block_else && !block->skip_wasm_code_else
-                && *p_frame_ip <= block->wasm_code_else) {
-                /* Clear value stack and start to translate else branch */
-                jit_value_stack_destroy(&block->value_stack);
-                SET_BUILDER_POS(block->basic_block_else);
-                /* Push the block parameters */
-                if (!load_block_params(cc, block)) {
-                    goto fail;
-                }
-                *p_frame_ip = block->wasm_code_else + 1;
-                /* Push back the block */
-                jit_block_stack_push(&cc->block_stack, block);
-                return true;
-            }
-            else if (block->basic_block_end) {
-                /* Remove unreachable basic block */
-                jit_basic_block_delete(block->basic_block_end);
-                block->basic_block_end = NULL;
-            }
+        if (block->label_type == LABEL_TYPE_IF
+            && block->incoming_insn_for_else_bb
+            && *p_frame_ip <= block->wasm_code_else) {
+            /* Else branch hasn't been translated,
+               start to translate the else branch */
+            *p_frame_ip = block->wasm_code_else + 1;
+            return handle_op_else(cc, p_frame_ip);
         }
-
-        frame_ip = block->wasm_code_end;
-        jit_block_destroy(block);
-        block = block_prev;
-    }
-
-    if (!block) {
-        *p_frame_ip = frame_ip + 1;
-        return true;
-    }
-
-    *p_frame_ip = block->wasm_code_end + 1;
-    SET_BUILDER_POS(block->basic_block_end);
-
-    /* Pop block, push its return value, and destroy the block */
-    block = jit_block_stack_pop(&cc->block_stack);
-    if (block->label_type != LABEL_TYPE_FUNCTION
-        && !load_block_results(cc, block)) {
-        goto fail;
-    }
-
-    if (block->label_type == LABEL_TYPE_FUNCTION) {
-        GEN_INSN(RETURN, NEW_CONST(I32, 0));
-    }
-    jit_block_destroy(block);
-    return true;
-fail:
-    return false;
-}
-
-static bool
-push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
-                                        JitBasicBlock *basic_block_to_translate)
-{
-    JitFrame *jit_frame = cc->jit_frame;
-    JitValueSlot *frame_sp;
-    JitValue *value_list = NULL, *value_list_end = NULL, *jit_value;
-    JitReg value;
-    uint32 i, param_index, cell_num;
-
-    if (block->label_type != LABEL_TYPE_BLOCK) {
-        gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
-        /* Pop param values from current block's value stack */
-        for (i = 0; i < block->param_count; i++) {
-            param_index = block->param_count - 1 - i;
-            POP(value, block->param_types[param_index]);
+        else if (block->incoming_insns_for_end_bb) {
+            *p_frame_ip = block->wasm_code_end + 1;
+            return handle_op_end(cc, p_frame_ip);
         }
-
-        frame_sp = jit_frame->sp;
-        /* Set block's begin frame sp */
-        block->frame_sp_begin = frame_sp;
-
-        /* Push the new block to block stack */
-        jit_block_stack_push(&cc->block_stack, block);
-
-        /* Start to translate the block */
-        SET_BUILDER_POS(basic_block_to_translate);
-
-        if (!load_block_params(cc, block))
-            return false;
-    }
-    else {
-        cell_num = wasm_get_cell_num(block->param_types, block->param_count);
-        frame_sp = jit_frame->sp - cell_num;
-        /* Set block's begin frame sp */
-        block->frame_sp_begin = frame_sp;
-
-        /* Move values from last block's value stack to
-           new block's value stack */
-        for (i = 0; i < block->param_count; i++) {
-            param_index = block->param_count - 1 - i;
-            jit_value = jit_value_stack_pop(
-                &cc->block_stack.block_list_end->value_stack);
-            if (!value_list) {
-                value_list = value_list_end = jit_value;
-                jit_value->prev = jit_value->next = NULL;
-            }
-            else {
-                value_list_end->next = jit_value;
-                jit_value->prev = value_list_end;
-                jit_value->next = NULL;
-            }
+        else {
+            jit_block_stack_pop(&cc->block_stack);
+            jit_block_destroy(block);
+            block = block_prev;
         }
-        block->value_stack.value_list_head = value_list;
-        block->value_stack.value_list_end = value_list;
-
-        /* Push the new block to block stack */
-        jit_block_stack_push(&cc->block_stack, block);
-
-        /* Start to translate the block */
-        SET_BUILDER_POS(basic_block_to_translate);
-    }
+    } while (block != NULL);
 
     return true;
-fail:
-    return false;
 }
 
 bool
@@ -355,7 +539,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
         goto fail;
     }
 
-    /* Init jit block data */
+    /* Initialize block data */
     block->label_type = label_type;
     block->param_count = param_count;
     if (param_count) {
@@ -370,18 +554,20 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
     block->wasm_code_end = end_addr;
 
     if (label_type == LABEL_TYPE_BLOCK) {
-        /* Push the new block to block stack and continue to
-           translate current block */
+        /* Push the new jit block to block stack and continue to
+           translate current basic block */
         if (!push_jit_block_to_stack_and_pass_params(cc, block,
-                                                     cc->cur_basic_block))
+                                                     cc->cur_basic_block, 0))
             goto fail;
     }
     else if (label_type == LABEL_TYPE_LOOP) {
         CREATE_BASIC_BLOCK(block->basic_block_entry);
-        /* Jump to the entry block */
-        BUILD_BR(block->basic_block_entry);
-        if (!push_jit_block_to_stack_and_pass_params(cc, block,
-                                                     block->basic_block_entry))
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+        SET_BB_BEGIN_BCIP(block->basic_block_entry, *p_frame_ip);
+        /* Push the new jit block to block stack and continue to
+           translate the new basic block */
+        if (!push_jit_block_to_stack_and_pass_params(
+                cc, block, block->basic_block_entry, 0))
             goto fail;
     }
     else if (label_type == LABEL_TYPE_IF) {
@@ -392,54 +578,41 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
 
             /* Create entry block */
             CREATE_BASIC_BLOCK(block->basic_block_entry);
+            SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+            SET_BB_BEGIN_BCIP(block->basic_block_entry, *p_frame_ip);
 
             if (else_addr) {
-                /* Create else block */
-                CREATE_BASIC_BLOCK(block->basic_block_else);
-                /* Create condition br IR */
-                BUILD_COND_BR(value, block->basic_block_entry,
-                              block->basic_block_else);
+                if (!push_jit_block_to_stack_and_pass_params(
+                        cc, block, block->basic_block_entry, value))
+                    goto fail;
             }
             else {
-                /* Create end block */
-                CREATE_BASIC_BLOCK(block->basic_block_end);
-                /* Create condition br IR */
-                BUILD_COND_BR(value, block->basic_block_entry,
-                              block->basic_block_end);
-                block->is_reachable = true;
+                if (!push_jit_block_to_stack_and_pass_params(
+                        cc, block, block->basic_block_else, value))
+                    goto fail;
             }
-            if (!push_jit_block_to_stack_and_pass_params(
-                    cc, block, block->basic_block_entry))
-                goto fail;
         }
         else {
             if (jit_cc_get_const_I32(cc, value) != 0) {
                 /* Compare value is not 0, condition is true, else branch of
-                   BASIC_BLOCK if cannot be reached */
-                block->skip_wasm_code_else = true;
-                /* Create entry block */
-                CREATE_BASIC_BLOCK(block->basic_block_entry);
-                /* Jump to the entry block */
-                BUILD_BR(block->basic_block_entry);
+                   BASIC_BLOCK if cannot be reached, we treat it same as
+                   LABEL_TYPE_BLOCK and start to translate if branch */
                 if (!push_jit_block_to_stack_and_pass_params(
-                        cc, block, block->basic_block_entry))
+                        cc, block, block->basic_block_entry, 0))
                     goto fail;
             }
             else {
-                /* Compare value is not 0, condition is false, if branch of
-                   BASIC_BLOCK if cannot be reached */
                 if (else_addr) {
-                    /* Create else block */
-                    CREATE_BASIC_BLOCK(block->basic_block_else);
-                    /* Jump to the else block */
-                    BUILD_BR(block->basic_block_else);
+                    /* Compare value is not 0, condition is false, if branch of
+                       BASIC_BLOCK if cannot be reached, we treat it same as
+                       LABEL_TYPE_BLOCK and start to translate else branch */
                     if (!push_jit_block_to_stack_and_pass_params(
-                            cc, block, block->basic_block_else))
+                            cc, block, block->basic_block_else, 0))
                         goto fail;
                     *p_frame_ip = else_addr + 1;
                 }
                 else {
-                    /* skip the block */
+                    /* The whole if block cannot be reached, skip it */
                     jit_block_destroy(block);
                     *p_frame_ip = end_addr + 1;
                 }
@@ -460,76 +633,13 @@ fail:
 bool
 jit_compile_op_else(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    JitBlock *block = cc->block_stack.block_list_end;
-    JitFrame *jit_frame = cc->jit_frame;
-
-    /* Check block */
-    if (!block) {
-        jit_set_last_error(cc, "WASM block stack underflow");
-        return false;
-    }
-    if (block->label_type != LABEL_TYPE_IF
-        || (!block->skip_wasm_code_else && !block->basic_block_else)) {
-        jit_set_last_error(cc, "Invalid WASM block type");
-        return false;
-    }
-
-    /* Commit register values to stack and local */
-    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
-
-    /* Create end block if needed */
-    if (!block->basic_block_end) {
-        CREATE_BASIC_BLOCK(block->basic_block_end);
-    }
-
-    block->is_reachable = true;
-
-    /* Jump to end block */
-    BUILD_BR(block->basic_block_end);
-
-    if (!block->skip_wasm_code_else && block->basic_block_else) {
-        /* Clear value stack, recover param values and
-           start to translate else branch. */
-        jit_value_stack_destroy(&block->value_stack);
-        SET_BUILDER_POS(block->basic_block_else);
-        if (!load_block_params(cc, block))
-            goto fail;
-        return true;
-    }
-
-    /* No else branch or no need to translate else branch */
-    block->is_reachable = true;
-    return handle_next_reachable_block(cc, p_frame_ip);
-fail:
-    return false;
+    return handle_op_else(cc, p_frame_ip);
 }
 
 bool
 jit_compile_op_end(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    JitFrame *jit_frame = cc->jit_frame;
-    JitBlock *block;
-
-    /* Check block stack */
-    if (!(block = cc->block_stack.block_list_end)) {
-        jit_set_last_error(cc, "WASM block stack underflow");
-        return false;
-    }
-
-    /* Create the end block */
-    if (!block->basic_block_end) {
-        CREATE_BASIC_BLOCK(block->basic_block_end);
-    }
-
-    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
-
-    /* Jump to the end block */
-    BUILD_BR(block->basic_block_end);
-
-    block->is_reachable = true;
-    return handle_next_reachable_block(cc, p_frame_ip);
-fail:
-    return false;
+    return handle_op_end(cc, p_frame_ip);
 }
 
 #if 0
@@ -609,14 +719,13 @@ fail:
 bool
 jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
-    return false;
-#if 0
+    JitFrame *jit_frame;
     JitBlock *block_dst;
-    LLVMValueRef value_ret, value_param;
-    JitBasicBlock *next_basic_block_end;
-    char name[32];
-    uint32 i, param_index, result_index;
+    JitInsn *insn;
+    JitReg frame_sp;
+    uint32 offset;
 
+#if 0 /* TODO */
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (cc->enable_thread_mgr) {
@@ -624,64 +733,66 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
             return false;
     }
 #endif
+#endif
 
-    if (!(block_dst = get_target_block(func_ctx, br_depth))) {
+    if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
     }
 
+    jit_frame = cc->jit_frame;
+    offset = (block_dst->frame_sp_begin - jit_frame->lp) * 4;
+#if UINTPTR_MAX == UINT64_MAX
+    frame_sp = jit_cc_new_reg_I64(cc);
+    GEN_INSN(LDI64, frame_sp, cc->fp_reg, offsetof(WASMInterpFrame, lp));
+    GEN_INSN(ADD, frame_sp, frame_sp, NEW_CONST(I32, offset));
+#else
+    frame_sp = jit_cc_new_reg_I32(cc);
+    GEN_INSN(LDI32, frame_sp, cc->fp_reg, offsetof(WASMInterpFrame, lp));
+    GEN_INSN(ADD, frame_sp, frame_sp, NEW_CONST(I32, offset));
+#endif
+
     if (block_dst->label_type == LABEL_TYPE_LOOP) {
-        /* Dest block is Loop block */
-        /* Handle Loop parameters */
-        for (i = 0; i < block_dst->param_count; i++) {
-            param_index = block_dst->param_count - 1 - i;
-            POP(value_param, block_dst->param_types[param_index]);
-            ADD_TO_PARAM_PHIS(block_dst, value_param, param_index);
-        }
+        /* Dest block is Loop block, pop and pass loop parameters */
+        pop_and_pass_block_arities(cc, frame_sp, block_dst->param_types,
+                                   block_dst->param_count);
+        /* Jump to the begin basic block */
         BUILD_BR(block_dst->basic_block_entry);
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     }
     else {
-        /* Dest block is Block/If/Function block */
-        /* Create the end block */
-        if (!block_dst->basic_block_end) {
-            format_block_name(name, sizeof(name), block_dst->block_index,
-                              block_dst->label_type, LABEL_END);
-            CREATE_BASIC_BLOCK(block_dst->basic_block_end, name);
-            if ((next_basic_block_end = find_next_basic_block_end(block_dst)))
-                MOVE_BASIC_BLOCK_BEFORE(block_dst->basic_block_end,
-                                        next_basic_block_end);
+        /* Dest block is Block/If/Function block,
+           pop and pass block results */
+        pop_and_pass_block_arities(cc, frame_sp, block_dst->result_types,
+                                   block_dst->result_count);
+        /* Jump to the end basic block */
+        if (!(insn = GEN_INSN(JMP, 0))) {
+            jit_set_last_error(cc, "generate jmp insn failed");
+            goto fail;
         }
-
-        block_dst->is_reachable = true;
-
-        /* Handle result values */
-        CREATE_RESULT_VALUE_PHIS(block_dst);
-        for (i = 0; i < block_dst->result_count; i++) {
-            result_index = block_dst->result_count - 1 - i;
-            POP(value_ret, block_dst->result_types[result_index]);
-            ADD_TO_RESULT_PHIS(block_dst, value_ret, result_index);
+        if (!jit_block_add_incoming_insn(block_dst, insn)) {
+            jit_set_last_error(cc, "add incoming insn failed");
+            goto fail;
         }
-        /* Jump to the end block */
-        BUILD_BR(block_dst->basic_block_end);
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     }
 
-    return handle_next_reachable_block(cc, func_ctx, p_frame_ip);
+    return handle_next_reachable_block(cc, p_frame_ip);
 fail:
     return false;
-#endif
 }
 
 bool
 jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
-    return false;
-#if 0
+    JitFrame *jit_frame;
     JitBlock *block_dst;
-    LLVMValueRef value_cmp, value, *values = NULL;
-    JitBasicBlock *basic_block_else, next_basic_block_end;
-    char name[32];
-    uint32 i, param_index, result_index;
-    uint64 size;
+    JitInsn *insn;
+    JitReg dst_frame_sp, cond;
+    JitBasicBlock *cur_basic_block, *if_basic_block = NULL;
+    JitValueSlot *frame_sp_org;
+    uint32 offset;
 
+#if 0 /* TODO */
 #if WASM_ENABLE_THREAD_MGR != 0
     /* Insert suspend check point */
     if (cc->enable_thread_mgr) {
@@ -689,121 +800,70 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
             return false;
     }
 #endif
-
-    POP_COND(value_cmp);
-
-    if (LLVMIsUndef(value_cmp)
-#if LLVM_VERSION_NUMBER >= 12
-        || LLVMIsPoison(value_cmp)
 #endif
-    ) {
-        if (!(jit_emit_exception(cc, func_ctx, EXCE_INTEGER_OVERFLOW, false,
-                                 NULL, NULL))) {
-            goto fail;
-        }
-        return jit_handle_next_reachable_block(cc, func_ctx, p_frame_ip);
+
+    if (!(block_dst = get_target_block(cc, br_depth))) {
+        return false;
     }
 
-    if (!LLVMIsConstant(value_cmp)) {
-        /* Compare value is not constant, create condition br IR */
-        if (!(block_dst = get_target_block(func_ctx, br_depth))) {
-            return false;
-        }
+    POP_I32(cond);
 
-        /* Create llvm else block */
-        CREATE_BASIC_BLOCK(basic_block_else, "br_if_else");
-        MOVE_BASIC_BLOCK_AFTER_CURR(basic_block_else);
+    jit_frame = cc->jit_frame;
+    cur_basic_block = cc->cur_basic_block;
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    clear_values(jit_frame);
 
-        if (block_dst->label_type == LABEL_TYPE_LOOP) {
-            /* Dest block is Loop block */
-            /* Handle Loop parameters */
-            if (block_dst->param_count) {
-                size = sizeof(LLVMValueRef) * (uint64)block_dst->param_count;
-                if (size >= UINT32_MAX
-                    || !(values = jit_calloc((uint32)size))) {
-                    jit_set_last_error(cc, "allocate memory failed");
-                    goto fail;
-                }
-                for (i = 0; i < block_dst->param_count; i++) {
-                    param_index = block_dst->param_count - 1 - i;
-                    POP(value, block_dst->param_types[param_index]);
-                    ADD_TO_PARAM_PHIS(block_dst, value, param_index);
-                    values[param_index] = value;
-                }
-                for (i = 0; i < block_dst->param_count; i++) {
-                    PUSH(values[i], block_dst->param_types[i]);
-                }
-                jit_free(values);
-                values = NULL;
-            }
+    CREATE_BASIC_BLOCK(if_basic_block);
+    if (!GEN_INSN(BNE, cond, jit_basic_block_label(if_basic_block), 0)) {
+        jit_set_last_error(cc, "generate bne insn failed");
+        goto fail;
+    }
 
-            BUILD_COND_BR(value_cmp, block_dst->basic_block_entry,
-                          basic_block_else);
+    SET_BUILDER_POS(if_basic_block);
+    SET_BB_BEGIN_BCIP(if_basic_block, *p_frame_ip - 1);
 
-            /* Move builder to else block */
-            SET_BUILDER_POS(basic_block_else);
-        }
-        else {
-            /* Dest block is Block/If/Function block */
-            /* Create the end block */
-            if (!block_dst->basic_block_end) {
-                format_block_name(name, sizeof(name), block_dst->block_index,
-                                  block_dst->label_type, LABEL_END);
-                CREATE_BASIC_BLOCK(block_dst->basic_block_end, name);
-                if ((next_basic_block_end = find_next_basic_block_end(block_dst)))
-                    MOVE_BASIC_BLOCK_BEFORE(block_dst->basic_block_end,
-                                            next_basic_block_end);
-            }
+#if UINTPTR_MAX == UINT64_MAX
+    dst_frame_sp = jit_cc_new_reg_I64(cc);
+#else
+    dst_frame_sp = jit_cc_new_reg_I32(cc);
+#endif
+    offset = offsetof(WASMInterpFrame, lp)
+             + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
+    GEN_INSN(ADD, dst_frame_sp, cc->fp_reg, NEW_CONST(I32, offset));
 
-            /* Set reachable flag and create condition br IR */
-            block_dst->is_reachable = true;
-
-            /* Handle result values */
-            if (block_dst->result_count) {
-                size = sizeof(LLVMValueRef) * (uint64)block_dst->result_count;
-                if (size >= UINT32_MAX
-                    || !(values = jit_calloc((uint32)size))) {
-                    jit_set_last_error(cc, "allocate memory failed");
-                    goto fail;
-                }
-                CREATE_RESULT_VALUE_PHIS(block_dst);
-                for (i = 0; i < block_dst->result_count; i++) {
-                    result_index = block_dst->result_count - 1 - i;
-                    POP(value, block_dst->result_types[result_index]);
-                    values[result_index] = value;
-                    ADD_TO_RESULT_PHIS(block_dst, value, result_index);
-                }
-                for (i = 0; i < block_dst->result_count; i++) {
-                    PUSH(values[i], block_dst->result_types[i]);
-                }
-                jit_free(values);
-                values = NULL;
-            }
-
-            /* Condition jump to end block */
-            BUILD_COND_BR(value_cmp, block_dst->basic_block_end,
-                          basic_block_else);
-
-            /* Move builder to else block */
-            SET_BUILDER_POS(basic_block_else);
-        }
+    /* Save original frame sp */
+    frame_sp_org = jit_frame->sp;
+    if (block_dst->label_type == LABEL_TYPE_LOOP) {
+        /* Dest block is Loop block, pop and pass loop parameters */
+        pop_and_pass_block_arities(cc, dst_frame_sp, block_dst->param_types,
+                                   block_dst->param_count);
+        /* Jump to the begin basic block */
+        BUILD_BR(block_dst->basic_block_entry);
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     }
     else {
-        if ((int32)LLVMConstIntGetZExtValue(value_cmp) != 0) {
-            /* Compare value is not 0, condition is true, same as op_br */
-            return jit_compile_op_br(cc, func_ctx, br_depth, p_frame_ip);
+        /* Dest block is Block/If/Function block, pop and pass block results */
+        pop_and_pass_block_arities(cc, dst_frame_sp, block_dst->result_types,
+                                   block_dst->result_count);
+        /* Jump to the end basic block */
+        if (!(insn = GEN_INSN(JMP, 0))) {
+            jit_set_last_error(cc, "generate jmp insn failed");
+            goto fail;
         }
-        else {
-            /* Compare value is not 0, condition is false, skip br_if */
-            return true;
+        if (!jit_block_add_incoming_insn(block_dst, insn)) {
+            jit_set_last_error(cc, "add incoming insn failed");
+            goto fail;
         }
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     }
+
+    SET_BUILDER_POS(cur_basic_block);
+    /* Restore frame sp */
+    jit_frame->sp = frame_sp_org;
+
     return true;
 fail:
-    if (values)
-        jit_free(values);
     return false;
-#endif
 }
 
 bool
@@ -956,60 +1016,14 @@ fail:
 bool
 jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    return false;
-#if 0
-    JitBlock *block_func = func_ctx->block_stack.block_list_head;
-    LLVMValueRef value;
-    LLVMValueRef ret;
-    JITFuncType *func_type;
-    uint32 i, param_index, result_index;
-#if WASM_ENABLE_DEBUG_JIT != 0
-    LLVMMetadataRef return_location;
-#endif
+    JitBlock *block_func = cc->block_stack.block_list_head;
 
     bh_assert(block_func);
-    func_type = func_ctx->jit_func->func_type;
 
-#if WASM_ENABLE_DEBUG_JIT != 0
-    return_location = dwarf_gen_location(
-        cc, func_ctx, (*p_frame_ip - 1) - cc->comp_data->wasm_module->buf_code);
-#endif
-    if (block_func->result_count) {
-        /* Store extra result values to function parameters */
-        for (i = 0; i < block_func->result_count - 1; i++) {
-            result_index = block_func->result_count - 1 - i;
-            POP(value, block_func->result_types[result_index]);
-            param_index = func_type->param_count + result_index;
-            if (!LLVMBuildStore(cc->builder, value,
-                                LLVMGetParam(func_ctx->func, param_index))) {
-                jit_set_last_error(cc, "llvm build store failed");
-                goto fail;
-            }
-        }
-        /* Return the first result value */
-        POP(value, block_func->result_types[0]);
-        if (!(ret = LLVMBuildRet(cc->builder, value))) {
-            jit_set_last_error(cc, "llvm build return failed");
-            goto fail;
-        }
-#if WASM_ENABLE_DEBUG_JIT != 0
-        LLVMInstructionSetDebugLoc(ret, return_location);
-#endif
-    }
-    else {
-        if (!(ret = LLVMBuildRetVoid(cc->builder))) {
-            jit_set_last_error(cc, "llvm build return void failed");
-            goto fail;
-        }
-#if WASM_ENABLE_DEBUG_JIT != 0
-        LLVMInstructionSetDebugLoc(ret, return_location);
-#endif
-    }
+    handle_func_return(cc, block_func);
+    SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
 
-    return handle_next_reachable_block(cc, func_ctx, p_frame_ip);
-fail:
-    return false;
-#endif
+    return handle_next_reachable_block(cc, p_frame_ip);
 }
 
 bool

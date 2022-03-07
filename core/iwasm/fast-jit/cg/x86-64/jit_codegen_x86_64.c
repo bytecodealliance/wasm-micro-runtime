@@ -27,7 +27,7 @@ static const uint8 hreg_info_I8[3][16] = {
     /* rbp, rax, rbx, rcx, rdx, rdi, rsi, rsp,
        r8,  r9,  r10, r11, r12, r13, r14, r15 */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      0, 0, 0, 0, 0, 0, 0, 0 }, /* fixed, rsi is freely used */
+      0, 0, 0, 0, 0, 0, 0, 1 }, /* fixed, rsi is freely used */
     { 0, 0, 0, 0, 0, 0, 0, 0,
       1, 1, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
     { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -82,8 +82,8 @@ static const JitHardRegInfo hreg_info = {
     },
     /* frame pointer hreg index: rbp */
     0,
-    /* exec_env hreg index: rbx */
-    1,
+    /* exec_env hreg index: r15 */
+    15,
     /* cmp hreg index: esi */
     6
 };

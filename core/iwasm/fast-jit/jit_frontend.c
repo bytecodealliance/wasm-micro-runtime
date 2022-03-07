@@ -171,6 +171,12 @@ form_and_translate_func(JitCompContext *cc)
     /* Insert the instruction into the cc entry block. */
     jit_basic_block_append_insn(jit_cc_entry_basic_block(cc), jmp_insn);
 
+    *(jit_annl_begin_bcip(cc, cc->entry_label)) =
+        *(jit_annl_end_bcip(cc, cc->entry_label)) =
+            *(jit_annl_begin_bcip(cc, cc->exit_label)) =
+                *(jit_annl_end_bcip(cc, cc->exit_label)) =
+                    cc->cur_wasm_module->load_addr;
+
     return true;
 }
 
@@ -198,52 +204,6 @@ jit_pass_lower_fe(JitCompContext *cc)
 {
     return true;
 }
-
-#if 0
-static JitBasicBlock *
-test_fib(JitCompContext *cc)
-{
-    JitBasicBlock *basic_block = jit_cc_new_basic_block(cc, 0);
-    JitBasicBlock *basic_block1 = jit_cc_new_basic_block(cc, 0);
-    JitBasicBlock *basic_block2 = jit_cc_new_basic_block(cc, 0);
-    JitBasicBlock *basic_block3 = jit_cc_new_basic_block(cc, 0);
-    JitBasicBlock *basic_block_ret = basic_block;
-    JitInsn *insn;
-
-    JitReg r1 = jit_cc_new_reg_I32(cc);
-    JitReg r2 = jit_cc_new_reg_I32(cc);
-    JitReg r3 = jit_cc_new_reg_I64(cc);
-    JitReg r4 = jit_cc_new_reg_I32(cc);
-    JitReg r5 = jit_cc_new_reg_I64(cc);
-    JitReg r6 = jit_cc_new_reg_I32(cc);
-    JitReg r7 = jit_cc_new_reg_I32(cc);
-
-    cc->cur_basic_block = basic_block;
-    GEN_INSN(MOV, r2, r1);
-    GEN_INSN(MOV, r3, cc->fp_reg);
-    GEN_INSN(LDI32, r4, cc->fp_reg, NEW_CONST(I32, 16));
-    GEN_INSN(LDI64, r5, cc->exec_env_reg, NEW_CONST(I32, 32));
-
-    insn = jit_cc_new_insn(cc, BEQ, r4, jit_basic_block_label(basic_block1),
-                           jit_basic_block_label(basic_block2));
-    jit_basic_block_append_insn(basic_block, insn);
-
-    cc->cur_basic_block = basic_block1;
-    GEN_INSN(LDI32, r6, cc->exec_env_reg, NEW_CONST(I32, -1));
-    insn = jit_cc_new_insn(cc, JMP, jit_basic_block_label(basic_block3));
-    jit_basic_block_append_insn(basic_block, insn);
-
-    basic_block = basic_block2;
-    GEN_INSN(LDI32, r7, cc->exec_env_reg, NEW_CONST(I32, -1));
-    insn = jit_cc_new_insn(cc, JMP, jit_basic_block_label(basic_block3));
-    jit_basic_block_append_insn(basic_block, insn);
-
-    cc->cur_basic_block = basic_block3;
-    GEN_INSN(RETURN, NEW_CONST(I32, 0));
-
-    return basic_block_ret;
-}
-#endif
 
 static JitFrame *
 init_func_translation(JitCompContext *cc)
@@ -387,6 +347,9 @@ create_func_block(JitCompContext *cc)
     if (!(jit_block->basic_block_entry = jit_cc_new_basic_block(cc, 0))) {
         goto fail;
     }
+    *(jit_annl_begin_bcip(
+        cc, jit_basic_block_label(jit_block->basic_block_entry))) =
+        cur_func->code;
     jit_block_stack_push(&cc->block_stack, jit_block);
     cc->cur_basic_block = jit_block->basic_block_entry;
 

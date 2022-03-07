@@ -418,9 +418,12 @@ struct WASMModule {
 #if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0
     bh_list fast_opcode_list;
     uint8 *buf_code;
+    uint64 buf_code_size;
+#endif
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
     uint8 *load_addr;
     uint64 load_size;
-    uint64 buf_code_size;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
