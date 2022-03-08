@@ -51,14 +51,6 @@
         *(jit_annl_end_bcip(cc, jit_basic_block_label(basic_block))) = bcip; \
     } while (0)
 
-#define BUILD_ICMP(left, right, res)                            \
-    do {                                                        \
-        if (!(GEN_INSN(CMP, res, left, right))) {               \
-            jit_set_last_error(cc, "generate cmp insn failed"); \
-            goto fail;                                          \
-        }                                                       \
-    } while (0)
-
 static JitBlock *
 get_target_block(JitCompContext *cc, uint32 br_depth)
 {
@@ -140,7 +132,6 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
         /* Reuse the current basic block and no need to commit values,
            we just move param values from current block's value stack to
            the new block's value stack */
-
         for (i = 0; i < block->param_count; i++) {
             param_index = block->param_count - 1 - i;
             jit_value = jit_value_stack_pop(
@@ -224,15 +215,17 @@ fail:
 }
 
 static void
-pop_and_pass_block_arities(JitCompContext *cc, JitReg dst_frame_sp,
-                           uint8 *dst_types, uint32 dst_type_count)
+copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
+                   uint32 dst_type_count)
 {
     JitFrame *jit_frame;
-    uint32 offset, i;
+    uint32 offset_src, offset_dst, i;
     JitReg value;
 
     jit_frame = cc->jit_frame;
-    offset = wasm_get_cell_num(dst_types, dst_type_count) * 4;
+    offset_src = (uint32)(jit_frame->sp - jit_frame->lp)
+                 - wasm_get_cell_num(dst_types, dst_type_count);
+    offset_dst = 0;
 
     /* pop values from stack and store to dest frame */
     for (i = 0; i < dst_type_count; i++) {
@@ -242,24 +235,32 @@ pop_and_pass_block_arities(JitCompContext *cc, JitReg dst_frame_sp,
             case VALUE_TYPE_EXTERNREF:
             case VALUE_TYPE_FUNCREF:
 #endif
-                offset -= 4;
-                value = pop_i32(jit_frame);
-                GEN_INSN(STI32, value, dst_frame_sp, NEW_CONST(I32, offset));
+                value = gen_load_i32(jit_frame, offset_src);
+                GEN_INSN(STI32, value, dst_frame_sp,
+                         NEW_CONST(I32, offset_dst * 4));
+                offset_src++;
+                offset_dst++;
                 break;
             case VALUE_TYPE_I64:
-                offset -= 8;
-                value = pop_i64(jit_frame);
-                GEN_INSN(STI64, value, dst_frame_sp, NEW_CONST(I32, offset));
+                value = gen_load_i64(jit_frame, offset_src);
+                GEN_INSN(STI64, value, dst_frame_sp,
+                         NEW_CONST(I32, offset_dst * 4));
+                offset_src += 2;
+                offset_dst += 2;
                 break;
             case VALUE_TYPE_F32:
-                offset -= 4;
-                value = pop_f32(jit_frame);
-                GEN_INSN(STF32, value, dst_frame_sp, NEW_CONST(I32, offset));
+                value = gen_load_f32(jit_frame, offset_src);
+                GEN_INSN(STF32, value, dst_frame_sp,
+                         NEW_CONST(I32, offset_dst * 4));
+                offset_src++;
+                offset_dst++;
                 break;
             case VALUE_TYPE_F64:
-                offset -= 8;
-                value = pop_f64(jit_frame);
-                GEN_INSN(STI64, value, dst_frame_sp, NEW_CONST(I32, offset));
+                value = gen_load_f64(jit_frame, offset_src);
+                GEN_INSN(STI64, value, dst_frame_sp,
+                         NEW_CONST(I32, offset_dst * 4));
+                offset_src += 2;
+                offset_dst += 2;
                 break;
             default:
                 bh_assert(0);
@@ -293,8 +294,8 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
              NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
 #endif
 
-    pop_and_pass_block_arities(cc, prev_frame_sp, block->result_types,
-                               block->result_count);
+    copy_block_arities(cc, prev_frame_sp, block->result_types,
+                       block->result_count);
 
     /* Free stack space of the current frame:
        exec_env->wasm_stack.s.top = cur_frame */
@@ -721,8 +722,10 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
     JitFrame *jit_frame;
     JitBlock *block_dst;
+    JitReg frame_sp_dst;
+    JitValueSlot *frame_sp_src = NULL;
     JitInsn *insn;
-    JitReg frame_sp;
+    bool copy_arities;
     uint32 offset;
 
 #if 0 /* TODO */
@@ -740,30 +743,48 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     }
 
     jit_frame = cc->jit_frame;
-    offset = (block_dst->frame_sp_begin - jit_frame->lp) * 4;
-#if UINTPTR_MAX == UINT64_MAX
-    frame_sp = jit_cc_new_reg_I64(cc);
-    GEN_INSN(LDI64, frame_sp, cc->fp_reg, offsetof(WASMInterpFrame, lp));
-    GEN_INSN(ADD, frame_sp, frame_sp, NEW_CONST(I32, offset));
-#else
-    frame_sp = jit_cc_new_reg_I32(cc);
-    GEN_INSN(LDI32, frame_sp, cc->fp_reg, offsetof(WASMInterpFrame, lp));
-    GEN_INSN(ADD, frame_sp, frame_sp, NEW_CONST(I32, offset));
-#endif
 
     if (block_dst->label_type == LABEL_TYPE_LOOP) {
-        /* Dest block is Loop block, pop and pass loop parameters */
-        pop_and_pass_block_arities(cc, frame_sp, block_dst->param_types,
-                                   block_dst->param_count);
+        frame_sp_src =
+            jit_frame->sp
+            - wasm_get_cell_num(block_dst->param_types, block_dst->param_count);
+    }
+    else {
+        frame_sp_src = jit_frame->sp
+                       - wasm_get_cell_num(block_dst->result_types,
+                                           block_dst->result_count);
+    }
+
+    /* Only copy parameters or results when the src/dst addr are different */
+    copy_arities = (block_dst->frame_sp_begin != frame_sp_src) ? true : false;
+
+    if (copy_arities) {
+#if UINTPTR_MAX == UINT64_MAX
+        frame_sp_dst = jit_cc_new_reg_I64(cc);
+#else
+        frame_sp_dst = jit_cc_new_reg_I32(cc);
+#endif
+        offset = offsetof(WASMInterpFrame, lp)
+                 + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
+        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I32, offset));
+    }
+
+    if (block_dst->label_type == LABEL_TYPE_LOOP) {
+        if (copy_arities) {
+            /* Dest block is Loop block, copy loop parameters */
+            copy_block_arities(cc, frame_sp_dst, block_dst->param_types,
+                               block_dst->param_count);
+        }
         /* Jump to the begin basic block */
         BUILD_BR(block_dst->basic_block_entry);
         SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     }
     else {
-        /* Dest block is Block/If/Function block,
-           pop and pass block results */
-        pop_and_pass_block_arities(cc, frame_sp, block_dst->result_types,
-                                   block_dst->result_count);
+        if (copy_arities) {
+            /* Dest block is Block/If/Function block, copy block results */
+            copy_block_arities(cc, frame_sp_dst, block_dst->result_types,
+                               block_dst->result_count);
+        }
         /* Jump to the end basic block */
         if (!(insn = GEN_INSN(JMP, 0))) {
             jit_set_last_error(cc, "generate jmp insn failed");
@@ -786,10 +807,11 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
     JitFrame *jit_frame;
     JitBlock *block_dst;
-    JitInsn *insn;
-    JitReg dst_frame_sp, cond;
+    JitReg frame_sp_dst, cond;
     JitBasicBlock *cur_basic_block, *if_basic_block = NULL;
-    JitValueSlot *frame_sp_org;
+    JitValueSlot *frame_sp_src = NULL;
+    JitInsn *insn;
+    bool copy_arities;
     uint32 offset;
 
 #if 0 /* TODO */
@@ -822,29 +844,47 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     SET_BUILDER_POS(if_basic_block);
     SET_BB_BEGIN_BCIP(if_basic_block, *p_frame_ip - 1);
 
-#if UINTPTR_MAX == UINT64_MAX
-    dst_frame_sp = jit_cc_new_reg_I64(cc);
-#else
-    dst_frame_sp = jit_cc_new_reg_I32(cc);
-#endif
-    offset = offsetof(WASMInterpFrame, lp)
-             + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
-    GEN_INSN(ADD, dst_frame_sp, cc->fp_reg, NEW_CONST(I32, offset));
-
-    /* Save original frame sp */
-    frame_sp_org = jit_frame->sp;
     if (block_dst->label_type == LABEL_TYPE_LOOP) {
-        /* Dest block is Loop block, pop and pass loop parameters */
-        pop_and_pass_block_arities(cc, dst_frame_sp, block_dst->param_types,
-                                   block_dst->param_count);
+        frame_sp_src =
+            jit_frame->sp
+            - wasm_get_cell_num(block_dst->param_types, block_dst->param_count);
+    }
+    else {
+        frame_sp_src = jit_frame->sp
+                       - wasm_get_cell_num(block_dst->result_types,
+                                           block_dst->result_count);
+    }
+
+    /* Only copy parameters or results when the src/dst addr are different */
+    copy_arities = (block_dst->frame_sp_begin != frame_sp_src) ? true : false;
+
+    if (copy_arities) {
+#if UINTPTR_MAX == UINT64_MAX
+        frame_sp_dst = jit_cc_new_reg_I64(cc);
+#else
+        frame_sp_dst = jit_cc_new_reg_I32(cc);
+#endif
+        offset = offsetof(WASMInterpFrame, lp)
+                 + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
+        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I32, offset));
+    }
+
+    if (block_dst->label_type == LABEL_TYPE_LOOP) {
+        if (copy_arities) {
+            /* Dest block is Loop block, copy loop parameters */
+            copy_block_arities(cc, frame_sp_dst, block_dst->param_types,
+                               block_dst->param_count);
+        }
         /* Jump to the begin basic block */
         BUILD_BR(block_dst->basic_block_entry);
         SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     }
     else {
-        /* Dest block is Block/If/Function block, pop and pass block results */
-        pop_and_pass_block_arities(cc, dst_frame_sp, block_dst->result_types,
-                                   block_dst->result_count);
+        if (copy_arities) {
+            /* Dest block is Block/If/Function block, copy block results */
+            copy_block_arities(cc, frame_sp_dst, block_dst->result_types,
+                               block_dst->result_count);
+        }
         /* Jump to the end basic block */
         if (!(insn = GEN_INSN(JMP, 0))) {
             jit_set_last_error(cc, "generate jmp insn failed");
@@ -858,8 +898,6 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     }
 
     SET_BUILDER_POS(cur_basic_block);
-    /* Restore frame sp */
-    jit_frame->sp = frame_sp_org;
 
     return true;
 fail:
