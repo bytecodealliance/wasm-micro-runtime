@@ -30,6 +30,7 @@ iwasm VM core
 - [Linux SGX (Intel Software Guard Extension) support](./doc/linux_sgx.md)
 - [Source debugging](./doc/source_debugging.md)
 - [XIP (Execution In Place) support](./doc/xip.md)
+- [Berkeley/Posix Socket support](./doc/socket_api.md)
 
 ### post-MVP features
 - [Non-trapping float-to-int conversions](https://github.com/WebAssembly/nontrapping-float-to-int-conversions)
@@ -161,4 +162,3 @@ Check out the [Wiki documents ](https://github.com/bytecodealliance/wasm-micro-r
 - [Roadmap](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/Roadmap)
 - [WAMR TSC meetings](https://github.com/bytecodealliance/wasm-micro-runtime/wiki/TSC-meeting)
 - Technical documents
-

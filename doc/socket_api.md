@@ -15,8 +15,8 @@ WebAssembly code.
 
 ## Patch the native code
 
-The first step is to add the header of the WAMR socket extension into the native
-source code.
+The first step is to include a header file of the WAMR socket extension in the
+native source code.
 
 ```c
 #ifdef __wasi__
@@ -28,17 +28,18 @@ source code.
 
 ## CMake files
 
-It is recommended that use CMake to build the project. Use [_wasi-sdk_](https://github.com/WebAssembly/wasi-sdk)
+It is recommended that the project should use CMake as its build system. Use
+[_wasi-sdk_](https://github.com/WebAssembly/wasi-sdk)
 as a toolchain to compile C/C++ to WebAssembly
 
 ```bash
-$ CMAKE -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
+$ cmake -DWASI_SDK_PREFIX=${WASI_SDK_DIR}
       -DCMAKE_TOOLCHAIN_FILE=${WASI_TOOLCHAIN_FILE}
       -DCMAKE_SYSROOT=${WASI_SYS_ROOT}
       ..
 ```
 
-Include an extension of socket support and link with it.
+In the *CMakeLists.txt*, include an extension of socket support and link with it.
 
 ```cmake
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../../core/iwasm/libraries/lib-socket/lib_socket_wasi.cmake)
