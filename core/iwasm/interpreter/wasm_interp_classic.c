@@ -15,6 +15,9 @@
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#endif
 
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
@@ -3761,7 +3764,12 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
         }
     }
     else {
+#if WASM_ENABLE_FAST_JIT == 0
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
+#else
+        jit_interp_switch_to_jitted(exec_env, frame, function,
+                                    function->u.func->jitted_code);
+#endif
     }
 
     /* Output the return value to the caller */

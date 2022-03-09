@@ -27,6 +27,9 @@
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "wasm_shared_memory.h"
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#endif
 #include "../common/wasm_c_api_internal.h"
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -146,8 +149,20 @@ wasm_runtime_env_init()
     }
 #endif
 
+#if WASM_ENABLE_FAST_JIT != 0
+    if (!jit_compiler_init()) {
+        goto fail9;
+    }
+#endif
+
     return true;
 
+#if WASM_ENABLE_FAST_JIT != 0
+fail9:
+#if WASM_ENABLE_REF_TYPES != 0
+    wasm_externref_map_destroy();
+#endif
+#endif
 #if WASM_ENABLE_REF_TYPES != 0
 fail8:
 #endif
@@ -208,6 +223,10 @@ wasm_runtime_init()
 void
 wasm_runtime_destroy()
 {
+#if WASM_ENABLE_FAST_JIT != 0
+    jit_compiler_destroy();
+#endif
+
 #if WASM_ENABLE_REF_TYPES != 0
     wasm_externref_map_destroy();
 #endif

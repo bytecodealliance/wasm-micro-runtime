@@ -10,6 +10,9 @@
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
 #include "../common/wasm_native.h"
+#if WASM_ENABLE_FAST_JIT != 0
+#include "../fast-jit/jit_compiler.h"
+#endif
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -2136,6 +2139,13 @@ load_from_sections(WASMModule *module, WASMSection *sections,
             memory->init_page_count = memory->max_page_count = 1;
         }
     }
+
+#if WASM_ENABLE_FAST_JIT != 0
+    if (!jit_compiler_compile_all(module)) {
+        set_error_buf(error_buf, error_buf_size, "fast jit compilation failed");
+        return false;
+    }
+#endif
 
 #if WASM_ENABLE_MEMORY_TRACING != 0
     wasm_runtime_dump_module_mem_consumption(module);

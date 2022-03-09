@@ -254,6 +254,9 @@ struct WASMFunction {
     uint8 *consts;
     uint32 const_cell_num;
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+    void *jitted_code;
+#endif
 };
 
 struct WASMGlobal {
@@ -323,6 +326,7 @@ typedef struct WASMFastOPCodeNode {
     uint8 orig_op;
 } WASMFastOPCodeNode;
 #endif
+
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -414,9 +418,12 @@ struct WASMModule {
 #if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0
     bh_list fast_opcode_list;
     uint8 *buf_code;
+    uint64 buf_code_size;
+#endif
+#if WASM_ENABLE_DEBUG_INTERP != 0 || WASM_ENABLE_DEBUG_AOT != 0 \
+    || WASM_ENABLE_FAST_JIT != 0
     uint8 *load_addr;
     uint64 load_size;
-    uint64 buf_code_size;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -436,6 +443,11 @@ struct WASMModule {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;
+#endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    /* point to JITed functions */
+    void **func_ptrs;
 #endif
 };
 
