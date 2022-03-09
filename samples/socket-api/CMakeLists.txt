@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required(VERSION 2.8...3.18)
-project(network_sample)
+project(socket_api_sample)
 
 message(CHECK_START "Detecting WASI-SDK")
 if(NOT (DEFINED WASI_SDK_DIR OR DEFINED CACHE{WASI_SDK_DIR}))
@@ -89,4 +89,5 @@ ExternalProject_Add(wasm-app
 )
 
 add_executable(tcp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_server.c)
+target_link_libraries(tcp_server pthread)
 add_executable(tcp_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_client.c)

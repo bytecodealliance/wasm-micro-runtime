@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 cmake_minimum_required(VERSION 2.8...3.18)
-project(network_sample_wasm_app)
+project(socket_api_sample_wasm_app)
 
 message(CHECK_START "Detecting WABT")
 if(NOT (DEFINED WABT_DIR OR DEFINED CACHE{WABT_DIR}))
@@ -48,7 +48,15 @@ function(COMPILE_WITH_CLANG SOURCE_FILE)
 
   add_executable(${MAIN_TARGET_NAME} ${SOURCE_FILE})
   set_target_properties(${MAIN_TARGET_NAME} PROPERTIES OUTPUT_NAME ${WASM_MODULE})
+  target_include_directories(${MAIN_TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+  target_compile_options(${MAIN_TARGET_NAME} INTERFACE -pthread)
   target_link_libraries(${MAIN_TARGET_NAME} socket_wasi_ext)
+  target_link_options(${MAIN_TARGET_NAME} PRIVATE
+    LINKER:--export=__heap_base
+    LINKER:--export=__data_end
+    LINKER:--shared-memory,--max-memory=196608
+    LINKER:--no-check-features
+  )
 
   if(EXISTS ${WASM_OBJDUMP})
     message(STATUS "Dumping ${WASM_MODULE}...")
