@@ -1947,6 +1947,10 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
     for (i = 0; i != import_count; ++i) {
         char *module_name_rt = NULL, *field_name_rt = NULL;
 
+        memset(&module_name, 0, sizeof(wasm_val_vec_t));
+        memset(&name, 0, sizeof(wasm_val_vec_t));
+        extern_type = NULL;
+
         if (i < import_func_count) {
             wasm_functype_t *type = NULL;
             WASMType *type_rt = NULL;
@@ -1972,16 +1976,6 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
 
             if (!module_name_rt || !field_name_rt || !type_rt) {
                 continue;
-            }
-
-            wasm_name_new_from_string(&module_name, module_name_rt);
-            if (strlen(module_name_rt) && !module_name.data) {
-                goto failed;
-            }
-
-            wasm_name_new_from_string(&name, field_name_rt);
-            if (strlen(field_name_rt) && !name.data) {
-                goto failed;
             }
 
             if (!(type = wasm_functype_new_internal(type_rt))) {
@@ -2061,16 +2055,6 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
                 continue;
             }
 
-            wasm_name_new_from_string(&module_name, module_name_rt);
-            if (strlen(module_name_rt) && !module_name.data) {
-                goto failed;
-            }
-
-            wasm_name_new_from_string(&name, field_name_rt);
-            if (strlen(field_name_rt) && !name.data) {
-                goto failed;
-            }
-
             if (!(type = wasm_memorytype_new_internal(min_page, max_page))) {
                 goto failed;
             }
@@ -2122,8 +2106,16 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
             extern_type = wasm_tabletype_as_externtype(type);
         }
 
-        if (!extern_type) {
-            continue;
+        bh_assert(extern_type);
+
+        wasm_name_new_from_string(&module_name, module_name_rt);
+        if (strlen(module_name_rt) && !module_name.data) {
+            goto failed;
+        }
+
+        wasm_name_new_from_string(&name, field_name_rt);
+        if (strlen(field_name_rt) && !name.data) {
+            goto failed;
         }
 
         if (!(import_type =
@@ -2134,17 +2126,16 @@ wasm_module_imports(const wasm_module_t *module, own wasm_importtype_vec_t *out)
         if (!bh_vector_append((Vector *)out, &import_type)) {
             goto failed_importtype_new;
         }
+
+        continue;
+
+    failed:
+        wasm_byte_vec_delete(&module_name);
+        wasm_byte_vec_delete(&name);
+        wasm_externtype_delete(extern_type);
+    failed_importtype_new:
+        wasm_importtype_delete(import_type);
     }
-
-    return;
-
-failed:
-    wasm_byte_vec_delete(&module_name);
-    wasm_byte_vec_delete(&name);
-    wasm_externtype_delete(extern_type);
-failed_importtype_new:
-    wasm_importtype_delete(import_type);
-    wasm_importtype_vec_delete(out);
 }
 
 void

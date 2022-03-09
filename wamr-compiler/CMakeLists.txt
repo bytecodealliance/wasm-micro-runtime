@@ -181,6 +181,8 @@ include (${SHARED_DIR}/utils/shared_utils.cmake)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 include (${IWASM_DIR}/libraries/thread-mgr/thread_mgr.cmake)
 include (${IWASM_DIR}/libraries/libc-builtin/libc_builtin.cmake)
+include (${IWASM_DIR}/libraries/libc-wasi/libc_wasi.cmake)
+include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
 include (${IWASM_DIR}/common/iwasm_common.cmake)
 include (${IWASM_DIR}/interpreter/iwasm_interp.cmake)
 include (${IWASM_DIR}/aot/iwasm_aot.cmake)
@@ -239,6 +241,8 @@ add_library (vmlib
              ${UNCOMMON_SHARED_SOURCE}
              ${THREAD_MGR_SOURCE}
              ${LIBC_BUILTIN_SOURCE}
+             ${LIBC_WASI_SOURCE}
+             ${LIB_PTHREAD_SOURCE}
              ${IWASM_COMMON_SOURCE}
              ${IWASM_INTERP_SOURCE}
              ${IWASM_AOT_SOURCE})

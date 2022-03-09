@@ -13,6 +13,7 @@ on:
       - "product-mini/**"
       - "tests/wamr-test-suites/spec-test-script/**"
       - "tests/wamr-test-suites/test_wamr.sh"
+      - ".github/workflows/spec_test.yml"
   # will be triggered on push events
   push:
     paths:
@@ -23,6 +24,7 @@ on:
       - "product-mini/**"
       - "tests/wamr-test-suites/spec-test-script/**"
       - "tests/wamr-test-suites/test_wamr.sh"
+      - ".github/workflows/spec_test.yml"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -140,7 +142,13 @@ jobs:
         run: echo "::error::can not get prebuilt llvm libraries" && exit 1
 
       - name: install Ninja and x32 support libraries
-        run: sudo apt install -y g++-multilib libgcc-9-dev lib32gcc-9-dev ninja-build
+        run:
+            # Add another apt repository as some packages cannot
+            # be downloaded with the github default repository
+            sudo curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc &&
+            sudo apt-add-repository https://packages.microsoft.com/ubuntu/20.04/prod &&
+            sudo apt-get update &&
+            sudo apt install -y g++-multilib lib32gcc-9-dev ninja-build
 
       - name: run spec tests
         run: ./test_wamr.sh ${{ env.X86_32_TARGET_TEST_OPTIONS }} ${{ matrix.test_option }}
