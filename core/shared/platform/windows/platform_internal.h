@@ -74,6 +74,9 @@ os_mem_decommit(void *ptr, size_t size);
 
 #define os_thread_local_attribute __declspec(thread)
 
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+
 #if WASM_DISABLE_HW_BOUND_CHECK == 0
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 

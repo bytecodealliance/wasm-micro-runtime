@@ -22,7 +22,7 @@ extern "C" {
 /* Invalid module ID */
 #define ID_NONE ((uint32)-1)
 
-struct attr_container_t;
+struct attr_container;
 
 /* Queue message type */
 typedef enum QUEUE_MSG_TYPE {
@@ -182,6 +182,10 @@ app_manager_host_init(host_interface *intf);
 /* Startup app manager */
 void
 app_manager_startup(host_interface *intf);
+
+/* Return whether app manager is started */
+bool
+app_manager_is_started(void);
 
 /* Get queue of current applet */
 void *

@@ -61,10 +61,7 @@ enum EXPORT_ITEM_NAME {
 
 DEFINE_FUNCTION(get_pairs)
 {
-    wasm_val_vec_t arg, ret;
-    wasm_val_vec_new(&ret, 1, (wasm_val_t []){ WASM_INIT_VAL });
-    wasm_val_vec_new(&arg, 1, (wasm_val_t []){ WASM_I32_VAL(24) });
-    call_wasm_function(e_malloc, &arg, &ret, "malloc");
+    call_wasm_function(e_malloc, args, results, "malloc");
     return NULL;
 }
 
@@ -204,9 +201,6 @@ main(int argc, const char *argv[])
     IMPORT_FUNCTION_LIST(IMPORT_FUNCTION_VARIABLE_NAME)
 #undef IMPORT_FUNCTION_VARIABLE_NAME
 
-    wasm_extern_vec_t imports;
-    wasm_extern_vec_new_uninitialized(&imports, 10);
-
 #define CREATE_WASM_FUNCTION(name, index, CREATE_FUNC_TYPE)                   \
     {                                                                         \
         own wasm_functype_t *type = CREATE_FUNC_TYPE;                         \
@@ -219,13 +213,13 @@ main(int argc, const char *argv[])
     IMPORT_FUNCTION_LIST(CREATE_WASM_FUNCTION)
 #undef CREATE_WASM_FUNCTION
 
+    wasm_extern_t *fs[10] = {0};
 #define ADD_TO_FUNCTION_LIST(name, index, ...)                                \
-    imports.data[index] = wasm_func_as_extern(function_##name);               \
-    imports.num_elems += 1;
+    fs[index] = wasm_func_as_extern(function_##name);
     IMPORT_FUNCTION_LIST(ADD_TO_FUNCTION_LIST)
-#undef CREATE_IMPORT_FUNCTION
+#undef ADD_TO_FUNCTION_LIST
 
-
+    wasm_extern_vec_t imports = WASM_ARRAY_VEC(fs);
     own wasm_instance_t *instance =
       wasm_instance_new(store, module, &imports, NULL);
     if (!instance) {

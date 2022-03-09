@@ -53,9 +53,9 @@ Then you can use lldb commands to debug your applications. Please refer to [lldb
 
 > Known issue: `step over` on some function may be treated as `step in`, it will be fixed later.
 
-## Debugging with AoT
+## Debugging with AOT
 
-> Note: AoT debugging is experimental and only a few debugging capabilities are supported.
+> Note: AOT debugging is experimental and only a few debugging capabilities are supported.
 
 1. Build lldb (assume you have already built llvm)
 ``` bash
@@ -80,7 +80,7 @@ cmake .. -DWAMR_BUILD_DEBUG_AOT=1
 make
 ```
 
-4. Compile wasm module to AoT module
+4. Compile wasm module to AOT module
 ``` bash
 wamrc -o test.aot test.wasm
 ```

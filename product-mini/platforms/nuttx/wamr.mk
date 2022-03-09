@@ -17,9 +17,15 @@ else ifeq ($(CONFIG_ARCH_X86_64),y)
 WAMR_BUILD_TARGET := X86_64
 else ifeq ($(CONFIG_ARCH_XTENSA),y)
 WAMR_BUILD_TARGET := XTENSA
+# RV64GC and RV32IM used in older
+# version NuttX
 else ifeq ($(CONFIG_ARCH_RV64GC),y)
 WAMR_BUILD_TARGET := RISCV64
 else ifeq ($(CONFIG_ARCH_RV32IM),y)
+WAMR_BUILD_TARGET := RISCV32
+else ifeq ($(CONFIG_ARCH_RV64),y)
+WAMR_BUILD_TARGET := RISCV64
+else ifeq ($(CONFIG_ARCH_RV32),y)
 WAMR_BUILD_TARGET := RISCV32
 else ifeq ($(CONFIG_ARCH_SIM),y)
 ifeq ($(CONFIG_SIM_M32),y)
@@ -68,12 +74,12 @@ else ifeq (${WAMR_BUILD_TARGET}, XTENSA)
   AOT_RELOC := aot_reloc_xtensa.c
 else ifeq (${WAMR_BUILD_TARGET}, RISCV64)
 
-ifeq (${CONFIG_ARCH_FPU},y)
-  $(error riscv64 lp64f is unsupported)
-else ifeq (${CONFIG_ARCH_DPFPU}, y)
+ifeq (${CONFIG_ARCH_DPFPU},y)
   CFLAGS += -DBUILD_TARGET_RISCV64_LP64D
-else
+else ifneq (${CONFIG_ARCH_FPU},y)
   CFLAGS += -DBUILD_TARGET_RISCV64_LP64
+else
+  $(error riscv64 lp64f is unsupported)
 endif
   INVOKE_NATIVE += invokeNative_riscv.S
 
@@ -81,12 +87,12 @@ endif
 
 else ifeq (${WAMR_BUILD_TARGET}, RISCV32)
 
-ifeq (${CONFIG_ARCH_FPU}, y)
-  $(error riscv32 ilp32f is unsupported)
-else ifeq (${CONFIG_ARCH_DPFPU}, y)
+ifeq (${CONFIG_ARCH_DPFPU},y)
   CFLAGS += -DBUILD_TARGET_RISCV32_ILP32D
-else
+else ifneq (${CONFIG_ARCH_FPU},y)
   CFLAGS += -DBUILD_TARGET_RISCV32_ILP32
+else
+  $(error riscv32 ilp32f is unsupported)
 endif
 
   INVOKE_NATIVE += invokeNative_riscv.S

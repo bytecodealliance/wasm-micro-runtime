@@ -179,6 +179,16 @@ os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds);
 int
 os_cond_signal(korp_cond *cond);
 
+/**
+ * Broadcast the condition variable
+ *
+ * @param cond condition variable
+ *
+ * @return 0 if success
+ */
+int
+os_cond_broadcast(korp_cond *cond);
+
 /****************************************************
  *                     Section 2                    *
  *                   Socket support                 *
@@ -215,6 +225,17 @@ os_socket_create(bh_socket_t *sock, int tcp_or_udp);
  */
 int
 os_socket_bind(bh_socket_t socket, const char *addr, int *port);
+
+/**
+ * Set timeout for the given socket
+ *
+ * @param socket the socket to set timeout
+ * @param timeout_us timeout in microseconds
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_settimeout(bh_socket_t socket, uint64 timeout_us);
 
 /**
  * Make the socket as a passive socket to accept incoming connection requests

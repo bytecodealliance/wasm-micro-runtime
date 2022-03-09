@@ -1,12 +1,13 @@
+# Build WASM applications
 
-
-# Prepare WASM building environments
+Prepare WASM building environments
+==================================
 
 For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. Also, we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
 
 To install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
-The official *wasi-sdk release* doesn't fully support *latest 128-bit SIMD spec* yet. WARM provides a script in [build-wasi-sdk](../test-tools/build-wasi-sdk/) to generate
+The official *wasi-sdk release* doesn't fully support *latest 128-bit SIMD spec* yet. WAMR provides a script in [build-wasi-sdk](../test-tools/build-wasi-sdk/) to generate
 another wasi-sdk with *llvm-13* from source code and installs it at *../test-tools/wasi-sdk*. If you plan to build WASM applications with *latest 128-bit SIMD*, please use it instead of the official release.
 
 And [sample workloads](../samples/workload) are using the self-compiled wasi-sdk.
@@ -37,7 +38,7 @@ $ cargo build --release --target wasm32-wasi
 
 
 Build WASM applications with wasi-sdk
-=========================
+=====================================
 
 You can write a simple ```test.c``` as the first sample.
 
@@ -165,7 +166,12 @@ Please ref to [pthread library](./pthread_library.md) for more details.
 
 ## 4. Build wasm app with SIMD support
 
-Normally we should install emsdk and use its SSE header files, please ref to workload samples, e.g. [bwa CMakeLists.txt](../samples/workload/bwa/CMakeLists.txt) and [wasm-av1 CMakeLists.txt](../samples/workload/wasm-av1/CMakeLists.txt) for more details.
+The official *wasi-sdk release* doesn't fully support *latest 128-bit SIMD spec* yet. WARM provides a script in [build-wasi-sdk](../test-tools/build-wasi-sdk/) to generate
+another wasi-sdk with *llvm-13* from source code and installs it at *../test-tools/wasi-sdk*. If you plan to build WASM applications with *latest 128-bit SIMD*, please use it instead of the official release.
+
+And also you can install emsdk and use its SSE header files, please ref to workload samples, e.g. [bwa CMakeLists.txt](../samples/workload/bwa/CMakeLists.txt) and [wasm-av1 CMakeLists.txt](../samples/workload/wasm-av1/CMakeLists.txt) for more details.
+
+For both wasi-sdk and emsdk, please add the option `-msimd128` for clang or emcc to generate WASM application with SIMD bytecodes.
 
 # Build WASM applications with emsdk
 
@@ -264,9 +270,9 @@ $ cmake <same as above>
 You will get ```hello_world``` which is the WASM app binary.
 
 
-# Compile WASM to AoT module
+# Compile WASM to AOT module
 
-Please ensure the wamrc was already generated and available in your shell PATH. Then we can use wamrc to compile WASM app binary to WAMR AoT binary.
+Please ensure the wamrc was already generated and available in your shell PATH. Then we can use wamrc to compile WASM app binary to WAMR AOT binary.
 
 ``` Bash
 wamrc -o test.aot test.wasm
@@ -326,7 +332,7 @@ Examples: wamrc -o test.aot test.wasm
 
 
 Run WASM app in WAMR mini product build
-========================
+=======================================
 
 Run the test.wasm or test.aot with WAMR mini product build:
 ``` Bash

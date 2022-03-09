@@ -35,6 +35,15 @@ typedef struct WASMDebugBreakPoint {
     uint64 orignal_data;
 } WASMDebugBreakPoint;
 
+typedef enum debug_state_t {
+    /* Debugger state conversion sequence:
+     *   DBG_LAUNCHING ---> APP_STOPPED <---> APP_RUNNING
+     */
+    DBG_LAUNCHING,
+    APP_RUNNING,
+    APP_STOPPED
+} debug_state_t;
+
 typedef struct WASMDebugInstance {
     struct WASMDebugInstance *next;
     WASMDebugControlThread *control_thread;
@@ -44,6 +53,13 @@ typedef struct WASMDebugInstance {
     korp_tid current_tid;
     korp_mutex wait_lock;
     korp_cond wait_cond;
+    /* Last stopped thread, it should be set to NULL when sending
+     * out the thread stop reply */
+    WASMExecEnv *volatile stopped_thread;
+    /* Currently status of the debug instance, it will be set to
+     * RUNNING when receiving STEP/CONTINUE commands, and set to
+     * STOPPED when any thread stopped */
+    volatile debug_state_t current_state;
 } WASMDebugInstance;
 
 typedef enum WASMDebugEventKind {
@@ -76,6 +92,9 @@ typedef enum WasmAddressType {
 #define WASM_ADDR_OFFSET(addr) (((addr)&0x00000000FFFFFFFF))
 
 #define INVALIED_ADDR (0xFFFFFFFFFFFFFFFF)
+
+void
+on_thread_stop_event(WASMDebugInstance *debug_inst, WASMExecEnv *exec_env);
 
 WASMDebugInstance *
 wasm_debug_instance_create(WASMCluster *cluster);
@@ -153,14 +172,13 @@ wasm_debug_instance_remove_breakpoint(WASMDebugInstance *instance, uint64 addr,
                                       uint64 length);
 
 bool
+wasm_debug_instance_interrupt_all_threads(WASMDebugInstance *instance);
+
+bool
 wasm_debug_instance_continue(WASMDebugInstance *instance);
 
 bool
 wasm_debug_instance_kill(WASMDebugInstance *instance);
-
-korp_tid
-wasm_debug_instance_wait_thread(WASMDebugInstance *instance, korp_tid tid,
-                                uint32 *status);
 
 uint32
 wasm_debug_instance_get_thread_status(WASMDebugInstance *instance,
