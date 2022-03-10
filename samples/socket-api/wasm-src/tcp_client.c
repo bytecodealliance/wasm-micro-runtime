@@ -44,8 +44,8 @@ main(int argc, char *argv[])
 
     printf("[Client] Client receive\n");
     while (1) {
-        ret = recv(socket_fd, buffer + total_size,
-                   sizeof(buffer) - total_size, 0);
+        ret = recv(socket_fd, buffer + total_size, sizeof(buffer) - total_size,
+                   0);
         if (ret <= 0)
             break;
         total_size += ret;

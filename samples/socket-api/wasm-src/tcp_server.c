@@ -28,7 +28,7 @@ run(void *arg)
     printf("[Server] Communicate with the new connection #%u @ %p ..\n",
            new_socket, (void *)(uintptr_t)pthread_self());
 
-    for (i = 0; i < 5; i ++) {
+    for (i = 0; i < 5; i++) {
         if (send(new_socket, message, strlen(message), 0) < 0) {
             perror("Send failed");
             break;
