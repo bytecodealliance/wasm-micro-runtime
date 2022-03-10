@@ -105,7 +105,6 @@ main(int argc, char *argv[])
 
     printf("[Server] Shuting down ..\n");
     shutdown(socket_fd, SHUT_RDWR);
-    close(socket_fd);
     sleep(3);
     printf("[Server] BYE \n");
     return EXIT_SUCCESS;
