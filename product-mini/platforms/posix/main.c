@@ -39,8 +39,10 @@ print_help()
     printf("  --dir=<dir>            Grant wasi access to the given host directories\n");
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
-    printf("  --addr-pool=           Indicate network addresses in CIRD noation, \n");
-    printf("                         separate with ','\n");
+    printf("  --addr-pool=           Grant wasi access to the given network addresses in\n");
+    printf("                         CIRD notation to the program, seperated with ',',\n");
+    printf("                         for example:\n");
+    printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     printf("  --module-path=         Indicate a module search path. default is current\n"
