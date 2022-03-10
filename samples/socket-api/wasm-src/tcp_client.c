@@ -17,10 +17,11 @@
 int
 main(int argc, char *argv[])
 {
-    int socket_fd;
+    int socket_fd, ret, total_size = 0;
     char buffer[1024] = { 0 };
     struct sockaddr_in server_address = { 0 };
 
+    printf("[Client] Create socket\n");
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_fd == -1) {
         perror("Create socket failed");
@@ -32,6 +33,7 @@ main(int argc, char *argv[])
     server_address.sin_port = htons(1234);
     server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
+    printf("[Client] Connect socket\n");
     if (connect(socket_fd, (struct sockaddr *)&server_address,
                 sizeof(server_address))
         == -1) {
@@ -40,12 +42,19 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (recv(socket_fd, buffer, 1024, 0) == -1) {
-        perror("Recv failed");
-        close(socket_fd);
-        return EXIT_FAILURE;
+    printf("[Client] Client receive\n");
+    while (1) {
+        ret = recv(socket_fd, buffer + total_size, sizeof(buffer) - total_size,
+                   0);
+        if (ret <= 0)
+            break;
+        total_size += ret;
     }
-    printf("[Client] Received \"%s\"\n", buffer);
+
+    printf("[Client] %d bytes received:\n", total_size);
+    if (total_size > 0) {
+        printf("Buffer recieved:\n%s\n", buffer);
+    }
 
     close(socket_fd);
     printf("[Client] BYE \n");

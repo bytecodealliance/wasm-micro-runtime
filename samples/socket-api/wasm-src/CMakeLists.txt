@@ -56,6 +56,7 @@ function(COMPILE_WITH_CLANG SOURCE_FILE)
     LINKER:--export=__data_end
     LINKER:--shared-memory,--max-memory=196608
     LINKER:--no-check-features
+    LINKER:--allow-undefined
   )
 
   if(EXISTS ${WASM_OBJDUMP})
