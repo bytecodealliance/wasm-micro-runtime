@@ -29,7 +29,7 @@ Note that iwasm is built with libc-wasi and lib-pthread enabled.
 Start the tcp server, which opens port 1234 and waits for clients to connect.
 ```bash
 cd build
-./iwasm --addr-pool=127.0.0.1/15 tcp_server.wasm
+./iwasm --addr-pool=0.0.0.0/15 tcp_server.wasm
 ```
 
 Start the tcp client, which connects the server and receives message.
