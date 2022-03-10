@@ -62,3 +62,5 @@ the capability control. All IP address the WebAssebmly application may need to `
 ```bash
 $ iwasm --addr-pool=1.2.3.4/15,2.3.4.6/16 socket_example.wasm
 ```
+
+Refer to [socket api sample](../samples/socket-api) for more details.

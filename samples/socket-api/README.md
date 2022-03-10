@@ -53,3 +53,5 @@ Say Hi from the Server
 
 [Client] BYE
 ```
+
+Refer to [socket api document](../doc/socket_api.md) for more details.
