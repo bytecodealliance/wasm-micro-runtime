@@ -2191,14 +2191,36 @@ wasm_runtime_set_wasi_args(WASMModuleCommon *module, const char *dir_list[],
                                   argc, -1, -1, -1);
 }
 
+void
+wasm_runtime_set_wasi_addr_pool(wasm_module_t module, const char *addr_pool[],
+                                uint32 addr_pool_size)
+{
+    WASIArguments *wasi_args = NULL;
+
+#if WASM_ENABLE_INTERP != 0 || WASM_ENABLE_JIT != 0
+    if (module->module_type == Wasm_Module_Bytecode)
+        wasi_args = &((WASMModule *)module)->wasi_args;
+#endif
+#if WASM_ENABLE_AOT != 0
+    if (module->module_type == Wasm_Module_AoT)
+        wasi_args = &((AOTModule *)module)->wasi_args;
+#endif
+
+    if (wasi_args) {
+        wasi_args->addr_pool = addr_pool;
+        wasi_args->addr_count = addr_pool_size;
+    }
+}
+
 #if WASM_ENABLE_UVWASI == 0
 bool
 wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
                        const char *map_dir_list[], uint32 map_dir_count,
-                       const char *env[], uint32 env_count, char *argv[],
-                       uint32 argc, int stdinfd, int stdoutfd, int stderrfd,
-                       char *error_buf, uint32 error_buf_size)
+                       const char *env[], uint32 env_count,
+                       const char *addr_pool[], uint32 addr_pool_size,
+                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
+                       int stderrfd, char *error_buf, uint32 error_buf_size)
 {
     WASIContext *wasi_ctx;
     char *argv_buf = NULL;
@@ -2210,8 +2232,10 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     struct fd_table *curfds = NULL;
     struct fd_prestats *prestats = NULL;
     struct argv_environ_values *argv_environ = NULL;
+    struct addr_pool *apool = NULL;
     bool fd_table_inited = false, fd_prestats_inited = false;
     bool argv_environ_inited = false;
+    bool addr_pool_inited = false;
     __wasi_fd_t wasm_fd = 3;
     int32 raw_fd;
     char *path, resolved_path[PATH_MAX];
@@ -2285,7 +2309,8 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
     if (!(curfds = wasm_runtime_malloc(sizeof(struct fd_table)))
         || !(prestats = wasm_runtime_malloc(sizeof(struct fd_prestats)))
         || !(argv_environ =
-                 wasm_runtime_malloc(sizeof(struct argv_environ_values)))) {
+                 wasm_runtime_malloc(sizeof(struct argv_environ_values)))
+        || !(apool = wasm_runtime_malloc(sizeof(struct addr_pool)))) {
         set_error_buf(error_buf, error_buf_size,
                       "Init wasi environment failed: allocate memory failed");
         goto fail;
@@ -2315,6 +2340,14 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         goto fail;
     }
     argv_environ_inited = true;
+
+    if (!addr_pool_init(apool)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "Init wasi environment failed: "
+                      "init the address pool failed");
+        goto fail;
+    }
+    addr_pool_inited = true;
 
     /* Prepopulate curfds with stdin, stdout, and stderr file descriptors. */
     if (!fd_table_insert_existing(curfds, 0, (stdinfd != -1) ? stdinfd : 0)
@@ -2350,9 +2383,34 @@ wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
         fd_prestats_insert(prestats, dir_list[i], wasm_fd);
     }
 
+    /* addr_pool(textual) -> apool */
+    for (i = 0; i < addr_pool_size; i++) {
+        char *cp, *address, *mask;
+        bool ret = false;
+
+        cp = bh_strdup(addr_pool[i]);
+        if (!cp) {
+            set_error_buf(error_buf, error_buf_size,
+                          "Init wasi environment failed: copy address failed");
+            goto fail;
+        }
+
+        address = strtok(cp, "/");
+        mask = strtok(NULL, "/");
+
+        ret = addr_pool_insert(apool, address, (uint8)(atoi(mask)));
+        wasm_runtime_free(cp);
+        if (!ret) {
+            set_error_buf(error_buf, error_buf_size,
+                          "Init wasi environment failed: store address failed");
+            goto fail;
+        }
+    }
+
     wasi_ctx->curfds = curfds;
     wasi_ctx->prestats = prestats;
     wasi_ctx->argv_environ = argv_environ;
+    wasi_ctx->addr_pool = apool;
     wasi_ctx->argv_buf = argv_buf;
     wasi_ctx->argv_list = argv_list;
     wasi_ctx->env_buf = env_buf;
@@ -2367,12 +2425,16 @@ fail:
         fd_prestats_destroy(prestats);
     if (fd_table_inited)
         fd_table_destroy(curfds);
+    if (addr_pool_inited)
+        addr_pool_destroy(apool);
     if (curfds)
         wasm_runtime_free(curfds);
     if (prestats)
         wasm_runtime_free(prestats);
     if (argv_environ)
         wasm_runtime_free(argv_environ);
+    if (apool)
+        wasm_runtime_free(apool);
     if (argv_buf)
         wasm_runtime_free(argv_buf);
     if (argv_list)
@@ -2430,9 +2492,10 @@ bool
 wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
                        const char *map_dir_list[], uint32 map_dir_count,
-                       const char *env[], uint32 env_count, char *argv[],
-                       uint32 argc, int stdinfd, int stdoutfd, int stderrfd,
-                       char *error_buf, uint32 error_buf_size)
+                       const char *env[], uint32 env_count,
+                       const char *addr_pool[], uint32 addr_pool_size,
+                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
+                       int stderrfd, char *error_buf, uint32 error_buf_size)
 {
     uvwasi_t *uvwasi = NULL;
     uvwasi_options_t init_options;
@@ -2594,6 +2657,10 @@ wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst)
         if (wasi_ctx->prestats) {
             fd_prestats_destroy(wasi_ctx->prestats);
             wasm_runtime_free(wasi_ctx->prestats);
+        }
+        if (wasi_ctx->addr_pool) {
+            addr_pool_destroy(wasi_ctx->addr_pool);
+            wasm_runtime_free(wasi_ctx->addr_pool);
         }
         if (wasi_ctx->argv_buf)
             wasm_runtime_free(wasi_ctx->argv_buf);

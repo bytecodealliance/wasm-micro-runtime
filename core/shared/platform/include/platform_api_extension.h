@@ -266,6 +266,17 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
                  unsigned int *addrlen);
 
 /**
+ * initiate a connection on a socket
+ *
+ * @param socket the socket to connect with
+ * @param addr the ip address, only IPv4 supported currently
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+os_socket_connect(bh_socket_t socket, const char *addr, int port);
+
+/**
  * Blocking receive message from a socket.
  *
  * @param socket the socket to receive message from
@@ -309,6 +320,18 @@ os_socket_close(bh_socket_t socket);
  */
 int
 os_socket_shutdown(bh_socket_t socket);
+
+/**
+ * converts cp into a number in host byte order suitable for use as
+ * an Internet network address
+ *
+ * @param cp a string in IPv4 numbers-and-dots notation
+ *
+ * @return On success, the converted address is  returned.
+ * If the input is invalid, -1 is returned
+ */
+int
+os_socket_inet_network(const char *cp, uint32 *out);
 
 #ifdef __cplusplus
 }

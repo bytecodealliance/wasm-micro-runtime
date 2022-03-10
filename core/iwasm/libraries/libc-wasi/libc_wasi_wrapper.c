@@ -50,6 +50,7 @@ typedef struct WASIContext {
     struct fd_table *curfds;
     struct fd_prestats *prestats;
     struct argv_environ_values *argv_environ;
+    struct addr_pool *addr_pool;
     char *argv_buf;
     char **argv_list;
     char *env_buf;
@@ -81,6 +82,14 @@ wasi_ctx_get_prestats(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
     if (!wasi_ctx)
         return NULL;
     return wasi_ctx->prestats;
+}
+
+static inline struct addr_pool *
+wasi_ctx_get_addr_pool(wasm_module_inst_t module_inst, wasi_ctx_t wasi_ctx)
+{
+    if (!wasi_ctx)
+        return NULL;
+    return wasi_ctx->addr_pool;
 }
 
 static wasi_errno_t
@@ -987,112 +996,277 @@ wasi_random_get(wasm_exec_env_t exec_env, void *buf, uint32 buf_len)
 }
 
 static wasi_errno_t
-wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
-               uint32 ri_data_len, wasi_riflags_t ri_flags,
-               uint32 *ro_datalen_app, wasi_roflags_t *ro_flags)
+wasi_sock_accept(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_fd_t *fd_new)
 {
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_accept(curfds, fd, fd_new);
+}
+
+static wasi_errno_t
+wasi_sock_addr_local(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 *buf,
+                     wasi_size_t buf_len)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_addr_local(curfds, fd, buf, buf_len);
+}
+
+static wasi_errno_t
+wasi_sock_addr_remote(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 *buf,
+                      wasi_size_t buf_len)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_addr_remote(curfds, fd, buf, buf_len);
+}
+
+static wasi_errno_t
+wasi_sock_addr_resolve(wasm_exec_env_t exec_env, wasi_fd_t fd, const char *host,
+                       wasi_ip_port_t port, uint8 *buf, wasi_size_t size)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_bind(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+    struct addr_pool *addr_pool = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+    addr_pool = wasi_ctx_get_addr_pool(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_bind(curfds, addr_pool, fd, addr);
+}
+
+static wasi_errno_t
+wasi_sock_close(wasm_exec_env_t exec_env, wasi_fd_t fd)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_connect(wasm_exec_env_t exec_env, wasi_fd_t fd, wasi_addr_t *addr)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+    struct addr_pool *addr_pool = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+    addr_pool = wasi_ctx_get_addr_pool(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_connect(curfds, addr_pool, fd, addr);
+}
+
+static wasi_errno_t
+wasi_sock_get_recv_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                            wasi_size_t *size)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_get_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 *reuse)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_get_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 *reuse)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_get_send_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                            wasi_size_t *size)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_listen(wasm_exec_env_t exec_env, wasi_fd_t fd, uint32 backlog)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_listen(curfds, fd, backlog);
+}
+
+static wasi_errno_t
+wasi_sock_open(wasm_exec_env_t exec_env, wasi_fd_t poolfd,
+               wasi_address_family_t af, wasi_sock_type_t socktype,
+               wasi_fd_t *sockfd)
+{
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
+    struct fd_table *curfds = NULL;
+
+    if (!wasi_ctx)
+        return __WASI_EACCES;
+
+    curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
+
+    return wasi_ssp_sock_open(curfds, poolfd, af, socktype, sockfd);
+}
+
+static wasi_errno_t
+wasi_sock_set_recv_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                            wasi_size_t size)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_set_reuse_addr(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 reuse)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_set_reuse_port(wasm_exec_env_t exec_env, wasi_fd_t fd, uint8 reuse)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_set_send_buf_size(wasm_exec_env_t exec_env, wasi_fd_t fd,
+                            wasi_size_t size)
+{
+    return __WASI_ENOSYS;
+}
+
+static wasi_errno_t
+wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
+               uint32 ri_data_len, wasi_riflags_t ri_flags, uint32 *ro_data_len,
+               wasi_roflags_t *ro_flags)
+{
+    /**
+     * ri_data_len is the length of a list of iovec_app_t, which head is
+     * ri_data. ro_data_len is the number of bytes received
+     **/
+    wasm_module_inst_t module_inst = get_module_inst(exec_env);
+    wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-    wasi_iovec_t *iovec, *iovec_begin;
     uint64 total_size;
-    size_t ro_datalen;
     uint32 i;
     wasi_errno_t err;
 
     if (!wasi_ctx)
-        return (wasi_errno_t)-1;
+        return __WASI_EINVAL;
 
     total_size = sizeof(iovec_app_t) * (uint64)ri_data_len;
-    if (!validate_native_addr(ro_datalen_app, (uint32)sizeof(uint32))
+    if (!validate_native_addr(ro_data_len, (uint32)sizeof(uint32))
         || !validate_native_addr(ro_flags, (uint32)sizeof(wasi_roflags_t))
         || total_size >= UINT32_MAX
         || !validate_native_addr(ri_data, (uint32)total_size))
-        return (wasi_errno_t)-1;
+        return __WASI_EINVAL;
 
-    total_size = sizeof(wasi_iovec_t) * (uint64)ri_data_len;
-    if (total_size >= UINT32_MAX
-        || !(iovec_begin = wasm_runtime_malloc((uint32)total_size)))
-        return (wasi_errno_t)-1;
+    /* recv ri_data one by one */
+    *ro_data_len = 0;
+    for (i = 0; i < ri_data_len; ri_data++, i++) {
+        void *buf;
+        size_t bytes_recv;
 
-    iovec = iovec_begin;
-
-    for (i = 0; i < ri_data_len; i++, ri_data++, iovec++) {
         if (!validate_app_addr(ri_data->buf_offset, ri_data->buf_len)) {
-            err = (wasi_errno_t)-1;
-            goto fail;
+            return __WASI_EINVAL;
         }
-        iovec->buf = (void *)addr_app_to_native(ri_data->buf_offset);
-        iovec->buf_len = ri_data->buf_len;
+
+        buf = (void *)addr_app_to_native(ri_data->buf_offset);
+        err = wasmtime_ssp_sock_recv(curfds, sock, buf, ri_data->buf_len,
+                                     &bytes_recv);
+        if (err != __WASI_ESUCCESS) {
+            return err;
+        }
+        *ro_data_len += bytes_recv;
     }
 
-    err = wasmtime_ssp_sock_recv(curfds, sock, iovec_begin, ri_data_len,
-                                 ri_flags, &ro_datalen, ro_flags);
-    if (err)
-        goto fail;
-
-    *(uint32 *)ro_datalen_app = (uint32)ro_datalen;
-
-    /* success */
-    err = 0;
-
-fail:
-    wasm_runtime_free(iovec_begin);
-    return err;
+    *ro_flags = ri_flags;
+    return __WASI_ESUCCESS;
 }
 
 static wasi_errno_t
 wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
                const iovec_app_t *si_data, uint32 si_data_len,
-               wasi_siflags_t si_flags, uint32 *so_datalen_app)
+               wasi_siflags_t si_flags, uint32 *so_data_len)
 {
+    /**
+     * si_data_len is the length of a list of iovec_app_t, which head is
+     * si_data. so_data_len is the number of bytes sent
+     **/
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-    wasi_ciovec_t *ciovec, *ciovec_begin;
     uint64 total_size;
-    size_t so_datalen;
     uint32 i;
     wasi_errno_t err;
 
     if (!wasi_ctx)
-        return (wasi_errno_t)-1;
+        return __WASI_EINVAL;
 
     total_size = sizeof(iovec_app_t) * (uint64)si_data_len;
-    if (!validate_native_addr(so_datalen_app, sizeof(uint32))
+    if (!validate_native_addr(so_data_len, sizeof(uint32))
         || total_size >= UINT32_MAX
         || !validate_native_addr((void *)si_data, (uint32)total_size))
-        return (wasi_errno_t)-1;
+        return __WASI_EINVAL;
 
-    total_size = sizeof(wasi_ciovec_t) * (uint64)si_data_len;
-    if (total_size >= UINT32_MAX
-        || !(ciovec_begin = wasm_runtime_malloc((uint32)total_size)))
-        return (wasi_errno_t)-1;
+    /* send si_data one by one */
+    *so_data_len = 0;
+    for (i = 0; i < si_data_len; i++, si_data++) {
+        void *buf;
+        size_t bytes_sent;
 
-    ciovec = ciovec_begin;
-
-    for (i = 0; i < si_data_len; i++, si_data++, ciovec++) {
         if (!validate_app_addr(si_data->buf_offset, si_data->buf_len)) {
-            err = (wasi_errno_t)-1;
-            goto fail;
+            return __WASI_EINVAL;
         }
-        ciovec->buf = (char *)addr_app_to_native(si_data->buf_offset);
-        ciovec->buf_len = si_data->buf_len;
+
+        buf = (void *)addr_app_to_native(si_data->buf_offset);
+        err = wasmtime_ssp_sock_send(curfds, sock, buf, si_data->buf_len,
+                                     &bytes_sent);
+        if (err != __WASI_ESUCCESS) {
+            return err;
+        }
+        *so_data_len += bytes_sent;
     }
 
-    err = wasmtime_ssp_sock_send(curfds, sock, ciovec_begin, si_data_len,
-                                 si_flags, &so_datalen);
-    if (err)
-        goto fail;
-
-    *so_datalen_app = (uint32)so_datalen;
-
-    /* success */
-    err = 0;
-
-fail:
-    wasm_runtime_free(ciovec_begin);
-    return err;
+    return __WASI_ESUCCESS;
 }
 
 static wasi_errno_t
@@ -1103,9 +1277,9 @@ wasi_sock_shutdown(wasm_exec_env_t exec_env, wasi_fd_t sock, wasi_sdflags_t how)
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
 
     if (!wasi_ctx)
-        return (wasi_errno_t)-1;
+        return __WASI_EINVAL;
 
-    return wasmtime_ssp_sock_shutdown(curfds, sock, how);
+    return wasmtime_ssp_sock_shutdown(curfds, sock);
 }
 
 static wasi_errno_t
@@ -1161,8 +1335,25 @@ static NativeSymbol native_symbols_libc_wasi[] = {
     REG_NATIVE_FUNC(proc_exit, "(i)"),
     REG_NATIVE_FUNC(proc_raise, "(i)i"),
     REG_NATIVE_FUNC(random_get, "(*~)i"),
+    REG_NATIVE_FUNC(sock_accept, "(i*)i"),
+    REG_NATIVE_FUNC(sock_addr_local, "(i*i)i"),
+    REG_NATIVE_FUNC(sock_addr_remote, "(i*i)i"),
+    REG_NATIVE_FUNC(sock_addr_resolve, "(i*i*i)i"),
+    REG_NATIVE_FUNC(sock_bind, "(i*)i"),
+    REG_NATIVE_FUNC(sock_close, "(i)i"),
+    REG_NATIVE_FUNC(sock_connect, "(i*)i"),
+    REG_NATIVE_FUNC(sock_get_recv_buf_size, "(i*)i"),
+    REG_NATIVE_FUNC(sock_get_reuse_addr, "(i*)i"),
+    REG_NATIVE_FUNC(sock_get_reuse_port, "(i*)i"),
+    REG_NATIVE_FUNC(sock_get_send_buf_size, "(i*)i"),
+    REG_NATIVE_FUNC(sock_listen, "(ii)i"),
+    REG_NATIVE_FUNC(sock_open, "(iii*)i"),
     REG_NATIVE_FUNC(sock_recv, "(i*ii**)i"),
     REG_NATIVE_FUNC(sock_send, "(i*ii*)i"),
+    REG_NATIVE_FUNC(sock_set_recv_buf_size, "(ii)i"),
+    REG_NATIVE_FUNC(sock_set_reuse_addr, "(ii)i"),
+    REG_NATIVE_FUNC(sock_set_reuse_port, "(ii)i"),
+    REG_NATIVE_FUNC(sock_set_send_buf_size, "(ii)i"),
     REG_NATIVE_FUNC(sock_shutdown, "(ii)i"),
     REG_NATIVE_FUNC(sched_yield, "()i"),
 };

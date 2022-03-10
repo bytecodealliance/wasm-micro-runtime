@@ -348,6 +348,10 @@ wasm_runtime_set_wasi_args(wasm_module_t module,
                            const char *env[], uint32_t env_count,
                            char *argv[], int argc);
 
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_addr_pool(wasm_module_t module, const char *addr_pool[],
+                                uint32_t addr_pool_size);
+
 /**
  * Instantiate a WASM module.
  *
