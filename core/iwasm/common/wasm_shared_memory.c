@@ -374,7 +374,8 @@ wasm_runtime_atomic_wait(WASMModuleInstanceCommon *module, void *address,
 
     if (timeout < 0)
         timeout = BHT_WAIT_FOREVER;
-    os_cond_reltimedwait(&wait_node->wait_cond, &wait_node->wait_lock, timeout);
+    os_cond_reltimedwait(&wait_node->wait_cond, &wait_node->wait_lock,
+                         timeout / 1000);
 
     os_mutex_unlock(&wait_node->wait_lock);
 

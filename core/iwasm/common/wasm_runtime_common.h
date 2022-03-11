@@ -352,6 +352,7 @@ typedef struct WASIContext {
     struct fd_table *curfds;
     struct fd_prestats *prestats;
     struct argv_environ_values *argv_environ;
+    struct addr_pool *addr_pool;
     char *argv_buf;
     char **argv_list;
     char *env_buf;
@@ -712,9 +713,10 @@ bool
 wasm_runtime_init_wasi(WASMModuleInstanceCommon *module_inst,
                        const char *dir_list[], uint32 dir_count,
                        const char *map_dir_list[], uint32 map_dir_count,
-                       const char *env[], uint32 env_count, char *argv[],
-                       uint32 argc, int stdinfd, int stdoutfd, int stderrfd,
-                       char *error_buf, uint32 error_buf_size);
+                       const char *env[], uint32 env_count,
+                       const char *addr_pool[], uint32 addr_pool_size,
+                       char *argv[], uint32 argc, int stdinfd, int stdoutfd,
+                       int stderrfd, char *error_buf, uint32 error_buf_size);
 
 void
 wasm_runtime_destroy_wasi(WASMModuleInstanceCommon *module_inst);
@@ -726,6 +728,9 @@ wasm_runtime_set_wasi_ctx(WASMModuleInstanceCommon *module_inst,
 WASIContext *
 wasm_runtime_get_wasi_ctx(WASMModuleInstanceCommon *module_inst);
 
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_addr_pool(wasm_module_t module, const char *addr_pool[],
+                                uint32 addr_pool_size);
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
 #if WASM_ENABLE_REF_TYPES != 0
