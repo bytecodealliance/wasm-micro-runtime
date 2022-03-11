@@ -143,6 +143,52 @@ listen(int sockfd, int backlog)
     return __WASI_ERRNO_SUCCESS;
 }
 
+ssize_t
+recvmsg(int sockfd, struct msghdr *msg, int flags)
+{
+    // Validate flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    // Prepare input parameters.
+    __wasi_iovec_t ri_data = { .buf = msg->msg_iov->iov_base,
+                               .buf_len = msg->msg_iov->iov_len };
+    size_t ri_data_len = msg->msg_iovlen;
+    __wasi_riflags_t ri_flags = 0;
+
+    // Perform system call.
+    size_t ro_datalen;
+    __wasi_roflags_t ro_flags;
+    __wasi_errno_t error = __wasi_sock_recv(sockfd, &ri_data, ri_data_len,
+                                            ri_flags, &ro_datalen, &ro_flags);
+    HANDLE_ERROR(error)
+    return ro_datalen;
+}
+
+ssize_t
+sendmsg(int sockfd, const struct msghdr *msg, int flags)
+{
+    // This implementation does not support any flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    // Prepare input parameters.
+    __wasi_ciovec_t si_data = { .buf = msg->msg_iov->iov_base,
+                                .buf_len = msg->msg_iov->iov_len };
+    size_t si_data_len = msg->msg_iovlen;
+    __wasi_siflags_t si_flags = 0;
+
+    // Perform system call.
+    size_t so_datalen;
+    __wasi_errno_t error =
+        __wasi_sock_send(sockfd, &si_data, si_data_len, si_flags, &so_datalen);
+    HANDLE_ERROR(error)
+
+    return so_datalen;
+}
+
 int
 socket(int domain, int type, int protocol)
 {
