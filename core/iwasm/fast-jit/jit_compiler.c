@@ -9,13 +9,6 @@
 #include "jit_codecache.h"
 #include "../interpreter/wasm.h"
 
-typedef struct JitGlobals {
-    /* Compiler pass sequence.  The last element must be 0.  */
-    const uint8 *passes;
-    /* Code cache size.  */
-    uint32 code_cache_size;
-} JitGlobals;
-
 typedef struct JitCompilerPass {
     /* Name of the pass.  */
     const char *name;
@@ -30,7 +23,6 @@ static JitCompilerPass compiler_passes[] = {
     REG_PASS(dump),
     REG_PASS(update_cfg),
     REG_PASS(frontend),
-    REG_PASS(lower_fe),
     REG_PASS(lower_cg),
     REG_PASS(regalloc),
     REG_PASS(codegen),
@@ -45,16 +37,16 @@ static JitCompilerPass compiler_passes[] = {
 
 #if WASM_ENABLE_FAST_JIT_DUMP == 0
 static const uint8 compiler_passes_without_dump[] = {
-    3, 4, 5, 6, 7, 8, 0
+    3, 4, 5, 6, 7, 0
 };
 #else
 static const uint8 compiler_passes_with_dump[] = {
-    3, 2, 1, 4, 1, 5, 1, 6, 1, 7, 1, 8, 0
+    3, 2, 1, 4, 1, 5, 1, 6, 1, 7, 0
 };
 #endif
 
 /* The exported global data of JIT compiler.  */
-JitGlobals jit_globals = {
+static JitGlobals jit_globals = {
 #if WASM_ENABLE_FAST_JIT_DUMP == 0
     .passes = compiler_passes_without_dump,
 #else
@@ -109,6 +101,12 @@ jit_compiler_destroy()
     jit_code_cache_destroy();
 }
 
+const JitGlobals *
+jit_compiler_get_jit_globals()
+{
+    return &jit_globals;
+}
+
 const char *
 jit_compiler_get_pass_name(unsigned i)
 {
@@ -119,6 +117,7 @@ bool
 jit_compiler_compile(WASMModule *module, uint32 func_idx)
 {
     JitCompContext *cc;
+    char *last_error;
     bool ret = true;
 
     /* Initialize compilation context.  */
@@ -138,8 +137,10 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
                               || (!module->possible_memory_grow);
 
     /* Apply compiler passes.  */
-    if (!apply_compiler_passes(cc)) {
-        os_printf("fast jit compilation failed: %s\n", jit_get_last_error(cc));
+    if (!apply_compiler_passes(cc) || jit_get_last_error(cc)) {
+        last_error = jit_get_last_error(cc);
+        os_printf("fast jit compilation failed: %s\n",
+                  last_error ? last_error : "unknown error");
         ret = false;
     }
 
@@ -153,6 +154,7 @@ bool
 jit_compiler_compile_all(WASMModule *module)
 {
     JitCompContext *cc;
+    char *last_error;
     bool ret = false;
     uint32 i;
 
@@ -174,9 +176,10 @@ jit_compiler_compile_all(WASMModule *module)
                                   || (!module->possible_memory_grow);
 
         /* Apply compiler passes.  */
-        if (!apply_compiler_passes(cc)) {
+        if (!apply_compiler_passes(cc) || jit_get_last_error(cc)) {
+            last_error = jit_get_last_error(cc);
             os_printf("fast jit compilation failed: %s\n",
-                      jit_get_last_error(cc));
+                      last_error ? last_error : "unknown error");
             ret = false;
             break;
         }

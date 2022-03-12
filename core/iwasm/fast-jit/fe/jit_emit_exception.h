@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 bool
-jit_emit_exception(JitCompContext *cc, int32 exception_id, bool is_cond_br,
+jit_emit_exception(JitCompContext *cc, int32 exception_id, uint8 jit_opcode,
                    JitReg cond_br_if, JitBasicBlock *cond_br_else_block);
 
 #ifdef __cplusplus

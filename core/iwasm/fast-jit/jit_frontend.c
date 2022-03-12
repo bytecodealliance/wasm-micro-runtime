@@ -20,6 +20,28 @@
 #include "../interpreter/wasm_opcode.h"
 #include "../common/wasm_exec_env.h"
 
+/* clang-format off */
+static const char *jit_exception_msgs[] = {
+    "unreachable",                    /* EXCE_UNREACHABLE */
+    "allocate memory failed",         /* EXCE_OUT_OF_MEMORY */
+    "out of bounds memory access",    /* EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS */
+    "integer overflow",               /* EXCE_INTEGER_OVERFLOW */
+    "integer divide by zero",         /* EXCE_INTEGER_DIVIDE_BY_ZERO */
+    "invalid conversion to integer",  /* EXCE_INVALID_CONVERSION_TO_INTEGER */
+    "indirect call type mismatch",    /* EXCE_INVALID_FUNCTION_TYPE_INDEX */
+    "invalid function index",         /* EXCE_INVALID_FUNCTION_INDEX */
+    "undefined element",              /* EXCE_UNDEFINED_ELEMENT */
+    "uninitialized element",          /* EXCE_UNINITIALIZED_ELEMENT */
+    "failed to call unlinked import function", /* EXCE_CALL_UNLINKED_IMPORT_FUNC */
+    "native stack overflow",          /* EXCE_NATIVE_STACK_OVERFLOW */
+    "unaligned atomic",               /* EXCE_UNALIGNED_ATOMIC */
+    "wasm auxiliary stack overflow",  /* EXCE_AUX_STACK_OVERFLOW */
+    "wasm auxiliary stack underflow", /* EXCE_AUX_STACK_UNDERFLOW */
+    "out of bounds table access",     /* EXCE_OUT_OF_BOUNDS_TABLE_ACCESS */
+    "wasm operand stack overflow",    /* EXCE_OPERAND_STACK_OVERFLOW */
+};
+/* clang-format on */
+
 JitReg
 gen_load_i32(JitFrame *frame, unsigned n)
 {
@@ -124,29 +146,41 @@ gen_commit_sp_ip(JitFrame *frame)
     JitReg sp;
 
     if (frame->sp != frame->committed_sp) {
-#if UINTPTR_MAX == UINT32_MAX
-        GEN_INSN_NORM(I32, sp, ADD, 0, cc->fp_reg,
-                      NEW_CONST(I32, offset_of_local(frame->sp - frame->lp)));
-        GEN_INSN(STI32, sp, cc->fp_reg,
+#if UINTPTR_MAX == UINT64_MAX
+        sp = jit_cc_new_reg_I64(cc);
+        GEN_INSN(ADD, sp, cc->fp_reg,
+                 NEW_CONST(I32, offset_of_local(frame->sp - frame->lp)));
+        GEN_INSN(STI64, sp, cc->fp_reg,
                  NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
 #else
-        GEN_INSN_NORM(I64, sp, ADD, 0, cc->fp_reg,
-                      NEW_CONST(I32, offset_of_local(frame->sp - frame->lp)));
-        GEN_INSN(STI64, sp, cc->fp_reg,
+        sp = jit_cc_new_reg_I32(cc);
+        GEN_INSN(ADD, sp, cc->fp_reg,
+                 NEW_CONST(I32, offset_of_local(frame->sp - frame->lp)));
+        GEN_INSN(STI32, sp, cc->fp_reg,
                  NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
 #endif
         frame->committed_sp = frame->sp;
     }
 
-#if 0
-  if (frame->ip != frame->committed_ip) {
-      GEN_INSN (STI32,
-                NEW_REL (BCIP, NONE, offset_of_addr (frame, frame->ip), frame->ip),
-                cc->fp_reg,
-                NEW_CONST (I32, offsetof (WASMInterpFrame, ip)));
-      frame->committed_ip = frame->ip;
-    }
+    if (frame->ip != frame->committed_ip) {
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(STI64, NEW_CONST(I64, (uint64)(uintptr_t)frame->ip),
+                 cc->fp_reg, NEW_CONST(I32, offsetof(WASMInterpFrame, ip)));
+#else
+        GEN_INSN(STI32, NEW_CONST(I32, (uint32)(uintptr_t)frame->ip),
+                 cc->fp_reg, NEW_CONST(I32, offsetof(WASMInterpFrame, ip)));
 #endif
+        frame->committed_ip = frame->ip;
+    }
+}
+
+static void
+jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
+{
+    if (id < EXCE_NUM)
+        wasm_set_exception(module_inst, jit_exception_msgs[id]);
+    else
+        wasm_set_exception(module_inst, "unknown exception");
 }
 
 static bool
@@ -154,7 +188,9 @@ form_and_translate_func(JitCompContext *cc)
 {
     JitBasicBlock *func_entry_basic_block;
     JitReg func_entry_label;
-    JitInsn *jmp_insn;
+    JitInsn *insn;
+    JitIncomingInsn *incoming_insn, *incoming_insn_next;
+    uint32 i;
 
     if (!(func_entry_basic_block = jit_frontend_translate_func(cc)))
         return false;
@@ -165,11 +201,58 @@ form_and_translate_func(JitCompContext *cc)
     func_entry_label = jit_basic_block_label(func_entry_basic_block);
 
     /* Create a JMP instruction jumping to the func entry. */
-    if (!(jmp_insn = jit_cc_new_insn(cc, JMP, func_entry_label)))
+    if (!(insn = jit_cc_new_insn(cc, JMP, func_entry_label)))
         return false;
 
     /* Insert the instruction into the cc entry block. */
-    jit_basic_block_append_insn(jit_cc_entry_basic_block(cc), jmp_insn);
+    jit_basic_block_append_insn(jit_cc_entry_basic_block(cc), insn);
+
+    /* Patch INSNs jumping to exception basic blocks. */
+    for (i = 0; i < EXCE_NUM; i++) {
+        incoming_insn = cc->incoming_insns_for_exec_bbs[i];
+        if (incoming_insn) {
+            if (!(cc->exce_basic_blocks[i] = jit_cc_new_basic_block(cc, 0))) {
+                jit_set_last_error(cc, "create basic block failed");
+                return false;
+            }
+            while (incoming_insn) {
+                incoming_insn_next = incoming_insn->next;
+                insn = incoming_insn->insn;
+                if (insn->opcode == JIT_OP_JMP) {
+                    *(jit_insn_opnd(insn, 0)) =
+                        jit_basic_block_label(cc->exce_basic_blocks[i]);
+                }
+                else if (insn->opcode >= JIT_OP_BNE
+                         && insn->opcode <= JIT_OP_BLEU) {
+                    *(jit_insn_opnd(insn, 1)) =
+                        jit_basic_block_label(cc->exce_basic_blocks[i]);
+                }
+                incoming_insn = incoming_insn_next;
+            }
+            cc->cur_basic_block = cc->exce_basic_blocks[i];
+#if UINTPTR_MAX == UINT64_MAX
+            insn = GEN_INSN(
+                CALLNATIVE, 0,
+                NEW_CONST(I64, (uint64)(uintptr_t)jit_set_exception_with_id),
+                1);
+#else
+            insn = GEN_INSN(
+                CALLNATIVE, 0,
+                NEW_CONST(I32, (uint32)(uintptr_t)jit_set_exception_with_id),
+                1);
+#endif
+            if (insn) {
+                *(jit_insn_opndv(insn, 2)) = NEW_CONST(I32, i);
+            }
+            GEN_INSN(RETURN, NEW_CONST(I32, i));
+
+            *(jit_annl_begin_bcip(cc,
+                                  jit_basic_block_label(cc->cur_basic_block))) =
+                *(jit_annl_end_bcip(
+                    cc, jit_basic_block_label(cc->cur_basic_block))) =
+                    cc->cur_wasm_module->load_addr;
+        }
+    }
 
     *(jit_annl_begin_bcip(cc, cc->entry_label)) =
         *(jit_annl_end_bcip(cc, cc->entry_label)) =
@@ -199,11 +282,13 @@ jit_pass_frontend(JitCompContext *cc)
     return true;
 }
 
+#if 0
 bool
 jit_pass_lower_fe(JitCompContext *cc)
 {
     return true;
 }
+#endif
 
 static JitFrame *
 init_func_translation(JitCompContext *cc)
@@ -239,6 +324,7 @@ init_func_translation(JitCompContext *cc)
     jit_frame->max_locals = max_locals;
     jit_frame->max_stacks = max_stacks;
     jit_frame->sp = jit_frame->lp + max_locals;
+    jit_frame->ip = cur_wasm_func->code;
 
     cc->jit_frame = jit_frame;
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
@@ -266,9 +352,14 @@ init_func_translation(JitCompContext *cc)
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top_boundary)));
     /* frame_boundary = top + frame_size + outs_size */
     GEN_INSN(ADD, frame_boundary, top, NEW_CONST(I32, frame_size + outs_size));
-    GEN_INSN(CHECK_SOE, NEW_CONST(I32, 0), frame_boundary, top_boundary);
+    /* if frame_boundary > top_boundary, throw stack overflow exception */
+    GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
+    if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
+                            cc->cmp_reg, 0)) {
+        return NULL;
+    }
 
-    /* Add first and then sub to reduce one used register.  */
+    /* Add first and then sub to reduce one used register */
     /* new_top = frame_boundary - outs_size = top + frame_size */
     GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(I32, outs_size));
     /* exec_env->wasm_stack.s.top = new_top */
@@ -283,6 +374,7 @@ init_func_translation(JitCompContext *cc)
     /* frame->prev_frame = fp_reg */
     GEN_INSN(STI64, cc->fp_reg, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
+    /* TODO: do we need to set frame->function? */
     /*
     GEN_INSN(STI64, func_inst, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, function)));
@@ -293,6 +385,52 @@ init_func_translation(JitCompContext *cc)
     /* fp_reg = top */
     GEN_INSN(MOV, cc->fp_reg, top);
 #else
+    top = jit_cc_new_reg_I32(cc);
+    top_boundary = jit_cc_new_reg_I32(cc);
+    new_top = jit_cc_new_reg_I32(cc);
+    frame_boundary = jit_cc_new_reg_I32(cc);
+    frame_sp = jit_cc_new_reg_I32(cc);
+
+    /* top = exec_env->wasm_stack.s.top */
+    GEN_INSN(LDI32, top, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
+    /* top_boundary = exec_env->wasm_stack.s.top_boundary */
+    GEN_INSN(LDI32, top_boundary, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top_boundary)));
+    /* frame_boundary = top + frame_size + outs_size */
+    GEN_INSN(ADD, frame_boundary, top, NEW_CONST(I32, frame_size + outs_size));
+    /* if frame_boundary > top_boundary, throw stack overflow exception */
+    GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
+    if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
+                            cc->cmp_reg, 0)) {
+        return NULL;
+    }
+
+    /* Add first and then sub to reduce one used register */
+    /* new_top = frame_boundary - outs_size = top + frame_size */
+    GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(I32, outs_size));
+    /* exec_env->wasm_stack.s.top = new_top */
+    GEN_INSN(STI32, new_top, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
+    /* frame_sp = frame->lp + local_size */
+    GEN_INSN(ADD, frame_sp, top,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, lp) + local_size));
+    /* frame->sp = frame_sp */
+    GEN_INSN(STI32, frame_sp, top,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
+    /* frame->prev_frame = fp_reg */
+    GEN_INSN(STI32, cc->fp_reg, top,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
+    /* TODO: do we need to set frame->function? */
+    /*
+    GEN_INSN(STI32, func_inst, top,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, function)));
+    */
+    /* exec_env->cur_frame = top */
+    GEN_INSN(STI32, top, cc->exec_env_reg,
+             NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
+    /* fp_reg = top */
+    GEN_INSN(MOV, cc->fp_reg, top);
 #endif
 
     return jit_frame;
@@ -1534,6 +1672,12 @@ jit_compile_func(JitCompContext *cc)
             default:
                 jit_set_last_error(cc, "unsupported opcode");
                 return false;
+        }
+        /* Error may occur when creating registers, basic blocks, insns,
+           consts and labels, in which the return value may be unchecked,
+           here we check again */
+        if (jit_get_last_error(cc)) {
+            return false;
         }
     }
 

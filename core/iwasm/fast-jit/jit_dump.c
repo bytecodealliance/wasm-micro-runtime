@@ -307,9 +307,14 @@ jit_dump_cc(JitCompContext *cc)
 bool
 jit_pass_dump(JitCompContext *cc)
 {
-    os_printf("JIT.COMPILER.DUMP: PASS_NO=%d PREV_PASS=%s\n\n", cc->cur_pass_no,
-              (cc->cur_pass_no > 0 ? jit_compiler_get_pass_name(cc->cur_pass_no)
-                                   : "NULL"));
+    const JitGlobals *jit_globals = jit_compiler_get_jit_globals();
+    const uint8 *passes = jit_globals->passes;
+    uint8 pass_no = cc->cur_pass_no;
+    const char *pass_name =
+        pass_no > 0 ? jit_compiler_get_pass_name(passes[pass_no - 1]) : "NULL";
+
+    os_printf("JIT.COMPILER.DUMP: PASS_NO=%d PREV_PASS=%s\n\n", pass_no,
+              pass_name);
     jit_dump_cc(cc);
     os_printf("\n");
     return true;

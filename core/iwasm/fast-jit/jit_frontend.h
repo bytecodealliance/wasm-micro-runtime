@@ -308,6 +308,7 @@ static inline void
 gen_commit_for_exception(JitFrame *frame)
 {
     gen_commit_values(frame, frame->lp, frame->lp + frame->max_locals);
+    gen_commit_sp_ip(frame);
 }
 
 /**

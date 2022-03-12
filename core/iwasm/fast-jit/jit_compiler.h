@@ -14,11 +14,21 @@
 extern "C" {
 #endif
 
+typedef struct JitGlobals {
+    /* Compiler pass sequence, the last element must be 0 */
+    const uint8 *passes;
+    /* Code cache size.  */
+    uint32 code_cache_size;
+} JitGlobals;
+
 bool
 jit_compiler_init();
 
 void
 jit_compiler_destroy();
+
+const JitGlobals *
+jit_compiler_get_jit_globals();
 
 const char *
 jit_compiler_get_pass_name(unsigned i);
@@ -55,11 +65,13 @@ jit_pass_update_cfg(JitCompContext *cc);
 bool
 jit_pass_frontend(JitCompContext *cc);
 
+#if 0
 /**
  * Convert MIR to LIR.
  */
 bool
 jit_pass_lower_fe(JitCompContext *cc);
+#endif
 
 /**
  * Lower unsupported operations into supported ones.

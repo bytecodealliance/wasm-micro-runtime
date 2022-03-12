@@ -27,13 +27,14 @@
         }                                                          \
     } while (0)
 
-#define BUILD_COND_BR(value_if, block_then, block_else)                 \
-    do {                                                                \
-        if (!GEN_INSN(BNE, value_if, jit_basic_block_label(block_then), \
-                      jit_basic_block_label(block_else))) {             \
-            jit_set_last_error(cc, "generate bne insn failed");         \
-            goto fail;                                                  \
-        }                                                               \
+#define BUILD_COND_BR(value_if, block_then, block_else)                       \
+    do {                                                                      \
+        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(cc, 0))           \
+            || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(block_then), \
+                         jit_basic_block_label(block_else))) {                \
+            jit_set_last_error(cc, "generate bne insn failed");               \
+            goto fail;                                                        \
+        }                                                                     \
     } while (0)
 
 #define SET_BUILDER_POS(basic_block)       \
@@ -73,7 +74,7 @@ load_block_params(JitCompContext *cc, JitBlock *block)
 {
     JitFrame *jit_frame = cc->jit_frame;
     uint32 offset, i;
-    JitReg value;
+    JitReg value = 0;
 
     /* Clear jit frame's locals and stacks */
     clear_values(jit_frame);
@@ -181,8 +182,9 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
             BUILD_BR(basic_block);
         }
         else { /* IF block with condition br insn */
-            if (!(insn = GEN_INSN(BNE, cond, jit_basic_block_label(basic_block),
-                                  0))) {
+            if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
+                || !(insn = GEN_INSN(BNE, cc->cmp_reg,
+                                     jit_basic_block_label(basic_block), 0))) {
                 jit_set_last_error(cc, "generate cond br failed");
                 goto fail;
             }
@@ -836,7 +838,9 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     clear_values(jit_frame);
 
     CREATE_BASIC_BLOCK(if_basic_block);
-    if (!GEN_INSN(BNE, cond, jit_basic_block_label(if_basic_block), 0)) {
+    if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
+        || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(if_basic_block),
+                     0)) {
         jit_set_last_error(cc, "generate bne insn failed");
         goto fail;
     }

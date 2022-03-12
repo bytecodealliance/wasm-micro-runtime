@@ -907,8 +907,14 @@ typedef struct JitFrame {
     /* Max operand stack slot number.  */
     uint32 max_stacks;
 
+    /* Instruction pointer */
+    uint8 *ip;
+
     /* Stack top pointer */
     JitValueSlot *sp;
+
+    /* Committed instruction pointer */
+    uint8 *committed_ip;
 
     /* Committed stack top pointer */
     JitValueSlot *committed_sp;
@@ -998,7 +1004,8 @@ typedef struct JitCompContext {
        be 0 and 1 respectively (see JIT_FOREACH_BLOCK). */
     JitReg entry_label;
     JitReg exit_label;
-    JitBasicBlock *exception_basic_blocks;
+    JitBasicBlock **exce_basic_blocks;
+    JitIncomingInsnList *incoming_insns_for_exec_bbs;
 
     /* The current basic block to generate instructions */
     JitBasicBlock *cur_basic_block;
@@ -1228,6 +1235,15 @@ jit_cc_inc_ref(JitCompContext *cc)
  */
 void
 jit_cc_delete(JitCompContext *cc);
+
+char *
+jit_get_last_error(JitCompContext *cc);
+
+void
+jit_set_last_error(JitCompContext *cc, const char *error);
+
+void
+jit_set_last_error_v(JitCompContext *cc, const char *format, ...);
 
 /**
  * Create a I32 constant value with relocatable into the compilation
@@ -1520,6 +1536,8 @@ _gen_insn(JitCompContext *cc, JitInsn *insn)
 {
     if (insn)
         jit_basic_block_append_insn(cc->cur_basic_block, insn);
+    else
+        jit_set_last_error(cc, "generate insn failed");
 
     return insn;
 }
@@ -1529,6 +1547,7 @@ _gen_insn(JitCompContext *cc, JitInsn *insn)
  */
 #define GEN_INSN(...) _gen_insn(cc, jit_cc_new_insn(cc, __VA_ARGS__))
 
+#if 0
 /**
  * Helper function for GEN_INSN_NORM_1
  *
@@ -1559,6 +1578,7 @@ _gen_insn_norm_1(JitCompContext *cc, JitBasicBlock *block, unsigned kind,
  */
 #define GEN_INSN_NORM(Type, result, ...) \
     GEN_INSN_NORM_1(JIT_REG_KIND_##Type, result, __VA_ARGS__)
+#endif
 
 /**
  * Create a constant register without relocation info.
@@ -1736,15 +1756,6 @@ jit_cc_exit_basic_block(JitCompContext *cc)
 {
     return *(jit_annl_basic_block(cc, cc->exit_label));
 }
-
-char *
-jit_get_last_error(JitCompContext *cc);
-
-void
-jit_set_last_error(JitCompContext *cc, const char *error);
-
-void
-jit_set_last_error_v(JitCompContext *cc, const char *format, ...);
 
 void
 jit_value_stack_push(JitValueStack *stack, JitValue *value);

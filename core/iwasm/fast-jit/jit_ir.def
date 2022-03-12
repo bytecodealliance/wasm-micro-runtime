@@ -129,11 +129,6 @@ INSN(BLEU, Reg, 3, 0)
 INSN(TABLE_SWITCH, TableSwitch, 1, 0)
 INSN(LOOKUP_SWITCH, LookupSwitch, 1, 0)
 
-/* check zero divisor */
-INSN(CHECK_DIV_ZERO, Reg, 3, 0)
-/* check stack overflow */
-INSN(CHECK_SOE, Reg, 3, 0)
-
 /* Call and return instructions */
 INSN(CALLNATIVE, VReg, 2, 1)
 INSN(CALLBC, Reg, 3, 0)
