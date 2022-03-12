@@ -21,6 +21,15 @@ typedef struct JitGlobals {
     uint32 code_cache_size;
 } JitGlobals;
 
+/**
+ * Information exchanged between JITed code and interpreter.
+ */
+typedef struct JitInterpSwitchInfo {
+    /* Points to the frame that is passed to JITed code and the frame
+       that is returned from JITed code.  */
+    void *frame;
+} JitInterpSwitchInfo;
+
 bool
 jit_compiler_init();
 
@@ -39,9 +48,8 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx);
 bool
 jit_compiler_compile_all(WASMModule *module);
 
-bool
-jit_interp_switch_to_jitted(void *exec_env, void *frame,
-                            WASMFunctionInstance *func_inst, void *target);
+int
+jit_interp_switch_to_jitted(void *self, JitInterpSwitchInfo *info, void *pc);
 
 /*
  * Pass declarations:

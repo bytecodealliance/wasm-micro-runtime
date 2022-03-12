@@ -41,7 +41,7 @@ jit_code_cache_destroy()
 }
 
 void *
-jit_code_cache_malloc(uint32 size)
+jit_code_cache_alloc(uint32 size)
 {
     return mem_allocator_malloc(code_cache_pool_allocator, size);
 }

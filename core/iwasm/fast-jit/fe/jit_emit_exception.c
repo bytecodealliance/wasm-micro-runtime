@@ -10,7 +10,7 @@ bool
 jit_emit_exception(JitCompContext *cc, int32 exception_id, uint8 jit_opcode,
                    JitReg cond_br_if, JitBasicBlock *cond_br_else_block)
 {
-    JitInsn *insn;
+    JitInsn *insn = NULL;
     JitIncomingInsn *incoming_insn;
     JitReg else_label;
 

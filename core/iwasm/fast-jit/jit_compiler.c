@@ -191,9 +191,8 @@ jit_compiler_compile_all(WASMModule *module)
     return ret;
 }
 
-bool
-jit_interp_switch_to_jitted(void *exec_env, void *frame,
-                            WASMFunctionInstance *func_inst, void *target)
+int
+jit_interp_switch_to_jitted(void *exec_env, JitInterpSwitchInfo *info, void *pc)
 {
-    return jit_codegen_call_func_jitted(exec_env, func_inst, frame, target);
+    return jit_codegen_interp_jitted_glue(exec_env, info, pc);
 }
