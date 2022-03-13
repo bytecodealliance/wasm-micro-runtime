@@ -9,6 +9,9 @@
 
 #include <asmjit/core.h>
 #include <asmjit/x86.h>
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+#include <Zydis/Zydis.h>
+#endif
 
 using namespace asmjit;
 
@@ -86,9 +89,53 @@ void
 jit_codegen_free_native(JitCompContext *cc)
 {}
 
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+static void
+dump_native(char *data, uint32 length)
+{
+    /* Initialize decoder context */
+    ZydisDecoder decoder;
+    ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64,
+                     ZYDIS_STACK_WIDTH_64);
+
+    /* Initialize formatter */
+    ZydisFormatter formatter;
+    ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
+
+    /* Loop over the instructions in our buffer */
+    ZyanU64 runtime_address = (ZyanU64)(uintptr_t)data;
+    ZyanUSize offset = 0;
+    ZydisDecodedInstruction instruction;
+    ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT_VISIBLE];
+
+    while (ZYAN_SUCCESS(ZydisDecoderDecodeFull(
+        &decoder, data + offset, length - offset, &instruction, operands,
+        ZYDIS_MAX_OPERAND_COUNT_VISIBLE, ZYDIS_DFLAG_VISIBLE_OPERANDS_ONLY))) {
+        /* Print current instruction pointer */
+        printf("%012" PRIX64 "  ", runtime_address);
+
+        /* Format & print the binary instruction structure to
+           human readable format */
+        char buffer[256];
+        ZydisFormatterFormatInstruction(&formatter, &instruction, operands,
+                                        instruction.operand_count_visible,
+                                        buffer, sizeof(buffer),
+                                        runtime_address);
+        puts(buffer);
+
+        offset += instruction.length;
+        runtime_address += instruction.length;
+    }
+}
+#endif
+
 void
 jit_codegen_dump_native(void *begin_addr, void *end_addr)
-{}
+{
+#if WASM_ENABLE_FAST_JIT_DUMP != 0
+    dump_native((char *)begin_addr, (char *)end_addr - (char *)begin_addr);
+#endif
+}
 
 bool
 jit_codegen_init()
@@ -102,6 +149,7 @@ jit_codegen_init()
     code.init(env);
     x86::Assembler a(&code);
 
+    /* push callee-save registers */
     a.push(x86::rbp);
     a.push(x86::rbx);
     a.push(x86::r12);
@@ -128,15 +176,22 @@ jit_codegen_init()
     bh_memcpy_s(stream, code_size, code_buf, code_size);
     code_block_switch_to_jitted_from_interp = stream;
 
+#if 0
+    dump_native(stream, code_size);
+#endif
+
     a.setOffset(0);
+    /* pop info */
     a.pop(x86::rsi);
+    /* pop exec_env */
     a.pop(x86::rdi);
+    /* pop callee-save registers */
     a.pop(x86::r15);
     a.pop(x86::r14);
     a.pop(x86::r13);
     a.pop(x86::r12);
-    a.push(x86::rbx);
-    a.push(x86::rbp);
+    a.pop(x86::rbx);
+    a.pop(x86::rbp);
 
     code_buf = (char *)code.sectionById(0)->buffer().data();
     code_size = code.sectionById(0)->buffer().size();

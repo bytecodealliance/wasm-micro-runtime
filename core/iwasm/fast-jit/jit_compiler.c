@@ -33,8 +33,6 @@ static JitCompilerPass compiler_passes[] = {
 /* Number of compiler passes.  */
 #define COMPILER_PASS_NUM (sizeof(compiler_passes) / sizeof(compiler_passes[0]))
 
-#define WASM_ENABLE_FAST_JIT_DUMP 1
-
 #if WASM_ENABLE_FAST_JIT_DUMP == 0
 static const uint8 compiler_passes_without_dump[] = {
     3, 4, 5, 6, 7, 0
