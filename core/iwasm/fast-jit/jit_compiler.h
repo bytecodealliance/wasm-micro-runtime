@@ -14,11 +14,30 @@
 extern "C" {
 #endif
 
+typedef struct JitGlobals {
+    /* Compiler pass sequence, the last element must be 0 */
+    const uint8 *passes;
+    /* Code cache size.  */
+    uint32 code_cache_size;
+} JitGlobals;
+
+/**
+ * Information exchanged between JITed code and interpreter.
+ */
+typedef struct JitInterpSwitchInfo {
+    /* Points to the frame that is passed to JITed code and the frame
+       that is returned from JITed code.  */
+    void *frame;
+} JitInterpSwitchInfo;
+
 bool
 jit_compiler_init();
 
 void
 jit_compiler_destroy();
+
+const JitGlobals *
+jit_compiler_get_jit_globals();
 
 const char *
 jit_compiler_get_pass_name(unsigned i);
@@ -29,9 +48,8 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx);
 bool
 jit_compiler_compile_all(WASMModule *module);
 
-bool
-jit_interp_switch_to_jitted(void *exec_env, void *frame,
-                            WASMFunctionInstance *func_inst, void *target);
+int
+jit_interp_switch_to_jitted(void *self, JitInterpSwitchInfo *info, void *pc);
 
 /*
  * Pass declarations:
@@ -55,11 +73,13 @@ jit_pass_update_cfg(JitCompContext *cc);
 bool
 jit_pass_frontend(JitCompContext *cc);
 
+#if 0
 /**
  * Convert MIR to LIR.
  */
 bool
 jit_pass_lower_fe(JitCompContext *cc);
+#endif
 
 /**
  * Lower unsupported operations into supported ones.

@@ -312,8 +312,11 @@ rc_init(RegallocContext *rc, JitCompContext *cc)
         const unsigned vreg_num = jit_cc_reg_num(cc, i);
         const unsigned hreg_num = jit_cc_hreg_num(cc, i);
 
-        if (!(rc->vregs[i] = jit_calloc(sizeof(VirtualReg) * vreg_num))
-            || !(rc->hregs[i] = jit_calloc(sizeof(HardReg) * hreg_num)))
+        if (vreg_num > 0
+            && !(rc->vregs[i] = jit_calloc(sizeof(VirtualReg) * vreg_num)))
+            goto fail;
+        if (hreg_num > 0
+            && !(rc->hregs[i] = jit_calloc(sizeof(HardReg) * hreg_num)))
             goto fail;
 
         /* Hard registers can only be allocated to themselves.  */
@@ -407,8 +410,8 @@ reload_vreg(RegallocContext *rc, JitReg vreg, JitInsn *cur_insn)
     JitInsn *insn = NULL;
 
     if (vreg == rc->cc->exec_env_reg)
-        /* Reload exec_env_reg with LDSELF.  */
-        insn = jit_cc_new_insn(rc->cc, LDSELF, vr->hreg);
+        /* Reload exec_env_reg with LDEXECENV.  */
+        insn = jit_cc_new_insn(rc->cc, LDEXECENV, vr->hreg);
     else
     /* Allocate spill slot if not yet and reload from there.  */
     {

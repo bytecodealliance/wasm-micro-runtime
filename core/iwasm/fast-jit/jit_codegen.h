@@ -7,7 +7,7 @@
 #define _JIT_CODEGEN_H_
 
 #include "bh_platform.h"
-#include "jit_ir.h"
+#include "jit_compiler.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,14 +64,8 @@ jit_codegen_lower(JitCompContext *cc);
 void
 jit_codegen_dump_native(void *begin_addr, void *end_addr);
 
-/**
- * Call jitted code
- *
- * @param exec_env the current exec_env
- */
-bool
-jit_codegen_call_func_jitted(void *exec_env, void *frame, void *func_inst,
-                             void *target);
+int
+jit_codegen_interp_jitted_glue(void *self, JitInterpSwitchInfo *info, void *pc);
 
 #ifdef __cplusplus
 }

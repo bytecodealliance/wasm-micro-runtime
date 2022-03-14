@@ -315,6 +315,9 @@ JitBasicBlock *
 jit_basic_block_new(JitReg label, int n)
 {
     JitBasicBlock *block = jit_insn_new_PHI(label, n);
+    if (!block)
+        return NULL;
+
     block->prev = block->next = block;
     return block;
 }
@@ -380,7 +383,7 @@ jit_basic_block_succs(JitBasicBlock *block)
             vec._base = jit_insn_opnd(last_insn, 1);
             break;
 
-        case JIT_OP_LOOKUP_SWITCH:
+        case JIT_OP_LOOKUPSWITCH:
         {
             JitOpndLookupSwitch *opnd = jit_insn_opndls(last_insn);
             vec.num = opnd->match_pairs_num + 1;
@@ -412,8 +415,12 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
         || !(exit_block = jit_cc_new_basic_block(cc, 0)))
         goto fail;
 
-    if (!(cc->exception_basic_blocks =
+    if (!(cc->exce_basic_blocks =
               jit_calloc(sizeof(JitBasicBlock *) * EXCE_NUM)))
+        goto fail;
+
+    if (!(cc->incoming_insns_for_exec_bbs =
+              jit_calloc(sizeof(JitIncomingInsnList) * EXCE_NUM)))
         goto fail;
 
     /* Record the entry and exit labels, whose indexes must be 0 and 1
@@ -437,14 +444,14 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
     }
 
     /* Create registers for frame pointer, exec_env and cmp.  */
-#if UINTPTR_MAX == UINT32_MAX
-    cc->fp_reg = jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->fp_hreg_index);
-    cc->exec_env_reg =
-        jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->exec_env_hreg_index);
-#else
+#if UINTPTR_MAX == UINT64_MAX
     cc->fp_reg = jit_reg_new(JIT_REG_KIND_I64, cc->hreg_info->fp_hreg_index);
     cc->exec_env_reg =
         jit_reg_new(JIT_REG_KIND_I64, cc->hreg_info->exec_env_hreg_index);
+#else
+    cc->fp_reg = jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->fp_hreg_index);
+    cc->exec_env_reg =
+        jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->exec_env_hreg_index);
 #endif
     cc->cmp_reg = jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->cmp_hreg_index);
 
@@ -466,6 +473,7 @@ jit_cc_destroy(JitCompContext *cc)
 {
     unsigned i, end;
     JitBasicBlock *block;
+    JitIncomingInsn *incoming_insn, *incoming_insn_next;
 
     jit_block_stack_destroy(&cc->block_stack);
 
@@ -476,7 +484,19 @@ jit_cc_destroy(JitCompContext *cc)
     /* Release the instruction hash table.  */
     jit_cc_disable_insn_hash(cc);
 
-    jit_free(cc->exception_basic_blocks);
+    jit_free(cc->exce_basic_blocks);
+
+    if (cc->incoming_insns_for_exec_bbs) {
+        for (i = 0; i < EXCE_NUM; i++) {
+            incoming_insn = cc->incoming_insns_for_exec_bbs[i];
+            while (incoming_insn) {
+                incoming_insn_next = incoming_insn->next;
+                jit_free(incoming_insn);
+                incoming_insn = incoming_insn_next;
+            }
+        }
+        jit_free(cc->incoming_insns_for_exec_bbs);
+    }
 
     /* Release entry and exit blocks.  */
     jit_basic_block_delete(jit_cc_entry_basic_block(cc));
@@ -619,6 +639,7 @@ _jit_cc_new_const(JitCompContext *cc, int kind, unsigned size, void *val)
             cc->_const_val._next[kind] = new_next;
         }
         else {
+            jit_set_last_error(cc, "create const register failed");
             jit_free(new_value);
             jit_free(new_next);
             return 0;
@@ -770,8 +791,10 @@ jit_cc_new_label(JitCompContext *cc)
 #undef ANN_LABEL
 #undef EMPTY_POSTFIX
 
-        if (!successful)
+        if (!successful) {
+            jit_set_last_error(cc, "create label register failed");
             return 0;
+        }
 
         cc->_ann._label_capacity = capacity;
     }
@@ -790,6 +813,8 @@ jit_cc_new_basic_block(JitCompContext *cc, int n)
     if (label && (block = jit_basic_block_new(label, n)))
         /* Void 0 register indicates error in creation.  */
         *(jit_annl_basic_block(cc, label)) = block;
+    else
+        jit_set_last_error(cc, "create basic block failed");
 
     return block;
 }
@@ -801,8 +826,10 @@ jit_cc_resize_basic_block(JitCompContext *cc, JitBasicBlock *block, int n)
     JitInsn *insn = jit_basic_block_first_insn(block);
     JitBasicBlock *new_block = jit_basic_block_new(label, n);
 
-    if (!new_block)
+    if (!new_block) {
+        jit_set_last_error(cc, "resize basic block failed");
         return NULL;
+    }
 
     jit_insn_unlink(block);
 
@@ -877,8 +904,10 @@ jit_cc_set_insn_uid(JitCompContext *cc, JitInsn *insn)
 #undef ANN_INSN
 #undef EMPTY_POSTFIX
 
-            if (!successful)
+            if (!successful) {
+                jit_set_last_error(cc, "set insn uid failed");
                 return NULL;
+            }
 
             cc->_ann._insn_capacity = capacity;
         }
@@ -900,6 +929,7 @@ _jit_cc_set_insn_uid_for_new_insn(JitCompContext *cc, JitInsn *insn)
     return NULL;
 }
 
+#if 0
 static JitReg
 normalize_insn(JitCompContext *cc, JitInsn **pinsn)
 {
@@ -1059,6 +1089,7 @@ _gen_insn_norm_1(JitCompContext *cc, JitBasicBlock *block, unsigned kind,
 
     return NULL;
 }
+#endif
 
 JitReg
 jit_cc_new_reg(JitCompContext *cc, unsigned kind)
@@ -1080,8 +1111,10 @@ jit_cc_new_reg(JitCompContext *cc, unsigned kind)
 #include "jit_ir.def"
 #undef ANN_REG
 
-        if (!successful)
+        if (!successful) {
+            jit_set_last_error(cc, "create register failed");
             return 0;
+        }
 
         cc->_ann._reg_capacity[kind] = capacity;
     }
@@ -1093,33 +1126,37 @@ jit_cc_new_reg(JitCompContext *cc, unsigned kind)
 
 #undef _JIT_REALLOC_ANN
 
-#define ANN_LABEL(TYPE, NAME)                                              \
-    bool jit_annl_enable_##NAME(JitCompContext *cc)                        \
-    {                                                                      \
-        if (cc->_ann._label_##NAME##_enabled)                              \
-            return true;                                                   \
-                                                                           \
-        if (cc->_ann._label_capacity > 0                                   \
-            && !(cc->_ann._label_##NAME =                                  \
-                     jit_calloc(cc->_ann._label_capacity * sizeof(TYPE)))) \
-            return false;                                                  \
-                                                                           \
-        cc->_ann._label_##NAME##_enabled = 1;                              \
-        return true;                                                       \
+#define ANN_LABEL(TYPE, NAME)                                                \
+    bool jit_annl_enable_##NAME(JitCompContext *cc)                          \
+    {                                                                        \
+        if (cc->_ann._label_##NAME##_enabled)                                \
+            return true;                                                     \
+                                                                             \
+        if (cc->_ann._label_capacity > 0                                     \
+            && !(cc->_ann._label_##NAME =                                    \
+                     jit_calloc(cc->_ann._label_capacity * sizeof(TYPE)))) { \
+            jit_set_last_error(cc, "annl enable " #NAME "failed");           \
+            return false;                                                    \
+        }                                                                    \
+                                                                             \
+        cc->_ann._label_##NAME##_enabled = 1;                                \
+        return true;                                                         \
     }
-#define ANN_INSN(TYPE, NAME)                                              \
-    bool jit_anni_enable_##NAME(JitCompContext *cc)                       \
-    {                                                                     \
-        if (cc->_ann._insn_##NAME##_enabled)                              \
-            return true;                                                  \
-                                                                          \
-        if (cc->_ann._insn_capacity > 0                                   \
-            && !(cc->_ann._insn_##NAME =                                  \
-                     jit_calloc(cc->_ann._insn_capacity * sizeof(TYPE)))) \
-            return false;                                                 \
-                                                                          \
-        cc->_ann._insn_##NAME##_enabled = 1;                              \
-        return true;                                                      \
+#define ANN_INSN(TYPE, NAME)                                                \
+    bool jit_anni_enable_##NAME(JitCompContext *cc)                         \
+    {                                                                       \
+        if (cc->_ann._insn_##NAME##_enabled)                                \
+            return true;                                                    \
+                                                                            \
+        if (cc->_ann._insn_capacity > 0                                     \
+            && !(cc->_ann._insn_##NAME =                                    \
+                     jit_calloc(cc->_ann._insn_capacity * sizeof(TYPE)))) { \
+            jit_set_last_error(cc, "anni enable " #NAME "failed");          \
+            return false;                                                   \
+        }                                                                   \
+                                                                            \
+        cc->_ann._insn_##NAME##_enabled = 1;                                \
+        return true;                                                        \
     }
 #define ANN_REG(TYPE, NAME)                                            \
     bool jit_annr_enable_##NAME(JitCompContext *cc)                    \
@@ -1133,6 +1170,7 @@ jit_cc_new_reg(JitCompContext *cc, unsigned kind)
             if (cc->_ann._reg_capacity[k] > 0                          \
                 && !(cc->_ann._reg_##NAME[k] = jit_calloc(             \
                          cc->_ann._reg_capacity[k] * sizeof(TYPE)))) { \
+                jit_set_last_error(cc, "annr enable " #NAME "failed"); \
                 jit_annr_disable_##NAME(cc);                           \
                 return false;                                          \
             }                                                          \
@@ -1179,7 +1217,7 @@ jit_cc_new_reg(JitCompContext *cc, unsigned kind)
 char *
 jit_get_last_error(JitCompContext *cc)
 {
-    return cc->last_error[0] == '\0' ? "" : cc->last_error;
+    return cc->last_error[0] == '\0' ? NULL : cc->last_error;
 }
 
 void
@@ -1385,8 +1423,8 @@ to_stack_value_type(uint8 type)
 bool
 jit_cc_pop_value(JitCompContext *cc, uint8 type, JitReg *p_value)
 {
-    JitValue *jit_value;
-    JitReg value;
+    JitValue *jit_value = NULL;
+    JitReg value = 0;
 
     if (!cc->block_stack.block_list_end) {
         jit_set_last_error(cc, "WASM block stack underflow");

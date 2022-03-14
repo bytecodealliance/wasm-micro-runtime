@@ -31,7 +31,7 @@ jit_compile_op_get_local(JitCompContext *cc, uint32 local_idx)
     uint16 *local_offsets = wasm_func->local_offsets;
     uint16 local_offset;
     uint8 local_type;
-    JitReg value;
+    JitReg value = 0;
 
     CHECK_LOCAL(local_idx);
 
@@ -119,7 +119,7 @@ jit_compile_op_tee_local(JitCompContext *cc, uint32 local_idx)
     uint16 *local_offsets = wasm_func->local_offsets;
     uint16 local_offset;
     uint8 local_type;
-    JitReg value;
+    JitReg value = 0;
 
     CHECK_LOCAL(local_idx);
 

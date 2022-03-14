@@ -72,78 +72,10 @@
 #define INSN(NAME, OPND_KIND, OPND_NUM, FIRST_USE)
 #endif
 
-/* Comparison instructions */
-INSN(I32_EQZ, Reg, 3, 1)
-INSN(I32_EQ, Reg, 3, 1)
-INSN(I32_NE, Reg, 3, 1)
-INSN(I32_LT_S, Reg, 3, 1)
-INSN(I32_LT_U, Reg, 3, 1)
-INSN(I32_GT_S, Reg, 3, 1)
-INSN(I32_GT_U, Reg, 3, 1)
-INSN(I32_LE_S, Reg, 3, 1)
-INSN(I32_LE_U, Reg, 3, 1)
-INSN(I32_GE_S, Reg, 3, 1)
-INSN(I32_GE_U, Reg, 3, 1)
-
-INSN(I64_EQZ, Reg, 3, 1)
-INSN(I64_EQ, Reg, 3, 1)
-INSN(I64_NE, Reg, 3, 1)
-INSN(I64_LT_S, Reg, 3, 1)
-INSN(I64_LT_U, Reg, 3, 1)
-INSN(I64_GT_S, Reg, 3, 1)
-INSN(I64_GT_U, Reg, 3, 1)
-INSN(I64_LE_S, Reg, 3, 1)
-INSN(I64_LE_U, Reg, 3, 1)
-INSN(I64_GE_S, Reg, 3, 1)
-INSN(I64_GE_U, Reg, 3, 1)
-
-INSN(F32_EQ, Reg, 3, 1)
-INSN(F32_NE, Reg, 3, 1)
-INSN(F32_LT, Reg, 3, 1)
-INSN(F32_GT, Reg, 3, 1)
-INSN(F32_LE, Reg, 3, 1)
-INSN(F32_GE, Reg, 3, 1)
-
-INSN(F64_EQ, Reg, 3, 1)
-INSN(F64_NE, Reg, 3, 1)
-INSN(F64_LT, Reg, 3, 1)
-INSN(F64_GT, Reg, 3, 1)
-INSN(F64_LE, Reg, 3, 1)
-INSN(F64_GE, Reg, 3, 1)
-
-/* Select instruction */
-INSN(SELECT, Reg, 4, 1)
-
-/* Control instructions */
-INSN(JMP, Reg, 1, 0)
-INSN(BEQ, Reg, 3, 0)
-INSN(BNE, Reg, 3, 0)
-INSN(BGTS, Reg, 3, 0)
-INSN(BGES, Reg, 3, 0)
-INSN(BLTS, Reg, 3, 0)
-INSN(BLES, Reg, 3, 0)
-INSN(BGTU, Reg, 3, 0)
-INSN(BGEU, Reg, 3, 0)
-INSN(BLTU, Reg, 3, 0)
-INSN(BLEU, Reg, 3, 0)
-INSN(TABLE_SWITCH, TableSwitch, 1, 0)
-INSN(LOOKUP_SWITCH, LookupSwitch, 1, 0)
-
-/* check zero divisor */
-INSN(CHECK_DIV_ZERO, Reg, 3, 0)
-/* check stack overflow */
-INSN(CHECK_SOE, Reg, 3, 0)
-
-/* Call and return instructions */
-INSN(CALLNATIVE, VReg, 2, 1)
-INSN(CALLBC, Reg, 3, 0)
-INSN(RETURN, Reg, 1, 0)
-
 /* Move and conversion instructions that transfer values among
    registers of the same kind (move) or different kinds (convert) */
 INSN(MOV, Reg, 2, 1)
 INSN(PHI, VReg, 1, 1)
-
 INSN(I32TOI8, Reg, 2, 1)
 INSN(I32TOU8, Reg, 2, 1)
 INSN(I32TOI16, Reg, 2, 1)
@@ -193,7 +125,7 @@ INSN(SELECTLTU, Reg, 4, 1)
 INSN(SELECTLEU, Reg, 4, 1)
 
 /* Memory access instructions: */
-INSN(LDSELF, Reg, 1, 1)
+INSN(LDEXECENV, Reg, 1, 1)
 INSN(LDJITINFO, Reg, 1, 1)
 INSN(LDI8, Reg, 3, 1)
 INSN(LDU8, Reg, 3, 1)
@@ -218,7 +150,69 @@ INSN(STV64, Reg, 3, 1)
 INSN(STV128, Reg, 3, 1)
 INSN(STV256, Reg, 3, 1)
 
+/* Control instructions */
+INSN(JMP, Reg, 1, 0)
+INSN(BEQ, Reg, 3, 0)
+INSN(BNE, Reg, 3, 0)
+INSN(BGTS, Reg, 3, 0)
+INSN(BGES, Reg, 3, 0)
+INSN(BLTS, Reg, 3, 0)
+INSN(BLES, Reg, 3, 0)
+INSN(BGTU, Reg, 3, 0)
+INSN(BGEU, Reg, 3, 0)
+INSN(BLTU, Reg, 3, 0)
+INSN(BLEU, Reg, 3, 0)
+INSN(LOOKUPSWITCH, LookupSwitch, 1, 0)
+/* INSN(TABLESWITCH, TableSwitch, 1, 0) */
+
+/* Call and return instructions */
+INSN(CALLNATIVE, VReg, 2, 1)
+INSN(CALLBC, Reg, 3, 0)
+INSN(RETURNBC, Reg, 1, 0)
+
 #if 0
+/* Comparison instructions, can be translate to SELECTXXX */
+INSN(I32_EQZ, Reg, 3, 1)
+INSN(I32_EQ, Reg, 3, 1)
+INSN(I32_NE, Reg, 3, 1)
+INSN(I32_LT_S, Reg, 3, 1)
+INSN(I32_LT_U, Reg, 3, 1)
+INSN(I32_GT_S, Reg, 3, 1)
+INSN(I32_GT_U, Reg, 3, 1)
+INSN(I32_LE_S, Reg, 3, 1)
+INSN(I32_LE_U, Reg, 3, 1)
+INSN(I32_GE_S, Reg, 3, 1)
+INSN(I32_GE_U, Reg, 3, 1)
+
+INSN(I64_EQZ, Reg, 3, 1)
+INSN(I64_EQ, Reg, 3, 1)
+INSN(I64_NE, Reg, 3, 1)
+INSN(I64_LT_S, Reg, 3, 1)
+INSN(I64_LT_U, Reg, 3, 1)
+INSN(I64_GT_S, Reg, 3, 1)
+INSN(I64_GT_U, Reg, 3, 1)
+INSN(I64_LE_S, Reg, 3, 1)
+INSN(I64_LE_U, Reg, 3, 1)
+INSN(I64_GE_S, Reg, 3, 1)
+INSN(I64_GE_U, Reg, 3, 1)
+
+INSN(F32_EQ, Reg, 3, 1)
+INSN(F32_NE, Reg, 3, 1)
+INSN(F32_LT, Reg, 3, 1)
+INSN(F32_GT, Reg, 3, 1)
+INSN(F32_LE, Reg, 3, 1)
+INSN(F32_GE, Reg, 3, 1)
+
+INSN(F64_EQ, Reg, 3, 1)
+INSN(F64_NE, Reg, 3, 1)
+INSN(F64_LT, Reg, 3, 1)
+INSN(F64_GT, Reg, 3, 1)
+INSN(F64_LE, Reg, 3, 1)
+INSN(F64_GE, Reg, 3, 1)
+
+/* Select instruction */
+INSN(SELECT, Reg, 4, 1)
+
 /* Memory instructions */
 INSN(I32_LOAD, Reg, 2, 1)
 INSN(I64_LOAD, Reg, 2, 1)
