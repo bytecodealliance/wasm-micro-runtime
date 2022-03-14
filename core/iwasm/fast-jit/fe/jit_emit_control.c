@@ -320,7 +320,7 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     /* fp_reg = prev_frame */
     GEN_INSN(MOV, cc->fp_reg, prev_frame);
     /* return 0 */
-    GEN_INSN(RETURN, NEW_CONST(I32, 0));
+    GEN_INSN(RETURNBC, NEW_CONST(I32, 0));
 }
 
 static bool

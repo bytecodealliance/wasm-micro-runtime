@@ -89,6 +89,7 @@ jit_dump_insn_VReg(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
     os_printf("\n");
 }
 
+#if 0
 static void
 jit_dump_insn_TableSwitch(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
 {
@@ -107,6 +108,7 @@ jit_dump_insn_TableSwitch(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)
         os_printf("\n");
     }
 }
+#endif
 
 static void
 jit_dump_insn_LookupSwitch(JitCompContext *cc, JitInsn *insn, unsigned opnd_num)

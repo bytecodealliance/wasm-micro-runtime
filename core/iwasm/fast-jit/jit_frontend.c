@@ -244,7 +244,7 @@ form_and_translate_func(JitCompContext *cc)
             if (insn) {
                 *(jit_insn_opndv(insn, 2)) = NEW_CONST(I32, i);
             }
-            GEN_INSN(RETURN, NEW_CONST(I32, i));
+            GEN_INSN(RETURNBC, NEW_CONST(I32, i));
 
             *(jit_annl_begin_bcip(cc,
                                   jit_basic_block_label(cc->cur_basic_block))) =

@@ -383,7 +383,7 @@ jit_basic_block_succs(JitBasicBlock *block)
             vec._base = jit_insn_opnd(last_insn, 1);
             break;
 
-        case JIT_OP_LOOKUP_SWITCH:
+        case JIT_OP_LOOKUPSWITCH:
         {
             JitOpndLookupSwitch *opnd = jit_insn_opndls(last_insn);
             vec.num = opnd->match_pairs_num + 1;

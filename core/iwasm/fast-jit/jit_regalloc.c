@@ -410,8 +410,8 @@ reload_vreg(RegallocContext *rc, JitReg vreg, JitInsn *cur_insn)
     JitInsn *insn = NULL;
 
     if (vreg == rc->cc->exec_env_reg)
-        /* Reload exec_env_reg with LDSELF.  */
-        insn = jit_cc_new_insn(rc->cc, LDSELF, vr->hreg);
+        /* Reload exec_env_reg with LDEXECENV.  */
+        insn = jit_cc_new_insn(rc->cc, LDEXECENV, vr->hreg);
     else
     /* Allocate spill slot if not yet and reload from there.  */
     {
