@@ -327,7 +327,7 @@ pacman -R cmake
 pacman -S mingw-w64-x86_64-cmake
 ```
 
-Then follow the build instructions for Windows above, and adding the following
+Then follow the build instructions for Windows above, and add the following
 arguments for cmake:
 
 ```Bash
