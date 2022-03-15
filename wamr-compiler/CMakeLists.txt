@@ -259,9 +259,11 @@ add_executable (wamrc main.c)
 
 if (NOT MSVC)
   target_link_libraries (wamrc aotclib vmlib LLVMDemangle ${LLVM_AVAILABLE_LIBS} ${lib_ubsan}
-                         -lm -ldl -lpthread ${lib_lldb} ${UV_A_LIBS})
+                         -lm -lpthread ${lib_lldb} ${UV_A_LIBS})
   if (MINGW)
       target_link_libraries (wamrc -lssp -lWs2_32)
+  else()
+      target_link_libraries (wamrc -ldl)
   endif()
 else()
   target_link_libraries (wamrc aotclib vmlib  ${lib_lldb} ${LLVM_AVAILABLE_LIBS} ${lib_ubsan}
