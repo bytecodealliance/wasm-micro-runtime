@@ -1889,7 +1889,6 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                 goto check_symbol_fail;
             }
 
-            symbol_addr = module->extra_plt_data + ymm_plt_index * 16;
             bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
                         symbol + strlen(YMM_PLT_PREFIX) + 16, 16);
             if (!str2uint64(ymm_buf, (uint64 *)((uint8 *)symbol_addr + 16))) {
