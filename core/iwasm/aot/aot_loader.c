@@ -19,6 +19,7 @@
 #include "debug/jit_debug.h"
 #endif
 
+#define YMM_PLT_PREFIX "__ymm@"
 #define XMM_PLT_PREFIX "__xmm@"
 #define REAL_PLT_PREFIX "__real@"
 
@@ -1805,7 +1806,8 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
         is_literal ? module->literal_size : module->code_size;
     uint32 i, func_index, symbol_len;
 #if defined(BH_PLATFORM_WINDOWS)
-    uint32 xmm_plt_index = 0, real_plt_index = 0, float_plt_index = 0;
+    uint32 ymm_plt_index = 0, xmm_plt_index = 0;
+    uint32 real_plt_index = 0, float_plt_index = 0, j;
 #endif
     char symbol_buf[128] = { 0 }, *symbol, *p;
     void *symbol_addr;
@@ -1860,31 +1862,45 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             symbol_addr = module->literal;
         }
 #if defined(BH_PLATFORM_WINDOWS)
-        /* Relocation for symbols which start with "__xmm@" or "__real@" and
-           end with the xmm value or real value. In Windows PE file, the data
-           is stored in some individual ".rdata" sections. We simply create
-           extra plt data, parse the values from the symbols and stored them
-           into the extra plt data. */
+        /* Relocation for symbols which start with "__ymm@", "__xmm@" or
+           "__real@" and end with the ymm value, xmm value or real value.
+           In Windows PE file, the data is stored in some individual ".rdata"
+           sections. We simply create extra plt data, parse the values from
+           the symbols and stored them into the extra plt data. */
+        else if (!strcmp(group->section_name, ".text")
+                 && !strncmp(symbol, YMM_PLT_PREFIX, strlen(YMM_PLT_PREFIX))
+                 && strlen(symbol) == strlen(YMM_PLT_PREFIX) + 64) {
+            char ymm_buf[17] = { 0 };
+
+            symbol_addr = module->extra_plt_data + ymm_plt_index * 32;
+            for (j = 0; j < 4; j++) {
+                bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
+                            symbol + strlen(YMM_PLT_PREFIX) + 48 - 16 * j, 16);
+                if (!str2uint64(ymm_buf,
+                                (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "resolve symbol %s failed", symbol);
+                    goto check_symbol_fail;
+                }
+            }
+            ymm_plt_index++;
+        }
         else if (!strcmp(group->section_name, ".text")
                  && !strncmp(symbol, XMM_PLT_PREFIX, strlen(XMM_PLT_PREFIX))
                  && strlen(symbol) == strlen(XMM_PLT_PREFIX) + 32) {
             char xmm_buf[17] = { 0 };
 
-            symbol_addr = module->extra_plt_data + xmm_plt_index * 16;
-            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
-                        symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
-            if (!str2uint64(xmm_buf, (uint64 *)symbol_addr)) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
-            }
-
-            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
-                        symbol + strlen(XMM_PLT_PREFIX), 16);
-            if (!str2uint64(xmm_buf, (uint64 *)((uint8 *)symbol_addr + 8))) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
+            symbol_addr = module->extra_plt_data + module->ymm_plt_count * 32
+                          + xmm_plt_index * 16;
+            for (j = 0; j < 2; j++) {
+                bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
+                            symbol + strlen(XMM_PLT_PREFIX) + 16 - 16 * j, 16);
+                if (!str2uint64(xmm_buf,
+                                (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "resolve symbol %s failed", symbol);
+                    goto check_symbol_fail;
+                }
             }
             xmm_plt_index++;
         }
@@ -1893,8 +1909,8 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  && strlen(symbol) == strlen(REAL_PLT_PREFIX) + 16) {
             char real_buf[17] = { 0 };
 
-            symbol_addr = module->extra_plt_data + module->xmm_plt_count * 16
-                          + real_plt_index * 8;
+            symbol_addr = module->extra_plt_data + module->ymm_plt_count * 32
+                          + module->xmm_plt_count * 16 + real_plt_index * 8;
             bh_memcpy_s(real_buf, sizeof(real_buf),
                         symbol + strlen(REAL_PLT_PREFIX), 16);
             if (!str2uint64(real_buf, (uint64 *)symbol_addr)) {
@@ -1909,7 +1925,8 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  && strlen(symbol) == strlen(REAL_PLT_PREFIX) + 8) {
             char float_buf[9] = { 0 };
 
-            symbol_addr = module->extra_plt_data + module->xmm_plt_count * 16
+            symbol_addr = module->extra_plt_data + module->ymm_plt_count * 32
+                          + module->xmm_plt_count * 16
                           + module->real_plt_count * 8 + float_plt_index * 4;
             bh_memcpy_s(float_buf, sizeof(float_buf),
                         symbol + strlen(REAL_PLT_PREFIX), 8);
@@ -2121,11 +2138,19 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                  || (module->is_indirect_mode
                      && group_name_len == strlen(".text") + 1))
                 && !strncmp(group_name, ".text", strlen(".text"))) {
-                if ((symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                if ((symbol_name_len == strlen(YMM_PLT_PREFIX) + 64
                      || (module->is_indirect_mode
-                         && symbol_name_len == strlen(XMM_PLT_PREFIX) + 32 + 1))
-                    && !strncmp(symbol_name, XMM_PLT_PREFIX,
-                                strlen(XMM_PLT_PREFIX))) {
+                         && symbol_name_len == strlen(YMM_PLT_PREFIX) + 64 + 1))
+                    && !strncmp(symbol_name, YMM_PLT_PREFIX,
+                                strlen(YMM_PLT_PREFIX))) {
+                    module->ymm_plt_count++;
+                }
+                else if ((symbol_name_len == strlen(XMM_PLT_PREFIX) + 32
+                          || (module->is_indirect_mode
+                              && symbol_name_len
+                                     == strlen(XMM_PLT_PREFIX) + 32 + 1))
+                         && !strncmp(symbol_name, XMM_PLT_PREFIX,
+                                     strlen(XMM_PLT_PREFIX))) {
                     module->xmm_plt_count++;
                 }
                 else if ((symbol_name_len == strlen(REAL_PLT_PREFIX) + 16
@@ -2149,7 +2174,8 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     }
 
     /* Allocate memory for extra plt data */
-    size = sizeof(uint64) * 2 * module->xmm_plt_count
+    size = sizeof(uint64) * 4 * module->ymm_plt_count
+           + sizeof(uint64) * 2 * module->xmm_plt_count
            + sizeof(uint64) * module->real_plt_count
            + sizeof(uint32) * module->float_plt_count;
     if (size > 0) {
