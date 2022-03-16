@@ -1876,7 +1876,8 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             for (j = 0; j < 4; j++) {
                 bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
                             symbol + strlen(YMM_PLT_PREFIX) + 48 - 16 * j, 16);
-                if (!str2uint64(ymm_buf, (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
+                if (!str2uint64(ymm_buf,
+                                (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "resolve symbol %s failed", symbol);
                     goto check_symbol_fail;
@@ -1894,7 +1895,8 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             for (j = 0; j < 2; j++) {
                 bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
                             symbol + strlen(XMM_PLT_PREFIX) + 16 - 16 * j, 16);
-                if (!str2uint64(xmm_buf, (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
+                if (!str2uint64(xmm_buf,
+                                (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
                     set_error_buf_v(error_buf, error_buf_size,
                                     "resolve symbol %s failed", symbol);
                     goto check_symbol_fail;
