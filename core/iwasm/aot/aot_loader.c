@@ -1807,7 +1807,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
     uint32 i, func_index, symbol_len;
 #if defined(BH_PLATFORM_WINDOWS)
     uint32 ymm_plt_index = 0, xmm_plt_index = 0;
-    uint32 real_plt_index = 0, float_plt_index = 0;
+    uint32 real_plt_index = 0, float_plt_index = 0, j;
 #endif
     char symbol_buf[128] = { 0 }, *symbol, *p;
     void *symbol_addr;
@@ -1863,7 +1863,7 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
         }
 #if defined(BH_PLATFORM_WINDOWS)
         /* Relocation for symbols which start with "__ymm@", "__xmm@" or
-           "__real@" and end with the xmm value, ymm value or real value.
+           "__real@" and end with the ymm value, xmm value or real value.
            In Windows PE file, the data is stored in some individual ".rdata"
            sections. We simply create extra plt data, parse the values from
            the symbols and stored them into the extra plt data. */
@@ -1873,36 +1873,14 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
             char ymm_buf[17] = { 0 };
 
             symbol_addr = module->extra_plt_data + ymm_plt_index * 32;
-            bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
-                        symbol + strlen(YMM_PLT_PREFIX) + 48, 16);
-            if (!str2uint64(ymm_buf, (uint64 *)symbol_addr)) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
-            }
-
-            bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
-                        symbol + strlen(YMM_PLT_PREFIX) + 32, 16);
-            if (!str2uint64(ymm_buf, (uint64 *)((uint8 *)symbol_addr + 8))) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
-            }
-
-            bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
-                        symbol + strlen(YMM_PLT_PREFIX) + 16, 16);
-            if (!str2uint64(ymm_buf, (uint64 *)((uint8 *)symbol_addr + 16))) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
-            }
-
-            bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
-                        symbol + strlen(YMM_PLT_PREFIX), 16);
-            if (!str2uint64(ymm_buf, (uint64 *)((uint8 *)symbol_addr + 24))) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
+            for (j = 0; j < 4; j++) {
+                bh_memcpy_s(ymm_buf, sizeof(ymm_buf),
+                            symbol + strlen(YMM_PLT_PREFIX) + 48 - 16 * j, 16);
+                if (!str2uint64(ymm_buf, (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "resolve symbol %s failed", symbol);
+                    goto check_symbol_fail;
+                }
             }
             ymm_plt_index++;
         }
@@ -1913,20 +1891,14 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
 
             symbol_addr = module->extra_plt_data + module->ymm_plt_count * 32
                           + xmm_plt_index * 16;
-            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
-                        symbol + strlen(XMM_PLT_PREFIX) + 16, 16);
-            if (!str2uint64(xmm_buf, (uint64 *)symbol_addr)) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
-            }
-
-            bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
-                        symbol + strlen(XMM_PLT_PREFIX), 16);
-            if (!str2uint64(xmm_buf, (uint64 *)((uint8 *)symbol_addr + 8))) {
-                set_error_buf_v(error_buf, error_buf_size,
-                                "resolve symbol %s failed", symbol);
-                goto check_symbol_fail;
+            for (j = 0; j < 2; j++) {
+                bh_memcpy_s(xmm_buf, sizeof(xmm_buf),
+                            symbol + strlen(XMM_PLT_PREFIX) + 16 - 16 * j, 16);
+                if (!str2uint64(xmm_buf, (uint64 *)((uint8 *)symbol_addr + 8 * j))) {
+                    set_error_buf_v(error_buf, error_buf_size,
+                                    "resolve symbol %s failed", symbol);
+                    goto check_symbol_fail;
+                }
             }
             xmm_plt_index++;
         }
