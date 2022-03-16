@@ -1330,6 +1330,9 @@ jit_value_stack_destroy(JitValueStack *stack)
         jit_free(value);
         value = p;
     }
+
+    stack->value_list_head = NULL;
+    stack->value_list_end = NULL;
 }
 
 void
@@ -1373,6 +1376,9 @@ jit_block_stack_destroy(JitBlockStack *stack)
         jit_block_destroy(block);
         block = p;
     }
+
+    stack->block_list_head = NULL;
+    stack->block_list_end = NULL;
 }
 
 bool
