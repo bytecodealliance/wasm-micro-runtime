@@ -185,8 +185,7 @@ jit_dump_basic_block(JitCompContext *cc, JitBasicBlock *block)
                 : cc->jitted_addr_end);
     else
         /* Dump IR.  */
-        JIT_FOREACH_INSN(block, insn)
-    jit_dump_insn(cc, insn);
+        JIT_FOREACH_INSN(block, insn) jit_dump_insn(cc, insn);
 
     os_printf("    ; SUCCS(");
 

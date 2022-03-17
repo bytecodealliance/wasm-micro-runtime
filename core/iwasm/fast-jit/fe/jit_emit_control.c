@@ -584,16 +584,9 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
             SET_BB_BEGIN_BCIP(block->basic_block_entry, *p_frame_ip);
 
-            if (else_addr) {
-                if (!push_jit_block_to_stack_and_pass_params(
-                        cc, block, block->basic_block_entry, value))
-                    goto fail;
-            }
-            else {
-                if (!push_jit_block_to_stack_and_pass_params(
-                        cc, block, block->basic_block_else, value))
-                    goto fail;
-            }
+            if (!push_jit_block_to_stack_and_pass_params(
+                    cc, block, block->basic_block_entry, value))
+                goto fail;
         }
         else {
             if (jit_cc_get_const_I32(cc, value) != 0) {
