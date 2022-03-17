@@ -22,6 +22,16 @@ typedef struct JitGlobals {
 } JitGlobals;
 
 /**
+ * Actions the interpreter should do when JITed code returns to
+ * interpreter.
+ */
+typedef enum JitInterpAction {
+    JIT_INTERP_ACTION_NORMAL, /* normal execution */
+    JIT_INTERP_ACTION_THROWN, /* exception was thrown */
+    JIT_INTERP_ACTION_CALL    /* call wasm function */
+} JitInterpAction;
+
+/**
  * Information exchanged between JITed code and interpreter.
  */
 typedef struct JitInterpSwitchInfo {
