@@ -146,11 +146,13 @@ jit_dump_insn(JitCompContext *cc, JitInsn *insn)
 void
 jit_dump_basic_block(JitCompContext *cc, JitBasicBlock *block)
 {
-    unsigned i;
+    unsigned i, label_index;
+    void *begin_addr, *end_addr;
+    JitBasicBlock *block_next;
     JitInsn *insn;
     JitRegVec preds = jit_basic_block_preds(block);
     JitRegVec succs = jit_basic_block_succs(block);
-    JitReg label = jit_basic_block_label(block);
+    JitReg label = jit_basic_block_label(block), label_next;
     JitReg *reg;
 
     jit_dump_reg(cc, label);
@@ -176,17 +178,33 @@ jit_dump_basic_block(JitCompContext *cc, JitBasicBlock *block)
                       - (uint8 *)cc->cur_wasm_module->load_addr);
     os_printf("\n");
 
-    if (jit_annl_is_enabled_jitted_addr(cc))
-        /* Dump assembly.  */
-        jit_codegen_dump_native(
-            *(jit_annl_jitted_addr(cc, label)),
-            label != cc->exit_label
-                ? *(jit_annl_jitted_addr(cc, *(jit_annl_next_label(cc, label))))
-                : cc->jitted_addr_end);
-    else
+    if (jit_annl_is_enabled_jitted_addr(cc)) {
+        begin_addr = *(jit_annl_jitted_addr(cc, label));
+
+        if (label == cc->entry_label) {
+            block_next = cc->_ann._label_basic_block[2];
+            label_next = jit_basic_block_label(block_next);
+            end_addr = *(jit_annl_jitted_addr(cc, label_next));
+        }
+        else if (label == cc->exit_label) {
+            end_addr = cc->jitted_addr_end;
+        }
+        else {
+            label_index = jit_reg_no(label);
+            if (label_index < jit_cc_label_num(cc) - 1)
+                block_next = cc->_ann._label_basic_block[label_index + 1];
+            else
+                block_next = cc->_ann._label_basic_block[1];
+            label_next = jit_basic_block_label(block_next);
+            end_addr = *(jit_annl_jitted_addr(cc, label_next));
+        }
+
+        jit_codegen_dump_native(begin_addr, end_addr);
+    }
+    else {
         /* Dump IR.  */
-        JIT_FOREACH_INSN(block, insn)
-    jit_dump_insn(cc, insn);
+        JIT_FOREACH_INSN(block, insn) jit_dump_insn(cc, insn);
+    }
 
     os_printf("    ; SUCCS(");
 
@@ -280,18 +298,17 @@ dump_cc_ir(JitCompContext *cc)
 
     os_printf("\n\n");
 
-    if (jit_annl_is_enabled_next_label(cc))
+    if (jit_annl_is_enabled_next_label(cc)) {
         /* Blocks have been reordered, use that order to dump.  */
         for (label = cc->entry_label; label;
              label = *(jit_annl_next_label(cc, label)))
             jit_dump_basic_block(cc, *(jit_annl_basic_block(cc, label)));
-    else
-    /* Otherwise, use the default order.  */
-    {
+    }
+    else {
+        /* Otherwise, use the default order.  */
         jit_dump_basic_block(cc, jit_cc_entry_basic_block(cc));
 
-        JIT_FOREACH_BLOCK(cc, i, end, block)
-        jit_dump_basic_block(cc, block);
+        JIT_FOREACH_BLOCK(cc, i, end, block) jit_dump_basic_block(cc, block);
 
         jit_dump_basic_block(cc, jit_cc_exit_basic_block(cc));
     }

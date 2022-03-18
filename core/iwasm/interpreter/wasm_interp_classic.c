@@ -3767,10 +3767,13 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 #if WASM_ENABLE_FAST_JIT == 0
         wasm_interp_call_func_bytecode(module_inst, exec_env, function, frame);
 #else
+        JitGlobals *jit_globals = jit_compiler_get_jit_globals();
         JitInterpSwitchInfo info;
         info.frame = frame;
+        frame->jitted_return_addr =
+            (uint8 *)jit_globals->return_to_interp_from_jitted;
         jit_interp_switch_to_jitted(exec_env, &info,
-                                    function->u.func->jitted_code);
+                                    function->u.func->fast_jit_jitted_code);
         (void)wasm_interp_call_func_bytecode;
 #endif
     }

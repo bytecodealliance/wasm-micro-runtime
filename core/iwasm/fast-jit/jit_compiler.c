@@ -50,7 +50,8 @@ static JitGlobals jit_globals = {
 #else
     .passes = compiler_passes_with_dump,
 #endif
-    .code_cache_size = 10 * 1024 * 1024
+    .code_cache_size = 10 * 1024 * 1024,
+    .return_to_interp_from_jitted = NULL
 };
 /* clang-format on */
 
@@ -99,7 +100,7 @@ jit_compiler_destroy()
     jit_code_cache_destroy();
 }
 
-const JitGlobals *
+JitGlobals *
 jit_compiler_get_jit_globals()
 {
     return &jit_globals;
@@ -153,7 +154,7 @@ jit_compiler_compile_all(WASMModule *module)
 {
     JitCompContext *cc;
     char *last_error;
-    bool ret = false;
+    bool ret = true;
     uint32 i;
 
     /* Initialize compilation context.  */

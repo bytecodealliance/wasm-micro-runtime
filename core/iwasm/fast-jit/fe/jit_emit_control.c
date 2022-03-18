@@ -192,7 +192,7 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
             /* Don't create else basic block or end basic block now, just
                save its incoming BNE insn, and patch the insn's else label
                when the basic block is lazily created */
-            if (basic_block == block->basic_block_entry) {
+            if (block->wasm_code_else) {
                 block->incoming_insn_for_else_bb = insn;
             }
             else {
@@ -296,8 +296,23 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
              NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
 #endif
 
-    copy_block_arities(cc, prev_frame_sp, block->result_types,
-                       block->result_count);
+    if (block->result_count) {
+        uint32 cell_num =
+            wasm_get_cell_num(block->result_types, block->result_count);
+
+        copy_block_arities(cc, prev_frame_sp, block->result_types,
+                           block->result_count);
+        /* prev_frame->sp += cell_num */
+        GEN_INSN(ADD, prev_frame_sp, prev_frame_sp,
+                 NEW_CONST(I64, cell_num * 4));
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(STI64, prev_frame_sp, prev_frame,
+                 NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
+#else
+        GEN_INSN(STI32, prev_frame_sp, prev_frame,
+                 NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
+#endif
+    }
 
     /* Free stack space of the current frame:
        exec_env->wasm_stack.s.top = cur_frame */
@@ -584,16 +599,9 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
             SET_BB_BEGIN_BCIP(block->basic_block_entry, *p_frame_ip);
 
-            if (else_addr) {
-                if (!push_jit_block_to_stack_and_pass_params(
-                        cc, block, block->basic_block_entry, value))
-                    goto fail;
-            }
-            else {
-                if (!push_jit_block_to_stack_and_pass_params(
-                        cc, block, block->basic_block_else, value))
-                    goto fail;
-            }
+            if (!push_jit_block_to_stack_and_pass_params(
+                    cc, block, block->basic_block_entry, value))
+                goto fail;
         }
         else {
             if (jit_cc_get_const_I32(cc, value) != 0) {

@@ -298,6 +298,7 @@ jmp_from_label_to_label(x86::Assembler &a, bh_list *jmp_info_list,
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
+ * @param jmp_info_list the jmp info list
  * @param label_src the index of src label
  * @param op the opcode of condition operation
  * @param reg_no the no of register which contains the compare results
@@ -2904,7 +2905,7 @@ cmp_r_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
         else {                                                                \
             CHECK_KIND(r1, JIT_REG_KIND_I64);                                 \
         }                                                                     \
-        if (jit_reg_is_const) {                                               \
+        if (jit_reg_is_const(r2)) {                                           \
             CHECK_KIND(r2, JIT_REG_KIND_I32);                                 \
         }                                                                     \
         else {                                                                \
@@ -2957,7 +2958,7 @@ cmp_r_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
         else {                                                                 \
             CHECK_KIND(r1, JIT_REG_KIND_I64);                                  \
         }                                                                      \
-        if (jit_reg_is_const) {                                                \
+        if (jit_reg_is_const(r2)) {                                            \
             CHECK_KIND(r2, JIT_REG_KIND_I32);                                  \
         }                                                                      \
         else {                                                                 \
@@ -3538,6 +3539,7 @@ fail:
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
+ * @param jmp_info_list the jmp info list
  * @param r0 dst jit register that contains the dst operand info
  * @param r1 src jit register that contains the first src operand info
  * @param r2 src jit register that contains the second src operand info
@@ -3732,7 +3734,8 @@ static bool
 lower_callnative(JitCompContext *cc, x86::Assembler &a, int32 label_src,
                  JitInsn *insn)
 {
-    return false;
+    /* TODO: ignore it now */
+    return true;
 }
 
 /**
@@ -3756,7 +3759,130 @@ static bool
 lower_returnbc(JitCompContext *cc, x86::Assembler &a, int32 label_src,
                JitInsn *insn)
 {
+    JitReg ecx_hreg = jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
+    JitReg rcx_hreg = jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
+    JitReg act_reg = *(jit_insn_opnd(insn, 0));
+    JitReg ret_reg = *(jit_insn_opnd(insn, 1));
+    int32 act;
+
+    CHECK_CONST(act_reg);
+    CHECK_KIND(act_reg, JIT_REG_KIND_I32);
+
+    act = jit_cc_get_const_I32(cc, act_reg);
+
+    if (ret_reg) {
+        if (jit_reg_is_kind(I32, ret_reg)) {
+            if (!lower_mov(cc, a, ecx_hreg, ret_reg))
+                return false;
+        }
+        else if (jit_reg_is_kind(I64, ret_reg)) {
+            if (!lower_mov(cc, a, rcx_hreg, ret_reg))
+                return false;
+        }
+        else if (jit_reg_is_kind(F32, ret_reg)) {
+            /* TODO */
+            return false;
+        }
+        else if (jit_reg_is_kind(F64, ret_reg)) {
+            /* TODO */
+            return false;
+        }
+        else {
+            return false;
+        }
+    }
+
+    {
+        /* eax = act */
+        Imm imm(act);
+        a.mov(x86::eax, imm);
+
+        x86::Mem m(x86::rbp, cc->jitted_return_address_offset);
+        a.jmp(m);
+    }
+    return true;
+fail:
     return false;
+}
+
+static bool
+lower_return(JitCompContext *cc, x86::Assembler &a, JitInsn *insn)
+{
+    JitReg act_reg = *(jit_insn_opnd(insn, 0));
+    int32 act;
+
+    CHECK_CONST(act_reg);
+    CHECK_KIND(act_reg, JIT_REG_KIND_I32);
+
+    act = jit_cc_get_const_I32(cc, act_reg);
+    {
+        /* eax = act */
+        Imm imm(act);
+        a.mov(x86::eax, imm);
+
+        imm.setValue((uintptr_t)code_block_return_to_interp_from_jitted);
+        a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+        a.jmp(regs_i64[REG_I64_FREE_IDX]);
+    }
+    return true;
+fail:
+    return false;
+}
+
+/**
+ * Replace all the jmp address pre-saved when the code cache hasn't been
+ * allocated with actual address after code cache allocated
+ *
+ * @param cc compiler context containting the allocated code cacha info
+ * @param jmp_info_list the jmp info list
+ */
+static void
+patch_jmp_info_list(JitCompContext *cc, bh_list *jmp_info_list)
+{
+    JmpInfo *jmp_info, *jmp_info_next;
+    JitReg reg_src, reg_dst;
+    char *stream;
+
+    jmp_info = (JmpInfo *)bh_list_first_elem(jmp_info_list);
+
+    while (jmp_info) {
+        jmp_info_next = (JmpInfo *)bh_list_elem_next(jmp_info);
+
+        reg_src = jit_reg_new(JIT_REG_KIND_L32, jmp_info->label_src);
+        stream = (char *)cc->jitted_addr_begin + jmp_info->offset;
+
+        if (jmp_info->type == JMP_DST_LABEL) {
+            reg_dst =
+                jit_reg_new(JIT_REG_KIND_L32, jmp_info->dst_info.label_dst);
+            *(int32 *)stream =
+                (int32)((uintptr_t)*jit_annl_jitted_addr(cc, reg_dst)
+                        - (uintptr_t)stream)
+                - 4;
+        }
+        else if (jmp_info->type == JMP_END_OF_CALLBC) {
+            /* TODO */
+        }
+        else if (jmp_info->type == JMP_TARGET_CODE) {
+            /* TODO */
+        }
+
+        jmp_info = jmp_info_next;
+    }
+}
+
+/* Free the jmp info list */
+static void
+free_jmp_info_list(bh_list *jmp_info_list)
+{
+    void *cur_node = bh_list_first_elem(jmp_info_list);
+
+    while (cur_node) {
+        void *next_node = bh_list_elem_next(cur_node);
+
+        bh_list_remove(jmp_info_list, cur_node);
+        jit_free(cur_node);
+        cur_node = next_node;
+    }
 }
 
 bool
@@ -3768,12 +3894,13 @@ jit_codegen_gen_native(JitCompContext *cc)
     JmpInfo jmp_info_head;
     bh_list *jmp_info_list = (bh_list *)&jmp_info_head;
     uint32 label_index, label_num, i, j;
-    uint32 *label_offsets = NULL;
+    uint32 *label_offsets = NULL, code_size;
 #if CODEGEN_DUMP != 0
     uint32 code_offset = 0;
 #endif
     bool return_value = false, is_last_insn;
-    void **jited_addr;
+    void **jitted_addr;
+    char *code_buf, *stream;
 
     JitErrorHandler err_handler;
     Environment env(Arch::kX64);
@@ -4078,6 +4205,11 @@ jit_codegen_gen_native(JitCompContext *cc)
                         GOTO_FAIL;
                     break;
 
+                case JIT_OP_RETURN:
+                    if (!lower_return(cc, a, insn))
+                        GOTO_FAIL;
+                    break;
+
                 default:
                     jit_set_last_error_v(cc, "unsupported JIT opcode 0x%2x",
                                          insn->opcode);
@@ -4100,10 +4232,38 @@ jit_codegen_gen_native(JitCompContext *cc)
         }
     }
 
+    code_buf = (char *)code.sectionById(0)->buffer().data();
+    code_size = code.sectionById(0)->buffer().size();
+    if (!(stream = (char *)jit_code_cache_alloc(code_size))) {
+        jit_set_last_error(cc, "allocate memory failed");
+        goto fail;
+    }
+
+    bh_memcpy_s(stream, code_size, code_buf, code_size);
+    cc->jitted_addr_begin = stream;
+    cc->jitted_addr_end = stream + code_size;
+
+    for (i = 0; i < label_num; i++) {
+        if (i == 0)
+            label_index = 0;
+        else if (i == label_num - 1)
+            label_index = 1;
+        else
+            label_index = i + 1;
+
+        jitted_addr = jit_annl_jitted_addr(
+            cc, jit_reg_new(JIT_REG_KIND_L32, label_index));
+        *jitted_addr = stream + label_offsets[label_index];
+    }
+
+    patch_jmp_info_list(cc, jmp_info_list);
     return_value = true;
-    return return_value;
+
 fail:
-    return false;
+
+    jit_free(label_offsets);
+    free_jmp_info_list(jmp_info_list);
+    return return_value;
 }
 
 bool
@@ -4120,7 +4280,9 @@ void
 jit_codegen_dump_native(void *begin_addr, void *end_addr)
 {
 #if WASM_ENABLE_FAST_JIT_DUMP != 0
+    os_printf("\n");
     dump_native((char *)begin_addr, (char *)end_addr - (char *)begin_addr);
+    os_printf("\n");
 #endif
 }
 
@@ -4128,6 +4290,7 @@ bool
 jit_codegen_init()
 {
     const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
+    JitGlobals *jit_globals = jit_compiler_get_jit_globals();
     char *code_buf, *stream;
     uint32 code_size;
 
@@ -4151,8 +4314,8 @@ jit_codegen_init()
     a.push(x86::rsi);
     /* exec_env_reg = exec_env */
     a.mov(regs_i64[hreg_info->exec_env_hreg_index], x86::rdi);
-    /* fp_reg = info.->frame */
-    a.mov(x86::ebp, x86::ptr(x86::rsi, 0));
+    /* fp_reg = info->frame */
+    a.mov(x86::rbp, x86::ptr(x86::rsi, 0));
     /* jmp target */
     a.jmp(x86::rdx);
 
@@ -4173,8 +4336,20 @@ jit_codegen_init()
 #endif
 
     a.setOffset(0);
+
     /* pop info */
     a.pop(x86::rsi);
+    /* info->frame = fp_reg */
+    {
+        x86::Mem m(x86::rsi, 0);
+        a.mov(m, x86::rbp);
+    }
+    /* info->out.ret.ival[0, 1] = rcx */
+    {
+        x86::Mem m(x86::rsi, 8);
+        a.mov(m, x86::rcx);
+    }
+
     /* pop exec_env */
     a.pop(x86::rdi);
     /* pop callee-save registers */
@@ -4184,6 +4359,8 @@ jit_codegen_init()
     a.pop(x86::r12);
     a.pop(x86::rbx);
     a.pop(x86::rbp);
+    a.leave();
+    a.ret();
 
     if (err_handler.err)
         goto fail1;
@@ -4196,6 +4373,9 @@ jit_codegen_init()
 
     bh_memcpy_s(stream, code_size, code_buf, code_size);
     code_block_return_to_interp_from_jitted = stream;
+
+    jit_globals->return_to_interp_from_jitted =
+        code_block_return_to_interp_from_jitted;
     return true;
 
 fail1:

@@ -255,7 +255,7 @@ struct WASMFunction {
     uint32 const_cell_num;
 #endif
 #if WASM_ENABLE_FAST_JIT != 0
-    void *jitted_code;
+    void *fast_jit_jitted_code;
 #endif
 };
 
@@ -447,7 +447,7 @@ struct WASMModule {
 
 #if WASM_ENABLE_FAST_JIT != 0
     /* point to JITed functions */
-    void **func_ptrs;
+    void **fast_jit_func_ptrs;
 #endif
 };
 
