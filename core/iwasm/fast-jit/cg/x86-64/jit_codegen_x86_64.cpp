@@ -285,7 +285,7 @@ jmp_from_label_to_label(x86::Assembler &a, bh_list *jmp_info_list,
     node->type = JMP_DST_LABEL;
     node->label_src = label_src;
     node->dst_info.label_dst = label_dst;
-    node->offset = a.code()->sectionById(0)->buffer().size() + 1;
+    node->offset = a.code()->sectionById(0)->buffer().size() + 2;
     bh_list_insert(jmp_info_list, node);
 
     a.jmp(imm);
@@ -492,6 +492,29 @@ extend_r32_to_r64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
     return false;
 }
 
+static void
+mov_r_to_r(x86::Assembler &a, uint32 kind_dst, int32 reg_no_dst,
+           int32 reg_no_src)
+{
+    if (reg_no_dst != reg_no_src) {
+        if (kind_dst == JIT_REG_KIND_I32)
+            a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+        else if (kind_dst == JIT_REG_KIND_I64)
+            a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+        else if (kind_dst == JIT_REG_KIND_F32) {
+            /* TODO */
+            bh_assert(0);
+        }
+        else if (kind_dst == JIT_REG_KIND_F64) {
+            /* TODO */
+            bh_assert(0);
+        }
+        else {
+            bh_assert(0);
+        }
+    }
+}
+
 /**
  * Encode moving memory to a register
  *
@@ -541,7 +564,7 @@ mov_m_to_r(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, bool is_signed,
                     a.movsxd(regs_i64[reg_no_dst], m_src);
                 else {
                     a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
-                    a.mov(regs_i32[reg_no_dst], m_src);
+                    a.mov(regs_i64[reg_no_dst], m_src);
                 }
                 break;
             case 8:
@@ -1551,8 +1574,7 @@ alu_r_r_imm_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 
     switch (op) {
         case ADD:
-            if (reg_no_dst != reg_no_src)
-                a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
             if (data == 1)
                 a.inc(regs_i32[reg_no_dst]);
             else if (data == -1)
@@ -1561,8 +1583,7 @@ alu_r_r_imm_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.add(regs_i32[reg_no_dst], imm);
             break;
         case SUB:
-            if (reg_no_dst != reg_no_src)
-                a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
             if (data == -1)
                 a.inc(regs_i32[reg_no_dst]);
             else if (data == 1)
@@ -1574,53 +1595,42 @@ alu_r_r_imm_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
             if (data == 0)
                 a.xor_(regs_i32[reg_no_dst], regs_i32[reg_no_dst]);
             else if (data == -1) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
                 a.neg(regs_i32[reg_no_dst]);
             }
+            else if (data == 1) {
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
+            }
             else if (data == 2) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
                 imm.setValue(1);
                 a.shl(regs_i32[reg_no_dst], imm);
             }
             else if (data == 4) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
                 imm.setValue(2);
                 a.shl(regs_i32[reg_no_dst], imm);
             }
             else if (data == 8) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no_src);
                 imm.setValue(3);
                 a.shl(regs_i32[reg_no_dst], imm);
             }
-            else if (data != 1) {
-                /* TODO: check imul instruction */
-                if (reg_no_dst == reg_no_src) {
-                    a.mov(regs_i32[REG_I32_FREE_IDX], imm);
-                    a.imul(regs_i32[reg_no_dst], regs_i32[REG_I32_FREE_IDX]);
-                }
-                else {
-                    a.mov(regs_i32[reg_no_dst], imm);
-                    a.imul(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
-                }
-            }
             else {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+                a.imul(regs_i32[reg_no_dst], regs_i32[reg_no_src], imm);
             }
             break;
+        case DIV:
+        case REM:
 #if 0
-      case DIV:
-      case REM:
             imm_from_sz_v_s (imm, SZ32, data, true);
             mov_r_imm (reg_I4_free, imm);
             stream = cdq (stream);
             idiv_r (reg_I4_free);
-            break;
 #endif
+            /* TODO */
+            bh_assert(0);
+            break;
         default:
             bh_assert(0);
             break;
@@ -1643,7 +1653,44 @@ static bool
 alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
               int32 reg_no2_src)
 {
-    return false;
+    switch (op) {
+        case ADD:
+            if (reg_no_dst != reg_no2_src) {
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no1_src);
+                a.add(regs_i32[reg_no_dst], regs_i32[reg_no2_src]);
+            }
+            else
+                a.add(regs_i32[reg_no2_src], regs_i32[reg_no1_src]);
+            break;
+        case SUB:
+            if (reg_no_dst != reg_no2_src) {
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no1_src);
+                a.sub(regs_i32[reg_no_dst], regs_i32[reg_no2_src]);
+            }
+            else {
+                a.sub(regs_i32[reg_no2_src], regs_i32[reg_no1_src]);
+                a.neg(regs_i32[reg_no2_src]);
+            }
+            break;
+        case MUL:
+            if (reg_no_dst != reg_no2_src) {
+                mov_r_to_r(a, JIT_REG_KIND_I32, reg_no_dst, reg_no1_src);
+                a.imul(regs_i32[reg_no_dst], regs_i32[reg_no2_src]);
+            }
+            else
+                a.imul(regs_i32[reg_no2_src], regs_i32[reg_no1_src]);
+            break;
+        case DIV:
+        case REM:
+            /* TODO */
+            bh_assert(0);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    return true;
 }
 
 /**
@@ -1747,7 +1794,7 @@ static bool
 alu_r_imm_to_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 data2_src)
 {
-    return false;
+    return alu_r_r_imm_i32(a, op, reg_no_dst, reg_no1_src, data2_src);
 }
 
 /**
@@ -1765,7 +1812,7 @@ static bool
 alu_r_r_to_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                  int32 reg_no1_src, int32 reg_no2_src)
 {
-    return false;
+    return alu_r_r_r_i32(a, op, reg_no_dst, reg_no1_src, reg_no2_src);
 }
 
 /**
@@ -1786,8 +1833,7 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 
     switch (op) {
         case ADD:
-            if (reg_no_dst != reg_no_src)
-                a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
             if (data == 1)
                 a.inc(regs_i64[reg_no_dst]);
             else if (data == -1)
@@ -1796,8 +1842,7 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.add(regs_i64[reg_no_dst], imm);
             break;
         case SUB:
-            if (reg_no_dst != reg_no_src)
-                a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
             if (data == -1)
                 a.inc(regs_i64[reg_no_dst]);
             else if (data == 1)
@@ -1809,53 +1854,42 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
             if (data == 0)
                 a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
             else if (data == -1) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
                 a.neg(regs_i64[reg_no_dst]);
             }
+            else if (data == 1) {
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
+            }
             else if (data == 2) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
                 imm.setValue(1);
                 a.shl(regs_i64[reg_no_dst], imm);
             }
             else if (data == 4) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
                 imm.setValue(2);
                 a.shl(regs_i64[reg_no_dst], imm);
             }
             else if (data == 8) {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
                 imm.setValue(3);
                 a.shl(regs_i64[reg_no_dst], imm);
             }
-            else if (data != 1) {
-                /* TODO: check imul instruction */
-                if (reg_no_dst == reg_no_src) {
-                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
-                    a.imul(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
-                }
-                else {
-                    a.mov(regs_i64[reg_no_dst], imm);
-                    a.imul(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
-                }
-            }
             else {
-                if (reg_no_dst != reg_no_src)
-                    a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+                a.imul(regs_i64[reg_no_dst], regs_i64[reg_no_src], imm);
             }
             break;
+        case DIV:
+        case REM:
 #if 0
-      case DIV:
-      case REM:
             imm_from_sz_v_s (imm, SZ32, data, true);
             mov_r_imm (reg_I4_free, imm);
             stream = cdq (stream);
             idiv_r (reg_I4_free);
-            break;
 #endif
+            /* TODO */
+            bh_assert(0);
+            break;
         default:
             bh_assert(0);
             break;
@@ -1878,7 +1912,44 @@ static bool
 alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
               int32 reg_no2_src)
 {
-    return false;
+    switch (op) {
+        case ADD:
+            if (reg_no_dst != reg_no2_src) {
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no1_src);
+                a.add(regs_i64[reg_no_dst], regs_i64[reg_no2_src]);
+            }
+            else
+                a.add(regs_i64[reg_no2_src], regs_i64[reg_no1_src]);
+            break;
+        case SUB:
+            if (reg_no_dst != reg_no2_src) {
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no1_src);
+                a.sub(regs_i64[reg_no_dst], regs_i64[reg_no2_src]);
+            }
+            else {
+                a.sub(regs_i64[reg_no2_src], regs_i64[reg_no1_src]);
+                a.neg(regs_i64[reg_no2_src]);
+            }
+            break;
+        case MUL:
+            if (reg_no_dst != reg_no2_src) {
+                mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no1_src);
+                a.imul(regs_i64[reg_no_dst], regs_i64[reg_no2_src]);
+            }
+            else
+                a.imul(regs_i64[reg_no2_src], regs_i64[reg_no1_src]);
+            break;
+        case DIV:
+        case REM:
+            /* TODO */
+            bh_assert(0);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    return true;
 }
 
 /**
@@ -2000,7 +2071,7 @@ static bool
 alu_r_r_to_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                  int32 reg_no1_src, int32 reg_no2_src)
 {
-    return false;
+    return alu_r_r_r_i64(a, op, reg_no_dst, reg_no1_src, reg_no2_src);
 }
 
 /**
@@ -3460,6 +3531,67 @@ fail:
 }
 
 /**
+ * Encode detecting the cmp flags in reg, and jmp to the relative address
+ * according to the condition opcode
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of register which contains cmp flags of cmp result
+ * @param op the condition opcode to jmp
+ * @param offset the relative offset to jmp when the contidtion meeted
+ *
+ * @return return the next address of native code after encoded
+ */
+static bool
+cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
+                       int32 offset)
+{
+    Imm target;
+
+    if (offset >= -127 && offset <= 127)
+        target.setValue((int8)offset);
+    else
+        target.setValue(offset);
+
+    switch (op) {
+        case EQ:
+            a.je(target);
+            break;
+        case NE:
+            a.jne(target);
+            break;
+        case GTS:
+            a.jg(target);
+            break;
+        case LES:
+            a.jng(target);
+            break;
+        case GES:
+            a.jge(target);
+            break;
+        case LTS:
+            a.jl(target);
+            break;
+        case GTU:
+            a.ja(target);
+            break;
+        case LEU:
+            a.jna(target);
+            break;
+        case GEU:
+            a.jae(target);
+            break;
+        case LTU:
+            a.jb(target);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    return true;
+}
+
+/**
  * Encode select insn, SELECT r0, r1, r2, r3
  *
  * @param cc the compiler context
@@ -3474,11 +3606,19 @@ static bool
 lower_select(JitCompContext *cc, x86::Assembler &a, COND_OP op, JitReg r0,
              JitReg r1, JitReg r2, JitReg r3)
 {
-#if 0
-    char stream_mov1[128];
-    char stream_mov2[128];
-    char *stream1 = stream_mov1;
-    char *stream2 = stream_mov2;
+    JitErrorHandler err_handler;
+    Environment env(Arch::kX64);
+    CodeHolder code1, code2;
+    char *stream_mov1, *stream_mov2;
+    uint32 size_mov1, size_mov2;
+
+    code1.init(env);
+    code1.setErrorHandler(&err_handler);
+    x86::Assembler a1(&code1);
+
+    code2.init(env);
+    code2.setErrorHandler(&err_handler);
+    x86::Assembler a2(&code2);
 
     CHECK_NCONST(r0);
     CHECK_NCONST(r1);
@@ -3494,27 +3634,29 @@ lower_select(JitCompContext *cc, x86::Assembler &a, COND_OP op, JitReg r0,
         op = not_cond(op);
     }
 
-    if (!lower_mov(cc, &stream1, r0, r2))
-        GOTO_FAIL;
-    if (!lower_mov(cc, &stream2, r0, r3))
+    if (!lower_mov(cc, a1, r0, r2))
         GOTO_FAIL;
 
+    if (!lower_mov(cc, a2, r0, r3))
+        GOTO_FAIL;
+
+    stream_mov1 = (char *)a1.code()->sectionById(0)->buffer().data();
+    size_mov1 = a1.code()->sectionById(0)->buffer().size();
+    stream_mov2 = (char *)a2.code()->sectionById(0)->buffer().data();
+    size_mov2 = a2.code()->sectionById(0)->buffer().size();
+
     if (r0 != r2) {
-        memcpy(stream, stream_mov1, (int32)(stream1 - stream_mov1));
-        stream += (int32)(stream1 - stream_mov1);
+        a.embedDataArray(TypeId::kInt8, stream_mov1, size_mov1);
     }
 
     if (r3 && r0 != r3) {
-        stream = cmp_r_and_jmp_relative(stream, jit_reg_no(r1), op,
-                                        (int32)(stream2 - stream_mov2));
-        memcpy(stream, stream_mov2, (int32)(stream2 - stream_mov2));
-        stream += (int32)(stream2 - stream_mov2);
+        if (!cmp_r_and_jmp_relative(a, jit_reg_no(r1), op, (int32)size_mov2))
+            return false;
+        a.embedDataArray(TypeId::kInt8, stream_mov2, size_mov2);
     }
 
     return true;
 fail:
-    return false;
-#endif
     return false;
 }
 
@@ -4079,32 +4221,32 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_LDI8:
                     LOAD_3ARGS();
-                    LD_R_R_R(I64, 1, true);
+                    LD_R_R_R(I32, 1, true);
                     break;
 
                 case JIT_OP_LDU8:
                     LOAD_3ARGS();
-                    LD_R_R_R(I64, 1, false);
+                    LD_R_R_R(I32, 1, false);
                     break;
 
                 case JIT_OP_LDI16:
                     LOAD_3ARGS();
-                    LD_R_R_R(I64, 2, true);
+                    LD_R_R_R(I32, 2, true);
                     break;
 
                 case JIT_OP_LDU16:
                     LOAD_3ARGS();
-                    LD_R_R_R(I64, 2, false);
+                    LD_R_R_R(I32, 2, false);
                     break;
 
                 case JIT_OP_LDI32:
                     LOAD_3ARGS();
-                    LD_R_R_R(I64, 4, true);
+                    LD_R_R_R(I32, 4, true);
                     break;
 
                 case JIT_OP_LDU32:
                     LOAD_3ARGS();
-                    LD_R_R_R(I64, 4, false);
+                    LD_R_R_R(I32, 4, false);
                     break;
 
                 case JIT_OP_LDI64:
@@ -4359,7 +4501,6 @@ jit_codegen_init()
     a.pop(x86::r12);
     a.pop(x86::rbx);
     a.pop(x86::rbp);
-    a.leave();
     a.ret();
 
     if (err_handler.err)
