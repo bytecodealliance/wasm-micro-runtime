@@ -226,15 +226,15 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_sp += 2;                    \
     } while (0)
 
-#define PUSH_CSP(_label_type, cell_num, _target_addr) \
-    do {                                              \
-        bh_assert(frame_csp < frame->csp_boundary);   \
-        /* frame_csp->label_type = _label_type; */    \
-        frame_csp->cell_num = cell_num;               \
-        frame_csp->begin_addr = frame_ip;             \
-        frame_csp->target_addr = _target_addr;        \
-        frame_csp->frame_sp = frame_sp;               \
-        frame_csp++;                                  \
+#define PUSH_CSP(_label_type, param_cell_num, cell_num, _target_addr) \
+    do {                                                              \
+        bh_assert(frame_csp < frame->csp_boundary);                   \
+        /* frame_csp->label_type = _label_type; */                    \
+        frame_csp->cell_num = cell_num;                               \
+        frame_csp->begin_addr = frame_ip;                             \
+        frame_csp->target_addr = _target_addr;                        \
+        frame_csp->frame_sp = frame_sp - param_cell_num;              \
+        frame_csp++;                                                  \
     } while (0)
 
 #define POP_I32() (--frame_sp, *(int32 *)frame_sp)
@@ -991,7 +991,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 *else_addr, *end_addr, *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
     uint8 local_type, *global_addr;
-    uint32 cache_index, type_index, cell_num;
+    uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
@@ -1019,6 +1019,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(EXT_OP_BLOCK)
             {
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                param_cell_num = wasm_types[type_index]->param_cell_num;
                 cell_num = wasm_types[type_index]->ret_cell_num;
                 goto handle_op_block;
             }
@@ -1026,6 +1027,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_BLOCK)
             {
                 value_type = *frame_ip++;
+                param_cell_num = 0;
                 cell_num = wasm_value_type_cell_num(value_type);
             handle_op_block:
                 cache_index = ((uintptr_t)frame_ip)
@@ -1049,13 +1051,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else {
                     end_addr = NULL;
                 }
-                PUSH_CSP(LABEL_TYPE_BLOCK, cell_num, end_addr);
+                PUSH_CSP(LABEL_TYPE_BLOCK, param_cell_num, cell_num, end_addr);
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(EXT_OP_LOOP)
             {
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                param_cell_num = wasm_types[type_index]->param_cell_num;
                 cell_num = wasm_types[type_index]->param_cell_num;
                 goto handle_op_loop;
             }
@@ -1063,15 +1066,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_LOOP)
             {
                 value_type = *frame_ip++;
+                param_cell_num = 0;
                 cell_num = wasm_value_type_cell_num(value_type);
             handle_op_loop:
-                PUSH_CSP(LABEL_TYPE_LOOP, cell_num, frame_ip);
+                PUSH_CSP(LABEL_TYPE_LOOP, param_cell_num, cell_num, frame_ip);
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(EXT_OP_IF)
             {
                 read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                param_cell_num = wasm_types[type_index]->param_cell_num;
                 cell_num = wasm_types[type_index]->ret_cell_num;
                 goto handle_op_if;
             }
@@ -1079,6 +1084,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(WASM_OP_IF)
             {
                 value_type = *frame_ip++;
+                param_cell_num = 0;
                 cell_num = wasm_value_type_cell_num(value_type);
             handle_op_if:
                 cache_index = ((uintptr_t)frame_ip)
@@ -1103,7 +1109,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 cond = (uint32)POP_I32();
 
                 if (cond) { /* if branch is met */
-                    PUSH_CSP(LABEL_TYPE_IF, cell_num, end_addr);
+                    PUSH_CSP(LABEL_TYPE_IF, param_cell_num, cell_num, end_addr);
                 }
                 else { /* if branch is not met */
                     /* if there is no else branch, go to the end addr */
@@ -1112,7 +1118,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     /* if there is an else branch, go to the else addr */
                     else {
-                        PUSH_CSP(LABEL_TYPE_IF, cell_num, end_addr);
+                        PUSH_CSP(LABEL_TYPE_IF, param_cell_num, cell_num,
+                                 end_addr);
                         frame_ip = else_addr + 1;
                     }
                 }
@@ -3656,7 +3663,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
             /* Push function block as first block */
             cell_num = func_type->ret_cell_num;
-            PUSH_CSP(LABEL_TYPE_FUNCTION, cell_num, frame_ip_end - 1);
+            PUSH_CSP(LABEL_TYPE_FUNCTION, 0, cell_num, frame_ip_end - 1);
 
             wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)frame);
 #if WASM_ENABLE_THREAD_MGR != 0
