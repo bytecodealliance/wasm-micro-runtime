@@ -179,7 +179,6 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
            we just move param values from current block's value stack to
            the new block's value stack */
         for (i = 0; i < block->param_count; i++) {
-            param_index = block->param_count - 1 - i;
             jit_value = jit_value_stack_pop(
                 &cc->block_stack.block_list_end->value_stack);
             if (!value_list_head) {
@@ -391,7 +390,7 @@ static bool
 handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
 {
     JitFrame *jit_frame = cc->jit_frame;
-    JitBlock *block;
+    JitBlock *block, *block_prev;
     JitIncomingInsn *incoming_insn;
     JitInsn *insn;
 
@@ -408,6 +407,42 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
         if (block->label_type == LABEL_TYPE_FUNCTION) {
             handle_func_return(cc, block);
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+        }
+        else if (block->result_count > 0) {
+            JitValue *value_list_head = NULL, *value_list_end = NULL;
+            JitValue *jit_value;
+            uint32 i;
+
+            /* No need to change cc->jit_frame, just move result values
+               from current block's value stack to previous block's
+               value stack */
+            block_prev = block->prev;
+
+            for (i = 0; i < block->result_count; i++) {
+                jit_value = jit_value_stack_pop(&block->value_stack);
+                bh_assert(jit_value);
+                if (!value_list_head) {
+                    value_list_head = value_list_end = jit_value;
+                    jit_value->prev = jit_value->next = NULL;
+                }
+                else {
+                    jit_value->prev = NULL;
+                    jit_value->next = value_list_head;
+                    value_list_head->prev = jit_value;
+                    value_list_head = jit_value;
+                }
+            }
+
+            if (!block_prev->value_stack.value_list_head) {
+                block_prev->value_stack.value_list_head = value_list_head;
+                block_prev->value_stack.value_list_end = value_list_end;
+            }
+            else {
+                /* Link to the end of previous block's value stack */
+                block_prev->value_stack.value_list_end->next = value_list_head;
+                value_list_head->prev = block_prev->value_stack.value_list_end;
+                block_prev->value_stack.value_list_end = value_list_end;
+            }
         }
 
         /* Pop block and destroy the block */
@@ -451,14 +486,16 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
 
         /* Pop block and load block results */
         block = jit_block_stack_pop(&cc->block_stack);
-        if (!load_block_results(cc, block)) {
-            jit_block_destroy(block);
-            goto fail;
-        }
 
         if (block->label_type == LABEL_TYPE_FUNCTION) {
             handle_func_return(cc, block);
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+        }
+        else {
+            if (!load_block_results(cc, block)) {
+                jit_block_destroy(block);
+                goto fail;
+            }
         }
 
         jit_block_destroy(block);
