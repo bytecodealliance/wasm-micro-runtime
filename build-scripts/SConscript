@@ -53,6 +53,7 @@ objs += SConscript(os.path.join(cwd, 'SConscript_config'));
 
 objs += SConscript(os.path.join(SHARED_DIR, 'platform', 'rt-thread', 'SConscript'))
 objs += SConscript(os.path.join(SHARED_DIR, 'mem-alloc', 'SConscript'))
+objs += SConscript(os.path.join(SHARED_DIR, 'gc', 'SConscript'))
 objs += SConscript(os.path.join(IWASM_DIR, 'common', 'SConscript'))
 objs += SConscript(os.path.join(SHARED_DIR, 'utils', 'SConscript'))
 

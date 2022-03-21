@@ -1,7 +1,6 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-
 if (NOT DEFINED WAMR_ROOT_DIR)
     set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../)
 endif ()

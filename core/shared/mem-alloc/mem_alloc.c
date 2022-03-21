@@ -7,7 +7,7 @@
 
 #if DEFAULT_MEM_ALLOCATOR == MEM_ALLOCATOR_EMS
 
-#include "ems/ems_gc.h"
+#include "ems_gc.h"
 
 mem_allocator_t
 mem_allocator_create(void *mem, uint32_t size)
@@ -55,6 +55,24 @@ mem_allocator_free(mem_allocator_t allocator, void *ptr)
     if (ptr)
         gc_free_vo((gc_handle_t)allocator, ptr);
 }
+
+#if WASM_ENABLE_GC != 0
+void *
+mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size)
+{
+    // gc_alloc_vo
+    return gc_alloc_wo((gc_handle_t)allocator, size);
+}
+
+#if WASM_GC_MANUALLY != 0
+void
+mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr)
+{
+    if (ptr)
+        gc_free_wo((gc_handle_t)allocator, ptr);
+}
+#endif
+#endif
 
 int
 mem_allocator_migrate(mem_allocator_t allocator, char *pool_buf_new,
