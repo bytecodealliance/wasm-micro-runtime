@@ -174,8 +174,7 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
     JitReg value;
     uint32 i, param_index, cell_num;
 
-    if (block->label_type == LABEL_TYPE_BLOCK
-        || (block->label_type == LABEL_TYPE_IF && !cond)) {
+    if (cc->cur_basic_block == basic_block) {
         /* Reuse the current basic block and no need to commit values,
            we just move param values from current block's value stack to
            the new block's value stack */
@@ -224,10 +223,11 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
         /* Push the new block to block stack */
         jit_block_stack_push(&cc->block_stack, block);
 
-        if (!cond) { /* LOOP block */
+        if (block->label_type == LABEL_TYPE_LOOP) {
             BUILD_BR(basic_block);
         }
-        else { /* IF block with condition br insn */
+        else {
+            /* IF block with condition br insn */
             if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
                 || !(insn = GEN_INSN(BNE, cc->cmp_reg,
                                      jit_basic_block_label(basic_block), 0))) {
@@ -664,7 +664,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                    BASIC_BLOCK if cannot be reached, we treat it same as
                    LABEL_TYPE_BLOCK and start to translate if branch */
                 if (!push_jit_block_to_stack_and_pass_params(
-                        cc, block, block->basic_block_entry, 0))
+                        cc, block, cc->cur_basic_block, 0))
                     goto fail;
             }
             else {
@@ -673,7 +673,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
                        BASIC_BLOCK if cannot be reached, we treat it same as
                        LABEL_TYPE_BLOCK and start to translate else branch */
                     if (!push_jit_block_to_stack_and_pass_params(
-                            cc, block, block->basic_block_else, 0))
+                            cc, block, cc->cur_basic_block, 0))
                         goto fail;
                     *p_frame_ip = else_addr + 1;
                 }
