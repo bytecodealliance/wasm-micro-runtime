@@ -15,12 +15,8 @@ jit_pass_lower_cg(JitCompContext *cc)
 bool
 jit_pass_codegen(JitCompContext *cc)
 {
-#if 0
-    bh_assert(jit_annl_is_enabled_next_label(cc));
-
     if (!jit_annl_enable_jitted_addr(cc))
         return false;
-#endif
 
     return jit_codegen_gen_native(cc);
 }

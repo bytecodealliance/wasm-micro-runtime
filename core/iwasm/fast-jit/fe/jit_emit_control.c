@@ -119,6 +119,52 @@ fail:
 }
 
 static bool
+load_block_results(JitCompContext *cc, JitBlock *block)
+{
+    JitFrame *jit_frame = cc->jit_frame;
+    uint32 offset, i;
+    JitReg value = 0;
+
+    /* Restore jit frame's sp to block's sp begin */
+    jit_frame->sp = block->frame_sp_begin;
+
+    /* Load results to new block */
+    offset = (uint32)(jit_frame->sp - jit_frame->lp);
+    for (i = 0; i < block->result_count; i++) {
+        switch (block->result_types[i]) {
+            case VALUE_TYPE_I32:
+#if WASM_ENABLE_REF_TYPES != 0
+            case VALUE_TYPE_EXTERNREF:
+            case VALUE_TYPE_FUNCREF:
+#endif
+                value = gen_load_i32(jit_frame, offset);
+                offset++;
+                break;
+            case VALUE_TYPE_I64:
+                value = gen_load_i64(jit_frame, offset);
+                offset += 2;
+                break;
+            case VALUE_TYPE_F32:
+                value = gen_load_f32(jit_frame, offset);
+                offset++;
+                break;
+            case VALUE_TYPE_F64:
+                value = gen_load_f64(jit_frame, offset);
+                offset += 2;
+                break;
+            default:
+                bh_assert(0);
+                break;
+        }
+        PUSH(value, block->result_types[i]);
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+static bool
 push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
                                         JitBasicBlock *basic_block, JitReg cond)
 {
@@ -133,7 +179,6 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
            we just move param values from current block's value stack to
            the new block's value stack */
         for (i = 0; i < block->param_count; i++) {
-            param_index = block->param_count - 1 - i;
             jit_value = jit_value_stack_pop(
                 &cc->block_stack.block_list_end->value_stack);
             if (!value_list_head) {
@@ -296,8 +341,26 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
              NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
 #endif
 
-    copy_block_arities(cc, prev_frame_sp, block->result_types,
-                       block->result_count);
+    if (block->result_count) {
+        uint32 cell_num =
+            wasm_get_cell_num(block->result_types, block->result_count);
+
+        copy_block_arities(cc, prev_frame_sp, block->result_types,
+                           block->result_count);
+#if UINTPTR_MAX == UINT64_MAX
+        /* prev_frame->sp += cell_num */
+        GEN_INSN(ADD, prev_frame_sp, prev_frame_sp,
+                 NEW_CONST(I64, cell_num * 4));
+        GEN_INSN(STI64, prev_frame_sp, prev_frame,
+                 NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
+#else
+        /* prev_frame->sp += cell_num */
+        GEN_INSN(ADD, prev_frame_sp, prev_frame_sp,
+                 NEW_CONST(I32, cell_num * 4));
+        GEN_INSN(STI32, prev_frame_sp, prev_frame,
+                 NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
+#endif
+    }
 
     /* Free stack space of the current frame:
        exec_env->wasm_stack.s.top = cur_frame */
@@ -320,14 +383,14 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     /* fp_reg = prev_frame */
     GEN_INSN(MOV, cc->fp_reg, prev_frame);
     /* return 0 */
-    GEN_INSN(RETURNBC, NEW_CONST(I32, 0));
+    GEN_INSN(RETURNBC, NEW_CONST(I32, JIT_INTERP_ACTION_NORMAL), 0, 0);
 }
 
 static bool
-handle_op_end(JitCompContext *cc, uint8 **p_frame_ip)
+handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
 {
     JitFrame *jit_frame = cc->jit_frame;
-    JitBlock *block;
+    JitBlock *block, *block_prev;
     JitIncomingInsn *incoming_insn;
     JitInsn *insn;
 
@@ -345,6 +408,42 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip)
             handle_func_return(cc, block);
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
         }
+        else if (block->result_count > 0) {
+            JitValue *value_list_head = NULL, *value_list_end = NULL;
+            JitValue *jit_value;
+            uint32 i;
+
+            /* No need to change cc->jit_frame, just move result values
+               from current block's value stack to previous block's
+               value stack */
+            block_prev = block->prev;
+
+            for (i = 0; i < block->result_count; i++) {
+                jit_value = jit_value_stack_pop(&block->value_stack);
+                bh_assert(jit_value);
+                if (!value_list_head) {
+                    value_list_head = value_list_end = jit_value;
+                    jit_value->prev = jit_value->next = NULL;
+                }
+                else {
+                    jit_value->prev = NULL;
+                    jit_value->next = value_list_head;
+                    value_list_head->prev = jit_value;
+                    value_list_head = jit_value;
+                }
+            }
+
+            if (!block_prev->value_stack.value_list_head) {
+                block_prev->value_stack.value_list_head = value_list_head;
+                block_prev->value_stack.value_list_end = value_list_end;
+            }
+            else {
+                /* Link to the end of previous block's value stack */
+                block_prev->value_stack.value_list_end->next = value_list_head;
+                value_list_head->prev = block_prev->value_stack.value_list_end;
+                block_prev->value_stack.value_list_end = value_list_end;
+            }
+        }
 
         /* Pop block and destroy the block */
         block = jit_block_stack_pop(&cc->block_stack);
@@ -361,8 +460,9 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip)
         CREATE_BASIC_BLOCK(block->basic_block_end);
         SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
         SET_BB_BEGIN_BCIP(block->basic_block_end, *p_frame_ip);
-        /* Jump to the end basic block */
-        BUILD_BR(block->basic_block_end);
+        if (from_same_block)
+            /* Jump to the end basic block */
+            BUILD_BR(block->basic_block_end);
 
         /* Patch the INSNs which jump to this basic block */
         incoming_insn = block->incoming_insns_for_end_bb;
@@ -384,13 +484,20 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip)
 
         SET_BUILDER_POS(block->basic_block_end);
 
+        /* Pop block and load block results */
+        block = jit_block_stack_pop(&cc->block_stack);
+
         if (block->label_type == LABEL_TYPE_FUNCTION) {
             handle_func_return(cc, block);
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
         }
+        else {
+            if (!load_block_results(cc, block)) {
+                jit_block_destroy(block);
+                goto fail;
+            }
+        }
 
-        /* Pop block and destroy the block */
-        block = jit_block_stack_pop(&cc->block_stack);
         jit_block_destroy(block);
         return true;
     }
@@ -420,7 +527,7 @@ handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
         /* The if branch is handled like OP_BLOCK (cond is const and != 0),
            just skip the else branch and handle OP_END */
         *p_frame_ip = block->wasm_code_end + 1;
-        return handle_op_end(cc, p_frame_ip);
+        return handle_op_end(cc, p_frame_ip, true);
     }
     else {
         /* Has else branch and need to translate else branch */
@@ -488,7 +595,7 @@ handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
         }
         else if (block->incoming_insns_for_end_bb) {
             *p_frame_ip = block->wasm_code_end + 1;
-            return handle_op_end(cc, p_frame_ip);
+            return handle_op_end(cc, p_frame_ip, false);
         }
         else {
             jit_block_stack_pop(&cc->block_stack);
@@ -635,7 +742,7 @@ jit_compile_op_else(JitCompContext *cc, uint8 **p_frame_ip)
 bool
 jit_compile_op_end(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    return handle_op_end(cc, p_frame_ip);
+    return handle_op_end(cc, p_frame_ip, true);
 }
 
 #if 0
@@ -716,7 +823,7 @@ bool
 jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
     JitFrame *jit_frame;
-    JitBlock *block_dst;
+    JitBlock *block_dst, *block;
     JitReg frame_sp_dst;
     JitValueSlot *frame_sp_src = NULL;
     JitInsn *insn;
@@ -732,6 +839,12 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     }
 #endif
 #endif
+
+    /* Check block stack */
+    if (!(block = cc->block_stack.block_list_end)) {
+        jit_set_last_error(cc, "WASM block stack underflow");
+        return false;
+    }
 
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
@@ -761,8 +874,14 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 #endif
         offset = offsetof(WASMInterpFrame, lp)
                  + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I64, offset));
+#else
         GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I32, offset));
+#endif
     }
+
+    gen_commit_values(jit_frame, jit_frame->lp, block->frame_sp_begin);
 
     if (block_dst->label_type == LABEL_TYPE_LOOP) {
         if (copy_arities) {
@@ -770,6 +889,9 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
             copy_block_arities(cc, frame_sp_dst, block_dst->param_types,
                                block_dst->param_count);
         }
+
+        clear_values(jit_frame);
+
         /* Jump to the begin basic block */
         BUILD_BR(block_dst->basic_block_entry);
         SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
@@ -780,6 +902,9 @@ jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
             copy_block_arities(cc, frame_sp_dst, block_dst->result_types,
                                block_dst->result_count);
         }
+
+        clear_values(jit_frame);
+
         /* Jump to the end basic block */
         if (!(insn = GEN_INSN(JMP, 0))) {
             jit_set_last_error(cc, "generate jmp insn failed");
@@ -863,7 +988,11 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 #endif
         offset = offsetof(WASMInterpFrame, lp)
                  + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I64, offset));
+#else
         GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I32, offset));
+#endif
     }
 
     if (block_dst->label_type == LABEL_TYPE_LOOP) {

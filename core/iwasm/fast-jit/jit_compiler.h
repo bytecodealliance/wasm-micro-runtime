@@ -19,15 +19,50 @@ typedef struct JitGlobals {
     const uint8 *passes;
     /* Code cache size.  */
     uint32 code_cache_size;
+    char *return_to_interp_from_jitted;
 } JitGlobals;
+
+/**
+ * Actions the interpreter should do when JITed code returns to
+ * interpreter.
+ */
+typedef enum JitInterpAction {
+    JIT_INTERP_ACTION_NORMAL, /* normal execution */
+    JIT_INTERP_ACTION_THROWN, /* exception was thrown */
+    JIT_INTERP_ACTION_CALL    /* call wasm function */
+} JitInterpAction;
 
 /**
  * Information exchanged between JITed code and interpreter.
  */
 typedef struct JitInterpSwitchInfo {
     /* Points to the frame that is passed to JITed code and the frame
-       that is returned from JITed code.  */
+       that is returned from JITed code */
     void *frame;
+
+    /* Output values from JITed code of different actions */
+    union {
+        /* IP and SP offsets for NORMAL */
+        struct {
+            int32 ip;
+            int32 sp;
+        } normal;
+
+        /* Function called from JITed code for CALL */
+        struct {
+            void *function;
+        } call;
+
+        /* Returned integer and/or floating point values for RETURN. This
+           is also used to pass return values from interpreter to JITed
+           code if the caller is in JITed code and the callee is in
+           interpreter. */
+        struct {
+            uint32 ival[2];
+            uint32 fval[2];
+            uint32 last_return_type;
+        } ret;
+    } out;
 } JitInterpSwitchInfo;
 
 bool
@@ -36,7 +71,7 @@ jit_compiler_init();
 void
 jit_compiler_destroy();
 
-const JitGlobals *
+JitGlobals *
 jit_compiler_get_jit_globals();
 
 const char *

@@ -3230,6 +3230,11 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     }
 
 #if WASM_ENABLE_FAST_JIT != 0
+    if (!(module->fast_jit_func_ptrs =
+              loader_malloc(sizeof(void *) * module->function_count, error_buf,
+                            error_buf_size))) {
+        return false;
+    }
     if (!jit_compiler_compile_all(module)) {
         set_error_buf(error_buf, error_buf_size, "fast jit compilation failed");
         return false;
@@ -3719,6 +3724,7 @@ wasm_loader_unload(WASMModule *module)
         }
     }
 #endif
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
     WASMFastOPCodeNode *fast_opcode =
         bh_list_first_elem(&module->fast_opcode_list);
@@ -3729,6 +3735,12 @@ wasm_loader_unload(WASMModule *module)
     }
     os_mutex_destroy(&module->ref_count_lock);
 #endif
+
+#if WASM_ENABLE_FAST_JIT != 0
+    if (module->fast_jit_func_ptrs)
+        wasm_runtime_free(module->fast_jit_func_ptrs);
+#endif
+
     wasm_runtime_free(module);
 }
 

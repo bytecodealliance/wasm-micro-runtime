@@ -244,7 +244,7 @@ form_and_translate_func(JitCompContext *cc)
             if (insn) {
                 *(jit_insn_opndv(insn, 2)) = NEW_CONST(I32, i);
             }
-            GEN_INSN(RETURNBC, NEW_CONST(I32, i));
+            GEN_INSN(RETURN, NEW_CONST(I32, JIT_INTERP_ACTION_THROWN));
 
             *(jit_annl_begin_bcip(cc,
                                   jit_basic_block_label(cc->cur_basic_block))) =
@@ -351,7 +351,7 @@ init_func_translation(JitCompContext *cc)
     GEN_INSN(LDI64, top_boundary, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top_boundary)));
     /* frame_boundary = top + frame_size + outs_size */
-    GEN_INSN(ADD, frame_boundary, top, NEW_CONST(I32, frame_size + outs_size));
+    GEN_INSN(ADD, frame_boundary, top, NEW_CONST(I64, frame_size + outs_size));
     /* if frame_boundary > top_boundary, throw stack overflow exception */
     GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
     if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
@@ -361,13 +361,13 @@ init_func_translation(JitCompContext *cc)
 
     /* Add first and then sub to reduce one used register */
     /* new_top = frame_boundary - outs_size = top + frame_size */
-    GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(I32, outs_size));
+    GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(I64, outs_size));
     /* exec_env->wasm_stack.s.top = new_top */
     GEN_INSN(STI64, new_top, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
     /* frame_sp = frame->lp + local_size */
     GEN_INSN(ADD, frame_sp, top,
-             NEW_CONST(I32, offsetof(WASMInterpFrame, lp) + local_size));
+             NEW_CONST(I64, offsetof(WASMInterpFrame, lp) + local_size));
     /* frame->sp = frame_sp */
     GEN_INSN(STI64, frame_sp, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));

@@ -56,6 +56,8 @@ jit_code_cache_free(void *ptr)
 bool
 jit_pass_register_jitted_code(JitCompContext *cc)
 {
-    /* TODO */
-    return false;
+    cc->cur_wasm_func->fast_jit_jitted_code = cc->jitted_addr_begin;
+    cc->cur_wasm_module->fast_jit_func_ptrs[cc->cur_wasm_func_idx] =
+        cc->jitted_addr_begin;
+    return true;
 }
