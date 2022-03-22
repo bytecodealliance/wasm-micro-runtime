@@ -320,6 +320,7 @@ wasm_engine_new()
         singleton_engine =
             wasm_engine_new_internal(Alloc_With_System_Allocator, NULL);
     }
+    singleton_engine->ref_count++;
     return singleton_engine;
 }
 
@@ -336,6 +337,7 @@ wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
     if (!singleton_engine) {
         singleton_engine = wasm_engine_new_internal(type, opts);
     }
+    singleton_engine->ref_count++;
     return singleton_engine;
 }
 
@@ -343,7 +345,7 @@ wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
 void
 wasm_engine_delete(wasm_engine_t *engine)
 {
-    if (engine) {
+    if (engine && (--engine->ref_count == 0)) {
         wasm_engine_delete_internal(engine);
         singleton_engine = NULL;
     }
