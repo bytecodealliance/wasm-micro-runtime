@@ -284,15 +284,24 @@ wasm_obj_is_externref_obj(WASMObjectRef obj)
 }
 
 inline static bool
+wasm_obj_is_i31_rtt_or_externref_obj(WASMObjectRef obj)
+{
+    bh_assert(obj);
+    return (wasm_obj_is_i31_obj(obj)
+            || (obj->header
+                & (WASM_OBJ_RTT_OBJ_FLAG | WASM_OBJ_EXTERNREF_OBJ_FLAG)))
+               ? true
+               : false;
+}
+
+inline static bool
 wasm_obj_is_struct_obj(WASMObjectRef obj)
 {
     WASMRttObjectRef rtt_obj;
 
     bh_assert(obj);
 
-    if (wasm_obj_is_i31_obj(obj)
-        || (obj->header
-            & (WASM_OBJ_RTT_OBJ_FLAG | WASM_OBJ_EXTERNREF_OBJ_FLAG)))
+    if (wasm_obj_is_i31_rtt_or_externref_obj(obj))
         return false;
 
     rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);
@@ -306,9 +315,7 @@ wasm_obj_is_array_obj(WASMObjectRef obj)
 
     bh_assert(obj);
 
-    if (wasm_obj_is_i31_obj(obj)
-        || (obj->header
-            & (WASM_OBJ_RTT_OBJ_FLAG | WASM_OBJ_EXTERNREF_OBJ_FLAG)))
+    if (wasm_obj_is_i31_rtt_or_externref_obj(obj))
         return false;
 
     rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);
@@ -322,9 +329,7 @@ wasm_obj_is_func_obj(WASMObjectRef obj)
 
     bh_assert(obj);
 
-    if (wasm_obj_is_i31_obj(obj)
-        || (obj->header
-            & (WASM_OBJ_RTT_OBJ_FLAG | WASM_OBJ_EXTERNREF_OBJ_FLAG)))
+    if (wasm_obj_is_i31_rtt_or_externref_obj(obj))
         return false;
 
     rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);
@@ -338,9 +343,7 @@ wasm_obj_is_data_obj(WASMObjectRef obj)
 
     bh_assert(obj);
 
-    if (wasm_obj_is_i31_obj(obj)
-        || (obj->header
-            & (WASM_OBJ_RTT_OBJ_FLAG | WASM_OBJ_EXTERNREF_OBJ_FLAG)))
+    if (wasm_obj_is_i31_rtt_or_externref_obj(obj))
         return false;
 
     rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);

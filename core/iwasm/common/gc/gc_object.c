@@ -339,9 +339,7 @@ wasm_obj_is_instance_of(WASMObjectRef obj, WASMRttObjectRef rtt_obj)
 
     bh_assert(obj);
 
-    if (wasm_obj_is_i31_obj(obj)
-        || (obj->header
-            & (WASM_OBJ_RTT_OBJ_FLAG | WASM_OBJ_EXTERNREF_OBJ_FLAG)))
+    if (wasm_obj_is_i31_rtt_or_externref_obj(obj))
         return false;
 
     rtt_obj_sub = (WASMRttObjectRef)wasm_object_header(obj);
