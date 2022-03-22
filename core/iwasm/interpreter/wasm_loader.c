@@ -579,6 +579,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
             type1 = read_uint8(p);
             if (type1 != type)
                 goto fail_type_mismatch;
+            init_expr->u.ref_index = NULL_REF;
 #else
             WASMRefType ref_type1;
 
@@ -600,9 +601,9 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                                             module->type_count)) {
                 goto fail_type_mismatch;
             }
+            /* Use UINT32_MAX to indicate that it is an null reference */
+            init_expr->u.ref_index = UINT32_MAX;
 #endif
-
-            init_expr->u.ref_index = NULL_REF;
             break;
         }
 #endif /* (WASM_ENABLE_GC !=0) || (WASM_ENABLE_REF_TYPES != 0) */
@@ -673,7 +674,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                     return false;
                 }
                 init_expr->init_expr_type = global->init_expr.init_expr_type;
-                init_expr->u.rtt_obj = global->init_expr.u.rtt_obj;
+                init_expr->u.gc_obj = global->init_expr.u.gc_obj;
                 goto resolve_possible_rtt_sub;
             }
 #endif
@@ -695,7 +696,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 return false;
             }
 
-            if (!(init_expr->u.rtt_obj =
+            if (!(init_expr->u.gc_obj =
                       wasm_rtt_obj_new(module->rtt_obj_set, NULL,
                                        module->types[type_idx], type_idx))) {
                 set_error_buf(error_buf, error_buf_size,
@@ -709,7 +710,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 if (*p == WASM_OP_END) {
                     WASMRefType ref_type1;
                     WASMRttObjectRef rtt_obj =
-                        (WASMRttObjectRef)init_expr->u.rtt_obj;
+                        (WASMRttObjectRef)init_expr->u.gc_obj;
                     wasm_set_refheaptype_rttn(&ref_type1.ref_ht_rttn, false,
                                               rtt_obj->n,
                                               rtt_obj->defined_type_idx);
@@ -739,14 +740,14 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
 
                 if (!wasm_type_is_subtype_of(
                         module->types[type_idx],
-                        ((WASMRttObjectRef)init_expr->u.rtt_obj)->defined_type,
+                        ((WASMRttObjectRef)init_expr->u.gc_obj)->defined_type,
                         module->types, module->type_count)) {
                     set_error_buf(error_buf, error_buf_size,
                                   "rtt.sub type mismatch");
                     return false;
                 }
 
-                if (!(init_expr->u.rtt_obj = wasm_rtt_obj_new(
+                if (!(init_expr->u.gc_obj = wasm_rtt_obj_new(
                           module->rtt_obj_set, NULL, module->types[type_idx],
                           type_idx))) {
                     set_error_buf(error_buf, error_buf_size,
@@ -3229,7 +3230,7 @@ load_global_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
             if (INIT_EXPR_TYPE_RTT_CANON == global->init_expr.init_expr_type
                 || INIT_EXPR_TYPE_RTT_SUB == global->init_expr.init_expr_type) {
                 WASMRttObjectRef rtt_obj =
-                    (WASMRttObjectRef)global->init_expr.u.rtt_obj;
+                    (WASMRttObjectRef)global->init_expr.u.gc_obj;
                 /* Convert global type from (rtt $t) to (rtt n $t) */
                 wasm_set_refheaptype_rttn(&ref_type.ref_ht_rttn, false,
                                           rtt_obj->n,
@@ -3648,7 +3649,7 @@ load_table_segment_section(const uint8 *buf, const uint8 *buf_end,
                                   "unknown element segment kind");
                     return false;
             }
-#else
+#else  /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
             /*
              * like:      00  41 05 0b               04 00 01 00 01
              * for: (elem 0   (offset (i32.const 5)) $f1 $f2 $f1 $f2)
@@ -4995,8 +4996,21 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_BLOCK:
             case WASM_OP_LOOP:
             case WASM_OP_IF:
+            {
                 /* block result type: 0x40/0x7F/0x7E/0x7D/0x7C */
                 u8 = read_uint8(p);
+                if (is_byte_a_type(u8)) {
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(u8)) {
+                        /* the possible extra bytes of GC ref type have been
+                           modified to OP_NOP, no need to resolve them again */
+                    }
+#endif
+                }
+                else {
+                    p--;
+                    skip_leb_uint32(p, p_end);
+                }
                 if (block_nested_depth
                     < sizeof(block_stack) / sizeof(BlockAddr)) {
                     block_stack[block_nested_depth].start_addr = p;
@@ -5004,6 +5018,7 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                 }
                 block_nested_depth++;
                 break;
+            }
 
             case EXT_OP_BLOCK:
             case EXT_OP_LOOP:
@@ -5096,9 +5111,18 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_RETURN_CALL_INDIRECT:
 #endif
                 skip_leb_uint32(p, p_end); /* typeidx */
-                CHECK_BUF(p, p_end, 1);
+#if WASM_ENABLE_REF_TYPES == 0 && WASM_ENABLE_GC == 0
                 u8 = read_uint8(p); /* 0x00 */
+#else
+                skip_leb_uint32(p, p_end); /* talbeidx */
+#endif
                 break;
+
+#if WASM_ENABLE_GC != 0
+            case WASM_OP_CALL_REF:
+            case WASM_OP_RETURN_CALL_REF:
+                break;
+#endif
 
             case WASM_OP_DROP:
             case WASM_OP_SELECT:
@@ -5108,18 +5132,35 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
             case WASM_OP_SELECT_T:
+            {
                 skip_leb_uint32(p, p_end); /* vec length */
-                CHECK_BUF(p, p_end, 1);
-                u8 = read_uint8(p); /* typeidx */
+                u8 = read_uint8(p);        /* type */
+                /* the possible extra bytes of GC ref type have been
+                   modified to OP_NOP, no need to resolve them again */
                 break;
+            }
+
             case WASM_OP_TABLE_GET:
             case WASM_OP_TABLE_SET:
                 skip_leb_uint32(p, p_end); /* table index */
                 break;
             case WASM_OP_REF_NULL:
-                CHECK_BUF(p, p_end, 1);
+            {
                 u8 = read_uint8(p); /* type */
+                if (is_byte_a_type(u8)) {
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(u8)) {
+                        /* the possible extra bytes of GC ref type have been
+                           modified to OP_NOP, no need to resolve them again */
+                    }
+#endif
+                }
+                else {
+                    p--;
+                    skip_leb_uint32(p, p_end);
+                }
                 break;
+            }
             case WASM_OP_REF_IS_NULL:
                 break;
             case WASM_OP_REF_FUNC:
@@ -5132,12 +5173,12 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
             case WASM_OP_REF_EQ:
             case WASM_OP_BR_ON_NULL:
             case WASM_OP_BR_ON_NON_NULL:
-            case WASM_OP_CALL_REF:
-            case WASM_OP_RETURN_CALL_REF:
+                break;
             case WASM_OP_FUNC_BIND:
             case WASM_OP_LET:
-                /* TODO */
-                break;
+                set_error_buf_v(error_buf, error_buf_size,
+                                "unsupported opcode %02x", opcode);
+                return false;
 #endif /* WASM_ENABLE_GC */
 
             case WASM_OP_GET_LOCAL:
@@ -5340,50 +5381,73 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
                 read_leb_uint32(p, p_end, opcode1);
 
-                /* TODO */
                 switch (opcode1) {
                     case WASM_OP_STRUCT_NEW_WITH_RTT:
                     case WASM_OP_STRUCT_NEW_DEFAULT_WITH_RTT:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
                     case WASM_OP_STRUCT_GET:
                     case WASM_OP_STRUCT_GET_S:
                     case WASM_OP_STRUCT_GET_U:
                     case WASM_OP_STRUCT_SET:
-
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        skip_leb_uint32(p, p_end); /* fieldidx */
+                        break;
                     case WASM_OP_ARRAY_NEW_WITH_RTT:
                     case WASM_OP_ARRAY_NEW_DEFAULT_WITH_RTT:
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
                     case WASM_OP_ARRAY_SET:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
                     case WASM_OP_ARRAY_LEN:
+                        /* TODO: remove this line for latest GC MVP */
+                        skip_leb_uint32(p, p_end);
+                        break;
 
                     case WASM_OP_I31_NEW:
                     case WASM_OP_I31_GET_S:
                     case WASM_OP_I31_GET_U:
+                        break;
 
                     case WASM_OP_RTT_CANON:
                     case WASM_OP_RTT_SUB:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
 
                     case WASM_OP_REF_TEST:
                     case WASM_OP_REF_CAST:
                     case WASM_OP_BR_ON_CAST:
                     case WASM_OP_BR_ON_CAST_FAIL:
+                        skip_leb_uint32(p, p_end); /* typeidx */
+                        break;
 
                     case WASM_OP_REF_IS_FUNC:
                     case WASM_OP_REF_IS_DATA:
                     case WASM_OP_REF_IS_I31:
+                    case WASM_OP_REF_IS_ARRAY:
                     case WASM_OP_REF_AS_FUNC:
                     case WASM_OP_REF_AS_DATA:
                     case WASM_OP_REF_AS_I31:
+                    case WASM_OP_REF_AS_ARRAY:
+                        break;
 
                     case WASM_OP_BR_ON_FUNC:
                     case WASM_OP_BR_ON_DATA:
                     case WASM_OP_BR_ON_I31:
+                    case WASM_OP_BR_ON_ARRAY:
                     case WASM_OP_BR_ON_NON_FUNC:
                     case WASM_OP_BR_ON_NON_DATA:
                     case WASM_OP_BR_ON_NON_I31:
+                    case WASM_OP_BR_ON_NON_ARRAY:
+                        skip_leb_uint32(p, p_end);
+                        break;
 
                     default:
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s %02x %02x", "unsupported opcode",
+                                        WASM_OP_GC_PREFIX, opcode1);
                         return false;
                 }
                 break;
@@ -5443,6 +5507,9 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
                         break;
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
                     default:
+                        set_error_buf_v(error_buf, error_buf_size,
+                                        "%s %02x %02x", "unsupported opcode",
+                                        WASM_OP_MISC_PREFIX, opcode1);
                         return false;
                 }
                 break;
@@ -8404,6 +8471,7 @@ re_scan:
 #if WASM_ENABLE_FAST_INTERP != 0
                 PRESERVE_LOCAL_FOR_BLOCK();
 #endif
+                CHECK_BUF(p, p_end, 1);
                 value_type = read_uint8(p);
                 if (is_byte_a_type(value_type)) {
                     /* If the first byte is one of these special values:
@@ -8413,6 +8481,7 @@ re_scan:
                     block_type.u.value_type.type = value_type;
 #if WASM_ENABLE_GC != 0
                     if (value_type != VALUE_TYPE_VOID) {
+                        p_org = p;
                         p--;
                         if (!resolve_value_type((const uint8 **)&p, p_end,
                                                 module, &need_ref_type_map,
@@ -8432,6 +8501,13 @@ re_scan:
                         /* Set again as the type might be changed, e.g.
                            (ref null any) to anyref */
                         block_type.u.value_type.type = wasm_ref_type.ref_type;
+                        while (p_org < p) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+                            record_fast_op(module, p_org, *p_org);
+#endif
+                            /* Ignore extra bytes for interpreter */
+                            *p_org++ = WASM_OP_NOP;
+                        }
                     }
 #endif
                 }
@@ -9068,7 +9144,6 @@ re_scan:
             }
 
             case WASM_OP_DROP:
-            case WASM_OP_DROP_64:
             {
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
                 int32 available_stack_cell =
@@ -9142,7 +9217,6 @@ re_scan:
             }
 
             case WASM_OP_SELECT:
-            case WASM_OP_SELECT_64:
             {
                 uint8 ref_type;
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
@@ -9241,7 +9315,7 @@ re_scan:
                 break;
             }
 
-#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
+#if WASM_ENABLE_GC != 0 || WASM_ENABLE_REF_TYPES != 0
             case WASM_OP_SELECT_T:
             {
                 uint8 vec_len, type;
@@ -9264,6 +9338,7 @@ re_scan:
                     goto fail;
                 }
 #else
+                p_org = p + 1;
                 if (!resolve_value_type((const uint8 **)&p, p_end, module,
                                         &need_ref_type_map, &wasm_ref_type,
                                         false, error_buf, error_buf_size)) {
@@ -9277,7 +9352,14 @@ re_scan:
                         goto fail;
                     }
                 }
+                while (p_org < p) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+                    record_fast_op(module, p_org, *p_org);
 #endif
+                    /* Ignore extra bytes for interpreter */
+                    *p_org++ = WASM_OP_NOP;
+                }
+#endif /* end of WASM_ENABLE_GC == 0 */
 
                 POP_I32();
 
@@ -9410,12 +9492,20 @@ re_scan:
 #else
                 p--;
                 if (is_byte_a_type(ref_type)) {
+                    p_org = p + 1;
                     if (!resolve_value_type((const uint8 **)&p, p_end, module,
                                             &need_ref_type_map, &wasm_ref_type,
                                             false, error_buf, error_buf_size)) {
                         goto fail;
                     }
                     ref_type = wasm_ref_type.ref_type;
+                    while (p_org < p) {
+#if WASM_ENABLE_DEBUG_INTERP != 0
+                        record_fast_op(module, p_org, *p_org);
+#endif
+                        /* Ignore extra bytes for interpreter */
+                        *p_org++ = WASM_OP_NOP;
+                    }
                 }
                 else {
                     read_leb_uint32(p, p_end, type_idx);
@@ -9427,7 +9517,8 @@ re_scan:
                                                  true, type_idx);
                     ref_type = wasm_ref_type.ref_type;
                 }
-#endif
+#endif /* end of WASM_ENABLE_GC == 0 */
+
 #if WASM_ENABLE_FAST_INTERP != 0
                 PUSH_OFFSET_TYPE(ref_type);
 #endif
@@ -9610,7 +9701,11 @@ re_scan:
                 PUSH_OFFSET_TYPE(local_type);
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
-                if (local_offset < 0x80) {
+                if (local_offset < 0x80
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
 #endif
@@ -9651,7 +9746,11 @@ re_scan:
                         &preserve_local, error_buf, error_buf_size)))
                     goto fail;
 
-                if (local_offset < 256) {
+                if (local_offset < 256
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
                     skip_label();
                     if ((!preserve_local) && (LAST_OP_OUTPUT_I32())) {
                         if (loader_ctx->p_code_compiled)
@@ -9685,7 +9784,11 @@ re_scan:
                 }
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
-                if (local_offset < 0x80) {
+                if (local_offset < 0x80
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
 #endif
@@ -9737,7 +9840,11 @@ re_scan:
                         &preserve_local, error_buf, error_buf_size)))
                     goto fail;
 
-                if (local_offset < 256) {
+                if (local_offset < 256
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
                     skip_label();
                     if (is_32bit_type(local_type)) {
                         emit_label(EXT_OP_TEE_LOCAL_FAST);
@@ -9756,7 +9863,11 @@ re_scan:
                                - wasm_value_type_cell_num(local_type)));
 #else
 #if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
-                if (local_offset < 0x80) {
+                if (local_offset < 0x80
+#if WASM_ENABLE_GC != 0
+                    && !wasm_is_type_reftype(local_type)
+#endif
+                ) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
                     record_fast_op(module, p_org, *p_org);
 #endif
@@ -10626,6 +10737,9 @@ re_scan:
 
                     case WASM_OP_ARRAY_LEN:
                     {
+                        /* TODO: remove this line for latest GC MVP */
+                        read_leb_uint32(p, p_end, type_idx);
+
                         POP_REF(REF_TYPE_ARRAYREF);
                         /* length */
                         PUSH_I32();

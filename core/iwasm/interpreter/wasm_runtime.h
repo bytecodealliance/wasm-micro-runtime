@@ -65,6 +65,9 @@ struct WASMTableInstance {
     /* just for import, keep the reference here */
     WASMTableInstance *table_inst_linked;
 #endif
+#if WASM_ENABLE_GC != 0
+    WASMRefType *elem_ref_type;
+#endif
     /* Base address */
     uint8 base_addr[1];
 };
@@ -76,6 +79,9 @@ struct WASMGlobalInstance {
     bool is_mutable;
     /* data offset to base_addr of WASMMemoryInstance */
     uint32 data_offset;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *ref_type;
+#endif
     /* initial value */
     WASMValue initial_value;
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -412,8 +418,14 @@ wasm_elem_is_declarative(uint32 mode)
 
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
-                   uint32 inc_entries, uint32 init_val);
+                   uint32 inc_entries, table_elem_type_t init_val);
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
+
+#if WASM_ENABLE_GC != 0
+void *
+wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                     bool throw_exce, char *error_buf, uint32 error_buf_size);
+#endif
 
 static inline WASMTableInstance *
 wasm_get_table_inst(const WASMModuleInstance *module_inst, const uint32 tbl_idx)

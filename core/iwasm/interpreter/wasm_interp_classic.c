@@ -9,6 +9,9 @@
 #include "wasm_opcode.h"
 #include "wasm_loader.h"
 #include "../common/wasm_exec_env.h"
+#if WASM_ENABLE_GC != 0
+#include "../common/gc/gc_object.h"
+#endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -226,6 +229,12 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_sp += 2;                    \
     } while (0)
 
+#define PUSH_REF(value)                   \
+    do {                                  \
+        PUT_REF_TO_ADDR(frame_sp, value); \
+        frame_sp += 2;                    \
+    } while (0)
+
 #define PUSH_CSP(_label_type, cell_num, _target_addr) \
     do {                                              \
         bh_assert(frame_csp < frame->csp_boundary);   \
@@ -244,6 +253,10 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 #define POP_I64() (frame_sp -= 2, GET_I64_FROM_ADDR(frame_sp))
 
 #define POP_F64() (frame_sp -= 2, GET_F64_FROM_ADDR(frame_sp))
+
+#define POP_REF()                                    \
+    (frame_sp -= sizeof(uintptr_t) / sizeof(uint32), \
+     GET_REF_FROM_ADDR(frame_sp))
 
 #define POP_CSP_CHECK_OVERFLOW(n)                      \
     do {                                               \
@@ -993,6 +1006,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, cell_num;
     uint8 value_type;
+#if WASM_ENABLE_GC != 0
+    WASMObjectRef gc_obj;
+    WASMRttObjectRef rtt_obj;
+    WASMStructObjectRef struct_obj;
+    WASMArrayObjectRef array_obj;
+    WASMFuncObjectRef func_obj;
+    WASMI31ObjectRef i31_obj;
+#endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -1213,7 +1234,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 #endif
-
                 cur_func = module->functions + fidx;
                 goto call_func_from_interp;
             }
@@ -1232,7 +1252,6 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
 #endif
                 cur_func = module->functions + fidx;
-
                 goto call_func_from_return_call;
             }
 #endif /* WASM_ENABLE_TAIL_CALL */
@@ -1245,6 +1264,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 WASMFuncType *cur_type, *cur_func_type;
                 WASMTableInstance *tbl_inst;
                 uint32 tbl_idx;
+
 #if WASM_ENABLE_TAIL_CALL != 0
                 opcode = *(frame_ip - 1);
 #endif
@@ -1273,11 +1293,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
+                /* clang-format off */
+#if WASM_ENABLE_GC == 0
                 fidx = ((uint32 *)tbl_inst->base_addr)[val];
                 if (fidx == (uint32)-1) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
                 }
+#else
+                func_obj = ((WASMFuncObjectRef *)tbl_inst->base_addr)[val];
+                if (!func_obj) {
+                    wasm_set_exception(module, "uninitialized element");
+                    goto got_exception;
+                }
+                fidx = func_obj->func_idx;
+#endif
+                /* clang-format on */
 
                 /*
                  * we might be using a table injected by host or
@@ -1352,7 +1383,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 type = *frame_ip++;
 
                 cond = (uint32)POP_I32();
-                if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64) {
+                if (type == VALUE_TYPE_I64 || type == VALUE_TYPE_F64
+#if WASM_ENABLE_GC != 0 && UINTPTR_MAX == UINT64_MAX
+                    || wasm_is_type_reftype(type)
+#endif
+                ) {
                     frame_sp -= 2;
                     if (!cond) {
                         *(frame_sp - 2) = *frame_sp;
@@ -1385,44 +1420,61 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
+#if WASM_ENABLE_GC == 0
                 PUSH_I32(((uint32 *)tbl_inst->base_addr)[elem_idx]);
+#else
+                PUSH_REF(((table_elem_type_t *)tbl_inst->base_addr)[elem_idx]);
+#endif
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_TABLE_SET)
             {
-                uint32 tbl_idx, elem_idx, elem_val;
                 WASMTableInstance *tbl_inst;
+                uint32 tbl_idx, elem_idx;
+                table_elem_type_t elem_val;
 
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 bh_assert(tbl_idx < module->table_count);
 
                 tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
+#if WASM_ENABLE_GC == 0
                 elem_val = POP_I32();
+#else
+                elem_val = POP_REF();
+#endif
                 elem_idx = POP_I32();
                 if (elem_idx >= tbl_inst->cur_size) {
                     wasm_set_exception(module, "out of bounds table access");
                     goto got_exception;
                 }
 
-                ((uint32 *)(tbl_inst->base_addr))[elem_idx] = elem_val;
+                ((table_elem_type_t *)(tbl_inst->base_addr))[elem_idx] =
+                    elem_val;
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_REF_NULL)
             {
-                uint32 ref_type;
-                read_leb_uint32(frame_ip, frame_ip_end, ref_type);
+                frame_ip++;
+#if WASM_ENABLE_GC == 0
                 PUSH_I32(NULL_REF);
-                (void)ref_type;
+#else
+                PUSH_REF(NULL_REF);
+#endif
                 HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_REF_IS_NULL)
             {
+#if WASM_ENABLE_GC == 0
                 uint32 ref_val;
                 ref_val = POP_I32();
+#else
+                void *ref_val;
+                ref_val = POP_REF();
+#endif
                 PUSH_I32(ref_val == NULL_REF ? 1 : 0);
                 HANDLE_OP_END();
             }
@@ -1431,27 +1483,106 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 uint32 func_idx;
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
+#if WASM_ENABLE_GC == 0
                 PUSH_I32(func_idx);
+#else
+                if (!(gc_obj = wasm_create_func_obj(module, func_idx, true,
+                                                    NULL, 0))) {
+                    goto got_exception;
+                }
+                PUSH_REF(gc_obj);
+#endif
                 HANDLE_OP_END();
             }
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
 
 #if WASM_ENABLE_GC != 0
-            HANDLE_OP(WASM_OP_CALL_REF) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_CALL_REF)
+            {
+#if WASM_ENABLE_THREAD_MGR != 0
+                CHECK_SUSPEND_FLAGS();
+#endif
+                func_obj = POP_REF();
+                if (!func_obj) {
+                    wasm_set_exception(module, "null function object");
+                    goto got_exception;
+                }
 
-            HANDLE_OP(WASM_OP_RETURN_CALL_REF) { HANDLE_OP_END(); }
+                cur_func = module->functions + func_obj->func_idx;
+                goto call_func_from_interp;
+            }
 
-            HANDLE_OP(WASM_OP_FUNC_BIND) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_RETURN_CALL_REF)
+            {
+#if WASM_ENABLE_THREAD_MGR != 0
+                CHECK_SUSPEND_FLAGS();
+#endif
+                func_obj = POP_REF();
+                if (!func_obj) {
+                    wasm_set_exception(module, "null function object");
+                    goto got_exception;
+                }
 
-            HANDLE_OP(WASM_OP_LET) { HANDLE_OP_END(); }
+                cur_func = module->functions + func_obj->func_idx;
+                goto call_func_from_return_call;
+            }
 
-            HANDLE_OP(WASM_OP_REF_EQ) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_FUNC_BIND)
+            HANDLE_OP(WASM_OP_LET)
+            {
+                wasm_set_exception(module, "unsupported opcode");
+                goto got_exception;
+            }
 
-            HANDLE_OP(WASM_OP_REF_AS_NON_NULL) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_REF_EQ)
+            {
+                WASMObjectRef gc_obj1, gc_obj2;
+                gc_obj2 = POP_REF();
+                gc_obj1 = POP_REF();
+                val = wasm_obj_equal(gc_obj1, gc_obj2);
+                PUSH_I32(val);
+                HANDLE_OP_END();
+            }
 
-            HANDLE_OP(WASM_OP_BR_ON_NULL) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_REF_AS_NON_NULL)
+            {
+                gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                if (gc_obj == NULL_REF) {
+                    wasm_set_exception(module, "null reference");
+                    goto got_exception;
+                }
+                HANDLE_OP_END();
+            }
 
-            HANDLE_OP(WASM_OP_BR_ON_NON_NULL) { HANDLE_OP_END(); }
+            HANDLE_OP(WASM_OP_BR_ON_NULL)
+            {
+#if WASM_ENABLE_THREAD_MGR != 0
+                CHECK_SUSPEND_FLAGS();
+#endif
+                read_leb_uint32(frame_ip, frame_ip_end, depth);
+                gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                if (gc_obj == NULL_REF) {
+                    frame_sp -= REF_CELL_NUM;
+                    goto label_pop_csp_n;
+                }
+                HANDLE_OP_END();
+            }
+
+            HANDLE_OP(WASM_OP_BR_ON_NON_NULL)
+            {
+#if WASM_ENABLE_THREAD_MGR != 0
+                CHECK_SUSPEND_FLAGS();
+#endif
+                read_leb_uint32(frame_ip, frame_ip_end, depth);
+                gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                if (gc_obj != NULL_REF) {
+                    goto label_pop_csp_n;
+                }
+                else {
+                    frame_sp -= REF_CELL_NUM;
+                }
+                HANDLE_OP_END();
+            }
 
             HANDLE_OP(WASM_OP_GC_PREFIX)
             {
@@ -1460,53 +1591,564 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint8)opcode1;
 
-                /* TODO */
                 switch (opcode) {
                     case WASM_OP_STRUCT_NEW_WITH_RTT:
                     case WASM_OP_STRUCT_NEW_DEFAULT_WITH_RTT:
+                    {
+                        WASMStructType *struct_type;
+                        WASMValue field_value = { 0 };
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        struct_type =
+                            (WASMStructType *)module->module->types[type_index];
+
+                        rtt_obj = POP_REF();
+                        struct_obj = wasm_struct_obj_new(NULL, rtt_obj);
+                        if (!struct_obj) {
+                            wasm_set_exception(module,
+                                               "create struct object failed");
+                            goto got_exception;
+                        }
+                        if (opcode == WASM_OP_STRUCT_NEW_WITH_RTT) {
+                            WASMStructFieldType *fields = struct_type->fields;
+                            int32 field_count = (int32)struct_type->field_count;
+                            int32 field_idx;
+                            uint8 field_type;
+
+                            for (field_idx = field_count - 1; field_idx >= 0;
+                                 field_idx--) {
+                                field_type = fields[field_idx].field_type;
+                                if (wasm_is_type_reftype(field_type)) {
+                                    field_value.gc_obj = POP_REF();
+                                }
+                                else if (field_type == VALUE_TYPE_I32
+                                         || field_type == VALUE_TYPE_F32
+                                         || field_type == PACKED_TYPE_I8
+                                         || field_type == PACKED_TYPE_I16) {
+                                    field_value.i32 = POP_I32();
+                                }
+                                else {
+                                    field_value.i64 = POP_I64();
+                                }
+                                wasm_struct_obj_set_field(struct_obj, field_idx,
+                                                          &field_value);
+                            }
+                        }
+                        PUSH_REF(struct_obj);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_STRUCT_GET:
                     case WASM_OP_STRUCT_GET_S:
                     case WASM_OP_STRUCT_GET_U:
+                    {
+                        WASMStructType *struct_type;
+                        WASMValue field_value = { 0 };
+                        uint32 field_idx;
+                        uint8 field_type;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, field_idx);
+                        struct_type =
+                            (WASMStructType *)module->module->types[type_index];
+
+                        struct_obj = POP_REF();
+
+                        if (!struct_obj) {
+                            wasm_set_exception(module, "null structure object");
+                            goto got_exception;
+                        }
+                        if (field_idx >= struct_type->field_count) {
+                            wasm_set_exception(
+                                module, "struct field index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_struct_obj_get_field(
+                            struct_obj, field_idx,
+                            opcode == WASM_OP_STRUCT_GET_S ? true : false,
+                            &field_value);
+
+                        field_type = struct_type->fields[field_idx].field_type;
+                        if (wasm_is_type_reftype(field_type)) {
+                            PUSH_REF(field_value.gc_obj);
+                        }
+                        else if (field_type == VALUE_TYPE_I32
+                                 || field_type == VALUE_TYPE_F32
+                                 || field_type == PACKED_TYPE_I8
+                                 || field_type == PACKED_TYPE_I16) {
+                            PUSH_I32(field_value.i32);
+                        }
+                        else {
+                            PUSH_I64(field_value.i64);
+                        }
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_STRUCT_SET:
+                    {
+                        WASMStructType *struct_type;
+                        WASMValue field_value = { 0 };
+                        uint32 field_idx;
+                        uint8 field_type;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        read_leb_uint32(frame_ip, frame_ip_end, field_idx);
+
+                        struct_type =
+                            (WASMStructType *)module->module->types[type_index];
+                        field_type = struct_type->fields[field_idx].field_type;
+
+                        if (wasm_is_type_reftype(field_type)) {
+                            field_value.gc_obj = POP_REF();
+                        }
+                        else if (field_type == VALUE_TYPE_I32
+                                 || field_type == VALUE_TYPE_F32
+                                 || field_type == PACKED_TYPE_I8
+                                 || field_type == PACKED_TYPE_I16) {
+                            field_value.i32 = POP_I32();
+                        }
+                        else {
+                            field_value.i64 = POP_I64();
+                        }
+
+                        struct_obj = POP_REF();
+                        if (!struct_obj) {
+                            wasm_set_exception(module, "null structure object");
+                            goto got_exception;
+                        }
+                        if (field_idx >= struct_type->field_count) {
+                            wasm_set_exception(
+                                module, "struct field index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_struct_obj_set_field(struct_obj, field_idx,
+                                                  &field_value);
+                        HANDLE_OP_END();
+                    }
 
                     case WASM_OP_ARRAY_NEW_WITH_RTT:
                     case WASM_OP_ARRAY_NEW_DEFAULT_WITH_RTT:
+                    {
+                        WASMArrayType *array_type;
+                        WASMValue array_elem = { 0 };
+                        uint32 array_len;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_index];
+
+                        rtt_obj = POP_REF();
+                        array_len = POP_I32();
+
+                        if (opcode == WASM_OP_ARRAY_NEW_WITH_RTT) {
+                            if (wasm_is_type_reftype(array_type->elem_type)) {
+                                array_elem.gc_obj = POP_REF();
+                            }
+                            else if (array_type->elem_type == VALUE_TYPE_I32
+                                     || array_type->elem_type == VALUE_TYPE_F32
+                                     || array_type->elem_type == PACKED_TYPE_I8
+                                     || array_type->elem_type
+                                            == PACKED_TYPE_I16) {
+                                array_elem.i32 = POP_I32();
+                            }
+                            else {
+                                array_elem.i64 = POP_I64();
+                            }
+                        }
+
+                        array_obj = wasm_array_obj_new(NULL, rtt_obj, array_len,
+                                                       &array_elem);
+                        if (!array_obj) {
+                            wasm_set_exception(module,
+                                               "create array object failed");
+                            goto got_exception;
+                        }
+                        PUSH_REF(array_obj);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_GET:
                     case WASM_OP_ARRAY_GET_S:
                     case WASM_OP_ARRAY_GET_U:
+                    {
+                        WASMArrayType *array_type;
+                        WASMValue array_elem = { 0 };
+                        uint32 elem_idx, elem_size_log;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_index];
+
+                        elem_idx = POP_I32();
+                        array_obj = POP_REF();
+
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        if (elem_idx >= wasm_array_obj_length(array_obj)) {
+                            wasm_set_exception(module,
+                                               "array index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_array_obj_get_elem(
+                            array_obj, elem_idx,
+                            opcode == WASM_OP_ARRAY_GET_S ? true : false,
+                            &array_elem);
+                        elem_size_log = wasm_array_obj_elem_size_log(array_obj);
+
+                        if (wasm_is_type_reftype(array_type->elem_type)) {
+                            PUSH_REF(array_elem.gc_obj);
+                        }
+                        else if (elem_size_log < 3) {
+                            PUSH_I32(array_elem.i32);
+                        }
+                        else {
+                            PUSH_I64(array_elem.i64);
+                        }
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_SET:
+                    {
+                        WASMArrayType *array_type;
+                        WASMValue array_elem = { 0 };
+                        uint32 elem_idx;
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+                        array_type =
+                            (WASMArrayType *)module->module->types[type_index];
+                        if (wasm_is_type_reftype(array_type->elem_type)) {
+                            array_elem.gc_obj = POP_REF();
+                        }
+                        else if (array_type->elem_type == VALUE_TYPE_I32
+                                 || array_type->elem_type == VALUE_TYPE_F32
+                                 || array_type->elem_type == PACKED_TYPE_I8
+                                 || array_type->elem_type == PACKED_TYPE_I16) {
+                            array_elem.i32 = POP_I32();
+                        }
+                        else {
+                            array_elem.i64 = POP_I64();
+                        }
+
+                        elem_idx = POP_I32();
+                        array_obj = POP_REF();
+
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        if (elem_idx >= wasm_array_obj_length(array_obj)) {
+                            wasm_set_exception(module,
+                                               "array index out of bounds");
+                            goto got_exception;
+                        }
+
+                        wasm_array_obj_set_elem(array_obj, elem_idx,
+                                                &array_elem);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_ARRAY_LEN:
+                    {
+                        uint32 array_len;
+
+                        /* TODO: remove this line for latest GC MVP */
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+
+                        array_obj = POP_REF();
+                        if (!array_obj) {
+                            wasm_set_exception(module, "null array object");
+                            goto got_exception;
+                        }
+                        array_len = wasm_array_obj_length(array_obj);
+                        PUSH_I32(array_len);
+                        HANDLE_OP_END();
+                    }
 
                     case WASM_OP_I31_NEW:
+                    {
+                        uint32 i31_val;
+
+                        i31_val = POP_I32();
+                        i31_obj = wasm_i31_obj_new(i31_val);
+                        PUSH_REF(i31_obj);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_I31_GET_S:
                     case WASM_OP_I31_GET_U:
+                    {
+                        uint32 i31_val;
+
+                        i31_obj = (WASMI31ObjectRef)POP_REF();
+                        if (!i31_obj) {
+                            wasm_set_exception(module, "null i31 reference");
+                            goto got_exception;
+                        }
+                        i31_val = wasm_i31_obj_get_value(
+                            i31_obj,
+                            opcode == WASM_OP_I31_GET_S ? true : false);
+                        PUSH_I32(i31_val);
+                        HANDLE_OP_END();
+                    }
 
                     case WASM_OP_RTT_CANON:
                     case WASM_OP_RTT_SUB:
+                    {
+                        WASMModule *wasm_module = module->module;
+                        WASMRttObjectRef rtt_obj_parent = NULL;
+
+                        if (opcode == WASM_OP_RTT_SUB)
+                            rtt_obj_parent = POP_REF();
+
+                        read_leb_uint32(frame_ip, frame_ip_end, type_index);
+
+                        rtt_obj = wasm_rtt_obj_new(
+                            wasm_module->rtt_obj_set, rtt_obj_parent,
+                            wasm_module->types[type_index], type_index);
+                        if (!rtt_obj) {
+                            wasm_set_exception(module,
+                                               "create rtt object failed");
+                            goto got_exception;
+                        }
+                        PUSH_REF(rtt_obj);
+                        HANDLE_OP_END();
+                    }
 
                     case WASM_OP_REF_TEST:
+                    {
+                        rtt_obj = POP_REF();
+                        gc_obj = POP_REF();
+                        if (gc_obj && rtt_obj
+                            && wasm_obj_is_instance_of(gc_obj, rtt_obj))
+                            val = 1;
+                        else
+                            val = 0;
+                        PUSH_I32(val);
+                        HANDLE_OP_END();
+                    }
+
                     case WASM_OP_REF_CAST:
+                    {
+                        rtt_obj = POP_REF();
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - 2);
+
+                        if (gc_obj
+                            && (!rtt_obj
+                                || !wasm_obj_is_instance_of(gc_obj, rtt_obj))) {
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
+                            goto got_exception;
+                        }
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_BR_ON_CAST:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        rtt_obj = POP_REF();
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - 2);
+
+                        if (gc_obj
+                            && (rtt_obj
+                                && wasm_obj_is_instance_of(gc_obj, rtt_obj))) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+
                     case WASM_OP_BR_ON_CAST_FAIL:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        rtt_obj = POP_REF();
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - 2);
+
+                        if (!gc_obj
+                            || (!rtt_obj
+                                || !wasm_obj_is_instance_of(gc_obj, rtt_obj))) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
 
                     case WASM_OP_REF_IS_FUNC:
+                    {
+                        gc_obj = POP_REF();
+                        val = gc_obj && wasm_obj_is_func_obj(gc_obj) ? 1 : 0;
+                        PUSH_I32(val);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_REF_IS_DATA:
+                    {
+                        gc_obj = POP_REF();
+                        val = gc_obj && wasm_obj_is_data_obj(gc_obj) ? 1 : 0;
+                        PUSH_I32(val);
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_REF_IS_I31:
+                    {
+                        gc_obj = POP_REF();
+                        val = gc_obj && wasm_obj_is_i31_obj(gc_obj) ? 1 : 0;
+                        PUSH_I32(val);
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_REF_IS_ARRAY:
+                    {
+                        gc_obj = POP_REF();
+                        val = gc_obj && wasm_obj_is_array_obj(gc_obj) ? 1 : 0;
+                        PUSH_I32(val);
+                        HANDLE_OP_END();
+                    }
+
                     case WASM_OP_REF_AS_FUNC:
+                    {
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_func_obj(gc_obj)) {
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
+                            goto got_exception;
+                        }
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_REF_AS_DATA:
+                    {
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_data_obj(gc_obj)) {
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
+                            goto got_exception;
+                        }
+                        HANDLE_OP_END();
+                    }
                     case WASM_OP_REF_AS_I31:
+                    {
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_i31_obj(gc_obj)) {
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
+                            goto got_exception;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_REF_AS_ARRAY:
+                    {
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_array_obj(gc_obj)) {
+                            wasm_set_exception(module,
+                                               "gc object cast failure");
+                            goto got_exception;
+                        }
+                        HANDLE_OP_END();
+                    }
 
                     case WASM_OP_BR_ON_FUNC:
-                    case WASM_OP_BR_ON_DATA:
-                    case WASM_OP_BR_ON_I31:
-                    case WASM_OP_BR_ON_NON_FUNC:
-                    case WASM_OP_BR_ON_NON_DATA:
-                    case WASM_OP_BR_ON_NON_I31:
-                        break;
-                }
-                HANDLE_OP_END();
-            }
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
 #endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (gc_obj && wasm_obj_is_func_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_BR_ON_DATA:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (gc_obj && wasm_obj_is_data_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_BR_ON_I31:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (gc_obj && wasm_obj_is_i31_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_BR_ON_ARRAY:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (gc_obj && wasm_obj_is_array_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+
+                    case WASM_OP_BR_ON_NON_FUNC:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_func_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_BR_ON_NON_DATA:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_data_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_BR_ON_NON_I31:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_i31_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    case WASM_OP_BR_ON_NON_ARRAY:
+                    {
+#if WASM_ENABLE_THREAD_MGR != 0
+                        CHECK_SUSPEND_FLAGS();
+#endif
+                        read_leb_uint32(frame_ip, frame_ip_end, depth);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
+                        if (!gc_obj || !wasm_obj_is_array_obj(gc_obj)) {
+                            goto label_pop_csp_n;
+                        }
+                        HANDLE_OP_END();
+                    }
+                    default:
+                    {
+                        wasm_set_exception(module, "unsupported opcode");
+                        goto got_exception;
+                    }
+                }
+            }
+#endif /* end of WASM_ENABLE_GC != 0 */
 
             /* variable instructions */
             HANDLE_OP(WASM_OP_GET_LOCAL)
@@ -1516,7 +2158,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 switch (local_type) {
                     case VALUE_TYPE_I32:
                     case VALUE_TYPE_F32:
-#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
+#if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
                     case VALUE_TYPE_FUNCREF:
                     case VALUE_TYPE_EXTERNREF:
 #endif
@@ -1527,8 +2169,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         PUSH_I64(GET_I64_FROM_ADDR(frame_lp + local_offset));
                         break;
                     default:
-                        wasm_set_exception(module, "invalid local type");
-                        goto got_exception;
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_reftype(local_type)) {
+                            PUSH_REF(
+                                GET_REF_FROM_ADDR(frame_lp + local_offset));
+                        }
+                        else
+#endif
+                        {
+                            wasm_set_exception(module, "invalid local type");
+                            goto got_exception;
+                        }
                 }
 
                 HANDLE_OP_END();
@@ -1564,8 +2215,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         POP_I64());
                         break;
                     default:
-                        wasm_set_exception(module, "invalid local type");
-                        goto got_exception;
+#if WASM_ENABLE_GC != 0
+                        if (wasm_is_type_reftype(local_type)) {
+                            PUT_REF_TO_ADDR(frame_lp + local_offset, POP_REF());
+                        }
+                        else
+#endif
+                        {
+                            wasm_set_exception(module, "invalid local type");
+                            goto got_exception;
+                        }
                 }
 
                 HANDLE_OP_END();
@@ -1629,7 +2288,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
+                /* clang-format off */
+#if WASM_ENABLE_GC == 0
                 PUSH_I32(*(uint32 *)global_addr);
+#else
+                if (!wasm_is_type_reftype(global->type))
+                    PUSH_I32(*(uint32 *)global_addr);
+                else
+                    PUSH_REF(GET_REF_FROM_ADDR((uint32 *)global_addr));
+#endif
+                /* clang-format on */
                 HANDLE_OP_END();
             }
 
@@ -1649,7 +2317,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 bh_assert(global_idx < module->global_count);
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
+                /* clang-format off */
+#if WASM_ENABLE_GC == 0
                 *(int32 *)global_addr = POP_I32();
+#else
+                if (!wasm_is_type_reftype(global->type))
+                    *(int32 *)global_addr = POP_I32();
+                else
+                    PUT_REF_TO_ADDR((uint32 *)global_addr, POP_REF());
+#endif
+                /* clang-format on */
                 HANDLE_OP_END();
             }
 
@@ -3054,6 +3731,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         uint32 tbl_idx, elem_idx;
                         uint64 n, s, d;
                         WASMTableInstance *tbl_inst;
+#if WASM_ENABLE_GC != 0
+                        void **table_elems;
+                        uint32 *func_indexes;
+#endif
 
                         read_leb_uint32(frame_ip, frame_ip_end, elem_idx);
                         bh_assert(elem_idx < module->module->table_seg_count);
@@ -3096,6 +3777,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                             goto got_exception;
                         }
 
+#if WASM_ENABLE_GC == 0
                         bh_memcpy_s(
                             (uint8 *)(tbl_inst)
                                 + offsetof(WASMTableInstance, base_addr)
@@ -3105,7 +3787,27 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                     .func_indexes
                                 + s,
                             (uint32)(n * sizeof(uint32)));
-
+#else
+                        table_elems =
+                            (table_elem_type_t *)tbl_inst->base_addr + d;
+                        func_indexes = module->module->table_segments[elem_idx]
+                                           .func_indexes
+                                       + s;
+                        for (i = 0; i < n; i++) {
+                            /* UINT32_MAX indicates that it is an null ref */
+                            if (func_indexes[i] != UINT32_MAX) {
+                                if (!(func_obj = wasm_create_func_obj(
+                                          module, func_indexes[i], true, NULL,
+                                          0))) {
+                                    goto got_exception;
+                                }
+                                table_elems[i] = func_obj;
+                            }
+                            else {
+                                table_elems[i] = NULL_REF;
+                            }
+                        }
+#endif
                         break;
                     }
                     case WASM_OP_ELEM_DROP:
@@ -3138,8 +3840,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (s + n > dst_tbl_inst->cur_size
-                            || d + n > src_tbl_inst->cur_size) {
+                        if (d + n > dst_tbl_inst->cur_size
+                            || s + n > src_tbl_inst->cur_size) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
@@ -3151,19 +3853,20 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         bh_memmove_s(
                             (uint8 *)(dst_tbl_inst)
                                 + offsetof(WASMTableInstance, base_addr)
-                                + d * sizeof(uint32),
+                                + d * sizeof(table_elem_type_t),
                             (uint32)((dst_tbl_inst->cur_size - d)
-                                     * sizeof(uint32)),
+                                     * sizeof(table_elem_type_t)),
                             (uint8 *)(src_tbl_inst)
                                 + offsetof(WASMTableInstance, base_addr)
-                                + s * sizeof(uint32),
-                            (uint32)(n * sizeof(uint32)));
+                                + s * sizeof(table_elem_type_t),
+                            (uint32)(n * sizeof(table_elem_type_t)));
                         break;
                     }
                     case WASM_OP_TABLE_GROW:
                     {
-                        uint32 tbl_idx, n, init_val, orig_tbl_sz;
                         WASMTableInstance *tbl_inst;
+                        uint32 tbl_idx, n, orig_tbl_sz;
+                        table_elem_type_t init_val;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                         bh_assert(tbl_idx < module->table_count);
@@ -3173,7 +3876,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         orig_tbl_sz = tbl_inst->cur_size;
 
                         n = POP_I32();
+#if WASM_ENABLE_GC == 0
                         init_val = POP_I32();
+#else
+                        init_val = POP_REF();
+#endif
 
                         if (!wasm_enlarge_table(module, tbl_idx, n, init_val)) {
                             PUSH_I32(-1);
@@ -3198,8 +3905,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     }
                     case WASM_OP_TABLE_FILL:
                     {
-                        uint32 tbl_idx, n, fill_val;
+                        uint32 tbl_idx, n;
                         WASMTableInstance *tbl_inst;
+                        table_elem_type_t fill_val;
 
                         read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                         bh_assert(tbl_idx < module->table_count);
@@ -3207,29 +3915,35 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         tbl_inst = wasm_get_table_inst(module, tbl_idx);
 
                         n = POP_I32();
+#if WASM_ENABLE_GC == 0
                         fill_val = POP_I32();
+#else
+                        fill_val = POP_REF();
+#endif
                         i = POP_I32();
 
                         /* TODO: what if the element is not passive? */
                         /* TODO: what if the element is dropped? */
 
                         if (i + n > tbl_inst->cur_size) {
-                            /* TODO: verify warning content */
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;
                         }
 
                         for (; n != 0; i++, n--) {
-                            ((uint32 *)(tbl_inst->base_addr))[i] = fill_val;
+                            ((table_elem_type_t *)(tbl_inst->base_addr))[i] =
+                                fill_val;
                         }
 
                         break;
                     }
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
                     default:
+                    {
                         wasm_set_exception(module, "unsupported opcode");
                         goto got_exception;
+                    }
                 }
                 HANDLE_OP_END();
             }
@@ -3593,8 +4307,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 #if WASM_ENABLE_LABELS_AS_VALUES == 0
             default:
+            {
                 wasm_set_exception(module, "unsupported opcode");
                 goto got_exception;
+            }
         }
 #endif
 
@@ -3656,7 +4372,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     FETCH_OPCODE_AND_DISPATCH();
 #endif
 
-#if WASM_ENABLE_TAIL_CALL != 0
+#if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
     call_func_from_return_call:
     {
         POP(cur_func->param_cell_num);

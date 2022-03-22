@@ -10,6 +10,9 @@
 #include "bh_log.h"
 #include "mem_alloc.h"
 #include "../common/wasm_runtime_common.h"
+#if WASM_ENABLE_GC != 0
+#include "../common/gc/gc_object.h"
+#endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -56,7 +59,7 @@ wasm_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
 
 WASMModule *
 wasm_load_from_sections(WASMSection *section_list, char *error_buf,
-                        uint32_t error_buf_size)
+                        uint32 error_buf_size)
 {
     return wasm_loader_load_from_sections(section_list, error_buf,
                                           error_buf_size);
@@ -488,7 +491,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 
             /* it is a built-in table, every module has its own */
             total_size = offsetof(WASMTableInstance, base_addr);
-            total_size += (uint64)max_size_fixed * sizeof(uint32);
+            /* Store function indexes */
+            total_size += sizeof(table_elem_type_t) * (uint64)max_size_fixed;
         }
 
         if (!(table = tables[table_index++] =
@@ -497,8 +501,13 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             return NULL;
         }
 
+#if WASM_ENABLE_GC == 0
         /* Set all elements to -1 to mark them as uninitialized elements */
         memset(table, -1, (uint32)total_size);
+#else
+        /* For GC, all elements have already been set to NULL_REF (0) as
+           uninitialized elements */
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
         table->table_inst_linked = table_inst_linked;
@@ -511,6 +520,9 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
         {
             table->elem_type = import->u.table.elem_type;
+#if WASM_ENABLE_GC != 0
+            table->elem_ref_type = import->u.table.elem_ref_type;
+#endif
             table->cur_size = import->u.table.init_size;
             table->max_size = max_size_fixed;
         }
@@ -529,7 +541,13 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                              ? module->tables[i].max_size
                              : module->tables[i].init_size;
 #endif
+#if WASM_ENABLE_GC == 0
+        /* Store function indexes */
         total_size += sizeof(uint32) * (uint64)max_size_fixed;
+#else
+        /* Store object pointers */
+        total_size += sizeof(uintptr_t) * (uint64)max_size_fixed;
+#endif
 
         if (!(table = tables[table_index++] =
                   runtime_malloc(total_size, error_buf, error_buf_size))) {
@@ -537,9 +555,17 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
             return NULL;
         }
 
+#if WASM_ENABLE_GC == 0
         /* Set all elements to -1 to mark them as uninitialized elements */
         memset(table, -1, (uint32)total_size);
+#else
+        /* For GC, all elements have already been set to NULL_REF (0) as
+           uninitialized elements */
+#endif
         table->elem_type = module->tables[i].elem_type;
+#if WASM_ENABLE_GC != 0
+        table->elem_ref_type = module->tables[i].elem_ref_type;
+#endif
         table->cur_size = module->tables[i].init_size;
         table->max_size = max_size_fixed;
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -702,6 +728,9 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         WASMGlobalImport *global_import = &import->u.global;
         global->type = global_import->type;
         global->is_mutable = global_import->is_mutable;
+#if WASM_ENABLE_GC != 0
+        global->ref_type = global_import->ref_type;
+#endif
 #if WASM_ENABLE_MULTI_MODULE != 0
         if (global_import->import_module) {
             if (!(global->import_module_inst = get_sub_module_inst(
@@ -743,6 +772,9 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         global->type = module->globals[i].type;
         global->is_mutable = module->globals[i].is_mutable;
         global->data_offset = global_data_offset;
+#if WASM_ENABLE_GC != 0
+        global->ref_type = module->globals[i].ref_type;
+#endif
 
         global_data_offset += wasm_value_type_size(global->type);
 
@@ -759,7 +791,8 @@ globals_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         }
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
         else if (init_expr->init_expr_type == INIT_EXPR_TYPE_REFNULL_CONST) {
-            global->initial_value.u32 = (uint32)NULL_REF;
+            /* UINT32_MAX indicates that it is an null reference */
+            global->initial_value.u32 = (uint32)UINT32_MAX;
         }
 #endif
         else {
@@ -1135,6 +1168,47 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
     return true;
 }
 
+#if WASM_ENABLE_GC != 0
+void *
+wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
+                     bool throw_exce, char *error_buf, uint32 error_buf_size)
+{
+    WASMRttObjectRef rtt_obj;
+    WASMFuncObjectRef func_obj;
+    WASMFunctionInstance *func_inst;
+    WASMType *func_type;
+
+    if (throw_exce) {
+        error_buf = module_inst->cur_exception;
+        error_buf_size = sizeof(module_inst->cur_exception);
+    }
+
+    if (func_idx >= module_inst->function_count) {
+        set_error_buf_v(error_buf, error_buf_size, "unknown function %d",
+                        func_idx);
+        return NULL;
+    }
+
+    func_inst = &module_inst->functions[func_idx];
+    func_type = (WASMType *)(func_inst->is_import_func
+                                 ? func_inst->u.func_import->func_type
+                                 : func_inst->u.func->func_type);
+
+    if (!(rtt_obj = wasm_rtt_obj_new(module_inst->module->rtt_obj_set, NULL,
+                                     func_type, func_type->type_idx))) {
+        set_error_buf(error_buf, error_buf_size, "create rtt object failed");
+        return NULL;
+    }
+
+    if (!(func_obj = wasm_func_obj_new(NULL, rtt_obj, func_idx))) {
+        set_error_buf(error_buf, error_buf_size, "create func object failed");
+        return NULL;
+    }
+
+    return func_obj;
+}
+#endif
+
 /**
  * Instantiate module
  */
@@ -1286,12 +1360,42 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                     global_data += sizeof(int64);
                     break;
 #if WASM_ENABLE_GC != 0
-                case VALUE_TYPE_FUNCREF:
                 case VALUE_TYPE_EXTERNREF:
-                    /* TODO */
+                    /* UINT32_MAX indicates that it is an null reference */
+                    bh_assert((uint32)global->initial_value.i32 == UINT32_MAX);
+                    STORE_PTR((void **)global_data, NULL_REF);
+                    global_data += sizeof(void *);
                     break;
 #endif
                 default:
+#if WASM_ENABLE_GC != 0
+                    if (wasm_reftype_is_subtype_of(
+                            global->type, global->ref_type, REF_TYPE_FUNCREF,
+                            NULL, module_inst->module->types,
+                            module_inst->module->type_count)) {
+                        WASMFuncObjectRef func_obj = NULL;
+                        /* UINT32_MAX indicates that it is an null reference */
+                        if ((uint32)global->initial_value.i32 != UINT32_MAX) {
+                            if (!(func_obj = wasm_create_func_obj(
+                                      module_inst, global->initial_value.i32,
+                                      false, error_buf, error_buf_size)))
+                                goto fail;
+                        }
+                        STORE_PTR((void **)global_data, func_obj);
+                        global_data += sizeof(void *);
+                        break;
+                    }
+                    else if (wasm_is_type_reftype(global->type)
+                             && (wasm_is_refheaptype_rtt(
+                                     &global->ref_type->ref_ht_common)
+                                 || wasm_is_refheaptype_rttn(
+                                     &global->ref_type->ref_ht_common))) {
+                        STORE_PTR((void **)global_data,
+                                  global->initial_value.gc_obj);
+                        global_data += sizeof(void *);
+                        break;
+                    }
+#endif
                     bh_assert(0);
             }
         }
@@ -1391,21 +1495,34 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     /* in case there is no table */
     for (i = 0; module_inst->table_count > 0 && i < module->table_seg_count;
          i++) {
+#if WASM_ENABLE_GC != 0
+        uint32 j;
+#endif
+        uint32 *table_data;
         WASMTableSeg *table_seg = module->table_segments + i;
         /* has check it in loader */
         WASMTableInstance *table = module_inst->tables[table_seg->table_index];
         bh_assert(table);
 
-#if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
+#if (WASM_ENABLE_GC == 0) && (WASM_ENABLE_REF_TYPES != 0)
         if (table->elem_type != VALUE_TYPE_FUNCREF
             && table->elem_type != VALUE_TYPE_EXTERNREF) {
             set_error_buf(error_buf, error_buf_size,
                           "elements segment does not fit");
             goto fail;
         }
+#elif WASM_ENABLE_GC != 0
+        if (!wasm_reftype_is_subtype_of(table_seg->elem_type,
+                                        table_seg->elem_ref_type,
+                                        table->elem_type, table->elem_ref_type,
+                                        module->types, module->type_count)) {
+            set_error_buf(error_buf, error_buf_size,
+                          "elements segment does not fit");
+            goto fail;
+        }
 #endif
 
-        uint32 *table_data = (uint32 *)table->base_addr;
+        table_data = (uint32 *)table->base_addr;
 #if WASM_ENABLE_MULTI_MODULE != 0
         table_data = table->table_inst_linked
                          ? (uint32 *)table->table_inst_linked->base_addr
@@ -1481,6 +1598,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             goto fail;
         }
 
+#if WASM_ENABLE_GC == 0
         /**
          * Check function index in the current module inst for now.
          * will check the linked table inst owner in future.
@@ -1491,6 +1609,26 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
             (uint32)((table->cur_size - (uint32)table_seg->base_offset.u.i32)
                      * sizeof(uint32)),
             table_seg->func_indexes, (uint32)(length * sizeof(uint32)));
+#else
+        for (j = 0; j < length; j++) {
+            WASMFuncObjectRef func_obj;
+            uint32 func_idx = table_seg->func_indexes[j];
+            /* UINT32_MAX indicates that it is an null reference */
+            if (func_idx != UINT32_MAX) {
+                if (!(func_obj =
+                          wasm_create_func_obj(module_inst, func_idx, false,
+                                               error_buf, error_buf_size))) {
+                    goto fail;
+                }
+                *((void **)table_data + table_seg->base_offset.u.i32 + j) =
+                    func_obj;
+            }
+            else {
+                *((void **)table_data + table_seg->base_offset.u.i32 + j) =
+                    NULL_REF;
+            }
+        }
+#endif
     }
 
     /* module instance type */
@@ -1500,8 +1638,14 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (stack_size == 0)
         stack_size = DEFAULT_WASM_STACK_SIZE;
 #if WASM_ENABLE_SPEC_TEST != 0
+#if WASM_ENABLE_GC == 0
     if (stack_size < 48 * 1024)
         stack_size = 48 * 1024;
+#else
+    /* GC spec cases require more wasm operand stack */
+    if (stack_size < 200 * 1024 * 1024)
+        stack_size = 200 * 1024 * 1024;
+#endif
 #endif
     module_inst->default_wasm_stack_size = stack_size;
 
@@ -2203,10 +2347,11 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
 #if (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0)
 bool
 wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
-                   uint32 inc_entries, uint32 init_val)
+                   uint32 inc_entries, table_elem_type_t init_val)
 {
-    uint32 entry_count, *new_table_data_start, i;
     WASMTableInstance *table_inst;
+    uint32 entry_count, i;
+    table_elem_type_t *new_table_data_start;
 
     if (!inc_entries) {
         return true;
@@ -2229,7 +2374,8 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
 
     /* fill in */
     new_table_data_start =
-        (uint32 *)((uint8 *)table_inst + offsetof(WASMTableInstance, base_addr))
+        (table_elem_type_t *)((uint8 *)table_inst
+                              + offsetof(WASMTableInstance, base_addr))
         + table_inst->cur_size;
     for (i = 0; i < inc_entries; ++i) {
         new_table_data_start[i] = init_val;
@@ -2241,13 +2387,14 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
 #endif /* (WASM_ENABLE_GC != 0) || (WASM_ENABLE_REF_TYPES != 0) */
 
 bool
-wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
-                   uint32_t element_indices, uint32_t argc, uint32_t argv[])
+wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 tbl_elem_idx,
+                   uint32 argc, uint32 argv[])
 {
     WASMModuleInstance *module_inst = NULL;
     WASMTableInstance *table_inst = NULL;
-    uint32_t function_indices = 0;
     WASMFunctionInstance *function_inst = NULL;
+    table_elem_type_t tbl_elem_val;
+    uint32 func_idx;
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
     bh_assert(module_inst);
@@ -2255,41 +2402,44 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
     table_inst = module_inst->tables[tbl_idx];
     if (!table_inst) {
         wasm_set_exception(module_inst, "unknown table");
-        goto got_exception;
+        return false;
     }
 
-    if (element_indices >= table_inst->cur_size) {
+    if (tbl_elem_idx >= table_inst->cur_size) {
         wasm_set_exception(module_inst, "undefined element");
-        goto got_exception;
+        return false;
     }
 
     /**
      * please be aware that table_inst->base_addr may point
      * to another module's table
      **/
-    function_indices = ((uint32_t *)table_inst->base_addr)[element_indices];
-    if (function_indices == NULL_REF) {
+    tbl_elem_val = ((table_elem_type_t *)table_inst->base_addr)[tbl_elem_idx];
+    if (tbl_elem_val == NULL_REF) {
         wasm_set_exception(module_inst, "uninitialized element");
-        goto got_exception;
+        return false;
     }
+
+#if WASM_ENABLE_GC == 0
+    func_idx = tbl_elem_val;
+#else
+    func_idx = ((WASMFuncObjectRef)tbl_elem_val)->func_idx;
+#endif
 
     /**
      * we insist to call functions owned by the module itself
      **/
-    if (function_indices >= module_inst->function_count) {
+    if (func_idx >= module_inst->function_count) {
         wasm_set_exception(module_inst, "unknown function");
-        goto got_exception;
+        return false;
     }
 
-    function_inst = module_inst->functions + function_indices;
+    function_inst = module_inst->functions + func_idx;
 
     wasm_interp_call_wasm(module_inst, exec_env, function_inst, argc, argv);
 
     (void)clear_wasi_proc_exit_exception(module_inst);
     return !wasm_get_exception(module_inst) ? true : false;
-
-got_exception:
-    return false;
 }
 
 #if WASM_ENABLE_THREAD_MGR != 0
