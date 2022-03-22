@@ -363,7 +363,7 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
     wasm_module_t module;
     wasm_module_inst_t new_module_inst;
 #if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext* wasi_ctx;
+    WASIContext *wasi_ctx;
 #endif
     WASMExecEnv *new_exec_env;
     uint32 aux_stack_start, aux_stack_size;
