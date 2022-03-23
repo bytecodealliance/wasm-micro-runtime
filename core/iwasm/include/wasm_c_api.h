@@ -88,6 +88,7 @@ typedef double float64_t;
     wasm_##name##_t ptr_or_none* data; \
     size_t num_elems; \
     size_t size_of_elem; \
+    void *lock; \
   } wasm_##name##_vec_t; \
   \
   WASM_API_EXTERN void wasm_##name##_vec_new_empty(own wasm_##name##_vec_t* out); \
@@ -589,8 +590,8 @@ WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_exte
 
 // Vectors
 
-#define WASM_EMPTY_VEC {0, NULL, 0, 0}
-#define WASM_ARRAY_VEC(array) {sizeof(array)/sizeof(*(array)), array, sizeof(array)/sizeof(*(array)), sizeof(*(array))}
+#define WASM_EMPTY_VEC {0, NULL, 0, 0, NULL}
+#define WASM_ARRAY_VEC(array) {sizeof(array)/sizeof(*(array)), array, sizeof(array)/sizeof(*(array)), sizeof(*(array)), NULL}
 
 
 // Value Type construction short-hands

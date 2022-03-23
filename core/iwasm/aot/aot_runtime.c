@@ -3025,7 +3025,8 @@ aot_dump_call_stack(WASMExecEnv *exec_env)
 
     /* release previous stack frames and create new ones */
     if (!bh_vector_destroy(module_inst->frames.ptr)
-        || !bh_vector_init(module_inst->frames.ptr, n, sizeof(WASMCApiFrame))) {
+        || !bh_vector_init(module_inst->frames.ptr, n, sizeof(WASMCApiFrame),
+                           false)) {
         return;
     }
 
