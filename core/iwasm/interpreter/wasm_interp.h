@@ -68,7 +68,7 @@ typedef struct WASMInterpFrame {
 static inline unsigned
 wasm_interp_interp_frame_size(unsigned all_cell_num)
 {
-    return align_uint((uint32)offsetof(WASMInterpFrame, lp) + all_cell_num * 5,
+    return align_uint((uint32)offsetof(WASMInterpFrame, lp) + all_cell_num * 4,
                       4);
 }
 
