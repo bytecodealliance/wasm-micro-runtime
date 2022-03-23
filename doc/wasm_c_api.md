@@ -14,15 +14,15 @@ are helpful.
 - The thread model of _wasm_c_api_ is
 
   - An `wasm_engine_t` instance may only be created once per process
-  - Every `wasm_store_t` and its objects only be accessed in a single thread
+  - Every `wasm_store_t` and its objects may only be accessed in a single thread
 
 - `wasm_engine_new`, `wasm_engine_new_with_config`, `wasm_engine_new_with_args`,
   `wasm_engine_delete`should be called in a thread-safe environment. Such
-  behaviors are not recommend , and please make sure an appropriate calling
+  behaviors are not recommended, and please make sure an appropriate calling
   sequence if it has to be.
 
-  - to call `wasm_engine_new` and `wasm_engine_delete` in different threads
-  - to call `wasm_engine_new` or `wasm_engine_delete` multiple time in
+  - call `wasm_engine_new` and `wasm_engine_delete` in different threads
+  - call `wasm_engine_new` or `wasm_engine_delete` multiple times in
     different threads
 
 ## unspported list
