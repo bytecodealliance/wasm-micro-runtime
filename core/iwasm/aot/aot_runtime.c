@@ -2819,8 +2819,8 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
     dst_tbl_inst = aot_get_table_inst(module_inst, dst_tbl_idx);
     bh_assert(dst_tbl_inst);
 
-    if ((uint64)src_offset + length > dst_tbl_inst->cur_size
-        || (uint64)dst_offset + length > src_tbl_inst->cur_size) {
+    if ((uint64)dst_offset + length > dst_tbl_inst->cur_size
+        || (uint64)src_offset + length > src_tbl_inst->cur_size) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }

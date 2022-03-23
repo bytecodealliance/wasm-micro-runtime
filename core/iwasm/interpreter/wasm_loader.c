@@ -7505,7 +7505,6 @@ re_scan:
                 PUSH_TYPE(global_type);
 
 #if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -7513,7 +7512,6 @@ re_scan:
 #endif
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
-#endif
 #else  /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
