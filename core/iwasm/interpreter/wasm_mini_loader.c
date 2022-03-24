@@ -4813,6 +4813,7 @@ re_scan:
                 uint8 value_type;
                 BlockType block_type;
 
+                p_org = p - 1;
                 value_type = read_uint8(p);
                 if (is_byte_a_type(value_type)) {
                     /* If the first byte is one of these special values:
@@ -4835,7 +4836,7 @@ re_scan:
                      * to new extended opcode so that interpreter can resolve
                      * the block quickly.
                      */
-                    *(p - 2) = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
+                    *p_org = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
 #endif
                 }
 
@@ -5744,12 +5745,10 @@ re_scan:
                 PUSH_TYPE(global_type);
 
 #if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
-#endif
 #else  /* else of WASM_ENABLE_FAST_INTERP */
                 if (is_64bit_type(global_type)) {
                     skip_label();
@@ -5789,7 +5788,6 @@ re_scan:
                 POP_TYPE(global_type);
 
 #if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (is_64bit_type(global_type)) {
                     *p_org = WASM_OP_SET_GLOBAL_64;
                 }
@@ -5797,7 +5795,6 @@ re_scan:
                          && global_idx == module->aux_stack_top_global_index) {
                     *p_org = WASM_OP_SET_GLOBAL_AUX_STACK;
                 }
-#endif
 #else  /* else of WASM_ENABLE_FAST_INTERP */
                 if (is_64bit_type(global_type)) {
                     skip_label();

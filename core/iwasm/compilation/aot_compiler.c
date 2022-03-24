@@ -489,6 +489,7 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 break;
 
             case WASM_OP_GET_GLOBAL:
+            case WASM_OP_GET_GLOBAL_64:
                 read_leb_uint32(frame_ip, frame_ip_end, global_idx);
                 if (!aot_compile_op_get_global(comp_ctx, func_ctx, global_idx))
                     return false;
