@@ -753,7 +753,7 @@ register_module_with_null_name(WASMModuleCommon *module_common, char *error_buf,
 }
 
 WASMModuleCommon *
-wasm_runtime_load(const uint8 *buf, uint32 size, char *error_buf,
+wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
                   uint32 error_buf_size)
 {
     WASMModuleCommon *module_common = NULL;
