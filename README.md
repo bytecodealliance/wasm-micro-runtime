@@ -42,6 +42,7 @@ iwasm VM core
 - [Source debugging support](./doc/source_debugging.md), ref to [document](./doc/source_debugging.md)
 - [WAMR-IDE (Experimental)](./test-tools/wamr-ide) to develop WebAssembly applications with build, run and debug support, ref to [document](./test-tools/wamr-ide)
 - [XIP (Execution In Place) support](./doc/xip.md), ref to [document](./doc/xip.md)
+- [Berkeley/Posix Socket support](./doc/socket_api.md), ref to [document](./doc/socket_api.md) and [sample](./samples/socket-api)
 
 ### WASM post-MVP features
 - [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), ref to [document](doc/wasm_c_api.md) and [sample](samples/wasm-c-api)
@@ -153,6 +154,7 @@ The WAMR [samples](./samples) integrate the iwasm VM core, application manager a
 - **[multi-module](./samples/multi-module)**: Demonstrating the [multiple modules as dependencies](./doc/multi_module.md) feature which implements the [load-time dynamic linking](https://webassembly.org/docs/dynamic-linking/).
 - **[ref-types](./samples/ref-types)**: Demonstrating how to call wasm functions with argument of externref type introduced by [reference types proposal](https://github.com/WebAssembly/reference-types).
 - **[wasm-c-api](./samples/wasm-c-api/README.md)**: Demonstrating how to run some samples from [wasm-c-api proposal](https://github.com/WebAssembly/wasm-c-api) and showing the supported API's.
+- **[socket-api](./samples/socket-api/README.md)**: Demonstrating how to run wasm tcp server and tcp client applications, and how they communicate with each other.
 - **[workload](./samples/workload/README.md)**: Demonstrating how to build and run some complex workloads, e.g. tensorflow-lite, XNNPACK, wasm-av1, meshoptimizer and bwa.
 
 

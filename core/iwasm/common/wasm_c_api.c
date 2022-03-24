@@ -109,113 +109,115 @@ failed:                                \
     }
 
 /* vectors with no ownership management of elements */
-#define WASM_DEFINE_VEC_PLAIN(name)                                          \
-    WASM_DEFINE_VEC(name)                                                    \
-    void wasm_##name##_vec_new(own wasm_##name##_vec_t *out, size_t size,    \
-                               own wasm_##name##_t const data[])             \
-    {                                                                        \
-        if (!out) {                                                          \
-            return;                                                          \
-        }                                                                    \
-                                                                             \
-        memset(out, 0, sizeof(wasm_##name##_vec_t));                         \
-                                                                             \
-        if (!size) {                                                         \
-            return;                                                          \
-        }                                                                    \
-                                                                             \
-        if (!bh_vector_init((Vector *)out, size, sizeof(wasm_##name##_t))) { \
-            LOG_DEBUG("bh_vector_init failed");                              \
-            goto failed;                                                     \
-        }                                                                    \
-                                                                             \
-        if (data) {                                                          \
-            uint32 size_in_bytes = 0;                                        \
-            size_in_bytes = (uint32)(size * sizeof(wasm_##name##_t));        \
-            bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);      \
-            out->num_elems = size;                                           \
-        }                                                                    \
-                                                                             \
-        RETURN_VOID(out, wasm_##name##_vec_delete)                           \
-    }                                                                        \
-    void wasm_##name##_vec_copy(wasm_##name##_vec_t *out,                    \
-                                const wasm_##name##_vec_t *src)              \
-    {                                                                        \
-        wasm_##name##_vec_new(out, src->size, src->data);                    \
-    }                                                                        \
-    void wasm_##name##_vec_delete(wasm_##name##_vec_t *v)                    \
-    {                                                                        \
-        if (v) {                                                             \
-            bh_vector_destroy((Vector *)v);                                  \
-        }                                                                    \
+#define WASM_DEFINE_VEC_PLAIN(name)                                       \
+    WASM_DEFINE_VEC(name)                                                 \
+    void wasm_##name##_vec_new(own wasm_##name##_vec_t *out, size_t size, \
+                               own wasm_##name##_t const data[])          \
+    {                                                                     \
+        if (!out) {                                                       \
+            return;                                                       \
+        }                                                                 \
+                                                                          \
+        memset(out, 0, sizeof(wasm_##name##_vec_t));                      \
+                                                                          \
+        if (!size) {                                                      \
+            return;                                                       \
+        }                                                                 \
+                                                                          \
+        if (!bh_vector_init((Vector *)out, size, sizeof(wasm_##name##_t), \
+                            true)) {                                      \
+            LOG_DEBUG("bh_vector_init failed");                           \
+            goto failed;                                                  \
+        }                                                                 \
+                                                                          \
+        if (data) {                                                       \
+            uint32 size_in_bytes = 0;                                     \
+            size_in_bytes = (uint32)(size * sizeof(wasm_##name##_t));     \
+            bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);   \
+            out->num_elems = size;                                        \
+        }                                                                 \
+                                                                          \
+        RETURN_VOID(out, wasm_##name##_vec_delete)                        \
+    }                                                                     \
+    void wasm_##name##_vec_copy(wasm_##name##_vec_t *out,                 \
+                                const wasm_##name##_vec_t *src)           \
+    {                                                                     \
+        wasm_##name##_vec_new(out, src->size, src->data);                 \
+    }                                                                     \
+    void wasm_##name##_vec_delete(wasm_##name##_vec_t *v)                 \
+    {                                                                     \
+        if (v) {                                                          \
+            bh_vector_destroy((Vector *)v);                               \
+        }                                                                 \
     }
 
 /* vectors that own their elements */
-#define WASM_DEFINE_VEC_OWN(name, elem_destroy_func)                           \
-    WASM_DEFINE_VEC(name)                                                      \
-    void wasm_##name##_vec_new(own wasm_##name##_vec_t *out, size_t size,      \
-                               own wasm_##name##_t *const data[])              \
-    {                                                                          \
-        if (!out) {                                                            \
-            return;                                                            \
-        }                                                                      \
-                                                                               \
-        memset(out, 0, sizeof(wasm_##name##_vec_t));                           \
-                                                                               \
-        if (!size) {                                                           \
-            return;                                                            \
-        }                                                                      \
-                                                                               \
-        if (!bh_vector_init((Vector *)out, size, sizeof(wasm_##name##_t *))) { \
-            LOG_DEBUG("bh_vector_init failed");                                \
-            goto failed;                                                       \
-        }                                                                      \
-                                                                               \
-        if (data) {                                                            \
-            uint32 size_in_bytes = 0;                                          \
-            size_in_bytes = (uint32)(size * sizeof(wasm_##name##_t *));        \
-            bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);        \
-            out->num_elems = size;                                             \
-        }                                                                      \
-                                                                               \
-        RETURN_VOID(out, wasm_##name##_vec_delete)                             \
-    }                                                                          \
-    void wasm_##name##_vec_copy(own wasm_##name##_vec_t *out,                  \
-                                const wasm_##name##_vec_t *src)                \
-    {                                                                          \
-        size_t i = 0;                                                          \
-        memset(out, 0, sizeof(Vector));                                        \
-                                                                               \
-        if (!src || !src->size) {                                              \
-            return;                                                            \
-        }                                                                      \
-                                                                               \
-        if (!bh_vector_init((Vector *)out, src->size,                          \
-                            sizeof(wasm_##name##_t *))) {                      \
-            LOG_DEBUG("bh_vector_init failed");                                \
-            goto failed;                                                       \
-        }                                                                      \
-                                                                               \
-        for (i = 0; i != src->num_elems; ++i) {                                \
-            if (!(out->data[i] = wasm_##name##_copy(src->data[i]))) {          \
-                LOG_DEBUG("wasm_%s_copy failed", #name);                       \
-                goto failed;                                                   \
-            }                                                                  \
-        }                                                                      \
-        out->num_elems = src->num_elems;                                       \
-                                                                               \
-        RETURN_VOID(out, wasm_##name##_vec_delete)                             \
-    }                                                                          \
-    void wasm_##name##_vec_delete(wasm_##name##_vec_t *v)                      \
-    {                                                                          \
-        size_t i = 0;                                                          \
-        if (!v) {                                                              \
-            return;                                                            \
-        }                                                                      \
-        for (i = 0; i != v->num_elems; ++i) {                                  \
-            elem_destroy_func(*(v->data + i));                                 \
-        }                                                                      \
-        bh_vector_destroy((Vector *)v);                                        \
+#define WASM_DEFINE_VEC_OWN(name, elem_destroy_func)                        \
+    WASM_DEFINE_VEC(name)                                                   \
+    void wasm_##name##_vec_new(own wasm_##name##_vec_t *out, size_t size,   \
+                               own wasm_##name##_t *const data[])           \
+    {                                                                       \
+        if (!out) {                                                         \
+            return;                                                         \
+        }                                                                   \
+                                                                            \
+        memset(out, 0, sizeof(wasm_##name##_vec_t));                        \
+                                                                            \
+        if (!size) {                                                        \
+            return;                                                         \
+        }                                                                   \
+                                                                            \
+        if (!bh_vector_init((Vector *)out, size, sizeof(wasm_##name##_t *), \
+                            true)) {                                        \
+            LOG_DEBUG("bh_vector_init failed");                             \
+            goto failed;                                                    \
+        }                                                                   \
+                                                                            \
+        if (data) {                                                         \
+            uint32 size_in_bytes = 0;                                       \
+            size_in_bytes = (uint32)(size * sizeof(wasm_##name##_t *));     \
+            bh_memcpy_s(out->data, size_in_bytes, data, size_in_bytes);     \
+            out->num_elems = size;                                          \
+        }                                                                   \
+                                                                            \
+        RETURN_VOID(out, wasm_##name##_vec_delete)                          \
+    }                                                                       \
+    void wasm_##name##_vec_copy(own wasm_##name##_vec_t *out,               \
+                                const wasm_##name##_vec_t *src)             \
+    {                                                                       \
+        size_t i = 0;                                                       \
+        memset(out, 0, sizeof(Vector));                                     \
+                                                                            \
+        if (!src || !src->size) {                                           \
+            return;                                                         \
+        }                                                                   \
+                                                                            \
+        if (!bh_vector_init((Vector *)out, src->size,                       \
+                            sizeof(wasm_##name##_t *), true)) {             \
+            LOG_DEBUG("bh_vector_init failed");                             \
+            goto failed;                                                    \
+        }                                                                   \
+                                                                            \
+        for (i = 0; i != src->num_elems; ++i) {                             \
+            if (!(out->data[i] = wasm_##name##_copy(src->data[i]))) {       \
+                LOG_DEBUG("wasm_%s_copy failed", #name);                    \
+                goto failed;                                                \
+            }                                                               \
+        }                                                                   \
+        out->num_elems = src->num_elems;                                    \
+                                                                            \
+        RETURN_VOID(out, wasm_##name##_vec_delete)                          \
+    }                                                                       \
+    void wasm_##name##_vec_delete(wasm_##name##_vec_t *v)                   \
+    {                                                                       \
+        size_t i = 0;                                                       \
+        if (!v) {                                                           \
+            return;                                                         \
+        }                                                                   \
+        for (i = 0; i != v->num_elems; ++i) {                               \
+            elem_destroy_func(*(v->data + i));                              \
+        }                                                                   \
+        bh_vector_destroy((Vector *)v);                                     \
     }
 
 WASM_DEFINE_VEC_PLAIN(byte)
@@ -320,6 +322,8 @@ wasm_engine_new()
         singleton_engine =
             wasm_engine_new_internal(Alloc_With_System_Allocator, NULL);
     }
+    if (singleton_engine)
+        singleton_engine->ref_count++;
     return singleton_engine;
 }
 
@@ -336,6 +340,8 @@ wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
     if (!singleton_engine) {
         singleton_engine = wasm_engine_new_internal(type, opts);
     }
+    if (singleton_engine)
+        singleton_engine->ref_count++;
     return singleton_engine;
 }
 
@@ -343,7 +349,7 @@ wasm_engine_new_with_args(mem_alloc_type_t type, const MemAllocOption *opts)
 void
 wasm_engine_delete(wasm_engine_t *engine)
 {
-    if (engine) {
+    if (engine && (--engine->ref_count == 0)) {
         wasm_engine_delete_internal(engine);
         singleton_engine = NULL;
     }
@@ -375,7 +381,7 @@ wasm_store_new(wasm_engine_t *engine)
              DEFAULT_VECTOR_INIT_LENGTH);
 
     if (!(store->foreigns = malloc_internal(sizeof(Vector)))
-        || !(bh_vector_init(store->foreigns, 24, sizeof(Vector *)))) {
+        || !(bh_vector_init(store->foreigns, 24, sizeof(Vector *), true))) {
         goto failed;
     }
 

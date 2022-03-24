@@ -8,6 +8,16 @@
 
 #include <arpa/inet.h>
 
+static void
+textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr_in *out)
+{
+    assert(textual);
+
+    out->sin_family = AF_INET;
+    out->sin_port = htons(port);
+    out->sin_addr.s_addr = inet_addr(textual);
+}
+
 int
 os_socket_create(bh_socket_t *sock, int tcp_or_udp)
 {
@@ -114,6 +124,23 @@ os_socket_accept(bh_socket_t server_sock, bh_socket_t *sock, void *addr,
 }
 
 int
+os_socket_connect(bh_socket_t socket, const char *addr, int port)
+{
+    struct sockaddr_in addr_in = { 0 };
+    socklen_t addr_len = sizeof(struct sockaddr_in);
+    int ret = 0;
+
+    textual_addr_to_sockaddr(addr, port, &addr_in);
+
+    ret = connect(socket, (struct sockaddr *)&addr_in, addr_len);
+    if (ret == -1) {
+        return BHT_ERROR;
+    }
+
+    return BHT_OK;
+}
+
+int
 os_socket_recv(bh_socket_t socket, void *buf, unsigned int len)
 {
     return recv(socket, buf, len, 0);
@@ -136,5 +163,15 @@ int
 os_socket_shutdown(bh_socket_t socket)
 {
     shutdown(socket, O_RDWR);
+    return BHT_OK;
+}
+
+int
+os_socket_inet_network(const char *cp, uint32 *out)
+{
+    if (!cp)
+        return BHT_ERROR;
+
+    *out = inet_network(cp);
     return BHT_OK;
 }
