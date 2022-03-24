@@ -2984,8 +2984,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         s = (uint32)POP_I32();
                         d = (uint32)POP_I32();
 
-                        if (s + n > dst_tbl_inst->cur_size
-                            || d + n > src_tbl_inst->cur_size) {
+                        if (d + n > dst_tbl_inst->cur_size
+                            || s + n > src_tbl_inst->cur_size) {
                             wasm_set_exception(module,
                                                "out of bounds table access");
                             goto got_exception;

@@ -45,7 +45,7 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 }
 
 WASMModule *
-wasm_load(const uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
+wasm_load(uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
 {
     return wasm_loader_load(buf, size,
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -2504,7 +2504,8 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
 
     /* release previous stack frames and create new ones */
     if (!bh_vector_destroy(module_inst->frames)
-        || !bh_vector_init(module_inst->frames, n, sizeof(WASMCApiFrame))) {
+        || !bh_vector_init(module_inst->frames, n, sizeof(WASMCApiFrame),
+                           false)) {
         return;
     }
 

@@ -38,15 +38,21 @@ extend_vector(Vector *vector, size_t length)
         return false;
     }
 
+    if (vector->lock)
+        os_mutex_lock(vector->lock);
     memcpy(data, vector->data, vector->size_elem * vector->max_elems);
     BH_FREE(vector->data);
+
     vector->data = data;
     vector->max_elems = length;
+    if (vector->lock)
+        os_mutex_unlock(vector->lock);
     return true;
 }
 
 bool
-bh_vector_init(Vector *vector, size_t init_length, size_t size_elem)
+bh_vector_init(Vector *vector, size_t init_length, size_t size_elem,
+               bool use_lock)
 {
     if (!vector) {
         LOG_ERROR("Init vector failed: vector is NULL.\n");
@@ -65,6 +71,26 @@ bh_vector_init(Vector *vector, size_t init_length, size_t size_elem)
     vector->size_elem = size_elem;
     vector->max_elems = init_length;
     vector->num_elems = 0;
+    vector->lock = NULL;
+
+    if (use_lock) {
+        if (!(vector->lock = wasm_runtime_malloc(sizeof(korp_mutex)))) {
+            LOG_ERROR("Init vector failed: alloc locker failed.\n");
+            bh_vector_destroy(vector);
+            return false;
+        }
+
+        if (BHT_OK != os_mutex_init(vector->lock)) {
+            LOG_ERROR("Init vector failed: init locker failed.\n");
+
+            wasm_runtime_free(vector->lock);
+            vector->lock = NULL;
+
+            bh_vector_destroy(vector);
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -81,13 +107,17 @@ bh_vector_set(Vector *vector, uint32 index, const void *elem_buf)
         return false;
     }
 
+    if (vector->lock)
+        os_mutex_lock(vector->lock);
     memcpy(vector->data + vector->size_elem * index, elem_buf,
            vector->size_elem);
+    if (vector->lock)
+        os_mutex_unlock(vector->lock);
     return true;
 }
 
 bool
-bh_vector_get(const Vector *vector, uint32 index, void *elem_buf)
+bh_vector_get(Vector *vector, uint32 index, void *elem_buf)
 {
     if (!vector || !elem_buf) {
         LOG_ERROR("Get vector elem failed: vector or elem buf is NULL.\n");
@@ -99,8 +129,12 @@ bh_vector_get(const Vector *vector, uint32 index, void *elem_buf)
         return false;
     }
 
+    if (vector->lock)
+        os_mutex_lock(vector->lock);
     memcpy(elem_buf, vector->data + vector->size_elem * index,
            vector->size_elem);
+    if (vector->lock)
+        os_mutex_unlock(vector->lock);
     return true;
 }
 
@@ -125,6 +159,8 @@ bh_vector_insert(Vector *vector, uint32 index, const void *elem_buf)
         return false;
     }
 
+    if (vector->lock)
+        os_mutex_lock(vector->lock);
     p = vector->data + vector->size_elem * vector->num_elems;
     for (i = vector->num_elems - 1; i > index; i--) {
         memcpy(p, p - vector->size_elem, vector->size_elem);
@@ -133,6 +169,8 @@ bh_vector_insert(Vector *vector, uint32 index, const void *elem_buf)
 
     memcpy(p, elem_buf, vector->size_elem);
     vector->num_elems++;
+    if (vector->lock)
+        os_mutex_unlock(vector->lock);
     return true;
 }
 
@@ -149,9 +187,13 @@ bh_vector_append(Vector *vector, const void *elem_buf)
         return false;
     }
 
+    if (vector->lock)
+        os_mutex_lock(vector->lock);
     memcpy(vector->data + vector->size_elem * vector->num_elems, elem_buf,
            vector->size_elem);
     vector->num_elems++;
+    if (vector->lock)
+        os_mutex_unlock(vector->lock);
     return true;
 }
 
@@ -171,6 +213,8 @@ bh_vector_remove(Vector *vector, uint32 index, void *old_elem_buf)
         return false;
     }
 
+    if (vector->lock)
+        os_mutex_lock(vector->lock);
     p = vector->data + vector->size_elem * index;
 
     if (old_elem_buf) {
@@ -183,6 +227,8 @@ bh_vector_remove(Vector *vector, uint32 index, void *old_elem_buf)
     }
 
     vector->num_elems--;
+    if (vector->lock)
+        os_mutex_unlock(vector->lock);
     return true;
 }
 
@@ -202,6 +248,12 @@ bh_vector_destroy(Vector *vector)
 
     if (vector->data)
         BH_FREE(vector->data);
+
+    if (vector->lock) {
+        os_mutex_destroy(vector->lock);
+        wasm_runtime_free(vector->lock);
+    }
+
     memset(vector, 0, sizeof(Vector));
     return true;
 }
