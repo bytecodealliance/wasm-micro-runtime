@@ -74,7 +74,7 @@ bh_vector_init(Vector *vector, size_t init_length, size_t size_elem,
     vector->lock = NULL;
 
     if (use_lock) {
-        if (!(vector->lock = wasm_runtime_malloc(sizeof(korp_mutex)))) {
+        if (!(vector->lock = BH_MALLOC(sizeof(korp_mutex)))) {
             LOG_ERROR("Init vector failed: alloc locker failed.\n");
             bh_vector_destroy(vector);
             return false;
@@ -83,7 +83,7 @@ bh_vector_init(Vector *vector, size_t init_length, size_t size_elem,
         if (BHT_OK != os_mutex_init(vector->lock)) {
             LOG_ERROR("Init vector failed: init locker failed.\n");
 
-            wasm_runtime_free(vector->lock);
+            BH_FREE(vector->lock);
             vector->lock = NULL;
 
             bh_vector_destroy(vector);
@@ -251,7 +251,7 @@ bh_vector_destroy(Vector *vector)
 
     if (vector->lock) {
         os_mutex_destroy(vector->lock);
-        wasm_runtime_free(vector->lock);
+        BH_FREE(vector->lock);
     }
 
     memset(vector, 0, sizeof(Vector));

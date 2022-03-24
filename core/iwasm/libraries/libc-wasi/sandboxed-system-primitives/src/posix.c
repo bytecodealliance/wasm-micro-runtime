@@ -2910,7 +2910,7 @@ wasi_ssp_sock_open(
     error =
         fd_determine_type_rights(sock, &wasi_type, &max_base, &max_inheriting);
     if (error != __WASI_ESUCCESS) {
-        os_socket_close(ret);
+        os_socket_close(sock);
         return error;
     }
 
@@ -2925,7 +2925,7 @@ wasi_ssp_sock_open(
     error = fd_table_insert_fd(curfds, sock, wasi_type, max_base,
                                max_inheriting, sockfd);
     if (error != __WASI_ESUCCESS) {
-        os_socket_close(ret);
+        os_socket_close(sock);
         return error;
     }
 
