@@ -25,8 +25,9 @@ g++ -O3 -msse2 -msse3 -msse4 -o ${OUT_DIR}/gcc-loops_native gcc-loops.cpp
 echo "Build gcc-loops with em++ .."
 em++ -O3 -s STANDALONE_WASM=1 -msimd128 \
          -s INITIAL_MEMORY=1048576 \
-         -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=32768 \
+         -s TOTAL_STACK=32768 \
          -s "EXPORTED_FUNCTIONS=['_main']" \
+         -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
          -o ${OUT_DIR}/gcc-loops.wasm gcc-loops.cpp
 
 echo "Compile gcc-loops.wasm to gcc-loops.aot"
@@ -38,7 +39,7 @@ gcc -O3 -msse2 -msse3 -msse4 -o ${OUT_DIR}/quicksort_native quicksort.c
 echo "Build quicksort with emcc .."
 emcc -O3 -s STANDALONE_WASM=1 -msimd128 \
          -s INITIAL_MEMORY=1048576 \
-         -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=32768 \
+         -s TOTAL_STACK=32768 \
          -s "EXPORTED_FUNCTIONS=['_main']" \
          -o ${OUT_DIR}/quicksort.wasm quicksort.c
 
@@ -52,7 +53,7 @@ g++ -O3 -msse2 -msse3 -msse4 -o ${OUT_DIR}/HashSet_native HashSet.cpp \
 echo "Build HashSet with em++ .."
 em++ -O3 -s STANDALONE_WASM=1 -msimd128 \
          -s INITIAL_MEMORY=1048576 \
-         -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=32768 \
+         -s TOTAL_STACK=32768 \
          -s "EXPORTED_FUNCTIONS=['_main']" \
          -o ${OUT_DIR}/HashSet.wasm HashSet.cpp
 
@@ -65,7 +66,7 @@ gcc -O3 -msse2 -msse3 -msse4 -o ${OUT_DIR}/float-mm_native float-mm.c
 echo "Build float-mm with emcc .."
 emcc -O3 -s STANDALONE_WASM=1 -msimd128 \
          -s INITIAL_MEMORY=1048576 \
-         -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=32768 \
+         -s TOTAL_STACK=32768 \
          -s "EXPORTED_FUNCTIONS=['_main']" \
          -o ${OUT_DIR}/float-mm.wasm float-mm.c
 

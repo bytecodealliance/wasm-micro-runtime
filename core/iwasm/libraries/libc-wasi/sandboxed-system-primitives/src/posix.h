@@ -46,6 +46,13 @@ struct argv_environ_values {
     size_t environ_count;
 };
 
+struct addr_pool {
+    struct addr_pool *next;
+    /* addr and mask in host order */
+    uint32 addr;
+    uint8 mask;
+};
+
 bool
 fd_table_init(struct fd_table *);
 bool
@@ -65,5 +72,14 @@ void
 fd_table_destroy(struct fd_table *ft);
 void
 fd_prestats_destroy(struct fd_prestats *pt);
+
+bool
+addr_pool_init(struct addr_pool *);
+bool
+addr_pool_insert(struct addr_pool *, const char *, uint8 mask);
+bool
+addr_pool_search(struct addr_pool *, const char *);
+void
+addr_pool_destroy(struct addr_pool *);
 
 #endif

@@ -224,6 +224,8 @@ on_rsp_byte_arrive(unsigned char ch, rsp_recv_context_t *ctx)
         if (ctx->size_in_phase == 2) {
             ctx->size_in_phase = 0;
 
+            bh_assert(ctx->receive_index >= 3);
+
             if ((hex(ctx->receive_buffer[ctx->receive_index - 2]) << 4
                  | hex(ctx->receive_buffer[ctx->receive_index - 1]))
                 != ctx->check_sum) {

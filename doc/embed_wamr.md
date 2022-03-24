@@ -1,8 +1,30 @@
 Embedding WAMR guideline
 =====================================
 
-
 **Note**: All the embedding APIs supported by the runtime are defined under folder [core/iwasm/include](../core/iwasm/include). The API details are available in the header files.
+
+## Embed WAMR into developer's project
+
+WAMR is designed to be easy embeddable in any project, a typical way of building WAMR is to use cmake, developer can configure features by setting cmake variables and then include the script `runtime_lib.cmake` under folder [build-scripts](../build-scripts) in his CMakeList.txt, for example:
+``` cmake
+set (WAMR_BUILD_PLATFORM "linux")
+set (WAMR_BUILD_TARGET "X86_64")
+set (WAMR_BUILD_INTERP 1)
+set (WAMR_BUILD_FAST_INTERP 1)
+set (WAMR_BUILD_AOT 1)
+set (WAMR_BUILD_LIBC_BUILTIN 1)
+set (WAMR_BUILD_LIBC_WASI 1)
+set (WAMR_BUILD_SIMD 1)
+set (WAMR_ROOT_DIR path/to/wamr/root)
+
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+
+target_link_libraries (your_project vmlib)
+```
+Examples can be found in [CMakeLists.txt of linux platform](../product-mini/platforms/linux/CMakeLists.txt) and [other platforms](../product-mini/platforms). The available features to configure can be found in [Build WAMR vmcore](./build_wamr.md#wamr-vmcore-cmake-building-configurations).
+
+Developer can also use Makefile to embed WAMR, by defining macros and including directories, and adding the source files, examples can be found in [makefile of alios-things platform](../product-mini/platforms/alios-things/aos.mk) and [makefile of nuttx platform](../product-mini/platforms/nuttx/wamr.mk).
 
 ## The runtime initialization
 

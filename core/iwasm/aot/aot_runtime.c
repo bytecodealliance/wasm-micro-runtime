@@ -1020,6 +1020,7 @@ aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
                 module->wasi_args.dir_list, module->wasi_args.dir_count,
                 module->wasi_args.map_dir_list, module->wasi_args.map_dir_count,
                 module->wasi_args.env, module->wasi_args.env_count,
+                module->wasi_args.addr_pool, module->wasi_args.addr_count,
                 module->wasi_args.argv, module->wasi_args.argc,
                 module->wasi_args.stdio[0], module->wasi_args.stdio[1],
                 module->wasi_args.stdio[2], error_buf, error_buf_size))
@@ -2818,8 +2819,8 @@ aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
     dst_tbl_inst = aot_get_table_inst(module_inst, dst_tbl_idx);
     bh_assert(dst_tbl_inst);
 
-    if ((uint64)src_offset + length > dst_tbl_inst->cur_size
-        || (uint64)dst_offset + length > src_tbl_inst->cur_size) {
+    if ((uint64)dst_offset + length > dst_tbl_inst->cur_size
+        || (uint64)src_offset + length > src_tbl_inst->cur_size) {
         aot_set_exception_with_id(module_inst, EXCE_OUT_OF_BOUNDS_TABLE_ACCESS);
         return;
     }
@@ -3024,7 +3025,8 @@ aot_dump_call_stack(WASMExecEnv *exec_env)
 
     /* release previous stack frames and create new ones */
     if (!bh_vector_destroy(module_inst->frames.ptr)
-        || !bh_vector_init(module_inst->frames.ptr, n, sizeof(WASMCApiFrame))) {
+        || !bh_vector_init(module_inst->frames.ptr, n, sizeof(WASMCApiFrame),
+                           false)) {
         return;
     }
 
