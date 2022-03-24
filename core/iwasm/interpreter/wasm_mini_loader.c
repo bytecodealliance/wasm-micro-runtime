@@ -2336,7 +2336,7 @@ load(const uint8 *buf, uint32 size, WASMModule *module, char *error_buf,
 }
 
 WASMModule *
-wasm_loader_load(const uint8 *buf, uint32 size, char *error_buf,
+wasm_loader_load(uint8 *buf, uint32 size, char *error_buf,
                  uint32 error_buf_size)
 {
     WASMModule *module = create_module(error_buf, error_buf_size);

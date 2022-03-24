@@ -3578,7 +3578,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
 #endif
 
 WASMModule *
-wasm_loader_load(const uint8 *buf, uint32 size,
+wasm_loader_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
                  bool main_module,
 #endif
