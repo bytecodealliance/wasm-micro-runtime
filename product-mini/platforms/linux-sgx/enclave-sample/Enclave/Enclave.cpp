@@ -503,7 +503,8 @@ handle_cmd_set_wasi_args(uint64 *args, int32 argc)
         (stderrfd != -1) ? stderrfd : 2);
 
     wasm_runtime_set_wasi_addr_pool(
-        enclave_module->module, (const char **)enclave_module->wasi_addr_pool_list,
+        enclave_module->module,
+        (const char **)enclave_module->wasi_addr_pool_list,
         addr_pool_list_size);
 
     *args_org = true;

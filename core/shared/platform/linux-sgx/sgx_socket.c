@@ -12,7 +12,7 @@
 /** OCALLs prototypes **/
 int
 ocall_accept(int *p_ret, int sockfd, void *addr, uint32_t *addrlen,
-                 uint32_t addr_size);
+             uint32_t addr_size);
 
 int
 ocall_bind(int *p_ret, int sockfd, const void *addr, uint32_t addrlen);
@@ -27,7 +27,8 @@ int
 ocall_fcntl_long(int *p_ret, int fd, int cmd, long arg);
 
 int
-ocall_getsockname(int *p_ret, int sockfd, void *addr, uint32_t *addrlen, uint32_t addr_size);
+ocall_getsockname(int *p_ret, int sockfd, void *addr, uint32_t *addrlen,
+                  uint32_t addr_size);
 
 int
 ocall_getsockopt(int *p_ret, int sockfd, int level, int optname, void *val_buf,
@@ -51,8 +52,8 @@ ocall_sendmsg(ssize_t *p_ret, int sockfd, void *msg_buf,
               unsigned int msg_buf_size, int flags);
 
 int
-ocall_setsockopt(int *p_ret, int sockfd, int level, int optname,
-                 void *optval, unsigned int optlen);
+ocall_setsockopt(int *p_ret, int sockfd, int level, int optname, void *optval,
+                 unsigned int optlen);
 
 int
 ocall_shutdown(int *p_ret, int sockfd, int how);
@@ -132,51 +133,55 @@ ntohs(uint16 value)
 static int
 __inet_aton(const char *s0, struct in_addr *dest)
 {
-	const char *s = s0;
-	unsigned char *d = (void *)dest;
-	unsigned long a[4] = { 0 };
-	char *z;
-	int i;
+    const char *s = s0;
+    unsigned char *d = (void *)dest;
+    unsigned long a[4] = { 0 };
+    char *z;
+    int i;
 
-	for (i=0; i<4; i++) {
-		a[i] = strtoul(s, &z, 0);
-		if (z==s || (*z && *z != '.') || !isdigit(*s))
-			return 0;
-		if (!*z) break;
-		s=z+1;
-	}
-	if (i==4) return 0;
-	switch (i) {
-	case 0:
-		a[1] = a[0] & 0xffffff;
-		a[0] >>= 24;
-	case 1:
-		a[2] = a[1] & 0xffff;
-		a[1] >>= 16;
-	case 2:
-		a[3] = a[2] & 0xff;
-		a[2] >>= 8;
-	}
-	for (i=0; i<4; i++) {
-		if (a[i] > 255) return 0;
-		d[i] = a[i];
-	}
-	return 1;
+    for (i = 0; i < 4; i++) {
+        a[i] = strtoul(s, &z, 0);
+        if (z == s || (*z && *z != '.') || !isdigit(*s))
+            return 0;
+        if (!*z)
+            break;
+        s = z + 1;
+    }
+    if (i == 4)
+        return 0;
+    switch (i) {
+        case 0:
+            a[1] = a[0] & 0xffffff;
+            a[0] >>= 24;
+        case 1:
+            a[2] = a[1] & 0xffff;
+            a[1] >>= 16;
+        case 2:
+            a[3] = a[2] & 0xff;
+            a[2] >>= 8;
+    }
+    for (i = 0; i < 4; i++) {
+        if (a[i] > 255)
+            return 0;
+        d[i] = a[i];
+    }
+    return 1;
 }
 
 /* Coming from musl, under MIT license */
 static int
 inet_addr(const char *p)
 {
-	struct in_addr a;
-	if (!__inet_aton(p, &a)) return -1;
-	return a.s_addr;
+    struct in_addr a;
+    if (!__inet_aton(p, &a))
+        return -1;
+    return a.s_addr;
 }
 
 static int
 inet_network(const char *p)
 {
-	return ntohl(inet_addr(p));
+    return ntohl(inet_addr(p));
 }
 /** In-enclave implementation of POSIX functions end **/
 
@@ -433,12 +438,14 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
         TRACE_OCALL_FAIL();
         return -1;
     }
-    
+
     if (ret < 0) {
         goto fail;
     }
-    
-    if (ocall_setsockopt(&ret, socket, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling)) != SGX_SUCCESS) {
+
+    if (ocall_setsockopt(&ret, socket, SOL_SOCKET, SO_LINGER, &ling,
+                         sizeof(ling))
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -462,7 +469,8 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
 
     socklen = sizeof(addr);
 
-    if (ocall_getsockname(&ret, socket, (void *)&addr, &socklen, socklen) != SGX_SUCCESS) {
+    if (ocall_getsockname(&ret, socket, (void *)&addr, &socklen, socklen)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -489,7 +497,7 @@ os_socket_close(bh_socket_t socket)
         TRACE_OCALL_FAIL();
         return -1;
     }
-    
+
     if (ret == -1)
         errno = get_errno();
 
@@ -511,7 +519,7 @@ os_socket_connect(bh_socket_t socket, const char *addr, int port)
         TRACE_OCALL_FAIL();
         return -1;
     }
-    
+
     if (ret == -1)
         errno = get_errno();
 
@@ -526,7 +534,8 @@ os_socket_create(bh_socket_t *sock, int tcp_or_udp)
     }
 
     if (1 == tcp_or_udp) {
-        if (ocall_socket(sock, AF_INET, SOCK_STREAM, IPPROTO_TCP) != SGX_SUCCESS) {
+        if (ocall_socket(sock, AF_INET, SOCK_STREAM, IPPROTO_TCP)
+            != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
             return -1;
         }

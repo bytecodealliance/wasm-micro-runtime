@@ -77,8 +77,8 @@ ocall_shutdown(int sockfd, int how)
 }
 
 int
-ocall_setsockopt(int sockfd, int level, int optname,
-                 void *optval, unsigned int optlen)
+ocall_setsockopt(int sockfd, int level, int optname, void *optval,
+                 unsigned int optlen)
 {
     return setsockopt(sockfd, level, optname, optval, optlen);
 }
@@ -90,10 +90,9 @@ ocall_bind(int sockfd, const void *addr, uint32_t addrlen)
 }
 
 int
-ocall_getsockname(int sockfd, void *addr, uint32_t *addrlen,
-                  uint32_t addr_size)
+ocall_getsockname(int sockfd, void *addr, uint32_t *addrlen, uint32_t addr_size)
 {
-    return getsockname(sockfd, (struct sockaddr*)addr, addrlen);
+    return getsockname(sockfd, (struct sockaddr *)addr, addrlen);
 }
 
 int
@@ -103,8 +102,7 @@ ocall_listen(int sockfd, int backlog)
 }
 
 int
-ocall_accept(int sockfd, void *addr, uint32_t *addrlen,
-                 uint32_t addr_size)
+ocall_accept(int sockfd, void *addr, uint32_t *addrlen, uint32_t addr_size)
 {
     return accept(sockfd, (struct sockaddr *)addr, addrlen);
 }
@@ -124,5 +122,5 @@ ocall_send(int sockfd, const void *buf, size_t len, int flags)
 int
 ocall_connect(int sockfd, void *addr, uint32_t addrlen)
 {
-    return connect(sockfd, (const struct sockaddr*)addr, addrlen);
+    return connect(sockfd, (const struct sockaddr *)addr, addrlen);
 }
