@@ -118,19 +118,34 @@ enclave {
         int ocall_pthread_rwlock_unlock([user_check]void *rwlock);
 
         int ocall_get_errno();
-        int ocall_socket(int domain, int type, int protocol);
+
+        /* sockets */
+        int ocall_accept(int sockfd, [in, size=addr_size]void *addr,
+                  [in, size=4] uint32_t *addrlen, uint32_t addr_size);
+        int ocall_bind(int sockfd, [in, size=addrlen]const void *addr,
+                 uint32_t addrlen);
+        int ocall_connect(int sockfd, [in, size=addrlen]void *addr, uint32_t addrlen);
+        int ocall_getsockname(int sockfd, [in, size=addr_size]void *addr,
+                              [in, out, size=4]uint32_t *addrlen, uint32_t addr_size);
         int ocall_getsockopt(int sockfd, int level, int optname,
                              [out, size=val_buf_size]void *val_buf,
                              unsigned int val_buf_size,
                              [in, out, size=4]void *len_buf);
-        ssize_t ocall_sendmsg(int sockfd,
-                              [in, size=msg_buf_size]void *msg_buf,
-                              unsigned int msg_buf_size,
-                              int flags);
+        int ocall_listen(int sockfd, int backlog);
+        int ocall_recv(int sockfd, [out, size=len]void *buf, size_t len, int flags);
         ssize_t ocall_recvmsg(int sockfd,
                               [in, out, size=msg_buf_size]void *msg_buf,
                               unsigned int msg_buf_size,
                               int flags);
+        int ocall_send(int sockfd, [in, size=len]const void *buf, size_t len, int flags);
+        ssize_t ocall_sendmsg(int sockfd,
+                              [in, size=msg_buf_size]void *msg_buf,
+                              unsigned int msg_buf_size,
+                              int flags);
+        int ocall_setsockopt(int sockfd, int level, int optname,
+                             [in, size=optlen]void *optval,
+                             unsigned int optlen);
         int ocall_shutdown(int sockfd, int how);
+        int ocall_socket(int domain, int type, int protocol);
     };
 };
