@@ -24,7 +24,7 @@ extern "C" {
  * @return return module loaded, NULL if failed
  */
 WASMModule *
-wasm_loader_load(const uint8 *buf, uint32 size,
+wasm_loader_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
                  bool main_module,
 #endif

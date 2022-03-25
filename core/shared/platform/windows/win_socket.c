@@ -152,3 +152,13 @@ os_socket_shutdown(bh_socket_t socket)
     shutdown(socket, SD_BOTH);
     return BHT_OK;
 }
+
+int
+os_socket_inet_network(const char *cp, uint32 *out)
+{
+    if (!cp)
+        return BHT_ERROR;
+
+    *out = inet_addr(cp);
+    return BHT_OK;
+}

@@ -96,10 +96,17 @@ def run_clang_format(file_path: pathlib, root: pathlib) -> bool:
 
 def run_clang_format_diff(root: pathlib, commits: str) -> bool:
     """
-    Use `clang-format-12` and `git-clang-format-12` to check code
-    format of the PR, which specificed a commit range. It is required to
-    format code before `git commit` or when failed the PR check:
+    Use `clang-format-12` or `git-clang-format-12` to check code format of
+    the PR, with a commit range specified. It is required to format the
+    code before committing the PR, or it might fail to pass the CI check:
 
+    1. Install clang-format-12.0.0
+    Normally we can install it by `sudo apt-get install clang-format-12`,
+    or download the `clang+llvm-12.0.0-xxx-tar.xz` package from
+      https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.0
+    and install it
+
+    2. Format the C/C++ source file
     ``` shell
     cd path/to/wamr/root
     clang-format-12 --style file -i path/to/file

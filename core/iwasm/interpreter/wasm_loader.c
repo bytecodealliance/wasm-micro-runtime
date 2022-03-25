@@ -4791,7 +4791,7 @@ check_wasi_abi_compatibility(const WASMModule *module, bool main_module,
 #endif
 
 WASMModule *
-wasm_loader_load(const uint8 *buf, uint32 size,
+wasm_loader_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
                  bool main_module,
 #endif
@@ -8515,6 +8515,7 @@ re_scan:
                     uint32 type_index;
                     /* Resolve the leb128 encoded type index as block type */
                     p--;
+                    p_org = p - 1;
                     read_leb_uint32(p, p_end, type_index);
                     if (type_index >= module->type_count) {
                         set_error_buf(error_buf, error_buf_size,
@@ -8531,9 +8532,9 @@ re_scan:
                      * the block quickly.
                      */
 #if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p - 2, *(p - 2));
+                    record_fast_op(module, p_org, *p_org);
 #endif
-                    *(p - 2) = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
+                    *p_org = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
 #endif
                 }
 
@@ -9700,37 +9701,26 @@ re_scan:
                 operand_offset = local_offset;
                 PUSH_OFFSET_TYPE(local_type);
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_DEBUG_INTERP == 0)
                 if (local_offset < 0x80
 #if WASM_ENABLE_GC != 0
                     && !wasm_is_type_reftype(local_type)
 #endif
                 ) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p_org, *p_org);
-#endif
                     *p_org++ = EXT_OP_GET_LOCAL_FAST;
                     if (is_32bit_type(local_type)) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = (uint8)local_offset;
                     }
                     else {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = (uint8)(local_offset | 0x80);
                     }
                     while (p_org < p) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = WASM_OP_NOP;
                     }
                 }
 #endif
-#endif
+#endif /* end of WASM_ENABLE_FAST_INTERP != 0 */
                 break;
             }
 
@@ -9783,37 +9773,27 @@ re_scan:
                     POP_OFFSET_TYPE(local_type);
                 }
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_DEBUG_INTERP == 0)
+
                 if (local_offset < 0x80
 #if WASM_ENABLE_GC != 0
                     && !wasm_is_type_reftype(local_type)
 #endif
                 ) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p_org, *p_org);
-#endif
                     *p_org++ = EXT_OP_SET_LOCAL_FAST;
                     if (is_32bit_type(local_type)) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = (uint8)local_offset;
                     }
                     else {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = (uint8)(local_offset | 0x80);
                     }
                     while (p_org < p) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = WASM_OP_NOP;
                     }
                 }
 #endif
-#endif
+#endif /* end of WASM_ENABLE_FAST_INTERP != 0 */
                 break;
             }
 
@@ -9862,37 +9842,26 @@ re_scan:
                              *(loader_ctx->frame_offset
                                - wasm_value_type_cell_num(local_type)));
 #else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0) \
+    && (WASM_ENABLE_DEBUG_INTERP == 0)
                 if (local_offset < 0x80
 #if WASM_ENABLE_GC != 0
                     && !wasm_is_type_reftype(local_type)
 #endif
                 ) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p_org, *p_org);
-#endif
                     *p_org++ = EXT_OP_TEE_LOCAL_FAST;
                     if (is_32bit_type(local_type)) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = (uint8)local_offset;
                     }
                     else {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = (uint8)(local_offset | 0x80);
                     }
                     while (p_org < p) {
-#if WASM_ENABLE_DEBUG_INTERP != 0
-                        record_fast_op(module, p_org, *p_org);
-#endif
                         *p_org++ = WASM_OP_NOP;
                     }
                 }
 #endif
-#endif
+#endif /* end of WASM_ENABLE_FAST_INTERP != 0 */
                 break;
             }
 
@@ -9933,7 +9902,6 @@ re_scan:
                 PUSH_TYPE(global_type);
 
 #if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -9941,7 +9909,6 @@ re_scan:
 #endif
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
-#endif
 #else  /* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {

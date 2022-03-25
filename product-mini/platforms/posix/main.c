@@ -16,8 +16,6 @@
 static int app_argc;
 static char **app_argv;
 
-#define MODULE_PATH ("--module-path=")
-
 /* clang-format off */
 static int
 print_help()
@@ -41,6 +39,10 @@ print_help()
     printf("  --dir=<dir>            Grant wasi access to the given host directories\n");
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
+    printf("  --addr-pool=           Grant wasi access to the given network addresses in\n");
+    printf("                         CIRD notation to the program, seperated with ',',\n");
+    printf("                         for example:\n");
+    printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
     printf("  --module-path=         Indicate a module search path. default is current\n"
@@ -244,6 +246,8 @@ main(int argc, char *argv[])
     uint32 dir_list_size = 0;
     const char *env_list[8] = { NULL };
     uint32 env_list_size = 0;
+    const char *addr_pool[8] = { NULL };
+    uint32 addr_pool_size = 0;
 #endif
 #if WASM_ENABLE_DEBUG_INTERP != 0
     char *ip_addr = NULL;
@@ -312,9 +316,30 @@ main(int argc, char *argv[])
                 return print_help();
             }
         }
+        /* TODO: parse the configuration file via --addr-pool-file */
+        else if (!strncmp(argv[0], "--addr-pool=", strlen("--addr-pool="))) {
+            /* like: --addr-pool=100.200.244.255/30 */
+            char *token = NULL;
+
+            if ('\0' == argv[0][12])
+                return print_help();
+
+            token = strtok(argv[0] + strlen("--addr-pool="), ",");
+            while (token) {
+                if (addr_pool_size >= sizeof(addr_pool) / sizeof(char *)) {
+                    printf("Only allow max address number %d\n",
+                           (int)(sizeof(addr_pool) / sizeof(char *)));
+                    return -1;
+                }
+
+                addr_pool[addr_pool_size++] = token;
+                token = strtok(NULL, ";");
+            }
+        }
 #endif /* WASM_ENABLE_LIBC_WASI */
 #if WASM_ENABLE_MULTI_MODULE != 0
-        else if (!strncmp(argv[0], MODULE_PATH, strlen(MODULE_PATH))) {
+        else if (!strncmp(argv[0],
+                          "--module-path=", strlen("--module-path="))) {
             module_search_path = handle_module_path(argv[0]);
             if (!strlen(module_search_path)) {
                 return print_help();
@@ -422,6 +447,8 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_LIBC_WASI != 0
     wasm_runtime_set_wasi_args(wasm_module, dir_list, dir_list_size, NULL, 0,
                                env_list, env_list_size, argv, argc);
+
+    wasm_runtime_set_wasi_addr_pool(wasm_module, addr_pool, addr_pool_size);
 #endif
 
     /* instantiate the module */

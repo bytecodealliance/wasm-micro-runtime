@@ -300,7 +300,10 @@ wasm_runtime_find_module_registered(const char *module_name);
  * WASM binary data when interpreter or JIT is enabled, or AOT binary data
  * when AOT is enabled. If it is AOT binary data, it must be 4-byte aligned.
  *
- * @param buf the byte buffer which contains the WASM binary data
+ * @param buf the byte buffer which contains the WASM/AOT binary data,
+ *        note that the byte buffer must be writable since runtime may
+ *        change its content for footprint and performance purpose, and
+ *        it must be referencable until wasm_runtime_unload is called
  * @param size the size of the buffer
  * @param error_buf output of the exception info
  * @param error_buf_size the size of the exception string
@@ -308,7 +311,7 @@ wasm_runtime_find_module_registered(const char *module_name);
  * @return return WASM module loaded, NULL if failed
  */
 WASM_RUNTIME_API_EXTERN wasm_module_t
-wasm_runtime_load(const uint8_t *buf, uint32_t size,
+wasm_runtime_load(uint8_t *buf, uint32_t size,
                   char *error_buf, uint32_t error_buf_size);
 
 /**
@@ -347,6 +350,10 @@ wasm_runtime_set_wasi_args(wasm_module_t module,
                            const char *map_dir_list[], uint32_t map_dir_count,
                            const char *env[], uint32_t env_count,
                            char *argv[], int argc);
+
+WASM_RUNTIME_API_EXTERN void
+wasm_runtime_set_wasi_addr_pool(wasm_module_t module, const char *addr_pool[],
+                                uint32_t addr_pool_size);
 
 /**
  * Instantiate a WASM module.
