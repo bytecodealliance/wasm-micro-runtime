@@ -152,42 +152,15 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
 bool
 jit_compiler_compile_all(WASMModule *module)
 {
-    JitCompContext *cc;
-    char *last_error;
-    bool ret = true;
     uint32 i;
 
-    /* Initialize compilation context.  */
-    if (!(cc = jit_calloc(sizeof(*cc))))
-        return false;
-
-    if (!jit_cc_init(cc, 64)) {
-        jit_free(cc);
-        return false;
-    }
-
     for (i = 0; i < module->function_count; i++) {
-        cc->cur_wasm_module = module;
-        cc->cur_wasm_func = module->functions[i];
-        cc->cur_wasm_func_idx = i;
-        cc->mem_space_unchanged = (!cc->cur_wasm_func->has_op_memory_grow
-                                   && !cc->cur_wasm_func->has_op_func_call)
-                                  || (!module->possible_memory_grow);
-
-        /* Apply compiler passes.  */
-        if (!apply_compiler_passes(cc) || jit_get_last_error(cc)) {
-            last_error = jit_get_last_error(cc);
-            os_printf("fast jit compilation failed: %s\n",
-                      last_error ? last_error : "unknown error");
-            ret = false;
-            break;
+        if (!jit_compiler_compile(module, i)) {
+            return false;
         }
     }
 
-    /* Delete the compilation context.  */
-    jit_cc_delete(cc);
-
-    return ret;
+    return true;
 }
 
 int
