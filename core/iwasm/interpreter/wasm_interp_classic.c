@@ -205,6 +205,80 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
     return result;
 }
 
+#if WASM_ENABLE_GC != 0
+static uint8 *
+get_frame_ref(WASMInterpFrame *frame)
+{
+    WASMFunctionInstance *cur_func = frame->function;
+    unsigned all_cell_num;
+
+    if (!cur_func) {
+        /* it's a glue frame created in wasm_interp_call_wasm,
+           set all_cell_num since frame->sp == frame->lp and
+           no GC object will be traversed */
+        all_cell_num = 0;
+    }
+    else if (!frame->ip) {
+        /* it's a native method frame created in
+           wasm_interp_call_func_native */
+        all_cell_num =
+            cur_func->param_cell_num > 2 ? cur_func->param_cell_num : 2;
+    }
+    else {
+        /* it's a wasm bytecode function frame */
+        WASMFunction *cur_wasm_func = cur_func->u.func;
+        all_cell_num = cur_func->param_cell_num + cur_func->local_cell_num
+                       + cur_wasm_func->max_stack_cell_num
+                       + cur_wasm_func->max_block_num
+                             * (uint32)sizeof(WASMBranchBlock) / 4;
+    }
+
+    return (uint8 *)(frame->lp + all_cell_num);
+}
+
+static void
+init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFuncType *func_type)
+{
+    uint32 i, j;
+
+    memset(frame_ref, 0, cell_num);
+
+    for (i = 0, j = 0; i < func_type->param_count; i++) {
+        if (wasm_is_type_reftype(func_type->types[i])) {
+            frame_ref[j++] = 1;
+#if UINTPTR_MAX == UINT64_MAX
+            frame_ref[j++] = 1;
+#endif
+        }
+        else if (func_type->types[i] == VALUE_TYPE_I32
+                 || func_type->types[i] == VALUE_TYPE_F32)
+            j++;
+        else
+            j += 2;
+    }
+}
+
+/* Return the corresponding ref slot of the given address of local
+   variable or stack pointer. */
+
+#define COMPUTE_FRAME_REF(ref, lp, p) (ref + (unsigned)((uint32 *)p - lp))
+
+#define FRAME_REF(p) COMPUTE_FRAME_REF(frame_ref, frame_lp, p)
+
+#define FRAME_REF_FOR(frame, p) \
+    COMPUTE_FRAME_REF(get_frame_ref(frame), frame->lp, p)
+
+#define CLEAR_FRAME_REF(p, n)               \
+    do {                                    \
+        int ref_i;                          \
+        uint8 *ref = FRAME_REF(p);          \
+        for (ref_i = 0; ref_i < n; ref_i++) \
+            ref[ref_i] = 0;                 \
+    } while (0)
+#else
+#define CLEAR_FRAME_REF(p, n) (void)0
+#endif /* end of WASM_ENABLE_GC != 0 */
+
 #define skip_leb(p) while (*p++ & 0x80)
 
 #define PUSH_I32(value)                        \
@@ -229,11 +303,23 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         frame_sp += 2;                    \
     } while (0)
 
-#define PUSH_REF(value)                   \
-    do {                                  \
-        PUT_REF_TO_ADDR(frame_sp, value); \
-        frame_sp += 2;                    \
+#if UINTPTR_MAX == UINT64_MAX
+#define PUSH_REF(value)                            \
+    do {                                           \
+        PUT_REF_TO_ADDR(frame_sp, value);          \
+        frame_ref_tmp = FRAME_REF(frame_sp);       \
+        *frame_ref_tmp = *(frame_ref_tmp + 1) = 1; \
+        frame_sp += 2;                             \
     } while (0)
+#else
+#define PUSH_REF(value)                      \
+    do {                                     \
+        PUT_REF_TO_ADDR(frame_sp, value);    \
+        frame_ref_tmp = FRAME_REF(frame_sp); \
+        *frame_ref_tmp = 1;                  \
+        frame_sp++;                          \
+    } while (0)
+#endif
 
 #define PUSH_CSP(_label_type, param_cell_num, cell_num, _target_addr) \
     do {                                                              \
@@ -254,9 +340,15 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
 
 #define POP_F64() (frame_sp -= 2, GET_F64_FROM_ADDR(frame_sp))
 
-#define POP_REF()                                    \
-    (frame_sp -= sizeof(uintptr_t) / sizeof(uint32), \
+#if UINTPTR_MAX == UINT64_MAX
+#define POP_REF()                                        \
+    (frame_sp -= 2, frame_ref_tmp = FRAME_REF(frame_sp), \
+     *frame_ref_tmp = *(frame_ref_tmp + 1) = 0, GET_REF_FROM_ADDR(frame_sp))
+#else
+#define POP_REF()                                                         \
+    (frame_sp--, frame_ref_tmp = FRAME_REF(frame_sp), *frame_ref_tmp = 0, \
      GET_REF_FROM_ADDR(frame_sp))
+#endif
 
 #define POP_CSP_CHECK_OVERFLOW(n)                      \
     do {                                               \
@@ -269,26 +361,31 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         --frame_csp;               \
     } while (0)
 
-#define POP_CSP_N(n)                                         \
-    do {                                                     \
-        uint32 *frame_sp_old = frame_sp;                     \
-        uint32 cell_num_to_copy;                             \
-        POP_CSP_CHECK_OVERFLOW(n + 1);                       \
-        frame_csp -= n;                                      \
-        frame_ip = (frame_csp - 1)->target_addr;             \
-        /* copy arity values of block */                     \
-        frame_sp = (frame_csp - 1)->frame_sp;                \
-        cell_num_to_copy = (frame_csp - 1)->cell_num;        \
-        word_copy(frame_sp, frame_sp_old - cell_num_to_copy, \
-                  cell_num_to_copy);                         \
-        frame_sp += cell_num_to_copy;                        \
+#define POP_CSP_N(n)                                               \
+    do {                                                           \
+        uint32 *frame_sp_old = frame_sp;                           \
+        uint32 cell_num_to_copy;                                   \
+        POP_CSP_CHECK_OVERFLOW(n + 1);                             \
+        frame_csp -= n;                                            \
+        frame_ip = (frame_csp - 1)->target_addr;                   \
+        /* copy arity values of block */                           \
+        frame_sp = (frame_csp - 1)->frame_sp;                      \
+        cell_num_to_copy = (frame_csp - 1)->cell_num;              \
+        word_copy(frame_sp, frame_sp_old - cell_num_to_copy,       \
+                  cell_num_to_copy);                               \
+        frame_ref_copy(FRAME_REF(frame_sp),                        \
+                       FRAME_REF(frame_sp_old - cell_num_to_copy), \
+                       cell_num_to_copy);                          \
+        frame_sp += cell_num_to_copy;                              \
+        CLEAR_FRAME_REF(frame_sp, frame_sp_old - frame_sp);        \
     } while (0)
 
 /* Pop the given number of elements from the given frame's stack.  */
-#define POP(N)         \
-    do {               \
-        int n = (N);   \
-        frame_sp -= n; \
+#define POP(N)                        \
+    do {                              \
+        int n = (N);                  \
+        frame_sp -= n;                \
+        CLEAR_FRAME_REF(frame_sp, n); \
     } while (0)
 
 #define SYNC_ALL_TO_FRAME()     \
@@ -730,9 +827,23 @@ sign_ext_32_64(int32 val)
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
-    for (; num > 0; num--)
-        *dest++ = *src++;
+    if (dest != src)
+        for (; num > 0; num--)
+            *dest++ = *src++;
 }
+
+#if WASM_ENABLE_GC != 0
+static inline void
+frame_ref_copy(uint8 *frame_ref_dst, uint8 *frame_ref_src, unsigned num)
+{
+    if (frame_ref_dst != frame_ref_src) {
+        for (; num > 0; num--)
+            *frame_ref_dst++ = *frame_ref_src++;
+    }
+}
+#else
+#define frame_ref_copy(frame_ref_dst, frame_ref_src, num) (void)0
+#endif
 
 static inline WASMInterpFrame *
 ALLOC_FRAME(WASMExecEnv *exec_env, uint32 size, WASMInterpFrame *prev_frame)
@@ -773,11 +884,21 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
                              WASMInterpFrame *prev_frame)
 {
     WASMFunctionImport *func_import = cur_func->u.func_import;
-    unsigned local_cell_num = 2;
+    unsigned local_cell_num =
+        cur_func->param_cell_num > 2 ? cur_func->param_cell_num : 2;
+    unsigned all_cell_num;
     WASMInterpFrame *frame;
     uint32 argv_ret[2];
     char buf[128];
     bool ret;
+#if WASM_ENABLE_GC != 0
+    uint8 *frame_ref;
+#endif
+
+    all_cell_num = local_cell_num;
+#if WASM_ENABLE_GC != 0
+    all_cell_num += (local_cell_num + 3) / 4;
+#endif
 
     if (!(frame = ALLOC_FRAME(exec_env,
                               wasm_interp_interp_frame_size(local_cell_num),
@@ -787,6 +908,11 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     frame->function = cur_func;
     frame->ip = NULL;
     frame->sp = frame->lp + local_cell_num;
+#if WASM_ENABLE_GC != 0
+    /* native function doesn't have operand stack and label stack */
+    frame_ref = (uint8 *)frame->sp;
+    init_frame_refs(frame_ref, local_cell_num, func_import->func_type);
+#endif
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
@@ -994,6 +1120,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     register uint8 *frame_ip = &opcode_IMPDEP; /* cache of frame->ip */
     register uint32 *frame_lp = NULL;          /* cache of frame->lp */
     register uint32 *frame_sp = NULL;          /* cache of frame->sp */
+#if WASM_ENABLE_GC != 0
+    register uint8 *frame_ref = NULL; /* cache of frame->ref */
+    uint8 *frame_ref_tmp;
+#endif
     WASMBranchBlock *frame_csp = NULL;
     BlockAddr *cache_items;
     uint8 *frame_ip_end = frame_ip + 1;
@@ -1168,6 +1298,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else { /* end of function, treat as WASM_OP_RETURN */
                     frame_sp -= cur_func->ret_cell_num;
                     for (i = 0; i < cur_func->ret_cell_num; i++) {
+                        if (prev_frame->ip) {
+                            /* prev frame is not a glue frame and has
+                               the frame ref area */
+                            *FRAME_REF_FOR(prev_frame, prev_frame->sp) =
+                                *FRAME_REF(frame_sp + i);
+                        }
                         *prev_frame->sp++ = frame_sp[i];
                     }
                     goto return_func;
@@ -1227,6 +1363,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 frame_sp -= cur_func->ret_cell_num;
                 for (i = 0; i < cur_func->ret_cell_num; i++) {
+                    if (prev_frame->ip) {
+                        /* prev frame is not a glue frame and has
+                           the frame ref area */
+                        *FRAME_REF_FOR(prev_frame, prev_frame->sp) =
+                            *FRAME_REF(frame_sp + i);
+                    }
                     *prev_frame->sp++ = frame_sp[i];
                 }
                 goto return_func;
@@ -4431,14 +4573,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         else {
             WASMFunction *cur_wasm_func = cur_func->u.func;
             WASMFuncType *func_type;
+            uint64 cell_num_of_local_stack;
 
             func_type = cur_wasm_func->func_type;
 
-            all_cell_num = (uint64)cur_func->param_cell_num
-                           + (uint64)cur_func->local_cell_num
-                           + (uint64)cur_wasm_func->max_stack_cell_num
+            cell_num_of_local_stack =
+                (uint64)cur_func->param_cell_num
+                + (uint64)cur_func->local_cell_num
+                + (uint64)cur_wasm_func->max_stack_cell_num;
+            all_cell_num = cell_num_of_local_stack
                            + ((uint64)cur_wasm_func->max_block_num)
                                  * sizeof(WASMBranchBlock) / 4;
+#if WASM_ENABLE_GC != 0
+            /* area of frame_ref */
+            all_cell_num += (cell_num_of_local_stack + 3) / 4;
+#endif
+
             if (all_cell_num >= UINT32_MAX) {
                 wasm_set_exception(module, "wasm operand stack overflow");
                 goto got_exception;
@@ -4465,6 +4615,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 (WASMBranchBlock *)frame->sp_boundary;
             frame->csp_boundary =
                 frame->csp_bottom + cur_wasm_func->max_block_num;
+
+#if WASM_ENABLE_GC != 0
+            frame_ref = (uint8 *)frame->csp_boundary;
+            init_frame_refs(frame_ref, (uint32)cell_num_of_local_stack,
+                            func_type);
+#endif
 
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
@@ -4514,6 +4670,31 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     FETCH_OPCODE_AND_DISPATCH();
 #endif
 }
+
+#if WASM_ENABLE_GC != 0
+void
+vmci_gc_rootset_elem(void *heap, WASMObjectRef obj)
+{}
+
+void
+wasm_interp_traverse_gc_rootset(WASMInterpFrame *frame, void *heap)
+{
+    int i;
+
+    for (; frame; frame = frame->prev_frame) {
+        for (i = 0; i < frame->sp - frame->lp; i++) {
+            uint8 *frame_ref = get_frame_ref(frame);
+            if (frame_ref[i]) {
+                vmci_gc_rootset_elem(heap, (WASMObjectRef)&frame->lp[i]);
+#if UINTPTR_MAX == UINT64_MAX
+                bh_assert(frame_ref[i + 1]);
+                i++;
+#endif
+            }
+        }
+    }
+}
+#endif
 
 void
 wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
