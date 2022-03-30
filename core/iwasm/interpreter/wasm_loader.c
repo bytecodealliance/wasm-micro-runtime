@@ -12220,8 +12220,15 @@ re_scan:
     }
 
     if (loader_ctx->csp_num > 0) {
-        set_error_buf(error_buf, error_buf_size,
-                      "function body must end with END opcode");
+        if (cur_func_idx
+            < module->import_function_count + module->function_count - 1) {
+            set_error_buf(error_buf, error_buf_size, "END opcode expected");
+        }
+        else {
+            set_error_buf(error_buf, error_buf_size,
+                          "unexpected end of section or function, "
+                          "or section size mismatch");
+        }
         goto fail;
     }
 
