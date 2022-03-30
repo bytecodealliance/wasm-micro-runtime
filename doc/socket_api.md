@@ -10,7 +10,7 @@ and `socket()`. Users can call those functions in WebAssembly code directly.
 Those WebAssembly socket calls will be dispatched to the imported
 functions and eventually will be implemented by host socket APIs.
 
-This document introduces a way to support _Berkeley/Posix Socket APIs_ in
+This document introduces a way to support the _Berkeley/POSIX Socket API_ in
 WebAssembly code.
 
 ## Patch the native code
@@ -24,7 +24,7 @@ native source code.
 #endif
 ```
 
-`__wasi__` is a Marco defined by WASI. The host compiler will not enable it.
+`__wasi__` is a macro defined by WASI. The host compiler will not enable it.
 
 ## CMake files
 
@@ -57,10 +57,25 @@ The _iwasm_ should be compiled with `WAMR_BUILD_LIBC_WASI=1`. By default, it is
 enabled.
 
 _iwasm_ accepts address ranges via an option, `--addr-pool`, to implement
-the capability control. All IP address the WebAssebmly application may need to `bind()` or `connect()` should be announced first. Every IP address should be in CIRD notation.
+the capability control. All IP address the WebAssembly application may need to `bind()` or `connect()`
+should be announced first. Every IP address should be in CIRD notation.
 
 ```bash
 $ iwasm --addr-pool=1.2.3.4/15,2.3.4.6/16 socket_example.wasm
 ```
 
 Refer to [socket api sample](../samples/socket-api) for more details.
+
+## Intel SGX support
+
+WAMR also supports the socket API within Intel SGX enclaves.
+
+The _iwasm_ should be compiled with `WAMR_BUILD_LIBC_WASI=1` and `WAMR_BUILD_LIB_PTHREAD=1`, which are enabled by default.
+
+Similarly to running _iwasm_ outside of an enclave, the allowed address ranges are given via the option `--addr-pool`.
+
+```bash
+$ iwasm --addr-pool=1.2.3.4/15,2.3.4.6/16 socket_example.wasm
+```
+
+Refer to [socket api sample](../samples/socket-api) for the compilation of the Wasm applications and [_iwasm_ for Intel SGX](../product-mini/platforms/linux-sgx) for the Wasm runtime.
