@@ -787,8 +787,9 @@ sign_ext_32_64(int32 val)
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
-    for (; num > 0; num--)
-        *dest++ = *src++;
+    if (dest != src)
+        for (; num > 0; num--)
+            *dest++ = *src++;
 }
 
 static inline WASMInterpFrame *

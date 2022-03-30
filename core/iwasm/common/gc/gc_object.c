@@ -223,10 +223,14 @@ wasm_array_obj_new(void *heap_handle, WASMRttObjectRef rtt_obj, uint32 length,
             PUT_REF_TO_ADDR(elem_addr, init_value->gc_obj);
         }
         else if (array_type->elem_type == VALUE_TYPE_I32
-                 || array_type->elem_type == VALUE_TYPE_F32
-                 || array_type->elem_type == PACKED_TYPE_I8
-                 || array_type->elem_type == PACKED_TYPE_I16) {
+                 || array_type->elem_type == VALUE_TYPE_F32) {
             ((int32 *)array_obj->elem_data)[i] = init_value->i32;
+        }
+        else if (array_type->elem_type == PACKED_TYPE_I8) {
+            ((int8 *)array_obj->elem_data)[i] = (int8)init_value->i32;
+        }
+        else if (array_type->elem_type == PACKED_TYPE_I16) {
+            ((int16 *)array_obj->elem_data)[i] = (int16)init_value->i32;
         }
         else {
             uint32 *elem_addr = (uint32 *)array_obj->elem_data + 2 * i;

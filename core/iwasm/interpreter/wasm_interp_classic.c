@@ -268,12 +268,12 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFuncType *func_type)
 #define FRAME_REF_FOR(frame, p) \
     COMPUTE_FRAME_REF(get_frame_ref(frame), frame->lp, p)
 
-#define CLEAR_FRAME_REF(p, n)               \
-    do {                                    \
-        int ref_i;                          \
-        uint8 *ref = FRAME_REF(p);          \
-        for (ref_i = 0; ref_i < n; ref_i++) \
-            ref[ref_i] = 0;                 \
+#define CLEAR_FRAME_REF(p, n)                   \
+    do {                                        \
+        int32 ref_i, ref_n = (int32)(n);        \
+        uint8 *ref = FRAME_REF(p);              \
+        for (ref_i = 0; ref_i < ref_n; ref_i++) \
+            ref[ref_i] = 0;                     \
     } while (0)
 #else
 #define CLEAR_FRAME_REF(p, n) (void)0
@@ -834,12 +834,11 @@ word_copy(uint32 *dest, uint32 *src, unsigned num)
 
 #if WASM_ENABLE_GC != 0
 static inline void
-frame_ref_copy(uint8 *frame_ref_dst, uint8 *frame_ref_src, unsigned num)
+frame_ref_copy(uint8 *frame_ref_dest, uint8 *frame_ref_src, unsigned num)
 {
-    if (frame_ref_dst != frame_ref_src) {
+    if (frame_ref_dest != frame_ref_src)
         for (; num > 0; num--)
-            *frame_ref_dst++ = *frame_ref_src++;
-    }
+            *frame_ref_dest++ = *frame_ref_src++;
 }
 #else
 #define frame_ref_copy(frame_ref_dst, frame_ref_src, num) (void)0
@@ -900,9 +899,9 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     all_cell_num += (local_cell_num + 3) / 4;
 #endif
 
-    if (!(frame = ALLOC_FRAME(exec_env,
-                              wasm_interp_interp_frame_size(local_cell_num),
-                              prev_frame)))
+    if (!(frame =
+              ALLOC_FRAME(exec_env, wasm_interp_interp_frame_size(all_cell_num),
+                          prev_frame)))
         return;
 
     frame->function = cur_func;
@@ -1222,7 +1221,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 value_type = *frame_ip++;
                 param_cell_num = 0;
-                cell_num = wasm_value_type_cell_num(value_type);
+                cell_num = 0;
             handle_op_loop:
                 PUSH_CSP(LABEL_TYPE_LOOP, param_cell_num, cell_num, frame_ip);
                 HANDLE_OP_END();
@@ -1298,12 +1297,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else { /* end of function, treat as WASM_OP_RETURN */
                     frame_sp -= cur_func->ret_cell_num;
                     for (i = 0; i < cur_func->ret_cell_num; i++) {
+#if WASM_ENABLE_GC != 0
                         if (prev_frame->ip) {
                             /* prev frame is not a glue frame and has
                                the frame ref area */
                             *FRAME_REF_FOR(prev_frame, prev_frame->sp) =
                                 *FRAME_REF(frame_sp + i);
                         }
+#endif
                         *prev_frame->sp++ = frame_sp[i];
                     }
                     goto return_func;
@@ -1363,12 +1364,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             {
                 frame_sp -= cur_func->ret_cell_num;
                 for (i = 0; i < cur_func->ret_cell_num; i++) {
+#if WASM_ENABLE_GC != 0
                     if (prev_frame->ip) {
                         /* prev frame is not a glue frame and has
                            the frame ref area */
                         *FRAME_REF_FOR(prev_frame, prev_frame->sp) =
                             *FRAME_REF(frame_sp + i);
                     }
+#endif
                     *prev_frame->sp++ = frame_sp[i];
                 }
                 goto return_func;
@@ -1715,6 +1718,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
                 if (gc_obj == NULL_REF) {
                     frame_sp -= REF_CELL_NUM;
+                    CLEAR_FRAME_REF(frame_sp, REF_CELL_NUM);
                     goto label_pop_csp_n;
                 }
                 HANDLE_OP_END();
@@ -1732,6 +1736,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 }
                 else {
                     frame_sp -= REF_CELL_NUM;
+                    CLEAR_FRAME_REF(frame_sp, REF_CELL_NUM);
                 }
                 HANDLE_OP_END();
             }
@@ -2081,7 +2086,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     case WASM_OP_REF_CAST:
                     {
                         rtt_obj = POP_REF();
-                        gc_obj = GET_REF_FROM_ADDR(frame_sp - 2);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
 
                         if (gc_obj
                             && (!rtt_obj
@@ -2099,7 +2104,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                         read_leb_uint32(frame_ip, frame_ip_end, depth);
                         rtt_obj = POP_REF();
-                        gc_obj = GET_REF_FROM_ADDR(frame_sp - 2);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
 
                         if (gc_obj
                             && (rtt_obj
@@ -2116,7 +2121,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
                         read_leb_uint32(frame_ip, frame_ip_end, depth);
                         rtt_obj = POP_REF();
-                        gc_obj = GET_REF_FROM_ADDR(frame_sp - 2);
+                        gc_obj = GET_REF_FROM_ADDR(frame_sp - REF_CELL_NUM);
 
                         if (!gc_obj
                             || (!rtt_obj

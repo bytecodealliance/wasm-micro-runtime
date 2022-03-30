@@ -5970,8 +5970,9 @@ check_stack_push(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     if (wasm_is_type_multi_byte_type(type)
         && ctx->frame_reftype_map >= ctx->frame_reftype_map_boundary) {
         /* Increase the frame reftype map stack */
-        bh_assert(ctx->frame_reftype_map - ctx->frame_reftype_map_bottom
-                  == ctx->frame_reftype_map_size);
+        bh_assert(
+            (uint32)(ctx->frame_reftype_map - ctx->frame_reftype_map_bottom)
+            == ctx->frame_reftype_map_size);
         MEM_REALLOC(ctx->frame_reftype_map_bottom, ctx->frame_reftype_map_size,
                     ctx->frame_reftype_map_size
                         + (uint32)sizeof(WASMRefTypeMap) * 8);
