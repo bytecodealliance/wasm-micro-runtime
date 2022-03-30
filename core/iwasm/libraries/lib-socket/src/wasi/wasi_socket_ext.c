@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <wasi/api.h>
 #include <wasi_socket_ext.h>
@@ -126,6 +127,10 @@ connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
     __wasi_addr_t wasi_addr = { 0 };
     __wasi_errno_t error;
 
+    if (NULL == addr) {
+        HANDLE_ERROR(__WASI_ERRNO_INVAL)
+    }
+
     error = sockaddr_to_wasi_addr(addr, addrlen, &wasi_addr);
     HANDLE_ERROR(error)
 
@@ -141,6 +146,79 @@ listen(int sockfd, int backlog)
     __wasi_errno_t error = __wasi_sock_listen(sockfd, backlog);
     HANDLE_ERROR(error)
     return __WASI_ERRNO_SUCCESS;
+}
+
+ssize_t
+recvmsg(int sockfd, struct msghdr *msg, int flags)
+{
+    // Prepare input parameters.
+    __wasi_iovec_t *ri_data = NULL;
+    size_t i = 0;
+    size_t ro_datalen;
+    __wasi_roflags_t ro_flags;
+
+    if (NULL == msg) {
+        HANDLE_ERROR(__WASI_ERRNO_INVAL)
+    }
+
+    // Validate flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    // __wasi_ciovec_t -> struct iovec
+    if (!(ri_data = malloc(sizeof(__wasi_iovec_t) * msg->msg_iovlen))) {
+        HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+    }
+
+    for (i = 0; i < msg->msg_iovlen; i++) {
+        ri_data[i].buf = msg->msg_iov[i].iov_base;
+        ri_data[i].buf_len = msg->msg_iov[i].iov_len;
+    }
+
+    // Perform system call.
+    __wasi_errno_t error = __wasi_sock_recv(sockfd, ri_data, msg->msg_iovlen, 0,
+                                            &ro_datalen, &ro_flags);
+    free(ri_data);
+    HANDLE_ERROR(error)
+
+    return ro_datalen;
+}
+
+ssize_t
+sendmsg(int sockfd, const struct msghdr *msg, int flags)
+{
+    // Prepare input parameters.
+    __wasi_ciovec_t *si_data = NULL;
+    size_t so_datalen = 0;
+    size_t i = 0;
+
+    if (NULL == msg) {
+        HANDLE_ERROR(__WASI_ERRNO_INVAL)
+    }
+
+    // This implementation does not support any flags.
+    if (flags != 0) {
+        HANDLE_ERROR(__WASI_ERRNO_NOPROTOOPT)
+    }
+
+    // struct iovec -> __wasi_ciovec_t
+    if (!(si_data = malloc(sizeof(__wasi_ciovec_t) * msg->msg_iovlen))) {
+        HANDLE_ERROR(__WASI_ERRNO_NOMEM)
+    }
+
+    for (i = 0; i < msg->msg_iovlen; i++) {
+        si_data[i].buf = msg->msg_iov[i].iov_base;
+        si_data[i].buf_len = msg->msg_iov[i].iov_len;
+    }
+
+    // Perform system call.
+    __wasi_errno_t error =
+        __wasi_sock_send(sockfd, si_data, msg->msg_iovlen, 0, &so_datalen);
+    free(si_data);
+    HANDLE_ERROR(error)
+
+    return so_datalen;
 }
 
 int
