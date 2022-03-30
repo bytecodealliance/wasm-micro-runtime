@@ -56,7 +56,7 @@ static JitBlock *
 get_target_block(JitCompContext *cc, uint32 br_depth)
 {
     uint32 i = br_depth;
-    JitBlock *block = cc->block_stack.block_list_end;
+    JitBlock *block = jit_block_stack_top(&cc->block_stack);
 
     while (i-- > 0 && block) {
         block = block->prev;
@@ -180,7 +180,7 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
            the new block's value stack */
         for (i = 0; i < block->param_count; i++) {
             jit_value = jit_value_stack_pop(
-                &cc->block_stack.block_list_end->value_stack);
+                &jit_block_stack_top(&cc->block_stack)->value_stack);
             if (!value_list_head) {
                 value_list_head = value_list_end = jit_value;
                 jit_value->prev = jit_value->next = NULL;
@@ -395,7 +395,7 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
     JitInsn *insn;
 
     /* Check block stack */
-    if (!(block = cc->block_stack.block_list_end)) {
+    if (!(block = jit_block_stack_top(&cc->block_stack))) {
         jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }
@@ -509,7 +509,7 @@ fail:
 static bool
 handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    JitBlock *block = cc->block_stack.block_list_end;
+    JitBlock *block = jit_block_stack_top(&cc->block_stack);
     JitFrame *jit_frame = cc->jit_frame;
     JitInsn *insn;
 
@@ -578,29 +578,43 @@ fail:
 static bool
 handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    JitBlock *block = cc->block_stack.block_list_end, *block_prev;
+    JitBlock *block = jit_block_stack_top(&cc->block_stack);
+    JitBlock *first_block = jit_block_stack_top(&cc->block_stack);
 
     bh_assert(block);
 
     do {
-        block_prev = block->prev;
-
-        if (block->label_type == LABEL_TYPE_IF
-            && block->incoming_insn_for_else_bb
-            && *p_frame_ip <= block->wasm_code_else) {
-            /* Else branch hasn't been translated,
-               start to translate the else branch */
-            *p_frame_ip = block->wasm_code_else + 1;
-            return handle_op_else(cc, p_frame_ip);
+        if (block->label_type == LABEL_TYPE_IF) {
+            if (block->incoming_insn_for_else_bb) {
+                /* IF...ELSE... and return from IF */
+                if (*p_frame_ip <= block->wasm_code_else) {
+                    *p_frame_ip = block->wasm_code_else + 1;
+                    return handle_op_else(cc, p_frame_ip);
+                }
+                /* IF...ELSE... and return from ELSE */
+                else {
+                    *p_frame_ip = block->wasm_code_end + 1;
+                    return handle_op_end(cc, p_frame_ip, true);
+                }
+            }
+            /* IF... and return from IF. goto next reachable */
+            else {
+                *p_frame_ip = block->wasm_code_end + 1;
+                jit_block_stack_pop(&cc->block_stack);
+                jit_block_destroy(block);
+                block = jit_block_stack_top(&cc->block_stack);
+            }
         }
+        /* Branches create a JMP*/
         else if (block->incoming_insns_for_end_bb) {
             *p_frame_ip = block->wasm_code_end + 1;
             return handle_op_end(cc, p_frame_ip, false);
         }
         else {
+            *p_frame_ip = block->wasm_code_end + 1;
             jit_block_stack_pop(&cc->block_stack);
             jit_block_destroy(block);
-            block = block_prev;
+            block = jit_block_stack_top(&cc->block_stack);
         }
     } while (block != NULL);
 
@@ -619,7 +633,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
     uint8 *else_addr, *end_addr;
 
     /* Check block stack */
-    if (!cc->block_stack.block_list_end) {
+    if (!jit_block_stack_top(&cc->block_stack)) {
         jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }
@@ -757,7 +771,7 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     uint32 offset;
 
     /* Check block stack */
-    if (!(block = cc->block_stack.block_list_end)) {
+    if (!(block = jit_block_stack_top(&cc->block_stack))) {
         jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }

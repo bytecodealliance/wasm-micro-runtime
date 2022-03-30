@@ -1348,6 +1348,12 @@ jit_block_stack_push(JitBlockStack *stack, JitBlock *block)
 }
 
 JitBlock *
+jit_block_stack_top(JitBlockStack *stack)
+{
+    return stack->block_list_end;
+}
+
+JitBlock *
 jit_block_stack_pop(JitBlockStack *stack)
 {
     JitBlock *block = stack->block_list_end;
@@ -1432,17 +1438,17 @@ jit_cc_pop_value(JitCompContext *cc, uint8 type, JitReg *p_value)
     JitValue *jit_value = NULL;
     JitReg value = 0;
 
-    if (!cc->block_stack.block_list_end) {
+    if (!jit_block_stack_top(&cc->block_stack)) {
         jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }
-    if (!cc->block_stack.block_list_end->value_stack.value_list_end) {
+    if (!jit_block_stack_top(&cc->block_stack)->value_stack.value_list_end) {
         jit_set_last_error(cc, "WASM data stack underflow");
         return false;
     }
 
-    jit_value =
-        jit_value_stack_pop(&cc->block_stack.block_list_end->value_stack);
+    jit_value = jit_value_stack_pop(
+        &jit_block_stack_top(&cc->block_stack)->value_stack);
     bh_assert(jit_value);
 
     if (jit_value->type != to_stack_value_type(type)) {
@@ -1480,7 +1486,7 @@ jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value)
 {
     JitValue *jit_value;
 
-    if (!cc->block_stack.block_list_end) {
+    if (!jit_block_stack_top(&cc->block_stack)) {
         jit_set_last_error(cc, "WASM block stack underflow");
         return false;
     }
@@ -1492,7 +1498,7 @@ jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value)
 
     jit_value->type = to_stack_value_type(type);
     jit_value->value = value;
-    jit_value_stack_push(&cc->block_stack.block_list_end->value_stack,
+    jit_value_stack_push(&jit_block_stack_top(&cc->block_stack)->value_stack,
                          jit_value);
 
     switch (jit_value->type) {

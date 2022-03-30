@@ -13,17 +13,17 @@ pop_value_from_wasm_stack(JitCompContext *cc, bool is_32bit, JitReg *p_value,
     JitValue *jit_value;
     uint8 type;
 
-    if (!cc->block_stack.block_list_end) {
+    if (!jit_block_stack_top(&cc->block_stack)) {
         jit_set_last_error(cc, "WASM block stack underflow.");
         return false;
     }
-    if (!cc->block_stack.block_list_end->value_stack.value_list_end) {
+    if (!jit_block_stack_top(&cc->block_stack)->value_stack.value_list_end) {
         jit_set_last_error(cc, "WASM data stack underflow.");
         return false;
     }
 
-    jit_value =
-        jit_value_stack_pop(&cc->block_stack.block_list_end->value_stack);
+    jit_value = jit_value_stack_pop(
+        &jit_block_stack_top(&cc->block_stack)->value_stack);
     type = jit_value->type;
 
     if (p_type != NULL) {
