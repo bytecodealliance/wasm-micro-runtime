@@ -165,10 +165,7 @@ wasm_runtime_realloc(void *ptr, unsigned int size)
 void
 wasm_runtime_free(void *ptr)
 {
-#if 0
   wasm_runtime_free_internal(ptr);
-#endif
-    wasm_gc_free(ptr);
 }
 
 #if WASM_ENABLE_GC != 0
