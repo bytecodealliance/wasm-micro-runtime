@@ -409,8 +409,12 @@ def parse_simple_const_w_type(number, type):
             number = float.fromhex(number) if '0x' in number else float(number)
             return number, "{:.7g}:{}".format(number, type)
     elif type == "ref.null":
-        # hard coding
-        return "extern", "extern:ref.null"
+        if number == "func":
+            return "func", "func:ref.null"
+        elif number == "extern":
+            return "extern", "extern:ref.null"
+        else:
+            raise Exception("invalid value {} and type {}".format(number, type))
     elif type == "ref.extern":
         number = int(number, 16) if '0x' in number else int(number)
         return number, "0x{:x}:ref.extern".format(number)
@@ -429,6 +433,10 @@ def parse_assertion_value(val):
     type.const val
     ref.extern val
     ref.null ref_type
+    ref.array
+    ref.data
+    ref.func
+    ref.i31
     """
     if not val:
         return None, ""
@@ -442,6 +450,8 @@ def parse_assertion_value(val):
     if type in ["i32", "i64", "f32", "f64"]:
         return parse_simple_const_w_type(numbers[0], type)
     elif type == "ref":
+        if splitted[0] in ["ref.array", "ref.data", "ref.func", "ref.i31"]:
+            return splitted[0]
         # need to distinguish between "ref.null" and "ref.extern"
         return parse_simple_const_w_type(numbers[0], splitted[0])
     else:
@@ -570,6 +580,9 @@ def simple_value_comparison(out, expected):
         # the add result in x86_32 is inf
         return True
 
+    if out == "ref.array":
+        return expected in ["ref.array", "ref.data"]
+
     out_val, out_type = out.split(':')
     expected_val, expected_type = expected.split(':')
 
@@ -626,8 +639,10 @@ def value_comparison(out, expected):
     if not expected:
         return False
 
-    assert(':' in out), "out should be in a form likes numbers:type, but {}".format(out)
-    assert(':' in expected), "expected should be in a form likes numbers:type, but {}".format(expected)
+    if not out in ["ref.array", "ref.data", "ref.func", "ref.i31"]:
+        assert(':' in out), "out should be in a form likes numbers:type, but {}".format(out)
+    if not expected in ["ref.array", "ref.data", "ref.func", "ref.i31"]:
+        assert(':' in expected), "expected should be in a form likes numbers:type, but {}".format(expected)
 
     if 'v128' in out:
         return vector_value_comparison(out, expected)
@@ -758,7 +773,10 @@ def test_assert_return(r, opts, form):
         else:
             returns = re.split("\)\s*\(", m.group(3)[1:-1])
         # processed numbers in strings
-        expected = [parse_assertion_value(v)[1] for v in returns]
+        if len(returns) == 1 and returns[0] in ["ref.array", "ref.data", "ref.func", "ref.i31", "ref.null"]:
+            expected = [returns[0]]
+        else:
+            expected = [parse_assertion_value(v)[1] for v in returns]
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), ",".join(expected))
     elif not m and n:
         module = os.path.join(temp_file_directory,n.group(1))
@@ -789,10 +807,10 @@ def test_assert_return(r, opts, form):
         if n.group(3) == '':
             args=[]
         else:
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n.group(3)[1:-1])]
-
-        # a workaround for "ref.null extern" and "ref.null func"
-        args = [ arg.replace('extern', 'null').replace('func', 'null') for arg in args]
+            # convert (ref.null extern/func) into (ref.null null)
+            n1 = n.group(3).replace("(ref.null extern)", "(ref.null null)")
+            n1 = n1.replace("ref.null func)", "(ref.null null)")
+            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", n1[1:-1])]
 
         _, expected = parse_assertion_value(n.group(4)[1:-1])
         test_assert(r, opts, "return", "%s %s" % (func, " ".join(args)), expected)
@@ -817,10 +835,10 @@ def test_assert_trap(r, opts, form):
         if m.group(2) == '':
             args = []
         else:
-            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m.group(2)[1:-1])]
-
-        # workaround for "ref.null extern"
-        args = [ arg.replace('extern', 'null').replace('func', 'null') for arg in args]
+            # convert (ref.null extern/func) into (ref.null null)
+            m1 = m.group(2).replace("(ref.null extern)", "(ref.null null)")
+            m1 = m1.replace("ref.null func)", "(ref.null null)")
+            args = [re.split(' +', v)[1] for v in re.split("\)\s*\(", m1[1:-1])]
 
         expected = "Exception: %s" % m.group(3)
         test_assert(r, opts, "trap", "%s %s" % (func, " ".join(args)), expected)
@@ -1110,19 +1128,13 @@ if __name__ == "__main__":
             elif skip_test(form, SKIP_TESTS):
                 log("Skipping test: %s" % form[0:60])
             elif re.match("^\(assert_trap\s+\(module", form):
-                if opts.loader_only:
-                    continue
                 if test_aot:
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
                 else:
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, None, opts, r)
             elif re.match("^\(assert_exhaustion\\b.*", form):
-                if opts.loader_only:
-                    continue
                 test_assert_exhaustion(r, opts, form)
             elif re.match("^\(assert_unlinkable\\b.*", form):
-                if opts.loader_only:
-                    continue
                 if test_aot:
                     test_assert_with_exception(form, wast_tempfile, wasm_tempfile, aot_tempfile, opts, r)
                 else:
@@ -1193,8 +1205,6 @@ if __name__ == "__main__":
                 log("ignoring assert_return_.*_nan")
                 pass
             elif re.match(".*\(invoke\s+\$\\b.*", form):
-                if opts.loader_only:
-                    continue
                 # invoke a particular named module's function
                 if form.startswith("(assert_return"):
                     test_assert_return(r,opts,form)
@@ -1248,17 +1258,11 @@ if __name__ == "__main__":
                                     (repr(exc), r.buf))
 
             elif re.match("^\(assert_return\\b.*", form):
-                if opts.loader_only:
-                    continue
                 assert(r), "iwasm repl runtime should be not null"
                 test_assert_return(r, opts, form)
             elif re.match("^\(assert_trap\\b.*", form):
-                if opts.loader_only:
-                    continue
                 test_assert_trap(r, opts, form)
             elif re.match("^\(invoke\\b.*", form):
-                if opts.loader_only:
-                    continue
                 assert(r), "iwasm repl runtime should be not null"
                 do_invoke(r, opts, form)
             elif re.match("^\(assert_invalid\\b.*", form):
