@@ -45,7 +45,6 @@ mem_allocator_migrate(mem_allocator_t allocator, char *pool_buf_new,
 bool
 mem_allocator_is_heap_corrupted(mem_allocator_t allocator);
 
-
 #if WASM_ENABLE_GC != 0
 void *
 mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size);
@@ -56,7 +55,6 @@ mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr);
 
 #endif
 #endif
-
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,8 @@ set (MEM_ALLOC_DIR ${CMAKE_CURRENT_LIST_DIR})
 include_directories(${MEM_ALLOC_DIR} ${MEM_ALLOC_DIR}/../gc)
 
 file (GLOB_RECURSE source_all
-      ${MEM_ALLOC_DIR}/../gc/*.c
+      ${MEM_ALLOC_DIR}/ems/*.c
+      ${MEM_ALLOC_DIR}/tlsf/*.c
       ${MEM_ALLOC_DIR}/*.c
       )
 

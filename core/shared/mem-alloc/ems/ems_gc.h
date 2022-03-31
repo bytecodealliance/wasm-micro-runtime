@@ -40,28 +40,33 @@ typedef enum {
     GC_STAT_HIGHMARK,
 } GC_STAT_INDEX;
 
-int gci_gc_heap(void *h);
+int
+gci_gc_heap(void *h);
 
 /**
  * Root set enumeration.
- * TODO: This need to be implemented in the ems_gc.c when the heap layout and wasm reference is determined.
+ * TODO: This need to be implemented in the ems_gc.c when the heap layout and
+ * wasm reference is determined.
  *
  */
-int vm_begin_rootset_enumeration(void *heap);
+int
+vm_begin_rootset_enumeration(void *heap);
 
 /**
  * Reference iteration
- * TODO: This function need to be implemented in the ems_gc.c when wasm object layout is determined.
+ * TODO: This function need to be implemented in the ems_gc.c when wasm object
+ * layout is determined.
  */
-int vm_get_wasm_object_ref_list(
-			gc_object_t obj,
-			int *is_compact_mode, /* can be set to GC_TRUE, or GC_FALSE */
-			gc_size_t *ref_num,
-			gc_uint16 **ref_list,
-			gc_uint32 *ref_start_offset);
+int
+vm_get_wasm_object_ref_list(
+    gc_object_t obj,
+    int *is_compact_mode, /* can be set to GC_TRUE, or GC_FALSE */
+    gc_size_t *ref_num, gc_uint16 **ref_list, gc_uint32 *ref_start_offset);
 
-void wasm_runtime_gc_prepare();
-void wasm_runtime_gc_finished();
+void
+wasm_runtime_gc_prepare();
+void
+wasm_runtime_gc_finished();
 
 /**
  * GC initialization from a buffer, which is separated into
@@ -152,11 +157,10 @@ int
 gc_free_vo(void *heap, gc_object_t obj);
 
 void
-gc_free_wo(void* vheap, void* ptr);
+gc_free_wo(void *vheap, void *ptr);
 
 gc_object_t
 gc_alloc_wo(void *heap, gc_size_t size);
-
 
 #else /* else of BH_ENABLE_GC_VERIFY */
 
@@ -170,7 +174,6 @@ gc_realloc_vo_internal(void *heap, void *ptr, gc_size_t size, const char *file,
 int
 gc_free_vo_internal(void *heap, gc_object_t obj, const char *file, int line);
 
-
 /* clang-format off */
 #define gc_alloc_vo(heap, size) \
     gc_alloc_vo_internal(heap, size, __FILE__, __LINE__)
@@ -183,7 +186,7 @@ gc_free_vo_internal(void *heap, gc_object_t obj, const char *file, int line);
 /* clang-format on */
 
 void
-gc_free_wo(void* vheap, void* ptr);
+gc_free_wo(void *vheap, void *ptr);
 
 #define gc_alloc_wo(heap, size) \
     gc_alloc_wo_internal(heap, size, __FILE__, __LINE__)

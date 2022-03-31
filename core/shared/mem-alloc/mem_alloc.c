@@ -7,7 +7,7 @@
 
 #if DEFAULT_MEM_ALLOCATOR == MEM_ALLOCATOR_EMS
 
-#include "ems_gc.h"
+#include "ems/ems_gc.h"
 
 mem_allocator_t
 mem_allocator_create(void *mem, uint32_t size)

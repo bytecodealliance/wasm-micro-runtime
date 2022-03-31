@@ -10,21 +10,29 @@
 
 /* Return GC_ERROR if not;*/
 /* Return GC_SUCCESS otherwise.*/
-int gci_check_platform()
+int
+gci_check_platform()
 {
-#define CHECK(x, y)  do { if((x) != (y)) { LOG_ERROR("Platform checking failed on LINE %d at FILE %s.", __LINE__, __FILE__); return GC_ERROR; } } while(0)
+#define CHECK(x, y)                                                      \
+    do {                                                                 \
+        if ((x) != (y)) {                                                \
+            LOG_ERROR("Platform checking failed on LINE %d at FILE %s.", \
+                      __LINE__, __FILE__);                               \
+            return GC_ERROR;                                             \
+        }                                                                \
+    } while (0)
 
-	CHECK(8, sizeof(gc_int64));
-	CHECK(4, sizeof(gc_uint32));
-	CHECK(4, sizeof(gc_int32));
-	CHECK(2, sizeof(gc_uint16));
-	CHECK(2, sizeof(gc_int16));
-	CHECK(1, sizeof(gc_int8));
-	CHECK(1, sizeof(gc_uint8));
-	CHECK(4, sizeof(gc_size_t));
-	CHECK(4, sizeof(void *));
+    CHECK(8, sizeof(gc_int64));
+    CHECK(4, sizeof(gc_uint32));
+    CHECK(4, sizeof(gc_int32));
+    CHECK(2, sizeof(gc_uint16));
+    CHECK(2, sizeof(gc_int16));
+    CHECK(1, sizeof(gc_int8));
+    CHECK(1, sizeof(gc_uint8));
+    CHECK(4, sizeof(gc_size_t));
+    CHECK(4, sizeof(void *));
 
-	return GC_SUCCESS;
+    return GC_SUCCESS;
 }
 
 static void
@@ -373,7 +381,7 @@ static int init_heap(gc_heap_t *heap, gc_size_t heap_max_size)
 
 	return GC_SUCCESS;
 }
-#endif 
+#endif
 
 #if GC_STAT_DATA != 0
 /**
@@ -384,40 +392,38 @@ static int init_heap(gc_heap_t *heap, gc_size_t heap_max_size)
  *
  * @return GC_SUCCESS if success.
  */
-int gc_set_threshold_factor(void *instance_heap, unsigned int factor)
+int
+gc_set_threshold_factor(void *instance_heap, unsigned int factor)
 {
-	gc_heap_t *heap = (gc_heap_t*)instance_heap;
+    gc_heap_t *heap = (gc_heap_t *)instance_heap;
 
-	if(!gci_is_heap_valid(heap))
-	{
-		LOG_ERROR("gc_set_threshold_factor with incorrect private heap");
-		return GC_ERROR;
-	}
+    if (!gci_is_heap_valid(heap)) {
+        LOG_ERROR("gc_set_threshold_factor with incorrect private heap");
+        return GC_ERROR;
+    }
 
-	heap->gc_threshold_factor = factor;
-	gc_update_threshold(heap);
-	return GC_SUCCESS;
+    heap->gc_threshold_factor = factor;
+    gc_update_threshold(heap);
+    return GC_SUCCESS;
 }
 
 #endif
-
 
 #if BH_ENABLE_GC_VERIFY != 0
 /* Verify heap integrity*/
 /* @heap should not be NULL and it should be a valid heap*/
-void gci_verify_heap(gc_heap_t *heap)
+void
+gci_verify_heap(gc_heap_t *heap)
 {
-	hmu_t *cur = NULL, *end = NULL;
+    hmu_t *cur = NULL, *end = NULL;
 
-	bh_assert(heap && gci_is_heap_valid(heap));
-	cur = (hmu_t *)heap->base_addr;
-	end = (hmu_t *)(heap->base_addr + heap->current_size);
-	while(cur < end)
-	{
-		hmu_verify(cur);
-		cur = (hmu_t *)((gc_uint8*)cur + hmu_get_size(cur));
-	}
-	bh_assert(cur == end);
+    bh_assert(heap && gci_is_heap_valid(heap));
+    cur = (hmu_t *)heap->base_addr;
+    end = (hmu_t *)(heap->base_addr + heap->current_size);
+    while (cur < end) {
+        hmu_verify(cur);
+        cur = (hmu_t *)((gc_uint8 *)cur + hmu_get_size(cur));
+    }
+    bh_assert(cur == end);
 }
 #endif
-

@@ -225,7 +225,6 @@ wasm_runtime_realloc(void *ptr, unsigned int size);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_free(void *ptr);
 
-#if WASM_ENABLE_GC != 0
 /**
  * Allocate memory from object heap.
  *
@@ -234,16 +233,13 @@ wasm_runtime_free(void *ptr);
  * @return the pointer to memory allocated
  */
 WASM_RUNTIME_API_EXTERN void *
-wasm_gc_malloc(unsigned int size);
+wasm_gc_malloc(void *heap_handle, unsigned int size);
 
-#if WASM_GC_MANUALLY != 0
 /*
  * Free memory to gc memory environment. (internal test only)
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_gc_free(void *ptr);
-#endif
-#endif
 
 /**
  * Get the package type of a buffer.
