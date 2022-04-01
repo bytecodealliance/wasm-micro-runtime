@@ -66,6 +66,9 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 #### **Enable shared memory feature**
 - **WAMR_BUILD_SHARED_MEMORY**=1/0, default to disable if not set
 
+#### **Enable bulk memory feature**
+- **WAMR_BUILD_BULK_MEMORY**=1/0, default to disable if not set
+
 #### **Enable thread manager**
 - **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
 
