@@ -3180,7 +3180,8 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
               loader_malloc(loader_ctx->const_buf_size, NULL, 0)))
         goto fail;
 
-    if (func->param_cell_num + func->local_cell_num >= INT16_MAX) {
+    if ((func->local_cell_num >= INT16_MAX)
+        || (func->param_cell_num >= INT16_MAX - func->local_cell_num)) {
         set_error_buf(error_buf, error_buf_size,
                       "fast interpreter offset overflow");
         wasm_loader_ctx_destroy(loader_ctx);
