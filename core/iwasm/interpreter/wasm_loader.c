@@ -4964,6 +4964,7 @@ static void
 wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
 {
     uint32 size = is_32_bit ? sizeof(uint32) : sizeof(uint64);
+
     if (ctx->p_code_compiled) {
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
