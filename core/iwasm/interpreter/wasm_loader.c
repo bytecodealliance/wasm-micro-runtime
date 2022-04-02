@@ -4910,22 +4910,22 @@ fail:
         LOG_OP("%d\t", value);               \
     } while (0)
 
-#define emit_uint64(ctx, value)              \
-    do {                                     \
-        wasm_loader_emit_uint64(ctx, value); \
-        LOG_OP("%lld\t", value);             \
+#define emit_uint64(ctx, value)                     \
+    do {                                            \
+        wasm_loader_emit_const(ctx, &value, false); \
+        LOG_OP("%lld\t", value);                    \
     } while (0)
 
-#define emit_float32(ctx, value)              \
-    do {                                      \
-        wasm_loader_emit_float32(ctx, value); \
-        LOG_OP("%f\t", value);                \
+#define emit_float32(ctx, value)                   \
+    do {                                           \
+        wasm_loader_emit_const(ctx, &value, true); \
+        LOG_OP("%f\t", value);                     \
     } while (0)
 
-#define emit_float64(ctx, value)              \
-    do {                                      \
-        wasm_loader_emit_float64(ctx, value); \
-        LOG_OP("%f\t", value);                \
+#define emit_float64(ctx, value)                    \
+    do {                                            \
+        wasm_loader_emit_const(ctx, &value, false); \
+        LOG_OP("%f\t", value);                      \
     } while (0)
 
 static bool
@@ -4960,60 +4960,23 @@ wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 }
 
 static void
-wasm_loader_emit_float64(WASMLoaderContext *ctx, float64 value)
+wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
 {
+    uint32 size = is_32_bit ? sizeof(uint32) : sizeof(uint64);
     if (ctx->p_code_compiled) {
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
 #endif
         bh_memcpy_s(ctx->p_code_compiled,
-                    ctx->p_code_compiled_end - ctx->p_code_compiled, &value,
-                    sizeof(float64));
-        ctx->p_code_compiled += sizeof(float64);
+                    ctx->p_code_compiled_end - ctx->p_code_compiled, value,
+                    size);
+        ctx->p_code_compiled += size;
     }
     else {
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
         bh_assert((ctx->code_compiled_size & 1) == 0);
 #endif
-        ctx->code_compiled_size += sizeof(float64);
-    }
-}
-
-static void
-wasm_loader_emit_float32(WASMLoaderContext *ctx, float32 value)
-{
-    if (ctx->p_code_compiled) {
-#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-        bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
-#endif
-        bh_memcpy_s(ctx->p_code_compiled,
-                    ctx->p_code_compiled_end - ctx->p_code_compiled, &value,
-                    sizeof(float32));
-        ctx->p_code_compiled += sizeof(float32);
-    }
-    else {
-#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-        bh_assert((ctx->code_compiled_size & 1) == 0);
-#endif
-        ctx->code_compiled_size += sizeof(float32);
-    }
-}
-
-static void
-wasm_loader_emit_uint64(WASMLoaderContext *ctx, uint64 value)
-{
-    if (ctx->p_code_compiled) {
-#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-        bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
-#endif
-        STORE_I64(ctx->p_code_compiled, value);
-        ctx->p_code_compiled += sizeof(uint64);
-    }
-    else {
-#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
-        bh_assert((ctx->code_compiled_size & 1) == 0);
-#endif
-        ctx->code_compiled_size += sizeof(uint64);
+        ctx->code_compiled_size += size;
     }
 }
 
@@ -5528,7 +5491,7 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
         /* The max cell num of const buffer is 32768 since the valid index range
          * is -32768 ~ -1. Return an invalid index 0 to indicate the buffer is
          * full */
-        if (ctx->const_cell_num + bytes_to_increase > 32768) {
+        if (ctx->const_cell_num > INT16_MAX - bytes_to_increase + 1) {
             *offset = 0;
             return true;
         }
