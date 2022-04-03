@@ -1215,8 +1215,8 @@ wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size,
         return 0;
     }
 
-    if ((uint64)(instance->exec_mem_info.current_pos
-                 - instance->exec_mem_info.start_offset + size)
+    if ((uint64)instance->exec_mem_info.current_pos
+            - instance->exec_mem_info.start_offset + size
         <= (uint64)instance->exec_mem_info.size) {
         offset = instance->exec_mem_info.current_pos;
         instance->exec_mem_info.current_pos += size;

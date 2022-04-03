@@ -10,8 +10,6 @@
 #include "gdbserver.h"
 #include "thread_manager.h"
 
-#define DEBUG_EXECUTION_MEMORY_SIZE 0x85000
-
 typedef enum WASMDebugControlThreadStatus {
     RUNNING,
     STOPPED,
