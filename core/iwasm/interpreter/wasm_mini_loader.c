@@ -910,7 +910,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     uint32 func_count;
     uint64 total_size;
     uint32 code_count = 0, code_size, type_index, i, j, k, local_type_index;
-    uint32 local_count, local_set_count, sub_local_count;
+    uint32 local_count, local_set_count, sub_local_count, local_cell_num;
     uint8 type;
     WASMFunction *func;
 
@@ -1001,8 +1001,10 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
             func->param_cell_num = func->func_type->param_cell_num;
             func->ret_cell_num = func->func_type->ret_cell_num;
-            func->local_cell_num =
-                wasm_get_cell_num(func->local_types, func->local_count);
+            local_cell_num = wasm_get_cell_num(func->local_types, func->local_count);
+            bh_assert(local_cell_num <= UINT16_MAX);
+
+            func->local_cell_num = (uint16)local_cell_num;
 
             if (!init_function_local_offsets(func, error_buf, error_buf_size))
                 return false;
