@@ -4594,37 +4594,38 @@ static WASMLoaderContext *
 wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
 {
     WASMLoaderContext *loader_ctx =
-        loader_malloc(sizeof(WASMLoaderContext), NULL, 0);
+        loader_malloc(sizeof(WASMLoaderContext), error_buf, error_buf_size);
     if (!loader_ctx)
         return NULL;
 
     loader_ctx->frame_ref_size = 32;
-    if (!(loader_ctx->frame_ref_bottom = loader_ctx->frame_ref =
-              loader_malloc(loader_ctx->frame_ref_size, NULL, 0)))
+    if (!(loader_ctx->frame_ref_bottom = loader_ctx->frame_ref = loader_malloc(
+              loader_ctx->frame_ref_size, error_buf, error_buf_size)))
         goto fail;
     loader_ctx->frame_ref_boundary = loader_ctx->frame_ref_bottom + 32;
 
     loader_ctx->frame_csp_size = sizeof(BranchBlock) * 8;
-    if (!(loader_ctx->frame_csp_bottom = loader_ctx->frame_csp =
-              loader_malloc(loader_ctx->frame_csp_size, NULL, 0)))
+    if (!(loader_ctx->frame_csp_bottom = loader_ctx->frame_csp = loader_malloc(
+              loader_ctx->frame_csp_size, error_buf, error_buf_size)))
         goto fail;
     loader_ctx->frame_csp_boundary = loader_ctx->frame_csp_bottom + 8;
 
 #if WASM_ENABLE_FAST_INTERP != 0
     loader_ctx->frame_offset_size = sizeof(int16) * 32;
     if (!(loader_ctx->frame_offset_bottom = loader_ctx->frame_offset =
-              loader_malloc(loader_ctx->frame_offset_size, NULL, 0)))
+              loader_malloc(loader_ctx->frame_offset_size, error_buf,
+                            error_buf_size)))
         goto fail;
     loader_ctx->frame_offset_boundary = loader_ctx->frame_offset_bottom + 32;
 
     loader_ctx->num_const = 0;
     loader_ctx->const_buf_size = sizeof(Const) * 8;
-    if (!(loader_ctx->const_buf =
-              loader_malloc(loader_ctx->const_buf_size, NULL, 0)))
+    if (!(loader_ctx->const_buf = loader_malloc(loader_ctx->const_buf_size,
+                                                error_buf, error_buf_size)))
         goto fail;
 
     if ((func->local_cell_num >= INT16_MAX)
-        || (func->param_cell_num >= INT16_MAX - func->local_cell_num)) {
+        || (func->param_cell_num >= (uint32)INT16_MAX - func->local_cell_num)) {
         set_error_buf(error_buf, error_buf_size,
                       "fast interpreter offset overflow");
         wasm_loader_ctx_destroy(loader_ctx);
@@ -4639,7 +4640,6 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
 
 fail:
     wasm_loader_ctx_destroy(loader_ctx);
-    set_error_buf(error_buf, error_buf_size, "allocate memory failed");
     return NULL;
 }
 
