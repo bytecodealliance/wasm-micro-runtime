@@ -1950,7 +1950,8 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
             func->param_cell_num = func->func_type->param_cell_num;
             func->ret_cell_num = func->func_type->ret_cell_num;
-            local_cell_num = wasm_get_cell_num(func->local_types, func->local_count);
+            local_cell_num =
+                wasm_get_cell_num(func->local_types, func->local_count);
 
             if (local_cell_num > UINT16_MAX) {
                 set_error_buf(error_buf, error_buf_size,
