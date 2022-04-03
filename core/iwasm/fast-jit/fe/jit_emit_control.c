@@ -550,12 +550,8 @@ handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
         /* Clear value stack, restore param values and
            start to translate the else branch. */
         jit_value_stack_destroy(&block->value_stack);
-        /* Reload block parameters */
-        if (!load_block_params(cc, block)) {
-            return false;
-        }
 
-        /* create else basic block */
+        /* Lazily create else basic block */
         CREATE_BASIC_BLOCK(block->basic_block_else);
         SET_BB_END_BCIP(block->basic_block_entry, *p_frame_ip - 1);
         SET_BB_BEGIN_BCIP(block->basic_block_else, *p_frame_ip);
@@ -566,6 +562,11 @@ handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
             jit_basic_block_label(block->basic_block_else);
 
         SET_BUILDER_POS(block->basic_block_else);
+
+        /* Reload block parameters */
+        if (!load_block_params(cc, block)) {
+            return false;
+        }
 
         return true;
     }
@@ -744,8 +745,82 @@ jit_compile_op_end(JitCompContext *cc, uint8 **p_frame_ip)
     return handle_op_end(cc, p_frame_ip, true);
 }
 
-static bool
-handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
+#if 0
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+check_suspend_flags(JitCompContext *cc, JITFuncContext *func_ctx)
+{
+    LLVMValueRef terminate_addr, terminate_flags, flag, offset, res;
+    JitBasicBlock *terminate_check_block, non_terminate_block;
+    JITFuncType *jit_func_type = func_ctx->jit_func->func_type;
+    JitBasicBlock *terminate_block;
+
+    /* Offset of suspend_flags */
+    offset = I32_FIVE;
+
+    if (!(terminate_addr = LLVMBuildInBoundsGEP(
+              cc->builder, func_ctx->exec_env, &offset, 1, "terminate_addr"))) {
+        jit_set_last_error("llvm build in bounds gep failed");
+        return false;
+    }
+    if (!(terminate_addr =
+              LLVMBuildBitCast(cc->builder, terminate_addr, INT32_PTR_TYPE,
+                               "terminate_addr_ptr"))) {
+        jit_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+
+    if (!(terminate_flags =
+              LLVMBuildLoad(cc->builder, terminate_addr, "terminate_flags"))) {
+        jit_set_last_error("llvm build bit cast failed");
+        return false;
+    }
+    /* Set terminate_flags memory accecc to volatile, so that the value
+        will always be loaded from memory rather than register */
+    LLVMSetVolatile(terminate_flags, true);
+
+    CREATE_BASIC_BLOCK(terminate_check_block, "terminate_check");
+    MOVE_BASIC_BLOCK_AFTER_CURR(terminate_check_block);
+
+    CREATE_BASIC_BLOCK(non_terminate_block, "non_terminate");
+    MOVE_BASIC_BLOCK_AFTER_CURR(non_terminate_block);
+
+    BUILD_ICMP(LLVMIntSGT, terminate_flags, I32_ZERO, res, "need_terminate");
+    BUILD_COND_BR(res, terminate_check_block, non_terminate_block);
+
+    /* Move builder to terminate check block */
+    SET_BUILDER_POS(terminate_check_block);
+
+    CREATE_BASIC_BLOCK(terminate_block, "terminate");
+    MOVE_BASIC_BLOCK_AFTER_CURR(terminate_block);
+
+    if (!(flag = LLVMBuildAnd(cc->builder, terminate_flags, I32_ONE,
+                              "termination_flag"))) {
+        jit_set_last_error("llvm build AND failed");
+        return false;
+    }
+
+    BUILD_ICMP(LLVMIntSGT, flag, I32_ZERO, res, "need_terminate");
+    BUILD_COND_BR(res, terminate_block, non_terminate_block);
+
+    /* Move builder to terminate block */
+    SET_BUILDER_POS(terminate_block);
+    if (!jit_build_zero_function_ret(cc, func_ctx, jit_func_type)) {
+        goto fail;
+    }
+
+    /* Move builder to terminate block */
+    SET_BUILDER_POS(non_terminate_block);
+    return true;
+
+fail:
+    return false;
+}
+#endif /* End of WASM_ENABLE_THREAD_MGR */
+#endif
+
+bool
+jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
     JitFrame *jit_frame;
     JitBlock *block_dst, *block;
@@ -754,6 +829,16 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     JitInsn *insn;
     bool copy_arities;
     uint32 offset;
+
+#if 0 /* TODO */
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (cc->enable_thread_mgr) {
+        if (!check_suspend_flags(cc, func_ctx))
+            return false;
+    }
+#endif
+#endif
 
     /* Check block stack */
     if (!(block = cc->block_stack.block_list_end)) {
@@ -832,16 +917,9 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
         SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     }
 
-    return true;
+    return handle_next_reachable_block(cc, p_frame_ip);
 fail:
     return false;
-}
-
-bool
-jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
-{
-    return handle_op_br(cc, br_depth, p_frame_ip)
-           && handle_next_reachable_block(cc, p_frame_ip);
 }
 
 bool
@@ -849,20 +927,33 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
     JitFrame *jit_frame;
     JitBlock *block_dst;
-    JitReg cond;
+    JitReg frame_sp_dst, cond;
     JitBasicBlock *cur_basic_block, *if_basic_block = NULL;
+    JitValueSlot *frame_sp_src = NULL;
+    JitInsn *insn;
+    bool copy_arities;
+    uint32 offset;
+
+#if 0 /* TODO */
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (cc->enable_thread_mgr) {
+        if (!check_suspend_flags(cc, func_ctx))
+            return false;
+    }
+#endif
+#endif
 
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
     }
 
-    /* append IF to current basic block */
     POP_I32(cond);
 
     jit_frame = cc->jit_frame;
     cur_basic_block = cc->cur_basic_block;
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
-    SET_BB_END_BCIP(cur_basic_block, *p_frame_ip - 1);
+    clear_values(jit_frame);
 
     CREATE_BASIC_BLOCK(if_basic_block);
     if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
@@ -875,11 +966,65 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     SET_BUILDER_POS(if_basic_block);
     SET_BB_BEGIN_BCIP(if_basic_block, *p_frame_ip - 1);
 
-    if (!handle_op_br(cc, br_depth, p_frame_ip))
-        goto fail;
+    if (block_dst->label_type == LABEL_TYPE_LOOP) {
+        frame_sp_src =
+            jit_frame->sp
+            - wasm_get_cell_num(block_dst->param_types, block_dst->param_count);
+    }
+    else {
+        frame_sp_src = jit_frame->sp
+                       - wasm_get_cell_num(block_dst->result_types,
+                                           block_dst->result_count);
+    }
 
-    /* continue processing opcodes after BR_IF */
-    load_block_params(cc, cc->block_stack.block_list_end);
+    /* Only copy parameters or results when the src/dst addr are different */
+    copy_arities = (block_dst->frame_sp_begin != frame_sp_src) ? true : false;
+
+    if (copy_arities) {
+#if UINTPTR_MAX == UINT64_MAX
+        frame_sp_dst = jit_cc_new_reg_I64(cc);
+#else
+        frame_sp_dst = jit_cc_new_reg_I32(cc);
+#endif
+        offset = offsetof(WASMInterpFrame, lp)
+                 + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I64, offset));
+#else
+        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I32, offset));
+#endif
+    }
+
+    if (block_dst->label_type == LABEL_TYPE_LOOP) {
+        if (copy_arities) {
+            /* Dest block is Loop block, copy loop parameters */
+            copy_block_arities(cc, frame_sp_dst, block_dst->param_types,
+                               block_dst->param_count);
+        }
+        /* Jump to the begin basic block */
+        BUILD_BR(block_dst->basic_block_entry);
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+    }
+    else {
+        if (copy_arities) {
+            /* Dest block is Block/If/Function block, copy block results */
+            copy_block_arities(cc, frame_sp_dst, block_dst->result_types,
+                               block_dst->result_count);
+        }
+        /* Jump to the end basic block */
+        if (!(insn = GEN_INSN(JMP, 0))) {
+            jit_set_last_error(cc, "generate jmp insn failed");
+            goto fail;
+        }
+        if (!jit_block_add_incoming_insn(block_dst, insn)) {
+            jit_set_last_error(cc, "add incoming insn failed");
+            goto fail;
+        }
+        SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+    }
+
+    SET_BUILDER_POS(cur_basic_block);
+
     return true;
 fail:
     return false;
@@ -889,47 +1034,147 @@ bool
 jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
                         uint8 **p_frame_ip)
 {
-    JitReg value;
-    JitInsn *insn;
-    uint32 i = 0;
-    JitOpndLookupSwitch *opnd = NULL;
-
-    POP_I32(value);
-
-    /* append LOOKUPSWITCH to current basic block */
-    gen_commit_values(cc->jit_frame, cc->jit_frame->lp, cc->jit_frame->sp);
-    SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
-
-    /* prepare basic blocks for br */
-    insn = GEN_INSN(LOOKUPSWITCH, value, br_count - 1);
-    if (NULL == insn) {
-        jit_set_last_error(cc, "generate insn LOOKUPSWITCH failed");
-        goto fail;
-    }
-
-    for (i = 0, opnd = jit_insn_opndls(insn); i < br_count; i++) {
-        JitBasicBlock *basic_block = NULL;
-
-        CREATE_BASIC_BLOCK(basic_block);
-        SET_BB_BEGIN_BCIP(basic_block, *p_frame_ip - 1);
-
-        if (i == br_count - 1) {
-            opnd->default_target = jit_basic_block_label(basic_block);
-        }
-        else {
-            opnd->match_pairs[i].value = i;
-            opnd->match_pairs[i].target = jit_basic_block_label(basic_block);
-        }
-
-        SET_BUILDER_POS(basic_block);
-
-        if (!handle_op_br(cc, br_depths[i], p_frame_ip))
-            goto fail;
-    }
-
-    return handle_next_reachable_block(cc, p_frame_ip);
-fail:
     return false;
+#if 0
+    uint32 i, j;
+    LLVMValueRef value_switch, value_cmp, value_case, value, *values = NULL;
+    JitBasicBlock *default_basic_block = NULL, target_basic_block;
+    JitBasicBlock *next_basic_block_end;
+    JitBlock *target_block;
+    uint32 br_depth, depth_idx;
+    uint32 param_index, result_index;
+    uint64 size;
+    char name[32];
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (cc->enable_thread_mgr) {
+        if (!check_suspend_flags(cc, func_ctx))
+            return false;
+    }
+#endif
+
+    POP_I32(value_cmp);
+
+    if (LLVMIsUndef(value_cmp)
+#if LLVM_VERSION_NUMBER >= 12
+        || LLVMIsPoison(value_cmp)
+#endif
+    ) {
+        if (!(jit_emit_exception(cc, func_ctx, EXCE_INTEGER_OVERFLOW, false,
+                                 NULL, NULL))) {
+            goto fail;
+        }
+        return jit_handle_next_reachable_block(cc, func_ctx, p_frame_ip);
+    }
+
+    if (!LLVMIsConstant(value_cmp)) {
+        /* Compare value is not constant, create switch IR */
+        for (i = 0; i <= br_count; i++) {
+            target_block = get_target_block(func_ctx, br_depths[i]);
+            if (!target_block)
+                return false;
+
+            if (target_block->label_type != LABEL_TYPE_LOOP) {
+                /* Dest block is Block/If/Function block */
+                /* Create the end block */
+                if (!target_block->basic_block_end) {
+                    format_block_name(name, sizeof(name),
+                                      target_block->block_index,
+                                      target_block->label_type, LABEL_END);
+                    CREATE_BASIC_BLOCK(target_block->basic_block_end, name);
+                    if ((next_basic_block_end =
+                             find_next_basic_block_end(target_block)))
+                        MOVE_BASIC_BLOCK_BEFORE(target_block->basic_block_end,
+                                                next_basic_block_end);
+                }
+                /* Handle result values */
+                if (target_block->result_count) {
+                    size = sizeof(LLVMValueRef)
+                           * (uint64)target_block->result_count;
+                    if (size >= UINT32_MAX
+                        || !(values = jit_calloc((uint32)size))) {
+                        jit_set_last_error(cc, "allocate memory failed");
+                        goto fail;
+                    }
+                    CREATE_RESULT_VALUE_PHIS(target_block);
+                    for (j = 0; j < target_block->result_count; j++) {
+                        result_index = target_block->result_count - 1 - j;
+                        POP(value, target_block->result_types[result_index]);
+                        values[result_index] = value;
+                        ADD_TO_RESULT_PHIS(target_block, value, result_index);
+                    }
+                    for (j = 0; j < target_block->result_count; j++) {
+                        PUSH(values[j], target_block->result_types[j]);
+                    }
+                    jit_free(values);
+                }
+                target_block->is_reachable = true;
+                if (i == br_count)
+                    default_basic_block = target_block->basic_block_end;
+            }
+            else {
+                /* Handle Loop parameters */
+                if (target_block->param_count) {
+                    size = sizeof(LLVMValueRef)
+                           * (uint64)target_block->param_count;
+                    if (size >= UINT32_MAX
+                        || !(values = jit_calloc((uint32)size))) {
+                        jit_set_last_error(cc, "allocate memory failed");
+                        goto fail;
+                    }
+                    for (j = 0; j < target_block->param_count; j++) {
+                        param_index = target_block->param_count - 1 - j;
+                        POP(value, target_block->param_types[param_index]);
+                        values[param_index] = value;
+                        ADD_TO_PARAM_PHIS(target_block, value, param_index);
+                    }
+                    for (j = 0; j < target_block->param_count; j++) {
+                        PUSH(values[j], target_block->param_types[j]);
+                    }
+                    jit_free(values);
+                }
+                if (i == br_count)
+                    default_basic_block = target_block->basic_block_entry;
+            }
+        }
+
+        /* Create switch IR */
+        if (!(value_switch = LLVMBuildSwitch(cc->builder, value_cmp,
+                                             default_basic_block, br_count))) {
+            jit_set_last_error(cc, "llvm build switch failed");
+            return false;
+        }
+
+        /* Add each case for switch IR */
+        for (i = 0; i < br_count; i++) {
+            value_case = I32_CONST(i);
+            CHECK_LLVM_CONST(value_case);
+            target_block = get_target_block(func_ctx, br_depths[i]);
+            if (!target_block)
+                return false;
+            target_basic_block = target_block->label_type != LABEL_TYPE_LOOP
+                                     ? target_block->basic_block_end
+                                     : target_block->basic_block_entry;
+            LLVMAddCase(value_switch, value_case, target_basic_block);
+        }
+
+        return handle_next_reachable_block(cc, func_ctx, p_frame_ip);
+    }
+    else {
+        /* Compare value is constant, create br IR */
+        depth_idx = (uint32)LLVMConstIntGetZExtValue(value_cmp);
+        br_depth = br_depths[br_count];
+        if (depth_idx < br_count) {
+            br_depth = br_depths[depth_idx];
+        }
+        return jit_compile_op_br(cc, func_ctx, br_depth, p_frame_ip);
+    }
+fail:
+    if (values)
+        jit_free(values);
+    return false;
+#endif
 }
 
 bool
