@@ -1766,6 +1766,9 @@ jit_value_stack_pop(JitValueStack *stack);
 void
 jit_value_stack_destroy(JitValueStack *stack);
 
+JitBlock *
+jit_block_stack_top(JitBlockStack *stack);
+
 void
 jit_block_stack_push(JitBlockStack *stack, JitBlock *block);
 
