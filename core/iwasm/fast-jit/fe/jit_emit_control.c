@@ -386,8 +386,13 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     GEN_INSN(RETURNBC, NEW_CONST(I32, JIT_INTERP_ACTION_NORMAL), 0, 0);
 }
 
+/**
+ * is_block_polymorphic: whether current block's stack is in polymorphic state,
+ * if the opcode is one of unreachable/br/br_table/return, stack is marked
+ * to polymorphic state until the block's 'end' opcode is processed
+ */
 static bool
-handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
+handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
 {
     JitFrame *jit_frame = cc->jit_frame;
     JitBlock *block, *block_prev;
@@ -407,6 +412,7 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
         if (block->label_type == LABEL_TYPE_FUNCTION) {
             handle_func_return(cc, block);
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+            clear_values(jit_frame);
         }
         else if (block->result_count > 0) {
             JitValue *value_list_head = NULL, *value_list_end = NULL;
@@ -460,9 +466,13 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
         CREATE_BASIC_BLOCK(block->basic_block_end);
         SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
         SET_BB_BEGIN_BCIP(block->basic_block_end, *p_frame_ip);
-        if (from_same_block)
+        /* No need to create 'JMP' insn if block is in stack polymorphic
+           state, as previous br/br_table opcode has created 'JMP' insn
+           to this end basic block */
+        if (!is_block_polymorphic) {
             /* Jump to the end basic block */
             BUILD_BR(block->basic_block_end);
+        }
 
         /* Patch the INSNs which jump to this basic block */
         incoming_insn = block->incoming_insns_for_end_bb;
@@ -490,6 +500,7 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool from_same_block)
         if (block->label_type == LABEL_TYPE_FUNCTION) {
             handle_func_return(cc, block);
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+            clear_values(jit_frame);
         }
         else {
             if (!load_block_results(cc, block)) {
@@ -506,8 +517,14 @@ fail:
     return false;
 }
 
+/**
+ * is_block_polymorphic: whether current block's stack is in polymorphic state,
+ * if the opcode is one of unreachable/br/br_table/return, stack is marked
+ * to polymorphic state until the block's 'end' opcode is processed
+ */
 static bool
-handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
+handle_op_else(JitCompContext *cc, uint8 **p_frame_ip,
+               bool is_block_polymorphic)
 {
     JitBlock *block = jit_block_stack_top(&cc->block_stack);
     JitFrame *jit_frame = cc->jit_frame;
@@ -527,7 +544,7 @@ handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
         /* The if branch is handled like OP_BLOCK (cond is const and != 0),
            just skip the else branch and handle OP_END */
         *p_frame_ip = block->wasm_code_end + 1;
-        return handle_op_end(cc, p_frame_ip, true);
+        return handle_op_end(cc, p_frame_ip, false);
     }
     else {
         /* Has else branch and need to translate else branch */
@@ -537,14 +554,19 @@ handle_op_else(JitCompContext *cc, uint8 **p_frame_ip)
         /* Clear frame values */
         clear_values(jit_frame);
 
-        /* Jump to end basic block */
-        if (!(insn = GEN_INSN(JMP, 0))) {
-            jit_set_last_error(cc, "generate jmp insn failed");
-            return false;
-        }
-        if (!jit_block_add_incoming_insn(block, insn)) {
-            jit_set_last_error(cc, "add incoming insn failed");
-            return false;
+        /* No need to create 'JMP' insn if block is in stack polymorphic
+           state, as previous br/br_table opcode has created 'JMP' insn
+           to this end basic block */
+        if (!is_block_polymorphic) {
+            /* Jump to end basic block */
+            if (!(insn = GEN_INSN(JMP, 0))) {
+                jit_set_last_error(cc, "generate jmp insn failed");
+                return false;
+            }
+            if (!jit_block_add_incoming_insn(block, insn)) {
+                jit_set_last_error(cc, "add incoming insn failed");
+                return false;
+            }
         }
 
         /* Clear value stack, restore param values and
@@ -579,36 +601,27 @@ static bool
 handle_next_reachable_block(JitCompContext *cc, uint8 **p_frame_ip)
 {
     JitBlock *block = jit_block_stack_top(&cc->block_stack);
-    JitBlock *first_block = jit_block_stack_top(&cc->block_stack);
 
     bh_assert(block);
 
     do {
-        if (block->label_type == LABEL_TYPE_IF) {
-            if (block->incoming_insn_for_else_bb) {
-                /* IF...ELSE... and return from IF */
-                if (*p_frame_ip <= block->wasm_code_else) {
-                    *p_frame_ip = block->wasm_code_else + 1;
-                    return handle_op_else(cc, p_frame_ip);
-                }
-                /* IF...ELSE... and return from ELSE */
-                else {
-                    *p_frame_ip = block->wasm_code_end + 1;
-                    return handle_op_end(cc, p_frame_ip, true);
-                }
-            }
-            /* IF... and return from IF. goto next reachable */
-            else {
-                *p_frame_ip = block->wasm_code_end + 1;
-                jit_block_stack_pop(&cc->block_stack);
-                jit_block_destroy(block);
-                block = jit_block_stack_top(&cc->block_stack);
-            }
+        if (block->label_type == LABEL_TYPE_IF
+            && block->incoming_insn_for_else_bb
+            && *p_frame_ip <= block->wasm_code_else) {
+            /* Else branch hasn't been translated,
+               start to translate the else branch */
+            *p_frame_ip = block->wasm_code_else + 1;
+            /* Restore jit frame's sp to block's sp begin */
+            cc->jit_frame->sp = block->frame_sp_begin;
+            return handle_op_else(cc, p_frame_ip, true);
         }
-        /* Branches create a JMP*/
         else if (block->incoming_insns_for_end_bb) {
             *p_frame_ip = block->wasm_code_end + 1;
-            return handle_op_end(cc, p_frame_ip, false);
+            /* Restore jit frame's sp to block's sp end  */
+            cc->jit_frame->sp =
+                block->frame_sp_begin
+                + wasm_get_cell_num(block->result_types, block->result_count);
+            return handle_op_end(cc, p_frame_ip, true);
         }
         else {
             *p_frame_ip = block->wasm_code_end + 1;
@@ -750,13 +763,13 @@ fail:
 bool
 jit_compile_op_else(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    return handle_op_else(cc, p_frame_ip);
+    return handle_op_else(cc, p_frame_ip, false);
 }
 
 bool
 jit_compile_op_end(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    return handle_op_end(cc, p_frame_ip, true);
+    return handle_op_end(cc, p_frame_ip, false);
 }
 
 static bool
@@ -809,9 +822,14 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 #else
         GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I32, offset));
 #endif
-    }
 
-    gen_commit_values(jit_frame, jit_frame->lp, block->frame_sp_begin);
+        /* No need to commit results as they will be copied to dest block */
+        gen_commit_values(jit_frame, jit_frame->lp, block->frame_sp_begin);
+    }
+    else {
+        /* Commit all including results as they won't be copied */
+        gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    }
 
     if (block_dst->label_type == LABEL_TYPE_LOOP) {
         if (copy_arities) {
@@ -963,6 +981,7 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
 
     handle_func_return(cc, block_func);
     SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
+    clear_values(cc->jit_frame);
 
     return handle_next_reachable_block(cc, p_frame_ip);
 }
