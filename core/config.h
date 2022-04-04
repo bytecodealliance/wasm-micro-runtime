@@ -155,6 +155,15 @@
 #define WASM_ENABLE_DEBUG_INTERP 0
 #endif
 
+#if WASM_ENABLE_DEBUG_INTERP != 0
+#ifndef DEBUG_EXECUTION_MEMORY_SIZE
+/* 0x85000 is the size required by lldb, if this is changed to a smaller value,
+ * then the debugger will not be able to evaluate user expressions, other
+ * functionality such as breakpoint and stepping are not influenced by this */
+#define DEBUG_EXECUTION_MEMORY_SIZE 0x85000
+#endif
+#endif /* end of WASM_ENABLE_DEBUG_INTERP != 0 */
+
 #ifndef WASM_ENABLE_DEBUG_AOT
 #define WASM_ENABLE_DEBUG_AOT 0
 #endif
