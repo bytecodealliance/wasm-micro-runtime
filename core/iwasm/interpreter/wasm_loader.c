@@ -1824,7 +1824,7 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
     uint32 func_count;
     uint64 total_size;
     uint32 code_count = 0, code_size, type_index, i, j, k, local_type_index;
-    uint32 local_count, local_set_count, sub_local_count;
+    uint32 local_count, local_set_count, sub_local_count, local_cell_num;
     uint8 type;
     WASMFunction *func;
 
@@ -1950,8 +1950,16 @@ load_function_section(const uint8 *buf, const uint8 *buf_end,
 
             func->param_cell_num = func->func_type->param_cell_num;
             func->ret_cell_num = func->func_type->ret_cell_num;
-            func->local_cell_num =
+            local_cell_num =
                 wasm_get_cell_num(func->local_types, func->local_count);
+
+            if (local_cell_num > UINT16_MAX) {
+                set_error_buf(error_buf, error_buf_size,
+                              "local count too large");
+                return false;
+            }
+
+            func->local_cell_num = (uint16)local_cell_num;
 
             if (!init_function_local_offsets(func, error_buf, error_buf_size))
                 return false;
@@ -4380,8 +4388,8 @@ typedef struct WASMLoaderContext {
     /* const buffer */
     uint8 *const_buf;
     uint16 num_const;
-    uint16 const_buf_size;
     uint16 const_cell_num;
+    uint32 const_buf_size;
 
     /* processed code */
     uint8 *p_code_compiled;
@@ -4591,37 +4599,44 @@ wasm_loader_ctx_destroy(WASMLoaderContext *ctx)
 }
 
 static WASMLoaderContext *
-wasm_loader_ctx_init(WASMFunction *func)
+wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
 {
     WASMLoaderContext *loader_ctx =
-        loader_malloc(sizeof(WASMLoaderContext), NULL, 0);
+        loader_malloc(sizeof(WASMLoaderContext), error_buf, error_buf_size);
     if (!loader_ctx)
         return NULL;
 
     loader_ctx->frame_ref_size = 32;
-    if (!(loader_ctx->frame_ref_bottom = loader_ctx->frame_ref =
-              loader_malloc(loader_ctx->frame_ref_size, NULL, 0)))
+    if (!(loader_ctx->frame_ref_bottom = loader_ctx->frame_ref = loader_malloc(
+              loader_ctx->frame_ref_size, error_buf, error_buf_size)))
         goto fail;
     loader_ctx->frame_ref_boundary = loader_ctx->frame_ref_bottom + 32;
 
     loader_ctx->frame_csp_size = sizeof(BranchBlock) * 8;
-    if (!(loader_ctx->frame_csp_bottom = loader_ctx->frame_csp =
-              loader_malloc(loader_ctx->frame_csp_size, NULL, 0)))
+    if (!(loader_ctx->frame_csp_bottom = loader_ctx->frame_csp = loader_malloc(
+              loader_ctx->frame_csp_size, error_buf, error_buf_size)))
         goto fail;
     loader_ctx->frame_csp_boundary = loader_ctx->frame_csp_bottom + 8;
 
 #if WASM_ENABLE_FAST_INTERP != 0
     loader_ctx->frame_offset_size = sizeof(int16) * 32;
     if (!(loader_ctx->frame_offset_bottom = loader_ctx->frame_offset =
-              loader_malloc(loader_ctx->frame_offset_size, NULL, 0)))
+              loader_malloc(loader_ctx->frame_offset_size, error_buf,
+                            error_buf_size)))
         goto fail;
     loader_ctx->frame_offset_boundary = loader_ctx->frame_offset_bottom + 32;
 
     loader_ctx->num_const = 0;
     loader_ctx->const_buf_size = sizeof(Const) * 8;
-    if (!(loader_ctx->const_buf =
-              loader_malloc(loader_ctx->const_buf_size, NULL, 0)))
+    if (!(loader_ctx->const_buf = loader_malloc(loader_ctx->const_buf_size,
+                                                error_buf, error_buf_size)))
         goto fail;
+
+    if (func->param_cell_num >= (int32)INT16_MAX - func->local_cell_num) {
+        set_error_buf(error_buf, error_buf_size,
+                      "fast interpreter offset overflow");
+        goto fail;
+    }
 
     loader_ctx->start_dynamic_offset = loader_ctx->dynamic_offset =
         loader_ctx->max_dynamic_offset =
@@ -4902,6 +4917,24 @@ fail:
         LOG_OP("%d\t", value);               \
     } while (0)
 
+#define emit_uint64(ctx, value)                     \
+    do {                                            \
+        wasm_loader_emit_const(ctx, &value, false); \
+        LOG_OP("%lld\t", value);                    \
+    } while (0)
+
+#define emit_float32(ctx, value)                   \
+    do {                                           \
+        wasm_loader_emit_const(ctx, &value, true); \
+        LOG_OP("%f\t", value);                     \
+    } while (0)
+
+#define emit_float64(ctx, value)                    \
+    do {                                            \
+        wasm_loader_emit_const(ctx, &value, false); \
+        LOG_OP("%f\t", value);                      \
+    } while (0)
+
 static bool
 wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 {
@@ -4931,6 +4964,28 @@ wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 
     /* const buf is reserved */
     return true;
+}
+
+static void
+wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
+{
+    uint32 size = is_32_bit ? sizeof(uint32) : sizeof(uint64);
+
+    if (ctx->p_code_compiled) {
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
+#endif
+        bh_memcpy_s(ctx->p_code_compiled,
+                    ctx->p_code_compiled_end - ctx->p_code_compiled, value,
+                    size);
+        ctx->p_code_compiled += size;
+    }
+    else {
+#if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS == 0
+        bh_assert((ctx->code_compiled_size & 1) == 0);
+#endif
+        ctx->code_compiled_size += size;
+    }
 }
 
 static void
@@ -5401,8 +5456,11 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
                              int16 *offset, char *error_buf,
                              uint32 error_buf_size)
 {
+    int8 bytes_to_increase;
     int16 operand_offset = 0;
     Const *c;
+
+    /* Search existing constant */
     for (c = (Const *)ctx->const_buf;
          (uint8 *)c < ctx->const_buf + ctx->num_const * sizeof(Const); c++) {
         /* TODO: handle v128 type? */
@@ -5428,7 +5486,24 @@ wasm_loader_get_const_offset(WASMLoaderContext *ctx, uint8 type, void *value,
         else
             operand_offset += 2;
     }
+
     if ((uint8 *)c == ctx->const_buf + ctx->num_const * sizeof(Const)) {
+        /* New constant, append to the const buffer */
+        if ((type == VALUE_TYPE_F64) || (type == VALUE_TYPE_I64)) {
+            bytes_to_increase = 2;
+        }
+        else {
+            bytes_to_increase = 1;
+        }
+
+        /* The max cell num of const buffer is 32768 since the valid index range
+         * is -32768 ~ -1. Return an invalid index 0 to indicate the buffer is
+         * full */
+        if (ctx->const_cell_num > INT16_MAX - bytes_to_increase + 1) {
+            *offset = 0;
+            return true;
+        }
+
         if ((uint8 *)c == ctx->const_buf + ctx->const_buf_size) {
             MEM_REALLOC(ctx->const_buf, ctx->const_buf_size,
                         ctx->const_buf_size + 4 * sizeof(Const));
@@ -6358,8 +6433,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
     local_types = func->local_types;
     local_offsets = func->local_offsets;
 
-    if (!(loader_ctx = wasm_loader_ctx_init(func))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+    if (!(loader_ctx = wasm_loader_ctx_init(func, error_buf, error_buf_size))) {
         goto fail;
     }
 
@@ -7698,6 +7772,12 @@ re_scan:
                 skip_label();
                 disable_emit = true;
                 GET_CONST_OFFSET(VALUE_TYPE_I32, i32_const);
+
+                if (operand_offset == 0) {
+                    disable_emit = false;
+                    emit_label(WASM_OP_I32_CONST);
+                    emit_uint32(loader_ctx, i32_const);
+                }
 #else
                 (void)i32_const;
 #endif
@@ -7710,6 +7790,12 @@ re_scan:
                 skip_label();
                 disable_emit = true;
                 GET_CONST_OFFSET(VALUE_TYPE_I64, i64_const);
+
+                if (operand_offset == 0) {
+                    disable_emit = false;
+                    emit_label(WASM_OP_I64_CONST);
+                    emit_uint64(loader_ctx, i64_const);
+                }
 #endif
                 PUSH_I64();
                 break;
@@ -7722,6 +7808,12 @@ re_scan:
                 bh_memcpy_s((uint8 *)&f32_const, sizeof(float32), p_org,
                             sizeof(float32));
                 GET_CONST_F32_OFFSET(VALUE_TYPE_F32, f32_const);
+
+                if (operand_offset == 0) {
+                    disable_emit = false;
+                    emit_label(WASM_OP_F32_CONST);
+                    emit_float32(loader_ctx, f32_const);
+                }
 #endif
                 PUSH_F32();
                 break;
@@ -7735,6 +7827,12 @@ re_scan:
                 bh_memcpy_s((uint8 *)&f64_const, sizeof(float64), p_org,
                             sizeof(float64));
                 GET_CONST_F64_OFFSET(VALUE_TYPE_F64, f64_const);
+
+                if (operand_offset == 0) {
+                    disable_emit = false;
+                    emit_label(WASM_OP_F64_CONST);
+                    emit_float64(loader_ctx, f64_const);
+                }
 #endif
                 PUSH_F64();
                 break;

@@ -345,7 +345,8 @@ WASMDebugInstance *
 wasm_debug_instance_create(WASMCluster *cluster)
 {
     WASMDebugInstance *instance;
-    WASMExecEnv *exec_env;
+    WASMExecEnv *exec_env = NULL;
+    wasm_module_inst_t module_inst = NULL;
 
     if (!g_debug_engine || !g_debug_engine->active) {
         return NULL;
@@ -372,6 +373,24 @@ wasm_debug_instance_create(WASMCluster *cluster)
     bh_assert(exec_env);
 
     instance->current_tid = exec_env->handle;
+
+    module_inst = wasm_runtime_get_module_inst(exec_env);
+    bh_assert(module_inst);
+
+    /* Allocate linear memory for evaluating expressions during debugging. If
+     * the allocation failed, the debugger will not be able to evaluate
+     * expressions */
+    instance->exec_mem_info.size = DEBUG_EXECUTION_MEMORY_SIZE;
+    instance->exec_mem_info.start_offset = wasm_runtime_module_malloc(
+        module_inst, instance->exec_mem_info.size, NULL);
+    if (instance->exec_mem_info.start_offset == 0) {
+        LOG_WARNING(
+            "WASM Debug Engine warning: failed to allocate linear memory for "
+            "execution. \n"
+            "Will not be able to evaluate expressions during "
+            "debugging");
+    }
+    instance->exec_mem_info.current_pos = instance->exec_mem_info.start_offset;
 
     if (!wasm_debug_control_thread_create(instance)) {
         LOG_ERROR("WASM Debug Engine error: failed to create control thread");
@@ -1182,9 +1201,7 @@ wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size,
                          int32 map_port)
 {
     WASMExecEnv *exec_env;
-    WASMModuleInstance *module_inst;
-    uint32 offset;
-    void *native_addr;
+    uint32 offset = 0;
     (void)map_port;
 
     if (!instance)
@@ -1194,15 +1211,23 @@ wasm_debug_instance_mmap(WASMDebugInstance *instance, uint32 size,
     if (!exec_env)
         return 0;
 
-    module_inst = (WASMModuleInstance *)exec_env->module_inst;
+    if (instance->exec_mem_info.start_offset == 0) {
+        return 0;
+    }
 
-    /* TODO: malloc in wasi libc maybe not be thread safe, we hope LLDB will
-             always ask for memory when threads stopped */
-    offset = wasm_runtime_module_malloc((wasm_module_inst_t)module_inst, size,
-                                        &native_addr);
-    if (!offset)
+    if ((uint64)instance->exec_mem_info.current_pos
+            - instance->exec_mem_info.start_offset + size
+        <= (uint64)instance->exec_mem_info.size) {
+        offset = instance->exec_mem_info.current_pos;
+        instance->exec_mem_info.current_pos += size;
+    }
+
+    if (offset == 0) {
         LOG_WARNING("the memory may be not enough for debug, try use larger "
                     "--heap-size");
+        return 0;
+    }
+
     return WASM_ADDR(WasmMemory, 0, offset);
 }
 
@@ -1210,8 +1235,6 @@ bool
 wasm_debug_instance_ummap(WASMDebugInstance *instance, uint64 addr)
 {
     WASMExecEnv *exec_env;
-    WASMModuleInstance *module_inst;
-    uint32 offset;
 
     if (!instance)
         return false;
@@ -1220,11 +1243,13 @@ wasm_debug_instance_ummap(WASMDebugInstance *instance, uint64 addr)
     if (!exec_env)
         return false;
 
-    module_inst = (WASMModuleInstance *)exec_env->module_inst;
-    if (WASM_ADDR_TYPE(addr) == WasmMemory) {
-        offset = WASM_ADDR_OFFSET(addr);
-        wasm_runtime_module_free((wasm_module_inst_t)module_inst, offset);
-        return true;
+    if (instance->exec_mem_info.start_offset == 0) {
+        return false;
     }
-    return false;
+
+    (void)addr;
+
+    /* Currently we don't support to free the execution memory, simply return
+     * true here */
+    return true;
 }
