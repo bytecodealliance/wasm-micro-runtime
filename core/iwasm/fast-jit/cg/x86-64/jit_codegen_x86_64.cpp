@@ -3661,7 +3661,7 @@ fail:
 }
 
 /* jmp to dst label */
-#define JMP_TO_LABEL(stream_offset, label_dst, label_src)                \
+#define JMP_TO_LABEL(label_dst, label_src)                               \
     do {                                                                 \
         if (label_is_ahead(cc, label_dst, label_src)) {                  \
             int32 _offset = label_offsets[label_dst]                     \
@@ -3726,6 +3726,8 @@ fail:
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
+ * @param jmp_info_list the jmp info list
+ * @param label_offsets the offsets of each label
  * @param label_src the index of src label
  * @param key the entry key
  * @param opnd the lookup switch operand
@@ -3734,10 +3736,10 @@ fail:
  * @return true if success, false if failed
  */
 static bool
-lookupswitch_imm(JitCompContext *cc, x86::Assembler &a, int32 label_src,
-                 int32 key, const JitOpndLookupSwitch *opnd, bool is_last_insn)
+lookupswitch_imm(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
+                 uint32 *label_offsets, int32 label_src, int32 key,
+                 const JitOpndLookupSwitch *opnd, bool is_last_insn)
 {
-#if 0
     uint32 i;
     int32 label_dst;
 
@@ -3745,22 +3747,21 @@ lookupswitch_imm(JitCompContext *cc, x86::Assembler &a, int32 label_src,
         if (key == opnd->match_pairs[i].value) {
             label_dst = jit_reg_no(opnd->match_pairs[i].target);
             if (!(is_last_insn
-                  && label_is_neighboring(cc, label_src, label_dst)))
-                JMP_TO_LABEL(stream_offset, label_dst, label_src);
-
+                  && label_is_neighboring(cc, label_src, label_dst))) {
+                JMP_TO_LABEL(label_dst, label_src);
+            }
             return true;
         }
 
     if (opnd->default_target) {
         label_dst = jit_reg_no(opnd->default_target);
-        if (!(is_last_insn && label_is_neighboring(cc, label_src, label_dst)))
-            JMP_TO_LABEL(stream_offset, label_dst, label_src);
+        if (!(is_last_insn && label_is_neighboring(cc, label_src, label_dst))) {
+            JMP_TO_LABEL(label_dst, label_src);
+        }
     }
 
     return true;
 fail:
-    return false;
-#endif
     return false;
 }
 
@@ -3769,6 +3770,8 @@ fail:
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
+ * @param jmp_info_list the jmp info list
+ * @param label_offsets the offsets of each label
  * @param label_src the index of src label
  * @param reg_no the no of entry register
  * @param opnd the lookup switch operand
@@ -3777,46 +3780,43 @@ fail:
  * @return true if success, false if failed
  */
 static bool
-lookupswitch_r(JitCompContext *cc, x86::Assembler &a, int32 label_src,
-               int32 reg_no, const JitOpndLookupSwitch *opnd, bool is_last_insn)
+lookupswitch_r(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
+               uint32 *label_offsets, int32 label_src, int32 reg_no,
+               const JitOpndLookupSwitch *opnd, bool is_last_insn)
 {
-#if 0
     JmpInfo *node;
-    Imm_Opnd imm;
-    uint32 i, stream_offset_new;
+    Imm imm;
+    uint32 i;
     int32 label_dst;
 
     for (i = 0; i < opnd->match_pairs_num; i++) {
-        imm_from_sz_v_s(imm, SZ32, opnd->match_pairs[i].value, true);
-        alu_r_imm(cmp, regs_I32[reg_no], imm);
+        imm.setValue(opnd->match_pairs[i].value);
+        a.cmp(regs_i32[reg_no], imm);
 
         label_dst = jit_reg_no(opnd->match_pairs[i].target);
-        imm_from_sz_v_s(imm, SZ32, label_dst, true);
+        imm.setValue(label_dst);
 
-        node = jit_malloc(sizeof(JmpInfo));
+        node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
         if (!node)
             GOTO_FAIL;
 
         node->type = JMP_DST_LABEL;
         node->label_src = label_src;
         node->dst_info.label_dst = label_dst;
-        node->offset = (int32)(stream + 2 - (*stream_ptr - stream_offset));
+        node->offset = a.code()->sectionById(0)->buffer().size() + 2;
         bh_list_insert(jmp_info_list, node);
 
-        je(imm);
+        a.je(imm);
     }
 
     if (opnd->default_target) {
         label_dst = jit_reg_no(opnd->default_target);
-        stream_offset_new = stream_offset + stream - *stream_ptr;
         if (!(is_last_insn && label_is_neighboring(cc, label_src, label_dst)))
-            JMP_TO_LABEL(stream_offset_new, label_dst, label_src);
+            JMP_TO_LABEL(label_dst, label_src);
     }
 
     return true;
 fail:
-    return false;
-#endif
     return false;
 }
 
@@ -3825,6 +3825,8 @@ fail:
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
+ * @param jmp_info_list the jmp info list
+ * @param label_offsets the offsets of each label
  * @param label_src the index of src label
  * @param opnd the lookup switch operand
  * @param is_last_insn if current insn is the last insn of current block
@@ -3832,33 +3834,32 @@ fail:
  * @return true if success, false if failed
  */
 static bool
-lower_lookupswitch(JitCompContext *cc, x86::Assembler &a, int32 label_src,
-                   const JitOpndLookupSwitch *opnd, bool is_last_insn)
+lower_lookupswitch(JitCompContext *cc, x86::Assembler &a,
+                   bh_list *jmp_info_list, uint32 *label_offsets,
+                   int32 label_src, const JitOpndLookupSwitch *opnd,
+                   bool is_last_insn)
 {
-#if 0
     JitReg r0 = opnd->value;
     int32 key, reg_no;
 
     CHECK_KIND(r0, JIT_REG_KIND_I32);
-    CHECK_KIND(opnd->default_target, JIT_REG_KIND_L4);
+    CHECK_KIND(opnd->default_target, JIT_REG_KIND_L32);
 
     if (jit_reg_is_const(r0)) {
         key = jit_cc_get_const_I32(cc, r0);
-        if (!lookupswitch_imm(cc, &stream, stream_offset, label_src, key, opnd,
-                              is_last_insn))
+        if (!lookupswitch_imm(cc, a, jmp_info_list, label_offsets, label_src,
+                              key, opnd, is_last_insn))
             GOTO_FAIL;
     }
     else {
         reg_no = jit_reg_no(r0);
-        if (!lookupswitch_r(cc, &stream, stream_offset, label_src, reg_no, opnd,
-                            is_last_insn))
+        if (!lookupswitch_r(cc, a, jmp_info_list, label_offsets, label_src,
+                            reg_no, opnd, is_last_insn))
             GOTO_FAIL;
     }
 
     return true;
 fail:
-    return false;
-#endif
     return false;
 }
 
@@ -4301,8 +4302,7 @@ jit_codegen_gen_native(JitCompContext *cc)
                     if (!(is_last_insn
                           && label_is_neighboring(cc, label_index,
                                                   jit_reg_no(r0))))
-                        JMP_TO_LABEL(stream_offset, jit_reg_no(r0),
-                                     label_index);
+                        JMP_TO_LABEL(jit_reg_no(r0), label_index);
                     break;
 
                 case JIT_OP_BEQ:
@@ -4326,8 +4326,8 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_LOOKUPSWITCH:
                 {
                     JitOpndLookupSwitch *opnd = jit_insn_opndls(insn);
-                    if (!lower_lookupswitch(cc, a, label_index, opnd,
-                                            is_last_insn))
+                    if (!lower_lookupswitch(cc, a, jmp_info_list, label_offsets,
+                                            label_index, opnd, is_last_insn))
                         GOTO_FAIL;
                     break;
                 }
