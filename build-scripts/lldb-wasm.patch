@@ -5801,7 +5801,7 @@ index c878a2ac4..ad5945b0a 100644
    // we have it all cached in the trace files.
    return DoReadMemory(addr, buf, size, error);
 diff --git a/lldb/source/Target/ThreadPlanStepRange.cpp b/lldb/source/Target/ThreadPlanStepRange.cpp
-index 896e647bb..636cca7f9 100644
+index 896e647bb..f76307016 100644
 --- a/lldb/source/Target/ThreadPlanStepRange.cpp
 +++ b/lldb/source/Target/ThreadPlanStepRange.cpp
 @@ -334,7 +334,10 @@ bool ThreadPlanStepRange::SetNextBranchBreakpoint() {
@@ -5809,8 +5809,8 @@ index 896e647bb..636cca7f9 100644
      if (branch_index == UINT32_MAX) {
        uint32_t last_index = instructions->GetSize() - 1;
 -      if (last_index - pc_index > 1) {
-+      /* This line cause the "step over treated as step in" issue, we modify it
-+       * as a workaround */
++      /* This line causes the "step over was treated as step in" issue, we
++       * modify it as a workaround */
 +      /* The origin line is: if (last_index - pc_index > 1) { */
 +      if (last_index - pc_index >= 1) {
          InstructionSP last_inst =
