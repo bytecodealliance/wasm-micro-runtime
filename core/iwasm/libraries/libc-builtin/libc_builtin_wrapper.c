@@ -60,13 +60,6 @@ wasm_runtime_module_realloc(wasm_module_inst_t module, uint32 ptr, uint32 size,
 
 typedef int (*out_func_t)(int c, void *ctx);
 
-enum pad_type {
-    PAD_NONE,
-    PAD_ZERO_BEFORE,
-    PAD_SPACE_BEFORE,
-    PAD_SPACE_AFTER,
-};
-
 typedef char *_va_list;
 #define _INTSIZEOF(n) (((uint32)sizeof(n) + 3) & (uint32)~3)
 #define _va_arg(ap, t) (*(t *)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
@@ -77,102 +70,18 @@ typedef char *_va_list;
             goto fail;                                     \
     } while (0)
 
-/**
- * @brief Output an unsigned int in hex format
- *
- * Output an unsigned int on output installed by platform at init time. Should
- * be able to handle an unsigned int of any size, 32 or 64 bit.
- * @param num Number to output
- *
- * @return N/A
- */
-static void
-_printf_hex_uint(out_func_t out, void *ctx, const uint64 num, bool is_u64,
-                 enum pad_type padding, int min_width)
-{
-    int shift = sizeof(num) * 8;
-    int found_largest_digit = 0;
-    int remaining = 16; /* 16 digits max */
-    int digits = 0;
-    char nibble;
+#define PREPARE_TEMP_FORMAT()                                   \
+    char buf[64], temp_fmt[32], *s;                             \
+                                                                \
+    memset(temp_fmt, 0, sizeof(temp_fmt));                      \
+    bh_memcpy_s(temp_fmt, sizeof(temp_fmt), fmt_start_addr,     \
+                fmt - fmt_start_addr + 1);
 
-    while (shift >= 4) {
-        shift -= 4;
-        nibble = (num >> shift) & 0xf;
-
-        if (nibble || found_largest_digit || shift == 0) {
-            found_largest_digit = 1;
-            nibble = (char)(nibble + (nibble > 9 ? 87 : 48));
-            out((int)nibble, ctx);
-            digits++;
-            continue;
-        }
-
-        if (remaining-- <= min_width) {
-            if (padding == PAD_ZERO_BEFORE) {
-                out('0', ctx);
-            }
-            else if (padding == PAD_SPACE_BEFORE) {
-                out(' ', ctx);
-            }
-        }
-    }
-
-    if (padding == PAD_SPACE_AFTER) {
-        remaining = min_width * 2 - digits;
-        while (remaining-- > 0) {
-            out(' ', ctx);
-        }
-    }
-}
-
-/**
- * @brief Output an unsigned int in decimal format
- *
- * Output an unsigned int on output installed by platform at init time. Only
- * works with 32-bit values.
- * @param num Number to output
- *
- * @return N/A
- */
-static void
-_printf_dec_uint(out_func_t out, void *ctx, const uint32 num,
-                 enum pad_type padding, int min_width)
-{
-    uint32 pos = 999999999;
-    uint32 remainder = num;
-    int found_largest_digit = 0;
-    int remaining = 10; /* 10 digits max */
-    int digits = 1;
-
-    /* make sure we don't skip if value is zero */
-    if (min_width <= 0) {
-        min_width = 1;
-    }
-
-    while (pos >= 9) {
-        if (found_largest_digit || remainder > pos) {
-            found_largest_digit = 1;
-            out((int)((remainder / (pos + 1)) + 48), ctx);
-            digits++;
-        }
-        else if (remaining <= min_width && padding < PAD_SPACE_AFTER) {
-            out((int)(padding == PAD_ZERO_BEFORE ? '0' : ' '), ctx);
-            digits++;
-        }
-        remaining--;
-        remainder %= (pos + 1);
-        pos /= 10;
-    }
-    out((int)(remainder + 48), ctx);
-
-    if (padding == PAD_SPACE_AFTER) {
-        remaining = min_width - digits;
-        while (remaining-- > 0) {
-            out(' ', ctx);
-        }
-    }
-}
+#define OUTPUT_TEMP_FORMAT() do {                               \
+    s = buf;                                                    \
+    while (*s)                                                  \
+        out((int)(*s++), ctx);                                  \
+} while (0)
 
 static void
 print_err(out_func_t out, void *ctx)
@@ -187,10 +96,9 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
             wasm_module_inst_t module_inst)
 {
     int might_format = 0; /* 1 if encountered a '%' */
-    enum pad_type padding = PAD_NONE;
-    int min_width = -1;
     int long_ctr = 0;
     uint8 *native_end_addr;
+    const char *fmt_start_addr = NULL;
 
     if (!wasm_runtime_get_native_addr_range(module_inst, (uint8 *)ap, NULL,
                                             &native_end_addr))
@@ -205,23 +113,18 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
             }
             else {
                 might_format = 1;
-                min_width = -1;
-                padding = PAD_NONE;
                 long_ctr = 0;
+                fmt_start_addr = fmt;
             }
         }
         else {
             switch (*fmt) {
+                case '.':
+                case '+':
                 case '-':
-                    padding = PAD_SPACE_AFTER;
-                    goto still_might_format;
-
+                case ' ':
+                case '#':
                 case '0':
-                    if (min_width < 0 && padding == PAD_NONE) {
-                        padding = PAD_ZERO_BEFORE;
-                        goto still_might_format;
-                    }
-                    goto handle_1_to_9;
                 case '1':
                 case '2':
                 case '3':
@@ -231,17 +134,12 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 case '7':
                 case '8':
                 case '9':
-                handle_1_to_9:
-                    if (min_width < 0) {
-                        min_width = *fmt - '0';
-                    }
-                    else {
-                        min_width = 10 * min_width + *fmt - '0';
-                    }
+                case 't':   /* ptrdiff_t */
+                    goto still_might_format;
 
-                    if (padding == PAD_NONE) {
-                        padding = PAD_SPACE_BEFORE;
-                    }
+                case 'j':
+                    /* intmax_t/uintmax_t */
+                    long_ctr = 2;
                     goto still_might_format;
 
                 case 'l':
@@ -252,85 +150,61 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     /* FIXME: do nothing for these modifiers */
                     goto still_might_format;
 
+                case 'o':
                 case 'd':
                 case 'i':
                 {
-                    int32 d;
+                    PREPARE_TEMP_FORMAT();
 
                     if (long_ctr < 2) {
+                        int32 d;
                         CHECK_VA_ARG(ap, int32);
                         d = _va_arg(ap, int32);
+                        snprintf(buf, sizeof(buf), temp_fmt, d);
                     }
                     else {
                         int64 lld;
+                        /* Make 8-byte aligned */
+                        ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                         CHECK_VA_ARG(ap, int64);
                         lld = _va_arg(ap, int64);
-                        if (lld > INT32_MAX || lld < INT32_MIN) {
-                            print_err(out, ctx);
-                            break;
-                        }
-                        d = (int32)lld;
+                        snprintf(buf, sizeof(buf), temp_fmt, lld);
                     }
 
-                    if (d < 0) {
-                        out((int)'-', ctx);
-                        d = -d;
-                        min_width--;
-                    }
-                    _printf_dec_uint(out, ctx, (uint32)d, padding, min_width);
+                    OUTPUT_TEMP_FORMAT();
                     break;
                 }
                 case 'u':
-                {
-                    uint32 u;
-
-                    if (long_ctr < 2) {
-                        CHECK_VA_ARG(ap, uint32);
-                        u = _va_arg(ap, uint32);
-                    }
-                    else {
-                        uint64 llu;
-                        CHECK_VA_ARG(ap, uint64);
-                        llu = _va_arg(ap, uint64);
-                        if (llu > INT32_MAX) {
-                            print_err(out, ctx);
-                            break;
-                        }
-                        u = (uint32)llu;
-                    }
-                    _printf_dec_uint(out, ctx, u, padding, min_width);
-                    break;
-                }
                 case 'p':
-                    out('0', ctx);
-                    out('x', ctx);
-                    /* left-pad pointers with zeros */
-                    padding = PAD_ZERO_BEFORE;
-                    min_width = 8;
-                    /* Fall through */
                 case 'x':
                 case 'X':
                 {
-                    uint64 x;
-                    bool is_ptr = (*fmt == 'p') ? true : false;
+                    PREPARE_TEMP_FORMAT();
 
                     if (long_ctr < 2) {
+                        uint32 u;
                         CHECK_VA_ARG(ap, uint32);
-                        x = _va_arg(ap, uint32);
+                        u = _va_arg(ap, uint32);
+                        snprintf(buf, sizeof(buf), temp_fmt, u);
                     }
                     else {
+                        uint64 llu;
+                        /* Make 8-byte aligned */
+                        ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                         CHECK_VA_ARG(ap, uint64);
-                        x = _va_arg(ap, uint64);
+                        llu = _va_arg(ap, uint64);
+                        snprintf(buf, sizeof(buf), temp_fmt, llu);
                     }
-                    _printf_hex_uint(out, ctx, x, !is_ptr, padding, min_width);
+
+                    OUTPUT_TEMP_FORMAT();
                     break;
                 }
 
                 case 's':
                 {
                     char *s;
-                    char *start;
-                    uint32 s_offset;
+                    char *start, *buf, temp_fmt[32];
+                    uint32 s_offset, str_len, buf_len;
 
                     CHECK_VA_ARG(ap, int32);
                     s_offset = _va_arg(ap, uint32);
@@ -341,15 +215,29 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
 
                     s = start = addr_app_to_native(s_offset);
 
-                    while (*s)
-                        out((int)(*s++), ctx);
-
-                    if (padding == PAD_SPACE_AFTER) {
-                        int remaining = min_width - (int32)(s - start);
-                        while (remaining-- > 0) {
-                            out(' ', ctx);
-                        }
+                    str_len = strlen(start);
+                    if (str_len >= UINT32_MAX - 64) {
+                        print_err(out, ctx);
+                        break;
                     }
+
+                    /* reserve 64 more bytes as there may be width description
+                     * in the fmt */
+                    buf_len = str_len + 64;
+
+                    if (!(buf = wasm_runtime_malloc(buf_len))) {
+                        print_err(out, ctx);
+                        break;
+                    }
+
+                    memset(temp_fmt, 0, sizeof(temp_fmt));
+                    bh_memcpy_s(temp_fmt, sizeof(temp_fmt), fmt_start_addr,
+                                fmt - fmt_start_addr + 1);
+                    snprintf(buf, buf_len, temp_fmt, start);
+
+                    OUTPUT_TEMP_FORMAT();
+                    wasm_runtime_free(buf);
+
                     break;
                 }
 
@@ -368,21 +256,30 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     break;
                 }
 
+                case 'e':
+                case 'E':
+                case 'g':
+                case 'G':
                 case 'f':
+                case 'F':
                 {
                     float64 f64;
-                    char buf[16], *s;
+
+                    PREPARE_TEMP_FORMAT();
 
                     /* Make 8-byte aligned */
                     ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                     CHECK_VA_ARG(ap, float64);
                     f64 = _va_arg(ap, float64);
-                    snprintf(buf, sizeof(buf), "%f", f64);
-                    s = buf;
-                    while (*s)
-                        out((int)(*s++), ctx);
+                    snprintf(buf, sizeof(buf), temp_fmt, f64);
+
+                    OUTPUT_TEMP_FORMAT();
                     break;
                 }
+
+                case 'n':
+                    /* print nothing */
+                    break;
 
                 default:
                     out((int)'%', ctx);
