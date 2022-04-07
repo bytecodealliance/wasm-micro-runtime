@@ -70,18 +70,19 @@ typedef char *_va_list;
             goto fail;                                     \
     } while (0)
 
-#define PREPARE_TEMP_FORMAT()                                   \
-    char buf[64], temp_fmt[32], *s;                             \
-                                                                \
-    memset(temp_fmt, 0, sizeof(temp_fmt));                      \
-    bh_memcpy_s(temp_fmt, sizeof(temp_fmt), fmt_start_addr,     \
+#define PREPARE_TEMP_FORMAT()                               \
+    char buf[64], temp_fmt[32], *s;                         \
+                                                            \
+    memset(temp_fmt, 0, sizeof(temp_fmt));                  \
+    bh_memcpy_s(temp_fmt, sizeof(temp_fmt), fmt_start_addr, \
                 fmt - fmt_start_addr + 1);
 
-#define OUTPUT_TEMP_FORMAT() do {                               \
-    s = buf;                                                    \
-    while (*s)                                                  \
-        out((int)(*s++), ctx);                                  \
-} while (0)
+#define OUTPUT_TEMP_FORMAT()       \
+    do {                           \
+        s = buf;                   \
+        while (*s)                 \
+            out((int)(*s++), ctx); \
+    } while (0)
 
 static void
 print_err(out_func_t out, void *ctx)
@@ -134,7 +135,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 case '7':
                 case '8':
                 case '9':
-                case 't':   /* ptrdiff_t */
+                case 't': /* ptrdiff_t */
                     goto still_might_format;
 
                 case 'j':
