@@ -594,6 +594,7 @@ wasm_get_smallest_type_idx(WASMType **types, uint32 type_count,
         if (wasm_type_equal(types[cur_type_idx], types[i]))
             return i;
     }
+    (void)type_count;
     return cur_type_idx;
 }
 

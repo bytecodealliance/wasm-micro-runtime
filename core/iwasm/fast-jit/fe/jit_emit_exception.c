@@ -16,7 +16,7 @@ jit_emit_exception(JitCompContext *cc, int32 exception_id, uint8 jit_opcode,
 
     bh_assert(exception_id < EXCE_NUM);
 
-    if (jit_opcode >= JIT_OP_BNE && jit_opcode <= JIT_OP_BLEU) {
+    if (jit_opcode >= JIT_OP_BEQ && jit_opcode <= JIT_OP_BLEU) {
         bh_assert(cond_br_if == cc->cmp_reg);
         else_label =
             cond_br_else_block ? jit_basic_block_label(cond_br_else_block) : 0;

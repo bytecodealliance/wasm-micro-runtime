@@ -129,7 +129,8 @@ jit_compiler_compile(WASMModule *module, uint32 func_idx)
     }
 
     cc->cur_wasm_module = module;
-    cc->cur_wasm_func = module->functions[func_idx];
+    cc->cur_wasm_func =
+        module->functions[func_idx - module->import_function_count];
     cc->cur_wasm_func_idx = func_idx;
     cc->mem_space_unchanged = (!cc->cur_wasm_func->has_op_memory_grow
                                && !cc->cur_wasm_func->has_op_func_call)
@@ -155,7 +156,7 @@ jit_compiler_compile_all(WASMModule *module)
     uint32 i;
 
     for (i = 0; i < module->function_count; i++) {
-        if (!jit_compiler_compile(module, i)) {
+        if (!jit_compiler_compile(module, module->import_function_count + i)) {
             return false;
         }
     }

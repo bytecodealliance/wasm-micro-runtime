@@ -149,7 +149,7 @@ gen_commit_sp_ip(JitFrame *frame)
 #if UINTPTR_MAX == UINT64_MAX
         sp = jit_cc_new_reg_I64(cc);
         GEN_INSN(ADD, sp, cc->fp_reg,
-                 NEW_CONST(I32, offset_of_local(frame->sp - frame->lp)));
+                 NEW_CONST(I64, offset_of_local(frame->sp - frame->lp)));
         GEN_INSN(STI64, sp, cc->fp_reg,
                  NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
 #else
@@ -222,7 +222,7 @@ form_and_translate_func(JitCompContext *cc)
                     *(jit_insn_opnd(insn, 0)) =
                         jit_basic_block_label(cc->exce_basic_blocks[i]);
                 }
-                else if (insn->opcode >= JIT_OP_BNE
+                else if (insn->opcode >= JIT_OP_BEQ
                          && insn->opcode <= JIT_OP_BLEU) {
                     *(jit_insn_opnd(insn, 1)) =
                         jit_basic_block_label(cc->exce_basic_blocks[i]);
@@ -230,19 +230,23 @@ form_and_translate_func(JitCompContext *cc)
                 incoming_insn = incoming_insn_next;
             }
             cc->cur_basic_block = cc->exce_basic_blocks[i];
+            if (i != EXCE_ALREADY_THROWN) {
 #if UINTPTR_MAX == UINT64_MAX
-            insn = GEN_INSN(
-                CALLNATIVE, 0,
-                NEW_CONST(I64, (uint64)(uintptr_t)jit_set_exception_with_id),
-                1);
+                insn = GEN_INSN(
+                    CALLNATIVE, 0,
+                    NEW_CONST(I64,
+                              (uint64)(uintptr_t)jit_set_exception_with_id),
+                    1);
 #else
-            insn = GEN_INSN(
-                CALLNATIVE, 0,
-                NEW_CONST(I32, (uint32)(uintptr_t)jit_set_exception_with_id),
-                1);
+                insn = GEN_INSN(
+                    CALLNATIVE, 0,
+                    NEW_CONST(I32,
+                              (uint32)(uintptr_t)jit_set_exception_with_id),
+                    1);
 #endif
-            if (insn) {
-                *(jit_insn_opndv(insn, 2)) = NEW_CONST(I32, i);
+                if (insn) {
+                    *(jit_insn_opndv(insn, 2)) = NEW_CONST(I32, i);
+                }
             }
             GEN_INSN(RETURN, NEW_CONST(I32, JIT_INTERP_ACTION_THROWN));
 
@@ -329,6 +333,8 @@ init_func_translation(JitCompContext *cc)
     cc->jit_frame = jit_frame;
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
     cc->total_frame_size = wasm_interp_interp_frame_size(total_cell_num);
+    cc->spill_cache_offset = (uint32)offsetof(WASMInterpFrame, spill_cache);
+    cc->spill_cache_size = (uint32)sizeof(uint32) * 16;
     cc->jitted_return_address_offset =
         offsetof(WASMInterpFrame, jitted_return_addr);
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
@@ -588,6 +594,7 @@ jit_compile_func(JitCompContext *cc)
     float64 f64_const;
 
     while (frame_ip < frame_ip_end) {
+        cc->jit_frame->ip = frame_ip;
         opcode = *frame_ip++;
 
 #if 0 /* TODO */
@@ -704,6 +711,12 @@ jit_compile_func(JitCompContext *cc)
 
             case WASM_OP_RETURN:
                 if (!jit_compile_op_return(cc, &frame_ip))
+                    return false;
+                break;
+
+            case WASM_OP_CALL:
+                read_leb_uint32(frame_ip, frame_ip_end, func_idx);
+                if (!jit_compile_op_call(cc, func_idx, false))
                     return false;
                 break;
 
