@@ -5317,8 +5317,12 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
         emit_operand(ctx, ctx->dynamic_offset);
         *(ctx->frame_offset)++ = ctx->dynamic_offset;
         ctx->dynamic_offset++;
-        if (ctx->dynamic_offset > ctx->max_dynamic_offset)
+        if (ctx->dynamic_offset > ctx->max_dynamic_offset) {
             ctx->max_dynamic_offset = ctx->dynamic_offset;
+            if (ctx->max_dynamic_offset >= INT16_MAX) {
+                goto fail;
+            }
+        }
     }
 
     if (is_32bit_type(type))
@@ -5332,10 +5336,19 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
     ctx->frame_offset++;
     if (!disable_emit) {
         ctx->dynamic_offset++;
-        if (ctx->dynamic_offset > ctx->max_dynamic_offset)
+        if (ctx->dynamic_offset > ctx->max_dynamic_offset) {
             ctx->max_dynamic_offset = ctx->dynamic_offset;
+            if (ctx->max_dynamic_offset >= INT16_MAX) {
+                goto fail;
+            }
+        }
     }
     return true;
+
+fail:
+    set_error_buf(error_buf, error_buf_size,
+                  "fast interpreter offset overflow");
+    return false;
 }
 
 /* This function should be in front of wasm_loader_pop_frame_ref
