@@ -102,6 +102,12 @@
 #define WASM_ENABLE_FAST_JIT_DUMP 0
 #endif
 
+#ifndef FAST_JIT_SPILL_CACHE_SIZE
+/* The size of fast jit spill cache in cell num, one cell num
+   occpuies 4 bytes */
+#define FAST_JIT_SPILL_CACHE_SIZE 32
+#endif
+
 #ifndef WASM_ENABLE_WAMR_COMPILER
 #define WASM_ENABLE_WAMR_COMPILER 0
 #endif

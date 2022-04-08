@@ -334,7 +334,7 @@ init_func_translation(JitCompContext *cc)
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
     cc->total_frame_size = wasm_interp_interp_frame_size(total_cell_num);
     cc->spill_cache_offset = (uint32)offsetof(WASMInterpFrame, spill_cache);
-    cc->spill_cache_size = (uint32)sizeof(uint32) * 16;
+    cc->spill_cache_size = (uint32)sizeof(uint32) * FAST_JIT_SPILL_CACHE_SIZE;
     cc->jitted_return_address_offset =
         offsetof(WASMInterpFrame, jitted_return_addr);
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);

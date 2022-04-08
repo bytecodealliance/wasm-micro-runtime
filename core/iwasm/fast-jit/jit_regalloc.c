@@ -538,7 +538,7 @@ allocate_hreg(RegallocContext *rc, JitReg vreg, JitInsn *insn, int distance)
     if (hreg_num == 0)
     /* Unsupported hard register kind.  */
     {
-        jit_set_last_error(rc->cc, "unsupported hard register num");
+        jit_set_last_error(rc->cc, "unsupported hard register kind");
         return 0;
     }
 
