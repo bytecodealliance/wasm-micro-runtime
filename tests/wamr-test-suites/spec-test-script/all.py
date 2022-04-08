@@ -19,10 +19,18 @@ import time
 
 """
 The script itself has to be put under the same directory with the "spec".
-To run single spec case:
+To run a single non-GC case with interpreter mode:
   cd workspace
-  python2.7 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm
-            --aot-compiler wamrc --gc --loader-only spec/test/core/xxx.wast
+  python2.7 runtest.py --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
+    spec/test/core/xxx.wast
+To run a single non-GC case with aot mode:
+  cd workspace
+  python2.7 runtest.py --aot --wast2wasm wabt/bin/wat2wasm --interpreter iwasm \
+    --aot-compiler wamrc spec/test/core/xxx.wast
+To run a single GC case:
+  cd workspace
+  python2.7 runtest.py --wast2wasm spec/interpreter/wasm --interpreter iwasm \
+    --aot-compiler wamrc --gc spec/test/core/xxx.wast
 """
 
 PLATFORM_NAME = os.uname().sysname.lower()
@@ -65,7 +73,7 @@ def ignore_the_case(
     if not multi_module_flag and case_name in ["imports", "linking"]:
         return True
 
-    if gc_flag and case_name in ["func_bind", "let"]:
+    if gc_flag and case_name in ["func_bind", "let", "type-canon"]:
         return True
 
     if "i386" == target and case_name in ["float_exprs"]:
