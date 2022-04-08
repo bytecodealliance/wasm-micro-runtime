@@ -1,5 +1,18 @@
+diff --git a/interpreter/exec/eval.ml b/interpreter/exec/eval.ml
+index 1dc208bf..3e3ff5e6 100644
+--- a/interpreter/exec/eval.ml
++++ b/interpreter/exec/eval.ml
+@@ -1232,7 +1232,7 @@ let init (m : module_) (exts : extern list) : module_inst =
+   in
+   if List.length exts <> List.length imports then
+     Link.error m.at "wrong number of imports provided for initialisation";
+-  let inst0 = {empty_module_inst with types = List.concat_map create_type types} in
++  let inst0 = {empty_module_inst with types = List.concat (List.map create_type types)} in
+   ignore (List.fold_left (init_type inst0) (0l, inst0.types) types);
+   let inst1 = List.fold_right2 (add_import m) exts imports inst0 in
+   let fs = List.map (create_func inst1) funcs in
 diff --git a/test/core/binary.wast b/test/core/binary.wast
-index 1f76dc13..f4512ade 100644
+index fbca3d94..a592bfdc 100644
 --- a/test/core/binary.wast
 +++ b/test/core/binary.wast
 @@ -161,7 +161,7 @@
@@ -20,7 +33,7 @@ index 1f76dc13..f4512ade 100644
  
  ;; Unsigned LEB128 must not be overlong
  (assert_malformed
-@@ -1582,7 +1582,7 @@
+@@ -1638,7 +1638,7 @@
  )
  
  ;; 2 elem segment declared, 1 given
@@ -29,7 +42,7 @@ index 1f76dc13..f4512ade 100644
    (module binary
      "\00asm" "\01\00\00\00"
      "\01\04\01"                             ;; type section
-@@ -1595,7 +1595,7 @@
+@@ -1651,7 +1651,7 @@
      ;; "\00\41\00\0b\01\00"                 ;; elem 1 (missed)
    )
    "unexpected end"
@@ -171,7 +184,7 @@ index 35e8c917..a7a459df 100644
  
  ;; Syntax errors
 diff --git a/test/core/linking.wast b/test/core/linking.wast
-index 85de43d8..6b218e3b 100644
+index 6a8ba1d0..e2721631 100644
 --- a/test/core/linking.wast
 +++ b/test/core/linking.wast
 @@ -64,6 +64,7 @@
@@ -190,7 +203,7 @@ index 85de43d8..6b218e3b 100644
  
  
  (assert_unlinkable
-@@ -317,6 +319,7 @@
+@@ -300,6 +302,7 @@
    )
  )
  
@@ -198,7 +211,7 @@ index 85de43d8..6b218e3b 100644
  (assert_return (invoke $Mt "call" (i32.const 2)) (i32.const 4))
  (assert_return (invoke $Nt "Mt.call" (i32.const 2)) (i32.const 4))
  (assert_return (invoke $Nt "call" (i32.const 2)) (i32.const 5))
-@@ -339,6 +342,7 @@
+@@ -322,6 +325,7 @@
  
  (assert_return (invoke $Nt "call" (i32.const 3)) (i32.const -4))
  (assert_trap (invoke $Nt "call" (i32.const 4)) "indirect call type mismatch")
@@ -206,7 +219,7 @@ index 85de43d8..6b218e3b 100644
  
  (module $Ot
    (type (func (result i32)))
-@@ -353,6 +357,7 @@
+@@ -336,6 +340,7 @@
    )
  )
  
@@ -214,7 +227,7 @@ index 85de43d8..6b218e3b 100644
  (assert_return (invoke $Mt "call" (i32.const 3)) (i32.const 4))
  (assert_return (invoke $Nt "Mt.call" (i32.const 3)) (i32.const 4))
  (assert_return (invoke $Nt "call Mt.call" (i32.const 3)) (i32.const 4))
-@@ -377,6 +382,7 @@
+@@ -360,6 +365,7 @@
  (assert_trap (invoke $Ot "call" (i32.const 0)) "uninitialized element")
  
  (assert_trap (invoke $Ot "call" (i32.const 20)) "undefined element")
@@ -222,7 +235,7 @@ index 85de43d8..6b218e3b 100644
  
  (module
    (table (import "Mt" "tab") 0 funcref)
-@@ -415,6 +421,7 @@
+@@ -398,6 +404,7 @@
  
  ;; Unlike in the v1 spec, active element segments stored before an
  ;; out-of-bounds access persist after the instantiation failure.
@@ -230,7 +243,7 @@ index 85de43d8..6b218e3b 100644
  (assert_trap
    (module
      (table (import "Mt" "tab") 10 funcref)
-@@ -426,7 +433,9 @@
+@@ -409,7 +416,9 @@
  )
  (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
  (assert_trap (invoke $Mt "call" (i32.const 8)) "uninitialized element")
@@ -240,7 +253,7 @@ index 85de43d8..6b218e3b 100644
  (assert_trap
    (module
      (table (import "Mt" "tab") 10 funcref)
-@@ -438,6 +447,7 @@
+@@ -421,6 +430,7 @@
    "out of bounds memory access"
  )
  (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
@@ -248,7 +261,7 @@ index 85de43d8..6b218e3b 100644
  
  
  (module $Mtable_ex
-@@ -455,6 +465,7 @@
+@@ -438,6 +448,7 @@
    (table (import "Mtable_ex" "t-extern") 1 externref)
  )
  
@@ -256,7 +269,7 @@ index 85de43d8..6b218e3b 100644
  (assert_unlinkable
    (module (table (import "Mtable_ex" "t-refnull") 1 (ref null func)))
    "incompatible import type"
-@@ -481,6 +492,7 @@
+@@ -464,6 +475,7 @@
    (module (table (import "Mtable_ex" "t-refnull") 1 externref))
    "incompatible import type"
  )
@@ -264,7 +277,7 @@ index 85de43d8..6b218e3b 100644
  
  
  ;; Memories
-@@ -520,10 +532,12 @@
+@@ -503,10 +515,12 @@
    )
  )
  
@@ -277,7 +290,7 @@ index 85de43d8..6b218e3b 100644
  
  (module
    (memory (import "Mm" "mem") 0)
-@@ -546,6 +560,7 @@
+@@ -529,6 +543,7 @@
    )
  )
  
@@ -285,7 +298,7 @@ index 85de43d8..6b218e3b 100644
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 1))
  (assert_return (invoke $Pm "grow" (i32.const 2)) (i32.const 1))
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 3))
-@@ -554,6 +569,7 @@
+@@ -537,6 +552,7 @@
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 5))
  (assert_return (invoke $Pm "grow" (i32.const 1)) (i32.const -1))
  (assert_return (invoke $Pm "grow" (i32.const 0)) (i32.const 5))
@@ -293,7 +306,7 @@ index 85de43d8..6b218e3b 100644
  
  (assert_unlinkable
    (module
-@@ -577,8 +593,10 @@
+@@ -560,8 +576,10 @@
    )
    "out of bounds memory access"
  )
@@ -304,7 +317,7 @@ index 85de43d8..6b218e3b 100644
  
  (assert_trap
    (module
-@@ -590,7 +608,9 @@
+@@ -573,7 +591,9 @@
    )
    "out of bounds table access"
  )
@@ -314,7 +327,7 @@ index 85de43d8..6b218e3b 100644
  
  ;; Store is modified if the start function traps.
  (module $Ms
-@@ -606,6 +626,7 @@
+@@ -589,6 +609,7 @@
  )
  (register "Ms" $Ms)
  
@@ -322,7 +335,7 @@ index 85de43d8..6b218e3b 100644
  (assert_trap
    (module
      (import "Ms" "memory" (memory 1))
-@@ -625,3 +646,4 @@
+@@ -608,3 +629,4 @@
  
  (assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
  (assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
@@ -342,9 +355,18 @@ index adb5cb78..590f6262 100644
      (i32.add (local.get $x) (i32.const 1))
    )
 diff --git a/test/core/select.wast b/test/core/select.wast
-index fbe51be1..bb209d9b 100644
+index 94aa8605..baf0f9c5 100644
 --- a/test/core/select.wast
 +++ b/test/core/select.wast
+@@ -277,7 +277,7 @@
+ (assert_return (invoke "select-f64-t" (f64.const 2) (f64.const nan:0x20304) (i32.const 0)) (f64.const nan:0x20304))
+ 
+ (assert_return (invoke "join-funcnull" (i32.const 1)) (ref.func))
+-(assert_return (invoke "join-funcnull" (i32.const 0)) (ref.null))
++(assert_return (invoke "join-funcnull" (i32.const 0)) (ref.null func))
+ 
+ (assert_trap (invoke "select-trap-left" (i32.const 1)) "unreachable")
+ (assert_trap (invoke "select-trap-left" (i32.const 0)) "unreachable")
 @@ -368,6 +368,7 @@
    (module (func $arity-0 (select (result) (nop) (nop) (i32.const 1))))
    "invalid result arity"
@@ -784,3 +806,225 @@ index 0b2d26f7..bdab6a01 100644
    (table $t0 30 30 funcref)
    (table $t1 30 30 funcref)
    (elem (table $t1) (i32.const 2) func 3 1 4 1)
+diff --git a/test/core/type-equivalence.wast b/test/core/type-equivalence.wast
+index ed7e1a51..be10fd5a 100644
+--- a/test/core/type-equivalence.wast
++++ b/test/core/type-equivalence.wast
+@@ -28,8 +28,8 @@
+ ;; Recursive types.
+ 
+ (module
+-  (rec (type $t1 (func (param i32 (ref $t1)))))
+-  (rec (type $t2 (func (param i32 (ref $t2)))))
++  (type $t1 (func (param i32 (ref $t1))))
++  (type $t2 (func (param i32 (ref $t2))))
+ 
+   (func $f1 (param $r (ref $t1)) (call $f2 (local.get $r)))
+   (func $f2 (param $r (ref $t2)) (call $f1 (local.get $r)))
+@@ -47,14 +47,10 @@
+ ;; Isomorphic recursive types.
+ 
+ (module
+-  (rec
+-    (type $t0 (func (param i32 (ref $t1))))
+-    (type $t1 (func (param i32 (ref $t0))))
+-  )
+-  (rec
+-    (type $t2 (func (param i32 (ref $t3))))
+-    (type $t3 (func (param i32 (ref $t2))))
+-  )
++  (type $t0 (func (param i32 (ref $t1))))
++  (type $t1 (func (param i32 (ref $t0))))
++  (type $t2 (func (param i32 (ref $t3))))
++  (type $t3 (func (param i32 (ref $t2))))
+ 
+   (func $f0 (param $r (ref $t0))
+     (call $f2 (local.get $r))
+@@ -73,6 +69,7 @@
+ 
+ ;; Invalid recursion.
+ 
++(;
+ (assert_invalid
+   (module
+     (type $t1 (func (param (ref $t2))))
+@@ -80,6 +77,7 @@
+   )
+   "unknown type"
+ )
++;)
+ 
+ 
+ ;; Semantic types (run time)
+@@ -134,8 +132,8 @@
+ ;; Recursive types.
+ 
+ (module
+-  (rec (type $t1 (func (result (ref null $t1)))))
+-  (rec (type $t2 (func (result (ref null $t2)))))
++  (type $t1 (func (result (ref null $t1))))
++  (type $t2 (func (result (ref null $t2))))
+ 
+   (func $f1 (type $t1) (ref.null $t1))
+   (func $f2 (type $t2) (ref.null $t2))
+@@ -155,21 +153,16 @@
+ )
+ (assert_return (invoke "run"))
+ 
+-
+ ;; Isomorphic recursive types.
+ 
+ (module
+-  (rec
+-    (type $t1 (func (param i32 (ref $t1))))
+-    (type $t2 (func (param i32 (ref $t3))))
+-    (type $t3 (func (param i32 (ref $t2))))
+-  )
++  (type $t1 (func (param i32 (ref $t1))))
++  (type $t2 (func (param i32 (ref $t3))))
++  (type $t3 (func (param i32 (ref $t2))))
+ 
+-  (rec
+-    (type $u1 (func (param i32 (ref $u1))))
+-    (type $u2 (func (param i32 (ref $u3))))
+-    (type $u3 (func (param i32 (ref $u2))))
+-  )
++  (type $u1 (func (param i32 (ref $u1))))
++  (type $u2 (func (param i32 (ref $u3))))
++  (type $u3 (func (param i32 (ref $u2))))
+ 
+   (func $f1 (type $t1))
+   (func $f2 (type $t2))
+@@ -187,7 +180,6 @@
+ )
+ (assert_return (invoke "run"))
+ 
+-
+ ;; Semantic types (link time)
+ 
+ ;; Simple types.
+@@ -196,11 +188,13 @@
+   (type $t1 (func (param f32 f32) (result f32)))
+   (func (export "f") (param (ref $t1)))
+ )
++(;
+ (register "M")
+ (module
+   (type $t2 (func (param $x f32) (param $y f32) (result f32)))
+   (func (import "M" "f") (param (ref $t2)))
+ )
++;)
+ 
+ 
+ ;; Indirect types.
+@@ -214,6 +208,7 @@
+   (func (export "f1") (param (ref $t1)))
+   (func (export "f2") (param (ref $t1)))
+ )
++(;
+ (register "M")
+ (module
+   (type $s0 (func (param i32) (result f32)))
+@@ -226,33 +221,35 @@
+   (func (import "M" "f2") (param (ref $t1)))
+   (func (import "M" "f2") (param (ref $t1)))
+ )
++;)
+ 
+ 
+ ;; Recursive types.
+ 
+ (module
+-  (rec (type $t1 (func (param i32 (ref $t1)))))
++  (type $t1 (func (param i32 (ref $t1))))
+   (func (export "f") (param (ref $t1)))
+ )
++(;
+ (register "M")
+ (module
+   (rec (type $t2 (func (param i32 (ref $t2)))))
+   (func (import "M" "f") (param (ref $t2)))
+ )
++;)
+ 
+ 
+ ;; Isomorphic recursive types.
+ 
+ (module
+-  (rec
+-    (type $t1 (func (param i32 (ref $t1))))
+-    (type $t2 (func (param i32 (ref $t3))))
+-    (type $t3 (func (param i32 (ref $t2))))
+-  )
++  (type $t1 (func (param i32 (ref $t1))))
++  (type $t2 (func (param i32 (ref $t3))))
++  (type $t3 (func (param i32 (ref $t2))))
+   (func (export "f1") (param (ref $t1)))
+   (func (export "f2") (param (ref $t2)))
+   (func (export "f3") (param (ref $t3)))
+ )
++(;
+ (register "M")
+ (module
+   (rec
+@@ -264,17 +261,17 @@
+   (func (import "M" "f2") (param (ref $t2)))
+   (func (import "M" "f3") (param (ref $t3)))
+ )
++;)
+ 
+ (module
+-  (rec
+-    (type $t1 (func (param i32 (ref $t3))))
+-    (type $t2 (func (param i32 (ref $t1))))
+-    (type $t3 (func (param i32 (ref $t2))))
+-  )
++  (type $t1 (func (param i32 (ref $t3))))
++  (type $t2 (func (param i32 (ref $t1))))
++  (type $t3 (func (param i32 (ref $t2))))
+   (func (export "f1") (param (ref $t1)))
+   (func (export "f2") (param (ref $t2)))
+   (func (export "f3") (param (ref $t3)))
+ )
++(;
+ (register "M")
+ (module
+   (rec
+@@ -286,24 +283,22 @@
+   (func (import "M" "f2") (param (ref $t2)))
+   (func (import "M" "f3") (param (ref $t3)))
+ )
++;)
+ 
+ (module
+-  (rec
+-    (type $t1 (func (param i32 (ref $u1))))
+-    (type $u1 (func (param f32 (ref $t1))))
+-  )
++  (type $t1 (func (param i32 (ref $u1))))
++  (type $u1 (func (param f32 (ref $t1))))
+ 
+-  (rec
+-    (type $t2 (func (param i32 (ref $u3))))
+-    (type $u2 (func (param f32 (ref $t3))))
+-    (type $t3 (func (param i32 (ref $u2))))
+-    (type $u3 (func (param f32 (ref $t2))))
+-  )
++  (type $t2 (func (param i32 (ref $u3))))
++  (type $u2 (func (param f32 (ref $t3))))
++  (type $t3 (func (param i32 (ref $u2))))
++  (type $u3 (func (param f32 (ref $t2))))
+ 
+   (func (export "f1") (param (ref $t1)))
+   (func (export "f2") (param (ref $t2)))
+   (func (export "f3") (param (ref $t3)))
+ )
++(;
+ (register "M")
+ (module
+   (rec
+@@ -322,3 +317,4 @@
+   (func (import "M" "f2") (param (ref $t2)))
+   (func (import "M" "f3") (param (ref $t3)))
+ )
++;)

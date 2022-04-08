@@ -2739,3 +2739,31 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
     os_printf("\n");
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
+
+#if WASM_ENABLE_GC != 0
+bool
+wasm_runtime_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
+{
+    return false;
+}
+
+void
+wasm_runtime_gc_prepare(WASMExecEnv *exec_env)
+{
+#if 0
+    exec_env->is_gc_reclaiming = false;
+    wasm_thread_suspend_all();
+    exec_env->is_gc_reclaim = 1;
+    exec_env->requesting_suspend = 0;
+#endif
+}
+
+void
+wasm_runtime_gc_finished(WASMExecEnv *exec_env)
+{
+#if 0
+    wasm_thread_resume_all();
+    exec_env->doing_gc_reclaim = 0;
+#endif
+}
+#endif /* end of WASM_ENABLE_GC != 0 */

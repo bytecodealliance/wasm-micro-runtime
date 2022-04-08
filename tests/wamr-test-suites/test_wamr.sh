@@ -320,6 +320,7 @@ function spec_test()
         git restore . && git clean -ffd .
         git fetch gc
         git checkout -B gc_spec --track gc/master
+        git reset --hard c486ace0c751ebfc66dfcc59c8c224db29cedbe5
         git apply ../../spec-test-script/gc_ignore_cases.patch
 
         echo "compile the reference intepreter"
@@ -373,6 +374,7 @@ function spec_test()
         make -C wabt gcc-release -j 4
     fi
 
+    ln -sf ${WORK_DIR}/../spec-test-script/all.sh .
     ln -sf ${WORK_DIR}/../spec-test-script/all.py .
     ln -sf ${WORK_DIR}/../spec-test-script/runtest.py .
 
@@ -421,6 +423,7 @@ function spec_test()
     fi
 
     cd ${WORK_DIR}
+    #./all.sh ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
     python3 ./all.py ${ARGS_FOR_SPEC_TEST} | tee -a ${REPORT_DIR}/spec_test_report.txt
 
     [[ ${PIPESTATUS[0]} -ne 0 ]] && exit 1

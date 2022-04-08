@@ -5970,8 +5970,9 @@ check_stack_push(WASMLoaderContext *ctx, uint8 type, char *error_buf,
     if (wasm_is_type_multi_byte_type(type)
         && ctx->frame_reftype_map >= ctx->frame_reftype_map_boundary) {
         /* Increase the frame reftype map stack */
-        bh_assert(ctx->frame_reftype_map - ctx->frame_reftype_map_bottom
-                  == ctx->frame_reftype_map_size);
+        bh_assert(
+            (uint32)(ctx->frame_reftype_map - ctx->frame_reftype_map_bottom)
+            == ctx->frame_reftype_map_size);
         MEM_REALLOC(ctx->frame_reftype_map_bottom, ctx->frame_reftype_map_size,
                     ctx->frame_reftype_map_size
                         + (uint32)sizeof(WASMRefTypeMap) * 8);
@@ -12219,8 +12220,15 @@ re_scan:
     }
 
     if (loader_ctx->csp_num > 0) {
-        set_error_buf(error_buf, error_buf_size,
-                      "function body must end with END opcode");
+        if (cur_func_idx
+            < module->import_function_count + module->function_count - 1) {
+            set_error_buf(error_buf, error_buf_size, "END opcode expected");
+        }
+        else {
+            set_error_buf(error_buf, error_buf_size,
+                          "unexpected end of section or function, "
+                          "or section size mismatch");
+        }
         goto fail;
     }
 
