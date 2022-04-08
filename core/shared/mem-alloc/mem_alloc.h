@@ -52,7 +52,6 @@ mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size);
 #if WASM_GC_MANUALLY != 0
 void
 mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr);
-
 #endif
 #endif
 

@@ -219,27 +219,11 @@ wasm_runtime_malloc(unsigned int size);
 WASM_RUNTIME_API_EXTERN void *
 wasm_runtime_realloc(void *ptr, unsigned int size);
 
-/*
+/**
  * Free memory to runtime memory environment.
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_free(void *ptr);
-
-/**
- * Allocate memory from object heap.
- *
- * @param size bytes need to allocate
- *
- * @return the pointer to memory allocated
- */
-WASM_RUNTIME_API_EXTERN void *
-wasm_gc_malloc(void *heap_handle, unsigned int size);
-
-/*
- * Free memory to gc memory environment. (internal test only)
- */
-WASM_RUNTIME_API_EXTERN void
-wasm_gc_free(void *ptr);
 
 /**
  * Get the package type of a buffer.

@@ -1,7 +1,15 @@
 /*
- * Copyright (C) 2022 Intel Corporation. All rights reserved.
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
+
+/**
+ * @file   ems_gc.h
+ * @date   Wed Aug  3 10:46:38 2011
+ *
+ * @brief  This file defines GC modules types and interfaces.
+ */
+
 #ifndef _EMS_GC_H
 #define _EMS_GC_H
 
@@ -9,6 +17,18 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifndef GC_STAT_DATA
+#define GC_STAT_DATA 0
+#endif
+
+#ifndef GC_IN_EVERY_ALLOCATION
+#define GC_IN_EVERY_ALLOCATION 0
+#endif
+
+#ifndef GC_MANUALLY
+#define GC_MANUALLY 0
 #endif
 
 #define GC_HEAD_PADDING 4
@@ -25,6 +45,7 @@ extern "C" {
 
 typedef void *gc_handle_t;
 typedef void *gc_object_t;
+typedef uint64 gc_uint64;
 typedef int64 gc_int64;
 typedef uint32 gc_uint32;
 typedef int32 gc_int32;
@@ -38,35 +59,10 @@ typedef enum {
     GC_STAT_TOTAL = 0,
     GC_STAT_FREE,
     GC_STAT_HIGHMARK,
+    GC_STAT_COUNT,
+    GC_STAT_TIME,
+    GC_STAT_MAX
 } GC_STAT_INDEX;
-
-int
-gci_gc_heap(void *h);
-
-/**
- * Root set enumeration.
- * TODO: This need to be implemented in the ems_gc.c when the heap layout and
- * wasm reference is determined.
- *
- */
-int
-vm_begin_rootset_enumeration(void *heap);
-
-/**
- * Reference iteration
- * TODO: This function need to be implemented in the ems_gc.c when wasm object
- * layout is determined.
- */
-int
-vm_get_wasm_object_ref_list(
-    gc_object_t obj,
-    int *is_compact_mode, /* can be set to GC_TRUE, or GC_FALSE */
-    gc_size_t *ref_num, gc_uint16 **ref_list, gc_uint32 *ref_start_offset);
-
-void
-wasm_runtime_gc_prepare();
-void
-wasm_runtime_gc_finished();
 
 /**
  * GC initialization from a buffer, which is separated into
@@ -156,11 +152,13 @@ gc_realloc_vo(void *heap, void *ptr, gc_size_t size);
 int
 gc_free_vo(void *heap, gc_object_t obj);
 
-void
-gc_free_wo(void *vheap, void *ptr);
-
+#if WASM_ENABLE_GC != 0
 gc_object_t
 gc_alloc_wo(void *heap, gc_size_t size);
+
+void
+gc_free_wo(void *vheap, void *ptr);
+#endif
 
 #else /* else of BH_ENABLE_GC_VERIFY */
 
@@ -174,6 +172,14 @@ gc_realloc_vo_internal(void *heap, void *ptr, gc_size_t size, const char *file,
 int
 gc_free_vo_internal(void *heap, gc_object_t obj, const char *file, int line);
 
+#if WASM_ENABLE_GC != 0
+gc_object_t
+gc_alloc_wo(void *heap, gc_size_t size);
+
+void
+gc_free_wo(void *vheap, void *ptr);
+#endif
+
 /* clang-format off */
 #define gc_alloc_vo(heap, size) \
     gc_alloc_vo_internal(heap, size, __FILE__, __LINE__)
@@ -183,15 +189,61 @@ gc_free_vo_internal(void *heap, gc_object_t obj, const char *file, int line);
 
 #define gc_free_vo(heap, obj) \
     gc_free_vo_internal(heap, obj, __FILE__, __LINE__)
-/* clang-format on */
 
-void
-gc_free_wo(void *vheap, void *ptr);
-
+#if WASM_ENABLE_GC != 0
 #define gc_alloc_wo(heap, size) \
     gc_alloc_wo_internal(heap, size, __FILE__, __LINE__)
 
+#define gc_free_wo(heap, obj) \
+    gc_free_wo_internal(heap, obj, __FILE__, __LINE__)
+#endif
+/* clang-format on */
+
 #endif /* end of BH_ENABLE_GC_VERIFY */
+
+#if WASM_ENABLE_GC != 0
+int
+gci_gc_heap(void *heap);
+
+/**
+ * Root set enumeration.
+ * TODO: This need to be implemented in the ems_gc.c when the heap layout and
+ * wasm reference is determined.
+ */
+int
+vm_begin_rootset_enumeration(void *heap);
+
+/**
+ * Reference iteration
+ * TODO: This function need to be implemented in the ems_gc.c when wasm object
+ * layout is determined.
+ */
+int
+vm_get_wasm_object_ref_list(gc_object_t obj, bool *p_is_compact_mode,
+                            gc_size_t *ref_num, gc_uint16 **ref_list,
+                            gc_uint32 *ref_start_offset);
+
+void
+wasm_runtime_gc_prepare();
+
+void
+wasm_runtime_gc_finalize();
+#endif /* end of WASM_ENABLE_GC != 0 */
+
+#define GC_HEAP_STAT_SIZE (128 / 4)
+
+typedef struct {
+    int usage;
+    int usage_block;
+    int vo_usage;
+    int wo_usage;
+    int free;
+    int free_block;
+    int vo_free;
+    int wo_free;
+    int usage_sizes[GC_HEAP_STAT_SIZE];
+    int free_sizes[GC_HEAP_STAT_SIZE];
+} gc_stat_t;
 
 #ifdef __cplusplus
 }

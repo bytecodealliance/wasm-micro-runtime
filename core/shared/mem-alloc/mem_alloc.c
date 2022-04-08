@@ -60,7 +60,6 @@ mem_allocator_free(mem_allocator_t allocator, void *ptr)
 void *
 mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size)
 {
-    // gc_alloc_vo
     return gc_alloc_wo((gc_handle_t)allocator, size);
 }
 
