@@ -321,8 +321,8 @@ gc_print_stat(void *heap_ptr, int verbose)
     os_printf("# stat %s %x wo_free %d vo_free %d \n", "instance", heap,
               stat.wo_free, stat.vo_free);
 #if WASM_ENABLE_GC == 0
-    os_printf("# stat free size %d high %d\n",
-              heap->total_free_size, heap->highmark_size);
+    os_printf("# stat free size %d high %d\n", heap->total_free_size,
+              heap->highmark_size);
 #else
     os_printf("# stat gc %d free size %d high %d\n", heap->total_gc_count,
               heap->total_free_size, heap->highmark_size);
