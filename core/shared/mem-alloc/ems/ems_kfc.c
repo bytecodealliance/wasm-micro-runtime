@@ -320,8 +320,13 @@ gc_print_stat(void *heap_ptr, int verbose)
               stat.wo_usage, stat.vo_usage);
     os_printf("# stat %s %x wo_free %d vo_free %d \n", "instance", heap,
               stat.wo_free, stat.vo_free);
-    os_printf("# stat gc %d size %d high %d\n", heap->total_gc_count,
+#if WASM_ENABLE_GC == 0
+    os_printf("# stat free size %d high %d\n",
               heap->total_free_size, heap->highmark_size);
+#else
+    os_printf("# stat gc %d free size %d high %d\n", heap->total_gc_count,
+              heap->total_free_size, heap->highmark_size);
+#endif
     if (verbose) {
         os_printf("usage sizes: \n");
         for (i = 0; i < GC_HEAP_STAT_SIZE; i++)
@@ -358,12 +363,14 @@ gc_heap_stats(void *heap_arg, uint32 *stats, int size)
             case GC_STAT_HIGHMARK:
                 stats[i] = heap->highmark_size;
                 break;
+#if WASM_ENABLE_GC != 0
             case GC_STAT_COUNT:
                 stats[i] = heap->total_gc_count;
                 break;
             case GC_STAT_TIME:
                 stats[i] = heap->total_gc_time;
                 break;
+#endif
             default:
                 break;
         }
@@ -402,6 +409,7 @@ gc_show_stat(void *heap)
               stats[2], stats[3], stats[4]);
 }
 
+#if WASM_ENABLE_GC != 0
 void
 gc_show_fragment(void *heap_arg)
 {
@@ -416,3 +424,4 @@ gc_show_fragment(void *heap_arg)
     os_printf("\n[GC %x top sizes] %d %d %d\n", heap, stats[0], stats[1],
               stats[2]);
 }
+#endif
