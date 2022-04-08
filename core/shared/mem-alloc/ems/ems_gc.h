@@ -1,15 +1,7 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2022 Intel Corporation. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-
-/**
- * @file   ems_gc.h
- * @date   Wed Aug  3 10:46:38 2011
- *
- * @brief  This file defines GC modules types and interfaces.
- */
-
 #ifndef _EMS_GC_H
 #define _EMS_GC_H
 
@@ -47,6 +39,34 @@ typedef enum {
     GC_STAT_FREE,
     GC_STAT_HIGHMARK,
 } GC_STAT_INDEX;
+
+int
+gci_gc_heap(void *h);
+
+/**
+ * Root set enumeration.
+ * TODO: This need to be implemented in the ems_gc.c when the heap layout and
+ * wasm reference is determined.
+ *
+ */
+int
+vm_begin_rootset_enumeration(void *heap);
+
+/**
+ * Reference iteration
+ * TODO: This function need to be implemented in the ems_gc.c when wasm object
+ * layout is determined.
+ */
+int
+vm_get_wasm_object_ref_list(
+    gc_object_t obj,
+    int *is_compact_mode, /* can be set to GC_TRUE, or GC_FALSE */
+    gc_size_t *ref_num, gc_uint16 **ref_list, gc_uint32 *ref_start_offset);
+
+void
+wasm_runtime_gc_prepare();
+void
+wasm_runtime_gc_finished();
 
 /**
  * GC initialization from a buffer, which is separated into
@@ -136,6 +156,12 @@ gc_realloc_vo(void *heap, void *ptr, gc_size_t size);
 int
 gc_free_vo(void *heap, gc_object_t obj);
 
+void
+gc_free_wo(void *vheap, void *ptr);
+
+gc_object_t
+gc_alloc_wo(void *heap, gc_size_t size);
+
 #else /* else of BH_ENABLE_GC_VERIFY */
 
 gc_object_t
@@ -158,6 +184,12 @@ gc_free_vo_internal(void *heap, gc_object_t obj, const char *file, int line);
 #define gc_free_vo(heap, obj) \
     gc_free_vo_internal(heap, obj, __FILE__, __LINE__)
 /* clang-format on */
+
+void
+gc_free_wo(void *vheap, void *ptr);
+
+#define gc_alloc_wo(heap, size) \
+    gc_alloc_wo_internal(heap, size, __FILE__, __LINE__)
 
 #endif /* end of BH_ENABLE_GC_VERIFY */
 

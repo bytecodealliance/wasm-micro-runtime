@@ -1,20 +1,18 @@
 /*
- * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * Copyright (C) 2022 Intel Corporation. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
 #include "ems_gc_internal.h"
 
 #if BH_ENABLE_GC_VERIFY != 0
+/* Set default value to prefix and suffix*/
 
-/**
- * Set default value to prefix and suffix
- * @param hmu should not be NULL and should have been correctly initilized
- *        (except prefix and suffix part)
- * @param tot_size is offered here because hmu_get_size can not be used
- *        till now. tot_size should not be smaller than OBJ_EXTRA_SIZE.
- *        For VO, tot_size should be equal to object total size.
- */
+/* @hmu should not be NULL and it should have been correctly initilized (except
+ * for prefix and suffix part)*/
+/* @tot_size is offered here because hmu_get_size can not be used till now.
+ * @tot_size should not be smaller than OBJ_EXTRA_SIZE.*/
+/*  For VO, @tot_size should be equal to object total size.*/
 void
 hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
                            const char *file_name, int line_no)
@@ -35,20 +33,17 @@ hmu_init_prefix_and_suffix(hmu_t *hmu, gc_size_t tot_size,
     prefix->file_name = file_name;
     prefix->line_no = line_no;
     prefix->size = tot_size;
-
     for (i = 0; i < GC_OBJECT_PREFIX_PADDING_CNT; i++) {
         prefix->padding[i] = GC_OBJECT_PADDING_VALUE;
     }
-
     for (i = 0; i < GC_OBJECT_SUFFIX_PADDING_CNT; i++) {
         suffix->padding[i] = GC_OBJECT_PADDING_VALUE;
     }
 }
 
 void
-hmu_verify(void *vheap, hmu_t *hmu)
+hmu_verify(hmu_t *hmu)
 {
-    gc_heap_t *heap = (gc_heap_t *)vheap;
     gc_object_prefix_t *prefix = NULL;
     gc_object_suffix_t *suffix = NULL;
     gc_uint32 i = 0;
@@ -80,12 +75,11 @@ hmu_verify(void *vheap, hmu_t *hmu)
         }
 
         if (!is_padding_ok) {
-            os_printf("Invalid padding for object created at %s:%d\n",
+            LOG_ERROR("Invalid padding for object created at %s:%d",
                       (prefix->file_name ? prefix->file_name : ""),
                       prefix->line_no);
-            heap->is_heap_corrupted = true;
         }
+        bh_assert(is_padding_ok);
     }
 }
-
-#endif /* end of BH_ENABLE_GC_VERIFY */
+#endif

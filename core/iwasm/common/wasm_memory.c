@@ -167,3 +167,41 @@ wasm_runtime_free(void *ptr)
 {
     wasm_runtime_free_internal(ptr);
 }
+
+#if WASM_ENABLE_GC != 0
+static inline void *
+wasm_gc_malloc_internal(void *heap_handle, unsigned int size)
+{
+    return mem_allocator_malloc_with_gc(heap_handle, size);
+}
+
+void *
+wasm_gc_malloc(void *heap_handle, unsigned int size)
+{
+    if (size == 0) {
+        LOG_WARNING("warning: wasm_runtime_malloc with size zero\n");
+        /* At lease alloc 1 byte to avoid malloc failed */
+        size = 1;
+    }
+
+    return wasm_gc_malloc_internal(heap_handle, size);
+}
+
+#if WASM_GC_MANUALLY != 0
+static inline void
+wasm_gc_free_internal(void *ptr)
+{
+    if (!ptr) {
+        LOG_WARNING("warning: wasm_gc_free with NULL pointer\n");
+        return;
+    }
+    mem_allocator_free_with_gc(pool_allocator, ptr);
+}
+
+void
+wasm_gc_free(void *ptr)
+{
+    wasm_runtime_free_internal(ptr);
+}
+#endif // WASM_GC_MANUALLY
+#endif // WASM_ENABLE_GC
