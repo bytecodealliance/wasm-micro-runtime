@@ -3844,8 +3844,10 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
         emit_operand(ctx, ctx->dynamic_offset);
         *(ctx->frame_offset)++ = ctx->dynamic_offset;
         ctx->dynamic_offset++;
-        if (ctx->dynamic_offset > ctx->max_dynamic_offset)
+        if (ctx->dynamic_offset > ctx->max_dynamic_offset) {
             ctx->max_dynamic_offset = ctx->dynamic_offset;
+            bh_assert(ctx->max_dynamic_offset < INT16_MAX);
+        }
     }
 
     if (is_32bit_type(type))
@@ -3859,8 +3861,10 @@ wasm_loader_push_frame_offset(WASMLoaderContext *ctx, uint8 type,
     ctx->frame_offset++;
     if (!disable_emit) {
         ctx->dynamic_offset++;
-        if (ctx->dynamic_offset > ctx->max_dynamic_offset)
+        if (ctx->dynamic_offset > ctx->max_dynamic_offset) {
             ctx->max_dynamic_offset = ctx->dynamic_offset;
+            bh_assert(ctx->max_dynamic_offset < INT16_MAX);
+        }
     }
     return true;
 }
