@@ -15,6 +15,7 @@
 #endif
 #if WASM_ENABLE_FAST_JIT != 0
 #include "../fast-jit/jit_compiler.h"
+#include "../fast-jit/jit_codecache.h"
 #endif
 
 /* Read a value of given type from the address pointed to by the given
@@ -3737,8 +3738,13 @@ wasm_loader_unload(WASMModule *module)
 #endif
 
 #if WASM_ENABLE_FAST_JIT != 0
-    if (module->fast_jit_func_ptrs)
+    if (module->fast_jit_func_ptrs) {
+        for (i = 0; i < module->function_count; i++) {
+            if (module->fast_jit_func_ptrs[i])
+                jit_code_cache_free(module->fast_jit_func_ptrs[i]);
+        }
         wasm_runtime_free(module->fast_jit_func_ptrs);
+    }
 #endif
 
     wasm_runtime_free(module);

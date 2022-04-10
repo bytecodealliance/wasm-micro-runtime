@@ -1021,6 +1021,11 @@ typedef struct JitCompContext {
     /* The total frame size of current function */
     uint32 total_frame_size;
 
+    /* The spill cache offset to the interp frame */
+    uint32 spill_cache_offset;
+    /* The spill cache size */
+    uint32 spill_cache_size;
+
     /* The offset of jitted_return_address in the frame, which is set by
        the pass frontend and used by the pass codegen. */
     uint32 jitted_return_address_offset;

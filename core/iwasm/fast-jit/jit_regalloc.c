@@ -247,12 +247,9 @@ rc_alloc_spill_slot(RegallocContext *rc, JitReg vreg)
 
 found:
     /* Now, i is the first slot for vreg.  */
-#if 0 /* TODO: check the spill */
-  if (rc->cc->interp_frame_size + (i + stride) * 4
-      > rc->cc->total_frame_size)
-    /* No frame space for the spill area.  */
-    return 0;
-#endif
+    if ((i + stride) * 4 > rc->cc->spill_cache_size)
+        /* No frame space for the spill area.  */
+        return 0;
 
     /* Allocate the slot(s) to vreg.  */
     for (j = i; j < i + stride; j++)
@@ -386,9 +383,8 @@ collect_distances(RegallocContext *rc, JitBasicBlock *basic_block)
 static JitReg
 offset_of_spill_slot(JitCompContext *cc, JitReg slot)
 {
-    /* TODO: check the spill */
-    return jit_cc_new_const_I32(
-        cc, /*cc->interp_frame_size + jit_cc_get_const_I32 (cc, slot) * 4*/ 0);
+    return jit_cc_new_const_I32(cc, cc->spill_cache_offset
+                                        + jit_cc_get_const_I32(cc, slot) * 4);
 }
 
 /**
@@ -542,8 +538,7 @@ allocate_hreg(RegallocContext *rc, JitReg vreg, JitInsn *insn, int distance)
     if (hreg_num == 0)
     /* Unsupported hard register kind.  */
     {
-        /* TODO: how to set error */
-        /*jit_set_error (JIT_ERROR_UNSUPPORTED_HREG);*/
+        jit_set_last_error(rc->cc, "unsupported hard register kind");
         return 0;
     }
 

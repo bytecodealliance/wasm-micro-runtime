@@ -829,6 +829,21 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     wasm_exec_env_set_cur_frame(exec_env, prev_frame);
 }
 
+#if WASM_ENABLE_FAST_JIT != 0
+bool
+jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
+                  WASMInterpFrame *prev_frame)
+{
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)exec_env->module_inst;
+    WASMFunctionInstance *cur_func = module_inst->functions + func_idx;
+
+    wasm_interp_call_func_native(module_inst, exec_env, cur_func, prev_frame);
+
+    return wasm_get_exception(module_inst) ? false : true;
+}
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 static void
 wasm_interp_call_func_bytecode(WASMModuleInstance *module,

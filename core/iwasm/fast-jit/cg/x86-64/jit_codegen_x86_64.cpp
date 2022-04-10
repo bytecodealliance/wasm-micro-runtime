@@ -207,6 +207,8 @@ class JitErrorHandler : public ErrorHandler
 
     void handleError(Error e, const char *msg, BaseEmitter *base) override
     {
+        (void)msg;
+        (void)base;
         this->err = e;
     }
 };
@@ -224,7 +226,6 @@ typedef enum { EQ, NE, GTS, GES, LTS, LES, GTU, GEU, LTU, LEU } COND_OP;
 typedef enum JmpType {
     JMP_DST_LABEL,     /* jmp to dst label */
     JMP_END_OF_CALLBC, /* jmp to end of CALLBC */
-    JMP_TARGET_CODE    /* jmp to an function address */
 } JmpType;
 
 /**
@@ -239,7 +240,6 @@ typedef struct JmpInfo {
     uint32 offset;
     union {
         uint32 label_dst;
-        uint32 target_code_addr;
     } dst_info;
 } JmpInfo;
 
@@ -3868,17 +3868,77 @@ fail:
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
+ * @param jmp_info_list the jmp info list
  * @param label_src the index of src label
  * @param insn current insn info
  *
  * @return true if success, false if failed
  */
 static bool
-lower_callnative(JitCompContext *cc, x86::Assembler &a, int32 label_src,
-                 JitInsn *insn)
+lower_callnative(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
+                 int32 label_src, JitInsn *insn)
 {
-    /* TODO: ignore it now */
+    void (*func_ptr)(void);
+    JitReg ret_reg, func_reg, arg_reg;
+    x86::Gp regs_arg[] = { x86::rdi, x86::rsi, x86::rdx,
+                           x86::rcx, x86::r8,  x86::r9 };
+    Imm imm;
+    JmpInfo *node;
+    uint32 i, opnd_num;
+    int32 i32;
+    int64 i64;
+
+    ret_reg = *(jit_insn_opndv(insn, 0));
+    func_reg = *(jit_insn_opndv(insn, 1));
+    CHECK_KIND(func_reg, JIT_REG_KIND_I64);
+    CHECK_CONST(func_reg);
+
+    func_ptr = (void (*)(void))jit_cc_get_const_I64(cc, func_reg);
+
+    opnd_num = jit_insn_opndv_num(insn);
+    bh_assert(opnd_num <= (uint32)sizeof(regs_arg) / sizeof(JitReg));
+    for (i = 0; i < opnd_num - 2; i++) {
+        arg_reg = *(jit_insn_opndv(insn, i + 2));
+        switch (jit_reg_kind(arg_reg)) {
+            case JIT_REG_KIND_I32:
+                if (jit_reg_is_const(arg_reg)) {
+                    i32 = jit_cc_get_const_I32(cc, arg_reg);
+                    imm.setValue(i32);
+                    a.mov(regs_arg[i], imm);
+                }
+                else {
+                    a.mov(regs_arg[i], regs_i32[jit_reg_no(arg_reg)]);
+                }
+                break;
+            case JIT_REG_KIND_I64:
+                if (jit_reg_is_const(arg_reg)) {
+                    i64 = jit_cc_get_const_I64(cc, arg_reg);
+                    imm.setValue(i64);
+                    a.mov(regs_arg[i], imm);
+                }
+                else {
+                    if (regs_arg[i] != regs_i64[jit_reg_no(arg_reg)])
+                        a.mov(regs_arg[i], regs_i64[jit_reg_no(arg_reg)]);
+                }
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    imm.setValue((uint64)func_ptr);
+    a.mov(regs_i64[REG_RAX_IDX], imm);
+    a.call(regs_i64[REG_RAX_IDX]);
+
+    if (ret_reg) {
+        bh_assert(jit_reg_kind(ret_reg) == JIT_REG_KIND_I32);
+        bh_assert(jit_reg_no(ret_reg) == REG_EAX_IDX);
+    }
+
     return true;
+fail:
+    return false;
 }
 
 /**
@@ -3886,15 +3946,42 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, int32 label_src,
  *
  * @param cc the compiler context
  * @param a the assembler to emit the code
+ * @param jmp_info_list the jmp info list
  * @param label_src the index of src label
  * @param insn current insn info
  *
  * @return true if success, false if failed
  */
 static bool
-lower_callbc(JitCompContext *cc, x86::Assembler &a, int32 label_src,
-             JitInsn *insn)
+lower_callbc(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
+             int32 label_src, JitInsn *insn)
 {
+    JmpInfo *node;
+    Imm imm;
+    JitReg func_reg = *(jit_insn_opnd(insn, 2));
+
+    /* Load return_jitted_addr from stack */
+    x86::Mem m(x86::rbp, cc->jitted_return_address_offset);
+
+    CHECK_KIND(func_reg, JIT_REG_KIND_I64);
+
+    node = (JmpInfo *)jit_malloc(sizeof(JmpInfo));
+    if (!node)
+        GOTO_FAIL;
+
+    node->type = JMP_END_OF_CALLBC;
+    node->label_src = label_src;
+    node->offset = a.code()->sectionById(0)->buffer().size() + 2;
+    bh_list_insert(jmp_info_list, node);
+
+    /* Set next jited addr to glue_ret_jited_addr, 0 will be replaced with
+       actual offset after actual code cache is allocated */
+    imm.setValue(INT64_MAX);
+    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+    a.mov(m, regs_i64[REG_I64_FREE_IDX]);
+    a.jmp(regs_i64[jit_reg_no(func_reg)]);
+    return true;
+fail:
     return false;
 }
 
@@ -4003,10 +4090,8 @@ patch_jmp_info_list(JitCompContext *cc, bh_list *jmp_info_list)
                 - 4;
         }
         else if (jmp_info->type == JMP_END_OF_CALLBC) {
-            /* TODO */
-        }
-        else if (jmp_info->type == JMP_TARGET_CODE) {
-            /* TODO */
+            /* 7 is the size of mov and jmp instruction */
+            *(uintptr_t *)stream = (uintptr_t)stream + sizeof(uintptr_t) + 7;
         }
 
         jmp_info = jmp_info_next;
@@ -4086,6 +4171,10 @@ jit_codegen_gen_native(JitCompContext *cc)
         {
             is_last_insn = (insn->next == block) ? true : false;
 
+#if CODEGEN_DUMP != 0
+            os_printf("\n");
+            jit_dump_insn(cc, insn);
+#endif
             switch (insn->opcode) {
                 case JIT_OP_MOV:
                     LOAD_2ARGS();
@@ -4333,12 +4422,13 @@ jit_codegen_gen_native(JitCompContext *cc)
                 }
 
                 case JIT_OP_CALLNATIVE:
-                    if (!lower_callnative(cc, a, label_index, insn))
+                    if (!lower_callnative(cc, a, jmp_info_list, label_index,
+                                          insn))
                         GOTO_FAIL;
                     break;
 
                 case JIT_OP_CALLBC:
-                    if (!lower_callbc(cc, a, label_index, insn))
+                    if (!lower_callbc(cc, a, jmp_info_list, label_index, insn))
                         GOTO_FAIL;
                     break;
 
@@ -4450,10 +4540,15 @@ jit_codegen_init()
     a.push(x86::r13);
     a.push(x86::r14);
     a.push(x86::r15);
-    /* push exec_env */
-    a.push(x86::rdi);
     /* push info */
     a.push(x86::rsi);
+
+    /* Note: the number of register pushed must be odd, as the stack pointer
+       %rsp must be aligned to a 16-byte boundary before making a call, so
+       when a function (including this function) gets control, %rsp is not
+       aligned. We push odd number registers here to make %rsp happy before
+       calling native functions. */
+
     /* exec_env_reg = exec_env */
     a.mov(regs_i64[hreg_info->exec_env_hreg_index], x86::rdi);
     /* fp_reg = info->frame */
@@ -4492,8 +4587,6 @@ jit_codegen_init()
         a.mov(m, x86::rcx);
     }
 
-    /* pop exec_env */
-    a.pop(x86::rdi);
     /* pop callee-save registers */
     a.pop(x86::r15);
     a.pop(x86::r14);
@@ -4535,7 +4628,7 @@ jit_codegen_destroy()
 static const uint8 hreg_info_I32[3][7] = {
     /* ebp, eax, ebx, ecx, edx, edi, esi */
     { 1, 0, 0, 0, 0, 0, 1 }, /* fixed, esi is freely used */
-    { 0, 1, 0, 1, 1, 0, 0 }, /* caller_saved_native */
+    { 0, 1, 0, 1, 1, 1, 0 }, /* caller_saved_native */
     { 0, 1, 0, 1, 1, 1, 0 }  /* caller_saved_jitted */
 };
 
