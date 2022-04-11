@@ -316,7 +316,7 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
 
 #if WASM_ENABLE_GC != 0
     /* In doing reclaim, gc must not alloc memory again. */
-    bh_assert (!heap->is_doing_reclaim);
+    bh_assert(!heap->is_doing_reclaim);
 #endif
 
     base_addr = heap->base_addr;

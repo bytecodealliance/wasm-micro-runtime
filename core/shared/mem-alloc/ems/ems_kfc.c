@@ -152,7 +152,7 @@ gc_destroy_with_pool(gc_handle_t handle)
 void
 gc_enable_heap_reclaim(gc_handle_t handle, bool enabled)
 {
-    gc_heap_t *heap = (gc_heap_t*)handle;
+    gc_heap_t *heap = (gc_heap_t *)handle;
 
     heap->is_reclaim_enabled = enabled ? 1 : 0;
 }
