@@ -321,25 +321,14 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
 {
     JitReg prev_frame, prev_frame_sp;
 
-#if UINTPTR_MAX == UINT64_MAX
-    prev_frame = jit_cc_new_reg_I64(cc);
-    prev_frame_sp = jit_cc_new_reg_I64(cc);
+    prev_frame = jit_cc_new_reg_ptr(cc);
+    prev_frame_sp = jit_cc_new_reg_ptr(cc);
 
     /* prev_frame = cur_frame->prev_frame */
-    GEN_INSN(LDI64, prev_frame, cc->fp_reg,
+    GEN_INSN(LDPTR, prev_frame, cc->fp_reg,
              NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
-    GEN_INSN(LDI64, prev_frame_sp, prev_frame,
+    GEN_INSN(LDPTR, prev_frame_sp, prev_frame,
              NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
-#else
-    prev_frame = jit_cc_new_reg_I32(cc);
-    prev_frame_sp = jit_cc_new_reg_I32(cc);
-
-    /* prev_frame = cur_frame->prev_frame */
-    GEN_INSN(LDI32, prev_frame, cc->fp_reg,
-             NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
-    GEN_INSN(LDI32, prev_frame_sp, prev_frame,
-             NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
-#endif
 
     if (block->result_count) {
         uint32 cell_num =
@@ -347,39 +336,21 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
 
         copy_block_arities(cc, prev_frame_sp, block->result_types,
                            block->result_count);
-#if UINTPTR_MAX == UINT64_MAX
         /* prev_frame->sp += cell_num */
         GEN_INSN(ADD, prev_frame_sp, prev_frame_sp,
-                 NEW_CONST(I64, cell_num * 4));
-        GEN_INSN(STI64, prev_frame_sp, prev_frame,
+                 NEW_CONST(PTR, cell_num * 4));
+        GEN_INSN(STPTR, prev_frame_sp, prev_frame,
                  NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
-#else
-        /* prev_frame->sp += cell_num */
-        GEN_INSN(ADD, prev_frame_sp, prev_frame_sp,
-                 NEW_CONST(I32, cell_num * 4));
-        GEN_INSN(STI32, prev_frame_sp, prev_frame,
-                 NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
-#endif
     }
 
     /* Free stack space of the current frame:
        exec_env->wasm_stack.s.top = cur_frame */
-#if UINTPTR_MAX == UINT64_MAX
-    GEN_INSN(STI64, cc->fp_reg, cc->exec_env_reg,
+    GEN_INSN(STPTR, cc->fp_reg, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
-#else
-    GEN_INSN(STI32, cc->fp_reg, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
-#endif
     /* Set the prev_frame as the current frame:
        exec_env->cur_frame = prev_frame */
-#if UINTPTR_MAX == UINT64_MAX
-    GEN_INSN(STI64, prev_frame, cc->exec_env_reg,
+    GEN_INSN(STPTR, prev_frame, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
-#else
-    GEN_INSN(STI32, prev_frame, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
-#endif
     /* fp_reg = prev_frame */
     GEN_INSN(MOV, cc->fp_reg, prev_frame);
     /* return 0 */
@@ -810,18 +781,10 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     copy_arities = (block_dst->frame_sp_begin != frame_sp_src) ? true : false;
 
     if (copy_arities) {
-#if UINTPTR_MAX == UINT64_MAX
-        frame_sp_dst = jit_cc_new_reg_I64(cc);
-#else
-        frame_sp_dst = jit_cc_new_reg_I32(cc);
-#endif
+        frame_sp_dst = jit_cc_new_reg_ptr(cc);
         offset = offsetof(WASMInterpFrame, lp)
                  + (block_dst->frame_sp_begin - jit_frame->lp) * 4;
-#if UINTPTR_MAX == UINT64_MAX
-        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I64, offset));
-#else
-        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(I32, offset));
-#endif
+        GEN_INSN(ADD, frame_sp_dst, cc->fp_reg, NEW_CONST(PTR, offset));
 
         /* No need to commit results as they will be copied to dest block */
         gen_commit_values(jit_frame, jit_frame->lp, block->frame_sp_begin);

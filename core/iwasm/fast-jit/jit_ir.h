@@ -118,6 +118,12 @@ typedef enum JitRegKind {
     JIT_REG_KIND_NUM          /* number of register kinds */
 } JitRegKind;
 
+#if UINTPTR_MAX == UINT64_MAX
+#define JIT_REG_KIND_PTR JIT_REG_KIND_I64
+#else
+#define JIT_REG_KIND_PTR JIT_REG_KIND_I32
+#endif
+
 /**
  * Construct a new JIT IR register from the kind and no.
  *
@@ -890,6 +896,28 @@ typedef struct JitValueSlot {
     uint32 committed_ref : 2;
 } JitValueSlot;
 
+typedef struct MemoryInstRegs {
+    /* Memory instance */
+    JitReg memory_inst_reg;
+    /* Linear memory base address */
+    JitReg memory_data_reg;
+    /* Boundary check constants for jit code */
+    JitReg mem_bound_check_1byte;
+    JitReg mem_bound_check_2bytes;
+    JitReg mem_bound_check_4bytes;
+    JitReg mem_bound_check_8bytes;
+    JitReg mem_bound_check_16bytes;
+} MemoryInstRegs;
+
+typedef struct TableInstRegs {
+    /* Table instance */
+    JitReg table_inst_reg;
+    /* Table base address */
+    JitReg table_data_reg;
+    /* Table current size */
+    JitReg table_cur_size_reg;
+} TableInstRegs;
+
 /* Frame information for translation */
 typedef struct JitFrame {
     /* The current wasm module */
@@ -918,6 +946,19 @@ typedef struct JitFrame {
 
     /* Committed stack top pointer */
     JitValueSlot *committed_sp;
+
+    /* WASM module instance */
+    JitReg module_inst_reg;
+    /* WASM module */
+    JitReg module_reg;
+    /* module->fast_jit_func_ptrs */
+    JitReg func_ptrs_reg;
+    /* Data of memory instances */
+    JitReg *memory_inst_regs;
+    /* Data of table instances */
+    JitReg *table_inst_regs;
+    /* Base address of global data */
+    JitReg global_data_reg;
 
     /* Local variables */
     JitValueSlot lp[1];
@@ -1291,6 +1332,12 @@ jit_cc_new_const_I32(JitCompContext *cc, int32 val)
 JitReg
 jit_cc_new_const_I64(JitCompContext *cc, int64 val);
 
+#if UINTPTR_MAX == UINT64_MAX
+#define jit_cc_new_const_PTR jit_cc_new_const_I64
+#else
+#define jit_cc_new_const_PTR jit_cc_new_const_I32
+#endif
+
 /**
  * Create a F32 constant value into the compilation context.
  *
@@ -1622,6 +1669,12 @@ jit_cc_new_reg_I64(JitCompContext *cc)
 {
     return jit_cc_new_reg(cc, JIT_REG_KIND_I64);
 }
+
+#if UINTPTR_MAX == UINT64_MAX
+#define jit_cc_new_reg_ptr jit_cc_new_reg_I64
+#else
+#define jit_cc_new_reg_ptr jit_cc_new_reg_I32
+#endif
 
 static inline JitReg
 jit_cc_new_reg_F32(JitCompContext *cc)

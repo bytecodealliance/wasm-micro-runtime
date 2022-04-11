@@ -4341,6 +4341,7 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_LDI64:
                 case JIT_OP_LDU64:
+                case JIT_OP_LDPTR:
                     LOAD_3ARGS();
                     LD_R_R_R(I64, 8, false);
                     break;
@@ -4371,6 +4372,7 @@ jit_codegen_gen_native(JitCompContext *cc)
                     break;
 
                 case JIT_OP_STI64:
+                case JIT_OP_STPTR:
                     LOAD_3ARGS_NO_ASSIGN();
                     ST_R_R_R(I64, int64, 8);
                     break;
