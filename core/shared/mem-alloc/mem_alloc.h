@@ -53,7 +53,10 @@ mem_allocator_malloc_with_gc(mem_allocator_t allocator, uint32_t size);
 void
 mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr);
 #endif
-#endif
+
+void
+mem_allocator_enable_heap_reclaim(mem_allocator_t allocator, bool enabled);
+#endif /* end of WASM_ENABLE_GC != 0 */
 
 #ifdef __cplusplus
 }

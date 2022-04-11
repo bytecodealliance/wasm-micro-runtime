@@ -71,6 +71,12 @@ mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr)
         gc_free_wo((gc_handle_t)allocator, ptr);
 }
 #endif
+
+void
+mem_allocator_enable_heap_reclaim(mem_allocator_t allocator, bool enabled)
+{
+    return gc_enable_heap_reclaim((gc_handle_t)allocator, enabled);
+}
 #endif
 
 int

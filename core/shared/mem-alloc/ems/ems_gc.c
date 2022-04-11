@@ -25,14 +25,15 @@ typedef struct mark_node_struct {
     gc_object_t set[MARK_NODE_OBJ_CNT];
 } mark_node_t;
 
-/* Alloc a mark node from native heap*/
-
-/* Return a valid mark node if successfull*/
-/* Return NULL otherwise*/
+/**
+ * Alloc a mark node from the native heap
+ *
+ * @return a valid mark node if success, NULL otherwise
+ */
 static mark_node_t *
 alloc_mark_node(void)
 {
-    mark_node_t *ret = (mark_node_t *)malloc(sizeof(mark_node_t));
+    mark_node_t *ret = (mark_node_t *)BH_MALLOC(sizeof(mark_node_t));
 
     if (!ret) {
         LOG_ERROR("alloc a new mark node failed");
@@ -44,38 +45,32 @@ alloc_mark_node(void)
     return ret;
 }
 
-/* Free a mark node*/
-
-/* @node should not be NULL*/
-/* @node should be a valid mark node allocated from native heap*/
+/* Free a mark node to the native heap
+ *
+ * @param node the mark node to free, should not be NULL
+ */
 static void
 free_mark_node(mark_node_t *node)
 {
     bh_assert(node);
-    free((gc_object_t)node);
+    BH_FREE((gc_object_t)node);
 }
 
-/* Sweep phase of mark_sweep algorithm*/
-
-static void
-wasm_runtime_gc_pre_sweep()
-{}
-
-/* @heap should be a valid instance heap which has already been marked*/
+/**
+ * Sweep phase of mark_sweep algorithm
+ * @param heap the heap to sweep, should be a valid instance heap
+ *        which has already been marked
+ */
 static void
 sweep_instance_heap(gc_heap_t *heap)
 {
     hmu_t *cur = NULL, *end = NULL, *last = NULL;
     hmu_type_t ut;
     gc_size_t size;
-    int i;
+    int i, lsize;
 
 #if GC_STAT_DATA != 0
     gc_size_t tot_free = 0;
-#endif
-
-#if WAMR_ENABLE_MEMORY_PROFILING != 0
-    gc_size_t gc_freed_size = 0;
 #endif
 
     bh_assert(gci_is_heap_valid(heap));
@@ -84,8 +79,8 @@ sweep_instance_heap(gc_heap_t *heap)
     last = NULL;
     end = (hmu_t *)((char *)heap->base_addr + heap->current_size);
 
-    /* reset KFC*/
-    int lsize =
+    /* reset KFC */
+    lsize =
         (int)(sizeof(heap->kfc_normal_list) / sizeof(heap->kfc_normal_list[0]));
     for (i = 0; i < lsize; i++) {
         heap->kfc_normal_list[i].next = NULL;
@@ -98,20 +93,15 @@ sweep_instance_heap(gc_heap_t *heap)
         size = hmu_get_size(cur);
         bh_assert(size > 0);
 
-#if WAMR_ENABLE_MEMORY_PROFILING != 0
-        if (ut == HMU_WO && !hmu_is_wo_marked(cur))
-            gc_freed_size += size;
-#endif
-
         if (ut == HMU_FC || ut == HMU_FM
             || (ut == HMU_VO && hmu_is_vo_freed(cur))
             || (ut == HMU_WO && !hmu_is_wo_marked(cur))) {
-            /* merge previous free areas with current one*/
+            /* merge previous free areas with current one */
             if (!last)
                 last = cur;
         }
         else {
-            /* current block is still live*/
+            /* current block is still live */
             if (last) {
 #if GC_STAT_DATA != 0
                 tot_free += (char *)cur - (char *)last;
@@ -122,7 +112,7 @@ sweep_instance_heap(gc_heap_t *heap)
             }
 
             if (ut == HMU_WO) {
-                /* unmark it*/
+                /* unmark it */
                 hmu_unmark_wo(cur);
             }
         }
@@ -148,19 +138,17 @@ sweep_instance_heap(gc_heap_t *heap)
 
     gc_update_threshold(heap);
 #endif
-
-#if WAMR_ENABLE_MEMORY_PROFILING != 0
-    LOG_PROFILE_HEAP_GC((unsigned)heap, gc_freed_size);
-#endif
 }
 
-/* Add to-expand node to the to-expand list*/
-
-/* @heap should be a valid instance heap*/
-/* @obj should be a valid wo inside @heap*/
-
-/* GC_ERROR will be returned if no more resource for marking*/
-/* GC_SUCCESS will be returned otherwise*/
+/**
+ * Add a to-expand node to the to-expand list
+ *
+ * @param heap should be a valid instance heap
+ * @param obj should be a valid wo inside @heap
+ *
+ * @return GC_ERROR if there is no more resource for marking,
+ *         GC_SUCCESS if success
+ */
 static int
 add_wo_to_expand(gc_heap_t *heap, gc_object_t obj)
 {
@@ -235,9 +223,11 @@ gc_add_root(void *heap_p, gc_object_t obj)
     return GC_SUCCESS;
 }
 
-/* Unmark all marked objects to do rollback*/
-
-/* @heap should be a valid instance heap*/
+/**
+ * Unmark all marked objects to do rollback
+ *
+ * @param heap the heap to do rollback, should be a valid instance heap
+ */
 static void
 rollback_mark(gc_heap_t *heap)
 {
@@ -277,12 +267,13 @@ rollback_mark(gc_heap_t *heap)
     bh_assert(cur == end);
 }
 
-/* GC instance heap*/
-
-/* @heap should be a valid instance heap*/
-
-/* GC_SUCCESS will be returned if everything goes well.*/
-/* GC_ERROR will be returned otherwise.*/
+/**
+ * Reclaim GC instance heap
+ *
+ * @param heap the heap to reclaim, should be a valid instance heap
+ *
+ * @return GC_SUCCESS if success, GC_ERROR otherwise
+ */
 static int
 reclaim_instance_heap(gc_heap_t *heap)
 {
@@ -301,16 +292,16 @@ reclaim_instance_heap(gc_heap_t *heap)
     if (ret != GC_SUCCESS)
         return ret;
 
-#if BH_GC_VERIFY != 0
+#if BH_ENABLE_GC_VERIFY != 0
     /* no matter whether the enumeration is successful or not, the data
-     * collected should be checked at first*/
+       collected should be checked at first */
     mark_node = (mark_node_t *)heap->root_set;
     while (mark_node) {
-        /* all nodes except first should be full filled*/
+        /* all nodes except first should be full filled */
         bh_assert(mark_node == (mark_node_t *)heap->root_set
                   || mark_node->idx == mark_node->cnt);
 
-        /* all nodes should be non-empty*/
+        /* all nodes should be non-empty */
         bh_assert(mark_node->idx > 0);
 
         for (idx = 0; idx < mark_node->idx; idx++) {
@@ -325,8 +316,9 @@ reclaim_instance_heap(gc_heap_t *heap)
         mark_node = mark_node->next;
     }
 #endif
+
     /* TODO: when fast marking failed, we can still do slow
-       marking.  Currently just simply roll it back.  */
+       marking, currently just simply roll it back.  */
     if (heap->is_fast_marking_failed) {
         LOG_ERROR("enumerate rootset failed");
         LOG_ERROR("all marked wos will be unmarked to keep heap consistency");
@@ -336,17 +328,17 @@ reclaim_instance_heap(gc_heap_t *heap)
         return GC_ERROR;
     }
 
-    /* the algorithm we use to mark all objects*/
+    /* the algorithm we use to mark all objects */
     /* 1. mark rootset and organize them into a mark_node list (last marked
-     * roots at list header, i.e. stack top)*/
+     * roots at list header, i.e. stack top) */
     /* 2. in every iteration, we use the top node to expand*/
-    /* 3. execute step 2 till no expanding*/
-    /* this is a BFS & DFS mixed algorithm, but more like DFS*/
+    /* 3. execute step 2 till no expanding */
+    /* this is a BFS & DFS mixed algorithm, but more like DFS */
     mark_node = (mark_node_t *)heap->root_set;
     while (mark_node) {
         heap->root_set = mark_node->next;
 
-        /* note that mark_node->idx may change in each loop*/
+        /* note that mark_node->idx may change in each loop */
         for (idx = 0; idx < (int)mark_node->idx; idx++) {
             obj = mark_node->set[idx];
             hmu = obj_to_hmu(obj);
@@ -368,10 +360,10 @@ reclaim_instance_heap(gc_heap_t *heap)
             if (is_compact_mode) {
                 for (j = 0; j < (int)ref_num; j++) {
                     offset = ref_start_offset + j * 4;
-                    bh_assert(offset >= 0 && offset + 4 < size);
+                    bh_assert(offset + 4 < size);
                     ref = *(gc_object_t *)(((gc_uint8 *)obj) + offset);
                     if (ref == NULL_REF)
-                        continue; /* NULL REF*/
+                        continue; /* NULL REF */
                     if (add_wo_to_expand(heap, ref) == GC_ERROR) {
                         LOG_ERROR("add_wo_to_expand failed");
                         break;
@@ -387,7 +379,7 @@ reclaim_instance_heap(gc_heap_t *heap)
 
                     ref = *(gc_object_t *)(((gc_uint8 *)obj) + offset);
                     if (ref == NULL_REF)
-                        continue; /* NULL REF*/
+                        continue; /* NULL REF */
                     if (add_wo_to_expand(heap, ref) == GC_ERROR) {
                         LOG_ERROR("mark process failed");
                         break;
@@ -398,9 +390,9 @@ reclaim_instance_heap(gc_heap_t *heap)
             }
         }
         if (idx < (int)mark_node->idx)
-            break; /* not yet done*/
+            break; /* not yet done */
 
-        /* obj's in mark_node are all expanded*/
+        /* obj's in mark_node are all expanded */
         free_mark_node(mark_node);
         mark_node = heap->root_set;
     }
@@ -409,16 +401,13 @@ reclaim_instance_heap(gc_heap_t *heap)
         LOG_ERROR("mark process is not successfully finished");
 
         free_mark_node(mark_node);
-        /* roll back is required*/
+        /* roll back is required */
         rollback_mark(heap);
 
         return GC_ERROR;
     }
 
-    /* mark finished*/
-    wasm_runtime_gc_pre_sweep();
-
-    /* now sweep*/
+    /* now sweep */
     sweep_instance_heap(heap);
 
     (void)size;
@@ -426,12 +415,13 @@ reclaim_instance_heap(gc_heap_t *heap)
     return GC_SUCCESS;
 }
 
-/* Do GC on given heap*/
-
-/* @heap should not be NULL and it should be a valid heap*/
-
-/* GC_ERROR returned for failure*/
-/* GC_SUCCESS otherwise*/
+/**
+ * Do GC on given heap
+ *
+ * @param the heap to do GC, should be a valid heap
+ *
+ * @return GC_SUCCESS if success, GC_ERROR otherwise
+ */
 int
 gci_gc_heap(void *h)
 {
@@ -440,22 +430,31 @@ gci_gc_heap(void *h)
 
     bh_assert(gci_is_heap_valid(heap));
 
-    LOG_VERBOSE("#reclaim instance heap %x", heap);
-    // gc_print_stat(heap, 0);
+    if (!heap->is_reclaim_enabled)
+        /* Ignore if GC reclaim isn't enabled */
+        return GC_SUCCESS;
+
+    LOG_VERBOSE("#reclaim instance heap %p", heap);
+
     gct_vm_gc_prepare();
+
     gct_vm_mutex_lock(&heap->lock);
     heap->is_doing_reclaim = 1;
+
     ret = reclaim_instance_heap(heap);
+
     heap->is_doing_reclaim = 0;
     gct_vm_mutex_unlock(&heap->lock);
-    gct_vm_gc_finished();
-    LOG_VERBOSE("#reclaim instance heap %x done", heap);
 
-#if BH_ENABLE_GC_VERIFY
+    gct_vm_gc_finished();
+
+    LOG_VERBOSE("#reclaim instance heap %p done", heap);
+
+#if BH_ENABLE_GC_VERIFY != 0
     gci_verify_heap(heap);
 #endif
 
-#ifdef STAT_SHOW_GC
+#if GC_STAT_SHOW != 0
     gc_show_stat(heap);
     gc_show_fragment(heap);
 #endif
@@ -472,7 +471,6 @@ gc_is_dead_object(void *obj)
 int
 vm_begin_rootset_enumeration(void *heap)
 {
-    os_printf("Error: Unimplemented vm_begin_rootset_enumeration function!\n");
     return GC_ERROR;
 }
 
@@ -482,7 +480,7 @@ int
 gci_gc_heap(void *h)
 {
     (void)h;
-    return -1;
+    return GC_ERROR;
 }
 
 #endif /* end of WASM_ENABLE_GC != 0 */

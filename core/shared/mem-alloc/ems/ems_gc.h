@@ -23,6 +23,10 @@ extern "C" {
 #define GC_STAT_DATA 0
 #endif
 
+#ifndef GC_STAT_SHOW
+#define GC_STAT_SHOW 0
+#endif
+
 #ifndef GC_IN_EVERY_ALLOCATION
 #define GC_IN_EVERY_ALLOCATION 0
 #endif
@@ -102,6 +106,17 @@ gc_init_with_struct_and_pool(char *struct_buf, gc_size_t struct_buf_size,
  */
 int
 gc_destroy_with_pool(gc_handle_t handle);
+
+#if WASM_ENABLE_GC != 0
+/**
+ * Enable or disable GC reclaim for a heap
+ *
+ * @param handle handle of the heap
+ * @param enabled enable the GC reclaim or not, true/false to enable/disable
+ */
+void
+gc_enable_heap_reclaim(gc_handle_t handle, bool enabled);
+#endif
 
 /**
  * Return heap struct size
@@ -244,6 +259,14 @@ typedef struct {
     int usage_sizes[GC_HEAP_STAT_SIZE];
     int free_sizes[GC_HEAP_STAT_SIZE];
 } gc_stat_t;
+
+void
+gc_show_stat(gc_handle_t handle);
+
+#if WASM_ENABLE_GC != 0
+void
+gc_show_fragment(gc_handle_t handle);
+#endif
 
 #ifdef __cplusplus
 }

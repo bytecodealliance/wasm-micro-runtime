@@ -148,6 +148,16 @@ gc_destroy_with_pool(gc_handle_t handle)
     return GC_SUCCESS;
 }
 
+#if WASM_ENABLE_GC != 0
+void
+gc_enable_heap_reclaim(gc_handle_t handle, bool enabled)
+{
+    gc_heap_t *heap = (gc_heap_t*)handle;
+
+    heap->is_reclaim_enabled = enabled ? 1 : 0;
+}
+#endif
+
 uint32
 gc_get_heap_struct_size()
 {

@@ -240,6 +240,9 @@ typedef struct gc_heap_struct {
 
     /* whether the heap is doing reclaim */
     unsigned is_doing_reclaim : 1;
+
+    /* Whether the heap can do reclaim */
+    unsigned is_reclaim_enabled : 1;
 #endif
 
     /* whether heap is corrupted, e.g. the hmu nodes are modified
