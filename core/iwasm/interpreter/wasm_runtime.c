@@ -2742,6 +2742,15 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
 
 #if WASM_ENABLE_GC != 0
 bool
+wasm_runtime_get_wasm_object_ref_list(WASMObjectRef obj,
+                                      bool *p_is_compact_mode,
+                                      uint32 *p_ref_num, uint16 **p_ref_list,
+                                      uint32 *p_ref_start_offset)
+{
+    return false;
+}
+
+bool
 wasm_runtime_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
 {
     return false;
@@ -2759,7 +2768,7 @@ wasm_runtime_gc_prepare(WASMExecEnv *exec_env)
 }
 
 void
-wasm_runtime_gc_finished(WASMExecEnv *exec_env)
+wasm_runtime_gc_finalize(WASMExecEnv *exec_env)
 {
 #if 0
     wasm_thread_resume_all();
