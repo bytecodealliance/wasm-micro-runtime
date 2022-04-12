@@ -23,46 +23,25 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     JitInsn *insn;
     uint32 i, n, outs_off, jitted_func_idx;
 
-#if UINTPTR_MAX == UINT64_MAX
-    module_inst = jit_cc_new_reg_I64(cc);
+    module_inst = jit_cc_new_reg_ptr(cc);
     /* module_inst = exec_env->module_inst */
-    GEN_INSN(LDI64, module_inst, cc->exec_env_reg,
+    GEN_INSN(LDPTR, module_inst, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
     if (func_idx >= wasm_module->import_function_count) {
-        module = jit_cc_new_reg_I64(cc);
-        func_ptrs = jit_cc_new_reg_I64(cc);
-        jitted_code = jit_cc_new_reg_I64(cc);
+        module = jit_cc_new_reg_ptr(cc);
+        func_ptrs = jit_cc_new_reg_ptr(cc);
+        jitted_code = jit_cc_new_reg_ptr(cc);
         /* module = module_inst->module */
-        GEN_INSN(LDI64, module, module_inst,
+        GEN_INSN(LDPTR, module, module_inst,
                  NEW_CONST(I32, offsetof(WASMModuleInstance, module)));
         /* func_ptrs = module->fast_jit_func_ptrs */
-        GEN_INSN(LDI64, func_ptrs, module,
+        GEN_INSN(LDPTR, func_ptrs, module,
                  NEW_CONST(I32, offsetof(WASMModule, fast_jit_func_ptrs)));
         /* jitted_code = func_ptrs[func_idx - import_function_count] */
         jitted_func_idx = func_idx - wasm_module->import_function_count;
-        GEN_INSN(LDI64, jitted_code, func_ptrs,
+        GEN_INSN(LDPTR, jitted_code, func_ptrs,
                  NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
     }
-#else
-    module_inst = jit_cc_new_reg_I32(cc);
-    GEN_INSN(LDI32, module_inst, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
-    if (func_idx >= wasm_module->import_function_count) {
-        module = jit_cc_new_reg_I32(cc);
-        func_ptrs = jit_cc_new_reg_I32(cc);
-        jitted_code = jit_cc_new_reg_I32(cc);
-        /* module = module_inst->module */
-        GEN_INSN(LDI32, module, module_inst,
-                 NEW_CONST(I32, offsetof(WASMModuleInstance, module)));
-        /* func_ptrs = module->fast_jit_func_ptrs */
-        GEN_INSN(LDI32, func_ptrs, module,
-                 NEW_CONST(I32, offsetof(WASMModule, fast_jit_func_ptrs)));
-        /* jitted_code = func_ptrs[func_idx - import_function_count] */
-        jitted_func_idx = func_idx - wasm_module->import_function_count;
-        GEN_INSN(LDI32, jitted_code, func_ptrs,
-                 NEW_CONST(I32, (uint32)sizeof(void *) * jitted_func_idx));
-    }
-#endif
 
     if (func_idx < wasm_module->import_function_count) {
         func_import = &wasm_module->import_functions[func_idx].u.function;
@@ -121,15 +100,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 #else
         native_ret = jit_cc_new_reg_I32(cc);
 #endif
-#if UINTPTR_MAX == UINT64_MAX
-        insn =
-            GEN_INSN(CALLNATIVE, native_ret,
-                     NEW_CONST(I64, (uint64)(uintptr_t)jit_invoke_native), 3);
-#else
-        insn =
-            GEN_INSN(CALLNATIVE, native_ret,
-                     NEW_CONST(I32, (uint32)(uintptr_t)jit_invoke_native), 3);
-#endif
+        insn = GEN_INSN(CALLNATIVE, native_ret,
+                        NEW_CONST(PTR, (uintptr_t)jit_invoke_native), 3);
         if (insn) {
             *(jit_insn_opndv(insn, 2)) = cc->exec_env_reg;
             *(jit_insn_opndv(insn, 3)) = NEW_CONST(I32, func_idx);

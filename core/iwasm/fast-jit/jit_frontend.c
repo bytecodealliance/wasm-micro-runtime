@@ -146,30 +146,17 @@ gen_commit_sp_ip(JitFrame *frame)
     JitReg sp;
 
     if (frame->sp != frame->committed_sp) {
-#if UINTPTR_MAX == UINT64_MAX
-        sp = jit_cc_new_reg_I64(cc);
+        sp = jit_cc_new_reg_ptr(cc);
         GEN_INSN(ADD, sp, cc->fp_reg,
-                 NEW_CONST(I64, offset_of_local(frame->sp - frame->lp)));
-        GEN_INSN(STI64, sp, cc->fp_reg,
+                 NEW_CONST(PTR, offset_of_local(frame->sp - frame->lp)));
+        GEN_INSN(STPTR, sp, cc->fp_reg,
                  NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
-#else
-        sp = jit_cc_new_reg_I32(cc);
-        GEN_INSN(ADD, sp, cc->fp_reg,
-                 NEW_CONST(I32, offset_of_local(frame->sp - frame->lp)));
-        GEN_INSN(STI32, sp, cc->fp_reg,
-                 NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
-#endif
         frame->committed_sp = frame->sp;
     }
 
     if (frame->ip != frame->committed_ip) {
-#if UINTPTR_MAX == UINT64_MAX
-        GEN_INSN(STI64, NEW_CONST(I64, (uint64)(uintptr_t)frame->ip),
-                 cc->fp_reg, NEW_CONST(I32, offsetof(WASMInterpFrame, ip)));
-#else
-        GEN_INSN(STI32, NEW_CONST(I32, (uint32)(uintptr_t)frame->ip),
-                 cc->fp_reg, NEW_CONST(I32, offsetof(WASMInterpFrame, ip)));
-#endif
+        GEN_INSN(STPTR, NEW_CONST(PTR, (uintptr_t)frame->ip), cc->fp_reg,
+                 NEW_CONST(I32, offsetof(WASMInterpFrame, ip)));
         frame->committed_ip = frame->ip;
     }
 }
@@ -184,6 +171,56 @@ jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
 }
 
 static bool
+create_fix_virtual_regs(JitCompContext *cc)
+{
+    WASMModule *module = cc->cur_wasm_module;
+    uint64 total_size;
+    uint32 i, count;
+
+    cc->module_inst_reg = jit_cc_new_reg_ptr(cc);
+    cc->module_reg = jit_cc_new_reg_ptr(cc);
+    cc->func_ptrs_reg = jit_cc_new_reg_ptr(cc);
+    cc->global_data_reg = jit_cc_new_reg_ptr(cc);
+    cc->aux_stack_bound_reg = jit_cc_new_reg_I32(cc);
+    cc->aux_stack_bottom_reg = jit_cc_new_reg_I32(cc);
+
+    count = module->import_memory_count + module->memory_count;
+    total_size = (uint64)sizeof(JitMemRegs) * count;
+    if (total_size > UINT32_MAX
+        || !(cc->memory_regs = jit_calloc((uint32)total_size))) {
+        jit_set_last_error(cc, "allocate memory failed");
+        return false;
+    }
+
+    for (i = 0; i < count; i++) {
+        cc->memory_regs[i].memory_inst = jit_cc_new_reg_ptr(cc);
+        cc->memory_regs[i].memory_data = jit_cc_new_reg_ptr(cc);
+        cc->memory_regs[i].memory_data_end = jit_cc_new_reg_ptr(cc);
+        cc->memory_regs[i].mem_bound_check_1byte = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_2bytes = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_4bytes = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_8bytes = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_16bytes = jit_cc_new_reg_I32(cc);
+    }
+
+    count = module->import_table_count + module->table_count;
+    total_size = (uint64)sizeof(JitTableRegs) * count;
+    if (total_size > UINT32_MAX
+        || !(cc->table_regs = jit_calloc((uint32)total_size))) {
+        jit_set_last_error(cc, "allocate memory failed");
+        return false;
+    }
+
+    for (i = 0; i < count; i++) {
+        cc->table_regs[i].table_inst = jit_cc_new_reg_ptr(cc);
+        cc->table_regs[i].table_data = jit_cc_new_reg_ptr(cc);
+        cc->table_regs[i].table_cur_size = jit_cc_new_reg_I32(cc);
+    }
+
+    return true;
+}
+
+static bool
 form_and_translate_func(JitCompContext *cc)
 {
     JitBasicBlock *func_entry_basic_block;
@@ -191,6 +228,9 @@ form_and_translate_func(JitCompContext *cc)
     JitInsn *insn;
     JitIncomingInsn *incoming_insn, *incoming_insn_next;
     uint32 i;
+
+    if (!create_fix_virtual_regs(cc))
+        return false;
 
     if (!(func_entry_basic_block = jit_frontend_translate_func(cc)))
         return false;
@@ -231,19 +271,9 @@ form_and_translate_func(JitCompContext *cc)
             }
             cc->cur_basic_block = cc->exce_basic_blocks[i];
             if (i != EXCE_ALREADY_THROWN) {
-#if UINTPTR_MAX == UINT64_MAX
                 insn = GEN_INSN(
                     CALLNATIVE, 0,
-                    NEW_CONST(I64,
-                              (uint64)(uintptr_t)jit_set_exception_with_id),
-                    1);
-#else
-                insn = GEN_INSN(
-                    CALLNATIVE, 0,
-                    NEW_CONST(I32,
-                              (uint32)(uintptr_t)jit_set_exception_with_id),
-                    1);
-#endif
+                    NEW_CONST(PTR, (uintptr_t)jit_set_exception_with_id), 1);
                 if (insn) {
                     *(jit_insn_opndv(insn, 2)) = NEW_CONST(I32, i);
                 }
@@ -343,21 +373,20 @@ init_func_translation(JitCompContext *cc)
     local_size =
         (cur_wasm_func->param_cell_num + cur_wasm_func->local_cell_num) * 4;
 
-#if UINTPTR_MAX == UINT64_MAX
-    top = jit_cc_new_reg_I64(cc);
-    top_boundary = jit_cc_new_reg_I64(cc);
-    new_top = jit_cc_new_reg_I64(cc);
-    frame_boundary = jit_cc_new_reg_I64(cc);
-    frame_sp = jit_cc_new_reg_I64(cc);
+    top = jit_cc_new_reg_ptr(cc);
+    top_boundary = jit_cc_new_reg_ptr(cc);
+    new_top = jit_cc_new_reg_ptr(cc);
+    frame_boundary = jit_cc_new_reg_ptr(cc);
+    frame_sp = jit_cc_new_reg_ptr(cc);
 
     /* top = exec_env->wasm_stack.s.top */
-    GEN_INSN(LDI64, top, cc->exec_env_reg,
+    GEN_INSN(LDPTR, top, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
     /* top_boundary = exec_env->wasm_stack.s.top_boundary */
-    GEN_INSN(LDI64, top_boundary, cc->exec_env_reg,
+    GEN_INSN(LDPTR, top_boundary, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top_boundary)));
     /* frame_boundary = top + frame_size + outs_size */
-    GEN_INSN(ADD, frame_boundary, top, NEW_CONST(I64, frame_size + outs_size));
+    GEN_INSN(ADD, frame_boundary, top, NEW_CONST(PTR, frame_size + outs_size));
     /* if frame_boundary > top_boundary, throw stack overflow exception */
     GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
     if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
@@ -367,77 +396,29 @@ init_func_translation(JitCompContext *cc)
 
     /* Add first and then sub to reduce one used register */
     /* new_top = frame_boundary - outs_size = top + frame_size */
-    GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(I64, outs_size));
+    GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(PTR, outs_size));
     /* exec_env->wasm_stack.s.top = new_top */
-    GEN_INSN(STI64, new_top, cc->exec_env_reg,
+    GEN_INSN(STPTR, new_top, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
     /* frame_sp = frame->lp + local_size */
     GEN_INSN(ADD, frame_sp, top,
-             NEW_CONST(I64, offsetof(WASMInterpFrame, lp) + local_size));
+             NEW_CONST(PTR, offsetof(WASMInterpFrame, lp) + local_size));
     /* frame->sp = frame_sp */
-    GEN_INSN(STI64, frame_sp, top,
+    GEN_INSN(STPTR, frame_sp, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
     /* frame->prev_frame = fp_reg */
-    GEN_INSN(STI64, cc->fp_reg, top,
+    GEN_INSN(STPTR, cc->fp_reg, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
     /* TODO: do we need to set frame->function? */
     /*
-    GEN_INSN(STI64, func_inst, top,
+    GEN_INSN(STPTR, func_inst, top,
              NEW_CONST(I32, offsetof(WASMInterpFrame, function)));
     */
     /* exec_env->cur_frame = top */
-    GEN_INSN(STI64, top, cc->exec_env_reg,
+    GEN_INSN(STPTR, top, cc->exec_env_reg,
              NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
     /* fp_reg = top */
     GEN_INSN(MOV, cc->fp_reg, top);
-#else
-    top = jit_cc_new_reg_I32(cc);
-    top_boundary = jit_cc_new_reg_I32(cc);
-    new_top = jit_cc_new_reg_I32(cc);
-    frame_boundary = jit_cc_new_reg_I32(cc);
-    frame_sp = jit_cc_new_reg_I32(cc);
-
-    /* top = exec_env->wasm_stack.s.top */
-    GEN_INSN(LDI32, top, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
-    /* top_boundary = exec_env->wasm_stack.s.top_boundary */
-    GEN_INSN(LDI32, top_boundary, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top_boundary)));
-    /* frame_boundary = top + frame_size + outs_size */
-    GEN_INSN(ADD, frame_boundary, top, NEW_CONST(I32, frame_size + outs_size));
-    /* if frame_boundary > top_boundary, throw stack overflow exception */
-    GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
-    if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
-                            cc->cmp_reg, 0)) {
-        return NULL;
-    }
-
-    /* Add first and then sub to reduce one used register */
-    /* new_top = frame_boundary - outs_size = top + frame_size */
-    GEN_INSN(SUB, new_top, frame_boundary, NEW_CONST(I32, outs_size));
-    /* exec_env->wasm_stack.s.top = new_top */
-    GEN_INSN(STI32, new_top, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
-    /* frame_sp = frame->lp + local_size */
-    GEN_INSN(ADD, frame_sp, top,
-             NEW_CONST(I32, offsetof(WASMInterpFrame, lp) + local_size));
-    /* frame->sp = frame_sp */
-    GEN_INSN(STI32, frame_sp, top,
-             NEW_CONST(I32, offsetof(WASMInterpFrame, sp)));
-    /* frame->prev_frame = fp_reg */
-    GEN_INSN(STI32, cc->fp_reg, top,
-             NEW_CONST(I32, offsetof(WASMInterpFrame, prev_frame)));
-    /* TODO: do we need to set frame->function? */
-    /*
-    GEN_INSN(STI32, func_inst, top,
-             NEW_CONST(I32, offsetof(WASMInterpFrame, function)));
-    */
-    /* exec_env->cur_frame = top */
-    GEN_INSN(STI32, top, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
-    /* fp_reg = top */
-    GEN_INSN(MOV, cc->fp_reg, top);
-#endif
 
     return jit_frame;
 }

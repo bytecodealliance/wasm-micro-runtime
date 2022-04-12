@@ -444,15 +444,9 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
     }
 
     /* Create registers for frame pointer, exec_env and cmp.  */
-#if UINTPTR_MAX == UINT64_MAX
-    cc->fp_reg = jit_reg_new(JIT_REG_KIND_I64, cc->hreg_info->fp_hreg_index);
+    cc->fp_reg = jit_reg_new(JIT_REG_KIND_PTR, cc->hreg_info->fp_hreg_index);
     cc->exec_env_reg =
-        jit_reg_new(JIT_REG_KIND_I64, cc->hreg_info->exec_env_hreg_index);
-#else
-    cc->fp_reg = jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->fp_hreg_index);
-    cc->exec_env_reg =
-        jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->exec_env_hreg_index);
-#endif
+        jit_reg_new(JIT_REG_KIND_PTR, cc->hreg_info->exec_env_hreg_index);
     cc->cmp_reg = jit_reg_new(JIT_REG_KIND_I32, cc->hreg_info->cmp_hreg_index);
 
     cc->_const_val._hash_table_size = htab_size;
@@ -477,7 +471,19 @@ jit_cc_destroy(JitCompContext *cc)
 
     jit_block_stack_destroy(&cc->block_stack);
 
-    jit_free(cc->jit_frame);
+    if (cc->jit_frame) {
+        if (cc->jit_frame->memory_regs)
+            jit_free(cc->jit_frame->memory_regs);
+        if (cc->jit_frame->table_regs)
+            jit_free(cc->jit_frame->table_regs);
+        jit_free(cc->jit_frame);
+    }
+
+    if (cc->memory_regs)
+        jit_free(cc->memory_regs);
+
+    if (cc->table_regs)
+        jit_free(cc->table_regs);
 
     jit_free(cc->_const_val._hash_table);
 
