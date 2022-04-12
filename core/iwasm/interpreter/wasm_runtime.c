@@ -2210,7 +2210,7 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->memory_data_end =
         memory->memory_data + memory->num_bytes_per_page * total_page_count;
 
-#if WASM_ENABLE_FAST_INTERP != 0
+#if WASM_ENABLE_FAST_JIT != 0
 #if UINTPTR_MAX == UINT64_MAX
     memory->mem_bound_check_1byte = total_size - 1;
     memory->mem_bound_check_2bytes = total_size - 2;
