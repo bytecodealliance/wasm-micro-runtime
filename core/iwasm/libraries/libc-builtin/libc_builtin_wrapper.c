@@ -64,17 +64,24 @@ typedef char *_va_list;
 #define _INTSIZEOF(n) (((uint32)sizeof(n) + 3) & (uint32)~3)
 #define _va_arg(ap, t) (*(t *)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
 
-#define CHECK_VA_ARG(ap, t)                                \
-    do {                                                   \
-        if ((uint8 *)ap + _INTSIZEOF(t) > native_end_addr) \
-            goto fail;                                     \
+#define CHECK_VA_ARG(ap, t)                                  \
+    do {                                                     \
+        if ((uint8 *)ap + _INTSIZEOF(t) > native_end_addr) { \
+            if (fmt_buf != temp_fmt) {                       \
+                wasm_runtime_free(fmt_buf);                  \
+            }                                                \
+            goto fail;                                       \
+        }                                                    \
     } while (0)
 
+/* clang-format off */
 #define PREPARE_TEMP_FORMAT()                                \
     char temp_fmt[32], *s, *fmt_buf = temp_fmt;              \
-    uint32 fmt_buf_len = sizeof(temp_fmt);                   \
+    uint32 fmt_buf_len = (uint32)sizeof(temp_fmt);           \
     int32 n;                                                 \
                                                              \
+    /* additional 2 bytes: one is the format char,           \
+     * the other is `\0` */                                  \
     if (fmt - fmt_start_addr + 2 >= fmt_buf_len) {           \
         bh_assert(fmt - fmt_start_addr <= UINT32_MAX - 2);   \
         fmt_buf_len = fmt - fmt_start_addr + 2;              \
@@ -85,7 +92,9 @@ typedef char *_va_list;
     }                                                        \
                                                              \
     memset(fmt_buf, 0, fmt_buf_len);                         \
-    bh_memcpy_s(fmt_buf, fmt_buf_len, fmt_start_addr, fmt - fmt_start_addr + 1);
+    bh_memcpy_s(fmt_buf, fmt_buf_len,                        \
+                fmt_start_addr, fmt - fmt_start_addr + 1);
+/* clang-format on */
 
 #define OUTPUT_TEMP_FORMAT()            \
     do {                                \
@@ -116,6 +125,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
     int long_ctr = 0;
     uint8 *native_end_addr;
     const char *fmt_start_addr = NULL;
+    bool is_signed;
 
     if (!wasm_runtime_get_native_addr_range(module_inst, (uint8 *)ap, NULL,
                                             &native_end_addr))
@@ -132,6 +142,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 might_format = 1;
                 long_ctr = 0;
                 fmt_start_addr = fmt;
+                is_signed = false;
             }
         }
         else {
@@ -170,6 +181,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 case 'o':
                 case 'd':
                 case 'i':
+                    is_signed = true;
                 {
                     char buf[64];
                     PREPARE_TEMP_FORMAT();
@@ -202,18 +214,34 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     PREPARE_TEMP_FORMAT();
 
                     if (long_ctr < 2) {
-                        uint32 u;
                         CHECK_VA_ARG(ap, uint32);
-                        u = _va_arg(ap, uint32);
-                        n = snprintf(buf, sizeof(buf), fmt_buf, u);
+
+                        if (is_signed) {
+                            int32 d;
+                            d = _va_arg(ap, int32);
+                            n = snprintf(buf, sizeof(buf), fmt_buf, d);
+                        }
+                        else {
+                            uint32 u;
+                            u = _va_arg(ap, uint32);
+                            n = snprintf(buf, sizeof(buf), fmt_buf, u);
+                        }
                     }
                     else {
-                        uint64 llu;
                         /* Make 8-byte aligned */
                         ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                         CHECK_VA_ARG(ap, uint64);
-                        llu = _va_arg(ap, uint64);
-                        n = snprintf(buf, sizeof(buf), fmt_buf, llu);
+
+                        if (is_signed) {
+                            int64 lld;
+                            lld = _va_arg(ap, int64);
+                            n = snprintf(buf, sizeof(buf), fmt_buf, lld);
+                        }
+                        else {
+                            uint64 llu;
+                            llu = _va_arg(ap, uint64);
+                            n = snprintf(buf, sizeof(buf), fmt_buf, llu);
+                        }
                     }
 
                     OUTPUT_TEMP_FORMAT();
@@ -253,7 +281,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                      * in the fmt */
                     buf_len = str_len + 64;
 
-                    if (buf_len > sizeof(buf_tmp)) {
+                    if (buf_len > (uint32)sizeof(buf_tmp)) {
                         if (!(buf = wasm_runtime_malloc(buf_len))) {
                             print_err(out, ctx);
                             if (fmt_buf != temp_fmt) {
@@ -263,8 +291,6 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                         }
                     }
 
-                    bh_memcpy_s(fmt_buf, fmt_buf_len, fmt_start_addr,
-                                fmt - fmt_start_addr + 1);
                     n = snprintf(buf, buf_len, fmt_buf,
                                  (s_offset == 0 && str_len == 0) ? NULL
                                                                  : start);
