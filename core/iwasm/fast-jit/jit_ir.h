@@ -896,27 +896,26 @@ typedef struct JitValueSlot {
     uint32 committed_ref : 2;
 } JitValueSlot;
 
-typedef struct MemoryInstRegs {
-    /* Memory instance */
-    JitReg memory_inst_reg;
-    /* Linear memory base address */
-    JitReg memory_data_reg;
-    /* Boundary check constants for jit code */
+typedef struct JitMemRegs {
+    JitReg memory_inst;
+    /* The following registers should be re-loaded after memory.grow,
+       and callbc, callnative */
+    JitReg memory_data;
+    JitReg memory_data_end;
     JitReg mem_bound_check_1byte;
     JitReg mem_bound_check_2bytes;
     JitReg mem_bound_check_4bytes;
     JitReg mem_bound_check_8bytes;
     JitReg mem_bound_check_16bytes;
-} MemoryInstRegs;
+} JitMemRegs;
 
-typedef struct TableInstRegs {
-    /* Table instance */
-    JitReg table_inst_reg;
-    /* Table base address */
-    JitReg table_data_reg;
-    /* Table current size */
-    JitReg table_cur_size_reg;
-} TableInstRegs;
+typedef struct JitTableRegs {
+    JitReg table_inst;
+    JitReg table_data;
+    /* Should be re-loaded after table.grow,
+       and callbc, callnative */
+    JitReg table_cur_size;
+} JitTableRegs;
 
 /* Frame information for translation */
 typedef struct JitFrame {
@@ -953,12 +952,16 @@ typedef struct JitFrame {
     JitReg module_reg;
     /* module->fast_jit_func_ptrs */
     JitReg func_ptrs_reg;
-    /* Data of memory instances */
-    JitReg *memory_inst_regs;
-    /* Data of table instances */
-    JitReg *table_inst_regs;
     /* Base address of global data */
     JitReg global_data_reg;
+    /* Boundary of auxiliary stack */
+    JitReg aux_stack_bound_reg;
+    /* Bottom of auxiliary stack */
+    JitReg aux_stack_bottom_reg;
+    /* Data of memory instances */
+    JitMemRegs *memory_regs;
+    /* Data of table instances */
+    JitTableRegs *table_regs;
 
     /* Local variables */
     JitValueSlot lp[1];
@@ -1055,6 +1058,23 @@ typedef struct JitCompContext {
     JitReg fp_reg;
     JitReg exec_env_reg;
     JitReg cmp_reg;
+
+    /* WASM module instance */
+    JitReg module_inst_reg;
+    /* WASM module */
+    JitReg module_reg;
+    /* module->fast_jit_func_ptrs */
+    JitReg func_ptrs_reg;
+    /* Base address of global data */
+    JitReg global_data_reg;
+    /* Boundary of auxiliary stack */
+    JitReg aux_stack_bound_reg;
+    /* Bottom of auxiliary stack */
+    JitReg aux_stack_bottom_reg;
+    /* Data of memory instances */
+    JitMemRegs *memory_regs;
+    /* Data of table instances */
+    JitTableRegs *table_regs;
 
     /* Current frame information for translation */
     JitFrame *jit_frame;

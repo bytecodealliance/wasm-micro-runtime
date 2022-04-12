@@ -171,6 +171,56 @@ jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
 }
 
 static bool
+create_fix_virtual_regs(JitCompContext *cc)
+{
+    WASMModule *module = cc->cur_wasm_module;
+    uint64 total_size;
+    uint32 i, count;
+
+    cc->module_inst_reg = jit_cc_new_reg_ptr(cc);
+    cc->module_reg = jit_cc_new_reg_ptr(cc);
+    cc->func_ptrs_reg = jit_cc_new_reg_ptr(cc);
+    cc->global_data_reg = jit_cc_new_reg_ptr(cc);
+    cc->aux_stack_bound_reg = jit_cc_new_reg_I32(cc);
+    cc->aux_stack_bottom_reg = jit_cc_new_reg_I32(cc);
+
+    count = module->import_memory_count + module->memory_count;
+    total_size = (uint64)sizeof(JitMemRegs) * count;
+    if (total_size > UINT32_MAX
+        || !(cc->memory_regs = jit_calloc((uint32)total_size))) {
+        jit_set_last_error(cc, "allocate memory failed");
+        return false;
+    }
+
+    for (i = 0; i < count; i++) {
+        cc->memory_regs[i].memory_inst = jit_cc_new_reg_ptr(cc);
+        cc->memory_regs[i].memory_data = jit_cc_new_reg_ptr(cc);
+        cc->memory_regs[i].memory_data_end = jit_cc_new_reg_ptr(cc);
+        cc->memory_regs[i].mem_bound_check_1byte = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_2bytes = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_4bytes = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_8bytes = jit_cc_new_reg_I32(cc);
+        cc->memory_regs[i].mem_bound_check_16bytes = jit_cc_new_reg_I32(cc);
+    }
+
+    count = module->import_table_count + module->table_count;
+    total_size = (uint64)sizeof(JitTableRegs) * count;
+    if (total_size > UINT32_MAX
+        || !(cc->table_regs = jit_calloc((uint32)total_size))) {
+        jit_set_last_error(cc, "allocate memory failed");
+        return false;
+    }
+
+    for (i = 0; i < count; i++) {
+        cc->table_regs[i].table_inst = jit_cc_new_reg_ptr(cc);
+        cc->table_regs[i].table_data = jit_cc_new_reg_ptr(cc);
+        cc->table_regs[i].table_cur_size = jit_cc_new_reg_I32(cc);
+    }
+
+    return true;
+}
+
+static bool
 form_and_translate_func(JitCompContext *cc)
 {
     JitBasicBlock *func_entry_basic_block;
@@ -178,6 +228,9 @@ form_and_translate_func(JitCompContext *cc)
     JitInsn *insn;
     JitIncomingInsn *incoming_insn, *incoming_insn_next;
     uint32 i;
+
+    if (!create_fix_virtual_regs(cc))
+        return false;
 
     if (!(func_entry_basic_block = jit_frontend_translate_func(cc)))
         return false;

@@ -471,7 +471,19 @@ jit_cc_destroy(JitCompContext *cc)
 
     jit_block_stack_destroy(&cc->block_stack);
 
-    jit_free(cc->jit_frame);
+    if (cc->jit_frame) {
+        if (cc->jit_frame->memory_regs)
+            jit_free(cc->jit_frame->memory_regs);
+        if (cc->jit_frame->table_regs)
+            jit_free(cc->jit_frame->table_regs);
+        jit_free(cc->jit_frame);
+    }
+
+    if (cc->memory_regs)
+        jit_free(cc->memory_regs);
+
+    if (cc->table_regs)
+        jit_free(cc->table_regs);
 
     jit_free(cc->_const_val._hash_table);
 
