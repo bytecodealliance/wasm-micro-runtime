@@ -52,6 +52,22 @@ struct WASMMemoryInstance {
        Note: when memory is re-allocated, the heap data and memory data
              must be copied to new memory also. */
     uint8 *memory_data;
+
+#if WASM_ENABLE_FAST_JIT != 0
+#if UINTPTR_MAX == UINT64_MAX
+    uint64 mem_bound_check_1byte;
+    uint64 mem_bound_check_2bytes;
+    uint64 mem_bound_check_4bytes;
+    uint64 mem_bound_check_8bytes;
+    uint64 mem_bound_check_16bytes;
+#else
+    uint32 mem_bound_check_1byte;
+    uint32 mem_bound_check_2bytes;
+    uint32 mem_bound_check_4bytes;
+    uint32 mem_bound_check_8bytes;
+    uint32 mem_bound_check_16bytes;
+#endif
+#endif
 };
 
 struct WASMTableInstance {

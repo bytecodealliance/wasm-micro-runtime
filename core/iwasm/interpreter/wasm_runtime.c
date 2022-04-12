@@ -297,6 +297,24 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
         }
     }
 
+#if WASM_ENABLE_FAST_JIT != 0
+    if (memory_data_size > 0) {
+#if UINTPTR_MAX == UINT64_MAX
+        memory->mem_bound_check_1byte = memory_data_size - 1;
+        memory->mem_bound_check_2bytes = memory_data_size - 2;
+        memory->mem_bound_check_4bytes = memory_data_size - 4;
+        memory->mem_bound_check_8bytes = memory_data_size - 8;
+        memory->mem_bound_check_16bytes = memory_data_size - 16;
+#else
+        memory->mem_bound_check_1byte = (uint32)memory_data_size - 1;
+        memory->mem_bound_check_2bytes = (uint32)memory_data_size - 2;
+        memory->mem_bound_check_4bytes = (uint32)memory_data_size - 4;
+        memory->mem_bound_check_8bytes = (uint32)memory_data_size - 8;
+        memory->mem_bound_check_16bytes = (uint32)memory_data_size - 16;
+#endif
+    }
+#endif
+
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (0 != os_mutex_init(&memory->mem_lock)) {
         set_error_buf(error_buf, error_buf_size, "init mutex failed");
@@ -2191,6 +2209,22 @@ wasm_enlarge_memory(WASMModuleInstance *module, uint32 inc_page_count)
     memory->heap_data_end = memory->heap_data + heap_size;
     memory->memory_data_end =
         memory->memory_data + memory->num_bytes_per_page * total_page_count;
+
+#if WASM_ENABLE_FAST_JIT != 0
+#if UINTPTR_MAX == UINT64_MAX
+    memory->mem_bound_check_1byte = total_size - 1;
+    memory->mem_bound_check_2bytes = total_size - 2;
+    memory->mem_bound_check_4bytes = total_size - 4;
+    memory->mem_bound_check_8bytes = total_size - 8;
+    memory->mem_bound_check_16bytes = total_size - 16;
+#else
+    memory->mem_bound_check_1byte = (uint32)total_size - 1;
+    memory->mem_bound_check_2bytes = (uint32)total_size - 2;
+    memory->mem_bound_check_4bytes = (uint32)total_size - 4;
+    memory->mem_bound_check_8bytes = (uint32)total_size - 8;
+    memory->mem_bound_check_16bytes = (uint32)total_size - 16;
+#endif
+#endif
 
     return ret;
 }

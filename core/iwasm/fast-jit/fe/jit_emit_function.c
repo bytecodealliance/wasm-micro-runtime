@@ -18,25 +18,15 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     WASMFunctionImport *func_import;
     WASMFunction *func;
     WASMType *func_type;
-    JitReg value, result = 0, module_inst, native_ret;
-    JitReg module, func_ptrs, jitted_code = 0;
+    JitFrame *jit_frame = cc->jit_frame;
+    JitReg value, result = 0, native_ret;
+    JitReg func_ptrs, jitted_code = 0;
     JitInsn *insn;
     uint32 i, n, outs_off, jitted_func_idx;
 
-    module_inst = jit_cc_new_reg_ptr(cc);
-    /* module_inst = exec_env->module_inst */
-    GEN_INSN(LDPTR, module_inst, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
     if (func_idx >= wasm_module->import_function_count) {
-        module = jit_cc_new_reg_ptr(cc);
-        func_ptrs = jit_cc_new_reg_ptr(cc);
+        func_ptrs = get_func_ptrs_reg(jit_frame);
         jitted_code = jit_cc_new_reg_ptr(cc);
-        /* module = module_inst->module */
-        GEN_INSN(LDPTR, module, module_inst,
-                 NEW_CONST(I32, offsetof(WASMModuleInstance, module)));
-        /* func_ptrs = module->fast_jit_func_ptrs */
-        GEN_INSN(LDPTR, func_ptrs, module,
-                 NEW_CONST(I32, offsetof(WASMModule, fast_jit_func_ptrs)));
         /* jitted_code = func_ptrs[func_idx - import_function_count] */
         jitted_func_idx = func_idx - wasm_module->import_function_count;
         GEN_INSN(LDPTR, jitted_code, func_ptrs,
@@ -194,6 +184,11 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 break;
         }
     }
+
+    /* Clear part of memory regs and table regs as their values
+       may be changed in the function call */
+    clear_memory_regs(jit_frame);
+    clear_table_regs(jit_frame);
 
     /* Ignore tail call currently */
     (void)tail_call;

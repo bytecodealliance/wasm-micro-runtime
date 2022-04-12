@@ -43,6 +43,346 @@ static const char *jit_exception_msgs[] = {
 /* clang-format on */
 
 JitReg
+get_module_inst_reg(JitFrame *frame)
+{
+    JitCompContext *cc = frame->cc;
+
+    if (!frame->module_inst_reg) {
+        frame->module_inst_reg = cc->module_inst_reg;
+        GEN_INSN(LDPTR, frame->module_inst_reg, cc->exec_env_reg,
+                 NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
+    }
+    return frame->module_inst_reg;
+}
+
+JitReg
+get_module_reg(JitFrame *frame)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg module_inst_reg = get_module_inst_reg(frame);
+
+    if (!frame->module_reg) {
+        frame->module_reg = cc->module_reg;
+        GEN_INSN(LDPTR, frame->module_reg, module_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMModuleInstance, module)));
+    }
+    return frame->module_reg;
+}
+
+JitReg
+get_func_ptrs_reg(JitFrame *frame)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg module_reg = get_module_reg(frame);
+
+    if (!frame->func_ptrs_reg) {
+        frame->func_ptrs_reg = cc->func_ptrs_reg;
+        GEN_INSN(LDPTR, frame->func_ptrs_reg, module_reg,
+                 NEW_CONST(I32, offsetof(WASMModule, fast_jit_func_ptrs)));
+    }
+    return frame->func_ptrs_reg;
+}
+
+JitReg
+get_global_data_reg(JitFrame *frame)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg module_inst_reg = get_module_inst_reg(frame);
+
+    if (!frame->global_data_reg) {
+        frame->global_data_reg = cc->global_data_reg;
+        GEN_INSN(LDPTR, frame->global_data_reg, module_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMModuleInstance, global_data)));
+    }
+    return frame->global_data_reg;
+}
+
+JitReg
+get_aux_stack_bound_reg(JitFrame *frame)
+{
+    /* TODO */
+    return 0;
+}
+
+JitReg
+get_aux_stack_bottom_reg(JitFrame *frame)
+{
+    /* TODO */
+    return 0;
+}
+
+JitReg
+get_memories_reg(JitFrame *frame)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg module_inst_reg = get_module_inst_reg(frame);
+
+    if (!frame->memories_reg) {
+        frame->memories_reg = cc->memories_reg;
+        GEN_INSN(LDPTR, frame->memories_reg, module_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMModuleInstance, memories)));
+    }
+    return frame->memories_reg;
+}
+
+JitReg
+get_memory_inst_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memories_reg = get_memories_reg(frame);
+
+    if (!frame->memory_regs[mem_idx].memory_inst) {
+        frame->memory_regs[mem_idx].memory_inst =
+            cc->memory_regs[mem_idx].memory_inst;
+        GEN_INSN(
+            LDPTR, frame->memory_regs[mem_idx].memory_inst, memories_reg,
+            NEW_CONST(I32, (uint32)sizeof(WASMMemoryInstance *) * mem_idx));
+    }
+    return frame->memory_regs[mem_idx].memory_inst;
+}
+
+JitReg
+get_memory_data_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memory_inst_reg = get_memory_inst_reg(frame, mem_idx);
+
+    if (!frame->memory_regs[mem_idx].memory_data) {
+        frame->memory_regs[mem_idx].memory_data =
+            cc->memory_regs[mem_idx].memory_data;
+        GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance, memory_data)));
+    }
+    return frame->memory_regs[mem_idx].memory_data;
+}
+
+JitReg
+get_memory_data_end_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memory_inst_reg = get_memory_inst_reg(frame, mem_idx);
+
+    if (!frame->memory_regs[mem_idx].memory_data_end) {
+        frame->memory_regs[mem_idx].memory_data_end =
+            cc->memory_regs[mem_idx].memory_data_end;
+        GEN_INSN(LDPTR, frame->memory_regs[mem_idx].memory_data_end,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance, memory_data_end)));
+    }
+    return frame->memory_regs[mem_idx].memory_data_end;
+}
+
+JitReg
+get_mem_bound_check_1byte_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memory_inst_reg = get_memory_inst_reg(frame, mem_idx);
+
+    if (!frame->memory_regs[mem_idx].mem_bound_check_1byte) {
+        frame->memory_regs[mem_idx].mem_bound_check_1byte =
+            cc->memory_regs[mem_idx].mem_bound_check_1byte;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_1byte,
+                 memory_inst_reg,
+                 NEW_CONST(
+                     I32, offsetof(WASMMemoryInstance, mem_bound_check_1byte)));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_1byte,
+                 memory_inst_reg,
+                 NEW_CONST(
+                     I32, offsetof(WASMMemoryInstance, mem_bound_check_1byte)));
+#endif
+    }
+    return frame->memory_regs[mem_idx].mem_bound_check_1byte;
+}
+
+JitReg
+get_mem_bound_check_2bytes_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memory_inst_reg = get_memory_inst_reg(frame, mem_idx);
+
+    if (!frame->memory_regs[mem_idx].mem_bound_check_2bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_2bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_2bytes;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_2bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_2bytes)));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_2bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_2bytes)));
+#endif
+    }
+    return frame->memory_regs[mem_idx].mem_bound_check_2bytes;
+}
+
+JitReg
+get_mem_bound_check_4bytes_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memory_inst_reg = get_memory_inst_reg(frame, mem_idx);
+
+    if (!frame->memory_regs[mem_idx].mem_bound_check_4bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_4bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_4bytes;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_4bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_4bytes)));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_4bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_4bytes)));
+#endif
+    }
+    return frame->memory_regs[mem_idx].mem_bound_check_4bytes;
+}
+
+JitReg
+get_mem_bound_check_8bytes_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memory_inst_reg = get_memory_inst_reg(frame, mem_idx);
+
+    if (!frame->memory_regs[mem_idx].mem_bound_check_8bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_8bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_8bytes;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_8bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_8bytes)));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_8bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_8bytes)));
+#endif
+    }
+    return frame->memory_regs[mem_idx].mem_bound_check_8bytes;
+}
+
+JitReg
+get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx)
+{
+    JitCompContext *cc = frame->cc;
+    JitReg memory_inst_reg = get_memory_inst_reg(frame, mem_idx);
+
+    if (!frame->memory_regs[mem_idx].mem_bound_check_16bytes) {
+        frame->memory_regs[mem_idx].mem_bound_check_16bytes =
+            cc->memory_regs[mem_idx].mem_bound_check_16bytes;
+#if UINTPTR_MAX == UINT64_MAX
+        GEN_INSN(LDI64, frame->memory_regs[mem_idx].mem_bound_check_16bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_16bytes)));
+#else
+        GEN_INSN(LDI32, frame->memory_regs[mem_idx].mem_bound_check_16bytes,
+                 memory_inst_reg,
+                 NEW_CONST(I32, offsetof(WASMMemoryInstance,
+                                         mem_bound_check_16bytes)));
+#endif
+    }
+    return frame->memory_regs[mem_idx].mem_bound_check_16bytes;
+}
+
+JitReg
+get_tables_reg(JitFrame *frame)
+{
+    return 0;
+}
+
+JitReg
+get_table_inst_reg(JitFrame *frame, uint32 table_idx)
+{
+    return 0;
+}
+
+JitReg
+get_table_data_reg(JitFrame *frame, uint32 table_idx)
+{
+    return 0;
+}
+
+JitReg
+get_table_cur_size_reg(JitFrame *frame, uint32 table_idx)
+{
+    return 0;
+}
+
+void
+clear_fixed_virtual_regs(JitFrame *frame)
+{
+    WASMModule *module = frame->cc->cur_wasm_module;
+    uint32 count, i;
+
+    frame->module_inst_reg = 0;
+    frame->module_reg = 0;
+    frame->func_ptrs_reg = 0;
+    frame->global_data_reg = 0;
+    frame->aux_stack_bound_reg = 0;
+    frame->aux_stack_bottom_reg = 0;
+    frame->memories_reg = 0;
+    frame->tables_reg = 0;
+
+    count = module->import_memory_count + module->memory_count;
+    for (i = 0; i < count; i++) {
+        frame->memory_regs[i].memory_inst = 0;
+        frame->memory_regs[i].memory_data = 0;
+        frame->memory_regs[i].memory_data_end = 0;
+        frame->memory_regs[i].mem_bound_check_1byte = 0;
+        frame->memory_regs[i].mem_bound_check_2bytes = 0;
+        frame->memory_regs[i].mem_bound_check_4bytes = 0;
+        frame->memory_regs[i].mem_bound_check_8bytes = 0;
+        frame->memory_regs[i].mem_bound_check_16bytes = 0;
+    }
+
+    count = module->import_table_count + module->table_count;
+    for (i = 0; i < count; i++) {
+        frame->table_regs[i].table_inst = 0;
+        frame->table_regs[i].table_data = 0;
+        frame->table_regs[i].table_cur_size = 0;
+    }
+}
+
+void
+clear_memory_regs(JitFrame *frame)
+{
+    WASMModule *module = frame->cc->cur_wasm_module;
+    uint32 count, i;
+
+    count = module->import_memory_count + module->memory_count;
+    for (i = 0; i < count; i++) {
+        frame->memory_regs[i].memory_data = 0;
+        frame->memory_regs[i].memory_data_end = 0;
+        frame->memory_regs[i].mem_bound_check_1byte = 0;
+        frame->memory_regs[i].mem_bound_check_2bytes = 0;
+        frame->memory_regs[i].mem_bound_check_4bytes = 0;
+        frame->memory_regs[i].mem_bound_check_8bytes = 0;
+        frame->memory_regs[i].mem_bound_check_16bytes = 0;
+    }
+}
+
+void
+clear_table_regs(JitFrame *frame)
+{
+    WASMModule *module = frame->cc->cur_wasm_module;
+    uint32 count, i;
+
+    count = module->import_table_count + module->table_count;
+    for (i = 0; i < count; i++) {
+        frame->table_regs[i].table_cur_size = 0;
+    }
+}
+
+JitReg
 gen_load_i32(JitFrame *frame, unsigned n)
 {
     if (!frame->lp[n].reg) {
@@ -171,7 +511,7 @@ jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
 }
 
 static bool
-create_fix_virtual_regs(JitCompContext *cc)
+create_fixed_virtual_regs(JitCompContext *cc)
 {
     WASMModule *module = cc->cur_wasm_module;
     uint64 total_size;
@@ -183,38 +523,44 @@ create_fix_virtual_regs(JitCompContext *cc)
     cc->global_data_reg = jit_cc_new_reg_ptr(cc);
     cc->aux_stack_bound_reg = jit_cc_new_reg_I32(cc);
     cc->aux_stack_bottom_reg = jit_cc_new_reg_I32(cc);
+    cc->memories_reg = jit_cc_new_reg_ptr(cc);
+    cc->tables_reg = jit_cc_new_reg_ptr(cc);
 
     count = module->import_memory_count + module->memory_count;
-    total_size = (uint64)sizeof(JitMemRegs) * count;
-    if (total_size > UINT32_MAX
-        || !(cc->memory_regs = jit_calloc((uint32)total_size))) {
-        jit_set_last_error(cc, "allocate memory failed");
-        return false;
-    }
+    if (count > 0) {
+        total_size = (uint64)sizeof(JitMemRegs) * count;
+        if (total_size > UINT32_MAX
+            || !(cc->memory_regs = jit_calloc((uint32)total_size))) {
+            jit_set_last_error(cc, "allocate memory failed");
+            return false;
+        }
 
-    for (i = 0; i < count; i++) {
-        cc->memory_regs[i].memory_inst = jit_cc_new_reg_ptr(cc);
-        cc->memory_regs[i].memory_data = jit_cc_new_reg_ptr(cc);
-        cc->memory_regs[i].memory_data_end = jit_cc_new_reg_ptr(cc);
-        cc->memory_regs[i].mem_bound_check_1byte = jit_cc_new_reg_I32(cc);
-        cc->memory_regs[i].mem_bound_check_2bytes = jit_cc_new_reg_I32(cc);
-        cc->memory_regs[i].mem_bound_check_4bytes = jit_cc_new_reg_I32(cc);
-        cc->memory_regs[i].mem_bound_check_8bytes = jit_cc_new_reg_I32(cc);
-        cc->memory_regs[i].mem_bound_check_16bytes = jit_cc_new_reg_I32(cc);
+        for (i = 0; i < count; i++) {
+            cc->memory_regs[i].memory_inst = jit_cc_new_reg_ptr(cc);
+            cc->memory_regs[i].memory_data = jit_cc_new_reg_ptr(cc);
+            cc->memory_regs[i].memory_data_end = jit_cc_new_reg_ptr(cc);
+            cc->memory_regs[i].mem_bound_check_1byte = jit_cc_new_reg_ptr(cc);
+            cc->memory_regs[i].mem_bound_check_2bytes = jit_cc_new_reg_ptr(cc);
+            cc->memory_regs[i].mem_bound_check_4bytes = jit_cc_new_reg_ptr(cc);
+            cc->memory_regs[i].mem_bound_check_8bytes = jit_cc_new_reg_ptr(cc);
+            cc->memory_regs[i].mem_bound_check_16bytes = jit_cc_new_reg_ptr(cc);
+        }
     }
 
     count = module->import_table_count + module->table_count;
-    total_size = (uint64)sizeof(JitTableRegs) * count;
-    if (total_size > UINT32_MAX
-        || !(cc->table_regs = jit_calloc((uint32)total_size))) {
-        jit_set_last_error(cc, "allocate memory failed");
-        return false;
-    }
+    if (count > 0) {
+        total_size = (uint64)sizeof(JitTableRegs) * count;
+        if (total_size > UINT32_MAX
+            || !(cc->table_regs = jit_calloc((uint32)total_size))) {
+            jit_set_last_error(cc, "allocate memory failed");
+            return false;
+        }
 
-    for (i = 0; i < count; i++) {
-        cc->table_regs[i].table_inst = jit_cc_new_reg_ptr(cc);
-        cc->table_regs[i].table_data = jit_cc_new_reg_ptr(cc);
-        cc->table_regs[i].table_cur_size = jit_cc_new_reg_I32(cc);
+        for (i = 0; i < count; i++) {
+            cc->table_regs[i].table_inst = jit_cc_new_reg_ptr(cc);
+            cc->table_regs[i].table_data = jit_cc_new_reg_ptr(cc);
+            cc->table_regs[i].table_cur_size = jit_cc_new_reg_I32(cc);
+        }
     }
 
     return true;
@@ -229,7 +575,7 @@ form_and_translate_func(JitCompContext *cc)
     JitIncomingInsn *incoming_insn, *incoming_insn_next;
     uint32 i;
 
-    if (!create_fix_virtual_regs(cc))
+    if (!create_fixed_virtual_regs(cc))
         return false;
 
     if (!(func_entry_basic_block = jit_frontend_translate_func(cc)))
@@ -340,7 +686,8 @@ init_func_translation(JitCompContext *cc)
         + (uint64)cur_wasm_func->local_cell_num
         + (uint64)cur_wasm_func->max_stack_cell_num
         + ((uint64)cur_wasm_func->max_block_num) * sizeof(WASMBranchBlock) / 4;
-    uint32 frame_size, outs_size, local_size;
+    uint32 frame_size, outs_size, local_size, count;
+    uint64 total_size;
 
     if ((uint64)max_locals + (uint64)max_stacks >= UINT32_MAX
         || total_cell_num >= UINT32_MAX
@@ -349,6 +696,31 @@ init_func_translation(JitCompContext *cc)
                                           * (max_locals + max_stacks)))) {
         os_printf("allocate jit frame failed\n");
         return NULL;
+    }
+
+    count =
+        cur_wasm_module->import_memory_count + cur_wasm_module->memory_count;
+    if (count > 0) {
+        total_size = (uint64)sizeof(JitMemRegs) * count;
+        if (total_size > UINT32_MAX
+            || !(jit_frame->memory_regs = jit_calloc((uint32)total_size))) {
+            jit_set_last_error(cc, "allocate memory failed");
+            jit_free(jit_frame);
+            return NULL;
+        }
+    }
+
+    count = cur_wasm_module->import_table_count + cur_wasm_module->table_count;
+    if (count > 0) {
+        total_size = (uint64)sizeof(JitTableRegs) * count;
+        if (total_size > UINT32_MAX
+            || !(jit_frame->table_regs = jit_calloc((uint32)total_size))) {
+            jit_set_last_error(cc, "allocate memory failed");
+            if (jit_frame->memory_regs)
+                jit_free(jit_frame->memory_regs);
+            jit_free(jit_frame);
+            return NULL;
+        }
     }
 
     jit_frame->cur_wasm_module = cur_wasm_module;
