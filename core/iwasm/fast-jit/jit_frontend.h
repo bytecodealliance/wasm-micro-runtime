@@ -208,6 +208,72 @@ jit_frontend_bcip_to_offset(void *function, void *bcip);
 bool
 jit_frontend_lower(JitCompContext *cc);
 
+JitReg
+get_module_inst_reg(JitFrame *frame);
+
+JitReg
+get_module_reg(JitFrame *frame);
+
+JitReg
+get_func_ptrs_reg(JitFrame *frame);
+
+JitReg
+get_global_data_reg(JitFrame *frame);
+
+JitReg
+get_aux_stack_bound_reg(JitFrame *frame);
+
+JitReg
+get_aux_stack_bottom_reg(JitFrame *frame);
+
+JitReg
+get_memories_reg(JitFrame *frame);
+
+JitReg
+get_memory_inst_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_memory_data_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_memory_data_end_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_mem_bound_check_1byte_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_mem_bound_check_2bytes_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_mem_bound_check_4bytes_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_mem_bound_check_8bytes_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx);
+
+JitReg
+get_tables_reg(JitFrame *frame);
+
+JitReg
+get_table_inst_reg(JitFrame *frame, uint32 table_idx);
+
+JitReg
+get_table_data_reg(JitFrame *frame, uint32 table_idx);
+
+JitReg
+get_table_cur_size_reg(JitFrame *frame, uint32 table_idx);
+
+void
+clear_fixed_virtual_regs(JitFrame *frame);
+
+void
+clear_memory_regs(JitFrame *frame);
+
+void
+clear_table_regs(JitFrame *frame);
+
 /**
  * Get the offset from frame pointer to the n-th local variable slot.
  *
@@ -330,6 +396,7 @@ clear_values(JitFrame *frame)
     size_t total_size =
         sizeof(JitValueSlot) * (frame->max_locals + frame->max_stacks);
     memset(frame->lp, 0, total_size);
+    clear_fixed_virtual_regs(frame);
 }
 
 static inline void
