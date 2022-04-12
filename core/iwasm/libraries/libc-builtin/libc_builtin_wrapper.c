@@ -70,18 +70,34 @@ typedef char *_va_list;
             goto fail;                                     \
     } while (0)
 
-#define PREPARE_TEMP_FORMAT()                               \
-    char buf[64], temp_fmt[32], *s;                         \
-                                                            \
-    memset(temp_fmt, 0, sizeof(temp_fmt));                  \
-    bh_memcpy_s(temp_fmt, sizeof(temp_fmt), fmt_start_addr, \
-                fmt - fmt_start_addr + 1);
+#define PREPARE_TEMP_FORMAT()                                \
+    char temp_fmt[32], *s, *fmt_buf = temp_fmt;              \
+    uint32 fmt_buf_len = sizeof(temp_fmt);                   \
+    int32 n;                                                 \
+                                                             \
+    if (fmt - fmt_start_addr + 2 >= fmt_buf_len) {           \
+        bh_assert(fmt - fmt_start_addr <= UINT32_MAX - 2);   \
+        fmt_buf_len = fmt - fmt_start_addr + 2;              \
+        if (!(fmt_buf = wasm_runtime_malloc(fmt_buf_len))) { \
+            print_err(out, ctx);                             \
+            break;                                           \
+        }                                                    \
+    }                                                        \
+                                                             \
+    memset(fmt_buf, 0, fmt_buf_len);                         \
+    bh_memcpy_s(fmt_buf, fmt_buf_len, fmt_start_addr, fmt - fmt_start_addr + 1);
 
-#define OUTPUT_TEMP_FORMAT()       \
-    do {                           \
-        s = buf;                   \
-        while (*s)                 \
-            out((int)(*s++), ctx); \
+#define OUTPUT_TEMP_FORMAT()            \
+    do {                                \
+        if (n > 0) {                    \
+            s = buf;                    \
+            while (*s)                  \
+                out((int)(*s++), ctx);  \
+        }                               \
+                                        \
+        if (fmt_buf != temp_fmt) {      \
+            wasm_runtime_free(fmt_buf); \
+        }                               \
     } while (0)
 
 static void
@@ -155,13 +171,14 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 case 'd':
                 case 'i':
                 {
+                    char buf[64];
                     PREPARE_TEMP_FORMAT();
 
                     if (long_ctr < 2) {
                         int32 d;
                         CHECK_VA_ARG(ap, int32);
                         d = _va_arg(ap, int32);
-                        snprintf(buf, sizeof(buf), temp_fmt, d);
+                        n = snprintf(buf, sizeof(buf), fmt_buf, d);
                     }
                     else {
                         int64 lld;
@@ -169,7 +186,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                         ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                         CHECK_VA_ARG(ap, int64);
                         lld = _va_arg(ap, int64);
-                        snprintf(buf, sizeof(buf), temp_fmt, lld);
+                        n = snprintf(buf, sizeof(buf), fmt_buf, lld);
                     }
 
                     OUTPUT_TEMP_FORMAT();
@@ -179,14 +196,16 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 case 'p':
                 case 'x':
                 case 'X':
+                case 'c':
                 {
+                    char buf[64];
                     PREPARE_TEMP_FORMAT();
 
                     if (long_ctr < 2) {
                         uint32 u;
                         CHECK_VA_ARG(ap, uint32);
                         u = _va_arg(ap, uint32);
-                        snprintf(buf, sizeof(buf), temp_fmt, u);
+                        n = snprintf(buf, sizeof(buf), fmt_buf, u);
                     }
                     else {
                         uint64 llu;
@@ -194,7 +213,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                         ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                         CHECK_VA_ARG(ap, uint64);
                         llu = _va_arg(ap, uint64);
-                        snprintf(buf, sizeof(buf), temp_fmt, llu);
+                        n = snprintf(buf, sizeof(buf), fmt_buf, llu);
                     }
 
                     OUTPUT_TEMP_FORMAT();
@@ -203,14 +222,19 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
 
                 case 's':
                 {
-                    char *s;
-                    char *start, *buf, temp_fmt[32];
+                    char buf_tmp[128], *buf = buf_tmp;
+                    char *start;
                     uint32 s_offset, str_len, buf_len;
+
+                    PREPARE_TEMP_FORMAT();
 
                     CHECK_VA_ARG(ap, int32);
                     s_offset = _va_arg(ap, uint32);
 
                     if (!validate_app_str_addr(s_offset)) {
+                        if (fmt_buf != temp_fmt) {
+                            wasm_runtime_free(fmt_buf);
+                        }
                         return false;
                     }
 
@@ -219,6 +243,9 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                     str_len = strlen(start);
                     if (str_len >= UINT32_MAX - 64) {
                         print_err(out, ctx);
+                        if (fmt_buf != temp_fmt) {
+                            wasm_runtime_free(fmt_buf);
+                        }
                         break;
                     }
 
@@ -226,28 +253,28 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                      * in the fmt */
                     buf_len = str_len + 64;
 
-                    if (!(buf = wasm_runtime_malloc(buf_len))) {
-                        print_err(out, ctx);
-                        break;
+                    if (buf_len > sizeof(buf_tmp)) {
+                        if (!(buf = wasm_runtime_malloc(buf_len))) {
+                            print_err(out, ctx);
+                            if (fmt_buf != temp_fmt) {
+                                wasm_runtime_free(fmt_buf);
+                            }
+                            break;
+                        }
                     }
 
-                    memset(temp_fmt, 0, sizeof(temp_fmt));
-                    bh_memcpy_s(temp_fmt, sizeof(temp_fmt), fmt_start_addr,
+                    bh_memcpy_s(fmt_buf, fmt_buf_len, fmt_start_addr,
                                 fmt - fmt_start_addr + 1);
-                    snprintf(buf, buf_len, temp_fmt, start);
+                    n = snprintf(buf, buf_len, fmt_buf,
+                                 (s_offset == 0 && str_len == 0) ? NULL
+                                                                 : start);
 
                     OUTPUT_TEMP_FORMAT();
-                    wasm_runtime_free(buf);
 
-                    break;
-                }
+                    if (buf != buf_tmp) {
+                        wasm_runtime_free(buf);
+                    }
 
-                case 'c':
-                {
-                    int c;
-                    CHECK_VA_ARG(ap, int);
-                    c = _va_arg(ap, int);
-                    out(c, ctx);
                     break;
                 }
 
@@ -265,14 +292,14 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 case 'F':
                 {
                     float64 f64;
-
+                    char buf[64];
                     PREPARE_TEMP_FORMAT();
 
                     /* Make 8-byte aligned */
                     ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
                     CHECK_VA_ARG(ap, float64);
                     f64 = _va_arg(ap, float64);
-                    snprintf(buf, sizeof(buf), temp_fmt, f64);
+                    n = snprintf(buf, sizeof(buf), fmt_buf, f64);
 
                     OUTPUT_TEMP_FORMAT();
                     break;
