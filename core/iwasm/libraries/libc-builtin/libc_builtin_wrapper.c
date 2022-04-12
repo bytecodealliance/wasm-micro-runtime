@@ -182,28 +182,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                 case 'd':
                 case 'i':
                     is_signed = true;
-                {
-                    char buf[64];
-                    PREPARE_TEMP_FORMAT();
-
-                    if (long_ctr < 2) {
-                        int32 d;
-                        CHECK_VA_ARG(ap, int32);
-                        d = _va_arg(ap, int32);
-                        n = snprintf(buf, sizeof(buf), fmt_buf, d);
-                    }
-                    else {
-                        int64 lld;
-                        /* Make 8-byte aligned */
-                        ap = (_va_list)(((uintptr_t)ap + 7) & ~(uintptr_t)7);
-                        CHECK_VA_ARG(ap, int64);
-                        lld = _va_arg(ap, int64);
-                        n = snprintf(buf, sizeof(buf), fmt_buf, lld);
-                    }
-
-                    OUTPUT_TEMP_FORMAT();
-                    break;
-                }
+                    /* Fall through */
                 case 'u':
                 case 'p':
                 case 'x':
