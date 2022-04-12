@@ -3545,12 +3545,9 @@ static bool
 cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
                        int32 offset)
 {
-    Imm target;
-
-    if (offset >= -127 && offset <= 127)
-        target.setValue((int8)offset);
-    else
-        target.setValue(offset);
+    Imm target(INT32_MAX);
+    char *stream = (char *)a.code()->sectionById(0)->buffer().data()
+                   + a.code()->sectionById(0)->buffer().size();
 
     switch (op) {
         case EQ:
@@ -3588,6 +3585,8 @@ cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
             break;
     }
 
+    /* The offset written by asmjit is always 0, we patch it again */
+    *(int32 *)(stream + 2) = offset;
     return true;
 }
 
