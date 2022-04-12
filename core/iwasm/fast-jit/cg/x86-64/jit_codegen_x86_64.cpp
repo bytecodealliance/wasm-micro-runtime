@@ -3597,8 +3597,9 @@ cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
  * @param cc the compiler context
  * @param a the assembler to emit the code
  * @param r0 dst jit register that contains the dst operand info
- * @param r1 src jit register that contains the first src operand info
- * @param r2 src jit register that contains the second src operand info
+ * @param r1 condition jit register
+ * @param r2 src jit register that contains the first src operand info
+ * @param r3 src jit register that contains the second src operand info
  *
  * @return true if success, false if failed
  */
