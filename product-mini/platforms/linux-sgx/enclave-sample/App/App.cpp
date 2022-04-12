@@ -227,6 +227,10 @@ print_help()
     printf("  --dir=<dir>            Grant wasi access to the given host directories\n");
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
+    printf("  --addr-pool=           Grant wasi access to the given network addresses in\n");
+    printf("                         CIRD notation to the program, seperated with ',',\n");
+    printf("                         for example:\n");
+    printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
     return 1;
 }
@@ -550,9 +554,10 @@ app_instance_func(void *wasm_module_inst, const char *func_name, int app_argc,
 static bool
 set_wasi_args(void *wasm_module, const char **dir_list, uint32_t dir_list_size,
               const char **env_list, uint32_t env_list_size, int stdinfd,
-              int stdoutfd, int stderrfd, char **argv, uint32_t argc)
+              int stdoutfd, int stderrfd, char **argv, uint32_t argc,
+              const char **addr_pool, uint32_t addr_pool_size)
 {
-    uint64_t ecall_args[10];
+    uint64_t ecall_args[12];
 
     ecall_args[0] = (uint64_t)(uintptr_t)wasm_module;
     ecall_args[1] = (uint64_t)(uintptr_t)dir_list;
@@ -564,9 +569,11 @@ set_wasi_args(void *wasm_module, const char **dir_list, uint32_t dir_list_size,
     ecall_args[7] = stderrfd;
     ecall_args[8] = (uint64_t)(uintptr_t)argv;
     ecall_args[9] = argc;
+    ecall_args[10] = (uint64_t)(uintptr_t)addr_pool;
+    ecall_args[11] = addr_pool_size;
     if (SGX_SUCCESS
         != ecall_handle_command(g_eid, CMD_SET_WASI_ARGS, (uint8_t *)ecall_args,
-                                sizeof(uint64_t) * 10)) {
+                                sizeof(uint64_t) * 12)) {
         printf("Call ecall_handle_command() failed.\n");
     }
 
@@ -590,6 +597,8 @@ main(int argc, char *argv[])
     uint32_t dir_list_size = 0;
     const char *env_list[8] = { NULL };
     uint32_t env_list_size = 0;
+    const char *addr_pool[8] = { NULL };
+    uint32_t addr_pool_size = 0;
     uint32_t max_thread_num = 4;
 
     if (enclave_init(&g_eid) < 0) {
@@ -666,6 +675,26 @@ main(int argc, char *argv[])
                 return print_help();
             }
         }
+        /* TODO: parse the configuration file via --addr-pool-file */
+        else if (!strncmp(argv[0], "--addr-pool=", strlen("--addr-pool="))) {
+            /* like: --addr-pool=100.200.244.255/30 */
+            char *token = NULL;
+
+            if ('\0' == argv[0][12])
+                return print_help();
+
+            token = strtok(argv[0] + strlen("--addr-pool="), ",");
+            while (token) {
+                if (addr_pool_size >= sizeof(addr_pool) / sizeof(char *)) {
+                    printf("Only allow max address number %d\n",
+                           (int)(sizeof(addr_pool) / sizeof(char *)));
+                    return -1;
+                }
+
+                addr_pool[addr_pool_size++] = token;
+                token = strtok(NULL, ";");
+            }
+        }
         else if (!strncmp(argv[0], "--max-threads=", 14)) {
             if (argv[0][14] == '\0')
                 return print_help();
@@ -705,7 +734,8 @@ main(int argc, char *argv[])
 
     /* Set wasi arguments */
     if (!set_wasi_args(wasm_module, dir_list, dir_list_size, env_list,
-                       env_list_size, 0, 1, 2, argv, argc)) {
+                       env_list_size, 0, 1, 2, argv, argc, addr_pool,
+                       addr_pool_size)) {
         printf("%s\n", "set wasi arguments failed.\n");
         goto fail3;
     }
@@ -771,6 +801,8 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
     uint32_t dir_list_size = 0;
     const char *env_list[8] = { NULL };
     uint32_t env_list_size = 0;
+    const char *addr_pool[8] = { NULL };
+    uint32_t addr_pool_size = 0;
     uint32_t max_thread_num = 4;
     char *wasm_files[16];
     void *wasm_module_inst[16];
@@ -845,7 +877,7 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
         /* Set wasi arguments */
         if (!set_wasi_args(wasm_module, dir_list, dir_list_size, env_list,
                            env_list_size, stdinfd, stdoutfd, stderrfd, argv,
-                           argc)) {
+                           argc, addr_pool, addr_pool_size)) {
             printf("%s\n", "set wasi arguments failed.\n");
             unload_module(wasm_module);
             free(wasm_file_buf);
