@@ -2851,6 +2851,28 @@ fail:
     return false;
 }
 
+#if WASM_ENABLE_FAST_JIT != 0
+static void
+calculate_global_data_offset(WASMModule *module)
+{
+    uint32 i, data_offset;
+
+    data_offset = 0;
+    for (i = 0; i < module->import_global_count; i++) {
+        WASMGlobalImport *import_global =
+            &((module->import_globals + i)->u.global);
+        import_global->data_offset = data_offset;
+        data_offset += wasm_value_type_size(import_global->type);
+    }
+
+    for (i = 0; i < module->global_count; i++) {
+        WASMGlobal *global = module->globals + i;
+        global->data_offset = data_offset;
+        data_offset += wasm_value_type_size(global->type);
+    }
+}
+#endif
+
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
                              uint32 cur_func_idx, char *error_buf,
@@ -3239,6 +3261,8 @@ load_from_sections(WASMModule *module, WASMSection *sections,
     }
 
 #if WASM_ENABLE_FAST_JIT != 0
+    calculate_global_data_offset(module);
+
     if (!(module->fast_jit_func_ptrs =
               loader_malloc(sizeof(void *) * module->function_count, error_buf,
                             error_buf_size))) {
