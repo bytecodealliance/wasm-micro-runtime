@@ -214,7 +214,7 @@ class JitErrorHandler : public ErrorHandler
 };
 
 /* Alu opcode */
-typedef enum { ADD, SUB, MUL, DIV, REM } ALU_OP;
+typedef enum { ADD, SUB, MUL, DIV_S, REM_S, DIV_U, REM_U } ALU_OP;
 /* Bit opcode */
 typedef enum { OR, XOR, AND } BIT_OP;
 /* Shift opcode */
@@ -1620,8 +1620,10 @@ alu_r_r_imm_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.imul(regs_i32[reg_no_dst], regs_i32[reg_no_src], imm);
             }
             break;
-        case DIV:
-        case REM:
+        case DIV_S:
+        case REM_S:
+        case DIV_U:
+        case REM_U:
 #if 0
             imm_from_sz_v_s (imm, SZ32, data, true);
             mov_r_imm (reg_I4_free, imm);
@@ -1680,8 +1682,10 @@ alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             else
                 a.imul(regs_i32[reg_no2_src], regs_i32[reg_no1_src]);
             break;
-        case DIV:
-        case REM:
+        case DIV_S:
+        case REM_S:
+        case DIV_U:
+        case REM_U:
             /* TODO */
             bh_assert(0);
             break;
@@ -1721,11 +1725,17 @@ alu_imm_imm_to_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
         case MUL:
             data = data1_src * data2_src;
             break;
-        case DIV:
+        case DIV_S:
             data = data1_src / data2_src;
             break;
-        case REM:
+        case REM_S:
             data = data1_src % data2_src;
+            break;
+        case DIV_U:
+            data = (uint32)data1_src / (uint32)data2_src;
+            break;
+        case REM_U:
+            data = (uint32)data1_src % (uint32)data2_src;
             break;
         default:
             bh_assert(0);
@@ -1879,8 +1889,10 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.imul(regs_i64[reg_no_dst], regs_i64[reg_no_src], imm);
             }
             break;
-        case DIV:
-        case REM:
+        case DIV_S:
+        case REM_S:
+        case DIV_U:
+        case REM_U:
 #if 0
             imm_from_sz_v_s (imm, SZ32, data, true);
             mov_r_imm (reg_I4_free, imm);
@@ -1939,8 +1951,10 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             else
                 a.imul(regs_i64[reg_no2_src], regs_i64[reg_no1_src]);
             break;
-        case DIV:
-        case REM:
+        case DIV_S:
+        case REM_S:
+        case DIV_U:
+        case REM_U:
             /* TODO */
             bh_assert(0);
             break;
@@ -1980,11 +1994,17 @@ alu_imm_imm_to_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
         case MUL:
             data = data1_src * data2_src;
             break;
-        case DIV:
+        case DIV_S:
             data = data1_src / data2_src;
             break;
-        case REM:
+        case REM_S:
             data = data1_src % data2_src;
+            break;
+        case DIV_U:
+            data = (uint64)data1_src / (uint64)data2_src;
+            break;
+        case REM_U:
+            data = (uint64)data1_src % (uint64)data2_src;
             break;
         default:
             bh_assert(0);
@@ -4242,8 +4262,10 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_ADD:
                 case JIT_OP_SUB:
                 case JIT_OP_MUL:
-                case JIT_OP_DIV:
-                case JIT_OP_REM:
+                case JIT_OP_DIV_S:
+                case JIT_OP_REM_S:
+                case JIT_OP_DIV_U:
+                case JIT_OP_REM_U:
                     LOAD_3ARGS();
                     if (!lower_alu(cc, a,
                                    (ALU_OP)(ADD + (insn->opcode - JIT_OP_ADD)),
@@ -4703,4 +4725,19 @@ const JitHardRegInfo *
 jit_codegen_get_hreg_info()
 {
     return &hreg_info;
+}
+
+JitReg
+jit_codegen_get_hreg_by_name(const char *name)
+{
+    if (strcmp(name, "eax") == 0)
+        return jit_reg_new(JIT_REG_KIND_I32, REG_EAX_IDX);
+    else if (strcmp(name, "edx") == 0)
+        return jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
+    else if (strcmp(name, "rax") == 0)
+        return jit_reg_new(JIT_REG_KIND_I64, REG_RAX_IDX);
+    else if (strcmp(name, "rdx") == 0)
+        return jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
+
+    return 0;
 }

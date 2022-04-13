@@ -4,7 +4,10 @@
  */
 
 #include "jit_emit_numberic.h"
+#include "jit_emit_exception.h"
+#include "jit_emit_control.h"
 #include "../jit_frontend.h"
+#include "../jit_codegen.h"
 
 #define PUSH_INT(v)      \
     do {                 \
@@ -180,8 +183,236 @@ static bool
 compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
                 uint8 **p_frame_ip)
 {
-    /* TODO */
-    bh_assert(0);
+    JitReg left, right, res;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
+    JitReg edx_hreg = jit_codegen_get_hreg_by_name("edx");
+    JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
+    JitReg rdx_hreg = jit_codegen_get_hreg_by_name("rdx");
+#endif
+
+    bh_assert(arith_op == INT_DIV_S || arith_op == INT_DIV_U
+              || arith_op == INT_REM_S || arith_op == INT_REM_U);
+
+    if (is_i32) {
+        POP_I32(right);
+        POP_I32(left);
+        res = jit_cc_new_reg_I32(cc);
+    }
+    else {
+        POP_I64(right);
+        POP_I64(left);
+        res = jit_cc_new_reg_I64(cc);
+    }
+
+    if (jit_reg_is_const(right)) {
+        int64 right_val = is_i32 ? (int64)jit_cc_get_const_I32(cc, right)
+                                 : jit_cc_get_const_I64(cc, right);
+
+        switch (right_val) {
+            case 0:
+            {
+                /* Directly throw exception if divided by zero */
+                if (!(jit_emit_exception(cc, EXCE_INTEGER_DIVIDE_BY_ZERO,
+                                         JIT_OP_JMP, false, NULL)))
+                    goto fail;
+
+                return jit_handle_next_reachable_block(cc, p_frame_ip);
+            }
+            case 1:
+            {
+                if (arith_op == INT_DIV_S || arith_op == INT_DIV_U) {
+                    if (is_i32)
+                        PUSH_I32(left);
+                    else
+                        PUSH_I64(left);
+                }
+                else {
+                    if (is_i32)
+                        PUSH_I32(NEW_CONST(I32, 0));
+                    else
+                        PUSH_I64(NEW_CONST(I64, 0));
+                }
+                return true;
+            }
+            case -1:
+            {
+                if (arith_op == INT_DIV_S) {
+                    if (is_i32)
+                        GEN_INSN(CMP, cc->cmp_reg, left,
+                                 NEW_CONST(I32, INT32_MIN));
+                    else
+                        GEN_INSN(CMP, cc->cmp_reg, left,
+                                 NEW_CONST(I64, INT64_MIN));
+
+                    /* Throw conditional exception if overflow */
+                    if (!(jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW,
+                                             JIT_OP_BEQ, true, NULL)))
+                        goto fail;
+
+                    /* Push -(left) to stack */
+                    GEN_INSN(NEG, res, left);
+                    if (is_i32)
+                        PUSH_I32(res);
+                    else
+                        PUSH_I64(res);
+                    return true;
+                }
+                else if (arith_op == INT_REM_S) {
+                    if (is_i32)
+                        PUSH_I32(NEW_CONST(I32, 0));
+                    else
+                        PUSH_I64(NEW_CONST(I64, 0));
+                    return true;
+                }
+                else {
+                    /* fall to default */
+                    goto handle_default;
+                }
+            }
+            handle_default:
+            default:
+            {
+                /* Build div and rem */
+                switch (arith_op) {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+                    case INT_DIV_S:
+                    case INT_DIV_U:
+                        if (is_i32) {
+                            GEN_INSN(MOV, eax_hreg, left);
+                            if (arith_op == INT_DIV_S)
+                                GEN_INSN(DIV_S, eax_hreg, eax_hreg, right);
+                            else
+                                GEN_INSN(DIV_U, eax_hreg, eax_hreg, right);
+                            /* Just to indicate that edx is used,
+                               register allocator cannot spill it out */
+                            GEN_INSN(MOV, edx_hreg, edx_hreg);
+                            res = eax_hreg;
+                        }
+                        else {
+                            GEN_INSN(MOV, rax_hreg, left);
+                            /* Just to indicate that eax is used,
+                               register allocator cannot spill it out */
+                            GEN_INSN(MOV, eax_hreg, eax_hreg);
+                            if (arith_op == INT_DIV_S)
+                                GEN_INSN(DIV_S, rax_hreg, rax_hreg, right);
+                            else
+                                GEN_INSN(DIV_U, rax_hreg, rax_hreg, right);
+                            /* Just to indicate that edx is used,
+                               register allocator cannot spill it out */
+                            GEN_INSN(MOV, edx_hreg, edx_hreg);
+                            res = rax_hreg;
+                        }
+                        break;
+                    case INT_REM_S:
+                    case INT_REM_U:
+                        if (is_i32) {
+                            GEN_INSN(MOV, eax_hreg, left);
+                            if (arith_op == INT_REM_S)
+                                GEN_INSN(REM_S, edx_hreg, eax_hreg, right);
+                            else
+                                GEN_INSN(REM_U, edx_hreg, eax_hreg, right);
+                            res = edx_hreg;
+                        }
+                        else {
+                            GEN_INSN(MOV, rax_hreg, left);
+                            /* Just to indicate that eax is used,
+                               register allocator cannot spill it out */
+                            GEN_INSN(MOV, eax_hreg, eax_hreg);
+                            if (arith_op == INT_REM_S)
+                                GEN_INSN(REM_S, rdx_hreg, rax_hreg, right);
+                            else
+                                GEN_INSN(REM_U, rdx_hreg, rax_hreg, right);
+                            /* Just to indicate that edx is used,
+                               register allocator cannot spill it out */
+                            GEN_INSN(MOV, edx_hreg, edx_hreg);
+                            res = rdx_hreg;
+                        }
+                        break;
+#else
+                    case INT_DIV_S:
+                        GEN_INSN(DIV_S, res, left, right);
+                        break;
+                    case INT_DIV_U:
+                        GEN_INSN(DIV_U, res, left, right);
+                        break;
+                    case INT_REM_S:
+                        GEN_INSN(REM_S, res, left, right);
+                        break;
+                    case INT_REM_U:
+                        GEN_INSN(REM_U, res, left, right);
+                        break;
+#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+                    default:
+                        bh_assert(0);
+                        return false;
+                }
+
+                if (is_i32)
+                    PUSH_I32(res);
+                else
+                    PUSH_I64(res);
+                return true;
+            }
+        }
+    }
+    else {
+#if 0
+        /* Check divied by zero */
+        LLVM_BUILD_ICMP(LLVMIntEQ, right, is_i32 ? I32_ZERO : I64_ZERO,
+                        cmp_div_zero, "cmp_div_zero");
+        ADD_BASIC_BLOCK(check_div_zero_succ, "check_div_zero_success");
+
+        /* Throw conditional exception if divided by zero */
+        if (!(aot_emit_exception(comp_ctx, func_ctx,
+                                 EXCE_INTEGER_DIVIDE_BY_ZERO, true,
+                                 cmp_div_zero, check_div_zero_succ)))
+            goto fail;
+
+        switch (arith_op) {
+            case INT_DIV_S:
+                /* Check integer overflow */
+                if (is_i32)
+                    CHECK_INT_OVERFLOW(I32);
+                else
+                    CHECK_INT_OVERFLOW(I64);
+
+                ADD_BASIC_BLOCK(check_overflow_succ, "check_overflow_success");
+
+                /* Throw conditional exception if integer overflow */
+                if (!(aot_emit_exception(comp_ctx, func_ctx,
+                                         EXCE_INTEGER_OVERFLOW, true, overflow,
+                                         check_overflow_succ)))
+                    goto fail;
+
+                LLVM_BUILD_OP(SDiv, left, right, res, "div_s", false);
+                PUSH_INT(res);
+                return true;
+            case INT_DIV_U:
+                LLVM_BUILD_OP(UDiv, left, right, res, "div_u", false);
+                PUSH_INT(res);
+                return true;
+            case INT_REM_S:
+                /*  Webassembly spec requires it return 0 */
+                if (is_i32)
+                    CHECK_INT_OVERFLOW(I32);
+                else
+                    CHECK_INT_OVERFLOW(I64);
+                return compile_rems(comp_ctx, func_ctx, left, right, overflow,
+                                    is_i32);
+            case INT_REM_U:
+                LLVM_BUILD_OP(URem, left, right, res, "rem_u", false);
+                PUSH_INT(res);
+                return true;
+            default:
+                bh_assert(0);
+                return false;
+        }
+#endif
+    }
+
+    return true;
+fail:
     return false;
 }
 
