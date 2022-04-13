@@ -203,8 +203,8 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                             bh_assert(fmt_buf[fmt_end_idx - 1] == 'l'
                                       || fmt_buf[fmt_end_idx - 1] == 'z'
                                       || fmt_buf[fmt_end_idx - 1] == 't');
-                            /* The %ld should be treated as 32bit integer in
-                             * wasm */
+                            /* The %ld, %zd and %td should be treated as 32bit
+                             * integer in wasm */
                             fmt_buf[fmt_end_idx - 1] = fmt_buf[fmt_end_idx];
                             fmt_buf[fmt_end_idx] = '\0';
                         }
