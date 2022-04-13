@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 int
 ocall_socket(int domain, int type, int protocol)
@@ -72,4 +74,53 @@ int
 ocall_shutdown(int sockfd, int how)
 {
     return shutdown(sockfd, how);
+}
+
+int
+ocall_setsockopt(int sockfd, int level, int optname, void *optval,
+                 unsigned int optlen)
+{
+    return setsockopt(sockfd, level, optname, optval, optlen);
+}
+
+int
+ocall_bind(int sockfd, const void *addr, uint32_t addrlen)
+{
+    return bind(sockfd, (const struct sockaddr *)addr, addrlen);
+}
+
+int
+ocall_getsockname(int sockfd, void *addr, uint32_t *addrlen, uint32_t addr_size)
+{
+    return getsockname(sockfd, (struct sockaddr *)addr, addrlen);
+}
+
+int
+ocall_listen(int sockfd, int backlog)
+{
+    return listen(sockfd, backlog);
+}
+
+int
+ocall_accept(int sockfd, void *addr, uint32_t *addrlen, uint32_t addr_size)
+{
+    return accept(sockfd, (struct sockaddr *)addr, addrlen);
+}
+
+int
+ocall_recv(int sockfd, void *buf, size_t len, int flags)
+{
+    return recv(sockfd, buf, len, flags);
+}
+
+int
+ocall_send(int sockfd, const void *buf, size_t len, int flags)
+{
+    return send(sockfd, buf, len, flags);
+}
+
+int
+ocall_connect(int sockfd, void *addr, uint32_t addrlen)
+{
+    return connect(sockfd, (const struct sockaddr *)addr, addrlen);
 }

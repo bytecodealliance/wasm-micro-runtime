@@ -5800,6 +5800,22 @@ index c878a2ac4..ad5945b0a 100644
    // Don't allow the caching that lldb_private::Process::ReadMemory does since
    // we have it all cached in the trace files.
    return DoReadMemory(addr, buf, size, error);
+diff --git a/lldb/source/Target/ThreadPlanStepRange.cpp b/lldb/source/Target/ThreadPlanStepRange.cpp
+index 896e647bb..f76307016 100644
+--- a/lldb/source/Target/ThreadPlanStepRange.cpp
++++ b/lldb/source/Target/ThreadPlanStepRange.cpp
+@@ -334,7 +334,10 @@ bool ThreadPlanStepRange::SetNextBranchBreakpoint() {
+     // If we didn't find a branch, run to the end of the range.
+     if (branch_index == UINT32_MAX) {
+       uint32_t last_index = instructions->GetSize() - 1;
+-      if (last_index - pc_index > 1) {
++      /* This line causes the "step over was treated as step in" issue, we
++       * modify it as a workaround */
++      /* The origin line is: if (last_index - pc_index > 1) { */
++      if (last_index - pc_index >= 1) {
+         InstructionSP last_inst =
+             instructions->GetInstructionAtIndex(last_index);
+         size_t last_inst_size = last_inst->GetOpcode().GetByteSize();
 diff --git a/lldb/source/Target/UnixSignals.cpp b/lldb/source/Target/UnixSignals.cpp
 index 4ec2e25c7..24c88fe9a 100644
 --- a/lldb/source/Target/UnixSignals.cpp

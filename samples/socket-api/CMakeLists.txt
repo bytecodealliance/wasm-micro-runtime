@@ -89,13 +89,16 @@ ExternalProject_Add(wasm-app
   INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
                       tcp_client.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build
                       tcp_server.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build
-                      tcp_client.wasm.dump ${CMAKE_CURRENT_SOURCE_DIR}/build
-                      tcp_server.wasm.dump ${CMAKE_CURRENT_SOURCE_DIR}/build
+                      send_recv.wasm ${CMAKE_CURRENT_SOURCE_DIR}/build
 )
 
 add_executable(tcp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_server.c)
 target_link_libraries(tcp_server pthread)
+
 add_executable(tcp_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_client.c)
+
+add_executable(send_recv ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/send_recv.c)
+target_link_libraries(send_recv pthread)
 
 ############################################
 ## Build iwasm with wasi and pthread support
