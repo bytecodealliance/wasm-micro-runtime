@@ -204,6 +204,10 @@ typedef struct WASMGlobalImport {
     WASMModule *import_module;
     WASMGlobal *import_global_linked;
 #endif
+#if WASM_ENABLE_FAST_JIT != 0
+    /* The data offset of current global in global data */
+    uint32 data_offset;
+#endif
 } WASMGlobalImport;
 
 typedef struct WASMImport {
@@ -263,6 +267,10 @@ struct WASMGlobal {
     uint8 type;
     bool is_mutable;
     InitializerExpression init_expr;
+#if WASM_ENABLE_FAST_JIT != 0
+    /* The data offset of current global in global data */
+    uint32 data_offset;
+#endif
 };
 
 typedef struct WASMExport {
