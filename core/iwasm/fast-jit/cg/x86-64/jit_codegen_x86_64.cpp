@@ -1705,10 +1705,17 @@ alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             }
             else {
                 bh_assert(reg_no_dst == REG_EDX_IDX);
+                if (reg_no2_src == REG_EDX_IDX) {
+                    /* convert `REM_S edx, eax, edx` into
+                       `mov esi, edx` and `REM_S edx eax, rsi` to
+                       avoid overwritting edx when a.cdq() */
+                    a.mov(regs_i32[REG_I32_FREE_IDX], regs_i32[REG_EDX_IDX]);
+                    reg_no2_src = REG_I32_FREE_IDX;
+                }
             }
             /* signed extend eax to edx:eax */
             a.cdq();
-            a.idiv(regs_i32[reg_no_src2]);
+            a.idiv(regs_i32[reg_no2_src]);
             break;
         case DIV_U:
         case REM_U:
@@ -1718,10 +1725,18 @@ alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             }
             else {
                 bh_assert(reg_no_dst == REG_EDX_IDX);
+                if (reg_no2_src == REG_EDX_IDX) {
+                    /* convert `REM_U edx, eax, edx` into
+                       `mov esi, edx` and `REM_U edx eax, rsi` to
+                       avoid overwritting edx when unsigned extend
+                       eax to edx:eax */
+                    a.mov(regs_i32[REG_I32_FREE_IDX], regs_i32[REG_EDX_IDX]);
+                    reg_no2_src = REG_I32_FREE_IDX;
+                }
             }
             /* unsigned extend eax to edx:eax */
             a.xor_(regs_i32[REG_EDX_IDX], regs_i32[REG_EDX_IDX]);
-            a.div(regs_i32[reg_no_src2]);
+            a.div(regs_i32[reg_no2_src]);
             break;
         default:
             bh_assert(0);
@@ -2011,7 +2026,7 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             }
             /* signed extend rax to rdx:rax */
             a.cqo();
-            a.idiv(regs_i64[reg_no_src2]);
+            a.idiv(regs_i64[reg_no2_src]);
             break;
         case DIV_U:
         case REM_U:
@@ -2024,7 +2039,7 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             }
             /* unsigned extend rax to rdx:rax */
             a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
-            a.div(regs_i64[reg_no_src2]);
+            a.div(regs_i64[reg_no2_src]);
             break;
         default:
             bh_assert(0);

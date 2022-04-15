@@ -762,7 +762,7 @@ init_func_translation(JitCompContext *cc)
     /* if frame_boundary > top_boundary, throw stack overflow exception */
     GEN_INSN(CMP, cc->cmp_reg, frame_boundary, top_boundary);
     if (!jit_emit_exception(cc, EXCE_OPERAND_STACK_OVERFLOW, JIT_OP_BGTU,
-                            cc->cmp_reg, 0)) {
+                            cc->cmp_reg, NULL)) {
         return NULL;
     }
 

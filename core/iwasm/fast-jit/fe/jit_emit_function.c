@@ -102,7 +102,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         /* Check whether there is exception thrown */
         GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
         if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ,
-                                cc->cmp_reg, 0)) {
+                                cc->cmp_reg, NULL)) {
             return false;
         }
     }
