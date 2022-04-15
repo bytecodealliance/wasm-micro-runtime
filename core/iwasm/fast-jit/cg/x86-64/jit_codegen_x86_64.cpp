@@ -1622,16 +1622,31 @@ alu_r_r_imm_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
             break;
         case DIV_S:
         case REM_S:
+            bh_assert(reg_no_src == REG_EAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+            }
+            a.mov(regs_i32[REG_I32_FREE_IDX], imm);
+            /* signed extend eax to edx:eax */
+            a.cdq();
+            a.idiv(regs_i32[REG_I32_FREE_IDX]);
+            break;
         case DIV_U:
         case REM_U:
-#if 0
-            imm_from_sz_v_s (imm, SZ32, data, true);
-            mov_r_imm (reg_I4_free, imm);
-            stream = cdq (stream);
-            idiv_r (reg_I4_free);
-#endif
-            /* TODO */
-            bh_assert(0);
+            bh_assert(reg_no_src == REG_EAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+            }
+            a.mov(regs_i32[REG_I32_FREE_IDX], imm);
+            /* unsigned extend eax to edx:eax */
+            a.xor_(regs_i32[REG_EDX_IDX], regs_i32[REG_EDX_IDX]);
+            a.div(regs_i32[REG_I32_FREE_IDX]);
             break;
         default:
             bh_assert(0);
@@ -1684,10 +1699,29 @@ alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             break;
         case DIV_S:
         case REM_S:
+            bh_assert(reg_no_src1 == REG_EAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+            }
+            /* signed extend eax to edx:eax */
+            a.cdq();
+            a.idiv(regs_i32[reg_no_src2]);
+            break;
         case DIV_U:
         case REM_U:
-            /* TODO */
-            bh_assert(0);
+            bh_assert(reg_no_src1 == REG_EAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+            }
+            /* unsigned extend eax to edx:eax */
+            a.xor_(regs_i32[REG_EDX_IDX], regs_i32[REG_EDX_IDX]);
+            a.div(regs_i32[reg_no_src2]);
             break;
         default:
             bh_assert(0);
@@ -1891,16 +1925,31 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
             break;
         case DIV_S:
         case REM_S:
+            bh_assert(reg_no_src == REG_RAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+            /* signed extend rax to rdx:rax */
+            a.cqo();
+            a.idiv(regs_i64[REG_I64_FREE_IDX]);
+            break;
         case DIV_U:
         case REM_U:
-#if 0
-            imm_from_sz_v_s (imm, SZ32, data, true);
-            mov_r_imm (reg_I4_free, imm);
-            stream = cdq (stream);
-            idiv_r (reg_I4_free);
-#endif
-            /* TODO */
-            bh_assert(0);
+            bh_assert(reg_no_src == REG_RAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+            /* unsigned extend rax to rdx:rax */
+            a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
+            a.div(regs_i64[REG_I64_FREE_IDX]);
             break;
         default:
             bh_assert(0);
@@ -1953,10 +2002,29 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             break;
         case DIV_S:
         case REM_S:
+            bh_assert(reg_no_src1 == REG_RAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            /* signed extend rax to rdx:rax */
+            a.cqo();
+            a.idiv(regs_i64[reg_no_src2]);
+            break;
         case DIV_U:
         case REM_U:
-            /* TODO */
-            bh_assert(0);
+            bh_assert(reg_no_src1 == REG_RAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            /* unsigned extend rax to rdx:rax */
+            a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
+            a.div(regs_i64[reg_no_src2]);
             break;
         default:
             bh_assert(0);

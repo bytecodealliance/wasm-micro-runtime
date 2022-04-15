@@ -180,16 +180,104 @@ compile_int_mul(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 }
 
 static bool
-compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
-                uint8 **p_frame_ip)
+compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
+                         bool is_i32, JitReg left, JitReg right, JitReg res)
 {
-    JitReg left, right, res;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
     JitReg edx_hreg = jit_codegen_get_hreg_by_name("edx");
     JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
     JitReg rdx_hreg = jit_codegen_get_hreg_by_name("rdx");
 #endif
+
+    switch (arith_op) {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        case INT_DIV_S:
+        case INT_DIV_U:
+            if (is_i32) {
+                GEN_INSN(MOV, eax_hreg, left);
+                if (arith_op == INT_DIV_S)
+                    GEN_INSN(DIV_S, eax_hreg, eax_hreg, right);
+                else
+                    GEN_INSN(DIV_U, eax_hreg, eax_hreg, right);
+                /* Just to indicate that edx is used,
+                   register allocator cannot spill it out */
+                GEN_INSN(MOV, edx_hreg, edx_hreg);
+                res = eax_hreg;
+            }
+            else {
+                GEN_INSN(MOV, rax_hreg, left);
+                /* Just to indicate that eax is used,
+                   register allocator cannot spill it out */
+                GEN_INSN(MOV, eax_hreg, eax_hreg);
+                if (arith_op == INT_DIV_S)
+                    GEN_INSN(DIV_S, rax_hreg, rax_hreg, right);
+                else
+                    GEN_INSN(DIV_U, rax_hreg, rax_hreg, right);
+                /* Just to indicate that edx is used,
+                   register allocator cannot spill it out */
+                GEN_INSN(MOV, edx_hreg, edx_hreg);
+                res = rax_hreg;
+            }
+            break;
+        case INT_REM_S:
+        case INT_REM_U:
+            if (is_i32) {
+                GEN_INSN(MOV, eax_hreg, left);
+                if (arith_op == INT_REM_S)
+                    GEN_INSN(REM_S, edx_hreg, eax_hreg, right);
+                else
+                    GEN_INSN(REM_U, edx_hreg, eax_hreg, right);
+                res = edx_hreg;
+            }
+            else {
+                GEN_INSN(MOV, rax_hreg, left);
+                /* Just to indicate that eax is used,
+                   register allocator cannot spill it out */
+                GEN_INSN(MOV, eax_hreg, eax_hreg);
+                if (arith_op == INT_REM_S)
+                    GEN_INSN(REM_S, rdx_hreg, rax_hreg, right);
+                else
+                    GEN_INSN(REM_U, rdx_hreg, rax_hreg, right);
+                /* Just to indicate that edx is used,
+                   register allocator cannot spill it out */
+                GEN_INSN(MOV, edx_hreg, edx_hreg);
+                res = rdx_hreg;
+            }
+            break;
+#else
+        case INT_DIV_S:
+            GEN_INSN(DIV_S, res, left, right);
+            break;
+        case INT_DIV_U:
+            GEN_INSN(DIV_U, res, left, right);
+            break;
+        case INT_REM_S:
+            GEN_INSN(REM_S, res, left, right);
+            break;
+        case INT_REM_U:
+            GEN_INSN(REM_U, res, left, right);
+            break;
+#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
+        default:
+            bh_assert(0);
+            return false;
+    }
+
+    if (is_i32)
+        PUSH_I32(res);
+    else
+        PUSH_I64(res);
+    return true;
+fail:
+    return false;
+}
+
+static bool
+compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
+                uint8 **p_frame_ip)
+{
+    JitReg left, right, res;
 
     bh_assert(arith_op == INT_DIV_S || arith_op == INT_DIV_U
               || arith_op == INT_REM_S || arith_op == INT_REM_U);
@@ -245,7 +333,8 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
                         GEN_INSN(CMP, cc->cmp_reg, left,
                                  NEW_CONST(I64, INT64_MIN));
 
-                    /* Throw conditional exception if overflow */
+                    /* Throw integer overflow exception if left is
+                       INT32_MIN or INT64_MIN */
                     if (!(jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW,
                                              JIT_OP_BEQ, true, NULL)))
                         goto fail;
@@ -266,152 +355,62 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
                     return true;
                 }
                 else {
-                    /* fall to default */
-                    goto handle_default;
+                    /* Build default div and rem */
+                    return compile_int_div_no_check(cc, arith_op, is_i32, left,
+                                                    right, res);
                 }
             }
-            handle_default:
             default:
             {
-                /* Build div and rem */
-                switch (arith_op) {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    case INT_DIV_S:
-                    case INT_DIV_U:
-                        if (is_i32) {
-                            GEN_INSN(MOV, eax_hreg, left);
-                            if (arith_op == INT_DIV_S)
-                                GEN_INSN(DIV_S, eax_hreg, eax_hreg, right);
-                            else
-                                GEN_INSN(DIV_U, eax_hreg, eax_hreg, right);
-                            /* Just to indicate that edx is used,
-                               register allocator cannot spill it out */
-                            GEN_INSN(MOV, edx_hreg, edx_hreg);
-                            res = eax_hreg;
-                        }
-                        else {
-                            GEN_INSN(MOV, rax_hreg, left);
-                            /* Just to indicate that eax is used,
-                               register allocator cannot spill it out */
-                            GEN_INSN(MOV, eax_hreg, eax_hreg);
-                            if (arith_op == INT_DIV_S)
-                                GEN_INSN(DIV_S, rax_hreg, rax_hreg, right);
-                            else
-                                GEN_INSN(DIV_U, rax_hreg, rax_hreg, right);
-                            /* Just to indicate that edx is used,
-                               register allocator cannot spill it out */
-                            GEN_INSN(MOV, edx_hreg, edx_hreg);
-                            res = rax_hreg;
-                        }
-                        break;
-                    case INT_REM_S:
-                    case INT_REM_U:
-                        if (is_i32) {
-                            GEN_INSN(MOV, eax_hreg, left);
-                            if (arith_op == INT_REM_S)
-                                GEN_INSN(REM_S, edx_hreg, eax_hreg, right);
-                            else
-                                GEN_INSN(REM_U, edx_hreg, eax_hreg, right);
-                            res = edx_hreg;
-                        }
-                        else {
-                            GEN_INSN(MOV, rax_hreg, left);
-                            /* Just to indicate that eax is used,
-                               register allocator cannot spill it out */
-                            GEN_INSN(MOV, eax_hreg, eax_hreg);
-                            if (arith_op == INT_REM_S)
-                                GEN_INSN(REM_S, rdx_hreg, rax_hreg, right);
-                            else
-                                GEN_INSN(REM_U, rdx_hreg, rax_hreg, right);
-                            /* Just to indicate that edx is used,
-                               register allocator cannot spill it out */
-                            GEN_INSN(MOV, edx_hreg, edx_hreg);
-                            res = rdx_hreg;
-                        }
-                        break;
-#else
-                    case INT_DIV_S:
-                        GEN_INSN(DIV_S, res, left, right);
-                        break;
-                    case INT_DIV_U:
-                        GEN_INSN(DIV_U, res, left, right);
-                        break;
-                    case INT_REM_S:
-                        GEN_INSN(REM_S, res, left, right);
-                        break;
-                    case INT_REM_U:
-                        GEN_INSN(REM_U, res, left, right);
-                        break;
-#endif /* defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) */
-                    default:
-                        bh_assert(0);
-                        return false;
-                }
-
-                if (is_i32)
-                    PUSH_I32(res);
-                else
-                    PUSH_I64(res);
-                return true;
+                /* Build default div and rem */
+                return compile_int_div_no_check(cc, arith_op, is_i32, left,
+                                                right, res);
             }
         }
     }
     else {
-#if 0
-        /* Check divied by zero */
-        LLVM_BUILD_ICMP(LLVMIntEQ, right, is_i32 ? I32_ZERO : I64_ZERO,
-                        cmp_div_zero, "cmp_div_zero");
-        ADD_BASIC_BLOCK(check_div_zero_succ, "check_div_zero_success");
+        JitReg cmp1 = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
+        JitReg cmp2 = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 
-        /* Throw conditional exception if divided by zero */
-        if (!(aot_emit_exception(comp_ctx, func_ctx,
-                                 EXCE_INTEGER_DIVIDE_BY_ZERO, true,
-                                 cmp_div_zero, check_div_zero_succ)))
+        GEN_INSN(CMP, cc->cmp_reg, right,
+                 is_i32 ? NEW_CONST(I32, 0) : NEW_CONST(I64, 0));
+        /* Throw integer divided by zero exception if right is zero */
+        if (!(jit_emit_exception(cc, EXCE_INTEGER_DIVIDE_BY_ZERO, JIT_OP_BEQ,
+                                 true, NULL)))
             goto fail;
 
         switch (arith_op) {
             case INT_DIV_S:
+            case INT_REM_S:
                 /* Check integer overflow */
-                if (is_i32)
-                    CHECK_INT_OVERFLOW(I32);
-                else
-                    CHECK_INT_OVERFLOW(I64);
-
-                ADD_BASIC_BLOCK(check_overflow_succ, "check_overflow_success");
-
-                /* Throw conditional exception if integer overflow */
-                if (!(aot_emit_exception(comp_ctx, func_ctx,
-                                         EXCE_INTEGER_OVERFLOW, true, overflow,
-                                         check_overflow_succ)))
+                GEN_INSN(CMP, cc->cmp_reg, left,
+                         is_i32 ? NEW_CONST(I32, INT32_MIN)
+                                : NEW_CONST(I64, INT64_MIN));
+                GEN_INSN(SELECTEQ, cmp1, cc->cmp_reg, NEW_CONST(I32, 1),
+                         NEW_CONST(I32, 0));
+                GEN_INSN(CMP, cc->cmp_reg, right,
+                         is_i32 ? NEW_CONST(I32, -1) : NEW_CONST(I64, -1LL));
+                GEN_INSN(SELECTEQ, cmp2, cc->cmp_reg, NEW_CONST(I32, 1),
+                         NEW_CONST(I32, 0));
+                GEN_INSN(AND, cmp1, cmp1, cmp2);
+                GEN_INSN(CMP, cc->cmp_reg, cmp1, NEW_CONST(I32, 1));
+                /* Throw integer overflow exception if left is INT32_MIN or
+                   INT64_MIN, and right is -1 */
+                if (!(jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BEQ,
+                                         true, NULL)))
                     goto fail;
 
-                LLVM_BUILD_OP(SDiv, left, right, res, "div_s", false);
-                PUSH_INT(res);
-                return true;
-            case INT_DIV_U:
-                LLVM_BUILD_OP(UDiv, left, right, res, "div_u", false);
-                PUSH_INT(res);
-                return true;
-            case INT_REM_S:
-                /*  Webassembly spec requires it return 0 */
-                if (is_i32)
-                    CHECK_INT_OVERFLOW(I32);
-                else
-                    CHECK_INT_OVERFLOW(I64);
-                return compile_rems(comp_ctx, func_ctx, left, right, overflow,
-                                    is_i32);
-            case INT_REM_U:
-                LLVM_BUILD_OP(URem, left, right, res, "rem_u", false);
-                PUSH_INT(res);
+                /* Build default div and rem */
+                return compile_int_div_no_check(cc, arith_op, is_i32, left,
+                                                right, res);
                 return true;
             default:
-                bh_assert(0);
-                return false;
+                /* Build default div and rem */
+                return compile_int_div_no_check(cc, arith_op, is_i32, left,
+                                                right, res);
         }
-#endif
     }
 
-    return true;
 fail:
     return false;
 }
