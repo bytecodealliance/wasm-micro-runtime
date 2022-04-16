@@ -617,11 +617,15 @@ form_and_translate_func(JitCompContext *cc)
             }
             cc->cur_basic_block = cc->exce_basic_blocks[i];
             if (i != EXCE_ALREADY_THROWN) {
+                JitReg module_inst_reg = jit_cc_new_reg_ptr(cc);
+                GEN_INSN(LDPTR, module_inst_reg, cc->exec_env_reg,
+                         NEW_CONST(I32, offsetof(WASMExecEnv, module_inst)));
                 insn = GEN_INSN(
                     CALLNATIVE, 0,
-                    NEW_CONST(PTR, (uintptr_t)jit_set_exception_with_id), 1);
+                    NEW_CONST(PTR, (uintptr_t)jit_set_exception_with_id), 2);
                 if (insn) {
-                    *(jit_insn_opndv(insn, 2)) = NEW_CONST(I32, i);
+                    *(jit_insn_opndv(insn, 2)) = module_inst_reg;
+                    *(jit_insn_opndv(insn, 3)) = NEW_CONST(I32, i);
                 }
             }
             GEN_INSN(RETURN, NEW_CONST(I32, JIT_INTERP_ACTION_THROWN));

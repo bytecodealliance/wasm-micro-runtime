@@ -1699,7 +1699,7 @@ alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             break;
         case DIV_S:
         case REM_S:
-            bh_assert(reg_no_src1 == REG_EAX_IDX);
+            bh_assert(reg_no1_src == REG_EAX_IDX);
             if (op == DIV_S) {
                 bh_assert(reg_no_dst == REG_EAX_IDX);
             }
@@ -1719,7 +1719,7 @@ alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             break;
         case DIV_U:
         case REM_U:
-            bh_assert(reg_no_src1 == REG_EAX_IDX);
+            bh_assert(reg_no1_src == REG_EAX_IDX);
             if (op == DIV_U) {
                 bh_assert(reg_no_dst == REG_EAX_IDX);
             }
@@ -2017,7 +2017,7 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             break;
         case DIV_S:
         case REM_S:
-            bh_assert(reg_no_src1 == REG_RAX_IDX);
+            bh_assert(reg_no1_src == REG_RAX_IDX);
             if (op == DIV_S) {
                 bh_assert(reg_no_dst == REG_RAX_IDX);
             }
@@ -2030,7 +2030,7 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             break;
         case DIV_U:
         case REM_U:
-            bh_assert(reg_no_src1 == REG_RAX_IDX);
+            bh_assert(reg_no1_src == REG_RAX_IDX);
             if (op == DIV_U) {
                 bh_assert(reg_no_dst == REG_RAX_IDX);
             }
@@ -2334,7 +2334,28 @@ alu_r_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 static bool
 bit_r_imm_i32(x86::Assembler &a, BIT_OP op, int32 reg_no, int32 data)
 {
-    return false;
+    Imm imm(data);
+
+    switch (op) {
+        case OR:
+            if (data != 0)
+                a.or_(regs_i32[reg_no], imm);
+            break;
+        case XOR:
+            if (data == -1)
+                a.not_(regs_i32[reg_no]);
+            else if (data != 0)
+                a.xor_(regs_i32[reg_no], imm);
+            break;
+        case AND:
+            if (data != -1)
+                a.and_(regs_i32[reg_no], imm);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+    return true;
 }
 
 /**
@@ -2350,7 +2371,21 @@ bit_r_imm_i32(x86::Assembler &a, BIT_OP op, int32 reg_no, int32 data)
 static bool
 bit_r_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst, int32 reg_no_src)
 {
-    return false;
+    switch (op) {
+        case OR:
+            a.or_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        case XOR:
+            a.xor_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        case AND:
+            a.and_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+    return true;
 }
 
 /**
@@ -2368,7 +2403,25 @@ static bool
 bit_imm_imm_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                      int32 data1_src, int32 data2_src)
 {
-    return false;
+    Imm imm;
+
+    switch (op) {
+        case OR:
+            imm.setValue(data1_src | data2_src);
+            break;
+        case XOR:
+            imm.setValue(data1_src ^ data2_src);
+            break;
+        case AND:
+            imm.setValue(data1_src & data2_src);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    a.mov(regs_i32[reg_no_dst], imm);
+    return true;
 }
 
 /**
@@ -2386,7 +2439,17 @@ static bool
 bit_imm_r_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int32 data1_src, int32 reg_no2_src)
 {
-    return false;
+    if (op == AND && data1_src == 0)
+        a.xor_(regs_i32[reg_no_dst], regs_i32[reg_no_dst]);
+    else if (op == OR && data1_src == -1) {
+        Imm imm(-1);
+        a.mov(regs_i32[reg_no_dst], imm);
+    }
+    else {
+        mov_r_to_r_i32(a, reg_no_dst, reg_no2_src);
+        return bit_r_imm_i32(a, op, reg_no_dst, data1_src);
+    }
+    return true;
 }
 
 /**
@@ -2404,7 +2467,7 @@ static bool
 bit_r_imm_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 data2_src)
 {
-    return false;
+    return bit_imm_r_to_r_i32(a, op, reg_no_dst, data2_src, reg_no1_src);
 }
 
 /**
@@ -2422,6 +2485,12 @@ static bool
 bit_r_r_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                  int32 reg_no1_src, int32 reg_no2_src)
 {
+    if (reg_no_dst != reg_no2_src) {
+        mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+        return bit_r_r_i32(a, op, reg_no_dst, reg_no2_src);
+    }
+    else
+        return bit_r_r_i32(a, op, reg_no_dst, reg_no1_src);
     return false;
 }
 
