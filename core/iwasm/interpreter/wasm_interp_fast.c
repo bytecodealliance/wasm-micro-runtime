@@ -764,7 +764,7 @@ static inline int64
 sign_ext_8_64(int8 val)
 {
     if (val & 0x80)
-        return (int64)val | (int64)0xffffffffffffff00;
+        return (int64)val | (int64)0xffffffffffffff00LL;
     return val;
 }
 
@@ -772,7 +772,7 @@ static inline int64
 sign_ext_16_64(int16 val)
 {
     if (val & 0x8000)
-        return (int64)val | (int64)0xffffffffffff0000;
+        return (int64)val | (int64)0xffffffffffff0000LL;
     return val;
 }
 
@@ -780,15 +780,19 @@ static inline int64
 sign_ext_32_64(int32 val)
 {
     if (val & (int32)0x80000000)
-        return (int64)val | (int64)0xffffffff00000000;
+        return (int64)val | (int64)0xffffffff00000000LL;
     return val;
 }
 
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
-    for (; num > 0; num--)
-        *dest++ = *src++;
+    if (dest != src) {
+        /* No overlap buffer */
+        bh_assert(!((src < dest) && (dest < src + num)));
+        for (; num > 0; num--)
+            *dest++ = *src++;
+    }
 }
 
 static inline WASMInterpFrame *
