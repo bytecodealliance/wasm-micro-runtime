@@ -877,7 +877,7 @@ wasmtime_ssp_fd_pread(
         // Copy data back to vectors.
         size_t bufoff = 0;
         for (size_t i = 0; i < iovcnt; ++i) {
-            if (bufoff + iov[i].buf_len < len) {
+            if (bufoff + iov[i].buf_len < (size_t)len) {
                 bh_memcpy_s(iov[i].buf, iov[i].buf_len, buf + bufoff,
                             iov[i].buf_len);
                 bufoff += iov[i].buf_len;
@@ -1356,8 +1356,9 @@ wasmtime_ssp_fd_allocate(
     // conditions. We may end up shrinking the file right now.
     struct stat sb;
     int ret = fstat(fd_number(fo), &sb);
-    if (ret == 0 && sb.st_size < offset + len)
-        ret = ftruncate(fd_number(fo), offset + len);
+    off_t newsize = (off_t)(offset + len);
+    if (ret == 0 && sb.st_size < newsize)
+        ret = ftruncate(fd_number(fo), newsize);
 #endif
 
     fd_object_release(fo);

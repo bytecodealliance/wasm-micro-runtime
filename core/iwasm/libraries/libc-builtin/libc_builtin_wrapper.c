@@ -81,9 +81,10 @@ typedef char *_va_list;
     int32 n;                                                 \
                                                              \
     /* additional 2 bytes: one is the format char,           \
-     * the other is `\0` */                                  \
-    if (fmt - fmt_start_addr + 2 >= fmt_buf_len) {           \
-        bh_assert(fmt - fmt_start_addr <= UINT32_MAX - 2);   \
+       the other is `\0` */                                  \
+    if ((uint32)(fmt - fmt_start_addr + 2) >= fmt_buf_len) { \
+        bh_assert((uint32)(fmt - fmt_start_addr) <=          \
+                  UINT32_MAX - 2);                           \
         fmt_buf_len = fmt - fmt_start_addr + 2;              \
         if (!(fmt_buf = wasm_runtime_malloc(fmt_buf_len))) { \
             print_err(out, ctx);                             \
