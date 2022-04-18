@@ -426,7 +426,13 @@ static bool
 extend_r8_to_r32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
                  bool is_signed)
 {
-    return false;
+    if (is_signed) {
+        a.movsx(regs_i32[reg_no_dst], regs_i8[reg_no_src]);
+    }
+    else {
+        a.movzx(regs_i32[reg_no_dst], regs_i8[reg_no_src]);
+    }
+    return true;
 }
 /**
  * Encode extending register of word to register of dword
@@ -441,7 +447,13 @@ static bool
 extend_r16_to_r32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
                   bool is_signed)
 {
-    return false;
+    if (is_signed) {
+        a.movsx(regs_i32[reg_no_dst], regs_i16[reg_no_src]);
+    }
+    else {
+        a.movzx(regs_i32[reg_no_dst], regs_i16[reg_no_src]);
+    }
+    return true;
 }
 
 /**
@@ -457,7 +469,13 @@ static bool
 extend_r8_to_r64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
                  bool is_signed)
 {
-    return false;
+    if (is_signed) {
+        a.movsx(regs_i64[reg_no_dst], regs_i8[reg_no_src]);
+    }
+    else {
+        a.movzx(regs_i64[reg_no_dst], regs_i8[reg_no_src]);
+    }
+    return true;
 }
 
 /**
@@ -473,7 +491,13 @@ static bool
 extend_r16_to_r64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
                   bool is_signed)
 {
-    return false;
+    if (is_signed) {
+        a.movsx(regs_i64[reg_no_dst], regs_i16[reg_no_src]);
+    }
+    else {
+        a.movzx(regs_i64[reg_no_dst], regs_i16[reg_no_src]);
+    }
+    return true;
 }
 
 /**
@@ -489,29 +513,40 @@ static bool
 extend_r32_to_r64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
                   bool is_signed)
 {
-    return false;
+    if (is_signed) {
+        a.movsxd(regs_i64[reg_no_dst], regs_i32[reg_no_src]);
+    }
+    else {
+        a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
+        a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+    }
+    return true;
 }
+
+static bool
+mov_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src);
+
+static bool
+mov_r_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src);
 
 static void
 mov_r_to_r(x86::Assembler &a, uint32 kind_dst, int32 reg_no_dst,
            int32 reg_no_src)
 {
-    if (reg_no_dst != reg_no_src) {
-        if (kind_dst == JIT_REG_KIND_I32)
-            a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
-        else if (kind_dst == JIT_REG_KIND_I64)
-            a.mov(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
-        else if (kind_dst == JIT_REG_KIND_F32) {
-            /* TODO */
-            bh_assert(0);
-        }
-        else if (kind_dst == JIT_REG_KIND_F64) {
-            /* TODO */
-            bh_assert(0);
-        }
-        else {
-            bh_assert(0);
-        }
+    if (kind_dst == JIT_REG_KIND_I32)
+        mov_r_to_r_i32(a, reg_no_dst, reg_no_src);
+    else if (kind_dst == JIT_REG_KIND_I64)
+        mov_r_to_r_i64(a, reg_no_dst, reg_no_src);
+    else if (kind_dst == JIT_REG_KIND_F32) {
+        /* TODO */
+        bh_assert(0);
+    }
+    else if (kind_dst == JIT_REG_KIND_F64) {
+        /* TODO */
+        bh_assert(0);
+    }
+    else {
+        bh_assert(0);
     }
 }
 
@@ -1109,7 +1144,9 @@ mov_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_i8(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    return false;
+    Imm imm((int8)data);
+    a.mov(regs_i32[reg_no], imm);
+    return true;
 }
 
 /**
@@ -1124,6 +1161,8 @@ convert_imm_i32_to_r_i8(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_i8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
+    /* TODO */
+    bh_assert(0);
     return false;
 }
 
@@ -1139,7 +1178,9 @@ convert_r_i32_to_r_i8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_u8(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    return false;
+    Imm imm((uint8)data);
+    a.mov(regs_i32[reg_no], imm);
+    return true;
 }
 
 /**
@@ -1154,6 +1195,8 @@ convert_imm_i32_to_r_u8(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_u8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
+    /* TODO */
+    bh_assert(0);
     return false;
 }
 
@@ -1169,7 +1212,9 @@ convert_r_i32_to_r_u8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_i16(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    return false;
+    Imm imm((int16)data);
+    a.mov(regs_i32[reg_no], imm);
+    return true;
 }
 
 /**
@@ -1184,6 +1229,8 @@ convert_imm_i32_to_r_i16(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_i16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
+    /* TODO */
+    bh_assert(0);
     return false;
 }
 
@@ -1199,7 +1246,9 @@ convert_r_i32_to_r_i16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_u16(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    return false;
+    Imm imm((uint16)data);
+    a.mov(regs_i32[reg_no], imm);
+    return true;
 }
 
 /**
@@ -1214,11 +1263,13 @@ convert_imm_i32_to_r_u16(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_u16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
+    /* TODO */
+    bh_assert(0);
     return false;
 }
 
 /**
- * Encoding convert int32 immediate data to uint64 register
+ * Encoding convert int32 immediate data to int64 register
  *
  * @param a the assembler to emit the code
  * @param reg_no the dst register, need to be converted to uint64
@@ -1227,13 +1278,16 @@ convert_r_i32_to_r_u16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
  * @return  true if success, false otherwise
  */
 static bool
-convert_imm_i32_to_r_u64(x86::Assembler &a, int32 reg_no, int32 data)
+convert_imm_i32_to_r_i64(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    return false;
+    /* let compiler do sign-extending */
+    Imm imm((int64)data);
+    a.mov(regs_i64[reg_no], imm);
+    return true;
 }
 
 /**
- * Encoding convert int32 immediate data to uint64 register
+ * Encoding convert int32 register data to int64 register with signed extension
  *
  * @param a the assembler to emit the code
  * @param reg_no_dst the dst register, need to be converted to uint64
@@ -1242,9 +1296,9 @@ convert_imm_i32_to_r_u64(x86::Assembler &a, int32 reg_no, int32 data)
  * @return true if success, false otherwise
  */
 static bool
-convert_r_i32_to_r_u64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+convert_r_i32_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    return false;
+    return extend_r32_to_r64(a, reg_no_dst, reg_no_src, true);
 }
 
 /**
@@ -1303,6 +1357,132 @@ convert_imm_i32_to_r_f64(x86::Assembler &a, int32 reg_no, int32 data)
  */
 static bool
 convert_r_i32_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return false;
+}
+
+/**
+ * Encode converting uint32 immediate data to int64 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of dst int64 register
+ * @param data the src immediate uint32 data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_imm_u32_to_r_i64(x86::Assembler &a, int32 reg_no, uint32 data)
+{
+    Imm imm((uint64)data);
+    a.mov(regs_i64[reg_no], imm);
+    return true;
+}
+
+/**
+ * Encode converting uint32 register data to int64 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the no of dst uint32 register
+ * @param reg_no_src the no of src int64 register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_r_u32_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return extend_r32_to_r64(a, reg_no_dst, reg_no_src, false);
+}
+
+/**
+ * Encode converting int64 immediate data to int32 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of dst int32 register
+ * @param data the src immediate int64 data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_imm_i64_to_r_i32(x86::Assembler &a, int32 reg_no, int64 data)
+{
+    Imm imm((int32)data);
+    a.mov(regs_i32[reg_no], imm);
+    return true;
+}
+
+/**
+ * Encode converting int64 register data to int32 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the no of dst int32 register
+ * @param reg_no_src the no of src int64 register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_r_i64_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    /* TODO */
+    bh_assert(0);
+    return false;
+}
+
+/**
+ * Encode converting int64 immediate data to float register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of dst float register
+ * @param data the src immediate int64 data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_imm_i64_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int64 data)
+{
+    return false;
+}
+
+/**
+ * Encode converting int64 register data to float register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the no of dst float register
+ * @param reg_no_src the no of src int64 register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_r_i64_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return false;
+}
+
+/**
+ * Encode converting int64 immediate data to double register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of dst double register
+ * @param data the src immediate int64 data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_imm_i64_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int64 data)
+{
+    return false;
+}
+
+/**
+ * Encode converting int64 register data to double register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the no of dst double register
+ * @param reg_no_src the no of src int64 register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_r_i64_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
     return false;
 }
@@ -1393,6 +1573,36 @@ convert_imm_f64_to_r_i32(x86::Assembler &a, int32 reg_no, double data)
  */
 static bool
 convert_r_f64_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return false;
+}
+
+/**
+ * Encode converting double immediate data to int64 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of dst int64 register
+ * @param data the src immediate double data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_imm_f64_to_r_i64(x86::Assembler &a, int32 reg_no, double data)
+{
+    return false;
+}
+
+/**
+ * Encode converting double register data to int64 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the no of dst int64 register
+ * @param reg_no_src the no of src double register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_r_f64_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
     return false;
 }
@@ -3370,10 +3580,12 @@ fail:
 
 /**
  * Encode insn convert: I32TOI8 r0, r1, or I32TOI16, I32TOF32, F32TOF64, etc.
- * @param kind0 the dst data kind, such as I32, I64, F32 and F64
- * @param kind1 the src data kind, such as I32, I64, F32 and F64
- * @param type0 the dst data type, such as int32, float and double
- * @param type1 the src data type, such as int32, float and double
+ * @param kind0 the dst JIT_REG_KIND, such as I32, I64, F32 and F64
+ * @param kind1 the src JIT_REG_KIND, such as I32, I64, F32 and F64
+ * @param type0 the dst data type, such as i8, u8, i16, u16, i32, f32, i64, f32,
+ * f64
+ * @param type1 the src data type, such as i8, u8, i16, u16, i32, f32, i64, f32,
+ * f64
  */
 #define CONVERT_R_R(kind0, kind1, type0, type1, Type1)                       \
     do {                                                                     \
@@ -3670,8 +3882,9 @@ fail:
  * @param cc the compiler context
  * @param a the assembler to emit the code
  * @param r0 dst jit register that contains the dst operand info
- * @param r1 src jit register that contains the first src operand info
- * @param r2 src jit register that contains the second src operand info
+ * @param r1 condition jit register
+ * @param r2 src jit register that contains the first src operand info
+ * @param r3 src jit register that contains the second src operand info
  *
  * @return true if success, false if failed
  */
@@ -4373,6 +4586,16 @@ jit_codegen_gen_native(JitCompContext *cc)
                     CONVERT_R_R(I32, I32, u16, i32, int32);
                     break;
 
+                case JIT_OP_I32TOI64:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I64, I32, i64, i32, int32);
+                    break;
+
+                case JIT_OP_U32TOI64:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I64, I32, i64, u32, int32);
+                    break;
+
                 case JIT_OP_I32TOF32:
                 case JIT_OP_U32TOF32:
                     LOAD_2ARGS();
@@ -4383,6 +4606,21 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_U32TOF64:
                     LOAD_2ARGS();
                     CONVERT_R_R(F64, I32, f64, i32, int32);
+                    break;
+
+                case JIT_OP_I64TOI32:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I32, I64, i32, i64, int64);
+                    break;
+
+                case JIT_OP_I64TOF32:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(F32, I64, f32, i64, int64);
+                    break;
+
+                case JIT_OP_I64TOF64:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(F64, I64, f64, i64, int64);
                     break;
 
                 case JIT_OP_F32TOI32:
@@ -4398,6 +4636,11 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_F64TOI32:
                     LOAD_2ARGS();
                     CONVERT_R_R(I32, F64, i32, f64, float64);
+                    break;
+
+                case JIT_OP_F64TOI64:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I64, F64, i64, f64, float64);
                     break;
 
                 case JIT_OP_F64TOF32:
