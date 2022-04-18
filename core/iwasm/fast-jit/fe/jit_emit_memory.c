@@ -73,7 +73,7 @@ check_and_seek_on_64bit_platform(JitCompContext *cc, JitReg addr, JitReg offset,
     /* if (offset1 > memory_boundary) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, memory_boundary);
     if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, JIT_OP_BGTU,
-                            cc->cmp_reg, 0)) {
+                            cc->cmp_reg, NULL)) {
         goto fail;
     }
 
@@ -95,14 +95,14 @@ check_and_seek_on_32bit_platform(JitCompContext *cc, JitReg addr, JitReg offset,
     /* if (offset1 < addr) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, addr);
     if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, JIT_OP_BLTU,
-                            cc->cmp_reg, 0)) {
+                            cc->cmp_reg, NULL)) {
         goto fail;
     }
 
     /* if (offset1 > memory_boundary) goto EXCEPTION */
     GEN_INSN(CMP, cc->cmp_reg, offset1, memory_boundary);
     if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS, JIT_OP_BGTU,
-                            cc->cmp_reg, 0)) {
+                            cc->cmp_reg, NULL)) {
         goto fail;
     }
 
@@ -131,7 +131,7 @@ check_and_seek(JitCompContext *cc, JitReg addr, uint32 offset, uint32 bytes)
                  NEW_CONST(I32, offsetof(WASMMemoryInstance, cur_page_count)));
         GEN_INSN(CMP, cc->cmp_reg, cur_mem_page_count, NEW_CONST(I32, 0));
         if (!jit_emit_exception(cc, EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-                                JIT_OP_BEQ, cc->cmp_reg, 0)) {
+                                JIT_OP_BEQ, cc->cmp_reg, NULL)) {
             goto fail;
         }
     }
@@ -181,32 +181,20 @@ jit_compile_op_i32_load(JitCompContext *cc, uint32 align, uint32 offset,
         case 1:
         {
             if (sign) {
-                JitReg tmp1 = jit_cc_new_reg_I32(cc);
-                JitReg tmp2 = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDI8, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(SHL, tmp2, tmp1, NEW_CONST(I32, 24));
-                GEN_INSN(SHRS, value, tmp2, NEW_CONST(I32, 24));
+                GEN_INSN(LDI8, value, maddr, NEW_CONST(I32, 0));
             }
             else {
-                JitReg tmp1 = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDU8, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(AND, value, tmp1, NEW_CONST(I32, 0x000000FF));
+                GEN_INSN(LDU8, value, maddr, NEW_CONST(I32, 0));
             }
             break;
         }
         case 2:
         {
             if (sign) {
-                JitReg tmp1 = jit_cc_new_reg_I32(cc);
-                JitReg tmp2 = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDI16, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(SHL, tmp2, tmp1, NEW_CONST(I32, 16));
-                GEN_INSN(SHRS, value, tmp2, NEW_CONST(I32, 16));
+                GEN_INSN(LDI16, value, maddr, NEW_CONST(I32, 0));
             }
             else {
-                JitReg tmp1 = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDU16, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(AND, value, tmp1, NEW_CONST(I32, 0x0000FFFF));
+                GEN_INSN(LDU16, value, maddr, NEW_CONST(I32, 0));
             }
             break;
         }
@@ -251,48 +239,30 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
         case 1:
         {
             if (sign) {
-                JitReg tmp1 = jit_cc_new_reg_I64(cc);
-                JitReg tmp2 = jit_cc_new_reg_I64(cc);
-                GEN_INSN(LDI8, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(SHL, tmp2, tmp1, NEW_CONST(I32, 56));
-                GEN_INSN(SHRS, value, tmp2, NEW_CONST(I32, 56));
+                GEN_INSN(LDI8, value, maddr, NEW_CONST(I32, 0));
             }
             else {
-                JitReg tmp1 = jit_cc_new_reg_I64(cc);
-                GEN_INSN(LDU8, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(AND, value, tmp1, NEW_CONST(I32, (uint64)0xff));
+                GEN_INSN(LDU8, value, maddr, NEW_CONST(I32, 0));
             }
             break;
         }
         case 2:
         {
             if (sign) {
-                JitReg tmp1 = jit_cc_new_reg_I64(cc);
-                JitReg tmp2 = jit_cc_new_reg_I64(cc);
-                GEN_INSN(LDI16, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(SHL, tmp2, tmp1, NEW_CONST(I32, 48));
-                GEN_INSN(SHRS, value, tmp2, NEW_CONST(I32, 48));
+                GEN_INSN(LDI16, value, maddr, NEW_CONST(I32, 0));
             }
             else {
-                JitReg tmp1 = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDU16, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(AND, value, tmp1, NEW_CONST(I32, (uint64)0xFFFF));
+                GEN_INSN(LDU16, value, maddr, NEW_CONST(I32, 0));
             }
             break;
         }
         case 4:
         {
             if (sign) {
-                JitReg tmp1 = jit_cc_new_reg_I64(cc);
-                JitReg tmp2 = jit_cc_new_reg_I64(cc);
-                GEN_INSN(LDI16, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(SHL, tmp2, tmp1, NEW_CONST(I32, 32));
-                GEN_INSN(SHRS, value, tmp2, NEW_CONST(I32, 32));
+                GEN_INSN(LDI16, value, maddr, NEW_CONST(I32, 0));
             }
             else {
-                JitReg tmp1 = jit_cc_new_reg_I32(cc);
-                GEN_INSN(LDU16, tmp1, maddr, NEW_CONST(I32, 0));
-                GEN_INSN(AND, value, tmp1, NEW_CONST(I32, (uint64)0xFFFFFFFF));
+                GEN_INSN(LDU16, value, maddr, NEW_CONST(I32, 0));
             }
             break;
         }
