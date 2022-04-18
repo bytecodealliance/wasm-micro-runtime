@@ -529,7 +529,6 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             default:
                 bh_assert(0);
                 return false;
-                ;
         }
     }
 

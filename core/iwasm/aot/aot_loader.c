@@ -1850,7 +1850,9 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  || !strcmp(symbol, ".rdata")
                  || !strcmp(symbol, ".rodata")
                  /* ".rodata.cst4/8/16/.." */
-                 || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))) {
+                 || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
+                 /* ".rodata.strn.m" */
+                 || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))) {
             symbol_addr = get_data_section_addr(module, symbol, NULL);
             if (!symbol_addr) {
                 set_error_buf_v(error_buf, error_buf_size,
@@ -2314,7 +2316,10 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(data_section->name, ".rodata")
             /* ".rodata.cst4/8/16/.." */
             || !strncmp(data_section->name, ".rodata.cst",
-                        strlen(".rodata.cst"))) {
+                        strlen(".rodata.cst"))
+            /* ".rodata.strn.m" */
+            || !strncmp(data_section->name, ".rodata.str",
+                        strlen(".rodata.str"))) {
             os_mprotect(data_section->data, data_section->size, map_prot);
         }
     }
