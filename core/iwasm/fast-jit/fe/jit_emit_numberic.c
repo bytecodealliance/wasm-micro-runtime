@@ -472,16 +472,128 @@ jit_compile_op_i64_bitwise(JitCompContext *cc, IntBitwise bitwise_op)
     return false;
 }
 
+static bool
+compile_int_shift(JitCompContext *cc, IntShift shift_op, bool is_i32)
+{
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
+    JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+#endif
+    JitReg left, right, mod_right, res;
+
+    POP_INT(right);
+    POP_INT(left);
+
+    /* right modulo N */
+    if (jit_reg_is_const(right)) {
+        if (is_i32) {
+            int32 right_value = jit_cc_get_const_I32(cc, right);
+            right_value = right_value & 0x1f;
+            if (0 == right_value) {
+                res = left;
+                goto shortcut;
+            }
+            else {
+                mod_right = NEW_CONST(I32, right_value);
+            }
+        }
+        else {
+            int64 right_value = jit_cc_get_const_I64(cc, right);
+            right_value = right_value & 0x3f;
+            if (0 == right_value) {
+                res = left;
+                goto shortcut;
+            }
+            else {
+                mod_right = NEW_CONST(I64, right_value);
+            }
+        }
+    }
+    else {
+        if (is_i32) {
+            mod_right = jit_cc_new_reg_I32(cc);
+            GEN_INSN(AND, mod_right, right, NEW_CONST(I32, 0x1f));
+        }
+        else {
+            mod_right = jit_cc_new_reg_I64(cc);
+            GEN_INSN(AND, mod_right, right, NEW_CONST(I64, 0x3f));
+        }
+    }
+
+    /* do shift */
+    if (is_i32) {
+        res = jit_cc_new_reg_I32(cc);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        GEN_INSN(MOV, ecx_hreg, mod_right);
+#endif
+    }
+    else {
+        res = jit_cc_new_reg_I64(cc);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        GEN_INSN(MOV, rcx_hreg, mod_right);
+#endif
+    }
+
+    switch (shift_op) {
+        case INT_SHL:
+        {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+            GEN_INSN(SHL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+#else
+            GEN_INSN(SHL, res, left, mod_right);
+#endif
+            break;
+        }
+        case INT_SHR_S:
+        {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+            GEN_INSN(SHRS, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+#else
+            GEN_INSN(SHRS, res, left, mod_right);
+#endif
+            break;
+        }
+        case INT_SHR_U:
+        {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+            GEN_INSN(SHRU, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+#else
+            GEN_INSN(SHRU, res, left, mod_right);
+#endif
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+        /**
+         * Just to indicate that ecx is used, register allocator cannot spill
+         * it out. Especially when rcx is ued.
+         */
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+#endif
+
+shortcut:
+    PUSH_INT(res);
+    return true;
+fail:
+    return false;
+}
+
 bool
 jit_compile_op_i32_shift(JitCompContext *cc, IntShift shift_op)
 {
-    return false;
+    return compile_int_shift(cc, shift_op, true);
 }
 
 bool
 jit_compile_op_i64_shift(JitCompContext *cc, IntShift shift_op)
 {
-    return false;
+    return compile_int_shift(cc, shift_op, false);
 }
 
 bool
