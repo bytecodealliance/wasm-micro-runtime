@@ -214,7 +214,7 @@ class JitErrorHandler : public ErrorHandler
 };
 
 /* Alu opcode */
-typedef enum { ADD, SUB, MUL, DIV, REM } ALU_OP;
+typedef enum { ADD, SUB, MUL, DIV_S, REM_S, DIV_U, REM_U } ALU_OP;
 /* Bit opcode */
 typedef enum { OR, XOR, AND } BIT_OP;
 /* Shift opcode */
@@ -1620,16 +1620,33 @@ alu_r_r_imm_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.imul(regs_i32[reg_no_dst], regs_i32[reg_no_src], imm);
             }
             break;
-        case DIV:
-        case REM:
-#if 0
-            imm_from_sz_v_s (imm, SZ32, data, true);
-            mov_r_imm (reg_I4_free, imm);
-            stream = cdq (stream);
-            idiv_r (reg_I4_free);
-#endif
-            /* TODO */
-            bh_assert(0);
+        case DIV_S:
+        case REM_S:
+            bh_assert(reg_no_src == REG_EAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+            }
+            a.mov(regs_i32[REG_I32_FREE_IDX], imm);
+            /* signed extend eax to edx:eax */
+            a.cdq();
+            a.idiv(regs_i32[REG_I32_FREE_IDX]);
+            break;
+        case DIV_U:
+        case REM_U:
+            bh_assert(reg_no_src == REG_EAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+            }
+            a.mov(regs_i32[REG_I32_FREE_IDX], imm);
+            /* unsigned extend eax to edx:eax */
+            a.xor_(regs_i32[REG_EDX_IDX], regs_i32[REG_EDX_IDX]);
+            a.div(regs_i32[REG_I32_FREE_IDX]);
             break;
         default:
             bh_assert(0);
@@ -1680,10 +1697,46 @@ alu_r_r_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             else
                 a.imul(regs_i32[reg_no2_src], regs_i32[reg_no1_src]);
             break;
-        case DIV:
-        case REM:
-            /* TODO */
-            bh_assert(0);
+        case DIV_S:
+        case REM_S:
+            bh_assert(reg_no1_src == REG_EAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+                if (reg_no2_src == REG_EDX_IDX) {
+                    /* convert `REM_S edx, eax, edx` into
+                       `mov esi, edx` and `REM_S edx eax, rsi` to
+                       avoid overwritting edx when a.cdq() */
+                    a.mov(regs_i32[REG_I32_FREE_IDX], regs_i32[REG_EDX_IDX]);
+                    reg_no2_src = REG_I32_FREE_IDX;
+                }
+            }
+            /* signed extend eax to edx:eax */
+            a.cdq();
+            a.idiv(regs_i32[reg_no2_src]);
+            break;
+        case DIV_U:
+        case REM_U:
+            bh_assert(reg_no1_src == REG_EAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_EAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_EDX_IDX);
+                if (reg_no2_src == REG_EDX_IDX) {
+                    /* convert `REM_U edx, eax, edx` into
+                       `mov esi, edx` and `REM_U edx eax, rsi` to
+                       avoid overwritting edx when unsigned extend
+                       eax to edx:eax */
+                    a.mov(regs_i32[REG_I32_FREE_IDX], regs_i32[REG_EDX_IDX]);
+                    reg_no2_src = REG_I32_FREE_IDX;
+                }
+            }
+            /* unsigned extend eax to edx:eax */
+            a.xor_(regs_i32[REG_EDX_IDX], regs_i32[REG_EDX_IDX]);
+            a.div(regs_i32[reg_no2_src]);
             break;
         default:
             bh_assert(0);
@@ -1721,11 +1774,17 @@ alu_imm_imm_to_r_i32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
         case MUL:
             data = data1_src * data2_src;
             break;
-        case DIV:
+        case DIV_S:
             data = data1_src / data2_src;
             break;
-        case REM:
+        case REM_S:
             data = data1_src % data2_src;
+            break;
+        case DIV_U:
+            data = (uint32)data1_src / (uint32)data2_src;
+            break;
+        case REM_U:
+            data = (uint32)data1_src % (uint32)data2_src;
             break;
         default:
             bh_assert(0);
@@ -1879,16 +1938,33 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.imul(regs_i64[reg_no_dst], regs_i64[reg_no_src], imm);
             }
             break;
-        case DIV:
-        case REM:
-#if 0
-            imm_from_sz_v_s (imm, SZ32, data, true);
-            mov_r_imm (reg_I4_free, imm);
-            stream = cdq (stream);
-            idiv_r (reg_I4_free);
-#endif
-            /* TODO */
-            bh_assert(0);
+        case DIV_S:
+        case REM_S:
+            bh_assert(reg_no_src == REG_RAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+            /* signed extend rax to rdx:rax */
+            a.cqo();
+            a.idiv(regs_i64[REG_I64_FREE_IDX]);
+            break;
+        case DIV_U:
+        case REM_U:
+            bh_assert(reg_no_src == REG_RAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+            /* unsigned extend rax to rdx:rax */
+            a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
+            a.div(regs_i64[REG_I64_FREE_IDX]);
             break;
         default:
             bh_assert(0);
@@ -1939,10 +2015,31 @@ alu_r_r_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst, int32 reg_no1_src,
             else
                 a.imul(regs_i64[reg_no2_src], regs_i64[reg_no1_src]);
             break;
-        case DIV:
-        case REM:
-            /* TODO */
-            bh_assert(0);
+        case DIV_S:
+        case REM_S:
+            bh_assert(reg_no1_src == REG_RAX_IDX);
+            if (op == DIV_S) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            /* signed extend rax to rdx:rax */
+            a.cqo();
+            a.idiv(regs_i64[reg_no2_src]);
+            break;
+        case DIV_U:
+        case REM_U:
+            bh_assert(reg_no1_src == REG_RAX_IDX);
+            if (op == DIV_U) {
+                bh_assert(reg_no_dst == REG_RAX_IDX);
+            }
+            else {
+                bh_assert(reg_no_dst == REG_RDX_IDX);
+            }
+            /* unsigned extend rax to rdx:rax */
+            a.xor_(regs_i64[REG_RDX_IDX], regs_i64[REG_RDX_IDX]);
+            a.div(regs_i64[reg_no2_src]);
             break;
         default:
             bh_assert(0);
@@ -1980,11 +2077,17 @@ alu_imm_imm_to_r_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
         case MUL:
             data = data1_src * data2_src;
             break;
-        case DIV:
+        case DIV_S:
             data = data1_src / data2_src;
             break;
-        case REM:
+        case REM_S:
             data = data1_src % data2_src;
+            break;
+        case DIV_U:
+            data = (uint64)data1_src / (uint64)data2_src;
+            break;
+        case REM_U:
+            data = (uint64)data1_src % (uint64)data2_src;
             break;
         default:
             bh_assert(0);
@@ -2231,7 +2334,28 @@ alu_r_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 static bool
 bit_r_imm_i32(x86::Assembler &a, BIT_OP op, int32 reg_no, int32 data)
 {
-    return false;
+    Imm imm(data);
+
+    switch (op) {
+        case OR:
+            if (data != 0)
+                a.or_(regs_i32[reg_no], imm);
+            break;
+        case XOR:
+            if (data == -1)
+                a.not_(regs_i32[reg_no]);
+            else if (data != 0)
+                a.xor_(regs_i32[reg_no], imm);
+            break;
+        case AND:
+            if (data != -1)
+                a.and_(regs_i32[reg_no], imm);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+    return true;
 }
 
 /**
@@ -2247,7 +2371,21 @@ bit_r_imm_i32(x86::Assembler &a, BIT_OP op, int32 reg_no, int32 data)
 static bool
 bit_r_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst, int32 reg_no_src)
 {
-    return false;
+    switch (op) {
+        case OR:
+            a.or_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        case XOR:
+            a.xor_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        case AND:
+            a.and_(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+    return true;
 }
 
 /**
@@ -2265,7 +2403,25 @@ static bool
 bit_imm_imm_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                      int32 data1_src, int32 data2_src)
 {
-    return false;
+    Imm imm;
+
+    switch (op) {
+        case OR:
+            imm.setValue(data1_src | data2_src);
+            break;
+        case XOR:
+            imm.setValue(data1_src ^ data2_src);
+            break;
+        case AND:
+            imm.setValue(data1_src & data2_src);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    a.mov(regs_i32[reg_no_dst], imm);
+    return true;
 }
 
 /**
@@ -2283,7 +2439,17 @@ static bool
 bit_imm_r_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int32 data1_src, int32 reg_no2_src)
 {
-    return false;
+    if (op == AND && data1_src == 0)
+        a.xor_(regs_i32[reg_no_dst], regs_i32[reg_no_dst]);
+    else if (op == OR && data1_src == -1) {
+        Imm imm(-1);
+        a.mov(regs_i32[reg_no_dst], imm);
+    }
+    else {
+        mov_r_to_r_i32(a, reg_no_dst, reg_no2_src);
+        return bit_r_imm_i32(a, op, reg_no_dst, data1_src);
+    }
+    return true;
 }
 
 /**
@@ -2301,7 +2467,7 @@ static bool
 bit_r_imm_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 data2_src)
 {
-    return false;
+    return bit_imm_r_to_r_i32(a, op, reg_no_dst, data2_src, reg_no1_src);
 }
 
 /**
@@ -2319,6 +2485,12 @@ static bool
 bit_r_r_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                  int32 reg_no1_src, int32 reg_no2_src)
 {
+    if (reg_no_dst != reg_no2_src) {
+        mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+        return bit_r_r_i32(a, op, reg_no_dst, reg_no2_src);
+    }
+    else
+        return bit_r_r_i32(a, op, reg_no_dst, reg_no1_src);
     return false;
 }
 
@@ -4242,8 +4414,10 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_ADD:
                 case JIT_OP_SUB:
                 case JIT_OP_MUL:
-                case JIT_OP_DIV:
-                case JIT_OP_REM:
+                case JIT_OP_DIV_S:
+                case JIT_OP_REM_S:
+                case JIT_OP_DIV_U:
+                case JIT_OP_REM_U:
                     LOAD_3ARGS();
                     if (!lower_alu(cc, a,
                                    (ALU_OP)(ADD + (insn->opcode - JIT_OP_ADD)),
@@ -4703,4 +4877,19 @@ const JitHardRegInfo *
 jit_codegen_get_hreg_info()
 {
     return &hreg_info;
+}
+
+JitReg
+jit_codegen_get_hreg_by_name(const char *name)
+{
+    if (strcmp(name, "eax") == 0)
+        return jit_reg_new(JIT_REG_KIND_I32, REG_EAX_IDX);
+    else if (strcmp(name, "edx") == 0)
+        return jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
+    else if (strcmp(name, "rax") == 0)
+        return jit_reg_new(JIT_REG_KIND_I64, REG_RAX_IDX);
+    else if (strcmp(name, "rdx") == 0)
+        return jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
+
+    return 0;
 }

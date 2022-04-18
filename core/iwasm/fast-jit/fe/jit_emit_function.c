@@ -6,6 +6,7 @@
 #include "jit_emit_function.h"
 #include "jit_emit_exception.h"
 #include "../jit_frontend.h"
+#include "../jit_codegen.h"
 
 extern bool
 jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
@@ -85,8 +86,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
     if (func_idx < wasm_module->import_function_count) {
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        /* Set native_ret to x86::eax, 1 is hard reg index of eax */
-        native_ret = jit_reg_new(JIT_REG_KIND_I32, 1);
+        /* Set native_ret to x86::eax */
+        native_ret = jit_codegen_get_hreg_by_name("eax");
 #else
         native_ret = jit_cc_new_reg_I32(cc);
 #endif
@@ -101,7 +102,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         /* Check whether there is exception thrown */
         GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
         if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ,
-                                cc->cmp_reg, 0)) {
+                                cc->cmp_reg, NULL)) {
             return false;
         }
     }

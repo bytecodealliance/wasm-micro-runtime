@@ -36,6 +36,16 @@ const JitHardRegInfo *
 jit_codegen_get_hreg_info();
 
 /**
+ * Get hard register by name.
+ *
+ * @param name the name of the hard register
+ *
+ * @return the hard register of the name
+ */
+JitReg
+jit_codegen_get_hreg_by_name(const char *name);
+
+/**
  * Generate native code for the given compilation context
  *
  * @param cc the compilation context that is ready to do codegen
