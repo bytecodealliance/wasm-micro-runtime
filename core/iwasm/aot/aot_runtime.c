@@ -2893,6 +2893,7 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static const char *
 lookup_func_name(const char **func_names, uint32 *func_indexes,
                  uint32 func_index_count, uint32 func_index)
@@ -2913,6 +2914,7 @@ lookup_func_name(const char **func_names, uint32 *func_indexes,
 
     return NULL;
 }
+#endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
 
 static const char *
 get_func_name_from_index(const AOTModuleInstance *module_inst,
