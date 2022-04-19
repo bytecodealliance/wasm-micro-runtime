@@ -2614,7 +2614,7 @@ aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size)
 static void
 const_string_node_size_cb(void *key, void *value, void *p_const_string_size)
 {
-    uint32 const_string_size = *(uint32 *)p_const_string_size;
+    uint32 const_string_size = 0;
     const_string_size += bh_hash_map_get_elem_struct_size();
     const_string_size += strlen((const char *)value) + 1;
     *(uint32 *)p_const_string_size += const_string_size;
@@ -2893,6 +2893,7 @@ aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
 
 #if (WASM_ENABLE_DUMP_CALL_STACK != 0) || (WASM_ENABLE_PERF_PROFILING != 0)
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
 static const char *
 lookup_func_name(const char **func_names, uint32 *func_indexes,
                  uint32 func_index_count, uint32 func_index)
@@ -2913,6 +2914,7 @@ lookup_func_name(const char **func_names, uint32 *func_indexes,
 
     return NULL;
 }
+#endif /* WASM_ENABLE_CUSTOM_NAME_SECTION != 0 */
 
 static const char *
 get_func_name_from_index(const AOTModuleInstance *module_inst,
