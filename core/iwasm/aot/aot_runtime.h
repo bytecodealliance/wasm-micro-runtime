@@ -222,6 +222,7 @@ typedef struct AOTModule {
 
     /* constant string set */
     HashMap *const_str_set;
+    HashMap *const_inline_str_set;
 
     /* the index of auxiliary __data_end global,
        -1 means unexported */

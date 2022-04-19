@@ -2620,6 +2620,13 @@ const_string_node_size_cb(void *key, void *value, void *p_const_string_size)
     *(uint32 *)p_const_string_size += const_string_size;
 }
 
+static void
+const_inline_string_node_size_cb(void *key, void *value,
+                                 void *p_const_string_size)
+{
+    *(uint32 *)p_const_string_size += bh_hash_map_get_elem_struct_size();
+}
+
 void
 aot_get_module_mem_consumption(const AOTModule *module,
                                WASMModuleMemConsumption *mem_conspn)
@@ -2680,6 +2687,18 @@ aot_get_module_mem_consumption(const AOTModule *module,
         mem_conspn->const_strs_size += const_string_size;
     }
 
+    if (module->const_inline_str_set) {
+        uint32 const_string_size = 0;
+
+        mem_conspn->const_inline_strs_size =
+            bh_hash_map_get_struct_size(module->const_inline_str_set);
+
+        bh_hash_map_traverse(module->const_inline_str_set,
+                             const_inline_string_node_size_cb,
+                             (void *)&const_string_size);
+        mem_conspn->const_inline_strs_size += const_string_size;
+    }
+
     /* code size + literal size + object data section size */
     mem_conspn->aot_code_size =
         module->code_size + module->literal_size
@@ -2700,6 +2719,7 @@ aot_get_module_mem_consumption(const AOTModule *module,
     mem_conspn->total_size += mem_conspn->table_segs_size;
     mem_conspn->total_size += mem_conspn->data_segs_size;
     mem_conspn->total_size += mem_conspn->const_strs_size;
+    mem_conspn->total_size += mem_conspn->const_inline_strs_size;
     mem_conspn->total_size += mem_conspn->aot_code_size;
 }
 

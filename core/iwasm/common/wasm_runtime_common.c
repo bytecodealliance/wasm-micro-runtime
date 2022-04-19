@@ -986,6 +986,8 @@ wasm_runtime_dump_module_mem_consumption(const WASMModuleCommon *module)
     os_printf("    table segs size: %u\n", mem_conspn.table_segs_size);
     os_printf("    data segs size: %u\n", mem_conspn.data_segs_size);
     os_printf("    const strings size: %u\n", mem_conspn.const_strs_size);
+    os_printf("    const inline strings size: %u\n",
+              mem_conspn.const_inline_strs_size);
 #if WASM_ENABLE_AOT != 0
     os_printf("    aot code size: %u\n", mem_conspn.aot_code_size);
 #endif

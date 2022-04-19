@@ -502,6 +502,25 @@ wasm_string_equal(const char *s1, const char *s2)
 }
 
 /**
+ * Return the hash value of pointer.
+ */
+inline static uint32
+wasm_ptr_hash(const void *p)
+{
+    uintptr_t v = (uintptr_t)p;
+    return (v >> 32) ^ v;
+}
+
+/**
+ * Whether two pointers are equal.
+ */
+inline static bool
+wasm_ptr_equal(const void *p1, const void *p2)
+{
+    return p1 == p2;
+}
+
+/**
  * Return the byte size of value type.
  *
  */

@@ -253,6 +253,38 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 }
 
 static char *
+const_inline_str_set_insert(char *c_str, AOTModule *module,
+                            char *error_buf, uint32 error_buf_size)
+{
+    HashMap *set = module->const_inline_str_set;
+    char *value;
+
+    /* Create const string set if it isn't created */
+    if (!set
+        && !(set = module->const_inline_str_set = bh_hash_map_create(
+                 32, false, (HashFunc)wasm_ptr_hash,
+                 (KeyEqualFunc)wasm_ptr_equal, NULL, NULL))) {
+        set_error_buf(error_buf, error_buf_size,
+                      "create const inline string set failed");
+        return NULL;
+    }
+
+    if ((value = bh_hash_map_find(set, c_str))) {
+        bh_assert(c_str == value);
+        return value;
+    }
+
+    if (!bh_hash_map_insert(set, c_str, c_str)) {
+        set_error_buf(error_buf, error_buf_size,
+                      "insert inline string to hash map failed");
+        return NULL;
+    }
+
+    return c_str;
+}
+
+
+static char *
 load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
 {
@@ -261,14 +293,17 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     char *str;
     uint16 str_len;
 
-    CHECK_BUF(p, p_end, 1);
-    if (*p & 0x80) {
+    p = align_ptr(p, 2);
+    if (module->const_inline_str_set != NULL &&
+        (str = bh_hash_map_find(module->const_inline_str_set, p)) != NULL) {
+        bh_assert(str == (char *)p);
         /* The string has been adjusted */
-        str = (char *)++p;
         /* Ensure the whole string is in range */
         do {
             CHECK_BUF(p, p_end, 1);
         } while (*p++ != '\0');
+        CHECK_BUF(p, p_end, 1);
+        p++;
     }
     else {
         /* The string hasn't been adjusted */
@@ -284,13 +319,16 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         }
         else if (is_load_from_file_buf) {
             /* As the file buffer can be referred to after loading,
-               we use the 2 bytes of size to adjust the string:
-               mark the flag with the highest bit of size[0],
-               move string 1 byte backward and then append '\0' */
-            *(p - 2) |= 0x80;
-            bh_memmove_s(p - 1, (uint32)(str_len + 1), p, (uint32)str_len);
-            p[str_len - 1] = '\0';
-            str = (char *)(p - 1);
+               move string 2 byte backward and then append '\0'.
+               remember it is a hash so that we can find it later. */
+            str = (char *)(p - 2);
+            bh_memmove_s(str, (uint32)str_len, p, (uint32)str_len);
+            str[str_len] = '\0';
+            str = const_inline_str_set_insert(str, module,
+                                              error_buf, error_buf_size);
+            if (!str) {
+                goto fail;
+            }
         }
         else {
             /* Load from sections, the file buffer cannot be reffered to
@@ -3218,6 +3256,9 @@ aot_unload(AOTModule *module)
 
     if (module->const_str_set)
         bh_hash_map_destroy(module->const_str_set);
+
+    if (module->const_inline_str_set)
+        bh_hash_map_destroy(module->const_inline_str_set);
 
     if (module->code && !module->is_indirect_mode) {
         /* The layout is: literal size + literal + code (with plt table) */

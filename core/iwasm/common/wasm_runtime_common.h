@@ -330,6 +330,7 @@ typedef struct WASMModuleMemConsumption {
     uint32 table_segs_size;
     uint32 data_segs_size;
     uint32 const_strs_size;
+    uint32 const_inline_strs_size;
 #if WASM_ENABLE_AOT != 0
     uint32 aot_code_size;
 #endif
