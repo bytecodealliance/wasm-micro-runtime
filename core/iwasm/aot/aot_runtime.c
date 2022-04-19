@@ -14,6 +14,22 @@
 #include "../libraries/thread-mgr/thread_manager.h"
 #endif
 
+/*
+ * Note: These offsets need to match the values hardcoded in
+ * AoT compilation code: aot_create_func_context, check_suspend_flags.
+ */
+
+bh_static_assert(offsetof(WASMExecEnv, module_inst) == 2 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, argv_buf) == 3 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, native_stack_boundary)
+                 == 4 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, suspend_flags) == 5 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, aux_stack_boundary)
+                 == 6 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, aux_stack_bottom)
+                 == 7 * sizeof(uintptr_t));
+bh_static_assert(offsetof(WASMExecEnv, native_symbol) == 8 * sizeof(uintptr_t));
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
