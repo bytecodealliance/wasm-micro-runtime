@@ -2614,7 +2614,7 @@ aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size)
 static void
 const_string_node_size_cb(void *key, void *value, void *p_const_string_size)
 {
-    uint32 const_string_size = *(uint32 *)p_const_string_size;
+    uint32 const_string_size = 0;
     const_string_size += bh_hash_map_get_elem_struct_size();
     const_string_size += strlen((const char *)value) + 1;
     *(uint32 *)p_const_string_size += const_string_size;
