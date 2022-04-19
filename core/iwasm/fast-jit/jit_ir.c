@@ -1502,6 +1502,8 @@ jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value)
         return false;
     }
 
+    bh_assert(value);
+
     jit_value->type = to_stack_value_type(type);
     jit_value->value = value;
     jit_value_stack_push(&jit_block_stack_top(&cc->block_stack)->value_stack,
