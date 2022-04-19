@@ -2823,6 +2823,32 @@ static bool
 shift_imm_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                        int32 data1_src, int32 data2_src)
 {
+    int32 data;
+    switch (op) {
+        case SHL:
+        {
+            data = data1_src << data2_src;
+            break;
+        }
+        case SHRS:
+        {
+            data = data1_src >> data2_src;
+            break;
+        }
+        case SHRU:
+        {
+            data = ((uint32)data1_src) >> data2_src;
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    return mov_imm_to_r_i32(a, reg_no_dst, data);
+fail:
     return false;
 }
 
@@ -2861,6 +2887,34 @@ static bool
 shift_r_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                      int32 reg_no1_src, int32 data2_src)
 {
+    /* SHL/SHA/SHR r/m32, imm8 */
+    Imm imm((uint8)data2_src);
+
+    switch (op) {
+        case SHL:
+        {
+            a.shl(regs_i32[reg_no1_src], imm);
+            break;
+        }
+        case SHRS:
+        {
+            a.sar(regs_i32[reg_no1_src], imm);
+            break;
+        }
+        case SHRU:
+        {
+            a.shr(regs_i32[reg_no1_src], imm);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    return mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+fail:
     return false;
 }
 
@@ -2879,6 +2933,34 @@ static bool
 shift_r_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 reg_no2_src)
 {
+    /* should be CL */
+    bh_assert(reg_no2_src == REG_ECX_IDX);
+
+    switch (op) {
+        case SHL:
+        {
+            a.shl(regs_i32[reg_no1_src], x86::cl);
+            break;
+        }
+        case SHRS:
+        {
+            a.sar(regs_i32[reg_no1_src], x86::cl);
+            break;
+        }
+        case SHRU:
+        {
+            a.shr(regs_i32[reg_no1_src], x86::cl);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    return mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+fail:
     return false;
 }
 
@@ -2897,6 +2979,33 @@ static bool
 shift_imm_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                        int64 data1_src, int64 data2_src)
 {
+    int64 data;
+
+    switch (op) {
+        case SHL:
+        {
+            data = data1_src << data2_src;
+            break;
+        }
+        case SHRS:
+        {
+            data = data1_src >> data2_src;
+            break;
+        }
+        case SHRU:
+        {
+            data = ((uint64)data1_src) >> data2_src;
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    return mov_imm_to_r_i64(a, reg_no_dst, data);
+fail:
     return false;
 }
 
@@ -2935,6 +3044,34 @@ static bool
 shift_r_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                      int32 reg_no1_src, int64 data2_src)
 {
+    /* SHL/SHA/SHR r/m64, imm8 */
+    Imm imm((uint8)data2_src);
+
+    switch (op) {
+        case SHL:
+        {
+            a.shl(regs_i64[reg_no1_src], imm);
+            break;
+        }
+        case SHRS:
+        {
+            a.sar(regs_i64[reg_no1_src], imm);
+            break;
+        }
+        case SHRU:
+        {
+            a.shr(regs_i64[reg_no1_src], imm);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    return mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+fail:
     return false;
 }
 
@@ -2953,6 +3090,34 @@ static bool
 shift_r_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int32 reg_no2_src)
 {
+    /* should be CL */
+    bh_assert(reg_no2_src == REG_ECX_IDX);
+
+    switch (op) {
+        case SHL:
+        {
+            a.shl(regs_i64[reg_no1_src], x86::cl);
+            break;
+        }
+        case SHRS:
+        {
+            a.sar(regs_i64[reg_no1_src], x86::cl);
+            break;
+        }
+        case SHRU:
+        {
+            a.shr(regs_i64[reg_no1_src], x86::cl);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    return mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+fail:
     return false;
 }
 
@@ -3774,7 +3939,7 @@ fail:
         bool _ret = false;                                                    \
                                                                               \
         CHECK_EQKIND(r0, r1);                                                 \
-        CHECK_KIND(r2, JIT_REG_KIND_I32);                                     \
+        CHECK_KIND(r2, JIT_REG_KIND_##kind);                                  \
         memset(&data1, 0, sizeof(Type));                                      \
         memset(&data2, 0, sizeof(Type));                                      \
                                                                               \
@@ -5127,10 +5292,14 @@ jit_codegen_get_hreg_by_name(const char *name)
 {
     if (strcmp(name, "eax") == 0)
         return jit_reg_new(JIT_REG_KIND_I32, REG_EAX_IDX);
+    else if (strcmp(name, "ecx") == 0)
+        return jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
     else if (strcmp(name, "edx") == 0)
         return jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
     else if (strcmp(name, "rax") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RAX_IDX);
+    else if (strcmp(name, "rcx") == 0)
+        return jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
     else if (strcmp(name, "rdx") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
 
