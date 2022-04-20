@@ -2063,10 +2063,12 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         goto fail;
     }
 
-    symbols = loader_malloc((uint64)sizeof(*symbols) * symbol_count, error_buf,
-                            error_buf_size);
-    if (symbols == NULL) {
-        goto fail;
+    if (symbol_count > 0) {
+        symbols = loader_malloc((uint64)sizeof(*symbols) * symbol_count,
+                                error_buf, error_buf_size);
+        if (symbols == NULL) {
+            goto fail;
+        }
     }
 
 #if defined(BH_PLATFORM_WINDOWS)
