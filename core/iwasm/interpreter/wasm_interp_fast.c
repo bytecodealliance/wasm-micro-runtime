@@ -3603,7 +3603,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             outs_area->lp = outs_area->operand + cur_func->const_cell_num;
         }
 
-        if ((uint8*)(outs_area->lp + cur_func->param_cell_num)
+        if ((uint8 *)(outs_area->lp + cur_func->param_cell_num)
             > exec_env->wasm_stack.s.top_boundary) {
             wasm_set_exception(module, "wasm operand stack overflow");
             goto got_exception;
@@ -3799,8 +3799,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if ((uint8 *)(outs_area->operand + function->const_cell_num + argc)
         > exec_env->wasm_stack.s.top_boundary) {
-        wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
-                            "wasm operand stack overflow");
+        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
+                           "wasm operand stack overflow");
         return;
     }
 
