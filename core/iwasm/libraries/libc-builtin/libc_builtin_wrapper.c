@@ -85,7 +85,7 @@ typedef char *_va_list;
     if ((uint32)(fmt - fmt_start_addr + 2) >= fmt_buf_len) { \
         bh_assert((uint32)(fmt - fmt_start_addr) <=          \
                   UINT32_MAX - 2);                           \
-        fmt_buf_len = fmt - fmt_start_addr + 2;              \
+        fmt_buf_len = (uint32)(fmt - fmt_start_addr + 2);    \
         if (!(fmt_buf = wasm_runtime_malloc(fmt_buf_len))) { \
             print_err(out, ctx);                             \
             break;                                           \
@@ -93,8 +93,8 @@ typedef char *_va_list;
     }                                                        \
                                                              \
     memset(fmt_buf, 0, fmt_buf_len);                         \
-    bh_memcpy_s(fmt_buf, fmt_buf_len,                        \
-                fmt_start_addr, fmt - fmt_start_addr + 1);
+    bh_memcpy_s(fmt_buf, fmt_buf_len, fmt_start_addr,        \
+                (uint32)(fmt - fmt_start_addr + 1));
 /* clang-format on */
 
 #define OUTPUT_TEMP_FORMAT()            \
@@ -199,7 +199,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
                         d = _va_arg(ap, int32);
 
                         if (long_ctr == 1) {
-                            uint32 fmt_end_idx = fmt - fmt_start_addr;
+                            uint32 fmt_end_idx = (uint32)(fmt - fmt_start_addr);
 
                             if (fmt_buf[fmt_end_idx - 1] == 'l'
                                 || fmt_buf[fmt_end_idx - 1] == 'z'
@@ -247,7 +247,7 @@ _vprintf_wa(out_func_t out, void *ctx, const char *fmt, _va_list ap,
 
                     s = start = addr_app_to_native(s_offset);
 
-                    str_len = strlen(start);
+                    str_len = (uint32)strlen(start);
                     if (str_len >= UINT32_MAX - 64) {
                         print_err(out, ctx);
                         if (fmt_buf != temp_fmt) {

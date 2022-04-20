@@ -3501,8 +3501,8 @@ wasm_loader_emit_const(WASMLoaderContext *ctx, void *value, bool is_32_bit)
         bh_assert(((uintptr_t)ctx->p_code_compiled & 1) == 0);
 #endif
         bh_memcpy_s(ctx->p_code_compiled,
-                    ctx->p_code_compiled_end - ctx->p_code_compiled, value,
-                    size);
+                    (uint32)(ctx->p_code_compiled_end - ctx->p_code_compiled),
+                    value, size);
         ctx->p_code_compiled += size;
     }
     else {
