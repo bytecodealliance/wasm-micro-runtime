@@ -256,19 +256,21 @@ read_leb(const uint8 *buf, uint32 *p_offset, uint32 maxbits, bool sign)
         --frame_csp;               \
     } while (0)
 
-#define POP_CSP_N(n)                                         \
-    do {                                                     \
-        uint32 *frame_sp_old = frame_sp;                     \
-        uint32 cell_num_to_copy;                             \
-        POP_CSP_CHECK_OVERFLOW(n + 1);                       \
-        frame_csp -= n;                                      \
-        frame_ip = (frame_csp - 1)->target_addr;             \
-        /* copy arity values of block */                     \
-        frame_sp = (frame_csp - 1)->frame_sp;                \
-        cell_num_to_copy = (frame_csp - 1)->cell_num;        \
-        word_copy(frame_sp, frame_sp_old - cell_num_to_copy, \
-                  cell_num_to_copy);                         \
-        frame_sp += cell_num_to_copy;                        \
+#define POP_CSP_N(n)                                             \
+    do {                                                         \
+        uint32 *frame_sp_old = frame_sp;                         \
+        uint32 cell_num_to_copy;                                 \
+        POP_CSP_CHECK_OVERFLOW(n + 1);                           \
+        frame_csp -= n;                                          \
+        frame_ip = (frame_csp - 1)->target_addr;                 \
+        /* copy arity values of block */                         \
+        frame_sp = (frame_csp - 1)->frame_sp;                    \
+        cell_num_to_copy = (frame_csp - 1)->cell_num;            \
+        if (cell_num_to_copy > 0) {                              \
+            word_copy(frame_sp, frame_sp_old - cell_num_to_copy, \
+                      cell_num_to_copy);                         \
+        }                                                        \
+        frame_sp += cell_num_to_copy;                            \
     } while (0)
 
 /* Pop the given number of elements from the given frame's stack.  */
@@ -717,6 +719,9 @@ sign_ext_32_64(int32 val)
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
+    bh_assert(dest != NULL);
+    bh_assert(src != NULL);
+    bh_assert(num > 0);
     if (dest != src) {
         /* No overlap buffer */
         bh_assert(!((src < dest) && (dest < src + num)));
@@ -3581,7 +3586,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     call_func_from_return_call:
     {
         POP(cur_func->param_cell_num);
-        word_copy(frame->lp, frame_sp, cur_func->param_cell_num);
+        if (cur_func->param_cell_num > 0) {
+            word_copy(frame->lp, frame_sp, cur_func->param_cell_num);
+        }
         FREE_FRAME(exec_env, frame);
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
         goto call_func_from_entry;
@@ -3593,7 +3600,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         WASMInterpFrame *outs_area = wasm_exec_env_wasm_stack_top(exec_env);
         POP(cur_func->param_cell_num);
         SYNC_ALL_TO_FRAME();
-        word_copy(outs_area->lp, frame_sp, cur_func->param_cell_num);
+        if (cur_func->param_cell_num > 0) {
+            word_copy(outs_area->lp, frame_sp, cur_func->param_cell_num);
+        }
         prev_frame = frame;
     }
 

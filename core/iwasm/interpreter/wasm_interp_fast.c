@@ -787,6 +787,9 @@ sign_ext_32_64(int32 val)
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
+    bh_assert(dest != NULL);
+    bh_assert(src != NULL);
+    bh_assert(num > 0);
     if (dest != src) {
         /* No overlap buffer */
         bh_assert(!((src < dest) && (dest < src + num)));
@@ -3575,7 +3578,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
         }
         frame->lp = frame->operand + cur_func->const_cell_num;
-        word_copy(frame->lp, lp_base, lp - lp_base);
+        if (lp - lp_base > 0) {
+            word_copy(frame->lp, lp_base, lp - lp_base);
+        }
         wasm_runtime_free(lp_base);
         FREE_FRAME(exec_env, frame);
         frame_ip += cur_func->param_count * sizeof(int16);
@@ -3695,8 +3700,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame->operand + cur_wasm_func->const_cell_num;
 
             /* Initialize the consts */
-            word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
-                      cur_wasm_func->const_cell_num);
+            if (cur_wasm_func->const_cell_num > 0) {
+                word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
+                          cur_wasm_func->const_cell_num);
+            }
 
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
