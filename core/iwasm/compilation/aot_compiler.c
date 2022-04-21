@@ -299,12 +299,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                 BrTableCache *node = bh_list_first_elem(
                     comp_ctx->comp_data->wasm_module->br_table_cache_list);
                 BrTableCache *node_next;
+                uint8 *p_opcode = frame_ip - 1;
 
                 read_leb_uint32(frame_ip, frame_ip_end, br_count);
 
                 while (node) {
                     node_next = bh_list_elem_next(node);
-                    if (node->br_table_op_addr == frame_ip - 1) {
+                    if (node->br_table_op_addr == p_opcode) {
                         br_depths = node->br_depths;
                         if (!aot_compile_op_br_table(comp_ctx, func_ctx,
                                                      br_depths, br_count,
@@ -315,8 +316,8 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     }
                     node = node_next;
                 }
-
                 bh_assert(node);
+
                 break;
             }
 #endif
