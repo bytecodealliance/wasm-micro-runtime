@@ -640,7 +640,7 @@ mov_r_to_m(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
            x86::Mem &m_dst, int32 reg_no_src)
 {
     if (kind_dst == JIT_REG_KIND_I32) {
-        bh_assert(reg_no_src < 8);
+        bh_assert(reg_no_src < 16);
         switch (bytes_dst) {
             case 1:
                 a.mov(m_dst, regs_i8[reg_no_src]);
