@@ -3245,6 +3245,9 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module =
         loader_malloc(sizeof(WASMModule), error_buf, error_buf_size);
+#if WASM_ENABLE_FAST_INTERP == 0
+    bh_list_status ret;
+#endif
 
     if (!module) {
         return NULL;
@@ -3254,6 +3257,13 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
+
+#if WASM_ENABLE_FAST_INTERP == 0
+    module->br_table_cache_list = &module->br_table_cache_list_head;
+    ret = bh_list_init(module->br_table_cache_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
+    (void)ret;
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
@@ -3695,6 +3705,18 @@ wasm_loader_unload(WASMModule *module)
         }
     }
 
+#if WASM_ENABLE_FAST_INTERP == 0
+    if (module->br_table_cache_list) {
+        BrTableCache *node = bh_list_first_elem(module->br_table_cache_list);
+        BrTableCache *node_next;
+        while (node) {
+            node_next = bh_list_elem_next(node);
+            wasm_runtime_free(node);
+            node = node_next;
+        }
+    }
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* just release the sub module list */
     if (module->import_module_list) {
@@ -3854,9 +3876,23 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
             case WASM_OP_BR_TABLE:
                 read_leb_uint32(p, p_end, count); /* lable num */
-                for (i = 0; i <= count; i++)      /* lableidxs */
+#if WASM_ENABLE_FAST_INTERP != 0
+                for (i = 0; i <= count; i++) /* lableidxs */
                     skip_leb_uint32(p, p_end);
+#else
+                p += count + 1;
+                while (*p == WASM_OP_NOP)
+                    p++;
+#endif
                 break;
+
+#if WASM_ENABLE_FAST_INTERP == 0
+            case EXT_OP_BR_TABLE_CACHE:
+                read_leb_uint32(p, p_end, count); /* lable num */
+                while (*p == WASM_OP_NOP)
+                    p++;
+                break;
+#endif
 
             case WASM_OP_RETURN:
                 break;
@@ -6778,13 +6814,22 @@ re_scan:
             {
                 uint8 *ret_types = NULL;
                 uint32 ret_count = 0;
+#if WASM_ENABLE_FAST_INTERP == 0
+                uint8 *p_opcode = p - 1, *p_depth_begin, *p_depth;
+                uint32 depth, j;
+                BrTableCache *br_table_cache = NULL;
+#endif
 
                 read_leb_uint32(p, p_end, count);
 #if WASM_ENABLE_FAST_INTERP != 0
                 emit_uint32(loader_ctx, count);
 #endif
+
                 POP_I32();
 
+#if WASM_ENABLE_FAST_INTERP == 0
+                p_depth_begin = p_depth = p;
+#endif
                 for (i = 0; i <= count; i++) {
                     if (!(frame_csp_tmp =
                               check_branch_block(loader_ctx, &p, p_end,
@@ -6818,7 +6863,44 @@ re_scan:
                             goto fail;
                         }
                     }
+
+#if WASM_ENABLE_FAST_INTERP == 0
+                    depth = (uint32)(loader_ctx->frame_csp - 1 - frame_csp_tmp);
+                    if (br_table_cache) {
+                        br_table_cache->br_depths[i] = depth;
+                    }
+                    else {
+                        if (depth > 255) {
+                            if (!(br_table_cache = loader_malloc(
+                                      offsetof(BrTableCache, br_depths)
+                                          + sizeof(uint32)
+                                                * (uint64)(count + 1),
+                                      error_buf, error_buf_size))) {
+                                goto fail;
+                            }
+                            *p_opcode = EXT_OP_BR_TABLE_CACHE;
+                            br_table_cache->br_table_op_addr = p_opcode;
+                            br_table_cache->br_count = count;
+                            for (j = 0; j < i; j++) {
+                                br_table_cache->br_depths[j] = p_depth_begin[j];
+                            }
+                            br_table_cache->br_depths[i] = depth;
+                            bh_list_insert(module->br_table_cache_list,
+                                           br_table_cache);
+                        }
+                        else {
+                            *p_depth++ = (uint8)depth;
+                        }
+                    }
+#endif
                 }
+
+#if WASM_ENABLE_FAST_INTERP == 0
+                if (br_table_cache)
+                    p_depth = p_depth_begin;
+                while (p_depth < p)
+                    *p_depth++ = WASM_OP_NOP;
+#endif
 
                 RESET_STACK();
                 SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
