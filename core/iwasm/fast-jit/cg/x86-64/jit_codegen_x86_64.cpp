@@ -1144,9 +1144,9 @@ mov_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_i8(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    Imm imm((int8)data);
-    a.mov(regs_i32[reg_no], imm);
-    return true;
+    /* (int32)(int8)data will do sign-extension */
+    /* (int32)(uint32)(int8)data is longer */
+    return mov_imm_to_r_i32(a, reg_no, data & 0x000000FF);
 }
 
 /**
@@ -1161,9 +1161,8 @@ convert_imm_i32_to_r_i8(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_i8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    /* TODO */
-    bh_assert(0);
-    return false;
+    a.and_(regs_i32[reg_no_src], 0x000000FF);
+    return mov_r_to_r_i32(a, reg_no_dst, reg_no_src);
 }
 
 /**
@@ -1178,9 +1177,7 @@ convert_r_i32_to_r_i8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_u8(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    Imm imm((uint8)data);
-    a.mov(regs_i32[reg_no], imm);
-    return true;
+    return mov_imm_to_r_i32(a, reg_no, (uint8)data);
 }
 
 /**
@@ -1195,9 +1192,7 @@ convert_imm_i32_to_r_u8(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_u8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    /* TODO */
-    bh_assert(0);
-    return false;
+    return convert_r_i32_to_r_i8(a, reg_no_dst, reg_no_src);
 }
 
 /**
@@ -1212,9 +1207,9 @@ convert_r_i32_to_r_u8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_i16(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    Imm imm((int16)data);
-    a.mov(regs_i32[reg_no], imm);
-    return true;
+    /* (int32)(int16)data will do sign-extension */
+    /* (int32)(uint32)(int16)data is longer */
+    return mov_imm_to_r_i32(a, reg_no, data & 0x0000FFFF);
 }
 
 /**
@@ -1229,9 +1224,8 @@ convert_imm_i32_to_r_i16(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_i16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    /* TODO */
-    bh_assert(0);
-    return false;
+    a.and_(regs_i32[reg_no_src], 0x0000FFFF);
+    return mov_r_to_r_i32(a, reg_no_dst, reg_no_src);
 }
 
 /**
@@ -1246,9 +1240,7 @@ convert_r_i32_to_r_i16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i32_to_r_u16(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    Imm imm((uint16)data);
-    a.mov(regs_i32[reg_no], imm);
-    return true;
+    return mov_imm_to_r_i32(a, reg_no, (uint16)data);
 }
 
 /**
@@ -1263,9 +1255,7 @@ convert_imm_i32_to_r_u16(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_r_i32_to_r_u16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    /* TODO */
-    bh_assert(0);
-    return false;
+    return convert_r_i32_to_r_i16(a, reg_no_dst, reg_no_src);
 }
 
 /**
@@ -1281,9 +1271,7 @@ static bool
 convert_imm_i32_to_r_i64(x86::Assembler &a, int32 reg_no, int32 data)
 {
     /* let compiler do sign-extending */
-    Imm imm((int64)data);
-    a.mov(regs_i64[reg_no], imm);
-    return true;
+    return mov_imm_to_r_i64(a, reg_no, (int64)data);
 }
 
 /**
@@ -1373,9 +1361,7 @@ convert_r_i32_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_u32_to_r_i64(x86::Assembler &a, int32 reg_no, uint32 data)
 {
-    Imm imm((uint64)data);
-    a.mov(regs_i64[reg_no], imm);
-    return true;
+    return mov_imm_to_r_i64(a, reg_no, (uint64)data);
 }
 
 /**
@@ -1405,9 +1391,7 @@ convert_r_u32_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 convert_imm_i64_to_r_i32(x86::Assembler &a, int32 reg_no, int64 data)
 {
-    Imm imm((int32)data);
-    a.mov(regs_i32[reg_no], imm);
-    return true;
+    return mov_imm_to_r_i32(a, reg_no, (int32)data);
 }
 
 /**
@@ -1422,9 +1406,8 @@ convert_imm_i64_to_r_i32(x86::Assembler &a, int32 reg_no, int64 data)
 static bool
 convert_r_i64_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    /* TODO */
-    bh_assert(0);
-    return false;
+    a.and_(regs_i64[reg_no_src], 0x00000000FFFFFFFFLL);
+    return mov_r_to_r_i32(a, reg_no_dst, reg_no_src);
 }
 
 /**

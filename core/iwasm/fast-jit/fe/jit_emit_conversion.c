@@ -9,6 +9,16 @@
 bool
 jit_compile_op_i32_wrap_i64(JitCompContext *cc)
 {
+    JitReg num, res;
+
+    POP_I64(num);
+
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(I64TOI32, res, num);
+    PUSH_I32(res);
+
+    return true;
+fail:
     return false;
 }
 
@@ -25,8 +35,23 @@ jit_compile_op_i32_trunc_f64(JitCompContext *cc, bool sign, bool saturating)
 }
 
 bool
-jit_compile_op_i64_extend_i32(JitCompContext *comp_ctx, bool sign)
+jit_compile_op_i64_extend_i32(JitCompContext *cc, bool sign)
 {
+    JitReg num, res;
+
+    POP_I32(num);
+
+    res = jit_cc_new_reg_I64(cc);
+    if (sign) {
+        GEN_INSN(I32TOI64, res, num);
+    }
+    else {
+        GEN_INSN(U32TOI64, res, num);
+    }
+    PUSH_I64(res);
+
+    return true;
+fail:
     return false;
 }
 
