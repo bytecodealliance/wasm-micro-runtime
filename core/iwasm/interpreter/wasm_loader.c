@@ -6877,6 +6877,8 @@ re_scan:
                     }
                     else {
                         if (depth > 255) {
+                            /* The depth cannot be stored in one byte,
+                               create br_table cache to store each depth */
 #if WASM_ENABLE_DEBUG_INTERP != 0
                             if (!record_fast_op(module, p_org, *p_org,
                                                 error_buf, error_buf_size)) {
@@ -6893,6 +6895,7 @@ re_scan:
                             *p_org = EXT_OP_BR_TABLE_CACHE;
                             br_table_cache->br_table_op_addr = p_org;
                             br_table_cache->br_count = count;
+                            /* Copy previous depths which are one byte */
                             for (j = 0; j < i; j++) {
                                 br_table_cache->br_depths[j] = p_depth_begin[j];
                             }
@@ -6901,6 +6904,8 @@ re_scan:
                                            br_table_cache);
                         }
                         else {
+                            /* The depth can be stored in one byte, use the
+                               byte of the leb to store it */
                             *p_depth++ = (uint8)depth;
                         }
                     }
@@ -6908,6 +6913,7 @@ re_scan:
                 }
 
 #if WASM_ENABLE_FAST_INTERP == 0
+                /* Set the tailing bytes to nop */
                 if (br_table_cache)
                     p_depth = p_depth_begin;
                 while (p_depth < p)
