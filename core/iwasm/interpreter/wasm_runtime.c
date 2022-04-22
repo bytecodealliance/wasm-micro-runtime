@@ -1333,12 +1333,14 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 goto fail;
             }
 
-            data_seg->base_offset.u.i32 =
+            base_offset =
                 globals[data_seg->base_offset.u.global_index].initial_value.i32;
+        }
+        else {
+            base_offset = (uint32)data_seg->base_offset.u.i32;
         }
 
         /* check offset */
-        base_offset = (uint32)data_seg->base_offset.u.i32;
         if (base_offset > memory_size) {
             LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
                       memory_size);
