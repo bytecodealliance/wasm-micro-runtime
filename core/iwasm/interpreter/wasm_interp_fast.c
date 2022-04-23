@@ -3539,6 +3539,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(EXT_OP_BLOCK)
         HANDLE_OP(EXT_OP_LOOP)
         HANDLE_OP(EXT_OP_IF)
+        HANDLE_OP(EXT_OP_BR_TABLE_CACHE)
         {
             wasm_set_exception(module, "unsupported opcode");
             goto got_exception;

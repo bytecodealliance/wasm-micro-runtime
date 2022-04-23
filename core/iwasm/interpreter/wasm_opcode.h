@@ -263,12 +263,13 @@ typedef enum WASMOpcode {
     WASM_OP_REF_IS_NULL = 0xd1, /* ref.is_null */
     WASM_OP_REF_FUNC = 0xd2,    /* ref.func */
 
-    EXT_OP_BLOCK = 0xd3, /* block with blocktype */
-    EXT_OP_LOOP = 0xd4,  /* loop with blocktype */
-    EXT_OP_IF = 0xd5,    /* if with blocktype */
+    EXT_OP_BLOCK = 0xd3,          /* block with blocktype */
+    EXT_OP_LOOP = 0xd4,           /* loop with blocktype */
+    EXT_OP_IF = 0xd5,             /* if with blocktype */
+    EXT_OP_BR_TABLE_CACHE = 0xd6, /* br_table from cache */
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    DEBUG_OP_BREAK = 0xd6, /* debug break point */
+    DEBUG_OP_BREAK = 0xd7, /* debug break point */
 #endif
 
     /* Post-MVP extend op prefix */
@@ -675,7 +676,7 @@ typedef enum WASMAtomicEXTOpcode {
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #define DEF_DEBUG_BREAK_HANDLE(_name) \
-    _name[DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK); /* 0xd6 */
+    _name[DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK); /* 0xd7 */
 #else
 #define DEF_DEBUG_BREAK_HANDLE(_name)
 #endif
@@ -901,6 +902,7 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd3 */ \
         HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd4 */ \
         HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd5 */ \
+        HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xd6 */ \
     };                                                          \
     do {                                                        \
         _name[WASM_OP_MISC_PREFIX] =                            \

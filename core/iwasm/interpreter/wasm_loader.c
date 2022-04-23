@@ -3245,6 +3245,9 @@ create_module(char *error_buf, uint32 error_buf_size)
 {
     WASMModule *module =
         loader_malloc(sizeof(WASMModule), error_buf, error_buf_size);
+#if WASM_ENABLE_FAST_INTERP == 0
+    bh_list_status ret;
+#endif
 
     if (!module) {
         return NULL;
@@ -3254,6 +3257,13 @@ create_module(char *error_buf, uint32 error_buf_size)
 
     /* Set start_function to -1, means no start function */
     module->start_function = (uint32)-1;
+
+#if WASM_ENABLE_FAST_INTERP == 0
+    module->br_table_cache_list = &module->br_table_cache_list_head;
+    ret = bh_list_init(module->br_table_cache_list);
+    bh_assert(ret == BH_LIST_SUCCESS);
+    (void)ret;
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     module->import_module_list = &module->import_module_list_head;
@@ -3269,16 +3279,18 @@ create_module(char *error_buf, uint32 error_buf_size)
 }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-static void
-record_fast_op(WASMModule *module, uint8 *pos, uint8 orig_op)
+static bool
+record_fast_op(WASMModule *module, uint8 *pos, uint8 orig_op, char *error_buf,
+               uint32 error_buf_size)
 {
     WASMFastOPCodeNode *fast_op =
-        loader_malloc(sizeof(WASMFastOPCodeNode), NULL, 0);
+        loader_malloc(sizeof(WASMFastOPCodeNode), error_buf, error_buf_size);
     if (fast_op) {
         fast_op->offset = pos - module->load_addr;
         fast_op->orig_op = orig_op;
         bh_list_insert(&module->fast_opcode_list, fast_op);
     }
+    return fast_op ? true : false;
 }
 #endif
 
@@ -3695,6 +3707,18 @@ wasm_loader_unload(WASMModule *module)
         }
     }
 
+#if WASM_ENABLE_FAST_INTERP == 0
+    if (module->br_table_cache_list) {
+        BrTableCache *node = bh_list_first_elem(module->br_table_cache_list);
+        BrTableCache *node_next;
+        while (node) {
+            node_next = bh_list_elem_next(node);
+            wasm_runtime_free(node);
+            node = node_next;
+        }
+    }
+#endif
+
 #if WASM_ENABLE_MULTI_MODULE != 0
     /* just release the sub module list */
     if (module->import_module_list) {
@@ -3854,9 +3878,23 @@ wasm_loader_find_block_addr(WASMExecEnv *exec_env, BlockAddr *block_addr_cache,
 
             case WASM_OP_BR_TABLE:
                 read_leb_uint32(p, p_end, count); /* lable num */
-                for (i = 0; i <= count; i++)      /* lableidxs */
+#if WASM_ENABLE_FAST_INTERP != 0
+                for (i = 0; i <= count; i++) /* lableidxs */
                     skip_leb_uint32(p, p_end);
+#else
+                p += count + 1;
+                while (*p == WASM_OP_NOP)
+                    p++;
+#endif
                 break;
+
+#if WASM_ENABLE_FAST_INTERP == 0
+            case EXT_OP_BR_TABLE_CACHE:
+                read_leb_uint32(p, p_end, count); /* lable num */
+                while (*p == WASM_OP_NOP)
+                    p++;
+                break;
+#endif
 
             case WASM_OP_RETURN:
                 break;
@@ -6529,7 +6567,10 @@ re_scan:
                      * the block quickly.
                      */
 #if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p_org, *p_org);
+                    if (!record_fast_op(module, p_org, *p_org, error_buf,
+                                        error_buf_size)) {
+                        goto fail;
+                    }
 #endif
                     *p_org = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
 #endif
@@ -6778,6 +6819,13 @@ re_scan:
             {
                 uint8 *ret_types = NULL;
                 uint32 ret_count = 0;
+#if WASM_ENABLE_FAST_INTERP == 0
+                uint8 *p_depth_begin, *p_depth;
+                uint32 depth, j;
+                BrTableCache *br_table_cache = NULL;
+
+                p_org = p - 1;
+#endif
 
                 read_leb_uint32(p, p_end, count);
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -6785,6 +6833,9 @@ re_scan:
 #endif
                 POP_I32();
 
+#if WASM_ENABLE_FAST_INTERP == 0
+                p_depth_begin = p_depth = p;
+#endif
                 for (i = 0; i <= count; i++) {
                     if (!(frame_csp_tmp =
                               check_branch_block(loader_ctx, &p, p_end,
@@ -6818,7 +6869,56 @@ re_scan:
                             goto fail;
                         }
                     }
+
+#if WASM_ENABLE_FAST_INTERP == 0
+                    depth = (uint32)(loader_ctx->frame_csp - 1 - frame_csp_tmp);
+                    if (br_table_cache) {
+                        br_table_cache->br_depths[i] = depth;
+                    }
+                    else {
+                        if (depth > 255) {
+                            /* The depth cannot be stored in one byte,
+                               create br_table cache to store each depth */
+#if WASM_ENABLE_DEBUG_INTERP != 0
+                            if (!record_fast_op(module, p_org, *p_org,
+                                                error_buf, error_buf_size)) {
+                                goto fail;
+                            }
+#endif
+                            if (!(br_table_cache = loader_malloc(
+                                      offsetof(BrTableCache, br_depths)
+                                          + sizeof(uint32)
+                                                * (uint64)(count + 1),
+                                      error_buf, error_buf_size))) {
+                                goto fail;
+                            }
+                            *p_org = EXT_OP_BR_TABLE_CACHE;
+                            br_table_cache->br_table_op_addr = p_org;
+                            br_table_cache->br_count = count;
+                            /* Copy previous depths which are one byte */
+                            for (j = 0; j < i; j++) {
+                                br_table_cache->br_depths[j] = p_depth_begin[j];
+                            }
+                            br_table_cache->br_depths[i] = depth;
+                            bh_list_insert(module->br_table_cache_list,
+                                           br_table_cache);
+                        }
+                        else {
+                            /* The depth can be stored in one byte, use the
+                               byte of the leb to store it */
+                            *p_depth++ = (uint8)depth;
+                        }
+                    }
+#endif
                 }
+
+#if WASM_ENABLE_FAST_INTERP == 0
+                /* Set the tailing bytes to nop */
+                if (br_table_cache)
+                    p_depth = p_depth_begin;
+                while (p_depth < p)
+                    *p_depth++ = WASM_OP_NOP;
+#endif
 
                 RESET_STACK();
                 SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
@@ -7563,7 +7663,10 @@ re_scan:
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p_org, *p_org);
+                    if (!record_fast_op(module, p_org, *p_org, error_buf,
+                                        error_buf_size)) {
+                        goto fail;
+                    }
 #endif
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
@@ -7617,14 +7720,20 @@ re_scan:
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p_org, *p_org);
+                    if (!record_fast_op(module, p_org, *p_org, error_buf,
+                                        error_buf_size)) {
+                        goto fail;
+                    }
 #endif
                     *p_org = WASM_OP_SET_GLOBAL_64;
                 }
                 else if (module->aux_stack_size > 0
                          && global_idx == module->aux_stack_top_global_index) {
 #if WASM_ENABLE_DEBUG_INTERP != 0
-                    record_fast_op(module, p_org, *p_org);
+                    if (!record_fast_op(module, p_org, *p_org, error_buf,
+                                        error_buf_size)) {
+                        goto fail;
+                    }
 #endif
                     *p_org = WASM_OP_SET_GLOBAL_AUX_STACK;
                 }

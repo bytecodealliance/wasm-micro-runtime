@@ -1199,10 +1199,31 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 lidx = POP_I32();
                 if (lidx > count)
                     lidx = count;
-                for (i = 0; i < lidx; i++)
-                    skip_leb(frame_ip);
-                read_leb_uint32(frame_ip, frame_ip_end, depth);
+                depth = frame_ip[lidx];
                 goto label_pop_csp_n;
+            }
+
+            HANDLE_OP(EXT_OP_BR_TABLE_CACHE)
+            {
+                BrTableCache *node =
+                    bh_list_first_elem(module->module->br_table_cache_list);
+                BrTableCache *node_next;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+                CHECK_SUSPEND_FLAGS();
+#endif
+                lidx = POP_I32();
+
+                while (node) {
+                    node_next = bh_list_elem_next(node);
+                    if (node->br_table_op_addr == frame_ip - 1) {
+                        depth = node->br_depths[lidx];
+                        goto label_pop_csp_n;
+                    }
+                    node = node_next;
+                }
+                bh_assert(0);
+                HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_RETURN)
