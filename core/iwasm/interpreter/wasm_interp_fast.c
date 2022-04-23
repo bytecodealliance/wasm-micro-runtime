@@ -787,6 +787,9 @@ sign_ext_32_64(int32 val)
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
+    bh_assert(dest != NULL);
+    bh_assert(src != NULL);
+    bh_assert(num > 0);
     if (dest != src) {
         /* No overlap buffer */
         bh_assert(!((src < dest) && (dest < src + num)));
@@ -3536,6 +3539,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(EXT_OP_BLOCK)
         HANDLE_OP(EXT_OP_LOOP)
         HANDLE_OP(EXT_OP_IF)
+        HANDLE_OP(EXT_OP_BR_TABLE_CACHE)
         {
             wasm_set_exception(module, "unsupported opcode");
             goto got_exception;
@@ -3575,7 +3579,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
         }
         frame->lp = frame->operand + cur_func->const_cell_num;
-        word_copy(frame->lp, lp_base, lp - lp_base);
+        if (lp - lp_base > 0) {
+            word_copy(frame->lp, lp_base, lp - lp_base);
+        }
         wasm_runtime_free(lp_base);
         FREE_FRAME(exec_env, frame);
         frame_ip += cur_func->param_count * sizeof(int16);
@@ -3603,7 +3609,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             outs_area->lp = outs_area->operand + cur_func->const_cell_num;
         }
 
-        if ((uint8*)(outs_area->lp + cur_func->param_cell_num)
+        if ((uint8 *)(outs_area->lp + cur_func->param_cell_num)
             > exec_env->wasm_stack.s.top_boundary) {
             wasm_set_exception(module, "wasm operand stack overflow");
             goto got_exception;
@@ -3695,8 +3701,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame->operand + cur_wasm_func->const_cell_num;
 
             /* Initialize the consts */
-            word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
-                      cur_wasm_func->const_cell_num);
+            if (cur_wasm_func->const_cell_num > 0) {
+                word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
+                          cur_wasm_func->const_cell_num);
+            }
 
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
@@ -3799,8 +3807,8 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
 
     if ((uint8 *)(outs_area->operand + function->const_cell_num + argc)
         > exec_env->wasm_stack.s.top_boundary) {
-        wasm_set_exception((WASMModuleInstance*)exec_env->module_inst,
-                            "wasm operand stack overflow");
+        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
+                           "wasm operand stack overflow");
         return;
     }
 

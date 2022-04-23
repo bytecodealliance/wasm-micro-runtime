@@ -319,6 +319,14 @@ typedef struct StringNode {
     char *str;
 } StringNode, *StringList;
 
+typedef struct BrTableCache {
+    struct BrTableCache *next;
+    /* Address of br_table opcode */
+    uint8 *br_table_op_addr;
+    uint32 br_count;
+    uint32 br_depths[1];
+} BrTableCache;
+
 #if WASM_ENABLE_DEBUG_INTERP != 0
 typedef struct WASMFastOPCodeNode {
     struct WASMFastOPCodeNode *next;
@@ -326,6 +334,7 @@ typedef struct WASMFastOPCodeNode {
     uint8 orig_op;
 } WASMFastOPCodeNode;
 #endif
+
 struct WASMModule {
     /* Module type, for module loaded from WASM bytecode binary,
        this field is Wasm_Module_Bytecode;
@@ -403,6 +412,10 @@ struct WASMModule {
     bool possible_memory_grow;
 
     StringList const_str_list;
+#if WASM_ENABLE_FAST_INTERP == 0
+    bh_list br_table_cache_list_head;
+    bh_list *br_table_cache_list;
+#endif
 
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
