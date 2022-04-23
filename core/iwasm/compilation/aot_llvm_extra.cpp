@@ -348,7 +348,7 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
     func_ptrs[func_idx] = (void *)func_addr;
     return (void *)func_addr;
 }
-#endif
+#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
 void
 aot_func_disable_tce(LLVMValueRef func)
@@ -479,4 +479,4 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
     }
 #endif
 }
-#endif
+#endif /* end of LLVM_VERSION_MAJOR >= 12 */

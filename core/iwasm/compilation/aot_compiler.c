@@ -2675,7 +2675,7 @@ apply_lto_passes(AOTCompContext *comp_ctx)
     LLVMPassManagerBuilderDispose(pass_mgr_builder);
     return true;
 }
-#endif
+#endif /* end of WASM_ENABLE_LLVM_LEGACY_PM != 0 || LLVM_VERSION_MAJOR < 12 */
 
 /* Check whether the target supports hardware atomic instructions */
 static bool
