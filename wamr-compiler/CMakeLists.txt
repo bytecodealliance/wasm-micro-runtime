@@ -203,7 +203,7 @@ if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
                                           -fno-sanitize=bounds,bounds-strict,alignment \
                                           -fno-sanitize-recover")
-      set(lib_ubsan ubsan)
+      set(lib_ubsan -fsanitize=undefined)
     endif()
   else ()
     # UNDEFINED BEHAVIOR, refer to https://en.cppreference.com/w/cpp/language/ub
@@ -211,7 +211,7 @@ if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined \
                                           -fno-sanitize=bounds,alignment \
                                           -fno-sanitize-recover")
-      set(lib_ubsan ubsan)
+      set(lib_ubsan -fsanitize=undefined)
     endif()
   endif()
 endif ()

@@ -2180,6 +2180,8 @@ is_data_section(LLVMSectionIteratorRef sec_itr, char *section_name)
             || !strcmp(section_name, ".rodata")
             /* ".rodata.cst4/8/16/.." */
             || !strncmp(section_name, ".rodata.cst", strlen(".rodata.cst"))
+            /* ".rodata.strn.m" */
+            || !strncmp(section_name, ".rodata.str", strlen(".rodata.str"))
             || (!strcmp(section_name, ".rdata")
                 && get_relocations_count(sec_itr, &relocation_count)
                 && relocation_count > 0));

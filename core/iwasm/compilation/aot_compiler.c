@@ -277,8 +277,13 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
                     aot_set_last_error("allocate memory failed.");
                     goto fail;
                 }
+#if WASM_ENABLE_FAST_INTERP != 0
                 for (i = 0; i <= br_count; i++)
                     read_leb_uint32(frame_ip, frame_ip_end, br_depths[i]);
+#else
+                for (i = 0; i <= br_count; i++)
+                    br_depths[i] = *frame_ip++;
+#endif
 
                 if (!aot_compile_op_br_table(comp_ctx, func_ctx, br_depths,
                                              br_count, &frame_ip)) {
@@ -288,6 +293,35 @@ aot_compile_func(AOTCompContext *comp_ctx, uint32 func_index)
 
                 wasm_runtime_free(br_depths);
                 break;
+
+#if WASM_ENABLE_FAST_INTERP == 0
+            case EXT_OP_BR_TABLE_CACHE:
+            {
+                BrTableCache *node = bh_list_first_elem(
+                    comp_ctx->comp_data->wasm_module->br_table_cache_list);
+                BrTableCache *node_next;
+                uint8 *p_opcode = frame_ip - 1;
+
+                read_leb_uint32(frame_ip, frame_ip_end, br_count);
+
+                while (node) {
+                    node_next = bh_list_elem_next(node);
+                    if (node->br_table_op_addr == p_opcode) {
+                        br_depths = node->br_depths;
+                        if (!aot_compile_op_br_table(comp_ctx, func_ctx,
+                                                     br_depths, br_count,
+                                                     &frame_ip)) {
+                            return false;
+                        }
+                        break;
+                    }
+                    node = node_next;
+                }
+                bh_assert(node);
+
+                break;
+            }
+#endif
 
             case WASM_OP_RETURN:
                 if (!aot_compile_op_return(comp_ctx, func_ctx, &frame_ip))
@@ -2637,7 +2671,7 @@ apply_func_passes(AOTCompContext *comp_ctx)
     return true;
 }
 
-#if WASM_ENABLE_LLVM_LEGACY_PM != 0
+#if WASM_ENABLE_LLVM_LEGACY_PM != 0 || LLVM_VERSION_MAJOR < 12
 static bool
 apply_lto_passes(AOTCompContext *comp_ctx)
 {
@@ -2676,7 +2710,7 @@ apply_lto_passes(AOTCompContext *comp_ctx)
     LLVMPassManagerBuilderDispose(pass_mgr_builder);
     return true;
 }
-#endif
+#endif /* end of WASM_ENABLE_LLVM_LEGACY_PM != 0 || LLVM_VERSION_MAJOR < 12 */
 
 /* Check whether the target supports hardware atomic instructions */
 static bool
@@ -2783,7 +2817,7 @@ aot_compile_wasm(AOTCompContext *comp_ctx)
             }
         }
         else {
-#if WASM_ENABLE_LLVM_LEGACY_PM == 0
+#if WASM_ENABLE_LLVM_LEGACY_PM == 0 && LLVM_VERSION_MAJOR >= 12
             /* Run llvm new pass manager for AOT compiler if llvm
                legacy pass manager isn't used */
             bh_print_time("Begin to run llvm optimization passes");

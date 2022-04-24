@@ -361,23 +361,25 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFuncType *func_type)
         --frame_csp;               \
     } while (0)
 
-#define POP_CSP_N(n)                                               \
-    do {                                                           \
-        uint32 *frame_sp_old = frame_sp;                           \
-        uint32 cell_num_to_copy;                                   \
-        POP_CSP_CHECK_OVERFLOW(n + 1);                             \
-        frame_csp -= n;                                            \
-        frame_ip = (frame_csp - 1)->target_addr;                   \
-        /* copy arity values of block */                           \
-        frame_sp = (frame_csp - 1)->frame_sp;                      \
-        cell_num_to_copy = (frame_csp - 1)->cell_num;              \
-        word_copy(frame_sp, frame_sp_old - cell_num_to_copy,       \
-                  cell_num_to_copy);                               \
-        frame_ref_copy(FRAME_REF(frame_sp),                        \
-                       FRAME_REF(frame_sp_old - cell_num_to_copy), \
-                       cell_num_to_copy);                          \
-        frame_sp += cell_num_to_copy;                              \
-        CLEAR_FRAME_REF(frame_sp, frame_sp_old - frame_sp);        \
+#define POP_CSP_N(n)                                                   \
+    do {                                                               \
+        uint32 *frame_sp_old = frame_sp;                               \
+        uint32 cell_num_to_copy;                                       \
+        POP_CSP_CHECK_OVERFLOW(n + 1);                                 \
+        frame_csp -= n;                                                \
+        frame_ip = (frame_csp - 1)->target_addr;                       \
+        /* copy arity values of block */                               \
+        frame_sp = (frame_csp - 1)->frame_sp;                          \
+        cell_num_to_copy = (frame_csp - 1)->cell_num;                  \
+        if (cell_num_to_copy > 0) {                                    \
+            word_copy(frame_sp, frame_sp_old - cell_num_to_copy,       \
+                      cell_num_to_copy);                               \
+            frame_ref_copy(FRAME_REF(frame_sp),                        \
+                           FRAME_REF(frame_sp_old - cell_num_to_copy), \
+                           cell_num_to_copy);                          \
+        }                                                              \
+        frame_sp += cell_num_to_copy;                                  \
+        CLEAR_FRAME_REF(frame_sp, frame_sp_old - frame_sp);            \
     } while (0)
 
 /* Pop the given number of elements from the given frame's stack.  */
@@ -804,7 +806,7 @@ static inline int64
 sign_ext_8_64(int8 val)
 {
     if (val & 0x80)
-        return (int64)val | (int64)0xffffffffffffff00;
+        return (int64)val | (int64)0xffffffffffffff00LL;
     return val;
 }
 
@@ -812,7 +814,7 @@ static inline int64
 sign_ext_16_64(int16 val)
 {
     if (val & 0x8000)
-        return (int64)val | (int64)0xffffffffffff0000;
+        return (int64)val | (int64)0xffffffffffff0000LL;
     return val;
 }
 
@@ -820,16 +822,22 @@ static inline int64
 sign_ext_32_64(int32 val)
 {
     if (val & (int32)0x80000000)
-        return (int64)val | (int64)0xffffffff00000000;
+        return (int64)val | (int64)0xffffffff00000000LL;
     return val;
 }
 
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
-    if (dest != src)
+    bh_assert(dest != NULL);
+    bh_assert(src != NULL);
+    bh_assert(num > 0);
+    if (dest != src) {
+        /* No overlap buffer */
+        bh_assert(!((src < dest) && (dest < src + num)));
         for (; num > 0; num--)
             *dest++ = *src++;
+    }
 }
 
 #if WASM_ENABLE_GC != 0
@@ -1354,10 +1362,31 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 lidx = POP_I32();
                 if (lidx > count)
                     lidx = count;
-                for (i = 0; i < lidx; i++)
-                    skip_leb(frame_ip);
-                read_leb_uint32(frame_ip, frame_ip_end, depth);
+                depth = frame_ip[lidx];
                 goto label_pop_csp_n;
+            }
+
+            HANDLE_OP(EXT_OP_BR_TABLE_CACHE)
+            {
+                BrTableCache *node =
+                    bh_list_first_elem(module->module->br_table_cache_list);
+                BrTableCache *node_next;
+
+#if WASM_ENABLE_THREAD_MGR != 0
+                CHECK_SUSPEND_FLAGS();
+#endif
+                lidx = POP_I32();
+
+                while (node) {
+                    node_next = bh_list_elem_next(node);
+                    if (node->br_table_op_addr == frame_ip - 1) {
+                        depth = node->br_depths[lidx];
+                        goto label_pop_csp_n;
+                    }
+                    node = node_next;
+                }
+                bh_assert(0);
+                HANDLE_OP_END();
             }
 
             HANDLE_OP(WASM_OP_RETURN)
@@ -4533,7 +4562,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     call_func_from_return_call:
     {
         POP(cur_func->param_cell_num);
-        word_copy(frame->lp, frame_sp, cur_func->param_cell_num);
+        if (cur_func->param_cell_num > 0) {
+            word_copy(frame->lp, frame_sp, cur_func->param_cell_num);
+        }
         FREE_FRAME(exec_env, frame);
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);
         goto call_func_from_entry;
@@ -4545,7 +4576,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         WASMInterpFrame *outs_area = wasm_exec_env_wasm_stack_top(exec_env);
         POP(cur_func->param_cell_num);
         SYNC_ALL_TO_FRAME();
-        word_copy(outs_area->lp, frame_sp, cur_func->param_cell_num);
+        if (cur_func->param_cell_num > 0) {
+            word_copy(outs_area->lp, frame_sp, cur_func->param_cell_num);
+        }
         prev_frame = frame;
     }
 

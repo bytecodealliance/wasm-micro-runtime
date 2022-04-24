@@ -179,8 +179,12 @@ wasm_exec_env_alloc_wasm_frame(WASMExecEnv *exec_env, unsigned size)
 
     bh_assert(!(size & 3));
 
-    /* The outs area size cannot be larger than the frame size, so
-       multiplying by 2 is enough. */
+    /* For classic interpreter, the outs area doesn't contain the const cells,
+       its size cannot be larger than the frame size, so here checking stack
+       overflow with multiplying by 2 is enough. For fast interpreter, since
+       the outs area contains const cells, its size may be larger than current
+       frame size, we should check again before putting the function arguments
+       into the outs area. */
     if (addr + size * 2 > exec_env->wasm_stack.s.top_boundary) {
         /* WASM stack overflow. */
         return NULL;

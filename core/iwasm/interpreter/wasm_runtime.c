@@ -1132,18 +1132,12 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             && !func->import_func_linked
 #endif
         ) {
-#if WASM_ENABLE_SPEC_TEST != 0
-            set_error_buf(error_buf, error_buf_size,
-                          "unknown import or incompatible import type");
-            return false;
-#else
 #if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
 #else
             /* do nothing to avoid confused message */
 #endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
-#endif /* WASM_ENABLE_SPEC_TEST != 0 */
         }
     }
 
@@ -1449,12 +1443,14 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
                 goto fail;
             }
 
-            data_seg->base_offset.u.i32 =
+            base_offset =
                 globals[data_seg->base_offset.u.global_index].initial_value.i32;
+        }
+        else {
+            base_offset = (uint32)data_seg->base_offset.u.i32;
         }
 
         /* check offset */
-        base_offset = (uint32)data_seg->base_offset.u.i32;
         if (base_offset > memory_size) {
             LOG_DEBUG("base_offset(%d) > memory_size(%d)", base_offset,
                       memory_size);

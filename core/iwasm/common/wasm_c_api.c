@@ -186,6 +186,10 @@ failed:                                \
                                 const wasm_##name##_vec_t *src)             \
     {                                                                       \
         size_t i = 0;                                                       \
+                                                                            \
+        if (!out) {                                                         \
+            return;                                                         \
+        }                                                                   \
         memset(out, 0, sizeof(Vector));                                     \
                                                                             \
         if (!src || !src->size) {                                           \
@@ -466,6 +470,14 @@ wasm_valtype_t *
 wasm_valtype_new(wasm_valkind_t kind)
 {
     wasm_valtype_t *val_type;
+
+    if (kind > WASM_F64 && WASM_FUNCREF != kind
+#if WASM_ENABLE_REF_TYPES != 0
+        && WASM_ANYREF != kind
+#endif
+    ) {
+        return NULL;
+    }
 
     if (!(val_type = malloc_internal(sizeof(wasm_valtype_t)))) {
         return NULL;
@@ -775,7 +787,15 @@ wasm_tabletype_new(own wasm_valtype_t *val_type, const wasm_limits_t *limits)
 {
     wasm_tabletype_t *table_type = NULL;
 
-    if (!val_type) {
+    if (!val_type || !limits) {
+        return NULL;
+    }
+
+    if (wasm_valtype_kind(val_type) != WASM_FUNCREF
+#if WASM_ENABLE_REF_TYPES != 0
+        && wasm_valtype_kind(val_type) != WASM_ANYREF
+#endif
+    ) {
         return NULL;
     }
 
@@ -1019,6 +1039,10 @@ wasm_importtype_new(own wasm_byte_vec_t *module_name,
 {
     wasm_importtype_t *import_type = NULL;
 
+    if (!module_name || !field_name || !extern_type) {
+        return NULL;
+    }
+
     if (!(import_type = malloc_internal(sizeof(wasm_importtype_t)))) {
         return NULL;
     }
@@ -1055,6 +1079,7 @@ wasm_importtype_delete(own wasm_importtype_t *import_type)
     DEINIT_VEC(import_type->module_name, wasm_byte_vec_delete);
     DEINIT_VEC(import_type->name, wasm_byte_vec_delete);
     wasm_externtype_delete(import_type->extern_type);
+    import_type->extern_type = NULL;
     wasm_runtime_free(import_type);
 }
 
@@ -1133,6 +1158,10 @@ wasm_exporttype_new(own wasm_byte_vec_t *name,
                     own wasm_externtype_t *extern_type)
 {
     wasm_exporttype_t *export_type = NULL;
+
+    if (!name || !extern_type) {
+        return NULL;
+    }
 
     if (!(export_type = malloc_internal(sizeof(wasm_exporttype_t)))) {
         return NULL;

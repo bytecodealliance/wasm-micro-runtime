@@ -268,10 +268,11 @@ typedef enum WASMOpcode {
     WASM_OP_REF_EQ = 0xd5,          /* ref.eq */
     WASM_OP_BR_ON_NON_NULL = 0xd6,  /* br_on_non_null */
 
-    EXT_OP_BLOCK = 0xd7,   /* block with blocktype */
-    EXT_OP_LOOP = 0xd8,    /* loop with blocktype */
-    EXT_OP_IF = 0xd9,      /* if with blocktype */
-    DEBUG_OP_BREAK = 0xda, /* debug break point */
+    EXT_OP_BLOCK = 0xd7,          /* block with blocktype */
+    EXT_OP_LOOP = 0xd8,           /* loop with blocktype */
+    EXT_OP_IF = 0xd9,             /* if with blocktype */
+    EXT_OP_BR_TABLE_CACHE = 0xda, /* br_table from cache */
+    DEBUG_OP_BREAK = 0xdb,        /* debug break point */
 
     /* Post-MVP extend op prefix */
     WASM_OP_GC_PREFIX = 0xfb,
@@ -948,7 +949,8 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd7 */ \
         HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd8 */ \
         HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd9 */ \
-        HANDLE_OPCODE(DEBUG_OP_BREAK)                /* 0xda */ \
+        HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xda */ \
+        HANDLE_OPCODE(DEBUG_OP_BREAK)                /* 0xdb */ \
     };                                                          \
     do {                                                        \
         _name[WASM_OP_GC_PREFIX] =                              \
