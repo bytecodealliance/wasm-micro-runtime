@@ -835,7 +835,7 @@ do_i64_const_shru(int64 lhs, int64 rhs)
 }
 
 static JitReg
-modulo_rhs(JitCompContext *cc, JitReg rhs, bool is_i32)
+compile_int_shift_modulo(JitCompContext *cc, JitReg rhs, bool is_i32)
 {
     JitReg res;
     if (jit_reg_is_const(rhs)) {
@@ -864,6 +864,18 @@ modulo_rhs(JitCompContext *cc, JitReg rhs, bool is_i32)
 }
 
 static JitReg
+mov_left_to_reg(JitCompContext *cc, bool is_i32, JitReg left)
+{
+    JitReg res = left;
+    /* left needs to be a variable */
+    if (jit_reg_is_const(left)) {
+        res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
+        GEN_INSN(MOV, res, left);
+    }
+    return res;
+}
+
+static JitReg
 compile_int_shl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 {
     JitReg res;
@@ -872,34 +884,21 @@ compile_int_shl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
 #endif
 
+    right = compile_int_shift_modulo(cc, right, is_i32);
+
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, shl);
     if (res)
         goto shortcut;
 
-    if (is_i32) {
-        res = jit_cc_new_reg_I32(cc);
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        GEN_INSN(MOV, ecx_hreg, right);
-#endif
-    }
-    else {
-        res = jit_cc_new_reg_I64(cc);
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        GEN_INSN(MOV, rcx_hreg, right);
-#endif
-    }
+    left = mov_left_to_reg(cc, is_i32, left);
 
+    res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     GEN_INSN(SHL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
 #else
     GEN_INSN(SHL, res, left, right);
-#endif
-    /**
-     * Just to indicate that ecx is used, register allocator cannot spill
-     * it out. Especially when rcx is ued.
-     */
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
 #endif
 
 shortcut:
@@ -915,34 +914,21 @@ compile_int_shrs(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
 #endif
 
+    right = compile_int_shift_modulo(cc, right, is_i32);
+
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, shrs);
     if (res)
         goto shortcut;
 
-    if (is_i32) {
-        res = jit_cc_new_reg_I32(cc);
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        GEN_INSN(MOV, ecx_hreg, right);
-#endif
-    }
-    else {
-        res = jit_cc_new_reg_I64(cc);
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        GEN_INSN(MOV, rcx_hreg, right);
-#endif
-    }
+    left = mov_left_to_reg(cc, is_i32, left);
 
+    res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     GEN_INSN(SHRS, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
 #else
     GEN_INSN(SHRS, res, left, right);
-#endif
-    /**
-     * Just to indicate that ecx is used, register allocator cannot spill
-     * it out. Especially when rcx is ued.
-     */
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
 #endif
 
 shortcut:
@@ -958,34 +944,177 @@ compile_int_shru(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
 #endif
 
+    right = compile_int_shift_modulo(cc, right, is_i32);
+
     res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, shru);
     if (res)
         goto shortcut;
 
-    if (is_i32) {
-        res = jit_cc_new_reg_I32(cc);
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        GEN_INSN(MOV, ecx_hreg, right);
-#endif
-    }
-    else {
-        res = jit_cc_new_reg_I64(cc);
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        GEN_INSN(MOV, rcx_hreg, right);
-#endif
-    }
+    left = mov_left_to_reg(cc, is_i32, left);
 
+    res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
     GEN_INSN(SHRU, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
 #else
     GEN_INSN(SHRU, res, left, right);
 #endif
-    /**
-     * Just to indicate that ecx is used, register allocator cannot spill
-     * it out. Especially when rcx is ued.
-     */
+
+shortcut:
+    return res;
+}
+
+DEF_UNI_INT_CONST_OPS(rotl)
+{
+    if (IS_CONST_ZERO(right))
+        return left;
+
+    if (IS_CONST_ZERO(left))
+        return right;
+
+    return 0;
+}
+
+static int32
+do_i32_const_rotl(int32 lhs, int32 rhs)
+{
+    uint32 n = (uint32)lhs;
+    uint32 d = (uint32)rhs;
+    return (n << d) | (n >> (32 - d));
+}
+
+static int64
+do_i64_const_rotl(int64 lhs, int64 rhs)
+{
+    uint64 n = (uint64)lhs;
+    uint64 d = (uint64)rhs;
+    return (n << d) | (n >> (64 - d));
+}
+
+static JitReg
+compile_int_rotl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
+{
+    JitReg res, tmp, shl_res, shr_res;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
+    JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+#endif
+
+    right = compile_int_shift_modulo(cc, right, is_i32);
+
+    res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, rotl);
+    if (res)
+        goto shortcut;
+
+    left = mov_left_to_reg(cc, is_i32, left);
+
+    if (is_i32) {
+        tmp = jit_cc_new_reg_I32(cc);
+        shl_res = jit_cc_new_reg_I32(cc);
+        shr_res = jit_cc_new_reg_I32(cc);
+        res = jit_cc_new_reg_I32(cc);
+    }
+    else {
+        tmp = jit_cc_new_reg_I64(cc);
+        shl_res = jit_cc_new_reg_I64(cc);
+        shr_res = jit_cc_new_reg_I64(cc);
+        res = jit_cc_new_reg_I64(cc);
+    }
+
+    /* 32/64 - rhs */
+    GEN_INSN(SUB, tmp, is_i32 ? NEW_CONST(I32, 32) : NEW_CONST(I64, 64), right);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
+    GEN_INSN(SHL, shl_res, left, is_i32 ? ecx_hreg : rcx_hreg);
+
+    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, tmp);
+    GEN_INSN(SHRU, shr_res, left, is_i32 ? ecx_hreg : rcx_hreg);
+
+    GEN_INSN(OR, res, shl_res, shr_res);
     GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+#else
+    GEN_INSN(SHL, shl_res, left, right);
+    GEN_INSN(SHRU, shr_res, left, tmp);
+    GEN_INSN(OR, res, shl_res, shr_res);
+#endif
+
+shortcut:
+    return res;
+}
+
+DEF_UNI_INT_CONST_OPS(rotr)
+{
+    if (IS_CONST_ZERO(right))
+        return left;
+
+    if (IS_CONST_ZERO(left))
+        return right;
+
+    return 0;
+}
+
+static int32
+do_i32_const_rotr(int32 lhs, int32 rhs)
+{
+    uint32 n = (uint32)lhs;
+    uint32 d = (uint32)rhs;
+    return (n >> d) | (n << (32 - d));
+}
+
+static int64
+do_i64_const_rotr(int64 lhs, int64 rhs)
+{
+    uint64 n = (uint64)lhs;
+    uint64 d = (uint64)rhs;
+    return (n >> d) | (n << (64 - d));
+}
+
+static JitReg
+compile_int_rotr(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
+{
+    JitReg res, tmp, shr_res, shl_res;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
+    JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+#endif
+
+    right = compile_int_shift_modulo(cc, right, is_i32);
+
+    res = CHECK_AND_PROCESS_INT_CONSTS(cc, left, right, is_i32, rotr);
+    if (res)
+        goto shortcut;
+
+    left = mov_left_to_reg(cc, is_i32, left);
+
+    if (is_i32) {
+        tmp = jit_cc_new_reg_I32(cc);
+        shr_res = jit_cc_new_reg_I32(cc);
+        shl_res = jit_cc_new_reg_I32(cc);
+        res = jit_cc_new_reg_I32(cc);
+    }
+    else {
+        tmp = jit_cc_new_reg_I64(cc);
+        shr_res = jit_cc_new_reg_I64(cc);
+        shl_res = jit_cc_new_reg_I64(cc);
+        res = jit_cc_new_reg_I64(cc);
+    }
+
+    /* 32/64 - rhs */
+    GEN_INSN(SUB, tmp, is_i32 ? NEW_CONST(I32, 32) : NEW_CONST(I64, 64), right);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
+    GEN_INSN(SHRU, shl_res, left, is_i32 ? ecx_hreg : rcx_hreg);
+
+    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, tmp);
+    GEN_INSN(SHL, shr_res, left, is_i32 ? ecx_hreg : rcx_hreg);
+
+    GEN_INSN(OR, res, shl_res, shr_res);
+    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+#else
+    GEN_INSN(SHRU, shr_res, left, right);
+    GEN_INSN(SHL, shl_res, left, tmp);
+    GEN_INSN(OR, res, shr_res, shl_res);
 #endif
 
 shortcut:
@@ -999,8 +1128,6 @@ compile_op_int_shift(JitCompContext *cc, IntShift shift_op, bool is_i32)
 
     POP_INT(right);
     POP_INT(left);
-
-    right = modulo_rhs(cc, right, true);
 
     switch (shift_op) {
         case INT_SHL:
@@ -1016,6 +1143,16 @@ compile_op_int_shift(JitCompContext *cc, IntShift shift_op, bool is_i32)
         case INT_SHR_U:
         {
             res = compile_int_shru(cc, left, right, is_i32);
+            break;
+        }
+        case INT_ROTL:
+        {
+            res = compile_int_rotl(cc, left, right, is_i32);
+            break;
+        }
+        case INT_ROTR:
+        {
+            res = compile_int_rotr(cc, left, right, is_i32);
             break;
         }
         default:
