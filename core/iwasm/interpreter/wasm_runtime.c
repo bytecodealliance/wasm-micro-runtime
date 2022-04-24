@@ -599,6 +599,12 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         }
 #endif /* WASM_ENABLE_MULTI_MODULE */
         function->u.func_import = &import->u.function;
+        if (!(function->u.func_import = runtime_malloc(
+                  sizeof(WASMFunctionImport), error_buf, error_buf_size))) {
+            return NULL;
+        }
+        bh_memcpy_s(function->u.func_import, sizeof(WASMFunctionImport),
+                    &import->u.function, sizeof(WASMFunctionImport));
         function->param_cell_num = import->u.function.func_type->param_cell_num;
         function->ret_cell_num = import->u.function.func_type->ret_cell_num;
         function->param_count =
