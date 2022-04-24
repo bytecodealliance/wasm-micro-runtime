@@ -6,7 +6,9 @@
 #ifndef _WAMR_LIBC_STDARG_H
 #define _WAMR_LIBC_STDARG_H
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef _VA_LIST
 typedef __builtin_va_list va_list;
@@ -18,6 +20,8 @@ typedef __builtin_va_list va_list;
 
 #define __va_copy(d, s) __builtin_va_copy(d, s)
 
-#endif /* __cplusplus */
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* end of _WAMR_LIBC_STDARG_H */
