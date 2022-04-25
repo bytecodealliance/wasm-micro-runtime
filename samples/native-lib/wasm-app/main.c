@@ -6,11 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int test_add(int x, int y);
+int
+test_add(int x, int y);
 
-int test_sqrt(int x, int y);
+int
+test_sqrt(int x, int y);
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     int x = 10, y = 20, res;
 

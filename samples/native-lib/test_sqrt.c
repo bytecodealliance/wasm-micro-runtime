@@ -14,12 +14,14 @@ test_sqrt_wrapper(wasm_exec_env_t *exec_env, int x, int y)
     return x * x + y * y;
 }
 
+/* clang-format off */
 #define REG_NATIVE_FUNC(func_name, signature) \
     { #func_name, func_name##_wrapper, signature, NULL }
 
 static NativeSymbol native_symbols[] = {
     REG_NATIVE_FUNC(test_sqrt, "(ii)i")
 };
+/* clang-format on */
 
 uint32_t
 get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
