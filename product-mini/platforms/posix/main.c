@@ -8,6 +8,7 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <dlfcn.h>
 
 #include "bh_platform.h"
 #include "bh_read_file.h"
@@ -44,6 +45,9 @@ print_help()
     printf("                         for example:\n");
     printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
 #endif
+    printf("  --native-lib=<lib>     Register native libraries to the WASM module, which\n");
+    printf("                         are shared object (.so) files, for example:\n");
+    printf("                           --native-lib=test1.so --native-lib=test2.so\n");
 #if WASM_ENABLE_MULTI_MODULE != 0
     printf("  --module-path=         Indicate a module search path. default is current\n"
            "                         directory('./')\n");
@@ -224,6 +228,56 @@ moudle_destroyer(uint8 *buffer, uint32 size)
 }
 #endif /* WASM_ENABLE_MULTI_MODULE */
 
+typedef uint32 (*get_native_lib_func)(char **p_module_name,
+                                      NativeSymbol **p_native_symbols);
+
+static uint32
+load_and_register_native_libs(const char **native_lib_list,
+                              uint32 native_lib_count,
+                              void **native_handle_list)
+{
+    uint32 i, native_handle_count = 0, n_native_symbols;
+    NativeSymbol *native_symbols;
+    char *module_name;
+    void *handle;
+
+    for (i = 0; i < native_lib_count; i++) {
+        /* open the native lib */
+        if (!(handle = dlopen(native_lib_list[i], RTLD_NOW | RTLD_GLOBAL))
+            && !(handle = dlopen(native_lib_list[i], RTLD_LAZY))) {
+            LOG_WARNING("warning: failed to load native library %s",
+                        native_lib_list[i]);
+            continue;
+        }
+
+        /* lookup get_native_lib func */
+        get_native_lib_func get_native_lib = dlsym(handle, "get_native_lib");
+        if (!get_native_lib) {
+            LOG_WARNING("warning: failed to lookup `get_native_lib` function "
+                        "from native lib %s",
+                        native_lib_list[i]);
+            dlclose(handle);
+            continue;
+        }
+
+        n_native_symbols = get_native_lib(&module_name, &native_symbols);
+
+        /* register natives */
+        if (!(n_native_symbols > 0 && module_name && native_symbols
+              && wasm_runtime_register_natives(module_name, native_symbols,
+                                               n_native_symbols))) {
+            LOG_WARNING("warning: failed to register native lib %s",
+                        native_lib_list[i]);
+            dlclose(handle);
+            continue;
+        }
+
+        native_handle_list[native_handle_count++] = handle;
+    }
+
+    return native_handle_count;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -249,6 +303,10 @@ main(int argc, char *argv[])
     const char *addr_pool[8] = { NULL };
     uint32 addr_pool_size = 0;
 #endif
+    const char *native_lib_list[8] = { NULL };
+    uint32 native_lib_count = 0;
+    void *native_handle_list[8] = { NULL };
+    uint32 i, native_handle_count = 0;
 #if WASM_ENABLE_DEBUG_INTERP != 0
     char *ip_addr = NULL;
     /* int platform_port = 0; */
@@ -337,6 +395,16 @@ main(int argc, char *argv[])
             }
         }
 #endif /* WASM_ENABLE_LIBC_WASI */
+        else if (!strncmp(argv[0], "--native-lib=", 13)) {
+            if (argv[0][13] == '\0')
+                return print_help();
+            if (native_lib_count >= sizeof(native_lib_list) / sizeof(char *)) {
+                printf("Only allow max native lib number %d\n",
+                       (int)(sizeof(native_lib_list) / sizeof(char *)));
+                return -1;
+            }
+            native_lib_list[native_lib_count++] = argv[0] + 13;
+        }
 #if WASM_ENABLE_MULTI_MODULE != 0
         else if (!strncmp(argv[0],
                           "--module-path=", strlen("--module-path="))) {
@@ -406,6 +474,9 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_LOG != 0
     bh_log_set_verbose_level(log_verbose_level);
 #endif
+
+    native_handle_count = load_and_register_native_libs(
+        native_lib_list, native_lib_count, native_handle_list);
 
     /* load WASM byte buffer from WASM bin file */
     if (!(wasm_file_buf =
@@ -481,6 +552,10 @@ fail2:
         os_munmap(wasm_file_buf, wasm_file_size);
 
 fail1:
+    /* unload the native libraries */
+    for (i = 0; i < native_handle_count; i++)
+        dlclose(native_handle_list[i]);
+
     /* destroy runtime environment */
     wasm_runtime_destroy();
     return 0;
