@@ -4,6 +4,10 @@
  */
 
 #include "thread_manager.h"
+#include "bh_list.h"
+#include "platform_api_vmcore.h"
+#include "platform_common.h"
+#include "wasm_exec_env.h"
 
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
@@ -885,6 +889,20 @@ set_exception_visitor(void *node, void *user_data)
         curr_module_inst = get_module_inst(curr_exec_env);
         wasm_runtime_set_exception(curr_module_inst, exception);
     }
+}
+
+
+int32
+wasm_cluster_get_exec_env_count(WASMExecEnv *exec_env)
+{
+    int32 n = 0;
+    WASMCluster *cluster = exec_env->cluster;
+
+    os_mutex_lock(&cluster->lock);
+    n = bh_list_length(&cluster->exec_env_list);
+    os_mutex_unlock(&cluster->lock);
+
+    return n;
 }
 
 void

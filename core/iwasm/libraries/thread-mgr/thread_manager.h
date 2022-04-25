@@ -61,6 +61,9 @@ WASMCluster *
 wasm_exec_env_get_cluster(WASMExecEnv *exec_env);
 
 int32
+wasm_cluster_get_exec_env_count(WASMExecEnv *exec_env);
+
+int32
 wasm_cluster_create_thread(WASMExecEnv *exec_env,
                            wasm_module_inst_t module_inst,
                            void *(*thread_routine)(void *), void *arg);
