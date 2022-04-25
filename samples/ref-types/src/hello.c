@@ -30,8 +30,8 @@ local_chk_externref(wasm_exec_env_t exec_env, int32 index, uintptr_t externref)
 
 /* clang-format off */
 static NativeSymbol native_symbols[] = {
-    { "native-cmp-externref", local_cmp_externref, "(II)i", NULL },
-    { "native-chk-externref", local_chk_externref, "(iI)i", NULL },
+    { "native-cmp-externref", local_cmp_externref, "(rr)i", NULL },
+    { "native-chk-externref", local_chk_externref, "(ir)i", NULL },
 };
 /* clang-format on */
 
