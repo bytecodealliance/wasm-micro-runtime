@@ -40,7 +40,7 @@ print_help()
     printf("  --dir=<dir>            Grant wasi access to the given host directories\n");
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
-    printf("  --addr-pool=           Grant wasi access to the given network addresses in\n");
+    printf("  --addr-pool=<addrs>    Grant wasi access to the given network addresses in\n");
     printf("                         CIRD notation to the program, seperated with ',',\n");
     printf("                         for example:\n");
     printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
@@ -49,7 +49,7 @@ print_help()
     printf("                         are shared object (.so) files, for example:\n");
     printf("                           --native-lib=test1.so --native-lib=test2.so\n");
 #if WASM_ENABLE_MULTI_MODULE != 0
-    printf("  --module-path=         Indicate a module search path. default is current\n"
+    printf("  --module-path=<path>   Indicate a module search path. default is current\n"
            "                         directory('./')\n");
 #endif
 #if WASM_ENABLE_LIB_PTHREAD != 0

@@ -1,7 +1,6 @@
 # "native-lib" sample introduction
 
-This sample demonstrates how to write required interfaces in native library, build it into a shared library and
-register the shared library to iwasm.
+This sample demonstrates how to write required interfaces in native library, build it into a shared library and register the shared library to iwasm.
 
 The native library should provide `get_native_lib` API for iwasm to return the native library info, including the module name, the native symbol list and the native symbol count, so that iwasm can use them to regiter the native library, for example:
 
@@ -31,7 +30,6 @@ get_native_lib(char **p_module_name, NativeSymbol **p_native_symbols)
 ## Preparation
 
 Please install WASI SDK, download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
-And install wabt, download the [wabt release](https://github.com/WebAssembly/wabt/releases) and extract the archive to default path `/opt/wabt`
 
 ## Build the sample
 
