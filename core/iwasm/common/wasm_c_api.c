@@ -1644,7 +1644,7 @@ wasm_trap_new(wasm_store_t *store, const wasm_message_t *message)
 {
     wasm_trap_t *trap;
 
-    if (!store || !message) {
+    if (!store) {
         return NULL;
     }
 
@@ -1652,7 +1652,10 @@ wasm_trap_new(wasm_store_t *store, const wasm_message_t *message)
         return NULL;
     }
 
-    INIT_VEC(trap->message, wasm_byte_vec_new, message->size, message->data);
+    if (message) {
+        INIT_VEC(trap->message, wasm_byte_vec_new, message->size,
+                 message->data);
+    }
 
     return trap;
 failed:
@@ -2685,10 +2688,12 @@ wasm_func_call(const wasm_func_t *func, const wasm_val_vec_t *params,
 
     if (!func->inst_comm_rt) {
         wasm_name_t message = { 0 };
-        wasm_name_new_from_string(&message, "the function isn't linked");
         wasm_trap_t *trap;
+
+        wasm_name_new_from_string(&message, "failed to call unlinked function");
         trap = wasm_trap_new(func->store, &message);
         wasm_byte_vec_delete(&message);
+
         return trap;
     }
 
@@ -3794,7 +3799,6 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
                  uint16 func_idx_rt, wasm_func_t *import)
 {
     WASMImport *imported_func_interp = NULL;
-    wasm_func_t *cloned = NULL;
 
     bh_assert(inst && module_interp && import);
     bh_assert(func_idx_rt < module_interp->import_function_count);
@@ -3802,15 +3806,6 @@ interp_link_func(const wasm_instance_t *inst, const WASMModule *module_interp,
 
     imported_func_interp = module_interp->import_functions + func_idx_rt;
     bh_assert(imported_func_interp);
-
-    if (!(cloned = wasm_func_copy(import))) {
-        return false;
-    }
-
-    if (!bh_vector_append((Vector *)inst->imports, &cloned)) {
-        wasm_func_delete(cloned);
-        return false;
-    }
 
     imported_func_interp->u.function.call_conv_wasm_c_api = true;
     imported_func_interp->u.function.wasm_c_api_with_env = import->with_env;
@@ -4015,21 +4010,11 @@ aot_link_func(const wasm_instance_t *inst, const AOTModule *module_aot,
               uint32 import_func_idx_rt, wasm_func_t *import)
 {
     AOTImportFunc *import_aot_func = NULL;
-    wasm_func_t *cloned = NULL;
 
     bh_assert(inst && module_aot && import);
 
     import_aot_func = module_aot->import_funcs + import_func_idx_rt;
     bh_assert(import_aot_func);
-
-    if (!(cloned = wasm_func_copy(import))) {
-        return false;
-    }
-
-    if (!bh_vector_append((Vector *)inst->imports, &cloned)) {
-        wasm_func_delete(cloned);
-        return false;
-    }
 
     import_aot_func->call_conv_wasm_c_api = true;
     import_aot_func->wasm_c_api_with_env = import->with_env;
@@ -4037,8 +4022,10 @@ aot_link_func(const wasm_instance_t *inst, const AOTModule *module_aot,
         import_aot_func->func_ptr_linked = import->u.cb_env.cb;
         import_aot_func->attachment = import->u.cb_env.env;
     }
-    else
+    else {
         import_aot_func->func_ptr_linked = import->u.cb;
+        import_aot_func->attachment = NULL;
+    }
     import->func_idx_rt = import_func_idx_rt;
 
     return true;
@@ -4272,9 +4259,6 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
         if ((*module)->module_type == Wasm_Module_Bytecode) {
             import_count = MODULE_INTERP(module)->import_count;
 
-            INIT_VEC(instance->imports, wasm_extern_vec_new_uninitialized,
-                     import_count);
-
             if (import_count) {
                 uint32 actual_link_import_count =
                     interp_link(instance, MODULE_INTERP(module),
@@ -4295,9 +4279,6 @@ wasm_instance_new_with_args(wasm_store_t *store, const wasm_module_t *module,
                            + MODULE_AOT(module)->import_global_count
                            + MODULE_AOT(module)->import_memory_count
                            + MODULE_AOT(module)->import_table_count;
-
-            INIT_VEC(instance->imports, wasm_extern_vec_new_uninitialized,
-                     import_count);
 
             if (import_count) {
                 import_count = aot_link(instance, MODULE_AOT(module),
@@ -4423,7 +4404,6 @@ wasm_instance_delete_internal(wasm_instance_t *instance)
         return;
     }
 
-    DEINIT_VEC(instance->imports, wasm_extern_vec_delete);
     DEINIT_VEC(instance->exports, wasm_extern_vec_delete);
 
     if (instance->inst_comm_rt) {

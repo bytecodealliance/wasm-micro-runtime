@@ -206,7 +206,6 @@ struct wasm_extern_t {
 
 struct wasm_instance_t {
     wasm_store_t *store;
-    wasm_extern_vec_t *imports;
     wasm_extern_vec_t *exports;
     struct wasm_host_info host_info;
     WASMModuleInstanceCommon *inst_comm_rt;
