@@ -713,15 +713,6 @@ DEF_UNI_INT_CONST_OPS(xor)
     if (IS_CONST_ZERO(right))
         return left;
 
-    if (is_i32) {
-        if (jit_cc_get_const_I32(cc, left) == jit_cc_get_const_I32(cc, right))
-            return NEW_CONST(I32, 0);
-    }
-    else {
-        if (jit_cc_get_const_I64(cc, left) == jit_cc_get_const_I64(cc, right))
-            return NEW_CONST(I64, 0);
-    }
-
     return 0;
 }
 
