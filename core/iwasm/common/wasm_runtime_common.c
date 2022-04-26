@@ -1309,7 +1309,7 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
 
     bh_assert((argv && ret_argv) || (argc == 0));
 
-    if (argv == ret_argv || argc == 0) {
+    if (argv == ret_argv) {
         /* no need to transfrom externref results */
         return true;
     }
