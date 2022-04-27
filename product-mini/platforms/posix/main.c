@@ -566,7 +566,8 @@ fail2:
 fail1:
 #if defined(_POSIX_SOURCE) || defined(_POSIX_C_SOURCE)
     /* unload the native libraries */
-    for (native_handle_idx = 0; native_handle_idx < native_handle_count; native_handle_idx++)
+    for (native_handle_idx = 0; native_handle_idx < native_handle_count;
+         native_handle_idx++)
         dlclose(native_handle_list[native_handle_idx]);
 #endif
 
