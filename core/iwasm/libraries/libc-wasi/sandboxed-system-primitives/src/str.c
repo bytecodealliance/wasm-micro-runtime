@@ -14,6 +14,7 @@
 #include "ssp_config.h"
 #include "bh_platform.h"
 #include "str.h"
+#include "wasm_export.h"
 
 static char *
 bh_strndup(const char *s, size_t n)

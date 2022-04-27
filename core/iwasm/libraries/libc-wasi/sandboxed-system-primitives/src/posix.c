@@ -21,6 +21,7 @@
 #include "refcount.h"
 #include "rights.h"
 #include "str.h"
+#include "wasm_export.h"
 
 #if 0 /* TODO: -std=gnu99 causes compile error, comment them first */
 // struct iovec must have the same layout as __wasi_iovec_t.

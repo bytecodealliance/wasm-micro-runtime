@@ -17,6 +17,9 @@
 #include "bh_queue.h"
 #include "bh_vector.h"
 #include "runtime_timer.h"
+#if !defined(WA_MALLOC) || !defined(WA_FREE)
+#include "wasm_export.h"
+#endif
 
 /**
  * WA_MALLOC/WA_FREE need to be redefined for both
