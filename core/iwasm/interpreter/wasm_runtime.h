@@ -165,6 +165,9 @@ struct WASMModuleInstance {
     uint32 export_tab_count;
 #endif
 
+    /* Array of function pointers to import functions */
+    void **import_func_ptrs;
+
     WASMMemoryInstance **memories;
     WASMTableInstance **tables;
     WASMGlobalInstance *globals;
