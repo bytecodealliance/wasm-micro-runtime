@@ -58,6 +58,7 @@ if (WAMR_BUILD_TARGET STREQUAL "X86_64" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
         FetchContent_Declare(
             zydis
             GIT_REPOSITORY https://github.com/zyantific/zydis.git
+            GIT_TAG e14a07895136182a5b53e181eec3b1c6e0b434de
         )
         FetchContent_GetProperties(zydis)
         if (NOT zydis_POPULATED)
