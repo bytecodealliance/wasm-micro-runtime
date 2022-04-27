@@ -5,6 +5,7 @@
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#include "wasm_runtime_common.h"
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -70,11 +71,7 @@ print_help()
 static void *
 app_instance_main(wasm_module_inst_t module_inst)
 {
-    const char *exception;
-
     wasm_application_execute_main(module_inst, app_argc, app_argv);
-    if ((exception = wasm_runtime_get_exception(module_inst)))
-        printf("%s\n", exception);
     return NULL;
 }
 
@@ -135,7 +132,7 @@ app_instance_repl(wasm_module_inst_t module_inst)
     char *cmd = NULL;
     size_t len = 0;
     ssize_t n;
-
+    sched_yield();
     while ((printf("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
         bh_assert(n > 0);
         if (cmd[n - 1] == '\n') {
@@ -288,12 +285,16 @@ int
 main(int argc, char *argv[])
 {
     char *wasm_file = NULL;
+    const char *exception = NULL;
     const char *func_name = NULL;
     uint8 *wasm_file_buf = NULL;
     uint32 wasm_file_size;
     uint32 stack_size = 16 * 1024, heap_size = 16 * 1024;
     wasm_module_t wasm_module = NULL;
     wasm_module_inst_t wasm_module_inst = NULL;
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_exec_env_t wasm_module_env = NULL;
+#endif
     RuntimeInitArgs init_args;
     char error_buf[128] = { 0 };
 #if WASM_ENABLE_LOG != 0
@@ -548,6 +549,18 @@ main(int argc, char *argv[])
         app_instance_func(wasm_module_inst, func_name);
     else
         app_instance_main(wasm_module_inst);
+
+    /* Wait (detached) thread exit to print exception correctly.  */
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    wasm_module_env = wasm_runtime_get_exec_env_singleton(wasm_module_inst);
+    while (wasm_cluster_get_exec_env_count(wasm_module_env) > 1) {
+        sched_yield();
+    }
+#endif
+
+    if ((exception = wasm_runtime_get_exception(wasm_module_inst)))
+        printf("%s\n", exception);
 
     /* destroy the module instance */
     wasm_runtime_deinstantiate(wasm_module_inst);
