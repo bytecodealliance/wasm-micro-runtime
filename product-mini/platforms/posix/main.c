@@ -549,9 +549,9 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst);
 
+#if WASM_ENABLE_THREAD_MGR != 0
     /* Wait (detached) thread exit to print exception correctly.  */
 
-#if WASM_ENABLE_THREAD_MGR != 0
     wasm_module_env = wasm_runtime_get_exec_env_singleton(wasm_module_inst);
     while (wasm_cluster_get_exec_env_count(wasm_module_env) > 1) {
         sched_yield();
