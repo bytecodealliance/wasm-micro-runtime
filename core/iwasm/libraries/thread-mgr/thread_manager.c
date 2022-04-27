@@ -4,10 +4,6 @@
  */
 
 #include "thread_manager.h"
-#include "bh_list.h"
-#include "platform_api_vmcore.h"
-#include "platform_common.h"
-#include "wasm_exec_env.h"
 
 #if WASM_ENABLE_INTERP != 0
 #include "../interpreter/wasm_runtime.h"
