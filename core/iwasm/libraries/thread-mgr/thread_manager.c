@@ -887,7 +887,6 @@ set_exception_visitor(void *node, void *user_data)
     }
 }
 
-
 int32
 wasm_cluster_get_exec_env_count(WASMExecEnv *exec_env)
 {
