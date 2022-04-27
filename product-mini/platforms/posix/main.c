@@ -132,7 +132,6 @@ app_instance_repl(wasm_module_inst_t module_inst)
     char *cmd = NULL;
     size_t len = 0;
     ssize_t n;
-    sched_yield();
     while ((printf("webassembly> "), n = getline(&cmd, &len, stdin)) != -1) {
         bh_assert(n > 0);
         if (cmd[n - 1] == '\n') {
