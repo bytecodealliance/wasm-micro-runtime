@@ -153,7 +153,7 @@ jit_compile_op_tee_local(JitCompContext *cc, uint32 local_idx)
             break;
         default:
             bh_assert(0);
-            break;
+            goto fail;
     }
 
     return true;

@@ -47,7 +47,7 @@ bool
 jit_compile_op_memory_size(JitCompContext *cc);
 
 bool
-jit_compile_op_memory_grow(JitCompContext *cc);
+jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx);
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool

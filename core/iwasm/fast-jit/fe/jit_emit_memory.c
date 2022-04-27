@@ -4,8 +4,10 @@
  */
 
 #include "jit_emit_memory.h"
+#include "jit_emit_exception.h"
 #include "../jit_frontend.h"
-#include "fe/jit_emit_exception.h"
+#include "../jit_codegen.h"
+#include "../../interpreter/wasm_runtime.h"
 
 static JitReg
 get_memory_boundary(JitCompContext *cc, uint32 mem_idx, uint32 bytes)
@@ -409,8 +411,45 @@ jit_compile_op_memory_size(JitCompContext *cc)
 }
 
 bool
-jit_compile_op_memory_grow(JitCompContext *cc)
+jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
 {
+    JitReg delta, module_inst, grow_result, res, memory_inst, prev_page_count;
+    JitInsn *insn;
+
+    /* WASMMemoryInstance->cur_page_count before enlarging */
+    memory_inst = get_memory_inst_reg(cc->jit_frame, mem_idx);
+    prev_page_count = jit_cc_new_reg_I32(cc);
+    GEN_INSN(LDI32, prev_page_count, memory_inst,
+             NEW_CONST(I32, offsetof(WASMMemoryInstance, cur_page_count)));
+
+    /* call wasm_enlarge_memory */
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    /* Set native_ret to x86::eax */
+    grow_result = jit_codegen_get_hreg_by_name("eax");
+#else
+    grow_result = jit_cc_new_reg_I32(cc);
+#endif
+    POP_I32(delta);
+    module_inst = get_module_inst_reg(cc->jit_frame);
+    insn = GEN_INSN(CALLNATIVE, grow_result,
+                    NEW_CONST(PTR, (uintptr_t)wasm_enlarge_memory), 2);
+    if (insn) {
+        *(jit_insn_opndv(insn, 2)) = module_inst;
+        *(jit_insn_opndv(insn, 3)) = delta;
+    }
+
+    /* check if enlarge memory success */
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(CMP, cc->cmp_reg, grow_result, NEW_CONST(I32, 0));
+    GEN_INSN(SELECTNE, res, cc->cmp_reg, prev_page_count,
+             NEW_CONST(I32, (int32)-1));
+    PUSH_I32(res);
+
+    /* ensure a refresh in next get_memory_XXX_reg */
+    clear_memory_regs(cc->jit_frame);
+
+    return true;
+fail:
     return false;
 }
 

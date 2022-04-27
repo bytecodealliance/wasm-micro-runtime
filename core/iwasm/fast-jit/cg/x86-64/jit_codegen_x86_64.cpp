@@ -4435,11 +4435,11 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
             case JIT_REG_KIND_I32:
                 if (jit_reg_is_const(arg_reg)) {
                     i32 = jit_cc_get_const_I32(cc, arg_reg);
-                    imm.setValue(i32);
+                    imm.setValue((int64)i32);
                     a.mov(regs_arg[i], imm);
                 }
                 else {
-                    a.mov(regs_arg[i], regs_i32[jit_reg_no(arg_reg)]);
+                    a.movsxd(regs_arg[i], regs_i32[jit_reg_no(arg_reg)]);
                 }
                 break;
             case JIT_REG_KIND_I64:
