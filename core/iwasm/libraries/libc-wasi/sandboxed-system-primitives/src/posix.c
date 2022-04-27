@@ -181,15 +181,19 @@ convert_clockid(__wasi_clockid_t in, clockid_t *out)
         case __WASI_CLOCK_MONOTONIC:
             *out = CLOCK_MONOTONIC;
             return true;
+#if defined(CLOCK_PROCESS_CPUTIME_ID)
         case __WASI_CLOCK_PROCESS_CPUTIME_ID:
             *out = CLOCK_PROCESS_CPUTIME_ID;
             return true;
+#endif
         case __WASI_CLOCK_REALTIME:
             *out = CLOCK_REALTIME;
             return true;
+#if defined(CLOCK_THREAD_CPUTIME_ID)
         case __WASI_CLOCK_THREAD_CPUTIME_ID:
             *out = CLOCK_THREAD_CPUTIME_ID;
             return true;
+#endif
         default:
             return false;
     }
