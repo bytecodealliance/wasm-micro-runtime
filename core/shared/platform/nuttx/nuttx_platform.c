@@ -58,6 +58,9 @@ void
 os_dcache_flush()
 {}
 
+/* If AT_FDCWD is provided, maybe we have openat family */
+#if !defined(AT_FDCWD)
+
 int
 openat(int fd, const char *path, int oflags, ...)
 {
@@ -117,6 +120,8 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag)
     errno = ENOSYS;
     return -1;
 }
+
+#endif /* !defined(AT_FDCWD) */
 
 DIR *
 fdopendir(int fd)

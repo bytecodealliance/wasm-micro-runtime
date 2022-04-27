@@ -72,6 +72,9 @@ typedef pthread_t korp_thread;
  * NuttX doesn't have openat family.
  */
 
+/* If AT_FDCWD is provided, maybe we have openat family */
+#if !defined(AT_FDCWD)
+
 int
 openat(int fd, const char *path, int oflags, ...);
 int
@@ -93,6 +96,8 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag);
 #define AT_SYMLINK_NOFOLLOW 0
 #define AT_SYMLINK_FOLLOW 0
 #define AT_REMOVEDIR 0
+
+#endif /* !defined(AT_FDCWD) */
 
 /*
  * NuttX doesn't have fdopendir.
