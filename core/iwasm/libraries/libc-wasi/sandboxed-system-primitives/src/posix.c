@@ -2687,11 +2687,84 @@ wasmtime_ssp_proc_raise(__wasi_signal_t sig)
 {
     static const int signals[] = {
 #define X(v) [__WASI_##v] = v
-        X(SIGABRT), X(SIGALRM), X(SIGBUS), X(SIGCHLD), X(SIGCONT), X(SIGFPE),
-        X(SIGHUP),  X(SIGILL),  X(SIGINT), X(SIGKILL), X(SIGPIPE), X(SIGQUIT),
-        X(SIGSEGV), X(SIGSTOP), X(SIGSYS), X(SIGTERM), X(SIGTRAP), X(SIGTSTP),
-        X(SIGTTIN), X(SIGTTOU), X(SIGURG), X(SIGUSR1), X(SIGUSR2), X(SIGVTALRM),
-        X(SIGXCPU), X(SIGXFSZ),
+#if defined(SIGABRT)
+        X(SIGABRT),
+#endif
+#if defined(SIGALRM)
+        X(SIGALRM),
+#endif
+#if defined(SIGBUS)
+        X(SIGBUS),
+#endif
+#if defined(SIGCHLD)
+        X(SIGCHLD),
+#endif
+#if defined(SIGCONT)
+        X(SIGCONT),
+#endif
+#if defined(SIGFPE)
+        X(SIGFPE),
+#endif
+#if defined(SIGHUP)
+        X(SIGHUP),
+#endif
+#if defined(SIGILL)
+        X(SIGILL),
+#endif
+#if defined(SIGINT)
+        X(SIGINT),
+#endif
+#if defined(SIGKILL)
+        X(SIGKILL),
+#endif
+#if defined(SIGPIPE)
+        X(SIGPIPE),
+#endif
+#if defined(SIGQUIT)
+        X(SIGQUIT),
+#endif
+#if defined(SIGSYS)
+        X(SIGSEGV),
+#endif
+#if defined(SIGSTOP)
+        X(SIGSTOP),
+#endif
+#if defined(SIGSYS)
+        X(SIGSYS),
+#endif
+#if defined(SIGTERM)
+        X(SIGTERM),
+#endif
+#if defined(SIGTRAP)
+        X(SIGTRAP),
+#endif
+#if defined(SIGTSTP)
+        X(SIGTSTP),
+#endif
+#if defined(SIGTTIN)
+        X(SIGTTIN),
+#endif
+#if defined(SIGTTOU)
+        X(SIGTTOU),
+#endif
+#if defined(SIGURG)
+        X(SIGURG),
+#endif
+#if defined(SIGUSR1)
+        X(SIGUSR1),
+#endif
+#if defined(SIGUSR2)
+        X(SIGUSR2),
+#endif
+#if defined(SIGVTALRM)
+        X(SIGVTALRM),
+#endif
+#if defined(SIGXCPU)
+        X(SIGXCPU),
+#endif
+#if defined(SIGXFSZ)
+        X(SIGXFSZ),
+#endif
 #undef X
     };
     if (sig >= sizeof(signals) / sizeof(signals[0]) || signals[sig] == 0)
