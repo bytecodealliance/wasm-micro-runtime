@@ -364,6 +364,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     WASMExecEnv *exec_env = NULL;
 #if WASM_ENABLE_GC != 0
     WASMRefTypeMap *ref_type_map;
+    WASMLocalObjectRef *local_ref;
+    uint32 num_local_ref_pushed = 0;
 #endif
     uint32 argc1, *argv1 = NULL, cell_num = 0, j, k = 0;
 #if WASM_ENABLE_GC == 0 && WASM_ENABLE_REF_TYPES != 0
@@ -393,6 +395,13 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 
     if (type->param_count != (uint32)argc) {
         wasm_runtime_set_exception(module_inst, "invalid input argument count");
+        goto fail;
+    }
+
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (!exec_env) {
+        wasm_runtime_set_exception(module_inst,
+                                   "create singleton exec_env failed");
         goto fail;
     }
 
@@ -576,15 +585,33 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
                     break;
                 }
                 else if (type->types[i] == VALUE_TYPE_EXTERNREF) {
+                    WASMExternrefObjectRef gc_obj;
+                    void *gc_heap_handle = NULL;
                     void *extern_obj =
                         (void *)(uintptr_t)strtoull(argv[i], &endptr, 0);
-                    WASMExternrefObjectRef gc_obj =
-                        wasm_externref_obj_new(NULL, extern_obj);
+#if WASM_ENABLE_INTERP != 0
+                    if (module_inst->module_type == Wasm_Module_Bytecode)
+                        gc_heap_handle =
+                            ((WASMModuleInstance *)module_inst)->gc_heap_handle;
+#endif
+#if WASM_ENABLE_AOT != 0
+                    if (module_inst->module_type == Wasm_Module_AoT)
+                        gc_heap_handle = NULL; /* TODO */
+#endif
+                    bh_assert(gc_heap_handle);
+                    gc_obj = wasm_externref_obj_new(gc_heap_handle, extern_obj);
                     if (!gc_obj) {
                         wasm_runtime_set_exception(
                             module_inst, "create extern object failed");
                         goto fail;
                     }
+                    if (!(local_ref = runtime_malloc(sizeof(WASMLocalObjectRef),
+                                                     module_inst, NULL, 0))) {
+                        goto fail;
+                    }
+                    wasm_runtime_push_local_object_ref(exec_env, local_ref);
+                    local_ref->val = (WASMObjectRef)gc_obj;
+                    num_local_ref_pushed++;
                     PUT_REF_TO_ADDR(argv1 + p, gc_obj);
                     p += sizeof(uintptr_t) / sizeof(uint32);
                     break;
@@ -613,13 +640,6 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
 #if WASM_ENABLE_REF_TYPES == 0
     bh_assert(p == (int32)argc1);
 #endif
-
-    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
-    if (!exec_env) {
-        wasm_runtime_set_exception(module_inst,
-                                   "create singleton exec_env failed");
-        goto fail;
-    }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
     wasm_runtime_start_debug_instance(exec_env);
@@ -767,6 +787,13 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
     os_printf("\n");
 
+#if WASM_ENABLE_GC != 0
+    for (j = 0; j < num_local_ref_pushed; j++) {
+        local_ref = wasm_runtime_pop_local_object_ref(exec_env);
+        wasm_runtime_free(local_ref);
+    }
+#endif
+
     wasm_runtime_free(argv1);
     return true;
 
@@ -776,6 +803,13 @@ unsupported_input_arg_type:
 fail:
     if (argv1)
         wasm_runtime_free(argv1);
+
+#if WASM_ENABLE_GC != 0
+    for (j = 0; j < num_local_ref_pushed; j++) {
+        local_ref = wasm_runtime_pop_local_object_ref(exec_env);
+        wasm_runtime_free(local_ref);
+    }
+#endif
 
     exception = wasm_runtime_get_exception(module_inst);
     bh_assert(exception);

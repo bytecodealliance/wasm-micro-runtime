@@ -12,6 +12,9 @@
 #include "wasm_native.h"
 #include "../include/wasm_export.h"
 #include "../interpreter/wasm.h"
+#if WASM_ENABLE_GC != 0
+#include "gc/gc_object.h"
+#endif
 #if WASM_ENABLE_LIBC_WASI != 0
 #if WASM_ENABLE_UVWASI == 0
 #include "wasmtime_ssp.h"
@@ -429,6 +432,34 @@ typedef struct wasm_frame_t {
     uint32 func_index;
     uint32 func_offset;
 } WASMCApiFrame;
+
+#if WASM_ENABLE_GC != 0
+/**
+ * Local object reference that can be traced when GC occurs. All
+ * native functions that needs to hold WASM objects that may not be
+ * referenced from other elements of GC root set must be hold with
+ * this type of variable so that they can be traced when GC occurs.
+ * Before using such a variable, it must be pushed onto the stack
+ * (implemented as a chain) of such variables, and before leaving the
+ * frame of the variables, they must be poped from the stack.
+ */
+typedef struct WASMLocalObjectRef {
+    /* Previous local object reference variable on the stack. */
+    struct WASMLocalObjectRef *prev;
+    /* The reference of WASM object hold by this variable. */
+    WASMObjectRef val;
+} WASMLocalObjectRef;
+
+void
+wasm_runtime_push_local_object_ref(WASMExecEnv *exec_env,
+                                   WASMLocalObjectRef *ref);
+
+WASMLocalObjectRef *
+wasm_runtime_pop_local_object_ref(WASMExecEnv *exec_env);
+
+void
+wasm_runtime_pop_local_object_refs(WASMExecEnv *exec_env, uint32 n);
+#endif
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool

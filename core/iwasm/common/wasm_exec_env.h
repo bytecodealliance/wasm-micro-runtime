@@ -18,6 +18,10 @@ extern "C" {
 struct WASMModuleInstanceCommon;
 struct WASMInterpFrame;
 
+#if WASM_ENABLE_GC != 0
+struct WASMLocalObjectRef;
+#endif
+
 #if WASM_ENABLE_THREAD_MGR != 0
 typedef struct WASMCluster WASMCluster;
 #if WASM_ENABLE_DEBUG_INTERP != 0
@@ -100,6 +104,11 @@ typedef struct WASMExecEnv {
     korp_cond wait_cond;
     /* the count of threads which are joining current thread */
     uint32 wait_count;
+#endif
+
+#if WASM_ENABLE_GC != 0
+    /* Current local object reference variable */
+    struct WASMLocalObjectRef *cur_local_object_ref;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0

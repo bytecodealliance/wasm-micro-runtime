@@ -72,10 +72,24 @@ mem_allocator_free_with_gc(mem_allocator_t allocator, void *ptr)
 }
 #endif
 
+#if WASM_ENABLE_THREAD_MGR == 0
 void
-mem_allocator_enable_heap_reclaim(mem_allocator_t allocator, bool enabled)
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *exec_env)
 {
-    return gc_enable_heap_reclaim((gc_handle_t)allocator, enabled);
+    return gc_enable_gc_reclaim((gc_handle_t)allocator, exec_env);
+}
+#else
+void
+mem_allocator_enable_gc_reclaim(mem_allocator_t allocator, void *cluster)
+{
+    return gc_enable_gc_reclaim((gc_handle_t)allocator, cluster);
+}
+#endif
+
+int
+mem_allocator_add_root(mem_allocator_t allocator, WASMObjectRef obj)
+{
+    return gc_add_root((gc_handle_t)allocator, (gc_object_t)obj);
 }
 #endif
 

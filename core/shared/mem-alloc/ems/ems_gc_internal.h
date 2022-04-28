@@ -230,6 +230,14 @@ typedef struct gc_heap_struct {
     /* for rootset enumeration of private heap*/
     void *root_set;
 
+#if WASM_ENABLE_THREAD_MGR == 0
+    /* exec_env of current wasm module instance */
+    void *exec_env;
+#else
+    /* thread cluster of current module instances */
+    void *cluster;
+#endif
+
     /* whether the fast mode of marking process that requires
        additional memory fails.  When the fast mode fails, the
        marking process can still be done in the slow mode, which
@@ -276,20 +284,14 @@ gc_update_threshold(gc_heap_t *heap)
         heap->total_free_size * heap->gc_threshold_factor / 1000;
 }
 
-bool
-wasm_runtime_get_wasm_object_ref_list(gc_object_t obj, bool *p_is_compact_mode,
-                                      gc_uint32 *p_ref_num,
-                                      gc_uint16 **p_ref_list,
-                                      gc_uint32 *p_ref_start_offset);
-
-#define gct_vm_get_wasm_object_ref_list wasm_runtime_get_wasm_object_ref_list
 #define gct_vm_mutex_init os_mutex_init
 #define gct_vm_mutex_destroy os_mutex_destroy
 #define gct_vm_mutex_lock os_mutex_lock
 #define gct_vm_mutex_unlock os_mutex_unlock
-#define gct_vm_begin_rootset_enumeration vm_begin_rootset_enumeration
 #define gct_vm_gc_prepare wasm_runtime_gc_prepare
 #define gct_vm_gc_finished wasm_runtime_gc_finalize
+#define gct_vm_begin_rootset_enumeration wasm_runtime_traverse_gc_rootset
+#define gct_vm_get_wasm_object_ref_list wasm_runtime_get_wasm_object_ref_list
 
 #endif /* end of WAMS_ENABLE_GC != 0 */
 

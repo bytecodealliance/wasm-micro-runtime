@@ -149,13 +149,25 @@ gc_destroy_with_pool(gc_handle_t handle)
 }
 
 #if WASM_ENABLE_GC != 0
+#if WASM_ENABLE_THREAD_MGR == 0
 void
-gc_enable_heap_reclaim(gc_handle_t handle, bool enabled)
+gc_enable_gc_reclaim(gc_handle_t handle, void *exec_env)
 {
     gc_heap_t *heap = (gc_heap_t *)handle;
 
-    heap->is_reclaim_enabled = enabled ? 1 : 0;
+    heap->is_reclaim_enabled = 1;
+    heap->exec_env = exec_env;
 }
+#else
+void
+gc_enable_gc_reclaim(gc_handle_t handle, void *cluster)
+{
+    gc_heap_t *heap = (gc_heap_t *)handle;
+
+    heap->is_reclaim_enabled = 1;
+    heap->cluster = cluster;
+}
+#endif
 #endif
 
 uint32
