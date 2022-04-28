@@ -106,15 +106,6 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag);
 DIR *
 fdopendir(int fd);
 
-/*
- * NuttX doesn't have preadv/pwritev.
- */
-
-ssize_t
-preadv(int fd, const struct iovec *iov, int iovcnt, off_t off);
-ssize_t
-pwritev(int fd, const struct iovec *iov, int iovcnt, off_t off);
-
 #ifdef __cplusplus
 }
 #endif

@@ -129,16 +129,3 @@ fdopendir(int fd)
     errno = ENOSYS;
     return NULL;
 }
-
-ssize_t
-preadv(int fd, const struct iovec *iov, int iovcnt, off_t off)
-{
-    errno = ENOSYS;
-    return -1;
-}
-ssize_t
-pwritev(int fd, const struct iovec *iov, int iovcnt, off_t off)
-{
-    errno = ENOSYS;
-    return -1;
-}
