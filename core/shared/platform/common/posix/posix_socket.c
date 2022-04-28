@@ -172,6 +172,7 @@ os_socket_inet_network(const char *cp, uint32 *out)
     if (!cp)
         return BHT_ERROR;
 
-    *out = inet_network(cp);
+    /* Note: ntohl(INADDR_NONE) == INADDR_NONE */
+    *out = ntohl(inet_addr(cp));
     return BHT_OK;
 }
