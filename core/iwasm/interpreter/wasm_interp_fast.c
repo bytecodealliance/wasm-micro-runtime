@@ -839,7 +839,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     WASMFunctionImport *func_import = cur_func->u.func_import;
     unsigned local_cell_num = 2;
     WASMInterpFrame *frame;
-    uint32 argv_ret[2];
+    uint32 argv_ret[2], cur_func_index;
+    void *native_func_pointer = NULL;
     bool ret;
 
     if (!(frame = ALLOC_FRAME(exec_env,
@@ -853,7 +854,11 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
-    if (!func_import->func_ptr_linked) {
+    cur_func_index = cur_func - module_inst->functions;
+    bh_assert(cur_func_index < module_inst->module->import_function_count);
+    native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
+
+    if (!native_func_pointer) {
         char buf[128];
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
@@ -864,9 +869,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     if (func_import->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
-            (WASMModuleInstanceCommon *)module_inst,
-            func_import->func_ptr_linked, func_import->func_type,
-            cur_func->param_cell_num, frame->lp,
+            (WASMModuleInstanceCommon *)module_inst, native_func_pointer,
+            func_import->func_type, cur_func->param_cell_num, frame->lp,
             func_import->wasm_c_api_with_env, func_import->attachment);
         if (ret) {
             argv_ret[0] = frame->lp[0];
@@ -875,13 +879,13 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     }
     else if (!func_import->call_conv_raw) {
         ret = wasm_runtime_invoke_native(
-            exec_env, func_import->func_ptr_linked, func_import->func_type,
+            exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
     }
     else {
         ret = wasm_runtime_invoke_native_raw(
-            exec_env, func_import->func_ptr_linked, func_import->func_type,
+            exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
     }

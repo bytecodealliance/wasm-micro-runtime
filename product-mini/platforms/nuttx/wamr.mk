@@ -41,6 +41,9 @@ endif
 
 WAMR_BUILD_PLATFORM := nuttx
 
+CFLAGS += -DBH_MALLOC=wasm_runtime_malloc
+CFLAGS += -DBH_FREE=wasm_runtime_free
+
 ifeq ($(WAMR_BUILD_TARGET), X86_32)
   CFLAGS += -DBUILD_TARGET_X86_32
   INVOKE_NATIVE := invokeNative_ia32.s
