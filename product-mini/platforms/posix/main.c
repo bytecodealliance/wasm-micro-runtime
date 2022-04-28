@@ -5,7 +5,6 @@
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
-#include "wasm_runtime_common.h"
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +15,7 @@
 #include "bh_platform.h"
 #include "bh_read_file.h"
 #include "wasm_export.h"
+#include "wasm_runtime_common.h"
 
 static int app_argc;
 static char **app_argv;
