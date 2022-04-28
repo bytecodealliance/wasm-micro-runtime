@@ -41,6 +41,12 @@ typedef pthread_t korp_thread;
 #define os_printf printf
 #define os_vprintf vprintf
 
+#if defined(CONFIG_LIBC_DLFCN)
+#define BH_HAS_DLFCN 1
+#else
+#define BH_HAS_DLFCN 0
+#endif
+
 /* On NuttX, time_t is uint32_t */
 #define BH_TIME_T_MAX 0xffffffff
 

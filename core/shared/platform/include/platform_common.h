@@ -65,6 +65,14 @@ BH_VPRINTF(const char *format, va_list ap);
 #define NULL (void *)0
 #endif
 
+#if !defined(BH_HAS_DLFCN)
+#if defined(_POSIX_SOURCE) || defined(_POSIX_C_SOURCE)
+#define BH_HAS_DLFCN 1
+#else
+#define BH_HAS_DLFCN 0
+#endif
+#endif
+
 #ifndef __cplusplus
 
 #ifndef true
