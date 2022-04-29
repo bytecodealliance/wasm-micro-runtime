@@ -150,7 +150,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
     func_type = wasm_runtime_get_function_type(func, module_type);
 
     if (!func_type) {
-        wasm_runtime_set_exception(module_inst, "invalid module instance type");
+        LOG_ERROR("invalid module instance type");
         return false;
     }
 
@@ -209,19 +209,21 @@ bool
 wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
                               char *argv[])
 {
+    bool ret;
 #if WASM_ENABLE_THREAD_MGR != 0
     WASMCluster *cluster;
     WASMExecEnv *exec_env;
 #endif
-    bool ret;
 
     ret = execute_main(module_inst, argc, argv);
+
 #if WASM_ENABLE_THREAD_MGR != 0
     exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
     if (exec_env && (cluster = wasm_exec_env_get_cluster(exec_env))) {
         wasm_cluster_wait_for_all_except_self(cluster, exec_env);
     }
 #endif
+
     return (ret && !wasm_runtime_get_exception(module_inst)) ? true : false;
 }
 
@@ -373,9 +375,9 @@ union ieee754_double {
     } ieee;
 };
 
-bool
-wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
-                              const char *name, int32 argc, char *argv[])
+static bool
+execute_func(WASMModuleInstanceCommon *module_inst,
+             const char *name, int32 argc, char *argv[])
 {
     WASMFunctionInstanceCommon *target_func;
     WASMModuleInstanceCommon *target_inst;
@@ -710,4 +712,26 @@ fail:
     bh_assert(exception);
     os_printf("%s\n", exception);
     return false;
+}
+
+bool
+wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
+                              const char *name, int32 argc, char *argv[])
+{
+    bool ret;
+#if WASM_ENABLE_THREAD_MGR != 0
+    WASMCluster *cluster;
+    WASMExecEnv *exec_env;
+#endif
+
+    ret = execute_func(module_inst, name, argc, argv);
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (exec_env && (cluster = wasm_exec_env_get_cluster(exec_env))) {
+        wasm_cluster_wait_for_all_except_self(cluster, exec_env);
+    }
+#endif
+
+    return (ret && !wasm_runtime_get_exception(module_inst)) ? true : false;
 }
