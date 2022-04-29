@@ -100,6 +100,9 @@ typedef struct WASMExecEnv {
     korp_cond wait_cond;
     /* the count of threads which are joining current thread */
     uint32 wait_count;
+
+    /* whether current thread is detached */
+    bool thread_is_detached;
 #endif
 
 #if WASM_ENABLE_DEBUG_INTERP != 0

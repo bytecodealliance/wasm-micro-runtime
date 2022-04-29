@@ -681,8 +681,8 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
     korp_tid handle;
 
     os_mutex_lock(&cluster_list_lock);
-    if (!clusters_have_exec_env(exec_env)) {
-        /* Invalid thread or the thread has exited */
+    if (!clusters_have_exec_env(exec_env) || exec_env->thread_is_detached) {
+        /* Invalid thread, thread has exited or thread has been detached */
         if (ret_val)
             *ret_val = NULL;
         os_mutex_unlock(&cluster_list_lock);
@@ -710,6 +710,7 @@ wasm_cluster_detach_thread(WASMExecEnv *exec_env)
            joining it, otherwise let the system resources for the
            thread be released after joining */
         ret = os_thread_detach(exec_env->handle);
+        exec_env->thread_is_detached = true;
     }
     os_mutex_unlock(&cluster_list_lock);
     return ret;
@@ -799,6 +800,33 @@ wasm_cluster_terminate_all_except_self(WASMCluster *cluster,
                                        WASMExecEnv *exec_env)
 {
     traverse_list(&cluster->exec_env_list, terminate_thread_visitor,
+                  (void *)exec_env);
+}
+
+static void
+wait_for_thread_visitor(void *node, void *user_data)
+{
+    WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
+    WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
+    korp_tid handle;
+
+    if (curr_exec_env == exec_env)
+        return;
+
+    wasm_cluster_join_thread(curr_exec_env, NULL);
+}
+
+void
+wams_cluster_wait_for_all(WASMCluster *cluster)
+{
+    traverse_list(&cluster->exec_env_list, wait_for_thread_visitor, NULL);
+}
+
+void
+wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
+                                      WASMExecEnv *exec_env)
+{
+    traverse_list(&cluster->exec_env_list, wait_for_thread_visitor,
                   (void *)exec_env);
 }
 
