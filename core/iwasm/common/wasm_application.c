@@ -376,8 +376,8 @@ union ieee754_double {
 };
 
 static bool
-execute_func(WASMModuleInstanceCommon *module_inst,
-             const char *name, int32 argc, char *argv[])
+execute_func(WASMModuleInstanceCommon *module_inst, const char *name,
+             int32 argc, char *argv[])
 {
     WASMFunctionInstanceCommon *target_func;
     WASMModuleInstanceCommon *target_inst;
