@@ -681,8 +681,8 @@ wasm_cluster_join_thread(WASMExecEnv *exec_env, void **ret_val)
     korp_tid handle;
 
     os_mutex_lock(&cluster_list_lock);
-    if (!clusters_have_exec_env(exec_env)) {
-        /* Invalid thread or the thread has exited */
+    if (!clusters_have_exec_env(exec_env) || exec_env->thread_is_detached) {
+        /* Invalid thread, thread has exited or thread has been detached */
         if (ret_val)
             *ret_val = NULL;
         os_mutex_unlock(&cluster_list_lock);
@@ -809,23 +809,11 @@ wait_for_thread_visitor(void *node, void *user_data)
     WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
     WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
     korp_tid handle;
-    int ret;
 
     if (curr_exec_env == exec_env)
         return;
 
     wasm_cluster_join_thread(curr_exec_env, NULL);
-
-    os_mutex_lock(&cluster_list_lock);
-    if (!clusters_have_exec_env(exec_env) || exec_env->thread_is_detached) {
-        os_mutex_unlock(&cluster_list_lock);
-        return;
-    }
-    exec_env->wait_count++;
-    handle = exec_env->handle;
-    os_mutex_unlock(&cluster_list_lock);
-    ret = os_thread_join(handle, NULL);
-    (void)ret;
 }
 
 void
