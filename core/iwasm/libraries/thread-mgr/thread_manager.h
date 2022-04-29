@@ -106,6 +106,13 @@ void
 wasm_cluster_terminate_all_except_self(WASMCluster *cluster,
                                        WASMExecEnv *exec_env);
 
+void
+wams_cluster_wait_for_all(WASMCluster *cluster);
+
+void
+wasm_cluster_wait_for_all_except_self(WASMCluster *cluster,
+                                      WASMExecEnv *exec_env);
+
 bool
 wasm_cluster_add_exec_env(WASMCluster *cluster, WASMExecEnv *exec_env);
 
@@ -148,8 +155,6 @@ typedef struct WASMCurrentEnvStatus {
     uint64 signal_flag : 32;
     uint64 step_count : 16;
     uint64 running_status : 16;
-    korp_mutex wait_lock;
-    korp_cond wait_cond;
 } WASMCurrentEnvStatus;
 
 WASMCurrentEnvStatus *
