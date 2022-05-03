@@ -2853,11 +2853,12 @@ wasm_runtime_set_gc_heap_handle(WASMModuleInstanceCommon *module_inst,
         ((WASMModuleInstance *)module_inst)->gc_heap_handle = gc_heap_handle;
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
-    /*
-    if (module_inst->module_type == Wasm_Module_AoT)
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        /* TODO */
+        /*
         ((AOTModuleInstance *)module_inst)->gc_heap_handle.ptr = gc_heap_handle;
-    */
+        */
+    }
 #endif
 }
 
@@ -2869,11 +2870,12 @@ wasm_runtime_get_gc_heap_handle(WASMModuleInstanceCommon *module_inst)
         return ((WASMModuleInstance *)module_inst)->gc_heap_handle;
 #endif
 #if WASM_ENABLE_AOT != 0
-    /* TODO */
-    /*
-    if (module_inst->module_type == Wasm_Module_AoT)
+    if (module_inst->module_type == Wasm_Module_AoT) {
+        /* TODO */
+        /*
         return ((AOTModuleInstance *)module_inst)->gc_heap_handle.ptr;
-    */
+        */
+    }
 #endif
     return NULL;
 }
