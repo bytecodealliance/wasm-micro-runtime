@@ -365,6 +365,9 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIContext *wasi_ctx;
 #endif
+#if WASM_ENABLE_GC != 0
+    void *gc_heap_handle;
+#endif
     WASMExecEnv *new_exec_env;
     uint32 aux_stack_start, aux_stack_size;
     uint32 stack_size = 8192;
@@ -399,6 +402,10 @@ wasm_cluster_spawn_exec_env(WASMExecEnv *exec_env)
 #if WASM_ENABLE_LIBC_WASI != 0
     wasi_ctx = wasm_runtime_get_wasi_ctx(module_inst);
     wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
+#endif
+#if WASM_ENABLE_GC != 0
+    gc_heap_handle = wasm_runtime_get_gc_heap_handle(module_inst);
+    wasm_runtime_set_gc_heap_handle(new_module_inst, gc_heap_handle);
 #endif
 
     new_exec_env = wasm_exec_env_create_internal(new_module_inst,

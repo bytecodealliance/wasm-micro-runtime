@@ -2843,6 +2843,40 @@ wasm_runtime_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
 #endif
     return false;
 }
+
+void
+wasm_runtime_set_gc_heap_handle(WASMModuleInstanceCommon *module_inst,
+                                void *gc_heap_handle)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        ((WASMModuleInstance *)module_inst)->gc_heap_handle = gc_heap_handle;
+#endif
+#if WASM_ENABLE_AOT != 0
+    /* TODO */
+    /*
+    if (module_inst->module_type == Wasm_Module_AoT)
+        ((AOTModuleInstance *)module_inst)->gc_heap_handle.ptr = gc_heap_handle;
+    */
+#endif
+}
+
+void *
+wasm_runtime_get_gc_heap_handle(WASMModuleInstanceCommon *module_inst)
+{
+#if WASM_ENABLE_INTERP != 0
+    if (module_inst->module_type == Wasm_Module_Bytecode)
+        return ((WASMModuleInstance *)module_inst)->gc_heap_handle;
+#endif
+#if WASM_ENABLE_AOT != 0
+    /* TODO */
+    /*
+    if (module_inst->module_type == Wasm_Module_AoT)
+        return ((AOTModuleInstance *)module_inst)->gc_heap_handle.ptr;
+    */
+#endif
+    return NULL;
+}
 #endif /* end of WASM_ENABLE_GC != 0 */
 
 static union {

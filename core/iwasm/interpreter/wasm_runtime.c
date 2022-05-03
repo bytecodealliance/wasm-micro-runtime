@@ -1350,7 +1350,7 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
 
 #if WASM_ENABLE_GC != 0
     if (!is_sub_inst) {
-        uint32 gc_heap_size = 512 * 1024;
+        uint32 gc_heap_size = GC_HEAP_SIZE_DEFAULT;
 
         module_inst->gc_heap_pool =
             runtime_malloc(gc_heap_size, error_buf, error_buf_size);

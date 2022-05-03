@@ -803,6 +803,15 @@ wasm_runtime_set_wasi_addr_pool(wasm_module_t module, const char *addr_pool[],
                                 uint32 addr_pool_size);
 #endif /* end of WASM_ENABLE_LIBC_WASI */
 
+#if WASM_ENABLE_GC != 0
+void
+wasm_runtime_set_gc_heap_handle(WASMModuleInstanceCommon *module_inst,
+                                void *gc_heap_handle);
+
+void *
+wasm_runtime_get_gc_heap_handle(WASMModuleInstanceCommon *module_inst);
+#endif
+
 #if WASM_ENABLE_REF_TYPES != 0
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN bool

@@ -536,6 +536,9 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIContext *wasi_ctx;
 #endif
+#if WASM_ENABLE_GC != 0
+    void *gc_heap_handle;
+#endif
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -566,6 +569,10 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     wasi_ctx = get_wasi_ctx(module_inst);
     if (wasi_ctx)
         wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
+#endif
+#if WASM_ENABLE_GC != 0
+    gc_heap_handle = wasm_runtime_get_gc_heap_handle(module_inst);
+    wasm_runtime_set_gc_heap_handle(new_module_inst, gc_heap_handle);
 #endif
 
     if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
