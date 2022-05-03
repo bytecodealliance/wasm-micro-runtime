@@ -808,7 +808,6 @@ wait_for_thread_visitor(void *node, void *user_data)
 {
     WASMExecEnv *curr_exec_env = (WASMExecEnv *)node;
     WASMExecEnv *exec_env = (WASMExecEnv *)user_data;
-    korp_tid handle;
 
     if (curr_exec_env == exec_env)
         return;
