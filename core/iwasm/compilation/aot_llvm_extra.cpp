@@ -111,9 +111,15 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
         for (auto &F : *Mod) {
             auto Attrs = F.getAttributes();
             StringRef Value = options.NoFramePointerElim ? "all" : "none";
+#if LLVM_VERSION_MAJOR <= 13
             Attrs =
                 Attrs.addAttribute(F.getContext(), AttributeList::FunctionIndex,
                                    "frame-pointer", Value);
+#else
+            Attrs = Attrs.addAttributeAtIndex(F.getContext(),
+                                              AttributeList::FunctionIndex,
+                                              "frame-pointer", Value);
+#endif
             F.setAttributes(Attrs);
         }
     }
@@ -356,8 +362,14 @@ aot_func_disable_tce(LLVMValueRef func)
     Function *F = unwrap<Function>(func);
     auto Attrs = F->getAttributes();
 
+#if LLVM_VERSION_MAJOR <= 13
     Attrs = Attrs.addAttribute(F->getContext(), AttributeList::FunctionIndex,
                                "disable-tail-calls", "true");
+#else
+    Attrs =
+        Attrs.addAttributeAtIndex(F->getContext(), AttributeList::FunctionIndex,
+                                  "disable-tail-calls", "true");
+#endif
     F->setAttributes(Attrs);
 }
 
@@ -404,6 +416,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 
     ModulePassManager MPM;
 
+#if LLVM_VERSION_MAJOR <= 13
     PassBuilder::OptimizationLevel OL;
 
     switch (comp_ctx->opt_level) {
@@ -421,6 +434,25 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
             OL = PassBuilder::OptimizationLevel::O3;
             break;
     }
+#else
+    OptimizationLevel OL;
+
+    switch (comp_ctx->opt_level) {
+        case 0:
+            OL = OptimizationLevel::O0;
+            break;
+        case 1:
+            OL = OptimizationLevel::O1;
+            break;
+        case 2:
+            OL = OptimizationLevel::O2;
+            break;
+        case 3:
+        default:
+            OL = OptimizationLevel::O3;
+            break;
+    }
+#endif /* end of LLVM_VERSION_MAJOR */
 
     if (comp_ctx->disable_llvm_lto) {
         disable_llvm_lto = true;
