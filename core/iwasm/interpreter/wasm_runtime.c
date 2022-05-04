@@ -581,8 +581,9 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     }
 
     total_size = sizeof(void *) * (uint64)module->import_function_count;
-    if (!(module_inst->import_func_ptrs =
-              runtime_malloc(total_size, error_buf, error_buf_size))) {
+    if (total_size > 0
+        && !(module_inst->import_func_ptrs =
+                 runtime_malloc(total_size, error_buf, error_buf_size))) {
         wasm_runtime_free(functions);
         return NULL;
     }
