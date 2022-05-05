@@ -188,6 +188,13 @@ struct WASMModuleInstance {
     /* Global data of global instances */
     uint8 *global_data;
 
+#if WASM_ENABLE_GC != 0
+    /* The gc heap memory pool */
+    uint8 *gc_heap_pool;
+    /* The gc heap created */
+    void *gc_heap_handle;
+#endif
+
     WASMFunctionInstance *start_function;
     WASMFunctionInstance *malloc_function;
     WASMFunctionInstance *free_function;
@@ -424,6 +431,9 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
 void *
 wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
                      bool throw_exce, char *error_buf, uint32 error_buf_size);
+
+bool
+wasm_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap);
 #endif
 
 static inline WASMTableInstance *

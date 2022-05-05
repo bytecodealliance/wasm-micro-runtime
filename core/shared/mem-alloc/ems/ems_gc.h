@@ -37,7 +37,9 @@ extern "C" {
 
 #define GC_HEAD_PADDING 4
 
+#ifndef NULL_REF
 #define NULL_REF ((gc_object_t)NULL)
+#endif
 
 #define GC_SUCCESS (0)
 #define GC_ERROR (-1)
@@ -112,10 +114,21 @@ gc_destroy_with_pool(gc_handle_t handle);
  * Enable or disable GC reclaim for a heap
  *
  * @param handle handle of the heap
- * @param enabled enable the GC reclaim or not, true/false to enable/disable
+ * @param exec_env the exec_env of current module instance
+ */
+#if WASM_ENABLE_THREAD_MGR == 0
+void
+gc_enable_gc_reclaim(gc_handle_t handle, void *exec_env);
+#else
+/**
+ * Enable or disable GC reclaim for a heap
+ *
+ * @param handle handle of the heap
+ * @param cluster the tread cluster of current module instance
  */
 void
-gc_enable_heap_reclaim(gc_handle_t handle, bool enabled);
+gc_enable_gc_reclaim(gc_handle_t handle, void *cluster);
+#endif
 #endif
 
 /**
@@ -217,26 +230,33 @@ gc_free_wo(void *vheap, void *ptr);
 #endif /* end of BH_ENABLE_GC_VERIFY */
 
 #if WASM_ENABLE_GC != 0
+/**
+ * Add gc object ref to the rootset of a gc heap.
+ *
+ * @param heap the heap to add the gc object to its rootset
+ * @param obj pointer to a valid WASM object managed by the gc heap.
+ *
+ * @return GC_SUCCESS if success, GC_ERROR otherwise
+ */
+int
+gc_add_root(void *heap, gc_object_t obj);
+
 int
 gci_gc_heap(void *heap);
 
-/**
- * Root set enumeration.
- * TODO: This need to be implemented in the ems_gc.c when the heap layout and
- * wasm reference is determined.
- */
-int
-vm_begin_rootset_enumeration(void *heap);
+#if WASM_ENABLE_THREAD_MGR == 0
+bool
+wasm_runtime_traverse_gc_rootset(void *exec_env, void *heap);
+#else
+bool
+wasm_runtime_traverse_gc_rootset(void *cluster, void *heap);
+#endif
 
-/**
- * Reference iteration
- * TODO: This function need to be implemented in the ems_gc.c when wasm object
- * layout is determined.
- */
-int
-vm_get_wasm_object_ref_list(gc_object_t obj, bool *p_is_compact_mode,
-                            gc_size_t *ref_num, gc_uint16 **ref_list,
-                            gc_uint32 *ref_start_offset);
+bool
+wasm_runtime_get_wasm_object_ref_list(gc_object_t obj, bool *p_is_compact_mode,
+                                      gc_uint32 *p_ref_num,
+                                      gc_uint16 **p_ref_list,
+                                      gc_uint32 *p_ref_start_offset);
 
 void
 wasm_runtime_gc_prepare();

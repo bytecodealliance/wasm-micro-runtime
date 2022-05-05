@@ -1194,12 +1194,95 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
         return NULL;
     }
 
-    if (!(func_obj = wasm_func_obj_new(NULL, rtt_obj, func_idx))) {
+    if (!(func_obj = wasm_func_obj_new(module_inst->gc_heap_handle, rtt_obj,
+                                       func_idx))) {
         set_error_buf(error_buf, error_buf_size, "create func object failed");
         return NULL;
     }
 
     return func_obj;
+}
+
+static bool
+wasm_global_traverse_gc_rootset(WASMModuleInstance *module_inst, void *heap)
+{
+    WASMGlobalInstance *global = module_inst->globals;
+    WASMGlobalInstance *global_end = global + module_inst->global_count;
+    uint8 *global_data = module_inst->global_data;
+    WASMObjectRef gc_obj;
+
+    while (global < global_end) {
+        if (wasm_is_type_reftype(global->type)) {
+            gc_obj = GET_REF_FROM_ADDR(
+                (uint32 *)(global_data + global->data_offset));
+            if (wasm_obj_is_created_from_heap(gc_obj)) {
+                if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
+                    return false;
+            }
+        }
+        global++;
+    }
+    return true;
+}
+
+static bool
+wasm_table_traverse_gc_rootset(WASMModuleInstance *module_inst, void *heap)
+{
+    WASMTableInstance **tables = module_inst->tables, *table;
+    uint32 table_count = module_inst->table_count, i, j;
+    WASMObjectRef gc_obj, *table_elems;
+
+    for (i = 0; i < table_count; i++) {
+        table = tables[i];
+        table_elems = (WASMObjectRef *)table->base_addr;
+        for (j = 0; j < table->cur_size; j++) {
+            gc_obj = table_elems[j];
+            if (wasm_obj_is_created_from_heap(gc_obj)) {
+                if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
+                    return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool
+local_object_refs_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
+{
+    WASMLocalObjectRef *r;
+    WASMObjectRef gc_obj;
+
+    for (r = exec_env->cur_local_object_ref; r; r = r->prev) {
+        gc_obj = r->val;
+        if (wasm_obj_is_created_from_heap(gc_obj)) {
+            if (0 != mem_allocator_add_root((mem_allocator_t)heap, gc_obj))
+                return false;
+        }
+    }
+    return true;
+}
+
+bool
+wasm_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
+{
+    WASMModuleInstance *module_inst =
+        (WASMModuleInstance *)exec_env->module_inst;
+    bool ret;
+
+    ret = wasm_global_traverse_gc_rootset(module_inst, heap);
+    if (!ret)
+        return ret;
+
+    ret = wasm_table_traverse_gc_rootset(module_inst, heap);
+    if (!ret)
+        return ret;
+
+    ret = local_object_refs_traverse_gc_rootset(exec_env, heap);
+    if (!ret)
+        return ret;
+
+    return wasm_interp_traverse_gc_rootset(exec_env, heap);
 }
 #endif
 
@@ -1262,6 +1345,22 @@ wasm_instantiate(WASMModule *module, bool is_sub_inst, uint32 stack_size,
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
+    }
+#endif
+
+#if WASM_ENABLE_GC != 0
+    if (!is_sub_inst) {
+        uint32 gc_heap_size = GC_HEAP_SIZE_DEFAULT;
+
+        module_inst->gc_heap_pool =
+            runtime_malloc(gc_heap_size, error_buf, error_buf_size);
+        if (!module_inst->gc_heap_pool)
+            goto fail;
+
+        module_inst->gc_heap_handle =
+            mem_allocator_create(module_inst->gc_heap_pool, gc_heap_size);
+        if (!module_inst->gc_heap_handle)
+            goto fail;
     }
 #endif
 
@@ -1761,6 +1860,15 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 
 #if (WASM_ENABLE_GC == 0) && (WASM_ENABLE_REF_TYPES != 0)
     wasm_externref_cleanup((WASMModuleInstanceCommon *)module_inst);
+#endif
+
+#if WASM_ENABLE_GC != 0
+    if (!is_sub_inst) {
+        if (module_inst->gc_heap_handle)
+            mem_allocator_destroy(module_inst->gc_heap_handle);
+        if (module_inst->gc_heap_pool)
+            wasm_runtime_free(module_inst->gc_heap_pool);
+    }
 #endif
 
     if (module_inst->exec_env_singleton)
@@ -2735,40 +2843,3 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env)
     os_printf("\n");
 }
 #endif /* end of WASM_ENABLE_DUMP_CALL_STACK */
-
-#if WASM_ENABLE_GC != 0
-bool
-wasm_runtime_get_wasm_object_ref_list(WASMObjectRef obj,
-                                      bool *p_is_compact_mode,
-                                      uint32 *p_ref_num, uint16 **p_ref_list,
-                                      uint32 *p_ref_start_offset)
-{
-    return false;
-}
-
-bool
-wasm_runtime_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
-{
-    return false;
-}
-
-void
-wasm_runtime_gc_prepare(WASMExecEnv *exec_env)
-{
-#if 0
-    exec_env->is_gc_reclaiming = false;
-    wasm_thread_suspend_all();
-    exec_env->is_gc_reclaim = 1;
-    exec_env->requesting_suspend = 0;
-#endif
-}
-
-void
-wasm_runtime_gc_finalize(WASMExecEnv *exec_env)
-{
-#if 0
-    wasm_thread_resume_all();
-    exec_env->doing_gc_reclaim = 0;
-#endif
-}
-#endif /* end of WASM_ENABLE_GC != 0 */

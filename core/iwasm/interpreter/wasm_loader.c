@@ -1208,7 +1208,9 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
                     uint32 error_buf_size)
 {
     const uint8 *p = *p_buf, *p_end = buf_end, *p_org;
-    uint32 field_count, ref_type_map_count = 0, i, j = 0, offset;
+    uint32 field_count, ref_type_map_count = 0, ref_field_count = 0;
+    uint32 i, j = 0, offset;
+    uint16 *reference_table;
     uint64 total_size;
     uint8 mutable;
     bool need_ref_type_map;
@@ -1226,6 +1228,9 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
         if (need_ref_type_map)
             ref_type_map_count++;
 
+        if (wasm_is_type_reftype(ref_type.ref_type))
+            ref_field_count++;
+
         CHECK_BUF(p, p_end, 1);
         mutable = read_uint8(p);
         if (!check_mutability(mutable, error_buf, error_buf_size)) {
@@ -1240,7 +1245,8 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
     p = p_org;
 
     total_size = offsetof(WASMStructType, fields)
-                 + sizeof(WASMStructFieldType) * (uint64)field_count;
+                 + sizeof(WASMStructFieldType) * (uint64)field_count
+                 + sizeof(uint16) * (uint64)(ref_field_count + 1);
     if (!(type = loader_malloc(total_size, error_buf, error_buf_size))) {
         return false;
     }
@@ -1251,6 +1257,11 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
             goto fail;
         }
     }
+
+    type->reference_table = reference_table =
+        (uint16 *)((uint8 *)type + offsetof(WASMStructType, fields)
+                   + sizeof(WASMStructFieldType) * field_count);
+    *reference_table++ = ref_field_count;
 
     type->type_flag = WASM_TYPE_STRUCT;
     type->type_idx = type_idx;
@@ -1285,6 +1296,8 @@ resolve_struct_type(const uint8 **p_buf, const uint8 *buf_end,
             offset = align_uint(offset, 4);
 #endif
         type->fields[i].field_offset = offset;
+        if (wasm_is_type_reftype(ref_type.ref_type))
+            *reference_table++ = offset;
         offset += type->fields[i].field_size;
     }
     type->total_size = offset;

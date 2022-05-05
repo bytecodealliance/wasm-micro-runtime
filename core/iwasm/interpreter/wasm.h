@@ -379,6 +379,10 @@ typedef struct WASMStructType {
     uint16 ref_type_map_count;
     WASMRefTypeMap *ref_type_maps;
 
+    /* Offsets of reference fields that need to be traced during GC.
+       The first element of the table is the number of such offsets. */
+    uint16 *reference_table;
+
     /* Field info, note that fields[i]->field_type only stores
      * the first byte of the field type, if it cannot be described
      * with one byte, then the full field type info is stored in

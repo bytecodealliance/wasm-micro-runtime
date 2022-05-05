@@ -3842,6 +3842,14 @@ wasm_interp_get_handle_table()
 }
 #endif
 
+#if WASM_ENABLE_GC != 0
+bool
+wasm_interp_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
+{
+    return false;
+}
+#endif
+
 void
 wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
                       WASMFunctionInstance *function, uint32 argc,

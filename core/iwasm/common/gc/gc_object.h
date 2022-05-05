@@ -360,10 +360,18 @@ wasm_obj_is_null_obj(WASMObjectRef obj)
 }
 
 bool
+wasm_obj_is_created_from_heap(WASMObjectRef obj);
+
+bool
 wasm_obj_is_instance_of(WASMObjectRef obj, WASMRttObjectRef rtt_obj);
 
 bool
 wasm_obj_equal(WASMObjectRef obj1, WASMObjectRef obj2);
+
+bool
+wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
+                         uint32 *p_ref_num, uint16 **p_ref_list,
+                         uint32 *p_ref_start_offset);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

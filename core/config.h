@@ -285,6 +285,13 @@
 #define APP_HEAP_SIZE_MIN (256)
 #define APP_HEAP_SIZE_MAX (512 * 1024 * 1024)
 
+/* Default min/max gc heap size of each app */
+#ifndef GC_HEAP_SIZE_DEFAULT
+#define GC_HEAP_SIZE_DEFAULT (128 * 1024)
+#endif
+#define GC_HEAP_SIZE_MIN (4 * 1024)
+#define GC_HEAP_SIZE_MAX (1024 * 1024 * 1024)
+
 /* Default wasm stack size of each app */
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 #define DEFAULT_WASM_STACK_SIZE (16 * 1024)

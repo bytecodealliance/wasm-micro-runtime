@@ -434,6 +434,21 @@ alloc_hmu(gc_heap_t *heap, gc_size_t size)
     return NULL;
 }
 
+#if WASM_ENABLE_GC != 0
+static int
+do_gc_heap(gc_heap_t *heap)
+{
+    int ret = GC_SUCCESS;
+
+    if (heap->is_reclaim_enabled) {
+        UNLOCK_HEAP(heap);
+        ret = gci_gc_heap(heap);
+        LOCK_HEAP(heap);
+    }
+    return ret;
+}
+#endif
+
 /**
  * Find a proper HMU with given size
  *
@@ -457,18 +472,21 @@ alloc_hmu_ex(gc_heap_t *heap, gc_size_t size)
 
 #if WASM_ENABLE_GC != 0
 #if GC_IN_EVERY_ALLOCATION != 0
-    gci_gc_heap(heap);
+    if (GC_SUCCESS != do_gc_heap(heap))
+        return NULL;
     return alloc_hmu(heap, size);
 #else
     if (heap->total_free_size < heap->gc_threshold) {
-        gci_gc_heap(heap);
+        if (GC_SUCCESS != do_gc_heap(heap))
+            return NULL;
     }
     else {
         hmu_t *ret = NULL;
         if ((ret = alloc_hmu(heap, size))) {
             return ret;
         }
-        gci_gc_heap(heap);
+        if (GC_SUCCESS != do_gc_heap(heap))
+            return NULL;
     }
 #endif
 #endif

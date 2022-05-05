@@ -278,8 +278,8 @@ static int
 reclaim_instance_heap(gc_heap_t *heap)
 {
     mark_node_t *mark_node = NULL;
-    int idx = 0, ret = GC_ERROR, j = 0;
-    bool is_compact_mode = false;
+    int idx = 0, j = 0;
+    bool ret, is_compact_mode = false;
     gc_object_t obj = NULL, ref = NULL;
     hmu_t *hmu = NULL;
     gc_uint32 ref_num = 0, ref_start_offset = 0, size = 0, offset = 0;
@@ -288,9 +288,18 @@ reclaim_instance_heap(gc_heap_t *heap)
     bh_assert(gci_is_heap_valid(heap));
 
     heap->root_set = NULL;
-    ret = gct_vm_begin_rootset_enumeration(heap);
-    if (ret != GC_SUCCESS)
-        return ret;
+
+#if WASM_ENABLE_THREAD_MGR == 0
+    if (!heap->exec_env)
+        return GC_SUCCESS;
+    ret = gct_vm_begin_rootset_enumeration(heap->exec_env, heap);
+#else
+    if (!heap->cluster)
+        return GC_SUCCESS;
+    ret = gct_vm_begin_rootset_enumeration(heap->cluster, heap);
+#endif
+    if (!ret)
+        return GC_ERROR;
 
 #if BH_ENABLE_GC_VERIFY != 0
     /* no matter whether the enumeration is successful or not, the data
@@ -430,10 +439,6 @@ gci_gc_heap(void *h)
 
     bh_assert(gci_is_heap_valid(heap));
 
-    if (!heap->is_reclaim_enabled)
-        /* Ignore if GC reclaim isn't enabled */
-        return GC_SUCCESS;
-
     LOG_VERBOSE("#reclaim instance heap %p", heap);
 
     gct_vm_gc_prepare();
@@ -466,12 +471,6 @@ int
 gc_is_dead_object(void *obj)
 {
     return !hmu_is_wo_marked(obj_to_hmu(obj));
-}
-
-int
-vm_begin_rootset_enumeration(void *heap)
-{
-    return GC_ERROR;
 }
 
 #else

@@ -4,6 +4,7 @@
  */
 
 #include "gc_object.h"
+#include "mem_alloc.h"
 #include "../wasm_runtime_common.h"
 
 static uint32
@@ -71,9 +72,8 @@ gc_obj_malloc(void *heap_handle, uint64 size)
 {
     void *mem;
 
-    /* Allocate from global heap for test,
-       TODO: changed to allocate from heap_handle */
-    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
+    if (size >= UINT32_MAX
+        || !(mem = mem_allocator_malloc_with_gc(heap_handle, (uint32)size))) {
         return NULL;
     }
 
@@ -337,6 +337,23 @@ wasm_externref_obj_new(void *heap_handle, void *foreign_obj)
 }
 
 bool
+wasm_obj_is_created_from_heap(WASMObjectRef obj)
+{
+    if (obj == NULL)
+        return false;
+
+    if (wasm_obj_is_i31_obj(obj))
+        return false;
+
+    /* Rtt object is created as vm object */
+    if (obj->header & WASM_OBJ_RTT_OBJ_FLAG)
+        return false;
+
+    /* struct/array/func/externref object */
+    return true;
+}
+
+bool
 wasm_obj_is_instance_of(WASMObjectRef obj, WASMRttObjectRef rtt_obj)
 {
     WASMRttObjectRef rtt_obj_sub;
@@ -356,4 +373,44 @@ wasm_obj_equal(WASMObjectRef obj1, WASMObjectRef obj2)
 {
     /* TODO: do we need to compare the internal details of the objects */
     return obj1 == obj2 ? true : false;
+}
+
+bool
+wasm_object_get_ref_list(WASMObjectRef obj, bool *p_is_compact_mode,
+                         uint32 *p_ref_num, uint16 **p_ref_list,
+                         uint32 *p_ref_start_offset)
+{
+    WASMRttObjectRef rtt_obj;
+
+    bh_assert(wasm_obj_is_created_from_heap(obj));
+
+    rtt_obj = (WASMRttObjectRef)wasm_object_header(obj);
+
+    if ((obj->header & WASM_OBJ_EXTERNREF_OBJ_FLAG)
+        || rtt_obj->defined_type->type_flag == WASM_TYPE_FUNC) {
+        /* externref object or function object */
+        *p_is_compact_mode = false;
+        *p_ref_num = 0;
+        *p_ref_list = NULL;
+        return true;
+    }
+    else if (rtt_obj->defined_type->type_flag == WASM_TYPE_STRUCT) {
+        /* struct object */
+        WASMStructType *type = (WASMStructType *)rtt_obj->defined_type;
+        *p_is_compact_mode = false;
+        *p_ref_num = *type->reference_table;
+        *p_ref_list = type->reference_table + 1;
+        return true;
+    }
+    else if (rtt_obj->defined_type->type_flag == WASM_TYPE_ARRAY) {
+        /* array object */
+        *p_is_compact_mode = true;
+        *p_ref_num = (uint16)wasm_array_obj_length((WASMArrayObjectRef)obj);
+        *p_ref_start_offset = (uint16)offsetof(WASMArrayObject, elem_data);
+        return true;
+    }
+    else {
+        bh_assert(0);
+        return false;
+    }
 }
