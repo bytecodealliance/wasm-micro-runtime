@@ -29,9 +29,9 @@
 #endif
 #include "../common/wasm_c_api_internal.h"
 
-/*
- * for runtime build,
- * BH_MALLOC/BH_FREE should be wasm_runtime_malloc/wasm_runtime_free.
+/**
+ * For runtime build, BH_MALLOC/BH_FREE should be defined as
+ * wasm_runtime_malloc/wasm_runtime_free.
  */
 #define CHECK(a) CHECK1(a)
 #define CHECK1(a) SHOULD_BE_##a
