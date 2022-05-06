@@ -844,9 +844,11 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
     }
 #endif
 
+#if WASM_ENABLE_INTERP == 0 || WASM_ENABLE_AOT == 0
     set_error_buf(error_buf, error_buf_size,
                   "WASM module load failed: invalid section list type");
     return NULL;
+#endif
 }
 
 void

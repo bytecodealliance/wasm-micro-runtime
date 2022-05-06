@@ -54,7 +54,6 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     if (!(exec_env->current_status = wasm_cluster_create_exenv_status()))
         goto fail4;
 #endif
-
 #endif
 
     exec_env->module_inst = module_inst;
@@ -84,13 +83,17 @@ fail4:
 fail3:
     os_mutex_destroy(&exec_env->wait_lock);
 fail2:
-#endif
 #if WASM_ENABLE_AOT != 0
     wasm_runtime_free(exec_env->argv_buf);
+#endif
+#endif /* end of WASM_ENABLE_THREAD_MGR != 0 */
+#if WASM_ENABLE_AOT != 0
 fail1:
 #endif
+#if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_AOT != 0
     wasm_runtime_free(exec_env);
     return NULL;
+#endif
 }
 
 void
