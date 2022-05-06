@@ -178,6 +178,8 @@ func_server_mode(void *arg)
 
     struct sigaction sa;
     sa.sa_handler = SIG_IGN;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
     sigaction(SIGPIPE, &sa, 0);
 
     /* First call to socket() function */
