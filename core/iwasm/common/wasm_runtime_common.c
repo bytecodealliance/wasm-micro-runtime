@@ -29,6 +29,28 @@
 #endif
 #include "../common/wasm_c_api_internal.h"
 
+/**
+ * For runtime build, BH_MALLOC/BH_FREE should be defined as
+ * wasm_runtime_malloc/wasm_runtime_free.
+ */
+#define CHECK(a) CHECK1(a)
+#define CHECK1(a) SHOULD_BE_##a
+
+#define SHOULD_BE_wasm_runtime_malloc 1
+#if !CHECK(BH_MALLOC)
+#error unexpected BH_MALLOC
+#endif
+#undef SHOULD_BE_wasm_runtime_malloc
+
+#define SHOULD_BE_wasm_runtime_free 1
+#if !CHECK(BH_FREE)
+#error unexpected BH_FREE
+#endif
+#undef SHOULD_BE_wasm_runtime_free
+
+#undef CHECK
+#undef CHECK1
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 /**
  * A safety insurance to prevent
