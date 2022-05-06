@@ -8,6 +8,8 @@
 #define R_ARM_CALL 28  /* PC relative 24 bit (BL, BLX).  */
 #define R_ARM_JMP24 29 /* PC relative 24 bit (B/BL<cond>).  */
 #define R_ARM_ABS32 2  /* Direct 32 bit */
+#define R_ARM_MOVW_ABS_NC 43
+#define R_ARM_MOVT_ABS 44
 
 /* clang-format off */
 void __adddf3();
@@ -337,6 +339,21 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             *(uintptr_t *)(target_section_addr + reloc_offset) =
                 (uintptr_t)symbol_addr + initial_addend
                 + (intptr_t)reloc_addend;
+            break;
+        }
+        case R_ARM_MOVW_ABS_NC:
+        case R_ARM_MOVT_ABS:
+        {
+            uintptr_t *loc;
+            uintptr_t addr;
+            CHECK_RELOC_OFFSET(sizeof(void *));
+            loc = (uintptr_t *)(target_section_addr + (uint32)reloc_offset);
+            addr = (uintptr_t)symbol_addr + (intptr_t)reloc_addend;
+            if (reloc_type == R_ARM_MOVT_ABS) {
+                addr >>= 16;
+            }
+            *loc = ((*loc) & 0xfff0f000) | ((addr << 4) & 0x000f0000)
+                   | (addr & 0x00000fff);
             break;
         }
 
