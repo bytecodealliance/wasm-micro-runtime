@@ -310,7 +310,9 @@ add_sys_sensor(char *name, char *description, int instance,
     }
 
     if (os_mutex_init(&s->lock) != 0) {
-        wasm_runtime_free(s->description);
+        if (s->description) {
+            wasm_runtime_free(s->description);
+        }
         wasm_runtime_free(s->name);
         wasm_runtime_free(s);
     }
