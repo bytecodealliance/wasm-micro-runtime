@@ -10,6 +10,7 @@
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
 #include "../common/wasm_native.h"
+#include "../common/wasm_memory.h"
 
 /* Read a value of given type from the address pointed to by the given
    pointer and increase the pointer to the position just after the
@@ -496,9 +497,6 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
     table->max_size = declare_max_size;
     return true;
 }
-
-unsigned
-wasm_runtime_memory_pool_size();
 
 static bool
 load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
