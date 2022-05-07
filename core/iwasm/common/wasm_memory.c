@@ -86,7 +86,7 @@ wasm_runtime_memory_pool_size()
     if (memory_mode == MEMORY_MODE_POOL)
         return global_pool_size;
     else
-        return 1 * BH_GB;
+        return UINT32_MAX;
 }
 
 static inline void *
