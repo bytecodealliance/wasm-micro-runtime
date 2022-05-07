@@ -141,7 +141,7 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             comp_ctx->comp_data->memories[0].num_bytes_per_page;
         uint32 init_page_count =
             comp_ctx->comp_data->memories[0].mem_init_page_count;
-        uint64 mem_data_size = num_bytes_per_page * init_page_count;
+        uint64 mem_data_size = (uint64)num_bytes_per_page * init_page_count;
 
         if (mem_offset + bytes <= mem_data_size) {
             /* inside memory space */

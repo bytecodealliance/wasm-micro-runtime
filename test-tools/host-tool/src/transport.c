@@ -125,6 +125,7 @@ bool
 udp_send(const char *address, int port, const char *buf, int len)
 {
     int sockfd;
+    ssize_t size_sent;
     struct sockaddr_in servaddr;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
@@ -136,11 +137,11 @@ udp_send(const char *address, int port, const char *buf, int len)
     servaddr.sin_port = htons(port);
     servaddr.sin_addr.s_addr = INADDR_ANY;
 
-    sendto(sockfd, buf, len, MSG_CONFIRM, (const struct sockaddr *)&servaddr,
-           sizeof(servaddr));
+    size_sent = sendto(sockfd, buf, len, MSG_CONFIRM,
+                       (const struct sockaddr *)&servaddr, sizeof(servaddr));
 
     close(sockfd);
-    return true;
+    return (size_sent != -1) ? true : false;
 }
 
 bool

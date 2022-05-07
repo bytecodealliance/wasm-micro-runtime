@@ -827,26 +827,28 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
 {
     WASMModuleCommon *module_common;
 
-#if WASM_ENABLE_INTERP != 0
     if (!is_aot) {
+#if WASM_ENABLE_INTERP != 0
         module_common = (WASMModuleCommon *)wasm_load_from_sections(
             section_list, error_buf, error_buf_size);
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
-    }
 #endif
+    }
+    else {
 #if WASM_ENABLE_AOT != 0
-    if (is_aot) {
         module_common = (WASMModuleCommon *)aot_load_from_sections(
             section_list, error_buf, error_buf_size);
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
-    }
 #endif
+    }
 
+#if WASM_ENABLE_INTERP == 0 || WASM_ENABLE_AOT == 0
     set_error_buf(error_buf, error_buf_size,
                   "WASM module load failed: invalid section list type");
     return NULL;
+#endif
 }
 
 void

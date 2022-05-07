@@ -492,9 +492,16 @@ wasm_app_routine(void *arg)
 fail2:
     /* Call WASM app onDestroy() method if there is */
     func_onDestroy = app_manager_lookup_function(inst, "_on_destroy", "()");
-    if (func_onDestroy)
-        wasm_runtime_call_wasm(wasm_app_data->exec_env, func_onDestroy, 0,
-                               NULL);
+    if (func_onDestroy) {
+        if (!wasm_runtime_call_wasm(wasm_app_data->exec_env, func_onDestroy, 0,
+                                    NULL)) {
+            const char *exception = wasm_runtime_get_exception(inst);
+            bh_assert(exception);
+            app_manager_printf("Got exception running WASM code: %s\n",
+                               exception);
+            wasm_runtime_clear_exception(inst);
+        }
+    }
 
 fail1:
 
