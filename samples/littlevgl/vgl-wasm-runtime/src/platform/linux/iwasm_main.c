@@ -43,7 +43,7 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void
+extern bool
 init_sensor_framework();
 extern void
 exit_sensor_framework();
@@ -505,7 +505,9 @@ iwasm_main(int argc, char *argv[])
     extern void display_SDL_init();
     display_SDL_init();
 
-    init_sensor_framework();
+    if (!init_sensor_framework()) {
+        goto fail2;
+    }
 
     // timer manager
     init_wasm_timer();
@@ -525,6 +527,8 @@ iwasm_main(int argc, char *argv[])
 
     exit_wasm_timer();
     exit_sensor_framework();
+
+fail2:
     exit_connection_framework();
 
 fail1:

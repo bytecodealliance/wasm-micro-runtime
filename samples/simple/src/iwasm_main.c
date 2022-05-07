@@ -45,7 +45,7 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void
+extern bool
 init_sensor_framework();
 extern void
 exit_sensor_framework();
@@ -525,7 +525,10 @@ iwasm_main(int argc, char *argv[])
     }
 
     /* sensor framework */
-    init_sensor_framework();
+    if (!init_sensor_framework()) {
+        goto fail2;
+    }
+
     /* add the sys sensor objects */
     add_sys_sensor("sensor_test1", "This is a sensor for test", 0, 1000,
                    read_test_sensor, config_test_sensor);
@@ -548,6 +551,8 @@ iwasm_main(int argc, char *argv[])
 
     exit_wasm_timer();
     exit_sensor_framework();
+
+fail2:
     exit_connection_framework();
 
 fail1:
