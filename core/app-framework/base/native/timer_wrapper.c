@@ -83,19 +83,36 @@ wakeup_modules_timer_thread(timer_ctx_t ctx)
     os_mutex_unlock(&g_timer_ctx_list_mutex);
 }
 
-void
+bool
 init_wasm_timer()
 {
     korp_tid tm_tid;
     bh_list_init(&g_timer_ctx_list);
 
-    os_cond_init(&g_timer_ctx_list_cond);
+    if (os_cond_init(&g_timer_ctx_list_cond) != 0) {
+        return false;
+    }
     /* temp solution for: thread_modulers_timer_check thread
        would recursive lock the mutex */
-    os_recursive_mutex_init(&g_timer_ctx_list_mutex);
+    if (os_recursive_mutex_init(&g_timer_ctx_list_mutex) != 0) {
+        goto fail1;
+    }
 
-    os_thread_create(&tm_tid, thread_modulers_timer_check, NULL,
-                     BH_APPLET_PRESERVED_STACK_SIZE);
+    if (0
+        != os_thread_create(&tm_tid, thread_modulers_timer_check, NULL,
+                            BH_APPLET_PRESERVED_STACK_SIZE)) {
+        goto fail2;
+    }
+
+    return true;
+
+fail2:
+    os_mutex_destroy(&g_timer_ctx_list_mutex);
+
+fail1:
+    os_cond_destroy(&g_timer_ctx_list_cond);
+
+    return false;
 }
 
 void

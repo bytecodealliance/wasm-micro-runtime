@@ -531,8 +531,10 @@ iwasm_main(int argc, char *argv[])
         goto fail2;
     }
 
-    // timer manager
-    init_wasm_timer();
+    /* timer manager */
+    if (!init_wasm_timer()) {
+        goto fail3;
+    }
 
 #ifndef CONNECTION_UART
     if (server_mode)
@@ -548,6 +550,8 @@ iwasm_main(int argc, char *argv[])
     app_manager_startup(&interface);
 
     exit_wasm_timer();
+
+fail3:
     exit_sensor_framework();
 
 fail2:
