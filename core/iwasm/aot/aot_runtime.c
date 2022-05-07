@@ -654,6 +654,10 @@ memories_instantiate(AOTModuleInstance *module_inst, AOTModule *module,
 
     /* Get default memory instance */
     memory_inst = aot_get_default_memory(module_inst);
+    if (!memory_inst) {
+        /* Ignore setting memory init data if no memory inst is created */
+        return true;
+    }
 
     for (i = 0; i < module->mem_init_data_count; i++) {
         data_seg = module->mem_init_data_list[i];
@@ -1794,9 +1798,9 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
         malloc_func =
             aot_lookup_function(module_inst, malloc_func_name, malloc_func_sig);
 
-        bh_assert(malloc_func);
-        if (!execute_malloc_function(module_inst, malloc_func, retain_func,
-                                     size, &offset)) {
+        if (!malloc_func
+            || !execute_malloc_function(module_inst, malloc_func, retain_func,
+                                        size, &offset)) {
             return 0;
         }
         addr = offset ? (uint8 *)memory_inst->memory_data.ptr + offset : NULL;
@@ -1889,8 +1893,8 @@ aot_module_free(AOTModuleInstance *module_inst, uint32 ptr)
             if (!free_func && module->retain_func_index != (uint32)-1)
                 free_func = aot_lookup_function(module_inst, "__unpin", "(i)i");
 
-            bh_assert(free_func);
-            execute_free_function(module_inst, free_func, ptr);
+            if (free_func)
+                execute_free_function(module_inst, free_func, ptr);
         }
     }
 }

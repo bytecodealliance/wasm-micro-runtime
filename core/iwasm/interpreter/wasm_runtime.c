@@ -222,6 +222,8 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
 
             /* Adjust __heap_base global value */
             global_idx = module->aux_heap_base_global_index;
+            bh_assert(module_inst->globals
+                      && global_idx < module_inst->global_count);
             global_addr = module_inst->global_data
                           + module_inst->globals[global_idx].data_offset;
             *(uint32 *)global_addr = aux_heap_base;
@@ -398,19 +400,6 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                   module->memories[i].init_page_count,
                   module->memories[i].max_page_count, heap_size,
                   module->memories[i].flags, error_buf, error_buf_size))) {
-            memories_deinstantiate(module_inst, memories, memory_count);
-            return NULL;
-        }
-    }
-
-    if (mem_index == 0) {
-        /**
-         * no import memory and define memory, but still need heap
-         * for wasm code
-         */
-        if (!(memory = memories[mem_index++] =
-                  memory_instantiate(module_inst, 0, 0, 0, heap_size, 0,
-                                     error_buf, error_buf_size))) {
             memories_deinstantiate(module_inst, memories, memory_count);
             return NULL;
         }

@@ -10,6 +10,7 @@
 #include "wasm_opcode.h"
 #include "wasm_runtime.h"
 #include "../common/wasm_native.h"
+#include "../common/wasm_memory.h"
 #if WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/debug-engine/debug_engine.h"
 #endif
@@ -1228,9 +1229,6 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 fail:
     return false;
 }
-
-unsigned
-wasm_runtime_memory_pool_size();
 
 static bool
 check_memory_init_size(uint32 init_size, char *error_buf, uint32 error_buf_size)

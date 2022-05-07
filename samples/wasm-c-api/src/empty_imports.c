@@ -21,9 +21,28 @@ int main(int argc, const char* argv[]) {
     printf("> Error loading module!\n");
     return 1;
   }
-  fseek(file, 0L, SEEK_END);
-  size_t file_size = ftell(file);
-  fseek(file, 0L, SEEK_SET);
+
+  int ret = fseek(file, 0L, SEEK_END);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  long file_size = ftell(file);
+  if (file_size == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  ret = fseek(file, 0L, SEEK_SET);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
   wasm_byte_vec_t binary;
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {

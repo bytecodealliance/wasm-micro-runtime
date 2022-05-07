@@ -59,7 +59,7 @@ check_sensor_timers();
 void
 reschedule_sensor_read();
 
-void
+bool
 init_sensor_framework();
 void
 start_sensor_framework();
