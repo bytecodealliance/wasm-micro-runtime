@@ -1818,9 +1818,9 @@ add_item_to_array(cJSON *array, cJSON *item)
 }
 
 /* Add item to array/object. */
-CJSON_PUBLIC(void) cJSON_AddItemToArray(cJSON *array, cJSON *item)
+CJSON_PUBLIC(cJSON_bool) cJSON_AddItemToArray(cJSON *array, cJSON *item)
 {
-    add_item_to_array(array, item);
+    return add_item_to_array(array, item);
 }
 
 #if defined(__clang__)    \
@@ -1878,37 +1878,39 @@ add_item_to_object(cJSON *const object, const char *const string,
     return add_item_to_array(object, item);
 }
 
-CJSON_PUBLIC(void)
+CJSON_PUBLIC(cJSON_bool)
 cJSON_AddItemToObject(cJSON *object, const char *string, cJSON *item)
 {
-    add_item_to_object(object, string, item, &global_hooks, false);
+    return add_item_to_object(object, string, item, &global_hooks, false);
 }
 
 /* Add an item to an object with constant string as key */
-CJSON_PUBLIC(void)
+CJSON_PUBLIC(cJSON_bool)
 cJSON_AddItemToObjectCS(cJSON *object, const char *string, cJSON *item)
 {
-    add_item_to_object(object, string, item, &global_hooks, true);
+    return add_item_to_object(object, string, item, &global_hooks, true);
 }
 
-CJSON_PUBLIC(void) cJSON_AddItemReferenceToArray(cJSON *array, cJSON *item)
+CJSON_PUBLIC(cJSON_bool)
+cJSON_AddItemReferenceToArray(cJSON *array, cJSON *item)
 {
     if (array == NULL) {
-        return;
+        return false;
     }
 
-    add_item_to_array(array, create_reference(item, &global_hooks));
+    return add_item_to_array(array, create_reference(item, &global_hooks));
 }
 
-CJSON_PUBLIC(void)
+CJSON_PUBLIC(cJSON_bool)
 cJSON_AddItemReferenceToObject(cJSON *object, const char *string, cJSON *item)
 {
     if ((object == NULL) || (string == NULL)) {
-        return;
+        return false;
     }
 
-    add_item_to_object(object, string, create_reference(item, &global_hooks),
-                       &global_hooks, false);
+    return add_item_to_object(object, string,
+                              create_reference(item, &global_hooks),
+                              &global_hooks, false);
 }
 
 CJSON_PUBLIC(cJSON *)
@@ -2093,19 +2095,18 @@ cJSON_DeleteItemFromObjectCaseSensitive(cJSON *object, const char *string)
 }
 
 /* Replace array/object items with new ones. */
-CJSON_PUBLIC(void)
+CJSON_PUBLIC(cJSON_bool)
 cJSON_InsertItemInArray(cJSON *array, int which, cJSON *newitem)
 {
     cJSON *after_inserted = NULL;
 
     if (which < 0) {
-        return;
+        return false;
     }
 
     after_inserted = get_array_item(array, (size_t)which);
     if (after_inserted == NULL) {
-        add_item_to_array(array, newitem);
-        return;
+        return add_item_to_array(array, newitem);
     }
 
     newitem->next = after_inserted;
@@ -2117,6 +2118,7 @@ cJSON_InsertItemInArray(cJSON *array, int which, cJSON *newitem)
     else {
         newitem->prev->next = newitem;
     }
+    return true;
 }
 
 CJSON_PUBLIC(cJSON_bool)
