@@ -2104,7 +2104,7 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
     }
 
     strncpy(obj_data->target_info.arch, comp_ctx->target_arch,
-            sizeof(obj_data->target_info.arch));
+            sizeof(obj_data->target_info.arch) - 1);
 
     return true;
 }
