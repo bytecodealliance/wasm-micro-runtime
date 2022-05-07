@@ -142,6 +142,9 @@ failed:                                \
     void wasm_##name##_vec_copy(wasm_##name##_vec_t *out,                 \
                                 const wasm_##name##_vec_t *src)           \
     {                                                                     \
+        if (!src) {                                                       \
+            return;                                                       \
+        }                                                                 \
         wasm_##name##_vec_new(out, src->size, src->data);                 \
     }                                                                     \
     void wasm_##name##_vec_delete(wasm_##name##_vec_t *v)                 \
@@ -218,7 +221,7 @@ failed:                                \
         if (!v) {                                                           \
             return;                                                         \
         }                                                                   \
-        for (i = 0; i != v->num_elems; ++i) {                               \
+        for (i = 0; i != v->num_elems && v->data; ++i) {                    \
             elem_destroy_func(*(v->data + i));                              \
         }                                                                   \
         bh_vector_destroy((Vector *)v);                                     \
@@ -385,7 +388,8 @@ wasm_store_new(wasm_engine_t *engine)
              DEFAULT_VECTOR_INIT_LENGTH);
 
     if (!(store->foreigns = malloc_internal(sizeof(Vector)))
-        || !(bh_vector_init(store->foreigns, 24, sizeof(Vector *), true))) {
+        || !(bh_vector_init(store->foreigns, 24, sizeof(wasm_foreign_t *),
+                            true))) {
         goto failed;
     }
 
@@ -995,7 +999,7 @@ wasm_externtype_copy(const wasm_externtype_t *src)
         COPY_EXTERNTYPE(TABLE, tabletype)
 #undef COPY_EXTERNTYPE
         default:
-            LOG_WARNING("%s meets unsupported kind", __FUNCTION__,
+            LOG_WARNING("%s meets unsupported kind %u", __FUNCTION__,
                         src->extern_kind);
             break;
     }
@@ -1023,7 +1027,8 @@ wasm_externtype_delete(wasm_externtype_t *extern_type)
             wasm_tabletype_delete(wasm_externtype_as_tabletype(extern_type));
             break;
         default:
-            LOG_WARNING("%s meets unsupported type", __FUNCTION__, extern_type);
+            LOG_WARNING("%s meets unsupported type %u", __FUNCTION__,
+                        wasm_externtype_kind(extern_type));
             break;
     }
 }
@@ -2307,7 +2312,7 @@ wasm_module_exports(const wasm_module_t *module, wasm_exporttype_vec_t *out)
             }
             default:
             {
-                LOG_WARNING("%s meets unsupported type", __FUNCTION__,
+                LOG_WARNING("%s meets unsupported type %u", __FUNCTION__,
                             export->kind);
                 break;
             }
