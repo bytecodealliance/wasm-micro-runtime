@@ -16,7 +16,7 @@
 #include "display.h"
 #include "lvgl.h"
 
-extern void
+extern bool
 init_sensor_framework();
 extern void
 exit_sensor_framework();

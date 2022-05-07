@@ -207,10 +207,12 @@ app_instance_queue_callback(void *queue_msg, void *arg)
 
     wasm_module_inst_t inst = (wasm_module_inst_t)arg;
     module_data *m_data = app_manager_get_module_data(Module_WASM_App, inst);
-    wasm_data *wasm_app_data = (wasm_data *)m_data->internal_data;
-    int message_type = bh_message_type(queue_msg);
+    wasm_data *wasm_app_data;
+    int message_type;
 
     bh_assert(m_data);
+    wasm_app_data = (wasm_data *)m_data->internal_data;
+    message_type = bh_message_type(queue_msg);
 
     if (message_type < BASE_EVENT_MAX) {
         switch (message_type) {
@@ -410,16 +412,15 @@ wasm_app_prepare_wasi_dir(wasm_module_t module, const char *module_name,
     p += module_name_len;
     *p++ = '\0';
 
-    /* Create a wasi dir for the module */
-    if (stat(wasi_dir_buf, &st) == 0) {
-        /* exist, but is a regular file, not a dir */
-        if (st.st_mode & S_IFREG)
-            return false;
-    }
-    else {
-        /* not exist, create it */
-        if (mkdir(wasi_dir_buf, 0777) != 0)
-            return false;
+    if (mkdir(wasi_dir_buf, 0777) != 0) {
+        if (errno == EEXIST) {
+            /* Failed due to dir already exist */
+            if ((stat(wasi_dir_buf, &st) == 0) && (st.st_mode & S_IFDIR)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     return true;
