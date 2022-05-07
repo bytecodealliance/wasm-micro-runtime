@@ -516,9 +516,6 @@ iwasm_main(int argc, char *argv[])
         return -1;
     }
 
-    /* timer manager */
-    init_wasm_timer();
-
     /* connection framework */
     if (!init_connection_framework()) {
         goto fail1;
@@ -527,6 +524,11 @@ iwasm_main(int argc, char *argv[])
     /* sensor framework */
     if (!init_sensor_framework()) {
         goto fail2;
+    }
+
+    /* timer manager */
+    if (!init_wasm_timer()) {
+        goto fail3;
     }
 
     /* add the sys sensor objects */
@@ -550,6 +552,8 @@ iwasm_main(int argc, char *argv[])
     app_manager_startup(&interface);
 
     exit_wasm_timer();
+
+fail3:
     exit_sensor_framework();
 
 fail2:
