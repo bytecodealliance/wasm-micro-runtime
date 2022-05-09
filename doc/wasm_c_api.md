@@ -1,5 +1,11 @@
 # wasm-c-api introduction
 
+wasm-c-api is an engine-agnostic API to embed a WASM engine.
+In wasm-micro-runtime, it's provided by the header file `wasm_c_api.h`.
+Its functionalities are overlapping with `wasm_export.h`, which is
+a native API of wasm-micro-runtime. An embedder is supposed to pick
+one of these APIs, rather than mixing both of them.
+
 All samples come from the commit 340fd9528cc3b26d22fe30ee1628c8c3f2b8c53b
 of [wasm-c-api](https://github.com/WebAssembly/wasm-c-api).
 
