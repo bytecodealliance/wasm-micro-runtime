@@ -212,6 +212,8 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     bool ret;
 #if WASM_ENABLE_THREAD_MGR != 0
     WASMCluster *cluster;
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MEMORY_PROFILING != 0
     WASMExecEnv *exec_env;
 #endif
 
@@ -222,6 +224,17 @@ wasm_application_execute_main(WASMModuleInstanceCommon *module_inst, int32 argc,
     if (exec_env && (cluster = wasm_exec_env_get_cluster(exec_env))) {
         wasm_cluster_wait_for_all_except_self(cluster, exec_env);
     }
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (exec_env) {
+        wasm_runtime_dump_mem_consumption(exec_env);
+    }
+#endif
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    wasm_runtime_dump_perf_profiling(module_inst);
 #endif
 
     return (ret && !wasm_runtime_get_exception(module_inst)) ? true : false;
@@ -721,6 +734,8 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     bool ret;
 #if WASM_ENABLE_THREAD_MGR != 0
     WASMCluster *cluster;
+#endif
+#if WASM_ENABLE_THREAD_MGR != 0 || WASM_ENABLE_MEMORY_PROFILING != 0
     WASMExecEnv *exec_env;
 #endif
 
@@ -731,6 +746,17 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     if (exec_env && (cluster = wasm_exec_env_get_cluster(exec_env))) {
         wasm_cluster_wait_for_all_except_self(cluster, exec_env);
     }
+#endif
+
+#if WASM_ENABLE_MEMORY_PROFILING != 0
+    exec_env = wasm_runtime_get_exec_env_singleton(module_inst);
+    if (exec_env) {
+        wasm_runtime_dump_mem_consumption(exec_env);
+    }
+#endif
+
+#if WAMR_ENABLE_PERF_PROFILING != 0
+    wasm_runtime_dump_perf_profiling(module_inst);
 #endif
 
     return (ret && !wasm_runtime_get_exception(module_inst)) ? true : false;
