@@ -60,7 +60,17 @@ enum EXPORT_ITEM_NAME {
 
 DEFINE_FUNCTION(get_pairs)
 {
-    call_wasm_function(e_malloc, args, results, "malloc");
+    wasm_val_vec_t as = { 0 };
+    wasm_val_t data[1] = { WASM_I32_VAL(10) };
+    wasm_val_vec_new(&as, 1, data);
+    if (as.data == NULL) {
+        printf("ERROR: create parameters failed\n");
+        return NULL;
+    }
+
+    call_wasm_function(e_malloc, &as, results, "malloc");
+
+    wasm_val_vec_delete(&as);
     return NULL;
 }
 

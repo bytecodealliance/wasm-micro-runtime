@@ -1185,10 +1185,19 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
     uint64 total_size;
     uint32 i;
+    iovec_app_t *ri_data_orig = ri_data;
+    uint8 *buf = NULL;
+    uint8 *buf_begin = NULL;
     wasi_errno_t err;
+    size_t recv_bytes = 0;
 
-    if (!wasi_ctx)
+    if (!wasi_ctx) {
         return __WASI_EINVAL;
+    }
+
+    if (ri_data_len == 0) {
+        return __WASI_EINVAL;
+    }
 
     total_size = sizeof(iovec_app_t) * (uint64)ri_data_len;
     if (!validate_native_addr(ro_data_len, (uint32)sizeof(uint32))
@@ -1197,27 +1206,49 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
         || !validate_native_addr(ri_data, (uint32)total_size))
         return __WASI_EINVAL;
 
-    /* recv ri_data one by one */
+    /* receive and scatter*/
+    for (i = 0; i < ri_data_len; i++, ri_data++) {
+        total_size += ri_data->buf_len;
+    }
+    if (total_size >= UINT32_MAX
+        || !(buf_begin = wasm_runtime_malloc((uint32)total_size))) {
+        return __WASI_ENOMEM;
+    }
+    memset(buf_begin, 0, total_size);
+
     *ro_data_len = 0;
+    err = wasmtime_ssp_sock_recv(curfds, sock, buf_begin, total_size,
+                                 &recv_bytes);
+    if (err != __WASI_ESUCCESS) {
+        goto fail;
+    }
+    *ro_data_len = (uint32)recv_bytes;
+
+    buf = buf_begin;
+    ri_data = ri_data_orig;
     for (i = 0; i < ri_data_len; ri_data++, i++) {
-        void *buf;
-        size_t bytes_recv;
+        char *native_addr;
+
+        if ((uint32)(buf - buf_begin) >= *ro_data_len) {
+            break;
+        }
 
         if (!validate_app_addr(ri_data->buf_offset, ri_data->buf_len)) {
-            return __WASI_EINVAL;
+            err = __WASI_EINVAL;
+            goto fail;
         }
 
-        buf = (void *)addr_app_to_native(ri_data->buf_offset);
-        err = wasmtime_ssp_sock_recv(curfds, sock, buf, ri_data->buf_len,
-                                     &bytes_recv);
-        if (err != __WASI_ESUCCESS) {
-            return err;
-        }
-        *ro_data_len += bytes_recv;
+        native_addr = (void *)addr_app_to_native(ri_data->buf_offset);
+        bh_memcpy_s(native_addr, ri_data->buf_len, buf, ri_data->buf_len);
+        buf += ri_data->buf_len;
     }
 
     *ro_flags = ri_flags;
-    return __WASI_ESUCCESS;
+fail:
+    if (buf_begin) {
+        wasm_runtime_free(buf_begin);
+    }
+    return err;
 }
 
 static wasi_errno_t
@@ -1232,12 +1263,21 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(module_inst, wasi_ctx);
-    uint64 total_size;
+    uint64 total_size = 0;
     uint32 i;
+    const iovec_app_t *si_data_orig = si_data;
+    uint8 *buf = NULL;
+    uint8 *buf_begin = NULL;
     wasi_errno_t err;
+    size_t send_bytes = 0;
 
-    if (!wasi_ctx)
+    if (!wasi_ctx) {
         return __WASI_EINVAL;
+    }
+
+    if (si_data_len == 0) {
+        return __WASI_EINVAL;
+    }
 
     total_size = sizeof(iovec_app_t) * (uint64)si_data_len;
     if (!validate_native_addr(so_data_len, sizeof(uint32))
@@ -1245,26 +1285,40 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
         || !validate_native_addr((void *)si_data, (uint32)total_size))
         return __WASI_EINVAL;
 
-    /* send si_data one by one */
-    *so_data_len = 0;
+    /* gather and send */
     for (i = 0; i < si_data_len; i++, si_data++) {
-        void *buf;
-        size_t bytes_sent;
-
-        if (!validate_app_addr(si_data->buf_offset, si_data->buf_len)) {
-            return __WASI_EINVAL;
-        }
-
-        buf = (void *)addr_app_to_native(si_data->buf_offset);
-        err = wasmtime_ssp_sock_send(curfds, sock, buf, si_data->buf_len,
-                                     &bytes_sent);
-        if (err != __WASI_ESUCCESS) {
-            return err;
-        }
-        *so_data_len += bytes_sent;
+        total_size += si_data->buf_len;
+    }
+    if (total_size >= UINT32_MAX
+        || !(buf_begin = wasm_runtime_malloc((uint32)total_size))) {
+        return __WASI_ENOMEM;
     }
 
-    return __WASI_ESUCCESS;
+    buf = buf_begin;
+    si_data = si_data_orig;
+    for (i = 0; i < si_data_len; i++, si_data++) {
+        char *native_addr;
+
+        if (!validate_app_addr(si_data->buf_offset, si_data->buf_len)) {
+            err = __WASI_EINVAL;
+            goto fail;
+        }
+
+        native_addr = (char *)addr_app_to_native(si_data->buf_offset);
+        bh_memcpy_s(buf, si_data->buf_len, native_addr, si_data->buf_len);
+        buf += si_data->buf_len;
+    }
+
+    *so_data_len = 0;
+    err = wasmtime_ssp_sock_send(curfds, sock, buf_begin, total_size,
+                                 &send_bytes);
+    *so_data_len = (uint32)send_bytes;
+
+fail:
+    if (buf_begin) {
+        wasm_runtime_free(buf_begin);
+    }
+    return err;
 }
 
 static wasi_errno_t
