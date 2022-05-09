@@ -3041,7 +3041,7 @@ wasmtime_ssp_sock_recv(
 
     ret = os_socket_recv(fd_number(fo), buf, buf_len);
     fd_object_release(fo);
-    if (BHT_OK != ret) {
+    if (-1 == ret) {
         return convert_errno(errno);
     }
 
@@ -3067,7 +3067,7 @@ wasmtime_ssp_sock_send(
 
     ret = os_socket_send(fd_number(fo), buf, buf_len);
     fd_object_release(fo);
-    if (BHT_OK != ret) {
+    if (-1 == ret) {
         return convert_errno(errno);
     }
 
