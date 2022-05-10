@@ -1207,7 +1207,7 @@ wasi_sock_recv(wasm_exec_env_t exec_env, wasi_fd_t sock, iovec_app_t *ri_data,
         return __WASI_EINVAL;
 
     /* receive and scatter*/
-    for (i = 0; i < ri_data_len; i++, ri_data++) {
+    for (total_size = 0, i = 0; i < ri_data_len; i++, ri_data++) {
         total_size += ri_data->buf_len;
     }
     if (total_size >= UINT32_MAX
@@ -1286,7 +1286,7 @@ wasi_sock_send(wasm_exec_env_t exec_env, wasi_fd_t sock,
         return __WASI_EINVAL;
 
     /* gather and send */
-    for (i = 0; i < si_data_len; i++, si_data++) {
+    for (total_size = 0, i = 0; i < si_data_len; i++, si_data++) {
         total_size += si_data->buf_len;
     }
     if (total_size >= UINT32_MAX
