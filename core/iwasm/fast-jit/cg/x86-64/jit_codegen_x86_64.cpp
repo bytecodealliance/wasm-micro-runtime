@@ -81,6 +81,25 @@ x86::Gp regs_i64[] = {
     x86::r8,  x86::r9,  x86::r10, x86::r11,
     x86::r12, x86::r13, x86::r14, x86::r15,
 };
+
+x86::Xmm regs_float[] = {
+    x86::xmm0,
+    x86::xmm1,
+    x86::xmm2,
+    x86::xmm3,
+    x86::xmm4,
+    x86::xmm5,
+    x86::xmm6,
+    x86::xmm7,
+    x86::xmm8,
+    x86::xmm9,
+    x86::xmm10,
+    x86::xmm11,
+    x86::xmm12,
+    x86::xmm13,
+    x86::xmm14,
+    x86::xmm15,
+};
 /* clang-format on */
 
 int
@@ -611,12 +630,10 @@ mov_m_to_r(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, bool is_signed,
         }
     }
     else if (kind_dst == JIT_REG_KIND_F32) {
-        /* TODO */
-        return false;
+        a.movss(regs_float[reg_no_dst], m_src);
     }
     else if (kind_dst == JIT_REG_KIND_F64) {
-        /* TODO */
-        return false;
+        a.movsd(regs_float[reg_no_dst], m_src);
     }
     return true;
 }
@@ -677,12 +694,10 @@ mov_r_to_m(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
         }
     }
     else if (kind_dst == JIT_REG_KIND_F32) {
-        /* TODO */
-        return false;
+        a.movss(m_dst, regs_float[reg_no_src]);
     }
     else if (kind_dst == JIT_REG_KIND_F64) {
-        /* TODO */
-        return false;
+        a.movsd(m_dst, regs_float[reg_no_src]);
     }
     return true;
 }
@@ -5217,21 +5232,23 @@ static const uint8 hreg_info_I64[3][16] = {
 };
 
 static uint8 hreg_info_F32[3][16] = {
+    /* xmm0 ~ xmm15 */
     { 0, 0, 0, 0, 0, 0, 0, 0,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* fixed, rsi is freely used */
+      1, 1, 1, 1, 1, 1, 1, 1 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* TBD:caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* TBD:caller_saved_jitted */
 };
 
 static uint8 hreg_info_F64[3][16] = {
+    /* xmm0 ~ xmm15 */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      0, 0, 0, 0, 0, 0, 0, 0 }, /* fixed, rsi is freely used */
+      0, 0, 0, 0, 0, 0, 0, 0 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* TBD:caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* TBD:caller_saved_jitted */
 };
 
 static const JitHardRegInfo hreg_info = {
