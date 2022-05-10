@@ -2103,8 +2103,10 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         return false;
     }
 
-    strncpy(obj_data->target_info.arch, comp_ctx->target_arch,
-            sizeof(obj_data->target_info.arch) - 1);
+    bh_assert(sizeof(obj_data->target_info.arch)
+              == sizeof(comp_ctx->target_arch));
+    bh_memcpy_s(obj_data->target_info.arch, sizeof(obj_data->target_info.arch),
+                comp_ctx->target_arch, sizeof(comp_ctx->target_arch));
 
     return true;
 }
