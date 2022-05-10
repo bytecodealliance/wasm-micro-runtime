@@ -696,9 +696,16 @@ mov_r_to_m(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst,
  * @return new stream
  */
 static bool
-mov_imm_to_m(x86::Assembler &a, x86::Mem &m_dst, Imm imm_src)
+mov_imm_to_m(x86::Assembler &a, x86::Mem &m_dst, Imm imm_src, uint32 bytes_dst)
 {
-    a.mov(m_dst, imm_src);
+    if (bytes_dst == 8) {
+        /* As there is no instruction `MOV m64, imm64`, we use
+           two instructions to implement it */
+        a.mov(regs_i64[REG_I64_FREE_IDX], imm_src);
+        a.mov(m_dst, regs_i64[REG_I64_FREE_IDX]);
+    }
+    else
+        a.mov(m_dst, imm_src);
     return true;
 }
 
@@ -931,7 +938,7 @@ st_imm_to_base_imm_offset_imm(x86::Assembler &a, uint32 bytes_dst,
     x86::Mem m((uintptr_t)(base + offset), bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
-    return mov_imm_to_m(a, m, imm);
+    return mov_imm_to_m(a, m, imm, bytes_dst);
 }
 
 /**
@@ -954,7 +961,7 @@ st_imm_to_base_imm_offset_r(x86::Assembler &a, uint32 bytes_dst, void *data_src,
     x86::Mem m(regs_i64[reg_no_offset], base, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
-    return mov_imm_to_m(a, m, imm);
+    return mov_imm_to_m(a, m, imm, bytes_dst);
 }
 
 /**
@@ -977,7 +984,7 @@ st_imm_to_base_r_offset_imm(x86::Assembler &a, uint32 bytes_dst, void *data_src,
     x86::Mem m(regs_i64[reg_no_base], offset, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
-    return mov_imm_to_m(a, m, imm);
+    return mov_imm_to_m(a, m, imm, bytes_dst);
 }
 
 /**
@@ -1001,7 +1008,7 @@ st_imm_to_base_r_offset_r(x86::Assembler &a, uint32 bytes_dst, void *data_src,
     x86::Mem m(regs_i64[reg_no_base], regs_i64[reg_no_offset], 0, 0, bytes_dst);
     Imm imm;
     imm_set_value(imm, data_src, bytes_dst);
-    return mov_imm_to_m(a, m, imm);
+    return mov_imm_to_m(a, m, imm, bytes_dst);
 }
 
 /**
