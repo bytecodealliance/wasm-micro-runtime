@@ -454,7 +454,7 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
                     jit_basic_block_label(block->basic_block_end);
             }
             else if (insn->opcode == JIT_OP_BNE) {
-                *(jit_insn_opnd(insn, 1)) =
+                *(jit_insn_opnd(insn, 2)) =
                     jit_basic_block_label(block->basic_block_end);
             }
             else {
