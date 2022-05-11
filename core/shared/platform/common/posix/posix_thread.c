@@ -387,10 +387,6 @@ static uint32
 touch_pages(uint8 *stack_min_addr, uint32 page_size)
 {
     uint8 sum = 0;
-
-    if (stack_min_addr == 0)
-        return sum;
-
     while (1) {
         volatile uint8 *touch_addr = (volatile uint8 *)os_alloca(page_size / 2);
         if (touch_addr < stack_min_addr + page_size) {
@@ -415,7 +411,7 @@ init_stack_guard_pages()
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     uint8 *stack_min_addr = os_thread_get_stack_boundary();
 
-    if (stack_min_addr == 0)
+    if (stack_min_addr == NULL)
         return false;
 
     /* Touch each stack page to ensure that it has been mapped: the OS
