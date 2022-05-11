@@ -294,12 +294,42 @@ fail:
 bool
 jit_compile_op_f32_load(JitCompContext *cc, uint32 align, uint32 offset)
 {
+    JitReg addr, maddr, value;
+
+    POP_I32(addr);
+
+    maddr = check_and_seek(cc, addr, offset, 4);
+    if (!maddr) {
+        goto fail;
+    }
+
+    value = jit_cc_new_reg_F32(cc);
+    GEN_INSN(LDF32, value, maddr, NEW_CONST(I32, 0));
+
+    PUSH_F32(value);
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_f64_load(JitCompContext *cc, uint32 align, uint32 offset)
 {
+    JitReg addr, maddr, value;
+
+    POP_I32(addr);
+
+    maddr = check_and_seek(cc, addr, offset, 8);
+    if (!maddr) {
+        goto fail;
+    }
+
+    value = jit_cc_new_reg_F64(cc);
+    GEN_INSN(LDF64, value, maddr, NEW_CONST(I32, 0));
+
+    PUSH_F64(value);
+    return true;
+fail:
     return false;
 }
 
@@ -395,12 +425,40 @@ fail:
 bool
 jit_compile_op_f32_store(JitCompContext *cc, uint32 align, uint32 offset)
 {
+    JitReg value, addr, maddr;
+
+    POP_F32(value);
+    POP_I32(addr);
+
+    maddr = check_and_seek(cc, addr, offset, 4);
+    if (!maddr) {
+        goto fail;
+    }
+
+    GEN_INSN(STF32, value, maddr, NEW_CONST(I32, 0));
+
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_f64_store(JitCompContext *cc, uint32 align, uint32 offset)
 {
+    JitReg value, addr, maddr;
+
+    POP_F64(value);
+    POP_I32(addr);
+
+    maddr = check_and_seek(cc, addr, offset, 8);
+    if (!maddr) {
+        goto fail;
+    }
+
+    GEN_INSN(STF64, value, maddr, NEW_CONST(I32, 0));
+
+    return true;
+fail:
     return false;
 }
 

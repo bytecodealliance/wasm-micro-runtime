@@ -304,7 +304,7 @@ copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
                 break;
             case VALUE_TYPE_F64:
                 value = gen_load_f64(jit_frame, offset_src);
-                GEN_INSN(STI64, value, dst_frame_sp,
+                GEN_INSN(STF64, value, dst_frame_sp,
                          NEW_CONST(I32, offset_dst * 4));
                 offset_src += 2;
                 offset_dst += 2;
