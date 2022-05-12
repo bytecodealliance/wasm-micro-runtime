@@ -885,9 +885,15 @@ compile_int_shl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(SHL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    if (jit_reg_is_const(right)) {
+        GEN_INSN(MOV, res, left);
+        GEN_INSN(SHL, res, res, right);
+    }
+    else {
+        GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
+        GEN_INSN(SHL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+        GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    }
 #else
     GEN_INSN(SHL, res, left, right);
 #endif
@@ -915,9 +921,15 @@ compile_int_shrs(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(SHRS, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    if (jit_reg_is_const(right)) {
+        GEN_INSN(MOV, res, left);
+        GEN_INSN(SHRS, res, res, right);
+    }
+    else {
+        GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
+        GEN_INSN(SHRS, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+        GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    }
 #else
     GEN_INSN(SHRS, res, left, right);
 #endif
@@ -945,9 +957,15 @@ compile_int_shru(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(SHRU, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    if (jit_reg_is_const(right)) {
+        GEN_INSN(MOV, res, left);
+        GEN_INSN(SHRU, res, res, right);
+    }
+    else {
+        GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
+        GEN_INSN(SHRU, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+        GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    }
 #else
     GEN_INSN(SHRU, res, left, right);
 #endif

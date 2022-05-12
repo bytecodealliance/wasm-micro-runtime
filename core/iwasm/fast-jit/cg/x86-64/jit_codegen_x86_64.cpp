@@ -2895,20 +2895,21 @@ shift_r_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* SHL/SHA/SHR r/m32, imm8 */
     Imm imm((uint8)data2_src);
 
+    mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i32[reg_no1_src], imm);
+            a.shl(regs_i32[reg_no_dst], imm);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i32[reg_no1_src], imm);
+            a.sar(regs_i32[reg_no_dst], imm);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i32[reg_no1_src], imm);
+            a.shr(regs_i32[reg_no_dst], imm);
             break;
         }
         default:
@@ -2918,7 +2919,7 @@ shift_r_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
@@ -3052,20 +3053,21 @@ shift_r_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* SHL/SHA/SHR r/m64, imm8 */
     Imm imm((uint8)data2_src);
 
+    mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i64[reg_no1_src], imm);
+            a.shl(regs_i64[reg_no_dst], imm);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i64[reg_no1_src], imm);
+            a.sar(regs_i64[reg_no_dst], imm);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i64[reg_no1_src], imm);
+            a.shr(regs_i64[reg_no_dst], imm);
             break;
         }
         default:
@@ -3075,7 +3077,7 @@ shift_r_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
@@ -4215,19 +4217,24 @@ fail:
 }
 
 /* jmp to dst label */
-#define JMP_TO_LABEL(label_dst, label_src)                               \
-    do {                                                                 \
-        if (label_is_ahead(cc, label_dst, label_src)) {                  \
-            int32 _offset = label_offsets[label_dst]                     \
-                            - a.code()->sectionById(0)->buffer().size(); \
-            Imm imm(_offset);                                            \
-            a.jmp(imm);                                                  \
-        }                                                                \
-        else {                                                           \
-            if (!jmp_from_label_to_label(a, jmp_info_list, label_dst,    \
-                                         label_src))                     \
-                GOTO_FAIL;                                               \
-        }                                                                \
+#define JMP_TO_LABEL(label_dst, label_src)                                   \
+    do {                                                                     \
+        if (label_is_ahead(cc, label_dst, label_src)) {                      \
+            char *stream = (char *)a.code()->sectionById(0)->buffer().data() \
+                           + a.code()->sectionById(0)->buffer().size();      \
+            int32 _offset = label_offsets[label_dst]                         \
+                            - a.code()->sectionById(0)->buffer().size();     \
+            Imm imm(INT32_MAX);                                              \
+            a.jmp(imm);                                                      \
+            /* The offset written by asmjit is always 0, we patch it again,  \
+               6 is the size of jmp instruciton */                           \
+            *(int32 *)(stream + 2) = _offset - 6;                            \
+        }                                                                    \
+        else {                                                               \
+            if (!jmp_from_label_to_label(a, jmp_info_list, label_dst,        \
+                                         label_src))                         \
+                GOTO_FAIL;                                                   \
+        }                                                                    \
     } while (0)
 
 /**
@@ -5217,7 +5224,7 @@ static const uint8 hreg_info_I32[3][7] = {
     /* ebp, eax, ebx, ecx, edx, edi, esi */
     { 1, 0, 0, 0, 0, 0, 1 }, /* fixed, esi is freely used */
     { 0, 1, 0, 1, 1, 1, 0 }, /* caller_saved_native */
-    { 0, 1, 0, 1, 1, 1, 0 }  /* caller_saved_jitted */
+    { 0, 1, 1, 1, 1, 1, 0 }  /* caller_saved_jitted */
 };
 
 static const uint8 hreg_info_I64[3][16] = {

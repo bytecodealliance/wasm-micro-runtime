@@ -1394,7 +1394,7 @@ jit_block_stack_destroy(JitBlockStack *stack)
 }
 
 bool
-jit_block_add_incoming_insn(JitBlock *block, JitInsn *insn)
+jit_block_add_incoming_insn(JitBlock *block, JitInsn *insn, uint32 opnd_idx)
 {
     JitIncomingInsn *incoming_insn;
 
@@ -1402,6 +1402,7 @@ jit_block_add_incoming_insn(JitBlock *block, JitInsn *insn)
         return false;
 
     incoming_insn->insn = insn;
+    incoming_insn->opnd_idx = opnd_idx;
     incoming_insn->next = block->incoming_insns_for_end_bb;
     block->incoming_insns_for_end_bb = incoming_insn;
     return true;
