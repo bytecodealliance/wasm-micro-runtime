@@ -17,6 +17,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <arpa/inet.h>
 
 #include "esp_pthread.h"
 #include "esp_timer.h"
