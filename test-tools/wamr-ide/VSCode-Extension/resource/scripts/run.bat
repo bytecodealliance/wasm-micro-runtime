@@ -4,10 +4,10 @@
 @echo off
 set target_name=%1
 
-docker run -it --name=wasm-executor-ctr ^
+docker run -it --name=wasm-debug-server-ctr ^
            -v "%cd%":/mnt ^
            wasm-debug-server:1.0 ^
            /bin/bash -c "./run.sh %target_name%"
 
-@REM stop and remove wasm-executor-ctr
-docker stop wasm-executor-ctr && docker rm wasm-executor-ctr
+@REM stop and remove wasm-debug-server-ctr
+docker stop wasm-debug-server-ctr && docker rm wasm-debug-server-ctr

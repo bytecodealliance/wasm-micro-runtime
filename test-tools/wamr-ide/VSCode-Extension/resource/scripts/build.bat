@@ -5,10 +5,10 @@
 set AoT_Binary_Name=%1
 
 @REM start a container, mount current project path to container/mnt
-docker run --name=wasm-toolchain-provider-ctr ^
+docker run --name=wasm-toolchain-ctr ^
                 -it -v %cd%:/mnt ^
-                wasm-toolchain-provider:1.0  ^
+                wasm-toolchain:1.0  ^
                 /bin/bash -c "./build_wasm.sh %AoT_Binary_Name%"
 
 @REM stop and remove wasm-toolchain-ctr container
-docker stop wasm-toolchain-provider-ctr && docker rm wasm-toolchain-provider-ctr
+docker stop wasm-toolchain-ctr && docker rm wasm-toolchain-ctr

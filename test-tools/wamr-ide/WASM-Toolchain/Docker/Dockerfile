@@ -39,15 +39,15 @@ RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-r
     #  - copy the wamrc to /root
     && cp /root/wasm-micro-runtime/wamr-compiler/build/wamrc /root/wamrc \
     && mkdir -p /opt/wamr-sdk/app \
-    && cp -r /root/wasm-micro-runtime/wamr-sdk/app/libc-builtin-sysroot /opt/wamr-sdk/app/ \
+    && cp -r /root/wasm-micro-runtime/wamr-sdk/app /opt/wamr-sdk/app/ \
     #  - remove the wamr repo to save the size
     && rm -fr /root/wasm-micro-runtime
 
 ## STAGE 2
 FROM ubuntu:20.04
 RUN mkdir -p /opt/wasi-sdk \
- && mkdir -p /opt/cmake \
- && mkdir -p /opt/wamr-sdk/app
+    && mkdir -p /opt/cmake \
+    && mkdir -p /opt/wamr-sdk/app
 
 # COPY files from BASE image
 COPY --from=BASE /opt/cmake/ /opt/cmake/
@@ -57,7 +57,7 @@ COPY --from=BASE /root/wamrc /root
 COPY --from=BASE /root/build_wasm.sh /root
 
 RUN ln -s /opt/cmake/bin/cmake /usr/bin/cmake \
- && ln -s /root/wamrc /usr/bin/wamrc
+    && ln -s /root/wamrc /usr/bin/wamrc
 RUN apt-get update && apt-get install make
 
 WORKDIR /root

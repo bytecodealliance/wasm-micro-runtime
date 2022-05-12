@@ -5,14 +5,22 @@
 export CC=/opt/wasi-sdk/bin/clang
 export CXX=/opt/wasi-sdk/bin/clang++
 
-if [ -d /mnt/build ];then
-  rm -fr /mnt/build
+HOSTOS=$2
+
+if [ ${HOSTOS} == "win32" ];then
+  WORKDIR="/mnt"
+elif [ ${HOSTOS} == "linux" ];then
+  WORKDIR=$(pwd)
 fi
 
-mkdir -p /mnt/build
-cd /mnt/build/
+if [ -d ${WORKDIR}/build ];then
+  rm -fr ${WORKDIR}/build
+fi
+
+mkdir -p ${WORKDIR}/build
+cd ${WORKDIR}/build/
 echo "========> compile wasm with wasi-sdk"
-cmake ../.wamr && make
+cmake -DCMAKE_TOOLCHAIN_FILE=/opt/wamr-sdk/app/wamr_toolchain.cmake ../.wamr && make
 
 echo && echo
 echo "========> compile wasm to AoT with wamrc"
