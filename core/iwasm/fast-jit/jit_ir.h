@@ -1181,6 +1181,10 @@ typedef struct JitCompContext {
         /* The hash table. */
         JitInsn **_table;
     } _insn_hash_table;
+
+    /* indicate if the last comparision is about floating-point numbers or not
+     */
+    bool last_cmp_on_fp;
 } JitCompContext;
 
 /*

@@ -7,7 +7,7 @@
 #include "../jit_frontend.h"
 
 static bool
-jit_compile_op_compare(JitCompContext *cc, IntCond cond, bool is64Bit)
+jit_compile_op_compare_integer(JitCompContext *cc, IntCond cond, bool is64Bit)
 {
     JitReg lhs, rhs, res, const_zero, const_one;
 
@@ -107,25 +107,92 @@ fail:
 bool
 jit_compile_op_i32_compare(JitCompContext *cc, IntCond cond)
 {
-    return jit_compile_op_compare(cc, cond, false);
+    return jit_compile_op_compare_integer(cc, cond, false);
 }
 
 bool
 jit_compile_op_i64_compare(JitCompContext *cc, IntCond cond)
 {
-    return jit_compile_op_compare(cc, cond, true);
+    return jit_compile_op_compare_integer(cc, cond, true);
+}
+
+static bool
+jit_compile_op_compare_float_point(JitCompContext *cc, FloatCond cond,
+                                   JitReg lhs, JitReg rhs)
+{
+    JitReg res, const_zero, const_one;
+
+    GEN_INSN(CMP, cc->cmp_reg, lhs, rhs);
+
+    res = jit_cc_new_reg_I32(cc);
+    const_zero = NEW_CONST(I32, 0);
+    const_one = NEW_CONST(I32, 1);
+    switch (cond) {
+        case FLOAT_EQ:
+        {
+            GEN_INSN(SELECTEQ, res, cc->cmp_reg, const_one, const_zero);
+            break;
+        }
+        case FLOAT_NE:
+        {
+            GEN_INSN(SELECTNE, res, cc->cmp_reg, const_one, const_zero);
+            break;
+        }
+        case FLOAT_LT:
+        {
+            GEN_INSN(SELECTLTS, res, cc->cmp_reg, const_one, const_zero);
+            break;
+        }
+        case FLOAT_GT:
+        {
+            GEN_INSN(SELECTGTS, res, cc->cmp_reg, const_one, const_zero);
+            break;
+        }
+        case FLOAT_LE:
+        {
+            GEN_INSN(SELECTLES, res, cc->cmp_reg, const_one, const_zero);
+            break;
+        }
+        case FLOAT_GE:
+        {
+            GEN_INSN(SELECTGES, res, cc->cmp_reg, const_one, const_zero);
+            break;
+        }
+        default:
+        {
+            bh_assert(!"unknown FloatCond");
+            goto fail;
+        }
+    }
+    PUSH_I32(res);
+
+    return true;
+fail:
+    return false;
 }
 
 bool
 jit_compile_op_f32_compare(JitCompContext *cc, FloatCond cond)
 {
-    jit_set_last_error(cc, "unimplement f32 comparison");
+    JitReg lhs, rhs;
+
+    POP_F32(rhs);
+    POP_F32(lhs);
+
+    return jit_compile_op_compare_float_point(cc, cond, lhs, rhs);
+fail:
     return false;
 }
 
 bool
 jit_compile_op_f64_compare(JitCompContext *cc, FloatCond cond)
 {
-    jit_set_last_error(cc, "unimplement f64 comparison");
+    JitReg lhs, rhs;
+
+    POP_F64(rhs);
+    POP_F64(lhs);
+
+    return jit_compile_op_compare_float_point(cc, cond, lhs, rhs);
+fail:
     return false;
 }

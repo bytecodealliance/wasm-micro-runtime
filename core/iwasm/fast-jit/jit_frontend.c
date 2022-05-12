@@ -817,7 +817,7 @@ init_func_translation(JitCompContext *cc)
     local_off = (uint32)offsetof(WASMInterpFrame, lp)
                 + cur_wasm_func->param_cell_num * 4;
     for (i = 0; i < cur_wasm_func->local_cell_num / 2; i++, local_off += 8) {
-        GEN_INSN(STI64, NEW_CONST(I32, 0), cc->fp_reg,
+        GEN_INSN(STI64, NEW_CONST(I64, 0), cc->fp_reg,
                  NEW_CONST(I32, local_off));
     }
     if (cur_wasm_func->local_cell_num & 1) {
