@@ -182,7 +182,7 @@ compile_op_ibinopt_const(JitCompContext *cc, JitReg left, JitReg right,
 
     if (jit_reg_is_const(left) || jit_reg_is_const(right)) {
         res = handle_one_const(cc, left, right, is_i32);
-        if (!res)
+        if (res)
             goto shortcut;
     }
 
