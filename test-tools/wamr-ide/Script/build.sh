@@ -8,10 +8,10 @@
 #     1.2 if vscode is not installed, promp and exit.
 # 2. build wasm-toolchain & wasm-debug-server docker image
 
-DIR_ROOT=$(pwd)
+DIR_ROOT=$(pwd)/..
 
 echo "=== Verify the vscode status ==="
-if [[ $(which code) && $(code --version) ]]; then
+if [ "$(code --version)" ]; then
     echo "VSCode is ready."
 else
     echo "VSCode is not installed, please install firstly."
@@ -19,7 +19,7 @@ else
 fi
 
 echo "=== Verify the docker status ==="
-if [[ $(which docker) && $(docker --version) ]]; then
+if [ "$(docker --version)" ]; then
     echo "Docker is ready."
 else
     echo "Docker is not installed, please install firstly."
@@ -35,12 +35,20 @@ sudo service docker restart
 newgrp - docker << REST
 
 # 2. build wasm-debug-server docker image
-cd ${DIR_ROOT}/WASM_Debug_Server/Docker
-docker build -t wasm-debug-server:1.0 .
+cd ${DIR_ROOT}/WASM-Debug-Server/Docker
+docker build --build-arg http_proxy=http://child-prc.intel.com:913 \
+             --build-arg https_proxy=http://child-prc.intel.com:913 \
+             --build-arg ftp_proxy=http://child-prc.intel.com:913 \
+             --build-arg socks_proxy=http://child-prc.intel.com:913 \
+             -t wasm-debug-server:1.0 .
 
 # 3. build wasm-toolchain docker image
-cd ${DIR_ROOT}/WASM_Toolchain/Docker
+cd ${DIR_ROOT}/WASM-Toolchain/Docker
 docker pull ubuntu:20.04
-docker build -t wasm-toolchain:1.0 .
+docker build --build-arg http_proxy=http://child-prc.intel.com:913 \
+             --build-arg https_proxy=http://child-prc.intel.com:913 \
+             --build-arg ftp_proxy=http://child-prc.intel.com:913 \
+             --build-arg socks_proxy=http://child-prc.intel.com:913 \
+             -t wasm-toolchain:1.0 .
 
 REST
