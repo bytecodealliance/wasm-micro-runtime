@@ -112,6 +112,9 @@ post_return(JitCompContext *cc, const WASMType *func_type)
         }
     }
 
+    /* Update the committed_sp as the callee has updated the frame sp */
+    cc->jit_frame->committed_sp = cc->jit_frame->sp;
+
     return true;
 fail:
     return false;
