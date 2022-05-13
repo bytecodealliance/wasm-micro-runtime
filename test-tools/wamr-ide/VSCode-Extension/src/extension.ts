@@ -12,13 +12,12 @@ import { WasmTaskProvider } from './taskProvider';
 import { TargetConfigPanel } from './view/TargetConfigPanel';
 import { NewProjectPanel } from './view/NewProjectPanel';
 import {
+    CheckIfDirectoryExist,
     WriteIntoFile,
     ReadFromFile,
-    WriteIntoFileAsync,
 } from './utilities/directoryUtilities';
-import { decorationProvider } from './explorer/decorationProvider';
-
-import { WasmDebugConfigurationProvider } from './debug/debugConfigurationProvider';
+import { decorationProvider } from './decorationProvider';
+import { WasmDebugConfigurationProvider } from './debugConfigurationProvider';
 
 let wasmTaskProvider: WasmTaskProvider;
 let wasmDebugConfigProvider: WasmDebugConfigurationProvider;
@@ -30,9 +29,11 @@ export async function activate(context: vscode.ExtensionContext) {
         buildScript = '',
         runScript = '',
         debugScript = '',
+        destroyScript = '',
         buildScriptFullPath = '',
         runScriptFullPath = '',
         debugScriptFullPath = '',
+        destroyScriptFullPath = '',
         typeMap = new Map(),
         /* include paths array used for written into config file */
         includePathArr = new Array(),
@@ -55,26 +56,30 @@ export async function activate(context: vscode.ExtensionContext) {
         buildScript = scriptPrefix.concat('build.bat');
         runScript = scriptPrefix.concat('run.bat');
         debugScript = scriptPrefix.concat('boot_debugger_server.bat');
+        destroyScript = scriptPrefix.concat('destroy.bat');
     } else if (OS_PLATFORM === 'linux') {
         buildScript = scriptPrefix.concat('build.sh');
         runScript = scriptPrefix.concat('run.sh');
         debugScript = scriptPrefix.concat('boot_debugger_server.sh');
+        destroyScript = scriptPrefix.concat('destroy.sh');
     }
 
-    /* get extension's path, and set scripts' absolute path */
     extensionPath = context.extensionPath;
 
     buildScriptFullPath = path.join(extensionPath, buildScript);
     runScriptFullPath = path.join(extensionPath, runScript);
     debugScriptFullPath = path.join(extensionPath, debugScript);
+    destroyScriptFullPath = path.join(extensionPath, destroyScript);
 
     scriptMap.set('buildScript', buildScriptFullPath);
     scriptMap.set('runScript', runScriptFullPath);
     scriptMap.set('debugScript', debugScriptFullPath);
+    scriptMap.set('destroyScript', destroyScriptFullPath);
 
     typeMap.set('Build', 'Build');
     typeMap.set('Run', 'Run');
     typeMap.set('Debug', 'Debug');
+    typeMap.set('Destroy', 'Destroy');
 
     wasmTaskProvider = new WasmTaskProvider(typeMap, scriptMap);
 
@@ -89,25 +94,27 @@ export async function activate(context: vscode.ExtensionContext) {
             currentPrjDir = vscode.workspace.workspaceFolders?.[0].uri
                 .path as string;
         }
-    }
 
-    /**
-     * check whether current project opened in vscode workspace is wasm project
-     * it not, `build`, `run` and `debug` will be disabled
-     */
-    if (currentPrjDir !== '') {
-        let wamrFolder = fileSystem
-            .readdirSync(currentPrjDir, {
-                withFileTypes: true,
-            })
-            .filter(folder => folder.isDirectory() && folder.name === '.wamr');
+        /**
+         * check whether current project opened in vscode workspace is wasm project
+         * it not, `build`, `run` and `debug` will be disabled
+         */
+        if (currentPrjDir !== '') {
+            let wamrFolder = fileSystem
+                .readdirSync(currentPrjDir, {
+                    withFileTypes: true,
+                })
+                .filter(
+                    folder => folder.isDirectory() && folder.name === '.wamr'
+                );
 
-        if (wamrFolder.length !== 0) {
-            vscode.commands.executeCommand(
-                'setContext',
-                'ext.isWasmProject',
-                true
-            );
+            if (wamrFolder.length !== 0) {
+                vscode.commands.executeCommand(
+                    'setContext',
+                    'ext.isWasmProject',
+                    true
+                );
+            }
         }
     }
 
@@ -147,10 +154,14 @@ export async function activate(context: vscode.ExtensionContext) {
                 .get('WAMR-IDE.configWorkspace');
 
             /* if user has not set up workspace yet, prompt to set up */
-            if (curWorkspace === '' || curWorkspace === undefined) {
+            if (
+                curWorkspace === '' ||
+                curWorkspace === undefined ||
+                !CheckIfDirectoryExist(curWorkspace as string)
+            ) {
                 vscode.window
                     .showWarningMessage(
-                        'Please setup your workspace firstly.',
+                        'Please correctly setup your workspace firstly.',
                         _ok,
                         _cancle
                     )
@@ -229,33 +240,88 @@ export async function activate(context: vscode.ExtensionContext) {
         'wamride.build',
         () => {
             generateCMakeFile(includePathArr, excludeFileArr);
-
-            return vscode.commands.executeCommand(
-                'workbench.action.tasks.runTask',
-                'Build: Wasm'
-            );
+            /* destroy the wasm-toolchain-ctr if it exists */
+            vscode.commands
+                .executeCommand(
+                    'workbench.action.tasks.runTask',
+                    'Destroy: Wasm-Container-Before-Build'
+                )
+                .then(() => {
+                    let disposable = vscode.tasks.onDidEndTask(t => {
+                        if (
+                            t.execution.task.name ===
+                            'Wasm-Container-Before-Build'
+                        ) {
+                            /* execute the build task */
+                            vscode.commands.executeCommand(
+                                'workbench.action.tasks.runTask',
+                                'Build: Wasm'
+                            );
+                            /* dispose the event after this building process */
+                            disposable.dispose();
+                        }
+                    });
+                });
         }
     );
 
     let disposableDebug = vscode.commands.registerCommand(
         'wamride.debug',
         () => {
+            /* show debug view */
+            vscode.commands.executeCommand('workbench.view.debug');
+
+            /* should destroy the wasm-debug-server-ctr before debugging */
             vscode.commands
-                .executeCommand('workbench.action.tasks.runTask', 'Debug: Wasm')
+                .executeCommand(
+                    'workbench.action.tasks.runTask',
+                    'Destroy: Wasm-Container-Before-Debug'
+                )
                 .then(() => {
-                    vscode.debug.startDebugging(
-                        undefined,
-                        wasmDebugConfigProvider.getDebugConfig()
-                    );
+                    /* execute the debug task when destroy task finish */
+                    let disposable_bfr = vscode.tasks.onDidEndTask(t => {
+                        if (
+                            t.execution.task.name ===
+                            'Wasm-Container-Before-Debug'
+                        ) {
+                            vscode.commands
+                                .executeCommand(
+                                    'workbench.action.tasks.runTask',
+                                    'Debug: Wasm'
+                                )
+                                .then(() => {
+                                    vscode.debug.startDebugging(
+                                        undefined,
+                                        wasmDebugConfigProvider.getDebugConfig()
+                                    );
+                                });
+                        }
+                        disposable_bfr.dispose();
+                    });
                 });
         }
     );
 
     let disposableRun = vscode.commands.registerCommand('wamride.run', () => {
-        return vscode.commands.executeCommand(
-            'workbench.action.tasks.runTask',
-            'Run: Wasm'
-        );
+        vscode.commands
+            .executeCommand(
+                'workbench.action.tasks.runTask',
+                'Destroy: Wasm-Container-Before-Run'
+            )
+            .then(() => {
+                let dispose_bfr = vscode.tasks.onDidEndTask(e => {
+                    if (e.execution.task.name === 'Wasm-Container-Before-Run') {
+                        /* make sure that run wasm task will be executed after destroy
+                         * task finish */
+                        vscode.commands.executeCommand(
+                            'workbench.action.tasks.runTask',
+                            'Run: Wasm'
+                        );
+
+                        dispose_bfr.dispose();
+                    }
+                });
+            });
     });
 
     let disposableToggleIncludePath = vscode.commands.registerCommand(
@@ -329,10 +395,14 @@ export async function activate(context: vscode.ExtensionContext) {
                 .get('WAMR-IDE.configWorkspace') as string;
 
             /* if user has not set up workspace yet, prompt to set up */
-            if (curWorkspace === '' || curWorkspace === undefined) {
+            if (
+                curWorkspace === '' ||
+                curWorkspace === undefined ||
+                !CheckIfDirectoryExist(curWorkspace as string)
+            ) {
                 vscode.window
                     .showWarningMessage(
-                        'Please setup your workspace firstly.',
+                        'Please correctly setup your workspace firstly.',
                         _ok,
                         _cancle
                     )
