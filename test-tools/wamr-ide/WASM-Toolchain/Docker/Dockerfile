@@ -38,8 +38,9 @@ RUN git clone -b main --depth=1 https://github.com/bytecodealliance/wasm-micro-r
     && make \
     #  - copy the wamrc to /root
     && cp /root/wasm-micro-runtime/wamr-compiler/build/wamrc /root/wamrc \
-    && mkdir -p /opt/wamr-sdk/app \
-    && cp -r /root/wasm-micro-runtime/wamr-sdk/app /opt/wamr-sdk/app/ \
+    && mkdir -p /opt/wamr-sdk \
+    && cp -r /root/wasm-micro-runtime/wamr-sdk/app /opt/wamr-sdk/ \
+    && mv /root/wamr_toolchain.cmake /opt/wamr-sdk/app \
     #  - remove the wamr repo to save the size
     && rm -fr /root/wasm-micro-runtime
 

@@ -20,7 +20,7 @@ fi
 mkdir -p ${WORKDIR}/build
 cd ${WORKDIR}/build/
 echo "========> compile wasm with wasi-sdk"
-cmake -DCMAKE_TOOLCHAIN_FILE=/opt/wamr-sdk/app/wamr_toolchain.cmake ../.wamr && make
+cmake -DWASI_SDK_DIR=/opt/wasi-sdk -DCMAKE_TOOLCHAIN_FILE=/opt/wamr-sdk/app/wamr_toolchain.cmake ../.wamr && make
 
 echo && echo
 echo "========> compile wasm to AoT with wamrc"

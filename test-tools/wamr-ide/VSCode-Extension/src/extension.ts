@@ -290,10 +290,40 @@ export async function activate(context: vscode.ExtensionContext) {
                                     'Debug: Wasm'
                                 )
                                 .then(() => {
-                                    vscode.debug.startDebugging(
-                                        undefined,
-                                        wasmDebugConfigProvider.getDebugConfig()
-                                    );
+                                    vscode.debug
+                                        .startDebugging(
+                                            undefined,
+                                            wasmDebugConfigProvider.getDebugConfig()
+                                        )
+                                        .then(() => {
+                                            /* register to listen debug session finish event */
+                                            let dispose_aft =
+                                                vscode.debug.onDidTerminateDebugSession(
+                                                    s => {
+                                                        if (
+                                                            s.type !==
+                                                            'wamr-debug'
+                                                        ) {
+                                                            return;
+                                                        }
+
+                                                        /* execute the task to destroy
+                                                         * wasm-debug-server-ctr */
+                                                        vscode.commands.executeCommand(
+                                                            'workbench.action.tasks.runTask',
+                                                            'Destroy: Wasm-Container-After-Debug'
+                                                        );
+
+                                                        /* execute the task to kill the terminal */
+                                                        vscode.commands.executeCommand(
+                                                            'workbench.action.terminal.kill',
+                                                            'Debug: Wasm'
+                                                        );
+
+                                                        dispose_aft.dispose();
+                                                    }
+                                                );
+                                        });
                                 });
                         }
                         disposable_bfr.dispose();
@@ -301,7 +331,6 @@ export async function activate(context: vscode.ExtensionContext) {
                 });
         }
     );
-
     let disposableRun = vscode.commands.registerCommand('wamride.run', () => {
         vscode.commands
             .executeCommand(
