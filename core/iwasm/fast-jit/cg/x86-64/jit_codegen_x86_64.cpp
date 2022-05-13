@@ -237,7 +237,7 @@ typedef enum { ADD, SUB, MUL, DIV_S, REM_S, DIV_U, REM_U } ALU_OP;
 /* Bit opcode */
 typedef enum { OR, XOR, AND } BIT_OP;
 /* Shift opcode */
-typedef enum { SHL, SHRS, SHRU } SHIFT_OP;
+typedef enum { SHL, SHRS, SHRU, ROTL, ROTR } SHIFT_OP;
 /* Condition opcode */
 typedef enum { EQ, NE, GTS, GES, LTS, LES, GTU, GEU, LTU, LEU } COND_OP;
 
@@ -2914,6 +2914,18 @@ shift_imm_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
             data = ((uint32)data1_src) >> data2_src;
             break;
         }
+        case ROTL:
+        {
+            data = (data1_src << data2_src)
+                   | (((uint32)data1_src) >> (32 - data2_src));
+            break;
+        }
+        case ROTR:
+        {
+            data = (((uint32)data1_src) >> data2_src)
+                   | (data1_src << (32 - data2_src));
+            break;
+        }
         default:
         {
             bh_assert(0);
@@ -2981,6 +2993,16 @@ shift_r_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
             a.shr(regs_i32[reg_no_dst], imm);
             break;
         }
+        case ROTL:
+        {
+            a.rol(regs_i32[reg_no_dst], imm);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i32[reg_no_dst], imm);
+            break;
+        }
         default:
         {
             bh_assert(0);
@@ -3027,6 +3049,16 @@ shift_r_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
             a.shr(regs_i32[reg_no1_src], x86::cl);
             break;
         }
+        case ROTL:
+        {
+            a.rol(regs_i32[reg_no1_src], x86::cl);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i32[reg_no1_src], x86::cl);
+            break;
+        }
         default:
         {
             bh_assert(0);
@@ -3070,6 +3102,18 @@ shift_imm_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         case SHRU:
         {
             data = ((uint64)data1_src) >> data2_src;
+            break;
+        }
+        case ROTL:
+        {
+            data = (data1_src << data2_src)
+                   | (((uint64)data1_src) >> (64LL - data2_src));
+            break;
+        }
+        case ROTR:
+        {
+            data = (((uint64)data1_src) >> data2_src)
+                   | (data1_src << (64LL - data2_src));
             break;
         }
         default:
@@ -3139,6 +3183,16 @@ shift_r_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
             a.shr(regs_i64[reg_no_dst], imm);
             break;
         }
+        case ROTL:
+        {
+            a.ror(regs_i64[reg_no_dst], imm);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i64[reg_no_dst], imm);
+            break;
+        }
         default:
         {
             bh_assert(0);
@@ -3183,6 +3237,16 @@ shift_r_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         case SHRU:
         {
             a.shr(regs_i64[reg_no1_src], x86::cl);
+            break;
+        }
+        case ROTL:
+        {
+            a.rol(regs_i64[reg_no1_src], x86::cl);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i64[reg_no1_src], x86::cl);
             break;
         }
         default:
@@ -4917,6 +4981,8 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_SHL:
                 case JIT_OP_SHRS:
                 case JIT_OP_SHRU:
+                case JIT_OP_ROTL:
+                case JIT_OP_ROTR:
                     LOAD_3ARGS();
                     if (!lower_shift(
                             cc, a,
