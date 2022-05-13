@@ -54,7 +54,11 @@ export class WasmDebugConfigurationProvider
                 ['attachCommands']: [
                     'process connect -p wasm connect://127.0.0.1:' + port + '',
                 ],
-                ['sourceMap']: [['/mnt', hostPath]],
+                /* we use current project folder as docker container
+                 * work directory, so the build dir info in drawf is the
+                 * same with the host and we don't need to set up source
+                 * map.*/
+                // ['sourceMap']: [['/mnt', hostPath]],
             };
         }
     }

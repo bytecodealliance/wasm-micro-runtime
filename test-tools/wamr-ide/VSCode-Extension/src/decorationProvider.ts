@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ReadFromFile } from '../utilities/directoryUtilities';
+import { ReadFromFile } from './utilities/directoryUtilities';
 import * as path from 'path';
 import * as os from 'os';
 

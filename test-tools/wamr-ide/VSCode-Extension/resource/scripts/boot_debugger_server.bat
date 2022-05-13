@@ -11,4 +11,5 @@ docker run -it --name=wasm-debug-server-ctr ^
            /bin/bash -c "./debug.sh %target_name%"
 
 @REM stop and remove wasm-debug-server-container
-docker stop wasm-debug-server-ctr && docker rm wasm-debug-server-ctr
+docker stop wasm-debug-server-ctr>nul 2>nul
+docker rm wasm-debug-server-ctr>nul 2>nul

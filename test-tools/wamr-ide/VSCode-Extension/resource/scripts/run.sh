@@ -9,4 +9,5 @@ docker run -it --name=wasm-debug-server-ctr \
            wasm-debug-server:1.0 \
            /bin/bash -c "./run.sh ${target_name}"
 
-docker stop wasm-debug-server-ctr && docker rm wasm-debug-server-ctr
+docker stop wasm-debug-server-ctr>/dev/null
+docker rm wasm-debug-server-ctr>/dev/null

@@ -13,7 +13,8 @@ fi
 docker run --name=wasm-toolchain-ctr \
                 -it -v $(pwd):/mnt \
                 wasm-toolchain:1.0  \
-                /bin/bash -c "./build_wasm.sh $AoT_Binary_Name"
+                /bin/bash -c "/root/build_wasm.sh $AoT_Binary_Name"
 
 # stop and remove wasm-toolchain-ctr container
-docker stop wasm-toolchain-ctr && docker rm wasm-toolchain-ctr
+docker stop wasm-toolchain-ctr>/dev/null
+docker rm wasm-toolchain-ctr>/dev/null
