@@ -3033,30 +3033,32 @@ shift_r_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* should be CL */
     bh_assert(reg_no2_src == REG_ECX_IDX);
 
+    mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i32[reg_no1_src], x86::cl);
+            a.shl(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i32[reg_no1_src], x86::cl);
+            a.sar(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i32[reg_no1_src], x86::cl);
+            a.shr(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i32[reg_no1_src], x86::cl);
+            a.rol(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i32[reg_no1_src], x86::cl);
+            a.ror(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         default:
@@ -3066,7 +3068,7 @@ shift_r_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
@@ -3223,30 +3225,32 @@ shift_r_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* should be CL */
     bh_assert(reg_no2_src == REG_ECX_IDX);
 
+    mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i64[reg_no1_src], x86::cl);
+            a.shl(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i64[reg_no1_src], x86::cl);
+            a.sar(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i64[reg_no1_src], x86::cl);
+            a.shr(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         case ROTL:
         {
-            a.rol(regs_i64[reg_no1_src], x86::cl);
+            a.rol(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         case ROTR:
         {
-            a.ror(regs_i64[reg_no1_src], x86::cl);
+            a.ror(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         default:
@@ -3256,7 +3260,7 @@ shift_r_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
