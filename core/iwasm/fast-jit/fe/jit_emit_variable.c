@@ -4,6 +4,7 @@
  */
 
 #include "jit_emit_variable.h"
+#include "jit_emit_exception.h"
 #include "../jit_frontend.h"
 
 #define CHECK_LOCAL(idx)                                                     \
@@ -248,11 +249,6 @@ jit_compile_op_set_global(JitCompContext *cc, uint32 global_idx,
     uint8 global_type = 0;
     JitReg value = 0;
 
-    if (is_aux_stack) {
-        jit_set_last_error(cc, "doesn't support set global_aux_stack");
-        goto fail;
-    }
-
     bh_assert(global_idx < cc->cur_wasm_module->import_global_count
                                + cc->cur_wasm_module->global_count);
 
@@ -266,6 +262,19 @@ jit_compile_op_set_global(JitCompContext *cc, uint32 global_idx,
 #endif
         {
             POP_I32(value);
+            if (is_aux_stack) {
+                JitReg aux_stack_bound = get_aux_stack_bound_reg(cc->jit_frame);
+                JitReg aux_stack_bottom =
+                    get_aux_stack_bottom_reg(cc->jit_frame);
+                GEN_INSN(CMP, cc->cmp_reg, value, aux_stack_bound);
+                if (!(jit_emit_exception(cc, EXCE_AUX_STACK_OVERFLOW,
+                                         JIT_OP_BLEU, cc->cmp_reg, NULL)))
+                    goto fail;
+                GEN_INSN(CMP, cc->cmp_reg, value, aux_stack_bottom);
+                if (!(jit_emit_exception(cc, EXCE_AUX_STACK_UNDERFLOW,
+                                         JIT_OP_BGTU, cc->cmp_reg, NULL)))
+                    goto fail;
+            }
             GEN_INSN(STI32, value, get_global_data_reg(cc->jit_frame),
                      NEW_CONST(I32, data_offset));
             break;

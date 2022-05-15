@@ -100,15 +100,29 @@ get_global_data_reg(JitFrame *frame)
 JitReg
 get_aux_stack_bound_reg(JitFrame *frame)
 {
-    /* TODO */
-    return 0;
+    JitCompContext *cc = frame->cc;
+
+    if (!frame->aux_stack_bound_reg) {
+        frame->aux_stack_bound_reg = cc->aux_stack_bound_reg;
+        GEN_INSN(
+            LDI32, frame->aux_stack_bound_reg, cc->exec_env_reg,
+            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_boundary.boundary)));
+    }
+    return frame->aux_stack_bound_reg;
 }
 
 JitReg
 get_aux_stack_bottom_reg(JitFrame *frame)
 {
-    /* TODO */
-    return 0;
+    JitCompContext *cc = frame->cc;
+
+    if (!frame->aux_stack_bottom_reg) {
+        frame->aux_stack_bottom_reg = cc->aux_stack_bottom_reg;
+        GEN_INSN(
+            LDI32, frame->aux_stack_bottom_reg, cc->exec_env_reg,
+            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_bottom.bottom)));
+    }
+    return frame->aux_stack_bottom_reg;
 }
 
 JitReg
