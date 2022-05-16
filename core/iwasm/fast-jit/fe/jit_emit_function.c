@@ -112,6 +112,9 @@ post_return(JitCompContext *cc, const WASMType *func_type)
         }
     }
 
+    /* Update the committed_sp as the callee has updated the frame sp */
+    cc->jit_frame->committed_sp = cc->jit_frame->sp;
+
     return true;
 fail:
     return false;
@@ -127,6 +130,10 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     JitFrame *jit_frame = cc->jit_frame;
     JitReg result = 0, native_ret;
     JitReg func_ptrs, jitted_code = 0;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
+    JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
+#endif
     JitInsn *insn;
     uint32 jitted_func_idx;
 
@@ -156,7 +163,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     if (func_idx < wasm_module->import_function_count) {
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
         /* Set native_ret to x86::eax */
-        native_ret = jit_codegen_get_hreg_by_name("eax");
+        native_ret = eax_hreg;
 #else
         native_ret = jit_cc_new_reg_I32(cc);
 #endif
@@ -184,16 +191,14 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 case VALUE_TYPE_FUNCREF:
 #endif
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    /* Set result to x86::eax, 1 is hard reg index of eax */
-                    result = jit_reg_new(JIT_REG_KIND_I32, 1);
+                    result = eax_hreg;
 #else
                     result = jit_cc_new_reg_I32(cc);
 #endif
                     break;
                 case VALUE_TYPE_I64:
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    /* Set result to x86::rax, 1 is hard reg index of rax */
-                    result = jit_reg_new(JIT_REG_KIND_I64, 1);
+                    result = rax_hreg;
 #else
                     result = jit_cc_new_reg_I64(cc);
 #endif
@@ -219,7 +224,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */
-    clear_memory_regs(jit_frame);
+    if (cc->cur_wasm_module->possible_memory_grow)
+        clear_memory_regs(jit_frame);
     clear_table_regs(jit_frame);
 
     /* Ignore tail call currently */
@@ -364,7 +370,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */
-    clear_memory_regs(cc->jit_frame);
+    if (cc->cur_wasm_module->possible_memory_grow)
+        clear_memory_regs(cc->jit_frame);
     clear_table_regs(cc->jit_frame);
     return true;
 fail:

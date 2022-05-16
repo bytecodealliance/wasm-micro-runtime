@@ -104,7 +104,8 @@ jit_compile_op_select(JitCompContext *cc, bool is_select_32)
     else
         selected = jit_cc_new_reg_I64(cc);
 
-    GEN_INSN(SELECTNE, selected, cond, val1, val2);
+    GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0));
+    GEN_INSN(SELECTNE, selected, cc->cmp_reg, val1, val2);
     PUSH(selected, val1_type);
     return true;
 fail:

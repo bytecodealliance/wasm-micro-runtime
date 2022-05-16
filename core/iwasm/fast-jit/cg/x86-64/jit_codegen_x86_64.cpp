@@ -237,7 +237,7 @@ typedef enum { ADD, SUB, MUL, DIV_S, REM_S, DIV_U, REM_U } ALU_OP;
 /* Bit opcode */
 typedef enum { OR, XOR, AND } BIT_OP;
 /* Shift opcode */
-typedef enum { SHL, SHRS, SHRU } SHIFT_OP;
+typedef enum { SHL, SHRS, SHRU, ROTL, ROTR } SHIFT_OP;
 /* Condition opcode */
 typedef enum { EQ, NE, GTS, GES, LTS, LES, GTU, GEU, LTU, LEU } COND_OP;
 
@@ -2722,7 +2722,28 @@ bit_r_r_to_r_i32(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
 static bool
 bit_r_imm_i64(x86::Assembler &a, BIT_OP op, int32 reg_no, int64 data)
 {
-    return false;
+    Imm imm(data);
+
+    switch (op) {
+        case OR:
+            if (data != 0)
+                a.or_(regs_i64[reg_no], imm);
+            break;
+        case XOR:
+            if (data == -1LL)
+                a.not_(regs_i64[reg_no]);
+            else if (data != 0)
+                a.xor_(regs_i64[reg_no], imm);
+            break;
+        case AND:
+            if (data != -1LL)
+                a.and_(regs_i64[reg_no], imm);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+    return true;
 }
 
 /**
@@ -2738,7 +2759,21 @@ bit_r_imm_i64(x86::Assembler &a, BIT_OP op, int32 reg_no, int64 data)
 static bool
 bit_r_r_i64(x86::Assembler &a, BIT_OP op, int32 reg_no_dst, int32 reg_no_src)
 {
-    return false;
+    switch (op) {
+        case OR:
+            a.or_(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            break;
+        case XOR:
+            a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            break;
+        case AND:
+            a.and_(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+    return true;
 }
 
 /**
@@ -2756,7 +2791,25 @@ static bool
 bit_imm_imm_to_r_i64(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                      int32 data1_src, int64 data2_src)
 {
-    return false;
+    Imm imm;
+
+    switch (op) {
+        case OR:
+            imm.setValue(data1_src | data2_src);
+            break;
+        case XOR:
+            imm.setValue(data1_src ^ data2_src);
+            break;
+        case AND:
+            imm.setValue(data1_src & data2_src);
+            break;
+        default:
+            bh_assert(0);
+            break;
+    }
+
+    a.mov(regs_i64[reg_no_dst], imm);
+    return true;
 }
 
 /**
@@ -2774,7 +2827,17 @@ static bool
 bit_imm_r_to_r_i64(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int64 data1_src, int32 reg_no2_src)
 {
-    return false;
+    if (op == AND && data1_src == 0)
+        a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
+    else if (op == OR && data1_src == -1LL) {
+        Imm imm(-1LL);
+        a.mov(regs_i64[reg_no_dst], imm);
+    }
+    else {
+        mov_r_to_r_i64(a, reg_no_dst, reg_no2_src);
+        return bit_r_imm_i64(a, op, reg_no_dst, data1_src);
+    }
+    return true;
 }
 
 /**
@@ -2792,7 +2855,7 @@ static bool
 bit_r_imm_to_r_i64(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                    int32 reg_no1_src, int64 data2_src)
 {
-    return false;
+    return bit_imm_r_to_r_i64(a, op, reg_no_dst, data2_src, reg_no1_src);
 }
 
 /**
@@ -2810,6 +2873,12 @@ static bool
 bit_r_r_to_r_i64(x86::Assembler &a, BIT_OP op, int32 reg_no_dst,
                  int32 reg_no1_src, int32 reg_no2_src)
 {
+    if (reg_no_dst != reg_no2_src) {
+        mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+        return bit_r_r_i64(a, op, reg_no_dst, reg_no2_src);
+    }
+    else
+        return bit_r_r_i64(a, op, reg_no_dst, reg_no1_src);
     return false;
 }
 
@@ -2843,6 +2912,18 @@ shift_imm_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         case SHRU:
         {
             data = ((uint32)data1_src) >> data2_src;
+            break;
+        }
+        case ROTL:
+        {
+            data = (data1_src << data2_src)
+                   | (((uint32)data1_src) >> (32 - data2_src));
+            break;
+        }
+        case ROTR:
+        {
+            data = (((uint32)data1_src) >> data2_src)
+                   | (data1_src << (32 - data2_src));
             break;
         }
         default:
@@ -2895,20 +2976,31 @@ shift_r_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* SHL/SHA/SHR r/m32, imm8 */
     Imm imm((uint8)data2_src);
 
+    mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i32[reg_no1_src], imm);
+            a.shl(regs_i32[reg_no_dst], imm);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i32[reg_no1_src], imm);
+            a.sar(regs_i32[reg_no_dst], imm);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i32[reg_no1_src], imm);
+            a.shr(regs_i32[reg_no_dst], imm);
+            break;
+        }
+        case ROTL:
+        {
+            a.rol(regs_i32[reg_no_dst], imm);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i32[reg_no_dst], imm);
             break;
         }
         default:
@@ -2918,7 +3010,7 @@ shift_r_imm_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
@@ -2941,20 +3033,32 @@ shift_r_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* should be CL */
     bh_assert(reg_no2_src == REG_ECX_IDX);
 
+    mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i32[reg_no1_src], x86::cl);
+            a.shl(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i32[reg_no1_src], x86::cl);
+            a.sar(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i32[reg_no1_src], x86::cl);
+            a.shr(regs_i32[reg_no_dst], x86::cl);
+            break;
+        }
+        case ROTL:
+        {
+            a.rol(regs_i32[reg_no_dst], x86::cl);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i32[reg_no_dst], x86::cl);
             break;
         }
         default:
@@ -2964,7 +3068,7 @@ shift_r_r_to_r_i32(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i32(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
@@ -3000,6 +3104,18 @@ shift_imm_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         case SHRU:
         {
             data = ((uint64)data1_src) >> data2_src;
+            break;
+        }
+        case ROTL:
+        {
+            data = (data1_src << data2_src)
+                   | (((uint64)data1_src) >> (64LL - data2_src));
+            break;
+        }
+        case ROTR:
+        {
+            data = (((uint64)data1_src) >> data2_src)
+                   | (data1_src << (64LL - data2_src));
             break;
         }
         default:
@@ -3052,20 +3168,31 @@ shift_r_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* SHL/SHA/SHR r/m64, imm8 */
     Imm imm((uint8)data2_src);
 
+    mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i64[reg_no1_src], imm);
+            a.shl(regs_i64[reg_no_dst], imm);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i64[reg_no1_src], imm);
+            a.sar(regs_i64[reg_no_dst], imm);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i64[reg_no1_src], imm);
+            a.shr(regs_i64[reg_no_dst], imm);
+            break;
+        }
+        case ROTL:
+        {
+            a.ror(regs_i64[reg_no_dst], imm);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i64[reg_no_dst], imm);
             break;
         }
         default:
@@ -3075,7 +3202,7 @@ shift_r_imm_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
@@ -3098,20 +3225,32 @@ shift_r_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
     /* should be CL */
     bh_assert(reg_no2_src == REG_ECX_IDX);
 
+    mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+
     switch (op) {
         case SHL:
         {
-            a.shl(regs_i64[reg_no1_src], x86::cl);
+            a.shl(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         case SHRS:
         {
-            a.sar(regs_i64[reg_no1_src], x86::cl);
+            a.sar(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         case SHRU:
         {
-            a.shr(regs_i64[reg_no1_src], x86::cl);
+            a.shr(regs_i64[reg_no_dst], x86::cl);
+            break;
+        }
+        case ROTL:
+        {
+            a.rol(regs_i64[reg_no_dst], x86::cl);
+            break;
+        }
+        case ROTR:
+        {
+            a.ror(regs_i64[reg_no_dst], x86::cl);
             break;
         }
         default:
@@ -3121,7 +3260,7 @@ shift_r_r_to_r_i64(x86::Assembler &a, SHIFT_OP op, int32 reg_no_dst,
         }
     }
 
-    return mov_r_to_r_i64(a, reg_no_dst, reg_no1_src);
+    return true;
 fail:
     return false;
 }
@@ -4215,19 +4354,24 @@ fail:
 }
 
 /* jmp to dst label */
-#define JMP_TO_LABEL(label_dst, label_src)                               \
-    do {                                                                 \
-        if (label_is_ahead(cc, label_dst, label_src)) {                  \
-            int32 _offset = label_offsets[label_dst]                     \
-                            - a.code()->sectionById(0)->buffer().size(); \
-            Imm imm(_offset);                                            \
-            a.jmp(imm);                                                  \
-        }                                                                \
-        else {                                                           \
-            if (!jmp_from_label_to_label(a, jmp_info_list, label_dst,    \
-                                         label_src))                     \
-                GOTO_FAIL;                                               \
-        }                                                                \
+#define JMP_TO_LABEL(label_dst, label_src)                                   \
+    do {                                                                     \
+        if (label_is_ahead(cc, label_dst, label_src)) {                      \
+            char *stream = (char *)a.code()->sectionById(0)->buffer().data() \
+                           + a.code()->sectionById(0)->buffer().size();      \
+            int32 _offset = label_offsets[label_dst]                         \
+                            - a.code()->sectionById(0)->buffer().size();     \
+            Imm imm(INT32_MAX);                                              \
+            a.jmp(imm);                                                      \
+            /* The offset written by asmjit is always 0, we patch it again,  \
+               6 is the size of jmp instruciton */                           \
+            *(int32 *)(stream + 2) = _offset - 6;                            \
+        }                                                                    \
+        else {                                                               \
+            if (!jmp_from_label_to_label(a, jmp_info_list, label_dst,        \
+                                         label_src))                         \
+                GOTO_FAIL;                                                   \
+        }                                                                    \
     } while (0)
 
 /**
@@ -4841,6 +4985,8 @@ jit_codegen_gen_native(JitCompContext *cc)
                 case JIT_OP_SHL:
                 case JIT_OP_SHRS:
                 case JIT_OP_SHRU:
+                case JIT_OP_ROTL:
+                case JIT_OP_ROTR:
                     LOAD_3ARGS();
                     if (!lower_shift(
                             cc, a,
@@ -5217,7 +5363,7 @@ static const uint8 hreg_info_I32[3][7] = {
     /* ebp, eax, ebx, ecx, edx, edi, esi */
     { 1, 0, 0, 0, 0, 0, 1 }, /* fixed, esi is freely used */
     { 0, 1, 0, 1, 1, 1, 0 }, /* caller_saved_native */
-    { 0, 1, 0, 1, 1, 1, 0 }  /* caller_saved_jitted */
+    { 0, 1, 1, 1, 1, 1, 0 }  /* caller_saved_jitted */
 };
 
 static const uint8 hreg_info_I64[3][16] = {

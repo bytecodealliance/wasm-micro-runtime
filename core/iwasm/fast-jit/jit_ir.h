@@ -974,6 +974,7 @@ typedef struct JitFrame {
 typedef struct JitIncomingInsn {
     struct JitIncomingInsn *next;
     JitInsn *insn;
+    uint32 opnd_idx;
 } JitIncomingInsn, *JitIncomingInsnList;
 
 typedef struct JitBlock {
@@ -1865,7 +1866,7 @@ void
 jit_block_stack_destroy(JitBlockStack *stack);
 
 bool
-jit_block_add_incoming_insn(JitBlock *block, JitInsn *insn);
+jit_block_add_incoming_insn(JitBlock *block, JitInsn *insn, uint32 opnd_idx);
 
 void
 jit_block_destroy(JitBlock *block);

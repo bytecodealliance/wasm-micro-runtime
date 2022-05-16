@@ -100,15 +100,29 @@ get_global_data_reg(JitFrame *frame)
 JitReg
 get_aux_stack_bound_reg(JitFrame *frame)
 {
-    /* TODO */
-    return 0;
+    JitCompContext *cc = frame->cc;
+
+    if (!frame->aux_stack_bound_reg) {
+        frame->aux_stack_bound_reg = cc->aux_stack_bound_reg;
+        GEN_INSN(
+            LDI32, frame->aux_stack_bound_reg, cc->exec_env_reg,
+            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_boundary.boundary)));
+    }
+    return frame->aux_stack_bound_reg;
 }
 
 JitReg
 get_aux_stack_bottom_reg(JitFrame *frame)
 {
-    /* TODO */
-    return 0;
+    JitCompContext *cc = frame->cc;
+
+    if (!frame->aux_stack_bottom_reg) {
+        frame->aux_stack_bottom_reg = cc->aux_stack_bottom_reg;
+        GEN_INSN(
+            LDI32, frame->aux_stack_bottom_reg, cc->exec_env_reg,
+            NEW_CONST(I32, offsetof(WASMExecEnv, aux_stack_bottom.bottom)));
+    }
+    return frame->aux_stack_bottom_reg;
 }
 
 JitReg
@@ -494,11 +508,13 @@ gen_commit_sp_ip(JitFrame *frame)
         frame->committed_sp = frame->sp;
     }
 
+#if 0 /* Disable committing ip currently */
     if (frame->ip != frame->committed_ip) {
         GEN_INSN(STPTR, NEW_CONST(PTR, (uintptr_t)frame->ip), cc->fp_reg,
                  NEW_CONST(I32, offsetof(WASMInterpFrame, ip)));
         frame->committed_ip = frame->ip;
     }
+#endif
 }
 
 static void
@@ -691,6 +707,7 @@ init_func_translation(JitCompContext *cc)
         + (uint64)cur_wasm_func->max_stack_cell_num
         + ((uint64)cur_wasm_func->max_block_num) * sizeof(WASMBranchBlock) / 4;
     uint32 frame_size, outs_size, local_size, count;
+    uint32 i, local_off;
     uint64 total_size;
 
     if ((uint64)max_locals + (uint64)max_stacks >= UINT32_MAX
@@ -795,6 +812,18 @@ init_func_translation(JitCompContext *cc)
              NEW_CONST(I32, offsetof(WASMExecEnv, cur_frame)));
     /* fp_reg = top */
     GEN_INSN(MOV, cc->fp_reg, top);
+
+    /* Initialize local variables, set them to 0 */
+    local_off = (uint32)offsetof(WASMInterpFrame, lp)
+                + cur_wasm_func->param_cell_num * 4;
+    for (i = 0; i < cur_wasm_func->local_cell_num / 2; i++, local_off += 8) {
+        GEN_INSN(STI64, NEW_CONST(I32, 0), cc->fp_reg,
+                 NEW_CONST(I32, local_off));
+    }
+    if (cur_wasm_func->local_cell_num & 1) {
+        GEN_INSN(STI32, NEW_CONST(I32, 0), cc->fp_reg,
+                 NEW_CONST(I32, local_off));
+    }
 
     return jit_frame;
 }
@@ -1084,15 +1113,11 @@ jit_compile_func(JitCompContext *cc)
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 
 #if WASM_ENABLE_REF_TYPES != 0
-                if (cc->enable_ref_types) {
-                    read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
-                }
-                else
+                read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+#else
+                frame_ip++;
+                tbl_idx = 0;
 #endif
-                {
-                    frame_ip++;
-                    tbl_idx = 0;
-                }
 
                 if (!jit_compile_op_call_indirect(cc, type_idx, tbl_idx))
                     return false;
@@ -1123,15 +1148,11 @@ jit_compile_func(JitCompContext *cc)
 
                 read_leb_uint32(frame_ip, frame_ip_end, type_idx);
 #if WASM_ENABLE_REF_TYPES != 0
-                if (cc->enable_ref_types) {
-                    read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
-                }
-                else
+                read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
+#else
+                frame_ip++;
+                tbl_idx = 0;
 #endif
-                {
-                    frame_ip++;
-                    tbl_idx = 0;
-                }
 
                 if (!jit_compile_op_call_indirect(cc, type_idx, tbl_idx))
                     return false;
@@ -1166,10 +1187,6 @@ jit_compile_func(JitCompContext *cc)
             {
                 uint32 vec_len;
 
-                if (!cc->enable_ref_types) {
-                    goto unsupport_ref_types;
-                }
-
                 read_leb_uint32(frame_ip, frame_ip_end, vec_len);
                 bh_assert(vec_len == 1);
                 (void)vec_len;
@@ -1185,10 +1202,6 @@ jit_compile_func(JitCompContext *cc)
             {
                 uint32 tbl_idx;
 
-                if (!cc->enable_ref_types) {
-                    goto unsupport_ref_types;
-                }
-
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 if (!jit_compile_op_table_get(cc, tbl_idx))
                     return false;
@@ -1198,10 +1211,6 @@ jit_compile_func(JitCompContext *cc)
             {
                 uint32 tbl_idx;
 
-                if (!cc->enable_ref_types) {
-                    goto unsupport_ref_types;
-                }
-
                 read_leb_uint32(frame_ip, frame_ip_end, tbl_idx);
                 if (!jit_compile_op_table_set(cc, tbl_idx))
                     return false;
@@ -1210,10 +1219,6 @@ jit_compile_func(JitCompContext *cc)
             case WASM_OP_REF_NULL:
             {
                 uint32 type;
-
-                if (!cc->enable_ref_types) {
-                    goto unsupport_ref_types;
-                }
 
                 read_leb_uint32(frame_ip, frame_ip_end, type);
 
@@ -1225,20 +1230,12 @@ jit_compile_func(JitCompContext *cc)
             }
             case WASM_OP_REF_IS_NULL:
             {
-                if (!cc->enable_ref_types) {
-                    goto unsupport_ref_types;
-                }
-
                 if (!jit_compile_op_ref_is_null(cc))
                     return false;
                 break;
             }
             case WASM_OP_REF_FUNC:
             {
-                if (!cc->enable_ref_types) {
-                    goto unsupport_ref_types;
-                }
-
                 read_leb_uint32(frame_ip, frame_ip_end, func_idx);
                 if (!jit_compile_op_ref_func(cc, func_idx))
                     return false;
@@ -1760,21 +1757,6 @@ jit_compile_func(JitCompContext *cc)
                 read_leb_uint32(frame_ip, frame_ip_end, opcode1);
                 opcode = (uint32)opcode1;
 
-#if WASM_ENABLE_BULK_MEMORY != 0
-                if (WASM_OP_MEMORY_INIT <= opcode
-                    && opcode <= WASM_OP_MEMORY_FILL
-                    && !cc->enable_bulk_memory) {
-                    goto unsupport_bulk_memory;
-                }
-#endif
-
-#if WASM_ENABLE_REF_TYPES != 0
-                if (WASM_OP_TABLE_INIT <= opcode && opcode <= WASM_OP_TABLE_FILL
-                    && !cc->enable_ref_types) {
-                    goto unsupport_ref_types;
-                }
-#endif
-
                 switch (opcode) {
                     case WASM_OP_I32_TRUNC_SAT_S_F32:
                     case WASM_OP_I32_TRUNC_SAT_U_F32:
@@ -2063,21 +2045,6 @@ jit_compile_func(JitCompContext *cc)
 
     (void)func_idx;
     return true;
-
-#if WASM_ENABLE_REF_TYPES != 0
-unsupport_ref_types:
-    jit_set_last_error(cc, "reference type instruction was found, "
-                           "try removing --disable-ref-types option");
-    return false;
-#endif
-
-#if WASM_ENABLE_BULK_MEMORY != 0
-unsupport_bulk_memory:
-    jit_set_last_error(cc, "bulk memory instruction was found, "
-                           "try removing --disable-bulk-memory option");
-    return false;
-#endif
-
 fail:
     return false;
 }

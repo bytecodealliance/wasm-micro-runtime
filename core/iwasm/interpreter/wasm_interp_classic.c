@@ -837,15 +837,8 @@ jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
     WASMModuleInstance *module_inst =
         (WASMModuleInstance *)exec_env->module_inst;
     WASMFunctionInstance *cur_func = module_inst->functions + func_idx;
-    uint32 *sp_org;
 
-    sp_org = prev_frame->sp;
     wasm_interp_call_func_native(module_inst, exec_env, cur_func, prev_frame);
-    /* Restore the stack pointer of previous frame as the caller in
-       jitted code will just read the return value and won't decrease
-       the stack pointer */
-    prev_frame->sp = sp_org;
-
     return wasm_get_exception(module_inst) ? false : true;
 }
 #endif

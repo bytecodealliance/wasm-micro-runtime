@@ -241,7 +241,7 @@ push_jit_block_to_stack_and_pass_params(JitCompContext *cc, JitBlock *block,
                 block->incoming_insn_for_else_bb = insn;
             }
             else {
-                if (!jit_block_add_incoming_insn(block, insn)) {
+                if (!jit_block_add_incoming_insn(block, insn, 2)) {
                     jit_set_last_error(cc, "add incoming insn failed");
                     goto fail;
                 }
@@ -449,17 +449,9 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
         incoming_insn = block->incoming_insns_for_end_bb;
         while (incoming_insn) {
             insn = incoming_insn->insn;
-            if (insn->opcode == JIT_OP_JMP) {
-                *(jit_insn_opnd(insn, 0)) =
-                    jit_basic_block_label(block->basic_block_end);
-            }
-            else if (insn->opcode == JIT_OP_BNE) {
-                *(jit_insn_opnd(insn, 2)) =
-                    jit_basic_block_label(block->basic_block_end);
-            }
-            else {
-                bh_assert(0);
-            }
+            bh_assert(insn->opcode == JIT_OP_JMP || insn->opcode == JIT_OP_BNE);
+            *(jit_insn_opnd(insn, incoming_insn->opnd_idx)) =
+                jit_basic_block_label(block->basic_block_end);
             incoming_insn = incoming_insn->next;
         }
 
@@ -534,7 +526,7 @@ handle_op_else(JitCompContext *cc, uint8 **p_frame_ip,
                 jit_set_last_error(cc, "generate jmp insn failed");
                 return false;
             }
-            if (!jit_block_add_incoming_insn(block, insn)) {
+            if (!jit_block_add_incoming_insn(block, insn, 0)) {
                 jit_set_last_error(cc, "add incoming insn failed");
                 return false;
             }
@@ -821,7 +813,7 @@ handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
             jit_set_last_error(cc, "generate jmp insn failed");
             goto fail;
         }
-        if (!jit_block_add_incoming_insn(block_dst, insn)) {
+        if (!jit_block_add_incoming_insn(block_dst, insn, 0)) {
             jit_set_last_error(cc, "add incoming insn failed");
             goto fail;
         }
@@ -847,6 +839,8 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     JitBlock *block_dst;
     JitReg cond;
     JitBasicBlock *cur_basic_block, *if_basic_block = NULL;
+    JitValueSlot *frame_sp_src;
+    JitInsn *insn;
 
     if (!(block_dst = get_target_block(cc, br_depth))) {
         return false;
@@ -860,6 +854,41 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
     /* Clear frame values */
     clear_values(jit_frame);
+
+    if (block_dst->label_type == LABEL_TYPE_LOOP) {
+        frame_sp_src =
+            jit_frame->sp
+            - wasm_get_cell_num(block_dst->param_types, block_dst->param_count);
+    }
+    else {
+        frame_sp_src = jit_frame->sp
+                       - wasm_get_cell_num(block_dst->result_types,
+                                           block_dst->result_count);
+    }
+
+    if (block_dst->frame_sp_begin == frame_sp_src) {
+        if (block_dst->label_type == LABEL_TYPE_LOOP) {
+            if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
+                || !GEN_INSN(
+                    BNE, cc->cmp_reg,
+                    jit_basic_block_label(block_dst->basic_block_entry), 0)) {
+                jit_set_last_error(cc, "generate bne insn failed");
+                goto fail;
+            }
+        }
+        else {
+            if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
+                || !(insn = GEN_INSN(BNE, cc->cmp_reg, 0, 0))) {
+                jit_set_last_error(cc, "generate bne insn failed");
+                goto fail;
+            }
+            if (!jit_block_add_incoming_insn(block_dst, insn, 1)) {
+                jit_set_last_error(cc, "add incoming insn failed");
+                goto fail;
+            }
+        }
+        return true;
+    }
 
     CREATE_BASIC_BLOCK(if_basic_block);
     if (!GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0))
@@ -911,6 +940,8 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
 
     for (i = 0, opnd = jit_insn_opndls(insn); i < br_count + 1; i++) {
         JitBasicBlock *basic_block = NULL;
+
+        /* TODO: refine the code */
 
         CREATE_BASIC_BLOCK(basic_block);
         SET_BB_BEGIN_BCIP(basic_block, *p_frame_ip - 1);
