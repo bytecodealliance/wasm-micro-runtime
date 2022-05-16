@@ -854,7 +854,7 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
-    cur_func_index = cur_func - module_inst->functions;
+    cur_func_index = (uint32)(cur_func - module_inst->functions);
     bh_assert(cur_func_index < module_inst->module->import_function_count);
     native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
 

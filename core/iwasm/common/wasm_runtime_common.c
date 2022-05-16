@@ -1273,7 +1273,7 @@ wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
     }
 
     if (!need_param_transform) {
-        bh_memcpy_s(new_argv, size, argv, size);
+        bh_memcpy_s(new_argv, (uint32)size, argv, (uint32)size);
     }
     else {
         for (param_i = 0; param_i < func_type->param_count && argv_i < argc
