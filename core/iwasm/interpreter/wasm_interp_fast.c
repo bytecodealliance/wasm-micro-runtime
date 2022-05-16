@@ -1356,6 +1356,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                         GET_OPERAND(uint64, I64, off));
                         ret_offset += 2;
                     }
+#if WASM_ENABLE_GC != 0
+                    else if (wasm_is_type_reftype(ret_types[ret_idx])) {
+                        PUT_REF_TO_ADDR(prev_frame->lp + ret_offset,
+                                        GET_OPERAND(void *, REF, off));
+                        ret_offset += REF_CELL_NUM;
+                    }
+#endif
                     else {
                         prev_frame->lp[ret_offset] =
                             GET_OPERAND(uint32, I32, off);
@@ -1397,11 +1404,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     goto got_exception;
                 }
 
+                /* clang-format off */
+#if WASM_ENABLE_GC == 0
                 fidx = ((uint32 *)tbl_inst->base_addr)[val];
                 if (fidx == (uint32)-1) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
                 }
+#else
+                func_obj = ((WASMFuncObjectRef *)tbl_inst->base_addr)[val];
+                if (!func_obj) {
+                    wasm_set_exception(module, "uninitialized element");
+                    goto got_exception;
+                }
+                fidx = func_obj->func_idx;
+#endif
+                /* clang-format on */
 
                 /*
                  * we might be using a table injected by host or
@@ -1676,6 +1694,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 else {
                     CLEAR_FRAME_REF(opnd_off);
                     SKIP_BR_INFO();
+                    frame_ip += sizeof(uint16);
                 }
                 HANDLE_OP_END();
             }
@@ -2053,6 +2072,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2072,6 +2092,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2164,6 +2185,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2181,6 +2203,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2198,6 +2221,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2213,6 +2237,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2228,6 +2253,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2243,6 +2269,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         }
                         else {
                             SKIP_BR_INFO();
+                            frame_ip += sizeof(uint16);
                         }
                         HANDLE_OP_END();
                     }
@@ -2298,7 +2325,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
                 addr_ret = GET_OFFSET();
+#if WASM_ENABLE_GC == 0
                 frame_lp[addr_ret] = *(uint32 *)global_addr;
+#else
+        if (!wasm_is_type_reftype(global->type))
+            frame_lp[addr_ret] = *(uint32 *)global_addr;
+        else
+            PUT_REF_TO_ADDR(frame_lp + addr_ret,
+                            GET_REF_FROM_ADDR((uint32 *)global_addr));
+#endif
                 HANDLE_OP_END();
             }
 
@@ -2321,7 +2356,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
                 addr1 = GET_OFFSET();
+#if WASM_ENABLE_GC == 0
                 *(int32 *)global_addr = frame_lp[addr1];
+#else
+        if (!wasm_is_type_reftype(global->type))
+            *(int32 *)global_addr = frame_lp[addr1];
+        else
+            PUT_REF_TO_ADDR((uint32 *)global_addr,
+                            GET_REF_FROM_ADDR(frame_lp + addr_ret));
+#endif
                 HANDLE_OP_END();
             }
 
@@ -3652,6 +3695,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                     PUT_I64_TO_ADDR((uint32 *)(frame_lp + local_offset),
                                     GET_I64_FROM_ADDR(frame_lp + addr1));
                 }
+#if WASM_ENABLE_GC != 0
+                else if (wasm_is_type_reftype(local_type)) {
+                    PUT_REF_TO_ADDR((uint32 *)(frame_lp + local_offset),
+                                    GET_REF_FROM_ADDR(frame_lp + addr1));
+                }
+#endif
                 else {
                     wasm_set_exception(module, "invalid local type");
                     goto got_exception;
@@ -4536,6 +4585,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                 2 * (cur_func->param_count - i - 1)));
                 outs_area->lp += 2;
             }
+#if WASM_ENABLE_GC != 0
+            else if (wasm_is_type_reftype(cur_func->param_types[i])) {
+                PUT_REF_TO_ADDR(
+                    outs_area->lp,
+                    GET_OPERAND(void *, REF,
+                                2 * (cur_func->param_count - i - 1)));
+                outs_area->lp += REF_CELL_NUM;
+            }
+#endif
             else {
                 *outs_area->lp = GET_OPERAND(
                     uint32, I32, (2 * (cur_func->param_count - i - 1)));
