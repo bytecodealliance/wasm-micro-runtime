@@ -707,9 +707,7 @@ init_func_translation(JitCompContext *cc)
         + (uint64)cur_wasm_func->max_stack_cell_num
         + ((uint64)cur_wasm_func->max_block_num) * sizeof(WASMBranchBlock) / 4;
     uint32 frame_size, outs_size, local_size, count;
-    uint32 param_count = cur_wasm_func->func_type->param_count;
-    uint32 local_count = cur_wasm_func->local_count, local_idx;
-    uint16 *local_offsets = cur_wasm_func->local_offsets, local_offset;
+    uint32 i, local_off;
     uint64 total_size;
 
     if ((uint64)max_locals + (uint64)max_stacks >= UINT32_MAX
@@ -816,30 +814,15 @@ init_func_translation(JitCompContext *cc)
     GEN_INSN(MOV, cc->fp_reg, top);
 
     /* Initialize local variables, set them to 0 */
-    for (local_idx = 0; local_idx < local_count; local_idx++) {
-        local_offset = local_offsets[param_count + local_idx];
-
-        switch (cur_wasm_func->local_types[local_idx]) {
-            case VALUE_TYPE_I32:
-#if WASM_ENABLE_REF_TYPES != 0
-            case VALUE_TYPE_EXTERNREF:
-            case VALUE_TYPE_FUNCREF:
-#endif
-                set_local_i32(cc->jit_frame, local_offset, NEW_CONST(I32, 0));
-                break;
-            case VALUE_TYPE_I64:
-                set_local_i64(cc->jit_frame, local_offset, NEW_CONST(I64, 0));
-                break;
-            case VALUE_TYPE_F32:
-                set_local_f32(cc->jit_frame, local_offset, NEW_CONST(F32, 0));
-                break;
-            case VALUE_TYPE_F64:
-                set_local_i64(cc->jit_frame, local_offset, NEW_CONST(F64, 0));
-                break;
-            default:
-                bh_assert(0);
-                break;
-        }
+    local_off = (uint32)offsetof(WASMInterpFrame, lp)
+                + cur_wasm_func->param_cell_num * 4;
+    for (i = 0; i < cur_wasm_func->local_cell_num / 2; i++, local_off += 8) {
+        GEN_INSN(STI64, NEW_CONST(I32, 0), cc->fp_reg,
+                 NEW_CONST(I32, local_off));
+    }
+    if (cur_wasm_func->local_cell_num & 1) {
+        GEN_INSN(STI32, NEW_CONST(I32, 0), cc->fp_reg,
+                 NEW_CONST(I32, local_off));
     }
 
     return jit_frame;

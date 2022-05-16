@@ -224,7 +224,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
 
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */
-    clear_memory_regs(jit_frame);
+    if (cc->cur_wasm_module->possible_memory_grow)
+        clear_memory_regs(jit_frame);
     clear_table_regs(jit_frame);
 
     /* Ignore tail call currently */
@@ -369,7 +370,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     /* Clear part of memory regs and table regs as their values
        may be changed in the function call */
-    clear_memory_regs(cc->jit_frame);
+    if (cc->cur_wasm_module->possible_memory_grow)
+        clear_memory_regs(cc->jit_frame);
     clear_table_regs(cc->jit_frame);
     return true;
 fail:
