@@ -4516,12 +4516,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_TAIL_CALL != 0 || WASM_ENABLE_GC != 0
     call_func_from_return_call:
     {
-        uint32 *lp_base;
-        uint32 *lp;
+        uint32 *lp_base = NULL, *lp = NULL;
         int i;
 
-        if (!(lp_base = lp = wasm_runtime_malloc(cur_func->param_cell_num
-                                                 * sizeof(uint32)))) {
+        if (cur_func->param_cell_num > 0
+            && !(lp_base = lp = wasm_runtime_malloc(
+                     cur_func->param_cell_num * (uint32)sizeof(uint32)))) {
             wasm_set_exception(module, "allocate memory failed");
             goto got_exception;
         }
@@ -4543,7 +4543,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         if (lp - lp_base > 0) {
             word_copy(frame->lp, lp_base, lp - lp_base);
         }
-        wasm_runtime_free(lp_base);
+        if (lp_base)
+            wasm_runtime_free(lp_base);
         FREE_FRAME(exec_env, frame);
         frame_ip += cur_func->param_count * sizeof(int16);
         wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)prev_frame);

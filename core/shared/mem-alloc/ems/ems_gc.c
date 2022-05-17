@@ -313,7 +313,7 @@ reclaim_instance_heap(gc_heap_t *heap)
         /* all nodes should be non-empty */
         bh_assert(mark_node->idx > 0);
 
-        for (idx = 0; idx < mark_node->idx; idx++) {
+        for (idx = 0; idx < (int)mark_node->idx; idx++) {
             obj = mark_node->set[idx];
             hmu = obj_to_hmu(obj);
             bh_assert(hmu_is_wo_marked(hmu));
