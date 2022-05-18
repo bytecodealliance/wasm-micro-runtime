@@ -129,11 +129,19 @@ int main(int argc, char **argv)
 }
 ```
 
+## Build native lib into shared library and register it with `iwasm` application
+
+Developer can also build the native library into a shared library and register it with iwasm application:
+```bash
+iwasm --native-lib=<lib file> <wasm file>
+```
+
+Refer to [native lib sample](../samples/native-lib) for more details.
 
 
 ## Buffer address conversion and boundary check
 
- A WebAssembly sandbox ensures applications only access to its own memory with a private address space. When passing a pointer address from WASM to native, the address value must be converted to native address before the native function can access it. It is also the native world's responsibility to check the buffer length is not over its sandbox boundary. 
+A WebAssembly sandbox ensures applications only access to its own memory with a private address space. When passing a pointer address from WASM to native, the address value must be converted to native address before the native function can access it. It is also the native world's responsibility to check the buffer length is not over its sandbox boundary.
 
 
 

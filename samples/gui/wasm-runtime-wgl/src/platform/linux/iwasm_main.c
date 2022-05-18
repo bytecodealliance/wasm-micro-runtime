@@ -45,7 +45,7 @@ static char *uart_device = "/dev/ttyS2";
 static int baudrate = B115200;
 #endif
 
-extern void
+extern bool
 init_sensor_framework();
 extern void
 exit_sensor_framework();
@@ -175,9 +175,11 @@ func_server_mode(void *arg)
     struct sockaddr_in serv_addr, cli_addr;
     int n;
     char buff[MAX];
-
     struct sigaction sa;
+
     sa.sa_handler = SIG_IGN;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
     sigaction(SIGPIPE, &sa, 0);
 
     /* First call to socket() function */
@@ -525,10 +527,14 @@ iwasm_main(int argc, char *argv[])
 
     hal_init();
 
-    init_sensor_framework();
+    if (!init_sensor_framework()) {
+        goto fail2;
+    }
 
-    // timer manager
-    init_wasm_timer();
+    /* timer manager */
+    if (!init_wasm_timer()) {
+        goto fail3;
+    }
 
 #ifndef CONNECTION_UART
     if (server_mode)
@@ -544,7 +550,11 @@ iwasm_main(int argc, char *argv[])
     app_manager_startup(&interface);
 
     exit_wasm_timer();
+
+fail3:
     exit_sensor_framework();
+
+fail2:
     wgl_exit();
     exit_connection_framework();
 

@@ -20,7 +20,7 @@
 #include <drivers/uart.h>
 #include <device.h>
 
-extern void
+extern bool
 init_sensor_framework();
 extern void
 exit_sensor_framework();
@@ -118,12 +118,14 @@ iwasm_main()
 
     display_init();
 
-    // timer manager
-    init_wasm_timer();
+    /* timer manager */
+    if (!init_wasm_timer()) {
+        goto fail;
+    }
 
-    // TODO:
     app_manager_startup(&interface);
 
+fail:
     wasm_runtime_destroy();
     return -1;
 }

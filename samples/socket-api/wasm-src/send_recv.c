@@ -2,8 +2,8 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-
 #include <arpa/inet.h>
+#include <assert.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -109,7 +109,8 @@ run_as_client(void *arg)
 {
     int sock = -1;
     struct sockaddr_in addr = { 0 };
-    char buf[256] = { 0 };
+    /* buf of server is 106 bytes */
+    char buf[110] = { 0 };
     struct iovec iov = { .iov_base = buf, .iov_len = sizeof(buf) };
     struct msghdr msg = { .msg_iov = &iov, .msg_iovlen = 1 };
     ssize_t recv_len = 0;
@@ -145,11 +146,11 @@ run_as_client(void *arg)
     }
 
     printf("Receive %ld bytes successlly!\n", recv_len);
-    printf("Data:\n");
+    assert(recv_len == 106);
 
-    uint8_t i = 0;
+    printf("Data:\n");
     char *s = msg.msg_iov->iov_base;
-    for (i = 0; i < 6; i++) {
+    while (strlen(s) > 0) {
         printf("  %s\n", s);
         s += strlen(s) + 1;
     }

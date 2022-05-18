@@ -162,4 +162,4 @@ set (RUNTIME_SOURCE_ALL
     ${UNCOMMON_SHARED_SOURCE}
 )
 add_executable (iwasm ${RUNTIME_SOURCE_ALL})
-target_link_libraries(iwasm vmlib -lpthread -lm)
+target_link_libraries(iwasm vmlib -lpthread -lm -ldl)

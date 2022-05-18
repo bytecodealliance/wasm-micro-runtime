@@ -2103,8 +2103,10 @@ aot_resolve_target_info(AOTCompContext *comp_ctx, AOTObjectData *obj_data)
         return false;
     }
 
-    strncpy(obj_data->target_info.arch, comp_ctx->target_arch,
-            sizeof(obj_data->target_info.arch));
+    bh_assert(sizeof(obj_data->target_info.arch)
+              == sizeof(comp_ctx->target_arch));
+    bh_memcpy_s(obj_data->target_info.arch, sizeof(obj_data->target_info.arch),
+                comp_ctx->target_arch, sizeof(comp_ctx->target_arch));
 
     return true;
 }
@@ -2401,13 +2403,15 @@ aot_resolve_object_relocation_group(AOTObjectData *obj_data,
         relocation->relocation_type = (uint32)type;
         relocation->symbol_name = (char *)LLVMGetSymbolName(rel_sym);
 
-        /* for ".LCPIxxx", ".LJTIxxx" and ".LBBxxx" relocation,
-         * transform the symbol name to real section name and set
+        /* for ".LCPIxxx", ".LJTIxxx", ".LBBxxx" and switch lookup table
+         * relocation, transform the symbol name to real section name and set
          * addend to the offset of the symbol in the real section */
         if (relocation->symbol_name
             && (str_starts_with(relocation->symbol_name, ".LCPI")
                 || str_starts_with(relocation->symbol_name, ".LJTI")
-                || str_starts_with(relocation->symbol_name, ".LBB"))) {
+                || str_starts_with(relocation->symbol_name, ".LBB")
+                || str_starts_with(relocation->symbol_name,
+                                   ".Lswitch.table."))) {
             /* change relocation->relocation_addend and
                relocation->symbol_name */
             LLVMSectionIteratorRef contain_section;

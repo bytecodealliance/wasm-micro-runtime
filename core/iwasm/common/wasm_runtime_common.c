@@ -32,6 +32,28 @@
 #endif
 #include "../common/wasm_c_api_internal.h"
 
+/**
+ * For runtime build, BH_MALLOC/BH_FREE should be defined as
+ * wasm_runtime_malloc/wasm_runtime_free.
+ */
+#define CHECK(a) CHECK1(a)
+#define CHECK1(a) SHOULD_BE_##a
+
+#define SHOULD_BE_wasm_runtime_malloc 1
+#if !CHECK(BH_MALLOC)
+#error unexpected BH_MALLOC
+#endif
+#undef SHOULD_BE_wasm_runtime_malloc
+
+#define SHOULD_BE_wasm_runtime_free 1
+#if !CHECK(BH_FREE)
+#error unexpected BH_FREE
+#endif
+#undef SHOULD_BE_wasm_runtime_free
+
+#undef CHECK
+#undef CHECK1
+
 #if WASM_ENABLE_MULTI_MODULE != 0
 /**
  * A safety insurance to prevent
@@ -808,26 +830,28 @@ wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
 {
     WASMModuleCommon *module_common;
 
-#if WASM_ENABLE_INTERP != 0
     if (!is_aot) {
+#if WASM_ENABLE_INTERP != 0
         module_common = (WASMModuleCommon *)wasm_load_from_sections(
             section_list, error_buf, error_buf_size);
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
-    }
 #endif
+    }
+    else {
 #if WASM_ENABLE_AOT != 0
-    if (is_aot) {
         module_common = (WASMModuleCommon *)aot_load_from_sections(
             section_list, error_buf, error_buf_size);
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
-    }
 #endif
+    }
 
+#if WASM_ENABLE_INTERP == 0 || WASM_ENABLE_AOT == 0
     set_error_buf(error_buf, error_buf_size,
                   "WASM module load failed: invalid section list type");
     return NULL;
+#endif
 }
 
 void
@@ -1252,7 +1276,7 @@ wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
     }
 
     if (!need_param_transform) {
-        bh_memcpy_s(new_argv, size, argv, size);
+        bh_memcpy_s(new_argv, (uint32)size, argv, (uint32)size);
     }
     else {
         for (param_i = 0; param_i < func_type->param_count && argv_i < argc
@@ -1312,7 +1336,7 @@ wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
 
     bh_assert((argv && ret_argv) || (argc == 0));
 
-    if (argv == ret_argv || argc == 0) {
+    if (argv == ret_argv) {
         /* no need to transfrom externref results */
         return true;
     }
