@@ -208,7 +208,7 @@ def main():
         },
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
-            "branch": "xtensa_release_11.0.0",
+            "branch": "xtensa_release_13.0.0",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",

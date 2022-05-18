@@ -40,7 +40,7 @@ print_help()
     printf("                           --dir=<dir1> --dir=<dir2>\n");
 #endif
 #if WASM_ENABLE_MULTI_MODULE != 0
-    printf("  --module-path=         Indicate a module search path. default is current\n"
+    printf("  --module-path=<path>   Indicate a module search path. default is current\n"
            "                         directory('./')\n");
 #endif
 #if WASM_ENABLE_LIB_PTHREAD != 0

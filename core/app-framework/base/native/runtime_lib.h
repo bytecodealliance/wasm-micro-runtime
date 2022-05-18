@@ -8,7 +8,7 @@
 
 #include "runtime_timer.h"
 
-void
+bool
 init_wasm_timer();
 void
 exit_wasm_timer();

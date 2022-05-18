@@ -28,6 +28,7 @@ usage ()
         echo "        $0 $QEMU_XTENSA_TARGET"
         echo "        $0 $QEMU_RISCV64_TARGET"
         echo "        $0 $QEMU_RISCV32_TARGET"
+        echo "        $0 $QEMU_ARC_TARGET"
         exit 1
 }
 

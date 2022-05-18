@@ -261,48 +261,34 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     char *str;
     uint16 str_len;
 
-    CHECK_BUF(p, p_end, 1);
-    if (*p & 0x80) {
-        /* The string has been adjusted */
-        str = (char *)++p;
-        /* Ensure the whole string is in range */
-        do {
-            CHECK_BUF(p, p_end, 1);
-        } while (*p++ != '\0');
+    read_uint16(p, p_end, str_len);
+    CHECK_BUF(p, p_end, str_len);
+
+    if (str_len == 0) {
+        str = "";
+    }
+    else if (p[str_len - 1] == '\0') {
+        /* The string is terminated with '\0', use it directly */
+        str = (char *)p;
+    }
+    else if (is_load_from_file_buf) {
+        /* As the file buffer can be referred to after loading,
+           we use the 2 bytes of size to adjust the string:
+           move string 2 byte backward and then append '\0' */
+        str = (char *)(p - 2);
+        bh_memmove_s(str, (uint32)(str_len + 1), p, (uint32)str_len);
+        str[str_len] = '\0';
     }
     else {
-        /* The string hasn't been adjusted */
-        read_uint16(p, p_end, str_len);
-        CHECK_BUF(p, p_end, str_len);
-
-        if (str_len == 0) {
-            str = "";
+        /* Load from sections, the file buffer cannot be reffered to
+           after loading, we must create another string and insert it
+           into const string set */
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, error_buf,
+                                         error_buf_size))) {
+            goto fail;
         }
-        else if (p[str_len - 1] == '\0') {
-            /* The string is terminated with '\0', use it directly */
-            str = (char *)p;
-        }
-        else if (is_load_from_file_buf) {
-            /* As the file buffer can be referred to after loading,
-               we use the 2 bytes of size to adjust the string:
-               mark the flag with the highest bit of size[0],
-               move string 1 byte backward and then append '\0' */
-            *(p - 2) |= 0x80;
-            bh_memmove_s(p - 1, (uint32)(str_len + 1), p, (uint32)str_len);
-            p[str_len - 1] = '\0';
-            str = (char *)(p - 1);
-        }
-        else {
-            /* Load from sections, the file buffer cannot be reffered to
-               after loading, we must create another string and insert it
-               into const string set */
-            if (!(str = const_str_set_insert((uint8 *)p, str_len, module,
-                                             error_buf, error_buf_size))) {
-                goto fail;
-            }
-        }
-        p += str_len;
     }
+    p += str_len;
 
     *p_buf = p;
     return str;
@@ -1850,7 +1836,9 @@ do_text_relocation(AOTModule *module, AOTRelocationGroup *group,
                  || !strcmp(symbol, ".rdata")
                  || !strcmp(symbol, ".rodata")
                  /* ".rodata.cst4/8/16/.." */
-                 || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))) {
+                 || !strncmp(symbol, ".rodata.cst", strlen(".rodata.cst"))
+                 /* ".rodata.strn.m" */
+                 || !strncmp(symbol, ".rodata.str", strlen(".rodata.str"))) {
             symbol_addr = get_data_section_addr(module, symbol, NULL);
             if (!symbol_addr) {
                 set_error_buf_v(error_buf, error_buf_size,
@@ -2054,6 +2042,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     uint8 *symbol_buf, *symbol_buf_end;
     int map_prot, map_flags;
     bool ret = false;
+    char **symbols = NULL;
 
     read_uint32(buf, buf_end, symbol_count);
 
@@ -2072,6 +2061,14 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         set_error_buf(error_buf, error_buf_size,
                       "validate symbol table failed");
         goto fail;
+    }
+
+    if (symbol_count > 0) {
+        symbols = loader_malloc((uint64)sizeof(*symbols) * symbol_count,
+                                error_buf, error_buf_size);
+        if (symbols == NULL) {
+            goto fail;
+        }
     }
 
 #if defined(BH_PLATFORM_WINDOWS)
@@ -2208,7 +2205,6 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     for (i = 0, group = groups; i < group_count; i++, group++) {
         AOTRelocation *relocation;
         uint32 name_index;
-        uint8 *name_addr;
 
         /* section name address is 4 bytes aligned. */
         buf = (uint8 *)align_ptr(buf, sizeof(uint32));
@@ -2220,8 +2216,12 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             goto fail;
         }
 
-        name_addr = symbol_buf + symbol_offsets[name_index];
-        read_string(name_addr, buf_end, group->section_name);
+        if (symbols[name_index] == NULL) {
+            uint8 *name_addr = symbol_buf + symbol_offsets[name_index];
+
+            read_string(name_addr, buf_end, symbols[name_index]);
+        }
+        group->section_name = symbols[name_index];
 
         read_uint32(buf, buf_end, group->relocation_count);
 
@@ -2236,7 +2236,6 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
         /* Load each relocation */
         for (j = 0; j < group->relocation_count; j++, relocation++) {
             uint32 symbol_index;
-            uint8 *symbol_addr;
 
             if (sizeof(void *) == 8) {
                 read_uint64(buf, buf_end, relocation->relocation_offset);
@@ -2258,8 +2257,12 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                 goto fail;
             }
 
-            symbol_addr = symbol_buf + symbol_offsets[symbol_index];
-            read_string(symbol_addr, buf_end, relocation->symbol_name);
+            if (symbols[symbol_index] == NULL) {
+                uint8 *symbol_addr = symbol_buf + symbol_offsets[symbol_index];
+
+                read_string(symbol_addr, buf_end, symbols[symbol_index]);
+            }
+            relocation->symbol_name = symbols[symbol_index];
         }
 
         if (!strcmp(group->section_name, ".rel.text")
@@ -2314,7 +2317,10 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
             || !strcmp(data_section->name, ".rodata")
             /* ".rodata.cst4/8/16/.." */
             || !strncmp(data_section->name, ".rodata.cst",
-                        strlen(".rodata.cst"))) {
+                        strlen(".rodata.cst"))
+            /* ".rodata.strn.m" */
+            || !strncmp(data_section->name, ".rodata.str",
+                        strlen(".rodata.str"))) {
             os_mprotect(data_section->data, data_section->size, map_prot);
         }
     }
@@ -2322,6 +2328,9 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
     ret = true;
 
 fail:
+    if (symbols) {
+        wasm_runtime_free(symbols);
+    }
     if (groups) {
         for (i = 0, group = groups; i < group_count; i++, group++)
             if (group->relocations)

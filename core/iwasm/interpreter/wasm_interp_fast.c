@@ -764,7 +764,7 @@ static inline int64
 sign_ext_8_64(int8 val)
 {
     if (val & 0x80)
-        return (int64)val | (int64)0xffffffffffffff00;
+        return (int64)val | (int64)0xffffffffffffff00LL;
     return val;
 }
 
@@ -772,7 +772,7 @@ static inline int64
 sign_ext_16_64(int16 val)
 {
     if (val & 0x8000)
-        return (int64)val | (int64)0xffffffffffff0000;
+        return (int64)val | (int64)0xffffffffffff0000LL;
     return val;
 }
 
@@ -780,15 +780,22 @@ static inline int64
 sign_ext_32_64(int32 val)
 {
     if (val & (int32)0x80000000)
-        return (int64)val | (int64)0xffffffff00000000;
+        return (int64)val | (int64)0xffffffff00000000LL;
     return val;
 }
 
 static inline void
 word_copy(uint32 *dest, uint32 *src, unsigned num)
 {
-    for (; num > 0; num--)
-        *dest++ = *src++;
+    bh_assert(dest != NULL);
+    bh_assert(src != NULL);
+    bh_assert(num > 0);
+    if (dest != src) {
+        /* No overlap buffer */
+        bh_assert(!((src < dest) && (dest < src + num)));
+        for (; num > 0; num--)
+            *dest++ = *src++;
+    }
 }
 
 static inline WASMInterpFrame *
@@ -832,7 +839,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     WASMFunctionImport *func_import = cur_func->u.func_import;
     unsigned local_cell_num = 2;
     WASMInterpFrame *frame;
-    uint32 argv_ret[2];
+    uint32 argv_ret[2], cur_func_index;
+    void *native_func_pointer = NULL;
     bool ret;
 
     if (!(frame = ALLOC_FRAME(exec_env,
@@ -846,7 +854,11 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
-    if (!func_import->func_ptr_linked) {
+    cur_func_index = (uint32)(cur_func - module_inst->functions);
+    bh_assert(cur_func_index < module_inst->module->import_function_count);
+    native_func_pointer = module_inst->import_func_ptrs[cur_func_index];
+
+    if (!native_func_pointer) {
         char buf[128];
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
@@ -857,9 +869,8 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
 
     if (func_import->call_conv_wasm_c_api) {
         ret = wasm_runtime_invoke_c_api_native(
-            (WASMModuleInstanceCommon *)module_inst,
-            func_import->func_ptr_linked, func_import->func_type,
-            cur_func->param_cell_num, frame->lp,
+            (WASMModuleInstanceCommon *)module_inst, native_func_pointer,
+            func_import->func_type, cur_func->param_cell_num, frame->lp,
             func_import->wasm_c_api_with_env, func_import->attachment);
         if (ret) {
             argv_ret[0] = frame->lp[0];
@@ -868,13 +879,13 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
     }
     else if (!func_import->call_conv_raw) {
         ret = wasm_runtime_invoke_native(
-            exec_env, func_import->func_ptr_linked, func_import->func_type,
+            exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
     }
     else {
         ret = wasm_runtime_invoke_native_raw(
-            exec_env, func_import->func_ptr_linked, func_import->func_type,
+            exec_env, native_func_pointer, func_import->func_type,
             func_import->signature, func_import->attachment, frame->lp,
             cur_func->param_cell_num, argv_ret);
     }
@@ -3532,6 +3543,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(EXT_OP_BLOCK)
         HANDLE_OP(EXT_OP_LOOP)
         HANDLE_OP(EXT_OP_IF)
+        HANDLE_OP(EXT_OP_BR_TABLE_CACHE)
         {
             wasm_set_exception(module, "unsupported opcode");
             goto got_exception;
@@ -3571,7 +3583,9 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
         }
         frame->lp = frame->operand + cur_func->const_cell_num;
-        word_copy(frame->lp, lp_base, lp - lp_base);
+        if (lp - lp_base > 0) {
+            word_copy(frame->lp, lp_base, lp - lp_base);
+        }
         wasm_runtime_free(lp_base);
         FREE_FRAME(exec_env, frame);
         frame_ip += cur_func->param_count * sizeof(int16);
@@ -3598,6 +3612,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         {
             outs_area->lp = outs_area->operand + cur_func->const_cell_num;
         }
+
+        if ((uint8 *)(outs_area->lp + cur_func->param_cell_num)
+            > exec_env->wasm_stack.s.top_boundary) {
+            wasm_set_exception(module, "wasm operand stack overflow");
+            goto got_exception;
+        }
+
         for (i = 0; i < cur_func->param_count; i++) {
             if (cur_func->param_types[i] == VALUE_TYPE_I64
                 || cur_func->param_types[i] == VALUE_TYPE_F64) {
@@ -3684,8 +3705,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 frame->operand + cur_wasm_func->const_cell_num;
 
             /* Initialize the consts */
-            word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
-                      cur_wasm_func->const_cell_num);
+            if (cur_wasm_func->const_cell_num > 0) {
+                word_copy(frame->operand, (uint32 *)cur_wasm_func->consts,
+                          cur_wasm_func->const_cell_num);
+            }
 
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
@@ -3785,6 +3808,13 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     /* There is no local variable. */
     frame->lp = frame->operand + 0;
     frame->ret_offset = 0;
+
+    if ((uint8 *)(outs_area->operand + function->const_cell_num + argc)
+        > exec_env->wasm_stack.s.top_boundary) {
+        wasm_set_exception((WASMModuleInstance *)exec_env->module_inst,
+                           "wasm operand stack overflow");
+        return;
+    }
 
     if (argc > 0)
         word_copy(outs_area->operand + function->const_cell_num, argv, argc);

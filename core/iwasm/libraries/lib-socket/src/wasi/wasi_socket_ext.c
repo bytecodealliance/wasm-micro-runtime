@@ -154,8 +154,8 @@ recvmsg(int sockfd, struct msghdr *msg, int flags)
     // Prepare input parameters.
     __wasi_iovec_t *ri_data = NULL;
     size_t i = 0;
-    size_t ro_datalen;
-    __wasi_roflags_t ro_flags;
+    size_t ro_datalen = 0;
+    __wasi_roflags_t ro_flags = 0;
 
     if (NULL == msg) {
         HANDLE_ERROR(__WASI_ERRNO_INVAL)

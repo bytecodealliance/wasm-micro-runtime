@@ -111,9 +111,15 @@ WAMRCreateMCJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
         for (auto &F : *Mod) {
             auto Attrs = F.getAttributes();
             StringRef Value = options.NoFramePointerElim ? "all" : "none";
+#if LLVM_VERSION_MAJOR <= 13
             Attrs =
                 Attrs.addAttribute(F.getContext(), AttributeList::FunctionIndex,
                                    "frame-pointer", Value);
+#else
+            Attrs = Attrs.addAttributeAtIndex(F.getContext(),
+                                              AttributeList::FunctionIndex,
+                                              "frame-pointer", Value);
+#endif
             F.setAttributes(Attrs);
         }
     }
@@ -293,6 +299,8 @@ aot_check_simd_compatibility(const char *arch_c_str, const char *cpu_c_str)
 #endif /* WASM_ENABLE_SIMD */
 }
 
+#if WASM_ENABLE_LAZY_JIT != 0
+
 #if LLVM_VERSION_MAJOR < 12
 LLVMOrcJITTargetMachineBuilderRef
 LLVMOrcJITTargetMachineBuilderFromTargetMachine(LLVMTargetMachineRef TM);
@@ -303,8 +311,6 @@ LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(LLVMTargetMachineRef TM)
     return LLVMOrcJITTargetMachineBuilderFromTargetMachine(TM);
 }
 #endif
-
-#if WASM_ENABLE_LAZY_JIT != 0
 
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(LLJITBuilder, LLVMOrcLLJITBuilderRef)
 
@@ -348,7 +354,7 @@ aot_lookup_orcjit_func(LLVMOrcLLJITRef orc_lazyjit, void *module_inst,
     func_ptrs[func_idx] = (void *)func_addr;
     return (void *)func_addr;
 }
-#endif
+#endif /* end of WASM_ENABLE_LAZY_JIT != 0 */
 
 void
 aot_func_disable_tce(LLVMValueRef func)
@@ -356,11 +362,18 @@ aot_func_disable_tce(LLVMValueRef func)
     Function *F = unwrap<Function>(func);
     auto Attrs = F->getAttributes();
 
+#if LLVM_VERSION_MAJOR <= 13
     Attrs = Attrs.addAttribute(F->getContext(), AttributeList::FunctionIndex,
                                "disable-tail-calls", "true");
+#else
+    Attrs =
+        Attrs.addAttributeAtIndex(F->getContext(), AttributeList::FunctionIndex,
+                                  "disable-tail-calls", "true");
+#endif
     F->setAttributes(Attrs);
 }
 
+#if LLVM_VERSION_MAJOR >= 12
 void
 aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 {
@@ -403,6 +416,7 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
 
     ModulePassManager MPM;
 
+#if LLVM_VERSION_MAJOR <= 13
     PassBuilder::OptimizationLevel OL;
 
     switch (comp_ctx->opt_level) {
@@ -420,6 +434,25 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
             OL = PassBuilder::OptimizationLevel::O3;
             break;
     }
+#else
+    OptimizationLevel OL;
+
+    switch (comp_ctx->opt_level) {
+        case 0:
+            OL = OptimizationLevel::O0;
+            break;
+        case 1:
+            OL = OptimizationLevel::O1;
+            break;
+        case 2:
+            OL = OptimizationLevel::O2;
+            break;
+        case 3:
+        default:
+            OL = OptimizationLevel::O3;
+            break;
+    }
+#endif /* end of LLVM_VERSION_MAJOR */
 
     if (comp_ctx->disable_llvm_lto) {
         disable_llvm_lto = true;
@@ -478,3 +511,4 @@ aot_apply_llvm_new_pass_manager(AOTCompContext *comp_ctx)
     }
 #endif
 }
+#endif /* end of LLVM_VERSION_MAJOR >= 12 */

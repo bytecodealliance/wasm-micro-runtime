@@ -411,6 +411,9 @@ init_stack_guard_pages()
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     uint8 *stack_min_addr = os_thread_get_stack_boundary();
 
+    if (stack_min_addr == NULL)
+        return false;
+
     /* Touch each stack page to ensure that it has been mapped: the OS
        may lazily grow the stack mapping as a guard page is hit. */
     (void)touch_pages(stack_min_addr, page_size);

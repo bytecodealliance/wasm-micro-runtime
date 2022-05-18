@@ -2276,6 +2276,9 @@ aot_value_stack_destroy(AOTValueStack *stack)
         wasm_runtime_free(value);
         value = p;
     }
+
+    stack->value_list_head = NULL;
+    stack->value_list_end = NULL;
 }
 
 void
@@ -2319,6 +2322,9 @@ aot_block_stack_destroy(AOTBlockStack *stack)
         aot_block_destroy(block);
         block = p;
     }
+
+    stack->block_list_head = NULL;
+    stack->block_list_end = NULL;
 }
 
 void

@@ -309,7 +309,13 @@ add_sys_sensor(char *name, char *description, int instance,
         g_sys_sensors = s;
     }
 
-    os_mutex_init(&s->lock);
+    if (os_mutex_init(&s->lock) != 0) {
+        if (s->description) {
+            wasm_runtime_free(s->description);
+        }
+        wasm_runtime_free(s->name);
+        wasm_runtime_free(s);
+    }
 
     return s;
 }
@@ -358,6 +364,7 @@ find_sensor_client(sys_sensor_t *sensor, unsigned int client_id,
             return c;
         }
         else {
+            prev = c;
             c = c->next;
         }
     }
