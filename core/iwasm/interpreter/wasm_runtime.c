@@ -225,6 +225,8 @@ memory_instantiate(WASMModuleInstance *module_inst, uint32 num_bytes_per_page,
 
             /* Adjust __heap_base global value */
             global_idx = module->aux_heap_base_global_index;
+            bh_assert(module_inst->globals
+                      && global_idx < module_inst->global_count);
             global_addr = module_inst->global_data
                           + module_inst->globals[global_idx].data_offset;
             *(uint32 *)global_addr = aux_heap_base;
@@ -401,19 +403,6 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
                   module->memories[i].init_page_count,
                   module->memories[i].max_page_count, heap_size,
                   module->memories[i].flags, error_buf, error_buf_size))) {
-            memories_deinstantiate(module_inst, memories, memory_count);
-            return NULL;
-        }
-    }
-
-    if (mem_index == 0) {
-        /**
-         * no import memory and define memory, but still need heap
-         * for wasm code
-         */
-        if (!(memory = memories[mem_index++] =
-                  memory_instantiate(module_inst, 0, 0, 0, heap_size, 0,
-                                     error_buf, error_buf_size))) {
             memories_deinstantiate(module_inst, memories, memory_count);
             return NULL;
         }
@@ -606,6 +595,14 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         return NULL;
     }
 
+    total_size = sizeof(void *) * (uint64)module->import_function_count;
+    if (total_size > 0
+        && !(module_inst->import_func_ptrs =
+                 runtime_malloc(total_size, error_buf, error_buf_size))) {
+        wasm_runtime_free(functions);
+        return NULL;
+    }
+
     /* instantiate functions from import section */
     function = functions;
     import = module->import_functions;
@@ -633,6 +630,10 @@ functions_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         function->local_cell_num = 0;
         function->local_count = 0;
         function->local_types = NULL;
+
+        /* Copy the function pointer to current instance */
+        module_inst->import_func_ptrs[i] =
+            function->u.func_import->func_ptr_linked;
 
         function++;
     }
@@ -1845,6 +1846,10 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
     if (module_inst->memory_count > 0)
         memories_deinstantiate(module_inst, module_inst->memories,
                                module_inst->memory_count);
+
+    if (module_inst->import_func_ptrs) {
+        wasm_runtime_free(module_inst->import_func_ptrs);
+    }
 
     tables_deinstantiate(module_inst->tables, module_inst->table_count);
     functions_deinstantiate(module_inst->functions,

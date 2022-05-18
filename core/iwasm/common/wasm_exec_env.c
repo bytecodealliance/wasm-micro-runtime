@@ -57,7 +57,6 @@ wasm_exec_env_create_internal(struct WASMModuleInstanceCommon *module_inst,
     if (!(exec_env->current_status = wasm_cluster_create_exenv_status()))
         goto fail4;
 #endif
-
 #endif
 
     exec_env->module_inst = module_inst;

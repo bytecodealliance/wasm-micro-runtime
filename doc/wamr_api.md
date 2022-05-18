@@ -107,7 +107,7 @@ Below is the reference implementation of the pub application. It utilizes a time
 
 ``` C
 /* Timer callback */
-void timer_update(user_timer_t timer
+void timer_update(user_timer_t timer)
 {
     attr_container_t *event;
 

@@ -637,6 +637,12 @@ wasm_runtime_get_custom_data(wasm_module_inst_t module_inst);
 /**
  * Allocate memory from the heap of WASM module instance
  *
+ * Note: wasm_runtime_module_malloc can call heap functions inside
+ * the module instance and thus cause a memory growth.
+ * This API needs to be used very carefully when you have a native
+ * pointers to the module instance memory obtained with
+ * wasm_runtime_addr_app_to_native or similar APIs.
+ *
  * @param module_inst the WASM module instance which contains heap
  * @param size the size bytes to allocate
  * @param p_native_addr return native address of the allocated memory
@@ -699,6 +705,10 @@ wasm_runtime_validate_app_addr(wasm_module_inst_t module_inst,
  * space or memory space. Moreover, it checks whether it is the offset of a
  * string that is end with '\0'.
  *
+ * Note: The validation result, especially the NUL termination check,
+ * is not reliable for a module instance with multiple threads because
+ * other threads can modify the heap behind us.
+ *
  * @param module_inst the WASM module instance
  * @param app_str_offset the app address of the string to validate, which is a
  *        relative address
@@ -728,6 +738,10 @@ wasm_runtime_validate_native_addr(wasm_module_inst_t module_inst,
 
 /**
  * Convert app address(relative address) to native address(absolute address)
+ *
+ * Note that native addresses to module instance memory can be invalidated
+ * on a memory growth. (Except shared memory, whose native addresses are
+ * stable.)
  *
  * @param module_inst the WASM module instance
  * @param app_offset the app adress

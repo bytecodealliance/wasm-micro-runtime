@@ -471,7 +471,7 @@ handle_threadstop_request(WASMGDBServer *server, char *payload)
 void
 handle_set_current_thread(WASMGDBServer *server, char *payload)
 {
-    LOG_VERBOSE("%s:%s\n", __FUNCTION__, payload, payload);
+    LOG_VERBOSE("%s:%s\n", __FUNCTION__, payload);
     if ('g' == *payload++) {
         uint64 tid = strtoll(payload, NULL, 16);
         if (tid > 0)

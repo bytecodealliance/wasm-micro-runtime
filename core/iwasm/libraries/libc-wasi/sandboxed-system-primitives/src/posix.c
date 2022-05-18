@@ -181,15 +181,19 @@ convert_clockid(__wasi_clockid_t in, clockid_t *out)
         case __WASI_CLOCK_MONOTONIC:
             *out = CLOCK_MONOTONIC;
             return true;
+#if defined(CLOCK_PROCESS_CPUTIME_ID)
         case __WASI_CLOCK_PROCESS_CPUTIME_ID:
             *out = CLOCK_PROCESS_CPUTIME_ID;
             return true;
+#endif
         case __WASI_CLOCK_REALTIME:
             *out = CLOCK_REALTIME;
             return true;
+#if defined(CLOCK_THREAD_CPUTIME_ID)
         case __WASI_CLOCK_THREAD_CPUTIME_ID:
             *out = CLOCK_THREAD_CPUTIME_ID;
             return true;
+#endif
         default:
             return false;
     }
@@ -652,12 +656,13 @@ fd_table_insert_fd(struct fd_table *ft, int in, __wasi_filetype_t type,
     REQUIRES_UNLOCKED(ft->lock)
 {
     struct fd_object *fo;
-    __wasi_errno_t error = fd_object_new(type, &fo);
 
+    __wasi_errno_t error = fd_object_new(type, &fo);
     if (error != 0) {
         close(in);
         return error;
     }
+
     fo->number = in;
     if (type == __WASI_FILETYPE_DIRECTORY) {
         if (!mutex_init(&fo->directory.lock)) {
@@ -1992,7 +1997,11 @@ wasmtime_ssp_fd_readdir(
         size_t namlen = strlen(de->d_name);
         __wasi_dirent_t cde = {
             .d_next = fo->directory.offset,
+#if CONFIG_HAS_D_INO
             .d_ino = de->d_ino,
+#else
+            .d_ino = 0,
+#endif
             .d_namlen = (uint32)namlen,
         };
         switch (de->d_type) {
@@ -2683,11 +2692,84 @@ wasmtime_ssp_proc_raise(__wasi_signal_t sig)
 {
     static const int signals[] = {
 #define X(v) [__WASI_##v] = v
-        X(SIGABRT), X(SIGALRM), X(SIGBUS), X(SIGCHLD), X(SIGCONT), X(SIGFPE),
-        X(SIGHUP),  X(SIGILL),  X(SIGINT), X(SIGKILL), X(SIGPIPE), X(SIGQUIT),
-        X(SIGSEGV), X(SIGSTOP), X(SIGSYS), X(SIGTERM), X(SIGTRAP), X(SIGTSTP),
-        X(SIGTTIN), X(SIGTTOU), X(SIGURG), X(SIGUSR1), X(SIGUSR2), X(SIGVTALRM),
-        X(SIGXCPU), X(SIGXFSZ),
+#if defined(SIGABRT)
+        X(SIGABRT),
+#endif
+#if defined(SIGALRM)
+        X(SIGALRM),
+#endif
+#if defined(SIGBUS)
+        X(SIGBUS),
+#endif
+#if defined(SIGCHLD)
+        X(SIGCHLD),
+#endif
+#if defined(SIGCONT)
+        X(SIGCONT),
+#endif
+#if defined(SIGFPE)
+        X(SIGFPE),
+#endif
+#if defined(SIGHUP)
+        X(SIGHUP),
+#endif
+#if defined(SIGILL)
+        X(SIGILL),
+#endif
+#if defined(SIGINT)
+        X(SIGINT),
+#endif
+#if defined(SIGKILL)
+        X(SIGKILL),
+#endif
+#if defined(SIGPIPE)
+        X(SIGPIPE),
+#endif
+#if defined(SIGQUIT)
+        X(SIGQUIT),
+#endif
+#if defined(SIGSYS)
+        X(SIGSEGV),
+#endif
+#if defined(SIGSTOP)
+        X(SIGSTOP),
+#endif
+#if defined(SIGSYS)
+        X(SIGSYS),
+#endif
+#if defined(SIGTERM)
+        X(SIGTERM),
+#endif
+#if defined(SIGTRAP)
+        X(SIGTRAP),
+#endif
+#if defined(SIGTSTP)
+        X(SIGTSTP),
+#endif
+#if defined(SIGTTIN)
+        X(SIGTTIN),
+#endif
+#if defined(SIGTTOU)
+        X(SIGTTOU),
+#endif
+#if defined(SIGURG)
+        X(SIGURG),
+#endif
+#if defined(SIGUSR1)
+        X(SIGUSR1),
+#endif
+#if defined(SIGUSR2)
+        X(SIGUSR2),
+#endif
+#if defined(SIGVTALRM)
+        X(SIGVTALRM),
+#endif
+#if defined(SIGXCPU)
+        X(SIGXCPU),
+#endif
+#if defined(SIGXFSZ)
+        X(SIGXFSZ),
+#endif
 #undef X
     };
     if (sig >= sizeof(signals) / sizeof(signals[0]) || signals[sig] == 0)
@@ -2727,33 +2809,42 @@ wasi_ssp_sock_accept(
     __wasi_filetype_t wasi_type;
     __wasi_rights_t max_base, max_inheriting;
     struct fd_object *fo;
-    bh_socket_t new_sock;
+    bh_socket_t new_sock = -1;
     int ret;
     __wasi_errno_t error =
         fd_object_get(curfds, &fo, fd, __WASI_RIGHT_SOCK_ACCEPT, 0);
-    if (error != __WASI_ESUCCESS)
-        return error;
+    if (error != __WASI_ESUCCESS) {
+        goto fail;
+    }
 
     ret = os_socket_accept(fd_number(fo), &new_sock, NULL, NULL);
     fd_object_release(fo);
-    if (ret == BHT_ERROR)
-        return convert_errno(errno);
+    if (BHT_OK != ret) {
+        error = convert_errno(errno);
+        goto fail;
+    }
 
     error = fd_determine_type_rights(new_sock, &wasi_type, &max_base,
                                      &max_inheriting);
     if (error != __WASI_ESUCCESS) {
-        os_socket_close(ret);
-        return error;
+        goto fail;
     }
 
     error = fd_table_insert_fd(curfds, new_sock, wasi_type, max_base,
                                max_inheriting, fd_new);
     if (error != __WASI_ESUCCESS) {
-        os_socket_close(ret);
-        return error;
+        /* released in fd_table_insert_fd() */
+        new_sock = -1;
+        goto fail;
     }
 
     return __WASI_ESUCCESS;
+
+fail:
+    if (-1 != new_sock) {
+        os_socket_close(new_sock);
+    }
+    return error;
 }
 
 __wasi_errno_t
@@ -2817,7 +2908,7 @@ wasi_ssp_sock_bind(
 
     ret = os_socket_bind(fd_number(fo), buf, &port);
     fd_object_release(fo);
-    if (ret == BHT_ERROR) {
+    if (BHT_OK != ret) {
         return convert_errno(errno);
     }
 
@@ -2850,7 +2941,7 @@ wasi_ssp_sock_connect(
 
     ret = os_socket_connect(fd_number(fo), buf, addr->addr.ip4.port);
     fd_object_release(fo);
-    if (ret == BHT_ERROR) {
+    if (BHT_OK != ret) {
         return convert_errno(errno);
     }
 
@@ -2873,7 +2964,7 @@ wasi_ssp_sock_listen(
 
     ret = os_socket_listen(fd_number(fo), backlog);
     fd_object_release(fo);
-    if (ret == BHT_ERROR) {
+    if (BHT_OK != ret) {
         return convert_errno(errno);
     }
 
@@ -2904,7 +2995,7 @@ wasi_ssp_sock_open(
     tcp_or_udp = SOCKET_DGRAM == socktype ? 0 : 1;
 
     ret = os_socket_create(&sock, tcp_or_udp);
-    if (ret == BHT_ERROR) {
+    if (BHT_OK != ret) {
         return convert_errno(errno);
     }
 
@@ -2926,7 +3017,6 @@ wasi_ssp_sock_open(
     error = fd_table_insert_fd(curfds, sock, wasi_type, max_base,
                                max_inheriting, sockfd);
     if (error != __WASI_ESUCCESS) {
-        os_socket_close(sock);
         return error;
     }
 
@@ -2951,7 +3041,7 @@ wasmtime_ssp_sock_recv(
 
     ret = os_socket_recv(fd_number(fo), buf, buf_len);
     fd_object_release(fo);
-    if (ret == BHT_ERROR) {
+    if (-1 == ret) {
         return convert_errno(errno);
     }
 
@@ -2977,7 +3067,7 @@ wasmtime_ssp_sock_send(
 
     ret = os_socket_send(fd_number(fo), buf, buf_len);
     fd_object_release(fo);
-    if (ret == BHT_ERROR) {
+    if (-1 == ret) {
         return convert_errno(errno);
     }
 
@@ -3002,7 +3092,7 @@ wasmtime_ssp_sock_shutdown(
 
     ret = os_socket_shutdown(fd_number(fo));
     fd_object_release(fo);
-    if (ret == BHT_ERROR)
+    if (BHT_OK != ret)
         return convert_errno(errno);
 
     return __WASI_ESUCCESS;

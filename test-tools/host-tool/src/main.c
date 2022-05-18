@@ -808,7 +808,8 @@ int main(int argc, char *argv[])
         }
 
         if (g_conn_fd == -1) {
-            if (init() != 0) {
+            if ((init() != 0)
+                || (g_conn_fd == -1)) {
                 sleep(1);
                 continue;
             }

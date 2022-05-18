@@ -106,12 +106,18 @@ cb_wakeup_thread()
 void
 set_sensor_reshceduler(void (*callback)());
 
-void
+bool
 init_sensor_framework()
 {
-    // init the mutext and conditions
-    os_cond_init(&cond);
-    os_mutex_init(&mutex);
+    /* init the mutext and conditions */
+    if (os_cond_init(&cond) != 0) {
+        return false;
+    }
+
+    if (os_mutex_init(&mutex) != 0) {
+        os_cond_destroy(&cond);
+        return false;
+    }
 
     set_sensor_reshceduler(cb_wakeup_thread);
 
@@ -119,6 +125,8 @@ init_sensor_framework()
                                app_mgr_sensor_event_callback);
 
     wasm_register_cleanup_callback(sensor_cleanup_callback);
+
+    return true;
 }
 
 void

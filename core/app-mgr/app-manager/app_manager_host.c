@@ -264,15 +264,21 @@ aee_host_msg_callback(void *msg, uint32_t msg_len)
 bool
 app_manager_host_init(host_interface *interface)
 {
-    os_mutex_init(&host_lock);
+    if (os_mutex_init(&host_lock) != 0) {
+        return false;
+    }
     memset(&recv_ctx, 0, sizeof(recv_ctx));
 
     host_commu.init = interface->init;
     host_commu.send = interface->send;
     host_commu.destroy = interface->destroy;
 
-    if (host_commu.init != NULL)
-        return host_commu.init();
+    if (host_commu.init != NULL) {
+        if (!host_commu.init()) {
+            os_mutex_destroy(&host_lock);
+            return false;
+        }
+    }
 
     return true;
 }
