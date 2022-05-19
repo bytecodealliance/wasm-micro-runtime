@@ -1917,8 +1917,8 @@ wasm_module_realloc(WASMModuleInstance *module_inst, uint32 ptr, uint32 size,
     }
 
     if (memory->heap_handle) {
-        addr = mem_allocator_realloc(memory->heap_handle,
-                                     memory->memory_data + ptr, size);
+        addr = mem_allocator_realloc(
+            memory->heap_handle, ptr ? memory->memory_data + ptr : NULL, size);
     }
 
     /* Only support realloc in WAMR's app heap */
