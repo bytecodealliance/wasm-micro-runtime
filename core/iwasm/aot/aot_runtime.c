@@ -1837,7 +1837,7 @@ aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
     if (memory_inst->heap_handle.ptr) {
         addr = mem_allocator_realloc(
             memory_inst->heap_handle.ptr,
-            (uint8 *)memory_inst->memory_data.ptr + ptr, size);
+            ptr ? (uint8 *)memory_inst->memory_data.ptr + ptr : NULL, size);
     }
 
     /* Only support realloc in WAMR's app heap */
