@@ -19,7 +19,11 @@ typedef struct {
 
 /* The receive phase of IMRT link message */
 typedef enum {
-    Phase_Non_Start, Phase_Leading, Phase_Type, Phase_Size, Phase_Payload
+    Phase_Non_Start,
+    Phase_Leading,
+    Phase_Type,
+    Phase_Size,
+    Phase_Payload
 } recv_phase_t;
 
 /* The receive context of IMRT link message */
@@ -38,7 +42,8 @@ typedef struct {
  *
  * @return true if success, false if fail
  */
-bool host_tool_send_data(int fd, const char *buf, unsigned int len);
+bool
+host_tool_send_data(int fd, const char *buf, unsigned int len);
 
 /**
  * @brief Handle one byte of IMRT link message
@@ -51,7 +56,8 @@ bool host_tool_send_data(int fd, const char *buf, unsigned int len);
  *          0 completed packet
  *          2 in receiving payload
  */
-int on_imrt_link_byte_arrive(unsigned char ch, imrt_link_recv_context_t *ctx);
+int
+on_imrt_link_byte_arrive(unsigned char ch, imrt_link_recv_context_t *ctx);
 
 /**
  * @brief Initialize TCP connection with remote server.
@@ -62,7 +68,8 @@ int on_imrt_link_byte_arrive(unsigned char ch, imrt_link_recv_context_t *ctx);
  *
  * @return true if success, false if fail
  */
-bool tcp_init(const char *address, uint16_t port, int *fd);
+bool
+tcp_init(const char *address, uint16_t port, int *fd);
 
 /**
  * @brief Initialize UART connection with remote.
@@ -73,7 +80,8 @@ bool tcp_init(const char *address, uint16_t port, int *fd);
  *
  * @return true if success, false if fail
  */
-bool uart_init(const char *device, int baudrate, int *fd);
+bool
+uart_init(const char *device, int baudrate, int *fd);
 
 /**
  * @brief Parse UART baudrate from an integer
@@ -90,7 +98,8 @@ bool uart_init(const char *device, int baudrate, int *fd);
  * ...
  * @endcode
  */
-int parse_baudrate(int baud);
+int
+parse_baudrate(int baud);
 
 /**
  * @brief Send data over UDP.
@@ -102,7 +111,8 @@ int parse_baudrate(int baud);
  *
  * @return true if success, false if fail
  */
-bool udp_send(const char *address, int port, const char *buf, int len);
+bool
+udp_send(const char *address, int port, const char *buf, int len);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

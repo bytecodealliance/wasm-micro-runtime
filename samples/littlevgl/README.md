@@ -103,7 +103,7 @@ We can use a STM32 NUCLEO_F767ZI  board with ILI9341 display and XPT2046 touch s
   b. copy samples
   ```bash
   cd zephyr/samples/
-  cp -a <wamr_root>samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime
+  cp -a <wamr_root>/samples/littlevgl/vgl-wasm-runtime vgl-wasm-runtime
   cd vgl-wasm-runtime/zephyr_build
   ```
   c. create a link to wamr root dir
@@ -161,7 +161,8 @@ d. build source code
 - Install WASM application to Zephyr using host_tool
 First, connect PC and STM32 with UART. Then install to use host_tool.
   ```bash
-  ./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_builtin_libc.wasm
+  sudo ./host_tool -D /dev/ttyUSBXXX -i ui_app -f ui_app_builtin_libc.wasm
+  # /dev/ttyUSBXXX is the UART device, e.g. /dev/ttyUSB0
   ```
 **Note**: WASI is unavailable on zephyr currently, so you have to use the ui_app_builtin_libc.wasm which doesn't depend on WASI.
 

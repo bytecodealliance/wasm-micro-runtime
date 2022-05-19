@@ -15,7 +15,7 @@ set (CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 # "X86_64", "AMD_64", "X86_32", "AARCH64[sub]", "ARM[sub]", "THUMB[sub]",
 # "MIPS", "XTENSA", "RISCV64[sub]", "RISCV32[sub]"
 if (NOT DEFINED WAMR_BUILD_TARGET)
-  if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)")
     set (WAMR_BUILD_TARGET "AARCH64")
   elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
     set (WAMR_BUILD_TARGET "RISCV64")
@@ -31,6 +31,8 @@ endif ()
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
+
+set(CMAKE_CXX_STANDARD 14)
 
 if (NOT DEFINED WAMR_BUILD_INTERP)
   # Enable Interpreter by default
@@ -53,8 +55,8 @@ if (NOT DEFINED WAMR_BUILD_LIBC_BUILTIN)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_LIBC_WASI)
-  # Disable libc wasi support by default
-  set (WAMR_BUILD_LIBC_WASI 0)
+  # Enable libc wasi support by default
+  set (WAMR_BUILD_LIBC_WASI 1)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
@@ -63,7 +65,7 @@ if (NOT DEFINED WAMR_BUILD_FAST_INTERP)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_MULTI_MODULE)
-  # Enable multiple modules
+  # Disable multiple module by default
   set (WAMR_BUILD_MULTI_MODULE 0)
 endif ()
 
@@ -80,6 +82,17 @@ endif ()
 if (NOT DEFINED WAMR_BUILD_SIMD)
   # Enable SIMD by default
   set (WAMR_BUILD_SIMD 1)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_DEBUG_INTERP)
+  # Disable Debug feature by default
+  set (WAMR_BUILD_DEBUG_INTERP 0)
+endif ()
+
+if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
+  set (WAMR_BUILD_FAST_INTERP 0)
+  set (WAMR_BUILD_MINI_LOADER 0)
+  set (WAMR_BUILD_SIMD 0)
 endif ()
 
 set (CMAKE_SHARED_LINKER_FLAGS "-Wl,-U,_get_ext_lib_export_apis")

@@ -28,5 +28,4 @@ wasm_config_connection(uint32 handle, const char *cfg_buf, uint32 cfg_buf_len);
 }
 #endif
 
-
 #endif /* end of CONNECTION_API_H_ */

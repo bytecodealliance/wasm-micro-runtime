@@ -40,13 +40,20 @@ typedef enum AOTExceptionID {
 
 typedef enum AOTSectionType {
     AOT_SECTION_TYPE_TARGET_INFO = 0,
-    AOT_SECTION_TYPE_INIT_DATA,
-    AOT_SECTION_TYPE_TEXT,
-    AOT_SECTION_TYPE_FUNCTION,
-    AOT_SECTION_TYPE_EXPORT,
-    AOT_SECTION_TYPE_RELOCATION,
-    AOT_SECTION_TYPE_SIGANATURE
+    AOT_SECTION_TYPE_INIT_DATA = 1,
+    AOT_SECTION_TYPE_TEXT = 2,
+    AOT_SECTION_TYPE_FUNCTION = 3,
+    AOT_SECTION_TYPE_EXPORT = 4,
+    AOT_SECTION_TYPE_RELOCATION = 5,
+    AOT_SECTION_TYPE_SIGANATURE = 6,
+    AOT_SECTION_TYPE_CUSTOM = 100,
 } AOTSectionType;
+
+typedef enum AOTCustomSectionType {
+    AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
+    AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
+    AOT_CUSTOM_SECTION_NAME = 3,
+} AOTCustomSectionType;
 
 typedef struct AOTObjectDataSection {
     char *name;
@@ -57,7 +64,7 @@ typedef struct AOTObjectDataSection {
 /* Relocation info */
 typedef struct AOTRelocation {
     uint64 relocation_offset;
-    uint64 relocation_addend;
+    int64 relocation_addend;
     uint32 relocation_type;
     char *symbol_name;
     /* index in the symbol offset field */
@@ -89,6 +96,7 @@ typedef struct AOTFunctionInstance {
 } AOTFunctionInstance;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)
+/* clang-format off */
 typedef struct AOTUnwindInfo {
     uint8 Version       : 3;
     uint8 Flags         : 5;
@@ -105,6 +113,7 @@ typedef struct AOTUnwindInfo {
         uint16 FrameOffset;
     } UnwindCode[1];
 } AOTUnwindInfo;
+/* clang-format on */
 
 /* size of mov instruction and jmp instruction */
 #define PLT_ITEM_SIZE 12
@@ -125,6 +134,9 @@ typedef struct AOTModule {
     uint32 mem_init_data_count;
     AOTMemInitData **mem_init_data_list;
 
+    /* native symbol */
+    void **native_symbol_list;
+
     /* import tables */
     uint32 import_table_count;
     AOTImportTable *import_tables;
@@ -141,7 +153,7 @@ typedef struct AOTModule {
     uint32 func_type_count;
     AOTFuncType **func_types;
 
-    /* import global varaible info */
+    /* import global variable info */
     uint32 import_global_count;
     AOTImportGlobal *import_globals;
 
@@ -184,12 +196,12 @@ typedef struct AOTModule {
     uint8 *literal;
     uint32 literal_size;
 
-#if (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)) \
-    && defined(BH_PLATFORM_WINDOWS)
-    /* extra plt data area for __xmm and __real constants
+#if defined(BH_PLATFORM_WINDOWS)
+    /* extra plt data area for __ymm, __xmm and __real constants
        in Windows platform, NULL for JIT mode */
     uint8 *extra_plt_data;
     uint32 extra_plt_data_size;
+    uint32 ymm_plt_count;
     uint32 xmm_plt_count;
     uint32 real_plt_count;
     uint32 float_plt_count;
@@ -234,6 +246,9 @@ typedef struct AOTModule {
     /* is jit mode or not */
     bool is_jit_mode;
 
+    /* is indirect mode or not */
+    bool is_indirect_mode;
+
 #if WASM_ENABLE_JIT != 0
     WASMModule *wasm_module;
     AOTCompContext *comp_ctx;
@@ -242,7 +257,16 @@ typedef struct AOTModule {
 
 #if WASM_ENABLE_LIBC_WASI != 0
     WASIArguments wasi_args;
-    bool is_wasi_module;
+    bool import_wasi_api;
+#endif
+#if WASM_ENABLE_DEBUG_AOT != 0
+    void *elf_hdr;
+    uint32 elf_size;
+#endif
+#if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
+    const char **aux_func_names;
+    uint32 *aux_func_indexes;
+    uint32 aux_func_name_count;
 #endif
 } AOTModule;
 
@@ -314,12 +338,12 @@ typedef struct AOTModuleInstance {
      * TODO: for now we treate imported table like a local table
      */
     uint32 table_count;
-   /* points to global_data */
+    /* points to global_data */
     AOTPointer global_data;
     /* points to AOTTableInstance[] */
     AOTPointer tables;
 
-    /* funciton pointer array */
+    /* function pointer array */
     AOTPointer func_ptrs;
     /* function type indexes */
     AOTPointer func_type_indexes;
@@ -353,18 +377,21 @@ typedef struct AOTModuleInstance {
     uint32 llvm_stack;
     uint32 default_wasm_stack_size;
 
+    uint32 _padding;
+    /* store stacktrace information */
+    AOTPointer frames;
     /* reserved */
-    uint32 reserved[9];
+    uint32 reserved[6];
 
-   /*
-    * +------------------------------+ <-- memories.ptr
-    * | #0 AOTMemoryInstance
-    * +------------------------------+ <-- global_data.ptr
-    * | global data
-    * +------------------------------+ <-- tables.ptr
-    * | AOTTableInstance[table_count]
-    * +------------------------------+
-    */
+    /*
+     * +------------------------------+ <-- memories.ptr
+     * | #0 AOTMemoryInstance
+     * +------------------------------+ <-- global_data.ptr
+     * | global data
+     * +------------------------------+ <-- tables.ptr
+     * | AOTTableInstance[table_count]
+     * +------------------------------+
+     */
     union {
         uint64 _make_it_8_byte_aligned_;
         AOTMemoryInstance memory_instances[1];
@@ -392,8 +419,7 @@ typedef struct AOTTargetInfo {
     char arch[16];
 } AOTTargetInfo;
 
-typedef struct AOTFuncPerfProfInfo
-{
+typedef struct AOTFuncPerfProfInfo {
     /* total execution time */
     uint64 total_exec_time;
     /* total execution count */
@@ -419,9 +445,9 @@ typedef struct AOTFrame {
  *
  * @return return AOT module loaded, NULL if failed
  */
-AOTModule*
-aot_load_from_aot_file(const uint8 *buf, uint32 size,
-                       char *error_buf, uint32 error_buf_size);
+AOTModule *
+aot_load_from_aot_file(const uint8 *buf, uint32 size, char *error_buf,
+                       uint32 error_buf_size);
 
 /**
  * Load a AOT module from a specified AOT section list.
@@ -432,9 +458,9 @@ aot_load_from_aot_file(const uint8 *buf, uint32 size,
  *
  * @return return AOT module loaded, NULL if failed
  */
-AOTModule*
-aot_load_from_sections(AOTSection *section_list,
-                       char *error_buf, uint32 error_buf_size);
+AOTModule *
+aot_load_from_sections(AOTSection *section_list, char *error_buf,
+                       uint32 error_buf_size);
 
 #if WASM_ENABLE_JIT != 0
 /**
@@ -446,9 +472,9 @@ aot_load_from_sections(AOTSection *section_list,
  *
  * @return return AOT module loaded, NULL if failed
  */
-AOTModule*
-aot_convert_wasm_module(WASMModule *wasm_module,
-                        char *error_buf, uint32 error_buf_size);
+AOTModule *
+aot_convert_wasm_module(WASMModule *wasm_module, char *error_buf,
+                        uint32 error_buf_size);
 #endif
 
 /**
@@ -473,10 +499,9 @@ aot_unload(AOTModule *module);
  *
  * @return return the instantiated AOT module instance, NULL if failed
  */
-AOTModuleInstance*
-aot_instantiate(AOTModule *module, bool is_sub_inst,
-                uint32 stack_size, uint32 heap_size,
-                char *error_buf, uint32 error_buf_size);
+AOTModuleInstance *
+aot_instantiate(AOTModule *module, bool is_sub_inst, uint32 stack_size,
+                uint32 heap_size, char *error_buf, uint32 error_buf_size);
 
 /**
  * Deinstantiate a AOT module instance, destroy the resources.
@@ -497,9 +522,9 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst);
  *
  * @return the function instance found
  */
-AOTFunctionInstance*
-aot_lookup_function(const AOTModuleInstance *module_inst,
-                    const char *name, const char *signature);
+AOTFunctionInstance *
+aot_lookup_function(const AOTModuleInstance *module_inst, const char *name,
+                    const char *signature);
 /**
  * Call the given AOT function of a AOT module instance with
  * arguments.
@@ -516,8 +541,7 @@ aot_lookup_function(const AOTModuleInstance *module_inst,
  *   the caller can call aot_get_exception to get exception info.
  */
 bool
-aot_call_function(WASMExecEnv *exec_env,
-                  AOTFunctionInstance *function,
+aot_call_function(WASMExecEnv *exec_env, AOTFunctionInstance *function,
                   unsigned argc, uint32 argv[]);
 
 bool
@@ -536,12 +560,10 @@ aot_create_exec_env_singleton(AOTModuleInstance *module_inst);
  * @param exception current exception string
  */
 void
-aot_set_exception(AOTModuleInstance *module_inst,
-                  const char *exception);
+aot_set_exception(AOTModuleInstance *module_inst, const char *exception);
 
 void
-aot_set_exception_with_id(AOTModuleInstance *module_inst,
-                          uint32 id);
+aot_set_exception_with_id(AOTModuleInstance *module_inst, uint32 id);
 
 /**
  * Get exception info of the AOT module instance.
@@ -550,7 +572,7 @@ aot_set_exception_with_id(AOTModuleInstance *module_inst,
  *
  * @return the exception string
  */
-const char*
+const char *
 aot_get_exception(AOTModuleInstance *module_inst);
 
 /**
@@ -566,24 +588,23 @@ aot_module_malloc(AOTModuleInstance *module_inst, uint32 size,
                   void **p_native_addr);
 
 uint32
-aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr,
-                   uint32 size, void **p_native_addr);
+aot_module_realloc(AOTModuleInstance *module_inst, uint32 ptr, uint32 size,
+                   void **p_native_addr);
 
 void
 aot_module_free(AOTModuleInstance *module_inst, uint32 ptr);
 
 uint32
-aot_module_dup_data(AOTModuleInstance *module_inst,
-                    const char *src, uint32 size);
+aot_module_dup_data(AOTModuleInstance *module_inst, const char *src,
+                    uint32 size);
 
 bool
-aot_validate_app_addr(AOTModuleInstance *module_inst,
-                      uint32 app_offset, uint32 size);
-
+aot_validate_app_addr(AOTModuleInstance *module_inst, uint32 app_offset,
+                      uint32 size);
 
 bool
-aot_validate_native_addr(AOTModuleInstance *module_inst,
-                         void *native_ptr, uint32 size);
+aot_validate_native_addr(AOTModuleInstance *module_inst, void *native_ptr,
+                         uint32 size);
 
 void *
 aot_addr_app_to_native(AOTModuleInstance *module_inst, uint32 app_offset);
@@ -592,14 +613,11 @@ uint32
 aot_addr_native_to_app(AOTModuleInstance *module_inst, void *native_ptr);
 
 bool
-aot_get_app_addr_range(AOTModuleInstance *module_inst,
-                       uint32 app_offset,
-                       uint32 *p_app_start_offset,
-                       uint32 *p_app_end_offset);
+aot_get_app_addr_range(AOTModuleInstance *module_inst, uint32 app_offset,
+                       uint32 *p_app_start_offset, uint32 *p_app_end_offset);
 
 bool
-aot_get_native_addr_range(AOTModuleInstance *module_inst,
-                          uint8 *native_ptr,
+aot_get_native_addr_range(AOTModuleInstance *module_inst, uint8 *native_ptr,
                           uint8 **p_native_start_addr,
                           uint8 **p_native_end_addr);
 
@@ -616,20 +634,24 @@ aot_enlarge_memory(AOTModuleInstance *module_inst, uint32 inc_page_count);
  * @return true if equal, false otherwise
  */
 bool
-aot_is_wasm_type_equal(AOTModuleInstance *module_inst,
-                       uint32 type1_idx, uint32 type2_idx);
+aot_is_wasm_type_equal(AOTModuleInstance *module_inst, uint32 type1_idx,
+                       uint32 type2_idx);
 
 /**
  * Invoke native function from aot code
  */
 bool
-aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx,
+aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
+                  uint32 *argv);
+
+bool
+aot_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 table_elem_idx,
                   uint32 argc, uint32 *argv);
 
 bool
-aot_call_indirect(WASMExecEnv *exec_env,
-                  uint32 tbl_idx, uint32 table_elem_idx,
-                  uint32 argc, uint32 *argv);
+aot_check_app_addr_and_convert(AOTModuleInstance *module_inst, bool is_str,
+                               uint32 app_buf_addr, uint32 app_buf_size,
+                               void **p_native_addr);
 
 uint32
 aot_get_plt_table_size();
@@ -642,8 +664,8 @@ aot_memset(void *s, int c, size_t n);
 
 #if WASM_ENABLE_BULK_MEMORY != 0
 bool
-aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index,
-                uint32 offset, uint32 len, uint32 dst);
+aot_memory_init(AOTModuleInstance *module_inst, uint32 seg_index, uint32 offset,
+                uint32 len, uint32 dst);
 
 bool
 aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
@@ -651,12 +673,10 @@ aot_data_drop(AOTModuleInstance *module_inst, uint32 seg_index);
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
-aot_set_aux_stack(WASMExecEnv *exec_env,
-                  uint32 start_offset, uint32 size);
+aot_set_aux_stack(WASMExecEnv *exec_env, uint32 start_offset, uint32 size);
 
 bool
-aot_get_aux_stack(WASMExecEnv *exec_env,
-                  uint32 *start_offset, uint32 *size);
+aot_get_aux_stack(WASMExecEnv *exec_env, uint32 *start_offset, uint32 *size);
 #endif
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
@@ -680,18 +700,18 @@ void
 aot_drop_table_seg(AOTModuleInstance *module_inst, uint32 tbl_seg_idx);
 
 void
-aot_table_init(AOTModuleInstance *module_inst,
-               uint32 tbl_idx, uint32 tbl_seg_idx,
-               uint32 length, uint32 src_offset, uint32 dst_offset);
+aot_table_init(AOTModuleInstance *module_inst, uint32 tbl_idx,
+               uint32 tbl_seg_idx, uint32 length, uint32 src_offset,
+               uint32 dst_offset);
 
 void
-aot_table_copy(AOTModuleInstance *module_inst,
-               uint32 src_tbl_idx, uint32 dst_tbl_idx,
-               uint32 length, uint32 src_offset, uint32 dst_offset);
+aot_table_copy(AOTModuleInstance *module_inst, uint32 src_tbl_idx,
+               uint32 dst_tbl_idx, uint32 length, uint32 src_offset,
+               uint32 dst_offset);
 
 void
-aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx,
-               uint32 length, uint32 val, uint32 data_offset);
+aot_table_fill(AOTModuleInstance *module_inst, uint32 tbl_idx, uint32 length,
+               uint32 val, uint32 data_offset);
 
 uint32
 aot_table_grow(AOTModuleInstance *module_inst, uint32 tbl_idx,
@@ -718,4 +738,3 @@ aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
 #endif
 
 #endif /* end of _AOT_RUNTIME_H_ */
-

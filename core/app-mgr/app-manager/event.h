@@ -22,7 +22,7 @@ extern "C" {
  */
 bool
 event_handle_event_request(uint8_t code, const char *event_url,
-        uint32_t register);
+                           uint32_t register);
 
 /**
  * Test whether the event is registered

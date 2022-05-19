@@ -19,8 +19,9 @@ The script `runtime_lib.cmake` defines a number of variables for configuring the
 
 - **WAMR_BUILD_PLATFORM**:  set the target platform. It can be set to any platform name (folder name) under folder [core/shared/platform](../core/shared/platform).
 
-- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, RISCV64 and MIPS.
-  - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. Both \<sub-arch> and "_VFP" are optional, e.g. AARCH64, AARCH64V8, AARCHV8.1, ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+- **WAMR_BUILD_TARGET**: set the target CPU architecture. Current supported targets are:  X86_64, X86_32, AARCH64, ARM, THUMB, XTENSA, ARC, RISCV32, RISCV64 and MIPS.
+  - For ARM and THUMB, the format is \<arch>\[\<sub-arch>]\[_VFP], where \<sub-arch> is the ARM sub-architecture and the "_VFP" suffix means using VFP coprocessor registers s0-s15 (d0-d7) for passing arguments or returning results in standard procedure-call. Both \<sub-arch> and "_VFP" are optional, e.g. ARMV7, ARMV7_VFP, THUMBV7, THUMBV7_VFP and so on.
+  - For AARCH64, the format is\<arch>[\<sub-arch>], VFP is enabled by default. \<sub-arch> is optional, e.g. AARCH64, AARCH64V8, AARCH64V8.1 and so on.
   - For RISCV64, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV64, RISCV64_LP64D and RISCV64_LP64: RISCV64 and RISCV64_LP64D are identical, using [LP64D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (LP64 with hardware floating-point calling convention for FLEN=64). And RISCV64_LP64 uses [LP64](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
   - For RISCV32, the format is \<arch\>[_abi], where "_abi" is optional, currently the supported formats are RISCV32, RISCV32_ILP32D and RISCV32_ILP32: RISCV32 and RISCV32_ILP32D are identical, using [ILP32D](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (ILP32 with hardware floating-point calling convention for FLEN=64). And RISCV32_ILP32 uses [ILP32](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#-named-abis) as abi (Integer calling-convention only, and hardware floating-point calling convention is not used).
 
@@ -36,10 +37,11 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
   NOTE: the fast interpreter runs ~2X faster than classic interpreter, but consumes about 2X memory to hold the WASM bytecode code.
 
-#### **Configure AoT and JIT**
+#### **Configure AOT and JIT**
 
 - **WAMR_BUILD_AOT**=1/0, default to enable if not set
 - **WAMR_BUILD_JIT**=1/0, default to disable if not set
+- **WAMR_BUILD_LAZY_JIT**=1/0, whether to use Lazy JIT mode or not when *WAMR_BUILD_JIT* is set, default to enable if not set
 
 #### **Configure LIBC**
 
@@ -49,12 +51,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 - **WAMR_BUILD_LIBC_UVWASI**=1/0 (Experiment), build the [WASI](https://github.com/WebAssembly/WASI) libc subset for WASM app based on [uvwasi](https://github.com/nodejs/uvwasi) implementation, default to disable if not set
 
-> Note: for platform which doesn't support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developer can try using **WAMR_BUILD_LIBC_UVWASI**. And the uvwasi source code must be cloned under core/deps:
->
-> ```bash
-> cd <WAMR-ROOT>/core/deps
-> git clone https://github.com/nodejs/uvwasi.git
-> ```
+> Note: for platform which doesn't support **WAMR_BUILD_LIBC_WASI**, e.g. Windows, developer can try using **WAMR_BUILD_LIBC_UVWASI**.
 
 #### **Enable Multi-Module feature**
 
@@ -68,6 +65,9 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 
 #### **Enable shared memory feature**
 - **WAMR_BUILD_SHARED_MEMORY**=1/0, default to disable if not set
+
+#### **Enable bulk memory feature**
+- **WAMR_BUILD_BULK_MEMORY**=1/0, default to disable if not set
 
 #### **Enable thread manager**
 - **WAMR_BUILD_THREAD_MGR**=1/0, default to disable if not set
@@ -97,7 +97,7 @@ cmake -DWAMR_BUILD_PLATFORM=linux -DWAMR_BUILD_TARGET=ARM
 > Note: if it is enabled, the call stack will be dumped when exception occurs.
 
 > - For interpreter mode, the function names are firstly extracted from *custom name section*, if this section doesn't exist or the feature is not enabled, then the name will be extracted from the import/export sections
-> - For AoT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AoT module.
+> - For AOT/JIT mode, the function names are extracted from import/export section, please export as many functions as possible (for `wasi-sdk` you can use `-Wl,--export-all`) when compiling wasm module, and add `--enable-dump-call-stack` option to wamrc during compiling AOT module.
 
 #### **Enable memory profiling (Experiment)**
 - **WAMR_BUILD_MEMORY_PROFILING**=1/0, default to disable if not set
@@ -144,6 +144,10 @@ Currently we only profile the memory consumption of module, module_instance and 
 > Note: The WAMR application entry (`core/iwasm/common/wasm_application.c`) encapsulate some common process to instantiate, execute the wasm functions and print the results. Some platform related APIs are used in these functions, so you can enable this flag to exclude this file if your platform doesn't support those APIs.
 > *Don't enable this flag if you are building `product-mini`*
 
+#### **Enable source debugging features**
+- **WAMR_BUILD_DEBUG_INTERP**=1/0, default to 0 if not set
+> Note: There are some other setup required by source debugging, please refer to [source_debugging.md](./source_debugging.md) for more details.
+
 **Combination of configurations:**
 
 We can combine the configurations. For example, if we want to disable interpreter, enable AOT and WASI, we can run command:
@@ -170,6 +174,9 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=$TOOL_CHAIN_FILE  \
 
 Refer to toolchain sample file [`samples/simple/profiles/arm-interp/toolchain.cmake`](../samples/simple/profiles/arm-interp/toolchain.cmake) for how to build mini product for ARM target architecture.
 
+If you compile for ESP-IDF, make sure to set the right toolchain file for the chip you're using (e.g. `$IDF_PATH/tools/cmake/toolchain-esp32c3.cmake`).
+Note that all ESP-IDF toolchain files live under `$IDF_PATH/tools/cmake/`.
+
 Linux
 -------------------------
 First of all please install the dependent packages.
@@ -194,13 +201,23 @@ mkdir build
 cd build
 cmake ..
 make
+# iwasm is generated under current directory
 ```
 
+By default in Linux, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
+And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
 
-By default in Linux, the interpreter, AOT and WASI are enabled, and JIT is disabled. And the build target is
-set to X86_64 or X86_32 depending on the platform's bitwidth.
-
-To enable WASM JIT, firstly we should build LLVM:
+To run a wasm file with interpreter mode:
+```Bash
+iwasm <wasm file>
+```
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+```Bash
+wamrc -o <AOT file> <WASM file>
+iwasm <AOT file>
+```
+  
+To enable the `JIT` mode, firstly we should build LLVM:
 
 ``` Bash
 cd product-mini/platforms/linux/
@@ -213,9 +230,23 @@ Then pass argument `-DWAMR_BUILD_JIT=1` to cmake to enable WASM JIT:
 mkdir build
 cd build
 cmake .. -DWAMR_BUILD_JIT=1
+# or "cmake .. -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LAZY_JIT=0" to disable LLVM Lazy JIT and enable LLVM MC JIT
 make
 ```
 
+By default, the LLVM Orc Lazy JIT is enabled to speedup the lanuching process and reduce the JIT compilation time
+by creating threads to compile the WASM functions parallely, and for the main thread, the functions in the
+module will not be compiled until they are firstly called and haven't been compiled by the compilation threads.
+To disable it and enable LLVM MC JIT instead, please pass argument `-DWAMR_BUILD_LAZY_JIT=0` to cmake.
+
+To disable `fast interpreter` and enable `classic interpreter` instead:
+``` Bash
+mkdir build
+cd build
+cmake .. -DWAMR_BUILD_FAST_INTERP=0
+make
+```
+  
 Linux SGX (Intel Software Guard Extension)
 -------------------------
 
@@ -238,9 +269,24 @@ mkdir build
 cd build
 cmake ..
 make
+# iwasm is generated under current directory
+```
+By default in MacOS, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
+And the build target is set to X86_64 or X86_32 depending on the platform's bitwidth.
+
+To run a wasm file with interpreter mode:
+```Bash
+iwasm <wasm file>
+```
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+```Bash
+wamrc -o <AOT file> <WASM file>
+iwasm <AOT file>
 ```
 Note:
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AoT, and builtin libc are enabled by default.
+For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
+
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in MacOS, interpreter, AOT, and builtin libc are enabled by default.
 
 Windows
 -------------------------
@@ -249,15 +295,59 @@ Make sure `MSVC` and `cmake` are installed and available in the command line env
 
 Then build the source codes:
 ``` Bash
-cd core/deps/
-git clone https://github.com/nodejs/uvwasi.git
 cd product-mini/platforms/windows/
 mkdir build
 cd build
 cmake ..
 cmake --build . --config Release
+# ./Release/iwasm.exe is generated
 ```
-The executable file is `build/Release/iwasm.exe`
+
+By default in Windows, the `fast interpreter`, `AOT` and `Libc WASI` are enabled, and JIT is disabled.
+
+To run a wasm file with interpreter mode:
+```Bash
+iwasm.exe <wasm file>
+```
+To run an AOT file, firstly please refer to [Build wamrc AOT compiler](../README.md#build-wamrc-aot-compiler) to build wamrc, and then:
+```Bash
+wamrc.exe -o <AOT file> <WASM file>
+iwasm.exe <AOT file>
+```
+Note:
+For how to build the `JIT` mode and `classic interpreter` mode, please refer to [Build iwasm on Linux](./build_wamr.md#linux).
+
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Windows, interpreter, AOT, and builtin libc are enabled by default.
+
+MinGW
+-------------------------
+
+First make sure the correct CMake package is installed; the following commands
+are valid for the MSYS2 build environment:
+
+```Bash
+pacman -R cmake
+pacman -S mingw-w64-x86_64-cmake
+```
+
+Then follow the build instructions for Windows above, and add the following
+arguments for cmake:
+
+```Bash
+cmake .. -G"Unix Makefiles" \
+         -DWAMR_BUILD_LIBC_UVWASI=0 \
+         -DWAMR_BUILD_INVOKE_NATIVE_GENERAL=1 \
+         -DWAMR_DISABLE_HW_BOUND_CHECK=1
+````
+
+Note that WASI will be disabled until further work is done towards full MinGW support.
+
+- uvwasi not building out of the box, though it reportedly supports MinGW.
+- Failing compilation of assembler files, the C version of `invokeNative()` will
+be used instead.
+- Compiler complaining about missing `UnwindInfoAddress` field in `RUNTIME_FUNCTION`
+struct (winnt.h).
+
 
 VxWorks
 -------------------------
@@ -291,21 +381,27 @@ WAMR provides some features which can be easily configured by passing options to
 
 Zephyr
 -------------------------
-You need to download the Zephyr source code first and embed WAMR into it.
+You need to prepare Zephyr first as described here https://docs.zephyrproject.org/latest/getting_started/index.html#get-zephyr-and-install-python-dependencies.
+
+After that you need to point the `ZEPHYR_BASE` variable to e.g. `~/zephyrproject/zephyr`. Also, it is important that you have `west` available for subsequent actions.
+
 ``` Bash
-git clone https://github.com/zephyrproject-rtos/zephyr.git
-cd zephyr/samples/
-cp -a <wamr_root_dir>/product-mini/platforms/zephyr/simple .
-cd simple
-ln -s <wamr_root_dir> wamr
-source ../../zephyr-env.sh
+cd <wamr_root_dir>/product-mini/platforms/zephyr/simple
 # Execute the ./build_and_run.sh script with board name as parameter. Here take x86 as example:
 ./build_and_run.sh x86
-
 ```
 
+If you want to use the Espressif toolchain (esp32 or esp32c3), you can most conveniently install it with `west`:
+
+``` Bash
+cd $ZEPHYR_BASE
+west espressif install
+```
+
+After that set `ESPRESSIF_TOOLCHAIN_PATH` according to the output, for example `~/.espressif/tools/zephyr`.
+
 Note:
-WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AoT and builtin libc are enabled by default.
+WAMR provides some features which can be easily configured by passing options to cmake, please see [WAMR vmcore cmake building configurations](./build_wamr.md#wamr-vmcore-cmake-building-configurations) for details. Currently in Zephyr, interpreter, AOT and builtin libc are enabled by default.
 
 
 AliOS-Things
@@ -447,6 +543,18 @@ $ # lib includes libiwasm.so
 NuttX
 -------------------------
 WAMR is intergrated with NuttX, just enable the WAMR in Kconfig option (Application Configuration/Interpreters).
+
+ESP-IDF
+-------------------------
+WAMR integrates with ESP-IDF both for the XTENSA and RISC-V chips (esp32x and esp32c3 respectively). 
+
+In order to use this, you need at least version 4.3.1 of ESP-IDF.
+If you don't have it installed, follow the instructions [here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/#get-started-get-prerequisites).
+ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
+A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
+The demo builds WAMR for ESP-IDF and runs a small wasm program. 
+In order to run it for your specific Espressif chip, edit the ['build.sh'](/product-mini/platforms/esp-idf/build.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 Docker
 -------------------------

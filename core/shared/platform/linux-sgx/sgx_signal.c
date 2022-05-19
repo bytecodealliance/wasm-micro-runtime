@@ -9,9 +9,11 @@
 
 #define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
 
-int ocall_raise(int *p_ret, int sig);
+int
+ocall_raise(int *p_ret, int sig);
 
-int raise(int sig)
+int
+raise(int sig)
 {
     int ret;
 
@@ -27,4 +29,3 @@ int raise(int sig)
 }
 
 #endif
-

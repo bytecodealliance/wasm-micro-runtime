@@ -20,14 +20,17 @@
 #include <drivers/uart.h>
 #include <device.h>
 
-
-extern void init_sensor_framework();
-extern void exit_sensor_framework();
-extern int aee_host_msg_callback(void *msg, uint32_t msg_len);
+extern bool
+init_sensor_framework();
+extern void
+exit_sensor_framework();
+extern int
+aee_host_msg_callback(void *msg, uint32_t msg_len);
 
 int uart_char_cnt = 0;
 
-static void uart_irq_callback(struct device *dev)
+static void
+uart_irq_callback(const struct device *dev, void *user_data)
 {
     unsigned char ch;
 
@@ -35,11 +38,13 @@ static void uart_irq_callback(struct device *dev)
         uart_char_cnt++;
         aee_host_msg_callback(&ch, 1);
     }
+    (void)user_data;
 }
 
-struct device *uart_dev = NULL;
+const struct device *uart_dev = NULL;
 
-static bool host_init()
+static bool
+host_init()
 {
     uart_dev = device_get_binding(HOST_DEVICE_COMM_UART_NAME);
     if (!uart_dev) {
@@ -51,7 +56,8 @@ static bool host_init()
     return true;
 }
 
-int host_send(void * ctx, const char *buf, int size)
+int
+host_send(void *ctx, const char *buf, int size)
 {
     if (!uart_dev)
         return 0;
@@ -62,19 +68,21 @@ int host_send(void * ctx, const char *buf, int size)
     return size;
 }
 
-void host_destroy()
-{
-}
+void
+host_destroy()
+{}
 
+/* clang-format off */
 host_interface interface = {
     .init = host_init,
     .send = host_send,
     .destroy = host_destroy
 };
+/* clang-format on */
 
 timer_ctx_t timer_ctx;
 
-static char global_heap_buf[368 * 1024] = { 0 };
+static char global_heap_buf[350 * 1024] = { 0 };
 
 static NativeSymbol native_symbols[] = {
     EXPORT_WASM_API_WITH_SIG(display_input_read, "(*)i"),
@@ -85,7 +93,8 @@ static NativeSymbol native_symbols[] = {
     EXPORT_WASM_API_WITH_SIG(time_get_ms, "()i")
 };
 
-int iwasm_main()
+int
+iwasm_main()
 {
     RuntimeInitArgs init_args;
 
@@ -109,12 +118,14 @@ int iwasm_main()
 
     display_init();
 
-    // timer manager
-    init_wasm_timer();
+    /* timer manager */
+    if (!init_wasm_timer()) {
+        goto fail;
+    }
 
-    // TODO:
     app_manager_startup(&interface);
 
+fail:
     wasm_runtime_destroy();
     return -1;
 }

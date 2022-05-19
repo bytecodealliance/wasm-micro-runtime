@@ -22,7 +22,8 @@ typedef struct {
 static os_thread_local_attribute os_signal_handler signal_handler;
 #endif
 
-static void *os_thread_wrapper(void *arg)
+static void *
+os_thread_wrapper(void *arg)
 {
     thread_wrapper_arg *targ = arg;
     thread_start_routine_t start_func = targ->start;
@@ -31,7 +32,9 @@ static void *os_thread_wrapper(void *arg)
     os_signal_handler handler = targ->signal_handler;
 #endif
 
+#if 0
     os_printf("THREAD CREATED %jx\n", (uintmax_t)(uintptr_t)pthread_self());
+#endif
     BH_FREE(targ);
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (os_thread_signal_init(handler) != 0)
@@ -44,8 +47,9 @@ static void *os_thread_wrapper(void *arg)
     return NULL;
 }
 
-int os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
-                               void *arg, unsigned int stack_size, int prio)
+int
+os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
+                           void *arg, unsigned int stack_size, int prio)
 {
     pthread_attr_t tattr;
     thread_wrapper_arg *targ;
@@ -63,7 +67,7 @@ int os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
         return BHT_ERROR;
     }
 
-    targ = (thread_wrapper_arg*) BH_MALLOC(sizeof(*targ));
+    targ = (thread_wrapper_arg *)BH_MALLOC(sizeof(*targ));
     if (!targ) {
         pthread_attr_destroy(&tattr);
         return BHT_ERROR;
@@ -85,24 +89,28 @@ int os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
     return BHT_OK;
 }
 
-int os_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
-                     unsigned int stack_size)
+int
+os_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
+                 unsigned int stack_size)
 {
     return os_thread_create_with_prio(tid, start, arg, stack_size,
                                       BH_THREAD_DEFAULT_PRIORITY);
 }
 
-korp_tid os_self_thread()
+korp_tid
+os_self_thread()
 {
-    return (korp_tid) pthread_self();
+    return (korp_tid)pthread_self();
 }
 
-int os_mutex_init(korp_mutex *mutex)
+int
+os_mutex_init(korp_mutex *mutex)
 {
     return pthread_mutex_init(mutex, NULL) == 0 ? BHT_OK : BHT_ERROR;
 }
 
-int os_recursive_mutex_init(korp_mutex *mutex)
+int
+os_recursive_mutex_init(korp_mutex *mutex)
 {
     int ret;
 
@@ -120,7 +128,8 @@ int os_recursive_mutex_init(korp_mutex *mutex)
     return ret == 0 ? BHT_OK : BHT_ERROR;
 }
 
-int os_mutex_destroy(korp_mutex *mutex)
+int
+os_mutex_destroy(korp_mutex *mutex)
 {
     int ret;
 
@@ -130,7 +139,8 @@ int os_mutex_destroy(korp_mutex *mutex)
     return ret == 0 ? BHT_OK : BHT_ERROR;
 }
 
-int os_mutex_lock(korp_mutex *mutex)
+int
+os_mutex_lock(korp_mutex *mutex)
 {
     int ret;
 
@@ -140,7 +150,8 @@ int os_mutex_lock(korp_mutex *mutex)
     return ret == 0 ? BHT_OK : BHT_ERROR;
 }
 
-int os_mutex_unlock(korp_mutex *mutex)
+int
+os_mutex_unlock(korp_mutex *mutex)
 {
     int ret;
 
@@ -150,7 +161,8 @@ int os_mutex_unlock(korp_mutex *mutex)
     return ret == 0 ? BHT_OK : BHT_ERROR;
 }
 
-int os_cond_init(korp_cond *cond)
+int
+os_cond_init(korp_cond *cond)
 {
     assert(cond);
 
@@ -160,7 +172,8 @@ int os_cond_init(korp_cond *cond)
     return BHT_OK;
 }
 
-int os_cond_destroy(korp_cond *cond)
+int
+os_cond_destroy(korp_cond *cond)
 {
     assert(cond);
 
@@ -170,7 +183,8 @@ int os_cond_destroy(korp_cond *cond)
     return BHT_OK;
 }
 
-int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
+int
+os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 {
     assert(cond);
     assert(mutex);
@@ -181,7 +195,8 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
     return BHT_OK;
 }
 
-static void msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
+static void
+msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
 {
     struct timeval tv;
     time_t tv_sec_new;
@@ -201,8 +216,7 @@ static void msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
     }
 
     tv_nsec_new = (long int)(tv.tv_usec * 1000 + (usec % 1000000) * 1000);
-    if (tv.tv_usec * 1000 >= tv.tv_usec
-        && tv_nsec_new >= tv.tv_usec * 1000) {
+    if (tv.tv_usec * 1000 >= tv.tv_usec && tv_nsec_new >= tv.tv_usec * 1000) {
         ts->tv_nsec = tv_nsec_new;
     }
     else {
@@ -218,7 +232,8 @@ static void msec_nsec_to_abstime(struct timespec *ts, uint64 usec)
     }
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
+int
+os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
     int ret;
     struct timespec abstime;
@@ -236,7 +251,8 @@ int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
     return ret;
 }
 
-int os_cond_signal(korp_cond *cond)
+int
+os_cond_signal(korp_cond *cond)
 {
     assert(cond);
 
@@ -246,17 +262,31 @@ int os_cond_signal(korp_cond *cond)
     return BHT_OK;
 }
 
-int os_thread_join(korp_tid thread, void **value_ptr)
+int
+os_cond_broadcast(korp_cond *cond)
+{
+    assert(cond);
+
+    if (pthread_cond_broadcast(cond) != BHT_OK)
+        return BHT_ERROR;
+
+    return BHT_OK;
+}
+
+int
+os_thread_join(korp_tid thread, void **value_ptr)
 {
     return pthread_join(thread, value_ptr);
 }
 
-int os_thread_detach(korp_tid thread)
+int
+os_thread_detach(korp_tid thread)
 {
     return pthread_detach(thread);
 }
 
-void os_thread_exit(void *retval)
+void
+os_thread_exit(void *retval)
 {
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     os_thread_signal_destroy();
@@ -268,7 +298,8 @@ void os_thread_exit(void *retval)
 static os_thread_local_attribute uint8 *thread_stack_boundary = NULL;
 #endif
 
-uint8 *os_thread_get_stack_boundary()
+uint8 *
+os_thread_get_stack_boundary()
 {
     pthread_t self;
 #ifdef __linux__
@@ -286,15 +317,15 @@ uint8 *os_thread_get_stack_boundary()
 
     page_size = getpagesize();
     self = pthread_self();
-    max_stack_size = (size_t)(APP_THREAD_STACK_SIZE_MAX + page_size - 1)
-                     & ~(page_size - 1);
+    max_stack_size =
+        (size_t)(APP_THREAD_STACK_SIZE_MAX + page_size - 1) & ~(page_size - 1);
 
     if (max_stack_size < APP_THREAD_STACK_SIZE_DEFAULT)
         max_stack_size = APP_THREAD_STACK_SIZE_DEFAULT;
 
 #ifdef __linux__
     if (pthread_getattr_np(self, &attr) == 0) {
-        pthread_attr_getstack(&attr, (void**)&addr, &stack_size);
+        pthread_attr_getstack(&attr, (void **)&addr, &stack_size);
         pthread_attr_getguardsize(&attr, &guard_size);
         pthread_attr_destroy(&attr);
         if (stack_size > max_stack_size)
@@ -305,13 +336,21 @@ uint8 *os_thread_get_stack_boundary()
         addr += guard_size;
     }
     (void)stack_size;
-#elif defined(__APPLE__)
-    if ((addr = (uint8*)pthread_get_stackaddr_np(self))) {
+#elif defined(__APPLE__) || defined(__NuttX__)
+    if ((addr = (uint8 *)pthread_get_stackaddr_np(self))) {
         stack_size = pthread_get_stacksize_np(self);
+
+        /**
+         * Check whether stack_addr is the base or end of the stack,
+         * change it to the base if it is the end of stack.
+         */
+        if (addr <= (uint8 *)&stack_size)
+            addr = addr + stack_size;
+
         if (stack_size > max_stack_size)
-            addr -= max_stack_size;
-        else
-            addr -= stack_size;
+            stack_size = max_stack_size;
+
+        addr -= stack_size;
         /* Reserved 1 guard page at least for safety */
         addr += page_size;
     }
@@ -339,8 +378,7 @@ static os_thread_local_attribute uint8 *sigalt_stack_base_addr;
 
 #if defined(__clang__)
 #pragma clang optimize off
-#endif
-#if defined(__GNUC__)
+#elif defined(__GNUC__)
 #pragma GCC push_options
 #pragma GCC optimize("O0")
 __attribute__((no_sanitize_address))
@@ -350,8 +388,7 @@ touch_pages(uint8 *stack_min_addr, uint32 page_size)
 {
     uint8 sum = 0;
     while (1) {
-        volatile uint8 *touch_addr =
-            (volatile uint8*)os_alloca(page_size / 2);
+        volatile uint8 *touch_addr = (volatile uint8 *)os_alloca(page_size / 2);
         if (touch_addr < stack_min_addr + page_size) {
             sum += *(stack_min_addr + page_size - 1);
             break;
@@ -361,11 +398,10 @@ touch_pages(uint8 *stack_min_addr, uint32 page_size)
     }
     return sum;
 }
-#if defined(__GNUC__)
-#pragma GCC pop_options
-#endif
 #if defined(__clang__)
 #pragma clang optimize on
+#elif defined(__GNUC__)
+#pragma GCC pop_options
 #endif
 
 static bool
@@ -375,12 +411,16 @@ init_stack_guard_pages()
     uint32 guard_page_count = STACK_OVERFLOW_CHECK_GUARD_PAGE_COUNT;
     uint8 *stack_min_addr = os_thread_get_stack_boundary();
 
+    if (stack_min_addr == NULL)
+        return false;
+
     /* Touch each stack page to ensure that it has been mapped: the OS
        may lazily grow the stack mapping as a guard page is hit. */
     (void)touch_pages(stack_min_addr, page_size);
     /* First time to call aot function, protect guard pages */
     if (os_mprotect(stack_min_addr, page_size * guard_page_count,
-                    MMAP_PROT_NONE) != 0) {
+                    MMAP_PROT_NONE)
+        != 0) {
         return false;
     }
     return true;
@@ -415,8 +455,7 @@ signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
 
     mask_signals(SIG_BLOCK);
 
-    if (signal_handler
-        && (sig_num == SIGSEGV || sig_num == SIGBUS)) {
+    if (signal_handler && (sig_num == SIGSEGV || sig_num == SIGBUS)) {
         signal_handler(sig_addr);
     }
 
@@ -429,8 +468,7 @@ signal_callback(int sig_num, siginfo_t *sig_info, void *sig_ucontext)
             os_printf("unhandled SIGBUS, si_addr: %p\n", sig_addr);
             break;
         default:
-            os_printf("unhandle signal %d, si_addr: %p\n",
-                      sig_num, sig_addr);
+            os_printf("unhandle signal %d, si_addr: %p\n", sig_num, sig_addr);
             break;
     }
 
@@ -454,8 +492,7 @@ os_thread_signal_init(os_signal_handler handler)
     }
 
     /* Initialize memory for signal alternate stack of current thread */
-    if (!(map_addr = os_mmap(NULL, map_size,
-                             MMAP_PROT_READ | MMAP_PROT_WRITE,
+    if (!(map_addr = os_mmap(NULL, map_size, MMAP_PROT_READ | MMAP_PROT_WRITE,
                              MMAP_MAP_NONE))) {
         os_printf("Failed to mmap memory for alternate stack\n");
         goto fail1;
@@ -535,7 +572,7 @@ void
 os_sigreturn()
 {
 #if defined(__APPLE__)
-    #define UC_RESET_ALT_STACK 0x80000000
+#define UC_RESET_ALT_STACK 0x80000000
     extern int __sigreturn(void *, int);
 
     /* It's necessary to call __sigreturn to restore the sigaltstack state
@@ -544,4 +581,3 @@ os_sigreturn()
 #endif
 }
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
-

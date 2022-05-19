@@ -20,4 +20,3 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size);
 #endif
 
 #endif /* end of _BH_FILE_H */
-

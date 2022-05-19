@@ -13,23 +13,19 @@ extern "C" {
 #endif
 
 bool
-aot_compile_simd_i8x16_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i8x16_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op);
 
 bool
-aot_compile_simd_i16x8_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i16x8_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op);
 
 bool
-aot_compile_simd_i32x4_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i32x4_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op);
 
 bool
-aot_compile_simd_i64x2_shift(AOTCompContext *comp_ctx,
-                             AOTFuncContext *func_ctx,
+aot_compile_simd_i64x2_shift(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              IntShift shift_op);
 
 #ifdef __cplusplus

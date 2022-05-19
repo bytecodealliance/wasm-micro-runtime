@@ -85,10 +85,11 @@ The function signature field in **NativeSymbol** structure is a string for descr
 
 Each letter in the "()" represents a parameter type, and the one following after ")" represents the return value type. The meaning of each letter:
 
-- '**i**': i32 or externref (for externref, developer should use `wasm_externref_obj2ref()` to map host object to externref index firstly)
+- '**i**': i32
 - '**I**': i64 
 - '**f**': f32
 - '**F**': f64
+- '**r**': externref (has to be the value of a `uintptr_t` variable)
 - '**\***': the parameter is a buffer address in WASM application
 - '**~**': the parameter is the byte length of WASM buffer as referred by preceding argument "\*". It must follow after '*', otherwise, registration will fail
 - '**$**': the parameter is a string in WASM application
@@ -128,11 +129,19 @@ int main(int argc, char **argv)
 }
 ```
 
+## Build native lib into shared library and register it with `iwasm` application
+
+Developer can also build the native library into a shared library and register it with iwasm application:
+```bash
+iwasm --native-lib=<lib file> <wasm file>
+```
+
+Refer to [native lib sample](../samples/native-lib) for more details.
 
 
 ## Buffer address conversion and boundary check
 
- A WebAssembly sandbox ensures applications only access to its own memory with a private address space. When passing a pointer address from WASM to native, the address value must be converted to native address before the native function can access it. It is also the native world's responsibility to check the buffer length is not over its sandbox boundary. 
+A WebAssembly sandbox ensures applications only access to its own memory with a private address space. When passing a pointer address from WASM to native, the address value must be converted to native address before the native function can access it. It is also the native world's responsibility to check the buffer length is not over its sandbox boundary.
 
 
 

@@ -26,7 +26,8 @@ bool send_coap_packet_to_host(coap_packet_t * packet)
 }
 #endif
 
-bool send_request_to_host(request_t *msg)
+bool
+send_request_to_host(request_t *msg)
 {
     if (COAP_EVENT == msg->action && !event_is_registered(msg->url)) {
         app_manager_printf("Event is not registered\n");
@@ -34,7 +35,7 @@ bool send_request_to_host(request_t *msg)
     }
 
     int size;
-    char * packet = pack_request(msg, &size);
+    char *packet = pack_request(msg, &size);
     if (packet == NULL)
         return false;
 
@@ -45,10 +46,11 @@ bool send_request_to_host(request_t *msg)
     return true;
 }
 
-bool send_response_to_host(response_t *response)
+bool
+send_response_to_host(response_t *response)
 {
     int size;
-    char * packet = pack_response(response, &size);
+    char *packet = pack_response(response, &size);
     if (packet == NULL)
         return false;
 
@@ -59,7 +61,8 @@ bool send_response_to_host(response_t *response)
     return true;
 }
 
-bool send_error_response_to_host(int mid, int status, const char *msg)
+bool
+send_error_response_to_host(int mid, int status, const char *msg)
 {
     int payload_len = 0;
     attr_container_t *payload = NULL;
@@ -73,8 +76,8 @@ bool send_error_response_to_host(int mid, int status, const char *msg)
         }
     }
 
-    set_response(response, status, FMT_ATTR_CONTAINER,
-                 (const char *)payload, payload_len);
+    set_response(response, status, FMT_ATTR_CONTAINER, (const char *)payload,
+                 payload_len);
     response->mid = mid;
 
     send_response_to_host(response);
@@ -83,4 +86,3 @@ bool send_error_response_to_host(int mid, int status, const char *msg)
         attr_container_destroy(payload);
     return true;
 }
-

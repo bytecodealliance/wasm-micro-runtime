@@ -77,7 +77,7 @@ Refer to  [Zephyr getting started](https://docs.zephyrproject.org/latest/getting
  b. copy samples
   ```bash
   cd zephyr/samples
-  cp -a <wamr_root>samples/gui/wasm-runtime-wgl wasm-runtime-wgl
+  cp -a <wamr_root>/samples/gui/wasm-runtime-wgl wasm-runtime-wgl
   cd wasm-runtime-wgl/zephyr_build
   ```
  c. create a link to wamr root dir
@@ -123,7 +123,8 @@ Refer to  [Zephyr getting started](https://docs.zephyrproject.org/latest/getting
 - Install WASM application to Zephyr using host_tool
 First, connect PC and STM32 with UART. Then install to use host_tool.
   ```bash
-  ./host_tool -D /dev/ttyUSBXXX -i inc -f ui_increase.wasm
+  sudo ./host_tool -D /dev/ttyUSBXXX -i inc -f ui_increase.wasm
+  # /dev/ttyUSBXXX is the UART device, e.g. /dev/ttyUSB0
   ```
 
 - Install AOT version WASM application

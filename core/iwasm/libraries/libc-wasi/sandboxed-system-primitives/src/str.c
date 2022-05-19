@@ -1,5 +1,7 @@
-// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM
+// Exceptions. See
+// https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license
+// information.
 //
 // Significant parts of this file are derived from cloudabi-utils. See
 // https://github.com/bytecodealliance/wasmtime/blob/main/lib/wasi/sandboxed-system-primitives/src/LICENSE
@@ -27,7 +29,8 @@ bh_strndup(const char *s, size_t n)
 }
 
 char *
-str_nullterminate(const char *s, size_t len) {
+str_nullterminate(const char *s, size_t len)
+{
     /* Copy string */
     char *ret = bh_strndup(s, len);
 
@@ -40,5 +43,5 @@ str_nullterminate(const char *s, size_t len) {
         errno = EILSEQ;
         return NULL;
     }
-  return ret;
+    return ret;
 }

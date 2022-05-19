@@ -12,10 +12,11 @@
 static bh_queue *watchdog_queue;
 
 #ifdef WATCHDOG_ENABLED /* TODO */
-static void watchdog_timer_callback(void *timer)
+static void
+watchdog_timer_callback(void *timer)
 {
-    watchdog_timer *wd_timer = app_manager_get_wd_timer_from_timer_handle(
-            timer);
+    watchdog_timer *wd_timer =
+        app_manager_get_wd_timer_from_timer_handle(timer);
 
     watchdog_timer_stop(wd_timer);
 
@@ -26,14 +27,15 @@ static void watchdog_timer_callback(void *timer)
         wd_timer->is_interrupting = true;
 
         bh_post_msg(watchdog_queue, WD_TIMEOUT, wd_timer->module_data,
-                sizeof(module_data));
+                    sizeof(module_data));
     }
 
     os_mutex_unlock(&wd_timer->lock);
 }
 #endif
 
-bool watchdog_timer_init(module_data *m_data)
+bool
+watchdog_timer_init(module_data *m_data)
 {
 #ifdef WATCHDOG_ENABLED /* TODO */
     watchdog_timer *wd_timer = &m_data->wd_timer;
@@ -42,7 +44,7 @@ bool watchdog_timer_init(module_data *m_data)
         return false;
 
     if (!(wd_timer->timer_handle =
-                    app_manager_timer_create(watchdog_timer_callback, wd_timer))) {
+              app_manager_timer_create(watchdog_timer_callback, wd_timer))) {
         os_mutex_destroy(&wd_timer->lock);
         return false;
     }
@@ -54,7 +56,8 @@ bool watchdog_timer_init(module_data *m_data)
     return true;
 }
 
-void watchdog_timer_destroy(watchdog_timer *wd_timer)
+void
+watchdog_timer_destroy(watchdog_timer *wd_timer)
 {
 #ifdef WATCHDOG_ENABLED /* TODO */
     app_manager_timer_destroy(wd_timer->timer_handle);
@@ -62,32 +65,35 @@ void watchdog_timer_destroy(watchdog_timer *wd_timer)
 #endif
 }
 
-void watchdog_timer_start(watchdog_timer *wd_timer)
+void
+watchdog_timer_start(watchdog_timer *wd_timer)
 {
     os_mutex_lock(&wd_timer->lock);
 
     wd_timer->is_interrupting = false;
     wd_timer->is_stopped = false;
     app_manager_timer_start(wd_timer->timer_handle,
-            wd_timer->module_data->timeout);
+                            wd_timer->module_data->timeout);
 
     os_mutex_unlock(&wd_timer->lock);
 }
 
-void watchdog_timer_stop(watchdog_timer *wd_timer)
+void
+watchdog_timer_stop(watchdog_timer *wd_timer)
 {
     app_manager_timer_stop(wd_timer->timer_handle);
 }
 
 #ifdef WATCHDOG_ENABLED /* TODO */
-static void watchdog_queue_callback(void *queue_msg)
+static void
+watchdog_queue_callback(void *queue_msg)
 {
     if (bh_message_type(queue_msg) == WD_TIMEOUT) {
-        module_data *m_data = (module_data *) bh_message_payload(queue_msg);
+        module_data *m_data = (module_data *)bh_message_payload(queue_msg);
         if (g_module_interfaces[m_data->module_type]
-                && g_module_interfaces[m_data->module_type]->module_watchdog_kill) {
+            && g_module_interfaces[m_data->module_type]->module_watchdog_kill) {
             g_module_interfaces[m_data->module_type]->module_watchdog_kill(
-                    m_data);
+                m_data);
             app_manager_post_applets_update_event();
         }
     }
@@ -95,22 +101,23 @@ static void watchdog_queue_callback(void *queue_msg)
 #endif
 
 #ifdef WATCHDOG_ENABLED /* TODO */
-static void*
+static void *
 watchdog_thread_routine(void *arg)
 {
     /* Enter loop run */
     bh_queue_enter_loop_run(watchdog_queue, watchdog_queue_callback);
 
-    (void) arg;
+    (void)arg;
     return NULL;
 }
 #endif
 
-bool watchdog_startup()
+bool
+watchdog_startup()
 {
     if (!(watchdog_queue = bh_queue_create())) {
         app_manager_printf(
-                "App Manager start failed: create watchdog queue failed.\n");
+            "App Manager start failed: create watchdog queue failed.\n");
         return false;
     }
 #if 0
@@ -125,7 +132,8 @@ bool watchdog_startup()
     return true;
 }
 
-void watchdog_destroy()
+void
+watchdog_destroy()
 {
     bh_queue_exit_loop_run(watchdog_queue);
     bh_queue_destroy(watchdog_queue);

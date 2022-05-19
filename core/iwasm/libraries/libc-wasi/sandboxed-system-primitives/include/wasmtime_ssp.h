@@ -1,10 +1,18 @@
 /*
- * Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
- * See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+ * Part of the Wasmtime Project, under the Apache License v2.0 with
+ * LLVM Exceptions. See
+ *   https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE
+ * for license information.
  *
  * This file declares an interface similar to WASI, but augmented to expose
  * some implementation details such as the curfds arguments that we pass
  * around to avoid storing them in TLS.
+ */
+
+/**
+ * The defitions of type, macro and structure in this file should be
+ * consistent with those in wasi-libc:
+ * https://github.com/WebAssembly/wasi-libc/blob/main/libc-bottom-half/headers/public/wasi/api.h
  */
 
 #ifndef WASMTIME_SSP_H
@@ -12,6 +20,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
+/* clang-format off */
 
 #ifdef __cplusplus
 #ifndef _Static_assert
@@ -28,7 +38,6 @@
 extern "C" {
 #endif
 
-
 _Static_assert(_Alignof(int8_t) == 1, "non-wasi data layout");
 _Static_assert(_Alignof(uint8_t) == 1, "non-wasi data layout");
 _Static_assert(_Alignof(int16_t) == 2, "non-wasi data layout");
@@ -39,6 +48,9 @@ _Static_assert(_Alignof(uint32_t) == 4, "non-wasi data layout");
 _Static_assert(_Alignof(int64_t) == 8, "non-wasi data layout");
 _Static_assert(_Alignof(uint64_t) == 8, "non-wasi data layout");
 #endif
+
+typedef uint32_t __wasi_size_t;
+_Static_assert(_Alignof(__wasi_size_t) == 4, "non-wasi data layout");
 
 typedef uint8_t __wasi_advice_t;
 #define __WASI_ADVICE_NORMAL     (0)
@@ -58,6 +70,8 @@ typedef uint64_t __wasi_device_t;
 
 typedef uint64_t __wasi_dircookie_t;
 #define __WASI_DIRCOOKIE_START (0)
+
+typedef uint32_t __wasi_dirnamlen_t;
 
 typedef uint16_t __wasi_errno_t;
 #define __WASI_ESUCCESS        (0)
@@ -179,7 +193,7 @@ typedef uint16_t __wasi_fstflags_t;
 
 typedef uint64_t __wasi_inode_t;
 
-typedef uint32_t __wasi_linkcount_t;
+typedef uint64_t __wasi_linkcount_t __attribute__((aligned(8)));
 
 typedef uint32_t __wasi_lookupflags_t;
 #define __WASI_LOOKUP_SYMLINK_FOLLOW (0x00000001)
@@ -195,35 +209,49 @@ typedef uint16_t __wasi_riflags_t;
 #define __WASI_SOCK_RECV_WAITALL (0x0002)
 
 typedef uint64_t __wasi_rights_t;
-#define __WASI_RIGHT_FD_DATASYNC             (0x0000000000000001)
-#define __WASI_RIGHT_FD_READ                 (0x0000000000000002)
-#define __WASI_RIGHT_FD_SEEK                 (0x0000000000000004)
-#define __WASI_RIGHT_FD_FDSTAT_SET_FLAGS     (0x0000000000000008)
-#define __WASI_RIGHT_FD_SYNC                 (0x0000000000000010)
-#define __WASI_RIGHT_FD_TELL                 (0x0000000000000020)
-#define __WASI_RIGHT_FD_WRITE                (0x0000000000000040)
-#define __WASI_RIGHT_FD_ADVISE               (0x0000000000000080)
-#define __WASI_RIGHT_FD_ALLOCATE             (0x0000000000000100)
-#define __WASI_RIGHT_PATH_CREATE_DIRECTORY   (0x0000000000000200)
-#define __WASI_RIGHT_PATH_CREATE_FILE        (0x0000000000000400)
-#define __WASI_RIGHT_PATH_LINK_SOURCE        (0x0000000000000800)
-#define __WASI_RIGHT_PATH_LINK_TARGET        (0x0000000000001000)
-#define __WASI_RIGHT_PATH_OPEN               (0x0000000000002000)
-#define __WASI_RIGHT_FD_READDIR              (0x0000000000004000)
-#define __WASI_RIGHT_PATH_READLINK           (0x0000000000008000)
-#define __WASI_RIGHT_PATH_RENAME_SOURCE      (0x0000000000010000)
-#define __WASI_RIGHT_PATH_RENAME_TARGET      (0x0000000000020000)
-#define __WASI_RIGHT_PATH_FILESTAT_GET       (0x0000000000040000)
-#define __WASI_RIGHT_PATH_FILESTAT_SET_SIZE  (0x0000000000080000)
-#define __WASI_RIGHT_PATH_FILESTAT_SET_TIMES (0x0000000000100000)
-#define __WASI_RIGHT_FD_FILESTAT_GET         (0x0000000000200000)
-#define __WASI_RIGHT_FD_FILESTAT_SET_SIZE    (0x0000000000400000)
-#define __WASI_RIGHT_FD_FILESTAT_SET_TIMES   (0x0000000000800000)
-#define __WASI_RIGHT_PATH_SYMLINK            (0x0000000001000000)
-#define __WASI_RIGHT_PATH_REMOVE_DIRECTORY   (0x0000000002000000)
-#define __WASI_RIGHT_PATH_UNLINK_FILE        (0x0000000004000000)
-#define __WASI_RIGHT_POLL_FD_READWRITE       (0x0000000008000000)
-#define __WASI_RIGHT_SOCK_SHUTDOWN           (0x0000000010000000)
+
+/**
+ * Observe that WASI defines rights in the plural form
+ * TODO: refactor to use RIGHTS instead of RIGHT
+ */
+#define __WASI_RIGHT_FD_DATASYNC ((__wasi_rights_t)(UINT64_C(1) << 0))
+#define __WASI_RIGHT_FD_READ ((__wasi_rights_t)(UINT64_C(1) << 1))
+#define __WASI_RIGHT_FD_SEEK ((__wasi_rights_t)(UINT64_C(1) << 2))
+#define __WASI_RIGHT_FD_FDSTAT_SET_FLAGS ((__wasi_rights_t)(UINT64_C(1) << 3))
+#define __WASI_RIGHT_FD_SYNC ((__wasi_rights_t)(UINT64_C(1) << 4))
+#define __WASI_RIGHT_FD_TELL ((__wasi_rights_t)(UINT64_C(1) << 5))
+#define __WASI_RIGHT_FD_WRITE ((__wasi_rights_t)(UINT64_C(1) << 6))
+#define __WASI_RIGHT_FD_ADVISE ((__wasi_rights_t)(UINT64_C(1) << 7))
+#define __WASI_RIGHT_FD_ALLOCATE ((__wasi_rights_t)(UINT64_C(1) << 8))
+#define __WASI_RIGHT_PATH_CREATE_DIRECTORY ((__wasi_rights_t)(UINT64_C(1) << 9))
+#define __WASI_RIGHT_PATH_CREATE_FILE ((__wasi_rights_t)(UINT64_C(1) << 10))
+#define __WASI_RIGHT_PATH_LINK_SOURCE ((__wasi_rights_t)(UINT64_C(1) << 11))
+#define __WASI_RIGHT_PATH_LINK_TARGET ((__wasi_rights_t)(UINT64_C(1) << 12))
+#define __WASI_RIGHT_PATH_OPEN ((__wasi_rights_t)(UINT64_C(1) << 13))
+#define __WASI_RIGHT_FD_READDIR ((__wasi_rights_t)(UINT64_C(1) << 14))
+#define __WASI_RIGHT_PATH_READLINK ((__wasi_rights_t)(UINT64_C(1) << 15))
+#define __WASI_RIGHT_PATH_RENAME_SOURCE ((__wasi_rights_t)(UINT64_C(1) << 16))
+#define __WASI_RIGHT_PATH_RENAME_TARGET ((__wasi_rights_t)(UINT64_C(1) << 17))
+#define __WASI_RIGHT_PATH_FILESTAT_GET ((__wasi_rights_t)(UINT64_C(1) << 18))
+#define __WASI_RIGHT_PATH_FILESTAT_SET_SIZE ((__wasi_rights_t)(UINT64_C(1) << 19))
+#define __WASI_RIGHT_PATH_FILESTAT_SET_TIMES ((__wasi_rights_t)(UINT64_C(1) << 20))
+#define __WASI_RIGHT_FD_FILESTAT_GET ((__wasi_rights_t)(UINT64_C(1) << 21))
+#define __WASI_RIGHT_FD_FILESTAT_SET_SIZE ((__wasi_rights_t)(UINT64_C(1) << 22))
+#define __WASI_RIGHT_FD_FILESTAT_SET_TIMES ((__wasi_rights_t)(UINT64_C(1) << 23))
+#define __WASI_RIGHT_PATH_SYMLINK ((__wasi_rights_t)(UINT64_C(1) << 24))
+#define __WASI_RIGHT_PATH_REMOVE_DIRECTORY ((__wasi_rights_t)(UINT64_C(1) << 25))
+#define __WASI_RIGHT_PATH_UNLINK_FILE ((__wasi_rights_t)(UINT64_C(1) << 26))
+#define __WASI_RIGHT_POLL_FD_READWRITE ((__wasi_rights_t)(UINT64_C(1) << 27))
+#define __WASI_RIGHT_SOCK_CONNECT ((__wasi_rights_t)(UINT64_C(1) << 28))
+#define __WASI_RIGHT_SOCK_LISTEN ((__wasi_rights_t)(UINT64_C(1) << 29))
+#define __WASI_RIGHT_SOCK_BIND ((__wasi_rights_t)(UINT64_C(1) << 30))
+#define __WASI_RIGHT_SOCK_ACCEPT ((__wasi_rights_t)(UINT64_C(1) << 31))
+#define __WASI_RIGHT_SOCK_RECV ((__wasi_rights_t)(UINT64_C(1) << 32))
+#define __WASI_RIGHT_SOCK_SEND ((__wasi_rights_t)(UINT64_C(1) << 33))
+#define __WASI_RIGHT_SOCK_ADDR_LOCAL ((__wasi_rights_t)(UINT64_C(1) << 34))
+#define __WASI_RIGHT_SOCK_ADDR_REMOTE ((__wasi_rights_t)(UINT64_C(1) << 35))
+#define __WASI_RIGHT_SOCK_RECV_FROM ((__wasi_rights_t)(UINT64_C(1) << 36))
+#define __WASI_RIGHT_SOCK_SEND_TO ((__wasi_rights_t)(UINT64_C(1) << 37))
 
 typedef uint16_t __wasi_roflags_t;
 #define __WASI_SOCK_RECV_DATA_TRUNCATED (0x0001)
@@ -285,11 +313,12 @@ typedef uint8_t __wasi_preopentype_t;
 struct fd_table;
 struct fd_prestats;
 struct argv_environ_values;
+struct addr_pool;
 
 typedef struct __wasi_dirent_t {
     __wasi_dircookie_t d_next;
     __wasi_inode_t d_ino;
-    uint32_t d_namlen;
+    __wasi_dirnamlen_t d_namlen;
     __wasi_filetype_t d_type;
 } __wasi_dirent_t __attribute__((aligned(8)));
 _Static_assert(offsetof(__wasi_dirent_t, d_next) == 0, "non-wasi data layout");
@@ -377,16 +406,16 @@ _Static_assert(offsetof(__wasi_filestat_t, st_ino) == 8, "non-wasi data layout")
 _Static_assert(
     offsetof(__wasi_filestat_t, st_filetype) == 16, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_nlink) == 20, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_nlink) == 24, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_size) == 24, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_size) == 32, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_atim) == 32, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_atim) == 40, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_mtim) == 40, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_mtim) == 48, "non-wasi data layout");
 _Static_assert(
-    offsetof(__wasi_filestat_t, st_ctim) == 48, "non-wasi data layout");
-_Static_assert(sizeof(__wasi_filestat_t) == 56, "non-wasi data layout");
+    offsetof(__wasi_filestat_t, st_ctim) == 56, "non-wasi data layout");
+_Static_assert(sizeof(__wasi_filestat_t) == 64, "non-wasi data layout");
 _Static_assert(_Alignof(__wasi_filestat_t) == 8, "non-wasi data layout");
 
 typedef struct __wasi_ciovec_t {
@@ -425,47 +454,149 @@ _Static_assert(sizeof(void *) != 4 ||
 _Static_assert(sizeof(void *) != 8 ||
     _Alignof(__wasi_iovec_t) == 8, "non-wasi data layout");
 
-typedef struct __wasi_subscription_t {
-    __wasi_userdata_t userdata;
+/**
+ * The contents of a `subscription` when type is `eventtype::clock`.
+ */
+typedef struct __wasi_subscription_clock_t {
+    /**
+     * The clock against which to compare the timestamp.
+     */
+    __wasi_clockid_t clock_id;
+
+    uint8_t __paddings1[4];
+
+    /**
+     * The absolute or relative timestamp.
+     */
+    __wasi_timestamp_t timeout;
+
+    /**
+     * The amount of time that the implementation may wait additionally
+     * to coalesce with other events.
+     */
+    __wasi_timestamp_t precision;
+
+    /**
+     * Flags specifying whether the timeout is absolute or relative
+     */
+    __wasi_subclockflags_t flags;
+
+    uint8_t __paddings2[4];
+
+} __wasi_subscription_clock_t __attribute__((aligned(8)));
+
+_Static_assert(sizeof(__wasi_subscription_clock_t) == 32, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_clock_t) == 8, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_clock_t, clock_id) == 0, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_clock_t, timeout) == 8, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_clock_t, precision) == 16, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_clock_t, flags) == 24, "witx calculated offset");
+
+/**
+ * The contents of a `subscription` when type is type is
+ * `eventtype::fd_read` or `eventtype::fd_write`.
+ */
+typedef struct __wasi_subscription_fd_readwrite_t {
+    /**
+     * The file descriptor on which to wait for it to become ready for reading or writing.
+     */
+    __wasi_fd_t fd;
+
+} __wasi_subscription_fd_readwrite_t;
+
+_Static_assert(sizeof(__wasi_subscription_fd_readwrite_t) == 4, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_fd_readwrite_t) == 4, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_fd_readwrite_t, fd) == 0, "witx calculated offset");
+
+/**
+ * The contents of a `subscription`.
+ */
+typedef union __wasi_subscription_u_u_t {
+    __wasi_subscription_clock_t clock;
+    __wasi_subscription_fd_readwrite_t fd_readwrite;
+} __wasi_subscription_u_u_t ;
+
+typedef struct __wasi_subscription_u_t {
     __wasi_eventtype_t type;
-    uint8_t __paddings[7];
-    union __wasi_subscription_u {
-        struct __wasi_subscription_u_clock_t {
-            __wasi_userdata_t identifier;
-            __wasi_clockid_t clock_id;
-            uint8_t __paddings1[4];
-            __wasi_timestamp_t timeout;
-            __wasi_timestamp_t precision;
-            __wasi_subclockflags_t flags;
-            uint8_t __paddings2[6];
-        } clock;
-        struct __wasi_subscription_u_fd_readwrite_t {
-            __wasi_fd_t fd;
-        } fd_readwrite;
-    } u;
-} __wasi_subscription_t __attribute__((aligned(8)));
-_Static_assert(
-    offsetof(__wasi_subscription_t, userdata) == 0, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, type) == 8, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.identifier) == 16,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.clock_id) == 24,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.timeout) == 32, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.precision) == 40,
-    "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.clock.flags) == 48, "non-wasi data layout");
-_Static_assert(
-    offsetof(__wasi_subscription_t, u.fd_readwrite.fd) == 16,
-    "non-wasi data layout");
-_Static_assert(sizeof(__wasi_subscription_t) == 56, "non-wasi data layout");
-_Static_assert(_Alignof(__wasi_subscription_t) == 8, "non-wasi data layout");
+    __wasi_subscription_u_u_t u;
+} __wasi_subscription_u_t __attribute__((aligned(8)));
+
+_Static_assert(sizeof(__wasi_subscription_u_t) == 40, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_u_t) == 8, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_u_t, u) == 8, "witx calculated union offset");
+_Static_assert(sizeof(__wasi_subscription_u_u_t) == 32, "witx calculated union size");
+_Static_assert(_Alignof(__wasi_subscription_u_u_t) == 8, "witx calculated union align");
+
+/**
+ * Subscription to an event.
+ */
+typedef struct __wasi_subscription_t {
+    /**
+     * User-provided value that is attached to the subscription in the
+     * implementation and returned through `event::userdata`.
+     */
+    __wasi_userdata_t userdata;
+
+    /**
+     * The type of the event to which to subscribe, and its contents
+     */
+    __wasi_subscription_u_t u;
+
+} __wasi_subscription_t;
+
+_Static_assert(sizeof(__wasi_subscription_t) == 48, "witx calculated size");
+_Static_assert(_Alignof(__wasi_subscription_t) == 8, "witx calculated align");
+_Static_assert(offsetof(__wasi_subscription_t, userdata) == 0, "witx calculated offset");
+_Static_assert(offsetof(__wasi_subscription_t, u) == 8, "witx calculated offset");
+
+/* keep syncing with wasi_socket_ext.h */
+typedef enum {
+    SOCKET_DGRAM = 0,
+    SOCKET_STREAM,
+} __wasi_sock_type_t;
+
+typedef uint16_t __wasi_ip_port_t;
+
+typedef enum { IPv4 = 0, IPv6 } __wasi_addr_type_t;
+
+/* n0.n1.n2.n3 */
+typedef struct __wasi_addr_ip4_t {
+    uint8_t n0;
+    uint8_t n1;
+    uint8_t n2;
+    uint8_t n3;
+} __wasi_addr_ip4_t;
+
+typedef struct __wasi_addr_ip4_port_t {
+    __wasi_addr_ip4_t addr;
+    __wasi_ip_port_t port;
+} __wasi_addr_ip4_port_t;
+
+typedef struct __wasi_addr_ip6_t {
+    uint16_t n0;
+    uint16_t n1;
+    uint16_t n2;
+    uint16_t n3;
+    uint16_t h0;
+    uint16_t h1;
+    uint16_t h2;
+    uint16_t h3;
+} __wasi_addr_ip6_t;
+
+typedef struct __wasi_addr_ip6_port_t {
+    __wasi_addr_ip6_t addr;
+    __wasi_ip_port_t port;
+} __wasi_addr_ip6_port_t;
+
+typedef struct __wasi_addr_t {
+    __wasi_addr_type_t kind;
+    union {
+        __wasi_addr_ip4_port_t ip4;
+        __wasi_addr_ip6_port_t ip6;
+    } addr;
+} __wasi_addr_t;
+
+typedef enum { INET4 = 0, INET6 } __wasi_address_family_t;
 
 #if defined(WASMTIME_SSP_WASI_API)
 #define WASMTIME_SSP_SYSCALL_NAME(name) \
@@ -851,16 +982,71 @@ __wasi_errno_t wasmtime_ssp_random_get(
     size_t buf_len
 ) WASMTIME_SSP_SYSCALL_NAME(random_get) __attribute__((__warn_unused_result__));
 
+__wasi_errno_t
+wasi_ssp_sock_accept(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_fd_t *fd_new
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_addr_local(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, uint8_t *buf, __wasi_size_t buf_len
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_addr_remote(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, uint8_t *buf, __wasi_size_t buf_len
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_open(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t poolfd, __wasi_address_family_t af, __wasi_sock_type_t socktype,
+    __wasi_fd_t *sockfd
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_bind(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds, struct addr_pool *addr_pool,
+#endif
+    __wasi_fd_t fd, __wasi_addr_t *addr
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_connect(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds, struct addr_pool *addr_pool,
+#endif
+    __wasi_fd_t fd, __wasi_addr_t *addr
+) __attribute__((__warn_unused_result__));
+
+__wasi_errno_t
+wasi_ssp_sock_listen(
+#if !defined(WASMTIME_SSP_STATIC_CURFDS)
+    struct fd_table *curfds,
+#endif
+    __wasi_fd_t fd, __wasi_size_t backlog
+) __attribute__((__warn_unused_result__));
+
 __wasi_errno_t wasmtime_ssp_sock_recv(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    const __wasi_iovec_t *ri_data,
-    size_t ri_data_len,
-    __wasi_riflags_t ri_flags,
-    size_t *ro_datalen,
-    __wasi_roflags_t *ro_flags
+    void *buf,
+    size_t buf_len,
+    size_t *recv_len
 ) WASMTIME_SSP_SYSCALL_NAME(sock_recv) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_send(
@@ -868,18 +1054,16 @@ __wasi_errno_t wasmtime_ssp_sock_send(
     struct fd_table *curfds,
 #endif
     __wasi_fd_t sock,
-    const __wasi_ciovec_t *si_data,
-    size_t si_data_len,
-    __wasi_siflags_t si_flags,
-    size_t *so_datalen
+    const void *buf,
+    size_t buf_len,
+    size_t *sent_len
 ) WASMTIME_SSP_SYSCALL_NAME(sock_send) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sock_shutdown(
 #if !defined(WASMTIME_SSP_STATIC_CURFDS)
     struct fd_table *curfds,
 #endif
-    __wasi_fd_t sock,
-    __wasi_sdflags_t how
+    __wasi_fd_t sock
 ) WASMTIME_SSP_SYSCALL_NAME(sock_shutdown) __attribute__((__warn_unused_result__));
 
 __wasi_errno_t wasmtime_ssp_sched_yield(void)
@@ -891,5 +1075,6 @@ __wasi_errno_t wasmtime_ssp_sched_yield(void)
 
 #undef WASMTIME_SSP_SYSCALL_NAME
 
-#endif
+/* clang-format on */
 
+#endif /* end of WASMTIME_SSP_H */

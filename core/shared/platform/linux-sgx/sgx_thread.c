@@ -12,26 +12,31 @@ typedef struct {
     void *arg;
 } thread_wrapper_arg;
 
-static void *os_thread_wrapper(void *arg)
+static void *
+os_thread_wrapper(void *arg)
 {
-    thread_wrapper_arg * targ = arg;
+    thread_wrapper_arg *targ = arg;
     thread_start_routine_t start_func = targ->start;
     void *thread_arg = targ->arg;
+
+#if 0
     os_printf("THREAD CREATED %p\n", &targ);
+#endif
     BH_FREE(targ);
     start_func(thread_arg);
     return NULL;
 }
 
-int os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
-                               void *arg, unsigned int stack_size, int prio)
+int
+os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
+                           void *arg, unsigned int stack_size, int prio)
 {
     thread_wrapper_arg *targ;
 
     assert(tid);
     assert(start);
 
-    targ = (thread_wrapper_arg *) BH_MALLOC(sizeof(*targ));
+    targ = (thread_wrapper_arg *)BH_MALLOC(sizeof(*targ));
     if (!targ) {
         return BHT_ERROR;
     }
@@ -47,15 +52,17 @@ int os_thread_create_with_prio(korp_tid *tid, thread_start_routine_t start,
     return BHT_OK;
 }
 
-int os_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
-                     unsigned int stack_size)
+int
+os_thread_create(korp_tid *tid, thread_start_routine_t start, void *arg,
+                 unsigned int stack_size)
 {
     return os_thread_create_with_prio(tid, start, arg, stack_size,
                                       BH_THREAD_DEFAULT_PRIORITY);
 }
 #endif
 
-korp_tid os_self_thread()
+korp_tid
+os_self_thread()
 {
 #ifndef SGX_DISABLE_PTHREAD
     return pthread_self();
@@ -64,7 +71,8 @@ korp_tid os_self_thread()
 #endif
 }
 
-int os_mutex_init(korp_mutex *mutex)
+int
+os_mutex_init(korp_mutex *mutex)
 {
 #ifndef SGX_DISABLE_PTHREAD
     pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
@@ -73,7 +81,8 @@ int os_mutex_init(korp_mutex *mutex)
     return BHT_OK;
 }
 
-int os_mutex_destroy(korp_mutex *mutex)
+int
+os_mutex_destroy(korp_mutex *mutex)
 {
 #ifndef SGX_DISABLE_PTHREAD
     pthread_mutex_destroy(mutex);
@@ -81,7 +90,8 @@ int os_mutex_destroy(korp_mutex *mutex)
     return BHT_OK;
 }
 
-int os_mutex_lock(korp_mutex *mutex)
+int
+os_mutex_lock(korp_mutex *mutex)
 {
 #ifndef SGX_DISABLE_PTHREAD
     return pthread_mutex_lock(mutex);
@@ -90,7 +100,8 @@ int os_mutex_lock(korp_mutex *mutex)
 #endif
 }
 
-int os_mutex_unlock(korp_mutex *mutex)
+int
+os_mutex_unlock(korp_mutex *mutex)
 {
 #ifndef SGX_DISABLE_PTHREAD
     return pthread_mutex_unlock(mutex);
@@ -99,7 +110,8 @@ int os_mutex_unlock(korp_mutex *mutex)
 #endif
 }
 
-int os_cond_init(korp_cond *cond)
+int
+os_cond_init(korp_cond *cond)
 {
 #ifndef SGX_DISABLE_PTHREAD
     pthread_cond_t c = PTHREAD_COND_INITIALIZER;
@@ -108,7 +120,8 @@ int os_cond_init(korp_cond *cond)
     return BHT_OK;
 }
 
-int os_cond_destroy(korp_cond *cond)
+int
+os_cond_destroy(korp_cond *cond)
 {
 #ifndef SGX_DISABLE_PTHREAD
     pthread_cond_destroy(cond);
@@ -116,7 +129,8 @@ int os_cond_destroy(korp_cond *cond)
     return BHT_OK;
 }
 
-int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
+int
+os_cond_wait(korp_cond *cond, korp_mutex *mutex)
 {
 #ifndef SGX_DISABLE_PTHREAD
     assert(cond);
@@ -129,14 +143,16 @@ int os_cond_wait(korp_cond *cond, korp_mutex *mutex)
     return BHT_OK;
 }
 
-int os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
+int
+os_cond_reltimedwait(korp_cond *cond, korp_mutex *mutex, uint64 useconds)
 {
     os_printf("warning: SGX pthread_cond_timedwait isn't supported, "
               "calling pthread_cond_wait instead!\n");
     return BHT_ERROR;
 }
 
-int os_cond_signal(korp_cond *cond)
+int
+os_cond_signal(korp_cond *cond)
 {
 #ifndef SGX_DISABLE_PTHREAD
     assert(cond);
@@ -148,7 +164,21 @@ int os_cond_signal(korp_cond *cond)
     return BHT_OK;
 }
 
-int os_thread_join(korp_tid thread, void **value_ptr)
+int
+os_cond_broadcast(korp_cond *cond)
+{
+#ifndef SGX_DISABLE_PTHREAD
+    assert(cond);
+
+    if (pthread_cond_broadcast(cond) != BHT_OK)
+        return BHT_ERROR;
+
+#endif
+    return BHT_OK;
+}
+
+int
+os_thread_join(korp_tid thread, void **value_ptr)
 {
 #ifndef SGX_DISABLE_PTHREAD
     return pthread_join(thread, value_ptr);
@@ -157,13 +187,15 @@ int os_thread_join(korp_tid thread, void **value_ptr)
 #endif
 }
 
-int os_thread_detach(korp_tid thread)
+int
+os_thread_detach(korp_tid thread)
 {
     /* SGX pthread_detach isn't provided, return directly. */
     return 0;
 }
 
-void os_thread_exit(void *retval)
+void
+os_thread_exit(void *retval)
 {
 #ifndef SGX_DISABLE_PTHREAD
     pthread_exit(retval);
@@ -172,9 +204,9 @@ void os_thread_exit(void *retval)
 #endif
 }
 
-uint8 *os_thread_get_stack_boundary()
+uint8 *
+os_thread_get_stack_boundary()
 {
     /* TODO: get sgx stack boundary */
     return NULL;
 }
-

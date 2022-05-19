@@ -34,7 +34,7 @@ enum {
     ATTR_TYPE_END = ATTR_TYPE_BYTEARRAY
 };
 
-#define ATTR_CONT_READONLY_SHIFT    2
+#define ATTR_CONT_READONLY_SHIFT 2
 
 typedef struct attr_container {
     /* container flag:
@@ -87,7 +87,7 @@ attr_container_destroy(const attr_container_t *attr_cont);
  */
 bool
 attr_container_set_short(attr_container_t **p_attr_cont, const char *key,
-        short value);
+                         short value);
 
 /**
  * Set int attribute in attribute container
@@ -101,7 +101,7 @@ attr_container_set_short(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_int(attr_container_t **p_attr_cont, const char *key,
-        int value);
+                       int value);
 
 /**
  * Set int64 attribute in attribute container
@@ -115,7 +115,7 @@ attr_container_set_int(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_int64(attr_container_t **p_attr_cont, const char *key,
-        int64_t value);
+                         int64_t value);
 
 /**
  * Set byte attribute in attribute container
@@ -129,7 +129,7 @@ attr_container_set_int64(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_byte(attr_container_t **p_attr_cont, const char *key,
-        int8_t value);
+                        int8_t value);
 
 /**
  * Set uint16 attribute in attribute container
@@ -143,7 +143,7 @@ attr_container_set_byte(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_uint16(attr_container_t **p_attr_cont, const char *key,
-        uint16_t value);
+                          uint16_t value);
 
 /**
  * Set float attribute in attribute container
@@ -157,7 +157,7 @@ attr_container_set_uint16(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_float(attr_container_t **p_attr_cont, const char *key,
-        float value);
+                         float value);
 
 /**
  * Set double attribute in attribute container
@@ -171,7 +171,7 @@ attr_container_set_float(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_double(attr_container_t **p_attr_cont, const char *key,
-        double value);
+                          double value);
 
 /**
  * Set bool attribute in attribute container
@@ -185,7 +185,7 @@ attr_container_set_double(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_bool(attr_container_t **p_attr_cont, const char *key,
-        bool value);
+                        bool value);
 
 /**
  * Set string attribute in attribute container
@@ -199,7 +199,7 @@ attr_container_set_bool(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_string(attr_container_t **p_attr_cont, const char *key,
-        const char *value);
+                          const char *value);
 
 /**
  * Set bytearray attribute in attribute container
@@ -214,7 +214,7 @@ attr_container_set_string(attr_container_t **p_attr_cont, const char *key,
  */
 bool
 attr_container_set_bytearray(attr_container_t **p_attr_cont, const char *key,
-        const int8_t *value, unsigned length);
+                             const int8_t *value, unsigned length);
 
 /**
  * Get tag of current attribute container
@@ -223,7 +223,7 @@ attr_container_set_bytearray(attr_container_t **p_attr_cont, const char *key,
  *
  * @return tag of current attribute container
  */
-const char*
+const char *
 attr_container_get_tag(const attr_container_t *attr_cont);
 
 /**
@@ -306,7 +306,7 @@ attr_container_get_as_byte(const attr_container_t *attr_cont, const char *key);
  */
 uint16_t
 attr_container_get_as_uint16(const attr_container_t *attr_cont,
-        const char *key);
+                             const char *key);
 
 /**
  * Get attribute from attribute container and return it as float value,
@@ -331,7 +331,7 @@ attr_container_get_as_float(const attr_container_t *attr_cont, const char *key);
  */
 double
 attr_container_get_as_double(const attr_container_t *attr_cont,
-        const char *key);
+                             const char *key);
 
 /**
  * Get attribute from attribute container and return it as bool value,
@@ -354,9 +354,9 @@ attr_container_get_as_bool(const attr_container_t *attr_cont, const char *key);
  *
  * @return the string value of the attribute, NULL if key isn't found
  */
-char*
+char *
 attr_container_get_as_string(const attr_container_t *attr_cont,
-        const char *key);
+                             const char *key);
 
 /**
  * Get attribute from attribute container and return it as bytearray value,
@@ -367,9 +367,9 @@ attr_container_get_as_string(const attr_container_t *attr_cont,
  *
  * @return the bytearray value of the attribute, NULL if key isn't found
  */
-const int8_t*
+const int8_t *
 attr_container_get_as_bytearray(const attr_container_t *attr_cont,
-        const char *key, unsigned *array_length);
+                                const char *key, unsigned *array_length);
 
 /**
  * Get the buffer size of attribute container
@@ -400,7 +400,7 @@ attr_container_serialize(char *buf, const attr_container_t *attr_cont);
  * @return true if const, false otherwise
  */
 bool
-attr_container_is_constant(const attr_container_t* attr_cont);
+attr_container_is_constant(const attr_container_t *attr_cont);
 
 void
 attr_container_dump(const attr_container_t *attr_cont);
@@ -422,4 +422,3 @@ attr_container_dump(const attr_container_t *attr_cont);
 #endif
 
 #endif /* end of _ATTR_CONTAINER_H_ */
-

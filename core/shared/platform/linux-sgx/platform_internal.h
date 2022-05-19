@@ -40,7 +40,7 @@ extern "C" {
 #define _STACK_SIZE_ADJUSTMENT (32 * 1024)
 
 /* Stack size of applet threads's native part.  */
-#define BH_APPLET_PRESERVED_STACK_SIZE      (8 * 1024 + _STACK_SIZE_ADJUSTMENT)
+#define BH_APPLET_PRESERVED_STACK_SIZE (8 * 1024 + _STACK_SIZE_ADJUSTMENT)
 
 /* Default thread priority */
 #define BH_THREAD_DEFAULT_PRIORITY 0
@@ -50,14 +50,15 @@ typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 
-typedef void (*os_print_function_t)(const char* message);
-void os_set_print_function(os_print_function_t pf);
+typedef void (*os_print_function_t)(const char *message);
+void
+os_set_print_function(os_print_function_t pf);
 
-char *strcpy(char *dest, const char *src);
+char *
+strcpy(char *dest, const char *src);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* end of _PLATFORM_INTERNAL_H */
-

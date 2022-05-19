@@ -1,5 +1,7 @@
-// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license information.
+// Part of the Wasmtime Project, under the Apache License v2.0 with LLVM
+// Exceptions. See
+// https://github.com/bytecodealliance/wasmtime/blob/main/LICENSE for license
+// information.
 //
 // Significant parts of this file are derived from cloudabi-utils. See
 // https://github.com/bytecodealliance/wasmtime/blob/main/lib/wasi/sandboxed-system-primitives/src/LICENSE
@@ -46,8 +48,8 @@ refcount_acquire(struct refcount *r) PRODUCES(*r)
 static inline bool
 refcount_release(struct refcount *r) CONSUMES(*r)
 {
-    int old = (int)atomic_fetch_sub_explicit(&r->count, 1,
-                                             memory_order_release);
+    int old =
+        (int)atomic_fetch_sub_explicit(&r->count, 1, memory_order_release);
     bh_assert(old != 0 && "Reference count becoming negative");
     return old == 1;
 }

@@ -13,14 +13,16 @@
  *
  */
 
-static bool is_little_endian()
+static bool
+is_little_endian()
 {
     long i = 0x01020304;
-    unsigned char* c = (unsigned char*) &i;
+    unsigned char *c = (unsigned char *)&i;
     return (*c == 0x04) ? true : false;
 }
 
-static void swap32(uint8* pData)
+static void
+swap32(uint8 *pData)
 {
     uint8 value = *pData;
     *pData = *(pData + 3);
@@ -31,31 +33,35 @@ static void swap32(uint8* pData)
     *(pData + 2) = value;
 }
 
-static void swap16(uint8* pData)
+static void
+swap16(uint8 *pData)
 {
     uint8 value = *pData;
     *(pData) = *(pData + 1);
     *(pData + 1) = value;
 }
 
-uint32 htonl(uint32 value)
+uint32
+htonl(uint32 value)
 {
     uint32 ret;
     if (is_little_endian()) {
         ret = value;
-        swap32((uint8*) &ret);
+        swap32((uint8 *)&ret);
         return ret;
     }
 
     return value;
 }
 
-uint32 ntohl(uint32 value)
+uint32
+ntohl(uint32 value)
 {
     return htonl(value);
 }
 
-uint16 htons(uint16 value)
+uint16
+htons(uint16 value)
 {
     uint16 ret;
     if (is_little_endian()) {
@@ -67,12 +73,14 @@ uint16 htons(uint16 value)
     return value;
 }
 
-uint16 ntohs(uint16 value)
+uint16
+ntohs(uint16 value)
 {
     return htons(value);
 }
 
-char *wa_strdup(const char *s)
+char *
+wa_strdup(const char *s)
 {
     char *s1 = NULL;
     if (s && (s1 = WA_MALLOC(strlen(s) + 1)))

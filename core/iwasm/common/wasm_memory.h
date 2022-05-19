@@ -20,9 +20,11 @@ wasm_runtime_memory_init(mem_alloc_type_t mem_alloc_type,
 void
 wasm_runtime_memory_destroy();
 
+unsigned
+wasm_runtime_memory_pool_size();
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* end of _WASM_MEMORY_H */
-

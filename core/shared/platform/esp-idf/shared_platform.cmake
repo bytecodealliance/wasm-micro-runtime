@@ -8,12 +8,6 @@ add_definitions(-DBH_PLATFORM_ESP_IDF)
 include_directories(${PLATFORM_SHARED_DIR})
 include_directories(${PLATFORM_SHARED_DIR}/../include)
 
-include (${CMAKE_CURRENT_LIST_DIR}/../common/freertos/platform_api_freertos.cmake)
-include (${CMAKE_CURRENT_LIST_DIR}/../common/math/platform_api_math.cmake)
-
 file (GLOB_RECURSE source_all ${PLATFORM_SHARED_DIR}/*.c)
 
-set (PLATFORM_SHARED_SOURCE ${source_all}
-                            ${PLATFORM_COMMON_MATH_SOURCE}
-                            ${PLATFORM_COMMON_FREERTOS_SOURCE})
-
+set (PLATFORM_SHARED_SOURCE ${source_all} ${PLATFORM_COMMON_MATH_SOURCE})
