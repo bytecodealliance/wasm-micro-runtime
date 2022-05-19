@@ -891,29 +891,39 @@ sched_yield(void)
 ssize_t
 getrandom(void *buf, size_t buflen, unsigned int flags)
 {
-    ssize_t ret;
+    sgx_status_t ret;
 
-    if (ocall_getrandom(&ret, buf, buflen, flags) != SGX_SUCCESS) {
-        TRACE_OCALL_FAIL();
+    if (buflen > INT32_MAX || flags != 0) {
+        errno = EINVAL;
         return -1;
     }
-    if (ret == -1)
-        errno = get_errno();
-    return ret;
+
+    ret = sgx_read_rand(buf, buflen);
+    if (ret != SGX_SUCCESS) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    return (ssize_t)buflen;
 }
 
 int
 getentropy(void *buffer, size_t length)
 {
-    int ret;
+    sgx_status_t ret;
 
-    if (ocall_getentropy(&ret, buffer, length) != SGX_SUCCESS) {
-        TRACE_OCALL_FAIL();
+    if (length > INT32_MAX) {
+        errno = EINVAL;
         return -1;
     }
-    if (ret == -1)
-        errno = get_errno();
-    return ret;
+
+    ret = sgx_read_rand(buffer, length);
+    if (ret != SGX_SUCCESS) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    return 0;
 }
 
 int

@@ -77,9 +77,6 @@ enclave {
                          [in, size=argv_buf_len]char *argv_buf,
                          unsigned int argv_buf_len,
                          [in, string]const char *optstring);
-        ssize_t ocall_getrandom([out, size=buflen]void *buf, size_t buflen,
-                                unsigned int flags);
-        int ocall_getentropy([out, size=length]void *buffer, size_t length);
         ssize_t ocall_readv(int fd,
                             [in, out, size=buf_size]char *iov_buf,
                             unsigned int buf_size, int iovcnt,
