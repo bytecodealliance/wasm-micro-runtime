@@ -909,7 +909,7 @@ static int
 rdrand64_step(uint64 *seed)
 {
     uint8 ok;
-    __asm__ volatile("rdseed %0; setc %1" : "=r" (*seed), "=qm" (ok));
+    __asm__ volatile("rdseed %0; setc %1" : "=r"(*seed), "=qm"(ok));
     return (int)ok;
 }
 
