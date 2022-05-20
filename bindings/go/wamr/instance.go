@@ -25,11 +25,11 @@ type Instance struct {
 	_instance C.wasm_module_inst_t
 	_exec_env C.wasm_exec_env_t
 	_module *Module
-	_runtime *WamrRuntime
+	_runtime *Runtime
 	exportsCache map[string]C.wasm_function_inst_t
 }
 
-func NewInstance(module *Module, wasmRuntime *WamrRuntime) (*Instance, error) {
+func NewInstance(module *Module, wasmRuntime *Runtime) (*Instance, error) {
 	stackSize := 16 * 8092
 	heapSize := 8092
 
@@ -79,7 +79,11 @@ func (self *Instance) CallFunc(funcName string, argc uint32, args []uint32) erro
 		self.exportsCache[funcName] = _func
 	}
 
-    if !C.wasm_runtime_call_wasm(self._exec_env, _func, C.uint(argc), (*C.uint32_t)(unsafe.Pointer(&args[0]))) {
+    var args_C *C.uint32_t
+    if (argc > 0) {
+        args_C = (*C.uint32_t)(unsafe.Pointer(&args[0]))
+    }
+    if !C.wasm_runtime_call_wasm(self._exec_env, _func, C.uint(argc), args_C) {
 		return fmt.Errorf("wasm_runtime_call_wasm Error: %s", string(self.GetException()))
 	}
 
