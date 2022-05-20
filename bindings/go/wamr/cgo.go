@@ -1,7 +1,7 @@
 package wamr
 
 // #cgo CFLAGS: -I${SRCDIR}/packaged/include
-// #cgo LDFLAGS: -lwamr -lm
+// #cgo LDFLAGS: -lvmlib -lm
 //
 // #cgo linux,amd64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/linux-amd64 -L${SRCDIR}/packaged/lib/linux-amd64
 // #cgo linux,arm64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/linux-aarch64 -L${SRCDIR}/packaged/lib/linux-aarch64
@@ -12,6 +12,4 @@ package wamr
 import "C"
 
 import (
-	_ "gitlab.alipay-inc.com/TNT_Runtime/ant-runtime/bindings/go/wamr/packaged/include"
-	_ "gitlab.alipay-inc.com/TNT_Runtime/ant-runtime/bindings/go/wamr/packaged/lib"
 )

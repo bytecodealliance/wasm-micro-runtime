@@ -1,6 +1,5 @@
 package wamr
 
-
 /*
 #include <wasm_export.h>
 #include <stdlib.h>

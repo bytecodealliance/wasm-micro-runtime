@@ -4,9 +4,12 @@ package wamr
 // #include <stdlib.h>
 // #include <stddef.h>
 /*
-uint8_t *wasm_runtime_get_memory_data(const wasm_module_inst_t module_inst_comm,
+uint8_t *
+wasm_runtime_get_memory_data(const wasm_module_inst_t module_inst_comm,
                              uint32_t memory_inst_idx);
-uint32_t wasm_runtime_get_memory_data_size(const wasm_module_inst_t module_inst_comm,
+
+uint32_t
+wasm_runtime_get_memory_data_size(const wasm_module_inst_t module_inst_comm,
                                   uint32_t memory_inst_idx);
 */
 import "C"
@@ -84,12 +87,12 @@ func (self *Instance) CallFunc(funcName string, argc uint32, args []uint32) erro
 }
 
 func (self *Instance) GetMemoryDataSize(memoryIdx uint32) uint32 {
-	return (uint32)(C.wasm_runtime_get_memory_data_size(self._instance, C.uint32_t(memoryIdx)))
+	return 0//(uint32)(C.wasm_runtime_get_memory_data_size(self._instance, C.uint32_t(memoryIdx)))
 }
 
 func (self *Instance) GetMemoryData(memoryIdx uint32) []byte {
 	length := int(self.GetMemoryDataSize(memoryIdx))
-	data := (*C.uint8_t)(C.wasm_runtime_get_memory_data(self._instance, C.uint32_t(memoryIdx)))
+	data := (*C.uint8_t)(nil)//C.wasm_runtime_get_memory_data(self._instance, C.uint32_t(memoryIdx)))
 
 	var header reflect.SliceHeader
 	header = *(*reflect.SliceHeader)(unsafe.Pointer(&header))
