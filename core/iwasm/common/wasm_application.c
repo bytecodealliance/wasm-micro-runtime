@@ -755,7 +755,7 @@ wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
     }
 #endif
 
-#if WAMR_ENABLE_PERF_PROFILING != 0
+#if WASM_ENABLE_PERF_PROFILING != 0
     wasm_runtime_dump_perf_profiling(module_inst);
 #endif
 
