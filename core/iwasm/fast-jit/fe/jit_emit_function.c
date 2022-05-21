@@ -175,6 +175,10 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
             *(jit_insn_opndv(insn, 4)) = cc->fp_reg;
         }
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        jit_lock_reg_in_insn(cc, insn, native_ret);
+#endif
+
         /* Check whether there is exception thrown */
         GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
         if (!jit_emit_exception(cc, EXCE_ALREADY_THROWN, JIT_OP_BEQ,
@@ -352,6 +356,8 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     *(jit_insn_opndv(insn, 4)) = element_indices;
     *(jit_insn_opndv(insn, 5)) = NEW_CONST(I32, func_type->param_count);
     *(jit_insn_opndv(insn, 6)) = argv;
+
+    jit_lock_reg_in_insn(cc, insn, native_ret);
 
     /* Check whether there is exception thrown */
     GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));

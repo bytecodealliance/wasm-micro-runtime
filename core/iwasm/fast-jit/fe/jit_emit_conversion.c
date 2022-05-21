@@ -64,6 +64,10 @@ jit_compile_op_i32_trunc_f32(JitCompContext *cc, bool sign, bool saturating)
         }
         *(jit_insn_opndv(insn, 2)) = value;
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        jit_lock_reg_in_insn(cc, insn, nan_ret);
+#endif
+
         GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
         if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
                                 JIT_OP_BEQ, cc->cmp_reg, NULL)) {
@@ -132,6 +136,10 @@ jit_compile_op_i32_trunc_f64(JitCompContext *cc, bool sign, bool saturating)
             goto fail;
         }
         *(jit_insn_opndv(insn, 2)) = value;
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        jit_lock_reg_in_insn(cc, insn, nan_ret);
+#endif
 
         GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
         if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
@@ -270,6 +278,10 @@ jit_compile_op_f32_convert_i64(JitCompContext *cc, bool sign)
             goto fail;
         }
         *(jit_insn_opndv(insn, 2)) = value;
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        jit_lock_reg_in_insn(cc, insn, res);
+#endif
     }
 
     PUSH_F32(res);
@@ -330,7 +342,10 @@ jit_compile_op_f64_convert_i64(JitCompContext *cc, bool sign)
     else {
         JitInsn *insn;
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        JitReg xmm0;
+
         res = jit_codegen_get_hreg_by_name("xmm0_f64");
+        xmm0 = jit_codegen_get_hreg_by_name("xmm0");
 #else
         res = jit_cc_new_reg_F64(cc);
 #endif
@@ -340,6 +355,9 @@ jit_compile_op_f64_convert_i64(JitCompContext *cc, bool sign)
             goto fail;
         }
         *(jit_insn_opndv(insn, 2)) = value;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        jit_lock_reg_in_insn(cc, insn, xmm0);
+#endif
     }
     PUSH_F64(res);
 
