@@ -212,7 +212,7 @@ def main():
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",
-            "branch": "release/13.x",
+            "branch": "main",
         },
     }
 
