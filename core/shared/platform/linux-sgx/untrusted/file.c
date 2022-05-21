@@ -10,7 +10,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include <sys/random.h>
 #include <sys/uio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -301,18 +300,6 @@ ocall_getopt(int argc, char *argv_buf, unsigned int argv_buf_len,
     }
 
     return getopt(argc, argv, optstring);
-}
-
-ssize_t
-ocall_getrandom(void *buf, size_t buflen, unsigned int flags)
-{
-    return getrandom(buf, buflen, flags);
-}
-
-int
-ocall_getentropy(void *buffer, size_t length)
-{
-    return getentropy(buffer, length);
 }
 
 int
