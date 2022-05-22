@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 package main
 
 import (
@@ -55,11 +60,13 @@ func (self *Rego) loadJson(data string) (uint32, error) {
     }
 
     addr := argv[0]
+    /*
     memory := self._instance.GetMemoryData(0)[addr:]
     for i := uint32(0); i < _len; i++ {
         memory[i] = data[i]
     }
     memory[_len] = 0
+    */
 
     argv[0] = addr
     // argv[1] = _len + 1 // c string need '\0'
@@ -79,14 +86,16 @@ func (self *Rego) dumpJson(resultAddr uint32) (string, error) {
     if errDump != nil {
         return "", errDump
     }
-    ptr := argv[0]
+    //ptr := argv[0]
 
-    memory := self._instance.GetMemoryData(0)[ptr:]
+    //memory := self._instance.GetMemoryData(0)[ptr:]
 
     var contents []byte
+    /*
     for i := uint32(0); memory[i] != 0; i++ {
         contents = append(contents, memory[i])
     }
+    */
 
     return string(contents), nil
 }
@@ -183,10 +192,10 @@ func main() {
     pprof.StartCPUProfile(f)
     defer pprof.StopCPUProfile()
 
-    wamr_runtime := wamr.CreateRuntime()
+    wamr_runtime := wamr.Runtime()
     wamr_runtime.SetLogLevel(wamr.LOG_LEVEL_FATAL)
 
-    err := wamr_runtime.FullInit(false, nil, 0, 4)
+    err := wamr_runtime.FullInit(false, nil, 4)
     if err != nil {
         return
     }
@@ -205,7 +214,7 @@ func main() {
         return
     }
 
-    instance, err3 := wamr.NewInstance(module, wamr_runtime)
+    instance, err3 := wamr.NewInstance(module, 16384, 16384)
     if err3 != nil {
         fmt.Println(err3, 3)
         return

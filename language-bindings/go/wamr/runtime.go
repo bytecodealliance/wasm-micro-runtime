@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Intel Corporation.  All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ */
+
 package wamr
 
 /*
@@ -44,37 +49,28 @@ const (
     LOG_LEVEL_VERBOSE
 )
 
-type Runtime struct {
+type _Runtime struct {
     initialized bool
 }
 
-var runtime_singleton *Runtime
+var _runtime_singleton *_Runtime
 
-func CreateRuntime() (*Runtime) {
-    if (runtime_singleton != nil) {
-        return runtime_singleton
+func Runtime() *_Runtime {
+    if (_runtime_singleton == nil) {
+        self := &_Runtime{}
+        _runtime_singleton = self
     }
-
-    self := &Runtime{}
-    runtime_singleton = self
-    return self;
+    return _runtime_singleton;
 }
 
-func (self *Runtime) DestroyRuntime() {
-    if (self.initialized) {
-        C.wasm_runtime_destroy()
-    }
-    runtime_singleton = nil
-}
+func (self *_Runtime) FullInit(alloc_with_pool bool, heap_buf []byte,
+                               max_thread_num uint) error {
+    var heap_buf_C *C.uchar
 
-func (self *Runtime) FullInit(alloc_with_pool bool,
-                              heap_buf []byte, heap_size uint,
-                              max_thread_num uint) error {
     if (self.initialized) {
         return nil
     }
 
-    var heap_buf_C *C.uchar
     if (alloc_with_pool) {
         if (heap_buf == nil) {
             return fmt.Errorf("Failed to init WAMR runtime")
@@ -83,17 +79,26 @@ func (self *Runtime) FullInit(alloc_with_pool bool,
     }
 
     if (!C.init_wamr_runtime((C.bool)(alloc_with_pool), heap_buf_C,
-                             (C.uint)(heap_size), (C.uint)(max_thread_num))) {
+                             (C.uint)(len(heap_buf)),
+                             (C.uint)(max_thread_num))) {
         return fmt.Errorf("Failed to init WAMR runtime")
     }
 
+    self.initialized = true
     return nil
 }
 
-func (self *Runtime) Init() error {
-    return self.FullInit(false, nil, 0, 4)
+func (self *_Runtime) Init() error {
+    return self.FullInit(false, nil, 4)
 }
 
-func (self *Runtime) SetLogLevel(level LogLevel) {
+func (self *_Runtime) Destroy() {
+    if (self.initialized) {
+        C.wasm_runtime_destroy()
+        self.initialized = false
+    }
+}
+
+func (self *_Runtime) SetLogLevel(level LogLevel) {
     C.bh_log_set_verbose_level(C.uint32_t(level))
 }
