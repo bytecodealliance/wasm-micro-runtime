@@ -5,8 +5,8 @@
 
 PLATFORM=$(uname -s | tr A-Z a-z)
 CUR_DIR=$PWD
-WAMR_DIR=$PWD/../../..
-WAMR_GO_DIR=$PWD/../wamr
+WAMR_DIR=$PWD/../..
+WAMR_GO_DIR=$PWD/wamr
 
 cp -a ${WAMR_DIR}/core/iwasm/include/*.h ${WAMR_GO_DIR}/packaged/include
 
@@ -17,6 +17,5 @@ cmake ${WAMR_DIR}/product-mini/platforms/${PLATFORM} \
 make -j ${nproc}
 cp -a libvmlib.a ${WAMR_GO_DIR}/packaged/lib/${PLATFORM}-amd64
 
-cd ${CUR_DIR}
-go build rego.go
-./rego
+cd ${WAMR_GO_DIR}
+go test

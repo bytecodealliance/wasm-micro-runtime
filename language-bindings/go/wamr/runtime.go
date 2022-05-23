@@ -102,3 +102,14 @@ func (self *_Runtime) Destroy() {
 func (self *_Runtime) SetLogLevel(level LogLevel) {
     C.bh_log_set_verbose_level(C.uint32_t(level))
 }
+
+func (self *_Runtime) InitThreadEnv() bool {
+    if (!C.wasm_runtime_init_thread_env()) {
+        return false
+    }
+    return true
+}
+
+func (self *_Runtime) DestroyThreadEnv() {
+    C.wasm_runtime_destroy_thread_env();
+}

@@ -5,6 +5,7 @@
 
 package wamr
 
+// #include <stdlib.h>
 // #include <wasm_export.h>
 import "C"
 
@@ -72,7 +73,7 @@ func (self *Instance) CallFunc(funcName string,
     _func := self._exportsCache[funcName]
     if _func == nil {
         cName := C.CString(funcName)
-        //defer C.free(unsafe.Pointer(cName))
+        defer C.free(unsafe.Pointer(cName))
 
         _func = C.wasm_runtime_lookup_function(self._instance,
                                                cName, (*C.char)(C.NULL))
@@ -99,3 +100,9 @@ func (self *Instance) GetException() string {
     goStr := C.GoString(cStr)
     return goStr
 }
+
+/*
+TODO:
+module_malloc/free
+wasm_runtime_validate_app_addr/app_addr_to_native
+*/
