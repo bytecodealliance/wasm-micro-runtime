@@ -6,11 +6,12 @@
 #include "../wasm_runtime_common.h"
 #include "../wasm_exec_env.h"
 
-void invokeNative(void (*native_code)(), uint32 argv[], uint32 argc)
+void
+invokeNative(void (*native_code)(), uint32 argv[], uint32 argc)
 {
-    bh_assert(argc >= sizeof(WASMExecEnv*)/sizeof(uint32));
+    bh_assert(argc >= sizeof(WASMExecEnv *) / sizeof(uint32));
 
-    switch(argc) {
+    switch (argc) {
         case 0:
             native_code();
             break;
@@ -33,53 +34,80 @@ void invokeNative(void (*native_code)(), uint32 argv[], uint32 argc)
             native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
             break;
         case 7:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6]);
             break;
         case 8:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7]);
             break;
         case 9:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8]);
             break;
         case 10:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9]);
             break;
         case 11:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10]);
             break;
         case 12:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11]);
             break;
         case 13:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12]);
             break;
         case 14:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12], argv[13]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12], argv[13]);
             break;
         case 15:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12], argv[13], argv[14]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12], argv[13], argv[14]);
             break;
         case 16:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12], argv[13], argv[14], argv[15]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12], argv[13], argv[14], argv[15]);
             break;
         case 17:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12], argv[13], argv[14], argv[15], argv[16]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12], argv[13], argv[14], argv[15], argv[16]);
             break;
         case 18:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12], argv[13], argv[14], argv[15], argv[16], argv[17]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12], argv[13], argv[14], argv[15], argv[16],
+                        argv[17]);
             break;
         case 19:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12], argv[13], argv[14], argv[15], argv[16], argv[17], argv[18]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12], argv[13], argv[14], argv[15], argv[16],
+                        argv[17], argv[18]);
             break;
         case 20:
-            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11], argv[12], argv[13], argv[14], argv[15], argv[16], argv[17], argv[18], argv[19]);
+            native_code(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                        argv[6], argv[7], argv[8], argv[9], argv[10], argv[11],
+                        argv[12], argv[13], argv[14], argv[15], argv[16],
+                        argv[17], argv[18], argv[19]);
             break;
         default:
         {
             /* FIXME: If this happen, add more cases. */
-            WASMExecEnv *exec_env = *(WASMExecEnv**)argv;
+            WASMExecEnv *exec_env = *(WASMExecEnv **)argv;
             WASMModuleInstanceCommon *module_inst = exec_env->module_inst;
-            wasm_runtime_set_exception(module_inst, "the argument number of native function exceeds maximum");
+            wasm_runtime_set_exception(
+                module_inst,
+                "the argument number of native function exceeds maximum");
             return;
         }
     }

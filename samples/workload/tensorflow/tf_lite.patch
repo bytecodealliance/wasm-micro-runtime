@@ -19,14 +19,14 @@ index c7ddff58440..ebfebaead35 100644
  endif # ifeq ($(HOST_OS),$(TARGET))
  endif
  
-+CFLAGS+=-msimd128
-+CXXFLAGS+=-msimd128
++CFLAGS+=-msimd128 -mbulk-memory -matomics
++CXXFLAGS+=-msimd128 -mbulk-memory -matomics
 +
-+LIBFLAGS += -s TOTAL_STACK=1048576 \
++LIBFLAGS += -s TOTAL_STACK=1048576 -s MALLOC="none" \
 +            -s INITIAL_MEMORY=16777216 \
 +            -s MAXIMUM_MEMORY=167772160 \
 +            -s ALLOW_MEMORY_GROWTH=1 \
-+            -Wl,--export=__data_end -Wl,--export=__heap_base \
++            -Wl,--export=__data_end -Wl,--export=__heap_base,--shared-memory,--no-check-features \
 +            -s ERROR_ON_UNDEFINED_SYMBOLS=0
 +
  # This library is the main target for this makefile. It will contain a minimal

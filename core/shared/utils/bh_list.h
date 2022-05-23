@@ -46,29 +46,34 @@ typedef enum bh_list_status {
  * @return        <code>BH_LIST_ERROR</code> if OK;
  *                <code>BH_LIST_ERROR</code> if list pointer is NULL.
  */
-bh_list_status bh_list_init(bh_list *list);
+bh_list_status
+bh_list_init(bh_list *list);
 
 /**
- * Insert an elem pointer into list. The list node memory is maintained by list while
- * elem memory is the responsibility of list user.
+ * Insert an elem pointer into list. The list node memory is maintained by list
+ * while elem memory is the responsibility of list user.
  *
  * @param list    pointer to list.
  * @param elem    pointer to elem that will be inserted into list.
  * @return        <code>BH_LIST_ERROR</code> if OK;
- *                <code>BH_LIST_ERROR</code> if input is invalid or no memory available.
+ *                <code>BH_LIST_ERROR</code> if input is invalid or no memory
+ * available.
  */
-extern bh_list_status bh_list_insert(bh_list *list, void *elem);
+extern bh_list_status
+bh_list_insert(bh_list *list, void *elem);
 
 /**
- * Remove an elem pointer from list. The list node memory is maintained by list while
- * elem memory is the responsibility of list user.
+ * Remove an elem pointer from list. The list node memory is maintained by list
+ * while elem memory is the responsibility of list user.
  *
  * @param list    pointer to list.
  * @param elem    pointer to elem that will be inserted into list.
  * @return        <code>BH_LIST_ERROR</code> if OK;
- *                <code>BH_LIST_ERROR</code> if element does not exist in given list.
+ *                <code>BH_LIST_ERROR</code> if element does not exist in given
+ * list.
  */
-bh_list_status bh_list_remove(bh_list *list, void *elem);
+bh_list_status
+bh_list_remove(bh_list *list, void *elem);
 
 /**
  * Get the list length.
@@ -76,7 +81,8 @@ bh_list_status bh_list_remove(bh_list *list, void *elem);
  * @param list    pointer to list.
  * @return        the length of the list.
  */
-uint32 bh_list_length(bh_list *list);
+uint32
+bh_list_length(bh_list *list);
 
 /**
  * Get the first elem in the list.
@@ -84,7 +90,8 @@ uint32 bh_list_length(bh_list *list);
  * @param list    pointer to list.
  * @return        pointer to the first node.
  */
-void* bh_list_first_elem(bh_list *list);
+void *
+bh_list_first_elem(bh_list *list);
 
 /**
  * Get the next elem of given list input elem.
@@ -92,11 +99,11 @@ void* bh_list_first_elem(bh_list *list);
  * @param node    pointer to list node.
  * @return        pointer to next list node.
  */
-void* bh_list_elem_next(void *node);
+void *
+bh_list_elem_next(void *node);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* #ifndef _BH_LIST_H */
-

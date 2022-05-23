@@ -33,4 +33,3 @@ aot_compile_op_f64_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 #endif
 
 #endif /* end of _AOT_EMIT_CONST_H_ */
-

@@ -3,19 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-
 #include "wa-inc/lvgl/lvgl.h"
 #include "gui_api.h"
 
 #include <string.h>
 
-#define ARGC sizeof(argv)/sizeof(uint32)
+#define ARGC sizeof(argv) / sizeof(uint32)
 #define CALL_LIST_NATIVE_FUNC(id) wasm_list_native_call(id, argv, ARGC)
 
-
-lv_obj_t * lv_list_create(lv_obj_t * par, const lv_obj_t * copy)
+lv_obj_t *
+lv_list_create(lv_obj_t *par, const lv_obj_t *copy)
 {
-    uint32 argv[2] = {0};
+    uint32 argv[2] = { 0 };
 
     argv[0] = (uint32)par;
     argv[1] = (uint32)copy;
@@ -25,15 +24,16 @@ lv_obj_t * lv_list_create(lv_obj_t * par, const lv_obj_t * copy)
 }
 //
 //
-//void wgl_list_clean(wgl_obj_t obj)
+// void wgl_list_clean(wgl_obj_t obj)
 //{
 //    wasm_list_clean(obj);
 //}
 //
 
-lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * img_src, const char * txt)
+lv_obj_t *
+lv_list_add_btn(lv_obj_t *list, const void *img_src, const char *txt)
 {
-    uint32 argv[3] = {0};
+    uint32 argv[3] = { 0 };
 
     (void)img_src; /* doesn't support img src currently */
 
@@ -45,13 +45,13 @@ lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * img_src, const char * t
 }
 //
 //
-//bool wgl_list_remove(const wgl_obj_t list, uint16_t index)
+// bool wgl_list_remove(const wgl_obj_t list, uint16_t index)
 //{
 //    return wasm_list_remove(list, index);
 //}
 //
 //
-//void wgl_list_set_single_mode(wgl_obj_t list, bool mode)
+// void wgl_list_set_single_mode(wgl_obj_t list, bool mode)
 //{
 //    wasm_list_set_single_mode(list, mode);
 //}
@@ -59,68 +59,69 @@ lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * img_src, const char * t
 //#if LV_USE_GROUP
 //
 //
-//void wgl_list_set_btn_selected(wgl_obj_t list, wgl_obj_t btn)
+// void wgl_list_set_btn_selected(wgl_obj_t list, wgl_obj_t btn)
 //{
 //    wasm_list_set_btn_selected(list, btn);
 //}
 //#endif
 //
 //
-//void wgl_list_set_style(wgl_obj_t list, wgl_list_style_t type, const wgl_style_t * style)
+// void wgl_list_set_style(wgl_obj_t list, wgl_list_style_t type,
+//                         const wgl_style_t * style)
 //{
 //    //TODO
 //}
 //
 //
-//bool wgl_list_get_single_mode(wgl_obj_t list)
+// bool wgl_list_get_single_mode(wgl_obj_t list)
 //{
 //    return wasm_list_get_single_mode(list);
 //}
 //
 //
-//const char * wgl_list_get_btn_text(const wgl_obj_t btn)
+// const char * wgl_list_get_btn_text(const wgl_obj_t btn)
 //{
 //    return wasm_list_get_btn_text(btn);
 //}
 //
-//wgl_obj_t wgl_list_get_btn_label(const wgl_obj_t btn)
+// wgl_obj_t wgl_list_get_btn_label(const wgl_obj_t btn)
 //{
 //    return wasm_list_get_btn_label(btn);
 //}
 //
 //
-//wgl_obj_t wgl_list_get_btn_img(const wgl_obj_t btn)
+// wgl_obj_t wgl_list_get_btn_img(const wgl_obj_t btn)
 //{
 //    return wasm_list_get_btn_img(btn);
 //}
 //
 //
-//wgl_obj_t wgl_list_get_prev_btn(const wgl_obj_t list, wgl_obj_t prev_btn)
+// wgl_obj_t wgl_list_get_prev_btn(const wgl_obj_t list, wgl_obj_t prev_btn)
 //{
 //    return wasm_list_get_prev_btn(list, prev_btn);
 //}
 //
 //
-//wgl_obj_t wgl_list_get_next_btn(const wgl_obj_t list, wgl_obj_t prev_btn)
+// wgl_obj_t wgl_list_get_next_btn(const wgl_obj_t list, wgl_obj_t prev_btn)
 //{
 //    return wasm_list_get_next_btn(list, prev_btn);
 //}
 //
 //
-//int32_t wgl_list_get_btn_index(const wgl_obj_t list, const wgl_obj_t btn)
+// int32_t wgl_list_get_btn_index(const wgl_obj_t list, const wgl_obj_t btn)
 //{
 //    return wasm_list_get_btn_index(list, btn);
 //}
 //
 //
-//uint16_t wgl_list_get_size(const wgl_obj_t list)
+// uint16_t wgl_list_get_size(const wgl_obj_t list)
 //{
 //    return wasm_list_get_size(list);
 //}
 //
 //#if LV_USE_GROUP
 //
-//wgl_obj_t wgl_list_get_btn_selected(const wgl_obj_t list)
+// wgl_obj_t wgl_list_get_btn_selected(const wgl_obj_t list)
 //{
 //    return wasm_list_get_btn_selected(list);
 //}
@@ -128,28 +129,27 @@ lv_obj_t * lv_list_add_btn(lv_obj_t * list, const void * img_src, const char * t
 //
 //
 //
-//const wgl_style_t * wgl_list_get_style(const wgl_obj_t list, wgl_list_style_t type)
+// const wgl_style_t * wgl_list_get_style(const wgl_obj_t list,
+//                                        wgl_list_style_t type)
 //{
 //    //TODO
 //    return NULL;
 //}
 //
 //
-//void wgl_list_up(const wgl_obj_t list)
+// void wgl_list_up(const wgl_obj_t list)
 //{
 //    wasm_list_up(list);
 //}
 //
-//void wgl_list_down(const wgl_obj_t list)
+// void wgl_list_down(const wgl_obj_t list)
 //{
 //    wasm_list_down(list);
 //}
 //
 //
-//void wgl_list_focus(const wgl_obj_t btn, wgl_anim_enable_t anim)
+// void wgl_list_focus(const wgl_obj_t btn, wgl_anim_enable_t anim)
 //{
 //    wasm_list_focus(btn, anim);
 //}
 //
-
-

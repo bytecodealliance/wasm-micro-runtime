@@ -13,97 +13,125 @@
 #define TRACE_OCALL_FAIL() os_printf("ocall %s failed!\n", __FUNCTION__)
 
 /** fd **/
-int ocall_open(int *p_fd, const char *pathname, int flags,
-               bool has_mode, unsigned mode);
+int
+ocall_open(int *p_fd, const char *pathname, int flags, bool has_mode,
+           unsigned mode);
 
-int ocall_openat(int *p_fd, int dirfd, const char *pathname, int flags,
-                 bool has_mode, unsigned mode);
+int
+ocall_openat(int *p_fd, int dirfd, const char *pathname, int flags,
+             bool has_mode, unsigned mode);
 
-int ocall_read(ssize_t *p_ret, int fd, void *buf, size_t read_size);
+int
+ocall_read(ssize_t *p_ret, int fd, void *buf, size_t read_size);
 
-int ocall_close(int *p_ret, int fd);
+int
+ocall_close(int *p_ret, int fd);
 
-int ocall_lseek(off_t *p_ret, int fd, off_t offset, int whence);
+int
+ocall_lseek(off_t *p_ret, int fd, off_t offset, int whence);
 
-int ocall_ftruncate(int *p_ret, int fd, off_t length);
+int
+ocall_ftruncate(int *p_ret, int fd, off_t length);
 
-int ocall_fsync(int *p_ret, int fd);
+int
+ocall_fsync(int *p_ret, int fd);
 
-int ocall_fdatasync(int *p_ret, int fd);
+int
+ocall_fdatasync(int *p_ret, int fd);
 
-int ocall_isatty(int *p_ret, int fd);
+int
+ocall_isatty(int *p_ret, int fd);
 /** fd end  **/
 
 /** DIR **/
-int ocall_fdopendir(int fd, void **p_dirp);
+int
+ocall_fdopendir(int fd, void **p_dirp);
 
-int ocall_readdir(void **p_dirent, void *dirp);
+int
+ocall_readdir(void **p_dirent, void *dirp);
 
-int ocall_rewinddir(void *dirp);
+int
+ocall_rewinddir(void *dirp);
 
-int ocall_seekdir(void *dirp, long loc);
+int
+ocall_seekdir(void *dirp, long loc);
 
-int ocall_telldir(long *p_dir, void *dirp);
+int
+ocall_telldir(long *p_dir, void *dirp);
 
-int ocall_closedir(int *p_ret, void *dirp);
+int
+ocall_closedir(int *p_ret, void *dirp);
 /** DIR end **/
 
 /** stat **/
-int ocall_stat(int *p_ret, const char *pathname,
-               void *buf, unsigned int buf_len);
-int ocall_fstat(int *p_ret, int fd, void *buf, unsigned int buf_len);
-int ocall_fstatat(int *p_ret, int dirfd, const char *pathname,
-                  void *buf, unsigned int buf_len, int flags);
+int
+ocall_stat(int *p_ret, const char *pathname, void *buf, unsigned int buf_len);
+int
+ocall_fstat(int *p_ret, int fd, void *buf, unsigned int buf_len);
+int
+ocall_fstatat(int *p_ret, int dirfd, const char *pathname, void *buf,
+              unsigned int buf_len, int flags);
 /** stat end **/
 
 /** link **/
-int ocall_mkdirat(int *p_ret, int dirfd, const char * pathname,
-                  unsigned mode);
-int ocall_link(int *p_ret, const char *oldpath, const char *newpath);
-int ocall_linkat(int *p_ret, int olddirfd, const char *oldpath,
-                 int newdirfd, const char *newpath, int flags);
-int ocall_unlinkat(int *p_ret, int dirfd, const char *pathname,
-                   int flags);
-int ocall_readlinkat(ssize_t *p_ret, int dirfd, const char *pathname,
-                     char *buf, size_t bufsiz);
-int ocall_renameat(int *p_ret, int olddirfd,const char *oldpath,
-                   int newdirfd,const char *newpath);
-int ocall_symlinkat(int *p_ret, const char *target, int newdirfd,
-                    const char *linkpath);
+int
+ocall_mkdirat(int *p_ret, int dirfd, const char *pathname, unsigned mode);
+int
+ocall_link(int *p_ret, const char *oldpath, const char *newpath);
+int
+ocall_linkat(int *p_ret, int olddirfd, const char *oldpath, int newdirfd,
+             const char *newpath, int flags);
+int
+ocall_unlinkat(int *p_ret, int dirfd, const char *pathname, int flags);
+int
+ocall_readlinkat(ssize_t *p_ret, int dirfd, const char *pathname, char *buf,
+                 size_t bufsiz);
+int
+ocall_renameat(int *p_ret, int olddirfd, const char *oldpath, int newdirfd,
+               const char *newpath);
+int
+ocall_symlinkat(int *p_ret, const char *target, int newdirfd,
+                const char *linkpath);
 /** link end **/
 
 /** control **/
-int ocall_ioctl(int *p_ret, int fd, unsigned long request, void *arg,
-                unsigned int arg_len);
-int ocall_fcntl(int *p_ret, int fd, int cmd);
-int ocall_fcntl_long(int *p_ret, int fd, int cmd, long arg);
+int
+ocall_ioctl(int *p_ret, int fd, unsigned long request, void *arg,
+            unsigned int arg_len);
+int
+ocall_fcntl(int *p_ret, int fd, int cmd);
+int
+ocall_fcntl_long(int *p_ret, int fd, int cmd, long arg);
 /** control end **/
 
 /** **/
-int ocall_realpath(int *p_ret, const char *path, char *buf,
-                   unsigned int buf_len);
-int ocall_posix_fallocate(int *p_ret, int fd, off_t offset, off_t len);
-int ocall_poll(int *p_ret, void *fds, unsigned nfds, int timeout,
-               unsigned int fds_len);
-int ocall_getopt(int *p_ret, int argc, char *argv_buf,
-                 unsigned int argv_buf_len, const char *optstring);
-int ocall_getrandom(ssize_t *p_ret, void *buf, size_t buflen,
-                    unsigned int flags);
-int ocall_getentropy(int *p_ret, void *buffer, size_t length);
-int ocall_sched_yield(int *p_ret);
+int
+ocall_realpath(int *p_ret, const char *path, char *buf, unsigned int buf_len);
+int
+ocall_posix_fallocate(int *p_ret, int fd, off_t offset, off_t len);
+int
+ocall_poll(int *p_ret, void *fds, unsigned nfds, int timeout,
+           unsigned int fds_len);
+int
+ocall_getopt(int *p_ret, int argc, char *argv_buf, unsigned int argv_buf_len,
+             const char *optstring);
+int
+ocall_sched_yield(int *p_ret);
 
 /** struct iovec **/
-ssize_t ocall_readv(ssize_t *p_ret, int fd, char *iov_buf,
-                    unsigned int buf_size, int iovcnt,
-                    bool has_offset, off_t offset);
-ssize_t ocall_writev(ssize_t *p_ret, int fd, char *iov_buf,
-                     unsigned int buf_size, int iovcnt,
-                     bool has_offset, off_t offset);
+ssize_t
+ocall_readv(ssize_t *p_ret, int fd, char *iov_buf, unsigned int buf_size,
+            int iovcnt, bool has_offset, off_t offset);
+ssize_t
+ocall_writev(ssize_t *p_ret, int fd, char *iov_buf, unsigned int buf_size,
+             int iovcnt, bool has_offset, off_t offset);
 /** iovec end **/
 
-int ocall_get_errno(int *p_ret);
+int
+ocall_get_errno(int *p_ret);
 
-int open(const char *pathname, int flags, ...)
+int
+open(const char *pathname, int flags, ...)
 {
     int fd;
     bool has_mode = false;
@@ -130,7 +158,8 @@ int open(const char *pathname, int flags, ...)
     return fd;
 }
 
-int openat(int dirfd, const char *pathname, int flags, ...)
+int
+openat(int dirfd, const char *pathname, int flags, ...)
 {
     int fd;
     bool has_mode = false;
@@ -144,8 +173,8 @@ int openat(int dirfd, const char *pathname, int flags, ...)
         has_mode = true;
     }
 
-    if (SGX_SUCCESS != ocall_openat(&fd, dirfd, pathname, flags,
-                                    has_mode, mode)) {
+    if (SGX_SUCCESS
+        != ocall_openat(&fd, dirfd, pathname, flags, has_mode, mode)) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -158,7 +187,8 @@ int openat(int dirfd, const char *pathname, int flags, ...)
     return fd;
 }
 
-int close(int fd)
+int
+close(int fd)
 {
     int ret;
 
@@ -171,7 +201,8 @@ int close(int fd)
     return ret;
 }
 
-ssize_t read(int fd, void *buf, size_t size)
+ssize_t
+read(int fd, void *buf, size_t size)
 {
     ssize_t ret;
     int size_read_max = 2048, size_read, total_size_read = 0, count, i;
@@ -184,9 +215,7 @@ ssize_t read(int fd, void *buf, size_t size)
 
     count = (size + size_read_max - 1) / size_read_max;
     for (i = 0; i < count; i++) {
-        size_read = (i < count - 1)
-                    ? size_read_max
-                    : size - size_read_max * i;
+        size_read = (i < count - 1) ? size_read_max : size - size_read_max * i;
 
         if (ocall_read(&ret, fd, p, size_read) != SGX_SUCCESS) {
             TRACE_OCALL_FAIL();
@@ -208,7 +237,8 @@ ssize_t read(int fd, void *buf, size_t size)
     return total_size_read;
 }
 
-DIR *fdopendir(int fd)
+DIR *
+fdopendir(int fd)
 {
     DIR *result = NULL;
 
@@ -232,7 +262,8 @@ DIR *fdopendir(int fd)
     return result;
 }
 
-struct dirent *readdir(DIR *dirp)
+struct dirent *
+readdir(DIR *dirp)
 {
     struct dirent *result;
 
@@ -249,21 +280,24 @@ struct dirent *readdir(DIR *dirp)
     return result;
 }
 
-void rewinddir(DIR *dirp)
+void
+rewinddir(DIR *dirp)
 {
     if (ocall_rewinddir((void *)*dirp) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
     }
 }
 
-void seekdir(DIR *dirp, long loc)
+void
+seekdir(DIR *dirp, long loc)
 {
     if (ocall_seekdir((void *)*dirp, loc) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
     }
 }
 
-long telldir(DIR *dirp)
+long
+telldir(DIR *dirp)
 {
     long ret;
 
@@ -276,7 +310,8 @@ long telldir(DIR *dirp)
     return ret;
 }
 
-int closedir(DIR *dirp)
+int
+closedir(DIR *dirp)
 {
     int ret;
 
@@ -291,8 +326,8 @@ int closedir(DIR *dirp)
 }
 
 static ssize_t
-readv_internal(int fd, const struct iovec *iov, int iovcnt,
-               bool has_offset, off_t offset)
+readv_internal(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
+               off_t offset)
 {
     ssize_t ret, size_left;
     struct iovec *iov1;
@@ -317,7 +352,7 @@ readv_internal(int fd, const struct iovec *iov, int iovcnt,
 
     memset(iov1, 0, (uint32)total_size);
 
-    p = (char*)(uintptr_t)(sizeof(struct iovec) * iovcnt);
+    p = (char *)(uintptr_t)(sizeof(struct iovec) * iovcnt);
 
     for (i = 0; i < iovcnt; i++) {
         iov1[i].iov_len = iov[i].iov_len;
@@ -325,8 +360,9 @@ readv_internal(int fd, const struct iovec *iov, int iovcnt,
         p += iov[i].iov_len;
     }
 
-    if (ocall_readv(&ret, fd, (char *)iov1, (uint32)total_size,
-                    iovcnt, has_offset, offset) != SGX_SUCCESS) {
+    if (ocall_readv(&ret, fd, (char *)iov1, (uint32)total_size, iovcnt,
+                    has_offset, offset)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         BH_FREE(iov1);
         return -1;
@@ -343,8 +379,7 @@ readv_internal(int fd, const struct iovec *iov, int iovcnt,
             size_left -= iov[i].iov_len;
         }
         else {
-            memcpy(iov[i].iov_base, (uintptr_t)p + (char *)iov1,
-                   size_left);
+            memcpy(iov[i].iov_base, (uintptr_t)p + (char *)iov1, size_left);
             break;
         }
     }
@@ -356,8 +391,8 @@ readv_internal(int fd, const struct iovec *iov, int iovcnt,
 }
 
 static ssize_t
-writev_internal(int fd, const struct iovec *iov, int iovcnt,
-                bool has_offset, off_t offset)
+writev_internal(int fd, const struct iovec *iov, int iovcnt, bool has_offset,
+                off_t offset)
 {
     ssize_t ret;
     struct iovec *iov1;
@@ -387,13 +422,13 @@ writev_internal(int fd, const struct iovec *iov, int iovcnt,
     for (i = 0; i < iovcnt; i++) {
         iov1[i].iov_len = iov[i].iov_len;
         iov1[i].iov_base = p;
-        memcpy((uintptr_t)p + (char *)iov1, iov[i].iov_base,
-                iov[i].iov_len);
+        memcpy((uintptr_t)p + (char *)iov1, iov[i].iov_base, iov[i].iov_len);
         p += iov[i].iov_len;
     }
 
-    if (ocall_writev(&ret, fd, (char *)iov1, (uint32)total_size,
-                     iovcnt, has_offset, offset) != SGX_SUCCESS) {
+    if (ocall_writev(&ret, fd, (char *)iov1, (uint32)total_size, iovcnt,
+                     has_offset, offset)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         BH_FREE(iov1);
         return -1;
@@ -405,29 +440,32 @@ writev_internal(int fd, const struct iovec *iov, int iovcnt,
     return ret;
 }
 
-ssize_t readv(int fd, const struct iovec *iov, int iovcnt)
+ssize_t
+readv(int fd, const struct iovec *iov, int iovcnt)
 {
     return readv_internal(fd, iov, iovcnt, false, 0);
 }
 
-ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
+ssize_t
+writev(int fd, const struct iovec *iov, int iovcnt)
 {
     return writev_internal(fd, iov, iovcnt, false, 0);
 }
 
-ssize_t preadv(int fd, const struct iovec *iov, int iovcnt,
-               off_t offset)
+ssize_t
+preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
     return readv_internal(fd, iov, iovcnt, true, offset);
 }
 
-ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt,
-                off_t offset)
+ssize_t
+pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
     return writev_internal(fd, iov, iovcnt, true, offset);
 }
 
-off_t lseek(int fd, off_t offset, int whence)
+off_t
+lseek(int fd, off_t offset, int whence)
 {
     off_t ret;
     if (ocall_lseek(&ret, fd, (long)offset, whence) != SGX_SUCCESS) {
@@ -439,7 +477,8 @@ off_t lseek(int fd, off_t offset, int whence)
     return ret;
 }
 
-int ftruncate(int fd, off_t length)
+int
+ftruncate(int fd, off_t length)
 {
     int ret;
 
@@ -452,16 +491,16 @@ int ftruncate(int fd, off_t length)
     return ret;
 }
 
-int stat(const char *pathname, struct stat *statbuf)
+int
+stat(const char *pathname, struct stat *statbuf)
 {
     int ret;
 
     if (statbuf == NULL)
         return -1;
 
-    if (ocall_stat(&ret, pathname,
-                   (void *)statbuf,
-                   sizeof(struct stat)) != SGX_SUCCESS) {
+    if (ocall_stat(&ret, pathname, (void *)statbuf, sizeof(struct stat))
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -471,15 +510,16 @@ int stat(const char *pathname, struct stat *statbuf)
     return ret;
 }
 
-int fstat(int fd, struct stat *statbuf)
+int
+fstat(int fd, struct stat *statbuf)
 {
     int ret;
 
     if (statbuf == NULL)
         return -1;
 
-    if (ocall_fstat(&ret, fd, (void *)statbuf,
-                    sizeof(struct stat)) != SGX_SUCCESS) {
+    if (ocall_fstat(&ret, fd, (void *)statbuf, sizeof(struct stat))
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -489,8 +529,8 @@ int fstat(int fd, struct stat *statbuf)
     return ret;
 }
 
-int fstatat(int dirfd, const char *pathname, struct stat *statbuf,
-            int flags)
+int
+fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags)
 {
     int ret;
 
@@ -498,7 +538,8 @@ int fstatat(int dirfd, const char *pathname, struct stat *statbuf,
         return -1;
 
     if (ocall_fstatat(&ret, dirfd, pathname, (void *)statbuf,
-                      sizeof(struct stat), flags) != SGX_SUCCESS) {
+                      sizeof(struct stat), flags)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -508,7 +549,8 @@ int fstatat(int dirfd, const char *pathname, struct stat *statbuf,
     return ret;
 }
 
-int fsync(int fd)
+int
+fsync(int fd)
 {
     int ret;
 
@@ -521,7 +563,8 @@ int fsync(int fd)
     return ret;
 }
 
-int fdatasync(int fd)
+int
+fdatasync(int fd)
 {
     int ret;
 
@@ -534,7 +577,8 @@ int fdatasync(int fd)
     return ret;
 }
 
-int mkdirat(int dirfd, const char *pathname, mode_t mode)
+int
+mkdirat(int dirfd, const char *pathname, mode_t mode)
 {
     int ret;
 
@@ -548,7 +592,8 @@ int mkdirat(int dirfd, const char *pathname, mode_t mode)
     return ret;
 }
 
-int link(const char *oldpath, const char *newpath)
+int
+link(const char *oldpath, const char *newpath)
 {
     int ret;
 
@@ -562,13 +607,14 @@ int link(const char *oldpath, const char *newpath)
     return ret;
 }
 
-int linkat(int olddirfd, const char *oldpath,
-           int newdirfd, const char *newpath, int flags)
+int
+linkat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath,
+       int flags)
 {
     int ret;
 
-    if (ocall_linkat(&ret, olddirfd, oldpath, newdirfd, newpath,
-                     flags) != SGX_SUCCESS) {
+    if (ocall_linkat(&ret, olddirfd, oldpath, newdirfd, newpath, flags)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -578,7 +624,8 @@ int linkat(int olddirfd, const char *oldpath,
     return ret;
 }
 
-int unlinkat(int dirfd, const char *pathname, int flags)
+int
+unlinkat(int dirfd, const char *pathname, int flags)
 {
     int ret;
 
@@ -592,16 +639,15 @@ int unlinkat(int dirfd, const char *pathname, int flags)
     return ret;
 }
 
-ssize_t readlinkat(int dirfd, const char *pathname,
-                   char *buf, size_t bufsiz)
+ssize_t
+readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz)
 {
     ssize_t ret;
 
     if (buf == NULL)
         return -1;
 
-    if (ocall_readlinkat(&ret, dirfd, pathname, buf,
-                         bufsiz) != SGX_SUCCESS) {
+    if (ocall_readlinkat(&ret, dirfd, pathname, buf, bufsiz) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -611,12 +657,12 @@ ssize_t readlinkat(int dirfd, const char *pathname,
     return ret;
 }
 
-int symlinkat(const char *target, int newdirfd, const char *linkpath)
+int
+symlinkat(const char *target, int newdirfd, const char *linkpath)
 {
     int ret;
 
-    if (ocall_symlinkat(&ret, target,
-                        newdirfd, linkpath) != SGX_SUCCESS) {
+    if (ocall_symlinkat(&ret, target, newdirfd, linkpath) != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -626,13 +672,13 @@ int symlinkat(const char *target, int newdirfd, const char *linkpath)
     return ret;
 }
 
-int renameat(int olddirfd, const char *oldpath,
-             int newdirfd, const char *newpath)
+int
+renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath)
 {
     int ret;
 
-    if (ocall_renameat(&ret, olddirfd, oldpath,
-                       newdirfd, newpath) != SGX_SUCCESS) {
+    if (ocall_renameat(&ret, olddirfd, oldpath, newdirfd, newpath)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -642,7 +688,8 @@ int renameat(int olddirfd, const char *oldpath,
     return ret;
 }
 
-int ioctl(int fd, unsigned long request, ...)
+int
+ioctl(int fd, unsigned long request, ...)
 {
     int ret;
     va_list args;
@@ -651,8 +698,8 @@ int ioctl(int fd, unsigned long request, ...)
         case FIONREAD:
             va_start(args, request);
             int *arg = (int *)va_arg(args, int *);
-            if (ocall_ioctl(&ret, fd, request, arg,
-                            sizeof(*arg)) != SGX_SUCCESS) {
+            if (ocall_ioctl(&ret, fd, request, arg, sizeof(*arg))
+                != SGX_SUCCESS) {
                 TRACE_OCALL_FAIL();
                 va_end(args);
                 return -1;
@@ -670,7 +717,8 @@ int ioctl(int fd, unsigned long request, ...)
     return ret;
 }
 
-int fcntl(int fd, int cmd, ... /* arg */ )
+int
+fcntl(int fd, int cmd, ... /* arg */)
 {
     int ret;
     va_list args;
@@ -707,7 +755,8 @@ int fcntl(int fd, int cmd, ... /* arg */ )
     return ret;
 }
 
-int isatty(int fd)
+int
+isatty(int fd)
 {
     int ret;
 
@@ -720,7 +769,8 @@ int isatty(int fd)
     return ret;
 }
 
-char *realpath(const char *path, char *resolved_path)
+char *
+realpath(const char *path, char *resolved_path)
 {
     int ret;
     char buf[PATH_MAX] = { 0 };
@@ -746,7 +796,8 @@ char *realpath(const char *path, char *resolved_path)
     return resolved_path;
 }
 
-int posix_fallocate(int fd, off_t offset, off_t len)
+int
+posix_fallocate(int fd, off_t offset, off_t len)
 {
     int ret;
 
@@ -758,15 +809,16 @@ int posix_fallocate(int fd, off_t offset, off_t len)
     return ret;
 }
 
-int poll(struct pollfd *fds, nfds_t nfds, int timeout)
+int
+poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
     int ret;
 
     if (fds == NULL)
         return -1;
 
-    if (ocall_poll(&ret, fds, nfds, timeout,
-                   sizeof(*fds) * nfds) != SGX_SUCCESS) {
+    if (ocall_poll(&ret, fds, nfds, timeout, sizeof(*fds) * nfds)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         return -1;
     }
@@ -776,8 +828,8 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
     return ret;
 }
 
-int getopt(int argc, char * const argv[],
-           const char *optstring)
+int
+getopt(int argc, char *const argv[], const char *optstring)
 {
     int ret;
     char **argv1;
@@ -805,8 +857,8 @@ int getopt(int argc, char * const argv[],
         p += ((uintptr_t)strlen(argv[i]) + 1);
     }
 
-    if (ocall_getopt(&ret, argc, (char *)argv1, total_size,
-                     optstring) != SGX_SUCCESS) {
+    if (ocall_getopt(&ret, argc, (char *)argv1, total_size, optstring)
+        != SGX_SUCCESS) {
         TRACE_OCALL_FAIL();
         BH_FREE(argv1);
         return -1;
@@ -818,7 +870,8 @@ int getopt(int argc, char * const argv[],
     return ret;
 }
 
-int sched_yield(void)
+int
+sched_yield(void)
 {
     int ret;
 
@@ -831,33 +884,131 @@ int sched_yield(void)
     return ret;
 }
 
-ssize_t getrandom(void *buf, size_t buflen, unsigned int flags)
+ssize_t
+getrandom(void *buf, size_t buflen, unsigned int flags)
 {
-    ssize_t ret;
+    sgx_status_t ret;
 
-    if (ocall_getrandom(&ret, buf, buflen, flags) != SGX_SUCCESS) {
-        TRACE_OCALL_FAIL();
+    if (!buf || buflen > INT32_MAX || flags != 0) {
+        errno = EINVAL;
         return -1;
     }
-    if (ret == -1)
-        errno = get_errno();
-    return ret;
-}
 
-int getentropy(void *buffer, size_t length)
-{
-    int ret;
-
-    if (ocall_getentropy(&ret, buffer, length) != SGX_SUCCESS) {
-        TRACE_OCALL_FAIL();
+    ret = sgx_read_rand(buf, buflen);
+    if (ret != SGX_SUCCESS) {
+        errno = EFAULT;
         return -1;
     }
-    if (ret == -1)
-        errno = get_errno();
-    return ret;
+
+    return (ssize_t)buflen;
 }
 
-int get_errno(void)
+#define RDRAND_RETRIES 3
+
+static int
+rdrand64_step(uint64 *seed)
+{
+    uint8 ok;
+    __asm__ volatile("rdseed %0; setc %1" : "=r"(*seed), "=qm"(ok));
+    return (int)ok;
+}
+
+static int
+rdrand64_retry(uint64 *rand, uint32 retries)
+{
+    uint32 count = 0;
+
+    while (count++ <= retries) {
+        if (rdrand64_step(rand)) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static uint32
+rdrand_get_bytes(uint8 *dest, uint32 n)
+{
+    uint8 *head_start = dest, *tail_start = NULL;
+    uint64 *block_start;
+    uint32 count, ltail, lhead, lblock;
+    uint64 i, temp_rand;
+
+    /* Get the address of the first 64-bit aligned block in the
+       destination buffer. */
+    if (((uintptr_t)head_start & (uintptr_t)7) == 0) {
+        /* already 8-byte aligned */
+        block_start = (uint64 *)head_start;
+        lhead = 0;
+        lblock = n & ~7;
+    }
+    else {
+        /* next 8-byte aligned */
+        block_start = (uint64 *)(((uintptr_t)head_start + 7) & ~(uintptr_t)7);
+        lhead = (uint32)((uintptr_t)block_start - (uintptr_t)head_start);
+        lblock = (n - lhead) & ~7;
+    }
+
+    /* Compute the number of 64-bit blocks and the remaining number
+       of bytes (the tail) */
+    ltail = n - lblock - lhead;
+    if (ltail > 0) {
+        tail_start = (uint8 *)block_start + lblock;
+    }
+
+    /* Populate the starting, mis-aligned section (the head) */
+    if (lhead > 0) {
+        if (!rdrand64_retry(&temp_rand, RDRAND_RETRIES)) {
+            return 0;
+        }
+        memcpy(head_start, &temp_rand, lhead);
+    }
+
+    /* Populate the central, aligned blocks */
+    count = lblock / 8;
+    for (i = 0; i < count; i++, block_start++) {
+        if (!rdrand64_retry(block_start, RDRAND_RETRIES)) {
+            return i * 8 + lhead;
+        }
+    }
+
+    /* Populate the tail */
+    if (ltail > 0) {
+        if (!rdrand64_retry(&temp_rand, RDRAND_RETRIES)) {
+            return count * 8 + lhead;
+        }
+
+        memcpy(tail_start, &temp_rand, ltail);
+    }
+
+    return n;
+}
+
+int
+getentropy(void *buffer, size_t length)
+{
+    uint32 size;
+
+    if (!buffer || length > INT32_MAX) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (length == 0) {
+        return 0;
+    }
+
+    size = rdrand_get_bytes(buffer, (uint32)length);
+    if (size != length) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    return 0;
+}
+
+int
+get_errno(void)
 {
     int ret;
 
@@ -869,4 +1020,3 @@ int get_errno(void)
 }
 
 #endif
-

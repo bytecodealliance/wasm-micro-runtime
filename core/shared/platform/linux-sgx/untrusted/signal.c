@@ -4,7 +4,8 @@
  */
 #include <signal.h>
 
-int ocall_raise(int sig)
+int
+ocall_raise(int sig)
 {
     return raise(sig);
 }

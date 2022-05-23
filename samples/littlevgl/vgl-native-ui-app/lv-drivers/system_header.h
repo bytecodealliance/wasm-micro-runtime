@@ -5,4 +5,5 @@
 
 #include <stdio.h>
 
-int time_get_ms();
+int
+time_get_ms();

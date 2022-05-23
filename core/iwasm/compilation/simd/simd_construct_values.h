@@ -13,13 +13,11 @@ extern "C" {
 #endif
 
 bool
-aot_compile_simd_v128_const(AOTCompContext *comp_ctx,
-                            AOTFuncContext *func_ctx,
+aot_compile_simd_v128_const(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                             const uint8 *imm_bytes);
 
 bool
-aot_compile_simd_splat(AOTCompContext *comp_ctx,
-                       AOTFuncContext *func_ctx,
+aot_compile_simd_splat(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                        uint8 splat_opcode);
 
 #ifdef __cplusplus

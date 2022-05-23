@@ -39,9 +39,11 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
 
 #define check_call(func, type, expected) \
   { \
-    wasm_val_t results[1]; \
-    wasm_func_call(func, NULL, results); \
-    check(results[0], type, expected); \
+    wasm_val_t vs[1]; \
+    wasm_val_vec_t args = WASM_EMPTY_VEC; \
+    wasm_val_vec_t results = WASM_ARRAY_VEC(vs); \
+    wasm_func_call(func, &args, &results); \
+    check(vs[0], type, expected); \
   }
 
 
@@ -62,13 +64,33 @@ int main(int argc, const char* argv[]) {
     printf("> Error loading module!\n");
     return 1;
   }
-  fseek(file, 0L, SEEK_END);
-  size_t file_size = ftell(file);
-  fseek(file, 0L, SEEK_SET);
+
+  int ret = fseek(file, 0L, SEEK_END);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  long file_size = ftell(file);
+  if (file_size == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  ret = fseek(file, 0L, SEEK_SET);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
   wasm_byte_vec_t binary;
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
+    fclose(file);
     return 1;
   }
   fclose(file);
@@ -114,14 +136,15 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = {
+  wasm_extern_t* externs[] = {
     wasm_global_as_extern(const_f32_import),
     wasm_global_as_extern(const_i64_import),
     wasm_global_as_extern(var_f32_import),
     wasm_global_as_extern(var_i64_import)
   };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -199,14 +222,19 @@ int main(int argc, const char* argv[]) {
   check_call(get_var_i64_export, i64, 38);
 
   // Modify variables through calls and check again.
-  wasm_val_t args73[] = { WASM_F32_VAL(73) };
-  wasm_func_call(set_var_f32_import, args73, NULL);
-  wasm_val_t args74[] = { WASM_I64_VAL(74) };
-  wasm_func_call(set_var_i64_import, args74, NULL);
-  wasm_val_t args77[] = { WASM_F32_VAL(77) };
-  wasm_func_call(set_var_f32_export, args77, NULL);
-  wasm_val_t args78[] = { WASM_I64_VAL(78) };
-  wasm_func_call(set_var_i64_export, args78, NULL);
+  wasm_val_vec_t res = WASM_EMPTY_VEC;
+  wasm_val_t vs73[] = { WASM_F32_VAL(73) };
+  wasm_val_vec_t args73 = WASM_ARRAY_VEC(vs73);
+  wasm_func_call(set_var_f32_import, &args73, &res);
+  wasm_val_t vs74[] = { WASM_I64_VAL(74) };
+  wasm_val_vec_t args74 = WASM_ARRAY_VEC(vs74);
+  wasm_func_call(set_var_i64_import, &args74, &res);
+  wasm_val_t vs77[] = { WASM_F32_VAL(77) };
+  wasm_val_vec_t args77 = WASM_ARRAY_VEC(vs77);
+  wasm_func_call(set_var_f32_export, &args77, &res);
+  wasm_val_t vs78[] = { WASM_I64_VAL(78) };
+  wasm_val_vec_t args78 = WASM_ARRAY_VEC(vs78);
+  wasm_func_call(set_var_i64_export, &args78, &res);
 
   check_global(var_f32_import, f32, 73);
   check_global(var_i64_import, i64, 74);

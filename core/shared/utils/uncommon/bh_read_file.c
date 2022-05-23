@@ -9,7 +9,12 @@
 #endif
 
 #if defined(_WIN32) || defined(_WIN32_)
-char*
+
+#if defined(__MINGW32__) && !defined(_SH_DENYNO)
+#define _SH_DENYNO 0x40
+#endif
+
+char *
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
     char *buffer;
@@ -22,15 +27,13 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
         return NULL;
     }
 
-    if (_sopen_s(&file, filename, _O_RDONLY| _O_BINARY, _SH_DENYNO, 0)) {
-        printf("Read file to buffer failed: open file %s failed.\n",
-               filename);
+    if (_sopen_s(&file, filename, _O_RDONLY | _O_BINARY, _SH_DENYNO, 0)) {
+        printf("Read file to buffer failed: open file %s failed.\n", filename);
         return NULL;
     }
 
     if (fstat(file, &stat_buf) != 0) {
-        printf("Read file to buffer failed: fstat file %s failed.\n",
-               filename);
+        printf("Read file to buffer failed: fstat file %s failed.\n", filename);
         _close(file);
         return NULL;
     }
@@ -61,7 +64,7 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     return buffer;
 }
 #else /* else of defined(_WIN32) || defined(_WIN32_) */
-char*
+char *
 bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
 {
     char *buffer;
@@ -75,14 +78,12 @@ bh_read_file_to_buffer(const char *filename, uint32 *ret_size)
     }
 
     if ((file = open(filename, O_RDONLY, 0)) == -1) {
-        printf("Read file to buffer failed: open file %s failed.\n",
-               filename);
+        printf("Read file to buffer failed: open file %s failed.\n", filename);
         return NULL;
     }
 
     if (fstat(file, &stat_buf) != 0) {
-        printf("Read file to buffer failed: fstat file %s failed.\n",
-               filename);
+        printf("Read file to buffer failed: fstat file %s failed.\n", filename);
         close(file);
         return NULL;
     }

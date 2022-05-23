@@ -10,16 +10,15 @@
 
 #define THROW_EXC(msg) wasm_runtime_set_exception(module_inst, msg);
 
-uint32 wgl_native_wigdet_create(int8 widget_type,
-                                uint32 par_obj_id,
-                                uint32 copy_obj_id,
-                                wasm_module_inst_t module_inst)
+uint32
+wgl_native_wigdet_create(int8 widget_type, uint32 par_obj_id,
+                         uint32 copy_obj_id, wasm_module_inst_t module_inst)
 {
     uint32 obj_id;
     lv_obj_t *wigdet = NULL, *par = NULL, *copy = NULL;
     uint32 mod_id;
 
-    //TODO: limit total widget number
+    // TODO: limit total widget number
 
     /* validate the parent object id if not equal to 0 */
     if (par_obj_id != 0 && !wgl_native_validate_object(par_obj_id, &par)) {
@@ -58,14 +57,11 @@ uint32 wgl_native_wigdet_create(int8 widget_type,
     return 0;
 }
 
-void wgl_native_func_call(wasm_exec_env_t exec_env,
-                          WGLNativeFuncDef *funcs,
-                          uint32 size,
-                          int32 func_id,
-                          uint32 *argv,
-                          uint32 argc)
+void
+wgl_native_func_call(wasm_exec_env_t exec_env, WGLNativeFuncDef *funcs,
+                     uint32 size, int32 func_id, uint32 *argv, uint32 argc)
 {
-    typedef void (*WGLNativeFuncPtr)(wasm_exec_env_t, uint64*, uint32*);
+    typedef void (*WGLNativeFuncPtr)(wasm_exec_env_t, uint64 *, uint32 *);
     WGLNativeFuncPtr wglNativeFuncPtr;
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     WGLNativeFuncDef *func_def = funcs;
@@ -74,12 +70,12 @@ void wgl_native_func_call(wasm_exec_env_t exec_env,
     /* Note: argv is validated in wasm_runtime_invoke_native()
      * with pointer length equals to 1. Here validate the argv
      * buffer again but with its total length in bytes */
-    if (!wasm_runtime_validate_native_addr(module_inst, argv, argc * sizeof(uint32)))
+    if (!wasm_runtime_validate_native_addr(module_inst, argv,
+                                           argc * sizeof(uint32)))
         return;
 
     while (func_def < func_def_end) {
-        if (func_def->func_id == func_id
-            && (uint32)func_def->arg_num == argc) {
+        if (func_def->func_id == func_id && (uint32)func_def->arg_num == argc) {
             uint64 argv_copy_buf[16], size;
             uint64 *argv_copy = argv_copy_buf;
             int i;
@@ -96,7 +92,7 @@ void wgl_native_func_call(wasm_exec_env_t exec_env,
 
             /* Init argv_copy */
             for (i = 0; i < func_def->arg_num; i++)
-                *(uint32*)&argv_copy[i] = argv[i];
+                *(uint32 *)&argv_copy[i] = argv[i];
 
             /* Validate the first argument which is a lvgl object if needed */
             if (func_def->check_obj) {
@@ -128,4 +124,3 @@ void wgl_native_func_call(wasm_exec_env_t exec_env,
 
     THROW_EXC("the native widget function is not found!");
 }
-

@@ -10,7 +10,6 @@
 extern "C" {
 #endif
 
-
 //#include "bi-inc/wgl_shared_utils.h" /* shared types between app and native */
 /*
 #include "lvgl-compatible/lv_types.h"
@@ -20,9 +19,6 @@ extern "C" {
 #include "lvgl-compatible/lv_label.h"
 #include "lvgl-compatible/lv_list.h"
 */
-
-
-
 
 #include "src/lv_version.h"
 

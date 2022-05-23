@@ -13,8 +13,7 @@ bh_platform_init()
 
 void
 bh_platform_destroy()
-{
-}
+{}
 
 int
 os_printf(const char *format, ...)
@@ -42,4 +41,3 @@ os_vprintf(const char *format, va_list ap)
     return BH_VPRINTF(format, ap);
 #endif
 }
-

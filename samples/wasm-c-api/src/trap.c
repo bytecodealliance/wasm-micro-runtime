@@ -9,7 +9,7 @@
 
 // A function to be called from Wasm code.
 own wasm_trap_t* fail_callback(
-  void* env, const wasm_val_t args[], wasm_val_t results[]
+  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n");
   own wasm_name_t message;
@@ -18,6 +18,17 @@ own wasm_trap_t* fail_callback(
   wasm_name_delete(&message);
   return trap;
 }
+
+
+void print_frame(wasm_frame_t* frame) {
+  printf("> %p @ 0x%zx = %"PRIu32".0x%zx\n",
+    wasm_frame_instance(frame),
+    wasm_frame_module_offset(frame),
+    wasm_frame_func_index(frame),
+    wasm_frame_func_offset(frame)
+  );
+}
+
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -36,13 +47,33 @@ int main(int argc, const char* argv[]) {
     printf("> Error loading module!\n");
     return 1;
   }
-  fseek(file, 0L, SEEK_END);
-  size_t file_size = ftell(file);
-  fseek(file, 0L, SEEK_SET);
+
+  int ret = fseek(file, 0L, SEEK_END);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  long file_size = ftell(file);
+  if (file_size == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  ret = fseek(file, 0L, SEEK_SET);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
   wasm_byte_vec_t binary;
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
+    fclose(file);
     return 1;
   }
   fclose(file);
@@ -68,9 +99,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(fail_func) };
+  wasm_extern_t* externs[] = { wasm_func_as_extern(fail_func) };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -92,7 +124,6 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   for (int i = 0; i < 2; ++i) {
-    char buf[32];
     const wasm_func_t* func = wasm_extern_as_func(exports.data[i]);
     if (func == NULL) {
       printf("> Error accessing export!\n");
@@ -100,8 +131,9 @@ int main(int argc, const char* argv[]) {
     }
 
     printf("Calling export %d...\n", i);
-    wasm_val_t results[1]; \
-    own wasm_trap_t* trap = wasm_func_call(func, NULL, results);
+    wasm_val_vec_t args = WASM_EMPTY_VEC;
+    wasm_val_vec_t results = WASM_EMPTY_VEC;
+    own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
     if (!trap) {
       printf("> Error calling function, expected trap!\n");
       return 1;
@@ -110,9 +142,29 @@ int main(int argc, const char* argv[]) {
     printf("Printing message...\n");
     own wasm_name_t message;
     wasm_trap_message(trap, &message);
-    snprintf(buf, sizeof(buf), "> %%.%us\n", (unsigned)message.size);
-    printf(buf, message.data);
+    printf("> %s\n", message.data);
 
+    printf("Printing origin...\n");
+    own wasm_frame_t* frame = wasm_trap_origin(trap);
+    if (frame) {
+      print_frame(frame);
+      wasm_frame_delete(frame);
+    } else {
+      printf("> Empty origin.\n");
+    }
+
+    printf("Printing trace...\n");
+    own wasm_frame_vec_t trace;
+    wasm_trap_trace(trap, &trace);
+    if (trace.size > 0) {
+      for (size_t i = 0; i < trace.size; ++i) {
+        print_frame(trace.data[i]);
+      }
+    } else {
+      printf("> Empty trace.\n");
+    }
+
+    wasm_frame_vec_delete(&trace);
     wasm_trap_delete(trap);
     wasm_name_delete(&message);
   }

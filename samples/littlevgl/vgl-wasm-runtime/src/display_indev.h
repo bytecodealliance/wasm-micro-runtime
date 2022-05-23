@@ -28,18 +28,18 @@ typedef struct {
 
 typedef struct {
     union {
-        lv_point_t point; /*For LV_INDEV_TYPE_POINTER the currently pressed point*/
+        lv_point_t
+            point;    /*For LV_INDEV_TYPE_POINTER the currently pressed point*/
         uint32_t key; /*For LV_INDEV_TYPE_KEYPAD the currently pressed key*/
         uint32_t btn; /*For LV_INDEV_TYPE_BUTTON the currently pressed button*/
-        int16_t enc_diff; /*For LV_INDEV_TYPE_ENCODER number of steps since the previous read*/
+        int16_t enc_diff; /*For LV_INDEV_TYPE_ENCODER number of steps since the
+                             previous read*/
     };
-    void *user_data; /*'lv_indev_drv_t.priv' for this driver*/
+    void *user_data;        /*'lv_indev_drv_t.priv' for this driver*/
     lv_indev_state_t state; /*LV_INDEV_STATE_REL or LV_INDEV_STATE_PR*/
 } lv_indev_data_t;
 
-enum {
-    LV_INDEV_STATE_REL = 0, LV_INDEV_STATE_PR
-};
+enum { LV_INDEV_STATE_REL = 0, LV_INDEV_STATE_PR };
 enum {
     LV_OPA_TRANSP = 0,
     LV_OPA_0 = 0,
@@ -56,35 +56,41 @@ enum {
     LV_OPA_COVER = 255,
 };
 
-extern void xpt2046_init(void);
+extern void
+xpt2046_init(void);
 
-extern bool touchscreen_read(lv_indev_data_t *data);
+extern bool
+touchscreen_read(lv_indev_data_t *data);
 
-extern bool mouse_read(lv_indev_data_t *data);
+extern bool
+mouse_read(lv_indev_data_t *data);
 
-extern void display_init(void);
+extern void
+display_init(void);
 
-extern void display_deinit(wasm_exec_env_t exec_env);
+extern void
+display_deinit(wasm_exec_env_t exec_env);
 
-extern int time_get_ms(wasm_exec_env_t exec_env);
+extern int
+time_get_ms(wasm_exec_env_t exec_env);
 
-extern void display_flush(wasm_exec_env_t exec_env,
-                          int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-                          lv_color_t *color);
+extern void
+display_flush(wasm_exec_env_t exec_env, int32_t x1, int32_t y1, int32_t x2,
+              int32_t y2, lv_color_t *color);
 
-extern void display_fill(wasm_exec_env_t exec_env,
-                         int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-                         lv_color_t *color);
+extern void
+display_fill(wasm_exec_env_t exec_env, int32_t x1, int32_t y1, int32_t x2,
+             int32_t y2, lv_color_t *color);
 
-extern void display_map(wasm_exec_env_t exec_env,
-                        int32_t x1, int32_t y1, int32_t x2, int32_t y2,
-                        const lv_color_t *color);
+extern void
+display_map(wasm_exec_env_t exec_env, int32_t x1, int32_t y1, int32_t x2,
+            int32_t y2, const lv_color_t *color);
 
-extern bool display_input_read(wasm_exec_env_t exec_env, void *data);
+extern bool
+display_input_read(wasm_exec_env_t exec_env, void *data);
 
-void display_vdb_write(wasm_exec_env_t exec_env,
-                       void *buf, lv_coord_t buf_w, lv_coord_t x, lv_coord_t y,
-                       lv_color_t *color, lv_opa_t opa);
+void
+display_vdb_write(wasm_exec_env_t exec_env, void *buf, lv_coord_t buf_w,
+                  lv_coord_t x, lv_coord_t y, lv_color_t *color, lv_opa_t opa);
 
 #endif
-

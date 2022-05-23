@@ -12,12 +12,14 @@
 
 #include "connection_lib.h"
 
+/* clang-format off */
 /*
  * Platform implementation of connection library
  */
 connection_interface_t connection_impl = {
-        ._open = NULL,
-        ._close = NULL,
-        ._send = NULL,
-        ._config = NULL
+    ._open = NULL,
+    ._close = NULL,
+    ._send = NULL,
+    ._config = NULL
 };
+/* clang-format on */

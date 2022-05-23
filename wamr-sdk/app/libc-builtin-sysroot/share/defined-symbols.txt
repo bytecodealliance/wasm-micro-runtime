@@ -26,6 +26,9 @@ wasm_get_sys_tick_ms
 printf
 sprintf
 snprintf
+vprintf
+vsprintf
+vsnprintf
 puts
 putchar
 memcmp

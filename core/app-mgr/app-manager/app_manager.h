@@ -21,10 +21,11 @@ extern "C" {
 /* os_printf is defined in each platform */
 #define app_manager_printf os_printf
 
-#define SEND_ERR_RESPONSE(mid, err_msg) do {                            \
-  app_manager_printf("%s\n", err_msg);                                  \
-  send_error_response_to_host(mid, INTERNAL_SERVER_ERROR_5_00, err_msg);  \
-} while (0)
+#define SEND_ERR_RESPONSE(mid, err_msg)                                        \
+    do {                                                                       \
+        app_manager_printf("%s\n", err_msg);                                   \
+        send_error_response_to_host(mid, INTERNAL_SERVER_ERROR_5_00, err_msg); \
+    } while (0)
 
 extern module_interface *g_module_interfaces[Module_Max];
 
@@ -49,14 +50,15 @@ module_data_list_destroy();
 bool
 app_manager_is_interrupting_module(uint32 module_type, void *module_inst);
 
-void release_module(module_data *m_data);
+void
+release_module(module_data *m_data);
 
 void
 module_data_list_remove(module_data *m_data);
 
-void*
-app_manager_timer_create(void (*timer_callback)(void*),
-        watchdog_timer *wd_timer);
+void *
+app_manager_timer_create(void (*timer_callback)(void *),
+                         watchdog_timer *wd_timer);
 
 void
 app_manager_timer_destroy(void *timer);
@@ -67,18 +69,18 @@ app_manager_timer_start(void *timer, int timeout);
 void
 app_manager_timer_stop(void *timer);
 
-watchdog_timer*
+watchdog_timer *
 app_manager_get_wd_timer_from_timer_handle(void *timer);
 
 int
 app_manager_signature_verify(const uint8_t *file, unsigned int file_len,
-        const uint8_t *signature, unsigned int sig_size);
+                             const uint8_t *signature, unsigned int sig_size);
 
-void targeted_app_request_handler(request_t *request, void *unused);
+void
+targeted_app_request_handler(request_t *request, void *unused);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
 
 #endif
-

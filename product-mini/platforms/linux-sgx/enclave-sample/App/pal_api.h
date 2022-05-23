@@ -20,7 +20,8 @@ extern "C" {
  *
  * @retval If > 0, then success; otherwise, it is an invalid version.
  */
-int wamr_pal_get_version(void);
+int
+wamr_pal_get_version(void);
 
 /*
  * WAMR PAL attributes
@@ -29,19 +30,21 @@ typedef struct wamr_pal_attr {
     // WAMR instance directory.
     //
     // The default value is "."; that is, the current working directory
-    const char     *instance_dir;
+    const char *instance_dir;
     // Log level.
     //
     // Specifies the log verbose level (0 to 5, default is 2)
     // large level with more log
     //
-    const char     *log_level;
+    const char *log_level;
 } wamr_pal_attr_t;
 
+/* clang-format off */
 #define WAMR_PAL_ATTR_INITVAL { \
     .instance_dir = ".",        \
     .log_level = 2              \
 }
+/* clang-format on */
 
 /*
  * The struct which consists of file descriptors of standard I/O
@@ -66,21 +69,23 @@ struct wamr_pal_create_process_args {
 
     // Argments array pass to new process.
     //
-    // The arguments to the command. By convention, the argv[0] should be the program name.
-    // And the last element of the array must be NULL to indicate the length of array.
+    // The arguments to the command. By convention, the argv[0] should be the
+    // program name. And the last element of the array must be NULL to indicate
+    // the length of array.
     //
     // Mandatory field. Must not be NULL.
     const char **argv;
 
     // Untrusted environment variable array pass to new process.
     //
-    // The untrusted env vars to the command. And the last element of the array must be
-    // NULL to indicate the length of array.
+    // The untrusted env vars to the command. And the last element of the array
+    // must be NULL to indicate the length of array.
     //
     // Optional field.
     const char **env;
 
-    // File descriptors of the redirected standard I/O (i.e., stdin, stdout, stderr)
+    // File descriptors of the redirected standard I/O (i.e., stdin, stdout,
+    // stderr)
     //
     // If set to NULL, will use the original standard I/O file descriptors.
     //
@@ -115,32 +120,41 @@ struct wamr_pal_exec_args {
     int *exit_value;
 };
 
-int wamr_pal_init(const struct wamr_pal_attr *args);
+int
+wamr_pal_init(const struct wamr_pal_attr *args);
 
-int wamr_pal_create_process(struct wamr_pal_create_process_args *args);
+int
+wamr_pal_create_process(struct wamr_pal_create_process_args *args);
 
-int wamr_pal_destroy(void);
+int
+wamr_pal_destroy(void);
 
-int wamr_pal_exec(struct wamr_pal_exec_args *args);
+int
+wamr_pal_exec(struct wamr_pal_exec_args *args);
 
-int wamr_pal_kill(int pid, int sig);
+int
+wamr_pal_kill(int pid, int sig);
 
-int pal_get_version(void);
+int
+pal_get_version(void);
 
-int pal_init(const struct wamr_pal_attr *attr);
+int
+pal_init(const struct wamr_pal_attr *attr);
 
-int pal_create_process(struct wamr_pal_create_process_args *args);
+int
+pal_create_process(struct wamr_pal_create_process_args *args);
 
-int pal_exec(struct wamr_pal_exec_args *args);
+int
+pal_exec(struct wamr_pal_exec_args *args);
 
-int pal_kill(int pid, int sig);
+int
+pal_kill(int pid, int sig);
 
-int pal_destroy(void);
-
+int
+pal_destroy(void);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* __WAMR_PAL_API_H__ */
-

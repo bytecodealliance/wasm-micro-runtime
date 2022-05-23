@@ -16,32 +16,36 @@ typedef struct k_timer_watchdog {
     watchdog_timer *wd_timer;
 } k_timer_watchdog;
 
-void*
-app_manager_timer_create(void (*timer_callback)(void*),
-        watchdog_timer *wd_timer)
+void *
+app_manager_timer_create(void (*timer_callback)(void *),
+                         watchdog_timer *wd_timer)
 {
-    struct k_timer_watchdog *timer = APP_MGR_MALLOC(sizeof(struct k_timer_watchdog));
+    struct k_timer_watchdog *timer =
+        APP_MGR_MALLOC(sizeof(struct k_timer_watchdog));
 
     if (timer) {
-        k_timer_init(&timer->timer, (void (*)(struct k_timer*)) timer_callback,
-        NULL);
+        k_timer_init(&timer->timer, (void (*)(struct k_timer *))timer_callback,
+                     NULL);
         timer->wd_timer = wd_timer;
     }
 
     return timer;
 }
 
-void app_manager_timer_destroy(void *timer)
+void
+app_manager_timer_destroy(void *timer)
 {
     APP_MGR_FREE(timer);
 }
 
-void app_manager_timer_start(void *timer, int timeout)
+void
+app_manager_timer_start(void *timer, int timeout)
 {
     k_timer_start(timer, Z_TIMEOUT_MS(timeout), Z_TIMEOUT_MS(0));
 }
 
-void app_manager_timer_stop(void *timer)
+void
+app_manager_timer_stop(void *timer)
 {
     k_timer_stop(timer);
 }
@@ -49,7 +53,7 @@ void app_manager_timer_stop(void *timer)
 watchdog_timer *
 app_manager_get_wd_timer_from_timer_handle(void *timer)
 {
-    return ((k_timer_watchdog*) timer)->wd_timer;
+    return ((k_timer_watchdog *)timer)->wd_timer;
 }
 #if 0
 int app_manager_signature_verify(const uint8_t *file, unsigned int file_len,

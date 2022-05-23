@@ -8,13 +8,11 @@
 
 #include "bh_platform.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <stdbool.h>
-
 
 /* Object native function IDs */
 enum {

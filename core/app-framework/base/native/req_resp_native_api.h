@@ -27,4 +27,3 @@ wasm_sub_event(wasm_exec_env_t exec_env, char *url);
 #endif
 
 #endif /* end of _REQ_RESP_API_H_ */
-

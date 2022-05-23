@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-
 #ifndef _WATCHDOG_H_
 #define _WATCHDOG_H_
 
@@ -25,7 +24,7 @@ watchdog_timer_start(watchdog_timer *wd_timer);
 void
 watchdog_timer_stop(watchdog_timer *wd_timer);
 
-watchdog_timer*
+watchdog_timer *
 app_manager_get_watchdog_timer(void *timer);
 
 bool

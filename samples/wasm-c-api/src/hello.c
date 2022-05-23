@@ -9,7 +9,7 @@
 
 // A function to be called from Wasm code.
 own wasm_trap_t* hello_callback(
-  const wasm_val_t args[], wasm_val_t results[]
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n");
   printf("> Hello World!\n");
@@ -34,13 +34,33 @@ int main(int argc, const char* argv[]) {
     printf("> Error loading module!\n");
     return 1;
   }
-  fseek(file, 0L, SEEK_END);
-  size_t file_size = ftell(file);
-  fseek(file, 0L, SEEK_SET);
+
+  int ret = fseek(file, 0L, SEEK_END);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  long file_size = ftell(file);
+  if (file_size == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
+  ret = fseek(file, 0L, SEEK_SET);
+  if (ret == -1) {
+    printf("> Error loading module!\n");
+    fclose(file);
+    return 1;
+  }
+
   wasm_byte_vec_t binary;
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
+    fclose(file);
     return 1;
   }
   fclose(file);
@@ -55,14 +75,26 @@ int main(int argc, const char* argv[]) {
 
   wasm_byte_vec_delete(&binary);
 
+  // Create external print functions.
+  printf("Creating callback...\n");
+  own wasm_functype_t* hello_type = wasm_functype_new_0_0();
+  own wasm_func_t* hello_func =
+    wasm_func_new(store, hello_type, hello_callback);
+
+  wasm_functype_delete(hello_type);
+
   // Instantiate.
   printf("Instantiating module...\n");
+  wasm_extern_t* externs[] = { wasm_func_as_extern(hello_func) };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, NULL, NULL);
+    wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
   }
+
+  wasm_func_delete(hello_func);
 
   // Extract export.
   printf("Extracting export...\n");
@@ -73,8 +105,23 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
+  const wasm_func_t* run_func = wasm_extern_as_func(exports.data[0]);
+  if (run_func == NULL) {
+    printf("> Error accessing export!\n");
+    return 1;
+  }
+
   wasm_module_delete(module);
   wasm_instance_delete(instance);
+
+  // Call.
+  printf("Calling export...\n");
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  if (wasm_func_call(run_func, &args, &results)) {
+    printf("> Error calling function!\n");
+    return 1;
+  }
 
   wasm_extern_vec_delete(&exports);
 

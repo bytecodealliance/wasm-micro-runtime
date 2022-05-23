@@ -17,13 +17,15 @@ korp_mutex module_data_list_lock;
 /* Module data list */
 module_data *module_data_list;
 
-bool module_data_list_init()
+bool
+module_data_list_init()
 {
     module_data_list = NULL;
     return !os_mutex_init(&module_data_list_lock) ? true : false;
 }
 
-void module_data_list_destroy()
+void
+module_data_list_destroy()
 {
 
     os_mutex_lock(&module_data_list_lock);
@@ -38,7 +40,8 @@ void module_data_list_destroy()
     os_mutex_destroy(&module_data_list_lock);
 }
 
-static void module_data_list_add(module_data *m_data)
+static void
+module_data_list_add(module_data *m_data)
 {
     static uint32 module_id_max = 1;
     os_mutex_lock(&module_data_list_lock);
@@ -49,7 +52,8 @@ static void module_data_list_add(module_data *m_data)
     m_data->id = module_id_max++;
     if (!module_data_list) {
         module_data_list = m_data;
-    } else {
+    }
+    else {
         /* Set as head */
         m_data->next = module_data_list;
         module_data_list = m_data;
@@ -57,7 +61,8 @@ static void module_data_list_add(module_data *m_data)
     os_mutex_unlock(&module_data_list_lock);
 }
 
-void module_data_list_remove(module_data *m_data)
+void
+module_data_list_remove(module_data *m_data)
 {
     os_mutex_lock(&module_data_list_lock);
     if (module_data_list) {
@@ -76,7 +81,7 @@ void module_data_list_remove(module_data *m_data)
     os_mutex_unlock(&module_data_list_lock);
 }
 
-module_data*
+module_data *
 module_data_list_lookup(const char *module_name)
 {
     os_mutex_lock(&module_data_list_lock);
@@ -96,7 +101,7 @@ module_data_list_lookup(const char *module_name)
     return NULL;
 }
 
-module_data*
+module_data *
 module_data_list_lookup_id(unsigned int module_id)
 {
     os_mutex_lock(&module_data_list_lock);
@@ -119,72 +124,78 @@ module_data_list_lookup_id(unsigned int module_id)
 module_data *
 app_manager_get_module_data(uint32 module_type, void *module_inst)
 {
-    if (module_type < Module_Max
-        && g_module_interfaces[module_type]
+    if (module_type < Module_Max && g_module_interfaces[module_type]
         && g_module_interfaces[module_type]->module_get_module_data)
-        return g_module_interfaces[module_type]->module_get_module_data(module_inst);
+        return g_module_interfaces[module_type]->module_get_module_data(
+            module_inst);
     return NULL;
 }
 
-void*
+void *
 app_manager_get_module_queue(uint32 module_type, void *module_inst)
 {
     module_data *m_data = app_manager_get_module_data(module_type, module_inst);
     return m_data ? m_data->queue : NULL;
 }
 
-const char*
+const char *
 app_manager_get_module_name(uint32 module_type, void *module_inst)
 {
     module_data *m_data = app_manager_get_module_data(module_type, module_inst);
     return m_data ? m_data->module_name : NULL;
 }
 
-unsigned int app_manager_get_module_id(uint32 module_type, void *module_inst)
+unsigned int
+app_manager_get_module_id(uint32 module_type, void *module_inst)
 {
     module_data *m_data = app_manager_get_module_data(module_type, module_inst);
     return m_data ? m_data->id : ID_NONE;
 }
 
-void*
+void *
 app_manager_get_module_heap(uint32 module_type, void *module_inst)
 {
     module_data *m_data = app_manager_get_module_data(module_type, module_inst);
     return m_data ? m_data->heap : NULL;
 }
 
-module_data*
+module_data *
 app_manager_lookup_module_data(const char *name)
 {
     return module_data_list_lookup(name);
 }
 
-void app_manager_add_module_data(module_data *m_data)
+void
+app_manager_add_module_data(module_data *m_data)
 {
     module_data_list_add(m_data);
 }
 
-void app_manager_del_module_data(module_data *m_data)
+void
+app_manager_del_module_data(module_data *m_data)
 {
     module_data_list_remove(m_data);
 
     release_module(m_data);
 }
 
-bool app_manager_is_interrupting_module(uint32 module_type, void *module_inst)
+bool
+app_manager_is_interrupting_module(uint32 module_type, void *module_inst)
 {
     module_data *m_data = app_manager_get_module_data(module_type, module_inst);
     return m_data ? m_data->wd_timer.is_interrupting : false;
 }
 
-extern void destroy_module_timer_ctx(unsigned int module_id);
+extern void
+destroy_module_timer_ctx(unsigned int module_id);
 
-void release_module(module_data *m_data)
+void
+release_module(module_data *m_data)
 {
     watchdog_timer_destroy(&m_data->wd_timer);
 
 #ifdef HEAP_ENABLED /* TODO */
-    if(m_data->heap)
+    if (m_data->heap)
         gc_destroy_for_instance(m_data->heap);
 #endif
 
@@ -198,7 +209,8 @@ void release_module(module_data *m_data)
     APP_MGR_FREE(m_data);
 }
 
-uint32 check_modules_timer_expiry()
+uint32
+check_modules_timer_expiry()
 {
     os_mutex_lock(&module_data_list_lock);
     module_data *p = module_data_list;
@@ -216,4 +228,3 @@ uint32 check_modules_timer_expiry()
     os_mutex_unlock(&module_data_list_lock);
     return ms_to_expiry;
 }
-
