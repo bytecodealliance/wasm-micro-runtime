@@ -2273,14 +2273,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(EXT_OP_SET_LOCAL_FAST)
             HANDLE_OP(EXT_OP_TEE_LOCAL_FAST)
             {
+                /* clang-format off */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
                 local_offset = *frame_ip++;
 #else
-        /* clang-format off */
                 local_offset = *frame_ip;
                 frame_ip += 2;
-        /* clang-format on */
 #endif
+                /* clang-format on */
                 *(uint32 *)(frame_lp + local_offset) =
                     GET_OPERAND(uint32, I32, 0);
                 frame_ip += 2;
@@ -2290,14 +2290,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             HANDLE_OP(EXT_OP_SET_LOCAL_FAST_I64)
             HANDLE_OP(EXT_OP_TEE_LOCAL_FAST_I64)
             {
+                /* clang-format off */
 #if WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS != 0
                 local_offset = *frame_ip++;
 #else
-        /* clang-format off */
                 local_offset = *frame_ip;
                 frame_ip += 2;
-        /* clang-format on */
 #endif
+                /* clang-format on */
                 PUT_I64_TO_ADDR((uint32 *)(frame_lp + local_offset),
                                 GET_OPERAND(uint64, I64, 0));
                 frame_ip += 2;
@@ -2311,15 +2311,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
                 addr_ret = GET_OFFSET();
+                /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 frame_lp[addr_ret] = *(uint32 *)global_addr;
 #else
-        if (!wasm_is_type_reftype(global->type))
-            frame_lp[addr_ret] = *(uint32 *)global_addr;
-        else
-            PUT_REF_TO_ADDR(frame_lp + addr_ret,
-                            GET_REF_FROM_ADDR((uint32 *)global_addr));
+                if (!wasm_is_type_reftype(global->type))
+                    frame_lp[addr_ret] = *(uint32 *)global_addr;
+                else
+                    PUT_REF_TO_ADDR(frame_lp + addr_ret,
+                                    GET_REF_FROM_ADDR((uint32 *)global_addr));
 #endif
+                /* clang-format on */
                 HANDLE_OP_END();
             }
 
@@ -2342,15 +2344,17 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 global = globals + global_idx;
                 global_addr = get_global_addr(global_data, global);
                 addr1 = GET_OFFSET();
+                /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 *(int32 *)global_addr = frame_lp[addr1];
 #else
-        if (!wasm_is_type_reftype(global->type))
-            *(int32 *)global_addr = frame_lp[addr1];
-        else
-            PUT_REF_TO_ADDR((uint32 *)global_addr,
-                            GET_REF_FROM_ADDR(frame_lp + addr_ret));
+                if (!wasm_is_type_reftype(global->type))
+                    *(int32 *)global_addr = frame_lp[addr1];
+                else
+                    PUT_REF_TO_ADDR((uint32 *)global_addr,
+                                    GET_REF_FROM_ADDR(frame_lp + addr_ret));
 #endif
+                /* clang-format on */
                 HANDLE_OP_END();
             }
 
