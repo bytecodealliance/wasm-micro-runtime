@@ -215,7 +215,6 @@ get_frame_ref(WASMInterpFrame *frame)
 
     if (!cur_func) {
         /* it's a glue frame created in wasm_interp_call_wasm,
-           set all_cell_num since frame->sp == frame->lp and
            no GC object will be traversed */
         return (uint8 *)frame->lp;
     }
