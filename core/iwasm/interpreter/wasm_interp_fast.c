@@ -9,6 +9,10 @@
 #include "wasm_opcode.h"
 #include "wasm_loader.h"
 #include "../common/wasm_exec_env.h"
+#if WASM_ENABLE_GC != 0
+#include "../common/gc/gc_object.h"
+#include "mem_alloc.h"
+#endif
 #if WASM_ENABLE_SHARED_MEMORY != 0
 #include "../common/wasm_shared_memory.h"
 #endif
@@ -224,33 +228,6 @@ LOAD_PTR(void *addr)
 #endif /* end of WASM_CPU_SUPPORTS_UNALIGNED_ADDR_ACCESS */
 
 #if WASM_ENABLE_GC != 0
-#if 0
-static uint8 *
-get_frame_ref(WASMInterpFrame *frame)
-{
-    WASMFunctionInstance *cur_func = frame->function;
-    uint32 all_cell_num;
-
-    if (!cur_func) {
-        /* it's a glue frame created in wasm_interp_call_wasm,
-           set all_cell_num since frame->sp == frame->lp and
-           no GC object will be traversed */
-        return (uint8 *)frame->lp;
-    }
-    else if (!frame->ip) {
-        /* it's a native method frame created in
-           wasm_interp_call_func_native */
-        all_cell_num =
-            cur_func->param_cell_num > 2 ? cur_func->param_cell_num : 2;
-        return (uint8 *)(frame->lp + all_cell_num);
-    }
-    else {
-        /* it's a wasm bytecode function frame */
-        //return (uint8 *)frame->csp_boundary;
-        return NULL; /* TODO */
-    }
-}
-
 static void
 init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 {
@@ -303,7 +280,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 #endif
 
 #define FRAME_REF_FOR(frame, p) \
-    COMPUTE_FRAME_REF(get_frame_ref(frame), p - frame->lp)
+    COMPUTE_FRAME_REF(frame->frame_ref, p - frame->lp)
 
 #define CLEAR_FRAME_REF_FOR(p, n)               \
     do {                                        \
@@ -312,13 +289,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
         for (ref_i = 0; ref_i < ref_n; ref_i++) \
             ref[ref_i] = 0;                     \
     } while (0)
-#else
-#define CLEAR_FRAME_REF_FOR(p, n) (void)0
 #endif /* end of WASM_ENABLE_GC != 0 */
-#endif
-
-#define SET_FRAME_REF(off) (void)0
-#define CLEAR_FRAME_REF(off) (void)0
 
 #define read_uint32(p) \
     (p += sizeof(uint32), LOAD_U32_WITH_2U16S(p - sizeof(uint32)))
@@ -439,7 +410,7 @@ init_frame_refs(uint8 *frame_ref, uint32 cell_num, WASMFunctionInstance *func)
 #endif
 
 #if WASM_ENABLE_GC != 0
-#define RECOVER_FRAME_REF() (void)0
+#define RECOVER_FRAME_REF() frame_ref = frame->frame_ref
 #else
 #define RECOVER_FRAME_REF() (void)0
 #endif
@@ -964,20 +935,31 @@ wasm_interp_call_func_native(WASMModuleInstance *module_inst,
                              WASMInterpFrame *prev_frame)
 {
     WASMFunctionImport *func_import = cur_func->u.func_import;
-    unsigned local_cell_num = 2;
+    unsigned local_cell_num =
+        cur_func->param_cell_num > 2 ? cur_func->param_cell_num : 2;
+    unsigned all_cell_num;
     WASMInterpFrame *frame;
     uint32 argv_ret[2], cur_func_index;
     void *native_func_pointer = NULL;
     bool ret;
 
-    if (!(frame = ALLOC_FRAME(exec_env,
-                              wasm_interp_interp_frame_size(local_cell_num),
-                              prev_frame)))
+    all_cell_num = local_cell_num;
+#if WASM_ENABLE_GC != 0
+    all_cell_num += (local_cell_num + 3) / 4;
+#endif
+
+    if (!(frame =
+              ALLOC_FRAME(exec_env, wasm_interp_interp_frame_size(all_cell_num),
+                          prev_frame)))
         return;
 
     frame->function = cur_func;
     frame->ip = NULL;
     frame->lp = frame->operand;
+#if WASM_ENABLE_GC != 0
+    frame->frame_ref = (uint8 *)(frame->lp + local_cell_num);
+    init_frame_refs(frame->frame_ref, local_cell_num, cur_func);
+#endif
 
     wasm_exec_env_set_cur_frame(exec_env, frame);
 
@@ -1204,7 +1186,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
 #endif
 #if WASM_ENABLE_GC != 0
-    /*register uint8 *frame_ref = NULL;*/ /* cache of frame->ref */
+    register uint8 *frame_ref = NULL; /* cache of frame->ref */
     int16 opnd_off;
 #endif
     uint8 *frame_ip_end = frame_ip + 1;
@@ -4651,11 +4633,19 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         }
         else {
             WASMFunction *cur_wasm_func = cur_func->u.func;
+            uint64 cell_num_of_local_stack;
 
-            all_cell_num = (uint64)cur_func->param_cell_num
-                           + (uint64)cur_func->local_cell_num
-                           + (uint64)cur_func->const_cell_num
-                           + (uint64)cur_wasm_func->max_stack_cell_num;
+            cell_num_of_local_stack =
+                (uint64)cur_func->param_cell_num
+                + (uint64)cur_func->local_cell_num
+                + (uint64)cur_wasm_func->max_stack_cell_num;
+            all_cell_num =
+                (uint64)cur_func->const_cell_num + cell_num_of_local_stack;
+#if WASM_ENABLE_GC != 0
+            /* area of frame_ref */
+            all_cell_num += (cell_num_of_local_stack + 3) / 4;
+#endif
+
             if (all_cell_num >= UINT32_MAX) {
                 wasm_set_exception(module, "wasm operand stack overflow");
                 goto got_exception;
@@ -4684,6 +4674,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             /* Initialize the local variables */
             memset(frame_lp + cur_func->param_cell_num, 0,
                    (uint32)(cur_func->local_cell_num * 4));
+
+#if WASM_ENABLE_GC != 0
+            frame_ref = frame->frame_ref =
+                (uint8 *)(frame->lp + (uint32)cell_num_of_local_stack);
+            init_frame_refs(frame_ref, (uint32)cell_num_of_local_stack,
+                            cur_func);
+#endif
 
             wasm_exec_env_set_cur_frame(exec_env, (WASMRuntimeFrame *)frame);
         }
@@ -4740,7 +4737,43 @@ wasm_interp_get_handle_table()
 bool
 wasm_interp_traverse_gc_rootset(WASMExecEnv *exec_env, void *heap)
 {
-    return false;
+    WASMInterpFrame *frame;
+    WASMObjectRef gc_obj;
+    WASMFunctionInstance *cur_func;
+    uint8 *frame_ref;
+    uint32 local_cell_num, i;
+
+    frame = wasm_exec_env_get_cur_frame(exec_env);
+    for (; frame; frame = frame->prev_frame) {
+        frame_ref = frame->frame_ref;
+        cur_func = frame->function;
+
+        if (!cur_func)
+            continue;
+
+        local_cell_num = cur_func->param_cell_num;
+        if (frame->ip)
+            local_cell_num +=
+                cur_func->local_cell_num + cur_func->u.func->max_stack_cell_num;
+
+        for (i = 0; i < local_cell_num; i++) {
+            if (frame_ref[i]) {
+                gc_obj = GET_REF_FROM_ADDR(frame->lp + i);
+                if (wasm_obj_is_created_from_heap(gc_obj)) {
+                    if (0
+                        != mem_allocator_add_root((mem_allocator_t)heap,
+                                                  gc_obj)) {
+                        return false;
+                    }
+                }
+#if UINTPTR_MAX == UINT64_MAX
+                bh_assert(frame_ref[i + 1]);
+                i++;
+#endif
+            }
+        }
+    }
+    return true;
 }
 #endif
 
@@ -4786,6 +4819,9 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
     frame->ip = NULL;
     /* There is no local variable. */
     frame->lp = frame->operand + 0;
+#if WASM_ENABLE_GC != 0
+    frame->frame_ref = (uint8 *)frame->lp;
+#endif
     frame->ret_offset = 0;
 
     if ((uint8 *)(outs_area->operand + function->const_cell_num + argc)

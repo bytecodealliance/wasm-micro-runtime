@@ -35,6 +35,9 @@ typedef struct WASMInterpFrame {
        the callee will put return values here continuously */
     uint32 ret_offset;
     uint32 *lp;
+#if WASM_ENABLE_GC != 0
+    uint8 *frame_ref;
+#endif
     uint32 operand[1];
 #else
     /* Operand stack top pointer of the current frame. The bottom of
