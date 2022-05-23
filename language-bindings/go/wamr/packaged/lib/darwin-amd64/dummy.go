@@ -3,4 +3,4 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-package lib
+package darwin_amd64
