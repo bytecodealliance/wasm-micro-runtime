@@ -250,6 +250,7 @@ sched_yield(void);
 
 ssize_t
 getrandom(void *buf, size_t buflen, unsigned int flags);
+
 int
 getentropy(void *buffer, size_t length);
 

@@ -130,6 +130,16 @@ static union {
 
 #define is_little_endian() (__ue.b == 1)
 
+#if !defined(__packed)
+/*
+ * Note: This version check is a bit relaxed.
+ * The __packed__ attribute has been there since gcc 2 era.
+ */
+#if __GNUC__ >= 3
+#define __packed __attribute__((__packed__))
+#endif
+#endif
+
 typedef union {
     struct l32r_le {
         int8 other;
