@@ -116,10 +116,6 @@ int
 ocall_getopt(int *p_ret, int argc, char *argv_buf, unsigned int argv_buf_len,
              const char *optstring);
 int
-ocall_getrandom(ssize_t *p_ret, void *buf, size_t buflen, unsigned int flags);
-int
-ocall_getentropy(int *p_ret, void *buffer, size_t length);
-int
 ocall_sched_yield(int *p_ret);
 
 /** struct iovec **/
@@ -891,29 +887,124 @@ sched_yield(void)
 ssize_t
 getrandom(void *buf, size_t buflen, unsigned int flags)
 {
-    ssize_t ret;
+    sgx_status_t ret;
 
-    if (ocall_getrandom(&ret, buf, buflen, flags) != SGX_SUCCESS) {
-        TRACE_OCALL_FAIL();
+    if (!buf || buflen > INT32_MAX || flags != 0) {
+        errno = EINVAL;
         return -1;
     }
-    if (ret == -1)
-        errno = get_errno();
-    return ret;
+
+    ret = sgx_read_rand(buf, buflen);
+    if (ret != SGX_SUCCESS) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    return (ssize_t)buflen;
+}
+
+#define RDRAND_RETRIES 3
+
+static int
+rdrand64_step(uint64 *seed)
+{
+    uint8 ok;
+    __asm__ volatile("rdseed %0; setc %1" : "=r"(*seed), "=qm"(ok));
+    return (int)ok;
+}
+
+static int
+rdrand64_retry(uint64 *rand, uint32 retries)
+{
+    uint32 count = 0;
+
+    while (count++ <= retries) {
+        if (rdrand64_step(rand)) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static uint32
+rdrand_get_bytes(uint8 *dest, uint32 n)
+{
+    uint8 *head_start = dest, *tail_start = NULL;
+    uint64 *block_start;
+    uint32 count, ltail, lhead, lblock;
+    uint64 i, temp_rand;
+
+    /* Get the address of the first 64-bit aligned block in the
+       destination buffer. */
+    if (((uintptr_t)head_start & (uintptr_t)7) == 0) {
+        /* already 8-byte aligned */
+        block_start = (uint64 *)head_start;
+        lhead = 0;
+        lblock = n & ~7;
+    }
+    else {
+        /* next 8-byte aligned */
+        block_start = (uint64 *)(((uintptr_t)head_start + 7) & ~(uintptr_t)7);
+        lhead = (uint32)((uintptr_t)block_start - (uintptr_t)head_start);
+        lblock = (n - lhead) & ~7;
+    }
+
+    /* Compute the number of 64-bit blocks and the remaining number
+       of bytes (the tail) */
+    ltail = n - lblock - lhead;
+    if (ltail > 0) {
+        tail_start = (uint8 *)block_start + lblock;
+    }
+
+    /* Populate the starting, mis-aligned section (the head) */
+    if (lhead > 0) {
+        if (!rdrand64_retry(&temp_rand, RDRAND_RETRIES)) {
+            return 0;
+        }
+        memcpy(head_start, &temp_rand, lhead);
+    }
+
+    /* Populate the central, aligned blocks */
+    count = lblock / 8;
+    for (i = 0; i < count; i++, block_start++) {
+        if (!rdrand64_retry(block_start, RDRAND_RETRIES)) {
+            return i * 8 + lhead;
+        }
+    }
+
+    /* Populate the tail */
+    if (ltail > 0) {
+        if (!rdrand64_retry(&temp_rand, RDRAND_RETRIES)) {
+            return count * 8 + lhead;
+        }
+
+        memcpy(tail_start, &temp_rand, ltail);
+    }
+
+    return n;
 }
 
 int
 getentropy(void *buffer, size_t length)
 {
-    int ret;
+    uint32 size;
 
-    if (ocall_getentropy(&ret, buffer, length) != SGX_SUCCESS) {
-        TRACE_OCALL_FAIL();
+    if (!buffer || length > INT32_MAX) {
+        errno = EINVAL;
         return -1;
     }
-    if (ret == -1)
-        errno = get_errno();
-    return ret;
+
+    if (length == 0) {
+        return 0;
+    }
+
+    size = rdrand_get_bytes(buffer, (uint32)length);
+    if (size != length) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    return 0;
 }
 
 int
