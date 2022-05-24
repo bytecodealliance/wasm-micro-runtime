@@ -180,8 +180,25 @@ endif
 
 ifeq ($(CONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN),y)
 CFLAGS += -DWASM_ENABLE_LIBC_BUILTIN=1
+CSRCS += libc_builtin_wrapper.c
+VPATH += $(IWASM_ROOT)/libraries/libc-builtin
 else
 CFLAGS += -DWASM_ENABLE_LIBC_BUILTIN=0
+endif
+
+ifeq ($(CONFIG_INTERPRETERS_WAMR_LIBC_WASI),y)
+CFLAGS += -DWASM_ENABLE_LIBC_WASI=1
+CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/src
+CFLAGS += -I$(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/include
+CSRCS += posix_socket.c
+CSRCS += libc_wasi_wrapper.c
+VPATH += $(IWASM_ROOT)/libraries/libc-wasi
+CSRCS += posix.c
+CSRCS += random.c
+CSRCS += str.c
+VPATH += $(IWASM_ROOT)/libraries/libc-wasi/sandboxed-system-primitives/src
+else
+CFLAGS += -DWASM_ENABLE_LIBC_WASI=0
 endif
 
 ifeq ($(CONFIG_INTERPRETERS_WAMR_MULTI_MODULE),y)
@@ -259,7 +276,6 @@ CSRCS += nuttx_platform.c \
          bh_vector.c \
          bh_read_file.c \
          runtime_timer.c \
-         libc_builtin_wrapper.c \
          wasm_application.c \
          wasm_runtime_common.c \
          wasm_native.c \
@@ -278,7 +294,6 @@ VPATH += $(SHARED_ROOT)/utils/uncommon
 VPATH += $(IWASM_ROOT)/common
 VPATH += $(IWASM_ROOT)/interpreter
 VPATH += $(IWASM_ROOT)/libraries
-VPATH += $(IWASM_ROOT)/libraries/libc-builtin
 VPATH += $(IWASM_ROOT)/libraries/lib-pthread
 VPATH += $(IWASM_ROOT)/common/arch
 VPATH += $(IWASM_ROOT)/aot
