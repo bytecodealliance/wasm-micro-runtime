@@ -8,15 +8,21 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <poll.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <math.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mman.h>
 
@@ -49,6 +55,56 @@ typedef pthread_t korp_thread;
 
 /* On NuttX, time_t is uint32_t */
 #define BH_TIME_T_MAX 0xffffffff
+
+/*
+ * NuttX doesn't have O_DIRECTORY or directory open.
+ * REVISIT: maybe this is safer to be disabled at higher level.
+ */
+#if !defined(O_DIRECTORY)
+#define O_DIRECTORY 0
+#endif
+
+#if !defined(O_NOFOLLOW)
+#define O_NOFOLLOW 0
+#endif
+
+/*
+ * NuttX doesn't have openat family.
+ */
+
+/* If AT_FDCWD is provided, maybe we have openat family */
+#if !defined(AT_FDCWD)
+
+int
+openat(int fd, const char *path, int oflags, ...);
+int
+fstatat(int fd, const char *path, struct stat *buf, int flag);
+int
+mkdirat(int fd, const char *path, mode_t mode);
+ssize_t
+readlinkat(int fd, const char *path, char *buf, size_t bufsize);
+int
+linkat(int fd1, const char *path1, int fd2, const char *path2, int flag);
+int
+renameat(int fromfd, const char *from, int tofd, const char *to);
+int
+symlinkat(const char *target, int fd, const char *path);
+int
+unlinkat(int fd, const char *path, int flag);
+int
+utimensat(int fd, const char *path, const struct timespec ts[2], int flag);
+#define AT_SYMLINK_NOFOLLOW 0
+#define AT_SYMLINK_FOLLOW 0
+#define AT_REMOVEDIR 0
+
+#endif /* !defined(AT_FDCWD) */
+
+/*
+ * NuttX doesn't have fdopendir.
+ */
+
+DIR *
+fdopendir(int fd);
 
 #ifdef __cplusplus
 }
