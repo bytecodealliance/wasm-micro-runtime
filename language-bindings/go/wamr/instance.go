@@ -83,15 +83,19 @@ func (self *Instance) CallFunc(funcName string,
         self._exportsCache[funcName] = _func
     }
 
+    Runtime().InitThreadEnv()
+
     var args_C *C.uint32_t
     if (argc > 0) {
         args_C = (*C.uint32_t)(unsafe.Pointer(&args[0]))
     }
     if (!C.wasm_runtime_call_wasm(self._exec_env, _func,
                                   C.uint(argc), args_C)) {
+        Runtime().DestroyThreadEnv()
         return fmt.Errorf("CallFunc error: %s", string(self.GetException()))
     }
 
+    Runtime().DestroyThreadEnv()
     return nil
 }
 
