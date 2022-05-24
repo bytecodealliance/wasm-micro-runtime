@@ -100,9 +100,3 @@ func (self *Instance) GetException() string {
     goStr := C.GoString(cStr)
     return goStr
 }
-
-/*
-TODO:
-module_malloc/free
-wasm_runtime_validate_app_addr/app_addr_to_native
-*/
