@@ -76,6 +76,8 @@
    registers of the same kind (move) or different kinds (convert) */
 INSN(MOV, Reg, 2, 1)
 INSN(PHI, VReg, 1, 1)
+
+/* conversion. will extend or truncate */
 INSN(I32TOI8, Reg, 2, 1)
 INSN(I32TOU8, Reg, 2, 1)
 INSN(I32TOI16, Reg, 2, 1)
@@ -92,9 +94,17 @@ INSN(I64TOF64, Reg, 2, 1)
 INSN(F32TOI32, Reg, 2, 1)
 INSN(F32TOI64, Reg, 2, 1)
 INSN(F32TOF64, Reg, 2, 1)
+INSN(F32TOU32, Reg, 2, 1)
 INSN(F64TOI32, Reg, 2, 1)
 INSN(F64TOI64, Reg, 2, 1)
 INSN(F64TOF32, Reg, 2, 1)
+INSN(F64TOU32, Reg, 2, 1)
+
+/* re-interpreter binary presentation. like *(integer*)&floating_point, and *(floating_point*)&integer */
+INSN(I32CASTF32, Reg, 2, 1)
+INSN(I64CASTF64, Reg, 2, 1)
+INSN(F32CASTI32, Reg, 2, 1)
+INSN(F64CASTI64, Reg, 2, 1)
 
 /* Arithmetic and bitwise instructions: */
 INSN(NEG, Reg, 2, 1)
@@ -115,6 +125,8 @@ INSN(OR, Reg, 3, 1)
 INSN(XOR, Reg, 3, 1)
 INSN(AND, Reg, 3, 1)
 INSN(CMP, Reg, 3, 1)
+INSN(MAX, Reg, 3, 1)
+INSN(MIN, Reg, 3, 1)
 
 /* Select instruction: */
 INSN(SELECTEQ, Reg, 4, 1)

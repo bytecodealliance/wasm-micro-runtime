@@ -1159,24 +1159,76 @@ jit_compile_op_i64_shift(JitCompContext *cc, IntShift shift_op)
 bool
 jit_compile_op_f32_math(JitCompContext *cc, FloatMath math_op)
 {
+    bh_assert(0);
     return false;
 }
 
 bool
 jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 {
+    bh_assert(0);
     return false;
 }
 
 bool
 jit_compile_op_f32_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
 {
+    bh_assert(0);
     return false;
 }
 
 bool
 jit_compile_op_f64_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
 {
+    JitReg lhs, rhs, res;
+
+    POP_F64(rhs);
+    POP_F64(lhs);
+
+    res = jit_cc_new_reg_F64(cc);
+    switch (arith_op) {
+        case FLOAT_ADD:
+        {
+            GEN_INSN(ADD, res, lhs, rhs);
+            break;
+        }
+        case FLOAT_SUB:
+        {
+            GEN_INSN(SUB, res, lhs, rhs);
+            break;
+        }
+        case FLOAT_MUL:
+        {
+            GEN_INSN(MUL, res, lhs, rhs);
+            break;
+        }
+        case FLOAT_DIV:
+        {
+            /*TODO: add divided by zero interception */
+            GEN_INSN(DIV_S, res, lhs, rhs);
+            break;
+        }
+        case FLOAT_MIN:
+        {
+            GEN_INSN(MIN, res, lhs, rhs);
+            break;
+        }
+        case FLOAT_MAX:
+        {
+            GEN_INSN(MAX, res, lhs, rhs);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    PUSH_F64(res);
+
+    return true;
+fail:
     return false;
 }
 
