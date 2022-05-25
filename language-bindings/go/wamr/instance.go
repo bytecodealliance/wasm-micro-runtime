@@ -88,7 +88,7 @@ func NewInstance(module *Module,
         return nil, fmt.Errorf("NewInstance Error: %s", string(errorBytes))
     }
 
-    exec_env := C.wasm_runtime_create_exec_env(instance, C.uint(stackSize));
+    exec_env := C.wasm_runtime_create_exec_env(instance, C.uint(stackSize))
     if (exec_env == nil) {
         C.wasm_runtime_deinstantiate(instance)
         return nil, fmt.Errorf("NewInstance Error: create exec_env failed")
@@ -176,17 +176,21 @@ func (self *Instance) CallFuncV(funcName string,
     result_count := uint32(C.wasm_func_get_result_count(_func, self._instance))
 
     if (num_results < result_count) {
-        str := "CallFunc error: invalid result count %u, " +
-               "must be no smaller than %u"
+        str := "CallFunc error: invalid result count %d, " +
+               "must be no smaller than %d"
         return fmt.Errorf(str, num_results, result_count)
     }
 
     param_types := make([]C.uchar, param_count, param_count)
     result_types := make([]C.uchar, result_count, result_count)
-    C.wasm_func_get_param_types(_func, self._instance,
-                                (*C.uchar)(unsafe.Pointer(&param_types[0])))
-    C.wasm_func_get_result_types(_func, self._instance,
-                                 (*C.uchar)(unsafe.Pointer(&result_types[0])))
+    if (param_count > 0) {
+        C.wasm_func_get_param_types(_func, self._instance,
+                                    (*C.uchar)(unsafe.Pointer(&param_types[0])))
+    }
+    if (result_count > 0) {
+        C.wasm_func_get_result_types(_func, self._instance,
+                                     (*C.uchar)(unsafe.Pointer(&result_types[0])))
+    }
 
     argv_size := param_count * 2
     if (result_count > param_count) {
@@ -196,12 +200,15 @@ func (self *Instance) CallFuncV(funcName string,
 
     var i, argc uint32
     for _, arg := range args {
+        if (i >= param_count) {
+            break;
+        }
         switch arg.(type) {
             case int32:
                 if (param_types[i] != C.WASM_I32 &&
                     param_types[i] != C.WASM_FUNCREF &&
                     param_types[i] != C.WASM_ANYREF) {
-                    str := "CallFunc error: invalid param type %u, " +
+                    str := "CallFunc error: invalid param type %d, " +
                            "expect i32 but got other"
                     return fmt.Errorf(str, param_types[i])
                 }
@@ -210,7 +217,7 @@ func (self *Instance) CallFuncV(funcName string,
                 break
             case int64:
                 if (param_types[i] != C.WASM_I64) {
-                    str := "CallFunc error: invalid param type %u, " +
+                    str := "CallFunc error: invalid param type %d, " +
                            "expect i64 but got other"
                     return fmt.Errorf(str, param_types[i])
                 }
@@ -220,16 +227,16 @@ func (self *Instance) CallFuncV(funcName string,
                 break
             case float32:
                 if (param_types[i] != C.WASM_F32) {
-                    str := "CallFunc error: invalid param type %u, " +
+                    str := "CallFunc error: invalid param type %d, " +
                            "expect f32 but got other"
                     return fmt.Errorf(str, param_types[i])
                 }
                 *(*C.float)(unsafe.Pointer(&argv[argc])) = (C.float)(arg.(float32))
                 argc++
-                break;
+                break
             case float64:
                 if (param_types[i] != C.WASM_F64) {
-                    str := "CallFunc error: invalid param type %u, " +
+                    str := "CallFunc error: invalid param type %d, " +
                            "expect f64 but got other"
                     return fmt.Errorf(str, param_types[i])
                 }
@@ -238,10 +245,16 @@ func (self *Instance) CallFuncV(funcName string,
                 argc += 2
                 break
             default:
-                return fmt.Errorf("CallFunc error: unknown param type %u",
+                return fmt.Errorf("CallFunc error: unknown param type %d",
                                   param_types[i])
         }
         i++
+    }
+
+    if (i < param_count) {
+        str := "CallFunc error: invalid param count, " +
+               "must be no smaller than %d"
+        return fmt.Errorf(str, param_count)
     }
 
     err := self.CallFunc(funcName, argc, argv)
@@ -250,8 +263,31 @@ func (self *Instance) CallFuncV(funcName string,
     }
 
     argc = 0
-    for i = 0; i < num_results; i++ {
-        /* TODO: get the results */
+    for i = 0; i < result_count; i++ {
+        switch result_types[i] {
+            case C.WASM_I32:
+            case C.WASM_FUNCREF:
+            case C.WASM_ANYREF:
+                i32 := (int32)(argv[argc])
+                results[i] = i32
+                argc++
+                break
+            case C.WASM_I64:
+                addr := (*C.uint32_t)(unsafe.Pointer(&argv[argc]))
+                results[i] = (int64)(C.GET_I64_FROM_ADDR(addr))
+                argc += 2
+                break
+            case C.WASM_F32:
+                addr := (*C.float)(unsafe.Pointer(&argv[argc]))
+                results[i] = (float32)(*addr)
+                argc++
+                break
+            case C.WASM_F64:
+                addr := (*C.uint32_t)(unsafe.Pointer(&argv[argc]))
+                results[i] = (float64)(C.GET_F64_FROM_ADDR(addr))
+                argc += 2
+                break
+        }
     }
 
     return nil

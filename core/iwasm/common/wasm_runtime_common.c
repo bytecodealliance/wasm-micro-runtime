@@ -983,8 +983,11 @@ wasm_runtime_destroy_thread_env(void)
 bool
 wasm_runtime_thread_env_inited(void)
 {
+#ifdef BH_PLATFORM_WINDOWS
     if (!os_thread_env_inited())
         return false;
+#endif
+
 #if WASM_ENABLE_AOT != 0
 #ifdef OS_ENABLE_HW_BOUND_CHECK
     if (!os_thread_signal_inited())
