@@ -113,3 +113,10 @@ func (self *_Runtime) InitThreadEnv() bool {
 func (self *_Runtime) DestroyThreadEnv() {
     C.wasm_runtime_destroy_thread_env();
 }
+
+func (self *_Runtime) ThreadEnvInited() bool {
+    if (!C.wasm_runtime_thread_env_inited()) {
+        return false
+    }
+    return true
+}

@@ -49,39 +49,45 @@ var wasmBytes = []byte {
     0x20, 0x62, 0x75, 0x66, 0x20, 0x66, 0x61, 0x69, 0x6C, 0x65, 0x64, 0x00 }
 
 func main() {
-    err := wamr.Runtime().FullInit(false, nil, 1)
+    var module *wamr.Module
+    var instance *wamr.Instance
+    var argv []uint32
+    var results []interface{}
+    var err error
+
+    err = wamr.Runtime().FullInit(false, nil, 1)
     if err != nil {
         return
     }
 
     wamr.Runtime().SetLogLevel(wamr.LOG_LEVEL_FATAL)
 
-    module, err1 := wamr.NewModule(wasmBytes)
-    if err1 != nil {
-        fmt.Println(err1)
-        wamr.Runtime().Destroy()
-        return
+    module, err = wamr.NewModule(wasmBytes)
+    if err != nil {
+        fmt.Println(err)
+        goto fail
     }
 
-    instance, err2 := wamr.NewInstance(module, 16384, 16384)
-    if err2 != nil {
-        fmt.Println(err2)
-        module.Destroy()
-        wamr.Runtime().Destroy()
-        return
+    instance, err = wamr.NewInstance(module, 16384, 16384)
+    if err != nil {
+        fmt.Println(err)
+        goto fail
     }
 
-    argv := make([]uint32, 2)
-    err3 := instance.CallFunc("main", 2, argv)
-    if err3 != nil {
-        fmt.Println(err3)
-        module.Destroy()
-        wamr.Runtime().Destroy()
-        return
+    argv = make([]uint32, 2)
+    err = instance.CallFunc("main", 2, argv)
+    if err != nil {
+        fmt.Println(err)
+        goto fail
     }
 
-    instance.Destroy()
-    module.Destroy()
+    results = make([]interface{}, 2, 2)
+    err = instance.CallFuncV("main", 2, results, (int32)(0), (int32)(0))
+    if err != nil {
+        fmt.Println(err)
+        goto fail
+    }
+
+fail:
     wamr.Runtime().Destroy()
-    return
 }
