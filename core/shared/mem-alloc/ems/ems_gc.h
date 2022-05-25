@@ -202,10 +202,10 @@ gc_free_vo_internal(void *heap, gc_object_t obj, const char *file, int line);
 
 #if WASM_ENABLE_GC != 0
 gc_object_t
-gc_alloc_wo(void *heap, gc_size_t size);
+gc_alloc_wo_internal(void *heap, gc_size_t size, const char *file, int line);
 
 void
-gc_free_wo(void *vheap, void *ptr);
+gc_free_wo_internal(void *vheap, void *ptr, const char *file, int line);
 #endif
 
 /* clang-format off */
