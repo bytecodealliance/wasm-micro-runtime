@@ -302,8 +302,7 @@ os_thread_env_init()
 
 void
 os_thread_env_destroy()
-{
-}
+{}
 
 bool
 os_thread_env_inited()
