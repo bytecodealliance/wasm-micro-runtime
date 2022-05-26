@@ -261,10 +261,10 @@ jit_compile_op_i64_load(JitCompContext *cc, uint32 align, uint32 offset,
         case 4:
         {
             if (sign) {
-                GEN_INSN(LDI16, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDI32, value, maddr, NEW_CONST(I32, 0));
             }
             else {
-                GEN_INSN(LDU16, value, maddr, NEW_CONST(I32, 0));
+                GEN_INSN(LDU32, value, maddr, NEW_CONST(I32, 0));
             }
             break;
         }
@@ -387,6 +387,10 @@ jit_compile_op_i64_store(JitCompContext *cc, uint32 align, uint32 offset,
     maddr = check_and_seek(cc, addr, offset, bytes);
     if (!maddr) {
         goto fail;
+    }
+
+    if (jit_reg_is_const(value) && bytes < 8) {
+        value = NEW_CONST(I32, (int32)jit_cc_get_const_I64(cc, value));
     }
 
     switch (bytes) {

@@ -91,40 +91,143 @@
         PUSH_FLOAT(res);                     \
     } while (0)
 
+static inline uint32
+clz32(uint32 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 32;
+    while (!(type & 0x80000000)) {
+        num++;
+        type <<= 1;
+    }
+    return num;
+}
+
+static inline uint32
+clz64(uint64 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 64;
+    while (!(type & 0x8000000000000000LL)) {
+        num++;
+        type <<= 1;
+    }
+    return num;
+}
+
+static uint32
+ctz32(uint32 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 32;
+    while (!(type & 1)) {
+        num++;
+        type >>= 1;
+    }
+    return num;
+}
+
+static uint32
+ctz64(uint64 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 64;
+    while (!(type & 1)) {
+        num++;
+        type >>= 1;
+    }
+    return num;
+}
+
+static uint32
+popcnt32(uint32 u)
+{
+    uint32 ret = 0;
+    while (u) {
+        u = (u & (u - 1));
+        ret++;
+    }
+    return ret;
+}
+
+static uint32
+popcnt64(uint64 u)
+{
+    uint32 ret = 0;
+    while (u) {
+        u = (u & (u - 1));
+        ret++;
+    }
+    return ret;
+}
+
+static bool
+compile_int_bit_count(JitCompContext *cc, void *func, bool is_i32)
+{
+    JitReg value, res;
+    JitInsn *insn;
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    res = jit_codegen_get_hreg_by_name("eax");
+#else
+    res = jit_cc_new_reg_I32(cc);
+#endif
+
+    if (is_i32)
+        POP_I32(value);
+    else
+        POP_I64(value);
+
+    insn = GEN_INSN(CALLNATIVE, res, NEW_CONST(PTR, (uintptr_t)func), 1);
+    if (!insn) {
+        goto fail;
+    }
+    *(jit_insn_opndv(insn, 2)) = value;
+
+    PUSH_I32(res);
+    return true;
+fail:
+    return false;
+}
+
 bool
 jit_compile_op_i32_clz(JitCompContext *cc)
 {
-    return false;
+    return compile_int_bit_count(cc, (void *)clz32, true);
 }
 
 bool
 jit_compile_op_i32_ctz(JitCompContext *cc)
 {
-    return false;
+    return compile_int_bit_count(cc, (void *)ctz32, true);
 }
 
 bool
 jit_compile_op_i32_popcnt(JitCompContext *cc)
 {
-    return false;
+    return compile_int_bit_count(cc, (void *)popcnt32, true);
 }
 
 bool
 jit_compile_op_i64_clz(JitCompContext *cc)
 {
-    return false;
+    return compile_int_bit_count(cc, (void *)clz64, false);
 }
 
 bool
 jit_compile_op_i64_ctz(JitCompContext *cc)
 {
-    return false;
+    return compile_int_bit_count(cc, (void *)ctz64, false);
 }
 
 bool
 jit_compile_op_i64_popcnt(JitCompContext *cc)
 {
-    return false;
+    return compile_int_bit_count(cc, (void *)popcnt64, false);
 }
 
 #define IS_CONST_ALL_ONE(val, is_i32)                    \

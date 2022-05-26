@@ -2339,8 +2339,16 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.inc(regs_i64[reg_no_dst]);
             else if (data == -1)
                 a.dec(regs_i64[reg_no_dst]);
-            else if (data != 0)
-                a.add(regs_i64[reg_no_dst], imm);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.add(regs_i64[reg_no_dst], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.add(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case SUB:
             mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
@@ -2348,8 +2356,16 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.inc(regs_i64[reg_no_dst]);
             else if (data == 1)
                 a.dec(regs_i64[reg_no_dst]);
-            else if (data != 0)
-                a.sub(regs_i64[reg_no_dst], imm);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.sub(regs_i64[reg_no_dst], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.sub(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case MUL:
             if (data == 0)
@@ -3697,44 +3713,6 @@ fail:
 }
 
 /**
- * Encode int32 cmp operation of reg and data, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no_src the no of src register, as first operand
- * @param data the immediate data, as the second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_imm_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src, int32 data)
-{
-    Imm imm(data);
-    a.cmp(regs_i32[reg_no_src], imm);
-    return true;
-}
-
-/**
- * Encode int32 cmp operation of reg and reg, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no1_src the no of src register, as first operand
- * @param reg_no2_src the no of src register, as second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
-            int32 reg_no2_src)
-{
-    a.cmp(regs_i32[reg_no1_src], regs_i32[reg_no2_src]);
-    return true;
-}
-
-/**
  * Encode int32 cmp operation of imm and imm, and save result to reg
  *
  * @param a the assembler to emit the code
@@ -3817,44 +3795,6 @@ cmp_r_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 }
 
 /**
- * Encode int64 cmp operation of reg and data, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no_src the no of src register, as first operand
- * @param data the immediate data, as the second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_imm_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src, int64 data)
-{
-    Imm imm(data);
-    a.cmp(regs_i64[reg_no_src], imm);
-    return true;
-}
-
-/**
- * Encode int64 cmp operation of reg and reg, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no1_src the no of src register, as first operand
- * @param reg_no2_src the no of src register, as second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
-            int32 reg_no2_src)
-{
-    a.cmp(regs_i64[reg_no1_src], regs_i64[reg_no2_src]);
-    return true;
-}
-
-/**
  * Encode int64 cmp operation of imm and imm, and save result to reg
  *
  * @param a the assembler to emit the code
@@ -3913,7 +3853,15 @@ cmp_r_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                    int64 data2_src)
 {
     Imm imm(data2_src);
-    a.cmp(regs_i64[reg_no1_src], imm);
+
+    if (data2_src >= INT32_MIN && data2_src <= INT32_MAX) {
+        imm.setValue((int32)data2_src);
+        a.cmp(regs_i64[reg_no1_src], imm);
+    }
+    else {
+        a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+        a.cmp(regs_i64[reg_no1_src], regs_i64[REG_I64_FREE_IDX]);
+    }
     return true;
 }
 
