@@ -40,13 +40,13 @@ import (
     "unsafe"
 )
 
-type LogLevel int
+type LogLevel uint32
 const (
-    LOG_LEVEL_FATAL LogLevel = 0
-    LOG_LEVEL_ERROR
-    LOG_LEVEL_WARNING
-    LOG_LEVEL_DEBUG
-    LOG_LEVEL_VERBOSE
+    LOG_LEVEL_FATAL   LogLevel = 0
+    LOG_LEVEL_ERROR   LogLevel = 1
+    LOG_LEVEL_WARNING LogLevel = 2
+    LOG_LEVEL_DEBUG   LogLevel = 3
+    LOG_LEVEL_VERBOSE LogLevel = 4
 )
 
 type _Runtime struct {

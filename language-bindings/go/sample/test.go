@@ -7,9 +7,7 @@ package main
 
 import (
     "gitlab.alipay-inc.com/TNT_Runtime/ant-runtime/bindings/go/wamr"
-    //"io/ioutil"
     "fmt"
-    //"os"
 )
 
 var wasmBytes = []byte {
@@ -95,7 +93,7 @@ func main() {
         return
     }
 
-    wamr.Runtime().SetLogLevel(wamr.LOG_LEVEL_FATAL)
+    wamr.Runtime().SetLogLevel(wamr.LOG_LEVEL_WARNING)
 
     fmt.Print("Load wasm module\n");
     module, err = wamr.NewModule(wasmBytes)
