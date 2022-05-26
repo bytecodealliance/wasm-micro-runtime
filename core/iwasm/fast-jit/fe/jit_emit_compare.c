@@ -188,41 +188,41 @@ jit_compile_op_f32_compare(JitCompContext *cc, FloatCond cond)
         const_one = NEW_CONST(I32, 1);
 
         switch (cond) {
-           case FLOAT_EQ:
-           {
-               res = (lvalue == rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_NE:
-           {
-               res = (lvalue != rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_LT:
-           {
-               res = (lvalue < rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_GT:
-           {
-               res = (lvalue > rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_LE:
-           {
-               res = (lvalue <= rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_GE:
-           {
-               res = (lvalue >= rvalue) ? const_one : const_zero;
-               break;
-           }
-           default:
-           {
-               bh_assert(!"unknown FloatCond");
-               goto fail;
-           }
+            case FLOAT_EQ:
+            {
+                res = (lvalue == rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_NE:
+            {
+                res = (lvalue != rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LT:
+            {
+                res = (lvalue < rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GT:
+            {
+                res = (lvalue > rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LE:
+            {
+                res = (lvalue <= rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GE:
+            {
+                res = (lvalue >= rvalue) ? const_one : const_zero;
+                break;
+            }
+            default:
+            {
+                bh_assert(!"unknown FloatCond");
+                goto fail;
+            }
         }
 
         PUSH_I32(res);
@@ -251,41 +251,41 @@ jit_compile_op_f64_compare(JitCompContext *cc, FloatCond cond)
         const_one = NEW_CONST(I32, 1);
 
         switch (cond) {
-           case FLOAT_EQ:
-           {
-               res = (lvalue == rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_NE:
-           {
-               res = (lvalue != rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_LT:
-           {
-               res = (lvalue < rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_GT:
-           {
-               res = (lvalue > rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_LE:
-           {
-               res = (lvalue <= rvalue) ? const_one : const_zero;
-               break;
-           }
-           case FLOAT_GE:
-           {
-               res = (lvalue >= rvalue) ? const_one : const_zero;
-               break;
-           }
-           default:
-           {
-               bh_assert(!"unknown FloatCond");
-               goto fail;
-           }
+            case FLOAT_EQ:
+            {
+                res = (lvalue == rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_NE:
+            {
+                res = (lvalue != rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LT:
+            {
+                res = (lvalue < rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GT:
+            {
+                res = (lvalue > rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LE:
+            {
+                res = (lvalue <= rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GE:
+            {
+                res = (lvalue >= rvalue) ? const_one : const_zero;
+                break;
+            }
+            default:
+            {
+                bh_assert(!"unknown FloatCond");
+                goto fail;
+            }
         }
 
         PUSH_I32(res);
