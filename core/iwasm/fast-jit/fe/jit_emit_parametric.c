@@ -30,7 +30,7 @@ pop_value_from_wasm_stack(JitCompContext *cc, bool is_32bit, JitReg *p_value,
         *p_type = jit_value->type;
     }
     if (p_value != NULL) {
-        *p_value = jit_value->value;
+        *p_value = jit_value->value->reg;
     }
 
     wasm_runtime_free(jit_value);

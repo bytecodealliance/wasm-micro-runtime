@@ -104,7 +104,7 @@ clz32(uint32 type)
     return num;
 }
 
-static inline uint32
+static inline uint64
 clz64(uint64 type)
 {
     uint32 num = 0;
@@ -130,7 +130,7 @@ ctz32(uint32 type)
     return num;
 }
 
-static uint32
+static uint64
 ctz64(uint64 type)
 {
     uint32 num = 0;
@@ -154,7 +154,7 @@ popcnt32(uint32 u)
     return ret;
 }
 
-static uint32
+static uint64
 popcnt64(uint64 u)
 {
     uint32 ret = 0;
@@ -172,9 +172,16 @@ compile_int_bit_count(JitCompContext *cc, void *func, bool is_i32)
     JitInsn *insn;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    res = jit_codegen_get_hreg_by_name("eax");
+    if (is_i32)
+        res = jit_codegen_get_hreg_by_name("eax");
+    else
+        res = jit_codegen_get_hreg_by_name("rax");
+    GEN_INSN(MOV, res, res);
 #else
-    res = jit_cc_new_reg_I32(cc);
+    if (is_i32)
+        res = jit_cc_new_reg_I32(cc);
+    else
+        res = jit_cc_new_reg_I64(cc);
 #endif
 
     if (is_i32)
@@ -188,7 +195,15 @@ compile_int_bit_count(JitCompContext *cc, void *func, bool is_i32)
     }
     *(jit_insn_opndv(insn, 2)) = value;
 
-    PUSH_I32(res);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    if (!is_i32)
+        GEN_INSN(MOV, res, res);
+#endif
+
+    if (is_i32)
+        PUSH_I32(res);
+    else
+        PUSH_I64(res);
     return true;
 fail:
     return false;

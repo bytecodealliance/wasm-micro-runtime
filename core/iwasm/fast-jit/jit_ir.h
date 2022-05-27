@@ -855,6 +855,7 @@ typedef struct JitHardRegInfo {
 
 struct JitBlock;
 struct JitCompContext;
+struct JitValueSlot;
 
 /**
  * Value in the WASM operation stack, each stack element
@@ -863,7 +864,7 @@ struct JitCompContext;
 typedef struct JitValue {
     struct JitValue *next;
     struct JitValue *prev;
-    JitReg value;
+    struct JitValueSlot *value;
     /* VALUE_TYPE_I32/I64/F32/F64/VOID */
     uint8 type;
 } JitValue;

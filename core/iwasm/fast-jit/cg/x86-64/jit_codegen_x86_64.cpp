@@ -5099,6 +5099,8 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     if (ret_reg) {
         bh_assert((jit_reg_kind(ret_reg) == JIT_REG_KIND_I32
                    && jit_reg_no(ret_reg) == REG_EAX_IDX)
+                  || (jit_reg_kind(ret_reg) == JIT_REG_KIND_I64
+                      && jit_reg_no(ret_reg) == REG_RAX_IDX)
                   || (jit_reg_kind(ret_reg) == JIT_REG_KIND_F32
                       || jit_reg_kind(ret_reg) == JIT_REG_KIND_F64
                              && jit_reg_no(ret_reg) == 0));
