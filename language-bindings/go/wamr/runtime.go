@@ -49,12 +49,19 @@ const (
     LOG_LEVEL_VERBOSE LogLevel = 4
 )
 
+type NativeSymbol struct {
+    symbol string
+    func_ptr *uint8
+    signature string
+}
+
 type _Runtime struct {
     initialized bool
 }
 
 var _runtime_singleton *_Runtime
 
+/* Return the runtime singleton */
 func Runtime() *_Runtime {
     if (_runtime_singleton == nil) {
         self := &_Runtime{}
@@ -63,6 +70,7 @@ func Runtime() *_Runtime {
     return _runtime_singleton;
 }
 
+/* Initialize the WASM runtime environment */
 func (self *_Runtime) FullInit(alloc_with_pool bool, heap_buf []byte,
                                max_thread_num uint) error {
     var heap_buf_C *C.uchar
@@ -88,10 +96,12 @@ func (self *_Runtime) FullInit(alloc_with_pool bool, heap_buf []byte,
     return nil
 }
 
+/* Initialize the WASM runtime environment */
 func (self *_Runtime) Init() error {
-    return self.FullInit(false, nil, 4)
+    return self.FullInit(false, nil, 1)
 }
 
+/* Destroy the WASM runtime environment */
 func (self *_Runtime) Destroy() {
     if (self.initialized) {
         C.wasm_runtime_destroy()
@@ -99,8 +109,14 @@ func (self *_Runtime) Destroy() {
     }
 }
 
+/* Set log verbose level (0 to 5, default is 2),
+   larger level with more log */
 func (self *_Runtime) SetLogLevel(level LogLevel) {
     C.bh_log_set_verbose_level(C.uint32_t(level))
+}
+
+func (self *_Runtime) RegisterNatives(moduleName string,
+                                      nativeSymbols []NativeSymbol) {
 }
 
 func (self *_Runtime) InitThreadEnv() bool {
@@ -119,4 +135,15 @@ func (self *_Runtime) ThreadEnvInited() bool {
         return false
     }
     return true
+}
+
+/* Allocate memory from runtime memory environment */
+func (self *_Runtime) Malloc(size uint32) *uint8 {
+    ptr := C.wasm_runtime_malloc((C.uint32_t)(size))
+    return (*uint8)(ptr)
+}
+
+/* Free memory to runtime memory environment */
+func (self *_Runtime) Free(ptr *uint8) {
+    C.wasm_runtime_free((unsafe.Pointer)(ptr))
 }

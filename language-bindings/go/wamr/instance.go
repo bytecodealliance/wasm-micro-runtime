@@ -72,6 +72,7 @@ type Instance struct {
     _exportsCache map[string]C.wasm_function_inst_t
 }
 
+/* Create instance from the module */
 func NewInstance(module *Module,
                  stackSize uint, heapSize uint) (*Instance, error) {
     if (module == nil) {
@@ -108,6 +109,7 @@ func NewInstance(module *Module,
     return self, nil
 }
 
+/* Destroy the instance */
 func (self *Instance) Destroy() {
     runtime.SetFinalizer(self, nil)
     if (self._instance != nil) {
@@ -118,6 +120,8 @@ func (self *Instance) Destroy() {
     }
 }
 
+/* Call the wasm function with argument in the uint32 array, and store
+   the return values back into the array */
 func (self *Instance) CallFunc(funcName string,
                                argc uint32, args []uint32) error {
     _func := self._exportsCache[funcName]
@@ -156,6 +160,8 @@ func (self *Instance) CallFunc(funcName string,
     return nil
 }
 
+/* Call the wasm function with variant arguments, and store the return
+   values back into the results array */
 func (self *Instance) CallFuncV(funcName string,
                                 num_results uint32, results []interface{},
                                 args ... interface{}) error {
@@ -293,8 +299,87 @@ func (self *Instance) CallFuncV(funcName string,
     return nil
 }
 
+/* Get exception info of the instance */
 func (self *Instance) GetException() string {
     cStr := C.wasm_runtime_get_exception(self._instance)
     goStr := C.GoString(cStr)
     return goStr
+}
+
+/* Allocate memory from the heap of the instance */
+func (self Instance) ModuleMalloc(size uint32) (uint32, *uint8) {
+    var offset C.uint32_t
+    native_addrs := make([]*uint8, 1, 1)
+    ptr := unsafe.Pointer(&native_addrs[0])
+    offset = C.wasm_runtime_module_malloc(self._instance, (C.uint32_t)(size),
+                                          (*unsafe.Pointer)(ptr))
+    return (uint32)(offset), native_addrs[0]
+}
+
+/* Free memory to the heap of the instance */
+func (self Instance) ModuleFree(offset uint32) {
+    C.wasm_runtime_module_free(self._instance, (C.uint32_t)(offset))
+}
+
+func (self Instance) ValidateAppAddr(app_offset uint32, size uint32) bool {
+    ret := C.wasm_runtime_validate_app_addr(self._instance,
+                                            (C.uint32_t)(app_offset),
+                                            (C.uint32_t)(size))
+    return (bool)(ret)
+}
+
+func (self Instance) ValidateStrAddr(app_str_offset uint32) bool {
+    ret := C.wasm_runtime_validate_app_str_addr(self._instance,
+                                                (C.uint32_t)(app_str_offset))
+    return (bool)(ret)
+}
+
+func (self Instance) ValidateNativeAddr(native_ptr *uint8, size uint32) bool {
+    native_ptr_C := (unsafe.Pointer)(native_ptr)
+    ret := C.wasm_runtime_validate_native_addr(self._instance,
+                                               native_ptr_C,
+                                               (C.uint32_t)(size))
+    return (bool)(ret)
+}
+
+func (self Instance) AddrAppToNative(app_offset uint32) *uint8 {
+    native_ptr := C.wasm_runtime_addr_app_to_native(self._instance,
+                                                    (C.uint32_t)(app_offset))
+    return (*uint8)(native_ptr)
+}
+
+func (self Instance) AddrNativeToApp(native_ptr *uint8) uint32 {
+    native_ptr_C := (unsafe.Pointer)(native_ptr)
+    offset := C.wasm_runtime_addr_native_to_app(self._instance,
+                                                native_ptr_C)
+    return (uint32)(offset)
+}
+
+func (self Instance) GetAppAddrRange(app_offset uint32) (bool,
+                                                         uint32,
+                                                         uint32) {
+    var start_offset, end_offset C.uint32_t
+    ret := C.wasm_runtime_get_app_addr_range(self._instance,
+                                             (C.uint32_t)(app_offset),
+                                             &start_offset, &end_offset)
+    return (bool)(ret), (uint32)(start_offset), (uint32)(end_offset)
+}
+
+func (self Instance) GetNativeAddrRange(native_ptr *uint8) (bool,
+                                                            *uint8,
+                                                            *uint8) {
+    var start_addr, end_addr *C.uint8_t
+    native_ptr_C := (*C.uint8_t)((unsafe.Pointer)(native_ptr))
+    ret := C.wasm_runtime_get_native_addr_range(self._instance,
+                                                native_ptr_C,
+                                                &start_addr, &end_addr)
+    return (bool)(ret), (*uint8)(start_addr), (*uint8)(end_addr)
+}
+
+func (self Instance) DumpMemoryConsumption() {
+    C.wasm_runtime_dump_mem_consumption(self._exec_env)
+}
+
+func (self Instance) DumpCallStack() {
+    C.wasm_runtime_dump_call_stack(self._exec_env)
 }

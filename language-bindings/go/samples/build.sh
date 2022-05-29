@@ -18,5 +18,6 @@ make -j ${nproc}
 cp -a libvmlib.a ${WAMR_GO_DIR}/packaged/lib/${PLATFORM}-amd64
 
 cd ${CUR_DIR}
+rm -f test
 go build test.go
 ./test

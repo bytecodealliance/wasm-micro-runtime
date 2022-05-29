@@ -17,6 +17,7 @@ type Module struct {
     module C.wasm_module_t
 }
 
+/* Create WASM/AOT module from the memory buffer */
 func NewModule(wasmBytes []byte) (*Module, error) {
     if (wasmBytes == nil || len(wasmBytes) == 0) {
         return nil, fmt.Errorf("NewModule error: invalid input")
@@ -45,6 +46,7 @@ func NewModule(wasmBytes []byte) (*Module, error) {
     return self, nil
 }
 
+/* Destroy the module */
 func (self *Module) Destroy() {
     runtime.SetFinalizer(self, nil)
     if (self.module != nil) {
@@ -52,6 +54,7 @@ func (self *Module) Destroy() {
     }
 }
 
+/* Set module's wasi arguments */
 func (self *Module) SetWasiArgs(dirList [][]byte, mapDirList [][]byte,
                                 env [][]byte, argv[][]byte) {
     var dirPtr, mapDirPtr, envPtr, argvPtr **C.char
@@ -83,6 +86,7 @@ func (self *Module) SetWasiArgs(dirList [][]byte, mapDirList [][]byte,
                                  envPtr, envCount, argvPtr, argc)
 }
 
+/* Set module's wasi arguments */
 func (self *Module) SetWasiArgsEx(dirList [][]byte, mapDirList [][]byte,
                                 env [][]byte, argv[][]byte,
                                 stdinfd int, stdoutfd int, stderrfd int) {
@@ -117,6 +121,7 @@ func (self *Module) SetWasiArgsEx(dirList [][]byte, mapDirList [][]byte,
                                     C.int(stderrfd))
 }
 
+/* Set module's wasi network address pool */
 func (self *Module) SetWasiAddrPool(addrPool [][]byte) {
     var addrPoolPtr **C.char
     var addrPoolSize C.uint

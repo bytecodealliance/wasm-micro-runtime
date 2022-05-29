@@ -85,6 +85,8 @@ func main() {
     var instance *wamr.Instance
     var argv []uint32
     var results []interface{}
+    var offset uint32
+    var native_addr *uint8
     var err error
 
     fmt.Print("Init wasm runtime\n");
@@ -179,6 +181,12 @@ func main() {
     }
     fmt.Printf("test4(8912.3456, 123) return: %f\n",
                results[0].(float32))
+
+    fmt.Print("\nTest ModuleMalloc")
+    offset, native_addr = instance.ModuleMalloc(1024)
+    fmt.Printf("ModuleMalloc(%d) return offset: %d, native addr: %p\n",
+               1024, offset, native_addr)
+    instance.ModuleFree(offset)
 
     fmt.Print("\n");
 fail:
