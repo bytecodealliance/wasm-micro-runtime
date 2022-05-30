@@ -80,6 +80,8 @@ var wasmBytes = []byte {
     0x2B, 0x20, 0x25, 0x6C, 0x6C, 0x64, 0x20, 0x3D, 0x20, 0x25, 0x6C, 0x6C,
     0x64, 0x0A, 0x00, 0x31, 0x32, 0x33, 0x34, 0x0A }
 
+var global_heap []byte = make([]byte, 128 * 1024, 128 * 1024)
+
 func main() {
     var module *wamr.Module
     var instance *wamr.Instance
@@ -89,7 +91,15 @@ func main() {
     var native_addr *uint8
     var err error
 
-    fmt.Print("Init wasm runtime\n");
+    fmt.Print("Init wasm runtime with global heap buf\n");
+    err = wamr.Runtime().FullInit(true, global_heap, 1)
+    if err != nil {
+        return
+    }
+    fmt.Print("Destroy runtime\n");
+    wamr.Runtime().Destroy()
+
+    fmt.Print("Init wasm runtime without global heap buf\n");
     err = wamr.Runtime().FullInit(false, nil, 1)
     if err != nil {
         return
@@ -186,10 +196,40 @@ func main() {
     offset, native_addr = instance.ModuleMalloc(1024)
     fmt.Printf("ModuleMalloc(%d) return offset: %d, native addr: %p\n",
                1024, offset, native_addr)
+
+    if (!instance.ValidateAppAddr(offset, 1024)) {
+        fmt.Print("Validate app addr failed\n")
+    }
+    if (!instance.ValidateNativeAddr(native_addr, 1024)) {
+        fmt.Print("Validate native addr failed\n")
+    }
+    if (native_addr != instance.AddrAppToNative(offset)) {
+        fmt.Print("Convert app addr to native addr failed\n")
+    }
+    if (offset != instance.AddrNativeToApp(native_addr)) {
+        fmt.Print("Convert app addr to native addr failed\n")
+    }
+
     instance.ModuleFree(offset)
 
+    /*
+    instance.DumpMemoryConsumption()
+    instance.DumpCallStack()
+    */
+
     fmt.Print("\n");
+
 fail:
+    if (instance != nil) {
+        fmt.Print("Destroy instance\n");
+        instance.Destroy()
+    }
+
+    if (module != nil) {
+        fmt.Print("Destroy module\n");
+        module.Destroy()
+    }
+
     fmt.Print("Destroy wasm runtime\n");
     wamr.Runtime().Destroy()
 }

@@ -1,7 +1,7 @@
 WAMR Go binding: Embedding WAMR in Go guideline
 ===============================================
 
-This Go library uses CGO to consume the runtime APIs of the WAMR project which are defined under folder [core/iwasm/include](../../core/iwasm/include). The API details are available in the header files.
+This Go library uses CGO to consume the runtime APIs of the WAMR project which are defined in [core/iwasm/include/wasm_export.h](../../core/iwasm/include/wasm_export.h). The API details are available in the header files.
 
 ## Installation
 
@@ -72,7 +72,7 @@ func (self Instance) DumpMemoryConsumption()
 func (self Instance) DumpCallStack()
 ```
 
-## Sample code
+## Sample codes
 
 ```Go
     var module *wamr.Module
@@ -95,7 +95,7 @@ func (self Instance) DumpCallStack()
     /* Call the `fib` function */
     results = make([]interface{}, 1, 1)
     err = instance.CallFuncV("fib", 1, results, (int32)32)
-    fmt.Printf("fib2(32) return: %d\n", results[0].(int32));
+    fmt.Printf("fib(32) return: %d\n", results[0].(int32));
 
     /* Destroy runtime */
     wamr.Runtime().Destroy()

@@ -49,11 +49,13 @@ const (
     LOG_LEVEL_VERBOSE LogLevel = 4
 )
 
+/*
 type NativeSymbol struct {
     symbol string
     func_ptr *uint8
     signature string
 }
+*/
 
 type _Runtime struct {
     initialized bool
@@ -115,9 +117,11 @@ func (self *_Runtime) SetLogLevel(level LogLevel) {
     C.bh_log_set_verbose_level(C.uint32_t(level))
 }
 
+/*
 func (self *_Runtime) RegisterNatives(moduleName string,
                                       nativeSymbols []NativeSymbol) {
 }
+*/ /* TODO */
 
 func (self *_Runtime) InitThreadEnv() bool {
     if (!C.wasm_runtime_init_thread_env()) {
