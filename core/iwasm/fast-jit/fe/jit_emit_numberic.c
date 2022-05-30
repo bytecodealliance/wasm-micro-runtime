@@ -685,8 +685,8 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
         }
     }
     else {
-        JitReg cmp1 = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
-        JitReg cmp2 = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
+        JitReg cmp1 = jit_cc_new_reg_I32(cc);
+        JitReg cmp2 = jit_cc_new_reg_I32(cc);
 
         GEN_INSN(CMP, cc->cmp_reg, right,
                  is_i32 ? NEW_CONST(I32, 0) : NEW_CONST(I64, 0));
