@@ -174,10 +174,60 @@ fail:
 bool
 jit_compile_op_f32_compare(JitCompContext *cc, FloatCond cond)
 {
+    JitReg res, const_zero, const_one;
     JitReg lhs, rhs;
 
     POP_F32(rhs);
     POP_F32(lhs);
+
+    if (jit_reg_is_const_val(lhs) && jit_reg_is_const_val(rhs)) {
+        float32 lvalue = jit_cc_get_const_F32(cc, lhs);
+        float32 rvalue = jit_cc_get_const_F32(cc, rhs);
+
+        const_zero = NEW_CONST(I32, 0);
+        const_one = NEW_CONST(I32, 1);
+
+        switch (cond) {
+            case FLOAT_EQ:
+            {
+                res = (lvalue == rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_NE:
+            {
+                res = (lvalue != rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LT:
+            {
+                res = (lvalue < rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GT:
+            {
+                res = (lvalue > rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LE:
+            {
+                res = (lvalue <= rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GE:
+            {
+                res = (lvalue >= rvalue) ? const_one : const_zero;
+                break;
+            }
+            default:
+            {
+                bh_assert(!"unknown FloatCond");
+                goto fail;
+            }
+        }
+
+        PUSH_I32(res);
+        return true;
+    }
 
     return jit_compile_op_compare_float_point(cc, cond, lhs, rhs);
 fail:
@@ -187,10 +237,60 @@ fail:
 bool
 jit_compile_op_f64_compare(JitCompContext *cc, FloatCond cond)
 {
+    JitReg res, const_zero, const_one;
     JitReg lhs, rhs;
 
     POP_F64(rhs);
     POP_F64(lhs);
+
+    if (jit_reg_is_const_val(lhs) && jit_reg_is_const_val(rhs)) {
+        float64 lvalue = jit_cc_get_const_F64(cc, lhs);
+        float64 rvalue = jit_cc_get_const_F64(cc, rhs);
+
+        const_zero = NEW_CONST(I32, 0);
+        const_one = NEW_CONST(I32, 1);
+
+        switch (cond) {
+            case FLOAT_EQ:
+            {
+                res = (lvalue == rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_NE:
+            {
+                res = (lvalue != rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LT:
+            {
+                res = (lvalue < rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GT:
+            {
+                res = (lvalue > rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_LE:
+            {
+                res = (lvalue <= rvalue) ? const_one : const_zero;
+                break;
+            }
+            case FLOAT_GE:
+            {
+                res = (lvalue >= rvalue) ? const_one : const_zero;
+                break;
+            }
+            default:
+            {
+                bh_assert(!"unknown FloatCond");
+                goto fail;
+            }
+        }
+
+        PUSH_I32(res);
+        return true;
+    }
 
     return jit_compile_op_compare_float_point(cc, cond, lhs, rhs);
 fail:

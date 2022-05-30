@@ -1482,7 +1482,8 @@ jit_cc_pop_value(JitCompContext *cc, uint8 type, JitReg *p_value)
             break;
     }
 
-    bh_assert(value = jit_value->value);
+    bh_assert(cc->jit_frame->sp == jit_value->value);
+    bh_assert(value == jit_value->value->reg);
     *p_value = value;
     jit_free(jit_value);
     return true;
@@ -1506,7 +1507,7 @@ jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value)
     bh_assert(value);
 
     jit_value->type = to_stack_value_type(type);
-    jit_value->value = value;
+    jit_value->value = cc->jit_frame->sp;
     jit_value_stack_push(&jit_block_stack_top(&cc->block_stack)->value_stack,
                          jit_value);
 

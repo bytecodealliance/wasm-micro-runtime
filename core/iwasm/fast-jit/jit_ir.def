@@ -100,7 +100,10 @@ INSN(F64TOI64, Reg, 2, 1)
 INSN(F64TOF32, Reg, 2, 1)
 INSN(F64TOU32, Reg, 2, 1)
 
-/* re-interpreter binary presentation. like *(integer*)&floating_point, and *(floating_point*)&integer */
+/**
+ * Re-interpret binary presentations:
+ *   *(i32 *)&f32, *(i64 *)&f64, *(f32 *)&i32, *(f64 *)&i64
+ */
 INSN(I32CASTF32, Reg, 2, 1)
 INSN(I64CASTF64, Reg, 2, 1)
 INSN(F32CASTI32, Reg, 2, 1)
@@ -127,6 +130,9 @@ INSN(AND, Reg, 3, 1)
 INSN(CMP, Reg, 3, 1)
 INSN(MAX, Reg, 3, 1)
 INSN(MIN, Reg, 3, 1)
+INSN(CLZ, Reg, 2, 1)
+INSN(CTZ, Reg, 2, 1)
+INSN(POPCNT, Reg, 2, 1)
 
 /* Select instruction: */
 INSN(SELECTEQ, Reg, 4, 1)

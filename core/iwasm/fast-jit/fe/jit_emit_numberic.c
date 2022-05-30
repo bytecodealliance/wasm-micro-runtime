@@ -91,39 +91,197 @@
         PUSH_FLOAT(res);                     \
     } while (0)
 
+static uint32
+clz32(uint32 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 32;
+    while (!(type & 0x80000000)) {
+        num++;
+        type <<= 1;
+    }
+    return num;
+}
+
+static uint64
+clz64(uint64 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 64;
+    while (!(type & 0x8000000000000000LL)) {
+        num++;
+        type <<= 1;
+    }
+    return num;
+}
+
+static uint32
+ctz32(uint32 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 32;
+    while (!(type & 1)) {
+        num++;
+        type >>= 1;
+    }
+    return num;
+}
+
+static uint64
+ctz64(uint64 type)
+{
+    uint32 num = 0;
+    if (type == 0)
+        return 64;
+    while (!(type & 1)) {
+        num++;
+        type >>= 1;
+    }
+    return num;
+}
+
+static uint32
+popcnt32(uint32 u)
+{
+    uint32 ret = 0;
+    while (u) {
+        u = (u & (u - 1));
+        ret++;
+    }
+    return ret;
+}
+
+static uint64
+popcnt64(uint64 u)
+{
+    uint32 ret = 0;
+    while (u) {
+        u = (u & (u - 1));
+        ret++;
+    }
+    return ret;
+}
+
 bool
 jit_compile_op_i32_clz(JitCompContext *cc)
 {
+    JitReg value, res;
+
+    POP_I32(value);
+    if (jit_reg_is_const(value)) {
+        uint32 i32 = jit_cc_get_const_I32(cc, value);
+        PUSH_I32(NEW_CONST(I32, clz32(i32)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(CLZ, res, value);
+    PUSH_I32(res);
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_i32_ctz(JitCompContext *cc)
 {
+    JitReg value, res = jit_cc_new_reg_I32(cc);
+
+    POP_I32(value);
+    if (jit_reg_is_const(value)) {
+        uint32 i32 = jit_cc_get_const_I32(cc, value);
+        PUSH_I32(NEW_CONST(I32, ctz32(i32)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(CTZ, res, value);
+    PUSH_I32(res);
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_i32_popcnt(JitCompContext *cc)
 {
+    JitReg value, res;
+
+    POP_I32(value);
+    if (jit_reg_is_const(value)) {
+        uint32 i32 = jit_cc_get_const_I32(cc, value);
+        PUSH_I32(NEW_CONST(I32, popcnt32(i32)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(POPCNT, res, value);
+    PUSH_I32(res);
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_i64_clz(JitCompContext *cc)
 {
+    JitReg value, res;
+
+    POP_I64(value);
+    if (jit_reg_is_const(value)) {
+        uint64 i64 = jit_cc_get_const_I64(cc, value);
+        PUSH_I64(NEW_CONST(I64, clz64(i64)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I64(cc);
+    GEN_INSN(CLZ, res, value);
+    PUSH_I64(res);
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_i64_ctz(JitCompContext *cc)
 {
+    JitReg value, res;
+
+    POP_I64(value);
+    if (jit_reg_is_const(value)) {
+        uint64 i64 = jit_cc_get_const_I64(cc, value);
+        PUSH_I64(NEW_CONST(I64, ctz64(i64)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I64(cc);
+    GEN_INSN(CTZ, res, value);
+    PUSH_I64(res);
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_i64_popcnt(JitCompContext *cc)
 {
+    JitReg value, res;
+
+    POP_I64(value);
+    if (jit_reg_is_const(value)) {
+        uint64 i64 = jit_cc_get_const_I64(cc, value);
+        PUSH_I64(NEW_CONST(I64, popcnt64(i64)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I64(cc);
+    GEN_INSN(POPCNT, res, value);
+    PUSH_I64(res);
+    return true;
+fail:
     return false;
 }
 

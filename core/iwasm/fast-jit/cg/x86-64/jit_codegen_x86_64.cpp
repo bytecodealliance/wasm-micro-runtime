@@ -238,6 +238,8 @@ typedef enum { ADD, SUB, MUL, DIV_S, REM_S, DIV_U, REM_U, MIN, MAX } ALU_OP;
 typedef enum { OR, XOR, AND } BIT_OP;
 /* Shift opcode */
 typedef enum { SHL, SHRS, SHRU, ROTL, ROTR } SHIFT_OP;
+/* Bitcount opcode */
+typedef enum { CLZ, CTZ, POPCNT } BITCOUNT_OP;
 /* Condition opcode */
 typedef enum { EQ, NE, GTS, GES, LTS, LES, GTU, GEU, LTU, LEU } COND_OP;
 
@@ -2339,8 +2341,16 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.inc(regs_i64[reg_no_dst]);
             else if (data == -1)
                 a.dec(regs_i64[reg_no_dst]);
-            else if (data != 0)
-                a.add(regs_i64[reg_no_dst], imm);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.add(regs_i64[reg_no_dst], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.add(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case SUB:
             mov_r_to_r(a, JIT_REG_KIND_I64, reg_no_dst, reg_no_src);
@@ -2348,8 +2358,16 @@ alu_r_r_imm_i64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
                 a.inc(regs_i64[reg_no_dst]);
             else if (data == 1)
                 a.dec(regs_i64[reg_no_dst]);
-            else if (data != 0)
-                a.sub(regs_i64[reg_no_dst], imm);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.sub(regs_i64[reg_no_dst], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.sub(regs_i64[reg_no_dst], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case MUL:
             if (data == 0)
@@ -3697,44 +3715,6 @@ fail:
 }
 
 /**
- * Encode int32 cmp operation of reg and data, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no_src the no of src register, as first operand
- * @param data the immediate data, as the second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_imm_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src, int32 data)
-{
-    Imm imm(data);
-    a.cmp(regs_i32[reg_no_src], imm);
-    return true;
-}
-
-/**
- * Encode int32 cmp operation of reg and reg, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no1_src the no of src register, as first operand
- * @param reg_no2_src the no of src register, as second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
-            int32 reg_no2_src)
-{
-    a.cmp(regs_i32[reg_no1_src], regs_i32[reg_no2_src]);
-    return true;
-}
-
-/**
  * Encode int32 cmp operation of imm and imm, and save result to reg
  *
  * @param a the assembler to emit the code
@@ -3817,44 +3797,6 @@ cmp_r_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
 }
 
 /**
- * Encode int64 cmp operation of reg and data, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no_src the no of src register, as first operand
- * @param data the immediate data, as the second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_imm_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src, int64 data)
-{
-    Imm imm(data);
-    a.cmp(regs_i64[reg_no_src], imm);
-    return true;
-}
-
-/**
- * Encode int64 cmp operation of reg and reg, and save result to reg
- *
- * @param a the assembler to emit the code
- * @param op the opcode of cmp operation
- * @param reg_no_dst the no of dst register
- * @param reg_no1_src the no of src register, as first operand
- * @param reg_no2_src the no of src register, as second operand
- *
- * @return true if success, false otherwise
- */
-static bool
-cmp_r_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
-            int32 reg_no2_src)
-{
-    a.cmp(regs_i64[reg_no1_src], regs_i64[reg_no2_src]);
-    return true;
-}
-
-/**
  * Encode int64 cmp operation of imm and imm, and save result to reg
  *
  * @param a the assembler to emit the code
@@ -3913,7 +3855,15 @@ cmp_r_imm_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                    int64 data2_src)
 {
     Imm imm(data2_src);
-    a.cmp(regs_i64[reg_no1_src], imm);
+
+    if (data2_src >= INT32_MIN && data2_src <= INT32_MAX) {
+        imm.setValue((int32)data2_src);
+        a.cmp(regs_i64[reg_no1_src], imm);
+    }
+    else {
+        a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+        a.cmp(regs_i64[reg_no1_src], regs_i64[REG_I64_FREE_IDX]);
+    }
     return true;
 }
 
@@ -4622,6 +4572,120 @@ fail:
 }
 
 /**
+ * Encode int32 bitcount operation of reg, and save result to reg
+ *
+ * @param a the assembler to emit the code
+ * @param op the opcode of BITCOUNT operation
+ * @param reg_no_dst the no of register
+ * @param reg_no_src the reg no of first src register data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+bitcount_r_to_r_i32(x86::Assembler &a, BITCOUNT_OP op, int32 reg_no_dst,
+                    int32 reg_no_src)
+{
+    switch (op) {
+        case CLZ:
+            a.lzcnt(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        case CTZ:
+            a.tzcnt(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        case POPCNT:
+            a.popcnt(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
+    return true;
+}
+
+/**
+ * Encode int64 bitcount operation of reg, and save result to reg
+ *
+ * @param a the assembler to emit the code
+ * @param op the opcode of BITCOUNT operation
+ * @param reg_no_dst the no of register
+ * @param reg_no_src the reg no of first src register data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+bitcount_r_to_r_i64(x86::Assembler &a, BITCOUNT_OP op, int32 reg_no_dst,
+                    int32 reg_no_src)
+{
+    switch (op) {
+        case CLZ:
+            a.lzcnt(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            break;
+        case CTZ:
+            a.tzcnt(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            break;
+        case POPCNT:
+            a.popcnt(regs_i64[reg_no_dst], regs_i64[reg_no_src]);
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
+    return true;
+}
+
+/**
+ * Encode insn bitcount: CLZ/CTZ/POPCNT r0, r1
+ * @param kind the data kind, such as I32, I64
+ * @param Type the data type, such as int32, int64
+ * @param type the abbreviation of data type, such as i32, i64
+ * @param op the opcode of bit operation
+ */
+#define BITCOUNT_R_R(kind, Type, type, op)                              \
+    do {                                                                \
+        int32 reg_no_dst;                                               \
+        bool _ret = false;                                              \
+                                                                        \
+        CHECK_EQKIND(r0, r1);                                           \
+        CHECK_NCONST(r1);                                               \
+                                                                        \
+        reg_no_dst = jit_reg_no(r0);                                    \
+        if (!bitcount_r_to_r_##type(a, op, reg_no_dst, jit_reg_no(r1))) \
+            GOTO_FAIL;                                                  \
+    } while (0)
+
+/**
+ * Encode bitcount insn, CLZ/CTZ/POPCNT r0, r1
+ *
+ * @param cc the compiler context
+ * @param a the assembler to emit the code
+ * @param op the opcode of bitcount operations
+ * @param r0 dst jit register that contains the dst operand info
+ * @param r1 src jit register that contains the src operand info
+ *
+ * @return true if success, false if failed
+ */
+static bool
+lower_bitcount(JitCompContext *cc, x86::Assembler &a, BITCOUNT_OP op, JitReg r0,
+               JitReg r1)
+{
+    switch (jit_reg_kind(r0)) {
+        case JIT_REG_KIND_I32:
+            BITCOUNT_R_R(I32, int32, i32, op);
+            break;
+        case JIT_REG_KIND_I64:
+            BITCOUNT_R_R(I64, int64, i64, op);
+            break;
+        default:
+            LOG_VERBOSE("Invalid reg type of bit: %d\n", jit_reg_kind(r0));
+            GOTO_FAIL;
+    }
+
+    return true;
+fail:
+    return false;
+}
+
+/**
  * Encode insn cmp: CMP r0, r1, r2
  * @param kind the data kind, such as I32, I64, F32 and F64
  * @param Type the data type, such as int32, int64, float32, and float64
@@ -5151,6 +5215,8 @@ lower_callnative(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
     if (ret_reg) {
         bh_assert((jit_reg_kind(ret_reg) == JIT_REG_KIND_I32
                    && jit_reg_no(ret_reg) == REG_EAX_IDX)
+                  || (jit_reg_kind(ret_reg) == JIT_REG_KIND_I64
+                      && jit_reg_no(ret_reg) == REG_RAX_IDX)
                   || (jit_reg_kind(ret_reg) == JIT_REG_KIND_F32
                       || jit_reg_kind(ret_reg) == JIT_REG_KIND_F64
                              && jit_reg_no(ret_reg) == 0));
@@ -5702,6 +5768,17 @@ jit_codegen_gen_native(JitCompContext *cc)
                     if (!lower_bit(cc, a,
                                    (BIT_OP)(OR + (insn->opcode - JIT_OP_OR)),
                                    r0, r1, r2))
+                        GOTO_FAIL;
+                    break;
+
+                case JIT_OP_CLZ:
+                case JIT_OP_CTZ:
+                case JIT_OP_POPCNT:
+                    LOAD_2ARGS();
+                    if (!lower_bitcount(
+                            cc, a,
+                            (BITCOUNT_OP)(CLZ + (insn->opcode - JIT_OP_CLZ)),
+                            r0, r1))
                         GOTO_FAIL;
                     break;
 
