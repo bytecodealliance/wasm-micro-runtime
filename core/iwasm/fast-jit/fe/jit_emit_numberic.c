@@ -91,7 +91,7 @@
         PUSH_FLOAT(res);                     \
     } while (0)
 
-static inline uint32
+static uint32
 clz32(uint32 type)
 {
     uint32 num = 0;
@@ -104,7 +104,7 @@ clz32(uint32 type)
     return num;
 }
 
-static inline uint64
+static uint64
 clz64(uint64 type)
 {
     uint32 num = 0;
@@ -165,84 +165,124 @@ popcnt64(uint64 u)
     return ret;
 }
 
-static bool
-compile_int_bit_count(JitCompContext *cc, void *func, bool is_i32)
+bool
+jit_compile_op_i32_clz(JitCompContext *cc)
 {
     JitReg value, res;
-    JitInsn *insn;
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    if (is_i32)
-        res = jit_codegen_get_hreg_by_name("eax");
-    else
-        res = jit_codegen_get_hreg_by_name("rax");
-    GEN_INSN(MOV, res, res);
-#else
-    if (is_i32)
-        res = jit_cc_new_reg_I32(cc);
-    else
-        res = jit_cc_new_reg_I64(cc);
-#endif
-
-    if (is_i32)
-        POP_I32(value);
-    else
-        POP_I64(value);
-
-    insn = GEN_INSN(CALLNATIVE, res, NEW_CONST(PTR, (uintptr_t)func), 1);
-    if (!insn) {
-        goto fail;
+    POP_I32(value);
+    if (jit_reg_is_const(value)) {
+        uint32 i32 = jit_cc_get_const_I32(cc, value);
+        PUSH_I32(NEW_CONST(I32, clz32(i32)));
+        return true;
     }
-    *(jit_insn_opndv(insn, 2)) = value;
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    if (!is_i32)
-        GEN_INSN(MOV, res, res);
-#endif
-
-    if (is_i32)
-        PUSH_I32(res);
-    else
-        PUSH_I64(res);
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(CLZ, res, value);
+    PUSH_I32(res);
     return true;
 fail:
     return false;
 }
 
 bool
-jit_compile_op_i32_clz(JitCompContext *cc)
-{
-    return compile_int_bit_count(cc, (void *)clz32, true);
-}
-
-bool
 jit_compile_op_i32_ctz(JitCompContext *cc)
 {
-    return compile_int_bit_count(cc, (void *)ctz32, true);
+    JitReg value, res = jit_cc_new_reg_I32(cc);
+
+    POP_I32(value);
+    if (jit_reg_is_const(value)) {
+        uint32 i32 = jit_cc_get_const_I32(cc, value);
+        PUSH_I32(NEW_CONST(I32, ctz32(i32)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(CTZ, res, value);
+    PUSH_I32(res);
+    return true;
+fail:
+    return false;
 }
 
 bool
 jit_compile_op_i32_popcnt(JitCompContext *cc)
 {
-    return compile_int_bit_count(cc, (void *)popcnt32, true);
+    JitReg value, res;
+
+    POP_I32(value);
+    if (jit_reg_is_const(value)) {
+        uint32 i32 = jit_cc_get_const_I32(cc, value);
+        PUSH_I32(NEW_CONST(I32, popcnt32(i32)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I32(cc);
+    GEN_INSN(POPCNT, res, value);
+    PUSH_I32(res);
+    return true;
+fail:
+    return false;
 }
 
 bool
 jit_compile_op_i64_clz(JitCompContext *cc)
 {
-    return compile_int_bit_count(cc, (void *)clz64, false);
+    JitReg value, res;
+
+    POP_I64(value);
+    if (jit_reg_is_const(value)) {
+        uint64 i64 = jit_cc_get_const_I64(cc, value);
+        PUSH_I64(NEW_CONST(I64, clz64(i64)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I64(cc);
+    GEN_INSN(CLZ, res, value);
+    PUSH_I64(res);
+    return true;
+fail:
+    return false;
 }
 
 bool
 jit_compile_op_i64_ctz(JitCompContext *cc)
 {
-    return compile_int_bit_count(cc, (void *)ctz64, false);
+    JitReg value, res;
+
+    POP_I64(value);
+    if (jit_reg_is_const(value)) {
+        uint64 i64 = jit_cc_get_const_I64(cc, value);
+        PUSH_I64(NEW_CONST(I64, ctz64(i64)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I64(cc);
+    GEN_INSN(CTZ, res, value);
+    PUSH_I64(res);
+    return true;
+fail:
+    return false;
 }
 
 bool
 jit_compile_op_i64_popcnt(JitCompContext *cc)
 {
-    return compile_int_bit_count(cc, (void *)popcnt64, false);
+    JitReg value, res;
+
+    POP_I64(value);
+    if (jit_reg_is_const(value)) {
+        uint64 i64 = jit_cc_get_const_I64(cc, value);
+        PUSH_I64(NEW_CONST(I64, popcnt64(i64)));
+        return true;
+    }
+
+    res = jit_cc_new_reg_I64(cc);
+    GEN_INSN(POPCNT, res, value);
+    PUSH_I64(res);
+    return true;
+fail:
+    return false;
 }
 
 #define IS_CONST_ALL_ONE(val, is_i32)                    \
