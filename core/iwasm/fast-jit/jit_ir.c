@@ -1558,3 +1558,46 @@ _jit_insn_check_opnd_access_LookupSwitch(const JitInsn *insn)
     unsigned opcode = insn->opcode;
     return (insn_opnd_kind[opcode] == JIT_OPND_KIND_LookupSwitch);
 }
+
+bool
+jit_lock_reg_in_insn(JitCompContext *cc, JitInsn *the_insn, JitReg reg_to_lock)
+{
+    bool ret = false;
+    JitInsn *prevent_spill = NULL;
+    JitInsn *indicate_using = NULL;
+
+    if (!the_insn)
+        goto just_return;
+
+    if (jit_cc_is_hreg_fixed(cc, reg_to_lock)) {
+        ret = true;
+        goto just_return;
+    }
+
+    /**
+     * give the virtual register of the locked hard register a minimum, non-zero
+     * distance, * so as to prevent it from being spilled out
+     */
+    prevent_spill = jit_insn_new_MOV(reg_to_lock, reg_to_lock);
+    if (!prevent_spill)
+        goto just_return;
+
+    jit_insn_insert_before(the_insn, prevent_spill);
+
+    /**
+     * announce the locked hard register is being used, and do necessary spill
+     * ASAP
+     */
+    indicate_using = jit_insn_new_MOV(reg_to_lock, reg_to_lock);
+    if (!indicate_using)
+        goto just_return;
+
+    jit_insn_insert_after(the_insn, indicate_using);
+
+    ret = true;
+
+just_return:
+    if (!ret)
+        jit_set_last_error(cc, "generate insn failed");
+    return ret;
+}

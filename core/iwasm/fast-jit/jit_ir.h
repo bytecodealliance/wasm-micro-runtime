@@ -1882,6 +1882,9 @@ jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value);
 bool
 jit_cc_pop_value(JitCompContext *cc, uint8 type, JitReg *p_value);
 
+bool
+jit_lock_reg_in_insn(JitCompContext *cc, JitInsn *the_insn, JitReg reg_to_lock);
+
 /**
  * Update the control flow graph after successors of blocks are
  * changed so that the predecessor vector of each block represents the
