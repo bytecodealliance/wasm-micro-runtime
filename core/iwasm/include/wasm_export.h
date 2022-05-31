@@ -133,11 +133,12 @@ typedef struct RuntimeInitArgs {
     /* maximum thread number, only used when
         WASM_ENABLE_THREAD_MGR is defined */
     uint32_t max_thread_num;
-#if WASM_ENABLE_DEBUG_INTERP != 0
+
+    /* Debug settings, only used when
+       WASM_ENABLE_DEBUG_INTERP != 0 */
     char ip_addr[128];
     int platform_port;
     int instance_port;
-#endif
 } RuntimeInitArgs;
 
 #ifndef WASM_VALKIND_T_DEFINED
