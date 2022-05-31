@@ -553,7 +553,7 @@ If you don't have it installed, follow the instructions [here](https://docs.espr
 ESP-IDF also installs the toolchains needed for compiling WAMR and ESP-IDF.
 A small demonstration of how to use WAMR and ESP-IDF can be found under [product_mini](/product-mini/platforms/esp-idf).
 The demo builds WAMR for ESP-IDF and runs a small wasm program. 
-In order to run it for your specific Espressif chip, edit the ['build.sh'](/product-mini/platforms/esp-idf/build.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
+In order to run it for your specific Espressif chip, edit the [build_and_run.sh](/product-mini/platforms/esp-idf/build_and_run.sh) file and put the correct toolchain file (see #Cross-compilation) and `IDF_TARGET`.
 Before compiling it is also necessary to call ESP-IDF's `export.sh` script to bring all compile time relevant information in scope.
 
 Docker
