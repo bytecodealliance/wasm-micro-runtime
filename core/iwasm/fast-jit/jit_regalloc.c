@@ -71,6 +71,11 @@ uint_stack_pop(UintStack **stack)
 {
     bh_assert((*stack)->top > 0);
 
+    /**
+     * TODO: the fact of empty distances stack means there is no instruction
+     * using current JitReg anymore. so shall we release the HardReg and clean
+     * VirtualReg information?
+     */
     if (--(*stack)->top == 0)
         uint_stack_delete(stack);
 }
@@ -576,6 +581,7 @@ allocate_hreg(RegallocContext *rc, JitReg vreg, JitInsn *insn, int distance)
             continue;
 
         vr = rc_get_vr(rc, hregs[i].vreg);
+        /* TODO: since the hregs[i] is in use, its distances should be valid */
         vr_distance = vr->distances ? uint_stack_top(vr->distances) : 0;
 
         if (vr_distance < min_distance) {
@@ -727,6 +733,8 @@ allocate_for_basic_block(RegallocContext *rc, JitBasicBlock *basic_block,
             VirtualReg *vr = rc_get_vr(rc, *regp);
             bh_assert(uint_stack_top(vr->distances) == distance);
             uint_stack_pop(&vr->distances);
+            /* be sure that the hreg exists and hasn't been spilled out */
+            bh_assert(vr->hreg != 0);
             *regp = vr->hreg;
         }
     }
@@ -737,7 +745,7 @@ allocate_for_basic_block(RegallocContext *rc, JitBasicBlock *basic_block,
 bool
 jit_pass_regalloc(JitCompContext *cc)
 {
-    RegallocContext rc;
+    RegallocContext rc = { 0 };
     unsigned label_index, end_label_index;
     JitBasicBlock *basic_block;
     VirtualReg *self_vr;
@@ -761,6 +769,10 @@ jit_pass_regalloc(JitCompContext *cc)
         self_vr->hreg = self_vr->global_hreg;
         (rc_get_hr(&rc, cc->exec_env_reg))->vreg = cc->exec_env_reg;
 
+        /**
+         * TODO: the allocation of a basic block keeps using vregs[]
+         * and hregs[] from previous basic block
+         */
         if ((distance = collect_distances(&rc, basic_block)) < 0)
             goto cleanup_and_return;
 

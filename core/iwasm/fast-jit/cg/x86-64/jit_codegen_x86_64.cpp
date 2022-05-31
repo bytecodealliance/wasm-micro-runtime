@@ -6172,30 +6172,32 @@ static const uint8 hreg_info_I64[3][16] = {
        r8,  r9,  r10, r11, r12, r13, r14, r15 */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       0, 0, 0, 0, 0, 0, 0, 1 }, /* fixed, rsi is freely used */
-    { 0, 0, 0, 0, 0, 0, 0, 0,
+    { 0, 1, 0, 1, 1, 1, 0, 0,
       1, 1, 1, 1, 0, 0, 0, 0 }, /* caller_saved_native */
-    { 0, 0, 0, 0, 0, 0, 0, 0,
+    { 0, 1, 1, 1, 1, 1, 0, 0,
       1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_jitted */
 };
 
+/* System V AMD64 ABI Calling Conversion. [XYZ]MM0-7 */
 static uint8 hreg_info_F32[3][16] = {
     /* xmm0 ~ xmm15 */
     { 0, 0, 0, 0, 0, 0, 0, 0,
       1, 1, 1, 1, 1, 1, 1, 1 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* TODO:caller_saved_native */
+      0, 0, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* TODO:caller_saved_jitted */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
 
+/* System V AMD64 ABI Calling Conversion. [XYZ]MM0-7 */
 static uint8 hreg_info_F64[3][16] = {
     /* xmm0 ~ xmm15 */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       0, 0, 0, 0, 0, 0, 0, 0 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* TODO:caller_saved_native */
+      0, 0, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* TODO:caller_saved_jitted */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
 
 static const JitHardRegInfo hreg_info = {

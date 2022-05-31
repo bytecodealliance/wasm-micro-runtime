@@ -500,6 +500,10 @@ jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
         *(jit_insn_opndv(insn, 3)) = delta;
     }
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    jit_lock_reg_in_insn(cc, insn, grow_result);
+#endif
+
     /* check if enlarge memory success */
     res = jit_cc_new_reg_I32(cc);
     GEN_INSN(CMP, cc->cmp_reg, grow_result, NEW_CONST(I32, 0));

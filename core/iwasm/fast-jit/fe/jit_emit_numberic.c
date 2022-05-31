@@ -510,57 +510,60 @@ compile_int_div_no_check(JitCompContext *cc, IntArithmetic arith_op,
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
         case INT_DIV_S:
         case INT_DIV_U:
+        {
+            JitInsn *insn = NULL;
+
             if (is_i32) {
                 GEN_INSN(MOV, eax_hreg, left);
                 if (arith_op == INT_DIV_S)
-                    GEN_INSN(DIV_S, eax_hreg, eax_hreg, right);
+                    insn = GEN_INSN(DIV_S, eax_hreg, eax_hreg, right);
                 else
-                    GEN_INSN(DIV_U, eax_hreg, eax_hreg, right);
-                /* Just to indicate that edx is used,
-                   register allocator cannot spill it out */
-                GEN_INSN(MOV, edx_hreg, edx_hreg);
+                    insn = GEN_INSN(DIV_U, eax_hreg, eax_hreg, right);
+
                 res = eax_hreg;
             }
             else {
                 GEN_INSN(MOV, rax_hreg, left);
-                /* Just to indicate that eax is used,
-                   register allocator cannot spill it out */
-                GEN_INSN(MOV, eax_hreg, eax_hreg);
                 if (arith_op == INT_DIV_S)
-                    GEN_INSN(DIV_S, rax_hreg, rax_hreg, right);
+                    insn = GEN_INSN(DIV_S, rax_hreg, rax_hreg, right);
                 else
-                    GEN_INSN(DIV_U, rax_hreg, rax_hreg, right);
-                /* Just to indicate that edx is used,
-                   register allocator cannot spill it out */
-                GEN_INSN(MOV, edx_hreg, edx_hreg);
+                    insn = GEN_INSN(DIV_U, rax_hreg, rax_hreg, right);
+
                 res = rax_hreg;
             }
+
+            jit_lock_reg_in_insn(cc, insn, eax_hreg);
+            jit_lock_reg_in_insn(cc, insn, edx_hreg);
             break;
+        }
         case INT_REM_S:
         case INT_REM_U:
+        {
+            JitInsn *insn = NULL;
+
             if (is_i32) {
                 GEN_INSN(MOV, eax_hreg, left);
                 if (arith_op == INT_REM_S)
-                    GEN_INSN(REM_S, edx_hreg, eax_hreg, right);
+                    insn = GEN_INSN(REM_S, edx_hreg, eax_hreg, right);
                 else
-                    GEN_INSN(REM_U, edx_hreg, eax_hreg, right);
+                    insn = GEN_INSN(REM_U, edx_hreg, eax_hreg, right);
+
                 res = edx_hreg;
             }
             else {
                 GEN_INSN(MOV, rax_hreg, left);
-                /* Just to indicate that eax is used,
-                   register allocator cannot spill it out */
-                GEN_INSN(MOV, eax_hreg, eax_hreg);
                 if (arith_op == INT_REM_S)
-                    GEN_INSN(REM_S, rdx_hreg, rax_hreg, right);
+                    insn = GEN_INSN(REM_S, rdx_hreg, rax_hreg, right);
                 else
-                    GEN_INSN(REM_U, rdx_hreg, rax_hreg, right);
-                /* Just to indicate that edx is used,
-                   register allocator cannot spill it out */
-                GEN_INSN(MOV, edx_hreg, edx_hreg);
+                    insn = GEN_INSN(REM_U, rdx_hreg, rax_hreg, right);
+
                 res = rdx_hreg;
             }
+
+            jit_lock_reg_in_insn(cc, insn, eax_hreg);
+            jit_lock_reg_in_insn(cc, insn, edx_hreg);
             break;
+        }
 #else
         case INT_DIV_S:
             GEN_INSN(DIV_S, res, left, right);
@@ -685,8 +688,8 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
         }
     }
     else {
-        JitReg cmp1 = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
-        JitReg cmp2 = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
+        JitReg cmp1 = jit_cc_new_reg_I32(cc);
+        JitReg cmp2 = jit_cc_new_reg_I32(cc);
 
         GEN_INSN(CMP, cc->cmp_reg, right,
                  is_i32 ? NEW_CONST(I32, 0) : NEW_CONST(I64, 0));
@@ -1050,6 +1053,7 @@ compile_int_shl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+    JitInsn *insn = NULL;
 #endif
 
     right = compile_int_shift_modulo(cc, right, is_i32);
@@ -1063,8 +1067,8 @@ compile_int_shl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(SHL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    insn = GEN_INSN(SHL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
 #else
     GEN_INSN(SHL, res, left, right);
 #endif
@@ -1080,6 +1084,7 @@ compile_int_shrs(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+    JitInsn *insn = NULL;
 #endif
 
     right = compile_int_shift_modulo(cc, right, is_i32);
@@ -1093,8 +1098,8 @@ compile_int_shrs(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(SHRS, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    insn = GEN_INSN(SHRS, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
 #else
     GEN_INSN(SHRS, res, left, right);
 #endif
@@ -1110,6 +1115,7 @@ compile_int_shru(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+    JitInsn *insn = NULL;
 #endif
 
     right = compile_int_shift_modulo(cc, right, is_i32);
@@ -1123,8 +1129,8 @@ compile_int_shru(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(SHRU, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    insn = GEN_INSN(SHRU, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
 #else
     GEN_INSN(SHRU, res, left, right);
 #endif
@@ -1171,6 +1177,7 @@ compile_int_rotl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+    JitInsn *insn = NULL;
 #endif
 
     right = compile_int_shift_modulo(cc, right, is_i32);
@@ -1184,8 +1191,8 @@ compile_int_rotl(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(ROTL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    insn = GEN_INSN(ROTL, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
 #else
     GEN_INSN(ROTL, res, left, right);
 #endif
@@ -1232,6 +1239,7 @@ compile_int_rotr(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     JitReg ecx_hreg = jit_codegen_get_hreg_by_name("ecx");
     JitReg rcx_hreg = jit_codegen_get_hreg_by_name("rcx");
+    JitInsn *insn = NULL;
 #endif
 
     right = compile_int_shift_modulo(cc, right, is_i32);
@@ -1245,8 +1253,8 @@ compile_int_rotr(JitCompContext *cc, JitReg left, JitReg right, bool is_i32)
     res = is_i32 ? jit_cc_new_reg_I32(cc) : jit_cc_new_reg_I64(cc);
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     GEN_INSN(MOV, is_i32 ? ecx_hreg : rcx_hreg, right);
-    GEN_INSN(ROTR, res, left, is_i32 ? ecx_hreg : rcx_hreg);
-    GEN_INSN(MOV, ecx_hreg, ecx_hreg);
+    insn = GEN_INSN(ROTR, res, left, is_i32 ? ecx_hreg : rcx_hreg);
+    jit_lock_reg_in_insn(cc, insn, ecx_hreg);
 #else
     GEN_INSN(ROTR, res, left, right);
 #endif
