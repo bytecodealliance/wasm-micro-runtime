@@ -2881,7 +2881,8 @@ alu_imm_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 }
 
 static bool
-alu_r_m_float(x86::Assembler &a, ALU_OP op, int32 reg_no, x86::Mem &m, bool is_f32)
+alu_r_m_float(x86::Assembler &a, ALU_OP op, int32 reg_no, x86::Mem &m,
+              bool is_f32)
 {
     switch (op) {
         case ADD:
