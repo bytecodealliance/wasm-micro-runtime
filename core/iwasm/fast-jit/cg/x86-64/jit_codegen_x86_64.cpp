@@ -1208,6 +1208,126 @@ mov_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 /* Let compiler do the conversation job as much as possible */
 
 /**
+ * Encoding convert int8 immediate data to int32 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the dst register, need to be converted to int32
+ * @param data the src int8 immediate data
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_imm_i8_to_r_i32(x86::Assembler &a, int32 reg_no, int8 data)
+{
+    return mov_imm_to_r_i32(a, reg_no, (int32)data);
+}
+
+/**
+ * encoding convert int8 register to int32 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the dst register
+ * @param reg_no_src the src register
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_r_i8_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return extend_r8_to_r32(a, reg_no_dst, reg_no_src, true);
+}
+
+/**
+ * encoding convert int8 immediate data to int64 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the dst register, need to be converted to int64
+ * @param data the src int8 immediate data
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_imm_i8_to_r_i64(x86::Assembler &a, int32 reg_no, int8 data)
+{
+    return mov_imm_to_r_i64(a, reg_no, (int64)data);
+}
+
+/**
+ * encoding convert int8 register to int64 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the dst register
+ * @param reg_no_src the src register
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_r_i8_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return extend_r8_to_r64(a, reg_no_dst, reg_no_src, true);
+}
+
+/**
+ * Encoding convert int16 immediate data to int32 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the dst register, need to be converted to int32
+ * @param data the src int16 immediate data
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_imm_i16_to_r_i32(x86::Assembler &a, int32 reg_no, int16 data)
+{
+    return mov_imm_to_r_i32(a, reg_no, (int32)data);
+}
+
+/**
+ * encoding convert int16 register to int32 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the dst register
+ * @param reg_no_src the src register
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_r_i16_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return extend_r16_to_r32(a, reg_no_dst, reg_no_src, true);
+}
+
+/**
+ * encoding convert int16 immediate data to int64 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the dst register, need to be converted to int64
+ * @param data the src int16 immediate data
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_imm_i16_to_r_i64(x86::Assembler &a, int32 reg_no, int16 data)
+{
+    return mov_imm_to_r_i64(a, reg_no, (int64)data);
+}
+
+/**
+ * encoding convert int16 register to int64 register
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the dst register
+ * @param reg_no_src the src register
+ *
+ * @return  true if success, false otherwise
+ */
+static bool
+convert_r_i16_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    return extend_r16_to_r64(a, reg_no_dst, reg_no_src, true);
+}
+
+/**
  * Encoding convert int32 immediate data to int8 register
  *
  * @param a the assembler to emit the code
@@ -1441,7 +1561,7 @@ convert_imm_i32_to_r_f64(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 convert_imm_i64_to_r_i32(x86::Assembler &a, int32 reg_no, int64 data)
 {
-    return mov_imm_to_r_i32(a, reg_no, (int32)data);
+    return mov_imm_to_r_i64(a, reg_no, (int32)data);
 }
 
 /**
@@ -1458,6 +1578,70 @@ convert_r_i64_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
     mov_r_to_r_i64(a, reg_no_dst, reg_no_src);
     a.and_(regs_i64[reg_no_dst], 0x00000000FFFFFFFFLL);
+    return true;
+}
+
+/**
+ * Encode converting int64 immediate data to int8 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of dst int32 register
+ * @param data the src immediate int64 data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_imm_i64_to_r_i8(x86::Assembler &a, int32 reg_no, int64 data)
+{
+    return mov_imm_to_r_i64(a, reg_no, (int8)data);
+}
+
+/**
+ * Encode converting int64 register data to int8 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the no of dst int8 register
+ * @param reg_no_src the no of src int64 register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_r_i64_to_r_i8(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    mov_r_to_r_i64(a, reg_no_dst, reg_no_src);
+    a.and_(regs_i64[reg_no_dst], 0x00000000000000FFLL);
+    return true;
+}
+
+/**
+ * Encode converting int64 immediate data to int16 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no the no of dst int32 register
+ * @param data the src immediate int64 data
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_imm_i64_to_r_i16(x86::Assembler &a, int32 reg_no, int64 data)
+{
+    return mov_imm_to_r_i64(a, reg_no, (int16)data);
+}
+
+/**
+ * Encode converting int64 register data to int16 register data
+ *
+ * @param a the assembler to emit the code
+ * @param reg_no_dst the no of dst int16 register
+ * @param reg_no_src the no of src int64 register
+ *
+ * @return true if success, false otherwise
+ */
+static bool
+convert_r_i64_to_r_i16(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
+{
+    mov_r_to_r_i64(a, reg_no_dst, reg_no_src);
+    a.and_(regs_i64[reg_no_dst], 0x000000000000FFFFLL);
     return true;
 }
 
@@ -5712,6 +5896,26 @@ jit_codegen_gen_native(JitCompContext *cc)
                         GOTO_FAIL;
                     break;
 
+                case JIT_OP_I8TOI32:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I32, I32, i32, i8, int8);
+                    break;
+
+                case JIT_OP_I8TOI64:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I64, I64, i64, i8, int8);
+                    break;
+
+                case JIT_OP_I16TOI32:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I32, I32, i32, i16, int16);
+                    break;
+
+                case JIT_OP_I16TOI64:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I64, I64, i64, i16, int16);
+                    break;
+
                 case JIT_OP_I32TOI8:
                     LOAD_2ARGS();
                     CONVERT_R_R(I32, I32, i8, i32, int32);
@@ -5759,7 +5963,17 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_U32TOF64:
                     LOAD_2ARGS();
-                    CONVERT_R_R(F64, I32, f64, u32, int32);
+                    CONVERT_R_R(F64, I32, f64, u32, uint32);
+                    break;
+
+                case JIT_OP_I64TOI8:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I64, I64, i8, i64, int64);
+                    break;
+
+                case JIT_OP_I64TOI16:
+                    LOAD_2ARGS();
+                    CONVERT_R_R(I64, I64, i16, i64, int64);
                     break;
 
                 case JIT_OP_I64TOI32:
@@ -5779,12 +5993,12 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_F32TOI32:
                     LOAD_2ARGS();
-                    CONVERT_R_R(I32, F32, i32, f32, int32);
+                    CONVERT_R_R(I32, F32, i32, f32, float32);
                     break;
 
                 case JIT_OP_F32TOI64:
                     LOAD_2ARGS();
-                    CONVERT_R_R(I64, F32, i64, f32, int32);
+                    CONVERT_R_R(I64, F32, i64, f32, float32);
                     break;
 
                 case JIT_OP_F32TOF64:
@@ -5794,7 +6008,7 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_F32TOU32:
                     LOAD_2ARGS();
-                    CONVERT_R_R(I32, F32, u32, f32, int32);
+                    CONVERT_R_R(I32, F32, u32, f32, float32);
                     break;
 
                 case JIT_OP_F64TOI32:
