@@ -445,7 +445,7 @@ wasm_runtime_register_module_internal(const char *module_name,
                                       WASMModuleCommon *module,
                                       uint8 *orig_file_buf,
                                       uint32 orig_file_buf_size,
-                                      char *error_buf, uint32_t error_buf_size)
+                                      char *error_buf, uint32 error_buf_size)
 {
     WASMRegisteredModule *node = NULL;
 
@@ -500,7 +500,7 @@ wasm_runtime_register_module_internal(const char *module_name,
 
 bool
 wasm_runtime_register_module(const char *module_name, WASMModuleCommon *module,
-                             char *error_buf, uint32_t error_buf_size)
+                             char *error_buf, uint32 error_buf_size)
 {
     if (!error_buf || !error_buf_size) {
         LOG_ERROR("error buffer is required");
@@ -823,7 +823,7 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
 
 WASMModuleCommon *
 wasm_runtime_load_from_sections(WASMSection *section_list, bool is_aot,
-                                char *error_buf, uint32_t error_buf_size)
+                                char *error_buf, uint32 error_buf_size)
 {
     WASMModuleCommon *module_common;
 
@@ -978,6 +978,23 @@ wasm_runtime_destroy_thread_env(void)
 #ifdef BH_PLATFORM_WINDOWS
     os_thread_env_destroy();
 #endif
+}
+
+bool
+wasm_runtime_thread_env_inited(void)
+{
+#ifdef BH_PLATFORM_WINDOWS
+    if (!os_thread_env_inited())
+        return false;
+#endif
+
+#if WASM_ENABLE_AOT != 0
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!os_thread_signal_inited())
+        return false;
+#endif
+#endif
+    return true;
 }
 
 #if (WASM_ENABLE_MEMORY_PROFILING != 0) || (WASM_ENABLE_MEMORY_TRACING != 0)
@@ -1222,8 +1239,81 @@ wasm_runtime_lookup_function(WASMModuleInstanceCommon *const module_inst,
     return NULL;
 }
 
+uint32
+wasm_func_get_param_count(WASMFunctionInstanceCommon *const func_inst,
+                          WASMModuleInstanceCommon *const module_inst)
+{
+    WASMType *type =
+        wasm_runtime_get_function_type(func_inst, module_inst->module_type);
+    return type->param_count;
+}
+
+uint32
+wasm_func_get_result_count(WASMFunctionInstanceCommon *const func_inst,
+                           WASMModuleInstanceCommon *const module_inst)
+{
+    WASMType *type =
+        wasm_runtime_get_function_type(func_inst, module_inst->module_type);
+    return type->result_count;
+}
+
+static uint8
+val_type_to_val_kind(uint8 value_type)
+{
+    switch (value_type) {
+        case VALUE_TYPE_I32:
+            return WASM_I32;
+        case VALUE_TYPE_I64:
+            return WASM_I64;
+        case VALUE_TYPE_F32:
+            return WASM_F32;
+        case VALUE_TYPE_F64:
+            return WASM_F64;
+        case VALUE_TYPE_FUNCREF:
+            return WASM_FUNCREF;
+        case VALUE_TYPE_EXTERNREF:
+            return WASM_ANYREF;
+        default:
+#if WASM_ENABLE_GC != 0
+            if (wasm_is_type_reftype(value_type))
+                return WASM_ANYREF;
+#endif
+            bh_assert(0);
+            return 0;
+    }
+}
+
+void
+wasm_func_get_param_types(WASMFunctionInstanceCommon *const func_inst,
+                          WASMModuleInstanceCommon *const module_inst,
+                          wasm_valkind_t *param_types)
+{
+    WASMType *type =
+        wasm_runtime_get_function_type(func_inst, module_inst->module_type);
+    uint32 i;
+
+    for (i = 0; i < type->param_count; i++) {
+        param_types[i] = val_type_to_val_kind(type->types[i]);
+    }
+}
+
+void
+wasm_func_get_result_types(WASMFunctionInstanceCommon *const func_inst,
+                           WASMModuleInstanceCommon *const module_inst,
+                           wasm_valkind_t *result_types)
+{
+    WASMType *type =
+        wasm_runtime_get_function_type(func_inst, module_inst->module_type);
+    uint32 i;
+
+    for (i = 0; i < type->result_count; i++) {
+        result_types[i] =
+            val_type_to_val_kind(type->types[type->param_count + i]);
+    }
+}
+
 #if WASM_ENABLE_REF_TYPES != 0
-/* (uintptr_t)externref -> (uint32_t)index */
+/* (uintptr_t)externref -> (uint32)index */
 /*   argv               ->   *ret_argv */
 static bool
 wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
@@ -1321,7 +1411,7 @@ wasm_runtime_prepare_call_function(WASMExecEnv *exec_env,
     return true;
 }
 
-/* (uintptr_t)externref <- (uint32_t)index */
+/* (uintptr_t)externref <- (uint32)index */
 /*   argv               <-   new_argv */
 static bool
 wasm_runtime_finalize_call_function(WASMExecEnv *exec_env,
@@ -3952,8 +4042,8 @@ fail:
                  || defined(BUILD_TARGET_RISCV64_LP64) */
 
 bool
-wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32_t element_indices,
-                           uint32_t argc, uint32_t argv[])
+wasm_runtime_call_indirect(WASMExecEnv *exec_env, uint32 element_indices,
+                           uint32 argc, uint32 argv[])
 {
     if (!wasm_runtime_exec_env_check(exec_env)) {
         LOG_ERROR("Invalid exec env stack info.");

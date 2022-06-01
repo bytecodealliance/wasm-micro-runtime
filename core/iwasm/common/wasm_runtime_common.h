@@ -303,6 +303,11 @@ typedef struct WASMModuleCommon {
        Wasm_Module_AoT, and this structure should be treated as
        AOTModule structure. */
     uint32 module_type;
+
+    /* The following uint8[1] member is a dummy just to indicate
+       some module_type dependent members follow.
+       Typically it should be accessed by casting to the corresponding
+       actual module_type dependent structure, not via this member. */
     uint8 module_data[1];
 } WASMModuleCommon;
 
@@ -314,6 +319,11 @@ typedef struct WASMModuleInstanceCommon {
        Wasm_Module_AoT, and this structure should be treated as
        AOTModuleInstance structure. */
     uint32 module_type;
+
+    /* The following uint8[1] member is a dummy just to indicate
+       some module_type dependent members follow.
+       Typically it should be accessed by casting to the corresponding
+       actual module_type dependent structure, not via this member. */
     uint8 module_inst_data[1];
 } WASMModuleInstanceCommon;
 
@@ -377,6 +387,11 @@ typedef struct WASMRegisteredModule {
 
 typedef struct WASMMemoryInstanceCommon {
     uint32 module_type;
+
+    /* The following uint8[1] member is a dummy just to indicate
+       some module_type dependent members follow.
+       Typically it should be accessed by casting to the corresponding
+       actual module_type dependent structure, not via this member. */
     uint8 memory_inst_data[1];
 } WASMMemoryInstanceCommon;
 
@@ -455,6 +470,28 @@ wasm_runtime_lookup_function(WASMModuleInstanceCommon *const module_inst,
 WASMType *
 wasm_runtime_get_function_type(const WASMFunctionInstanceCommon *function,
                                uint32 module_type);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_func_get_param_count(WASMFunctionInstanceCommon *const func_inst,
+                          WASMModuleInstanceCommon *const module_inst);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN uint32
+wasm_func_get_result_count(WASMFunctionInstanceCommon *const func_inst,
+                           WASMModuleInstanceCommon *const module_inst);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_func_get_param_types(WASMFunctionInstanceCommon *const func_inst,
+                          WASMModuleInstanceCommon *const module_inst,
+                          wasm_valkind_t *param_types);
+
+/* See wasm_export.h for description */
+WASM_RUNTIME_API_EXTERN void
+wasm_func_get_result_types(WASMFunctionInstanceCommon *const func_inst,
+                           WASMModuleInstanceCommon *const module_inst,
+                           wasm_valkind_t *result_types);
 
 /* See wasm_export.h for description */
 WASM_RUNTIME_API_EXTERN WASMExecEnv *
