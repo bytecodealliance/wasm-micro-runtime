@@ -99,8 +99,8 @@ aot_check_memory_overflow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         && aot_intrinsic_check_capability(comp_ctx, "i32.const")) {
         WASMValue wasm_value;
         wasm_value.i32 = offset;
-        offset_const = aot_load_const_from_table(comp_ctx, func_ctx->native_symbol,
-                                                 &wasm_value, VALUE_TYPE_I32);
+        offset_const = aot_load_const_from_table(
+            comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_I32);
         if (!offset_const) {
             return NULL;
         }
