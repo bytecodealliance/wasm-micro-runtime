@@ -360,6 +360,13 @@ os_thread_env_destroy()
     }
 }
 
+bool
+os_thread_env_inited()
+{
+    os_thread_data *thread_data = TlsGetValue(thread_data_key);
+    return thread_data ? true : false;
+}
+
 int
 os_sem_init(korp_sem *sem)
 {

@@ -408,6 +408,54 @@ wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
                              const char *name, const char *signature);
 
 /**
+ * Get parameter count of the function instance
+ *
+ * @param func_inst the function instance
+ * @param module_inst the module instance the function instance belongs to
+ *
+ * @return the parameter count of the function instance
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_func_get_param_count(wasm_function_inst_t const func_inst,
+                          wasm_module_inst_t const module_inst);
+
+/**
+ * Get result count of the function instance
+ *
+ * @param func_inst the function instance
+ * @param module_inst the module instance the function instance belongs to
+ *
+ * @return the result count of the function instance
+ */
+WASM_RUNTIME_API_EXTERN uint32_t
+wasm_func_get_result_count(wasm_function_inst_t const func_inst,
+                           wasm_module_inst_t const module_inst);
+
+/**
+ * Get parameter types of the function instance
+ *
+ * @param func_inst the function instance
+ * @param module_inst the module instance the function instance belongs to
+ * @param param_types the parameter types returned
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_func_get_param_types(wasm_function_inst_t const func_inst,
+                          wasm_module_inst_t const module_inst,
+                          wasm_valkind_t *param_types);
+
+/**
+ * Get result types of the function instance
+ *
+ * @param func_inst the function instance
+ * @param module_inst the module instance the function instance belongs to
+ * @param result_types the result types returned
+ */
+WASM_RUNTIME_API_EXTERN void
+wasm_func_get_result_types(wasm_function_inst_t const func_inst,
+                           wasm_module_inst_t const module_inst,
+                           wasm_valkind_t *result_types);
+
+/**
  * Create execution environment for a WASM module instance.
  *
  * @param module_inst the module instance
@@ -449,7 +497,7 @@ WASM_RUNTIME_API_EXTERN uint32_t
 wasm_runtime_start_debug_instance(wasm_exec_env_t exec_env);
 
 /**
- * Initialize thread environment.
+ * Initialize the thread environment.
  * Note:
  *   If developer creates a child thread by himself to call the
  *   the wasm function in that thread, he should call this API
@@ -464,10 +512,16 @@ WASM_RUNTIME_API_EXTERN bool
 wasm_runtime_init_thread_env(void);
 
 /**
- * Destroy thread environment
+ * Destroy the thread environment
  */
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_destroy_thread_env(void);
+
+/**
+ * Whether the thread environment is initialized
+ */
+WASM_RUNTIME_API_EXTERN bool
+wasm_runtime_thread_env_inited(void);
 
 /**
  * Get WASM module instance from execution environment
