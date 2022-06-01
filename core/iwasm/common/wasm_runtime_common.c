@@ -1274,10 +1274,6 @@ val_type_to_val_kind(uint8 value_type)
         case VALUE_TYPE_EXTERNREF:
             return WASM_ANYREF;
         default:
-#if WASM_ENABLE_GC != 0
-            if (wasm_is_type_reftype(value_type))
-                return WASM_ANYREF;
-#endif
             bh_assert(0);
             return 0;
     }
