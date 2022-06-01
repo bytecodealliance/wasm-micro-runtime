@@ -255,13 +255,10 @@ pack_argv(JitCompContext *cc)
 static bool
 unpack_argv(JitCompContext *cc, const WASMType *func_type, JitReg argv)
 {
-    /* argv to stack*/
-    uint32 i, top_by_cell, offset_by_cell;
+    uint32 i, offset_by_cell = 0;
     JitReg value;
 
-    /* stack top */
-    top_by_cell = cc->jit_frame->sp - cc->jit_frame->lp;
-    offset_by_cell = 0;
+    /* push results in argv to stack*/
     for (i = 0; i < func_type->result_count; i++) {
         switch (func_type->types[func_type->param_count + i]) {
             case VALUE_TYPE_I32:
@@ -272,40 +269,32 @@ unpack_argv(JitCompContext *cc, const WASMType *func_type, JitReg argv)
             {
                 value = jit_cc_new_reg_I32(cc);
                 GEN_INSN(LDI32, value, argv, NEW_CONST(I32, offset_by_cell));
-                GEN_INSN(STI32, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(top_by_cell
-                                                        + offset_by_cell)));
-                offset_by_cell += 1;
+                PUSH_I32(value);
+                offset_by_cell += 4;
                 break;
             }
             case VALUE_TYPE_I64:
             {
                 value = jit_cc_new_reg_I64(cc);
                 GEN_INSN(LDI64, value, argv, NEW_CONST(I32, offset_by_cell));
-                GEN_INSN(STI64, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(top_by_cell
-                                                        + offset_by_cell)));
-                offset_by_cell += 2;
+                PUSH_I64(value);
+                offset_by_cell += 8;
                 break;
             }
             case VALUE_TYPE_F32:
             {
                 value = jit_cc_new_reg_F32(cc);
                 GEN_INSN(LDF32, value, argv, NEW_CONST(I32, offset_by_cell));
-                GEN_INSN(STF32, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(top_by_cell
-                                                        + offset_by_cell)));
-                offset_by_cell += 1;
+                PUSH_F32(value);
+                offset_by_cell += 4;
                 break;
             }
             case VALUE_TYPE_F64:
             {
                 value = jit_cc_new_reg_F64(cc);
                 GEN_INSN(LDF64, value, argv, NEW_CONST(I32, offset_by_cell));
-                GEN_INSN(STF64, value, cc->fp_reg,
-                         NEW_CONST(I32, offset_of_local(top_by_cell
-                                                        + offset_by_cell)));
-                offset_by_cell += 2;
+                PUSH_F64(value);
+                offset_by_cell += 8;
                 break;
             }
             default:
@@ -316,6 +305,9 @@ unpack_argv(JitCompContext *cc, const WASMType *func_type, JitReg argv)
         }
     }
 
+    /* Update the committed_sp as the callee has updated the frame sp */
+    cc->jit_frame->committed_sp = cc->jit_frame->sp;
+
     return true;
 fail:
     return false;
@@ -325,11 +317,14 @@ bool
 jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                              uint32 tbl_idx)
 {
-    JitReg element_indices, native_ret, argv;
+    JitReg elem_idx, native_ret, argv;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    JitReg edx_hreg, r9_hreg;
+#endif
     WASMType *func_type;
     JitInsn *insn;
 
-    POP_I32(element_indices);
+    POP_I32(elem_idx);
 
     func_type = cc->cur_wasm_module->types[type_idx];
     if (!pre_call(cc, func_type)) {
@@ -341,23 +336,34 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     /* Set native_ret to x86::eax */
     native_ret = jit_codegen_get_hreg_by_name("eax");
+
+    edx_hreg = jit_codegen_get_hreg_by_name("edx");
+    GEN_INSN(MOV, edx_hreg, elem_idx);
+    elem_idx = edx_hreg;
+
+    r9_hreg = jit_codegen_get_hreg_by_name("r9");
+    GEN_INSN(MOV, r9_hreg, argv);
+    argv = r9_hreg;
 #else
     native_ret = jit_cc_new_reg_I32(cc);
 #endif
 
     insn = GEN_INSN(CALLNATIVE, native_ret,
-                    NEW_CONST(PTR, (uintptr_t)wasm_call_indirect), 5);
+                    NEW_CONST(PTR, (uintptr_t)jit_call_indirect), 6);
     if (!insn) {
         goto fail;
     }
 
     *(jit_insn_opndv(insn, 2)) = cc->exec_env_reg;
     *(jit_insn_opndv(insn, 3)) = NEW_CONST(I32, tbl_idx);
-    *(jit_insn_opndv(insn, 4)) = element_indices;
-    *(jit_insn_opndv(insn, 5)) = NEW_CONST(I32, func_type->param_count);
-    *(jit_insn_opndv(insn, 6)) = argv;
+    *(jit_insn_opndv(insn, 4)) = elem_idx;
+    *(jit_insn_opndv(insn, 5)) = NEW_CONST(I32, type_idx);
+    *(jit_insn_opndv(insn, 6)) = NEW_CONST(I32, func_type->param_cell_num);
+    *(jit_insn_opndv(insn, 7)) = argv;
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     jit_lock_reg_in_insn(cc, insn, native_ret);
+#endif
 
     /* Check whether there is exception thrown */
     GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
@@ -367,10 +373,6 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
     }
 
     if (!unpack_argv(cc, func_type, argv)) {
-        goto fail;
-    }
-
-    if (!post_return(cc, func_type)) {
         goto fail;
     }
 

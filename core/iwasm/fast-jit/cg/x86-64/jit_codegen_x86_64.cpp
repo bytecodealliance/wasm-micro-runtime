@@ -2696,6 +2696,67 @@ alu_imm_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     return mov_imm_to_r_f32(a, reg_no_dst, data);
 }
 
+static bool
+alu_r_m_float(x86::Assembler &a, ALU_OP op, int32 reg_no, x86::Mem &m, bool is_f32)
+{
+    switch (op) {
+        case ADD:
+        {
+            if (is_f32)
+                a.addss(regs_float[reg_no], m);
+            else
+                a.addsd(regs_float[reg_no], m);
+            break;
+        }
+        case SUB:
+        {
+            if (is_f32)
+                a.subss(regs_float[reg_no], m);
+            else
+                a.subsd(regs_float[reg_no], m);
+            break;
+        }
+        case MUL:
+        {
+            if (is_f32)
+                a.mulss(regs_float[reg_no], m);
+            else
+                a.mulsd(regs_float[reg_no], m);
+            break;
+        }
+        case DIV_S:
+        {
+            if (is_f32)
+                a.divss(regs_float[reg_no], m);
+            else
+                a.divsd(regs_float[reg_no], m);
+            break;
+        }
+        case MAX:
+        {
+            if (is_f32)
+                a.maxss(regs_float[reg_no], m);
+            else
+                a.maxsd(regs_float[reg_no], m);
+            break;
+        }
+        case MIN:
+        {
+            if (is_f32)
+                a.minss(regs_float[reg_no], m);
+            else
+                a.minsd(regs_float[reg_no], m);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * Encode float alu operation of imm and reg, and save result to reg
  *
@@ -2718,9 +2779,9 @@ alu_imm_r_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     a.movaps(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
-    mov_imm_to_r_f32(a, reg_no2_src, data1_src);
+    mov_imm_to_r_f32(a, reg_no_dst, data1_src);
 
-    a.addss(regs_float[reg_no2_src], cache);
+    alu_r_m_float(a, op, reg_no_dst, cache, true);
     return true;
 }
 
@@ -2746,7 +2807,9 @@ alu_r_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     Imm imm(*(uint32 *)&data2_src);
     mov_imm_to_m(a, cache, imm, 4);
 
-    a.addss(regs_float[reg_no1_src], cache);
+    mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
+
+    alu_r_m_float(a, op, reg_no_dst, cache, true);
     return true;
 }
 
@@ -2892,9 +2955,9 @@ alu_imm_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     a.movapd(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
-    mov_imm_to_r_f64(a, reg_no2_src, data1_src);
+    mov_imm_to_r_f64(a, reg_no_dst, data1_src);
 
-    a.addsd(regs_float[reg_no2_src], cache);
+    alu_r_m_float(a, op, reg_no_dst, cache, false);
     return true;
 }
 
@@ -2920,7 +2983,9 @@ alu_r_imm_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     Imm imm(*(uint64 *)&data2_src);
     mov_imm_to_m(a, cache, imm, 8);
 
-    a.addsd(regs_float[reg_no1_src], cache);
+    mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
+
+    alu_r_m_float(a, op, reg_no_dst, cache, false);
     return true;
 }
 
@@ -3175,18 +3240,42 @@ bit_r_imm_i64(x86::Assembler &a, BIT_OP op, int32 reg_no, int64 data)
 
     switch (op) {
         case OR:
-            if (data != 0)
-                a.or_(regs_i64[reg_no], imm);
+            if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.or_(regs_i64[reg_no], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.or_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case XOR:
             if (data == -1LL)
                 a.not_(regs_i64[reg_no]);
-            else if (data != 0)
-                a.xor_(regs_i64[reg_no], imm);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.xor_(regs_i64[reg_no], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.xor_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case AND:
-            if (data != -1LL)
-                a.and_(regs_i64[reg_no], imm);
+            if (data != -1LL) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.and_(regs_i64[reg_no], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.and_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         default:
             bh_assert(0);
@@ -6184,7 +6273,7 @@ static uint8 hreg_info_F32[3][16] = {
     { 0, 0, 0, 0, 0, 0, 0, 0,
       1, 1, 1, 1, 1, 1, 1, 1 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      0, 0, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
@@ -6195,7 +6284,7 @@ static uint8 hreg_info_F64[3][16] = {
     { 1, 1, 1, 1, 1, 1, 1, 1,
       0, 0, 0, 0, 0, 0, 0, 0 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      0, 0, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
@@ -6252,12 +6341,16 @@ jit_codegen_get_hreg_by_name(const char *name)
         return jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
     else if (strcmp(name, "edx") == 0)
         return jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
+    else if (strcmp(name, "esi") == 0)
+        return jit_reg_new(JIT_REG_KIND_I32, REG_ESI_IDX);
     else if (strcmp(name, "rax") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RAX_IDX);
     else if (strcmp(name, "rcx") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
     else if (strcmp(name, "rdx") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
+    else if (strcmp(name, "r9") == 0)
+        return jit_reg_new(JIT_REG_KIND_I64, REG_R9_IDX);
     else if (strcmp(name, "xmm0") == 0)
         return jit_reg_new(JIT_REG_KIND_F32, 0);
     else if (strcmp(name, "xmm0_f64") == 0)

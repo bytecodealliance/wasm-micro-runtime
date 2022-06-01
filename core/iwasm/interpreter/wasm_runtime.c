@@ -56,7 +56,7 @@ wasm_load(uint8 *buf, uint32 size, char *error_buf, uint32 error_buf_size)
 
 WASMModule *
 wasm_load_from_sections(WASMSection *section_list, char *error_buf,
-                        uint32_t error_buf_size)
+                        uint32 error_buf_size)
 {
     return wasm_loader_load_from_sections(section_list, error_buf,
                                           error_buf_size);
@@ -2270,14 +2270,14 @@ wasm_enlarge_table(WASMModuleInstance *module_inst, uint32 table_idx,
 }
 #endif /* WASM_ENABLE_REF_TYPES != 0 */
 
-bool
-wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
-                   uint32_t element_indices, uint32_t argc, uint32_t argv[])
+static bool
+call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
+              uint32 argc, uint32 argv[], bool check_type_idx, uint32 type_idx)
 {
     WASMModuleInstance *module_inst = NULL;
     WASMTableInstance *table_inst = NULL;
-    uint32_t function_indices = 0;
-    WASMFunctionInstance *function_inst = NULL;
+    uint32 func_idx = 0;
+    WASMFunctionInstance *func_inst = NULL;
 
     module_inst = (WASMModuleInstance *)exec_env->module_inst;
     bh_assert(module_inst);
@@ -2288,7 +2288,7 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
         goto got_exception;
     }
 
-    if (element_indices >= table_inst->cur_size) {
+    if (elem_idx >= table_inst->cur_size) {
         wasm_set_exception(module_inst, "undefined element");
         goto got_exception;
     }
@@ -2297,8 +2297,8 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
      * please be aware that table_inst->base_addr may point
      * to another module's table
      **/
-    function_indices = ((uint32_t *)table_inst->base_addr)[element_indices];
-    if (function_indices == NULL_REF) {
+    func_idx = ((uint32 *)table_inst->base_addr)[elem_idx];
+    if (func_idx == NULL_REF) {
         wasm_set_exception(module_inst, "uninitialized element");
         goto got_exception;
     }
@@ -2306,14 +2306,29 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
     /**
      * we insist to call functions owned by the module itself
      **/
-    if (function_indices >= module_inst->function_count) {
+    if (func_idx >= module_inst->function_count) {
         wasm_set_exception(module_inst, "unknown function");
         goto got_exception;
     }
 
-    function_inst = module_inst->functions + function_indices;
+    func_inst = module_inst->functions + func_idx;
 
-    wasm_interp_call_wasm(module_inst, exec_env, function_inst, argc, argv);
+    if (check_type_idx) {
+        WASMType *cur_type = module_inst->module->types[type_idx];
+        WASMType *cur_func_type;
+
+        if (func_inst->is_import_func)
+            cur_func_type = func_inst->u.func_import->func_type;
+        else
+            cur_func_type = func_inst->u.func->func_type;
+
+        if (!wasm_type_equal(cur_type, cur_func_type)) {
+            wasm_set_exception(module_inst, "indirect call type mismatch");
+            goto got_exception;
+        }
+    }
+
+    wasm_interp_call_wasm(module_inst, exec_env, func_inst, argc, argv);
 
     (void)clear_wasi_proc_exit_exception(module_inst);
     return !wasm_get_exception(module_inst) ? true : false;
@@ -2321,6 +2336,23 @@ wasm_call_indirect(WASMExecEnv *exec_env, uint32_t tbl_idx,
 got_exception:
     return false;
 }
+
+bool
+wasm_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
+                   uint32 argc, uint32 argv[])
+{
+    return call_indirect(exec_env, tbl_idx, elem_idx, argc, argv, false, 0);
+}
+
+#if WASM_ENABLE_FAST_JIT != 0
+bool
+jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
+                  uint32 type_idx, uint32 argc, uint32 argv[])
+{
+    return call_indirect(exec_env, tbl_idx, elem_idx, argc, argv, true,
+                         type_idx);
+}
+#endif
 
 #if WASM_ENABLE_THREAD_MGR != 0
 bool
