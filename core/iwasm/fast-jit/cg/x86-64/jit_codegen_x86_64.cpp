@@ -5048,6 +5048,7 @@ fail:
  * Encode detecting the cmp flags in reg, and jmp to the relative address
  * according to the condition opcode
  *
+ * @param cc the compiler context
  * @param a the assembler to emit the code
  * @param reg_no the no of register which contains cmp flags of cmp result
  * @param op the condition opcode to jmp
@@ -5056,12 +5057,13 @@ fail:
  * @return return the next address of native code after encoded
  */
 static bool
-cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
-                       int32 offset)
+cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
+                       COND_OP op, int32 offset)
 {
     Imm target(INT32_MAX);
     char *stream = (char *)a.code()->sectionById(0)->buffer().data()
                    + a.code()->sectionById(0)->buffer().size();
+    bool fp_cmp = cc->last_cmp_on_fp;
 
     switch (op) {
         case EQ:
@@ -5071,17 +5073,46 @@ cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
             a.jne(target);
             break;
         case GTS:
-            a.jg(target);
+        {
+            if (fp_cmp) {
+                a.jnbe(target);
+            }
+            else {
+                a.jg(target);
+            }
             break;
+        }
         case LES:
-            a.jng(target);
+        {
+            if (fp_cmp) {
+                a.jbe(target);
+            }
+            else {
+                a.jng(target);
+            }
             break;
+        }
         case GES:
-            a.jge(target);
+        {
+            if (fp_cmp) {
+                a.jnb(target);
+            }
+            else {
+
+                a.jnl(target);
+            }
             break;
+        }
         case LTS:
-            a.jl(target);
+        {
+            if (fp_cmp) {
+                a.jb(target);
+            }
+            else {
+                a.jl(target);
+            }
             break;
+        }
         case GTU:
             a.ja(target);
             break;
@@ -5164,7 +5195,8 @@ lower_select(JitCompContext *cc, x86::Assembler &a, COND_OP op, JitReg r0,
     }
 
     if (r3 && r0 != r3) {
-        if (!cmp_r_and_jmp_relative(a, jit_reg_no(r1), op, (int32)size_mov2))
+        if (!cmp_r_and_jmp_relative(cc, a, jit_reg_no(r1), op,
+                                    (int32)size_mov2))
             return false;
         a.embedDataArray(TypeId::kInt8, stream_mov2, size_mov2);
     }
