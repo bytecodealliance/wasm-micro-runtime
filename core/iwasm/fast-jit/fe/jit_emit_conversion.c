@@ -206,14 +206,80 @@ fail:
 bool
 jit_compile_op_i64_extend_i64(JitCompContext *cc, int8 bitwidth)
 {
-    bh_assert(0);
+    JitReg value, tmp, res;
+
+    POP_I64(value);
+
+    tmp = jit_cc_new_reg_I64(cc);
+    res = jit_cc_new_reg_I64(cc);
+
+    switch (bitwidth) {
+        case 8:
+        {
+            GEN_INSN(I64TOI8, tmp, value);
+            GEN_INSN(I8TOI64, res, tmp);
+            break;
+        }
+        case 16:
+        {
+            GEN_INSN(I64TOI16, tmp, value);
+            GEN_INSN(I16TOI64, res, tmp);
+            break;
+        }
+        case 32:
+        {
+            GEN_INSN(I64TOI32, tmp, value);
+            GEN_INSN(I32TOI64, res, tmp);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    PUSH_I64(res);
+
+    return true;
+fail:
     return false;
 }
 
 bool
 jit_compile_op_i32_extend_i32(JitCompContext *cc, int8 bitwidth)
 {
-    bh_assert(0);
+    JitReg value, tmp, res;
+
+    POP_I32(value);
+
+    tmp = jit_cc_new_reg_I32(cc);
+    res = jit_cc_new_reg_I32(cc);
+
+    switch (bitwidth) {
+        case 8:
+        {
+            GEN_INSN(I32TOI8, tmp, value);
+            GEN_INSN(I8TOI32, res, tmp);
+            break;
+        }
+        case 16:
+        {
+            GEN_INSN(I32TOI16, tmp, value);
+            GEN_INSN(I16TOI32, res, tmp);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            goto fail;
+        }
+    }
+
+    PUSH_I32(res);
+
+    return true;
+fail:
     return false;
 }
 
