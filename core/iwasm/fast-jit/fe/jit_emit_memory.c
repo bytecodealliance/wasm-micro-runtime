@@ -476,6 +476,9 @@ bool
 jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
 {
     JitReg delta, module_inst, grow_result, res, memory_inst, prev_page_count;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    JitReg esi_hreg;
+#endif
     JitInsn *insn;
 
     /* WASMMemoryInstance->cur_page_count before enlarging */
@@ -491,14 +494,24 @@ jit_compile_op_memory_grow(JitCompContext *cc, uint32 mem_idx)
 #else
     grow_result = jit_cc_new_reg_I32(cc);
 #endif
+
     POP_I32(delta);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    esi_hreg = jit_codegen_get_hreg_by_name("esi");
+    GEN_INSN(MOV, esi_hreg, delta);
+    delta = esi_hreg;
+#endif
+
     module_inst = get_module_inst_reg(cc->jit_frame);
+
     insn = GEN_INSN(CALLNATIVE, grow_result,
                     NEW_CONST(PTR, (uintptr_t)wasm_enlarge_memory), 2);
-    if (insn) {
-        *(jit_insn_opndv(insn, 2)) = module_inst;
-        *(jit_insn_opndv(insn, 3)) = delta;
+    if (!insn) {
+        goto fail;
     }
+
+    *(jit_insn_opndv(insn, 2)) = module_inst;
+    *(jit_insn_opndv(insn, 3)) = delta;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     jit_lock_reg_in_insn(cc, insn, grow_result);

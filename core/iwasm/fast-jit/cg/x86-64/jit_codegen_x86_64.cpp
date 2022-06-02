@@ -2880,6 +2880,68 @@ alu_imm_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     return mov_imm_to_r_f32(a, reg_no_dst, data);
 }
 
+static bool
+alu_r_m_float(x86::Assembler &a, ALU_OP op, int32 reg_no, x86::Mem &m,
+              bool is_f32)
+{
+    switch (op) {
+        case ADD:
+        {
+            if (is_f32)
+                a.addss(regs_float[reg_no], m);
+            else
+                a.addsd(regs_float[reg_no], m);
+            break;
+        }
+        case SUB:
+        {
+            if (is_f32)
+                a.subss(regs_float[reg_no], m);
+            else
+                a.subsd(regs_float[reg_no], m);
+            break;
+        }
+        case MUL:
+        {
+            if (is_f32)
+                a.mulss(regs_float[reg_no], m);
+            else
+                a.mulsd(regs_float[reg_no], m);
+            break;
+        }
+        case DIV_S:
+        {
+            if (is_f32)
+                a.divss(regs_float[reg_no], m);
+            else
+                a.divsd(regs_float[reg_no], m);
+            break;
+        }
+        case MAX:
+        {
+            if (is_f32)
+                a.maxss(regs_float[reg_no], m);
+            else
+                a.maxsd(regs_float[reg_no], m);
+            break;
+        }
+        case MIN:
+        {
+            if (is_f32)
+                a.minss(regs_float[reg_no], m);
+            else
+                a.minsd(regs_float[reg_no], m);
+            break;
+        }
+        default:
+        {
+            bh_assert(0);
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * Encode float alu operation of imm and reg, and save result to reg
  *
@@ -2902,10 +2964,9 @@ alu_imm_r_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     a.movaps(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
-    mov_imm_to_r_f32(a, reg_no2_src, data1_src);
+    mov_imm_to_r_f32(a, reg_no_dst, data1_src);
 
-    a.addss(regs_float[reg_no2_src], cache);
-    return true;
+    return alu_r_m_float(a, op, reg_no_dst, cache, true);
 }
 
 /**
@@ -2930,8 +2991,9 @@ alu_r_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     Imm imm(*(uint32 *)&data2_src);
     mov_imm_to_m(a, cache, imm, 4);
 
-    a.addss(regs_float[reg_no1_src], cache);
-    return true;
+    mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
+
+    return alu_r_m_float(a, op, reg_no_dst, cache, true);
 }
 
 /**
@@ -3076,10 +3138,9 @@ alu_imm_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     a.movapd(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
-    mov_imm_to_r_f64(a, reg_no2_src, data1_src);
+    mov_imm_to_r_f64(a, reg_no_dst, data1_src);
 
-    a.addsd(regs_float[reg_no2_src], cache);
-    return true;
+    return alu_r_m_float(a, op, reg_no_dst, cache, false);
 }
 
 /**
@@ -3104,8 +3165,9 @@ alu_r_imm_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     Imm imm(*(uint64 *)&data2_src);
     mov_imm_to_m(a, cache, imm, 8);
 
-    a.addsd(regs_float[reg_no1_src], cache);
-    return true;
+    mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
+
+    return alu_r_m_float(a, op, reg_no_dst, cache, false);
 }
 
 /**
@@ -3359,18 +3421,42 @@ bit_r_imm_i64(x86::Assembler &a, BIT_OP op, int32 reg_no, int64 data)
 
     switch (op) {
         case OR:
-            if (data != 0)
-                a.or_(regs_i64[reg_no], imm);
+            if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.or_(regs_i64[reg_no], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.or_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case XOR:
             if (data == -1LL)
                 a.not_(regs_i64[reg_no]);
-            else if (data != 0)
-                a.xor_(regs_i64[reg_no], imm);
+            else if (data != 0) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.xor_(regs_i64[reg_no], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.xor_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         case AND:
-            if (data != -1LL)
-                a.and_(regs_i64[reg_no], imm);
+            if (data != -1LL) {
+                if (data >= INT32_MIN && data <= INT32_MAX) {
+                    imm.setValue((int32)data);
+                    a.and_(regs_i64[reg_no], imm);
+                }
+                else {
+                    a.mov(regs_i64[REG_I64_FREE_IDX], imm);
+                    a.and_(regs_i64[reg_no], regs_i64[REG_I64_FREE_IDX]);
+                }
+            }
             break;
         default:
             bh_assert(0);
@@ -4958,6 +5044,7 @@ fail:
  * Encode detecting the cmp flags in reg, and jmp to the relative address
  * according to the condition opcode
  *
+ * @param cc the compiler context
  * @param a the assembler to emit the code
  * @param reg_no the no of register which contains cmp flags of cmp result
  * @param op the condition opcode to jmp
@@ -4966,12 +5053,13 @@ fail:
  * @return return the next address of native code after encoded
  */
 static bool
-cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
-                       int32 offset)
+cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
+                       COND_OP op, int32 offset)
 {
     Imm target(INT32_MAX);
     char *stream = (char *)a.code()->sectionById(0)->buffer().data()
                    + a.code()->sectionById(0)->buffer().size();
+    bool fp_cmp = cc->last_cmp_on_fp;
 
     switch (op) {
         case EQ:
@@ -4981,17 +5069,46 @@ cmp_r_and_jmp_relative(x86::Assembler &a, int32 reg_no, COND_OP op,
             a.jne(target);
             break;
         case GTS:
-            a.jg(target);
+        {
+            if (fp_cmp) {
+                a.jnbe(target);
+            }
+            else {
+                a.jg(target);
+            }
             break;
+        }
         case LES:
-            a.jng(target);
+        {
+            if (fp_cmp) {
+                a.jbe(target);
+            }
+            else {
+                a.jng(target);
+            }
             break;
+        }
         case GES:
-            a.jge(target);
+        {
+            if (fp_cmp) {
+                a.jnb(target);
+            }
+            else {
+
+                a.jnl(target);
+            }
             break;
+        }
         case LTS:
-            a.jl(target);
+        {
+            if (fp_cmp) {
+                a.jb(target);
+            }
+            else {
+                a.jl(target);
+            }
             break;
+        }
         case GTU:
             a.ja(target);
             break;
@@ -5074,7 +5191,8 @@ lower_select(JitCompContext *cc, x86::Assembler &a, COND_OP op, JitReg r0,
     }
 
     if (r3 && r0 != r3) {
-        if (!cmp_r_and_jmp_relative(a, jit_reg_no(r1), op, (int32)size_mov2))
+        if (!cmp_r_and_jmp_relative(cc, a, jit_reg_no(r1), op,
+                                    (int32)size_mov2))
             return false;
         a.embedDataArray(TypeId::kInt8, stream_mov2, size_mov2);
     }
@@ -6398,7 +6516,7 @@ static uint8 hreg_info_F32[3][16] = {
     { 0, 0, 0, 0, 0, 0, 0, 0,
       1, 1, 1, 1, 1, 1, 1, 1 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      0, 0, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
@@ -6409,7 +6527,7 @@ static uint8 hreg_info_F64[3][16] = {
     { 1, 1, 1, 1, 1, 1, 1, 1,
       0, 0, 0, 0, 0, 0, 0, 0 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      0, 0, 0, 0, 0, 0, 0, 0 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
 };
@@ -6466,12 +6584,16 @@ jit_codegen_get_hreg_by_name(const char *name)
         return jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
     else if (strcmp(name, "edx") == 0)
         return jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
+    else if (strcmp(name, "esi") == 0)
+        return jit_reg_new(JIT_REG_KIND_I32, REG_ESI_IDX);
     else if (strcmp(name, "rax") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RAX_IDX);
     else if (strcmp(name, "rcx") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
     else if (strcmp(name, "rdx") == 0)
         return jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
+    else if (strcmp(name, "r9") == 0)
+        return jit_reg_new(JIT_REG_KIND_I64, REG_R9_IDX);
     else if (strcmp(name, "xmm0") == 0)
         return jit_reg_new(JIT_REG_KIND_F32, 0);
     else if (strcmp(name, "xmm0_f64") == 0)

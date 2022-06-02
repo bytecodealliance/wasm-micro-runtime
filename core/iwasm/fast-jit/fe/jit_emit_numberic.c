@@ -1322,36 +1322,117 @@ jit_compile_op_i64_shift(JitCompContext *cc, IntShift shift_op)
     return compile_op_int_shift(cc, shift_op, false);
 }
 
+static float32
+negf(float32 f32)
+{
+    return -f32;
+}
+
+static float64
+neg(float64 f64)
+{
+    return -f64;
+}
+
+static bool
+compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
+{
+    JitReg value, res, xmm0;
+    JitInsn *insn = NULL;
+    void *func = NULL;
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    if (is_f32) {
+        res = xmm0 = jit_codegen_get_hreg_by_name("xmm0");
+    }
+    else {
+        res = jit_codegen_get_hreg_by_name("xmm0_f64");
+        xmm0 = jit_codegen_get_hreg_by_name("xmm0");
+    }
+#else
+    if (is_f32)
+        res = jit_cc_new_reg_F32(cc);
+    else
+        res = jit_cc_new_reg_F64(cc);
+#endif
+
+    if (is_f32)
+        POP_F32(value);
+    else
+        POP_F64(value);
+
+    switch (math_op) {
+        case FLOAT_ABS:
+            func = is_f32 ? (void *)fabsf : (void *)fabs;
+            break;
+        case FLOAT_NEG:
+            func = is_f32 ? (void *)negf : (void *)neg;
+            break;
+        case FLOAT_CEIL:
+            func = is_f32 ? (void *)ceilf : (void *)ceil;
+            break;
+        case FLOAT_FLOOR:
+            func = is_f32 ? (void *)floorf : (void *)floor;
+            break;
+        case FLOAT_TRUNC:
+            func = is_f32 ? (void *)truncf : (void *)trunc;
+            break;
+        case FLOAT_NEAREST:
+            func = is_f32 ? (void *)rintf : (void *)rint;
+            break;
+        case FLOAT_SQRT:
+            func = is_f32 ? (void *)sqrtf : (void *)sqrt;
+            break;
+    }
+
+    insn = GEN_INSN(CALLNATIVE, res, NEW_CONST(PTR, (uintptr_t)func), 1);
+    if (!insn) {
+        goto fail;
+    }
+    *(jit_insn_opndv(insn, 2)) = value;
+
+    if (is_f32)
+        PUSH_F32(res);
+    else
+        PUSH_F64(res);
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    jit_lock_reg_in_insn(cc, insn, xmm0);
+#endif
+    return true;
+fail:
+    return false;
+}
+
 bool
 jit_compile_op_f32_math(JitCompContext *cc, FloatMath math_op)
 {
-    bh_assert(0);
-    return false;
+    return compile_op_float_math(cc, math_op, true);
 }
 
 bool
 jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 {
-    bh_assert(0);
-    return false;
+    return compile_op_float_math(cc, math_op, false);
 }
 
-bool
-jit_compile_op_f32_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
-{
-    bh_assert(0);
-    return false;
-}
-
-bool
-jit_compile_op_f64_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
+static bool
+compile_op_float_arithmetic(JitCompContext *cc, FloatArithmetic arith_op,
+                            bool is_f32)
 {
     JitReg lhs, rhs, res;
 
-    POP_F64(rhs);
-    POP_F64(lhs);
+    if (is_f32) {
+        POP_F32(rhs);
+        POP_F32(lhs);
+        res = jit_cc_new_reg_F32(cc);
+    }
+    else {
+        POP_F64(rhs);
+        POP_F64(lhs);
+        res = jit_cc_new_reg_F64(cc);
+    }
 
-    res = jit_cc_new_reg_F64(cc);
     switch (arith_op) {
         case FLOAT_ADD:
         {
@@ -1391,11 +1472,26 @@ jit_compile_op_f64_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
         }
     }
 
-    PUSH_F64(res);
+    if (is_f32)
+        PUSH_F32(res);
+    else
+        PUSH_F64(res);
 
     return true;
 fail:
     return false;
+}
+
+bool
+jit_compile_op_f32_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
+{
+    return compile_op_float_arithmetic(cc, arith_op, true);
+}
+
+bool
+jit_compile_op_f64_arithmetic(JitCompContext *cc, FloatArithmetic arith_op)
+{
+    return compile_op_float_arithmetic(cc, arith_op, false);
 }
 
 bool

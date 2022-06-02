@@ -11,6 +11,7 @@ pop_value_from_wasm_stack(JitCompContext *cc, bool is_32bit, JitReg *p_value,
                           uint8 *p_type)
 {
     JitValue *jit_value;
+    JitReg value;
     uint8 type;
 
     if (!jit_block_stack_top(&cc->block_stack)) {
@@ -28,9 +29,6 @@ pop_value_from_wasm_stack(JitCompContext *cc, bool is_32bit, JitReg *p_value,
 
     if (p_type != NULL) {
         *p_type = jit_value->type;
-    }
-    if (p_value != NULL) {
-        *p_value = jit_value->value->reg;
     }
 
     wasm_runtime_free(jit_value);
@@ -57,19 +55,25 @@ pop_value_from_wasm_stack(JitCompContext *cc, bool is_32bit, JitReg *p_value,
         case VALUE_TYPE_FUNCREF:
         case VALUE_TYPE_EXTERNREF:
 #endif
-            pop_i32(cc->jit_frame);
+            value = pop_i32(cc->jit_frame);
             break;
         case VALUE_TYPE_I64:
-            pop_i64(cc->jit_frame);
+            value = pop_i64(cc->jit_frame);
             break;
         case VALUE_TYPE_F32:
-            pop_f32(cc->jit_frame);
+            value = pop_f32(cc->jit_frame);
             break;
         case VALUE_TYPE_F64:
-            pop_f64(cc->jit_frame);
+            value = pop_f64(cc->jit_frame);
             break;
+        default:
+            bh_assert(0);
+            return false;
     }
 
+    if (p_value != NULL) {
+        *p_value = value;
+    }
     return true;
 }
 
@@ -99,10 +103,23 @@ jit_compile_op_select(JitCompContext *cc, bool is_select_32)
         return false;
     }
 
-    if (is_select_32)
-        selected = jit_cc_new_reg_I32(cc);
-    else
-        selected = jit_cc_new_reg_I64(cc);
+    switch (val1_type) {
+        case VALUE_TYPE_I32:
+            selected = jit_cc_new_reg_I32(cc);
+            break;
+        case VALUE_TYPE_I64:
+            selected = jit_cc_new_reg_I64(cc);
+            break;
+        case VALUE_TYPE_F32:
+            selected = jit_cc_new_reg_F32(cc);
+            break;
+        case VALUE_TYPE_F64:
+            selected = jit_cc_new_reg_F64(cc);
+            break;
+        default:
+            bh_assert(0);
+            return false;
+    }
 
     GEN_INSN(CMP, cc->cmp_reg, cond, NEW_CONST(I32, 0));
     GEN_INSN(SELECTNE, selected, cc->cmp_reg, val1, val2);
