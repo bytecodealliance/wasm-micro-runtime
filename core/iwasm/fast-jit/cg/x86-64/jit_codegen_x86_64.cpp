@@ -2966,8 +2966,7 @@ alu_imm_r_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* imm -> gp -> xmm */
     mov_imm_to_r_f32(a, reg_no_dst, data1_src);
 
-    alu_r_m_float(a, op, reg_no_dst, cache, true);
-    return true;
+    return alu_r_m_float(a, op, reg_no_dst, cache, true);
 }
 
 /**
@@ -2994,8 +2993,7 @@ alu_r_imm_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 
     mov_r_to_r_f32(a, reg_no_dst, reg_no1_src);
 
-    alu_r_m_float(a, op, reg_no_dst, cache, true);
-    return true;
+    return alu_r_m_float(a, op, reg_no_dst, cache, true);
 }
 
 /**
@@ -3142,8 +3140,7 @@ alu_imm_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* imm -> gp -> xmm */
     mov_imm_to_r_f64(a, reg_no_dst, data1_src);
 
-    alu_r_m_float(a, op, reg_no_dst, cache, false);
-    return true;
+    return alu_r_m_float(a, op, reg_no_dst, cache, false);
 }
 
 /**
@@ -3170,8 +3167,7 @@ alu_r_imm_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
 
     mov_r_to_r_f64(a, reg_no_dst, reg_no1_src);
 
-    alu_r_m_float(a, op, reg_no_dst, cache, false);
-    return true;
+    return alu_r_m_float(a, op, reg_no_dst, cache, false);
 }
 
 /**
