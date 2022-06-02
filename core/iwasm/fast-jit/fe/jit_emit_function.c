@@ -128,13 +128,8 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     WASMFunction *func;
     WASMType *func_type;
     JitFrame *jit_frame = cc->jit_frame;
-    JitReg result = 0, native_ret;
+    JitReg native_ret;
     JitReg func_ptrs, jitted_code = 0;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
-    JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
-#endif
-    JitInsn *insn;
     uint32 jitted_func_idx;
 
     if (func_idx >= wasm_module->import_function_count) {
@@ -161,23 +156,17 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
     }
 
     if (func_idx < wasm_module->import_function_count) {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        /* Set native_ret to x86::eax */
-        native_ret = eax_hreg;
-#else
-        native_ret = jit_cc_new_reg_I32(cc);
-#endif
-        insn = GEN_INSN(CALLNATIVE, native_ret,
-                        NEW_CONST(PTR, (uintptr_t)jit_invoke_native), 3);
-        if (insn) {
-            *(jit_insn_opndv(insn, 2)) = cc->exec_env_reg;
-            *(jit_insn_opndv(insn, 3)) = NEW_CONST(I32, func_idx);
-            *(jit_insn_opndv(insn, 4)) = cc->fp_reg;
-        }
+        JitReg arg_regs[3];
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        jit_lock_reg_in_insn(cc, insn, native_ret);
-#endif
+        native_ret = jit_cc_new_reg_I32(cc);
+        arg_regs[0] = cc->exec_env_reg;
+        arg_regs[1] = NEW_CONST(I32, func_idx);
+        arg_regs[2] = cc->fp_reg;
+
+        if (!jit_emit_callnative(cc, jit_invoke_native, native_ret, arg_regs,
+                                 3)) {
+            return false;
+        }
 
         /* Check whether there is exception thrown */
         GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
@@ -187,6 +176,12 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         }
     }
     else {
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
+        JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
+#endif
+        JitReg result = 0;
+
         if (func_type->result_count > 0) {
             switch (func_type->types[func_type->param_count]) {
                 case VALUE_TYPE_I32:
@@ -317,12 +312,8 @@ bool
 jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
                              uint32 tbl_idx)
 {
-    JitReg elem_idx, native_ret, argv;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    JitReg edx_hreg, r9_hreg;
-#endif
+    JitReg elem_idx, native_ret, argv, arg_regs[6];
     WASMType *func_type;
-    JitInsn *insn;
 
     POP_I32(elem_idx);
 
@@ -333,37 +324,17 @@ jit_compile_op_call_indirect(JitCompContext *cc, uint32 type_idx,
 
     argv = pack_argv(cc);
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    /* Set native_ret to x86::eax */
-    native_ret = jit_codegen_get_hreg_by_name("eax");
-
-    edx_hreg = jit_codegen_get_hreg_by_name("edx");
-    GEN_INSN(MOV, edx_hreg, elem_idx);
-    elem_idx = edx_hreg;
-
-    r9_hreg = jit_codegen_get_hreg_by_name("r9");
-    GEN_INSN(MOV, r9_hreg, argv);
-    argv = r9_hreg;
-#else
     native_ret = jit_cc_new_reg_I32(cc);
-#endif
+    arg_regs[0] = cc->exec_env_reg;
+    arg_regs[1] = NEW_CONST(I32, tbl_idx);
+    arg_regs[2] = elem_idx;
+    arg_regs[3] = NEW_CONST(I32, type_idx);
+    arg_regs[4] = NEW_CONST(I32, func_type->param_cell_num);
+    arg_regs[5] = argv;
 
-    insn = GEN_INSN(CALLNATIVE, native_ret,
-                    NEW_CONST(PTR, (uintptr_t)jit_call_indirect), 6);
-    if (!insn) {
-        goto fail;
+    if (!jit_emit_callnative(cc, jit_call_indirect, native_ret, arg_regs, 6)) {
+        return false;
     }
-
-    *(jit_insn_opndv(insn, 2)) = cc->exec_env_reg;
-    *(jit_insn_opndv(insn, 3)) = NEW_CONST(I32, tbl_idx);
-    *(jit_insn_opndv(insn, 4)) = elem_idx;
-    *(jit_insn_opndv(insn, 5)) = NEW_CONST(I32, type_idx);
-    *(jit_insn_opndv(insn, 6)) = NEW_CONST(I32, func_type->param_cell_num);
-    *(jit_insn_opndv(insn, 7)) = argv;
-
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    jit_lock_reg_in_insn(cc, insn, native_ret);
-#endif
 
     /* Check whether there is exception thrown */
     GEN_INSN(CMP, cc->cmp_reg, native_ret, NEW_CONST(I32, 0));
@@ -403,3 +374,118 @@ jit_compile_op_ref_func(JitCompContext *cc, uint32 func_idx)
 {
     return false;
 }
+
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+bool
+jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
+                    JitReg *params, uint32 param_count)
+{
+    JitInsn *insn;
+    char *i64_arg_names[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
+    char *f64_arg_names[] = { "xmm0_f64", "xmm1_f64", "xmm2_f64",
+                              "xmm3_f64", "xmm4_f64", "xmm5_f64" };
+    JitReg i64_arg_regs[6], f64_arg_regs[6], res_hreg;
+    JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
+    JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
+    JitReg xmm0_hreg = jit_codegen_get_hreg_by_name("xmm0");
+    JitReg xmm0_f64_hreg = jit_codegen_get_hreg_by_name("xmm0_f64");
+    uint32 i, i64_reg_idx, f64_reg_idx;
+
+    bh_assert(param_count <= 6);
+
+    for (i = 0; i < 6; i++) {
+        i64_arg_regs[i] = jit_codegen_get_hreg_by_name(i64_arg_names[i]);
+        f64_arg_regs[i] = jit_codegen_get_hreg_by_name(f64_arg_names[i]);
+    }
+
+    i64_reg_idx = f64_reg_idx = 0;
+    for (i = 0; i < param_count; i++) {
+        switch (jit_reg_kind(params[i])) {
+            case JIT_REG_KIND_I32:
+                GEN_INSN(I32TOI64, i64_arg_regs[i64_reg_idx++], params[i]);
+                break;
+            case JIT_REG_KIND_I64:
+                GEN_INSN(MOV, i64_arg_regs[i64_reg_idx++], params[i]);
+                break;
+            case JIT_REG_KIND_F32:
+                GEN_INSN(F32TOF64, f64_arg_regs[f64_reg_idx++], params[i]);
+                break;
+            case JIT_REG_KIND_F64:
+                GEN_INSN(MOV, f64_arg_regs[f64_reg_idx++], params[i]);
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    if (res) {
+        switch (jit_reg_kind(res)) {
+            case JIT_REG_KIND_I32:
+                res_hreg = eax_hreg;
+                break;
+            case JIT_REG_KIND_I64:
+                res_hreg = rax_hreg;
+                break;
+            case JIT_REG_KIND_F32:
+                res_hreg = xmm0_hreg;
+                break;
+            case JIT_REG_KIND_F64:
+                res_hreg = xmm0_f64_hreg;
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    insn = GEN_INSN(CALLNATIVE, res_hreg,
+                    NEW_CONST(PTR, (uintptr_t)native_func), param_count);
+    if (!insn) {
+        return false;
+    }
+
+    i64_reg_idx = f64_reg_idx = 0;
+    for (i = 0; i < param_count; i++) {
+        switch (jit_reg_kind(params[i])) {
+            case JIT_REG_KIND_I32:
+            case JIT_REG_KIND_I64:
+                *(jit_insn_opndv(insn, i + 2)) = i64_arg_regs[i64_reg_idx++];
+                break;
+            case JIT_REG_KIND_F32:
+            case JIT_REG_KIND_F64:
+                *(jit_insn_opndv(insn, i + 2)) = f64_arg_regs[f64_reg_idx++];
+                break;
+            default:
+                bh_assert(0);
+                return false;
+        }
+    }
+
+    if (res) {
+        GEN_INSN(MOV, res, res_hreg);
+    }
+
+    return true;
+}
+#else
+bool
+jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
+                    JitReg *params, uint32 param_count)
+{
+    JitInsn *insn;
+    uint32 i;
+
+    bh_assert(param_count <= 6);
+
+    insn = GEN_INSN(CALLNATIVE, res, NEW_CONST(PTR, (uintptr_t)native_func),
+                    param_count);
+    if (!insn)
+        return false;
+
+    for (i = 0; i < param_count; i++) {
+        *(jit_insn_opndv(insn, i + 2)) = params[i];
+    }
+    return true;
+}
+#endif

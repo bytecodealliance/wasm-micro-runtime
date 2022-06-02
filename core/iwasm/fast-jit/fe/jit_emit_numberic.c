@@ -6,6 +6,7 @@
 #include "jit_emit_numberic.h"
 #include "jit_emit_exception.h"
 #include "jit_emit_control.h"
+#include "jit_emit_function.h"
 #include "../jit_frontend.h"
 #include "../jit_codegen.h"
 
@@ -1337,24 +1338,13 @@ neg(float64 f64)
 static bool
 compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
 {
-    JitReg value, res, xmm0;
-    JitInsn *insn = NULL;
+    JitReg value, res;
     void *func = NULL;
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    if (is_f32) {
-        res = xmm0 = jit_codegen_get_hreg_by_name("xmm0");
-    }
-    else {
-        res = jit_codegen_get_hreg_by_name("xmm0_f64");
-        xmm0 = jit_codegen_get_hreg_by_name("xmm0");
-    }
-#else
     if (is_f32)
         res = jit_cc_new_reg_F32(cc);
     else
         res = jit_cc_new_reg_F64(cc);
-#endif
 
     if (is_f32)
         POP_F32(value);
@@ -1385,20 +1375,15 @@ compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
             break;
     }
 
-    insn = GEN_INSN(CALLNATIVE, res, NEW_CONST(PTR, (uintptr_t)func), 1);
-    if (!insn) {
+    if (!jit_emit_callnative(cc, func, res, &value, 1)) {
         goto fail;
     }
-    *(jit_insn_opndv(insn, 2)) = value;
 
     if (is_f32)
         PUSH_F32(res);
     else
         PUSH_F64(res);
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    jit_lock_reg_in_insn(cc, insn, xmm0);
-#endif
     return true;
 fail:
     return false;
