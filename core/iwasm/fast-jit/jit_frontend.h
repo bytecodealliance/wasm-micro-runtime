@@ -396,6 +396,8 @@ clear_values(JitFrame *frame)
     size_t total_size =
         sizeof(JitValueSlot) * (frame->max_locals + frame->max_stacks);
     memset(frame->lp, 0, total_size);
+    frame->committed_sp = NULL;
+    frame->committed_ip = NULL;
     clear_fixed_virtual_regs(frame);
 }
 
