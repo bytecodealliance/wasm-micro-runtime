@@ -246,6 +246,9 @@ typedef struct AOTCompData {
     uint8 *aot_name_section_buf;
     uint32 aot_name_section_size;
 
+    /* custom sections */
+    wasm_section_t *custom_sections_to_emit;
+
     uint32 global_data_size;
 
     uint32 start_func_index;

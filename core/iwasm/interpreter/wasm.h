@@ -10,6 +10,10 @@
 #include "bh_hashmap.h"
 #include "bh_assert.h"
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+#include "wasm_export.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -452,6 +456,10 @@ struct WASMModule {
 #if WASM_ENABLE_CUSTOM_NAME_SECTION != 0
     const uint8 *name_section_buf;
     const uint8 *name_section_buf_end;
+#endif
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    wasm_section_t *custom_section_list;
 #endif
 };
 

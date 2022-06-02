@@ -2068,6 +2068,43 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (comp_ctx->disable_llvm_intrinsics)
         aot_intrinsic_fill_capability_flags(comp_ctx);
 
+    if (option->custom_sections) {
+        uint32 i;
+
+        /* Extract custom sections to emit */
+        for (i = 0; i < option->custom_sections_count; i++) {
+            const uint8 *content = NULL;
+            uint32 length = 0;
+            WASMSection *section;
+
+            content = wasm_loader_get_custom_section(
+                comp_data->wasm_module, option->custom_sections[i], &length);
+            if (!content) {
+                LOG_WARNING("Can't find custom section [%s], ignore it",
+                            option->custom_sections[i]);
+                continue;
+            }
+
+            if (!(section = wasm_runtime_malloc(sizeof(WASMSection)))) {
+                aot_set_last_error("allocate memory failed");
+                /* Don't need to destroy the previous sections here, they will
+                 * be destroyed during destroying the comp_data */
+                goto fail;
+            }
+            memset(section, 0, sizeof(WASMSection));
+
+            section->section_type = SECTION_TYPE_USER;
+            section->section_body = (uint8 *)content;
+            section->section_body_size = length;
+
+            section->next = comp_data->custom_sections_to_emit;
+            comp_data->custom_sections_to_emit = section;
+
+            LOG_VERBOSE("Found custom section [%s].",
+                        option->custom_sections[i]);
+        }
+    }
+
     ret = comp_ctx;
 
 fail:

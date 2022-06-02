@@ -58,6 +58,10 @@ print_help()
     printf("  --enable-indirect-mode    Enalbe call function through symbol table but not direct call\n");
     printf("  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics\n");
     printf("  --disable-llvm-lto        Disable the LLVM link time optimization\n");
+    printf("  --emit-custom-sections=<section names>\n");
+    printf("                            Emit the specified custom sections to AoT file, using comma to separate\n");
+    printf("                            multiple names, e.g.\n");
+    printf("                                --emit-custom-sections=section1,section2,sectionN\n");
     printf("  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log\n");
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
@@ -65,6 +69,47 @@ print_help()
     return 1;
 }
 /* clang-format on */
+
+/**
+ * Split a strings into an array of strings
+ * Returns NULL on failure
+ * Memory must be freed by caller
+ * Based on: http://stackoverflow.com/a/11198630/471795
+ */
+static char **
+split_string(char *str, int *count, const char *delimer)
+{
+    char **res = NULL;
+    char *p;
+    int idx = 0;
+
+    /* split string and append tokens to 'res' */
+    do {
+        p = strtok(str, delimer);
+        str = NULL;
+        res = (char **)realloc(res, sizeof(char *) * (uint32)(idx + 1));
+        if (res == NULL) {
+            return NULL;
+        }
+        res[idx++] = p;
+    } while (p);
+
+    /**
+     * since the function name,
+     * res[0] might be contains a '\' to indicate a space
+     * func\name -> func name
+     */
+    p = strchr(res[0], '\\');
+    while (p) {
+        *p = ' ';
+        p = strchr(p, '\\');
+    }
+
+    if (count) {
+        *count = idx - 1;
+    }
+    return res;
+}
 
 int
 main(int argc, char *argv[])
@@ -200,6 +245,17 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "--disable-llvm-lto")) {
             option.disable_llvm_lto = true;
+        }
+        else if (!strncmp(argv[0], "--emit-custom-sections=", 23)) {
+            int len = 0;
+            option.custom_sections = split_string(argv[0] + 23, &len, ",");
+            if (!option.custom_sections) {
+                printf("Failed to process emit-custom-sections: alloc "
+                       "memory failed\n");
+                return print_help();
+            }
+
+            option.custom_sections_count = len;
         }
         else
             return print_help();

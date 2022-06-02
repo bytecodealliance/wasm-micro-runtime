@@ -378,6 +378,8 @@ typedef struct AOTCompOption {
     uint32 size_level;
     uint32 output_format;
     uint32 bounds_checks;
+    char **custom_sections;
+    uint32_t custom_sections_count;
 } AOTCompOption, *aot_comp_option_t;
 
 AOTCompContext *

@@ -878,6 +878,9 @@ static uint32
 get_name_section_size(AOTCompData *comp_data);
 
 static uint32
+get_custom_sections_size(AOTCompData *comp_data);
+
+static uint32
 get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
                   AOTObjectData *obj_data)
 {
@@ -937,6 +940,12 @@ get_aot_file_size(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         size += (uint32)sizeof(uint32) * 3;
         size += (comp_data->aot_name_section_size =
                      get_name_section_size(comp_data));
+    }
+
+    if (comp_data->custom_sections_to_emit) {
+        /* custom sections */
+        size = align_uint(size, 4);
+        size += get_custom_sections_size(comp_data);
     }
 
     return size;
@@ -1272,6 +1281,23 @@ get_name_section_size(AOTCompData *comp_data)
     return offset;
 fail:
     return 0;
+}
+
+static uint32
+get_custom_sections_size(AOTCompData *comp_data)
+{
+    uint32 size = 0;
+    WASMSection *section = comp_data->custom_sections_to_emit;
+
+    while (section) {
+        size = align_uint(size, 4);
+        /* section id + section size + sub section id */
+        size += (uint32)sizeof(uint32) * 3;
+        size += section->section_body_size;
+        section = section->next;
+    }
+
+    return size;
 }
 
 static bool
@@ -1893,6 +1919,34 @@ aot_emit_name_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
 
         *p_offset = offset;
     }
+
+    return true;
+}
+
+static bool
+aot_emit_custom_sections(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
+                         AOTCompData *comp_data, AOTCompContext *comp_ctx)
+{
+    WASMSection *section = comp_data->custom_sections_to_emit;
+    uint32 offset = *p_offset;
+
+    *p_offset = offset = align_uint(offset, 4);
+
+    while (section) {
+        offset = align_uint(offset, 4);
+
+        EMIT_U32(AOT_SECTION_TYPE_CUSTOM);
+        /* sub section id + content */
+        EMIT_U32(sizeof(uint32) * 1 + section->section_body_size);
+        EMIT_U32(AOT_CUSTOM_SECTION_RAW);
+        bh_memcpy_s((uint8 *)(buf + offset), (uint32)(buf_end - buf),
+                    section->section_body, (uint32)section->section_body_size);
+        offset += section->section_body_size;
+
+        section = section->next;
+    }
+
+    *p_offset = offset;
 
     return true;
 }
@@ -2751,7 +2805,9 @@ aot_emit_aot_file_buf(AOTCompContext *comp_ctx, AOTCompData *comp_data,
         || !aot_emit_relocation_section(buf, buf_end, &offset, comp_ctx,
                                         comp_data, obj_data)
         || !aot_emit_native_symbol(buf, buf_end, &offset, comp_ctx)
-        || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx))
+        || !aot_emit_name_section(buf, buf_end, &offset, comp_data, comp_ctx)
+        || !aot_emit_custom_sections(buf, buf_end, &offset, comp_data,
+                                     comp_ctx))
         goto fail2;
 
 #if 0

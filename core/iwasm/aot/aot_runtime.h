@@ -50,6 +50,7 @@ typedef enum AOTSectionType {
 } AOTSectionType;
 
 typedef enum AOTCustomSectionType {
+    AOT_CUSTOM_SECTION_RAW = 0,
     AOT_CUSTOM_SECTION_NATIVE_SYMBOL = 1,
     AOT_CUSTOM_SECTION_ACCESS_CONTROL = 2,
     AOT_CUSTOM_SECTION_NAME = 3,

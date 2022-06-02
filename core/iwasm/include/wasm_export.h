@@ -1053,6 +1053,19 @@ wasm_externref_retain(uint32_t externref_idx);
 WASM_RUNTIME_API_EXTERN void
 wasm_runtime_dump_call_stack(wasm_exec_env_t exec_env);
 
+/**
+ * Get a custom section by name
+ *
+ * @param module_comm the module to find
+ * @param name name of the custom section
+ * @param len return the length of the content if found
+ *
+ * @return Custom section content (including the name) if found, NULL otherwise
+ */
+WASM_RUNTIME_API_EXTERN const uint8 *
+wasm_runtime_get_custom_section(wasm_module_t const module_comm,
+                                const char *name, uint32_t *len);
+
 /* clang-format on */
 
 #ifdef __cplusplus

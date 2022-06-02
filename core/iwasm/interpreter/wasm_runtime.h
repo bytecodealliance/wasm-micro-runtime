@@ -436,6 +436,10 @@ void
 wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env);
 #endif
 
+const uint8 *
+wasm_loader_get_custom_section(WASMModule *module, const char *name,
+                               uint32 *len);
+
 #ifdef __cplusplus
 }
 #endif
