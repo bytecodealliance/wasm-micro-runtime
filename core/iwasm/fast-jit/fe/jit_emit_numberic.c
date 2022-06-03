@@ -1373,6 +1373,9 @@ compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
         case FLOAT_SQRT:
             func = is_f32 ? (void *)sqrtf : (void *)sqrt;
             break;
+        default:
+            bh_assert(0);
+            goto fail;
     }
 
     if (!jit_emit_callnative(cc, func, res, &value, 1)) {
@@ -1399,6 +1402,72 @@ bool
 jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 {
     return compile_op_float_math(cc, math_op, false);
+}
+
+static float32
+local_minf(float32 f1, float32 f2)
+{
+    if (isnanf(f1))
+        return f1;
+    if (isnanf(f2))
+        return f2;
+
+    return fminf(f1, f2);
+}
+
+static float64
+local_min(float64 f1, float64 f2)
+{
+    if (isnan(f1))
+        return f1;
+    if (isnan(f2))
+        return f2;
+
+    return fmin(f1, f2);
+}
+
+static float32
+local_maxf(float32 f1, float32 f2)
+{
+    if (isnanf(f1))
+        return f1;
+    if (isnanf(f2))
+        return f2;
+
+    return fmaxf(f1, f2);
+}
+
+static float64
+local_max(float64 f1, float64 f2)
+{
+    if (isnan(f1))
+        return f1;
+    if (isnan(f2))
+        return f2;
+
+    return fmax(f1, f2);
+}
+
+static bool
+compile_op_float_min_max(JitCompContext *cc, FloatArithmetic arith_op,
+                         bool is_f32, JitReg lhs, JitReg rhs, JitReg *out)
+{
+    JitReg res, args[2];
+    void *func;
+
+    res = is_f32 ? jit_cc_new_reg_F32(cc) : jit_cc_new_reg_F64(cc);
+    if (arith_op == FLOAT_MIN)
+        func = is_f32 ? local_minf : local_min;
+    else
+        func = is_f32 ? local_maxf : local_max;
+
+    args[0] = lhs;
+    args[1] = rhs;
+    if (!jit_emit_callnative(cc, func, res, args, 2))
+        return false;
+
+    *out = res;
+    return true;
 }
 
 static bool
@@ -1441,13 +1510,10 @@ compile_op_float_arithmetic(JitCompContext *cc, FloatArithmetic arith_op,
             break;
         }
         case FLOAT_MIN:
-        {
-            GEN_INSN(MIN, res, lhs, rhs);
-            break;
-        }
         case FLOAT_MAX:
         {
-            GEN_INSN(MAX, res, lhs, rhs);
+            if (!compile_op_float_min_max(cc, arith_op, is_f32, lhs, rhs, &res))
+                goto fail;
             break;
         }
         default:
