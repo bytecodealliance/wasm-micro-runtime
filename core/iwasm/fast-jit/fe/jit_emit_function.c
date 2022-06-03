@@ -176,11 +176,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
         }
     }
     else {
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
-        JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
-#endif
-        JitReg result = 0;
+        JitReg res = 0;
 
         if (func_type->result_count > 0) {
             switch (func_type->types[func_type->param_count]) {
@@ -190,23 +186,31 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
                 case VALUE_TYPE_FUNCREF:
 #endif
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    result = eax_hreg;
+                    res = jit_codegen_get_hreg_by_name("eax");
 #else
-                    result = jit_cc_new_reg_I32(cc);
+                    res = jit_cc_new_reg_I32(cc);
 #endif
                     break;
                 case VALUE_TYPE_I64:
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-                    result = rax_hreg;
+                    res = jit_codegen_get_hreg_by_name("rax");
 #else
-                    result = jit_cc_new_reg_I64(cc);
+                    res = jit_cc_new_reg_I64(cc);
 #endif
                     break;
                 case VALUE_TYPE_F32:
-                    result = jit_cc_new_reg_F32(cc);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+                    res = jit_codegen_get_hreg_by_name("xmm0");
+#else
+                    res = jit_cc_new_reg_F32(cc);
+#endif
                     break;
                 case VALUE_TYPE_F64:
-                    result = jit_cc_new_reg_F64(cc);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+                    res = jit_codegen_get_hreg_by_name("xmm0_f64");
+#else
+                    res = jit_cc_new_reg_F64(cc);
+#endif
                     break;
                 default:
                     bh_assert(0);
@@ -214,7 +218,7 @@ jit_compile_op_call(JitCompContext *cc, uint32 func_idx, bool tail_call)
             }
         }
 
-        GEN_INSN(CALLBC, result, 0, jitted_code);
+        GEN_INSN(CALLBC, res, 0, jitted_code);
     }
 
     if (!post_return(cc, func_type)) {
