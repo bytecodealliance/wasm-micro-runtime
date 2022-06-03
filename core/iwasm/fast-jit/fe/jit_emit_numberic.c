@@ -1457,9 +1457,9 @@ compile_op_float_min_max(JitCompContext *cc, FloatArithmetic arith_op,
 
     res = is_f32 ? jit_cc_new_reg_F32(cc) : jit_cc_new_reg_F64(cc);
     if (arith_op == FLOAT_MIN)
-        func = is_f32 ? local_minf : local_min;
+        func = is_f32 ? (void *)local_minf : (void *)local_min;
     else
-        func = is_f32 ? local_maxf : local_max;
+        func = is_f32 ? (void *)local_maxf : (void *)local_max;
 
     args[0] = lhs;
     args[1] = rhs;

@@ -2961,7 +2961,7 @@ alu_imm_r_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* xmm -> m128 */
     x86::Mem cache = x86::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                       offsetof(WASMExecEnv, jit_cache));
-    a.movaps(cache, regs_float[reg_no2_src]);
+    a.movups(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f32(a, reg_no_dst, data1_src);
@@ -3135,7 +3135,7 @@ alu_imm_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* xmm -> m128 */
     x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
-    a.movapd(cache, regs_float[reg_no2_src]);
+    a.movupd(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f64(a, reg_no_dst, data1_src);
@@ -4214,7 +4214,7 @@ cmp_imm_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, float data1_src,
     /* xmm -> m128 */
     x86::Mem cache = x86::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                       offsetof(WASMExecEnv, jit_cache));
-    a.movaps(cache, regs_float[reg_no2_src]);
+    a.movups(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f32(a, reg_no2_src, data1_src);
@@ -4309,7 +4309,7 @@ cmp_imm_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, double data1_src,
     /* xmm -> m128 */
     x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
-    a.movapd(cache, regs_float[reg_no2_src]);
+    a.movupd(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f64(a, reg_no2_src, data1_src);

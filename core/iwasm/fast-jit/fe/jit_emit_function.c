@@ -386,23 +386,26 @@ jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
 {
     JitInsn *insn;
     char *i64_arg_names[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
+    char *f32_arg_names[] = { "xmm0", "xmm1", "xmm2",
+                              "xmm3", "xmm4", "xmm5" };
     char *f64_arg_names[] = { "xmm0_f64", "xmm1_f64", "xmm2_f64",
                               "xmm3_f64", "xmm4_f64", "xmm5_f64" };
-    JitReg i64_arg_regs[6], f64_arg_regs[6], res_hreg = 0;
+    JitReg i64_arg_regs[6], f32_arg_regs[6], f64_arg_regs[6], res_hreg = 0;
     JitReg eax_hreg = jit_codegen_get_hreg_by_name("eax");
     JitReg rax_hreg = jit_codegen_get_hreg_by_name("rax");
     JitReg xmm0_hreg = jit_codegen_get_hreg_by_name("xmm0");
     JitReg xmm0_f64_hreg = jit_codegen_get_hreg_by_name("xmm0_f64");
-    uint32 i, i64_reg_idx, f64_reg_idx;
+    uint32 i, i64_reg_idx, float_reg_idx;
 
     bh_assert(param_count <= 6);
 
     for (i = 0; i < 6; i++) {
         i64_arg_regs[i] = jit_codegen_get_hreg_by_name(i64_arg_names[i]);
+        f32_arg_regs[i] = jit_codegen_get_hreg_by_name(f32_arg_names[i]);
         f64_arg_regs[i] = jit_codegen_get_hreg_by_name(f64_arg_names[i]);
     }
 
-    i64_reg_idx = f64_reg_idx = 0;
+    i64_reg_idx = float_reg_idx = 0;
     for (i = 0; i < param_count; i++) {
         switch (jit_reg_kind(params[i])) {
             case JIT_REG_KIND_I32:
@@ -412,10 +415,10 @@ jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
                 GEN_INSN(MOV, i64_arg_regs[i64_reg_idx++], params[i]);
                 break;
             case JIT_REG_KIND_F32:
-                GEN_INSN(F32TOF64, f64_arg_regs[f64_reg_idx++], params[i]);
+                GEN_INSN(MOV, f32_arg_regs[float_reg_idx++], params[i]);
                 break;
             case JIT_REG_KIND_F64:
-                GEN_INSN(MOV, f64_arg_regs[f64_reg_idx++], params[i]);
+                GEN_INSN(MOV, f64_arg_regs[float_reg_idx++], params[i]);
                 break;
             default:
                 bh_assert(0);
@@ -449,7 +452,7 @@ jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
         return false;
     }
 
-    i64_reg_idx = f64_reg_idx = 0;
+    i64_reg_idx = float_reg_idx = 0;
     for (i = 0; i < param_count; i++) {
         switch (jit_reg_kind(params[i])) {
             case JIT_REG_KIND_I32:
@@ -457,8 +460,10 @@ jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
                 *(jit_insn_opndv(insn, i + 2)) = i64_arg_regs[i64_reg_idx++];
                 break;
             case JIT_REG_KIND_F32:
+                *(jit_insn_opndv(insn, i + 2)) = f32_arg_regs[float_reg_idx++];
+                break;
             case JIT_REG_KIND_F64:
-                *(jit_insn_opndv(insn, i + 2)) = f64_arg_regs[f64_reg_idx++];
+                *(jit_insn_opndv(insn, i + 2)) = f64_arg_regs[float_reg_idx++];
                 break;
             default:
                 bh_assert(0);
