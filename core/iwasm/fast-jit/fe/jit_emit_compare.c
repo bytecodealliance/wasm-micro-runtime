@@ -5,6 +5,7 @@
 
 #include "jit_emit_compare.h"
 #include "../jit_frontend.h"
+#include "../jit_codegen.h"
 
 static bool
 jit_compile_op_compare_integer(JitCompContext *cc, IntCond cond, bool is64Bit)
@@ -116,52 +117,128 @@ jit_compile_op_i64_compare(JitCompContext *cc, IntCond cond)
     return jit_compile_op_compare_integer(cc, cond, true);
 }
 
+static int32
+float_cmp_eq(float f1, float f2)
+{
+    if (isnan(f1) || isnan(f2))
+        return 0;
+
+    return f1 == f2;
+}
+
+static int32
+float_cmp_ne(float f1, float f2)
+{
+    if (isnan(f1) || isnan(f2))
+        return 1;
+
+    return f1 != f2;
+}
+
+static int32
+double_cmp_eq(double d1, double d2)
+{
+    if (isnan(d1) || isnan(d2))
+        return 0;
+
+    return d1 == d2;
+}
+
+static int32
+double_cmp_ne(double d1, double d2)
+{
+    if (isnan(d1) || isnan(d2))
+        return 1;
+
+    return d1 != d2;
+}
+
 static bool
 jit_compile_op_compare_float_point(JitCompContext *cc, FloatCond cond,
                                    JitReg lhs, JitReg rhs)
 {
     JitReg res, const_zero, const_one;
 
-    GEN_INSN(CMP, cc->cmp_reg, lhs, rhs);
+    if (cond == FLOAT_EQ) {
+        JitInsn *insn = NULL;
+        JitRegKind kind = jit_reg_kind(lhs);
 
-    res = jit_cc_new_reg_I32(cc);
-    const_zero = NEW_CONST(I32, 0);
-    const_one = NEW_CONST(I32, 1);
-    switch (cond) {
-        case FLOAT_EQ:
-        {
-            GEN_INSN(SELECTEQ, res, cc->cmp_reg, const_one, const_zero);
-            break;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        res = jit_codegen_get_hreg_by_name("eax");
+#else
+        res = jit_cc_new_reg_I32(cc);
+#endif
+
+        if (kind == JIT_REG_KIND_F32) {
+            insn = GEN_INSN(CALLNATIVE, res,
+                            NEW_CONST(PTR, (uintptr_t)float_cmp_eq), 2);
         }
-        case FLOAT_NE:
-        {
-            GEN_INSN(SELECTNE, res, cc->cmp_reg, const_one, const_zero);
-            break;
+        else {
+            insn = GEN_INSN(CALLNATIVE, res,
+                            NEW_CONST(PTR, (uintptr_t)double_cmp_eq), 2);
         }
-        case FLOAT_LT:
-        {
-            GEN_INSN(SELECTLTS, res, cc->cmp_reg, const_one, const_zero);
-            break;
-        }
-        case FLOAT_GT:
-        {
-            GEN_INSN(SELECTGTS, res, cc->cmp_reg, const_one, const_zero);
-            break;
-        }
-        case FLOAT_LE:
-        {
-            GEN_INSN(SELECTLES, res, cc->cmp_reg, const_one, const_zero);
-            break;
-        }
-        case FLOAT_GE:
-        {
-            GEN_INSN(SELECTGES, res, cc->cmp_reg, const_one, const_zero);
-            break;
-        }
-        default:
-        {
-            bh_assert(!"unknown FloatCond");
+        if (!insn) {
             goto fail;
+        }
+        *(jit_insn_opndv(insn, 2)) = lhs;
+        *(jit_insn_opndv(insn, 3)) = rhs;
+    }
+    else if (cond == FLOAT_NE) {
+        JitInsn *insn = NULL;
+        JitRegKind kind = jit_reg_kind(lhs);
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+        res = jit_codegen_get_hreg_by_name("eax");
+#else
+        res = jit_cc_new_reg_I32(cc);
+#endif
+        if (kind == JIT_REG_KIND_F32) {
+            insn = GEN_INSN(CALLNATIVE, res,
+                            NEW_CONST(PTR, (uintptr_t)float_cmp_ne), 2);
+        }
+        else {
+            insn = GEN_INSN(CALLNATIVE, res,
+                            NEW_CONST(PTR, (uintptr_t)double_cmp_ne), 2);
+        }
+        if (!insn) {
+            goto fail;
+        }
+        *(jit_insn_opndv(insn, 2)) = lhs;
+        *(jit_insn_opndv(insn, 3)) = rhs;
+    }
+    else {
+        res = jit_cc_new_reg_I32(cc);
+        const_zero = NEW_CONST(I32, 0);
+        const_one = NEW_CONST(I32, 1);
+        switch (cond) {
+            case FLOAT_LT:
+            {
+                GEN_INSN(CMP, cc->cmp_reg, rhs, lhs);
+                GEN_INSN(SELECTLTS, res, cc->cmp_reg, const_one, const_zero);
+                break;
+            }
+            case FLOAT_GT:
+            {
+                GEN_INSN(CMP, cc->cmp_reg, lhs, rhs);
+                GEN_INSN(SELECTGTS, res, cc->cmp_reg, const_one, const_zero);
+                break;
+            }
+            case FLOAT_LE:
+            {
+                GEN_INSN(CMP, cc->cmp_reg, rhs, lhs);
+                GEN_INSN(SELECTLES, res, cc->cmp_reg, const_one, const_zero);
+                break;
+            }
+            case FLOAT_GE:
+            {
+                GEN_INSN(CMP, cc->cmp_reg, lhs, rhs);
+                GEN_INSN(SELECTGES, res, cc->cmp_reg, const_one, const_zero);
+                break;
+            }
+            default:
+            {
+                bh_assert(!"unknown FloatCond");
+                goto fail;
+            }
         }
     }
     PUSH_I32(res);
