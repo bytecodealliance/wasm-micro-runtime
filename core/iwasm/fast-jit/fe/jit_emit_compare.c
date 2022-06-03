@@ -4,6 +4,7 @@
  */
 
 #include "jit_emit_compare.h"
+#include "jit_emit_function.h"
 #include "../jit_frontend.h"
 #include "../jit_codegen.h"
 
@@ -157,53 +158,24 @@ static bool
 jit_compile_op_compare_float_point(JitCompContext *cc, FloatCond cond,
                                    JitReg lhs, JitReg rhs)
 {
-    JitReg res, const_zero, const_one;
+    JitReg res, args[2], const_zero, const_one;
+    JitRegKind kind;
+    void *func;
 
-    if (cond == FLOAT_EQ) {
-        JitInsn *insn = NULL;
-        JitRegKind kind = jit_reg_kind(lhs);
+    if (cond == FLOAT_EQ || cond == FLOAT_NE) {
+        kind = jit_reg_kind(lhs);
+        if (cond == FLOAT_EQ)
+            func = (kind == JIT_REG_KIND_F32) ? (void *)float_cmp_eq : (void *)double_cmp_eq;
+        else
+            func = (kind == JIT_REG_KIND_F32) ? (void *)float_cmp_ne : (void *)double_cmp_ne;
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        res = jit_codegen_get_hreg_by_name("eax");
-#else
         res = jit_cc_new_reg_I32(cc);
-#endif
+        args[0] = lhs;
+        args[1] = rhs;
 
-        if (kind == JIT_REG_KIND_F32) {
-            insn = GEN_INSN(CALLNATIVE, res,
-                            NEW_CONST(PTR, (uintptr_t)float_cmp_eq), 2);
-        }
-        else {
-            insn = GEN_INSN(CALLNATIVE, res,
-                            NEW_CONST(PTR, (uintptr_t)double_cmp_eq), 2);
-        }
-        if (!insn) {
+        if (!jit_emit_callnative(cc, func, res, args, 2)) {
             goto fail;
         }
-        *(jit_insn_opndv(insn, 2)) = lhs;
-        *(jit_insn_opndv(insn, 3)) = rhs;
-    }
-    else if (cond == FLOAT_NE) {
-        JitInsn *insn = NULL;
-        JitRegKind kind = jit_reg_kind(lhs);
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        res = jit_codegen_get_hreg_by_name("eax");
-#else
-        res = jit_cc_new_reg_I32(cc);
-#endif
-        if (kind == JIT_REG_KIND_F32) {
-            insn = GEN_INSN(CALLNATIVE, res,
-                            NEW_CONST(PTR, (uintptr_t)float_cmp_ne), 2);
-        }
-        else {
-            insn = GEN_INSN(CALLNATIVE, res,
-                            NEW_CONST(PTR, (uintptr_t)double_cmp_ne), 2);
-        }
-        if (!insn) {
-            goto fail;
-        }
-        *(jit_insn_opndv(insn, 2)) = lhs;
-        *(jit_insn_opndv(insn, 3)) = rhs;
     }
     else {
         res = jit_cc_new_reg_I32(cc);
