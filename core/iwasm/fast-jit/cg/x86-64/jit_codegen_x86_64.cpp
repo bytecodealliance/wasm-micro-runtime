@@ -363,7 +363,7 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
         case GTS:
         {
             if (fp_cmp) {
-                a.jnbe(imm);
+                a.ja(imm);
             }
             else {
                 a.jg(imm);
@@ -373,7 +373,7 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
         case LES:
         {
             if (fp_cmp) {
-                a.jbe(imm);
+                a.jnb(imm);
             }
             else {
                 a.jng(imm);
@@ -394,7 +394,7 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
         case LTS:
         {
             if (fp_cmp) {
-                a.jb(imm);
+                a.ja(imm);
             }
             else {
                 a.jl(imm);
@@ -5071,7 +5071,7 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
         case GTS:
         {
             if (fp_cmp) {
-                a.jnbe(target);
+                a.ja(target);
             }
             else {
                 a.jg(target);
@@ -5081,7 +5081,7 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
         case LES:
         {
             if (fp_cmp) {
-                a.jbe(target);
+                a.jnb(target);
             }
             else {
                 a.jng(target);
@@ -5094,7 +5094,6 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
                 a.jnb(target);
             }
             else {
-
                 a.jnl(target);
             }
             break;
@@ -5102,7 +5101,7 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
         case LTS:
         {
             if (fp_cmp) {
-                a.jb(target);
+                a.ja(target);
             }
             else {
                 a.jl(target);
