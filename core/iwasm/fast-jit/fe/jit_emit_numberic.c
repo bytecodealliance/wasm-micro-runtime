@@ -1337,17 +1337,16 @@ neg(float64 f64)
 static bool
 compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
 {
-    JitReg value, res, xmm0;
+    JitReg value, res;
     JitInsn *insn = NULL;
     void *func = NULL;
 
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
     if (is_f32) {
-        res = xmm0 = jit_codegen_get_hreg_by_name("xmm0");
+        res = jit_codegen_get_hreg_by_name("xmm0");
     }
     else {
         res = jit_codegen_get_hreg_by_name("xmm0_f64");
-        xmm0 = jit_codegen_get_hreg_by_name("xmm0");
     }
 #else
     if (is_f32)
@@ -1383,6 +1382,9 @@ compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
         case FLOAT_SQRT:
             func = is_f32 ? (void *)sqrtf : (void *)sqrt;
             break;
+        default:
+            bh_assert(0);
+            goto fail;
     }
 
     insn = GEN_INSN(CALLNATIVE, res, NEW_CONST(PTR, (uintptr_t)func), 1);
@@ -1396,9 +1398,6 @@ compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
     else
         PUSH_F64(res);
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    jit_lock_reg_in_insn(cc, insn, xmm0);
-#endif
     return true;
 fail:
     return false;
@@ -1414,6 +1413,84 @@ bool
 jit_compile_op_f64_math(JitCompContext *cc, FloatMath math_op)
 {
     return compile_op_float_math(cc, math_op, false);
+}
+
+static float32
+local_minf(float32 f1, float32 f2)
+{
+    if (isnanf(f1))
+        return f1;
+    if (isnanf(f2))
+        return f2;
+
+    return fminf(f1, f2);
+}
+
+static float64
+local_min(float64 f1, float64 f2)
+{
+    if (isnan(f1))
+        return f1;
+    if (isnan(f2))
+        return f2;
+
+    return fmin(f1, f2);
+}
+
+static float32
+local_maxf(float32 f1, float32 f2)
+{
+    if (isnanf(f1))
+        return f1;
+    if (isnanf(f2))
+        return f2;
+
+    return fmaxf(f1, f2);
+}
+
+static float64
+local_max(float64 f1, float64 f2)
+{
+    if (isnan(f1))
+        return f1;
+    if (isnan(f2))
+        return f2;
+
+    return fmax(f1, f2);
+}
+
+static bool
+compile_op_float_min_max(JitCompContext *cc, FloatArithmetic arith_op,
+                         bool is_f32, JitReg lhs, JitReg rhs, JitReg *out)
+{
+    JitReg res;
+    JitInsn *insn = NULL;
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    res = jit_codegen_get_hreg_by_name(is_f32 ? "xmm0" : "xmm0_f64");
+#else
+    res = is_f32 ? jit_cc_new_reg_F32(cc) : jit_cc_new_reg_F64(cc);
+#endif
+
+    if (arith_op == FLOAT_MIN)
+        insn = GEN_INSN(CALLNATIVE, res,
+                        is_f32 ? NEW_CONST(PTR, (uintptr_t)local_minf)
+                               : NEW_CONST(PTR, (uintptr_t)local_min),
+                        2);
+    else
+        insn = GEN_INSN(CALLNATIVE, res,
+                        is_f32 ? NEW_CONST(PTR, (uintptr_t)local_maxf)
+                               : NEW_CONST(PTR, (uintptr_t)local_max),
+                        2);
+    if (!insn)
+        goto fail;
+
+    *(jit_insn_opndv(insn, 2)) = lhs;
+    *(jit_insn_opndv(insn, 3)) = rhs;
+
+    *out = res;
+    return true;
+fail:
+    return false;
 }
 
 static bool
@@ -1456,13 +1533,10 @@ compile_op_float_arithmetic(JitCompContext *cc, FloatArithmetic arith_op,
             break;
         }
         case FLOAT_MIN:
-        {
-            GEN_INSN(MIN, res, lhs, rhs);
-            break;
-        }
         case FLOAT_MAX:
         {
-            GEN_INSN(MAX, res, lhs, rhs);
+            if (!compile_op_float_min_max(cc, arith_op, is_f32, lhs, rhs, &res))
+                goto fail;
             break;
         }
         default:
