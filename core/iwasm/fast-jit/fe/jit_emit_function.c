@@ -386,8 +386,7 @@ jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
 {
     JitInsn *insn;
     char *i64_arg_names[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
-    char *f32_arg_names[] = { "xmm0", "xmm1", "xmm2",
-                              "xmm3", "xmm4", "xmm5" };
+    char *f32_arg_names[] = { "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5" };
     char *f64_arg_names[] = { "xmm0_f64", "xmm1_f64", "xmm2_f64",
                               "xmm3_f64", "xmm4_f64", "xmm5_f64" };
     JitReg i64_arg_regs[6], f32_arg_regs[6], f64_arg_regs[6], res_hreg = 0;

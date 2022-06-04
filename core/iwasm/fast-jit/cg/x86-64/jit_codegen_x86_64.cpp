@@ -573,7 +573,12 @@ extend_r32_to_r64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
         a.movsxd(regs_i64[reg_no_dst], regs_i32[reg_no_src]);
     }
     else {
-        a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
+        /*
+         * The upper 32-bit will be zero-extended, ref to Intel document,
+         * 3.4.1.1 General-Purpose Registers: 32-bit operands generate
+         * a 32-bit result, zero-extended to a 64-bit result in the
+         * destination general-purpose register
+         */
         a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
     }
     return true;
@@ -653,10 +658,15 @@ mov_m_to_r(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, bool is_signed,
             case 4:
                 if (is_signed)
                     a.movsxd(regs_i64[reg_no_dst], m_src);
-                else {
-                    a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
-                    a.mov(regs_i64[reg_no_dst], m_src);
-                }
+                else
+                    /*
+                     * The upper 32-bit will be zero-extended, ref to Intel
+                     * document, 3.4.1.1 General-Purpose Registers: 32-bit
+                     * operands generate a 32-bit result, zero-extended to
+                     * a 64-bit result in the destination general-purpose
+                     * register
+                     */
+                    a.mov(regs_i32[reg_no_dst], m_src);
                 break;
             case 8:
                 a.mov(regs_i64[reg_no_dst], m_src);
@@ -6151,32 +6161,62 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_LDI8:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 1, true);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 1, true);
+                    else
+                        LD_R_R_R(I64, 1, true);
                     break;
 
                 case JIT_OP_LDU8:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 1, false);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 1, false);
+                    else
+                        LD_R_R_R(I64, 1, false);
                     break;
 
                 case JIT_OP_LDI16:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 2, true);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 2, true);
+                    else
+                        LD_R_R_R(I64, 2, true);
                     break;
 
                 case JIT_OP_LDU16:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 2, false);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 2, false);
+                    else
+                        LD_R_R_R(I64, 2, false);
                     break;
 
                 case JIT_OP_LDI32:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 4, true);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 4, true);
+                    else
+                        LD_R_R_R(I64, 4, true);
                     break;
 
                 case JIT_OP_LDU32:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 4, false);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 4, false);
+                    else
+                        LD_R_R_R(I64, 4, false);
                     break;
 
                 case JIT_OP_LDI64:
