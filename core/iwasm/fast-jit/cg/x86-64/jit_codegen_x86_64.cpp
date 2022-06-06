@@ -573,7 +573,12 @@ extend_r32_to_r64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src,
         a.movsxd(regs_i64[reg_no_dst], regs_i32[reg_no_src]);
     }
     else {
-        a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
+        /*
+         * The upper 32-bit will be zero-extended, ref to Intel document,
+         * 3.4.1.1 General-Purpose Registers: 32-bit operands generate
+         * a 32-bit result, zero-extended to a 64-bit result in the
+         * destination general-purpose register
+         */
         a.mov(regs_i32[reg_no_dst], regs_i32[reg_no_src]);
     }
     return true;
@@ -653,10 +658,15 @@ mov_m_to_r(x86::Assembler &a, uint32 bytes_dst, uint32 kind_dst, bool is_signed,
             case 4:
                 if (is_signed)
                     a.movsxd(regs_i64[reg_no_dst], m_src);
-                else {
-                    a.xor_(regs_i64[reg_no_dst], regs_i64[reg_no_dst]);
-                    a.mov(regs_i64[reg_no_dst], m_src);
-                }
+                else
+                    /*
+                     * The upper 32-bit will be zero-extended, ref to Intel
+                     * document, 3.4.1.1 General-Purpose Registers: 32-bit
+                     * operands generate a 32-bit result, zero-extended to
+                     * a 64-bit result in the destination general-purpose
+                     * register
+                     */
+                    a.mov(regs_i32[reg_no_dst], m_src);
                 break;
             case 8:
                 a.mov(regs_i64[reg_no_dst], m_src);
@@ -2961,7 +2971,7 @@ alu_imm_r_to_r_f32(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* xmm -> m128 */
     x86::Mem cache = x86::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                       offsetof(WASMExecEnv, jit_cache));
-    a.movaps(cache, regs_float[reg_no2_src]);
+    a.movups(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f32(a, reg_no_dst, data1_src);
@@ -3135,7 +3145,7 @@ alu_imm_r_to_r_f64(x86::Assembler &a, ALU_OP op, int32 reg_no_dst,
     /* xmm -> m128 */
     x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
-    a.movapd(cache, regs_float[reg_no2_src]);
+    a.movupd(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f64(a, reg_no_dst, data1_src);
@@ -4214,7 +4224,7 @@ cmp_imm_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, float data1_src,
     /* xmm -> m128 */
     x86::Mem cache = x86::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                       offsetof(WASMExecEnv, jit_cache));
-    a.movaps(cache, regs_float[reg_no2_src]);
+    a.movups(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f32(a, reg_no2_src, data1_src);
@@ -4309,7 +4319,7 @@ cmp_imm_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, double data1_src,
     /* xmm -> m128 */
     x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
                                     offsetof(WASMExecEnv, jit_cache));
-    a.movapd(cache, regs_float[reg_no2_src]);
+    a.movupd(cache, regs_float[reg_no2_src]);
 
     /* imm -> gp -> xmm */
     mov_imm_to_r_f64(a, reg_no2_src, data1_src);
@@ -6151,32 +6161,62 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_LDI8:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 1, true);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 1, true);
+                    else
+                        LD_R_R_R(I64, 1, true);
                     break;
 
                 case JIT_OP_LDU8:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 1, false);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 1, false);
+                    else
+                        LD_R_R_R(I64, 1, false);
                     break;
 
                 case JIT_OP_LDI16:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 2, true);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 2, true);
+                    else
+                        LD_R_R_R(I64, 2, true);
                     break;
 
                 case JIT_OP_LDU16:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 2, false);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 2, false);
+                    else
+                        LD_R_R_R(I64, 2, false);
                     break;
 
                 case JIT_OP_LDI32:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 4, true);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 4, true);
+                    else
+                        LD_R_R_R(I64, 4, true);
                     break;
 
                 case JIT_OP_LDU32:
                     LOAD_3ARGS();
-                    LD_R_R_R(I32, 4, false);
+                    bh_assert(jit_reg_kind(r0) == JIT_REG_KIND_I32
+                              || jit_reg_kind(r0) == JIT_REG_KIND_I64);
+                    if (jit_reg_kind(r0) == JIT_REG_KIND_I32)
+                        LD_R_R_R(I32, 4, false);
+                    else
+                        LD_R_R_R(I64, 4, false);
                     break;
 
                 case JIT_OP_LDI64:
@@ -6574,29 +6614,52 @@ jit_codegen_get_hreg_info()
     return &hreg_info;
 }
 
+static const char *reg_names_i32[] = {
+    "ebp", "eax", "ebx", "ecx", "edx", "edi", "esi", "esp",
+};
+
+static const char *reg_names_i64[] = {
+    "rbp", "rax", "rbx", "rcx", "rdx", "rdi", "rsi", "rsp",
+    "r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15",
+};
+
+static const char *reg_names_f32[] = { "xmm0",  "xmm1",  "xmm2",  "xmm3",
+                                       "xmm4",  "xmm5",  "xmm6",  "xmm7",
+                                       "xmm8",  "xmm9",  "xmm10", "xmm11",
+                                       "xmm12", "xmm13", "xmm14", "xmm15" };
+
+static const char *reg_names_f64[] = {
+    "xmm0_f64",  "xmm1_f64",  "xmm2_f64",  "xmm3_f64", "xmm4_f64",  "xmm5_f64",
+    "xmm6_f64",  "xmm7_f64",  "xmm8_f64",  "xmm9_f64", "xmm10_f64", "xmm11_f64",
+    "xmm12_f64", "xmm13_f64", "xmm14_f64", "xmm15_f64"
+};
+
 JitReg
 jit_codegen_get_hreg_by_name(const char *name)
 {
-    if (strcmp(name, "eax") == 0)
-        return jit_reg_new(JIT_REG_KIND_I32, REG_EAX_IDX);
-    else if (strcmp(name, "ecx") == 0)
-        return jit_reg_new(JIT_REG_KIND_I32, REG_ECX_IDX);
-    else if (strcmp(name, "edx") == 0)
-        return jit_reg_new(JIT_REG_KIND_I32, REG_EDX_IDX);
-    else if (strcmp(name, "esi") == 0)
-        return jit_reg_new(JIT_REG_KIND_I32, REG_ESI_IDX);
-    else if (strcmp(name, "rax") == 0)
-        return jit_reg_new(JIT_REG_KIND_I64, REG_RAX_IDX);
-    else if (strcmp(name, "rcx") == 0)
-        return jit_reg_new(JIT_REG_KIND_I64, REG_RCX_IDX);
-    else if (strcmp(name, "rdx") == 0)
-        return jit_reg_new(JIT_REG_KIND_I64, REG_RDX_IDX);
-    else if (strcmp(name, "r9") == 0)
-        return jit_reg_new(JIT_REG_KIND_I64, REG_R9_IDX);
-    else if (strcmp(name, "xmm0") == 0)
-        return jit_reg_new(JIT_REG_KIND_F32, 0);
-    else if (strcmp(name, "xmm0_f64") == 0)
-        return jit_reg_new(JIT_REG_KIND_F64, 0);
+    size_t i;
 
+    if (name[0] == 'e') {
+        for (i = 0; i < sizeof(reg_names_i32) / sizeof(char *); i++)
+            if (!strcmp(reg_names_i32[i], name))
+                return jit_reg_new(JIT_REG_KIND_I32, i);
+    }
+    else if (name[0] == 'r') {
+        for (i = 0; i < sizeof(reg_names_i64) / sizeof(char *); i++)
+            if (!strcmp(reg_names_i64[i], name))
+                return jit_reg_new(JIT_REG_KIND_I64, i);
+    }
+    else if (!strncmp(name, "xmm", 3)) {
+        if (!strstr(name, "_f64")) {
+            for (i = 0; i < sizeof(reg_names_f32) / sizeof(char *); i++)
+                if (!strcmp(reg_names_f32[i], name))
+                    return jit_reg_new(JIT_REG_KIND_F32, i);
+        }
+        else {
+            for (i = 0; i < sizeof(reg_names_f64) / sizeof(char *); i++)
+                if (!strcmp(reg_names_f64[i], name))
+                    return jit_reg_new(JIT_REG_KIND_F64, i);
+        }
+    }
     return 0;
 }

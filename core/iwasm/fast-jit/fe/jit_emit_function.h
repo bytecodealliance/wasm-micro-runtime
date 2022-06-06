@@ -28,6 +28,10 @@ jit_compile_op_ref_is_null(JitCompContext *cc);
 bool
 jit_compile_op_ref_func(JitCompContext *cc, uint32 func_idx);
 
+bool
+jit_emit_callnative(JitCompContext *cc, void *native_func, JitReg res,
+                    JitReg *params, uint32 param_count);
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif

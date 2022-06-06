@@ -6,6 +6,7 @@
 #include "jit_emit_numberic.h"
 #include "jit_emit_exception.h"
 #include "jit_emit_control.h"
+#include "jit_emit_function.h"
 #include "../jit_frontend.h"
 #include "../jit_codegen.h"
 
@@ -1338,22 +1339,12 @@ static bool
 compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
 {
     JitReg value, res;
-    JitInsn *insn = NULL;
     void *func = NULL;
 
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    if (is_f32) {
-        res = jit_codegen_get_hreg_by_name("xmm0");
-    }
-    else {
-        res = jit_codegen_get_hreg_by_name("xmm0_f64");
-    }
-#else
     if (is_f32)
         res = jit_cc_new_reg_F32(cc);
     else
         res = jit_cc_new_reg_F64(cc);
-#endif
 
     if (is_f32)
         POP_F32(value);
@@ -1387,11 +1378,9 @@ compile_op_float_math(JitCompContext *cc, FloatMath math_op, bool is_f32)
             goto fail;
     }
 
-    insn = GEN_INSN(CALLNATIVE, res, NEW_CONST(PTR, (uintptr_t)func), 1);
-    if (!insn) {
+    if (!jit_emit_callnative(cc, func, res, &value, 1)) {
         goto fail;
     }
-    *(jit_insn_opndv(insn, 2)) = value;
 
     if (is_f32)
         PUSH_F32(res);
@@ -1463,34 +1452,22 @@ static bool
 compile_op_float_min_max(JitCompContext *cc, FloatArithmetic arith_op,
                          bool is_f32, JitReg lhs, JitReg rhs, JitReg *out)
 {
-    JitReg res;
-    JitInsn *insn = NULL;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-    res = jit_codegen_get_hreg_by_name(is_f32 ? "xmm0" : "xmm0_f64");
-#else
+    JitReg res, args[2];
+    void *func;
+
     res = is_f32 ? jit_cc_new_reg_F32(cc) : jit_cc_new_reg_F64(cc);
-#endif
-
     if (arith_op == FLOAT_MIN)
-        insn = GEN_INSN(CALLNATIVE, res,
-                        is_f32 ? NEW_CONST(PTR, (uintptr_t)local_minf)
-                               : NEW_CONST(PTR, (uintptr_t)local_min),
-                        2);
+        func = is_f32 ? (void *)local_minf : (void *)local_min;
     else
-        insn = GEN_INSN(CALLNATIVE, res,
-                        is_f32 ? NEW_CONST(PTR, (uintptr_t)local_maxf)
-                               : NEW_CONST(PTR, (uintptr_t)local_max),
-                        2);
-    if (!insn)
-        goto fail;
+        func = is_f32 ? (void *)local_maxf : (void *)local_max;
 
-    *(jit_insn_opndv(insn, 2)) = lhs;
-    *(jit_insn_opndv(insn, 3)) = rhs;
+    args[0] = lhs;
+    args[1] = rhs;
+    if (!jit_emit_callnative(cc, func, res, args, 2))
+        return false;
 
     *out = res;
     return true;
-fail:
-    return false;
 }
 
 static bool

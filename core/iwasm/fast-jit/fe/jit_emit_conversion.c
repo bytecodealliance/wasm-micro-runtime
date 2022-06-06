@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "../jit_codegen.h"
 #include "jit_emit_conversion.h"
-#include "../jit_frontend.h"
 #include "jit_emit_exception.h"
+#include "jit_emit_function.h"
+#include "../jit_codegen.h"
+#include "../jit_frontend.h"
 
 static double
 uint64_to_double(uint64 u64)
@@ -40,7 +41,6 @@ bool
 jit_compile_op_i32_trunc_f32(JitCompContext *cc, bool sign, bool saturating)
 {
     JitReg value, nan_ret, max_valid_float, min_valid_float, res;
-    JitInsn *insn = NULL;
 
     POP_F32(value);
 
@@ -50,23 +50,11 @@ jit_compile_op_i32_trunc_f32(JitCompContext *cc, bool sign, bool saturating)
         sign ? NEW_CONST(F32, 2147483648.0f) : NEW_CONST(F32, 4294967296.0f);
 
     if (!saturating) {
-        /*if (value is Nan) goto exception*/
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        /* Set nan_ret to x86::eax */
-        nan_ret = jit_codegen_get_hreg_by_name("eax");
-#else
+        /* If value is NaN, throw exception */
         nan_ret = jit_cc_new_reg_I32(cc);
-#endif
-        insn =
-            GEN_INSN(CALLNATIVE, nan_ret, NEW_CONST(PTR, (uintptr_t)isnanf), 1);
-        if (!insn) {
+        if (!jit_emit_callnative(cc, isnanf, nan_ret, &value, 1)) {
             goto fail;
         }
-        *(jit_insn_opndv(insn, 2)) = value;
-
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        jit_lock_reg_in_insn(cc, insn, nan_ret);
-#endif
 
         GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
         if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
@@ -74,7 +62,7 @@ jit_compile_op_i32_trunc_f32(JitCompContext *cc, bool sign, bool saturating)
             goto fail;
         }
 
-        /*if (value is out of integer range) goto exception*/
+        /* If value is out of integer range, throw exception */
         GEN_INSN(CMP, cc->cmp_reg, value, min_valid_float);
         if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BLES,
                                 cc->cmp_reg, NULL)) {
@@ -113,7 +101,6 @@ bool
 jit_compile_op_i32_trunc_f64(JitCompContext *cc, bool sign, bool saturating)
 {
     JitReg value, nan_ret, max_valid_double, min_valid_double, res;
-    JitInsn *insn = NULL;
 
     POP_F64(value);
 
@@ -123,23 +110,11 @@ jit_compile_op_i32_trunc_f64(JitCompContext *cc, bool sign, bool saturating)
         sign ? NEW_CONST(F64, 2147483648.0) : NEW_CONST(F64, 4294967296.0);
 
     if (!saturating) {
-        /*if (value is Nan) goto exception*/
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        /* Set nan_ret to x86::eax */
-        nan_ret = jit_codegen_get_hreg_by_name("eax");
-#else
+        /* If value is NaN, throw exception */
         nan_ret = jit_cc_new_reg_I32(cc);
-#endif
-        insn =
-            GEN_INSN(CALLNATIVE, nan_ret, NEW_CONST(PTR, (uintptr_t)isnan), 1);
-        if (!insn) {
+        if (!jit_emit_callnative(cc, isnan, nan_ret, &value, 1)) {
             goto fail;
         }
-        *(jit_insn_opndv(insn, 2)) = value;
-
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        jit_lock_reg_in_insn(cc, insn, nan_ret);
-#endif
 
         GEN_INSN(CMP, cc->cmp_reg, nan_ret, NEW_CONST(I32, 1));
         if (!jit_emit_exception(cc, EXCE_INVALID_CONVERSION_TO_INTEGER,
@@ -147,7 +122,7 @@ jit_compile_op_i32_trunc_f64(JitCompContext *cc, bool sign, bool saturating)
             goto fail;
         }
 
-        /*if (value is out of integer range) goto exception*/
+        /* If value is out of integer range, throw exception */
         GEN_INSN(CMP, cc->cmp_reg, value, min_valid_double);
         if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BLES,
                                 cc->cmp_reg, NULL)) {
@@ -332,22 +307,10 @@ jit_compile_op_f32_convert_i64(JitCompContext *cc, bool sign)
         GEN_INSN(I64TOF32, res, value);
     }
     else {
-        JitInsn *insn;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        res = jit_codegen_get_hreg_by_name("xmm0");
-#else
         res = jit_cc_new_reg_F32(cc);
-#endif
-        insn = GEN_INSN(CALLNATIVE, res,
-                        NEW_CONST(PTR, (uintptr_t)uint64_to_float), 1);
-        if (!insn) {
+        if (!jit_emit_callnative(cc, uint64_to_float, res, &value, 1)) {
             goto fail;
         }
-        *(jit_insn_opndv(insn, 2)) = value;
-
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        jit_lock_reg_in_insn(cc, insn, res);
-#endif
     }
 
     PUSH_F32(res);
@@ -406,24 +369,10 @@ jit_compile_op_f64_convert_i64(JitCompContext *cc, bool sign)
         GEN_INSN(I64TOF64, res, value);
     }
     else {
-        JitInsn *insn;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        JitReg xmm0;
-
-        res = jit_codegen_get_hreg_by_name("xmm0_f64");
-        xmm0 = jit_codegen_get_hreg_by_name("xmm0");
-#else
         res = jit_cc_new_reg_F64(cc);
-#endif
-        insn = GEN_INSN(CALLNATIVE, res,
-                        NEW_CONST(PTR, (uintptr_t)uint64_to_double), 1);
-        if (!insn) {
+        if (!jit_emit_callnative(cc, uint64_to_double, res, &value, 1)) {
             goto fail;
         }
-        *(jit_insn_opndv(insn, 2)) = value;
-#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
-        jit_lock_reg_in_insn(cc, insn, xmm0);
-#endif
     }
     PUSH_F64(res);
 
