@@ -2855,8 +2855,7 @@ wasm_runtime_get_custom_section(WASMModuleCommon *const module_comm,
 #endif
 #if WASM_ENABLE_AOT != 0
     if (module_comm->module_type == Wasm_Module_AoT)
-        return aot_get_custom_section((AOTModule *)module_comm, name,
-                                      len);
+        return aot_get_custom_section((AOTModule *)module_comm, name, len);
 #endif
     return NULL;
 }

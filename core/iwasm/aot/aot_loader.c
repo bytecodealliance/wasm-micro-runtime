@@ -828,7 +828,8 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                 goto fail;
             break;
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-        case AOT_CUSTOM_SECTION_RAW: {
+        case AOT_CUSTOM_SECTION_RAW:
+        {
             char section_name[32];
             const uint8 *p_orig = p;
             uint32 name_len, buffer_len;
@@ -847,7 +848,8 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
             }
 
             if (!check_utf8_str(p, name_len)) {
-                set_error_buf(error_buf, error_buf_size, "invalid UTF-8 encoding");
+                set_error_buf(error_buf, error_buf_size,
+                              "invalid UTF-8 encoding");
                 goto fail;
             }
 
@@ -3475,8 +3477,7 @@ aot_get_plt_table_size()
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
 const uint8 *
-aot_get_custom_section(AOTModule *module, const char *name,
-                       uint32 *len)
+aot_get_custom_section(AOTModule *module, const char *name, uint32 *len)
 {
     WASMSection *section = module->custom_section_list;
 
