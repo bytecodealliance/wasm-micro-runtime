@@ -187,7 +187,7 @@ jit_compile_op_compare_float_point(JitCompContext *cc, FloatCond cond,
             case FLOAT_LT:
             {
                 GEN_INSN(CMP, cc->cmp_reg, rhs, lhs);
-                GEN_INSN(SELECTLTS, res, cc->cmp_reg, const_one, const_zero);
+                GEN_INSN(SELECTGTS, res, cc->cmp_reg, const_one, const_zero);
                 break;
             }
             case FLOAT_GT:
@@ -199,7 +199,7 @@ jit_compile_op_compare_float_point(JitCompContext *cc, FloatCond cond,
             case FLOAT_LE:
             {
                 GEN_INSN(CMP, cc->cmp_reg, rhs, lhs);
-                GEN_INSN(SELECTLES, res, cc->cmp_reg, const_one, const_zero);
+                GEN_INSN(SELECTGES, res, cc->cmp_reg, const_one, const_zero);
                 break;
             }
             case FLOAT_GE:
