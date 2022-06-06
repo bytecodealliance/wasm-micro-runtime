@@ -106,6 +106,159 @@ check_buf(const uint8 *buf, const uint8 *buf_end, uint32 length,
         }                                                                  \
     } while (0)
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+static bool
+check_utf8_str(const uint8 *str, uint32 len)
+{
+    /* The valid ranges are taken from page 125, below link
+       https://www.unicode.org/versions/Unicode9.0.0/ch03.pdf */
+    const uint8 *p = str, *p_end = str + len;
+    uint8 chr;
+
+    while (p < p_end) {
+        chr = *p;
+        if (chr < 0x80) {
+            p++;
+        }
+        else if (chr >= 0xC2 && chr <= 0xDF && p + 1 < p_end) {
+            if (p[1] < 0x80 || p[1] > 0xBF) {
+                return false;
+            }
+            p += 2;
+        }
+        else if (chr >= 0xE0 && chr <= 0xEF && p + 2 < p_end) {
+            if (chr == 0xE0) {
+                if (p[1] < 0xA0 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xED) {
+                if (p[1] < 0x80 || p[1] > 0x9F || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xE1 && chr <= 0xEF) {
+                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 3;
+        }
+        else if (chr >= 0xF0 && chr <= 0xF4 && p + 3 < p_end) {
+            if (chr == 0xF0) {
+                if (p[1] < 0x90 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr >= 0xF1 && chr <= 0xF3) {
+                if (p[1] < 0x80 || p[1] > 0xBF || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            else if (chr == 0xF4) {
+                if (p[1] < 0x80 || p[1] > 0x8F || p[2] < 0x80 || p[2] > 0xBF
+                    || p[3] < 0x80 || p[3] > 0xBF) {
+                    return false;
+                }
+            }
+            p += 4;
+        }
+        else {
+            return false;
+        }
+    }
+    return (p == p_end);
+}
+
+static bool
+read_leb(uint8 **p_buf, const uint8 *buf_end, uint32 maxbits, bool sign,
+         uint64 *p_result, char *error_buf, uint32 error_buf_size)
+{
+    const uint8 *buf = *p_buf;
+    uint64 result = 0;
+    uint32 shift = 0;
+    uint32 offset = 0, bcnt = 0;
+    uint64 byte;
+
+    while (true) {
+        /* uN or SN must not exceed ceil(N/7) bytes */
+        if (bcnt + 1 > (maxbits + 6) / 7) {
+            set_error_buf(error_buf, error_buf_size,
+                          "integer representation too long");
+            return false;
+        }
+
+        CHECK_BUF(buf, buf_end, offset + 1);
+        byte = buf[offset];
+        offset += 1;
+        result |= ((byte & 0x7f) << shift);
+        shift += 7;
+        bcnt += 1;
+        if ((byte & 0x80) == 0) {
+            break;
+        }
+    }
+
+    if (!sign && maxbits == 32 && shift >= maxbits) {
+        /* The top bits set represent values > 32 bits */
+        if (((uint8)byte) & 0xf0)
+            goto fail_integer_too_large;
+    }
+    else if (sign && maxbits == 32) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x8;
+            int top_bits = ((uint8)byte) & 0xf0;
+            if ((sign_bit_set && top_bits != 0x70)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+    else if (sign && maxbits == 64) {
+        if (shift < maxbits) {
+            /* Sign extend, second highest bit is the sign bit */
+            if ((uint8)byte & 0x40)
+                result |= (~((uint64)0)) << shift;
+        }
+        else {
+            /* The top bits should be a sign-extension of the sign bit */
+            bool sign_bit_set = ((uint8)byte) & 0x1;
+            int top_bits = ((uint8)byte) & 0xfe;
+
+            if ((sign_bit_set && top_bits != 0x7e)
+                || (!sign_bit_set && top_bits != 0))
+                goto fail_integer_too_large;
+        }
+    }
+
+    *p_buf += offset;
+    *p_result = result;
+    return true;
+
+fail_integer_too_large:
+    set_error_buf(error_buf, error_buf_size, "integer too large");
+fail:
+    return false;
+}
+
+#define read_leb_uint32(p, p_end, res)                                   \
+    do {                                                                 \
+        uint64 res64;                                                    \
+        if (!read_leb((uint8 **)&p, p_end, 32, false, &res64, error_buf, \
+                      error_buf_size))                                   \
+            goto fail;                                                   \
+        res = (uint32)res64;                                             \
+    } while (0)
+
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
+
 static uint8 *
 align_ptr(const uint8 *p, uint32 b)
 {
@@ -674,6 +827,56 @@ load_custom_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                                    error_buf, error_buf_size))
                 goto fail;
             break;
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+        case AOT_CUSTOM_SECTION_RAW: {
+            char section_name[32];
+            const uint8 *p_orig = p;
+            uint32 name_len, buffer_len;
+            WASMSection *section;
+
+            if (p >= p_end) {
+                set_error_buf(error_buf, error_buf_size, "unexpected end");
+                goto fail;
+            }
+
+            read_leb_uint32(p, p_end, name_len);
+
+            if (name_len == 0 || p + name_len > p_end) {
+                set_error_buf(error_buf, error_buf_size, "unexpected end");
+                goto fail;
+            }
+
+            if (!check_utf8_str(p, name_len)) {
+                set_error_buf(error_buf, error_buf_size, "invalid UTF-8 encoding");
+                goto fail;
+            }
+
+            buffer_len = sizeof(section_name);
+            memset(section_name, 0, buffer_len);
+            if (name_len < buffer_len) {
+                bh_memcpy_s(section_name, buffer_len, p, name_len);
+            }
+            else {
+                bh_memcpy_s(section_name, buffer_len, p, buffer_len - 4);
+                memset(section_name + buffer_len - 4, '.', 3);
+            }
+
+            section =
+                loader_malloc(sizeof(WASMSection), error_buf, error_buf_size);
+            if (!section) {
+                goto fail;
+            }
+
+            section->section_type = SECTION_TYPE_USER;
+            section->section_body = (uint8 *)p_orig;
+            section->section_body_size = p_end - p_orig;
+
+            section->next = module->custom_section_list;
+            module->custom_section_list = section;
+            LOG_VERBOSE("Load custom section [%s] success.", section_name);
+            break;
+        }
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
         default:
             break;
     }
@@ -3269,3 +3472,36 @@ aot_get_plt_table_size()
 {
     return get_plt_table_size();
 }
+
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+const uint8 *
+aot_get_custom_section(AOTModule *module, const char *name,
+                       uint32 *len)
+{
+    WASMSection *section = module->custom_section_list;
+
+    while (section) {
+        uint64 res64;
+        uint32 name_len;
+        uint8 *p = section->section_body;
+
+        if (!read_leb((uint8 **)&p,
+                      section->section_body + section->section_body_size, 32,
+                      false, &res64, NULL, 0)) {
+            continue;
+        }
+        name_len = (uint32)res64;
+
+        if ((name_len == strlen(name)) && (memcmp(p, name, name_len) == 0)) {
+            if (len) {
+                *len = section->section_body_size;
+            }
+            return section->section_body;
+        }
+
+        section = section->next;
+    }
+
+    return false;
+}
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */

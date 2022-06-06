@@ -2811,6 +2811,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
                   uint32 error_buf_size)
 {
     const uint8 *p = buf, *p_end = buf_end;
+    const uint8 *p_orig = p;
     char section_name[32];
     uint32 name_len, buffer_len;
 
@@ -2863,7 +2864,7 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
         }
 
         section->section_type = SECTION_TYPE_USER;
-        section->section_body = (uint8 *)p;
+        section->section_body = (uint8 *)p_orig;
         section->section_body_size = p_end - p;
 
         section->next = module->custom_section_list;
@@ -2874,6 +2875,8 @@ load_user_section(const uint8 *buf, const uint8 *buf_end, WASMModule *module,
 #endif
 
     LOG_VERBOSE("Ignore custom section [%s].", section_name);
+    (void)p_orig;
+
     return true;
 fail:
     return false;
@@ -6488,7 +6491,18 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
     WASMSection *section = module->custom_section_list;
 
     while (section) {
-        if (memcmp(section->section_body, name, strlen(name)) == 0) {
+        uint64 res64;
+        uint32 name_len;
+        uint8 *p = section->section_body;
+
+        if (!read_leb((uint8 **)&p,
+                      section->section_body + section->section_body_size, 32,
+                      false, &res64, NULL, 0)) {
+            continue;
+        }
+        name_len = (uint32)res64;
+
+        if ((name_len == strlen(name)) && (memcmp(p, name, name_len) == 0)) {
             if (len) {
                 *len = section->section_body_size;
             }

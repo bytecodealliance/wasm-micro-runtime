@@ -269,6 +269,9 @@ typedef struct AOTModule {
     uint32 *aux_func_indexes;
     uint32 aux_func_name_count;
 #endif
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    wasm_section_t *custom_section_list;
+#endif
 } AOTModule;
 
 typedef union {
@@ -733,6 +736,10 @@ aot_dump_call_stack(WASMExecEnv *exec_env);
 
 void
 aot_dump_perf_profiling(const AOTModuleInstance *module_inst);
+
+const uint8 *
+aot_get_custom_section(AOTModule *module, const char *name,
+                       uint32 *len);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
