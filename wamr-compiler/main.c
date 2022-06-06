@@ -10,7 +10,7 @@
 #include "aot_export.h"
 
 /* clang-format off */
-static int
+static void
 print_help()
 {
     printf("Usage: wamrc [options] -o output_file wasm_file\n");
@@ -66,9 +66,14 @@ print_help()
     printf("Examples: wamrc -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 -o test.aot test.wasm\n");
     printf("          wamrc --target=i386 --format=object -o test.o test.wasm\n");
-    return 1;
 }
 /* clang-format on */
+
+#define PRINT_HELP_AND_EXIT() \
+    do {                      \
+        print_help();         \
+        goto fail0;           \
+    } while (0)
 
 /**
  * Split a strings into an array of strings
@@ -142,39 +147,39 @@ main(int argc, char *argv[])
         if (!strcmp(argv[0], "-o")) {
             argc--, argv++;
             if (argc < 2)
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             out_file_name = argv[0];
         }
         else if (!strncmp(argv[0], "--target=", 9)) {
             if (argv[0][9] == '\0')
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             option.target_arch = argv[0] + 9;
         }
         else if (!strncmp(argv[0], "--target-abi=", 13)) {
             if (argv[0][13] == '\0')
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             option.target_abi = argv[0] + 13;
         }
         else if (!strncmp(argv[0], "--cpu=", 6)) {
             if (argv[0][6] == '\0')
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             option.target_cpu = argv[0] + 6;
         }
         else if (!strncmp(argv[0], "--cpu-features=", 15)) {
             if (argv[0][15] == '\0')
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             option.cpu_features = argv[0] + 15;
         }
         else if (!strncmp(argv[0], "--opt-level=", 12)) {
             if (argv[0][12] == '\0')
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             option.opt_level = (uint32)atoi(argv[0] + 12);
             if (option.opt_level > 3)
                 option.opt_level = 3;
         }
         else if (!strncmp(argv[0], "--size-level=", 13)) {
             if (argv[0][13] == '\0')
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             option.size_level = (uint32)atoi(argv[0] + 13);
             if (option.size_level > 3)
                 option.size_level = 3;
@@ -188,7 +193,7 @@ main(int argc, char *argv[])
         }
         else if (!strncmp(argv[0], "--format=", 9)) {
             if (argv[0][9] == '\0')
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             if (!strcmp(argv[0] + 9, "aot"))
                 option.output_format = AOT_FORMAT_FILE;
             else if (!strcmp(argv[0] + 9, "object"))
@@ -199,13 +204,13 @@ main(int argc, char *argv[])
                 option.output_format = AOT_LLVMIR_OPT_FILE;
             else {
                 printf("Invalid format %s.\n", argv[0] + 9);
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             }
         }
         else if (!strncmp(argv[0], "-v=", 3)) {
             log_verbose_level = atoi(argv[0] + 3);
             if (log_verbose_level < 0 || log_verbose_level > 5)
-                return print_help();
+                PRINT_HELP_AND_EXIT();
         }
         else if (!strcmp(argv[0], "--disable-bulk-memory")) {
             option.enable_bulk_memory = false;
@@ -248,21 +253,25 @@ main(int argc, char *argv[])
         }
         else if (!strncmp(argv[0], "--emit-custom-sections=", 23)) {
             int len = 0;
+            if (option.custom_sections) {
+                free(option.custom_sections);
+            }
+
             option.custom_sections = split_string(argv[0] + 23, &len, ",");
             if (!option.custom_sections) {
                 printf("Failed to process emit-custom-sections: alloc "
                        "memory failed\n");
-                return print_help();
+                PRINT_HELP_AND_EXIT();
             }
 
             option.custom_sections_count = len;
         }
         else
-            return print_help();
+            PRINT_HELP_AND_EXIT();
     }
 
     if (argc == 0 || !out_file_name)
-        return print_help();
+        PRINT_HELP_AND_EXIT();
 
     if (!size_level_set) {
         /**
@@ -403,6 +412,12 @@ fail2:
 fail1:
     /* Destroy runtime environment */
     wasm_runtime_destroy();
+
+fail0:
+    /* free option.custom_sections */
+    if (option.custom_sections) {
+        free(option.custom_sections);
+    }
 
     bh_print_time("wamrc return");
     return exit_status;

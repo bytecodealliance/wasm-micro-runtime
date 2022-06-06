@@ -3466,6 +3466,10 @@ aot_unload(AOTModule *module)
     }
 #endif
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
+    destroy_sections(module->custom_section_list, false);
+#endif
+
     wasm_runtime_free(module);
 }
 

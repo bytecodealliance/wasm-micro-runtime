@@ -2068,9 +2068,8 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
     if (comp_ctx->disable_llvm_intrinsics)
         aot_intrinsic_fill_capability_flags(comp_ctx);
 
+#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
     if (option->custom_sections) {
-        uint32 i;
-
         /* Extract custom sections to emit */
         for (i = 0; i < option->custom_sections_count; i++) {
             const uint8 *content = NULL;
@@ -2104,6 +2103,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                         option->custom_sections[i]);
         }
     }
+#endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION != 0 */
 
     ret = comp_ctx;
 

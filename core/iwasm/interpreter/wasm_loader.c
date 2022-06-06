@@ -3347,7 +3347,7 @@ wasm_loader_load_from_sections(WASMSection *section_list, char *error_buf,
     return module;
 }
 
-static void
+void
 destroy_sections(WASMSection *section_list)
 {
     WASMSection *section = section_list, *next;
