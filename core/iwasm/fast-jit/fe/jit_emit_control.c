@@ -852,8 +852,6 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
     jit_frame = cc->jit_frame;
     cur_basic_block = cc->cur_basic_block;
     gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
-    /* Clear frame values */
-    clear_values(jit_frame);
 
     if (block_dst->label_type == LABEL_TYPE_LOOP) {
         frame_sp_src =
