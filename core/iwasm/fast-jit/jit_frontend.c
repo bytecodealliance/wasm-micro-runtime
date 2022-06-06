@@ -755,9 +755,11 @@ init_func_translation(JitCompContext *cc)
 
     cc->jit_frame = jit_frame;
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
-    cc->total_frame_size = wasm_interp_interp_frame_size(total_cell_num);
-    cc->spill_cache_offset = (uint32)offsetof(WASMInterpFrame, spill_cache);
-    cc->spill_cache_size = (uint32)sizeof(uint32) * FAST_JIT_SPILL_CACHE_SIZE;
+    cc->spill_cache_offset = wasm_interp_interp_frame_size(total_cell_num);
+    /* TODO: optimize the jit register allocator's algorithm to
+             reduce the spill cache size */
+    cc->spill_cache_size = (max_locals + max_stacks) * 8 + 16;
+    cc->total_frame_size = cc->spill_cache_offset + cc->spill_cache_size;
     cc->jitted_return_address_offset =
         offsetof(WASMInterpFrame, jitted_return_addr);
     cc->cur_basic_block = jit_cc_entry_basic_block(cc);
@@ -838,7 +840,7 @@ free_block_memory(JitBlock *block)
     jit_free(block);
 }
 
-static JitBlock *
+static JitBasicBlock *
 create_func_block(JitCompContext *cc)
 {
     JitBlock *jit_block;
@@ -883,7 +885,7 @@ create_func_block(JitCompContext *cc)
     jit_block_stack_push(&cc->block_stack, jit_block);
     cc->cur_basic_block = jit_block->basic_block_entry;
 
-    return jit_block;
+    return jit_block->basic_block_entry;
 
 fail:
     free_block_memory(jit_block);
@@ -2086,13 +2088,13 @@ JitBasicBlock *
 jit_frontend_translate_func(JitCompContext *cc)
 {
     JitFrame *jit_frame;
-    JitBlock *jit_block;
+    JitBasicBlock *basic_block_entry;
 
     if (!(jit_frame = init_func_translation(cc))) {
         return NULL;
     }
 
-    if (!(jit_block = create_func_block(cc))) {
+    if (!(basic_block_entry = create_func_block(cc))) {
         return NULL;
     }
 
@@ -2100,7 +2102,7 @@ jit_frontend_translate_func(JitCompContext *cc)
         return NULL;
     }
 
-    return jit_block->basic_block_entry;
+    return basic_block_entry;
 }
 
 #if 0
