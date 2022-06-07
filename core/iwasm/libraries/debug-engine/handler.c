@@ -14,9 +14,6 @@
 static char tmpbuf[MAX_PACKET_SIZE];
 static korp_mutex tmpbuf_lock;
 
-extern WASMExecEnv *
-wasm_debug_instance_get_current_env(WASMDebugInstance *instance);
-
 int
 wasm_debug_handler_init()
 {
