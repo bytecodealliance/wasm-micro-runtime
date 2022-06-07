@@ -185,7 +185,7 @@ jit_compile_op_i64_extend_i64(JitCompContext *cc, int8 bitwidth)
 
     POP_I64(value);
 
-    tmp = jit_cc_new_reg_I64(cc);
+    tmp = jit_cc_new_reg_I32(cc);
     res = jit_cc_new_reg_I64(cc);
 
     switch (bitwidth) {
