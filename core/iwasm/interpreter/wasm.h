@@ -10,10 +10,6 @@
 #include "bh_hashmap.h"
 #include "bh_assert.h"
 
-#if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-#include "wasm_export.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -459,7 +455,7 @@ struct WASMModule {
 #endif
 
 #if WASM_ENABLE_LOAD_CUSTOM_SECTION != 0
-    wasm_section_t *custom_section_list;
+    struct wasm_section_t *custom_section_list;
 #endif
 };
 

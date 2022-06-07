@@ -4,11 +4,9 @@
  */
 
 #include "aot.h"
+#include "wasm_loader.h"
 
 static char aot_error[128];
-
-extern void
-destroy_sections(WASMSection *section_list);
 
 char *
 aot_get_last_error()
@@ -594,7 +592,7 @@ aot_destroy_comp_data(AOTCompData *comp_data)
         wasm_runtime_free(comp_data->aot_name_section_buf);
 
     if (comp_data->custom_sections_to_emit) {
-        destroy_sections(comp_data->custom_sections_to_emit);
+        wasm_loader_destroy_sections(comp_data->custom_sections_to_emit);
     }
 
     wasm_runtime_free(comp_data);

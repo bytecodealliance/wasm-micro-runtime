@@ -2084,7 +2084,7 @@ aot_create_comp_context(AOTCompData *comp_data, aot_comp_option_t option)
                 continue;
             }
 
-            if (!(section = wasm_runtime_malloc(sizeof(WASMSection)))) {
+            if (!(section = wasm_runtime_malloc((uint32)sizeof(WASMSection)))) {
                 aot_set_last_error("allocate memory failed");
                 /* Don't need to destroy the previous sections here, they will
                  * be destroyed during destroying the comp_data */

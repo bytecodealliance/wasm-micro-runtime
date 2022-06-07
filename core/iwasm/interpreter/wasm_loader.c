@@ -3347,7 +3347,7 @@ wasm_loader_load_from_sections(WASMSection *section_list, char *error_buf,
     return module;
 }
 
-void
+static void
 destroy_sections(WASMSection *section_list)
 {
     WASMSection *section = section_list, *next;
@@ -6515,6 +6515,12 @@ wasm_loader_get_custom_section(WASMModule *module, const char *name,
     return false;
 }
 #endif /* end of WASM_ENABLE_LOAD_CUSTOM_SECTION */
+
+void
+wasm_loader_destroy_sections(WASMSection *section_list)
+{
+    destroy_sections(section_list);
+}
 
 static bool
 wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
