@@ -332,6 +332,12 @@ jit_pass_dump(JitCompContext *cc)
     const char *pass_name =
         pass_no > 0 ? jit_compiler_get_pass_name(passes[pass_no - 1]) : "NULL";
 
+#if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
+    if (!strcmp(pass_name, "lower_cg"))
+        /* Ignore lower codegen pass as it does nothing in x86-64 */
+        return true;
+#endif
+
     os_printf("JIT.COMPILER.DUMP: PASS_NO=%d PREV_PASS=%s\n\n", pass_no,
               pass_name);
     jit_dump_cc(cc);

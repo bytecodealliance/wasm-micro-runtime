@@ -165,7 +165,16 @@ fail:
 static uint8
 get_global_type(const WASMModule *module, uint32 global_idx)
 {
-    return module->globals[global_idx].type;
+    if (global_idx < module->import_global_count) {
+        const WASMGlobalImport *import_global =
+            &((module->import_globals + global_idx)->u.global);
+        return import_global->type;
+    }
+    else {
+        const WASMGlobal *global =
+            module->globals + (global_idx - module->import_global_count);
+        return global->type;
+    }
 }
 
 static uint32
@@ -177,7 +186,8 @@ get_global_data_offset(const WASMModule *module, uint32 global_idx)
         return import_global->data_offset;
     }
     else {
-        const WASMGlobal *global = module->globals + global_idx;
+        const WASMGlobal *global =
+            module->globals + (global_idx - module->import_global_count);
         return global->data_offset;
     }
 }

@@ -63,8 +63,8 @@ jit_compile_op_i32_trunc_f32(JitCompContext *cc, bool sign, bool saturating)
         }
 
         /* If value is out of integer range, throw exception */
-        GEN_INSN(CMP, cc->cmp_reg, value, min_valid_float);
-        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BLES,
+        GEN_INSN(CMP, cc->cmp_reg, min_valid_float, value);
+        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
                                 cc->cmp_reg, NULL)) {
             goto fail;
         }
@@ -123,8 +123,8 @@ jit_compile_op_i32_trunc_f64(JitCompContext *cc, bool sign, bool saturating)
         }
 
         /* If value is out of integer range, throw exception */
-        GEN_INSN(CMP, cc->cmp_reg, value, min_valid_double);
-        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BLES,
+        GEN_INSN(CMP, cc->cmp_reg, min_valid_double, value);
+        if (!jit_emit_exception(cc, EXCE_INTEGER_OVERFLOW, JIT_OP_BGES,
                                 cc->cmp_reg, NULL)) {
             goto fail;
         }

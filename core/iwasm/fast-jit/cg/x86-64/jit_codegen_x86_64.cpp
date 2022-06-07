@@ -82,6 +82,9 @@ x86::Gp regs_i64[] = {
     x86::r12, x86::r13, x86::r14, x86::r15,
 };
 
+#define REG_F32_FREE_IDX 15
+#define REG_F64_FREE_IDX 15
+
 x86::Xmm regs_float[] = {
     x86::xmm0,
     x86::xmm1,
@@ -349,6 +352,8 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
 
     bool fp_cmp = cc->last_cmp_on_fp;
 
+    bh_assert(!fp_cmp || (fp_cmp && (op == GES)));
+
     switch (op) {
         case EQ:
         {
@@ -362,60 +367,52 @@ cmp_r_and_jmp_label(JitCompContext *cc, x86::Assembler &a,
         }
         case GTS:
         {
-            if (fp_cmp) {
-                a.ja(imm);
-            }
-            else {
-                a.jg(imm);
-            }
+            a.jg(imm);
             break;
         }
         case LES:
         {
-            if (fp_cmp) {
-                a.jnb(imm);
-            }
-            else {
-                a.jng(imm);
-            }
+            a.jng(imm);
             break;
         }
         case GES:
         {
-            if (fp_cmp) {
-                a.jnb(imm);
-            }
-            else {
-
+            if (fp_cmp)
+                a.jae(imm);
+            else
                 a.jnl(imm);
-            }
             break;
         }
         case LTS:
         {
-            if (fp_cmp) {
-                a.ja(imm);
-            }
-            else {
-                a.jl(imm);
-            }
+            a.jl(imm);
             break;
         }
         case GTU:
+        {
             a.ja(imm);
             break;
+        }
         case LEU:
+        {
             a.jna(imm);
             break;
+        }
         case GEU:
+        {
             a.jnb(imm);
             break;
+        }
         case LTU:
+        {
             a.jb(imm);
             break;
+        }
         default:
+        {
             bh_assert(0);
             break;
+        }
     }
 
     if (r2) {
@@ -761,10 +758,17 @@ static bool
 mov_imm_to_m(x86::Assembler &a, x86::Mem &m_dst, Imm imm_src, uint32 bytes_dst)
 {
     if (bytes_dst == 8) {
-        /* As there is no instruction `MOV m64, imm64`, we use
-           two instructions to implement it */
-        a.mov(regs_i64[REG_I64_FREE_IDX], imm_src);
-        a.mov(m_dst, regs_i64[REG_I64_FREE_IDX]);
+        int64 value = imm_src.value();
+        if (value >= INT32_MIN && value <= INT32_MAX) {
+            imm_src.setValue((int32)value);
+            a.mov(m_dst, imm_src);
+        }
+        else {
+            /* There is no instruction `MOV m64, imm64`, we use
+               two instructions to implement it */
+            a.mov(regs_i64[REG_I64_FREE_IDX], imm_src);
+            a.mov(m_dst, regs_i64[REG_I64_FREE_IDX]);
+        }
     }
     else
         a.mov(m_dst, imm_src);
@@ -4220,17 +4224,8 @@ static bool
 cmp_imm_r_to_r_f32(x86::Assembler &a, int32 reg_no_dst, float data1_src,
                    int32 reg_no2_src)
 {
-    const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* xmm -> m128 */
-    x86::Mem cache = x86::xmmword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                      offsetof(WASMExecEnv, jit_cache));
-    a.movups(cache, regs_float[reg_no2_src]);
-
-    /* imm -> gp -> xmm */
-    mov_imm_to_r_f32(a, reg_no2_src, data1_src);
-
-    /* comiss xmm m32 */
-    a.comiss(regs_float[reg_no2_src], cache);
+    mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data1_src);
+    a.comiss(regs_float[REG_F32_FREE_IDX], regs_float[reg_no2_src]);
     return true;
 }
 
@@ -4249,15 +4244,8 @@ static bool
 cmp_r_imm_to_r_f32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                    float data2_src)
 {
-    const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* imm -> m32 */
-    x86::Mem cache = x86::dword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                    offsetof(WASMExecEnv, jit_cache));
-    Imm imm(*(uint32 *)&data2_src);
-    mov_imm_to_m(a, cache, imm, 4);
-
-    /* comiss xmm m32 */
-    a.comiss(regs_float[reg_no1_src], cache);
+    mov_imm_to_r_f32(a, REG_F32_FREE_IDX, data2_src);
+    a.comiss(regs_float[reg_no1_src], regs_float[REG_F32_FREE_IDX]);
     return true;
 }
 
@@ -4315,17 +4303,8 @@ static bool
 cmp_imm_r_to_r_f64(x86::Assembler &a, int32 reg_no_dst, double data1_src,
                    int32 reg_no2_src)
 {
-    const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* xmm -> m128 */
-    x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                    offsetof(WASMExecEnv, jit_cache));
-    a.movupd(cache, regs_float[reg_no2_src]);
-
-    /* imm -> gp -> xmm */
-    mov_imm_to_r_f64(a, reg_no2_src, data1_src);
-
-    /* comiss xmm m64 */
-    a.comisd(regs_float[reg_no2_src], cache);
+    mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data1_src);
+    a.comisd(regs_float[REG_F64_FREE_IDX], regs_float[reg_no2_src]);
     return true;
 }
 
@@ -4344,15 +4323,8 @@ static bool
 cmp_r_imm_to_r_f64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no1_src,
                    double data2_src)
 {
-    const JitHardRegInfo *hreg_info = jit_codegen_get_hreg_info();
-    /* imm -> m64 */
-    x86::Mem cache = x86::qword_ptr(regs_i64[hreg_info->exec_env_hreg_index],
-                                    offsetof(WASMExecEnv, jit_cache));
-    Imm imm(*(uint64 *)&data2_src);
-    mov_imm_to_m(a, cache, imm, 8);
-
-    /* comisd xmm m64 */
-    a.comisd(regs_float[reg_no1_src], cache);
+    mov_imm_to_r_f64(a, REG_F64_FREE_IDX, data2_src);
+    a.comisd(regs_float[reg_no1_src], regs_float[REG_F64_FREE_IDX]);
     return true;
 }
 
@@ -5071,13 +5043,19 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
                    + a.code()->sectionById(0)->buffer().size();
     bool fp_cmp = cc->last_cmp_on_fp;
 
+    bh_assert(!fp_cmp || (fp_cmp && (op == GTS || op == GES)));
+
     switch (op) {
         case EQ:
+        {
             a.je(target);
             break;
+        }
         case NE:
+        {
             a.jne(target);
             break;
+        }
         case GTS:
         {
             if (fp_cmp) {
@@ -5090,18 +5068,13 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
         }
         case LES:
         {
-            if (fp_cmp) {
-                a.jnb(target);
-            }
-            else {
-                a.jng(target);
-            }
+            a.jng(target);
             break;
         }
         case GES:
         {
             if (fp_cmp) {
-                a.jnb(target);
+                a.jae(target);
             }
             else {
                 a.jnl(target);
@@ -5110,29 +5083,34 @@ cmp_r_and_jmp_relative(JitCompContext *cc, x86::Assembler &a, int32 reg_no,
         }
         case LTS:
         {
-            if (fp_cmp) {
-                a.ja(target);
-            }
-            else {
-                a.jl(target);
-            }
+            a.jl(target);
             break;
         }
         case GTU:
+        {
             a.ja(target);
             break;
+        }
         case LEU:
+        {
             a.jna(target);
             break;
+        }
         case GEU:
+        {
             a.jae(target);
             break;
+        }
         case LTU:
+        {
             a.jb(target);
             break;
+        }
         default:
+        {
             bh_assert(0);
             break;
+        }
     }
 
     /* The offset written by asmjit is always 0, we patch it again */
@@ -5174,10 +5152,13 @@ lower_select(JitCompContext *cc, x86::Assembler &a, COND_OP op, JitReg r0,
     CHECK_NCONST(r1);
     CHECK_KIND(r1, JIT_REG_KIND_I32);
 
-    if (r0 == r3 && r0 != r2) {
+    if (r0 == r3 && r0 != r2 && !cc->last_cmp_on_fp) {
         JitReg r_tmp;
 
-        /* Exchange r2, r3*/
+        /* For i32/i64, exchange r2 and r3 to make r0 equal to r2,
+           so as to decrease possible execution instructions.
+           For f32/f64 comparison, should not change the order as
+           the result of comparison with NaN may be different. */
         r_tmp = r2;
         r2 = r3;
         r3 = r_tmp;
@@ -5258,7 +5239,8 @@ lower_branch(JitCompContext *cc, x86::Assembler &a, bh_list *jmp_info_list,
 
     label_dst = jit_reg_no(r1);
     if (label_dst < (int32)jit_cc_label_num(cc) - 1 && is_last_insn
-        && label_is_neighboring(cc, label_src, label_dst)) {
+        && label_is_neighboring(cc, label_src, label_dst)
+        && !cc->last_cmp_on_fp) {
         JitReg r_tmp;
 
         r_tmp = r1;
@@ -6555,20 +6537,20 @@ static uint8 hreg_info_F32[3][16] = {
     { 0, 0, 0, 0, 0, 0, 0, 0,
       1, 1, 1, 1, 1, 1, 1, 1 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
+      1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_jitted */
 };
 
 /* System V AMD64 ABI Calling Conversion. [XYZ]MM0-7 */
 static uint8 hreg_info_F64[3][16] = {
     /* xmm0 ~ xmm15 */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      0, 0, 0, 0, 0, 0, 0, 0 },
+      0, 0, 0, 0, 0, 0, 0, 1 },
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_native */
+      1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_native */
     { 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1 }, /* caller_saved_jitted */
+      1, 1, 1, 1, 1, 1, 1, 0 }, /* caller_saved_jitted */
 };
 
 static const JitHardRegInfo hreg_info = {
