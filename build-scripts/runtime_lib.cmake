@@ -91,6 +91,13 @@ if (WAMR_BUILD_LIB_PTHREAD_SEMAPHORE EQUAL 1)
     set (WAMR_BUILD_LIB_PTHREAD 1)
 endif ()
 
+if (WAMR_BUILD_WASI_NN EQUAL 1)
+    execute_process(COMMAND ${WAMR_ROOT_DIR}/build-scripts/install_tensorflow.sh
+                    RESULT_VARIABLE TENSORFLOW_RESULT
+    )
+    include (${IWASM_DIR}/libraries/wasi-nn/wasi_nn.cmake)
+endif ()
+
 if (WAMR_BUILD_LIB_PTHREAD EQUAL 1)
     include (${IWASM_DIR}/libraries/lib-pthread/lib_pthread.cmake)
     # Enable the dependent feature if lib pthread is enabled
