@@ -456,7 +456,7 @@ wasm_debug_instance_destroy(WASMCluster *cluster)
     }
 }
 
-static WASMExecEnv *
+WASMExecEnv *
 wasm_debug_instance_get_current_env(WASMDebugInstance *instance)
 {
     WASMExecEnv *exec_env = NULL;
@@ -829,7 +829,10 @@ WASMDebugInstance *
 wasm_exec_env_get_instance(WASMExecEnv *exec_env)
 {
     WASMDebugInstance *instance = NULL;
-    bh_assert(g_debug_engine);
+
+    if (!g_debug_engine) {
+        return NULL;
+    }
 
     os_mutex_lock(&g_debug_engine->instance_list_lock);
     instance = bh_list_first_elem(&g_debug_engine->debug_instance_list);

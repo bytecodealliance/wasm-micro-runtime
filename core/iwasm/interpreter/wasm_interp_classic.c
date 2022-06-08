@@ -14,6 +14,7 @@
 #endif
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #include "../libraries/thread-mgr/thread_manager.h"
+#include "../libraries/debug-engine/debug_engine.h"
 #endif
 
 typedef int32 CellType_I32;
@@ -930,6 +931,9 @@ wasm_interp_call_func_import(WASMModuleInstance *module_inst,
 #if WASM_ENABLE_THREAD_MGR != 0 && WASM_ENABLE_DEBUG_INTERP != 0
 #define HANDLE_OP_END()                                                   \
     do {                                                                  \
+        /* Record the current frame_ip, so when exception occurs,         \
+           debugger can know the exact opcode who caused the exception */ \
+        frame_ip_orig = frame_ip;                                         \
         while (exec_env->current_status->signal_flag == WAMR_SIG_SINGSTEP \
                && exec_env->current_status->step_count++ == 1) {          \
             exec_env->current_status->step_count = 0;                     \
@@ -1006,6 +1010,10 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 local_type, *global_addr;
     uint32 cache_index, type_index, param_cell_num, cell_num;
     uint8 value_type;
+
+#if WASM_ENABLE_DEBUG_INTERP != 0
+    uint8 *frame_ip_orig = NULL;
+#endif
 
 #if WASM_ENABLE_LABELS_AS_VALUES != 0
 #define HANDLE_OPCODE(op) &&HANDLE_##op
@@ -3734,6 +3742,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         wasm_set_exception(module, "out of bounds memory access");
 
     got_exception:
+#if WASM_ENABLE_DEBUG_INTERP != 0
+        if (wasm_exec_env_get_instance(exec_env) != NULL) {
+            uint8 *frame_ip_temp = frame_ip;
+            frame_ip = frame_ip_orig;
+            wasm_cluster_thread_send_signal(exec_env, WAMR_SIG_TRAP);
+            CHECK_SUSPEND_FLAGS();
+            frame_ip = frame_ip_temp;
+        }
+#endif
         SYNC_ALL_TO_FRAME();
         return;
 
