@@ -334,6 +334,8 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
     char pc_string[17];
     uint32 tids_count, i = 0;
     uint32 gdb_status = status;
+    WASMExecEnv *exec_env;
+    const char *exception;
 
     if (status == 0) {
         os_mutex_lock(&tmpbuf_lock);
@@ -370,20 +372,41 @@ send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid)
     mem2hex((void *)&pc, pc_string, 8);
     pc_string[8 * 2] = '\0';
 
-    if (status == WAMR_SIG_TRAP) {
-        len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
-                        "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
-                        pc_string, "breakpoint");
+    exec_env = wasm_debug_instance_get_current_env(
+        (WASMDebugInstance *)server->thread->debug_instance);
+    exception =
+        wasm_runtime_get_exception(wasm_runtime_get_module_inst(exec_env));
+    if (exception) {
+        /* When exception occurs, use reason:exception so the description can be
+         * correctly processed by LLDB */
+        uint32 exception_len = strlen(exception);
+        len +=
+            snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+                     "thread-pcs:%" PRIx64 ";00:%s;reason:%s;description:", pc,
+                     pc_string, "exception");
+        /* The description should be encoded as HEX */
+        for (i = 0; i < exception_len; i++) {
+            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len, "%02x",
+                            exception[i]);
+        }
+        len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len, ";");
     }
-    else if (status == WAMR_SIG_SINGSTEP) {
-        len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
-                        "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
-                        pc_string, "trace");
-    }
-    else if (status > 0) {
-        len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
-                        "thread-pcs:%" PRIx64 ";00:%s,reason:%s;", pc,
-                        pc_string, "signal");
+    else {
+        if (status == WAMR_SIG_TRAP) {
+            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+                            "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
+                            pc_string, "breakpoint");
+        }
+        else if (status == WAMR_SIG_SINGSTEP) {
+            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+                            "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
+                            pc_string, "trace");
+        }
+        else if (status > 0) {
+            len += snprintf(tmpbuf + len, sizeof(tmpbuf) - len,
+                            "thread-pcs:%" PRIx64 ";00:%s;reason:%s;", pc,
+                            pc_string, "signal");
+        }
     }
     write_packet(server, tmpbuf);
     os_mutex_unlock(&tmpbuf_lock);
