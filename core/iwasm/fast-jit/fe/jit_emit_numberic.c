@@ -729,9 +729,11 @@ compile_int_div(JitCompContext *cc, IntArithmetic arith_op, bool is_i32,
                 GEN_INSN(CMP, cc->cmp_reg, right,
                          is_i32 ? NEW_CONST(I32, -1) : NEW_CONST(I64, -1LL));
                 if (is_i32)
-                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I32, 0), left);
+                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I32, 0),
+                             left);
                 else
-                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I64, 0), left);
+                    GEN_INSN(SELECTEQ, left, cc->cmp_reg, NEW_CONST(I64, 0),
+                             left);
                 /* Build default div and rem */
                 return compile_int_div_no_check(cc, arith_op, is_i32, left,
                                                 right, res);
@@ -1004,12 +1006,14 @@ DEF_UNI_INT_CONST_OPS(shru)
     return 0;
 }
 
-static int32 do_i32_const_shl(int32 lhs, int32 rhs)
+static int32
+do_i32_const_shl(int32 lhs, int32 rhs)
 {
     return (int32)((uint32)lhs << (uint32)rhs);
 }
 
-static int64 do_i64_const_shl(int64 lhs, int64 rhs)
+static int64
+do_i64_const_shl(int64 lhs, int64 rhs)
 {
     return (int32)((uint64)lhs << (uint64)rhs);
 }
