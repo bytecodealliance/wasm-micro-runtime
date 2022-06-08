@@ -431,6 +431,7 @@ wasm_app_prepare_wasi_dir(wasm_module_t module, const char *module_name,
 static void *
 wasm_app_routine(void *arg)
 {
+    wasm_function_inst_t func_start = NULL;
     wasm_function_inst_t func_onInit;
     wasm_function_inst_t func_onDestroy;
 
@@ -445,7 +446,6 @@ wasm_app_routine(void *arg)
 
 #if WASM_ENABLE_LIBC_WASI != 0
     if (wasm_runtime_is_wasi_mode(inst)) {
-        wasm_function_inst_t func_start;
         /* In wasi mode, we should call function named "_start"
            which initializes the wasi envrionment. The "_start" function
            will call "main" function */
@@ -466,22 +466,24 @@ wasm_app_routine(void *arg)
     }
 #endif
 
-    /* Call app's onInit() method */
-    func_onInit = app_manager_lookup_function(inst, "_on_init", "()");
-    if (!func_onInit) {
-        app_manager_printf("Cannot find function on_init().\n");
-        goto fail1;
-    }
+    if (!func_start) {
+        /* Call app's onInit() method */
+        func_onInit = app_manager_lookup_function(inst, "_on_init", "()");
+        if (!func_onInit) {
+            app_manager_printf("Cannot find function on_init().\n");
+            goto fail1;
+        }
 
-    if (!wasm_runtime_call_wasm(wasm_app_data->exec_env, func_onInit, 0,
-                                NULL)) {
-        const char *exception = wasm_runtime_get_exception(inst);
-        bh_assert(exception);
-        app_manager_printf("Got exception running WASM code: %s\n", exception);
-        wasm_runtime_clear_exception(inst);
-        /* call on_destroy() in case some resources are opened in on_init()
-         * and then exception thrown */
-        goto fail2;
+        if (!wasm_runtime_call_wasm(wasm_app_data->exec_env, func_onInit, 0,
+                                    NULL)) {
+            const char *exception = wasm_runtime_get_exception(inst);
+            bh_assert(exception);
+            app_manager_printf("Got exception running WASM code: %s\n", exception);
+            wasm_runtime_clear_exception(inst);
+            /* call on_destroy() in case some resources are opened in on_init()
+            * and then exception thrown */
+            goto fail2;
+        }
     }
 
     /* Enter queue loop run to receive and process applet queue message */
