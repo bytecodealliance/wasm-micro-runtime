@@ -2081,7 +2081,9 @@ convert_r_f64_to_r_u32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 neg_imm_to_r_i32(x86::Assembler &a, int32 reg_no, int32 data)
 {
-    return false;
+    Imm imm(-data);
+    a.mov(regs_i32[reg_no], imm);
+    return true;
 }
 
 /**
@@ -2096,7 +2098,9 @@ neg_imm_to_r_i32(x86::Assembler &a, int32 reg_no, int32 data)
 static bool
 neg_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    return false;
+    mov_r_to_r_i32(a, reg_no_dst, reg_no_src);
+    a.neg(regs_i32[reg_no_dst]);
+    return true;
 }
 
 /**
@@ -2111,7 +2115,9 @@ neg_r_to_r_i32(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 static bool
 neg_imm_to_r_i64(x86::Assembler &a, int32 reg_no, int64 data)
 {
-    return false;
+    Imm imm(-data);
+    a.mov(regs_i64[reg_no], imm);
+    return true;
 }
 
 /**
@@ -2126,7 +2132,9 @@ neg_imm_to_r_i64(x86::Assembler &a, int32 reg_no, int64 data)
 static bool
 neg_r_to_r_i64(x86::Assembler &a, int32 reg_no_dst, int32 reg_no_src)
 {
-    return false;
+    mov_r_to_r_i64(a, reg_no_dst, reg_no_src);
+    a.neg(regs_i64[reg_no_dst]);
+    return true;
 }
 
 /**
@@ -5923,7 +5931,7 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_I8TOI64:
                     LOAD_2ARGS();
-                    CONVERT_R_R(I64, I64, i64, i8, int8);
+                    CONVERT_R_R(I64, I32, i64, i8, int8);
                     break;
 
                 case JIT_OP_I16TOI32:
@@ -5933,7 +5941,7 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_I16TOI64:
                     LOAD_2ARGS();
-                    CONVERT_R_R(I64, I64, i64, i16, int16);
+                    CONVERT_R_R(I64, I32, i64, i16, int16);
                     break;
 
                 case JIT_OP_I32TOI8:
@@ -5988,12 +5996,12 @@ jit_codegen_gen_native(JitCompContext *cc)
 
                 case JIT_OP_I64TOI8:
                     LOAD_2ARGS();
-                    CONVERT_R_R(I64, I64, i8, i64, int64);
+                    CONVERT_R_R(I32, I64, i8, i64, int64);
                     break;
 
                 case JIT_OP_I64TOI16:
                     LOAD_2ARGS();
-                    CONVERT_R_R(I64, I64, i16, i64, int64);
+                    CONVERT_R_R(I32, I64, i16, i64, int64);
                     break;
 
                 case JIT_OP_I64TOI32:
