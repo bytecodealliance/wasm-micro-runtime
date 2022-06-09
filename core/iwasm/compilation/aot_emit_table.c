@@ -58,9 +58,10 @@ aot_compile_get_tbl_inst(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(tbl_inst = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                  &offset, 1, "tbl_inst"))) {
-        HANDLE_FAILURE("LLVMBuildGEP");
+    if (!(tbl_inst = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                           func_ctx->aot_inst, &offset, 1,
+                                           "tbl_inst"))) {
+        HANDLE_FAILURE("LLVMBuildInBoundsGEP");
         goto fail;
     }
 
@@ -90,8 +91,8 @@ aot_compile_op_elem_drop(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* "" means return void */
-    if (!(ret_value =
-              LLVMBuildCall(comp_ctx->builder, func, param_values, 2, ""))) {
+    if (!(ret_value = LLVMBuildCall2(comp_ctx->builder, func_type, func,
+                                     param_values, 2, ""))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
     }
@@ -115,9 +116,10 @@ aot_check_table_access(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(tbl_sz = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst, &offset,
-                                1, "cur_size_i8p"))) {
-        HANDLE_FAILURE("LLVMBuildGEP");
+    if (!(tbl_sz = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                         func_ctx->aot_inst, &offset, 1,
+                                         "cur_size_i8p"))) {
+        HANDLE_FAILURE("LLVMBuildInBoundsGEP");
         goto fail;
     }
 
@@ -127,7 +129,8 @@ aot_check_table_access(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(tbl_sz = LLVMBuildLoad(comp_ctx->builder, tbl_sz, "cur_size"))) {
+    if (!(tbl_sz = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, tbl_sz,
+                                  "cur_size"))) {
         HANDLE_FAILURE("LLVMBuildLoad");
         goto fail;
     }
@@ -178,8 +181,9 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                    &offset, 1, "table_elem_i8p"))) {
+    if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                             func_ctx->aot_inst, &offset, 1,
+                                             "table_elem_i8p"))) {
         aot_set_last_error("llvm build add failed.");
         goto fail;
     }
@@ -191,14 +195,15 @@ aot_compile_op_table_get(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Load function index */
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx, 1,
-                                    "table_elem"))) {
+    if (!(table_elem =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE, table_elem,
+                                    &elem_idx, 1, "table_elem"))) {
         HANDLE_FAILURE("LLVMBuildNUWAdd");
         goto fail;
     }
 
-    if (!(func_idx =
-              LLVMBuildLoad(comp_ctx->builder, table_elem, "func_idx"))) {
+    if (!(func_idx = LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, table_elem,
+                                    "func_idx"))) {
         HANDLE_FAILURE("LLVMBuildLoad");
         goto fail;
     }
@@ -230,9 +235,10 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst,
-                                    &offset, 1, "table_elem_i8p"))) {
-        HANDLE_FAILURE("LLVMBuildGEP");
+    if (!(table_elem = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                             func_ctx->aot_inst, &offset, 1,
+                                             "table_elem_i8p"))) {
+        HANDLE_FAILURE("LLVMBuildInBoundsGEP");
         goto fail;
     }
 
@@ -243,9 +249,10 @@ aot_compile_op_table_set(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     }
 
     /* Load function index */
-    if (!(table_elem = LLVMBuildGEP(comp_ctx->builder, table_elem, &elem_idx, 1,
-                                    "table_elem"))) {
-        HANDLE_FAILURE("LLVMBuildGEP");
+    if (!(table_elem =
+              LLVMBuildInBoundsGEP2(comp_ctx->builder, I32_TYPE, table_elem,
+                                    &elem_idx, 1, "table_elem"))) {
+        HANDLE_FAILURE("LLVMBuildInBoundsGEP");
         goto fail;
     }
 
@@ -297,7 +304,8 @@ aot_compile_op_table_init(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_I32(param_values[5]);
 
     /* "" means return void */
-    if (!(LLVMBuildCall(comp_ctx->builder, func, param_values, 6, ""))) {
+    if (!(LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 6,
+                         ""))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
     }
@@ -344,7 +352,8 @@ aot_compile_op_table_copy(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_I32(param_values[5]);
 
     /* "" means return void */
-    if (!(LLVMBuildCall(comp_ctx->builder, func, param_values, 6, ""))) {
+    if (!(LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 6,
+                         ""))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
     }
@@ -366,9 +375,10 @@ aot_compile_op_table_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(tbl_sz = LLVMBuildGEP(comp_ctx->builder, func_ctx->aot_inst, &offset,
-                                1, "tbl_sz_ptr_i8"))) {
-        HANDLE_FAILURE("LLVMBuildGEP");
+    if (!(tbl_sz = LLVMBuildInBoundsGEP2(comp_ctx->builder, INT8_TYPE,
+                                         func_ctx->aot_inst, &offset, 1,
+                                         "tbl_sz_ptr_i8"))) {
+        HANDLE_FAILURE("LLVMBuildInBoundsGEP");
         goto fail;
     }
 
@@ -378,7 +388,8 @@ aot_compile_op_table_size(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         goto fail;
     }
 
-    if (!(tbl_sz = LLVMBuildLoad(comp_ctx->builder, tbl_sz, "tbl_sz"))) {
+    if (!(tbl_sz =
+              LLVMBuildLoad2(comp_ctx->builder, I32_TYPE, tbl_sz, "tbl_sz"))) {
         HANDLE_FAILURE("LLVMBuildLoad");
         goto fail;
     }
@@ -417,8 +428,8 @@ aot_compile_op_table_grow(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     /* v */
     POP_I32(param_values[3]);
 
-    if (!(ret = LLVMBuildCall(comp_ctx->builder, func, param_values, 4,
-                              "table_grow"))) {
+    if (!(ret = LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values,
+                               4, "table_grow"))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
     }
@@ -461,7 +472,8 @@ aot_compile_op_table_fill(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     POP_I32(param_values[4]);
 
     /* "" means return void */
-    if (!(LLVMBuildCall(comp_ctx->builder, func, param_values, 5, ""))) {
+    if (!(LLVMBuildCall2(comp_ctx->builder, func_type, func, param_values, 5,
+                         ""))) {
         HANDLE_FAILURE("LLVMBuildCall");
         goto fail;
     }

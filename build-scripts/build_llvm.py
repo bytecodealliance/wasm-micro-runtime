@@ -35,14 +35,13 @@ def build_llvm(llvm_dir, platform, backends, projects):
         '-DCMAKE_BUILD_TYPE:STRING="Release"',
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         "-DLLVM_APPEND_VC_REV:BOOL=ON",
-        "-DLLVM_BUILD_BENCHMARKS:BOOL=OFF",
-        "-DLLVM_BUILD_DOCS:BOOL=OFF",
         "-DLLVM_BUILD_EXAMPLES:BOOL=OFF",
         "-DLLVM_BUILD_LLVM_DYLIB:BOOL=OFF",
         "-DLLVM_BUILD_TESTS:BOOL=OFF",
         "-DLLVM_CCACHE_BUILD:BOOL=OFF",
         "-DLLVM_ENABLE_BINDINGS:BOOL=OFF",
         "-DLLVM_ENABLE_IDE:BOOL=OFF",
+        "-DLLVM_ENABLE_LIBEDIT=OFF",
         "-DLLVM_ENABLE_TERMINFO:BOOL=OFF",
         "-DLLVM_ENABLE_ZLIB:BOOL=OFF",
         "-DLLVM_INCLUDE_BENCHMARKS:BOOL=OFF",
@@ -133,21 +132,21 @@ def build_llvm(llvm_dir, platform, backends, projects):
 def repackage_llvm(llvm_dir):
     build_dir = llvm_dir.joinpath("./build").resolve()
 
-    packs = [f for f in build_dir.glob("LLVM-13*.tar.gz")]
+    packs = [f for f in build_dir.glob("LLVM-15*.tar.gz")]
     if len(packs) > 1:
-        raise Exception("Find more than one LLVM-13*.tar.gz")
+        raise Exception("Find more than one LLVM-15*.tar.gz")
 
     if not packs:
         return
 
     llvm_package = packs[0].name
-    # mv build/LLVM-13.0.0*.gz .
+    # mv build/LLVM-15.0.0*.gz .
     shutil.move(str(build_dir.joinpath(llvm_package).resolve()), str(llvm_dir))
     # rm -r build
     shutil.rmtree(str(build_dir))
     # mkdir build
     build_dir.mkdir()
-    # tar xf ./LLVM-13.0.0-*.tar.gz --strip-components=1 --directory=build
+    # tar xf ./LLVM-15.0.0-*.tar.gz --strip-components=1 --directory=build
     CMD = f"tar xf {llvm_dir.joinpath(llvm_package).resolve()} --strip-components=1 --directory={build_dir}"
     subprocess.check_call(shlex.split(CMD), cwd=llvm_dir)
 
@@ -204,11 +203,11 @@ def main():
     llvm_repo_and_branch = {
         "arc": {
             "repo": "https://github.com/llvm/llvm-project.git",
-            "branch": "release/13.x",
+            "branch": "main",
         },
         "xtensa": {
             "repo": "https://github.com/espressif/llvm-project.git",
-            "branch": "xtensa_release_13.0.0",
+            "branch": "xtensa_release_14.0.0",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",

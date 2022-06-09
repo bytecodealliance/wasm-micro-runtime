@@ -16,6 +16,9 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
           uint32 offset, uint32 data_length, LLVMTypeRef ptr_type)
 {
     LLVMValueRef maddr, data;
+#if LLVM_VERSION_MAJOR >= 15
+    LLVMTypeRef data_type = LLVMGetElementType(ptr_type);
+#endif
 
     if (!(maddr = aot_check_memory_overflow(comp_ctx, func_ctx, offset,
                                             data_length))) {
@@ -29,7 +32,7 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
         return NULL;
     }
 
-    if (!(data = LLVMBuildLoad(comp_ctx->builder, maddr, "data"))) {
+    if (!(data = LLVMBuildLoad2(comp_ctx->builder, data_type, maddr, "data"))) {
         HANDLE_FAILURE("LLVMBuildLoad");
         return NULL;
     }
